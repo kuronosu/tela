@@ -1,0 +1,16 @@
+# Binaries
+/bin/
+*.exe
+/tela
+
+# Golden test failures
+*_actual.png
+*_diff.png
+
+# Snapshots and local output
+/out/
+
+# Editors
+.idea/
+.vscode/
+*.swp
