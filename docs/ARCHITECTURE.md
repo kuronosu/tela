@@ -428,27 +428,35 @@ Component *behavior* is separate from *styling*. `aria` provides unstyled hooks 
 
 ### Interface
 
-A sketch; exact names are fixed in phase 1.
+Defined in `internal/platform`; its `doc.go` holds the full contract. The backend calls the app (ADR-024):
 
 ```go
 type Backend interface {
-    NewWindow(WindowOptions) (Window, error)
-    Run(loop func()) error          // blocks; runs on the main thread
-    Wake()                          // safe from any goroutine
-    Clipboard() Clipboard
-    Settings() SystemSettings       // dark mode, motion-reduce, scale, fonts
+    Name() string
+    NewWindow(WindowOptions) (Window, error) // shown at its first Present
+    Run(Handler) error              // blocks on the main thread until Quit or connection failure
+    Quit()                          // safe from any goroutine
+    Wake()                          // safe from any goroutine; coalesces into one WakeEvent
+    Now() time.Duration             // frame clock: time base of FrameEvent and input events
+    Clipboard() Clipboard           // async ReadText, WriteText
+    Settings() SystemSettings       // dark mode, reduced motion…; changes arrive as SettingsEvent
 }
 
 type Window interface {
-    Present(fb *image.RGBA, damage []image.Rectangle)
-    RequestFrame()                  // request a frame/vsync callback
-    Events() []Event                // drained by the loop
-    SetTitle(string); SetCursor(Cursor); SetSize(w, h int)
-    SetIMEArea(image.Rectangle)     // text cursor position for the IME
-    Scale() float32
+    Metrics() Metrics               // logical size + scale from the last delivered ConfigureEvent
+    RequestFrame()                  // coalesces; a FrameEvent follows at vsync / frame callback
+    Present(fb *image.RGBA, damage []image.Rectangle) error // physical px; copied before return
+    SetTitle(string); SetCursor(Cursor); SetSize(Size)
     Close()
 }
+
+type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entrantly
 ```
+
+- **Events** (sealed set): `ConfigureEvent` (size and/or scale; implies a frame), `FrameEvent`, `CloseRequestedEvent`, `FocusEvent`, `WakeEvent`, `SettingsEvent`, `PointerEvent` (DOM-style `Action`: move, enter, leave, down, up, cancel) and `ScrollEvent` (precise `Delta` plus discrete `Steps`). Keyboard and IME events arrive in their phases.
+- **Sizing rule:** `PhysicalSize(logical, scale)` rounds logical × scale half away from zero (the `wp_fractional_scale_v1` rule). Every backend sizes framebuffers with it.
+- `Run` does not return when the last window closes; quitting is app policy (`core`/`tela`).
+- The IME cursor area (`SetIMEArea`) is added with the IME work (phase 5).
 
 ### Backends
 
@@ -619,3 +627,4 @@ Append-only: entries are never deleted. A changed decision gets a new entry ("Su
 | 021 | 2026-10-11 | Keyboard events split into physical key, logical key and text (winit model) | Avoids years of known keyboard bugs |
 | 022 | 2026-10-11 | Goldens are regenerated with `TELA_UPDATE=1 go test ./...`, not an `-update` flag | `go test ./... -update` fails in every test package that does not define the flag |
 | 023 | 2026-10-11 | Each gradient carries its interpolation color space (sRGB, Oklab; Oklch later), Oklab by default. Compositing stays in sRGB (ADR-007) | Tailwind v4 gradients interpolate `in oklab`; matching it keeps gradients identical to the web |
+| 024 | 2026-10-11 | Callback-driven platform loop: `Backend.Run(Handler)` delivers events on the UI thread instead of the app draining `Window.Events()`; interface fixed in §15 | Cocoa owns the main loop and Win32 modal move/resize loops only run `WndProc`; callbacks are the one model that works on all four OSes (winit's `ApplicationHandler`) |
