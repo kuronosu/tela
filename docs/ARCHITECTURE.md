@@ -377,6 +377,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Antialiasing:** analytic per-cell coverage (approach of font-rs, tiny-skia, vello_cpu sparse strips). Axis-aligned rects and rounded rects have fast paths.
 - **Stroking:** path stroking (joins, caps, dashes) and curve flattening follow kurbo's algorithms; curves are flattened before offsetting (ADR-026).
 - **Color:** premultiplied RGBA8 in sRGB. **Blending happens in sRGB space, like browsers**, so colors and gradients match Tailwind on the web.
+- **Determinism:** float code in `gfx` and `raster` is fusion-safe (explicit rounding conversions; transcendental functions from `internal/gfx/internal/fmath`), so pixels are bit-identical across CPU architectures (ADR-027).
 - **Parallelism:** tiles rasterized by parallel goroutines.
 - **Shadows:**
   - Rounded-rect shadows (the common case, all Tailwind `shadow-*`) use **Evan Wallace's closed-form analytic Gaussian** (erf-based): no blur pass, nearly free.
@@ -630,3 +631,4 @@ Append-only: entries are never deleted. A changed decision gets a new entry ("Su
 | 024 | 2026-10-11 | Callback-driven platform loop: `Backend.Run(Handler)` delivers events on the UI thread instead of the app draining `Window.Events()`; interface fixed in §15 | Cocoa owns the main loop and Win32 modal move/resize loops only run `WndProc`; callbacks are the one model that works on all four OSes (winit's `ApplicationHandler`) |
 | 025 | 2026-10-11 | In phase 4, vendor a patched copy of `jezek/xgb` (core, `xproto`, `bigreq`; BSD-3, listed in `THIRD_PARTY.md`) whose reader handles GenericEvents | xgb v1.3.1 reads every event as 32 bytes, so XInput2 and Present GenericEvents would desync the connection; the patch is about 10 lines, far cheaper than our own X11 client. If more xgb limits appear, an own client generated from xcb-proto XML (like ADR-019) replaces it |
 | 026 | 2026-10-11 | Stroking flattens curves and offsets the polyline (true-tangent ends, round joins between pieces) instead of kurbo's cubic offset fitting; joins, caps and dashes follow kurbo | The CPU rasterizer fills lines anyway; simpler and provably within tolerance, checked against geometric oracles |
+| 027 | 2026-10-11 | Floating-point code in `gfx` and `raster` is fusion-safe: products are rounded explicitly and transcendental functions come from `internal/gfx/internal/fmath` (ports of Go's `math`); arm64 under qemu is the check | Go may fuse multiply-add on arm64 and other architectures, which changes pixels; principle 4 requires the same pixels everywhere |
