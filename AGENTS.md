@@ -32,7 +32,7 @@ The main session plans, delegates, verifies and updates the roadmap. Run it on O
 | Agent | Model / effort | Use for |
 |---|---|---|
 | `tela-hard` | Opus / xhigh | Text layout (Parley-style), flex/block/grid vs Taffy fixtures, `core` (trees, reconciler, scheduler), hooks, `UseValue`/prop skipping, GPU backend |
-| `tela-core` | Opus / high | Rasterizer, shadows/blur, Wayland/X11/Cocoa backends, XKB, gestures, focus, scrolling/damage, IME and text editing, layout animations, stacking contexts, accessibility backends |
+| `tela-core` | Opus / high | Rasterizer, shadows/blur, platform interface (`internal/platform`), Wayland/X11/Cocoa backends, XKB, gestures, focus, scrolling/damage, IME and text editing, layout animations, stacking contexts, accessibility backends |
 | `tela-impl` | Sonnet / high | `gfx` basic types, Wayland XML generator, Tailwind generator and class parser, `tela`/`h` API surface, Win32 backend, transitions/springs, filters, `telatest`, debug overlays, `aria`, `kit`, CLI, `llms.txt`, examples |
 | `tela-chore` | Haiku / low | Boilerplate, renames, lint fixes, CI config, codebase searches, roadmap updates |
 
@@ -52,7 +52,8 @@ If an agent reports a design conflict, the main session decides. If the decision
 CGO_ENABLED=0 go build ./...
 CGO_ENABLED=0 go vet ./...
 CGO_ENABLED=0 go test ./...
-CGO_ENABLED=0 go test ./... -update                  # regenerate goldens (review the diff)
+TELA_UPDATE=1 CGO_ENABLED=0 go test ./...           # regenerate goldens (review the diff)
+TELA_LIVE=1 CGO_ENABLED=0 go test ./internal/platform/...  # tests that open real windows
 
 # Cross-compilation (must always build)
 CGO_ENABLED=0 GOOS=windows go build ./...

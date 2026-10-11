@@ -67,6 +67,7 @@ Contributions that break these are rejected.
 | `github.com/go-text/typesetting` | Shaping (HarfBuzz port), bidi, segmentation, font discovery |
 | `github.com/ebitengine/purego` | macOS backend only (and a future GPU backend) |
 | `github.com/godbus/dbus/v5` | Linux accessibility (AT-SPI), when that phase arrives |
+| `github.com/jezek/xgb` | X11 client (chosen in phase 1); XInput2 and XKB are hand-written on its connection |
 
 The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an ADR, as long as it is pure Go.
 
@@ -368,7 +369,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - Content: `DrawGlyphRun`, `DrawImage`.
   - Shadows: `DrawShadow` (incl. inset).
   - State: `PushClip(RRect|Path)`/`PopClip`, `PushTransform`/`Pop`, `PushLayer(opacity, blend, filter)`/`PopLayer`, `BackdropFilter`.
-- **Paints:** solid color or gradient (linear, radial, conic; with stops).
+- **Paints:** solid color or gradient (linear, radial, conic; with stops and an interpolation color space, Oklab by default like Tailwind v4; ADR-023).
 - **Coordinates:** float32 in logical pixels; display scale is applied at raster time.
 
 ### CPU rasterizer (initial and reference backend)
@@ -454,7 +455,7 @@ type Window interface {
 | Backend | Transport | Notes |
 |---|---|---|
 | `wayland` (primary on Linux) | Protocol over `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` | `xdg_shell`, `wl_shm` (memfd buffers), `wp_viewporter` + `wp_fractional_scale_v1`, `xdg-decoration` (if absent, Tela draws its own decorations), `wp_cursor_shape_v1`, `wl_data_device` (clipboard), `zwp_text_input_v3` (IME). **Protocol bindings are generated from the official XML** (a Go `wayland-scanner`, see `rajveermalviya/go-wayland`), so adding a protocol is trivial. **Risk:** the keyboard sends an XKB keymap, so a **minimal pure-Go XKB parser** is needed (reference: `kbvm`, a pure-Rust XKB implementation) |
-| `x11` (Linux fallback) | X11 protocol over socket | `PutImage`/MIT-SHM, XInput2 for smooth scrolling, XKB or core keyboard mapping, `_NET_WM_*`, selections for clipboard. IME (XIM) comes later |
+| `x11` (Linux fallback) | X11 protocol over socket, via `jezek/xgb` | `PutImage`/MIT-SHM, XInput2 for smooth scrolling, XKB or core keyboard mapping, `_NET_WM_*`, selections for clipboard. IME (XIM) comes later |
 | `win32` | `x/sys/windows` + `syscall.NewCallback` | `CreateWindowExW`, `GetMessageW` loop, `SetDIBitsToDevice`/`StretchDIBits`, per-monitor DPI v2, IMM32, Win32 clipboard, `DwmFlush` for pacing. Reference: Ebitengine's no-cgo Windows code |
 | `cocoa` | `purego` + ObjC runtime | `NSApplication`, `NSWindow`, layer-backed `NSView`, present via `CALayer.contents` (`CGImage`), `NSTextInputClient` (IME), `CVDisplayLink`. Main thread only. Reference: Ebitengine's purego macOS code |
 | `headless` | Memory | Tests, snapshots, CLI. Configurable size and scale, controllable clock |
@@ -507,7 +508,7 @@ func TestCounter(t *testing.T) {
 }
 ```
 
-- Regenerate goldens with `go test ./... -update`. On failure, `*_actual.png` and `*_diff.png` are written.
+- Regenerate goldens with `TELA_UPDATE=1 go test ./...` (ADR-022). On failure, `*_actual.png` and `*_diff.png` are written.
 - Controllable clock (`app.Advance(300*time.Millisecond)`) for animations.
 - **Auto-wait (from Playwright):** actions and expectations wait for pending frames and running animations to settle (with a timeout) before acting or asserting.
 - `app.AriaSnapshot()` returns the same YAML as `tela inspect` for assertion.
@@ -616,3 +617,5 @@ Append-only: entries are never deleted. A changed decision gets a new entry ("Su
 | 019 | 2026-10-11 | Wayland protocol bindings generated from official XML | Correctness and trivial addition of protocols |
 | 020 | 2026-10-11 | Agent interfaces: Playwright-style aria snapshot YAML and a `tela mcp` server | Format LLMs already know; closed build-see-fix loop |
 | 021 | 2026-10-11 | Keyboard events split into physical key, logical key and text (winit model) | Avoids years of known keyboard bugs |
+| 022 | 2026-10-11 | Goldens are regenerated with `TELA_UPDATE=1 go test ./...`, not an `-update` flag | `go test ./... -update` fails in every test package that does not define the flag |
+| 023 | 2026-10-11 | Each gradient carries its interpolation color space (sRGB, Oklab; Oklch later), Oklab by default. Compositing stays in sRGB (ADR-007) | Tailwind v4 gradients interpolate `in oklab`; matching it keeps gradients identical to the web |
