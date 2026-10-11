@@ -7,8 +7,9 @@
 ## Current status
 
 - **Phase in progress:** Phase 1 (pixels on screen).
-- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime.
-- **In progress:** raster core (T4a), stroking (T5), Wayland backend (T7), X11 backend (T8).
+- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend.
+- **In progress:** raster core (T4a), stroking (T5), Wayland backend (T7).
+- **Open decision (before phase 4):** `jezek/xgb` v1.3.1 reads every event as 32 bytes, so XInput2 (and the Present extension) GenericEvents would desync the connection. Options: vendor a patched xgb (ADR), get the fix upstream, or write our own X11 reader.
 - **Next step:** raster gradients/clips/layers (T4b), then shadows/blur (T6), tiles (T9), `examples/shapes` + `tela snapshot` (T10).
 
 ## Phases
@@ -25,7 +26,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 - [x] `internal/platform`: `Backend`/`Window` interface and `headless` backend
 - [x] Wayland XML → Go protocol generator (+ `wire` runtime)
 - [ ] `internal/platform/wayland`: connection, registry, `xdg_shell`, `wl_shm` via memfd, frame callbacks, pointer, integer scale
-- [ ] `internal/platform/x11`: window, `PutImage`, basic events
+- [x] `internal/platform/x11`: window, `PutImage`, basic events
 - [ ] `examples/shapes` and a first `tela snapshot` (no UI tree yet: a fixed DisplayList)
 
 **Done when:**
