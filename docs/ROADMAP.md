@@ -9,7 +9,6 @@
 - **Phase in progress:** Phase 1 (pixels on screen).
 - **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends).
 - **In progress:** raster core (T4a), stroking (T5).
-- **Open decision (before phase 4):** `jezek/xgb` v1.3.1 reads every event as 32 bytes, so XInput2 (and the Present extension) GenericEvents would desync the connection. Options: vendor a patched xgb (ADR), get the fix upstream, or write our own X11 reader.
 - **Next step:** raster gradients/clips/layers (T4b), then shadows/blur (T6), tiles (T9), `examples/shapes` + `tela snapshot` (T10).
 
 ## Phases
@@ -75,6 +74,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
   - Focus and tab order
   - Physical/logical/text model
   - XKB parser (Wayland) and X11 keyboard
+  - Vendor a patched `jezek/xgb` (core, `xproto`, `bigreq`) that reads GenericEvents, before XInput2 (ADR-025)
 - [ ] Scrolling:
   - Scroll (`overflow-auto`) with its own layer and smooth scrolling
   - Repaint boundaries and damage tracking

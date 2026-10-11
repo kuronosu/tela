@@ -67,7 +67,7 @@ Contributions that break these are rejected.
 | `github.com/go-text/typesetting` | Shaping (HarfBuzz port), bidi, segmentation, font discovery |
 | `github.com/ebitengine/purego` | macOS backend only (and a future GPU backend) |
 | `github.com/godbus/dbus/v5` | Linux accessibility (AT-SPI), when that phase arrives |
-| `github.com/jezek/xgb` | X11 client (chosen in phase 1); XInput2 and XKB are hand-written on its connection |
+| `github.com/jezek/xgb` | X11 client (chosen in phase 1); from phase 4 a patched copy of its core, `xproto` and `bigreq` is vendored under `internal/` (ADR-025). XInput2 and XKB are hand-written on its connection |
 
 The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an ADR, as long as it is pure Go.
 
@@ -628,3 +628,4 @@ Append-only: entries are never deleted. A changed decision gets a new entry ("Su
 | 022 | 2026-10-11 | Goldens are regenerated with `TELA_UPDATE=1 go test ./...`, not an `-update` flag | `go test ./... -update` fails in every test package that does not define the flag |
 | 023 | 2026-10-11 | Each gradient carries its interpolation color space (sRGB, Oklab; Oklch later), Oklab by default. Compositing stays in sRGB (ADR-007) | Tailwind v4 gradients interpolate `in oklab`; matching it keeps gradients identical to the web |
 | 024 | 2026-10-11 | Callback-driven platform loop: `Backend.Run(Handler)` delivers events on the UI thread instead of the app draining `Window.Events()`; interface fixed in §15 | Cocoa owns the main loop and Win32 modal move/resize loops only run `WndProc`; callbacks are the one model that works on all four OSes (winit's `ApplicationHandler`) |
+| 025 | 2026-10-11 | In phase 4, vendor a patched copy of `jezek/xgb` (core, `xproto`, `bigreq`; BSD-3, listed in `THIRD_PARTY.md`) whose reader handles GenericEvents | xgb v1.3.1 reads every event as 32 bytes, so XInput2 and Present GenericEvents would desync the connection; the patch is about 10 lines, far cheaper than our own X11 client |
