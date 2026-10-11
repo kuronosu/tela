@@ -1,0 +1,19 @@
+DrawShadow rect=[20,20,220,140] r=12 offset=(0,8) blur=24 spread=-4 color=#00000040 bounds=[-16,-8,256,184]
+FillRRect rect=[20,20,220,140] r=12 paint=linear((20,20)->(220,140) oklab [0:#615fff 1:#c800de]) bounds=[20,20,220,140]
+DrawShadow rect=[20,20,220,140] r=12 offset=(0,2) blur=6 spread=0 color=#ffffff80 inset bounds=[20,20,220,140]
+PushClipRRect rect=[20,20,220,140] r=12 bounds=[20,67.5,220,140]
+  FillRect rect=[20,100,220,140] paint=radial(c=(120,140) r=(100,40) srgb [0:#ffffff99 1:#00000000]) bounds=[20,100,220,140]
+  PushTransform affine=[0.5,0.25,-0.25,0.5,120,80] bounds=[102.5,67.5,137.5,92.5]
+    FillRect rect=[-30,-10,30,10] paint=conic(c=(0,0) from=1.5707964 oklab [0:#ff0000 0.5:#00ff00 0.5:#0000ff 1:#ff0000]) bounds=[102.5,67.5,137.5,92.5]
+  PopTransform
+PopClip
+FillPath path={M240,30 L250,60 Q270,50 280,30 C285,70 250,90 240,30 Z} rule=evenodd paint=#facc15 bounds=[240,30,285,90]
+StrokePath path={M240,30 L250,60 Q270,50 280,30 C285,70 250,90 240,30 Z} width=2.5 join=round cap=round dashes=[6,3,2,6,3,2] dashOffset=1 paint=#1e1e2e bounds=[238.75,28.75,286.25,91.25]
+DrawImage image=2x2 src=[0,0,2,2] dst=[240,100,280,140] sampling=nearest bounds=[240,100,280,140]
+DrawImage image=2x2 src=[0,0,1,2] dst=[240,150,260,190] sampling=linear bounds=[240,150,260,190]
+PushLayer opacity=0.8 blend=multiply filters=[blur(3) matrix[1.2,0,0,0,0,0,1.2,0,0,0,0,0,1.2,0,0,0,0,0,1,0] drop-shadow((2,3) 4 #00000066)] bounds=[11,151,109,254]
+  FillPath path={M35,200 C35,180 50,175 60,175 Q85,175 85,200 L80,220 C70,230 50,230 40,220 Z} rule=nonzero paint=#3366cc bounds=[35,175,85,230]
+PopLayer
+PushClipPath path={M125,200 C125,180 140,175 150,175 Q175,175 175,200 L170,220 C160,230 140,230 130,220 Z} rule=nonzero bounds=[125,180,175,220]
+  BackdropFilter rect=[110,180,190,220] r=8/8/0/20x10 filters=[blur(6) matrix[1.5,0,0,0,-0.25,0,1.5,0,0,-0.25,0,0,1.5,0,-0.25,0,0,0,1,0]] bounds=[125,180,175,220]
+PopClip
