@@ -7,9 +7,9 @@
 ## Current status
 
 - **Phase in progress:** Phase 1 (pixels on screen).
-- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends).
-- **In progress:** raster core (T4a), stroking (T5).
-- **Next step:** raster gradients/clips/layers (T4b), then shadows/blur (T6), tiles (T9), `examples/shapes` + `tela snapshot` (T10).
+- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends), raster core (path AA, rect/rrect fast paths, transforms, region rendering, golden helper), stroking.
+- **In progress:** raster gradients/images/clips/layers + stroke wiring (T4b).
+- **Next step:** shadows/blur (T6), tiles (T9), `examples/shapes` + `tela snapshot` (T10), then the phase-1 verification (grim comparisons, Windows VM run).
 
 ## Phases
 
@@ -19,7 +19,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 
 - [x] `internal/gfx`: geometry types, `Color` (hex and OKLCH parsing), `Path`, `RRect`, `DisplayList` and its commands
 - [ ] `internal/gfx/raster`: analytic-AA path fill, rect/rrect fast paths, linear/radial/conic gradients, clip, transform, opacity layers
-- [ ] Stroking (joins, caps, dashes) following kurbo
+- [x] Stroking (joins, caps, dashes) following kurbo (ADR-026)
 - [ ] Analytic erf rounded-rect shadows (incl. inset); separable Gaussian blur for other shapes
 - [ ] Parallel tile rasterization
 - [x] `internal/platform`: `Backend`/`Window` interface and `headless` backend
