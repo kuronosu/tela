@@ -375,7 +375,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 ### CPU rasterizer (initial and reference backend)
 
 - **Antialiasing:** analytic per-cell coverage (approach of font-rs, tiny-skia, vello_cpu sparse strips). Axis-aligned rects and rounded rects have fast paths.
-- **Stroking:** path stroking (joins, caps, dashes) and curve flattening follow kurbo's algorithms.
+- **Stroking:** path stroking (joins, caps, dashes) and curve flattening follow kurbo's algorithms; curves are flattened before offsetting (ADR-026).
 - **Color:** premultiplied RGBA8 in sRGB. **Blending happens in sRGB space, like browsers**, so colors and gradients match Tailwind on the web.
 - **Parallelism:** tiles rasterized by parallel goroutines.
 - **Shadows:**
@@ -629,3 +629,4 @@ Append-only: entries are never deleted. A changed decision gets a new entry ("Su
 | 023 | 2026-10-11 | Each gradient carries its interpolation color space (sRGB, Oklab; Oklch later), Oklab by default. Compositing stays in sRGB (ADR-007) | Tailwind v4 gradients interpolate `in oklab`; matching it keeps gradients identical to the web |
 | 024 | 2026-10-11 | Callback-driven platform loop: `Backend.Run(Handler)` delivers events on the UI thread instead of the app draining `Window.Events()`; interface fixed in §15 | Cocoa owns the main loop and Win32 modal move/resize loops only run `WndProc`; callbacks are the one model that works on all four OSes (winit's `ApplicationHandler`) |
 | 025 | 2026-10-11 | In phase 4, vendor a patched copy of `jezek/xgb` (core, `xproto`, `bigreq`; BSD-3, listed in `THIRD_PARTY.md`) whose reader handles GenericEvents | xgb v1.3.1 reads every event as 32 bytes, so XInput2 and Present GenericEvents would desync the connection; the patch is about 10 lines, far cheaper than our own X11 client. If more xgb limits appear, an own client generated from xcb-proto XML (like ADR-019) replaces it |
+| 026 | 2026-10-11 | Stroking flattens curves and offsets the polyline (true-tangent ends, round joins between pieces) instead of kurbo's cubic offset fitting; joins, caps and dashes follow kurbo | The CPU rasterizer fills lines anyway; simpler and provably within tolerance, checked against geometric oracles |
