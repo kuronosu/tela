@@ -1,7 +1,6 @@
 package raster
 
 import (
-	"fmt"
 	"image"
 	"math"
 
@@ -9,18 +8,19 @@ import (
 )
 
 // shader produces the premultiplied source colors of a paint, in device
-// space. It is the extension point for gradients and images (T4b): a new
-// paint is a new shader returned by Renderer.shaderFor; the blitter and the
-// coverage producers stay unchanged.
+// space. A paint is a shader returned by Renderer.shaderFor (solid colors,
+// gradients and images); the blitter and the coverage producers do not
+// depend on the paint.
 //
-// Shaders are created per command, never shared between goroutines, and may
-// keep mutable scratch state.
+// Shaders are owned by one Renderer, never shared between goroutines, and
+// may keep mutable scratch state.
 type shader interface {
 	// shadeSpan writes the premultiplied sRGB RGBA8 colors of the device
 	// pixels (x, y), (x+1, y), ..., one per 4 bytes of dst (len(dst)/4
 	// pixels), each sampled at its center (x+i+0.5, y+0.5). The result must
 	// depend only on the pixel coordinates, never on the span boundaries,
-	// so that region rendering stays bit-identical.
+	// so that region rendering stays bit-identical. Colors are valid
+	// premultiplied values: R, G, B <= A.
 	shadeSpan(x, y int, dst []uint8)
 	// opaque reports whether every color the shader produces has alpha 255,
 	// which lets the blitter copy instead of blend at full coverage.
@@ -41,52 +41,85 @@ func (s *solidShader) shadeSpan(x, y int, dst []uint8) {
 
 func (s *solidShader) opaque() bool { return s.c[3] == 255 }
 
-// shaderFor returns the shader for paint under the device transform ctm.
-// Solid colors reuse a shader held by the Renderer, so they do not allocate.
-func (r *Renderer) shaderFor(p gfx.Paint, ctm gfx.Affine) shader {
-	_ = ctm // gradients and images will map device pixels back with ctm's inverse
-	switch p := p.(type) {
-	case gfx.Color:
-		r.solid = solidShader{premul8(p)}
-		return &r.solid
-	case nil:
-		panic("raster: nil paint in a display list")
-	default:
-		panic(fmt.Sprintf("raster: %T paint is not implemented yet", p))
-	}
+// premul8 returns the premultiplied 8-bit color, each channel rounded to
+// nearest from the exact float value (gfx.Color.Premul8, which rounds every
+// product explicitly and is therefore the same on every architecture).
+func premul8(c gfx.Color) [4]uint8 {
+	p := c.Premul8()
+	return [4]uint8{p.R, p.G, p.B, p.A}
 }
 
-// premul8 returns the premultiplied 8-bit color, each channel rounded to
-// nearest from the exact float value. It equals gfx.Color.Premul8 computed
-// without fused multiply-adds: Premul8 evaluates v*255 + 0.5, which the
-// compiler may fuse on some architectures and then rounds differently.
-func premul8(c gfx.Color) [4]uint8 {
-	c = c.Clamp()
-	a := float64(c.A)
-	// The products of two float32 values are exact in float64; the product
-	// by 255 is not, so it is rounded explicitly before adding 0.5.
-	ch := func(v float64) uint8 {
-		v = math.Floor(float64(v*255) + 0.5)
-		return uint8(min(max(v, 0), 255))
+// unit8 converts a value in [0, 1] (clamped; NaN gives 0) to 8 bits,
+// rounding to nearest, with the product rounded explicitly.
+func unit8(v float64) uint8 {
+	v = math.Floor(float64(v*255) + 0.5)
+	switch {
+	case !(v > 0):
+		return 0
+	case v >= 255:
+		return 255
 	}
-	return [4]uint8{ch(float64(c.R) * a), ch(float64(c.G) * a), ch(float64(c.B) * a), ch(a)}
+	return uint8(v)
+}
+
+// mul8 returns round(a*b/255) exactly, for a, b in 0..255.
+func mul8(a, b uint8) uint8 {
+	t := uint32(a)*uint32(b) + 128
+	return uint8((t + t>>8) >> 8)
+}
+
+// clipMask is an 8-bit coverage mask of the active clip, in device pixels.
+// A pixel's drawing coverage is multiplied by the mask value. Masks are
+// computed from the clip geometry and the absolute pixel coordinates only,
+// so a region render sees exactly the values of a full render.
+type clipMask struct {
+	data   []uint8 // nil: no mask (everything inside the blitter clip is in)
+	stride int
+	rect   image.Rectangle // the pixels data covers
+	// inner is a rectangle where the mask is known to be 255 everywhere,
+	// so spans inside it skip the multiplication. It may be empty.
+	inner image.Rectangle
+}
+
+func (m *clipMask) row(y, x, n int) []uint8 {
+	i := (y-m.rect.Min.Y)*m.stride + x - m.rect.Min.X
+	return m.data[i : i+n : i+n]
+}
+
+// innerSpan reports whether the n pixels of row y starting at x are inside
+// m.inner.
+func (m *clipMask) innerSpan(y, x, n int) bool {
+	in := m.inner
+	return y >= in.Min.Y && y < in.Max.Y && x >= in.Min.X && x+n <= in.Max.X
 }
 
 // blitter composites shaded, coverage-weighted spans onto a surface with
 // source-over. Coverage producers (rect, rrect and path fills) call run and
 // mask with spans that they have already clipped to clip.
 //
-// T4b will add a clip mask (multiplied into the coverage here) and
-// offscreen layer surfaces (another pix/stride/origin).
+// The surface is the destination image or an offscreen layer (another
+// pix/stride/origin). When a clip mask is active (cm.data != nil), the
+// coverage is multiplied by it. In mask mode (toMask), the coverage is not
+// composited at all: it is written, multiplied by the active clip mask, into
+// the 8-bit buffer a8 (this is how clip masks are rasterized with the same
+// coverage producers).
 type blitter struct {
 	pix    []uint8
 	stride int
 	origin image.Point     // device coordinates of pix[0]
 	clip   image.Rectangle // device pixels that may be written
 
+	cm clipMask // active clip mask
+
+	toMask   bool
+	a8       []uint8
+	a8Stride int
+	a8Origin image.Point
+
 	sh      shader
 	solid   *solidShader // sh, when it is a solid color
 	scratch []uint8      // shadeSpan output for non-solid shaders
+	cmBuf   []uint8      // coverage times clip mask
 
 	// Cached lookup tables of blendLUT.
 	lut      [4][256]uint8
@@ -121,9 +154,94 @@ func blendPixel(d []uint8, s0, s1, s2, s3 uint32, cov uint32) {
 	d[3] = uint8(div65025(s3*c + uint32(d[3])*k))
 }
 
+// masked returns the coverage cov (or the per-pixel coverages cv, if not
+// nil) multiplied by the clip mask, for n pixels of row y starting at x.
+func (b *blitter) masked(y, x, n int, cov uint8, cv []uint8) []uint8 {
+	if cap(b.cmBuf) < n {
+		b.cmBuf = make([]uint8, n)
+	}
+	out := b.cmBuf[:n]
+	m := b.cm.row(y, x, n)
+	if cv == nil {
+		for i := range out {
+			out[i] = mul8(cov, m[i])
+		}
+	} else {
+		for i := range out {
+			out[i] = mul8(cv[i], m[i])
+		}
+	}
+	return out
+}
+
 // run composites n pixels of row y starting at x, all with coverage cov.
 func (b *blitter) run(y, x, n int, cov uint8) {
 	if cov == 0 || n <= 0 {
+		return
+	}
+	if b.toMask {
+		b.maskWrite(y, x, n, cov, nil)
+		return
+	}
+	if b.cm.data != nil {
+		in := b.cm.inner
+		if y >= in.Min.Y && y < in.Max.Y && x < in.Max.X && x+n > in.Min.X {
+			// Only the parts outside the inner rectangle need the mask.
+			if x < in.Min.X {
+				k := in.Min.X - x
+				b.blend(y, x, b.masked(y, x, k, cov, nil))
+				x, n = in.Min.X, n-k
+			}
+			if x+n > in.Max.X {
+				k := x + n - in.Max.X
+				b.blend(y, in.Max.X, b.masked(y, in.Max.X, k, cov, nil))
+				n -= k
+			}
+			b.runDirect(y, x, n, cov)
+			return
+		}
+		b.blend(y, x, b.masked(y, x, n, cov, nil))
+		return
+	}
+	b.runDirect(y, x, n, cov)
+}
+
+// mask composites len(mask) pixels of row y starting at x, pixel i with
+// coverage mask[i].
+func (b *blitter) mask(y, x int, mask []uint8) {
+	if len(mask) == 0 {
+		return
+	}
+	if b.toMask {
+		b.maskWrite(y, x, len(mask), 0, mask)
+		return
+	}
+	if b.cm.data != nil && !b.cm.innerSpan(y, x, len(mask)) {
+		mask = b.masked(y, x, len(mask), 0, mask)
+	}
+	b.blend(y, x, mask)
+}
+
+// maskWrite stores coverage (cov, or cv if not nil) multiplied by the active
+// clip mask into the mask being rasterized.
+func (b *blitter) maskWrite(y, x, n int, cov uint8, cv []uint8) {
+	i := (y-b.a8Origin.Y)*b.a8Stride + x - b.a8Origin.X
+	dst := b.a8[i : i+n : i+n]
+	switch {
+	case b.cm.data != nil:
+		copy(dst, b.masked(y, x, n, cov, cv))
+	case cv != nil:
+		copy(dst, cv)
+	default:
+		for j := range dst {
+			dst[j] = cov
+		}
+	}
+}
+
+// runDirect composites a run without the clip mask.
+func (b *blitter) runDirect(y, x, n int, cov uint8) {
+	if n <= 0 {
 		return
 	}
 	row := b.pix[b.offset(x, y):]
@@ -203,9 +321,9 @@ func (b *blitter) blendLUT(c [4]uint8, cov uint8) *[4][256]uint8 {
 	return &b.lut
 }
 
-// mask composites len(mask) pixels of row y starting at x, pixel i with
-// coverage mask[i].
-func (b *blitter) mask(y, x int, mask []uint8) {
+// blend composites len(mask) pixels of row y starting at x, pixel i with
+// coverage mask[i], without the clip mask.
+func (b *blitter) blend(y, x int, mask []uint8) {
 	if len(mask) == 0 {
 		return
 	}
@@ -237,6 +355,37 @@ func (b *blitter) mask(y, x int, mask []uint8) {
 			copy(row[4*i:4*i+4], src[4*i:4*i+4])
 		default:
 			blendPixel(row[4*i:4*i+4:4*i+4], uint32(src[4*i]), uint32(src[4*i+1]), uint32(src[4*i+2]), uint32(src[4*i+3]), uint32(m))
+		}
+	}
+}
+
+// composite blends n premultiplied source pixels (src, 4 bytes each) onto
+// row y starting at x with coverage op, multiplied by the clip mask. It is
+// how a layer is composited at PopLayer.
+func (b *blitter) composite(y, x int, src []uint8, op uint8) {
+	n := len(src) / 4
+	row := b.pix[b.offset(x, y):]
+	row = row[: 4*n : 4*n]
+	var m []uint8
+	if b.cm.data != nil && !b.cm.innerSpan(y, x, n) {
+		m = b.cm.row(y, x, n)
+	}
+	for i := 0; i < n; i++ {
+		s := src[4*i : 4*i+4 : 4*i+4]
+		if s[3] == 0 { // premultiplied: R, G, B are 0 too
+			continue
+		}
+		cov := op
+		if m != nil {
+			cov = mul8(op, m[i])
+		}
+		d := row[4*i : 4*i+4 : 4*i+4]
+		switch {
+		case cov == 0:
+		case cov == 255 && s[3] == 255:
+			d[0], d[1], d[2], d[3] = s[0], s[1], s[2], s[3]
+		default:
+			blendPixel(d, uint32(s[0]), uint32(s[1]), uint32(s[2]), uint32(s[3]), uint32(cov))
 		}
 	}
 }

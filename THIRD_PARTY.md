@@ -38,12 +38,12 @@ their original copyright notice. Add one section per source project.
 
 - **Source:** https://github.com/color-js/color.js (v0.7.1)
 - **License:** MIT
-- **Used in:** `internal/gfx/color.go` (matrices), `internal/gfx/color_test.go` (expected values)
-- **Notes:** The Oklab / XYZ / linear sRGB matrices are the ones published in CSS Color 4 and used by color.js (recalculated for a consistent D65 white). The gamut-mapping algorithm is the one of CSS Color 4 section 13, written from the spec. The test expectations were generated with color.js (`toGamut({method: "css"})`); no color.js code was copied.
+- **Used in:** `internal/gfx/color.go` and `internal/gfx/raster/gradient.go` (matrices), `internal/gfx/color_test.go` and `internal/gfx/raster/gradient_test.go` (expected values)
+- **Notes:** The Oklab / XYZ / linear sRGB matrices are the ones published in CSS Color 4 and used by color.js (recalculated for a consistent D65 white). The gamut-mapping algorithm is the one of CSS Color 4 section 13, written from the spec. The test expectations were generated with color.js (`toGamut({method: "css"})` for colors; `a.mix(b, t, {space, premultiplied: true, outputSpace: "srgb"})` for gradient colors, run with node outside the repository); no color.js code was copied.
 
-## Go standard library (math/atan.go) and Cephes
+## Go standard library (math) and Cephes / FreeBSD msun
 
-- **Source:** https://go.dev (`src/math/atan.go`, go1.27.2), itself based on the Cephes Mathematical Library by Stephen L. Moshier
-- **License:** BSD-3-Clause (Copyright 2009 The Go Authors); Cephes: "may be used freely but it comes with no support or guarantee"
-- **Used in:** `internal/gfx/raster/atan.go`
-- **Notes:** `xatan` and `satan` ported with every product that feeds an addition wrapped in an explicit `float64` conversion, so that the compiler cannot fuse it into a multiply-add and the result is the same on every architecture (Go fuses on arm64, ppc64le, s390x, riscv64 and amd64 with `GOAMD64=v3`). `asin01` is new. The file keeps the Go copyright header and the Cephes notice.
+- **Source:** https://go.dev (`src/math/atan.go`, `atan2.go`, `log.go`, `exp.go`, `cbrt.go`, `sin.go`, `sincos.go`, go1.27.2). `atan.go` and `sin.go` are based on the Cephes Mathematical Library by Stephen L. Moshier; `log.go` and `exp.go` on FreeBSD's `e_log.c` and `e_exp.c`, and `cbrt.go` on fdlibm's `s_cbrt.c` (Sun Microsystems)
+- **License:** BSD-3-Clause (Copyright The Go Authors); Cephes: "may be used freely but it comes with no support or guarantee"; Sun Microsystems: "Permission to use, copy, modify, and distribute this software is freely granted, provided that this notice is preserved"
+- **Used in:** `internal/gfx/internal/fmath/` (`atan.go`, `explog.go`, `cbrt.go`, `sincos.go`)
+- **Notes:** Ported with every product that feeds an addition wrapped in an explicit `float64` conversion, so that the compiler cannot fuse it into a multiply-add and the result is the same on every architecture (Go fuses on arm64, ppc64le, s390x, riscv64 and amd64 with `GOAMD64=v3`; `math.Exp` and `math.Log` are also assembly on some architectures). Special cases are reduced to what Tela needs; `Sincos` reduces arguments of 2^29 and more with `math.Mod` instead of Payne-Hanek. `Asin01`, `Pow` (as `Exp(y*Log(x))`) are new. `atan.go` moved here from `internal/gfx/raster`. Each file keeps the Go copyright header and the Cephes or Sun notice. The file keeps the Go copyright header and the Cephes notice.

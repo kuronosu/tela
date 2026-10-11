@@ -221,7 +221,10 @@ func (p *Path) AddCircle(center Point, r float32) { p.AddEllipse(center, r, r) }
 
 // AddArc appends an elliptical arc as cubic Beziers within tolerance (the
 // maximum distance between the cubics and the true arc, in the same units as
-// the coordinates; 0 selects 0.01). If the path has a current point, a
+// the coordinates; 0 selects 0.01). Tolerances finer than the float32
+// resolution of the arc's coordinates (about 2^-22 times the largest
+// absolute coordinate, center plus radius) are raised to it, which bounds
+// the number of cubics for huge radii. If the path has a current point, a
 // straight line is drawn from it to the start of the arc (as in Canvas'
 // arc()), otherwise the arc starts a new subpath.
 func (p *Path) AddArc(a Arc, tolerance float32) {

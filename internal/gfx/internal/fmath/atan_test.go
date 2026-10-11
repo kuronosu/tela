@@ -1,4 +1,4 @@
-package raster
+package fmath
 
 import (
 	"math"
@@ -8,7 +8,7 @@ import (
 // asinInputs exercise every branch of satan.
 var asinInputs = []float64{0, 1e-9, 0.1, 0.3, 0.5, 0.55, 0.7071067811865476, 0.8, 0.9, 0.92, 0.99, 0.999999, 1}
 
-// asinBits are the results of asin01 on asinInputs, recorded on amd64 (no
+// asinBits are the results of Asin01 on asinInputs, recorded on amd64 (no
 // fused multiply-add). Every architecture must reproduce them bit for bit;
 // a mismatch means a product is being fused somewhere.
 var asinBits = []uint64{
@@ -21,10 +21,10 @@ var asinBits = []uint64{
 func TestAsinAccuracy(t *testing.T) {
 	for _, x := range asinInputs {
 		// math.Asin computes 1-x*x with cancellation and loses digits near
-		// 1 (asin01(0.999999) matches C's libm, math.Asin is 7.8e-15 off).
-		got, want := asin01(x), math.Asin(x)
+		// 1 (Asin01(0.999999) matches C's libm, math.Asin is 7.8e-15 off).
+		got, want := Asin01(x), math.Asin(x)
 		if math.Abs(got-want) > 1e-14 {
-			t.Errorf("asin01(%v) = %v, math.Asin = %v", x, got, want)
+			t.Errorf("Asin01(%v) = %v, math.Asin = %v", x, got, want)
 		}
 	}
 	for x := 0.0; x <= 50; x += 0.01 {
@@ -38,13 +38,13 @@ func TestAsinDeterministic(t *testing.T) {
 	if len(asinBits) != len(asinInputs) {
 		var s string
 		for _, x := range asinInputs {
-			s += "\n\t0x" + hex64(math.Float64bits(asin01(x))) + ","
+			s += "\n\t0x" + hex64(math.Float64bits(Asin01(x))) + ","
 		}
 		t.Fatalf("asinBits not recorded; values on this machine:%s", s)
 	}
 	for i, x := range asinInputs {
-		if got := math.Float64bits(asin01(x)); got != asinBits[i] {
-			t.Errorf("asin01(%v) = %#x, want %#x (same on every architecture)", x, got, asinBits[i])
+		if got := math.Float64bits(Asin01(x)); got != asinBits[i] {
+			t.Errorf("Asin01(%v) = %#x, want %#x (same on every architecture)", x, got, asinBits[i])
 		}
 	}
 }

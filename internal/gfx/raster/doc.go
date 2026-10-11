@@ -45,6 +45,30 @@
 //     corner.addOutside), for any normalized radii, elliptical and per
 //     corner. Under rotation or skew, and for rectangles reaching beyond
 //     ±2^20 device pixels, rounded rectangles are filled as paths.
+//   - Strokes (StrokePath) are turned into outlines by gfx.Path.Stroke in
+//     local space, with a tolerance of FlattenTolerance divided by the
+//     transform's largest scale, and filled with NonZero. The outline
+//     self-overlaps; where a winding-2 region meets the outside inside one
+//     pixel, min(1, |a|) overestimates that pixel (measured: one pixel of a
+//     tight curve, 72 levels; see TestStrokeCoverage).
+//
+// # Paints, clips and layers
+//
+// A paint is a shader that produces premultiplied colors per device pixel,
+// sampled at the pixel center and mapped back to the command's local space
+// with the inverse transform: solid colors, linear, radial and conic
+// gradients (gradient.go: CSS geometry, pad spread, premultiplied
+// interpolation in Oklab or sRGB through 256-entry ramps per stop segment,
+// exact hard stops) and images (image.go: nearest or bilinear sampling,
+// clamped to the Src rectangle).
+//
+// Clips (clip.go) narrow the writable rectangle and, unless they are
+// pixel-aligned rectangles, add an 8-bit coverage mask that multiplies the
+// coverage of everything drawn inside them; nested clips multiply their
+// masks. Masks cover only the region ∩ the clip bounds. Layers render their
+// content into an offscreen buffer (region ∩ layer bounds) and composite it
+// at PopLayer with source-over, the layer's opacity and the clip that was
+// active at PushLayer. Mask and layer buffers are pooled by the Renderer.
 //
 // The accumulation is done in 64-bit integers, so it is associative: the
 // value of a pixel does not depend on the order in which edges and cells are
@@ -88,11 +112,17 @@
 // rounding and prevents the fusion, so this package wraps every product that
 // feeds an addition in such a conversion, unless the product is exact anyway
 // (a float32 times a float32 computed in float64, or a multiplication by a
-// power of two). math.Atan and math.Asin are avoided for the same reason
-// (their pure-Go code can be fused): atan.go holds a fusion-safe port.
+// power of two). Products returned by a function count too: after inlining,
+// the caller's addition can absorb them. math.Atan, math.Asin, math.Pow and
+// math.Cbrt are avoided for the same reason (their pure-Go code can be
+// fused, and some math functions are assembly on one architecture only):
+// internal/gfx/internal/fmath holds fusion-safe ports. Determinism tests
+// record digests of the float64 intermediates on amd64; run them with
+// GOARCH=arm64 go test -exec qemu-aarch64-static to check another
+// architecture.
 //
-// The flattening itself (gfx.Path.Flatten) and the composition of transforms
-// (gfx.Affine.Mul) live in package gfx.
+// The flattening itself (gfx.Path.Flatten), stroking (gfx.Path.Stroke) and
+// the composition of transforms (gfx.Affine.Mul) live in package gfx.
 //
 // # Concurrency
 //
@@ -104,8 +134,11 @@
 //
 // # Not implemented yet
 //
-// Gradients, images, clips, layers and StrokePath (task T4b), shadows and
-// filters (T6) and parallel tiling (T9) are not implemented yet: Render
-// panics with "raster: <command> is not implemented yet" when it meets one of
-// them in the visited part of the list.
+// DrawShadow and layer filters (Blur, DropShadow, ColorMatrix) come with task
+// T6, parallel tiling with T9: Render panics with "raster: DrawShadow is not
+// implemented yet" or "raster: layer filters are not implemented yet" when
+// it meets them in the visited part of the list. Blend modes other than
+// SrcOver and BackdropFilter are phase 6 features and panic with "raster:
+// blend mode <mode> is not implemented until phase 6" and "raster:
+// BackdropFilter is not implemented until phase 6".
 package raster

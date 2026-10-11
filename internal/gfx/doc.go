@@ -25,8 +25,17 @@
 // # Paths
 //
 // Path stores verbs and points compactly. Curves are flattened with kurbo's
-// algorithm (Path.Flatten). Stroking is path to path and lives in this
-// package too (added later); StrokePath commands carry the style.
+// algorithm (Path.Flatten, or a reusable Flattener). Stroking is path to
+// path (Path.Stroke, ADR-026): it returns a lines-only outline that a
+// rasterizer fills with NonZero; StrokePath commands carry the style.
+//
+// Flattening, arcs and stroking give the same points, bit for bit, on every
+// architecture: products are rounded explicitly so that the compiler cannot
+// fuse them into multiply-adds, and the elementary functions they need come
+// from the deterministic ports in internal/gfx/internal/fmath. (The color
+// space conversions and Affine constructors such as Rotate still use the
+// math package; their results are rounded to float32, which hides the
+// last-bit differences in practice.)
 //
 // # The DisplayList
 //

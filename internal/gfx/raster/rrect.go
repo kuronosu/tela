@@ -4,20 +4,25 @@ import (
 	"math"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/gfx/internal/fmath"
 )
 
-// fillRRect fills a rounded rectangle in local space: with the analytic
-// fast path under scale/translate transforms, otherwise as a path.
-func (r *Renderer) fillRRect(rr gfx.RRect, paint gfx.Paint) {
-	r.blit.setShader(r.shaderFor(paint, r.ctm))
+// coverRRect composites the coverage of a rounded rectangle in local space
+// with the current shader (or writes it to the clip mask being built): with
+// the analytic fast path under scale/translate transforms, otherwise as a
+// path.
+func (r *Renderer) coverRRect(rr gfx.RRect) {
 	if rr.IsRect() {
-		r.fillRect(rr.Rect, paint)
+		r.coverRect(rr.Rect)
 		return
 	}
 	if r.ctm.IsScaleTranslate() && r.fillRRectFast(rr) {
 		return
 	}
-	r.fillPath(rr.Path(), gfx.NonZero)
+	p := &r.shape
+	p.Reset()
+	p.AddRRect(rr)
+	r.fillPath(*p, gfx.NonZero)
 }
 
 // corner is one elliptical corner of a device-space rounded rectangle.
@@ -340,5 +345,5 @@ func diskArea(u, v float64) float64 {
 	}
 	su := math.Sqrt(float64((1 - v) * (1 + v)))
 	cu := math.Sqrt(float64((1 - u) * (1 + u)))
-	return (float64(su*v) + float64(u*cu) + asin01(u) + asin01(v) - math.Pi/2) / 2
+	return (float64(su*v) + float64(u*cu) + fmath.Asin01(u) + fmath.Asin01(v) - math.Pi/2) / 2
 }

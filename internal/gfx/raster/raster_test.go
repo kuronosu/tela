@@ -272,19 +272,21 @@ func TestUnimplementedPanics(t *testing.T) {
 		want string
 	}{
 		{func(b *gfx.Builder) {
-			b.PushClipRect(gfx.Rect{X1: 4, Y1: 4})
+			b.DrawShadow(gfx.DrawShadow{RRect: gfx.NewRRect(gfx.Rect{X1: 4, Y1: 4}, 1), Blur: 2, Color: gfx.Black})
+		}, "raster: DrawShadow is not implemented yet"},
+		{func(b *gfx.Builder) {
+			b.PushLayer(1, gfx.SrcOver, gfx.Blur{StdDev: 2})
 			b.FillRect(gfx.Rect{X1: 4, Y1: 4}, gfx.Black)
-			b.PopClip()
-		}, "raster: PushClipRect is not implemented yet"},
+			b.PopLayer()
+		}, "raster: layer filters are not implemented yet"},
 		{func(b *gfx.Builder) {
-			b.FillRect(gfx.Rect{X1: 4, Y1: 4}, gfx.LinearGradient{End: gfx.Pt(4, 0), Stops: []gfx.GradientStop{{Offset: 0, Color: gfx.Black}, {Offset: 1, Color: gfx.White}}})
-		}, "raster: gfx.LinearGradient paint is not implemented yet"},
+			b.PushLayer(1, gfx.Multiply)
+			b.FillRect(gfx.Rect{X1: 4, Y1: 4}, gfx.Black)
+			b.PopLayer()
+		}, "raster: blend mode multiply is not implemented until phase 6"},
 		{func(b *gfx.Builder) {
-			var p gfx.Path
-			p.MoveTo(gfx.Pt(0, 0))
-			p.LineTo(gfx.Pt(4, 4))
-			b.StrokePath(p, gfx.NewStrokeStyle(1), gfx.Black)
-		}, "raster: StrokePath is not implemented yet"},
+			b.BackdropFilter(gfx.NewRRect(gfx.Rect{X1: 4, Y1: 4}, 1), gfx.Blur{StdDev: 2})
+		}, "raster: BackdropFilter is not implemented until phase 6"},
 	} {
 		func() {
 			defer func() {
@@ -337,6 +339,22 @@ func TestNoAllocs(t *testing.T) {
 		b.FillRect(gfx.RectXYWH(1.5, 1.5, 30, 30), gfx.Black)
 		b.FillRRect(gfx.NewRRect(gfx.RectXYWH(10.5, 10.5, 40, 30), 8), gfx.Black.WithAlpha(0.5))
 		b.FillPath(starPath(32, 32, 20), gfx.EvenOdd, gfx.Black)
+		// Curves, gradients, images, clips and layers.
+		b.FillPath(gfx.CirclePath(gfx.Pt(20, 40), 15), gfx.NonZero, gfx.LinearGradient{End: gfx.Pt(40, 10), Stops: stops(sky, rose, amber)})
+		b.FillRect(gfx.RectXYWH(0, 0, 64, 20), gfx.RadialGradient{Center: gfx.Pt(32, 10), Radius: gfx.Pt(20, 8), Stops: stops(gfx.White, indigo)})
+		b.FillRect(gfx.RectXYWH(0, 40, 64, 20), gfx.ConicGradient{Center: gfx.Pt(32, 50), Stops: stops(gfx.White, indigo, gfx.White)})
+		b.PushClipRRect(gfx.NewRRect(gfx.RectXYWH(4.5, 4.5, 50, 50), 12))
+		b.PushClipRect(gfx.RectXYWH(8, 8, 40, 40))
+		b.PushLayer(0.5, gfx.SrcOver)
+		b.DrawImage(testImage, gfx.Rect{}, gfx.RectXYWH(10, 10, 30, 30), gfx.SampleLinear)
+		b.PushTransform(gfx.RotateAbout(0.3, gfx.Pt(32, 32)))
+		b.PushClipPath(gfx.CirclePath(gfx.Pt(32, 32), 18), gfx.NonZero)
+		b.FillRRect(gfx.NewRRect(gfx.RectXYWH(10, 10, 40, 30), 6), rose)
+		b.PopClip()
+		b.PopTransform()
+		b.PopLayer()
+		b.PopClip()
+		b.PopClip()
 	})
 	r := NewRenderer()
 	r.Render(img, dl, Options{})

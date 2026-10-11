@@ -85,7 +85,10 @@ func (d *DisplayList) All() iter.Seq2[int, Command] {
 // see BackdropReach.
 func (d *DisplayList) Visit(region Rect, fn func(i int, c Command)) {
 	type saved struct{ r Rect }
-	var stack []saved
+	// A fixed backing array keeps typical nesting depths off the heap, so
+	// that a rasterizer visiting a list every frame does not allocate.
+	var buf [32]saved
+	stack := buf[:0]
 	r := region
 	for i := 0; i < len(d.cmds); i++ {
 		c := d.cmds[i]

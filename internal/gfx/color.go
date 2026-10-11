@@ -142,7 +142,10 @@ func (c Color) String() string {
 }
 
 func round8(v float64) uint8 {
-	v = v*255 + 0.5
+	// The product is rounded explicitly so that it cannot be fused with the
+	// addition into a multiply-add, which rounds differently on some
+	// architectures.
+	v = float64(v*255) + 0.5
 	switch {
 	case !(v > 0):
 		return 0

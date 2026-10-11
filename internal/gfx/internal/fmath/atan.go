@@ -13,9 +13,10 @@
 // Changes: every product that feeds an addition is wrapped in an explicit
 // float64 conversion so that the compiler cannot fuse it into a
 // multiply-add; the result is then the same on every architecture (see the
-// package documentation, "Determinism"). asin01 is new.
+// package documentation). Atan2 follows Go's src/math/atan2.go for finite
+// arguments. Asin01 is new.
 
-package raster
+package fmath
 
 import "math"
 
@@ -63,9 +64,45 @@ func satan(x float64) float64 {
 	return math.Pi/4 + xatan((x-1)/(x+1)) + 0.5*Morebits
 }
 
-// asin01 returns asin(x) for x in [0, 1] (arguments outside are clamped),
+// Atan returns the arctangent of x in radians, like math.Atan.
+func Atan(x float64) float64 {
+	switch {
+	case x == 0 || x != x:
+		return x
+	case x > 0:
+		return satan(x)
+	}
+	return -satan(-x)
+}
+
+// Atan2 returns the arctangent of y/x in [-Pi, Pi], using the signs of both
+// to pick the quadrant, like math.Atan2 for finite arguments. NaN in either
+// argument gives NaN.
+func Atan2(y, x float64) float64 {
+	switch {
+	case y != y || x != x:
+		return math.NaN()
+	case y == 0:
+		if x >= 0 && !math.Signbit(x) {
+			return math.Copysign(0, y)
+		}
+		return math.Copysign(math.Pi, y)
+	case x == 0:
+		return math.Copysign(math.Pi/2, y)
+	}
+	q := Atan(y / x)
+	if x < 0 {
+		if q <= 0 {
+			return q + math.Pi
+		}
+		return q - math.Pi
+	}
+	return q
+}
+
+// Asin01 returns asin(x) for x in [0, 1] (arguments outside are clamped),
 // with the same result on every architecture.
-func asin01(x float64) float64 {
+func Asin01(x float64) float64 {
 	switch {
 	case !(x > 0):
 		return 0

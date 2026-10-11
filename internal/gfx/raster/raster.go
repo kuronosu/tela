@@ -22,8 +22,10 @@ type Options struct {
 }
 
 // Renderer renders display lists into RGBA images. It owns the scratch
-// buffers of the rasterizer and reuses them between calls, so a long-lived
-// Renderer does not allocate in the steady state.
+// buffers of the rasterizer (edges, clip masks, layer surfaces, gradient
+// ramps) and reuses them between calls, so a long-lived Renderer does not
+// allocate in the steady state (StrokePath excepted: gfx.Path.Stroke
+// allocates its outline).
 //
 // A Renderer must not be used by several goroutines at once; give each
 // raster worker its own. The zero value is ready to use.
@@ -31,16 +33,26 @@ type Renderer struct {
 	fill  pathFiller
 	blit  blitter
 	solid solidShader
+	grad  gradShader
+	img   imageShader
+	ramps rampCache
+	opq   imageOpacityCache
+
+	dl    *gfx.DisplayList // the list being rendered
+	scale float64          // display scale of the current Render
 
 	ctm      gfx.Affine // current transform: local -> device
-	skipping bool       // inside a transform block that shows nothing
+	skipping bool       // inside a block that shows nothing
 	stack    []savedState
+	free     [][]uint8 // released mask and layer buffers
 
 	// Path flattening state; emitFn is the method value of emit, created
 	// once so that flattening does not allocate.
+	flat      gfx.Flattener
 	flatM     gfx.Affine
 	flatCurve bool     // flattening one curve of flattenCulled
 	curve     gfx.Path // scratch path for flattenCulled
+	shape     gfx.Path // scratch path for rrects drawn as paths
 	emitFn    func(gfx.Verb, gfx.Point)
 	visitFn   func(int, gfx.Command)
 
@@ -48,9 +60,22 @@ type Renderer struct {
 	rowSub  []float64 // rrect corner areas
 }
 
+// savedState is the state that a push saves and its pop restores.
 type savedState struct {
 	ctm      gfx.Affine
 	skipping bool
+	clip     image.Rectangle // blitter clip
+	cm       clipMask        // active clip mask
+
+	ownMask []uint8 // mask buffer created by this push, released at its pop
+
+	// Layers: the surface below, and this layer's buffer and opacity.
+	layer   bool
+	pix     []uint8
+	stride  int
+	origin  image.Point
+	surf    []uint8
+	opacity uint8
 }
 
 // NewRenderer returns a new Renderer. It is equivalent to new(Renderer).
@@ -72,9 +97,8 @@ func Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 // opts.Scale, and only the device pixels in opts.Region are written.
 //
 // Render panics if dst is nil, if opts.Scale is negative, NaN or infinite,
-// and (for now) if the visited part of the list holds a command or paint
-// that is not implemented yet; see the package documentation. A nil dl
-// renders nothing.
+// and if the visited part of the list holds a command or paint that is not
+// implemented yet; see the package documentation. A nil dl renders nothing.
 func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if dst == nil {
 		panic("raster: Render called with a nil destination image")
@@ -102,6 +126,10 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		r.visitFn = r.visit
 	}
 	r.blit.pix, r.blit.stride, r.blit.origin, r.blit.clip = dst.Pix, dst.Stride, dst.Rect.Min, clip
+	r.blit.cm = clipMask{}
+	r.blit.toMask = false
+	r.dl = dl
+	r.scale = float64(s)
 	r.ctm = gfx.Scale(s, s)
 	r.skipping = false
 	r.stack = r.stack[:0]
@@ -115,29 +143,46 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		X1: float32(float64(clip.Max.X+1) / sc), Y1: float32(float64(clip.Max.Y+1) / sc),
 	}
 	defer func() {
-		r.blit.pix, r.blit.sh, r.blit.solid = nil, nil, nil // do not retain dst
+		// Do not retain dst, the list or the paints.
+		r.blit.pix, r.blit.sh, r.blit.solid, r.blit.cm, r.blit.a8 = nil, nil, nil, clipMask{}, nil
+		r.dl = nil
+		r.grad.ramp, r.img.img = nil, nil
+		for i := range r.stack {
+			r.stack[i] = savedState{}
+		}
+		r.stack = r.stack[:0]
 	}()
 	dl.Visit(root, r.visitFn)
 }
 
 // visit executes one command.
-func (r *Renderer) visit(_ int, c gfx.Command) {
+func (r *Renderer) visit(i int, c gfx.Command) {
 	switch c := c.(type) {
 	case gfx.FillRect:
 		if !r.skipping {
-			r.fillRect(c.Rect, c.Paint)
+			r.blit.setShader(r.shaderFor(c.Paint))
+			r.coverRect(c.Rect)
 		}
 	case gfx.FillRRect:
 		if !r.skipping {
-			r.fillRRect(c.RRect, c.Paint)
+			r.blit.setShader(r.shaderFor(c.Paint))
+			r.coverRRect(c.RRect)
 		}
 	case gfx.FillPath:
 		if !r.skipping {
-			r.blit.setShader(r.shaderFor(c.Paint, r.ctm))
+			r.blit.setShader(r.shaderFor(c.Paint))
 			r.fillPath(c.Path, c.Rule)
 		}
+	case gfx.StrokePath:
+		if !r.skipping {
+			r.strokePath(c)
+		}
+	case gfx.DrawImage:
+		if !r.skipping {
+			r.drawImage(c)
+		}
 	case gfx.PushTransform:
-		r.stack = append(r.stack, savedState{r.ctm, r.skipping})
+		r.save()
 		if !r.skipping {
 			next := r.ctm.Mul(c.Affine)
 			if next.IsFinite() && next.Det() != 0 {
@@ -148,13 +193,95 @@ func (r *Renderer) visit(_ int, c gfx.Command) {
 				r.skipping = true
 			}
 		}
-	case gfx.PopTransform:
-		st := r.stack[len(r.stack)-1]
-		r.stack = r.stack[:len(r.stack)-1]
-		r.ctm, r.skipping = st.ctm, st.skipping
+	case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath:
+		r.save()
+		if !r.skipping {
+			r.pushClip(c)
+		}
+	case gfx.PushLayer:
+		r.save()
+		if !r.skipping {
+			r.pushLayer(i, c)
+		}
+	case gfx.PopTransform, gfx.PopClip, gfx.PopLayer:
+		r.restore()
+	case gfx.BackdropFilter:
+		if !r.skipping {
+			panic("raster: BackdropFilter is not implemented until phase 6")
+		}
 	default:
 		panic(fmt.Sprintf("raster: %s is not implemented yet", c.Name()))
 	}
+}
+
+// save pushes the current state; the matching pop restores it.
+func (r *Renderer) save() {
+	b := &r.blit
+	r.stack = append(r.stack, savedState{ctm: r.ctm, skipping: r.skipping, clip: b.clip, cm: b.cm})
+}
+
+// restore pops the state saved by the matching push: it composites a layer,
+// releases the buffers the push created and restores the transform and the
+// clip.
+func (r *Renderer) restore() {
+	st := &r.stack[len(r.stack)-1]
+	b := &r.blit
+	if st.layer {
+		surf, rect, stride := b.pix, b.clip, b.stride
+		b.pix, b.stride, b.origin = st.pix, st.stride, st.origin
+		b.clip, b.cm = st.clip, st.cm
+		for y := rect.Min.Y; y < rect.Max.Y; y++ {
+			i := (y - rect.Min.Y) * stride
+			b.composite(y, rect.Min.X, surf[i:i+4*rect.Dx()], st.opacity)
+		}
+		r.putBuf(st.surf)
+	}
+	if st.ownMask != nil {
+		r.putBuf(st.ownMask)
+	}
+	r.ctm, r.skipping = st.ctm, st.skipping
+	b.clip, b.cm = st.clip, st.cm
+	*st = savedState{} // drop references
+	r.stack = r.stack[:len(r.stack)-1]
+}
+
+// getBuf returns a zeroed buffer of n bytes, reusing a released one when
+// possible (the smallest that fits).
+func (r *Renderer) getBuf(n int) []uint8 {
+	best := -1
+	for i, b := range r.free {
+		if cap(b) >= n && (best < 0 || cap(b) < cap(r.free[best])) {
+			best = i
+		}
+	}
+	if best < 0 {
+		return make([]uint8, n)
+	}
+	b := r.free[best][:n]
+	last := len(r.free) - 1
+	r.free[best], r.free[last] = r.free[last], nil
+	r.free = r.free[:last]
+	clear(b)
+	return b
+}
+
+// putBuf releases a buffer from getBuf.
+func (r *Renderer) putBuf(b []uint8) { r.free = append(r.free, b) }
+
+// strokePath fills the outline of a stroke. The outline is computed in local
+// space with a tolerance that keeps the device-space error within
+// FlattenTolerance, and filled with NonZero (gfx.Path.Stroke's contract).
+func (r *Renderer) strokePath(c gfx.StrokePath) {
+	s := r.ctm.MaxScale()
+	if !(s > 0) {
+		return
+	}
+	outline := c.Path.Stroke(c.Style, FlattenTolerance/s)
+	if outline.IsEmpty() {
+		return
+	}
+	r.blit.setShader(r.shaderFor(c.Paint))
+	r.fillPath(outline, gfx.NonZero)
 }
 
 // apply transforms a local point to device space in float64. The products
@@ -166,9 +293,10 @@ func apply(m *gfx.Affine, p gfx.Point) (float64, float64) {
 		float64(m[1])*x + float64(m[3])*y + float64(m[5])
 }
 
-// fillRect fills an axis-aligned rectangle in local space.
-func (r *Renderer) fillRect(rect gfx.Rect, paint gfx.Paint) {
-	r.blit.setShader(r.shaderFor(paint, r.ctm))
+// coverRect composites the coverage of an axis-aligned rectangle in local
+// space with the current shader (or writes it to the clip mask being
+// built).
+func (r *Renderer) coverRect(rect gfx.Rect) {
 	m := &r.ctm
 	if m.IsAxisAligned() {
 		// Opposite corners map to opposite corners.
@@ -268,7 +396,7 @@ func (r *Renderer) fillPath(p gfx.Path, rule gfx.FillRule) {
 	r.flatM = m
 	r.flatCurve = false
 	if r.pathNear(p) {
-		p.Flatten(tol, r.emitFn)
+		r.flat.Flatten(p, tol, r.emitFn)
 	} else {
 		r.flattenCulled(p, tol)
 	}
@@ -346,7 +474,7 @@ func (r *Renderer) flattenCulled(p gfx.Path, tol float32) {
 				q.CubicTo(s.P[1], s.P[2], s.P[3])
 			}
 			r.flatCurve = true
-			q.Flatten(tol, r.emitFn)
+			r.flat.Flatten(*q, tol, r.emitFn)
 			r.flatCurve = false
 		}
 	}

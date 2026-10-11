@@ -184,7 +184,9 @@ func (rr RRect) Contains(p Point) bool {
 // AddRRect appends the rounded rectangle as a closed subpath, clockwise on
 // screen starting at the end of the top-left corner on the top edge.
 // Corners are built from cubic Beziers within 0.01 logical pixels of the
-// exact ellipse; a rectangle with square corners becomes a plain rect.
+// exact ellipse (or within the float32 resolution of the coordinates, if
+// that is coarser: about 2^-22 times the largest coordinate); a rectangle
+// with square corners becomes a plain rect.
 func (p *Path) AddRRect(rr RRect) {
 	if rr.IsRect() {
 		p.AddRect(rr.Rect)

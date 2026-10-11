@@ -63,17 +63,102 @@ func randomScene(seed uint64, w, h int) scene {
 			return p
 		}
 		rule := func() gfx.FillRule { return gfx.FillRule(rng.IntN(2)) }
+		pt := func() gfx.Point { return gfx.Pt(f(-20, W+20), f(-20, H+20)) }
+		paint := func() gfx.Paint {
+			n := 2 + rng.IntN(3)
+			st := make([]gfx.GradientStop, n)
+			for i := range st {
+				st[i] = gfx.GradientStop{Offset: f(-0.2, 1.2), Color: color()}
+				if rng.IntN(4) == 0 {
+					st[i].Color.A = f(0, 0.5)
+				}
+				if i > 0 && rng.IntN(4) == 0 {
+					st[i].Offset = st[i-1].Offset // hard stop
+				}
+			}
+			sp := gfx.ColorSpace(rng.IntN(2))
+			switch rng.IntN(6) {
+			case 0:
+				return gfx.LinearGradient{Start: pt(), End: pt(), Stops: st, Interp: sp}
+			case 1:
+				return gfx.RadialGradient{Center: pt(), Radius: gfx.Pt(f(0, W), f(0, H)), Stops: st, Interp: sp}
+			case 2:
+				return gfx.ConicGradient{Center: pt(), StartAngle: f(-7, 7), Stops: st, Interp: sp}
+			}
+			return color()
+		}
 		draw := func() {
+			switch rng.IntN(5) {
+			case 0:
+				b.FillRect(rect(), paint())
+			case 1:
+				b.FillRRect(rrect(), paint())
+			case 2:
+				b.FillPath(path(), rule(), paint())
+			case 3:
+				st := gfx.NewStrokeStyle(f(0.1, 12))
+				st.Join, st.Cap = gfx.LineJoin(rng.IntN(3)), gfx.LineCap(rng.IntN(3))
+				if rng.IntN(3) == 0 {
+					st.Dashes = []float32{f(0, 20), f(0, 10)}
+					st.DashOffset = f(-10, 10)
+				}
+				b.StrokePath(path(), st, paint())
+			case 4:
+				src := gfx.Rect{}
+				if rng.IntN(2) == 0 {
+					src = gfx.Rect{X0: f(-2, 4), Y0: f(-2, 4), X1: f(2, 8), Y1: f(2, 8)}
+				}
+				b.DrawImage(testImage, src, rect(), gfx.Sampling(rng.IntN(2)))
+			}
+		}
+		pushClip := func() {
 			switch rng.IntN(3) {
 			case 0:
-				b.FillRect(rect(), color())
+				r := rect()
+				if rng.IntN(2) == 0 { // pixel aligned at scale 1
+					r = gfx.Rect{X0: float32(int(r.X0)), Y0: float32(int(r.Y0)), X1: float32(int(r.X1)) + 1, Y1: float32(int(r.Y1)) + 1}
+				}
+				b.PushClipRect(r)
 			case 1:
-				b.FillRRect(rrect(), color())
+				b.PushClipRRect(rrect())
 			case 2:
-				b.FillPath(path(), rule(), color())
+				b.PushClipPath(path(), rule())
 			}
 		}
 		for i := 0; i < 40; i++ {
+			switch rng.IntN(11) {
+			case 8, 9: // clips and layers, nested, some under transforms
+				depth := 1 + rng.IntN(3)
+				kinds := make([]int, depth)
+				for d := range kinds {
+					kinds[d] = rng.IntN(3)
+					switch kinds[d] {
+					case 0:
+						pushClip()
+					case 1:
+						b.PushLayer(f(0.1, 1), gfx.SrcOver)
+					case 2:
+						b.PushTransform(gfx.RotateAbout(f(-1, 1), gfx.Pt(f(0, W), f(0, H))))
+					}
+				}
+				for n := 1 + rng.IntN(4); n > 0; n-- {
+					draw()
+				}
+				for d := depth - 1; d >= 0; d-- {
+					switch kinds[d] {
+					case 0:
+						b.PopClip()
+					case 1:
+						b.PopLayer()
+					case 2:
+						b.PopTransform()
+					}
+				}
+				continue
+			case 10:
+				draw()
+				continue
+			}
 			switch rng.IntN(8) {
 			case 0, 1, 2, 3:
 				draw()
@@ -163,7 +248,7 @@ func TestRegionMatchesFullRenderCulled(t *testing.T) {
 }
 
 func testRegions(t *testing.T) {
-	all := append([]scene(nil), scenes...)
+	all := append(append([]scene(nil), scenes...), scenes2...)
 	for seed := uint64(1); seed <= 4; seed++ {
 		all = append(all, randomScene(seed, 150, 110))
 	}
