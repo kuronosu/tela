@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="test_protocol">
+
+  <copyright>
+    Copyright 2026 The Tela authors
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction.
+  </copyright>
+
+  <interface name="wl_display" version="1">
+    <description summary="core global object">
+      A stand-in for the real wl_display, so the golden covers the special case.
+    </description>
+    <request name="sync">
+      <arg name="callback" type="new_id" interface="tp_callback"/>
+    </request>
+    <request name="get_registry">
+      <arg name="registry" type="new_id" interface="tp_registry"/>
+    </request>
+    <event name="error">
+      <arg name="object_id" type="object"/>
+      <arg name="code" type="uint"/>
+      <arg name="message" type="string"/>
+    </event>
+    <event name="delete_id">
+      <arg name="id" type="uint"/>
+    </event>
+  </interface>
+
+  <interface name="tp_callback" version="1">
+    <description summary="a one-shot notification">
+      The done event is a destructor event.
+    </description>
+    <event name="done" type="destructor">
+      <arg name="callback_data" type="uint"/>
+    </event>
+  </interface>
+
+  <interface name="tp_registry" version="1">
+    <description summary="global registry">
+      Holds the only untyped new_id request.
+    </description>
+    <request name="bind">
+      <description summary="bind an object to the display">
+        Binds a new, client-created object to the server.
+      </description>
+      <arg name="name" type="uint" summary="unique numeric name of the object"/>
+      <arg name="id" type="new_id" summary="bounded object"/>
+    </request>
+    <event name="global">
+      <arg name="name" type="uint"/>
+      <arg name="interface" type="string"/>
+      <arg name="version" type="uint"/>
+    </event>
+  </interface>
+
+  <interface name="tp_manager" version="3">
+    <description summary="creates widgets">
+      A manager with a destructor, a typed constructor and a cross-interface enum.
+    </description>
+
+    <enum name="error">
+      <description summary="manager errors"/>
+      <entry name="role" value="0" summary="surface has another role"/>
+      <entry name="defunct_widgets" value="1" summary="manager destroyed before widgets"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the manager">
+        Destroys the manager. Widgets stay alive.
+      </description>
+    </request>
+
+    <request name="create_widget">
+      <description summary="create a widget">
+        Creates a widget of the given kind.
+      </description>
+      <arg name="id" type="new_id" interface="tp_widget"/>
+      <arg name="kind" type="uint" enum="tp_widget.kind" summary="kind of widget"/>
+      <arg name="parent" type="object" interface="tp_widget" allow-null="true" summary="optional parent"/>
+    </request>
+
+    <event name="ready">
+      <description summary="manager is ready">
+        Sent once. Has no arguments.
+      </description>
+    </event>
+  </interface>
+
+  <interface name="tp_widget" version="3">
+    <description summary="a widget exercising every argument type">
+      Every argument type appears at least once.
+    </description>
+
+    <enum name="kind">
+      <description summary="widget kinds"/>
+      <entry name="plain" value="0"/>
+      <entry name="fancy" value="1" summary="a fancy widget"/>
+      <entry name="legacy" value="2" since="2" deprecated-since="3" summary="use fancy instead"/>
+      <entry name="alias_of_fancy" value="1"/>
+    </enum>
+
+    <enum name="edges" bitfield="true" since="2">
+      <description summary="edges of a widget"/>
+      <entry name="none" value="0"/>
+      <entry name="top" value="1"/>
+      <entry name="bottom" value="2"/>
+      <entry name="left" value="0x4"/>
+      <entry name="right" value="8"/>
+    </enum>
+
+    <request name="destroy" type="destructor"/>
+
+    <request name="all_args">
+      <description summary="send every argument type">
+        Sends one of each argument type.
+      </description>
+      <arg name="i" type="int"/>
+      <arg name="u" type="uint"/>
+      <arg name="f" type="fixed"/>
+      <arg name="s" type="string"/>
+      <arg name="maybe" type="string" allow-null="true"/>
+      <arg name="other" type="object" interface="tp_manager" allow-null="true"/>
+      <arg name="data" type="array"/>
+      <arg name="fd" type="fd"/>
+      <arg name="kind" type="uint" enum="kind"/>
+      <arg name="signed_kind" type="int" enum="kind"/>
+    </request>
+
+    <request name="keywords">
+      <description summary="arguments named like Go keywords"/>
+      <arg name="type" type="uint"/>
+      <arg name="interface" type="string"/>
+      <arg name="func" type="int"/>
+      <arg name="self" type="int"/>
+      <arg name="x_dest" type="int"/>
+    </request>
+
+    <request name="resize" since="2">
+      <description summary="resize with a bitfield"/>
+      <arg name="edges" type="uint" enum="edges"/>
+    </request>
+
+    <event name="data">
+      <description summary="every argument type, received"/>
+      <arg name="i" type="int"/>
+      <arg name="u" type="uint"/>
+      <arg name="f" type="fixed" summary="fixed point value"/>
+      <arg name="s" type="string"/>
+      <arg name="maybe" type="string" allow-null="true"/>
+      <arg name="other" type="object" interface="tp_manager" allow-null="true"/>
+      <arg name="data" type="array"/>
+    </event>
+
+    <event name="with_fd">
+      <arg name="fd" type="fd"/>
+      <arg name="size" type="uint"/>
+    </event>
+
+    <event name="child">
+      <arg name="id" type="new_id" interface="tp_widget"/>
+    </event>
+
+    <event name="edges_changed" since="2">
+      <arg name="edges" type="uint" enum="edges"/>
+      <arg name="kind" type="int" enum="kind"/>
+    </event>
+  </interface>
+</protocol>
