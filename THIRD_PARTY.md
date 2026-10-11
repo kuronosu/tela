@@ -39,3 +39,10 @@ their original copyright notice. Add one section per source project.
 - **License:** MIT
 - **Used in:** `internal/gfx/color.go` (matrices), `internal/gfx/color_test.go` (expected values)
 - **Notes:** The Oklab / XYZ / linear sRGB matrices are the ones published in CSS Color 4 and used by color.js (recalculated for a consistent D65 white). The gamut-mapping algorithm is the one of CSS Color 4 section 13, written from the spec. The test expectations were generated with color.js (`toGamut({method: "css"})`); no color.js code was copied.
+
+## Go standard library (math/atan.go) and Cephes
+
+- **Source:** https://go.dev (`src/math/atan.go`, go1.27.2), itself based on the Cephes Mathematical Library by Stephen L. Moshier
+- **License:** BSD-3-Clause (Copyright 2009 The Go Authors); Cephes: "may be used freely but it comes with no support or guarantee"
+- **Used in:** `internal/gfx/raster/atan.go`
+- **Notes:** `xatan` and `satan` ported with every product that feeds an addition wrapped in an explicit `float64` conversion, so that the compiler cannot fuse it into a multiply-add and the result is the same on every architecture (Go fuses on arm64, ppc64le, s390x, riscv64 and amd64 with `GOAMD64=v3`). `asin01` is new. The file keeps the Go copyright header and the Cephes notice.
