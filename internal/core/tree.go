@@ -1,0 +1,308 @@
+package core
+
+import (
+	"fmt"
+	"os"
+	"sync"
+
+	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/layout"
+	"github.com/kuronosu/tela/internal/style"
+	"github.com/kuronosu/tela/internal/text"
+)
+
+// EnvDev is the environment variable that turns dev mode on ("1").
+const EnvDev = "TELA_DEV"
+
+// Config configures a Tree.
+type Config struct {
+	// Fonts shapes the text. Nil means text.NewDefaultCollection() (the
+	// embedded fonts only; Run also enables the system fonts).
+	Fonts *text.Collection
+	// Parser compiles the classes, bound to a theme. Nil means
+	// style.DefaultParser().
+	Parser *style.Parser
+	// RootClass are classes for the root box, which fills the window. Its
+	// background is the window's; without one the window is white, the
+	// browser canvas default.
+	RootClass string
+	// Dark and ReducedMotion are the initial environment of the dark: and
+	// motion-reduce: variants (a Host takes them from the system).
+	Dark, ReducedMotion bool
+	// Dev turns dev mode on: warnings about lists without keys, and class
+	// errors on stderr when Log is nil. TELA_DEV=1 does the same.
+	Dev bool
+	// Log receives dev messages (class errors, warnings), one per call.
+	// Nil means stderr in dev mode, and nothing otherwise.
+	Log func(msg string)
+}
+
+// Stats counts the work of a Tree, for tests and benchmarks.
+type Stats struct {
+	Frames     int // Frame calls that ran the pipeline
+	Builds     int // component builds
+	Mounts     int // Elements mounted
+	Unmounts   int // Elements unmounted
+	Styles     int // style computations
+	Structures int // box structure passes
+	Shapes     int // paragraphs shaped (text.NewLayout)
+	Breaks     int // paragraph line breakings (text.Layout.BreakLines)
+	Paints     int // paint passes
+}
+
+// Tree is a mounted UI: the Element tree, the box tree and the frame
+// pipeline (ARCHITECTURE section 8). Everything except the state setters
+// (and SetWake) must be used from one goroutine, the UI thread.
+type Tree struct {
+	fonts       *text.Collection
+	parser      *style.Parser
+	cx          style.Context
+	rootClasses []string
+	dev         bool
+	log         func(string)
+
+	root     *Element
+	rootBox  *Box
+	viewport gfx.Size
+
+	engine  layout.Engine
+	builder *gfx.Builder
+	asm     paraAssembler
+
+	// Work queues of the phases (UI thread).
+	buildQ, styleQ, boxQ []*Element
+	restyled             []*Box
+	remapQ               []*Box
+	frame                uint64 // frame counter: the validity of per-frame scratch state
+
+	// changed reports work since the last Frame; onDirty requests a frame
+	// (once until the next Frame), except while a Frame runs.
+	changed bool
+	inFrame bool
+	asked   bool
+	onDirty func()
+
+	// State updates from any goroutine.
+	mu      sync.Mutex
+	updates []update
+	wake    func()
+
+	reported map[string]bool // class strings whose errors were reported
+
+	flatFree [][]flatEntry
+	itemFree [][]*Element
+	boxFree  [][]*Box
+
+	lastDL *gfx.DisplayList
+	stats  Stats
+}
+
+// NewTree returns an empty Tree; Mount gives it content and SetViewport a
+// size.
+func NewTree(cfg Config) *Tree {
+	t := &Tree{
+		fonts:    cfg.Fonts,
+		parser:   cfg.Parser,
+		dev:      cfg.Dev || os.Getenv(EnvDev) == "1",
+		log:      cfg.Log,
+		builder:  gfx.NewBuilder(),
+		reported: map[string]bool{},
+		viewport: gfx.Size{W: 800, H: 600},
+	}
+	if t.fonts == nil {
+		t.fonts = text.NewDefaultCollection()
+	}
+	if t.parser == nil {
+		t.parser = style.DefaultParser()
+	}
+	if cfg.RootClass != "" {
+		t.rootClasses = []string{cfg.RootClass}
+	}
+	if t.log == nil && t.dev {
+		t.log = func(msg string) { fmt.Fprintln(os.Stderr, msg) }
+	}
+	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: cfg.Dark, ReducedMotion: cfg.ReducedMotion}
+	return t
+}
+
+// SetWake sets the function a state setter calls after queueing an update
+// (a backend's Wake), so that the UI thread applies it. Safe from any
+// goroutine.
+func (t *Tree) SetWake(wake func()) {
+	t.mu.Lock()
+	t.wake = wake
+	t.mu.Unlock()
+}
+
+// SetRequestFrame sets the function called on the UI thread when the
+// tree needs a frame (a window's RequestFrame). It is called at most once
+// between two Frames, and never while Frame runs.
+func (t *Tree) SetRequestFrame(f func()) { t.onDirty = f }
+
+// dirty records that the next Frame has work, and requests it.
+func (t *Tree) dirty() {
+	t.changed = true
+	if t.inFrame || t.asked || t.onDirty == nil {
+		return
+	}
+	t.asked = true
+	t.onDirty()
+}
+
+// Dirty reports whether the next Frame has work to do: state updates,
+// changed elements, a new viewport.
+func (t *Tree) Dirty() bool {
+	if t.changed {
+		return true
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.updates) > 0
+}
+
+func (t *Tree) logf(format string, args ...any) {
+	if t.log != nil {
+		t.log(fmt.Sprintf(format, args...))
+	}
+}
+
+// Stats returns the work counters.
+func (t *Tree) Stats() Stats { return t.stats }
+
+// Mount sets the content of the tree: root becomes the child of the root
+// box, which fills the viewport. Mounting again reconciles the new root
+// with the old one (state is kept where types and keys match). The
+// components are built immediately; the other phases run in Frame.
+func (t *Tree) Mount(root Node) {
+	buildMu.Lock()
+	defer buildMu.Unlock()
+	n := Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses, children: []Node{root}}}
+	if t.root == nil {
+		el := &Element{tree: t, kind: elemPrimitive, node: n, mounted: true}
+		el.box = newBox(t, el, style.KindRoot)
+		t.root, t.rootBox = el, el.box
+		t.markStyle(el)
+		t.markBoxes(el)
+		t.reconcile(el, n.d.children)
+		return
+	}
+	t.update(t.root, n)
+}
+
+// Viewport returns the logical size of the viewport.
+func (t *Tree) Viewport() gfx.Size { return t.viewport }
+
+// SetViewport sets the logical size of the window: the root box's size,
+// the vw and vh units and the breakpoint variants.
+func (t *Tree) SetViewport(size gfx.Size) {
+	if size == t.viewport {
+		return
+	}
+	t.viewport = size
+	t.cx.Viewport = size
+	t.restyleAll() // perf: only elements whose classes use vw, vh or breakpoints
+}
+
+// SetEnvironment sets dark mode and reduced motion (the dark: and
+// motion-reduce: variants).
+func (t *Tree) SetEnvironment(dark, reducedMotion bool) {
+	if dark == t.cx.Dark && reducedMotion == t.cx.ReducedMotion {
+		return
+	}
+	t.cx.Dark, t.cx.ReducedMotion = dark, reducedMotion
+	t.restyleAll()
+}
+
+// restyleAll queues every primitive for the style phase.
+func (t *Tree) restyleAll() {
+	t.dirty()
+	if t.root == nil {
+		return
+	}
+	var walk func(el *Element)
+	walk = func(el *Element) {
+		if el.kind == elemPrimitive {
+			t.markStyle(el)
+		}
+		for _, c := range el.children {
+			walk(c)
+		}
+	}
+	walk(t.root)
+}
+
+// Frame runs the pipeline (ARCHITECTURE section 8) up to paint: state
+// updates, Build (components marked needsBuild, shallowest first), Style
+// (dirty primitives; inherited changes propagate), box structure and
+// paragraphs, Layout (dirty boxes) and Paint. It returns the display list
+// of the whole tree, in logical pixels, and whether it changed since the
+// previous Frame (when nothing was dirty the previous list is returned).
+func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
+	t.inFrame = true
+	defer func() { t.inFrame = false }()
+	t.asked = false
+	t.ApplyUpdates()
+	if !t.changed && t.lastDL != nil {
+		return t.lastDL, false
+	}
+	t.frame++
+	t.stats.Frames++
+	t.buildPhase()
+	t.stylePhase()
+	t.boxPhase()
+	t.layoutPhase()
+	t.lastDL = t.paintPhase()
+	t.changed = false
+	return t.lastDL, true
+}
+
+// buildPhase builds the components marked needsBuild, shallowest first;
+// building a component updates its subtree, so a descendant that was also
+// marked is built once.
+func (t *Tree) buildPhase() {
+	if len(t.buildQ) == 0 {
+		return
+	}
+	buildMu.Lock()
+	defer buildMu.Unlock()
+	for len(t.buildQ) > 0 {
+		q := t.buildQ
+		t.buildQ = nil
+		sortByDepth(q)
+		for _, el := range q {
+			if el.mounted && el.needsBuild {
+				t.build(el)
+			}
+		}
+	}
+}
+
+// layoutPhase maps the changed layout styles and lays the tree out into
+// the viewport.
+func (t *Tree) layoutPhase() {
+	if t.rootBox == nil {
+		return
+	}
+	t.remapPhase()
+	t.engine.Compute(t.rootBox, layout.DefiniteSpace(t.viewport.W), layout.DefiniteSpace(t.viewport.H))
+}
+
+// CanvasColor returns the color of the window background: the root box's
+// background over white.
+func (t *Tree) CanvasColor() gfx.Color {
+	c := gfx.White
+	if t.rootBox == nil || t.rootBox.cs == nil {
+		return c
+	}
+	bg := t.rootBox.cs.BackgroundColor.Clamp()
+	if bg.A >= 1 {
+		return bg
+	}
+	k := 1 - bg.A
+	return gfx.Color{
+		R: float32(bg.R*bg.A) + k,
+		G: float32(bg.G*bg.A) + k,
+		B: float32(bg.B*bg.A) + k,
+		A: 1,
+	}
+}
