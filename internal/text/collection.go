@@ -185,12 +185,55 @@ func (c *Collection) resolveNames(names []string, q Query, seen map[*family]bool
 	return out
 }
 
+// systemNames appends to out the names among names, and among the generic
+// names they expand to, that resolveNames looks up in the system fonts.
+// c.mu must be held.
+func (c *Collection) systemNames(names []string, out []string) []string {
+	var walk func(names []string, depth int)
+	walk = func(names []string, depth int) {
+		for _, n := range names {
+			key := normalizeFamily(n)
+			if c.families[key] != nil {
+				continue
+			}
+			if g, ok := c.generics[key]; ok {
+				if depth < 4 {
+					walk(g, depth+1)
+				}
+				continue
+			}
+			out = append(out, n)
+		}
+	}
+	walk(names, 0)
+	return out
+}
+
+// loadSystemNames looks names up in sys before c.mu is taken. The first
+// lookup scans the font directories and a new family parses its file, which
+// can take seconds; done under c.mu, it would block the callers that need
+// only registered fonts. resolveNames then finds the families cached.
+func loadSystemNames(sys *systemFonts, names []string, q Query) {
+	for _, n := range names {
+		sys.family(n, q)
+	}
+}
+
 // Match returns the typeface of family that CSS font matching selects for
 // q, or nil if the family (or generic name) is unknown.
 func (c *Collection) Match(familyName string, q Query) *Typeface {
 	c.mu.RLock()
+	sys, names := c.sys, []string{familyName}
+	var sysNames []string
+	if sys != nil {
+		sysNames = c.systemNames(names, nil)
+	}
+	c.mu.RUnlock()
+	loadSystemNames(sys, sysNames, q)
+
+	c.mu.RLock()
 	defer c.mu.RUnlock()
-	fams := c.resolveNames([]string{familyName}, q, map[*family]bool{}, nil)
+	fams := c.resolveNames(names, q, map[*family]bool{}, nil)
 	if len(fams) == 0 {
 		return nil
 	}
@@ -380,10 +423,20 @@ func (c *Collection) candidates(q Query, size float32) *candidates {
 	key := queryKey(q, opsz)
 	c.mu.RLock()
 	cands := c.cache[key]
+	sys := c.sys
+	var sysNames []string
+	if cands == nil && sys != nil {
+		sysNames = c.systemNames(q.Families, nil)
+		sysNames = c.systemNames(c.generics["emoji"], sysNames)
+		for _, names := range c.scripts {
+			sysNames = c.systemNames(names, sysNames)
+		}
+	}
 	c.mu.RUnlock()
 	if cands != nil {
 		return cands
 	}
+	loadSystemNames(sys, sysNames, q)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

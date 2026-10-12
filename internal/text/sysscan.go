@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
@@ -148,11 +149,7 @@ func footprintOf(ld *ot.Loader) (fontscan.Footprint, error) {
 		return fp, err
 	}
 	if ranger, ok := cmap.(font.CmapRuneRanger); ok {
-		for _, rg := range ranger.RuneRanges(nil) {
-			for r := rg[0]; r <= rg[1]; r++ {
-				fp.Runes.Add(r)
-			}
-		}
+		addRuneRanges(&fp.Runes, ranger.RuneRanges(nil))
 	} else {
 		for it := cmap.Iter(); it.Next(); {
 			if r, gid := it.Char(); gid != 0 {
@@ -167,4 +164,16 @@ func footprintOf(ld *ot.Loader) (fontscan.Footprint, error) {
 	fp.Family = font.NormalizeFamily(desc.Family)
 	fp.Aspect = desc.Aspect
 	return fp, nil
+}
+
+// addRuneRanges adds the runes of ranges to rs, clamped to the Unicode code
+// space: a malformed cmap can map ranges up to 0xFFFFFFFF, which would never
+// end a loop over int32 runes and would mark pages outside Unicode.
+func addRuneRanges(rs *fontscan.RuneSet, ranges [][2]rune) {
+	for _, rg := range ranges {
+		lo, hi := max(rg[0], 0), min(rg[1], unicode.MaxRune)
+		for r := lo; r <= hi; r++ {
+			rs.Add(r)
+		}
+	}
 }

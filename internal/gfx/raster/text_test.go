@@ -463,6 +463,41 @@ func TestColorGlyph(t *testing.T) {
 	}
 }
 
+// A color glyph too large for a sprite is drawn inline, and the cache
+// remembers it: later frames call ColorGlyph once per glyph, for the inline
+// drawing only.
+func TestColorGlyphTooLargeForSprite(t *testing.T) {
+	const gWide gfx.GlyphID = 100
+	f := newTestFont("Wide")
+	f.glyphs[gWide] = &testGlyph{bounds: gfx.Rect{X0: 0, Y0: -0.8, X1: 0.8, Y1: 0}, adv: 1,
+		color: func(_ *testFont, fg gfx.Color) *gfx.DisplayList {
+			b := gfx.NewBuilder()
+			b.FillRect(gfx.Rect{X0: -2, Y0: -0.8, X1: 3, Y1: 0}, fg)
+			return b.Finish()
+		}}
+	dl := build(func(b *gfx.Builder) {
+		b.DrawGlyphRun(gfx.DrawGlyphRun{Font: f, Size: 250, Origin: gfx.Pt(100.25, 220), Paint: red,
+			Glyphs: []gfx.Glyph{{ID: gWide}}})
+	})
+	cache := NewGlyphCache(1 << 20)
+	render := func(paths bool) *image.RGBA {
+		r := NewRenderer()
+		r.tune.glyphPaths = paths
+		return renderWith(r, 300, 240, dl, Options{Scale: 1, Workers: 1, GlyphCache: cache})
+	}
+	first := render(false)
+	before := f.colors.Load()
+	second := render(false)
+	if n := f.colors.Load() - before; n != 1 {
+		t.Errorf("%d ColorGlyph calls in a cached frame, want 1", n)
+	}
+	sameImages(t, "second frame", second, first)
+	sameImages(t, "inline reference", first, render(true))
+	if !anyInk(first) {
+		t.Error("nothing drawn")
+	}
+}
+
 // A color glyph that draws itself stops at the nesting limit.
 func TestColorGlyphNesting(t *testing.T) {
 	f := testFontA

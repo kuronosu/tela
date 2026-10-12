@@ -330,7 +330,7 @@ func (l *Layout) moveVisual(c Cursor, right bool) Cursor {
 		// the one of the element on the other side of the same boundary.
 		// Collapsed white space is not a stop of its own.
 		x := elems[e].stopX(s)
-		if elems[e].ci >= 0 && l.removedSpace(elems[e].ci) && int32(li) == info.line && x == info.x {
+		if elems[e].ci >= 0 && l.removedSpace(elems[e].ci) && x == info.x {
 			continue
 		}
 		if cur, ok := l.stopCursor(li, &elems[e], s); ok && l.stopAt(cur, li, x) {

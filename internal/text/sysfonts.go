@@ -103,7 +103,7 @@ type SystemFontLogger interface {
 // memory with the collection (a TrueType collection is read once). The
 // methods that use the fonts, Face, Match and Itemize, stay safe for
 // concurrent use; the first one to need the index waits for it while others
-// that need it too wait with it.
+// that need it too wait with it, and those that do not need it go on.
 //
 // Fonts load through the same code as ParseTypefaces, so they get the same
 // instances, variations and determinism: TrueType outlines through this

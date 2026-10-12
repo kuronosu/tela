@@ -75,6 +75,7 @@ const (
 	entryMask          // data is an 8-bit coverage mask
 	entryColor         // a color glyph: look up its keySprite entry
 	entrySprite        // data is premultiplied RGBA
+	entryDirect        // too large for a sprite: the glyph is drawn directly
 )
 
 // glyphEntry is a rendered glyph. kind, rect and data never change after

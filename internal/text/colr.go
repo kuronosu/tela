@@ -436,9 +436,18 @@ func (p *painter) localCover() (gfx.Rect, bool) {
 // transformRect returns the bounding box of r transformed by a, computed
 // like transformPath (fusion-safe).
 func transformRect(a gfx.Affine, r gfx.Rect) gfx.Rect {
-	var p gfx.Path
-	p.AddRect(r)
-	return transformPath(p, a).ControlBounds()
+	a0, a1, a2, a3, a4, a5 := float64(a[0]), float64(a[1]), float64(a[2]), float64(a[3]), float64(a[4]), float64(a[5])
+	var out gfx.Rect
+	for i, q := range [4]gfx.Point{{X: r.X0, Y: r.Y0}, {X: r.X1, Y: r.Y0}, {X: r.X1, Y: r.Y1}, {X: r.X0, Y: r.Y1}} {
+		x, y := float64(q.X), float64(q.Y)
+		px, py := float32(a0*x+a2*y+a4), float32(a1*x+a3*y+a5)
+		if i == 0 {
+			out = gfx.Rect{X0: px, Y0: py, X1: px, Y1: py}
+			continue
+		}
+		out = gfx.Rect{X0: min(out.X0, px), Y0: min(out.Y0, py), X1: max(out.X1, px), Y1: max(out.Y1, py)}
+	}
+	return out
 }
 
 // fillUnbounded fills the whole cover area with a solid or gradient node.

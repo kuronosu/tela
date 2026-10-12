@@ -183,17 +183,20 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 			if cl != nil {
 				var ok bool
 				s.rect, s.data, ok = r.glyphSprite(cl, run.sx, run.sy, ox)
-				if !ok {
-					return false // too large for a sprite: draw it inline
-				}
-				if s.data != nil {
+				switch {
+				case !ok:
+					s.kind = entryDirect
+				case s.data != nil:
 					s.kind = entrySprite
 				}
 			}
 			s = cache.put(s)
 		}
-		if s.kind == entrySprite {
+		switch s.kind {
+		case entrySprite:
 			r.blitSprite(s, ix, iy)
+		case entryDirect:
+			return false // too large for a sprite: draw it inline
 		}
 	}
 	return true

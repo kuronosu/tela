@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-text/typesetting/fontscan"
 	"github.com/go-text/typesetting/language"
@@ -503,6 +504,28 @@ func TestSystemRegionPreference(t *testing.T) {
 	}
 }
 
+func TestSystemRegionRank(t *testing.T) {
+	prefs := []string{"kr", "jp", "sc", "tc", "hk"}
+	for _, tc := range []struct {
+		family string
+		want   int
+	}{
+		{"Noto Sans CJK KR", 0},
+		{"Noto Serif CJK JP", 1},
+		{"Noto Sans Mono CJK SC", 2},
+		{"Noto Sans TC", 3},
+		{"Source Han Sans HK", 4},
+		{"PingFang SC", 2},
+		{"Noto Sans Misc", 5},
+		{"Fira Code Disc", 5},
+		{"Noto Sans", 5},
+	} {
+		if got := regionRank(normalizeFamily(tc.family), prefs); got != tc.want {
+			t.Errorf("%s: rank %d, want %d", tc.family, got, tc.want)
+		}
+	}
+}
+
 func TestSystemMatchEntry(t *testing.T) {
 	s := synthetic("",
 		entry("fam", StyleNormal, 300, "a"),
@@ -613,4 +636,66 @@ func TestSystemDirectoryScan(t *testing.T) {
 	if cjk.Aspect.Weight != 400 || mono.Location.File != filepath.Join(sub, "mono.TTF") {
 		t.Errorf("aspect %+v location %+v", cjk.Aspect, mono.Location)
 	}
+}
+
+// A malformed cmap can declare ranges far outside Unicode; the scan must
+// clamp them instead of looping until the rune overflows.
+func TestSystemMalformedRuneRanges(t *testing.T) {
+	var rs fontscan.RuneSet
+	addRuneRanges(&rs, [][2]rune{{-5, 1}, {0x10FFFE, 0x7FFFFFFF}, {0x7FFFFFF0, 0x7FFFFFFF}, {9, 3}})
+	for _, r := range []rune{0, 1, 0x10FFFE, 0x10FFFF} {
+		if !rs.Contains(r) {
+			t.Errorf("rune %#x missing", r)
+		}
+	}
+	for _, r := range []rune{2, 5, 0x110000, 0x7FFFFFFF} {
+		if rs.Contains(r) {
+			t.Errorf("rune %#x present", r)
+		}
+	}
+}
+
+// blockingLogger holds the system font scan at its last message until
+// release is closed.
+type blockingLogger struct {
+	scanning chan struct{}
+	release  chan struct{}
+}
+
+func (l *blockingLogger) Printf(format string, _ ...any) {
+	if strings.HasPrefix(format, "indexed ") {
+		close(l.scanning)
+		<-l.release
+	}
+}
+
+// A scan started by an unknown family name must not block the queries that
+// need only registered fonts.
+func TestSystemScanDoesNotBlockRegistered(t *testing.T) {
+	c := interOnly(t)
+	log := &blockingLogger{scanning: make(chan struct{}), release: make(chan struct{})}
+	err := c.EnableSystemFonts(SystemFontOptions{Dirs: []string{t.TempDir()}, SkipSystemDirs: true, Logger: log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.Face(Query{Families: []string{"Missing", "Inter"}}, 16)
+	}()
+	<-log.scanning
+
+	got := make(chan *Face)
+	go func() { got <- c.Face(Query{Families: []string{"Inter"}, Weight: 700}, 16) }()
+	go func() { c.Match("Inter", Query{}) }()
+	select {
+	case f := <-got:
+		if f == nil || f.Typeface().Family() != "Inter" {
+			t.Errorf("got %v, want Inter", f)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("a query for a registered family waited for the system font scan")
+	}
+	close(log.release)
+	<-done
 }

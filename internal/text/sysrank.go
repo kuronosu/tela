@@ -71,11 +71,27 @@ func regionPreference(lang string) []string {
 	return out
 }
 
+// regionalBases are the normalized names of the CJK families published in
+// regional variants (Noto Sans JP, Source Han Serif KR, PingFang SC...),
+// besides the ones whose base name ends in "cjk" (Noto Sans Mono CJK SC).
+var regionalBases = map[string]bool{
+	"notosans": true, "notoserif": true,
+	"sourcehansans": true, "sourcehanserif": true, "sourcehansansmono": true,
+	"sarasagothic": true, "sarasaui": true, "sarasamono": true,
+	// macOS
+	"pingfang": true, "heiti": true, "songti": true, "kaiti": true, "yuanti": true,
+	"lantinghei": true, "hannotate": true, "hanzipen": true, "libian": true,
+	"weibei": true, "wawati": true,
+}
+
 // regionRank is the position in prefs of the region suffix of the
-// normalized family name, or len(prefs) for families without one.
+// normalized name of a regional CJK family, or len(prefs) for other
+// families: only a regional variant has a region, not a family whose name
+// just ends in the same letters (Misc).
 func regionRank(family string, prefs []string) int {
 	for i, suffix := range prefs {
-		if strings.HasSuffix(family, suffix) {
+		base, ok := strings.CutSuffix(family, suffix)
+		if ok && (strings.HasSuffix(base, "cjk") || regionalBases[base]) {
 			return i
 		}
 	}
