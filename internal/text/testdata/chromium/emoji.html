@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "TelaEmoji"; src: url("../../../assets/fonts/notocoloremoji/Noto-COLRv1.ttf"); }
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; }
+</style></head><body><canvas id="c" width="1140" height="150"></canvas>
+<script>
+const items = [
+["😀", 64, 16, 80],
+["😍", 64, 96, 80],
+["🤔", 64, 176, 80],
+["🔥", 64, 256, 80],
+["🎉", 64, 336, 80],
+["🌍", 64, 416, 80],
+["🤩", 64, 496, 80],
+["🌏", 64, 576, 80],
+["⚠️", 64, 656, 80],
+["📖", 64, 736, 80],
+["💻", 64, 816, 80],
+["🇯🇵", 64, 896, 80],
+["🇧🇷", 64, 976, 80],
+["🇩🇪", 64, 1056, 80],
+["😀", 20, 16, 130],
+["😍", 20, 44, 130],
+["🤔", 20, 72, 130],
+["🔥", 20, 100, 130],
+["🎉", 20, 128, 130],
+["🌍", 20, 156, 130],
+["🤩", 20, 184, 130],
+["🌏", 20, 212, 130],
+["⚠️", 20, 240, 130],
+["📖", 20, 268, 130],
+["💻", 20, 296, 130],
+["🇯🇵", 20, 324, 130],
+["🇧🇷", 20, 352, 130],
+["🇩🇪", 20, 380, 130]
+];
+document.fonts.load("64px TelaEmoji", "\u{1F600}").then(() => {
+  const ctx = document.getElementById("c").getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, 1140, 150);
+  ctx.fillStyle = "#111827";
+  ctx.textBaseline = "alphabetic";
+  for (const [t, size, x, y] of items) {
+    ctx.font = size + "px TelaEmoji";
+    ctx.fillText(t, x, y);
+  }
+});
+</script></body></html>

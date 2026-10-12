@@ -82,3 +82,17 @@ their original copyright notice. Add one section per source project.
 - **License:** OFL-1.1, Copyright 2014-2021 Adobe (`internal/text/testdata/fonts/OFL.txt`, the release's `LICENSE`)
 - **Used in:** `internal/text/testdata/fonts/NotoSansJP-Subset.otf` (sha256 `cc7759815817d9e0c4b875680bfaa3ee73373bfaa4bffc4661e5f65c6d9747c9`). Tests only; never embedded in a non-test package.
 - **Notes:** Subset made with fontTools `pyftsubset` (a development tool, not a dependency) to ASCII, CJK Symbols and Punctuation, Hiragana, Katakana, Halfwidth and Fullwidth Forms and the characters of `cjk_sample.txt`; OpenType layout features and the `name` table kept, hinting dropped. The exact command is in `internal/text/testdata/fonts/README.md`. The full Pan-CJK JP file is the source instead of `SubsetOTF/JP/` because the latter lacks Simplified-only characters.
+
+## go-text/typesetting (ported code)
+
+- **Source:** https://github.com/go-text/typesetting (v0.3.5, the version in `go.mod`)
+- **License:** Unlicense OR BSD-3-Clause, Copyright 2021 The go-text authors (used under BSD-3-Clause)
+- **Used in:** `internal/text/glyf.go`, `internal/text/vardelta.go`
+- **Notes:** go-text is also an approved dependency; these files port parts of it so that variable outlines and metrics are bit-identical across architectures (ADR-027). Ported from `font/glyphs.go` (`getPointsForGlyphRec`, `transformPoints`: TrueType simple and composite glyphs with phantom points), `font/variations.go` (`parseGlyphVariationSerializedData`, `parsePointNumbers`, `unpackDeltas`, `calculateScalar`, `applyDeltasToPoints`, `inferDelta`: gvar deltas with IUP, itself adapted from HarfBuzz's `hb-ot-var-gvar-table.hh`), `font/renderer.go` (`buildSegments`: contours to quadratic paths) and `font/opentype/tables/xvar_src.go` (`ItemVarStore.GetDelta`, `RegionAxisCoordinates.evaluate`). Diverges from go-text: arithmetic is float64 with every product that feeds an addition rounded explicitly (go-text uses float32 that Go fuses into multiply-adds on arm64); coordinate differences are taken in `int` (go-text subtracts `int16` values, which can overflow); invalid variation regions are ignored as in HarfBuzz; contours are emitted directly as em-space `gfx.Path`s and start at their first on-curve point. Each ported file keeps the go-text copyright notice.
+
+## Unicode emoji data
+
+- **Source:** https://www.unicode.org/Public/17.0.0/ucd/emoji/emoji-data.txt (Unicode 17.0.0)
+- **License:** Unicode License v3 (https://www.unicode.org/license.txt)
+- **Used in:** `internal/text/emoji_tables.go`
+- **Notes:** The `Emoji_Presentation`, `Emoji` and `Emoji_Modifier_Base` properties, converted to `unicode.RangeTable`s (adjacent ranges merged). The generated file names its source; regenerating it means re-running the same conversion on a newer `emoji-data.txt`.
