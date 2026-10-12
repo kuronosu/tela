@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="counter.css">
+</head>
+<body>
+<div class="flex flex-col items-center gap-6 p-10 rounded-3xl bg-linear-to-br from-indigo-500 to-fuchsia-600 shadow-2xl"><h1 class="text-5xl font-bold text-white tracking-tight">Count: 0</h1><button class="px-6 py-3 rounded-xl bg-white/15 text-white backdrop-blur hover:bg-white/25 active:scale-95 transition">Increment</button></div>
+<pre id="out" hidden></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const rect = r => [r.left, r.top, r.width, r.height];
+  const card = document.querySelector("div");
+  const h1 = document.querySelector("h1");
+  const button = document.querySelector("button");
+  // Blink quantizes the font metrics in device pixels: measure at the
+  // device size.
+  const dpr = window.devicePixelRatio;
+  const ctx = document.createElement("canvas").getContext("2d");
+  const textOf = el => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const cs = getComputedStyle(el);
+    ctx.font = cs.fontWeight + " " + (parseFloat(cs.fontSize) * dpr) + "px " + cs.fontFamily;
+    const m = ctx.measureText(el.textContent);
+    return {rect: rect(range.getBoundingClientRect()), ascent: m.fontBoundingBoxAscent / dpr};
+  };
+  const text = textOf(h1), buttonText = textOf(button);
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify({
+    dpr: dpr,
+    card: rect(card.getBoundingClientRect()),
+    h1: rect(h1.getBoundingClientRect()),
+    text: text.rect,
+    ascent: text.ascent,
+    button: rect(button.getBoundingClientRect()),
+    buttonText: buttonText.rect,
+    buttonAscent: buttonText.ascent,
+  }) + "END";
+});
+</script>
+</body>
+</html>
