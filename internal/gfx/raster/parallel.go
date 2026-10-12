@@ -51,6 +51,7 @@ type parallel struct {
 	dst    *image.RGBA
 	dl     *gfx.DisplayList
 	scale  float32
+	glyphs *GlyphCache
 	area   image.Rectangle // the pixels to render
 	rows   int             // band height
 	nbands int32
@@ -134,6 +135,7 @@ func (r *Renderer) renderParallel(dst *image.RGBA, dl *gfx.DisplayList, s float3
 		p.workers = append(p.workers, w)
 	}
 	p.dst, p.dl, p.scale, p.area, p.rows, p.nbands = dst, dl, s, area, rows, int32(nbands)
+	p.glyphs = r.glyphs
 	p.next.Store(0)
 	p.failed.Store(false)
 	p.pval, p.pset = nil, false
@@ -146,7 +148,7 @@ func (r *Renderer) renderParallel(dst *image.RGBA, dl *gfx.DisplayList, s float3
 
 	pval, pset := p.pval, p.pset
 	// Do not retain dst, the list or the panic value.
-	p.dst, p.dl, p.pval, p.pset = nil, nil, nil, false
+	p.dst, p.dl, p.pval, p.pset, p.glyphs = nil, nil, nil, false, nil
 	if pset {
 		panic(pval)
 	}
@@ -204,6 +206,8 @@ func (p *parallel) bands(r *Renderer) {
 		}
 	}()
 	area := p.area
+	r.glyphs = p.glyphs
+	root := gfx.Scale(p.scale, p.scale)
 	for !p.failed.Load() {
 		b := p.next.Add(1) - 1
 		if b >= p.nbands {
@@ -211,6 +215,6 @@ func (p *parallel) bands(r *Renderer) {
 		}
 		y0 := area.Min.Y + int(b)*p.rows
 		band := image.Rect(area.Min.X, y0, area.Max.X, min(y0+p.rows, area.Max.Y))
-		r.render(p.dst, p.dl, p.scale, band)
+		r.render(p.dst, p.dl, root, band)
 	}
 }

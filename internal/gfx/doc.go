@@ -40,8 +40,8 @@
 // # The DisplayList
 //
 // A DisplayList is a flat, immutable slice of Command values: FillRect,
-// FillRRect, FillPath, StrokePath, DrawImage, DrawShadow, BackdropFilter and
-// the Push/Pop pairs for clips, transforms and layers. Push/Pop nest strictly
+// FillRRect, FillPath, StrokePath, DrawImage, DrawGlyphRun, DrawShadow,
+// BackdropFilter and the Push/Pop pairs for clips, transforms and layers. Push/Pop nest strictly
 // as a single stack. Commands are plain structs so that a rasterizer can use a
 // type switch.
 //
@@ -64,5 +64,13 @@
 //     outside the box and an inset shadow only inside it.
 //   - Blur filters take a standard deviation, like CSS filter: blur().
 //
-// Text (DrawGlyphRun) is added in phase 2.
+// # Text
+//
+// DrawGlyphRun draws positioned glyphs of one Font at one size. Font is an
+// interface implemented by package text (on go-text/typesetting), so that gfx
+// and the rasterizers do not depend on a font library: it gives each glyph's
+// outline and bounds in em space (1 em = 1 unit, y down, origin at the pen
+// position on the baseline), and color glyphs as DisplayLists in em space
+// that receive the foreground color. One em-space outline serves every
+// size; rasterizers cache the rendered glyphs by Font.FontKey.
 package gfx

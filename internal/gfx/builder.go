@@ -31,6 +31,10 @@ import (
 //     MiterLimit for miter joins and by sqrt(2) for square caps;
 //   - shadows: outer: the box translated by Offset and grown by
 //     max(Spread, 0) + 3 sigma, with sigma = Blur/2; inset: the box;
+//   - glyph runs: the union of the glyphs' Font.GlyphBounds, scaled by Size
+//     and placed at their pen positions (rasterizers that snap pen
+//     positions move glyphs by less than one device pixel, which the
+//     one-pixel margin of their culling covers);
 //   - layers: the union of the content grown by FiltersOutset (3 sigma per
 //     Gaussian, plus the offset of a drop shadow), converted to root space with
 //     Affine.MaxScale, and limited to the clip active at PushLayer. Inside a

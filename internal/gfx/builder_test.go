@@ -963,6 +963,12 @@ func goldenList() *DisplayList {
 	b.FillPath(blobPath(), NonZero, Color{0.2, 0.4, 0.8, 1})
 	b.PopLayer()
 
+	f := newBoxFont()
+	b.DrawGlyphRun(DrawGlyphRun{Font: f, Size: 16, Origin: Pt(20, 170), Paint: MustParseHex("#0f172a"),
+		Glyphs: []Glyph{{6, 0, 0}, {0, 9.5, 0}, {8, 13.25, 0}, {99, 26.5, 0.5}}})
+	b.DrawGlyphRun(DrawGlyphRun{Font: f, Size: 24, Origin: Pt(20, 200), Glyphs: []Glyph{{5, 0, 0}, {9, 12, 0}},
+		Paint: LinearGradient{Start: Pt(20, 0), End: Pt(60, 0), Stops: []GradientStop{{0, White}, {1, Black}}}})
+
 	b.PushClipPath(blobPath().Transform(Translate(90, 0)), NonZero)
 	b.BackdropFilter(RRectCorners(Rect{110, 180, 190, 220}, Pt(8, 8), Pt(8, 8), Pt(0, 0), Pt(20, 10)), Blur{6}, Contrast(1.5))
 	b.PopClip()

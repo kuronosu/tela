@@ -25,7 +25,8 @@ func (d *DisplayList) String() string {
 //	PopClip
 //
 // Pop lines carry no bounds (they equal their push's). Images are shown by
-// size, not by ID, so dumps do not depend on creation order.
+// size, not by ID, and fonts by FontName, not by FontKey, so dumps do not
+// depend on creation order. Glyph runs list every glyph as id@(x,y).
 func (d *DisplayList) Dump(w io.Writer) error {
 	depth := 0
 	var sb strings.Builder
@@ -101,6 +102,12 @@ func dumpArgs(sb *strings.Builder, c Command) {
 		if c.Inset {
 			sb.WriteString(" inset")
 		}
+	case DrawGlyphRun:
+		attr("font", strconv.Quote(c.Font.FontName()))
+		attr("size", fmtF(c.Size))
+		attr("origin", fmtPt(c.Origin))
+		attr("paint", fmtPaint(c.Paint))
+		attr("glyphs", fmtGlyphs(c.Glyphs))
 	case PushClipRect:
 		attr("rect", fmtRect(c.Rect))
 	case PushClipRRect:
@@ -192,6 +199,24 @@ func fmtPath(p Path) string {
 		}
 	}
 	return "{" + sb.String() + "}"
+}
+
+// fmtGlyphs prints the glyph count and every glyph as id@(x,y), for example
+// "2[36@(0,0) 72@(8.5,0)]".
+func fmtGlyphs(gs []Glyph) string {
+	var sb strings.Builder
+	sb.WriteString(strconv.Itoa(len(gs)))
+	sb.WriteByte('[')
+	for i, g := range gs {
+		if i > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(strconv.FormatUint(uint64(g.ID), 10))
+		sb.WriteByte('@')
+		sb.WriteString(fmtPt(Point{g.X, g.Y}))
+	}
+	sb.WriteByte(']')
+	return sb.String()
 }
 
 func fmtStops(stops []GradientStop) string {

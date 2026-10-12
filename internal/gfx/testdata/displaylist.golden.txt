@@ -14,6 +14,8 @@ DrawImage image=2x2 src=[0,0,1,2] dst=[240,150,260,190] sampling=linear bounds=[
 PushLayer opacity=0.8 blend=multiply filters=[blur(3) matrix[1.2,0,0,0,0,0,1.2,0,0,0,0,0,1.2,0,0,0,0,0,1,0] drop-shadow((2,3) 4 #00000066)] bounds=[10.394449,150.39445,109.60555,254.60555]
   FillPath path={M35,200 C35,180 50,175 60,175 Q85,175 85,200 L80,220 C70,230 50,230 40,220 Z} rule=nonzero paint=#3366cc bounds=[35,175,85,230]
 PopLayer
+DrawGlyphRun font="Box Sans" size=16 origin=(20,170) paint=#0f172a glyphs=4[6@(0,0) 0@(9.5,0) 8@(13.25,0) 99@(26.5,0.5)] bounds=[20,154.5,62.5,170.5]
+DrawGlyphRun font="Box Sans" size=24 origin=(20,200) paint=linear((20,0)->(60,0) oklab [0:#ffffff 1:#000000]) glyphs=2[5@(0,0) 9@(12,0)] bounds=[20,178.4,53.6,200]
 PushClipPath path={M125,200 C125,180 140,175 150,175 Q175,175 175,200 L170,220 C160,230 140,230 130,220 Z} rule=nonzero bounds=[125,180,175,220]
   BackdropFilter rect=[110,180,190,220] r=8/8/0/20x10 filters=[blur(6) matrix[1.5,0,0,0,-0.25,0,1.5,0,0,-0.25,0,0,1.5,0,-0.25,0,0,0,1,0]] bounds=[125,180,175,220]
 PopClip

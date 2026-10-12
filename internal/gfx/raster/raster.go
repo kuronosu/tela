@@ -27,13 +27,18 @@ type Options struct {
 	// rendered sequentially whatever its value (see the package
 	// documentation).
 	Workers int
+	// GlyphCache caches rendered glyphs across frames and Renderers. nil
+	// selects a cache shared by the whole package, of
+	// DefaultGlyphCacheBytes. The pixels do not depend on the cache.
+	GlyphCache *GlyphCache
 }
 
 // Renderer renders display lists into RGBA images. It owns the scratch
 // buffers of the rasterizer (edges, clip masks, layer surfaces, gradient
 // ramps) and reuses them between calls, so a long-lived Renderer does not
 // allocate in the steady state (StrokePath excepted: gfx.Path.Stroke
-// allocates its outline).
+// allocates its outline; and glyphs missing from the glyph cache, whose
+// masks and sprites are new memory owned by the cache).
 //
 // A parallel Render (Options.Workers) uses worker Renderers that this
 // Renderer creates on first use and keeps for later frames.
@@ -51,8 +56,10 @@ type Renderer struct {
 	ramps rampCache
 	opq   imageOpacityCache
 
-	dl    *gfx.DisplayList // the list being rendered
-	scale float64          // display scale of the current Render
+	dl *gfx.DisplayList // the list being rendered
+	// root maps the root space of dl to device space: the display scale,
+	// or for a color glyph, the glyph's transform (see glyph.go).
+	root gfx.Affine
 
 	ctm      gfx.Affine // current transform: local -> device
 	skipping bool       // inside a block that shows nothing
@@ -82,13 +89,28 @@ type Renderer struct {
 	emitFn    func(gfx.Verb, gfx.Point)
 	visitFn   func(int, gfx.Command)
 
+	maskBlit blitter // writes glyph masks (glyph.go)
+
 	rowMask []uint8   // rrect rows
 	rowSub  []float64 // rrect corner areas
 
+	// Text (glyph.go): the glyph cache of the current Render (nil means
+	// the package default), the Renderer that draws color glyph sprites,
+	// the nesting depth of color glyphs, and the depth every render
+	// starts at (0, or for a sprite Renderer, its glyph's depth plus 1).
+	glyphs      *GlyphCache
+	sprite      *Renderer
+	glyphDepth  int
+	spriteDepth int
+
 	par *parallel // worker Renderers and the job of a parallel Render
-	// tune overrides the band split for tests; zero values mean the
-	// defaults (see parallel.go).
-	tune struct{ bandRows, minPixels int }
+	// tune overrides defaults for tests: the band split (zero values mean
+	// the defaults, see parallel.go), and glyphPaths draws every glyph
+	// without the glyph cache, as under rotations.
+	tune struct {
+		bandRows, minPixels int
+		glyphPaths          bool
+	}
 }
 
 // savedState is the state that a push saves and its pop restores.
@@ -169,16 +191,18 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if clip.Empty() {
 		return
 	}
+	r.glyphs = opts.GlyphCache
 	if opts.Workers != 1 && r.renderParallel(dst, dl, s, clip, opts.Workers) {
 		return
 	}
-	r.render(dst, dl, s, clip)
+	r.render(dst, dl, gfx.Scale(s, s), clip)
 }
 
 // render renders dl onto the device pixels clip of dst (clip lies inside
 // dst.Rect and the ±coordLimit box and is not empty) on the calling
-// goroutine.
-func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, s float32, clip image.Rectangle) {
+// goroutine. root maps the root space of dl to device space: the display
+// scale, or a positive scale and a translation for color glyph sprites.
+func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine, clip image.Rectangle) {
 	if r.emitFn == nil {
 		r.emitFn = r.emit
 		r.visitFn = r.visit
@@ -187,8 +211,9 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, s float32, clip 
 	r.blit.cm = clipMask{}
 	r.blit.toMask = false
 	r.dl = dl
-	r.scale = float64(s)
-	r.ctm = gfx.Scale(s, s)
+	r.root = root
+	r.ctm = root
+	r.glyphDepth = r.spriteDepth
 	r.skipping = false
 	r.stack = r.stack[:0]
 	r.region, r.bound = clip, image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit)
@@ -197,10 +222,10 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, s float32, clip 
 	// The clip in root space, grown by one device pixel so that float32
 	// rounding in the list's bounds can never cull a command that touches
 	// a pixel of the region.
-	sc := float64(s)
-	root := gfx.Rect{
-		X0: float32(float64(clip.Min.X-1) / sc), Y0: float32(float64(clip.Min.Y-1) / sc),
-		X1: float32(float64(clip.Max.X+1) / sc), Y1: float32(float64(clip.Max.Y+1) / sc),
+	sx, sy, tx, ty := float64(root[0]), float64(root[3]), float64(root[4]), float64(root[5])
+	rootClip := gfx.Rect{
+		X0: float32((float64(clip.Min.X-1) - tx) / sx), Y0: float32((float64(clip.Min.Y-1) - ty) / sy),
+		X1: float32((float64(clip.Max.X+1) - tx) / sx), Y1: float32((float64(clip.Max.Y+1) - ty) / sy),
 	}
 	defer func() {
 		// Do not retain dst, the list or the paints.
@@ -214,7 +239,7 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, s float32, clip 
 		clear(r.dfs)
 		r.dfs = r.dfs[:0]
 	}()
-	dl.Visit(root, r.visitFn)
+	dl.Visit(rootClip, r.visitFn)
 }
 
 // visit executes one command.
@@ -242,6 +267,10 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 	case gfx.DrawImage:
 		if !r.skipping {
 			r.drawImage(c)
+		}
+	case gfx.DrawGlyphRun:
+		if !r.skipping {
+			r.drawGlyphRun(c)
 		}
 	case gfx.PushTransform:
 		r.save()
@@ -455,15 +484,10 @@ func rectCovX(x int, X0, X1 int64) int64 {
 // fillPath fills a local-space path under the current transform.
 func (r *Renderer) fillPath(p gfx.Path, rule gfx.FillRule) {
 	m := r.ctm
-	// The Frobenius norm bounds the largest stretch of m (and is at most
-	// sqrt(2) times it), so the local tolerance below keeps the device-space
-	// error within FlattenTolerance. The squares are exact products.
-	a, b, c, d := float64(m[0]), float64(m[1]), float64(m[2]), float64(m[3])
-	norm := math.Sqrt(a*a + b*b + c*c + d*d)
-	if !(norm > 0) || math.IsInf(norm, 0) {
+	tol, ok := flattenTolerance(&m)
+	if !ok {
 		return
 	}
-	tol := float32(float64(FlattenTolerance) / norm)
 	f := &r.fill
 	f.reset()
 	r.flatM = m
@@ -475,6 +499,20 @@ func (r *Renderer) fillPath(p gfx.Path, rule gfx.FillRule) {
 	}
 	f.closePath()
 	f.rasterize(rule, &r.blit)
+}
+
+// flattenTolerance returns the local-space flattening tolerance that keeps
+// the device-space error of a path under m within FlattenTolerance. ok is
+// false for a degenerate or non-finite m.
+func flattenTolerance(m *gfx.Affine) (tol float32, ok bool) {
+	// The Frobenius norm bounds the largest stretch of m (and is at most
+	// sqrt(2) times it). The squares are exact products.
+	a, b, c, d := float64(m[0]), float64(m[1]), float64(m[2]), float64(m[3])
+	norm := math.Sqrt(a*a + b*b + c*c + d*d)
+	if !(norm > 0) || math.IsInf(norm, 0) {
+		return 0, false
+	}
+	return float32(float64(FlattenTolerance) / norm), true
 }
 
 // cullMargin is how far, in device pixels, outside the clip a curve must lie

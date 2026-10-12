@@ -97,6 +97,60 @@
 // value of a pixel does not depend on the order in which edges and cells are
 // summed.
 //
+// # Text
+//
+// DrawGlyphRun (glyph.go) draws each glyph of a run in one of two ways.
+//
+// Cached, when the current transform is a positive scale and a translation
+// and the device em size (the transform's scale times the run's Size,
+// rounded to float32 like gfx.Affine.Mul) is at most 256 pixels along both
+// axes: the device pen position is rounded to a quarter pixel in x and to a
+// whole pixel in y (baseline snapping, as in Skia and browsers), and the
+// glyph comes from a GlyphCache keyed by (Font.FontKey, glyph, device em
+// size, quarter-pixel offset, FlattenTolerance). An outline glyph is an
+// 8-bit coverage mask made by the path rasterizer from the em-space outline
+// under Scale(em size) and Translate(offset/4, 0), with fillPath's
+// tolerance; placing it at whole pixels changes nothing, so a cached glyph
+// has exactly the pixels of filling its outline at the snapped position
+// (TestGlyphCachedMatchesPaths). The mask is composited with the run's
+// paint like any coverage: gradients are sampled at device pixel centers in
+// the run's space, through the clip mask and onto the current layer. A
+// color glyph (Font.ColorGlyph) is a premultiplied RGBA sprite, its
+// DisplayList rendered by a nested Renderer onto a transparent surface at
+// the same size and offset and trimmed to its painted pixels, keyed further
+// by the foreground color's float32 bits and the color glyph nesting depth;
+// it is composited with source-over through the clip like a layer.
+//
+// Direct, otherwise (rotations, skews, flips, larger sizes, pens beyond
+// ±2^19 device pixels, glyphs whose em bounds exceed 1024 device pixels):
+// the outline is filled with NonZero under the glyph's full transform
+// (current transform, translation to the unsnapped pen, Scale(Size)), and a
+// color glyph's DisplayList is visited inline under that transform. Inline
+// commands composite one by one instead of as a group, which differs from
+// a sprite only by rounding when they use source-over. Color glyphs nested
+// more than three deep are not drawn, which stops fonts whose color glyphs
+// draw themselves.
+//
+// Glyphs with empty Font.GlyphBounds are skipped, and so is each glyph
+// whose bounds miss the clip, so a band only looks up the glyphs that cross
+// it. A fully transparent solid paint hides outline glyphs, not color
+// glyphs. The cache never changes the pixels: masks and sprites are a
+// function of their key, the decision between cached and direct drawing
+// depends on the transform, the size and the glyph only, and the pen
+// positions are computed with exact products, so hits, misses, evictions,
+// regions and band splits give the same pixels.
+//
+// The GlyphCache is shared across frames, Renderers and the band workers
+// of a parallel Render (Options.GlyphCache; by default one cache of
+// DefaultGlyphCacheBytes for the package). It is split into 16 shards with
+// a mutex, a map and an LRU list each, and bounded by bytes per shard.
+// Entries are immutable once added; a glyph rendered by two goroutines at
+// once is added by the first and the second uses that entry. On a 1920x1080
+// page, 2,000 glyphs of 14 px text take about 0.43 ms from a warm cache and
+// 0.54 ms when every mask is made again, against 9.5 ms as paths
+// (BenchmarkText1080p*, Intel Core Ultra 5 125H, one goroutine); blending
+// the coverage, not the lookup, is most of the warm cost.
+//
 // # Regions and tiling
 //
 // Options.Region restricts drawing to a rectangle of device pixels, and the
@@ -198,18 +252,21 @@
 //     use and reused for later frames; only that Renderer's Render starts
 //     them). All scratch memory (edges, accumulation rows, masks, layer
 //     and filter surfaces, blur planes, shadow tables, gradient ramps,
-//     flattening and image caches) lives in a Renderer.
+//     flattening and image caches, the Renderer that draws color glyph
+//     sprites) lives in a Renderer.
 //   - Each goroutine writes only the pixels of dst inside the bands it
 //     claimed, and reads only those pixels of dst: source-over reads the
 //     pixel it writes, and layers and filters work on private surfaces.
 //     The bands are disjoint, so no pixel of dst is accessed by two
 //     goroutines.
 //   - What the goroutines share is read-only: the DisplayList, its paths,
-//     paints and images (immutable by contract), the job description
-//     (written before the goroutines start, read after they are waited
-//     for), and package tables built at init (gaussTab, Gauss-Legendre
-//     nodes, color matrices). The band counter and the panic slot are the
-//     only shared writes; they are an atomic counter and a mutex.
+//     paints, images and fonts (immutable by contract; fonts are safe for
+//     concurrent use), the job description (written before the goroutines
+//     start, read after they are waited for), the masks and sprites of the
+//     glyph cache (immutable once added), and package tables built at init
+//     (gaussTab, Gauss-Legendre nodes, color matrices). The band counter,
+//     the panic slot and the glyph cache's maps and LRU lists are the only
+//     shared writes; they are an atomic counter and mutexes.
 //   - Render waits for every goroutine before it returns. A panic in any
 //     band (an unimplemented feature, for example) stops the claiming of
 //     new bands, and once every goroutine is done, Render panics again on

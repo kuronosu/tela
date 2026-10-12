@@ -154,10 +154,9 @@ func pixelBounds(x0, y0, x1, y1 float64) image.Rectangle {
 	)
 }
 
-// rectBounds returns the device pixels that a local-space rectangle can
-// touch under the current transform.
-func (r *Renderer) rectBounds(rect gfx.Rect) image.Rectangle {
-	m := &r.ctm
+// affineBounds returns the device pixels that a rectangle can touch under
+// m.
+func affineBounds(m *gfx.Affine, rect gfx.Rect) image.Rectangle {
 	x0, y0 := math.Inf(1), math.Inf(1)
 	x1, y1 := math.Inf(-1), math.Inf(-1)
 	for _, p := range [4]gfx.Point{{X: rect.X0, Y: rect.Y0}, {X: rect.X1, Y: rect.Y0}, {X: rect.X1, Y: rect.Y1}, {X: rect.X0, Y: rect.Y1}} {
@@ -165,6 +164,12 @@ func (r *Renderer) rectBounds(rect gfx.Rect) image.Rectangle {
 		x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
 	}
 	return pixelBounds(x0, y0, x1, y1)
+}
+
+// rectBounds returns the device pixels that a local-space rectangle can
+// touch under the current transform.
+func (r *Renderer) rectBounds(rect gfx.Rect) image.Rectangle {
+	return affineBounds(&r.ctm, rect)
 }
 
 // pathBounds returns the device pixels that a local-space path can touch
@@ -225,11 +230,8 @@ func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
 		return
 	}
 	// The layer's root-space bounds (its content, clipped by the clip at
-	// PushLayer) in device pixels. The products of float32 values are
-	// exact in float64.
-	bb := r.dl.BoundsAt(i)
-	s := r.scale
-	r.narrow(pixelBounds(float64(bb.X0)*s, float64(bb.Y0)*s, float64(bb.X1)*s, float64(bb.Y1)*s))
+	// PushLayer) in device pixels.
+	r.narrow(r.devBounds(r.dl.BoundsAt(i)))
 	if r.skipping {
 		return
 	}

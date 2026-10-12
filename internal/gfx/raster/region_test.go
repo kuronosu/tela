@@ -274,7 +274,7 @@ func TestRegionMatchesFullRenderCulled(t *testing.T) {
 }
 
 func testRegions(t *testing.T) {
-	all := append(append(append([]scene(nil), scenes...), scenes2...), scenes3[1:]...)
+	all := append(append(append(append([]scene(nil), scenes...), scenes2...), scenes3[1:]...), textScenes...)
 	for seed := uint64(1); seed <= 4; seed++ {
 		all = append(all, randomScene(seed, 150, 110))
 	}

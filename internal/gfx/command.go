@@ -15,7 +15,8 @@ package gfx
 // and layers are properly nested as one stack (see Builder).
 //
 // Commands in a list owned by a DisplayList are immutable; their slices
-// (path points, gradient stops, dashes, filters) must not be modified.
+// (path points, gradient stops, dashes, filters, glyphs) must not be
+// modified.
 type Command interface {
 	isCommand()
 	// Name returns the command name used by Dump, such as "FillRect".

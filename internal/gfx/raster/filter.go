@@ -105,10 +105,16 @@ func (r *Renderer) contentBounds(i int) gfx.Rect {
 }
 
 // devBounds returns the device pixels that a root-space rectangle can
-// touch.
+// touch: the bounding box of its corners mapped by r.root (exact for the
+// display scale; the products in apply are exact in float64).
 func (r *Renderer) devBounds(bb gfx.Rect) image.Rectangle {
-	s := r.scale
-	return pixelBounds(float64(bb.X0)*s, float64(bb.Y0)*s, float64(bb.X1)*s, float64(bb.Y1)*s)
+	m := &r.root
+	if m.IsScaleTranslate() {
+		x0, y0 := apply(m, gfx.Pt(bb.X0, bb.Y0))
+		x1, y1 := apply(m, gfx.Pt(bb.X1, bb.Y1))
+		return pixelBounds(min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+	}
+	return affineBounds(m, bb)
 }
 
 // growXY returns rect grown by dx on the left and right and dy on the top and

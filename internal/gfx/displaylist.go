@@ -6,7 +6,8 @@ import "iter"
 // precomputed bounds. It is produced by Builder.Finish and is safe to read
 // from any number of goroutines at once. Nothing in it changes after
 // Finish: the Builder copies every mutable input (paths, gradient stops,
-// dashes, filters), so callers may reuse their buffers.
+// dashes, filters, glyphs), so callers may reuse their buffers. Fonts are
+// immutable by contract (see Font).
 //
 // Consumers must treat the slices inside the commands they get from At, All
 // or Visit (path points, stops, dashes, filters) as read-only.
