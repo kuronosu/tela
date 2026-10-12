@@ -4,6 +4,7 @@
 //
 //	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
 //	tela inspect  [--layout] [--size WxH] [--dark] [--preview NAME] <pkg>
+//	tela version
 //
 // Both render a package headlessly: the package defines func Preview()
 // tela.Node, or a Previews variable (a tela.Previews map of named screens);
@@ -38,6 +39,7 @@ Commands:
 
 	snapshot    render a package's screen headlessly to a PNG
 	inspect     print a package's layout tree as JSON
+	version     print the tela version
 	help        show this help
 
 Run "tela help <command>" for details about a command.
@@ -59,6 +61,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runSnapshot(args[1:], stdout, stderr)
 	case "inspect":
 		return runInspect(args[1:], stdout, stderr)
+	case "version":
+		return runVersion(args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
 		if len(args) > 1 {
 			switch args[1] {
@@ -67,6 +71,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 				return 0
 			case "inspect":
 				fmt.Fprint(stdout, inspectUsage)
+				return 0
+			case "version":
+				fmt.Fprint(stdout, versionUsage)
 				return 0
 			default:
 				fmt.Fprintf(stderr, "tela: unknown help topic %q; run \"tela help\" for the list of commands\n", args[1])
