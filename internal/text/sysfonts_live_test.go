@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,6 +105,30 @@ func TestSystemFontsLive(t *testing.T) {
 		l.BreakLines(W)
 		l.Paint(b, gfx.Pt(16, y))
 		y += l.Height() + 10
+		used := map[string]bool{}
+		var runs []LineRun
+		for i := range l.NumLines() {
+			runs = l.LineRuns(i, runs[:0])
+			for _, r := range runs {
+				if r.Face != nil {
+					used[r.Face.Typeface().Name()] = true
+				}
+			}
+		}
+		t.Logf("%s: fonts %v", label, used)
+		// A paragraph of one script has one system family (Thai in Noto
+		// Sans Thai only, not partly in Noto Sans Thai Looped).
+		if !strings.HasPrefix(label, "One paragraph") {
+			n := 0
+			for name := range used {
+				if name != FamilyInter && name != FamilyNotoSansArabic && name != FamilyNotoColorEmoji {
+					n++
+				}
+			}
+			if n > 1 {
+				t.Errorf("%s: %d system families %v, want at most 1", label, n, used)
+			}
+		}
 	}
 	add("Latin, Arabic and emoji (embedded fonts)", "Tela draws text: مرحبا بكم 😀🎉👨‍👩‍👧‍👦 and numbers 0123456789.", 18)
 	add("Hebrew (system, right to left)", "שלום עולם, זהו משפט בעברית עם Latin באמצע ו-123 מספרים.", 18)

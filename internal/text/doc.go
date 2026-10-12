@@ -63,10 +63,12 @@
 // no requested, per-script, registered or embedded family covers (CJK,
 // Hebrew, Devanagari, Thai...). Being last keeps default rendering of
 // Latin, Arabic and emoji the same on every machine: the installed fonts
-// only fill what the embedded ones cannot draw. Among the families that
-// cover a cluster, sans-serif designs come before others, then the region
-// of SystemFontOptions.Lang for CJK families, then the family that covers
-// the fewest characters.
+// only fill what the embedded ones cannot draw. A script is drawn by one
+// family: the installed families that support it are ranked once per script
+// (sans-serif designs before others, then the region of
+// SystemFontOptions.Lang for CJK families, then the family that covers the
+// fewest characters, then the name) and a cluster takes the first of them
+// that covers it; clusters with no script of their own follow their run's.
 //
 // The scan and the parsing are lazy: the index loads at the first unknown
 // family name or uncovered cluster, a font file is read and parsed when a

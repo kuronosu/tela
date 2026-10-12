@@ -210,7 +210,7 @@ func (cs *candidates) resolve(cluster []rune, script language.Script) *Face {
 	}
 	// The embedded and registered fonts cannot draw the cluster: the system
 	// fonts, when enabled, come last (sysfonts.go).
-	if f := cs.system(cluster, pres == presText); f != nil {
+	if f := cs.system(cluster, sc, pres == presText); f != nil {
 		return f
 	}
 	if pres == presText {

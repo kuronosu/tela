@@ -2,6 +2,7 @@ package text
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/fontscan"
+	"github.com/go-text/typesetting/language"
 )
 
 // SystemFontOptions configures Collection.EnableSystemFonts. The zero value
@@ -80,11 +82,19 @@ type SystemFontLogger interface {
 //     an installed family that covers all of it. System fonts come after
 //     everything else, so the embedded fonts still draw Latin, Arabic and
 //     emoji exactly as without them, and the installed fonts only fill the
-//     gaps. Among the installed families that cover a cluster the preference
-//     is: the region of Lang for CJK families, then sans-serif designs over
-//     serif, unknown and symbol or monospace families, then the family that
-//     covers the fewest characters (a script-specific font over a pan-Unicode
-//     one), then the name.
+//     gaps. A script is drawn by one family: the installed families that
+//     support the script (their fonts cover at least half as much of it as
+//     the font that covers most) are ranked once per script, and a cluster
+//     takes the first of them that covers it, so Thai is Noto Sans Thai
+//     throughout and not partly a narrower font that has some Thai
+//     characters. The rank is: sans-serif designs over unknown, serif and
+//     symbol or monospace families, then the region of Lang for CJK
+//     families, then the family that covers the fewest characters (Noto
+//     Sans Thai, 101, before its Looped design, 146; a script-specific font
+//     over a pan-Unicode one), then the name. Clusters with no script of
+//     their own (punctuation) use the script of their run. Families that do
+//     not support the script come after, by the same rank, for the clusters
+//     only they cover.
 //
 // Nothing is scanned or read until it is needed: the first unknown family
 // name or the first cluster the other fonts cannot draw loads the index (a
@@ -199,7 +209,8 @@ type systemFonts struct {
 	data      map[string][]byte // file contents, kept by the typefaces
 	typefaces map[entryKey]*Typeface
 	fams      map[famKey]*family
-	clusters  map[string][]string // cluster -> covering families, best first
+	clusters  map[string][]string          // cluster and script -> covering families, best first
+	scripts   map[language.Script][]string // script -> families that support it, best first
 }
 
 func newSystemFonts(opts SystemFontOptions) *systemFonts {
@@ -211,6 +222,7 @@ func newSystemFonts(opts SystemFontOptions) *systemFonts {
 		typefaces: map[entryKey]*Typeface{},
 		fams:      map[famKey]*family{},
 		clusters:  map[string][]string{},
+		scripts:   map[language.Script][]string{},
 	}
 	if s.logger == nil {
 		s.logger = nopLogger{}
@@ -391,13 +403,14 @@ func (s *systemFonts) loadTypeface(e *sysEntry) (*Typeface, error) {
 }
 
 // system returns the face of an installed family that covers cluster, or
-// nil. It is the last stop of resolve.
-func (cs *candidates) system(cluster []rune, avoidColor bool) *Face {
+// nil. script is the cluster's script (the run's when the cluster has none
+// of its own). It is the last stop of resolve.
+func (cs *candidates) system(cluster []rune, script language.Script, avoidColor bool) *Face {
 	s := cs.sys
 	if s == nil {
 		return nil
 	}
-	for _, key := range s.fallbackFamilies(cluster) {
+	for _, key := range s.fallbackFamilies(cluster, script) {
 		f := s.familyByKey(key, cs.q)
 		if f == nil {
 			continue
@@ -412,10 +425,116 @@ func (cs *candidates) system(cluster []rune, avoidColor bool) *Face {
 	return nil
 }
 
+// famRank is what ranks a family: lower is better, in this order.
+type famRank struct {
+	name   string
+	tier   int // familyTier
+	region int // regionRank
+	nRunes int // characters of its smallest font: specific before pan-Unicode
+}
+
+func (a famRank) less(b famRank) bool {
+	switch {
+	case a.tier != b.tier:
+		return a.tier < b.tier
+	case a.region != b.region:
+		return a.region < b.region
+	case a.nRunes != b.nRunes:
+		return a.nRunes < b.nRunes
+	}
+	return a.name < b.name
+}
+
+// rankOf returns the rank of the family called name. s.mu is not needed:
+// the index is read-only.
+func (s *systemFonts) rankOf(name string) famRank {
+	r := famRank{name: name, tier: familyTier(name), region: regionRank(name, s.prefs), nRunes: -1}
+	for _, i := range s.byFamily[name] {
+		if n := s.entries[i].nRunes; r.nRunes < 0 || n < r.nRunes {
+			r.nRunes = n
+		}
+	}
+	return r
+}
+
+// maxScriptProbes bounds the characters sampled per script to score the
+// support of every font.
+const maxScriptProbes = 2048
+
+// scriptFamilies returns the installed families that support script, best
+// first (famRank). A family supports a script when its fonts cover at least
+// half as much of it as the font that covers most; coverage is counted on
+// an even sample of the script's characters (Unicode's script ranges).
+//
+// The list depends only on the script and the installed fonts, never on the
+// text: it is what keeps every cluster of a script on one family (Noto Sans
+// Thai, not Noto Sans Thai Looped for some words), as a browser does.
+func (s *systemFonts) scriptFamilies(script language.Script) []string {
+	s.mu.RLock()
+	names, ok := s.scripts[script]
+	s.mu.RUnlock()
+	if ok {
+		return names
+	}
+	var runes []rune
+	for _, rg := range language.ScriptRanges {
+		if rg.Script != script {
+			continue
+		}
+		for r := rg.Start; r <= rg.End; r++ {
+			runes = append(runes, r)
+		}
+	}
+	if stride := (len(runes) + maxScriptProbes - 1) / maxScriptProbes; stride > 1 {
+		for i := 0; i*stride < len(runes); i++ {
+			runes[i] = runes[i*stride]
+		}
+		runes = runes[:(len(runes)+stride-1)/stride]
+	}
+	score := map[string]int{}
+	best := 0
+	for i := range s.entries {
+		e := &s.entries[i]
+		n := 0
+		for _, r := range runes {
+			if e.runes.Contains(r) {
+				n++
+			}
+		}
+		if n > score[e.family] {
+			score[e.family] = n
+		}
+		best = max(best, n)
+	}
+	var ranks []famRank
+	for name, n := range score {
+		if n > 0 && 2*n >= best {
+			ranks = append(ranks, s.rankOf(name))
+		}
+	}
+	sort.Slice(ranks, func(i, j int) bool { return ranks[i].less(ranks[j]) })
+	names = make([]string, len(ranks))
+	for i, r := range ranks {
+		names[i] = r.name
+	}
+	s.mu.Lock()
+	s.scripts[script] = names
+	s.mu.Unlock()
+	return names
+}
+
+// usesScriptList reports whether clusters of script share a family list.
+func usesScriptList(script language.Script) bool {
+	return script != language.Common && script != language.Inherited && script != language.Unknown
+}
+
 // fallbackFamilies returns the normalized names of the installed families
-// that cover every character of cluster that needs a glyph, best first.
-func (s *systemFonts) fallbackFamilies(cluster []rune) []string {
-	key := string(cluster)
+// that cover every character of cluster that needs a glyph, in order of
+// preference: first the families that support the cluster's script, in the
+// script's order (so that a script is drawn by one family wherever that
+// family has the characters), then every other covering family by famRank.
+func (s *systemFonts) fallbackFamilies(cluster []rune, script language.Script) []string {
+	key := string(binary.BigEndian.AppendUint32(nil, uint32(script))) + string(cluster) // script tags are not valid runes
 	s.mu.RLock()
 	keys, ok := s.clusters[key]
 	s.mu.RUnlock()
@@ -431,44 +550,40 @@ func (s *systemFonts) fallbackFamilies(cluster []rune) []string {
 		}
 	}
 	if len(need) > 0 {
-		type group struct {
-			name   string
-			nRunes int
-			region int
-			tier   int
+		has := func(name string) bool {
+		entries:
+			for _, i := range s.byFamily[name] {
+				for _, r := range need {
+					if !s.entries[i].runes.Contains(r) {
+						continue entries
+					}
+				}
+				return true
+			}
+			return false
 		}
-		var groups []group
-		at := map[string]int{}
-	entries:
-		for i := range s.entries {
-			e := &s.entries[i]
-			for _, r := range need {
-				if !e.runes.Contains(r) {
-					continue entries
+		seen := map[string]bool{}
+		if usesScriptList(script) {
+			for _, name := range s.scriptFamilies(script) {
+				if has(name) {
+					seen[name] = true
+					keys = append(keys, name)
 				}
 			}
-			if gi, ok := at[e.family]; ok {
-				groups[gi].nRunes = min(groups[gi].nRunes, e.nRunes)
-				continue
-			}
-			at[e.family] = len(groups)
-			groups = append(groups, group{e.family, e.nRunes, regionRank(e.family, s.prefs), familyTier(e.family)})
 		}
-		sort.SliceStable(groups, func(i, j int) bool {
-			a, b := groups[i], groups[j]
-			switch {
-			case a.tier != b.tier:
-				return a.tier < b.tier
-			case a.region != b.region:
-				return a.region < b.region
-			case a.nRunes != b.nRunes:
-				return a.nRunes < b.nRunes
+		if len(keys) < maxFallbackFamilies {
+			var ranks []famRank
+			for name := range s.byFamily {
+				if !seen[name] && has(name) {
+					ranks = append(ranks, s.rankOf(name))
+				}
 			}
-			return a.name < b.name
-		})
-		for i := 0; i < len(groups) && i < maxFallbackFamilies; i++ {
-			keys = append(keys, groups[i].name)
+			sort.Slice(ranks, func(i, j int) bool { return ranks[i].less(ranks[j]) })
+			for _, r := range ranks {
+				keys = append(keys, r.name)
+			}
 		}
+		keys = keys[:min(len(keys), maxFallbackFamilies)]
 	}
 
 	s.mu.Lock()
