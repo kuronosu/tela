@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>The static position of an absolutely positioned child of a static flex container, laid out by the nearest positioned ancestor</title>
+</head>
+<body>
+
+<div id="test-root" style="position: relative; display: block; width: 300px; padding: 10px;">
+  <div style="position: static; display: flex; justify-content: center; align-items: flex-end; width: 100px; height: 60px; margin-left: 7px;">
+    <div style="position: absolute; width: 10px; height: 20px;"></div>
+    <div style="width: 30px; height: 10px;"></div>
+  </div>
+  <div style="position: static; display: flex; flex-direction: column-reverse; align-items: center; width: 100px; height: 60px; padding: 5px;">
+    <div style="position: absolute; width: 10px; height: 20px;"></div>
+  </div>
+  <div style="position: static; display: flex; justify-content: flex-end; align-items: safe center; width: 100px; height: 20px;">
+    <div style="position: absolute; width: 10px; height: 30px;"></div>
+  </div>
+</div>
+
+</body>
+</html>

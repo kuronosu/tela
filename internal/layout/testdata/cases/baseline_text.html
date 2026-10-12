@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Baseline alignment of text items in a flex row: text baselines (Ahem: 8px below the line top), wrapped text and block containers</title>
+</head>
+<body>
+
+<div id="test-root" style="display: flex; align-items: baseline; width: 300px;">
+  <div style="padding-top: 7px;">HH</div>
+  <div style="padding-top: 2px; padding-bottom: 9px;">HH&ZeroWidthSpace;HH</div>
+  <div style="display: block; width: 20px;">HH&ZeroWidthSpace;HH</div>
+  <div style="display: block; padding-top: 4px;"><div style="display: block;">HHH</div></div>
+  <div style="width: 20px; height: 15px;"></div>
+</div>
+
+</body>
+</html>

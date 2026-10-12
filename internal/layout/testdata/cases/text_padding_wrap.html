@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Text items with padding and borders wrap at their content box width, in flex rows and columns</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 300px;">
+  <div style="display: flex; width: 90px; align-items: flex-start;">
+    <div style="padding: 0 10px; border-width: 0 2px;">HHHH&ZeroWidthSpace;HHHH</div>
+  </div>
+  <div style="display: flex; flex-direction: column; width: 70px; align-items: flex-start;">
+    <div style="padding: 3px 5px;">HHH&ZeroWidthSpace;HHH&ZeroWidthSpace;HHH</div>
+  </div>
+  <div style="display: flex; width: 120px;">
+    <div style="padding-left: 30px; flex-shrink: 0;">HHHH</div>
+    <div style="padding-right: 15px;">HH&ZeroWidthSpace;HH&ZeroWidthSpace;HH&ZeroWidthSpace;HH</div>
+  </div>
+</div>
+
+</body>
+</html>

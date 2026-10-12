@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Block children with fit-content and max-content widths and auto margins; a percentage width centered with auto margins</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 300px;">
+  <div style="display: block; width: fit-content; margin: 0 auto;">HHHH&ZeroWidthSpace;HHHH</div>
+  <div style="display: block; width: max-content; margin-left: auto;">HHHH&ZeroWidthSpace;HHHH</div>
+  <div style="display: flex; margin: 0 auto; width: 50%; height: 10px;"></div>
+  <div style="display: block; width: fit-content; margin: 0 auto;">HHHHHHHHHH&ZeroWidthSpace;HHHHHHHHHH&ZeroWidthSpace;HHHHHHHHHH&ZeroWidthSpace;HHHHHHHHHH</div>
+</div>
+
+</body>
+</html>
