@@ -281,4 +281,63 @@
 // variation deltas are still go-text's float32 sums, rounded to whole font
 // units; TestLayoutDeterministic checks a digest of a corpus of variable
 // instances on every architecture.
+//
+// # Cursors, selection and hit-testing
+//
+// cursor.go, hittest.go, selection.go and navigation.go build editing
+// geometry on the read-only view, after Parley's editing module and
+// browser behavior. Everything is computed from the current line breaking
+// (BreakLines, AlignTo) on demand; nothing is cached and nothing reshapes.
+//
+// A Cursor is a byte offset in the source text and an Affinity. Caret
+// positions are the boundaries between clusters and, inside a ligature,
+// between its grapheme clusters (the advance is split evenly). Offsets in
+// between snap back to the start of their grapheme cluster, except in
+// white space removed by collapsing, where they snap forward to the end of
+// it (SnapCursor). One offset can have two visual positions: at a soft
+// wrap (end of a line, start of the next), at a bidi level change (the
+// trailing edge of the text before it, the leading edge of the text after
+// it) and next to inline boxes, which have an empty source range (before
+// or after them). Upstream picks the first of each pair, Downstream the
+// second; the affinity is canonical (Downstream) wherever both look the
+// same, so equal carets are equal cursors.
+//
+// Bidi caret rule: there is one caret per cursor, attached to the cluster
+// its affinity designates (Parley's rule). Chromium places the caret of an
+// offset at a level change by the visual order of its line fragments and
+// may show it at the other end of a run from where the pointer was;
+// HitTest always returns the cursor whose caret is where the pointer is.
+// Callers that want a split caret draw both affinities.
+//
+// After a forced break, or after white space removed at a soft wrap,
+// there is no caret on the line: the position belongs to the start of the
+// next line, as in Chromium (no caret follows the collapsed space of a
+// wrapped line, so End, a click past the line's end and arrow keys stop
+// before that space; the same holds for collapsed white space at the end
+// of the text, whose end is reached only by MoveDocumentEnd and
+// SelectAll). Preserved white space that hangs (pre-wrap) is a
+// sequence of caret positions past the line's width, also as in Chromium,
+// but unlike Chromium the start of the next line remains reachable.
+// Positions in text hidden by text-overflow or line-clamp show the caret
+// at the end-side edge of the ellipsis, which behaves like an inline box
+// that holds the hidden text; logical movement skips hidden text. Because
+// inline boxes have no text, a box that starts or ends a wrapped line
+// leaves one of its sides without a cursor, and a line that holds only
+// boxes between two wraps has no caret position at all: navigation skips
+// it and hit-testing returns the cursor before or after its boxes.
+//
+// HitTest maps a point to the nearest caret position; HitTestCluster
+// tells which cluster, inline box or ellipsis is under a point.
+// SelectionRects highlights a Selection (anchor and focus) with one
+// rectangle per visual run per line, as tall as the line box, extending
+// lines whose break the selection crosses by a space width (Chromium's
+// painted selection). Move implements arrow keys (visual, Parley's model:
+// each step crosses one cluster and attaches to it; and logical), word
+// movement (UAX #29 words, skipping white space and punctuation like macOS
+// and GTK; MoveNextWordStart for Windows), Home and End (logical ends of
+// the visual line, Chromium's rule), vertical movement with a goal column,
+// pages and the ends of the text; SelectWordAt, SelectLineAt,
+// SelectParagraphAt and ExtendSelection cover double clicks, triple
+// clicks and drags. TestChromiumCursor compares carets, hit-testing and
+// selection rectangles with Chromium.
 package text

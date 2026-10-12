@@ -26,7 +26,8 @@ type Layout struct {
 	styles []TextStyle
 	sinfo  []styleInfo
 	text   procText
-	base   uint8 // paragraph embedding level: 0 LTR, 1 RTL
+	segs   []uint8 // per boundary of text.runes: seg* flags (grapheme, line and word boundaries)
+	base   uint8   // paragraph embedding level: 0 LTR, 1 RTL
 
 	runs     []run
 	clusters []cluster

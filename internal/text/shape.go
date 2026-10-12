@@ -42,11 +42,15 @@ func (f *Face) advanceUnits(g gfx.GlyphID) int32 {
 
 // textSegments holds the UAX #14 and UAX #29 boundaries of the processed
 // text: bit 0 a grapheme boundary before rune i, bit 1 a soft line break
-// opportunity, bit 2 a mandatory break.
+// opportunity, bit 2 a mandatory break, bits 3 and 4 the start and the end
+// of a word (a UAX #29 word segment that starts with a letter or a digit)
+// before rune i.
 const (
 	segGrapheme = 1 << iota
 	segSoft
 	segMandatory
+	segWordStart
+	segWordEnd
 )
 
 func segmentText(runes []rune) []uint8 {
@@ -71,6 +75,7 @@ func segmentText(runes []rune) []uint8 {
 			out[end] |= segSoft
 		}
 	}
+	markWords(&seg, runes, out)
 	return out
 }
 
@@ -100,6 +105,7 @@ func (l *Layout) shape() {
 	scripts := make([]language.Script, n)
 	resolveScripts(pt.runes, scripts)
 	segs := segmentText(pt.runes)
+	l.segs = segs
 
 	shapeMu.Lock()
 	defer shapeMu.Unlock()
