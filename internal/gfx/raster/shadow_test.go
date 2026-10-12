@@ -80,37 +80,31 @@ func refBlur(q refShape, sx, sy float64, zone image.Rectangle) [][]float64 {
 	add(q.y1-e, q.y1, 512)
 
 	w, h := zone.Dx(), zone.Dy()
-	// H[s][x]: the row's horizontal integral; K[s][y]: the vertical weight.
-	H := make([][]float64, len(ss))
-	K := make([][]float64, len(ss))
-	for i, s := range ss {
-		a, b := q.span(s.v)
-		H[i] = make([]float64, w)
-		if b > a {
-			for x := 0; x < w; x++ {
-				p := float64(zone.Min.X + x)
-				H[i][x] = refStep(p, a, sx) - refStep(p, b, sx)
-			}
-		}
-		K[i] = make([]float64, h)
-		for y := 0; y < h; y++ {
-			p := float64(zone.Min.Y + y)
-			K[i][y] = (refPhi((p+1-s.v)/sy) - refPhi((p-s.v)/sy)) * s.dv
-		}
-	}
 	out := make([][]float64, h)
-	lo := 0
 	for y := range out {
 		out[y] = make([]float64, w)
-		// The samples are sorted by v: only those within 9 sigma matter.
-		top := float64(zone.Min.Y+y) - 9*sy
-		for lo < len(ss) && ss[lo].v < top {
-			lo++
+	}
+	// Each sample adds its row's horizontal integral H, weighted by its
+	// vertical kernel K, to the rows within 9 sigma; H is computed per sample
+	// so that memory stays at one image even with many samples.
+	hrow := make([]float64, w)
+	for _, s := range ss {
+		a, b := q.span(s.v)
+		if !(b > a) {
+			continue
 		}
-		for i := lo; i < len(ss) && ss[i].v < top+1+18*sy; i++ {
-			k := K[i][y]
-			for x, hv := range H[i] {
-				out[y][x] += k * hv
+		for x := range hrow {
+			p := float64(zone.Min.X + x)
+			hrow[x] = refStep(p, a, sx) - refStep(p, b, sx)
+		}
+		y0 := max(int(math.Floor(s.v-9*sy))-zone.Min.Y, 0)
+		y1 := min(int(math.Ceil(s.v+9*sy))-zone.Min.Y+1, h)
+		for y := y0; y < y1; y++ {
+			p := float64(zone.Min.Y + y)
+			k := (refPhi((p+1-s.v)/sy) - refPhi((p-s.v)/sy)) * s.dv
+			row := out[y]
+			for x, hv := range hrow {
+				row[x] += k * hv
 			}
 		}
 	}
