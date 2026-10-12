@@ -7,10 +7,10 @@
 ## Current status
 
 - **Phase in progress:** Phase 1 (pixels on screen).
-- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends), raster (path AA, rect/rrect fast paths, transforms, gradients, images, clips, opacity layers, region rendering, golden helper), stroking.
-- **In progress:** shadows and blur (T6).
-- **Known limitations:** stroke outlines that self-overlap in tight curves overestimate a few edge pixels (worst seen: one pixel, 72 levels); `gfx.Rotate(π/2)` is not exact, so it misses axis-aligned fast paths; color conversions in `gfx/color.go` are not yet proven fusion-safe; conic gradients cost an atan per pixel; bilinear downscaling aliases (no mipmaps); `Path.Stroke` allocates per call.
-- **Next step:** shadows/blur (T6), tiles (T9), `examples/shapes` + `tela snapshot` (T10), then the phase-1 verification (grim comparisons, Windows VM run).
+- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends), raster (path AA, rect/rrect fast paths, transforms, gradients, images, clips, opacity layers, region rendering, golden helper), stroking, shadows and layer filters (analytic erf rounded-rect shadows, Gaussian blur, drop-shadow, color matrices; Tailwind presets match Chromium within ±3 levels away from edges).
+- **In progress:** parallel tiles (T9), `examples/shapes` + `tela snapshot` (T10).
+- **Known limitations:** stroke outlines that self-overlap in tight curves overestimate a few edge pixels (worst seen: one pixel, 72 levels); `gfx.Rotate(π/2)` is not exact, so it misses axis-aligned fast paths; color conversions in `gfx/color.go` are not yet proven fusion-safe; conic gradients cost an atan per pixel; bilinear downscaling aliases (no mipmaps); `Path.Stroke` allocates per call; rotated shadows take the per-pixel path (10–14× the axis-aligned cost); `DrawShadow` clips with the box's coverage even under an opaque background, so anti-aliased box edges differ from Blink by up to 29 levels (phase 3 paint can pass an "unclipped" hint, needs an ADR); drop-shadow offsets are rounded to whole device pixels when σ ≥ 2; device σ capped at 256 px and offsets at 512 px; a filter layer costs its area grown by the reach in every tile.
+- **Next step:** finish T9 and T10, then the phase-1 verification (grim comparisons, idle CPU, Windows VM run).
 
 ## Phases
 
@@ -21,7 +21,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 - [x] `internal/gfx`: geometry types, `Color` (hex and OKLCH parsing), `Path`, `RRect`, `DisplayList` and its commands
 - [x] `internal/gfx/raster`: analytic-AA path fill, rect/rrect fast paths, linear/radial/conic gradients, clip, transform, opacity layers
 - [x] Stroking (joins, caps, dashes) following kurbo (ADR-026)
-- [ ] Analytic erf rounded-rect shadows (incl. inset); separable Gaussian blur for other shapes
+- [x] Analytic erf rounded-rect shadows (incl. inset); separable Gaussian blur for other shapes (ADR-028)
 - [ ] Parallel tile rasterization
 - [x] `internal/platform`: `Backend`/`Window` interface and `headless` backend
 - [x] Wayland XML → Go protocol generator (+ `wire` runtime)
