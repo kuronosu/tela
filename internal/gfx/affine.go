@@ -30,7 +30,7 @@ func Scale(sx, sy float32) Affine { return Affine{sx, 0, 0, sy, 0, 0} }
 
 // ScaleAbout returns the scale transform whose fixed point is c.
 func ScaleAbout(sx, sy float32, c Point) Affine {
-	return Affine{sx, 0, 0, sy, c.X - sx*c.X, c.Y - sy*c.Y}
+	return Affine{sx, 0, 0, sy, c.X - float32(sx*c.X), c.Y - float32(sy*c.Y)}
 }
 
 // Rotate returns the rotation by angle radians around the origin. In the
@@ -107,17 +107,19 @@ func (a Affine) Invert() (inv Affine, ok bool) {
 	return inv, true
 }
 
-// Apply returns the transformed point.
+// Apply returns the transformed point. The explicit float32 conversions
+// round each product, so the compiler cannot fuse it with the addition
+// (ADR-027).
 func (a Affine) Apply(p Point) Point {
 	return Point{
-		a[0]*p.X + a[2]*p.Y + a[4],
-		a[1]*p.X + a[3]*p.Y + a[5],
+		float32(a[0]*p.X) + float32(a[2]*p.Y) + a[4],
+		float32(a[1]*p.X) + float32(a[3]*p.Y) + a[5],
 	}
 }
 
 // ApplyVec transforms p as a vector: the translation part is ignored.
 func (a Affine) ApplyVec(p Point) Point {
-	return Point{a[0]*p.X + a[2]*p.Y, a[1]*p.X + a[3]*p.Y}
+	return Point{float32(a[0]*p.X) + float32(a[2]*p.Y), float32(a[1]*p.X) + float32(a[3]*p.Y)}
 }
 
 // TransformRect returns the axis-aligned bounding rectangle of r transformed
@@ -125,10 +127,10 @@ func (a Affine) ApplyVec(p Point) Point {
 // the transformed rectangle.
 func (a Affine) TransformRect(r Rect) Rect {
 	if a.IsScaleTranslate() {
-		x0 := a[0]*r.X0 + a[4]
-		x1 := a[0]*r.X1 + a[4]
-		y0 := a[3]*r.Y0 + a[5]
-		y1 := a[3]*r.Y1 + a[5]
+		x0 := float32(a[0]*r.X0) + a[4]
+		x1 := float32(a[0]*r.X1) + a[4]
+		y0 := float32(a[3]*r.Y0) + a[5]
+		y1 := float32(a[3]*r.Y1) + a[5]
 		return Rect{min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)}
 	}
 	p0 := a.Apply(Point{r.X0, r.Y0})
@@ -181,7 +183,7 @@ func (a Affine) MaxScale() float32 {
 	a0, a1, a2, a3 := f64(a[0]), f64(a[1]), f64(a[2]), f64(a[3])
 	p := a0*a0 + a1*a1 + a2*a2 + a3*a3
 	det := a0*a3 - a1*a2
-	disc := p*p - 4*det*det
+	disc := float64(p*p) - float64(4*det*det)
 	if disc < 0 {
 		disc = 0
 	}
