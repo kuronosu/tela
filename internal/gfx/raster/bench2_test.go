@@ -35,6 +35,10 @@ func BenchmarkShadowCards1080pScale2(b *testing.B) {
 // BenchmarkShadowCardsRotated1080p renders the cards under a small
 // rotation (the per-pixel local evaluation).
 func BenchmarkShadowCardsRotated1080p(b *testing.B) {
+	benchRender(b, benchShadowCardsRotated(), 1, image.Rectangle{})
+}
+
+func benchShadowCardsRotated() *gfx.DisplayList {
 	bl := gfx.NewBuilder()
 	bl.FillRect(gfx.Rect{X1: 1920, Y1: 1080}, twGray100)
 	for i := 0; i < 100; i++ {
@@ -45,19 +49,25 @@ func BenchmarkShadowCardsRotated1080p(b *testing.B) {
 		bl.FillRRect(card, gfx.White)
 		bl.PopTransform()
 	}
-	benchRender(b, bl.Finish(), 1, image.Rectangle{})
+	return bl.Finish()
 }
 
 // BenchmarkLayerBlur1080p blurs a full-screen layer with sigma 8.
 func BenchmarkLayerBlur1080p(b *testing.B) {
+	benchRender(b, benchLayerBlur(), 1, image.Rectangle{})
+}
+
+func benchLayerBlur() *gfx.DisplayList { return benchLayerBlurSigma(8) }
+
+func benchLayerBlurSigma(sigma float32) *gfx.DisplayList {
 	bl := gfx.NewBuilder()
-	bl.PushLayer(1, gfx.SrcOver, gfx.Blur{StdDev: 8})
+	bl.PushLayer(1, gfx.SrcOver, gfx.Blur{StdDev: sigma})
 	bl.FillRect(gfx.Rect{X1: 1920, Y1: 1080}, gfx.LinearGradient{End: gfx.Pt(1920, 1080), Stops: stops(indigo, fuchsia, rose)})
 	for i := 0; i < 40; i++ {
 		bl.FillRRect(gfx.NewRRect(gfx.RectXYWH(float32(i%8)*240+20, float32(i/8)*210+20, 200, 170), 24), gfx.White.WithAlpha(0.6))
 	}
 	bl.PopLayer()
-	benchRender(b, bl.Finish(), 1, image.Rectangle{})
+	return bl.Finish()
 }
 
 // BenchmarkDropShadowPaths1080p renders 50 star paths, each in a layer with

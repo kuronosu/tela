@@ -65,7 +65,7 @@ func benchRender(b *testing.B, dl *gfx.DisplayList, scale float32, region image.
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		r.Render(img, dl, Options{Scale: scale, Region: region})
+		r.Render(img, dl, Options{Scale: scale, Region: region, Workers: 1})
 	}
 }
 
@@ -93,9 +93,13 @@ func BenchmarkSceneTile(b *testing.B) {
 // BenchmarkLinearGradient1080p fills the whole 1920x1080 frame with a
 // three-stop oklab gradient (Tailwind bg-linear-to-br).
 func BenchmarkLinearGradient1080p(b *testing.B) {
+	benchRender(b, benchLinearGradient(), 1, image.Rectangle{})
+}
+
+func benchLinearGradient() *gfx.DisplayList {
 	bl := gfx.NewBuilder()
 	bl.FillRect(gfx.Rect{X1: 1920, Y1: 1080}, gfx.LinearGradient{End: gfx.Pt(1920, 1080), Stops: stops(indigo, fuchsia, rose)})
-	benchRender(b, bl.Finish(), 1, image.Rectangle{})
+	return bl.Finish()
 }
 
 // BenchmarkRadialGradient1080p and BenchmarkConicGradient1080p fill the

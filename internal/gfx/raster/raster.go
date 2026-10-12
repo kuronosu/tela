@@ -19,6 +19,14 @@ type Options struct {
 	// zero value) means all of dst. The pixels of a region are identical to
 	// the same pixels of a full render.
 	Region image.Rectangle
+	// Workers is the largest number of goroutines that render the frame,
+	// the calling goroutine included. The zero value means
+	// runtime.GOMAXPROCS(0); 1 renders on the calling goroutine only. It
+	// must not be negative. The pixels do not depend on it: a parallel
+	// render is bit-identical to a sequential one. Small regions are
+	// rendered sequentially whatever its value (see the package
+	// documentation).
+	Workers int
 }
 
 // Renderer renders display lists into RGBA images. It owns the scratch
@@ -27,8 +35,13 @@ type Options struct {
 // allocate in the steady state (StrokePath excepted: gfx.Path.Stroke
 // allocates its outline).
 //
-// A Renderer must not be used by several goroutines at once; give each
-// raster worker its own. The zero value is ready to use.
+// A parallel Render (Options.Workers) uses worker Renderers that this
+// Renderer creates on first use and keeps for later frames.
+//
+// A Renderer is not safe for concurrent use: it must not be used by several
+// goroutines at once. Different Renderers may render at the same time, even
+// the same DisplayList into disjoint regions of the same image. The zero
+// value is ready to use.
 type Renderer struct {
 	fill  pathFiller
 	blit  blitter
@@ -71,6 +84,11 @@ type Renderer struct {
 
 	rowMask []uint8   // rrect rows
 	rowSub  []float64 // rrect corner areas
+
+	par *parallel // worker Renderers and the job of a parallel Render
+	// tune overrides the band split for tests; zero values mean the
+	// defaults (see parallel.go).
+	tune struct{ bandRows, minPixels int }
 }
 
 // savedState is the state that a push saves and its pop restores.
@@ -104,8 +122,9 @@ func NewRenderer() *Renderer { return new(Renderer) }
 var pool = sync.Pool{New: func() any { return NewRenderer() }}
 
 // Render renders dl onto dst (compositing over its current content) with a
-// Renderer taken from a pool. It is safe for concurrent use; see
-// Renderer.Render.
+// Renderer taken from a pool, on up to opts.Workers goroutines. It is safe
+// for concurrent use; see Renderer.Render. The pooled Renderers keep their
+// worker Renderers, so steady-state frames do not allocate.
 func Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	r := pool.Get().(*Renderer)
 	defer pool.Put(r)
@@ -116,9 +135,15 @@ func Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 // Clear first for a fresh frame). The root space of dl is scaled by
 // opts.Scale, and only the device pixels in opts.Region are written.
 //
+// With opts.Workers other than 1, Render may split the region into bands
+// rendered by several goroutines; it returns when all of them are done.
+//
 // Render panics if dst is nil, if opts.Scale is negative, NaN or infinite,
-// and if the visited part of the list holds a command or paint that is not
-// implemented yet; see the package documentation. A nil dl renders nothing.
+// if opts.Workers is negative, and if the visited part of the list holds a
+// command or paint that is not implemented yet; see the package
+// documentation. A panic in a worker goroutine is raised again, with the
+// same value, on the calling goroutine once every worker has stopped. A nil
+// dl renders nothing.
 func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if dst == nil {
 		panic("raster: Render called with a nil destination image")
@@ -129,6 +154,9 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	}
 	if !(s > 0) || math.IsInf(float64(s), 0) {
 		panic(fmt.Sprintf("raster: Options.Scale must be a positive finite number (0 means 1), got %v", opts.Scale))
+	}
+	if opts.Workers < 0 {
+		panic(fmt.Sprintf("raster: Options.Workers must not be negative (0 means GOMAXPROCS), got %d", opts.Workers))
 	}
 	if dl == nil || dl.Len() == 0 {
 		return
@@ -141,6 +169,16 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if clip.Empty() {
 		return
 	}
+	if opts.Workers != 1 && r.renderParallel(dst, dl, s, clip, opts.Workers) {
+		return
+	}
+	r.render(dst, dl, s, clip)
+}
+
+// render renders dl onto the device pixels clip of dst (clip lies inside
+// dst.Rect and the ±coordLimit box and is not empty) on the calling
+// goroutine.
+func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, s float32, clip image.Rectangle) {
 	if r.emitFn == nil {
 		r.emitFn = r.emit
 		r.visitFn = r.visit

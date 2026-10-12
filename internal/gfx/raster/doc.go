@@ -157,19 +157,83 @@
 // The flattening itself (gfx.Path.Flatten), stroking (gfx.Path.Stroke) and
 // the composition of transforms (gfx.Affine.Mul) live in package gfx.
 //
+// # Parallel rendering
+//
+// Render splits a frame into full-width horizontal bands rendered by
+// several goroutines (Options.Workers; 0 means GOMAXPROCS). Each band is
+// rendered as a region, so the frame is bit-identical to a sequential
+// render for every worker count and band height. The goroutines claim
+// bands from an atomic counter, so faster workers take more of them.
+// Regions under 128x128 pixels, and regions that make a single band, are
+// rendered on the calling goroutine.
+//
+// Bands rather than square tiles: a band reads and writes whole rows, and a
+// filter layer costs extra only above and below it (band height plus twice
+// the reach) instead of on four sides. The band height aims at four bands
+// per worker, at least 16 rows. When filter layers cover much of the frame
+// it grows, up to one band per worker, with their reach (see bandRowsFor).
+//
+// Every band repeats some work: it visits the whole list, flattens or
+// strokes every path that crosses it, sets up every shadow that crosses
+// it, and renders every filter layer it crosses grown by the reach. On
+// 1920x1080 frames rendered band by band on one goroutine
+// (BenchmarkBandOverhead), 16-row bands cost 35% more than one full render
+// for 1000 rrects and 200 paths, 38% more for 100 cards with shadow-xl,
+// nothing measurable for rotated shadows and gradients, and 205% more for a
+// full-frame blur of standard deviation 8 (42% with 64-row bands, 200% with
+// a standard deviation of 32). Frames dominated by filter layers with a
+// large reach therefore scale worse than the rest (BenchmarkParallel on 18
+// threads: about 1.6x for the cards under three blur-3xl circles, 3.3x for
+// a full-frame blur of 8, against 5-6x for the same cards alone).
+// Rendering such surfaces once per frame, shared read-only by the bands, is
+// left to layer caching.
+//
 // # Concurrency
 //
 // A Renderer holds scratch buffers and must be used by one goroutine at a
-// time; use one Renderer per raster worker. DisplayLists are immutable and
-// may be rendered by any number of Renderers at once. Render writes only the
-// pixels inside the region, so workers may render disjoint regions of the
-// same image concurrently.
+// time. A parallel Render is safe because nothing mutable is shared:
+//
+//   - Each goroutine renders with a Renderer of its own: the calling
+//     Renderer, or one of the worker Renderers it owns (created on first
+//     use and reused for later frames; only that Renderer's Render starts
+//     them). All scratch memory (edges, accumulation rows, masks, layer
+//     and filter surfaces, blur planes, shadow tables, gradient ramps,
+//     flattening and image caches) lives in a Renderer.
+//   - Each goroutine writes only the pixels of dst inside the bands it
+//     claimed, and reads only those pixels of dst: source-over reads the
+//     pixel it writes, and layers and filters work on private surfaces.
+//     The bands are disjoint, so no pixel of dst is accessed by two
+//     goroutines.
+//   - What the goroutines share is read-only: the DisplayList, its paths,
+//     paints and images (immutable by contract), the job description
+//     (written before the goroutines start, read after they are waited
+//     for), and package tables built at init (gaussTab, Gauss-Legendre
+//     nodes, color matrices). The band counter and the panic slot are the
+//     only shared writes; they are an atomic counter and a mutex.
+//   - Render waits for every goroutine before it returns. A panic in any
+//     band (an unimplemented feature, for example) stops the claiming of
+//     new bands, and once every goroutine is done, Render panics again on
+//     the calling goroutine with the original value. Worker goroutines are
+//     started by each parallel Render and return as soon as they report
+//     that they are done, so none keeps running after Render returns.
+//
+// The race detector needs cgo, so the tests check these rules by their
+// effect instead: parallel renders with many worker counts and band
+// heights, and several parallel Renderers sharing display lists, images
+// and destination images, must match the sequential pixels exactly.
+//
+// DisplayLists are immutable and may be rendered by any number of
+// Renderers at once. Render writes only the pixels inside the region, so
+// different Renderers may also render disjoint regions of the same image
+// concurrently.
 //
 // # Not implemented yet
 //
-// Parallel tiling comes with task T9. Blend modes other than SrcOver and
-// BackdropFilter are phase 6 features: Render panics with "raster: blend
-// mode <mode> is not implemented until phase 6" and "raster: BackdropFilter
-// is not implemented until phase 6" when it meets them in the visited part
-// of the list.
+// Blend modes other than SrcOver and BackdropFilter are phase 6 features:
+// Render panics with "raster: blend mode <mode> is not implemented until
+// phase 6" and "raster: BackdropFilter is not implemented until phase 6"
+// when it meets them in the visited part of the list. A BackdropFilter reads
+// pixels painted before it up to DisplayList.BackdropReach around its shape,
+// which can lie in another band: parallel rendering will need bands grown
+// by that reach (see renderParallel).
 package raster
