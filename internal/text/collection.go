@@ -46,7 +46,8 @@ func (q Query) stretch() float32 {
 // Fallback order for a cluster of text (see Itemize): the requested
 // families, then the families registered for the cluster's script
 // (SetScriptFallback), then every other family in registration order with
-// the embedded families last. Emoji presentation clusters try the emoji
+// the embedded families last, then, only when EnableSystemFonts was called,
+// the installed system fonts. Emoji presentation clusters try the emoji
 // families (generic "emoji") first.
 //
 // Variable faces are instantiated per optical size: CSS
@@ -56,9 +57,10 @@ func (q Query) stretch() float32 {
 // size) used. Instances are interned for the life of the Collection's
 // typefaces.
 //
-// No system fonts are used (ADR-008); synthetic bold and oblique are not
-// implemented: a request for a weight or style that no face covers gets the
-// closest face as CSS matching defines it, unchanged.
+// No system fonts are used unless EnableSystemFonts is called (ADR-008);
+// synthetic bold and oblique are not implemented: a request for a weight or
+// style that no face covers gets the closest face as CSS matching defines
+// it, unchanged.
 type Collection struct {
 	mu       sync.RWMutex
 	families map[string]*family // by normalized name
@@ -66,6 +68,7 @@ type Collection struct {
 	generics map[string][]string
 	scripts  map[language.Script][]string
 	cache    map[string]*candidates
+	sys      *systemFonts // nil unless EnableSystemFonts was called
 }
 
 type family struct {
@@ -149,8 +152,10 @@ func (c *Collection) Families() []string {
 }
 
 // resolveNames expands generic names into family records, skipping
-// unknown names and duplicates. c.mu must be held.
-func (c *Collection) resolveNames(names []string, seen map[*family]bool, out []*family) []*family {
+// unknown names and duplicates. A name no registered family has is looked up
+// among the system fonts when they are enabled (q picks the face of the
+// system family). c.mu must be held.
+func (c *Collection) resolveNames(names []string, q Query, seen map[*family]bool, out []*family) []*family {
 	var walk func(names []string, depth int)
 	walk = func(names []string, depth int) {
 		for _, n := range names {
@@ -162,8 +167,17 @@ func (c *Collection) resolveNames(names []string, seen map[*family]bool, out []*
 				}
 				continue
 			}
-			if g, ok := c.generics[key]; ok && depth < 4 {
-				walk(g, depth+1)
+			if g, ok := c.generics[key]; ok {
+				if depth < 4 {
+					walk(g, depth+1)
+				}
+				continue
+			}
+			if c.sys != nil {
+				if f := c.sys.family(n, q); f != nil && !seen[f] {
+					seen[f] = true
+					out = append(out, f)
+				}
 			}
 		}
 	}
@@ -176,7 +190,7 @@ func (c *Collection) resolveNames(names []string, seen map[*family]bool, out []*
 func (c *Collection) Match(familyName string, q Query) *Typeface {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	fams := c.resolveNames([]string{familyName}, map[*family]bool{}, nil)
+	fams := c.resolveNames([]string{familyName}, q, map[*family]bool{}, nil)
 	if len(fams) == 0 {
 		return nil
 	}
@@ -331,6 +345,12 @@ type candidates struct {
 	emoji   []*Face                     // the emoji families
 	scripts map[language.Script][]*Face // per-script fallbacks
 	rest    []*Face                     // every other family, embedded last
+
+	// sys is the system font fallback, tried after rest; nil when system
+	// fonts are not enabled. q and size select the face of a system family.
+	sys  *systemFonts
+	q    Query
+	size float32
 }
 
 // queryKey is the cache key of a query at an optical size: the families,
@@ -372,15 +392,15 @@ func (c *Collection) candidates(q Query, size float32) *candidates {
 	}
 	faceOf := func(f *family) *Face { return instance(matchFace(f.faces, q), q, size) }
 	seen := map[*family]bool{}
-	cands = &candidates{scripts: map[language.Script][]*Face{}}
-	for _, f := range c.resolveNames(q.Families, seen, nil) {
+	cands = &candidates{scripts: map[language.Script][]*Face{}, sys: c.sys, q: q, size: size}
+	for _, f := range c.resolveNames(q.Families, q, seen, nil) {
 		cands.primary = append(cands.primary, faceOf(f))
 	}
-	for _, f := range c.resolveNames(c.generics["emoji"], map[*family]bool{}, nil) {
+	for _, f := range c.resolveNames(c.generics["emoji"], q, map[*family]bool{}, nil) {
 		cands.emoji = append(cands.emoji, faceOf(f))
 	}
 	for s, names := range c.scripts {
-		for _, f := range c.resolveNames(names, map[*family]bool{}, nil) {
+		for _, f := range c.resolveNames(names, q, map[*family]bool{}, nil) {
 			if !seen[f] {
 				cands.scripts[s] = append(cands.scripts[s], faceOf(f))
 			}

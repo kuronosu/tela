@@ -45,9 +45,38 @@
 // Noto Sans Arabic, Noto Color Emoji; see internal/assets/fonts) and the
 // generic families sans-serif, system-ui, ui-sans-serif (Inter), monospace,
 // ui-monospace (JetBrains Mono) and emoji (Noto Color Emoji). There are no
-// system fonts here (ADR-008; optional discovery comes later behind the same
-// API) and no synthetic bold or oblique: a request no face covers gets the
-// closest face as CSS matching defines it.
+// system fonts here (ADR-008; see "System fonts") and no synthetic bold or
+// oblique: a request no face covers gets the closest face as CSS matching
+// defines it.
+//
+// # System fonts
+//
+// Collection.EnableSystemFonts opts in to the fonts installed on the machine
+// (found by go-text's fontscan, which indexes the Linux, Windows and macOS
+// font directories and caches the index on disk). Nothing enables it
+// implicitly and the tests and snapshots never do (under "go test" the call
+// is refused unless TELA_SYSTEM_FONTS=1 or the options name only explicit
+// directories).
+//
+// System fonts serve named families that are not registered ("Segoe UI",
+// "Noto Sans CJK JP") and, last of all in the fallback order, clusters that
+// no requested, per-script, registered or embedded family covers (CJK,
+// Hebrew, Devanagari, Thai...). Being last keeps default rendering of
+// Latin, Arabic and emoji the same on every machine: the installed fonts
+// only fill what the embedded ones cannot draw. Among the families that
+// cover a cluster, sans-serif designs come before others, then the region
+// of SystemFontOptions.Lang for CJK families, then the family that covers
+// the fewest characters.
+//
+// The scan and the parsing are lazy: the index loads at the first unknown
+// family name or uncovered cluster, a font file is read and parsed when a
+// face of it is first used (only the face CSS matching selects, from the
+// index's family, style and weight), and a TrueType collection is read once.
+// Installed fonts load through newTypeface, the code of ParseTypefaces, so
+// they share the face, variation and determinism handling of the embedded
+// ones: TrueType outlines through this package's port, CFF and CFF2 through
+// go-text (ADR-030). Fonts without outlines (bitmap-only color fonts) are
+// skipped. Output that uses them depends on the machine, by nature.
 //
 // Optical size follows CSS font-optical-sizing: auto: opsz is the font size
 // in CSS pixels, rounded to whole pixels by the Collection so that a

@@ -28,6 +28,11 @@ type Run struct {
 // family before the color ones. So "❤" (U+2764, text by default) uses a
 // text font when one has the character and "❤️" uses the emoji font.
 //
+// With system fonts enabled (Collection.EnableSystemFonts), a cluster that
+// none of those families covers is looked up among the installed fonts,
+// after every other family, so the embedded fonts still draw everything
+// they can and default rendering is the same on every machine.
+//
 // Clusters of one control, line or paragraph separator or default
 // ignorable character keep the face of the preceding cluster. Spaces
 // resolve like any other character, so a space between two Arabic words
@@ -201,6 +206,11 @@ func (cs *candidates) resolve(cluster []rune, script language.Script) *Face {
 		return nil
 	}
 	if f := try(func(f *Face) bool { return covers(f, cluster) }); f != nil {
+		return f
+	}
+	// The embedded and registered fonts cannot draw the cluster: the system
+	// fonts, when enabled, come last (sysfonts.go).
+	if f := cs.system(cluster, pres == presText); f != nil {
 		return f
 	}
 	if pres == presText {
