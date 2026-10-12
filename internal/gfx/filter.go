@@ -176,15 +176,22 @@ func HueRotate(angle float32) ColorMatrix {
 const gaussianExtent = 3
 
 // FilterOutset returns how far, in the local coordinate space, the filter can
-// paint outside the bounds of its input: 3*StdDev for Blur, the larger offset
-// component plus 3*StdDev for DropShadow, and 0 for ColorMatrix. The value is
-// a conservative scalar, applied on all four sides.
+// paint outside the bounds of its input: 3*StdDev for Blur, the length of the
+// offset plus 3*StdDev for DropShadow, and 0 for ColorMatrix. The value is a
+// conservative scalar, applied on all four sides; it bounds the reach in
+// every direction, so it stays conservative under rotation when it is
+// converted to root space with Affine.MaxScale.
 func FilterOutset(f Filter) float32 {
 	switch f := f.(type) {
 	case Blur:
 		return gaussianExtent * max(f.StdDev, 0)
 	case DropShadow:
-		o := max(abs32(f.Offset.X), abs32(f.Offset.Y))
+		// The length of the offset, not its larger component: rotated by
+		// 45 degrees, an offset (d, d) moves content by sqrt(2)*d along one
+		// device axis. The squares of float32 values are exact in float64,
+		// so the result is the same on every architecture.
+		x, y := f64(f.Offset.X), f64(f.Offset.Y)
+		o := float32(math.Sqrt(x*x + y*y))
 		return o + gaussianExtent*max(f.StdDev, 0)
 	}
 	return 0
@@ -199,8 +206,6 @@ func FiltersOutset(fs []Filter) float32 {
 	}
 	return s
 }
-
-func abs32(v float32) float32 { return float32(math.Abs(float64(v))) }
 
 // sanitizeFilters returns a copy of fs that the Builder can store: parameters
 // clamped, identity blurs removed. ok is false for non-finite parameters.

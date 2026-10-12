@@ -16,7 +16,10 @@ import "iter"
 // never paint outside its bounds, but may paint less. Draw commands have the
 // geometry, grown by stroke width, shadow blur and so on, clipped by the
 // active clip. Push commands (and their matching pop) have the union of
-// everything inside the block. A rasterizer rounds the bounds out to whole
+// everything inside the block; for a PushLayer with filters, that union grown
+// by the filters' reach and clipped by the clip active at PushLayer, while
+// its content is clipped by that clip grown by the reach (filters pull
+// content from outside the clip). A rasterizer rounds the bounds out to whole
 // pixels (Rect.RoundOut) and skips commands, or whole push/pop blocks, that
 // miss the tile being rendered; see Visit.
 type DisplayList struct {
@@ -40,8 +43,11 @@ func (d *DisplayList) At(i int) Command { return d.cmds[i] }
 // the bounds of its push.
 func (d *DisplayList) BoundsAt(i int) Rect { return d.bounds[i] }
 
-// Bounds returns the union of the bounds of all commands: the region of the
-// root space that the list can paint on. It is empty for an empty list.
+// Bounds returns the union of the bounds of the top-level commands: the
+// region of the root space that the list can paint on. It is empty for an
+// empty list. Every command lies inside it, except the content of layers with
+// filters, which may extend beyond the layer's bounds by up to the layer's
+// reach (see LayerReach): the filters pull it into the layer.
 func (d *DisplayList) Bounds() Rect { return d.total }
 
 // Match returns, for a push command, the index of its matching pop, and for a

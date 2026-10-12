@@ -33,7 +33,9 @@ import (
 //     max(Spread, 0) + 3 sigma, with sigma = Blur/2; inset: the box;
 //   - layers: the union of the content grown by FiltersOutset (3 sigma per
 //     Gaussian, plus the offset of a drop shadow), converted to root space with
-//     Affine.MaxScale, and limited to the clip active at PushLayer;
+//     Affine.MaxScale, and limited to the clip active at PushLayer. Inside a
+//     layer with filters, the content is limited by that clip grown by the
+//     same reach, since the filters pull content from outside the clip;
 //   - everything is intersected with the active clip.
 //
 // # Invalid input and no-op commands
@@ -417,6 +419,10 @@ func (b *Builder) PushLayer(opacity float32, blend BlendMode, filters ...Filter)
 	f.idx = b.recordPush(PushLayer{clamp01(opacity), blend, fs})
 	f.reach = FiltersOutset(fs) * b.ctm.MaxScale()
 	b.reach[f.idx] = f.reach
+	// The filters read the content up to reach beyond the clip active at
+	// PushLayer (the clip applies to the filtered result), so content that
+	// lies outside that clip but within reach of it is kept.
+	b.clip = b.clip.Outset(f.reach)
 }
 
 // PopLayer closes the innermost block, which must be a PushLayer.

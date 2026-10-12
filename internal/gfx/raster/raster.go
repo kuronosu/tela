@@ -46,6 +46,19 @@ type Renderer struct {
 	stack    []savedState
 	free     [][]uint8 // released mask and layer buffers
 
+	// region is the device rectangle whose pixels must be exact at the
+	// current level: the rendered region, grown by the reach of the
+	// filters of the enclosing layers. bound is the device bounds of the
+	// active clips and layers, without the region. The blitter's clip is
+	// their intersection (filter layers also intersect it with their
+	// content's bounds, which they keep in bound).
+	region, bound image.Rectangle
+
+	dfs   []devFilter // device filters of the open filter layers
+	kw    []int64     // kernel weights of dfs
+	blurS blurScratch
+	shd   shadowScratch
+
 	// Path flattening state; emitFn is the method value of emit, created
 	// once so that flattening does not allocate.
 	flat      gfx.Flattener
@@ -69,6 +82,8 @@ type savedState struct {
 
 	ownMask []uint8 // mask buffer created by this push, released at its pop
 
+	region, bound image.Rectangle
+
 	// Layers: the surface below, and this layer's buffer and opacity.
 	layer   bool
 	pix     []uint8
@@ -76,6 +91,11 @@ type savedState struct {
 	origin  image.Point
 	surf    []uint8
 	opacity uint8
+	// comp is the rectangle composited at PopLayer; surfRect the pixels
+	// of surf. They are equal for layers without filters. nf is the
+	// number of device filters the layer pushed onto Renderer.dfs.
+	comp, surfRect image.Rectangle
+	nf             int
 }
 
 // NewRenderer returns a new Renderer. It is equivalent to new(Renderer).
@@ -133,6 +153,8 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	r.ctm = gfx.Scale(s, s)
 	r.skipping = false
 	r.stack = r.stack[:0]
+	r.region, r.bound = clip, image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit)
+	r.dfs, r.kw = r.dfs[:0], r.kw[:0]
 
 	// The clip in root space, grown by one device pixel so that float32
 	// rounding in the list's bounds can never cull a command that touches
@@ -151,6 +173,8 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 			r.stack[i] = savedState{}
 		}
 		r.stack = r.stack[:0]
+		clear(r.dfs)
+		r.dfs = r.dfs[:0]
 	}()
 	dl.Visit(root, r.visitFn)
 }
@@ -205,6 +229,10 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 		}
 	case gfx.PopTransform, gfx.PopClip, gfx.PopLayer:
 		r.restore()
+	case gfx.DrawShadow:
+		if !r.skipping {
+			r.drawShadow(c)
+		}
 	case gfx.BackdropFilter:
 		if !r.skipping {
 			panic("raster: BackdropFilter is not implemented until phase 6")
@@ -217,7 +245,7 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 // save pushes the current state; the matching pop restores it.
 func (r *Renderer) save() {
 	b := &r.blit
-	r.stack = append(r.stack, savedState{ctm: r.ctm, skipping: r.skipping, clip: b.clip, cm: b.cm})
+	r.stack = append(r.stack, savedState{ctm: r.ctm, skipping: r.skipping, clip: b.clip, cm: b.cm, region: r.region, bound: r.bound})
 }
 
 // restore pops the state saved by the matching push: it composites a layer,
@@ -227,12 +255,18 @@ func (r *Renderer) restore() {
 	st := &r.stack[len(r.stack)-1]
 	b := &r.blit
 	if st.layer {
-		surf, rect, stride := b.pix, b.clip, b.stride
+		surf, sr, comp, stride := st.surf, st.surfRect, st.comp, 4*st.surfRect.Dx()
+		if st.nf > 0 {
+			fs := r.dfs[len(r.dfs)-st.nf:]
+			r.applyFilters(surf, sr, fs)
+			clear(fs)
+			r.dfs = r.dfs[:len(r.dfs)-st.nf]
+		}
 		b.pix, b.stride, b.origin = st.pix, st.stride, st.origin
 		b.clip, b.cm = st.clip, st.cm
-		for y := rect.Min.Y; y < rect.Max.Y; y++ {
-			i := (y - rect.Min.Y) * stride
-			b.composite(y, rect.Min.X, surf[i:i+4*rect.Dx()], st.opacity)
+		for y := comp.Min.Y; y < comp.Max.Y; y++ {
+			i := (y-sr.Min.Y)*stride + 4*(comp.Min.X-sr.Min.X)
+			b.composite(y, comp.Min.X, surf[i:i+4*comp.Dx()], st.opacity)
 		}
 		r.putBuf(st.surf)
 	}
@@ -241,6 +275,7 @@ func (r *Renderer) restore() {
 	}
 	r.ctm, r.skipping = st.ctm, st.skipping
 	b.clip, b.cm = st.clip, st.cm
+	r.region, r.bound = st.region, st.bound
 	*st = savedState{} // drop references
 	r.stack = r.stack[:len(r.stack)-1]
 }

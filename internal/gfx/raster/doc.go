@@ -70,6 +70,29 @@
 // at PopLayer with source-over, the layer's opacity and the clip that was
 // active at PushLayer. Mask and layer buffers are pooled by the Renderer.
 //
+// # Shadows and filters
+//
+// DrawShadow (shadow.go) follows CSS box-shadow, spread rule for radii
+// included. Rounded-rectangle shadows are evaluated in closed form, after
+// Evan Wallace: the blurred rectangle is a product of erf-based 1D
+// integrals, and each corner subtracts the blurred region between its box
+// and its ellipse, split where the arc's slope is 1 into a rectangle and two
+// pieces whose boundary is never steep, integrated in closed form across and
+// with Gauss-Legendre panels along. Every value is box-filtered over the
+// pixel like the rasterizer's coverage, so Blur -> 0 converges to the
+// anti-aliased fill; the error is a fraction of a level of 255. Under
+// scale/translate transforms the 1D factors are tabulated per column and
+// row; under rotations with a uniform scale the value is evaluated in local
+// space per pixel; under skews the shape is rasterized and blurred.
+//
+// Layer filters (filter.go) run at PopLayer over a surface that extends the
+// filters' reach beyond the region and beyond the clip active at PushLayer.
+// Blur and DropShadow use the separable Gaussian of blur.go (three box blurs
+// for device standard deviations of 2 and more, as SVG recommends, exact
+// kernels below), whose support never exceeds the reach gfx.FilterOutset
+// promises; ColorMatrix works on un-premultiplied values. The standard
+// normal CDF and its integral come from interpolated tables (gauss.go).
+//
 // The accumulation is done in 64-bit integers, so it is associative: the
 // value of a pixel does not depend on the order in which edges and cells are
 // summed.
@@ -100,6 +123,15 @@
 //     margin) is replaced by its chord, which gives exactly the same pixels
 //     inside the region (see Renderer.flattenCulled). This bounds the work
 //     for huge paths without making the result depend on the region.
+//   - A layer with filters renders its content over the region grown by the
+//     filters' device reach (DisplayList.Visit grows the root-space region
+//     by LayerReach likewise), and every pass of every filter runs over the
+//     composited pixels grown by the total reach, so the values a pass reads
+//     never depend on the region. A region therefore costs its area grown by
+//     the reach: tiles under a large blur redo work their neighbors do too.
+//   - Shadows cut their Gaussian at a fixed number of standard deviations
+//     and choose their quadrature nodes from the geometry alone; the zone a
+//     region evaluates only limits which pixels are computed.
 //
 // # Determinism
 //
@@ -119,7 +151,8 @@
 // internal/gfx/internal/fmath holds fusion-safe ports. Determinism tests
 // record digests of the float64 intermediates on amd64; run them with
 // GOARCH=arm64 go test -exec qemu-aarch64-static to check another
-// architecture.
+// architecture. (The fusion may happen across statements: a product stored
+// in a variable that is later added must be wrapped too.)
 //
 // The flattening itself (gfx.Path.Flatten), stroking (gfx.Path.Stroke) and
 // the composition of transforms (gfx.Affine.Mul) live in package gfx.
@@ -134,11 +167,9 @@
 //
 // # Not implemented yet
 //
-// DrawShadow and layer filters (Blur, DropShadow, ColorMatrix) come with task
-// T6, parallel tiling with T9: Render panics with "raster: DrawShadow is not
-// implemented yet" or "raster: layer filters are not implemented yet" when
-// it meets them in the visited part of the list. Blend modes other than
-// SrcOver and BackdropFilter are phase 6 features and panic with "raster:
-// blend mode <mode> is not implemented until phase 6" and "raster:
-// BackdropFilter is not implemented until phase 6".
+// Parallel tiling comes with task T9. Blend modes other than SrcOver and
+// BackdropFilter are phase 6 features: Render panics with "raster: blend
+// mode <mode> is not implemented until phase 6" and "raster: BackdropFilter
+// is not implemented until phase 6" when it meets them in the visited part
+// of the list.
 package raster

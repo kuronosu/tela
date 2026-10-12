@@ -227,8 +227,9 @@ func TestFilterOutsets(t *testing.T) {
 		want float32
 	}{
 		{Blur{4}, 12}, {Blur{0}, 0}, {Blur{-3}, 0},
-		{DropShadow{Offset: Pt(10, -3), StdDev: 2}, 16},
-		{DropShadow{Offset: Pt(-20, 5), StdDev: 0}, 20},
+		{DropShadow{Offset: Pt(10, -3), StdDev: 2}, float32(math.Sqrt(109)) + 6},
+		{DropShadow{Offset: Pt(-20, 0), StdDev: 0}, 20},
+		{DropShadow{Offset: Pt(3, -4), StdDev: 1}, 8},
 		{Brightness(2), 0},
 	}
 	for _, tt := range tests {

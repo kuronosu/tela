@@ -509,24 +509,35 @@ func TestBuilderBoundsLayers(t *testing.T) {
 		b.PopLayer()
 		b.PopTransform()
 	})
-	// Filters outset: 12 + (5 + 3) = 20 local, 40 root; content [20,20,40,40].
-	if got := dl.BoundsAt(1); !rectNear(got, Rect{-20, -20, 80, 80}, 1e-4) {
+	// Filters outset: 12 + (|(3, -5)| + 3) local, twice that in root space;
+	// content [20,20,40,40].
+	o := 2 * (12 + float32(math.Sqrt(34)) + 3)
+	if got := dl.BoundsAt(1); !rectNear(got, Rect{20 - o, 20 - o, 40 + o, 40 + o}, 1e-4) {
 		t.Errorf("scaled layer bounds = %v", got)
 	}
-	// The layer is limited by the clip active at PushLayer time, but its
-	// content is limited by clips inside.
+	// The layer is limited by the clip active at PushLayer time; its content
+	// by that clip grown by the reach of the filters (12), which pull content
+	// from outside the clip.
 	dl = build(func(b *Builder) {
 		b.PushClipRect(Rect{0, 0, 30, 30})
 		b.PushLayer(1, SrcOver, Blur{4})
 		b.FillRect(Rect{10, 10, 100, 100}, Black)
+		b.FillRect(Rect{35, 0, 40, 5}, Black) // outside the clip, within reach
+		b.FillRect(Rect{45, 0, 50, 5}, Black) // beyond reach: dropped
 		b.PopLayer()
 		b.PopClip()
 	})
+	if dl.Len() != 6 {
+		t.Fatalf("len = %d\n%s", dl.Len(), dl)
+	}
 	if got := dl.BoundsAt(1); !rectNear(got, Rect{0, 0, 30, 30}, 1e-4) {
 		t.Errorf("clipped layer bounds = %v", got)
 	}
-	if got := dl.BoundsAt(2); got != (Rect{10, 10, 30, 30}) {
+	if got := dl.BoundsAt(2); got != (Rect{10, 10, 42, 42}) {
 		t.Errorf("clipped content bounds = %v", got)
+	}
+	if got := dl.BoundsAt(3); got != (Rect{35, 0, 40, 5}) {
+		t.Errorf("content outside the clip: bounds = %v", got)
 	}
 	// Opacity is clamped; identity blurs disappear from the stored filters.
 	dl = build(func(b *Builder) {
@@ -805,7 +816,14 @@ func TestBuilderRandomSequences(t *testing.T) {
 			if !bb.IsFinite() || bb.Empty() {
 				t.Fatalf("iter %d: command %d (%s) has bounds %v\n%s", iter, i, c.Name(), bb, dl)
 			}
-			if !dl.Bounds().ContainsRect(bb) {
+			// Content inside layers with filters may lie outside the
+			// layer's bounds, by up to the reach of the filters (the clip
+			// applies to the filtered result).
+			var reach float32
+			for _, p := range stack {
+				reach += dl.LayerReach(p)
+			}
+			if !dl.Bounds().Outset(reach).ContainsRect(bb) {
 				t.Fatalf("iter %d: command %d bounds %v outside total %v", iter, i, bb, dl.Bounds())
 			}
 			if _, ok := pushKind(c); ok {
@@ -825,8 +843,14 @@ func TestBuilderRandomSequences(t *testing.T) {
 			} else if dl.Match(i) != -1 {
 				t.Fatalf("iter %d: draw command %d has a match", iter, i)
 			}
-			for _, p := range stack {
-				if !dl.BoundsAt(p).ContainsRect(bb) && p != i {
+			for k, p := range stack {
+				var r float32
+				for _, q := range stack[k:] {
+					if q != i {
+						r += dl.LayerReach(q)
+					}
+				}
+				if !dl.BoundsAt(p).Outset(r).ContainsRect(bb) && p != i {
 					t.Fatalf("iter %d: command %d bounds %v not inside block %d bounds %v\n%s", iter, i, bb, p, dl.BoundsAt(p), dl)
 				}
 			}

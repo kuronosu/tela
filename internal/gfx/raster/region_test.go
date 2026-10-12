@@ -88,7 +88,7 @@ func randomScene(seed uint64, w, h int) scene {
 			return color()
 		}
 		draw := func() {
-			switch rng.IntN(5) {
+			switch rng.IntN(6) {
 			case 0:
 				b.FillRect(rect(), paint())
 			case 1:
@@ -109,7 +109,33 @@ func randomScene(seed uint64, w, h int) scene {
 					src = gfx.Rect{X0: f(-2, 4), Y0: f(-2, 4), X1: f(2, 8), Y1: f(2, 8)}
 				}
 				b.DrawImage(testImage, src, rect(), gfx.Sampling(rng.IntN(2)))
+			case 5:
+				s := gfx.DrawShadow{RRect: rrect(), Offset: gfx.Pt(f(-10, 10), f(-10, 10)),
+					Blur: f(0, 30), Spread: f(-10, 10), Color: color(), Inset: rng.IntN(3) == 0}
+				switch rng.IntN(4) {
+				case 0:
+					s.Blur = 0
+				case 1:
+					s.Blur = f(0, 0.5)
+				}
+				b.DrawShadow(s)
 			}
+		}
+		filters := func() []gfx.Filter {
+			var fs []gfx.Filter
+			for n := rng.IntN(3); n > 0; n-- {
+				switch rng.IntN(4) {
+				case 0:
+					fs = append(fs, gfx.Blur{StdDev: f(0, 8)})
+				case 1:
+					fs = append(fs, gfx.Blur{StdDev: f(0, 1.5)})
+				case 2:
+					fs = append(fs, gfx.DropShadow{Offset: gfx.Pt(f(-8, 8), f(-8, 8)), StdDev: f(0, 5), Color: color()})
+				case 3:
+					fs = append(fs, []gfx.ColorMatrix{gfx.Saturate(f(0, 2)), gfx.Brightness(f(0.5, 1.5)), gfx.Invert(1), gfx.Contrast(f(0, 2))}[rng.IntN(4)])
+				}
+			}
+			return fs
 		}
 		pushClip := func() {
 			switch rng.IntN(3) {
@@ -136,7 +162,7 @@ func randomScene(seed uint64, w, h int) scene {
 					case 0:
 						pushClip()
 					case 1:
-						b.PushLayer(f(0.1, 1), gfx.SrcOver)
+						b.PushLayer(f(0.1, 1), gfx.SrcOver, filters()...)
 					case 2:
 						b.PushTransform(gfx.RotateAbout(f(-1, 1), gfx.Pt(f(0, W), f(0, H))))
 					}
@@ -248,7 +274,7 @@ func TestRegionMatchesFullRenderCulled(t *testing.T) {
 }
 
 func testRegions(t *testing.T) {
-	all := append(append([]scene(nil), scenes...), scenes2...)
+	all := append(append(append([]scene(nil), scenes...), scenes2...), scenes3[1:]...)
 	for seed := uint64(1); seed <= 4; seed++ {
 		all = append(all, randomScene(seed, 150, 110))
 	}

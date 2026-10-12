@@ -21,7 +21,7 @@ func renderScene(s scene, scale float32) *image.RGBA {
 }
 
 func TestGoldens(t *testing.T) {
-	for _, s := range append(append([]scene(nil), scenes...), scenes2...) {
+	for _, s := range append(append(append([]scene(nil), scenes...), scenes2...), scenes3...) {
 		for _, scale := range []float32{1, 2} {
 			name := fmt.Sprintf("%s_x%g", s.name, scale)
 			t.Run(name, func(t *testing.T) {

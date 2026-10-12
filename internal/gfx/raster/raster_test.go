@@ -272,15 +272,7 @@ func TestUnimplementedPanics(t *testing.T) {
 		want string
 	}{
 		{func(b *gfx.Builder) {
-			b.DrawShadow(gfx.DrawShadow{RRect: gfx.NewRRect(gfx.Rect{X1: 4, Y1: 4}, 1), Blur: 2, Color: gfx.Black})
-		}, "raster: DrawShadow is not implemented yet"},
-		{func(b *gfx.Builder) {
-			b.PushLayer(1, gfx.SrcOver, gfx.Blur{StdDev: 2})
-			b.FillRect(gfx.Rect{X1: 4, Y1: 4}, gfx.Black)
-			b.PopLayer()
-		}, "raster: layer filters are not implemented yet"},
-		{func(b *gfx.Builder) {
-			b.PushLayer(1, gfx.Multiply)
+			b.PushLayer(1, gfx.Multiply, gfx.Blur{StdDev: 2})
 			b.FillRect(gfx.Rect{X1: 4, Y1: 4}, gfx.Black)
 			b.PopLayer()
 		}, "raster: blend mode multiply is not implemented until phase 6"},

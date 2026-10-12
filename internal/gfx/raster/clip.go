@@ -97,6 +97,7 @@ func (r *Renderer) clipRect(rect gfx.Rect) {
 // everything up to the matching pop invisible.
 func (r *Renderer) narrow(rect image.Rectangle) {
 	b := &r.blit
+	r.bound = r.bound.Intersect(rect)
 	b.clip = b.clip.Intersect(rect)
 	if b.clip.Empty() {
 		b.clip = image.Rectangle{}
@@ -211,15 +212,16 @@ func (r *Renderer) rrectInner(rr gfx.RRect) image.Rectangle {
 // pushLayer starts an offscreen layer for the PushLayer at index i of the
 // list. The state has already been saved.
 func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
-	if len(c.Filters) > 0 {
-		panic("raster: layer filters are not implemented yet")
-	}
 	if c.Blend != gfx.SrcOver {
 		panic(fmt.Sprintf("raster: blend mode %s is not implemented until phase 6", c.Blend))
 	}
 	op := unit8(float64(c.Opacity))
 	if op == 0 {
 		r.narrow(image.Rectangle{})
+		return
+	}
+	if len(c.Filters) > 0 {
+		r.pushFilterLayer(i, c, op)
 		return
 	}
 	// The layer's root-space bounds (its content, clipped by the clip at
@@ -236,6 +238,7 @@ func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
 	buf := r.getBuf(4 * rect.Dx() * rect.Dy())
 	st := &r.stack[len(r.stack)-1]
 	st.layer, st.pix, st.stride, st.origin, st.surf, st.opacity = true, b.pix, b.stride, b.origin, buf, op
+	st.comp, st.surfRect = rect, rect
 	// The saved clip is the one before narrow: the layer is composited
 	// within the narrowed rectangle, which lies inside it.
 	b.pix, b.stride, b.origin, b.cm = buf, 4*rect.Dx(), rect.Min, clipMask{}
