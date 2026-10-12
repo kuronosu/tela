@@ -2,9 +2,23 @@
 //
 // Commands:
 //
-//	tela snapshot [--size WxH] [--scale N] [-o out.png] <pkg>
+//	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
+//	tela inspect  [--layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 //
-// More commands (inspect, lint, dev, add, mcp) arrive in later phases; see
+// Both render a package headlessly: the package defines func Preview()
+// tela.Node, or a Previews variable (a tela.Previews map of named screens);
+// --preview NAME chooses one of them. snapshot writes a PNG; inspect prints
+// the layout tree as JSON (inspect --aria arrives in phase 4). The phase-1
+// contract func Scene(w, h float32) *gfx.DisplayList still works for
+// snapshot.
+//
+// The commands run the package's own code: they generate a test file that
+// the go command compiles into the package (through an overlay, so the
+// directory is not touched), which means they need the go command in PATH
+// and, for now, a package inside the Tela module, since the generated code
+// uses Tela's internal packages.
+//
+// More commands (lint, dev, add, mcp) arrive in later phases; see
 // docs/ARCHITECTURE.md section 17.
 package main
 
@@ -22,7 +36,8 @@ Usage:
 
 Commands:
 
-	snapshot    render a package's scene headlessly to a PNG
+	snapshot    render a package's screen headlessly to a PNG
+	inspect     print a package's layout tree as JSON
 	help        show this help
 
 Run "tela help <command>" for details about a command.
@@ -42,11 +57,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "snapshot":
 		return runSnapshot(args[1:], stdout, stderr)
+	case "inspect":
+		return runInspect(args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
 		if len(args) > 1 {
 			switch args[1] {
 			case "snapshot":
 				fmt.Fprint(stdout, snapshotUsage)
+				return 0
+			case "inspect":
+				fmt.Fprint(stdout, inspectUsage)
 				return 0
 			default:
 				fmt.Fprintf(stderr, "tela: unknown help topic %q; run \"tela help\" for the list of commands\n", args[1])

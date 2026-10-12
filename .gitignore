@@ -6,6 +6,7 @@
 # Golden test failures
 *_actual.png
 *_diff.png
+*_actual.json
 
 # Snapshots and local output
 /out/

@@ -250,6 +250,7 @@ func TestNodeConstructorsPanic(t *testing.T) {
 		"nil key":            func() { Key(nil) },
 		"fragment class":     func() { Fragment(Class("p-4")) },
 		"src on div":         func() { div(Src(image.NewRGBA(image.Rect(0, 0, 1, 1)))) },
+		"href on div":        func() { div(Href("https://example.com")) },
 	} {
 		func() {
 			defer func() {

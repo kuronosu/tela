@@ -1,6 +1,8 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -38,6 +40,44 @@ type InspectNode struct {
 	// Style summarizes the computed style.
 	Style    StyleSummary  `json:"style"`
 	Children []InspectNode `json:"children,omitempty"`
+}
+
+// jsonRect is the serialized form of a rectangle: the origin and the size
+// in logical pixels, which is easier to read than two corners.
+type jsonRect struct {
+	X      float32 `json:"x"`
+	Y      float32 `json:"y"`
+	Width  float32 `json:"width"`
+	Height float32 `json:"height"`
+}
+
+// MarshalJSON writes the node with the same fields as the struct, in the
+// same order, except that rect is {x, y, width, height} instead of the two
+// corners of a gfx.Rect, margin, border and padding are left out when all
+// four edges are zero, and text is not HTML-escaped ("&" stays "&").
+func (n InspectNode) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(struct {
+		Kind      string        `json:"kind"`
+		Key       string        `json:"key,omitempty"`
+		Component string        `json:"component,omitempty"`
+		Rect      jsonRect      `json:"rect"`
+		Margin    Edges         `json:"margin,omitzero"`
+		Border    Edges         `json:"border,omitzero"`
+		Padding   Edges         `json:"padding,omitzero"`
+		Text      string        `json:"text,omitempty"`
+		Lines     int           `json:"lines,omitempty"`
+		Inline    []string      `json:"inline,omitempty"`
+		Style     StyleSummary  `json:"style"`
+		Children  []InspectNode `json:"children,omitempty"`
+	}{
+		n.Kind, n.Key, n.Component,
+		jsonRect{n.Rect.X0, n.Rect.Y0, n.Rect.Width(), n.Rect.Height()},
+		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, n.Style, n.Children,
+	})
+	return bytes.TrimRight(buf.Bytes(), "\n"), err
 }
 
 // Edges are four edge lengths in logical pixels.

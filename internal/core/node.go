@@ -44,6 +44,7 @@ type desc struct {
 	events  []EventProp
 	src     image.Image // Img source (Src)
 	img     *gfx.Image  // Img source (SrcImage)
+	href    string      // A destination (Href)
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings
@@ -198,6 +199,12 @@ func SrcImage(img *gfx.Image) Prop {
 	return Prop{name: "SrcImage", apply: func(d *desc) { d.img, d.src = img, nil }}
 }
 
+// Href sets the destination of an A primitive. Phase 3 stores it; opening
+// links arrives with input in phase 4.
+func Href(url string) Prop {
+	return Prop{name: "Href", apply: func(d *desc) { d.href = url }}
+}
+
 func checkKey(k any) {
 	if k == nil {
 		panic("core: Key(nil): a key must be a non-nil comparable value, such as a string or an int ID")
@@ -228,6 +235,9 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	}
 	if kind != style.KindImg && (d.src != nil || d.img != nil) {
 		panic(fmt.Sprintf("core: Src on <%v>: only Img takes an image source", kind))
+	}
+	if kind != style.KindA && d.href != "" {
+		panic(fmt.Sprintf("core: Href on <%v>: only A takes a destination", kind))
 	}
 	return Node{d}
 }

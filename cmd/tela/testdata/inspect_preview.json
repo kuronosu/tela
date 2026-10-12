@@ -1,0 +1,123 @@
+{
+  "kind": "root",
+  "rect": {
+    "x": 0,
+    "y": 0,
+    "width": 400,
+    "height": 300
+  },
+  "style": {
+    "display": "block",
+    "color": "#000000",
+    "font": "400 16px/1.5 Inter",
+    "opacity": 1
+  },
+  "children": [
+    {
+      "kind": "div",
+      "component": "github.com/kuronosu/tela/cmd/tela/testdata/preview.Preview",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 400,
+        "height": 300
+      },
+      "padding": {
+        "top": 16,
+        "right": 16,
+        "bottom": 16,
+        "left": 16
+      },
+      "style": {
+        "classes": "flex min-h-screen flex-col gap-2 bg-slate-100 p-4 dark:bg-slate-900",
+        "display": "flex",
+        "flex": "column gap 8px/8px",
+        "color": "#000000",
+        "background": "#f1f5f9",
+        "font": "400 16px/1.5 Inter",
+        "opacity": 1
+      },
+      "children": [
+        {
+          "kind": "h1",
+          "key": "title",
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 368,
+            "height": 32
+          },
+          "text": "Hello & welcome",
+          "lines": 1,
+          "style": {
+            "classes": "text-2xl font-bold text-slate-900 dark:text-white",
+            "display": "block",
+            "color": "#0f172b",
+            "font": "700 24px/1.3333334 Inter",
+            "opacity": 1
+          }
+        },
+        {
+          "kind": "div",
+          "key": "row",
+          "rect": {
+            "x": 16,
+            "y": 56,
+            "width": 368,
+            "height": 40
+          },
+          "style": {
+            "classes": "flex gap-2",
+            "display": "flex",
+            "flex": "row gap 8px/8px",
+            "color": "#000000",
+            "font": "400 16px/1.5 Inter",
+            "opacity": 1
+          },
+          "children": [
+            {
+              "kind": "div",
+              "key": "a",
+              "rect": {
+                "x": 16,
+                "y": 56,
+                "width": 80,
+                "height": 40
+              },
+              "style": {
+                "classes": "h-10 w-20 rounded-lg bg-sky-500",
+                "display": "block",
+                "width": "80px",
+                "height": "40px",
+                "color": "#000000",
+                "background": "#00a6f4",
+                "font": "400 16px/1.5 Inter",
+                "opacity": 1
+              }
+            },
+            {
+              "kind": "div",
+              "key": "b",
+              "rect": {
+                "x": 104,
+                "y": 56,
+                "width": 80,
+                "height": 40
+              },
+              "style": {
+                "classes": "h-10 w-20 rounded-lg bg-rose-500",
+                "display": "block",
+                "width": "80px",
+                "height": "40px",
+                "color": "#000000",
+                "background": "#ff2056",
+                "font": "400 16px/1.5 Inter",
+                "opacity": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

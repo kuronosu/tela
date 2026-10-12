@@ -1,8 +1,11 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
 	"image"
 	"image/color"
+	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -366,5 +369,48 @@ func TestParagraphReshapeVersusRebreak(t *testing.T) {
 	tr.Frame()
 	if s := tr.Stats(); s.Shapes != s3.Shapes+1 {
 		t.Errorf("a color change: %d shapes, want 1", s.Shapes-s3.Shapes)
+	}
+}
+
+func TestInspectJSON(t *testing.T) {
+	tr := newTestTree(t, 200, 100, div(Key("a"), Class("m-2 w-20 h-10 bg-red-500"), Text("a & b <c>")), nil)
+	tr.Frame()
+	root := tr.Inspect()
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false) // as tela inspect does
+	if err := enc.Encode(root); err != nil {
+		t.Fatal(err)
+	}
+	js := buf.Bytes()
+	var got struct {
+		Kind     string `json:"kind"`
+		Children []struct {
+			Key  string `json:"key"`
+			Rect struct{ X, Y, Width, Height float32 }
+		} `json:"children"`
+	}
+	if err := json.Unmarshal(js, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Kind != "root" || len(got.Children) != 1 {
+		t.Fatalf("unexpected JSON: %s", js)
+	}
+	a := got.Children[0]
+	if a.Key != "a" || a.Rect.X != 8 || a.Rect.Y != 8 || a.Rect.Width != 80 || a.Rect.Height != 40 {
+		t.Errorf("rect of a = %+v in %s, want x 8 y 8 width 80 height 40", a, js)
+	}
+	// Field order is part of the contract: kind first, rect before the
+	// edges, children last. Zero edges are left out (the root has them
+	// all zero, "a" has a margin).
+	s := string(js)
+	if !(strings.Index(s, `"kind"`) < strings.Index(s, `"rect"`) && strings.Index(s, `"rect"`) < strings.Index(s, `"margin"`) && strings.Index(s, `"style"`) < strings.Index(s, `"children"`)) {
+		t.Errorf("unexpected field order: %s", s)
+	}
+	if strings.Count(s, `"margin"`) != 1 || strings.Contains(s, `"padding"`) || strings.Contains(s, `"border"`) {
+		t.Errorf("zero edges must be omitted: %s", s)
+	}
+	if !strings.Contains(s, `"text":"a & b <c>"`) {
+		t.Errorf("text must not be HTML-escaped: %s", s)
 	}
 }
