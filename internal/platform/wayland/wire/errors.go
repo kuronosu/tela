@@ -30,6 +30,11 @@ func (e *ProtocolError) Error() string {
 	return fmt.Sprintf("wayland protocol error on %s (code %d): %s", obj, e.Code, e.Message)
 }
 
+// errDroppedProxy marks a request on a proxy whose creating request was
+// dropped. Writer.Done discards it without reporting it: Flush reports the
+// error that dropped the creating request.
+var errDroppedProxy = errors.New("wayland: request on an object whose creation was dropped")
+
 // errTruncated reports a message whose body is shorter than its signature.
 var errTruncated = errors.New("wayland: malformed message: body shorter than its arguments")
 

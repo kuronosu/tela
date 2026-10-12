@@ -24,6 +24,7 @@ type Proxy struct {
 	version   uint32
 	iface     *Interface
 	destroyed bool
+	dropped   bool // the request that created it was never sent
 }
 
 // Base returns p. It makes every type that embeds a Proxy satisfy the Base
@@ -40,8 +41,10 @@ func (p *Proxy) Version() uint32 { return p.version }
 func (p *Proxy) Conn() *Conn { return p.conn }
 
 // Destroyed reports whether the proxy was destroyed, either client-side by a
-// destructor request or after wl_display.delete_id. Requests on a destroyed
-// proxy panic.
+// destructor request or after wl_display.delete_id, or never existed on the
+// server because the request that created it was dropped (see
+// [Writer.Done]). Requests on a destroyed proxy panic, except on a dropped
+// one, where they are dropped too.
 func (p *Proxy) Destroyed() bool { return p.destroyed }
 
 func (p *Proxy) String() string {
@@ -63,6 +66,13 @@ func (p *Proxy) Begin(opcode uint16) *Writer {
 		panic(fmt.Sprintf("wayland: request on a proxy that is not bound to a connection (opcode %d)", opcode))
 	}
 	m := &p.iface.Requests[opcode]
+	if p.dropped {
+		// Its creation was never sent and the connection is failing:
+		// encode the request into the void (Done discards it).
+		w := p.conn.begin(p.id, opcode)
+		w.err = errDroppedProxy
+		return w
+	}
 	if p.destroyed {
 		panic(fmt.Sprintf("wayland: %s.%s called on destroyed object %s", p.iface.Name, m.Name, p))
 	}

@@ -248,6 +248,45 @@ func TestPresentCopiesAndTracksDamage(t *testing.T) {
 	}
 }
 
+// A Present whose damage lies entirely outside the frame changes nothing:
+// like the Wayland and X11 backends, headless returns early, and Damage and
+// Presents keep describing the last real Present (nil damage would mean
+// "full frame").
+func TestPresentFullyClippedDamageIsNoop(t *testing.T) {
+	b := New(Options{Size: platform.Size{W: 8, H: 4}})
+	w := newWindow(t, b, platform.WindowOptions{})
+	b.Drain(&recorder{})
+
+	fb := image.NewRGBA(image.Rect(0, 0, 8, 4))
+	fill(fb, fb.Rect, red)
+	if err := w.Present(fb, nil); err != nil {
+		t.Fatal(err)
+	}
+	fill(fb, fb.Rect, blue)
+	part := []image.Rectangle{image.Rect(1, 1, 2, 2)}
+	if err := w.Present(fb, part); err != nil {
+		t.Fatal(err)
+	}
+	for _, damage := range [][]image.Rectangle{
+		{image.Rect(8, 0, 12, 4)},                          // right of the frame
+		{image.Rect(-5, -5, 0, 0), image.Rect(0, 4, 8, 9)}, // above-left and below
+		{image.Rectangle{}},                                // one empty rectangle
+	} {
+		if err := w.Present(fb, damage); err != nil {
+			t.Fatalf("Present(%v): %v", damage, err)
+		}
+		if got := w.Presents(); got != 2 {
+			t.Errorf("Present(%v) was counted: Presents() = %d, want 2", damage, got)
+		}
+		if got := w.Damage(); fmt.Sprint(got) != fmt.Sprint(part) {
+			t.Errorf("Present(%v) changed Damage() to %v, want the last real damage %v", damage, got, part)
+		}
+		if got := w.Frame().RGBAAt(0, 0); got != red {
+			t.Errorf("Present(%v) changed pixels outside every damage: %v", damage, got)
+		}
+	}
+}
+
 func TestPresentProgrammerErrors(t *testing.T) {
 	b := New(Options{Size: platform.Size{W: 10, H: 10}})
 	w := newWindow(t, b, platform.WindowOptions{})

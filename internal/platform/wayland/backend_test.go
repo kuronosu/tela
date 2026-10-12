@@ -287,6 +287,127 @@ func TestFramePacing(t *testing.T) {
 	h.noEvent(100 * time.Millisecond)
 }
 
+// loopIterations reads the backend's loop counter on the UI thread.
+func (h *harness) loopIterations() int {
+	h.t.Helper()
+	n := 0
+	h.ui(func() { n = h.b.iterations })
+	return n
+}
+
+// stopRunaway wraps onFrame so that a backend delivering frames without
+// pacing quits Run after 500 of them. Otherwise the flood would fill the
+// events channel, block the handler, and hang the test instead of failing
+// it.
+func (h *harness) stopRunaway() {
+	inner := h.onFrame
+	n := 0
+	h.onFrame = func(w platform.Window, e platform.FrameEvent) {
+		if n++; n == 500 {
+			h.t.Errorf("500 FrameEvents: frames are not paced; quitting the loop")
+			h.b.Quit()
+		}
+		inner(w, e)
+	}
+}
+
+// TestAnimationWithoutPresentWaitsForCallbacks is the regression test for a
+// 100% CPU spin: a FrameEvent handler that requests the next frame without
+// presenting (an animation tick with no pixel change) left no frame
+// callback outstanding, so every request was due at once and poll ran with
+// a zero timeout. The backend must request a callback with a commit that
+// attaches no buffer, and deliver the frame when it fires.
+func TestAnimationWithoutPresentWaitsForCallbacks(t *testing.T) {
+	h := newHarness(t, standardGlobals(1))
+	presented := false
+	h.onFrame = func(w platform.Window, _ platform.FrameEvent) {
+		if !presented { // map the window once, then only tick
+			presented = true
+			w.Present(solid(w, 1, 2, 3), nil)
+		}
+		w.RequestFrame()
+	}
+	h.stopRunaway()
+	openWindow(t, h, platform.WindowOptions{}, 64, 64, 1)
+	expect[platform.ConfigureEvent](h)
+	expect[platform.FrameEvent](h)
+	cb, i := find(h.fc.until("wl_surface.commit"), "wl_surface.frame")
+	if i < 0 {
+		t.Fatal("the presented frame requested no callback")
+	}
+
+	for tick := range 3 {
+		// No FrameEvent until the outstanding callback fires, and the loop
+		// sleeps in poll meanwhile.
+		before := h.loopIterations()
+		h.noEvent(100 * time.Millisecond)
+		if n := h.loopIterations() - before; n > 10 {
+			t.Fatalf("tick %d: %d loop iterations in 100 ms while waiting for a frame callback: the loop spins", tick, n)
+		}
+		h.fc.send(cb.u(0), 0, uint32(1000+tick)) // done
+		expect[platform.FrameEvent](h)
+
+		// The handler did not present: the backend asks for the next
+		// callback itself, with a commit that attaches nothing.
+		reqs := h.fc.until("wl_surface.commit")
+		if cb, i = find(reqs, "wl_surface.frame"); i < 0 {
+			t.Fatalf("tick %d: requests %v lack a frame callback", tick, names(reqs))
+		}
+		for _, bad := range []string{"wl_surface.attach", "wl_surface.damage_buffer", "xdg_surface.ack_configure"} {
+			if _, j := find(reqs, bad); j >= 0 {
+				t.Errorf("tick %d: the pacing commit carries %s: %v", tick, bad, names(reqs))
+			}
+		}
+	}
+
+	// Stop animating: the last callback's FrameEvent arrives, then
+	// nothing, and no more commits.
+	h.onFrame = func(platform.Window, platform.FrameEvent) {}
+	h.fc.send(cb.u(0), 0, uint32(2000))
+	expect[platform.FrameEvent](h)
+	h.noEvent(100 * time.Millisecond)
+	h.fc.quiet(50*time.Millisecond, "wl_surface.commit")
+}
+
+// TestAnimationWithoutBufferIsTimerPaced covers the same handler before the
+// window has a buffer: an unmapped surface gets no frame callbacks, so the
+// requests are paced by the 60 Hz timer instead of spinning.
+func TestAnimationWithoutBufferIsTimerPaced(t *testing.T) {
+	h := newHarness(t, standardGlobals(1))
+	h.onFrame = func(w platform.Window, _ platform.FrameEvent) { w.RequestFrame() }
+	h.stopRunaway()
+	openWindow(t, h, platform.WindowOptions{}, 64, 64, 1)
+	expect[platform.ConfigureEvent](h)
+	expect[platform.FrameEvent](h)
+
+	before := h.loopIterations()
+	const window = 250 * time.Millisecond
+	deadline := time.After(window)
+	frames := 0
+collect:
+	for {
+		select {
+		case r := <-h.events:
+			if _, ok := r.ev.(platform.FrameEvent); !ok {
+				t.Fatalf("unexpected event %T", r.ev)
+			}
+			frames++
+		case <-deadline:
+			break collect
+		}
+	}
+	iters := h.loopIterations() - before
+	// 60 Hz gives 15 frames in 250 ms; a spinning loop gives thousands.
+	if frames < 3 || frames > 25 {
+		t.Errorf("%d FrameEvents in %v without a buffer, want about 15 (60 Hz)", frames, window)
+	}
+	if iters > 3*frames+10 {
+		t.Errorf("%d loop iterations for %d frames: the loop does not sleep between frames", iters, frames)
+	}
+	// Nothing was committed: an unmapped surface cannot take a callback.
+	h.fc.quiet(10*time.Millisecond, "wl_surface.commit")
+}
+
 func TestPresentDamageAndBufferReuse(t *testing.T) {
 	h := newHarness(t, standardGlobals(1, protocols.WlShmFormatXbgr8888, protocols.WlShmFormatXrgb8888))
 	type step struct {
@@ -368,6 +489,50 @@ func TestPresentDamageAndBufferReuse(t *testing.T) {
 	h.ui(func() { created = len(w.(*Window).chain.bufs) })
 	if created != 3 {
 		t.Errorf("swapchain has %d buffers, want 3", created)
+	}
+}
+
+// TestCloseAfterResizeUnmapsEveryBuffer: the compositor still holds the
+// buffer of the old size (no wl_buffer.release yet) when the window is
+// resized and then closed. Every mapping must be gone after Close, and
+// every wl_buffer destroyed.
+func TestCloseAfterResizeUnmapsEveryBuffer(t *testing.T) {
+	baseline := shmMappings.Load()
+	h := newHarness(t, standardGlobals(1))
+	h.onFrame = func(w platform.Window, _ platform.FrameEvent) { w.Present(solid(w, 1, 2, 3), nil) }
+	w := openWindow(t, h, platform.WindowOptions{}, 40, 30, 1)
+	expect[platform.ConfigureEvent](h)
+	expect[platform.FrameEvent](h)
+	first, _ := find(h.fc.until("wl_surface.commit"), "wl_surface.attach")
+
+	h.configure(50, 30, 2)
+	expect[platform.ConfigureEvent](h)
+	expect[platform.FrameEvent](h)
+	h.fc.until("wl_surface.commit")
+	h.ui(func() {
+		if n := len(w.chain.retired); n != 1 {
+			t.Errorf("retired buffers after the resize = %d, want 1 (the busy old buffer)", n)
+		}
+		if n := shmMappings.Load() - baseline; n != 2 {
+			t.Errorf("mapped buffers = %d, want 2", n)
+		}
+		w.Close()
+		if n := shmMappings.Load() - baseline; n != 0 {
+			t.Errorf("%d shm buffers still mapped after Close", n)
+		}
+	})
+	// Both wl_buffers are destroyed, the retired one included. (A late
+	// release after Close is covered by TestSwapchainDestroyFreesRetired-
+	// Buffers: this scripted fake answers destroy with delete_id at once,
+	// after which a real compositor sends no more events for the buffer.)
+	var destroyed []uint32
+	for _, r := range h.fc.quiet(100*time.Millisecond, "") {
+		if r.is("wl_buffer.destroy") {
+			destroyed = append(destroyed, r.id)
+		}
+	}
+	if len(destroyed) != 2 || !slices.Contains(destroyed, first.u(0)) {
+		t.Errorf("wl_buffer.destroy for %v, want 2 buffers including the retired %d", destroyed, first.u(0))
 	}
 }
 

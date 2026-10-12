@@ -89,11 +89,21 @@ func (b *Backend) translate(e xevent) {
 		if w == nil || ev.Detail == xproto.NotifyDetailInferior {
 			return
 		}
+		mods := modsFromState(ev.State)
 		if w.leavePending {
-			// Back inside before the buttons were released: the app
-			// never saw the pointer leave.
-			w.leavePending = false
-			return
+			held := buttonsFromState(ev.State) | w.extra
+			if ev.Mode == xproto.NotifyModeNormal && held != 0 {
+				// Back inside before the buttons were released: the app
+				// never saw the pointer leave.
+				w.leavePending = false
+				return
+			}
+			// The implicit grab ended without a ButtonRelease reaching
+			// this window (NotifyUngrab, or no button held any more):
+			// another grab took the release. End the old stay for the
+			// app (cancel, then the deferred leave) before the enter.
+			b.cancelPress(w, mods)
+			b.leave(w, 0, mods)
 		}
 		if !w.inside {
 			w.inside = true
@@ -115,6 +125,7 @@ func (b *Backend) translate(e xevent) {
 			return
 		}
 		held := buttonsFromState(ev.State) | w.extra
+		mods := modsFromState(ev.State)
 		if held != 0 && ev.Mode == xproto.NotifyModeNormal {
 			// X reports the crossing during the implicit grab of a held
 			// button, while the window keeps receiving the moves. Wayland
@@ -125,7 +136,16 @@ func (b *Backend) translate(e xevent) {
 			return
 		}
 		w.lastPos = w.pos(ev.EventX, ev.EventY)
-		b.leave(w, held, modsFromState(ev.State))
+		if held != 0 || w.leavePending {
+			// A grab (NotifyGrab: the window manager's Alt+drag, a
+			// screenshot tool; NotifyUngrab: our implicit grab ended
+			// without a release) took the pointer while the app still
+			// had a press: its release will never reach this window.
+			// Like the Wayland backend when the compositor takes the
+			// pointer, abort the press, then report the leave.
+			b.cancelPress(w, mods)
+		}
+		b.leave(w, 0, mods)
 
 	case xproto.FocusInEvent:
 		if w := b.windows[ev.Event]; w != nil && realFocusChange(ev.Mode, ev.Detail) && !w.focused {
@@ -254,6 +274,20 @@ func (b *Backend) button(w *Window, detail xproto.Button, state uint16, x, y int
 			b.leave(w, 0, mods)
 		}
 	}
+}
+
+// cancelPress queues a PointerCancel at the last known position for the
+// press sequence the app is in, and forgets every held button: the back and
+// forward buttons tracked in w.extra (no later event would clear them) and
+// a deferred leave (the caller reports it).
+func (b *Backend) cancelPress(w *Window, mods platform.Modifiers) {
+	w.extra = 0
+	w.leavePending = false
+	b.pointer(w, platform.PointerEvent{
+		Action: platform.PointerCancel,
+		Pos:    w.lastPos,
+		Mods:   mods,
+	})
 }
 
 // leave queues a PointerLeave at the last known position.

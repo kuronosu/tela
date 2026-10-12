@@ -202,6 +202,9 @@ type Writer struct {
 	opcode uint16
 	fds    []int // duplicated descriptors owned by the message
 	err    error
+	// created lists the objects adopted by new_id arguments of this
+	// message, undone if the message is dropped.
+	created []*Proxy
 }
 
 func (w *Writer) word(v uint32) { w.c.out = nativeEndian.AppendUint32(w.c.out, v) }
@@ -268,6 +271,7 @@ func (w *Writer) Array(data []byte) { w.bytes(data, false) }
 func (w *Writer) NewObject(obj Object, version uint32) {
 	id := w.c.allocID()
 	w.c.adopt(obj, id, version)
+	w.created = append(w.created, obj.Base())
 	w.word(id)
 }
 
@@ -283,6 +287,7 @@ func (w *Writer) NewObjectUntyped(obj Object, version uint32) {
 	w.word(version)
 	id := w.c.allocID()
 	w.c.adopt(obj, id, version)
+	w.created = append(w.created, obj.Base())
 	w.word(id)
 }
 
@@ -304,6 +309,12 @@ func (w *Writer) Fd(fd int) {
 // Done finishes the message: it patches the header and queues the message for
 // the next [Conn.Flush]. If encoding failed (message too large, bad
 // descriptor), the message is dropped and the error is reported by Flush.
+//
+// Objects the dropped message created (new_id arguments) are dropped with
+// it: the server never hears of them, so their IDs are unregistered and
+// freed at once, and the proxies are marked destroyed. Requests on such a
+// proxy are dropped instead of panicking, since the connection is failing
+// anyway (Flush reports the first error and the connection is dead).
 func (w *Writer) Done() {
 	c := w.c
 	size := len(c.out) - w.start
@@ -312,7 +323,7 @@ func (w *Writer) Done() {
 		w.fail(fmt.Errorf("wayland: request of %d bytes exceeds the %d byte protocol limit", size, MaxMessageSize))
 	}
 	if w.err != nil || c.err != nil {
-		if w.err != nil && c.sendErr == nil {
+		if w.err != nil && w.err != errDroppedProxy && c.sendErr == nil {
 			c.sendErr = w.err
 		}
 		c.out = c.out[:w.start]
@@ -320,6 +331,11 @@ func (w *Writer) Done() {
 			CloseFd(fd)
 		}
 		w.fds = nil
+		for _, p := range w.created {
+			c.dropProxy(p)
+		}
+		clear(w.created)
+		w.created = w.created[:0]
 		return
 	}
 	nativeEndian.PutUint32(c.out[w.start+4:], uint32(size)<<16|uint32(w.opcode))

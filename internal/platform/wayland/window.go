@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"slices"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
@@ -14,6 +15,12 @@ import (
 // maxDamageRects bounds the damage_buffer requests of one Present; beyond
 // it the damage is sent as its bounding box.
 const maxDamageRects = 32
+
+// frameInterval paces frame requests that cannot wait for a frame callback
+// (see paceFrame), and defines "has not drawn recently": a request made more
+// than one interval after the previous FrameEvent is delivered on the next
+// loop iteration. 60 Hz, like the X11 and headless backends.
+const frameInterval = time.Second / 60
 
 // Window is a Wayland toplevel: wl_surface + xdg_surface + xdg_toplevel.
 // Its methods must be called on the UI thread.
@@ -60,10 +67,13 @@ type Window struct {
 	ackSize    image.Point
 
 	// Frames.
-	frameRequested  bool // RequestFrame since the last FrameEvent
-	forcedFrame     bool // a ConfigureEvent was delivered
-	callbackPending bool // a wl_surface.frame callback is outstanding
-	needsFull       bool // the next Present is full (after a ConfigureEvent)
+	frameRequested  bool          // RequestFrame since the last FrameEvent
+	forcedFrame     bool          // a ConfigureEvent was delivered
+	callbackPending bool          // a wl_surface.frame callback is outstanding
+	callbackDone    bool          // a frame callback fired since the last FrameEvent
+	hasFramed       bool          // a FrameEvent was delivered
+	lastFrame       time.Duration // Backend.Now at the latest FrameEvent
+	needsFull       bool          // the next Present is full (after a ConfigureEvent)
 
 	chain       swapchain
 	bufferScale int32 // scale committed with set_buffer_scale (protocol default 1)
@@ -240,15 +250,76 @@ func (w *Window) updateScale() {
 	w.announce(platform.Metrics{Size: w.announced.Size, Scale: float64(s)})
 }
 
-// frameDue reports whether a FrameEvent should be delivered now.
-func (w *Window) frameDue() bool {
+// visible reports whether frames can be delivered: the window has delivered
+// metrics with a non-empty size.
+func (w *Window) visible() bool {
 	if w.closed || w.metrics.Scale == 0 {
 		return false
 	}
-	if p := w.metrics.Physical(); p.X <= 0 || p.Y <= 0 {
+	p := w.metrics.Physical()
+	return p.X > 0 && p.Y > 0
+}
+
+// frameDue reports whether a FrameEvent should be delivered at now: a
+// ConfigureEvent's frame always; a requested frame once no callback is
+// outstanding and either a frame callback fired since the last FrameEvent
+// (the compositor is ready for a new frame) or the window has not had a
+// frame for an interval (it has not drawn recently: deliver right away).
+//
+// The second condition alone must never make two FrameEvents in a row
+// without a callback or an interval between them: a handler that requests
+// a frame without presenting (an animation tick with no pixel change) would
+// otherwise make the loop spin at 100% CPU. paceFrame covers that case.
+func (w *Window) frameDue(now time.Duration) bool {
+	if !w.visible() {
 		return false
 	}
-	return w.forcedFrame || (w.frameRequested && !w.callbackPending)
+	if w.forcedFrame {
+		return true
+	}
+	if !w.frameRequested || w.callbackPending {
+		return false
+	}
+	return w.callbackDone || !w.hasFramed || now-w.lastFrame >= frameInterval
+}
+
+// paceFrame handles a frame request that is not due at now. With a buffer
+// on screen it requests a frame callback with a commit that attaches no new
+// buffer, so the FrameEvent follows the compositor's pacing (vsync) and
+// stops while the window is hidden; the commit changes nothing the user
+// can see (see "Frame pacing" in doc.go).
+//
+// Before the window shows a buffer, or while a configure waits for the
+// buffer that acks it (a commit cannot apply the new state yet), it falls
+// back to interval pacing like the X11 backend: it returns when the frame
+// becomes due, for the poll timeout. ok is false when no timer is needed.
+func (w *Window) paceFrame(now time.Duration) (due time.Duration, ok bool) {
+	if !w.visible() || w.forcedFrame || !w.frameRequested || w.callbackPending || w.frameDue(now) {
+		return 0, false
+	}
+	if w.mapped && !w.ackPending {
+		w.requestCallback()
+		w.surface.Commit()
+		return 0, false
+	}
+	return w.lastFrame + frameInterval, true
+}
+
+// requestCallback requests a wl_surface.frame callback, committed by the
+// caller, unless one is outstanding.
+func (w *Window) requestCallback() {
+	if w.callbackPending {
+		return
+	}
+	w.callbackPending = true
+	cb := w.surface.Frame()
+	cb.SetDoneHandler(func(protocols.WlCallbackDoneEvent) {
+		// The compositor destroys the callback after done.
+		if !w.closed {
+			w.callbackPending = false
+			w.callbackDone = true
+		}
+	})
 }
 
 // --- platform.Window ---
@@ -258,7 +329,9 @@ func (w *Window) Metrics() platform.Metrics { return w.metrics }
 
 // RequestFrame asks for a FrameEvent: at the next frame callback if one is
 // outstanding (the compositor paces it to the display, and stops it while
-// the window is hidden), otherwise on the next loop iteration.
+// the window is hidden), on the next loop iteration if the window has not
+// had a frame recently, otherwise at a frame callback requested for it (see
+// paceFrame).
 func (w *Window) RequestFrame() {
 	if w.closed {
 		return
@@ -320,16 +393,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	}
 	w.surface.Attach(buf.wl, 0, 0)
 	w.damage(rects)
-	if !w.callbackPending {
-		w.callbackPending = true
-		cb := w.surface.Frame()
-		cb.SetDoneHandler(func(protocols.WlCallbackDoneEvent) {
-			// The compositor destroys the callback after done.
-			if !w.closed {
-				w.callbackPending = false
-			}
-		})
-	}
+	w.requestCallback()
 	w.surface.Commit()
 	w.chain.submitted(buf, rects)
 	w.mapped = true

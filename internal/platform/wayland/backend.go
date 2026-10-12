@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -73,6 +72,8 @@ type Backend struct {
 
 	ran      bool
 	released bool
+	// iterations counts loop iterations (UI thread), for pacing tests.
+	iterations int
 	// lastSerial is the serial of the latest input event of any seat, for
 	// requests that need one (clipboard, move, popups).
 	lastSerial uint32
@@ -122,7 +123,7 @@ func newBackend(conn *wire.Conn) (*Backend, error) {
 		start:      time.Now(),
 		shmFormats: map[protocols.WlShmFormat]bool{},
 		surfaces:   map[*protocols.WlSurface]*Window{},
-		appID:      defaultAppID(),
+		appID:      platform.DefaultAppID(),
 	}
 	b.display = protocols.NewWlDisplay(conn)
 	b.registry = b.display.GetRegistry()
@@ -167,16 +168,6 @@ func chooseFormat(formats map[protocols.WlShmFormat]bool) protocols.WlShmFormat 
 		return protocols.WlShmFormatXbgr8888
 	}
 	return protocols.WlShmFormatXrgb8888
-}
-
-// defaultAppID is the executable name, the documented default of
-// WindowOptions.AppID.
-func defaultAppID() string {
-	exe, err := os.Executable()
-	if err != nil || exe == "" {
-		return "tela"
-	}
-	return filepath.Base(exe)
 }
 
 func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
@@ -335,6 +326,7 @@ func (b *Backend) Run(h platform.Handler) error {
 	defer b.release()
 
 	for {
+		b.iterations++
 		if b.quitting.Load() {
 			return nil
 		}
@@ -342,17 +334,45 @@ func (b *Backend) Run(h platform.Handler) error {
 		if b.quitting.Load() {
 			return nil
 		}
+		deadline, timed := b.paceFrames()
 		if err := b.flush(); err != nil {
 			return err
 		}
 		timeout := -1
-		if b.ready() {
+		switch {
+		case b.ready():
 			timeout = 0 // still read what arrived, but do not block
+		case timed:
+			timeout = pollMillis(deadline - b.Now())
 		}
 		if err := b.poll(timeout); err != nil {
 			return err
 		}
 	}
+}
+
+// paceFrames arranges for every frame request that is not due yet to
+// become due later without busy-looping (see Window.paceFrame): it requests
+// frame callbacks, and returns the earliest time a timer-paced request
+// becomes due (ok false if none).
+func (b *Backend) paceFrames() (deadline time.Duration, ok bool) {
+	now := b.Now()
+	for _, w := range b.windows {
+		if t, timed := w.paceFrame(now); timed && (!ok || t < deadline) {
+			deadline, ok = t, true
+		}
+	}
+	return deadline, ok
+}
+
+// pollMillis converts a wait to a poll(2) timeout in milliseconds, rounded
+// up: rounding down would wake the loop before the frame is due, and a
+// remaining wait under 1 ms would become a busy poll(0).
+func pollMillis(d time.Duration) int {
+	if d <= 0 {
+		return 0
+	}
+	return int((d + time.Millisecond - 1) / time.Millisecond)
 }
 
 // deliver runs one delivery pass: a WakeEvent if Wake was called, the
@@ -390,14 +410,15 @@ func (b *Backend) deliver(h platform.Handler) {
 		}
 	}
 
+	now := b.Now()
 	var due []*Window
 	for _, w := range b.windows {
-		if w.frameDue() {
-			w.frameRequested, w.forcedFrame = false, false
+		if w.frameDue(now) {
+			w.frameRequested, w.forcedFrame, w.callbackDone = false, false, false
+			w.lastFrame, w.hasFramed = now, true
 			due = append(due, w)
 		}
 	}
-	now := b.Now()
 	for _, w := range due {
 		if b.quitting.Load() {
 			return
@@ -414,8 +435,9 @@ func (b *Backend) ready() bool {
 	if b.wakePending.Load() || len(b.queue) > 0 || b.quitting.Load() {
 		return true
 	}
+	now := b.Now()
 	for _, w := range b.windows {
-		if w.frameDue() {
+		if w.frameDue(now) {
 			return true
 		}
 	}

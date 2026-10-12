@@ -141,8 +141,8 @@ type WindowOptions struct {
 	// AppID identifies the application to the desktop: Wayland
 	// xdg_toplevel.app_id, X11 WM_CLASS (instance and class), used to
 	// match .desktop files and group windows. Use reverse-DNS
-	// ("com.example.notes"). Empty means the backend's default (the
-	// executable name).
+	// ("com.example.notes"). Empty means [DefaultAppID] (the executable
+	// name as invoked), the same on every backend.
 	AppID string
 	// Size is the requested logical size of the content area. Zero means
 	// DefaultWindowSize. The OS may grant another size.

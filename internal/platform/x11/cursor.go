@@ -88,30 +88,40 @@ func cursorGlyph(c platform.Cursor) (glyph uint16, ok bool) {
 }
 
 // cursorFor returns the server cursor for c, creating it on first use. It
-// returns 0 (None: inherit the parent's cursor) if the cursor font is
-// unavailable.
+// returns 0 (None: inherit the parent's cursor) if the cursor cannot be
+// created (no cursor font, XIDs exhausted). Failures are cached like
+// successes: xgb hands out XIDs from a counter and an unused one is never
+// returned, so retrying on every SetCursor would leak one per call. The
+// cursor XID is allocated only once the font is known to be usable.
 func (b *Backend) cursorFor(c platform.Cursor) xproto.Cursor {
 	if id, ok := b.cursors[c]; ok {
 		return id
+	}
+	id := b.createCursor(c)
+	b.cursors[c] = id
+	return id
+}
+
+// createCursor creates the server cursor for c, or returns 0.
+func (b *Backend) createCursor(c platform.Cursor) xproto.Cursor {
+	glyph, ok := cursorGlyph(c)
+	if !ok {
+		id, err := xproto.NewCursorId(b.conn)
+		if err != nil || !b.createInvisibleCursor(id) {
+			return 0
+		}
+		return id
+	}
+	font, ok := b.cursorFont()
+	if !ok {
+		return 0
 	}
 	id, err := xproto.NewCursorId(b.conn)
 	if err != nil {
 		return 0
 	}
-	glyph, ok := cursorGlyph(c)
-	if !ok {
-		if !b.createInvisibleCursor(id) {
-			return 0
-		}
-	} else {
-		font, ok := b.cursorFont()
-		if !ok {
-			return 0
-		}
-		// Black glyph with a white outline, the classic X cursor colors.
-		xproto.CreateGlyphCursor(b.conn, id, font, font, glyph, glyph+1, 0, 0, 0, 0xffff, 0xffff, 0xffff)
-	}
-	b.cursors[c] = id
+	// Black glyph with a white outline, the classic X cursor colors.
+	xproto.CreateGlyphCursor(b.conn, id, font, font, glyph, glyph+1, 0, 0, 0, 0xffff, 0xffff, 0xffff)
 	return id
 }
 

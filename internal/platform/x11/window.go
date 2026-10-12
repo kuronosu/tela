@@ -103,7 +103,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	w := &Window{b: b, id: id, gc: gc, opts: opts, osSize: size}
 	a := b.atoms
 	b.setProperty(id, a.wmProtocols, xproto.AtomAtom, 32, card32s(uint32(a.wmDeleteWindow), uint32(a.netWMPing)))
-	b.setProperty(id, xproto.AtomWmClass, xproto.AtomString, 8, wmClass(opts.AppID, executableName()))
+	b.setProperty(id, xproto.AtomWmClass, xproto.AtomString, 8, wmClass(opts.AppID, platform.DefaultAppID()))
 	b.setProperty(id, xproto.AtomWmHints, xproto.AtomWmHints, 32, wmHints())
 	b.setProperty(id, a.netWMWindowType, xproto.AtomAtom, 32, card32s(uint32(a.netWMTypeNormal)))
 	// _NET_WM_PING requires _NET_WM_PID and WM_CLIENT_MACHINE (EWMH).
@@ -271,6 +271,9 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	size := fb.Rect.Size()
 	full := w.needsFull || w.pixSize != size
 	rects := platform.ClipDamage(damage, fb.Rect, full)
+	if len(rects) == 0 {
+		return nil // every damage rectangle was clipped away: nothing changed
+	}
 	if full {
 		w.needsFull = false
 		if w.pixSize != size {

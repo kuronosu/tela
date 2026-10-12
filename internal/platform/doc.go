@@ -71,10 +71,13 @@
 //   - [Window.RequestFrame] asks for one [FrameEvent]. Requests coalesce; a
 //     FrameEvent consumes them all. Animations call RequestFrame again while
 //     handling the FrameEvent.
-//   - If the window has not presented recently (no outstanding vsync or
-//     frame callback), the FrameEvent is delivered on the next loop
-//     iteration, after the input events of that iteration. Otherwise it is
-//     delivered when the display is ready for a new frame.
+//   - If the window has not drawn recently (no outstanding vsync or frame
+//     callback, and no FrameEvent within about one refresh interval), the
+//     FrameEvent is delivered on the next loop iteration, after the input
+//     events of that iteration. Otherwise it is delivered when the display
+//     is ready for a new frame. This holds even when the app skipped
+//     Present: a handler that only calls RequestFrame is paced like one
+//     that draws, and never makes the loop spin.
 //   - A ConfigureEvent implies a frame request; that FrameEvent is delivered
 //     even if pacing would delay it, because the OS is waiting for content
 //     of the new size.
@@ -144,8 +147,10 @@
 // (wl_surface.damage_buffer, physical pixels), requests a frame callback and
 // commits. A RequestFrame while a callback is outstanding waits for its done
 // event; with none outstanding the FrameEvent is delivered on the next
-// iteration. Frame callbacks stop for hidden surfaces, which is the desired
-// idle behavior. Scale: integer via wl_surface.preferred_buffer_scale (or
+// iteration if the window has not had one for an interval, otherwise the
+// backend requests a frame callback with a commit that attaches no buffer
+// and waits for it. Frame callbacks stop for hidden surfaces, which is the
+// desired idle behavior. Scale: integer via wl_surface.preferred_buffer_scale (or
 // wl_output.scale) and set_buffer_scale; fractional later via
 // wp_fractional_scale_v1 (scale = n/120 as float64) and wp_viewporter
 // (destination = logical size, buffer = PhysicalSize). xdg_surface.configure

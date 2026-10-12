@@ -55,6 +55,7 @@ var subtests = []subtest{
 	{"ConfigureThenFrame", testConfigureThenFrame},
 	{"RequestFrameCoalesces", testRequestFrameCoalesces},
 	{"Animation", testAnimation},
+	{"AnimationWithoutPresent", testAnimationWithoutPresent},
 	{"PresentChecksSize", testPresentChecksSize},
 	{"WakeFromGoroutines", testWakeFromGoroutines},
 	{"QuitFromGoroutine", testQuitFromGoroutine},
@@ -293,6 +294,49 @@ func testAnimation(s *session) {
 	}
 }
 
+// testAnimationWithoutPresent checks pacing when the app animates without
+// drawing: FrameEvent handlers that only call RequestFrame (an animation
+// tick with no pixel change, which the contract allows). Frames must stay
+// paced by the display (vsync, frame callbacks or the refresh interval), not
+// delivered as fast as the loop can spin, and they must keep coming.
+func testAnimationWithoutPresent(s *session) {
+	const window = 200 * time.Millisecond
+	var w platform.Window
+	var start time.Time
+	frames := 0
+	s.run(func() {
+		w = s.newWindow(platform.WindowOptions{})
+	}, func(_ platform.Window, e platform.Event) {
+		switch e.(type) {
+		case platform.FrameEvent:
+			if start.IsZero() {
+				// The first frame maps the window; the rest only tick.
+				s.present(w, opaqueBlue)
+				start = time.Now()
+				s.wakeAfter(window)
+			} else {
+				frames++
+			}
+			w.RequestFrame()
+		case platform.WakeEvent:
+			if !start.IsZero() {
+				s.b.Quit()
+			}
+		}
+	})
+	elapsed := time.Since(start)
+	// A busy-looping backend delivers tens of thousands of frames here; any
+	// real display paces them at most a few hundred per second. The bound
+	// allows a 2 kHz "display" so fast test doubles pass too.
+	if limit := int(elapsed/(500*time.Microsecond)) + 10; frames > limit {
+		s.t.Errorf("%d FrameEvents in %v without Present, want at most %d: frames are not paced", frames, elapsed, limit)
+	}
+	if frames == 0 {
+		s.t.Errorf("no FrameEvent in %v while RequestFrame was called in every frame without Present", elapsed)
+	}
+	s.t.Logf("%d FrameEvents in %v without Present", frames, elapsed)
+}
+
 func testPresentChecksSize(s *session) {
 	var w platform.Window
 	s.run(func() {
@@ -323,6 +367,11 @@ func testPresentChecksSize(s *session) {
 		}
 		if err := w.Present(fb, []image.Rectangle{image.Rect(0, 0, 4, 4), image.Rect(-10, -10, 1e6, 1e6), {}}); err != nil {
 			s.t.Errorf("Present with damage: %v", err)
+		}
+		// Damage entirely outside the frame: nothing changed, and the
+		// Present is a successful no-op (it is not a full frame).
+		if err := w.Present(fb, []image.Rectangle{image.Rect(p.X, 0, p.X+10, p.Y), image.Rect(-10, -10, 0, 0)}); err != nil {
+			s.t.Errorf("Present with fully clipped damage: %v", err)
 		}
 		s.b.Quit()
 	})

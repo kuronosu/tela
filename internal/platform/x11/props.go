@@ -5,8 +5,6 @@ package x11
 import (
 	"encoding/binary"
 	"image"
-	"os"
-	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
@@ -105,8 +103,9 @@ func wmHints() []byte {
 
 // wmClass returns the WM_CLASS payload ("instance\0class\0") for appID.
 // With an AppID both parts are the AppID, which is what .desktop files
-// match through StartupWMClass. Without one, the executable name is the
-// instance and its capitalized form the class, as Xlib and GTK do.
+// match through StartupWMClass. Without one, exe (platform.DefaultAppID,
+// the executable name as invoked) is the instance and its capitalized form
+// the class, as Xlib and GTK do.
 func wmClass(appID, exe string) []byte {
 	instance, class := appID, appID
 	if appID == "" {
@@ -118,14 +117,6 @@ func wmClass(appID, exe string) []byte {
 		class = strings.ToUpper(string(r)) + instance[n:]
 	}
 	return []byte(instance + "\x00" + class + "\x00")
-}
-
-// executableName returns the base name of the running executable.
-func executableName() string {
-	if len(os.Args) > 0 && os.Args[0] != "" {
-		return filepath.Base(os.Args[0])
-	}
-	return ""
 }
 
 // latin1 converts s to ISO 8859-1 for the STRING type of WM_NAME, replacing

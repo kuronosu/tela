@@ -71,6 +71,24 @@ func TestCursorGlyph(t *testing.T) {
 	}
 }
 
+// TestCursorFailureIsCached: without the core cursor font, cursorFor returns
+// None and caches it, and it allocates no cursor XID (the fake backend has
+// no connection, so an allocation would panic). The old code allocated an
+// XID first and retried on every call, leaking one XID per SetCursor.
+func TestCursorFailureIsCached(t *testing.T) {
+	b, _ := fakeBackend(1)
+	b.cursors = map[platform.Cursor]xproto.Cursor{}
+	b.cursorFt, b.fontOK = 1, false // the font failed to open earlier
+	for range 3 {
+		if id := b.cursorFor(platform.CursorText); id != 0 {
+			t.Fatalf("cursorFor without a cursor font = %d, want 0 (None)", id)
+		}
+	}
+	if id, ok := b.cursors[platform.CursorText]; !ok || id != 0 {
+		t.Errorf("failure not cached: cursors[CursorText] = %d, %v", id, ok)
+	}
+}
+
 func TestScaleFromResources(t *testing.T) {
 	for _, tc := range []struct {
 		db   string
@@ -516,6 +534,121 @@ func TestLeaveDeferredDuringImplicitGrab(t *testing.T) {
 	want = "pointer enter 10,10 btn=0 held=0 mods=0; pointer down 10,10 btn=1 held=1 mods=0; pointer up 5,10 btn=1 held=0 mods=0"
 	if got != want {
 		t.Errorf("drag out and back:\n got %s\nwant %s", got, want)
+	}
+}
+
+// TestPointerGrabCancelsPress: when another grab takes the pointer while
+// the app has a press (the window manager's Alt+drag, a screenshot tool),
+// the release never reaches the window. The press is cancelled before the
+// leave, like on Wayland, and no held button survives it.
+func TestPointerGrabCancelsPress(t *testing.T) {
+	b, _ := fakeBackend(1)
+	r := &recorder{}
+	feed := func(evs ...xgb.Event) string {
+		for _, e := range evs {
+			b.translate(xevent{ev: e})
+		}
+		b.dispatch(r)
+		return r.take()
+	}
+	feed()
+	const b1 = xproto.KeyButMaskButton1
+
+	// Primary and back held, then a NotifyGrab leave: cancel, leave with
+	// nothing held. Back (tracked outside the core state) is forgotten,
+	// so later events do not report it.
+	got := feed(
+		xproto.EnterNotifyEvent{Event: 7, EventX: 10, EventY: 10},
+		xproto.ButtonPressEvent{Event: 7, Detail: 1, EventX: 10, EventY: 10},
+		xproto.ButtonPressEvent{Event: 7, Detail: 8, EventX: 10, EventY: 10, State: b1},
+		xproto.LeaveNotifyEvent{Event: 7, EventX: 12, EventY: 10, State: b1, Mode: xproto.NotifyModeGrab},
+		xproto.EnterNotifyEvent{Event: 7, EventX: 30, EventY: 20, Mode: xproto.NotifyModeUngrab},
+		xproto.MotionNotifyEvent{Event: 7, EventX: 31, EventY: 20},
+	)
+	want := "pointer enter 10,10 btn=0 held=0 mods=0; pointer down 10,10 btn=1 held=1 mods=0; " +
+		"pointer down 10,10 btn=4 held=1001 mods=0; " +
+		"pointer cancel 12,10 btn=0 held=0 mods=0; pointer leave 12,10 btn=0 held=0 mods=0; " +
+		"pointer enter 30,20 btn=0 held=0 mods=0; pointer move 31,20 btn=0 held=0 mods=0"
+	if got != want {
+		t.Errorf("grab with buttons held:\n got %s\nwant %s", got, want)
+	}
+
+	// A grab without a press is a plain leave (the Ungrab enter brings
+	// the pointer back).
+	got = feed(
+		xproto.LeaveNotifyEvent{Event: 7, EventX: 31, EventY: 20, Mode: xproto.NotifyModeGrab},
+		xproto.EnterNotifyEvent{Event: 7, EventX: 31, EventY: 20, Mode: xproto.NotifyModeUngrab},
+	)
+	if want := "pointer leave 31,20 btn=0 held=0 mods=0; pointer enter 31,20 btn=0 held=0 mods=0"; got != want {
+		t.Errorf("grab without a press:\n got %s\nwant %s", got, want)
+	}
+}
+
+// TestPointerGrabAfterDeferredLeave: the pointer left during the implicit
+// grab (leave deferred to the release), then a grab stole the release. The
+// app must still get the cancel and the leave, and the next enter must not
+// be swallowed as "back inside before the release".
+func TestPointerGrabAfterDeferredLeave(t *testing.T) {
+	const b1 = xproto.KeyButMaskButton1
+	press := []xgb.Event{
+		xproto.EnterNotifyEvent{Event: 7, EventX: 10, EventY: 10},
+		xproto.ButtonPressEvent{Event: 7, Detail: 1, EventX: 10, EventY: 10},
+		xproto.LeaveNotifyEvent{Event: 7, EventX: -1, EventY: 10, State: b1}, // deferred
+		xproto.MotionNotifyEvent{Event: 7, EventX: -5, EventY: 10, State: b1},
+	}
+	const pressed = "pointer enter 10,10 btn=0 held=0 mods=0; pointer down 10,10 btn=1 held=1 mods=0; " +
+		"pointer move -5,10 btn=0 held=1 mods=0"
+	for _, tc := range []struct {
+		name string
+		then []xgb.Event
+		want string
+	}{
+		{
+			// The grab ends ours: an Ungrab leave while the leave is
+			// deferred, then the pointer comes back normally.
+			name: "ungrab leave, then enter",
+			then: []xgb.Event{
+				xproto.LeaveNotifyEvent{Event: 7, EventX: -6, EventY: 10, Mode: xproto.NotifyModeUngrab},
+				xproto.EnterNotifyEvent{Event: 7, EventX: 4, EventY: 10},
+			},
+			want: "; pointer cancel -6,10 btn=0 held=0 mods=0; pointer leave -6,10 btn=0 held=0 mods=0; " +
+				"pointer enter 4,10 btn=0 held=0 mods=0",
+		},
+		{
+			// No leave at all: the next enter shows no button held (or
+			// comes from an ungrab), so the release was lost.
+			name: "enter without buttons",
+			then: []xgb.Event{
+				xproto.EnterNotifyEvent{Event: 7, EventX: 4, EventY: 10},
+			},
+			want: "; pointer cancel -5,10 btn=0 held=0 mods=0; pointer leave -5,10 btn=0 held=0 mods=0; " +
+				"pointer enter 4,10 btn=0 held=0 mods=0",
+		},
+		{
+			name: "ungrab enter with the button still down",
+			then: []xgb.Event{
+				xproto.EnterNotifyEvent{Event: 7, EventX: 4, EventY: 10, State: b1, Mode: xproto.NotifyModeUngrab},
+			},
+			want: "; pointer cancel -5,10 btn=0 held=0 mods=0; pointer leave -5,10 btn=0 held=0 mods=0; " +
+				"pointer enter 4,10 btn=0 held=1 mods=0",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b, w := fakeBackend(1)
+			r := &recorder{}
+			b.dispatch(r)
+			r.take()
+			for _, e := range append(append([]xgb.Event(nil), press...), tc.then...) {
+				b.translate(xevent{ev: e})
+			}
+			b.dispatch(r)
+			if got := r.take(); got != pressed+tc.want {
+				t.Errorf("\n got %s\nwant %s", got, pressed+tc.want)
+			}
+			if w.leavePending || w.extra != 0 || !w.inside {
+				t.Errorf("state after the grab: leavePending %v, extra %b, inside %v", w.leavePending, w.extra, w.inside)
+			}
+		})
 	}
 }
 

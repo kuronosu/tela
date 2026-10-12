@@ -72,6 +72,13 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	platform.CheckFramebuffer(fb, w.metrics)
 	full := w.needsFull || w.frame == nil
 	rects := platform.ClipDamage(damage, fb.Rect, full)
+	if len(rects) == 0 {
+		// Every damage rectangle was clipped away: nothing changed, so
+		// nothing is presented (like the Wayland and X11 backends). Damage
+		// and Presents keep describing the last real Present; recording
+		// nil damage here would read as "full frame".
+		return nil
+	}
 	if full {
 		w.frame = image.NewRGBA(fb.Rect)
 		w.needsFull = false
@@ -238,7 +245,8 @@ func (w *Window) Damage() []image.Rectangle {
 	return slices.Clone(w.damage)
 }
 
-// Presents returns how many times Present stored a frame.
+// Presents returns how many times Present stored a frame. A Present whose
+// damage lies entirely outside the frame stores nothing and is not counted.
 func (w *Window) Presents() int {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()

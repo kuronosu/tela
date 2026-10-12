@@ -725,6 +725,57 @@ func TestMessageTooLarge(t *testing.T) {
 	}
 }
 
+// TestDroppedRequestDropsItsObject: when a request that creates an object
+// cannot be encoded (here, a bad descriptor), the message is dropped, so
+// the server never hears of the new ID. The object must not stay
+// registered: its ID is free again, the proxy reads as destroyed, and
+// requests on it (and on objects it would create) are dropped instead of
+// panicking, because the caller cannot know the creation failed.
+func TestDroppedRequestDropsItsObject(t *testing.T) {
+	c, _ := newPair(t)
+	o := newTestObj(c)
+
+	child := &tobj{}
+	w := o.Begin(reqCreate)
+	w.NewObject(child, o.Version())
+	w.Fd(-1) // EBADF: the message is dropped
+	w.Done()
+
+	id := child.ID()
+	if c.Object(id) != nil {
+		t.Errorf("the object of a dropped request is still registered as %d", id)
+	}
+	if !child.Destroyed() {
+		t.Errorf("the proxy of a dropped request does not read as destroyed")
+	}
+	if c.HasPendingWrites() {
+		t.Errorf("the dropped request was queued")
+	}
+
+	// Requests on it, including ones that create objects, are dropped
+	// without a panic, and their objects are dropped too.
+	child.Begin(reqInts).Done()
+	grandchild := child.create()
+	if c.Object(grandchild.ID()) != nil || !grandchild.Destroyed() {
+		t.Errorf("an object created on a dropped proxy is registered")
+	}
+	child.destroy()
+	if c.HasPendingWrites() {
+		t.Errorf("requests on a dropped proxy were queued")
+	}
+
+	// The ID was never used on the wire, so it is free at once (no
+	// delete_id will come for it).
+	if next := c.allocID(); next != id && next != grandchild.ID() {
+		t.Errorf("allocID after the drop = %d, want a freed ID (%d or %d)", next, id, grandchild.ID())
+	}
+
+	// Flush reports the error that dropped the request, not a later one.
+	if err := c.Flush(); err == nil || !strings.Contains(err.Error(), "duplicate file descriptor") {
+		t.Errorf("Flush = %v, want the descriptor error", err)
+	}
+}
+
 func TestRoundtrip(t *testing.T) {
 	c, srv := newPair(t)
 	o := newTestObj(c)

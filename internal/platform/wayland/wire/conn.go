@@ -224,6 +224,21 @@ func (c *Conn) destroyProxy(p *Proxy) {
 	}
 }
 
+// dropProxy undoes the adoption of an object whose creating request was
+// dropped (see Writer.Done): the server never learned its ID, so the ID is
+// unregistered and free for reuse at once (no delete_id will come), and the
+// proxy is marked destroyed and dropped, so its requests are dropped too.
+func (c *Conn) dropProxy(p *Proxy) {
+	if s := c.objects[p.id]; s != nil && s.obj != nil && s.obj.Base() == p {
+		delete(c.objects, p.id)
+		if p.id < ServerIDStart && p.id != DisplayID {
+			c.freeIDs = append(c.freeIDs, p.id)
+		}
+	}
+	p.destroyed = true
+	p.dropped = true
+}
+
 func (c *Conn) handleDeleteID(id uint32) {
 	s := c.objects[id]
 	if s == nil {
@@ -258,6 +273,8 @@ func (c *Conn) begin(id uint32, opcode uint16) *Writer {
 	w.opcode = opcode
 	w.fds = nil
 	w.err = nil
+	clear(w.created)
+	w.created = w.created[:0]
 	c.out = nativeEndian.AppendUint32(c.out, id)
 	c.out = nativeEndian.AppendUint32(c.out, 0) // size and opcode, patched by Done
 	return w

@@ -243,6 +243,55 @@ func TestSwapchainNeverWritesBusyBuffers(t *testing.T) {
 	}
 }
 
+// TestSwapchainDestroyFreesRetiredBuffers: a resize retires the buffers the
+// compositor still holds; if the window closes before they are released,
+// destroy must free them too (they used to leak their wl_buffer and
+// mapping), and a release arriving afterwards must not free them twice.
+func TestSwapchainDestroyFreesRetiredBuffers(t *testing.T) {
+	live, frees := 0, 0
+	c := &swapchain{
+		alloc: func(size image.Point) (*shmBuffer, error) {
+			live++
+			b := &shmBuffer{data: make([]byte, 4*size.X*size.Y), size: size, stride: 4 * size.X}
+			b.free = func() { live--; frees++ }
+			return b, nil
+		},
+		copyRect: copyXBGR,
+	}
+	present := func(size image.Point) *shmBuffer {
+		t.Helper()
+		fb := image.NewRGBA(image.Rectangle{Max: size})
+		buf, err := c.acquire(size)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.fill(buf, fb, []image.Rectangle{fb.Rect})
+		c.submitted(buf, []image.Rectangle{fb.Rect})
+		return buf
+	}
+	small, large := image.Point{X: 4, Y: 4}, image.Point{X: 8, Y: 8}
+	a := present(small)
+	b := present(small) // a is busy: a second buffer
+	present(large)      // resize: a and b are busy, so they are retired
+	if live != 3 || len(c.retired) != 2 {
+		t.Fatalf("after the resize: %d live buffers, %d retired; want 3 and 2", live, len(c.retired))
+	}
+	c.released(a) // a retired buffer released before the close
+	if live != 2 || len(c.retired) != 1 {
+		t.Errorf("after releasing a retired buffer: %d live, %d retired; want 2 and 1", live, len(c.retired))
+	}
+
+	c.destroy() // the window closes while b is still held
+	if live != 0 {
+		t.Errorf("%d buffers still allocated after destroy", live)
+	}
+	c.released(b) // the compositor's release arrives late
+	c.released(a)
+	if frees != 3 || live != 0 {
+		t.Errorf("frees = %d, live = %d after late releases; want 3 and 0 (no double free)", frees, live)
+	}
+}
+
 func TestSwapchainStaleCollapse(t *testing.T) {
 	allocs := 0
 	c := memChain(&allocs)

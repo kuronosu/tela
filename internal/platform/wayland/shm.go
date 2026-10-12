@@ -5,6 +5,8 @@ package wayland
 import (
 	"fmt"
 	"image"
+	"slices"
+	"sync/atomic"
 
 	"golang.org/x/sys/unix"
 
@@ -69,10 +71,14 @@ func (b *shmBuffer) staleArea() int {
 // Wayland: alloc creates a buffer (wl_shm in the backend, plain memory in
 // tests).
 type swapchain struct {
-	size  image.Point
-	bufs  []*shmBuffer
-	prev  *shmBuffer // holds the newest presented frame; nil after a resize
-	alloc func(size image.Point) (*shmBuffer, error)
+	size image.Point
+	bufs []*shmBuffer
+	// retired holds buffers of an old size that the compositor still
+	// held when they were retired. They are destroyed on release, or by
+	// destroy if the window goes away first.
+	retired []*shmBuffer
+	prev    *shmBuffer // holds the newest presented frame; nil after a resize
+	alloc   func(size image.Point) (*shmBuffer, error)
 	// copyRect writes the pixels of r from fb into a buffer, converting to
 	// the buffer's pixel format.
 	copyRect func(dst *shmBuffer, fb *image.RGBA, r image.Rectangle)
@@ -80,7 +86,8 @@ type swapchain struct {
 
 // acquire returns a free buffer of the given size, allocating one when
 // every buffer is busy. A size change retires the old buffers: free ones
-// are destroyed now, busy ones when the compositor releases them.
+// are destroyed now, busy ones when the compositor releases them or the
+// chain is destroyed, whichever comes first.
 func (c *swapchain) acquire(size image.Point) (*shmBuffer, error) {
 	if size != c.size {
 		c.retire()
@@ -104,11 +111,14 @@ func (c *swapchain) acquire(size image.Point) (*shmBuffer, error) {
 	return b, nil
 }
 
-// retire drops every buffer from the chain.
+// retire drops every buffer from the chain. Busy ones move to the retired
+// list until the compositor releases them.
 func (c *swapchain) retire() {
 	for _, b := range c.bufs {
 		b.dead = true
-		if !b.busy {
+		if b.busy {
+			c.retired = append(c.retired, b)
+		} else {
 			b.destroy()
 		}
 	}
@@ -168,15 +178,27 @@ func (c *swapchain) released(b *shmBuffer) {
 	b.busy = false
 	if b.dead {
 		b.destroy()
+		if i := slices.Index(c.retired, b); i >= 0 {
+			c.retired = slices.Delete(c.retired, i, i+1)
+		}
 	}
 }
 
-// destroy releases every buffer, busy or not (the window is going away).
+// destroy releases every buffer, busy or not, including retired ones the
+// compositor has not released yet (the window is going away). Destroying a
+// wl_buffer the compositor still holds is allowed, and the compositor keeps
+// its own mapping of the memory; this side unmaps its copy. A release that
+// arrives afterwards finds a destroyed proxy and is dropped by the wire
+// runtime, and shmBuffer.destroy is idempotent, so nothing is freed twice.
 func (c *swapchain) destroy() {
 	for _, b := range c.bufs {
 		b.destroy()
 	}
+	for _, b := range c.retired {
+		b.destroy()
+	}
 	c.bufs = nil
+	c.retired = nil
 	c.prev = nil
 	c.size = image.Point{}
 }
@@ -237,11 +259,17 @@ func allocShm(shm *protocols.WlShm, format protocols.WlShmFormat, size image.Poi
 	wl := pool.CreateBuffer(0, int32(size.X), int32(size.Y), int32(stride), format)
 	pool.Destroy()
 	b := &shmBuffer{wl: wl, data: data, size: size, stride: stride}
+	shmMappings.Add(1)
 	b.free = func() {
 		if !wl.Destroyed() {
 			wl.Destroy()
 		}
 		unix.Munmap(data)
+		shmMappings.Add(-1)
 	}
 	return b, nil
 }
+
+// shmMappings counts the wl_shm buffers whose memory is still mapped in
+// this process, for leak tests.
+var shmMappings atomic.Int64
