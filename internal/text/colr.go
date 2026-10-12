@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/go-text/typesetting/font/opentype/tables"
+	"github.com/kuronosu/tela/internal/fmath"
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
@@ -383,10 +384,8 @@ func (p *painter) transformOf(n tables.PaintTable) (gfx.Affine, tables.PaintTabl
 }
 
 // rotate returns the rotation by turns*180 degrees counter-clockwise (font
-// space, y up). Multiples of 90 degrees are exact. Other angles use
-// math.Sincos, which Go may compile with fused multiply-adds: fonts that
-// rotate by arbitrary angles may differ in the last bits across
-// architectures (no embedded font does).
+// space, y up). Multiples of 90 degrees are exact; other angles use the
+// deterministic fmath.Sincos (ADR-027).
 func (p *painter) rotate(turns float64) gfx.Affine {
 	var s, c float64
 	switch q := turns * 2; {
@@ -397,7 +396,7 @@ func (p *painter) rotate(turns float64) gfx.Affine {
 		}
 		s, c = [4]float64{0, 1, 0, -1}[k], [4]float64{1, 0, -1, 0}[k]
 	default:
-		s, c = math.Sincos(turns * math.Pi)
+		s, c = fmath.Sincos(float64(turns * math.Pi))
 	}
 	return p.fontAffine(c, s, -s, c, 0, 0)
 }
@@ -405,7 +404,7 @@ func (p *painter) rotate(turns float64) gfx.Affine {
 // skew returns the COLR skew: x' = x - tan(ax)*y, y' = y + tan(ay)*x, with
 // the angles in half turns (180 degrees per 1.0), counter-clockwise.
 func (p *painter) skew(ax, ay float64) gfx.Affine {
-	return p.fontAffine(1, math.Tan(ay*math.Pi), -math.Tan(ax*math.Pi), 1, 0, 0)
+	return p.fontAffine(1, fmath.Tan(float64(ay*math.Pi)), -fmath.Tan(float64(ax*math.Pi)), 1, 0, 0)
 }
 
 func (p *painter) withTransform(t gfx.Affine, child tables.PaintTable) {

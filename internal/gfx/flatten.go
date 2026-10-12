@@ -10,7 +10,7 @@ package gfx
 import (
 	"math"
 
-	"github.com/kuronosu/tela/internal/gfx/internal/fmath"
+	"github.com/kuronosu/tela/internal/fmath"
 )
 
 const (

@@ -9,7 +9,7 @@ package gfx
 import (
 	"math"
 
-	"github.com/kuronosu/tela/internal/gfx/internal/fmath"
+	"github.com/kuronosu/tela/internal/fmath"
 )
 
 // defaultArcTolerance is the maximum distance, in logical pixels, between a

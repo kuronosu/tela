@@ -1,6 +1,10 @@
 package gfx
 
-import "math"
+import (
+	"math"
+
+	"github.com/kuronosu/tela/internal/fmath"
+)
 
 // Filter is an image filter applied to a layer (PushLayer) or to the backdrop
 // (BackdropFilter). The interface is sealed: Blur, DropShadow and
@@ -162,11 +166,14 @@ func Invert(amount float32) ColorMatrix {
 // HueRotate is filter: hue-rotate(angle), with the angle in radians (CSS
 // degrees times pi/180).
 func HueRotate(angle float32) ColorMatrix {
-	sin, cos := math.Sincos(f64(angle))
+	sin, cos := fmath.Sincos(f64(angle))
+	// Every product is rounded before it is added (ADR-027).
+	c := func(k float64) float64 { return float64(cos * k) }
+	s := func(k float64) float64 { return float64(sin * k) }
 	return matrixFromRGB(
-		[3]float64{0.213 + cos*0.787 - sin*0.213, 0.715 - cos*0.715 - sin*0.715, 0.072 - cos*0.072 + sin*0.928},
-		[3]float64{0.213 - cos*0.213 + sin*0.143, 0.715 + cos*0.285 + sin*0.140, 0.072 - cos*0.072 - sin*0.283},
-		[3]float64{0.213 - cos*0.213 - sin*0.787, 0.715 - cos*0.715 + sin*0.715, 0.072 + cos*0.928 + sin*0.072},
+		[3]float64{0.213 + c(0.787) - s(0.213), 0.715 - c(0.715) - s(0.715), 0.072 - c(0.072) + s(0.928)},
+		[3]float64{0.213 - c(0.213) + s(0.143), 0.715 + c(0.285) + s(0.140), 0.072 - c(0.072) - s(0.283)},
+		[3]float64{0.213 - c(0.213) - s(0.787), 0.715 - c(0.715) + s(0.715), 0.072 + c(0.928) + s(0.072)},
 	)
 }
 

@@ -111,7 +111,7 @@ func digest() uint64 {
 // multiply-adds). Every architecture must reproduce it: a mismatch means a
 // product is being fused somewhere. Check with
 //
-//	GOARCH=arm64 go test -exec qemu-aarch64-static ./internal/gfx/internal/fmath
+//	GOARCH=arm64 go test -exec qemu-aarch64-static ./internal/fmath
 const wantDigest uint64 = 0x133470d881c168b6
 
 // On amd64 without FMA, math.Sincos is the same pure-Go code, so the port

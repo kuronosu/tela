@@ -52,7 +52,7 @@ func erfDigest() uint64 {
 // wantErfDigest is erfDigest() recorded on amd64 (GOAMD64=v1). Every
 // architecture must reproduce it; check with
 //
-//	GOARCH=arm64 go test -exec qemu-aarch64-static ./internal/gfx/internal/fmath
+//	GOARCH=arm64 go test -exec qemu-aarch64-static ./internal/fmath
 const wantErfDigest uint64 = 0x927fb98d2dbf2db1
 
 func TestErfDeterministic(t *testing.T) {

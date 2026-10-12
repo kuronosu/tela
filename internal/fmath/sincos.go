@@ -101,3 +101,10 @@ func Sincos(x float64) (sin, cos float64) {
 	}
 	return sin, cos
 }
+
+// Tan returns Sin(x)/Cos(x), deterministic like Sincos (it may differ from
+// math.Tan in the last bit).
+func Tan(x float64) float64 {
+	s, c := Sincos(x)
+	return s / c
+}

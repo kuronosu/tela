@@ -29,10 +29,15 @@ func (p Point) Dot(q Point) float32 { return p.X*q.X + p.Y*q.Y }
 
 // Cross returns the z component of the cross product of p and q
 // (p.X*q.Y - p.Y*q.X).
-func (p Point) Cross(q Point) float32 { return p.X*q.Y - p.Y*q.X }
+func (p Point) Cross(q Point) float32 { return float32(p.X*q.Y) - float32(p.Y*q.X) }
 
 // Len returns the Euclidean length of p.
-func (p Point) Len() float32 { return float32(math.Hypot(float64(p.X), float64(p.Y))) }
+func (p Point) Len() float32 {
+	// Products of float32 values are exact in float64, so the sum is the
+	// same on every architecture (math.Hypot may be fused; ADR-027).
+	x, y := float64(p.X), float64(p.Y)
+	return float32(math.Sqrt(float64(x*x) + float64(y*y)))
+}
 
 // Len2 returns the squared length of p.
 func (p Point) Len2() float32 { return p.X*p.X + p.Y*p.Y }

@@ -3,8 +3,8 @@ package raster
 import (
 	"math"
 
+	"github.com/kuronosu/tela/internal/fmath"
 	"github.com/kuronosu/tela/internal/gfx"
-	"github.com/kuronosu/tela/internal/gfx/internal/fmath"
 )
 
 // coverRRect composites the coverage of a rounded rectangle in local space

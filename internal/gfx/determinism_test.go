@@ -79,3 +79,34 @@ func TestFlattenDeterministic(t *testing.T) {
 		t.Errorf("flattenDigest = %#x, want %#x (the same on every architecture)", got, wantFlattenDigest)
 	}
 }
+
+// trigDigest hashes the transforms and filters built from angles and
+// lengths: Rotate, Skew, HueRotate and Point.Len.
+func trigDigest() uint64 {
+	h := fnv.New64a()
+	put := func(vs ...float32) {
+		for _, v := range vs {
+			b := math.Float32bits(v)
+			h.Write([]byte{byte(b), byte(b >> 8), byte(b >> 16), byte(b >> 24)})
+		}
+	}
+	rng := rand.New(rand.NewPCG(12, 12))
+	for i := 0; i < 20000; i++ {
+		a := float32(rng.Float64()*20 - 10)
+		r, k, m := Rotate(a), Skew(a/8, -a/9), HueRotate(a)
+		put(r[:]...)
+		put(k[:]...)
+		put(m.M[:]...)
+		put(Pt(a*37, float32(rng.Float64()*100)).Len())
+	}
+	return h.Sum64()
+}
+
+// wantTrigDigest is trigDigest() recorded on amd64 (GOAMD64=v1).
+const wantTrigDigest uint64 = 0x226dafa4498089a0
+
+func TestTrigDeterministic(t *testing.T) {
+	if got := trigDigest(); got != wantTrigDigest {
+		t.Errorf("trigDigest = %#x, want %#x (the same on every architecture)", got, wantTrigDigest)
+	}
+}

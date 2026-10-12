@@ -1,6 +1,10 @@
 package gfx
 
-import "math"
+import (
+	"math"
+
+	"github.com/kuronosu/tela/internal/fmath"
+)
 
 // Affine is a 2D affine transform stored as the six numbers [a b c d e f] of
 // the matrix
@@ -36,7 +40,7 @@ func ScaleAbout(sx, sy float32, c Point) Affine {
 // Rotate returns the rotation by angle radians around the origin. In the
 // y-down coordinate system a positive angle turns clockwise on screen.
 func Rotate(angle float32) Affine {
-	s, c := math.Sincos(float64(angle))
+	s, c := fmath.Sincos(float64(angle))
 	return Affine{float32(c), float32(s), float32(-s), float32(c), 0, 0}
 }
 
@@ -48,7 +52,7 @@ func RotateAbout(angle float32, c Point) Affine {
 // Skew returns the transform x' = x + tan(ax)*y, y' = y + tan(ay)*x, with the
 // angles in radians (CSS skewX and skewY).
 func Skew(ax, ay float32) Affine {
-	return Affine{1, float32(math.Tan(float64(ay))), float32(math.Tan(float64(ax))), 1, 0, 0}
+	return Affine{1, float32(fmath.Tan(float64(ay))), float32(fmath.Tan(float64(ax))), 1, 0, 0}
 }
 
 // Mul returns the matrix product a·b. Applying the result to a point applies

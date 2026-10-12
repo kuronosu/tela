@@ -3,7 +3,7 @@ package raster
 import (
 	"math"
 
-	"github.com/kuronosu/tela/internal/gfx/internal/fmath"
+	"github.com/kuronosu/tela/internal/fmath"
 )
 
 // The standard normal CDF Phi and its integral I(t) = t*Phi(t) + phi(t),

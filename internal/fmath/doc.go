@@ -1,5 +1,6 @@
-// Package fmath holds the elementary functions that gfx and its rasterizer
-// need with the same result, bit for bit, on every architecture.
+// Package fmath holds the elementary functions that every layer feeding the
+// rasterizer needs with the same result, bit for bit, on every architecture
+// (ADR-027, ADR-041).
 //
 // The Go specification allows a compiler to fuse x*y + z into one fused
 // multiply-add, which skips the rounding of the product. Go does so on

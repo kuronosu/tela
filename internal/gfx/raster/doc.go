@@ -202,7 +202,7 @@
 // the caller's addition can absorb them. math.Atan, math.Asin, math.Pow and
 // math.Cbrt are avoided for the same reason (their pure-Go code can be
 // fused, and some math functions are assembly on one architecture only):
-// internal/gfx/internal/fmath holds fusion-safe ports. Determinism tests
+// internal/fmath holds fusion-safe ports. Determinism tests
 // record digests of the float64 intermediates on amd64; run them with
 // GOARCH=arm64 go test -exec qemu-aarch64-static to check another
 // architecture. (The fusion may happen across statements: a product stored
