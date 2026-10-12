@@ -6,12 +6,12 @@
 
 ## Current status
 
-- **Phase in progress:** Phase 2 (text), not started; its plan needs approval.
-- **Phase 1 done** (2026-10-11): all criteria pass.
-- **Phase 1 delivered:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends), raster (path AA, rect/rrect fast paths, transforms, gradients, images, clips, opacity layers, region rendering, golden helper), stroking, shadows and layer filters (analytic erf rounded-rect shadows, Gaussian blur, drop-shadow, color matrices; Tailwind presets match Chromium within ±3 levels away from edges), parallel rendering (full-width bands, bit-identical to sequential; 5–6× on 18 threads at 1080p), backend selection (`internal/platform/auto`), `examples/shapes` and `tela snapshot`.
-- **Verified on Hyprland:** the `examples/shapes` window is pixel-identical to `tela snapshot` on Wayland (scale 2) and on X11 (Xwayland, zero scaling). Idle CPU is 0 ticks on both; X11 has no wakeups at all, Wayland wakes only to answer Hyprland's `xdg_wm_base.ping` (~0.7/s). On real Windows 11 (VM), the gfx, raster, platform, headless, auto, golden, shapes and cmd/tela tests pass, goldens bit-identical.
-- **Known limitations:** stroke outlines that self-overlap in tight curves overestimate a few edge pixels (worst seen: one pixel, 72 levels); `gfx.Rotate(π/2)` is not exact, so it misses axis-aligned fast paths; color conversions in `gfx/color.go` are not yet proven fusion-safe; conic gradients cost an atan per pixel; bilinear downscaling aliases (no mipmaps); `Path.Stroke` allocates per call; rotated shadows take the per-pixel path (10–14× the axis-aligned cost); `DrawShadow` clips with the box's coverage even under an opaque background, so anti-aliased box edges differ from Blink by up to 29 levels (phase 3 paint can pass an "unclipped" hint, needs an ADR); drop-shadow offsets are rounded to whole device pixels when σ ≥ 2; device σ capped at 256 px and offsets at 512 px; a filter layer costs its area grown by the reach in every band, so frames dominated by large blurs gain only 1.6–3.3× from parallel bands (a shared pre-pass belongs with phase-4 layer caching); worker Renderers keep their own scratch (about 18× the memory of a sequential render on filter-heavy frames). Platform: the event-delivery and frame-pacing loop is duplicated in `wayland`, `x11` and `headless` (copies already drifted once); unify it into a shared helper before writing `win32`. X11 cannot tell a lost release of only the back/forward buttons from a normal re-enter (no core state bits).
-- **Next step:** propose the phase-2 plan (text) and wait for approval. Read ARCHITECTURE §11 and the §20 references for text first.
+- **Phase in progress:** Phase 3 (tree, style, layout), not started; its plan needs approval.
+- **Phase 2 done** (2026-10-12): mixed-script paragraphs (Latin, Arabic, CJK, emoji) render correctly and are covered by goldens (`internal/text`, `examples/text`).
+- **Phase 2 delivered:** embedded fonts (`internal/assets/fonts`: Inter, JetBrains Mono, Noto Sans Arabic, Noto Color Emoji COLRv1; CJK subset for tests only), `gfx.DrawGlyphRun` + `gfx.Font` and the raster glyph cache (1/4 px subpixel x, whole-px baselines; ADR-029), `internal/text` font layer (variable instances, deterministic glyf/gvar port, COLRv1 to DisplayList, CSS matching, per-grapheme fallback; ADRs 030–032), Parley-style paragraph layout (bidi, HarfBuzz via go-text, UAX #14, white-space, justify, ellipsis, line-clamp, inline boxes, intrinsic sizes; ADR-034), cursors/selection/hit-testing/navigation (ADR-036), optional system fonts (ADR-035), `examples/text`. go-text pinned to an unreleased commit for a kerning/`ccmp` fix (ADR-033). `gfx.Affine` made fusion-safe.
+- **Verified:** text layout matches headless Chromium on 34 of 38 reference paragraphs within 0.052 px (the rest bounded and explained); carets and selections match Chromium 152 (1,216 carets, 144 selections; 9,743 of 9,838 clicks); COLRv1 emoji within mean 0.2–1.6 levels of Chromium (flags up to 3.7, soft-light approximated). Text digests identical on amd64, amd64 v3 and arm64 (qemu); text tests pass under Wine. The `examples/text` window is pixel-identical to `tela snapshot` on Wayland (scale 2) and X11 except the CJK label (system bold CJK face); idle CPU 0 ticks.
+- **Known limitations:** phase 1's list still applies (stroke self-overlap pixels, `Rotate(π/2)` not exact, color conversions not proven fusion-safe, conic atan per pixel, no mipmaps, `Path.Stroke` allocs, rotated shadows slow, `DrawShadow` edge clipping vs Blink, σ/offset caps, blur layers in bands, worker scratch memory; X11 back/forward lost-release ambiguity). Platform: the event-delivery and frame-pacing loop is duplicated in `wayland`, `x11` and `headless`; unify it before writing `win32`. Text: COLR blend composites (flags) and non-solid SrcIn masks are approximated and focal radial gradients emulated until `gfx`/`raster` gain blend modes, a focal gradient and mask layers (`exactBlend` in `internal/text`); line ends are not reshaped (≤ 0.4 px vs Chromium); URL breaks follow UAX #14, not Blink's table; no hyphenation, skip-ink or synthetic bold/italic; CJK glyph forms ignore language (JP vs SC); interned faces are never evicted; system font files are read fully (no mmap); serif/cursive/fantasy generics have no system mapping; go-text's `WordIterator` drops a word starting where the previous ends (worked around; report upstream); `SelectedText` returns source bytes (collapsed spaces included); an inline box at a wrapped line's edge has one side without a cursor; Windows/macOS system font discovery only cross-compiled; glyph raster switches between cached and path modes under rotation (up to 1/8 px x, 1/2 px y jump); text blending is ~77% of warm text cost (a coverage LUT would help).
+- **Next step:** propose the phase-3 plan (tree, style, layout) and wait for approval. Read ARCHITECTURE §6–§10 and the §20 references (Flutter, React, Compose, Taffy, Tailwind) first.
 
 ## Phases
 
@@ -37,12 +37,12 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 
 ### Phase 2: Text
 
-- [ ] Embedded fonts (sans, mono, emoji) with licenses in `internal/assets/fonts`
-- [ ] Shaping and bidi with `go-text/typesetting`; UAX #14 line breaking; font fallback
-- [ ] Parley-style text layout: styled runs → lines, cursor positions, selection rects, hit-testing
-- [ ] Glyph raster cache with subpixel positioning
-- [ ] Ellipsis and line-clamp
-- [ ] Optional system font discovery
+- [x] Embedded fonts (sans, mono, emoji) with licenses in `internal/assets/fonts`
+- [x] Shaping and bidi with `go-text/typesetting`; UAX #14 line breaking; font fallback
+- [x] Parley-style text layout: styled runs → lines, cursor positions, selection rects, hit-testing
+- [x] Glyph raster cache with subpixel positioning
+- [x] Ellipsis and line-clamp
+- [x] Optional system font discovery
 
 **Done when:** mixed-script paragraphs (Latin, Arabic, CJK, emoji) render correctly, covered by goldens.
 
@@ -137,3 +137,4 @@ One line per session: date, what was done, what is pending.
 
 - **2026-10-11:** project created with ARCHITECTURE and ROADMAP. Docs moved to English; references (§20) and ADRs 012–021 added. No code yet.
 - **2026-10-11:** phase 1 implemented (gfx, raster with shadows/filters/parallel bands, platform + headless, Wayland, X11, auto selection, `examples/shapes`, `tela snapshot`); ADRs 022–028. Verified: goldens bit-identical on amd64 and arm64 (qemu), shadows within ±3 of Chromium away from edges, Wayland and X11 windows pixel-identical to `tela snapshot`, 0% idle CPU. A test that peaked at 2.8 GiB froze the machine next to the qemu run; fixed. Windows VM run passed the same day: phase 1 done. A `/code-review high internal/platform` found 8 defects (worst: Wayland loop spinning when a frame is requested without a Present), all fixed with regression tests and checked live on Hyprland.
+- **2026-10-12:** phase 2 implemented and verified (fonts, glyph raster cache, `internal/text` font layer, paragraph layout, cursor/selection, system fonts, `examples/text`); ADRs 029–036; `gfx.Affine` fusion fix; go-text pinned to e49e2bd. Checked against Chromium (layout, carets, emoji), arm64 (qemu), Wine, and Wayland/X11 windows on Hyprland. Phase 2 done. Pending: phase-3 plan.
