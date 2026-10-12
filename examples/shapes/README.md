@@ -11,7 +11,7 @@ A page of twelve cards that shows what Tela can paint with elements and Tailwind
 
 ## Structure
 
-`Shapes()` is the page (the `Preview`): a soft gradient with two blurred glows, and three flex rows of four cells (the grid arrives with phase 6, so rows of `flex-1` cells stand in for `grid-cols-4`). Each card is a function component that returns one node:
+`Shapes()` is the page (the `Preview`): a soft gradient with two blurred glows, and the twelve cards at a fixed 202 x 170 px in a centered `flex-wrap` container: four columns at the default 960x640, three in a tiled window about 700 px wide (`p-5 md:p-10` gives the narrow window its third column). Each card is a function component that returns one node:
 
 | File | Components |
 |---|---|
@@ -40,11 +40,11 @@ The phase-1 scene used arbitrary paths, which the CSS subset has no way to expre
 
 ## Workarounds
 
-- `grid-cols-*` lays out as block until phase 6: three flex rows. Each card sits in a cell of its own, because `flex-1` gives items a base size of zero but never less than their padding, so cards with different padding would get different widths.
+- `grid-cols-*` lays out as block until phase 6: the cards wrap in a flex row instead, each in a fixed-size cell.
 - `!p-2.5` (important) is unsupported: the photo card does not use the shared `card` helper, which fixes the padding.
 - The conic ring's six stops are an arbitrary `bg-[conic-gradient(...)]`, since Tailwind's `from-`/`via-`/`to-` take one middle stop.
 - The knob of the ring and the glass pane use absolute positioning with fixed offsets, as the design is fixed-size.
 
 ## Tests
 
-`go test ./examples/shapes` checks that the page produces no class errors or dev warnings at three window sizes (an unknown class fails the test, with core's "did you mean" message), that the 4x3 grid gives every card 202 x 170.67 px at 960x640 as the phase-1 scene did, that the cards stay inside the window at other sizes, and the two goldens bit by bit.
+`go test ./examples/shapes` checks that the page produces no class errors or dev warnings at three window sizes (an unknown class fails the test, with core's "did you mean" message), that every card is 202 x 170 px in four columns at 960x640 and three at 701x846, that no text or button sticks out of its card at four window sizes, and the two goldens bit by bit.

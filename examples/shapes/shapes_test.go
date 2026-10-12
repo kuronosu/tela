@@ -29,7 +29,7 @@ func mount(w, h, scale float32) (*core.Tree, []string) {
 // dev warning, at several window sizes: core reports them through its log
 // once per distinct class string.
 func TestNoClassErrors(t *testing.T) {
-	for _, s := range [][2]float32{{windowW, windowH}, {700, 500}, {1280, 800}} {
+	for _, s := range [][2]float32{{windowW, windowH}, {701, 846}, {700, 500}, {1280, 800}} {
 		_, logs := mount(s[0], s[1], 1)
 		for _, m := range logs {
 			t.Errorf("%vx%v: %s", s[0], s[1], m)
@@ -37,65 +37,77 @@ func TestNoClassErrors(t *testing.T) {
 	}
 }
 
-// cards returns the 12 cards of the layout: the page has the two glows and
-// the grid, whose three rows hold four cells with one card each.
-func cards(t testing.TB, tree *core.Tree) [3][4]core.InspectNode {
+// cards returns the 12 cards: the page holds the two glows and the wrapping
+// container, whose cells hold one card each.
+func cards(t testing.TB, tree *core.Tree) []core.InspectNode {
 	t.Helper()
 	root := tree.Inspect()
 	if len(root.Children) != 1 || len(root.Children[0].Children) != 3 {
 		t.Fatalf("unexpected page: %d root children", len(root.Children))
 	}
 	grid := root.Children[0].Children[2]
-	if len(grid.Children) != 3 {
-		t.Fatalf("grid has %d rows, want 3", len(grid.Children))
+	if len(grid.Children) != 12 {
+		t.Fatalf("the page has %d cells, want 12", len(grid.Children))
 	}
-	var out [3][4]core.InspectNode
-	for i, r := range grid.Children {
-		if len(r.Children) != 4 {
-			t.Fatalf("row %d has %d cells, want 4", i, len(r.Children))
+	out := make([]core.InspectNode, 12)
+	for i, c := range grid.Children {
+		if len(c.Children) != 1 {
+			t.Fatalf("cell %d has %d children, want its card", i, len(c.Children))
 		}
-		for j, c := range r.Children {
-			if len(c.Children) != 1 {
-				t.Fatalf("cell %d.%d has %d children, want its card", i, j, len(c.Children))
-			}
-			out[i][j] = c.Children[0]
-		}
+		out[i] = c.Children[0]
 	}
 	return out
 }
 
-// TestGridLayout checks that the 4x3 grid of flex rows gives every card the
-// same size, as the grid of the phase-1 scene did: 202 x 170.67 at 960x640
-// (p-10 and gap-6 around and between the cards).
+// TestGridLayout checks the wrapping grid: every card is 202 x 170, four
+// columns at 960x640 (as the grid of the phase-1 scene) and three in a
+// tiled window of 701x846 (Hyprland's default tile on a 1440x900 screen).
 func TestGridLayout(t *testing.T) {
-	tree, _ := mount(windowW, windowH, 1)
-	const wantW, wantH = 202, 512.0 / 3
-	for i, row := range cards(t, tree) {
-		for j, c := range row {
-			w, h := float64(c.Rect.Width()), float64(c.Rect.Height())
-			if math.Abs(w-wantW) > 0.02 || math.Abs(h-wantH) > 0.02 {
-				t.Errorf("card %d.%d is %.3f x %.3f, want %d x %.3f", i, j, w, h, wantW, wantH)
+	for _, tc := range []struct {
+		w, h, cols float32
+	}{{windowW, windowH, 4}, {701, 846, 3}} {
+		tree, _ := mount(tc.w, tc.h, 1)
+		cs := cards(t, tree)
+		x0 := cs[0].Rect.X0
+		for i, c := range cs {
+			if w, h := c.Rect.Width(), c.Rect.Height(); w != 202 || h != 170 {
+				t.Errorf("%vx%v: card %d is %v x %v, want 202 x 170", tc.w, tc.h, i, w, h)
 			}
-			if x, y := float64(c.Rect.X0), float64(c.Rect.Y0); math.Abs(x-(40+float64(j)*226)) > 0.02 || math.Abs(y-(40+float64(i)*(wantH+24))) > 0.02 {
-				t.Errorf("card %d.%d is at (%.3f, %.3f)", i, j, x, y)
+			col := float32(i % int(tc.cols))
+			if x := c.Rect.X0; math.Abs(float64(x-(x0+col*226))) > 0.01 {
+				t.Errorf("%vx%v: card %d at x = %v, want column %v", tc.w, tc.h, i, x, col)
 			}
 		}
 	}
 }
 
-// TestCardsStayInsideTheWindow checks the grid at other window sizes: the
-// cards stretch with the window and never leave it.
-func TestCardsStayInsideTheWindow(t *testing.T) {
-	for _, s := range [][2]float32{{700, 500}, {1280, 800}, {1600, 500}} {
-		tree, _ := mount(s[0], s[1], 1)
-		for i, row := range cards(t, tree) {
-			for j, c := range row {
-				r := c.Rect
-				if r.X0 < 0 || r.Y0 < 0 || r.X1 > s[0] || r.Y1 > s[1] || r.Width() <= 0 || r.Height() <= 0 {
-					t.Errorf("%vx%v: card %d.%d is at %v", s[0], s[1], i, j, r)
-				}
-			}
+// TestContentStaysInsideCards checks, at several window sizes, that the
+// cards stay in the window and that no text or button sticks out of its
+// card (decorations may: the cards clip them).
+func TestContentStaysInsideCards(t *testing.T) {
+	const eps = 0.01
+	inside := func(r, in gfx.Rect) bool {
+		return r.X0 >= in.X0-eps && r.Y0 >= in.Y0-eps && r.X1 <= in.X1+eps && r.Y1 <= in.Y1+eps
+	}
+	var walk func(t *testing.T, n core.InspectNode, card gfx.Rect, path string)
+	walk = func(t *testing.T, n core.InspectNode, card gfx.Rect, path string) {
+		if (n.Text != "" || n.Kind == "button") && !inside(n.Rect, card) {
+			t.Errorf("%s (%q) at %v sticks out of its card %v", path, n.Text, n.Rect, card)
 		}
+		for i, k := range n.Children {
+			walk(t, k, card, fmt.Sprintf("%s/%s[%d]", path, k.Kind, i))
+		}
+	}
+	for _, s := range [][2]float32{{windowW, windowH}, {701, 846}, {1280, 800}, {1600, 500}} {
+		t.Run(fmt.Sprintf("%vx%v", s[0], s[1]), func(t *testing.T) {
+			tree, _ := mount(s[0], s[1], 1)
+			for i, c := range cards(t, tree) {
+				if !inside(c.Rect, gfx.Rect{X1: s[0], Y1: s[1]}) {
+					t.Errorf("card %d at %v leaves the window", i, c.Rect)
+				}
+				walk(t, c, c.Rect, fmt.Sprintf("card%d", i))
+			}
+		})
 	}
 }
 

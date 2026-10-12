@@ -15,21 +15,27 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-// Shapes is the page: a 4x3 grid of cards on a soft gradient, with two
-// blurred glows in the corners. The grid fills the window, so the cards
-// stretch with it.
+// Shapes is the page: twelve cards of a fixed size on a soft gradient, with
+// two blurred glows in the corners. The cards wrap and center in the
+// window: four columns at the default 960x640, three in a tiled window
+// about 700 px wide (with less padding below the md breakpoint).
 func Shapes() tela.Node {
+	cards := []tela.Node{
+		ProfileCard(), ChartCard(), PhotoCard(), TogglesCard(),
+		ProgressCard(), SearchCard(), GradientCard(), SunsetCard(),
+		ConicCard(), GlassCard(), ShapesCard(), DropCard(),
+	}
+	cells := []tela.Child{Class("relative flex h-full flex-wrap content-center justify-center gap-6 p-5 md:p-10")}
+	for i, c := range cards {
+		cells = append(cells, Div(Key(i), Class("flex h-[170px] w-[202px]"), c))
+	}
 	return Div(Class("relative h-screen overflow-hidden bg-linear-to-br from-slate-50 to-indigo-50"),
 		// Glows: blurred discs behind the grid, clipped by the page.
 		Div(Class("absolute -top-40 -right-24 size-[28rem] rounded-full bg-indigo-200/60 blur-3xl")),
 		Div(Class("absolute -bottom-40 -left-24 size-[28rem] rounded-full bg-sky-200/70 blur-3xl")),
-		// Grid layout arrives with phase 6, so the 4x3 grid is three flex rows of
-		// four equal cells.
-		Div(Class("relative flex h-full flex-col gap-6 p-10"),
-			row(ProfileCard(), ChartCard(), PhotoCard(), TogglesCard()),
-			row(ProgressCard(), SearchCard(), GradientCard(), SunsetCard()),
-			row(ConicCard(), GlassCard(), ShapesCard(), DropCard()),
-		),
+		// Grid layout arrives with phase 6: the cards wrap in a flex row,
+		// each in a cell of the card size.
+		Div(cells...),
 	)
 }
 
@@ -45,19 +51,6 @@ func main() {
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
 func Preview() tela.Node { return Shapes() }
-
-// row is one row of the grid. Every card sits in a cell of its own, because
-// flex-1 shares the free space after the padding of each item (a flex base
-// size of 0 cannot be smaller than the padding), so cards with different
-// padding would get different widths.
-func row(cards ...tela.Node) tela.Node {
-	cells := make([]tela.Child, 0, len(cards)+1)
-	cells = append(cells, Class("flex min-h-0 flex-1 gap-6"))
-	for i, c := range cards {
-		cells = append(cells, Div(Key(i), Class("flex min-w-0 flex-1"), c))
-	}
-	return Div(cells...)
-}
 
 // cell is what every card has: all the room of its cell.
 const cell = "min-w-0 flex-1 "
