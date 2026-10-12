@@ -7,10 +7,11 @@
 ## Current status
 
 - **Phase in progress:** Phase 1 (pixels on screen).
-- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends), raster (path AA, rect/rrect fast paths, transforms, gradients, images, clips, opacity layers, region rendering, golden helper), stroking, shadows and layer filters (analytic erf rounded-rect shadows, Gaussian blur, drop-shadow, color matrices; Tailwind presets match Chromium within ±3 levels away from edges).
-- **In progress:** parallel tiles (T9), `examples/shapes` + `tela snapshot` (T10).
+- **Done in phase 1:** `internal/gfx`, platform interface + `headless`, Wayland generator + wire runtime, X11 backend, Wayland backend (0% idle CPU measured on both windowed backends), raster (path AA, rect/rrect fast paths, transforms, gradients, images, clips, opacity layers, region rendering, golden helper), stroking, shadows and layer filters (analytic erf rounded-rect shadows, Gaussian blur, drop-shadow, color matrices; Tailwind presets match Chromium within ±3 levels away from edges), backend selection (`internal/platform/auto`), `examples/shapes` and `tela snapshot`.
+- **Verified on Hyprland:** the `examples/shapes` window is pixel-identical to `tela snapshot` on Wayland (scale 2) and on X11 (Xwayland, zero scaling). Idle CPU is 0 ticks on both; X11 has no wakeups at all, Wayland wakes only to answer Hyprland's `xdg_wm_base.ping` (~0.7/s).
+- **In progress:** parallel tiles (T9).
 - **Known limitations:** stroke outlines that self-overlap in tight curves overestimate a few edge pixels (worst seen: one pixel, 72 levels); `gfx.Rotate(π/2)` is not exact, so it misses axis-aligned fast paths; color conversions in `gfx/color.go` are not yet proven fusion-safe; conic gradients cost an atan per pixel; bilinear downscaling aliases (no mipmaps); `Path.Stroke` allocates per call; rotated shadows take the per-pixel path (10–14× the axis-aligned cost); `DrawShadow` clips with the box's coverage even under an opaque background, so anti-aliased box edges differ from Blink by up to 29 levels (phase 3 paint can pass an "unclipped" hint, needs an ADR); drop-shadow offsets are rounded to whole device pixels when σ ≥ 2; device σ capped at 256 px and offsets at 512 px; a filter layer costs its area grown by the reach in every tile.
-- **Next step:** finish T9 and T10, then the phase-1 verification (grim comparisons, idle CPU, Windows VM run).
+- **Next step:** finish T9, then the Windows VM test run, then close phase 1.
 
 ## Phases
 
@@ -27,7 +28,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 - [x] Wayland XML → Go protocol generator (+ `wire` runtime)
 - [x] `internal/platform/wayland`: connection, registry, `xdg_shell`, `wl_shm` via memfd, frame callbacks, pointer, integer scale
 - [x] `internal/platform/x11`: window, `PutImage`, basic events
-- [ ] `examples/shapes` and a first `tela snapshot` (no UI tree yet: a fixed DisplayList)
+- [x] `examples/shapes` and a first `tela snapshot` (no UI tree yet: a fixed DisplayList, contract `Scene(w, h float32) *gfx.DisplayList` until `Preview()` in phase 3)
 
 **Done when:**
 1. A scene with rounded cards, gradients, shadows and blur looks identical on Wayland, X11 and the headless PNG.
