@@ -119,3 +119,11 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/layout/testdata/taffy/` (fixtures `block`, `flex`, `blockflex`, `leaf`, and `gentest/test_base_style.css`, `gentest/test_helper.js`, vendored unchanged, with `LICENSE`)
 - **Notes:** The fixtures are HTML pages derived from Web Platform Tests. Expected layouts are measured from them with headless Chromium (ADR-039). `test_base_style.css` embeds the Ahem test font (public domain, https://github.com/Kozea/Ahem).
 - **Ported code:** `internal/layout/{cache,compute,leaf,align,block,flex,absolute,round}.go` are ports of Taffy's `src/tree/cache.rs`, `src/tree/layout.rs`, `src/compute/mod.rs` (dispatch and `round_layout`), `src/compute/leaf.rs`, `src/compute/common/{alignment,scrollable_overflow,sizing_keyword}.rs`, `src/compute/block.rs` and `src/compute/flexbox.rs` (absolute layout from both), with Taffy's MIT notice and source paths in each file. Left out: margin collapsing, floats, grid, `flex-wrap: balance`, `box-sizing: content-box`, `calc()`. Deviations to match Chromium (ADR-043) are listed in `internal/layout/doc.go`; two fixes over Taffy: leaves are measured with content-box known sizes in size queries, and cached full layouts measured during baseline queries are dropped.
+
+## Chromium / Blink (reference behavior)
+
+- **Source:** https://chromium.googlesource.com/chromium/src (`third_party/blink/renderer/core/paint/`, behavior of Chromium 152)
+- **License:** BSD-3-Clause, Copyright The Chromium Authors
+- **Used in:** `internal/core/decorate.go`, `internal/core/paint.go`, `internal/gfx/raster/backdrop.go`
+- **Notes:** No code is copied. The dash-gap fitting of dashed and dotted borders re-expresses the formula of Blink's `SelectBestDashGap`; pixel snapping, the 1px shadow clip inset, background bleed avoidance and backdrop-filter edge mirroring reproduce Chromium's observable output (ADR-045).
+

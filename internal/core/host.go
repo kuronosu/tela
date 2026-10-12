@@ -143,6 +143,7 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		// A FrameEvent follows every ConfigureEvent.
 		h.configured = true
 		h.tree.SetViewport(gfx.Size{W: e.Metrics.Size.W, H: e.Metrics.Size.H})
+		h.tree.SetScale(float32(e.Metrics.Scale))
 	case platform.FrameEvent:
 		h.frame()
 	case platform.CloseRequestedEvent:
@@ -159,6 +160,7 @@ func (h *Host) frame() {
 	if phys.X <= 0 || phys.Y <= 0 {
 		return
 	}
+	h.tree.SetScale(float32(m.Scale)) // box edges snap to device pixels
 	dl, changed := h.tree.Frame()
 	if want := image.Rect(0, 0, phys.X, phys.Y); h.fb == nil || h.fb.Rect != want {
 		h.fb = image.NewRGBA(want)

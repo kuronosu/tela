@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"sync"
 
@@ -64,6 +65,9 @@ type Tree struct {
 	root     *Element
 	rootBox  *Box
 	viewport gfx.Size
+	// scale is the display scale the paint phase snaps box edges for
+	// (device pixels per logical pixel).
+	scale float32
 
 	engine  layout.Engine
 	builder *gfx.Builder
@@ -108,6 +112,7 @@ func NewTree(cfg Config) *Tree {
 		builder:  gfx.NewBuilder(),
 		reported: map[string]bool{},
 		viewport: gfx.Size{W: 800, H: 600},
+		scale:    1,
 	}
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()
@@ -201,6 +206,24 @@ func (t *Tree) SetViewport(size gfx.Size) {
 	t.viewport = size
 	t.cx.Viewport = size
 	t.restyleAll() // perf: only elements whose classes use vw, vh or breakpoints
+}
+
+// Scale returns the display scale the tree paints for.
+func (t *Tree) Scale() float32 { return t.scale }
+
+// SetScale sets the display scale (device pixels per logical pixel; zero
+// or less means 1). The display list stays in logical pixels, but the
+// paint phase snaps box edges to device pixels at this scale, so a new
+// scale repaints the tree.
+func (t *Tree) SetScale(scale float32) {
+	if !(scale > 0) || math.IsInf(float64(scale), 0) {
+		scale = 1
+	}
+	if scale == t.scale {
+		return
+	}
+	t.scale = scale
+	t.dirty()
 }
 
 // SetEnvironment sets dark mode and reduced motion (the dark: and

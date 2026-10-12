@@ -284,13 +284,18 @@
 // different Renderers may also render disjoint regions of the same image
 // concurrently.
 //
+// # Backdrop filters
+//
+// BackdropFilter (backdrop.go) filters the pixels of the current surface
+// inside the device bounds of its shape, mirrored beyond them, and paints
+// the result through the shape, like Chromium. A list whose backdrop
+// filters reach beyond a pixel (DisplayList.BackdropReach > 0) is rendered
+// on one goroutine over the whole destination (a smaller Region on a copy),
+// since the filters read pixels painted anywhere in their shapes' bounds.
+//
 // # Not implemented yet
 //
-// Blend modes other than SrcOver and BackdropFilter are phase 6 features:
-// Render panics with "raster: blend mode <mode> is not implemented until
-// phase 6" and "raster: BackdropFilter is not implemented until phase 6"
-// when it meets them in the visited part of the list. A BackdropFilter reads
-// pixels painted before it up to DisplayList.BackdropReach around its shape,
-// which can lie in another band: parallel rendering will need bands grown
-// by that reach (see renderParallel).
+// Blend modes other than SrcOver are phase 6 features: Render panics with
+// "raster: blend mode <mode> is not implemented until phase 6" when it
+// meets one in the visited part of the list.
 package raster

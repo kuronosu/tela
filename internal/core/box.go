@@ -78,6 +78,11 @@ type Box struct {
 	// inPara is the paragraph box whose text includes this inline box.
 	inPara *Box
 
+	// Paint pass scratch state (painter.place): the paint-phase style and
+	// the absolute, unsnapped border box.
+	pcs *style.ComputedStyle
+	abs gfx.Rect
+
 	// Per-frame scratch state (valid when the frame matches).
 	inlineFrame uint64
 	inlineVal   bool

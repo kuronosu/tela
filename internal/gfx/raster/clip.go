@@ -244,4 +244,5 @@ func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
 	// The saved clip is the one before narrow: the layer is composited
 	// within the narrowed rectangle, which lies inside it.
 	b.pix, b.stride, b.origin, b.cm = buf, 4*rect.Dx(), rect.Min, clipMask{}
+	r.surfBounds = rect
 }

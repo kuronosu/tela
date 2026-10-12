@@ -92,13 +92,17 @@
 // whose structure or paragraph may have changed, and the layout engine's
 // own dirty nodes (MarkDirty on changed layout styles, children lists and
 // paragraphs). Paint emits one display list for the whole tree (layers
-// and damage arrive in phase 4); paint.go documents the hook for the
-// painting of borders, radii, shadows and effects. A Frame with nothing
+// and damage arrive in phase 4): CSS box painting (shadows, backgrounds,
+// borders, outlines), effects (transforms, opacity, filters, backdrop
+// filters), overflow clips and a simplified CSS stacking order, with box
+// edges snapped to device pixels at the tree's scale (SetScale); the
+// comment at the top of paint.go is the reference. A Frame with nothing
 // dirty returns the previous list.
 //
 // A Host connects a Tree to a platform window: WakeEvent applies state
-// updates, ConfigureEvent sets the viewport, FrameEvent runs Frame,
-// rasterizes at the window scale into a reused framebuffer and presents.
+// updates, ConfigureEvent sets the viewport and the scale, FrameEvent
+// runs Frame, rasterizes at the window scale into a reused framebuffer
+// and presents.
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed. Render does everything

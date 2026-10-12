@@ -214,9 +214,12 @@ type PopLayer struct{}
 // BackdropFilter applies Filters to what has already been painted behind
 // Shape, within Shape (CSS backdrop-filter), then paints the result over the
 // same area. Shape is in the current coordinate space and acts as a rounded
-// clip. The filters read pixels up to FiltersOutset(Filters) beyond Shape
-// (scaled by the current transform) in addition to those inside it; see
-// DisplayList.BackdropReach.
+// clip. Like Chromium, the filters read only the pixels inside the bounds
+// of Shape: beyond them the backdrop is extended by mirroring it, so no
+// color from outside the element bleeds in. A filter that spreads pixels
+// (blur, drop shadow) reads the whole bounds; see DisplayList.BackdropReach.
+// Inside a layer the backdrop is the layer's own content (a layer is a
+// backdrop root).
 type BackdropFilter struct {
 	Shape   RRect
 	Filters []Filter

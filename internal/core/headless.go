@@ -32,6 +32,7 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	}
 	t := NewTree(opts.Config)
 	t.SetViewport(size)
+	t.SetScale(opts.Scale)
 	t.Mount(root)
 	dl, _ := t.Frame()
 	return dl, t.Rasterize(dl, opts.Scale)
@@ -39,7 +40,8 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 
 // Rasterize renders a display list of this tree (from Frame) into a new
 // image of the viewport at the given scale (zero means 1), over the
-// canvas color.
+// canvas color. The list snaps box edges for the tree's Scale, which
+// should be the same.
 func (t *Tree) Rasterize(dl *gfx.DisplayList, scale float32) *image.RGBA {
 	if scale == 0 {
 		scale = 1

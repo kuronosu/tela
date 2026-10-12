@@ -29,8 +29,8 @@ type DisplayList struct {
 	match  []int32   // push -> index of its pop, pop -> index of its push, else -1
 	reach  []float32 // PushLayer only: root-space outset of the filters; else 0
 	total  Rect
-	// backdropReach is the largest root-space distance beyond a BackdropFilter
-	// shape from which its filters read pixels.
+	// backdropReach is the largest root-space reach of the filters of a
+	// BackdropFilter.
 	backdropReach float32
 }
 
@@ -62,11 +62,12 @@ func (d *DisplayList) Match(i int) int { return int(d.match[i]) }
 // commands and for layers without filters.
 func (d *DisplayList) LayerReach(i int) float32 { return d.reach[i] }
 
-// BackdropReach returns the largest root-space distance beyond the shape of
-// any BackdropFilter from which the list reads already-painted pixels. A
-// rasterizer that renders a sub-region must make sure content up to this
-// distance around the BackdropFilter shapes inside the region has been
-// painted, for example by rendering a region enlarged by BackdropReach.
+// BackdropReach returns the largest root-space reach of the filters of any
+// BackdropFilter (FiltersOutset times the transform's scale): zero when no
+// backdrop filter spreads pixels. A BackdropFilter with a reach reads the
+// already-painted pixels of the whole bounds of its shape, so a rasterizer
+// that renders a sub-region must make sure those bounds have been painted,
+// for example by rendering the whole list.
 func (d *DisplayList) BackdropReach() float32 { return d.backdropReach }
 
 // All iterates over (index, command) in order.

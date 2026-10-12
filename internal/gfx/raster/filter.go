@@ -171,6 +171,7 @@ func (r *Renderer) pushFilterLayer(i int, c gfx.PushLayer, op uint8) {
 	st.comp, st.surfRect, st.nf = comp, surf, len(fs)
 	b.pix, b.stride, b.origin, b.cm = buf, 4*surf.Dx(), surf.Min, clipMask{}
 	b.clip, r.region, r.bound = in, region, bound
+	r.surfBounds = surf
 	if in.Empty() {
 		// No content can show, but the filters still run at PopLayer (a
 		// color matrix can make transparent pixels visible).

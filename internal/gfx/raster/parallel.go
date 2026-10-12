@@ -97,13 +97,8 @@ func (r *Renderer) renderParallel(dst *image.RGBA, dl *gfx.DisplayList, s float3
 	tb := dl.Bounds()
 	sc := float64(s)
 	area := clip.Intersect(pixelBounds(float64(tb.X0)*sc, float64(tb.Y0)*sc, float64(tb.X1)*sc, float64(tb.Y1)*sc))
-	// TODO(phase 6): BackdropFilter reads pixels painted earlier by the
-	// list up to DisplayList.BackdropReach (device: times the scale)
-	// around its shape. Those pixels can belong to the next band, painted
-	// by another goroutine at the same time, so a band will have to render
-	// the list over its rows grown by that reach (into a scratch surface,
-	// writing back only its own rows), or the split must be refused for
-	// lists with backdrop filters.
+	// Lists with backdrop filters that reach beyond a pixel never get
+	// here: Render draws them on one goroutine (backdrop.go).
 	if area.Empty() {
 		return false // nothing to paint; the sequential path is as cheap
 	}

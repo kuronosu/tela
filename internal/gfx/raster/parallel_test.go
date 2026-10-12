@@ -196,8 +196,10 @@ func TestParallelPanic(t *testing.T) {
 	}{
 		{func(b *gfx.Builder) { // only in the bottom bands
 			b.FillRect(gfx.Rect{X1: 200, Y1: 200}, sky)
-			b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(0, 180, 200, 20), 4), gfx.Blur{StdDev: 2})
-		}, "raster: BackdropFilter is not implemented until phase 6"},
+			b.PushLayer(1, gfx.Screen)
+			b.FillRect(gfx.RectXYWH(0, 180, 200, 20), gfx.Black)
+			b.PopLayer()
+		}, "raster: blend mode screen is not implemented until phase 6"},
 		{func(b *gfx.Builder) { // in every band
 			b.PushLayer(1, gfx.Multiply)
 			b.FillRect(gfx.Rect{X1: 200, Y1: 200}, gfx.Black)

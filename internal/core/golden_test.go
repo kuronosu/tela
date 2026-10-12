@@ -8,13 +8,11 @@ import (
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
-// Goldens of the phase-3 pipeline: backgrounds and text only (borders,
-// radii, shadows, gradients and effects are painted from T4b on, which
-// will update these images). Regenerate with TELA_UPDATE=1 and look at
-// them.
+// Goldens of the phase-3 pipeline. Regenerate with TELA_UPDATE=1 and look
+// at them.
 
-// goldenCounter is the Counter of ARCHITECTURE section 1, on a dark page
-// so that its white text shows while gradients are not painted.
+// goldenCounter is the Counter of ARCHITECTURE section 1, centered on a
+// dark page.
 func goldenCounter() Node {
 	counter := func() Node {
 		count, setCount := UseState(0)
@@ -73,6 +71,7 @@ func goldenFlex() Node {
 }
 
 func TestGoldens(t *testing.T) {
+	gw, gh := gallerySize()
 	for _, tc := range []struct {
 		name string
 		root func() Node
@@ -81,6 +80,7 @@ func TestGoldens(t *testing.T) {
 		{"counter", goldenCounter, 400, 300},
 		{"paragraph", goldenParagraph, 360, 340},
 		{"flex", goldenFlex, 360, 480},
+		{"gallery", func() Node { return galleryRoot().node() }, gw, gh},
 	} {
 		for _, scale := range []float32{1, 2} {
 			t.Run(fmt.Sprintf("%s_x%g", tc.name, scale), func(t *testing.T) {

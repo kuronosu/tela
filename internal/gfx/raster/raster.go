@@ -73,6 +73,10 @@ type Renderer struct {
 	// their intersection (filter layers also intersect it with their
 	// content's bounds, which they keep in bound).
 	region, bound image.Rectangle
+	// surfBounds is the device rectangle of the current surface (the
+	// destination or the innermost layer's buffer), which backdrop
+	// filters read.
+	surfBounds image.Rectangle
 
 	dfs   []devFilter // device filters of the open filter layers
 	kw    []int64     // kernel weights of dfs
@@ -123,6 +127,7 @@ type savedState struct {
 	ownMask []uint8 // mask buffer created by this push, released at its pop
 
 	region, bound image.Rectangle
+	surfBounds    image.Rectangle
 
 	// Layers: the surface below, and this layer's buffer and opacity.
 	layer   bool
@@ -192,6 +197,25 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		return
 	}
 	r.glyphs = opts.GlyphCache
+	if dl.BackdropReach() > 0 {
+		// A backdrop filter that reaches beyond a pixel reads the whole
+		// bounds of its shape, painted by earlier commands anywhere in
+		// them: render the whole destination on this goroutine (see
+		// backdrop.go). A smaller region is rendered on a copy and copied
+		// back, so that its pixels are those of a full render.
+		full := dst.Rect.Intersect(image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit))
+		if clip == full {
+			r.render(dst, dl, gfx.Scale(s, s), clip)
+			return
+		}
+		// perf: a region could be grown by the reach of the backdrop
+		// filters it contains instead.
+		tmp := image.NewRGBA(full)
+		copyRect(tmp, dst, full)
+		r.render(tmp, dl, gfx.Scale(s, s), full)
+		copyRect(dst, tmp, clip)
+		return
+	}
 	if opts.Workers != 1 && r.renderParallel(dst, dl, s, clip, opts.Workers) {
 		return
 	}
@@ -208,6 +232,7 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine,
 		r.visitFn = r.visit
 	}
 	r.blit.pix, r.blit.stride, r.blit.origin, r.blit.clip = dst.Pix, dst.Stride, dst.Rect.Min, clip
+	r.surfBounds = dst.Rect
 	r.blit.cm = clipMask{}
 	r.blit.toMask = false
 	r.dl = dl
@@ -302,7 +327,7 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 		}
 	case gfx.BackdropFilter:
 		if !r.skipping {
-			panic("raster: BackdropFilter is not implemented until phase 6")
+			r.backdropFilter(c)
 		}
 	default:
 		panic(fmt.Sprintf("raster: %s is not implemented yet", c.Name()))
@@ -312,7 +337,8 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 // save pushes the current state; the matching pop restores it.
 func (r *Renderer) save() {
 	b := &r.blit
-	r.stack = append(r.stack, savedState{ctm: r.ctm, skipping: r.skipping, clip: b.clip, cm: b.cm, region: r.region, bound: r.bound})
+	r.stack = append(r.stack, savedState{ctm: r.ctm, skipping: r.skipping, clip: b.clip, cm: b.cm,
+		region: r.region, bound: r.bound, surfBounds: r.surfBounds})
 }
 
 // restore pops the state saved by the matching push: it composites a layer,
@@ -342,7 +368,7 @@ func (r *Renderer) restore() {
 	}
 	r.ctm, r.skipping = st.ctm, st.skipping
 	b.clip, b.cm = st.clip, st.cm
-	r.region, r.bound = st.region, st.bound
+	r.region, r.bound, r.surfBounds = st.region, st.bound, st.surfBounds
 	*st = savedState{} // drop references
 	r.stack = r.stack[:len(r.stack)-1]
 }

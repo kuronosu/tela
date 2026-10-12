@@ -276,9 +276,6 @@ func TestUnimplementedPanics(t *testing.T) {
 			b.FillRect(gfx.Rect{X1: 4, Y1: 4}, gfx.Black)
 			b.PopLayer()
 		}, "raster: blend mode multiply is not implemented until phase 6"},
-		{func(b *gfx.Builder) {
-			b.BackdropFilter(gfx.NewRRect(gfx.Rect{X1: 4, Y1: 4}, 1), gfx.Blur{StdDev: 2})
-		}, "raster: BackdropFilter is not implemented until phase 6"},
 	} {
 		func() {
 			defer func() {
