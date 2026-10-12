@@ -56,6 +56,20 @@ func TestInterningIsBounded(t *testing.T) {
 	}
 }
 
+// A string in use stays cached however many other strings pass through:
+// hits in the old generation move to the current one.
+func TestInterningKeepsHotEntries(t *testing.T) {
+	p := NewParser(DefaultTheme())
+	p.limit = 8
+	hot := p.Compile("flex gap-2")
+	for i := 0; i < 100; i++ {
+		p.Compile(fmt.Sprintf("w-[%dpx]", i))
+		if got := p.Compile("flex gap-2"); got != hot {
+			t.Fatalf("after %d other strings the hot entry was compiled again", i+1)
+		}
+	}
+}
+
 func TestConcurrentCompile(t *testing.T) {
 	p := NewParser(DefaultTheme())
 	classes := []string{

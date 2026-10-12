@@ -13,16 +13,14 @@ const cacheSize = 9
 // is only reused for an identical request.
 type cacheKey struct {
 	known         [2]uint32 // float bits of known dimensions or available space
+	kind          [2]uint8  // what known holds per axis: see mixedKind
 	parent        [2]uint32 // float bits of the parent size (+Inf bits: unknown)
 	axis          requestedAxis
 	sizing        sizingMode
 	knownDefinite [2]bool // normalized: an unknown dimension is definite
 }
 
-var (
-	infBits    = math.Float32bits(float32(math.Inf(1)))
-	negInfBits = math.Float32bits(float32(math.Inf(-1)))
-)
+var infBits = math.Float32bits(float32(math.Inf(1)))
 
 // optBits encodes an optional float, unset as +Inf.
 func optBits(o opt) uint32 {
@@ -33,25 +31,33 @@ func optBits(o opt) uint32 {
 }
 
 // mixedBits encodes a known dimension, or the available space when the
-// dimension is unknown: definite space as its negated value (layout sizes
-// are not negative, so this does not collide with known dimensions),
-// min-content as -Inf and max-content as +Inf.
+// dimension is unknown: its value when definite, nothing (zero) for
+// min-content and max-content. mixedKind tells them apart: definite
+// available space can be negative (a narrow box with large padding), so
+// the value alone cannot.
 func mixedBits(known opt, avail AvailableSpace) uint32 {
 	if known.ok {
 		return math.Float32bits(known.v)
 	}
-	switch avail.Kind {
-	case Definite:
-		return math.Float32bits(-avail.Value)
-	case MinContentSpace:
-		return negInfBits
+	if avail.Kind == Definite {
+		return math.Float32bits(avail.Value)
 	}
-	return infBits
+	return 0
+}
+
+// mixedKind is 0 for a known dimension and 1 + the kind of the available
+// space otherwise.
+func mixedKind(known opt, avail AvailableSpace) uint8 {
+	if known.ok {
+		return 0
+	}
+	return 1 + uint8(avail.Kind)
 }
 
 func makeKey(in *input) cacheKey {
 	return cacheKey{
 		known:         [2]uint32{mixedBits(in.known.w, in.avail.w), mixedBits(in.known.h, in.avail.h)},
+		kind:          [2]uint8{mixedKind(in.known.w, in.avail.w), mixedKind(in.known.h, in.avail.h)},
 		parent:        [2]uint32{optBits(in.parent.w), optBits(in.parent.h)},
 		axis:          in.axis,
 		sizing:        in.sizing,
@@ -69,7 +75,7 @@ func (k *cacheKey) sizeValidFor(o *cacheKey) bool {
 // sameRequest reports whether two keys match except for the requested
 // axis.
 func (k *cacheKey) sameRequest(o *cacheKey) bool {
-	return k.known == o.known && k.parent == o.parent && k.sizing == o.sizing && k.knownDefinite == o.knownDefinite
+	return k.known == o.known && k.kind == o.kind && k.parent == o.parent && k.sizing == o.sizing && k.knownDefinite == o.knownDefinite
 }
 
 type measureEntry struct {

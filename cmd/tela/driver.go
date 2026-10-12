@@ -86,13 +86,16 @@ const generatedFile = "zz_tela_run_test.go"
 // goPackage is what `go list` says about a package.
 type goPackage struct {
 	Dir, Name string
-	GoFiles   []string
+	// GoFiles are the package's source files and its in-package test
+	// files: the runner is compiled by go test, so a Preview declared in a
+	// _test.go file counts.
+	GoFiles []string
 }
 
 // listPackage returns the directory, name and files of pkg.
 func listPackage(goBin, pkg string) (goPackage, error) {
 	// One line per package: dir|name|file,file...
-	cmd := exec.Command(goBin, "list", "-f", `{{.Dir}}|{{.Name}}|{{join .GoFiles ","}}`, pkg)
+	cmd := exec.Command(goBin, "list", "-f", `{{.Dir}}|{{.Name}}|{{join .GoFiles ","}}{{if and .GoFiles .TestGoFiles}},{{end}}{{join .TestGoFiles ","}}`, pkg)
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -301,12 +304,33 @@ func explainFailure(pkg, name string, c contract, output string) error {
 	return fmt.Errorf("go test failed:\n%s", output)
 }
 
-// writeFileAtomic writes data to path, creating its directory.
+// writeFileAtomic writes data to path, creating its directory. The data
+// goes to a temporary file in the same directory that is renamed over
+// path, so a failed write never leaves a truncated file at path.
 func writeFileAtomic(path string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	_, err = f.Write(data)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Chmod(tmp, 0o644)
+	}
+	if err == nil {
+		err = os.Rename(tmp, path)
+	}
+	if err != nil {
+		os.Remove(tmp)
+	}
+	return err
 }
 
 // generateSource returns the source of the generated test for a package

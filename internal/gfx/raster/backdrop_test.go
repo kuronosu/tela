@@ -108,3 +108,25 @@ func TestBackdropInLayer(t *testing.T) {
 		t.Errorf("right pixel %v, want red", got)
 	}
 }
+
+// TestBackdropPerPixelBands checks a backdrop with only per-pixel filters
+// (BackdropReach 0), which renders in parallel bands: each band reads and
+// writes only its own rows, and the pixels equal a single-threaded render.
+func TestBackdropPerPixelBands(t *testing.T) {
+	dl := build(func(b *gfx.Builder) {
+		b.FillRect(gfx.Rect{X1: 50, Y1: 100}, gfx.MustParseHex("#ff0000"))
+		b.FillRect(gfx.Rect{X0: 50, X1: 200, Y1: 100}, gfx.MustParseHex("#0000ff"))
+		b.FillRect(gfx.RectXYWH(120, 0, 10, 100), gfx.White)
+		b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(10, 5, 170, 90), 20), gfx.Grayscale(1), gfx.Brightness(0.5))
+	})
+	if r := dl.BackdropReach(); r != 0 {
+		t.Fatalf("BackdropReach = %v, want 0 (per-pixel filters)", r)
+	}
+	full := image.NewRGBA(image.Rect(0, 0, 400, 200))
+	NewRenderer().Render(full, dl, Options{Scale: 2, Workers: 1})
+	img := image.NewRGBA(full.Rect)
+	r := NewRenderer()
+	r.tune.minPixels, r.tune.bandRows = 1, 7
+	r.Render(img, dl, Options{Scale: 2, Workers: 6})
+	sameImages(t, "banded per-pixel backdrop", img, full)
+}

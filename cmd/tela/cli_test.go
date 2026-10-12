@@ -282,3 +282,41 @@ func goldenText(t *testing.T, name, got string) {
 		t.Errorf("output differs from %s (actual in %s_actual.json); if the change is intended, regenerate with %s=1", path, strings.TrimSuffix(name, ".json"), golden.UpdateEnv)
 	}
 }
+
+// A Preview declared in a _test.go file is found: the runner is compiled
+// by go test, which sees it.
+func TestSnapshotPreviewInTestFile(t *testing.T) {
+	pkg, err := listPackage("go", "./testdata/testpreview")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, err := detectContract(pkg.Dir, pkg.GoFiles); err != nil || c != contractPreview {
+		t.Fatalf("detectContract(%v) = %v, %v; want Preview", pkg.GoFiles, c, err)
+	}
+	skipShort(t)
+	img, _, _ := snap(t, "--size", "40x30", "./testdata/testpreview")
+	if got := pixel(img, 20, 15); got != [3]uint8{0x00, 0xbc, 0x7d} {
+		t.Errorf("pixel = %v, want emerald-500", got)
+	}
+}
+
+// writeFileAtomic replaces the file and leaves no temporary file behind.
+func TestWriteFileAtomic(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sub", "out.png")
+	for _, data := range []string{"first", "second"} {
+		if err := writeFileAtomic(path, []byte(data)); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := os.ReadFile(path); err != nil || string(got) != data {
+			t.Fatalf("read %q, %v; want %q", got, err, data)
+		}
+	}
+	entries, _ := os.ReadDir(filepath.Dir(path))
+	if len(entries) != 1 {
+		t.Errorf("%d files in the directory, want only out.png", len(entries))
+	}
+	if err := writeFileAtomic(filepath.Join(path, "x"), []byte("y")); err == nil {
+		t.Error("writing under a file succeeded")
+	}
+}

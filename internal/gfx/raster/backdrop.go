@@ -60,6 +60,14 @@ func (r *Renderer) backdropFilter(c gfx.BackdropFilter) {
 		x, y := fs[k].reach()
 		rx, ry = rx+x, ry+y
 	}
+	if rx == 0 && ry == 0 {
+		// Per-pixel filters only: read the pixels this render draws and no
+		// others. Bands rendered in parallel (BackdropReach is 0) must not
+		// read rows that other bands are writing.
+		if in = in.Intersect(b.clip); in.Empty() {
+			return
+		}
+	}
 	ext := image.Rect(in.Min.X-rx, in.Min.Y-ry, in.Max.X+rx, in.Max.Y+ry)
 	w, h := ext.Dx(), ext.Dy()
 	buf := r.getBuf(4 * w * h)

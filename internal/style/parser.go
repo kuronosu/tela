@@ -79,10 +79,19 @@ func (p *Parser) Theme() *Theme { return p.th }
 func (p *Parser) Compile(classes string) *Classes {
 	p.mu.RLock()
 	c, ok := p.cur[classes]
-	if !ok {
-		c, ok = p.old[classes]
-	}
 	p.mu.RUnlock()
+	if ok {
+		return c
+	}
+	p.mu.Lock()
+	// A hit in the old generation moves to the current one, so a string in
+	// use survives every rotation.
+	if c, ok = p.cur[classes]; !ok {
+		if c, ok = p.old[classes]; ok {
+			p.store(classes, c)
+		}
+	}
+	p.mu.Unlock()
 	if ok {
 		return c
 	}
@@ -90,14 +99,23 @@ func (p *Parser) Compile(classes string) *Classes {
 	p.mu.Lock()
 	if prev, ok := p.cur[classes]; ok {
 		c = prev
+	} else if prev, ok := p.old[classes]; ok {
+		c = prev
+		p.store(classes, c)
 	} else {
-		if len(p.cur) >= p.limit {
-			p.old, p.cur = p.cur, make(map[string]*Classes, p.limit)
-		}
-		p.cur[classes] = c
+		p.store(classes, c)
 	}
 	p.mu.Unlock()
 	return c
+}
+
+// store adds c to the current generation, rotating the generations when it
+// is full. p.mu must be held for writing.
+func (p *Parser) store(classes string, c *Classes) {
+	if len(p.cur) >= p.limit {
+		p.old, p.cur = p.cur, make(map[string]*Classes, p.limit)
+	}
+	p.cur[classes] = c
 }
 
 // Compile compiles a class string with the default parser.

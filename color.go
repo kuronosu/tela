@@ -4,11 +4,13 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
-// Color is a non-premultiplied color with float32 components R, G, B and A
-// in [0, 1]. It is extended sRGB, like CSS Color 4: a color outside the sRGB
-// gamut, such as most of the Tailwind palette once converted from OKLCH,
-// keeps components below 0 or above 1, and is clipped when painted, as
-// browsers do. The zero value is transparent black.
+// Color is a non-premultiplied color with float32 components R, G, B and A.
+// A (opacity) is in [0, 1]. R, G and B are extended sRGB, like CSS Color 4:
+// they are in [0, 1] for colors inside the sRGB gamut, while a color outside
+// it, such as a third of the Tailwind palette once converted from OKLCH,
+// keeps components below 0 or above 1 and is clipped when painted, as
+// browsers do. Clamp before converting to 8-bit values. The zero value is
+// transparent black.
 //
 // Color is an alias of an internal type: use its fields and methods
 // (WithAlpha, MulAlpha, String...) and the constructors Hex, RGB, RGBA and
