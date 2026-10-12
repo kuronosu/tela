@@ -154,28 +154,27 @@ func TestPremul8(t *testing.T) {
 }
 
 // Reference values: color.js 0.7.1 (https://github.com/color-js/color.js, the
-// library behind colorjs.io, whose "css" gamut method implements CSS Color 4
-// section 13) via new Color("oklch", [...]).toGamut({space: "srgb", method:
-// "css"}).to("srgb").
+// library behind colorjs.io) via new Color("oklch", [...]).to("srgb"), with
+// no gamut mapping: out-of-gamut colors have components outside [0, 1].
 // The first rows are Tailwind v4 palette entries (red-500 is #fb2c36).
 var oklchRefs = []struct {
 	l, c, h float64
 	srgb    [3]float64
 }{
 	{0.637, 0.237, 25.331, [3]float64{0.982661, 0.171797, 0.213070}},
-	{0.623, 0.214, 259.815, [3]float64{0.169333, 0.498049, 1.000000}},
+	{0.623, 0.214, 259.815, [3]float64{0.169333, 0.498049, 1.022833}},
+	{0.591, 0.293, 322.896, [3]float64{0.783606, -0.111217, 0.871541}},
+	{0.715, 0.143, 215.221, [3]float64{-0.230178, 0.721872, 0.857338}},
 	{0.7, 0.1, 180, [3]float64{0.292642, 0.700962, 0.630168}},
 	{0.97, 0.014, 254.604, [3]float64{0.936940, 0.964035, 0.998872}},
 	{0.985, 0, 0, [3]float64{0.980256, 0.980256, 0.980256}},
-	{0.9, 0.4, 150, [3]float64{0.256812, 1.000000, 0.528226}},
-	{0.5, 0.4, 30, [3]float64{0.765954, 0.000000, 0}},
-	{0.9, 0.3, 300, [3]float64{0.901752, 0.825016, 1.000000}},
-	{0.2, 0.3, 200, [3]float64{0, 0.111948, 0.123349}},
-	{0.5, 0.3, 120, [3]float64{0.352613, 0.428735, 0}},
-	{0.8, 0.2, 80, [3]float64{0.983077, 0.678082, 0}},
-	{0.35, 0.25, 280, [3]float64{0.208979, 0.000000, 0.683101}},
-	{1.2, 0.1, 0, [3]float64{1, 1, 1}},
-	{-0.1, 0.1, 0, [3]float64{0, 0, 0}},
+	{0.9, 0.4, 150, [3]float64{-0.668062, 1.117984, -0.211872}},
+	{0.5, 0.4, 30, [3]float64{0.992869, -0.441672, -0.247119}},
+	{0.9, 0.3, 300, [3]float64{1.004286, 0.625509, 1.515870}},
+	{0.2, 0.3, 200, [3]float64{-0.196078, 0.144851, 0.291072}},
+	{0.5, 0.3, 120, [3]float64{0.330080, 0.446056, -0.310278}},
+	{0.8, 0.2, 80, [3]float64{1.001690, 0.669371, -0.290496}},
+	{0.35, 0.25, 280, [3]float64{0.215530, -0.134999, 0.713076}},
 }
 
 func TestOKLCHAgainstColorJS(t *testing.T) {
@@ -198,6 +197,24 @@ func TestOKLCHTailwindHex(t *testing.T) {
 	if got := OKLCH(0.985, 0, 0, 1).String(); got != "#fafafa" {
 		t.Errorf("neutral-50 = %s want #fafafa", got)
 	}
+	// Out-of-gamut palette colors, clipped per channel: the 8-bit colors
+	// Chromium 152 paints for them (CSS gamut mapping gives #ffba00 and
+	// #fcc800 for the yellow ones).
+	for _, tt := range []struct {
+		name    string
+		l, c, h float32
+		want    string
+	}{
+		{"fuchsia-600", 0.591, 0.293, 322.896, "#c800de"},
+		{"amber-400", 0.828, 0.189, 84.429, "#ffb900"},
+		{"amber-500", 0.769, 0.188, 70.08, "#fe9a00"},
+		{"yellow-400", 0.852, 0.199, 91.936, "#fdc700"},
+		{"yellow-500", 0.795, 0.184, 86.047, "#f0b100"},
+	} {
+		if got := OKLCH(tt.l, tt.c, tt.h, 1).String(); got != tt.want {
+			t.Errorf("%s = %s want %s", tt.name, got, tt.want)
+		}
+	}
 }
 
 func TestOklabAgainstColorJS(t *testing.T) {
@@ -208,8 +225,8 @@ func TestOklabAgainstColorJS(t *testing.T) {
 		{0.4, 0.1, 0.05, [3]float64{0.473092, 0.162486, 0.145117}},
 		{0.59686, 0.1009, 0.1192, [3]float64{0.776020, 0.363447, 0.025954}},
 		{0.8, -0.1, 0.1, [3]float64{0.585189, 0.822983, 0.447514}},
-		{0.3, -0.05, -0.1, [3]float64{0, 0.188649, 0.362729}},
-		{0.95, 0.3, 0.3, [3]float64{1.000000, 0.896802, 0.827577}},
+		{0.3, -0.05, -0.1, [3]float64{-0.104895, 0.187146, 0.377835}},
+		{0.95, 0.3, 0.3, [3]float64{1.737837, -0.040914, -0.541974}},
 	}
 	for _, tt := range tests {
 		got := Oklab(float32(tt.l), float32(tt.a), float32(tt.b), 1)
@@ -220,7 +237,8 @@ func TestOklabAgainstColorJS(t *testing.T) {
 }
 
 func TestToOklab(t *testing.T) {
-	// Reference: colorjs.io new Color("srgb", [...]).to("oklab" / "oklch").
+	// Reference: colorjs.io new Color("srgb", [...]).to("oklab" / "oklch");
+	// the last rows are extended sRGB.
 	tests := []struct {
 		srgb, lab, lch [3]float64
 	}{
@@ -232,6 +250,9 @@ func TestToOklab(t *testing.T) {
 		{[3]float64{1, 1, 1}, [3]float64{1, 0, 0}, [3]float64{1, 0, 0}},
 		{[3]float64{0, 0, 0}, [3]float64{0, 0, 0}, [3]float64{0, 0, 0}},
 		{[3]float64{0.5, 0.5, 0.5}, [3]float64{0.598181, 0, 0}, [3]float64{0.598181, 0, 0}},
+		{[3]float64{-0.2, 0.7, 0.9}, [3]float64{0.708155, -0.104925, -0.104418}, [3]float64{0.708155, 0.148028, 224.861011}},
+		{[3]float64{1.1, -0.1, 0.5}, [3]float64{0.685368, 0.281295, 0.028833}, [3]float64{0.685368, 0.282769, 5.852368}},
+		{[3]float64{0.78, -0.11, 0.87}, [3]float64{0.589449, 0.232669, -0.176952}, [3]float64{0.589449, 0.292313, 322.745871}},
 	}
 	for _, tt := range tests {
 		c := Color{float32(tt.srgb[0]), float32(tt.srgb[1]), float32(tt.srgb[2]), 1}
@@ -258,7 +279,7 @@ func TestOklabRoundTrip(t *testing.T) {
 				}
 				l, ch, h := c.ToOKLCH()
 				back = OKLCH(l, ch, h, 1)
-				if !colorNear(back, c.R, c.G, c.B, 2e-3, 2e-3) && !colorNear(back, c.R, c.G, c.B, 1, 2e-3) {
+				if !colorNear(back, c.R, c.G, c.B, 1, 2e-3) {
 					t.Errorf("OKLCH round trip of %s gave %s", c, back)
 				}
 			}
@@ -266,32 +287,40 @@ func TestOklabRoundTrip(t *testing.T) {
 	}
 }
 
-func TestGamutMappingProperties(t *testing.T) {
-	// Every output is inside the gamut, chroma never grows and lightness stays
-	// close. (Hue is only guaranteed to within the JND, which at low lightness
-	// is a large angle, so it is not asserted.)
+func TestOKLCHExtended(t *testing.T) {
+	// No gamut mapping: out-of-gamut colors round-trip through extended
+	// sRGB, keeping lightness, chroma and hue. (Far outside the visible
+	// gamut a cone response nears zero, where the cube root is ill
+	// conditioned and the float32 components cost up to ~1e-3.)
 	for l := float32(0.05); l < 1; l += 0.1 {
-		for ch := float32(0); ch <= 0.5; ch += 0.05 {
+		for ch := float32(0.05); ch <= 0.4; ch += 0.05 {
 			for h := float32(0); h < 360; h += 30 {
 				c := OKLCH(l, ch, h, 1)
-				if c.R < 0 || c.R > 1 || c.G < 0 || c.G > 1 || c.B < 0 || c.B > 1 || !c.IsFinite() {
-					t.Fatalf("OKLCH(%v,%v,%v) = %v is out of gamut", l, ch, h, c)
+				if !c.IsFinite() {
+					t.Fatalf("OKLCH(%v,%v,%v) = %v is not finite", l, ch, h, c)
 				}
-				gl, gc, _ := c.ToOKLCH()
-				if gc > ch+0.01 {
-					t.Errorf("OKLCH(%v,%v,%v): chroma grew to %v", l, ch, h, gc)
-				}
-				if math.Abs(float64(gl-l)) > 0.06 {
-					t.Errorf("OKLCH(%v,%v,%v): lightness moved to %v", l, ch, h, gl)
+				gl, gc, gh := c.ToOKLCH()
+				dh := math.Abs(float64(gh - h))
+				dh = min(dh, 360-dh)
+				if math.Abs(float64(gl-l)) > 2e-3 || math.Abs(float64(gc-ch)) > 2e-3 || dh > 0.5 {
+					t.Errorf("OKLCH(%v,%v,%v) round trip gave %v %v %v", l, ch, h, gl, gc, gh)
 				}
 			}
 		}
 	}
-	if got := OKLCH(1, 0.3, 40, 0.25); got != (Color{1, 1, 1, 0.25}) {
-		t.Errorf("L=1 should give white keeping alpha, got %v", got)
+	// Lightness is clamped to [0, 1] and negative chroma taken as 0, like
+	// CSS parsing; alpha is kept.
+	if got, want := OKLCH(1.2, 0.1, 0, 0.25), OKLCH(1, 0.1, 0, 0.25); got != want || got.A != 0.25 {
+		t.Errorf("L=1.2 gave %v, want %v", got, want)
 	}
-	if got := OKLCH(0, 0.3, 40, 1); got != Black {
-		t.Errorf("L=0 should give black, got %v", got)
+	if got, want := OKLCH(-0.1, 0.3, 40, 1), OKLCH(0, 0.3, 40, 1); got != want {
+		t.Errorf("L=-0.1 gave %v, want %v", got, want)
+	}
+	if got, want := OKLCH(0.5, -0.1, 40, 1), OKLCH(0.5, 0, 0, 1); got != want {
+		t.Errorf("negative chroma gave %v, want %v", got, want)
+	}
+	if got := OKLCH(1, 0, 0, 1); !colorNear(got, 1, 1, 1, 1, 1e-6) {
+		t.Errorf("L=1 should give white, got %v", got)
 	}
 	if got := OKLCH(float32(math.NaN()), 0.1, 0, 1); got != Black {
 		t.Errorf("NaN lightness should give black, got %v", got)
@@ -309,6 +338,14 @@ func TestTransferFunctions(t *testing.T) {
 	}
 	if got := SRGBToLinear(-0.5); !near(got, -0.21404114, 1e-6) {
 		t.Errorf("SRGBToLinear(-0.5) = %v, should mirror", got)
+	}
+	for _, v := range []float32{0.001, 0.02, 0.3, 1, 1.4} {
+		if SRGBToLinear(-v) != -SRGBToLinear(v) || LinearToSRGB(-v) != -LinearToSRGB(v) {
+			t.Errorf("transfer functions are not odd at %v", v)
+		}
+		if got := LinearToSRGB(SRGBToLinear(v)); !near(got, v, 1e-6) {
+			t.Errorf("transfer round trip of %v = %v", v, got)
+		}
 	}
 	l, a, b := LinearSRGBToOklab(1, 1, 1)
 	r, g, bb := OklabToLinearSRGB(l, a, b)

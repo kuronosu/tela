@@ -39,7 +39,7 @@ their original copyright notice. Add one section per source project.
 - **Source:** https://github.com/color-js/color.js (v0.7.1)
 - **License:** MIT
 - **Used in:** `internal/gfx/color.go` and `internal/gfx/raster/gradient.go` (matrices), `internal/gfx/color_test.go` and `internal/gfx/raster/gradient_test.go` (expected values)
-- **Notes:** The Oklab / XYZ / linear sRGB matrices are the ones published in CSS Color 4 and used by color.js (recalculated for a consistent D65 white). The gamut-mapping algorithm is the one of CSS Color 4 section 13, written from the spec. The test expectations were generated with color.js (`toGamut({method: "css"})` for colors; `a.mix(b, t, {space, premultiplied: true, outputSpace: "srgb"})` for gradient colors, run with node outside the repository); no color.js code was copied.
+- **Notes:** The Oklab / XYZ / linear sRGB matrices are the ones published in CSS Color 4 and used by color.js (recalculated for a consistent D65 white). Colors are not gamut-mapped (ADR-046). The test expectations were generated with color.js (unclipped conversions for colors; `a.mix(b, t, {space, premultiplied: true, outputSpace: "srgb"})` for gradient colors, run with node outside the repository); no color.js code was copied.
 
 ## Go standard library (math) and Cephes / FreeBSD msun
 

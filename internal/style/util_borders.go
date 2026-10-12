@@ -313,7 +313,8 @@ func registerRing(r *registry) {
 // Shadows.
 
 // currentShadowColor marks a shadow layer whose color is currentColor; it
-// is replaced when the style is finalized.
+// is replaced when the style is finalized. It is compared exactly: colors
+// are extended sRGB, so a negative component alone does not mark it.
 var currentShadowColor = gfx.Color{R: -1, G: -1, B: -1, A: 1}
 
 // parseShadowList parses an arbitrary CSS shadow list:
@@ -378,7 +379,7 @@ func parseShadowList(c *pctx, s string, allowSpread bool) ([]Shadow, error) {
 func resolveCurrentShadows(layers []Shadow, cur gfx.Color) []Shadow {
 	has := false
 	for i := range layers {
-		if layers[i].Color.R < 0 {
+		if layers[i].Color == currentShadowColor {
 			has = true
 			break
 		}
@@ -389,7 +390,7 @@ func resolveCurrentShadows(layers []Shadow, cur gfx.Color) []Shadow {
 	out := make([]Shadow, len(layers))
 	copy(out, layers)
 	for i := range out {
-		if out[i].Color.R < 0 {
+		if out[i].Color == currentShadowColor {
 			out[i].Color = cur
 		}
 	}

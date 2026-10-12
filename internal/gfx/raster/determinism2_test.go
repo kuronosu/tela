@@ -59,7 +59,7 @@ func shadowDigest() uint64 {
 // architecture must reproduce it; check with
 //
 //	GOARCH=arm64 go test -exec qemu-aarch64-static -run Deterministic ./internal/gfx/raster
-const wantShadowDigest uint64 = 0xcee837a7313202cc
+const wantShadowDigest uint64 = 0xe29171650b50c526
 
 func TestShadowDeterministic(t *testing.T) {
 	if got := shadowDigest(); got != wantShadowDigest {

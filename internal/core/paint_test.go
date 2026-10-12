@@ -46,7 +46,7 @@ func hex(class string) string {
 }
 
 var testHex = map[string]string{
-	"bg-red-500": "#fb2c36", "bg-sky-500": "#00a6f4", "bg-amber-400": "#ffba00",
+	"bg-red-500": "#fb2c36", "bg-sky-500": "#00a6f4", "bg-amber-400": "#ffb900",
 	"bg-pink-500": "#f6339a", "bg-slate-200": "#e2e8f0", "bg-white": "#ffffff",
 }
 

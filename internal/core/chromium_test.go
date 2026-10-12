@@ -143,23 +143,24 @@ type chromiumBound struct {
 // diagonal seam where border sides of different colors meet (63 levels).
 var defaultChromiumBound = chromiumBound{max: 80, mean: 0.5}
 
-// gradientWhy explains the gradient cells.
-const gradientWhy = "Tailwind's palette has OKLCH colors outside sRGB; Chromium interpolates them in Oklab and clips each pixel, " +
-	"the theme holds them gamut-mapped to sRGB, so mid-gradient colors differ by up to 41 levels (style/gfx)"
+// gradientWhy explains the gradient cells, which have tighter bounds than
+// the default to keep the color pipeline honest.
+const gradientWhy = "stops are extended sRGB, interpolated unclipped and clipped per pixel like Chromium; " +
+	"the interior agrees within a few levels, the max is the anti-aliased edge of the rounded shape"
 
-// chromiumBounds lists the cells whose difference is known to be larger.
+// chromiumBounds lists the cells whose bound differs from the default.
 var chromiumBounds = map[string]chromiumBound{
 	"dashed": {110, 0.7, "dash phase along the corner arcs: Skia dashes its own conic arcs, measured exactly"},
 	"dotted": {110, 0.7, "dot positions along the circle (Skia's conics and arc lengths)"},
 	"ring-offset": {80, 0.75, "Skia's circle anti-aliasing on three concentric edges two pixels apart " +
 		"(the box, the offset and the ring) adds up on every edge pixel"},
-	"linear":       {70, 3.5, gradientWhy},
-	"linear-via":   {70, 3.5, gradientWhy},
-	"linear-angle": {70, 3.5, gradientWhy},
-	"radial":       {70, 3.5, gradientWhy},
-	"conic":        {70, 3.5, gradientWhy},
-	"counter": {200, 1, "text: Skia's glyph anti-aliasing differs from ours on glyph edges (up to 189 levels); at x2 " +
-		"Blink quantizes line metrics in device pixels, so baselines move by one device pixel; the card's gradient as in linear"},
+	"linear":       {50, 0.25, gradientWhy},
+	"linear-via":   {45, 0.25, gradientWhy},
+	"linear-angle": {4, 0.2, gradientWhy + " (no rounded edge here)"},
+	"radial":       {70, 0.45, gradientWhy},
+	"conic":        {75, 0.45, gradientWhy},
+	"counter": {200, 0.4, "text: Skia's glyph anti-aliasing differs from ours on glyph edges (up to 189 levels); at x2 " +
+		"Blink quantizes line metrics in device pixels, so baselines move by one device pixel"},
 }
 
 func readRGBA(t *testing.T, path string) *image.RGBA {

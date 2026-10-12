@@ -101,8 +101,8 @@ func numberExpr(s string) (string, error) {
 }
 
 // parseColor parses oklch(), rgb() and hex colors. OKLCH goes through
-// gfx.OKLCH, which maps out-of-gamut colors into sRGB with the CSS Color 4
-// algorithm.
+// gfx.OKLCH, which keeps out-of-gamut colors in extended sRGB (components
+// outside [0, 1]); painting clips them like Chromium does.
 func parseColor(s string) (gfx.Color, error) {
 	switch {
 	case strings.HasPrefix(s, "#"):

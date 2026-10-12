@@ -184,3 +184,44 @@ func TestGradientRampCache(t *testing.T) {
 		t.Error("the color space is not part of the cache key")
 	}
 }
+
+// Out-of-gamut stops (Tailwind colors in extended sRGB) are interpolated
+// unclipped and each pixel is clipped, in both color spaces. The wanted
+// colors are Chromium 152's pixels at x = 32, 96, 160 and 224 of a 256 px
+// wide "linear-gradient(to right in <space>, oklch(...), oklch(...))";
+// clipping the stops first would be off by up to 47 levels.
+func TestGradientExtendedStops(t *testing.T) {
+	cyan500 := gfx.OKLCH(0.715, 0.143, 215.221, 1)
+	blue500 := gfx.OKLCH(0.623, 0.214, 259.815, 1)
+	green500 := gfx.OKLCH(0.723, 0.219, 149.579, 1)
+	fuchsia600 := gfx.OKLCH(0.591, 0.293, 322.896, 1)
+	tests := []struct {
+		name  string
+		a, b  gfx.Color
+		space gfx.ColorSpace
+		want  [4][3]uint8
+	}{
+		{"cyan-blue srgb", cyan500, blue500, gfx.InterpSRGB, [4][3]uint8{{0, 177, 224}, {0, 163, 235}, {5, 148, 245}, {31, 134, 255}}},
+		{"cyan-blue oklab", cyan500, blue500, gfx.InterpOklab, [4][3]uint8{{0, 178, 225}, {0, 165, 236}, {0, 151, 246}, {34, 135, 255}}},
+		{"green-fuchsia srgb", green500, fuchsia600, gfx.InterpSRGB, [4][3]uint8{{0, 172, 98}, {44, 114, 134}, {107, 57, 169}, {169, 0, 205}}},
+		{"green-fuchsia oklab", green500, fuchsia600, gfx.InterpOklab, [4][3]uint8{{70, 187, 109}, {132, 157, 149}, {166, 120, 181}, {190, 64, 209}}},
+	}
+	for _, tt := range tests {
+		img := image.NewRGBA(image.Rect(0, 0, 256, 1))
+		Render(img, build(func(b *gfx.Builder) {
+			b.FillRect(gfx.RectXYWH(0, 0, 256, 1), gfx.LinearGradient{
+				End: gfx.Pt(256, 0), Interp: tt.space,
+				Stops: []gfx.GradientStop{gfx.AutoStop(tt.a), gfx.AutoStop(tt.b)},
+			})
+		}), Options{Scale: 1})
+		for i, x := range []int{32, 96, 160, 224} {
+			got := img.RGBAAt(x, 0)
+			for k, v := range [3]uint8{got.R, got.G, got.B} {
+				if d := int(v) - int(tt.want[i][k]); d > 1 || d < -1 {
+					t.Errorf("%s at x=%d: got %v, Chromium %v", tt.name, x, got, tt.want[i])
+					break
+				}
+			}
+		}
+	}
+}

@@ -15,12 +15,15 @@
 //
 // # Color
 //
-// Color is non-premultiplied sRGB with float32 components in [0, 1]. Colors
-// are composited in sRGB space like browsers (ADR-007). Oklab and OKLCH
-// constructors convert with the CSS Color 4 matrices and map out-of-gamut
-// colors into sRGB with the CSS gamut-mapping algorithm. Gradients carry their
-// interpolation color space, Oklab by default (ADR-023); interpolation is done
-// on premultiplied colors (CSS Color 4, section 12.3).
+// Color is non-premultiplied, extended sRGB with float32 components: colors
+// outside the sRGB gamut keep components below 0 or above 1. Colors are
+// composited in sRGB space like browsers (ADR-007). Oklab and OKLCH
+// constructors convert with the CSS Color 4 matrices, fusion-safe, without
+// gamut mapping. Like Chromium, a solid color paints clipped per channel to
+// [0, 1], and a gradient interpolates its unclipped stops and clips each
+// pixel. Gradients carry their interpolation color space, Oklab by default
+// (ADR-023); interpolation is done on premultiplied colors (CSS Color 4,
+// section 12.3).
 //
 // # Paths
 //

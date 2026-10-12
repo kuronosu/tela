@@ -26,8 +26,11 @@ import (
 // those screenshots with our render. Regenerate the HTML with
 // TELA_WRITE_HTML=1 go test -run TestChromiumShadows.
 
-// cssColor formats a color as CSS rgb() with fractional channels.
+// cssColor formats a color as CSS rgb() with fractional channels, clipped
+// to [0, 255] as painting an extended sRGB color does (CSS rgb() would clamp
+// them too).
 func cssColor(c gfx.Color) string {
+	c = c.Clamp()
 	return fmt.Sprintf("rgb(%.3f %.3f %.3f / %.3f)", c.R*255, c.G*255, c.B*255, c.A)
 }
 

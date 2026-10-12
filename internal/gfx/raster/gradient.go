@@ -44,6 +44,10 @@ import (
 // stay perfectly sharp wherever they fall. The two ends of every segment
 // are the stop colors exactly.
 //
+// Stop colors are extended sRGB (gfx.Color): they enter the interpolation
+// unclipped and every ramp entry is clipped per channel, which is what
+// Chromium does for out-of-gamut stops in both Oklab and sRGB.
+//
 // Ramps are computed with deterministic color arithmetic (fmath) and cached
 // per Renderer (rampCache), keyed by the stops and the color space, so a
 // warm Renderer does not rebuild or allocate them frame after frame.
@@ -341,9 +345,11 @@ type interpColor struct {
 	a float64
 }
 
+// The color components are not clamped: stop colors are extended sRGB
+// (gfx.ColorSpace) and only the interpolated pixels are clipped, in
+// mixColor. Alpha is clamped to [0, 1].
 func newInterpColor(c gfx.Color, space gfx.ColorSpace) interpColor {
-	c = c.Clamp()
-	r, g, b, a := float64(c.R), float64(c.G), float64(c.B), float64(c.A)
+	r, g, b, a := float64(c.R), float64(c.G), float64(c.B), clamp01(float64(c.A))
 	if space == gfx.InterpOklab {
 		r, g, b = linearToOklab(srgbToLinear(r), srgbToLinear(g), srgbToLinear(b))
 	}
@@ -352,7 +358,8 @@ func newInterpColor(c gfx.Color, space gfx.ColorSpace) interpColor {
 
 // mixColor returns the premultiplied RGBA8 color at u in [0, 1] between a
 // and b, interpolated on premultiplied components (CSS Color 4, section
-// 12.3) and converted back to sRGB, clamped to [0, 1].
+// 12.3) and converted back to sRGB, clipped per channel to [0, 1] (for
+// premultiplied components, to [0, alpha]).
 func mixColor(a, b *interpColor, u float64, space gfx.ColorSpace) [4]uint8 {
 	lerp := func(x, y float64) float64 { return x + float64((y-x)*u) }
 	alpha := lerp(a.a, b.a)
@@ -367,6 +374,7 @@ func mixColor(a, b *interpColor, u float64, space gfx.ColorSpace) [4]uint8 {
 		r, g, bl = linearToSRGB(lr), linearToSRGB(lg), linearToSRGB(lb)
 		r, g, bl = float64(clamp01(r)*alpha), float64(clamp01(g)*alpha), float64(clamp01(bl)*alpha)
 	} else {
+		// unit8 clips negative components to 0.
 		r, g, bl = min(v0, alpha), min(v1, alpha), min(v2, alpha)
 	}
 	// Premultiplied channels never exceed alpha, even after rounding.
@@ -436,19 +444,22 @@ func oklabToLinear(l, a, b float64) (float64, float64, float64) {
 	return matVec(&lmsToLin, l_*l_*l_, m_*m_*m_, s_*s_*s_)
 }
 
-// srgbToLinear decodes an sRGB component in [0, 1].
+// srgbToLinear decodes an extended sRGB component, symmetrically around
+// zero (CSS Color 4), like gfx.SRGBToLinear.
 func srgbToLinear(v float64) float64 {
-	if v <= 0.04045 {
+	a := math.Abs(v)
+	if !(a > 0.04045) { // also NaN
 		return v / 12.92
 	}
-	return fmath.Pow((v+0.055)/1.055, 2.4)
+	return math.Copysign(fmath.Pow((a+0.055)/1.055, 2.4), v)
 }
 
-// linearToSRGB encodes a linear component; values outside [0, 1] give
-// values outside [0, 1] (clamped by the caller).
+// linearToSRGB encodes a linear component, symmetrically around zero;
+// values outside [0, 1] give values outside [0, 1] (clipped by the caller).
 func linearToSRGB(v float64) float64 {
-	if v <= 0.0031308 {
+	a := math.Abs(v)
+	if !(a > 0.0031308) { // also NaN
 		return v * 12.92
 	}
-	return float64(1.055*fmath.Pow(v, 1/2.4)) - 0.055
+	return math.Copysign(float64(1.055*fmath.Pow(a, 1/2.4))-0.055, v)
 }

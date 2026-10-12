@@ -4,8 +4,9 @@
 //
 // It is run by "go generate ./internal/style" (see generate.go there) from
 // the internal/style directory. The output is deterministic and gofmt'ed.
-// OKLCH colors are converted to sRGB with gfx.OKLCH, which maps colors
-// outside the sRGB gamut with the CSS Color 4 algorithm.
+// OKLCH colors are converted to sRGB with gfx.OKLCH; colors outside the
+// sRGB gamut keep extended sRGB components (below 0 or above 1), which the
+// renderer clips per channel for solid paints and per pixel in gradients.
 //
 // Flags:
 //

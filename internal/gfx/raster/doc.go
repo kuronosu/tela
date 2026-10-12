@@ -58,7 +58,8 @@
 // sampled at the pixel center and mapped back to the command's local space
 // with the inverse transform: solid colors, linear, radial and conic
 // gradients (gradient.go: CSS geometry, pad spread, premultiplied
-// interpolation in Oklab or sRGB through 256-entry ramps per stop segment,
+// interpolation in Oklab or sRGB of the unclipped extended sRGB stops, each
+// pixel clipped per channel, through 256-entry ramps per stop segment,
 // exact hard stops) and images (image.go: nearest or bilinear sampling,
 // clamped to the Src rectangle).
 //

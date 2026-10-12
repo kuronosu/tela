@@ -94,7 +94,7 @@ func TestPaintInterface(t *testing.T) {
 
 func TestSanitizePaint(t *testing.T) {
 	nan := float32(math.NaN())
-	stops := []GradientStop{AutoStop(RGB8(255, 0, 0)), AutoStop(Color{0, 0, 3, 1})}
+	stops := []GradientStop{AutoStop(RGB8(255, 0, 0)), AutoStop(Color{-0.5, 0, 3, 1.5})}
 	tests := []struct {
 		name string
 		p    Paint
@@ -123,15 +123,19 @@ func TestSanitizePaint(t *testing.T) {
 		}
 	}
 	// The sanitized gradient owns its stops (no aliasing) and has them
-	// normalized and clamped.
+	// normalized, with alpha clamped and extended sRGB components kept.
 	in := LinearGradient{End: Pt(1, 0), Stops: stops}
 	got, _ := sanitizePaint(in)
 	g := got.(LinearGradient)
 	if &g.Stops[0] == &in.Stops[0] {
 		t.Error("stops are shared with the caller")
 	}
-	if g.Stops[0].Offset != 0 || g.Stops[1].Offset != 1 || g.Stops[1].Color.B != 1 {
-		t.Errorf("stops not normalized/clamped: %+v", g.Stops)
+	if g.Stops[0].Offset != 0 || g.Stops[1].Offset != 1 || g.Stops[1].Color != (Color{-0.5, 0, 3, 1}) {
+		t.Errorf("stops not normalized, or colors not kept with alpha clamped: %+v", g.Stops)
+	}
+	// Solid colors are clipped per channel.
+	if got, _ := sanitizePaint(Color{-0.5, 0.5, 3, 1}); got != (Color{0, 0.5, 1, 1}) {
+		t.Errorf("solid extended color sanitized to %v, want it clipped", got)
 	}
 	if !math.IsNaN(float64(in.Stops[0].Offset)) {
 		t.Error("the caller's stops were modified")

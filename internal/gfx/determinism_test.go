@@ -110,3 +110,68 @@ func TestTrigDeterministic(t *testing.T) {
 		t.Errorf("trigDigest = %#x, want %#x (the same on every architecture)", got, wantTrigDigest)
 	}
 }
+
+// colorDigest hashes the color conversions on random input, extended sRGB
+// included: OKLCH, Oklab, ToOklab, ToOKLCH, the transfer functions and the
+// Oklab matrices, as float32 results and as the float64 intermediates that
+// reveal a fused multiply-add.
+func colorDigest() uint64 {
+	h := fnv.New64a()
+	put32 := func(vs ...float32) {
+		for _, v := range vs {
+			b := math.Float32bits(v)
+			h.Write([]byte{byte(b), byte(b >> 8), byte(b >> 16), byte(b >> 24)})
+		}
+	}
+	put64 := func(vs ...float64) {
+		for _, v := range vs {
+			b := math.Float64bits(v)
+			var buf [8]byte
+			for i := range buf {
+				buf[i] = byte(b >> (8 * i))
+			}
+			h.Write(buf[:])
+		}
+	}
+	for _, m := range [][3][3]float64{linToLMS, lmsToLin} {
+		for _, row := range m {
+			put64(row[:]...)
+		}
+	}
+	rng := rand.New(rand.NewPCG(13, 13))
+	f := func(lo, hi float64) float32 { return float32(lo + rng.Float64()*(hi-lo)) }
+	for i := 0; i < 20000; i++ {
+		l, c, hue := f(-0.05, 1.05), f(-0.02, 0.45), f(-30, 400)
+		k := OKLCH(l, c, hue, 1)
+		put32(k.R, k.G, k.B)
+		k = Oklab(l, f(-0.4, 0.4), f(-0.4, 0.4), 1)
+		put32(k.R, k.G, k.B)
+		x := Color{f(-0.3, 1.3), f(-0.3, 1.3), f(-0.3, 1.3), 1}
+		a, b, d := x.ToOklab()
+		put32(a, b, d)
+		a, b, d = x.ToOKLCH()
+		put32(a, b, d)
+		v := f(-1.5, 1.5)
+		put32(SRGBToLinear(v), LinearToSRGB(v))
+		a, b, d = LinearSRGBToOklab(x.R, x.G, x.B)
+		put32(a, b, d)
+		a, b, d = OklabToLinearSRGB(l, f(-0.4, 0.4), f(-0.4, 0.4))
+		put32(a, b, d)
+		w := float64(v)
+		put64(srgbToLinear(w), linearToSRGB(w))
+		ll, la, lb := linToOklab(srgbToLinear(float64(x.R)), srgbToLinear(float64(x.G)), srgbToLinear(float64(x.B)))
+		put64(ll, la, lb)
+		put64(oklabToLin(ll, la, lb))
+		put64(labToLCH(la, lb))
+	}
+	return h.Sum64()
+}
+
+// wantColorDigest is colorDigest() recorded on amd64 (GOAMD64=v1).
+const wantColorDigest uint64 = 0x4fb3b15979b7f0a9
+
+func TestColorDeterministic(t *testing.T) {
+	if got := colorDigest(); got != wantColorDigest {
+		t.Errorf("colorDigest = %#x, want %#x (the same on every architecture)", got, wantColorDigest)
+	}
+}

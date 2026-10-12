@@ -19,6 +19,14 @@ func (ConicGradient) isPaint()  {}
 
 // ColorSpace is the color space in which gradient stops are interpolated.
 // Compositing itself always happens in sRGB (ADR-007).
+//
+// Stop colors are extended sRGB (see Color) and are converted to the
+// interpolation space without clipping: in Oklab through the sign-symmetric
+// sRGB transfer function, in sRGB as they are. Each interpolated pixel is
+// converted back to sRGB and clipped per channel to [0, 1]. Chromium 152
+// does the same in both spaces (measured with out-of-gamut Tailwind colors:
+// within 1 level, against up to 47 levels when the stops are clipped
+// first).
 type ColorSpace uint8
 
 const (
@@ -168,8 +176,9 @@ type ConicGradient struct {
 }
 
 // sanitizePaint validates a Paint for the Builder and returns a copy that
-// shares no mutable memory with the argument: colors are clamped, stop slices
-// copied and normalized. ok is false if the paint is invalid or paints
+// shares no mutable memory with the argument: solid colors are clamped to
+// [0, 1], stop slices copied and normalized, with stop alphas clamped and
+// stop colors kept in extended sRGB. ok is false if the paint is invalid or paints
 // nothing (non-finite geometry or colors, a nil paint, a fully transparent
 // solid color).
 func sanitizePaint(p Paint) (Paint, bool) {
@@ -215,7 +224,9 @@ func sanitizeStops(stops []GradientStop) ([]GradientStop, bool) {
 		if !out[i].Color.IsFinite() {
 			return nil, false
 		}
-		out[i].Color = out[i].Color.Clamp()
+		// Stop colors keep their extended sRGB components: gradients
+		// interpolate them unclipped and clip each pixel, like Chromium.
+		out[i].Color.A = clamp01(out[i].Color.A)
 		visible = visible || out[i].Color.A > 0
 	}
 	return out, visible

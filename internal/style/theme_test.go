@@ -230,12 +230,14 @@ func TestColors(t *testing.T) {
 			t.Errorf("%s = %v, want %v", name, got, want)
 		}
 	}
-	// In-gamut palette colors equal the gfx conversion of the CSS source.
+	// Palette colors equal the gfx conversion of the CSS source, extended
+	// sRGB for the out-of-gamut ones (blue-500, fuchsia-600).
 	cases := map[string][3]float32{ // oklch(L% C H)
-		"red-500":    {0.637, 0.237, 25.331},
-		"blue-500":   {0.623, 0.214, 259.815},
-		"fuchsia-50": {0.977, 0.017, 320.058},
-		"slate-900":  {0.208, 0.042, 265.755},
+		"red-500":     {0.637, 0.237, 25.331},
+		"blue-500":    {0.623, 0.214, 259.815},
+		"fuchsia-50":  {0.977, 0.017, 320.058},
+		"fuchsia-600": {0.591, 0.293, 322.896},
+		"slate-900":   {0.208, 0.042, 265.755},
 	}
 	for name, v := range cases {
 		want := gfx.OKLCH(v[0], v[1], v[2], 1)
@@ -251,10 +253,19 @@ func TestColors(t *testing.T) {
 	if len(th.Colors) != 26*11+2 {
 		t.Errorf("len(Colors) = %d, want %d", len(th.Colors), 26*11+2)
 	}
+	// Colors are opaque extended sRGB: Tailwind's out-of-gamut colors keep
+	// components outside [0, 1], but not far outside.
+	extended := 0
 	for name, c := range th.Colors {
-		if !c.IsFinite() || c != c.Clamp() || c.A != 1 {
-			t.Errorf("%s = %v is not an opaque in-gamut color", name, c)
+		if !c.IsFinite() || c.A != 1 || min(c.R, c.G, c.B) < -0.5 || max(c.R, c.G, c.B) > 1.5 {
+			t.Errorf("%s = %+v is not an opaque, plausible extended sRGB color", name, c)
 		}
+		if c != c.Clamp() {
+			extended++
+		}
+	}
+	if extended == 0 {
+		t.Error("no palette color is outside sRGB; the theme should keep extended components")
 	}
 }
 

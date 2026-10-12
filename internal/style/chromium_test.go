@@ -15,11 +15,14 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
-// TestChromiumPalette compares the generated palette with the pixels that
-// Chromium draws for the same oklch() source, and with the colors a plain
-// per-channel clip of the OKLCH conversion would give. It needs a Chromium
-// binary and runs only with TELA_CHROMIUM=1 (TELA_CHROMIUM_BIN overrides
-// the binary, default "chromium").
+// TestChromiumPalette compares the generated palette, painted as solid
+// colors (extended sRGB clipped per channel), with the pixels that Chromium
+// draws for the same oklch() source, and with an independent float64
+// per-channel clip of the OKLCH conversion. A difference must be one level
+// at most, on a channel whose exact value is within 0.05 of a rounding
+// boundary, where Chromium's own conversion rounding decides. It needs a
+// Chromium binary and runs only with TELA_CHROMIUM=1 (TELA_CHROMIUM_BIN
+// overrides the binary, default "chromium").
 func TestChromiumPalette(t *testing.T) {
 	if os.Getenv("TELA_CHROMIUM") != "1" {
 		t.Skip("set TELA_CHROMIUM=1 to compare the palette with Chromium")
@@ -91,7 +94,7 @@ div{position:absolute;width:20px;height:20px}
 		n, maxDiff int
 		worst      string
 	}
-	var mapped, clipped stat
+	var generated, clipped stat
 	modelsDiffer, outOfGamut := 0, 0
 	for i, s := range swatches {
 		px := img.At(i%cols*size+size/2, i/cols*size+size/2)
@@ -102,9 +105,18 @@ div{position:absolute;width:20px;height:20px}
 		clip := clipOKLCH(s.l, s.c, s.h)
 		genRGB := [3]int{int(gen.R), int(gen.G), int(gen.B)}
 		if genRGB != chrome {
-			g := th.Colors[s.name]
+			g := th.Colors[s.name].Clamp()
 			t.Logf("%-13s differs from chromium: chromium %v  generated %v  (unrounded %.3f %.3f %.3f)",
 				s.name, chrome, genRGB, g.R*255, g.G*255, g.B*255)
+			for k, v := range [3]float32{g.R, g.G, g.B} {
+				if genRGB[k] == chrome[k] {
+					continue
+				}
+				x := float64(v) * 255
+				if abs(genRGB[k]-chrome[k]) > 1 || math.Abs(x-math.Floor(x)-0.5) > 0.05 {
+					t.Errorf("%s: channel %d is %.3f (%d), Chromium paints %d: not a rounding tie", s.name, k, x, genRGB[k], chrome[k])
+				}
+			}
 		}
 		sin, cos := math.Sincos(s.h * math.Pi / 180)
 		r, g, b := gfx.OklabToLinearSRGB(float32(s.l), float32(s.c*cos), float32(s.c*sin))
@@ -120,13 +132,13 @@ div{position:absolute;width:20px;height:20px}
 		}
 		if genRGB != clip {
 			modelsDiffer++
-			t.Logf("%-13s chromium %v  gamut-mapped %v  clipped %v", s.name, chrome, genRGB, clip)
+			t.Logf("%-13s chromium %v  generated %v  float64 clip %v", s.name, chrome, genRGB, clip)
 		}
 		for _, m := range []struct {
 			st  *stat
 			got [3]int
 		}{
-			{&mapped, [3]int{int(gen.R), int(gen.G), int(gen.B)}},
+			{&generated, [3]int{int(gen.R), int(gen.G), int(gen.B)}},
 			{&clipped, clip},
 		} {
 			d := 0
@@ -142,16 +154,12 @@ div{position:absolute;width:20px;height:20px}
 			}
 		}
 	}
-	t.Logf("generated (CSS gamut mapping) vs Chromium: %d of %d colors differ, max channel difference %d (%s)",
-		mapped.n, len(swatches), mapped.maxDiff, mapped.worst)
+	t.Logf("generated (extended sRGB, clipped) vs Chromium: %d of %d colors differ, max channel difference %d (%s)",
+		generated.n, len(swatches), generated.maxDiff, generated.worst)
 	t.Logf("%d of %d colors are outside the sRGB gamut", outOfGamut, len(swatches))
-	t.Logf("gamut mapping and per-channel clipping differ on %d of %d colors", modelsDiffer, len(swatches))
-	t.Logf("per-channel clip vs Chromium: %d of %d colors differ, max channel difference %d (%s)",
+	t.Logf("generated and float64 per-channel clip differ on %d of %d colors", modelsDiffer, len(swatches))
+	t.Logf("float64 per-channel clip vs Chromium: %d of %d colors differ, max channel difference %d (%s)",
 		clipped.n, len(swatches), clipped.maxDiff, clipped.worst)
-
-	if mapped.maxDiff > 2 {
-		t.Errorf("generated palette differs from Chromium by up to %d levels", mapped.maxDiff)
-	}
 }
 
 func abs(v int) int {
