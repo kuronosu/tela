@@ -1,7 +1,7 @@
 package text
 
 import (
-	"fmt"
+	"encoding/binary"
 	"math"
 	"strings"
 	"sync"
@@ -333,12 +333,31 @@ type candidates struct {
 	rest    []*Face                     // every other family, embedded last
 }
 
+// queryKey is the cache key of a query at an optical size: the families,
+// length-prefixed, then the style values.
+func queryKey(q Query, opsz float32) string {
+	n := 13
+	for _, f := range q.Families {
+		n += len(f) + binary.MaxVarintLen64
+	}
+	b := make([]byte, 0, n)
+	for _, f := range q.Families {
+		b = binary.AppendUvarint(b, uint64(len(f)))
+		b = append(b, f...)
+	}
+	b = binary.LittleEndian.AppendUint32(b, math.Float32bits(q.weight()))
+	b = append(b, byte(q.Style))
+	b = binary.LittleEndian.AppendUint32(b, math.Float32bits(q.stretch()))
+	b = binary.LittleEndian.AppendUint32(b, math.Float32bits(opsz))
+	return string(b)
+}
+
 func (c *Collection) candidates(q Query, size float32) *candidates {
 	opsz := float32(0)
 	if size > 0 && size == size && !math.IsInf(float64(size), 0) {
 		opsz = float32(math.Round(float64(size)))
 	}
-	key := fmt.Sprintf("%q|%g|%d|%g|%g", q.Families, q.weight(), q.Style, q.stretch(), opsz)
+	key := queryKey(q, opsz)
 	c.mu.RLock()
 	cands := c.cache[key]
 	c.mu.RUnlock()

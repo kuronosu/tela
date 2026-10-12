@@ -1,7 +1,7 @@
-// Package text is Tela's text layer (ARCHITECTURE section 11). This file
-// documents its font layer: typefaces, face instances, metrics, font
-// matching and fallback, and color glyphs. Paragraph layout (shaping,
-// bidi, line breaking) builds on it.
+// Package text is Tela's text layer (ARCHITECTURE section 11): the font
+// layer (typefaces, face instances, metrics, font matching and fallback,
+// color glyphs) and, on top of it, paragraph layout (shaping, bidi, line
+// breaking, alignment, truncation, painting); see "Paragraph layout".
 //
 // # Typefaces and faces
 //
@@ -36,7 +36,10 @@
 // requested families first, then the per-script fallback families, then
 // every other family in registration order with the embedded ones last;
 // emoji presentation (VS16, Emoji_Presentation, ZWJ sequences, skin tones)
-// tries the emoji families first and VS15 avoids color fonts.
+// tries the emoji families first and VS15 avoids color fonts. Spaces
+// resolve like any other character (a space between Arabic words takes the
+// first requested family that has it, as in browsers); controls, line and
+// paragraph separators and default ignorables keep the face before them.
 //
 // NewDefaultCollection registers the embedded fonts (Inter, JetBrains Mono,
 // Noto Sans Arabic, Noto Color Emoji; see internal/assets/fonts) and the
@@ -154,4 +157,97 @@
 //
 // Bitmap (CBDT, sbix) and SVG glyphs are not supported: ColorGlyph returns
 // nil for them and they draw their outline, if any.
+//
+// # Paragraph layout
+//
+// NewLayout lays out a Paragraph (a UTF-8 string, styled spans by byte
+// offsets and inline boxes) once; BreakLines breaks, aligns and positions
+// it at any width without shaping again (Parley's model: shape once, break
+// many times). The pipeline:
+//
+//  1. Text preparation (prepare.go): text-transform with full case
+//     mappings ("ß" to "SS", final sigma, Turkish dotted i, capitalize at
+//     UAX #29 word starts), then CSS white-space processing: CR LF
+//     normalized, collapsible spaces and tabs collapsed, removed around
+//     newlines and at the start of the paragraph, newlines turned into
+//     spaces (or removed between East Asian wide characters), tabs and
+//     newlines preserved by pre, pre-wrap, pre-line and break-spaces.
+//     Inline boxes become U+FFFC placeholders (bidi neutral, Common script).
+//     Every processed rune keeps the source offset of the character that
+//     produced it; removed characters belong to the rune before them, so
+//     clusters map to contiguous, non-empty source byte ranges (boxes to an
+//     empty range at their offset) and the source string is never copied
+//     or rewritten.
+//  2. Bidi (bidi.go): go-text's UAX #9 per bidi paragraph (split at
+//     newlines), with a base direction from ParagraphStyle (auto: the first
+//     strong character, P2 and P3). Rule L1 is applied per line, rule L2 on
+//     the items of each line.
+//  3. Scripts (script.go): UAX #24 with Common and Inherited characters
+//     resolved from their neighbors and paired brackets.
+//  4. Items and shaping (shape.go): runs of one bidi level, script and
+//     shaping style (fonts, size, letter-spacing, features, language) are
+//     split by Collection.Itemize and shaped with go-text's HarfBuzz at
+//     units-per-em scale, so positions are whole font units, scaled to px.
+//     Letter-spacing disables optional ligatures (liga, clig, dlig, hlig,
+//     calt) as in Chromium; font-variant-numeric maps to OpenType features.
+//  5. Clusters: HarfBuzz clusters merged until they end on grapheme and
+//     source character boundaries, so ligatures, emoji sequences and
+//     combining marks are single clusters that nothing splits. A cluster's
+//     advance includes letter-spacing (after every cluster, none for
+//     cursive scripts such as Arabic) and word-spacing (word separators).
+//  6. Break opportunities (breaking.go): UAX #14 from go-text's segmenter,
+//     forced breaks at preserved newlines, word-break (break-all adds
+//     opportunities between letters, keep-all removes them), break-spaces
+//     (after every space) and inline boxes (both sides, always).
+//  7. Greedy breaking: content that fits stays; at the first cluster that
+//     does not, the line ends at the last soft opportunity, else at the
+//     last cluster boundary when overflow-wrap allows it, else the cluster
+//     overflows. Trailing spaces hang (pre-wrap; only when they do not fit
+//     before a forced break or the end) or are removed (collapsing modes),
+//     and do not count for fitting or alignment. Tabs advance to multiples
+//     of tab-size spaces of the block's font.
+//  8. Lines (lines.go): items in visual order; line boxes per CSS 2.1
+//     section 10.8: the strut (Default style), the span box of every style
+//     on the line and, with line-height normal, the boxes of fallback fonts
+//     (CSS Inline 3), plus inline boxes by vertical-align. Ascent and
+//     descent are rounded to whole logical px and the half-leading split
+//     rounds down, as Blink does at device scale 1. line-clamp keeps the
+//     first lines; text-overflow and line-clamp truncate at the end edge,
+//     hiding whole clusters in visual order, with an ellipsis in the
+//     Default style.
+//  9. Alignment (AlignTo): start, end, left, right, center and justify
+//     (word separators, and the gaps around CJK characters as in Blink;
+//     not the last line nor lines ending in a forced break). Overflowing
+//     lines are start-aligned.
+//
+// Paint emits one gfx.DrawGlyphRun per run of one face, size and paint,
+// and the decorations as rectangles (underline and overline below the
+// glyphs, line-through above; positions and auto thicknesses from the
+// style's first available font, so a decoration does not step between
+// fallback fonts). Inline boxes are not painted; BoxRect places them.
+//
+// The read-only view (query.go) exposes lines, the runs of a line in
+// visual order and clusters (source byte range, glyph range, x, advance,
+// bidi level, grapheme count, flags), which is what cursor positioning,
+// selection and hit-testing build on. Min- and max-content widths are
+// computed by the same breaker at widths 0 and +Inf.
+//
+// Differences from Chromium, measured by TestChromiumLayout on 38
+// paragraphs (Latin, Arabic, bidi, CJK, emoji, white-space modes,
+// spacing, justification, inline boxes): line breaks, baselines and
+// heights match, and cluster edges are within 0.06 px, except that line
+// ends are not reshaped (Chromium drops the kerning between the last
+// character of a line and what follows; up to 0.4 px), that UAX #14 allows
+// breaks after "/" and "?" in URLs where Blink's ASCII pair table does not,
+// and that capitalize uses the full case mapping of ligature characters.
+// Not implemented: hyphenation, text-decoration-skip-ink, vertical-align on
+// spans, synthetic bold and oblique, reshaping across emergency breaks
+// (an Arabic word broken by overflow-wrap keeps its joining forms).
+//
+// Determinism: positions come from integers (font units) and px values
+// computed with explicit float32 conversions; nominal advances come from
+// Face.Advance (fusion-safe), not from go-text's float32 HVAR code. GPOS
+// variation deltas are still go-text's float32 sums, rounded to whole font
+// units; TestLayoutDeterministic checks a digest of a corpus of variable
+// instances on every architecture.
 package text

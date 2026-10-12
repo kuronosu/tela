@@ -85,7 +85,7 @@ their original copyright notice. Add one section per source project.
 
 ## go-text/typesetting (ported code)
 
-- **Source:** https://github.com/go-text/typesetting (v0.3.5, the version in `go.mod`)
+- **Source:** https://github.com/go-text/typesetting (ported from v0.3.5; `go.mod` has since moved to commit `e49e2bd`, whose versions of these functions only add input validation, such as rejecting gvar point numbers out of range, which the port handles by skipping them, and small refactors; the ports were not updated)
 - **License:** Unlicense OR BSD-3-Clause, Copyright 2021 The go-text authors (used under BSD-3-Clause)
 - **Used in:** `internal/text/glyf.go`, `internal/text/vardelta.go`
 - **Notes:** go-text is also an approved dependency; these files port parts of it so that variable outlines and metrics are bit-identical across architectures (ADR-027). Ported from `font/glyphs.go` (`getPointsForGlyphRec`, `transformPoints`: TrueType simple and composite glyphs with phantom points), `font/variations.go` (`parseGlyphVariationSerializedData`, `parsePointNumbers`, `unpackDeltas`, `calculateScalar`, `applyDeltasToPoints`, `inferDelta`: gvar deltas with IUP, itself adapted from HarfBuzz's `hb-ot-var-gvar-table.hh`), `font/renderer.go` (`buildSegments`: contours to quadratic paths) and `font/opentype/tables/xvar_src.go` (`ItemVarStore.GetDelta`, `RegionAxisCoordinates.evaluate`). Diverges from go-text: arithmetic is float64 with every product that feeds an addition rounded explicitly (go-text uses float32 that Go fuses into multiply-adds on arm64); coordinate differences are taken in `int` (go-text subtracts `int16` values, which can overflow); invalid variation regions are ignored as in HarfBuzz; contours are emitted directly as em-space `gfx.Path`s and start at their first on-curve point. Each ported file keeps the go-text copyright notice.
@@ -96,3 +96,10 @@ their original copyright notice. Add one section per source project.
 - **License:** Unicode License v3 (https://www.unicode.org/license.txt)
 - **Used in:** `internal/text/emoji_tables.go`
 - **Notes:** The `Emoji_Presentation`, `Emoji` and `Emoji_Modifier_Base` properties, converted to `unicode.RangeTable`s (adjacent ranges merged). The generated file names its source; regenerating it means re-running the same conversion on a newer `emoji-data.txt`.
+
+## Parley (design reference)
+
+- **Source:** https://github.com/linebender/parley (main branch, commit `46fcad3`, October 2026)
+- **License:** Apache-2.0 OR MIT
+- **Used in:** `internal/text/layout.go`, `prepare.go`, `shape.go`, `breaking.go`, `lines.go`, `paint.go`, `query.go`
+- **Notes:** Design reference only; no source was copied. Tela's paragraph layout follows Parley's model: shape a paragraph once, then break lines many times from per-cluster data; greedy line breaking with regular and emergency opportunities and hanging white space; alignment with start-aligned overflowing lines and justification of word separators; line boxes with ascent and descent rounded to whole pixels and the half-leading rounded down (Parley's `quantize`). Tela differs in its input model (byte-offset spans, white-space processing with a source map), in using go-text instead of HarfRust and ICU data, in its truncation (text-overflow and line-clamp) and in Blink's CJK justification opportunities. Listed here as a courtesy to the project.

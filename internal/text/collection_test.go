@@ -148,7 +148,9 @@ func TestItemize(t *testing.T) {
 		q          Query
 	}{
 		{"Hello, world", "Hello, world=Inter", sans},
-		{"Hello مرحبا world", "Hello =Inter|مرحبا =Noto Sans Arabic|world=Inter", sans},
+		// Spaces take the first family that has them, as in browsers.
+		{"Hello مرحبا world", "Hello =Inter|مرحبا=Noto Sans Arabic| world=Inter", sans},
+		{"مرحبا بكم", "مرحبا=Noto Sans Arabic| =Inter|بكم=Noto Sans Arabic", sans},
 		{"東京は桜の花", "東京は桜の花=Noto Sans JP", sans},
 		{"Tokyo 東京", "Tokyo =Inter|東京=Noto Sans JP", sans},
 		{"カタカナ", "カタカナ=Noto Sans JP", sans},
@@ -165,8 +167,10 @@ func TestItemize(t *testing.T) {
 		{"x👍🏽y", "x=Inter|👍🏽=Noto Color Emoji|y=Inter", sans},
 		{"🇯🇵🇧🇷", "🇯🇵🇧🇷=Noto Color Emoji", sans},
 		{"1️⃣", "1️⃣=Noto Color Emoji", sans},
-		// Spaces between emoji stay in the emoji run.
-		{"😀 😀", "😀 😀=Noto Color Emoji", sans},
+		// Spaces between emoji take the first family that has them.
+		{"😀 😀", "😀=Noto Color Emoji| =Inter|😀=Noto Color Emoji", sans},
+		// Zero-width characters stay with the face before them.
+		{"東\u200b京", "東\u200b京=Noto Sans JP", sans},
 		// The requested family comes first; then fallbacks.
 		{"code: x", "code: x=JetBrains Mono", Query{Families: []string{"monospace"}}},
 		{"x مرحبا", "x =JetBrains Mono|مرحبا=Noto Sans Arabic", Query{Families: []string{"JetBrains Mono", "Inter"}}},

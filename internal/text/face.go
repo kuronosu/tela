@@ -11,6 +11,7 @@ import (
 	"github.com/go-text/typesetting/font"
 	ot "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/font/opentype/tables"
+	"github.com/go-text/typesetting/harfbuzz"
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
@@ -58,6 +59,7 @@ type Face struct {
 
 	shapingOnce sync.Once
 	shaping     *font.Face
+	hb          *harfbuzz.Font // HarfBuzz font for layout; guarded by shapeMu
 }
 
 // glyphEntry is the cached, immutable data of one glyph.

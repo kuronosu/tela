@@ -28,9 +28,12 @@ type Run struct {
 // family before the color ones. So "❤" (U+2764, text by default) uses a
 // text font when one has the character and "❤️" uses the emoji font.
 //
-// Clusters of one space, control or default ignorable character keep the
-// face of the preceding cluster when it has the character (or always, for
-// controls and ignorables), so that spaces do not split runs.
+// Clusters of one control, line or paragraph separator or default
+// ignorable character keep the face of the preceding cluster. Spaces
+// resolve like any other character, so a space between two Arabic words
+// takes the first requested family that has it (Inter, say), as in
+// browsers: Blink shapes with the first available font and falls back only
+// for the characters it lacks.
 //
 // script is the script of the text (from itemization); it chooses the
 // per-script fallback for clusters whose characters are all Common or
@@ -62,7 +65,7 @@ func (c *Collection) Itemize(text []rune, start, end int, q Query, size float32,
 		cs := start + g.Offset
 		cluster := g.Text
 		var f *Face
-		if cur != nil && keepsFace(cluster, cur) {
+		if cur != nil && keepsFace(cluster) {
 			f = cur
 		} else {
 			f = cands.resolve(cluster, script)
@@ -81,19 +84,13 @@ func (c *Collection) Itemize(text []rune, start, end int, q Query, size float32,
 }
 
 // keepsFace reports whether a one-character cluster that does not need a
-// font of its own stays with the current face.
-func keepsFace(cluster []rune, cur *Face) bool {
+// glyph of its own stays with the current face.
+func keepsFace(cluster []rune) bool {
 	if len(cluster) != 1 {
 		return false
 	}
 	r := cluster[0]
-	switch {
-	case unicode.IsControl(r), r == ' ', r == ' ', isIgnorable(r):
-		return true
-	case unicode.Is(unicode.Zs, r):
-		return cur.HasRune(r)
-	}
-	return false
+	return unicode.IsControl(r) || r == '\u2028' || r == '\u2029' || isIgnorable(r)
 }
 
 // isIgnorable reports the characters that never need a glyph of their own:
