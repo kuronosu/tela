@@ -33,7 +33,7 @@ The package must define one of
 The screen is built as a component, so it may use hooks. It is drawn on a
 white canvas: give the screen its own background (min-h-screen bg-...).
 
-For the packages of phase 1 (examples/shapes, examples/text) a package may
+For the packages of phase 1 (such as examples/text) a package may
 instead define
 
 	func Scene(w, h float32) *gfx.DisplayList

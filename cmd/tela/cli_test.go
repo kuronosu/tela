@@ -136,11 +136,11 @@ func TestSnapshotContractErrors(t *testing.T) {
 
 func TestSnapshotSceneIgnoresDarkWithWarning(t *testing.T) {
 	skipShort(t)
-	_, _, stderr := snap(t, "--size", "100x80", "--dark", "../../examples/shapes")
+	_, _, stderr := snap(t, "--size", "100x80", "--dark", "./testdata/scene")
 	if !strings.Contains(stderr, "--dark has no effect") {
 		t.Errorf("stderr %q lacks the --dark warning", stderr)
 	}
-	msg := snapFails(t, "--preview", "A", "../../examples/shapes")
+	msg := snapFails(t, "--preview", "A", "./testdata/scene")
 	if !strings.Contains(msg, "single scene") {
 		t.Errorf("stderr:\n%s", msg)
 	}
@@ -257,7 +257,7 @@ func TestInspectPreviews(t *testing.T) {
 
 func TestInspectSceneRejected(t *testing.T) {
 	skipShort(t)
-	_, stderr := inspectRun(t, 1, "../../examples/shapes")
+	_, stderr := inspectRun(t, 1, "./testdata/scene")
 	if !strings.Contains(stderr, "only defines Scene") {
 		t.Errorf("stderr %q", stderr)
 	}

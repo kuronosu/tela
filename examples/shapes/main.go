@@ -1,112 +1,78 @@
-// Command shapes shows a fixed scene of rounded cards, gradients, shadows,
-// blur and strokes in a native window. It is the phase-1 showcase: the same
-// scene is rendered by `tela snapshot ./examples/shapes` without a window.
+// Command shapes is a showcase of what Tela's styling can paint: a page of
+// twelve cards with shadows, gradients (linear, radial and conic), rings,
+// blur and backdrop blur, opacity, rounded and rotated shapes, all written
+// as elements and Tailwind classes. `tela snapshot ./examples/shapes`
+// renders it without a window.
 //
-// The app draws only when the backend sends a FrameEvent, which happens after
-// every ConfigureEvent (first show, resize, scale change). It never requests
-// frames, so it uses no CPU while idle.
+// It started as the phase-1 scene drawn straight into a display list (that
+// scene now lives on as a golden test of internal/gfx/raster) and was
+// rewritten with the public API of phase 3. Nothing reacts to the pointer
+// yet: events, hover states and transitions arrive in phase 4 (ADR-040).
 package main
 
 import (
-	"fmt"
-	"image"
-	"io"
-	"os"
-	"runtime"
-
-	"github.com/kuronosu/tela/internal/gfx"
-	"github.com/kuronosu/tela/internal/gfx/raster"
-	"github.com/kuronosu/tela/internal/platform"
-	"github.com/kuronosu/tela/internal/platform/auto"
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
 )
 
-func init() {
-	// The UI thread must be the main OS thread (required by Cocoa later).
-	runtime.LockOSThread()
+// Shapes is the page: a 4x3 grid of cards on a soft gradient, with two
+// blurred glows in the corners. The grid fills the window, so the cards
+// stretch with it.
+func Shapes() tela.Node {
+	return Div(Class("relative h-screen overflow-hidden bg-linear-to-br from-slate-50 to-indigo-50"),
+		// Glows: blurred discs behind the grid, clipped by the page.
+		Div(Class("absolute -top-40 -right-24 size-[28rem] rounded-full bg-indigo-200/60 blur-3xl")),
+		Div(Class("absolute -bottom-40 -left-24 size-[28rem] rounded-full bg-sky-200/70 blur-3xl")),
+		// Grid layout arrives with phase 6, so the 4x3 grid is three flex rows of
+		// four equal cells.
+		Div(Class("relative flex h-full flex-col gap-6 p-10"),
+			row(ProfileCard(), ChartCard(), PhotoCard(), TogglesCard()),
+			row(ProgressCard(), SearchCard(), GradientCard(), SunsetCard()),
+			row(ConicCard(), GlassCard(), ShapesCard(), DropCard()),
+		),
+	)
 }
 
 func main() {
-	if err := run(os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "shapes:", err)
-		os.Exit(1)
-	}
-}
-
-// run opens the window and runs the event loop on the calling goroutine.
-func run(log io.Writer) error {
-	backend, err := auto.New()
-	if err != nil {
-		return err
-	}
-	win, err := backend.NewWindow(platform.WindowOptions{
-		Title: "Tela — shapes",
-		AppID: "dev.tela.shapes",
-		Size:  platform.Size{W: 960, H: 640},
+	tela.Run(tela.App{
+		Title:  "Tela — shapes",
+		AppID:  "dev.tela.shapes",
+		Width:  960,
+		Height: 640,
+		Root:   Shapes,
 	})
-	if err != nil {
-		return err
-	}
-	return backend.Run(newApp(backend, win, log))
 }
 
-// app is the event handler of the example. It owns the framebuffer and
-// caches the display list of the last size.
-type app struct {
-	backend platform.Backend
-	win     platform.Window
-	log     io.Writer
+// Preview is the screen of `tela snapshot` and `tela inspect`.
+func Preview() tela.Node { return Shapes() }
 
-	fb *image.RGBA // reused between frames; reallocated when the size changes
-
-	dl         *gfx.DisplayList // Scene(dlW, dlH)
-	dlW, dlH   float32
-	renderer   raster.Renderer
-	frameCount int
+// row is one row of the grid. Every card sits in a cell of its own, because
+// flex-1 shares the free space after the padding of each item (a flex base
+// size of 0 cannot be smaller than the padding), so cards with different
+// padding would get different widths.
+func row(cards ...tela.Node) tela.Node {
+	cells := make([]tela.Child, 0, len(cards)+1)
+	cells = append(cells, Class("flex min-h-0 flex-1 gap-6"))
+	for i, c := range cards {
+		cells = append(cells, Div(Key(i), Class("flex min-w-0 flex-1"), c))
+	}
+	return Div(cells...)
 }
 
-func newApp(backend platform.Backend, win platform.Window, log io.Writer) *app {
-	return &app{backend: backend, win: win, log: log}
+// cell is what every card has: all the room of its cell.
+const cell = "min-w-0 flex-1 "
+
+// card is a white rounded card; shadow is a Tailwind shadow class and extra
+// any other classes. The 12 cards share it, so they share their padding
+// and radius.
+func card(shadow, extra string, children ...tela.Child) tela.Node {
+	return Div(append([]tela.Child{Class(cell + "flex flex-col rounded-2xl bg-white p-4 " + shadow + " " + extra)}, children...)...)
 }
 
-// HandleEvent implements platform.Handler.
-func (a *app) HandleEvent(w platform.Window, e platform.Event) {
-	if w != a.win {
-		return
-	}
-	switch e := e.(type) {
-	case platform.ConfigureEvent:
-		// A FrameEvent follows every ConfigureEvent, so there is nothing to
-		// request here.
-		p := e.Metrics.Physical()
-		fmt.Fprintf(a.log, "shapes: %s configure %v @%g → %dx%d px\n",
-			a.backend.Name(), e.Metrics.Size, e.Metrics.Scale, p.X, p.Y)
-	case platform.FrameEvent:
-		a.draw()
-	case platform.CloseRequestedEvent:
-		a.win.Close()
-		a.backend.Quit()
-	}
-}
-
-// draw renders the scene at the window's current metrics and presents it.
-func (a *app) draw() {
-	m := a.win.Metrics()
-	phys := m.Physical()
-	if phys.X <= 0 || phys.Y <= 0 {
-		return
-	}
-	if want := image.Rect(0, 0, phys.X, phys.Y); a.fb == nil || a.fb.Rect != want {
-		a.fb = image.NewRGBA(want)
-	}
-	if a.dl == nil || a.dlW != m.Size.W || a.dlH != m.Size.H {
-		a.dl, a.dlW, a.dlH = Scene(m.Size.W, m.Size.H), m.Size.W, m.Size.H
-	}
-	raster.Clear(a.fb, image.Rectangle{}, gfx.White)
-	a.renderer.Render(a.fb, a.dl, raster.Options{Scale: float32(m.Scale)})
-	// Present on every FrameEvent: a compositor that sent a configure
-	// (tiled, maximized) expects a buffer of the new size in answer.
-	if err := a.win.Present(a.fb, nil); err != nil {
-		fmt.Fprintln(a.log, "shapes: present:", err)
-	}
-	a.frameCount++
+// title and subtitle are the two-line heading used by several cards.
+func title(text, sub string) tela.Node {
+	return Div(
+		P(Class("text-sm leading-5 font-semibold text-slate-800"), Text(text)),
+		P(Class("text-xs text-slate-400"), Text(sub)),
+	)
 }

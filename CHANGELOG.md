@@ -17,6 +17,14 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `tela version` prints the module version, the VCS revision and the Go
   version and platform.
 
+### Changed
+
+- `examples/shapes` is rewritten with the public API (`tela`, `h`, Tailwind
+  classes): the same 12-card page as components, with real labels; shapes
+  that need arbitrary paths are replaced by CSS equivalents (listed in its
+  README). The phase-1 DisplayList scene lives on as a golden test of
+  `internal/gfx/raster`.
+
 ## [0.3.0] - 2026-10-12
 
 Phase 3: tree, style, layout. The ARCHITECTURE §1 `Counter` renders like its

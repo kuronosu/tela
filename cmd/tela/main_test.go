@@ -13,14 +13,16 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
 func TestParseSnapshotArgsDefaults(t *testing.T) {
-	got, err := parseSnapshotArgs([]string{"./examples/shapes"})
+	got, err := parseSnapshotArgs([]string{"./examples/counter"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := snapshotOptions{Pkg: "./examples/shapes", W: 960, H: 640, Scale: 1, Out: "snapshot.png"}
+	want := snapshotOptions{Pkg: "./examples/counter", W: 960, H: 640, Scale: 1, Out: "snapshot.png"}
 	if got.Pkg != want.Pkg || got.W != want.W || got.H != want.H || got.Scale != want.Scale || got.Out != want.Out {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
@@ -288,48 +290,39 @@ func readPNG(t *testing.T, path string) *image.NRGBA {
 
 // The integration tests run `go test` in a child process.
 
-func TestSnapshotShapes(t *testing.T) {
+// TestSnapshotScene renders the phase-1 Scene package of testdata/scene and
+// compares it with its goldens (one level of tolerance: the scene's own
+// float code may be fused differently on other architectures).
+func TestSnapshotScene(t *testing.T) {
 	if testing.Short() {
-		t.Skip("runs go test on examples/shapes")
+		t.Skip("runs go test on testdata/scene")
 	}
 	for _, tc := range []struct {
 		scale  string
 		golden string
 	}{
-		{"1", "shapes_x1.png"},
-		{"2", "shapes_x2.png"},
+		{"1", "scene_x1"},
+		{"2", "scene_x2"},
 	} {
 		t.Run("scale"+tc.scale, func(t *testing.T) {
 			outPath := filepath.Join(t.TempDir(), "sub", "out.png")
 			var stdout, stderr bytes.Buffer
-			code := run([]string{"snapshot", "--scale", tc.scale, "-o", outPath, "../../examples/shapes"}, &stdout, &stderr)
+			code := run([]string{"snapshot", "--size", "160x120", "--scale", tc.scale, "-o", outPath, "./testdata/scene"}, &stdout, &stderr)
 			if code != 0 {
 				t.Fatalf("exit code %d\nstdout: %s\nstderr: %s", code, stdout.String(), stderr.String())
 			}
-			got := readPNG(t, outPath)
-			want := readPNG(t, filepath.Join("..", "..", "examples", "shapes", "testdata", tc.golden))
-			if got.Rect != want.Rect {
-				t.Fatalf("size = %v, want %v", got.Rect, want.Rect)
-			}
-			// One level of tolerance, as in examples/shapes TestGolden: the
-			// scene's own float code may be fused differently on other
-			// architectures.
-			for i := range got.Pix {
-				if d := int(got.Pix[i]) - int(want.Pix[i]); d < -1 || d > 1 {
-					t.Fatalf("snapshot differs from examples/shapes/testdata/%s at byte %d: %d vs %d", tc.golden, i, got.Pix[i], want.Pix[i])
-				}
-			}
+			golden.Image(t, tc.golden, readPNG(t, outPath), golden.MaxDelta(1))
 		})
 	}
 }
 
 func TestSnapshotSizeAndFractionalScale(t *testing.T) {
 	if testing.Short() {
-		t.Skip("runs go test on examples/shapes")
+		t.Skip("runs go test on testdata/scene")
 	}
 	outPath := filepath.Join(t.TempDir(), "o.png")
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"snapshot", "--size", "400x300", "--scale", "1.25", "-o", outPath, "../../examples/shapes"}, &stdout, &stderr); code != 0 {
+	if code := run([]string{"snapshot", "--size", "400x300", "--scale", "1.25", "-o", outPath, "../../examples/counter"}, &stdout, &stderr); code != 0 {
 		t.Fatalf("exit code %d\nstderr: %s", code, stderr.String())
 	}
 	if got := readPNG(t, outPath).Rect; got != image.Rect(0, 0, 500, 375) {

@@ -1,4 +1,4 @@
-package main
+package raster_test
 
 import (
 	"math"
@@ -6,10 +6,11 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
-// Scene returns the shapes showcase for a window of w x h logical pixels. It
-// is also the temporary contract of `tela snapshot` (a package that has a
-// Scene(w, h float32) *gfx.DisplayList can be snapshotted) until the
-// Preview() contract arrives with the public API.
+// Scene returns the phase-1 shapes showcase for a window of w x h logical
+// pixels. It was the first example (examples/shapes, before it became a
+// phase-3 app built with elements and classes) and is kept as a raster golden
+// test: it covers shadows, gradients, filters and strokes through the
+// DisplayList directly.
 //
 // The scene is a centered 4x3 grid of cards (3x4 for portrait sizes) on a
 // gradient page. Every cell is drawn in a 202x170 design space that is scaled
