@@ -39,7 +39,7 @@ func TestStyleInheritance(t *testing.T) {
 func TestRestylePropagation(t *testing.T) {
 	var setColor func(string)
 	app := func() Node {
-		color, set := UseState("text-red-500")
+		color, set := UseStateSet("text-red-500")
 		setColor = set
 		return div(Class(color+" bg-white"),
 			p(Key("a"), Text("first")),

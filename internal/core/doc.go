@@ -29,24 +29,70 @@
 // with two or more children without keys is reported once per parent, as
 // are duplicate keys.
 //
-// A component Element calls its function on every build of its parent
-// (there is no build skipping before phase 4) and when its own state
-// changes. A primitive Element owns a Box, the render object: its
-// ComputedStyle, its layout.Style and layout data, and its content.
+// A component Element calls its function when its own state or a
+// context it reads changes, and when its parent builds it again, unless
+// the build can be skipped (ARCHITECTURE section 7): a ComponentProps
+// node (tela.CP) whose props are == to the previous ones, a Memo node
+// whose equal function says so, or the very same node (an identical
+// desc, for any component) are not built; a Component node (tela.C) is
+// built with its parent otherwise, since its closure may capture changed
+// values. A skipped component keeps the new node, so its next build of
+// its own runs the newest closure. A primitive Element owns a Box, the
+// render object: its ComputedStyle, its layout.Style and layout data,
+// and its content.
 //
 // # Hooks
 //
 // Hooks keep their state in slots on the component Element being built,
-// by call order (ADR-040). UseState is the only hook of phase 3. Its
-// setter is safe from any goroutine: it queues the update and wakes the
-// UI thread (the backend's Wake); the update is applied on the UI thread
-// (Tree.ApplyUpdates, on the WakeEvent and at the start of each Frame) and
-// marks the component needsBuild, which requests a frame. A function
-// called directly from a component, not through Component, runs inside
-// that component's build: its hooks are the component's (a custom hook).
-// A component that calls a different number of hooks than in its
-// previous build panics with an explanation; the full order check is
-// phase 4's.
+// by call order (ADR-040): UseState (UseStateSet, UseStateUpdate),
+// UseReducer, UseEffect, UseLayoutEffect, UseMemo, UseCallback, UseRef,
+// UseContext and UseId. A function called directly from a component, not
+// through Component, runs inside that component's build: its hooks are
+// the component's (a custom hook).
+//
+// State: a Setter or Dispatcher is a comparable handle on its slot, safe
+// from any goroutine. Set, Update and Dispatch queue an update and wake
+// the UI thread (the backend's Wake); Tree.ApplyUpdates (on the
+// WakeEvent and at the start of each Frame) applies the queue in order,
+// each updater or reducer receiving the state left by the previous
+// update, drops the updates of unmounted components, and marks the
+// components whose state changed (not == for comparable types) for
+// building, which requests a frame. Post queues a function on the same
+// queue of the Tree that receives posts (ReceivePosts; Run's tree);
+// until one does, posted functions wait in order.
+//
+// Builds: marking a component needsBuild marks its ancestors dirtyKids.
+// The build phase descends from the root along those marks, so
+// components build in tree order, a parent before its children, also
+// through components that skip their build or primitives whose node did
+// not change (React's childLanes); the queue only catches what the
+// descent misses.
+//
+// Effects: a build records the effect slots whose dependencies changed
+// (none: every build; compared element-wise with ==; a different count or
+// a value that cannot be compared counts as changed) and queues them on
+// the Tree when it ends, after those of the components built inside it,
+// so children's effects run before their parents'. Frame runs the layout
+// effects after layout and before paint; the passive ones wait for
+// FlushEffects, which a Host calls after Present and Render after
+// rasterizing. Each commit runs the cleanups of unmounted components
+// (parents first), then the cleanups of the effects that run again, then
+// the effects. Frame and Mount first flush passive effects that a
+// previous frame left; Unmount runs every cleanup.
+//
+// Context: a Provider is a component Element without a function that
+// holds its value and its subscribers; UseContext subscribes the reading
+// component to the nearest Provider (fixed for its life, since Elements
+// never move to another parent). A new value that is not == to the old
+// one marks only the subscribers for building.
+//
+// Dev mode (Config.Dev, TELA_DEV=1) records each slot's hook kind and call
+// site on the first build and panics with both call sites when a later
+// build calls another kind or another number of hooks; it reports
+// dependencies that cannot be compared, changing dependency counts, and
+// ComponentProps or Memo nodes made from anonymous functions or method
+// values, once per call site. Outside dev mode, a different hook count or
+// slot type still panics, without call sites.
 //
 // # Boxes and paragraphs
 //
@@ -85,9 +131,9 @@
 //
 // # Pipeline
 //
-// Tree.Frame runs Build, Style, box structure, Layout and Paint
-// (ARCHITECTURE section 8) on what is dirty: components marked
-// needsBuild (shallowest first), primitives marked needsStyle, primitives
+// Tree.Frame runs Build, Style, box structure, Layout, the layout effects
+// and Paint (ARCHITECTURE section 8) on what is dirty: components marked
+// needsBuild (in tree order), primitives marked needsStyle, primitives
 // whose structure or paragraph may have changed, and the layout engine's
 // own dirty nodes (MarkDirty on changed layout styles, children lists and
 // paragraphs). Paint emits one display list for the whole tree (layers
@@ -100,8 +146,8 @@
 //
 // A Host connects a Tree to a platform window: WakeEvent applies state
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent
-// runs Frame, rasterizes at the window scale into a reused framebuffer
-// and presents.
+// runs Frame, rasterizes at the window scale into a reused framebuffer,
+// presents and runs the passive effects.
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed. Render does everything
@@ -110,8 +156,10 @@
 //
 // # Threads
 //
-// A Tree belongs to its UI thread: only the state setters (and SetWake)
-// may be called from other goroutines. Builds of all Trees in the process
-// are serialized by one mutex, because hooks find the Element being built
-// through a package variable.
+// A Tree belongs to its UI thread: only the Setter and Dispatcher
+// methods, Post (and SetWake) may be called from other goroutines.
+// Updaters, reducers, posted functions, effects and Callback forwarders
+// run on the UI thread. Builds of all Trees in the process are serialized
+// by one mutex, because hooks find the Element being built through a
+// package variable.
 package core

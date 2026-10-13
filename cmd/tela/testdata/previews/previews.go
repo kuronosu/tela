@@ -23,6 +23,6 @@ func counter() tela.Node {
 	count, setCount := tela.UseState(0)
 	return Div(Class("min-h-screen bg-indigo-100 p-4"),
 		Button(Key("inc"), Class("rounded-lg bg-indigo-600 px-4 py-2 text-white"),
-			OnClick(func(tela.MouseEvent) { setCount(count + 1) }),
+			OnClick(func(tela.MouseEvent) { setCount.Set(count + 1) }),
 			Textf("Count: %d", count)))
 }

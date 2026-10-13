@@ -25,17 +25,30 @@ type RenderOptions struct {
 // platform.PhysicalSize like a window's framebuffer). Goldens, `tela
 // snapshot` and telatest use it. Without opts.Fonts only the embedded
 // fonts are used, so the result is the same on every machine (ADR-008).
+//
+// The frame's effects run as in a window: layout effects before paint,
+// the others after rasterizing. Then the tree is unmounted, running the
+// cleanups; state set by the effects is not rendered. Without
+// opts.IDPrefix, UseId strings start with "r-", so they do not depend on
+// the trees made before in the process.
 func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	size := gfx.Size{W: opts.Width, H: opts.Height}
 	if size.W == 0 && size.H == 0 {
 		size = gfx.Size{W: platform.DefaultWindowSize.W, H: platform.DefaultWindowSize.H}
 	}
-	t := NewTree(opts.Config)
+	cfg := opts.Config
+	if cfg.IDPrefix == "" {
+		cfg.IDPrefix = "r-"
+	}
+	t := NewTree(cfg)
 	t.SetViewport(size)
 	t.SetScale(opts.Scale)
 	t.Mount(root)
 	dl, _ := t.Frame()
-	return dl, t.Rasterize(dl, opts.Scale)
+	img := t.Rasterize(dl, opts.Scale)
+	t.FlushEffects()
+	t.Unmount()
+	return dl, img
 }
 
 // Rasterize renders a display list of this tree (from Frame) into a new

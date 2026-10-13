@@ -24,7 +24,7 @@ func Counter() tela.Node {
 			Textf("Count: %d", count)),
 		Button(Class("px-6 py-3 rounded-xl bg-white/15 text-white backdrop-blur "+
 			"hover:bg-white/25 active:scale-95 transition"),
-			OnClick(func(tela.MouseEvent) { setCount(count + 1) }),
+			OnClick(func(tela.MouseEvent) { setCount.Set(count + 1) }),
 			Text("Increment"),
 		),
 	)

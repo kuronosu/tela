@@ -27,7 +27,7 @@ func (pr *counterProbe) item(label string) Node {
 }
 
 func (pr *counterProbe) render(label string) Node {
-	v, set := UseState(0)
+	v, set := UseStateSet(0)
 	// The first build stores a new pointer: a different one means a new
 	// Element.
 	inst, _ := UseState(new(int))

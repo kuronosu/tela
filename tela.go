@@ -4,9 +4,10 @@
 //
 // A UI is a tree of [Node] values built by function components. Elements
 // (Div, Button, Text...) live in the companion package h, designed to be
-// dot-imported; this package holds the application ([App], [Run]), state
-// ([UseState]), events, the typed style props for h.Style, colors, and the
-// [Previews] that `tela snapshot` and `tela inspect` render.
+// dot-imported; this package holds the application ([App], [Run]), hooks
+// and component boundaries ([UseState], [C], [CP]...), events, the typed
+// style props for h.Style, colors, and the [Previews] that `tela
+// snapshot` and `tela inspect` render.
 //
 //	import (
 //	    "github.com/kuronosu/tela"
@@ -18,7 +19,7 @@
 //	    return Div(Class("flex flex-col items-center gap-6 p-10"),
 //	        H1(Class("text-5xl font-bold"), Textf("Count: %d", count)),
 //	        Button(Class("px-6 py-3 rounded-xl bg-indigo-500 text-white"),
-//	            OnClick(func(tela.MouseEvent) { setCount(count + 1) }),
+//	            OnClick(func(tela.MouseEvent) { setCount.Set(count + 1) }),
 //	            Text("Increment")),
 //	    )
 //	}
@@ -38,13 +39,42 @@
 // deferred to a later phase with [TranslateFn], [OpacityFn], [WidthFn] and
 // [HeightFn]. Colors are extended sRGB; see [Color].
 //
+// # Components
+//
+// A component is a function returning a [Node]. Wrapped in [C] (no props)
+// or [CP] (comparable props), it becomes a component boundary: an element
+// with its own hook state, rebuilt on its own when that state changes.
+// [CP] skips the build when its props are == to the previous ones and
+// nothing it reads changed (automatic skipping, as in Jetpack Compose);
+// [Memo] does the same with a comparison function. Calling a component
+// function directly runs it inside the caller, as a custom hook.
+//
+//	Div(tela.C(Header), tela.CP(Card, CardProps{Title: "Inbox"}))
+//
 // # Hooks
+//
+// Hooks keep state and run code across builds, with React's names and
+// semantics:
+//
+//   - [UseState] (and [UseStateSet], [UseStateUpdate]) and [UseReducer]
+//     hold state; their [Setter] and [Dispatcher] are comparable, stable
+//     and safe from any goroutine.
+//   - [UseEffect] runs code after the frame is presented and
+//     [UseLayoutEffect] after layout, with cleanups; UseEffect(f, nil)
+//     runs only on mount.
+//   - [UseMemo] caches a computation; [UseCallback] gives a stable
+//     [Callback] that always calls the latest function; [UseRef] keeps a
+//     mutable box.
+//   - [CreateContext] and [UseContext] pass values down the tree.
+//   - [UseId] gives a stable unique ID.
 //
 // Hooks follow React's rules: call them at the top level of a component
 // function, in the same order on every build, never inside conditions or
 // loops. A hook called outside a component build panics with an
-// explanation. Phase 3 provides [UseState]; the rest of the hooks and the
-// component constructors arrive with phase 4.
+// explanation; in dev mode (TELA_DEV=1) a change of the hook order panics
+// with both call sites. Everything runs on the UI thread except the
+// Setter and Dispatcher methods and [Post], which are safe from any
+// goroutine.
 //
 // # Snapshots and inspection
 //
@@ -54,8 +84,9 @@
 //
 // # Stability
 //
-// [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient] and
-// [GradientStop] are aliases of types defined in Tela's internal packages
+// [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
+// [GradientStop], [Setter], [Dispatcher], [Callback], [Ref] and [Context]
+// are aliases of types defined in Tela's internal packages
 // (the packages cannot be imported, but their exported fields and methods
 // are part of the API shown here). Construct them with the functions of
 // this package rather than with composite literals where one exists.

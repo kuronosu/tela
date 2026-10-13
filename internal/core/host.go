@@ -64,7 +64,17 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	return b.Run(h)
+	// The window's tree runs the functions given to Post, including the
+	// ones posted before Run.
+	stop := h.tree.ReceivePosts()
+	err = b.Run(h)
+	stop()
+	// The loop is over: run the effect cleanups, without waking it or
+	// asking the closed window for frames.
+	h.tree.SetWake(nil)
+	h.tree.SetRequestFrame(nil)
+	h.tree.Unmount()
+	return err
 }
 
 func errorLog(w io.Writer) io.Writer {
@@ -153,7 +163,7 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 }
 
 // frame runs the pipeline, rasterizes at the window's scale when anything
-// changed, and presents.
+// changed, presents, and then runs the passive effects (UseEffect).
 func (h *Host) frame() {
 	m := h.win.Metrics()
 	phys := m.Physical()
@@ -162,6 +172,7 @@ func (h *Host) frame() {
 	}
 	h.tree.SetScale(float32(m.Scale)) // box edges snap to device pixels
 	dl, changed := h.tree.Frame()
+	defer h.tree.FlushEffects()
 	if want := image.Rect(0, 0, phys.X, phys.Y); h.fb == nil || h.fb.Rect != want {
 		h.fb = image.NewRGBA(want)
 		changed = true

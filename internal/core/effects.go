@@ -1,0 +1,208 @@
+package core
+
+// Effects (ARCHITECTURE sections 7 and 8). A build records which effect
+// slots must run (their dependencies changed); when the build ends they
+// are queued on the Tree after the effects of the components built inside
+// it, so a commit runs children's effects before their parents', in
+// declaration order within a component (React's order).
+//
+// Layout effects run in Frame after layout and before paint; passive
+// effects (UseEffect) after the frame is presented: a Host calls
+// FlushEffects after Present, Render after rasterizing, and tests call it
+// themselves. Each commit runs, in order: the cleanups of the effects of
+// unmounted components (parents first, as React), the cleanups of the
+// effects about to run again, then the effects. Effects of a component
+// unmounted before its commit never run. Frame and Mount first flush
+// the passive effects of a previous frame that was never presented.
+
+// effectSlot is the slot of one UseEffect or UseLayoutEffect call.
+type effectSlot struct {
+	el      *Element
+	layout  bool
+	effect  func() func()
+	cleanup func() // from the last run of effect
+	deps    []any  // a copy of the latest build's dependencies
+	pending bool   // queued to run at the next commit
+}
+
+// unmounter is a hook slot with work to do when its component unmounts.
+type unmounter interface{ unmount(t *Tree) }
+
+// unmount hands the cleanup of the effect's last run to the next commit.
+func (s *effectSlot) unmount(t *Tree) {
+	c := s.cleanup
+	if c == nil {
+		return
+	}
+	s.cleanup = nil
+	if s.layout {
+		t.layoutGone = append(t.layoutGone, c)
+	} else {
+		t.passiveGone = append(t.passiveGone, c)
+	}
+}
+
+// UseEffect runs effect after the frame is presented, when its
+// dependencies changed since the previous build (ARCHITECTURE section 7).
+// effect may return a cleanup, which runs before the effect runs again
+// and when the component unmounts.
+//
+// Dependencies follow React: none runs the effect after every build; a
+// single nil (UseEffect(f, nil)) runs it only after the first build (a
+// constant dependency, React's []); otherwise the values are compared
+// with == against the previous build's. Values that cannot be compared
+// (functions, slices, maps) count as changed on every build.
+func UseEffect(effect func() func(), deps ...any) { useEffect(hookEffect, effect, deps) }
+
+// UseLayoutEffect is UseEffect, but the effect runs in the frame after
+// layout and before paint.
+func UseLayoutEffect(effect func() func(), deps ...any) {
+	useEffect(hookLayoutEffect, effect, deps)
+}
+
+func useEffect(kind hookKind, effect func() func(), deps []any) {
+	if effect == nil {
+		panic("tela: " + kind.String() + "(nil): pass the effect, a func() func() that returns its cleanup or nil")
+	}
+	el, i := nextSlot(kind)
+	layout := kind == hookLayoutEffect
+	if i < len(el.hooks) {
+		s, ok := el.hooks[i].(*effectSlot)
+		if !ok || s.layout != layout {
+			el.tree.slotMismatch(el, i, kind.String())
+		}
+		changed := el.tree.depsChanged(el, i, s.deps, deps)
+		if changed {
+			s.deps = append(s.deps[:0], deps...)
+		}
+		if changed || s.pending {
+			s.effect = effect
+		}
+		if changed && !s.pending {
+			s.pending = true
+			el.fx = append(el.fx, s)
+		}
+		return
+	}
+	el.tree.checkDeps(el, i, deps)
+	s := &effectSlot{el: el, layout: layout, effect: effect, deps: append([]any(nil), deps...), pending: true}
+	el.hooks = append(el.hooks, s)
+	el.fx = append(el.fx, s)
+}
+
+// queueEffects moves the effects recorded by the build of el to the
+// Tree's lists for the next commit.
+func (t *Tree) queueEffects(el *Element) {
+	for _, s := range el.fx {
+		if s.layout {
+			t.layoutFx = append(t.layoutFx, s)
+		} else {
+			t.passiveFx = append(t.passiveFx, s)
+		}
+	}
+	clear(el.fx)
+	el.fx = el.fx[:0]
+}
+
+// commitLayout runs the layout effects of the builds since the previous
+// commit and hands their passive effects to FlushEffects. Frame calls it
+// after layout.
+func (t *Tree) commitLayout() {
+	if len(t.layoutFx) == 0 && len(t.passiveFx) == 0 && len(t.layoutGone) == 0 && len(t.passiveGone) == 0 {
+		return
+	}
+	t.readyGone = append(t.readyGone, t.passiveGone...)
+	t.readyFx = append(t.readyFx, t.passiveFx...)
+	t.passiveGone, t.passiveFx = nil, nil
+	gone, fx := t.layoutGone, t.layoutFx
+	t.layoutGone, t.layoutFx = nil, nil
+	runEffects(gone, fx)
+}
+
+// FlushEffects runs the passive effects (UseEffect) of the frames that
+// ran since the previous flush, with the cleanups that precede them. A
+// Host calls it after presenting a frame, and Render after rasterizing;
+// tests that drive a Tree with Frame call it to run them. It runs on the
+// UI thread; state set by an effect is applied in a later frame.
+func (t *Tree) FlushEffects() {
+	if len(t.readyGone) == 0 && len(t.readyFx) == 0 {
+		return
+	}
+	gone, fx := t.readyGone, t.readyFx
+	t.readyGone, t.readyFx = nil, nil
+	runEffects(gone, fx)
+}
+
+// runEffects runs one commit: the cleanups of unmounted components, the
+// cleanups of the effects about to run again, then the effects.
+func runEffects(gone []func(), fx []*effectSlot) {
+	for _, f := range gone {
+		f()
+	}
+	for _, s := range fx {
+		if c := s.cleanup; c != nil && s.el.mounted {
+			s.cleanup = nil
+			c()
+		}
+	}
+	for _, s := range fx {
+		if !s.pending {
+			continue // already run by an earlier commit of the same list
+		}
+		s.pending = false
+		if s.el.mounted {
+			s.cleanup = s.effect()
+		}
+	}
+}
+
+// dropEffects runs the pending cleanups of unmounted components now and
+// forgets the effects that never ran (Unmount).
+func (t *Tree) dropEffects() {
+	gone := append(append(t.layoutGone, t.readyGone...), t.passiveGone...)
+	t.layoutGone, t.readyGone, t.passiveGone = nil, nil, nil
+	for _, list := range [][]*effectSlot{t.layoutFx, t.passiveFx, t.readyFx} {
+		for _, s := range list {
+			s.pending = false
+		}
+	}
+	t.layoutFx, t.passiveFx, t.readyFx = nil, nil, nil
+	for _, f := range gone {
+		f()
+	}
+}
+
+// ---------------------------------------------------------------------
+// Memo.
+
+// memoSlot is the slot of one UseMemo call.
+type memoSlot[T any] struct {
+	value T
+	deps  []any
+}
+
+// UseMemo returns compute(), computed on the first build and again only
+// when the dependencies changed (compared like UseEffect's; none
+// computes it on every build).
+func UseMemo[T any](compute func() T, deps ...any) T {
+	if compute == nil {
+		panic("tela: UseMemo(nil, ...): pass the function that computes the value")
+	}
+	el, i := nextSlot(hookMemo)
+	if i < len(el.hooks) {
+		s, ok := el.hooks[i].(*memoSlot[T])
+		if !ok {
+			el.tree.slotMismatch(el, i, "UseMemo["+typeName[T]()+"]")
+		}
+		if el.tree.depsChanged(el, i, s.deps, deps) {
+			s.deps = append(s.deps[:0], deps...)
+			s.value = compute()
+		}
+		return s.value
+	}
+	el.tree.checkDeps(el, i, deps)
+	s := &memoSlot[T]{deps: append([]any(nil), deps...)}
+	el.hooks = append(el.hooks, s)
+	s.value = compute()
+	return s.value
+}

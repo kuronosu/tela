@@ -63,27 +63,75 @@ type desc struct {
 	dynamic bool
 }
 
-// compDesc describes a component node.
+// compMode says when a component may skip its build (ARCHITECTURE
+// section 7, automatic skipping).
+type compMode uint8
+
+const (
+	// compPlain is Component (tela.C): it never skips because of props,
+	// since the closure may capture changing values.
+	compPlain compMode = iota
+	// compProps is ComponentProps (tela.CP): it skips when the new props
+	// are == to the old ones.
+	compProps
+	// compMemo is Memo (tela.Memo): it skips when equal(old, new).
+	compMemo
+)
+
+// compDesc describes a component node, or a context provider.
 type compDesc struct {
 	// typ identifies the component function: the code pointer of the
 	// function value. Two nodes of the same function are the same type,
 	// so the Element and its hook state are kept between builds.
+	// Providers have typ 0 and are identified by ctx.
 	typ uintptr
 	// fn is the user's function, for its name.
 	fn any
 	// build calls the function (with its props, for ComponentProps).
 	build func() Node
-	// props are the props of ComponentProps, kept for phase 4's skipping
-	// of builds with equal props.
+	// props are the props of ComponentProps and Memo, compared with the
+	// previous build's to skip it.
 	props any
+	mode  compMode
+	// equal compares the props of two Memo nodes of the same function.
+	equal func(a, b any) bool
+
+	// Providers (Context.Provider): the context, as a comparable key,
+	// and the value provided.
+	ctx   any
+	value any
+
+	// anon is set in dev mode when ComponentProps or Memo get an
+	// anonymous function or a method value, whose captured variables
+	// are not compared (reported once per call site at mount).
+	anon *anonSite
 }
 
 // name returns the component's function name ("main.Counter").
 func (c *compDesc) name() string {
+	if c.ctx != nil {
+		return "Context.Provider"
+	}
 	if f := runtime.FuncForPC(c.typ); f != nil {
 		return f.Name()
 	}
 	return "component"
+}
+
+// canSkip reports whether a component built from old may skip the build
+// of nw, which has the same function: both are ComponentProps with ==
+// props, or both are Memo and equal says their props are equal.
+func canSkip(old, nw *compDesc) bool {
+	if old.mode != nw.mode {
+		return false
+	}
+	switch nw.mode {
+	case compProps:
+		return safeEqual(old.props, nw.props)
+	case compMemo:
+		return nw.equal(old.props, nw.props)
+	}
+	return false
 }
 
 // Node is an immutable, cheap description of UI (ARCHITECTURE sections 4
@@ -250,12 +298,18 @@ func Text(s string) Node { return Node{&desc{kind: nodeText, text: s}} }
 // Textf returns a text node of fmt.Sprintf(format, args...).
 func Textf(format string, args ...any) Node { return Text(fmt.Sprintf(format, args...)) }
 
-// Component returns a node that builds fn: a component with its own
-// Element and hook state (ARCHITECTURE section 7). Calling fn directly
-// instead inlines it into the caller, whose hooks it then uses.
+// Component returns a node that builds fn: a component boundary with its
+// own Element and hook state (ARCHITECTURE section 7, tela.C). Calling fn
+// directly instead inlines it into the caller, whose hooks it then uses.
+//
+// Its identity is the function (its code pointer): closures of the same
+// function literal are the same component. It is built whenever its
+// parent builds, because fn may capture values that changed; only the
+// very same node (an identical *desc, such as a node kept in a variable
+// or a UseMemo) is not built again.
 func Component(fn func() Node) Node {
 	if fn == nil {
-		panic("core: Component(nil): pass a component function")
+		panic("tela: C(nil): pass a component function, such as tela.C(Counter)")
 	}
 	return Node{&desc{kind: nodeComponent, comp: &compDesc{
 		typ: reflect.ValueOf(fn).Pointer(), fn: fn, build: fn,
@@ -263,15 +317,53 @@ func Component(fn func() Node) Node {
 }
 
 // ComponentProps returns a node that builds fn(props): a component with
-// props. Its identity is fn, whatever the props.
-func ComponentProps[P any](fn func(P) Node, props P) Node {
+// props (tela.CP). Its identity is fn, whatever the props. When the
+// parent builds again and the new props are == to the old ones, and
+// neither the component's state nor a context it reads changed, its
+// build is skipped (Jetpack Compose's automatic skipping); a props value
+// whose == panics (an interface holding a func, a slice or a map)
+// counts as changed.
+//
+// Variables captured by fn are not compared: in dev mode, an anonymous
+// function or a method value is reported once per call site.
+func ComponentProps[P comparable](fn func(P) Node, props P) Node {
 	if fn == nil {
-		panic("core: ComponentProps(nil, ...): pass a component function")
+		panic("tela: CP(nil, ...): pass a component function, such as tela.CP(Card, CardProps{...})")
 	}
-	return Node{&desc{kind: nodeComponent, comp: &compDesc{
+	c := &compDesc{
 		typ: reflect.ValueOf(fn).Pointer(), fn: fn,
-		build: func() Node { return fn(props) }, props: props,
-	}}}
+		build: func() Node { return fn(props) }, props: props, mode: compProps,
+	}
+	if devAny.Load() {
+		c.anon = noteAnon(c.typ, "CP")
+	}
+	return Node{&desc{kind: nodeComponent, comp: c}}
+}
+
+// Memo returns a node that builds fn(props), like ComponentProps, but
+// skips the build when equal(old, new) reports the props equal (tela.Memo):
+// for props that are not comparable, or that compare in another way.
+// equal is the new node's; it must be pure.
+func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool) Node {
+	if fn == nil {
+		panic("tela: Memo(nil, ...): pass a component function, such as tela.Memo(Chart, props, sameSeries)")
+	}
+	if equal == nil {
+		panic("tela: Memo(fn, props, nil): pass the function that compares two props values, or use tela.CP for comparable props")
+	}
+	c := &compDesc{
+		typ: reflect.ValueOf(fn).Pointer(), fn: fn,
+		build: func() Node { return fn(props) }, props: props, mode: compMemo,
+		equal: func(a, b any) bool {
+			pa, _ := a.(P)
+			pb, _ := b.(P)
+			return equal(pa, pb)
+		},
+	}
+	if devAny.Load() {
+		c.anon = noteAnon(c.typ, "Memo")
+	}
+	return Node{&desc{kind: nodeComponent, comp: c}}
 }
 
 // WithKey returns a copy of n with key k (see Key). It works for every

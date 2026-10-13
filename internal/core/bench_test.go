@@ -10,7 +10,7 @@ import (
 // and 2 paragraphs. setters receives each row's label setter.
 func bigList(rows int, setters []func(string)) Node {
 	row := func(i int) Node {
-		label, set := UseState(fmt.Sprintf("Item number %d", i))
+		label, set := UseStateSet(fmt.Sprintf("Item number %d", i))
 		setters[i] = set
 		return div(Class("flex items-center gap-2 px-2 py-1"),
 			span(Class("w-10 text-slate-500"), Textf("%d", i)),

@@ -36,9 +36,13 @@ type Element struct {
 
 	// Components.
 	comp    *compDesc
-	hooks   []any // hook slots, in call order (ADR-040)
-	hookIdx int   // next slot during a build
-	builds  int   // number of builds so far
+	hooks   []any        // hook slots, in call order (ADR-040)
+	hookIdx int          // next slot during a build
+	builds  int          // number of builds so far
+	hookDev []hookRecord // dev mode: kind and call site of each slot
+	fx      []*effectSlot
+	// prov is the state of a Provider (a component without a function).
+	prov *providerState
 
 	// Text.
 	text string
@@ -47,7 +51,12 @@ type Element struct {
 	box *Box
 
 	mounted    bool
-	needsBuild bool // a component whose state changed
+	needsBuild bool // a component whose state or context changed
+	// dirtyKids marks the ancestors of a component marked needsBuild, so
+	// that the build phase finds it from the root, in tree order, through
+	// components that skip their build (React's childLanes). The marked
+	// set is closed upwards: an Element marked has its parent marked.
+	dirtyKids  bool
 	needsStyle bool // a primitive whose style inputs changed
 	needsBoxes bool // a primitive whose box structure or paragraph may have changed
 	reused     bool // scratch flag of reconcile
@@ -103,7 +112,7 @@ func (el *Element) sameType(n Node) bool {
 	case elemPrimitive:
 		return d.kind == nodeElement && d.elem == el.box.kind
 	case elemComponent:
-		return d.kind == nodeComponent && d.comp.typ == el.comp.typ
+		return d.kind == nodeComponent && d.comp.typ == el.comp.typ && d.comp.ctx == el.comp.ctx
 	}
 	return false
 }
@@ -146,10 +155,11 @@ func (el *Element) styleParent() *Element {
 }
 
 // component returns the nearest component ancestor of el below its
-// style parent, if any: the component that produced it.
+// style parent, if any: the component that produced it. Providers are
+// skipped.
 func (el *Element) component() *Element {
 	for p := el.parent; p != nil && p.kind != elemPrimitive; p = p.parent {
-		if p.kind == elemComponent {
+		if p.kind == elemComponent && p.prov == nil {
 			return p
 		}
 	}
@@ -382,7 +392,12 @@ func (t *Tree) update(el *Element, n Node) {
 		}
 	case elemPrimitive:
 		if old == d {
-			return // the same node: the subtree is unchanged
+			// The same node: the subtree is unchanged, except for the
+			// components below marked for building.
+			if el.dirtyKids {
+				t.descend(el)
+			}
+			return
 		}
 		el.node = n
 		bx := el.box
@@ -397,11 +412,43 @@ func (t *Tree) update(el *Element, n Node) {
 			t.updateImage(el)
 		}
 		t.reconcile(el, d.children)
+		el.dirtyKids = false
 	case elemComponent:
+		if d.comp.ctx != nil {
+			t.updateProvider(el, n)
+			return
+		}
+		if !el.needsBuild && (old == d || canSkip(el.comp, d.comp)) {
+			// Automatic skipping (ARCHITECTURE section 7): the same node,
+			// or equal props, and no state or context change. The new
+			// node is kept, so a later build of its own runs the newest
+			// closure.
+			el.node, el.comp = n, d.comp
+			t.stats.Skips++
+			if el.dirtyKids {
+				t.descend(el)
+			}
+			return
+		}
 		el.node = n
 		el.comp = d.comp
 		t.build(el)
 	}
+}
+
+// descend builds the components below el marked for building, in tree
+// order, without building el or updating the rest of its subtree: el was
+// skipped, or its node did not change.
+func (t *Tree) descend(el *Element) {
+	for _, c := range el.children {
+		switch {
+		case c.needsBuild:
+			t.build(c)
+		case c.dirtyKids:
+			t.descend(c)
+		}
+	}
+	el.dirtyKids = false
 }
 
 // mount creates the Element of entry e under parent, and its subtree.
@@ -428,6 +475,13 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 	case nodeComponent:
 		el.kind = elemComponent
 		el.comp = d.comp
+		if d.comp.ctx != nil {
+			t.mountProvider(el)
+			break
+		}
+		if t.dev && d.comp.anon != nil {
+			t.reportAnon(d.comp)
+		}
 		t.build(el)
 	default:
 		panic(fmt.Sprintf("core: cannot mount node kind %d", d.kind))
@@ -436,14 +490,22 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 }
 
 // unmount removes el and its subtree. Pending state updates for them are
-// dropped; phase 4 runs effect cleanups here.
+// dropped, effects that did not run yet never run, and the cleanups of
+// the effects that ran are handed to the next commit, parents first
+// (React's order); context subscriptions end.
 func (t *Tree) unmount(el *Element) {
 	el.mounted = false
 	t.stats.Unmounts++
+	for _, h := range el.hooks {
+		if u, ok := h.(unmounter); ok {
+			u.unmount(t)
+		}
+	}
 	for _, c := range el.children {
 		t.unmount(c)
 	}
 	el.hooks = nil
+	el.fx = nil
 	if el.box != nil {
 		el.box.detach()
 	}
@@ -470,12 +532,16 @@ func (t *Tree) markBoxes(el *Element) {
 	t.dirty()
 }
 
-// markBuild queues a component for the build phase.
+// markBuild queues a component for the build phase and marks its
+// ancestors dirtyKids.
 func (t *Tree) markBuild(el *Element) {
 	if el.needsBuild {
 		return
 	}
 	el.needsBuild = true
+	for p := el.parent; p != nil && !p.dirtyKids; p = p.parent {
+		p.dirtyKids = true
+	}
 	t.buildQ = append(t.buildQ, el)
 	t.dirty()
 }

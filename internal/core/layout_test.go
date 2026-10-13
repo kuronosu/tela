@@ -230,7 +230,7 @@ func TestDisplayContentsAndNone(t *testing.T) {
 	// it again restores its text.
 	var setHidden func(bool)
 	app := func() Node {
-		hidden, set := UseState(true)
+		hidden, set := UseStateSet(true)
 		setHidden = set
 		cls := "inline"
 		if hidden {
@@ -260,7 +260,7 @@ func TestDisplayContentsAndNone(t *testing.T) {
 func TestDisplayChangeRestructures(t *testing.T) {
 	var setInline func(bool)
 	app := func() Node {
-		inline, set := UseState(true)
+		inline, set := UseStateSet(true)
 		setInline = set
 		cls := "inline"
 		if !inline {
@@ -317,8 +317,8 @@ func TestParagraphReshapeVersusRebreak(t *testing.T) {
 	var setText func(string)
 	var setCls func(string)
 	app := func() Node {
-		s, st := UseState("The quick brown fox jumps over the lazy dog, again and again.")
-		cls, sc := UseState("text-slate-900")
+		s, st := UseStateSet("The quick brown fox jumps over the lazy dog, again and again.")
+		cls, sc := UseStateSet("text-slate-900")
 		setText, setCls = st, sc
 		return p(Key("p"), Class(cls), Text(s))
 	}

@@ -83,7 +83,7 @@ func TestRunNeedsRoot(t *testing.T) {
 }
 
 func TestUseStateRendersAndRebuilds(t *testing.T) {
-	var set func(int)
+	var set tela.Setter[int]
 	comp := func() tela.Node {
 		n, s := tela.UseState(1)
 		set = s
@@ -91,7 +91,7 @@ func TestUseStateRendersAndRebuilds(t *testing.T) {
 	}
 	tr := core.NewTree(core.Config{})
 	tr.SetViewport(gfx.Size{W: 100, H: 50})
-	tr.Mount(core.Component(comp))
+	tr.Mount(tela.C(comp))
 	tr.Frame()
 	text := func() string {
 		n := tr.Inspect()
@@ -103,10 +103,15 @@ func TestUseStateRendersAndRebuilds(t *testing.T) {
 	if got := text(); got != "n=1" {
 		t.Fatalf("first render %q", got)
 	}
-	set(2)
+	set.Set(2)
 	tr.Frame()
 	if got := text(); got != "n=2" {
-		t.Errorf("after set(2): %q", got)
+		t.Errorf("after Set(2): %q", got)
+	}
+	set.Update(func(n int) int { return n * 10 })
+	tr.Frame()
+	if got := text(); got != "n=20" {
+		t.Errorf("after Update(*10): %q", got)
 	}
 }
 

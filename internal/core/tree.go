@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
@@ -36,12 +38,17 @@ type Config struct {
 	// Log receives dev messages (class errors, warnings), one per call.
 	// Nil means stderr in dev mode, and nothing otherwise.
 	Log func(msg string)
+	// IDPrefix starts the strings of UseId. Empty means "t<n>-", where
+	// <n> numbers the Trees of the process in base 36 (Render uses "r-"),
+	// so IDs are unique within the process.
+	IDPrefix string
 }
 
 // Stats counts the work of a Tree, for tests and benchmarks.
 type Stats struct {
 	Frames     int // Frame calls that ran the pipeline
 	Builds     int // component builds
+	Skips      int // component builds skipped (equal props, or the same node)
 	Mounts     int // Elements mounted
 	Unmounts   int // Elements unmounted
 	Styles     int // style computations
@@ -97,9 +104,22 @@ type Tree struct {
 	itemFree [][]*Element
 	boxFree  [][]*Box
 
+	// Effects (UI thread): queued by builds for the layout commit
+	// (layoutFx, passiveFx, with the cleanups of unmounted components),
+	// and passive ones committed and waiting for FlushEffects (ready*).
+	layoutFx, passiveFx, readyFx       []*effectSlot
+	layoutGone, passiveGone, readyGone []func()
+
+	// UseId.
+	idPrefix string
+	idNext   uint64
+
 	lastDL *gfx.DisplayList
 	stats  Stats
 }
+
+// treeSerial numbers the Trees of the process (default UseId prefixes).
+var treeSerial atomic.Uint64
 
 // NewTree returns an empty Tree; Mount gives it content and SetViewport a
 // size.
@@ -125,6 +145,13 @@ func NewTree(cfg Config) *Tree {
 	}
 	if t.log == nil && t.dev {
 		t.log = func(msg string) { fmt.Fprintln(os.Stderr, msg) }
+	}
+	if t.dev {
+		devAny.Store(true)
+	}
+	t.idPrefix = cfg.IDPrefix
+	if t.idPrefix == "" {
+		t.idPrefix = "t" + strconv.FormatUint(treeSerial.Add(1)-1, 36) + "-"
 	}
 	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: cfg.Dark, ReducedMotion: cfg.ReducedMotion}
 	return t
@@ -177,8 +204,11 @@ func (t *Tree) Stats() Stats { return t.stats }
 // Mount sets the content of the tree: root becomes the child of the root
 // box, which fills the viewport. Mounting again reconciles the new root
 // with the old one (state is kept where types and keys match). The
-// components are built immediately; the other phases run in Frame.
+// components are built immediately; the other phases run in Frame, and
+// the effects of these builds run with the next Frame's commit. Passive
+// effects of a previous frame that were not flushed run first.
 func (t *Tree) Mount(root Node) {
+	t.FlushEffects()
 	buildMu.Lock()
 	defer buildMu.Unlock()
 	n := Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses, children: []Node{root}}}
@@ -192,6 +222,19 @@ func (t *Tree) Mount(root Node) {
 		return
 	}
 	t.update(t.root, n)
+}
+
+// Unmount removes the content of the tree, running the cleanups of its
+// effects now (after the passive effects not flushed yet). Effects that
+// never ran are dropped. Mount can give the tree content again.
+func (t *Tree) Unmount() {
+	t.FlushEffects()
+	if t.root != nil {
+		buildMu.Lock()
+		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
+		buildMu.Unlock()
+	}
+	t.dropEffects()
 }
 
 // Viewport returns the logical size of the viewport.
@@ -254,18 +297,23 @@ func (t *Tree) restyleAll() {
 	walk(t.root)
 }
 
-// Frame runs the pipeline (ARCHITECTURE section 8) up to paint: state
-// updates, Build (components marked needsBuild, shallowest first), Style
-// (dirty primitives; inherited changes propagate), box structure and
-// paragraphs, Layout (dirty boxes) and Paint. It returns the display list
-// of the whole tree, in logical pixels, and whether it changed since the
-// previous Frame (when nothing was dirty the previous list is returned).
+// Frame runs the pipeline (ARCHITECTURE section 8) up to paint: the
+// passive effects of a previous frame that were not flushed, state
+// updates and posted functions, Build (components marked needsBuild, in
+// tree order), Style (dirty primitives; inherited changes propagate), box
+// structure and paragraphs, Layout (dirty boxes), the layout effects and
+// Paint. It returns the display list of the whole tree, in logical
+// pixels, and whether it changed since the previous Frame (when nothing
+// was dirty the previous list is returned). The passive effects of the
+// frame wait for FlushEffects.
 func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.inFrame = true
 	defer func() { t.inFrame = false }()
 	t.asked = false
+	t.FlushEffects()
 	t.ApplyUpdates()
 	if !t.changed && t.lastDL != nil {
+		t.commitLayout()
 		return t.lastDL, false
 	}
 	t.frame++
@@ -274,14 +322,19 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.stylePhase()
 	t.boxPhase()
 	t.layoutPhase()
+	t.commitLayout()
 	t.lastDL = t.paintPhase()
 	t.changed = false
 	return t.lastDL, true
 }
 
-// buildPhase builds the components marked needsBuild, shallowest first;
-// building a component updates its subtree, so a descendant that was also
-// marked is built once.
+// buildPhase builds the components marked needsBuild in tree order,
+// descending from the root along the dirtyKids marks (so a component is
+// built before the components below it, also through components that
+// skip their build, and effects run children first); building a
+// component updates its subtree, so a descendant that was also marked is
+// built once. The queue catches whatever the descent did not reach,
+// shallowest first.
 func (t *Tree) buildPhase() {
 	if len(t.buildQ) == 0 {
 		return
@@ -291,6 +344,9 @@ func (t *Tree) buildPhase() {
 	for len(t.buildQ) > 0 {
 		q := t.buildQ
 		t.buildQ = nil
+		if t.root != nil && t.root.dirtyKids {
+			t.descend(t.root)
+		}
 		sortByDepth(q)
 		for _, el := range q {
 			if el.mounted && el.needsBuild {

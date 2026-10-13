@@ -12,6 +12,26 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Hooks `UseReducer`, `UseEffect`, `UseLayoutEffect`, `UseMemo`,
+  `UseCallback`, `UseRef`, `CreateContext`/`Provider`/`UseContext`, `UseId`,
+  `UseStateSet` and `UseStateUpdate`.
+- Component boundaries `tela.C`, `tela.CP` and `tela.Memo`; `CP` and `Memo`
+  skip the build when the props are equal and no state or context they read
+  changed.
+- `tela.Post` runs a function on the UI thread.
+- Dev mode (`TELA_DEV=1`): a change in hook order panics with both call
+  sites; non-comparable dependencies, a changing dependency count and
+  anonymous functions passed to `CP`/`Memo` are reported.
+
+### Changed
+
+- **Breaking:** `tela.UseState` returns a `tela.Setter[T]` instead of
+  `func(T)`. Write `setCount.Set(v)` or
+  `setCount.Update(func(n int) int { return n + 1 })`, or use
+  `tela.UseStateSet` for a plain function.
+
 ## [0.3.1] - 2026-10-12
 
 ### Added
