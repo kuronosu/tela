@@ -26,7 +26,7 @@ Fixes after a phase closes get a patch version (`v0.N.1`) the same way. See ADR-
 
 ## Rules
 
-- **Never use cgo.** Run everything with `CGO_ENABLED=0`; a dependency that needs cgo is not acceptable.
+- **Never use cgo.** Run everything with `CGO_ENABLED=0`; a dependency that needs cgo is not acceptable. The one exception is the race detector, which needs cgo: `CGO_ENABLED=1 go test -race` is allowed as a verification tool only (the main session runs it on packages with concurrency, such as `internal/core`, `tela` and `internal/platform/...`); nothing is ever built or shipped with cgo.
 - **Approved dependencies only.** See ARCHITECTURE §2; a new one needs an ADR.
 - **Ported code** keeps its original copyright notice and is listed in `THIRD_PARTY.md`.
 - **Do not rewrite `ARCHITECTURE.md`.** To change a decision, append an ADR in §21 and minimally adjust the affected section. Small fixes (typos, clarifications) are fine.
@@ -63,6 +63,7 @@ CGO_ENABLED=0 go vet ./...
 CGO_ENABLED=0 go test ./...
 TELA_UPDATE=1 CGO_ENABLED=0 go test ./...           # regenerate goldens (review the diff)
 TELA_LIVE=1 CGO_ENABLED=0 go test ./internal/platform/...  # tests that open real windows
+CGO_ENABLED=1 go test -race ./internal/core/... . ./internal/platform/...  # race detector (verification only)
 CGO_ENABLED=0 GOARCH=arm64 go test -short -exec qemu-aarch64-static ./internal/gfx/...  # pixel determinism (ADR-027)
 
 # Cross-compilation (must always build)

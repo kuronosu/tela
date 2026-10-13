@@ -21,6 +21,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   skip the build when the props are equal and no state or context they read
   changed.
 - `tela.Post` runs a function on the UI thread.
+- Wayland keyboard input: key events with physical code, logical key, text
+  and modifiers for any XKB layout (pure-Go keymap parser), dead keys and
+  Compose sequences, and client-side key repeat. Pointer and scroll events
+  now carry the keyboard modifiers.
 - Dev mode (`TELA_DEV=1`): a change in hook order panics with both call
   sites; non-comparable dependencies, a changing dependency count and
   anonymous functions passed to `CP`/`Memo` are reported.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
+	"github.com/kuronosu/tela/internal/platform/internal/xkb"
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
 	"github.com/kuronosu/tela/internal/platform/wayland/wire"
 )
@@ -77,6 +78,14 @@ type Backend struct {
 	// lastSerial is the serial of the latest input event of any seat, for
 	// requests that need one (clipboard, move, popups).
 	lastSerial uint32
+
+	// Keyboard: the Compose table shared by the seats (loaded at the
+	// first keymap; nil without a Compose file), a loader tests use
+	// instead of the system files, and the last keymap or Compose error.
+	compose       *xkb.ComposeTable
+	composeLoaded bool
+	composeLoader func() *xkb.ComposeTable
+	keyboardErr   error
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -320,6 +329,7 @@ func (b *Backend) Run(h platform.Handler) error {
 		if b.loop.Quitting() {
 			return nil
 		}
+		b.keyRepeats(b.Now())
 		b.loop.Deliver(h)
 		if b.loop.Quitting() {
 			return nil
@@ -327,6 +337,11 @@ func (b *Backend) Run(h platform.Handler) error {
 		// Frame requests that are not due get a frame callback (paceFrame)
 		// or, without a buffer on screen, a poll timeout.
 		deadline, timed := b.loop.Pace()
+		// A held key's next repeat is another deadline of the same wait
+		// (client-side repeat; no timer goroutine).
+		if rep, ok := b.repeatDeadline(); ok && (!timed || rep < deadline) {
+			deadline, timed = rep, true
+		}
 		if err := b.flush(); err != nil {
 			return err
 		}
@@ -409,6 +424,9 @@ func (b *Backend) poll(timeout int) error {
 		}
 	}
 	_, err = b.conn.Dispatch()
+	// A key event waits for a modifiers event that may follow it; at the
+	// end of what arrived, it is queued as is.
+	b.flushKeys()
 	return err
 }
 

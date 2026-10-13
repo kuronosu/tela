@@ -1,0 +1,44 @@
+# Test fixture: a subset of libX11's nls/en_US.UTF-8/Compose (MIT/X11
+# license, see THIRD_PARTY.md), plus lines that exercise the parser.
+#
+# UTF-8 (Unicode) Compose sequences
+#
+# Spacing versions of accents (mostly)
+<dead_tilde> <space>			: "~"	asciitilde # TILDE
+<dead_tilde> <dead_tilde>		: "~"	asciitilde # TILDE
+<dead_acute> <space>			: "'"	apostrophe # APOSTROPHE
+<dead_acute> <dead_acute>		: "´"	acute # ACUTE ACCENT
+<dead_grave> <space>			: "`"	grave # GRAVE ACCENT
+<dead_circumflex> <space>		: "^"	asciicircum # CIRCUMFLEX ACCENT
+<dead_diaeresis> <space>		: "\""	quotedbl # QUOTATION MARK
+<Multi_key> <o> <c>			: "©"	copyright # COPYRIGHT SIGN
+<Multi_key> <minus> <minus> <space>	: "­"	U00ad # SOFT HYPHEN
+<Multi_key> <minus> <minus> <minus>	: "—"	U2014 # EM DASH
+<Multi_key> <a> <e>			: "æ"	ae # LATIN SMALL LETTER AE
+<Multi_key> <s> <s>			: "ß"	ssharp # LATIN SMALL LETTER SHARP S
+<Multi_key> <e> <equal>			: "€"	EuroSign # EURO SIGN
+<Multi_key> <equal> <e>			: "€"	EuroSign # EURO SIGN
+<Multi_key> <quotedbl> <a>		: "ä"	adiaeresis # LATIN SMALL LETTER A WITH DIAERESIS
+<dead_acute> <A>			: "Á"	Aacute # LATIN CAPITAL LETTER A WITH ACUTE
+<dead_acute> <E>			: "É"	Eacute # LATIN CAPITAL LETTER E WITH ACUTE
+<dead_grave> <a>			: "à"	agrave # LATIN SMALL LETTER A WITH GRAVE
+<dead_acute> <a>			: "á"	aacute # LATIN SMALL LETTER A WITH ACUTE
+<dead_diaeresis> <a>			: "ä"	adiaeresis # LATIN SMALL LETTER A WITH DIAERESIS
+<dead_cedilla> <c>			: "ç"	ccedilla # LATIN SMALL LETTER C WITH CEDILLA
+<dead_acute> <e>			: "é"	eacute # LATIN SMALL LETTER E WITH ACUTE
+<dead_circumflex> <e>			: "ê"	ecircumflex # LATIN SMALL LETTER E WITH CIRCUMFLEX
+<dead_tilde> <n>			: "ñ"	ntilde # LATIN SMALL LETTER N WITH TILDE
+<dead_circumflex> <o>			: "ô"	ocircumflex # LATIN SMALL LETTER O WITH CIRCUMFLEX
+<dead_diaeresis> <u>			: "ü"	udiaeresis # LATIN SMALL LETTER U WITH DIAERESIS
+<dead_caron> <s>			: "š"	U0161 # LATIN SMALL LETTER S WITH CARON
+<dead_diaeresis> <dead_acute> <space>	: "΅"	U0385 # GREEK DIALYTIKA TONOS
+<dead_acute> <dead_diaeresis> <u>	: "ǘ"	U01D8 # LATIN SMALL LETTER U WITH DIAERESIS AND ACUTE
+<dead_circumflex> <dead_acute> <e>	: "ế"	ecircumflexacute # LATIN SMALL LETTER E WITH CIRCUMFLEX AND ACUTE
+<dead_greek> <a>			: "α"	U03B1 # GREEK SMALL LETTER ALPHA
+<dead_acute> <Cyrillic_ie>		: "е́" # CYRILLIC SMALL LETTER IE plus COMBINING ACUTE
+# Parser exercises: escapes, a result given only as a keysym, modifier
+# prefixes (ignored) and Unicode keysym names.
+<Multi_key> <x> <1>			: "\x41\102\n"
+<Multi_key> <x> <2>			: oslash
+! Shift <Multi_key> <x> <3>		: "three"
+<Multi_key> <U2190> <x>			: "⇐"

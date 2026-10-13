@@ -9,12 +9,13 @@ import (
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
 )
 
-// seat is a bound wl_seat. Phase 1 uses its pointer only; the keyboard
-// arrives with the XKB work in phase 4.
+// seat is a bound wl_seat: its pointer (this file) and its keyboard
+// (keyboard.go).
 type seat struct {
 	b       *Backend
 	name    uint32 // registry name
 	wl      *protocols.WlSeat
+	kbd     *kbd // nil without the keyboard capability
 	pointer *protocols.WlPointer
 	shape   *protocols.WpCursorShapeDeviceV1 // nil without wp_cursor_shape_v1
 	ptr     pointerState
@@ -39,6 +40,15 @@ func (s *seat) onCapabilities(e protocols.WlSeatCapabilitiesEvent) {
 		s.attachCursorShape()
 	case !has && s.pointer != nil:
 		s.releasePointer()
+	}
+	hasKbd := e.Capabilities.Has(protocols.WlSeatCapabilityKeyboard)
+	switch {
+	case hasKbd && s.kbd == nil:
+		s.bindKeyboard()
+	case !hasKbd && s.kbd != nil:
+		s.kbd.release()
+		s.kbd = nil
+		s.ptr.mods = 0
 	}
 }
 
@@ -69,6 +79,10 @@ func (s *seat) releasePointer() {
 func (s *seat) destroy() {
 	if s.pointer != nil {
 		s.releasePointer()
+	}
+	if s.kbd != nil {
+		s.kbd.release()
+		s.kbd = nil
 	}
 	if !s.wl.Destroyed() && s.wl.Version() >= 5 {
 		s.wl.Release()
@@ -202,6 +216,9 @@ type pointerState struct {
 	focus   *Window
 	pos     platform.Point
 	buttons platform.Buttons
+	// mods is the seat's keyboard modifier state, reported with every
+	// pointer and scroll event (kbd.updatePointerMods keeps it current).
+	mods platform.Modifiers
 
 	// Events of the current frame, in order.
 	out []windowEvent
@@ -306,6 +323,7 @@ func (p *pointerState) emit(a platform.PointerAction, btn platform.PointerButton
 		Pos:     p.pos,
 		Button:  btn,
 		Buttons: p.buttons,
+		Mods:    p.mods,
 		Time:    t,
 	}})
 }
@@ -327,6 +345,7 @@ func (p *pointerState) frame() []windowEvent {
 			Kind:  platform.PointerMouse,
 			Pos:   p.pos,
 			Delta: platform.Point{X: float32(p.delta[1]), Y: float32(p.delta[0])},
+			Mods:  p.mods,
 			Time:  p.axisTime,
 		}
 		switch {

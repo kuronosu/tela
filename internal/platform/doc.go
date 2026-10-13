@@ -136,10 +136,14 @@
 //     events.
 //   - Repeat: the backend generates key repeat, never the app. A repeat is a
 //     KeyPress with Repeat true and the Code of the held key; Key and Text
-//     are recomputed for the current modifiers. Only the last pressed key
-//     repeats, keys the keymap marks as non-repeating (modifiers) never do,
-//     and repeat stops at the key's release, at the press of another key,
-//     and when focus is lost. Wayland repeats client-side from
+//     are recomputed for the current modifiers, and Mods is the current
+//     state. Only the last pressed repeating key repeats; keys the keymap
+//     marks as non-repeating (modifiers and locks: Shift, Ctrl, AltGr,
+//     Caps Lock) never repeat and neither stop nor restart a repeat, so
+//     holding "a" and pressing Shift goes on repeating as "A" (like GTK
+//     and winit), and releasing Shift goes back to "a". Repeat stops at
+//     the key's release, at the press of another repeating key (which
+//     starts repeating), and when focus is lost. Wayland repeats client-side from
 //     wl_keyboard.repeat_info (rate 0 disables repeat), with the repeat
 //     deadline folded into the poll timeout like a paced frame (no timer
 //     goroutine); X11 relies on the server's autorepeat with XKB detectable
@@ -148,8 +152,12 @@
 //   - Mods is the modifier state after the event.
 //   - Dead keys and compose sequences: the dead key's press has Key
 //     KeyDead and no Text; intermediate presses have no Text; the final
-//     press carries the composed text. Input method composition (phase 5)
-//     arrives as its own events.
+//     press carries the composed text, as its Text and its Key (like
+//     winit). A key that does not continue a sequence abandons it and
+//     acts on its own (it types, or starts a new sequence). Where no
+//     Compose table exists (Linux without a Compose file), a dead key
+//     types its spacing accent ("´") as Key and Text. Input method
+//     composition (phase 5) arrives as its own events.
 //
 // # Coordinates, scale and framebuffer size
 //

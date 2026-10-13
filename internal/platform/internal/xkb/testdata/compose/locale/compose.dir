@@ -1,0 +1,6 @@
+# Test fixture in the format of libX11's nls/compose.dir: the compose
+# table file name, then the locale.
+iso8859-1/Compose		C
+en_US.UTF-8/Compose		en_US.UTF-8
+en_US.UTF-8/Compose		es_CO.UTF-8
+en_US.UTF-8/Compose:		de_DE.UTF-8

@@ -50,6 +50,13 @@ func (h *Held) Accept(e platform.KeyEvent) bool {
 // its release was not.
 func (h *Held) IsHeld(c platform.KeyCode) bool { return h.index(c) >= 0 }
 
+// Each calls f with the accepted press of every held key, in press order.
+func (h *Held) Each(f func(press platform.KeyEvent)) {
+	for _, e := range h.keys {
+		f(e)
+	}
+}
+
 // Len returns the number of held keys.
 func (h *Held) Len() int { return len(h.keys) }
 

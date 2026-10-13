@@ -1,0 +1,4 @@
+# Test fixture in the format of libX11's nls/locale.alias.
+C.UTF-8					en_US.UTF-8
+en_US.utf8					en_US.UTF-8
+POSIX:						C

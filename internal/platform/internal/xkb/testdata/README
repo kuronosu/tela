@@ -1,0 +1,52 @@
+Test data of package xkb
+========================
+
+All expected results come from libxkbcommon 1.13.2 (the reference
+implementation) through oracle/oracle.c, a small C program that is never
+built by the Go tool. Nothing in Tela links libxkbcommon.
+
+    cc -O2 -o oracle oracle/oracle.c $(pkg-config --cflags --libs xkbcommon)
+
+keymaps/NAME.xkb.gz
+    Resolved keymaps as a Wayland compositor sends them (wlroots, Mutter
+    and KWin serialize with XKB_KEYMAP_FORMAT_TEXT_V1), from
+    xkeyboard-config 2.48:
+
+        xkbcli compile-keymap --output-format 1 --layout us                  > us.xkb
+        xkbcli compile-keymap --output-format 1 --layout us --variant intl   > us-intl.xkb
+        xkbcli compile-keymap --output-format 1 --layout us --variant altgr-intl > us-altgr-intl.xkb
+        xkbcli compile-keymap --output-format 1 --layout de                  > de.xkb
+        (likewise fr, es, latam, gb, ru, il, gr, jp)
+        xkbcli compile-keymap --output-format 1 --layout us --options ctrl:nocaps     > us-nocaps.xkb
+        xkbcli compile-keymap --output-format 1 --layout us --options compose:ralt    > us-compose-ralt.xkb
+        xkbcli compile-keymap --output-format 1 --layout us,ru --options grp:alt_shift_toggle > us-ru-grp.xkb
+        xkbcli compile-keymap --output-format 1 --layout de --variant neo    > de-neo.xkb
+
+    then gzip -9 -n.
+
+keymaps/NAME.oracle.gz
+    oracle keymap NAME.xkb STATE... | gzip -9 -n, with the states
+
+        base=::0 shift=Shift::0 caps=:Lock:0 shiftcaps=Shift:Lock:0
+        l3=LevelThree::0 shiftl3=Shift+LevelThree::0 capsl3=LevelThree:Lock:0
+        num=:NumLock:0 shiftnum=Shift:NumLock:0 alt=Alt::0
+
+    plus super=Super::0 shiftalt=Shift+Alt::0 for us; for us-ru-grp
+    base shift caps l3 alt and g2=::1 g2shift=Shift::1 g2caps=:Lock:1
+    g2shiftcaps=Shift:Lock:1 g2l3=LevelThree::1 g2alt=Alt::1; for de-neo
+    base shift caps l3 shiftl3 num and l5=LevelFive::0
+    shiftl5=Shift+LevelFive::0 l3l5=LevelThree+LevelFive::0
+    l5lock=:LevelFive:0.
+
+syms.txt.gz
+    oracle syms over every keysym of xkbcommon-keysyms.h and every value
+    below 0x10000 (plus a few Unicode keysyms), keeping the lines with a
+    character or a case mapping.
+
+compose/
+    A subset of libX11's en_US.UTF-8 Compose file, hand-written
+    compose.dir and locale.alias, a user file with include "%L" and
+    overrides, and the sequences fed to both; the .expected files are
+
+        oracle compose locale/en_US.UTF-8/Compose en_US.UTF-8 < sequences.txt
+        XLOCALEDIR=$PWD/locale oracle compose user.XCompose en_US.UTF-8 < sequences.txt

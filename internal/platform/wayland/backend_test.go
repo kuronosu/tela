@@ -271,7 +271,7 @@ func TestFramePacing(t *testing.T) {
 	}
 
 	// Stop animating: after the callback, nothing more arrives.
-	h.onFrame = func(w platform.Window, _ platform.FrameEvent) {}
+	h.ui(func() { h.onFrame = func(w platform.Window, _ platform.FrameEvent) {} })
 	h.fc.send(frame2.u(0), 0, uint32(1240))
 	expect[platform.FrameEvent](h)
 	h.noEvent(100 * time.Millisecond)
@@ -362,7 +362,7 @@ func TestAnimationWithoutPresentWaitsForCallbacks(t *testing.T) {
 
 	// Stop animating: the last callback's FrameEvent arrives, then
 	// nothing, and no more commits.
-	h.onFrame = func(platform.Window, platform.FrameEvent) {}
+	h.ui(func() { h.onFrame = func(platform.Window, platform.FrameEvent) {} })
 	h.fc.send(cb.u(0), 0, uint32(2000))
 	expect[platform.FrameEvent](h)
 	h.noEvent(100 * time.Millisecond)

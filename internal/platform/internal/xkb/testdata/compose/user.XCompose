@@ -1,0 +1,10 @@
+# A user Compose file: the locale's sequences plus overrides.
+include "%L"
+
+# Overrides an existing result.
+<dead_acute> <e>			: "E-ACUTE"
+# Extends <dead_tilde> <n>: the shorter sequence stops producing.
+<dead_tilde> <n> <n>			: "ññ"
+# A prefix of existing sequences: skipped.
+<Multi_key> <minus> <minus>		: "skipped"
+<Multi_key> <h> <i>			: "hello"

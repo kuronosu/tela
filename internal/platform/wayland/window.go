@@ -49,7 +49,13 @@ type Window struct {
 	states             toplevelStates
 	configured         bool // the first xdg_surface.configure arrived
 	sizes              sizeChoice
-	focused            bool
+
+	// Focus: the xdg_toplevel activated state and the number of seats
+	// whose keyboard focus is on the window; focused is what the app was
+	// told (see updateFocus).
+	activated bool
+	kbdFocus  int
+	focused   bool
 
 	// Scale: see scaleFor.
 	preferredScale int32 // wl_surface.preferred_buffer_scale; 0 = not received
@@ -165,7 +171,6 @@ func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
 	if w.Closed() {
 		return
 	}
-	b := w.b
 	st := w.pendingStates
 	size := w.sizes.choose(w.pendingW, w.pendingH, st)
 	w.states = st
@@ -191,10 +196,29 @@ func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
 			w.surface.Commit()
 		}
 	}
-	if st.activated != w.focused {
-		w.focused = st.activated
-		b.enqueue(w, platform.FocusEvent{Focused: w.focused})
+	w.activated = st.activated
+	w.updateFocus()
+}
+
+// updateFocus reports a focus change to the app. The window is focused
+// while it is activated (xdg_toplevel) or has keyboard focus
+// (wl_keyboard.enter), whichever comes first: compositors send the two in
+// either order, and the FocusEvent must precede the first key. It is
+// unfocused once both are gone; the keyboard's leave queues the synthetic
+// releases of held keys before calling this, so they precede the
+// FocusEvent (ADR-050). A window that stays activated while another
+// surface (a launcher, a lock screen) takes the keyboard keeps focus but
+// gets its releases at once.
+func (w *Window) updateFocus() {
+	if w.Closed() || !w.configured {
+		return // the first event must be the ConfigureEvent; onConfigure calls again
 	}
+	f := w.activated || w.kbdFocus > 0
+	if f == w.focused {
+		return
+	}
+	w.focused = f
+	w.b.enqueue(w, platform.FocusEvent{Focused: f})
 }
 
 // announce queues a ConfigureEvent with new metrics.
@@ -446,7 +470,10 @@ func (w *Window) Close() {
 	b.loop.Remove(w) // marks it closed and drops its queued events
 	for _, s := range b.seats {
 		if s.ptr.focus == w {
-			s.ptr = pointerState{}
+			s.ptr = pointerState{mods: s.ptr.mods}
+		}
+		if s.kbd != nil {
+			s.kbd.dropWindow(w)
 		}
 	}
 	delete(b.surfaces, w.surface)

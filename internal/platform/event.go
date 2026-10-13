@@ -167,9 +167,9 @@ func (b PointerButton) Mask() Buttons {
 // would make every comparison like Mods == ModCtrl fail while Num Lock is
 // on.
 //
-// Pointer and scroll events report it as well. Backends may leave it zero
-// until their keyboard support exists: on Wayland it comes from
-// wl_keyboard.modifiers.
+// Pointer and scroll events report it as well: the state of the keyboard
+// of the same seat (on Wayland, from wl_keyboard.modifiers). Backends
+// without keyboard support yet leave it zero.
 type Modifiers uint8
 
 const (

@@ -8,6 +8,11 @@
 //     preferred_buffer_scale), wl_shm (memfd buffers), xdg_wm_base and
 //     xdg_toplevel: required.
 //   - wl_seat + wl_pointer: pointer input, grouped by wl_pointer.frame.
+//   - wl_seat + wl_keyboard: key input. The compositor's XKB keymap is
+//     parsed by internal/xkb (pure Go, no libxkbcommon); dead keys and
+//     the Compose key use the user's or locale's Compose file; key repeat
+//     is client-side (keyboard.go). Pointer and scroll events carry the
+//     seat's keyboard modifiers.
 //   - wl_output: integer scale fallback when the compositor has no
 //     wl_surface.preferred_buffer_scale.
 //   - wp_cursor_shape_manager_v1 (optional): cursors. Without it the cursor
@@ -22,8 +27,9 @@
 // flush requests, then poll(2) on the display socket and an eventfd (Wake,
 // Quit) with no timeout when nothing is due. Protocol callbacks never call
 // the app: they update state and queue events, which the loop delivers after
-// Dispatch returns, so the handler is never called re-entrantly. Nothing
-// runs while idle (0% CPU).
+// Dispatch returns, so the handler is never called re-entrantly. While a
+// key is held, its next repeat is one more deadline of the same poll
+// timeout. Nothing runs while idle (0% CPU).
 //
 // The queue, the delivery pass and the frame-due rule are the shared
 // internal/loop. What is specific to Wayland is the display signal: frame

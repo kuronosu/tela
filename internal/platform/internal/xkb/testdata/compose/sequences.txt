@@ -1,0 +1,33 @@
+dead_acute e
+dead_acute E
+dead_acute space
+dead_acute dead_acute
+dead_acute Shift_L e
+dead_acute q
+dead_acute
+dead_tilde n
+dead_tilde n n
+dead_tilde space
+dead_diaeresis dead_acute space
+dead_acute dead_diaeresis u
+dead_circumflex dead_acute e
+dead_greek a
+dead_acute Cyrillic_ie
+dead_caron s
+dead_cedilla c
+Multi_key o c
+Multi_key minus minus minus
+Multi_key minus minus space
+Multi_key minus minus
+Multi_key a e
+Multi_key s s
+Multi_key e equal
+Multi_key equal e
+Multi_key quotedbl a
+Multi_key x 1
+Multi_key x 2
+Multi_key x 3
+Multi_key U2190 x
+Multi_key h i
+a
+Shift_L
