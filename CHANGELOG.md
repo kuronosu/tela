@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-13
+
 ### Added
 
 - Hooks `UseReducer`, `UseEffect`, `UseLayoutEffect`, `UseMemo`,
@@ -101,13 +103,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- Scrolling a long list with many `overflow-hidden`/`truncate` boxes no
+  longer walks every box each frame; unmounting many such boxes is faster.
 - Windows rasterize only what changed and pass the damage rectangles to the
   platform: scrolling moves the pixels already drawn and draws only the
   newly exposed strips; a `TranslateFn` drag or a `UseValue` progress bar
   redraws only its old and new place. A 10,000-element list scrolls in
   about 0.6 ms per frame at 800×600 scale 2 (was about 6 ms).
-- `tela inspect` prints a Playwright-style aria snapshot (YAML) by default;
-  `--layout` prints the JSON layout tree.
+- **Breaking:** `tela inspect` prints a Playwright-style aria snapshot
+  (YAML) by default; `--layout` prints the JSON layout tree.
 - `tela snapshot` and `tela inspect` work on any module that requires Tela,
   not only inside the Tela module (`Scene` packages still need it).
 - **Breaking:** `tela.UseState` returns a `tela.Setter[T]` instead of
@@ -228,7 +232,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/kuronosu/tela/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/kuronosu/tela/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/kuronosu/tela/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kuronosu/tela/compare/v0.1.0...v0.2.0
