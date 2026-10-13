@@ -2,39 +2,57 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
-	"github.com/kuronosu/tela/examples/internal/exampletest"
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/telatest"
 )
 
 const windowW, windowH = 1280, 800
 
+// mount opens the screen in dev mode, where any dev message fails the test.
+func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
+	t.Helper()
+	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
+	return telatest.Mount(t, tela.C(Pricing), opts...)
+}
+
 func TestNoDevMessages(t *testing.T) {
 	for _, s := range [][2]float32{{windowW, windowH}, {800, 600}, {700, 420}, {1600, 900}} {
-		a := exampletest.Open(t, Pricing, s[0], s[1])
-		a.CheckLogs()
+		mount(t, s[0], s[1])
 	}
 }
 
 // TestGolden is the monthly page at 1280x800, at scale 1 and 2.
 func TestGolden(t *testing.T) {
-	exampletest.Golden(t, "pricing", Pricing, windowW, windowH)
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			mount(t, windowW, windowH, telatest.Scale(scale)).Golden(fmt.Sprintf("pricing_x%g.png", scale))
+		})
+	}
 }
+
+// exact locates the element whose text is exactly s.
+func exact(s string) telatest.Locator { return telatest.ByText(s, telatest.Exact()) }
+
+// hasText reports whether the page has an element whose text is exactly s.
+func hasText(a *telatest.App, s string) bool { return a.Count(exact(s)) > 0 }
 
 // TestThreePlansInARow checks the cards share a row at 1280 and that the
 // highlighted one carries the badge.
 func TestThreePlansInARow(t *testing.T) {
-	a := exampletest.Open(t, Pricing, windowW, windowH)
-	y := a.Text("Starter").Rect.Y0
+	a := mount(t, windowW, windowH)
+	_, y, _, _ := a.Bounds(exact("Starter"))
 	for _, name := range []string{"Pro", "Enterprise"} {
-		if got := a.Text(name).Rect.Y0; got != y {
+		if _, got, _, _ := a.Bounds(exact(name)); got != y {
 			t.Errorf("%s at y=%v, Starter at y=%v", name, got, y)
 		}
 	}
-	badge := a.Text("Most popular").Rect
-	pro := a.Text("Pro").Rect
-	if badge.Y1 > pro.Y0 || badge.Center().X < pro.X0 {
-		t.Errorf("badge %v is not above the Pro card heading %v", badge, pro)
+	bx, by, bw, bh := a.Bounds(exact("Most popular"))
+	px, py, _, _ := a.Bounds(exact("Pro"))
+	if by+bh > py || bx+bw/2 < px {
+		t.Errorf("badge at (%v, %v) is not above the Pro card heading at (%v, %v)", bx, by, px, py)
 	}
 }
 
@@ -42,30 +60,27 @@ func TestThreePlansInARow(t *testing.T) {
 // values, the knob moves to the right, and clicking again restores the
 // monthly page bit by bit.
 func TestBillingToggle(t *testing.T) {
-	a := exampletest.Open(t, Pricing, windowW, windowH)
+	a := mount(t, windowW, windowH)
 	knob := func() float32 {
-		ks := a.WithClass("size-5", "rounded-full", "shadow-sm")
-		if len(ks) != 1 {
-			t.Fatalf("%d knobs", len(ks))
-		}
-		return ks[0].Rect.X0
+		x, _, _, _ := a.Bounds(telatest.ByClass("size-5", "rounded-full", "shadow-sm"))
+		return x
 	}
 	for _, s := range []string{"$0", "$29", "$99", "Billed monthly", "Free forever"} {
-		if !a.HasText(s) {
+		if !hasText(a, s) {
 			t.Errorf("monthly page lacks %q", s)
 		}
 	}
-	monthly, knob0 := a.Image(), knob()
+	monthly, knob0 := a.Screenshot(), knob()
 
-	track := a.WithClass("h-6", "w-11", "rounded-full")[0].Rect.Center()
-	a.Click(track.X, track.Y)
+	track := telatest.ByClass("h-6", "w-11", "rounded-full")
+	a.Click(track)
 	for _, s := range []string{"$0", "$24", "$79", "Billed $288 per year", "Billed $948 per year", "Free forever"} {
-		if !a.HasText(s) {
+		if !hasText(a, s) {
 			t.Errorf("yearly page lacks %q", s)
 		}
 	}
 	for _, s := range []string{"$29", "$99"} {
-		if a.HasText(s) {
+		if hasText(a, s) {
 			t.Errorf("yearly page still shows %q", s)
 		}
 	}
@@ -74,45 +89,37 @@ func TestBillingToggle(t *testing.T) {
 	}
 
 	// The pointer is still over the switch: move away to compare pictures.
-	a.Move(5, 5)
-	a.Click(track.X, track.Y)
-	a.Move(5, 5)
-	if !a.HasText("$29") || a.HasText("$24") {
+	a.MouseMove(5, 5)
+	a.Click(track)
+	a.MouseMove(5, 5)
+	if !hasText(a, "$29") || hasText(a, "$24") {
 		t.Error("second click did not restore the monthly prices")
 	}
-	if got := a.Image(); !bytes.Equal(got.Pix, monthly.Pix) {
+	if got := a.Screenshot(); !bytes.Equal(got.Pix, monthly.Pix) {
 		t.Error("the monthly page is not the same picture after toggling twice")
 	}
-	a.CheckLogs()
 }
 
 // TestBillingLabels checks the two labels are buttons too.
 func TestBillingLabels(t *testing.T) {
-	a := exampletest.Open(t, Pricing, windowW, windowH)
-	a.ClickButton("Monthly")
-	if !a.HasText("$29") {
-		t.Error("Monthly changed the prices")
-	}
-	a.ClickText("Yearly")
-	if !a.HasText("$24") {
-		t.Error("Yearly did not switch to yearly prices")
-	}
-	a.ClickButton("Monthly")
-	if !a.HasText("$29") {
-		t.Error("Monthly did not switch back")
-	}
+	a := mount(t, windowW, windowH)
+	a.Click(telatest.ByRole("button", "Monthly"))
+	a.ExpectText("$29")
+	a.Click(telatest.ByText("Yearly")) // the button holds "Yearly" and a badge
+	a.ExpectText("$24")
+	a.Click(telatest.ByRole("button", "Monthly"))
+	a.ExpectText("$29")
 }
 
 // TestHoverBuildsNothing checks that pointer movement over the cards and
 // buttons restyles without building components.
 func TestHoverBuildsNothing(t *testing.T) {
-	a := exampletest.Open(t, Pricing, windowW, windowH)
-	builds := a.Tree().Stats().Builds
+	a := mount(t, windowW, windowH)
+	builds := a.Stats().Builds
 	for _, label := range []string{"Get started", "Start free trial", "Contact sales"} {
-		c := a.Button(label).Rect.Center()
-		a.Move(c.X, c.Y)
+		a.Hover(telatest.ByRole("button", label))
 	}
-	if got := a.Tree().Stats().Builds - builds; got != 0 {
+	if got := a.Stats().Builds - builds; got != 0 {
 		t.Errorf("hovering built %d components", got)
 	}
 }

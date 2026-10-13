@@ -179,9 +179,24 @@ func TestGenerateSource(t *testing.T) {
 		if c != contractScene && !strings.Contains(string(src), `"TELA_RUN_MODE"`) {
 			t.Errorf("%v: generated source does not read the mode", c)
 		}
-		for _, want := range []string{"func TestTelaRun(", `"TELA_RUN_W"`, `"TELA_RUN_OUT"`, `"TELA_RUN_ERR"`, "= " + c.String(), "PhysicalSize"} {
+		for _, want := range []string{"func TestTelaRun(", `"TELA_RUN_W"`, `"TELA_RUN_OUT"`, `"TELA_RUN_ERR"`, "= " + c.String()} {
 			if !strings.Contains(string(src), want) {
 				t.Errorf("%v: generated source lacks %q", c, want)
+			}
+		}
+		// The screens go through telatest (ADR-059), which works for any
+		// module that requires tela; only the phase-1 Scene contract still
+		// needs the internal packages.
+		if c == contractScene {
+			if !strings.Contains(string(src), "PhysicalSize") || !strings.Contains(string(src), "tela/internal/") {
+				t.Errorf("%v: generated source lacks the internal rendering", c)
+			}
+		} else {
+			if strings.Contains(string(src), "tela/internal/") {
+				t.Errorf("%v: generated source imports an internal package, which breaks modules outside tela:\n%s", c, src)
+			}
+			if !strings.Contains(string(src), "telatest.Render(") || !strings.Contains(string(src), "telatest.AriaSnapshot(") || !strings.Contains(string(src), "telatest.LayoutJSON(") {
+				t.Errorf("%v: generated source does not use telatest", c)
 			}
 		}
 	}

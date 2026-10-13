@@ -1,24 +1,34 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/kuronosu/tela/examples/internal/exampletest"
-	"github.com/kuronosu/tela/internal/core"
-	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/telatest"
 )
 
 const windowW, windowH = 1280, 800
 
+// mount opens the screen in dev mode, where any dev message fails the test.
+func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
+	t.Helper()
+	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
+	return telatest.Mount(t, tela.C(Kanban), opts...)
+}
+
 func TestNoDevMessages(t *testing.T) {
 	for _, s := range [][2]float32{{windowW, windowH}, {800, 600}, {700, 420}, {1600, 900}} {
-		a := exampletest.Open(t, Kanban, s[0], s[1])
-		a.CheckLogs()
+		mount(t, s[0], s[1])
 	}
 }
 
 func TestGolden(t *testing.T) {
-	exampletest.Golden(t, "board", Kanban, windowW, windowH)
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			mount(t, windowW, windowH, telatest.Scale(scale)).Golden(fmt.Sprintf("board_x%g.png", scale))
+		})
+	}
 }
 
 // TestMove checks the model on its own.
@@ -56,41 +66,36 @@ func TestMove(t *testing.T) {
 	}
 }
 
-// lanes returns the three columns.
-func lanes(a *exampletest.App) []core.InspectNode {
-	ls := a.WithClass("min-w-0", "flex-1", "flex-col", "rounded-2xl")
-	if len(ls) != 3 {
-		a.T.Fatalf("%d lanes, want 3", len(ls))
-	}
-	return ls
+// laneLoc locates the i-th column.
+func laneLoc(i int) telatest.Locator {
+	return telatest.ByClass("min-w-0", "flex-1", "flex-col", "rounded-2xl").Nth(i)
 }
 
-// card returns the box of the card with this title.
-func card(a *exampletest.App, title string) core.InspectNode {
-	a.T.Helper()
-	cs := a.All(func(n core.InspectNode) bool {
-		return exampletest.HasClass(n, "rounded-xl") && exampletest.HasClass(n, "select-none") && exampletest.Contains(n, title)
-	})
-	if len(cs) != 1 {
-		a.T.Fatalf("%d cards titled %q", len(cs), title)
-	}
-	return cs[0]
+// cardLoc locates the card with this title.
+func cardLoc(title string) telatest.Locator {
+	return telatest.ByClass("rounded-xl", "select-none").Filter(telatest.HasText(title))
 }
 
-// laneOf returns the index of the column that holds the card.
-func laneOf(a *exampletest.App, title string) int {
-	c := card(a, title).Rect.Center()
-	for i, l := range lanes(a) {
-		if c.X >= l.Rect.X0 && c.X < l.Rect.X1 {
+// center returns the center of the element.
+func center(a *telatest.App, l telatest.Locator) (x, y float32) {
+	bx, by, w, h := a.Bounds(l)
+	return bx + w/2, by + h/2
+}
+
+// laneOf returns the index of the column that holds the card, or -1.
+func laneOf(a *telatest.App, title string) int {
+	cx, _ := center(a, cardLoc(title))
+	for i := range 3 {
+		x, _, w, _ := a.Bounds(laneLoc(i))
+		if cx >= x && cx < x+w {
 			return i
 		}
 	}
-	a.T.Fatalf("card %q is outside every lane", title)
 	return -1
 }
 
 // order returns the titles of a column, top to bottom.
-func order(a *exampletest.App, lane int) []string {
+func order(a *telatest.App, lane int) []string {
 	type entry struct {
 		y     float32
 		title string
@@ -98,11 +103,9 @@ func order(a *exampletest.App, lane int) []string {
 	var es []entry
 	for _, id := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10} {
 		title := tasks[id].Title
-		cs := a.All(func(n core.InspectNode) bool {
-			return exampletest.HasClass(n, "select-none") && exampletest.Contains(n, title)
-		})
-		if len(cs) == 1 && laneOf(a, title) == lane {
-			es = append(es, entry{cs[0].Rect.Y0, title})
+		if a.Count(cardLoc(title)) == 1 && laneOf(a, title) == lane {
+			_, y, _, _ := a.Bounds(cardLoc(title))
+			es = append(es, entry{y, title})
 		}
 	}
 	for i := range es {
@@ -132,7 +135,8 @@ func equal(a, b []string) bool {
 }
 
 func TestStartLayout(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
+	a := mount(t, windowW, windowH)
+	a.ExpectCount(telatest.ByClass("min-w-0", "flex-1", "flex-col", "rounded-2xl"), 3)
 	want := [][]string{
 		{"Design the onboarding flow", "Write the API reference", "Audit color contrast", "Migrate the settings page"},
 		{"Implement dark mode", "Fix the login redirect bug", "Review the pricing copy"},
@@ -148,10 +152,10 @@ func TestStartLayout(t *testing.T) {
 // TestDragToAnotherColumn drags the first card of To do onto the empty
 // part of In progress.
 func TestDragToAnotherColumn(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
-	c := card(a, "Design the onboarding flow").Rect.Center()
-	dst := lanes(a)[1].Rect
-	a.Drag(c, gfx.Point{X: dst.Center().X, Y: dst.Y1 - 60}, 12)
+	a := mount(t, windowW, windowH)
+	cx, cy := center(a, cardLoc("Design the onboarding flow"))
+	dx, dy, dw, dh := a.Bounds(laneLoc(1))
+	a.DragBy(cardLoc("Design the onboarding flow"), dx+dw/2-cx, dy+dh-60-cy)
 
 	if got := order(a, 0); !equal(got, []string{"Write the API reference", "Audit color contrast", "Migrate the settings page"}) {
 		t.Errorf("To do is %v", got)
@@ -160,23 +164,17 @@ func TestDragToAnotherColumn(t *testing.T) {
 	if got := order(a, 1); !equal(got, want) {
 		t.Errorf("In progress is %v, want %v", got, want)
 	}
-	if !a.HasText("3") || !a.HasText("4") {
-		t.Error("the column counters did not update")
-	}
+	a.ExpectText("3")
+	a.ExpectText("4")
 	// The card is back in the flow: no lifted card, no insertion line.
-	if n := a.WithClass("z-50"); len(n) != 0 {
-		t.Errorf("%d lifted cards after the drop", len(n))
-	}
-	a.CheckLogs()
+	a.ExpectCount(telatest.ByClass("z-50"), 0)
 }
 
 // TestDropBetweenCards drops onto a card of another column: the dragged
 // card goes before it.
 func TestDropBetweenCards(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
-	src := card(a, "Set up the CI pipeline").Rect.Center()
-	dst := card(a, "Fix the login redirect bug").Rect.Center()
-	a.Drag(src, dst, 12)
+	a := mount(t, windowW, windowH)
+	a.Drag(cardLoc("Set up the CI pipeline"), cardLoc("Fix the login redirect bug"))
 	if got, want := order(a, 1), []string{"Implement dark mode", "Set up the CI pipeline", "Fix the login redirect bug", "Review the pricing copy"}; !equal(got, want) {
 		t.Errorf("In progress is %v, want %v", got, want)
 	}
@@ -187,10 +185,10 @@ func TestDropBetweenCards(t *testing.T) {
 
 // TestReorderInsideColumn moves the first card to the end of its column.
 func TestReorderInsideColumn(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
-	src := card(a, "Design the onboarding flow").Rect.Center()
-	l := lanes(a)[0].Rect
-	a.Drag(src, gfx.Point{X: src.X, Y: l.Y1 - 40}, 12)
+	a := mount(t, windowW, windowH)
+	_, cy := center(a, cardLoc("Design the onboarding flow"))
+	_, ly, _, lh := a.Bounds(laneLoc(0))
+	a.DragBy(cardLoc("Design the onboarding flow"), 0, ly+lh-40-cy)
 	want := []string{"Write the API reference", "Audit color contrast", "Migrate the settings page", "Design the onboarding flow"}
 	if got := order(a, 0); !equal(got, want) {
 		t.Errorf("To do is %v, want %v", got, want)
@@ -199,27 +197,24 @@ func TestReorderInsideColumn(t *testing.T) {
 
 // TestDropOutsideReturnsTheCard releases above the board.
 func TestDropOutsideReturnsTheCard(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
-	src := card(a, "Audit color contrast").Rect.Center()
-	a.Drag(src, gfx.Point{X: src.X + 300, Y: 20}, 12)
+	a := mount(t, windowW, windowH)
+	_, cy := center(a, cardLoc("Audit color contrast"))
+	a.DragBy(cardLoc("Audit color contrast"), 300, 20-cy)
 	if got := order(a, 0); !equal(got, []string{"Design the onboarding flow", "Write the API reference", "Audit color contrast", "Migrate the settings page"}) {
 		t.Errorf("To do is %v after dropping outside", got)
 	}
-	if n := a.WithClass("z-50"); len(n) != 0 {
-		t.Error("the card is still lifted")
-	}
+	a.ExpectCount(telatest.ByClass("z-50"), 0)
 }
 
 // TestClickDoesNotMove checks a click, with no drag, changes nothing.
 func TestClickDoesNotMove(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
-	c := card(a, "Write the API reference").Rect.Center()
-	builds := a.Tree().Stats().Builds
-	a.Click(c.X, c.Y)
+	a := mount(t, windowW, windowH)
+	builds := a.Stats().Builds
+	a.Click(cardLoc("Write the API reference"))
 	if got := order(a, 0); len(got) != 4 || got[1] != "Write the API reference" {
 		t.Errorf("To do is %v", got)
 	}
-	if got := a.Tree().Stats().Builds - builds; got != 0 {
+	if got := a.Stats().Builds - builds; got != 0 {
 		t.Errorf("a click built %d components", got)
 	}
 }
@@ -228,32 +223,29 @@ func TestClickDoesNotMove(t *testing.T) {
 // dragged inside one column, each pointer move only repaints it. It is
 // lifted, drawn at the pointer, and nothing builds or lays out.
 func TestCardFollowsThePointer(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
-	r := card(a, "Write the API reference").Rect
-	c := r.Center()
+	a := mount(t, windowW, windowH)
+	card := cardLoc("Write the API reference")
+	x, y, w, h := a.Bounds(card)
+	cx, cy := x+w/2, y+h/2
 	// A point inside the card's padding, near its top-left corner.
-	px, py := int(r.X0)+8, int(r.Y0)+8
-	if got := a.Image().RGBAAt(px, py); got.R < 250 {
+	px, py := int(x)+8, int(y)+8
+	if got := a.Screenshot().RGBAAt(px, py); got.R < 250 {
 		t.Fatalf("the card is not white at its corner: %v", got)
 	}
 
-	a.Move(c.X, c.Y)
-	a.Down()
+	a.MouseMove(cx, cy)
+	a.MouseDown()
 	// Move past the slop to start the drag, then settle in the To do column.
-	a.Move(c.X+10, c.Y+30)
-	a.Move(c.X+20, c.Y+60)
-	if n := a.WithClass("relative", "z-50", "rotate-2"); len(n) != 1 {
-		t.Fatalf("%d lifted cards while dragging, want 1", len(n))
-	}
-	if n := a.WithClass("h-[3px]", "bg-indigo-500"); len(n) != 1 {
-		t.Errorf("%d insertion lines, want 1", len(n))
-	}
-	before := a.Tree().Stats()
+	a.MouseMove(cx+10, cy+30)
+	a.MouseMove(cx+20, cy+60)
+	a.ExpectCount(telatest.ByClass("relative", "z-50", "rotate-2"), 1)
+	a.ExpectCount(telatest.ByClass("h-[3px]", "bg-indigo-500"), 1)
+	before := a.Stats()
 	// Inside one card and one lane, so the drop target stays the same.
 	for i := 1; i <= 10; i++ {
-		a.Move(c.X+20+float32(i)*5, c.Y+60)
+		a.MouseMove(cx+20+float32(i)*5, cy+60)
 	}
-	after := a.Tree().Stats()
+	after := a.Stats()
 	if after.Frames-before.Frames < 10 {
 		t.Errorf("only %d frames for 10 moves", after.Frames-before.Frames)
 	}
@@ -268,33 +260,30 @@ func TestCardFollowsThePointer(t *testing.T) {
 	}
 	// The card left its corner behind: the lane color shows there, and the
 	// card's corner is now 70 px right and 60 px down, where the pointer is.
-	if got := a.Image().RGBAAt(px, py); got.R > 248 {
+	shot := a.Screenshot()
+	if got := shot.RGBAAt(px, py); got.R > 248 {
 		t.Errorf("the original corner is still white (%v): the card did not move", got)
 	}
-	if got := a.Image().RGBAAt(px+70, py+60); got.R < 250 || got.G < 250 {
+	if got := shot.RGBAAt(px+70, py+60); got.R < 250 || got.G < 250 {
 		t.Errorf("the moved card's corner is not white: %v", got)
 	}
-	a.Up()
-	a.CheckLogs()
+	a.MouseUp()
 }
 
 // TestDropTargetFeedback checks the ring on the lane under the pointer.
 func TestDropTargetFeedback(t *testing.T) {
-	a := exampletest.Open(t, Kanban, windowW, windowH)
-	c := card(a, "Implement dark mode").Rect.Center()
-	dst := lanes(a)[2].Rect
-	a.Move(c.X, c.Y)
-	a.Down()
-	a.Move(c.X+20, c.Y+20)
-	a.Move(dst.Center().X, dst.Y1-100)
-	ring := a.All(func(n core.InspectNode) bool {
-		return exampletest.HasClass(n, "ring-indigo-400/70") && exampletest.HasClass(n, "rounded-2xl")
-	})
-	if len(ring) != 1 || ring[0].Rect != dst {
-		t.Fatalf("highlighted lanes while hovering Done: %v", ring)
+	a := mount(t, windowW, windowH)
+	cx, cy := center(a, cardLoc("Implement dark mode"))
+	dx, dy, dw, dh := a.Bounds(laneLoc(2))
+	a.MouseMove(cx, cy)
+	a.MouseDown()
+	a.MouseMove(cx+20, cy+20)
+	a.MouseMove(dx+dw/2, dy+dh-100)
+	ring := telatest.ByClass("ring-indigo-400/70", "rounded-2xl")
+	a.ExpectCount(ring, 1)
+	if rx, ry, rw, rh := a.Bounds(ring); rx != dx || ry != dy || rw != dw || rh != dh {
+		t.Fatalf("the highlighted lane is (%v, %v, %v, %v) while hovering Done, want (%v, %v, %v, %v)", rx, ry, rw, rh, dx, dy, dw, dh)
 	}
-	a.Up()
-	if ring := a.WithClass("ring-indigo-400/70"); len(ring) != 0 {
-		t.Error("a lane is still highlighted after the drop")
-	}
+	a.MouseUp()
+	a.ExpectCount(telatest.ByClass("ring-indigo-400/70"), 0)
 }

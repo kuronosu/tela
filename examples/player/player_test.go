@@ -1,17 +1,26 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela/examples/internal/exampletest"
-	"github.com/kuronosu/tela/internal/core"
-	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/telatest"
 )
 
 const windowW, windowH = 1280, 800
+
+// mount opens the screen in dev mode, where any dev message fails the test.
+// The clock goroutine runs in real time, so the waits are generous for slow
+// machines.
+func mount(t *testing.T, w, h float32, root func() tela.Node, opts ...telatest.Option) *telatest.App {
+	t.Helper()
+	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev(), telatest.Timeout(30 * time.Second)}, opts...)
+	return telatest.Mount(t, tela.C(root), opts...)
+}
 
 // fast makes the progress clock run scale times faster than real time and
 // tick every tick, until the test ends.
@@ -29,69 +38,54 @@ func slow(t *testing.T) { fast(t, time.Hour, 1) }
 func TestNoDevMessages(t *testing.T) {
 	slow(t)
 	for _, s := range [][2]float32{{windowW, windowH}, {800, 600}, {700, 420}, {1600, 900}} {
-		a := exampletest.Open(t, Player, s[0], s[1])
-		a.CheckLogs()
+		mount(t, s[0], s[1], Player)
 	}
 }
 
 // TestGolden is Preview (a minute and 24 seconds in), at scale 1 and 2.
 func TestGolden(t *testing.T) {
 	slow(t)
-	exampletest.Golden(t, "player", Preview, windowW, windowH)
-}
-
-// fill returns the box of the progress fill.
-func fill(a *exampletest.App) core.InspectNode {
-	a.T.Helper()
-	f := a.WithClass("h-full", "rounded-full", "bg-white")
-	if len(f) != 1 {
-		a.T.Fatalf("%d progress fills, want 1", len(f))
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			mount(t, windowW, windowH, Preview, telatest.Scale(scale)).Golden(fmt.Sprintf("player_x%g.png", scale))
+		})
 	}
-	return f[0]
 }
 
-// title returns the title of the current track, in the player card (the
-// first h2 that is not the queue's heading).
-func title(a *exampletest.App) string {
-	n, ok := a.Find(func(n core.InspectNode) bool { return n.Kind == "h2" && n.Text != "Up next" })
-	if !ok {
-		a.T.Fatal("no title")
-	}
-	return n.Text
+// The icon buttons have no accessible names, so the tests find them by
+// their classes.
+var (
+	progressFill = telatest.ByClass("h-full", "rounded-full", "bg-white")
+	playPause    = telatest.ByClass("size-16", "bg-white")
+	skipButtons  = telatest.ByClass("size-12", "rounded-full", "text-zinc-300")
+	pauseBars    = telatest.ByClass("h-5", "w-1.5")
+	seekBar      = telatest.ByClass("group", "h-4", "cursor-pointer")
+)
+
+// fillWidth returns the width of the progress fill.
+func fillWidth(a *telatest.App) float32 {
+	_, _, w, _ := a.Bounds(progressFill)
+	return w
 }
 
-// pump runs frames while real time passes, until done reports true or the
-// timeout expires.
-func pump(a *exampletest.App, timeout time.Duration, done func() bool) bool {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		time.Sleep(2 * time.Millisecond)
-		a.Frame()
-		if done() {
-			return true
-		}
-	}
-	return false
+// titleIs waits for the current track's title (an h2 in the player card).
+func titleIs(a *telatest.App, title string) {
+	a.ExpectRole("heading", title)
 }
 
-// TestProgressAdvancesWithoutBuilding is the point of the example: the
-// clock goroutine moves the bar for a few seconds of music, and the only
-// component that builds is the time label, once per second.
 func TestProgressAdvancesWithoutBuilding(t *testing.T) {
 	fast(t, 5*time.Millisecond, 10) // 20 ticks per second of music
-	a := exampletest.Open(t, Player, windowW, windowH)
-	if w := fill(a).Rect.Width(); w != 0 {
+	a := mount(t, windowW, windowH, Player)
+	if w := fillWidth(a); w != 0 {
 		t.Fatalf("the bar starts at %v px, want 0", w)
 	}
-	before := a.Tree().Stats()
-	if !pump(a, 5*time.Second, func() bool { return a.HasText("0:03") }) {
-		t.Fatal("the clock did not reach 0:03")
-	}
-	after := a.Tree().Stats()
+	before := a.Stats()
+	a.ExpectText("0:03")
+	after := a.Stats()
 
 	frames, builds := after.Frames-before.Frames, after.Builds-before.Builds
 	want := float32(3) / 222 * barW
-	if w := fill(a).Rect.Width(); w < want*0.95 || w > want*1.3 {
+	if w := fillWidth(a); w < want*0.95 || w > want*1.3 {
 		t.Errorf("the bar is %v px wide at 0:03, want about %v", w, want)
 	}
 	// Three label changes: the label builds three times and nothing else.
@@ -107,123 +101,107 @@ func TestProgressAdvancesWithoutBuilding(t *testing.T) {
 	if got := after.Styles - before.Styles; got > 10 {
 		t.Errorf("%d style computations: ticks should not restyle", got)
 	}
-	a.CheckLogs()
 }
 
 func TestPauseStopsTheClock(t *testing.T) {
 	fast(t, 5*time.Millisecond, 10)
-	a := exampletest.Open(t, Player, windowW, windowH)
-	pump(a, 5*time.Second, func() bool { return fill(a).Rect.Width() > 3 })
-	if len(a.WithClass("h-5", "w-1.5")) != 2 {
-		t.Fatal("no pause icon while playing")
-	}
+	a := mount(t, windowW, windowH, Player)
+	a.WaitFor("the bar to start moving", func() bool { return fillWidth(a) > 3 })
+	a.ExpectCount(pauseBars, 2) // the pause icon while playing
 
-	c := a.WithClass("size-16", "bg-white")[0].Rect.Center()
-	a.Click(c.X, c.Y)
-	if n := len(a.WithClass("h-5", "w-1.5")); n != 0 {
-		t.Errorf("%d pause bars after pausing, want the play triangle", n)
-	}
-	a.Move(5, 5)
-	w, frames := fill(a).Rect.Width(), a.Tree().Stats().Frames
+	a.Click(playPause)
+	a.ExpectCount(pauseBars, 0) // the play triangle
+	a.MouseMove(5, 5)
+	w, frames := fillWidth(a), a.Stats().Frames
 	time.Sleep(100 * time.Millisecond)
-	a.Frame()
-	if got := fill(a).Rect.Width(); got != w {
+	if got := fillWidth(a); got != w {
 		t.Errorf("the bar moved while paused: %v -> %v", w, got)
 	}
-	if got := a.Tree().Stats().Frames; got != frames {
+	if got := a.Stats().Frames; got != frames {
 		t.Errorf("%d frames while paused, want none: nothing changes, so nothing draws", got-frames)
 	}
 
-	a.Click(c.X, c.Y) // play again
-	if !pump(a, 5*time.Second, func() bool { return fill(a).Rect.Width() > w+3 }) {
-		t.Error("the bar did not advance after playing again")
-	}
+	a.Click(playPause) // play again
+	a.WaitFor("the bar to advance after playing again", func() bool { return fillWidth(a) > w+3 })
 }
 
 func TestNextPrevAndQueue(t *testing.T) {
 	slow(t)
-	a := exampletest.Open(t, Player, windowW, windowH)
-	if title(a) != "Midnight Drive" {
-		t.Fatalf("starts on %q", title(a))
-	}
-	buttons := a.All(func(n core.InspectNode) bool {
-		return n.Kind == "button" && exampletest.HasClass(n, "size-12")
-	})
-	if len(buttons) != 2 {
-		t.Fatalf("%d prev/next buttons", len(buttons))
-	}
-	prev, next := buttons[0].Rect.Center(), buttons[1].Rect.Center()
+	a := mount(t, windowW, windowH, Player)
+	titleIs(a, "Midnight Drive")
+	a.ExpectCount(skipButtons, 2)
+	prev, next := skipButtons.Nth(0), skipButtons.Nth(1)
 
-	a.Click(next.X, next.Y)
-	if title(a) != "Paper Planes" || !a.HasText("3:08") {
-		t.Errorf("after Next: %q", title(a))
-	}
+	a.Click(next)
+	titleIs(a, "Paper Planes")
+	a.ExpectText("3:08")
 	// Prev within the first seconds goes back a track.
-	a.Click(prev.X, prev.Y)
-	if title(a) != "Midnight Drive" {
-		t.Errorf("after Prev: %q", title(a))
-	}
+	a.Click(prev)
+	titleIs(a, "Midnight Drive")
 	// Prev wraps around from the first track.
-	a.Click(prev.X, prev.Y)
-	if title(a) != "Low Orbit" {
-		t.Errorf("Prev from the first track: %q", title(a))
-	}
+	a.Click(prev)
+	titleIs(a, "Low Orbit")
 
 	// A click on a queue row plays it, from its start.
-	a.ClickButton("Slow Tide")
-	if title(a) != "Slow Tide" || !a.HasText("4:15") {
-		t.Errorf("after clicking the queue row: %q", title(a))
+	a.Click(telatest.ByRole("button", "").Filter(telatest.HasText("Slow Tide")))
+	titleIs(a, "Slow Tide")
+	a.ExpectText("4:15")
+	// One equalizer, on the current row.
+	a.ExpectCount(telatest.ByClass("h-4", "text-violet-400", "items-end"), 1)
+}
+
+// clickAt clicks at a position of the window, like a user.
+func clickAt(a *telatest.App, x, y float32) {
+	a.MouseMove(x, y)
+	a.MouseDown()
+	a.MouseUp()
+}
+
+// dragBetween drags the pointer from (x0, y0) to (x1, y1) in steps with the
+// button held.
+func dragBetween(a *telatest.App, x0, y0, x1, y1 float32, steps int) {
+	a.MouseMove(x0, y0)
+	a.MouseDown()
+	for i := 1; i <= steps; i++ {
+		f := float32(i) / float32(steps)
+		a.MouseMove(x0+(x1-x0)*f, y0+(y1-y0)*f)
 	}
-	if n := len(a.WithClass("h-4", "text-violet-400", "items-end")); n != 1 {
-		t.Errorf("%d equalizers, want one on the current row", n)
-	}
-	a.CheckLogs()
+	a.MouseUp()
 }
 
 func TestSeek(t *testing.T) {
 	slow(t)
-	a := exampletest.Open(t, Player, windowW, windowH)
-	bar := a.WithClass("group", "h-4", "cursor-pointer")
-	if len(bar) != 1 {
-		t.Fatalf("%d seek bars", len(bar))
+	a := mount(t, windowW, windowH, Player)
+	a.ExpectCount(seekBar, 1)
+	bx, by, bw, bh := a.Bounds(seekBar)
+	if bw != barW {
+		t.Fatalf("the seek bar is %v px wide, the code assumes %v", bw, barW)
 	}
-	b := bar[0].Rect
-	if b.Width() != barW {
-		t.Fatalf("the seek bar is %v px wide, the code assumes %v", b.Width(), barW)
-	}
-	y := b.Center().Y
+	y := by + bh/2
 
-	a.Click(b.X0+barW/2, y)
-	if !a.HasText("1:51") { // half of 3:42
-		t.Error("clicking the middle of the bar did not seek to 1:51")
-	}
-	if w := fill(a).Rect.Width(); w < barW/2-1 || w > barW/2+1 {
+	clickAt(a, bx+barW/2, y)
+	a.ExpectText("1:51") // half of 3:42
+	if w := fillWidth(a); w < barW/2-1 || w > barW/2+1 {
 		t.Errorf("fill is %v px after seeking to the middle", w)
 	}
 
 	// Dragging: press at a quarter, release at three quarters.
-	a.Drag(gfx.Point{X: b.X0 + barW/4, Y: y}, gfx.Point{X: b.X0 + barW*3/4, Y: y}, 8)
-	if !a.HasText("2:46") { // three quarters of 222 s
-		t.Errorf("dragging to 75%% did not seek to 2:46 (fill %v)", fill(a).Rect.Width())
-	}
+	dragBetween(a, bx+barW/4, y, bx+barW*3/4, y, 8)
+	a.ExpectText("2:46") // three quarters of 222 s
 	// Dragging beyond the ends clamps.
-	a.Drag(gfx.Point{X: b.X0 + 100, Y: y}, gfx.Point{X: b.X0 - 200, Y: y}, 6)
-	if !a.HasText("0:00") {
-		t.Error("dragging past the left end did not clamp to 0:00")
-	}
+	dragBetween(a, bx+100, y, bx-200, y, 6)
+	a.ExpectText("0:00")
 	// The thumb is hidden until hover (opacity), the pointer cursor shows.
-	a.Move(b.X0+10, y)
-	if got := a.Window.Cursor(); got.String() == "default" {
+	a.MouseMove(bx+10, y)
+	if got := a.Cursor(); got == "default" {
 		t.Errorf("cursor over the bar is %v", got)
 	}
 }
 
 func TestTrackEndsAndPlaysNext(t *testing.T) {
 	fast(t, 5*time.Millisecond, 400) // 2 s of music per tick
-	a := exampletest.Open(t, Player, windowW, windowH)
-	if !pump(a, 5*time.Second, func() bool { return title(a) == "Paper Planes" }) {
-		t.Fatalf("still on %q after the first track should have ended", title(a))
-	}
+	a := mount(t, windowW, windowH, Player)
+	titleIs(a, "Paper Planes")
 }
 
 // TestClockStopsOnUnmount checks that the goroutine ends with the player.
@@ -232,13 +210,11 @@ func TestTrackEndsAndPlaysNext(t *testing.T) {
 func TestClockStopsOnUnmount(t *testing.T) {
 	fast(t, 5*time.Millisecond, 1)
 	before := clocks()
-	a := exampletest.Open(t, Player, windowW, windowH)
-	a.Frame()
-	a.Frame() // passive effects run after a frame is presented
+	a := mount(t, windowW, windowH, Player) // mounting runs the passive effects
 	if clocks() <= before {
 		t.Fatal("the clock goroutine did not start")
 	}
-	a.Tree().Unmount()
+	a.Close()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) && clocks() > before {
 		time.Sleep(5 * time.Millisecond)

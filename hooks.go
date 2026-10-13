@@ -436,5 +436,5 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool) Node {
 //
 // Functions posted before [Run] starts run once its window is up. Headless
 // trees (tests, snapshots) do not run posted functions unless they receive
-// them (telatest will); until then they wait, in order.
+// them (telatest.Mount does); until then they wait, in order.
 func Post(fn func()) { core.Post(fn) }

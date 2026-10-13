@@ -77,6 +77,12 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   hidden, checked, pressed, selected, expanded, disabled, level, value
   now/min/max/text); unknown roles panic in dev mode with a suggestion. A
   semantics tree with implicit roles and accessible names.
+- `telatest`, the public package to test UIs without a window: `Mount`,
+  role/text/class locators with strictness and suggestions, real pointer
+  and key input (`Click`, `Hover`, `Drag`, `Scroll`, `Press`, `Type`), a
+  controllable clock, auto-waiting expectations (`ExpectText`,
+  `ExpectRole`, `ExpectAria`…), goldens and screenshots; `telatest.Render`,
+  `AriaSnapshot` and `LayoutJSON` are a public headless entry point.
 - Examples `dashboard`, `pricing`, `settings`, `player` and `board`: full
   screens in the shadcn/ui zinc style with dark mode, goldens and
   interaction tests (switches and `disabled:` states, a progress bar driven
@@ -88,6 +94,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 - `tela inspect` prints a Playwright-style aria snapshot (YAML) by default;
   `--layout` prints the JSON layout tree.
+- `tela snapshot` and `tela inspect` work on any module that requires Tela,
+  not only inside the Tela module (`Scene` packages still need it).
 - **Breaking:** `tela.UseState` returns a `tela.Setter[T]` instead of
   `func(T)`. Write `setCount.Set(v)` or
   `setCount.Update(func(n int) int { return n + 1 })`, or use

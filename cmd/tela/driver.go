@@ -17,14 +17,19 @@ import (
 	"text/template"
 )
 
-// How the commands run a package. internal/ packages cannot be imported from
-// outside the module, and a package main cannot be imported at all, so
+// How the commands run a package. A package main cannot be imported, so
 // instead of building a separate main, `go test -overlay` adds a _test.go
 // file to the target package. The file is generated for the contract the
 // package implements (Previews, Preview or Scene), runs inside the package
 // with access to its declarations, and writes its result to a file whose
 // path arrives in an environment variable. The overlay means nothing is
 // written into the package's directory.
+//
+// Screens are rendered through the public telatest package (Render,
+// AriaSnapshot, LayoutJSON), so the commands work on any module that
+// requires github.com/kuronosu/tela (ADR-059, which lifts the limitation
+// of ADR-047). Only the phase-1 Scene contract still imports tela's
+// internal packages, and so only works inside the tela module.
 
 // mode is what the generated test does.
 type mode string
@@ -364,54 +369,54 @@ var generatedTemplate = template.Must(template.New("run").Parse(`// Code generat
 package {{.Package}}
 
 import (
-	telajson "encoding/json"
 	telafmt "fmt"
-	telaimage "image"
-	telapng "image/png"
 	telaos "os"
-	telasort "sort"
 	telastrconv "strconv"
-	telastrings "strings"
 	telatesting "testing"
 
-{{- if not .Scene}}
-	telacore "github.com/kuronosu/tela/internal/core"
-{{- end}}
+{{- if .Scene}}
+	telaimage "image"
+	telapng "image/png"
+
 	telagfx "github.com/kuronosu/tela/internal/gfx"
 	telaraster "github.com/kuronosu/tela/internal/gfx/raster"
 	telaplatform "github.com/kuronosu/tela/internal/platform"
-)
+{{- else}}
+	telajson "encoding/json"
+	telapng "image/png"
+	telasort "sort"
+	telastrings "strings"
 
+	telatela "github.com/kuronosu/tela"
+	telatest "github.com/kuronosu/tela/telatest"
+{{- end}}
+)
+{{if not .Scene}}
 var (
-	_ = telajson.Marshal
-	_ = telafmt.Sprint
-	_ = telaimage.Rect
-	_ = telaraster.Clear
 	_ = telasort.Strings
 	_ = telastrings.Join
-	_ = telagfx.White
 )
-
+{{end}}
 {{if eq .Kind "Preview" -}}
 // The contract: func Preview() tela.Node.
-var telaPreview func() telacore.Node = Preview
+var telaPreview func() telatela.Node = Preview
 
 // telaBuild returns the root to render and the info about the previews.
-func telaBuild(want string) (telacore.Node, string, []string, error) {
-	return telacore.Component(telaPreview), "", nil, nil
+func telaBuild(want string) (telatela.Node, string, []string, error) {
+	return telatela.C(telaPreview), "", nil, nil
 }
 {{else if eq .Kind "Previews" -}}
 // The contract: var Previews = tela.Previews{...}, a map[string]func() tela.Node.
-var telaPreviews map[string]func() telacore.Node = Previews
+var telaPreviews map[string]func() telatela.Node = Previews
 
-func telaBuild(want string) (telacore.Node, string, []string, error) {
+func telaBuild(want string) (telatela.Node, string, []string, error) {
 	names := make([]string, 0, len(telaPreviews))
 	for name := range telaPreviews {
 		names = append(names, name)
 	}
 	telasort.Strings(names)
 	if len(names) == 0 {
-		return telacore.Node{}, "", nil, telafmt.Errorf("Previews is empty; add at least one screen: tela.Previews{\"Name\": func() tela.Node { ... }}")
+		return telatela.Node{}, "", nil, telafmt.Errorf("Previews is empty; add at least one screen: tela.Previews{\"Name\": func() tela.Node { ... }}")
 	}
 	name := want
 	if name == "" {
@@ -419,12 +424,12 @@ func telaBuild(want string) (telacore.Node, string, []string, error) {
 	}
 	fn, ok := telaPreviews[name]
 	if !ok {
-		return telacore.Node{}, "", names, telafmt.Errorf("unknown preview %q; the package defines: %s", name, telastrings.Join(names, ", "))
+		return telatela.Node{}, "", names, telafmt.Errorf("unknown preview %q; the package defines: %s", name, telastrings.Join(names, ", "))
 	}
 	if fn == nil {
-		return telacore.Node{}, "", names, telafmt.Errorf("preview %q is nil; give it a func() tela.Node", name)
+		return telatela.Node{}, "", names, telafmt.Errorf("preview %q is nil; give it a func() tela.Node", name)
 	}
-	return telacore.Component(fn), name, names, nil
+	return telatela.C(fn), name, names, nil
 }
 {{else -}}
 // The phase-1 contract: func Scene(w, h float32) *gfx.DisplayList.
@@ -454,15 +459,15 @@ func TestTelaRun(t *telatesting.T) {
 	}
 
 	w, h, scale := num({{printf "%q" .Env.W}}), num({{printf "%q" .Env.H}}), num({{printf "%q" .Env.Scale}})
+	dark := getenv({{printf "%q" .Env.Dark}}) == "true"
+	_ = dark
+
+{{if .Scene}}
 	size := telaplatform.Size{W: float32(w), H: float32(h)}
 	phys := telaplatform.PhysicalSize(size, scale)
 	if phys.X <= 0 || phys.Y <= 0 {
 		t.Fatalf("empty image: %vx%v at scale %v", w, h, scale)
 	}
-	dark := getenv({{printf "%q" .Env.Dark}}) == "true"
-	_ = dark
-
-{{if .Scene}}
 	img := telaimage.NewRGBA(telaimage.Rect(0, 0, phys.X, phys.Y))
 	telaraster.Clear(img, telaimage.Rectangle{}, telagfx.White)
 	telaraster.Render(img, telaScene(size.W, size.H), telaraster.Options{Scale: float32(scale)})
@@ -481,35 +486,33 @@ func TestTelaRun(t *telatesting.T) {
 		t.Fatal(err)
 	}
 	write({{printf "%q" .Env.Info}}, info)
-	cfg := telacore.Config{Dark: dark}
+	opts := []telatest.Option{telatest.Size(float32(w), float32(h)), telatest.Scale(scale)}
+	if dark {
+		opts = append(opts, telatest.Dark())
+	}
 
 	switch getenv({{printf "%q" .Env.Mode}}) {
 	case {{printf "%q" "snapshot"}}:
-		_, img := telacore.Render(root, telacore.RenderOptions{Config: cfg, Width: size.W, Height: size.H, Scale: float32(scale)})
+		img, err := telatest.Render(root, opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
 		var buf telaBuffer
 		if err := telapng.Encode(&buf, img); err != nil {
 			t.Fatal(err)
 		}
 		write({{printf "%q" .Env.Out}}, buf.b)
 	case {{printf "%q" "inspect"}}:
-		tree := telacore.NewTree(cfg)
-		tree.SetViewport(telagfx.Size{W: size.W, H: size.H})
-		tree.Mount(root)
-		tree.Frame()
-		var buf telaBuffer
-		enc := telajson.NewEncoder(&buf)
-		enc.SetEscapeHTML(false)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(tree.Inspect()); err != nil {
+		js, err := telatest.LayoutJSON(root, opts...)
+		if err != nil {
 			t.Fatal(err)
 		}
-		write({{printf "%q" .Env.Out}}, buf.b)
+		write({{printf "%q" .Env.Out}}, js)
 	case {{printf "%q" "aria"}}:
-		tree := telacore.NewTree(cfg)
-		tree.SetViewport(telagfx.Size{W: size.W, H: size.H})
-		tree.Mount(root)
-		tree.Frame()
-		yaml := tree.AriaSnapshot()
+		yaml, err := telatest.AriaSnapshot(root, opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if yaml != "" {
 			yaml += "\n"
 		}
