@@ -424,3 +424,23 @@ func TestDragEager(t *testing.T) {
 		t.Errorf("update %+v", upds[0])
 	}
 }
+
+// TestArenaEagerWinnerWithdraws covers an eager winner that rejects itself
+// before the arena closes: it must not be accepted at Close, and the
+// remaining members decide as if it had never accepted.
+func TestArenaEagerWinnerWithdraws(t *testing.T) {
+	var log []string
+	var a Arena
+	a.Add(1, &member{"a", &log})
+	eb := a.Add(1, &member{"b", &log})
+	a.Add(1, &member{"c", &log})
+	eb.Resolve(Accepted) // eager while open
+	eb.Resolve(Rejected) // then withdraws
+	a.Close(1)
+	if got := strings.Join(log, ","); got != "b reject" {
+		t.Errorf("log %q, want only b's reject: a and c stay undecided", got)
+	}
+	if !a.Pending(1) {
+		t.Error("the arena resolved with two members left and no winner")
+	}
+}

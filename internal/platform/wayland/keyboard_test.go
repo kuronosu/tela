@@ -492,3 +492,27 @@ func TestKeyboardCloseFocusedWindow(t *testing.T) {
 		}
 	})
 }
+
+// TestReadKeymapFromPipe covers a keymap fd that cannot be mapped: a pipe,
+// read until EOF in several chunks.
+func TestReadKeymapFromPipe(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	want := []byte(strings.Repeat("xkb_keymap { };\n", 1000)) // > a pipe chunk
+	go func() {
+		for i := 0; i < len(want); i += 4000 {
+			w.Write(want[i:min(i+4000, len(want))])
+		}
+		w.Close()
+	}()
+	got, err := readKeymap(int(r.Fd()), uint32(len(want)))
+	if err != nil {
+		t.Fatalf("readKeymap from a pipe: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("read %d bytes, want %d", len(got), len(want))
+	}
+}

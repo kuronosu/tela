@@ -316,8 +316,13 @@ func (t *Tree) ApplyUpdates() bool {
 
 // posts routes Post to the Tree of the running app.
 var posts struct {
-	mu      sync.Mutex
-	target  *Tree
+	mu     sync.Mutex
+	target *Tree
+	// stack holds the receivers in the order they started receiving; the
+	// last one is the target. Stopping a receiver hands posts back to
+	// the previous one still receiving (a test that mounts an app while
+	// another is alive).
+	stack   []*Tree
 	pending []func()
 }
 
@@ -328,6 +333,8 @@ var posts struct {
 // window's tree receive them). Until one does (before Run starts, or in
 // headless trees and tests that do not call ReceivePosts), the functions
 // are kept in order and handed to the next Tree that receives posts.
+// Post is process-wide: when several Trees receive posts at once (tests
+// that mount apps in parallel), the most recent one runs them.
 func Post(fn func()) {
 	if fn == nil {
 		panic("tela: Post(nil): pass the function to run on the UI thread")
@@ -344,11 +351,12 @@ func Post(fn func()) {
 // ReceivePosts makes t the Tree that runs the functions given to Post: in
 // ApplyUpdates (on a WakeEvent or at the start of a Frame), in order with
 // the state updates. The functions posted before are queued now. stop
-// ends it (if t still receives posts); later posts wait for the next
-// receiver.
+// ends it: posts go back to the previous Tree still receiving them, or
+// wait for the next receiver if there is none.
 func (t *Tree) ReceivePosts() (stop func()) {
 	posts.mu.Lock()
 	defer posts.mu.Unlock()
+	posts.stack = append(posts.stack, t)
 	posts.target = t
 	if len(posts.pending) > 0 {
 		pending := posts.pending
@@ -363,11 +371,23 @@ func (t *Tree) ReceivePosts() (stop func()) {
 			wake()
 		}
 	}
+	stopped := false
 	return func() {
 		posts.mu.Lock()
 		defer posts.mu.Unlock()
-		if posts.target == t {
-			posts.target = nil
+		if stopped {
+			return
+		}
+		stopped = true
+		for i := len(posts.stack) - 1; i >= 0; i-- {
+			if posts.stack[i] == t {
+				posts.stack = append(posts.stack[:i], posts.stack[i+1:]...)
+				break
+			}
+		}
+		posts.target = nil
+		if n := len(posts.stack); n > 0 {
+			posts.target = posts.stack[n-1]
 		}
 	}
 }

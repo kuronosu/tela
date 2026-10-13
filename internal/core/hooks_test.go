@@ -708,3 +708,28 @@ func TestIsAnonymous(t *testing.T) {
 }
 
 func nameOf(pc uintptr) string { return (&compDesc{typ: pc}).name() }
+
+// TestPostReceiversStack covers two trees receiving posts at once (a test
+// that mounts an app while another is alive): the newest runs them, and
+// when it stops the older one receives them again instead of the posts
+// waiting forever.
+func TestPostReceiversStack(t *testing.T) {
+	a, b := NewTree(Config{}), NewTree(Config{})
+	stopA := a.ReceivePosts()
+	defer stopA()
+	stopB := b.ReceivePosts()
+	var ran []string
+	Post(func() { ran = append(ran, "first") })
+	b.ApplyUpdates()
+	a.ApplyUpdates()
+	if len(ran) != 1 {
+		t.Fatalf("ran %v, want the first post run by the newest receiver", ran)
+	}
+	stopB()
+	stopB() // stopping twice is harmless
+	Post(func() { ran = append(ran, "second") })
+	a.ApplyUpdates()
+	if len(ran) != 2 || ran[1] != "second" {
+		t.Errorf("ran %v after the newest receiver stopped, want the older one to run it", ran)
+	}
+}

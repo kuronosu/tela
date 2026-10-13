@@ -148,6 +148,11 @@ func (a *Arena) resolve(p PointerID, m Member, d Disposition) {
 	}
 	if d == Rejected {
 		st.members = append(st.members[:i], st.members[i+1:]...)
+		if st.eager == m {
+			// An eager winner that withdraws before Close no longer
+			// wins (Flutter keeps it and would accept it at Close).
+			st.eager = nil
+		}
 		m.RejectGesture(p)
 		if !st.open {
 			a.tryResolve(p, st)

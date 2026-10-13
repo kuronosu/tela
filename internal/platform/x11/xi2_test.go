@@ -121,9 +121,13 @@ func buttonClass() []byte {
 func deviceChanged(source uint16, classes ...[]byte) xgb.RawEvent {
 	body := bytes.Join(classes, nil)
 	e := genericEvent(xiDeviceChanged, 32+len(body))
-	le.PutUint16(e[12:], uint16(len(classes)))
-	le.PutUint16(e[14:], source)
-	e[16] = 1 // XISlaveSwitch
+	// xXIDeviceChangedEvent (XI2proto.h): time at 12, num_classes at 16,
+	// sourceid at 18, reason at 20. A non-zero time catches decoders that
+	// read the class count or the source from the time field.
+	le.PutUint32(e[12:], 0xdeadbeef)
+	le.PutUint16(e[16:], uint16(len(classes)))
+	le.PutUint16(e[18:], source)
+	e[20] = 1 // XISlaveSwitch
 	copy(e[32:], body)
 	return e
 }

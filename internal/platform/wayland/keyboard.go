@@ -136,11 +136,22 @@ func readKeymap(fd int, size uint32) ([]byte, error) {
 	}
 	m, err := unix.Mmap(fd, 0, int(size), unix.PROT_READ, unix.MAP_PRIVATE)
 	if err != nil {
-		// Not mappable (a pipe in some test harnesses): read it.
+		// Not mappable (a pipe in some test harnesses): read it until
+		// size bytes or EOF. pread would fail on a pipe (ESPIPE).
 		buf := make([]byte, size)
-		n, rerr := unix.Pread(fd, buf, 0)
-		if rerr != nil {
-			return nil, fmt.Errorf("cannot map or read the keymap: %w", err)
+		n := 0
+		for n < len(buf) {
+			r, rerr := unix.Read(fd, buf[n:])
+			if rerr == unix.EINTR {
+				continue
+			}
+			if rerr != nil {
+				return nil, fmt.Errorf("cannot map (%v) or read the keymap: %w", err, rerr)
+			}
+			if r == 0 {
+				break // EOF: the keymap is shorter than announced
+			}
+			n += r
 		}
 		return buf[:n], nil
 	}

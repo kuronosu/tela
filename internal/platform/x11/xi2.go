@@ -326,14 +326,21 @@ type xiValuator struct {
 }
 
 // xiButtons decodes an XI2 button mask (bit n = button n held).
+// xiButtonBits maps the X button numbers of an XI2 button mask to Tela's
+// buttons (wheel buttons 4-7 are not held buttons).
+var xiButtonBits = [...]struct {
+	n   int
+	btn platform.PointerButton
+}{
+	{1, platform.ButtonPrimary}, {2, platform.ButtonMiddle}, {3, platform.ButtonSecondary},
+	{8, platform.ButtonBack}, {9, platform.ButtonForward},
+}
+
 func xiButtons(mask []byte) platform.Buttons {
 	var held platform.Buttons
-	for n, btn := range map[int]platform.PointerButton{
-		1: platform.ButtonPrimary, 2: platform.ButtonMiddle, 3: platform.ButtonSecondary,
-		8: platform.ButtonBack, 9: platform.ButtonForward,
-	} {
-		if n/8 < len(mask) && mask[n/8]&(1<<(n%8)) != 0 {
-			held |= btn.Mask()
+	for _, b := range xiButtonBits {
+		if b.n/8 < len(mask) && mask[b.n/8]&(1<<(b.n%8)) != 0 {
+			held |= b.btn.Mask()
 		}
 	}
 	return held
@@ -420,11 +427,12 @@ func (b *Backend) xiEvent(raw []byte) {
 			b.ptrLeave(p, mode, detail)
 		}
 	case xiDeviceChanged:
-		// Bytes 12-13 num_classes, 14-15 sourceid; the classes follow
-		// the 32-byte header and describe the source device.
-		src := le.Uint16(raw[14:])
+		// xXIDeviceChangedEvent: bytes 12-15 time, 16-17 num_classes,
+		// 18-19 sourceid, 20 reason; the classes follow the 32-byte
+		// header and describe the source device.
+		src := le.Uint16(raw[18:])
 		if d := b.xi.devices[src]; d != nil {
-			if axes, _, ok := parseXIClasses(raw[32:], int(le.Uint16(raw[12:]))); ok {
+			if axes, _, ok := parseXIClasses(raw[32:], int(le.Uint16(raw[16:]))); ok {
 				d.axes = axes
 			}
 		}
