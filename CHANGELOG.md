@@ -15,6 +15,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Added
 
 - `examples/hello`: a static headline screen, the hero image of the README.
+- Windows backend (`win32`): windows, per-monitor DPI, mouse, wheel and cursors; `tela.Run` picks it on Windows (`TELA_BACKEND=win32|headless`). Keyboard and clipboard are not wired yet.
+- Wayland clipboard (`wl_data_device`), used by the text inputs to come.
 - `LICENSE`: BSD 3-Clause.
 
 ## [0.4.0] - 2026-10-13
