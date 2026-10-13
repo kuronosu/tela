@@ -243,6 +243,10 @@ const (
 	evDrag
 	evDragEnd
 	evLongPress
+	evKeyDown
+	evKeyUp
+	evFocus
+	evBlur
 	numEventKinds
 )
 
@@ -266,6 +270,10 @@ var eventNames = [numEventKinds]string{
 	evDrag:          "drag",
 	evDragEnd:       "dragend",
 	evLongPress:     "longpress",
+	evKeyDown:       "keydown",
+	evKeyUp:         "keyup",
+	evFocus:         "focus",
+	evBlur:          "blur",
 }
 
 func (k eventKind) String() string {
@@ -290,6 +298,10 @@ func (k eventKind) handlerType() string {
 		return "func(tela.MouseEvent)"
 	case k >= evDragStart && k <= evDragEnd:
 		return "func(tela.DragEvent)"
+	case k == evKeyDown || k == evKeyUp:
+		return "func(tela.KeyboardEvent)"
+	case k == evFocus || k == evBlur:
+		return "func(tela.FocusEvent)"
 	}
 	return "func(tela.PointerEvent)"
 }
@@ -302,6 +314,12 @@ func (k eventKind) checkHandler(h any) bool {
 		return ok && f != nil
 	case "func(tela.DragEvent)":
 		f, ok := h.(func(DragEvent))
+		return ok && f != nil
+	case "func(tela.KeyboardEvent)":
+		f, ok := h.(func(KeyboardEvent))
+		return ok && f != nil
+	case "func(tela.FocusEvent)":
+		f, ok := h.(func(FocusEvent))
 		return ok && f != nil
 	}
 	f, ok := h.(func(PointerEvent))
@@ -333,7 +351,9 @@ type EventProp struct {
 // func(MouseEvent)), "pointerdown", "pointermove", "pointerup",
 // "pointercancel", "pointerenter", "pointerleave", "longpress"
 // (func(PointerEvent)), "dragstart", "drag" and "dragend"
-// (func(DragEvent)). It panics on another name or handler type.
+// (func(DragEvent)), "keydown" and "keyup" (func(KeyboardEvent)), "focus"
+// and "blur" (func(FocusEvent)). It panics on another name or handler
+// type.
 func On(event string, handler any) Prop {
 	k := eventKindOf(event)
 	if k == 0 {
@@ -351,9 +371,10 @@ func On(event string, handler any) Prop {
 // Disabled disables a primitive (any element, like a disabled form
 // control): no pointer handler runs on it or on its descendants, and
 // events from its descendants do not reach it; its ancestors still
-// receive them. The element does not become :active, and its classes'
-// disabled: (and enabled:) variants, and the group-disabled: and
-// peer-disabled: variants of others, apply.
+// receive them. The element does not become :active, it and its
+// descendants are not focusable (a focused one is blurred), and its
+// classes' disabled: (and enabled:) variants, and the group-disabled:
+// and peer-disabled: variants of others, apply.
 func Disabled(disabled bool) Prop {
 	return Prop{name: "Disabled", apply: func(d *desc) { d.disabled = disabled }}
 }

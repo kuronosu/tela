@@ -129,6 +129,8 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	t := NewTree(cfg)
 	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog)}
 	t.SetWake(b.Wake)
+	// The window has keyboard focus from its first FocusEvent on.
+	t.SetWindowFocused(false)
 	t.Mount(opts.Root)
 	// The first frame follows the window's first ConfigureEvent.
 	t.SetRequestFrame(win.RequestFrame)
@@ -177,6 +179,11 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		h.tree.HandlePointer(e)
 		h.updateCursor()
 		h.armTimer()
+	case platform.KeyEvent:
+		h.tree.HandleKey(e)
+		h.updateCursor()
+	case platform.FocusEvent:
+		h.tree.SetWindowFocused(e.Focused)
 	case platform.CloseRequestedEvent:
 		h.win.Close()
 		h.backend.Quit()

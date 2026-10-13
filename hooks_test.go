@@ -117,19 +117,29 @@ func TestEventCallbacksDoNotAllocate(t *testing.T) {
 	var m tela.Callback[func(tela.MouseEvent)]
 	var p tela.Callback[func(tela.PointerEvent)]
 	var d tela.Callback[func(tela.DragEvent)]
+	var k tela.Callback[func(tela.KeyboardEvent)]
+	var f tela.Callback[func(tela.FocusEvent)]
 	sum := float32(0)
 	comp := func() tela.Node {
 		m = tela.UseCallback(func(e tela.MouseEvent) { sum += e.X })
 		p = tela.UseCallback(func(e tela.PointerEvent) { sum += e.X })
 		d = tela.UseCallback(func(e tela.DragEvent) { sum += e.DeltaX })
+		k = tela.UseCallback(func(e tela.KeyboardEvent) {
+			if e.Key == tela.KeyEnter {
+				sum++
+			}
+		})
+		f = tela.UseCallback(func(tela.FocusEvent) { sum++ })
 		return div()
 	}
 	mount(t, tela.C(comp), nil)
-	fm, fp, fd := m.Fn(), p.Fn(), d.Fn()
+	fm, fp, fd, fk, ff := m.Fn(), p.Fn(), d.Fn(), k.Fn(), f.Fn()
 	allocs := testing.AllocsPerRun(100, func() {
 		fm(tela.MouseEvent{X: 1})
 		fp(tela.PointerEvent{X: 1})
 		fd(tela.DragEvent{DeltaX: 1})
+		fk(tela.KeyboardEvent{Key: "Enter"})
+		ff(tela.FocusEvent{})
 	})
 	if allocs != 0 {
 		t.Errorf("%v allocations per call of the forwarders", allocs)

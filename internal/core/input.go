@@ -241,6 +241,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		if ps.key.kind != platform.PointerMouse {
 			ps.capture = target
 		}
+		t.noteMouse()
 		st := fire(t, evPointerDown, target, t.pointerEvent(ps, e.Button), true)
 		ps.noMouse = st.defaultPrevented()
 		t.flushDiscrete()
@@ -250,9 +251,16 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 	if ps.primary {
 		ps.clickCount = t.in.clicks.Press(gesture.Kind(ps.key.kind), uint8(e.Button),
 			gesture.Point{X: ps.pos.X, Y: ps.pos.Y}, e.Time)
+		prevented := ps.noMouse
 		if !ps.noMouse {
-			fire(t, evMouseDown, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
+			st := fire(t, evMouseDown, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
+			prevented = st.defaultPrevented()
 			t.flushDiscrete()
+		}
+		// The default action of a primary mousedown moves the focus
+		// (focus.go); cancelling pointerdown or mousedown prevents it.
+		if prev == 0 && e.Button == platform.ButtonPrimary && !prevented {
+			t.mouseFocus(target)
 		}
 	}
 	if e.Button != platform.ButtonPrimary || ps.pressing {
@@ -337,6 +345,9 @@ func (t *Tree) endPress(ps *pointerState) {
 func (t *Tree) flushDiscrete() {
 	t.ApplyUpdates()
 	t.buildPhase()
+	if t.foc.auto != nil || len(t.foc.restores) > 0 {
+		t.focusWork()
+	}
 }
 
 // ---------------------------------------------------------------------
@@ -748,40 +759,61 @@ func (t *Tree) mouseEvent(ps *pointerState, button platform.PointerButton, count
 
 // event is the set of handler event types.
 type event interface {
-	MouseEvent | PointerEvent | DragEvent
+	MouseEvent | PointerEvent | DragEvent | KeyboardEvent | FocusEvent
 }
 
-// eventPtr gives fire access to an event's position and dispatch fields.
+// eventPtr gives fire access to an event's dispatch fields: prepare sets
+// the shared dispatch state and the fields that depend on the element
+// whose handlers run (the local position of pointer events).
 type eventPtr[E event] interface {
 	*E
-	prepare(st *eventState, local gfx.Point)
-	pos() gfx.Point
+	prepare(t *Tree, st *eventState, cur *Element)
 }
 
-func (e *MouseEvent) prepare(st *eventState, l gfx.Point)   { e.st, e.LocalX, e.LocalY = st, l.X, l.Y }
-func (e *PointerEvent) prepare(st *eventState, l gfx.Point) { e.st, e.LocalX, e.LocalY = st, l.X, l.Y }
-func (e *DragEvent) prepare(st *eventState, l gfx.Point)    { e.st, e.LocalX, e.LocalY = st, l.X, l.Y }
-func (e *MouseEvent) pos() gfx.Point                        { return gfx.Point{X: e.X, Y: e.Y} }
-func (e *PointerEvent) pos() gfx.Point                      { return gfx.Point{X: e.X, Y: e.Y} }
-func (e *DragEvent) pos() gfx.Point                         { return gfx.Point{X: e.X, Y: e.Y} }
+func (e *MouseEvent) prepare(t *Tree, st *eventState, cur *Element) {
+	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+}
+
+func (e *PointerEvent) prepare(t *Tree, st *eventState, cur *Element) {
+	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+}
+
+func (e *DragEvent) prepare(t *Tree, st *eventState, cur *Element) {
+	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+}
+
+func (e *KeyboardEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
+func (e *FocusEvent) prepare(_ *Tree, st *eventState, _ *Element)    { e.st = st }
 
 // fire runs the handlers of kind k for an event at target: bubbling from
 // target to the root until a handler stops it, or on target alone.
 // Disabled elements and their descendants are skipped. It returns the
 // dispatch state (whether a handler prevented the default).
 func fire[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bubbles bool) *eventState {
+	return dispatch[E, P](t, k, target, e, bubbles, true)
+}
+
+// dispatch is fire; skipInert false also runs the handlers of disabled
+// elements (the blur of an element that became disabled).
+func dispatch[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bubbles, skipInert bool) *eventState {
 	st := &eventState{}
 	if target == nil {
 		return st
 	}
-	inert := outermostDisabled(target)
+	var inert *Element
+	if skipInert {
+		inert = outermostDisabled(target)
+	}
 	for cur := target; cur != nil; cur = cur.styleParent() {
 		if inert != nil {
 			if cur == inert {
 				inert = nil
 			}
 		} else if cur.mounted && cur.node.d.evMask&k.mask() != 0 {
-			P(&e).prepare(st, t.localPoint(cur, P(&e).pos()))
+			P(&e).prepare(t, st, cur)
 			for i := range cur.node.d.events {
 				if ep := &cur.node.d.events[i]; ep.kind == k {
 					ep.Handler.(func(E))(e)

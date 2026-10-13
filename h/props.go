@@ -42,9 +42,10 @@ func Href(url string) tela.Prop { return core.Href(url) }
 
 // Disabled disables an element, like a disabled form control: no pointer
 // handler runs on it or on its descendants, and their events do not reach
-// it (its ancestors still receive them); it does not become active. Its
-// disabled: and enabled: variants apply, as do the group-disabled: and
-// peer-disabled: variants of others.
+// it (its ancestors still receive them); it does not become active, and
+// neither it nor its descendants can take the focus (a focused one loses
+// it). Its disabled: and enabled: variants apply, as do the
+// group-disabled: and peer-disabled: variants of others.
 //
 //	Button(Disabled(saving), Class("bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"),
 //	    OnClick(save), Text("Save"))

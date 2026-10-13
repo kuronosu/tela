@@ -6,7 +6,8 @@
 // (Div, Button, Text...) live in the companion package h, designed to be
 // dot-imported; this package holds the application ([App], [Run]), hooks
 // and component boundaries ([UseState], [C], [CP]...), events
-// ([MouseEvent], [PointerEvent], [DragEvent]), the typed
+// ([MouseEvent], [PointerEvent], [DragEvent], [KeyboardEvent] with the
+// [Key] and [Code] constants, [FocusEvent]), [ElementRef], the typed
 // style props for h.Style, colors, and the [Previews] that `tela
 // snapshot` and `tela inspect` render.
 //
@@ -69,6 +70,8 @@
 //     mutable box.
 //   - [CreateContext] and [UseContext] pass values down the tree.
 //   - [UseId] gives a stable unique ID.
+//   - [UseElementRef] gives an [ElementRef] to attach with h.Ref, to
+//     focus an element from handlers and effects.
 //   - [UseValue] holds an observable [Value] for what changes every
 //     frame: read in the component's body, a change builds it again; read
 //     inside a deferred style closure, a change only lays out or repaints
@@ -100,8 +103,9 @@
 //
 // [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
 // [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
-// [Value], [MouseEvent], [PointerEvent], [DragEvent], [MouseButton],
-// [MouseButtons] and [PointerKind] are aliases of types defined in Tela's
+// [Value], [ElementRef], [MouseEvent], [PointerEvent], [DragEvent],
+// [KeyboardEvent], [FocusEvent], [Key], [Code], [KeyLocation],
+// [MouseButton], [MouseButtons] and [PointerKind] are aliases of types defined in Tela's
 // internal packages (the packages cannot be imported, but their exported
 // fields and methods are part of the API shown here). Construct them with
 // the functions of this package rather than with composite literals where

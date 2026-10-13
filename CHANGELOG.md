@@ -46,7 +46,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `h.Disabled` and the `hover:`, `active:`, `disabled:`, `enabled:`,
   `group-*` and `peer-*` variants; only elements whose classes test a state
   are restyled. The window cursor follows `cursor-*` under the pointer.
-- The §1 Counter is interactive.
+- Keyboard events: `h.OnKeyDown`/`h.OnKeyUp` with `tela.KeyboardEvent`
+  (`Key`, `Code`, `Location`, `Repeat`, modifiers); `tela.Key`/`tela.Code`
+  constants for every W3C key and code.
+- Focus: `h.TabIndex`, `h.AutoFocus`, `h.OnFocus`/`h.OnBlur` (bubbling),
+  `tela.UseElementRef` + `h.Ref` with `Focus`/`Blur`/`Focused`; Tab and
+  Shift+Tab navigation, Enter/Space activate buttons, a click focuses.
+- `focus:`, `focus-visible:` (keyboard navigation, not clicks) and
+  `focus-within:` variants, with their `group-`/`peer-` forms.
+- The §1 Counter is interactive, by mouse and by keyboard.
 
 ### Changed
 

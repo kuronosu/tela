@@ -14,6 +14,12 @@ func init() {
 	core.RegisterForwarder(func(l *func(DragEvent)) func(DragEvent) {
 		return func(e DragEvent) { (*l)(e) }
 	})
+	core.RegisterForwarder(func(l *func(KeyboardEvent)) func(KeyboardEvent) {
+		return func(e KeyboardEvent) { (*l)(e) }
+	})
+	core.RegisterForwarder(func(l *func(FocusEvent)) func(FocusEvent) {
+		return func(e FocusEvent) { (*l)(e) }
+	})
 }
 
 // Setter sets the state of one [UseState] slot. It is a small comparable
@@ -48,6 +54,29 @@ type Callback[F any] = core.Callback[F]
 // Ref is a mutable box returned by [UseRef]: the same pointer on every
 // build. Changing Current does not rebuild.
 type Ref[T any] = core.Ref[T]
+
+// ElementRef is a handle on the element it is attached to with h.Ref,
+// returned by [UseElementRef]: the same comparable value on every build.
+// Its methods act on the element while it is mounted and do nothing (or
+// report false) otherwise; call them from event handlers and effects.
+//
+//   - Focus focuses the element, if it is focusable (a Button, or an
+//     element with h.TabIndex, not disabled or hidden).
+//   - Blur removes the focus from the element if it has it.
+//   - Focused reports whether the element has the focus of its window.
+//
+// For example, "/" focuses a search box:
+//
+//	search := tela.UseElementRef()
+//	return Div(OnKeyDown(func(e tela.KeyboardEvent) {
+//	        if e.Key == "/" && !search.Focused() {
+//	            e.PreventDefault()
+//	            search.Focus()
+//	        }
+//	    }),
+//	    Div(Ref(search), TabIndex(0), Class("rounded-md p-2 focus:ring-2"), Text("Search")),
+//	)
+type ElementRef = core.ElementRef
 
 // Context passes a value down the tree without props: see [CreateContext].
 type Context[T any] = core.Context[T]
@@ -209,6 +238,20 @@ func UseCallback[F any](fn F) Callback[F] { return core.UseCallback(fn) }
 //	renders := tela.UseRef(0)
 //	renders.Current++
 func UseRef[T any](initial T) *Ref[T] { return core.UseRef(initial) }
+
+// UseElementRef returns the [ElementRef] of this hook slot, the same on
+// every build. Attach it to an element with h.Ref, then act on the element
+// from handlers and effects (React's useRef with a DOM element):
+//
+//	func Search() tela.Node {
+//	    input := tela.UseElementRef()
+//	    tela.UseEffect(func() func() {
+//	        input.Focus()
+//	        return nil
+//	    }, nil)
+//	    return Div(Ref(input), TabIndex(0), Class("rounded-md p-2 focus:ring-2"), Text("Search"))
+//	}
+func UseElementRef() ElementRef { return core.UseElementRef() }
 
 // CreateContext returns a new context whose [UseContext] outside any
 // Provider returns def. Create contexts once, at package level.

@@ -45,9 +45,16 @@ type desc struct {
 	evMask  uint32 // the eventKinds of events (bit per kind)
 	// disabled is the Disabled prop (input.go).
 	disabled bool
-	src      image.Image // Img source (Src)
-	img      *gfx.Image  // Img source (SrcImage)
-	href     string      // A destination (Href)
+	// Focus props (focus.go): TabIndex (hasTab false: the kind's
+	// default), AutoFocus, an ElementRef and a focus scope.
+	tabIndex  int32
+	hasTab    bool
+	autoFocus bool
+	ref       *elemRef
+	scope     *scopeOpts
+	src       image.Image // Img source (Src)
+	img       *gfx.Image  // Img source (SrcImage)
+	href      string      // A destination (Href)
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings

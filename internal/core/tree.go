@@ -130,8 +130,9 @@ type Tree struct {
 	paintQ    []*Box
 	repaint   bool
 
-	// Pointer input (input.go).
-	in inputState
+	// Pointer input (input.go) and focus (focus.go).
+	in  inputState
+	foc focusState
 
 	lastDL *gfx.DisplayList
 	stats  Stats
@@ -153,6 +154,7 @@ func NewTree(cfg Config) *Tree {
 		viewport: gfx.Size{W: 800, H: 600},
 		scale:    1,
 	}
+	t.foc.window = true
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()
 	}
@@ -254,6 +256,7 @@ func (t *Tree) Unmount() {
 		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
 		buildMu.Unlock()
 	}
+	t.resetFocus()
 	t.dropEffects()
 }
 
@@ -343,10 +346,25 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	if t.changed || t.lastDL == nil {
 		t.buildPhase()
 		t.stylePhase()
+		if t.focusPending() {
+			// Focus fix-up, AutoFocus and scope restoration need the new
+			// styles; the states they change are styled now.
+			t.focusWork()
+			t.stylePhase()
+		}
 		t.boxPhase()
 		t.layoutPhase()
 	}
 	t.commitLayout()
+	if len(t.styleQ) > 0 || len(t.boxQ) > 0 {
+		// A layout effect moved the focus (ElementRef.Focus): style and
+		// lay out again before painting.
+		t.stylePhase()
+		t.fixFocus()
+		t.stylePhase()
+		t.boxPhase()
+		t.layoutPhase()
+	}
 	t.lastDL = t.paintPhase()
 	t.changed, t.repaint = false, false
 	return t.lastDL, true

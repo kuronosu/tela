@@ -46,7 +46,8 @@
 // Hooks keep their state in slots on the component Element being built,
 // by call order (ADR-040): UseState (UseStateSet, UseStateUpdate),
 // UseReducer, UseEffect, UseLayoutEffect, UseMemo, UseCallback, UseRef,
-// UseContext, UseId and UseValue. A function called directly from a
+// UseContext, UseId, UseValue and UseElementRef (focus.go). A function
+// called directly from a
 // component, not through Component, runs inside that component's build:
 // its hooks are the component's (a custom hook).
 //
@@ -143,8 +144,8 @@
 // nearest primitive ancestor. When the inherited properties change, the
 // children are restyled. Structural variants (first:, last:, only:, odd:,
 // even:) are evaluated against the primitive siblings; the interaction
-// variants (hover:, active:, disabled:, enabled: and their group-* and
-// peer-* forms) against the Elements' interaction state (input.go): a
+// variants (hover:, active:, focus:, focus-visible:, focus-within:,
+// disabled:, enabled: and their group-* and peer-* forms) against the Elements' interaction state (input.go): a
 // state change restyles only the elements whose classes test it. Unknown
 // classes are reported once per class string to Config.Log (stderr in dev
 // mode).
@@ -170,6 +171,17 @@
 // the cursor style under the mouse; Tree.NextDeadline and TickGestures
 // drive the long-press timeout on the backend clock.
 //
+// Tree.HandleKey turns platform key events into keydown and keyup events
+// (keyboard.go): they target the focused element and bubble, then run
+// their default actions (Tab navigation, Enter and Space on buttons).
+// The focus (focus.go) follows HTML: focusable elements (Button,
+// TabIndex), the sequential order, focus by pointer press, ElementRef,
+// AutoFocus, the fix-up of elements that stop being focusable, the
+// window's focus (SetWindowFocused), the focus:, focus-visible: (Chromium's
+// heuristic) and focus-within: states, and focus scopes reserved for
+// package aria. Focus work queued by a build (AutoFocus, scope
+// restoration, fix-up) runs in Frame after the style phase.
+//
 // # Pipeline
 //
 // Tree.Frame runs Build, Style, box structure, Layout, the layout effects
@@ -194,8 +206,9 @@
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent
 // runs Frame, rasterizes at the window scale into a reused framebuffer,
 // presents and runs the passive effects; PointerEvent goes to
-// HandlePointer, and the window's cursor follows Tree.Cursor (SetCursor
-// only on a change). While a press waits for a long-press timeout, the
+// HandlePointer, KeyEvent to HandleKey and FocusEvent to
+// SetWindowFocused (a Host starts with an unfocused window), and the
+// window's cursor follows Tree.Cursor (SetCursor only on a change). While a press waits for a long-press timeout, the
 // Host keeps one goroutine timer that calls Wake at the deadline (the
 // platform layer has no timer API); idle, it has none.
 // A tree requests a frame (Window.RequestFrame) only when something

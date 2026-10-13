@@ -75,3 +75,34 @@ func BenchmarkHoverFrame10k(b *testing.B) {
 	s1 := tr.Stats()
 	b.ReportMetric(float64(s1.Styles-s0.Styles)/float64(i), "restyles/op")
 }
+
+// buttonList is a list of rows with a button each: 4 primitives, 2 texts
+// and a component per row.
+func buttonList(rows int) Node {
+	row := func(i int) Node {
+		return div(Class("flex items-center gap-2 px-2 py-1"),
+			span(Class("w-10 text-slate-500"), Textf("%d", i)),
+			button(Class("grow focus-visible:ring-2"), Text(fmt.Sprintf("Item %d", i))),
+			div(Class("h-4 w-4 bg-sky-500")),
+		)
+	}
+	items := make([]int, rows)
+	for i := range items {
+		items[i] = i
+	}
+	return div(Class("flex flex-col"),
+		Map(items, func(i int) Node { return WithKey(ComponentProps(row, i), i) }))
+}
+
+// BenchmarkTab10k moves the focus with Tab through a list of 1,500 rows
+// with a button each (10,500 elements): the walk of the sequential order
+// and the focus change (no frame).
+func BenchmarkTab10k(b *testing.B) {
+	tr := newTestTree(b, 800, 600, buttonList(1500), nil)
+	tr.Frame()
+	tab := platform.KeyEvent{Action: platform.KeyPress, Code: platform.CodeTab, Key: platform.KeyTab}
+	b.ReportAllocs()
+	for b.Loop() {
+		tr.HandleKey(tab)
+	}
+}

@@ -60,6 +60,8 @@ type Element struct {
 	// group-* variants, so that a state change of a group finds them
 	// without walking unrelated subtrees (never cleared).
 	groupKids bool
+	// fscope is the focus scope of a primitive with FocusScope (focus.go).
+	fscope *focusScope
 
 	mounted    bool
 	needsBuild bool // a component whose state or context changed
@@ -415,6 +417,9 @@ func (t *Tree) update(el *Element, n Node) {
 		if old.disabled != d.disabled {
 			t.setState(el, style.StateDisabled, d.disabled)
 		}
+		if old.ref != d.ref || old.scope != d.scope || el.fscope != nil {
+			t.updateFocus(el, old)
+		}
 		if !slices.Equal(old.classes, d.classes) {
 			bx.classesDirty = true
 			t.markStyle(el)
@@ -483,6 +488,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.disabled {
 			el.istate = style.StateDisabled
 		}
+		if d.ref != nil || d.autoFocus || d.scope != nil {
+			t.mountFocus(el)
+		}
 		t.markStyle(el)
 		t.markBoxes(el)
 		if d.elem == style.KindImg {
@@ -513,6 +521,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 func (t *Tree) unmount(el *Element) {
 	el.mounted = false
 	t.stats.Unmounts++
+	if el.kind == elemPrimitive {
+		t.unmountFocus(el)
+	}
 	for _, h := range el.hooks {
 		if u, ok := h.(unmounter); ok {
 			u.unmount(t)
