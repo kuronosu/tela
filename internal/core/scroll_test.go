@@ -29,6 +29,7 @@ func newScrollHost(t *testing.T, root Node, w, h float32, cfg Config) *inputHarn
 	b.Drain(host)
 	x := &inputHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window)}
 	t.Cleanup(host.stopTimer)
+	t.Cleanup(func() { checkScrollSets(t, host.tree) })
 	return x
 }
 

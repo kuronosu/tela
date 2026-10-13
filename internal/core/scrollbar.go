@@ -1,6 +1,8 @@
 package core
 
 import (
+	"cmp"
+	"slices"
 	"time"
 
 	"github.com/kuronosu/tela/internal/gesture"
@@ -143,6 +145,7 @@ func (t *Tree) barActivity(s *scroller) {
 		return
 	}
 	b.active, b.activeAt = true, t.scr.now
+	t.barsActive(s)
 	if b.alpha != 1 {
 		b.alpha = 1
 		t.markPaint(s.box)
@@ -174,7 +177,7 @@ func (t *Tree) fadeBars(s *scroller, now time.Duration) {
 // fading (the Host's timer).
 func (t *Tree) tickScroll(now time.Duration) {
 	t.scr.now = max(t.scr.now, now)
-	for _, s := range t.scr.list {
+	for _, s := range t.scr.sets[setBars] {
 		if at, ok := s.bars.fadeAt(); ok && at <= t.scr.now {
 			t.requestRepaint()
 			return
@@ -189,7 +192,19 @@ func (t *Tree) hoverBars(ps *pointerState) {
 	if ps.key.kind == platform.PointerTouch {
 		return
 	}
-	for _, s := range t.scr.list {
+	// Only the containers on the pointer's hover chain can be near or
+	// over, and only those already near or over can stop being; the
+	// others keep no state. In list order.
+	st := &t.scr
+	buf := append(st.hoverBuf[:0], st.sets[setHover]...)
+	for _, el := range ps.over {
+		if el.kind == elemPrimitive && el.box != nil && el.box.scr != nil && el.box.scr.at[setAll] != 0 {
+			buf = append(buf, el.box.scr)
+		}
+	}
+	slices.SortFunc(buf, func(x, y *scroller) int { return cmp.Compare(x.seq, y.seq) })
+	buf = slices.Compact(buf)
+	for _, s := range buf {
 		var near, over, thumb [2]bool
 		if ps.inside && s.box.el != nil && t.hovered(ps, s.box.el) {
 			pos := toSpace(ps.pos, nil, s.box.space)
@@ -210,15 +225,23 @@ func (t *Tree) hoverBars(ps *pointerState) {
 		}
 		wasHeld := b.held()
 		b.near, b.over, b.thumb = near, over, thumb
+		if near != [2]bool{} || over != [2]bool{} || thumb != [2]bool{} {
+			st.add(setHover, s)
+		} else {
+			st.remove(setHover, s)
+		}
 		if b.held() && b.overlay {
 			if !b.active || b.alpha != 1 {
 				b.active, b.alpha = true, 1
+				t.barsActive(s)
 			}
 		} else if wasHeld && b.active {
 			b.activeAt = t.scr.now // the hold starts when the pointer leaves
 		}
 		t.markPaint(s.box)
 	}
+	clear(buf)
+	st.hoverBuf = buf[:0]
 }
 
 // hovered reports whether el is on the hover chain of ps.
@@ -268,6 +291,7 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 	s := bx.scr
 	*geo = [2]barGeom{}
 	s.bars.overlay = !p.t.classicBars(bx.pcs)
+	p.t.barsActive(s)
 	pr := g.padding.Rect
 	if pr.Empty() {
 		return

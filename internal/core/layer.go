@@ -221,7 +221,7 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	case full:
 		// The geometry holds: new interest rects, and every layer again.
 		for _, s := range t.scr.list {
-			if s.box.pcs != nil {
+			if s != nil && s.box.pcs != nil {
 				p.placeScroller(s.box, s)
 			}
 		}
@@ -553,7 +553,9 @@ func (t *Tree) ReferenceFrame(noCull bool) *gfx.DisplayList {
 	}
 	keep := make([]saved, len(t.scr.list))
 	for i, s := range t.scr.list {
-		keep[i] = saved{s.interest, s.recGen, s.geo}
+		if s != nil {
+			keep[i] = saved{s.interest, s.recGen, s.geo}
+		}
 	}
 	lay, paints, moved := t.lay, t.stats.Paints, t.scr.moved
 	t.lay = layerState{noCull: noCull, gen: lay.gen + 1}
@@ -563,7 +565,9 @@ func (t *Tree) ReferenceFrame(noCull bool) *gfx.DisplayList {
 	dl := t.composite()
 	t.lay, t.stats.Paints, t.scr.moved = lay, paints, moved
 	for i, s := range t.scr.list {
-		s.interest, s.recGen, s.geo = keep[i].interest, keep[i].recGen, keep[i].geo
+		if s != nil {
+			s.interest, s.recGen, s.geo = keep[i].interest, keep[i].recGen, keep[i].geo
+		}
 	}
 	return dl
 }

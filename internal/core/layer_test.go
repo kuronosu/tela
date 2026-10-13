@@ -434,6 +434,7 @@ func runScene(t *testing.T, name string, root func(*sceneState) Node, ops func(*
 					what = x.randomOp()
 				}
 				x.frame(what)
+				checkScrollSets(t, x.tree())
 			}
 			t.Logf("%d frames checked (%d skipped): %d full, %d shifted, %d partial", x.frames, x.skipped, x.full, x.shifted, x.partial)
 		})

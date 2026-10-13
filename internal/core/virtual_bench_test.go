@@ -86,7 +86,7 @@ func benchTree(b testing.TB, root Node) *Tree {
 func mainScroller(b testing.TB, tr *Tree) *scroller {
 	var best *scroller
 	for _, s := range tr.scr.list {
-		if best == nil || s.max.Y > best.max.Y {
+		if s != nil && (best == nil || s.max.Y > best.max.Y) {
 			best = s
 		}
 	}
@@ -244,6 +244,38 @@ func BenchmarkScrollP95Virtual100kEstimated(b *testing.B) {
 	benchP95(b, virtualPage(100_000, est48))
 }
 func BenchmarkScrollP95Plain10k(b *testing.B) { benchP95(b, plainPage(10_000)) }
+
+// BenchmarkPlainUnmount5kOf10k unmounts the last 5,000 rows of a plain
+// 10,000-row list (10,000 of its 20,000 truncate scroll containers) in one
+// frame: the frame of the rebuild, without the mount.
+//
+//	CGO_ENABLED=0 go test -run '^$' -bench PlainUnmount -benchtime 5x ./internal/core/
+func BenchmarkPlainUnmount5kOf10k(b *testing.B) {
+	var setN func(int)
+	page := func() Node {
+		n, set := UseStateSet(10_000)
+		setN = set
+		rows := make([]Node, n)
+		for i := range rows {
+			rows[i] = WithKey(personNode(i), i)
+		}
+		return div(Class("flex h-screen flex-col"), div(Class("flex-1 overflow-y-auto"), List(rows)))
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		b.StopTimer()
+		tr := benchTree(b, Component(page))
+		before := tr.scr.scrollers()
+		setN(5_000)
+		b.StartTimer()
+		tr.Frame()
+		b.StopTimer()
+		if after := tr.scr.scrollers(); after > before-9_000 {
+			b.Fatalf("%d scroll containers left of %d", after, before)
+		}
+		b.StartTimer()
+	}
+}
 
 // TestBenchPagesScroll keeps the benchmark pages honest: both lists are
 // 40 px rows that scroll, and the virtual one builds few of them.

@@ -1,7 +1,9 @@
 package core
 
 import (
+	"cmp"
 	"math"
+	"slices"
 	"time"
 
 	"github.com/kuronosu/tela/internal/fmath"
@@ -222,6 +224,11 @@ type scroller struct {
 	// Scrollbars (scrollbar.go).
 	bars barState
 	geo  [2]barGeom
+
+	// seq orders the scrollers by creation (scrollState.seq); at holds the
+	// index + 1 of s in each scroller set (0: not in it).
+	seq uint64
+	at  [numScrollSets]int32
 }
 
 // clamp returns p within [0, max].
@@ -255,8 +262,22 @@ func (s *scroller) stop() {
 
 // scrollState is the scrolling state of a Tree (UI thread).
 type scrollState struct {
-	// list holds the scroll containers (boxes with a scroller).
+	// list holds the scroll containers (boxes with a scroller) in creation
+	// order, with nil holes where scrollers were dropped (dropScroller):
+	// loops over it skip nil. Every overflow-hidden box is a scroll
+	// container (thousands in a long list of truncate rows), so the
+	// per-frame loops visit the small sets instead.
 	list []*scroller
+	// holes counts the nil entries of list.
+	holes int
+	// sets are the scroller sets other than list (see scrollSet), in no
+	// particular order; seq is the creation number of the last scroller.
+	sets [numScrollSets][]*scroller
+	seq  uint64
+	// eventAdds counts the scrollers added to setEvent (fireScrollEvents).
+	eventAdds uint64
+	// Scratch buffers of the loops that visit sets in creation order.
+	animBuf, eventBuf, hoverBuf []*scroller
 	// now is the latest time of the backend clock the tree saw.
 	now time.Duration
 	// classic and instant are Config.ClassicScrollbars and
@@ -294,6 +315,154 @@ type wheelLatch struct {
 type wheelSample struct {
 	at time.Duration
 	d  gfx.Point
+}
+
+// ---------------------------------------------------------------------
+// Scroller sets.
+
+// scrollSet names a set of scrollers. setAll is scrollState.list; the
+// others hold the few scrollers the per-frame loops (Animate, the
+// deadlines, OnScroll, the hover of the bars) must visit, so that a frame
+// does not visit every overflow-hidden box. Each scroller keeps its index
+// in every set, so adding and removing are O(1).
+type scrollSet uint8
+
+const (
+	setAll scrollSet = iota
+	// setMoving holds every scroller with an active animation or fling
+	// (scroller.animating): added when one starts, removed by the loops
+	// once none runs.
+	setMoving
+	// setBars holds every scroller whose overlay bars are active
+	// (bars.overlay && bars.active: shown, held or fading): added where
+	// either becomes true (barsActive), removed by the loops once not.
+	setBars
+	// setEvent holds exactly the scrollers with eventPending.
+	setEvent
+	// setHover holds exactly the scrollers whose bars a mouse or pen is
+	// near or over (bars.near, over or thumb).
+	setHover
+	numScrollSets
+)
+
+// add puts s in set k. A scroller that was dropped (not in list) joins no
+// set: the per-frame loops only ever visited the list.
+func (st *scrollState) add(k scrollSet, s *scroller) {
+	if s.at[k] != 0 || s.at[setAll] == 0 {
+		return
+	}
+	st.sets[k] = append(st.sets[k], s)
+	s.at[k] = int32(len(st.sets[k]))
+	if k == setEvent {
+		st.eventAdds++
+	}
+}
+
+// remove takes s out of set k (k != setAll), moving the last member into
+// its place.
+func (st *scrollState) remove(k scrollSet, s *scroller) {
+	i := int(s.at[k]) - 1
+	if i < 0 {
+		return
+	}
+	l := st.sets[k]
+	last := len(l) - 1
+	moved := l[last]
+	l[i] = moved
+	moved.at[k] = int32(i + 1)
+	l[last] = nil
+	st.sets[k] = l[:last]
+	s.at[k] = 0
+}
+
+// prune removes from set k the scrollers for which keep reports false.
+func (st *scrollState) prune(k scrollSet, keep func(*scroller) bool) {
+	for i := len(st.sets[k]) - 1; i >= 0; i-- {
+		// Backwards: a removal moves an already visited member here.
+		if s := st.sets[k][i]; !keep(s) {
+			st.remove(k, s)
+		}
+	}
+}
+
+// ordered returns the members of sets a and b (b may be setAll for none)
+// in buf, each once, in creation order: the order of the list, in which
+// the loops that now visit the sets visited every scroller.
+func (st *scrollState) ordered(buf []*scroller, a, b scrollSet) []*scroller {
+	buf = append(buf[:0], st.sets[a]...)
+	if b != setAll {
+		buf = append(buf, st.sets[b]...)
+	}
+	slices.SortFunc(buf, func(x, y *scroller) int { return cmp.Compare(x.seq, y.seq) })
+	return slices.Compact(buf)
+}
+
+// addScroller appends a new scroller to the list.
+func (st *scrollState) addScroller(s *scroller) {
+	st.seq++
+	s.seq = st.seq
+	st.list = append(st.list, s)
+	s.at[setAll] = int32(len(st.list))
+}
+
+// removeScroller takes s out of the list and every set. The list keeps
+// its order: s leaves a hole, the holes at its end are cut, and the list
+// is compacted when half of it is holes (amortized O(1)). It runs in the
+// style phase and on unmount, never inside a loop over the list.
+func (st *scrollState) removeScroller(s *scroller) {
+	for k := setAll + 1; k < numScrollSets; k++ {
+		st.remove(k, s)
+	}
+	i := int(s.at[setAll]) - 1
+	if i < 0 {
+		return
+	}
+	s.at[setAll] = 0
+	st.list[i] = nil
+	st.holes++
+	l := st.list
+	for len(l) > 0 && l[len(l)-1] == nil {
+		l = l[:len(l)-1]
+		st.holes--
+	}
+	if st.holes >= 32 && 2*st.holes >= len(l) {
+		n := 0
+		for _, x := range l {
+			if x != nil {
+				l[n] = x
+				n++
+				x.at[setAll] = int32(n)
+			}
+		}
+		clear(l[n:])
+		l = l[:n]
+		st.holes = 0
+	}
+	st.list = l
+}
+
+// scrollers returns the number of scroll containers.
+func (st *scrollState) scrollers() int { return len(st.list) - st.holes }
+
+// moving records that an animation or a fling of s started.
+func (s *scroller) moving() { s.box.tree.scr.add(setMoving, s) }
+
+// barsActive records that the overlay bars of s may have become active
+// (bars.active or bars.overlay set).
+func (t *Tree) barsActive(s *scroller) {
+	if s.bars.overlay && s.bars.active {
+		t.scr.add(setBars, s)
+	}
+}
+
+// barsLive reports whether s belongs in setBars.
+func barsLive(s *scroller) bool { return s.bars.overlay && s.bars.active }
+
+// pendEvent records an offset change of s: OnScroll fires at the next
+// frame.
+func (t *Tree) pendEvent(s *scroller) {
+	s.eventPending = true
+	t.scr.add(setEvent, s)
 }
 
 // ---------------------------------------------------------------------
@@ -421,6 +590,7 @@ func (s *scroller) startAnim(i int, to float32, dur time.Duration, now time.Dura
 	nv := float64(float64(v)*dur.Seconds()) / float64(to-from)
 	nv = min(max(nv, -1000), 1000)
 	*a = axisAnim{active: true, from: from, to: to, start: now, dur: dur, y1: float64(easeX1 * nv)}
+	s.moving()
 }
 
 // axisFling is a kinetic fling of one axis (GTK 4's GtkKineticScrolling
@@ -454,6 +624,7 @@ func (s *scroller) startFling(v gfx.Point, now time.Duration) {
 		}
 		s.anim[i] = axisAnim{}
 		s.fling[i] = axisFling{active: true, from: axis(s.pos, i), v0: vi, start: now}
+		s.moving()
 	}
 }
 
@@ -576,7 +747,7 @@ func (t *Tree) updateScroller(bx *Box) {
 	if s == nil {
 		s = &scroller{box: bx}
 		bx.scr = s
-		t.scr.list = append(t.scr.list, s)
+		t.scr.addScroller(s)
 	}
 	x, y := overflowAxes(cs)
 	s.userX, s.userY = userAxis(x), userAxis(y)
@@ -589,15 +760,7 @@ func (t *Tree) dropScroller(bx *Box) {
 		return
 	}
 	bx.scr = nil
-	l := t.scr.list
-	for i, x := range l {
-		if x == s {
-			copy(l[i:], l[i+1:])
-			l[len(l)-1] = nil
-			t.scr.list = l[:len(l)-1]
-			break
-		}
-	}
+	t.scr.removeScroller(s)
 	if t.scr.wheel.s == s {
 		t.scr.wheel = wheelLatch{hist: t.scr.wheel.hist[:0]}
 	}
@@ -658,7 +821,7 @@ func (t *Tree) setScroll(s *scroller, p gfx.Point) bool {
 	s.pos = p
 	t.markPaint(s.box)
 	t.barActivity(s)
-	s.eventPending = true
+	t.pendEvent(s)
 	if t.inFrame {
 		if !s.syncPending {
 			s.syncPending = true
@@ -936,7 +1099,7 @@ func (t *Tree) breakLatch() {
 
 // stopFlings ends every fling (a press stops kinetic scrolling).
 func (t *Tree) stopFlings() {
-	for _, s := range t.scr.list {
+	for _, s := range t.scr.sets[setMoving] {
 		s.fling = [2]axisFling{}
 	}
 }
@@ -1003,7 +1166,7 @@ func (t *Tree) outermostScroller(d gfx.Point) *scroller {
 	var best *scroller
 	var area float32
 	for _, s := range t.scr.list {
-		if !s.canMove(d) || !t.inTree(s.box) {
+		if s == nil || !s.canMove(d) || !t.inTree(s.box) {
 			continue
 		}
 		outer := true
@@ -1071,9 +1234,16 @@ func (t *Tree) panRecognizer(s *scroller) *gesture.Drag {
 // scrollbars' fades to now, the frame clock (a FrameEvent's time; the
 // Host calls it before Frame). Moves are painted by the next Frame.
 func (t *Tree) Animate(now time.Duration) {
-	t.scr.now = max(t.scr.now, now)
-	now = t.scr.now
-	for _, s := range t.scr.list {
+	st := &t.scr
+	st.now = max(st.now, now)
+	now = st.now
+	if len(st.sets[setMoving]) == 0 && len(st.sets[setBars]) == 0 {
+		return
+	}
+	// The scrollers that move or fade, in list order (advancing one does
+	// not start another's animation or fade).
+	snap := st.ordered(st.animBuf, setMoving, setBars)
+	for _, s := range snap {
 		if s.animating() {
 			p := s.pos
 			for i := range 2 {
@@ -1097,13 +1267,22 @@ func (t *Tree) Animate(now time.Duration) {
 		}
 		t.fadeBars(s, now)
 	}
+	clear(snap)
+	st.animBuf = snap[:0]
+	st.prune(setMoving, (*scroller).animating)
+	st.prune(setBars, barsLive)
 }
 
 // scrollAnimating reports whether a scroll animation, a fling or a fade
 // needs the next frames.
 func (t *Tree) scrollAnimating() bool {
-	for _, s := range t.scr.list {
-		if s.animating() || s.bars.fading(t.scr.now) {
+	for _, s := range t.scr.sets[setMoving] {
+		if s.animating() {
+			return true
+		}
+	}
+	for _, s := range t.scr.sets[setBars] {
+		if s.bars.fading(t.scr.now) {
 			return true
 		}
 	}
@@ -1115,7 +1294,7 @@ func (t *Tree) scrollAnimating() bool {
 func (t *Tree) scrollDeadline() (time.Duration, bool) {
 	var at time.Duration
 	ok := false
-	for _, s := range t.scr.list {
+	for _, s := range t.scr.sets[setBars] {
 		if d, has := s.bars.fadeAt(); has && (!ok || d < at) {
 			at, ok = d, true
 		}
@@ -1130,18 +1309,36 @@ func (t *Tree) scrollDeadline() (time.Duration, bool) {
 // since the previous frame (start of Frame). It reports whether any
 // handler ran.
 func (t *Tree) fireScrollEvents() bool {
+	st := &t.scr
 	ran := false
-	for _, s := range t.scr.list {
-		if !s.eventPending {
-			continue
+	// In list order, as one pass over the list: a handler that scrolls a
+	// container later in the list fires it in this pass, an earlier one
+	// (or its own) in the next frame.
+	var last uint64 // the seq of the last container visited
+	for again := len(st.sets[setEvent]) > 0; again; {
+		again = false
+		adds := st.eventAdds
+		snap := st.ordered(st.eventBuf, setEvent, setAll)
+		for _, s := range snap {
+			if s.seq <= last || !s.eventPending {
+				continue
+			}
+			last = s.seq
+			s.eventPending = false
+			st.remove(setEvent, s)
+			el := s.box.el
+			if el == nil || !el.mounted || el.node.d.evMask&evScroll.mask() == 0 {
+				continue
+			}
+			dispatch(t, evScroll, el, s.event(), false, false)
+			ran = true
+			if st.eventAdds != adds {
+				again = true // a handler scrolled: take the set again
+				break
+			}
 		}
-		s.eventPending = false
-		el := s.box.el
-		if el == nil || !el.mounted || el.node.d.evMask&evScroll.mask() == 0 {
-			continue
-		}
-		dispatch(t, evScroll, el, s.event(), false, false)
-		ran = true
+		clear(snap)
+		st.eventBuf = snap[:0]
 	}
 	return ran
 }
@@ -1213,7 +1410,9 @@ func (t *Tree) settleScroll(firstPass int, laidOut bool) bool {
 		gutters := false
 		if laidOut || relaid {
 			for _, s := range t.scr.list {
-				t.extents(s)
+				if s != nil {
+					t.extents(s)
+				}
 			}
 			gutters = pass < maxGutterPasses && t.updateGutters(pass)
 		}
@@ -1246,10 +1445,10 @@ func (t *Tree) settleScroll(firstPass int, laidOut bool) bool {
 func (t *Tree) updateGutters(pass int) bool {
 	changed := false
 	for _, s := range t.scr.list {
-		bx := s.box
-		if bx.cs == nil {
+		if s == nil || s.box.cs == nil {
 			continue
 		}
+		bx := s.box
 		wantV, wantH := false, false
 		if t.classicBars(bx.cs) {
 			x, y := overflowAxes(bx.cs)
@@ -1296,14 +1495,13 @@ func (t *Tree) scrollAfterFrame() {
 		t.rehover()
 	}
 	pending := false
-	for _, s := range t.scr.list {
-		if !s.eventPending {
-			continue
-		}
+	for i := len(t.scr.sets[setEvent]) - 1; i >= 0; i-- {
+		s := t.scr.sets[setEvent][i]
 		if el := s.box.el; el != nil && el.mounted && el.node.d.evMask&evScroll.mask() != 0 {
 			pending = true
 		} else {
 			s.eventPending = false // nothing listens
+			t.scr.remove(setEvent, s)
 		}
 	}
 	if pending || t.scrollAnimating() {

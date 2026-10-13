@@ -791,7 +791,7 @@ func (t *Tree) shiftScroll(s *scroller, dy float32) {
 		f.from += dy
 	}
 	t.markPaint(s.box)
-	s.eventPending = true
+	t.pendEvent(s)
 	if !s.syncPending {
 		s.syncPending = true
 		t.scr.pending = append(t.scr.pending, s)
