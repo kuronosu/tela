@@ -70,7 +70,7 @@ this table is an `UnknownClassError` with a suggestion; a class in the
 | `rotate-x/y/z`, `translate-z`, `perspective-*`, `transform-3d`, `backface-*` | 2D transforms |
 | `fill-*`, `stroke-*` | icons take the text color (until SVG support) |
 | `object-*` | size the Img explicitly (until image fitting) |
-| `list-*`, `indent-*`, `hyphens-*`, `align-*` (vertical-align) | regular nodes; padding; flex alignment |
+| `list-*`, `indent-*`, `hyphens-*`, `align-sub`, `align-super`, `align-[..]` | regular nodes; padding; `align-baseline/top/middle/bottom/text-top/text-bottom` (inline-level boxes in text) |
 | `accent-*`, `caret-*`, `resize`, `scroll-m*`, `scroll-p*`, `snap-*`, `touch-*`, `will-change-*`, `mask-*`, `clip-path`, `field-sizing`, `contain-*`, `content-visibility-*` | not supported yet or not needed |
 | `bg-fixed bg-local bg-scroll`, `bg-blend-*` | `position: fixed` layers, `mix-blend-*` |
 | `backdrop-opacity-*`, `mix-blend-plus-darker` | `backdrop-brightness`, `mix-blend-multiply` |

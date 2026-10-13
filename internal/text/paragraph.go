@@ -348,8 +348,45 @@ type InlineBox struct {
 	Align   BoxAlign
 }
 
+// Inline is a CSS inline box (CSS Inline 3): an inline element such as a
+// span, a link or inline code, whose content is the text [Start, End) and
+// the inline boxes [BoxStart, BoxEnd) of Paragraph.Boxes, nested inlines
+// included. The layout splits it into fragments, one per line and per bidi
+// run that separates its content (InlineFragments), which the caller
+// decorates (backgrounds, borders): the layout itself paints nothing of
+// it.
+//
+// Left and Right are the space its left and right edges take on the line
+// (margin, border and padding in the inline axis, logical px): the start
+// edge (left in a left-to-right paragraph, right in a right-to-left one)
+// sits on the first line the inline is on, before its first character,
+// and the end edge on its last line, after its last character
+// (box-decoration-break: slice). An edge counts for line breaking with
+// the character next to it, and makes text shaping break at the inline's
+// boundaries (CSS Text 3, section 7.3). An inline that has no content left
+// after white-space processing still has a fragment (CSS 2.1, section
+// 10.8: empty inline boxes have margins, padding and borders), which never
+// adds a line break opportunity: it stays with the content before it.
+//
+// Style is the inline's own text style: like every inline box, its first
+// available font and line height contribute to the height of each line it
+// is on (its strut), and the font's quantized ascent and descent are the
+// content area of its fragments.
+type Inline struct {
+	// ID is the caller's identifier.
+	ID               int
+	Start, End       int
+	BoxStart, BoxEnd int
+	// Depth is the number of inlines that contain this one: its parent
+	// is the nearest inline before it at Depth-1 (empty inlines with equal
+	// ranges are told apart this way).
+	Depth       int
+	Style       TextStyle
+	Left, Right float32
+}
+
 // Paragraph is the input of NewLayout: a UTF-8 string, styled spans
-// (byte offsets) and inline boxes.
+// (byte offsets), inline boxes and inlines.
 //
 // Spans must be sorted by Start, must not overlap and must start and end on
 // rune boundaries; text that no span covers uses Default. Default is also
@@ -358,12 +395,19 @@ type InlineBox struct {
 // height, it styles the ellipsis of truncated lines, and tab stops are
 // measured with its space. Invalid UTF-8 is laid out as U+FFFD, one per
 // invalid byte.
+//
+// Inlines are in tree order (an inline before the inlines it contains,
+// siblings in text order) and properly nested: an inline that starts
+// inside another one (in text and in boxes) ends inside it.
 type Paragraph struct {
 	Text    string
 	Style   ParagraphStyle
 	Default TextStyle
 	Spans   []Span
 	Boxes   []InlineBox
+	Inlines []Inline
+
+	open []int // the inlines OpenInline opened and CloseInline did not close
 }
 
 // AddText appends s to the text with style st.
@@ -379,6 +423,29 @@ func (p *Paragraph) AddText(s string, st TextStyle) {
 func (p *Paragraph) AddBox(b InlineBox) {
 	b.At = len(p.Text)
 	p.Boxes = append(p.Boxes, b)
+}
+
+// OpenInline starts an inline at the end of the text and returns its index
+// in Inlines; CloseInline(index) ends it after the text and boxes added in
+// between.
+func (p *Paragraph) OpenInline(in Inline) int {
+	in.Start, in.End = len(p.Text), len(p.Text)
+	in.BoxStart, in.BoxEnd = len(p.Boxes), len(p.Boxes)
+	in.Depth = len(p.open)
+	p.Inlines = append(p.Inlines, in)
+	p.open = append(p.open, len(p.Inlines)-1)
+	return len(p.Inlines) - 1
+}
+
+// CloseInline ends inline i, the innermost open one, at the end of the
+// text.
+func (p *Paragraph) CloseInline(i int) {
+	if n := len(p.open); n == 0 || p.open[n-1] != i {
+		panic(fmt.Sprintf("text: CloseInline(%d) does not close the innermost open inline", i))
+	}
+	p.open = p.open[:len(p.open)-1]
+	p.Inlines[i].End = len(p.Text)
+	p.Inlines[i].BoxEnd = len(p.Boxes)
 }
 
 // validate panics with an actionable message on malformed input.
@@ -399,6 +466,32 @@ func (p *Paragraph) validate() {
 		if b.At < 0 || b.At > len(p.Text) || !runeBoundary(p.Text, b.At) {
 			panic(fmt.Sprintf("text.NewLayout: Paragraph.Boxes[%d].At = %d is not a rune boundary of the text (%d bytes)", i, b.At, len(p.Text)))
 		}
+	}
+	var stack []int // the open inlines: stack[d] is the parent at depth d+1
+	prevEnd, prevBoxEnd := 0, 0
+	for i, in := range p.Inlines {
+		switch {
+		case in.End < in.Start || in.Start < 0 || in.End > len(p.Text) || !runeBoundary(p.Text, in.Start) || !runeBoundary(p.Text, in.End):
+			panic(fmt.Sprintf("text.NewLayout: Paragraph.Inlines[%d] = [%d, %d) is not a range of rune boundaries of the text (%d bytes)", i, in.Start, in.End, len(p.Text)))
+		case in.BoxEnd < in.BoxStart || in.BoxStart < 0 || in.BoxEnd > len(p.Boxes):
+			panic(fmt.Sprintf("text.NewLayout: Paragraph.Inlines[%d] holds boxes [%d, %d), outside the %d boxes", i, in.BoxStart, in.BoxEnd, len(p.Boxes)))
+		case in.Depth < 0 || in.Depth > len(stack):
+			panic(fmt.Sprintf("text.NewLayout: Paragraph.Inlines[%d].Depth = %d, but the inline before it is at depth %d; inlines must be in tree order", i, in.Depth, len(stack)-1))
+		}
+		stack = stack[:in.Depth]
+		if in.Depth > 0 {
+			o := &p.Inlines[stack[in.Depth-1]]
+			if !(o.Start <= in.Start && in.End <= o.End && o.BoxStart <= in.BoxStart && in.BoxEnd <= o.BoxEnd) {
+				panic(fmt.Sprintf("text.NewLayout: Paragraph.Inlines[%d] is not inside its parent Inlines[%d]", i, stack[in.Depth-1]))
+			}
+		}
+		if in.Start < prevEnd && in.Depth == 0 || in.BoxStart < prevBoxEnd && in.Depth == 0 {
+			panic(fmt.Sprintf("text.NewLayout: Paragraph.Inlines[%d] overlaps the inline before it; inlines must be nested and in tree order", i))
+		}
+		if in.Depth == 0 {
+			prevEnd, prevBoxEnd = in.End, in.BoxEnd
+		}
+		stack = append(stack, i)
 	}
 }
 

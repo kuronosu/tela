@@ -15,7 +15,13 @@
 // A Node gives its Style, its children and its Data, the per-node state
 // layout keeps (results and caches; core embeds one in each Box). A leaf
 // (a node without children) with content implements Measurer: text boxes
-// measure with text.Layout, images return their intrinsic size.
+// measure with text.Layout, images return their intrinsic size. A
+// paragraph whose children are its atomic inlines (inline-blocks, buttons
+// in text) implements InlineContainer: it is laid out like a leaf whose
+// measure sizes and places the children through Atoms (inline.go), and
+// an atomic inline's baseline is its last line box's (CSS 2.1 section
+// 10.8.1; the first baseline of a flex container), so every output also
+// carries a last baseline.
 //
 // Style is a Taffy-like subset of CSS: display (block, flex, none),
 // position (static, relative, absolute), direction, overflow, sizes with

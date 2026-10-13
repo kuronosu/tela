@@ -11,8 +11,11 @@ import (
 func Div(children ...tela.Child) tela.Node { return core.Primitive(style.KindDiv, children...) }
 
 // Span returns an inline container. Inside a paragraph of text it styles a
-// run of that text (color, weight...); as a child of a flex container it
-// is a flex item.
+// run of that text (color, weight...) and is a CSS inline box: its
+// background, border, rounded corners and horizontal padding and margins
+// apply on every line it is on (Class("rounded bg-slate-100 px-1")). With
+// Class("inline-block") or "inline-flex" it is laid out as a box that sits
+// on the line. As a child of a flex container it is a flex item.
 func Span(children ...tela.Child) tela.Node { return core.Primitive(style.KindSpan, children...) }
 
 // Text returns a text node. The text is laid out in the paragraph of its
@@ -47,8 +50,9 @@ func P(children ...tela.Child) tela.Node { return core.Primitive(style.KindP, ch
 
 // Button returns a button. It has no background, border or padding of its
 // own (Tailwind's Preflight): style it with classes. Its width fits its
-// content, and it shows the pointer cursor. Clicks are handled with
-// OnClick.
+// content, it sits on the line of the text around it (inline-block, on
+// the baseline; Class("align-middle") moves it), and it shows the pointer
+// cursor. Clicks are handled with OnClick.
 func Button(children ...tela.Child) tela.Node { return core.Primitive(style.KindButton, children...) }
 
 // Img returns an image. Give it a source with Src; without Class or Style

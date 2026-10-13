@@ -20,8 +20,8 @@ const (
 	// text context (ARCHITECTURE section 9).
 	DisplayInline
 	// DisplayInlineBlock is the display of Button: in a block container
-	// the box takes its fit-content width; as a flex or grid item it is
-	// blockified like any item.
+	// the box is an atomic inline of its paragraph, with its fit-content
+	// width; as a flex or grid item it is blockified like any item.
 	DisplayInlineBlock
 	DisplayInlineFlex
 	DisplayInlineGrid
@@ -651,6 +651,9 @@ type ComputedStyle struct {
 	Text         TextProps
 	TextOverflow text.TextOverflow
 	LineClamp    int
+	// VerticalAlign is the CSS vertical-align of an atomic inline-level
+	// box (not inherited); inline elements are on the baseline.
+	VerticalAlign text.BoxAlign
 
 	// Deferred are the phase-deferred props (ARCHITECTURE section 7),
 	// applied by Resolved.

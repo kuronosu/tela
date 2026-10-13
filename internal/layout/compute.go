@@ -69,6 +69,10 @@ type output struct {
 	size          size
 	overflow      rect // the scrollable overflow rectangle (see Layout)
 	firstBaseline opt
+	// lastBaseline is the baseline of the last line box (CSS 2.1 section
+	// 10.8.1, the baseline of an inline-block), measured like
+	// firstBaseline; flex containers report their first baseline.
+	lastBaseline opt
 	// escapes reports that the subtree contains absolutely positioned
 	// boxes whose containing block is above the node: the nearest
 	// positioned ancestor lays them out.
@@ -127,6 +131,8 @@ func (e *Engine) layout(n Node, in input) output {
 		out = e.hidden(n)
 	case n.LayoutChildCount() == 0:
 		out = e.leaf(n, st, in)
+	case inlineContainer(n) != nil:
+		out = e.inline(n, inlineContainer(n), st, in)
 	case st.Display == DisplayFlex:
 		out = e.flex(n, st, in)
 	default:

@@ -98,7 +98,9 @@ type Tree struct {
 	scale float32
 
 	engine layout.Engine
-	asm    paraAssembler
+	// asm holds the paragraph assemblers: the structure of an atomic
+	// inline is built while its paragraph is assembled.
+	asm []*paraAssembler
 
 	// Work queues of the phases (UI thread).
 	buildQ, styleQ, boxQ []*Element

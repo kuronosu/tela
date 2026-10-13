@@ -12,17 +12,33 @@ func (l *Layout) setBreaks(segs []uint8) {
 	ws := l.para.WhiteSpace
 	wrap := ws.wraps()
 	cl := l.clusters
+	prevReal := int32(-1) // the last cluster that is not a placeholder (inline.go)
+	if len(cl) > 0 && cl[0].flags&cfTag == 0 {
+		prevReal = 0
+	}
 	for i := 1; i < len(cl); i++ {
 		p := cl[i].r0
+		cur := cl[i].flags
 		if segs[p]&segMandatory != 0 {
 			cl[i].flags |= cfMustBefore
+			if cur&cfTag == 0 {
+				prevReal = int32(i)
+			}
 			continue
 		}
-		if !wrap {
+		if cur&cfTag != 0 {
+			// The placeholder of an empty inline is transparent to line
+			// breaking: the opportunities around it are those between
+			// its neighbors, after it (tagBreaks).
+			continue
+		}
+		if !wrap || prevReal < 0 {
+			prevReal = int32(i)
 			continue
 		}
 		soft := segs[p]&segSoft != 0
-		prev, cur := cl[i-1].flags, cl[i].flags
+		prev := cl[prevReal].flags
+		prevReal = int32(i)
 		switch l.para.WordBreak {
 		case WordBreakBreakAll:
 			if prev&cfLetter != 0 && cur&cfLetter != 0 {
@@ -76,10 +92,13 @@ const fitEpsilon = 1.0 / 1024
 // the line ends at the last soft wrap opportunity, or else at the last
 // emergency opportunity (any cluster boundary, with overflow-wrap
 // anywhere, or break-word unless minContent), or else the cluster
-// overflows. Hanging white space always fits. A text that ends with a
-// forced break gets a last, empty line. Tab advances depend on the
-// position in the line; they are written to tabs[i] when tabs is not nil.
-func (l *Layout) breakLines(maxW float32, minContent bool, tabs []float32, emit func(c0, c1 int32, reason BreakReason)) {
+// overflows. Hanging white space always fits, the inline edges attached
+// to it (inline.go) do not. A text that ends with a forced break gets a
+// last, empty line. Tab advances depend on the position in the line; they
+// are written to tabs[i] when tabs is not nil. sizes selects the widths of
+// the inline boxes: their own, or their min- or max-content widths
+// (SetBox) for the intrinsic widths.
+func (l *Layout) breakLines(maxW float32, minContent bool, sizes boxSizes, tabs []float32, emit func(c0, c1 int32, reason BreakReason)) {
 	cl := l.clusters
 	n := int32(len(cl))
 	if n == 0 {
@@ -89,6 +108,7 @@ func (l *Layout) breakLines(maxW float32, minContent bool, tabs []float32, emit 
 	limit := maxW + fitEpsilon
 	wrap := l.para.WhiteSpace.wraps()
 	emergency := wrap && (l.para.OverflowWrap == OverflowWrapAnywhere || (l.para.OverflowWrap == OverflowWrapBreakWord && !minContent))
+	ext := l.ext
 	for start := int32(0); start < n; {
 		x := float32(0)
 		opp, emg := int32(-1), int32(-1)
@@ -109,14 +129,21 @@ func (l *Layout) breakLines(maxW float32, minContent bool, tabs []float32, emit 
 				}
 			}
 			a := c.adv
-			if c.flags&cfTab != 0 {
+			switch {
+			case c.flags&cfTab != 0:
 				a = l.tabAdvance(c, x)
 				if tabs != nil {
 					tabs[i] = a
 				}
+			case sizes != boxOwn && c.flags&cfBox != 0:
+				a = l.boxWidth(c, sizes)
 			}
-			nx := x + a
-			if nx <= limit || a <= 0 || l.hangable(c.flags) {
+			var e float32
+			if ext != nil {
+				e = ext[i]
+			}
+			nx := x + a + e
+			if nx <= limit || a+e <= 0 || (l.hangable(c.flags) && (x+e <= limit || e <= 0)) {
 				x = nx
 				continue
 			}
@@ -180,15 +207,26 @@ func spaceAdvance(f *Face, size float32) float32 {
 // a forced break or the end of the text (white-space: pre-wrap) only hang
 // when they do not fit (CSS Text 4, conditionally hanging white space).
 // It also returns the first trailing cluster that hangs (c1 if none) and
-// the advance that hangs.
+// the advance that hangs. The inline edges attached to the clusters count,
+// on hanging white space too.
 func (l *Layout) lineWidth(c0, c1 int32, reason BreakReason, maxW float32, adv func(i int32) float32) (width float32, trail int32, hang float32) {
 	cl := l.clusters
 	trail = c1
-	for trail > c0 && l.hangable(cl[trail-1].flags) {
+	// The placeholders of empty inlines after trailing white space do
+	// not keep it from hanging (Blink removes the space before them).
+	for trail > c0 && (l.hangable(cl[trail-1].flags) || cl[trail-1].flags&cfTag != 0) {
 		trail--
+	}
+	for trail < c1 && cl[trail].flags&cfTag != 0 {
+		trail++ // trailing placeholders alone hang nothing
 	}
 	for i := c0; i < trail; i++ {
 		width += adv(i)
+	}
+	if l.ext != nil {
+		for i := c0; i < c1; i++ {
+			width += l.ext[i]
+		}
 	}
 	for i := trail; i < c1; i++ {
 		if !l.removed(cl[i].flags) {
@@ -202,17 +240,26 @@ func (l *Layout) lineWidth(c0, c1 int32, reason BreakReason, maxW float32, adv f
 }
 
 // measure returns the widest line when breaking at maxW: the min-content
-// width for maxW 0 with minContent set, the max-content width for +Inf.
+// width for maxW 0 with minContent set, the max-content width for +Inf;
+// inline boxes take their own widths for each (SetBox).
 func (l *Layout) measure(maxW float32, minContent bool) float32 {
 	tabs := make([]float32, len(l.clusters))
+	sizes := boxMax
+	if minContent {
+		sizes = boxMin
+	}
 	adv := func(i int32) float32 {
-		if l.clusters[i].flags&cfTab != 0 {
+		c := &l.clusters[i]
+		switch {
+		case c.flags&cfTab != 0:
 			return tabs[i]
+		case c.flags&cfBox != 0:
+			return l.boxWidth(c, sizes)
 		}
-		return l.clusters[i].adv
+		return c.adv
 	}
 	var w float32
-	l.breakLines(maxW, minContent, tabs, func(c0, c1 int32, reason BreakReason) {
+	l.breakLines(maxW, minContent, sizes, tabs, func(c0, c1 int32, reason BreakReason) {
 		lw, _, _ := l.lineWidth(c0, c1, reason, maxW, adv)
 		w = max(w, lw)
 	})

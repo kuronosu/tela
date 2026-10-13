@@ -20,10 +20,7 @@ func (l *Layout) BreakLines(maxWidth float32) {
 	}
 	l.maxWidth = maxWidth
 	n := len(l.clusters)
-	if math.IsNaN(float64(l.minContent)) {
-		l.minContent = l.measure(0, true)
-		l.maxContent = l.measure(float32(math.Inf(1)), false)
-	}
+	l.intrinsic()
 	if cap(l.cadv) < n {
 		l.cadv = make([]float32, n)
 		l.cx = make([]float32, n)
@@ -32,7 +29,7 @@ func (l *Layout) BreakLines(maxWidth float32) {
 	l.cadv, l.cx, l.cline = l.cadv[:n], l.cx[:n], l.cline[:n]
 	tabs := l.cadv // tab advances land in cadv, copied to the clusters below
 	l.lines, l.items, l.ellipses = l.lines[:0], l.items[:0], l.ellipses[:0]
-	l.breakLines(maxWidth, false, tabs, func(c0, c1 int32, reason BreakReason) {
+	l.breakLines(maxWidth, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason) {
 		l.lines = append(l.lines, lineData{c0: c0, c1: c1, reason: reason, ellipsis: -1})
 	})
 	for i := range l.clusters {
@@ -61,6 +58,7 @@ func (l *Layout) BreakLines(maxWidth float32) {
 			l.truncate(li, maxWidth)
 		}
 	}
+	l.buildFrags()
 	var top float32
 	l.width = 0
 	for li := range l.lines {
@@ -168,7 +166,7 @@ func (l *Layout) truncate(li int, maxW float32) {
 	content := float32(0)
 	count := 0
 	for i := ln.c0; i < end; i++ {
-		content += l.cadv[i]
+		content += l.cadv[i] + l.extAt(i)
 		count++
 	}
 	rtl := l.base == 1
@@ -189,7 +187,10 @@ func (l *Layout) truncate(li int, maxW float32) {
 			ci = it.c0
 			it.c0++
 		}
-		content -= l.cadv[ci]
+		// A hidden cluster takes the inline edges attached to it: an
+		// inline whose first or last cluster is hidden has no start or
+		// end edge on the line.
+		content -= l.cadv[ci] + l.extAt(ci)
 		count--
 		l.cline[ci] = -1
 		if it.c0 == it.c1 {
@@ -304,6 +305,12 @@ func (l *Layout) lineMetrics(li int) {
 			}
 		}
 	}
+	// Every inline on the line contributes its own strut (CSS 2.1,
+	// section 10.8: even an empty inline box has a line height).
+	for f := ln.f0; f < ln.f1; f++ {
+		si := &l.sinfo[l.inlines[l.frags[f].inline].style]
+		add(si.over, si.under)
+	}
 	for _, bi := range lineRel {
 		b := &l.boxes[bi]
 		if h := b.Height; h > over+under {
@@ -401,6 +408,10 @@ func (l *Layout) AlignTo(width float32) {
 		ln.x = off
 		if rtl {
 			ln.x -= ln.hang
+		}
+		if ln.f1 > ln.f0 {
+			l.positionInlines(li)
+			continue
 		}
 		// Positions.
 		x := ln.x

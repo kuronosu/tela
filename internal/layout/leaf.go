@@ -7,6 +7,14 @@ package layout
 // its size styles or, where they are auto, from Measure (Taffy's
 // compute_leaf_layout).
 func (e *Engine) leaf(n Node, st *Style, in input) output {
+	return e.leafMeasure(n, st, in, func(known optSize, avail availSize) measured {
+		return e.measure(n, known, avail)
+	})
+}
+
+// leafMeasure is leaf with the content box measured by measure (Measure,
+// or MeasureInline for inline containers, inline.go).
+func (e *Engine) leafMeasure(n Node, st *Style, in input, measure func(known optSize, avail availSize) measured) output {
 	known, parent, avail := in.known, in.parent, in.avail
 
 	// Percentage padding and borders resolve against the containing
@@ -61,7 +69,7 @@ func (e *Engine) leaf(n Node, st *Style, in input) output {
 	if in.run != performLayout {
 		measureKnown = known.maybeSubF(cbi.sum()).maybeMaxF(size{})
 	}
-	m := e.measure(n, measureKnown, availSize{aw, ah})
+	m := measure(measureKnown, availSize{aw, ah})
 
 	clamped := known.or(nodeSize).unwrapOr(size{m.w + cbi.hsum(), m.h + cbi.vsum()}).maybeClamp(nodeMin, nodeMax)
 	sz := size{clamped.w, clamped.h}
@@ -86,14 +94,20 @@ func (e *Engine) leaf(n Node, st *Style, in input) output {
 	if m.hasBaseline {
 		baseline = some(border.t + padding.t + m.base)
 	}
-	return output{size: sz, overflow: of, firstBaseline: baseline}
+	last := baseline
+	if m.hasLast {
+		last = some(border.t + padding.t + m.last)
+	}
+	return output{size: sz, overflow: of, firstBaseline: baseline, lastBaseline: last}
 }
 
 // measured is the content size reported by a Measurer.
 type measured struct {
 	w, h        float32
-	base        float32
+	base        float32 // first baseline
+	last        float32 // last baseline, when hasLast
 	hasBaseline bool
+	hasLast     bool
 }
 
 // measure asks a leaf for its content size. Known dimensions are passed
@@ -119,7 +133,7 @@ func (e *Engine) measure(n Node, known optSize, avail availSize) measured {
 	}
 	e.measureCalls++
 	r := m.Measure(in)
-	out := measured{w: r.Width, h: r.Height, base: r.Baseline, hasBaseline: r.HasBaseline}
+	out := measured{w: r.Width, h: r.Height, base: r.Baseline, hasBaseline: r.HasBaseline, last: r.LastBaseline, hasLast: r.HasLastBaseline}
 	if known.w.ok {
 		out.w = known.w.v
 	}

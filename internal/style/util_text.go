@@ -340,6 +340,17 @@ func registerTypography(r *registry) {
 	r.alias("overflow-ellipsis", "text-ellipsis")
 	r.alias("overflow-clip-text", "text-clip")
 
+	// vertical-align of atomic inline-level boxes (inline-block,
+	// inline-flex, inline images and buttons inside a paragraph).
+	r.enum("align", false, map[string]Op{
+		"baseline":    op(func(e *env) { e.s.VerticalAlign = text.BoxBaseline }),
+		"top":         op(func(e *env) { e.s.VerticalAlign = text.BoxTop }),
+		"middle":      op(func(e *env) { e.s.VerticalAlign = text.BoxMiddle }),
+		"bottom":      op(func(e *env) { e.s.VerticalAlign = text.BoxBottom }),
+		"text-top":    op(func(e *env) { e.s.VerticalAlign = text.BoxTextTop }),
+		"text-bottom": op(func(e *env) { e.s.VerticalAlign = text.BoxTextBottom }),
+	})
+
 	// line-clamp-N (clips like Tailwind's overflow: hidden).
 	r.add("line-clamp", false, func(c *pctx, a *arg) (Op, error) {
 		if a.hasMod {

@@ -55,6 +55,11 @@ type Measurement struct {
 	// by their bottom edge in baseline alignment.
 	Baseline    float32
 	HasBaseline bool
+	// LastBaseline is the baseline of the last line (the baseline of an
+	// inline-block holding the node), when HasLastBaseline is set; else
+	// the first baseline is used.
+	LastBaseline    float32
+	HasLastBaseline bool
 }
 
 // Layout is the computed layout of one node. Coordinates are logical

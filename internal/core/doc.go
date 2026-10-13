@@ -123,19 +123,37 @@
 //
 // The box phase (structure.go) derives the box tree from the Elements
 // after styles are known: components are transparent, display: contents
-// lifts its children, a block container whose content is all inline is
-// one paragraph (one text.Layout whose spans carry each inline element's
-// text style), mixed content gets anonymous paragraph boxes, and text runs
-// of flex containers become anonymous flex items. Inline elements inside a
-// paragraph contribute only their text style; their box properties
-// (background, padding, border, margin) are not laid out or painted.
-// Inline-block, inline-flex and inline-grid boxes, images and buttons are
-// block-level boxes, never atomic inlines of a paragraph.
+// lifts its children, a block container whose content is all inline-level
+// is one paragraph (one text.Layout), mixed content gets anonymous
+// paragraph boxes, and text runs of flex containers become anonymous flex
+// items (ADR-066, revising ADR-044):
+//
+//   - Inline elements (display: inline: Span, Strong, Em, Code, A...) are
+//     CSS inline boxes of the paragraph: text.Inline entries with their
+//     text style and their edges (margin, border and padding in the
+//     inline axis), which take space on the lines and break shaping. The
+//     layout splits each into fragments (one per line and per bidi run),
+//     which inline.go paints with the element's backgrounds, borders,
+//     radii and shadows (box-decoration-break: slice), hit-tests (their
+//     padding is clickable) and reports (semantics bounds, tela inspect).
+//   - Atomic inlines (inline-block, inline-flex and inline-grid
+//     primitives, Button by default, Img with display inline or
+//     inline-block, in flow) are inline boxes of the paragraph whose boxes
+//     are the paragraph box's children: layout.Atoms sizes them
+//     (fit-content in the paragraph's width) and the lines place them by
+//     vertical-align, their baseline the last line box's (CSS 2.1 section
+//     10.8.1). The paragraph paints them line by line, with its text and
+//     the inline decorations; those that text-overflow or line-clamp hides
+//     are neither painted nor hit (Box.hiddenAtom). In a flex container
+//     every child is a flex item, atomic or not.
 //
 // A paragraph is shaped again (text.NewLayout) only when its text, a text
-// style or its paragraph style changes; a new width only breaks its lines
-// again (text.Layout.BreakLines), and a width at or above its max-content
-// width only realigns them.
+// style, an inline's edges or its paragraph style changes; a new width
+// only breaks its lines again (text.Layout.BreakLines), and a width at or
+// above its max-content width only realigns them. A paragraph with atomic
+// inlines breaks its lines again on every layout request, since their
+// sizes depend on the width; the sizes of its last full layout are put
+// back before painting (paragraph.prepare).
 //
 // # Style and layout styles
 //
@@ -154,7 +172,7 @@
 // mapLayoutStyle maps a ComputedStyle onto layout.Style; see it for the
 // approximations (grid as block, fixed as absolute). space-x-* and space-y-* are gaps: a flex container uses its
 // gap, and a block container adds the gap to the end margin of every
-// in-flow child but the last (Tailwind's margins). Between inline
+// in-flow child but the last (Tailwind's margins). Between inline-level
 // elements of a paragraph, space-x-* becomes an empty inline box.
 //
 // # Input
@@ -163,8 +181,9 @@
 // (input.go, whose top comment is the reference): hit-testing over the
 // painted box tree in reverse paint order (hit.go: clips, rounded
 // corners, transforms including deferred ones, pointer-events, visibility,
-// inline elements of paragraphs), bubbling with StopPropagation, enter
-// and leave events, pointer and compatibility mouse events, implicit
+// inline elements of paragraphs and their padding), bubbling with
+// StopPropagation, enter and leave events, pointer and compatibility
+// mouse events, implicit
 // capture for touch and pens, and the gesture arena of internal/gesture
 // (tap for click, double click by click count, drag, long press). After
 // each discrete event the queued updates are applied and the build phase

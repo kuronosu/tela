@@ -32,8 +32,25 @@ type Layout struct {
 	runs     []run
 	clusters []cluster
 	glyphs   []glyphData
-	boxes    []InlineBox
-	boxClus  []int32 // cluster index of each box, -1 if the box has none
+	// boxes are Paragraph.Boxes followed by the placeholders of empty
+	// inlines (inline.go); nboxes is the number of the caller's boxes.
+	boxes   []InlineBox
+	nboxes  int
+	boxClus []int32 // cluster index of each box, -1 if the box has none
+	// boxMin and boxMax are the min- and max-content widths of the boxes
+	// (SetBox), for the intrinsic widths; nil until SetBox sets one.
+	boxMin, boxMax []float32
+
+	// Inlines (inline.go): their data, the innermost inline of each
+	// cluster (-1: none), the start and end insets attached to each
+	// cluster for line breaking (nil when no inline has any), and the
+	// fragments of the lines.
+	inlines []inlineData
+	cin     []int32
+	ext     []float32
+	frags   []fragData
+	istyle  int     // style index of Paragraph.Inlines[0]
+	fseen   []int32 // scratch of buildFrags
 
 	// Results of BreakLines.
 	maxWidth   float32
@@ -113,6 +130,7 @@ const (
 	cfLetter                             // letter or digit, for word-break
 	cfInvisible                          // controls and format characters: no letter-spacing
 	cfCursive                            // a letter of a cursive script: no letter-spacing
+	cfTag                                // with cfBox: the placeholder of an empty inline (inline.go)
 )
 
 // cluster is the unit of line breaking, positioning, hit-testing and
@@ -160,6 +178,7 @@ type lineData struct {
 	hang                  float32 // advance of hanging white space
 	justify               float32 // extra advance per justification opportunity
 	ellipsis              int32   // index into ellipses, -1 if none
+	f0, f1                int32   // inline fragments (Layout.frags)
 }
 
 type itemKind uint8
@@ -207,20 +226,30 @@ func NewLayout(c *Collection, p *Paragraph) *Layout {
 		minContent: float32(math.NaN()),
 		maxContent: float32(math.NaN()),
 	}
-	l.styles = make([]TextStyle, len(p.Spans)+1)
+	l.styles = make([]TextStyle, len(p.Spans)+1, len(p.Spans)+1+len(p.Inlines))
 	l.styles[0] = p.Default
 	for i, s := range p.Spans {
 		l.styles[i+1] = s.Style
 	}
+	l.istyle = len(l.styles)
+	for _, in := range p.Inlines {
+		l.styles = append(l.styles, in.Style)
+	}
 	l.boxes = slices.Clone(p.Boxes)
+	l.nboxes = len(p.Boxes)
 	order := make([]int, len(l.boxes))
 	for i := range order {
 		order[i] = i
 	}
 	slices.SortStableFunc(order, func(a, b int) int { return l.boxes[a].At - l.boxes[b].At })
-	l.text = prepareText(p, l.styles, order)
+	var tags []int32
+	l.text, tags = prepareText(p, l.styles, order)
+	for _, e := range tags {
+		l.boxes = append(l.boxes, InlineBox{ID: -1, At: p.Inlines[e].End})
+	}
 	l.resolveStyles()
 	l.shape()
+	l.setupInlines(p, tags)
 	l.BreakLines(float32(math.Inf(1)))
 	return l
 }

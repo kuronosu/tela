@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/layout"
 	"github.com/kuronosu/tela/internal/style"
 )
 
@@ -21,6 +22,14 @@ func (p *painter) paintSelf(bx *Box) {
 	if g.border.Rect.Empty() {
 		return
 	}
+	p.paintDecor(cs, &g, bx.ld.Layout().Padding, bx == p.t.rootBox)
+}
+
+// paintDecor paints the decorations of a box with style cs and snapped
+// geometry g (paintSelf; the fragments of inline boxes, inline.go): pad
+// are its padding widths, root reports the root (whose background color is
+// the canvas).
+func (p *painter) paintDecor(cs *style.ComputedStyle, g *boxGeom, pad layout.Insets, root bool) {
 	// Blink clips an outer shadow out of the box shrunk by one pixel when
 	// the background is opaque and covers the border box, so that the
 	// shadow reaches under the anti-aliased edge: the same shadow shape
@@ -37,7 +46,7 @@ func (p *painter) paintSelf(bx *Box) {
 				Blur: s.Blur, Spread: s.Spread + grow, Color: s.Color})
 		}
 	}
-	p.paintBackground(bx, cs, &g)
+	p.paintBackground(cs, g, pad, root)
 	if !g.padding.Rect.Empty() {
 		for i := len(cs.BoxShadows) - 1; i >= 0; i-- {
 			if s := &cs.BoxShadows[i]; s.Inset {
@@ -46,7 +55,7 @@ func (p *painter) paintSelf(bx *Box) {
 			}
 		}
 	}
-	p.paintBorder(cs, &g)
+	p.paintBorder(cs, g)
 }
 
 // fillRRect fills rr, as a rectangle when its corners are square.
@@ -61,21 +70,22 @@ func (p *painter) fillRRect(rr gfx.RRect, paint gfx.Paint) {
 // ---------------------------------------------------------------------
 // Backgrounds.
 
-// bgBox returns the box of bx that background-clip or -origin names.
-func (p *painter) bgBox(bx *Box, g *boxGeom, which style.BackgroundBox) gfx.RRect {
+// bgBox returns the box that background-clip or -origin names, for
+// padding widths pad.
+func (p *painter) bgBox(g *boxGeom, pad layout.Insets, which style.BackgroundBox) gfx.RRect {
 	switch which {
 	case style.BackgroundPaddingBox:
 		return g.padding
 	case style.BackgroundContentBox:
-		return p.contentRRect(bx, g)
+		return p.contentRRectOf(g, pad)
 	}
 	return g.border
 }
 
-// paintBackground paints the background color and image layers of bx in
+// paintBackground paints the background color and image layers of a box in
 // its background painting area. The root's color is the canvas, already
 // painted.
-func (p *painter) paintBackground(bx *Box, cs *style.ComputedStyle, g *boxGeom) {
+func (p *painter) paintBackground(cs *style.ComputedStyle, g *boxGeom, pad layout.Insets, root bool) {
 	if cs.BackgroundColor.A == 0 && len(cs.Backgrounds) == 0 {
 		return
 	}
@@ -83,7 +93,7 @@ func (p *painter) paintBackground(bx *Box, cs *style.ComputedStyle, g *boxGeom) 
 		p.t.reportOnce("bg-clip-text", "tela: background-clip: text is not painted yet; the background is skipped")
 		return
 	}
-	clip := p.bgBox(bx, g, cs.BackgroundClip)
+	clip := p.bgBox(g, pad, cs.BackgroundClip)
 	if cs.BackgroundClip == style.BackgroundBorderBox && !clip.IsRect() && borderObscuresEdge(cs, g) {
 		// Blink's bleed avoidance: under an opaque border the background
 		// shrinks by a device pixel, so that its anti-aliased edge does
@@ -94,12 +104,12 @@ func (p *painter) paintBackground(bx *Box, cs *style.ComputedStyle, g *boxGeom) 
 	if clip.Rect.Empty() {
 		return
 	}
-	if bx != p.t.rootBox && cs.BackgroundColor.A > 0 {
+	if !root && cs.BackgroundColor.A > 0 {
 		p.fillRRect(clip, cs.BackgroundColor)
 	}
 	for i := len(cs.Backgrounds) - 1; i >= 0; i-- {
 		l := &cs.Backgrounds[i]
-		p.paintBgLayer(l, p.bgBox(bx, g, l.Origin).Rect, clip)
+		p.paintBgLayer(l, p.bgBox(g, pad, l.Origin).Rect, clip)
 	}
 }
 
@@ -231,6 +241,13 @@ func (p *painter) paintOutline(bx *Box) {
 	if g.border.Rect.Empty() {
 		return
 	}
+	p.paintOutlineOf(cs, &g)
+}
+
+// paintOutlineOf paints the outline of style cs around the border box of
+// geometry g.
+func (p *painter) paintOutlineOf(cs *style.ComputedStyle, g *boxGeom) {
+	o := &cs.Outline
 	w := p.snapWidth(o.Width)
 	off := float32(math.Floor(float64(float64(o.Offset)*p.scale)+0.5) / p.scale)
 	in := gfx.RRect{Rect: g.border.Rect.Outset(off)}

@@ -321,9 +321,15 @@ type chromiumMismatch struct {
 const edgeTolerance = 0.15
 
 func compareChromium(t *testing.T, c *chromiumCase, res chromiumResult) chromiumMismatch {
-	var mm chromiumMismatch
 	l := NewLayout(layoutCollection(t), c.paragraph())
 	l.BreakLines(c.width)
+	return compareLayout(t, c.name, l, res)
+}
+
+// compareLayout compares the lines, cluster edges, inline boxes and height
+// of l with Chromium's.
+func compareLayout(t *testing.T, name string, l *Layout, res chromiumResult) chromiumMismatch {
+	var mm chromiumMismatch
 	src := l.Text()
 	// Code point index of every byte offset.
 	cpOf := make([]int, len(src)+1)
@@ -338,7 +344,7 @@ func compareChromium(t *testing.T, c *chromiumCase, res chromiumResult) chromium
 	}
 	cpOf[len(src)] = k
 	if k != len(res.Chars) {
-		t.Fatalf("%s: %d code points here, %d in Chromium", c.name, k, len(res.Chars))
+		t.Fatalf("%s: %d code points here, %d in Chromium", name, k, len(res.Chars))
 	}
 
 	// Chromium's baseline of each visible character, from its rect top and

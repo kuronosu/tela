@@ -27,7 +27,10 @@ import (
 //     may set them back, as in CSS);
 //   - inside a paragraph, a point on text hits the inline element (Span,
 //     Strong, A...) whose text it is (text.Layout.HitTestCluster), or the
-//     paragraph's element; a point between lines or beside them hits the
+//     paragraph's element; a point on the border box of an inline
+//     element's fragment (its padding, inline.go) hits that element; an
+//     atomic inline (a button in the text) is hit as a box, a child of the
+//     paragraph box; a point between lines or beside them hits the
 //     paragraph's element.
 //
 // Disabled elements are hit like the others; dispatch skips their
@@ -139,7 +142,7 @@ func (h *hitter) stacked(bx *Box, p gfx.Point) *Element {
 func (h *hitter) collectAt(bx *Box, p gfx.Point) {
 	for _, k := range bx.kids {
 		pk := toSpace(p, bx.space, k.space)
-		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || k.pcs == nil {
+		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || k.pcs == nil || k.hiddenAtom {
 			continue
 		}
 		if participant(k) {
@@ -233,7 +236,7 @@ func (h *hitter) inner(bx *Box, p gfx.Point) *Element {
 	for i := len(bx.kids) - 1; i >= 0; i-- {
 		k := bx.kids[i]
 		pk := toSpace(p, bx.space, k.space)
-		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || !alive(k) || participant(k) {
+		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || !alive(k) || participant(k) || k.hiddenAtom {
 			continue
 		}
 		if el := h.flowBox(k, pk); el != nil {
@@ -282,9 +285,25 @@ func (h *hitter) text(bx *Box, p gfx.Point) *Element {
 		return nil
 	}
 	c := contentRect(bx.u, bx.ld.Layout())
-	hit, ok := para.lay.HitTestCluster(p.X-c.X0, p.Y-c.Y0)
-	if !ok || hit.Cluster < 0 || hit.Box >= 0 {
+	lp := gfx.Point{X: p.X - c.X0, Y: p.Y - c.Y0}
+	fk, fline := -1, -1
+	if len(para.inl) > 0 {
+		// The decorations of inline elements (inline.go): under the text
+		// of their line, over the lines before.
+		fk, fline = para.fragmentAt(lp)
+	}
+	frag := func() *Element {
+		if fk >= 0 && para.inl[fk].mounted {
+			return para.inl[fk]
+		}
 		return nil
+	}
+	hit, ok := para.lay.HitTestCluster(lp.X, lp.Y)
+	if !ok || hit.Cluster < 0 || hit.Box >= 0 {
+		return frag()
+	}
+	if fk >= 0 && fline > hit.Line {
+		return frag()
 	}
 	owner := bx.owner
 	for el := para.targetAt(para.lay.Cluster(hit.Cluster).TextStart); el != nil && el != owner; el = el.styleParent() {
@@ -295,7 +314,7 @@ func (h *hitter) text(bx *Box, p gfx.Point) *Element {
 			return el
 		}
 	}
-	return nil
+	return frag()
 }
 
 // rrectContains reports whether p is inside rr (half-open edges, like

@@ -550,7 +550,9 @@ func TestKeyboardScrolling(t *testing.T) {
 		{platform.KeyArrowUp, platform.CodeArrowUp, 0, lineStep, 0},
 		{platform.KeyPageDown, platform.CodePageDown, 0, lineStep + 175, 0}, // 87.5% of 200
 		{platform.KeyPageUp, platform.CodePageUp, 0, lineStep, 0},
-		{platform.KeyEnd, platform.CodeEnd, 0, 1020 - 200, 0},
+		// The button is an atomic inline on a line of its own: its bottom
+		// on the baseline, the strut's descent (6 px) below it.
+		{platform.KeyEnd, platform.CodeEnd, 0, 1026 - 200, 0},
 		{platform.KeyHome, platform.CodeHome, platform.ModCtrl, 0, 0},
 		{" ", platform.CodeSpace, 0, 175, 0},
 		{" ", platform.CodeSpace, platform.ModShift, 0, 0},

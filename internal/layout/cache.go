@@ -82,6 +82,7 @@ type measureEntry struct {
 	key  cacheKey
 	size size
 	base opt // first baseline
+	last opt // last baseline
 }
 
 // cache holds a node's last full layout result and a few size
@@ -110,7 +111,7 @@ func (c *cache) get(in *input) (output, bool) {
 			e := &c.entries[i]
 			if c.used[i] && e.key.sameRequest(&key) && e.key.sizeValidFor(&key) {
 				c.recent |= 1 << i
-				return output{size: e.size, firstBaseline: e.base}, true
+				return output{size: e.size, firstBaseline: e.base, lastBaseline: e.last}, true
 			}
 		}
 	}
@@ -128,7 +129,7 @@ func (c *cache) store(in *input, out output) {
 		c.nonEmpty = true
 		for i := range c.entries {
 			if c.used[i] && c.entries[i].key == key {
-				c.entries[i].size, c.entries[i].base = out.size, out.firstBaseline
+				c.entries[i].size, c.entries[i].base, c.entries[i].last = out.size, out.firstBaseline, out.lastBaseline
 				c.recent |= 1 << i
 				return
 			}
@@ -143,7 +144,7 @@ func (c *cache) store(in *input, out output) {
 			}
 		}
 		i := c.next
-		c.entries[i] = measureEntry{key: key, size: out.size, base: out.firstBaseline}
+		c.entries[i] = measureEntry{key: key, size: out.size, base: out.firstBaseline, last: out.lastBaseline}
 		c.used[i] = true
 		c.recent |= 1 << i
 		c.next++

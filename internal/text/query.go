@@ -27,12 +27,14 @@ func (l *Layout) AlignWidth() float32 { return l.alignWidth }
 // MinContentWidth returns the min-content width: the widest piece of text
 // between soft wrap opportunities (and emergency opportunities with
 // overflow-wrap: anywhere), without hanging white space. It does not
-// depend on the current line breaking.
-func (l *Layout) MinContentWidth() float32 { return l.minContent }
+// depend on the current line breaking. After SetBoxIntrinsic it computes
+// the widths again, so it then must not run concurrently with other
+// methods (nor must MaxContentWidth).
+func (l *Layout) MinContentWidth() float32 { l.intrinsic(); return l.minContent }
 
 // MaxContentWidth returns the max-content width: the widest line when
 // breaking only at forced breaks.
-func (l *Layout) MaxContentWidth() float32 { return l.maxContent }
+func (l *Layout) MaxContentWidth() float32 { l.intrinsic(); return l.maxContent }
 
 // Text returns the source text.
 func (l *Layout) Text() string { return l.src }
@@ -113,7 +115,8 @@ type LineRun struct {
 	ClusterStart, ClusterEnd int
 	Face                     *Face
 	Size                     float32
-	// Box is the index of the inline box in Paragraph.Boxes for RunBox.
+	// Box is the index of the inline box in Paragraph.Boxes for RunBox, -1
+	// for the zero-width placeholder of an empty inline.
 	Box int
 }
 
@@ -131,6 +134,9 @@ func (l *Layout) LineRuns(i int, dst []LineRun) []LineRun {
 		case itemBox:
 			rn := &l.runs[it.run]
 			r.Kind, r.Box = RunBox, int(rn.box)
+			if r.Box >= l.nboxes {
+				r.Box = -1 // the placeholder of an empty inline
+			}
 		default:
 			rn := &l.runs[it.run]
 			r.Kind, r.Face, r.Size = RunText, rn.face, rn.size
@@ -254,10 +260,23 @@ func (l *Layout) Glyph(i int) Glyph {
 	return Glyph{g.id, g.adv, g.dx, g.dy}
 }
 
+// BoxLine returns the line that Paragraph.Boxes[i] is on, or -1 when it is
+// hidden (truncated or clamped).
+func (l *Layout) BoxLine(i int) int {
+	if i < 0 || i >= l.nboxes {
+		return -1
+	}
+	c := l.boxClus[i]
+	if c < 0 {
+		return -1
+	}
+	return int(l.cline[c])
+}
+
 // BoxRect returns the rectangle of Paragraph.Boxes[i], or false when the box
 // is hidden (truncated or clamped).
 func (l *Layout) BoxRect(i int) (gfx.Rect, bool) {
-	if i < 0 || i >= len(l.boxClus) {
+	if i < 0 || i >= l.nboxes {
 		return gfx.Rect{}, false
 	}
 	c := l.boxClus[i]

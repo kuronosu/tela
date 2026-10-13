@@ -276,6 +276,10 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 			for _, c := range n.Children {
 				n.Bounds = n.Bounds.Union(c.Bounds)
 			}
+			if !none && bx.inPara != nil {
+				// An inline element: its fragments (padding included).
+				n.Bounds = n.Bounds.Union(t.inlineBounds(el, transformed))
+			}
 		}
 	}
 }
@@ -731,6 +735,39 @@ func (t *Tree) elemBounds(el *Element) gfx.Rect {
 			continue
 		}
 		u = u.Union(t.elemBounds(c))
+	}
+	if el.kind == elemPrimitive && el.box.inPara != nil {
+		u = u.Union(t.inlineBounds(el, true))
+	}
+	return u
+}
+
+// inlineBounds returns the union of the border boxes of the fragments of
+// inline element el (inline.go) in window coordinates, zero when it has
+// none; transformed reports that a box around it may have a transform.
+func (t *Tree) inlineBounds(el *Element, transformed bool) gfx.Rect {
+	p := el.box.inPara
+	if p == nil || p.owner == nil || !p.owner.mounted || p.para == nil || p.para.lay == nil {
+		return gfx.Rect{}
+	}
+	rects := p.para.inlineRects(el, t.sem.rects[:0])
+	var u gfx.Rect
+	for _, r := range rects {
+		u = u.Union(r)
+	}
+	clear(rects)
+	t.sem.rects = rects[:0]
+	if u.Empty() {
+		return gfx.Rect{}
+	}
+	l := p.ld.Layout()
+	o := t.semOrigin(p).Add(gfx.Point{X: l.Border.Left + l.Padding.Left, Y: l.Border.Top + l.Padding.Top})
+	if p.scr != nil {
+		o = o.Sub(p.scr.soff) // a paragraph that scrolls its own text
+	}
+	u = u.Translate(o.X, o.Y)
+	if transformed {
+		u = t.transformUp(p, u)
 	}
 	return u
 }

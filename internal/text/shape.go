@@ -105,6 +105,9 @@ func (l *Layout) shape() {
 	scripts := make([]language.Script, n)
 	resolveScripts(pt.runes, scripts)
 	segs := segmentText(pt.runes)
+	if len(l.boxes) > l.nboxes {
+		l.tagBreaks(segs)
+	}
 	l.segs = segs
 
 	shapeMu.Lock()
@@ -120,7 +123,11 @@ func (l *Layout) shape() {
 		switch {
 		case pt.box[i] >= 0:
 			b := l.boxes[pt.box[i]]
-			l.special(runBox, i, levels[i], si, b.Width, cfBox)
+			f := cfBox
+			if int(pt.box[i]) >= l.nboxes {
+				f |= cfTag
+			}
+			l.special(runBox, i, levels[i], si, b.Width, f)
 			l.runs[len(l.runs)-1].box = pt.box[i]
 			i++
 			continue
@@ -135,7 +142,7 @@ func (l *Layout) shape() {
 		}
 		// A text item: same level, script and shaping style.
 		j := i + 1
-		for j < n && pt.box[j] < 0 && levels[j] == levels[i] && scripts[j] == scripts[i] &&
+		for j < n && pt.box[j] < 0 && levels[j] == levels[i] && scripts[j] == scripts[i] && (pt.split == nil || !pt.split[j]) &&
 			!(pt.runes[j] == '\t' && !l.para.WhiteSpace.collapses()) && !isForcedBreakChar(pt.runes[j]) &&
 			(pt.style[j] == pt.style[i] || l.styles[pt.style[j]].shapesLike(&l.styles[pt.style[i]])) {
 			j++

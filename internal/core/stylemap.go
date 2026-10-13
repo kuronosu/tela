@@ -88,12 +88,18 @@ func (t *Tree) restyle(el *Element) {
 		return // a new element: reconciliation marked its structure
 	}
 	inherited := !sameInherited(old, cs)
-	if displayClass(old) != displayClass(cs) {
+	if displayClass(old) != displayClass(cs) || atomicStyle(old) != atomicStyle(cs) {
 		t.markBoxes(el)
 		t.markBoxes(sp)
 	}
 	if inherited || old.TextOverflow != cs.TextOverflow || old.LineClamp != cs.LineClamp {
 		t.markBoxes(el) // its paragraph, or the one it is part of
+	}
+	if bx.inPara != nil && inlineBoxChanged(old, cs) {
+		t.markBoxes(el) // the edges of an inline element are laid out
+	}
+	if old.VerticalAlign != cs.VerticalAlign {
+		t.markBoxes(sp) // the inline box of an atomic inline
 	}
 	if inherited {
 		t.restyleChildren(el)
@@ -239,12 +245,34 @@ func displayClass(cs *style.ComputedStyle) uint8 {
 		return 1
 	case style.DisplayInline:
 		return 2
-	case style.DisplayFlex, style.DisplayInlineFlex:
+	case style.DisplayFlex:
 		return 3
 	case style.DisplayNone:
 		return 4
+	case style.DisplayInlineBlock, style.DisplayInlineGrid:
+		return 5 // atomic inline-level
+	case style.DisplayInlineFlex:
+		return 6
 	}
 	return 0
+}
+
+// atomicStyle reports whether a box with style cs can be an atomic inline
+// (atomicInline), as far as its style goes: inline-level and in flow.
+func atomicStyle(cs *style.ComputedStyle) bool {
+	switch cs.Display {
+	case style.DisplayInline, style.DisplayInlineBlock, style.DisplayInlineFlex, style.DisplayInlineGrid:
+		return cs.Position != style.PositionAbsolute && cs.Position != style.PositionFixed
+	}
+	return false
+}
+
+// inlineBoxChanged reports whether the layout of an inline element's box
+// changed: the widths of its edges (inlineEdges).
+func inlineBoxChanged(a, b *style.ComputedStyle) bool {
+	al, ar := inlineEdges(a)
+	bl, br := inlineEdges(b)
+	return al != bl || ar != br
 }
 
 // ---------------------------------------------------------------------
@@ -316,10 +344,11 @@ func inFlow(cs *style.ComputedStyle) bool {
 //   - grid and inline-grid lay out as block (grid arrives in phase 6);
 //   - fixed lays out as absolute against the nearest positioned ancestor,
 //     sticky as relative;
-//   - inline-block, inline-flex and inline-grid boxes in block flow are
-//     block-level boxes with a fit-content width, each on its own line;
-//     the text-align of the parent is emulated with auto margins when
-//     theirs are zero.
+//   - in flow, inline-block, inline-flex and inline-grid boxes are the
+//     atomic inlines of a paragraph (ADR-066), with a fit-content width;
+//     the other inline-level boxes that a block lays out (absolutely
+//     positioned ones) are fit-content too, and the text-align of the
+//     parent is emulated with auto margins when theirs are zero.
 func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	cs := b.cs
 	if b.deferLayout {
@@ -397,6 +426,14 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 
 	if parent == nil || isFlexContainer(parent.cs) {
 		return ls // the root, or a flex item: blockified
+	}
+	if parent.mode == modeParagraph {
+		// An atomic inline of a paragraph: its line places it (text-align
+		// and space-x-* included); an auto width is fit-content.
+		if ls.Width.Unit == layout.UnitAuto && b.kind != style.KindImg {
+			ls.Width = layout.FitContent
+		}
+		return ls
 	}
 	pcs := parent.cs
 	// Block flow.

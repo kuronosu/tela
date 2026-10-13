@@ -11,13 +11,20 @@ import (
 // the style phase it collects the content (children through components
 // and display: contents) and decides what the box lays out:
 //
-//   - A block container whose content is all inline (text and inline
-//     primitives whose own content is inline) is ONE paragraph: a leaf
-//     with one text.Layout whose spans carry each inline element's text
-//     style.
+//   - A block container whose content is all inline-level (text, inline
+//     primitives whose own content is inline-level, and atomic inlines:
+//     inline-block, inline-flex and inline-grid primitives, buttons
+//     included, and Img with display inline or inline-block, in flow) is
+//     ONE paragraph: one text.Layout whose spans carry each inline
+//     element's text style and whose inlines are the inline elements (CSS
+//     inline boxes: their margins, borders and padding take space on the
+//     line and their fragments are decorated, paint.go). Its atomic
+//     inlines are its layout children (text.InlineBox placeholders laid
+//     out through layout.Atoms, box.go); it is a leaf otherwise.
 //   - A block container with mixed content wraps each run of consecutive
-//     inline content in an anonymous paragraph box (CSS anonymous block
-//     boxes); runs that are only collapsible white space are dropped.
+//     inline-level content in an anonymous paragraph box (CSS anonymous
+//     block boxes), with the run's atomic inlines as its children; runs
+//     that are only collapsible white space are dropped.
 //   - A flex container wraps each run of consecutive texts in an
 //     anonymous paragraph box (anonymous flex item); every primitive child
 //     is a flex item (blockified), inline ones included.
@@ -27,7 +34,8 @@ import (
 //
 // Inline primitives that end up inside a paragraph have no box in the
 // tree; their box records the paragraph (inPara) so that a change to them
-// rebuilds that paragraph.
+// rebuilds that paragraph. Atomic inlines have boxes of their own, the
+// children of the paragraph box, built like block-level boxes.
 
 // boxPhase rebuilds the structure of the marked primitives, shallowest
 // first.
@@ -118,6 +126,7 @@ func (t *Tree) buildBoxes(el *Element) {
 		if inline {
 			bx.mode = modeParagraph
 			t.setParagraph(bx, items, el)
+			kids = append(kids, bx.para.atoms...)
 			break
 		}
 		bx.mode = modeContainer
@@ -132,6 +141,7 @@ func (t *Tree) buildBoxes(el *Element) {
 				if t.setParagraph(a, items[i:j], el) {
 					nAnon++
 					kids = append(kids, a)
+					t.setAtomKids(a)
 				}
 				i = j
 				continue
@@ -142,13 +152,16 @@ func (t *Tree) buildBoxes(el *Element) {
 		}
 	}
 	for _, a := range bx.anon[nAnon:] {
-		a.parent, a.para = nil, nil
+		a.parent, a.para, a.kids = nil, nil, nil
 	}
 	clear(bx.anon[nAnon:])
 	bx.anon = bx.anon[:nAnon]
 
 	for _, k := range kids {
 		k.parent = bx
+		if bx.mode != modeParagraph {
+			k.hiddenAtom = false // block-level: on no line
+		}
 	}
 	if !slices.Equal(kids, bx.kids) || oldMode != bx.mode {
 		if len(kids) == 0 {
@@ -202,10 +215,11 @@ func (t *Tree) collect(out []*Element, el *Element) []*Element {
 	return out
 }
 
-// inlineLevel reports whether content item el is inline content: a text,
-// or an inline primitive (display: inline) whose own content is inline. An
-// inline primitive with block-level content is laid out as a block (CSS
-// would split it around the blocks).
+// inlineLevel reports whether content item el is inline-level content: a
+// text, an atomic inline (atomicInline), or an inline primitive (display:
+// inline) whose own content is inline-level. An inline primitive with
+// block-level content is laid out as a block (CSS would split it around
+// the blocks).
 func (t *Tree) inlineLevel(el *Element) bool {
 	if el.kind == elemText {
 		return true
@@ -215,7 +229,10 @@ func (t *Tree) inlineLevel(el *Element) bool {
 		return bx.inlineVal
 	}
 	v := false
-	if bx.cs.Display == style.DisplayInline && bx.kind != style.KindImg {
+	switch {
+	case atomicInline(bx):
+		v = true
+	case bx.cs.Display == style.DisplayInline && bx.kind != style.KindImg:
 		v = true
 		items := t.collect(t.getItems(), el)
 		for _, c := range items {
@@ -228,6 +245,44 @@ func (t *Tree) inlineLevel(el *Element) bool {
 	}
 	bx.inlineFrame, bx.inlineVal = t.frame, v
 	return v
+}
+
+// atomicInline reports whether bx is an atomic inline-level box (CSS 2.1
+// section 9.2.2): an inline-block, inline-flex or inline-grid box (a
+// Button by default), or an Img with display inline or inline-block,
+// that is in flow (absolutely positioned and fixed boxes are not on a
+// line). Inside a flex container it is a flex item like any child.
+func atomicInline(bx *Box) bool {
+	cs := bx.cs
+	switch cs.Display {
+	case style.DisplayInlineBlock, style.DisplayInlineFlex, style.DisplayInlineGrid:
+	case style.DisplayInline:
+		if bx.kind != style.KindImg {
+			return false
+		}
+	default:
+		return false
+	}
+	return cs.Position != style.PositionAbsolute && cs.Position != style.PositionFixed
+}
+
+// setAtomKids makes the atomic inlines of anonymous paragraph box a its
+// children.
+func (t *Tree) setAtomKids(a *Box) {
+	atoms := a.para.atoms
+	for _, k := range atoms {
+		k.parent = a
+	}
+	if slices.Equal(atoms, a.kids) {
+		return
+	}
+	a.kids = slices.Clone(atoms)
+	if len(atoms) == 0 {
+		a.kids = nil
+	}
+	t.engine.MarkDirty(a)
+	a.queueRemap()
+	t.dirty()
 }
 
 // anonBox returns anonymous box i of owner's structure, creating it if
@@ -255,7 +310,8 @@ func (t *Tree) anonBox(owner *Box, i int) *Box {
 // box b, which belongs to the structure of primitive owner. It reports
 // whether the paragraph has content.
 func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element) bool {
-	a := &t.asm
+	a := t.getAsm()
+	defer t.putAsm(a)
 	a.reset()
 	// space-x-* between inline elements: Tailwind puts a margin after
 	// every element child but the last; text runs are not elements.
@@ -277,13 +333,25 @@ func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element) bool {
 			a.addText(it.text, t.textStyle(it, b, owner), it.styleParent(), it)
 			continue
 		}
-		t.addInline(a, it, b, owner)
+		t.addInlineLevel(a, it, b, owner)
 		seen++
 		if gap > 0 && seen < elems {
 			a.addSpace(gap)
 		}
 	}
 	return t.commitParagraph(b, a)
+}
+
+// addInlineLevel adds inline-level primitive el to the paragraph of box
+// para: an atomic inline as an inline box, an inline element as an inline
+// with its content.
+func (t *Tree) addInlineLevel(a *paraAssembler, el *Element, para *Box, owner *Element) {
+	if atomicInline(el.box) {
+		t.ensureBuilt(el)
+		a.addAtom(el.box)
+		return
+	}
+	t.addInline(a, el, para, owner)
 }
 
 // addInline adds the content of inline primitive el to the paragraph of
@@ -296,15 +364,17 @@ func (t *Tree) addInline(a *paraAssembler, el *Element, para *Box, owner *Elemen
 		bx.anon[i].parent = nil
 	}
 	bx.anon = nil
+	k := a.openInline(el)
 	items := t.collect(t.getItems(), el)
 	for _, c := range items {
 		if c.kind == elemText {
 			a.addText(c.text, t.textStyle(c, para, owner), c.styleParent(), c)
 		} else {
-			t.addInline(a, c, para, owner)
+			t.addInlineLevel(a, c, para, owner)
 		}
 	}
 	t.putItems(items)
+	a.closeInline(k)
 }
 
 // textStyle returns the style of the text of element el in the paragraph
@@ -344,6 +414,20 @@ func (t *Tree) getItems() []*Element {
 func (t *Tree) putItems(b []*Element) {
 	clear(b)
 	t.itemFree = append(t.itemFree, b[:0])
+}
+
+func (t *Tree) getAsm() *paraAssembler {
+	if n := len(t.asm); n > 0 {
+		a := t.asm[n-1]
+		t.asm = t.asm[:n-1]
+		return a
+	}
+	return new(paraAssembler)
+}
+
+func (t *Tree) putAsm(a *paraAssembler) {
+	a.reset()
+	t.asm = append(t.asm, a)
 }
 
 func (t *Tree) getBoxes() []*Box {

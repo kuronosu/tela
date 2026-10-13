@@ -221,7 +221,7 @@ func (e *Engine) flexPreliminary(n Node, st *Style, in input) output {
 		}
 	}
 
-	return output{size: c.containerSize, overflow: inflowOverflow.union(absOverflow), firstBaseline: baseline, escapes: escapes}
+	return output{size: c.containerSize, overflow: inflowOverflow.union(absOverflow), firstBaseline: baseline, lastBaseline: baseline, escapes: escapes}
 }
 
 // flexConstants computes the values used throughout the algorithm.

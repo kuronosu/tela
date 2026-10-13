@@ -37,6 +37,15 @@ type InspectNode struct {
 	// Inline lists the inline elements of a paragraph box ("strong",
 	// "span"...), in order.
 	Inline []string `json:"inline,omitempty"`
+	// Fragments are the fragments of those inline elements, by line: one
+	// per line an element is on (and per bidi run that separates its
+	// content), with the index of the element in Inline and its border
+	// box in absolute logical pixels (padding and borders included).
+	Fragments []InspectFragment `json:"fragments,omitempty"`
+	// InlineBox reports an atomic inline (an inline-block, inline-flex or
+	// inline image box, a Button in text): a child of a paragraph box,
+	// placed on one of its lines.
+	InlineBox bool `json:"inlineBox,omitempty"`
 	// Style summarizes the computed style.
 	Style    StyleSummary  `json:"style"`
 	Children []InspectNode `json:"children,omitempty"`
@@ -70,14 +79,42 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		Text      string        `json:"text,omitempty"`
 		Lines     int           `json:"lines,omitempty"`
 		Inline    []string      `json:"inline,omitempty"`
+		Fragments []jsonFrag    `json:"fragments,omitempty"`
+		InlineBox bool          `json:"inlineBox,omitempty"`
 		Style     StyleSummary  `json:"style"`
 		Children  []InspectNode `json:"children,omitempty"`
 	}{
 		n.Kind, n.Key, n.Component,
 		jsonRect{n.Rect.X0, n.Rect.Y0, n.Rect.Width(), n.Rect.Height()},
-		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, n.Style, n.Children,
+		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, jsonFrags(n.Fragments), n.InlineBox, n.Style, n.Children,
 	})
 	return bytes.TrimRight(buf.Bytes(), "\n"), err
+}
+
+// InspectFragment is a fragment of an inline element of a paragraph.
+type InspectFragment struct {
+	// Inline is the element's index in InspectNode.Inline.
+	Inline int `json:"inline"`
+	// Line is the line of the paragraph it is on.
+	Line int `json:"line"`
+	// Rect is its border box in absolute logical pixels.
+	Rect gfx.Rect `json:"rect"`
+}
+
+// jsonFrag is the serialized form of a fragment: its rect as {x, y,
+// width, height}.
+type jsonFrag struct {
+	Inline int      `json:"inline"`
+	Line   int      `json:"line"`
+	Rect   jsonRect `json:"rect"`
+}
+
+func jsonFrags(fs []InspectFragment) []jsonFrag {
+	var out []jsonFrag
+	for _, f := range fs {
+		out = append(out, jsonFrag{f.Inline, f.Line, jsonRect{f.Rect.X0, f.Rect.Y0, f.Rect.Width(), f.Rect.Height()}})
+	}
+	return out
 }
 
 // Edges are four edge lengths in logical pixels.
@@ -146,34 +183,26 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 		if b.para.lay != nil {
 			n.Lines = b.para.lay.NumLines()
 		}
-		if b.el != nil {
-			n.Inline = t.inlineKinds(b.el, nil)
-		} else if b.owner != nil {
-			// The inline elements of an anonymous box: those whose
-			// paragraph it is.
+		// The inline elements, those whose paragraph it is, in order.
+		if b.owner != nil {
 			n.Inline = t.inlineKindsOf(b.owner, b, nil)
 		}
+		if p := b.para; p.lay != nil && len(p.inl) > 0 {
+			c := contentRect(r, l)
+			p.prepare(t, max(c.Width(), 0))
+			for _, f := range p.fragments() {
+				if cs := p.inlineStyle(f.Inline); cs != nil {
+					n.Fragments = append(n.Fragments, InspectFragment{Inline: f.Inline, Line: f.Line,
+						Rect: fragBorderBox(cs, &f).Translate(c.X0, c.Y0)})
+				}
+			}
+		}
 	}
+	n.InlineBox = b.parent != nil && b.parent.mode == modeParagraph
 	for _, k := range b.kids {
 		n.Children = append(n.Children, t.inspect(k, r.Origin()))
 	}
 	return n
-}
-
-// inlineKinds lists the inline primitives under el, in order.
-func (t *Tree) inlineKinds(el *Element, out []string) []string {
-	for _, c := range el.children {
-		switch c.kind {
-		case elemPrimitive:
-			if c.box.inPara != nil {
-				out = append(out, c.box.kind.String())
-			}
-			out = t.inlineKinds(c, out)
-		case elemComponent:
-			out = t.inlineKinds(c, out)
-		}
-	}
-	return out
 }
 
 // inlineKindsOf lists the inline primitives under el whose paragraph is
@@ -184,7 +213,7 @@ func (t *Tree) inlineKindsOf(el *Element, para *Box, out []string) []string {
 		case elemPrimitive:
 			if c.box.inPara == para {
 				out = append(out, c.box.kind.String())
-				out = t.inlineKinds(c, out)
+				out = t.inlineKindsOf(c, para, out)
 			} else if c.box.cs != nil && c.box.cs.Display == style.DisplayContents {
 				out = t.inlineKindsOf(c, para, out)
 			}

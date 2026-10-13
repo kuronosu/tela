@@ -28,6 +28,13 @@ type procText struct {
 	src   []int32
 	style []uint16 // index into Layout.styles
 	box   []int32  // inline box index, or -1
+	// split marks the runes before which text shaping breaks: the
+	// boundaries of inlines with margins, borders or padding (nil when
+	// there is none).
+	split []bool
+	// first is the source offset of the character that produced rune 0
+	// (src[0] is 0: the characters removed before it belong to it).
+	first int32
 }
 
 const objectReplacement = '￼'
@@ -42,8 +49,11 @@ type rawRune struct {
 // prepareText applies text-transform and white-space processing (CSS Text
 // 3, section 4.1.1, phase I, plus the removal of collapsible spaces at the
 // start of the paragraph and after preserved newlines from phase II).
-// boxOrder is the order of the paragraph's boxes sorted by offset.
-func prepareText(p *Paragraph, styles []TextStyle, boxOrder []int) procText {
+// boxOrder is the order of the paragraph's boxes sorted by offset. Inlines
+// left without content get a placeholder box (inline.go): the returned
+// tags list their inlines, and the placeholder of tags[k] is box
+// len(p.Boxes)+k.
+func prepareText(p *Paragraph, styles []TextStyle, boxOrder []int) (procText, []int32) {
 	text := p.Text
 	needWords := false
 	for i := range styles {
@@ -110,6 +120,7 @@ func prepareText(p *Paragraph, styles []TextStyle, boxOrder []int) procText {
 	}
 
 	kept := collapseWhiteSpace(raw, p.Style.WhiteSpace)
+	kept, tags := addPlaceholders(kept, p, len(styles)-len(p.Inlines))
 
 	pt := procText{
 		runes: make([]rune, len(kept)),
@@ -123,10 +134,14 @@ func prepareText(p *Paragraph, styles []TextStyle, boxOrder []int) procText {
 	pt.src[len(kept)] = int32(len(text))
 	// Characters removed at the start of the paragraph belong to the first
 	// rune, unless it is an inline box (whose range stays empty).
-	if len(kept) > 0 && kept[0].box < 0 {
-		pt.src[0] = 0
+	if len(kept) > 0 {
+		pt.first = pt.src[0]
+		if kept[0].box < 0 {
+			pt.src[0] = 0
+		}
 	}
-	return pt
+	pt.split = shapingSplits(kept, p)
+	return pt, tags
 }
 
 // styleAt returns the style index of the byte at offset b (0 for Default,

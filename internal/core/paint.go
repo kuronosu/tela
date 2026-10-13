@@ -185,6 +185,11 @@ func (p *painter) place(bx *Box, parent *Box) {
 	// (boxes that escape a scroll container) make them unbounded.
 	sub := bx.u
 	ink := p.selfInk(bx)
+	if bx.mode == modeParagraph && bx.para != nil && len(bx.para.inl) > 0 && (bx.scr == nil || !bx.scr.chunked) {
+		// The fragments of inline elements are hit where they are
+		// painted, outside the box too (vertical padding).
+		sub = sub.Union(bx.para.fragmentsBox(contentRect(bx.u, l).Origin()))
+	}
 	part, content := false, false
 	chunked := bx.scr != nil && bx.scr.chunked
 	for _, k := range bx.kids {
@@ -345,6 +350,9 @@ func (p *painter) computeSelfInk(bx *Box) gfx.Rect {
 		c := contentRect(bx.u, l)
 		bx.para.prepare(p.t, max(c.Width(), 0))
 		r = r.Union(bx.para.inkRect(c.Origin()))
+		if len(bx.para.inl) > 0 {
+			r = r.Union(bx.para.decorInk(c.Origin()))
+		}
 	}
 	return r
 }
@@ -398,7 +406,7 @@ func participant(bx *Box) bool {
 // skips subtrees without participants (hasPart).
 func (p *painter) collect(bx *Box) {
 	for _, k := range bx.kids {
-		if k.ls.Display == layout.DisplayNone {
+		if k.ls.Display == layout.DisplayNone || k.hiddenAtom {
 			continue
 		}
 		if participant(k) {
@@ -540,7 +548,7 @@ func containingBlock(bx *Box) *Box {
 // paintFlow paints an in-flow box that is not a participant, atomically,
 // unless it is outside the interest rect of the list being recorded.
 func (p *painter) paintFlow(bx *Box) {
-	if bx.ls.Display == layout.DisplayNone || participant(bx) {
+	if bx.ls.Display == layout.DisplayNone || participant(bx) || bx.hiddenAtom {
 		return
 	}
 	if p.cull && !bx.ink.Intersects(p.interest) {
@@ -562,11 +570,19 @@ func (p *painter) paintInner(bx *Box) {
 	if s := bx.scr; s != nil && s.chunked {
 		entered = p.enter(s, bx)
 	}
-	if bx.pcs.Visibility == style.VisibilityVisible {
-		p.paintContent(bx)
-	}
-	for _, k := range bx.kids {
-		p.paintFlow(k)
+	if bx.mode == modeParagraph && bx.para != nil && bx.para.lay != nil && bx.para.decorated() {
+		// Line by line, with the atomic inlines (its children) and the
+		// decorations of its inline elements (inline.go).
+		c := contentRect(p.rect(bx), bx.ld.Layout())
+		bx.para.prepare(p.t, max(c.Width(), 0))
+		p.paintParagraph(bx, c.Origin(), bx.pcs.Visibility == style.VisibilityVisible)
+	} else {
+		if bx.pcs.Visibility == style.VisibilityVisible {
+			p.paintContent(bx)
+		}
+		for _, k := range bx.kids {
+			p.paintFlow(k)
+		}
 	}
 	if entered {
 		p.leave()
@@ -737,9 +753,14 @@ func (p *painter) rect(bx *Box) gfx.Rect { return bx.u }
 
 // geom returns the snapped geometry of bx.
 func (p *painter) geom(bx *Box) boxGeom {
-	cs := bx.pcs
+	return p.geomOf(bx.pcs, p.rect(bx))
+}
+
+// geomOf returns the snapped geometry of a box with style cs whose
+// unsnapped border box is r.
+func (p *painter) geomOf(cs *style.ComputedStyle, r gfx.Rect) boxGeom {
 	var g boxGeom
-	r := p.snapRect(p.rect(bx))
+	r = p.snapRect(r)
 	w, h := r.Width(), r.Height()
 	rd := &cs.Radius
 	g.border = gfx.RRect{Rect: r, Radii: [4]gfx.Point{
@@ -759,7 +780,12 @@ func (p *painter) geom(bx *Box) boxGeom {
 // contentRRect returns the content box of bx (the padding box inset by the
 // padding, snapped) with its radii.
 func (p *painter) contentRRect(bx *Box, g *boxGeom) gfx.RRect {
-	pd := bx.ld.Layout().Padding
+	return p.contentRRectOf(g, bx.ld.Layout().Padding)
+}
+
+// contentRRectOf returns the content box of geometry g for padding widths
+// pd.
+func (p *painter) contentRRectOf(g *boxGeom, pd layout.Insets) gfx.RRect {
 	r := g.padding.Rect
 	c := p.snapRect(gfx.Rect{X0: r.X0 + pd.Left, Y0: r.Y0 + pd.Top, X1: r.X1 - pd.Right, Y1: r.Y1 - pd.Bottom})
 	return insetRRect(g.padding, c.Y0-r.Y0, r.X1-c.X1, r.Y1-c.Y1, c.X0-r.X0)
@@ -803,7 +829,7 @@ func (p *painter) paintContent(bx *Box) {
 		// its content layer (paintInner).
 		c := contentRect(p.rect(bx), l)
 		para.prepare(p.t, max(c.Width(), 0))
-		para.lay.Paint(p.b, c.Origin())
+		para.lay.PaintScaled(p.b, c.Origin(), float32(p.scale))
 	case modeImage:
 		if bx.img == nil {
 			return

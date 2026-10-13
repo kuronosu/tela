@@ -1,20 +1,62 @@
 package text
 
-import "github.com/kuronosu/tela/internal/gfx"
+import (
+	"math"
+
+	"github.com/kuronosu/tela/internal/gfx"
+)
 
 // Paint draws the visible lines with origin as the top-left corner of the
 // layout box: one DrawGlyphRun per run of glyphs with the same font, size
 // and paint, underlines and overlines below the text and line-throughs
 // above it (CSS Text Decoration 3, painting order), as rectangles merged
 // across adjacent clusters of equal decoration. Inline boxes are not
-// painted: their positions come from BoxRect.
-func (l *Layout) Paint(b *gfx.Builder, origin gfx.Point) {
+// painted: their positions come from BoxRect. Neither are inlines: their
+// fragments come from InlineFragments.
+func (l *Layout) Paint(b *gfx.Builder, origin gfx.Point) { l.PaintScaled(b, origin, 0) }
+
+// PaintScaled is Paint for a display at the given scale (device pixels
+// per logical pixel; 0 for none): underlines are then snapped to device
+// pixels as Blink draws them (see paintDecorations).
+func (l *Layout) PaintScaled(b *gfx.Builder, origin gfx.Point, scale float32) {
 	var gs []gfx.Glyph
 	for li := range l.lines {
-		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline)
+		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline, scale)
 		gs = l.paintGlyphs(b, origin, li, gs)
-		l.paintDecorations(b, origin, li, DecorationLineThrough)
+		l.paintDecorations(b, origin, li, DecorationLineThrough, scale)
 	}
+}
+
+// PaintLine draws line i as PaintScaled does, for callers that paint
+// something between lines (the backgrounds of inline boxes, which CSS
+// paints line by line: a later line's backgrounds cover an earlier line's
+// text).
+func (l *Layout) PaintLine(b *gfx.Builder, origin gfx.Point, i int, scale float32) {
+	if i < 0 || i >= len(l.lines) {
+		return
+	}
+	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale)
+	l.paintGlyphs(b, origin, i, nil)
+	l.paintDecorations(b, origin, i, DecorationLineThrough, scale)
+}
+
+// snappedUnderline returns the top (relative to the baseline at y, in
+// absolute logical px) and the thickness of an underline of style s for a
+// display scale, as Blink computes them in device pixels: the thickness
+// is the style's, or a tenth of the font size (at least 1), floored to
+// whole device pixels (at least 1), and the line starts max(1,
+// ceil(thickness/2)) device pixels below the baseline rounded to the
+// device grid (text-underline-position: auto).
+func snappedUnderline(s *TextStyle, size, y, scale float32) (top, thick float32) {
+	t := s.Decoration.Thickness
+	if !(t > 0) || !finite32(t) {
+		t = max(1, size/10)
+	}
+	td := float64(t) * float64(scale)
+	gap := max(1, math.Ceil(td/2))
+	th := max(1, math.Floor(td))
+	base := math.Round(float64(y) * float64(scale))
+	return float32((base+gap)/float64(scale)) - y, float32(th / float64(scale))
 }
 
 // samePaint reports whether two paints are certainly equal (solid colors
@@ -95,8 +137,9 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 	return gs
 }
 
-// paintDecorations draws the decoration lines in mask of line li.
-func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration) {
+// paintDecorations draws the decoration lines in mask of line li; at a
+// display scale (not 0), underlines are snapped to its device pixels.
+func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration, scale float32) {
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
 	type seg struct {
@@ -137,6 +180,9 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 				switch bit {
 				case DecorationUnderline:
 					y, h = si.underline, si.underlineThick
+					if scale > 0 {
+						y, h = snappedUnderline(st, si.size, by, scale)
+					}
 				case DecorationOverline:
 					y, h = si.overline, si.underlineThick
 				default:

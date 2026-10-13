@@ -119,7 +119,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	rPadding := st.Padding.resolveOrZero(some(pctWidth))
 	rBorder := st.Border.resolveOrZero(some(pctWidth))
 	rCbi := rPadding.add(rBorder).add(gutter)
-	inflowOverflow, contentH, firstBaseline, escapes := e.blockInFlow(n, in.run, items, outerW, pctHeight, rCbi, rBorder, dir, scrolls)
+	inflowOverflow, contentH, firstBaseline, lastBaseline, escapes := e.blockInFlow(n, in.run, items, outerW, pctHeight, rCbi, rBorder, dir, scrolls)
 
 	outerH := fmax(known.h.unwrapOr(fclampOpt(contentH, minSize.h, maxSize.h)), pbSize.h)
 	final := size{outerW, outerH}
@@ -136,7 +136,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 		if anyInFlow {
 			k := alignmentFallback(free, 1, st.AlignContent)
 			off := alignmentOffset(free, 1, 0, k, false, true)
-			firstBaseline = firstBaseline.addF(off)
+			firstBaseline, lastBaseline = firstBaseline.addF(off), lastBaseline.addF(off)
 			inflowOverflow = rect{}
 			for i := range items {
 				it := &items[i]
@@ -151,7 +151,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	}
 
 	if in.run == computeSize {
-		return output{size: final, firstBaseline: firstBaseline}
+		return output{size: final, firstBaseline: firstBaseline, lastBaseline: lastBaseline}
 	}
 
 	// Commit the children's layouts.
@@ -201,7 +201,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	// 5. Hidden children.
 	e.hideChildren(n)
 
-	return output{size: final, overflow: inflowOverflow.union(absOverflow), firstBaseline: firstBaseline, escapes: escapes}
+	return output{size: final, overflow: inflowOverflow.union(absOverflow), firstBaseline: firstBaseline, lastBaseline: lastBaseline, escapes: escapes}
 }
 
 // blockItems collects the children of a block container that generate
@@ -284,13 +284,13 @@ func blockOverflowLoc(loc point, sz size, outerW float32, border rect, dir Direc
 // ones. It returns the in-flow scrollable overflow, the content height
 // (border box), the first baseline and whether any child hoists
 // absolutely positioned boxes.
-func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW float32, pctHeight opt, rCbi, rBorder rect, dir Direction, scrolls bool) (rect, float32, opt, bool) {
+func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW float32, pctHeight opt, rCbi, rBorder rect, dir Direction, scrolls bool) (rect, float32, opt, opt, bool) {
 	innerW := outerW - rCbi.hsum()
 	pctH := pctHeight.subF(rCbi.vsum())
 	parentSize := optSize{some(innerW), pctH}
 
 	var overflow rect
-	var firstBaseline opt
+	var firstBaseline, lastBaseline opt
 	var escapes bool
 	y := rCbi.t
 	for i := range items {
@@ -387,6 +387,12 @@ func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW floa
 			}
 			firstBaseline = b.addF(loc.y)
 		}
+		// The last baseline is the last in-flow child's that has one
+		// (CSS Align 3, section 9.1; a scroll container has none for an
+		// inline-block's baseline, which the caller decides).
+		if b := out.lastBaseline.or(out.firstBaseline); b.ok {
+			lastBaseline = b.addF(loc.y)
+		}
 
 		it.inFlow, it.loc, it.out, it.margin, it.sbSize = true, loc, out, resolved, sb
 		overflow = overflow.union(overflowContribution(blockOverflowLoc(loc, final, outerW, rBorder, dir), final, out.overflow, it.st, scrolls))
@@ -394,7 +400,7 @@ func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW floa
 		y = loc.y - off.y + final.h + resolved.b
 	}
 	y += rCbi.b
-	return overflow, fmax(0, y), firstBaseline, escapes
+	return overflow, fmax(0, y), firstBaseline, lastBaseline, escapes
 }
 
 // relativeOffset returns the offset of a relatively positioned box from

@@ -192,9 +192,14 @@
 // # Paragraph layout
 //
 // NewLayout lays out a Paragraph (a UTF-8 string, styled spans by byte
-// offsets and inline boxes) once; BreakLines breaks, aligns and positions
-// it at any width without shaping again (Parley's model: shape once, break
-// many times). The pipeline:
+// offsets, inline boxes and inlines) once; BreakLines breaks, aligns and
+// positions it at any width without shaping again (Parley's model: shape
+// once, break many times). Inline boxes are atomic placeholders (an
+// inline-block, an icon) whose size the caller may change with SetBoxSize
+// and SetBoxIntrinsic before breaking again; inlines are CSS inline boxes
+// (spans, links) whose edges take space on the lines and whose fragments
+// the caller decorates (inline.go, whose top comment is the reference).
+// The pipeline:
 //
 //  1. Text preparation (prepare.go): text-transform with full case
 //     mappings ("ß" to "SS", final sigma, Turkish dotted i, capitalize at
@@ -255,7 +260,11 @@
 // and the decorations as rectangles (underline and overline below the
 // glyphs, line-through above; positions and auto thicknesses from the
 // style's first available font, so a decoration does not step between
-// fallback fonts). Inline boxes are not painted; BoxRect places them.
+// fallback fonts). PaintScaled and PaintLine snap underlines to the
+// device pixels of a display scale as Blink does (a tenth of the font
+// size, floored to whole device pixels, below the baseline by half of
+// it). Inline boxes are not painted; BoxRect places them. Neither are
+// inlines; InlineFragments reports their fragments.
 //
 // The read-only view (query.go) exposes lines, the runs of a line in
 // visual order and clusters (source byte range, glyph range, x, advance,
@@ -271,6 +280,10 @@
 // character of a line and what follows; up to 0.4 px), that UAX #14 allows
 // breaks after "/" and "?" in URLs where Blink's ASCII pair table does not,
 // and that capitalize uses the full case mapping of ligature characters.
+// TestChromiumInline does the same on 22 paragraphs with inlines (edges,
+// nesting, wrapping, empty inlines, bidi splits, right-to-left
+// paragraphs, struts, truncation) and compares their fragments too:
+// every fragment and cluster edge is within 0.06 px.
 // Not implemented: hyphenation, text-decoration-skip-ink, vertical-align on
 // spans, synthetic bold and oblique, reshaping across emergency breaks
 // (an Arabic word broken by overflow-wrap keeps its joining forms).

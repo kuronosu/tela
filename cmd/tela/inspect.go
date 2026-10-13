@@ -33,6 +33,13 @@ the element's classes and a summary of its computed style (display, size,
 flex settings, color, background, font, opacity) and the class errors of the
 element. Children nest in tree order. The field order is stable.
 
+A paragraph lists its inline elements (inline: "span", "code", "a"...) and
+their fragments (fragments: one per line an element is on, and per bidi
+run that separates its text, each with the element's index in inline, its
+line and its border box rect, padding and borders included). Its atomic
+inlines (inline-block, inline-flex, buttons in the text) are its children,
+marked inlineBox: true.
+
 <pkg> and the screen are chosen as in "tela snapshot": the package defines
 func Preview() tela.Node or a Previews variable, and --preview picks a screen
 (without it, the first name in byte order).

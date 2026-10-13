@@ -89,6 +89,9 @@ type Box struct {
 	built bool
 	// inPara is the paragraph box whose text includes this inline box.
 	inPara *Box
+	// hiddenAtom reports an atomic inline that its paragraph's
+	// text-overflow or line-clamp hides: it is not painted nor hit.
+	hiddenAtom bool
 
 	// Paint pass scratch state (painter.place): the paint-phase style and
 	// the unsnapped border box where it is painted (u: its layout
@@ -165,6 +168,17 @@ func (b *Box) LayoutChild(i int) layout.Node { return b.kids[i] }
 
 // LayoutData implements layout.Node.
 func (b *Box) LayoutData() *layout.Data { return &b.ld }
+
+// InlineContent implements layout.InlineContainer: a paragraph box whose
+// children are its atomic inlines.
+func (b *Box) InlineContent() bool {
+	return b.mode == modeParagraph && b.para != nil && len(b.para.atoms) > 0 && len(b.kids) == len(b.para.atoms)
+}
+
+// MeasureInline implements layout.InlineContainer.
+func (b *Box) MeasureInline(in layout.MeasureInput, a *layout.Atoms) layout.Measurement {
+	return b.para.measureInline(b.tree, in, a)
+}
 
 // Measure implements layout.Measurer for paragraph and image leaves.
 func (b *Box) Measure(in layout.MeasureInput) layout.Measurement {
@@ -284,6 +298,23 @@ type paragraph struct {
 	// hit-testing (hit.go): entry i covers the bytes from the end of
 	// entry i-1 to end, which belong to the innermost primitive el.
 	targets []paraTarget
+
+	// inlines are the inline elements as given to the layout, inl their
+	// elements (by index); atoms are the boxes of the atomic inlines (the
+	// paragraph box's children) and atomBox their inline box indices.
+	inlines []text.Inline
+	inl     []*Element
+	atoms   []*Box
+	atomBox []int
+	// final holds the atoms' sizes of the last full layout and finalW
+	// the width it broke the lines at; sized reports that the layout's
+	// boxes have them (a size query since may have changed them).
+	final  []layout.AtomSize
+	finalW float32
+	sized  bool
+	// frags caches the inline fragments for the lines of fragAt.
+	frags  []text.InlineFragment
+	fragAt [2]float32
 }
 
 // paraTarget is a run of paragraph text that belongs to one element.
@@ -323,7 +354,19 @@ func (p *paragraph) breakAt(t *Tree, w float32) {
 // painting. When the lines cannot change (both widths fit the whole
 // content), only the alignment is redone.
 func (p *paragraph) prepare(t *Tree, w float32) {
-	if p.lay == nil || (p.brokeAt == w && p.alignedAt == w) {
+	if p.lay == nil {
+		return
+	}
+	if !p.sized && len(p.final) == len(p.atoms) && len(p.atoms) > 0 {
+		// A size query changed the atomic inlines since the layout:
+		// give them back their sizes.
+		for i, bi := range p.atomBox {
+			p.setAtom(bi, p.final[i])
+		}
+		p.sized, p.fragAt = true, [2]float32{}
+		p.brokeAt = float32(math.NaN())
+	}
+	if p.brokeAt == w && p.alignedAt == w {
 		return
 	}
 	const eps = 1.0 / 1024 // text's fitting tolerance
@@ -392,10 +435,93 @@ func (p *paragraph) measure(t *Tree, in layout.MeasureInput) layout.Measurement 
 	if in.HasHeight {
 		m.Height = in.Height
 	}
-	if l.NumLines() > 0 {
+	if n := l.NumLines(); n > 0 {
 		m.Baseline, m.HasBaseline = l.Line(0).Baseline, true
+		m.LastBaseline, m.HasLastBaseline = l.Line(n-1).Baseline, true
 	}
 	return m
+}
+
+// measureInline is measure for a paragraph with atomic inlines (CSS 2.1
+// sections 10.3.9 and 10.8): their min- and max-content contributions are
+// part of the paragraph's intrinsic widths; each is sized fit-content in
+// the paragraph's width, which sets its inline box (the margin box, its
+// baseline above the bottom); in a full layout the lines are aligned in
+// the content box and each atomic inline is placed where its inline box
+// is (a hidden one, truncated or clamped, is not placed).
+func (p *paragraph) measureInline(t *Tree, in layout.MeasureInput, a *layout.Atoms) layout.Measurement {
+	if p.empty || p.lay == nil || a.Len() != len(p.atoms) {
+		return knownOnly(in)
+	}
+	l := p.lay
+	for i, bi := range p.atomBox {
+		mn, mx := a.Intrinsic(i)
+		l.SetBoxIntrinsic(bi, mn, mx)
+	}
+	minW, maxW := l.MinContentWidth(), l.MaxContentWidth()
+	var w float32
+	switch {
+	case in.HasWidth:
+		w = in.Width
+	case in.AvailableWidth.Kind == layout.MinContentSpace:
+		w = minW
+	case in.AvailableWidth.Kind == layout.MaxContentSpace:
+		w = maxW
+	default:
+		w = min(maxW, max(minW, in.AvailableWidth.Value))
+	}
+	full := a.Full()
+	if full {
+		p.final = p.final[:0]
+	}
+	// perf: every request breaks the lines again (the boxes' sizes depend
+	// on the width).
+	for i, bi := range p.atomBox {
+		s := a.Size(i, w)
+		p.setAtom(bi, s)
+		if full {
+			p.final = append(p.final, s)
+		}
+	}
+	p.sized, p.fragAt = full, [2]float32{}
+	p.brokeAt = float32(math.NaN())
+	if w >= maxW && !full {
+		p.breakAt(t, float32(math.Inf(1)))
+	} else {
+		p.breakAt(t, w)
+	}
+	if full {
+		p.finalW = w
+		l.AlignTo(w)
+		p.alignedAt = w
+		for i, bi := range p.atomBox {
+			r, ok := l.BoxRect(bi)
+			if ok {
+				a.Place(i, r.X0, r.Y0)
+			}
+			p.atoms[i].hiddenAtom = !ok
+		}
+	}
+	m := layout.Measurement{Width: w, Height: l.Height()}
+	if in.HasHeight {
+		m.Height = in.Height
+	}
+	if n := l.NumLines(); n > 0 {
+		m.Baseline, m.HasBaseline = l.Line(0).Baseline, true
+		m.LastBaseline, m.HasLastBaseline = l.Line(n-1).Baseline, true
+	}
+	return m
+}
+
+// setAtom gives inline box bi the size of an atomic inline: its margin box,
+// the baseline Descent above its bottom (the bottom itself without a
+// baseline).
+func (p *paragraph) setAtom(bi int, s layout.AtomSize) {
+	var d float32
+	if s.HasBaseline {
+		d = s.Height - s.Baseline
+	}
+	p.lay.SetBoxSize(bi, s.Width, s.Height, d)
 }
 
 // paraPart is a piece of inline content: a text and the style of the
@@ -415,11 +541,58 @@ type paraAssembler struct {
 	n     int // bytes of text so far
 	sb    strings.Builder
 	spans []text.Span
+	// inlines are the inline elements (text.Inline, tree order) and inl
+	// their elements; atoms are the boxes of the atomic inlines and
+	// atomBox their indices in boxes; open is the stack of open inlines.
+	inlines []text.Inline
+	inl     []*Element
+	atoms   []*Box
+	atomBox []int
+	open    int
 }
 
 func (a *paraAssembler) reset() {
 	clear(a.parts)
+	clear(a.inlines)
+	clear(a.inl)
+	clear(a.atoms)
 	a.parts, a.boxes, a.spans, a.n = a.parts[:0], a.boxes[:0], a.spans[:0], 0
+	a.inlines, a.inl, a.atoms, a.atomBox, a.open = a.inlines[:0], a.inl[:0], a.atoms[:0], a.atomBox[:0], 0
+}
+
+// openInline starts inline element el at the end of the content and
+// returns its index; closeInline ends it.
+func (a *paraAssembler) openInline(el *Element) int {
+	cs := el.box.cs
+	left, right := inlineEdges(cs)
+	a.inlines = append(a.inlines, text.Inline{
+		ID: len(a.inlines), Start: a.n, End: a.n, BoxStart: len(a.boxes), BoxEnd: len(a.boxes),
+		Depth: a.open, Style: cs.TextStyle(), Left: left, Right: right,
+	})
+	a.inl = append(a.inl, el)
+	a.open++
+	return len(a.inlines) - 1
+}
+
+func (a *paraAssembler) closeInline(k int) {
+	a.inlines[k].End, a.inlines[k].BoxEnd = a.n, len(a.boxes)
+	a.open--
+}
+
+// inlineEdges returns the widths that the left and right edges of an
+// inline element with style cs take on its lines: margin, border and
+// padding (CSS inline boxes; percentages and auto margins count as 0).
+func inlineEdges(cs *style.ComputedStyle) (left, right float32) {
+	e := edgeWidths(cs)
+	return e.margin.Left + e.border.Left + e.padding.Left, e.margin.Right + e.border.Right + e.padding.Right
+}
+
+// addAtom adds the atomic inline whose box is b: an inline box sized at
+// layout (box.go: measureInline).
+func (a *paraAssembler) addAtom(b *Box) {
+	a.atomBox = append(a.atomBox, len(a.boxes))
+	a.atoms = append(a.atoms, b)
+	a.boxes = append(a.boxes, text.InlineBox{ID: len(a.boxes), At: a.n, Align: b.cs.VerticalAlign})
 }
 
 func (a *paraAssembler) addText(s string, cs *style.ComputedStyle, el, src *Element) {
@@ -502,12 +675,16 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	s, spans := a.build()
 	pstyle := b.cs.ParagraphStyle()
 	def := b.cs.TextStyle()
-	empty := len(a.boxes) == 0 && collapsesAway(s, pstyle.WhiteSpace)
+	// CSS 2.1 section 9.4.2: a line box without text, preserved white
+	// space, inline boxes or inlines with margins, borders or padding
+	// does not exist.
+	empty := len(a.boxes) == 0 && !inlineEdged(a.inlines) && collapsesAway(s, pstyle.WhiteSpace)
 	p := b.para
 	if p != nil && p.text == s && p.pstyle == pstyle && sameTextStyle(&p.def, &def) &&
-		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) {
+		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) && sameInlines(p.inlines, a.inlines) {
 		a.setTargets(p)
 		a.setSources(b)
+		p.setElements(a)
 		return !p.empty
 	}
 	if p == nil {
@@ -516,6 +693,9 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	}
 	a.setTargets(p)
 	a.setSources(b)
+	p.setElements(a)
+	p.inlines = slices.Clone(a.inlines)
+	p.final, p.sized, p.fragAt = nil, false, [2]float32{}
 	p.text, p.pstyle, p.def, p.empty = s, pstyle, def, empty
 	p.em = def.Size
 	for i := range spans {
@@ -526,7 +706,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	p.boxes = slices.Clone(a.boxes)
 	p.lay = nil
 	if !empty {
-		p.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: s, Style: pstyle, Default: def, Spans: p.spans, Boxes: p.boxes})
+		p.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: s, Style: pstyle, Default: def, Spans: p.spans, Boxes: p.boxes, Inlines: p.inlines})
 		t.stats.Shapes++
 	}
 	inf := float32(math.Inf(1))
@@ -534,6 +714,43 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	t.engine.MarkDirty(b)
 	t.dirty()
 	return !empty
+}
+
+// inlineEdged reports whether an inline has a left or right edge.
+func inlineEdged(ins []text.Inline) bool {
+	for i := range ins {
+		if ins[i].Left != 0 || ins[i].Right != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// sameInlines reports whether two inline lists lay out the same.
+func sameInlines(a, b []text.Inline) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		x, y := &a[i], &b[i]
+		if x.ID != y.ID || x.Start != y.Start || x.End != y.End || x.BoxStart != y.BoxStart || x.BoxEnd != y.BoxEnd ||
+			x.Depth != y.Depth || x.Left != y.Left || x.Right != y.Right || !sameTextStyle(&x.Style, &y.Style) {
+			return false
+		}
+	}
+	return true
+}
+
+// setElements records the elements of the assembled inlines and atoms.
+func (p *paragraph) setElements(a *paraAssembler) {
+	clear(p.inl)
+	p.inl = append(p.inl[:0], a.inl...)
+	clear(p.atoms)
+	p.atoms = append(p.atoms[:0], a.atoms...)
+	p.atomBox = append(p.atomBox[:0], a.atomBox...)
+	if len(p.atoms) == 0 {
+		p.atoms = nil
+	}
 }
 
 // collapsesAway reports whether text s produces no line box under the

@@ -300,6 +300,10 @@ func (l *Layout) HitTestCluster(x, y float32) (ClusterHit, bool) {
 			hit.Cluster, hit.Ellipsis = -1, true
 		case el.box:
 			bi := int(l.runs[l.clusters[el.ci].run].box)
+			if bi >= l.nboxes {
+				hit.Box = -1 // the placeholder of an empty inline
+				return hit, true
+			}
 			r, ok := l.BoxRect(bi)
 			if !ok || y < r.Y0 || y >= r.Y1 {
 				return ClusterHit{}, false

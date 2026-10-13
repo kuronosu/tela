@@ -78,7 +78,7 @@ func registerUnsupported(r *registry) {
 	r.unsupported["break-inside"] = r.unsupported["break-before"]
 	r.unsupported["hyphens"] = "hyphenation is not supported yet"
 	r.unsupported["indent"] = "text-indent is not supported yet; use padding"
-	r.unsupported["align"] = "vertical-align is not supported; use flex alignment (items-center)"
+	r.unsupported["align"] = "only align-baseline, align-top, align-middle, align-bottom, align-text-top and align-text-bottom are supported (on inline-block, inline-flex and inline images in text); use flex alignment (items-center) otherwise"
 	r.unsupported["fill"] = "SVG fill and stroke are not supported yet; icons take the text color"
 	r.unsupported["stroke"] = r.unsupported["fill"]
 	r.unsupported["accent"] = "accent-color is not supported; style the control with classes"

@@ -299,9 +299,9 @@ func initKindDefaults() {
 	// button (Preflight): "font: inherit; letter-spacing: inherit; color:
 	// inherit; border-radius: 0; background-color: transparent; opacity:
 	// 1" are inheritance and the initial values. A button is inline-block
-	// in browsers, so in block flow it takes its fit-content width
-	// (ADR-038); section 10 gives it cursor-pointer; the browser's own
-	// stylesheet centers its label.
+	// in browsers, an atomic inline of its paragraph with its fit-content
+	// width (ADR-038, ADR-066); section 10 gives it cursor-pointer; the
+	// browser's own stylesheet centers its label.
 	kindOps[KindButton] = []Op{
 		display(DisplayInlineBlock),
 		op(func(e *env) { e.s.Cursor = CursorPointer }),
@@ -311,7 +311,11 @@ func initKindDefaults() {
 	// and "img, video { max-width: 100%; height: auto }".
 	kindOps[KindImg] = []Op{
 		display(DisplayBlock),
-		op(func(e *env) { e.s.MaxWidth = DimPct(100); e.s.Height = Auto }),
+		op(func(e *env) {
+			e.s.MaxWidth = DimPct(100)
+			e.s.Height = Auto
+			e.s.VerticalAlign = text.BoxMiddle
+		}),
 	}
 	// strong (Preflight): "b, strong { font-weight: bolder }".
 	kindOps[KindStrong] = append(kindOps[KindStrong], op(func(e *env) {

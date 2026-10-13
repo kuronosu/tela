@@ -84,8 +84,10 @@ func AriaSnapshot(root tela.Node, opts ...Option) (yaml string, err error) {
 }
 
 // LayoutJSON mounts root and returns its layout tree as indented JSON, one
-// object per box with its border box, edges, text and computed style,
-// ending with a newline: the output of `tela inspect --layout`.
+// object per box with its border box, edges, text and computed style
+// (paragraphs also with the fragments of their inline elements; atomic
+// inlines with inlineBox), ending with a newline: the output of `tela
+// inspect --layout`.
 func LayoutJSON(root tela.Node, opts ...Option) (js []byte, err error) {
 	cfg, size, err := headlessSetup(opts)
 	if err != nil {
