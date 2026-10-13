@@ -191,7 +191,8 @@ func TestExportedNames(t *testing.T) {
 		"OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus", "OnKeyDown", "OnKeyUp",
 		"OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove", "OnMouseUp",
 		"OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove", "OnPointerUp",
-		"OnScroll", "OnWheel", "P", "Ref", "Role", "Span", "Src", "Strong", "Style", "TabIndex", "Text", "Textf",
+		"OnScroll", "OnWheel", "Overscan", "P", "Ref", "Role", "Span", "Src", "Strong", "Style", "TabIndex", "Text", "Textf",
+		"VirtualList",
 	}
 	fset := token.NewFileSet()
 	var got []string

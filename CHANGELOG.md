@@ -83,6 +83,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   controllable clock, auto-waiting expectations (`ExpectText`,
   `ExpectRole`, `ExpectAria`…), goldens and screenshots; `telatest.Render`,
   `AriaSnapshot` and `LayoutJSON` are a public headless entry point.
+- `h.VirtualList` and `h.Overscan`: lists that build only the rows in view,
+  with variable heights measured on the fly and a stable scroll position;
+  `ElementRef.ScrollToIndex` with `tela.ScrollAlign` (`AlignAuto`,
+  `AlignStart`, `AlignCenter`, `AlignEnd`); `examples/virtuallist`, a
+  100,000-row directory with jump buttons.
 - Examples `dashboard`, `pricing`, `settings`, `player` and `board`: full
   screens in the shadcn/ui zinc style with dark mode, goldens and
   interaction tests (switches and `disabled:` states, a progress bar driven

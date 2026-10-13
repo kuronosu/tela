@@ -107,6 +107,11 @@
 //	    Div(Ref(list), Class("grow overflow-y-auto"), rows),
 //	    Button(OnClick(func(tela.MouseEvent) { list.ScrollTo(0, 0) }), Text("Top")))
 //
+// Long lists use h.VirtualList, which builds only the rows in view, keeps
+// the scroll position stable while rows of unknown height are measured,
+// and scrolls to a row with [ElementRef]'s ScrollToIndex and a
+// [ScrollAlign].
+//
 // A Value moved from a handler or a goroutine repaints only the element
 // whose closure reads it:
 //
@@ -136,7 +141,7 @@
 //
 // [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
 // [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
-// [Value], [ElementRef], [MouseEvent], [PointerEvent], [DragEvent],
+// [Value], [ElementRef], [ScrollAlign], [MouseEvent], [PointerEvent], [DragEvent],
 // [KeyboardEvent], [FocusEvent], [WheelEvent], [ScrollEvent], [Key],
 // [Code], [KeyLocation],
 // [MouseButton], [MouseButtons] and [PointerKind] are aliases of types defined in Tela's

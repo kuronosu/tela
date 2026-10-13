@@ -136,6 +136,13 @@ import (
 //
 // Tela draws the scrollbars (scrollbar.go): overlay bars by default,
 // classic ones with Config.ClassicScrollbars or scrollbar-classic.
+//
+// # Virtual lists
+//
+// Every offset change checks the windows of the virtual lists (virtual.go),
+// and the scroll phase measures them and moves their windows, which may
+// build and lay out again before painting; their Home and End keep the
+// first or last item aligned while it is measured.
 
 // Scrolling distances and timings.
 const (
@@ -650,6 +657,9 @@ func (t *Tree) setScroll(s *scroller, p gfx.Point) bool {
 	} else {
 		t.syncValues(s)
 	}
+	if len(t.virt.lists) > 0 {
+		t.virtualScrolled() // a virtual list may need other items (virtual.go)
+	}
 	return true
 }
 
@@ -970,6 +980,9 @@ func (t *Tree) keyScroll(kind keyScrollKind, i int, dir float32) {
 	}
 	setAxis(&d, i, dir*amount)
 	t.scrollUser(s, d)
+	if kind == keyEdge && i == 1 && len(t.virt.lists) > 0 {
+		t.virtualEdge(s, dir) // keep the first or last item of a virtual list aligned
+	}
 }
 
 // outermostScroller returns the scroll container keys scroll when nothing
@@ -1138,25 +1151,21 @@ const maxGutterPasses = 3
 // scrollPhase runs after layout and the layout effects, before paint: it
 // reads the containers' extents and clamps their offsets, reserves or
 // drops the classic gutters of overflow: auto containers whose overflow
-// changed (laying out again), and scrolls the focused element and the
-// pending ScrollIntoView targets into view.
+// changed (laying out again), measures the virtual lists and moves their
+// windows (virtual.go; building and laying out again), and scrolls the
+// focused element and the pending ScrollIntoView targets into view, after
+// which the virtual lists that moved are settled again.
 func (t *Tree) scrollPhase() {
-	if len(t.scr.list) == 0 && t.scr.reveal == nil && len(t.scr.intoView) == 0 {
+	if len(t.scr.list) == 0 && t.scr.reveal == nil && len(t.scr.intoView) == 0 && len(t.virt.lists) == 0 {
 		return
 	}
-	for pass := 0; ; pass++ {
-		for _, s := range t.scr.list {
-			t.extents(s)
-		}
-		if pass == maxGutterPasses || !t.updateGutters(pass) {
-			break
-		}
-		t.layoutPhase()
-	}
+	t.settleScroll(0)
+	revealed := false
 	if el := t.scr.reveal; el != nil {
 		t.scr.reveal = nil
 		if el.mounted && t.foc.el == el {
 			t.scrollIntoView(el)
+			revealed = true
 		}
 	}
 	for len(t.scr.intoView) > 0 {
@@ -1164,9 +1173,45 @@ func (t *Tree) scrollPhase() {
 		t.scr.intoView = t.scr.intoView[1:]
 		if el.mounted {
 			t.scrollIntoView(el)
+			revealed = true
 		}
 	}
 	t.scr.intoView = nil
+	if revealed && len(t.virt.lists) > 0 {
+		t.settleScroll(1)
+	}
+}
+
+// settleScroll updates the extents and the classic gutters, laying out
+// again while a gutter changes (the first pass may drop gutters, later
+// ones only add them), and runs the virtual lists' passes, building and
+// laying out again while one asks for it, up to maxVirtualPasses; a list
+// that did not settle goes on in the next frame.
+func (t *Tree) settleScroll(firstPass int) {
+	vpasses := 0
+	for pass := firstPass; ; pass++ {
+		for _, s := range t.scr.list {
+			t.extents(s)
+		}
+		gutters := pass < maxGutterPasses && t.updateGutters(pass)
+		virt := false
+		if len(t.virt.lists) > 0 {
+			if vpasses == maxVirtualPasses {
+				t.virt.again = true
+			} else {
+				vpasses++
+				virt = t.virtualPass()
+			}
+		}
+		switch {
+		case virt:
+			t.virtualRelayout()
+		case gutters:
+			t.layoutPhase()
+		default:
+			return
+		}
+	}
 }
 
 // updateGutters reserves the classic gutter of an overflow: auto axis
@@ -1208,6 +1253,7 @@ func (t *Tree) updateGutters(pass int) bool {
 // pointers when scrolled content moved, and the next frame while
 // something animates or OnScroll waits.
 func (t *Tree) scrollAfterFrame() {
+	t.virtualAfterFrame()
 	for _, s := range t.scr.pending {
 		if s.syncPending {
 			s.syncPending = false

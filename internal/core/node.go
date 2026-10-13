@@ -57,6 +57,8 @@ type desc struct {
 	href      string      // A destination (Href)
 	// aria holds the semantics props (aria.go), nil without any.
 	aria *ariaProps
+	// virt marks the nodes a VirtualList builds (virtual.go).
+	virt *virtNode
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings

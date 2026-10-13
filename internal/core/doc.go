@@ -47,7 +47,7 @@
 // by call order (ADR-040): UseState (UseStateSet, UseStateUpdate),
 // UseReducer, UseEffect, UseLayoutEffect, UseMemo, UseCallback, UseRef,
 // UseContext, UseId, UseValue, UseElementRef (focus.go) and UseScroll
-// (scroll.go). A function
+// (scroll.go); VirtualList keeps its state in a slot too. A function
 // called directly from a
 // component, not through Component, runs inside that component's build:
 // its hooks are the component's (a custom hook).
@@ -196,6 +196,23 @@
 // container and UseScroll's Values follow the offsets. Tela draws the
 // scrollbars (scrollbar.go): overlay bars that fade, or classic ones in a
 // reserved gutter (Config.ClassicScrollbars, scrollbar-classic).
+//
+// # Virtualization
+//
+// VirtualList (virtual.go, whose top comment is the reference;
+// ARCHITECTURE section 9, after TanStack Virtual) is a component whose
+// build returns a scroll container holding a content box as tall as the
+// whole list and one wrapper per built item, keyed by index: the visible
+// items, an overscan on each side and the focused item. Item sizes
+// (estimates, replaced by the measured heights) live in a Fenwick tree,
+// so offsets and lookups take O(log n). A scroll offset change checks the
+// lists' windows (setScroll) and marks a list for building only when its
+// visible items leave the built range, so most scroll frames only paint;
+// the scroll phase measures the built items, moves the offset by the size
+// changes above the viewport (stable position), keeps ScrollToIndex
+// targets aligned, and builds and lays out again within the frame until
+// the lists settle.
+//
 // The focus (focus.go) follows HTML: focusable elements (Button,
 // TabIndex), the sequential order, focus by pointer press, ElementRef,
 // AutoFocus, the fix-up of elements that stop being focusable, the
@@ -210,7 +227,8 @@
 // advances the scroll animations, flings and scrollbar fades. Tree.Frame
 // fires the pending OnScroll events and runs Build, Style, box structure,
 // Layout, the layout effects, the scroll phase (offsets clamped, classic
-// gutters, elements revealed) and Paint (ARCHITECTURE section 8) on what
+// gutters, virtual lists measured and their windows moved, elements
+// revealed) and Paint (ARCHITECTURE section 8) on what
 // is dirty: components marked
 // needsBuild (in tree order), primitives marked needsStyle, primitives
 // whose structure or paragraph may have changed, boxes whose

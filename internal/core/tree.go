@@ -146,6 +146,8 @@ type Tree struct {
 	in  inputState
 	foc focusState
 	scr scrollState
+	// virt holds the virtual lists (virtual.go).
+	virt virtState
 
 	// sem is the semantics tree built last (semantics.go).
 	sem semState

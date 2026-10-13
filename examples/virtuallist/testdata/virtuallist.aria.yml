@@ -1,0 +1,86 @@
+- heading "Directory" [level=1]
+- text: 100,000
+- paragraph: Only the rows in view are built. Rows with a note are measured as they appear.
+- text: Jump to
+- button "First"
+- button "Row 1,000"
+- button "Row 50,000"
+- button "Last"
+- list "People":
+  - listitem:
+    - text: AA
+    - paragraph: Ana Abbott
+    - text: "#1"
+    - paragraph: Product designer · Lisbon
+  - listitem:
+    - text: BH
+    - paragraph: Ben Hayashi
+    - text: "#2"
+    - paragraph: Recruiter · Tokyo
+  - listitem:
+    - text: CO
+    - paragraph: Chloé Okafor
+    - text: "#3"
+    - paragraph: Developer advocate · Toronto
+  - listitem:
+    - text: DV
+    - paragraph: Dmitri Vargas
+    - text: "#4"
+    - paragraph: Engineering manager · Oslo
+    - paragraph: Out of office until Monday; reach the team channel for anything urgent.
+  - listitem:
+    - text: EC
+    - paragraph: Elena Chen
+    - text: "#5"
+    - paragraph: Finance partner · Istanbul
+  - listitem:
+    - text: FJ
+    - paragraph: Farid Jovanović
+    - text: "#6"
+    - paragraph: Data analyst · Mexico City
+  - listitem:
+    - text: GC
+    - paragraph: Grace Castillo
+    - text: "#7"
+    - paragraph: UX researcher · Montréal
+  - listitem:
+    - text: HJ
+    - paragraph: Hiro Jensen
+    - text: "#8"
+    - paragraph: Staff engineer · São Paulo
+  - listitem:
+    - text: IQ
+    - paragraph: Inés Quinn
+    - text: "#9"
+    - paragraph: Account executive · Madrid
+  - listitem:
+    - text: JX
+    - paragraph: Jonas Xu
+    - text: "#10"
+    - paragraph: Product designer · Melbourne
+  - listitem:
+    - text: KE
+    - paragraph: Kavya Ekström
+    - text: "#11"
+    - paragraph: Recruiter · Dublin
+    - paragraph: Leads the accessibility guild and reviews every new component before it ships. Ask about the keyboard checklist.
+  - listitem:
+    - text: LL
+    - paragraph: Liam López
+    - text: "#12"
+    - paragraph: Developer advocate · Montréal
+  - listitem:
+    - text: ME
+    - paragraph: Mei Eriksen
+    - text: "#13"
+    - paragraph: Engineering manager · São Paulo
+  - listitem:
+    - text: NL
+    - paragraph: Nadia Lindqvist
+    - text: "#14"
+    - paragraph: Finance partner · Madrid
+  - listitem:
+    - text: OS
+    - paragraph: Omar Silva
+    - text: "#15"
+    - paragraph: Data analyst · Melbourne

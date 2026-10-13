@@ -78,6 +78,9 @@ type Ref[T any] = core.Ref[T]
 //   - ScrollIntoView scrolls every scrolling ancestor of the element so
 //     that it is visible, each as little as possible (block and inline
 //     "nearest").
+//   - ScrollToIndex(i, align) scrolls an h.VirtualList to item i, placed
+//     as [ScrollAlign] says, and keeps it there while the items around it
+//     are measured; it does nothing for other elements.
 //
 // For example, "/" focuses a search box:
 //
@@ -98,6 +101,26 @@ type Ref[T any] = core.Ref[T]
 //	    Div(Ref(list), Class("h-96 overflow-y-auto scroll-smooth"), rows),
 //	    Button(OnClick(func(tela.MouseEvent) { list.ScrollTo(0, 0) }), Text("Top")))
 type ElementRef = core.ElementRef
+
+// ScrollAlign is where [ElementRef].ScrollToIndex puts an item of an
+// h.VirtualList in its viewport (TanStack Virtual's align).
+type ScrollAlign = core.ScrollAlign
+
+// The alignments of [ElementRef].ScrollToIndex. The first and last items
+// include the list's padding: AlignStart on item 0 scrolls to the very
+// top, AlignEnd on the last item to the very bottom.
+const (
+	// AlignAuto scrolls as little as possible: not at all when the item
+	// is fully visible, else to align its bottom (when it reaches past
+	// the bottom of the viewport) or its top.
+	AlignAuto = core.AlignAuto
+	// AlignStart puts the item's top at the top of the viewport.
+	AlignStart = core.AlignStart
+	// AlignCenter centers the item in the viewport.
+	AlignCenter = core.AlignCenter
+	// AlignEnd puts the item's bottom at the bottom of the viewport.
+	AlignEnd = core.AlignEnd
+)
 
 // Context passes a value down the tree without props: see [CreateContext].
 type Context[T any] = core.Context[T]

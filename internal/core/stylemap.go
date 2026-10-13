@@ -391,6 +391,9 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	ls.FlexGrow, ls.FlexShrink = cs.FlexGrow, cs.FlexShrink
 	ls.FlexBasis = dimOf(cs.FlexBasis)
 	ls.Order = cs.Order
+	if v := b.virtMark(); v != nil {
+		v.layoutStyle(&ls) // the boxes of a VirtualList (virtual.go)
+	}
 
 	if parent == nil || isFlexContainer(parent.cs) {
 		return ls // the root, or a flex item: blockified

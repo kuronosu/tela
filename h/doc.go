@@ -19,7 +19,8 @@
 // focus props TabIndex, AutoFocus and Ref, the semantics props Role and
 // Aria..., and the event handlers OnClick, OnDoubleClick, OnContextMenu,
 // OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus,
-// OnBlur, OnWheel and OnScroll) and the helpers If, Map and Fragment.
+// OnBlur, OnWheel and OnScroll), the helpers If, Map and Fragment, and
+// VirtualList with its Overscan prop.
 // Everything else (App, Run, hooks, events, colors, typed style props)
 // lives in package tela.
 //
