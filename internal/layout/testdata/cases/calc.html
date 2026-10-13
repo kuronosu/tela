@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>calc() of a length and a percentage: sizes, flex-basis, margins, padding, insets, and a percentage of an indefinite height</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: block; width: calc(100% - 40px); height: 10px; margin-left: calc(5% + 2px);"></div>
+  <div style="display: flex; height: 60px;">
+    <div style="flex-basis: calc(50% - 12px); flex-shrink: 0; height: calc(50% + 5px);"></div>
+    <div style="flex-grow: 1; padding-left: calc(2% + 3px); padding-top: calc(2% + 3px); height: calc(100% - 20px);"></div>
+  </div>
+  <div style="display: block; height: calc(50% + 10px); padding-top: 4px;"></div>
+  <div style="display: block; position: relative; height: 40px;">
+    <div style="position: absolute; left: calc(25% - 10px); top: calc(10% + 1px); width: calc(30% + 7px); height: calc(50% - 4px);"></div>
+  </div>
+</div>
+
+</body>
+</html>

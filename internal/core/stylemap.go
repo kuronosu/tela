@@ -271,8 +271,6 @@ func inFlow(cs *style.ComputedStyle) bool {
 //   - grid and inline-grid lay out as block (grid arrives in phase 6);
 //   - fixed lays out as absolute against the nearest positioned ancestor,
 //     sticky as relative;
-//   - a length with both a pixel and a percentage part (calc(100% - 2rem))
-//     keeps only its percentage: layout has no calc() yet;
 //   - inline-block, inline-flex and inline-grid boxes in block flow are
 //     block-level boxes with a fit-content width, each on its own line;
 //     the text-align of the parent is emulated with auto margins when
@@ -415,32 +413,32 @@ func dimOf(d style.Dim) layout.Dim {
 	return layout.Auto
 }
 
-// lpDim maps a length-percentage. layout has no calc(): a value with both
-// parts keeps its percentage only.
+// lpDim maps a length-percentage: a length, a percentage or, with both
+// parts (calc(100% - 2rem)), a layout calc value.
 func lpDim(lp style.LP) layout.Dim {
-	if lp.Pct == 0 {
-		return layout.Px(lp.Px)
-	}
-	return layout.Percent(lp.Pct / 100)
+	return layout.Calc(lp.Px, lp.Pct/100)
 }
 
 func edgesOf(s style.Sides[style.Dim]) layout.Edges {
 	return layout.Edges{Top: dimOf(s.Top), Right: dimOf(s.Right), Bottom: dimOf(s.Bottom), Left: dimOf(s.Left)}
 }
 
-// addLP adds a gap to a margin when both are pixels (an auto margin
-// stays auto; percentages cannot be summed without calc()).
+// addLP adds a gap to a margin (space-x/space-y): lengths and percentages
+// sum into a calc value; an auto margin stays auto.
 func addLP(m layout.Dim, gap style.LP) layout.Dim {
-	if gap.Pct != 0 {
+	px, f := gap.Px, gap.Pct/100
+	switch m.Unit {
+	case layout.UnitInitial:
+	case layout.UnitPx:
+		px += m.Value
+	case layout.UnitPercent:
+		f += m.Value
+	case layout.UnitCalc:
+		px, f = px+m.Px, f+m.Value
+	default:
 		return m
 	}
-	switch m.Unit {
-	case layout.UnitPx:
-		return layout.Px(m.Value + gap.Px)
-	case layout.UnitInitial:
-		return layout.Px(gap.Px)
-	}
-	return m
+	return layout.Calc(px, f)
 }
 
 func isZeroPx(d layout.Dim) bool {

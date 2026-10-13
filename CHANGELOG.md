@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-12
+
 ### Added
 
 - `tela version` prints the module version, the VCS revision and the Go
@@ -23,7 +25,14 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   classes): the same 12-card page as components, with real labels; shapes
   that need arbitrary paths are replaced by CSS equivalents (listed in its
   README). The phase-1 DisplayList scene lives on as a golden test of
-  `internal/gfx/raster`.
+  `internal/gfx/raster`. Its cards keep their size and wrap, so a tiled
+  window of about 700 px shows three columns instead of squeezing four.
+
+### Fixed
+
+- A length with both a pixel and a percentage part (`w-[calc(100%-2rem)]`,
+  percentage `space-*` added to a margin) kept only its percentage; layout
+  now resolves `calc()` of a length and a percentage like Chromium.
 
 ## [0.3.0] - 2026-10-12
 
@@ -106,7 +115,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/kuronosu/tela/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/kuronosu/tela/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kuronosu/tela/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kuronosu/tela/releases/tag/v0.1.0

@@ -414,3 +414,22 @@ func TestInspectJSON(t *testing.T) {
 		t.Errorf("text must not be HTML-escaped: %s", s)
 	}
 }
+
+// Lengths with a pixel and a percentage part reach layout as calc values:
+// sizes, margins, padding, insets, and a percentage space utility added to
+// a margin.
+func TestCalcLengths(t *testing.T) {
+	tr := newTestTree(t, 400, 600, div(
+		div(Key("w"), Class("h-4 w-[calc(100%-2rem)] ml-[calc(5%+2px)]")),
+		div(Key("p"), Class("h-4 pl-[calc(10%-4px)]"), div(Key("pc"), Class("h-2"))),
+		div(Key("rel"), Class("relative h-20"),
+			div(Key("abs"), Class("absolute left-[calc(25%-10px)] top-[calc(50%+1px)] size-4"))),
+		div(Key("sp"), Class("space-y-[5%]"), div(Key("s0"), Class("h-4 mb-[3px]")), div(Key("s1"), Class("h-4"))),
+	), nil)
+	tr.Frame()
+	wantRect(t, mustFind(t, tr, "w"), 22, 0, 368, 16)
+	wantRect(t, mustFind(t, tr, "pc"), 36, 16, 364, 8)
+	wantRect(t, mustFind(t, tr, "abs"), 90, 32+41, 16, 16)
+	// space-y-[5%] adds 5% of the container's width (20px) to s0's 3px.
+	wantRect(t, mustFind(t, tr, "s1"), 0, 112+16+3+20, 400, 16)
+}

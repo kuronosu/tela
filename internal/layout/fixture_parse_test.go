@@ -163,6 +163,38 @@ func parseDim(v string) (Dim, bool) {
 	case "0":
 		return Px(0), true
 	}
+	if inner, ok := strings.CutPrefix(v, "calc("); ok && strings.HasSuffix(inner, ")") {
+		// calc(a + b) or calc(a - b) of a length and a percentage.
+		inner = inner[:len(inner)-1]
+		sign, i := float32(1), strings.Index(inner, " + ")
+		if i < 0 {
+			sign, i = -1, strings.Index(inner, " - ")
+		}
+		if i < 0 {
+			return Dim{}, false
+		}
+		a, okA := parseDim(inner[:i])
+		b, okB := parseDim(inner[i+3:])
+		if !okA || !okB {
+			return Dim{}, false
+		}
+		var px, f float32
+		for k, d := range []Dim{a, b} {
+			m := float32(1)
+			if k == 1 {
+				m = sign
+			}
+			switch d.Unit {
+			case UnitPx:
+				px += m * d.Value
+			case UnitPercent:
+				f += m * d.Value
+			default:
+				return Dim{}, false
+			}
+		}
+		return Calc(px, f), true
+	}
 	if strings.HasPrefix(v, "fit-content(") && strings.HasSuffix(v, ")") {
 		d, ok := parseDim(v[len("fit-content(") : len(v)-1])
 		switch {

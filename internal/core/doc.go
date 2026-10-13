@@ -78,8 +78,7 @@
 // reported once per class string to Config.Log (stderr in dev mode).
 //
 // mapLayoutStyle maps a ComputedStyle onto layout.Style; see it for the
-// approximations (grid as block, fixed as absolute, calc() with both
-// parts). space-x-* and space-y-* are gaps: a flex container uses its
+// approximations (grid as block, fixed as absolute). space-x-* and space-y-* are gaps: a flex container uses its
 // gap, and a block container adds the gap to the end margin of every
 // in-flow child but the last (Tailwind's margins). Between inline
 // elements of a paragraph, space-x-* becomes an empty inline box.

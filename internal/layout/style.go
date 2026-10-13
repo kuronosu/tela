@@ -38,27 +38,46 @@ const (
 	// UnitContent is the content keyword of flex-basis; elsewhere it is
 	// auto.
 	UnitContent
+	// UnitCalc is calc(Px px + Value), a length plus a percentage given as
+	// a fraction: calc(100% - 2rem) is Calc(-32, 1). Like a percentage,
+	// it resolves only against a known basis.
+	UnitCalc
 )
 
 // Dim is the value of a sizing or spacing property: a length, a
-// percentage or a keyword. The zero Dim is the property's initial value
-// (see UnitInitial).
+// percentage, the sum of both (calc) or a keyword. The zero Dim is the
+// property's initial value (see UnitInitial).
 type Dim struct {
 	Value float32
 	Unit  Unit
+	// Px is the length part of a UnitCalc value; other units ignore it.
+	Px float32
 }
 
 // Px returns a length of v logical pixels.
-func Px(v float32) Dim { return Dim{v, UnitPx} }
+func Px(v float32) Dim { return Dim{Value: v, Unit: UnitPx} }
 
 // Percent returns a percentage given as a fraction: Percent(0.5) is 50%.
-func Percent(f float32) Dim { return Dim{f, UnitPercent} }
+func Percent(f float32) Dim { return Dim{Value: f, Unit: UnitPercent} }
+
+// Calc returns calc(px + f), a length plus a percentage given as a
+// fraction: Calc(-32, 1) is calc(100% - 32px). It returns Px or Percent
+// when one of the parts is zero.
+func Calc(px, f float32) Dim {
+	switch {
+	case f == 0:
+		return Px(px)
+	case px == 0:
+		return Percent(f)
+	}
+	return Dim{Value: f, Unit: UnitCalc, Px: px}
+}
 
 // FitContentPx returns fit-content(v px).
-func FitContentPx(v float32) Dim { return Dim{v, UnitFitContentPx} }
+func FitContentPx(v float32) Dim { return Dim{Value: v, Unit: UnitFitContentPx} }
 
 // FitContentPercent returns fit-content(f), f a fraction.
-func FitContentPercent(f float32) Dim { return Dim{f, UnitFitContentPercent} }
+func FitContentPercent(f float32) Dim { return Dim{Value: f, Unit: UnitFitContentPercent} }
 
 // Keyword values.
 var (
@@ -337,6 +356,10 @@ func (d Dim) resolveSize(basis opt) opt {
 		if basis.ok {
 			return some(float32(basis.v * d.Value))
 		}
+	case UnitCalc:
+		if basis.ok {
+			return some(float32(basis.v*d.Value) + d.Px)
+		}
 	}
 	return none
 }
@@ -353,6 +376,10 @@ func (d Dim) resolveSpacing(basis opt) opt {
 	case UnitPercent:
 		if basis.ok {
 			return some(float32(basis.v * d.Value))
+		}
+	case UnitCalc:
+		if basis.ok {
+			return some(float32(basis.v*d.Value) + d.Px)
 		}
 	}
 	return none
