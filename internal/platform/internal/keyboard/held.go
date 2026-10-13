@@ -1,7 +1,10 @@
 // Package keyboard holds the OS-independent part of the platform keyboard
 // contract (see package platform, "Keyboard"), shared by the backends: the
 // set of keys a window has delivered presses for, which turns into
-// synthetic releases when the window loses focus.
+// synthetic releases when the window loses focus, and the reporting of
+// keyboard setup errors. On Linux it also holds what the Wayland and X11
+// keyboards share above internal/xkb (linux.go): the Mods prediction of a
+// release and the Compose file rules. It imports no backend.
 package keyboard
 
 import (
@@ -49,13 +52,6 @@ func (h *Held) Accept(e platform.KeyEvent) bool {
 // IsHeld reports whether a press of the physical key c was accepted and
 // its release was not.
 func (h *Held) IsHeld(c platform.KeyCode) bool { return h.index(c) >= 0 }
-
-// Each calls f with the accepted press of every held key, in press order.
-func (h *Held) Each(f func(press platform.KeyEvent)) {
-	for _, e := range h.keys {
-		f(e)
-	}
-}
 
 // Len returns the number of held keys.
 func (h *Held) Len() int { return len(h.keys) }

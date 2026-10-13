@@ -3,10 +3,7 @@
 package wayland
 
 import (
-	"errors"
-	"flag"
 	"fmt"
-	"os"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -111,7 +108,7 @@ func (k *kbd) onKeymap(e protocols.WlKeyboardKeymapEvent) {
 			return
 		}
 	}
-	k.s.b.reportKeyboardError(fmt.Errorf("wayland: cannot use the compositor's keymap: %w", err))
+	k.s.b.keyboardErr = keyboard.Report(fmt.Errorf("wayland: cannot use the compositor's keymap: %w", err))
 	k.setKeymap(nil)
 }
 
@@ -254,7 +251,7 @@ func (k *kbd) onKey(e protocols.WlKeyboardKeyEvent) {
 			predicted = mods | held
 		} else {
 			ev.Key = k.state.Lookup(kc).Key
-			predicted = mods &^ (held &^ k.otherHeldModifiers(code))
+			predicted = mods &^ (held &^ k.held.OtherModifiers(k.keymap, code))
 		}
 	} else if pressed {
 		ev.Action = platform.KeyPress
@@ -273,21 +270,6 @@ func (k *kbd) onKey(e protocols.WlKeyboardKeyEvent) {
 		k.stopRepeat()
 	}
 	k.pending, k.hasPending = ev, true
-}
-
-// otherHeldModifiers returns the modifiers set by held keys other than c,
-// for the prediction of a release's Mods.
-func (k *kbd) otherHeldModifiers(c platform.KeyCode) platform.Modifiers {
-	var m platform.Modifiers
-	k.held.Each(func(p platform.KeyEvent) {
-		if p.Code == c {
-			return
-		}
-		if n, ok := evdev.Code(p.Code); ok {
-			m |= k.keymap.HeldModifiers(n + evdev.X11Offset)
-		}
-	})
-	return m
 }
 
 func (k *kbd) onModifiers(e protocols.WlKeyboardModifiersEvent) {
@@ -369,24 +351,16 @@ func (k *kbd) updatePointerMods() {
 
 // --- backend-wide keyboard state ---
 
-// composeTable returns the Compose table, loading it on first use. Under
-// go test it is not read from the system unless TELA_SYSTEM_COMPOSE=1
-// (tests set Backend.composeLoader instead), so results never depend on
-// the machine's locale files.
+// composeTable returns the Compose table, loading it on first use with the
+// rules of keyboard.LoadCompose (tests set Backend.composeLoader).
 func (b *Backend) composeTable() *xkb.ComposeTable {
 	if !b.composeLoaded {
 		b.composeLoaded = true
-		switch {
-		case b.composeLoader != nil:
-			b.compose = b.composeLoader()
-		case flag.Lookup("test.v") != nil && os.Getenv("TELA_SYSTEM_COMPOSE") == "":
-		default:
-			t, _, err := xkb.LoadComposeTable(os.Getenv, xkb.ComposeOptionsFromEnv(os.Getenv))
-			if err != nil && !errors.Is(err, xkb.ErrNoComposeFile) {
-				b.reportKeyboardError(fmt.Errorf("wayland: cannot read the Compose file (dead keys type their accent): %w", err))
-			}
-			b.compose = t
+		t, err := keyboard.LoadCompose(b.composeLoader)
+		if err != nil {
+			b.keyboardErr = keyboard.Report(fmt.Errorf("wayland: cannot read the Compose file (dead keys type their accent): %w", err))
 		}
+		b.compose = t
 		for _, s := range b.seats {
 			if s.kbd != nil {
 				s.kbd.compose = xkb.NewComposeState(b.compose)
@@ -394,16 +368,6 @@ func (b *Backend) composeTable() *xkb.ComposeTable {
 		}
 	}
 	return b.compose
-}
-
-// reportKeyboardError records a keyboard setup problem and prints it once:
-// the keyboard keeps working with physical codes (or without dead keys),
-// and a silent failure would be impossible to diagnose.
-func (b *Backend) reportKeyboardError(err error) {
-	b.keyboardErr = err
-	if flag.Lookup("test.v") == nil {
-		fmt.Fprintln(os.Stderr, "tela:", err)
-	}
 }
 
 // keyRepeats queues the key repeats due at now.

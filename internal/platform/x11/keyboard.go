@@ -4,9 +4,7 @@ package x11
 
 import (
 	"errors"
-	"flag"
 	"fmt"
-	"os"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/evdev"
@@ -101,7 +99,7 @@ func (k *kbd) km() *xkb.Keymap {
 			km, err = xkb.NewCoreKeymap(m)
 		}
 		if err != nil {
-			k.report(fmt.Errorf("x11: cannot read the keyboard mapping (keys have physical codes only): %w", err))
+			k.err = keyboard.Report(fmt.Errorf("x11: cannot read the keyboard mapping (keys have physical codes only): %w", err))
 		} else {
 			k.keymap, k.state = km, xkb.NewState(km)
 		}
@@ -221,26 +219,11 @@ func (k *kbd) applyRelease(ev xproto.KeyReleaseEvent) {
 	}
 	if km := k.km(); km != nil {
 		e.Key = k.lookupState(ev.State).Lookup(uint32(kc)).Key
-		e.Mods &^= km.HeldModifiers(uint32(kc)) &^ k.otherHeldModifiers(km, code)
+		e.Mods &^= km.HeldModifiers(uint32(kc)) &^ k.held.OtherModifiers(km, code)
 	}
 	if k.held.Accept(e) {
 		k.setPending(w, e, kc)
 	}
-}
-
-// otherHeldModifiers returns the modifiers set by held keys other than c,
-// for the prediction of a release's Mods.
-func (k *kbd) otherHeldModifiers(km *xkb.Keymap, c platform.KeyCode) platform.Modifiers {
-	var m platform.Modifiers
-	k.held.Each(func(p platform.KeyEvent) {
-		if p.Code == c {
-			return
-		}
-		if n, ok := evdev.Code(p.Code); ok {
-			m |= km.HeldModifiers(n + evdev.X11Offset)
-		}
-	})
-	return m
 }
 
 // beforeEvent runs before every translated event: it resolves a release
@@ -411,35 +394,17 @@ func (b *Backend) coreMapping() (xkb.CoreMapping, error) {
 	return m, nil
 }
 
-// loadCompose loads the Compose table on first use. Under go test it is
-// not read from the system unless TELA_SYSTEM_COMPOSE=1 (tests set
-// composeLoader instead), so results never depend on the machine's locale
-// files. Same rules as the Wayland backend.
+// loadCompose loads the Compose table on first use, with the rules of
+// keyboard.LoadCompose (tests set composeLoader).
 func (k *kbd) loadCompose() {
 	if k.composeLoaded {
 		return
 	}
 	k.composeLoaded = true
-	switch {
-	case k.composeLoader != nil:
-		k.composeTable = k.composeLoader()
-	case flag.Lookup("test.v") != nil && os.Getenv("TELA_SYSTEM_COMPOSE") == "":
-	default:
-		t, _, err := xkb.LoadComposeTable(os.Getenv, xkb.ComposeOptionsFromEnv(os.Getenv))
-		if err != nil && !errors.Is(err, xkb.ErrNoComposeFile) {
-			k.report(fmt.Errorf("x11: cannot read the Compose file (dead keys type their accent): %w", err))
-		}
-		k.composeTable = t
+	t, err := keyboard.LoadCompose(k.composeLoader)
+	if err != nil {
+		k.err = keyboard.Report(fmt.Errorf("x11: cannot read the Compose file (dead keys type their accent): %w", err))
 	}
+	k.composeTable = t
 	k.compose = xkb.NewComposeState(k.composeTable)
-}
-
-// report records a keyboard setup problem and prints it: the keyboard
-// keeps working with physical codes (or without dead keys), and a silent
-// failure would be impossible to diagnose.
-func (k *kbd) report(err error) {
-	k.err = err
-	if flag.Lookup("test.v") == nil {
-		fmt.Fprintln(os.Stderr, "tela:", err)
-	}
 }
