@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"sync"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/raster"
@@ -69,6 +71,7 @@ func Run(opts Options) error {
 	stop := h.tree.ReceivePosts()
 	err = b.Run(h)
 	stop()
+	h.stopTimer()
 	// The loop is over: run the effect cleanups, without waking it or
 	// asking the closed window for frames.
 	h.tree.SetWake(nil)
@@ -99,6 +102,14 @@ type Host struct {
 	scale      float64
 	configured bool // a ConfigureEvent arrived since the last Present
 	presents   int
+
+	// cursor is the cursor last set on the window.
+	cursor platform.Cursor
+	// timer wakes the loop at timerAt (backend clock) for the gesture
+	// arena (a long press); nil when nothing waits.
+	timerMu sync.Mutex
+	timer   *time.Timer
+	timerAt time.Duration
 }
 
 // NewHost creates a window on backend b and mounts opts.Root in a new
@@ -137,9 +148,11 @@ func (h *Host) Presents() int { return h.presents }
 func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 	switch e := e.(type) {
 	case platform.WakeEvent:
-		// State setters woke the loop: apply their updates, which
-		// requests a frame if a component must build.
+		// State setters or the gesture timer woke the loop: apply the
+		// updates, which requests a frame if a component must build, and
+		// let a long press that is due fire.
 		h.tree.ApplyUpdates()
+		h.tick(h.backend.Now())
 		return
 	case platform.SettingsEvent:
 		h.tree.SetEnvironment(e.Settings.DarkMode, e.Settings.ReducedMotion)
@@ -155,10 +168,80 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		h.tree.SetViewport(gfx.Size{W: e.Metrics.Size.W, H: e.Metrics.Size.H})
 		h.tree.SetScale(float32(e.Metrics.Scale))
 	case platform.FrameEvent:
+		h.tick(e.Time)
 		h.frame()
+		h.updateCursor()
+	case platform.PointerEvent:
+		// A long press due before the event fires first.
+		h.tick(e.Time)
+		h.tree.HandlePointer(e)
+		h.updateCursor()
+		h.armTimer()
 	case platform.CloseRequestedEvent:
 		h.win.Close()
 		h.backend.Quit()
+	}
+}
+
+// tick lets the gesture arena act on the deadlines at or before now (a
+// long press), then arms the timer for the next one.
+func (h *Host) tick(now time.Duration) {
+	if at, ok := h.tree.NextDeadline(); ok && at <= now {
+		h.tree.TickGestures(now)
+		h.updateCursor()
+	}
+	h.armTimer()
+}
+
+// armTimer arms one wake-up for the gesture arena's next deadline, or
+// stops the timer when nothing waits (an idle app has no timer). The
+// platform layer has no timer API: a goroutine timer calls Wake, and the
+// WakeEvent compares the deadline with the backend clock, so a timer that
+// fires early only re-arms.
+func (h *Host) armTimer() {
+	at, ok := h.tree.NextDeadline()
+	h.timerMu.Lock()
+	defer h.timerMu.Unlock()
+	if !ok {
+		if h.timer != nil {
+			h.timer.Stop()
+			h.timer = nil
+		}
+		return
+	}
+	if h.timer != nil && h.timerAt == at {
+		return
+	}
+	if h.timer != nil {
+		h.timer.Stop()
+	}
+	h.timerAt = at
+	h.timer = time.AfterFunc(max(at-h.backend.Now(), 0), h.backend.Wake)
+}
+
+// stopTimer stops the gesture timer.
+func (h *Host) stopTimer() {
+	h.timerMu.Lock()
+	defer h.timerMu.Unlock()
+	if h.timer != nil {
+		h.timer.Stop()
+		h.timer = nil
+	}
+}
+
+// TimerArmed reports whether the host waits for a gesture deadline, and
+// when (backend clock).
+func (h *Host) TimerArmed() (at time.Duration, ok bool) {
+	h.timerMu.Lock()
+	defer h.timerMu.Unlock()
+	return h.timerAt, h.timer != nil
+}
+
+// updateCursor sets the window's cursor when the tree's changed.
+func (h *Host) updateCursor() {
+	if c := h.tree.Cursor(); c != h.cursor {
+		h.cursor = c
+		h.win.SetCursor(c)
 	}
 }
 

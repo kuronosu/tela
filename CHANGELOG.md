@@ -36,6 +36,17 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   dead keys, Compose, server key repeat), smooth touchpad and
   high-resolution wheel scrolling through XInput2, and pointer modifiers
   from the real modifier mapping.
+- Pointer input: `OnClick`, `OnMouseDown`, `OnMouseUp`, `OnMouseEnter` and
+  `OnMouseLeave` now fire, plus the new `OnDoubleClick`, `OnContextMenu`,
+  `OnMouseMove`, `OnPointerDown/Move/Up/Cancel/Enter/Leave`,
+  `OnDragStart`/`OnDrag`/`OnDragEnd` and `OnLongPress`. Events bubble, with
+  `StopPropagation` and `PreventDefault`. `tela.MouseEvent` gains `LocalX/Y`,
+  `Buttons`, modifier fields and `ClickCount`; new `tela.PointerEvent`,
+  `tela.DragEvent`, `tela.MouseButtons` and `tela.PointerKind`.
+- `h.Disabled` and the `hover:`, `active:`, `disabled:`, `enabled:`,
+  `group-*` and `peer-*` variants; only elements whose classes test a state
+  are restyled. The window cursor follows `cursor-*` under the pointer.
+- The §1 Counter is interactive.
 
 ### Changed
 

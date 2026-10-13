@@ -3,8 +3,8 @@
 // the hosts that run a tree in a window or headless. The public packages
 // tela and h are thin wrappers over it.
 //
-// core imports gfx, gfx/raster, text, style, layout and platform (with
-// platform/auto for Run); nothing but tela and h imports core
+// core imports gfx, gfx/raster, text, style, layout, gesture and platform
+// (with platform/auto for Run); nothing but tela and h imports core
 // (ARCHITECTURE section 5).
 //
 // # Nodes, Elements and Boxes
@@ -143,14 +143,32 @@
 // nearest primitive ancestor. When the inherited properties change, the
 // children are restyled. Structural variants (first:, last:, only:, odd:,
 // even:) are evaluated against the primitive siblings; the interaction
-// variants (hover:...) wait for phase 4's input. Unknown classes are
-// reported once per class string to Config.Log (stderr in dev mode).
+// variants (hover:, active:, disabled:, enabled: and their group-* and
+// peer-* forms) against the Elements' interaction state (input.go): a
+// state change restyles only the elements whose classes test it. Unknown
+// classes are reported once per class string to Config.Log (stderr in dev
+// mode).
 //
 // mapLayoutStyle maps a ComputedStyle onto layout.Style; see it for the
 // approximations (grid as block, fixed as absolute). space-x-* and space-y-* are gaps: a flex container uses its
 // gap, and a block container adds the gap to the end margin of every
 // in-flow child but the last (Tailwind's margins). Between inline
 // elements of a paragraph, space-x-* becomes an empty inline box.
+//
+// # Input
+//
+// Tree.HandlePointer turns platform pointer events into DOM-style events
+// (input.go, whose top comment is the reference): hit-testing over the
+// painted box tree in reverse paint order (hit.go: clips, rounded
+// corners, transforms including deferred ones, pointer-events, visibility,
+// inline elements of paragraphs), bubbling with StopPropagation, enter
+// and leave events, pointer and compatibility mouse events, implicit
+// capture for touch and pens, and the gesture arena of internal/gesture
+// (tap for click, double click by click count, drag, long press). After
+// each discrete event the queued updates are applied and the build phase
+// runs, so the next event's handlers are the new build's. Tree.Cursor is
+// the cursor style under the mouse; Tree.NextDeadline and TickGestures
+// drive the long-press timeout on the backend clock.
 //
 // # Pipeline
 //
@@ -175,7 +193,11 @@
 // A Host connects a Tree to a platform window: WakeEvent applies state
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent
 // runs Frame, rasterizes at the window scale into a reused framebuffer,
-// presents and runs the passive effects.
+// presents and runs the passive effects; PointerEvent goes to
+// HandlePointer, and the window's cursor follows Tree.Cursor (SetCursor
+// only on a change). While a press waits for a long-press timeout, the
+// Host keeps one goroutine timer that calls Wake at the deadline (the
+// platform layer has no timer API); idle, it has none.
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed. Render does everything

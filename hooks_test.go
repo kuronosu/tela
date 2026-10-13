@@ -110,6 +110,35 @@ func TestPublicMemoRefIdCallback(t *testing.T) {
 	}
 }
 
+// TestEventCallbacksDoNotAllocate checks that the UseCallback forwarders
+// of the event handler types are registered closures, not
+// reflect.MakeFunc (which allocates on every call).
+func TestEventCallbacksDoNotAllocate(t *testing.T) {
+	var m tela.Callback[func(tela.MouseEvent)]
+	var p tela.Callback[func(tela.PointerEvent)]
+	var d tela.Callback[func(tela.DragEvent)]
+	sum := float32(0)
+	comp := func() tela.Node {
+		m = tela.UseCallback(func(e tela.MouseEvent) { sum += e.X })
+		p = tela.UseCallback(func(e tela.PointerEvent) { sum += e.X })
+		d = tela.UseCallback(func(e tela.DragEvent) { sum += e.DeltaX })
+		return div()
+	}
+	mount(t, tela.C(comp), nil)
+	fm, fp, fd := m.Fn(), p.Fn(), d.Fn()
+	allocs := testing.AllocsPerRun(100, func() {
+		fm(tela.MouseEvent{X: 1})
+		fp(tela.PointerEvent{X: 1})
+		fd(tela.DragEvent{DeltaX: 1})
+	})
+	if allocs != 0 {
+		t.Errorf("%v allocations per call of the forwarders", allocs)
+	}
+	if sum == 0 {
+		t.Error("the forwarders did not call the functions")
+	}
+}
+
 var themeCtx = tela.CreateContext("light")
 
 type labelProps struct{ Text string }

@@ -55,9 +55,11 @@ type VariantContext struct {
 	ViewportWidth float32
 	Dark          bool
 	ReducedMotion bool
-	// State is the element's own state; Group the state of its nearest
-	// ancestor with the class "group"; Peer the state of the preceding
-	// sibling with the class "peer".
+	// State is the element's own state; Group the states of its
+	// ancestors with the class "group" and Peer those of its preceding
+	// siblings with the class "peer", combined (Tailwind's group-hover:
+	// matches under any hovered group, peer-hover: after any hovered
+	// peer).
 	State, Group, Peer StateFlags
 }
 

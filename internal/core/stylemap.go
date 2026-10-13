@@ -47,12 +47,19 @@ func (t *Tree) restyle(el *Element) {
 	if sp != nil {
 		parent = sp.box.cs
 	}
-	var state style.StateFlags
+	state := el.istate
 	if bx.structural {
-		state = t.structuralState(el)
+		state |= t.structuralState(el)
+	}
+	var group, peer style.StateFlags
+	if bx.groupUse != 0 {
+		group = groupState(el)
+	}
+	if bx.peerUse != 0 {
+		peer = peerState(el)
 	}
 	cs := style.Compute(&t.cx, style.Input{
-		Kind: bx.kind, Parent: parent, State: state,
+		Kind: bx.kind, Parent: parent, State: state, Group: group, Peer: peer,
 		Classes: bx.classes, Props: el.node.d.props,
 	})
 	old := bx.cs
@@ -110,16 +117,32 @@ func (t *Tree) compileClasses(el *Element) {
 	srcs := el.node.d.classes
 	bx.classes = make([]*style.Classes, len(srcs))
 	bx.structural = false
+	bx.stateUse, bx.groupUse, bx.peerUse = 0, 0, 0
+	bx.isGroup, bx.isPeer = false, false
 	for i, s := range srcs {
 		c := t.parser.Compile(s)
 		bx.classes[i] = c
 		if c.Err != nil {
 			t.reportClasses(s, c.Err, el)
 		}
+		bx.isGroup = bx.isGroup || c.Group
+		bx.isPeer = bx.isPeer || c.Peer
 		for j := range c.Rules {
-			if c.Rules[j].Cond.State&structuralStates != 0 {
+			cond := &c.Rules[j].Cond
+			if cond.State&structuralStates != 0 {
 				bx.structural = true
 			}
+			bx.stateUse |= cond.State &^ structuralStates
+			if cond.Enabled {
+				bx.stateUse |= style.StateDisabled
+			}
+			bx.groupUse |= cond.Group
+			bx.peerUse |= cond.Peer
+		}
+	}
+	if bx.groupUse != 0 {
+		for a := el.parent; a != nil && !a.groupKids; a = a.parent {
+			a.groupKids = true
 		}
 	}
 	if bx.structural {

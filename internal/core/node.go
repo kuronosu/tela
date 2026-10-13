@@ -42,9 +42,12 @@ type desc struct {
 	classes []string   // Class props, in order of appearance
 	props   []style.Op // Style props (typed, applied after the classes)
 	events  []EventProp
-	src     image.Image // Img source (Src)
-	img     *gfx.Image  // Img source (SrcImage)
-	href    string      // A destination (Href)
+	evMask  uint32 // the eventKinds of events (bit per kind)
+	// disabled is the Disabled prop (input.go).
+	disabled bool
+	src      image.Image // Img source (Src)
+	img      *gfx.Image  // Img source (SrcImage)
+	href     string      // A destination (Href)
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings
@@ -194,15 +197,6 @@ func (p Prop) applyChild(d *desc) {
 	}
 }
 
-// EventProp is an event handler prop, such as OnClick. In phase 3 handlers
-// are stored on the Element but not dispatched (ADR-040).
-type EventProp struct {
-	// Name is the event name ("click").
-	Name string
-	// Handler is the handler function as the public API typed it.
-	Handler any
-}
-
 // Class adds Tailwind classes to a primitive (ARCHITECTURE section 10).
 // Class may repeat; the strings concatenate in order.
 func Class(classes string) Prop {
@@ -227,13 +221,6 @@ func Key(k any) Prop {
 	return Prop{name: "Key", apply: func(d *desc) { d.key, d.keyed = k, true }}
 }
 
-// On adds an event handler prop. The public API wraps it (OnClick...).
-func On(event string, handler any) Prop {
-	return Prop{name: "On", apply: func(d *desc) {
-		d.events = append(d.events, EventProp{Name: event, Handler: handler})
-	}}
-}
-
 // Src sets the image of an Img primitive. The image is converted to a
 // gfx.Image when it is first drawn and again only when another image is
 // given; pass the same image.Image value on every build.
@@ -247,8 +234,8 @@ func SrcImage(img *gfx.Image) Prop {
 	return Prop{name: "SrcImage", apply: func(d *desc) { d.img, d.src = img, nil }}
 }
 
-// Href sets the destination of an A primitive. Phase 3 stores it; opening
-// links arrives with input in phase 4.
+// Href sets the destination of an A primitive. It is stored (for the
+// semantics tree); Tela does not open links itself.
 func Href(url string) Prop {
 	return Prop{name: "Href", apply: func(d *desc) { d.href = url }}
 }

@@ -51,6 +51,15 @@ type Element struct {
 
 	// Primitives.
 	box *Box
+	// istate is the interaction state of a primitive (input.go): hovered
+	// (by hoverN pointers), active (pressed by activeN pointers),
+	// disabled (its Disabled prop).
+	istate          style.StateFlags
+	hoverN, activeN int16
+	// groupKids marks the ancestors of an element whose classes use
+	// group-* variants, so that a state change of a group finds them
+	// without walking unrelated subtrees (never cleared).
+	groupKids bool
 
 	mounted    bool
 	needsBuild bool // a component whose state or context changed
@@ -403,6 +412,9 @@ func (t *Tree) update(el *Element, n Node) {
 		}
 		el.node = n
 		bx := el.box
+		if old.disabled != d.disabled {
+			t.setState(el, style.StateDisabled, d.disabled)
+		}
 		if !slices.Equal(old.classes, d.classes) {
 			bx.classesDirty = true
 			t.markStyle(el)
@@ -468,6 +480,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 	case nodeElement:
 		el.kind = elemPrimitive
 		el.box = newBox(t, el, d.elem)
+		if d.disabled {
+			el.istate = style.StateDisabled
+		}
 		t.markStyle(el)
 		t.markBoxes(el)
 		if d.elem == style.KindImg {

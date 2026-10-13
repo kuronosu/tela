@@ -130,6 +130,9 @@ type Tree struct {
 	paintQ    []*Box
 	repaint   bool
 
+	// Pointer input (input.go).
+	in inputState
+
 	lastDL *gfx.DisplayList
 	stats  Stats
 }
@@ -245,6 +248,7 @@ func (t *Tree) Mount(root Node) {
 // never ran are dropped. Mount can give the tree content again.
 func (t *Tree) Unmount() {
 	t.FlushEffects()
+	t.resetInput()
 	if t.root != nil {
 		buildMu.Lock()
 		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})

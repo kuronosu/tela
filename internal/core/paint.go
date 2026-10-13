@@ -147,9 +147,19 @@ func (p *painter) place(bx *Box, origin gfx.Point) {
 		bx.pcs = p.t.resolveDeferred(bx, style.PhasePaint)
 	}
 	o := bx.abs.Origin()
+	sub := bx.abs
 	for _, k := range bx.kids {
 		p.place(k, o)
+		if k.ls.Display != layout.DisplayNone {
+			sub = sub.Union(k.hitBounds)
+		}
 	}
+	// Grown by one pixel for the snapping of the painted edges.
+	sub = sub.Outset(1)
+	if bx != p.t.rootBox && !bx.pcs.Transform.IsIdentity() {
+		sub = bx.pcs.Transform.Matrix(bx.abs).TransformRect(sub)
+	}
+	bx.hitBounds = sub
 }
 
 // ---------------------------------------------------------------------
@@ -368,10 +378,22 @@ func clipsOverflow(cs *style.ComputedStyle) bool {
 	return cs.OverflowX.Clips() || cs.OverflowY.Clips()
 }
 
-// pushOverflowClip pushes the overflow clip of bx: its padding box with the
-// inner radii when both axes clip, a rectangle unbounded along the axis
-// that does not otherwise. It reports whether it pushed one.
+// pushOverflowClip pushes the overflow clip of bx (overflowClip). It
+// reports whether it pushed one.
 func (p *painter) pushOverflowClip(bx *Box) bool {
+	c := p.overflowClip(bx)
+	if c.IsRect() {
+		p.b.PushClipRect(c.Rect)
+	} else {
+		p.b.PushClipRRect(c)
+	}
+	return true
+}
+
+// overflowClip returns the overflow clip of a box that clips: its padding
+// box with the inner radii when both axes clip, a rectangle unbounded
+// along the axis that does not otherwise. Hit-testing uses the same shape.
+func (p *painter) overflowClip(bx *Box) gfx.RRect {
 	cs := bx.pcs
 	x, y := cs.OverflowX, cs.OverflowY
 	// CSS: visible becomes auto, and clip hidden, when the other axis is
@@ -382,12 +404,7 @@ func (p *painter) pushOverflowClip(bx *Box) bool {
 	both := scrolls(x) || scrolls(y) || (x == style.OverflowClip && y == style.OverflowClip)
 	g := p.geom(bx)
 	if both {
-		if g.padding.IsRect() {
-			p.b.PushClipRect(g.padding.Rect)
-		} else {
-			p.b.PushClipRRect(g.padding)
-		}
-		return true
+		return g.padding
 	}
 	const far = 1 << 24
 	r := g.padding.Rect
@@ -397,8 +414,7 @@ func (p *painter) pushOverflowClip(bx *Box) bool {
 	if y != style.OverflowClip {
 		r.Y0, r.Y1 = -far, far
 	}
-	p.b.PushClipRect(r)
-	return true
+	return gfx.RRect{Rect: r}
 }
 
 // reportOnce logs msg the first time key is reported in this tree.

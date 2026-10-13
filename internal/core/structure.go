@@ -274,7 +274,7 @@ func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element) bool {
 	seen := 0
 	for _, it := range items {
 		if it.kind == elemText {
-			a.addText(it.text, t.textStyle(it, b, owner))
+			a.addText(it.text, t.textStyle(it, b, owner), it.styleParent())
 			continue
 		}
 		t.addInline(a, it, b, owner)
@@ -299,7 +299,7 @@ func (t *Tree) addInline(a *paraAssembler, el *Element, para *Box, owner *Elemen
 	items := t.collect(t.getItems(), el)
 	for _, c := range items {
 		if c.kind == elemText {
-			a.addText(c.text, t.textStyle(c, para, owner))
+			a.addText(c.text, t.textStyle(c, para, owner), c.styleParent())
 		} else {
 			t.addInline(a, c, para, owner)
 		}

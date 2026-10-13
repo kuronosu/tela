@@ -4,9 +4,9 @@
 // window, and the tests compare that render with Chromium's rendering of the
 // same markup styled by Tailwind's own compiled CSS.
 //
-// The button does not react yet: events, hover and active states and
-// transitions arrive in phase 4 (ADR-040), so clicking changes nothing and the
-// count stays at 0.
+// The button reacts: a click increments the count, and the hover: and active:
+// classes restyle it under the pointer. The transition class has no effect
+// until transitions arrive in phase 6, so the changes are instant.
 package main
 
 import (

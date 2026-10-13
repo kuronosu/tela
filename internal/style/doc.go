@@ -58,7 +58,7 @@
 // with Gradient.Paint.
 //
 // Variants are conditions (Condition) evaluated against the element state,
-// the state of its group ancestor and peer, dark mode, reduced motion and
+// the states of its group ancestors and peers, dark mode, reduced motion and
 // the window width (VariantContext).
 //
 // # Theme

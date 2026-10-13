@@ -28,8 +28,8 @@ type Input struct {
 	// Parent is the computed style of the parent element, nil for the root.
 	Parent *ComputedStyle
 	// State is the interaction state of the element, and Group and Peer
-	// the state of its nearest group ancestor and of its peer siblings
-	// (for the group-* and peer-* variants).
+	// the combined states of its group ancestors and of its preceding peer
+	// siblings (for the group-* and peer-* variants).
 	State, Group, Peer StateFlags
 	// Classes are the compiled Class strings in order of appearance.
 	Classes []*Classes

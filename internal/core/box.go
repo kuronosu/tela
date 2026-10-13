@@ -77,6 +77,12 @@ type Box struct {
 	classesDirty   bool
 	structural     bool // the classes use first:, last:, only:, odd: or even:
 	structuralKids bool // some child's classes do
+	// The interaction states the classes test on the element itself
+	// (hover:, active:, disabled:, enabled: as disabled), on its group
+	// ancestors (group-*) and on its peer siblings (peer-*); isGroup and
+	// isPeer report the marker classes group and peer (input.go).
+	stateUse, groupUse, peerUse style.StateFlags
+	isGroup, isPeer             bool
 
 	// built reports that the box's own structure (kids or paragraph) is
 	// current: it is a block-level or flex-level box, not inline content.
@@ -88,6 +94,11 @@ type Box struct {
 	// the absolute, unsnapped border box.
 	pcs *style.ComputedStyle
 	abs gfx.Rect
+	// hitBounds contains everything the box and its descendants paint
+	// that can be hit (their border boxes, transformed), in the
+	// coordinates abs is in, after the box's own transform: a hit test
+	// skips a subtree whose bounds miss the point (hit.go).
+	hitBounds gfx.Rect
 
 	// Per-frame scratch state (valid when the frame matches).
 	inlineFrame uint64
@@ -236,6 +247,34 @@ type paragraph struct {
 	// brokeAt is the width of the last BreakLines (+Inf after NewLayout)
 	// and alignedAt the width of the last alignment.
 	brokeAt, alignedAt float32
+
+	// targets map the text to the elements it belongs to, for
+	// hit-testing (hit.go): entry i covers the bytes from the end of
+	// entry i-1 to end, which belong to the innermost primitive el.
+	targets []paraTarget
+}
+
+// paraTarget is a run of paragraph text that belongs to one element.
+type paraTarget struct {
+	end int
+	el  *Element
+}
+
+// targetAt returns the element whose text holds byte offset off.
+func (p *paragraph) targetAt(off int) *Element {
+	i, j := 0, len(p.targets)
+	for i < j {
+		h := int(uint(i+j) >> 1)
+		if p.targets[h].end <= off {
+			i = h + 1
+		} else {
+			j = h
+		}
+	}
+	if i < len(p.targets) {
+		return p.targets[i].el
+	}
+	return nil
 }
 
 // breakAt breaks the lines at width w unless they already are.
@@ -305,10 +344,12 @@ func (p *paragraph) measure(t *Tree, in layout.MeasureInput) layout.Measurement 
 }
 
 // paraPart is a piece of inline content: a text and the style of the
-// inline element it is in (nil for the paragraph box itself).
+// inline element it is in (nil for the paragraph box itself), and the
+// innermost primitive it belongs to.
 type paraPart struct {
 	text string
 	cs   *style.ComputedStyle
+	el   *Element
 }
 
 // paraAssembler collects the inline content of one paragraph.
@@ -325,12 +366,28 @@ func (a *paraAssembler) reset() {
 	a.parts, a.boxes, a.spans, a.n = a.parts[:0], a.boxes[:0], a.spans[:0], 0
 }
 
-func (a *paraAssembler) addText(s string, cs *style.ComputedStyle) {
+func (a *paraAssembler) addText(s string, cs *style.ComputedStyle, el *Element) {
 	if s == "" {
 		return
 	}
-	a.parts = append(a.parts, paraPart{s, cs})
+	a.parts = append(a.parts, paraPart{s, cs, el})
 	a.n += len(s)
+}
+
+// setTargets records in p which element each part of the text belongs
+// to.
+func (a *paraAssembler) setTargets(p *paragraph) {
+	clear(p.targets)
+	p.targets = p.targets[:0]
+	off := 0
+	for _, part := range a.parts {
+		off += len(part.text)
+		if n := len(p.targets); n > 0 && p.targets[n-1].el == part.el {
+			p.targets[n-1].end = off
+			continue
+		}
+		p.targets = append(p.targets, paraTarget{end: off, el: part.el})
+	}
 }
 
 // addSpace adds an empty inline box of width w: the margins of
@@ -381,12 +438,14 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	p := b.para
 	if p != nil && p.text == s && p.pstyle == pstyle && sameTextStyle(&p.def, &def) &&
 		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) {
+		a.setTargets(p)
 		return !p.empty
 	}
 	if p == nil {
 		p = new(paragraph)
 		b.para = p
 	}
+	a.setTargets(p)
 	p.text, p.pstyle, p.def, p.empty = s, pstyle, def, empty
 	p.spans = slices.Clone(spans)
 	p.boxes = slices.Clone(a.boxes)
