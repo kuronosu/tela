@@ -14,9 +14,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/jezek/xgb"
-	"github.com/jezek/xgb/bigreq"
-	"github.com/jezek/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/bigreq"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
@@ -71,6 +71,11 @@ type Backend struct {
 	// wake/quit flags and the frame pacing state shared with the other
 	// backends. Its Wake and Quit are safe from any goroutine.
 	loop *loop.Loop[*Window]
+
+	// Input extensions and the keyboard (UI thread).
+	xi  xiState
+	xkb xkbExt
+	kbd kbd
 
 	// UI-thread state.
 	scale    float64
@@ -161,6 +166,7 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 		cursors: map[platform.Cursor]xproto.Cursor{},
 	}
 	b.initLoop()
+	b.kbd.fetch = b.coreMapping
 	var err error
 	if b.atoms, err = internAtoms(conn); err != nil {
 		return nil, fmt.Errorf("x11: interning atoms: %w", err)
@@ -173,6 +179,10 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 	// (Xft.dpi). Other root properties change too (_NET_ACTIVE_WINDOW on
 	// every focus change) and are filtered in translate.
 	xproto.ChangeWindowAttributes(conn, b.root, xproto.CwEventMask, []uint32{xproto.EventMaskPropertyChange})
+
+	b.initXKB()
+	b.initXI2()
+	b.kbd.km() // read the keyboard mapping now, not at the first key
 
 	b.timer = time.NewTimer(time.Hour)
 	b.timer.Stop()
@@ -226,8 +236,9 @@ func checkPixelLayout(setup *xproto.SetupInfo, screen *xproto.ScreenInfo) error 
 
 // initLoop creates the shared loop: timer pacing at FrameInterval (the core
 // protocol has no frame callbacks), Wake and Quit through the notify
-// channel.
+// channel. It also links the keyboard to the backend.
 func (b *Backend) initLoop() {
+	b.kbd.b = b
 	b.loop = loop.New(loop.Options[*Window]{
 		Now:      b.Now,
 		Notify:   b.signal,
@@ -358,8 +369,10 @@ func (b *Backend) pump() {
 }
 
 // pollEvents translates the events already received, without blocking. It
-// returns false if the connection was lost.
+// returns false if the connection was lost. A key event still waiting for
+// its StateNotify is queued at the end: nothing more arrived.
 func (b *Backend) pollEvents() bool {
+	defer b.kbd.flushAll()
 	for range eventBatch {
 		select {
 		case e, ok := <-b.events:

@@ -230,8 +230,10 @@
 // is acked right before the commit of the first buffer of the new size,
 // which is the Present following the ConfigureEvent.
 //
-// X11 via jezek/xgb. xgb runs its own reader goroutine and exposes events
-// through a blocking WaitForEvent, so the UI thread cannot poll the socket
+// X11 via a vendored, patched jezek/xgb (ADR-025; XInput2 and XKB requests
+// are written by hand on its connection). xgb runs its own reader
+// goroutine and exposes events through a blocking WaitForEvent, so the UI
+// thread cannot poll the socket
 // itself. A pump goroutine calls WaitForEvent and sends each event on a
 // channel. The UI thread blocks in a select over that channel, a wake
 // channel (buffer 1, non-blocking send from Wake), and a frame timer that is

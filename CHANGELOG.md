@@ -21,6 +21,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   skip the build when the props are equal and no state or context they read
   changed.
 - `tela.Post` runs a function on the UI thread.
+- Dev mode (`TELA_DEV=1`): a change in hook order panics with both call
+  sites; non-comparable dependencies, a changing dependency count and
+  anonymous functions passed to `CP`/`Memo` are reported.
 - `tela.UseValue` and `tela.Value[T]`: an observable value (`Get`, `Set`,
   `Update`, safe from any goroutine). Read inside `TranslateFn`/`OpacityFn`,
   a change repaints only; inside `WidthFn`/`HeightFn`, it lays out only that
@@ -29,9 +32,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   and modifiers for any XKB layout (pure-Go keymap parser), dead keys and
   Compose sequences, and client-side key repeat. Pointer and scroll events
   now carry the keyboard modifiers.
-- Dev mode (`TELA_DEV=1`): a change in hook order panics with both call
-  sites; non-comparable dependencies, a changing dependency count and
-  anonymous functions passed to `CP`/`Memo` are reported.
+- X11: keyboard input with the same contract as Wayland (layouts, AltGr,
+  dead keys, Compose, server key repeat), smooth touchpad and
+  high-resolution wheel scrolling through XInput2, and pointer modifiers
+  from the real modifier mapping.
 
 ### Changed
 
@@ -39,6 +43,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   `func(T)`. Write `setCount.Set(v)` or
   `setCount.Update(func(n int) int { return n + 1 })`, or use
   `tela.UseStateSet` for a plain function.
+
+### Removed
+
+- The `github.com/jezek/xgb` module dependency: a patched copy of its core,
+  `xproto` and `bigreq` is vendored under `internal/` (ADR-025).
 
 ## [0.3.1] - 2026-10-12
 

@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jezek/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
@@ -18,15 +18,23 @@ import (
 // also treats as INT16 in coordinates).
 const maxWindowSide = 32767
 
-// windowEvents is the event mask of every window.
+// windowEvents is the core event mask of every window. KeymapState makes
+// the server send KeymapNotify (the keys down) after every FocusIn.
 const windowEvents = xproto.EventMaskExposure |
 	xproto.EventMaskStructureNotify |
-	xproto.EventMaskButtonPress |
+	xproto.EventMaskFocusChange |
+	xproto.EventMaskKeyPress |
+	xproto.EventMaskKeyRelease |
+	xproto.EventMaskKeymapState
+
+// corePointerEvents are the core pointer events a window selects when the
+// server has no XInput2 2.1 (otherwise it selects the XI2 ones: a client
+// gets either for a window, and XI2 brings smooth scrolling).
+const corePointerEvents = xproto.EventMaskButtonPress |
 	xproto.EventMaskButtonRelease |
 	xproto.EventMaskPointerMotion |
 	xproto.EventMaskEnterWindow |
-	xproto.EventMaskLeaveWindow |
-	xproto.EventMaskFocusChange
+	xproto.EventMaskLeaveWindow
 
 // Window is an X11 top-level window. All methods run on the UI thread.
 type Window struct {
@@ -85,7 +93,11 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	// retained copy, instead of flashing a background color. NorthWest bit
 	// gravity keeps the content in place on resize instead of discarding it.
 	const mask = xproto.CwBackPixmap | xproto.CwBitGravity | xproto.CwEventMask | xproto.CwCursor
-	values := []uint32{xproto.BackPixmapNone, xproto.GravityNorthWest, windowEvents, uint32(b.cursorFor(platform.CursorDefault))}
+	events := uint32(windowEvents)
+	if !b.xi.ok {
+		events |= corePointerEvents
+	}
+	values := []uint32{xproto.BackPixmapNone, xproto.GravityNorthWest, events, uint32(b.cursorFor(platform.CursorDefault))}
 	err = xproto.CreateWindowChecked(b.conn, b.depth, id, b.root, 0, 0, uint16(size.X), uint16(size.Y), 0,
 		xproto.WindowClassInputOutput, b.visual, mask, values).Check()
 	if err != nil {
@@ -94,6 +106,9 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	// GraphicsExposures off: PutImage never generates them, but the
 	// default GC would make any later CopyArea send NoExpose events.
 	xproto.CreateGC(b.conn, gc, xproto.Drawable(id), xproto.GcGraphicsExposures, []uint32{0})
+	if b.xi.ok {
+		b.sendRequest(xiSelectEventsRequest(b.xi.opcode, id, xiAllMasterDevices, xiWindowEvents))
+	}
 
 	w := &Window{b: b, id: id, gc: gc, opts: opts, osSize: size}
 	a := b.atoms
@@ -192,6 +207,7 @@ func (w *Window) Close() {
 	}
 	b := w.b
 	b.loop.Remove(w) // marks it closed and drops its queued events
+	b.kbd.dropWindow(w)
 	delete(b.windows, w.id)
 	w.destroy()
 }

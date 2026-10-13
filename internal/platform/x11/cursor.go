@@ -3,7 +3,7 @@
 package x11
 
 import (
-	"github.com/jezek/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
 )

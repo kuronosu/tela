@@ -132,8 +132,8 @@ their original copyright notice. Add one section per source project.
 
 - **Source:** https://github.com/rust-windowing/winit (v0.30.13)
 - **License:** Apache-2.0
-- **Used in:** `internal/platform/key.go`, `internal/platform/keycode.go`, `internal/platform/internal/evdev/`, `internal/platform/internal/keyboard/`
-- **Notes:** Design reference only; no source was copied. The keyboard model follows winit's `KeyEvent` (physical key, logical key and text as separate fields; a `PhysicalKey` that keeps the native scancode of unidentified keys; logical key and text ignoring Ctrl) and its synthetic releases on focus loss. The evdev table in `internal/platform/internal/evdev` covers the keys of winit's `scancode_to_physicalkey` (`platform_impl/linux/common/xkb/keymap.rs`) and adds more, checked against `linux/input-event-codes.h` and the USB HID usages of the kernel's `hid-input.c`. Differences from winit are listed in `internal/platform/doc.go` ("Keyboard") and `key.go`. Listed here as a courtesy to the project.
+- **Used in:** `internal/platform/key.go`, `internal/platform/keycode.go`, `internal/platform/internal/evdev/`, `internal/platform/internal/keyboard/`, `internal/platform/x11/xi2.go`, `internal/platform/x11/keyboard.go`
+- **Notes:** Design reference only; no source was copied. The keyboard model follows winit's `KeyEvent` (physical key, logical key and text as separate fields; a `PhysicalKey` that keeps the native scancode of unidentified keys; logical key and text ignoring Ctrl) and its synthetic releases on focus loss. The X11 backend's XInput2 handling follows winit's `platform_impl/linux/x11/event_processor.rs` (scroll valuator deltas divided by the increment, dropping emulated wheel buttons, resetting scroll baselines on enter) and its use of XKB detectable auto-repeat. The evdev table in `internal/platform/internal/evdev` covers the keys of winit's `scancode_to_physicalkey` (`platform_impl/linux/common/xkb/keymap.rs`) and adds more, checked against `linux/input-event-codes.h` and the USB HID usages of the kernel's `hid-input.c`. Differences from winit are listed in `internal/platform/doc.go` ("Keyboard") and `key.go`. Listed here as a courtesy to the project.
 
 ## W3C UI Events key and code values (identifiers)
 
@@ -162,3 +162,17 @@ their original copyright notice. Add one section per source project.
 - **License:** MIT AND X11
 - **Used in:** `internal/platform/internal/xkb/testdata/compose/locale/en_US.UTF-8/Compose` (tests only)
 - **Notes:** About 35 lines of the file, plus lines written for the parser tests; `compose.dir` and `locale.alias` next to it are short hand-written files in the format of libX11's.
+
+## XGB (vendored X11 client)
+
+- **Source:** https://github.com/jezek/xgb (v1.3.1), a fork of BurntSushi's xgb, itself a fork of Google's X Go Binding
+- **License:** BSD-3-Clause, Copyright (c) 2009 The XGB Authors (`internal/platform/x11/internal/xgb/LICENSE`, with `AUTHORS`, `CONTRIBUTORS` and `README` from the module)
+- **Used in:** `internal/platform/x11/internal/xgb/` (the core package: `auth.go`, `conn.go`, `cookie.go`, `doc.go`, `help.go`, `sync.go`, `xgb.go`), `internal/platform/x11/internal/xgb/xproto/xproto.go` and `internal/platform/x11/internal/xgb/bigreq/bigreq.go` (ADR-025)
+- **Notes:** Copied unchanged except for: a copyright header on each Go file (the originals carry the license only in `LICENSE`); the import paths of `xproto` and `bigreq`, rewritten to the vendored location; and Tela's patch to the reader in `xgb.go`, marked "Tela patch": (1) a GenericEvent (code 35) is read whole, the 32-byte header plus the extra 4-byte units its length field announces, and delivered as `RawEvent` (v1.3.1 read every event as 32 bytes, so an XInput2 or Present event desynchronized the connection); (2) an event without a registered constructor (an extension without a Go package, such as XKB) is delivered as `RawEvent` instead of being logged and dropped; (3) an error without a registered constructor (XInput2's BadDevice, XKB errors) becomes a `RawError` and is matched to its request's cookie (v1.3.1 skipped it, so the request's `Reply` blocked forever). `RawEvent`, `RawError` and `GenericEventCode` are in the new file `raw.go`, tested by `raw_test.go`. The unreachable `panic` at the end of `readAuthority` (`auth.go`) is removed so that `go vet` passes. The other xgb extension packages, `xgbgen`, the examples and xgb's own tests are not vendored. `doc.go` is kept as upstream wrote it (not gofmt-formatted).
+
+## X.Org server (reference behavior)
+
+- **Source:** https://gitlab.freedesktop.org/xorg/xserver (`xkb/xkbUtils.c`: `XkbGetCoreMap`; `xkb/XKBMisc.c`: `XkbKeyTypesForCoreSymbols`; `dix/getevents.c` and `Xi/` for XInput2 smooth-scrolling behavior) and the X protocol headers (`XI2proto.h`, `XKBproto.h` from xorgproto, `xinput.xml`, `xkb.xml` from xcb-proto)
+- **License:** MIT/X11 (X.Org and contributors' notices)
+- **Used in:** `internal/platform/internal/xkb/core.go` and `core_test.go`, `internal/platform/x11/xi2.go`, `internal/platform/x11/xkbext.go`
+- **Notes:** No code is copied. `NewCoreKeymap` reads core keysym lists in the order `XkbGetCoreMap` writes them and applies XKB's single-keysym rule; `core_test.go` re-expresses `XkbGetCoreMap`'s layout to export test keymaps as a server does. The XInput2 and XKB request and event layouts are written from the protocol headers.

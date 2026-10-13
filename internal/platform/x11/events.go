@@ -5,9 +5,9 @@ package x11
 import (
 	"image"
 
-	"github.com/jezek/xgb/xproto"
-
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 )
 
 // translate turns one X event into queued platform events, or handles it
@@ -24,7 +24,13 @@ func (b *Backend) translate(e xevent) {
 		// recovered, and checked requests report their own errors.
 		return
 	}
+	if !b.kbd.beforeEvent(e.ev) {
+		return
+	}
 	switch ev := e.ev.(type) {
+	case xgb.RawEvent:
+		b.rawEvent(ev)
+
 	case xproto.ExposeEvent:
 		if w := b.windows[ev.Window]; w != nil {
 			r := image.Rect(int(ev.X), int(ev.Y), int(ev.X)+int(ev.Width), int(ev.Y)+int(ev.Height))
@@ -63,99 +69,59 @@ func (b *Backend) translate(e xevent) {
 			w.SetHidden(true)
 		}
 
+	// Core pointer events: only without XInput2 (windows then select
+	// XI2 events instead).
 	case xproto.ButtonPressEvent:
 		if w := b.windows[ev.Event]; w != nil {
-			b.button(w, ev.Detail, ev.State, ev.EventX, ev.EventY, true)
+			b.ptrButton(b.corePtr(w, ev.State, ev.EventX, ev.EventY), uint32(ev.Detail), true)
 		}
 	case xproto.ButtonReleaseEvent:
 		if w := b.windows[ev.Event]; w != nil {
-			b.button(w, ev.Detail, ev.State, ev.EventX, ev.EventY, false)
+			b.ptrButton(b.corePtr(w, ev.State, ev.EventX, ev.EventY), uint32(ev.Detail), false)
 		}
-
 	case xproto.MotionNotifyEvent:
 		if w := b.windows[ev.Event]; w != nil {
-			pos := w.pos(ev.EventX, ev.EventY)
-			w.lastPos = pos
-			b.pointer(w, platform.PointerEvent{
-				Action:  platform.PointerMove,
-				Pos:     pos,
-				Buttons: buttonsFromState(ev.State) | w.extra,
-				Mods:    modsFromState(ev.State),
-			})
+			b.ptrMotion(b.corePtr(w, ev.State, ev.EventX, ev.EventY))
 		}
-
 	case xproto.EnterNotifyEvent:
-		w := b.windows[ev.Event]
-		if w == nil || ev.Detail == xproto.NotifyDetailInferior {
-			return
-		}
-		mods := modsFromState(ev.State)
-		if w.leavePending {
-			held := buttonsFromState(ev.State) | w.extra
-			if ev.Mode == xproto.NotifyModeNormal && held != 0 {
-				// Back inside before the buttons were released: the app
-				// never saw the pointer leave.
-				w.leavePending = false
-				return
-			}
-			// The implicit grab ended without a ButtonRelease reaching
-			// this window (NotifyUngrab, or no button held any more):
-			// another grab took the release. End the old stay for the
-			// app (cancel, then the deferred leave) before the enter.
-			b.cancelPress(w, mods)
-			b.leave(w, 0, mods)
-		}
-		if !w.inside {
-			w.inside = true
-			w.lastPos = w.pos(ev.EventX, ev.EventY)
-			b.pointer(w, platform.PointerEvent{
-				Action:  platform.PointerEnter,
-				Pos:     w.lastPos,
-				Buttons: buttonsFromState(ev.State) | w.extra,
-				Mods:    modsFromState(ev.State),
-			})
+		if w := b.windows[ev.Event]; w != nil {
+			b.ptrEnter(b.corePtr(w, ev.State, ev.EventX, ev.EventY), ev.Mode, ev.Detail)
 		}
 	case xproto.LeaveNotifyEvent:
-		// Crossing modes are not filtered: a pointer grab by the window
-		// manager (NotifyGrab) also takes the pointer away from the app,
-		// and the matching NotifyUngrab Enter brings it back. The inside
-		// flag drops duplicates.
-		w := b.windows[ev.Event]
-		if w == nil || ev.Detail == xproto.NotifyDetailInferior || !w.inside {
-			return
+		if w := b.windows[ev.Event]; w != nil {
+			b.ptrLeave(b.corePtr(w, ev.State, ev.EventX, ev.EventY), ev.Mode, ev.Detail)
 		}
-		held := buttonsFromState(ev.State) | w.extra
-		mods := modsFromState(ev.State)
-		if held != 0 && ev.Mode == xproto.NotifyModeNormal {
-			// X reports the crossing during the implicit grab of a held
-			// button, while the window keeps receiving the moves. Wayland
-			// (no wl_pointer.leave until the grab ends) and Win32
-			// (SetCapture) report the leave after the release, so the
-			// backend defers it to the release that ends the grab.
-			w.leavePending = true
-			return
+
+	case xproto.KeyPressEvent:
+		b.kbd.keyPress(ev)
+	case xproto.KeyReleaseEvent:
+		b.kbd.keyRelease(ev)
+	case xproto.KeymapNotifyEvent:
+		b.kbd.keymapNotify(ev.Keys)
+	case xproto.MappingNotifyEvent:
+		if ev.Request == xproto.MappingKeyboard || ev.Request == xproto.MappingModifier {
+			b.kbd.mappingChanged()
 		}
-		w.lastPos = w.pos(ev.EventX, ev.EventY)
-		if held != 0 || w.leavePending {
-			// A grab (NotifyGrab: the window manager's Alt+drag, a
-			// screenshot tool; NotifyUngrab: our implicit grab ended
-			// without a release) took the pointer while the app still
-			// had a press: its release will never reach this window.
-			// Like the Wayland backend when the compositor takes the
-			// pointer, abort the press, then report the leave.
-			b.cancelPress(w, mods)
-		}
-		b.leave(w, 0, mods)
 
 	case xproto.FocusInEvent:
 		if w := b.windows[ev.Event]; w != nil && realFocusChange(ev.Mode, ev.Detail) && !w.focused {
+			b.kbd.focusIn(w)
 			w.focused = true
 			b.enqueue(w, platform.FocusEvent{Focused: true})
 		}
 	case xproto.FocusOutEvent:
-		if w := b.windows[ev.Event]; w != nil && realFocusChange(ev.Mode, ev.Detail) && w.focused {
-			w.focused = false
-			b.enqueue(w, platform.FocusEvent{Focused: false})
+		w := b.windows[ev.Event]
+		switch {
+		case w == nil || !w.focused:
+		case realFocusChange(ev.Mode, ev.Detail):
+			b.blur(w)
+		case ev.Mode == xproto.NotifyModeGrab && ev.Detail != xproto.NotifyDetailPointer && ev.Detail != xproto.NotifyDetailInferior:
+			// Another client grabbed the keyboard (a window manager's
+			// Alt+Tab switcher): the window stays focused, but the
+			// releases of the keys held now go to the grabber.
+			if b.kbd.focus == w {
+				b.kbd.releaseHeld()
+			}
 		}
 
 	case xproto.ClientMessageEvent:
@@ -195,10 +161,27 @@ func realFocusChange(mode, detail byte) bool {
 	return detail != xproto.NotifyDetailPointer && detail != xproto.NotifyDetailInferior
 }
 
-// pos converts event coordinates (physical pixels) to logical pixels.
-func (w *Window) pos(x, y int16) platform.Point {
+// ptr is a pointer event decoded from the core protocol or from XInput2.
+type ptr struct {
+	w    *Window
+	x, y float64          // physical pixels, relative to the window
+	held platform.Buttons // buttons held before the event
+	mods platform.Modifiers
+	// extra are the bits of held that come from w.extra (core events).
+	extra platform.Buttons
+}
+
+// corePtr decodes the common fields of a core pointer event. The core
+// state has no bits for the back and forward buttons, which the window
+// tracks (w.extra).
+func (b *Backend) corePtr(w *Window, state uint16, x, y int16) ptr {
+	return ptr{w: w, x: float64(x), y: float64(y), held: buttonsFromState(state) | w.extra, mods: b.kbd.mods(uint32(state)), extra: w.extra}
+}
+
+// posf converts event coordinates (physical pixels) to logical pixels.
+func (w *Window) posf(x, y float64) platform.Point {
 	s := w.b.scale
-	return platform.Point{X: float32(float64(x) / s), Y: float32(float64(y) / s)}
+	return platform.Point{X: float32(x / s), Y: float32(y / s)}
 }
 
 // pointer queues a pointer event, coalescing consecutive moves: a move
@@ -217,11 +200,88 @@ func (b *Backend) pointer(w *Window, pe platform.PointerEvent) {
 	})
 }
 
-// button translates a core button press or release.
-func (b *Backend) button(w *Window, detail xproto.Button, state uint16, x, y int16, press bool) {
-	pos := w.pos(x, y)
+// ptrMotion translates a pointer motion.
+func (b *Backend) ptrMotion(p ptr) {
+	w := p.w
+	w.lastPos = w.posf(p.x, p.y)
+	b.pointer(w, platform.PointerEvent{
+		Action:  platform.PointerMove,
+		Pos:     w.lastPos,
+		Buttons: p.held,
+		Mods:    p.mods,
+	})
+}
+
+// ptrEnter translates the pointer entering a window.
+func (b *Backend) ptrEnter(p ptr, mode, detail byte) {
+	w := p.w
+	if detail == xproto.NotifyDetailInferior {
+		return
+	}
+	if w.leavePending {
+		if mode == xproto.NotifyModeNormal && p.held != 0 {
+			// Back inside before the buttons were released: the app
+			// never saw the pointer leave.
+			w.leavePending = false
+			return
+		}
+		// The implicit grab ended without a ButtonRelease reaching
+		// this window (NotifyUngrab, or no button held any more):
+		// another grab took the release. End the old stay for the
+		// app (cancel, then the deferred leave) before the enter.
+		b.cancelPress(w, p.mods)
+		b.leave(w, 0, p.mods)
+		p.held &^= p.extra // cancelPress forgot them
+	}
+	if !w.inside {
+		w.inside = true
+		w.lastPos = w.posf(p.x, p.y)
+		b.pointer(w, platform.PointerEvent{
+			Action:  platform.PointerEnter,
+			Pos:     w.lastPos,
+			Buttons: p.held,
+			Mods:    p.mods,
+		})
+	}
+}
+
+// ptrLeave translates the pointer leaving a window. Crossing modes are not
+// filtered: a pointer grab by the window manager (NotifyGrab) also takes
+// the pointer away from the app, and the matching NotifyUngrab enter
+// brings it back. The inside flag drops duplicates.
+func (b *Backend) ptrLeave(p ptr, mode, detail byte) {
+	w := p.w
+	if detail == xproto.NotifyDetailInferior || !w.inside {
+		return
+	}
+	if p.held != 0 && mode == xproto.NotifyModeNormal {
+		// X reports the crossing during the implicit grab of a held
+		// button, while the window keeps receiving the moves. Wayland
+		// (no wl_pointer.leave until the grab ends) and Win32
+		// (SetCapture) report the leave after the release, so the
+		// backend defers it to the release that ends the grab.
+		w.leavePending = true
+		return
+	}
+	w.lastPos = w.posf(p.x, p.y)
+	if p.held != 0 || w.leavePending {
+		// A grab (NotifyGrab: the window manager's Alt+drag, a
+		// screenshot tool; NotifyUngrab: our implicit grab ended
+		// without a release) took the pointer while the app still
+		// had a press: its release will never reach this window.
+		// Like the Wayland backend when the compositor takes the
+		// pointer, abort the press, then report the leave.
+		b.cancelPress(w, p.mods)
+	}
+	b.leave(w, 0, p.mods)
+}
+
+// ptrButton translates a button press or release (core button numbers,
+// which XInput2 shares).
+func (b *Backend) ptrButton(p ptr, detail uint32, press bool) {
+	w := p.w
+	pos := w.posf(p.x, p.y)
 	w.lastPos = pos
-	mods := modsFromState(state)
 	btn, steps, ok := mapButton(detail)
 	if !ok {
 		return
@@ -234,16 +294,15 @@ func (b *Backend) button(w *Window, detail xproto.Button, state uint16, x, y int
 				Kind:  platform.PointerMouse,
 				Pos:   pos,
 				Steps: steps,
-				Mods:  mods,
+				Mods:  p.mods,
 				Time:  b.Now(),
 			})
 		}
 		return
 	}
-	// state is the state before the event, so the pressed or released
-	// button is applied on top of it. Back and forward have no bit in the
-	// core state mask and are tracked by the window.
-	held := buttonsFromState(state) | w.extra
+	// The held set is the state before the event, so the pressed or
+	// released button is applied on top of it.
+	held := p.held
 	action := platform.PointerDown
 	if press {
 		held |= btn.Mask()
@@ -263,14 +322,14 @@ func (b *Backend) button(w *Window, detail xproto.Button, state uint16, x, y int
 		Pos:     pos,
 		Button:  btn,
 		Buttons: held,
-		Mods:    mods,
+		Mods:    p.mods,
 	})
 	if held == 0 && w.leavePending {
 		// The release ended the implicit grab outside the window: deliver
 		// the deferred leave now.
 		w.leavePending = false
-		if !image.Pt(int(x), int(y)).In(image.Rectangle{Max: w.osSize}) {
-			b.leave(w, 0, mods)
+		if p.x < 0 || p.y < 0 || p.x >= float64(w.osSize.X) || p.y >= float64(w.osSize.Y) {
+			b.leave(w, 0, p.mods)
 		}
 	}
 }
@@ -300,13 +359,13 @@ func (b *Backend) leave(w *Window, held platform.Buttons, mods platform.Modifier
 	})
 }
 
-// mapButton maps a core button number. Buttons 1–3 are left, middle and
-// right (the server's pointer mapping already swaps them for left-handed
-// setups), 4–7 are wheel steps (up, down, left, right), and 8–9 are the
-// back and forward side buttons, as in winit and GTK. Wheel steps follow
-// the DOM sign convention: up and left are negative. ok is false for other
-// buttons.
-func mapButton(detail xproto.Button) (btn platform.PointerButton, steps platform.Point, ok bool) {
+// mapButton maps a core (or XInput2) button number. Buttons 1–3 are left,
+// middle and right (the server's pointer mapping already swaps them for
+// left-handed setups), 4–7 are wheel steps (up, down, left, right), and
+// 8–9 are the back and forward side buttons, as in winit and GTK. Wheel
+// steps follow the DOM sign convention: up and left are negative. ok is
+// false for other buttons.
+func mapButton(detail uint32) (btn platform.PointerButton, steps platform.Point, ok bool) {
 	switch detail {
 	case 1:
 		return platform.ButtonPrimary, steps, true
@@ -344,25 +403,4 @@ func buttonsFromState(state uint16) platform.Buttons {
 		held |= platform.ButtonSecondary.Mask()
 	}
 	return held
-}
-
-// modsFromState returns the modifiers of a core event state. Mod1 is Alt
-// and Mod4 is Super under every common modifier mapping (xkeyboard-config
-// defaults); reading the real mapping (GetModifierMapping, or XKB state as
-// winit does) comes with keyboard support in phase 4.
-func modsFromState(state uint16) platform.Modifiers {
-	var m platform.Modifiers
-	if state&xproto.KeyButMaskShift != 0 {
-		m |= platform.ModShift
-	}
-	if state&xproto.KeyButMaskControl != 0 {
-		m |= platform.ModCtrl
-	}
-	if state&xproto.KeyButMaskMod1 != 0 {
-		m |= platform.ModAlt
-	}
-	if state&xproto.KeyButMaskMod4 != 0 {
-		m |= platform.ModSuper
-	}
-	return m
 }

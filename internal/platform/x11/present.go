@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"image"
 
-	"github.com/jezek/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 )
 
 // PutImage is encoded by hand instead of with xproto.PutImage because xgb's

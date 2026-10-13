@@ -8,8 +8,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/jezek/xgb"
-	"github.com/jezek/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 )
 
 // atoms holds the non-predefined atoms the backend uses.

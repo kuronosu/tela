@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jezek/xgb"
-	"github.com/jezek/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -232,7 +232,7 @@ func TestEncodePutImage(t *testing.T) {
 
 func TestMapButton(t *testing.T) {
 	for _, tc := range []struct {
-		detail xproto.Button
+		detail uint32
 		btn    platform.PointerButton
 		steps  platform.Point
 		ok     bool
@@ -259,10 +259,11 @@ func TestMapButton(t *testing.T) {
 func TestStateMasks(t *testing.T) {
 	state := uint16(xproto.KeyButMaskShift | xproto.KeyButMaskControl | xproto.KeyButMaskMod1 | xproto.KeyButMaskMod4 |
 		xproto.KeyButMaskButton1 | xproto.KeyButMaskButton3)
-	if m := modsFromState(state); m != platform.ModShift|platform.ModCtrl|platform.ModAlt|platform.ModSuper {
-		t.Errorf("modsFromState = %b", m)
+	b, _ := fakeBackend(1) // no keyboard mapping: the xkeyboard-config defaults
+	if m := b.kbd.mods(uint32(state)); m != platform.ModShift|platform.ModCtrl|platform.ModAlt|platform.ModSuper {
+		t.Errorf("mods = %b", m)
 	}
-	if m := modsFromState(xproto.KeyButMaskLock | xproto.KeyButMaskMod2); m != 0 {
+	if m := b.kbd.mods(xproto.KeyButMaskLock | xproto.KeyButMaskMod2); m != 0 {
 		t.Errorf("Caps Lock and Num Lock reported as modifiers: %b", m)
 	}
 	if b := buttonsFromState(state); b != platform.ButtonPrimary.Mask()|platform.ButtonSecondary.Mask() {
@@ -350,6 +351,23 @@ func (r *recorder) HandleEvent(_ platform.Window, e platform.Event) {
 		s = fmt.Sprintf("pointer %v %v,%v btn=%d held=%b mods=%b", e.Action, e.Pos.X, e.Pos.Y, e.Button, e.Buttons, e.Mods)
 	case platform.ScrollEvent:
 		s = fmt.Sprintf("scroll %v,%v at %v,%v", e.Steps.X, e.Steps.Y, e.Pos.X, e.Pos.Y)
+		if e.Delta != (platform.Point{}) {
+			s += fmt.Sprintf(" delta %v,%v", e.Delta.X, e.Delta.Y)
+		}
+		if e.Mods != 0 {
+			s += fmt.Sprintf(" mods=%b", e.Mods)
+		}
+	case platform.KeyEvent:
+		s = fmt.Sprintf("key %v %v %q %q mods=%b", e.Action, e.Code, e.Key, e.Text, e.Mods)
+		if e.Repeat {
+			s += " repeat"
+		}
+		if e.Synthetic {
+			s += " synthetic"
+		}
+		if e.Location != e.Code.Location() {
+			s += " BAD-LOCATION"
+		}
 	case platform.FocusEvent:
 		s = fmt.Sprintf("focus %v", e.Focused)
 	case platform.CloseRequestedEvent:
@@ -427,7 +445,7 @@ func TestTranslateAndDispatch(t *testing.T) {
 		"pointer down 8,13 btn=4 held=1001 mods=0",
 		"pointer up 8,13 btn=1 held=1000 mods=0",
 		"pointer up 8,13 btn=4 held=0 mods=0",
-		"scroll 0,-1 at 8,13",
+		"scroll 0,-1 at 8,13 mods=10",
 		"scroll 1,0 at 8,13",
 		"pointer leave -1,13 btn=0 held=0 mods=0",
 	}, "; ")

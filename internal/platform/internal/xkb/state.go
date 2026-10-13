@@ -43,18 +43,25 @@ func (s *State) Modifiers() platform.Modifiers {
 	// applies to the next key, like a held one); locked ones are lock
 	// states, not modifiers (ADR-050), so a Shift Lock or a locked Ctrl
 	// (sticky keys) is not reported.
-	held := s.km.resolve(s.depressed | s.latched)
+	return s.km.ModifiersOf(s.km.resolve(s.depressed | s.latched))
+}
+
+// ModifiersOf returns the shortcut modifiers (see [State.Modifiers]) of a
+// mask of real modifiers, such as the state field of an X11 event: Mod1
+// is Alt only if the keymap maps Alt to it, and the real modifier of
+// AltGr (LevelThree) is never reported.
+func (km *Keymap) ModifiersOf(real uint32) platform.Modifiers {
 	var m platform.Modifiers
-	if held&s.km.shiftMask != 0 {
+	if real&km.shiftMask != 0 {
 		m |= platform.ModShift
 	}
-	if held&s.km.ctrlMask != 0 {
+	if real&km.ctrlMask != 0 {
 		m |= platform.ModCtrl
 	}
-	if held&s.km.altMask != 0 {
+	if real&km.altMask != 0 {
 		m |= platform.ModAlt
 	}
-	if held&s.km.superMask != 0 {
+	if real&km.superMask != 0 {
 		m |= platform.ModSuper
 	}
 	return m

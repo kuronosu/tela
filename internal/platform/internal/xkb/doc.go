@@ -10,6 +10,10 @@
 //     (platform.Key) and text in that state.
 //   - Compose: the libX11 Compose file format and the dead key / Compose
 //     key state machine.
+//   - NewCoreKeymap: a keymap built from an X11 core keyboard mapping
+//     (GetKeyboardMapping and GetModifierMapping), for the X11 backend,
+//     with automatic key types and the virtual modifiers taken from the
+//     modifier mapping; see core.go.
 //
 // # What it implements, and what it leaves to the compositor
 //

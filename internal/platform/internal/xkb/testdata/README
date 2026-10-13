@@ -21,8 +21,12 @@ keymaps/NAME.xkb.gz
         xkbcli compile-keymap --output-format 1 --layout us --options compose:ralt    > us-compose-ralt.xkb
         xkbcli compile-keymap --output-format 1 --layout us,ru --options grp:alt_shift_toggle > us-ru-grp.xkb
         xkbcli compile-keymap --output-format 1 --layout de --variant neo    > de-neo.xkb
+        xkbcli compile-keymap --output-format 1 --layout us,de               > us-de.xkb
+        xkbcli compile-keymap --output-format 1 --layout de,us               > de-us.xkb
 
-    then gzip -9 -n.
+    then gzip -9 -n. us-de and de-us have no oracle file: core_test.go
+    compares the keymap built from their core export (NewCoreKeymap) with
+    the keymap itself.
 
 keymaps/NAME.oracle.gz
     oracle keymap NAME.xkb STATE... | gzip -9 -n, with the states

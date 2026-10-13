@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jezek/xgb"
-	"github.com/jezek/xgb/xproto"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/platformtest"
