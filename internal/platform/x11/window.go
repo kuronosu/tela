@@ -7,11 +7,11 @@ import (
 	"image"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/jezek/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
 
 // maxWindowSide is the largest X11 window side (a CARD16 that the server
@@ -30,30 +30,25 @@ const windowEvents = xproto.EventMaskExposure |
 
 // Window is an X11 top-level window. All methods run on the UI thread.
 type Window struct {
+	// WindowState holds the delivered metrics, closed, the frame requests
+	// and the iconified veto (SetHidden), and provides Metrics and
+	// RequestFrame.
+	loop.WindowState
+
 	b    *Backend
 	id   xproto.Window
 	gc   xproto.Gcontext
 	opts platform.WindowOptions
 
-	closed bool
 	mapped bool // MapWindow was sent (at the first Present)
-	iconic bool // unmapped by the window manager after being mapped
 
-	osSize           image.Point      // latest physical size from the server
-	metrics          platform.Metrics // delivered by the latest ConfigureEvent
-	configurePending bool             // a coalesced ConfigureEvent is queued
-
-	frameRequested bool
-	forcedFrame    bool // a ConfigureEvent was delivered; frame due now
-	hasFramed      bool
-	lastFrame      time.Duration
+	osSize image.Point // latest physical size from the server
 
 	// Retained copy of the window content in the server's pixel layout
 	// (BGRX, stride 4*pixSize.X), used to answer Expose.
-	needsFull bool
-	pix       []byte
-	pixSize   image.Point
-	expose    image.Rectangle // Expose rectangles accumulated until Count == 0
+	pix     []byte
+	pixSize image.Point
+	expose  image.Rectangle // Expose rectangles accumulated until Count == 0
 
 	// Pointer state.
 	inside       bool
@@ -115,7 +110,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	w.updateNormalHints()
 
 	b.windows[id] = w
-	b.order = append(b.order, w)
+	b.loop.Add(w)
 	b.queueConfigure(w)
 	return w, nil
 }
@@ -133,42 +128,13 @@ func (w *Window) osMetrics() platform.Metrics {
 	return platform.Metrics{Size: platform.LogicalSize(w.osSize, w.b.scale), Scale: w.b.scale}
 }
 
-// visible reports whether frames can be delivered: the window has
-// delivered metrics with a non-empty size and is not iconified. Frames
-// requested while it is iconified stay pending until it is mapped again,
-// like frame callbacks of a hidden Wayland surface.
-func (w *Window) visible() bool {
-	if w.closed || w.iconic || w.metrics.Scale == 0 {
-		return false
-	}
-	p := w.metrics.Physical()
-	return p.X > 0 && p.Y > 0
-}
-
-// frameDue reports whether a FrameEvent should be delivered at now.
-func (w *Window) frameDue(now time.Duration) bool {
-	if !w.visible() {
-		return false
-	}
-	if w.forcedFrame {
-		return true
-	}
-	return w.frameRequested && (!w.hasFramed || now >= w.lastFrame+FrameInterval)
-}
-
-// Metrics returns the metrics of the latest delivered ConfigureEvent.
-func (w *Window) Metrics() platform.Metrics { return w.metrics }
-
-// RequestFrame requests a FrameEvent; see platform.Window.
-func (w *Window) RequestFrame() {
-	if !w.closed {
-		w.frameRequested = true
-	}
-}
+// Metrics and RequestFrame come from loop.WindowState. Frames requested
+// while the window is iconified (SetHidden) stay pending until it is mapped
+// again, like frame callbacks of a hidden Wayland surface.
 
 // SetTitle sets WM_NAME and _NET_WM_NAME.
 func (w *Window) SetTitle(title string) {
-	if !w.closed {
+	if !w.Closed() {
 		w.setTitle(title)
 	}
 }
@@ -184,7 +150,7 @@ func (w *Window) SetCursor(c platform.Cursor) {
 	if !c.Valid() {
 		panic(fmt.Sprintf("x11: SetCursor(%d): invalid cursor; use one of the platform.Cursor constants", c))
 	}
-	if w.closed || c == w.cursor {
+	if w.Closed() || c == w.cursor {
 		return
 	}
 	w.cursor = c
@@ -195,7 +161,7 @@ func (w *Window) SetCursor(c platform.Cursor) {
 // pixels, clamped to MinSize). The outcome arrives as a ConfigureEvent.
 func (w *Window) SetSize(size platform.Size) {
 	platform.CheckSize("SetSize size", size)
-	if w.closed {
+	if w.Closed() {
 		return
 	}
 	w.opts.Size = w.opts.ClampSize(size)
@@ -221,35 +187,17 @@ func (w *Window) updateNormalHints() {
 
 // Close destroys the window. Queued events for it are dropped.
 func (w *Window) Close() {
-	if w.closed {
+	if w.Closed() {
 		return
 	}
 	b := w.b
-	w.destroy()
+	b.loop.Remove(w) // marks it closed and drops its queued events
 	delete(b.windows, w.id)
-	for i, x := range b.order {
-		if x == w {
-			b.order = append(b.order[:i], b.order[i+1:]...)
-			break
-		}
-	}
-	q := b.queue[:0]
-	for _, it := range b.queue {
-		if it.w != w {
-			q = append(q, it)
-		}
-	}
-	clear(b.queue[len(q):])
-	b.queue = q
+	w.destroy()
 }
 
 // destroy frees the window's server resources.
 func (w *Window) destroy() {
-	if w.closed {
-		return
-	}
-	w.closed = true
-	w.frameRequested, w.forcedFrame = false, false
 	w.pix = nil
 	xproto.FreeGC(w.b.conn, w.gc)
 	xproto.DestroyWindow(w.b.conn, w.id)
@@ -258,24 +206,24 @@ func (w *Window) destroy() {
 // Present stores the damaged pixels of fb in the retained copy and sends
 // them to the server; see platform.Window.
 func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
-	if w.closed {
+	if w.Closed() {
 		return nil
 	}
-	if w.metrics.Scale == 0 {
+	if w.Metrics().Scale == 0 {
 		panic("x11: Present called before the window's first ConfigureEvent was delivered; present from the FrameEvent that follows it")
 	}
-	platform.CheckFramebuffer(fb, w.metrics)
+	platform.CheckFramebuffer(fb, w.Metrics())
 	if w.b.lost.Load() {
 		return errConnLost
 	}
 	size := fb.Rect.Size()
-	full := w.needsFull || w.pixSize != size
+	full := w.NeedsFull() || w.pixSize != size
 	rects := platform.ClipDamage(damage, fb.Rect, full)
 	if len(rects) == 0 {
 		return nil // every damage rectangle was clipped away: nothing changed
 	}
 	if full {
-		w.needsFull = false
+		w.ClearNeedsFull()
 		if w.pixSize != size {
 			w.pix = make([]byte, 4*size.X*size.Y)
 			w.pixSize = size

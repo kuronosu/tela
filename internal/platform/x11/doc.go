@@ -20,7 +20,9 @@
 // them (coalescing consecutive pointer motion and repeated ConfigureNotify),
 // answers Expose and _NET_WM_PING without involving the app, and then
 // delivers, in order: a WakeEvent if Wake was called, the queued events,
-// and the FrameEvents that are due.
+// and the FrameEvents that are due. The queue, the coalescing primitives,
+// the delivery pass and the pacing deadline are the shared internal/loop;
+// this package only reads X events and arms the timer.
 //
 // # Frames
 //

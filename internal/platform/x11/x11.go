@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/jezek/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
 
 // FrameInterval is the frame pacing interval: a fixed 60 Hz. The core
@@ -59,19 +61,20 @@ type Backend struct {
 	reqBuf      []byte
 
 	// Cross-goroutine state.
-	notify      chan struct{} // buffer 1; Wake and Quit signal the loop
-	wakePending atomic.Bool
-	quitting    atomic.Bool
-	lost        atomic.Bool // set by the pump when the connection fails
-	events      chan xevent // pump → UI thread; closed when the connection ends
-	done        chan struct{}
-	iterations  atomic.Int64 // loop iterations, for idle tests
+	notify     chan struct{} // buffer 1; Wake and Quit signal the loop
+	lost       atomic.Bool   // set by the pump when the connection fails
+	events     chan xevent   // pump → UI thread; closed when the connection ends
+	done       chan struct{}
+	iterations atomic.Int64 // loop iterations, for idle tests
+
+	// loop holds the open windows (creation order), the event queue, the
+	// wake/quit flags and the frame pacing state shared with the other
+	// backends. Its Wake and Quit are safe from any goroutine.
+	loop *loop.Loop[*Window]
 
 	// UI-thread state.
 	scale    float64
 	windows  map[xproto.Window]*Window
-	order    []*Window // open windows in creation order
-	queue    []item
 	cursors  map[platform.Cursor]xproto.Cursor
 	cursorFt xproto.Font // core "cursor" font; 0 if unavailable
 	fontOK   bool        // cursorFt was opened successfully
@@ -84,16 +87,6 @@ type Backend struct {
 type xevent struct {
 	ev  xgb.Event
 	err xgb.Error
-}
-
-// item is a queued unit of work for the handler: an event for a window (w
-// nil for app events), a coalesced ConfigureEvent (configure), or a
-// function to run on the loop (fn non-nil).
-type item struct {
-	w         *Window
-	ev        platform.Event
-	configure bool
-	fn        func()
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -167,6 +160,7 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 		windows: map[xproto.Window]*Window{},
 		cursors: map[platform.Cursor]xproto.Cursor{},
 	}
+	b.initLoop()
 	var err error
 	if b.atoms, err = internAtoms(conn); err != nil {
 		return nil, fmt.Errorf("x11: interning atoms: %w", err)
@@ -230,6 +224,17 @@ func checkPixelLayout(setup *xproto.SetupInfo, screen *xproto.ScreenInfo) error 
 	return nil
 }
 
+// initLoop creates the shared loop: timer pacing at FrameInterval (the core
+// protocol has no frame callbacks), Wake and Quit through the notify
+// channel.
+func (b *Backend) initLoop() {
+	b.loop = loop.New(loop.Options[*Window]{
+		Now:      b.Now,
+		Notify:   b.signal,
+		Interval: FrameInterval,
+	})
+}
+
 // maxRequestBytes enables BIG-REQUESTS when available and returns the
 // largest PutImage request this backend sends, in bytes.
 func maxRequestBytes(conn *xgb.Conn, setup *xproto.SetupInfo) int {
@@ -251,17 +256,11 @@ func (b *Backend) Now() time.Duration { return time.Since(b.start) }
 
 // Wake makes the loop deliver a WakeEvent. Safe from any goroutine; never
 // blocks; coalesces.
-func (b *Backend) Wake() {
-	b.wakePending.Store(true)
-	b.signal()
-}
+func (b *Backend) Wake() { b.loop.Wake() }
 
 // Quit makes Run return after the current handler call. Safe from any
 // goroutine; idempotent.
-func (b *Backend) Quit() {
-	b.quitting.Store(true)
-	b.signal()
-}
+func (b *Backend) Quit() { b.loop.Quit() }
 
 func (b *Backend) signal() {
 	select {
@@ -297,7 +296,7 @@ func (b *Backend) Run(h platform.Handler) error {
 
 	for {
 		b.iterations.Add(1)
-		if b.quitting.Load() {
+		if b.loop.Quitting() {
 			return nil
 		}
 		if !b.pollEvents() {
@@ -319,7 +318,7 @@ func (b *Backend) Run(h platform.Handler) error {
 			case <-timerC:
 			}
 			b.timer.Stop()
-			if b.quitting.Load() {
+			if b.loop.Quitting() {
 				return nil
 			}
 			if !b.pollEvents() {
@@ -382,118 +381,38 @@ func (b *Backend) shutdown() {
 		return
 	}
 	b.closed = true
-	for _, w := range b.order {
-		w.destroy()
+	for _, w := range slices.Clone(b.loop.Windows()) {
+		w.Close()
 	}
-	b.order = nil
-	b.queue = nil
+	b.loop.Discard()
 	close(b.done)
 	b.conn.Close()
 }
 
-// ready reports whether dispatch has anything to deliver now.
-func (b *Backend) ready() bool {
-	if b.wakePending.Load() || len(b.queue) > 0 {
-		return true
-	}
-	now := b.Now()
-	for _, w := range b.order {
-		if w.frameDue(now) {
-			return true
-		}
-	}
-	return false
-}
+// ready reports whether dispatch has anything to deliver now (or Quit was
+// called).
+func (b *Backend) ready() bool { return b.loop.Ready() }
 
 // nextDeadline returns when the earliest requested, not yet due frame
 // becomes due. ok is false when no frame is waiting on pacing, which is when
 // the loop sleeps without a timer.
-func (b *Backend) nextDeadline() (time.Duration, bool) {
-	var best time.Duration
-	found := false
-	for _, w := range b.order {
-		if !w.frameRequested || !w.visible() {
-			continue
-		}
-		t := w.lastFrame + FrameInterval
-		if !found || t < best {
-			best, found = t, true
-		}
-	}
-	return best, found
-}
+func (b *Backend) nextDeadline() (time.Duration, bool) { return b.loop.Pace() }
 
 // dispatch delivers a pending WakeEvent, the queued items (FIFO) and the
-// due frames. Items queued while the handler runs wait for the next
-// iteration; frame requests are evaluated after the items, so an input
-// event that requests a frame gets it in the same iteration if pacing
-// allows.
-func (b *Backend) dispatch(h platform.Handler) {
-	if b.wakePending.Swap(false) {
-		h.HandleEvent(nil, platform.WakeEvent{})
-	}
-	items := b.queue
-	b.queue = nil
-	for _, it := range items {
-		if b.quitting.Load() {
-			return
-		}
-		switch {
-		case it.fn != nil:
-			it.fn()
-		case it.w == nil:
-			h.HandleEvent(nil, it.ev)
-		case it.w.closed:
-		case it.configure:
-			it.w.configurePending = false
-			m := it.w.osMetrics()
-			if m == it.w.metrics {
-				continue
-			}
-			it.w.metrics = m
-			it.w.needsFull = true
-			it.w.forcedFrame = true
-			h.HandleEvent(it.w, platform.ConfigureEvent{Metrics: m})
-		default:
-			h.HandleEvent(it.w, it.ev)
-		}
-	}
-
-	now := b.Now()
-	var due []*Window
-	for _, w := range b.order {
-		if w.frameDue(now) {
-			w.frameRequested, w.forcedFrame = false, false
-			w.lastFrame, w.hasFramed = now, true
-			due = append(due, w)
-		}
-	}
-	for _, w := range due {
-		if b.quitting.Load() {
-			return
-		}
-		if !w.closed {
-			h.HandleEvent(w, platform.FrameEvent{Time: now})
-		}
-	}
-}
+// due frames (see loop.Loop.Deliver). Items queued while the handler runs
+// wait for the next iteration; frame requests are evaluated after the
+// items, so an input event that requests a frame gets it in the same
+// iteration if pacing allows.
+func (b *Backend) dispatch(h platform.Handler) { b.loop.Deliver(h) }
 
 // enqueue appends an event for w (nil for app events).
-func (b *Backend) enqueue(w *Window, e platform.Event) {
-	b.queue = append(b.queue, item{w: w, ev: e})
-}
+func (b *Backend) enqueue(w *Window, e platform.Event) { b.loop.Enqueue(w, e) }
 
-// queueConfigure queues a coalesced ConfigureEvent for w: the metrics are
-// computed when it is delivered, so any number of ConfigureNotify events
-// (or scale changes) before that yield one ConfigureEvent with the latest
-// values, and none if nothing changed.
-func (b *Backend) queueConfigure(w *Window) {
-	if w.configurePending {
-		return
-	}
-	w.configurePending = true
-	b.queue = append(b.queue, item{w: w, configure: true})
-}
+// queueConfigure queues a coalesced ConfigureEvent for w with the metrics
+// of the latest server size at the current scale: any number of
+// ConfigureNotify events (or scale changes) before it is delivered yield
+// one ConfigureEvent with the latest values, and none if nothing changed.
+func (b *Backend) queueConfigure(w *Window) { b.loop.Reconfigure(w, w.osMetrics()) }
 
 // readScale returns Xft.dpi / 96 from the root window's RESOURCE_MANAGER,
 // or 1 if it is unset or unusable.
@@ -514,7 +433,7 @@ func (b *Backend) updateScale() {
 		return
 	}
 	b.scale = s
-	for _, w := range b.order {
+	for _, w := range b.loop.Windows() {
 		w.updateNormalHints()
 		b.queueConfigure(w)
 	}

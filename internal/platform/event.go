@@ -3,9 +3,9 @@ package platform
 import "time"
 
 // Event is the sealed set of events a backend delivers to the [Handler].
-// Only this package defines event types; new kinds (keyboard, text input,
-// IME composition, touch gestures) are added here as new types, so adding
-// one never changes the Backend or Window interfaces.
+// Only this package defines event types; new kinds (text input, IME
+// composition, touch gestures) are added here as new types, so adding one
+// never changes the Backend or Window interfaces.
 //
 // The window-scoped events are delivered with the Window they belong to.
 // App-scoped events ([WakeEvent], [SettingsEvent]) are delivered with a nil
@@ -55,7 +55,9 @@ type FrameEvent struct {
 type CloseRequestedEvent struct{}
 
 // FocusEvent reports that the window gained or lost keyboard focus
-// (activation).
+// (activation). A window receives KeyEvents only between a FocusEvent with
+// Focused true and the next one with Focused false; see the package
+// documentation ("Keyboard") for what happens to held keys.
 type FocusEvent struct {
 	Focused bool
 }
@@ -153,10 +155,21 @@ func (b PointerButton) Mask() Buttons {
 }
 
 // Modifiers is the set of held keyboard modifiers at the time of an input
-// event.
+// event (for a [KeyEvent], after the event).
 //
-// Phase-1 backends may leave it zero: on Wayland it requires the keyboard
-// (wl_keyboard.modifiers), which arrives with keyboard support (phase 4).
+// Only the four shortcut modifiers are reported, like winit's
+// ModifiersState. AltGr (ISO_Level3_Shift on Linux, the right Alt key that
+// Windows reports as Ctrl+Alt) is not one of them: it selects characters,
+// which KeyEvent.Key and Text already reflect, and a backend must not report
+// it as ModCtrl or ModAlt (the Win32 backend drops the fake left Ctrl that
+// Windows sends with AltGr, as winit does). Lock states (Caps Lock, Num
+// Lock) are not modifiers either: they are not held, and including them
+// would make every comparison like Mods == ModCtrl fail while Num Lock is
+// on.
+//
+// Pointer and scroll events report it as well. Backends may leave it zero
+// until their keyboard support exists: on Wayland it comes from
+// wl_keyboard.modifiers.
 type Modifiers uint8
 
 const (
@@ -217,3 +230,4 @@ func (WakeEvent) isEvent()           {}
 func (SettingsEvent) isEvent()       {}
 func (PointerEvent) isEvent()        {}
 func (ScrollEvent) isEvent()         {}
+func (KeyEvent) isEvent()            {}

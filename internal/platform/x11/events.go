@@ -53,14 +53,14 @@ func (b *Backend) translate(e xevent) {
 
 	case xproto.MapNotifyEvent:
 		if w := b.windows[ev.Window]; w != nil && ev.Event == ev.Window {
-			w.iconic = false
+			w.SetHidden(false)
 		}
 
 	case xproto.UnmapNotifyEvent:
 		// The window manager unmaps the client window when it is
 		// iconified (ICCCM 4.1.4). Frames pause until it is mapped again.
 		if w := b.windows[ev.Window]; w != nil && ev.Event == ev.Window && w.mapped {
-			w.iconic = true
+			w.SetHidden(true)
 		}
 
 	case xproto.ButtonPressEvent:
@@ -207,15 +207,14 @@ func (w *Window) pos(x, y int16) platform.Point {
 func (b *Backend) pointer(w *Window, pe platform.PointerEvent) {
 	pe.Kind = platform.PointerMouse
 	pe.Time = b.Now()
-	if pe.Action == platform.PointerMove && len(b.queue) > 0 {
-		last := &b.queue[len(b.queue)-1]
-		if prev, ok := last.ev.(platform.PointerEvent); ok && last.w == w && prev.Action == platform.PointerMove &&
-			prev.Buttons == pe.Buttons && prev.Mods == pe.Mods {
-			last.ev = pe
-			return
-		}
+	if pe.Action != platform.PointerMove {
+		b.enqueue(w, pe)
+		return
 	}
-	b.enqueue(w, pe)
+	b.loop.Coalesce(w, pe, func(e platform.Event) bool {
+		prev, ok := e.(platform.PointerEvent)
+		return ok && prev.Action == platform.PointerMove && prev.Buttons == pe.Buttons && prev.Mods == pe.Mods
+	})
 }
 
 // button translates a core button press or release.

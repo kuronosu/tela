@@ -39,6 +39,10 @@
 // stable: keyboard, text input and IME events (phases 4 and 5) are new event
 // types, not new methods.
 //
+// The event set: ConfigureEvent, FrameEvent, CloseRequestedEvent,
+// FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent and
+// KeyEvent.
+//
 // # Threading
 //
 //   - The UI thread is the goroutine that calls Run, locked to the OS main
@@ -85,6 +89,67 @@
 //     [Window.Present]. Skipping Present is allowed when nothing changed.
 //   - FrameEvent.Time is the frame clock (see [FrameEvent]); it is in the
 //     time base of [Backend.Now], like input timestamps.
+//
+// # Shared loop
+//
+// The OS-independent part of the loop is one implementation, package
+// internal/loop, used by every backend: the FIFO queue of window events, app
+// events and deferred callbacks; coalesced Wake (one WakeEvent per pass) and
+// Quit checks between deliveries; applying a ConfigureEvent to the window's
+// Metrics before the handler sees it and forcing its frame; the frame-due
+// rule above; and the deadline of the earliest timer-paced frame for the
+// poll timeout. A backend keeps only its OS-specific I/O (reading the socket
+// or the message queue, frame callbacks or display links) and decides when
+// to run a delivery pass. internal/loop's documentation says how Win32 and
+// Cocoa plug in.
+//
+// # Keyboard
+//
+// Key input arrives as [KeyEvent]s for the window that has keyboard focus.
+// Every backend honors these rules; the headless backend enforces them on
+// injected key events.
+//
+//   - Three descriptions (ADR-021, winit's model): Code is the physical key
+//     ([KeyCode], a W3C "code" value), Key the logical key ([Key], a W3C
+//     "key" value, reflecting every modifier but Ctrl), Text the produced
+//     text (Ctrl ignored, never a control character, empty on release).
+//     Linux backends map scancodes with the shared evdev table
+//     (internal/evdev); every backend sets Location from Code.Location().
+//   - Focus: a window gets KeyEvents only between a FocusEvent with Focused
+//     true and the next one with Focused false. On Wayland keyboard focus
+//     is wl_keyboard.enter/leave, which can arrive before or after the
+//     xdg_toplevel activated state; the backend orders them so that the
+//     FocusEvent comes first.
+//   - Held keys when focus is lost: like winit (which does it on X11 and
+//     Windows), the backend delivers, before the FocusEvent with Focused
+//     false, a synthetic release (Synthetic true, no Text, no Mods) for
+//     every key whose press it delivered and whose release it did not, in
+//     press order, and stops key repeat. Tela requires this on every
+//     backend, Wayland included, where the compositor only sends
+//     wl_keyboard.leave.
+//   - Keys already held when focus is gained produce no presses (winit
+//     sends synthetic presses on X11 and Windows, which can fire shortcuts
+//     such as Ctrl+W on refocus; Tela follows winit's Wayland behavior and
+//     browsers instead), and their releases are dropped: every delivered
+//     release follows a delivered press of the same Code (internal/keyboard
+//     tracks this). Modifiers held at focus appear in the Mods of later
+//     events.
+//   - Repeat: the backend generates key repeat, never the app. A repeat is a
+//     KeyPress with Repeat true and the Code of the held key; Key and Text
+//     are recomputed for the current modifiers. Only the last pressed key
+//     repeats, keys the keymap marks as non-repeating (modifiers) never do,
+//     and repeat stops at the key's release, at the press of another key,
+//     and when focus is lost. Wayland repeats client-side from
+//     wl_keyboard.repeat_info (rate 0 disables repeat), with the repeat
+//     deadline folded into the poll timeout like a paced frame (no timer
+//     goroutine); X11 relies on the server's autorepeat with XKB detectable
+//     auto-repeat (presses only, no fake releases in between); Win32 on
+//     WM_KEYDOWN's previous-state bit; Cocoa on NSEvent.isARepeat.
+//   - Mods is the modifier state after the event.
+//   - Dead keys and compose sequences: the dead key's press has Key
+//     KeyDead and no Text; intermediate presses have no Text; the final
+//     press carries the composed text. Input method composition (phase 5)
+//     arrives as its own events.
 //
 // # Coordinates, scale and framebuffer size
 //

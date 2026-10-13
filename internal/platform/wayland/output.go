@@ -35,7 +35,7 @@ func (o *output) apply() {
 		return
 	}
 	o.scale = o.pending
-	for _, w := range o.b.windows {
+	for _, w := range o.b.loop.Windows() {
 		if slices.Contains(w.outputs, o) {
 			w.updateScale()
 		}
@@ -44,7 +44,7 @@ func (o *output) apply() {
 
 // removeOutput handles the output's global going away.
 func (b *Backend) removeOutput(o *output) {
-	for _, w := range b.windows {
+	for _, w := range b.loop.Windows() {
 		if i := slices.Index(w.outputs, o); i >= 0 {
 			w.outputs = slices.Delete(w.outputs, i, i+1)
 			w.updateScale()

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/loop"
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
 )
 
@@ -25,6 +26,11 @@ const frameInterval = time.Second / 60
 // Window is a Wayland toplevel: wl_surface + xdg_surface + xdg_toplevel.
 // Its methods must be called on the UI thread.
 type Window struct {
+	// WindowState holds the delivered metrics, closed, the frame requests
+	// and the frame callback gate (VsyncRequested / VsyncDone), and
+	// provides Metrics and RequestFrame.
+	loop.WindowState
+
 	b    *Backend
 	opts platform.WindowOptions
 
@@ -34,7 +40,6 @@ type Window struct {
 	decoration *protocols.ZxdgToplevelDecorationV1
 
 	cursor platform.Cursor
-	closed bool
 
 	// Configure state. xdg_toplevel.configure is latched in pendingW/H and
 	// pendingStates and applied by the xdg_surface.configure that ends
@@ -51,10 +56,9 @@ type Window struct {
 	outputs        []*output
 	scale          int32
 
-	// announced is the metrics of the latest queued ConfigureEvent;
-	// metrics those of the latest delivered one (what Metrics returns).
+	// announced is the metrics of the latest queued ConfigureEvent (the
+	// latest delivered one is Metrics).
 	announced platform.Metrics
-	metrics   platform.Metrics
 
 	// Pending acknowledgement: the serial of the latest configure not yet
 	// acked, and the logical size the next buffer must have to ack it.
@@ -65,15 +69,6 @@ type Window struct {
 	ackPending bool
 	ackSerial  uint32
 	ackSize    image.Point
-
-	// Frames.
-	frameRequested  bool          // RequestFrame since the last FrameEvent
-	forcedFrame     bool          // a ConfigureEvent was delivered
-	callbackPending bool          // a wl_surface.frame callback is outstanding
-	callbackDone    bool          // a frame callback fired since the last FrameEvent
-	hasFramed       bool          // a FrameEvent was delivered
-	lastFrame       time.Duration // Backend.Now at the latest FrameEvent
-	needsFull       bool          // the next Present is full (after a ConfigureEvent)
 
 	chain       swapchain
 	bufferScale int32 // scale committed with set_buffer_scale (protocol default 1)
@@ -147,7 +142,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	// The initial commit, without a buffer, asks for the first configure.
 	w.surface.Commit()
 
-	b.windows = append(b.windows, w)
+	b.loop.Add(w)
 	b.surfaces[w.surface] = w
 	return w, nil
 }
@@ -167,7 +162,7 @@ func (w *Window) applySizeHints() {
 // onConfigure ends a configure sequence: it applies the latched toplevel
 // state and decides what the app must be told.
 func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
-	if w.closed {
+	if w.Closed() {
 		return
 	}
 	b := w.b
@@ -233,7 +228,7 @@ func (w *Window) onSurfaceLeave(e protocols.WlSurfaceLeaveEvent) {
 // once the window is configured. The new scale is committed with
 // set_buffer_scale together with the first buffer rendered for it.
 func (w *Window) updateScale() {
-	if w.closed {
+	if w.Closed() {
 		return
 	}
 	if !w.b.canScale() {
@@ -250,113 +245,68 @@ func (w *Window) updateScale() {
 	w.announce(platform.Metrics{Size: w.announced.Size, Scale: float64(s)})
 }
 
-// visible reports whether frames can be delivered: the window has delivered
-// metrics with a non-empty size.
-func (w *Window) visible() bool {
-	if w.closed || w.metrics.Scale == 0 {
-		return false
-	}
-	p := w.metrics.Physical()
-	return p.X > 0 && p.Y > 0
-}
-
-// frameDue reports whether a FrameEvent should be delivered at now: a
-// ConfigureEvent's frame always; a requested frame once no callback is
-// outstanding and either a frame callback fired since the last FrameEvent
-// (the compositor is ready for a new frame) or the window has not had a
-// frame for an interval (it has not drawn recently: deliver right away).
-//
-// The second condition alone must never make two FrameEvents in a row
-// without a callback or an interval between them: a handler that requests
-// a frame without presenting (an animation tick with no pixel change) would
-// otherwise make the loop spin at 100% CPU. paceFrame covers that case.
-func (w *Window) frameDue(now time.Duration) bool {
-	if !w.visible() {
-		return false
-	}
-	if w.forcedFrame {
-		return true
-	}
-	if !w.frameRequested || w.callbackPending {
-		return false
-	}
-	return w.callbackDone || !w.hasFramed || now-w.lastFrame >= frameInterval
-}
-
-// paceFrame handles a frame request that is not due at now. With a buffer
-// on screen it requests a frame callback with a commit that attaches no new
-// buffer, so the FrameEvent follows the compositor's pacing (vsync) and
-// stops while the window is hidden; the commit changes nothing the user
-// can see (see "Frame pacing" in doc.go).
+// paceFrame is the loop's Pace hook: it handles a frame request that is
+// not due at now (visible, not forced, no callback outstanding). With a
+// buffer on screen it requests a frame callback with a commit that
+// attaches no new buffer, so the FrameEvent follows the compositor's pacing
+// (vsync) and stops while the window is hidden; the commit changes nothing
+// the user can see (see "Frame pacing" in doc.go).
 //
 // Before the window shows a buffer, or while a configure waits for the
-// buffer that acks it (a commit cannot apply the new state yet), it falls
-// back to interval pacing like the X11 backend: it returns when the frame
-// becomes due, for the poll timeout. ok is false when no timer is needed.
-func (w *Window) paceFrame(now time.Duration) (due time.Duration, ok bool) {
-	if !w.visible() || w.forcedFrame || !w.frameRequested || w.callbackPending || w.frameDue(now) {
-		return 0, false
-	}
+// buffer that acks it (a commit cannot apply the new state yet), it returns
+// false: the loop falls back to interval pacing like the X11 backend, and
+// the frame's due time becomes the poll timeout.
+func (w *Window) paceFrame(time.Duration) bool {
 	if w.mapped && !w.ackPending {
 		w.requestCallback()
 		w.surface.Commit()
-		return 0, false
+		return true
 	}
-	return w.lastFrame + frameInterval, true
+	return false
 }
 
 // requestCallback requests a wl_surface.frame callback, committed by the
-// caller, unless one is outstanding.
+// caller, unless one is outstanding. The callback is the loop's display
+// signal: a requested frame waits for its done event, then is due.
 func (w *Window) requestCallback() {
-	if w.callbackPending {
+	if w.VsyncPending() {
 		return
 	}
-	w.callbackPending = true
+	w.VsyncRequested()
 	cb := w.surface.Frame()
 	cb.SetDoneHandler(func(protocols.WlCallbackDoneEvent) {
 		// The compositor destroys the callback after done.
-		if !w.closed {
-			w.callbackPending = false
-			w.callbackDone = true
-		}
+		w.VsyncDone()
 	})
 }
 
 // --- platform.Window ---
-
-// Metrics returns the metrics of the latest delivered ConfigureEvent.
-func (w *Window) Metrics() platform.Metrics { return w.metrics }
-
-// RequestFrame asks for a FrameEvent: at the next frame callback if one is
-// outstanding (the compositor paces it to the display, and stops it while
-// the window is hidden), on the next loop iteration if the window has not
-// had a frame recently, otherwise at a frame callback requested for it (see
-// paceFrame).
-func (w *Window) RequestFrame() {
-	if w.closed {
-		return
-	}
-	w.frameRequested = true
-}
+//
+// Metrics and RequestFrame come from loop.WindowState. A requested frame is
+// delivered at the next frame callback if one is outstanding (the
+// compositor paces it to the display, and stops it while the window is
+// hidden), on the next loop iteration if the window has not had a frame
+// recently, otherwise at a frame callback requested for it (see paceFrame).
 
 // Present shows fb; see platform.Window. The pixels are copied into a
 // wl_shm buffer the compositor does not hold, the buffer is attached with
 // its damage and a frame callback, and the surface is committed. The
 // requests are flushed by the loop when the handler returns.
 func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
-	if w.closed {
+	if w.Closed() {
 		return nil
 	}
-	if w.metrics.Scale == 0 {
+	m := w.Metrics()
+	if m.Scale == 0 {
 		panic("wayland: Present called before the window's first ConfigureEvent was delivered; present from the FrameEvent that follows it")
 	}
-	platform.CheckFramebuffer(fb, w.metrics)
+	platform.CheckFramebuffer(fb, m)
 	b := w.b
 	if err := b.conn.Err(); err != nil {
 		return err
 	}
 	size := fb.Rect.Max
-	full := w.needsFull || w.chain.prev == nil || w.chain.size != size
+	full := w.NeedsFull() || w.chain.prev == nil || w.chain.size != size
 	rects := platform.ClipDamage(damage, fb.Rect, full)
 	if len(rects) == 0 {
 		return nil // everything was clipped away: nothing changed
@@ -380,14 +330,14 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		return err
 	}
 	w.chain.fill(buf, fb, rects)
-	w.needsFull = false
+	w.ClearNeedsFull()
 
-	logical := logicalPoint(w.metrics.Size)
+	logical := logicalPoint(m.Size)
 	if w.ackPending && logical == w.ackSize {
 		w.xdgSurface.AckConfigure(w.ackSerial)
 		w.ackPending = false
 	}
-	if scale := int32(w.metrics.Scale); scale != w.bufferScale {
+	if scale := int32(m.Scale); scale != w.bufferScale {
 		w.surface.SetBufferScale(scale) // scale > 1 implies version 3+ (canScale)
 		w.bufferScale = scale
 	}
@@ -427,7 +377,7 @@ func (w *Window) damage(rects []image.Rectangle) {
 
 // SetTitle sets the window title.
 func (w *Window) SetTitle(title string) {
-	if w.closed {
+	if w.Closed() {
 		return
 	}
 	w.toplevel.SetTitle(title)
@@ -439,7 +389,7 @@ func (w *Window) SetCursor(c platform.Cursor) {
 	if !c.Valid() {
 		panic(fmt.Sprintf("wayland: SetCursor(%d): invalid cursor; use one of the platform.Cursor constants", c))
 	}
-	if w.closed || c == w.cursor {
+	if w.Closed() || c == w.cursor {
 		return
 	}
 	w.cursor = c
@@ -457,7 +407,7 @@ func (w *Window) SetCursor(c platform.Cursor) {
 // ignored (like winit's request_surface_size).
 func (w *Window) SetSize(size platform.Size) {
 	platform.CheckSize("SetSize size", size)
-	if w.closed {
+	if w.Closed() {
 		return
 	}
 	p := raise(logicalPoint(size), w.sizes.min)
@@ -489,19 +439,17 @@ func (w *Window) SetSize(size platform.Size) {
 
 // Close destroys the window. Queued events for it are dropped.
 func (w *Window) Close() {
-	if w.closed {
+	if w.Closed() {
 		return
 	}
-	w.closed = true
 	b := w.b
+	b.loop.Remove(w) // marks it closed and drops its queued events
 	for _, s := range b.seats {
 		if s.ptr.focus == w {
 			s.ptr = pointerState{}
 		}
 	}
-	b.windows = slices.DeleteFunc(b.windows, func(x *Window) bool { return x == w })
 	delete(b.surfaces, w.surface)
-	b.queue = slices.DeleteFunc(b.queue, func(it item) bool { return it.w == w })
 
 	// Destruction order matters: the decoration before its toplevel
 	// (zxdg_toplevel_decoration_v1.orphaned), the toplevel before its

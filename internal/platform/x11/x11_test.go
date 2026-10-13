@@ -329,9 +329,10 @@ func fakeBackend(scale float64) (*Backend, *Window) {
 		notify:  make(chan struct{}, 1),
 		windows: map[xproto.Window]*Window{},
 	}
+	b.initLoop()
 	w := &Window{b: b, id: 7, osSize: image.Pt(300, 200)}
 	b.windows[w.id] = w
-	b.order = []*Window{w}
+	b.loop.Add(w)
 	b.queueConfigure(w)
 	return b, w
 }
@@ -462,7 +463,7 @@ func TestTranslateAndDispatch(t *testing.T) {
 
 	// Frames: a request is delivered now if no frame was delivered within
 	// the interval, else paced; an iconified window gets none.
-	w.lastFrame = b.Now() - 2*FrameInterval
+	b.start = b.start.Add(-2 * FrameInterval) // the last frame is two intervals old
 	w.RequestFrame()
 	w.RequestFrame()
 	feed()
@@ -474,7 +475,7 @@ func TestTranslateAndDispatch(t *testing.T) {
 	if got := r.take(); got != "" {
 		t.Errorf("RequestFrame right after a frame delivered %q immediately, want pacing", got)
 	}
-	if d, ok := b.nextDeadline(); !ok || d != w.lastFrame+FrameInterval {
+	if d, ok := b.nextDeadline(); !ok || d != w.LastFrame()+FrameInterval {
 		t.Errorf("nextDeadline = %v, %v; want lastFrame + interval", d, ok)
 	}
 	w.mapped = true
@@ -487,8 +488,13 @@ func TestTranslateAndDispatch(t *testing.T) {
 		t.Errorf("the pending frame request was lost while iconified")
 	}
 
-	// No frame request: no deadline (0% CPU when idle).
-	w.frameRequested = false
+	// No frame request: no deadline (0% CPU when idle). The pending
+	// request is consumed by delivering its frame once it is due.
+	b.start = b.start.Add(-FrameInterval)
+	feed()
+	if got := r.take(); got != "frame" {
+		t.Errorf("the paced frame delivered %q, want frame", got)
+	}
 	if _, ok := b.nextDeadline(); ok || b.ready() {
 		t.Errorf("idle backend has a deadline or is ready")
 	}
@@ -664,7 +670,7 @@ func TestScaleChangeReconfigures(t *testing.T) {
 	if got, want := r.take(), "configure 200x133.33333@1.5x (300x200 px); frame"; got != want {
 		t.Errorf("scale change = %q, want %q", got, want)
 	}
-	if !w.needsFull {
+	if !w.NeedsFull() {
 		t.Errorf("the Present after a ConfigureEvent is not forced full")
 	}
 }

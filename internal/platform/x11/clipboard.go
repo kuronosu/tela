@@ -18,7 +18,7 @@ func (c clipboard) ReadText(done func(text string, err error)) {
 	if done == nil {
 		panic("x11: Clipboard.ReadText called with a nil callback")
 	}
-	c.b.queue = append(c.b.queue, item{fn: func() { done("", ErrClipboardUnsupported) }})
+	c.b.loop.Post(func() { done("", ErrClipboardUnsupported) })
 }
 
 func (c clipboard) WriteText(string) error { return ErrClipboardUnsupported }

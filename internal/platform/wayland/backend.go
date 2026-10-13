@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/loop"
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
 	"github.com/kuronosu/tela/internal/platform/wayland/wire"
 )
@@ -54,10 +55,11 @@ type Backend struct {
 	seats   []*seat
 	outputs []*output
 
-	windows  []*Window // open windows, creation order
+	// loop holds the open windows (creation order), the event queue, the
+	// wake/quit flags and the frame pacing state shared with the other
+	// backends.
+	loop     *loop.Loop[*Window]
 	surfaces map[*protocols.WlSurface]*Window
-
-	queue []item // events waiting to be delivered, FIFO
 
 	start time.Time // origin of Now
 
@@ -66,9 +68,7 @@ type Backend struct {
 	// a reused descriptor.
 	efdMu        sync.Mutex
 	eventfd      int
-	wakePending  atomic.Bool // a WakeEvent is owed
 	wakeSignaled atomic.Bool // the eventfd was written and not yet drained
-	quitting     atomic.Bool
 
 	ran      bool
 	released bool
@@ -77,14 +77,6 @@ type Backend struct {
 	// lastSerial is the serial of the latest input event of any seat, for
 	// requests that need one (clipboard, move, popups).
 	lastSerial uint32
-}
-
-// item is a queued unit of work: an event for a window (w nil for app
-// events) or a function to run on the loop (fn non-nil).
-type item struct {
-	w  *Window
-	ev platform.Event
-	fn func()
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -125,6 +117,12 @@ func newBackend(conn *wire.Conn) (*Backend, error) {
 		surfaces:   map[*protocols.WlSurface]*Window{},
 		appID:      platform.DefaultAppID(),
 	}
+	b.loop = loop.New(loop.Options[*Window]{
+		Now:      b.Now,
+		Notify:   b.signal,
+		Interval: frameInterval,
+		Pace:     (*Window).paceFrame,
+	})
 	b.display = protocols.NewWlDisplay(conn)
 	b.registry = b.display.GetRegistry()
 	b.registry.SetGlobalHandler(b.onGlobal)
@@ -254,17 +252,11 @@ func (b *Backend) eventTime(ms uint32) time.Duration {
 // Wake makes the loop deliver a WakeEvent. Safe from any goroutine; never
 // blocks; coalesces. The flag avoids an eventfd write per call when a
 // signal is already pending.
-func (b *Backend) Wake() {
-	b.wakePending.Store(true)
-	b.signal()
-}
+func (b *Backend) Wake() { b.loop.Wake() }
 
 // Quit makes Run return after the current handler call. Safe from any
 // goroutine; idempotent.
-func (b *Backend) Quit() {
-	b.quitting.Store(true)
-	b.signal()
-}
+func (b *Backend) Quit() { b.loop.Quit() }
 
 func (b *Backend) signal() {
 	if b.wakeSignaled.Swap(true) {
@@ -302,15 +294,13 @@ func (c clipboard) ReadText(done func(string, error)) {
 		panic("wayland: Clipboard.ReadText called with a nil callback")
 	}
 	// The contract requires an asynchronous callback, even for an error.
-	c.b.queue = append(c.b.queue, item{fn: func() { done("", errClipboard) }})
+	c.b.loop.Post(func() { done("", errClipboard) })
 }
 
 func (c clipboard) WriteText(string) error { return errClipboard }
 
 // enqueue queues an event for delivery by the loop.
-func (b *Backend) enqueue(w *Window, ev platform.Event) {
-	b.queue = append(b.queue, item{w: w, ev: ev})
-}
+func (b *Backend) enqueue(w *Window, ev platform.Event) { b.loop.Enqueue(w, ev) }
 
 // Run runs the event loop on the calling goroutine until Quit (nil) or a
 // connection or protocol error (non-nil). When it returns, every window and
@@ -327,20 +317,22 @@ func (b *Backend) Run(h platform.Handler) error {
 
 	for {
 		b.iterations++
-		if b.quitting.Load() {
+		if b.loop.Quitting() {
 			return nil
 		}
-		b.deliver(h)
-		if b.quitting.Load() {
+		b.loop.Deliver(h)
+		if b.loop.Quitting() {
 			return nil
 		}
-		deadline, timed := b.paceFrames()
+		// Frame requests that are not due get a frame callback (paceFrame)
+		// or, without a buffer on screen, a poll timeout.
+		deadline, timed := b.loop.Pace()
 		if err := b.flush(); err != nil {
 			return err
 		}
 		timeout := -1
 		switch {
-		case b.ready():
+		case b.loop.Ready():
 			timeout = 0 // still read what arrived, but do not block
 		case timed:
 			timeout = pollMillis(deadline - b.Now())
@@ -351,20 +343,6 @@ func (b *Backend) Run(h platform.Handler) error {
 	}
 }
 
-// paceFrames arranges for every frame request that is not due yet to
-// become due later without busy-looping (see Window.paceFrame): it requests
-// frame callbacks, and returns the earliest time a timer-paced request
-// becomes due (ok false if none).
-func (b *Backend) paceFrames() (deadline time.Duration, ok bool) {
-	now := b.Now()
-	for _, w := range b.windows {
-		if t, timed := w.paceFrame(now); timed && (!ok || t < deadline) {
-			deadline, ok = t, true
-		}
-	}
-	return deadline, ok
-}
-
 // pollMillis converts a wait to a poll(2) timeout in milliseconds, rounded
 // up: rounding down would wake the loop before the frame is due, and a
 // remaining wait under 1 ms would become a busy poll(0).
@@ -373,75 +351,6 @@ func pollMillis(d time.Duration) int {
 		return 0
 	}
 	return int((d + time.Millisecond - 1) / time.Millisecond)
-}
-
-// deliver runs one delivery pass: a WakeEvent if Wake was called, the
-// events queued before the pass (FIFO), then one FrameEvent per window whose
-// frame is due. Work queued by the handler during the pass waits for the
-// next pass, except frame requests, which are evaluated after the events
-// (an input event that requests a frame gets it in the same pass).
-func (b *Backend) deliver(h platform.Handler) {
-	if b.wakePending.Swap(false) {
-		h.HandleEvent(nil, platform.WakeEvent{})
-	}
-
-	items := b.queue
-	b.queue = nil
-	for _, it := range items {
-		if b.quitting.Load() {
-			return
-		}
-		switch {
-		case it.fn != nil:
-			it.fn()
-		case it.w == nil:
-			h.HandleEvent(nil, it.ev)
-		default:
-			w := it.w
-			if w.closed {
-				continue
-			}
-			if ce, ok := it.ev.(platform.ConfigureEvent); ok {
-				w.metrics = ce.Metrics
-				w.needsFull = true
-				w.forcedFrame = true
-			}
-			h.HandleEvent(w, it.ev)
-		}
-	}
-
-	now := b.Now()
-	var due []*Window
-	for _, w := range b.windows {
-		if w.frameDue(now) {
-			w.frameRequested, w.forcedFrame, w.callbackDone = false, false, false
-			w.lastFrame, w.hasFramed = now, true
-			due = append(due, w)
-		}
-	}
-	for _, w := range due {
-		if b.quitting.Load() {
-			return
-		}
-		if w.closed {
-			continue
-		}
-		h.HandleEvent(w, platform.FrameEvent{Time: now})
-	}
-}
-
-// ready reports whether a delivery pass would deliver something now.
-func (b *Backend) ready() bool {
-	if b.wakePending.Load() || len(b.queue) > 0 || b.quitting.Load() {
-		return true
-	}
-	now := b.Now()
-	for _, w := range b.windows {
-		if w.frameDue(now) {
-			return true
-		}
-	}
-	return false
 }
 
 // flush sends buffered requests. A full socket is not an error: poll waits
@@ -509,8 +418,8 @@ func (b *Backend) release() {
 		return
 	}
 	b.released = true
-	for len(b.windows) > 0 {
-		b.windows[len(b.windows)-1].Close()
+	for ws := b.loop.Windows(); len(ws) > 0; ws = b.loop.Windows() {
+		ws[len(ws)-1].Close()
 	}
 	if b.conn.Err() == nil {
 		for _, s := range b.seats {
@@ -530,7 +439,7 @@ func (b *Backend) release() {
 		// closes anyway.
 		b.conn.Flush()
 	}
-	b.queue = nil
+	b.loop.Discard()
 	b.conn.Close()
 	b.efdMu.Lock()
 	unix.Close(b.eventfd)

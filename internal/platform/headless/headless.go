@@ -30,6 +30,15 @@
 // frames therefore only progresses when the test advances the clock; Drain
 // never loops forever on it.
 //
+// # Input
+//
+// Window.Inject queues pointer, scroll, key, focus and close events as if
+// the OS produced them. Key events must follow the platform keyboard
+// contract (focus first, presses before releases, Repeat only while held),
+// and Inject panics with the reason when a sequence could not come from a
+// real backend; losing focus releases the held keys synthetically, as real
+// backends do.
+//
 // # Concurrency
 //
 // All state is guarded by one mutex, and the handler is never called with it
@@ -49,6 +58,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
 
 // DefaultFrameInterval is the default refresh interval: 60 Hz.
@@ -85,26 +95,17 @@ type Backend struct {
 	// coalesce and are never lost (see Run).
 	notify chan struct{}
 
-	wakePending atomic.Bool
-	quitting    atomic.Bool
-	iterations  atomic.Int64 // loop iterations, for idle tests
+	iterations atomic.Int64 // loop iterations, for idle tests
 
-	mu        sync.Mutex
+	mu sync.Mutex
+	// loop is the shared queue, wake/quit flags and frame pacing, guarded
+	// by mu (Options.Lock): the injection API runs on any goroutine.
+	loop      *loop.Loop[*Window]
 	clock     time.Duration // manual clock
-	queue     []item
-	windows   []*Window // open windows, creation order
 	settings  platform.SystemSettings
 	clipboard string
 	ran       bool // Run was called
 	active    bool // a Run, Step or Drain is executing
-}
-
-// item is a queued unit of work: an event for a window (w nil for app
-// events) or a function to run on the loop (fn non-nil).
-type item struct {
-	w  *Window
-	ev platform.Event
-	fn func()
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -125,12 +126,19 @@ func New(opts Options) *Backend {
 	if opts.FrameInterval == 0 {
 		opts.FrameInterval = DefaultFrameInterval
 	}
-	return &Backend{
+	b := &Backend{
 		opts:     opts,
 		start:    time.Now(),
 		notify:   make(chan struct{}, 1),
 		settings: opts.Settings,
 	}
+	b.loop = loop.New(loop.Options[*Window]{
+		Now:      b.now,
+		Notify:   b.signal,
+		Interval: opts.FrameInterval,
+		Lock:     &b.mu,
+	})
+	return b
 }
 
 // Name returns "headless".
@@ -186,8 +194,8 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		os:    platform.Metrics{Size: opts.Size, Scale: b.opts.Scale},
 	}
 	b.mu.Lock()
-	b.windows = append(b.windows, w)
-	b.queue = append(b.queue, item{w: w, ev: platform.ConfigureEvent{Metrics: w.os}})
+	b.loop.Add(w)
+	b.loop.Enqueue(w, platform.ConfigureEvent{Metrics: w.os})
 	b.mu.Unlock()
 	b.signal()
 	return w, nil
@@ -197,24 +205,18 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 func (b *Backend) Windows() []*Window {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return slices.Clone(b.windows)
+	return slices.Clone(b.loop.Windows())
 }
 
 // Wake queues a WakeEvent. Safe from any goroutine; coalesces.
-func (b *Backend) Wake() {
-	b.wakePending.Store(true)
-	b.signal()
-}
+func (b *Backend) Wake() { b.loop.Wake() }
 
 // Quit makes Run return, and makes Step and Drain deliver nothing more.
 // Safe from any goroutine.
-func (b *Backend) Quit() {
-	b.quitting.Store(true)
-	b.signal()
-}
+func (b *Backend) Quit() { b.loop.Quit() }
 
 // Quitting reports whether Quit was called.
-func (b *Backend) Quitting() bool { return b.quitting.Load() }
+func (b *Backend) Quitting() bool { return b.loop.Quitting() }
 
 // Settings returns the current system settings.
 func (b *Backend) Settings() platform.SystemSettings {
@@ -228,7 +230,7 @@ func (b *Backend) Settings() platform.SystemSettings {
 func (b *Backend) SetSettings(s platform.SystemSettings) {
 	b.mu.Lock()
 	b.settings = s
-	b.queue = append(b.queue, item{ev: platform.SettingsEvent{Settings: s}})
+	b.loop.Enqueue(nil, platform.SettingsEvent{Settings: s})
 	b.mu.Unlock()
 	b.signal()
 }
@@ -242,14 +244,6 @@ func (b *Backend) signal() {
 	case b.notify <- struct{}{}:
 	default:
 	}
-}
-
-// enqueue appends an item and wakes Run.
-func (b *Backend) enqueue(it item) {
-	b.mu.Lock()
-	b.queue = append(b.queue, it)
-	b.mu.Unlock()
-	b.signal()
 }
 
 // Run delivers events to h until Quit. It blocks without spinning while
@@ -281,7 +275,7 @@ func (b *Backend) Run(h platform.Handler) error {
 			timer.Stop()
 		}
 	}()
-	for !b.quitting.Load() {
+	for !b.loop.Quitting() {
 		b.iterations.Add(1)
 		if b.step(h) > 0 {
 			continue
@@ -291,8 +285,8 @@ func (b *Backend) Run(h platform.Handler) error {
 		// readiness check above sits in the buffered channel, so it is
 		// never lost.
 		b.mu.Lock()
-		ready := b.readyLocked()
-		deadline, hasDeadline := b.nextDeadlineLocked()
+		ready := b.loop.Ready()
+		deadline, hasDeadline := b.loop.Pace()
 		now := b.now()
 		b.mu.Unlock()
 		if ready {
@@ -346,11 +340,11 @@ func (b *Backend) Drain(h platform.Handler) int {
 		if i == drainLimit {
 			panic("headless: Drain did not settle after 10000 iterations; the handler keeps generating work (for example by calling Wake on every WakeEvent or SetSize on every ConfigureEvent)")
 		}
-		if b.quitting.Load() {
+		if b.loop.Quitting() {
 			return total
 		}
 		b.mu.Lock()
-		ready := b.readyLocked()
+		ready := b.loop.Ready()
 		b.mu.Unlock()
 		if !ready {
 			return total
@@ -361,12 +355,12 @@ func (b *Backend) Drain(h platform.Handler) int {
 
 // Pending reports whether a Step would deliver anything now.
 func (b *Backend) Pending() bool {
-	if b.quitting.Load() {
+	if b.loop.Quitting() {
 		return false
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.readyLocked()
+	return b.loop.Ready()
 }
 
 // NextFrameTime reports when the earliest pending frame request that is
@@ -375,7 +369,7 @@ func (b *Backend) Pending() bool {
 func (b *Backend) NextFrameTime() (t time.Duration, ok bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.nextDeadlineLocked()
+	return b.loop.Pace()
 }
 
 func (b *Backend) enter(what string) {
@@ -393,109 +387,8 @@ func (b *Backend) leave() {
 	b.mu.Unlock()
 }
 
-// readyLocked reports whether there is work to deliver now; b.mu held.
-func (b *Backend) readyLocked() bool {
-	if b.wakePending.Load() || len(b.queue) > 0 {
-		return true
-	}
-	now := b.now()
-	for _, w := range b.windows {
-		if w.frameDueLocked(now) {
-			return true
-		}
-	}
-	return false
-}
-
-// nextDeadlineLocked returns the earliest time a paced, not yet due frame
-// request becomes due; b.mu held.
-func (b *Backend) nextDeadlineLocked() (time.Duration, bool) {
-	now := b.now()
-	var best time.Duration
-	found := false
-	for _, w := range b.windows {
-		if !w.frameRequested || !w.visibleLocked() || w.frameDueLocked(now) {
-			continue
-		}
-		t := w.lastFrame + b.opts.FrameInterval
-		if !found || t < best {
-			best, found = t, true
-		}
-	}
-	return best, found
-}
-
 // step is one loop iteration; see Step.
-func (b *Backend) step(h platform.Handler) int {
-	if b.quitting.Load() {
-		return 0
-	}
-	n := 0
-	if b.wakePending.Swap(false) {
-		h.HandleEvent(nil, platform.WakeEvent{})
-		n++
-	}
-
-	b.mu.Lock()
-	items := b.queue
-	b.queue = nil
-	b.mu.Unlock()
-	for _, it := range items {
-		if b.quitting.Load() {
-			return n
-		}
-		if it.fn != nil {
-			it.fn()
-			n++
-			continue
-		}
-		if it.w == nil {
-			h.HandleEvent(nil, it.ev)
-			n++
-			continue
-		}
-		b.mu.Lock()
-		if it.w.closed {
-			b.mu.Unlock()
-			continue
-		}
-		if ce, ok := it.ev.(platform.ConfigureEvent); ok {
-			it.w.metrics = ce.Metrics
-			it.w.needsFull = true
-			it.w.forcedFrame = true
-		}
-		b.mu.Unlock()
-		h.HandleEvent(it.w, it.ev)
-		n++
-	}
-
-	// Frames: decide which are due once, then deliver.
-	b.mu.Lock()
-	now := b.now()
-	var due []*Window
-	for _, w := range b.windows {
-		if w.frameDueLocked(now) {
-			w.frameRequested, w.forcedFrame = false, false
-			w.lastFrame, w.hasFramed = now, true
-			due = append(due, w)
-		}
-	}
-	b.mu.Unlock()
-	for _, w := range due {
-		if b.quitting.Load() {
-			return n
-		}
-		b.mu.Lock()
-		closed := w.closed
-		b.mu.Unlock()
-		if closed {
-			continue
-		}
-		h.HandleEvent(w, platform.FrameEvent{Time: now})
-		n++
-	}
-	return n
-}
+func (b *Backend) step(h platform.Handler) int { return b.loop.Deliver(h) }
 
 // clipboard is the in-memory clipboard.
 type clipboard struct{ b *Backend }
@@ -504,12 +397,15 @@ func (c clipboard) ReadText(done func(string, error)) {
 	if done == nil {
 		panic("headless: Clipboard.ReadText called with a nil callback")
 	}
-	c.b.enqueue(item{fn: func() {
+	c.b.mu.Lock()
+	c.b.loop.Post(func() {
 		c.b.mu.Lock()
 		s := c.b.clipboard
 		c.b.mu.Unlock()
 		done(s, nil)
-	}})
+	})
+	c.b.mu.Unlock()
+	c.b.signal()
 }
 
 func (c clipboard) WriteText(s string) error {

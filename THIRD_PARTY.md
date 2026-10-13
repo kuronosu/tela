@@ -127,3 +127,17 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/core/decorate.go`, `internal/core/paint.go`, `internal/gfx/raster/backdrop.go`
 - **Notes:** No code is copied. The dash-gap fitting of dashed and dotted borders re-expresses the formula of Blink's `SelectBestDashGap`; pixel snapping, the 1px shadow clip inset, background bleed avoidance and backdrop-filter edge mirroring reproduce Chromium's observable output (ADR-045).
 
+
+## winit (design reference)
+
+- **Source:** https://github.com/rust-windowing/winit (v0.30.13)
+- **License:** Apache-2.0
+- **Used in:** `internal/platform/key.go`, `internal/platform/keycode.go`, `internal/platform/internal/evdev/`, `internal/platform/internal/keyboard/`
+- **Notes:** Design reference only; no source was copied. The keyboard model follows winit's `KeyEvent` (physical key, logical key and text as separate fields; a `PhysicalKey` that keeps the native scancode of unidentified keys; logical key and text ignoring Ctrl) and its synthetic releases on focus loss. The evdev table in `internal/platform/internal/evdev` covers the keys of winit's `scancode_to_physicalkey` (`platform_impl/linux/common/xkb/keymap.rs`) and adds more, checked against `linux/input-event-codes.h` and the USB HID usages of the kernel's `hid-input.c`. Differences from winit are listed in `internal/platform/doc.go` ("Keyboard") and `key.go`. Listed here as a courtesy to the project.
+
+## W3C UI Events key and code values (identifiers)
+
+- **Source:** https://www.w3.org/TR/uievents-code/ and https://www.w3.org/TR/uievents-key/
+- **License:** W3C Software and Document License
+- **Used in:** `internal/platform/keycode.go` (`KeyCode` names), `internal/platform/key.go` (named `Key` values)
+- **Notes:** Only the value names are used, as identifiers and `String()` results, so that they match the DOM's `KeyboardEvent.code` and `KeyboardEvent.key`. No specification text is reproduced; the comments are Tela's own.

@@ -25,6 +25,12 @@
 // Dispatch returns, so the handler is never called re-entrantly. Nothing
 // runs while idle (0% CPU).
 //
+// The queue, the delivery pass and the frame-due rule are the shared
+// internal/loop. What is specific to Wayland is the display signal: frame
+// callbacks gate requested frames (WindowState.VsyncRequested / VsyncDone),
+// and the loop's Pace hook (Window.paceFrame) requests one for a frame that
+// is not due yet.
+//
 // # Frame pacing
 //
 // Frames follow wl_surface.frame callbacks, so the compositor paces them to

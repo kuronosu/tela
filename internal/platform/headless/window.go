@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"image"
 	"slices"
-	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/keyboard"
+	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
 
 // Window is a headless window. Besides platform.Window it offers an
@@ -16,23 +17,17 @@ type Window struct {
 	b    *Backend
 	opts platform.WindowOptions
 
-	// Guarded by b.mu.
-	title   string
-	cursor  platform.Cursor
-	os      platform.Metrics // the "OS" state: latest size/scale, maybe not delivered yet
-	metrics platform.Metrics // delivered by the latest ConfigureEvent
-	focused bool
-	closed  bool
-
-	frameRequested bool          // RequestFrame called since the last FrameEvent
-	forcedFrame    bool          // a ConfigureEvent was delivered; frame due now
-	hasFramed      bool          // at least one FrameEvent delivered
-	lastFrame      time.Duration // Time of the last FrameEvent
-
-	needsFull bool // next Present is treated as full (after a ConfigureEvent)
-	frame     *image.RGBA
-	damage    []image.Rectangle
-	presents  int
+	// Guarded by b.mu, like the embedded loop state (delivered metrics,
+	// closed, frame requests, full-Present flag).
+	loop.WindowState
+	title    string
+	cursor   platform.Cursor
+	os       platform.Metrics // the "OS" state: latest size/scale, maybe not delivered yet
+	focused  bool
+	held     keyboard.Held // keys pressed and not released, for synthetic releases
+	frame    *image.RGBA
+	damage   []image.Rectangle
+	presents int
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -43,17 +38,17 @@ var _ platform.Window = (*Window)(nil)
 func (w *Window) Metrics() platform.Metrics {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
-	return w.metrics
+	return w.WindowState.Metrics()
 }
 
 // RequestFrame requests a FrameEvent; see platform.Window.
 func (w *Window) RequestFrame() {
 	w.b.mu.Lock()
-	if w.closed {
+	if w.WindowState.Closed() {
 		w.b.mu.Unlock()
 		return
 	}
-	w.frameRequested = true
+	w.WindowState.RequestFrame()
 	w.b.mu.Unlock()
 	w.b.signal()
 }
@@ -63,14 +58,15 @@ func (w *Window) RequestFrame() {
 func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
-	if w.closed {
+	if w.WindowState.Closed() {
 		return nil
 	}
-	if w.metrics.Scale == 0 {
+	m := w.WindowState.Metrics()
+	if m.Scale == 0 {
 		panic("headless: Present called before the window's first ConfigureEvent was delivered; present from the FrameEvent that follows it")
 	}
-	platform.CheckFramebuffer(fb, w.metrics)
-	full := w.needsFull || w.frame == nil
+	platform.CheckFramebuffer(fb, m)
+	full := w.NeedsFull() || w.frame == nil
 	rects := platform.ClipDamage(damage, fb.Rect, full)
 	if len(rects) == 0 {
 		// Every damage rectangle was clipped away: nothing changed, so
@@ -81,7 +77,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	}
 	if full {
 		w.frame = image.NewRGBA(fb.Rect)
-		w.needsFull = false
+		w.ClearNeedsFull()
 	}
 	for _, r := range rects {
 		platform.CopyRGBA(w.frame, fb, r)
@@ -95,7 +91,7 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 func (w *Window) SetTitle(title string) {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
-	if !w.closed {
+	if !w.WindowState.Closed() {
 		w.title = title
 	}
 }
@@ -107,7 +103,7 @@ func (w *Window) SetCursor(c platform.Cursor) {
 	}
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
-	if !w.closed {
+	if !w.WindowState.Closed() {
 		w.cursor = c
 	}
 }
@@ -124,23 +120,30 @@ func (w *Window) Close() {
 	b := w.b
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if w.closed {
+	if w.WindowState.Closed() {
 		return
 	}
-	w.closed = true
-	w.frameRequested, w.forcedFrame = false, false
-	b.windows = slices.DeleteFunc(b.windows, func(x *Window) bool { return x == w })
-	b.queue = slices.DeleteFunc(b.queue, func(it item) bool { return it.w == w })
+	b.loop.Remove(w)
 }
 
 // --- injection (user / window manager actions) ---
 
 // Inject queues an input or window event for this window, as if the OS
-// produced it. Accepted: PointerEvent, ScrollEvent, FocusEvent,
-// CloseRequestedEvent. A zero Time in pointer and scroll events is set to
-// the current clock. Other events have dedicated APIs (Resize, SetScale,
+// produced it. Accepted: PointerEvent, ScrollEvent, KeyEvent, FocusEvent,
+// CloseRequestedEvent. A zero Time in pointer, scroll and key events is set
+// to the current clock. Other events have dedicated APIs (Resize, SetScale,
 // RequestFrame, Backend.Wake, Backend.SetSettings) and panic here. Events
 // injected into a closed window are dropped.
+//
+// Key events follow the platform keyboard contract, and Inject enforces it
+// so that tests describe sequences a real backend can produce: the window
+// must have focus (SetFocused(true) first); a press of a held key must be
+// a Repeat, and a repeat or a release must be for a held key; releases
+// carry no Text and no Repeat; Synthetic is reserved for the backend.
+// Inject does not derive any field: Code, Key, Text, Location and Mods are
+// delivered as given (Code.Location() gives the Location of a physical
+// key). Losing focus (SetFocused(false) or an injected FocusEvent) queues a
+// synthetic release for every held key before the FocusEvent.
 func (w *Window) Inject(e platform.Event) {
 	switch ev := e.(type) {
 	case platform.PointerEvent:
@@ -153,10 +156,12 @@ func (w *Window) Inject(e platform.Event) {
 			ev.Time = w.b.Now()
 		}
 		e = ev
+	case platform.KeyEvent:
+		w.injectKey(ev)
+		return
 	case platform.FocusEvent:
-		w.b.mu.Lock()
-		w.focused = ev.Focused
-		w.b.mu.Unlock()
+		w.injectFocus(ev)
+		return
 	case platform.CloseRequestedEvent:
 	case nil:
 		panic("headless: Inject called with a nil event")
@@ -164,13 +169,74 @@ func (w *Window) Inject(e platform.Event) {
 		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent", e))
 	}
 	w.b.mu.Lock()
-	if w.closed {
+	if w.WindowState.Closed() {
 		w.b.mu.Unlock()
 		return
 	}
-	w.b.queue = append(w.b.queue, item{w: w, ev: e})
+	w.b.loop.Enqueue(w, e)
 	w.b.mu.Unlock()
 	w.b.signal()
+}
+
+// injectKey validates and queues a KeyEvent; see Inject.
+func (w *Window) injectKey(e platform.KeyEvent) {
+	switch {
+	case e.Action != platform.KeyPress && e.Action != platform.KeyRelease:
+		panic(fmt.Sprintf("headless: Inject(KeyEvent) with invalid Action %d", e.Action))
+	case e.Synthetic:
+		panic("headless: Inject(KeyEvent) with Synthetic set; synthetic releases are generated by the backend when the window loses focus (SetFocused(false))")
+	case e.Action == platform.KeyRelease && (e.Repeat || e.Text != ""):
+		panic(fmt.Sprintf("headless: Inject(KeyEvent) of a %v release with Repeat %v and Text %q; releases never repeat and produce no text", e.Code, e.Repeat, e.Text))
+	}
+	b := w.b
+	b.mu.Lock()
+	if w.WindowState.Closed() {
+		b.mu.Unlock()
+		return
+	}
+	var problem string
+	held := w.held.IsHeld(e.Code)
+	switch {
+	case !w.focused:
+		problem = "the window does not have keyboard focus; call SetFocused(true) first (backends deliver key events only to the focused window)"
+	case e.Action == platform.KeyPress && !e.Repeat && held:
+		problem = "the key is already held; inject a release first, or set Repeat for key repeat"
+	case e.Action == platform.KeyPress && e.Repeat && !held:
+		problem = "a repeat of a key that is not held; inject its press first"
+	case e.Action == platform.KeyRelease && !held:
+		problem = "a release of a key that is not held; inject its press first"
+	}
+	if problem != "" {
+		b.mu.Unlock()
+		panic(fmt.Sprintf("headless: Inject(KeyEvent %v %v): %s", e.Action, e.Code, problem))
+	}
+	if e.Time == 0 {
+		e.Time = b.now()
+	}
+	w.held.Accept(e)
+	b.loop.Enqueue(w, e)
+	b.mu.Unlock()
+	b.signal()
+}
+
+// injectFocus records the focus state and queues a FocusEvent, preceded by
+// the synthetic releases of the held keys when the focus is lost.
+func (w *Window) injectFocus(e platform.FocusEvent) {
+	b := w.b
+	b.mu.Lock()
+	if w.WindowState.Closed() {
+		b.mu.Unlock()
+		return
+	}
+	w.focused = e.Focused
+	if !e.Focused {
+		for _, r := range w.held.ReleaseAll(b.now()) {
+			b.loop.Enqueue(w, r)
+		}
+	}
+	b.loop.Enqueue(w, e)
+	b.mu.Unlock()
+	b.signal()
 }
 
 // Resize simulates the user or window manager resizing the window to size
@@ -193,7 +259,8 @@ func (w *Window) SetScale(scale float64) {
 func (w *Window) RequestClose() { w.Inject(platform.CloseRequestedEvent{}) }
 
 // SetFocused simulates the window gaining or losing focus: it queues a
-// FocusEvent if the focus state changes.
+// FocusEvent if the focus state changes (after synthetic releases of the
+// held keys when the focus is lost).
 func (w *Window) SetFocused(focused bool) {
 	w.b.mu.Lock()
 	same := w.focused == focused
@@ -206,7 +273,7 @@ func (w *Window) SetFocused(focused bool) {
 func (w *Window) reconfigure(change func(*platform.Metrics)) {
 	b := w.b
 	b.mu.Lock()
-	if w.closed {
+	if w.WindowState.Closed() {
 		b.mu.Unlock()
 		return
 	}
@@ -216,7 +283,7 @@ func (w *Window) reconfigure(change func(*platform.Metrics)) {
 		b.mu.Unlock()
 		return
 	}
-	b.queue = append(b.queue, item{w: w, ev: platform.ConfigureEvent{Metrics: w.os}})
+	b.loop.Enqueue(w, platform.ConfigureEvent{Metrics: w.os})
 	b.mu.Unlock()
 	b.signal()
 }
@@ -274,7 +341,7 @@ func (w *Window) Options() platform.WindowOptions { return w.opts }
 func (w *Window) Closed() bool {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
-	return w.closed
+	return w.WindowState.Closed()
 }
 
 // FrameRequested reports whether a frame request is waiting to be
@@ -282,27 +349,5 @@ func (w *Window) Closed() bool {
 func (w *Window) FrameRequested() bool {
 	w.b.mu.Lock()
 	defer w.b.mu.Unlock()
-	return w.frameRequested || w.forcedFrame
-}
-
-// frameDueLocked reports whether a FrameEvent should be delivered at now;
-// b.mu held.
-func (w *Window) frameDueLocked(now time.Duration) bool {
-	if w.closed || !w.visibleLocked() {
-		return false
-	}
-	if w.forcedFrame {
-		return true
-	}
-	return w.frameRequested && (!w.hasFramed || now >= w.lastFrame+w.b.opts.FrameInterval)
-}
-
-// visibleLocked reports whether the delivered metrics have a non-empty
-// physical size; b.mu held.
-func (w *Window) visibleLocked() bool {
-	if w.metrics.Scale == 0 {
-		return false
-	}
-	p := w.metrics.Physical()
-	return p.X > 0 && p.Y > 0
+	return w.FramePending()
 }
