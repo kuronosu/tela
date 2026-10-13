@@ -94,12 +94,18 @@ func clock(s int) string { return fmt.Sprintf("%d:%02d", s/60, s%60) }
 func Controls(p TransportProps) tela.Node {
 	tr := p.Tr
 	playing := tr.Playing.Get()
+	toggle := "Pause"
+	if !playing {
+		toggle = "Play"
+	}
 	return Div(Class("flex items-center justify-center gap-6"),
 		Button(Class("flex size-12 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 hover:text-white active:bg-white/20"),
+			AriaLabel("Previous track"),
 			OnClick(func(tela.MouseEvent) { tr.Prev() }),
 			Div(Class("flex items-center gap-px"), Div(Class("h-4 w-[3px] rounded-full bg-current")), triangle(16, true)),
 		),
 		Button(Class("flex size-16 items-center justify-center rounded-full bg-white text-zinc-900 shadow-lg hover:scale-105 hover:bg-zinc-100 active:scale-95"),
+			AriaLabel(toggle),
 			OnClick(func(tela.MouseEvent) { tr.Toggle() }),
 			If(playing, Div(Class("flex gap-1.5"),
 				Div(Class("h-5 w-1.5 rounded-sm bg-current")),
@@ -107,6 +113,7 @@ func Controls(p TransportProps) tela.Node {
 			If(!playing, Div(Class("ml-1"), triangle(22, false))),
 		),
 		Button(Class("flex size-12 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 hover:text-white active:bg-white/20"),
+			AriaLabel("Next track"),
 			OnClick(func(tela.MouseEvent) { tr.Next() }),
 			Div(Class("flex items-center gap-px"), triangle(16, false), Div(Class("h-4 w-[3px] rounded-full bg-current"))),
 		),

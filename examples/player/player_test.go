@@ -56,8 +56,6 @@ func TestGolden(t *testing.T) {
 // their classes.
 var (
 	progressFill = telatest.ByClass("h-full", "rounded-full", "bg-white")
-	playPause    = telatest.ByClass("size-16", "bg-white")
-	skipButtons  = telatest.ByClass("size-12", "rounded-full", "text-zinc-300")
 	pauseBars    = telatest.ByClass("h-5", "w-1.5")
 	seekBar      = telatest.ByClass("group", "h-4", "cursor-pointer")
 )
@@ -109,7 +107,7 @@ func TestPauseStopsTheClock(t *testing.T) {
 	a.WaitFor("the bar to start moving", func() bool { return fillWidth(a) > 3 })
 	a.ExpectCount(pauseBars, 2) // the pause icon while playing
 
-	a.Click(playPause)
+	a.Click(telatest.ByRole("button", "Pause"))
 	a.ExpectCount(pauseBars, 0) // the play triangle
 	a.MouseMove(5, 5)
 	w, frames := fillWidth(a), a.Stats().Frames
@@ -121,7 +119,7 @@ func TestPauseStopsTheClock(t *testing.T) {
 		t.Errorf("%d frames while paused, want none: nothing changes, so nothing draws", got-frames)
 	}
 
-	a.Click(playPause) // play again
+	a.Click(telatest.ByRole("button", "Play")) // play again
 	a.WaitFor("the bar to advance after playing again", func() bool { return fillWidth(a) > w+3 })
 }
 
@@ -129,8 +127,7 @@ func TestNextPrevAndQueue(t *testing.T) {
 	slow(t)
 	a := mount(t, windowW, windowH, Player)
 	titleIs(a, "Midnight Drive")
-	a.ExpectCount(skipButtons, 2)
-	prev, next := skipButtons.Nth(0), skipButtons.Nth(1)
+	prev, next := telatest.ByRole("button", "Previous track"), telatest.ByRole("button", "Next track")
 
 	a.Click(next)
 	titleIs(a, "Paper Planes")
