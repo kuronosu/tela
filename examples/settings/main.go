@@ -27,7 +27,7 @@ func Settings() tela.Node {
 	save := tela.UseCallback(func(tela.MouseEvent) { setSaved.Set(prefs) })
 	reset := tela.UseCallback(func(tela.MouseEvent) { setPrefs.Set(saved) })
 
-	return Div(Class("flex h-screen flex-col overflow-hidden bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
+	return Div(Class("flex min-h-screen flex-col overflow-hidden bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
 		Div(Class("mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-8 md:px-8"),
 			Div(Class("flex flex-col gap-1"),
 				H1(Class("text-2xl font-bold tracking-tight"), Text("Settings")),

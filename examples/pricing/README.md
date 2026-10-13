@@ -10,7 +10,7 @@ What it shows:
 - **Icons without SVG.** The check marks are a rotated box with only its right and bottom borders.
 - **Dark mode.** Every color comes in a pair; render it with `--dark`.
 
-The cards are fixed-width (340 px) flex items that wrap, so the page degrades from three columns to two and one as the window narrows; a window shorter than the content clips it (scrolling arrives in phase 4).
+The cards are fixed-width (340 px) flex items that wrap, so the page degrades from three columns to two and one as the window narrows; a window shorter than the content scrolls like a page.
 
 ## Run it
 

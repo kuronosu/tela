@@ -5,8 +5,8 @@
 // The tabs under the title are state (UseState) and the chart bars reveal
 // their value on hover (group-hover:). The page fits a 1280x800 window and
 // degrades to small windows with wrapping and the md:/lg: breakpoints; a
-// window too short for the content clips it, since scrolling arrives later
-// in phase 4.
+// window too short for the content scrolls like a page (the outer element
+// is min-h-screen, not h-screen).
 //
 // `tela snapshot ./examples/dashboard` renders it without a window; add
 // --dark for the dark theme.
@@ -20,7 +20,7 @@ import (
 // Dashboard is the page. Its colors come in pairs (light, dark:), the way
 // shadcn's zinc theme is written in Tailwind.
 func Dashboard() tela.Node {
-	return Div(Class("flex h-screen flex-col overflow-hidden bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
+	return Div(Class("flex min-h-screen flex-col overflow-hidden bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
 		tela.C(Header),
 		Div(Class("flex min-h-0 flex-1 flex-col gap-4 px-6 pt-6 pb-8 md:px-8"),
 			Div(Class("flex flex-wrap items-center justify-between gap-3"),

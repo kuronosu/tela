@@ -17,4 +17,4 @@ What it shows:
 - Without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 1280x800 --scale 2 [--dark] -o board.png ./examples/board`.
 - Tests: `CGO_ENABLED=0 go test ./examples/board`. They cover the model (`Board.Move`), dragging to another column, between cards, inside a column and outside the board, the drop-target ring, a click not moving anything, and the goldens (`testdata/board_x1.png`, `board_x2.png`; regenerate with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGolden ./examples/board`).
 
-A column holds at most eight cards; a window shorter than the columns clips them (scrolling arrives in phase 4).
+A column holds at most eight cards; a window shorter than the columns scrolls like a page.

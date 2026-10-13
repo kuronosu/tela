@@ -16,4 +16,4 @@ What it shows:
 - Without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 1280x800 --scale 2 [--dark] -o settings.png ./examples/settings`.
 - Tests: `CGO_ENABLED=0 go test ./examples/settings`. They drive the page through a headless window: toggling a switch (track, knob and dirty state), hover and press on a switch, the locked switch, Save and Reset, the two radio groups, and the goldens (`testdata/settings_x1.png`, `settings_x2.png`; regenerate with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGolden ./examples/settings`).
 
-At widths below about 900 px the two cards stack; a window shorter than the content clips it (scrolling arrives in phase 4).
+At widths below about 900 px the two cards stack; a window shorter than the content scrolls like a page.

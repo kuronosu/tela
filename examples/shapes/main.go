@@ -26,11 +26,11 @@ func Shapes() tela.Node {
 		ProgressCard(), SearchCard(), GradientCard(), SunsetCard(),
 		ConicCard(), GlassCard(), ShapesCard(), DropCard(),
 	}
-	cells := []tela.Child{Class("relative flex h-full flex-wrap content-center justify-center gap-6 p-5 md:p-10")}
+	cells := []tela.Child{Class("relative flex min-h-screen flex-wrap content-center justify-center gap-6 p-5 md:p-10")}
 	for i, c := range cards {
 		cells = append(cells, Div(Key(i), Class("flex h-[170px] w-[202px]"), c))
 	}
-	return Div(Class("relative h-screen overflow-hidden bg-linear-to-br from-slate-50 to-indigo-50"),
+	return Div(Class("relative min-h-screen overflow-hidden bg-linear-to-br from-slate-50 to-indigo-50"),
 		// Glows: blurred discs behind the grid, clipped by the page.
 		Div(Class("absolute -top-40 -right-24 size-[28rem] rounded-full bg-indigo-200/60 blur-3xl")),
 		Div(Class("absolute -bottom-40 -left-24 size-[28rem] rounded-full bg-sky-200/70 blur-3xl")),

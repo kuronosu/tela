@@ -13,7 +13,7 @@ What it shows:
 
 The chart's gridlines, y labels and bars are plain flex layouts: the bars are flex items whose height is a percentage (`h-[74%]`) of an absolutely positioned plot.
 
-A window shorter than the content clips it (scrolling arrives in phase 4); the page is designed for 1280x800 and wraps down to about 700 px wide.
+A window shorter than the content scrolls like a page; the page is designed for 1280x800 and wraps down to about 700 px wide.
 
 ## Run it
 

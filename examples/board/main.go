@@ -22,7 +22,7 @@ func Kanban() tela.Node {
 	board, setBoard := tela.UseState(Initial)
 	drag := useDrag()
 
-	return Div(Class("flex h-screen flex-col overflow-hidden bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
+	return Div(Class("flex min-h-screen flex-col overflow-hidden bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
 		Div(Class("flex flex-wrap items-center justify-between gap-4 px-6 pt-6 pb-4 md:px-8 md:pt-8"),
 			Div(Class("flex flex-col gap-1"),
 				H1(Class("text-2xl font-bold tracking-tight"), Text("Roadmap")),
