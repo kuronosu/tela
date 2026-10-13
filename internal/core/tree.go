@@ -88,9 +88,8 @@ type Tree struct {
 	// (device pixels per logical pixel).
 	scale float32
 
-	engine  layout.Engine
-	builder *gfx.Builder
-	asm     paraAssembler
+	engine layout.Engine
+	asm    paraAssembler
 
 	// Work queues of the phases (UI thread).
 	buildQ, styleQ, boxQ []*Element
@@ -152,6 +151,9 @@ type Tree struct {
 	// sem is the semantics tree built last (semantics.go).
 	sem semState
 
+	// lay holds the layers and the composed frames (layer.go).
+	lay layerState
+
 	lastDL *gfx.DisplayList
 	stats  Stats
 }
@@ -167,7 +169,6 @@ func NewTree(cfg Config) *Tree {
 		parser:   cfg.Parser,
 		dev:      cfg.Dev || os.Getenv(EnvDev) == "1",
 		log:      cfg.Log,
-		builder:  gfx.NewBuilder(),
 		reported: map[string]bool{},
 		viewport: gfx.Size{W: 800, H: 600},
 		scale:    1,
@@ -367,7 +368,10 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	}
 	t.frame++
 	t.stats.Frames++
-	if t.changed || t.lastDL == nil {
+	// A frame that builds, restyles or lays out records every layer; one
+	// that only repaints records only what changed (layer.go).
+	full := t.changed || t.lastDL == nil
+	if full {
 		t.buildPhase()
 		t.stylePhase()
 		if t.focusPending() {
@@ -388,9 +392,10 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		t.stylePhase()
 		t.boxPhase()
 		t.layoutPhase()
+		full = true
 	}
-	t.scrollPhase()
-	t.lastDL = t.paintPhase()
+	full = t.scrollPhase(full)
+	t.lastDL = t.paintPhase(full)
 	t.changed, t.repaint = false, false
 	return t.lastDL, true
 }

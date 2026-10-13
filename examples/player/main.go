@@ -23,8 +23,10 @@ import (
 func Player() tela.Node { return playerAt(0) }
 
 // playerAt is Player with the first track already startAt seconds in.
-func playerAt(startAt float64) tela.Node {
-	tr := useTransport(startAt)
+func playerAt(startAt float64) tela.Node { return page(useTransport(startAt)) }
+
+// page is the content of the player for a transport.
+func page(tr *Transport) tela.Node {
 	return Div(Class("flex min-h-screen items-center justify-center gap-6 overflow-hidden "+
 		"bg-zinc-950 bg-radial-[at_25%_15%] from-violet-950/70 to-zinc-950 to-70% px-6 py-3 text-white"),
 		tela.CP(NowPlaying, TransportProps{Tr: tr}),

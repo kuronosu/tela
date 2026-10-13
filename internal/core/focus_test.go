@@ -60,7 +60,7 @@ func (x *inputHarness) center(k any) (float32, float32) {
 	if el == nil || el.box.pcs == nil {
 		x.t.Fatalf("no painted element %v", k)
 	}
-	c := el.box.abs.Center()
+	c := windowRect(el.box).Center()
 	return c.X, c.Y
 }
 
@@ -276,7 +276,7 @@ func TestEnterAndSpaceActivateButtons(t *testing.T) {
 	if e := clicks[0]; e.ClickCount != 0 || e.Button != MouseButtonLeft || !e.Shift {
 		t.Errorf("keyboard click event %+v", e)
 	}
-	if bx := btn.box; !near(clicks[0].X, bx.abs.Center().X, 0.01) || !near(clicks[0].LocalX, bx.abs.Width()/2, 0.01) {
+	if bx := btn.box; !near(clicks[0].X, windowRect(bx).Center().X, 0.01) || !near(clicks[0].LocalX, bx.u.Width()/2, 0.01) {
 		t.Errorf("keyboard click at %v,%v (local %v), want the button's center", clicks[0].X, clicks[0].Y, clicks[0].LocalX)
 	}
 	x.keys(keyEv(platform.KeyRelease, platform.KeyEnter, platform.CodeEnter, 0))

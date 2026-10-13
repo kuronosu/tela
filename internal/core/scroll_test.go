@@ -160,7 +160,7 @@ func TestScrollExtentsAndClamping(t *testing.T) {
 		t.Errorf("after shrinking: %g, want %d", got, 500+32-200)
 	}
 	// The content moves on screen: row 9 (the last) ends at the bottom.
-	if r := keyed(x.tree(), "r9").box.abs; !approx(r.Y1, 200-16) {
+	if r := windowRect(keyed(x.tree(), "r9").box); !approx(r.Y1, 200-16) {
 		t.Errorf("last row painted at %v", r)
 	}
 }
@@ -489,10 +489,10 @@ func TestScrolledHitTestingAndLocal(t *testing.T) {
 	if len(local) != 2 || local[0] != 5 || local[1] != 111-100 {
 		t.Errorf("local %v, want [5 11]", local)
 	}
-	if r := keyed(tr, "abs").box.abs; r.Y0 != 30+400-106 {
+	if r := windowRect(keyed(tr, "abs").box); r.Y0 != 30+400-106 {
 		t.Errorf("absolute descendant at %v, want y %d", r, 30+400-106)
 	}
-	if r := keyed(tr, "fixedish").box.abs; r.Y0 != 40 {
+	if r := windowRect(keyed(tr, "fixedish").box); r.Y0 != 40 {
 		t.Errorf("escaping absolute box moved to %v", r)
 	}
 	// The clip still cuts content scrolled out.
@@ -639,7 +639,7 @@ func TestElementRefScrolling(t *testing.T) {
 	if a, b := x.offset("inner"), x.offset("outer"); a != 220 || b != 200 {
 		t.Errorf("ScrollIntoView: inner %g, outer %g; want 220, 200", a, b)
 	}
-	if r := keyed(x.tree(), "item").box.abs; r.Y0 < 0 || r.Y1 > 200 {
+	if r := windowRect(keyed(x.tree(), "item").box); r.Y0 < 0 || r.Y1 > 200 {
 		t.Errorf("item painted at %v", r)
 	}
 	outer.ScrollBy(0, -50)
@@ -1115,14 +1115,14 @@ func TestViewportScrolls(t *testing.T) {
 	if vs.pos.Y != wheelNotch {
 		t.Errorf("wheel: %g", vs.pos.Y)
 	}
-	if r := keyed(tr, "r0").box.abs; r.Y0 != -wheelNotch {
+	if r := windowRect(keyed(tr, "r0").box); r.Y0 != -wheelNotch {
 		t.Errorf("row 0 painted at %v", r)
 	}
 	// Fixed boxes stay; absolute boxes of the page scroll with it.
-	if r := keyed(tr, "fixed").box.abs; r.Y0 != 0 {
+	if r := windowRect(keyed(tr, "fixed").box); r.Y0 != 0 {
 		t.Errorf("fixed box moved to %v", r)
 	}
-	if r := keyed(tr, "abs").box.abs; r.Y0 != 100-wheelNotch {
+	if r := windowRect(keyed(tr, "abs").box); r.Y0 != 100-wheelNotch {
 		t.Errorf("absolute box at %v", r)
 	}
 	if got := hitName(tr, 5, 5); got != "fixed" {

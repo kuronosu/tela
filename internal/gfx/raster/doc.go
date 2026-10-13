@@ -291,10 +291,17 @@
 // inside the device bounds of its shape, mirrored beyond them, and paints
 // the result through the shape, like Chromium. A list whose backdrop
 // filters reach beyond a pixel (DisplayList.BackdropReach > 0) is rendered
-// on one goroutine over the whole destination (a smaller Region on a copy),
-// since the filters read pixels painted anywhere in their shapes' bounds.
+// on one goroutine, since the filters read pixels painted anywhere in their
+// shapes' bounds: a region is grown to contain the read bounds of the
+// backdrop filters that can reach it (BackdropRegion) and rendered in
+// place when it already does, on a copy of the grown region otherwise. A
+// backdrop filter inside a layer with filters reads that layer's surface,
+// whose extent depends on the region: when one can reach the region, the
+// whole destination is rendered (on a copy).
 //
 // # Not implemented yet
+//
+// gfx.Marker, a placeholder of composed lists, paints nothing.
 //
 // Blend modes other than SrcOver are phase 6 features: Render panics with
 // "raster: blend mode <mode> is not implemented until phase 6" when it

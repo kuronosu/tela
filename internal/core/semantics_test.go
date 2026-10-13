@@ -506,8 +506,7 @@ func TestSemanticsBounds(t *testing.T) {
 		t.Errorf("transformed button %v", b)
 	}
 	sc := keyed(tr, "sc")
-	sc.box.scr.pos.Y = 100 // painted offsets follow at the next paint
-	tr.requestRepaint()
+	tr.setScroll(sc.box.scr, gfx.Point{Y: 100}) // painted offsets follow at the next paint
 	tr.Frame()
 	if b := mustNode(t, tr, "button", "Scrolled").Bounds; b != (gfx.Rect{X0: 40, Y0: 120 + 160 - 100, X1: 120, Y1: 120 + 200 - 100}) {
 		t.Errorf("scrolled button %v", b)

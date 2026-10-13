@@ -200,19 +200,21 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if dl.BackdropReach() > 0 {
 		// A backdrop filter that reaches beyond a pixel reads the whole
 		// bounds of its shape, painted by earlier commands anywhere in
-		// them: render the whole destination on this goroutine (see
-		// backdrop.go). A smaller region is rendered on a copy and copied
-		// back, so that its pixels are those of a full render.
+		// them: render on this goroutine (see backdrop.go) a region grown
+		// to contain what the backdrop filters that touch it read
+		// (BackdropRegion). When the region is already closed, it is
+		// rendered in place; otherwise the grown region is rendered on a
+		// copy and the region copied back, so that its pixels are those of
+		// a full render and nothing else is touched.
 		full := dst.Rect.Intersect(image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit))
-		if clip == full {
+		grown := BackdropRegion(dl, s, clip, full)
+		if grown == clip {
 			r.render(dst, dl, gfx.Scale(s, s), clip)
 			return
 		}
-		// perf: a region could be grown by the reach of the backdrop
-		// filters it contains instead.
-		tmp := image.NewRGBA(full)
-		copyRect(tmp, dst, full)
-		r.render(tmp, dl, gfx.Scale(s, s), full)
+		tmp := image.NewRGBA(grown)
+		copyRect(tmp, dst, grown)
+		r.render(tmp, dl, gfx.Scale(s, s), grown)
 		copyRect(dst, tmp, clip)
 		return
 	}
@@ -329,6 +331,8 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 		if !r.skipping {
 			r.backdropFilter(c)
 		}
+	case gfx.Marker:
+		// A placeholder of a composed list: it paints nothing.
 	default:
 		panic(fmt.Sprintf("raster: %s is not implemented yet", c.Name()))
 	}

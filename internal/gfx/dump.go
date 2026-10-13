@@ -128,6 +128,8 @@ func dumpArgs(sb *strings.Builder, c Command) {
 		attr("rect", fmtRect(c.Shape.Rect))
 		attr("r", fmtRadii(c.Shape))
 		attr("filters", fmtFilters(c.Filters))
+	case Marker:
+		attr("id", strconv.FormatUint(uint64(c.ID), 10))
 	}
 }
 

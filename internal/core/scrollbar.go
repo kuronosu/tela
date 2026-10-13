@@ -90,6 +90,7 @@ type barHit struct {
 	s    *scroller
 	axis int // 0: horizontal bar, 1: vertical bar
 	part barPart
+	at   gfx.Point // the point hit, in the bars' coordinates
 }
 
 // barState is the visibility and interaction state of a container's bars.
@@ -191,15 +192,16 @@ func (t *Tree) hoverBars(ps *pointerState) {
 	for _, s := range t.scr.list {
 		var near, over, thumb [2]bool
 		if ps.inside && s.box.el != nil && t.hovered(ps, s.box.el) {
+			pos := toSpace(ps.pos, nil, s.box.space)
 			for i := range 2 {
 				g := &s.geo[i]
 				if !g.ok {
 					continue
 				}
-				near[i] = s.bars.overlay && g.near.Contains(ps.pos)
+				near[i] = s.bars.overlay && g.near.Contains(pos)
 				// Near the edge shows the bar at once, so it can be over it.
-				over[i] = (s.barVisible(i) || near[i]) && g.hit.Contains(ps.pos)
-				thumb[i] = over[i] && g.thumbHit().Contains(ps.pos)
+				over[i] = (s.barVisible(i) || near[i]) && g.hit.Contains(pos)
+				thumb[i] = over[i] && g.thumbHit().Contains(pos)
 			}
 		}
 		b := &s.bars
@@ -232,7 +234,8 @@ func (t *Tree) hovered(ps *pointerState, el *Element) bool {
 // ---------------------------------------------------------------------
 // Geometry.
 
-// barGeom is the painted geometry of one bar, in window coordinates.
+// barGeom is the painted geometry of one bar, in the coordinates of the
+// scroll space its container is painted in (layer.go).
 type barGeom struct {
 	ok bool
 	// track is where the bar is drawn (classic: the gutter; overlay: the
@@ -259,11 +262,11 @@ func (g *barGeom) thumbHit() gfx.Rect {
 	return r
 }
 
-// barGeometry computes the bars of scroll container bx for this paint,
-// from its snapped geometry g.
-func (p *painter) barGeometry(bx *Box, g *boxGeom) {
+// barGeometry computes into geo the bars of scroll container bx for this
+// paint, from its snapped geometry g.
+func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 	s := bx.scr
-	s.geo = [2]barGeom{}
+	*geo = [2]barGeom{}
 	s.bars.overlay = !p.t.classicBars(bx.pcs)
 	pr := g.padding.Rect
 	if pr.Empty() {
@@ -274,12 +277,12 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom) {
 		gw, gh := p.snapWidth(l.ScrollbarSize.W), p.snapWidth(l.ScrollbarSize.H)
 		if gw > 0 {
 			tr := gfx.Rect{X0: pr.X1 - gw, Y0: pr.Y0, X1: pr.X1, Y1: max(pr.Y1-gh, pr.Y0)}
-			s.geo[1] = barGeom{ok: true, track: tr, hit: tr,
+			geo[1] = barGeom{ok: true, track: tr, hit: tr,
 				start: tr.Y0 + classicInset, length: max(tr.Height()-2*classicInset, 0)}
 		}
 		if gh > 0 {
 			tr := gfx.Rect{X0: pr.X0, Y0: pr.Y1 - gh, X1: max(pr.X1-gw, pr.X0), Y1: pr.Y1}
-			s.geo[0] = barGeom{ok: true, track: tr, hit: tr,
+			geo[0] = barGeom{ok: true, track: tr, hit: tr,
 				start: tr.X0 + classicInset, length: max(tr.Width()-2*classicInset, 0)}
 		}
 	} else {
@@ -296,7 +299,7 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom) {
 				th = overlayThick
 			}
 			tr := gfx.Rect{X0: pr.X1 - overlayMargin - th, Y0: pr.Y0 + overlayMargin, X1: pr.X1 - overlayMargin, Y1: endY - overlayMargin}
-			s.geo[1] = barGeom{ok: true, track: tr, hit: hit,
+			geo[1] = barGeom{ok: true, track: tr, hit: hit,
 				near:  gfx.Rect{X0: pr.X1 - overlayNear, Y0: pr.Y0, X1: pr.X1, Y1: pr.Y1},
 				start: tr.Y0, length: max(tr.Height(), 0)}
 		}
@@ -307,7 +310,7 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom) {
 				th = overlayThick
 			}
 			tr := gfx.Rect{X0: pr.X0 + overlayMargin, Y0: pr.Y1 - overlayMargin - th, X1: endX - overlayMargin, Y1: pr.Y1 - overlayMargin}
-			s.geo[0] = barGeom{ok: true, track: tr, hit: hit,
+			geo[0] = barGeom{ok: true, track: tr, hit: hit,
 				near:  gfx.Rect{X0: pr.X0, Y0: pr.Y1 - overlayNear, X1: pr.X1, Y1: pr.Y1},
 				start: tr.X0, length: max(tr.Width(), 0)}
 		}
@@ -315,7 +318,7 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom) {
 	// The thumbs: their length is the visible part of the content, their
 	// position the offset's part of the largest one.
 	for i := range 2 {
-		gb := &s.geo[i]
+		gb := &geo[i]
 		mx := axis(s.max, i)
 		if !gb.ok || mx <= 0 || gb.length <= 0 {
 			continue
@@ -382,15 +385,35 @@ func overlayColor(dark bool, a float32) gfx.Color {
 }
 
 // paintScrollbars paints the bars of scroll container bx above its
-// content.
+// content: in a layer of their own (layer.go) when they can change
+// without a full recording (the content scrolls, or classic bars react to
+// the pointer).
 func (p *painter) paintScrollbars(bx *Box) {
 	s := bx.scr
 	if s == nil || bx.pcs.Visibility != style.VisibilityVisible {
 		return
 	}
+	if s.chunked || p.t.classicBars(bx.pcs) {
+		p.openLayer(layerBars, bx, p.space)
+		p.drawBars(bx)
+		p.closeLayer()
+		return
+	}
+	p.drawBars(bx)
+}
+
+// drawBars paints the bars of scroll container bx, and records their
+// geometry on screen for hit-testing (scroller.geo).
+func (p *painter) drawBars(bx *Box) {
+	s := bx.scr
+	if bx.pcs.Visibility != style.VisibilityVisible {
+		s.geo = [2]barGeom{}
+		return
+	}
 	g := p.geom(bx)
-	p.barGeometry(bx, &g)
-	if !s.geo[0].ok && !s.geo[1].ok {
+	p.barGeometry(bx, &g, &s.geo)
+	geo := &s.geo
+	if !geo[0].ok && !geo[1].ok {
 		return
 	}
 	if s.bars.overlay && s.bars.alpha <= 0 {
@@ -403,7 +426,7 @@ func (p *painter) paintScrollbars(bx *Box) {
 		p.b.PushClipRRect(g.padding)
 	}
 	for i := range 2 {
-		gb := &s.geo[i]
+		gb := &geo[i]
 		if !gb.ok {
 			continue
 		}
@@ -445,9 +468,9 @@ func (p *painter) paintScrollbars(bx *Box) {
 		p.b.FillRect(gb.track, track)
 		p.pill(gb.thumb, thumb)
 	}
-	if !s.bars.overlay && s.geo[0].ok && s.geo[1].ok {
+	if !s.bars.overlay && geo[0].ok && geo[1].ok {
 		// The corner between the two gutters.
-		c := gfx.Rect{X0: s.geo[1].track.X0, Y0: s.geo[0].track.Y0, X1: s.geo[1].track.X1, Y1: s.geo[0].track.Y1}
+		c := gfx.Rect{X0: geo[1].track.X0, Y0: geo[0].track.Y0, X1: geo[1].track.X1, Y1: geo[0].track.Y1}
 		col := classicTrackLight
 		if dark {
 			col = classicTrackDark
@@ -471,8 +494,8 @@ func (p *painter) pill(r gfx.Rect, c gfx.Color) {
 // ---------------------------------------------------------------------
 // Hit-testing and interaction.
 
-// barAt returns the part of the bars of s under p (window coordinates of
-// the last paint), for hit-testing.
+// barAt returns the part of the bars of s under p (in the scroll space s's
+// box is painted in, as painted last), for hit-testing.
 func (s *scroller) barAt(p gfx.Point) (int, barPart) {
 	cs := s.box.pcs
 	if cs == nil || cs.PointerEvents == style.PointerEventsNone || cs.Visibility != style.VisibilityVisible {
@@ -500,7 +523,7 @@ func (s *scroller) barAt(p gfx.Point) (int, barPart) {
 // barPress handles a primary press on a scrollbar: a thumb press returns
 // the eager drag recognizer that moves it, a track press pages toward the
 // pointer at once.
-func (t *Tree) barPress(hit barHit, pos gfx.Point) gesture.Recognizer {
+func (t *Tree) barPress(hit barHit) gesture.Recognizer {
 	s, i := hit.s, hit.axis
 	g := s.geo[i]
 	switch hit.part {
@@ -540,9 +563,9 @@ func (t *Tree) barPress(hit barHit, pos gfx.Point) gesture.Recognizer {
 	case barTrack:
 		// Page toward the pointer (Chromium; macOS and GTK can jump
 		// instead).
-		at := pos.X
+		at := hit.at.X
 		if i == 1 {
-			at = pos.Y
+			at = hit.at.Y
 		}
 		c := s.client.W
 		if i == 1 {

@@ -57,6 +57,14 @@
 // block for a push, is dropped. Dump and String give a deterministic text form
 // for tests and tools.
 //
+// Lists compose: Builder.AppendList records the commands of another list at
+// the current transform and clip, without copying their slices, and calls
+// back for each Marker (a placeholder that paints nothing) so that the
+// list it stands for is appended there. Every command carries a tag
+// (Builder.SetTag) and, when appended, its index in the appended list
+// (DisplayList.Source), and Equal compares commands by value: package core
+// composes its layers this way and compares frames for damage.
+//
 // Semantics of the commands that need precision:
 //
 //   - Clip and transform shapes are given in the current, already transformed

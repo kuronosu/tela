@@ -2,6 +2,7 @@ package telatest
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/kuronosu/tela/internal/core"
@@ -26,10 +27,11 @@ type config struct {
 	allowDev      []string
 	rootClass     string
 	timeout       time.Duration
+	checkDamage   bool
 }
 
 func newConfig(opts []Option) config {
-	cfg := config{scale: 1, timeout: DefaultTimeout}
+	cfg := config{scale: 1, timeout: DefaultTimeout, checkDamage: os.Getenv(EnvCheckDamage) == "1"}
 	for _, o := range opts {
 		if o != nil {
 			o(&cfg)
@@ -62,6 +64,18 @@ func (c config) coreConfig() core.Config {
 		InstantScroll:     c.instant,
 	}
 }
+
+// EnvCheckDamage is the environment variable that turns [CheckDamage] on
+// for every app ("1").
+const EnvCheckDamage = "TELA_CHECK_DAMAGE"
+
+// CheckDamage makes the app compare its window with a full rendering after
+// every frame (when nothing is left to draw), and fail the test on the
+// first pixel that differs: frames are rasterized incrementally (only what
+// changed, scrolled content shifted), and must give the pixels a full
+// rasterization gives. It makes every frame cost a full rendering; it is
+// for tests of rendering, and TELA_CHECK_DAMAGE=1 turns it on everywhere.
+func CheckDamage() Option { return func(c *config) { c.checkDamage = true } }
 
 // Size sets the logical size of the window in pixels (default 800x600).
 func Size(width, height float32) Option {

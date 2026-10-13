@@ -72,12 +72,24 @@ func titleIs(a *telatest.App, title string) {
 }
 
 func TestProgressAdvancesWithoutBuilding(t *testing.T) {
-	fast(t, 5*time.Millisecond, 10) // 20 ticks per second of music
-	a := mount(t, windowW, windowH, Player)
+	// The clock is stopped and the test ticks it, 0.1 s of music per tick,
+	// so the result does not depend on how fast frames run (a real-time
+	// clock raced past 0:03 when frames were slow, e.g. under
+	// TELA_CHECK_DAMAGE).
+	slow(t)
+	var tr *Transport
+	a := mount(t, windowW, windowH, func() tela.Node {
+		tr = useTransport(0)
+		return page(tr)
+	})
 	if w := fillWidth(a); w != 0 {
 		t.Fatalf("the bar starts at %v px, want 0", w)
 	}
 	before := a.Stats()
+	for range 30 {
+		tela.Post(func() { tr.advance(0.1) })
+		a.Advance(16 * time.Millisecond)
+	}
 	a.ExpectText("0:03")
 	after := a.Stats()
 
@@ -90,8 +102,8 @@ func TestProgressAdvancesWithoutBuilding(t *testing.T) {
 	if builds != 3 {
 		t.Errorf("%d builds for 3 seconds of music over %d frames, want 3 (the label)", builds, frames)
 	}
-	if frames < 30 {
-		t.Errorf("only %d frames: the bar should be laid out on every tick", frames)
+	if frames < 25 {
+		t.Errorf("only %d frames for 30 ticks: the bar should be laid out on (nearly) every tick", frames)
 	}
 	if got := after.Layouts - before.Layouts; got < frames/2 {
 		t.Errorf("%d layouts in %d frames: a WidthFn change should lay out each time", got, frames)
@@ -196,8 +208,16 @@ func TestSeek(t *testing.T) {
 }
 
 func TestTrackEndsAndPlaysNext(t *testing.T) {
-	fast(t, 5*time.Millisecond, 400) // 2 s of music per tick
-	a := mount(t, windowW, windowH, Player)
+	slow(t) // the test ticks the clock: 2 s of music per tick
+	var tr *Transport
+	a := mount(t, windowW, windowH, func() tela.Node {
+		tr = useTransport(0)
+		return page(tr)
+	})
+	for range 115 { // 230 s: past the end of the 3:42 first track
+		tela.Post(func() { tr.advance(2) })
+		a.Advance(16 * time.Millisecond)
+	}
 	titleIs(a, "Paper Planes")
 }
 

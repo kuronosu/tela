@@ -65,6 +65,12 @@ type Builder struct {
 	bounds []Rect
 	match  []int32
 	reach  []float32
+	tags   []uint32
+	srcs   []int32
+	bds    []backdropRef
+
+	tag uint32 // SetTag
+	src int32  // source index of the command being appended, or -1
 
 	inited   bool
 	ctm      Affine // current transform: local -> root
@@ -97,6 +103,8 @@ func NewBuilder() *Builder {
 
 func (b *Builder) reset() {
 	b.cmds, b.bounds, b.match, b.reach = nil, nil, nil, nil
+	b.tags, b.srcs, b.bds = nil, nil, nil
+	b.tag, b.src = 0, -1
 	b.stack = b.stack[:0]
 	b.ctm = Identity
 	b.clip = infiniteRect
@@ -127,6 +135,8 @@ func (b *Builder) record(c Command, bounds Rect) int {
 	b.bounds = append(b.bounds, bounds)
 	b.match = append(b.match, -1)
 	b.reach = append(b.reach, 0)
+	b.tags = append(b.tags, b.tag)
+	b.srcs = append(b.srcs, b.src)
 	b.addToParent(bounds)
 	return idx
 }
@@ -301,9 +311,24 @@ func (b *Builder) BackdropFilter(shape RRect, filters ...Filter) {
 		return
 	}
 	if bb, ok := b.drawBounds(shape.Rect); ok {
-		b.record(BackdropFilter{shape, fs}, bb)
-		b.backdrop = max(b.backdrop, FiltersOutset(fs)*b.ctm.MaxScale())
+		b.recordBackdrop(BackdropFilter{shape, fs}, bb, b.ctm.TransformRect(shape.Rect))
 	}
+}
+
+// recordBackdrop records a BackdropFilter whose clipped root bounds are bb
+// and whose shape covers read in root space.
+func (b *Builder) recordBackdrop(c BackdropFilter, bb, read Rect) {
+	idx := b.record(c, bb)
+	reach := FiltersOutset(c.Filters) * b.ctm.MaxScale()
+	b.backdrop = max(b.backdrop, reach)
+	inFilter := false
+	for i := range b.stack {
+		if b.stack[i].kind == kindLayer && b.stack[i].reach > 0 {
+			inFilter = true
+			break
+		}
+	}
+	b.bds = append(b.bds, backdropRef{idx: int32(idx), read: read, reach: reach, inFilterLay: inFilter})
 }
 
 // ---------------------------------------------------------------------------
@@ -351,6 +376,8 @@ func (b *Builder) recordPush(c Command) int {
 	b.bounds = append(b.bounds, Rect{})
 	b.match = append(b.match, -1)
 	b.reach = append(b.reach, 0)
+	b.tags = append(b.tags, b.tag)
+	b.srcs = append(b.srcs, b.src)
 	return idx
 }
 
@@ -466,6 +493,8 @@ func (b *Builder) pop(kind stackKind, name string, c Command) {
 	b.bounds = append(b.bounds, acc)
 	b.match = append(b.match, int32(f.idx))
 	b.reach = append(b.reach, 0)
+	b.tags = append(b.tags, b.tags[f.idx])
+	b.srcs = append(b.srcs, b.src)
 	b.match[f.idx] = int32(end)
 	b.addToParent(acc)
 }
@@ -478,6 +507,11 @@ func (b *Builder) truncate(n int) {
 	b.bounds = b.bounds[:n]
 	b.match = b.match[:n]
 	b.reach = b.reach[:n]
+	b.tags = b.tags[:n]
+	b.srcs = b.srcs[:n]
+	for len(b.bds) > 0 && int(b.bds[len(b.bds)-1].idx) >= n {
+		b.bds = b.bds[:len(b.bds)-1]
+	}
 }
 
 // Depth returns the number of blocks (pushes) currently open, including
@@ -506,6 +540,9 @@ func (b *Builder) Finish() *DisplayList {
 		reach:         b.reach,
 		total:         b.rootAcc,
 		backdropReach: b.backdrop,
+		tags:          b.tags,
+		srcs:          b.srcs,
+		backdrops:     b.bds,
 	}
 	b.reset()
 	b.calls = 0

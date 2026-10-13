@@ -98,11 +98,42 @@ func Mount(tb testing.TB, root tela.Node, opts ...Option) *App {
 	}
 	a.host, a.tree = host, host.Tree()
 	a.win = host.Window().(*headless.Window)
+	if cfg.checkDamage {
+		host.AfterFrame = a.checkDamage
+	}
 	a.win.SetFocused(true)
 	a.stop = a.tree.ReceivePosts()
 	tb.Cleanup(a.Close)
 	a.settle()
 	return a
+}
+
+// checkDamage compares the window with a full rendering of the tree
+// ([CheckDamage]) when the tree has nothing left to draw.
+func (a *App) checkDamage() {
+	tr := a.tree
+	if tr.Dirty() {
+		return // the window shows an older state than the tree
+	}
+	got := a.win.Frame()
+	want := tr.Rasterize(tr.ReferenceFrame(false), tr.Scale())
+	if got == nil || got.Rect != want.Rect {
+		a.tb.Fatalf("telatest: damage check: the window holds %v, a full rendering %v", got.Bounds(), want.Rect)
+	}
+	for y := got.Rect.Min.Y; y < got.Rect.Max.Y; y++ {
+		g := got.Pix[got.PixOffset(0, y):][:4*got.Rect.Dx()]
+		w := want.Pix[want.PixOffset(0, y):][:4*want.Rect.Dx()]
+		if string(g) == string(w) {
+			continue
+		}
+		for i := range g {
+			if g[i] != w[i] {
+				x := got.Rect.Min.X + i/4
+				a.tb.Fatalf("telatest: damage check: pixel (%d, %d) is %v in the window, %v in a full rendering (last damage %+v)",
+					x, y, got.RGBAAt(x, y), want.RGBAAt(x, y), tr.LastDamage())
+			}
+		}
+	}
 }
 
 // testWriter sends the host's error log (a failed present) to the test log.

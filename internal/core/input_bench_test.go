@@ -58,8 +58,8 @@ func BenchmarkHoverMove10k(b *testing.B) {
 }
 
 // BenchmarkHoverFrame10k is a hover change and the frame that follows:
-// two rows restyled, then layout and the full paint (layers arrive with
-// T7b).
+// two rows restyled, then layout, placing and the recording of the
+// layers (each skipping what is outside its interest rect).
 func BenchmarkHoverFrame10k(b *testing.B) {
 	tr := newTestTree(b, 800, 600, hoverList(benchRows), nil)
 	tr.Frame()
@@ -105,4 +105,29 @@ func BenchmarkTab10k(b *testing.B) {
 	for b.Loop() {
 		tr.HandleKey(tab)
 	}
+}
+
+// hoverChange returns a change that moves the mouse between two rows of
+// a hover list.
+func hoverChange(tr *Tree) func() {
+	ys := [2]float32{40, 300}
+	i := 0
+	return func() {
+		tr.HandlePointer(platform.PointerEvent{Action: platform.PointerMove, Pos: platform.Point{X: 300, Y: ys[i&1]}})
+		i++
+	}
+}
+
+// BenchmarkHoverFrameRaster10k is BenchmarkHoverFrame10k plus bringing an
+// 800x600 framebuffer at scale 2 to the frame: the two rows only.
+func BenchmarkHoverFrameRaster10k(b *testing.B) {
+	tr := newTestTree(b, 800, 600, hoverList(benchRows), nil)
+	rasterBench(b, tr, 800, 600, 2, false, hoverChange(tr))
+}
+
+// BenchmarkHoverFrameRasterFull10k is BenchmarkHoverFrameRaster10k with a
+// full rasterization of every frame.
+func BenchmarkHoverFrameRasterFull10k(b *testing.B) {
+	tr := newTestTree(b, 800, 600, hoverList(benchRows), nil)
+	rasterBench(b, tr, 800, 600, 2, true, hoverChange(tr))
 }

@@ -97,6 +97,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- Windows rasterize only what changed and pass the damage rectangles to the
+  platform: scrolling moves the pixels already drawn and draws only the
+  newly exposed strips; a `TranslateFn` drag or a `UseValue` progress bar
+  redraws only its old and new place. A 10,000-element list scrolls in
+  about 0.6 ms per frame at 800×600 scale 2 (was about 6 ms).
 - `tela inspect` prints a Playwright-style aria snapshot (YAML) by default;
   `--layout` prints the JSON layout tree.
 - `tela snapshot` and `tela inspect` work on any module that requires Tela,
@@ -105,6 +110,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   `func(T)`. Write `setCount.Set(v)` or
   `setCount.Update(func(n int) int { return n + 1 })`, or use
   `tela.UseStateSet` for a plain function.
+
+### Fixed
+
+- Rendering a region of a frame with a spreading `backdrop-blur` no longer
+  re-renders the whole frame.
 
 ### Removed
 

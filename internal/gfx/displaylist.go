@@ -32,6 +32,45 @@ type DisplayList struct {
 	// backdropReach is the largest root-space reach of the filters of a
 	// BackdropFilter.
 	backdropReach float32
+	// tags and srcs are the tag (Builder.SetTag) and the source index
+	// (AppendList) of each command.
+	tags []uint32
+	srcs []int32
+	// backdrops lists the BackdropFilter commands in order.
+	backdrops []backdropRef
+}
+
+// backdropRef is a BackdropFilter command of a list: its index, the
+// root-space bounds of its shape before clipping (the pixels its filters
+// read), the root-space reach of its filters, and whether it lies inside a
+// layer with filters.
+type backdropRef struct {
+	idx         int32
+	read        Rect
+	reach       float32
+	inFilterLay bool
+}
+
+// Tag returns the tag of command i: the value of Builder.SetTag when it
+// was recorded (0 by default).
+func (d *DisplayList) Tag(i int) uint32 { return d.tags[i] }
+
+// Source returns, for a command recorded by Builder.AppendList, its index
+// in the appended list, and -1 for a command recorded directly.
+func (d *DisplayList) Source(i int) int { return int(d.srcs[i]) }
+
+// NumBackdrops returns the number of BackdropFilter commands.
+func (d *DisplayList) NumBackdrops() int { return len(d.backdrops) }
+
+// Backdrop returns the k-th BackdropFilter of the list (in list order): its
+// command index, the root-space bounds of its shape before clipping (every
+// pixel its filters may read: they read the whole bounds of the shape,
+// clipped or not), the root-space reach of its filters (0 for filters that
+// only read the pixel they write), and whether it lies inside a layer with
+// filters.
+func (d *DisplayList) Backdrop(k int) (i int, read Rect, reach float32, inFilterLayer bool) {
+	b := d.backdrops[k]
+	return int(b.idx), b.read, b.reach, b.inFilterLay
 }
 
 // Len returns the number of commands.
@@ -67,7 +106,8 @@ func (d *DisplayList) LayerReach(i int) float32 { return d.reach[i] }
 // backdrop filter spreads pixels. A BackdropFilter with a reach reads the
 // already-painted pixels of the whole bounds of its shape, so a rasterizer
 // that renders a sub-region must make sure those bounds have been painted,
-// for example by rendering the whole list.
+// for example by growing the region by the read bounds of the backdrop
+// filters that reach it (Backdrop).
 func (d *DisplayList) BackdropReach() float32 { return d.backdropReach }
 
 // All iterates over (index, command) in order.

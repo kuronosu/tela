@@ -24,8 +24,10 @@ import (
 // The p95 benchmarks run one frame per iteration of a scripted scroll
 // (wheel notches every fourth frame, Page Down every second), so
 // -benchtime Nx sets the number of frames; they report the median, p95
-// and worst frame of the pipeline alone (Frame) and with the
-// rasterization of the whole window (full damage until layers, T7b).
+// and worst frame of the pipeline alone (Frame), with the window's
+// framebuffer brought to the frame as a Host does (RasterizeFrame: shifted
+// pixels and damaged regions, layer.go), and with a full rasterization of
+// the window (the behavior before damage tracking).
 
 const (
 	benchW, benchH = 800, 600
@@ -129,7 +131,8 @@ func BenchmarkPlainMount10k(b *testing.B) { benchMount(b, func() Node { return p
 
 // benchScroll is one steady scroll frame per iteration: the list moves by
 // a wheel notch at once (53 px, the worst case of a notch animation) and
-// Frame runs; with fb, the window is rasterized too.
+// Frame runs; with fb, the window's framebuffer is brought to the frame
+// too (RasterizeFrame).
 func benchScroll(b *testing.B, root Node, withRaster bool) {
 	tr := benchTree(b, root)
 	s := mainScroller(b, tr)
@@ -147,10 +150,9 @@ func benchScroll(b *testing.B, root Node, withRaster bool) {
 			y = 0
 		}
 		tr.setScroll(s, gfx.Point{Y: y})
-		dl, _ := tr.Frame()
+		tr.Frame()
 		if withRaster {
-			raster.Clear(fb, image.Rectangle{}, tr.CanvasColor())
-			r.Render(fb, dl, raster.Options{Scale: benchScale})
+			tr.RasterizeFrame(fb, &r, false)
 		}
 	}
 	b.ReportMetric(float64(tr.Stats().Builds-builds)/float64(b.N), "builds/frame")
@@ -169,16 +171,21 @@ func BenchmarkPlainScrollFrameRaster10k(b *testing.B) { benchScroll(b, plainPage
 // real input paths: a wheel notch at the list every fourth frame (Chromium's
 // 150 ms animation, so the list is always moving) and Page Down every
 // second. It reports the median, p95 and worst frame times of the pipeline
-// (Animate and Frame) and of the pipeline plus the rasterization of the
-// window at scale 2.
+// (Animate and Frame), of the pipeline plus bringing the window's
+// framebuffer to the frame (raster: RasterizeFrame, what a Host does), and
+// of the pipeline plus a full rasterization of the window at scale 2
+// (full), and how many frames recorded the layers again.
 func benchP95(b *testing.B, root Node) {
 	tr := benchTree(b, root)
 	tr.SetWindowFocused(true)
 	s := mainScroller(b, tr)
 	phys := platform.PhysicalSize(platform.Size{W: benchW, H: benchH}, benchScale)
 	fb := image.NewRGBA(image.Rect(0, 0, phys.X, phys.Y))
-	var r raster.Renderer
-	var pipe, full []time.Duration
+	fbFull := image.NewRGBA(fb.Rect)
+	var r, rFull raster.Renderer
+	tr.RasterizeFrame(fb, &r, true)
+	var pipe, incr, full []time.Duration
+	recorded := 0
 	now := time.Duration(0)
 	frame := 0
 	at := platform.Point{X: benchW / 2, Y: benchH / 2}
@@ -193,16 +200,23 @@ func benchP95(b *testing.B, root Node) {
 			tr.HandleScroll(platform.ScrollEvent{Pos: at, Steps: platform.Point{Y: 1}, Time: now})
 		}
 		frame++
+		gen := tr.lay.gen
 		t0 := time.Now()
 		tr.Animate(now)
 		dl, _ := tr.Frame()
 		t1 := time.Now()
-		raster.Clear(fb, image.Rectangle{}, tr.CanvasColor())
-		r.Render(fb, dl, raster.Options{Scale: benchScale})
+		tr.RasterizeFrame(fb, &r, false)
 		t2 := time.Now()
+		raster.Clear(fbFull, image.Rectangle{}, tr.CanvasColor())
+		rFull.Render(fbFull, dl, raster.Options{Scale: benchScale})
+		t3 := time.Now()
 		tr.FlushEffects()
 		pipe = append(pipe, t1.Sub(t0))
-		full = append(full, t2.Sub(t0))
+		incr = append(incr, t2.Sub(t0))
+		full = append(full, t1.Sub(t0)+t3.Sub(t2))
+		if tr.lay.gen != gen {
+			recorded++
+		}
 	}
 	if s.pos.Y <= start {
 		b.Fatalf("the list did not scroll: %v", s.pos.Y)
@@ -215,6 +229,10 @@ func benchP95(b *testing.B, root Node) {
 	b.ReportMetric(q(pipe, 0.5), "pipe-p50-ms")
 	b.ReportMetric(q(pipe, 0.95), "pipe-p95-ms")
 	b.ReportMetric(q(pipe, 1), "pipe-max-ms")
+	b.ReportMetric(q(incr, 0.5), "raster-p50-ms")
+	b.ReportMetric(q(incr, 0.95), "raster-p95-ms")
+	b.ReportMetric(q(incr, 1), "raster-max-ms")
+	b.ReportMetric(float64(recorded)/float64(len(pipe)), "recorded/frame")
 	b.ReportMetric(q(full, 0.5), "full-p50-ms")
 	b.ReportMetric(q(full, 0.95), "full-p95-ms")
 	b.ReportMetric(q(full, 1), "full-max-ms")

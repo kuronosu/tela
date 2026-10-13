@@ -298,7 +298,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 	ps.gid = t.in.nextGID
 	if bar.s != nil {
 		// A scrollbar press: the thumb's drag or a page, and no click.
-		t.in.arena.Down(t.gestureEvent(ps, e.Time), t.barPress(bar, ps.pos))
+		t.in.arena.Down(t.gestureEvent(ps, e.Time), t.barPress(bar))
 		return
 	}
 	t.in.arena.Down(t.gestureEvent(ps, e.Time), t.recognizers(ps, target)...)

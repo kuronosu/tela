@@ -101,6 +101,12 @@ type Host struct {
 	renderer   raster.Renderer
 	scale      float64
 	configured bool // a ConfigureEvent arrived since the last Present
+	// FullFrames rasterizes every frame fully, as before damage tracking
+	// (benchmarks and debugging).
+	FullFrames bool
+	// AfterFrame, when set, runs after each frame that rasterized,
+	// presented or not (tests check the window's pixels there).
+	AfterFrame func()
 	presents   int
 
 	// cursor is the cursor last set on the window.
@@ -271,26 +277,36 @@ func (h *Host) frame() {
 		return
 	}
 	h.tree.SetScale(float32(m.Scale)) // box edges snap to device pixels
-	dl, changed := h.tree.Frame()
+	_, changed := h.tree.Frame()
 	defer h.tree.FlushEffects()
+	full := false
 	if want := image.Rect(0, 0, phys.X, phys.Y); h.fb == nil || h.fb.Rect != want {
 		h.fb = image.NewRGBA(want)
-		changed = true
+		changed, full = true, true
 	}
 	if m.Scale != h.scale {
 		h.scale = m.Scale
-		changed = true
+		changed, full = true, true
 	}
 	if !changed && !h.configured {
 		return // nothing new to show
 	}
-	if changed {
-		// perf: full damage until phase 4's damage tracking.
-		raster.Clear(h.fb, image.Rectangle{}, h.tree.CanvasColor())
-		h.renderer.Render(h.fb, dl, raster.Options{Scale: float32(m.Scale)})
+	// The framebuffer keeps the previous frame: only the damage is
+	// rasterized (layer.go), and presented. The first Present after a
+	// ConfigureEvent is full for the platform anyway.
+	d := h.tree.RasterizeFrame(h.fb, &h.renderer, full || h.FullFrames)
+	if h.AfterFrame != nil {
+		defer h.AfterFrame()
+	}
+	var damage []image.Rectangle
+	if !h.configured {
+		if d.Empty() {
+			return // nothing visible changed
+		}
+		damage = d.Changed()
 	}
 	h.configured = false
-	if err := h.win.Present(h.fb, nil); err != nil {
+	if err := h.win.Present(h.fb, damage); err != nil {
 		fmt.Fprintln(h.log, "tela: present:", err)
 		return
 	}

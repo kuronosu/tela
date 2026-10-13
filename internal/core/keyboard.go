@@ -310,7 +310,7 @@ func (t *Tree) cancelSpace() {
 func (t *Tree) keyClick(el *Element, e KeyboardEvent) {
 	me := MouseEvent{Button: MouseButtonLeft, Shift: e.Shift, Ctrl: e.Ctrl, Alt: e.Alt, Meta: e.Meta}
 	if bx := t.geomBox(el); bx != nil {
-		c := bx.abs.Center()
+		c := windowRect(bx).Center()
 		me.X, me.Y = c.X, c.Y
 	}
 	fire(t, evClick, el, me, true)

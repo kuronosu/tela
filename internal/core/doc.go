@@ -234,17 +234,40 @@
 // whose structure or paragraph may have changed, boxes whose
 // layout-phase deferred props read a Value that changed, and the layout
 // engine's own dirty nodes (MarkDirty on changed layout styles, children
-// lists and paragraphs). When the only work is repainting boxes whose
-// paint-phase deferred props read a Value that changed, Frame skips
-// straight to Paint (a paint-only frame: Stats.Paints grows, nothing
-// else). Paint emits one display list for the whole tree (layers and
-// damage arrive with T7b, which will repaint only the layers holding the
-// boxes marked by markPaint): CSS box painting (shadows, backgrounds,
-// borders, outlines), effects (transforms, opacity, filters, backdrop
-// filters), overflow clips and a simplified CSS stacking order, with box
-// edges snapped to device pixels at the tree's scale (SetScale); the
-// comment at the top of paint.go is the reference. A Frame with nothing
-// dirty returns the previous list.
+// lists and paragraphs). When the only work is repainting (Values read by
+// paint-phase deferred props, scroll offsets, scrollbar fades and hovers:
+// Tree.markPaint), Frame skips straight to Paint (a paint-only frame:
+// Stats.Paints grows, nothing else).
+//
+// # Layers and damage
+//
+// Paint (layer.go, whose top comment is the reference) records the tree
+// into layers, Flutter's repaint boundaries: the root; the content of
+// each scroll container that can move (with the hoisted boxes that move
+// with it), painted unscrolled and moved by the compositor; each stacking
+// context with paint-phase deferred props (TranslateFn, OpacityFn), whose
+// transform and opacity the compositor applies; and the scrollbars. A
+// frame that builds, restyles or lays out places every box again and
+// records every layer, each skipping the boxes outside its interest rect
+// (the visible part of a scroll container grown by a scrollport per
+// scrolling axis); a paint-only frame records only the scrollbars, unless
+// a layer became stale (content that leaves its interest rect, a box that
+// starts or stops being a layer). The compositor appends the layers into
+// one display list for the frame (gfx.Builder.AppendList): CSS box
+// painting (shadows, backgrounds, borders, outlines), effects
+// (transforms, opacity, filters, backdrop filters), overflow clips and a
+// simplified CSS stacking order, with box edges snapped to device pixels
+// at the tree's scale (SetScale); the comment at the top of paint.go is
+// the reference. A Frame with nothing dirty returns the previous list.
+//
+// Tree.RasterizeFrame brings a framebuffer that holds the previous frame
+// to the new one: it matches the commands of the two frames, shifts the
+// pixels of scroll containers that moved by whole device pixels over a
+// uniform background, and rasterizes only the damage (damage.go); the
+// pixels are bit-identical to a full rasterization (ReferenceFrame and the
+// property test in layer_test.go check it). Tree.Layers and
+// Tree.LastDamage expose the layer tree and each frame's damage (debug
+// overlays).
 //
 // The semantics tree (semantics.go, whose top comment is the reference;
 // ARCHITECTURE section 16) is not a phase of Frame: Tree.Semantics builds
@@ -258,8 +281,9 @@
 //
 // A Host connects a Tree to a platform window: WakeEvent applies state
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent
-// runs Frame, rasterizes at the window scale into a reused framebuffer,
-// presents and runs the passive effects (Animate runs first);
+// runs Frame, brings its framebuffer to the frame (RasterizeFrame; fully
+// after a new size or scale), presents it with the damage and runs the
+// passive effects (Animate runs first);
 // PointerEvent goes to HandlePointer, ScrollEvent to HandleScroll,
 // KeyEvent to HandleKey and FocusEvent to
 // SetWindowFocused (a Host starts with an unfocused window), and the
@@ -270,8 +294,9 @@
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed. Render does everything
-// without a window and returns the display list and the image; Inspect
-// returns the laid-out box tree as plain data.
+// without a window and returns the display list and the image (a full
+// rasterization, the reference); Inspect returns the laid-out box tree as
+// plain data.
 //
 // # Threads
 //

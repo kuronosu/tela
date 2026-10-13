@@ -137,3 +137,48 @@ func copyRect(dst, src *image.RGBA, rect image.Rectangle) {
 		copy(dst.Pix[dst.PixOffset(rect.Min.X, y):][:n], src.Pix[src.PixOffset(rect.Min.X, y):][:n])
 	}
 }
+
+// BackdropRegion returns the device pixels that a render of region (a
+// rectangle inside bounds, the destination's pixels) must cover so that
+// its backdrop filters read only pixels the same render paints: region
+// grown, until nothing changes, by the read bounds of every backdrop
+// filter that spreads pixels (a blur, a drop shadow) and whose output can
+// reach the grown region, clipped to bounds. The pixels of the grown
+// region rendered with Options.Region are those of a full render, and
+// rendering it costs its area instead of the whole frame.
+//
+// A backdrop filter inside a layer with filters reads that layer's surface,
+// whose extent depends on the region; when one can reach the region,
+// BackdropRegion returns bounds (the whole frame), the previous behavior.
+func BackdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rectangle) image.Rectangle {
+	if scale == 0 {
+		scale = 1
+	}
+	region = region.Intersect(bounds)
+	if dl == nil || dl.BackdropReach() <= 0 || region.Empty() {
+		return region
+	}
+	s := float64(scale)
+	dev := func(r gfx.Rect) image.Rectangle {
+		return pixelBounds(float64(r.X0)*s, float64(r.Y0)*s, float64(r.X1)*s, float64(r.Y1)*s)
+	}
+	for changed := true; changed; {
+		changed = false
+		for k := range dl.NumBackdrops() {
+			i, read, reach, inFilter := dl.Backdrop(k)
+			if reach <= 0 || !dev(dl.BoundsAt(i)).Overlaps(region) {
+				continue
+			}
+			if inFilter {
+				return bounds
+			}
+			rd := dev(read).Intersect(bounds)
+			if rd.Empty() || rd.In(region) {
+				continue
+			}
+			region = region.Union(rd)
+			changed = true
+		}
+	}
+	return region
+}

@@ -225,6 +225,12 @@ type BackdropFilter struct {
 	Filters []Filter
 }
 
+// Marker is a placeholder: it paints nothing and stands for content
+// recorded in another list (a layer), which Builder.AppendList replaces it
+// with through its callback. Rasterizers ignore it. Its bounds are the clip
+// active where it was recorded, so the blocks around it are kept.
+type Marker struct{ ID uint32 }
+
 func (FillRect) isCommand()       {}
 func (FillRRect) isCommand()      {}
 func (FillPath) isCommand()       {}
@@ -240,6 +246,7 @@ func (PopTransform) isCommand()   {}
 func (PushLayer) isCommand()      {}
 func (PopLayer) isCommand()       {}
 func (BackdropFilter) isCommand() {}
+func (Marker) isCommand()         {}
 
 // Name implementations.
 func (FillRect) Name() string       { return "FillRect" }
@@ -257,6 +264,7 @@ func (PopTransform) Name() string   { return "PopTransform" }
 func (PushLayer) Name() string      { return "PushLayer" }
 func (PopLayer) Name() string       { return "PopLayer" }
 func (BackdropFilter) Name() string { return "BackdropFilter" }
+func (Marker) Name() string         { return "Marker" }
 
 // stackKind identifies the kind of push/pop pair.
 type stackKind uint8

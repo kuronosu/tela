@@ -8,10 +8,13 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
 	"github.com/kuronosu/tela/internal/style"
+	"github.com/kuronosu/tela/internal/text"
 )
 
-// Paint phase (ARCHITECTURE sections 8 and 13). One display list holds the
-// whole tree for now; layers and repaint boundaries arrive in phase 4.
+// Paint phase (ARCHITECTURE sections 8 and 13): how boxes are painted.
+// The paint phase records them into layers and composes the frame from
+// them (layer.go, whose top comment describes layers, composition and
+// damage); place (below) prepares the geometry first.
 //
 // # What a box paints
 //
@@ -43,14 +46,17 @@ import (
 // # Scroll containers
 //
 // The content and in-flow children of a scroll container (scroll.go) are
-// painted moved by its scroll offset, snapped to device pixels, under its
-// overflow clip, which leaves out the classic scrollbar gutters; its
+// painted under its overflow clip, which leaves out the classic scrollbar
+// gutters, and moved by its scroll offset, snapped to device pixels; its
 // scrollbars (scrollbar.go) are painted after everything it paints itself,
-// before its outline. The positions are absolute (place): each box is
-// moved by the offsets of the scroll containers on its containing-block
-// chain, so an absolutely positioned descendant whose containing block is
-// outside a scroll container does not scroll with it (CSS), and fixed
-// boxes never move with the root.
+// before its outline. Every box is painted at its layout position without
+// the scroll offsets (Box.u), in the scroll space of the nearest scroll
+// container with a content layer on its containing-block chain
+// (Box.space): the painter opens a chunk of that space where needed
+// (layer.go: enter), and the compositor moves it by the offsets, so an
+// absolutely positioned descendant whose containing block is outside a
+// scroll container does not scroll with it (CSS), and fixed boxes never
+// move with the root.
 //
 // # Stacking (ARCHITECTURE section 13, simplified CSS 2 appendix E)
 //
@@ -93,8 +99,10 @@ import (
 //
 // Like Chromium, the border box of every box is snapped to device pixels
 // before its decorations are painted: each edge, in absolute logical
-// coordinates (the coordinates of the enclosing transform's space under a
-// transform), becomes round(edge × scale) / scale, rounding halves up, so
+// coordinates without the scroll offsets (the coordinates of the enclosing
+// transform's space under a transform; the offsets are whole device
+// pixels, so snapping commutes with them), becomes round(edge × scale) /
+// scale, rounding halves up, so
 // a box keeps whole device pixels and adjacent boxes stay adjacent.
 // Border and outline widths are snapped like CSS line widths: a width of
 // at least one device pixel is floored to whole device pixels, a smaller
@@ -112,6 +120,17 @@ type painter struct {
 	// painted; each stacking context uses the part it appended.
 	items []paintItem
 	clips []*Box // scratch for hoisted boxes' ancestor clips
+	// full: place prepares a full recording (layer.go).
+	full bool
+	// The list being recorded (layer.go): the scroll space it is painted
+	// in, its interest rect, whether boxes outside the interest rect are
+	// skipped, its layer, and the lists of the enclosing layers.
+	space    *scroller
+	interest gfx.Rect
+	cull     bool
+	layer    *layer
+	targets  []target
+	acts     []uint8 // scratch of paintHoisted
 }
 
 // paintItem is a box painted by its stacking context out of tree order.
@@ -120,83 +139,214 @@ type paintItem struct {
 	z  int32
 }
 
-// paintPhase paints the tree into a new display list.
-func (t *Tree) paintPhase() *gfx.DisplayList {
-	t.stats.Paints++
-	// T7b hook-in: t.paintQ holds the boxes whose paint-phase reads
-	// changed (markPaint); with layers, only the layers (repaint
-	// boundaries) that contain them, and the layers whose boxes were laid
-	// out or restyled, need a new display list. Until then the whole tree
-	// is painted again.
-	for _, b := range t.paintQ {
-		b.needsPaint = false
-	}
-	clear(t.paintQ)
-	t.paintQ = t.paintQ[:0]
-	b := t.builder
-	if t.rootBox != nil && t.rootBox.cs != nil {
-		b.FillRect(gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}, t.CanvasColor())
-		p := painter{t: t, b: b, scale: float64(t.scale)}
-		p.place(t.rootBox, nil)
-		p.paintStacked(t.rootBox)
-	}
-	return b.Finish()
-}
-
-// place records, for bx and its subtree, the paint-phase style and the
-// absolute (unsnapped) border box where it is painted: its layout
-// position moved by the scroll offsets of the scroll containers on its
-// containing-block chain (shift). parent is bx's layout parent, placed
-// already (nil for the root).
+// place records, for bx and its subtree, the paint-phase style, the
+// unsnapped border box where it is painted (u: its layout position,
+// without the scroll offsets) and the scroll space it is painted in (the
+// nearest scroll container with a content layer on its containing-block
+// chain, layer.go), and its ink and hit bounds. parent is bx's layout
+// parent, placed already (nil for the root).
 func (p *painter) place(bx *Box, parent *Box) {
 	if bx.ls.Display == layout.DisplayNone {
 		return
 	}
+	t := p.t
 	l := bx.ld.Layout()
 	bx.pcs = bx.cs
 	if bx.deferPaint {
 		// The paint-phase deferred props, evaluated on every paint of
 		// the box; the Values they read repaint it when they change.
-		bx.pcs = p.t.resolveDeferred(bx, style.PhasePaint)
+		bx.pcs = t.resolveDeferred(bx, style.PhasePaint)
 	}
 	loc := l.Location
-	var shift gfx.Point
+	var space *scroller
 	if parent != nil {
-		// The layout position, unscrolled, then the shift of the
-		// containing block (its own and its offset): an in-flow box
-		// moves with its parent's content, an absolute one with its
-		// containing block's, a fixed one never with the root's.
-		loc = loc.Add(parent.abs.Origin()).Add(parent.shift)
-		if cb := containingBlock(bx); cb != nil && (bx.pcs.Position != style.PositionFixed || cb != p.t.rootBox) {
-			shift = cb.shift
-			if cb.scr != nil {
-				shift = shift.Add(cb.scr.soff)
-			}
+		// The layout position; the scroll space of the containing block
+		// (its own content's, when it is a scroll container with a
+		// content layer): an in-flow box moves with its parent's content,
+		// an absolute one with its containing block's, a fixed one never
+		// with the root's.
+		loc = loc.Add(parent.u.Origin())
+		if cb := containingBlock(bx); cb != nil && (bx.pcs.Position != style.PositionFixed || cb != t.rootBox) {
+			space = contentSpace(cb)
 		}
 	}
-	bx.shift = shift
-	bx.abs = gfx.RectFromOriginSize(loc.Sub(shift), l.Size)
+	bx.space = space
+	bx.u = gfx.RectFromOriginSize(loc, l.Size)
 	if s := bx.scr; s != nil {
-		// The painted offset, snapped to device pixels like box edges.
-		off := gfx.Point{X: p.snap(s.pos.X), Y: p.snap(s.pos.Y)}
-		if off != s.soff {
-			s.soff = off
-			p.t.scr.moved = true
-		}
+		p.offset(s)
+		p.placeScroller(bx, s)
 	}
-	sub := bx.abs
+	if bx.deferPaint {
+		bx.layerSC = bx != t.rootBox && stacking(bx)
+	}
+	// The hit bounds are in the coordinates of bx's scroll space: the
+	// children in it count as they are, the content of bx's content layer
+	// as bx's scrollport (it clips them), and children in other spaces
+	// (boxes that escape a scroll container) make them unbounded.
+	sub := bx.u
+	ink := p.selfInk(bx)
+	part, content := false, false
+	chunked := bx.scr != nil && bx.scr.chunked
 	for _, k := range bx.kids {
 		p.place(k, bx)
-		if k.ls.Display != layout.DisplayNone {
+		if k.ls.Display == layout.DisplayNone {
+			continue
+		}
+		switch {
+		case k.space == bx.space:
 			sub = sub.Union(k.hitBounds)
+		case chunked && k.space == bx.scr && k.hitBounds != unbounded:
+			content = true
+		default:
+			sub = unbounded
+		}
+		pk := participant(k)
+		part = part || pk || k.hasPart
+		switch {
+		case pk:
+		case chunked:
+			content = true
+		default:
+			ink = ink.Union(k.ink)
 		}
 	}
-	// Grown by one pixel for the snapping of the painted edges.
-	sub = sub.Outset(1)
-	if bx != p.t.rootBox && !bx.pcs.Transform.IsIdentity() {
-		sub = bx.pcs.Transform.Matrix(bx.abs).TransformRect(sub)
+	if content {
+		pad := paddingRect(bx.u, l)
+		ink = ink.Union(pad)
+		if sub != unbounded {
+			sub = sub.Union(pad)
+		}
 	}
-	bx.hitBounds = sub
+	bx.ink, bx.hasPart = ink, part
+	if sub != unbounded {
+		// Grown by one pixel for the snapping of the painted edges.
+		sub = sub.Outset(1)
+	}
+	bx.hitSub = sub
+	bx.hitBounds = hitBounds(bx)
+}
+
+// unbounded is the hit bounds of a subtree that cannot be culled.
+var unbounded = gfx.Rect{X0: -1e30, Y0: -1e30, X1: 1e30, Y1: 1e30}
+
+// hitBounds returns the hit bounds of bx from those of its subtree:
+// transformed by its transform.
+func hitBounds(bx *Box) gfx.Rect {
+	if bx.hitSub == unbounded || bx == bx.tree.rootBox || bx.pcs.Transform.IsIdentity() {
+		return bx.hitSub
+	}
+	return bx.pcs.Transform.Matrix(bx.u).TransformRect(bx.hitSub)
+}
+
+// offset snaps the painted offset of s to device pixels, like box edges,
+// and decides whether its content moves (a content layer).
+func (p *painter) offset(s *scroller) {
+	off := gfx.Point{X: p.snap(s.pos.X), Y: p.snap(s.pos.Y)}
+	if off != s.soff {
+		s.soff = off
+		p.t.scr.moved = true
+	}
+	s.chunked = s.max.X > 0 || s.max.Y > 0 || off != (gfx.Point{})
+}
+
+// update places again, on a frame that only repaints, what can change
+// without a build, a restyle or a layout: the boxes in marked, the scroll
+// containers whose offsets or bars changed (setScroll and the bars mark
+// them) and the boxes with paint-phase deferred props (whose hit bounds
+// grow their ancestors'). It sets lay.needFull when the layers
+// must be recorded again (a scroll container whose visible content left
+// its interest rect), and lay.needPlace too when the boxes must be placed
+// again first (a scroll container whose content starts or stops moving, a
+// box that starts or stops being a layer of its own: scroll spaces and
+// stacking change).
+func (p *painter) update(marked []*Box) {
+	t := p.t
+	for _, bx := range marked {
+		if s := bx.scr; s != nil && bx.pcs != nil {
+			p.offset(s)
+			p.placeScroller(bx, s)
+		}
+	}
+	for _, bx := range marked {
+		if !bx.deferPaint || bx.pcs == nil || bx == t.rootBox || !t.inTree(bx) {
+			continue
+		}
+		bx.pcs = t.resolveDeferred(bx, style.PhasePaint)
+		if stacking(bx) != bx.layerSC {
+			t.lay.needFull, t.lay.needPlace = true, true
+			return
+		}
+		// The new hit bounds, and those of the ancestors in the same
+		// space (they only grow: bounds that are too large cull less).
+		hb := hitBounds(bx)
+		bx.hitBounds = hb
+		for c, a := bx, bx.parent; a != nil && hb != unbounded; c, a = a, a.parent {
+			if c.space != a.space || a.hitSub.ContainsRect(hb) {
+				break // a scrollport (unchanged) or nothing new
+			}
+			a.hitSub = a.hitSub.Union(hb)
+			hb = hitBounds(a)
+			a.hitBounds = hb
+		}
+	}
+}
+
+// paddingRect returns the padding box of a box whose border box is r.
+func paddingRect(r gfx.Rect, l *layout.Layout) gfx.Rect {
+	return r.InsetEdges(l.Border.Left, l.Border.Top, l.Border.Right, l.Border.Bottom)
+}
+
+// selfInk returns a rectangle (u coordinates) that contains what bx
+// paints itself: its border box, outer shadows, outline and text.
+func (p *painter) selfInk(bx *Box) gfx.Rect {
+	// The result of the previous place, when nothing it depends on
+	// changed (most boxes, most frames).
+	key := inkKey{u: bx.u, cs: bx.pcs, chunked: bx.scr != nil && bx.scr.chunked}
+	if bx.mode == modeParagraph && bx.para != nil {
+		key.lay = bx.para.lay
+		key.content = contentRect(bx.u, bx.ld.Layout())
+	}
+	if key == bx.inkKey {
+		return bx.selfInkRect
+	}
+	r := p.computeSelfInk(bx)
+	bx.inkKey, bx.selfInkRect = key, r
+	return r
+}
+
+// inkKey is what selfInk depends on.
+type inkKey struct {
+	u, content gfx.Rect
+	cs         *style.ComputedStyle
+	lay        *text.Layout
+	chunked    bool
+}
+
+func (p *painter) computeSelfInk(bx *Box) gfx.Rect {
+	cs := bx.pcs
+	r := bx.u.Outset(1)
+	if cs.Visibility != style.VisibilityVisible {
+		return r
+	}
+	for i := range cs.BoxShadows {
+		if sh := &cs.BoxShadows[i]; !sh.Inset {
+			r = r.Union(bx.u.Translate(sh.OffsetX, sh.OffsetY).Outset(max(sh.Spread, 0) + 1.5*max(sh.Blur, 0) + 2))
+		}
+	}
+	if o := &cs.Outline; o.Width > 0 {
+		r = r.Union(bx.u.Outset(max(o.Offset, 0) + o.Width + 2))
+	}
+	if bx.mode == modeParagraph && bx.para != nil && bx.para.lay != nil {
+		l := bx.ld.Layout()
+		if s := bx.scr; s != nil && s.chunked {
+			// The text is in the box's content layer, behind its clip.
+			return r.Union(paddingRect(bx.u, l))
+		}
+		c := contentRect(bx.u, l)
+		bx.para.prepare(p.t, max(c.Width(), 0))
+		r = r.Union(bx.para.inkRect(c.Origin()))
+	}
+	return r
 }
 
 // ---------------------------------------------------------------------
@@ -244,7 +394,8 @@ func participant(bx *Box) bool {
 
 // collect appends to p.items the participants of the stacking context
 // whose descendants are under bx, in tree order: it does not look inside
-// stacking contexts, but it does inside positioned boxes without one.
+// stacking contexts, but it does inside positioned boxes without one, and
+// skips subtrees without participants (hasPart).
 func (p *painter) collect(bx *Box) {
 	for _, k := range bx.kids {
 		if k.ls.Display == layout.DisplayNone {
@@ -256,14 +407,33 @@ func (p *painter) collect(bx *Box) {
 				continue
 			}
 		}
-		p.collect(k)
+		if k.hasPart {
+			p.collect(k)
+		}
 	}
 }
 
 // paintStacked paints the stacking context bx (or the root) and every box
-// of its stacking context.
+// of its stacking context. A stacking context with paint-phase deferred
+// props is a layer (layer.go): its effects are pushed by the compositor,
+// so that a change of them only composites again.
 func (p *painter) paintStacked(bx *Box) {
-	pops := p.pushEffects(bx)
+	cull := p.cull
+	deferred := bx.layerSC && bx.deferPaint && bx != p.t.rootBox
+	pops := 0
+	if deferred {
+		// The layer moves without being recorded again: everything in
+		// it is recorded.
+		p.openLayer(layerDeferred, bx, p.space)
+		p.cull = false
+	} else {
+		pops = p.pushEffects(bx)
+		if cs := bx.pcs; bx != p.t.rootBox && (!cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() || !cs.BackdropFilter.IsEmpty()) {
+			// The interest rects are untransformed, and filters pull in
+			// what is around: no culling inside.
+			p.cull = false
+		}
+	}
 	p.paintSelf(bx)
 	start := len(p.items)
 	p.collect(bx)
@@ -280,12 +450,22 @@ func (p *painter) paintStacked(bx *Box) {
 	p.items = p.items[:start]
 	p.paintScrollbars(bx)
 	p.paintOutline(bx)
-	p.popEffects(pops)
+	if deferred {
+		p.closeLayer()
+	} else {
+		p.popEffects(pops)
+	}
+	p.cull = cull
 }
 
 // paintHoisted paints a participant e of the stacking context root, under
-// the overflow clips of its ancestors on its containing-block chain.
+// the overflow clips of its ancestors on its containing-block chain. Each
+// clip is pushed in the scroll space of its box, and e is painted in its
+// own (layer.go: enter).
 func (p *painter) paintHoisted(root, e *Box) {
+	if p.cull && !stacking(e) && !e.ink.Intersects(p.interestOf(e.space)) {
+		return // outside the recorded part of its layer
+	}
 	start := len(p.clips)
 	cb := containingBlock(e)
 	for a := e.parent; a != nil; a = a.parent {
@@ -300,12 +480,18 @@ func (p *painter) paintHoisted(root, e *Box) {
 		}
 	}
 	clips := p.clips[start:]
-	n := 0
+	astart := len(p.acts)
 	for i := len(clips) - 1; i >= 0; i-- {
-		if p.pushOverflowClip(clips[i]) {
-			n++
+		var act uint8
+		if p.enter(clips[i].space, clips[i]) {
+			act |= 1
 		}
+		if p.pushOverflowClip(clips[i]) {
+			act |= 2
+		}
+		p.acts = append(p.acts, act)
 	}
+	entered := p.enter(e.space, e)
 	if stacking(e) {
 		p.paintStacked(e)
 	} else {
@@ -314,9 +500,18 @@ func (p *painter) paintHoisted(root, e *Box) {
 		p.paintScrollbars(e)
 		p.paintOutline(e)
 	}
-	for ; n > 0; n-- {
-		p.b.PopClip()
+	if entered {
+		p.leave()
 	}
+	for k := len(p.acts) - 1; k >= astart; k-- {
+		if p.acts[k]&2 != 0 {
+			p.b.PopClip()
+		}
+		if p.acts[k]&1 != 0 {
+			p.leave()
+		}
+	}
+	p.acts = p.acts[:astart]
 	p.clips = p.clips[:start]
 }
 
@@ -342,9 +537,13 @@ func containingBlock(bx *Box) *Box {
 	return bx.parent
 }
 
-// paintFlow paints an in-flow box that is not a participant, atomically.
+// paintFlow paints an in-flow box that is not a participant, atomically,
+// unless it is outside the interest rect of the list being recorded.
 func (p *painter) paintFlow(bx *Box) {
 	if bx.ls.Display == layout.DisplayNone || participant(bx) {
+		return
+	}
+	if p.cull && !bx.ink.Intersects(p.interest) {
 		return
 	}
 	p.paintSelf(bx)
@@ -354,21 +553,23 @@ func (p *painter) paintFlow(bx *Box) {
 }
 
 // paintInner paints the content and the in-flow children of bx, clipped
-// by its overflow clip.
-//
-// T7b hook: a scroll container (bx.scr != nil) is a repaint boundary and
-// a layer candidate. Its content and in-flow children could be painted
-// once into a layer in content coordinates and composited at its scroll
-// offset under this clip, so that a scroll frame only composites (place
-// would then position its subtree relative to the container instead of
-// moving every descendant).
+// by its overflow clip. The content of a scroll container that can move
+// is its content layer (layer.go): painted unscrolled in a list of its
+// own, which the compositor moves by the scroll offset.
 func (p *painter) paintInner(bx *Box) {
 	clipped := clipsOverflow(bx.pcs) && p.pushOverflowClip(bx)
+	entered := false
+	if s := bx.scr; s != nil && s.chunked {
+		entered = p.enter(s, bx)
+	}
 	if bx.pcs.Visibility == style.VisibilityVisible {
 		p.paintContent(bx)
 	}
 	for _, k := range bx.kids {
 		p.paintFlow(k)
+	}
+	if entered {
+		p.leave()
 	}
 	if clipped {
 		p.b.PopClip()
@@ -393,7 +594,7 @@ func (p *painter) pushEffects(bx *Box) int {
 	cs := bx.pcs
 	pops := 0
 	if !cs.Transform.IsIdentity() {
-		p.b.PushTransform(cs.Transform.Matrix(bx.abs))
+		p.b.PushTransform(cs.Transform.Matrix(p.rect(bx)))
 		pops |= pushedTransform
 	}
 	if !cs.BackdropFilter.IsEmpty() && cs.Visibility == style.VisibilityVisible {
@@ -531,11 +732,14 @@ func (p *painter) snapWidth(w float32) float32 {
 	return float32(math.Floor(d) / p.scale)
 }
 
+// rect returns the unsnapped border box of bx where it is painted (u).
+func (p *painter) rect(bx *Box) gfx.Rect { return bx.u }
+
 // geom returns the snapped geometry of bx.
 func (p *painter) geom(bx *Box) boxGeom {
 	cs := bx.pcs
 	var g boxGeom
-	r := p.snapRect(bx.abs)
+	r := p.snapRect(p.rect(bx))
 	w, h := r.Width(), r.Height()
 	rd := &cs.Radius
 	g.border = gfx.RRect{Rect: r, Radii: [4]gfx.Point{
@@ -595,12 +799,10 @@ func (p *painter) paintContent(bx *Box) {
 		if para == nil || para.lay == nil {
 			return
 		}
-		c := contentRect(bx.abs, l)
+		// A paragraph that scrolls its own text paints it unscrolled in
+		// its content layer (paintInner).
+		c := contentRect(p.rect(bx), l)
 		para.prepare(p.t, max(c.Width(), 0))
-		if s := bx.scr; s != nil {
-			// A paragraph that scrolls its own text.
-			c = c.Translate(-s.soff.X, -s.soff.Y)
-		}
 		para.lay.Paint(p.b, c.Origin())
 	case modeImage:
 		if bx.img == nil {

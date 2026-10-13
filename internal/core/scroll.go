@@ -31,15 +31,17 @@ import (
 // box pulls them back), and a box that leaves the box tree (display:
 // none) loses them, as in browsers.
 //
-// The paint phase moves the content of a scroll container by its offset,
-// snapped to device pixels, under its overflow clip; the absolute
-// geometry of every box (paint.go's place) is where it is painted, so
-// hit-testing, LocalX/LocalY and the hit bounds agree with the pixels.
-// A descendant moves with the scroll containers on its containing-block
-// chain: an absolutely positioned box whose containing block is outside
-// the container does not scroll (CSS). Until layers arrive (T7b) a scroll
-// repaints the whole tree; a scroll container is the natural repaint
-// boundary there (see paintInner).
+// The content of a scroll container that can move is its content layer
+// (layer.go): painted at its unscrolled position in a list of its own,
+// under the container's overflow clip, and moved by the offset, snapped
+// to device pixels, when the frame is composed, so a scroll records
+// nothing and shifts the pixels it can. A descendant moves with the
+// scroll containers on its containing-block chain (its scroll space,
+// Box.space): an absolutely positioned box whose containing block is
+// outside the container does not scroll (CSS). Hit-testing, LocalX/LocalY
+// and the hit bounds work in the same unscrolled coordinates, the point
+// moved into each box's scroll space (hit.go), so they agree with the
+// pixels.
 //
 // # The viewport
 //
@@ -205,6 +207,14 @@ type scroller struct {
 	fling [2]axisFling
 	// soff is the offset of the last paint, snapped to device pixels.
 	soff gfx.Point
+	// Layers (layer.go). chunked reports a content layer: the content can
+	// move (it overflows, or the offset is not zero). interest is the
+	// part of the content recorded in it (u coordinates), recGen the
+	// recording generation that recorded it and chunkedRec the chunked
+	// state of that recording.
+	chunked, chunkedRec bool
+	interest            gfx.Rect
+	recGen              uint64
 	// eventPending: OnScroll fires at the next frame. syncPending: the
 	// UseScroll values follow after the frame.
 	eventPending, syncPending bool
@@ -1154,12 +1164,18 @@ const maxGutterPasses = 3
 // changed (laying out again), measures the virtual lists and moves their
 // windows (virtual.go; building and laying out again), and scrolls the
 // focused element and the pending ScrollIntoView targets into view, after
-// which the virtual lists that moved are settled again.
-func (t *Tree) scrollPhase() {
+// which the virtual lists that moved are settled again. laidOut reports a
+// layout in this frame; without one the extents and gutters are those of
+// the last layout (a frame that only repaints, such as a scroll, does not
+// visit the thousands of overflow-hidden boxes of a long list). It reports
+// whether the frame was laid out, before or here.
+func (t *Tree) scrollPhase(laidOut bool) bool {
 	if len(t.scr.list) == 0 && t.scr.reveal == nil && len(t.scr.intoView) == 0 && len(t.virt.lists) == 0 {
-		return
+		return laidOut
 	}
-	t.settleScroll(0)
+	if laidOut || len(t.virt.lists) > 0 {
+		laidOut = t.settleScroll(0, laidOut) || laidOut
+	}
 	revealed := false
 	if el := t.scr.reveal; el != nil {
 		t.scr.reveal = nil
@@ -1178,22 +1194,29 @@ func (t *Tree) scrollPhase() {
 	}
 	t.scr.intoView = nil
 	if revealed && len(t.virt.lists) > 0 {
-		t.settleScroll(1)
+		laidOut = t.settleScroll(1, laidOut) || laidOut
 	}
+	return laidOut
 }
 
 // settleScroll updates the extents and the classic gutters, laying out
 // again while a gutter changes (the first pass may drop gutters, later
 // ones only add them), and runs the virtual lists' passes, building and
 // laying out again while one asks for it, up to maxVirtualPasses; a list
-// that did not settle goes on in the next frame.
-func (t *Tree) settleScroll(firstPass int) {
+// that did not settle goes on in the next frame. Without a layout before
+// (laidOut) and until a pass lays out, the extents and gutters are kept.
+// It reports whether it laid out.
+func (t *Tree) settleScroll(firstPass int, laidOut bool) bool {
 	vpasses := 0
+	relaid := false
 	for pass := firstPass; ; pass++ {
-		for _, s := range t.scr.list {
-			t.extents(s)
+		gutters := false
+		if laidOut || relaid {
+			for _, s := range t.scr.list {
+				t.extents(s)
+			}
+			gutters = pass < maxGutterPasses && t.updateGutters(pass)
 		}
-		gutters := pass < maxGutterPasses && t.updateGutters(pass)
 		virt := false
 		if len(t.virt.lists) > 0 {
 			if vpasses == maxVirtualPasses {
@@ -1209,8 +1232,9 @@ func (t *Tree) settleScroll(firstPass int) {
 		case gutters:
 			t.layoutPhase()
 		default:
-			return
+			return relaid
 		}
+		relaid = true
 	}
 }
 

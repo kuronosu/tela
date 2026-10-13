@@ -91,18 +91,35 @@ type Box struct {
 	inPara *Box
 
 	// Paint pass scratch state (painter.place): the paint-phase style and
-	// the absolute, unsnapped border box.
-	pcs *style.ComputedStyle
-	abs gfx.Rect
+	// the unsnapped border box where it is painted (u: its layout
+	// position without the scroll offsets, in the coordinates of the
+	// scroll space it is painted in; see layer.go). space is that scroll
+	// space: the nearest scroll container with a content layer on the
+	// box's containing-block chain (nil for the window).
+	pcs   *style.ComputedStyle
+	u     gfx.Rect
+	space *scroller
 	// hitBounds contains everything the box and its descendants paint
 	// that can be hit (their border boxes, transformed), in the
-	// coordinates abs is in, after the box's own transform: a hit test
-	// skips a subtree whose bounds miss the point (hit.go).
-	hitBounds gfx.Rect
-	// shift is how far the scroll containers on the box's
-	// containing-block chain moved it: abs is its layout position minus
-	// shift (paint.go's place).
-	shift gfx.Point
+	// coordinates of its scroll space, after the box's own transform
+	// (hitSub before it): a hit test skips a subtree whose bounds miss
+	// the point (hit.go).
+	hitBounds, hitSub gfx.Rect
+	// ink contains what the box paints in flow (painter.paintFlow: its
+	// decorations, content, scrollbars and outline, and its in-flow
+	// descendants, or the scrollport of a scroller's content layer), in u
+	// coordinates: layers skip boxes whose ink misses their interest rect
+	// (layer.go). hasPart reports positioned or stacking descendants
+	// (painter.collect skips subtrees without them).
+	ink     gfx.Rect
+	hasPart bool
+	// layerSC reports whether the box is a layer of its own (a stacking
+	// context with paint-phase deferred props, layer.go) at the last full
+	// recording.
+	layerSC bool
+	// inkKey and selfInkRect cache painter.selfInk.
+	inkKey      inkKey
+	selfInkRect gfx.Rect
 
 	// scr is the scroll state of a scroll container (scroll.go).
 	scr *scroller
@@ -253,6 +270,11 @@ type paragraph struct {
 	// the box has no line boxes, as in CSS.
 	empty bool
 	lay   *text.Layout
+	// em is the largest font size of the text, and ink the bounds of the
+	// lines (relative to the content box) for the lines of inkAt (ink).
+	em    float32
+	ink   gfx.Rect
+	inkAt [3]float32
 
 	// brokeAt is the width of the last BreakLines (+Inf after NewLayout)
 	// and alignedAt the width of the last alignment.
@@ -313,6 +335,29 @@ func (p *paragraph) prepare(t *Tree, w float32) {
 		return
 	}
 	p.breakAt(t, w)
+}
+
+// inkRect returns a rectangle that contains what the paragraph paints for
+// a content box at origin c, its lines prepared (prepare): the extent of
+// the lines grown by twice the largest font size (glyphs overhang their
+// line boxes, ascenders, accents and emoji included).
+func (p *paragraph) inkRect(c gfx.Point) gfx.Rect {
+	if p.lay == nil || p.empty {
+		return gfx.Rect{}
+	}
+	key := [3]float32{p.brokeAt, p.alignedAt, 1}
+	if p.inkAt != key {
+		l := p.lay
+		r := gfx.Rect{X0: 0, Y0: 0, X1: l.Width(), Y1: l.Height()}
+		for i := range l.NumLines() {
+			ln := l.Line(i)
+			r.X0 = min(r.X0, ln.X)
+			r.X1 = max(r.X1, ln.X+ln.Width+ln.Hanging)
+			r.Y1 = max(r.Y1, ln.Top+ln.Height)
+		}
+		p.ink, p.inkAt = r.Outset(2*p.em+1), key
+	}
+	return p.ink.Translate(c.X, c.Y)
 }
 
 // measure implements the layout.Measurer contract for the paragraph: the
@@ -472,6 +517,11 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	a.setTargets(p)
 	a.setSources(b)
 	p.text, p.pstyle, p.def, p.empty = s, pstyle, def, empty
+	p.em = def.Size
+	for i := range spans {
+		p.em = max(p.em, spans[i].Style.Size)
+	}
+	p.inkAt = [3]float32{}
 	p.spans = slices.Clone(spans)
 	p.boxes = slices.Clone(a.boxes)
 	p.lay = nil
