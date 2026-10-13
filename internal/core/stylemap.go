@@ -57,7 +57,16 @@ func (t *Tree) restyle(el *Element) {
 	})
 	old := bx.cs
 	bx.cs = cs
-	bx.deferred = len(cs.Deferred) > 0
+	bx.deferLayout, bx.deferPaint = hasPhase(cs, style.PhaseLayout), hasPhase(cs, style.PhasePaint)
+	// Values read by deferred props the style no longer has stop
+	// invalidating the box; the others are tracked again when the props
+	// are evaluated (remap, paint).
+	if !bx.deferLayout {
+		dropObserver(bx.layoutObs)
+	}
+	if !bx.deferPaint {
+		dropObserver(bx.paintObs)
+	}
 	if !bx.restyled {
 		bx.restyled = true
 		t.restyled = append(t.restyled, bx)
@@ -230,6 +239,14 @@ func (t *Tree) remapPhase() {
 	}
 	clear(t.remapQ)
 	t.remapQ = t.remapQ[:0]
+	// Boxes whose layout-phase deferred props read a Value that changed
+	// (a box remapped above is evaluated twice, with the same result).
+	for _, b := range t.relayoutQ {
+		b.relayoutQueued = false
+		t.remapOne(b)
+	}
+	clear(t.relayoutQ)
+	t.relayoutQ = t.relayoutQ[:0]
 	if t.rootBox != nil && t.rootBox.cs != nil {
 		ls := mapLayoutStyle(t.rootBox, nil, false)
 		ls.Width, ls.Height = layout.Px(t.viewport.W), layout.Px(t.viewport.H)
@@ -277,10 +294,11 @@ func inFlow(cs *style.ComputedStyle) bool {
 //     theirs are zero.
 func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	cs := b.cs
-	if b.deferred {
-		// perf: phase 4 re-evaluates these when their values change
-		// (UseValue); until then they are read when the style changes.
-		cs = cs.Resolved(style.PhaseLayout)
+	if b.deferLayout {
+		// The layout-phase deferred props: evaluated when the style or
+		// the structure changes, and when a Value they read changes
+		// (Tree.remapOne).
+		cs = b.tree.resolveDeferred(b, style.PhaseLayout)
 	}
 	ls := layout0
 

@@ -200,6 +200,7 @@ const (
 	hookRef
 	hookContext
 	hookID
+	hookValue
 )
 
 var hookNames = [...]string{
@@ -212,6 +213,7 @@ var hookNames = [...]string{
 	hookRef:          "UseRef",
 	hookContext:      "UseContext",
 	hookID:           "UseId",
+	hookValue:        "UseValue",
 }
 
 func (k hookKind) String() string { return hookNames[k] }
@@ -301,6 +303,7 @@ func slotName(s any) string {
 	for _, r := range [...][2]string{
 		{"stateSlot", "UseState"}, {"reducerSlot", "UseReducer"}, {"memoSlot", "UseMemo"},
 		{"cbSlot", "UseCallback"}, {"Ref", "UseRef"}, {"ctxSlot", "UseContext"}, {"idSlot", "UseId"},
+		{"Value", "UseValue"},
 	} {
 		if rest, ok := strings.CutPrefix(name, r[0]); ok {
 			return r[1] + rest

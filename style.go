@@ -132,19 +132,28 @@ func FontWeight(w float32) StyleProp { return style.FontWeight(w) }
 func BoxShadow(layers ...Shadow) StyleProp { return style.BoxShadow(layers...) }
 
 // Phase-deferred props (ARCHITECTURE section 7). fn is called when the
-// phase that needs the value runs, not when the node is built, so a change
-// of the values it reads can invalidate only layout or paint. Read an
-// observable value inside fn (UseValue, phase 4) to drive drags, scroll
-// effects and progress bars without rebuilding components.
+// phase that needs the value runs, not when the node is built: when the
+// element's style or structure changes, and when a [Value] that fn read
+// the last time changes. Read a [UseValue] inside fn to drive drags,
+// scroll effects and progress bars without building components: a change
+// redoes only that element's layout (WidthFn, HeightFn) or paint
+// (TranslateFn, OpacityFn). fn runs on the UI thread and should only
+// compute the value.
 
-// TranslateFn defers Translate to the paint phase.
+// TranslateFn defers Translate to the paint phase: a change of the Values
+// fn reads repaints the element, without layout.
+//
+//	Style(tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 }))
 func TranslateFn(fn func() (x, y float32)) StyleProp { return style.TranslateFn(fn) }
 
-// OpacityFn defers Opacity to the paint phase.
+// OpacityFn defers Opacity to the paint phase: a change of the Values fn
+// reads repaints the element, without layout.
 func OpacityFn(fn func() float32) StyleProp { return style.OpacityFn(fn) }
 
-// WidthFn defers Width, in pixels, to the layout phase.
+// WidthFn defers Width, in pixels, to the layout phase: a change of the
+// Values fn reads lays the element out again, without building it.
 func WidthFn(fn func() float32) StyleProp { return style.WidthFn(fn) }
 
-// HeightFn defers Height, in pixels, to the layout phase.
+// HeightFn defers Height, in pixels, to the layout phase: a change of the
+// Values fn reads lays the element out again, without building it.
 func HeightFn(fn func() float32) StyleProp { return style.HeightFn(fn) }

@@ -43,6 +43,8 @@ type Element struct {
 	fx      []*effectSlot
 	// prov is the state of a Provider (a component without a function).
 	prov *providerState
+	// vobs holds the Values the last build read (value.go).
+	vobs *observer
 
 	// Text.
 	text string
@@ -492,7 +494,7 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 // unmount removes el and its subtree. Pending state updates for them are
 // dropped, effects that did not run yet never run, and the cleanups of
 // the effects that ran are handed to the next commit, parents first
-// (React's order); context subscriptions end.
+// (React's order); context and Value subscriptions end.
 func (t *Tree) unmount(el *Element) {
 	el.mounted = false
 	t.stats.Unmounts++
@@ -506,6 +508,7 @@ func (t *Tree) unmount(el *Element) {
 	}
 	el.hooks = nil
 	el.fx = nil
+	dropObserver(el.vobs)
 	if el.box != nil {
 		el.box.detach()
 	}

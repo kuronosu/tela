@@ -37,7 +37,8 @@
 //
 // Values that change every frame (a drag position, a progress bar) can be
 // deferred to a later phase with [TranslateFn], [OpacityFn], [WidthFn] and
-// [HeightFn]. Colors are extended sRGB; see [Color].
+// [HeightFn]: a [UseValue] read inside them redoes only that element's
+// layout or paint when it changes. Colors are extended sRGB; see [Color].
 //
 // # Components
 //
@@ -67,13 +68,25 @@
 //     mutable box.
 //   - [CreateContext] and [UseContext] pass values down the tree.
 //   - [UseId] gives a stable unique ID.
+//   - [UseValue] holds an observable [Value] for what changes every
+//     frame: read in the component's body, a change builds it again; read
+//     inside a deferred style closure, a change only lays out or repaints
+//     that element.
+//
+// A Value moved from a handler or a goroutine repaints only the element
+// whose closure reads it:
+//
+//	pos := tela.UseValue(0.0)
+//	Div(Class("size-8 rounded-full bg-indigo-500"),
+//	    Style(tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 })))
+//	// later, from anywhere: pos.Set(120)
 //
 // Hooks follow React's rules: call them at the top level of a component
 // function, in the same order on every build, never inside conditions or
 // loops. A hook called outside a component build panics with an
 // explanation; in dev mode (TELA_DEV=1) a change of the hook order panics
 // with both call sites. Everything runs on the UI thread except the
-// Setter and Dispatcher methods and [Post], which are safe from any
+// Setter, Dispatcher and Value methods and [Post], which are safe from any
 // goroutine.
 //
 // # Snapshots and inspection
@@ -85,8 +98,8 @@
 // # Stability
 //
 // [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
-// [GradientStop], [Setter], [Dispatcher], [Callback], [Ref] and [Context]
-// are aliases of types defined in Tela's internal packages
+// [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context] and
+// [Value] are aliases of types defined in Tela's internal packages
 // (the packages cannot be imported, but their exported fields and methods
 // are part of the API shown here). Construct them with the functions of
 // this package rather than with composite literals where one exists.

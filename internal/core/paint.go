@@ -111,6 +111,16 @@ type paintItem struct {
 // paintPhase paints the tree into a new display list.
 func (t *Tree) paintPhase() *gfx.DisplayList {
 	t.stats.Paints++
+	// T7b hook-in: t.paintQ holds the boxes whose paint-phase reads
+	// changed (markPaint); with layers, only the layers (repaint
+	// boundaries) that contain them, and the layers whose boxes were laid
+	// out or restyled, need a new display list. Until then the whole tree
+	// is painted again.
+	for _, b := range t.paintQ {
+		b.needsPaint = false
+	}
+	clear(t.paintQ)
+	t.paintQ = t.paintQ[:0]
 	b := t.builder
 	if t.rootBox != nil && t.rootBox.cs != nil {
 		b.FillRect(gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}, t.CanvasColor())
@@ -131,8 +141,10 @@ func (p *painter) place(bx *Box, origin gfx.Point) {
 	l := bx.ld.Layout()
 	bx.abs = gfx.RectFromOriginSize(origin.Add(l.Location), l.Size)
 	bx.pcs = bx.cs
-	if bx.deferred {
-		bx.pcs = bx.cs.Resolved(style.PhasePaint)
+	if bx.deferPaint {
+		// The paint-phase deferred props, evaluated on every paint of
+		// the box; the Values they read repaint it when they change.
+		bx.pcs = p.t.resolveDeferred(bx, style.PhasePaint)
 	}
 	o := bx.abs.Origin()
 	for _, k := range bx.kids {

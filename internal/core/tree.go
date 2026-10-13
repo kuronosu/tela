@@ -55,6 +55,7 @@ type Stats struct {
 	Structures int // box structure passes
 	Shapes     int // paragraphs shaped (text.NewLayout)
 	Breaks     int // paragraph line breakings (text.Layout.BreakLines)
+	Layouts    int // layout passes (layout.Engine.Compute)
 	Paints     int // paint passes
 }
 
@@ -113,6 +114,21 @@ type Tree struct {
 	// UseId.
 	idPrefix string
 	idNext   uint64
+
+	// Value reads (value.go). trackDepth is the depth of the evaluations
+	// whose reads are tracked (builds, deferred props); Get reads it from
+	// any goroutine and appends to reads under trackMu.
+	trackDepth atomic.Int32
+	trackMu    sync.Mutex
+	reads      []*valueCore
+	readsTmp   []*valueCore // UI thread scratch of endTrack
+	evalID     uint64       // UI thread: numbers resubscriptions
+	// relayoutQ are the boxes whose layout-phase reads changed; paintQ
+	// those whose paint-phase reads changed. repaint reports paint work
+	// with no other work (a paint-only frame).
+	relayoutQ []*Box
+	paintQ    []*Box
+	repaint   bool
 
 	lastDL *gfx.DisplayList
 	stats  Stats
@@ -182,9 +198,9 @@ func (t *Tree) dirty() {
 }
 
 // Dirty reports whether the next Frame has work to do: state updates,
-// changed elements, a new viewport.
+// changed elements, a new viewport, boxes to repaint.
 func (t *Tree) Dirty() bool {
-	if t.changed {
+	if t.changed || t.repaint {
 		return true
 	}
 	t.mu.Lock()
@@ -298,11 +314,13 @@ func (t *Tree) restyleAll() {
 }
 
 // Frame runs the pipeline (ARCHITECTURE section 8) up to paint: the
-// passive effects of a previous frame that were not flushed, state
-// updates and posted functions, Build (components marked needsBuild, in
-// tree order), Style (dirty primitives; inherited changes propagate), box
-// structure and paragraphs, Layout (dirty boxes), the layout effects and
-// Paint. It returns the display list of the whole tree, in logical
+// passive effects of a previous frame that were not flushed, state and
+// Value updates and posted functions, Build (components marked
+// needsBuild, in tree order), Style (dirty primitives; inherited changes
+// propagate), box structure and paragraphs, Layout (dirty boxes), the
+// layout effects and Paint. When the only work is repainting (Values read
+// by paint-phase deferred props changed), the phases before paint are
+// skipped. It returns the display list of the whole tree, in logical
 // pixels, and whether it changed since the previous Frame (when nothing
 // was dirty the previous list is returned). The passive effects of the
 // frame wait for FlushEffects.
@@ -312,19 +330,21 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.asked = false
 	t.FlushEffects()
 	t.ApplyUpdates()
-	if !t.changed && t.lastDL != nil {
+	if !t.changed && !t.repaint && t.lastDL != nil {
 		t.commitLayout()
 		return t.lastDL, false
 	}
 	t.frame++
 	t.stats.Frames++
-	t.buildPhase()
-	t.stylePhase()
-	t.boxPhase()
-	t.layoutPhase()
+	if t.changed || t.lastDL == nil {
+		t.buildPhase()
+		t.stylePhase()
+		t.boxPhase()
+		t.layoutPhase()
+	}
 	t.commitLayout()
 	t.lastDL = t.paintPhase()
-	t.changed = false
+	t.changed, t.repaint = false, false
 	return t.lastDL, true
 }
 
@@ -363,6 +383,7 @@ func (t *Tree) layoutPhase() {
 		return
 	}
 	t.remapPhase()
+	t.stats.Layouts++
 	t.engine.Compute(t.rootBox, layout.DefiniteSpace(t.viewport.W), layout.DefiniteSpace(t.viewport.H))
 }
 

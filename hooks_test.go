@@ -190,3 +190,58 @@ func TestPublicPost(t *testing.T) {
 		t.Error("the posted function did not run")
 	}
 }
+
+func TestPublicUseValue(t *testing.T) {
+	var pos *tela.Value[float64]
+	var width *tela.Value[float32]
+	builds := 0
+	comp := func() tela.Node {
+		builds++
+		pos = tela.UseValue(0.0)
+		width = tela.UseValue[float32](10)
+		return div(core.Class("h-4 bg-sky-500"), core.Style(
+			tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 }),
+			tela.WidthFn(func() float32 { return width.Get() }),
+		))
+	}
+	tr := mount(t, tela.C(comp), nil)
+	first := pos
+
+	// From a goroutine: the element is repainted, nothing else.
+	s0 := tr.Stats()
+	done := make(chan struct{})
+	go func() {
+		pos.Set(12)
+		pos.Update(func(v float64) float64 { return v + 1 })
+		close(done)
+	}()
+	<-done
+	tr.Frame()
+	s1 := tr.Stats()
+	if builds != 1 || s1.Paints-s0.Paints != 1 || s1.Layouts != s0.Layouts || s1.Styles != s0.Styles {
+		t.Errorf("paint read: %d builds, stats %+v -> %+v; want a paint only", builds, s0, s1)
+	}
+	if pos.Get() != 13 {
+		t.Errorf("Get = %g, want 13", pos.Get())
+	}
+
+	// A layout read: laid out again, not built.
+	width.Set(40)
+	tr.Frame()
+	s2 := tr.Stats()
+	if builds != 1 || s2.Layouts-s1.Layouts != 1 || s2.Styles != s1.Styles {
+		t.Errorf("layout read: %d builds, stats %+v -> %+v; want a layout without building", builds, s1, s2)
+	}
+	if w := tr.Inspect().Children[0].Rect.Width(); w != 40 {
+		t.Errorf("width %g, want 40", w)
+	}
+
+	// The *Value is stable across builds.
+	tr.Mount(tela.C(comp))
+	if pos != first {
+		t.Error("UseValue returned another *Value on the next build")
+	}
+	if msg := panicOf(func() { tela.UseValue(1) }); !strings.Contains(msg, "UseValue called outside a component build") {
+		t.Errorf("panic %q", msg)
+	}
+}

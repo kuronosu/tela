@@ -473,9 +473,11 @@ const (
 	// PhaseStyle is the normal phase: values are fixed when the style is
 	// computed.
 	PhaseStyle Phase = iota
-	// PhaseLayout values are evaluated at the start of layout.
+	// PhaseLayout values are evaluated in the layout phase, when the
+	// box's layout style is mapped.
 	PhaseLayout
-	// PhasePaint values are evaluated at the start of paint.
+	// PhasePaint values are evaluated in the paint phase, when the box
+	// is painted.
 	PhasePaint
 )
 

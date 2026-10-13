@@ -46,9 +46,9 @@
 // Hooks keep their state in slots on the component Element being built,
 // by call order (ADR-040): UseState (UseStateSet, UseStateUpdate),
 // UseReducer, UseEffect, UseLayoutEffect, UseMemo, UseCallback, UseRef,
-// UseContext and UseId. A function called directly from a component, not
-// through Component, runs inside that component's build: its hooks are
-// the component's (a custom hook).
+// UseContext, UseId and UseValue. A function called directly from a
+// component, not through Component, runs inside that component's build:
+// its hooks are the component's (a custom hook).
 //
 // State: a Setter or Dispatcher is a comparable handle on its slot, safe
 // from any goroutine. Set, Update and Dispatch queue an update and wake
@@ -85,6 +85,29 @@
 // component to the nearest Provider (fixed for its life, since Elements
 // never move to another parent). A new value that is not == to the old
 // one marks only the subscribers for building.
+//
+// Values (value.go; ARCHITECTURE section 7, phase-deferred reads after
+// Jetpack Compose): UseValue returns a *Value, an observable value whose
+// Set and Update go through the same queue as the state updates. The
+// Tree tracks the Values read while its UI thread evaluates an observer:
+// a component's build, or the deferred props of a box when the layout
+// style is mapped (layout phase: WidthFn, HeightFn) or when the box is
+// painted (paint phase: TranslateFn, OpacityFn). Each evaluation replaces
+// the observer's subscriptions with the Values it read, so a closure that
+// stops reading a Value is no longer invalidated by it; unmounting the
+// reader, detaching its box, a style without deferred props of that
+// phase, or unmounting the Value's component ends them. A change applied
+// on the UI thread (not == for comparable types) marks each reader in the
+// phase it read in: a build (markBuild, also through components that skip
+// their build), a relayout of the box (Tree.remapOne maps its layout
+// style again and marks it dirty for layout; no build, no style), or a
+// repaint of the box (markPaint; no build, style or layout). Reads
+// elsewhere (handlers, effects, goroutines) subscribe nothing. Get from
+// another goroutine is race-free (the value is an atomic pointer) and
+// returns the value applied last; one that races with a tracked
+// evaluation of the same Tree may add a subscription to it, which costs
+// at most one extra rebuild, relayout or repaint and is dropped by the
+// next evaluation. Reads of a Value of another Tree are not tracked.
 //
 // Dev mode (Config.Dev, TELA_DEV=1) records each slot's hook kind and call
 // site on the first build and panics with both call sites when a later
@@ -134,10 +157,15 @@
 // Tree.Frame runs Build, Style, box structure, Layout, the layout effects
 // and Paint (ARCHITECTURE section 8) on what is dirty: components marked
 // needsBuild (in tree order), primitives marked needsStyle, primitives
-// whose structure or paragraph may have changed, and the layout engine's
-// own dirty nodes (MarkDirty on changed layout styles, children lists and
-// paragraphs). Paint emits one display list for the whole tree (layers
-// and damage arrive in phase 4): CSS box painting (shadows, backgrounds,
+// whose structure or paragraph may have changed, boxes whose
+// layout-phase deferred props read a Value that changed, and the layout
+// engine's own dirty nodes (MarkDirty on changed layout styles, children
+// lists and paragraphs). When the only work is repainting boxes whose
+// paint-phase deferred props read a Value that changed, Frame skips
+// straight to Paint (a paint-only frame: Stats.Paints grows, nothing
+// else). Paint emits one display list for the whole tree (layers and
+// damage arrive with T7b, which will repaint only the layers holding the
+// boxes marked by markPaint): CSS box painting (shadows, backgrounds,
 // borders, outlines), effects (transforms, opacity, filters, backdrop
 // filters), overflow clips and a simplified CSS stacking order, with box
 // edges snapped to device pixels at the tree's scale (SetScale); the
@@ -156,10 +184,11 @@
 //
 // # Threads
 //
-// A Tree belongs to its UI thread: only the Setter and Dispatcher
+// A Tree belongs to its UI thread: only the Setter, Dispatcher and Value
 // methods, Post (and SetWake) may be called from other goroutines.
-// Updaters, reducers, posted functions, effects and Callback forwarders
-// run on the UI thread. Builds of all Trees in the process are serialized
-// by one mutex, because hooks find the Element being built through a
-// package variable.
+// Updaters (of state and Values), reducers, posted functions, effects and
+// Callback forwarders run on the UI thread. Builds of all Trees in the
+// process are serialized by one mutex, because hooks find the Element
+// being built through a package variable. Value reads are tracked per
+// Tree, so Trees on different goroutines do not see each other's reads.
 package core

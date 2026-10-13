@@ -24,7 +24,9 @@ var (
 
 // build runs the function of component el and reconciles its result.
 // Its effects are queued after those of the components built inside it,
-// so children's effects run before their parents' (React's order).
+// so children's effects run before their parents' (React's order). The
+// Values the function reads become the component's subscriptions (a
+// change builds it again).
 func (t *Tree) build(el *Element) {
 	el.needsBuild = false
 	t.stats.Builds++
@@ -34,10 +36,19 @@ func (t *Tree) build(el *Element) {
 	before, first := len(el.hooks), el.builds == 0
 	el.builds++
 	var out Node
+	mark := t.beginTrack()
 	func() {
-		defer func() { current = prev }()
+		done := false
+		defer func() {
+			current = prev
+			if !done { // the function panicked: keep the old subscriptions
+				t.endTrack(mark)
+			}
+		}()
 		out = el.comp.build()
+		done = true
 	}()
+	t.observe(&el.vobs, obsBuild, el, nil, t.endTrack(mark))
 	if !first && el.hookIdx != before {
 		t.hookCountPanic(el, el.hookIdx, before)
 	}
@@ -232,14 +243,17 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 // ---------------------------------------------------------------------
 // The update queue.
 
-// update is a state change or a posted function waiting for the UI
-// thread.
+// update is a state change, a Value change or a posted function waiting
+// for the UI thread.
 type update struct {
 	el *Element
 	// apply changes the state and reports whether the component must be
 	// built again.
 	apply func() bool
-	// post is a function given to Post (el and apply are nil).
+	// set changes a Value of el (apply is nil): it invalidates the
+	// Value's readers itself and reports whether it invalidated any.
+	set func() bool
+	// post is a function given to Post (el, apply and set are nil).
 	post func()
 }
 
@@ -259,13 +273,15 @@ func (t *Tree) enqueue(u update) {
 // cannot keep the UI thread in one call.
 const maxUpdatePasses = 16
 
-// ApplyUpdates applies the queued state updates and runs the posted
-// functions on the UI thread, in the order they were queued, and marks
-// the components whose state changed for building. Updates of unmounted
-// components are dropped. Updates queued meanwhile (by a posted function)
-// are applied too. It reports whether any component must build. Frame
-// calls it too; hosts call it on a WakeEvent so that a frame is requested
-// only when something changed.
+// ApplyUpdates applies the queued state and Value updates and runs the
+// posted functions on the UI thread, in the order they were queued; it
+// marks the components whose state changed for building, and invalidates
+// the readers of the Values that changed in the phase they read them in.
+// Updates of unmounted components are dropped. Updates queued meanwhile
+// (by a posted function) are applied too. It reports whether anything
+// must be built, laid out or painted again. Frame calls it too; hosts call
+// it on a WakeEvent so that a frame is requested only when something
+// changed.
 func (t *Tree) ApplyUpdates() bool {
 	changed := false
 	for pass := 0; pass < maxUpdatePasses; pass++ {
@@ -277,11 +293,16 @@ func (t *Tree) ApplyUpdates() bool {
 			break
 		}
 		for _, u := range us {
-			if u.post != nil {
+			switch {
+			case u.post != nil:
 				u.post()
-				continue
-			}
-			if u.el.mounted && u.apply() {
+			case !u.el.mounted:
+				// Dropped: the component is gone.
+			case u.set != nil:
+				if u.set() {
+					changed = true
+				}
+			case u.apply():
 				t.markBuild(u.el)
 				changed = true
 			}

@@ -46,6 +46,19 @@ type Ref[T any] = core.Ref[T]
 // Context passes a value down the tree without props: see [CreateContext].
 type Context[T any] = core.Context[T]
 
+// Value is an observable value held by one [UseValue] hook slot:
+// v.Get() reads it, v.Set(x) and v.Update(f) change it. The *Value is the
+// same pointer on every build, so it is comparable and can be passed in
+// props compared by [CP] or through a context. Set and Update are safe
+// from any goroutine: they queue the change, in order with the state
+// updates, and the UI thread applies it before the next frame. Get is
+// safe from any goroutine too and returns the value the UI thread applied
+// last (a change still in the queue is not visible yet).
+//
+// What a change redoes depends on where Get was called; see [UseValue].
+// For comparable types, a value == to the current one changes nothing.
+type Value[T any] = core.Value[T]
+
 // UseState returns the state of this hook slot and its [Setter]
 // (ARCHITECTURE section 7). The first build stores initial; later builds
 // return the latest value set. Setting a different value rebuilds the
@@ -214,6 +227,57 @@ func CreateContext[T any](def T) *Context[T] { return core.CreateContext(def) }
 //
 //	theme := tela.UseContext(Theme)
 func UseContext[T any](ctx *Context[T]) T { return core.UseContext(ctx) }
+
+// UseValue returns the [Value] of this hook slot: an observable value for
+// something that changes often, such as a drag offset, a scroll position
+// or download progress (ARCHITECTURE section 7, phase-deferred reads, as
+// in Jetpack Compose). The first build stores initial; every build returns
+// the same *Value.
+//
+// Where v.Get() is called decides what a change redoes:
+//
+//   - in the component's body while it builds: the component builds
+//     again, like with [UseState] (also when the components above it skip
+//     their build);
+//   - inside a layout-phase style closure ([WidthFn], [HeightFn]): that
+//     element is laid out again, with no build and no style computation;
+//   - inside a paint-phase style closure ([TranslateFn], [OpacityFn]):
+//     that element is repainted, with no build, style or layout;
+//   - anywhere else (event handlers, effects, goroutines): nothing; Get
+//     just returns the value.
+//
+// The reads are taken again on every evaluation, so a closure that stops
+// reading a Value stops being redone by it. A progress bar fed by a
+// goroutine, which lays out the bar again without building Download:
+//
+//	func Download() tela.Node {
+//	    progress := tela.UseValue(0.0) // from 0 to 1
+//	    tela.UseEffect(func() func() {
+//	        ctx, cancel := context.WithCancel(context.Background())
+//	        go fetch(ctx, func(done float64) { progress.Set(done) }) // any goroutine
+//	        return cancel
+//	    }, nil)
+//	    return Div(Class("h-2 w-64 overflow-hidden rounded-full bg-slate-200"),
+//	        Div(Class("h-full bg-indigo-500"),
+//	            Style(tela.WidthFn(func() float32 { return float32(256 * progress.Get()) }))))
+//	}
+//
+// A dragged card that moves by repainting only (the offset is set from
+// pointer handlers):
+//
+//	type Offset struct{ X, Y float32 }
+//
+//	offset := tela.UseValue(Offset{})
+//	card := Div(Class("rounded-xl bg-white p-6 shadow-lg"),
+//	    Style(tela.TranslateFn(func() (x, y float32) {
+//	        p := offset.Get()
+//	        return p.X, p.Y
+//	    })))
+//
+// Reading the same Value in the body instead (x := offset.Get()) would
+// build the component on every change. Values read by the closures of
+// another window's tree are not tracked.
+func UseValue[T any](initial T) *Value[T] { return core.UseValue(initial) }
 
 // UseId returns a string that identifies this hook slot, for accessibility
 // relations between elements (a label and its input). It is the same on

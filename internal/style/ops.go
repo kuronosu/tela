@@ -208,10 +208,11 @@ func BackgroundGradient(g Gradient) Op {
 }
 
 // ---------------------------------------------------------------------
-// Phase-deferred props (ARCHITECTURE section 7). Only the representation
-// exists in phase 3: Compute records the closures in
-// ComputedStyle.Deferred and Resolved applies them; the invalidation that
-// re-runs only layout or paint belongs to core.
+// Phase-deferred props (ARCHITECTURE section 7). Compute records the
+// closures in ComputedStyle.Deferred and Resolved applies them; core
+// evaluates them when it maps the layout style (PhaseLayout) or paints the
+// box (PhasePaint), tracking the Values they read, so that a change of
+// those re-runs only that phase for that box.
 
 // TranslateFn defers the translation to the paint phase: fn is called when
 // the box is painted, so a change of its inputs invalidates paint only.

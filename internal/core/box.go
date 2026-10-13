@@ -52,9 +52,15 @@ type Box struct {
 
 	cs       *style.ComputedStyle
 	anonFrom *style.ComputedStyle // anonymous boxes: the owner's style cs inherits from
-	// deferred reports phase-deferred props in cs (ARCHITECTURE section
-	// 7), resolved at the start of layout and paint.
-	deferred bool
+	// deferLayout and deferPaint report phase-deferred props of the
+	// layout and paint phases in cs (ARCHITECTURE section 7), resolved
+	// when the layout style is mapped and when the box is painted. The
+	// Values they read are tracked by layoutObs and paintObs (value.go).
+	deferLayout, deferPaint bool
+	layoutObs, paintObs     *observer
+	// relayoutQueued: in Tree.relayoutQ. needsPaint: in Tree.paintQ.
+	relayoutQueued bool
+	needsPaint     bool
 
 	ls layout.Style
 	ld layout.Data
@@ -97,7 +103,8 @@ func newBox(t *Tree, el *Element, kind style.Kind) *Box {
 	return &Box{tree: t, el: el, owner: el, kind: kind, ls: layout.DefaultStyle(), classesDirty: true}
 }
 
-// detach takes an unmounted box out of the tree.
+// detach takes an unmounted box out of the tree and ends its Value
+// subscriptions.
 func (b *Box) detach() {
 	b.parent = nil
 	b.kids = nil
@@ -105,6 +112,8 @@ func (b *Box) detach() {
 	b.inPara = nil
 	b.para = nil
 	b.built = false
+	dropObserver(b.layoutObs)
+	dropObserver(b.paintObs)
 }
 
 // LayoutStyle implements layout.Node.
@@ -248,8 +257,10 @@ func (p *paragraph) prepare(t *Tree, w float32) {
 	}
 	const eps = 1.0 / 1024 // text's fitting tolerance
 	if maxW := p.lay.MaxContentWidth(); p.brokeAt >= maxW && w+eps >= maxW {
-		p.lay.AlignTo(w)
-		p.alignedAt = w
+		if p.alignedAt != w { // lines broken at +Inf stay aligned at w across paints
+			p.lay.AlignTo(w)
+			p.alignedAt = w
+		}
 		return
 	}
 	p.breakAt(t, w)

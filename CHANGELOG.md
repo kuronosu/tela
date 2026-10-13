@@ -21,6 +21,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   skip the build when the props are equal and no state or context they read
   changed.
 - `tela.Post` runs a function on the UI thread.
+- `tela.UseValue` and `tela.Value[T]`: an observable value (`Get`, `Set`,
+  `Update`, safe from any goroutine). Read inside `TranslateFn`/`OpacityFn`,
+  a change repaints only; inside `WidthFn`/`HeightFn`, it lays out only that
+  element; in a component's body, it rebuilds that component.
 - Wayland keyboard input: key events with physical code, logical key, text
   and modifiers for any XKB layout (pure-Go keymap parser), dead keys and
   Compose sequences, and client-side key repeat. Pointer and scroll events
