@@ -34,6 +34,7 @@ error.
 - [Project status](#project-status)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
+- [License](#license)
 
 ## Why Tela
 
@@ -307,3 +308,9 @@ CGO_ENABLED=0 go test ./...
 CGO_ENABLED=0 GOOS=windows go build ./...
 CGO_ENABLED=0 GOOS=darwin  go build ./...
 ```
+
+## License
+
+Tela is released under the [BSD 3-Clause License](LICENSE). Third-party code
+and the embedded fonts keep their own licenses; see
+[`THIRD_PARTY.md`](THIRD_PARTY.md).

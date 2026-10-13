@@ -15,6 +15,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Added
 
 - `examples/hello`: a static headline screen, the hero image of the README.
+- `LICENSE`: BSD 3-Clause.
 
 ## [0.4.0] - 2026-10-13
 
