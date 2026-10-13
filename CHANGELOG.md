@@ -17,7 +17,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `examples/hello`: a static headline screen, the hero image of the README.
 - Windows backend (`win32`): windows, per-monitor DPI, mouse, wheel and cursors; `tela.Run` picks it on Windows (`TELA_BACKEND=win32|headless`). Keyboard and clipboard are not wired yet.
 - Wayland clipboard (`wl_data_device`), used by the text inputs to come.
+- Inline elements in paragraphs (`Span`, `Code`, `A`, …) paint backgrounds, borders, radii and shadows per line fragment, and their horizontal padding, borders and margins take space, like CSS inline boxes; buttons, `inline-block`/`inline-flex` elements and inline images sit on the line as atomic inlines.
+- Classes `align-baseline`, `align-top`, `align-middle`, `align-bottom`, `align-text-top`, `align-text-bottom`.
+- `tela inspect --layout` and `telatest.LayoutJSON`: paragraphs list their inline `fragments`; atomic inline children carry `inlineBox: true`.
 - `LICENSE`: BSD 3-Clause.
+
+### Changed
+
+- A `Button` or `inline-block` alone in a block container now sits on a line box, as in CSS (it gains the line's strut below it).
+- Underlines snap to device pixels like Chromium (one crisp row instead of a blurred two-row line).
 
 ## [0.4.0] - 2026-10-13
 
