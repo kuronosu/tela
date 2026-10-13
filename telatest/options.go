@@ -3,6 +3,7 @@ package telatest
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/kuronosu/tela/internal/core"
@@ -28,6 +29,8 @@ type config struct {
 	rootClass     string
 	timeout       time.Duration
 	checkDamage   bool
+	debug         []string
+	debugClock    func() time.Duration
 }
 
 func newConfig(opts []Option) config {
@@ -50,12 +53,29 @@ func (c config) validate() error {
 	case c.timeout <= 0:
 		return fmt.Errorf("telatest.Timeout(%v): the timeout must be positive, such as telatest.Timeout(2 * time.Second)", c.timeout)
 	}
+	if _, err := core.ParseDebug(strings.Join(c.debug, ",")); err != nil {
+		return fmt.Errorf("telatest.Debug: %v", err)
+	}
 	return nil
 }
 
 // coreConfig returns the tree configuration (without Log and IDPrefix).
 func (c config) coreConfig() core.Config {
+	// TELA_DEBUG is ignored (goldens must not depend on the environment):
+	// the overlays are the ones Debug asked for, or none.
+	dbg, _ := core.ParseDebug(strings.Join(c.debug, ","))
+	if dbg == 0 {
+		dbg = core.DebugOff
+	}
+	clock := c.debugClock
+	if clock == nil {
+		// A deterministic clock: every frame took one millisecond.
+		var now time.Duration
+		clock = func() time.Duration { now += time.Millisecond; return now }
+	}
 	return core.Config{
+		Debug:             dbg,
+		DebugClock:        clock,
 		RootClass:         c.rootClass,
 		Dark:              c.dark,
 		ReducedMotion:     c.reducedMotion,
@@ -127,3 +147,27 @@ func RootClass(classes string) Option { return func(c *config) { c.rootClass = c
 // for the app to go quiet (an animation that never ends is logged, not
 // waited for).
 func Timeout(d time.Duration) Option { return func(c *config) { c.timeout = d } }
+
+// Debug turns debug overlays on: any of "layout", "paint-flash", "layers",
+// "fps" and "semantics" (or "all"), the values TELA_DEBUG takes. The
+// overlays are drawn over the window, so [App.Screenshot] and
+// [App.Golden] show them; the headless entry points ([Render]) draw them
+// too. TELA_DEBUG itself is ignored, so goldens never depend on the
+// environment. An unknown name fails the test with the valid ones.
+//
+// A paint flash fades over 300 ms of app time, and the fps meter redraws on
+// every frame; neither keeps an action waiting (they are not work the app
+// must finish), so look at them with [App.Advance]. See [DebugClock] for
+// the frame times the meter shows.
+func Debug(flags ...string) Option {
+	return func(c *config) { c.debug = append(c.debug, flags...) }
+}
+
+// DebugClock replaces the clock the fps overlay times frames with: a frame
+// took the difference between two readings of now, taken before and after
+// it. The default reads 1 ms longer at every call, so every frame takes
+// 1 ms and goldens do not depend on the machine; tests of the meter pass a
+// scripted clock.
+func DebugClock(now func() time.Duration) Option {
+	return func(c *config) { c.debugClock = now }
+}

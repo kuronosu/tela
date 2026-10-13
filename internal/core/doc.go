@@ -279,6 +279,14 @@
 // ScrollNodeIntoView act on its nodes. The props Role, AriaLabel,
 // AriaLabelledBy, the other Aria... props and Alt (aria.go) feed it.
 //
+// Debug overlays (debug.go, whose top comment is the reference;
+// ARCHITECTURE section 17) are chosen with TELA_DEBUG or Config.Debug and
+// drawn over the application: layout boxes, paint flashes, layer borders,
+// a frame meter and semantics bounds. They are a display list of their
+// own, rasterized over a copy of the application's pixels, so they never
+// enter the layers, the damage, the layout, the hit tests or the semantics
+// of the application, and with none on they cost nothing.
+//
 // A Host connects a Tree to a platform window: WakeEvent applies state
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent
 // runs Frame, brings its framebuffer to the frame (RasterizeFrame; fully

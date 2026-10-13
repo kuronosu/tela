@@ -565,6 +565,9 @@ func (t *Tree) updateOver(ps *pointerState, target *Element) {
 		}
 	}
 	ps.over = nw
+	if t.dbg.flags&DebugLayout != 0 {
+		t.debugTouch() // the layout overlay emphasizes the hovered element
+	}
 }
 
 // fireBoundary fires the leave and enter events of the last updateOver:

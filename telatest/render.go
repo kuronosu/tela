@@ -19,8 +19,9 @@ import (
 // snapshot` and `tela inspect` are built on them, so the CLI works on any
 // module that requires github.com/kuronosu/tela (amends ADR-047). They
 // accept the options [Size], [Scale], [Dark], [ReducedMotion],
-// [ClassicScrollbars], [InstantScroll], [RootClass] and [Dev]; the others
-// concern mounted apps and are ignored.
+// [ClassicScrollbars], [InstantScroll], [RootClass], [Dev] and [Debug]
+// (overlays are drawn into the image); the others concern mounted apps and
+// are ignored.
 //
 // Each call builds a new tree, runs one frame at the given size and
 // unmounts it. They use the embedded fonts only, so the results are the

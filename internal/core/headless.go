@@ -45,7 +45,15 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	t.SetScale(opts.Scale)
 	t.Mount(root)
 	dl, _ := t.Frame()
-	img := t.Rasterize(dl, opts.Scale)
+	var img *image.RGBA
+	if t.Debug() != 0 {
+		// Debug overlays are drawn over the frame (debug.go).
+		img = t.newImage(opts.Scale)
+		var r raster.Renderer
+		t.RasterizeFrame(img, &r, true)
+	} else {
+		img = t.Rasterize(dl, opts.Scale)
+	}
 	t.FlushEffects()
 	t.Unmount()
 	return dl, img
@@ -56,12 +64,18 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 // canvas color. The list snaps box edges for the tree's Scale, which
 // should be the same.
 func (t *Tree) Rasterize(dl *gfx.DisplayList, scale float32) *image.RGBA {
+	img := t.newImage(scale)
+	raster.Clear(img, image.Rectangle{}, t.CanvasColor())
+	raster.Render(img, dl, raster.Options{Scale: scale})
+	return img
+}
+
+// newImage returns an empty image of the viewport at the given scale
+// (zero means 1).
+func (t *Tree) newImage(scale float32) *image.RGBA {
 	if scale == 0 {
 		scale = 1
 	}
 	phys := platform.PhysicalSize(platform.Size{W: t.viewport.W, H: t.viewport.H}, float64(scale))
-	img := image.NewRGBA(image.Rect(0, 0, phys.X, phys.Y))
-	raster.Clear(img, image.Rectangle{}, t.CanvasColor())
-	raster.Render(img, dl, raster.Options{Scale: scale})
-	return img
+	return image.NewRGBA(image.Rect(0, 0, phys.X, phys.Y))
 }

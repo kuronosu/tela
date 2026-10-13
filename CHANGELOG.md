@@ -88,6 +88,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   `ElementRef.ScrollToIndex` with `tela.ScrollAlign` (`AlignAuto`,
   `AlignStart`, `AlignCenter`, `AlignEnd`); `examples/virtuallist`, a
   100,000-row directory with jump buttons.
+- Debug overlays: `TELA_DEBUG=layout,paint-flash,layers,fps,semantics` (or
+  `all`) draws box models, paint flashes, layer borders, a frame meter and
+  semantics bounds over the app, at no cost when off; `telatest.Debug(...)`
+  turns them on in tests, which otherwise ignore `TELA_DEBUG`.
 - Examples `dashboard`, `pricing`, `settings`, `player` and `board`: full
   screens in the shadcn/ui zinc style with dark mode, goldens and
   interaction tests (switches and `disabled:` states, a progress bar driven

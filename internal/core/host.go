@@ -48,7 +48,8 @@ type Options struct {
 // ARCHITECTURE section 15) or the platform fails.
 //
 // Without opts.Fonts, the text uses the embedded fonts plus the system's
-// fonts for the scripts the embedded ones cannot draw (ADR-035).
+// fonts for the scripts the embedded ones cannot draw (ADR-035). Without
+// opts.Debug, the debug overlays are the ones TELA_DEBUG names (debug.go).
 func Run(opts Options) error {
 	runtime.LockOSThread()
 	if opts.Fonts == nil {
@@ -132,6 +133,15 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	s := b.Settings()
 	cfg := opts.Config
 	cfg.Dark, cfg.ReducedMotion = s.DarkMode, s.ReducedMotion
+	if cfg.Debug == 0 {
+		// TELA_DEBUG selects overlays unless the options say otherwise
+		// (DebugOff). A malformed value is reported once and its valid
+		// flags still apply.
+		var err error
+		if cfg.Debug, err = DebugFromEnv(); err != nil {
+			fmt.Fprintln(errorLog(opts.ErrorLog), "tela:", err)
+		}
+	}
 	t := NewTree(cfg)
 	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog)}
 	t.SetWake(b.Wake)
@@ -180,7 +190,7 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		// Phase 2 of the pipeline: scroll animations, flings and fades
 		// advance with the frame clock.
 		h.tree.Animate(e.Time)
-		h.frame()
+		h.frame(e.Time)
 		h.updateCursor()
 		h.armTimer()
 	case platform.PointerEvent:
@@ -269,12 +279,30 @@ func (h *Host) updateCursor() {
 }
 
 // frame runs the pipeline, rasterizes at the window's scale when anything
-// changed, presents, and then runs the passive effects (UseEffect).
-func (h *Host) frame() {
+// changed, presents, and then runs the passive effects (UseEffect). now is
+// the frame clock of the FrameEvent. With debug overlays on (debug.go), a
+// frame also runs when only an overlay changed, and the next one is
+// requested while an overlay needs it.
+func (h *Host) frame(now time.Duration) {
 	m := h.win.Metrics()
 	phys := m.Physical()
 	if phys.X <= 0 || phys.Y <= 0 {
 		return
+	}
+	var kind DebugFrameKind
+	var start time.Duration
+	if dbg := h.tree.Debug(); dbg != 0 {
+		if dbg&DebugFPS != 0 {
+			start = h.tree.DebugNow()
+		}
+		defer func() {
+			if dbg&DebugFPS != 0 {
+				h.tree.DebugRecordFrame(now, h.tree.DebugNow()-start, kind)
+			}
+			if h.tree.DebugWantsFrame() {
+				h.win.RequestFrame()
+			}
+		}()
 	}
 	h.tree.SetScale(float32(m.Scale)) // box edges snap to device pixels
 	_, changed := h.tree.Frame()
@@ -288,13 +316,21 @@ func (h *Host) frame() {
 		h.scale = m.Scale
 		changed, full = true, true
 	}
-	if !changed && !h.configured {
+	if !changed && !h.configured && !h.tree.DebugPending() {
 		return // nothing new to show
 	}
 	// The framebuffer keeps the previous frame: only the damage is
 	// rasterized (layer.go), and presented. The first Present after a
 	// ConfigureEvent is full for the platform anyway.
 	d := h.tree.RasterizeFrame(h.fb, &h.renderer, full || h.FullFrames)
+	if h.tree.Debug() != 0 {
+		switch app := h.tree.LastDamage(); {
+		case app.Full:
+			kind = DebugFrameFull
+		case !app.Empty():
+			kind = DebugFrameIncremental
+		}
+	}
 	if h.AfterFrame != nil {
 		defer h.AfterFrame()
 	}
@@ -312,3 +348,7 @@ func (h *Host) frame() {
 	}
 	h.presents++
 }
+
+// NeedsFrame reports that a frame must still render: a ConfigureEvent
+// arrived whose frame did not run yet.
+func (h *Host) NeedsFrame() bool { return h.configured }

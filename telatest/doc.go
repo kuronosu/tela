@@ -57,6 +57,16 @@
 // [App.AriaSnapshot] returns the YAML that `tela inspect` prints, and
 // [App.ExpectAria] and [App.AriaGolden] compare it.
 //
+// # Debug overlays
+//
+// [Debug] turns on the overlays of TELA_DEBUG (layout, paint-flash, layers,
+// fps, semantics) in a mounted app or a headless render, so a golden shows
+// them. The environment variable itself is ignored: a test only gets
+// overlays it asks for. A paint flash fades over 300 ms of app time and the
+// fps meter redraws on every frame; neither keeps actions waiting, so use
+// [App.Advance] to look at them, and [DebugClock] to script the frame
+// times the meter shows.
+//
 // # Headless rendering without a test
 //
 // [Render], [AriaSnapshot] and [LayoutJSON] mount a tree, run one frame and

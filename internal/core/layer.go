@@ -464,14 +464,14 @@ func (d *Damage) Changed() []image.Rectangle {
 // Empty reports that the frame changed no pixel.
 func (d *Damage) Empty() bool { return !d.Full && len(d.Shifts) == 0 && len(d.Rects) == 0 }
 
-// RasterizeFrame brings fb to the last frame of Frame, at the tree's
+// rasterizeApp brings fb to the last frame of Frame, at the tree's
 // scale: fb holds the frame this method rasterized last (its pixels
 // outside the damage are kept), unless full is set, the scale or the size
 // of fb changed, or nothing was rasterized yet, in which case the frame is
 // rasterized fully. The result is bit-identical to a full rasterization of
 // the frame (Rasterize). It returns what it did, which LastDamage reports
-// too.
-func (t *Tree) RasterizeFrame(fb *image.RGBA, r *raster.Renderer, full bool) Damage {
+// too. RasterizeFrame (debug.go) adds the debug overlays.
+func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damage {
 	L := &t.lay
 	f := L.cur
 	if f == nil {

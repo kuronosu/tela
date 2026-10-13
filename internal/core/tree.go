@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
@@ -53,6 +54,14 @@ type Config struct {
 	// kinetic flings, except in containers with scroll-smooth
 	// (scroll.go).
 	InstantScroll bool
+	// Debug selects the debug overlays drawn over the application
+	// (debug.go). Zero means unset: NewHost then reads TELA_DEBUG;
+	// DebugOff means none and ignores the environment.
+	Debug DebugFlags
+	// DebugClock is the clock the fps overlay times frames with (the
+	// work of a frame is the difference of two readings). Nil means a
+	// monotonic wall clock; tests pass a deterministic one.
+	DebugClock func() time.Duration
 }
 
 // Stats counts the work of a Tree, for tests and benchmarks.
@@ -154,6 +163,9 @@ type Tree struct {
 	// lay holds the layers and the composed frames (layer.go).
 	lay layerState
 
+	// dbg is the state of the debug overlays (debug.go).
+	dbg debugState
+
 	lastDL *gfx.DisplayList
 	stats  Stats
 }
@@ -174,6 +186,8 @@ func NewTree(cfg Config) *Tree {
 		scale:    1,
 	}
 	t.foc.window = true
+	t.dbg.flags = cfg.Debug & DebugAll
+	t.dbg.clock = cfg.DebugClock
 	t.scr.classic, t.scr.instant = cfg.ClassicScrollbars, cfg.InstantScroll
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()

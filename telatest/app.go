@@ -112,8 +112,8 @@ func Mount(tb testing.TB, root tela.Node, opts ...Option) *App {
 // ([CheckDamage]) when the tree has nothing left to draw.
 func (a *App) checkDamage() {
 	tr := a.tree
-	if tr.Dirty() {
-		return // the window shows an older state than the tree
+	if tr.Dirty() || tr.Debug() != 0 {
+		return // the window shows an older state than the tree, or overlays
 	}
 	got := a.win.Frame()
 	want := tr.Rasterize(tr.ReferenceFrame(false), tr.Scale())
@@ -242,7 +242,12 @@ func (a *App) deliver() { a.backend.Drain(a.host) }
 // pendingWork reports whether the app has work: queued events, a frame
 // requested, or a dirty tree.
 func (a *App) pendingWork() bool {
-	return a.backend.Pending() || a.win.FrameRequested() || a.tree.Dirty()
+	if a.backend.Pending() || a.tree.Dirty() || a.host.NeedsFrame() {
+		return true
+	}
+	// A frame requested for the debug overlays alone (a fading flash, the
+	// fps meter) is not work the app must finish.
+	return a.win.FrameRequested() && !a.tree.DebugWantsFrame()
 }
 
 // busyFrames is how many frames settle runs once the app has shown that it

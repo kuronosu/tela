@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/gfx/raster"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/style"
@@ -99,6 +100,12 @@ func (x *damageHarness) check(what string) {
 	}
 	for _, noCull := range []bool{false, x.step%7 == 0} {
 		want := tr.Rasterize(tr.ReferenceFrame(noCull), tr.Scale())
+		if tr.Debug() != 0 && tr.dbg.prev != nil {
+			// The window holds the application and the overlays drawn
+			// over it (debug.go): the reference is the same.
+			var r raster.Renderer
+			r.Render(want, tr.dbg.prev, raster.Options{Scale: tr.Scale()})
+		}
 		if p, ok := firstDiff(got, want); !ok {
 			dir := os.Getenv("TELA_DAMAGE_DIR")
 			if dir == "" {

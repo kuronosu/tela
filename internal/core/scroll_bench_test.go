@@ -15,6 +15,7 @@ import (
 // TestMain prints the peak resident memory of the test binary with
 // TELA_PEAK_RSS=1 (the benchmarks' memory).
 func TestMain(m *testing.M) {
+	os.Unsetenv(EnvDebug) // tests choose their overlays (Config.Debug)
 	code := m.Run()
 	if os.Getenv("TELA_PEAK_RSS") == "1" {
 		if b, err := os.ReadFile("/proc/self/status"); err == nil {
