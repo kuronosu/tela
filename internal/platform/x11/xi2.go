@@ -51,6 +51,11 @@ import (
 //     (15 by default), so Delta is libinput's own distance, what a
 //     Wayland compositor sends. Xwayland's single "xwayland-pointer"
 //     device does not tell a touchpad from a wheel and reports notches.
+//   - No gesture phases: XI2 smooth scrolling has no "fingers lifted"
+//     signal (xf86-input-libinput posts none; GTK 3 on X11 has no kinetic
+//     scrolling either, and the Synaptics driver coasts by itself), so
+//     every ScrollEvent has ScrollPhaseNone and the layers above never
+//     fling after X11 touchpad scrolling.
 //
 // Sign convention: valuators grow downwards and to the right, the DOM's
 // positive directions.

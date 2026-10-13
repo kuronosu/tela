@@ -63,6 +63,14 @@ import (
 // Drags (OnDragStart, OnDrag, OnDragEnd) and long presses go to the
 // element whose recognizer won, without bubbling.
 //
+// Scrolling (scroll.go, scrollbar.go): a touch press also adds the pan
+// recognizer of each scroll container on the path that can scroll, which
+// competes like a drag (the inner elements' drags first); a primary press
+// on a visible scrollbar takes no part in the arena of the content: the
+// thumb's eager drag or a page of the track, without click or focus
+// change. A press stops the flings, and pointer movement ends the latched
+// wheel transaction.
+//
 // # Capture
 //
 // While a touch or pen is down, its events target the element it pressed
@@ -140,6 +148,8 @@ type inputState struct {
 	chain   []*Box
 	leaves  []*Element
 	enters  []*Element
+	// bar is the scrollbar part the last hit test found (scrollbar.go).
+	bar barHit
 }
 
 // HandlePointer dispatches a platform pointer event (see the comment at
@@ -164,8 +174,14 @@ func (t *Tree) HandlePointer(e platform.PointerEvent) {
 		in.ptrs[key] = ps
 	}
 	prev := ps.buttons
+	moved := ps.pos != gfx.Point{X: e.Pos.X, Y: e.Pos.Y}
 	ps.pos = gfx.Point{X: e.Pos.X, Y: e.Pos.Y}
 	ps.buttons, ps.mods = e.Buttons, e.Mods
+	t.scr.now = max(t.scr.now, e.Time)
+	if moved || e.Action == platform.PointerDown {
+		// A moved pointer ends a wheel transaction (scroll.go).
+		t.breakLatch()
+	}
 	switch e.Action {
 	case platform.PointerEnter, platform.PointerMove:
 		t.pointerMove(ps, e)
@@ -213,6 +229,7 @@ func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
 	if ps.pressing {
 		t.in.arena.Move(t.gestureEvent(ps, e.Time))
 	}
+	t.hoverBars(ps)
 }
 
 func (t *Tree) pointerLeave(ps *pointerState) {
@@ -220,6 +237,7 @@ func (t *Tree) pointerLeave(ps *pointerState) {
 	t.updateOver(ps, nil)
 	t.fireBoundary(ps)
 	ps.target = nil
+	t.hoverBars(ps)
 	if ps.key.kind == platform.PointerTouch && ps.buttons == 0 && !ps.pressing {
 		delete(t.in.ptrs, ps.key)
 	}
@@ -234,9 +252,15 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 	}
 	ps.inside = true
 	target := t.pointerTarget(ps)
+	bar := t.in.bar
+	if ps.capture != nil {
+		bar = barHit{}
+	}
 	ps.target = target
 	t.updateOver(ps, target)
 	t.fireBoundary(ps)
+	// A press stops kinetic scrolling.
+	t.stopFlings()
 	if prev == 0 {
 		if ps.key.kind != platform.PointerMouse {
 			ps.capture = target
@@ -258,8 +282,9 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 			t.flushDiscrete()
 		}
 		// The default action of a primary mousedown moves the focus
-		// (focus.go); cancelling pointerdown or mousedown prevents it.
-		if prev == 0 && e.Button == platform.ButtonPrimary && !prevented {
+		// (focus.go); cancelling pointerdown or mousedown prevents it. A
+		// press on a scrollbar does not move it.
+		if prev == 0 && e.Button == platform.ButtonPrimary && !prevented && bar.s == nil {
 			t.mouseFocus(target)
 		}
 	}
@@ -271,6 +296,11 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 	t.setActive(ps, target)
 	t.in.nextGID++
 	ps.gid = t.in.nextGID
+	if bar.s != nil {
+		// A scrollbar press: the thumb's drag or a page, and no click.
+		t.in.arena.Down(t.gestureEvent(ps, e.Time), t.barPress(bar, ps.pos))
+		return
+	}
 	t.in.arena.Down(t.gestureEvent(ps, e.Time), t.recognizers(ps, target)...)
 }
 
@@ -374,6 +404,12 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 			}
 			continue
 		}
+		if s := el.box.scr; s != nil && ps.key.kind == platform.PointerTouch &&
+			(s.userX && s.max.X > 0 || s.userY && s.max.Y > 0) {
+			// Touch scrolling: the container's pan competes with the
+			// drags of the elements inside it (scroll.go).
+			rs = append(rs, t.panRecognizer(s))
+		}
 		m := el.node.d.evMask
 		if m&evLongPress.mask() != 0 {
 			rs = append(rs, &gesture.LongPress{OnLongPress: func(ge gesture.Event) { t.longPress(ps, el, ge) }})
@@ -447,14 +483,25 @@ func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUp
 	}
 }
 
-// NextDeadline reports when the gesture arena needs TickGestures (a long
-// press waiting for its timeout), in the backend clock. ok is false when
-// nothing waits: an idle app arms no timer.
-func (t *Tree) NextDeadline() (at time.Duration, ok bool) { return t.in.arena.NextDeadline() }
+// NextDeadline reports when the tree needs TickGestures, in the backend
+// clock: a long press waiting for its timeout, or overlay scrollbars
+// waiting to fade. ok is false when nothing waits: an idle app arms no
+// timer.
+func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
+	at, ok = t.in.arena.NextDeadline()
+	if s, has := t.scrollDeadline(); has && (!ok || s < at) {
+		at, ok = s, true
+	}
+	return at, ok
+}
 
-// TickGestures lets the recognizers whose deadline passed at now (the
-// backend clock) act: a long press is recognized and its handler runs.
-func (t *Tree) TickGestures(now time.Duration) { t.in.arena.Tick(now) }
+// TickGestures lets what waits for a deadline at or before now (the
+// backend clock) act: a long press is recognized and its handler runs,
+// overlay scrollbars start fading.
+func (t *Tree) TickGestures(now time.Duration) {
+	t.in.arena.Tick(now)
+	t.tickScroll(now)
+}
 
 // resetInput forgets every pointer: presses end without events (the
 // tree's content is gone).
@@ -462,6 +509,8 @@ func (t *Tree) resetInput() {
 	t.in.arena = gesture.Manager{}
 	clear(t.in.ptrs)
 	t.in.clicks.Reset()
+	t.in.bar = barHit{}
+	t.scr.wheel = wheelLatch{}
 }
 
 // ---------------------------------------------------------------------
@@ -759,7 +808,7 @@ func (t *Tree) mouseEvent(ps *pointerState, button platform.PointerButton, count
 
 // event is the set of handler event types.
 type event interface {
-	MouseEvent | PointerEvent | DragEvent | KeyboardEvent | FocusEvent
+	MouseEvent | PointerEvent | DragEvent | KeyboardEvent | FocusEvent | WheelEvent | ScrollEvent
 }
 
 // eventPtr gives fire access to an event's dispatch fields: prepare sets
@@ -785,6 +834,12 @@ func (e *DragEvent) prepare(t *Tree, st *eventState, cur *Element) {
 	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
 }
 
+func (e *WheelEvent) prepare(t *Tree, st *eventState, cur *Element) {
+	l := t.localPoint(cur, gfx.Point{X: e.X, Y: e.Y})
+	e.st, e.LocalX, e.LocalY = st, l.X, l.Y
+}
+
+func (e *ScrollEvent) prepare(_ *Tree, st *eventState, _ *Element)   { e.st = st }
 func (e *KeyboardEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
 func (e *FocusEvent) prepare(_ *Tree, st *eventState, _ *Element)    { e.st = st }
 

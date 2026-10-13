@@ -62,9 +62,14 @@ func (t *Tree) restyle(el *Element) {
 		Kind: bx.kind, Parent: parent, State: state, Group: group, Peer: peer,
 		Classes: bx.classes, Props: el.node.d.props,
 	})
+	if el == t.root {
+		// The root is the viewport (scroll.go).
+		cs.OverflowX, cs.OverflowY = viewportOverflow(cs.OverflowX), viewportOverflow(cs.OverflowY)
+	}
 	old := bx.cs
 	bx.cs = cs
 	bx.deferLayout, bx.deferPaint = hasPhase(cs, style.PhaseLayout), hasPhase(cs, style.PhasePaint)
+	t.updateScroller(bx)
 	// Values read by deferred props the style no longer has stop
 	// invalidating the box; the others are tracked again when the props
 	// are evaluated (remap, paint).
@@ -340,6 +345,19 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		ls.Position = layout.PositionAbsolute
 	}
 	ls.OverflowX, ls.OverflowY = overflowPair(cs.OverflowX, cs.OverflowY)
+	if b.tree.classicBars(cs) && isScrollContainer(cs) {
+		// Classic scrollbars take space (scrollbar.go): overflow: scroll
+		// always, overflow: auto while its content overflows.
+		ls.ScrollbarWidth = classicGutter
+		if s := b.scr; s != nil {
+			if ls.OverflowY == layout.OverflowAuto && s.gutterV {
+				ls.OverflowY = layout.OverflowScroll
+			}
+			if ls.OverflowX == layout.OverflowAuto && s.gutterH {
+				ls.OverflowX = layout.OverflowScroll
+			}
+		}
+	}
 
 	ls.Width, ls.Height = dimOf(cs.Width), dimOf(cs.Height)
 	ls.MinWidth, ls.MinHeight = dimOf(cs.MinWidth), dimOf(cs.MinHeight)

@@ -105,6 +105,8 @@ func TestUnsupportedClasses(t *testing.T) {
 		{"grid-cols-subgrid", "subgrid"},
 		{"mix-blend-plus-darker", "multiply"},
 		{"bg-fixed", "background-attachment"},
+		{"scroll-mt-4", "scroll margins"},
+		{"snap-x", "snapping"},
 	}
 	for _, tt := range tests {
 		c := Compile(tt.class)

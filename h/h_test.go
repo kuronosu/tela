@@ -188,8 +188,8 @@ func TestExportedNames(t *testing.T) {
 		"H5", "H6", "Href", "If", "Img", "Key", "Map", "OnBlur", "OnClick", "OnContextMenu", "OnDoubleClick",
 		"OnDrag", "OnDragEnd", "OnDragStart", "OnFocus", "OnKeyDown", "OnKeyUp", "OnLongPress", "OnMouseDown",
 		"OnMouseEnter", "OnMouseLeave", "OnMouseMove", "OnMouseUp", "OnPointerCancel", "OnPointerDown",
-		"OnPointerEnter", "OnPointerLeave", "OnPointerMove", "OnPointerUp", "P", "Ref", "Span", "Src", "Strong",
-		"Style", "TabIndex", "Text", "Textf",
+		"OnPointerEnter", "OnPointerLeave", "OnPointerMove", "OnPointerUp", "OnScroll", "OnWheel", "P", "Ref",
+		"Span", "Src", "Strong", "Style", "TabIndex", "Text", "Textf",
 	}
 	fset := token.NewFileSet()
 	var got []string

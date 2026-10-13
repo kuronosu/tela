@@ -357,6 +357,10 @@ func (r *recorder) HandleEvent(_ platform.Window, e platform.Event) {
 		if e.Mods != 0 {
 			s += fmt.Sprintf(" mods=%b", e.Mods)
 		}
+		if e.Phase != platform.ScrollPhaseNone {
+			// X11 has no gesture boundaries (xi2.go).
+			s += " phase=" + e.Phase.String()
+		}
 	case platform.KeyEvent:
 		s = fmt.Sprintf("key %v %v %q %q mods=%b", e.Action, e.Code, e.Key, e.Text, e.Mods)
 		if e.Repeat {

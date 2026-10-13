@@ -202,6 +202,7 @@ const (
 	hookID
 	hookValue
 	hookElementRef
+	hookScroll
 )
 
 var hookNames = [...]string{
@@ -216,6 +217,7 @@ var hookNames = [...]string{
 	hookID:           "UseId",
 	hookValue:        "UseValue",
 	hookElementRef:   "UseElementRef",
+	hookScroll:       "UseScroll",
 }
 
 func (k hookKind) String() string { return hookNames[k] }

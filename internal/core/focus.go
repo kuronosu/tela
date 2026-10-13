@@ -270,11 +270,16 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	}
 }
 
-// revealFocused is where the focused element will be scrolled into view
-// (HTML's focusing steps scroll it into view, except for pointer focus,
-// whose target is already under the pointer). Scroll containers arrive
-// with T7a, which implements it.
-func (t *Tree) revealFocused(el *Element, typ focusType) {}
+// revealFocused scrolls the focused element into view after the next
+// layout (HTML's focusing steps), in every scroll container around it,
+// except for pointer focus, whose target is already under the pointer.
+func (t *Tree) revealFocused(el *Element, typ focusType) {
+	if typ == focusMouse {
+		return
+	}
+	t.scr.reveal = el
+	t.requestRepaint()
+}
 
 // updateVisible recomputes focus-visible: after a key or a pointer press.
 func (t *Tree) updateVisible() {
@@ -529,6 +534,9 @@ func (t *Tree) mountFocus(el *Element) {
 	d := el.node.d
 	if d.ref != nil {
 		d.ref.el = el
+		if len(d.ref.follow) > 0 {
+			t.queueRefSync(d.ref)
+		}
 	}
 	if d.autoFocus && t.foc.auto == nil {
 		t.foc.auto, t.foc.autoGen = el, t.foc.gen
@@ -547,6 +555,9 @@ func (t *Tree) updateFocus(el *Element, old *desc) {
 		}
 		if d.ref != nil {
 			d.ref.el = el
+			if len(d.ref.follow) > 0 {
+				t.queueRefSync(d.ref)
+			}
 		}
 	}
 	switch {
@@ -694,6 +705,8 @@ func AutoFocus(on bool) Prop {
 // attached to while it is mounted.
 type elemRef struct {
 	el *Element
+	// follow are the UseScroll slots that follow el's scroll offsets.
+	follow []*scrollFollow
 }
 
 // ElementRef is a handle on the primitive it is attached to (with

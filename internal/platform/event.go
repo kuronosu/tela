@@ -217,9 +217,47 @@ type ScrollEvent struct {
 	// distance (lines × line height) instead of trusting Delta, so a notch
 	// scrolls the same amount on every platform.
 	Steps Point
+	// Phase marks the gesture boundaries of touchpad scrolling, which the
+	// layers above need for kinetic scrolling (a fling after the fingers
+	// lift, as GTK and browsers do): see [ScrollPhase].
+	Phase ScrollPhase
 	Mods  Modifiers
 	// Time is when the event happened, in the time base of [Backend.Now].
 	Time time.Duration
+}
+
+// ScrollPhase says where a [ScrollEvent] is in a scroll gesture.
+//
+// Only devices whose gestures have a reported end use the phases: a
+// touchpad on Wayland (wl_pointer.axis_source finger, ended by
+// wl_pointer.axis_stop when the fingers lift) and, when its backend
+// arrives, macOS (NSEvent.phase). Wheels, and backends that cannot tell
+// when a gesture ends (X11: XInput2 smooth scrolling has no stop signal),
+// report ScrollPhaseNone, so the layers above never start a fling for
+// them.
+type ScrollPhase uint8
+
+const (
+	// ScrollPhaseNone is an event outside a gesture: wheel notches, or a
+	// device or backend without gesture boundaries.
+	ScrollPhaseNone ScrollPhase = iota
+	// ScrollPhaseUpdate is an event of a touchpad gesture in progress
+	// (fingers on the pad): more events follow, and a ScrollPhaseEnd
+	// event ends the gesture.
+	ScrollPhaseUpdate
+	// ScrollPhaseEnd ends a gesture: the fingers left the touchpad. Delta
+	// is usually zero (the stop marker alone); when the backend received
+	// a last movement together with the stop, Delta carries it.
+	ScrollPhaseEnd
+)
+
+var scrollPhaseNames = [...]string{"none", "update", "end"}
+
+func (p ScrollPhase) String() string {
+	if int(p) < len(scrollPhaseNames) {
+		return scrollPhaseNames[p]
+	}
+	return "ScrollPhase(invalid)"
 }
 
 func (ConfigureEvent) isEvent()      {}

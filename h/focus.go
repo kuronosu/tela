@@ -82,8 +82,10 @@ func TabIndex(i int) tela.Prop { return core.TabIndex(i) }
 func AutoFocus(on bool) tela.Prop { return core.AutoFocus(on) }
 
 // Ref attaches ref, from tela.UseElementRef, to the element: while it is
-// mounted, ref.Focus(), ref.Blur() and ref.Focused() act on it. It panics
-// on the zero ElementRef.
+// mounted, ref.Focus(), ref.Blur(), ref.Focused() and the scroll methods
+// (ref.ScrollTo, ScrollBy, ScrollIntoView, ScrollOffset) act on it, and
+// tela.UseScroll(ref) follows its scroll offsets. It panics on the zero
+// ElementRef.
 //
 //	input := tela.UseElementRef()
 //	tela.UseEffect(func() func() {

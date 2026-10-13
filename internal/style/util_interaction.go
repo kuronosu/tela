@@ -19,6 +19,33 @@ func registerInteraction(r *registry) {
 		"auto": op(func(e *env) { e.s.UserSelect = UserSelectAuto }),
 	})
 
+	// Scrolling. scroll-auto and scroll-smooth are Tailwind's
+	// scroll-behavior; scroll-instant and scrollbar-* are Tela's own.
+	r.enum("scroll", false, map[string]Op{
+		"auto":    op(func(e *env) { e.s.ScrollBehavior = ScrollBehaviorAuto }),
+		"smooth":  op(func(e *env) { e.s.ScrollBehavior = ScrollBehaviorSmooth }),
+		"instant": op(func(e *env) { e.s.ScrollBehavior = ScrollBehaviorInstant }),
+	})
+	r.enum("scrollbar", false, map[string]Op{
+		"classic": op(func(e *env) { e.s.Scrollbar = ScrollbarClassic }),
+		"overlay": op(func(e *env) { e.s.Scrollbar = ScrollbarOverlay }),
+	})
+	for _, root := range []string{"overscroll", "overscroll-x", "overscroll-y"} {
+		keys := map[string]Op{}
+		for i, name := range overscrollNames {
+			v := Overscroll(i)
+			switch root {
+			case "overscroll":
+				keys[name] = op(func(e *env) { e.s.OverscrollX, e.s.OverscrollY = v, v })
+			case "overscroll-x":
+				keys[name] = op(func(e *env) { e.s.OverscrollX = v })
+			default:
+				keys[name] = op(func(e *env) { e.s.OverscrollY = v })
+			}
+		}
+		r.enum(root, false, keys)
+	}
+
 	// Accepted and ignored: Tela always uses border-box and has no native
 	// controls or compositor hints to configure.
 	// Marker classes: they style nothing, but variants refer to them.
@@ -64,7 +91,6 @@ func registerUnsupported(r *registry) {
 	r.unsupported["rotate-z"] = r.unsupported["perspective"]
 	r.unsupported["translate-z"] = r.unsupported["perspective"]
 	r.unsupported["scale-z"] = r.unsupported["perspective"]
-	r.unsupported["overscroll"] = "overscroll behavior is not supported yet"
 	r.unsupported["scroll"] = "scroll snapping and scroll margins are not supported yet"
 	r.unsupported["snap"] = r.unsupported["scroll"]
 	r.unsupported["touch"] = "touch-action is not supported yet"

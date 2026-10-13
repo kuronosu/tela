@@ -71,11 +71,41 @@
 //   - [CreateContext] and [UseContext] pass values down the tree.
 //   - [UseId] gives a stable unique ID.
 //   - [UseElementRef] gives an [ElementRef] to attach with h.Ref, to
-//     focus an element from handlers and effects.
+//     focus or scroll an element from handlers and effects.
 //   - [UseValue] holds an observable [Value] for what changes every
 //     frame: read in the component's body, a change builds it again; read
 //     inside a deferred style closure, a change only lays out or repaints
 //     that element.
+//   - [UseScroll] gives Values that follow an element's scroll offsets,
+//     for effects tied to scrolling that repaint without rebuilding.
+//
+// # Scrolling
+//
+// An element with overflow-auto or overflow-scroll (per axis:
+// overflow-x-*, overflow-y-*) scrolls with the wheel, the touchpad (with a
+// kinetic fling when the fingers lift), touch, the keyboard (arrows, Page
+// Up/Down, Home/End, Space) and its scrollbars; overflow-hidden scrolls
+// only from code. The window itself scrolls like a browser page when the
+// content is taller or wider than it ([App].RootClass "overflow-hidden"
+// turns that off); h-screen and h-full on the outer element still mean
+// the window's height. Wheel scrolling chains to the scrolling ancestors at an
+// edge unless overscroll-contain stops it. Scrollbars are thin overlay
+// bars that appear while scrolling; [App].ClassicScrollbars (or the class
+// scrollbar-classic) draws always-visible classic bars that take space.
+// User scrolling animates; [App].InstantScroll (or scroll-instant on an
+// element) turns animation and flings off, scroll-smooth turns them back
+// on, and the system's reduced-motion setting always does. Code scrolls
+// with [ElementRef]'s ScrollTo, ScrollBy and ScrollIntoView (animated with
+// scroll-smooth, like CSS), and h.OnScroll and h.OnWheel observe it:
+//
+//	list := tela.UseElementRef()
+//	_, y := tela.UseScroll(list)
+//	header := Div(Class("h-16 bg-white shadow"), Style(tela.OpacityFn(func() float32 {
+//	    return 1 - min(y.Get()/200, 1) // repaints only
+//	})))
+//	return Div(Class("flex h-screen flex-col"), header,
+//	    Div(Ref(list), Class("grow overflow-y-auto"), rows),
+//	    Button(OnClick(func(tela.MouseEvent) { list.ScrollTo(0, 0) }), Text("Top")))
 //
 // A Value moved from a handler or a goroutine repaints only the element
 // whose closure reads it:
@@ -104,7 +134,8 @@
 // [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
 // [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
 // [Value], [ElementRef], [MouseEvent], [PointerEvent], [DragEvent],
-// [KeyboardEvent], [FocusEvent], [Key], [Code], [KeyLocation],
+// [KeyboardEvent], [FocusEvent], [WheelEvent], [ScrollEvent], [Key],
+// [Code], [KeyLocation],
 // [MouseButton], [MouseButtons] and [PointerKind] are aliases of types defined in Tela's
 // internal packages (the packages cannot be imported, but their exported
 // fields and methods are part of the API shown here). Construct them with

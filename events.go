@@ -171,3 +171,34 @@ type KeyboardEvent = core.KeyboardEvent
 //	    OnBlur(func(tela.FocusEvent) { setEditing.Set(false) }),
 //	    ...)
 type FocusEvent = core.FocusEvent
+
+// WheelEvent is passed to h.OnWheel: a mouse wheel notch or a touchpad
+// scroll over the element (the DOM's wheel event). DeltaX and DeltaY are
+// the distance in logical pixels with the DOM's signs (positive DeltaY
+// scrolls down; a notch is 53 pixels, and Shift turns a vertical notch
+// horizontal); X, Y, LocalX and LocalY and the modifiers are as in
+// [MouseEvent]. It bubbles, and its default action scrolls the nearest
+// scrolling element that can move that way: PreventDefault cancels it.
+//
+//	// Ctrl+wheel zooms a canvas instead of scrolling the page.
+//	Div(OnWheel(func(e tela.WheelEvent) {
+//	    if e.Ctrl {
+//	        e.PreventDefault()
+//	        zoom.Update(func(z float32) float32 { return z * (1 - e.DeltaY/500) })
+//	    }
+//	}))
+type WheelEvent = core.WheelEvent
+
+// ScrollEvent is passed to h.OnScroll after an element's scroll offsets
+// changed, by the user or by code (the DOM's scroll event: at most once
+// per frame, on the scrolling element only; it does not bubble). The
+// fields are the DOM's scroll properties in logical pixels: ScrollLeft
+// and ScrollTop (the offsets), ScrollWidth and ScrollHeight (the content
+// size), ClientWidth and ClientHeight (the visible size).
+//
+//	Div(Class("h-96 overflow-y-auto"), OnScroll(func(e tela.ScrollEvent) {
+//	    if e.ScrollTop+e.ClientHeight >= e.ScrollHeight-200 {
+//	        loadMore()
+//	    }
+//	}), rows)
+type ScrollEvent = core.ScrollEvent

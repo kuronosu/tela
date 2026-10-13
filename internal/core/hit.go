@@ -31,8 +31,12 @@ import (
 //     paragraph's element.
 //
 // Disabled elements are hit like the others; dispatch skips their
-// handlers (input.go). Scroll offsets are not part of the geometry yet
-// (T7a adds them when scroll containers arrive).
+// handlers (input.go). Scroll offsets are part of the geometry (place
+// moves scrolled boxes), and a visible scrollbar takes the hit before
+// what is painted under it, the scroll container's positioned
+// descendants with a z-index of 0 or more included when the container is
+// a stacking context (scrollbar.go); the press then targets the
+// container and records the bar (inputState.bar).
 
 // hitter is the state of a hit test. It reuses the painter for the
 // snapped geometry and the collection of stacking participants.
@@ -55,6 +59,7 @@ func (t *Tree) hitTest(pt gfx.Point) *Element {
 	}
 	h := &t.in.hit
 	h.t, h.scale = t, float64(t.scale)
+	t.in.bar = barHit{}
 	el := h.stacked(rb, pt)
 	clear(h.items)
 	h.items = h.items[:0]
@@ -122,6 +127,11 @@ func (h *hitter) collectAt(bx *Box, p gfx.Point) {
 // participants with z >= 0, the content and in-flow children, the
 // participants with a negative z, the box itself.
 func (h *hitter) stackedOrder(bx *Box, items []paintItem, p gfx.Point) *Element {
+	if bx.scr != nil {
+		if el := h.scrollbar(bx, p); el != nil {
+			return el
+		}
+	}
 	i := len(items) - 1
 	for ; i >= 0 && items[i].z >= 0; i-- {
 		if el := h.hoisted(bx, items[i].bx, p); el != nil {
@@ -181,6 +191,11 @@ func (h *hitter) flowBox(bx *Box, p gfx.Point) *Element {
 // inner hit-tests the in-flow children (topmost first) and the content of
 // bx, inside its overflow clip.
 func (h *hitter) inner(bx *Box, p gfx.Point) *Element {
+	if bx.scr != nil {
+		if el := h.scrollbar(bx, p); el != nil {
+			return el
+		}
+	}
 	if clipsOverflow(bx.pcs) && !h.inClip(bx, p) {
 		return nil
 	}
@@ -197,6 +212,17 @@ func (h *hitter) inner(bx *Box, p gfx.Point) *Element {
 		return h.text(bx, p)
 	}
 	return nil
+}
+
+// scrollbar returns the scroll container bx when p is on one of its
+// visible scrollbars, recording the part hit.
+func (h *hitter) scrollbar(bx *Box, p gfx.Point) *Element {
+	i, part := bx.scr.barAt(p)
+	if part == barNone {
+		return nil
+	}
+	h.t.in.bar = barHit{s: bx.scr, axis: i, part: part}
+	return hitTarget(bx)
 }
 
 // self reports whether bx itself is hit: inside its border box, visible
@@ -223,6 +249,9 @@ func (h *hitter) text(bx *Box, p gfx.Point) *Element {
 		return nil
 	}
 	c := contentRect(bx.abs, bx.ld.Layout())
+	if s := bx.scr; s != nil {
+		c = c.Translate(-s.soff.X, -s.soff.Y)
+	}
 	hit, ok := para.lay.HitTestCluster(p.X-c.X0, p.Y-c.Y0)
 	if !ok || hit.Cluster < 0 || hit.Box >= 0 {
 		return nil

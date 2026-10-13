@@ -218,6 +218,64 @@ func (e DragEvent) PreventDefault() { e.st.prevent() }
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e DragEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 
+// WheelEvent is passed to OnWheel: a mouse wheel notch or a touchpad
+// scroll over the element (the DOM's wheel event). It bubbles; its default
+// action scrolls the nearest scroll container that can move in its
+// direction (scroll.go), which PreventDefault cancels.
+type WheelEvent struct {
+	// X and Y are the pointer position in the window, LocalX and LocalY
+	// relative to the border box of the element whose handler runs (see
+	// MouseEvent).
+	X, Y, LocalX, LocalY float32
+	// DeltaX and DeltaY are the scroll distance in logical pixels, with
+	// the DOM's signs: positive DeltaY scrolls down (toward the end of the
+	// content), positive DeltaX to the right. A wheel notch is 53 pixels;
+	// Shift turns a notch of a vertical wheel into a horizontal one.
+	DeltaX, DeltaY float32
+	// Modifier keys held during the event.
+	Shift, Ctrl, Alt, Meta bool
+
+	st *eventState
+}
+
+// StopPropagation stops the event from bubbling (see MouseEvent).
+func (e WheelEvent) StopPropagation() { e.st.stop() }
+
+// PreventDefault cancels the scroll the event would cause.
+func (e WheelEvent) PreventDefault() { e.st.prevent() }
+
+// DefaultPrevented reports whether a handler called PreventDefault.
+func (e WheelEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
+// ScrollEvent is passed to OnScroll after the scroll offset of a scroll
+// container changed (the DOM's scroll event: at most once per frame, on
+// the scroll container only; it does not bubble). The fields are the
+// DOM's Element scroll properties, in logical pixels.
+type ScrollEvent struct {
+	// ScrollLeft and ScrollTop are the scroll offsets: how far the
+	// content is scrolled from its start.
+	ScrollLeft, ScrollTop float32
+	// ScrollWidth and ScrollHeight are the size of the scrollable content
+	// (at least the client size); the largest offsets are ScrollWidth -
+	// ClientWidth and ScrollHeight - ClientHeight.
+	ScrollWidth, ScrollHeight float32
+	// ClientWidth and ClientHeight are the size of the visible area: the
+	// padding box without the scrollbars' gutters.
+	ClientWidth, ClientHeight float32
+
+	st *eventState
+}
+
+// StopPropagation does nothing: scroll events do not bubble. It exists
+// for symmetry with the other events.
+func (e ScrollEvent) StopPropagation() { e.st.stop() }
+
+// PreventDefault marks the event; the scroll already happened.
+func (e ScrollEvent) PreventDefault() { e.st.prevent() }
+
+// DefaultPrevented reports whether a handler called PreventDefault.
+func (e ScrollEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
 // ---------------------------------------------------------------------
 // Handler props.
 
@@ -247,6 +305,8 @@ const (
 	evKeyUp
 	evFocus
 	evBlur
+	evWheel
+	evScroll
 	numEventKinds
 )
 
@@ -274,6 +334,8 @@ var eventNames = [numEventKinds]string{
 	evKeyUp:         "keyup",
 	evFocus:         "focus",
 	evBlur:          "blur",
+	evWheel:         "wheel",
+	evScroll:        "scroll",
 }
 
 func (k eventKind) String() string {
@@ -302,6 +364,10 @@ func (k eventKind) handlerType() string {
 		return "func(tela.KeyboardEvent)"
 	case k == evFocus || k == evBlur:
 		return "func(tela.FocusEvent)"
+	case k == evWheel:
+		return "func(tela.WheelEvent)"
+	case k == evScroll:
+		return "func(tela.ScrollEvent)"
 	}
 	return "func(tela.PointerEvent)"
 }
@@ -320,6 +386,12 @@ func (k eventKind) checkHandler(h any) bool {
 		return ok && f != nil
 	case "func(tela.FocusEvent)":
 		f, ok := h.(func(FocusEvent))
+		return ok && f != nil
+	case "func(tela.WheelEvent)":
+		f, ok := h.(func(WheelEvent))
+		return ok && f != nil
+	case "func(tela.ScrollEvent)":
+		f, ok := h.(func(ScrollEvent))
 		return ok && f != nil
 	}
 	f, ok := h.(func(PointerEvent))
@@ -352,8 +424,8 @@ type EventProp struct {
 // "pointercancel", "pointerenter", "pointerleave", "longpress"
 // (func(PointerEvent)), "dragstart", "drag" and "dragend"
 // (func(DragEvent)), "keydown" and "keyup" (func(KeyboardEvent)), "focus"
-// and "blur" (func(FocusEvent)). It panics on another name or handler
-// type.
+// and "blur" (func(FocusEvent)), "wheel" (func(WheelEvent)) and "scroll"
+// (func(ScrollEvent)). It panics on another name or handler type.
 func On(event string, handler any) Prop {
 	k := eventKindOf(event)
 	if k == 0 {

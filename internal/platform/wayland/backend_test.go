@@ -574,6 +574,21 @@ func TestPointerAndCursor(t *testing.T) {
 		t.Errorf("scroll = %+v", se)
 	}
 
+	// A touchpad gesture ends with axis_stop: an update, then the end.
+	h.fc.send(ptr, 6, uint32(protocols.WlPointerAxisSourceFinger)) // axis_source
+	h.fc.send(ptr, 4, uint32(1003), uint32(0), 6.5)                // axis vertical
+	h.fc.send(ptr, 5)                                              // frame
+	if se := expect[platform.ScrollEvent](h); se.Phase != platform.ScrollPhaseUpdate || se.Delta.Y != 6.5 {
+		t.Errorf("finger scroll = %+v, want an update", se)
+	}
+	h.fc.send(ptr, 6, uint32(protocols.WlPointerAxisSourceFinger)) // axis_source
+	h.fc.send(ptr, 7, uint32(1004), uint32(0))                     // axis_stop vertical
+	h.fc.send(ptr, 7, uint32(1004), uint32(1))                     // axis_stop horizontal
+	h.fc.send(ptr, 5)                                              // frame
+	if se := expect[platform.ScrollEvent](h); se.Phase != platform.ScrollPhaseEnd || se.Delta != (platform.Point{}) {
+		t.Errorf("axis_stop = %+v, want the end of the gesture", se)
+	}
+
 	// SetCursor applies at once while the pointer is inside.
 	h.ui(func() { w.SetCursor(platform.CursorText) })
 	if r := h.fc.until("wp_cursor_shape_device_v1.set_shape"); r[len(r)-1].u(1) != uint32(protocols.WpCursorShapeDeviceV1ShapeText) {

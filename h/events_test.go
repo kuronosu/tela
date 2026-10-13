@@ -195,6 +195,8 @@ func TestHandlerPropsPanicOnNil(t *testing.T) {
 		"OnDragStart":     func() { OnDragStart(nil) },
 		"OnDrag":          func() { OnDrag(nil) },
 		"OnDragEnd":       func() { OnDragEnd(nil) },
+		"OnWheel":         func() { OnWheel(nil) },
+		"OnScroll":        func() { OnScroll(nil) },
 	} {
 		func() {
 			defer func() {

@@ -232,6 +232,65 @@ const (
 	UserSelectAll
 )
 
+// ScrollBehavior is how a scroll container animates (the CSS
+// scroll-behavior property, plus Tela's instant). Not inherited.
+type ScrollBehavior uint8
+
+const (
+	// ScrollBehaviorAuto (scroll-auto, the default): programmatic scrolls
+	// jump; user scrolling (wheel notches, keys) animates unless the app
+	// set InstantScroll.
+	ScrollBehaviorAuto ScrollBehavior = iota
+	// ScrollBehaviorSmooth (scroll-smooth): programmatic scrolls animate,
+	// and user scrolling animates even when the app set InstantScroll.
+	ScrollBehaviorSmooth
+	// ScrollBehaviorInstant (scroll-instant, Tela-specific): nothing
+	// animates and touchpad or touch scrolling never flings.
+	ScrollBehaviorInstant
+)
+
+var scrollBehaviorNames = [...]string{"auto", "smooth", "instant"}
+
+func (b ScrollBehavior) String() string { return enumName(scrollBehaviorNames[:], int(b)) }
+
+// ScrollbarMode is the look of a scroll container's scrollbars
+// (Tela-specific; CSS leaves it to the platform). Not inherited.
+type ScrollbarMode uint8
+
+const (
+	// ScrollbarDefault follows the app (tela.App.ClassicScrollbars).
+	ScrollbarDefault ScrollbarMode = iota
+	// ScrollbarClassic (scrollbar-classic): always-visible bars in a
+	// reserved gutter.
+	ScrollbarClassic
+	// ScrollbarOverlay (scrollbar-overlay): thin bars over the content,
+	// shown while scrolling.
+	ScrollbarOverlay
+)
+
+var scrollbarModeNames = [...]string{"default", "classic", "overlay"}
+
+func (m ScrollbarMode) String() string { return enumName(scrollbarModeNames[:], int(m)) }
+
+// Overscroll is one axis of the CSS overscroll-behavior property: whether
+// a scroll that reaches the edge of this scroll container chains to its
+// ancestors. Not inherited.
+type Overscroll uint8
+
+const (
+	// OverscrollAuto chains to the ancestors.
+	OverscrollAuto Overscroll = iota
+	// OverscrollContain stops the chain at this container.
+	OverscrollContain
+	// OverscrollNone stops the chain too (Tela draws no overscroll
+	// effect, so it is contain).
+	OverscrollNone
+)
+
+var overscrollNames = [...]string{"auto", "contain", "none"}
+
+func (o Overscroll) String() string { return enumName(overscrollNames[:], int(o)) }
+
 // ZIndex is the CSS z-index. The zero value is auto.
 type ZIndex struct {
 	Explicit bool
@@ -506,6 +565,11 @@ type ComputedStyle struct {
 	OverflowX  Overflow
 	OverflowY  Overflow
 	Visibility Visibility // inherited
+	// Scrolling (scroll containers only): scroll-auto/smooth/instant,
+	// scrollbar-classic/overlay, overscroll-* per axis.
+	ScrollBehavior           ScrollBehavior
+	Scrollbar                ScrollbarMode
+	OverscrollX, OverscrollY Overscroll
 
 	// Sizing. Box sizing is always border-box. Max sizes treat auto as none.
 	Width, Height       Dim

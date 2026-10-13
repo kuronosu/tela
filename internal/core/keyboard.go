@@ -36,7 +36,11 @@ import (
 //   - keydown Space on a focused Button makes it active and its keyup
 //     clicks it, unless the focus moved meanwhile, the keyup was prevented
 //     or synthetic (HTML's activation behavior: Enter on keydown, Space on
-//     keyup).
+//     keyup);
+//   - keydown of the arrows, Page Up, Page Down, Home, End (without Ctrl,
+//     Alt or Meta; Home and End also with Ctrl) and Space or Shift+Space
+//     on a target that is not a Button scroll the focused scroll
+//     container or the nearest one around the focus (scroll.go).
 //
 // A click from the keyboard is an OnClick with ClickCount 0 (the DOM's
 // detail), the primary button and the key's modifiers, at the center of
@@ -151,6 +155,7 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 	}
 	ke.Shift, ke.Ctrl, ke.Alt, ke.Meta = modifiers(e.Mods)
 	target := t.keyTarget()
+	t.scr.now = max(t.scr.now, e.Time)
 	if e.Action == platform.KeyPress {
 		t.noteKey(e)
 		st := fire(t, evKeyDown, target, ke, true)
@@ -219,11 +224,57 @@ func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent) {
 			t.keyClick(el, e)
 		}
 	case " ":
-		if el := t.foc.el; !e.Repeat && el == target && isButton(el) && t.foc.space == nil && t.focusable(el) {
-			t.foc.space = el
-			el.activeN++
-			t.setState(el, style.StateActive, true)
+		if isButton(target) {
+			if el := t.foc.el; !e.Repeat && el == target && t.foc.space == nil && t.focusable(el) {
+				t.foc.space = el
+				el.activeN++
+				t.setState(el, style.StateActive, true)
+			}
+			return
 		}
+		if !e.Ctrl && !e.Alt && !e.Meta {
+			dir := float32(1)
+			if e.Shift {
+				dir = -1
+			}
+			t.keyScroll(keyPage, 1, dir)
+		}
+	default:
+		t.keyScrollDefault(e)
+	}
+}
+
+// keyScrollDefault runs the scrolling default actions of the arrows,
+// Page Up, Page Down, Home and End (scroll.go).
+func (t *Tree) keyScrollDefault(e KeyboardEvent) {
+	if e.Alt || e.Meta {
+		return
+	}
+	switch e.Key {
+	case KeyValue(platform.KeyHome), KeyValue(platform.KeyEnd):
+		dir := float32(-1)
+		if e.Key == KeyValue(platform.KeyEnd) {
+			dir = 1
+		}
+		t.keyScroll(keyEdge, 1, dir)
+		return
+	}
+	if e.Ctrl {
+		return
+	}
+	switch e.Key {
+	case KeyValue(platform.KeyArrowUp):
+		t.keyScroll(keyLine, 1, -1)
+	case KeyValue(platform.KeyArrowDown):
+		t.keyScroll(keyLine, 1, 1)
+	case KeyValue(platform.KeyArrowLeft):
+		t.keyScroll(keyLine, 0, -1)
+	case KeyValue(platform.KeyArrowRight):
+		t.keyScroll(keyLine, 0, 1)
+	case KeyValue(platform.KeyPageUp):
+		t.keyScroll(keyPage, 1, -1)
+	case KeyValue(platform.KeyPageDown):
+		t.keyScroll(keyPage, 1, 1)
 	}
 }
 

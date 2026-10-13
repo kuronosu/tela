@@ -200,6 +200,25 @@ func (v *Value[T]) unmount(*Tree) {
 	v.subs = nil
 }
 
+// storeUI sets the value on the UI thread at once (not through the update
+// queue) and invalidates its readers: UseScroll's values follow the scroll
+// offsets this way.
+func (v *Value[T]) storeUI(x T) {
+	p := new(T)
+	*p = x
+	v.store(p)
+}
+
+// newValue returns a Value owned by component el holding initial.
+func newValue[T any](el *Element, initial T) *Value[T] {
+	v := &Value[T]{comparable: reflect.TypeFor[T]().Comparable()}
+	v.el = el
+	p := new(T)
+	*p = initial
+	v.cur.Store(p)
+	return v
+}
+
 // UseValue returns the Value of this hook slot (ARCHITECTURE section 7,
 // phase-deferred reads). The first build stores initial; the same *Value
 // is returned on every build.
@@ -212,11 +231,7 @@ func UseValue[T any](initial T) *Value[T] {
 		}
 		return v
 	}
-	v := &Value[T]{comparable: reflect.TypeFor[T]().Comparable()}
-	v.el = el
-	p := new(T)
-	*p = initial
-	v.cur.Store(p)
+	v := newValue(el, initial)
 	el.hooks = append(el.hooks, v)
 	return v
 }

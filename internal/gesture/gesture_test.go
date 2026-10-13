@@ -369,3 +369,58 @@ func TestClickCounter(t *testing.T) {
 		t.Errorf("touch late %d", n)
 	}
 }
+
+func TestDragAxis(t *testing.T) {
+	// A vertical drag ignores horizontal movement: an outer vertical
+	// scroller does not take a horizontal swipe from an inner free drag.
+	var log []string
+	var m Manager
+	inner := &Drag{OnStart: func(DragUpdate) { log = append(log, "inner") }}
+	outer := &Drag{Axis: AxisVertical, OnStart: func(DragUpdate) { log = append(log, "outer") }}
+	m.Down(Event{Pointer: 1, Kind: Touch, Pos: Point{100, 100}}, outer, inner)
+	m.Move(Event{Pointer: 1, Pos: Point{130, 105}, Time: 10 * ms})
+	if got := strings.Join(log, ","); got != "inner" {
+		t.Errorf("horizontal swipe: %q, want inner", got)
+	}
+	m.Up(Event{Pointer: 1, Pos: Point{130, 105}, Time: 20 * ms})
+
+	log = nil
+	inner = &Drag{Axis: AxisHorizontal, OnStart: func(DragUpdate) { log = append(log, "inner") }}
+	outer = &Drag{Axis: AxisVertical, OnStart: func(DragUpdate) { log = append(log, "outer") }}
+	m.Down(Event{Pointer: 2, Kind: Touch, Pos: Point{100, 100}}, inner, outer)
+	m.Move(Event{Pointer: 2, Pos: Point{110, 100}, Time: 10 * ms}) // within the slop
+	m.Move(Event{Pointer: 2, Pos: Point{110, 130}, Time: 20 * ms}) // vertical, past the slop
+	if got := strings.Join(log, ","); got != "outer" {
+		t.Errorf("vertical swipe: %q, want outer", got)
+	}
+	m.Up(Event{Pointer: 2, Pos: Point{110, 130}, Time: 30 * ms})
+}
+
+func TestDragEager(t *testing.T) {
+	// An eager drag (a scrollbar thumb) wins at the press, before a tap,
+	// and starts with a zero offset.
+	var log []string
+	var starts, upds []DragUpdate
+	d := &Drag{Eager: true,
+		OnStart:  func(u DragUpdate) { log = append(log, "start"); starts = append(starts, u) },
+		OnUpdate: func(u DragUpdate) { log = append(log, "drag"); upds = append(upds, u) },
+		OnEnd:    func(DragUpdate) { log = append(log, "end") },
+	}
+	tap := &Tap{OnTap: func(Event) { log = append(log, "tap") }, OnReject: func() { log = append(log, "tap rejected") }}
+	var m Manager
+	m.Down(Event{Pointer: 1, Kind: Mouse, Pos: Point{50, 50}, Time: 5 * ms}, d, tap)
+	if got := strings.Join(log, ","); got != "tap rejected,start" {
+		t.Fatalf("at the press: %q", got)
+	}
+	if starts[0].Offset != (Point{}) || starts[0].Pos != (Point{50, 50}) || starts[0].Time != 5*ms {
+		t.Errorf("start %+v", starts[0])
+	}
+	m.Move(Event{Pointer: 1, Pos: Point{50, 51}, Time: 10 * ms}) // one pixel moves the thumb
+	m.Up(Event{Pointer: 1, Pos: Point{50, 51}, Time: 20 * ms})
+	if got := strings.Join(log, ","); got != "tap rejected,start,drag,end" {
+		t.Errorf("got %q", got)
+	}
+	if upds[0].Offset != (Point{0, 1}) {
+		t.Errorf("update %+v", upds[0])
+	}
+}

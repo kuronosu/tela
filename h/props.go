@@ -226,6 +226,41 @@ func OnDragEnd(handler func(tela.DragEvent)) tela.Prop {
 	return onDrag("dragend", "OnDragEnd", handler)
 }
 
+// OnWheel calls handler when a mouse wheel turns or a touchpad scrolls
+// over the element (the DOM's wheel event). The event bubbles. Unless a
+// handler calls e.PreventDefault(), the nearest scrolling element (with
+// overflow-auto or overflow-scroll) that can move in that direction
+// scrolls, chaining to its scrolling ancestors at its edges unless it has
+// overscroll-contain.
+//
+//	Div(OnWheel(func(e tela.WheelEvent) {
+//	    if e.Ctrl {
+//	        e.PreventDefault()
+//	        zoomBy(-e.DeltaY)
+//	    }
+//	}))
+func OnWheel(handler func(tela.WheelEvent)) tela.Prop {
+	if handler == nil {
+		panic("h: OnWheel(nil): pass a handler, for example OnWheel(func(e tela.WheelEvent) { ... })")
+	}
+	return core.On("wheel", handler)
+}
+
+// OnScroll calls handler after the element's scroll offsets changed, by
+// the user or by code: at most once per frame, on the scrolling element
+// itself (it does not bubble), with its offsets and sizes. To tie a style
+// to the scroll position without rebuilding, use tela.UseScroll instead.
+//
+//	Div(Class("h-96 overflow-y-auto"), OnScroll(func(e tela.ScrollEvent) {
+//	    setAtTop.Set(e.ScrollTop == 0)
+//	}), rows)
+func OnScroll(handler func(tela.ScrollEvent)) tela.Prop {
+	if handler == nil {
+		panic("h: OnScroll(nil): pass a handler, for example OnScroll(func(e tela.ScrollEvent) { ... })")
+	}
+	return core.On("scroll", handler)
+}
+
 func onMouse(event, name string, handler func(tela.MouseEvent)) tela.Prop {
 	if handler == nil {
 		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.MouseEvent) { ... })")

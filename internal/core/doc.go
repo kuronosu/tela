@@ -46,7 +46,8 @@
 // Hooks keep their state in slots on the component Element being built,
 // by call order (ADR-040): UseState (UseStateSet, UseStateUpdate),
 // UseReducer, UseEffect, UseLayoutEffect, UseMemo, UseCallback, UseRef,
-// UseContext, UseId, UseValue and UseElementRef (focus.go). A function
+// UseContext, UseId, UseValue, UseElementRef (focus.go) and UseScroll
+// (scroll.go). A function
 // called directly from a
 // component, not through Component, runs inside that component's build:
 // its hooks are the component's (a custom hook).
@@ -173,7 +174,28 @@
 //
 // Tree.HandleKey turns platform key events into keydown and keyup events
 // (keyboard.go): they target the focused element and bubble, then run
-// their default actions (Tab navigation, Enter and Space on buttons).
+// their default actions (Tab navigation, Enter and Space on buttons,
+// scrolling keys).
+//
+// # Scrolling
+//
+// Boxes whose overflow is hidden, scroll or auto are scroll containers
+// (scroll.go, whose top comment is the reference), and so is the root,
+// the viewport (overflow auto unless RootClass sets one): their offsets live on
+// the box, are clamped after every layout and move the painted content
+// (and so hit-testing and local coordinates). Tree.HandleScroll turns
+// platform scroll events into OnWheel events whose default action scrolls
+// the nearest container on the target's containing-block chain that can
+// move (chaining, overscroll containment, Chromium's latching); wheel
+// notches, keys and scrollbar pages animate, touchpad and touch scrolling
+// follow the fingers and fling with GTK 4's deceleration when they lift,
+// and the instant settings (Config.InstantScroll, scroll-instant,
+// reduced motion) turn animation and flings off. Programmatic scrolling
+// goes through ElementRef (ScrollTo, ScrollBy, ScrollIntoView) and focus
+// reveals the focused element; OnScroll fires once per frame per
+// container and UseScroll's Values follow the offsets. Tela draws the
+// scrollbars (scrollbar.go): overlay bars that fade, or classic ones in a
+// reserved gutter (Config.ClassicScrollbars, scrollbar-classic).
 // The focus (focus.go) follows HTML: focusable elements (Button,
 // TabIndex), the sequential order, focus by pointer press, ElementRef,
 // AutoFocus, the fix-up of elements that stop being focusable, the
@@ -184,8 +206,12 @@
 //
 // # Pipeline
 //
-// Tree.Frame runs Build, Style, box structure, Layout, the layout effects
-// and Paint (ARCHITECTURE section 8) on what is dirty: components marked
+// Tree.Animate (phase 2, called with the frame clock before Frame)
+// advances the scroll animations, flings and scrollbar fades. Tree.Frame
+// fires the pending OnScroll events and runs Build, Style, box structure,
+// Layout, the layout effects, the scroll phase (offsets clamped, classic
+// gutters, elements revealed) and Paint (ARCHITECTURE section 8) on what
+// is dirty: components marked
 // needsBuild (in tree order), primitives marked needsStyle, primitives
 // whose structure or paragraph may have changed, boxes whose
 // layout-phase deferred props read a Value that changed, and the layout
@@ -205,12 +231,14 @@
 // A Host connects a Tree to a platform window: WakeEvent applies state
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent
 // runs Frame, rasterizes at the window scale into a reused framebuffer,
-// presents and runs the passive effects; PointerEvent goes to
-// HandlePointer, KeyEvent to HandleKey and FocusEvent to
+// presents and runs the passive effects (Animate runs first);
+// PointerEvent goes to HandlePointer, ScrollEvent to HandleScroll,
+// KeyEvent to HandleKey and FocusEvent to
 // SetWindowFocused (a Host starts with an unfocused window), and the
-// window's cursor follows Tree.Cursor (SetCursor only on a change). While a press waits for a long-press timeout, the
-// Host keeps one goroutine timer that calls Wake at the deadline (the
-// platform layer has no timer API); idle, it has none.
+// window's cursor follows Tree.Cursor (SetCursor only on a change). While
+// a press waits for a long-press timeout, or overlay scrollbars wait to
+// fade, the Host keeps one goroutine timer that calls Wake at the deadline
+// (the platform layer has no timer API); idle, it has none.
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed. Render does everything

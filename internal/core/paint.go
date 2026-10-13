@@ -40,6 +40,18 @@ import (
 // Boxes with visibility: hidden or collapse skip 1-6 for themselves but
 // still paint their children, which may be visible.
 //
+// # Scroll containers
+//
+// The content and in-flow children of a scroll container (scroll.go) are
+// painted moved by its scroll offset, snapped to device pixels, under its
+// overflow clip, which leaves out the classic scrollbar gutters; its
+// scrollbars (scrollbar.go) are painted after everything it paints itself,
+// before its outline. The positions are absolute (place): each box is
+// moved by the offsets of the scroll containers on its containing-block
+// chain, so an absolutely positioned descendant whose containing block is
+// outside a scroll container does not scroll with it (CSS), and fixed
+// boxes never move with the root.
+//
 // # Stacking (ARCHITECTURE section 13, simplified CSS 2 appendix E)
 //
 // A box creates a stacking context when it has a z-index other than auto
@@ -125,31 +137,56 @@ func (t *Tree) paintPhase() *gfx.DisplayList {
 	if t.rootBox != nil && t.rootBox.cs != nil {
 		b.FillRect(gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}, t.CanvasColor())
 		p := painter{t: t, b: b, scale: float64(t.scale)}
-		p.place(t.rootBox, gfx.Point{})
+		p.place(t.rootBox, nil)
 		p.paintStacked(t.rootBox)
 	}
 	return b.Finish()
 }
 
 // place records, for bx and its subtree, the paint-phase style and the
-// absolute (unsnapped) border box. origin is the absolute position of the
-// border box of bx's layout parent.
-func (p *painter) place(bx *Box, origin gfx.Point) {
+// absolute (unsnapped) border box where it is painted: its layout
+// position moved by the scroll offsets of the scroll containers on its
+// containing-block chain (shift). parent is bx's layout parent, placed
+// already (nil for the root).
+func (p *painter) place(bx *Box, parent *Box) {
 	if bx.ls.Display == layout.DisplayNone {
 		return
 	}
 	l := bx.ld.Layout()
-	bx.abs = gfx.RectFromOriginSize(origin.Add(l.Location), l.Size)
 	bx.pcs = bx.cs
 	if bx.deferPaint {
 		// The paint-phase deferred props, evaluated on every paint of
 		// the box; the Values they read repaint it when they change.
 		bx.pcs = p.t.resolveDeferred(bx, style.PhasePaint)
 	}
-	o := bx.abs.Origin()
+	loc := l.Location
+	var shift gfx.Point
+	if parent != nil {
+		// The layout position, unscrolled, then the shift of the
+		// containing block (its own and its offset): an in-flow box
+		// moves with its parent's content, an absolute one with its
+		// containing block's, a fixed one never with the root's.
+		loc = loc.Add(parent.abs.Origin()).Add(parent.shift)
+		if cb := containingBlock(bx); cb != nil && (bx.pcs.Position != style.PositionFixed || cb != p.t.rootBox) {
+			shift = cb.shift
+			if cb.scr != nil {
+				shift = shift.Add(cb.scr.soff)
+			}
+		}
+	}
+	bx.shift = shift
+	bx.abs = gfx.RectFromOriginSize(loc.Sub(shift), l.Size)
+	if s := bx.scr; s != nil {
+		// The painted offset, snapped to device pixels like box edges.
+		off := gfx.Point{X: p.snap(s.pos.X), Y: p.snap(s.pos.Y)}
+		if off != s.soff {
+			s.soff = off
+			p.t.scr.moved = true
+		}
+	}
 	sub := bx.abs
 	for _, k := range bx.kids {
-		p.place(k, o)
+		p.place(k, bx)
 		if k.ls.Display != layout.DisplayNone {
 			sub = sub.Union(k.hitBounds)
 		}
@@ -241,6 +278,7 @@ func (p *painter) paintStacked(bx *Box) {
 		p.paintHoisted(bx, items[i].bx)
 	}
 	p.items = p.items[:start]
+	p.paintScrollbars(bx)
 	p.paintOutline(bx)
 	p.popEffects(pops)
 }
@@ -273,6 +311,7 @@ func (p *painter) paintHoisted(root, e *Box) {
 	} else {
 		p.paintSelf(e)
 		p.paintInner(e)
+		p.paintScrollbars(e)
 		p.paintOutline(e)
 	}
 	for ; n > 0; n-- {
@@ -310,11 +349,19 @@ func (p *painter) paintFlow(bx *Box) {
 	}
 	p.paintSelf(bx)
 	p.paintInner(bx)
+	p.paintScrollbars(bx)
 	p.paintOutline(bx)
 }
 
 // paintInner paints the content and the in-flow children of bx, clipped
 // by its overflow clip.
+//
+// T7b hook: a scroll container (bx.scr != nil) is a repaint boundary and
+// a layer candidate. Its content and in-flow children could be painted
+// once into a layer in content coordinates and composited at its scroll
+// offset under this clip, so that a scroll frame only composites (place
+// would then position its subtree relative to the container instead of
+// moving every descendant).
 func (p *painter) paintInner(bx *Box) {
 	clipped := clipsOverflow(bx.pcs) && p.pushOverflowClip(bx)
 	if bx.pcs.Visibility == style.VisibilityVisible {
@@ -379,9 +426,14 @@ func clipsOverflow(cs *style.ComputedStyle) bool {
 }
 
 // pushOverflowClip pushes the overflow clip of bx (overflowClip). It
-// reports whether it pushed one.
+// reports whether it pushed one: the root's (the viewport's) is not pushed
+// when it covers the whole window.
 func (p *painter) pushOverflowClip(bx *Box) bool {
 	c := p.overflowClip(bx)
+	if bx == p.t.rootBox && c.IsRect() && c.Rect.ContainsRect(gfx.Rect{X1: p.t.viewport.W, Y1: p.t.viewport.H}) {
+		// The viewport's clip is the window: nothing to cut.
+		return false
+	}
 	if c.IsRect() {
 		p.b.PushClipRect(c.Rect)
 	} else {
@@ -403,11 +455,27 @@ func (p *painter) overflowClip(bx *Box) gfx.RRect {
 	}
 	both := scrolls(x) || scrolls(y) || (x == style.OverflowClip && y == style.OverflowClip)
 	g := p.geom(bx)
+	pad := g.padding
+	if l := bx.ld.Layout(); l.ScrollbarSize.W > 0 || l.ScrollbarSize.H > 0 {
+		// The classic scrollbar gutters are not part of the scrollport:
+		// the content is clipped to the rounded padding box and the
+		// scrollport rectangle, whose corners at a gutter are square.
+		r, rd := pad.Rect, pad.Radii
+		if l.ScrollbarSize.W > 0 {
+			r.X1 = max(r.X1-p.snapWidth(l.ScrollbarSize.W), r.X0)
+			rd[1], rd[2] = gfx.Point{}, gfx.Point{}
+		}
+		if l.ScrollbarSize.H > 0 {
+			r.Y1 = max(r.Y1-p.snapWidth(l.ScrollbarSize.H), r.Y0)
+			rd[2], rd[3] = gfx.Point{}, gfx.Point{}
+		}
+		pad = gfx.RRect{Rect: r, Radii: rd}.Normalize()
+	}
 	if both {
-		return g.padding
+		return pad
 	}
 	const far = 1 << 24
-	r := g.padding.Rect
+	r := pad.Rect
 	if x != style.OverflowClip {
 		r.X0, r.X1 = -far, far
 	}
@@ -529,6 +597,10 @@ func (p *painter) paintContent(bx *Box) {
 		}
 		c := contentRect(bx.abs, l)
 		para.prepare(p.t, max(c.Width(), 0))
+		if s := bx.scr; s != nil {
+			// A paragraph that scrolls its own text.
+			c = c.Translate(-s.soff.X, -s.soff.Y)
+		}
 		para.lay.Paint(p.b, c.Origin())
 	case modeImage:
 		if bx.img == nil {

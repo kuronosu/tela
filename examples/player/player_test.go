@@ -2,6 +2,7 @@ package main
 
 import (
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -226,21 +227,43 @@ func TestTrackEndsAndPlaysNext(t *testing.T) {
 }
 
 // TestClockStopsOnUnmount checks that the goroutine ends with the player.
+// It looks for the clock goroutine by its function in a stack dump rather
+// than counting all goroutines, which other tests' goroutines disturb.
 func TestClockStopsOnUnmount(t *testing.T) {
 	fast(t, 5*time.Millisecond, 1)
-	before := runtime.NumGoroutine()
+	before := clocks()
 	a := exampletest.Open(t, Player, windowW, windowH)
 	a.Frame()
 	a.Frame() // passive effects run after a frame is presented
-	if runtime.NumGoroutine() <= before {
+	if clocks() <= before {
 		t.Fatal("the clock goroutine did not start")
 	}
 	a.Tree().Unmount()
 	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && runtime.NumGoroutine() > before {
+	for time.Now().Before(deadline) && clocks() > before {
 		time.Sleep(5 * time.Millisecond)
 	}
-	if got := runtime.NumGoroutine(); got > before {
-		t.Errorf("%d goroutines after unmount, was %d before the player", got, before)
+	if got := clocks(); got > before {
+		t.Errorf("%d clock goroutines after unmount, was %d before the player", got, before)
 	}
+}
+
+// clocks counts the running clock goroutines started by useTransport.
+func clocks() int {
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+	n := 0
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		if strings.Contains(g, "useTransport.func") {
+			n++
+		}
+	}
+	return n
 }

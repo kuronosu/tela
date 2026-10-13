@@ -86,19 +86,45 @@ type DragUpdate struct {
 	Time     time.Duration
 }
 
+// Axis restricts the movement a Drag measures against its slop.
+type Axis uint8
+
+// The axes.
+const (
+	// AxisFree measures the distance in any direction (a pan).
+	AxisFree Axis = iota
+	// AxisHorizontal measures only the horizontal movement.
+	AxisHorizontal
+	// AxisVertical measures only the vertical movement.
+	AxisVertical
+)
+
 // Drag recognizes a drag: the pointer moves farther than Slop from the
 // press. It accepts at that move, and then reports the start (at that
 // move), updates and the end. Offsets are measured from the press
 // position, so a dragged element follows the pointer exactly. It rejects
 // itself when the pointer is released or cancelled before.
+//
+// With Axis set it only counts the movement along that axis (Flutter's
+// VerticalDragGestureRecognizer: a vertical scroller does not take a
+// horizontal swipe). With Eager it accepts at the press and starts there,
+// before any movement (a scrollbar thumb follows the pointer from the
+// first pixel).
 type Drag struct {
 	// Slop is the distance before the drag starts; zero means
 	// DragSlop(kind of the press).
-	Slop                     float32
+	Slop float32
+	// Axis is the movement measured against the slop.
+	Axis Axis
+	// Eager accepts the gesture at the press: the drag starts at the
+	// press (OnStart with a zero offset) and wins the arena when it
+	// closes, unless another eager member accepted first.
+	Eager                    bool
 	OnStart, OnUpdate, OnEnd func(DragUpdate)
 
 	entry   Entry
 	press   Point
+	pressAt time.Duration
 	last    Point
 	vt      VelocityTracker
 	slop    float32
@@ -109,13 +135,30 @@ type Drag struct {
 
 func (r *Drag) down(e Event, entry Entry) {
 	r.entry = entry
-	r.press, r.last = e.Pos, e.Pos
+	r.press, r.last, r.pressAt = e.Pos, e.Pos, e.Time
 	r.slop = r.Slop
 	if r.slop == 0 {
 		r.slop = DragSlop(e.Kind)
 	}
 	r.vt.Reset()
 	r.vt.Add(e.Time, e.Pos)
+	if r.Eager {
+		r.entry.Resolve(Accepted)
+	}
+}
+
+// pastSlop reports whether p is farther than the slop from the press,
+// along the recognizer's axis.
+func (r *Drag) pastSlop(p Point) bool {
+	switch r.Axis {
+	case AxisHorizontal:
+		d := p.X - r.press.X
+		return d > r.slop || -d > r.slop
+	case AxisVertical:
+		d := p.Y - r.press.Y
+		return d > r.slop || -d > r.slop
+	}
+	return beyond(p, r.press, r.slop)
 }
 
 func (r *Drag) deadline() (time.Duration, bool) { return 0, false }
@@ -127,7 +170,7 @@ func (r *Drag) move(e Event) {
 	}
 	r.vt.Add(e.Time, e.Pos)
 	if !r.started {
-		if !beyond(e.Pos, r.press, r.slop) {
+		if !r.pastSlop(e.Pos) {
 			return
 		}
 		if !r.won {
@@ -183,7 +226,15 @@ func (r *Drag) cancel(e Event) {
 }
 
 // AcceptGesture implements Member.
-func (r *Drag) AcceptGesture(PointerID) { r.won = true }
+func (r *Drag) AcceptGesture(PointerID) {
+	r.won = true
+	if r.Eager && !r.started && !r.done {
+		r.started = true
+		if r.OnStart != nil {
+			r.OnStart(DragUpdate{Pos: r.press, Time: r.pressAt})
+		}
+	}
+}
 
 // RejectGesture implements Member.
 func (r *Drag) RejectGesture(PointerID) { r.done = true }

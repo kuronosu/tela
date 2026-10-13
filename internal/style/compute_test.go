@@ -1,6 +1,7 @@
 package style
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -299,5 +300,38 @@ func TestTransformMatrix(t *testing.T) {
 	// Identity transforms give the identity.
 	if !style(t, "p-4").Transform.Matrix(box).IsIdentity() {
 		t.Error("identity transform produced a matrix")
+	}
+}
+
+func TestScrollClasses(t *testing.T) {
+	s := style(t, "overflow-auto")
+	eq(t, "default behavior", s.ScrollBehavior, ScrollBehaviorAuto)
+	eq(t, "default scrollbar", s.Scrollbar, ScrollbarDefault)
+	eq(t, "default overscroll", s.OverscrollY, OverscrollAuto)
+	s = style(t, "scroll-smooth scrollbar-classic overscroll-contain")
+	eq(t, "smooth", s.ScrollBehavior, ScrollBehaviorSmooth)
+	eq(t, "classic", s.Scrollbar, ScrollbarClassic)
+	eq(t, "contain x", s.OverscrollX, OverscrollContain)
+	eq(t, "contain y", s.OverscrollY, OverscrollContain)
+	// Last wins: one property.
+	s = style(t, "scroll-smooth scroll-instant scrollbar-classic scrollbar-overlay overscroll-none overscroll-x-auto")
+	eq(t, "instant", s.ScrollBehavior, ScrollBehaviorInstant)
+	eq(t, "overlay", s.Scrollbar, ScrollbarOverlay)
+	eq(t, "x auto", s.OverscrollX, OverscrollAuto)
+	eq(t, "y none", s.OverscrollY, OverscrollNone)
+	s = style(t, "overscroll-y-contain")
+	eq(t, "y only", s.OverscrollY, OverscrollContain)
+	eq(t, "x untouched", s.OverscrollX, OverscrollAuto)
+	// Not inherited.
+	parent := style(t, "scroll-smooth scrollbar-classic overscroll-contain")
+	child := styleIn(t, testCx, KindDiv, parent, "p-2")
+	if child.ScrollBehavior != ScrollBehaviorAuto || child.Scrollbar != ScrollbarDefault || child.OverscrollY != OverscrollAuto {
+		t.Errorf("scroll properties inherited: %v %v %v", child.ScrollBehavior, child.Scrollbar, child.OverscrollY)
+	}
+	// The vocabulary suggests them.
+	for _, c := range []string{"scroll-smooth", "scroll-instant", "scrollbar-classic", "scrollbar-overlay", "overscroll-x-contain"} {
+		if !slices.Contains(DefaultParser().Vocabulary(), c) {
+			t.Errorf("%s missing from the vocabulary", c)
+		}
 	}
 }

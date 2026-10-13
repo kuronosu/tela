@@ -146,6 +146,47 @@ func TestPointerFrameGrouping(t *testing.T) {
 		t.Errorf("touchpad scroll = %+v", se)
 	}
 
+	// A touchpad gesture (finger source): updates, then the stop of both
+	// axes in a frame of their own ends it with an event without delta.
+	p.axisSource(protocols.WlPointerAxisSourceFinger)
+	p.axis(protocols.WlPointerAxisVerticalScroll, 4, 20*ms)
+	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Phase != platform.ScrollPhaseUpdate || se.Delta.Y != 4 {
+		t.Errorf("finger scroll = %+v, want an update", se)
+	}
+	// Later frames of the gesture may omit the source.
+	p.axis(protocols.WlPointerAxisVerticalScroll, 3, 21*ms)
+	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Phase != platform.ScrollPhaseUpdate {
+		t.Errorf("second finger frame = %+v, want an update", se)
+	}
+	// One axis stops while the other moves: the gesture goes on.
+	p.axisStop(protocols.WlPointerAxisHorizontalScroll, 22*ms)
+	p.axis(protocols.WlPointerAxisVerticalScroll, 2, 22*ms)
+	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Phase != platform.ScrollPhaseUpdate || se.Delta.Y != 2 {
+		t.Errorf("stop with movement = %+v, want an update", se)
+	}
+	p.axisSource(protocols.WlPointerAxisSourceFinger)
+	p.axisStop(protocols.WlPointerAxisVerticalScroll, 23*ms)
+	p.axisStop(protocols.WlPointerAxisHorizontalScroll, 23*ms)
+	got = p.frame()
+	if len(got) != 1 {
+		t.Fatalf("stop frame = %+v, want one event", got)
+	}
+	if se := got[0].ev.(platform.ScrollEvent); se.Phase != platform.ScrollPhaseEnd || se.Delta != (platform.Point{}) || se.Time != 23*ms {
+		t.Errorf("stop = %+v, want the end of the gesture", se)
+	}
+	// A stop outside a finger gesture (a wheel may send one) is dropped,
+	// and wheel events have no phase.
+	p.axisSource(protocols.WlPointerAxisSourceWheel)
+	p.axis(protocols.WlPointerAxisVerticalScroll, 15, 24*ms)
+	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120)
+	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Phase != platform.ScrollPhaseNone {
+		t.Errorf("wheel = %+v, want no phase", se)
+	}
+	p.axisStop(protocols.WlPointerAxisVerticalScroll, 25*ms)
+	if got := p.frame(); len(got) != 0 {
+		t.Errorf("stop of a wheel = %+v, want nothing", got)
+	}
+
 	// Legacy discrete steps (seat versions 5-7).
 	p.axis(protocols.WlPointerAxisVerticalScroll, -10, 12*ms)
 	p.axisDiscrete(protocols.WlPointerAxisVerticalScroll, -1)

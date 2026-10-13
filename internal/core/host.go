@@ -171,17 +171,27 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		h.tree.SetScale(float32(e.Metrics.Scale))
 	case platform.FrameEvent:
 		h.tick(e.Time)
+		// Phase 2 of the pipeline: scroll animations, flings and fades
+		// advance with the frame clock.
+		h.tree.Animate(e.Time)
 		h.frame()
 		h.updateCursor()
+		h.armTimer()
 	case platform.PointerEvent:
 		// A long press due before the event fires first.
 		h.tick(e.Time)
 		h.tree.HandlePointer(e)
 		h.updateCursor()
 		h.armTimer()
+	case platform.ScrollEvent:
+		h.tick(e.Time)
+		h.tree.HandleScroll(e)
+		h.updateCursor()
+		h.armTimer()
 	case platform.KeyEvent:
 		h.tree.HandleKey(e)
 		h.updateCursor()
+		h.armTimer()
 	case platform.FocusEvent:
 		h.tree.SetWindowFocused(e.Focused)
 	case platform.CloseRequestedEvent:

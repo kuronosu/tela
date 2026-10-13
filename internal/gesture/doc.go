@@ -34,7 +34,10 @@
 //   - Drag accepts when the pointer moves farther than its slop from the
 //     press, and reports start, updates and end with offsets from the
 //     press position and a velocity (VelocityTracker). It rejects itself
-//     when the pointer is released before.
+//     when the pointer is released before. It can measure the slop along
+//     one axis only (a vertical scroller's pan, as Flutter's
+//     VerticalDragGestureRecognizer), or accept eagerly at the press (a
+//     scrollbar thumb).
 //   - LongPress accepts when the pointer stays within its slop for its
 //     duration (LongPressTimeout by default) and rejects itself when the
 //     pointer moves farther or is released before.

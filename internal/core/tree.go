@@ -27,7 +27,9 @@ type Config struct {
 	Parser *style.Parser
 	// RootClass are classes for the root box, which fills the window. Its
 	// background is the window's; without one the window is white, the
-	// browser canvas default.
+	// browser canvas default. The root is the viewport: it scrolls on
+	// both axes (overflow auto) unless these classes set an overflow
+	// (scroll.go).
 	RootClass string
 	// Dark and ReducedMotion are the initial environment of the dark: and
 	// motion-reduce: variants (a Host takes them from the system).
@@ -42,6 +44,15 @@ type Config struct {
 	// <n> numbers the Trees of the process in base 36 (Render uses "r-"),
 	// so IDs are unique within the process.
 	IDPrefix string
+	// ClassicScrollbars draws always-visible classic scrollbars in a
+	// reserved gutter (a Windows look) instead of overlay bars; the
+	// classes scrollbar-classic and scrollbar-overlay override it per
+	// element (scrollbar.go).
+	ClassicScrollbars bool
+	// InstantScroll makes user scrolling jump, without animation or
+	// kinetic flings, except in containers with scroll-smooth
+	// (scroll.go).
+	InstantScroll bool
 }
 
 // Stats counts the work of a Tree, for tests and benchmarks.
@@ -130,9 +141,11 @@ type Tree struct {
 	paintQ    []*Box
 	repaint   bool
 
-	// Pointer input (input.go) and focus (focus.go).
+	// Pointer input (input.go), focus (focus.go) and scrolling
+	// (scroll.go).
 	in  inputState
 	foc focusState
+	scr scrollState
 
 	lastDL *gfx.DisplayList
 	stats  Stats
@@ -155,6 +168,7 @@ func NewTree(cfg Config) *Tree {
 		scale:    1,
 	}
 	t.foc.window = true
+	t.scr.classic, t.scr.instant = cfg.ClassicScrollbars, cfg.InstantScroll
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()
 	}
@@ -333,10 +347,15 @@ func (t *Tree) restyleAll() {
 // frame wait for FlushEffects.
 func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.inFrame = true
-	defer func() { t.inFrame = false }()
+	defer t.afterFrame()
 	t.asked = false
 	t.FlushEffects()
 	t.ApplyUpdates()
+	// The scroll events of the offsets changed since the previous frame
+	// (the DOM's scroll steps, before the frame's build).
+	if t.fireScrollEvents() {
+		t.ApplyUpdates()
+	}
 	if !t.changed && !t.repaint && t.lastDL != nil {
 		t.commitLayout()
 		return t.lastDL, false
@@ -365,9 +384,17 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		t.boxPhase()
 		t.layoutPhase()
 	}
+	t.scrollPhase()
 	t.lastDL = t.paintPhase()
 	t.changed, t.repaint = false, false
 	return t.lastDL, true
+}
+
+// afterFrame ends Frame: the work that must request the next frame runs
+// outside it (scroll.go's scrollAfterFrame).
+func (t *Tree) afterFrame() {
+	t.inFrame = false
+	t.scrollAfterFrame()
 }
 
 // buildPhase builds the components marked needsBuild in tree order,

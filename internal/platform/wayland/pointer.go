@@ -137,9 +137,14 @@ func (s *seat) listen() {
 	p.SetAxisValue120Handler(func(e protocols.WlPointerAxisValue120Event) {
 		s.ptr.axisValue120(e.Axis, e.Value120)
 	})
+	p.SetAxisSourceHandler(func(e protocols.WlPointerAxisSourceEvent) {
+		s.ptr.axisSource(e.AxisSource)
+	})
+	p.SetAxisStopHandler(func(e protocols.WlPointerAxisStopEvent) {
+		s.ptr.axisStop(e.Axis, b.eventTime(e.Time))
+		after()
+	})
 	p.SetFrameHandler(func(protocols.WlPointerFrameEvent) { s.flushPointer() })
-	// axis_source and axis_stop are not needed yet (kinetic scrolling is a
-	// later task); the generated code drops events without a handler.
 }
 
 // flushPointer queues the events of the finished pointer frame.
@@ -233,6 +238,14 @@ type pointerState struct {
 	hasDiscr  bool
 	axisTime  time.Duration
 	axisFocus *Window
+	// source is the frame's wl_pointer.axis_source (hasSource), stop
+	// reports a wl_pointer.axis_stop in the frame, and finger a touchpad
+	// gesture in progress: its events have ScrollPhaseUpdate, and the
+	// frame that stops it without moving ends it (ScrollPhaseEnd).
+	source    protocols.WlPointerAxisSource
+	hasSource bool
+	stop      bool
+	finger    bool
 }
 
 func (p *pointerState) enter(w *Window, x, y float64, now time.Duration) {
@@ -255,6 +268,8 @@ func (p *pointerState) leave(now time.Duration) {
 	}
 	p.emit(platform.PointerLeave, platform.ButtonNone, now)
 	p.focus = nil
+	// The stop of a touchpad gesture, if any, will not be ours.
+	p.finger = false
 }
 
 func (p *pointerState) motion(x, y float64, t time.Duration) {
@@ -316,6 +331,25 @@ func (p *pointerState) axisValue120(a protocols.WlPointerAxis, v int32) {
 	p.axisFocus = p.focus
 }
 
+// axisSource records the source of the frame's axis events.
+func (p *pointerState) axisSource(src protocols.WlPointerAxisSource) {
+	p.source, p.hasSource = src, true
+}
+
+// axisStop records the end of the movement on one axis: the fingers left
+// the touchpad (only finger sources are guaranteed to send it; the
+// others may or may not, so their sequences stay unterminated).
+func (p *pointerState) axisStop(a protocols.WlPointerAxis, t time.Duration) {
+	if a > 1 || p.focus == nil {
+		return
+	}
+	if !p.hasDelta && !p.hasV120 && !p.hasDiscr && !p.stop {
+		p.axisTime = t
+	}
+	p.stop = true
+	p.axisFocus = p.focus
+}
+
 func (p *pointerState) emit(a platform.PointerAction, btn platform.PointerButton, t time.Duration) {
 	p.out = append(p.out, windowEvent{p.focus, platform.PointerEvent{
 		Action:  a,
@@ -337,14 +371,36 @@ func (p *pointerState) emit(a platform.PointerAction, btn platform.PointerButton
 // they are used as is (winit negates them because its convention is the
 // opposite). Steps come from axis_value120 / 120 (seat version 8) or
 // axis_discrete (versions 5-7); a frame never has both.
+//
+// Phases (GTK 4's kinetic scrolling reads the same events): a frame whose
+// axis_source is finger starts or continues a touchpad gesture, whose
+// events have ScrollPhaseUpdate; a frame of that gesture with an axis_stop
+// and no movement ends it with a ScrollPhaseEnd event without delta. A
+// stop together with movement means that one axis stopped while the other
+// goes on (the protocol's rule), so the gesture continues. Other sources
+// may or may not send axis_stop, so their events have ScrollPhaseNone and
+// their stops are ignored.
 func (p *pointerState) frame() []windowEvent {
 	out := p.out
 	p.out = nil
-	if (p.hasDelta || p.hasV120 || p.hasDiscr) && p.axisFocus != nil {
+	moved := p.hasDelta || p.hasV120 || p.hasDiscr
+	if p.hasSource && moved {
+		p.finger = p.source == protocols.WlPointerAxisSourceFinger
+	}
+	phase := platform.ScrollPhaseNone
+	if p.finger {
+		phase = platform.ScrollPhaseUpdate
+		if p.stop && !moved {
+			phase = platform.ScrollPhaseEnd
+			p.finger = false
+		}
+	}
+	if (moved || phase == platform.ScrollPhaseEnd) && p.axisFocus != nil {
 		ev := platform.ScrollEvent{
 			Kind:  platform.PointerMouse,
 			Pos:   p.pos,
 			Delta: platform.Point{X: float32(p.delta[1]), Y: float32(p.delta[0])},
+			Phase: phase,
 			Mods:  p.mods,
 			Time:  p.axisTime,
 		}
@@ -354,12 +410,13 @@ func (p *pointerState) frame() []windowEvent {
 		case p.hasDiscr:
 			ev.Steps = platform.Point{X: float32(p.discrete[1]), Y: float32(p.discrete[0])}
 		}
-		if ev.Delta != (platform.Point{}) || ev.Steps != (platform.Point{}) {
+		if ev.Delta != (platform.Point{}) || ev.Steps != (platform.Point{}) || phase == platform.ScrollPhaseEnd {
 			out = append(out, windowEvent{p.axisFocus, ev})
 		}
 	}
 	p.delta, p.value120, p.discrete = [2]float64{}, [2]int32{}, [2]int32{}
 	p.hasDelta, p.hasV120, p.hasDiscr = false, false, false
+	p.hasSource, p.stop = false, false
 	p.axisFocus = nil
 	return out
 }

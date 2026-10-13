@@ -20,6 +20,12 @@ func init() {
 	core.RegisterForwarder(func(l *func(FocusEvent)) func(FocusEvent) {
 		return func(e FocusEvent) { (*l)(e) }
 	})
+	core.RegisterForwarder(func(l *func(WheelEvent)) func(WheelEvent) {
+		return func(e WheelEvent) { (*l)(e) }
+	})
+	core.RegisterForwarder(func(l *func(ScrollEvent)) func(ScrollEvent) {
+		return func(e ScrollEvent) { (*l)(e) }
+	})
 }
 
 // Setter sets the state of one [UseState] slot. It is a small comparable
@@ -64,6 +70,14 @@ type Ref[T any] = core.Ref[T]
 //     element with h.TabIndex, not disabled or hidden).
 //   - Blur removes the focus from the element if it has it.
 //   - Focused reports whether the element has the focus of its window.
+//   - ScrollTo(x, y) and ScrollBy(dx, dy) scroll a scrolling element
+//     (overflow auto, scroll or hidden) to or by offsets, clamped to its
+//     content; ScrollOffset returns its offsets (the DOM's scrollLeft and
+//     scrollTop). They jump, or animate when the element has
+//     scroll-smooth, and do nothing (or return 0) for other elements.
+//   - ScrollIntoView scrolls every scrolling ancestor of the element so
+//     that it is visible, each as little as possible (block and inline
+//     "nearest").
 //
 // For example, "/" focuses a search box:
 //
@@ -76,6 +90,13 @@ type Ref[T any] = core.Ref[T]
 //	    }),
 //	    Div(Ref(search), TabIndex(0), Class("rounded-md p-2 focus:ring-2"), Text("Search")),
 //	)
+//
+// A "back to top" button for a list:
+//
+//	list := tela.UseElementRef()
+//	return Div(Class("relative"),
+//	    Div(Ref(list), Class("h-96 overflow-y-auto scroll-smooth"), rows),
+//	    Button(OnClick(func(tela.MouseEvent) { list.ScrollTo(0, 0) }), Text("Top")))
 type ElementRef = core.ElementRef
 
 // Context passes a value down the tree without props: see [CreateContext].
@@ -252,6 +273,29 @@ func UseRef[T any](initial T) *Ref[T] { return core.UseRef(initial) }
 //	    return Div(Ref(input), TabIndex(0), Class("rounded-md p-2 focus:ring-2"), Text("Search"))
 //	}
 func UseElementRef() ElementRef { return core.UseElementRef() }
+
+// UseScroll returns two [Value]s that follow the scroll offsets of the
+// element ref is attached to (zero while it is not a mounted scrolling
+// element): x is its horizontal offset (scrollLeft) and y its vertical
+// one (scrollTop), in logical pixels. They change on the UI thread as the
+// element scrolls, so a deferred style closure that reads them repaints
+// or lays out only its element, without rebuilding (Motion's useScroll).
+// The same Values are returned on every build.
+//
+//	func Page() tela.Node {
+//	    list := tela.UseElementRef()
+//	    _, y := tela.UseScroll(list)
+//	    header := Div(Class("h-16 bg-white shadow"), Style(tela.OpacityFn(func() float32 {
+//	        return 1 - min(y.Get()/200, 1) // fades out over the first 200 px
+//	    })))
+//	    return Div(Class("flex h-screen flex-col"), header,
+//	        Div(Ref(list), Class("grow overflow-y-auto"), rows()))
+//	}
+//
+// Reading y.Get() in the component's body instead rebuilds the component
+// on every scrolled frame; use h.OnScroll for logic that runs once per
+// frame of scrolling.
+func UseScroll(ref ElementRef) (x, y *Value[float32]) { return core.UseScroll(ref) }
 
 // CreateContext returns a new context whose [UseContext] outside any
 // Provider returns def. Create contexts once, at package level.

@@ -103,6 +103,19 @@
 // to run a delivery pass. internal/loop's documentation says how Win32 and
 // Cocoa plug in.
 //
+// # Scrolling
+//
+// A [ScrollEvent] reports a wheel or a touchpad. Signs follow the DOM
+// (positive Y scrolls toward the end of the content). Wheels report notches
+// in Steps (fractions for high-resolution wheels), touchpads precise
+// distances in Delta. Touchpad gestures with a reported end carry a
+// [ScrollPhase]: ScrollPhaseUpdate while the fingers are on the pad and a
+// final ScrollPhaseEnd event (usually with zero Delta) when they lift, so
+// the layers above can start a kinetic fling. Wayland reports it from
+// wl_pointer.axis_source (finger) and wl_pointer.axis_stop, as GTK 4 does;
+// X11 cannot (XInput2 smooth scrolling has no stop signal, and the
+// Synaptics driver coasts by itself), so its events have ScrollPhaseNone.
+//
 // # Keyboard
 //
 // Key input arrives as [KeyEvent]s for the window that has keyboard focus.

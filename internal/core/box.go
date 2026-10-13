@@ -99,6 +99,13 @@ type Box struct {
 	// coordinates abs is in, after the box's own transform: a hit test
 	// skips a subtree whose bounds miss the point (hit.go).
 	hitBounds gfx.Rect
+	// shift is how far the scroll containers on the box's
+	// containing-block chain moved it: abs is its layout position minus
+	// shift (paint.go's place).
+	shift gfx.Point
+
+	// scr is the scroll state of a scroll container (scroll.go).
+	scr *scroller
 
 	// Per-frame scratch state (valid when the frame matches).
 	inlineFrame uint64
@@ -117,6 +124,9 @@ func newBox(t *Tree, el *Element, kind style.Kind) *Box {
 // detach takes an unmounted box out of the tree and ends its Value
 // subscriptions.
 func (b *Box) detach() {
+	if b.scr != nil {
+		b.tree.dropScroller(b)
+	}
 	b.parent = nil
 	b.kids = nil
 	b.anon = nil

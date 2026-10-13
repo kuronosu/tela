@@ -55,6 +55,24 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `focus:`, `focus-visible:` (keyboard navigation, not clicks) and
   `focus-within:` variants, with their `group-`/`peer-` forms.
 - The §1 Counter is interactive, by mouse and by keyboard.
+- Scrolling: elements with `overflow-auto`/`overflow-scroll` scroll with the
+  wheel, the touchpad (with kinetic flings on Wayland), touch, the keyboard
+  (arrows, Page Up/Down, Home/End, Space) and their scrollbars;
+  `overflow-hidden` scrolls from code. Scrolling chains to scrolling
+  ancestors unless `overscroll-contain`/`overscroll-none`. The window
+  scrolls like a browser page when its content is larger than the window
+  (`RootClass: "overflow-hidden"` turns it off).
+- `h.OnWheel` and `h.OnScroll`, with `tela.WheelEvent` and
+  `tela.ScrollEvent`; `tela.ElementRef` gains `ScrollTo`, `ScrollBy`,
+  `ScrollIntoView` and `ScrollOffset`; keyboard focus scrolls the focused
+  element into view; `tela.UseScroll(ref)` returns Values that follow an
+  element's scroll offsets, for scroll-linked effects without rebuilds.
+- Tela draws the scrollbars: thin overlay bars that fade by default, or
+  classic always-visible bars with `tela.App{ClassicScrollbars: true}` or
+  `scrollbar-classic` (`scrollbar-overlay` per element). Wheel and keyboard
+  scrolling animate; `tela.App{InstantScroll: true}` or `scroll-instant`
+  turns that off, `scroll-smooth` animates programmatic scrolls, and the
+  system's reduced-motion setting always disables it.
 - Examples `dashboard`, `pricing`, `settings`, `player` and `board`: full
   screens in the shadcn/ui zinc style with dark mode, goldens and
   interaction tests (switches and `disabled:` states, a progress bar driven
