@@ -44,9 +44,12 @@ func init() {
 var fonts = text.NewDefaultCollection()
 
 // Scene returns the showcase for a window of w x h logical pixels. It is
-// also the temporary contract of `tela snapshot` (a package that has a
-// Scene(w, h float32) *gfx.DisplayList can be snapshotted) until the
-// Preview() contract arrives with the public API.
+// the phase-1 contract of `tela snapshot`, which the CLI still accepts: a
+// package with a Scene(w, h float32) *gfx.DisplayList can be snapshotted
+// without a tela.Node tree. This example keeps it on purpose, since it
+// exercises the internal text layer (internal/text) directly instead of
+// going through the elements of package h; the examples built on the public
+// API define Preview() or Previews.
 //
 // It shapes every paragraph and places the cards for width w. The window
 // does not call it: it keeps one page and only re-breaks it (see app).

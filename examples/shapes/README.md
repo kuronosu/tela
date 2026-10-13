@@ -2,7 +2,7 @@
 
 A page of twelve cards that shows what Tela can paint with elements and Tailwind classes: shadows, linear, radial and conic gradients, rings, `blur` and `backdrop-blur`, opacity, rotated and rounded shapes, flex layouts and real text. It is the phase-3 rewrite of the phase-1 showcase, which drew the same page straight into a display list (that scene now lives on as a golden test, `internal/gfx/raster/showcase_test.go`).
 
-**Nothing reacts yet.** Events, hover states and transitions arrive in phase 4 (ADR-040).
+**The page is static on purpose:** it has no handlers, `hover:` or state, so it only shows painting. (Pointer events, state and the `hover:`/`active:` variants work since phase 4: see `examples/counter`, `examples/dashboard` and `examples/settings`. Transitions arrive in phase 6.)
 
 - Run it in a window: `CGO_ENABLED=0 go run ./examples/shapes` (960x640; Wayland or X11, force one with `TELA_BACKEND=wayland|x11`).
 - Render it without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot [--size 960x640] [--scale 2] -o shapes.png ./examples/shapes`.

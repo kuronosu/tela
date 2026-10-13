@@ -1,6 +1,6 @@
 # text
 
-The phase-2 showcase: a page of cards with mixed-script paragraphs (Latin with kerning and the `->` ligature, justified right-to-left Arabic with bidi numbers, Japanese and Chinese, color emoji including ZWJ sequences, flags and skin tones), a JetBrains Mono code block with ligatures, `truncate` and `line-clamp-3`, underline and line-through decorations, an inline box on the baseline, and `tabular-nums` against proportional figures. The cards are placed by simple manual geometry (the layout engine arrives in phase 3): one to three columns, depending on the window width.
+The phase-2 showcase: a page of cards with mixed-script paragraphs (Latin with kerning and the `->` ligature, justified right-to-left Arabic with bidi numbers, Japanese and Chinese, color emoji including ZWJ sequences, flags and skin tones), a JetBrains Mono code block with ligatures, `truncate` and `line-clamp-3`, underline and line-through decorations, an inline box on the baseline, and `tabular-nums` against proportional figures. The cards are placed by simple manual geometry, because this example predates the layout engine and drives the text layer (`internal/text`) directly instead of using elements and classes: one to three columns, depending on the window width. It keeps the phase-1 `Scene` contract of `tela snapshot` for the same reason; the other examples are built with `tela` and `h`.
 
 Every paragraph is shaped once (`text.NewLayout`); a resize only breaks the lines again (`Layout.BreakLines`).
 

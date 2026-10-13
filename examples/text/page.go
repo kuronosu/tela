@@ -8,7 +8,8 @@ import (
 )
 
 // A page is the whole showcase: a header and a set of cards laid out in
-// columns by simple manual geometry (the layout engine arrives in phase 3).
+// columns by simple manual geometry (this example predates the layout
+// engine and drives internal/text directly).
 //
 // The paragraphs are shaped once, when the page is built (text.NewLayout);
 // arrange only re-breaks them (Layout.BreakLines) when the width changes,

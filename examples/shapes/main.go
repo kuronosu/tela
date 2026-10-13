@@ -6,8 +6,9 @@
 //
 // It started as the phase-1 scene drawn straight into a display list (that
 // scene now lives on as a golden test of internal/gfx/raster) and was
-// rewritten with the public API of phase 3. Nothing reacts to the pointer
-// yet: events, hover states and transitions arrive in phase 4 (ADR-040).
+// rewritten with the public API of phase 3. The page is a paint showcase and
+// has no handlers; for pointer events, state and hover: variants see
+// examples/counter, examples/dashboard and examples/settings.
 package main
 
 import (

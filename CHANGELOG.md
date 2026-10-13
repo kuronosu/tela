@@ -55,6 +55,12 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `focus:`, `focus-visible:` (keyboard navigation, not clicks) and
   `focus-within:` variants, with their `group-`/`peer-` forms.
 - The §1 Counter is interactive, by mouse and by keyboard.
+- Examples `dashboard`, `pricing`, `settings`, `player` and `board`: full
+  screens in the shadcn/ui zinc style with dark mode, goldens and
+  interaction tests (switches and `disabled:` states, a progress bar driven
+  by `UseValue` without rebuilds, drag and drop with `OnDrag*` and
+  `TranslateFn`). The notes of `counter`, `shapes` and `text` saying that
+  events arrive in phase 4 are gone.
 
 ### Changed
 
