@@ -24,7 +24,7 @@ func TestNoPanicOnMalformedClasses(t *testing.T) {
 		"duration-[]", "ease-[]", "ease-[cubic-bezier()]", "ease-[cubic-bezier(1,2,3)]", "animate-[]", "origin-[]", "origin-[a_b_c]",
 		"translate-x-[]", "rotate-[]", "scale-[]", "skew-x-[]", "transition-[]", "transition-[x]", "decoration-[]", "underline-offset-[]",
 		"-", "-w-4", "--w-4", "-flex", "-bg-white", "w-4/5/6", "group-hover/", "group-hover/x:flex", "peer-/:flex",
-		"\x00", "w-\x00", "bg-[é]", "w-[‮1px]", strings.Repeat("a", 5000), strings.Repeat("w-[", 200),
+		"\x00", "w-\x00", "bg-[é]", "w-[\u202e1px]", strings.Repeat("a", 5000), strings.Repeat("w-[", 200),
 	}
 	p := NewParser(DefaultTheme())
 	for _, c := range nasty {

@@ -80,7 +80,7 @@ func numbered(src []byte, err error) string {
 // claim registers a package-level identifier and fails on collisions.
 func (g *generator) claim(ident, what string) error {
 	if prev, ok := g.idents[ident]; ok {
-		return fmt.Errorf("Go identifier %s is generated twice (%s and %s); rename one in the generator", ident, prev, what)
+		return fmt.Errorf("the Go identifier %s is generated twice (%s and %s); rename one in the generator", ident, prev, what)
 	}
 	g.idents[ident] = what
 	return nil
@@ -820,4 +820,4 @@ func (g *generator) genBindHelper(f *file, i *iface, m *message, params []param)
 	return nil
 }
 
-var errUsage = errors.New("usage: wlgen [-package name] -out dir <protocol.xml | dir>...")
+var errUsage = errors.New("usage: wlgen [-package name] -out dir <protocol.xml | dir> [...]")

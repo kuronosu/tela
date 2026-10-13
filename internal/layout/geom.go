@@ -93,13 +93,6 @@ func (o opt) maybeClamp(min, max opt) opt {
 	return some(fclampOpt(o.v, min, max))
 }
 
-func (o opt) maybeAdd(b opt) opt {
-	if o.ok && b.ok {
-		return some(o.v + b.v)
-	}
-	return o
-}
-
 // The *F methods apply a plain float operand to a set o.
 
 func (o opt) maxF(b float32) opt {
@@ -146,14 +139,6 @@ func fmaxOpt(v float32, b opt) float32 {
 func fminOpt(v float32, b opt) float32 {
 	if b.ok {
 		return fmin(v, b.v)
-	}
-	return v
-}
-
-// faddOpt returns v + b if b is set.
-func faddOpt(v float32, b opt) float32 {
-	if b.ok {
-		return v + b.v
 	}
 	return v
 }

@@ -322,18 +322,6 @@ func durationExpr(s string) (string, error) {
 	return fmt.Sprintf("%d * time.Millisecond", int64(ms)), nil
 }
 
-// fontList parses a font-family list, removing quotes.
-func fontList(s string) []string {
-	var fams []string
-	for _, f := range splitTop(s, ',') {
-		f = strings.Trim(f, `'"`)
-		if f != "" {
-			fams = append(fams, f)
-		}
-	}
-	return fams
-}
-
 func stringsLit(fams []string) string {
 	q := make([]string, len(fams))
 	for i, f := range fams {

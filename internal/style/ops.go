@@ -43,21 +43,6 @@ func (o Op) IsZero() bool { return o.apply == nil && o.def == nil }
 
 func op(f func(*env)) Op { return Op{apply: f} }
 
-// seq returns an op that applies the ops in order.
-func seq(ops ...Op) Op {
-	font := false
-	for _, o := range ops {
-		font = font || o.font
-	}
-	return Op{font: font, apply: func(e *env) {
-		for _, o := range ops {
-			if o.apply != nil {
-				o.apply(e)
-			}
-		}
-	}}
-}
-
 // ---------------------------------------------------------------------
 // Typed props. These are the building blocks of the public Style(...)
 // props; they take already-typed values, so a dynamic value never goes

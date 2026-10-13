@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"image"
 	"image/color"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -191,33 +192,40 @@ func TestExportedNames(t *testing.T) {
 	}
 	fset := token.NewFileSet()
 	var got []string
-	files, err := parser.ParseDir(fset, ".", nil, 0)
+	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range files {
-		for fname, f := range p.Files {
-			if strings.HasSuffix(fname, "_test.go") {
-				continue
-			}
-			for _, d := range f.Decls {
-				switch d := d.(type) {
-				case *ast.FuncDecl:
-					if d.Recv == nil && d.Name.IsExported() {
-						got = append(got, d.Name.Name)
-					}
-				case *ast.GenDecl:
-					for _, s := range d.Specs {
-						switch s := s.(type) {
-						case *ast.TypeSpec:
-							if s.Name.IsExported() {
-								got = append(got, s.Name.Name)
-							}
-						case *ast.ValueSpec:
-							for _, n := range s.Names {
-								if n.IsExported() {
-									got = append(got, n.Name)
-								}
+	var files []*ast.File
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, f)
+	}
+	for _, f := range files {
+		for _, d := range f.Decls {
+			switch d := d.(type) {
+			case *ast.FuncDecl:
+				if d.Recv == nil && d.Name.IsExported() {
+					got = append(got, d.Name.Name)
+				}
+			case *ast.GenDecl:
+				for _, s := range d.Specs {
+					switch s := s.(type) {
+					case *ast.TypeSpec:
+						if s.Name.IsExported() {
+							got = append(got, s.Name.Name)
+						}
+					case *ast.ValueSpec:
+						for _, n := range s.Names {
+							if n.IsExported() {
+								got = append(got, n.Name)
 							}
 						}
 					}

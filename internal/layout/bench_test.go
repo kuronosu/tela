@@ -18,8 +18,8 @@ func benchTree(n int) (*testNode, []*testNode) {
 			s.AlignItems = AlignStart
 		}))
 		for c := 0; c < 4; c++ {
-			title := text("HHHH​HHH")
-			para := text("HHHHHH​HHH​HHHHH​HH​HHHHHHH​HHHH​HHH​HHHHHH​HH")
+			title := text("HHHH\u200bHHH")
+			para := text("HHHHHH\u200bHHH\u200bHHHHH\u200bHH\u200bHHHHHHH\u200bHHHH\u200bHHH\u200bHHHHHH\u200bHH")
 			bar := box(styleOf(func(s *Style) {
 				s.Height = Px(4)
 				s.Width = Percent(0.6)
@@ -70,8 +70,8 @@ func BenchmarkLayoutIncremental(b *testing.B) {
 	var e Engine
 	e.Compute(root, DefiniteSpace(1200), DefiniteSpace(800))
 	texts := []func(MeasureInput) Measurement{
-		ahemMeasure("HHHHHH​HHH​HHHHH​HH"),
-		ahemMeasure("HHH​HHHHHHHHH​HH​HHHH​HHHHHH​HHHHHHHHH"),
+		ahemMeasure("HHHHHH\u200bHHH\u200bHHHHH\u200bHH"),
+		ahemMeasure("HHH\u200bHHHHHHHHH\u200bHH\u200bHHHH\u200bHHHHHH\u200bHHHHHHHHH"),
 	}
 	p := paragraphs[len(paragraphs)/2]
 	b.ReportAllocs()

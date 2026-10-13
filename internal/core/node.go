@@ -71,9 +71,9 @@ type desc struct {
 type compMode uint8
 
 const (
-	// compPlain is Component (tela.C): it never skips because of props,
-	// since the closure may capture changing values.
-	compPlain compMode = iota
+	// The zero value is Component (tela.C): it never skips because of
+	// props, since the closure may capture changing values.
+	_ compMode = iota
 	// compProps is ComponentProps (tela.CP): it skips when the new props
 	// are == to the old ones.
 	compProps

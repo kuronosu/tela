@@ -103,15 +103,14 @@ func TestDecodeArgs(t *testing.T) {
 	peer := newTestObj(c)
 
 	type all struct {
-		i      int32
-		u      uint32
-		f      float64
-		s      string
-		empty  *string
-		null   *string
-		obj    Object
-		arr    []byte
-		emptyA []byte
+		i     int32
+		u     uint32
+		f     float64
+		s     string
+		empty *string
+		null  *string
+		obj   Object
+		arr   []byte
 	}
 	var got all
 	var events int

@@ -55,7 +55,7 @@ func TestMeasureContract(t *testing.T) {
 		s.Padding = EdgesAll(Px(5))
 		s.Border = EdgesAll(Px(1))
 	})}
-	m := ahemMeasure("HHHH​HHHH​HH")
+	m := ahemMeasure("HHHH\u200bHHHH\u200bHH")
 	leaf.measure = func(in MeasureInput) Measurement {
 		calls = append(calls, in)
 		return m(in)
@@ -97,8 +97,8 @@ func TestMeasureContract(t *testing.T) {
 // TestFlexTextWrapping lays out text in a flex row: the min-content width
 // limits shrinking and the text wraps to the flexed width.
 func TestFlexTextWrapping(t *testing.T) {
-	a := text("HH​HH​HH​HH") // min 20, max 80
-	b := text("HHHHHH")      // min 60, max 60
+	a := text("HH\u200bHH\u200bHH\u200bHH") // min 20, max 80
+	b := text("HHHHHH")                     // min 60, max 60
 	root := box(styleOf(func(s *Style) {
 		s.Display = DisplayFlex
 		s.Width = Px(100)
@@ -245,7 +245,7 @@ func TestCacheReuse(t *testing.T) {
 	for r := 0; r < 20; r++ {
 		var row []*testNode
 		for c := 0; c < 10; c++ {
-			l := text("HH​HHH")
+			l := text("HH\u200bHHH")
 			leaves = append(leaves, l)
 			row = append(row, l)
 		}
@@ -337,7 +337,7 @@ func TestRelayoutBoundary(t *testing.T) {
 	compute(&e, root, 800, 600)
 	checkIncremental(t, root)
 
-	leaf.measure = ahemMeasure("HH​HH")
+	leaf.measure = ahemMeasure("HH\u200bHH")
 	e.MarkDirty(leaf)
 	compute(&e, root, 800, 600)
 	checkIncremental(t, root)
@@ -391,7 +391,7 @@ func TestHoistedAbsoluteInsideBoundary(t *testing.T) {
 	compute(&e, root, 800, 600)
 	wantRect(t, "abs", abs, [4]float32{0, 10, 10, 10})
 
-	leaf.measure = ahemMeasure("HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH​HH")
+	leaf.measure = ahemMeasure("HH\u200bHH\u200bHH\u200bHH\u200bHH\u200bHH\u200bHH\u200bHH\u200bHH\u200bHH\u200bHH\u200bHH")
 	e.MarkDirty(leaf)
 	compute(&e, root, 800, 600)
 	// 12 words of 20px in 100px: 3 lines.
@@ -483,7 +483,7 @@ func randomTree(rng *rand.Rand, depth int) *testNode {
 		s := ""
 		for i := 0; i < words; i++ {
 			if i > 0 {
-				s += "​"
+				s += "\u200b"
 			}
 			for j := 0; j <= rng.IntN(5); j++ {
 				s += "H"
@@ -597,7 +597,7 @@ func TestIncrementalRandom(t *testing.T) {
 			switch rng.IntN(3) {
 			case 0:
 				if n.measure != nil {
-					n.measure = ahemMeasure("HHH​H")
+					n.measure = ahemMeasure("HHH\u200bH")
 				}
 			case 1:
 				randomizeStyle(rng, &n.style, len(n.children) == 0)

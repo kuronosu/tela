@@ -226,10 +226,7 @@ func TestWhiteSpace(t *testing.T) {
 		t.Errorf("segment breaks: %q", got)
 	}
 	l = simple(t, "日本\n語 a\nb", ParagraphStyle{}, inter16, inf)
-	var procd []rune
-	for _, r := range l.text.runes {
-		procd = append(procd, r)
-	}
+	procd := append([]rune(nil), l.text.runes...)
 	if string(procd) != "日本語 a b" {
 		t.Errorf("segment break transformation: %q", string(procd))
 	}

@@ -108,7 +108,7 @@ func listPackage(goBin, pkg string) (goPackage, error) {
 	}
 	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
 	if len(lines) != 1 {
-		return goPackage{}, fmt.Errorf("%q does not name exactly one package (go list printed %d); give a single package, without ...", pkg, len(lines))
+		return goPackage{}, fmt.Errorf("%q does not name exactly one package (go list printed %d); give a single package, without wildcards", pkg, len(lines))
 	}
 	parts := strings.SplitN(lines[0], "|", 3)
 	if len(parts) != 3 || parts[0] == "" || parts[1] == "" {

@@ -150,7 +150,6 @@ const (
 type lineData struct {
 	c0, c1 int32 // logical cluster range, trailing white space included
 	trail  int32 // first cluster of the trailing white space that hangs or is removed
-	remove bool  // the trailing white space is removed (zero advance), not hanging
 	i0, i1 int32 // items, in visual order
 	reason BreakReason
 

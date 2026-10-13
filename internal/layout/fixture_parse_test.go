@@ -686,7 +686,7 @@ func (n *testNode) Measure(in MeasureInput) Measurement {
 // spaces are the only break opportunities (Taffy's AhemTextMeasureData).
 func ahemMeasure(text string) func(MeasureInput) Measurement {
 	const glyph = 10
-	segs := strings.Split(text, "​")
+	segs := strings.Split(text, "\u200b")
 	var minLen, maxLen int
 	lens := make([]int, len(segs))
 	for i, s := range segs {

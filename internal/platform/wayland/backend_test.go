@@ -410,10 +410,6 @@ collect:
 
 func TestPresentDamageAndBufferReuse(t *testing.T) {
 	h := newHarness(t, standardGlobals(1, protocols.WlShmFormatXbgr8888, protocols.WlShmFormatXrgb8888))
-	type step struct {
-		damage image.Rectangle
-		r, g   uint8
-	}
 	w := platform.Window(openWindow(t, h, platform.WindowOptions{}, 8, 8, 1))
 	expect[platform.ConfigureEvent](h)
 	expect[platform.FrameEvent](h)

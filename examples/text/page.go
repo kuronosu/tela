@@ -201,7 +201,6 @@ type selection struct {
 
 // Colors of the page (Tailwind CSS v4 palette).
 var (
-	slate50   = gfx.OKLCH(0.984, 0.003, 247.858, 1)
 	slate100  = gfx.OKLCH(0.968, 0.007, 247.896, 1)
 	slate200  = gfx.OKLCH(0.929, 0.013, 255.508, 1)
 	slate300  = gfx.OKLCH(0.869, 0.022, 252.894, 1)
@@ -211,12 +210,9 @@ var (
 	slate700  = gfx.OKLCH(0.372, 0.044, 257.287, 1)
 	slate800  = gfx.OKLCH(0.279, 0.041, 260.031, 1)
 	slate900  = gfx.OKLCH(0.208, 0.042, 265.755, 1)
-	slate950  = gfx.OKLCH(0.129, 0.042, 264.695, 1)
-	indigo100 = gfx.OKLCH(0.93, 0.034, 272.788, 1)
 	indigo200 = gfx.OKLCH(0.87, 0.065, 274.039, 1)
 	indigo300 = gfx.OKLCH(0.785, 0.115, 274.713, 1)
 	indigo400 = gfx.OKLCH(0.673, 0.182, 276.935, 1)
-	indigo500 = gfx.OKLCH(0.585, 0.233, 277.117, 1)
 	indigo600 = gfx.OKLCH(0.511, 0.262, 276.966, 1)
 	violet300 = gfx.OKLCH(0.811, 0.111, 293.571, 1)
 	violet500 = gfx.OKLCH(0.606, 0.25, 292.717, 1)

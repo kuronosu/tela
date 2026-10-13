@@ -77,7 +77,8 @@ func TestUnidentifiedKeyCode(t *testing.T) {
 			t.Errorf("GoString = %q", gs)
 		}
 	}
-	if UnidentifiedKeyCode(5) == UnidentifiedKeyCode(6) || UnidentifiedKeyCode(5) != UnidentifiedKeyCode(5) {
+	first, second := UnidentifiedKeyCode(5), UnidentifiedKeyCode(5)
+	if first == UnidentifiedKeyCode(6) || first != second {
 		t.Errorf("unidentified codes do not compare by native code")
 	}
 	if s := KeyCode(numKeyCodes + 3).String(); !strings.HasPrefix(s, "KeyCode(") {

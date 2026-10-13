@@ -353,8 +353,7 @@ func TestDeliverIsNotReentrant(t *testing.T) {
 func TestLockIsReleasedAroundHandler(t *testing.T) {
 	var mu sync.Mutex
 	clock := time.Duration(0)
-	var l *Loop[*win]
-	l = New(Options[*win]{
+	l := New(Options[*win]{
 		Now:    func() time.Duration { return clock }, // reads under mu
 		Notify: func() {},
 		Lock:   &mu,

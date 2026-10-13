@@ -47,9 +47,6 @@ func parseUint(s string) (int, bool) {
 	return n, true
 }
 
-// isNumber reports whether s is a plain decimal number.
-func isNumber(s string) bool { _, ok := parseFloat(s); return ok }
-
 // splitTop splits s at the byte sep, ignoring separators nested in
 // parentheses, brackets or quotes. Empty parts are kept.
 func splitTop(s string, sep byte) []string {

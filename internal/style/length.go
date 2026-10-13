@@ -159,16 +159,6 @@ func exprVh(v float32) lenExpr  { return lenExpr{vh: v} }
 func exprCh(v float32) lenExpr  { return lenExpr{ch: v} }
 func exprEm(v float32) lenExpr  { return lenExpr{em: v} }
 func exprZero() lenExpr         { return lenExpr{} }
-func (l lenExpr) isZero() bool  { return l == lenExpr{} }
-func (l lenExpr) hasPct() bool  { return l.pct != 0 || l.fn != nil && l.fn.hasPct() }
-func (f *lenFn) hasPct() bool {
-	for i := range f.args {
-		if f.args[i].hasPct() {
-			return true
-		}
-	}
-	return false
-}
 
 func exprFromLength(l Length) lenExpr {
 	switch l.Unit {
@@ -251,6 +241,3 @@ func (l *lenExpr) eval(e *env) LP {
 	}
 	return LP{Px: px, Pct: l.pct}
 }
-
-// px evaluates an expression that must not contain a percentage.
-func (l *lenExpr) pxValue(e *env) float32 { return l.eval(e).Px }

@@ -506,14 +506,6 @@ func TestStrokeExactAreas(t *testing.T) {
 
 // --- Specific behaviors ---
 
-func maxDistFrom(p Path, c Point) float64 {
-	d := 0.0
-	for _, q := range p.Points() {
-		d = math.Max(d, math.Hypot(float64(q.X-c.X), float64(q.Y-c.Y)))
-	}
-	return d
-}
-
 func TestStrokeMiterLimit(t *testing.T) {
 	// Two lines meeting at the origin with interior angle phi: the miter
 	// length over the width is 1/sin(phi/2).
