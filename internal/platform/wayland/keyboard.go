@@ -159,7 +159,7 @@ func readKeymap(fd int, size uint32) ([]byte, error) {
 func (k *kbd) onEnter(e protocols.WlKeyboardEnterEvent) {
 	k.flush()
 	b := k.s.b
-	b.lastSerial = e.Serial
+	k.s.inputSerial(e.Serial)
 	w := b.surfaces[e.Surface]
 	if k.focus != nil {
 		k.loseFocus(b.Now()) // a missed leave
@@ -180,7 +180,7 @@ func (k *kbd) onEnter(e protocols.WlKeyboardEnterEvent) {
 func (k *kbd) onLeave(e protocols.WlKeyboardLeaveEvent) {
 	k.flush()
 	b := k.s.b
-	b.lastSerial = e.Serial
+	k.s.inputSerial(e.Serial)
 	k.loseFocus(b.Now())
 	// The wl_keyboard logical state resets: no modifiers, first group.
 	if k.state != nil {
@@ -226,7 +226,7 @@ func (k *kbd) dropWindow(w *Window) {
 func (k *kbd) onKey(e protocols.WlKeyboardKeyEvent) {
 	k.flush()
 	b := k.s.b
-	b.lastSerial = e.Serial
+	k.s.inputSerial(e.Serial)
 	if k.focus == nil {
 		return
 	}

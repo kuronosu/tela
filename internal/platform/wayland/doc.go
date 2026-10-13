@@ -19,6 +19,8 @@
 //     is left to the compositor; loading an xcursor theme is a later task.
 //   - zxdg_decoration_manager_v1 (optional): server-side decorations are
 //     requested when present. Client-side decorations are not drawn yet.
+//   - wl_data_device_manager (optional, version up to 3): the clipboard
+//     (clipboard.go). Without it Clipboard reports an error.
 //
 // # Loop
 //
@@ -29,7 +31,8 @@
 // the app: they update state and queue events, which the loop delivers after
 // Dispatch returns, so the handler is never called re-entrantly. While a
 // key is held, its next repeat is one more deadline of the same poll
-// timeout. Nothing runs while idle (0% CPU).
+// timeout, and clipboard transfers add their pipes to the same poll(2).
+// Nothing runs while idle (0% CPU).
 //
 // The queue, the delivery pass and the frame-due rule are the shared
 // internal/loop. What is specific to Wayland is the display signal: frame
@@ -68,6 +71,48 @@
 // outputs the surface is on, applied with wl_surface.set_buffer_scale.
 // Fractional scaling (wp_fractional_scale_v1 + wp_viewporter) arrives in
 // phase 6; scaleFor in output.go is the one place that decides the scale.
+//
+// # Clipboard
+//
+// Clipboard is the wl_data_device selection of the seat whose keyboard
+// focuses one of our windows (else the first seat). There is no primary
+// selection (middle-click paste) and no drag and drop: offers of a drag
+// over our windows are destroyed unused, so the source sees no target.
+//
+// WriteText creates a wl_data_source offering text/plain;charset=utf-8,
+// text/plain, UTF8_STRING, TEXT and STRING (ISO 8859-1, '?' for other
+// characters; the rest UTF-8), plus a private type that names the source,
+// and calls set_selection with the seat's newest input serial (pointer
+// enter, leave or button; keyboard enter, leave or key). Compositors
+// accept it only from the client with keyboard focus, and only with a
+// serial not older than the current selection's; a refused request is
+// silent. The source answers wl_data_source.send until it is cancelled
+// (another client took the selection) or replaced by the next WriteText.
+//
+// ReadText answers our own selection from memory without a round trip,
+// as GTK does. A selection event whose offer carries the private type of
+// our latest source confirms that the compositor accepted it; any other
+// selection event (another client's offer, or none) ends our ownership, so
+// after a refused WriteText the next selection event (at the latest, the
+// one before the next keyboard enter) restores the real owner. Another
+// client's selection is read by wl_data_offer.receive into a pipe, picking
+// text/plain;charset=utf-8, then UTF8_STRING, text/plain, TEXT, STRING.
+// Declared UTF-8 replaces invalid sequences with U+FFFD; the other types
+// are UTF-8 when valid, ISO 8859-1 otherwise; trailing NULs are dropped.
+// An empty selection or one without text gives "" and no error.
+//
+// Transfers never block the UI thread: the pipes are non-blocking and the
+// poll loop does their I/O (no goroutines; done is posted to the loop
+// queue). A transfer that makes no progress for 5 s ends: a read with an
+// error, a write by closing the pipe. Text over 64 MiB is refused. When
+// Run returns, transfers in progress are dropped without calling done.
+//
+// Keyboard focus: the compositor announces the selection only to the
+// focused client, right before keyboard enter and whenever it changes
+// while focused. A window without focus therefore reads the selection as
+// it was at its last focus (which may be stale, or empty if its owner has
+// gone), and its WriteText is likely refused. Text editing copies and
+// pastes from key and pointer handlers, which run with focus.
 //
 // Every file but this one is only built on Linux.
 package wayland

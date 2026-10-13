@@ -3,7 +3,6 @@
 package wayland
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -30,6 +29,7 @@ const (
 	outputVersion      = 4 // 2: scale + done; 3: release
 	cursorShapeVersion = 1
 	decorationVersion  = 1
+	// wl_data_device_manager: dataDeviceManagerVersion in clipboard.go.
 )
 
 // startupTimeout bounds the roundtrips done by New.
@@ -48,6 +48,7 @@ type Backend struct {
 	wm          *protocols.XdgWmBase
 	cursorShape *protocols.WpCursorShapeManagerV1
 	decoration  *protocols.ZxdgDecorationManagerV1
+	dataManager *protocols.WlDataDeviceManager // nil without a clipboard
 
 	shmFormats map[protocols.WlShmFormat]bool
 	format     protocols.WlShmFormat // pixel format of every buffer
@@ -76,8 +77,15 @@ type Backend struct {
 	// iterations counts loop iterations (UI thread), for pacing tests.
 	iterations int
 	// lastSerial is the serial of the latest input event of any seat, for
-	// requests that need one (clipboard, move, popups).
+	// requests that need one (move, popups; the clipboard uses the serial
+	// of its own seat, seat.serial).
 	lastSerial uint32
+
+	// Clipboard transfers in progress (clipboard.go), polled with the
+	// display socket, and the time a transfer may go without progress.
+	transfers       []*transfer
+	transferTimeout time.Duration
+	pollFds         []unix.PollFd
 
 	// Keyboard: the Compose table shared by the seats (loaded at the
 	// first keymap; nil without a Compose file), a loader tests use
@@ -125,6 +133,8 @@ func newBackend(conn *wire.Conn) (*Backend, error) {
 		shmFormats: map[protocols.WlShmFormat]bool{},
 		surfaces:   map[*protocols.WlSurface]*Window{},
 		appID:      platform.DefaultAppID(),
+
+		transferTimeout: defaultTransferTimeout,
 	}
 	b.loop = loop.New(loop.Options[*Window]{
 		Now:      b.Now,
@@ -206,6 +216,8 @@ func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
 		if b.decoration == nil {
 			b.decoration = protocols.WlRegistryBind[protocols.ZxdgDecorationManagerV1](b.registry, e.Name, min(e.Version, decorationVersion))
 		}
+	case protocols.WlDataDeviceManagerInterfaceName:
+		b.bindDataDeviceManager(e.Name, e.Version)
 	case protocols.WlSeatInterfaceName:
 		b.addSeat(e.Name, e.Version)
 	case protocols.WlOutputInterfaceName:
@@ -290,23 +302,9 @@ func (b *Backend) signal() {
 // portal over D-Bus is a later task.
 func (b *Backend) Settings() platform.SystemSettings { return platform.SystemSettings{} }
 
-// Clipboard returns the clipboard. wl_data_device is not implemented yet.
+// Clipboard returns the clipboard: the wl_data_device selection
+// (clipboard.go).
 func (b *Backend) Clipboard() platform.Clipboard { return clipboard{b} }
-
-// errClipboard is reported by every clipboard operation in phase 1.
-var errClipboard = errors.New("wayland: the clipboard is not supported yet (wl_data_device arrives with text editing in phase 5)")
-
-type clipboard struct{ b *Backend }
-
-func (c clipboard) ReadText(done func(string, error)) {
-	if done == nil {
-		panic("wayland: Clipboard.ReadText called with a nil callback")
-	}
-	// The contract requires an asynchronous callback, even for an error.
-	c.b.loop.Post(func() { done("", errClipboard) })
-}
-
-func (c clipboard) WriteText(string) error { return errClipboard }
 
 // enqueue queues an event for delivery by the loop.
 func (b *Backend) enqueue(w *Window, ev platform.Event) { b.loop.Enqueue(w, ev) }
@@ -329,7 +327,9 @@ func (b *Backend) Run(h platform.Handler) error {
 		if b.loop.Quitting() {
 			return nil
 		}
-		b.keyRepeats(b.Now())
+		now := b.Now()
+		b.keyRepeats(now)
+		b.expireTransfers(now)
 		b.loop.Deliver(h)
 		if b.loop.Quitting() {
 			return nil
@@ -341,6 +341,10 @@ func (b *Backend) Run(h platform.Handler) error {
 		// (client-side repeat; no timer goroutine).
 		if rep, ok := b.repeatDeadline(); ok && (!timed || rep < deadline) {
 			deadline, timed = rep, true
+		}
+		// So is the deadline of a stalled clipboard transfer.
+		if td, ok := b.transferDeadline(); ok && (!timed || td < deadline) {
+			deadline, timed = td, true
 		}
 		if err := b.flush(); err != nil {
 			return err
@@ -383,17 +387,22 @@ func (b *Backend) flush() error {
 	return err
 }
 
-// poll blocks until the display socket or the eventfd is ready (or timeout
-// ms pass; -1 blocks indefinitely), then reads and dispatches.
+// poll blocks until the display socket, the eventfd or a clipboard
+// transfer is ready (or timeout ms pass; -1 blocks indefinitely), then does
+// the transfers' I/O, reads and dispatches.
 func (b *Backend) poll(timeout int) error {
-	fds := [2]unix.PollFd{
-		{Fd: int32(b.conn.Fd()), Events: unix.POLLIN},
-		{Fd: int32(b.eventfd), Events: unix.POLLIN},
+	fds := append(b.pollFds[:0],
+		unix.PollFd{Fd: int32(b.conn.Fd()), Events: unix.POLLIN},
+		unix.PollFd{Fd: int32(b.eventfd), Events: unix.POLLIN},
+	)
+	for _, t := range b.transfers {
+		fds = append(fds, unix.PollFd{Fd: int32(t.fd), Events: t.events()})
 	}
+	b.pollFds = fds
 	if b.conn.HasPendingWrites() {
 		fds[0].Events |= unix.POLLOUT
 	}
-	_, err := unix.Poll(fds[:], timeout)
+	_, err := unix.Poll(fds, timeout)
 	if err == unix.EINTR {
 		return nil
 	}
@@ -413,6 +422,7 @@ func (b *Backend) poll(timeout int) error {
 		unix.Read(b.eventfd, buf[:])
 		b.wakeSignaled.Store(false)
 	}
+	b.serviceTransfers(fds[2:])
 	if fds[0].Revents&(unix.POLLIN|unix.POLLHUP|unix.POLLERR) != 0 {
 		if _, err := b.conn.Read(); err != nil {
 			// On EOF, messages already buffered may include the
@@ -457,6 +467,7 @@ func (b *Backend) release() {
 		// closes anyway.
 		b.conn.Flush()
 	}
+	b.closeTransfers()
 	b.loop.Discard()
 	b.conn.Close()
 	b.efdMu.Lock()

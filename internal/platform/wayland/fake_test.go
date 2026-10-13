@@ -70,6 +70,9 @@ type fakeComp struct {
 	pools   map[uint32]fakeBuffer
 	buffers map[uint32]fakeBuffer
 	fds     []int // received, not yet consumed
+	// lastServerID is the latest object ID the fake allocated
+	// (newServerObject).
+	lastServerID uint32
 
 	globals []fakeGlobal
 	reqs    chan freq
@@ -276,7 +279,9 @@ func (fc *fakeComp) handle(id uint32, op uint16, body []byte) {
 		fc.mu.Lock()
 		delete(fc.ifaces, id)
 		fc.mu.Unlock()
-		fc.send(wire.DisplayID, 1, id) // delete_id
+		if id < wire.ServerIDStart { // libwayland sends no delete_id for server IDs
+			fc.send(wire.DisplayID, 1, id) // delete_id
+		}
 	}
 	if fc.automatic != nil {
 		select { // nobody reads requests in automatic mode
@@ -620,6 +625,35 @@ func (h *harness) configureMsg(width, height int32, serial uint32, states ...pro
 // dispatches it in one go.
 func (h *harness) configure(width, height int32, serial uint32, states ...protocols.XdgToplevelState) {
 	h.fc.sendRaw(h.configureMsg(width, height, serial, states...))
+}
+
+// newServerObject allocates a server-side object ID (for a new_id in an
+// event) so the client's requests on it are decoded.
+func (fc *fakeComp) newServerObject(iface string) uint32 {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	if fc.lastServerID == 0 {
+		fc.lastServerID = wire.ServerIDStart - 1
+	}
+	fc.lastServerID++
+	id := fc.lastServerID
+	fc.ifaces[id] = wire.Lookup(iface)
+	fc.latest[iface] = id
+	return id
+}
+
+// sendFds writes pre-encoded events with file descriptors attached, as
+// one sendmsg. The fake keeps its own descriptors open.
+func (fc *fakeComp) sendFds(b []byte, fds ...int) {
+	fc.t.Helper()
+	fc.wmu.Lock()
+	defer fc.wmu.Unlock()
+	if fc.fd < 0 {
+		return
+	}
+	if err := unix.Sendmsg(fc.fd, b, unix.UnixRights(fds...), nil, 0); err != nil {
+		fc.t.Fatal(err)
+	}
 }
 
 // sendRaw writes pre-encoded events in one write.

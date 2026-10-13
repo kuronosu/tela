@@ -47,9 +47,9 @@ func liveBackend(t *testing.T) *Backend {
 func TestLiveConformance(t *testing.T) {
 	skipUnlessLive(t)
 	platformtest.Run(t, platformtest.Config{
+		// The Clipboard subtest replaces the session's clipboard with its
+		// test text.
 		New: func(t *testing.T) platform.Backend { return liveBackend(t) },
-		// The clipboard arrives in phase 5; Clipboard reports an error.
-		Skip: []string{"Clipboard"},
 	})
 }
 

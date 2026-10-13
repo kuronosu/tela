@@ -22,6 +22,14 @@ type seat struct {
 	// enterSerial is the serial of the latest wl_pointer.enter, required
 	// by set_cursor and set_shape.
 	enterSerial uint32
+	// serial is the serial of the seat's latest input event (pointer
+	// enter, leave and button; keyboard enter, leave and key), used by
+	// wl_data_device.set_selection. Compositors accept a selection from
+	// the client with keyboard focus whose serial is not older than the
+	// current selection's (wlroots, Mutter), so the newest serial is the
+	// one most likely to be accepted.
+	serial uint32
+	data   *dataDevice // nil without wl_data_device_manager
 }
 
 func (b *Backend) addSeat(name, version uint32) {
@@ -29,6 +37,13 @@ func (b *Backend) addSeat(name, version uint32) {
 	s.wl = protocols.WlRegistryBind[protocols.WlSeat](b.registry, name, min(version, seatVersion))
 	s.wl.SetCapabilitiesHandler(s.onCapabilities)
 	b.seats = append(b.seats, s)
+	s.attachDataDevice()
+}
+
+// inputSerial records the serial of an input event of the seat.
+func (s *seat) inputSerial(serial uint32) {
+	s.b.lastSerial = serial
+	s.serial = serial
 }
 
 func (s *seat) onCapabilities(e protocols.WlSeatCapabilitiesEvent) {
@@ -84,6 +99,10 @@ func (s *seat) destroy() {
 		s.kbd.release()
 		s.kbd = nil
 	}
+	if s.data != nil {
+		s.data.release()
+		s.data = nil
+	}
 	if !s.wl.Destroyed() && s.wl.Version() >= 5 {
 		s.wl.Release()
 	}
@@ -102,7 +121,7 @@ func (s *seat) listen() {
 		}
 	}
 	p.SetEnterHandler(func(e protocols.WlPointerEnterEvent) {
-		b.lastSerial = e.Serial
+		s.inputSerial(e.Serial)
 		s.enterSerial = e.Serial
 		w := b.surfaces[e.Surface]
 		if w == nil {
@@ -114,7 +133,7 @@ func (s *seat) listen() {
 		after()
 	})
 	p.SetLeaveHandler(func(e protocols.WlPointerLeaveEvent) {
-		b.lastSerial = e.Serial
+		s.inputSerial(e.Serial)
 		s.ptr.leave(b.Now())
 		after()
 	})
@@ -123,7 +142,7 @@ func (s *seat) listen() {
 		after()
 	})
 	p.SetButtonHandler(func(e protocols.WlPointerButtonEvent) {
-		b.lastSerial = e.Serial
+		s.inputSerial(e.Serial)
 		s.ptr.button(e.Button, e.State == protocols.WlPointerButtonStatePressed, b.eventTime(e.Time))
 		after()
 	})

@@ -644,7 +644,7 @@ func TestPingCloseAndClipboard(t *testing.T) {
 			close(called)
 		})
 		inside = false
-		if err := h.b.Clipboard().WriteText("x"); !errors.Is(err, errClipboard) {
+		if err := h.b.Clipboard().WriteText("x"); !errors.Is(err, errNoDataDevice) {
 			t.Errorf("WriteText = %v", err)
 		}
 	})
@@ -654,7 +654,7 @@ func TestPingCloseAndClipboard(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("ReadText never called back")
 	}
-	if !errors.Is(gotErr, errClipboard) {
+	if !errors.Is(gotErr, errNoDataDevice) {
 		t.Errorf("ReadText error = %v", gotErr)
 	}
 
@@ -725,7 +725,7 @@ func TestConformance(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			fc := startFake(t, fds[1], standardGlobals(2), newAutoState())
+			fc := startFake(t, fds[1], append(standardGlobals(2), fakeGlobal{iface: "wl_data_device_manager", version: 3}), newAutoState())
 			b, err := newBackend(conn)
 			if err != nil {
 				t.Fatalf("newBackend: %v", err)
@@ -741,7 +741,6 @@ func TestConformance(t *testing.T) {
 			})
 			return b
 		},
-		Skip: []string{"Clipboard"}, // phase 5
 	})
 }
 
