@@ -234,6 +234,16 @@ func TestPointerMessages(t *testing.T) {
 			}
 		}
 	}
+	// The messages are synthetic: on a real desktop the real cursor is not
+	// over the window, so Windows answers the TrackMouseEvent armed by the
+	// last move with an immediate WM_MOUSELEAVE, which the backend reports
+	// as a trailing leave. (Real mouse messages only arrive while the cursor
+	// is over the window, where tracking is correct.) Wine sends none.
+	if n := len(got); n == len(want)+1 {
+		if last, ok := got[n-1].(platform.PointerEvent); ok && last.Action == platform.PointerLeave && last.Buttons == 0 {
+			got = got[:n-1]
+		}
+	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d events, want %d:\n got: %v\nwant: %v", len(got), len(want), got, want)
 	}
@@ -683,5 +693,47 @@ func TestClipboardIsAsyncAndUnsupported(t *testing.T) {
 	}
 	if err := b.Clipboard().WriteText("x"); !errors.Is(err, ErrClipboardUnsupported) {
 		t.Errorf("WriteText error = %v, want ErrClipboardUnsupported", err)
+	}
+}
+
+// TestRunAfterRun: a Run that ended by Quit from inside WndProc leaves
+// nothing in the thread's message queue (PostQuitMessage's WM_QUIT) that
+// would stop the next Run on the same thread at once. On Windows a
+// PeekMessage limited to WM_QUIT does not remove it, so shutdown drains the
+// queue.
+func TestRunAfterRun(t *testing.T) {
+	for i := range 3 {
+		b := liveBackend(t)
+		pw, err := b.NewWindow(platform.WindowOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		hwnd := pw.(*Window).hwnd
+		start := time.Now()
+		woken := false
+		runLive(t, b, nil, func(w platform.Window, e platform.Event) {
+			switch e.(type) {
+			case platform.FrameEvent:
+				presentSolid(t, w, color.RGBA{0, 0, 0, 0xff})
+				if i == 1 {
+					postMessage(hwnd, wmClose, 0, 0) // the close button
+				} else {
+					time.AfterFunc(80*time.Millisecond, b.Wake)
+				}
+			case platform.CloseRequestedEvent:
+				w.Close() // the app closes its window, then quits
+				time.AfterFunc(80*time.Millisecond, b.Wake)
+			case platform.WakeEvent:
+				woken = true
+				b.Quit() // from the WM_APP message, inside WndProc
+			}
+		})
+		if !woken || time.Since(start) < 70*time.Millisecond {
+			t.Fatalf("run %d ended after %v without its wake", i, time.Since(start))
+		}
+		var m msg
+		if r, _, _ := procPeekMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0, 0); r != 0 {
+			t.Fatalf("run %d left message %#x in the thread's queue; the next Run on this thread would see it", i, m.message)
+		}
 	}
 }

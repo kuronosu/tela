@@ -188,9 +188,14 @@ func (b *Backend) shutdown() {
 	// PostQuitMessage leaves a WM_QUIT in the thread's queue when the loop
 	// ended without reading it (Quit seen between messages). The thread
 	// goes back to the Go scheduler's pool, where the next Run on it would
-	// stop at once.
-	for r, _, _ := procPeekMessageW.Call(uintptr(unsafe.Pointer(&b.msg)), 0, wmQuit, wmQuit, pmRemove); r != 0; {
-		r, _, _ = procPeekMessageW.Call(uintptr(unsafe.Pointer(&b.msg)), 0, wmQuit, wmQuit, pmRemove)
+	// stop at once. A PeekMessage restricted to WM_QUIT does not find it on
+	// Windows (it did under Wine), so everything is drained: the windows are
+	// gone, and what is left in the queue belongs to nobody.
+	for {
+		r, _, _ := procPeekMessageW.Call(uintptr(unsafe.Pointer(&b.msg)), 0, 0, 0, pmRemove)
+		if r == 0 {
+			break
+		}
 	}
 	runtime.UnlockOSThread()
 }

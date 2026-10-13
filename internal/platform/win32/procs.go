@@ -95,7 +95,6 @@ const (
 	wmTelaNotify      = 0x8000 + 1 // WM_APP + 1: a Wake or Quit is waiting
 	wmTelaVsync       = 0x8000 + 2 // WM_APP + 2: the display signalled a vsync
 	htClient          = 1
-	wmQuit            = 0x0012
 	pmRemove          = 0x0001
 	hwndMessage       = ^uintptr(2) // HWND_MESSAGE, (HWND)-3
 	swShow            = 5
