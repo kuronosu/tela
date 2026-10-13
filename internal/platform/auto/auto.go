@@ -1,8 +1,9 @@
 // Package auto selects the platform backend for the current environment.
 //
 // New is the single entry point used by applications and tools: it returns
-// the native backend of the OS (Wayland or X11 on Linux), or the headless
-// backend when the user asks for it with TELA_BACKEND=headless.
+// the native backend of the OS (Wayland or X11 on Linux, Win32 on Windows),
+// or the headless backend when the user asks for it with
+// TELA_BACKEND=headless.
 //
 // # Linux
 //
@@ -13,6 +14,12 @@
 // [platform.ErrUnavailable] (for example WAYLAND_DISPLAY is not set).
 // Any other error is a real failure and is returned without trying the next
 // candidate.
+//
+// # Windows
+//
+// The native backend is win32. TELA_BACKEND accepts "win32" or "headless";
+// New must be called on the goroutine that runs the event loop, because the
+// backend binds it to its OS thread.
 //
 // # Other systems
 //

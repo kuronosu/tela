@@ -37,6 +37,9 @@ func TestUnknownBackend(t *testing.T) {
 }
 
 func TestNothingAvailable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the win32 backend needs no display server")
+	}
 	if runtime.GOOS == "linux" {
 		t.Setenv("WAYLAND_DISPLAY", "")
 		t.Setenv("DISPLAY", "")
