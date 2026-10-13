@@ -19,5 +19,5 @@ A window shorter than the content scrolls like a page; the page is designed for 
 
 - In a window: `CGO_ENABLED=0 go run ./examples/dashboard` (1280x800).
 - Without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 1280x800 --scale 2 [--dark] -o dashboard.png ./examples/dashboard`.
-- Its layout: `CGO_ENABLED=0 go run ./cmd/tela inspect --size 1280x800 ./examples/dashboard`.
+- Its layout: `CGO_ENABLED=0 go run ./cmd/tela inspect --layout --size 1280x800 ./examples/dashboard`.
 - Tests: `CGO_ENABLED=0 go test ./examples/dashboard`. The goldens (`testdata/dashboard_x1.png`, `dashboard_x2.png`) are regenerated with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGolden ./examples/dashboard`.

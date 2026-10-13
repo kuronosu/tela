@@ -55,6 +55,8 @@ type desc struct {
 	src       image.Image // Img source (Src)
 	img       *gfx.Image  // Img source (SrcImage)
 	href      string      // A destination (Href)
+	// aria holds the semantics props (aria.go), nil without any.
+	aria *ariaProps
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings
@@ -280,6 +282,9 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	}
 	if kind != style.KindA && d.href != "" {
 		panic(fmt.Sprintf("core: Href on <%v>: only A takes a destination", kind))
+	}
+	if kind != style.KindImg && d.aria != nil && d.aria.hasAlt {
+		panic(fmt.Sprintf("core: Alt on <%v>: only Img takes an alternative text; name other elements with AriaLabel", kind))
 	}
 	return Node{d}
 }

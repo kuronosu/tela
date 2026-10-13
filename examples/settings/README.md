@@ -14,6 +14,7 @@ What it shows:
 
 - In a window: `CGO_ENABLED=0 go run ./examples/settings` (1280x800).
 - Without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 1280x800 --scale 2 [--dark] -o settings.png ./examples/settings`.
+- Its aria snapshot: `CGO_ENABLED=0 go run ./cmd/tela inspect --size 1280x800 ./examples/settings` (`testdata/settings.aria.yml`): the switches have `Role("switch")`, `AriaChecked` and their row's title as `AriaLabel`; the option cards are radios in two radio groups named by their labels (`AriaLabelledBy`).
 - Tests: `CGO_ENABLED=0 go test ./examples/settings`. They drive the page through a headless window: toggling a switch (track, knob and dirty state), hover and press on a switch, the locked switch, Save and Reset, the two radio groups, and the goldens (`testdata/settings_x1.png`, `settings_x2.png`; regenerate with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGolden ./examples/settings`).
 
 At widths below about 900 px the two cards stack; a window shorter than the content scrolls like a page.

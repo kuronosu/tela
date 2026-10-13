@@ -3,9 +3,9 @@
 // the hosts that run a tree in a window or headless. The public packages
 // tela and h are thin wrappers over it.
 //
-// core imports gfx, gfx/raster, text, style, layout, gesture and platform
-// (with platform/auto for Run); nothing but tela and h imports core
-// (ARCHITECTURE section 5).
+// core imports gfx, gfx/raster, text, style, layout, gesture, semantics and
+// platform (with platform/auto for Run); nothing but tela and h imports
+// core (ARCHITECTURE section 5).
 //
 // # Nodes, Elements and Boxes
 //
@@ -227,6 +227,16 @@
 // edges snapped to device pixels at the tree's scale (SetScale); the
 // comment at the top of paint.go is the reference. A Frame with nothing
 // dirty returns the previous list.
+//
+// The semantics tree (semantics.go, whose top comment is the reference;
+// ARCHITECTURE section 16) is not a phase of Frame: Tree.Semantics builds
+// it from the Element and Box trees when a consumer asks (tela inspect
+// --aria, telatest, tela mcp) and keeps it while nothing changes, so it
+// costs nothing per frame. Its roles and names follow HTML-AAM and AccName
+// as Playwright computes them, Tree.AriaSnapshot serializes it as a
+// Playwright aria snapshot, and ClickNode, FocusNode and
+// ScrollNodeIntoView act on its nodes. The props Role, AriaLabel,
+// AriaLabelledBy, the other Aria... props and Alt (aria.go) feed it.
 //
 // A Host connects a Tree to a platform window: WakeEvent applies state
 // updates, ConfigureEvent sets the viewport and the scale, FrameEvent

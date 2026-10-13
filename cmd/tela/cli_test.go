@@ -188,11 +188,6 @@ func TestInspectLayout(t *testing.T) {
 	}
 	goldenText(t, "inspect_preview.json", stdout)
 
-	// The default mode is the layout tree.
-	if def, _ := inspectRun(t, 0, "--size", "400x300", "./testdata/preview"); def != stdout {
-		t.Errorf("inspect without --layout differs from inspect --layout")
-	}
-
 	var root box
 	if err := json.Unmarshal([]byte(stdout), &root); err != nil {
 		t.Fatalf("output is not JSON: %v\n%s", err, stdout)
@@ -223,10 +218,34 @@ func TestInspectLayout(t *testing.T) {
 	}
 }
 
+// TestInspectAria runs `tela inspect --aria` on the §1 Counter: its output
+// is the committed aria snapshot of examples/counter, and the default mode.
+func TestInspectAria(t *testing.T) {
+	skipShort(t)
+	stdout, stderr := inspectRun(t, 0, "--aria", "--size", "800x600", "../../examples/counter")
+	if stderr != "" {
+		t.Errorf("stderr %q", stderr)
+	}
+	want, err := os.ReadFile("../../examples/counter/testdata/counter.aria.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stdout != string(want) {
+		t.Errorf("tela inspect --aria ./examples/counter:\n%s\nwant (examples/counter/testdata/counter.aria.yml):\n%s", stdout, want)
+	}
+	if def, _ := inspectRun(t, 0, "--size", "800x600", "../../examples/counter"); def != stdout {
+		t.Errorf("inspect without a mode flag differs from inspect --aria:\n%s", def)
+	}
+	// A screen without semantics content prints nothing.
+	if out, _ := inspectRun(t, 0, "--size", "400x300", "./testdata/preview"); out != "- heading \"Hello & welcome\" [level=1]\n" {
+		t.Errorf("inspect ./testdata/preview: %q", out)
+	}
+}
+
 func TestInspectDark(t *testing.T) {
 	skipShort(t)
-	light, _ := inspectRun(t, 0, "--size", "400x300", "./testdata/preview")
-	dark, _ := inspectRun(t, 0, "--size", "400x300", "--dark", "./testdata/preview")
+	light, _ := inspectRun(t, 0, "--layout", "--size", "400x300", "./testdata/preview")
+	dark, _ := inspectRun(t, 0, "--layout", "--size", "400x300", "--dark", "./testdata/preview")
 	if !strings.Contains(light, `"background": "#f1f5f9"`) || !strings.Contains(dark, `"background": "#0f172b"`) {
 		t.Errorf("--dark must switch dark: variants; light has slate-100: %v, dark has slate-900: %v",
 			strings.Contains(light, "#f1f5f9"), strings.Contains(dark, "#0f172b"))
@@ -235,11 +254,11 @@ func TestInspectDark(t *testing.T) {
 
 func TestInspectPreviews(t *testing.T) {
 	skipShort(t)
-	stdout, stderr := inspectRun(t, 0, "--size", "300x200", "./testdata/previews")
+	stdout, stderr := inspectRun(t, 0, "--layout", "--size", "300x200", "./testdata/previews")
 	if !strings.Contains(stdout, `"key": "box"`) || !strings.Contains(stderr, `preview "Alert"`) || !strings.Contains(stderr, "Counter") {
 		t.Errorf("default preview: stdout\n%s\nstderr %q", stdout, stderr)
 	}
-	stdout, stderr = inspectRun(t, 0, "--size", "300x200", "--preview", "Counter", "./testdata/previews")
+	stdout, stderr = inspectRun(t, 0, "--layout", "--size", "300x200", "--preview", "Counter", "./testdata/previews")
 	var root box
 	if err := json.Unmarshal([]byte(stdout), &root); err != nil {
 		t.Fatal(err)

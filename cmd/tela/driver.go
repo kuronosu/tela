@@ -32,6 +32,7 @@ type mode string
 const (
 	modeSnapshot mode = "snapshot" // render to a PNG
 	modeInspect  mode = "inspect"  // print the layout tree as JSON
+	modeAria     mode = "aria"     // print the aria snapshot as YAML
 )
 
 // contract is how a package exposes its screens.
@@ -74,7 +75,7 @@ const (
 	envScale   = "TELA_RUN_SCALE"
 	envDark    = "TELA_RUN_DARK"
 	envPreview = "TELA_RUN_PREVIEW"
-	envOut     = "TELA_RUN_OUT"  // the result: a PNG or JSON
+	envOut     = "TELA_RUN_OUT"  // the result: a PNG, JSON or YAML
 	envErr     = "TELA_RUN_ERR"  // a message for the user, when the run fails
 	envInfo    = "TELA_RUN_INFO" // JSON runInfo
 )
@@ -179,12 +180,13 @@ type runInfo struct {
 
 // runResult is the outcome of runInPackage.
 type runResult struct {
-	Output []byte // the PNG or the JSON
+	Output []byte // the PNG, the JSON or the YAML
 	Info   runInfo
 }
 
 // runInPackage renders opts.Pkg with the generated test and returns its
-// output file. ext is the extension of the temporary output ("png", "json").
+// output file. ext is the extension of the temporary output ("png", "json",
+// "yml").
 // Warnings go to stderr.
 func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*runResult, error) {
 	goBin, err := exec.LookPath("go")
@@ -272,7 +274,7 @@ func checkContract(m mode, c contract, opts renderOptions, pkg goPackage) error 
 	switch {
 	case c == contractNone:
 		return fmt.Errorf("package %s (%s) cannot be rendered: %s", pkg.Name, opts.Pkg, contractHelp)
-	case c == contractScene && m == modeInspect:
+	case c == contractScene && m != modeSnapshot:
 		return fmt.Errorf("package %s (%s) only defines Scene, a display list without a layout tree: tela inspect needs func Preview() tela.Node or a Previews variable", pkg.Name, opts.Pkg)
 	case opts.Preview != "" && c == contractPreview:
 		return fmt.Errorf("--preview %q: package %s defines Preview(), a single screen; to choose among several, define var Previews = tela.Previews{...}", opts.Preview, pkg.Name)
@@ -502,6 +504,16 @@ func TestTelaRun(t *telatesting.T) {
 			t.Fatal(err)
 		}
 		write({{printf "%q" .Env.Out}}, buf.b)
+	case {{printf "%q" "aria"}}:
+		tree := telacore.NewTree(cfg)
+		tree.SetViewport(telagfx.Size{W: size.W, H: size.H})
+		tree.Mount(root)
+		tree.Frame()
+		yaml := tree.AriaSnapshot()
+		if yaml != "" {
+			yaml += "\n"
+		}
+		write({{printf "%q" .Env.Out}}, []byte(yaml))
 	default:
 		t.Fatalf("unknown mode %q", getenv({{printf "%q" .Env.Mode}}))
 	}

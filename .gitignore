@@ -7,6 +7,7 @@
 *_actual.png
 *_diff.png
 *_actual.json
+*_actual.yml
 
 # Snapshots and local output
 /out/

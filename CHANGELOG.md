@@ -73,6 +73,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
   scrolling animate; `tela.App{InstantScroll: true}` or `scroll-instant`
   turns that off, `scroll-smooth` animates programmatic scrolls, and the
   system's reduced-motion setting always disables it.
+- `h.Role`, `h.Alt` and the `h.Aria…` props (label, labelledby, description,
+  hidden, checked, pressed, selected, expanded, disabled, level, value
+  now/min/max/text); unknown roles panic in dev mode with a suggestion. A
+  semantics tree with implicit roles and accessible names.
 - Examples `dashboard`, `pricing`, `settings`, `player` and `board`: full
   screens in the shadcn/ui zinc style with dark mode, goldens and
   interaction tests (switches and `disabled:` states, a progress bar driven
@@ -82,6 +86,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- `tela inspect` prints a Playwright-style aria snapshot (YAML) by default;
+  `--layout` prints the JSON layout tree.
 - **Breaking:** `tela.UseState` returns a `tela.Setter[T]` instead of
   `func(T)`. Write `setCount.Set(v)` or
   `setCount.Update(func(n int) int { return n + 1 })`, or use

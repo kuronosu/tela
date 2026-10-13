@@ -272,3 +272,20 @@ func Golden(t *testing.T, name string, root func() tela.Node, w, h float32) {
 		})
 	}
 }
+
+// AriaGolden mounts root headlessly at the given size and compares its
+// aria snapshot (what `tela inspect --aria` prints, with its final
+// newline) with testdata/<name>.aria.yml (TELA_UPDATE=1 writes it). It
+// also fails on dev messages.
+func AriaGolden(t *testing.T, name string, root func() tela.Node, w, h float32) {
+	t.Helper()
+	var logs []string
+	tree := core.NewTree(core.Config{Dev: true, Log: func(m string) { logs = append(logs, m) }})
+	tree.SetViewport(gfx.Size{W: w, H: h})
+	tree.Mount(core.Component(root))
+	tree.Frame()
+	golden.Text(t, name+".aria.yml", tree.AriaSnapshot()+"\n")
+	for _, m := range logs {
+		t.Errorf("dev message: %s", m)
+	}
+}

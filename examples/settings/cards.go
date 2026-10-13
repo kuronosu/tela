@@ -58,7 +58,7 @@ func SettingRow(p RowProps) tela.Node {
 			Span(Class("text-sm leading-5 font-medium"), Text(p.Title)),
 			Span(Class("text-sm leading-5 "+muted), Text(p.Hint)),
 		),
-		tela.CP(Switch, SwitchProps{Field: p.Field, On: p.On, Locked: p.Locked, Set: p.Set}),
+		tela.CP(Switch, SwitchProps{Field: p.Field, Label: p.Title, On: p.On, Locked: p.Locked, Set: p.Set}),
 	)
 }
 
@@ -68,14 +68,15 @@ type AppearanceProps struct {
 	Set   tela.Setter[Prefs]
 }
 
-// AppearanceCard has two radio groups: a theme with previews and a
-// density list.
+// AppearanceCard has two radio groups, named by their labels: a theme
+// with previews and a density list.
 func AppearanceCard(p AppearanceProps) tela.Node {
+	themeLabel, densityLabel := tela.UseElementRef(), tela.UseElementRef()
 	return Div(Class(card+" flex min-w-[340px] flex-1 basis-[420px] flex-col pb-6"),
 		cardHeader("Appearance", "Pick a theme and how much room the interface takes."),
 		Div(Class("mt-5 flex flex-col gap-2.5 px-6"),
-			Span(Class("text-sm font-medium"), Text("Theme")),
-			Div(Class("flex gap-3"),
+			Span(Ref(themeLabel), Class("text-sm font-medium"), Text("Theme")),
+			Div(Class("flex gap-3"), Role("radiogroup"), AriaLabelledBy(themeLabel),
 				Map(themes, func(o Option) tela.Node {
 					return tela.WithKey(tela.CP(ThemeOption, RadioProps{
 						Field: FieldTheme, Value: o.Value, Selected: p.Prefs.Theme == o.Value, Set: p.Set,
@@ -84,8 +85,8 @@ func AppearanceCard(p AppearanceProps) tela.Node {
 			),
 		),
 		Div(Class("mt-6 flex flex-col gap-2.5 px-6"),
-			Span(Class("text-sm font-medium"), Text("Density")),
-			Div(Class("flex flex-col gap-2"),
+			Span(Ref(densityLabel), Class("text-sm font-medium"), Text("Density")),
+			Div(Class("flex flex-col gap-2"), Role("radiogroup"), AriaLabelledBy(densityLabel),
 				Map(densities, func(o Option) tela.Node {
 					return tela.WithKey(tela.CP(DensityOption, RadioProps{
 						Field: FieldDensity, Value: o.Value, Selected: p.Prefs.Density == o.Value, Set: p.Set,

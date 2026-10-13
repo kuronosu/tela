@@ -184,12 +184,14 @@ func TestProgrammerErrors(t *testing.T) {
 // with a user's names.
 func TestExportedNames(t *testing.T) {
 	want := []string{
-		"A", "AutoFocus", "Button", "Class", "Code", "Disabled", "Div", "Em", "Fragment", "H1", "H2", "H3", "H4",
-		"H5", "H6", "Href", "If", "Img", "Key", "Map", "OnBlur", "OnClick", "OnContextMenu", "OnDoubleClick",
-		"OnDrag", "OnDragEnd", "OnDragStart", "OnFocus", "OnKeyDown", "OnKeyUp", "OnLongPress", "OnMouseDown",
-		"OnMouseEnter", "OnMouseLeave", "OnMouseMove", "OnMouseUp", "OnPointerCancel", "OnPointerDown",
-		"OnPointerEnter", "OnPointerLeave", "OnPointerMove", "OnPointerUp", "OnScroll", "OnWheel", "P", "Ref",
-		"Span", "Src", "Strong", "Style", "TabIndex", "Text", "Textf",
+		"A", "Alt", "AriaChecked", "AriaDescription", "AriaDisabled", "AriaExpanded", "AriaHidden", "AriaLabel",
+		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaSelected", "AriaValueMax", "AriaValueMin",
+		"AriaValueNow", "AriaValueText", "AutoFocus", "Button", "Class", "Code", "Disabled", "Div", "Em",
+		"Fragment", "H1", "H2", "H3", "H4", "H5", "H6", "Href", "If", "Img", "Key", "Map", "OnBlur", "OnClick",
+		"OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus", "OnKeyDown", "OnKeyUp",
+		"OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove", "OnMouseUp",
+		"OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove", "OnPointerUp",
+		"OnScroll", "OnWheel", "P", "Ref", "Role", "Span", "Src", "Strong", "Style", "TabIndex", "Text", "Textf",
 	}
 	fset := token.NewFileSet()
 	var got []string

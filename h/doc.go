@@ -15,11 +15,13 @@
 //
 // To keep collisions with the importing package unlikely, h exports only
 // element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong,
-// Em, Code, A), props (Class, Style, Key, Disabled, Src, Href, and the
-// event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse...,
-// OnPointer..., OnDrag... and OnLongPress) and the helpers If, Map and
-// Fragment. Everything else (App, Run, hooks, events, colors, typed style
-// props) lives in package tela.
+// Em, Code, A), props (Class, Style, Key, Disabled, Src, Alt, Href, the
+// focus props TabIndex, AutoFocus and Ref, the semantics props Role and
+// Aria..., and the event handlers OnClick, OnDoubleClick, OnContextMenu,
+// OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus,
+// OnBlur, OnWheel and OnScroll) and the helpers If, Map and Fragment.
+// Everything else (App, Run, hooks, events, colors, typed style props)
+// lives in package tela.
 //
 // An element takes its props and children in one list, in any order:
 //

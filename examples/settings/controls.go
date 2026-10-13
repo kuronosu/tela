@@ -7,9 +7,10 @@ import (
 
 // SwitchProps are the props of Switch. Set is the form's Setter: it is
 // comparable, so a Switch skips its build unless its own On or Locked
-// changed.
+// changed. Label names it for assistive technologies and tests.
 type SwitchProps struct {
 	Field  Field
+	Label  string
 	On     bool
 	Locked bool
 	Set    tela.Setter[Prefs]
@@ -18,7 +19,8 @@ type SwitchProps struct {
 // Switch is shadcn's Switch built from divs: a track and a knob that sits
 // at one end (justify-start / justify-end). It is a button, so it shows the
 // pointer cursor, reacts with hover: and active:, and a Locked switch is
-// Disabled and picks up the disabled: classes.
+// Disabled and picks up the disabled: classes. Its role is switch, checked
+// when on, named by its row's title.
 func Switch(p SwitchProps) tela.Node {
 	track := "justify-start bg-zinc-200 hover:bg-zinc-300 active:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:active:bg-zinc-500"
 	knob := "bg-white dark:bg-zinc-100"
@@ -28,7 +30,7 @@ func Switch(p SwitchProps) tela.Node {
 	}
 	return Button(Class("flex h-[22px] w-10 shrink-0 items-center rounded-full p-0.5 shadow-xs transition-colors "+
 		"disabled:cursor-not-allowed disabled:opacity-50 "+track),
-		Disabled(p.Locked),
+		Role("switch"), AriaChecked(p.On), AriaLabel(p.Label), Disabled(p.Locked),
 		OnClick(func(tela.MouseEvent) { p.Set.Update(func(x Prefs) Prefs { return x.Toggle(p.Field) }) }),
 		Div(Class("size-[18px] rounded-full shadow-sm "+knob)),
 	)
@@ -43,7 +45,8 @@ type RadioProps struct {
 }
 
 // selectable is the frame of an option card: a bordered button whose ring
-// shows the selection.
+// shows the selection. The cards have the radio role, checked when
+// selected, and are named by their content.
 func selectable(p RadioProps) string {
 	if p.Selected {
 		return "border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900 dark:border-zinc-50 dark:bg-zinc-800/60 dark:ring-zinc-50"
@@ -74,7 +77,7 @@ func ThemeOption(p RadioProps) tela.Node {
 		}
 	}
 	return Button(Class("flex min-w-0 flex-1 flex-col gap-2.5 rounded-lg border p-2.5 text-left transition-colors "+selectable(p)),
-		choose(p),
+		choose(p), Role("radio"), AriaChecked(p.Selected),
 		themePreview(p.Value),
 		Div(Class("flex items-center gap-2 px-0.5 text-sm font-medium"),
 			Radio(p.Selected),
@@ -112,7 +115,7 @@ func DensityOption(p RadioProps) tela.Node {
 		}
 	}
 	return Button(Class("flex items-start gap-3 rounded-lg border p-3 text-left transition-colors "+selectable(p)),
-		choose(p),
+		choose(p), Role("radio"), AriaChecked(p.Selected),
 		Div(Class("mt-0.5"), Radio(p.Selected)),
 		Div(Class("flex flex-col gap-0.5"),
 			Span(Class("text-sm leading-5 font-medium"), Text(o.Title)),

@@ -176,3 +176,10 @@ their original copyright notice. Add one section per source project.
 - **License:** MIT/X11 (X.Org and contributors' notices)
 - **Used in:** `internal/platform/internal/xkb/core.go` and `core_test.go`, `internal/platform/x11/xi2.go`, `internal/platform/x11/xkbext.go`
 - **Notes:** No code is copied. `NewCoreKeymap` reads core keysym lists in the order `XkbGetCoreMap` writes them and applies XKB's single-keysym rule; `core_test.go` re-expresses `XkbGetCoreMap`'s layout to export test keymaps as a server does. The XInput2 and XKB request and event layouts are written from the protocol headers.
+
+## Playwright (ported code; reference behavior)
+
+- **Source:** https://github.com/microsoft/playwright (v1.61.1: `packages/injected/src/ariaSnapshot.ts`, `packages/injected/src/roleUtils.ts`, `packages/isomorphic/yaml.ts`)
+- **License:** Apache-2.0, Copyright (c) Microsoft Corporation
+- **Used in:** `internal/semantics/snapshot.go` (ported, with the notice), `internal/semantics/roles.go` and `internal/core/semantics.go` (reference behavior)
+- **Notes:** `snapshot.go` ports the aria snapshot's tree normalization and YAML rendering (`generateAriaTree`'s text handling, `normalizeStringChildren`, `normalizeGenericRoles`, `renderAriaTree`'s keys, `yamlEscapeKeyIfNeeded`, `yamlEscapeValueIfNeeded`, `yamlStringNeedsQuotes`, `normalizeWhiteSpace`) to Go, with JavaScript's white space, `JSON.stringify` and `Number()` semantics written out. `roles.go` lists the ARIA role vocabulary and role groups as `roleUtils.ts` does; `core/semantics.go` follows its role, name (`getTextAlternativeInternal`) and state rules without copying code. The default mode only: no refs, AI mode, regex templates or snapshot matching. Test expectations in `internal/core/semantics_test.go` and `internal/semantics/snapshot_test.go` were compared with Playwright 1.61.1 running Chromium 149.

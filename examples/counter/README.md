@@ -6,7 +6,7 @@ The Counter of ARCHITECTURE section 1, verbatim: a card with a gradient, a headi
 
 - Run it in a window: `CGO_ENABLED=0 go run ./examples/counter` (800x600).
 - Render it without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 800x600 [--scale 2] -o counter.png ./examples/counter` (`Preview()` builds `Counter` as a component, so its `UseState` works).
-- Print its layout tree: `CGO_ENABLED=0 go run ./cmd/tela inspect --size 800x600 ./examples/counter`.
+- Print its aria snapshot (`testdata/counter.aria.yml`): `CGO_ENABLED=0 go run ./cmd/tela inspect --size 800x600 ./examples/counter`; add `--layout` for its layout tree as JSON.
 - The goldens (`testdata/counter_x1.png`, `counter_x2.png`) are regenerated with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestCounterGolden ./examples/counter`.
 
 ## Comparison with Chromium

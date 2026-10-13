@@ -3,13 +3,14 @@
 // Commands:
 //
 //	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
-//	tela inspect  [--layout] [--size WxH] [--dark] [--preview NAME] <pkg>
+//	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 //	tela version
 //
 // Both render a package headlessly: the package defines func Preview()
 // tela.Node, or a Previews variable (a tela.Previews map of named screens);
 // --preview NAME chooses one of them. snapshot writes a PNG; inspect prints
-// the layout tree as JSON (inspect --aria arrives in phase 4). The phase-1
+// the aria snapshot as YAML (--aria, the default) or the layout tree as
+// JSON (--layout). The phase-1
 // contract func Scene(w, h float32) *gfx.DisplayList still works for
 // snapshot.
 //
@@ -38,7 +39,7 @@ Usage:
 Commands:
 
 	snapshot    render a package's screen headlessly to a PNG
-	inspect     print a package's layout tree as JSON
+	inspect     print a package's aria snapshot (YAML) or layout tree (JSON)
 	version     print the tela version
 	help        show this help
 

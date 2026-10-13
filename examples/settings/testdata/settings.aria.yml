@@ -1,0 +1,29 @@
+- heading "Settings" [level=1]
+- paragraph: Manage how Tela reaches you and how it looks on your screen.
+- heading "Notifications" [level=2]
+- paragraph: Choose what you want to be told about.
+- text: Email notifications Receive a summary of activity in your workspace.
+- switch "Email notifications" [checked]
+- text: Push notifications Get notified about mentions and replies on your devices.
+- switch "Push notifications" [checked]
+- text: Weekly digest A Monday morning recap of what your team shipped.
+- switch "Weekly digest"
+- text: Product updates News about new features, tips and special offers.
+- switch "Product updates"
+- text: "Security alerts Always on: sign-ins from new devices."
+- switch "Security alerts" [checked] [disabled]
+- heading "Appearance" [level=2]
+- paragraph: Pick a theme and how much room the interface takes.
+- text: Theme
+- radiogroup "Theme":
+  - radio "Light"
+  - radio "Dark"
+  - radio "System" [checked]
+- text: Density
+- radiogroup "Density":
+  - radio "Compact Fit more on screen."
+  - radio "Comfortable Balanced spacing. The default." [checked]
+  - radio "Spacious Room to breathe around everything."
+- text: All changes saved
+- button "Reset" [disabled]
+- button "Save changes" [disabled]

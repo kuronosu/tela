@@ -126,14 +126,16 @@ func TestParseInspectArgs(t *testing.T) {
 	if err != nil || got.W != 960 || got.H != 640 || got.Layout {
 		t.Errorf("defaults: %+v, %v", got, err)
 	}
+	if got, err := parseInspectArgs([]string{"--aria", "./p"}); err != nil || got.Layout {
+		t.Errorf("--aria: %+v, %v", got, err)
+	}
 	for _, tc := range []struct {
 		args []string
 		want string
 	}{
 		{nil, "missing <pkg>"},
 		{[]string{"a", "b"}, "expected one <pkg>"},
-		{[]string{"--aria", "p"}, "phase 4"},
-		{[]string{"--layout", "--aria", "p"}, "phase 4"},
+		{[]string{"--layout", "--aria", "p"}, "exclude each other"},
 		{[]string{"--size", "x", "p"}, "invalid --size"},
 		{[]string{"--scale", "2", "p"}, "flag provided but not defined"},
 		{[]string{"-o", "x.png", "p"}, "flag provided but not defined"},
@@ -154,8 +156,8 @@ func TestInspectDispatch(t *testing.T) {
 	}
 	out.Reset()
 	errOut.Reset()
-	if code := run([]string{"inspect", "--aria", "p"}, &out, &errOut); code != 2 || !strings.Contains(errOut.String(), "phase 4") || out.Len() != 0 {
-		t.Errorf("inspect --aria: code %d, stdout %q, stderr %q", code, out.String(), errOut.String())
+	if code := run([]string{"inspect", "--aria", "--layout", "p"}, &out, &errOut); code != 2 || !strings.Contains(errOut.String(), "exclude each other") || out.Len() != 0 {
+		t.Errorf("inspect --aria --layout: code %d, stdout %q, stderr %q", code, out.String(), errOut.String())
 	}
 	out.Reset()
 	errOut.Reset()
@@ -241,6 +243,7 @@ func TestCheckContract(t *testing.T) {
 		{modeSnapshot, contractPreviews, "A", ""},
 		{modeSnapshot, contractScene, "", ""},
 		{modeInspect, contractScene, "", "only defines Scene"},
+		{modeAria, contractScene, "", "only defines Scene"},
 		{modeSnapshot, contractPreview, "A", "single screen"},
 		{modeSnapshot, contractScene, "A", "single scene"},
 	} {

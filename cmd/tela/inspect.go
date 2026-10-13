@@ -10,36 +10,46 @@ import (
 
 const inspectUsage = `Usage:
 
-	tela inspect [--layout] [--size WxH] [--dark] [--preview NAME] <pkg>
+	tela inspect [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 
-Prints the layout tree of a package's screen as JSON, after a headless
-render: one object per box, with its border box in logical pixels (rect: x,
-y, width, height from the top-left of the window, unrounded), its resolved
-margin, border and padding (each left out when all four edges are zero), the text and line count of paragraphs, the
-element's classes and a summary of its computed style (display, size, flex
-settings, color, background, font, opacity) and the class errors of the
+Prints what a package's screen contains after a headless render.
+
+--aria (the default) prints its aria snapshot: the semantics tree as the
+YAML of Playwright's locator.ariaSnapshot(), one line per role with its
+accessible name and states, and the text between them:
+
+	- heading "Settings" [level=1]
+	- switch "Email notifications" [checked]
+	- button "Save changes" [disabled]
+
+Elements without a role (Div, Span) are left out and their texts merged;
+hidden elements are left out.
+
+--layout prints the layout tree as JSON: one object per box, with its
+border box in logical pixels (rect: x, y, width, height from the top-left of
+the window, unrounded), its resolved margin, border and padding (each left
+out when all four edges are zero), the text and line count of paragraphs,
+the element's classes and a summary of its computed style (display, size,
+flex settings, color, background, font, opacity) and the class errors of the
 element. Children nest in tree order. The field order is stable.
 
 <pkg> and the screen are chosen as in "tela snapshot": the package defines
 func Preview() tela.Node or a Previews variable, and --preview picks a screen
 (without it, the first name in byte order).
 
---layout is the only mode of inspect until the semantics tree exists
-(phase 4), which adds --aria, a Playwright-style YAML snapshot and the
-default mode. It is accepted now so that scripts written today keep working;
-without any mode flag, inspect prints the layout tree.
-
 Flags:
 
-	--layout         print the layout tree (the default for now)
+	--aria           print the aria snapshot as YAML (the default)
+	--layout         print the layout tree as JSON
 	--size WxH       logical size of the window (default 960x640)
-	--dark           lay out in dark mode: dark: variants apply
+	--dark           render in dark mode: dark: variants apply
 	--preview NAME   the named screen of a Previews variable
 `
 
 // inspectOptions are the parsed arguments of `tela inspect`.
 type inspectOptions struct {
 	renderOptions
+	// Layout selects the layout tree; otherwise the aria snapshot.
 	Layout bool
 }
 
@@ -57,8 +67,8 @@ func parseInspectArgs(args []string) (inspectOptions, error) {
 		return opts, err
 	}
 	opts.Pkg = pkg
-	if aria {
-		return opts, errors.New("--aria is not available yet: the semantics tree arrives in phase 4. Use --layout (the default) for the layout tree as JSON")
+	if aria && opts.Layout {
+		return opts, errors.New("--aria and --layout exclude each other: --aria prints the aria snapshot (the default), --layout the layout tree")
 	}
 	if err := opts.validate(size); err != nil {
 		return opts, err
@@ -77,7 +87,11 @@ func runInspect(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "tela inspect: %v\n\n%s", err, inspectUsage)
 		return 2
 	}
-	res, err := runInPackage(modeInspect, opts.renderOptions, "json", stderr)
+	m, ext := modeAria, "yml"
+	if opts.Layout {
+		m, ext = modeInspect, "json"
+	}
+	res, err := runInPackage(m, opts.renderOptions, ext, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "tela inspect: %v\n", err)
 		return 1

@@ -48,6 +48,12 @@ type Element struct {
 
 	// Text.
 	text string
+	// paraBox and paraOff locate a text in the paragraph that lays it
+	// out (setSources), for its bounds in the semantics tree.
+	paraBox *Box
+	paraOff int32
+	// semID is the semantics node ID (semantics.go), 0 until assigned.
+	semID uint64
 
 	// Primitives.
 	box *Box

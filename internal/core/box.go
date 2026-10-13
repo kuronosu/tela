@@ -354,12 +354,13 @@ func (p *paragraph) measure(t *Tree, in layout.MeasureInput) layout.Measurement 
 }
 
 // paraPart is a piece of inline content: a text and the style of the
-// inline element it is in (nil for the paragraph box itself), and the
-// innermost primitive it belongs to.
+// inline element it is in (nil for the paragraph box itself), the
+// innermost primitive it belongs to and the text element it comes from.
 type paraPart struct {
 	text string
 	cs   *style.ComputedStyle
 	el   *Element
+	src  *Element
 }
 
 // paraAssembler collects the inline content of one paragraph.
@@ -376,12 +377,24 @@ func (a *paraAssembler) reset() {
 	a.parts, a.boxes, a.spans, a.n = a.parts[:0], a.boxes[:0], a.spans[:0], 0
 }
 
-func (a *paraAssembler) addText(s string, cs *style.ComputedStyle, el *Element) {
+func (a *paraAssembler) addText(s string, cs *style.ComputedStyle, el, src *Element) {
 	if s == "" {
 		return
 	}
-	a.parts = append(a.parts, paraPart{s, cs, el})
+	a.parts = append(a.parts, paraPart{s, cs, el, src})
 	a.n += len(s)
+}
+
+// setSources records on each text element where its text is in the
+// paragraph of box b (the semantics tree's text bounds).
+func (a *paraAssembler) setSources(b *Box) {
+	off := 0
+	for _, part := range a.parts {
+		if part.src != nil {
+			part.src.paraBox, part.src.paraOff = b, int32(off)
+		}
+		off += len(part.text)
+	}
 }
 
 // setTargets records in p which element each part of the text belongs
@@ -449,6 +462,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	if p != nil && p.text == s && p.pstyle == pstyle && sameTextStyle(&p.def, &def) &&
 		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) {
 		a.setTargets(p)
+		a.setSources(b)
 		return !p.empty
 	}
 	if p == nil {
@@ -456,6 +470,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 		b.para = p
 	}
 	a.setTargets(p)
+	a.setSources(b)
 	p.text, p.pstyle, p.def, p.empty = s, pstyle, def, empty
 	p.spans = slices.Clone(spans)
 	p.boxes = slices.Clone(a.boxes)

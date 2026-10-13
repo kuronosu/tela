@@ -147,6 +147,9 @@ type Tree struct {
 	foc focusState
 	scr scrollState
 
+	// sem is the semantics tree built last (semantics.go).
+	sem semState
+
 	lastDL *gfx.DisplayList
 	stats  Stats
 }
