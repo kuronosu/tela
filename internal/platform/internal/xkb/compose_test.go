@@ -157,7 +157,7 @@ func TestLoadComposeTableOrder(t *testing.T) {
 	for _, locale := range []string{"en_US.UTF-8", "en_US.utf8", "C.UTF-8", "es_CO.UTF-8", "de_DE.UTF-8", "C", "POSIX"} {
 		o.Locale = locale
 		_, path, err := LoadComposeTable(noEnv, o)
-		if err != nil || !strings.HasSuffix(path, "en_US.UTF-8/Compose") {
+		if err != nil || !strings.HasSuffix(filepath.ToSlash(path), "en_US.UTF-8/Compose") {
 			t.Errorf("locale %s: path %q, err %v", locale, path, err)
 		}
 	}
@@ -192,11 +192,17 @@ func TestLoadComposeTableOrder(t *testing.T) {
 	}
 	o.Home = "/home/u"
 	LoadComposeTable(env(map[string]string{"XCOMPOSEFILE": "/missing"}), o)
+	for i := range tried {
+		tried[i] = filepath.ToSlash(tried[i])
+	}
 	if len(tried) < 3 || tried[0] != "/missing" || tried[1] != "/home/u/.config/XCompose" || tried[2] != "/home/u/.XCompose" {
 		t.Errorf("lookup order %v", tried)
 	}
 	tried = nil
 	LoadComposeTable(env(map[string]string{"XDG_CONFIG_HOME": "/xdg"}), o)
+	for i := range tried {
+		tried[i] = filepath.ToSlash(tried[i])
+	}
 	if len(tried) < 2 || tried[0] != "/xdg/XCompose" || tried[1] != "/home/u/.XCompose" {
 		t.Errorf("lookup order with XDG_CONFIG_HOME %v", tried)
 	}

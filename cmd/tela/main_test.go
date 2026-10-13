@@ -312,9 +312,7 @@ func readPNG(t *testing.T, path string) *image.NRGBA {
 // compares it with its goldens (one level of tolerance: the scene's own
 // float code may be fused differently on other architectures).
 func TestSnapshotScene(t *testing.T) {
-	if testing.Short() {
-		t.Skip("runs go test on testdata/scene")
-	}
+	skipShort(t)
 	for _, tc := range []struct {
 		scale  string
 		golden string
@@ -335,9 +333,7 @@ func TestSnapshotScene(t *testing.T) {
 }
 
 func TestSnapshotSizeAndFractionalScale(t *testing.T) {
-	if testing.Short() {
-		t.Skip("runs go test on testdata/scene")
-	}
+	skipShort(t)
 	outPath := filepath.Join(t.TempDir(), "o.png")
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"snapshot", "--size", "400x300", "--scale", "1.25", "-o", outPath, "../../examples/counter"}, &stdout, &stderr); code != 0 {
@@ -349,9 +345,7 @@ func TestSnapshotSizeAndFractionalScale(t *testing.T) {
 }
 
 func TestSnapshotPackageWithoutScene(t *testing.T) {
-	if testing.Short() {
-		t.Skip("runs go test on a package")
-	}
+	skipShort(t)
 	outPath := filepath.Join(t.TempDir(), "o.png")
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"snapshot", "-o", outPath, "../../internal/platform/auto"}, &stdout, &stderr)
@@ -367,9 +361,7 @@ func TestSnapshotPackageWithoutScene(t *testing.T) {
 }
 
 func TestSnapshotUnknownPackage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("runs go list")
-	}
+	skipShort(t)
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"snapshot", "-o", filepath.Join(t.TempDir(), "o.png"), "./does/not/exist"}, &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "cannot find package") {

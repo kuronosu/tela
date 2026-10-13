@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"image"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,6 +20,10 @@ func skipShort(t *testing.T) {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("runs go test on a package")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		// Under Wine there is no Windows Go toolchain to run.
+		t.Skip("the go command is not in PATH")
 	}
 }
 
@@ -305,6 +310,7 @@ func goldenText(t *testing.T, name, got string) {
 // A Preview declared in a _test.go file is found: the runner is compiled
 // by go test, which sees it.
 func TestSnapshotPreviewInTestFile(t *testing.T) {
+	skipShort(t)
 	pkg, err := listPackage("go", "./testdata/testpreview")
 	if err != nil {
 		t.Fatal(err)
@@ -312,7 +318,6 @@ func TestSnapshotPreviewInTestFile(t *testing.T) {
 	if c, err := detectContract(pkg.Dir, pkg.GoFiles); err != nil || c != contractPreview {
 		t.Fatalf("detectContract(%v) = %v, %v; want Preview", pkg.GoFiles, c, err)
 	}
-	skipShort(t)
 	img, _, _ := snap(t, "--size", "40x30", "./testdata/testpreview")
 	if got := pixel(img, 20, 15); got != [3]uint8{0x00, 0xbc, 0x7d} {
 		t.Errorf("pixel = %v, want emerald-500", got)
