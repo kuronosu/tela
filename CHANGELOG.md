@@ -25,6 +25,12 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `Value.Latest()`: the value with every queued `Set`/`Update` applied.
 - `tela inspect --layout` and `telatest.LayoutJSON` add `bounds` (transformed, scrolled box in window coordinates) when it differs from `rect`.
 - Negative `-space-x-*` and `-space-y-*`.
+- Text fields: `h.Input` and `h.Textarea` (controlled `Value` + `OnChange` on every edit, uncontrolled `DefaultValue`, `Bind`, `BindValue`; `Type`, `Rows`, `Placeholder`, `ReadOnly`, `MaxLength`, `Name`, `Id`, `AutoComplete`, `SpellCheck`), with selection, undo/redo, clipboard, IME composition, caret blink that stops when idle, and the events `OnBeforeInput` (`tela.InputEvent`), `OnCompositionStart/Update/End` (`tela.CompositionEvent`), `OnSelect` (`tela.SelectEvent`).
+- `h.Form` with `OnSubmit` (`tela.SubmitEvent`) and implicit submission; `h.Label` with `For(id)` or a nested control; `Button` `Type("submit"|"button"|"reset")`.
+- `ElementRef.Value`, `Select`, `SetSelectionRange`, `SelectionRange`.
+- Classes and variants `caret-*`, `field-sizing-content|fixed`, `placeholder:`, `selection:`, `read-only:`, `placeholder-shown:`, `invalid:`.
+- `telatest.Fill` and `telatest.ExpectValue`; `Type` now types into text fields.
+- IME on Wayland (`text-input-v3`): Japanese and other input methods compose inline in text fields.
 - `LICENSE`: BSD 3-Clause.
 
 ### Changed
