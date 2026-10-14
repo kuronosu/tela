@@ -232,10 +232,10 @@ func (a *App) Press(combo string) {
 // sent to the focused element: each has the character's physical Code
 // (US layout, when it has one), Key and Text, and no modifiers (an upper
 // case letter is not typed with Shift, as in Playwright's keyboard.type).
-// A newline types Enter and a tab Tab.
-//
-// The text inputs arrive in phase 5: until then Type reaches the
-// OnKeyDown and OnKeyUp handlers.
+// A newline types Enter and a tab Tab. In a focused text field each key
+// inserts its text through the real key path (OnKeyDown, then
+// OnBeforeInput and OnChange), as a user typing; [App.Fill] replaces the
+// value at once.
 func (a *App) Type(text string) {
 	a.tb.Helper()
 	a.mustBeOpen()
