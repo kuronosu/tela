@@ -16,7 +16,7 @@
 - textbox "Short bio (optional)"
 - paragraph: Shown on your public profile.
 - text: 0/160
-- checkbox "I agree to the Terms of Service and Privacy Policy"
+- checkbox "I agree to the Terms of Service and Privacy Policy."
 - text: I agree to the Terms of Service and Privacy Policy.
 - button "Create account" [disabled]
 - paragraph: Fill in your name, e-mail and password, and accept the terms.

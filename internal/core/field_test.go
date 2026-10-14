@@ -910,6 +910,29 @@ func TestFormImplicitSubmission(t *testing.T) {
 	}
 }
 
+func TestButtonLabelName(t *testing.T) {
+	root := div(
+		div(button(Key("terms"), ID("terms"), Role("checkbox"), AriaChecked(false)),
+			label(Key("l"), For("terms"), Text("I agree."))),
+		label(Key("w"), Text("Wrapped "), button(Key("b"), Text("Go"))),
+		div(button(Key("own"), ID("own"), Text("Own")), label(For("own"), Text(""))),
+		div(button(Key("al"), ID("al"), AriaLabel("Aria wins")), label(For("al"), Text("ignored"))),
+	)
+	x := newKeys(t, root, 600, 400)
+	x.frame()
+	// Names checked against Chromium 152's computedName: a wrapping label
+	// names the button without the button's own content ("Wrapped").
+	want := `- checkbox "I agree."
+- text: I agree. Wrapped
+- button "Wrapped": Go
+- button "Own"
+- button "Aria wins"
+- text: ignored`
+	if got := x.tree().AriaSnapshot(); got != want {
+		t.Errorf("snapshot\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestLabels(t *testing.T) {
 	root := div(
 		div(label(Key("l1"), For("name"), Text("Name")),

@@ -184,13 +184,13 @@ func BioField(bio *tela.Value[string]) tela.Node {
 	)
 }
 
-// termsLabel is the accessible name of the terms checkbox, the text of its Label.
-const termsLabel = "I agree to the Terms of Service and Privacy Policy"
+// termsLabel is the accessible name of the terms checkbox: the text of its
+// Label.
+const termsLabel = "I agree to the Terms of Service and Privacy Policy."
 
 // TermsField is a checkbox built from a button, since a native checkbox is
 // not a Tela element yet. The Label's For makes a click on the text click
-// the button; its name is given with AriaLabel, because only text fields
-// take the name of their Label (a Button does not yet).
+// the button and gives the button its accessible name.
 func TermsField(on bool, toggle func()) tela.Node {
 	box := "border-zinc-300 bg-white hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900"
 	if on {
@@ -198,7 +198,7 @@ func TermsField(on bool, toggle func()) tela.Node {
 	}
 	link := "font-medium text-zinc-950 underline underline-offset-4 dark:text-zinc-50"
 	return Div(Class("flex items-start gap-3"),
-		Button(Id("terms"), Type("button"), Role("checkbox"), AriaChecked(on), AriaLabel(termsLabel),
+		Button(Id("terms"), Type("button"), Role("checkbox"), AriaChecked(on),
 			OnClick(func(tela.MouseEvent) { toggle() }),
 			Class("mt-px flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs transition-colors "+
 				"focus-visible:ring-[3px] focus-visible:ring-indigo-500/40 "+box),

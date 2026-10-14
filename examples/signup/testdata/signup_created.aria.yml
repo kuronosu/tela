@@ -20,7 +20,7 @@
 - textbox "Short bio (optional)": Building small desktop tools in Go. Coffee, ramen and tidy layouts.
 - paragraph: Shown on your public profile.
 - text: 67/160
-- checkbox "I agree to the Terms of Service and Privacy Policy" [checked]
+- checkbox "I agree to the Terms of Service and Privacy Policy." [checked]
 - text: I agree to the Terms of Service and Privacy Policy.
 - button "Create account" [disabled]
 - paragraph:

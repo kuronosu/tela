@@ -548,19 +548,21 @@ func (t *Tree) textAlt(el *Element, c *altCtx, o altOpts) string {
 	// labels' content (without the field itself), then its placeholder.
 	if f := el.box.fld; f != nil && !o.inLB {
 		c.visited[el] = true
-		var b strings.Builder
-		for _, lab := range t.labelsOf(el) {
-			if s := t.textAlt(lab, c, altOpts{target: altDescendant, inLB: true}); semantics.TrimSpace(s) != "" {
-				if b.Len() > 0 {
-					b.WriteByte(' ')
-				}
-				b.WriteString(s)
-			}
-		}
-		if b.Len() > 0 {
-			return b.String()
+		if s := t.labelsText(el, c); s != "" {
+			return s
 		}
 		return f.props().placeholder
+	}
+	// 2D: a button named for itself takes its labels' content first, then
+	// its own content (HTML-AAM's button rule; buttons are labelable).
+	if el.box.kind == style.KindButton && !o.inLB && o.target == altSelf {
+		c.visited[el] = true
+		s := t.labelsText(el, c)
+		delete(c.visited, el) // step 2F reads the content below
+		if s != "" {
+			c.visited[el] = true
+			return s
+		}
 	}
 	// 2D: the native text alternative of an image.
 	if role != "presentation" && role != "none" && el.box.kind == style.KindImg {
@@ -909,4 +911,19 @@ func (t *Tree) ScrollNodeIntoView(id semantics.NodeID) error {
 	t.scr.intoView = append(t.scr.intoView, el)
 	t.requestRepaint()
 	return nil
+}
+
+// labelsText joins the text alternatives of el's labels (Label elements
+// with For(el's id) and the Label wrapping it), or returns "".
+func (t *Tree) labelsText(el *Element, c *altCtx) string {
+	var b strings.Builder
+	for _, lab := range t.labelsOf(el) {
+		if s := t.textAlt(lab, c, altOpts{target: altDescendant, inLB: true}); semantics.TrimSpace(s) != "" {
+			if b.Len() > 0 {
+				b.WriteByte(' ')
+			}
+			b.WriteString(s)
+		}
+	}
+	return b.String()
 }
