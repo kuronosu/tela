@@ -214,7 +214,13 @@ func layoutSession(t *testing.T, klid string) (hkl uintptr, restore func()) {
 	t.Helper()
 	if procWineVersion.Find() == nil {
 		if klid == "00000409" {
-			return 0, func() {} // Wine's layout is US already
+			// Wine's layout is US already, unless its driver has no
+			// keyboard: the null graphics driver on a display-less CI
+			// runner maps no scan code (every key would be Unidentified).
+			if mapVirtualKey(0x1E, 1, currentLayout()) == 0 { // A, MAPVK_VSC_TO_VK
+				t.Skip("Wine has no keyboard layout here (null driver without a display); this runs on Windows or Wine with a keyboard")
+			}
+			return 0, func() {}
 		}
 		t.Skip("Wine does not implement keyboard layouts; this runs on Windows")
 	}
