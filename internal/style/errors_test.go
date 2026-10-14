@@ -113,6 +113,8 @@ func TestUnsupportedClasses(t *testing.T) {
 		{"bg-fixed", "background-attachment"},
 		{"scroll-mt-4", "scroll margins"},
 		{"snap-x", "snapping"},
+		{"resize", "resizable"},
+		{"resize-y", "resizable"},
 	}
 	for _, tt := range tests {
 		c := Compile(tt.class)
@@ -127,6 +129,14 @@ func TestUnsupportedClasses(t *testing.T) {
 		if len(c.Rules) != 0 {
 			t.Errorf("%q produced rules", tt.class)
 		}
+	}
+}
+
+// TestResizeNone checks that resize-none, which Tailwind users put on every
+// Textarea, is accepted: Tela draws no resize grip.
+func TestResizeNone(t *testing.T) {
+	if c := Compile("resize-none rounded-md"); c.Err != nil {
+		t.Errorf("resize-none: %v", c.Err)
 	}
 }
 

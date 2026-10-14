@@ -62,6 +62,9 @@ func registerInteraction(r *registry) {
 	r.static("box-border", Op{})
 	r.static("appearance-none", Op{})
 	r.static("appearance-auto", Op{})
+	// Textarea draws no resize grip, so turning it off changes nothing;
+	// resize, resize-x and resize-y stay unsupported.
+	r.static("resize-none", Op{})
 }
 
 // registerUnsupported lists Tailwind features that Tela does not
