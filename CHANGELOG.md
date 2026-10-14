@@ -31,6 +31,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - Classes and variants `caret-*`, `field-sizing-content|fixed`, `placeholder:`, `selection:`, `read-only:`, `placeholder-shown:`, `invalid:`.
 - `telatest.Fill` and `telatest.ExpectValue`; `Type` now types into text fields.
 - IME on Wayland (`text-input-v3`): Japanese and other input methods compose inline in text fields.
+- `examples/signup`: a "Create your account" form screen with every text field feature.
+- `resize-none` is accepted (Tela draws no resize grip).
 - `LICENSE`: BSD 3-Clause.
 
 ### Changed
@@ -42,6 +44,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- A `Button` takes the accessible name of its `Label`, as in Chromium.
 - Borders with different side widths no longer paint one side over the opposite one.
 
 ## [0.4.0] - 2026-10-13
