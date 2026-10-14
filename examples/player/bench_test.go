@@ -15,7 +15,7 @@ import (
 // ticker is the player at 1416x846 and scale 2 (the window of the live
 // measurement, 2832x1692 device pixels) in a tree without a window, its
 // clock stopped: tick advances the progress by 0.1 s, runs the frame (a
-// layout of the bar and, once a second, a build of the time label) and
+// layout of the bar and, once a second, a layout of the time label) and
 // brings the framebuffer to it (full: a full rasterization, the behavior
 // before damage tracking).
 type ticker struct {
@@ -40,6 +40,13 @@ func newTicker(tb testing.TB) *ticker {
 	k.t.Frame()
 	k.t.RasterizeFrame(k.fb, &k.r, true)
 	k.t.FlushEffects()
+	// The first frame measures the bar (tela.UseBounds): the next one
+	// sizes the fill.
+	for k.t.Dirty() {
+		k.t.Frame()
+		k.t.RasterizeFrame(k.fb, &k.r, true)
+		k.t.FlushEffects()
+	}
 	return k
 }
 

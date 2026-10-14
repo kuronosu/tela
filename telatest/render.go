@@ -23,8 +23,9 @@ import (
 // (overlays are drawn into the image); the others concern mounted apps and
 // are ignored.
 //
-// Each call builds a new tree, runs one frame at the given size and
-// unmounts it. They use the embedded fonts only, so the results are the
+// Each call builds a new tree, runs frames at the given size until the
+// tree has no more work (a few at most, for what the first one measures,
+// such as tela.UseBounds) and unmounts it. They use the embedded fonts only, so the results are the
 // same on every machine. A panic in the tree (a hook misuse, say) is
 // returned as an error.
 
@@ -54,7 +55,8 @@ func recovered(err *error) {
 // Render mounts root, lays it out and paints it at the configured size and
 // scale (default 800x600 at scale 1) and returns the image, in physical
 // pixels over the root's background (white by default). Effects run as in
-// a window and then clean up; state they set is not rendered.
+// a window and then clean up; state passive effects set is rendered only
+// when the tree needs further frames.
 func Render(root tela.Node, opts ...Option) (img *image.RGBA, err error) {
 	cfg, size, err := headlessSetup(opts)
 	if err != nil {
@@ -87,7 +89,10 @@ func AriaSnapshot(root tela.Node, opts ...Option) (yaml string, err error) {
 // object per box with its border box, edges, text and computed style
 // (paragraphs also with the fragments of their inline elements; atomic
 // inlines with inlineBox), ending with a newline: the output of `tela
-// inspect --layout`.
+// inspect --layout`. rect is the box as layout placed it; a box that is
+// painted elsewhere, because of a transform or scrolled content, also has
+// bounds, the same shape: the bounding box of its transformed border box in
+// window coordinates, as tela.ElementRef.Bounds returns it.
 func LayoutJSON(root tela.Node, opts ...Option) (js []byte, err error) {
 	cfg, size, err := headlessSetup(opts)
 	if err != nil {
@@ -115,5 +120,8 @@ func framed(root tela.Node, cfg config, size gfx.Size) *core.Tree {
 	t.SetScale(float32(cfg.scale))
 	t.Mount(root)
 	t.Frame()
+	for i := 1; i < core.MaxRenderFrames && t.Dirty(); i++ {
+		t.Frame()
+	}
 	return t
 }

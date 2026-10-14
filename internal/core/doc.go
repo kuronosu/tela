@@ -46,8 +46,9 @@
 // Hooks keep their state in slots on the component Element being built,
 // by call order (ADR-040): UseState (UseStateSet, UseStateUpdate),
 // UseReducer, UseEffect, UseLayoutEffect, UseMemo, UseCallback, UseRef,
-// UseContext, UseId, UseValue, UseElementRef (focus.go) and UseScroll
-// (scroll.go); VirtualList keeps its state in a slot too. A function
+// UseContext, UseId, UseValue, UseElementRef (focus.go), UseScroll and
+// UseBounds (scroll.go, bounds.go); VirtualList keeps its state in a slot
+// too. A function
 // called directly from a
 // component, not through Component, runs inside that component's build:
 // its hooks are the component's (a custom hook).
@@ -110,6 +111,24 @@
 // evaluation of the same Tree may add a subscription to it, which costs
 // at most one extra rebuild, relayout or repaint and is dropped by the
 // next evaluation. Reads of a Value of another Tree are not tracked.
+// Latest returns the value with the queued Set and Update calls applied
+// (each Value keeps its pending operations, queued together with the
+// update, so both orders agree) and subscribes nothing.
+//
+// A third phase of deferred reads is the text of a TextFn (textfn.go): its
+// function is evaluated when the box phase assembles the paragraph that
+// holds it, with its reads tracked (obsText); a change marks the text's
+// parent for the box phase, which assembles the paragraph again and lays
+// it out when the text changed, without building or styling anything.
+//
+// Bounds (bounds.go, ADR-070): ElementRef.Bounds is the border box of an
+// element in window coordinates, scrolled and transformed as painted (the
+// semantics tree's bounds), and UseBounds a Value that the Tree updates at
+// the end of every frame that ran the pipeline (afterFrame, outside Frame,
+// like UseScroll's values) when it changed, so the readers it invalidates
+// run in the next frame; a frame that moves nothing requests none.
+// Render and telatest's headless entry points run those frames (at most
+// MaxRenderFrames).
 //
 // Dev mode (Config.Dev, TELA_DEV=1) records each slot's hook kind and call
 // site on the first build and panics with both call sites when a later

@@ -78,6 +78,10 @@ type Ref[T any] = core.Ref[T]
 //   - ScrollIntoView scrolls every scrolling ancestor of the element so
 //     that it is visible, each as little as possible (block and inline
 //     "nearest").
+//   - Bounds returns the element's border box in window coordinates as a
+//     [Rect], moved by scrolling and transforms (getBoundingClientRect);
+//     the zero Rect before it is laid out. [UseBounds] follows it in a
+//     [Value].
 //   - ScrollToIndex(i, align) scrolls an h.VirtualList to item i, placed
 //     as [ScrollAlign] says, and keeps it there while the items around it
 //     are measured; it does nothing for other elements.
@@ -132,7 +136,10 @@ type Context[T any] = core.Context[T]
 // from any goroutine: they queue the change, in order with the state
 // updates, and the UI thread applies it before the next frame. Get is
 // safe from any goroutine too and returns the value the UI thread applied
-// last (a change still in the queue is not visible yet).
+// last (a change still in the queue is not visible yet); Latest returns
+// the value as it will be once the queued changes apply, which is what an
+// event handler that has just called Set wants to read. Latest never
+// subscribes anything.
 //
 // What a change redoes depends on where Get was called; see [UseValue].
 // For comparable types, a value == to the current one changes nothing.

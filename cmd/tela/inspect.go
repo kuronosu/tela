@@ -33,6 +33,14 @@ the element's classes and a summary of its computed style (display, size,
 flex settings, color, background, font, opacity) and the class errors of the
 element. Children nest in tree order. The field order is stable.
 
+rect is the box as layout placed it. When the box is painted elsewhere, its
+object also has bounds, in the same shape as rect: the bounding box of the
+border box in window coordinates after the scroll offsets of the containers
+around it and the transforms of the box and its ancestors, which is what a
+user sees and what ElementRef.Bounds returns (getBoundingClientRect). A
+box that is not moved, scaled or rotated, nor inside scrolled content, has
+no bounds.
+
 A paragraph lists its inline elements (inline: "span", "code", "a"...) and
 their fragments (fragments: one per line an element is on, and per bidi
 run that separates its text, each with the element's index in inline, its

@@ -8,6 +8,12 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 )
 
+// MaxRenderFrames bounds the frames of a headless render of one screen
+// (Render, and the headless entry points of telatest): a tree whose every
+// frame asks for another (state set by a layout effect on each build) is
+// rendered as of the last of them.
+const MaxRenderFrames = 8
+
 // RenderOptions configures Render.
 type RenderOptions struct {
 	Config
@@ -28,9 +34,13 @@ type RenderOptions struct {
 //
 // The frame's effects run as in a window: layout effects before paint,
 // the others after rasterizing. Then the tree is unmounted, running the
-// cleanups; state set by the effects is not rendered. Without
-// opts.IDPrefix, UseId strings start with "r-", so they do not depend on
-// the trees made before in the process.
+// cleanups. A tree that has work after the first frame (a UseBounds Value
+// the frame measured, state a layout effect set) gets more frames, at most
+// MaxRenderFrames in all, as a window gives it within a few vsyncs; the
+// passive effects of a frame run at the start of the next one, so state
+// they set is rendered only when such frames run. Without opts.IDPrefix,
+// UseId strings start with "r-", so they do not depend on the trees made
+// before in the process.
 func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	size := gfx.Size{W: opts.Width, H: opts.Height}
 	if size.W == 0 && size.H == 0 {
@@ -45,6 +55,9 @@ func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	t.SetScale(opts.Scale)
 	t.Mount(root)
 	dl, _ := t.Frame()
+	for i := 1; i < MaxRenderFrames && t.Dirty(); i++ {
+		dl, _ = t.Frame()
+	}
 	var img *image.RGBA
 	if t.Debug() != 0 {
 		// Debug overlays are drawn over the frame (debug.go).

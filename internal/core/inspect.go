@@ -24,8 +24,14 @@ type InspectNode struct {
 	// Component is the function name of the component that produced the
 	// element, if any ("main.Counter").
 	Component string `json:"component,omitempty"`
-	// Rect is the border box in absolute logical pixels (unrounded).
+	// Rect is the border box in absolute logical pixels (unrounded), as
+	// layout placed it: scroll offsets and transforms are not applied.
 	Rect gfx.Rect `json:"rect"`
+	// Bounds is the box as painted in window coordinates: the bounding
+	// box of the border box moved by the scroll offsets of the
+	// containers around it and by the transforms of the box and its
+	// ancestors (ElementRef.Bounds). Nil when it is Rect.
+	Bounds *gfx.Rect `json:"bounds,omitempty"`
 	// Margin, Border and Padding are the resolved edges.
 	Margin  Edges `json:"margin"`
 	Border  Edges `json:"border"`
@@ -61,10 +67,15 @@ type jsonRect struct {
 }
 
 // MarshalJSON writes the node with the same fields as the struct, in the
-// same order, except that rect is {x, y, width, height} instead of the two
-// corners of a gfx.Rect, margin, border and padding are left out when all
-// four edges are zero, and text is not HTML-escaped ("&" stays "&").
+// same order, except that rect and bounds are {x, y, width, height}
+// instead of the two corners of a gfx.Rect, margin, border and padding are
+// left out when all four edges are zero, and text is not HTML-escaped ("&"
+// stays "&").
 func (n InspectNode) MarshalJSON() ([]byte, error) {
+	var bounds *jsonRect
+	if n.Bounds != nil {
+		bounds = &jsonRect{n.Bounds.X0, n.Bounds.Y0, n.Bounds.Width(), n.Bounds.Height()}
+	}
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
@@ -73,6 +84,7 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		Key       string        `json:"key,omitempty"`
 		Component string        `json:"component,omitempty"`
 		Rect      jsonRect      `json:"rect"`
+		Bounds    *jsonRect     `json:"bounds,omitempty"`
 		Margin    Edges         `json:"margin,omitzero"`
 		Border    Edges         `json:"border,omitzero"`
 		Padding   Edges         `json:"padding,omitzero"`
@@ -85,7 +97,7 @@ func (n InspectNode) MarshalJSON() ([]byte, error) {
 		Children  []InspectNode `json:"children,omitempty"`
 	}{
 		n.Kind, n.Key, n.Component,
-		jsonRect{n.Rect.X0, n.Rect.Y0, n.Rect.Width(), n.Rect.Height()},
+		jsonRect{n.Rect.X0, n.Rect.Y0, n.Rect.Width(), n.Rect.Height()}, bounds,
 		n.Margin, n.Border, n.Padding, n.Text, n.Lines, n.Inline, jsonFrags(n.Fragments), n.InlineBox, n.Style, n.Children,
 	})
 	return bytes.TrimRight(buf.Bytes(), "\n"), err
@@ -163,6 +175,7 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 	n := InspectNode{
 		Kind:    b.kind.String(),
 		Rect:    r,
+		Bounds:  t.inspectBounds(b, r),
 		Margin:  edges(l.Margin),
 		Border:  edges(l.Border),
 		Padding: edges(l.Padding),
@@ -203,6 +216,22 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 		n.Children = append(n.Children, t.inspect(k, r.Origin()))
 	}
 	return n
+}
+
+// inspectBounds returns the painted bounds of box b (ElementRef.Bounds)
+// when they are not r, its layout rect: nil otherwise. Differences under a
+// thousandth of a pixel are float noise of the two ways of summing the
+// offsets.
+func (t *Tree) inspectBounds(b *Box, r gfx.Rect) *gfx.Rect {
+	if b == t.rootBox {
+		return nil
+	}
+	w := t.boxWindowRect(b)
+	same := func(a, b float32) bool { return a-b < 1e-3 && b-a < 1e-3 }
+	if same(w.X0, r.X0) && same(w.Y0, r.Y0) && same(w.X1, r.X1) && same(w.Y1, r.Y1) {
+		return nil
+	}
+	return &w
 }
 
 // inlineKindsOf lists the inline primitives under el whose paragraph is

@@ -37,6 +37,9 @@ func (c *Context[T]) Provider(value T, children ...Child) Node {
 		case Node:
 			d.children = append(d.children, ch)
 		case Prop:
+			if ch.apply == nil {
+				continue // the zero Prop of If(false, ...)
+			}
 			if ch.name != "Key" {
 				panic(fmt.Sprintf("tela: Context.Provider does not take %s; a provider has no box (wrap the children in a Div)", ch.name))
 			}

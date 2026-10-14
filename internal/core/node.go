@@ -66,8 +66,9 @@ type desc struct {
 	// cond changes.
 	children []Node
 
-	// Text.
-	text string
+	// Text. textFn is a TextFn's function (text is then unused).
+	text   string
+	textFn func() string
 
 	// Components.
 	comp *compDesc
@@ -391,6 +392,9 @@ func Fragment(children ...Child) Node {
 		case Node:
 			d.children = append(d.children, c)
 		case Prop:
+			if c.apply == nil {
+				continue // the zero Prop of If(false, ...)
+			}
 			if c.name != "Key" {
 				panic(fmt.Sprintf("core: Fragment does not take %s; a fragment has no box (wrap the children in a Div)", c.name))
 			}
@@ -412,6 +416,15 @@ func Map[T any](items []T, f func(T) Node) Node {
 	nodes := make([]Node, len(items))
 	for i, it := range items {
 		nodes[i] = f(it)
+	}
+	return List(nodes)
+}
+
+// MapIndex returns the List of f applied to every item and its index.
+func MapIndex[T any](items []T, f func(i int, item T) Node) Node {
+	nodes := make([]Node, len(items))
+	for i, it := range items {
+		nodes[i] = f(i, it)
 	}
 	return List(nodes)
 }

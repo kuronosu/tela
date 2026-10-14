@@ -78,6 +78,9 @@
 //     that element.
 //   - [UseScroll] gives Values that follow an element's scroll offsets,
 //     for effects tied to scrolling that repaint without rebuilding.
+//   - [UseBounds] gives a Value of an element's bounds in the window (a
+//     [Rect], moved by scrolling and transforms), a ResizeObserver that
+//     also sees position; in a handler, [ElementRef].Bounds reads them.
 //
 // # Scrolling
 //
@@ -112,6 +115,10 @@
 // and scrolls to a row with [ElementRef]'s ScrollToIndex and a
 // [ScrollAlign].
 //
+// Text can be deferred the same way with h.TextFn: a Value read inside it
+// lays out only the paragraph that holds the text, without building the
+// component (a clock, a time label next to a seek bar).
+//
 // A Value moved from a handler or a goroutine repaints only the element
 // whose closure reads it:
 //
@@ -141,7 +148,7 @@
 //
 // [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
 // [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
-// [Value], [ElementRef], [ScrollAlign], [MouseEvent], [PointerEvent], [DragEvent],
+// [Value], [ElementRef], [Rect], [ScrollAlign], [MouseEvent], [PointerEvent], [DragEvent],
 // [KeyboardEvent], [FocusEvent], [WheelEvent], [ScrollEvent], [Key],
 // [Code], [KeyLocation],
 // [MouseButton], [MouseButtons] and [PointerKind] are aliases of types defined in Tela's

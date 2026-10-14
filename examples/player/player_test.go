@@ -13,6 +13,11 @@ import (
 
 const windowW, windowH = 1280, 800
 
+// barW is the width of the seek bar the layout gives: the card's content
+// width: 380 less the padding (2 * 24) and the border (2 * 1). The old
+// hard-coded 332 overflowed the card by 2 px. Only the tests know it.
+const barW = 330
+
 // mount opens the screen in dev mode, where any dev message fails the test.
 // The clock goroutine runs in real time, so the waits are generous for slow
 // machines.
@@ -98,9 +103,9 @@ func TestProgressAdvancesWithoutBuilding(t *testing.T) {
 	if w := fillWidth(a); w < want*0.95 || w > want*1.3 {
 		t.Errorf("the bar is %v px wide at 0:03, want about %v", w, want)
 	}
-	// Three label changes: the label builds three times and nothing else.
-	if builds != 3 {
-		t.Errorf("%d builds for 3 seconds of music over %d frames, want 3 (the label)", builds, frames)
+	// Three label changes (a TextFn) and the bar: nothing builds.
+	if builds != 0 {
+		t.Errorf("%d builds for 3 seconds of music over %d frames, want none", builds, frames)
 	}
 	if frames < 25 {
 		t.Errorf("only %d frames for 30 ticks: the bar should be laid out on (nearly) every tick", frames)
@@ -184,7 +189,7 @@ func TestSeek(t *testing.T) {
 	a.ExpectCount(seekBar, 1)
 	bx, by, bw, bh := a.Bounds(seekBar)
 	if bw != barW {
-		t.Fatalf("the seek bar is %v px wide, the code assumes %v", bw, barW)
+		t.Fatalf("the seek bar is %v px wide, the test assumes %v", bw, barW)
 	}
 	y := by + bh/2
 

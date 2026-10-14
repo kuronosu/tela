@@ -6,10 +6,10 @@ The point of the example is the **progress bar**. A goroutine ticker advances th
 
 - `Transport` (see `transport.go`) is the state of the player, made of `tela.UseValue`s created by the custom hook `useTransport`. The clock goroutine runs in a `UseEffect(..., nil)` and stops on unmount; each tick does `tela.Post(func() { tr.advance(dt) })`, so the update runs on the UI thread in order with the other updates.
 - `Elapsed` (fractional seconds) is read only inside `tela.WidthFn` (the fill) and `tela.TranslateFn` (the thumb): a change lays out the fill and repaints the thumb, with no build and no style pass.
-- `Secs` (whole seconds) is what the time label reads in its body, so the label builds once per second, not once per tick. `TestProgressAdvancesWithoutBuilding` checks exactly that: three seconds of music is three builds.
+- `Secs` (whole seconds) is what the time label reads inside `TextFn`, so its paragraph is laid out once per second and nothing builds. `TestProgressAdvancesWithoutBuilding` checks exactly that: three seconds of music is no build at all.
 - `Playing` and `Track` are read in component bodies, so a toggle rebuilds the controls and a new track rebuilds the card, the seek bar and the queue.
 
-The rest: click or drag the seek bar (`OnClick`, `OnDragStart`, `OnDrag` with `e.LocalX`; the bar is a fixed 332 px wide because a handler cannot ask the element for its width), click a queue row to play it, `group-hover:` on the bar reveals the thumb, and the paused state shows the play triangle. The icons are drawn with divs: a play triangle is half of a square rotated 45 degrees and clipped by a half-width box, since colored side borders do not draw a triangle yet.
+The rest: click or drag the seek bar (`OnClick`, `OnDragStart`, `OnDrag` with `e.LocalX` over the width the handler reads from the element, `ref.Bounds().Width`; the fill and the thumb read the same width from `tela.UseBounds`, so nothing hard-codes it), click a queue row to play it, `group-hover:` on the bar reveals the thumb, and the paused state shows the play triangle. The icons are drawn with divs: a play triangle is half of a square rotated 45 degrees and clipped by a half-width box, which keeps a rounded tip (the classic zero-size box with colored side borders draws a sharp triangle too).
 
 The cover shrinks with the window height (`size-[clamp(96px,calc(100vh-310px),332px)]`), so the controls stay visible down to about 700x420.
 

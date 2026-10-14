@@ -2,6 +2,7 @@ package core
 
 import (
 	"reflect"
+	"sync"
 	"sync/atomic"
 
 	"github.com/kuronosu/tela/internal/style"
@@ -44,6 +45,7 @@ const (
 	obsBuild  obsKind = iota // a component build: build again
 	obsLayout                // a box's layout-phase deferred props: lay out again
 	obsPaint                 // a box's paint-phase deferred props: repaint
+	obsText                  // a TextFn: assemble its paragraph again (textfn.go)
 )
 
 // observer is an evaluation whose Value reads are tracked: the build of a
@@ -121,6 +123,25 @@ type Value[T any] struct {
 	// comparable is whether T is comparable: a new value == to the current
 	// one changes nothing.
 	comparable bool
+	// pend are the Set and Update calls queued and not applied yet, in
+	// the order of the update queue (they are queued under pmu), for
+	// Latest. The UI thread removes an operation when it commits it.
+	pmu  sync.Mutex
+	pend []valueOp[T]
+}
+
+// valueOp is a queued change of a Value: a new value (f nil) or a
+// function of the value left by the operations before it.
+type valueOp[T any] struct {
+	val T
+	f   func(T) T
+}
+
+func (o valueOp[T]) apply(cur T) T {
+	if o.f != nil {
+		return o.f(cur)
+	}
+	return o.val
 }
 
 // Get returns the value. On the UI thread, while a component builds or a
@@ -146,24 +167,87 @@ func (v *Value[T]) Get() T {
 // changes nothing.
 func (v *Value[T]) Set(x T) {
 	v.load("Set")
+	v.queue(valueOp[T]{val: x})
+}
+
+// Latest returns the value as it will be once the UI thread applies the
+// Set and Update calls queued so far: the applied value (what Get
+// returns) with every pending operation applied to it, in order. Use it
+// in code that reads a Value it just changed, or that another goroutine
+// is changing, before the next frame applies the change:
+//
+//	pos.Set(x)
+//	pos.Latest() // x, while pos.Get() is still the old value
+//
+// An Update function runs again here, on the calling goroutine, which is
+// why it must be pure (and must not call Latest of its own Value). Latest is safe from any goroutine and never
+// subscribes what is being evaluated, so it does not rebuild or relayout
+// anything when the value changes; reading a Value in a build or in a
+// deferred style closure is what Get is for. A change that has not been
+// queued yet (a Set on another goroutine that has not returned) is not
+// seen; one made through UseScroll or UseBounds is applied by the UI
+// thread directly and is seen by Get as soon as it is made.
+func (v *Value[T]) Latest() T {
+	v.load("Latest")
+	v.pmu.Lock()
+	x := *v.cur.Load()
+	var ops []valueOp[T]
+	if len(v.pend) > 0 {
+		ops = append(ops, v.pend...)
+	}
+	v.pmu.Unlock()
+	for _, o := range ops {
+		x = o.apply(x)
+	}
+	return x
+}
+
+// queue appends op to the pending operations and to the update queue,
+// atomically, so that both orders agree.
+func (v *Value[T]) queue(op valueOp[T]) {
+	v.pmu.Lock()
+	v.pend = append(v.pend, op)
+	v.el.tree.enqueue(update{el: v.el, set: v.applyPending})
+	v.pmu.Unlock()
+}
+
+// applyPending commits the oldest pending operation, on the UI thread, and
+// invalidates the readers of the Value if it changed.
+func (v *Value[T]) applyPending() bool {
+	v.pmu.Lock()
+	if len(v.pend) == 0 {
+		v.pmu.Unlock()
+		return false
+	}
+	op := v.pend[0]
+	v.pmu.Unlock()
+	// Outside the lock, so that f may call Latest; only the UI thread
+	// changes cur.
 	p := new(T)
-	*p = x
-	v.el.tree.enqueue(update{el: v.el, set: func() bool { return v.store(p) }})
+	*p = op.apply(*v.cur.Load())
+	v.pmu.Lock()
+	n := len(v.pend) - 1
+	copy(v.pend, v.pend[1:])
+	v.pend[n] = valueOp[T]{}
+	v.pend = v.pend[:n]
+	same := v.comparable && safeEqual(any(*v.cur.Load()), any(*p)) // perf: boxes both values
+	if !same {
+		v.cur.Store(p)
+	}
+	v.pmu.Unlock()
+	return !same && v.el.tree.valueChanged(&v.valueCore)
 }
 
 // Update queues f, which receives the value as left by the updates queued
 // before it and returns the new one: two queued Update(inc) add 2. f runs
-// on the UI thread when the update applies and must be pure.
+// on the UI thread when the update applies (and in Latest, on the
+// caller's goroutine) and must be pure.
 func (v *Value[T]) Update(f func(T) T) {
 	v.load("Update")
 	if f == nil {
 		panic("tela: Value.Update(nil): pass a function that returns the new value from the current one, such as v.Update(func(x float64) float64 { return x + 1 })")
 	}
-	v.el.tree.enqueue(update{el: v.el, set: func() bool {
-		p := new(T)
-		*p = f(*v.cur.Load())
-		return v.store(p)
-	}})
+	v.queue(valueOp[T]{f: f})
 }
 
 // load returns the current value's pointer, or panics with an actionable
@@ -370,6 +454,12 @@ func (t *Tree) valueChanged(v *valueCore) bool {
 		case obsPaint:
 			if o.box.parent != nil {
 				t.markPaint(o.box)
+				hit = true
+			}
+		case obsText:
+			if o.el.mounted {
+				o.el.textStale = true
+				t.markBoxes(o.el.primitive())
 				hit = true
 			}
 		}

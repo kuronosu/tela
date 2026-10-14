@@ -4,8 +4,9 @@
 // The progress is driven by a goroutine ticker through tela.UseValue (see
 // Transport): every tick moves the bar with tela.WidthFn and
 // tela.TranslateFn, which lay out the fill and repaint the thumb without
-// building a single component. The time label reads a second Value that
-// changes once per second, so it builds once per second, not per tick.
+// building a single component. The time label is a tela.TextFn of a second
+// Value that changes once per second, and the bar's width comes from
+// tela.UseBounds, so nothing is hard-coded or built.
 //
 // Click or drag the bar to seek, click a queue row to play it. The icons
 // are drawn with divs and borders.

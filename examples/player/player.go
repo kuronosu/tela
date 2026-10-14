@@ -7,10 +7,6 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-// barW is the width of the progress bar in pixels: the card's content
-// width. The seek handlers divide the pointer position by it.
-const barW = 332
-
 // TransportProps are the props of the components that show or drive the
 // player. *Transport is a pointer: comparable and stable.
 type TransportProps struct{ Tr *Transport }
@@ -50,40 +46,45 @@ func Cover(t Track, small bool, class string) tela.Node {
 	)
 }
 
-// Progress is the seek bar with the elapsed and total time. The fill and
-// the thumb follow Elapsed through WidthFn and TranslateFn, so a tick lays
-// out the fill and repaints the thumb without building anything; only
-// TimeLabel, which reads Secs, builds (once per second).
+// Progress is the seek bar with the elapsed and total time. The bar is as
+// wide as its card lets it be: nothing writes the width down. The seek
+// handlers read it from the element (ElementRef.Bounds) and the fill and
+// the thumb from a Value that follows it (tela.UseBounds). The fill and the
+// thumb follow Elapsed through WidthFn and TranslateFn, so a tick lays out
+// the fill and repaints the thumb, and the elapsed time is a TextFn of
+// Secs, which lays out its paragraph once per second. Nothing in this
+// component builds while the music plays.
 func Progress(p TransportProps) tela.Node {
 	tr := p.Tr
 	total := float64(tr.Current().Seconds)
-	seek := func(x float32) { tr.Seek(float64(x) / barW) }
-	frac := func() float64 { return tr.Elapsed.Get() / total }
+	bar := tela.UseElementRef()
+	size := tela.UseBounds(bar)
+	// x is the pointer's position along the bar.
+	seek := func(x float32) {
+		if w := bar.Bounds().Width; w > 0 {
+			tr.Seek(float64(x / w))
+		}
+	}
+	frac := func() float32 { return float32(tr.Elapsed.Get() / total) }
 
 	return Div(Class("flex flex-col gap-2"),
 		// The bar is taller than it looks, so it is easy to hit.
-		Div(Class("group flex h-4 w-[332px] cursor-pointer items-center"),
+		Div(Ref(bar), Class("group flex h-4 w-full cursor-pointer items-center"),
 			OnClick(func(e tela.MouseEvent) { seek(e.LocalX) }),
 			OnDragStart(func(e tela.DragEvent) { seek(e.LocalX) }),
 			OnDrag(func(e tela.DragEvent) { seek(e.LocalX) }),
 			Div(Class("relative h-1.5 w-full rounded-full bg-white/15 group-hover:h-2"),
 				Div(Class("h-full rounded-full bg-white group-hover:bg-violet-300"),
-					Style(tela.WidthFn(func() float32 { return float32(frac() * barW) }))),
+					Style(tela.WidthFn(func() float32 { return frac() * size.Get().Width }))),
 				Div(Class("absolute top-1/2 left-0 -mt-[7px] size-3.5 rounded-full bg-white opacity-0 shadow-md group-hover:opacity-100"),
-					Style(tela.TranslateFn(func() (x, y float32) { return float32(frac()*barW) - 7, 0 }))),
+					Style(tela.TranslateFn(func() (x, y float32) { return frac()*size.Get().Width - 7, 0 }))),
 			),
 		),
 		Div(Class("flex justify-between text-xs text-zinc-400 tabular-nums"),
-			tela.CP(TimeLabel, TransportProps{Tr: tr}),
+			Span(TextFn(func() string { return clock(tr.Secs.Get()) })),
 			Span(Text(clock(int(total)))),
 		),
 	)
-}
-
-// TimeLabel shows the elapsed time. It reads Secs in its body, so it
-// builds when the second changes.
-func TimeLabel(p TransportProps) tela.Node {
-	return Span(Text(clock(p.Tr.Secs.Get())))
 }
 
 // clock formats seconds as m:ss.
@@ -122,8 +123,8 @@ func Controls(p TransportProps) tela.Node {
 
 // triangle is a play triangle of height h pointing right, or left: half of
 // a square rotated by 45 degrees, centered on one edge of a box that clips
-// the other half. (A zero-size box with colored side borders would draw a
-// square: borders have no mitered joins yet.)
+// the other half, which keeps the tip slightly rounded. (A zero-size box
+// with colored side borders would draw a sharp triangle.)
 func triangle(h float32, left bool) tela.Node {
 	d := h / 2          // width of the clip box and half of the diagonal
 	s := d * 1.41421356 // side of the square

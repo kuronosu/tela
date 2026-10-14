@@ -40,8 +40,8 @@ var (
 //     TranslateFn: when it changes, the progress bar is laid out again and
 //     nothing is built.
 //   - Secs (whole seconds) changes once per second and is the only thing
-//     the time label reads, so the label builds once per second instead of
-//     once per tick.
+//     the time label reads, in a TextFn, so its paragraph is laid out once
+//     per second instead of once per tick.
 //   - Track and Playing are read in component bodies: a change rebuilds
 //     the components that show them.
 //

@@ -159,6 +159,9 @@ type Tree struct {
 	// virt holds the virtual lists (virtual.go).
 	virt virtState
 
+	// bnd holds the UseBounds slots (bounds.go).
+	bnd boundsState
+
 	// sem is the semantics tree built last (semantics.go).
 	sem semState
 
@@ -420,6 +423,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 // outside it (scroll.go's scrollAfterFrame).
 func (t *Tree) afterFrame() {
 	t.inFrame = false
+	t.boundsAfterFrame()
 	t.scrollAfterFrame()
 }
 

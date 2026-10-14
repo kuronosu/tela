@@ -204,6 +204,7 @@ const (
 	hookElementRef
 	hookScroll
 	hookVirtual // the state of a VirtualList (virtual.go)
+	hookBounds  // UseBounds (bounds.go)
 )
 
 var hookNames = [...]string{
@@ -220,6 +221,7 @@ var hookNames = [...]string{
 	hookElementRef:   "UseElementRef",
 	hookScroll:       "UseScroll",
 	hookVirtual:      "VirtualList",
+	hookBounds:       "UseBounds",
 }
 
 func (k hookKind) String() string { return hookNames[k] }
@@ -309,7 +311,7 @@ func slotName(s any) string {
 	for _, r := range [...][2]string{
 		{"stateSlot", "UseState"}, {"reducerSlot", "UseReducer"}, {"memoSlot", "UseMemo"},
 		{"cbSlot", "UseCallback"}, {"Ref", "UseRef"}, {"ctxSlot", "UseContext"}, {"idSlot", "UseId"},
-		{"Value", "UseValue"}, {"elemRef", "UseElementRef"}, {"vlist", "VirtualList"},
+		{"Value", "UseValue"}, {"elemRef", "UseElementRef"}, {"vlist", "VirtualList"}, {"boundsFollow", "UseBounds"},
 	} {
 		if rest, ok := strings.CutPrefix(name, r[0]); ok {
 			return r[1] + rest

@@ -46,8 +46,11 @@ type Element struct {
 	// vobs holds the Values the last build read (value.go).
 	vobs *observer
 
-	// Text.
-	text string
+	// Text. tfn is the function of a TextFn, whose Values vobs
+	// observes; textStale reports that one changed (textfn.go).
+	text      string
+	tfn       func() string
+	textStale bool
 	// paraBox and paraOff locate a text in the paragraph that lays it
 	// out (setSources), for its bounds in the semantics tree.
 	paraBox *Box
@@ -405,8 +408,7 @@ func (t *Tree) update(el *Element, n Node) {
 	switch el.kind {
 	case elemText:
 		el.node = n
-		if el.text != d.text {
-			el.text = d.text
+		if t.syncText(el, d) {
 			t.markBoxes(el.primitive())
 		}
 	case elemPrimitive:
@@ -487,7 +489,7 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 	switch d.kind {
 	case nodeText:
 		el.kind = elemText
-		el.text = d.text
+		t.syncText(el, d)
 	case nodeElement:
 		el.kind = elemPrimitive
 		el.box = newBox(t, el, d.elem)

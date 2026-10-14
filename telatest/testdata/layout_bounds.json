@@ -1,0 +1,110 @@
+{
+  "kind": "root",
+  "rect": {
+    "x": 0,
+    "y": 0,
+    "width": 200,
+    "height": 160
+  },
+  "style": {
+    "display": "block",
+    "color": "#000000",
+    "font": "400 16px/1.5 Inter",
+    "opacity": 1
+  },
+  "children": [
+    {
+      "kind": "div",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 200,
+        "height": 152
+      },
+      "padding": {
+        "top": 16,
+        "right": 16,
+        "bottom": 16,
+        "left": 16
+      },
+      "style": {
+        "classes": "p-4",
+        "display": "block",
+        "color": "#000000",
+        "font": "400 16px/1.5 Inter",
+        "opacity": 1
+      },
+      "children": [
+        {
+          "kind": "div",
+          "rect": {
+            "x": 16,
+            "y": 16,
+            "width": 80,
+            "height": 40
+          },
+          "style": {
+            "classes": "h-10 w-20 bg-sky-500",
+            "display": "block",
+            "width": "80px",
+            "height": "40px",
+            "color": "#000000",
+            "background": "#00a6f4",
+            "font": "400 16px/1.5 Inter",
+            "opacity": 1
+          }
+        },
+        {
+          "kind": "div",
+          "rect": {
+            "x": 16,
+            "y": 56,
+            "width": 80,
+            "height": 40
+          },
+          "bounds": {
+            "x": 36,
+            "y": 66,
+            "width": 40,
+            "height": 20
+          },
+          "style": {
+            "classes": "h-10 w-20 scale-50 bg-sky-500",
+            "display": "block",
+            "width": "80px",
+            "height": "40px",
+            "color": "#000000",
+            "background": "#00a6f4",
+            "font": "400 16px/1.5 Inter",
+            "opacity": 1
+          }
+        },
+        {
+          "kind": "div",
+          "rect": {
+            "x": 16,
+            "y": 96,
+            "width": 80,
+            "height": 40
+          },
+          "bounds": {
+            "x": 26,
+            "y": 101,
+            "width": 80,
+            "height": 40
+          },
+          "style": {
+            "classes": "h-10 w-20 bg-sky-500",
+            "display": "block",
+            "width": "80px",
+            "height": "40px",
+            "color": "#000000",
+            "background": "#00a6f4",
+            "font": "400 16px/1.5 Inter",
+            "opacity": 1
+          }
+        }
+      ]
+    }
+  ]
+}
