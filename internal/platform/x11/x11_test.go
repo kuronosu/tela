@@ -307,7 +307,7 @@ func TestProperties(t *testing.T) {
 		t.Errorf("no-constraint hints have flags %#x", le.Uint32(h))
 	}
 
-	if got := string(wmClass("dev.tela.demo", "demo")); got != "dev.tela.demo\x00dev.tela.demo\x00" {
+	if got := string(wmClass("dev.telaui.demo", "demo")); got != "dev.telaui.demo\x00dev.telaui.demo\x00" {
 		t.Errorf("wmClass with AppID = %q", got)
 	}
 	if got := string(wmClass("", "shapes")); got != "shapes\x00Shapes\x00" {

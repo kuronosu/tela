@@ -43,7 +43,7 @@ func Shapes() tela.Node {
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — shapes",
-		AppID:  "dev.tela.shapes",
+		AppID:  "dev.telaui.shapes",
 		Width:  960,
 		Height: 640,
 		Root:   Shapes,

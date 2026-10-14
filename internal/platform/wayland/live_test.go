@@ -144,7 +144,7 @@ func livePixels(t *testing.T, format string) {
 	}
 	t.Logf("shm format %v", b.format)
 	title := "tela live pixels " + format
-	win, err := b.NewWindow(platform.WindowOptions{Title: title, AppID: "dev.tela.livetest", Size: platform.Size{W: 400, H: 300}})
+	win, err := b.NewWindow(platform.WindowOptions{Title: title, AppID: "dev.telaui.livetest", Size: platform.Size{W: 400, H: 300}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func cpuTime(t *testing.T) time.Duration {
 func TestLiveIdleCPU(t *testing.T) {
 	b := liveBackend(t)
 	const idle = 2 * time.Second
-	win, err := b.NewWindow(platform.WindowOptions{Title: "tela live idle", AppID: "dev.tela.livetest", Size: platform.Size{W: 320, H: 200}})
+	win, err := b.NewWindow(platform.WindowOptions{Title: "tela live idle", AppID: "dev.telaui.livetest", Size: platform.Size{W: 320, H: 200}})
 	if err != nil {
 		t.Fatal(err)
 	}

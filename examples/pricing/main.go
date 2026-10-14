@@ -43,7 +43,7 @@ func Preview() tela.Node { return Pricing() }
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — pricing",
-		AppID:  "dev.tela.pricing",
+		AppID:  "dev.telaui.pricing",
 		Width:  1280,
 		Height: 800,
 		Root:   Pricing,

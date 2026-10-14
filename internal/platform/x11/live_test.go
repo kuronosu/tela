@@ -135,7 +135,7 @@ func TestLivePixels(t *testing.T) {
 	timeout := time.AfterFunc(20*time.Second, b.Quit)
 	defer timeout.Stop()
 
-	nw, err := b.NewWindow(platform.WindowOptions{Title: "tela x11 pixels", AppID: "dev.tela.x11test",
+	nw, err := b.NewWindow(platform.WindowOptions{Title: "tela x11 pixels", AppID: "dev.telaui.x11test",
 		Size: platform.Size{W: 320, H: 240}, FixedSize: true})
 	if err != nil {
 		t.Fatal(err)

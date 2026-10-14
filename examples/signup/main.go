@@ -131,7 +131,7 @@ var filled = Values{
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — create your account",
-		AppID:  "dev.tela.signup",
+		AppID:  "dev.telaui.signup",
 		Width:  1100,
 		Height: 860,
 		Root:   Signup,

@@ -205,7 +205,7 @@ func testConfigureThenFrame(s *session) {
 	var cfg platform.ConfigureEvent
 	frames := 0
 	s.run(func() {
-		w = s.newWindow(platform.WindowOptions{Title: "conformance", AppID: "dev.tela.platformtest", Size: platform.Size{W: 320, H: 240}})
+		w = s.newWindow(platform.WindowOptions{Title: "conformance", AppID: "dev.telaui.platformtest", Size: platform.Size{W: 320, H: 240}})
 	}, func(ew platform.Window, e platform.Event) {
 		switch e := e.(type) {
 		case platform.ConfigureEvent:

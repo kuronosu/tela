@@ -76,7 +76,7 @@ func main() {
 	th := Themes[id]
 	if err := tela.Run(tela.App{
 		Title:  th.Title,
-		AppID:  "dev.tela.native",
+		AppID:  "dev.telaui.native",
 		Width:  windowW,
 		Height: windowH,
 		Root: func() tela.Node {

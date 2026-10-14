@@ -87,7 +87,7 @@ func run(log io.Writer) error {
 	}
 	win, err := backend.NewWindow(platform.WindowOptions{
 		Title: "Tela — text",
-		AppID: "dev.tela.text",
+		AppID: "dev.telaui.text",
 		Size:  platform.Size{W: 960, H: 720},
 	})
 	if err != nil {

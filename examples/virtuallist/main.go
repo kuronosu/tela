@@ -96,7 +96,7 @@ func Preview() tela.Node { return Directory() }
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — virtual list",
-		AppID:  "dev.tela.virtuallist",
+		AppID:  "dev.telaui.virtuallist",
 		Width:  1280,
 		Height: 800,
 		Root:   Directory,

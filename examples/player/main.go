@@ -42,7 +42,7 @@ func Preview() tela.Node { return tela.C(func() tela.Node { return playerAt(84) 
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — player",
-		AppID:  "dev.tela.player",
+		AppID:  "dev.telaui.player",
 		Width:  1280,
 		Height: 800,
 		Root:   Player,

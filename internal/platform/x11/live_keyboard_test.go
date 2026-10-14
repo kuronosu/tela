@@ -44,7 +44,7 @@ func TestLiveKeyboard(t *testing.T) {
 		t.Skip("neither xdotool nor wtype (with WAYLAND_DISPLAY) is available (or set TELA_LIVE_TYPE=manual to type by hand)")
 	}
 	t.Logf("typing with %s; XKB %v, detectable auto-repeat %v, XInput2 %v", tool, b.xkb.ok, b.xkb.detectable, b.xi.ok)
-	win, err := b.NewWindow(platform.WindowOptions{Title: "tela x11 keyboard", AppID: "dev.tela.x11test", Size: platform.Size{W: 320, H: 200}})
+	win, err := b.NewWindow(platform.WindowOptions{Title: "tela x11 keyboard", AppID: "dev.telaui.x11test", Size: platform.Size{W: 320, H: 200}})
 	if err != nil {
 		t.Fatal(err)
 	}

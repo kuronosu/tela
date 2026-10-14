@@ -49,7 +49,7 @@ func Preview() tela.Node { return Dashboard() }
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — dashboard",
-		AppID:  "dev.tela.dashboard",
+		AppID:  "dev.telaui.dashboard",
 		Width:  1280,
 		Height: 800,
 		Root:   Dashboard,

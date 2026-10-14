@@ -554,7 +554,7 @@ func TestSelectionFollowsScroll(t *testing.T) {
 func start(t *testing.T, scale float64, size platform.Size) (*headless.Backend, *headless.Window, *app, *bytes.Buffer) {
 	t.Helper()
 	be := headless.New(headless.Options{Scale: scale})
-	win, err := be.NewWindow(platform.WindowOptions{Title: "Tela — text", AppID: "dev.tela.text", Size: size})
+	win, err := be.NewWindow(platform.WindowOptions{Title: "Tela — text", AppID: "dev.telaui.text", Size: size})
 	if err != nil {
 		t.Fatal(err)
 	}

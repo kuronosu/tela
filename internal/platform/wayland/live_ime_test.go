@@ -43,7 +43,7 @@ func TestLiveIME(t *testing.T) {
 	if b.textInputManager == nil {
 		t.Skip("the compositor has no zwp_text_input_manager_v3")
 	}
-	win, err := b.NewWindow(platform.WindowOptions{Title: "tela live IME", AppID: "dev.tela.livetest", Size: platform.Size{W: 360, H: 160}})
+	win, err := b.NewWindow(platform.WindowOptions{Title: "tela live IME", AppID: "dev.telaui.livetest", Size: platform.Size{W: 360, H: 160}})
 	if err != nil {
 		t.Fatal(err)
 	}

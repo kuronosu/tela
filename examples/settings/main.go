@@ -48,7 +48,7 @@ func Preview() tela.Node { return Settings() }
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — settings",
-		AppID:  "dev.tela.settings",
+		AppID:  "dev.telaui.settings",
 		Width:  1280,
 		Height: 800,
 		Root:   Settings,

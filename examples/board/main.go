@@ -57,7 +57,7 @@ func Preview() tela.Node { return Kanban() }
 func main() {
 	tela.Run(tela.App{
 		Title:  "Tela — board",
-		AppID:  "dev.tela.board",
+		AppID:  "dev.telaui.board",
 		Width:  1280,
 		Height: 800,
 		Root:   Kanban,
