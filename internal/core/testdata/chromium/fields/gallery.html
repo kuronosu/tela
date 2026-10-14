@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="bg-white">
+<div class="w-[360px]"><div class="h-[40px] px-2 pt-2"><input id="e0" value="Hello world"></div><div class="h-[40px] px-2 pt-2"><input id="e1" placeholder="Email address"></div><div class="h-[56px] px-2 pt-2"><div class="w-[300px]"><input id="e2" class="w-full rounded-md border border-slate-300 px-3 py-2 placeholder:text-slate-400" placeholder="you@example.com"></div></div><div class="h-[56px] px-2 pt-2"><div class="w-[300px]"><input id="e3" class="w-full rounded-md border border-slate-300 px-3 py-2 placeholder:text-slate-400 text-slate-900" value="ana@example.com"></div></div><div class="h-[64px] px-2 pt-2"><input id="e4" class="h-12 border border-slate-400 px-2" value="Centered Ag"></div><div class="h-[40px] px-2 pt-2"><div class="text-sm"><input id="e5" class="border border-slate-300" value="Small text"></div></div><div class="h-[48px] px-2 pt-2"><div class="text-2xl font-semibold"><input id="e6" class="w-72 border-b-2 border-indigo-500" value="Large"></div></div><div class="h-[40px] px-2 pt-2"><input id="e7" class="border border-slate-300 px-1" type="password" value="secret"></div><div class="h-[40px] px-2 pt-2"><input id="e8" class="w-48 border border-slate-300 text-center" value="middle"></div><div class="h-[40px] px-2 pt-2"><input id="e9" class="w-48 border border-slate-300 text-right" placeholder="0.00"></div><div class="h-[64px] px-2 pt-2"><textarea id="e10">A textarea wraps its text over several lines</textarea></div><div class="h-[128px] px-2 pt-2"><textarea id="e11" class="w-72 rounded-md border border-slate-300 p-2" rows="4">Rows 4
+with a second line</textarea></div><div class="h-[64px] px-2 pt-2"><textarea id="e12" class="border border-slate-300" placeholder="Write a message"></textarea></div><div class="h-[40px] px-2 pt-2"><input id="e13" class="field-sizing-content border border-slate-300" value="Fits its text"></div><div class="h-[64px] px-2 pt-2"><textarea id="e14" class="field-sizing-content border border-slate-300">Two
+lines</textarea></div><div class="h-[40px] px-2 pt-2"><p class="text-slate-700">Name <input id="e15" class="w-32 border border-slate-300 px-1" value="inline"> end</p></div><div class="h-[40px] px-2 pt-2"><input id="e16" class="border border-slate-300 outline-none" value="Selected text"></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  for (const [k, s] of Object.entries({"16":[0,8]})) {
+    const e = document.getElementById("e" + k);
+    e.focus({preventScroll: true});
+    e.setSelectionRange(s[0], s[1]);
+  }
+  const out = [];
+  for (let i = 0; i < 17; i++) {
+    const r = document.getElementById("e" + i).getBoundingClientRect();
+    out.push([r.left, r.top, r.width, r.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

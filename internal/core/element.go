@@ -428,6 +428,12 @@ func (t *Tree) update(el *Element, n Node) {
 		if old.ref != d.ref || old.scope != d.scope || el.fscope != nil {
 			t.updateFocus(el, old)
 		}
+		if old.id != d.id {
+			t.setID(el, old.id)
+		}
+		if bx.fld != nil {
+			t.updateField(el, old)
+		}
 		if !slices.Equal(old.classes, d.classes) {
 			bx.classesDirty = true
 			t.markStyle(el)
@@ -499,6 +505,12 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.ref != nil || d.autoFocus || d.scope != nil {
 			t.mountFocus(el)
 		}
+		if d.id != "" {
+			t.setID(el, "")
+		}
+		if d.elem.IsTextField() {
+			t.mountField(el)
+		}
 		t.markStyle(el)
 		t.markBoxes(el)
 		if d.elem == style.KindImg {
@@ -531,6 +543,12 @@ func (t *Tree) unmount(el *Element) {
 	t.stats.Unmounts++
 	if el.kind == elemPrimitive {
 		t.unmountFocus(el)
+		if id := el.node.d.id; id != "" && t.ids[id] == el {
+			delete(t.ids, id)
+		}
+		if el.box.fld != nil {
+			t.unmountField(el)
+		}
 	}
 	for _, h := range el.hooks {
 		if u, ok := h.(unmounter); ok {

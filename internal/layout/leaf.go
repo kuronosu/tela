@@ -8,7 +8,7 @@ package layout
 // compute_leaf_layout).
 func (e *Engine) leaf(n Node, st *Style, in input) output {
 	return e.leafMeasure(n, st, in, func(known optSize, avail availSize) measured {
-		return e.measure(n, known, avail)
+		return e.measure(n, known, avail, in.run == performLayout)
 	})
 }
 
@@ -112,7 +112,7 @@ type measured struct {
 
 // measure asks a leaf for its content size. Known dimensions are passed
 // through; negative definite space is passed as 0.
-func (e *Engine) measure(n Node, known optSize, avail availSize) measured {
+func (e *Engine) measure(n Node, known optSize, avail availSize, final bool) measured {
 	if known.bothSet() {
 		return measured{w: known.w.v, h: known.h.v}
 	}
@@ -124,6 +124,7 @@ func (e *Engine) measure(n Node, known optSize, avail availSize) measured {
 		Width: known.w.v, HasWidth: known.w.ok,
 		Height: known.h.v, HasHeight: known.h.ok,
 		AvailableWidth: avail.w, AvailableHeight: avail.h,
+		Final: final,
 	}
 	if in.AvailableWidth.Kind == Definite && !(in.AvailableWidth.Value > 0) {
 		in.AvailableWidth.Value = 0

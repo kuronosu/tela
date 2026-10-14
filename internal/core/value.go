@@ -46,6 +46,7 @@ const (
 	obsLayout                // a box's layout-phase deferred props: lay out again
 	obsPaint                 // a box's paint-phase deferred props: repaint
 	obsText                  // a TextFn: assemble its paragraph again (textfn.go)
+	obsField                 // a text field bound to the Value (BindValue): show it
 )
 
 // observer is an evaluation whose Value reads are tracked: the build of a
@@ -462,6 +463,9 @@ func (t *Tree) valueChanged(v *valueCore) bool {
 				t.markBoxes(o.el.primitive())
 				hit = true
 			}
+		case obsField:
+			t.bindChanged(o.box)
+			hit = true
 		}
 	}
 	return hit

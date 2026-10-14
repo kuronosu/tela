@@ -94,6 +94,9 @@ func (t *Tree) buildBoxes(el *Element) {
 	case bx.kind == style.KindImg:
 		bx.mode = modeImage
 		bx.para = nil
+	case bx.kind.IsTextField():
+		bx.mode = modeField
+		bx.para = nil
 	case isFlexContainer(bx.cs):
 		bx.mode = modeContainer
 		bx.para = nil

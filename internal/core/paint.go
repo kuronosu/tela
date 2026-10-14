@@ -830,6 +830,10 @@ func (p *painter) paintContent(bx *Box) {
 		c := contentRect(p.rect(bx), l)
 		para.prepare(p.t, max(c.Width(), 0))
 		para.lay.PaintScaled(p.b, c.Origin(), float32(p.scale))
+	case modeField:
+		if bx.fld != nil {
+			p.paintField(bx)
+		}
 	case modeImage:
 		if bx.img == nil {
 			return

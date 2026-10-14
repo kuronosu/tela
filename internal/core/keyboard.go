@@ -28,6 +28,9 @@ import (
 // They run after the event's dispatch unless a handler called
 // PreventDefault:
 //
+//   - keydown in a focused text field runs its key binding (typing,
+//     editing, moving the caret, Enter: fieldkeys.go) first; the keys it
+//     handles run no other default action;
 //   - keydown Tab without Ctrl, Alt or Meta moves the focus to the next
 //     element of the sequential focus order (Shift+Tab: the previous one),
 //     wrapping around inside the window, or inside the focus scope that
@@ -89,8 +92,8 @@ const (
 func (l KeyLocation) String() string { return platform.KeyLocation(l).String() }
 
 // KeyboardEvent is passed to OnKeyDown and OnKeyUp (the DOM's
-// KeyboardEvent). Text input does not go through it: text fields handle
-// it (phase 5).
+// KeyboardEvent). Text input does not go through it: text fields insert
+// the text of the keys whose keydown no handler prevented (fieldkeys.go).
 type KeyboardEvent struct {
 	// Key is the logical key: "Enter", "Escape", "a", "A", " "... It
 	// reflects Shift, AltGr and the lock keys, but not Ctrl: Ctrl+S has
@@ -161,7 +164,7 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 		st := fire(t, evKeyDown, target, ke, true)
 		t.flushDiscrete()
 		if !st.defaultPrevented() {
-			t.keyDownDefault(target, ke)
+			t.keyDownDefault(target, ke, e.Text)
 		}
 		return
 	}
@@ -213,7 +216,10 @@ func isButton(el *Element) bool {
 	return el != nil && el.kind == elemPrimitive && el.box.kind == style.KindButton
 }
 
-func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent) {
+func (t *Tree) keyDownDefault(target *Element, e KeyboardEvent, txt string) {
+	if f := t.focusedField(); f != nil && f.el == target && t.fieldKey(f, e, txt) {
+		return
+	}
 	switch e.Key {
 	case KeyValue(platform.KeyTab):
 		if !e.Ctrl && !e.Alt && !e.Meta {
@@ -313,6 +319,5 @@ func (t *Tree) keyClick(el *Element, e KeyboardEvent) {
 		c := windowRect(bx).Center()
 		me.X, me.Y = c.X, c.Y
 	}
-	fire(t, evClick, el, me, true)
-	t.flushDiscrete()
+	t.dispatchClick(el, me)
 }

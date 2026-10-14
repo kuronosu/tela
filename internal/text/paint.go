@@ -19,11 +19,19 @@ func (l *Layout) Paint(b *gfx.Builder, origin gfx.Point) { l.PaintScaled(b, orig
 // per logical pixel; 0 for none): underlines are then snapped to device
 // pixels as Blink draws them (see paintDecorations).
 func (l *Layout) PaintScaled(b *gfx.Builder, origin gfx.Point, scale float32) {
+	l.PaintWith(b, origin, scale, nil)
+}
+
+// PaintWith is PaintScaled with every glyph run and decoration painted
+// with paint instead of its style's (nil keeps the styles' paints): the
+// selected text of a text field, drawn again in the selection's color
+// under a clip. Color glyphs (emoji) keep their own colors.
+func (l *Layout) PaintWith(b *gfx.Builder, origin gfx.Point, scale float32, paint gfx.Paint) {
 	var gs []gfx.Glyph
 	for li := range l.lines {
-		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline, scale)
-		gs = l.paintGlyphs(b, origin, li, gs)
-		l.paintDecorations(b, origin, li, DecorationLineThrough, scale)
+		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline, scale, paint)
+		gs = l.paintGlyphs(b, origin, li, gs, paint)
+		l.paintDecorations(b, origin, li, DecorationLineThrough, scale, paint)
 	}
 }
 
@@ -35,9 +43,9 @@ func (l *Layout) PaintLine(b *gfx.Builder, origin gfx.Point, i int, scale float3
 	if i < 0 || i >= len(l.lines) {
 		return
 	}
-	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale)
-	l.paintGlyphs(b, origin, i, nil)
-	l.paintDecorations(b, origin, i, DecorationLineThrough, scale)
+	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale, nil)
+	l.paintGlyphs(b, origin, i, nil, nil)
+	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, nil)
 }
 
 // snappedUnderline returns the top (relative to the baseline at y, in
@@ -67,7 +75,7 @@ func samePaint(a, b gfx.Paint) bool {
 	return ok1 && ok2 && ca == cb
 }
 
-func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.Glyph) []gfx.Glyph {
+func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.Glyph, over gfx.Paint) []gfx.Glyph {
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
 	var (
@@ -78,7 +86,11 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 	)
 	flush := func() {
 		if face != nil && len(gs) > 0 {
-			b.DrawGlyphRun(gfx.DrawGlyphRun{Font: face, Size: size, Origin: gfx.Pt(origin.X+x0, by), Glyphs: gs, Paint: l.sinfo[style].paint})
+			p := l.sinfo[style].paint
+			if over != nil {
+				p = over
+			}
+			b.DrawGlyphRun(gfx.DrawGlyphRun{Font: face, Size: size, Origin: gfx.Pt(origin.X+x0, by), Glyphs: gs, Paint: p})
 		}
 		gs = gs[:0]
 	}
@@ -139,7 +151,7 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 
 // paintDecorations draws the decoration lines in mask of line li; at a
 // display scale (not 0), underlines are snapped to its device pixels.
-func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration, scale float32) {
+func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration, scale float32, over gfx.Paint) {
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
 	type seg struct {
@@ -152,7 +164,11 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 	emit := func(k int) {
 		if open[k] && cur[k].x1 > cur[k].x0 && cur[k].h > 0 {
 			s := cur[k]
-			b.FillRect(gfx.Rect{X0: origin.X + s.x0, Y0: by + s.y, X1: origin.X + s.x1, Y1: by + s.y + s.h}, s.paint)
+			p := s.paint
+			if over != nil {
+				p = over
+			}
+			b.FillRect(gfx.Rect{X0: origin.X + s.x0, Y0: by + s.y, X1: origin.X + s.x1, Y1: by + s.y + s.h}, p)
 		}
 		open[k] = false
 	}

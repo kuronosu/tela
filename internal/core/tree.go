@@ -11,6 +11,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/text"
 )
@@ -164,6 +165,13 @@ type Tree struct {
 
 	// sem is the semantics tree built last (semantics.go).
 	sem semState
+
+	// Text fields (field.go, fieldime.go, form.go): the clipboard, the
+	// blinking caret, the IME state and the elements by Id.
+	clip  platform.Clipboard
+	caret caretState
+	ime   imeState
+	ids   map[string]*Element
 
 	// lay holds the layers and the composed frames (layer.go).
 	lay layerState

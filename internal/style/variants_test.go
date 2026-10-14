@@ -99,7 +99,7 @@ func TestVariantErrors(t *testing.T) {
 	if _, err := parseVariant(th, "hoverr"); err == nil || err.Error() != `unknown variant "hoverr"; did you mean "hover"?` {
 		t.Errorf("message = %v", err)
 	}
-	for _, v := range []string{"before", "after", "placeholder", "print", "group-hover/item", "rtl", "aria-checked", "data-open", "has-checked", "max-md", "@lg"} {
+	for _, v := range []string{"before", "after", "marker", "print", "group-hover/item", "rtl", "aria-checked", "data-open", "has-checked", "max-md", "@lg"} {
 		_, err := parseVariant(th, v)
 		var u *UnsupportedClassError
 		if !errors.As(err, &u) {

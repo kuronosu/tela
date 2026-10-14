@@ -737,7 +737,8 @@ func (t *Tree) smoothScripted(cs *style.ComputedStyle) bool {
 // browsers). Called by the style phase.
 func (t *Tree) updateScroller(bx *Box) {
 	cs := bx.cs
-	if !isScrollContainer(cs) {
+	if !isScrollContainer(cs) || bx.kind == style.KindInput {
+		// An Input scrolls its own line (field.go).
 		if bx.scr != nil {
 			t.dropScroller(bx)
 		}
@@ -788,6 +789,11 @@ func (t *Tree) extents(s *scroller) {
 	} else {
 		l := bx.ld.Layout()
 		s.max = gfx.Point{X: l.ScrollWidth(), Y: l.ScrollHeight()}
+		if f := bx.fld; f != nil && f.multi {
+			// A Textarea's extents come from its text, which typing
+			// changes without a layout (field.go).
+			s.max.X, s.max.Y = f.fieldExtents()
+		}
 		s.client = gfx.Size{
 			W: max(l.Size.W-l.Border.Left-l.Border.Right-l.ScrollbarSize.W, 0),
 			H: max(l.Size.H-l.Border.Top-l.Border.Bottom-l.ScrollbarSize.H, 0),
@@ -1237,6 +1243,7 @@ func (t *Tree) Animate(now time.Duration) {
 	st := &t.scr
 	st.now = max(st.now, now)
 	now = st.now
+	t.animateFields()
 	if len(st.sets[setMoving]) == 0 && len(st.sets[setBars]) == 0 {
 		return
 	}
@@ -1504,7 +1511,7 @@ func (t *Tree) scrollAfterFrame() {
 			t.scr.remove(setEvent, s)
 		}
 	}
-	if pending || t.scrollAnimating() {
+	if pending || t.scrollAnimating() || t.fieldAutoscrolling() {
 		t.requestRepaint()
 	}
 }

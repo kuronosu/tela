@@ -44,6 +44,10 @@ type MeasureInput struct {
 	// a min-content or max-content constraint (return the min-content or
 	// max-content size). Definite amounts are never negative.
 	AvailableWidth, AvailableHeight AvailableSpace
+	// Final reports the measurement of a full layout of the node: its
+	// border-box size is then settled, and a definite available space is
+	// its final content box (a text field centers its line in it).
+	Final bool
 }
 
 // Measurement is the result of Measure.

@@ -112,6 +112,9 @@ type Host struct {
 
 	// cursor is the cursor last set on the window.
 	cursor platform.Cursor
+	// imeField is the text field whose state the window's text input
+	// has (Tree.TextInput), nil for none.
+	imeField any
 	// timer wakes the loop at timerAt (backend clock) for the gesture
 	// arena (a long press); nil when nothing waits.
 	timerMu sync.Mutex
@@ -145,6 +148,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	t := NewTree(cfg)
 	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog)}
 	t.SetWake(b.Wake)
+	t.SetClipboard(b.Clipboard())
 	// The window has keyboard focus from its first FocusEvent on.
 	t.SetWindowFocused(false)
 	t.Mount(opts.Root)
@@ -192,12 +196,14 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		h.tree.Animate(e.Time)
 		h.frame(e.Time)
 		h.updateCursor()
+		h.syncTextInput()
 		h.armTimer()
 	case platform.PointerEvent:
 		// A long press due before the event fires first.
 		h.tick(e.Time)
 		h.tree.HandlePointer(e)
 		h.updateCursor()
+		h.syncTextInput()
 		h.armTimer()
 	case platform.ScrollEvent:
 		h.tick(e.Time)
@@ -207,9 +213,20 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 	case platform.KeyEvent:
 		h.tree.HandleKey(e)
 		h.updateCursor()
+		h.syncTextInput()
+		h.armTimer()
+	case platform.IMEEvent:
+		h.tree.HandleIME(e)
+		h.syncTextInput()
+		h.armTimer()
+	case platform.IMESessionEvent:
+		h.tree.HandleIMESession(e.Active)
+		h.syncTextInput()
 		h.armTimer()
 	case platform.FocusEvent:
 		h.tree.SetWindowFocused(e.Focused)
+		h.syncTextInput()
+		h.armTimer()
 	case platform.CloseRequestedEvent:
 		h.win.Close()
 		h.backend.Quit()
@@ -268,6 +285,24 @@ func (h *Host) TimerArmed() (at time.Duration, ok bool) {
 	h.timerMu.Lock()
 	defer h.timerMu.Unlock()
 	return h.timerAt, h.timer != nil
+}
+
+// syncTextInput gives the window the text input state of the tree's
+// focused text field (Tree.TextInput): nil first when the field changed,
+// so the IME restarts its session for the new field (ADR-068), and a
+// reset when core finished a composition itself. Backends ignore equal
+// states.
+func (h *Host) syncTextInput() {
+	key, st, reset := h.tree.TextInput()
+	if key != h.imeField {
+		if h.imeField != nil {
+			h.win.SetTextInput(nil)
+		}
+		h.imeField = key
+	} else if reset && st != nil {
+		h.win.ResetTextInput()
+	}
+	h.win.SetTextInput(st)
 }
 
 // updateCursor sets the window's cursor when the tree's changed.

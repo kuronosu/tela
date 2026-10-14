@@ -29,8 +29,9 @@ this table is an `UnknownClassError` with a suggestion; a class in the
 | Transforms | `translate(-x/-y)-*` (incl. `full`, fractions, negatives), `scale(-x/-y)-N`, `rotate-N`, `skew(-x/-y)-N`, `origin-*`, `transform-none`; `transform transform-gpu` are no-ops | 2D only. `Transform.Matrix(box)` builds the gfx.Affine |
 | Transitions | `transition[-{all,colors,opacity,shadow,transform,none,[..]}]`, `duration-N`, `ease-{linear,in,out,in-out,[..]}`, `delay-N`, `animate-{spin,ping,pulse,bounce,none,[..]}` | the animation shorthand is kept raw until phase 6 |
 | Interaction | `cursor-*`, `pointer-events-{none,auto}`, `select-{none,text,all,auto}` | |
+| Text fields | `caret-{color}[/N]`, `caret-transparent`, `caret-current`, `field-sizing-{content,fixed}`, variants `placeholder:` (text properties of the placeholder) and `selection:` (`text-*` and `bg-*` colors of selected text in the element and its descendants) | `caret-*` is inherited; Input and Textarea use them (ADR-069) |
 | Scrolling | `scroll-auto scroll-smooth`, `overscroll(-x/-y)-{auto,contain,none}`; Tela-specific: `scroll-instant`, `scrollbar-classic scrollbar-overlay` | not inherited. `scroll-smooth` animates `ScrollTo`/`ScrollBy`/`ScrollIntoView` (CSS) and also user scrolling when the app sets `InstantScroll`; `scroll-instant` turns off animation and flings for user scrolling; `scrollbar-*` override `App.ClassicScrollbars` per element. `overscroll-none` is `contain` (no overscroll effect is drawn) |
-| Variants | `hover active focus focus-visible focus-within disabled enabled checked`, `first last only odd even`, `group-*`, `peer-*` (states above), `dark`, `motion-reduce`, `motion-safe`, `sm md lg xl 2xl`, stacked (`dark:md:hover:`) | evaluated against `VariantContext`; core feeds real state from phases 4 and 6 |
+| Variants | `hover active focus focus-visible focus-within disabled enabled checked read-only placeholder-shown invalid`, `first last only odd even`, `group-*`, `peer-*` (states above), `dark`, `motion-reduce`, `motion-safe`, `sm md lg xl 2xl`, stacked (`dark:md:hover:`) | evaluated against `VariantContext`; core feeds real state from phases 4 and 6 |
 | Markers | `group`, `peer` | reported in `Classes.Group` / `Classes.Peer` |
 | Accepted, ignored | `box-border appearance-none appearance-auto filter backdrop-filter antialiased subpixel-antialiased` | Tela is always border-box and has no native controls |
 | Accessibility helpers | `sr-only not-sr-only` | 1px absolutely positioned box |
@@ -62,7 +63,7 @@ this table is an `UnknownClassError` with a suggestion; a class in the
 | `space-x-reverse`, `space-y-reverse` | `flex-row-reverse`, `flex-col-reverse` |
 | `box-content` | boxes are always border-box |
 | `columns-*`, `break-before/after/inside-*` | grid |
-| `content-[..]`, `before:`, `after:`, `placeholder:`, `marker:`, `selection:` | regular nodes |
+| `content-[..]`, `before:`, `after:`, `marker:`, `file:` | regular nodes |
 | arbitrary properties `[mask-type:luminance]`, arbitrary variants `[&>*]:` | a utility class |
 | `var(--x)`, `p-(--x)` | theme tokens and arbitrary values |
 | named groups/peers `group/name`, `group-hover/name:` | plain `group` and `peer` |
@@ -71,7 +72,7 @@ this table is an `UnknownClassError` with a suggestion; a class in the
 | `fill-*`, `stroke-*` | icons take the text color (until SVG support) |
 | `object-*` | size the Img explicitly (until image fitting) |
 | `list-*`, `indent-*`, `hyphens-*`, `align-sub`, `align-super`, `align-[..]` | regular nodes; padding; `align-baseline/top/middle/bottom/text-top/text-bottom` (inline-level boxes in text) |
-| `accent-*`, `caret-*`, `resize`, `scroll-m*`, `scroll-p*`, `snap-*`, `touch-*`, `will-change-*`, `mask-*`, `clip-path`, `field-sizing`, `contain-*`, `content-visibility-*` | not supported yet or not needed |
+| `accent-*`, `resize`, `scroll-m*`, `scroll-p*`, `snap-*`, `touch-*`, `will-change-*`, `mask-*`, `clip-path`, `contain-*`, `content-visibility-*` | not supported yet or not needed |
 | `bg-fixed bg-local bg-scroll`, `bg-blend-*` | `position: fixed` layers, `mix-blend-*` |
 | `backdrop-opacity-*`, `mix-blend-plus-darker` | `backdrop-brightness`, `mix-blend-multiply` |
 | `grid-cols-subgrid`, grid line names | declare the tracks again; `col-start-N` |

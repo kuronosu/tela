@@ -276,6 +276,111 @@ func (e ScrollEvent) PreventDefault() { e.st.prevent() }
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e ScrollEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 
+// InputEvent is passed to OnBeforeInput before a text field's value
+// changes by an edit (the DOM's beforeinput): InputType names the edit
+// with the W3C Input Events Level 2 names ("insertText",
+// "insertFromPaste", "insertLineBreak", "deleteContentBackward",
+// "deleteWordBackward", "deleteByCut", "historyUndo",
+// "insertCompositionText"...), Data is the text it inserts (empty for
+// deletions) and IsComposing reports an IME composition in progress. It
+// bubbles. PreventDefault cancels the edit, except during a composition,
+// whose edits cannot be canceled (as in browsers).
+type InputEvent struct {
+	InputType   string
+	Data        string
+	IsComposing bool
+
+	st *eventState
+}
+
+// StopPropagation stops the event from bubbling (see MouseEvent).
+func (e InputEvent) StopPropagation() { e.st.stop() }
+
+// PreventDefault cancels the edit (not during a composition).
+func (e InputEvent) PreventDefault() { e.st.prevent() }
+
+// DefaultPrevented reports whether a handler called PreventDefault.
+func (e InputEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
+// ChangeEvent is passed to OnChange after every edit of a text field's
+// value, as React's onChange (the DOM's input event, not its change
+// event): Value is the new value (with the text being composed by an
+// IME, as the DOM's input.value), InputType, Data and IsComposing are
+// those of the edit (see InputEvent). It bubbles.
+type ChangeEvent struct {
+	Value       string
+	InputType   string
+	Data        string
+	IsComposing bool
+
+	st *eventState
+}
+
+// StopPropagation stops the event from bubbling (see MouseEvent).
+func (e ChangeEvent) StopPropagation() { e.st.stop() }
+
+// PreventDefault marks the event; the edit already happened.
+func (e ChangeEvent) PreventDefault() { e.st.prevent() }
+
+// DefaultPrevented reports whether a handler called PreventDefault.
+func (e ChangeEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
+// CompositionEvent is passed to OnCompositionStart, OnCompositionUpdate
+// and OnCompositionEnd while an input method (IME) composes text in a text
+// field: Data is the text being composed (the DOM's CompositionEvent;
+// for compositionstart, the selected text the composition replaces). It
+// bubbles.
+type CompositionEvent struct {
+	Data string
+
+	st *eventState
+}
+
+// StopPropagation stops the event from bubbling (see MouseEvent).
+func (e CompositionEvent) StopPropagation() { e.st.stop() }
+
+// PreventDefault marks the event; compositions cannot be canceled.
+func (e CompositionEvent) PreventDefault() { e.st.prevent() }
+
+// DefaultPrevented reports whether a handler called PreventDefault.
+func (e CompositionEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
+// SelectEvent is passed to OnSelect when the user selects text in a text
+// field, or code changes its selection (ElementRef.Select,
+// SetSelectionRange): the DOM's select event. Start and End are the
+// selection in UTF-8 byte offsets of the value. It bubbles.
+type SelectEvent struct {
+	Start, End int
+
+	st *eventState
+}
+
+// StopPropagation stops the event from bubbling (see MouseEvent).
+func (e SelectEvent) StopPropagation() { e.st.stop() }
+
+// PreventDefault marks the event; the selection already changed.
+func (e SelectEvent) PreventDefault() { e.st.prevent() }
+
+// DefaultPrevented reports whether a handler called PreventDefault.
+func (e SelectEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
+// SubmitEvent is passed to OnSubmit when a Form is submitted: Enter in a
+// single-line field of the form (HTML's implicit submission) or the
+// activation of a submit button inside it. It bubbles. Tela does not
+// navigate, so PreventDefault only marks it (it exists for familiarity).
+type SubmitEvent struct {
+	st *eventState
+}
+
+// StopPropagation stops the event from bubbling (see MouseEvent).
+func (e SubmitEvent) StopPropagation() { e.st.stop() }
+
+// PreventDefault marks the event.
+func (e SubmitEvent) PreventDefault() { e.st.prevent() }
+
+// DefaultPrevented reports whether a handler called PreventDefault.
+func (e SubmitEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
+
 // ---------------------------------------------------------------------
 // Handler props.
 
@@ -307,6 +412,13 @@ const (
 	evBlur
 	evWheel
 	evScroll
+	evBeforeInput
+	evChange
+	evCompositionStart
+	evCompositionUpdate
+	evCompositionEnd
+	evSelect
+	evSubmit
 	numEventKinds
 )
 
@@ -336,6 +448,15 @@ var eventNames = [numEventKinds]string{
 	evBlur:          "blur",
 	evWheel:         "wheel",
 	evScroll:        "scroll",
+	// Text fields and forms (field.go). "change" is React's onChange,
+	// the DOM's input event.
+	evBeforeInput:       "beforeinput",
+	evChange:            "change",
+	evCompositionStart:  "compositionstart",
+	evCompositionUpdate: "compositionupdate",
+	evCompositionEnd:    "compositionend",
+	evSelect:            "select",
+	evSubmit:            "submit",
 }
 
 func (k eventKind) String() string {
@@ -368,6 +489,16 @@ func (k eventKind) handlerType() string {
 		return "func(tela.WheelEvent)"
 	case k == evScroll:
 		return "func(tela.ScrollEvent)"
+	case k == evBeforeInput:
+		return "func(tela.InputEvent)"
+	case k == evChange:
+		return "func(tela.ChangeEvent)"
+	case k >= evCompositionStart && k <= evCompositionEnd:
+		return "func(tela.CompositionEvent)"
+	case k == evSelect:
+		return "func(tela.SelectEvent)"
+	case k == evSubmit:
+		return "func(tela.SubmitEvent)"
 	}
 	return "func(tela.PointerEvent)"
 }
@@ -392,6 +523,21 @@ func (k eventKind) checkHandler(h any) bool {
 		return ok && f != nil
 	case "func(tela.ScrollEvent)":
 		f, ok := h.(func(ScrollEvent))
+		return ok && f != nil
+	case "func(tela.InputEvent)":
+		f, ok := h.(func(InputEvent))
+		return ok && f != nil
+	case "func(tela.ChangeEvent)":
+		f, ok := h.(func(ChangeEvent))
+		return ok && f != nil
+	case "func(tela.CompositionEvent)":
+		f, ok := h.(func(CompositionEvent))
+		return ok && f != nil
+	case "func(tela.SelectEvent)":
+		f, ok := h.(func(SelectEvent))
+		return ok && f != nil
+	case "func(tela.SubmitEvent)":
+		f, ok := h.(func(SubmitEvent))
 		return ok && f != nil
 	}
 	f, ok := h.(func(PointerEvent))
@@ -424,8 +570,12 @@ type EventProp struct {
 // "pointercancel", "pointerenter", "pointerleave", "longpress"
 // (func(PointerEvent)), "dragstart", "drag" and "dragend"
 // (func(DragEvent)), "keydown" and "keyup" (func(KeyboardEvent)), "focus"
-// and "blur" (func(FocusEvent)), "wheel" (func(WheelEvent)) and "scroll"
-// (func(ScrollEvent)). It panics on another name or handler type.
+// and "blur" (func(FocusEvent)), "wheel" (func(WheelEvent)), "scroll"
+// (func(ScrollEvent)), "beforeinput" (func(InputEvent)), "change"
+// (func(ChangeEvent)), "compositionstart", "compositionupdate" and
+// "compositionend" (func(CompositionEvent)), "select" (func(SelectEvent))
+// and "submit" (func(SubmitEvent)). It panics on another name or handler
+// type.
 func On(event string, handler any) Prop {
 	k := eventKindOf(event)
 	if k == 0 {

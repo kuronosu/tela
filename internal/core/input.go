@@ -150,6 +150,8 @@ type inputState struct {
 	enters  []*Element
 	// bar is the scrollbar part the last hit test found (scrollbar.go).
 	bar barHit
+	// fdrag is the selection dragged in a text field (fieldkeys.go).
+	fdrag *fieldDrag
 }
 
 // HandlePointer dispatches a platform pointer event (see the comment at
@@ -229,6 +231,7 @@ func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
 	if ps.pressing {
 		t.in.arena.Move(t.gestureEvent(ps, e.Time))
 	}
+	t.fieldPointerMove(ps)
 	t.hoverBars(ps)
 }
 
@@ -286,6 +289,8 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		// press on a scrollbar does not move it.
 		if prev == 0 && e.Button == platform.ButtonPrimary && !prevented && bar.s == nil {
 			t.mouseFocus(target)
+			// A press in a text field puts its caret (fieldkeys.go).
+			t.fieldPress(ps, target)
 		}
 	}
 	if e.Button != platform.ButtonPrimary || ps.pressing {
@@ -319,6 +324,7 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 	}
 	if e.Button == platform.ButtonPrimary && ps.pressing {
 		ps.pressing = false
+		t.fieldPointerUp(ps)
 		// Routes the release: the click (tap), the end of a drag.
 		t.in.arena.Up(t.gestureEvent(ps, e.Time))
 		t.clearActive(ps)
@@ -340,6 +346,7 @@ func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
 	fire(t, evPointerCancel, target, t.pointerEvent(ps, platform.ButtonNone), true)
 	if ps.pressing {
 		ps.pressing = false
+		t.fieldPointerUp(ps)
 		t.in.arena.Cancel(t.gestureEvent(ps, e.Time))
 		t.in.clicks.Reset()
 		t.clearActive(ps)
@@ -421,7 +428,8 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 				OnEnd:    func(u gesture.DragUpdate) { t.drag(ps, el, evDragEnd, u) },
 			})
 		}
-		if m&clickMask != 0 {
+		if m&clickMask != 0 || el.box.kind == style.KindButton || el.box.kind == style.KindLabel {
+			// Buttons and labels have activation behavior (form.go).
 			tap = true
 		}
 	}
@@ -443,8 +451,7 @@ func (t *Tree) click(ps *pointerState) {
 		return
 	}
 	n := ps.clickCount
-	fire(t, evClick, ct, t.mouseEvent(ps, platform.ButtonPrimary, n), true)
-	t.flushDiscrete()
+	t.dispatchClick(ct, t.mouseEvent(ps, platform.ButtonPrimary, n))
 	if n == 2 {
 		fire(t, evDoubleClick, ct, t.mouseEvent(ps, platform.ButtonPrimary, n), true)
 		t.flushDiscrete()
@@ -492,6 +499,9 @@ func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
 	if s, has := t.scrollDeadline(); has && (!ok || s < at) {
 		at, ok = s, true
 	}
+	if c, has := t.caretDeadline(); has && (!ok || c < at) {
+		at, ok = c, true
+	}
 	return at, ok
 }
 
@@ -499,8 +509,10 @@ func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
 // backend clock) act: a long press is recognized and its handler runs,
 // overlay scrollbars start fading.
 func (t *Tree) TickGestures(now time.Duration) {
+	t.scr.now = max(t.scr.now, now)
 	t.in.arena.Tick(now)
 	t.tickScroll(now)
+	t.tickCaret(now)
 }
 
 // resetInput forgets every pointer: presses end without events (the
@@ -510,6 +522,7 @@ func (t *Tree) resetInput() {
 	clear(t.in.ptrs)
 	t.in.clicks.Reset()
 	t.in.bar = barHit{}
+	t.in.fdrag = nil
 	t.scr.wheel = wheelLatch{}
 }
 
@@ -811,7 +824,8 @@ func (t *Tree) mouseEvent(ps *pointerState, button platform.PointerButton, count
 
 // event is the set of handler event types.
 type event interface {
-	MouseEvent | PointerEvent | DragEvent | KeyboardEvent | FocusEvent | WheelEvent | ScrollEvent
+	MouseEvent | PointerEvent | DragEvent | KeyboardEvent | FocusEvent | WheelEvent | ScrollEvent |
+		InputEvent | ChangeEvent | CompositionEvent | SelectEvent | SubmitEvent
 }
 
 // eventPtr gives fire access to an event's dispatch fields: prepare sets
@@ -845,6 +859,13 @@ func (e *WheelEvent) prepare(t *Tree, st *eventState, cur *Element) {
 func (e *ScrollEvent) prepare(_ *Tree, st *eventState, _ *Element)   { e.st = st }
 func (e *KeyboardEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
 func (e *FocusEvent) prepare(_ *Tree, st *eventState, _ *Element)    { e.st = st }
+func (e *InputEvent) prepare(_ *Tree, st *eventState, _ *Element)    { e.st = st }
+func (e *ChangeEvent) prepare(_ *Tree, st *eventState, _ *Element)   { e.st = st }
+func (e *CompositionEvent) prepare(_ *Tree, st *eventState, _ *Element) {
+	e.st = st
+}
+func (e *SelectEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
+func (e *SubmitEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
 
 // fire runs the handlers of kind k for an event at target: bubbling from
 // target to the root until a handler stops it, or on target alone.

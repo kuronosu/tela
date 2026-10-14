@@ -46,6 +46,13 @@ func registerInteraction(r *registry) {
 		r.enum(root, false, keys)
 	}
 
+	// Text fields: caret-color and field-sizing.
+	r.colorUtil("caret", slotCaret, nil)
+	r.enum("field-sizing", false, map[string]Op{
+		"content": op(func(e *env) { e.s.FieldSizing = FieldSizingContent }),
+		"fixed":   op(func(e *env) { e.s.FieldSizing = FieldSizingFixed }),
+	})
+
 	// Accepted and ignored: Tela always uses border-box and has no native
 	// controls or compositor hints to configure.
 	// Marker classes: they style nothing, but variants refer to them.
@@ -82,7 +89,6 @@ func registerUnsupported(r *registry) {
 	r.unsupported["fill"] = "SVG fill and stroke are not supported yet; icons take the text color"
 	r.unsupported["stroke"] = r.unsupported["fill"]
 	r.unsupported["accent"] = "accent-color is not supported; style the control with classes"
-	r.unsupported["caret"] = "caret-color is not supported yet"
 	r.unsupported["perspective"] = "3D transforms are not supported; Tela transforms are 2D"
 	r.unsupported["transform-3d"] = r.unsupported["perspective"]
 	r.unsupported["backface"] = r.unsupported["perspective"]
@@ -99,7 +105,6 @@ func registerUnsupported(r *registry) {
 	r.unsupported["clip-path"] = "clip-path is not supported yet; use rounded-* and overflow-hidden"
 	r.unsupported["mask"] = "masks are not supported"
 	r.unsupported["forced-color-adjust"] = "forced colors are not supported"
-	r.unsupported["field-sizing"] = "field-sizing is not supported"
 	r.unsupported["object"] = "object-fit and object-position are not supported yet; size the Img explicitly"
 	r.unsupported["contain"] = "CSS containment is not supported"
 	r.unsupported["content-visibility"] = "content-visibility is not supported; use VirtualList"

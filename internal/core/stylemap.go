@@ -51,6 +51,9 @@ func (t *Tree) restyle(el *Element) {
 	if bx.structural {
 		state |= t.structuralState(el)
 	}
+	if !bx.kind.IsTextField() {
+		state |= style.StateReadOnly // CSS :read-only: every element that cannot be edited
+	}
 	var group, peer style.StateFlags
 	if bx.groupUse != 0 {
 		group = groupState(el)
@@ -68,6 +71,9 @@ func (t *Tree) restyle(el *Element) {
 	}
 	old := bx.cs
 	bx.cs = cs
+	if bx.fld != nil {
+		t.fieldRestyled(bx.fld, old, cs)
+	}
 	bx.deferLayout, bx.deferPaint = hasPhase(cs, style.PhaseLayout), hasPhase(cs, style.PhasePaint)
 	t.updateScroller(bx)
 	// Values read by deferred props the style no longer has stop
@@ -423,7 +429,12 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		ls.Position = layout.PositionAbsolute
 	}
 	ls.OverflowX, ls.OverflowY = overflowPair(cs.OverflowX, cs.OverflowY)
-	if b.tree.classicBars(cs) && isScrollContainer(cs) {
+	if b.kind == style.KindInput {
+		// An Input clips its line itself and keeps its text's baseline
+		// (field.go): for layout its overflow is visible.
+		ls.OverflowX, ls.OverflowY = layout.OverflowVisible, layout.OverflowVisible
+	}
+	if b.tree.classicBars(cs) && isScrollContainer(cs) && b.kind != style.KindInput {
 		// Classic scrollbars take space (scrollbar.go): overflow: scroll
 		// always, overflow: auto while its content overflows.
 		ls.ScrollbarWidth = classicGutter

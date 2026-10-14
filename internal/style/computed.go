@@ -357,6 +357,30 @@ type TextProps struct {
 	Shadow []Shadow
 }
 
+// CaretColor is the CSS caret-color: auto (the zero value: the text
+// color) or a color.
+type CaretColor struct {
+	Set   bool
+	Color gfx.Color
+}
+
+// FieldSizing is the CSS field-sizing property of text fields.
+type FieldSizing uint8
+
+const (
+	// FieldSizingFixed sizes a field by its size or rows (the default).
+	FieldSizingFixed FieldSizing = iota
+	// FieldSizingContent sizes a field to its content.
+	FieldSizingContent
+)
+
+// SelectionColors are the ::selection colors set by selection:* classes;
+// a color not set keeps the platform's.
+type SelectionColors struct {
+	Background, Color       gfx.Color
+	HasBackground, HasColor bool
+}
+
 // Transform is the 2D transform of a box, kept as the CSS properties that
 // compose it. The composition order is CSS's: translate, rotate, scale and
 // then the transform list (skew), around the transform origin.
@@ -655,6 +679,18 @@ type ComputedStyle struct {
 	// VerticalAlign is the CSS vertical-align of an atomic inline-level
 	// box (not inherited); inline elements are on the baseline.
 	VerticalAlign text.BoxAlign
+
+	// Text fields (Input, Textarea). Caret is caret-color (inherited);
+	// FieldSizing is field-sizing (not inherited). Placeholder is the
+	// text style of the placeholder (placeholder:*), nil when no class
+	// sets one: the default is the field's text at half opacity
+	// (Preflight). Selection holds the colors of selected text
+	// (selection:*, inherited like Tailwind's "& *::selection"), nil for
+	// the platform's.
+	Caret       CaretColor
+	FieldSizing FieldSizing
+	Placeholder *TextProps
+	Selection   *SelectionColors
 
 	// Deferred are the phase-deferred props (ARCHITECTURE section 7),
 	// applied by Resolved.

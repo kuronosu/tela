@@ -215,8 +215,37 @@
 //
 // Tree.HandleKey turns platform key events into keydown and keyup events
 // (keyboard.go): they target the focused element and bubble, then run
-// their default actions (Tab navigation, Enter and Space on buttons,
-// scrolling keys).
+// their default actions (the key bindings of a focused text field, Tab
+// navigation, Enter and Space on buttons, scrolling keys).
+//
+// # Text fields and forms
+//
+// Input and Textarea (field.go, whose top comment is the reference;
+// ADR-069) are leaf boxes (modeField) that own a field: an
+// internal/text/edit Editor, the text.Layout of its displayed text,
+// rebuilt only when the display or the style changes, and the
+// placeholder's. They are sized like Chromium's (size=20, cols=20 and
+// rows=2 from the primary font's average and maximum character widths,
+// field-sizing-content), an Input centers its line and scrolls it
+// horizontally itself, a Textarea is a scroll container whose extents
+// come from its text. Values are uncontrolled (DefaultValue), controlled
+// (FieldValue, Bind: restored after every event unless the app changed
+// it, React's model) or bound to a Value (BindValue: written at once
+// without a build). Keys (fieldkeys.go: per-platform bindings, typing,
+// edits with OnBeforeInput and OnChange), the pointer (caret, word and
+// paragraph selection, drag with autoscroll), the IME (fieldime.go:
+// HandleIME and HandleIMESession apply platform.IMEEvent with the
+// composition events; TextInput gives the Host the window's
+// platform.TextInputState), the clipboard (SetClipboard; asynchronous
+// paste) and the blinking caret (530 ms, stopped after 10 s idle, a
+// deadline of NextDeadline) all end in edit operations. A field's content
+// is a layer of its own (layerField, fieldpaint.go), so typing, moving
+// the caret or blinking records one small layer and lays nothing out,
+// except for field-sizing-content fields. Forms, labels and element IDs
+// (form.go): every click runs the activation behavior of the Button or
+// Label on its path (submit, reset, focusing a label's control), Enter in
+// a single-line field submits its Form implicitly, and FillNode and
+// FieldValue serve telatest.
 //
 // # Scrolling
 //
@@ -334,12 +363,18 @@
 // after a new size or scale), presents it with the damage and runs the
 // passive effects (Animate runs first);
 // PointerEvent goes to HandlePointer, ScrollEvent to HandleScroll,
-// KeyEvent to HandleKey and FocusEvent to
+// KeyEvent to HandleKey, IMEEvent and IMESessionEvent to HandleIME and
+// HandleIMESession, and FocusEvent to
 // SetWindowFocused (a Host starts with an unfocused window), and the
-// window's cursor follows Tree.Cursor (SetCursor only on a change). While
-// a press waits for a long-press timeout, or overlay scrollbars wait to
-// fade, the Host keeps one goroutine timer that calls Wake at the deadline
-// (the platform layer has no timer API); idle, it has none.
+// window's cursor follows Tree.Cursor (SetCursor only on a change). After
+// every event and frame the Host gives the window the text input state of
+// the focused text field (Tree.TextInput: nil first when the field
+// changed, ResetTextInput when core finished a composition itself), and
+// the backend's clipboard is the tree's. While
+// a press waits for a long-press timeout, overlay scrollbars wait to
+// fade or a caret waits to blink, the Host keeps one goroutine timer that
+// calls Wake at the deadline (the platform layer has no timer API); idle,
+// it has none.
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed. Render does everything

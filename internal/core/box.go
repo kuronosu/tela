@@ -23,6 +23,9 @@ const (
 	modeParagraph
 	// modeImage is a replaced leaf: an Img.
 	modeImage
+	// modeField is a text field: a leaf that lays out and paints its
+	// editor's text (field.go).
+	modeField
 )
 
 // Box is a render object (ARCHITECTURE sections 4 and 6): a computed
@@ -126,6 +129,8 @@ type Box struct {
 
 	// scr is the scroll state of a scroll container (scroll.go).
 	scr *scroller
+	// fld is the state of a text field (field.go).
+	fld *field
 
 	// Per-frame scratch state (valid when the frame matches).
 	inlineFrame uint64
@@ -189,6 +194,10 @@ func (b *Box) Measure(in layout.MeasureInput) layout.Measurement {
 		}
 	case modeImage:
 		return b.measureImage(in)
+	case modeField:
+		if b.fld != nil {
+			return b.fld.measure(in)
+		}
 	}
 	return knownOnly(in)
 }

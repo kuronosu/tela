@@ -82,6 +82,10 @@ const (
 	// StateScrollable: the element is a scroll container the user can
 	// scroll (overflow auto or scroll) whose content overflows.
 	StateScrollable
+	// StateMultiline: a text field that takes several lines (Textarea).
+	StateMultiline
+	// StateReadOnly: a text field the user cannot edit (ReadOnly).
+	StateReadOnly
 )
 
 // Action is a set of actions a node supports (ARCHITECTURE section 16).
@@ -98,7 +102,7 @@ const (
 	ActionScrollIntoView
 	// ActionScroll: the element scrolls (StateScrollable).
 	ActionScroll
-	// ActionSetValue is reserved for text inputs (phase 5).
+	// ActionSetValue: an editable text field (telatest's Fill).
 	ActionSetValue
 )
 

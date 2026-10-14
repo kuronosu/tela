@@ -33,6 +33,12 @@ type Metrics struct {
 	// negative: above the baseline) and StrikeoutThickness its thickness.
 	// MVAR stro and strs apply.
 	StrikeoutOffset, StrikeoutThickness float32
+	// AvgCharWidth is the average advance of the font's characters (OS/2
+	// xAvgCharWidth; the advance of "0" without an OS/2 table) and
+	// MaxCharWidth the width of the font's bounding box (head xMax -
+	// xMin): what browsers size text fields with (an input's size, a
+	// textarea's cols).
+	AvgCharWidth, MaxCharWidth float32
 }
 
 // Scale returns m with every length multiplied by size.
@@ -44,6 +50,7 @@ func (m Metrics) Scale(size float32) Metrics {
 		CapHeight: s(m.CapHeight), XHeight: s(m.XHeight),
 		UnderlineOffset: s(m.UnderlineOffset), UnderlineThickness: s(m.UnderlineThickness),
 		StrikeoutOffset: s(m.StrikeoutOffset), StrikeoutThickness: s(m.StrikeoutThickness),
+		AvgCharWidth: s(m.AvgCharWidth), MaxCharWidth: s(m.MaxCharWidth),
 	}
 }
 
@@ -98,6 +105,14 @@ func (f *Face) computeMetrics() Metrics {
 	if tf.hasOS2 {
 		m.StrikeoutOffset = em(-(float64(tf.os2.YStrikeoutPosition) + tf.mvarDelta("stro", c)))
 		m.StrikeoutThickness = em(float64(tf.os2.YStrikeoutSize) + tf.mvarDelta("strs", c))
+	}
+	if tf.hasOS2 && tf.os2.XAvgCharWidth > 0 {
+		m.AvgCharWidth = em(float64(tf.os2.XAvgCharWidth))
+	} else if g, ok := f.GlyphIndex('0'); ok {
+		m.AvgCharWidth = f.Advance(g)
+	}
+	if w := float64(tf.head.XMax) - float64(tf.head.XMin); w > 0 {
+		m.MaxCharWidth = em(w)
 	}
 	// Fallbacks for fonts that leave the decorations unset.
 	if m.UnderlineThickness <= 0 {

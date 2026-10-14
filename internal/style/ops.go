@@ -228,8 +228,8 @@ func HeightFn(fn func() float32) Op {
 // defaults of Tailwind's Preflight.
 type Kind uint8
 
-// The primitives of phase 3 and the inline text elements of section 11.
-// The zero value is Div.
+// The primitives of phase 3, the inline text elements of section 11 and
+// the form elements of phase 5. The zero value is Div.
 const (
 	KindDiv Kind = iota
 	KindSpan
@@ -248,10 +248,18 @@ const (
 	KindEm
 	KindCode
 	KindA
+	KindInput
+	KindTextarea
+	KindForm
+	KindLabel
 	numKinds
 )
 
-var kindNames = [...]string{"div", "span", "text", "h1", "h2", "h3", "h4", "h5", "h6", "p", "button", "img", "root", "strong", "em", "code", "a"}
+var kindNames = [...]string{"div", "span", "text", "h1", "h2", "h3", "h4", "h5", "h6", "p", "button", "img", "root", "strong", "em", "code", "a",
+	"input", "textarea", "form", "label"}
+
+// IsTextField reports whether k is a text field (Input, Textarea).
+func (k Kind) IsTextField() bool { return k == KindInput || k == KindTextarea }
 
 func (k Kind) String() string { return enumName(kindNames[:], int(k)) }
 
@@ -330,6 +338,39 @@ func initKindDefaults() {
 	}))
 	// a (Preflight): "a { color: inherit; text-decoration: inherit }" is
 	// inheritance.
+
+	// input, textarea (Preflight): "font: inherit; letter-spacing:
+	// inherit; color: inherit; border-radius: 0; background-color:
+	// transparent; opacity: 1" are inheritance and the initial values
+	// (and the universal reset leaves them without padding or border).
+	// Chromium's stylesheet: "display: inline-block; text-align: start;
+	// text-transform: none; text-indent: 0; text-shadow: none;
+	// word-spacing: normal" (letter-spacing and line-height are
+	// Preflight's inherit), cursor: text (the I-beam over editable text);
+	// an input clips its content ("overflow: clip !important") and a
+	// textarea scrolls it ("overflow: auto") and wraps it ("white-space:
+	// pre-wrap; overflow-wrap: break-word").
+	field := func(e *env) {
+		e.s.Display = DisplayInlineBlock
+		e.s.Cursor = CursorText
+		e.s.Text.TextAlign = text.AlignStart
+		e.s.Text.TextTransform = text.TransformNone
+		e.s.Text.Shadow = nil
+		e.s.Text.WordSpacing = 0
+	}
+	kindOps[KindInput] = []Op{op(func(e *env) {
+		field(e)
+		e.s.OverflowX, e.s.OverflowY = OverflowClip, OverflowClip
+	})}
+	kindOps[KindTextarea] = []Op{op(func(e *env) {
+		field(e)
+		e.s.OverflowX, e.s.OverflowY = OverflowAuto, OverflowAuto
+		e.s.Text.WhiteSpace = text.WhiteSpacePreWrap
+		e.s.Text.OverflowWrap = text.OverflowWrapBreakWord
+	})}
+	// form: a block. label: inline, with Chromium's "cursor: default".
+	kindOps[KindForm] = []Op{display(DisplayBlock)}
+	kindOps[KindLabel] = []Op{display(DisplayInline), op(func(e *env) { e.s.Cursor = CursorDefault })}
 }
 
 // bolder is the CSS font-weight: bolder keyword relative to the inherited

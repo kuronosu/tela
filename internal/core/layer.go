@@ -38,7 +38,10 @@ import (
 //     belong: a box whose paint-phase props change often;
 //   - the scrollbars of a scroll container that has a chunk or classic
 //     bars, recorded on every frame that paints (they follow the offsets,
-//     the fades and the hover states).
+//     the fades and the hover states);
+//   - the content of a text field (fieldpaint.go), recorded again on a
+//     frame that only repaints when the field asked for it (its caret
+//     blinked or moved, its selection or its value changed).
 //
 // The set is small on purpose: every layer costs a list and a marker.
 //
@@ -83,9 +86,10 @@ const (
 	layerChunk                     // a part of a scroll space
 	layerDeferred                  // a stacking context with paint-phase deferred props
 	layerBars                      // the scrollbars of a scroll container
+	layerField                     // the content of a text field
 )
 
-var layerKindNames = [...]string{"root", "scroll", "deferred", "scrollbars"}
+var layerKindNames = [...]string{"root", "scroll", "deferred", "scrollbars", "field"}
 
 // layer is one recorded layer.
 type layer struct {
@@ -123,8 +127,9 @@ type layerState struct {
 	// gen numbers the full recordings, paints the paints.
 	gen, paints uint64
 	// needFull asks the next paint for a full recording, needPlace for
-	// placing the boxes first.
-	needFull, needPlace bool
+	// placing the boxes first; fieldDirty reports text fields whose layer
+	// must be recorded again (field.markPaint).
+	needFull, needPlace, fieldDirty bool
 	// noCull records every box (tests: the culling must not change the
 	// pixels).
 	noCull bool
@@ -228,6 +233,7 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 		t.recordAll(&p)
 	default:
 		t.recordBars(&p)
+		t.recordFields(&p)
 	}
 	return t.composite()
 }
@@ -236,6 +242,7 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 func (t *Tree) recordAll(p *painter) {
 	L := &t.lay
 	L.gen++
+	L.fieldDirty = false
 	clear(L.layers)
 	L.layers = L.layers[:0]
 	root := L.newLayer(layerRoot, t.rootBox, nil, nil)

@@ -29,6 +29,12 @@ func TestSuggestions(t *testing.T) {
 		{"transtion", "transition"},
 		{"cursor-poiner", "cursor-pointer"},
 		{"w-ful", "w-full"},
+		{"caret-pnik-500", "caret-pink-500"},
+		{"field-sizing-contnet", "field-sizing-content"},
+		{"placeholder-shwn:border-red-500", "placeholder-shown:"},
+		{"read-onyl:bg-slate-100", "read-only:"},
+		{"invalidd:text-red-600", "invalid:"},
+		{"placeholdr:text-slate-400", "placeholder:"},
 	}
 	for _, tt := range tests {
 		c := Compile(tt.in)

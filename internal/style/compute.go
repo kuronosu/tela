@@ -83,6 +83,7 @@ const (
 	slotTo
 	slotDropShadow
 	slotTextShadow
+	slotCaret
 	numSlots
 )
 
@@ -167,6 +168,7 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 	// op resolve against the element's final font size; pass 1 applies
 	// everything else. Ops of different properties do not interact, so
 	// splitting by pass keeps "last wins" intact.
+	var pseudo Pseudo
 	for pass := 0; pass < 2; pass++ {
 		wantFont := pass == 0
 		for _, op := range kindDefaults(in.Kind) {
@@ -178,6 +180,10 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 			}
 			for i := range cl.Rules {
 				r := &cl.Rules[i]
+				if r.Cond.Pseudo != 0 {
+					pseudo |= r.Cond.Pseudo
+					continue
+				}
 				if r.Cond.Matches(vc) {
 					e.run(r.Op, wantFont)
 				}
@@ -191,7 +197,80 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		}
 	}
 	e.finalize()
+	if pseudo&PseudoPlaceholder != 0 {
+		if ps := computePseudo(cx, th, s, in.Classes, vc, PseudoPlaceholder); ps != nil {
+			t := ps.Text
+			s.Placeholder = &t
+		}
+	}
+	if pseudo&PseudoSelection != 0 {
+		if ps := computePseudo(cx, th, s, in.Classes, vc, PseudoSelection); ps != nil {
+			sel := SelectionColors{}
+			if s.Selection != nil {
+				sel = *s.Selection // the inherited colors the classes do not set
+			}
+			if ps.pseudoBg {
+				sel.Background, sel.HasBackground = ps.s.BackgroundColor, true
+			}
+			if ps.pseudoColor {
+				sel.Color, sel.HasColor = ps.s.Text.Color, true
+			}
+			s.Selection = &sel
+		}
+	}
 	return s
+}
+
+// pseudoStyle is the style of a pseudo-element computed by computePseudo,
+// with which of its colors the rules set.
+type pseudoStyle struct {
+	s                     *ComputedStyle
+	Text                  TextProps
+	pseudoBg, pseudoColor bool
+}
+
+// computePseudo computes the style of the pseudo-element kind of an
+// element whose style is s: the rules of classes that style it and match
+// vc, applied over the text properties s gives it (CSS: ::placeholder and
+// ::selection inherit from their element). It returns nil when no rule
+// matches.
+func computePseudo(cx *Context, th *Theme, s *ComputedStyle, classes []*Classes, vc VariantContext, kind Pseudo) *pseudoStyle {
+	ps := new(ComputedStyle)
+	initStyle(ps, s, th)
+	var sc scratch
+	e := env{s: ps, sc: &sc, parent: s, theme: th, viewport: cx.Viewport}
+	e.parentFontSize = ps.Text.FontSize
+	e.fontSize = ps.Text.FontSize
+	matched := false
+	for pass := 0; pass < 2; pass++ {
+		for _, cl := range classes {
+			if cl == nil {
+				continue
+			}
+			for i := range cl.Rules {
+				r := &cl.Rules[i]
+				if r.Cond.Pseudo&kind == 0 {
+					continue
+				}
+				c := r.Cond
+				c.Pseudo = 0
+				if c.Matches(vc) {
+					matched = true
+					e.run(r.Op, pass == 0)
+				}
+			}
+		}
+		if pass == 0 {
+			e.fontSize = ps.Text.FontSize
+		}
+	}
+	if !matched {
+		return nil
+	}
+	out := &pseudoStyle{s: ps, pseudoBg: sc.colors[slotBg].set, pseudoColor: sc.colors[slotText].set}
+	e.finalize()
+	out.Text = ps.Text
+	return out
 }
 
 // run applies op when it belongs to the pass.
@@ -232,6 +311,8 @@ func initStyle(s *ComputedStyle, parent *ComputedStyle, th *Theme) {
 	s.Transition.Timing = CubicBezier{0.25, 0.1, 0.25, 1}
 	if parent != nil {
 		s.Text = parent.Text
+		s.Caret = parent.Caret
+		s.Selection = parent.Selection
 		s.Visibility = parent.Visibility
 		s.Cursor = parent.Cursor
 		s.PointerEvents = parent.PointerEvents
@@ -301,6 +382,12 @@ func (e *env) finalize() {
 		s.Text.LineHeight = sc.leading
 	case sc.sizeLeadingSet:
 		s.Text.LineHeight = text.LineHeightMultiple(sc.sizeLeading)
+	}
+
+	// Caret color: a color class sets it (caret-current is the text
+	// color); otherwise it stays auto or the inherited color.
+	if spec := sc.colors[slotCaret]; spec.set {
+		s.Caret = CaretColor{Set: true, Color: spec.resolve(cur)}
 	}
 
 	// Text decoration color.

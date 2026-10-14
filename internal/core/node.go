@@ -59,6 +59,10 @@ type desc struct {
 	aria *ariaProps
 	// virt marks the nodes a VirtualList builds (virtual.go).
 	virt *virtNode
+	// fp holds the form props (field.go), nil without any; id is the Id
+	// prop (form.go).
+	fp *formProps
+	id string
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings
@@ -288,6 +292,16 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	}
 	if kind != style.KindImg && d.aria != nil && d.aria.hasAlt {
 		panic(fmt.Sprintf("core: Alt on <%v>: only Img takes an alternative text; name other elements with AriaLabel", kind))
+	}
+	if d.fp != nil {
+		checkFormProps(kind, d)
+	}
+	if kind.IsTextField() {
+		for _, c := range d.children {
+			if !c.IsZero() {
+				panic(fmt.Sprintf("tela: <%v> takes no children; give its text with Value, DefaultValue or BindValue, and its label with a Label", kind))
+			}
+		}
 	}
 	return Node{d}
 }

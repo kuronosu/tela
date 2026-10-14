@@ -306,6 +306,12 @@ func (e *Editor) ValueToDisplay(off int) int {
 // position (offsets inside the preedit map to where it sits).
 func (e *Editor) DisplayToValue(off int) int { return e.rawToValue(e.displayToRaw(off)) }
 
+// RawValue returns the value with the preedit of an active composition
+// inserted, unmasked: what a browser's input.value holds during a
+// composition (the value of the input events fired while composing).
+// Outside compositions it is Value.
+func (e *Editor) RawValue() string { return e.raw() }
+
 // raw returns the displayed text before masking.
 func (e *Editor) raw() string {
 	if !e.composing {

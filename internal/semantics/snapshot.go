@@ -90,7 +90,7 @@ func visit(parent *ariaNode, n *Node) {
 	target := parent
 	if !n.Flattened() {
 		an := &ariaNode{n: n, role: n.Role, name: NormalizeWhiteSpace(n.Name)}
-		if n.Role == "textbox" && n.Value != "" {
+		if (n.Role == "textbox" || n.Role == "searchbox") && n.Value != "" {
 			// An input's value is its content (toAriaNode).
 			an.children = append(an.children, ariaChild{text: n.Value})
 		}

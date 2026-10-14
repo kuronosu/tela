@@ -38,7 +38,9 @@ import (
 // (presentation with Alt("") unless it is labelled or has a TabIndex), A
 // with Href a link, Strong, Em and Code strong, emphasis and code; the
 // other primitives (Div, Span, the focusable elements with TabIndex
-// included) are generic. "none" and "presentation" give way to the
+// included) are generic; Input and Textarea are textboxes (an Input of type search a
+// searchbox) and a Form is a form when it has a name. "none" and
+// "presentation" give way to the
 // implicit role on focusable or labelled elements (ARIA's conflict
 // resolution).
 //
@@ -256,7 +258,19 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	}
 
 	n.Name = semantics.NormalizeWhiteSpace(t.accName(el, role, n.Has(semantics.StateHidden)))
+	if f := bx.fld; f != nil {
+		if f.multi {
+			n.States |= semantics.StateMultiline
+		}
+		if f.props().readOnly {
+			n.States |= semantics.StateReadOnly
+		} else if !disabled {
+			n.Actions |= semantics.ActionSetValue
+		}
+	}
 	switch {
+	case bx.fld != nil && (role == "textbox" || role == "searchbox"):
+		n.Value = exposedValue(bx.fld)
 	case role == "textbox" || role == "searchbox":
 		n.Value = textContent(el)
 	case semantics.RangeRole(role) && a != nil:
@@ -325,8 +339,29 @@ func implicitRole(el *Element) string {
 			return "presentation"
 		}
 		return "img"
+	case style.KindInput:
+		if fieldTypeOf(d) == fieldSearch {
+			return "searchbox"
+		}
+		return "textbox"
+	case style.KindTextarea:
+		return "textbox"
+	case style.KindForm:
+		// A form is a landmark only when it has a name (HTML-AAM).
+		if a := d.aria; a != nil && (semantics.TrimSpace(a.label) != "" || a.labelledBy != nil) {
+			return "form"
+		}
 	}
 	return ""
+}
+
+// exposedValue returns the value a text field exposes: its value (with the
+// preedit of a composition), masked for passwords as it is shown.
+func exposedValue(f *field) string {
+	if f.typ == fieldPassword {
+		return f.ed.Display()
+	}
+	return f.ed.RawValue()
 }
 
 // globalAria reports whether a has a global ARIA attribute for role: one
@@ -343,7 +378,7 @@ func globalAria(a *ariaProps, role string) bool {
 // TabIndex.
 func ariaFocusable(el *Element) bool {
 	d := el.node.d
-	return d.hasTab || el.box.kind == style.KindButton && el.istate&style.StateDisabled == 0
+	return d.hasTab || (el.box.kind == style.KindButton || el.box.kind.IsTextField()) && el.istate&style.StateDisabled == 0
 }
 
 // headingLevel returns the level of an H1 to H6 kind, 0 for the others.
@@ -481,8 +516,11 @@ func (t *Tree) textAlt(el *Element, c *altCtx, o altOpts) string {
 	// 2E: controls embedded in a label or in content give their value.
 	if (o.inLB || o.target == altDescendant) && lb != el {
 		switch {
-		case role == "textbox":
+		case role == "textbox" || role == "searchbox":
 			c.visited[el] = true
+			if f := el.box.fld; f != nil {
+				return exposedValue(f)
+			}
 			return textContent(el)
 		case role == "combobox" || role == "listbox":
 			c.visited[el] = true
@@ -505,6 +543,24 @@ func (t *Tree) textAlt(el *Element, c *altCtx, o altOpts) string {
 	if a != nil && semantics.TrimSpace(a.label) != "" {
 		c.visited[el] = true
 		return a.label
+	}
+	// 2D: the native text alternative of a text field (HTML-AAM): its
+	// labels' content (without the field itself), then its placeholder.
+	if f := el.box.fld; f != nil && !o.inLB {
+		c.visited[el] = true
+		var b strings.Builder
+		for _, lab := range t.labelsOf(el) {
+			if s := t.textAlt(lab, c, altOpts{target: altDescendant, inLB: true}); semantics.TrimSpace(s) != "" {
+				if b.Len() > 0 {
+					b.WriteByte(' ')
+				}
+				b.WriteString(s)
+			}
+		}
+		if b.Len() > 0 {
+			return b.String()
+		}
+		return f.props().placeholder
 	}
 	// 2D: the native text alternative of an image.
 	if role != "presentation" && role != "none" && el.box.kind == style.KindImg {
@@ -819,8 +875,7 @@ func (t *Tree) ClickNode(id semantics.NodeID) error {
 		c := r.Center()
 		me.X, me.Y = c.X, c.Y
 	}
-	fire(t, evClick, el, me, true)
-	t.flushDiscrete()
+	t.dispatchClick(el, me)
 	return nil
 }
 

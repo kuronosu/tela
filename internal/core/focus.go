@@ -10,8 +10,8 @@ import (
 //
 // # Focusable elements
 //
-// A Button is focusable, as are the primitives with a TabIndex; the others
-// are not. An element is not focusable while it or an ancestor is
+// A Button, an Input and a Textarea are focusable, as are the primitives
+// with a TabIndex; the others are not. An element is not focusable while it or an ancestor is
 // disabled (Disabled) or display: none, while it is visibility: hidden or
 // display: contents, or before it has a computed style (it has no box
 // yet). The sequential focus order (Tab) holds the focusable elements
@@ -146,6 +146,14 @@ func (t *Tree) SetWindowFocused(focused bool) {
 		t.fixFocus()
 	}
 	f.window = focused
+	if fld := t.focusedField(); fld != nil {
+		// The caret shows and the selection's colors follow the window.
+		if focused {
+			t.caretReset(fld)
+		} else {
+			fld.markPaint()
+		}
+	}
 	if !focused {
 		t.cancelSpace()
 		t.syncFocus()
@@ -177,7 +185,7 @@ func (t *Tree) afterFocusEvent() {
 // focusTarget reports whether el takes the focus at all: a Button or an
 // element with a TabIndex.
 func focusTarget(el *Element) bool {
-	return el.kind == elemPrimitive && (el.node.d.hasTab || el.box.kind == style.KindButton)
+	return el.kind == elemPrimitive && (el.node.d.hasTab || el.box.kind == style.KindButton || el.box.kind.IsTextField())
 }
 
 // tabRank returns the position group of el in the sequential focus order
@@ -187,7 +195,7 @@ func tabRank(el *Element) (int32, bool) {
 	ti := int32(0)
 	if d.hasTab {
 		ti = d.tabIndex
-	} else if el.box.kind != style.KindButton {
+	} else if el.box.kind != style.KindButton && !el.box.kind.IsTextField() {
 		return 0, false
 	}
 	switch {
@@ -239,7 +247,7 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	if typ != focusScript {
 		f.lastType = typ
 	}
-	f.visible = f.lastType != focusMouse || f.hadKey
+	f.visible = f.lastType != focusMouse || f.hadKey || isTextFieldEl(el)
 	t.cancelSpace()
 	old := f.el
 	g := f.gen
@@ -248,6 +256,12 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 		// keep focus-within: are not restyled.
 		f.el = nil
 		f.start = old
+		if fld := textField(old); fld != nil && old.mounted {
+			t.fieldBlurred(fld)
+			if f.gen != g || f.el != nil {
+				return // a handler moved the focus
+			}
+		}
 		if f.window && old.mounted {
 			dispatch(t, evBlur, old, FocusEvent{}, true, false)
 			t.afterFocusEvent()
@@ -264,6 +278,9 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	f.el, f.start = el, nil
 	t.syncFocus()
 	t.revealFocused(el, typ)
+	if fld := textField(el); fld != nil {
+		t.fieldFocused(fld, typ)
+	}
 	if f.window {
 		dispatch(t, evFocus, el, FocusEvent{}, true, false)
 		t.afterFocusEvent()
@@ -284,7 +301,9 @@ func (t *Tree) revealFocused(el *Element, typ focusType) {
 // updateVisible recomputes focus-visible: after a key or a pointer press.
 func (t *Tree) updateVisible() {
 	f := &t.foc
-	if v := f.lastType != focusMouse || f.hadKey; v != f.visible {
+	// Text fields match focus-visible however they were focused
+	// (Chromium).
+	if v := f.lastType != focusMouse || f.hadKey || isTextFieldEl(f.el); v != f.visible {
 		f.visible = v
 		t.syncFocus()
 	}
