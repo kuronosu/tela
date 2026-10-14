@@ -21,6 +21,7 @@ var (
 	dwmapi   = windows.NewLazySystemDLL("dwmapi.dll")
 	shcore   = windows.NewLazySystemDLL("shcore.dll")
 	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
+	imm32    = windows.NewLazySystemDLL("imm32.dll")
 
 	procRegisterClassExW           = user32.NewProc("RegisterClassExW")
 	procCreateWindowExW            = user32.NewProc("CreateWindowExW")
@@ -69,6 +70,18 @@ var (
 	procEnumDisplaySetting         = user32.NewProc("EnumDisplaySettingsW")
 	procMonitorFromPoint           = user32.NewProc("MonitorFromPoint")
 	procMonitorFromWindow          = user32.NewProc("MonitorFromWindow")
+	procClientToScreen             = user32.NewProc("ClientToScreen")
+	procCreateCaret                = user32.NewProc("CreateCaret")
+	procDestroyCaret               = user32.NewProc("DestroyCaret")
+	procSetCaretPos                = user32.NewProc("SetCaretPos")
+
+	procImmGetContext            = imm32.NewProc("ImmGetContext")
+	procImmReleaseContext        = imm32.NewProc("ImmReleaseContext")
+	procImmAssociateContextEx    = imm32.NewProc("ImmAssociateContextEx")
+	procImmGetCompositionStringW = imm32.NewProc("ImmGetCompositionStringW")
+	procImmSetCompositionWindow  = imm32.NewProc("ImmSetCompositionWindow")
+	procImmSetCandidateWindow    = imm32.NewProc("ImmSetCandidateWindow")
+	procImmNotifyIME             = imm32.NewProc("ImmNotifyIME")
 
 	// Optional (Windows 10 1607 and 1703, 8.1, Vista).
 	procSetProcessDpiAwarenessContext = user32.NewProc("SetProcessDpiAwarenessContext")

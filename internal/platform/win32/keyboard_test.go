@@ -792,3 +792,14 @@ func TestModifiersFromState(t *testing.T) {
 		}
 	}
 }
+
+// TestProcessKeyNoText: a key the IME consumed is VK_PROCESSKEY and never
+// types, even if a character message follows it.
+func TestProcessKeyNoText(t *testing.T) {
+	h := newHarness(t)
+	h.feed(kd(vkProcessKey, psA), ch('a'), ku('A', psA))
+	h.expect(
+		press(platform.CodeKeyA, platform.KeyProcess, "", 0),
+		rel(platform.CodeKeyA, "a", 0),
+	)
+}

@@ -228,14 +228,19 @@
 //     disable and commit on nil or leave. Preedit, commit and deletion
 //     events are latched and delivered as one IMEEvent at done. See the
 //     wayland package for serials and the surrounding text window.
-//   - Win32, IMM32 (later in phase 5): WM_IME_COMPOSITION with GCS_RESULTSTR is Commit
-//     and with GCS_COMPSTR the Preedit (GCS_CURSORPOS for its cursor), both
-//     in one IMEEvent when one message carries both;
-//     WM_IME_ENDCOMPOSITION after a preedit without a result is an empty
-//     Preedit (cancel). ImmSetCompositionWindow and ImmSetCandidateWindow
-//     take the cursor area in physical client coordinates; nil and the
-//     password purpose detach the input context (ImmAssociateContextEx);
-//     ResetTextInput is ImmNotifyIME(NI_COMPOSITIONSTR, CPS_CANCEL).
+//   - Win32, IMM32: WM_IME_COMPOSITION with GCS_RESULTSTR is Commit and
+//     with GCS_COMPSTR the Preedit (the target clause of GCS_COMPATTR as
+//     the highlighted range, else GCS_CURSORPOS), both in one IMEEvent when
+//     one message carries both; WM_IME_ENDCOMPOSITION after a preedit
+//     without a result is an empty Preedit (cancel).
+//     ImmSetCompositionWindow and ImmSetCandidateWindow take the cursor
+//     area in physical client coordinates; nil and the password purpose
+//     detach the input context (ImmAssociateContextEx), so the session is
+//     not active in a password field; ResetTextInput is
+//     ImmNotifyIME(NI_COMPOSITIONSTR, CPS_CANCEL), and a session that ends
+//     during a composition completes it in the IME without delivering the
+//     result. Surrounding text answers IMR_DOCUMENTFEED and
+//     IMR_RECONVERTSTRING. See the win32 package.
 //   - macOS, NSTextInputClient: setMarkedText:selectedRange:replacementRange:
 //     is a Preedit (selectedRange gives the cursor), insertText:
 //     replacementRange: a Commit with an empty Preedit, unmarkText a Commit

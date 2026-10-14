@@ -210,6 +210,13 @@ func (b *Backend) pump() {
 	func() {
 		defer func() { b.pumping = false }()
 		b.loop.Deliver(b.handler)
+		// The text input changes of the pass go to the IME once, while
+		// the messages its calls send only queue events.
+		for _, w := range b.loop.Windows() {
+			if w.ime.dirty {
+				w.syncIME()
+			}
+		}
 	}()
 	if b.loop.Quitting() {
 		postQuitMessage()

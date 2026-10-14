@@ -23,7 +23,6 @@ import (
 // DPI and resize handling deterministic.
 
 var (
-	procClientToScreen   = user32.NewProc("ClientToScreen")
 	procSendMessageW     = user32.NewProc("SendMessageW")
 	procGetWindowTextW   = user32.NewProc("GetWindowTextW")
 	procGetCursor        = user32.NewProc("GetCursor")
@@ -127,6 +126,9 @@ func TestStructLayout(t *testing.T) {
 		"bitmapInfoHeader": {unsafe.Sizeof(bitmapInfoHeader{}), 40},
 		"bitmapInfo":       {unsafe.Sizeof(bitmapInfo{}), 44},
 		"devMode":          {unsafe.Sizeof(devMode{}), 220},
+		"compositionForm":  {unsafe.Sizeof(compositionForm{}), 28},
+		"candidateForm":    {unsafe.Sizeof(candidateForm{}), 32},
+		"imeCharPosition":  {unsafe.Sizeof(imeCharPosition{}), 36},
 	} {
 		if tc.got != tc.want {
 			t.Errorf("sizeof(%s) = %d, want %d", name, tc.got, tc.want)

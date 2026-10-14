@@ -60,8 +60,8 @@ func toUnicode(vk, sc uint32, state *[256]byte, hkl uintptr) (string, charKind) 
 	return "", charNone
 }
 
-// keyTrace, when a test sets it, receives a line for every key message and
-// layout question, to find out what Windows did.
+// keyTrace, when a test sets it, receives a line for every key and IME
+// message and layout question, to find out what Windows did.
 var keyTrace func(format string, args ...any)
 
 // altGrCache remembers, per layout, whether it has AltGr. Windows gives no

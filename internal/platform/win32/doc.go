@@ -1,14 +1,15 @@
 // Package win32 is the Windows platform backend. It talks to the system DLLs
-// (user32, gdi32, dwmapi, shcore, kernel32) through golang.org/x/sys/windows
+// (user32, gdi32, imm32, dwmapi, shcore, kernel32) through golang.org/x/sys/windows
 // and syscall.NewCallback, with no cgo, and implements the platform contract
 // documented in package platform ("Mapping onto each OS: Win32").
 //
 // The code that touches the OS is built only on Windows. The files without a
 // build constraint (dib.go, dpi.go, msg.go, pointer.go, cursor.go,
-// keyboard.go, scancode.go, vkey.go, text.go, systemsettings.go) hold the
-// pure logic behind it (pixel conversion, DPI and size math, message
+// keyboard.go, scancode.go, vkey.go, text.go, systemsettings.go, ime.go) hold
+// the pure logic behind it (pixel conversion, DPI and size math, message
 // decoding, the pointer state machine, the cursor table, the keyboard
-// translation, line endings, the settings values), so it is tested on every
+// translation, line endings, the settings values, the IME events and
+// window placement), so it is tested on every
 // OS; the Windows files are exercised by the shared platformtest
 // conformance suite under Wine (and on a real Windows machine, where the
 // live_*_test.go files type on the real keyboard path with SendInput).
@@ -162,9 +163,9 @@
 //     and F10 are reported as key events; nothing else happens.
 //   - Text typed by SendInput with KEYEVENTF_UNICODE (VK_PACKET: touch
 //     keyboards, remote desktops) is a key with an unidentified Code, the
-//     character as Key and Text. IME composition (WM_IME_*) is left to
-//     DefWindowProc for now; a WM_CHAR with no key press before it is an IME
-//     result and is ignored.
+//     character as Key and Text. A WM_CHAR with no key press before it is
+//     not a key's text (an IME result that some IME sent anyway, a posted
+//     message) and is ignored; IME text arrives as IMEEvents (# IME).
 //
 // # Clipboard
 //
@@ -188,7 +189,65 @@
 // DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE), attribute 20 and 19
 // on Windows 10 1809 and 1903.
 //
-// # Not yet
+// # IME
 //
-// IME (WM_IME_*, IMM32) and the IME cursor area arrive with the IME work.
+// IMM32 (ime.go, ime_windows.go; ADR-071), as winit, Chromium's
+// IMM32Manager and Firefox's IMMHandler use it. Modern IMEs (Microsoft IME
+// for Japanese, Chinese and Korean) are TSF text services; Windows bridges
+// them to IMM32 for applications that are not TSF-aware (CUAS), so the
+// application sees WM_IME_* messages and input contexts.
+//
+//   - Session. A new window has no input context (ImmAssociateContextEx
+//     with none), so the IME is off without a text field. A state from
+//     SetTextInput associates the thread's default context (IACE_DEFAULT);
+//     nil and the password purpose remove it again, so a password is typed
+//     on the keyboard layout and the IME neither shows nor learns it. The
+//     other purposes and the multiline flag do not change the IME. The
+//     session is active while the window has the keyboard focus and a
+//     context: it ends before the FocusEvent of a focus loss and starts
+//     after the one of a gain, and SetTextInput(nil) followed by a state
+//     ends and restarts it. SetTextInput and ResetTextInput are recorded
+//     and applied once, at the end of the delivery pass that called them.
+//   - Ending a session with a composition in progress completes it in the
+//     IME (ImmNotifyIME CPS_COMPLETE, as Chromium does when a field loses
+//     focus) after the session is over, so its result is not delivered:
+//     the app keeps its preedit as text (the platform contract), and the
+//     default context, which the thread's windows share, keeps no
+//     composition that would come back in the next field or at the next
+//     focus. ResetTextInput cancels the composition (CPS_CANCEL) after
+//     forgetting it, so the messages that follow change nothing.
+//   - WM_IME_SETCONTEXT goes to DefWindowProc without
+//     ISC_SHOWUICOMPOSITIONWINDOW: Tela draws the preedit inline, the IME
+//     keeps its candidate windows. WM_IME_STARTCOMPOSITION never reaches
+//     DefWindowProc (it would open the system composition window).
+//   - WM_IME_COMPOSITION is one IMEEvent: GCS_RESULTSTR is Commit and the
+//     composition string the new Preedit, both in one event when one
+//     message carries both (Japanese IMEs commit a clause and compose the
+//     rest). lParam 0, or a result without a composition string, ends the
+//     preedit. The preedit cursor is the target clause of GCS_COMPATTR
+//     (ATTR_TARGET_CONVERTED or ATTR_TARGET_NOTCONVERTED) as a highlighted
+//     range, else GCS_CURSORPOS, else hidden. The message never reaches
+//     DefWindowProc, which would turn the result into WM_IME_CHAR and
+//     WM_CHAR messages and type it twice; WM_IME_CHAR is dropped for the
+//     same reason. WM_IME_ENDCOMPOSITION with a preedit still shown is an
+//     empty preedit (cancel); the Microsoft Korean IME sends its result
+//     after it (crbug.com/647150), which then arrives as a Commit without a
+//     composition.
+//   - Keys the IME consumes arrive as VK_PROCESSKEY: a KeyEvent with Key
+//     "Process" and no Text, whatever characters follow it.
+//   - Placement: the cursor area in physical client pixels (rounded
+//     outwards, at least 1x1) is the composition window (CFS_POINT at its
+//     top-left; the window itself is hidden), the candidate window
+//     (CFS_CANDIDATEPOS and, but for Chinese IMEs, CFS_EXCLUDE with the
+//     caret rectangle) and, during a composition with a Chinese or Japanese
+//     IME, a hidden system caret, following Chromium's MoveImeWindow. They
+//     are sent when the area, the scale or the input language changes and
+//     at the start of every composition. WM_IME_REQUEST answers
+//     IMR_QUERYCHARPOSITION with the cursor area for every character.
+//   - Surrounding text: IMR_DOCUMENTFEED gives the IME the field's text
+//     (256 characters on each side of the caret, the preedit at the caret)
+//     and IMR_RECONVERTSTRING the selected text to reconvert, when there is
+//     a selection and no composition (Chromium's answers); the IME's
+//     reconversion then starts a composition whose first preedit replaces
+//     the selection.
 package win32

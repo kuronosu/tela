@@ -44,6 +44,9 @@ type Window struct {
 	mods     platform.Modifiers          // keyboard modifiers of the message being handled
 	tracking bool                        // TrackMouseEvent(TME_LEAVE) is armed
 	cursor   platform.Cursor
+
+	// IME state (ime_windows.go).
+	ime imeWindow
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -80,6 +83,9 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	registry.mu.Unlock()
 	b.loop.Add(w)
 	w.applyTheme(b.settings.DarkMode)
+	// Windows give a new window the thread's default input context; the IME
+	// stays off until the app reports a text field (SetTextInput).
+	procImmAssociateContextEx.Call(hwnd, 0, 0)
 
 	if d := windowDPI(hwnd); d != dpi {
 		// Windows put the window on a monitor with another DPI: keep the
@@ -162,6 +168,7 @@ func (w *Window) Close() {
 	if w.Closed() {
 		return
 	}
+	w.closeIME()
 	w.b.loop.Remove(w) // marks it closed and drops its queued events
 	w.releaseCapture()
 	w.unregister()
@@ -176,6 +183,7 @@ func (w *Window) destroyed() {
 		return
 	}
 	w.b.loop.Remove(w)
+	w.ime = imeWindow{}
 	w.unregister()
 	w.dib.release()
 }
@@ -188,14 +196,22 @@ func (w *Window) unregister() {
 
 // setFocused reports a change of the keyboard focus. Losing it releases the
 // keys that are held first (synthetic releases, ADR-050); gaining it presses
-// nothing, so the keys already down are ignored until their release.
+// nothing, so the keys already down are ignored until their release. The IME
+// session ends before the FocusEvent of a loss and starts after the one of a
+// gain (as in the headless backend).
 func (w *Window) setFocused(focused bool) {
 	if w.focused != focused {
 		if !focused {
 			w.kbd.focusLost(w.kenv) // while keyEvent still delivers
 		}
 		w.focused = focused
+		if !focused {
+			w.syncIME()
+		}
 		w.b.enqueue(w, platform.FocusEvent{Focused: focused})
+		if focused {
+			w.syncIME()
+		}
 	}
 }
 
@@ -212,6 +228,8 @@ func (w *Window) onDPIChanged(wparam, lparam uintptr) {
 	// A suggested rectangle of the same pixel size sends no WM_SIZE, but
 	// the scale changed.
 	w.b.reconfigure(w, w.osMetrics())
+	// The caret's physical position changed with the scale.
+	w.ime.dirty = true
 }
 
 // onGetMinMaxInfo applies WindowOptions.MinSize, a logical size that follows

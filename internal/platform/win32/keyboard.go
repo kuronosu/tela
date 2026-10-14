@@ -274,7 +274,9 @@ func (k *keyTranslator) finish(env keyEnv) {
 	text := stripControls(string(utf16pkg.Decode(p.units)))
 	switch {
 	case p.named:
-		if !p.ctrl {
+		// A key the IME consumed (VK_PROCESSKEY) never types: its
+		// characters, if the IME passes any, belong to the composition.
+		if !p.ctrl && ev.Key != platform.KeyProcess {
 			ev.Text = text
 		}
 	case p.dmsg:

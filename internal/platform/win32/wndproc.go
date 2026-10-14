@@ -75,11 +75,10 @@ func wndProc(hwnd, msg, wparam, lparam uintptr) (ret uintptr) {
 	return ret
 }
 
-// message dispatches a window message. This switch is where new message
-// families plug in (IME arrives with text input). A case handles the message
-// and returns its result; the default is DefWindowProc.
+// message dispatches a window message. A case handles the message and
+// returns its result; the default is DefWindowProc.
 func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
-	if keyTrace != nil && msg >= wmKeyFirst && msg <= wmKeyLast {
+	if keyTrace != nil && (msg >= wmKeyFirst && msg <= wmKeyLast || isIMEMessage(msg)) {
 		t, _, _ := procGetMessageTime.Call()
 		keyTrace("msg %#x wparam %#x lparam %#x time %d", msg, wparam, lparam, int32(t))
 	}
@@ -155,6 +154,14 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.kbd.releaseStale(w.kenv)
 	case wmInputLangChange:
 		forgetLayouts()
+		// The IMEs of the new language may read other forms.
+		w.ime.placed, w.ime.dirty = false, true
+		w.b.dirty = true
+
+	case wmIMESetContext, wmIMEStartComposition, wmIMEComposition, wmIMEEndComposition, wmIMEChar, wmIMERequest:
+		if r, ok := w.imeMessage(msg, wparam, lparam); ok {
+			return r
+		}
 	case wmSettingChange:
 		w.b.settingsChanged()
 
