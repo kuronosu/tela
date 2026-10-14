@@ -1,0 +1,11 @@
+# Text files are checked out with LF on every OS. Goldens (JSON, YAML,
+# text dumps), the Chromium reference HTML, generated Go files and go.mod
+# are compared byte for byte by the tests, so a CRLF checkout on Windows
+# (core.autocrlf) would fail them.
+* text=auto eol=lf
+
+# Binary data, never converted.
+*.png binary
+*.gz binary
+*.ttf binary
+*.otf binary
