@@ -323,7 +323,7 @@ func (p *painter) paintEdges(outer, inner gfx.RRect, bw [4]float32, sd [4]border
 		if !s.visible() {
 			continue
 		}
-		p.b.PushClipPath(sidePolygon(outer.Rect, bw, i), gfx.NonZero)
+		p.b.PushClipPath(sidePolygon(outer.Rect, inner, bw, i), gfx.NonZero)
 		p.paintBand(outer, inner, bw, s.style, s.color, i)
 		p.b.PopClip()
 	}
@@ -625,10 +625,17 @@ func sidePath(outer gfx.RRect, bw [4]float32, i int, extend bool) (gfx.Path, flo
 }
 
 // sidePolygon returns the region of side i of a band whose outer edge is
-// o: o (grown by one pixel) cut, at both corners of the side, by the line
-// from the corner of o to the matching corner of o inset by the side
-// widths.
-func sidePolygon(o gfx.Rect, bw [4]float32, i int) gfx.Path {
+// o and whose inner edge is inner (which may be empty): o (grown by one
+// pixel) cut, at both corners of the side, by the line from the corner of
+// o to the matching corner of o inset by the side widths (the mitered
+// join of two sides), and bounded on the inner side by the edge of that
+// inset rectangle, moved inwards by the radius of the inner corners so
+// that it still covers the band where inner is rounded. That is Blink's
+// quad of a side (outer corner, outer corner, inner corner, inner
+// corner): without the bound, the wedge between two diagonals that
+// converge inside the box (widths that differ a lot) reaches the opposite
+// side and paints over it.
+func sidePolygon(o gfx.Rect, inner gfx.RRect, bw [4]float32, i int) gfx.Path {
 	g := o.Outset(1)
 	poly := []gfx.Point{{X: g.X0, Y: g.Y0}, {X: g.X1, Y: g.Y0}, {X: g.X1, Y: g.Y1}, {X: g.X0, Y: g.Y1}}
 	corners := [4]gfx.Point{{X: o.X0, Y: o.Y0}, {X: o.X1, Y: o.Y0}, {X: o.X1, Y: o.Y1}, {X: o.X0, Y: o.Y1}}
@@ -664,6 +671,21 @@ func sidePolygon(o gfx.Rect, bw [4]float32, i int) gfx.Path {
 	}
 	cut(i)
 	cut((i + 1) % 4)
+	// The inner edge of the side, moved inwards by the inner radius.
+	var r [4]gfx.Point
+	if !inner.Rect.Empty() {
+		r = inner.Radii
+	}
+	switch i {
+	case 0:
+		bound(&poly, 1, 1, o.Y0+bw[0]+max(r[0].Y, r[1].Y))
+	case 1:
+		bound(&poly, 0, -1, -(o.X1 - bw[1] - max(r[1].X, r[2].X)))
+	case 2:
+		bound(&poly, 1, -1, -(o.Y1 - bw[2] - max(r[2].Y, r[3].Y)))
+	default:
+		bound(&poly, 0, 1, o.X0+bw[3]+max(r[0].X, r[3].X))
+	}
 	var path gfx.Path
 	for j, q := range poly {
 		if j == 0 {
@@ -676,4 +698,29 @@ func sidePolygon(o gfx.Rect, bw [4]float32, i int) gfx.Path {
 		path.Close()
 	}
 	return path
+}
+
+// bound clips poly to the half-plane sign*p[axis] <= c (axis 0 is x, 1 is
+// y; sign is 1 or -1).
+func bound(poly *[]gfx.Point, axis int, sign, c float32) {
+	f := func(q gfx.Point) float32 {
+		if axis == 0 {
+			return c - sign*q.X
+		}
+		return c - sign*q.Y
+	}
+	in := *poly
+	var out []gfx.Point
+	for j := range in {
+		a, b := in[j], in[(j+1)%len(in)]
+		fa, fb := f(a), f(b)
+		if fa >= 0 {
+			out = append(out, a)
+		}
+		if (fa >= 0) != (fb >= 0) {
+			t := fa / (fa - fb)
+			out = append(out, gfx.Point{X: a.X + float32((b.X-a.X)*t), Y: a.Y + float32((b.Y-a.Y)*t)})
+		}
+	}
+	*poly = out
 }

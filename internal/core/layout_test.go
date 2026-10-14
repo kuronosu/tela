@@ -189,14 +189,15 @@ func TestSpaceUtilities(t *testing.T) {
 	tr.Frame()
 	wantRect(t, mustFind(t, tr, "b0"), 0, 0, 400, 40)
 	wantRect(t, mustFind(t, tr, "b1"), 0, 56, 400, 40)
-	// Margins and the gap add up (b1 has mb-2, 8px); the absolute child
-	// does not take part.
-	wantRect(t, mustFind(t, tr, "b2"), 0, 56+40+8+16, 400, 40)
-	wantRect(t, mustFind(t, tr, "b"), 0, 0, 400, 160)
-	wantRect(t, mustFind(t, tr, "c1"), 0, 160+56, 400, 40)
+	// The space comes from a rule without specificity (Tailwind v4): b1's
+	// own mb-2 (8px) wins over it. The absolute child is a child like the
+	// others (it has a margin that nothing shows).
+	wantRect(t, mustFind(t, tr, "b2"), 0, 56+40+8, 400, 40)
+	wantRect(t, mustFind(t, tr, "b"), 0, 0, 400, 144)
+	wantRect(t, mustFind(t, tr, "c1"), 0, 144+56, 400, 40)
 	// space-x in block flow: the end margin of every child but the last.
-	wantRect(t, mustFind(t, tr, "r0"), 0, 256, 384, 16)
-	wantRect(t, mustFind(t, tr, "r1"), 0, 272, 400, 16)
+	wantRect(t, mustFind(t, tr, "r0"), 0, 240, 384, 16)
+	wantRect(t, mustFind(t, tr, "r1"), 0, 256, 400, 16)
 
 	// Between inline elements of a paragraph it is an inline space.
 	wa, wb := textWidth(t, "a"), textWidth(t, "b")
@@ -430,6 +431,7 @@ func TestCalcLengths(t *testing.T) {
 	wantRect(t, mustFind(t, tr, "w"), 22, 0, 368, 16)
 	wantRect(t, mustFind(t, tr, "pc"), 36, 16, 364, 8)
 	wantRect(t, mustFind(t, tr, "abs"), 90, 32+41, 16, 16)
-	// space-y-[5%] adds 5% of the container's width (20px) to s0's 3px.
-	wantRect(t, mustFind(t, tr, "s1"), 0, 112+16+3+20, 400, 16)
+	// space-y-[5%] is 5% of the container's width (20px), but s0's own 3px
+	// margin wins over it.
+	wantRect(t, mustFind(t, tr, "s1"), 0, 112+16+3, 400, 16)
 }

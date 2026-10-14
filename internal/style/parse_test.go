@@ -167,21 +167,25 @@ func TestFlexGridClasses(t *testing.T) {
 		{"gap-4", func(t *testing.T, s *ComputedStyle) {
 			eq(t, "Row", s.RowGap, PxLP(16))
 			eq(t, "Col", s.ColumnGap, PxLP(16))
-			eq(t, "SpaceX", s.SpaceX, false)
+			eq(t, "SpaceX", s.SpaceX, PxLP(0))
 		}},
 		{"gap-x-2 gap-y-[10px]", func(t *testing.T, s *ComputedStyle) {
 			eq(t, "Col", s.ColumnGap, PxLP(8))
 			eq(t, "Row", s.RowGap, PxLP(10))
 		}},
 		{"space-y-4", func(t *testing.T, s *ComputedStyle) {
-			eq(t, "Row", s.RowGap, PxLP(16))
-			eq(t, "SpaceY", s.SpaceY, true)
-			eq(t, "SpaceX", s.SpaceX, false)
+			eq(t, "SpaceY", s.SpaceY, PxLP(16))
+			eq(t, "SpaceX", s.SpaceX, PxLP(0))
+			eq(t, "Row", s.RowGap, PxLP(0)) // not a gap
 			eq(t, "Col", s.ColumnGap, PxLP(0))
+		}},
+		{"-space-x-2 -space-y-px", func(t *testing.T, s *ComputedStyle) {
+			eq(t, "SpaceX", s.SpaceX, PxLP(-8))
+			eq(t, "SpaceY", s.SpaceY, PxLP(-1))
 		}},
 		{"space-x-2 gap-x-1", func(t *testing.T, s *ComputedStyle) {
 			eq(t, "Col", s.ColumnGap, PxLP(4))
-			eq(t, "SpaceX", s.SpaceX, false) // the later gap class wins and clears the mark
+			eq(t, "SpaceX", s.SpaceX, PxLP(8)) // independent of the gap
 		}},
 	}
 	for _, tt := range tests {

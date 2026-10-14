@@ -316,8 +316,8 @@ func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element) bool {
 	// space-x-* between inline elements: Tailwind puts a margin after
 	// every element child but the last; text runs are not elements.
 	var gap float32
-	if ocs := owner.box.cs; ocs.SpaceX && !isFlexContainer(ocs) && ocs.ColumnGap.Pct == 0 {
-		gap = ocs.ColumnGap.Px
+	if ocs := owner.box.cs; !isFlexContainer(ocs) && ocs.SpaceX.Pct == 0 {
+		gap = ocs.SpaceX.Px
 	}
 	elems := 0
 	if gap > 0 {

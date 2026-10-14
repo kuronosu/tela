@@ -238,25 +238,25 @@ func registerLayout(r *registry) {
 		r.dimUtil(p.root, dimAuto|dimSpacing|dimNeg, axisX, func(e *env, d Dim) { setSidesDim(&e.s.Margin, mask, d) })
 	}
 
-	// Gap. space-x-* and space-y-* are implemented as gap (section 10).
+	// Gap.
 	for _, g := range []struct {
-		root  string
-		x, y  bool
-		space bool
-	}{
-		{"gap", true, true, false}, {"gap-x", true, false, false}, {"gap-y", false, true, false},
-		{"space-x", true, false, true}, {"space-y", false, true, true},
-	} {
+		root string
+		x, y bool
+	}{{"gap", true, true}, {"gap-x", true, false}, {"gap-y", false, true}} {
 		g := g
 		r.dimUtil(g.root, dimSpacing, axisX, func(e *env, d Dim) {
 			if g.x {
-				e.s.ColumnGap, e.s.SpaceX = d.LP, g.space
+				e.s.ColumnGap = d.LP
 			}
 			if g.y {
-				e.s.RowGap, e.s.SpaceY = d.LP, g.space
+				e.s.RowGap = d.LP
 			}
 		})
 	}
+	// Space between children: margins on the children, not a gap, so the
+	// value may be negative (-space-x-2, Tailwind's overlapping avatars).
+	r.dimUtil("space-x", dimSpacing|dimNeg, axisX, func(e *env, d Dim) { e.s.SpaceX = d.LP })
+	r.dimUtil("space-y", dimSpacing|dimNeg, axisX, func(e *env, d Dim) { e.s.SpaceY = d.LP })
 }
 
 // parseRatio parses "16/9", "16 / 9" or "1.5".

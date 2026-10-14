@@ -90,10 +90,7 @@ func Margin(px float32) Op {
 
 // Gap sets the row and column gap in pixels.
 func Gap(px float32) Op {
-	return op(func(e *env) {
-		e.s.RowGap, e.s.ColumnGap = PxLP(px), PxLP(px)
-		e.s.SpaceX, e.s.SpaceY = false, false
-	})
+	return op(func(e *env) { e.s.RowGap, e.s.ColumnGap = PxLP(px), PxLP(px) })
 }
 
 // Left, Top, Right and Bottom set the inset of a positioned box in pixels.

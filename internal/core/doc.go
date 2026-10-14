@@ -170,10 +170,13 @@
 // mode).
 //
 // mapLayoutStyle maps a ComputedStyle onto layout.Style; see it for the
-// approximations (grid as block, fixed as absolute). space-x-* and space-y-* are gaps: a flex container uses its
-// gap, and a block container adds the gap to the end margin of every
-// in-flow child but the last (Tailwind's margins). Between inline-level
-// elements of a paragraph, space-x-* becomes an empty inline box.
+// approximations (grid as block, fixed as absolute). space-x-* and space-y-*
+// are Tailwind v4's margins, negative values included (-space-x-2): the
+// end margin (inline-end for space-x, block-end for space-y) of every
+// child element but the last, in block and flex containers alike, unless
+// the child has a margin of its own on that side (ADR-070). Between
+// inline-level elements of a paragraph, a positive space-x-* becomes an
+// empty inline box.
 //
 // # Input
 //

@@ -315,15 +315,9 @@ func (t *Tree) remapPhase() {
 
 // remap maps the layout styles of p's children.
 func (t *Tree) remap(p *Box) {
-	last := -1
-	for i := len(p.kids) - 1; i >= 0; i-- {
-		if inFlow(p.kids[i].cs) {
-			last = i
-			break
-		}
-	}
-	for i, k := range p.kids {
-		ls := mapLayoutStyle(k, p, i < last && inFlow(k.cs))
+	last := spaceLast(p)
+	for _, k := range p.kids {
+		ls := mapLayoutStyle(k, p, hasSpaceAfter(k, last))
 		if ls != k.ls {
 			k.ls = ls
 			t.engine.MarkDirty(k)
@@ -335,9 +329,64 @@ func inFlow(cs *style.ComputedStyle) bool {
 	return cs.Display != style.DisplayNone && cs.Position != style.PositionAbsolute && cs.Position != style.PositionFixed
 }
 
+// spaceLast returns the element that is the last child of container p in
+// the DOM's sense, when p has space-x-* or space-y-* (nil otherwise):
+// Tailwind v4 gives the space to every child but the last
+// (:where(& > :not(:last-child))), also when the last child is
+// display: none or absolutely positioned and the one before it is not.
+// Components and display: contents elements have no node of their own:
+// the last element below them counts.
+func spaceLast(p *Box) *Element {
+	if p.el == nil || p.cs == nil || p.cs.SpaceX == (style.LP{}) && p.cs.SpaceY == (style.LP{}) {
+		return nil
+	}
+	return lastChildElement(p.el)
+}
+
+func lastChildElement(el *Element) *Element {
+	for i := len(el.children) - 1; i >= 0; i-- {
+		c := el.children[i]
+		switch c.kind {
+		case elemComponent:
+			if l := lastChildElement(c); l != nil {
+				return l
+			}
+		case elemPrimitive:
+			if cs := c.box.cs; cs != nil && cs.Display == style.DisplayContents {
+				if l := lastChildElement(c); l != nil {
+					return l
+				}
+				continue
+			}
+			return c
+		}
+	}
+	return nil
+}
+
+// hasSpaceAfter reports whether box k of a container whose last child is
+// last takes the container's space-x-* and space-y-* margins. Anonymous
+// boxes (runs of text) are not elements and take none.
+func hasSpaceAfter(k *Box, last *Element) bool {
+	return last != nil && k.el != nil && k.el != last
+}
+
+// applySpace gives ls the space-x-* and space-y-* of a container whose
+// style is pcs as margins on the inline-end and block-end sides. They come
+// from a rule without specificity in Tailwind v4, so a margin of the child
+// on that side wins; an explicit zero margin cannot be told from none.
+func applySpace(ls *layout.Style, pcs *style.ComputedStyle) {
+	if pcs.SpaceY != (style.LP{}) && isZeroPx(ls.Margin.Bottom) {
+		ls.Margin.Bottom = lpDim(pcs.SpaceY)
+	}
+	if pcs.SpaceX != (style.LP{}) && isZeroPx(ls.Margin.Right) {
+		ls.Margin.Right = lpDim(pcs.SpaceX)
+	}
+}
+
 // mapLayoutStyle maps the computed style of box b, a child of parent (nil
-// for the root), onto layout's style. spaceAfter reports an in-flow child
-// followed by another, which takes the parent's space-x/space-y margins.
+// for the root), onto layout's style. spaceAfter reports a child that
+// takes the parent's space-x/space-y margins (hasSpaceAfter).
 //
 // Approximations (until layout and the later phases support them):
 //
@@ -424,8 +473,14 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		v.layoutStyle(&ls) // the boxes of a VirtualList (virtual.go)
 	}
 
-	if parent == nil || isFlexContainer(parent.cs) {
-		return ls // the root, or a flex item: blockified
+	if parent == nil {
+		return ls
+	}
+	if isFlexContainer(parent.cs) {
+		if spaceAfter {
+			applySpace(&ls, parent.cs)
+		}
+		return ls // a flex item: blockified
 	}
 	if parent.mode == modeParagraph {
 		// An atomic inline of a paragraph: its line places it (text-align
@@ -451,15 +506,8 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 			}
 		}
 	}
-	// space-y-* and space-x-*: the gap as margins between in-flow
-	// children (block layout has no gap; Tailwind uses margins too).
 	if spaceAfter {
-		if pcs.SpaceY {
-			ls.Margin.Bottom = addLP(ls.Margin.Bottom, pcs.RowGap)
-		}
-		if pcs.SpaceX {
-			ls.Margin.Right = addLP(ls.Margin.Right, pcs.ColumnGap)
-		}
+		applySpace(&ls, pcs)
 	}
 	return ls
 }
@@ -520,24 +568,6 @@ func lpDim(lp style.LP) layout.Dim {
 
 func edgesOf(s style.Sides[style.Dim]) layout.Edges {
 	return layout.Edges{Top: dimOf(s.Top), Right: dimOf(s.Right), Bottom: dimOf(s.Bottom), Left: dimOf(s.Left)}
-}
-
-// addLP adds a gap to a margin (space-x/space-y): lengths and percentages
-// sum into a calc value; an auto margin stays auto.
-func addLP(m layout.Dim, gap style.LP) layout.Dim {
-	px, f := gap.Px, gap.Pct/100
-	switch m.Unit {
-	case layout.UnitInitial:
-	case layout.UnitPx:
-		px += m.Value
-	case layout.UnitPercent:
-		f += m.Value
-	case layout.UnitCalc:
-		px, f = px+m.Px, f+m.Value
-	default:
-		return m
-	}
-	return layout.Calc(px, f)
 }
 
 func isZeroPx(d layout.Dim) bool {

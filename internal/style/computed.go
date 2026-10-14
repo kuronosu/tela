@@ -582,13 +582,14 @@ type ComputedStyle struct {
 	Margin  Sides[Dim]
 	Padding Sides[LP]
 	// RowGap and ColumnGap are the gap between rows and between columns.
-	// space-y-* and space-x-* are implemented as gap (ARCHITECTURE
-	// section 10): when SpaceY (SpaceX) is true the row (column) gap came
-	// from a space-* class, and layout must also apply it between the
-	// children of a block container, where a plain gap has no effect in
-	// CSS.
 	RowGap, ColumnGap LP
-	SpaceX, SpaceY    bool
+	// SpaceX and SpaceY are the space-x-* and space-y-* lengths, which may
+	// be negative (-space-x-2). Like Tailwind v4 they are not gaps: the
+	// container's children but the last get them as a margin on the
+	// inline-end (SpaceX) or block-end (SpaceY) side, in block and flex
+	// containers alike, unless their own margin on that side is set
+	// (ADR-070). Zero is unset.
+	SpaceX, SpaceY LP
 
 	// Flex.
 	FlexDirection FlexDirection

@@ -432,18 +432,7 @@ func (t *Tree) remapOne(b *Box) {
 	if p == nil || b.el == nil || !b.el.mounted || b.cs == nil || p.cs == nil {
 		return
 	}
-	// The space-x/space-y margins go to an in-flow box followed by an
-	// in-flow sibling (see remap).
-	after := false
-	if inFlow(b.cs) {
-		for i := len(p.kids) - 1; i >= 0 && p.kids[i] != b; i-- {
-			if inFlow(p.kids[i].cs) {
-				after = true
-				break
-			}
-		}
-	}
-	ls := mapLayoutStyle(b, p, after)
+	ls := mapLayoutStyle(b, p, hasSpaceAfter(b, spaceLast(p)))
 	if ls != b.ls {
 		b.ls = ls
 		t.engine.MarkDirty(b)
