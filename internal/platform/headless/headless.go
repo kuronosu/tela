@@ -37,7 +37,10 @@
 // contract (focus first, presses before releases, Repeat only while held),
 // and Inject panics with the reason when a sequence could not come from a
 // real backend; losing focus releases the held keys synthetically, as real
-// backends do.
+// backends do. SetTextInput records the app's text input state
+// (Window.TextInput, TextInputChanges, TextInputResets); the IME session is
+// active while the window has focus and a state, and IMEEvents injected
+// into it are checked against the platform text input contract.
 //
 // # Concurrency
 //

@@ -30,6 +30,7 @@ const (
 	cursorShapeVersion = 1
 	decorationVersion  = 1
 	// wl_data_device_manager: dataDeviceManagerVersion in clipboard.go.
+	// zwp_text_input_manager_v3: textInputVersion in textinput.go.
 )
 
 // startupTimeout bounds the roundtrips done by New.
@@ -49,6 +50,9 @@ type Backend struct {
 	cursorShape *protocols.WpCursorShapeManagerV1
 	decoration  *protocols.ZxdgDecorationManagerV1
 	dataManager *protocols.WlDataDeviceManager // nil without a clipboard
+	// textInputManager is nil without zwp_text_input_manager_v3: then
+	// SetTextInput only records the state (textinput.go).
+	textInputManager *protocols.ZwpTextInputManagerV3
 
 	shmFormats map[protocols.WlShmFormat]bool
 	format     protocols.WlShmFormat // pixel format of every buffer
@@ -218,6 +222,8 @@ func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
 		}
 	case protocols.WlDataDeviceManagerInterfaceName:
 		b.bindDataDeviceManager(e.Name, e.Version)
+	case protocols.ZwpTextInputManagerV3InterfaceName:
+		b.bindTextInputManager(e.Name, e.Version)
 	case protocols.WlSeatInterfaceName:
 		b.addSeat(e.Name, e.Version)
 	case protocols.WlOutputInterfaceName:
@@ -346,6 +352,10 @@ func (b *Backend) Run(h platform.Handler) error {
 		if td, ok := b.transferDeadline(); ok && (!timed || td < deadline) {
 			deadline, timed = td, true
 		}
+		// The text input changes of this iteration (the handler's
+		// SetTextInput calls, enter and leave) go out with one commit
+		// each.
+		b.syncTextInputs()
 		if err := b.flush(); err != nil {
 			return err
 		}
@@ -461,6 +471,9 @@ func (b *Backend) release() {
 		}
 		if b.decoration != nil {
 			b.decoration.Destroy()
+		}
+		if b.textInputManager != nil {
+			b.textInputManager.Destroy()
 		}
 		b.wm.Destroy()
 		// Best effort: the compositor frees everything when the socket

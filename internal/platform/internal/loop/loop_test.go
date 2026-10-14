@@ -21,6 +21,8 @@ func (w *win) Present(*image.RGBA, []image.Rectangle) error { return nil }
 func (w *win) SetTitle(string)                              {}
 func (w *win) SetCursor(platform.Cursor)                    {}
 func (w *win) SetSize(platform.Size)                        {}
+func (w *win) SetTextInput(*platform.TextInputState)        {}
+func (w *win) ResetTextInput()                              {}
 func (w *win) Close()                                       {}
 
 // rig is a Loop with a manual clock and a recording handler.

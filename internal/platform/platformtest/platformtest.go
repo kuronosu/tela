@@ -63,6 +63,7 @@ var subtests = []subtest{
 	{"NewWindowFromHandler", testNewWindowFromHandler},
 	{"NoReentrancy", testNoReentrancy},
 	{"Clipboard", testClipboard},
+	{"TextInput", testTextInput},
 	{"Misc", testMisc},
 }
 
@@ -456,6 +457,8 @@ func testClose(s *session) {
 				a.SetTitle("closed")
 				a.SetCursor(platform.CursorPointer)
 				a.SetSize(platform.Size{W: 10, H: 10})
+				a.SetTextInput(&platform.TextInputState{})
+				a.ResetTextInput()
 				if err := a.Present(image.NewRGBA(image.Rect(0, 0, 1, 1)), nil); err != nil {
 					s.t.Errorf("Present on a closed window: %v", err)
 				}
@@ -561,6 +564,76 @@ func testClipboard(s *session) {
 	})
 	if got != text {
 		s.t.Errorf("clipboard round trip = %q, want %q", got, text)
+	}
+}
+
+func testTextInput(s *session) {
+	// The suite has no IME to drive: it checks that the text input methods
+	// accept valid states, reject invalid ones, and produce no IMEEvents,
+	// and that IMESessionEvents (if the backend attaches an IME) alternate.
+	var w platform.Window
+	session := false
+	called := false
+	s.run(func() {
+		w = s.newWindow(platform.WindowOptions{Size: platform.Size{W: 300, H: 200}})
+		// Before the first frame, from setup: allowed (UI thread).
+		w.SetTextInput(&platform.TextInputState{CursorArea: platform.Rect{X: 10, Y: 10, H: 20}})
+	}, func(ew platform.Window, e platform.Event) {
+		switch e := e.(type) {
+		case platform.IMEEvent:
+			s.t.Errorf("IMEEvent %+v without an IME", e)
+		case platform.IMESessionEvent:
+			if e.Active == session {
+				s.t.Errorf("IMESessionEvent{Active: %v} twice in a row", e.Active)
+			}
+			session = e.Active
+		case platform.FrameEvent:
+			s.present(w, opaqueBlue)
+			if called {
+				return
+			}
+			called = true
+			text := "héllo wörld"
+			st := &platform.TextInputState{
+				CursorArea:  platform.Rect{X: 12.5, Y: 40.25, W: 0, H: 18},
+				Purpose:     platform.TextPurposeEmail,
+				Surrounding: &platform.SurroundingText{Text: text, Cursor: 6, Anchor: 1},
+			}
+			w.SetTextInput(st)
+			st.Surrounding.Cursor = 7 // the backend kept a copy
+			w.SetTextInput(st)
+			w.SetTextInput(st) // equal: free
+			w.ResetTextInput()
+			st2 := st.Clone()
+			st2.Purpose, st2.Multiline = platform.TextPurposeNormal, true
+			w.SetTextInput(st2)
+			w.SetTextInput(nil)
+			w.SetTextInput(nil)
+			w.ResetTextInput() // without a state: nothing
+			w.SetTextInput(&platform.TextInputState{Purpose: platform.TextPurposePassword})
+			for _, bad := range []*platform.TextInputState{
+				{CursorArea: platform.Rect{W: -1}},
+				{Purpose: platform.TextPurpose(200)},
+				{Surrounding: &platform.SurroundingText{Text: text, Cursor: 2}}, // inside "é"
+				{Surrounding: &platform.SurroundingText{Text: text, Anchor: len(text) + 1}},
+			} {
+				func() {
+					defer func() {
+						if recover() == nil {
+							s.t.Errorf("SetTextInput(%+v) did not panic", bad)
+						}
+					}()
+					w.SetTextInput(bad)
+				}()
+			}
+			w.SetTextInput(nil)
+			s.wakeAfter(quietPeriod)
+		case platform.WakeEvent:
+			s.b.Quit()
+		}
+	})
+	if !called {
+		s.t.Errorf("no FrameEvent")
 	}
 }
 

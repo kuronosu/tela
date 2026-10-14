@@ -79,6 +79,15 @@ type Window struct {
 	chain       swapchain
 	bufferScale int32 // scale committed with set_buffer_scale (protocol default 1)
 	mapped      bool  // a buffer was committed
+
+	// Text input (textinput.go): the app's latest state (a clone), whether
+	// a nil state came since the last sync (restart the session) or a
+	// reset was asked, and the number of seats with an enabled text input
+	// on the window (the IME session is active while it is non-zero).
+	textInput   *platform.TextInputState
+	tiRestart   bool
+	tiReset     bool
+	imeSessions int
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -476,6 +485,7 @@ func (w *Window) Close() {
 			s.kbd.dropWindow(w)
 		}
 	}
+	w.closeTextInput()
 	delete(b.surfaces, w.surface)
 
 	// Destruction order matters: the decoration before its toplevel

@@ -21,6 +21,10 @@
 //     requested when present. Client-side decorations are not drawn yet.
 //   - wl_data_device_manager (optional, version up to 3): the clipboard
 //     (clipboard.go). Without it Clipboard reports an error.
+//   - zwp_text_input_manager_v3 (optional, version 1): the IME
+//     (textinput.go). Without it SetTextInput only records the state and
+//     no IME events arrive (an IME is then reachable only through the
+//     keys it forwards).
 //
 // # Loop
 //
@@ -113,6 +117,25 @@
 // it was at its last focus (which may be stale, or empty if its owner has
 // gone), and its WriteText is likely refused. Text editing copies and
 // pastes from key and pointer handlers, which run with focus.
+//
+// # Text input and IME
+//
+// Each seat gets one zwp_text_input_v3. It follows the seat's keyboard
+// focus (enter, leave). Once it has entered a window whose app set a text
+// input state, the loop sends enable, the state (surrounding text,
+// content type, cursor rectangle) and commit; later changes send only the
+// parts that changed, with one commit per loop iteration at most, and
+// nothing while the state stays equal. A nil state sends disable and
+// commit; a new field (nil then a state) or a new content type restarts
+// with disable, commit, enable, state, commit. IMESessionEvents follow the
+// enabled state; leave ends the session without requests.
+//
+// preedit_string, commit_string and delete_surrounding_text are latched
+// and delivered as one IMEEvent at done, when they change something. The
+// serial of done is compared with our commit count, but a stale done is
+// applied like a current one (the protocol's rule; see textinput.go for
+// why the state is never held back). Surrounding text longer than the
+// protocol's 4000 bytes is cut to a window around the selection.
 //
 // Every file but this one is only built on Linux.
 package wayland

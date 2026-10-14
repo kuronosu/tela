@@ -30,6 +30,7 @@ type seat struct {
 	// one most likely to be accepted.
 	serial uint32
 	data   *dataDevice // nil without wl_data_device_manager
+	ti     *textInput  // nil without zwp_text_input_manager_v3
 }
 
 func (b *Backend) addSeat(name, version uint32) {
@@ -38,6 +39,7 @@ func (b *Backend) addSeat(name, version uint32) {
 	s.wl.SetCapabilitiesHandler(s.onCapabilities)
 	b.seats = append(b.seats, s)
 	s.attachDataDevice()
+	s.attachTextInput()
 }
 
 // inputSerial records the serial of an input event of the seat.
@@ -102,6 +104,10 @@ func (s *seat) destroy() {
 	if s.data != nil {
 		s.data.release()
 		s.data = nil
+	}
+	if s.ti != nil {
+		s.ti.release()
+		s.ti = nil
 	}
 	if !s.wl.Destroyed() && s.wl.Version() >= 5 {
 		s.wl.Release()

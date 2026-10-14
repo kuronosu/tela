@@ -19,6 +19,14 @@ type Size struct {
 	W, H float32
 }
 
+// Rect is a rectangle in logical pixels: its top-left corner (X, Y),
+// relative to the content area like [Point], and its size (W, H).
+type Rect struct {
+	X, Y, W, H float32
+}
+
+func (r Rect) String() string { return fmt.Sprintf("(%g,%g %gx%g)", r.X, r.Y, r.W, r.H) }
+
 // Empty reports whether s has no area.
 func (s Size) Empty() bool { return !(s.W > 0 && s.H > 0) }
 

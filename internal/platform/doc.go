@@ -40,8 +40,8 @@
 // types, not new methods.
 //
 // The event set: ConfigureEvent, FrameEvent, CloseRequestedEvent,
-// FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent and
-// KeyEvent.
+// FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent,
+// KeyEvent, IMEEvent and IMESessionEvent.
 //
 // # Threading
 //
@@ -170,7 +170,84 @@
 //     acts on its own (it types, or starts a new sequence). Where no
 //     Compose table exists (Linux without a Compose file), a dead key
 //     types its spacing accent ("´") as Key and Text. Input method
-//     composition (phase 5) arrives as its own events.
+//     composition arrives as its own events (next section).
+//
+// # Text input and IME
+//
+// An input method (IME: fcitx5 or IBus with Mozc or Pinyin, the Windows
+// IMEs, macOS input sources) turns several keys into text through a
+// composition: a preedit shown in the field, underlined, until the user
+// commits or cancels it. The app drives it with two Window methods and
+// receives two events (ADR-068).
+//
+//   - [Window.SetTextInput] with a [TextInputState] says that a text field
+//     of the window has focus: its caret area (logical pixels, window
+//     coordinates; the IME places its candidate window next to it), its
+//     [TextPurpose] and multiline flag, and optionally its committed text
+//     around the caret ([SurroundingText]). nil says no text field has
+//     focus and turns the IME off. The app calls it whenever one of the
+//     values changes (after layout, so the caret area is current); the
+//     backend keeps a copy, ignores calls with an equal state, and sends
+//     the OS at most one update per loop iteration (text-input-v3 counts
+//     every commit, so updates are not sent per call or per frame).
+//   - Moving focus from one field to another is SetTextInput(nil) followed
+//     by the new field's state, which restarts the IME session even when
+//     both calls fall in the same iteration (text-input-v3 requires an
+//     enable per field).
+//   - [Window.ResetTextInput] says the app finished or removed the
+//     composition itself (a click in the field, a programmatic value
+//     change); the IME drops its own composition.
+//   - [IMEEvent] is one atomic update from the IME: delete surrounding
+//     text, commit text, set the new preedit, applied in that order (see
+//     IMEEvent for the mapping onto internal/text/edit). An empty Preedit
+//     with no Commit while a composition is in progress means the IME
+//     cancelled it.
+//   - [IMESessionEvent] reports that the IME session of the window started
+//     or ended (focus, SetTextInput, the OS detaching the IME). After an
+//     end, a composition in progress gets no more events.
+//
+// Offsets are UTF-8 bytes everywhere: the surrounding text's cursor and
+// anchor, the preedit cursor, the deletion lengths. Backends whose OS
+// counts UTF-16 code units (Win32 IMM32, macOS NSTextInputClient) convert
+// with internal/utf16x; the layers above never see UTF-16.
+//
+// Keys and the IME. The IME sees keys before the app. Keys it consumes
+// (those that build or navigate a composition) never arrive as KeyEvents;
+// keys it passes through arrive as usual. Where the OS still reports a
+// consumed key (Win32 sends VK_PROCESSKEY), the backend delivers it with
+// Key [KeyProcess] and no Text, and the app neither inserts nor acts on
+// it. While a composition is in progress (from the first IMEEvent with a
+// non-empty Preedit until one without, or an IMESessionEvent with Active
+// false) the app does not insert KeyEvent.Text and runs no editing
+// command for keys: the IME owns them.
+//
+// How each backend maps the contract:
+//
+//   - Wayland, zwp_text_input_v3 (one text input per seat): enable, the
+//     state and commit once the text input entered a window with a state;
+//     disable and commit on nil or leave. Preedit, commit and deletion
+//     events are latched and delivered as one IMEEvent at done. See the
+//     wayland package for serials and the surrounding text window.
+//   - Win32, IMM32 (later in phase 5): WM_IME_COMPOSITION with GCS_RESULTSTR is Commit
+//     and with GCS_COMPSTR the Preedit (GCS_CURSORPOS for its cursor), both
+//     in one IMEEvent when one message carries both;
+//     WM_IME_ENDCOMPOSITION after a preedit without a result is an empty
+//     Preedit (cancel). ImmSetCompositionWindow and ImmSetCandidateWindow
+//     take the cursor area in physical client coordinates; nil and the
+//     password purpose detach the input context (ImmAssociateContextEx);
+//     ResetTextInput is ImmNotifyIME(NI_COMPOSITIONSTR, CPS_CANCEL).
+//   - macOS, NSTextInputClient: setMarkedText:selectedRange:replacementRange:
+//     is a Preedit (selectedRange gives the cursor), insertText:
+//     replacementRange: a Commit with an empty Preedit, unmarkText a Commit
+//     of the marked text; a replacement range next to the cursor becomes
+//     DeleteBefore/DeleteAfter. firstRectForCharacterRange: answers the
+//     cursor area in screen coordinates, selectedRange and
+//     attributedSubstringForProposedRange: the surrounding text;
+//     ResetTextInput is discardMarkedText.
+//   - X11 has no IME yet (XIM is phase 8): SetTextInput and
+//     ResetTextInput do nothing.
+//   - Headless records the latest state per window and lets tests inject
+//     IMEEvents, checked against these rules like keys.
 //
 // # Coordinates, scale and framebuffer size
 //

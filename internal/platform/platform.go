@@ -108,6 +108,23 @@ type Window interface {
 	// any, arrives as a ConfigureEvent.
 	SetSize(size Size)
 
+	// SetTextInput tells the input method about the window's focused text
+	// field: its caret area, purpose and surrounding text (see
+	// [TextInputState] and "Text input and IME" in the package
+	// documentation). nil means no text field has focus, which turns the
+	// IME off for the window. Call it whenever the state changes; calls
+	// with an equal state are free, and backends send at most one update
+	// per loop iteration. The backend keeps a copy. Invalid states panic
+	// ([CheckTextInputState]).
+	SetTextInput(state *TextInputState)
+
+	// ResetTextInput tells the IME that the app ended the composition in
+	// progress itself (a click elsewhere in the field, a programmatic
+	// value change; the app has already committed or removed the
+	// preedit), so the IME must drop its own and start afresh from the
+	// current state. It does nothing without a text input state.
+	ResetTextInput()
+
 	// Close destroys the window. Pending events for it are dropped.
 	Close()
 }

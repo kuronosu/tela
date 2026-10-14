@@ -25,6 +25,7 @@ type Window struct {
 	os       platform.Metrics // the "OS" state: latest size/scale, maybe not delivered yet
 	focused  bool
 	held     keyboard.Held // keys pressed and not released, for synthetic releases
+	ime      imeState
 	frame    *image.RGBA
 	damage   []image.Rectangle
 	presents int
@@ -129,11 +130,12 @@ func (w *Window) Close() {
 // --- injection (user / window manager actions) ---
 
 // Inject queues an input or window event for this window, as if the OS
-// produced it. Accepted: PointerEvent, ScrollEvent, KeyEvent, FocusEvent,
-// CloseRequestedEvent. A zero Time in pointer, scroll and key events is set
-// to the current clock. Other events have dedicated APIs (Resize, SetScale,
-// RequestFrame, Backend.Wake, Backend.SetSettings) and panic here. Events
-// injected into a closed window are dropped.
+// produced it. Accepted: PointerEvent, ScrollEvent, KeyEvent, IMEEvent,
+// FocusEvent, CloseRequestedEvent. A zero Time in pointer, scroll and key
+// events is set to the current clock. Other events have dedicated APIs
+// (Resize, SetScale, RequestFrame, Backend.Wake, Backend.SetSettings,
+// SetTextInput for IMESessionEvent) and panic here. Events injected into a
+// closed window are dropped.
 //
 // Key events follow the platform keyboard contract, and Inject enforces it
 // so that tests describe sequences a real backend can produce: the window
@@ -144,6 +146,15 @@ func (w *Window) Close() {
 // delivered as given (Code.Location() gives the Location of a physical
 // key). Losing focus (SetFocused(false) or an injected FocusEvent) queues a
 // synthetic release for every held key before the FocusEvent.
+//
+// IME events follow the platform text input contract: the window must
+// have an active IME session (focus and a state set with SetTextInput),
+// the event must pass platform.CheckIMEEvent, and it must change
+// something (a deletion, a commit, or a preedit or preedit cursor other
+// than the previous event's in the session). The session's start and end
+// are queued as IMESessionEvents by SetTextInput and focus changes: losing
+// focus ends it after the synthetic key releases and before the
+// FocusEvent; gaining focus with a state starts it after the FocusEvent.
 func (w *Window) Inject(e platform.Event) {
 	switch ev := e.(type) {
 	case platform.PointerEvent:
@@ -159,6 +170,9 @@ func (w *Window) Inject(e platform.Event) {
 	case platform.KeyEvent:
 		w.injectKey(ev)
 		return
+	case platform.IMEEvent:
+		w.injectIME(ev)
+		return
 	case platform.FocusEvent:
 		w.injectFocus(ev)
 		return
@@ -166,7 +180,7 @@ func (w *Window) Inject(e platform.Event) {
 	case nil:
 		panic("headless: Inject called with a nil event")
 	default:
-		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent", e))
+		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent, SetFocused and SetTextInput for IMESessionEvent", e))
 	}
 	w.b.mu.Lock()
 	if w.WindowState.Closed() {
@@ -233,8 +247,12 @@ func (w *Window) injectFocus(e platform.FocusEvent) {
 		for _, r := range w.held.ReleaseAll(b.now()) {
 			b.loop.Enqueue(w, r)
 		}
+		w.setSession(false)
 	}
 	b.loop.Enqueue(w, e)
+	if e.Focused {
+		w.setSession(w.ime.state != nil)
+	}
 	b.mu.Unlock()
 	b.signal()
 }
