@@ -178,7 +178,10 @@ jobs:
           # go test's pipes: otherwise they inherit a test binary's output
           # and go test waits for it ("Test I/O incomplete ... WaitDelay
           # expired") after the test passed.
-          wineserver -p
+          # wineboot and reg leave a short-lived wineserver behind, and
+          # wineserver -p fails while another one runs: wait for it first.
+          wineserver -w
+          wineserver -p > /dev/null 2>&1 < /dev/null
           wine cmd /c exit > /dev/null 2>&1 < /dev/null
           # A first window starts the desktop process; notepad is killed
           # after it, the desktop process stays with the wineserver.
