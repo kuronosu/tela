@@ -299,6 +299,7 @@ func TestLiveIME(t *testing.T) {
 	}
 	var steps []liveStep
 	var cur int
+	var noIME string // set when the probe finds no composing IME on CI
 	// abort fails the test from the handler (t.Fatal cannot unwind through
 	// WndProc) and stops the run.
 	abort := func(format string, args ...any) {
@@ -389,6 +390,15 @@ func TestLiveIME(t *testing.T) {
 		}
 		if strategy++; strategy < len(strategies) {
 			cur = probeAt - 1 // the next Wake runs the probe again
+			return
+		}
+		if os.Getenv("GITHUB_ACTIONS") == "true" {
+			// Hosted runners load the Japanese layout but have no
+			// Microsoft IME that composes (a service desktop). Elsewhere
+			// (the Windows VM) this stays a failure.
+			noIME = fmt.Sprintf("the IME never composed on this hosted runner (preedit %q)", p)
+			cur = len(steps)
+			b.Quit()
 			return
 		}
 		abort("the IME never composed (preedit %q)", p)
@@ -718,6 +728,9 @@ func TestLiveIME(t *testing.T) {
 			t.Log(l)
 		}
 		t.Skip("the window did not get the keyboard focus and an IME session")
+	}
+	if noIME != "" {
+		t.Skip(noIME)
 	}
 	if timedOut.Load() {
 		t.Errorf("timed out at step %d", cur)
