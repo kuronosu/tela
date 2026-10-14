@@ -23,16 +23,34 @@ import (
 // DPI and resize handling deterministic.
 
 var (
-	procClientToScreen = user32.NewProc("ClientToScreen")
-	procSendMessageW   = user32.NewProc("SendMessageW")
-	procGetWindowTextW = user32.NewProc("GetWindowTextW")
-	procGetCursor      = user32.NewProc("GetCursor")
-	procGetWindowLongW = user32.NewProc("GetWindowLongW")
-	procGetPixel       = gdi32.NewProc("GetPixel")
+	procClientToScreen   = user32.NewProc("ClientToScreen")
+	procSendMessageW     = user32.NewProc("SendMessageW")
+	procGetWindowTextW   = user32.NewProc("GetWindowTextW")
+	procGetCursor        = user32.NewProc("GetCursor")
+	procGetWindowLongW   = user32.NewProc("GetWindowLongW")
+	procGetPixel         = gdi32.NewProc("GetPixel")
+	procOpenInputDesktop = user32.NewProc("OpenInputDesktop")
+	procCloseDesktop     = user32.NewProc("CloseDesktop")
 )
+
+// requireInteractiveDesktop skips the test when this process has no
+// interactive input desktop, which is the case in a service or session 0
+// (some hosted CI runners). Windows cannot show or focus a window there, and
+// SendInput goes nowhere. Wine answers with its virtual desktop, so the
+// tests keep running under Wine.
+func requireInteractiveDesktop(t *testing.T) {
+	t.Helper()
+	const desktopReadObjects = 0x0001
+	d, _, _ := procOpenInputDesktop.Call(0, 0, desktopReadObjects)
+	if d == 0 {
+		t.Skip("no interactive input desktop (service or session 0): live window tests need one")
+	}
+	procCloseDesktop.Call(d)
+}
 
 func liveBackend(t *testing.T) *Backend {
 	t.Helper()
+	requireInteractiveDesktop(t)
 	b, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
