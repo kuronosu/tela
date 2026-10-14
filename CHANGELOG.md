@@ -31,6 +31,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - Classes and variants `caret-*`, `field-sizing-content|fixed`, `placeholder:`, `selection:`, `read-only:`, `placeholder-shown:`, `invalid:`.
 - `telatest.Fill` and `telatest.ExpectValue`; `Type` now types into text fields.
 - IME on Wayland (`text-input-v3`): Japanese and other input methods compose inline in text fields.
+- IME on Windows (IMM32): inline composition in text fields, the candidate window at the caret, and the IME off in password fields.
 - `examples/signup`: a "Create your account" form screen with every text field feature.
 - `resize-none` is accepted (Tela draws no resize grip).
 - `LICENSE`: BSD 3-Clause.
