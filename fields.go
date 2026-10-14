@@ -26,7 +26,8 @@ import "github.com/kuronosu/tela/internal/core"
 // "deleteWordBackward", "deleteByCut", "historyUndo",
 // "insertCompositionText"...), Data is the inserted text (empty for
 // deletions), IsComposing reports an IME composition. PreventDefault
-// cancels the edit, except during a composition. It bubbles.
+// cancels the edit, except during a composition and for the text an IME
+// deletes around the caret. It bubbles.
 //
 //	// Digits only.
 //	Input(OnBeforeInput(func(e tela.InputEvent) {

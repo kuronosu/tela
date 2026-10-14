@@ -431,6 +431,9 @@ func (t *Tree) update(el *Element, n Node) {
 		if old.id != d.id {
 			t.setID(el, old.id)
 		}
+		if old.fp != d.fp {
+			t.setLabelFor(el, forID(old))
+		}
 		if bx.fld != nil {
 			t.updateField(el, old)
 		}
@@ -508,6 +511,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.id != "" {
 			t.setID(el, "")
 		}
+		if d.fp != nil {
+			t.setLabelFor(el, "")
+		}
 		if d.elem.IsTextField() {
 			t.mountField(el)
 		}
@@ -543,9 +549,7 @@ func (t *Tree) unmount(el *Element) {
 	t.stats.Unmounts++
 	if el.kind == elemPrimitive {
 		t.unmountFocus(el)
-		if id := el.node.d.id; id != "" && t.ids[id] == el {
-			delete(t.ids, id)
-		}
+		t.unmountIndexed(el)
 		if el.box.fld != nil {
 			t.unmountField(el)
 		}

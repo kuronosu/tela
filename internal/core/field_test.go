@@ -462,6 +462,14 @@ func TestFieldBindings(t *testing.T) {
 		{flavorLinux, false, k("x", platform.ModCtrl|platform.ModAlt), "x", 0, actNone},
 		{flavorLinux, false, k("é", 0), "é", edit.InsertText, actCommand},
 		{flavorLinux, false, k("é", platform.ModSuper), "é", 0, actNone},
+		// Alt chords type nothing on Linux and Windows (GTK accelerators,
+		// WM_SYSCHAR); AltGr is never reported as Alt and types.
+		{flavorLinux, false, k("x", platform.ModAlt), "x", 0, actNone},
+		{flavorWindows, false, k("x", platform.ModAlt), "x", 0, actNone},
+		{flavorWindows, false, k("X", platform.ModAlt|platform.ModShift), "X", 0, actNone},
+		{flavorWindows, false, k("@", 0), "@", edit.InsertText, actCommand},
+		// Option types characters on macOS.
+		{flavorMac, false, k("å", platform.ModAlt), "å", edit.InsertText, actCommand},
 		{flavorMac, false, k(platform.KeyArrowLeft, platform.ModAlt), "", edit.MoveWordLeft, actCommand},
 		{flavorMac, false, k("c", platform.ModSuper), "c", edit.Copy, actCommand},
 		{flavorMac, false, k(platform.KeyBackspace, platform.ModSuper), "", edit.DeleteToLineStart, actCommand},
@@ -814,6 +822,66 @@ func TestFieldIME(t *testing.T) {
 	}
 }
 
+// TestFieldIMEDeleteSurrounding checks that an IME deletion around the
+// caret fires beforeinput before the value changes, as every other edit,
+// and that PreventDefault does not cancel it (Chromium ignores the
+// result: the IME cannot be told its edit was refused).
+func TestFieldIMEDeleteSurrounding(t *testing.T) {
+	var ev []string
+	var x *inputHarness
+	prevent := false
+	root := div(input(Key("in"), DefaultValue("abcd"),
+		On("beforeinput", func(e InputEvent) {
+			ev = append(ev, fmt.Sprintf("before:%s:%v:%s", e.InputType, e.IsComposing, x.value("in")))
+			if prevent {
+				e.PreventDefault()
+			}
+		}),
+		On("change", func(e ChangeEvent) {
+			ev = append(ev, fmt.Sprintf("change:%s:%v:%s", e.InputType, e.IsComposing, e.Value))
+		}),
+	))
+	x = newKeys(t, root, 400, 200)
+	x.tab()
+	x.key(platform.KeyEnd, 0)
+	x.key(platform.KeyArrowLeft, 0)
+	x.settle()
+	ime := func(e platform.IMEEvent) {
+		x.w.Inject(e)
+		x.b.Drain(x.h)
+	}
+	ev = nil
+	ime(platform.IMEEvent{DeleteBefore: 1})
+	ime(platform.IMEEvent{DeleteAfter: 1})
+	prevent = true
+	ime(platform.IMEEvent{DeleteBefore: 1})
+	prevent = false
+	want := []string{
+		"before:deleteContentBackward:false:abcd", "change:deleteContentBackward:false:abd",
+		"before:deleteContentForward:false:abd", "change:deleteContentForward:false:ab",
+		"before:deleteContentBackward:false:ab", "change:deleteContentBackward:false:a",
+	}
+	if got := strings.Join(ev, " "); got != strings.Join(want, " ") {
+		t.Errorf("events\n got %s\nwant %s", got, strings.Join(want, " "))
+	}
+	// During a composition: around the preedit, IsComposing set.
+	ev = nil
+	ime(platform.IMEEvent{Preedit: "x", CursorStart: 1, CursorEnd: 1})
+	ev = nil
+	ime(platform.IMEEvent{DeleteBefore: 1, Preedit: "x", CursorStart: 1, CursorEnd: 1})
+	if len(ev) < 2 || ev[0] != "before:deleteContentBackward:true:ax" || ev[1] != "change:deleteContentBackward:true:x" {
+		t.Errorf("in a composition: %v", ev)
+	}
+	// Nothing to delete fires nothing.
+	ime(platform.IMEEvent{Commit: "y"})
+	x.key(platform.KeyHome, 0)
+	ev = nil
+	ime(platform.IMEEvent{DeleteBefore: 3})
+	if len(ev) != 0 {
+		t.Errorf("a deletion at the start fired %v", ev)
+	}
+}
+
 func TestFieldIMEPurposes(t *testing.T) {
 	for _, c := range []struct {
 		typ   string
@@ -984,6 +1052,115 @@ func TestLabels(t *testing.T) {
 	})
 	if bio == nil || !bio.Has(semantics.StateMultiline) || !bio.Can(semantics.ActionSetValue) {
 		t.Errorf("textarea node %+v", bio)
+	}
+}
+
+// TestDuplicateIDs checks that a duplicate ID resolves to the first
+// mounted element with it in tree order (HTML's getElementById), and
+// that unmounting one of them leaves the ID to the others.
+func TestDuplicateIDs(t *testing.T) {
+	var set Setter[int]
+	app := func() Node {
+		n, s := UseState(0)
+		set = s
+		var kids []Child
+		if n == 2 {
+			kids = append(kids, input(Key("c"), ID("x"), Placeholder("C")))
+		}
+		kids = append(kids, input(Key("a"), ID("x"), Placeholder("A")))
+		if n == 0 || n == 2 {
+			kids = append(kids, input(Key("b"), ID("x"), Placeholder("B")))
+		}
+		kids = append(kids, label(Key("l"), For("x"), Text("Name")))
+		return div(kids...)
+	}
+	x := newKeys(t, Component(app), 400, 300)
+	x.frame()
+	named := func() string {
+		var out []string
+		x.tree().Semantics().Walk(func(m *semantics.Node) bool {
+			if m.Role == "textbox" && m.Name == "Name" {
+				out = append(out, m.Name)
+			}
+			return true
+		})
+		el := x.tree().byID("x")
+		if el == nil {
+			return fmt.Sprintf("%d named, byID nil", len(out))
+		}
+		return fmt.Sprintf("%d named, byID %v", len(out), el.node.d.key)
+	}
+	if got := named(); got != "1 named, byID a" {
+		t.Errorf("two elements with the ID: %s, want the first in tree order", got)
+	}
+	set.Set(1) // b, mounted last, goes
+	x.frame()
+	if got := named(); got != "1 named, byID a" {
+		t.Errorf("after unmounting the last one mounted: %s", got)
+	}
+	set.Set(2) // c mounts before a in tree order, b after it
+	x.frame()
+	if got := named(); got != "1 named, byID c" {
+		t.Errorf("after mounting one before: %s", got)
+	}
+	set.Set(1)
+	x.frame()
+	if got := named(); got != "1 named, byID a" {
+		t.Errorf("after unmounting the first: %s", got)
+	}
+}
+
+// TestLabelIndex checks the labels found through the index of For: in
+// tree order whatever their mount order, and following a changed For.
+func TestLabelIndex(t *testing.T) {
+	var set Setter[int]
+	app := func() Node {
+		n, s := UseState(0)
+		set = s
+		var kids []Child
+		if n >= 1 {
+			kids = append(kids, label(Key("l1"), For("x"), Text("First")))
+		}
+		kids = append(kids, input(Key("a"), ID("x")), input(Key("b"), ID("y")))
+		target := "x"
+		if n == 2 {
+			target = "y"
+		}
+		kids = append(kids, label(Key("l2"), For(target), Text("Second")))
+		return div(kids...)
+	}
+	x := newKeys(t, Component(app), 400, 300)
+	x.frame()
+	names := func() string {
+		var out []string
+		x.tree().Semantics().Walk(func(m *semantics.Node) bool {
+			if m.Role == "textbox" {
+				out = append(out, fmt.Sprintf("%q", m.Name))
+			}
+			return true
+		})
+		return strings.Join(out, " ")
+	}
+	if got := names(); got != `"Second" ""` {
+		t.Errorf("one label: %s", got)
+	}
+	set.Set(1) // l1 mounts after l2 but comes first
+	x.frame()
+	if got := names(); got != `"First Second" ""` {
+		t.Errorf("two labels: %s", got)
+	}
+	set.Set(2) // l2 now names y
+	x.frame()
+	if got := names(); got != `"First" "Second"` {
+		t.Errorf("after For changed: %s", got)
+	}
+	set.Set(0) // l1 unmounts, l2 names x again
+	x.frame()
+	if got := names(); got != `"Second" ""` {
+		t.Errorf("after unmounting: %s", got)
+	}
+	if n := len(x.tree().labels["y"]); n != 0 {
+		t.Errorf("%d labels left under y", n)
 	}
 }
 

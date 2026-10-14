@@ -25,7 +25,12 @@ import (
 // An IMEEvent is applied to the focused field with edit's mapping:
 // DeleteSurrounding, then the commit (CommitComposition during a
 // composition, else typing), then the new preedit (SetPreedit), or the
-// end of a composition without a commit (CancelComposition). The events
+// end of a composition without a commit (CancelComposition). The
+// deletion fires beforeinput first (deleteContentBackward,
+// deleteContentForward or deleteContent, IsComposing during a
+// composition), which does not cancel it (Chromium dispatches it and
+// deletes anyway: the IME cannot be told its edit was refused), then
+// OnChange. The events
 // follow the UI Events order and Chromium's IsComposing: compositionstart
 // (with the replaced selection), then per update beforeinput
 // (insertCompositionText, not cancelable), compositionupdate and OnChange
@@ -199,14 +204,18 @@ func (t *Tree) HandleIME(e platform.IMEEvent) {
 		return
 	}
 	if e.DeleteBefore > 0 || e.DeleteAfter > 0 {
+		// beforeinput comes first, as for every edit, but cannot cancel
+		// the deletion: Chromium ignores its result for IME deletions, and
+		// the IME could not be told that its edit was refused.
 		composing := f.ed.Composing()
-		r := f.ed.DeleteSurrounding(e.DeleteBefore, e.DeleteAfter)
-		if r.InputType != "" {
-			fire(t, evBeforeInput, f.el, InputEvent{InputType: string(r.InputType), IsComposing: composing}, true)
+		if it := f.ed.DeleteSurroundingType(e.DeleteBefore, e.DeleteAfter); it != edit.InputNone {
+			fire(t, evBeforeInput, f.el, InputEvent{InputType: string(it), IsComposing: composing}, true)
 			t.flushDiscrete()
-			if !f.alive() {
+			if !f.alive() || t.focusedField() != f {
 				return
 			}
+			composing = f.ed.Composing()
+			r := f.ed.DeleteSurrounding(e.DeleteBefore, e.DeleteAfter)
 			t.caretReset(f)
 			t.fieldEdit(f, r, composing)
 			if !f.alive() {

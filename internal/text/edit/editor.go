@@ -149,9 +149,10 @@ func (e *Editor) Options() Options { return e.opts }
 
 // SetOptions changes the options. An active composition is canceled
 // first (the caller resets the IME). Switching to single-line removes the
-// line breaks of the value and resets the history; toggling Password
-// changes the displayed text (DisplayVersion). The selection keeps its
-// value offsets.
+// line breaks of the value and resets the history (its steps can hold
+// line breaks even when the value has none); toggling Password changes
+// the displayed text (DisplayVersion). The selection keeps its value
+// offsets.
 func (e *Editor) SetOptions(o Options) Result {
 	var r Result
 	if e.composing {
@@ -159,7 +160,11 @@ func (e *Editor) SetOptions(o Options) Result {
 	}
 	oldValue, oldSel := e.value, e.sel
 	vs := e.valueSel()
+	wasMulti := e.opts.Multiline
 	e.opts = o
+	if !o.Multiline && wasMulti {
+		e.hist.clear()
+	}
 	if !o.Multiline && strings.ContainsRune(e.value, '\n') {
 		e.value = sanitizeValue(e.value, false)
 		e.hist.clear()

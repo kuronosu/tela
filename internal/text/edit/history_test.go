@@ -251,3 +251,43 @@ func TestUndoLimitChange(t *testing.T) {
 		t.Error("ClearHistory kept steps")
 	}
 }
+
+// TestSingleLineDropsHistoryWithLineBreaks checks that switching to
+// single-line resets the history even when the value has no line break:
+// its undo and redo steps can still hold one.
+func TestSingleLineDropsHistoryWithLineBreaks(t *testing.T) {
+	d := parse(t, "|", Options{Multiline: true})
+	d.typ("a")
+	d.kind(InsertLineBreak)
+	d.kind(DeleteBackward)
+	d.e.SetOptions(Options{})
+	d.kind(Undo)
+	if v := d.e.Value(); v != "a" || d.e.CanUndo() {
+		t.Errorf("undo after the switch: %q (can undo %v)", v, d.e.CanUndo())
+	}
+
+	// A redo step holding the line break.
+	d = parse(t, "|", Options{Multiline: true})
+	d.typ("a")
+	d.kind(InsertLineBreak)
+	d.kind(Undo)
+	d.e.SetOptions(Options{})
+	d.kind(Redo)
+	if v := d.e.Value(); v != "a" || d.e.CanRedo() {
+		t.Errorf("redo after the switch: %q (can redo %v)", v, d.e.CanRedo())
+	}
+
+	// Other option changes keep the history.
+	d = parse(t, "|", Options{Multiline: true})
+	d.typ("a")
+	d.e.SetOptions(Options{Multiline: true, MaxLength: 10})
+	if !d.e.CanUndo() {
+		t.Error("a multiline option change dropped the history")
+	}
+	d = parse(t, "|", Options{})
+	d.typ("a")
+	d.e.SetOptions(Options{Password: true})
+	if !d.e.CanUndo() {
+		t.Error("a single-line option change dropped the history")
+	}
+}

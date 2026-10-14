@@ -183,27 +183,13 @@ func (e *Editor) endComposition() {
 // during one it belongs to the composition's step.
 //
 // InputType is deleteContentBackward, deleteContentForward or, for both
-// sides, deleteContent.
+// sides, deleteContent (DeleteSurroundingType tells it beforehand).
 func (e *Editor) DeleteSurrounding(before, after int) Result {
-	if e.opts.ReadOnly {
+	vs, ds, de, it := e.surrounding(before, after)
+	if it == InputNone {
 		return Result{}
 	}
-	vs := e.valueSel()
 	start, end := vs.ordered()
-	ds := clampRuneStart(e.value, start-max(before, 0))
-	de := clampRuneEnd(e.value, end+max(after, 0))
-	if ds == start && de == end {
-		return Result{}
-	}
-	var it InputType
-	switch {
-	case ds < start && de > end:
-		it = InputDeleteContent
-	case ds < start:
-		it = InputDeleteContentBackward
-	default:
-		it = InputDeleteContentForward
-	}
 	oldValue, oldSel := e.value, e.sel
 	e.value = oldValue[:ds] + oldValue[start:end] + oldValue[de:]
 	if e.composing {
@@ -227,4 +213,37 @@ func (e *Editor) DeleteSurrounding(before, after int) Result {
 	r := e.report(oldValue, oldSel, dc)
 	r.InputType = it
 	return r
+}
+
+// DeleteSurroundingType returns the InputType DeleteSurrounding(before,
+// after) would report, without deleting anything: InputNone when it would
+// change nothing. The caller fires beforeinput with it before the
+// deletion.
+func (e *Editor) DeleteSurroundingType(before, after int) InputType {
+	_, _, _, it := e.surrounding(before, after)
+	return it
+}
+
+// surrounding returns the selection in value offsets, the range
+// [ds, de) DeleteSurrounding(before, after) cuts the selection out of, and
+// the deletion's InputType (InputNone for no change).
+func (e *Editor) surrounding(before, after int) (vs vsel, ds, de int, it InputType) {
+	if e.opts.ReadOnly {
+		return vs, 0, 0, InputNone
+	}
+	vs = e.valueSel()
+	start, end := vs.ordered()
+	ds = clampRuneStart(e.value, start-max(before, 0))
+	de = clampRuneEnd(e.value, end+max(after, 0))
+	switch {
+	case ds == start && de == end:
+		it = InputNone
+	case ds < start && de > end:
+		it = InputDeleteContent
+	case ds < start:
+		it = InputDeleteContentBackward
+	default:
+		it = InputDeleteContentForward
+	}
+	return vs, ds, de, it
 }

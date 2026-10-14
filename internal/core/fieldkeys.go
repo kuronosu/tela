@@ -22,7 +22,8 @@ import (
 // redo; on Linux Up, Down, Page Up and Page Down in a single-line field go
 // to its start or end, on Windows they do nothing), and macOS's Command
 // and Option conventions (macBinding) for the Cocoa backend. A key's
-// Text is typed when neither Ctrl nor Meta is held. Tab is not consumed
+// Text is typed when neither Ctrl nor Meta is held, nor Alt on Windows
+// and Linux (Option types characters on macOS). Tab is not consumed
 // (it moves the focus), nor are keys without a binding (Escape, function
 // keys), which keep their default actions. During an IME composition and
 // for KeyProcess keys nothing runs: the IME owns the keys.
@@ -214,7 +215,11 @@ func fieldBinding(fl keyFlavor, multi bool, e KeyboardEvent, txt string) (edit.C
 			return edit.Command{}, actPaste
 		}
 	}
-	if txt != "" && !e.Ctrl && !e.Meta {
+	// Alt chords are shortcuts, not text (Chromium: WM_SYSCHAR on
+	// Windows, GTK's accelerators on Linux). AltGr is never reported as
+	// Alt, so its characters type; an Alt+numpad character arrives after
+	// the Alt release, without Alt (win32).
+	if txt != "" && plain {
 		return edit.Command{Kind: edit.InsertText, Text: txt}, actCommand
 	}
 	return edit.Command{}, actNone

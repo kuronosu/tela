@@ -283,8 +283,9 @@ func (e ScrollEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 // "deleteWordBackward", "deleteByCut", "historyUndo",
 // "insertCompositionText"...), Data is the text it inserts (empty for
 // deletions) and IsComposing reports an IME composition in progress. It
-// bubbles. PreventDefault cancels the edit, except during a composition,
-// whose edits cannot be canceled (as in browsers).
+// bubbles. PreventDefault cancels the edit, except during a composition
+// and for the text an IME deletes around the caret, edits that cannot be
+// canceled (as in browsers).
 type InputEvent struct {
 	InputType   string
 	Data        string
@@ -296,7 +297,8 @@ type InputEvent struct {
 // StopPropagation stops the event from bubbling (see MouseEvent).
 func (e InputEvent) StopPropagation() { e.st.stop() }
 
-// PreventDefault cancels the edit (not during a composition).
+// PreventDefault cancels the edit (not during a composition, nor an IME's
+// deletion around the caret).
 func (e InputEvent) PreventDefault() { e.st.prevent() }
 
 // DefaultPrevented reports whether a handler called PreventDefault.

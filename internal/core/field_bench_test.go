@@ -2,6 +2,7 @@ package core
 
 import (
 	"image"
+	"strconv"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx/raster"
@@ -75,3 +76,24 @@ func BenchmarkTypingUncontrolled10k(b *testing.B) { benchTyping(b, false) }
 // list is a reused node, so the frame builds one component and records
 // every layer again.
 func BenchmarkTypingControlled10k(b *testing.B) { benchTyping(b, true) }
+
+// BenchmarkLabeledAriaSnapshot is the semantics snapshot of 200 inputs,
+// each named by a Label with For, above the 10k-element list: the labels
+// of a control come from the index of For, so naming the controls does
+// not walk the tree once per control.
+func BenchmarkLabeledAriaSnapshot(b *testing.B) {
+	const fields = 200
+	setters := make([]func(string), benchRows)
+	kids := make([]Child, 0, fields+1)
+	for i := range fields {
+		id := "f" + strconv.Itoa(i)
+		kids = append(kids, div(label(For(id), Textf("Field %d", i)), input(ID(id))))
+	}
+	kids = append(kids, bigList(benchRows, setters))
+	tr := newTestTree(b, 800, 600, div(kids...), nil)
+	tr.Frame()
+	b.ReportAllocs()
+	for b.Loop() {
+		_ = tr.AriaSnapshot()
+	}
+}

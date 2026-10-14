@@ -58,7 +58,8 @@ import (
 //
 // # Events
 //
-// An edit fires OnBeforeInput (cancelable, except during a composition),
+// An edit fires OnBeforeInput (cancelable, except during a composition
+// and for an IME's deletion around the caret),
 // then OnChange with the new value (React's onChange: every edit, the
 // DOM's input event), each followed by the flush of a discrete event; the
 // field's value is then restored if it is controlled. IME compositions

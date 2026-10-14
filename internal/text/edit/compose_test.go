@@ -127,6 +127,31 @@ func TestCompositionMaxLength(t *testing.T) {
 
 // TestDeleteSurrounding checks text-input-v3's delete_surrounding_text.
 func TestDeleteSurrounding(t *testing.T) {
+	// DeleteSurroundingType tells the InputType without deleting.
+	for _, c := range []struct {
+		st            string
+		before, after int
+		want          InputType
+	}{
+		{"hello world|!", 5, 1, InputDeleteContent},
+		{"ab|c", 1, 0, InputDeleteContentBackward},
+		{"ab|c", 0, 1, InputDeleteContentForward},
+		{"日本|語", 1, 0, InputDeleteContentBackward},
+		{"|abc", 2, 0, InputNone},
+		{"abc|", 0, 2, InputNone},
+	} {
+		d := parse(t, c.st, Options{})
+		if got := d.e.DeleteSurroundingType(c.before, c.after); got != c.want {
+			t.Errorf("DeleteSurroundingType(%d, %d) on %q = %q, want %q", c.before, c.after, c.st, got, c.want)
+		}
+		if got := d.e.DeleteSurrounding(c.before, c.after).InputType; got != c.want {
+			t.Errorf("DeleteSurrounding(%d, %d) on %q = %q, want %q", c.before, c.after, c.st, got, c.want)
+		}
+	}
+	if d := parse(t, "ab|c", Options{ReadOnly: true}); d.e.DeleteSurroundingType(1, 1) != InputNone {
+		t.Error("a read-only editor plans a deletion")
+	}
+
 	d := parse(t, "hello world|!", Options{})
 	r := d.e.DeleteSurrounding(5, 1)
 	if r.InputType != InputDeleteContent || !r.ValueChanged {

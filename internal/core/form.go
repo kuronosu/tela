@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/style"
@@ -34,10 +35,65 @@ import (
 //
 // # Labels and IDs
 //
-// Id gives an element an identifier (the last one mounted with an ID
-// wins a duplicate); a Label's control is the element For names, or else
-// the first labelable element inside it (Input, Textarea, Button). The
-// control's accessible name comes from its labels (semantics.go).
+// Id gives an element an identifier; when several mounted elements share
+// one, it names the first of them in tree order (HTML's getElementById),
+// and the others take over when it unmounts. A Label's control is the
+// element For names, or else the first labelable element inside it
+// (Input, Textarea, Button). The control's accessible name comes from its
+// labels (semantics.go). The Tree indexes the mounted elements by Id and
+// the mounted Labels by For, so neither lookup walks the tree.
+
+// indexAdd records el under key in *m.
+func indexAdd(m *map[string][]*Element, key string, el *Element) {
+	if *m == nil {
+		*m = map[string][]*Element{}
+	}
+	(*m)[key] = append((*m)[key], el)
+}
+
+// indexRemove forgets el under key in m.
+func indexRemove(m map[string][]*Element, key string, el *Element) {
+	els := m[key]
+	i := slices.Index(els, el)
+	if i < 0 {
+		return
+	}
+	if len(els) == 1 {
+		delete(m, key)
+		return
+	}
+	m[key] = slices.Delete(els, i, i+1)
+}
+
+// treeBefore reports whether a comes before b in tree order (an ancestor
+// before its descendants, siblings in order).
+func treeBefore(a, b *Element) bool {
+	x, y := a, b
+	for x.depth > y.depth {
+		x = x.parent
+	}
+	for y.depth > x.depth {
+		y = y.parent
+	}
+	if x == y {
+		return a.depth < b.depth
+	}
+	for x.parent != y.parent {
+		x, y = x.parent, y.parent
+	}
+	if x.parent == nil {
+		return false
+	}
+	for _, c := range x.parent.children {
+		switch c {
+		case x:
+			return true
+		case y:
+			return false
+		}
+	}
+	return false
+}
 
 // setID records el under its Id prop (mount, update) and forgets old.
 func (t *Tree) setID(el *Element, old string) {
@@ -45,28 +101,65 @@ func (t *Tree) setID(el *Element, old string) {
 	if old == id {
 		return
 	}
-	if old != "" && t.ids[old] == el {
-		delete(t.ids, old)
+	if old != "" {
+		indexRemove(t.ids, old, el)
 	}
 	if id != "" {
-		if t.ids == nil {
-			t.ids = map[string]*Element{}
-		}
 		if t.dev {
-			if o := t.ids[id]; o != nil && o != el && o.mounted {
-				t.logf("tela: duplicate Id(%q) on %s and %s; IDs must be unique in a window", id, t.describe(o), t.describe(el))
+			for _, o := range t.ids[id] {
+				if o != el && o.mounted {
+					t.logf("tela: duplicate Id(%q) on %s and %s; IDs must be unique in a window", id, t.describe(o), t.describe(el))
+					break
+				}
 			}
 		}
-		t.ids[id] = el
+		indexAdd(&t.ids, id, el)
 	}
 }
 
-// byID returns the mounted element with the ID id, or nil.
-func (t *Tree) byID(id string) *Element {
-	if el := t.ids[id]; el != nil && el.mounted {
-		return el
+// forID returns the For prop of a node ("" for none).
+func forID(d *desc) string {
+	if d.fp == nil {
+		return ""
 	}
-	return nil
+	return d.fp.forID
+}
+
+// setLabelFor records Label el under its For prop (mount, update) and
+// forgets old.
+func (t *Tree) setLabelFor(el *Element, old string) {
+	id := forID(el.node.d)
+	if old == id || el.box.kind != style.KindLabel {
+		return
+	}
+	if old != "" {
+		indexRemove(t.labels, old, el)
+	}
+	if id != "" {
+		indexAdd(&t.labels, id, el)
+	}
+}
+
+// unmountIndexed forgets primitive el in the indexes of IDs and labels.
+func (t *Tree) unmountIndexed(el *Element) {
+	if id := el.node.d.id; id != "" {
+		indexRemove(t.ids, id, el)
+	}
+	if id := forID(el.node.d); id != "" && el.box.kind == style.KindLabel {
+		indexRemove(t.labels, id, el)
+	}
+}
+
+// byID returns the first mounted element in tree order with the ID id,
+// or nil.
+func (t *Tree) byID(id string) *Element {
+	var first *Element
+	for _, el := range t.ids[id] {
+		if el.mounted && (first == nil || treeBefore(el, first)) {
+			first = el
+		}
+	}
+	return first
 }
 
 // labelable reports whether el can be labeled by a Label.
@@ -109,18 +202,19 @@ func (t *Tree) labelsOf(el *Element) []*Element {
 	var out []*Element
 	id := el.node.d.id
 	if id != "" && t.byID(id) == el {
-		var walk func(e *Element)
-		walk = func(e *Element) {
-			for _, c := range e.children {
-				if c.kind == elemPrimitive && c.box.kind == style.KindLabel {
-					if fp := c.node.d.fp; fp != nil && fp.forID == id {
-						out = append(out, c)
-					}
-				}
-				walk(c)
+		for _, l := range t.labels[id] {
+			if l.mounted {
+				out = append(out, l)
 			}
 		}
-		walk(t.root)
+		if len(out) > 1 {
+			slices.SortFunc(out, func(a, b *Element) int {
+				if treeBefore(a, b) {
+					return -1
+				}
+				return 1
+			})
+		}
 	}
 	for a := el.styleParent(); a != nil; a = a.styleParent() {
 		if a.box.kind == style.KindLabel {

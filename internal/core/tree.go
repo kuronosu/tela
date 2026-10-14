@@ -167,11 +167,13 @@ type Tree struct {
 	sem semState
 
 	// Text fields (field.go, fieldime.go, form.go): the clipboard, the
-	// blinking caret, the IME state and the elements by Id.
-	clip  platform.Clipboard
-	caret caretState
-	ime   imeState
-	ids   map[string]*Element
+	// blinking caret, the IME state, the mounted elements by Id and the
+	// mounted Labels by For (form.go).
+	clip   platform.Clipboard
+	caret  caretState
+	ime    imeState
+	ids    map[string][]*Element
+	labels map[string][]*Element
 
 	// lay holds the layers and the composed frames (layer.go).
 	lay layerState

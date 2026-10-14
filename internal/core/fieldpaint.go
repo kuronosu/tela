@@ -65,13 +65,13 @@ func (t *Tree) selectionColors(cs *style.ComputedStyle) (bg gfx.Color, fg gfx.Pa
 }
 
 // drawField draws the content of text field bx (see the comment at the top
-// of fieldpaint.go).
+// of fieldpaint.go). Both callers check that bx has a field.
 func (p *painter) drawField(bx *Box) {
 	f := bx.fld
 	f.paintDirty = false
 	t := p.t
 	cs := bx.pcs
-	if f == nil || cs == nil || cs.Visibility != style.VisibilityVisible {
+	if cs == nil || cs.Visibility != style.VisibilityVisible {
 		return
 	}
 	lay := f.layout()
