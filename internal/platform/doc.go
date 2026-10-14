@@ -128,6 +128,10 @@
 //     text (Ctrl ignored, never a control character, empty on release).
 //     Linux backends map scancodes with the shared evdev table
 //     (internal/evdev); every backend sets Location from Code.Location().
+//     Text that no physical key produced (Windows' injected Unicode
+//     input and the character of an Alt code, typed at the release of
+//     Alt) is a press with an unidentified Code, the text as Key and
+//     Text, followed by its release.
 //   - Focus: a window gets KeyEvents only between a FocusEvent with Focused
 //     true and the next one with Focused false. On Wayland keyboard focus
 //     is wl_keyboard.enter/leave, which can arrive before or after the

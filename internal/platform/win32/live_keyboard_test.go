@@ -132,6 +132,7 @@ const (
 	scArrowLeft, scHome, scDelete                                 = 0xE04B, 0xE047, 0xE053
 	scNumpad1, scNumpadDot, scNumpadDiv, scNumpadEnter            = 0x4F, 0x53, 0xE035, 0xE01C
 	scNumpadMul, scNumpadAdd                                      = 0x37, 0x4E
+	scNumpad0, scNumpad2, scNumpad3                               = 0x52, 0x50, 0x51
 	scBackquote, scDigit1, scDigit2, scDigit4, scDigit7, scDigit0 = 0x29, 0x02, 0x03, 0x05, 0x08, 0x0B
 	scMinus, scEqual                                              = 0x0C, 0x0D
 	scQ, scW, scE, scR, scT, scY, scU, scI, scO, scP              = 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19

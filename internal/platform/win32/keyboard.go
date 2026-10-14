@@ -49,6 +49,12 @@ import (
 //   - A lone Alt or F10 would enter the menu loop of a window that has no
 //     menu: the caller swallows the system key messages, except Alt+F4 and
 //     Alt+Space (the system menu), which down reports for DefWindowProc.
+//   - Alt codes: while Alt is held, the numpad digits of a code produce no
+//     character messages (and no Text); at the release of Alt
+//     TranslateMessage posts the character as WM_CHAR. It is delivered as
+//     a press and a release of its own after the release of Alt, like the
+//     text of a VK_PACKET (an unidentified Code, the character as Key and
+//     Text), so it is typed as Notepad and Chromium type it.
 
 // charKind says what the layout produces for a key.
 type charKind uint8
@@ -109,6 +115,7 @@ type pendingPress struct {
 	ctrl  bool     // Ctrl or Super is held: Text comes from the layout
 	units []uint16 // the code units of the WM_CHAR messages
 	pack  bool     // a VK_PACKET (injected Unicode text): no layout
+	code  bool     // the character of an Alt code (after the Alt release)
 	named bool     // the key has a name (Enter, an arrow): Key is set
 	dmsg  bool     // a dead-char message was seen: a dead key
 }
@@ -128,6 +135,9 @@ type keyTranslator struct {
 	held    keyboard.Held // the contract: paired presses and releases
 	keys    []heldKey     // the delivered presses without release, in press order
 	pending *pendingPress
+	// altCode reports that a numpad key was pressed while Alt was held:
+	// the release of Alt may post the character of an Alt code.
+	altCode bool
 }
 
 func newKeyTranslator(emit func(platform.KeyEvent)) *keyTranslator {
@@ -201,12 +211,18 @@ func (k *keyTranslator) down(env keyEnv, msg uint32, wparam, lparam uintptr) (pa
 	if repeat && nonRepeating(ki.code) {
 		return false
 	}
+	mods := env.modifiers()
+	if ki.vk == vkMenu && !repeat {
+		k.altCode = false
+	} else if mods&(platform.ModAlt|platform.ModCtrl) == platform.ModAlt && isAltCodeKey(ki.code) {
+		k.altCode = true
+	}
 	ev := platform.KeyEvent{
 		Action:   platform.KeyPress,
 		Code:     ki.code,
 		Location: ki.code.Location(),
 		Repeat:   repeat,
-		Mods:     env.modifiers(),
+		Mods:     mods,
 		Time:     env.now(),
 	}
 	p := &pendingPress{ev: ev, vk: ki.vk, ctrl: ev.Mods&(platform.ModCtrl|platform.ModSuper) != 0}
@@ -235,9 +251,17 @@ func (k *keyTranslator) down(env keyEnv, msg uint32, wparam, lparam uintptr) (pa
 	return false
 }
 
+// isAltCodeKey reports whether a key enters the digits of an Alt code: the
+// numpad digits, whatever NumLock says, and the numpad's plus, which starts
+// a hexadecimal code where the registry enables them.
+func isAltCodeKey(c platform.KeyCode) bool {
+	return c >= platform.CodeNumpad0 && c <= platform.CodeNumpad9 || c == platform.CodeNumpadAdd
+}
+
 // char handles WM_CHAR and WM_SYSCHAR: a code unit of the pending press's
-// text. A character without a pending press is not ours (an IME result, a
-// PostMessage) and is left to the caller.
+// text, or of the Alt code that the release of Alt typed. A character
+// without a pending press is not ours (an IME result, a PostMessage) and is
+// left to the caller.
 func (k *keyTranslator) char(env keyEnv, wparam uintptr) (handled bool) {
 	p := k.pending
 	if p == nil {
@@ -285,6 +309,30 @@ func (k *keyTranslator) finish(env keyEnv) {
 	case p.pack:
 		ev.Key, ev.Text = keyFromText(text, ""), text
 		if text == "" {
+			ev.Key = platform.KeyUnidentified
+		}
+	case p.code:
+		// The character of an Alt code: a press and a release with no
+		// physical key. A code for a control character types nothing.
+		if text == "" {
+			return
+		}
+		ev.Code = platform.UnidentifiedKeyCode(0x10000 | uint32(p.units[0]))
+		ev.Location = ev.Code.Location()
+		ev.Key, ev.Text = keyFromText(text, ""), text
+		k.accept(ev, 0)
+		ev.Action, ev.Text = platform.KeyRelease, ""
+		k.accept(ev, 0)
+		return
+	case !p.ctrl && len(p.units) == 0 && ev.Mods&platform.ModAlt != 0:
+		// Alt held and no WM_SYSCHAR: Windows typed nothing, as for the
+		// digits of an Alt code (the character comes at the release of
+		// Alt). The key is the layout's.
+		ev.Key = keyFromText(p.cand, "")
+		if p.dead {
+			ev.Key = platform.KeyDead
+		}
+		if ev.Key == "" {
 			ev.Key = platform.KeyUnidentified
 		}
 	case p.ctrl || len(p.units) == 0:
@@ -413,6 +461,18 @@ func (k *keyTranslator) up(env keyEnv, msg uint32, wparam, lparam uintptr) {
 		}
 	}
 	k.accept(ev, ki.vk)
+	if ki.vk == vkMenu && k.altCode {
+		// The release of Alt after the digits of an Alt code: the
+		// character that TranslateMessage posted for it is waiting.
+		k.altCode = false
+		if n, ok := env.peekChar(); ok && (n.message == wmChar || n.message == wmSysChar) {
+			k.pending = &pendingPress{ev: platform.KeyEvent{
+				Action: platform.KeyPress,
+				Mods:   ev.Mods,
+				Time:   ev.Time,
+			}, code: true}
+		}
+	}
 }
 
 // heldPress returns what the translator remembers of a held key.
@@ -446,6 +506,7 @@ func (k *keyTranslator) accept(ev platform.KeyEvent, vk uint32) {
 // The caller delivers the FocusEvent after them.
 func (k *keyTranslator) focusLost(env keyEnv) {
 	k.finish(env)
+	k.altCode = false
 	for _, ev := range k.held.ReleaseAll(env.now()) {
 		k.emit(ev)
 	}

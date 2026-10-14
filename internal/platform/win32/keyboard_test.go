@@ -560,6 +560,75 @@ func TestNumpad(t *testing.T) {
 	)
 }
 
+func TestAltNumpadCode(t *testing.T) {
+	h := newHarness(t)
+	for d := range uint32(10) {
+		h.env.layout[vkNumpad0+d] = layoutKey{plain: string(rune('0' + d)), shifted: string(rune('0' + d))}
+	}
+	const psNum0, psNum2, psNum3 = 0x52, 0x50, 0x51
+	// Alt, then 0233 on the numpad with NumLock on: the digits come
+	// without WM_SYSCHAR and type nothing; the character is a WM_CHAR that
+	// TranslateMessage posts at the release of Alt.
+	h.env.mods = platform.ModAlt
+	h.feed(skd(vkMenu, psLAlt),
+		skd(vkNumpad0, psNum0), sku(vkNumpad0, psNum0),
+		skd(vkNumpad0+2, psNum2), sku(vkNumpad0+2, psNum2),
+		skd(vkNumpad0+3, psNum3), sku(vkNumpad0+3, psNum3),
+		skd(vkNumpad0+3, psNum3), sku(vkNumpad0+3, psNum3))
+	h.env.mods = 0
+	h.feed(ku(vkMenu, psLAlt), ch('é'))
+	text := platform.UnidentifiedKeyCode(0x10000 | 'é')
+	h.expect(
+		press(platform.CodeAltLeft, "Alt", "", platform.ModAlt),
+		press(platform.CodeNumpad0, "0", "", platform.ModAlt), rel(platform.CodeNumpad0, "0", platform.ModAlt),
+		press(platform.CodeNumpad2, "2", "", platform.ModAlt), rel(platform.CodeNumpad2, "2", platform.ModAlt),
+		press(platform.CodeNumpad3, "3", "", platform.ModAlt), rel(platform.CodeNumpad3, "3", platform.ModAlt),
+		press(platform.CodeNumpad3, "3", "", platform.ModAlt), rel(platform.CodeNumpad3, "3", platform.ModAlt),
+		rel(platform.CodeAltLeft, "Alt", 0),
+		press(text, "é", "é", 0), rel(text, "é", 0),
+	)
+	if h.orphans != 0 {
+		t.Errorf("%d character messages were left over", h.orphans)
+	}
+
+	// A code outside the BMP (the hex numpad) arrives as a surrogate pair.
+	h.env.mods = platform.ModAlt
+	h.feed(skd(vkMenu, psLAlt), skd(vkNumpad0+2, psNum2), sku(vkNumpad0+2, psNum2))
+	h.env.mods = 0
+	h.feed(ku(vkMenu, psLAlt), ch(0xD842), ch(0xDFB7))
+	got := h.take()
+	if len(got) != 6 || got[4].Text != "𠮷" || got[4].Key != "𠮷" || got[5].Action != platform.KeyRelease || got[4].Code != got[5].Code {
+		t.Errorf("surrogate pair after Alt: %+v", got)
+	}
+
+	// A code that makes a control character, or none, types nothing.
+	h.env.mods = platform.ModAlt
+	h.feed(skd(vkMenu, psLAlt), skd(vkNumpad0+3, psNum3), sku(vkNumpad0+3, psNum3))
+	h.env.mods = 0
+	h.feed(ku(vkMenu, psLAlt), ch('\r'))
+	h.env.mods = platform.ModAlt
+	h.feed(skd(vkMenu, psLAlt), skd(vkNumpad0, psNum0), sku(vkNumpad0, psNum0))
+	h.env.mods = 0
+	h.feed(ku(vkMenu, psLAlt))
+	if got := h.take(); len(got) != 8 {
+		t.Errorf("control or no character after Alt: %+v", got)
+	}
+
+	// A character after an Alt release without a numpad code is not ours.
+	h.env.mods = platform.ModAlt
+	h.feed(skd(vkMenu, psLAlt), skd('X', psX), sch('x'), sku('X', psX))
+	h.env.mods = 0
+	h.feed(ku(vkMenu, psLAlt), ch('q'))
+	h.expect(
+		press(platform.CodeAltLeft, "Alt", "", platform.ModAlt),
+		press(platform.CodeKeyX, "x", "x", platform.ModAlt), rel(platform.CodeKeyX, "x", platform.ModAlt),
+		rel(platform.CodeAltLeft, "Alt", 0),
+	)
+	if h.orphans != 1 {
+		t.Errorf("%d orphan characters, want 1", h.orphans)
+	}
+}
+
 func TestNumLockAndPauseFollowThePhysicalKey(t *testing.T) {
 	h := newHarness(t)
 	// Windows swaps the virtual keys of NumLock and Pause while Ctrl is held.

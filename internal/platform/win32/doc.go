@@ -166,6 +166,20 @@
 //     character as Key and Text. A WM_CHAR with no key press before it is
 //     not a key's text (an IME result that some IME sent anyway, a posted
 //     message) and is ignored; IME text arrives as IMEEvents (# IME).
+//   - Alt codes (Alt held while typing a number on the numpad, NumLock on
+//     or off): the digits come as WM_SYSKEYDOWN without WM_SYSCHAR, and
+//     their presses have Key "0".."9" but no Text, so a field does not
+//     insert them; the character is the WM_CHAR that TranslateMessage
+//     posts with the release of Alt. The translator remembers that a
+//     numpad key was pressed with Alt (and without Ctrl), and the release
+//     of Alt that finds a WM_CHAR waiting delivers it, after the Alt
+//     release, as a press and a release of its own with an unidentified
+//     Code (0x10000 plus its first code unit, as VK_PACKET text) and the
+//     character as Key and Text; Mods no longer has Alt, so it is typed.
+//     A code for a control character (Alt+013) types nothing. This is
+//     what Notepad and Chromium do with the WM_CHAR (Chromium types it as
+//     a char event with no keydown); a press with Alt and no WM_SYSCHAR
+//     has no Text in general, since Windows typed nothing for it.
 //
 // # Clipboard
 //

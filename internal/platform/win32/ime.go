@@ -5,6 +5,7 @@ import (
 	"image"
 	"math"
 	utf16pkg "unicode/utf16"
+	"unicode/utf8"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/utf16x"
@@ -278,16 +279,33 @@ func documentFeed(st *platform.SurroundingText, preedit string) []byte {
 	if preedit != "" {
 		at = st.Cursor
 	}
-	before := []rune(st.Text[:at])
-	after := []rune(st.Text[at:]) // a selection is part of the context after the caret
-	before = before[max(0, len(before)-feedContext):]
-	after = after[:min(len(after), feedContext)]
-	text := utf16pkg.Encode(before)
+	// Only the characters sent are decoded: feedContext runes back from the
+	// caret and forward from it (a selection is part of the context after
+	// the caret), whatever the length of the value.
+	start := at
+	for n := 0; n < feedContext && start > 0; n++ {
+		_, size := utf8.DecodeLastRuneInString(st.Text[:start])
+		start -= size
+	}
+	end := at
+	for n := 0; n < feedContext && end < len(st.Text); n++ {
+		_, size := utf8.DecodeRuneInString(st.Text[end:])
+		end += size
+	}
+	text := appendUTF16(nil, st.Text[start:at])
 	off := len(text)
-	pre := utf16pkg.Encode([]rune(preedit))
-	text = append(text, pre...)
-	text = append(text, utf16pkg.Encode(after)...)
-	return reconvertString(text, off, len(pre))
+	text = appendUTF16(text, preedit)
+	n := len(text) - off
+	text = appendUTF16(text, st.Text[at:end])
+	return reconvertString(text, off, n)
+}
+
+// appendUTF16 appends the UTF-16 code units of s to u.
+func appendUTF16(u []uint16, s string) []uint16 {
+	for _, r := range s {
+		u = utf16pkg.AppendRune(u, r)
+	}
+	return u
 }
 
 // reconvertSelection answers IMR_RECONVERTSTRING, with which the IME

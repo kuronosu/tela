@@ -3,6 +3,7 @@ package win32
 import (
 	"encoding/binary"
 	"image"
+	"runtime"
 	"strings"
 	"testing"
 	utf16pkg "unicode/utf16"
@@ -266,6 +267,66 @@ func TestDocumentFeed(t *testing.T) {
 	text, comp, _ = parseReconvert(t, documentFeed(&platform.SurroundingText{Text: long, Cursor: len(long) / 2, Anchor: len(long) / 2}, "x"))
 	if text != strings.Repeat("あ", feedContext)+"x"+strings.Repeat("い", feedContext) || comp != [2]int{feedContext, 1} {
 		t.Errorf("long feed: %d characters, comp %v", len([]rune(text)), comp)
+	}
+}
+
+// documentFeedRunes is documentFeed as first written, converting the whole
+// text on each side of the caret: the reference for its output.
+func documentFeedRunes(st *platform.SurroundingText, preedit string) []byte {
+	if st == nil {
+		return nil
+	}
+	at := min(st.Cursor, st.Anchor)
+	if preedit != "" {
+		at = st.Cursor
+	}
+	before := []rune(st.Text[:at])
+	after := []rune(st.Text[at:])
+	before = before[max(0, len(before)-feedContext):]
+	after = after[:min(len(after), feedContext)]
+	text := utf16pkg.Encode(before)
+	off := len(text)
+	pre := utf16pkg.Encode([]rune(preedit))
+	text = append(text, pre...)
+	text = append(text, utf16pkg.Encode(after)...)
+	return reconvertString(text, off, len(pre))
+}
+
+// TestDocumentFeedWindow checks that the feed reads only the characters it
+// sends, with the same output as converting the whole text.
+func TestDocumentFeedWindow(t *testing.T) {
+	parts := []string{"a", "é", "日", "𠮷", "😀", "e\u0301", "\U0001F469\u200d\U0001F4BB"}
+	var b strings.Builder
+	for i := range 700 {
+		b.WriteString(parts[(i*7+i/5)%len(parts)])
+	}
+	long := b.String()
+	var offs []int
+	for i := range long {
+		if i < 40 || i > len(long)-40 || i%97 == 0 {
+			offs = append(offs, i)
+		}
+	}
+	offs = append(offs, len(long))
+	for _, pre := range []string{"", "にほんご", "𠮷"} {
+		for _, at := range offs {
+			for _, anchor := range []int{at, offs[len(offs)/2]} {
+				st := &platform.SurroundingText{Text: long, Cursor: at, Anchor: anchor}
+				if got, want := documentFeed(st, pre), documentFeedRunes(st, pre); string(got) != string(want) {
+					t.Fatalf("feed at %d (anchor %d, preedit %q) differs from the whole-text conversion", at, anchor, pre)
+				}
+			}
+		}
+	}
+	// A long value is not converted whole for every request.
+	huge := strings.Repeat("あいうえお𠮷", 100_000)
+	st := &platform.SurroundingText{Text: huge, Cursor: len(huge) / 2, Anchor: len(huge) / 2}
+	var m0, m1 runtime.MemStats
+	runtime.ReadMemStats(&m0)
+	documentFeed(st, "x")
+	runtime.ReadMemStats(&m1)
+	if n := m1.TotalAlloc - m0.TotalAlloc; n > 64<<10 {
+		t.Errorf("a feed of a %d-byte value allocated %d bytes", len(huge), n)
 	}
 }
 
