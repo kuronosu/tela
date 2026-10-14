@@ -20,12 +20,23 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - Inline elements in paragraphs (`Span`, `Code`, `A`, …) paint backgrounds, borders, radii and shadows per line fragment, and their horizontal padding, borders and margins take space, like CSS inline boxes; buttons, `inline-block`/`inline-flex` elements and inline images sit on the line as atomic inlines.
 - Classes `align-baseline`, `align-top`, `align-middle`, `align-bottom`, `align-text-top`, `align-text-bottom`.
 - `tela inspect --layout` and `telatest.LayoutJSON`: paragraphs list their inline `fragments`; atomic inline children carry `inlineBox: true`.
+- `ElementRef.Bounds()` and `tela.UseBounds(ref)` (a `*Value[tela.Rect]` that follows layout, scroll and transforms), with the new `tela.Rect`.
+- `h.If` accepts props as well as nodes (generic over `tela.Child`); `h.IfElse`, `h.MapIndex`, `h.TextFn` (text read in the layout phase, no rebuild).
+- `Value.Latest()`: the value with every queued `Set`/`Update` applied.
+- `tela inspect --layout` and `telatest.LayoutJSON` add `bounds` (transformed, scrolled box in window coordinates) when it differs from `rect`.
+- Negative `-space-x-*` and `-space-y-*`.
 - `LICENSE`: BSD 3-Clause.
 
 ### Changed
 
 - A `Button` or `inline-block` alone in a block container now sits on a line box, as in CSS (it gains the line's strut below it).
 - Underlines snap to device pixels like Chromium (one crisp row instead of a blurred two-row line).
+- `space-x-*`/`space-y-*` are margins on every child but the last in flex containers too (Tailwind v4), not gaps; a child's own margin on that side wins.
+- `tela snapshot`, `inspect`, `telatest.Render` and the other headless renders run frames until the tree settles (at most 8), so values set by effects and `UseBounds` show up.
+
+### Fixed
+
+- Borders with different side widths no longer paint one side over the opposite one.
 
 ## [0.4.0] - 2026-10-13
 
