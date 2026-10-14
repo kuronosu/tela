@@ -9,9 +9,9 @@
 // ([MouseEvent], [PointerEvent], [DragEvent], [KeyboardEvent] with the
 // [Key] and [Code] constants, [FocusEvent], and the [ChangeEvent],
 // [InputEvent], [CompositionEvent], [SelectEvent] and [SubmitEvent] of
-// text fields and forms), [ElementRef], the typed
-// style props for h.Style, colors, and the [Previews] that `tela
-// snapshot` and `tela inspect` render.
+// text fields and forms), [ElementRef], the typed style props for h.Style,
+// colors, and the [Previews] that `tela snapshot` and `tela inspect`
+// render.
 //
 //	import (
 //	    "github.com/kuronosu/tela"
@@ -161,13 +161,13 @@
 //
 // [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
 // [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
-// [Value], [ElementRef], [Rect], [ScrollAlign], [MouseEvent], [PointerEvent], [DragEvent],
-// [KeyboardEvent], [FocusEvent], [WheelEvent], [ScrollEvent], [InputEvent],
-// [ChangeEvent], [CompositionEvent], [SelectEvent], [SubmitEvent], [Key],
-// [Code], [KeyLocation],
-// [MouseButton], [MouseButtons] and [PointerKind] are aliases of types defined in Tela's
-// internal packages (the packages cannot be imported, but their exported
-// fields and methods are part of the API shown here). Construct them with
-// the functions of this package rather than with composite literals where
-// one exists.
+// [Value], [ElementRef], [Rect], [ScrollAlign], [MouseEvent],
+// [PointerEvent], [DragEvent], [KeyboardEvent], [FocusEvent], [WheelEvent],
+// [ScrollEvent], [InputEvent], [ChangeEvent], [CompositionEvent],
+// [SelectEvent], [SubmitEvent], [Key], [Code], [KeyLocation],
+// [MouseButton], [MouseButtons] and [PointerKind] are aliases of types
+// defined in Tela's internal packages (the packages cannot be imported, but
+// their exported fields and methods are part of the API shown here).
+// Construct them with the functions of this package rather than with
+// composite literals where one exists.
 package tela

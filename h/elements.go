@@ -7,7 +7,7 @@ import (
 )
 
 // Div returns a block container, the general-purpose box. Its children
-// stack vertically unless its classes say otherwise (flex, grid).
+// stack vertically unless its classes say otherwise (flex).
 func Div(children ...tela.Child) tela.Node { return core.Primitive(style.KindDiv, children...) }
 
 // Span returns an inline container. Inside a paragraph of text it styles a

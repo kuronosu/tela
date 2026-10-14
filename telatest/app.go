@@ -139,6 +139,8 @@ func (a *App) checkDamage() {
 // testWriter sends the host's error log (a failed present) to the test log.
 type testWriter struct{ tb testing.TB }
 
+// Write logs p as part of the test's output; it makes testWriter an
+// io.Writer for the host's error log.
 func (w testWriter) Write(p []byte) (int, error) {
 	w.tb.Logf("%s", strings.TrimRight(string(p), "\n"))
 	return len(p), nil
@@ -414,10 +416,11 @@ func (a *App) Screenshot() *image.RGBA {
 
 // AriaSnapshot returns the app's semantics tree as a Playwright aria
 // snapshot, the YAML that `tela inspect` prints, without a trailing
-// newline:
+// newline. For a counter:
 //
-//   - heading "Count: 1" [level=1]
-//   - button "Increment"
+//	snap := app.AriaSnapshot()
+//	// - heading "Count: 1" [level=1]
+//	// - button "Increment"
 func (a *App) AriaSnapshot() string {
 	a.tb.Helper()
 	a.settle()

@@ -313,7 +313,7 @@ func UseRef[T any](initial T) *Ref[T] { return core.UseRef(initial) }
 //	}
 func UseElementRef() ElementRef { return core.UseElementRef() }
 
-// UseScroll returns two [Value]s that follow the scroll offsets of the
+// UseScroll returns two [Value] objects that follow the scroll offsets of the
 // element ref is attached to (zero while it is not a mounted scrolling
 // element): x is its horizontal offset (scrollLeft) and y its vertical
 // one (scrollTop), in logical pixels. They change on the UI thread as the

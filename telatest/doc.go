@@ -23,28 +23,29 @@
 //
 // [App.Click], [App.DoubleClick], [App.Hover], [App.Focus], [App.Scroll],
 // [App.Drag], [App.DragBy], [App.Press], [App.Type] and [App.Fill] act like
-// a user: the
-// pointer actions move the pointer to the element's center and send pointer
-// events through hit-testing and the gesture arena (hover and :active
-// states, focus on press, click counts, drags), and the keyboard actions
-// send key events to the focused element (typing into a focused text
-// field; Fill replaces a field's value like Playwright's fill). Before
-// acting, an action waits
-// until the element is visible, enabled, in view and not covered by
-// another element; before and after, the app is settled: pending state
-// updates are applied and frames run, advancing the app's clock to each
-// one, until nothing is dirty and no animation or scroll fling is running.
-// An app that never goes quiet (an endless animation, a goroutine that
-// updates state all the time) is not waited for: the first time it is
-// logged, and actions then run only a few frames.
+// a user. The pointer actions move the pointer to the element's center and
+// send pointer events through hit-testing and the gesture arena (hover and
+// :active states, focus on press, click counts, drags). The keyboard
+// actions send key events to the focused element (typing into a focused
+// text field; Fill replaces a field's value like Playwright's fill).
+//
+// Before acting, an action waits until the element is visible, enabled, in
+// view and not covered by another element. Before and after, the app is
+// settled: pending state updates are applied and frames run, advancing the
+// app's clock to each one, until nothing is dirty and no animation or
+// scroll fling is running. An app that never goes quiet (an endless
+// animation, a goroutine that updates state all the time) is not waited
+// for: the first time it is logged, and actions then run only a few
+// frames.
 //
 // [App.Advance] moves the clock by hand: it is how a test waits for a
 // long-press timer, an animation or a fade.
 //
 // The expectations ([App.ExpectText], [App.ExpectNoText], [App.ExpectRole],
-// [App.ExpectCount], [App.ExpectFocused], [App.ExpectValue], [App.ExpectAria]) retry until they
-// hold or the [Timeout] expires, letting a frame of app time and a moment of
-// real time pass between tries, so state set by a goroutine arrives.
+// [App.ExpectCount], [App.ExpectFocused], [App.ExpectValue] and
+// [App.ExpectAria]) retry until they hold or the [Timeout] expires, letting
+// a frame of app time and a moment of real time pass between tries, so
+// state set by a goroutine arrives.
 //
 // # The clock
 //

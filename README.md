@@ -1,6 +1,10 @@
 <h1 align="center">Tela</h1>
 
 <p align="center">
+  <a href="https://pkg.go.dev/github.com/kuronosu/tela"><img src="https://pkg.go.dev/badge/github.com/kuronosu/tela.svg" alt="Go Reference"></a>
+</p>
+
+<p align="center">
   A desktop UI framework in <strong>pure Go</strong>.<br>
   No cgo, no webview, no native toolkits. Tailwind classes, React-style hooks.
 </p>
@@ -127,9 +131,8 @@ agent sees:
 - button "Increment"
 ```
 
-> The `tela` command runs a package's own code, so for now it needs a package
-> inside the Tela module (see [`cmd/tela`](cmd/tela)). A standalone install
-> arrives with later phases.
+> The `tela` command runs a package's own code, so it needs the `go` command
+> and a package in a module that requires Tela (see [`cmd/tela`](cmd/tela)).
 
 ### Debug overlays
 
@@ -290,6 +293,19 @@ semantics tree; debug overlays; the `tela` CLI (`snapshot`, `inspect`).
 The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Documentation
+
+- **API reference on pkg.go.dev**, one page per public package:
+  [`tela`](https://pkg.go.dev/github.com/kuronosu/tela) (app, hooks, events,
+  style props),
+  [`h`](https://pkg.go.dev/github.com/kuronosu/tela/h) (elements, props,
+  helpers) and
+  [`telatest`](https://pkg.go.dev/github.com/kuronosu/tela/telatest) (tests
+  without a window).
+- **Guides on the [wiki](https://github.com/kuronosu/tela/wiki)**: getting
+  started, styling, hooks, events, forms, scrolling, accessibility, testing
+  and the CLI, with a working example each. Its sources are versioned in
+  [`docs/wiki`](docs/wiki); the API reference pages there are generated from
+  the doc comments with `go generate`.
 
 | Document | What it is |
 |---|---|

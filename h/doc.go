@@ -27,6 +27,7 @@
 // alike), Map, MapIndex, Fragment and TextFn (text that a Value changes
 // without rebuilding the component), and VirtualList with its Overscan
 // prop.
+//
 // Everything else (App, Run, hooks, events, colors, typed style props)
 // lives in package tela.
 //

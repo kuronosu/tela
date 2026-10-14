@@ -7,6 +7,11 @@ import "github.com/kuronosu/tela/internal/core"
 //
 //go:generate go run ./internal/gen/keys
 
+// The API reference pages of the wiki (docs/wiki/API-Reference-*.md) are
+// generated from the doc comments of tela, h and telatest.
+//
+//go:generate go run ./internal/gen/wikidoc
+
 // Events follow the DOM and React: a handler receives the event by value,
 // and controls propagation with its methods.
 //

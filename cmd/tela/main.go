@@ -17,8 +17,9 @@
 // The commands run the package's own code: they generate a test file that
 // the go command compiles into the package (through an overlay, so the
 // directory is not touched), which means they need the go command in PATH
-// and, for now, a package inside the Tela module, since the generated code
-// uses Tela's internal packages.
+// and a package in a module that requires Tela (the generated code uses
+// the public telatest entry point, ADR-059; only the legacy Scene contract
+// needs the Tela module itself).
 //
 // More commands (lint, dev, add, mcp) arrive in later phases; see
 // docs/ARCHITECTURE.md section 17.
