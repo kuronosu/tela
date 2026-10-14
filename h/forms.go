@@ -1,0 +1,193 @@
+package h
+
+import (
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/style"
+)
+
+// Input returns a single-line text field. Like a browser's, it edits its
+// value with the keyboard (typing, arrows and Ctrl+arrows, Home/End,
+// Backspace/Delete, Ctrl+A, Ctrl+Z/Ctrl+Y, the clipboard), the mouse
+// (click, drag, double and triple click) and input methods (IME), and
+// submits its Form on Enter. Give it a value with Value and OnChange (or
+// Bind: controlled), DefaultValue (uncontrolled) or BindValue, a Type, a
+// Placeholder and a Label.
+//
+// It has Tailwind's Preflight defaults: no border, padding or background
+// (style it with classes), the inherited font, and a width of about 20
+// characters (Chromium's size=20) unless a class sets one; its text is
+// centered vertically in its height. field-sizing-content sizes it to its
+// text. It takes no children.
+//
+//	Input(Type("email"), Placeholder("you@example.com"), Bind(email, setEmail),
+//	    Class("w-full rounded-md border border-slate-300 px-3 py-2 placeholder:text-slate-400 "+
+//	        "focus:outline-2 focus:outline-indigo-500"))
+func Input(children ...tela.Child) tela.Node { return core.Primitive(style.KindInput, children...) }
+
+// Textarea returns a multi-line text field: like Input, but Enter
+// inserts a line break, its text wraps, and it scrolls vertically (overflow
+// auto) when the text is taller than it. It is Rows lines tall (2 by
+// default) and about 20 characters wide unless classes size it;
+// field-sizing-content makes it grow with its text (between min-h-* and
+// max-h-*). It takes no children: give its text with Value, DefaultValue
+// or BindValue.
+//
+//	Textarea(Rows(4), Placeholder("Write a message"), Bind(msg, setMsg),
+//	    Class("w-full rounded-md border border-slate-300 p-2"))
+func Textarea(children ...tela.Child) tela.Node {
+	return core.Primitive(style.KindTextarea, children...)
+}
+
+// Form returns a form: a block that groups fields and buttons. Enter in
+// one of its single-line fields, or a click on a Button inside it, submits
+// it (OnSubmit); a Button with Type("reset") restores the DefaultValue of
+// its uncontrolled fields. Buttons inside a form are submit buttons
+// unless Type says "button".
+//
+//	Form(OnSubmit(func(tela.SubmitEvent) { save() }),
+//	    Input(Bind(name, setName)),
+//	    Button(Type("submit"), Text("Save")))
+func Form(children ...tela.Child) tela.Node { return core.Primitive(style.KindForm, children...) }
+
+// Label returns a label for a field: inline text that gives the field its
+// accessible name and focuses it when clicked. It labels the element
+// whose Id is its For, or else the Input, Textarea or Button inside it.
+//
+//	Label(For("name"), Text("Name")), Input(Id("name"))
+//	Label(Text("Name "), Input())
+func Label(children ...tela.Child) tela.Node { return core.Primitive(style.KindLabel, children...) }
+
+// Value makes a text field controlled: it shows s, and after every event
+// it shows s again unless the app rebuilt it with a new value (React's
+// controlled inputs). Pair it with OnChange, or use Bind.
+func Value(s string) tela.Prop { return core.FieldValue(s) }
+
+// DefaultValue gives an uncontrolled text field its initial value; later
+// values are ignored (React's defaultValue). Read the value with
+// tela.ElementRef's Value.
+func DefaultValue(s string) tela.Prop { return core.DefaultValue(s) }
+
+// Bind makes a text field controlled by a state: Value(text) plus an
+// OnChange that calls set.Set(e.Value).
+//
+//	name, setName := tela.UseState("")
+//	Input(Bind(name, setName))
+func Bind(text string, set tela.Setter[string]) tela.Prop { return core.Bind(text, set) }
+
+// BindValue binds a text field to v, from tela.UseValue: the field shows
+// v's value and writes every edit to it without rebuilding the component
+// (only what reads v rebuilds or repaints), and follows v.Set from
+// anywhere.
+//
+//	query := tela.UseValue("")
+//	Input(Type("search"), BindValue(query))
+func BindValue(v *tela.Value[string]) tela.Prop { return core.BindValue(v) }
+
+// Type sets the type of an Input: "text" (the default), "password" (the
+// value shows as dots and cannot be copied), "email", "search", "url",
+// "tel" or "number" (a hint for input methods; the value stays text, with
+// no spinner). "email" and "url" values that are not valid match
+// invalid:. On a Button it sets "submit" (the default inside a Form),
+// "button" or "reset". An unknown type panics in dev mode.
+func Type(t string) tela.Prop { return core.FieldType(t) }
+
+// Rows sets how many lines tall a Textarea is (2 by default).
+func Rows(n int) tela.Prop { return core.Rows(n) }
+
+// Placeholder sets the text a text field shows while it is empty, in the
+// field's color at half opacity unless placeholder: classes style it.
+func Placeholder(s string) tela.Prop { return core.Placeholder(s) }
+
+// ReadOnly makes a text field read-only: it can be focused, selected and
+// copied, but not edited; it matches read-only:.
+func ReadOnly(on bool) tela.Prop { return core.ReadOnly(on) }
+
+// MaxLength limits what the user can type or paste into a text field to n
+// UTF-16 code units (HTML's maxlength: "😀" counts 2); a value set by the
+// app may be longer. 0 means no limit.
+func MaxLength(n int) tela.Prop { return core.MaxLength(n) }
+
+// AutoComplete is HTML's autocomplete hint ("email", "current-password"...).
+// It is accepted for familiarity; Tela has no autofill.
+func AutoComplete(s string) tela.Prop { return core.AutoComplete(s) }
+
+// SpellCheck is HTML's spellcheck hint. It is accepted and ignored: Tela
+// has no spell checker.
+func SpellCheck(on bool) tela.Prop { return core.SpellCheck(on) }
+
+// Name names a text field or a button in its form (HTML's name).
+func Name(s string) tela.Prop { return core.Name(s) }
+
+// Id gives an element an identifier, unique in the window, that a Label's
+// For refers to.
+func Id(id string) tela.Prop { return core.ID(id) }
+
+// For makes a Label label the element whose Id is id.
+func For(id string) tela.Prop { return core.For(id) }
+
+// OnChange calls handler after every edit of a text field's value (React's
+// onChange: each keystroke, paste, cut, undo, and the text an IME
+// composes, with e.IsComposing). It bubbles: on a Form it sees every
+// field.
+//
+//	Input(Value(name), OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) }))
+func OnChange(handler func(tela.ChangeEvent)) tela.Prop {
+	if handler == nil {
+		panic("h: OnChange(nil): pass a handler, for example OnChange(func(e tela.ChangeEvent) { setText.Set(e.Value) })")
+	}
+	return core.On("change", handler)
+}
+
+// OnBeforeInput calls handler before a text field's value changes by an
+// edit of the user (the DOM's beforeinput); e.PreventDefault() cancels
+// the edit (except an IME composition's). It bubbles.
+func OnBeforeInput(handler func(tela.InputEvent)) tela.Prop {
+	if handler == nil {
+		panic("h: OnBeforeInput(nil): pass a handler, for example OnBeforeInput(func(e tela.InputEvent) { ... })")
+	}
+	return core.On("beforeinput", handler)
+}
+
+// OnCompositionStart calls handler when an input method (IME) starts
+// composing text in a text field. It bubbles.
+func OnCompositionStart(handler func(tela.CompositionEvent)) tela.Prop {
+	return onComposition("compositionstart", "OnCompositionStart", handler)
+}
+
+// OnCompositionUpdate calls handler when the text an input method
+// composes changes (e.Data). It bubbles.
+func OnCompositionUpdate(handler func(tela.CompositionEvent)) tela.Prop {
+	return onComposition("compositionupdate", "OnCompositionUpdate", handler)
+}
+
+// OnCompositionEnd calls handler when an input method ends a
+// composition, committed (e.Data) or canceled (""). It bubbles.
+func OnCompositionEnd(handler func(tela.CompositionEvent)) tela.Prop {
+	return onComposition("compositionend", "OnCompositionEnd", handler)
+}
+
+// OnSelect calls handler when the user selects text in a text field, or
+// code changes its selection (e.Start, e.End). It bubbles.
+func OnSelect(handler func(tela.SelectEvent)) tela.Prop {
+	if handler == nil {
+		panic("h: OnSelect(nil): pass a handler, for example OnSelect(func(e tela.SelectEvent) { ... })")
+	}
+	return core.On("select", handler)
+}
+
+// OnSubmit calls handler when a Form is submitted: Enter in one of its
+// single-line fields, or a click on a submit Button inside it. It bubbles.
+func OnSubmit(handler func(tela.SubmitEvent)) tela.Prop {
+	if handler == nil {
+		panic("h: OnSubmit(nil): pass a handler, for example OnSubmit(func(e tela.SubmitEvent) { save() })")
+	}
+	return core.On("submit", handler)
+}
+
+func onComposition(event, name string, handler func(tela.CompositionEvent)) tela.Prop {
+	if handler == nil {
+		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.CompositionEvent) { ... })")
+	}
+	return core.On(event, handler)
+}

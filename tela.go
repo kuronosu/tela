@@ -7,7 +7,9 @@
 // dot-imported; this package holds the application ([App], [Run]), hooks
 // and component boundaries ([UseState], [C], [CP]...), events
 // ([MouseEvent], [PointerEvent], [DragEvent], [KeyboardEvent] with the
-// [Key] and [Code] constants, [FocusEvent]), [ElementRef], the typed
+// [Key] and [Code] constants, [FocusEvent], and the [ChangeEvent],
+// [InputEvent], [CompositionEvent], [SelectEvent] and [SubmitEvent] of
+// text fields and forms), [ElementRef], the typed
 // style props for h.Style, colors, and the [Previews] that `tela
 // snapshot` and `tela inspect` render.
 //
@@ -135,6 +137,17 @@
 // Setter, Dispatcher and Value methods and [Post], which are safe from any
 // goroutine.
 //
+// # Text fields and forms
+//
+// h.Input and h.Textarea are editable text fields with the editing,
+// selection, clipboard, undo and IME behavior of a browser's; h.Form
+// submits on Enter or a submit button (h.OnSubmit), and h.Label names and
+// focuses its field. Their events are [ChangeEvent] (every edit, React's
+// onChange), [InputEvent] (before an edit, cancelable), [CompositionEvent],
+// [SelectEvent] and [SubmitEvent]; [ElementRef] reads and selects their
+// text (Value, Select, SetSelectionRange, SelectionRange). See fields.go
+// for an example.
+//
 // # Snapshots and inspection
 //
 // A package that defines `func Preview() tela.Node`, or a [Previews]
@@ -149,7 +162,8 @@
 // [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
 // [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
 // [Value], [ElementRef], [Rect], [ScrollAlign], [MouseEvent], [PointerEvent], [DragEvent],
-// [KeyboardEvent], [FocusEvent], [WheelEvent], [ScrollEvent], [Key],
+// [KeyboardEvent], [FocusEvent], [WheelEvent], [ScrollEvent], [InputEvent],
+// [ChangeEvent], [CompositionEvent], [SelectEvent], [SubmitEvent], [Key],
 // [Code], [KeyLocation],
 // [MouseButton], [MouseButtons] and [PointerKind] are aliases of types defined in Tela's
 // internal packages (the packages cannot be imported, but their exported

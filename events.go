@@ -149,8 +149,9 @@ const (
 // the key is held, and the modifiers held after the event (Shift, Ctrl,
 // Alt, Meta; Meta is the Windows, Command or Super key). StopPropagation
 // stops the bubbling; PreventDefault cancels the key's default action
-// (Tab's focus move, the click of Enter or Space on a button). There is
-// no text field: typing text is the job of text inputs.
+// (Tab's focus move, the click of Enter or Space on a button, the text a
+// key types into a text field). Typed text reaches text fields
+// (h.Input, h.Textarea), which report it with h.OnChange.
 //
 //	OnKeyDown(func(e tela.KeyboardEvent) {
 //	    switch {

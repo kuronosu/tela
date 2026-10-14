@@ -66,8 +66,9 @@ type Ref[T any] = core.Ref[T]
 // Its methods act on the element while it is mounted and do nothing (or
 // report false) otherwise; call them from event handlers and effects.
 //
-//   - Focus focuses the element, if it is focusable (a Button, or an
-//     element with h.TabIndex, not disabled or hidden).
+//   - Focus focuses the element, if it is focusable (a Button, an
+//     h.Input or h.Textarea, or an element with h.TabIndex, not disabled
+//     or hidden).
 //   - Blur removes the focus from the element if it has it.
 //   - Focused reports whether the element has the focus of its window.
 //   - ScrollTo(x, y) and ScrollBy(dx, dy) scroll a scrolling element
@@ -85,6 +86,13 @@ type Ref[T any] = core.Ref[T]
 //   - ScrollToIndex(i, align) scrolls an h.VirtualList to item i, placed
 //     as [ScrollAlign] says, and keeps it there while the items around it
 //     are measured; it does nothing for other elements.
+//   - Text fields (h.Input, h.Textarea): Value returns the value (the DOM's
+//     input.value: mainly for uncontrolled fields), Select selects all of
+//     it, SetSelectionRange(start, end) selects part of it and
+//     SelectionRange returns the selection, in UTF-8 byte offsets of the
+//     value (HTML's select(), setSelectionRange, selectionStart and
+//     selectionEnd); on other elements they do nothing and return "" or
+//     0, 0.
 //
 // For example, "/" focuses a search box:
 //
@@ -93,9 +101,10 @@ type Ref[T any] = core.Ref[T]
 //	        if e.Key == "/" && !search.Focused() {
 //	            e.PreventDefault()
 //	            search.Focus()
+//	            search.Select()
 //	        }
 //	    }),
-//	    Div(Ref(search), TabIndex(0), Class("rounded-md p-2 focus:ring-2"), Text("Search")),
+//	    Input(Ref(search), Type("search"), Placeholder("Search"), Class("rounded-md border px-2 py-1")),
 //	)
 //
 // A "back to top" button for a list:

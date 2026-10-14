@@ -186,12 +186,16 @@ func TestExportedNames(t *testing.T) {
 	want := []string{
 		"A", "Alt", "AriaChecked", "AriaDescription", "AriaDisabled", "AriaExpanded", "AriaHidden", "AriaLabel",
 		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaSelected", "AriaValueMax", "AriaValueMin",
-		"AriaValueNow", "AriaValueText", "AutoFocus", "Button", "Class", "Code", "Disabled", "Div", "Em",
-		"Fragment", "H1", "H2", "H3", "H4", "H5", "H6", "Href", "If", "IfElse", "Img", "Key", "Map", "MapIndex", "OnBlur", "OnClick",
-		"OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus", "OnKeyDown", "OnKeyUp",
-		"OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove", "OnMouseUp",
-		"OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove", "OnPointerUp",
-		"OnScroll", "OnWheel", "Overscan", "P", "Ref", "Role", "Span", "Src", "Strong", "Style", "TabIndex", "Text", "TextFn", "Textf",
+		"AriaValueNow", "AriaValueText", "AutoComplete", "AutoFocus", "Bind", "BindValue", "Button", "Class",
+		"Code", "DefaultValue", "Disabled", "Div", "Em", "For", "Form", "Fragment", "H1", "H2", "H3", "H4", "H5",
+		"H6", "Href", "Id", "If", "IfElse", "Img", "Input", "Key", "Label", "Map", "MapIndex", "MaxLength", "Name",
+		"OnBeforeInput", "OnBlur", "OnChange", "OnClick", "OnCompositionEnd", "OnCompositionStart",
+		"OnCompositionUpdate", "OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus",
+		"OnKeyDown", "OnKeyUp", "OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove",
+		"OnMouseUp", "OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove",
+		"OnPointerUp", "OnScroll", "OnSelect", "OnSubmit", "OnWheel", "Overscan", "P", "Placeholder", "ReadOnly",
+		"Ref", "Role", "Rows", "Span", "SpellCheck", "Src", "Strong", "Style", "TabIndex", "Text", "TextFn",
+		"Textarea", "Textf", "Type", "Value",
 		"VirtualList",
 	}
 	fset := token.NewFileSet()
