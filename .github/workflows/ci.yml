@@ -115,10 +115,13 @@ jobs:
           go-version-file: go.mod
           cache: true
       # The race detector needs cgo. Nothing is built or shipped with it.
+      # -short skips the timing assertions (meaningless under the race
+      # detector), and internal/core runs 10x slower than usual, past go
+      # test's default 10 minute timeout.
       - name: go test -race
         env:
           CGO_ENABLED: "1"
-        run: go test -race ./internal/core/... . ./internal/platform/...
+        run: go test -race -short -timeout 45m ./internal/core/... . ./internal/platform/...
 
   test-arm64:
     name: test (linux/arm64, pixel determinism)
@@ -170,6 +173,16 @@ jobs:
         run: |
           wineboot -u
           wine reg add 'HKCU\Software\Wine\Drivers' /v Graphics /d null /f
+          # Start the wineserver and Wine's own background processes (the
+          # desktop process the first window launches) now, detached from
+          # go test's pipes: otherwise they inherit a test binary's output
+          # and go test waits for it ("Test I/O incomplete ... WaitDelay
+          # expired") after the test passed.
+          wineserver -p
+          wine cmd /c exit > /dev/null 2>&1 < /dev/null
+          # A first window starts the desktop process; notepad is killed
+          # after it, the desktop process stays with the wineserver.
+          timeout 10 wine notepad.exe > /dev/null 2>&1 < /dev/null || true
       - name: go test under Wine
         env:
           CGO_ENABLED: "0"
