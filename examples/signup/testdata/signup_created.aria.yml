@@ -1,0 +1,28 @@
+- text: T Tela
+- paragraph: “It is the form I would have written in React, shipped as one static binary.”
+- paragraph: Mei Tanaka, desktop engineer
+- heading "Create your account" [level=1]
+- paragraph: Start building in minutes. No credit card needed.
+- status:
+  - strong: Welcome, Mei Tanaka!
+  - text: We sent a confirmation link to taro@example.com.
+- text: Display name (any language)
+- textbox "Display name (any language)": Mei Tanaka
+- text: E-mail
+- textbox "E-mail": taro@example.com
+- paragraph: We only use it to confirm your account.
+- text: Password
+- textbox "Password": ••••••••••••••••
+- button "Show password": Show
+- text: Strong
+- paragraph: Use 8 or more characters with letters, numbers and symbols.
+- text: Short bio (optional)
+- textbox "Short bio (optional)": Building small desktop tools in Go. Coffee, ramen and tidy layouts.
+- paragraph: Shown on your public profile.
+- text: 67/160
+- checkbox "I agree to the Terms of Service and Privacy Policy" [checked]
+- text: I agree to the Terms of Service and Privacy Policy.
+- button "Create account" [disabled]
+- paragraph:
+  - text: Already have an account?
+  - button "Sign in"

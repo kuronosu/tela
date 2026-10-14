@@ -155,6 +155,18 @@ build when their props do not change.
 Dark mode is a class pair (`bg-white dark:bg-zinc-900`); render it with
 `tela snapshot --dark`.
 
+### Signup form
+
+A "Create your account" screen with every text field Tela has: `h.Input`
+with `Type("email")`, `invalid:` and `peer-invalid:` styling, a password with
+a show/hide toggle, an auto-growing `h.Textarea` with a live counter
+(`BindValue` + `TextFn`), `h.Label`, implicit submission with Enter, and a
+submit button that stays disabled until the form is valid.
+
+<p align="center">
+  <img src="docs/images/signup.png" alt="signup example, with an invalid e-mail" width="70%">
+</p>
+
 ### More screens
 
 | | |
