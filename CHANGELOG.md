@@ -12,6 +12,13 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-14
+
+### Fixed
+
+- The repository checks text files out with LF on every OS (`.gitattributes`), so the tests pass on Windows checkouts, where goldens and generated files were read with CRLF.
+- CI: the race job runs `-short` with a 45-minute timeout; the Wine job starts the wineserver before `go test` and runs `-short`; live keyboard and IME tests skip on runners without a keyboard layout or a composing IME.
+
 ## [0.5.0] - 2026-10-13
 
 ### Added
@@ -274,7 +281,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/kuronosu/tela/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/kuronosu/tela/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kuronosu/tela/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/kuronosu/tela/compare/v0.3.0...v0.3.1
