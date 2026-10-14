@@ -179,6 +179,20 @@ submit button that stays disabled until the form is valid.
 | **[player](examples/player)**: a progress bar that advances ten times a second without building anything (`UseValue` + `WidthFn`). <br><img src="docs/images/player.png" alt="player example"> | **[board](examples/board)**: a kanban board with drag and drop between columns, using `OnDrag` and `TranslateFn`. <br><img src="docs/images/board.png" alt="board example"> |
 | **[shapes](examples/shapes)**: rounded cards, gradients, analytic shadows, blur and glass. <br><img src="docs/images/shapes.png" alt="shapes example"> | **[text](examples/text)**: mixed-script paragraphs (Latin, Arabic, CJK, emoji), selection and carets. <br><img src="docs/images/text.png" alt="text example"> |
 
+### Native look
+
+**[native](examples/native)**: one file-explorer tree that looks native on
+Windows 11, GNOME and KDE, each in light and dark. A theme is a set of class
+strings (`bg-[#cce8ff]`, `rounded-[8px]`), a column order and some number
+formats; `-theme=` and `-dark=` choose the look, and `-dark=auto` follows the
+system.
+
+<p align="center">
+  <img src="docs/images/native-win11.png" alt="native example, Windows 11" width="32%">
+  <img src="docs/images/native-adwaita.png" alt="native example, GNOME" width="32%">
+  <img src="docs/images/native-breeze.png" alt="native example, KDE" width="32%">
+</p>
+
 Also there: [`hello`](examples/hello), the screen at the top of this page;
 and [`virtuallist`](examples/virtuallist), 100,000 people in one
 `h.VirtualList` with variable row heights and `ScrollToIndex`.

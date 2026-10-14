@@ -1,0 +1,37 @@
+- button "Toggle sidebar"
+- button "Main menu"
+- button "Back" [disabled]
+- button "Forward" [disabled]
+- button "Up"
+- navigation "Path":
+  - button "Go to Home": Home
+  - button "Go to Documents": Documents
+- searchbox "Search"
+- button "View as list"
+- button "More options"
+- navigation "Places":
+  - button "Home"
+  - button "Desktop"
+  - button "Documents" [pressed]
+  - button "Downloads"
+  - button "Music"
+  - button "Pictures"
+  - button "Videos"
+  - button "Data"
+  - button "Trash"
+- button "Sort by Name": Name
+- button "Sort by Size": Size
+- button "Sort by Type": Type
+- button "Sort by Modified": Modified
+- listbox "Files":
+  - option "Projects": Projects 2 items Folder Mon
+  - option "Reports": Reports 2 items Folder Thu
+  - option "Taxes 2025": Taxes 2025 0 items Folder Apr 14
+  - option "Budget 2026.xlsx": Budget 2026.xlsx 219.1 kB Excel 2007 spreadsheet Sat
+  - option "Contract draft.docx" [selected]: Contract draft.docx 59.4 kB Word 2007 document Fri
+  - option "Meeting notes.txt": Meeting notes.txt 4.1 kB Plain text document Mon
+  - option "Quarterly review.docx": Quarterly review.docx 134.1 kB Word 2007 document Sep 25
+  - option "Resume.pdf": Resume.pdf 749.6 kB PDF document Aug 19
+  - option "todo.md": todo.md 1.0 kB Markdown document Yesterday
+- complementary "Details": Contract draft.docx Type Word 2007 document Size 59.4 kB Modified Fri Location Home › Documents
+- status: “Contract draft.docx” selected (59.4 kB)
