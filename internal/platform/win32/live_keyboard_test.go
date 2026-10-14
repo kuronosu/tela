@@ -214,13 +214,7 @@ func layoutSession(t *testing.T, klid string) (hkl uintptr, restore func()) {
 	t.Helper()
 	if procWineVersion.Find() == nil {
 		if klid == "00000409" {
-			// Wine's layout is US already, unless its driver has no
-			// keyboard: the null graphics driver on a display-less CI
-			// runner maps no scan code (every key would be Unidentified).
-			if mapVirtualKey(0x1E, 1, currentLayout()) == 0 { // A, MAPVK_VSC_TO_VK
-				t.Skip("Wine has no keyboard layout here (null driver without a display); this runs on Windows or Wine with a keyboard")
-			}
-			return 0, func() {}
+			return 0, func() {} // Wine's layout is US already
 		}
 		t.Skip("Wine does not implement keyboard layouts; this runs on Windows")
 	}
@@ -376,9 +370,19 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 		}
 		arm(3 * time.Second)
 	}
+	var noVK string // set when Wine identifies no key of a case
 	check := func() {
 		c := cases[cur]
 		line := strings.Join(got, " ; ")
+		if inWine() && !c.warmup && len(got) > 0 && strings.Count(line, `"Unidentified"`) == len(got) {
+			// Some Wine versions (Ubuntu's, with the null driver of a
+			// display-less CI runner) deliver scan-code-only SendInput keys
+			// without a virtual key: nothing here can be identified.
+			noVK = line
+			cur = len(cases)
+			finish()
+			return
+		}
 		switch {
 		case c.warmup:
 		case record:
@@ -501,6 +505,9 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 	})
 	if cleanup != nil {
 		cleanup()
+	}
+	if noVK != "" {
+		t.Skipf("this Wine delivers SendInput scan codes without virtual keys (got %s); the cases run on Windows", noVK)
 	}
 }
 

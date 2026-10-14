@@ -193,7 +193,8 @@ jobs:
           WINEPREFIX: ${{ runner.temp }}/wineprefix
           DISPLAY: ""
           WAYLAND_DISPLAY: ""
-        run: go test -exec wine ./...
+        # -short: timing assertions do not hold under Wine.
+        run: go test -short -exec wine ./...
       - name: Stop wineserver
         if: always()
         env:
