@@ -1,0 +1,209 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Weekly run on real Windows (windows-latest), see ARCHITECTURE §18.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  STATICCHECK_VERSION: "2026.2.2"
+
+jobs:
+  lint:
+    name: lint (gofmt, vet, staticcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: go vet (linux)
+        env:
+          CGO_ENABLED: "0"
+        run: go vet ./...
+      - name: go vet (windows)
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+        run: go vet ./...
+      - name: go vet (darwin)
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+        run: go vet ./...
+      - name: staticcheck
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}
+          staticcheck ./...
+
+  build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go build
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build ./...
+
+  test-linux:
+    name: test (linux, headless goldens)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go test
+        env:
+          CGO_ENABLED: "0"
+        run: go test ./...
+      - name: Upload golden diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs-linux
+          path: |
+            **/*_actual.png
+            **/*_diff.png
+          if-no-files-found: ignore
+
+  test-race:
+    name: test (race detector, verification only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      # The race detector needs cgo. Nothing is built or shipped with it.
+      - name: go test -race
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race ./internal/core/... . ./internal/platform/...
+
+  test-arm64:
+    name: test (linux/arm64, pixel determinism)
+    # Native arm64 runner (free for public repositories), so no qemu.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go test -short (arm64)
+        env:
+          CGO_ENABLED: "0"
+        run: go test -short ./internal/fmath/... ./internal/gfx/... ./internal/text/... ./internal/style/... ./internal/layout/...
+      - name: Upload golden diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs-arm64
+          path: |
+            **/*_actual.png
+            **/*_diff.png
+          if-no-files-found: ignore
+
+  test-wine:
+    name: test (windows under Wine)
+    runs-on: ubuntu-latest
+    env:
+      WINEDEBUG: "-all"
+      WINEDLLOVERRIDES: "mscoree,mshtml="
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install Wine
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wine64
+      - name: Create the Wine prefix with the null graphics driver
+        # No window reaches a display; the win32 tests only need the
+        # message loop, GDI and the clipboard.
+        env:
+          WINEPREFIX: ${{ runner.temp }}/wineprefix
+          DISPLAY: ""
+          WAYLAND_DISPLAY: ""
+        run: |
+          wineboot -u
+          wine reg add 'HKCU\Software\Wine\Drivers' /v Graphics /d null /f
+      - name: go test under Wine
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+          WINEPREFIX: ${{ runner.temp }}/wineprefix
+          DISPLAY: ""
+          WAYLAND_DISPLAY: ""
+        run: go test -exec wine ./...
+      - name: Stop wineserver
+        if: always()
+        env:
+          WINEPREFIX: ${{ runner.temp }}/wineprefix
+        run: wineserver -k || true
+
+  test-windows:
+    name: test (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go test
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+        run: go test ./...
+      - name: Upload golden diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs-windows
+          path: |
+            **/*_actual.png
+            **/*_diff.png
+          if-no-files-found: ignore

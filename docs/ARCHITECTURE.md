@@ -550,7 +550,7 @@ This is also a design constraint:
 - **Build matrix** with `CGO_ENABLED=0`: `linux/amd64`, `linux/arm64`, `windows/amd64`, `windows/arm64`, `darwin/amd64`, `darwin/arm64`.
 - **Checks:** `go vet`, `staticcheck`, tests and goldens (headless, on Linux).
 - **Windows:**
-  - Locally: `GOOS=windows go test -exec wine ./...`, `wine` to run examples (`xvfb-run` in CI).
+  - Locally: `GOOS=windows go test -exec wine ./...`, `wine` to run examples (CI runs the tests under Wine with a null graphics driver and no display, not `xvfb-run`).
   - Wine is not real Windows (DPI, DWM, IME and accessibility differ), so there is periodic validation on `windows-latest` runners.
 - **macOS:** `macos-latest` runners, with `cocoa` backend snapshots to validate presentation.
 - **Benchmarks:** typical-scene raster (dashboard, long scrolling list, heavy blur), 10k-node layout, paragraph shaping. Regressions are tracked.
