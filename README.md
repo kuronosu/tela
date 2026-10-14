@@ -17,8 +17,8 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.4.0).** Phases 1–4 are done and tagged; Windows,
-> text inputs and macOS are not there yet. The public API (`tela`, `h`) may
+> **Status: pre-1.0 (v0.5.0).** Phases 1–5 are done and tagged: Linux
+> (Wayland, X11) and Windows windows, text inputs and IME. macOS is not there yet. The public API (`tela`, `h`) may
 > still break between minor versions. See [Project status](#project-status).
 
 ## Contents
@@ -39,8 +39,9 @@ error.
 ## Why Tela
 
 - **Pure Go, always `CGO_ENABLED=0`.** Linux talks the Wayland and X11
-  protocols over Unix sockets; the Windows and macOS backends (planned) will
-  call system DLLs and the Objective-C runtime without cgo. One `go build`,
+  protocols over Unix sockets, Windows calls the system DLLs through
+  `syscall`, and the macOS backend (planned) will use the Objective-C runtime
+  without cgo. One `go build`,
   one static binary, easy cross-compilation.
 - **Known vocabulary.** Names copy React (`UseState`, `UseEffect`, `Key`,
   `OnClick`) and classes copy Tailwind v4 verbatim. If an LLM would write it
@@ -241,7 +242,7 @@ JSON. Planned: `tela lint`, `tela dev`, `tela mcp` and a `docs/llms.txt`
 
 ## Project status
 
-**Current version: [v0.4.0](CHANGELOG.md)**, tagged 2026-10-13. Phases 1–4
+**Current version: [v0.5.0](CHANGELOG.md)**, tagged 2026-10-13. Phases 1–5
 are done.
 
 | Phase | Name | State |
@@ -250,7 +251,7 @@ are done.
 | 2 | Text: shaping, bidi, Parley-style layout, selection, emoji | ✅ v0.2.0 |
 | 3 | Tree, style, layout: reconciler, Tailwind classes, flex, `tela snapshot` | ✅ v0.3.0 |
 | 4 | Interaction and state: hooks, pointer and keyboard, focus, scrolling, `VirtualList`, `telatest` | ✅ v0.4.0 |
-| 5 | Windows and text editing: `win32`, `Input`/`Textarea`, IME, inline decorations | ⏳ next |
+| 5 | Windows and text editing: `win32`, `Input`/`Textarea`, IME, inline decorations | ✅ v0.5.0 |
 | 6 | Advanced CSS and animation: grid, `fixed`/`sticky`, transitions, springs, `backdrop-filter`, breakpoints | planned |
 | 7 | `aria` hooks, `kit` components, `tela add/lint/dev/mcp`, `llms.txt` | planned |
 | 8 | macOS, optional GPU backend, accessibility, IME on X11 and macOS | planned |
@@ -259,23 +260,25 @@ are done.
 
 | | Linux Wayland | Linux X11 | Headless | Windows | macOS |
 |---|---|---|---|---|---|
-| Window and rendering | ✅ | ✅ | ✅ | cross-compiles, no backend yet | cross-compiles, no backend yet |
-| Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | — | — |
-| Text input widgets, IME | — | — | — | — | — |
+| Window and rendering | ✅ | ✅ | ✅ | ✅ | cross-compiles, no backend yet |
+| Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
+| Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
+| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (phase 8) | ✅ (injected) | ✅ (IMM32) | — |
 
 Implemented: block, flex and relative/absolute layout; Tailwind classes and
 variants; shaped text with fallback; gradients, shadows, blur, transforms and
 opacity layers; hooks; pointer events with a gesture arena (tap, drag,
 long-press); focus and Tab order; scrolling with kinetic touchpad support;
-`VirtualList`; a semantics tree; debug overlays; the `tela` CLI (`snapshot`,
-`inspect`).
+`VirtualList`; text fields (`Input`, `Textarea`) with selection, undo,
+clipboard and IME, `Form` and `Label`; inline decorations in paragraphs; a
+semantics tree; debug overlays; the `tela` CLI (`snapshot`, `inspect`).
 
 ### Not yet, or known limits
 
-- **No `Input`/`Textarea`** and no IME (phase 5). `telatest`'s `Type`
-  produces no text until then.
-- **No Windows or macOS window** yet (phases 5 and 8). Both build and the
-  Windows tests pass under Wine.
+- **No macOS window** yet (phase 8); it cross-compiles. No IME on X11 yet
+  (XIM, phase 8).
+- **No checkbox, radio, select or slider elements** yet; `kit` brings them
+  in phase 7 (a `Button` with `Role("checkbox")` works meanwhile).
 - **No CSS grid** (grid lays out as block), no `fixed`/`sticky`, no
   transitions or animations, no `backdrop-filter` beyond the raster one,
   no background images (phase 6).
@@ -283,8 +286,6 @@ long-press); focus and Tab order; scrolling with kinetic touchpad support;
   frame at 2x); unchanged glows are free thanks to damage tracking.
 - No fractional scaling on Wayland yet; no accessibility backend (AT-SPI,
   UIA, NSAccessibility) yet.
-- Inline elements inside paragraphs contribute only their text style (no
-  inline backgrounds or padding).
 
 The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

@@ -12,11 +12,13 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-13
+
 ### Added
 
 - `examples/hello`: a static headline screen, the hero image of the README.
 - Windows backend (`win32`): windows, per-monitor DPI, mouse, wheel, cursors, keyboard (layouts, AltGr, dead keys), clipboard and system settings (dark mode, reduced motion, dark title bar); `tela.Run` picks it on Windows (`TELA_BACKEND=win32|headless`).
-- Wayland clipboard (`wl_data_device`), used by the text inputs to come.
+- Wayland clipboard (`wl_data_device`), used by the text fields.
 - Inline elements in paragraphs (`Span`, `Code`, `A`, …) paint backgrounds, borders, radii and shadows per line fragment, and their horizontal padding, borders and margins take space, like CSS inline boxes; buttons, `inline-block`/`inline-flex` elements and inline images sit on the line as atomic inlines.
 - Classes `align-baseline`, `align-top`, `align-middle`, `align-bottom`, `align-text-top`, `align-text-bottom`.
 - `tela inspect --layout` and `telatest.LayoutJSON`: paragraphs list their inline `fragments`; atomic inline children carry `inlineBox: true`.
@@ -42,11 +44,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - Underlines snap to device pixels like Chromium (one crisp row instead of a blurred two-row line).
 - `space-x-*`/`space-y-*` are margins on every child but the last in flex containers too (Tailwind v4), not gaps; a child's own margin on that side wins.
 - `tela snapshot`, `inspect`, `telatest.Render` and the other headless renders run frames until the tree settles (at most 8), so values set by effects and `UseBounds` show up.
+- Alt chords (Alt+letter) no longer type into text fields on Windows and Linux, as in Chromium; AltGr still types.
+- With duplicate `Id`s, the first mounted element in tree order is the one `Label(For(id))` finds (HTML's `getElementById`).
 
 ### Fixed
 
 - A `Button` takes the accessible name of its `Label`, as in Chromium.
 - Borders with different side widths no longer paint one side over the opposite one.
+- Windows: Alt+numpad codes (Alt+0233) type their character instead of the digits.
+- An IME deletion of surrounding text fires `OnBeforeInput` before the change, like every other edit.
 
 ## [0.4.0] - 2026-10-13
 
@@ -268,7 +274,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/kuronosu/tela/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kuronosu/tela/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/kuronosu/tela/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/kuronosu/tela/compare/v0.2.0...v0.3.0
