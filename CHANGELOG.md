@@ -15,7 +15,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Added
 
 - `examples/hello`: a static headline screen, the hero image of the README.
-- Windows backend (`win32`): windows, per-monitor DPI, mouse, wheel and cursors; `tela.Run` picks it on Windows (`TELA_BACKEND=win32|headless`). Keyboard and clipboard are not wired yet.
+- Windows backend (`win32`): windows, per-monitor DPI, mouse, wheel, cursors, keyboard (layouts, AltGr, dead keys), clipboard and system settings (dark mode, reduced motion, dark title bar); `tela.Run` picks it on Windows (`TELA_BACKEND=win32|headless`).
 - Wayland clipboard (`wl_data_device`), used by the text inputs to come.
 - Inline elements in paragraphs (`Span`, `Code`, `A`, …) paint backgrounds, borders, radii and shadows per line fragment, and their horizontal padding, borders and margins take space, like CSS inline boxes; buttons, `inline-block`/`inline-flex` elements and inline images sit on the line as atomic inlines.
 - Classes `align-baseline`, `align-top`, `align-middle`, `align-bottom`, `align-text-top`, `align-text-bottom`.
