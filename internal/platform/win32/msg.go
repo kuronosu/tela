@@ -9,6 +9,16 @@ import (
 // Window message numbers and flags that the pure decoders below depend on.
 // The rest of the messages live in the Windows-only files.
 const (
+	wmKeyFirst    = 0x0100
+	wmKeyDown     = 0x0100
+	wmKeyUp       = 0x0101
+	wmChar        = 0x0102
+	wmDeadChar    = 0x0103
+	wmSysKeyDown  = 0x0104
+	wmSysKeyUp    = 0x0105
+	wmSysChar     = 0x0106
+	wmSysDeadChar = 0x0107
+	wmKeyLast     = 0x0109 // WM_UNICHAR
 	wmLButtonDown = 0x0201
 	wmLButtonUp   = 0x0202
 	wmRButtonDown = 0x0204
@@ -103,6 +113,19 @@ func modifiersFrom(shift, ctrl, alt, super bool) platform.Modifiers {
 		m |= platform.ModSuper
 	}
 	return m
+}
+
+// modifiersFromState builds the platform modifier set from the state of the
+// individual shortcut keys. On a layout with AltGr (altGrLayout), a held
+// right Alt is AltGr and Windows holds a fake left Ctrl with it: neither is
+// reported as Ctrl or Alt (ADR-050), so the right Alt does not count and the
+// left Ctrl only counts when the right Alt is up, or when the window saw the
+// press of that Ctrl (lctrlPressed: the fake one is never delivered). A left
+// Ctrl that was already down when the window got the focus cannot be told
+// from the fake one while AltGr is held.
+func modifiersFromState(shift, lctrl, rctrl, lalt, ralt, super, altGrLayout, lctrlPressed bool) platform.Modifiers {
+	altGr := altGrLayout && ralt
+	return modifiersFrom(shift, rctrl || (lctrl && (!altGr || lctrlPressed)), lalt || (ralt && !altGr), super)
 }
 
 // sanitizeTitle makes a window title safe for the W functions: invalid

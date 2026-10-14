@@ -3,7 +3,6 @@
 package win32
 
 import (
-	"errors"
 	"image"
 	"image/color"
 	"sync/atomic"
@@ -86,9 +85,6 @@ func mouseLParam(x, y int) uintptr { return uintptr(uint16(int16(x))) | uintptr(
 func TestConformance(t *testing.T) {
 	platformtest.Run(t, platformtest.Config{
 		New: func(t *testing.T) platform.Backend { return liveBackend(t) },
-		// The clipboard arrives with text editing; its placeholder is
-		// tested by TestClipboardIsAsyncAndUnsupported.
-		Skip: []string{"Clipboard"},
 	})
 }
 
@@ -662,37 +658,6 @@ func TestPresentIsReadBack(t *testing.T) {
 	const red, blue = 0x0000FF, 0xFF0000 // COLORREF is 0x00BBGGRR
 	if colors != [3]uint32{blue, red, red} {
 		t.Errorf("pixels = %#06x, want blue inside the damaged square, red outside: %#06x", colors, [3]uint32{blue, red, red})
-	}
-}
-
-func TestClipboardIsAsyncAndUnsupported(t *testing.T) {
-	b := liveBackend(t)
-	var inCall, called bool
-	var gotErr error
-	runLive(t, b, func() {
-		if _, err := b.NewWindow(platform.WindowOptions{}); err != nil {
-			t.Fatal(err)
-		}
-	}, func(_ platform.Window, e platform.Event) {
-		if _, ok := e.(platform.FrameEvent); !ok || called {
-			return
-		}
-		called = true
-		inCall = true
-		b.Clipboard().ReadText(func(text string, err error) {
-			if inCall {
-				t.Error("ReadText called back synchronously")
-			}
-			gotErr = err
-			b.Quit()
-		})
-		inCall = false
-	})
-	if !errors.Is(gotErr, ErrClipboardUnsupported) {
-		t.Errorf("ReadText error = %v, want ErrClipboardUnsupported", gotErr)
-	}
-	if err := b.Clipboard().WriteText("x"); !errors.Is(err, ErrClipboardUnsupported) {
-		t.Errorf("WriteText error = %v, want ErrClipboardUnsupported", err)
 	}
 }
 

@@ -76,10 +76,13 @@ func wndProc(hwnd, msg, wparam, lparam uintptr) (ret uintptr) {
 }
 
 // message dispatches a window message. This switch is where new message
-// families plug in (keyboard, IME, clipboard and settings notifications).
-// A case handles the message and returns its result; the default is
-// DefWindowProc.
+// families plug in (IME arrives with text input). A case handles the message
+// and returns its result; the default is DefWindowProc.
 func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
+	if keyTrace != nil && msg >= wmKeyFirst && msg <= wmKeyLast {
+		t, _, _ := procGetMessageTime.Call()
+		keyTrace("msg %#x wparam %#x lparam %#x time %d", msg, wparam, lparam, int32(t))
+	}
 	switch msg {
 	case wmClose:
 		// The app decides: it answers with Window.Close.
@@ -115,6 +118,45 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 	case wmKillFocus:
 		w.setFocused(false)
 		return 0
+
+	case wmKeyDown, wmSysKeyDown:
+		// The system keys are swallowed: a lone Alt or F10 would enter the
+		// menu loop of a window that has no menu. Alt+F4 (close) and
+		// Alt+Space (the window menu) are the exceptions. A window without
+		// the keyboard focus (SetFocus(NULL) sends the keys to the active
+		// window as system keys) reports nothing.
+		if w.focused {
+			if w.kbd.down(w.kenv, msg, wparam, lparam) {
+				return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
+			}
+		} else if isSystemShortcut(msg, uint32(wparam&0xFF), lparam) {
+			return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
+		}
+		return 0
+	case wmKeyUp, wmSysKeyUp:
+		if w.focused {
+			w.kbd.up(w.kenv, msg, wparam, lparam)
+		}
+		return 0
+	case wmChar, wmSysChar:
+		if !w.kbd.char(w.kenv, wparam) && msg == wmChar && w.focused {
+			break // not a key's text: an IME result or an injected message
+		}
+		return 0 // WM_SYSCHAR for DefWindowProc would beep (no menu mnemonic)
+	case wmDeadChar, wmSysDeadChar:
+		w.kbd.deadChar(w.kenv)
+		return 0
+	case wmSysCommand:
+		if swallowSysCommand(wparam, lparam) {
+			return 0
+		}
+	case wmExitMenuLoop, wmExitSizeMove:
+		// The system's modal loops swallow key releases.
+		w.kbd.releaseStale(w.kenv)
+	case wmInputLangChange:
+		forgetLayouts()
+	case wmSettingChange:
+		w.b.settingsChanged()
 
 	case wmSetCursor:
 		if loword(lparam) == htClient {

@@ -22,40 +22,53 @@ var (
 	shcore   = windows.NewLazySystemDLL("shcore.dll")
 	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
 
-	procRegisterClassExW   = user32.NewProc("RegisterClassExW")
-	procCreateWindowExW    = user32.NewProc("CreateWindowExW")
-	procDestroyWindow      = user32.NewProc("DestroyWindow")
-	procDefWindowProcW     = user32.NewProc("DefWindowProcW")
-	procGetMessageW        = user32.NewProc("GetMessageW")
-	procPeekMessageW       = user32.NewProc("PeekMessageW")
-	procTranslateMessage   = user32.NewProc("TranslateMessage")
-	procDispatchMessageW   = user32.NewProc("DispatchMessageW")
-	procPostMessageW       = user32.NewProc("PostMessageW")
-	procPostQuitMessage    = user32.NewProc("PostQuitMessage")
-	procShowWindow         = user32.NewProc("ShowWindow")
-	procSetWindowTextW     = user32.NewProc("SetWindowTextW")
-	procSetWindowPos       = user32.NewProc("SetWindowPos")
-	procGetClientRect      = user32.NewProc("GetClientRect")
-	procScreenToClient     = user32.NewProc("ScreenToClient")
-	procGetDC              = user32.NewProc("GetDC")
-	procReleaseDC          = user32.NewProc("ReleaseDC")
-	procBeginPaint         = user32.NewProc("BeginPaint")
-	procEndPaint           = user32.NewProc("EndPaint")
-	procValidateRect       = user32.NewProc("ValidateRect")
-	procTrackMouseEvent    = user32.NewProc("TrackMouseEvent")
-	procSetCapture         = user32.NewProc("SetCapture")
-	procReleaseCapture     = user32.NewProc("ReleaseCapture")
-	procGetCapture         = user32.NewProc("GetCapture")
-	procGetKeyState        = user32.NewProc("GetKeyState")
-	procLoadCursorW        = user32.NewProc("LoadCursorW")
-	procSetCursor          = user32.NewProc("SetCursor")
-	procAdjustWindowRectEx = user32.NewProc("AdjustWindowRectEx")
-	procIsIconic           = user32.NewProc("IsIconic")
-	procIsZoomed           = user32.NewProc("IsZoomed")
-	procGetDoubleClickTime = user32.NewProc("GetDoubleClickTime")
-	procEnumDisplaySetting = user32.NewProc("EnumDisplaySettingsW")
-	procMonitorFromPoint   = user32.NewProc("MonitorFromPoint")
-	procMonitorFromWindow  = user32.NewProc("MonitorFromWindow")
+	procRegisterClassExW           = user32.NewProc("RegisterClassExW")
+	procCreateWindowExW            = user32.NewProc("CreateWindowExW")
+	procDestroyWindow              = user32.NewProc("DestroyWindow")
+	procDefWindowProcW             = user32.NewProc("DefWindowProcW")
+	procGetMessageW                = user32.NewProc("GetMessageW")
+	procPeekMessageW               = user32.NewProc("PeekMessageW")
+	procTranslateMessage           = user32.NewProc("TranslateMessage")
+	procDispatchMessageW           = user32.NewProc("DispatchMessageW")
+	procPostMessageW               = user32.NewProc("PostMessageW")
+	procPostQuitMessage            = user32.NewProc("PostQuitMessage")
+	procShowWindow                 = user32.NewProc("ShowWindow")
+	procSetWindowTextW             = user32.NewProc("SetWindowTextW")
+	procSetWindowPos               = user32.NewProc("SetWindowPos")
+	procGetClientRect              = user32.NewProc("GetClientRect")
+	procScreenToClient             = user32.NewProc("ScreenToClient")
+	procGetDC                      = user32.NewProc("GetDC")
+	procReleaseDC                  = user32.NewProc("ReleaseDC")
+	procBeginPaint                 = user32.NewProc("BeginPaint")
+	procEndPaint                   = user32.NewProc("EndPaint")
+	procValidateRect               = user32.NewProc("ValidateRect")
+	procTrackMouseEvent            = user32.NewProc("TrackMouseEvent")
+	procSetCapture                 = user32.NewProc("SetCapture")
+	procReleaseCapture             = user32.NewProc("ReleaseCapture")
+	procGetCapture                 = user32.NewProc("GetCapture")
+	procGetKeyState                = user32.NewProc("GetKeyState")
+	procGetAsyncKeyState           = user32.NewProc("GetAsyncKeyState")
+	procGetKeyboardState           = user32.NewProc("GetKeyboardState")
+	procGetKeyboardLayout          = user32.NewProc("GetKeyboardLayout")
+	procMapVirtualKeyExW           = user32.NewProc("MapVirtualKeyExW")
+	procToUnicodeEx                = user32.NewProc("ToUnicodeEx")
+	procGetMessageTime             = user32.NewProc("GetMessageTime")
+	procSystemParametersInfoW      = user32.NewProc("SystemParametersInfoW")
+	procOpenClipboard              = user32.NewProc("OpenClipboard")
+	procCloseClipboard             = user32.NewProc("CloseClipboard")
+	procEmptyClipboard             = user32.NewProc("EmptyClipboard")
+	procGetClipboardData           = user32.NewProc("GetClipboardData")
+	procSetClipboardData           = user32.NewProc("SetClipboardData")
+	procIsClipboardFormatAvailable = user32.NewProc("IsClipboardFormatAvailable")
+	procLoadCursorW                = user32.NewProc("LoadCursorW")
+	procSetCursor                  = user32.NewProc("SetCursor")
+	procAdjustWindowRectEx         = user32.NewProc("AdjustWindowRectEx")
+	procIsIconic                   = user32.NewProc("IsIconic")
+	procIsZoomed                   = user32.NewProc("IsZoomed")
+	procGetDoubleClickTime         = user32.NewProc("GetDoubleClickTime")
+	procEnumDisplaySetting         = user32.NewProc("EnumDisplaySettingsW")
+	procMonitorFromPoint           = user32.NewProc("MonitorFromPoint")
+	procMonitorFromWindow          = user32.NewProc("MonitorFromWindow")
 
 	// Optional (Windows 10 1607 and 1703, 8.1, Vista).
 	procSetProcessDpiAwarenessContext = user32.NewProc("SetProcessDpiAwarenessContext")
@@ -68,9 +81,15 @@ var (
 	procSetDIBitsToDevice = gdi32.NewProc("SetDIBitsToDevice")
 	procGetDeviceCaps     = gdi32.NewProc("GetDeviceCaps")
 
-	procDwmFlush = dwmapi.NewProc("DwmFlush")
+	procDwmFlush              = dwmapi.NewProc("DwmFlush")
+	procDwmSetWindowAttribute = dwmapi.NewProc("DwmSetWindowAttribute") // Windows 10 1809 (19) and 1903 (20)
 
 	procGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
+	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")
+	procGlobalFree       = kernel32.NewProc("GlobalFree")
+	procGlobalLock       = kernel32.NewProc("GlobalLock")
+	procGlobalUnlock     = kernel32.NewProc("GlobalUnlock")
+	procGlobalSize       = kernel32.NewProc("GlobalSize")
 )
 
 // available reports whether an optional procedure exists on this system.
@@ -79,6 +98,11 @@ func available(p *windows.LazyProc) bool { return p.Find() == nil }
 // Window messages. The ones that pure decoders need are in msg.go.
 const (
 	wmSize            = 0x0005
+	wmSettingChange   = 0x001A
+	wmInputLangChange = 0x0051
+	wmSysCommand      = 0x0112
+	wmExitMenuLoop    = 0x0212
+	wmExitSizeMove    = 0x0232
 	wmSetFocus        = 0x0007
 	wmKillFocus       = 0x0008
 	wmPaint           = 0x000F
@@ -96,6 +120,7 @@ const (
 	wmTelaVsync       = 0x8000 + 2 // WM_APP + 2: the display signalled a vsync
 	htClient          = 1
 	pmRemove          = 0x0001
+	pmNoRemove        = 0x0000
 	hwndMessage       = ^uintptr(2) // HWND_MESSAGE, (HWND)-3
 	swShow            = 5
 	swpNoMove         = 0x0002
@@ -111,11 +136,6 @@ const (
 	wsMaximizeBox     = 0x00010000
 	wsClipSiblings    = 0x04000000
 	wsClipChildren    = 0x02000000
-	vkShift           = 0x10
-	vkControl         = 0x11
-	vkMenu            = 0x12
-	vkLWin            = 0x5B
-	vkRWin            = 0x5C
 	monitorDefaultPri = 1
 	monitorDefaultNr  = 2
 	mdtEffectiveDPI   = 0
@@ -295,11 +315,14 @@ func keyDown(vk int) bool {
 }
 
 // keyboardModifiers reads the shortcut keys held now (the state as of the
-// message being processed). AltGr is not distinguished yet: the keyboard
-// work (WM_KEYDOWN) refines this together with the fake Ctrl that Windows
-// sends with AltGr.
-func keyboardModifiers() platform.Modifiers {
-	return modifiersFrom(keyDown(vkShift), keyDown(vkControl), keyDown(vkMenu), keyDown(vkLWin) || keyDown(vkRWin))
+// message being processed). On a layout with AltGr a held right Alt is AltGr,
+// and neither it nor the fake left Ctrl that Windows holds with it is
+// reported as Ctrl or Alt. realLCtrl says that the left Ctrl is a key the
+// user pressed (the window delivered its press), not the fake one.
+func keyboardModifiers(realLCtrl bool) platform.Modifiers {
+	ralt := keyDown(vkRMenu)
+	return modifiersFromState(keyDown(vkShift), keyDown(vkLControl), keyDown(vkRControl), keyDown(vkLMenu), ralt,
+		keyDown(vkLWin) || keyDown(vkRWin), ralt && layoutHasAltGr(currentLayout()), realLCtrl)
 }
 
 // adjustWindowRect returns the outer window size that has a client area of

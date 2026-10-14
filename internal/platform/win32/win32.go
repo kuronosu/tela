@@ -47,6 +47,8 @@ type Backend struct {
 	failure any  // the panic value, re-raised by Run
 	cursors map[platform.Cursor]uintptr
 	msg     msg
+	// settings are the system settings as last read (see settings.go).
+	settings platform.SystemSettings
 
 	iterations atomic.Int64 // GetMessageW returns, for idle tests
 }
@@ -75,6 +77,7 @@ func newBackend() (*Backend, error) {
 		hinst:    getModuleHandle(),
 		interval: displayInterval(),
 		cursors:  map[platform.Cursor]uintptr{},
+		settings: readSettings(),
 	}
 	b.loop = loop.New(loop.Options[*Window]{
 		Now:      b.Now,
@@ -122,13 +125,6 @@ func (b *Backend) notify() {
 	if b.notifyPosted.CompareAndSwap(false, true) && !postMessage(b.msgHwnd, wmTelaNotify, 0, 0) {
 		b.notifyPosted.Store(false)
 	}
-}
-
-// Settings returns the double-click interval; the other settings (dark mode,
-// reduced motion) are read with the text editing work.
-func (b *Backend) Settings() platform.SystemSettings {
-	ms, _, _ := procGetDoubleClickTime.Call()
-	return platform.SystemSettings{DoubleClickInterval: time.Duration(ms) * time.Millisecond}
 }
 
 // Run runs the message loop until Quit (nil) or until GetMessageW fails

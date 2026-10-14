@@ -34,6 +34,10 @@ type Window struct {
 	bmi     bitmapInfo
 	focused bool
 
+	// Keyboard state: the translation of key messages into KeyEvents.
+	kbd  *keyTranslator
+	kenv keyEnv
+
 	// Pointer state.
 	ptr      pointerState
 	emitFn   func(platform.PointerEvent) // w.pointerEvent, allocated once
@@ -69,10 +73,13 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	}
 	w := &Window{b: b, hwnd: hwnd, opts: opts, style: style, exStyle: exStyle, dpi: dpi}
 	w.emitFn = w.pointerEvent
+	w.kenv = osKeyEnv{w}
+	w.kbd = newKeyTranslator(w.keyEvent)
 	registry.mu.Lock()
 	registry.windows[hwnd] = w
 	registry.mu.Unlock()
 	b.loop.Add(w)
+	w.applyTheme(b.settings.DarkMode)
 
 	if d := windowDPI(hwnd); d != dpi {
 		// Windows put the window on a monitor with another DPI: keep the
@@ -179,9 +186,14 @@ func (w *Window) unregister() {
 	registry.mu.Unlock()
 }
 
-// setFocused reports a change of the keyboard focus.
+// setFocused reports a change of the keyboard focus. Losing it releases the
+// keys that are held first (synthetic releases, ADR-050); gaining it presses
+// nothing, so the keys already down are ignored until their release.
 func (w *Window) setFocused(focused bool) {
 	if w.focused != focused {
+		if !focused {
+			w.kbd.focusLost(w.kenv) // while keyEvent still delivers
+		}
 		w.focused = focused
 		w.b.enqueue(w, platform.FocusEvent{Focused: focused})
 	}

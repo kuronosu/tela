@@ -32,7 +32,7 @@ func (w *Window) scale() float64 { return scaleFromDPI(w.dpi) }
 
 func (w *Window) onMouseMove(lparam uintptr) {
 	x, y := pointFromLParam(lparam)
-	w.mods = keyboardModifiers()
+	w.mods = w.modifiers()
 	inClient := x >= 0 && y >= 0 && x < w.client.X && y < w.client.Y
 	if w.ptr.move(logicalPoint(x, y, w.scale()), inClient, w.emitFn) && !w.tracking {
 		// Ask for WM_MOUSELEAVE once; Windows disarms it when it sends the
@@ -46,7 +46,7 @@ func (w *Window) onMouseMove(lparam uintptr) {
 
 func (w *Window) onMouseLeave() {
 	w.tracking = false
-	w.mods = keyboardModifiers()
+	w.mods = w.modifiers()
 	w.ptr.leaveMessage(w.emitFn)
 }
 
@@ -56,7 +56,7 @@ func (w *Window) onButton(msg uint32, wparam, lparam uintptr) {
 		return
 	}
 	x, y := pointFromLParam(lparam)
-	w.mods = keyboardModifiers()
+	w.mods = w.modifiers()
 	switch w.ptr.button(btn, down, logicalPoint(x, y, w.scale()), w.emitFn) {
 	case captureSet:
 		// Keep receiving the pointer while a button is held, also outside
@@ -72,7 +72,7 @@ func (w *Window) onButton(msg uint32, wparam, lparam uintptr) {
 // the capture ourselves ends up here too, with no buttons held: nothing to
 // abort.
 func (w *Window) onCaptureLost() {
-	w.mods = keyboardModifiers()
+	w.mods = w.modifiers()
 	w.ptr.captureLost(w.emitFn)
 }
 
@@ -96,7 +96,7 @@ func (w *Window) onWheel(msg uint32, wparam, lparam uintptr) {
 		Kind:  platform.PointerMouse,
 		Pos:   logicalPoint(x, y, w.scale()),
 		Steps: steps,
-		Mods:  keyboardModifiers(),
+		Mods:  w.modifiers(),
 		Time:  w.b.Now(),
 	})
 }
