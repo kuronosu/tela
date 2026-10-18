@@ -1236,10 +1236,12 @@ func (t *Tree) panRecognizer(s *scroller) *gesture.Drag {
 // ---------------------------------------------------------------------
 // The frame clock.
 
-// Animate advances the scroll animations, the flings and the overlay
-// scrollbars' fades to now, the frame clock (a FrameEvent's time; the
-// Host calls it before Frame). Moves are painted by the next Frame.
+// Animate is phase 2 of the pipeline: it advances the transitions and
+// keyframe animations (anim.go), the scroll animations, the flings and the
+// overlay scrollbars' fades to now, the frame clock (a FrameEvent's time;
+// the Host calls it before Frame). Changes are painted by the next Frame.
 func (t *Tree) Animate(now time.Duration) {
+	t.animateStyles(now)
 	st := &t.scr
 	st.now = max(st.now, now)
 	now = st.now

@@ -127,6 +127,9 @@ type Box struct {
 	inkKey      inkKey
 	selfInkRect gfx.Rect
 
+	// anim holds the running transitions and keyframe animation of the box
+	// (anim.go); nil when none.
+	anim *boxAnim
 	// scr is the scroll state of a scroll container (scroll.go).
 	scr *scroller
 	// fld is the state of a text field (field.go).
@@ -152,6 +155,7 @@ func (b *Box) detach() {
 	if b.scr != nil {
 		b.tree.dropScroller(b)
 	}
+	b.tree.dropAnim(b)
 	b.parent = nil
 	b.kids = nil
 	b.anon = nil

@@ -248,8 +248,10 @@ func (a *App) pendingWork() bool {
 		return true
 	}
 	// A frame requested for the debug overlays alone (a fading flash, the
-	// fps meter) is not work the app must finish.
-	return a.win.FrameRequested() && !a.tree.DebugWantsFrame()
+	// fps meter), or for infinite animations alone (a spinner, a pulse),
+	// is not work the app must finish. Finite transitions and animations
+	// are: settle advances the clock until they end.
+	return a.win.FrameRequested() && !a.tree.DebugWantsFrame() && !a.tree.OnlyEndlessAnimations()
 }
 
 // busyFrames is how many frames settle runs once the app has shown that it

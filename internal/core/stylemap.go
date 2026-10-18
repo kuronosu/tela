@@ -70,6 +70,9 @@ func (t *Tree) restyle(el *Element) {
 		cs.OverflowX, cs.OverflowY = viewportOverflow(cs.OverflowX), viewportOverflow(cs.OverflowY)
 	}
 	old := bx.cs
+	// Transitions and keyframe animations: cs is the target; the style the
+	// box uses now may differ from it (anim.go).
+	cs = t.animRestyle(el, bx, old, cs)
 	bx.cs = cs
 	if bx.fld != nil {
 		t.fieldRestyled(bx.fld, old, cs)
@@ -118,7 +121,12 @@ func (t *Tree) restyleChildren(el *Element) {
 		switch c.kind {
 		case elemPrimitive:
 			if c.mounted {
+				// The children follow the inherited properties of el,
+				// including the ones it animates (anim.go).
+				was := t.anim.inherited
+				t.anim.inherited = true
 				t.restyle(c)
+				t.anim.inherited = was
 			}
 		case elemComponent:
 			t.restyleChildren(c)

@@ -96,7 +96,7 @@ func TestCounterInteractive(t *testing.T) {
 	x, y := a.buttonCenter()
 	before := a.w.Frame()
 	a.send(pe(platform.PointerMove, x, y, 0, 0))
-	a.frame()
+	a.settle() // the button transitions its colors
 	hovered := a.w.Frame()
 	if px := hovered.RGBAAt(int(x)-40, int(y)); px == before.RGBAAt(int(x)-40, int(y)) {
 		t.Errorf("hover:bg-white/25 did not change the button's pixels (%v)", px)
@@ -105,7 +105,7 @@ func TestCounterInteractive(t *testing.T) {
 		t.Errorf("cursor %v over the button", a.w.Cursor())
 	}
 	a.send(pe(platform.PointerDown, x, y, platform.ButtonPrimary, primary))
-	a.frame()
+	a.settle()
 	if pressed := a.w.Frame(); bytes.Equal(pressed.Pix, hovered.Pix) {
 		t.Error("active:scale-95 did not change the picture")
 	}

@@ -34,7 +34,7 @@ import (
 //     frame, so a change of them only composites again. A box that stops
 //     or starts being a stacking context (its transform becomes the
 //     identity) records everything again. This is also where an explicit
-//     repaint boundary, and phase 6's animated transforms and opacity,
+//     repaint boundary, and the animated transforms and opacity of anim.go
 //     belong: a box whose paint-phase props change often;
 //   - the scrollbars of a scroll container that has a chunk or classic
 //     bars, recorded on every frame that paints (they follow the offsets,
@@ -213,9 +213,12 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	full = place || L.needFull
 	L.needFull, L.needPlace = false, false
 	p := painter{t: t, scale: float64(t.scale), full: full}
-	if !full {
+	if !place {
+		// The boxes marked for painting (deferred props, animations) are
+		// placed again, also when the layers are recorded again anyway.
 		p.update(marked)
-		place, full = L.needPlace, L.needFull // stale layers
+		place = L.needPlace // stale layers
+		full = full || L.needFull || place
 		L.needFull, L.needPlace = false, false
 	}
 	p.full = full

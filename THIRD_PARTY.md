@@ -190,3 +190,17 @@ their original copyright notice. Add one section per source project.
 - **License:** Apache-2.0
 - **Used in:** `internal/platform/win32/`
 - **Notes:** Design references only (syscall-based window class, message loop and DPI setup; mouse capture, leave tracking and DPI quirks). No source was copied; the backend is written against the Win32 documentation. Listed as a courtesy. The keyboard (`scancode.go`, `vkey.go`, `keyboard.go`, `layout.go`) follows winit 0.30's Windows keyboard (`keyboard.rs`, `keyboard_layout.rs`): the scan code to W3C code table and the virtual-key to named-key table are the same facts (and the same W3C and Firefox sources) written out again in Go, and the techniques (character messages complete the key, a peek at the queue, the fake left Ctrl before AltGr, `ToUnicodeEx` on the layout) are winit's. No Rust code was translated.
+
+## Motion (springs)
+
+- **Source:** https://github.com/motiondivision/motion (formerly framer-motion; `packages/motion-dom/src/animation/generators/spring/`: `index.ts`, `find.ts`)
+- **License:** MIT, Copyright (c) 2018 Framer B.V.
+- **Used in:** `internal/anim/spring.go`
+- **Notes:** The spring model (stiffness, damping, mass, initial velocity), its closed-form solution for under-damped, critically damped and over-damped springs, the rest thresholds (`restSpeed` and `restDelta` defaults for small and large distances) and the `duration`/`bounce` parametrization (`findSpring`: Newton iteration on the envelope, damping ratio clamped to 0.05-1, duration to 0.01-10 s) are ported to Go. Tela works in seconds, also returns the velocity, uses `internal/fmath` and explicit rounding of products (ADR-041), and finds the settle time by sampling instead of Motion's `calcGeneratorDuration`. The file keeps Motion's copyright notice.
+
+## WebKit UnitBezier / Chromium CubicBezier (reference behavior)
+
+- **Source:** https://github.com/WebKit/WebKit (`Source/WebCore/platform/graphics/UnitBezier.h`) and https://chromium.googlesource.com/chromium/src (`ui/gfx/geometry/cubic_bezier.cc`)
+- **License:** BSD-2-Clause (Apple) and BSD-3-Clause (Chromium Authors)
+- **Used in:** `internal/anim/curve.go`
+- **Notes:** No code is copied. The solver (Newton's method on x(t) with bisection as the fallback, then y(t)) is the one both engines use for CSS `cubic-bezier()`, written from the CSS Easing Functions Level 1 formulas with Tela's explicit rounding. `steps()` follows the same specification.

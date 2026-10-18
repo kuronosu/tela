@@ -178,6 +178,10 @@ type Tree struct {
 	// lay holds the layers and the composed frames (layer.go).
 	lay layerState
 
+	// anim is the state of the transitions and keyframe animations
+	// (anim.go).
+	anim animState
+
 	// dbg is the state of the debug overlays (debug.go).
 	dbg debugState
 
@@ -435,6 +439,7 @@ func (t *Tree) afterFrame() {
 	t.inFrame = false
 	t.boundsAfterFrame()
 	t.scrollAfterFrame()
+	t.animAfterFrame()
 }
 
 // buildPhase builds the components marked needsBuild in tree order,

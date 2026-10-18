@@ -2,7 +2,7 @@
 
 The Counter of ARCHITECTURE section 1, verbatim: a card with a gradient, a heading and a button, styled only with Tailwind classes. It is the phase-3 showcase and its done criterion: the render must match the same markup in HTML + Tailwind CSS, as Chromium draws it.
 
-**It is interactive** (since phase 4): a click increments the count (`UseState` and a `tela.Setter`), and `hover:bg-white/25` and `active:scale-95` restyle the button under the pointer. `transition` has no effect until transitions arrive in phase 6, so the changes are instant. `h/events_test.go` drives this component through a headless window and checks the hover, press and click.
+**It is interactive** (since phase 4): a click increments the count (`UseState` and a `tela.Setter`), and `hover:bg-white/25` and `active:scale-95` restyle the button under the pointer. `transition` animates the changes (150 ms) on the frame clock. `h/events_test.go` drives this component through a headless window and checks the hover, press and click.
 
 - Run it in a window: `CGO_ENABLED=0 go run ./examples/counter` (800x600).
 - Render it without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 800x600 [--scale 2] -o counter.png ./examples/counter` (`Preview()` builds `Counter` as a component, so its `UseState` works).

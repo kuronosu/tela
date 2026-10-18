@@ -33,10 +33,13 @@
 // view and not covered by another element. Before and after, the app is
 // settled: pending state updates are applied and frames run, advancing the
 // app's clock to each one, until nothing is dirty and no animation or
-// scroll fling is running. An app that never goes quiet (an endless
-// animation, a goroutine that updates state all the time) is not waited
-// for: the first time it is logged, and actions then run only a few
-// frames.
+// scroll fling is running: transitions (hover:, focus:, dark: changes with
+// transition classes) and finite animations run to their end, so a
+// screenshot after an action shows the settled state. Infinite animations
+// (animate-spin, animate-pulse) are never waited for, and use [App.Advance]
+// to step them. An app that never goes quiet otherwise (a goroutine that
+// updates state all the time) is not waited for either: the first time it
+// is logged, and actions then run only a few frames.
 //
 // [App.Advance] moves the clock by hand: it is how a test waits for a
 // long-press timer, an animation or a fade.

@@ -664,7 +664,7 @@ type ComputedStyle struct {
 	Transform  Transform
 	Transition ComputedTransition
 	// Animation is the raw animation shorthand of an animate-* class
-	// ("spin 1s linear infinite"); phase 6 parses it.
+	// ("spin 1s linear infinite"); core parses it (anim.ParseSpec).
 	Animation string
 
 	// Interaction (cursor, pointer-events and user-select are inherited).

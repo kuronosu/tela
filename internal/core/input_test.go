@@ -859,10 +859,10 @@ func TestCounterInteractionGolden(t *testing.T) {
 			btn := findKind(&in, "button")
 			c := btn.Rect.Center()
 			x.send(move(c.X, c.Y))
-			x.frame()
+			x.settle() // the button transitions its colors and transform
 			golden.Image(t, fmt.Sprintf("counter_hover_x%g", scale), x.w.Frame())
 			x.send(down(c.X, c.Y))
-			x.frame()
+			x.settle()
 			golden.Image(t, fmt.Sprintf("counter_active_x%g", scale), x.w.Frame())
 			x.send(up(c.X, c.Y))
 			x.frame()

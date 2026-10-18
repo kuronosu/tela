@@ -3,7 +3,7 @@
 // the hosts that run a tree in a window or headless. The public packages
 // tela and h are thin wrappers over it.
 //
-// core imports gfx, gfx/raster, text, style, layout, gesture, semantics and
+// core imports gfx, gfx/raster, text, style, layout, anim, gesture, semantics and
 // platform (with platform/auto for Run); nothing but tela and h imports
 // core (ARCHITECTURE section 5).
 //
@@ -291,10 +291,32 @@
 // package aria. Focus work queued by a build (AutoFocus, scope
 // restoration, fix-up) runs in Frame after the style phase.
 //
+// # Animations
+//
+// Implicit CSS transitions and the animate-* classes run on the frame
+// clock (anim.go, whose top comment is the reference; the pieces are in
+// internal/anim). A restyle of a box whose transition-property covers a
+// changed property starts a transition from the current value, with
+// retargeting and reversing as in CSS Transitions Level 1; a box that
+// mounts does not transition. Tree.Animate (phase 2) advances the running
+// ones to the time of the frame and installs the animated style, with
+// opacity and transform frames that only mark the box for painting (it is
+// a layer of its own while it animates), color and shadow frames that
+// record again without a restyle, and size, spacing and inherited
+// property frames that restyle the box. A Tree whose frames carry no
+// clock (Render) has no transitions. After each frame the Tree asks for
+// another while anything animates, so an idle app asks for none;
+// infinite animations keep asking while mounted (those inside display:
+// none wait until shown), and Tree.OnlyEndlessAnimations lets a test
+// runner not wait for them. Reduced motion (Config.ReducedMotion, the
+// system setting) removes transitions; the motion-reduce: variants handle
+// the animate-* classes.
+//
 // # Pipeline
 //
 // Tree.Animate (phase 2, called with the frame clock before Frame)
-// advances the scroll animations, flings and scrollbar fades. Tree.Frame
+// advances the transitions and keyframe animations (anim.go), the scroll
+// animations, flings and scrollbar fades. Tree.Frame
 // fires the pending OnScroll events and runs Build, Style, box structure,
 // Layout, the layout effects, the scroll phase (offsets clamped, classic
 // gutters, virtual lists measured and their windows moved, elements

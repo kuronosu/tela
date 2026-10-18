@@ -24,10 +24,10 @@ func Card(title, body string) tela.Node {
 What is supported: spacing, sizing, colors (with opacity as `bg-white/15`),
 borders, radius, shadows, gradients (`bg-linear-to-br from-indigo-500
 to-fuchsia-600`), typography, block and flex layout, relative and absolute
-positioning, overflow, transforms, and arbitrary values (`w-[calc(50%-8px)]`,
+positioning, overflow, transforms, transitions (`transition`, `duration-*`, `ease-*`, `delay-*`, also with `hover:` and `dark:`), the `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` classes, and arbitrary values (`w-[calc(50%-8px)]`,
 `bg-[#1e1e2e]`). The vocabulary is generated from Tailwind v4's theme; the v3
 aliases that mean the same thing are accepted (`bg-gradient-to-br`). Grid,
-`fixed`/`sticky` positioning, transitions and animations are not implemented
+`fixed`/`sticky` positioning and custom keyframes are not implemented
 yet; check the [roadmap](https://github.com/kuronosu/tela/blob/main/docs/ROADMAP.md)
 before relying on them.
 

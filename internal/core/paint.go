@@ -393,7 +393,7 @@ func stacking(bx *Box) bool {
 		return true
 	}
 	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky ||
-		cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
+		(bx.anim != nil && bx.anim.layer) || cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
 		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate
 }
 

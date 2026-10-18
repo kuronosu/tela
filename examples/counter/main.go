@@ -5,8 +5,8 @@
 // same markup styled by Tailwind's own compiled CSS.
 //
 // The button reacts: a click increments the count, and the hover: and active:
-// classes restyle it under the pointer. The transition class has no effect
-// until transitions arrive in phase 6, so the changes are instant.
+// classes restyle it under the pointer, and the transition class animates the
+// change on the frame clock.
 package main
 
 import (

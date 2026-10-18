@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tela animation oracle</title>
+<style>
+*, ::before, ::after { box-sizing: border-box; border: 0 solid; margin: 0; padding: 0; }
+html, body { background: #fff; }
+.grid { display: grid; grid-template-columns: repeat(4, 120px); }
+.cell { width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+@keyframes pulse { 50% { opacity: .5; } }
+@keyframes bounce { 0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(.8, 0, 1, 1); } 50% { transform: none; animation-timing-function: cubic-bezier(0, 0, .2, 1); } }
+.c-oklch { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(62.3% .214 259.815); transition: color .4s cubic-bezier(.4, 0, .2, 1), background-color .4s cubic-bezier(.4, 0, .2, 1), border-color .4s cubic-bezier(.4, 0, .2, 1); }
+.c-oklch.on { background-color: oklch(63.7% .237 25.331); }
+.c-hex { width: 4rem; height: 4rem; border-radius: .75rem; background-color: #fde047; transition: background-color .4s cubic-bezier(.4, 0, .2, 1); }
+.c-hex.on { background-color: #1e3a8a; }
+.c-white-black { width: 4rem; height: 4rem; border-radius: .75rem; border: 1px solid oklch(87.2% .01 258.338); background-color: #fff; transition: background-color .4s cubic-bezier(.4, 0, .2, 1); }
+.c-white-black.on { background-color: #000; }
+.c-opacity { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(51.1% .262 276.966); opacity: 1; transition: opacity .4s cubic-bezier(0, 0, .2, 1); }
+.c-opacity.on { opacity: .2; }
+.c-transform { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(69.6% .17 162.48); transition: transform .4s cubic-bezier(.4, 0, .2, 1), translate .4s cubic-bezier(.4, 0, .2, 1), scale .4s cubic-bezier(.4, 0, .2, 1), rotate .4s cubic-bezier(.4, 0, .2, 1); }
+.c-transform.on { translate: 12px -8px; scale: 1.25; rotate: 45deg; }
+.c-shadow { width: 4rem; height: 4rem; border-radius: .75rem; border: 1px solid oklch(92.8% .006 264.531); background-color: #fff; box-shadow: 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1); transition: box-shadow .4s cubic-bezier(.4, 0, .2, 1); }
+.c-shadow.on { box-shadow: 0 0 #0000, 0 0 #0000, 0 0 0 0 #fff, 0 0 0 2px oklch(62.3% .214 259.815), 0 20px 25px -5px rgb(0 0 0 / .1), 0 8px 10px -6px rgb(0 0 0 / .1); }
+.c-width { width: 2.5rem; height: 4rem; border-radius: .375rem; background-color: oklch(60.6% .25 292.717); transition: width .6s cubic-bezier(.4, 0, .2, 1); }
+.c-width.on { width: 6rem; }
+.c-blur { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(64.5% .246 16.439); transition: filter .4s cubic-bezier(.4, 0, .2, 1); }
+.c-blur.on { filter: blur(12px); }
+.c-spin { width: 3rem; height: 3rem; border-radius: 9999px; border: 4px solid oklch(87.2% .01 258.338); border-top-color: oklch(54.6% .245 262.881); }
+.c-spin.on { animation: spin 1s linear infinite; }
+.c-ping { width: 3rem; height: 3rem; border-radius: 9999px; background-color: oklch(74.6% .16 232.661); opacity: .75; }
+.c-ping.on { animation: ping 1s cubic-bezier(0, 0, .2, 1) infinite; }
+.c-pulse { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(70.4% .04 256.788); }
+.c-pulse.on { animation: pulse 2s cubic-bezier(.4, 0, .6, 1) infinite; }
+.c-bounce { width: 3rem; height: 3rem; border-radius: 9999px; background-color: oklch(82.8% .189 84.429); }
+.c-bounce.on { animation: bounce 1s infinite; }
+</style></head><body>
+<div class="grid">
+<div class="cell"><div class="box c-oklch"></div></div>
+<div class="cell"><div class="box c-hex"></div></div>
+<div class="cell"><div class="box c-white-black"></div></div>
+<div class="cell"><div class="box c-opacity"></div></div>
+<div class="cell"><div class="box c-transform"></div></div>
+<div class="cell"><div class="box c-shadow"></div></div>
+<div class="cell"><div class="box c-width"></div></div>
+<div class="cell"><div class="box c-blur"></div></div>
+<div class="cell"><div class="box c-spin"></div></div>
+<div class="cell"><div class="box c-ping"></div></div>
+<div class="cell"><div class="box c-pulse"></div></div>
+<div class="cell"><div class="box c-bounce"></div></div>
+</div>
+<script>
+// Put every box in its "on" state (starting the transitions and the
+// animations), pause every animation and set its current time to ?t= (ms).
+const t = +new URLSearchParams(location.search).get("t");
+const boxes = document.querySelectorAll(".box");
+document.body.offsetWidth; // the before-change style
+boxes.forEach((b) => b.classList.add("on"));
+document.body.offsetWidth; // the style change event: transitions are created
+for (const a of document.getAnimations()) {
+  a.pause();
+  a.currentTime = t;
+}
+</script>
+</body></html>
