@@ -422,11 +422,15 @@ func virtualScene(st *sceneState) Node {
 
 // runScene drives a scene with random operations and scene-specific ones.
 func runScene(t *testing.T, name string, root func(*sceneState) Node, ops func(*damageHarness, *sceneState) string, cfg Config, steps int) {
-	for _, scale := range []float64{1, 2} {
+	for _, scale := range damageScales() {
 		t.Run(fmt.Sprintf("%s_x%g", name, scale), func(t *testing.T) {
 			st := &sceneState{refs: make([]ElementRef, 4), setters: make([]Setter[int], 200), values: make([]*Value[float32], 4)}
-			x := newDamageHarness(t, root(st), 360, 280, scale, cfg, damageSeed+uint64(len(name))*1000+uint64(scale))
-			for range steps {
+			x := newDamageHarness(t, root(st), 360, 280, scale, cfg, damageSeed+uint64(len(name))*1000+uint64(scale*100)/100+uint64(scale*100)%100*7)
+			n := steps
+			if scale == 1.25 || scale == 1.75 {
+				n = max(steps/4, 10) // the other fractional scales, shorter (1.5 runs in full)
+			}
+			for range n {
 				var what string
 				if x.rng.IntN(3) == 0 {
 					what = ops(x, st)
@@ -485,6 +489,24 @@ func commonOps(x *damageHarness, st *sceneState) string {
 // damageSeed and TELA_DAMAGE_STEPS vary the property test: run it with
 // TELA_DAMAGE_SEED=n TELA_DAMAGE_STEPS=2000 for long sequences.
 var damageSeed, _ = strconv.ParseUint(os.Getenv("TELA_DAMAGE_SEED"), 10, 64)
+
+// damageScales are the display scales the property test runs at: the
+// integer scales and the common fractional ones (Wayland's
+// wp_fractional_scale_v1, Windows' 125/150/175 %). TELA_DAMAGE_SCALES
+// (comma-separated) overrides them.
+func damageScales() []float64 {
+	s := os.Getenv("TELA_DAMAGE_SCALES")
+	if s == "" {
+		return []float64{1, 1.25, 1.5, 1.75, 2}
+	}
+	var out []float64
+	for _, f := range strings.Split(s, ",") {
+		if v, err := strconv.ParseFloat(strings.TrimSpace(f), 64); err == nil && v > 0 {
+			out = append(out, v)
+		}
+	}
+	return out
+}
 
 func TestDamageMatchesFullRender(t *testing.T) {
 	steps := 160

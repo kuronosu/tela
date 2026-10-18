@@ -8,9 +8,9 @@ import (
 )
 
 // TestScrollDamage scrolls and hovers the dashboard in a small window at
-// scales 1 and 2, checking every frame against a full rendering.
+// scales 1, 1.5 and 2, checking every frame against a full rendering.
 func TestScrollDamage(t *testing.T) {
-	for _, scale := range []float64{1, 2} {
+	for _, scale := range []float64{1, 1.5, 2} {
 		scrollAround(t, Dashboard, 700, 420, scale, 24)
 	}
 }

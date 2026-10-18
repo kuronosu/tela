@@ -41,7 +41,13 @@ import (
 //
 // When the offset of a scroll container changed by whole device pixels,
 // the commands of its chunks (a unit: a run of consecutive commands of
-// chunks of its scroll space) moved together by that amount Δ. If
+// chunks of its scroll space) moved together by that amount Δ. Δ is the
+// difference of the device positions the rasterizer gives the unit in the
+// two frames (origin), composing the enclosing translations and the
+// chunks' attachments with raster.GridMul: at a fractional scale a
+// whole-pixel offset is only approximately a float32 logical value, and
+// the rasterizer places such translations on the device pixel grid, so
+// the shift is exact there too (ADR-075). If
 //
 //   - the unit is inside clips and integer translations only (no opacity
 //     group, filter or other transform), the same in both frames, and R,
@@ -289,7 +295,7 @@ func (d *damager) findUnits() {
 				ua.dx, ua.dy, ua.r, ua.group, ua.ok = pa.dx, pa.dy, pa.r, pa.group, true
 				ub.dx, ub.dy, ub.r, ub.group, ub.ok = pb.dx, pb.dy, pb.r, pb.group, true
 			} else {
-				if !d.validate(&ua, &ub, sa[s], sb[s]) {
+				if !d.validate(&ua, &ub) {
 					prev = -1
 					continue
 				}
@@ -393,18 +399,28 @@ func sameEnclosing(dl *gfx.DisplayList, i, j int) bool {
 
 // validate checks that the pair of runs ua (old) and ub (new) can be
 // shifted, and computes the shift and its rectangle.
-func (d *damager) validate(ua, ub *unit, oa, ob gfx.Point) bool {
-	dx, dy := float64(oa.X-ob.X)*d.scale, float64(oa.Y-ob.Y)*d.scale
-	if dx != math.Round(dx) || dy != math.Round(dy) || math.Abs(dx) > 1<<20 || math.Abs(dy) > 1<<20 {
-		return false
-	}
-	ua.dx, ua.dy = int(dx), int(dy)
-	ub.dx, ub.dy = ua.dx, ua.dy
+//
+// The shift is the difference of the device positions the rasterizer gives
+// the runs' chunks (origin), not the scroll offsets times the scale: at a
+// fractional scale a whole-pixel offset is not exact in float32 logical
+// pixels, and the rasterizer places it on the grid (raster.GridMul).
+func (d *damager) validate(ua, ub *unit) bool {
 	encA, okA := enclosing(d.a.dl, ua.start)
 	encB, okB := enclosing(d.b.dl, ub.start)
 	if !okA || !okB || len(encA) != len(encB) {
 		return false
 	}
+	pa, okA := d.origin(d.a, ua, encA)
+	pb, okB := d.origin(d.b, ub, encB)
+	if !okA || !okB {
+		return false
+	}
+	dx, dy := float64(pb.X)-float64(pa.X), float64(pb.Y)-float64(pa.Y)
+	if math.Abs(dx) > 1<<20 || math.Abs(dy) > 1<<20 {
+		return false
+	}
+	ua.dx, ua.dy = int(dx), int(dy)
+	ub.dx, ub.dy = ua.dx, ua.dy
 	for k := range encA {
 		if !gfx.Equal(d.a.dl.At(encA[k]), d.b.dl.At(encB[k])) {
 			return false
@@ -432,6 +448,52 @@ func (d *damager) validate(ua, ub *unit, oa, ob gfx.Point) bool {
 	}
 	ua.ok, ub.ok = true, true
 	return true
+}
+
+// origin returns the device translation at which the rasterizer draws the
+// top-level chunks of run u of frame f, whose enclosing pushes are enc
+// (rectangular clips and translations): the chunks' attachments (their
+// translations, which the compositor pushes) composed with the enclosing
+// translations as the rasterizer composes them (raster.GridMul), or the
+// enclosing translation alone for chunks drawn without one. ok is false
+// unless it is the same whole number of device pixels for every chunk:
+// only then do the run's pixels move by exactly the difference of two
+// origins.
+func (d *damager) origin(f *frame, u *unit, enc []int) (o gfx.Point, ok bool) {
+	dl := f.dl
+	s := float32(d.scale)
+	m := gfx.Scale(s, s)
+	for _, i := range enc {
+		if c, isT := dl.At(i).(gfx.PushTransform); isT {
+			m = raster.GridMul(m, c.Affine)
+		}
+	}
+	o = gfx.Point{X: m[4], Y: m[5]}
+	seen := map[uint32]bool{}
+	first := true
+	for i := u.start; i < u.end; i++ {
+		k := dl.Tag(i)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		if in := &f.inst[k]; in.layer.kind != layerChunk || in.layer.space != u.space || (in.parent >= 0 && d.inUnit(f, in.parent, u.space)) {
+			continue // not a top-level chunk of the run's space
+		}
+		// The first command of a chunk instance is its attachment, if
+		// the compositor pushed one (a command of no layer list).
+		p := gfx.Point{X: m[4], Y: m[5]}
+		if c, isT := dl.At(i).(gfx.PushTransform); isT && dl.Source(i) < 0 {
+			a := raster.GridMul(m, c.Affine)
+			p = gfx.Point{X: a[4], Y: a[5]}
+		}
+		if !first && p != o {
+			return gfx.Point{}, false
+		}
+		o, first = p, false
+	}
+	whole := func(v float32) bool { return float64(v) == math.Round(float64(v)) }
+	return o, whole(o.X) && whole(o.Y)
 }
 
 // enclosingAll returns the pushes open at command at of dl, outermost
@@ -473,13 +535,18 @@ func enclosing(dl *gfx.DisplayList, at int) (enc []int, ok bool) {
 
 func isTranslation(m gfx.Affine) bool { return m[0] == 1 && m[1] == 0 && m[2] == 0 && m[3] == 1 }
 
-// intTranslation reports a translation by whole device pixels.
+// intTranslation reports a translation by whole device pixels: one the
+// rasterizer places on the device pixel grid when the current transform is
+// on it (raster.GridMul), which at a fractional scale includes the float32
+// approximations of whole-pixel offsets.
 func (d *damager) intTranslation(m gfx.Affine) bool {
 	if !isTranslation(m) {
 		return false
 	}
-	x, y := float64(m[4])*d.scale, float64(m[5])*d.scale
-	return x == math.Round(x) && y == math.Round(y)
+	s := float32(d.scale)
+	_, okX := raster.GridStep(s, m[4])
+	_, okY := raster.GridStep(s, m[5])
+	return okX && okY
 }
 
 // clipRect returns the device pixels fully inside the clips of enc (and

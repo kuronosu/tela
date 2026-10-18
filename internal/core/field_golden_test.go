@@ -14,7 +14,7 @@ import (
 // lines of a textarea, a focus outline, and placeholder, caret and
 // selection colors set by classes.
 func TestFieldStatesGolden(t *testing.T) {
-	for _, scale := range []float64{1, 2} {
+	for _, scale := range []float64{1, 1.5, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			field := "w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:outline-2 focus:outline-indigo-500"
 			root := div(Class("flex h-full flex-col gap-3 bg-slate-50 p-4"),

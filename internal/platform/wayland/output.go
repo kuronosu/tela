@@ -8,7 +8,8 @@ import (
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
 )
 
-// output is a bound wl_output. Only its integer scale matters in phase 1.
+// output is a bound wl_output. Only its integer scale matters: it is the
+// fallback of scaleFor.
 type output struct {
 	b       *Backend
 	name    uint32 // registry name
@@ -72,13 +73,24 @@ func (b *Backend) outputFor(wl *protocols.WlOutput) *output {
 	return nil
 }
 
-// canScale reports whether buffers can have a scale other than 1:
-// wl_surface.set_buffer_scale exists since wl_compositor version 3.
-func (b *Backend) canScale() bool { return b.compositor.Version() >= 3 }
+// fractional reports whether windows scale through wp_viewporter, with
+// wp_fractional_scale_v1 telling the scale: both globals are needed (the
+// scale alone cannot be applied, and a viewport without it would only ever
+// show integer scales, which set_buffer_scale already does).
+func (b *Backend) fractional() bool { return b.fractionalScale != nil && b.viewporter != nil }
+
+// canScale reports whether buffers can have a scale other than 1: through
+// a viewport, or with wl_surface.set_buffer_scale (wl_compositor version
+// 3+).
+func (b *Backend) canScale() bool { return b.fractional() || b.compositor.Version() >= 3 }
 
 // maxOutputScale is the largest scale of all outputs (1 without outputs).
 // New windows start with it: guessing the HiDPI scale avoids a second
 // configure on single-monitor HiDPI setups, which are the common case.
+// With fractional scaling, compositors report wl_output.scale rounded up
+// (2 for 1.5 on Hyprland and KWin), so the guess is replaced by the
+// surface's preferred_scale when it arrives, often before the first
+// configure.
 func (b *Backend) maxOutputScale() int32 {
 	s := int32(1)
 	for _, o := range b.outputs {
@@ -87,27 +99,45 @@ func (b *Backend) maxOutputScale() int32 {
 	return s
 }
 
-// scaleFor decides a window's integer buffer scale:
+// fractionalDenominator is the denominator of wp_fractional_scale_v1
+// scales: preferred_scale sends the numerator.
+const fractionalDenominator = 120
+
+// fractionalScale converts a wp_fractional_scale_v1 preferred_scale to a
+// scale: n/120, computed in float64 as platform.PhysicalSize expects (so
+// that its rounding of halves matches the exact rational).
+func fractionalScale(n uint32) float64 { return float64(n) / fractionalDenominator }
+
+// scaleFor decides a window's scale:
 //
-//  1. wl_surface.preferred_buffer_scale, once the compositor sent it
+//  1. wp_fractional_scale_v1.preferred_scale (fractional, in 120ths),
+//     once the compositor sent it. Only windows that scale through a
+//     viewport have the object (Backend.fractional). Like winit, the
+//     integer sources below are then ignored: compositors send them
+//     rounded up for older clients.
+//  2. wl_surface.preferred_buffer_scale, once the compositor sent it
 //     (wl_compositor version 6+). This is what the compositor wants;
 //     Hyprland and others send ceil(fractional scale) here.
-//  2. Otherwise the largest scale of the outputs the surface entered, like
+//  3. Otherwise the largest scale of the outputs the surface entered, like
 //     Gio and pre-v6 toolkits (render at the highest density the window is
 //     shown at; the compositor downscales on the other outputs).
-//  3. Before the surface entered any output: the initial guess.
+//  4. Before the surface entered any output: current, the initial guess
+//     (maxOutputScale) or the scale in use.
 //
-// Phase 6 adds wp_fractional_scale_v1 in front of (1).
-func scaleFor(preferred int32, entered []*output, initial int32) int32 {
+// A zero fractional or preferred value means "not received".
+func scaleFor(fractional uint32, preferred int32, entered []*output, current float64) float64 {
+	if fractional > 0 {
+		return fractionalScale(fractional)
+	}
 	if preferred > 0 {
-		return preferred
+		return float64(preferred)
 	}
 	if len(entered) == 0 {
-		return max(1, initial)
+		return max(1, current)
 	}
 	s := int32(1)
 	for _, o := range entered {
 		s = max(s, o.scale)
 	}
-	return s
+	return float64(s)
 }

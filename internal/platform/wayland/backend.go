@@ -29,6 +29,8 @@ const (
 	outputVersion      = 4 // 2: scale + done; 3: release
 	cursorShapeVersion = 1
 	decorationVersion  = 1
+	fractionalVersion  = 1 // wp_fractional_scale_manager_v1
+	viewporterVersion  = 1
 	// wl_data_device_manager: dataDeviceManagerVersion in clipboard.go.
 	// zwp_text_input_manager_v3: textInputVersion in textinput.go.
 )
@@ -49,7 +51,11 @@ type Backend struct {
 	wm          *protocols.XdgWmBase
 	cursorShape *protocols.WpCursorShapeManagerV1
 	decoration  *protocols.ZxdgDecorationManagerV1
-	dataManager *protocols.WlDataDeviceManager // nil without a clipboard
+	// fractionalScale and viewporter are nil when the compositor lacks
+	// them; windows scale fractionally only with both (see fractional).
+	fractionalScale *protocols.WpFractionalScaleManagerV1
+	viewporter      *protocols.WpViewporter
+	dataManager     *protocols.WlDataDeviceManager // nil without a clipboard
 	// textInputManager is nil without zwp_text_input_manager_v3: then
 	// SetTextInput only records the state (textinput.go).
 	textInputManager *protocols.ZwpTextInputManagerV3
@@ -219,6 +225,14 @@ func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
 	case protocols.ZxdgDecorationManagerV1InterfaceName:
 		if b.decoration == nil {
 			b.decoration = protocols.WlRegistryBind[protocols.ZxdgDecorationManagerV1](b.registry, e.Name, min(e.Version, decorationVersion))
+		}
+	case protocols.WpFractionalScaleManagerV1InterfaceName:
+		if b.fractionalScale == nil {
+			b.fractionalScale = protocols.WlRegistryBind[protocols.WpFractionalScaleManagerV1](b.registry, e.Name, min(e.Version, fractionalVersion))
+		}
+	case protocols.WpViewporterInterfaceName:
+		if b.viewporter == nil {
+			b.viewporter = protocols.WlRegistryBind[protocols.WpViewporter](b.registry, e.Name, min(e.Version, viewporterVersion))
 		}
 	case protocols.WlDataDeviceManagerInterfaceName:
 		b.bindDataDeviceManager(e.Name, e.Version)
@@ -471,6 +485,12 @@ func (b *Backend) release() {
 		}
 		if b.decoration != nil {
 			b.decoration.Destroy()
+		}
+		if b.fractionalScale != nil {
+			b.fractionalScale.Destroy()
+		}
+		if b.viewporter != nil {
+			b.viewporter.Destroy()
 		}
 		if b.textInputManager != nil {
 			b.textInputManager.Destroy()

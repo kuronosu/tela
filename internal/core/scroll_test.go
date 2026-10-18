@@ -1240,7 +1240,12 @@ func scrollbarScene(list, both *ElementRef) Node {
 func TestScrollbarGoldens(t *testing.T) {
 	for _, classic := range []bool{false, true} {
 		for _, dark := range []bool{false, true} {
-			for _, scale := range []float32{1, 2} {
+			scales := []float32{1, 2}
+			if !dark {
+				// A fractional scale: thumbs and tracks on device pixels.
+				scales = []float32{1, 1.25, 2}
+			}
+			for _, scale := range scales {
 				name := "scrollbars_overlay"
 				if classic {
 					name = "scrollbars_classic"

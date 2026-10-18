@@ -302,7 +302,7 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 	case gfx.PushTransform:
 		r.save()
 		if !r.skipping {
-			next := r.ctm.Mul(c.Affine)
+			next := GridMul(r.ctm, c.Affine) // whole-pixel translations stay on the grid (grid.go)
 			if next.IsFinite() && next.Det() != 0 {
 				r.ctm = next
 			} else {

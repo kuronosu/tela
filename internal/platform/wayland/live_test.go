@@ -243,16 +243,20 @@ func livePixels(t *testing.T, format string) {
 		t.Fatal("no screenshot was taken (timed out)")
 	}
 
-	// Buffer size: logical × scale, integer scale.
+	// Scale: the surface's wp_fractional_scale_v1 preferred_scale when the
+	// compositor sent one (Hyprland does, at every scale), else the
+	// output's integer scale. Buffer size: PhysicalSize(logical, scale).
 	scale := float64(b.maxOutputScale())
-	t.Logf("metrics %v, buffer %v, output scale %v, hyprland geometry %v at %v, screenshot %v",
-		metrics, bufSize, scale, captured.c.Size, captured.c.At, captured.img.Bounds().Size())
-	if metrics.Scale != scale {
-		t.Errorf("window scale %v, want the output scale %v", metrics.Scale, scale)
+	if w.fractionalScale > 0 {
+		scale = fractionalScale(w.fractionalScale)
 	}
-	wantBuf := image.Point{X: int(metrics.Size.W * float32(metrics.Scale)), Y: int(metrics.Size.H * float32(metrics.Scale))}
-	if bufSize != wantBuf || bufSize != metrics.Physical() {
-		t.Errorf("buffer %v, want %v (logical %v × scale %v)", bufSize, wantBuf, metrics.Size, metrics.Scale)
+	t.Logf("metrics %v, buffer %v, scale %v (fractional %d/120, output %d), viewport %v, hyprland geometry %v at %v, screenshot %v",
+		metrics, bufSize, scale, w.fractionalScale, b.maxOutputScale(), w.viewport != nil, captured.c.Size, captured.c.At, captured.img.Bounds().Size())
+	if metrics.Scale != scale {
+		t.Errorf("window scale %v, want %v", metrics.Scale, scale)
+	}
+	if bufSize != metrics.Physical() {
+		t.Errorf("buffer %v, want %v (PhysicalSize of logical %v × scale %v)", bufSize, metrics.Physical(), metrics.Size, metrics.Scale)
 	}
 	if captured.c.Size != [2]int{int(metrics.Size.W), int(metrics.Size.H)} {
 		t.Errorf("Hyprland reports %v, the window has %v", captured.c.Size, metrics.Size)
@@ -272,7 +276,15 @@ func livePixels(t *testing.T, format string) {
 		}
 	}
 	bounds := img.Bounds()
-	if bounds.Dx() != bufSize.X || bounds.Dy() != bufSize.Y {
+	// At a fractional scale the compositor maps the buffer onto
+	// logical × scale device pixels, which is not a whole number (601.5
+	// for 401 at 1.5), and grim sizes its capture its own way: allow one
+	// pixel either way.
+	slack := 0
+	if scale != float64(int(scale)) {
+		slack = 1
+	}
+	if abs(bounds.Dx()-bufSize.X) > slack || abs(bounds.Dy()-bufSize.Y) > slack {
 		t.Errorf("screenshot is %v, buffer %v: the compositor scaled the buffer", bounds.Size(), bufSize)
 	}
 	sample := func(fx, fy float64) color.RGBA {

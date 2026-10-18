@@ -99,7 +99,11 @@ func (p *painter) drawField(bx *Box) {
 		bg, fg = t.selectionColors(cs)
 		rects = lay.SelectionRects(sel, nil)
 		for i, r := range rects {
-			rects[i] = r.Translate(origin.X, origin.Y)
+			// Snapped like box edges (Blink snaps selection rects too):
+			// the rectangles of consecutive lines share an edge, which at
+			// a fractional scale falls inside a device pixel, and two
+			// anti-aliased halves there would leave a light seam.
+			rects[i] = p.snapRect(r.Translate(origin.X, origin.Y))
 			p.b.FillRect(rects[i], bg)
 		}
 	}

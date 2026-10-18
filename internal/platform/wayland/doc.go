@@ -15,6 +15,8 @@
 //     seat's keyboard modifiers.
 //   - wl_output: integer scale fallback when the compositor has no
 //     wl_surface.preferred_buffer_scale.
+//   - wp_fractional_scale_manager_v1 and wp_viewporter (optional, version
+//     1, used only together): fractional scales (see Scale).
 //   - wp_cursor_shape_manager_v1 (optional): cursors. Without it the cursor
 //     is left to the compositor; loading an xcursor theme is a later task.
 //   - zxdg_decoration_manager_v1 (optional): server-side decorations are
@@ -70,11 +72,40 @@
 //
 // # Scale
 //
-// Phase 1 supports integer scales only: wl_surface.preferred_buffer_scale
-// when the compositor is version 6+, otherwise the largest scale of the
-// outputs the surface is on, applied with wl_surface.set_buffer_scale.
-// Fractional scaling (wp_fractional_scale_v1 + wp_viewporter) arrives in
-// phase 6; scaleFor in output.go is the one place that decides the scale.
+// scaleFor in output.go is the one place that decides the scale, in this
+// order: the surface's wp_fractional_scale_v1 preferred_scale (n/120,
+// computed as float64(n)/120), wl_surface.preferred_buffer_scale
+// (wl_compositor 6+), the largest scale of the outputs the surface is on,
+// and before any of them the largest output scale (the initial guess).
+// Once a fractional scale arrived, the integer sources are ignored, like
+// winit does: compositors send them rounded up (2 for 1.5) for older
+// clients.
+//
+// With both wp_fractional_scale_manager_v1 and wp_viewporter, each window
+// gets a wp_fractional_scale_v1 and a wp_viewport when it is created
+// (before its initial commit, so a scale sent at once is not missed), and
+// every scale, integer or not, is applied the same way: the buffer is
+// PhysicalSize(logical, scale) (logical × scale rounded half away from
+// zero, the protocol's rule), wl_surface.set_buffer_scale stays 1, and the
+// viewport's destination is the logical size. The destination is
+// double-buffered like the buffer and is set right before the commit of
+// the first buffer of a new size, so the surface never shows a buffer at
+// the wrong size (without a destination it would be the buffer's physical
+// size). Without either global the backend uses integer scales and
+// set_buffer_scale, as in phase 1.
+//
+// A scale change keeps the logical size: it is announced with a
+// ConfigureEvent (the app redraws at the new physical size) and needs no
+// ack. A scale may arrive before the first configure (the first
+// ConfigureEvent carries it), after it, or while a resize waits for its
+// frame; in every case the next buffer has the latest size and scale and
+// acks the latest configure. Damage stays in buffer pixels
+// (damage_buffer); on a wl_compositor older than 4, wl_surface.damage is
+// mapped to surface pixels by the ratio of the logical and buffer sizes,
+// rounded outward. Pointer positions and the text-input cursor rectangle
+// are surface-local, which with a viewport are logical pixels: nothing
+// else changes. Cursors come from wp_cursor_shape_v1, which the compositor
+// draws at the output's scale (there is no client cursor surface).
 //
 // # Clipboard
 //

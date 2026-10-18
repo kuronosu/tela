@@ -72,19 +72,75 @@ func TestLogicalPoint(t *testing.T) {
 func TestScaleFor(t *testing.T) {
 	o1, o2 := &output{scale: 1}, &output{scale: 3}
 	cases := []struct {
+		frac    uint32
 		pref    int32
 		entered []*output
-		initial int32
-		want    int32
+		current float64
+		want    float64
 	}{
-		{0, nil, 2, 2},               // not on any output yet: the guess
-		{0, []*output{o1}, 2, 1},     // the output's scale
-		{0, []*output{o1, o2}, 1, 3}, // the densest output
-		{2, []*output{o1, o2}, 1, 2}, // the compositor's preference wins
+		{0, 0, nil, 2, 2},                   // not on any output yet: the guess
+		{0, 0, []*output{o1}, 2, 1},         // the output's scale
+		{0, 0, []*output{o1, o2}, 1, 3},     // the densest output
+		{0, 2, []*output{o1, o2}, 1, 2},     // the compositor's preference wins
+		{180, 2, []*output{o1, o2}, 2, 1.5}, // the fractional preference wins over both
+		{180, 0, nil, 2, 1.5},               // even before any output
+		{150, 0, nil, 1, 1.25},
+		{210, 0, nil, 1, 1.75},
+		{120, 2, nil, 2, 1}, // a fractional 1 is not overridden by an integer 2
+		{0, 0, nil, 0, 1},   // never below 1 without a preference
 	}
 	for _, c := range cases {
-		if got := scaleFor(c.pref, c.entered, c.initial); got != c.want {
-			t.Errorf("scaleFor(%d, %d outputs, %d) = %d, want %d", c.pref, len(c.entered), c.initial, got, c.want)
+		if got := scaleFor(c.frac, c.pref, c.entered, c.current); got != c.want {
+			t.Errorf("scaleFor(%d, %d, %d outputs, %g) = %g, want %g", c.frac, c.pref, len(c.entered), c.current, got, c.want)
+		}
+	}
+}
+
+// TestFractionalScaleSizes checks the 120ths conversion against the sizing
+// rule of wp_fractional_scale_v1 (round half away from zero), with the
+// buffer sizes compositors expect.
+func TestFractionalScaleSizes(t *testing.T) {
+	cases := []struct {
+		n       uint32
+		logical platform.Size
+		want    image.Point
+	}{
+		{120, platform.Size{W: 800, H: 600}, image.Pt(800, 600)},
+		{150, platform.Size{W: 800, H: 600}, image.Pt(1000, 750)},
+		{180, platform.Size{W: 801, H: 601}, image.Pt(1202, 902)},    // 1201.5, 901.5: halves round up
+		{210, platform.Size{W: 333, H: 101}, image.Pt(583, 177)},     // 582.75, 176.75
+		{150, platform.Size{W: 3, H: 1}, image.Pt(4, 1)},             // 3.75, 1.25
+		{130, platform.Size{W: 6, H: 18}, image.Pt(7, 20)},           // 6.5 (not exactly representable), 19.5
+		{140, platform.Size{W: 3, H: 9}, image.Pt(4, 11)},            // 3.5, 10.5
+		{125, platform.Size{W: 1920, H: 1080}, image.Pt(2000, 1125)}, // 1.041666…
+	}
+	for _, c := range cases {
+		if got := platform.PhysicalSize(c.logical, fractionalScale(c.n)); got != c.want {
+			t.Errorf("PhysicalSize(%v, %d/120) = %v, want %v", c.logical, c.n, got, c.want)
+		}
+	}
+}
+
+func TestSurfaceDamage(t *testing.T) {
+	cases := []struct {
+		r               image.Rectangle
+		buffer, surface image.Point
+		want            image.Rectangle
+	}{
+		// Integer scale 2: the old integer division.
+		{image.Rect(3, 3, 6, 6), image.Pt(20, 20), image.Pt(10, 10), image.Rect(1, 1, 3, 3)},
+		{image.Rect(0, 0, 20, 20), image.Pt(20, 20), image.Pt(10, 10), image.Rect(0, 0, 10, 10)},
+		// 1.5: 101 logical px are 152 physical (151.5 rounded up); the
+		// last physical pixel maps to the last logical one.
+		{image.Rect(151, 0, 152, 1), image.Pt(152, 152), image.Pt(101, 101), image.Rect(100, 0, 101, 1)},
+		{image.Rect(0, 0, 152, 152), image.Pt(152, 152), image.Pt(101, 101), image.Rect(0, 0, 101, 101)},
+		{image.Rect(4, 5, 7, 8), image.Pt(150, 150), image.Pt(100, 100), image.Rect(2, 3, 5, 6)},
+		// Scale 1.
+		{image.Rect(4, 5, 7, 8), image.Pt(100, 100), image.Pt(100, 100), image.Rect(4, 5, 7, 8)},
+	}
+	for _, c := range cases {
+		if got := surfaceDamage(c.r, c.buffer, c.surface); got != c.want {
+			t.Errorf("surfaceDamage(%v, buffer %v, surface %v) = %v, want %v", c.r, c.buffer, c.surface, got, c.want)
 		}
 	}
 }

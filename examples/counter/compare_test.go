@@ -361,7 +361,9 @@ func dumpDiff(t *testing.T, scale int, got, want *image.RGBA) {
 }
 
 func TestCounterGolden(t *testing.T) {
-	for _, scale := range []float32{1, 2} {
+	// 1.25 and 1.5: fractional scales (Wayland wp_fractional_scale_v1,
+	// Windows 125 % and 150 %).
+	for _, scale := range []float32{1, 1.25, 1.5, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			golden.Image(t, fmt.Sprintf("counter_x%g", scale), renderCounter(scale).img)
 		})

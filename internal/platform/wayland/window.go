@@ -58,9 +58,21 @@ type Window struct {
 	focused   bool
 
 	// Scale: see scaleFor.
-	preferredScale int32 // wl_surface.preferred_buffer_scale; 0 = not received
-	outputs        []*output
-	scale          int32
+	fractionalScale uint32 // wp_fractional_scale_v1.preferred_scale (120ths); 0 = not received
+	preferredScale  int32  // wl_surface.preferred_buffer_scale; 0 = not received
+	outputs         []*output
+	scale           float64
+
+	// Fractional scaling (Backend.fractional; nil otherwise): the surface's
+	// wp_fractional_scale_v1 and wp_viewport. With them every scale,
+	// integer or not, is applied the same way: the buffer is
+	// PhysicalSize(logical, scale) pixels, set_buffer_scale stays 1, and the
+	// viewport's destination is the logical size, so the compositor maps
+	// the buffer onto the logical surface. destination is the committed
+	// destination (zero before the first buffer).
+	fractional  *protocols.WpFractionalScaleV1
+	viewport    *protocols.WpViewport
+	destination image.Point
 
 	// announced is the metrics of the latest queued ConfigureEvent (the
 	// latest delivered one is Metrics).
@@ -77,8 +89,9 @@ type Window struct {
 	ackSize    image.Point
 
 	chain       swapchain
-	bufferScale int32 // scale committed with set_buffer_scale (protocol default 1)
-	mapped      bool  // a buffer was committed
+	bufferScale int32       // scale committed with set_buffer_scale (protocol default 1)
+	surfaceSize image.Point // logical size of the committed buffer, for wl_surface.damage
+	mapped      bool        // a buffer was committed
 
 	// Text input (textinput.go): the app's latest state (a clone), whether
 	// a nil state came since the last sync (restart the session) or a
@@ -113,7 +126,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	}
 	w.scale = 1
 	if b.canScale() {
-		w.scale = b.maxOutputScale()
+		w.scale = float64(b.maxOutputScale())
 	}
 
 	w.surface = b.compositor.CreateSurface()
@@ -123,6 +136,22 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		w.preferredScale = max(1, e.Factor)
 		w.updateScale()
 	})
+	if b.fractional() {
+		// Both objects exist from the start: the compositor may send
+		// preferred_scale at once (before the first configure, which then
+		// carries it), and the viewport's destination must be set before
+		// the first buffer is committed, or the surface would be the
+		// buffer's physical size for that frame.
+		w.viewport = b.viewporter.GetViewport(w.surface)
+		w.fractional = b.fractionalScale.GetFractionalScale(w.surface)
+		w.fractional.SetPreferredScaleHandler(func(e protocols.WpFractionalScaleV1PreferredScaleEvent) {
+			if e.Scale == 0 {
+				return // invalid; keep the scale in use
+			}
+			w.fractionalScale = e.Scale
+			w.updateScale()
+		})
+	}
 	w.xdgSurface = b.wm.GetXdgSurface(w.surface)
 	w.xdgSurface.SetConfigureHandler(w.onConfigure)
 	w.toplevel = w.xdgSurface.GetToplevel()
@@ -186,7 +215,7 @@ func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
 	first := !w.configured
 	w.configured = true
 
-	target := platform.Metrics{Size: sizeOf(size), Scale: float64(w.scale)}
+	target := platform.Metrics{Size: sizeOf(size), Scale: w.scale}
 	switch {
 	case first || target != w.announced:
 		w.announce(target)
@@ -257,9 +286,13 @@ func (w *Window) onSurfaceLeave(e protocols.WlSurfaceLeaveEvent) {
 	}
 }
 
-// updateScale recomputes the buffer scale and reports a change to the app
-// once the window is configured. The new scale is committed with
-// set_buffer_scale together with the first buffer rendered for it.
+// updateScale recomputes the scale and reports a change to the app once
+// the window is configured. The new scale reaches the compositor with the
+// first buffer rendered for it (its size, plus set_buffer_scale without a
+// viewport). A scale change needs no ack: only the buffer changes, and the
+// logical size the compositor configured stays. If a configure is waiting
+// for its frame, the ConfigureEvent below carries the size it announced,
+// and that frame acks it.
 func (w *Window) updateScale() {
 	if w.Closed() {
 		return
@@ -267,7 +300,7 @@ func (w *Window) updateScale() {
 	if !w.b.canScale() {
 		return
 	}
-	s := scaleFor(w.preferredScale, w.outputs, w.scale)
+	s := scaleFor(w.fractionalScale, w.preferredScale, w.outputs, w.scale)
 	if s == w.scale {
 		return
 	}
@@ -275,7 +308,7 @@ func (w *Window) updateScale() {
 	if !w.configured {
 		return // the first ConfigureEvent will carry it
 	}
-	w.announce(platform.Metrics{Size: w.announced.Size, Scale: float64(s)})
+	w.announce(platform.Metrics{Size: w.announced.Size, Scale: s})
 }
 
 // paceFrame is the loop's Pace hook: it handles a frame request that is
@@ -370,12 +403,25 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 		w.xdgSurface.AckConfigure(w.ackSerial)
 		w.ackPending = false
 	}
-	if scale := int32(m.Scale); scale != w.bufferScale {
-		w.surface.SetBufferScale(scale) // scale > 1 implies version 3+ (canScale)
-		w.bufferScale = scale
+	switch {
+	case w.viewport != nil:
+		// Double-buffered like the buffer: both apply at this commit, so
+		// the surface never shows a buffer at the wrong size. Sizes are
+		// whole logical pixels on Wayland, so the destination is exact.
+		if logical != w.destination {
+			w.viewport.SetDestination(int32(logical.X), int32(logical.Y))
+			w.destination = logical
+		}
+	default:
+		// Integer scales only (scaleFor without preferred_scale).
+		if scale := int32(m.Scale); scale != w.bufferScale {
+			w.surface.SetBufferScale(scale) // scale > 1 implies version 3+ (canScale)
+			w.bufferScale = scale
+		}
 	}
+	w.surfaceSize = logical
 	w.surface.Attach(buf.wl, 0, 0)
-	w.damage(rects)
+	w.damage(rects, size)
 	w.requestCallback()
 	w.surface.Commit()
 	w.chain.submitted(buf, rects)
@@ -383,10 +429,11 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	return nil
 }
 
-// damage sends the damaged rectangles: damage_buffer in buffer (physical)
-// pixels on wl_compositor 4+, else wl_surface.damage in surface (logical)
-// pixels, rounded outward.
-func (w *Window) damage(rects []image.Rectangle) {
+// damage sends the damaged rectangles of a buffer of the given physical
+// size: damage_buffer in buffer (physical) pixels on wl_compositor 4+,
+// else wl_surface.damage in surface (logical) pixels, rounded outward (see
+// surfaceDamage).
+func (w *Window) damage(rects []image.Rectangle, buffer image.Point) {
 	if len(rects) > maxDamageRects {
 		u := rects[0]
 		for _, r := range rects[1:] {
@@ -400,12 +447,27 @@ func (w *Window) damage(rects []image.Rectangle) {
 		}
 		return
 	}
-	s := max(1, w.bufferScale)
 	for _, r := range rects {
-		x0, y0 := int32(r.Min.X)/s, int32(r.Min.Y)/s
-		x1, y1 := (int32(r.Max.X)+s-1)/s, (int32(r.Max.Y)+s-1)/s
-		w.surface.Damage(x0, y0, x1-x0, y1-y0)
+		d := surfaceDamage(r, buffer, w.surfaceSize)
+		w.surface.Damage(int32(d.Min.X), int32(d.Min.Y), int32(d.Dx()), int32(d.Dy()))
 	}
+}
+
+// surfaceDamage maps a damaged rectangle of a buffer of the given physical
+// size to the surface's logical size, rounded outward. The buffer covers
+// the surface exactly (set_buffer_scale divides it by an integer scale; a
+// viewport stretches it to its destination), so the map is the ratio of
+// the two sizes, not the scale: with a fractional scale the buffer size was
+// rounded, and logical / physical is the factor the compositor applies.
+func surfaceDamage(r image.Rectangle, buffer, surface image.Point) image.Rectangle {
+	if buffer.X <= 0 || buffer.Y <= 0 {
+		return image.Rectangle{}
+	}
+	floor := func(v, l, p int) int { return v * l / p }
+	ceil := func(v, l, p int) int { return (v*l + p - 1) / p }
+	return image.Rect(
+		floor(r.Min.X, surface.X, buffer.X), floor(r.Min.Y, surface.Y, buffer.Y),
+		ceil(r.Max.X, surface.X, buffer.X), ceil(r.Max.Y, surface.Y, buffer.Y))
 }
 
 // SetTitle sets the window title.
@@ -498,6 +560,12 @@ func (w *Window) Close() {
 	}
 	w.toplevel.Destroy()
 	w.xdgSurface.Destroy()
+	// The scale objects before their surface: requests on them after it
+	// is gone would be a protocol error (wp_viewport.no_surface).
+	if w.fractional != nil {
+		w.fractional.Destroy()
+		w.viewport.Destroy()
+	}
 	w.surface.Destroy()
 	w.chain.destroy()
 }

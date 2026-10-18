@@ -322,7 +322,7 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 			if s.bars.over[1] || s.bars.drag == 2 {
 				th = overlayThick
 			}
-			tr := gfx.Rect{X0: pr.X1 - overlayMargin - th, Y0: pr.Y0 + overlayMargin, X1: pr.X1 - overlayMargin, Y1: endY - overlayMargin}
+			tr := p.snapRect(gfx.Rect{X0: pr.X1 - overlayMargin - th, Y0: pr.Y0 + overlayMargin, X1: pr.X1 - overlayMargin, Y1: endY - overlayMargin})
 			geo[1] = barGeom{ok: true, track: tr, hit: hit,
 				near:  gfx.Rect{X0: pr.X1 - overlayNear, Y0: pr.Y0, X1: pr.X1, Y1: pr.Y1},
 				start: tr.Y0, length: max(tr.Height(), 0)}
@@ -333,7 +333,7 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 			if s.bars.over[0] || s.bars.drag == 1 {
 				th = overlayThick
 			}
-			tr := gfx.Rect{X0: pr.X0 + overlayMargin, Y0: pr.Y1 - overlayMargin - th, X1: endX - overlayMargin, Y1: pr.Y1 - overlayMargin}
+			tr := p.snapRect(gfx.Rect{X0: pr.X0 + overlayMargin, Y0: pr.Y1 - overlayMargin - th, X1: endX - overlayMargin, Y1: pr.Y1 - overlayMargin})
 			geo[0] = barGeom{ok: true, track: tr, hit: hit,
 				near:  gfx.Rect{X0: pr.X0, Y0: pr.Y1 - overlayNear, X1: pr.X1, Y1: pr.Y1},
 				start: tr.X0, length: max(tr.Width(), 0)}
@@ -362,17 +362,20 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 		a1 := p.snap(a0 + tl)
 		tr := gb.track
 		if !s.bars.overlay {
-			// Centered across the gutter.
+			// Centered across the gutter, on device pixels (at a
+			// fractional scale the gutter's center is not on the grid).
 			th := float32(classicThumb)
 			if s.bars.thumb[i] || s.bars.drag == i+1 {
 				th = classicThumbHover
 			}
 			if i == 1 {
 				c := (tr.X0 + tr.X1) / 2
-				tr.X0, tr.X1 = c-th/2, c+th/2
+				tr.X0 = p.snap(c - th/2)
+				tr.X1 = tr.X0 + p.snapWidth(th)
 			} else {
 				c := (tr.Y0 + tr.Y1) / 2
-				tr.Y0, tr.Y1 = c-th/2, c+th/2
+				tr.Y0 = p.snap(c - th/2)
+				tr.Y1 = tr.Y0 + p.snapWidth(th)
 			}
 		}
 		if i == 1 {

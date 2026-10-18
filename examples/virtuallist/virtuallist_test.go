@@ -54,19 +54,24 @@ func TestNoDevMessages(t *testing.T) {
 }
 
 func TestGolden(t *testing.T) {
-	for _, scale := range []float64{1, 2} {
+	for _, scale := range []float64{1, 1.5, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			mount(t, windowW, windowH, telatest.Scale(scale)).Golden(fmt.Sprintf("virtuallist_x%g.png", scale))
 		})
 	}
 }
 
-// TestGoldenAfterJump is the list centered on row 50,000, dark.
+// TestGoldenAfterJump is the list centered on row 50,000, dark: a scroll
+// offset of about 2.6 million logical pixels, also at a fractional scale.
 func TestGoldenAfterJump(t *testing.T) {
-	a := mount(t, windowW, windowH, telatest.Dark())
-	a.Click(telatest.ByRole("button", "Row 50,000"))
-	a.Advance(quiet)
-	a.Golden("virtuallist_jump_dark_x1.png")
+	for _, scale := range []float64{1, 1.5} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			a := mount(t, windowW, windowH, telatest.Dark(), telatest.Scale(scale))
+			a.Click(telatest.ByRole("button", "Row 50,000"))
+			a.Advance(quiet)
+			a.Golden(fmt.Sprintf("virtuallist_jump_dark_x%g.png", scale))
+		})
+	}
 }
 
 func TestOnlyTheRowsInViewAreBuilt(t *testing.T) {

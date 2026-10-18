@@ -322,10 +322,11 @@
 // iteration if the window has not had one for an interval, otherwise the
 // backend requests a frame callback with a commit that attaches no buffer
 // and waits for it. Frame callbacks stop for hidden surfaces, which is the
-// desired idle behavior. Scale: integer via wl_surface.preferred_buffer_scale (or
-// wl_output.scale) and set_buffer_scale; fractional later via
-// wp_fractional_scale_v1 (scale = n/120 as float64) and wp_viewporter
-// (destination = logical size, buffer = PhysicalSize). xdg_surface.configure
+// desired idle behavior. Scale: fractional via wp_fractional_scale_v1
+// (scale = n/120 as float64) and wp_viewporter (destination = logical
+// size, buffer = PhysicalSize, buffer scale 1) when the compositor has
+// both; otherwise integer via wl_surface.preferred_buffer_scale (or
+// wl_output.scale) and set_buffer_scale. xdg_surface.configure
 // is acked right before the commit of the first buffer of the new size,
 // which is the Present following the ConfigureEvent.
 //

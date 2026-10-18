@@ -25,7 +25,9 @@ func TestNoDevMessages(t *testing.T) {
 }
 
 func TestGolden(t *testing.T) {
-	for _, scale := range []float64{1, 2} {
+	// 1.25 and 1.5: fractional scales (Wayland wp_fractional_scale_v1,
+	// Windows 125 % and 150 %).
+	for _, scale := range []float64{1, 1.25, 1.5, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			mount(t, windowW, windowH, telatest.Scale(scale)).Golden(fmt.Sprintf("settings_x%g.png", scale))
 		})

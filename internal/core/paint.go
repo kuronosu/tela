@@ -108,7 +108,10 @@ import (
 // at least one device pixel is floored to whole device pixels, a smaller
 // non-zero one becomes one device pixel. Radii are not snapped. Text and
 // images are positioned from the unsnapped layout (text is snapped by the
-// rasterizer, ADR-029). The scale is the Tree's (SetScale); a new scale
+// rasterizer, ADR-029). Text selection highlights and scrollbar tracks and
+// thumbs are snapped like border boxes, so that at fractional scales the
+// highlights of consecutive lines meet without a seam and the bars stay
+// sharp (ADR-075). The scale is the Tree's (SetScale); a new scale
 // repaints.
 
 // painter is the state of one paint pass.
