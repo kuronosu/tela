@@ -189,10 +189,13 @@
 // mode).
 //
 // mapLayoutStyle maps a ComputedStyle onto layout.Style; see it for the
-// approximations (grid as block, fixed as absolute). space-x-* and space-y-*
+// approximations (fixed as absolute). Flex and grid containers make every
+// element child an item and wrap each run of text in an anonymous item;
+// a grid's track lists become a layout.GridTemplate whose pointer is kept
+// while the template is equal (keepGrid). space-x-* and space-y-*
 // are Tailwind v4's margins, negative values included (-space-x-2): the
 // end margin (inline-end for space-x, block-end for space-y) of every
-// child element but the last, in block and flex containers alike, unless
+// child element but the last, in block, flex and grid containers alike, unless
 // the child has a margin of its own on that side (ADR-070). Between
 // inline-level elements of a paragraph, a positive space-x-* becomes an
 // empty inline box.

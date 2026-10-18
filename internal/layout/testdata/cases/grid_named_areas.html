@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Named grid areas: items placed with grid-area names and their implicit name-start/name-end lines, auto-placed items around them, an area template larger than its named areas, and an area name in only one axis</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: grid; grid-template-areas: 'head head head' 'side main main' 'foot foot .'; grid-template-columns: 80px 1fr 60px; grid-template-rows: 20px auto 15px; gap: 4px 6px; padding: 5px;">
+    <div style="grid-area: head;"></div>
+    <div style="grid-area: side; height: 30px;"></div>
+    <div style="grid-area: main;">HHHH&ZeroWidthSpace;HHH</div>
+    <div style="grid-area: foot;"></div>
+    <div></div>
+  </div>
+  <div style="display: grid; grid-template-areas: 'a b' 'a c'; grid-auto-rows: 12px; grid-auto-columns: 40px;">
+    <div style="grid-row: a; grid-column: c;"></div>
+    <div style="grid-column: a-start / c-end; grid-row: 3;"></div>
+    <div style="grid-area: b / a / c / b;"></div>
+    <div></div>
+    <div></div>
+  </div>
+  <div style="display: grid; grid-template-areas: '. x .' '. . .'; grid-template-columns: 30px 40px 50px; grid-auto-rows: 10px;">
+    <div style="grid-area: x;"></div>
+    <div style="grid-column: x; grid-row: 2;"></div>
+    <div style="grid-row: x-end; grid-column: x-start / -1;"></div>
+  </div>
+</div>
+
+</body>
+</html>

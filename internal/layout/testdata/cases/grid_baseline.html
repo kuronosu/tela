@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Grid container baselines in a baseline-aligned flex row: the first item of the first row (in column order, with text or none), the shared baseline of baseline-aligned items, padding and border; and a grid of text items aligned by baseline</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: flex; align-items: baseline;">
+    <div style="padding-top: 13px;">HH</div>
+    <div style="display: grid; grid-template-columns: 30px 30px; padding: 4px; border-top: 3px solid;">
+      <div style="grid-column: 2; padding-top: 6px;">H</div>
+      <div style="grid-column: 1; grid-row: 1; padding-top: 2px;">H</div>
+      <div>H</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 30px 30px; align-items: baseline;">
+      <div style="padding-top: 3px;">H</div>
+      <div style="padding-top: 9px;">H</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 30px;">
+      <div style="height: 25px;"></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 30px; padding-top: 5px;">
+      <div style="display: grid; padding-top: 4px;"><div>H</div></div>
+    </div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, 40px); align-items: baseline; column-gap: 4px;">
+    <div style="padding-top: 5px;">HHHH</div>
+    <div style="padding-bottom: 12px;">HH</div>
+    <div style="align-self: start;">H</div>
+    <div style="padding-top: 1px;">H</div>
+    <div>H&ZeroWidthSpace;H</div>
+  </div>
+</div>
+
+</body>
+</html>

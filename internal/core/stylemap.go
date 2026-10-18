@@ -259,14 +259,14 @@ func displayClass(cs *style.ComputedStyle) uint8 {
 		return 1
 	case style.DisplayInline:
 		return 2
-	case style.DisplayFlex:
-		return 3
+	case style.DisplayFlex, style.DisplayGrid:
+		return 3 // children are items
 	case style.DisplayNone:
 		return 4
-	case style.DisplayInlineBlock, style.DisplayInlineGrid:
+	case style.DisplayInlineBlock:
 		return 5 // atomic inline-level
-	case style.DisplayInlineFlex:
-		return 6
+	case style.DisplayInlineFlex, style.DisplayInlineGrid:
+		return 6 // atomic inline-level, children are items
 	}
 	return 0
 }
@@ -320,6 +320,7 @@ func (t *Tree) remapPhase() {
 	if t.rootBox != nil && t.rootBox.cs != nil {
 		ls := mapLayoutStyle(t.rootBox, nil, false)
 		ls.Width, ls.Height = layout.Px(t.viewport.W), layout.Px(t.viewport.H)
+		keepGrid(&ls, &t.rootBox.ls)
 		if ls != t.rootBox.ls {
 			t.rootBox.ls = ls
 			t.engine.MarkDirty(t.rootBox)
@@ -332,6 +333,7 @@ func (t *Tree) remap(p *Box) {
 	last := spaceLast(p)
 	for _, k := range p.kids {
 		ls := mapLayoutStyle(k, p, hasSpaceAfter(k, last))
+		keepGrid(&ls, &k.ls)
 		if ls != k.ls {
 			k.ls = ls
 			t.engine.MarkDirty(k)
@@ -404,7 +406,6 @@ func applySpace(ls *layout.Style, pcs *style.ComputedStyle) {
 //
 // Approximations (until layout and the later phases support them):
 //
-//   - grid and inline-grid lay out as block (grid arrives in phase 6);
 //   - fixed lays out as absolute against the nearest positioned ancestor,
 //     sticky as relative;
 //   - in flow, inline-block, inline-flex and inline-grid boxes are the
@@ -425,6 +426,11 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	switch cs.Display {
 	case style.DisplayFlex, style.DisplayInlineFlex:
 		ls.Display = layout.DisplayFlex
+	case style.DisplayGrid, style.DisplayInlineGrid:
+		ls.Display = layout.DisplayGrid
+		ls.Grid = gridTemplate(cs)
+		ls.GridAutoFlow = layout.GridAutoFlow(cs.GridAutoFlow)
+		ls.JustifyItems = alignOf(cs.JustifyItems)
 	case style.DisplayNone:
 		ls.Display = layout.DisplayNone
 	default:
@@ -488,6 +494,8 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	ls.FlexGrow, ls.FlexShrink = cs.FlexGrow, cs.FlexShrink
 	ls.FlexBasis = dimOf(cs.FlexBasis)
 	ls.Order = cs.Order
+	ls.JustifySelf = alignOf(cs.JustifySelf)
+	ls.GridColumn, ls.GridRow = gridPlacement(cs.GridColumn), gridPlacement(cs.GridRow)
 	if v := b.virtMark(); v != nil {
 		v.layoutStyle(&ls) // the boxes of a VirtualList (virtual.go)
 	}
@@ -495,11 +503,11 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	if parent == nil {
 		return ls
 	}
-	if isFlexContainer(parent.cs) {
+	if itemContainer(parent.cs) {
 		if spaceAfter {
 			applySpace(&ls, parent.cs)
 		}
-		return ls // a flex item: blockified
+		return ls // a flex or grid item: blockified
 	}
 	if parent.mode == modeParagraph {
 		// An atomic inline of a paragraph: its line places it (text-align
@@ -629,4 +637,98 @@ func alignOf(a style.Align) layout.Align {
 		return layout.AlignSpaceEvenly
 	}
 	return layout.AlignNormal
+}
+
+// keepGrid gives ls the grid template pointer of old when the templates
+// are equal: layout compares templates by pointer (layout.Style.Grid), and
+// mapLayoutStyle builds a new one each time.
+func keepGrid(ls, old *layout.Style) {
+	if ls.Grid != nil && old.Grid != nil && ls.Grid != old.Grid && ls.Grid.Equal(old.Grid) {
+		ls.Grid = old.Grid
+	}
+}
+
+// gridTemplate maps the track lists of a grid container (nil when it has
+// none: implicit auto tracks only).
+func gridTemplate(cs *style.ComputedStyle) *layout.GridTemplate {
+	if cs.GridTemplateColumns.IsNone() && cs.GridTemplateRows.IsNone() && len(cs.GridAutoColumns) == 0 && len(cs.GridAutoRows) == 0 {
+		return nil
+	}
+	return &layout.GridTemplate{
+		Columns:     trackList(cs.GridTemplateColumns),
+		Rows:        trackList(cs.GridTemplateRows),
+		AutoColumns: trackSizes(cs.GridAutoColumns),
+		AutoRows:    trackSizes(cs.GridAutoRows),
+	}
+}
+
+func trackList(l style.TrackList) layout.TrackList {
+	if l.IsNone() {
+		return layout.TrackList{}
+	}
+	out := layout.TrackList{Entries: make([]layout.TrackListEntry, len(l.Entries)), LineNames: l.LineNames}
+	for i, e := range l.Entries {
+		le := layout.TrackListEntry{Tracks: trackSizes(e.Tracks), LineNames: e.LineNames}
+		if e.Repeat {
+			switch e.Kind {
+			case style.RepeatAutoFill:
+				le.Repeat = layout.RepeatAutoFill
+			case style.RepeatAutoFit:
+				le.Repeat = layout.RepeatAutoFit
+			default:
+				le.Repeat, le.Count = layout.RepeatCount, e.Count
+			}
+		}
+		out.Entries[i] = le
+	}
+	return out
+}
+
+func trackSizes(ts []style.TrackSize) []layout.TrackSize {
+	if len(ts) == 0 {
+		return nil
+	}
+	out := make([]layout.TrackSize, len(ts))
+	for i, t := range ts {
+		out[i] = layout.TrackSize{Min: breadth(t.Min), Max: breadth(t.Max)}
+	}
+	return out
+}
+
+// breadth maps a track breadth onto a layout Dim.
+func breadth(b style.TrackBreadth) layout.Dim {
+	switch b.Kind {
+	case style.BreadthLength:
+		return lpDim(b.LP)
+	case style.BreadthFr:
+		return layout.Fr(b.Fr)
+	case style.BreadthMinContent:
+		return layout.MinContent
+	case style.BreadthMaxContent:
+		return layout.MaxContent
+	case style.BreadthFitContent:
+		if b.LP.Pct == 0 {
+			return layout.FitContentPx(b.LP.Px)
+		}
+		return layout.Dim{Unit: layout.UnitFitContentPercent, Value: b.LP.Pct / 100, Px: b.LP.Px}
+	}
+	return layout.Auto
+}
+
+func gridPlacement(p style.GridPlacement) layout.GridPlacement {
+	return layout.GridPlacement{Start: gridLine(p.Start), End: gridLine(p.End)}
+}
+
+func gridLine(l style.GridLine) layout.GridLine {
+	switch l.Kind {
+	case style.GridLineIndex:
+		return layout.GridLine{Kind: layout.GridLineNumber, N: l.N}
+	case style.GridLineSpan:
+		return layout.GridLine{Kind: layout.GridSpan, N: l.N}
+	case style.GridLineNamed:
+		return layout.GridLine{Kind: layout.GridNamedLine, N: l.N, Name: l.Name}
+	case style.GridLineNamedSpan:
+		return layout.GridLine{Kind: layout.GridNamedSpan, N: l.N, Name: l.Name}
+	}
+	return layout.GridLine{}
 }

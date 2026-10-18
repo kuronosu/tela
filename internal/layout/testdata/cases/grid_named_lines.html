@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Grid placement by named lines: explicit names, repeat() names, lone identifiers matching name-start/name-end, nth names counted from both ends, named spans, and names that do not exist (implicit lines count as named)</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: grid; grid-template-columns: [full-start] 20px [main-start] 60px [mid] 60px [main-end] 20px [full-end]; grid-auto-rows: 10px; gap: 2px;">
+    <div style="grid-column: main;"></div>
+    <div style="grid-column: full-start / full-end;"></div>
+    <div style="grid-column: main-start / span 3;"></div>
+    <div style="grid-column: 1 / main-end;"></div>
+    <div style="grid-column: mid / -1;"></div>
+    <div style="grid-column: span 2 / main-end;"></div>
+    <div style="grid-column: nowhere;"></div>
+    <div style="grid-column: 2 / nowhere 2;"></div>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(4, [col] 30px) [last]; grid-auto-rows: 10px; column-gap: 4px;">
+    <div style="grid-column: col 2 / col 4;"></div>
+    <div style="grid-column: col -1 / last;"></div>
+    <div style="grid-column: col / span col 2;"></div>
+    <div style="grid-column: span col 2 / last;"></div>
+    <div style="grid-column: 2 / span col;"></div>
+    <div style="grid-column: col -2;"></div>
+    <div style="grid-column: col 6;"></div>
+    <div style="grid-column-start: col -6;"></div>
+  </div>
+  <div style="display: grid; width: 200px; grid-template-columns: [a] 20px repeat(auto-fill, [b] 30px [c]) [d]; grid-auto-rows: 10px;">
+    <div style="grid-column: b 2 / c 3;"></div>
+    <div style="grid-column: d / span 2;"></div>
+    <div style="grid-column: c -1 / d;"></div>
+    <div style="grid-column: a / b -1;"></div>
+  </div>
+</div>
+
+</body>
+</html>

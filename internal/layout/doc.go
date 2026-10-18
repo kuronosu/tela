@@ -1,10 +1,10 @@
 // Package layout is Tela's layout engine (ARCHITECTURE section 9): block
-// layout without margin collapsing, flexbox, relative and absolute
-// positioning, intrinsic sizes, leaf measurement by callback, caching and
-// relayout boundaries. The algorithms are ported from Taffy v0.14.0 and
-// checked against Taffy's fixtures with expected boxes measured by headless
-// Chromium (ADR-039). Grid, fixed and sticky positioning and scrolling
-// come in later phases.
+// layout without margin collapsing, flexbox, CSS grid, relative and
+// absolute positioning, intrinsic sizes, leaf measurement by callback,
+// caching and relayout boundaries. The algorithms are ported from Taffy
+// v0.14.0 and checked against Taffy's fixtures with expected boxes measured
+// by headless Chromium (ADR-039, ADR-073). Fixed and sticky positioning
+// are core's (as absolute and relative).
 //
 // The package depends only on the standard library and internal/gfx (for
 // result geometry). It knows nothing of styles, text or the Box tree:
@@ -23,15 +23,19 @@
 // 10.8.1; the first baseline of a flex container), so every output also
 // carries a last baseline.
 //
-// Style is a Taffy-like subset of CSS: display (block, flex, none),
+// Style is a Taffy-like subset of CSS: display (block, flex, grid, none),
 // position (static, relative, absolute), direction, overflow, sizes with
 // min and max bounds, aspect-ratio, insets, margins (auto allowed),
 // padding, borders, the flex container and item properties, gaps and
-// order. Values are Dims: lengths in logical px, percentages, auto and the
-// sizing keywords (min-content, max-content, fit-content, stretch). Box
-// sizing is always border-box. Style holds computed values: core resolves
-// inheritance (direction) and CSS's computed-value rules (overflow: visible
-// next to a scrolling axis becomes auto).
+// order, and the grid container and item properties (grid_style.go: track
+// lists with line names and repeat(), auto tracks, named areas,
+// grid-auto-flow, placements by number, span or name, justify-items and
+// justify-self). Values are Dims: lengths in logical px, percentages, auto
+// and the sizing keywords (min-content, max-content, fit-content,
+// stretch); grid tracks add fr. Box sizing is always border-box. Style
+// holds computed values: core resolves inheritance (direction) and CSS's
+// computed-value rules (overflow: visible next to a scrolling axis becomes
+// auto).
 //
 // # Protocol
 //
@@ -118,13 +122,15 @@
 //
 // # Conformance and deviations from Taffy
 //
-// TestTaffyFixtures lays out Taffy v0.14.0's block, flex, blockflex and
-// leaf fixtures and compares every box with Chromium 152 within 0.5 px;
-// testdata/taffy/excluded.txt lists the fixtures left out and why (margin
-// collapsing, content-box, flex-wrap: balance, grid, float, vertical
-// writing modes, legacy text-align). TestTelaCases does the same for
-// Tela's own cases (testdata/cases). Where Chromium and Taffy disagree,
-// layout follows Chromium:
+// TestTaffyFixtures lays out Taffy v0.14.0's block, flex, grid, blockflex,
+// blockgrid, gridflex and leaf fixtures and compares every box with
+// Chromium 152 within 0.5 px; testdata/taffy/excluded.txt lists the
+// fixtures left out and why (margin collapsing, content-box, flex-wrap:
+// balance, float, vertical writing modes, legacy text-align). TestTelaCases
+// does the same for Tela's own cases (testdata/cases: containing blocks,
+// order, and grid placement by name, named areas, auto-fill and auto-fit,
+// dense packing, static positions, baselines and content-sized grids).
+// Where Chromium and Taffy disagree, layout follows Chromium:
 //
 //   - A flex container sized under definite available space is
 //     fit-content sized (Taffy sums the flex bases).
@@ -140,6 +146,33 @@
 //   - Rounded locations are differences of rounded cumulative positions
 //     (Taffy rounds each location relative to its parent).
 //   - order is supported; flex-wrap: balance is not.
+//
+// Grid (grid*.go, ADR-073), where it differs from Taffy:
+//
+//   - An auto width under definite available space is fit-content, from
+//     the grid sized under max-content and min-content constraints, and
+//     an auto height is a max-content constraint (CSS Grid 1 section
+//     11.1); Taffy sizes the tracks in the available space. Size queries
+//     include the second column and row passes (Taffy returns before
+//     them).
+//   - A track holding a span-1 item gets a finite growth limit even when
+//     the item's contributions are zero; when space beyond the limits is
+//     distributed, fit-content() arguments cap only max-content
+//     contributions, and auto counts as a max-content maximum.
+//   - The automatic minimum size of an item looks at the tracks it spans,
+//     and the min size of the other axis does not transfer through the
+//     aspect ratio into its minimum contribution.
+//   - Items whose width depends on their height (an aspect ratio and an
+//     auto width) are measured with an estimate of the rows, sized first.
+//   - Named lines follow CSS Grid 1 section 8.3 (see grid_tracks.go).
+//   - Absolutely positioned children use Tela's containing blocks: a
+//     positioned grid lays them out in their grid area with CSS 2's rules;
+//     a static grid gives them a static position in its content box,
+//     aligned by justify-self and align-self.
+//   - The container's first baseline is the first item's of its first
+//     row (Taffy uses that item's bottom edge unless it is
+//     baseline-aligned).
+//   - box-sizing: content-box, subgrid and masonry are not supported.
 //
 // Two fixes to Taffy's machinery: Measure gets content-box known
 // dimensions (Taffy passes the border box, so text with padding wrapped at

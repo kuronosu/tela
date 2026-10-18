@@ -97,7 +97,9 @@ func (t *Tree) buildBoxes(el *Element) {
 	case bx.kind.IsTextField():
 		bx.mode = modeField
 		bx.para = nil
-	case isFlexContainer(bx.cs):
+	case itemContainer(bx.cs):
+		// Flex and grid items: each element child is an item, each run of
+		// text an anonymous item.
 		bx.mode = modeContainer
 		bx.para = nil
 		for i := 0; i < len(items); {
@@ -319,7 +321,7 @@ func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element) bool {
 	// space-x-* between inline elements: Tailwind puts a margin after
 	// every element child but the last; text runs are not elements.
 	var gap float32
-	if ocs := owner.box.cs; !isFlexContainer(ocs) && ocs.SpaceX.Pct == 0 {
+	if ocs := owner.box.cs; !itemContainer(ocs) && ocs.SpaceX.Pct == 0 {
 		gap = ocs.SpaceX.Px
 	}
 	elems := 0
@@ -396,6 +398,17 @@ func (t *Tree) textStyle(el *Element, para *Box, owner *Element) *style.Computed
 func isFlexContainer(cs *style.ComputedStyle) bool {
 	return cs.Display == style.DisplayFlex || cs.Display == style.DisplayInlineFlex
 }
+
+// isGridContainer reports whether a box with style cs lays out its
+// children as grid items.
+func isGridContainer(cs *style.ComputedStyle) bool {
+	return cs.Display == style.DisplayGrid || cs.Display == style.DisplayInlineGrid
+}
+
+// itemContainer reports whether a box with style cs lays out its children
+// as flex or grid items: blockified, each element child an item and each
+// run of text an anonymous item (CSS Flexbox 4, CSS Grid 6).
+func itemContainer(cs *style.ComputedStyle) bool { return isFlexContainer(cs) || isGridContainer(cs) }
 
 // sortByDepth sorts elements by depth, keeping the queue order of equal
 // depths (deterministic).

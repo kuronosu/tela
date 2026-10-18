@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"errors"
 	"fmt"
 	"html"
 	"math"
@@ -15,7 +16,10 @@ import (
 // with zero-width spaces, comments, and the inline CSS properties below,
 // with test_base_style.css's defaults (div is display: flex and position:
 // relative, the body's children are position: absolute, scrollbars are
-// 15px wide).
+// 15px wide). Script elements are skipped: the measuring page inserts the
+// body with innerHTML, which does not run them. As in HTML, a tag that
+// reaches the end of the input (an unterminated attribute value) is
+// dropped with everything after it.
 
 // htmlElem is a parsed div.
 type htmlElem struct {
@@ -36,6 +40,12 @@ func parseHTML(src string) ([]*htmlElem, error) {
 				return nil, fmt.Errorf("unterminated comment")
 			}
 			i += j + 3
+		case strings.HasPrefix(src[i:], "<script"):
+			j := strings.Index(src[i:], "</script>")
+			if j < 0 {
+				return nil, fmt.Errorf("unterminated script")
+			}
+			i += j + len("</script>")
 		case strings.HasPrefix(src[i:], "</"):
 			j := strings.IndexByte(src[i:], '>')
 			if j < 0 || len(stack) < 2 {
@@ -48,6 +58,9 @@ func parseHTML(src string) ([]*htmlElem, error) {
 			i += j + 1
 		case src[i] == '<':
 			el, n, err := parseStartTag(src[i:])
+			if err == errEOFInTag {
+				return root.children, nil
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -69,6 +82,9 @@ func parseHTML(src string) ([]*htmlElem, error) {
 	}
 	return root.children, nil
 }
+
+// errEOFInTag reports a start tag cut by the end of the input.
+var errEOFInTag = errors.New("end of input in a tag")
 
 // parseStartTag parses "<div attr="value" ...>".
 func parseStartTag(s string) (*htmlElem, int, error) {
@@ -100,7 +116,7 @@ func parseStartTag(s string) (*htmlElem, int, error) {
 			}
 			k := strings.IndexByte(s[i+2:], q)
 			if k < 0 {
-				return nil, 0, fmt.Errorf("unterminated attribute %q", name)
+				return nil, 0, errEOFInTag
 			}
 			el.attrs[name] = html.UnescapeString(s[i+2 : i+2+k])
 			i += 2 + k + 1
@@ -390,7 +406,7 @@ func (fs *fixtureStyle) apply(prop, v string) {
 		case "none":
 			st.Display = DisplayNone
 		case "grid":
-			unsupported("grid")
+			st.Display = DisplayGrid
 		default:
 			ok = false
 		}
@@ -602,9 +618,80 @@ func (fs *fixtureStyle) apply(prop, v string) {
 		if v != "none" {
 			unsupported("float")
 		}
-	case "grid-template-rows", "grid-template-columns", "grid-column-start", "grid-column-end", "grid-row-start", "grid-row-end":
-		unsupported("grid")
-	case "background", "background-color", "color", "border-color", "border-style",
+	case "grid-template-columns", "grid-template-rows":
+		var l TrackList
+		l, ok = parseTrackList(v)
+		if ok {
+			g := fs.grid()
+			if prop == "grid-template-columns" {
+				g.Columns = l
+			} else {
+				g.Rows = l
+			}
+		}
+	case "grid-auto-columns", "grid-auto-rows":
+		var ts []TrackSize
+		for _, f := range splitCSS(v) {
+			t, okT := parseTrackSize(f)
+			if !okT {
+				ok = false
+				break
+			}
+			ts = append(ts, t)
+		}
+		if ok {
+			g := fs.grid()
+			if prop == "grid-auto-columns" {
+				g.AutoColumns = ts
+			} else {
+				g.AutoRows = ts
+			}
+		}
+	case "grid-template-areas":
+		var areas []GridArea
+		var rows, cols int
+		areas, rows, cols, ok = parseTemplateAreas(v)
+		if ok {
+			g := fs.grid()
+			g.Areas, g.AreaRows, g.AreaColumns = areas, rows, cols
+		}
+	case "grid-auto-flow":
+		st.GridAutoFlow, ok = map[string]GridAutoFlow{
+			"row": GridFlowRow, "column": GridFlowColumn, "dense": GridFlowRowDense, "row dense": GridFlowRowDense,
+			"dense row": GridFlowRowDense, "column dense": GridFlowColumnDense, "dense column": GridFlowColumnDense,
+		}[strings.Join(strings.Fields(v), " ")]
+	case "grid-row", "grid-column":
+		var p GridPlacement
+		p, ok = parseGridPlacement(v)
+		if ok {
+			if prop == "grid-row" {
+				st.GridRow = p
+			} else {
+				st.GridColumn = p
+			}
+		}
+	case "grid-row-start", "grid-row-end", "grid-column-start", "grid-column-end":
+		var l GridLine
+		l, ok = parseGridLine(v)
+		if ok {
+			switch prop {
+			case "grid-row-start":
+				st.GridRow.Start = l
+			case "grid-row-end":
+				st.GridRow.End = l
+			case "grid-column-start":
+				st.GridColumn.Start = l
+			case "grid-column-end":
+				st.GridColumn.End = l
+			}
+		}
+	case "grid-area":
+		ok = fs.parseGridArea(v)
+	case "justify-items":
+		st.JustifyItems, ok = parseAlign(v)
+	case "justify-self":
+		st.JustifySelf, ok = parseAlign(v)
+	case "background", "background-color", "color", "border-color", "border-style", "z-index", "outline",
 		// Invalid property names, which Chromium drops.
 		"alignitems", "border-width-top", "border-width-bottom", "border-start-width", "border-end-width":
 	default:
@@ -654,6 +741,349 @@ func (fs *fixtureStyle) parseFlex(v string) bool {
 		basis = Px(nums[2]) // "1 1 0"
 	}
 	st.FlexGrow, st.FlexShrink, st.FlexBasis = grow, shrink, basis
+	return true
+}
+
+// grid returns the element's grid template, creating it.
+func (fs *fixtureStyle) grid() *GridTemplate {
+	if fs.Grid == nil {
+		fs.Grid = &GridTemplate{}
+	}
+	return fs.Grid
+}
+
+// splitCSS splits a value at top-level whitespace, keeping parenthesized
+// and bracketed groups ("repeat(2, 10px)", "[a b]") and strings whole.
+func splitCSS(v string) []string {
+	var out []string
+	depth, start := 0, -1
+	var quote byte
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		switch {
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+			continue
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '(' || c == '[':
+			depth++
+		case c == ')' || c == ']':
+			depth--
+		case depth == 0 && (c == ' ' || c == '\t' || c == '\n'):
+			if start >= 0 {
+				out = append(out, v[start:i])
+				start = -1
+			}
+			continue
+		}
+		if start < 0 {
+			start = i
+		}
+	}
+	if start >= 0 {
+		out = append(out, v[start:])
+	}
+	return out
+}
+
+// parseLineNames parses "[a b]".
+func parseLineNames(tok string) ([]string, bool) {
+	if !strings.HasPrefix(tok, "[") || !strings.HasSuffix(tok, "]") {
+		return nil, false
+	}
+	return strings.Fields(tok[1 : len(tok)-1]), true
+}
+
+// parseBreadth parses a track breadth: a length, a percentage, fr, auto,
+// min-content or max-content. Negative values are invalid.
+func parseBreadth(v string) (Dim, bool) {
+	v = strings.TrimSpace(v)
+	if num, ok := strings.CutSuffix(v, "fr"); ok {
+		f, err := strconv.ParseFloat(num, 32)
+		return Fr(float32(f)), err == nil && f >= 0
+	}
+	switch v {
+	case "auto":
+		return Auto, true
+	case "min-content":
+		return MinContent, true
+	case "max-content":
+		return MaxContent, true
+	}
+	d, ok := parseDim(v)
+	switch d.Unit {
+	case UnitPx, UnitPercent:
+		return d, ok && d.Value >= 0
+	case UnitCalc:
+		return d, ok
+	}
+	return Dim{}, false
+}
+
+// parseTrackSize parses a <track-size>: a breadth, minmax() or
+// fit-content().
+func parseTrackSize(v string) (TrackSize, bool) {
+	v = strings.TrimSpace(v)
+	if inner, ok := strings.CutPrefix(v, "minmax("); ok && strings.HasSuffix(inner, ")") {
+		a, b, found := strings.Cut(inner[:len(inner)-1], ",")
+		if !found {
+			return TrackSize{}, false
+		}
+		lo, ok1 := parseBreadth(a)
+		hi, ok2 := parseBreadth(b)
+		if !ok1 || !ok2 || lo.Unit == UnitFr {
+			return TrackSize{}, false
+		}
+		return Minmax(lo, hi), true
+	}
+	if strings.HasPrefix(v, "fit-content(") {
+		d, ok := parseDim(v)
+		if !ok || d.Value < 0 || (d.Unit != UnitFitContentPx && d.Unit != UnitFitContentPercent) {
+			return TrackSize{}, false
+		}
+		return Track(d), true
+	}
+	d, ok := parseBreadth(v)
+	if !ok {
+		return TrackSize{}, false
+	}
+	return Track(d), true
+}
+
+// parseTrackList parses grid-template-columns or grid-template-rows.
+func parseTrackList(v string) (TrackList, bool) {
+	v = strings.TrimSpace(v)
+	if v == "none" {
+		return TrackList{}, true
+	}
+	var l TrackList
+	var names []string
+	hasNames := false
+	pending := false // names were read since the last entry
+	for _, tok := range splitCSS(v) {
+		if n, ok := parseLineNames(tok); ok {
+			if pending {
+				return TrackList{}, false // two adjacent name lists
+			}
+			names, pending, hasNames = n, true, true
+			continue
+		}
+		l.LineNames = append(l.LineNames, names)
+		names, pending = nil, false
+		if inner, ok := strings.CutPrefix(tok, "repeat("); ok && strings.HasSuffix(inner, ")") {
+			count, rest, found := strings.Cut(inner[:len(inner)-1], ",")
+			if !found {
+				return TrackList{}, false
+			}
+			e := TrackListEntry{Repeat: RepeatCount}
+			switch c := strings.TrimSpace(count); c {
+			case "auto-fill":
+				e.Repeat = RepeatAutoFill
+			case "auto-fit":
+				e.Repeat = RepeatAutoFit
+			default:
+				n, err := strconv.Atoi(c)
+				if err != nil || n < 1 {
+					return TrackList{}, false
+				}
+				e.Count = n
+			}
+			var inNames []string
+			inPending, inHasNames := false, false
+			for _, t := range splitCSS(rest) {
+				if n, ok := parseLineNames(t); ok {
+					if inPending {
+						return TrackList{}, false
+					}
+					inNames, inPending, inHasNames = n, true, true
+					continue
+				}
+				ts, ok := parseTrackSize(t)
+				if !ok {
+					return TrackList{}, false
+				}
+				e.LineNames = append(e.LineNames, inNames)
+				inNames, inPending = nil, false
+				e.Tracks = append(e.Tracks, ts)
+			}
+			if len(e.Tracks) == 0 {
+				return TrackList{}, false
+			}
+			e.LineNames = append(e.LineNames, inNames)
+			if !inHasNames {
+				e.LineNames = nil
+			}
+			l.Entries = append(l.Entries, e)
+			continue
+		}
+		ts, ok := parseTrackSize(tok)
+		if !ok {
+			return TrackList{}, false
+		}
+		l.Entries = append(l.Entries, Single(ts))
+	}
+	if len(l.Entries) == 0 {
+		return TrackList{}, false
+	}
+	l.LineNames = append(l.LineNames, names)
+	if !hasNames {
+		l.LineNames = nil
+	}
+	return l, true
+}
+
+// parseTemplateAreas parses grid-template-areas: one string per row, the
+// cells of a name forming a rectangle ("." is an unnamed cell).
+func parseTemplateAreas(v string) ([]GridArea, int, int, bool) {
+	if strings.TrimSpace(v) == "none" {
+		return nil, 0, 0, true
+	}
+	var rows [][]string
+	for _, tok := range splitCSS(v) {
+		if len(tok) < 2 || (tok[0] != '"' && tok[0] != '\'') || tok[len(tok)-1] != tok[0] {
+			return nil, 0, 0, false
+		}
+		var cells []string
+		for _, c := range strings.Fields(tok[1 : len(tok)-1]) {
+			if strings.Trim(c, ".") == "" {
+				c = "."
+			}
+			cells = append(cells, c)
+		}
+		if len(rows) > 0 && len(cells) != len(rows[0]) || len(cells) == 0 {
+			return nil, 0, 0, false
+		}
+		rows = append(rows, cells)
+	}
+	var areas []GridArea
+	seen := map[string]int{}
+	for r, cells := range rows {
+		for c, name := range cells {
+			if name == "." {
+				continue
+			}
+			i, ok := seen[name]
+			if !ok {
+				seen[name] = len(areas)
+				areas = append(areas, GridArea{Name: name, RowStart: r + 1, RowEnd: r + 2, ColumnStart: c + 1, ColumnEnd: c + 2})
+				continue
+			}
+			a := &areas[i]
+			a.RowEnd = max(a.RowEnd, r+2)
+			a.ColumnEnd = max(a.ColumnEnd, c+2)
+		}
+	}
+	// Every area must be a filled rectangle.
+	for _, a := range areas {
+		for r := a.RowStart - 1; r < a.RowEnd-1; r++ {
+			for c := a.ColumnStart - 1; c < a.ColumnEnd-1; c++ {
+				if rows[r][c] != a.Name {
+					return nil, 0, 0, false
+				}
+			}
+		}
+	}
+	return areas, len(rows), len(rows[0]), true
+}
+
+// parseGridLine parses a <grid-line>: auto, an integer, an identifier,
+// both, or span with an integer and/or an identifier.
+func parseGridLine(v string) (GridLine, bool) {
+	fields := strings.Fields(v)
+	if len(fields) == 1 && fields[0] == "auto" {
+		return GridLine{}, true
+	}
+	span, num, name := false, 0, ""
+	hasNum := false
+	for _, f := range fields {
+		switch {
+		case f == "span" && !span:
+			span = true
+		case !hasNum && (f[0] == '-' || f[0] == '+' || f[0] >= '0' && f[0] <= '9'):
+			n, err := strconv.Atoi(f)
+			if err != nil || n == 0 {
+				return GridLine{}, false
+			}
+			num, hasNum = n, true
+		case name == "" && f != "auto" && f != "span":
+			name = f
+		default:
+			return GridLine{}, false
+		}
+	}
+	switch {
+	case span && hasNum && num < 0:
+		return GridLine{}, false
+	case span && name != "":
+		return GridLine{Kind: GridNamedSpan, N: num, Name: name}, true
+	case span:
+		if !hasNum {
+			num = 1
+		}
+		return GridLine{Kind: GridSpan, N: num}, true
+	case name != "":
+		return GridLine{Kind: GridNamedLine, N: num, Name: name}, true
+	case hasNum:
+		return GridLine{Kind: GridLineNumber, N: num}, true
+	}
+	return GridLine{}, false
+}
+
+// isIdentLine reports whether a line is a lone <custom-ident>, which the
+// grid-row, grid-column and grid-area shorthands copy into omitted ends.
+func isIdentLine(l GridLine) bool { return l.Kind == GridNamedLine && l.N == 0 }
+
+// parseGridPlacement parses grid-row or grid-column: "start / end", or
+// "start" (end is start for an identifier, else auto).
+func parseGridPlacement(v string) (GridPlacement, bool) {
+	parts := strings.Split(v, "/")
+	if len(parts) > 2 {
+		return GridPlacement{}, false
+	}
+	start, ok := parseGridLine(parts[0])
+	if !ok {
+		return GridPlacement{}, false
+	}
+	var end GridLine
+	if len(parts) == 2 {
+		if end, ok = parseGridLine(parts[1]); !ok {
+			return GridPlacement{}, false
+		}
+	} else if isIdentLine(start) {
+		end = start
+	}
+	return GridPlacement{start, end}, true
+}
+
+// parseGridArea parses grid-area: row-start / column-start / row-end /
+// column-end, omitted values copying an identifier as CSS does.
+func (fs *fixtureStyle) parseGridArea(v string) bool {
+	parts := strings.Split(v, "/")
+	if len(parts) > 4 {
+		return false
+	}
+	var ls [4]GridLine
+	for i, p := range parts {
+		l, ok := parseGridLine(p)
+		if !ok {
+			return false
+		}
+		ls[i] = l
+	}
+	if len(parts) < 2 && isIdentLine(ls[0]) {
+		ls[1] = ls[0]
+	}
+	if len(parts) < 3 && isIdentLine(ls[0]) {
+		ls[2] = ls[0]
+	}
+	if len(parts) < 4 && isIdentLine(ls[1]) {
+		ls[3] = ls[1]
+	}
+	fs.GridRow = GridPlacement{ls[0], ls[2]}
+	fs.GridColumn = GridPlacement{ls[1], ls[3]}
 	return true
 }
 

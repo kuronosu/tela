@@ -195,15 +195,17 @@ func TestFlexGridClasses(t *testing.T) {
 
 func TestGridClasses(t *testing.T) {
 	fr1 := TrackSize{Min: TrackBreadth{Kind: BreadthLength}, Max: TrackBreadth{Kind: BreadthFr, Fr: 1}}
+	line := func(k GridLineKind, n int) GridLine { return GridLine{Kind: k, N: n} }
 	t.Run("grid-cols-3", func(t *testing.T) {
 		s := style(t, "grid grid-cols-3")
-		got := s.GridTemplateColumns
+		got := s.GridTemplateColumns.Entries
 		if len(got) != 1 || !got[0].Repeat || got[0].Count != 3 || got[0].Kind != RepeatCount || got[0].Tracks[0] != fr1 {
 			t.Errorf("GridTemplateColumns = %+v, want repeat(3, minmax(0, 1fr))", got)
 		}
-		if n := len(got.Expand()); n != 3 {
+		if n := len(s.GridTemplateColumns.Expand()); n != 3 {
 			t.Errorf("Expand() has %d tracks, want 3", n)
 		}
+		eq(t, "String", s.GridTemplateColumns.String(), "repeat(3, minmax(0px, 1fr))")
 	})
 	t.Run("grid-cols-[200px_1fr]", func(t *testing.T) {
 		s := style(t, "grid-cols-[200px_1fr]")
@@ -218,7 +220,7 @@ func TestGridClasses(t *testing.T) {
 	})
 	t.Run("repeat auto-fill minmax", func(t *testing.T) {
 		s := style(t, "grid-cols-[repeat(auto-fill,minmax(12rem,1fr))]")
-		l := s.GridTemplateColumns
+		l := s.GridTemplateColumns.Entries
 		if len(l) != 1 || l[0].Kind != RepeatAutoFill || !l[0].Repeat {
 			t.Fatalf("list = %+v", l)
 		}
@@ -226,8 +228,19 @@ func TestGridClasses(t *testing.T) {
 		eq(t, "min", ts.Min, TrackBreadth{Kind: BreadthLength, LP: PxLP(192)})
 		eq(t, "max", ts.Max, TrackBreadth{Kind: BreadthFr, Fr: 1})
 	})
+	t.Run("line names", func(t *testing.T) {
+		s := style(t, "grid-cols-[[full-start]_1rem_[main-start_content]_1fr_[main-end]_1rem_[full-end]]")
+		l := s.GridTemplateColumns
+		eq(t, "String", l.String(), "[full-start] 16px [main-start content] 1fr [main-end] 16px [full-end]")
+		if len(l.LineNames) != 4 || l.LineNames[1][1] != "content" {
+			t.Errorf("LineNames = %q", l.LineNames)
+		}
+		s = style(t, "grid-rows-[repeat(2,[row]_auto_[gap])_[last]]")
+		eq(t, "rows", s.GridTemplateRows.String(), "repeat(2, [row] auto [gap]) [last]")
+		eq(t, "repeat names", len(s.GridTemplateRows.Entries[0].LineNames), 2)
+	})
 	t.Run("grid-cols-none", func(t *testing.T) {
-		if s := style(t, "grid-cols-3 grid-cols-none"); len(s.GridTemplateColumns) != 0 {
+		if s := style(t, "grid-cols-3 grid-cols-none"); !s.GridTemplateColumns.IsNone() {
 			t.Errorf("GridTemplateColumns = %+v, want none", s.GridTemplateColumns)
 		}
 	})
@@ -239,22 +252,39 @@ func TestGridClasses(t *testing.T) {
 	})
 	t.Run("placement", func(t *testing.T) {
 		s := style(t, "col-span-2 row-start-2 row-end-4")
-		eq(t, "ColStart", s.GridColumn.Start, GridLine{GridLineSpan, 2})
-		eq(t, "ColEnd", s.GridColumn.End, GridLine{GridLineSpan, 2})
-		eq(t, "RowStart", s.GridRow.Start, GridLine{GridLineIndex, 2})
-		eq(t, "RowEnd", s.GridRow.End, GridLine{GridLineIndex, 4})
+		eq(t, "ColStart", s.GridColumn.Start, line(GridLineSpan, 2))
+		eq(t, "ColEnd", s.GridColumn.End, line(GridLineSpan, 2))
+		eq(t, "RowStart", s.GridRow.Start, line(GridLineIndex, 2))
+		eq(t, "RowEnd", s.GridRow.End, line(GridLineIndex, 4))
+	})
+	t.Run("col-N and negative lines", func(t *testing.T) {
+		s := style(t, "col-3 -row-start-1 -row-end-2")
+		eq(t, "col", s.GridColumn, GridPlacement{Start: line(GridLineIndex, 3)})
+		eq(t, "row", s.GridRow, GridPlacement{line(GridLineIndex, -1), line(GridLineIndex, -2)})
+		eq(t, "-col-2", style(t, "-col-2").GridColumn, GridPlacement{Start: line(GridLineIndex, -2)})
 	})
 	t.Run("col-span-full", func(t *testing.T) {
 		s := style(t, "col-span-full")
-		eq(t, "Start", s.GridColumn.Start, GridLine{GridLineIndex, 1})
-		eq(t, "End", s.GridColumn.End, GridLine{GridLineIndex, -1})
+		eq(t, "Start", s.GridColumn.Start, line(GridLineIndex, 1))
+		eq(t, "End", s.GridColumn.End, line(GridLineIndex, -1))
 	})
 	t.Run("col-[1/3] and col-auto", func(t *testing.T) {
 		s := style(t, "col-[1/3]")
-		eq(t, "Start", s.GridColumn.Start, GridLine{GridLineIndex, 1})
-		eq(t, "End", s.GridColumn.End, GridLine{GridLineIndex, 3})
+		eq(t, "Start", s.GridColumn.Start, line(GridLineIndex, 1))
+		eq(t, "End", s.GridColumn.End, line(GridLineIndex, 3))
 		s = style(t, "col-span-2 col-auto")
 		eq(t, "auto", s.GridColumn, GridPlacement{})
+	})
+	t.Run("named placements", func(t *testing.T) {
+		main := GridLine{Kind: GridLineNamed, Name: "main"}
+		eq(t, "col-[main]", style(t, "col-[main]").GridColumn, GridPlacement{main, main})
+		s := style(t, "col-start-[main] col-end-[2_side] row-[span_header/footer]")
+		eq(t, "start", s.GridColumn.Start, main)
+		eq(t, "end", s.GridColumn.End, GridLine{Kind: GridLineNamed, N: 2, Name: "side"})
+		eq(t, "row", s.GridRow, GridPlacement{GridLine{Kind: GridLineNamedSpan, N: 1, Name: "header"}, GridLine{Kind: GridLineNamed, Name: "footer"}})
+		eq(t, "row String", s.GridRow.String(), "span header / footer")
+		eq(t, "col-span-[name]", style(t, "col-span-[card]").GridColumn.Start, GridLine{Kind: GridLineNamedSpan, N: 1, Name: "card"})
+		eq(t, "col-[main_/_span_2]", style(t, "col-[main_/_span_2]").GridColumn, GridPlacement{main, line(GridLineSpan, 2)})
 	})
 	t.Run("flow and auto tracks", func(t *testing.T) {
 		s := style(t, "grid-flow-col-dense auto-rows-fr auto-cols-[minmax(0,2fr)]")
@@ -262,9 +292,13 @@ func TestGridClasses(t *testing.T) {
 		eq(t, "AutoRows", s.GridAutoRows[0], TrackSize{Max: TrackBreadth{Kind: BreadthFr, Fr: 1}})
 		eq(t, "AutoCols", s.GridAutoColumns[0], TrackSize{Min: TrackBreadth{Kind: BreadthLength}, Max: TrackBreadth{Kind: BreadthFr, Fr: 2}})
 		eq(t, "dense", style(t, "grid-flow-dense").GridAutoFlow, GridFlowRowDense)
+		eq(t, "two auto rows", len(style(t, "auto-rows-[10px_auto]").GridAutoRows), 2)
 	})
 	t.Run("errors", func(t *testing.T) {
-		for _, c := range []string{"grid-cols-subgrid", "grid-cols-[repeat(x,1fr)]", "grid-cols-[[full-start]_1fr]"} {
+		for _, c := range []string{"grid-cols-subgrid", "grid-cols-[repeat(x,1fr)]", "grid-cols-[[a]_[b]_1fr]",
+			"grid-cols-[repeat(auto-fill,1fr)]", "grid-cols-[repeat(auto-fill,10px)_auto]",
+			"grid-cols-[repeat(auto-fill,10px)_repeat(auto-fit,10px)]", "grid-cols-[[span]_1fr]",
+			"auto-cols-[[a]_1fr]", "auto-rows-[repeat(2,1fr)]", "col-[span_0]", "col-start-[0]", "col-[1/2/3]", "row-[span]"} {
 			if Compile(c).Err == nil {
 				t.Errorf("%q compiled without error", c)
 			}

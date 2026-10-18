@@ -150,8 +150,14 @@ type StyleSummary struct {
 	MaxWidth string `json:"maxWidth,omitempty"`
 	// Flex is "row wrap gap 16px/16px justify center items center" for
 	// flex containers.
-	Flex       string  `json:"flex,omitempty"`
-	FlexItem   string  `json:"flexItem,omitempty"` // "grow 1 shrink 1 basis auto"
+	Flex     string `json:"flex,omitempty"`
+	FlexItem string `json:"flexItem,omitempty"` // "grow 1 shrink 1 basis auto"
+	// Grid is "cols 240px 1fr rows auto gap 16px/16px" for grid
+	// containers (with auto tracks, flow and alignment when set).
+	Grid string `json:"grid,omitempty"`
+	// GridItem is "col 1 / span 2 row auto / auto" for elements with a
+	// grid placement.
+	GridItem   string  `json:"gridItem,omitempty"`
 	Color      string  `json:"color"`
 	Background string  `json:"background,omitempty"`
 	Font       string  `json:"font"` // "700 48px/1 Inter"
@@ -298,6 +304,40 @@ func summarize(b *Box) StyleSummary {
 			f += " items " + cs.AlignItems.String()
 		}
 		s.Flex = f
+	}
+	if isGridContainer(cs) {
+		g := "cols " + cs.GridTemplateColumns.String() + " rows " + cs.GridTemplateRows.String()
+		auto := func(ts []style.TrackSize) string {
+			out := make([]string, len(ts))
+			for i, t := range ts {
+				out[i] = t.String()
+			}
+			return strings.Join(out, " ")
+		}
+		if len(cs.GridAutoColumns) > 0 {
+			g += " auto-cols " + auto(cs.GridAutoColumns)
+		}
+		if len(cs.GridAutoRows) > 0 {
+			g += " auto-rows " + auto(cs.GridAutoRows)
+		}
+		if cs.GridAutoFlow != style.GridFlowRow {
+			g += " flow " + cs.GridAutoFlow.String()
+		}
+		if cs.RowGap != (style.LP{}) || cs.ColumnGap != (style.LP{}) {
+			g += fmt.Sprintf(" gap %v/%v", cs.RowGap, cs.ColumnGap)
+		}
+		for _, a := range []struct {
+			name string
+			v    style.Align
+		}{{"justify", cs.JustifyContent}, {"content", cs.AlignContent}, {"justify-items", cs.JustifyItems}, {"items", cs.AlignItems}} {
+			if a.v != style.AlignAuto {
+				g += " " + a.name + " " + a.v.String()
+			}
+		}
+		s.Grid = g
+	}
+	if cs.GridColumn != (style.GridPlacement{}) || cs.GridRow != (style.GridPlacement{}) {
+		s.GridItem = "col " + cs.GridColumn.String() + " row " + cs.GridRow.String()
 	}
 	if cs.FlexGrow != 0 || cs.FlexShrink != 1 || !cs.FlexBasis.IsAuto() {
 		s.FlexItem = fmt.Sprintf("grow %g shrink %g basis %v", cs.FlexGrow, cs.FlexShrink, cs.FlexBasis)

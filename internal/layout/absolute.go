@@ -74,6 +74,20 @@ func (s staticPos) place(sz size, m rect) point {
 // It returns the box's contribution to the containing block's scrollable
 // overflow.
 func (e *Engine) layoutAbsolute(p, c Node, st *Style, area size, areaOffset point, sp staticPos, dir Direction, scrolls bool, parentOff point) rect {
+	loc, final, out := e.placeAbsolute(p, c, st, area, areaOffset, sp, dir, parentOff)
+	// The overflow contribution is measured from the scroll origin (the
+	// inline-start edge: the right side in RTL).
+	rel := point{loc.x - areaOffset.x, loc.y - areaOffset.y}
+	if dir == RTL {
+		rel.x = area.w - rel.x - final.w
+	}
+	return overflowContribution(rel, final, out.overflow, st, scrolls)
+}
+
+// placeAbsolute is layoutAbsolute without the overflow contribution: it
+// returns the box's border-box position from the containing block's
+// border box, its size and the output of its layout.
+func (e *Engine) placeAbsolute(p, c Node, st *Style, area size, areaOffset point, sp staticPos, dir Direction, parentOff point) (point, size, output) {
 	ratio := st.aspectRatio()
 	aw := some(area.w)
 	margin := st.Margin.resolveMargins(aw)
@@ -188,14 +202,7 @@ func (e *Engine) layoutAbsolute(p, c Node, st *Style, area size, areaOffset poin
 		sb.y = st.ScrollbarWidth
 	}
 	c.LayoutData().setLayout(point{loc.x - parentOff.x, loc.y - parentOff.y}, final, border, padding, resolved, sb, out.overflow, out.firstBaseline)
-
-	// The overflow contribution is measured from the scroll origin (the
-	// inline-start edge: the right side in RTL).
-	rel := point{loc.x - areaOffset.x, loc.y - areaOffset.y}
-	if dir == RTL {
-		rel.x = area.w - rel.x - final.w
-	}
-	return overflowContribution(rel, final, out.overflow, st, scrolls)
+	return loc, final, out
 }
 
 // absAvailable returns the space available to an absolutely positioned box

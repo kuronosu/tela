@@ -527,6 +527,7 @@ func (t *Tree) remapOne(b *Box) {
 		return
 	}
 	ls := mapLayoutStyle(b, p, hasSpaceAfter(b, spaceLast(p)))
+	keepGrid(&ls, &b.ls)
 	if ls != b.ls {
 		b.ls = ls
 		t.engine.MarkDirty(b)

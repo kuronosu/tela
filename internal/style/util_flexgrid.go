@@ -221,7 +221,8 @@ func registerGrid(r *registry) {
 				if n < 1 || n > 1000 {
 					return Op{}, fmt.Errorf("the track count must be from 1 to 1000, got %d", n)
 				}
-				list = TrackList{{Repeat: true, Kind: RepeatCount, Count: n, Tracks: []TrackSize{{Max: TrackBreadth{Kind: BreadthFr, Fr: 1}, Min: TrackBreadth{Kind: BreadthLength}}}}}
+				list = TrackList{Entries: []TrackEntry{{Repeat: true, Kind: RepeatCount, Count: n,
+					Tracks: []TrackSize{{Max: TrackBreadth{Kind: BreadthFr, Fr: 1}, Min: TrackBreadth{Kind: BreadthLength}}}}}}
 			}
 			return op(func(e *env) { set(e, list) }), nil
 		}, func(*Theme) []string {
@@ -252,11 +253,21 @@ func registerGrid(r *registry) {
 			var ts []TrackSize
 			switch {
 			case a.arb:
-				l, err := parseTrackList(a.inner, c.th.RootFontSize)
-				if err != nil {
-					return Op{}, err
+				// grid-auto-columns and grid-auto-rows are a list of track
+				// sizes: no line names or repeat().
+				for _, f := range fieldsTop(a.inner) {
+					t, err := parseTrackSize(f, c.th.RootFontSize)
+					if err != nil {
+						if strings.HasPrefix(f, "[") || strings.HasPrefix(f, "repeat(") {
+							return Op{}, fmt.Errorf("%s takes track sizes only (no line names or repeat()), got %q", root, f)
+						}
+						return Op{}, err
+					}
+					ts = append(ts, t)
 				}
-				ts = l.Expand()
+				if len(ts) == 0 {
+					return Op{}, errNoMatch
+				}
 			case a.value == "auto":
 				ts = []TrackSize{{}}
 			case a.value == "min":
@@ -275,31 +286,44 @@ func registerGrid(r *registry) {
 	autoTracks("auto-rows", func(e *env, t []TrackSize) { e.s.GridAutoRows = t })
 
 	placement := func(prefix string, get func(*ComputedStyle) *GridPlacement) {
+		// number parses the bare value of col-N, col-start-N...: a positive
+		// integer, negated by a leading dash (-col-start-1).
+		number := func(a *arg) (GridLine, bool) {
+			n, ok := parseUint(a.value)
+			if !ok || n == 0 {
+				return GridLine{}, false
+			}
+			if a.neg {
+				n = -n
+			}
+			return GridLine{Kind: GridLineIndex, N: n}, true
+		}
+		lineVocab := func(*Theme) []string {
+			return []string{"auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}
+		}
 		line := func(name string, set func(*GridPlacement, GridLine)) {
-			r.add(prefix+"-"+name, false, func(c *pctx, a *arg) (Op, error) {
+			r.add(prefix+"-"+name, true, func(c *pctx, a *arg) (Op, error) {
 				if a.hasMod {
 					return Op{}, errNoMatch
 				}
 				var ln GridLine
 				switch {
-				case a.arb:
+				case a.arb && !a.neg:
 					l, err := parseGridLine(a.inner)
 					if err != nil {
 						return Op{}, err
 					}
 					ln = l
-				case a.value == "auto":
+				case a.value == "auto" && !a.neg:
 				default:
-					n, ok := parseUint(a.value)
-					if !ok || n == 0 {
+					l, ok := number(a)
+					if !ok {
 						return Op{}, errNoMatch
 					}
-					ln = GridLine{GridLineIndex, n}
+					ln = l
 				}
 				return op(func(e *env) { set(get(e.s), ln) }), nil
-			}, func(*Theme) []string {
-				return []string{"auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}
-			})
+			}, lineVocab)
 		}
 		line("start", func(p *GridPlacement, l GridLine) { p.Start = l })
 		line("end", func(p *GridPlacement, l GridLine) { p.End = l })
@@ -311,43 +335,49 @@ func registerGrid(r *registry) {
 			var pl GridPlacement
 			switch {
 			case a.value == "full":
-				pl = GridPlacement{GridLine{GridLineIndex, 1}, GridLine{GridLineIndex, -1}}
-			default:
-				var n int
-				var ok bool
-				if a.arb {
-					n, ok = parseUint(a.inner)
-				} else {
-					n, ok = parseUint(a.value)
+				pl = GridPlacement{GridLine{Kind: GridLineIndex, N: 1}, GridLine{Kind: GridLineIndex, N: -1}}
+			case a.arb:
+				// col-span-[3] and col-span-[name]: span <value> / span <value>.
+				l, err := parseGridLine("span " + a.inner)
+				if err != nil {
+					return Op{}, err
 				}
+				pl = GridPlacement{l, l}
+			default:
+				n, ok := parseUint(a.value)
 				if !ok || n == 0 {
 					return Op{}, errNoMatch
 				}
-				pl = GridPlacement{GridLine{GridLineSpan, n}, GridLine{GridLineSpan, n}}
+				pl = GridPlacement{GridLine{Kind: GridLineSpan, N: n}, GridLine{Kind: GridLineSpan, N: n}}
 			}
 			return op(func(e *env) { *get(e.s) = pl }), nil
 		}, func(*Theme) []string {
 			return []string{"full", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}
 		})
 
-		r.add(prefix, false, func(c *pctx, a *arg) (Op, error) {
+		// col-N is grid-column: N (Tailwind v4); col-[..] any placement.
+		r.add(prefix, true, func(c *pctx, a *arg) (Op, error) {
 			if a.hasMod {
 				return Op{}, errNoMatch
 			}
 			var pl GridPlacement
 			switch {
-			case a.value == "auto":
-			case a.arb:
+			case a.value == "auto" && !a.neg:
+			case a.arb && !a.neg:
 				p, err := parseGridPlacement(a.inner)
 				if err != nil {
 					return Op{}, err
 				}
 				pl = p
 			default:
-				return Op{}, errNoMatch
+				l, ok := number(a)
+				if !ok {
+					return Op{}, errNoMatch
+				}
+				pl = GridPlacement{Start: l}
 			}
 			return op(func(e *env) { *get(e.s) = pl }), nil
-		}, func(*Theme) []string { return []string{"auto"} })
+		}, lineVocab)
 	}
 	placement("col", func(s *ComputedStyle) *GridPlacement { return &s.GridColumn })
 	placement("row", func(s *ComputedStyle) *GridPlacement { return &s.GridRow })

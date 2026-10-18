@@ -42,6 +42,9 @@ const (
 	// a fraction: calc(100% - 2rem) is Calc(-32, 1). Like a percentage,
 	// it resolves only against a known basis.
 	UnitCalc
+	// UnitFr is a flexible length of Value fr: the maximum of a grid
+	// track size only (TrackSize.Max). Elsewhere it is auto.
+	UnitFr
 )
 
 // Dim is the value of a sizing or spacing property: a length, a
@@ -50,7 +53,8 @@ const (
 type Dim struct {
 	Value float32
 	Unit  Unit
-	// Px is the length part of a UnitCalc value; other units ignore it.
+	// Px is the length part of a UnitCalc value, or of a grid track's
+	// fit-content(calc()) as UnitFitContentPercent; other units ignore it.
 	Px float32
 }
 
@@ -78,6 +82,9 @@ func FitContentPx(v float32) Dim { return Dim{Value: v, Unit: UnitFitContentPx} 
 
 // FitContentPercent returns fit-content(f), f a fraction.
 func FitContentPercent(f float32) Dim { return Dim{Value: f, Unit: UnitFitContentPercent} }
+
+// Fr returns a flexible length of v fr (a grid track maximum).
+func Fr(v float32) Dim { return Dim{Value: v, Unit: UnitFr} }
 
 // Keyword values.
 var (
@@ -108,7 +115,8 @@ const (
 	DisplayFlex
 	// DisplayNone hides the node and its subtree: they get zero layouts.
 	DisplayNone
-	// Grid arrives in a later phase.
+	// DisplayGrid lays children out with the CSS grid algorithm (grid.go).
+	DisplayGrid
 )
 
 // Position is the CSS position property.
@@ -194,9 +202,13 @@ type Align uint8
 
 const (
 	// AlignNormal is the zero value: the property's initial value (normal
-	// for align-items, align-content and justify-content; auto, which
-	// means the parent's align-items, for align-self). For flex items
-	// normal behaves as stretch; for justify-content as flex-start.
+	// for align-items, align-content, justify-content and justify-items;
+	// auto, which means the parent's align-items or justify-items, for
+	// align-self and justify-self). For flex items normal behaves as
+	// stretch; for justify-content as flex-start. In a grid container
+	// normal content distribution behaves as stretch, and normal self
+	// alignment as stretch, or as start for an item with a definite size
+	// or an aspect ratio in that axis.
 	AlignNormal Align = iota
 	AlignStart
 	AlignEnd
@@ -258,8 +270,9 @@ type Style struct {
 	// containers: it aligns their content as a whole (css-align-3).
 	FlexDirection FlexDirection
 	FlexWrap      FlexWrap
-	// RowGap and ColumnGap are the gaps between flex lines and items;
-	// percentages resolve against the container's content box.
+	// RowGap and ColumnGap are the gaps between flex lines and items, or
+	// between grid tracks; percentages resolve against the container's
+	// content box.
 	RowGap, ColumnGap Dim
 	AlignItems        Align
 	AlignContent      Align
@@ -272,6 +285,19 @@ type Style struct {
 	FlexBasis  Dim
 	// Order reorders flex items (stable: equal orders keep tree order).
 	Order int32
+
+	// Grid container properties (with AlignItems, AlignContent,
+	// JustifyContent and the gaps above). Grid holds the track lists,
+	// line names and named areas; nil is none for all of them (implicit
+	// auto tracks only). It is compared by pointer: callers keep the same
+	// pointer while the template does not change (GridTemplate.Equal).
+	Grid         *GridTemplate
+	GridAutoFlow GridAutoFlow
+	JustifyItems Align
+
+	// Grid item properties (with AlignSelf above).
+	GridRow, GridColumn GridPlacement
+	JustifySelf         Align
 
 	// Replaced marks a replaced element (an image): in block layout an
 	// auto width takes the measured content size instead of stretching.

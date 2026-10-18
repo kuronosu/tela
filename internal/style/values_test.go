@@ -216,14 +216,20 @@ func TestParseTrackList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(l) != 4 || l[0].Count != 2 || len(l[0].Tracks) != 2 {
+	if len(l.Entries) != 4 || l.Entries[0].Count != 2 || len(l.Entries[0].Tracks) != 2 {
 		t.Fatalf("list = %+v", l)
 	}
 	if n := len(l.Expand()); n != 4+3 {
 		t.Errorf("Expand = %d tracks, want 7", n)
 	}
-	eq(t, "fit-content", l[2].Tracks[0].Max, TrackBreadth{Kind: BreadthFitContent, LP: PxLP(320)})
-	for _, bad := range []string{"", "1fr [a]", "repeat(0, 1fr)", "repeat(2)", "minmax(1fr, 2fr)", "3em", "abc", "calc(1px + 2vw)"} {
+	eq(t, "fit-content", l.Entries[2].Tracks[0].Max, TrackBreadth{Kind: BreadthFitContent, LP: PxLP(320)})
+	named, err := parseTrackList("[a] 20px [b c] repeat(auto-fit, [d] 10px) [e]", 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eq(t, "named", named.String(), "[a] 20px [b c] repeat(auto-fit, [d] 10px) [e]")
+	for _, bad := range []string{"", "1fr [a", "[a] [b] 1fr", "repeat(0, 1fr)", "repeat(2)", "minmax(1fr, 2fr)", "3em", "abc",
+		"calc(1px + 2vw)", "[1a] 1fr", "[auto] 1fr", "1fr repeat(auto-fit, 10px)"} {
 		if _, err := parseTrackList(bad, 16); err == nil {
 			t.Errorf("%q parsed", bad)
 		}

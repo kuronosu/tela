@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Grid auto-placement: sparse and dense row and column flows with spans, items locked to a row or column, negative lines and implicit tracks before the explicit grid</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: grid; grid-template-columns: repeat(4, 20px); grid-auto-rows: 10px; gap: 2px;">
+    <div style="grid-column: span 2;"></div>
+    <div style="grid-column: span 3;"></div>
+    <div></div>
+    <div style="grid-row: 1;"></div>
+    <div style="grid-column: span 2;"></div>
+    <div></div>
+  </div>
+  <div style="display: grid; grid-auto-flow: dense; grid-template-columns: repeat(4, 20px); grid-auto-rows: 10px; gap: 2px;">
+    <div style="grid-column: span 2;"></div>
+    <div style="grid-column: span 3;"></div>
+    <div></div>
+    <div style="grid-row: 1;"></div>
+    <div style="grid-column: span 2;"></div>
+    <div></div>
+  </div>
+  <div style="display: grid; grid-auto-flow: column; grid-template-rows: repeat(3, 10px); grid-auto-columns: 15px; gap: 3px;">
+    <div style="grid-row: span 2;"></div>
+    <div></div>
+    <div style="grid-column: 3;"></div>
+    <div></div>
+    <div style="grid-row: 2 / span 2;"></div>
+    <div></div>
+  </div>
+  <div style="display: grid; grid-auto-flow: column dense; grid-template-rows: repeat(3, 10px); grid-auto-columns: 15px; gap: 3px;">
+    <div style="grid-row: span 2;"></div>
+    <div style="grid-row: span 3;"></div>
+    <div></div>
+    <div></div>
+  </div>
+  <div style="display: grid; grid-template-columns: 30px 30px; grid-auto-columns: 12px; grid-auto-rows: 8px;">
+    <div style="grid-column: -1;"></div>
+    <div style="grid-column: -4 / -3;"></div>
+    <div style="grid-column: 1 / -1;"></div>
+    <div style="grid-row: -2; grid-column: span 2 / 1;"></div>
+    <div></div>
+  </div>
+</div>
+
+</body>
+</html>

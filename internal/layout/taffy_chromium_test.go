@@ -60,7 +60,7 @@ type fixtureSet struct {
 
 var (
 	// taffyFixtures are Taffy's fixtures (vendored).
-	taffyFixtures = fixtureSet{"testdata/taffy", []string{"block", "blockflex", "flex", "leaf"}}
+	taffyFixtures = fixtureSet{"testdata/taffy", []string{"block", "blockflex", "blockgrid", "flex", "grid", "gridflex", "leaf"}}
 	// telaCases are Tela's own cases in the same format, for behaviour the
 	// Taffy fixtures do not exercise.
 	telaCases = fixtureSet{dir: "testdata/cases"}

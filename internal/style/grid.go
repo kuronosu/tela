@@ -3,12 +3,13 @@ package style
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
-// This file holds the grid style types and the parser of CSS track lists.
-// The grid layout algorithm arrives in phase 6; the classes parse and
-// survive now.
+// This file holds the grid style types, the parser of CSS track lists and
+// grid lines, and their CSS serializations (for inspect). Layout is in
+// internal/layout (core maps these types onto layout's).
 
 // BreadthKind selects the meaning of a TrackBreadth.
 type BreadthKind uint8
@@ -50,26 +51,37 @@ const (
 	RepeatAutoFit
 )
 
-// TrackEntry is one item of a track list: a single track (Count == 0 and
-// one track) or repeat(Kind, Tracks).
+// TrackEntry is one item of a track list: a single track (Repeat false
+// and one track) or repeat(Kind, Tracks).
 type TrackEntry struct {
 	// Repeat is false for a plain track (Tracks has one element).
 	Repeat bool
 	Kind   RepeatKind
 	Count  int
 	Tracks []TrackSize
+	// LineNames are the line names inside a repeat(): none, or one set
+	// per line of one repetition (len(Tracks)+1 sets).
+	LineNames [][]string
 }
 
 // TrackList is grid-template-columns or grid-template-rows. The zero value
 // is none.
-type TrackList []TrackEntry
+type TrackList struct {
+	Entries []TrackEntry
+	// LineNames are the names of the lines between the entries: none, or
+	// len(Entries)+1 sets (LineNames[i] precedes Entries[i]).
+	LineNames [][]string
+}
+
+// IsNone reports whether the list is none (no explicit tracks).
+func (l TrackList) IsNone() bool { return len(l.Entries) == 0 }
 
 // Expand returns the tracks of the list with fixed-count repeats unrolled.
 // An auto-fill or auto-fit repeat contributes its tracks once; layout
 // decides the real count.
 func (l TrackList) Expand() []TrackSize {
 	var out []TrackSize
-	for _, e := range l {
+	for _, e := range l.Entries {
 		if e.Repeat && e.Kind == RepeatCount {
 			for i := 0; i < e.Count; i++ {
 				out = append(out, e.Tracks...)
@@ -91,6 +103,10 @@ const (
 	GridFlowColumnDense
 )
 
+var gridFlowNames = [...]string{"row", "column", "row dense", "column dense"}
+
+func (f GridAutoFlow) String() string { return enumName(gridFlowNames[:], int(f)) }
+
 // GridLineKind selects the meaning of a GridLine.
 type GridLineKind uint8
 
@@ -101,71 +117,189 @@ const (
 	GridLineIndex
 	// GridLineSpan spans N tracks.
 	GridLineSpan
+	// GridLineNamed is the Nth line named Name (N == 0: a lone name,
+	// which first matches the line Name-start or Name-end of a named
+	// area; negative N counts from the end).
+	GridLineNamed
+	// GridLineNamedSpan spans to the Nth line named Name (N >= 1).
+	GridLineNamedSpan
 )
 
 // GridLine is the start or end of a grid-row or grid-column placement.
 type GridLine struct {
 	Kind GridLineKind
 	N    int
+	Name string
 }
 
 // GridPlacement is grid-column or grid-row.
 type GridPlacement struct{ Start, End GridLine }
 
 // parseTrackList parses a CSS track list such as "200px 1fr",
-// "repeat(3, minmax(0, 1fr))" or "repeat(auto-fill, minmax(200px, 1fr))".
-// Line names are not supported.
+// "[sidebar] 200px [main] 1fr", "repeat(3, minmax(0, 1fr))" or
+// "repeat(auto-fill, [card] minmax(200px, 1fr))".
 func parseTrackList(s string, root float32) (TrackList, error) {
 	s = strings.TrimSpace(s)
 	if s == "none" {
-		return nil, nil
+		return TrackList{}, nil
 	}
 	var out TrackList
+	var names []string
+	pending, anyNames := false, false
 	for _, f := range fieldsTop(s) {
 		if strings.HasPrefix(f, "[") {
-			return nil, errors.New("grid line names are not supported; place items with col-start-N, col-end-N or col-span-N")
+			n, err := parseLineNames(f)
+			if err != nil {
+				return TrackList{}, err
+			}
+			if pending {
+				return TrackList{}, fmt.Errorf("two line name lists in a row in %q; put all the names of a line in one list: [a b]", s)
+			}
+			names, pending, anyNames = n, true, true
+			continue
 		}
+		out.LineNames = append(out.LineNames, names)
+		names, pending = nil, false
 		if strings.HasPrefix(f, "repeat(") && strings.HasSuffix(f, ")") {
-			parts := splitTop(f[len("repeat("):len(f)-1], ',')
-			if len(parts) != 2 {
-				return nil, fmt.Errorf("repeat() takes a count and a track list: repeat(3, 1fr), got %q", f)
+			e, err := parseRepeat(f, root)
+			if err != nil {
+				return TrackList{}, err
 			}
-			e := TrackEntry{Repeat: true}
-			switch c := strings.TrimSpace(parts[0]); c {
-			case "auto-fill":
-				e.Kind = RepeatAutoFill
-			case "auto-fit":
-				e.Kind = RepeatAutoFit
-			default:
-				n, ok := parseUint(c)
-				if !ok || n < 1 || n > 1000 {
-					return nil, fmt.Errorf("repeat() count %q must be an integer from 1 to 1000, auto-fill or auto-fit", c)
-				}
-				e.Count = n
-			}
-			for _, t := range fieldsTop(strings.TrimSpace(parts[1])) {
-				ts, err := parseTrackSize(t, root)
-				if err != nil {
-					return nil, err
-				}
-				e.Tracks = append(e.Tracks, ts)
-			}
-			if len(e.Tracks) == 0 {
-				return nil, fmt.Errorf("repeat() in %q has no tracks", f)
-			}
-			out = append(out, e)
+			out.Entries = append(out.Entries, e)
 			continue
 		}
 		ts, err := parseTrackSize(f, root)
 		if err != nil {
-			return nil, err
+			return TrackList{}, err
 		}
-		out = append(out, TrackEntry{Tracks: []TrackSize{ts}})
+		out.Entries = append(out.Entries, TrackEntry{Tracks: []TrackSize{ts}})
 	}
-	if len(out) == 0 {
-		return nil, errors.New("the track list is empty")
+	if len(out.Entries) == 0 {
+		return TrackList{}, errors.New("the track list is empty")
+	}
+	out.LineNames = append(out.LineNames, names)
+	if !anyNames {
+		out.LineNames = nil
+	}
+	autos := 0
+	for _, e := range out.Entries {
+		if e.Repeat && e.Kind != RepeatCount {
+			autos++
+		}
+	}
+	if autos > 1 {
+		return TrackList{}, fmt.Errorf("a track list can have only one repeat(auto-fill) or repeat(auto-fit), in %q", s)
+	}
+	if autos == 1 {
+		for _, e := range out.Entries {
+			for _, t := range e.Tracks {
+				if !fixedTrack(t) {
+					return TrackList{}, fmt.Errorf("next to repeat(auto-fill) or repeat(auto-fit) every track needs a fixed size "+
+						"(a length or a percentage in minmax()), in %q", s)
+				}
+			}
+		}
 	}
 	return out, nil
+}
+
+// parseRepeat parses "repeat(count, tracks)".
+func parseRepeat(f string, root float32) (TrackEntry, error) {
+	parts := splitTop(f[len("repeat("):len(f)-1], ',')
+	if len(parts) != 2 {
+		return TrackEntry{}, fmt.Errorf("repeat() takes a count and a track list: repeat(3, 1fr), got %q", f)
+	}
+	e := TrackEntry{Repeat: true}
+	switch c := strings.TrimSpace(parts[0]); c {
+	case "auto-fill":
+		e.Kind = RepeatAutoFill
+	case "auto-fit":
+		e.Kind = RepeatAutoFit
+	default:
+		n, ok := parseUint(c)
+		if !ok || n < 1 || n > 1000 {
+			return TrackEntry{}, fmt.Errorf("repeat() count %q must be an integer from 1 to 1000, auto-fill or auto-fit", c)
+		}
+		e.Count = n
+	}
+	var names []string
+	pending, anyNames := false, false
+	for _, t := range fieldsTop(strings.TrimSpace(parts[1])) {
+		if strings.HasPrefix(t, "[") {
+			n, err := parseLineNames(t)
+			if err != nil {
+				return TrackEntry{}, err
+			}
+			if pending {
+				return TrackEntry{}, fmt.Errorf("two line name lists in a row in %q", f)
+			}
+			names, pending, anyNames = n, true, true
+			continue
+		}
+		ts, err := parseTrackSize(t, root)
+		if err != nil {
+			return TrackEntry{}, err
+		}
+		if e.Kind != RepeatCount && !fixedTrack(ts) {
+			return TrackEntry{}, fmt.Errorf("repeat(%s) needs fixed track sizes (a length or a percentage in minmax()), got %q",
+				strings.TrimSpace(parts[0]), t)
+		}
+		e.LineNames = append(e.LineNames, names)
+		names, pending = nil, false
+		e.Tracks = append(e.Tracks, ts)
+	}
+	if len(e.Tracks) == 0 {
+		return TrackEntry{}, fmt.Errorf("repeat() in %q has no tracks", f)
+	}
+	e.LineNames = append(e.LineNames, names)
+	if !anyNames {
+		e.LineNames = nil
+	}
+	return e, nil
+}
+
+// fixedTrack reports whether a track size has a fixed component: a
+// length-percentage minimum or maximum.
+func fixedTrack(t TrackSize) bool { return t.Min.Kind == BreadthLength || t.Max.Kind == BreadthLength }
+
+// parseLineNames parses "[a b]".
+func parseLineNames(f string) ([]string, error) {
+	if !strings.HasSuffix(f, "]") {
+		return nil, fmt.Errorf("unterminated line name list %q", f)
+	}
+	names := strings.Fields(f[1 : len(f)-1])
+	for _, n := range names {
+		if !isGridIdent(n) {
+			return nil, fmt.Errorf("invalid grid line name %q; use letters, digits, - and _ (not span or auto)", n)
+		}
+	}
+	return names, nil
+}
+
+// isGridIdent reports whether s is a valid <custom-ident> for a grid line
+// name: an identifier that is not span, auto or a CSS-wide keyword.
+func isGridIdent(s string) bool {
+	switch s {
+	case "", "span", "auto", "inherit", "initial", "unset", "default", "revert":
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c == '_', c >= 0x80:
+		case c >= '0' && c <= '9':
+			if i == 0 || i == 1 && s[0] == '-' {
+				return false
+			}
+		case c == '-':
+			if i == 1 && s[0] == '-' {
+				return false // "--" starts a custom property
+			}
+		default:
+			return false
+		}
+	}
+	return s != "-"
 }
 
 func parseTrackSize(s string, root float32) (TrackSize, error) {
@@ -253,26 +387,53 @@ func trackLP(e lenExpr, root float32) (LP, error) {
 	return LP{Px: e.px + float32(e.rem*root), Pct: e.pct}, nil
 }
 
-// parseGridLine parses "auto", "3", "-1" or "span 2".
+// parseGridLine parses a <grid-line>: "auto", "3", "-1", "span 2", a
+// line name ("main"), "main 2", "span main" or "span 2 main" (the integer
+// and the name in either order).
 func parseGridLine(s string) (GridLine, error) {
 	s = strings.TrimSpace(s)
 	if s == "auto" {
 		return GridLine{}, nil
 	}
-	if rest, ok := strings.CutPrefix(s, "span "); ok {
-		n, ok := parseUint(strings.TrimSpace(rest))
-		if !ok || n < 1 {
-			return GridLine{}, fmt.Errorf("invalid span %q; use a positive integer such as \"span 2\"", s)
+	bad := func() (GridLine, error) {
+		return GridLine{}, fmt.Errorf("invalid grid line %q; use auto, a line number (3, -1), a line name, span N or span name", s)
+	}
+	span, hasNum, num, name := false, false, 0, ""
+	for _, f := range strings.Fields(s) {
+		switch {
+		case f == "span" && !span:
+			span = true
+		case !hasNum && (f[0] == '-' || f[0] == '+' || f[0] >= '0' && f[0] <= '9'):
+			v, ok := parseFloat(f)
+			if !ok || v != float32(int(v)) || v == 0 {
+				return bad()
+			}
+			num, hasNum = int(v), true
+		case name == "" && isGridIdent(f):
+			name = f
+		default:
+			return bad()
 		}
-		return GridLine{GridLineSpan, n}, nil
 	}
-	if v, ok := parseFloat(s); ok && v == float32(int(v)) && v != 0 {
-		return GridLine{GridLineIndex, int(v)}, nil
+	switch {
+	case span && hasNum && num < 1:
+		return GridLine{}, fmt.Errorf("invalid span %q; use a positive integer such as \"span 2\"", s)
+	case span && name != "":
+		return GridLine{GridLineNamedSpan, max(num, 1), name}, nil
+	case span && hasNum:
+		return GridLine{GridLineSpan, num, ""}, nil
+	case span:
+		return bad()
+	case name != "":
+		return GridLine{GridLineNamed, num, name}, nil
+	case hasNum:
+		return GridLine{GridLineIndex, num, ""}, nil
 	}
-	return GridLine{}, fmt.Errorf("invalid grid line %q; use auto, a line number (3, -1) or span N", s)
+	return bad()
 }
 
-// parseGridPlacement parses "1 / 3", "span 2 / span 2" or a single line.
+// parseGridPlacement parses "1 / 3", "span 2 / span 2", "main" or a single
+// line (with a lone name, the end is the same name, as in CSS).
 func parseGridPlacement(s string) (GridPlacement, error) {
 	parts := splitTop(s, '/')
 	if len(parts) > 2 {
@@ -287,8 +448,105 @@ func parseGridPlacement(s string) (GridPlacement, error) {
 		if end, err = parseGridLine(parts[1]); err != nil {
 			return GridPlacement{}, err
 		}
-	} else if start.Kind == GridLineSpan {
-		end = GridLine{}
+	} else if start.Kind == GridLineNamed && start.N == 0 {
+		end = start
 	}
 	return GridPlacement{start, end}, nil
 }
+
+// Serializations (CSS syntax), for tela inspect.
+
+func (b TrackBreadth) String() string {
+	switch b.Kind {
+	case BreadthLength:
+		return b.LP.String()
+	case BreadthFr:
+		return strconv.FormatFloat(float64(b.Fr), 'g', -1, 32) + "fr"
+	case BreadthMinContent:
+		return "min-content"
+	case BreadthMaxContent:
+		return "max-content"
+	case BreadthFitContent:
+		return "fit-content(" + b.LP.String() + ")"
+	}
+	return "auto"
+}
+
+func (t TrackSize) String() string {
+	switch {
+	case t.Min == t.Max:
+		return t.Min.String()
+	case t.Min.Kind == BreadthAuto && (t.Max.Kind == BreadthFr || t.Max.Kind == BreadthFitContent):
+		return t.Max.String()
+	}
+	return "minmax(" + t.Min.String() + ", " + t.Max.String() + ")"
+}
+
+// nameList returns "[a b]" for set i of sets, or "".
+func nameList(sets [][]string, i int) string {
+	if i < len(sets) && len(sets[i]) > 0 {
+		return "[" + strings.Join(sets[i], " ") + "]"
+	}
+	return ""
+}
+
+func (l TrackList) String() string {
+	if l.IsNone() {
+		return "none"
+	}
+	var toks []string
+	add := func(t string) {
+		if t != "" {
+			toks = append(toks, t)
+		}
+	}
+	for i, e := range l.Entries {
+		add(nameList(l.LineNames, i))
+		if !e.Repeat {
+			add(e.Tracks[0].String())
+			continue
+		}
+		var in []string
+		for k, t := range e.Tracks {
+			if n := nameList(e.LineNames, k); n != "" {
+				in = append(in, n)
+			}
+			in = append(in, t.String())
+		}
+		if n := nameList(e.LineNames, len(e.Tracks)); n != "" {
+			in = append(in, n)
+		}
+		count := strconv.Itoa(e.Count)
+		switch e.Kind {
+		case RepeatAutoFill:
+			count = "auto-fill"
+		case RepeatAutoFit:
+			count = "auto-fit"
+		}
+		add("repeat(" + count + ", " + strings.Join(in, " ") + ")")
+	}
+	add(nameList(l.LineNames, len(l.Entries)))
+	return strings.Join(toks, " ")
+}
+
+func (g GridLine) String() string {
+	switch g.Kind {
+	case GridLineIndex:
+		return strconv.Itoa(g.N)
+	case GridLineSpan:
+		return "span " + strconv.Itoa(g.N)
+	case GridLineNamed:
+		if g.N != 0 {
+			return strconv.Itoa(g.N) + " " + g.Name
+		}
+		return g.Name
+	case GridLineNamedSpan:
+		if g.N > 1 {
+			return "span " + strconv.Itoa(g.N) + " " + g.Name
+		}
+		return "span " + g.Name
+	}
+	return "auto"
+}
+
+func (p GridPlacement) String() string { return p.Start.String() + " / " + p.End.String() }

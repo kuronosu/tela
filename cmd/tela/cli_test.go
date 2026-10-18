@@ -223,6 +223,48 @@ func TestInspectLayout(t *testing.T) {
 	}
 }
 
+// TestInspectLayoutGrid runs `tela inspect --layout` on a grid page: the
+// boxes are the grid's and the style summaries describe the grid.
+func TestInspectLayoutGrid(t *testing.T) {
+	skipShort(t)
+	stdout, _ := inspectRun(t, 0, "--layout", "--size", "400x300", "./testdata/gridpreview")
+	var root box
+	if err := json.Unmarshal([]byte(stdout), &root); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, stdout)
+	}
+	// By hand: p-4 leaves 368x268 from (16, 16). Columns 120px and 1fr
+	// (368 - 120 - 8 = 240); rows 48px and 1fr (min-h-screen: 268 - 48 -
+	// 8 = 212). The main area fits two minmax(80px, 1fr) columns of
+	// (240 - 8) / 2 = 116.
+	for key, want := range map[string][4]float32{
+		"header": {16, 16, 368, 48},
+		"side":   {16, 72, 120, 212},
+		"main":   {144, 72, 240, 212},
+		"c0":     {144, 72, 116, 40},
+		"c1":     {268, 72, 116, 40},
+		"c4":     {144, 168, 116, 40},
+	} {
+		n := root.find(key)
+		if n == nil {
+			t.Fatalf("no box with key %q in\n%s", key, stdout)
+		}
+		if got := [4]float32{n.Rect.X, n.Rect.Y, n.Rect.Width, n.Rect.Height}; got != want {
+			t.Errorf("%s: rect %v, want %v (x, y, width, height)", key, got, want)
+		}
+	}
+	for _, want := range []string{
+		`"display": "grid"`,
+		`"grid": "cols [side] 120px [main] 1fr rows 48px 1fr gap 8px/8px"`,
+		`"gridItem": "col span 2 / span 2 row auto / auto"`,
+		`"gridItem": "col side / side row auto / auto"`,
+		`"grid": "cols repeat(auto-fill, minmax(80px, 1fr)) rows none gap 8px/8px content flex-start"`,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("output has no %s:\n%s", want, stdout)
+		}
+	}
+}
+
 // TestInspectAria runs `tela inspect --aria` on the §1 Counter: its output
 // is the committed aria snapshot of examples/counter, and the default mode.
 func TestInspectAria(t *testing.T) {

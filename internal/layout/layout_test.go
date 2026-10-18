@@ -558,6 +558,60 @@ func randomizeStyle(rng *rand.Rand, st *Style, leaf bool) {
 	if !leaf && rng.IntN(8) == 0 {
 		st.AlignContent = AlignCenter
 	}
+	if !leaf && rng.IntN(4) == 0 {
+		randomizeGrid(rng, st)
+	}
+	if rng.IntN(4) == 0 {
+		st.GridColumn = randomPlacement(rng)
+		st.GridRow = randomPlacement(rng)
+	}
+	if rng.IntN(6) == 0 {
+		st.JustifySelf = []Align{AlignStart, AlignCenter, AlignEnd, AlignStretch}[rng.IntN(4)]
+	}
+}
+
+// randomizeGrid makes st a grid container with a random template.
+func randomizeGrid(rng *rand.Rand, st *Style) {
+	sizes := []TrackSize{
+		Track(Px(30)), Track(Percent(0.25)), Track(Fr(1)), Track(Fr(2)), Track(Auto),
+		Track(MinContent), Track(MaxContent), Minmax(Px(20), Fr(1)), Minmax(Px(0), Fr(1)),
+		Track(FitContentPx(40)), Minmax(MinContent, Px(50)),
+	}
+	list := func() TrackList {
+		var l TrackList
+		switch rng.IntN(5) {
+		case 0:
+			return l
+		case 1:
+			l.Entries = []TrackListEntry{{Repeat: []RepeatKind{RepeatAutoFill, RepeatAutoFit}[rng.IntN(2)],
+				Tracks: []TrackSize{Minmax(Px(40), Fr(1))}}}
+			return l
+		}
+		for i, n := 0, 1+rng.IntN(4); i < n; i++ {
+			l.Entries = append(l.Entries, Single(sizes[rng.IntN(len(sizes))]))
+		}
+		if rng.IntN(3) == 0 {
+			l.LineNames = make([][]string, len(l.Entries)+1)
+			l.LineNames[0] = []string{"a"}
+			l.LineNames[len(l.Entries)] = []string{"b"}
+		}
+		return l
+	}
+	st.Display = DisplayGrid
+	st.Grid = &GridTemplate{Columns: list(), Rows: list()}
+	if rng.IntN(3) == 0 {
+		st.Grid.AutoRows = []TrackSize{sizes[rng.IntN(len(sizes))]}
+	}
+	st.GridAutoFlow = GridAutoFlow(rng.IntN(4))
+	st.JustifyItems = []Align{AlignNormal, AlignStart, AlignCenter}[rng.IntN(3)]
+	st.JustifyContent = []Align{AlignNormal, AlignCenter, AlignSpaceBetween, AlignEnd}[rng.IntN(4)]
+	st.RowGap = Px(float32(rng.IntN(3)) * 2)
+}
+
+func randomPlacement(rng *rand.Rand) GridPlacement {
+	lines := []GridLine{{}, GridLineAt(1), GridLineAt(2), GridLineAt(-1), GridSpanOf(2),
+		{Kind: GridNamedLine, Name: "a"}, {Kind: GridNamedLine, Name: "b"}, {Kind: GridNamedSpan, N: 1, Name: "b"}}
+	return GridPlacement{lines[rng.IntN(len(lines))], lines[rng.IntN(len(lines))]}
 }
 
 // nodes returns all nodes of a tree.

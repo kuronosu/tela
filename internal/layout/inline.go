@@ -126,10 +126,10 @@ func (a *Atoms) Size(i int, avail float32) AtomSize {
 		known = optSize{w: some(fclampOpt(w.v, minSize.w, maxSize.w)), h: sz.h}.maybeClamp(minSize, maxSize)
 	}
 	run := computeSize
-	if a.full || st.Display == DisplayFlex {
-		// A flex container's baseline needs its items' positions (a size
-		// query that lays children out drops the cached layouts that
-		// relied on them; see Engine.layout).
+	if a.full || st.Display == DisplayFlex || st.Display == DisplayGrid {
+		// A flex or grid container's baseline needs its items' positions
+		// (a size query that lays children out drops the cached layouts
+		// that relied on them; see Engine.layout).
 		run = performLayout
 	}
 	out := e.child(n, c, input{
@@ -151,7 +151,8 @@ func (a *Atoms) Size(i int, avail float32) AtomSize {
 	var b opt
 	switch {
 	case st.Replaced, st.OverflowX != OverflowVisible, st.OverflowY != OverflowVisible:
-	case st.Display == DisplayFlex:
+	case st.Display == DisplayFlex, st.Display == DisplayGrid:
+		// inline-flex and inline-grid align by their first baseline.
 		b = out.firstBaseline
 	default:
 		b = out.lastBaseline.or(out.firstBaseline)

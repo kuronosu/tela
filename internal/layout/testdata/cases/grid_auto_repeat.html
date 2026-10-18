@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>repeat(auto-fill) and repeat(auto-fit) with minmax() and gaps (the card grid pattern), in a sized grid, a max-width grid and a min-width grid</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 400px;">
+  <div style="display: grid; width: 230px; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 8px; grid-auto-rows: 20px;">
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+  </div>
+  <div style="display: grid; width: 230px; grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)); gap: 8px; grid-auto-rows: 20px;">
+    <div></div>
+    <div></div>
+  </div>
+  <div style="display: grid; width: 230px; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 8px; grid-auto-rows: 20px;">
+    <div></div>
+    <div></div>
+  </div>
+  <div style="display: grid; width: 230px; grid-template-columns: 30px repeat(auto-fit, 40px) 20px; column-gap: 5px; grid-auto-rows: 10px;">
+    <div></div>
+    <div style="grid-column: 4;"></div>
+    <div style="grid-column: -2;"></div>
+  </div>
+  <div style="position: absolute; top: 200px; display: grid; max-width: 170px; grid-template-columns: repeat(auto-fill, 50px); grid-auto-rows: 10px;">
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+  </div>
+  <div style="position: absolute; top: 250px; display: grid; min-width: 120px; grid-template-columns: repeat(auto-fill, 50px); grid-auto-rows: 10px;">
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+  </div>
+</div>
+
+</body>
+</html>

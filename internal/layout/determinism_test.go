@@ -13,7 +13,7 @@ import (
 //
 //	GOARCH=arm64 go test -short -exec qemu-aarch64-static -run Deterministic ./internal/layout/
 //	GOAMD64=v3 go test -run Deterministic ./internal/layout/
-const wantLayoutDigest uint64 = 0x642eec94316b3046
+const wantLayoutDigest uint64 = 0x5ec66f57313ea39b
 
 // layoutDigest hashes the unrounded and rounded layouts of the Taffy
 // fixtures, Tela's cases and random trees with fractional sizes.

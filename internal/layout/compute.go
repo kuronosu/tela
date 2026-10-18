@@ -135,6 +135,8 @@ func (e *Engine) layout(n Node, in input) output {
 		out = e.inline(n, inlineContainer(n), st, in)
 	case st.Display == DisplayFlex:
 		out = e.flex(n, st, in)
+	case st.Display == DisplayGrid:
+		out = e.grid(n, st, in)
 	default:
 		out = e.block(n, st, in)
 	}

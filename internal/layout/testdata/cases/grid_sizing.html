@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Grid containers sized by their content: an absolutely positioned grid (fit-content width) with fr, auto and percentage tracks, a grid as a flex item (row and column), a flex container inside a grid, and an auto-height grid in a block with percentage rows</title>
+</head>
+<body>
+
+<div id="test-root" style="position: relative; display: block; width: 400px; height: 500px;">
+  <div style="position: absolute; top: 0; left: 0; display: grid; grid-template-columns: 1fr auto 20%; gap: 5px;">
+    <div>HHH&ZeroWidthSpace;HH</div>
+    <div>HH&ZeroWidthSpace;H</div>
+    <div>H</div>
+  </div>
+  <div style="position: absolute; top: 40px; left: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);">
+    <div>HHHH&ZeroWidthSpace;HH</div>
+    <div>HH</div>
+  </div>
+  <div style="position: absolute; top: 80px; left: 0; width: 300px; display: flex; align-items: flex-start;">
+    <div style="display: grid; grid-template-columns: auto 30px; flex: 0 1 auto;">
+      <div>HHHHH&ZeroWidthSpace;HHHHH&ZeroWidthSpace;HHHHH&ZeroWidthSpace;HHHHH&ZeroWidthSpace;HHHHH</div>
+      <div></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); flex-grow: 1;">
+      <div>HH</div>
+      <div style="display: flex; flex-direction: column;"><div>H</div><div>HHH</div></div>
+    </div>
+  </div>
+  <div style="position: absolute; top: 160px; left: 0; width: 200px; height: 120px; display: flex; flex-direction: column; align-items: flex-start;">
+    <div style="display: grid; grid-template-columns: max-content 1fr; flex-grow: 1; grid-template-rows: 1fr 2fr;">
+      <div>HH&ZeroWidthSpace;HH</div>
+      <div>H</div>
+      <div style="grid-column: span 2;">HHHHHH</div>
+    </div>
+  </div>
+  <div style="position: absolute; top: 300px; left: 0; width: 250px; display: block;">
+    <div style="display: grid; grid-template-rows: 25% 75%; grid-template-columns: 1fr 1fr; padding: 4px;">
+      <div style="height: 40px;"></div>
+      <div></div>
+      <div></div>
+      <div style="height: 10px;"></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

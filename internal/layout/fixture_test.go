@@ -11,10 +11,11 @@ import (
 	"testing"
 )
 
-// The conformance suite: Taffy v0.14.0's block, flex, blockflex and leaf
-// fixtures (ADR-039), laid out by Tela and compared with the boxes Chromium
-// measured (testdata/taffy/chromium.json; see taffy_chromium_test.go). Each
-// box edge must be within fixtureTolerance of Chromium's; the test also
+// The conformance suite: Taffy v0.14.0's block, flex, grid, blockflex,
+// blockgrid, gridflex and leaf fixtures (ADR-039, ADR-073), laid out by
+// Tela and compared with the boxes Chromium measured
+// (testdata/taffy/chromium.json; see taffy_chromium_test.go). Each box
+// edge must be within fixtureTolerance of Chromium's; the test also
 // reports how many fixtures match within Chromium's LayoutUnit (1/64 px).
 // Fixtures that use features outside Tela's layout, or that depend on
 // margin collapsing (ADR-006), are listed with their reason in
