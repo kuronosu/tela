@@ -15,6 +15,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Added
 
 - Fractional scaling on Wayland (`wp_fractional_scale_v1` + `wp_viewporter`): windows render at the compositor's exact scale (1.25, 1.5, 1.75…) instead of a rounded-up integer one, with pixel-shifting scroll frames at fractional scales as at integer ones.
+- CSS grid: `grid`/`inline-grid` with fixed, `%`, `fr`, `auto`, `min-content`, `max-content`, `minmax()`, `fit-content()` and `repeat()` tracks (incl. `auto-fill`/`auto-fit`), auto and dense placement, spans, named lines (`grid-cols-[[sidebar]_200px_[main]_1fr]`, `col-[main]`), implicit tracks, gaps and alignment; Tailwind v4's `col-N`/`row-N`. All 553 included Taffy grid fixtures match Chromium.
 - CSS transitions and animations: `transition`, `duration-*`, `ease-*` and `delay-*` animate colors, opacity, transforms, shadows, filters, sizes and spacing when state, classes or the environment change (CSS Transitions semantics, matched against Chromium); `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce`; reduced motion ends transitions at once. Transform and opacity animations repaint without rebuilding or relayout, and no frames are requested once they end.
 - All CSS blend modes in the renderer (the 16 `mix-blend-mode` modes plus `plus-lighter`), mask layers and two-point (focal) radial gradients; color emoji now composite exactly (flags went from up to 3.7 to under 1.7 mean levels against Chromium).
 
