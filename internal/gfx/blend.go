@@ -1,9 +1,14 @@
 package gfx
 
 // BlendMode is how a layer is composited onto what is already painted. The
-// values mirror CSS mix-blend-mode (Compositing and Blending Level 1). The
-// separable and non-separable formulas operate on sRGB-encoded values, like
-// browsers (ADR-007).
+// values mirror CSS mix-blend-mode (Compositing and Blending Level 1, plus
+// plus-lighter from Level 2). The separable and non-separable formulas
+// operate on sRGB-encoded premultiplied values, like browsers (ADR-007,
+// ADR-074): with Cs, Cb the unpremultiplied source and backdrop colors,
+// co = cs·(1 - αb) + cb·(1 - αs) + αs·αb·B(Cb, Cs) and
+// αo = αs + αb·(1 - αs); plus-lighter is min(1, s + d) on every channel.
+// Every mode leaves the backdrop unchanged where the source is transparent
+// and gives the source where the backdrop is transparent.
 type BlendMode uint8
 
 const (

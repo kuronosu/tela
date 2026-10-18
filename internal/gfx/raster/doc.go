@@ -56,20 +56,47 @@
 //
 // A paint is a shader that produces premultiplied colors per device pixel,
 // sampled at the pixel center and mapped back to the command's local space
-// with the inverse transform: solid colors, linear, radial and conic
-// gradients (gradient.go: CSS geometry, pad spread, premultiplied
-// interpolation in Oklab or sRGB of the unclipped extended sRGB stops, each
-// pixel clipped per channel, through 256-entry ramps per stop segment,
-// exact hard stops) and images (image.go: nearest or bilinear sampling,
-// clamped to the Src rectangle).
+// with the inverse transform: solid colors, linear, radial, conic and
+// two-point (focal) gradients (gradient.go: CSS geometry, the Canvas and
+// COLRv1 definition for the two-point gradient with its parameter solved
+// per pixel as the largest root of a quadratic, transparent outside its
+// cone; pad spread, premultiplied interpolation in Oklab or sRGB of the
+// unclipped extended sRGB stops, each pixel clipped per channel, through
+// 256-entry ramps per stop segment, exact hard stops) and images (image.go:
+// nearest or bilinear sampling, clamped to the Src rectangle).
 //
 // Clips (clip.go) narrow the writable rectangle and, unless they are
 // pixel-aligned rectangles, add an 8-bit coverage mask that multiplies the
 // coverage of everything drawn inside them; nested clips multiply their
 // masks. Masks cover only the region ∩ the clip bounds. Layers render their
 // content into an offscreen buffer (region ∩ layer bounds) and composite it
-// at PopLayer with source-over, the layer's opacity and the clip that was
-// active at PushLayer. Mask and layer buffers are pooled by the Renderer.
+// at PopLayer with the layer's opacity, mask and blend mode, through the
+// clip that was active at PushLayer. Mask and layer buffers are pooled by
+// the Renderer.
+//
+// Blend modes (blend.go) follow W3C Compositing and Blending Level 1 on
+// the premultiplied sRGB-encoded 8-bit values (ADR-007): the source is
+// scaled by the opacity and the mask, blended with the backdrop, and the
+// clip's coverage interpolates between the backdrop and the result.
+// Multiply, screen, overlay, darken, lighten, hard-light, difference and
+// exclusion are exact integer expressions rounded once; color-dodge,
+// color-burn, soft-light, hue, saturation, color and luminosity are
+// computed in float64 (fusion-safe); plus-lighter adds and saturates.
+// Every mode leaves the backdrop where the source is transparent, so a
+// blend layer touches only its bounds, and its pixels depend only on the
+// source and backdrop pixels at the same place: regions, bands and damage
+// rectangles stay bit-identical to full renders. Source-over layers
+// without a mask composite exactly as before blend modes existed.
+//
+// A layer's mask (gfx.Mask, clip.go) is rendered at PushLayer onto a
+// transparent surface over the pixels the layer composites, from the
+// whole mask list (not culled) under the transform current at PushLayer,
+// without the clips around the layer, and converted to an 8-bit coverage:
+// the alpha, or the luminance 0.2126 R + 0.7152 G + 0.0722 B of the
+// premultiplied values (luminance times alpha). The region is the
+// composited pixels, so filters in the mask see the same values in every
+// region; a mask whose list has spreading backdrop filters is rendered over
+// its whole bounds.
 //
 // # Shadows and filters
 //
@@ -269,7 +296,7 @@
 //     the panic slot and the glyph cache's maps and LRU lists are the only
 //     shared writes; they are an atomic counter and mutexes.
 //   - Render waits for every goroutine before it returns. A panic in any
-//     band (an unimplemented feature, for example) stops the claiming of
+//     band (in a font's code, for example) stops the claiming of
 //     new bands, and once every goroutine is done, Render panics again on
 //     the calling goroutine with the original value. Worker goroutines are
 //     started by each parallel Render and return as soon as they report
@@ -299,11 +326,7 @@
 // whose extent depends on the region: when one can reach the region, the
 // whole destination is rendered (on a copy).
 //
-// # Not implemented yet
+// # Markers
 //
 // gfx.Marker, a placeholder of composed lists, paints nothing.
-//
-// Blend modes other than SrcOver are phase 6 features: Render panics with
-// "raster: blend mode <mode> is not implemented until phase 6" when it
-// meets one in the visited part of the list.
 package raster

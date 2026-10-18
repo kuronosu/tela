@@ -136,6 +136,8 @@ type savedState struct {
 	origin  image.Point
 	surf    []uint8
 	opacity uint8
+	blend   gfx.BlendMode
+	mask    []uint8 // coverage of the layer's mask over comp, or nil
 	// comp is the rectangle composited at PopLayer; surfRect the pixels
 	// of surf. They are equal for layers without filters. nf is the
 	// number of device filters the layer pushed onto Renderer.dfs.
@@ -166,11 +168,9 @@ func Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 // rendered by several goroutines; it returns when all of them are done.
 //
 // Render panics if dst is nil, if opts.Scale is negative, NaN or infinite,
-// if opts.Workers is negative, and if the visited part of the list holds a
-// command or paint that is not implemented yet; see the package
-// documentation. A panic in a worker goroutine is raised again, with the
-// same value, on the calling goroutine once every worker has stopped. A nil
-// dl renders nothing.
+// and if opts.Workers is negative. A panic in a worker goroutine (from a
+// font, for example) is raised again, with the same value, on the calling
+// goroutine once every worker has stopped. A nil dl renders nothing.
 func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	if dst == nil {
 		panic("raster: Render called with a nil destination image")
@@ -361,11 +361,26 @@ func (r *Renderer) restore() {
 		}
 		b.pix, b.stride, b.origin = st.pix, st.stride, st.origin
 		b.clip, b.cm = st.clip, st.cm
-		for y := comp.Min.Y; y < comp.Max.Y; y++ {
-			i := (y-sr.Min.Y)*stride + 4*(comp.Min.X-sr.Min.X)
-			b.composite(y, comp.Min.X, surf[i:i+4*comp.Dx()], st.opacity)
+		if st.blend == gfx.SrcOver && st.mask == nil {
+			for y := comp.Min.Y; y < comp.Max.Y; y++ {
+				i := (y-sr.Min.Y)*stride + 4*(comp.Min.X-sr.Min.X)
+				b.composite(y, comp.Min.X, surf[i:i+4*comp.Dx()], st.opacity)
+			}
+		} else {
+			w := comp.Dx()
+			for y := comp.Min.Y; y < comp.Max.Y; y++ {
+				i := (y-sr.Min.Y)*stride + 4*(comp.Min.X-sr.Min.X)
+				var m []uint8
+				if st.mask != nil {
+					m = st.mask[(y-comp.Min.Y)*w : (y-comp.Min.Y+1)*w]
+				}
+				b.compositeLayer(y, comp.Min.X, surf[i:i+4*w], st.opacity, m, st.blend)
+			}
 		}
 		r.putBuf(st.surf)
+		if st.mask != nil {
+			r.putBuf(st.mask)
+		}
 	}
 	if st.ownMask != nil {
 		r.putBuf(st.ownMask)

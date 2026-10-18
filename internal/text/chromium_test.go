@@ -107,12 +107,13 @@ func renderChromiumScene(t testing.TB) *image.RGBA {
 // Tolerances: the mean channel difference of an emoji cell, and the share
 // of its channels that differ by more than 32 levels (anti-aliasing of edges
 // and of hard color boundaries inside the emoji differ between Skia and
-// raster). The flag uses soft-light, approximated until raster has blend
-// modes (exactBlend), so its mean is larger.
+// raster). Measured with exact blend modes, mask layers and focal gradients
+// (ADR-074): at most 1.69 (🇧🇷 at 20 px; flags use soft-light), against up
+// to 3.74 when soft-light, non-solid SrcIn masks and focal gradients were
+// approximated.
 const (
-	chromiumMaxMean     = 2.5
-	chromiumMaxFlagMean = 5
-	chromiumMaxFar      = 0.02
+	chromiumMaxMean = 2.0
+	chromiumMaxFar  = 0.02
 )
 
 func TestChromiumEmoji(t *testing.T) {
@@ -148,9 +149,6 @@ func TestChromiumEmoji(t *testing.T) {
 		st := compareRegion(got, ref, c.cell)
 		t.Logf("%s %2gpx: max %3d, mean %.2f, >32: %.2f%%", c.text, c.size, st.max, st.mean, 100*st.far)
 		limit := chromiumMaxMean
-		if isFlag(c.text) {
-			limit = chromiumMaxFlagMean
-		}
 		if st.mean > limit || st.far > chromiumMaxFar {
 			t.Errorf("%s at %gpx: mean channel difference %.2f (allowed %.2f), %.2f%% of the channels off by more than 32 (allowed %.0f%%)",
 				c.text, c.size, st.mean, limit, 100*st.far, 100*chromiumMaxFar)
@@ -187,9 +185,4 @@ func compareRegion(a *image.RGBA, b image.Image, r image.Rectangle) regionStats 
 	}
 	st.mean, st.far = sum/n, far/n
 	return st
-}
-
-func isFlag(s string) bool {
-	r := []rune(s)
-	return len(r) == 2 && r[0] >= 0x1F1E6 && r[0] <= 0x1F1FF
 }

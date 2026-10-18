@@ -16,6 +16,7 @@ func (Color) isPaint()          {}
 func (LinearGradient) isPaint() {}
 func (RadialGradient) isPaint() {}
 func (ConicGradient) isPaint()  {}
+func (FocalGradient) isPaint()  {}
 
 // ColorSpace is the color space in which gradient stops are interpolated.
 // Compositing itself always happens in sRGB (ADR-007).
@@ -175,6 +176,32 @@ type ConicGradient struct {
 	Interp     ColorSpace
 }
 
+// FocalGradient is a two-point conical gradient: a gradient between the
+// focal circle (Focal, FocalRadius), at offset 0, and the end circle
+// (Center, Radius), at offset 1. It is SVG's radialGradient with fx, fy and
+// fr, Canvas's createRadialGradient and COLRv1's PaintRadialGradient.
+// Ellipses come from a transform.
+//
+// The circles C(t) = (Focal + t·(Center - Focal), FocalRadius +
+// t·(Radius - FocalRadius)) interpolate the two circles for every real t.
+// A point takes the color at offset t of the largest t whose circle C(t)
+// passes through it with a radius of 0 or more; offsets beyond [0, 1]
+// take the first or last stop color (pad). Points that no such circle
+// passes through are transparent: when the focal circle lies inside the end
+// circle (the usual focal gradient) every point has one, otherwise the
+// circles sweep a cone and the plane outside it is not painted.
+//
+// Negative radii are treated as 0. If both circles are equal the gradient
+// paints nothing. Interpolation is premultiplied, in color space Interp.
+type FocalGradient struct {
+	Focal       Point
+	FocalRadius float32
+	Center      Point
+	Radius      float32
+	Stops       []GradientStop
+	Interp      ColorSpace
+}
+
 // sanitizePaint validates a Paint for the Builder and returns a copy that
 // shares no mutable memory with the argument: solid colors are clamped to
 // [0, 1], stop slices copied and normalized, with stop alphas clamped and
@@ -206,6 +233,17 @@ func sanitizePaint(p Paint) (Paint, bool) {
 	case ConicGradient:
 		if !p.Center.IsFinite() || !finite(p.StartAngle) {
 			return nil, false
+		}
+		var ok bool
+		p.Stops, ok = sanitizeStops(p.Stops)
+		return p, ok
+	case FocalGradient:
+		if !p.Focal.IsFinite() || !p.Center.IsFinite() || !finite(p.FocalRadius) || !finite(p.Radius) {
+			return nil, false
+		}
+		p.FocalRadius, p.Radius = max(p.FocalRadius, 0), max(p.Radius, 0)
+		if p.Focal == p.Center && p.FocalRadius == p.Radius {
+			return nil, false // equal circles: nothing is painted
 		}
 		var ok bool
 		p.Stops, ok = sanitizeStops(p.Stops)

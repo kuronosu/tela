@@ -174,9 +174,8 @@ type painter struct {
 	fg     gfx.Color
 	usesFG bool
 
-	approx gfx.BlendMode // blend mode approximated by recoloring (exactBlend off)
-	ctm    gfx.Affine    // current local em space -> glyph em space
-	cover  gfx.Rect      // glyph em space area that unbounded paints fill
+	ctm    gfx.Affine // current local em space -> glyph em space
+	cover  gfx.Rect   // glyph em space area that unbounded paints fill
 	depth  int
 	active map[tables.GlyphID]bool // PaintColrGlyph cycle guard
 }
@@ -234,43 +233,7 @@ func (p *painter) paletteColor(idx uint16, alpha float64) gfx.Color {
 		return gfx.Transparent
 	}
 	c.A = float32(float64(c.A) * min(max(alpha, 0), 1))
-	if p.approx != gfx.SrcOver {
-		c = approxBlend(p.approx, c)
-	}
 	return c
-}
-
-// approxBlend recolors a source color so that drawing it with source-over
-// approximates drawing it with mode. The light modes (soft-light, overlay,
-// hard-light) lighten where the source is lighter than mid-gray and darken
-// where it is darker, and do nothing at mid-gray: they become white or
-// black at an alpha proportional to the distance from mid-gray. Other
-// modes are drawn as they are.
-//
-// Noto Color Emoji uses soft-light only, for the shading of its 262 flags:
-// a white - 50% gray - black gradient at 50% alpha, which becomes white at
-// 5% alpha fading to transparent and then to black at 5% alpha. Soft-light
-// barely changes light and dark backdrops, which a source-over color cannot
-// follow; the factor 0.1 gave the smallest differences from Chromium on
-// the flags of Japan, Brazil and Germany short of dropping the shading.
-func approxBlend(mode gfx.BlendMode, c gfx.Color) gfx.Color {
-	var k float64
-	switch mode {
-	case gfx.SoftLight:
-		k = 0.1
-	case gfx.Overlay, gfx.HardLight:
-		k = 0.2
-	default:
-		return c
-	}
-	l := float64(0.2126*float64(c.R)) + float64(0.7152*float64(c.G)) + float64(0.0722*float64(c.B))
-	d := 2*l - 1
-	out := gfx.White
-	if d < 0 {
-		out, d = gfx.Black, -d
-	}
-	out.A = float32(float64(float64(c.A)*k) * min(d, 1))
-	return out
 }
 
 // paint records paint node n in the current local space.
@@ -455,12 +418,8 @@ func (p *painter) fillUnbounded(n tables.PaintTable) {
 	if !ok {
 		return
 	}
-	paint, emulate := p.simplePaint(n, cover)
-	switch {
-	case paint != nil:
+	if paint := p.simplePaint(n, cover); paint != nil {
 		p.b.FillRect(cover, paint)
-	case emulate != nil:
-		emulate()
 	}
 }
 
@@ -482,33 +441,25 @@ func (p *painter) glyph(gid tables.GlyphID, child tables.PaintTable) {
 	}
 	if isSimplePaint(c) {
 		if t == gfx.Identity {
-			paint, emulate := p.simplePaint(c, path.ControlBounds())
-			if paint != nil {
+			if paint := p.simplePaint(c, path.ControlBounds()); paint != nil {
 				p.b.FillPath(path, gfx.NonZero, paint)
-				return
 			}
-			if emulate == nil {
-				return
-			}
-		} else if inv, ok := t.Invert(); ok && t.IsFinite() {
-			local := transformPath(path, inv)
-			saved := p.ctm
-			p.b.PushTransform(t)
-			p.ctm = saved.Mul(t)
-			paint, emulate := p.simplePaint(c, local.ControlBounds())
-			if paint != nil {
-				p.b.FillPath(local, gfx.NonZero, paint)
-			} else if emulate != nil {
-				p.b.PushClipPath(local, gfx.NonZero)
-				emulate()
-				p.b.PopClip()
-			}
-			p.ctm = saved
-			p.b.PopTransform()
-			return
-		} else {
 			return
 		}
+		inv, ok := t.Invert()
+		if !ok || !t.IsFinite() {
+			return
+		}
+		local := transformPath(path, inv)
+		saved := p.ctm
+		p.b.PushTransform(t)
+		p.ctm = saved.Mul(t)
+		if paint := p.simplePaint(c, local.ControlBounds()); paint != nil {
+			p.b.FillPath(local, gfx.NonZero, paint)
+		}
+		p.ctm = saved
+		p.b.PopTransform()
+		return
 	}
 	p.b.PushClipPath(path, gfx.NonZero)
 	p.paint(child)
@@ -567,34 +518,19 @@ var compositeBlend = map[tables.CompositeMode]gfx.BlendMode{
 	tables.CompositePlus:          gfx.PlusLighter,
 }
 
-// exactBlend selects gfx blend-mode layers for the COLR blend composites.
-// package raster does not implement blend modes before phase 6 (it panics
-// on them), so it is false: blend composites are approximated with
-// source-over (see approxBlend). Phase 6 should set it to true; the exact
-// path is covered by TestCompositeExactBlend.
-var exactBlend = false
-
-// composite records PaintComposite. Blend modes and Plus are exact when
-// exactBlend is set: an isolated group holds the backdrop, and the source
-// is a layer blended onto it. Porter-Duff modes are mapped onto drawing
-// order and clips; see doc.go.
+// composite records PaintComposite. Blend modes and Plus are exact: an
+// isolated group holds the backdrop, and the source is a layer blended onto
+// it. Porter-Duff modes are mapped onto drawing order and mask layers; see
+// doc.go.
 func (p *painter) composite(v tables.PaintComposite) {
 	src, bd := v.SourcePaint, v.BackdropPaint
 	if mode, ok := compositeBlend[v.CompositeMode]; ok {
-		if exactBlend {
-			p.b.PushLayer(1, gfx.SrcOver)
-			p.paint(bd)
-			p.b.PushLayer(1, mode)
-			p.paint(src)
-			p.b.PopLayer()
-			p.b.PopLayer()
-			return
-		}
+		p.b.PushLayer(1, gfx.SrcOver)
 		p.paint(bd)
-		saved := p.approx
-		p.approx = mode
+		p.b.PushLayer(1, mode)
 		p.paint(src)
-		p.approx = saved
+		p.b.PopLayer()
+		p.b.PopLayer()
 		return
 	}
 	switch v.CompositeMode {
@@ -622,11 +558,10 @@ func (p *painter) composite(v tables.PaintComposite) {
 	}
 }
 
-// paintIn paints a "in" mask: a's pixels multiplied by mask's alpha. A
-// mask that is a solid color is exact (a group with its alpha as opacity).
-// Otherwise the mask's alpha is approximated by the union of the glyph
-// outlines it paints, used as a clip: exact where the mask is opaque inside
-// its outlines, which is how Noto Color Emoji uses SrcIn.
+// paintIn paints an "in" composite: a's pixels multiplied by mask's
+// alpha. A mask that is a solid color is a layer with its alpha as
+// opacity; any other mask is recorded into a list of its own and used as
+// the alpha mask of a layer holding a (gfx.Mask), which is exact.
 func (p *painter) paintIn(a, mask tables.PaintTable) {
 	if alpha, ok := p.solidAlpha(mask); ok {
 		if alpha > 0 {
@@ -636,17 +571,15 @@ func (p *painter) paintIn(a, mask tables.PaintTable) {
 		}
 		return
 	}
-	var shape gfx.Path
-	if p.shape(mask, gfx.Identity, &shape, 0) {
-		if shape.IsEmpty() {
-			return
-		}
-		p.b.PushClipPath(shape, gfx.NonZero)
-		p.paint(a)
-		p.b.PopClip()
-		return
-	}
-	p.paint(a) // unbounded mask: approximated as fully opaque
+	// The mask list's root space is the current local space.
+	saved := p.b
+	p.b = gfx.NewBuilder()
+	p.paint(mask)
+	list := p.b.Finish()
+	p.b = saved
+	p.b.PushMaskLayer(gfx.Mask{List: list, Mode: gfx.MaskAlpha}, 1, gfx.SrcOver)
+	p.paint(a)
+	p.b.PopLayer()
 }
 
 // solidAlpha returns the alpha of a node that is a solid color, possibly
@@ -666,69 +599,6 @@ func (p *painter) solidAlpha(n tables.PaintTable) (float32, bool) {
 		return p.paletteColor(v.PaletteIndex, f2dot14(v.Alpha)+p.delta(v.VarIndexBase, 0)/16384).A, true
 	}
 	return 0, false
-}
-
-// shape appends to out the outlines that bound what n paints, transformed
-// by t (from n's space to the current local space), each oriented so that
-// its NonZero union is the union of the shapes. It reports false if n
-// paints outside any outline (a bare solid or gradient).
-func (p *painter) shape(n tables.PaintTable, t gfx.Affine, out *gfx.Path, depth int) bool {
-	if depth > maxPaintDepth {
-		return true
-	}
-	switch v := n.(type) {
-	case tables.PaintColrLayers:
-		layers, err := p.colr.LayerList.Resolve(v)
-		if err != nil {
-			return true
-		}
-		ok := true
-		for _, l := range layers {
-			ok = p.shape(l, t, out, depth+1) && ok
-		}
-		return ok
-	case tables.PaintColrLayersResolved:
-		for _, l := range v {
-			p.appendShape(out, gfx.GlyphID(l.GlyphID), t)
-		}
-		return true
-	case tables.PaintGlyph:
-		p.appendShape(out, gfx.GlyphID(v.GlyphID), t)
-		return true
-	case tables.PaintColrGlyph:
-		if p.active[tables.GlyphID(v.GlyphID)] {
-			return true
-		}
-		pt, ok := p.colr.Search(tables.GlyphID(v.GlyphID))
-		if !ok {
-			return true
-		}
-		return p.shape(pt, t, out, depth+1)
-	case tables.PaintComposite:
-		a := p.shape(v.SourcePaint, t, out, depth+1)
-		b := p.shape(v.BackdropPaint, t, out, depth+1)
-		return a && b
-	}
-	if tt, child, ok := p.transformOf(n); ok {
-		return p.shape(child, t.Mul(tt), out, depth+1)
-	}
-	return false
-}
-
-// appendShape appends the outline of g transformed by t to out, reversed
-// if needed so that its total signed area is positive.
-func (p *painter) appendShape(out *gfx.Path, g gfx.GlyphID, t gfx.Affine) {
-	path, ok := p.f.GlyphOutline(g)
-	if !ok {
-		return
-	}
-	if t != gfx.Identity {
-		path = transformPath(path, t)
-	}
-	if signedArea(path) < 0 {
-		path = reversePath(path)
-	}
-	appendPath(out, path)
 }
 
 // ---------------------------------------------------------------------------
@@ -765,22 +635,21 @@ func (p *painter) varColorLine(cl tables.VarColorLine) []cstop {
 
 // simplePaint converts a solid or gradient node to a gfx paint for the
 // current local space; cover is the local area it must be correct over
-// (used to unroll repeating gradients). A two-point radial gradient has no
-// gfx equivalent: it returns emulate instead, which draws it over the
-// current clip. Both are nil when the node paints nothing.
-func (p *painter) simplePaint(n tables.PaintTable, cover gfx.Rect) (paint gfx.Paint, emulate func()) {
+// (used to unroll repeating gradients). It is nil when the node paints
+// nothing.
+func (p *painter) simplePaint(n tables.PaintTable, cover gfx.Rect) gfx.Paint {
 	switch v := n.(type) {
 	case tables.PaintSolid:
-		return p.paletteColor(v.PaletteIndex, f2dot14(v.Alpha)), nil
+		return p.paletteColor(v.PaletteIndex, f2dot14(v.Alpha))
 	case tables.PaintVarSolid:
-		return p.paletteColor(v.PaletteIndex, f2dot14(v.Alpha)+p.delta(v.VarIndexBase, 0)/16384), nil
+		return p.paletteColor(v.PaletteIndex, f2dot14(v.Alpha)+p.delta(v.VarIndexBase, 0)/16384)
 	case tables.PaintLinearGradient:
 		return p.linear(p.colorLine(v.ColorLine), v.ColorLine.Extend,
-			float64(v.X0), float64(v.Y0), float64(v.X1), float64(v.Y1), float64(v.X2), float64(v.Y2), cover), nil
+			float64(v.X0), float64(v.Y0), float64(v.X1), float64(v.Y1), float64(v.X2), float64(v.Y2), cover)
 	case tables.PaintVarLinearGradient:
 		d := func(i uint32) float64 { return p.delta(v.VarIndexBase, i) }
 		return p.linear(p.varColorLine(v.ColorLine), v.ColorLine.Extend,
-			float64(v.X0)+d(0), float64(v.Y0)+d(1), float64(v.X1)+d(2), float64(v.Y1)+d(3), float64(v.X2)+d(4), float64(v.Y2)+d(5), cover), nil
+			float64(v.X0)+d(0), float64(v.Y0)+d(1), float64(v.X1)+d(2), float64(v.Y1)+d(3), float64(v.X2)+d(4), float64(v.Y2)+d(5), cover)
 	case tables.PaintRadialGradient:
 		return p.radial(p.colorLine(v.ColorLine), v.ColorLine.Extend,
 			float64(v.X0), float64(v.Y0), float64(v.Radius0), float64(v.X1), float64(v.Y1), float64(v.Radius1), cover)
@@ -790,13 +659,13 @@ func (p *painter) simplePaint(n tables.PaintTable, cover gfx.Rect) (paint gfx.Pa
 			float64(v.X0)+d(0), float64(v.Y0)+d(1), float64(v.Radius0)+d(2), float64(v.X1)+d(3), float64(v.Y1)+d(4), float64(v.Radius1)+d(5), cover)
 	case tables.PaintSweepGradient:
 		return p.sweep(p.colorLine(v.ColorLine), v.ColorLine.Extend,
-			float64(v.CenterX), float64(v.CenterY), f2dot14(v.StartAngle), f2dot14(v.EndAngle)), nil
+			float64(v.CenterX), float64(v.CenterY), f2dot14(v.StartAngle), f2dot14(v.EndAngle))
 	case tables.PaintVarSweepGradient:
 		d := func(i uint32) float64 { return p.delta(v.VarIndexBase, i) }
 		return p.sweep(p.varColorLine(v.ColorLine), v.ColorLine.Extend,
-			float64(v.CenterX)+d(0), float64(v.CenterY)+d(1), f2dot14(v.StartAngle)+d(2)/16384, f2dot14(v.EndAngle)+d(3)/16384), nil
+			float64(v.CenterX)+d(0), float64(v.CenterY)+d(1), f2dot14(v.StartAngle)+d(2)/16384, f2dot14(v.EndAngle)+d(3)/16384)
 	}
-	return nil, nil
+	return nil
 }
 
 // fontRange returns the range of the linear function t = a + b·x + c·y
@@ -854,13 +723,13 @@ func (p *painter) linear(stops []cstop, ext tables.Extend, x0, y0, x1, y1, x2, y
 }
 
 // radial converts PaintRadialGradient. Concentric gradients map to
-// gfx.RadialGradient exactly; two-point gradients are emulated.
-func (p *painter) radial(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1, r1 float64, cover gfx.Rect) (gfx.Paint, func()) {
+// gfx.RadialGradient, two-point ones to gfx.FocalGradient.
+func (p *painter) radial(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1, r1 float64, cover gfx.Rect) gfx.Paint {
 	if len(stops) == 0 {
-		return nil, nil
+		return nil
 	}
 	if len(stops) == 1 {
-		return stops[0].c, nil
+		return stops[0].c
 	}
 	if r0 < 0 {
 		r0 = 0
@@ -869,10 +738,10 @@ func (p *painter) radial(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1, r
 		r1 = 0
 	}
 	if x0 != x1 || y0 != y1 {
-		return nil, func() { p.twoPoint(stops, ext, x0, y0, r0, x1, y1, r1) }
+		return p.twoPoint(stops, ext, x0, y0, r0, x1, y1, r1)
 	}
 	if r0 == r1 {
-		return nil, nil // degenerate (as Skia)
+		return nil // degenerate (as Skia)
 	}
 	// A point at distance d from the center is on circle t = (d - r0) / (r1 - r0).
 	// The gfx gradient maps offset o to d = o·R.
@@ -887,7 +756,7 @@ func (p *painter) radial(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1, r
 		}
 	}
 	if !(R > 0) {
-		return stops[len(stops)-1].c, nil
+		return stops[len(stops)-1].c
 	}
 	tA, tB := -r0/(r1-r0), (R-r0)/(r1-r0)
 	return gfx.RadialGradient{
@@ -895,7 +764,7 @@ func (p *painter) radial(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1, r
 		Radius: gfx.Point{X: float32(R / p.f.upem), Y: float32(R / p.f.upem)},
 		Stops:  sampleColorLine(stops, ext, tA, tB),
 		Interp: gfx.InterpSRGB,
-	}, nil
+	}
 }
 
 // sweep converts PaintSweepGradient. COLR angles are counter-clockwise in
@@ -1022,28 +891,66 @@ func lerpPremul(a, b gfx.Color, f float64) gfx.Color {
 // Two-point radial gradients
 // ---------------------------------------------------------------------------
 
-// twoPoint emulates a two-point conical gradient, which gfx cannot express,
-// with filled circles in the current local space and clip: circle
-// C(t) = (c0 + t·(c1 - c0), r0 + t·(r1 - r0)) is filled with the color at
-// t, from the largest circle to the smallest when the circles grow with t
-// (and the reverse when they shrink), so that each point keeps the color of
-// the largest t whose circle passes through it, as in the COLR spec, when
-// the circles are nested. Colors are constant over bands at most a couple
-// of levels apart; translucent lines use non-overlapping rings so that the
-// bands do not accumulate alpha.
-func (p *painter) twoPoint(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1, r1 float64) {
+// twoPoint converts a two-point conical gradient, the circles
+// C(t) = (c0 + t·(c1 - c0), r0 + t·(r1 - r0)), to a gfx.FocalGradient
+// between two circles of the same family, C(tA) at offset 0 and C(tB) at
+// offset 1, whose stops sample the color line over [tA, tB]: the stops'
+// range for pad, the range of t over the cover area for repeat and
+// reflect. Both circles keep a radius of 0 or more (the parts of the range
+// where r(t) < 0 paint nothing), so the family, and the rule that a point
+// takes the largest t whose circle passes through it, are those of COLR.
+func (p *painter) twoPoint(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1, r1 float64) gfx.Paint {
+	dx, dy, dr := x1-x0, y1-y0, r1-r0
+	tA, tB := stops[0].t, stops[len(stops)-1].t
+	if ext != tables.ExtendPad {
+		lo, hi, ok := p.twoPointRange(stops, x0, y0, r0, dx, dy, dr)
+		if !ok {
+			return nil
+		}
+		tA, tB = lo, hi
+	}
+	if tB-tA < 1e-6 {
+		tB = tA + 1e-6
+	}
+	// Keep the radii of the end circles non-negative: r(t) >= 0 for
+	// t >= tz when the circles grow, t <= tz when they shrink.
+	switch {
+	case dr > 0:
+		tz := -r0 / dr
+		if tB <= tz { // everything painted lies beyond tB: the last color
+			tA, tB = tz, tz+1
+		} else {
+			tA = max(tA, tz)
+		}
+	case dr < 0:
+		tz := -r0 / dr
+		if tA >= tz { // everything painted lies before tA: the first color
+			tA, tB = tz-1, tz
+		} else {
+			tB = min(tB, tz)
+		}
+	}
+	circle := func(t float64) (gfx.Point, float32) {
+		return p.pt(x0+float64(t*dx), y0+float64(t*dy)), float32(max(r0+float64(t*dr), 0) / p.f.upem)
+	}
+	fc, fr := circle(tA)
+	ec, er := circle(tB)
+	return gfx.FocalGradient{Focal: fc, FocalRadius: fr, Center: ec, Radius: er,
+		Stops: sampleColorLine(stops, ext, tA, tB), Interp: gfx.InterpSRGB}
+}
+
+// twoPointRange returns the range of t that the points of the cover area
+// can take: from the circle of radius 0 (or the line's start) to the first
+// circle, searching outwards, that contains the whole cover area. Cones
+// whose circles never cover it get a range of about 10^6.
+func (p *painter) twoPointRange(stops []cstop, x0, y0, r0, dx, dy, dr float64) (lo, hi float64, ok bool) {
 	cover, ok := p.localCover()
 	if !ok {
-		return
+		return 0, 0, false
 	}
 	u := p.f.upem
-	dx, dy, dr := x1-x0, y1-y0, r1-r0
-	circle := func(t float64) (cx, cy, r float64) {
-		return x0 + float64(t*dx), y0 + float64(t*dy), r0 + float64(t*dr)
-	}
-	// covers reports whether C(t) contains the whole cover area.
 	covers := func(t float64) bool {
-		cx, cy, r := circle(t)
+		cx, cy, r := x0+float64(t*dx), y0+float64(t*dy), r0+float64(t*dr)
 		if r <= 0 {
 			return false
 		}
@@ -1057,92 +964,27 @@ func (p *painter) twoPoint(stops []cstop, ext tables.Extend, x0, y0, r0, x1, y1,
 	}
 	t0, t1 := stops[0].t, stops[len(stops)-1].t
 	grow := dr > 0 || (dr == 0 && r0 > 0)
-	// tz: where the radius is zero; tf: far end where a circle covers all.
-	var tz, tf float64
-	dir := 1.0
+	dir, far, near := 1.0, t1, t0
 	if !grow {
-		dir = -1
+		dir, far, near = -1, t0, t1
+	}
+	for step := 1.0; !covers(far) && step < 1e6; step *= 2 {
+		far += dir * step
 	}
 	if dr != 0 {
-		tz = -r0 / dr
+		tz := -r0 / dr
+		if grow {
+			near = max(near, tz)
+		} else {
+			near = min(near, tz)
+		}
 	} else {
-		tz = math.Inf(-int(dir))
+		near = far - dir*1e6
 	}
-	tf = t1
-	if !grow {
-		tf = t0
+	if !((far-near)*dir > 0) {
+		return 0, 0, false // no circle with a positive radius
 	}
-	for step := 1.0; !covers(tf) && step < 1e6; step *= 2 {
-		tf += dir * step
-	}
-	near := t0
-	if !grow {
-		near = t1
-	}
-	if grow {
-		near = max(near, tz)
-	} else {
-		near = min(near, tz)
-	}
-	if math.IsInf(near, 0) {
-		near = tf - dir*1e6
-	}
-	if !((tf-near)*dir > 0) {
-		return // no circle with a positive radius
-	}
-	line := unroll(stops, ext, min(near, tf), max(near, tf))
-
-	// Breakpoints from far to near.
-	ts := []float64{tf}
-	for i := len(line) - 1; i >= 0; i-- {
-		j := i
-		if !grow {
-			j = len(line) - 1 - i
-		}
-		t := line[j].t
-		if (t-near)*dir > 0 && (tf-t)*dir > 0 {
-			ts = append(ts, t)
-		}
-	}
-	ts = append(ts, near)
-
-	opaque := true
-	for _, s := range line {
-		opaque = opaque && s.c.A >= 1
-	}
-	// fill paints C(ta) with color c: the whole disk when the line is
-	// opaque, else the ring between C(ta) and C(tb).
-	fill := func(ta, tb float64, c gfx.Color) {
-		cx, cy, r := circle(ta)
-		if r <= 0 {
-			return
-		}
-		shape := circlePath(p.pt(cx, cy), float32(r/u))
-		if !opaque {
-			if bx, by, br := circle(tb); br > 0 && tb != ta {
-				appendPath(&shape, reversePath(circlePath(p.pt(bx, by), float32(br/u))))
-			}
-		}
-		p.b.FillPath(shape, gfx.NonZero, c)
-	}
-	for i := 0; i+1 < len(ts); i++ {
-		ta, tb := ts[i], ts[i+1]
-		steps := bandSteps(evalLine(line, ta), evalLine(line, tb))
-		for k := 0; k < steps; k++ {
-			a := ta + float64((tb-ta)*float64(k)/float64(steps))
-			b := ta + float64((tb-ta)*float64(k+1)/float64(steps))
-			fill(a, b, evalLine(line, (a+b)/2))
-		}
-	}
-	// Inside the nearest circle: the line's color there (padded).
-	fill(near, near, evalLine(line, near))
-}
-
-// bandSteps is the number of constant-color bands needed between two
-// colors so that neighboring bands differ by at most about 2/255.
-func bandSteps(a, b gfx.Color) int {
-	d := max(math.Abs(float64(a.R-b.R)), math.Abs(float64(a.G-b.G)), math.Abs(float64(a.B-b.B)), math.Abs(float64(a.A-b.A)))
-	return min(max(int(math.Ceil(d*255/2)), 1), 64)
+	return min(near, far), max(near, far), true
 }
 
 // ---------------------------------------------------------------------------
@@ -1184,146 +1026,5 @@ func rebuild(verbs []gfx.Verb, pts []gfx.Point) gfx.Path {
 			p.Close()
 		}
 	}
-	return p
-}
-
-// appendPath appends the subpaths of q to p.
-func appendPath(p *gfx.Path, q gfx.Path) {
-	pts := q.Points()
-	i := 0
-	for _, v := range q.Verbs() {
-		switch v {
-		case gfx.MoveTo:
-			p.MoveTo(pts[i])
-			i++
-		case gfx.LineTo:
-			p.LineTo(pts[i])
-			i++
-		case gfx.QuadTo:
-			p.QuadTo(pts[i], pts[i+1])
-			i += 2
-		case gfx.CubicTo:
-			p.CubicTo(pts[i], pts[i+1], pts[i+2])
-			i += 3
-		case gfx.Close:
-			p.Close()
-		}
-	}
-}
-
-// signedArea returns twice the signed area of the control polygons of the
-// path's subpaths (positive: clockwise on screen, y down). Its sign is the
-// orientation of a simple outline.
-func signedArea(path gfx.Path) float64 {
-	pts := path.Points()
-	var area float64
-	var first, last gfx.Point
-	have := false
-	i := 0
-	edge := func(a, b gfx.Point) {
-		area += float64(a.X)*float64(b.Y) - float64(b.X)*float64(a.Y)
-	}
-	closeSub := func() {
-		if have {
-			edge(last, first)
-		}
-	}
-	for _, v := range path.Verbs() {
-		switch v {
-		case gfx.MoveTo:
-			closeSub()
-			first, last, have = pts[i], pts[i], true
-			i++
-		case gfx.Close:
-			closeSub()
-			last = first
-			have = false
-		default:
-			n := v.NumPoints()
-			for k := 0; k < n; k++ {
-				edge(last, pts[i+k])
-				last = pts[i+k]
-			}
-			i += n
-		}
-	}
-	closeSub()
-	return area
-}
-
-// reversePath returns path with every subpath traversed backwards.
-func reversePath(path gfx.Path) gfx.Path {
-	type seg struct {
-		v   gfx.Verb
-		pts []gfx.Point // control points then end point
-	}
-	var out gfx.Path
-	pts := path.Points()
-	verbs := path.Verbs()
-	i := 0
-	var start gfx.Point
-	var segs []seg
-	closed := false
-	flush := func() {
-		if len(segs) == 0 {
-			return
-		}
-		// The reversed subpath starts at the end of the last segment.
-		cur := segs[len(segs)-1].pts[len(segs[len(segs)-1].pts)-1]
-		out.MoveTo(cur)
-		for k := len(segs) - 1; k >= 0; k-- {
-			s := segs[k]
-			prevEnd := start
-			if k > 0 {
-				prevEnd = segs[k-1].pts[len(segs[k-1].pts)-1]
-			}
-			switch s.v {
-			case gfx.LineTo:
-				out.LineTo(prevEnd)
-			case gfx.QuadTo:
-				out.QuadTo(s.pts[0], prevEnd)
-			case gfx.CubicTo:
-				out.CubicTo(s.pts[1], s.pts[0], prevEnd)
-			}
-		}
-		if closed {
-			out.Close()
-		}
-		segs = segs[:0]
-	}
-	for _, v := range verbs {
-		switch v {
-		case gfx.MoveTo:
-			flush()
-			closed = false
-			start = pts[i]
-			i++
-		case gfx.Close:
-			closed = true
-			flush()
-			closed = false
-		default:
-			n := v.NumPoints()
-			segs = append(segs, seg{v, pts[i : i+n]})
-			i += n
-		}
-	}
-	flush()
-	return out
-}
-
-// circlePath returns a circle of four cubic arcs, clockwise on screen.
-func circlePath(c gfx.Point, r float32) gfx.Path {
-	const k = 0.5522847498307936 // 4/3·(√2 - 1)
-	cx, cy, rr := float64(c.X), float64(c.Y), float64(r)
-	kr := float64(rr * k)
-	pt := func(x, y float64) gfx.Point { return gfx.Point{X: float32(x), Y: float32(y)} }
-	var p gfx.Path
-	p.MoveTo(pt(cx+rr, cy))
-	p.CubicTo(pt(cx+rr, cy+kr), pt(cx+kr, cy+rr), pt(cx, cy+rr))
-	p.CubicTo(pt(cx-kr, cy+rr), pt(cx-rr, cy+kr), pt(cx-rr, cy))
-	p.CubicTo(pt(cx-rr, cy-kr), pt(cx-kr, cy-rr), pt(cx, cy-rr))
-	p.CubicTo(pt(cx+kr, cy-rr), pt(cx+rr, cy-kr), pt(cx+rr, cy))
-	p.Close()
 	return p
 }

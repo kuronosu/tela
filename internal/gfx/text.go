@@ -159,6 +159,11 @@ func sanitizeGlyphPaint(p Paint) (Paint, bool) {
 			return nil, false
 		}
 		stops = g.Stops
+	case FocalGradient:
+		if !g.Focal.IsFinite() || !g.Center.IsFinite() || !finite(g.FocalRadius) || !finite(g.Radius) {
+			return nil, false
+		}
+		stops = g.Stops
 	default:
 		return nil, false
 	}

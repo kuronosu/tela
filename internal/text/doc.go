@@ -134,12 +134,12 @@
 //   - PaintRadialGradient: concentric gradients (any radii) map exactly to
 //     gfx.RadialGradient. Two-point gradients (the start circle not
 //     concentric with the end circle; Noto Color Emoji has 17, all focal
-//     with the start circle inside the end one) have no gfx equivalent and
-//     are emulated by filled circles drawn from the far end of the color
-//     line to the near one, banded so that neighbors differ by at most
-//     about two levels (rings instead of disks when the line is
-//     translucent). Exact for nested circles up to the banding; cones whose
-//     circles are not nested are approximated.
+//     with the start circle inside the end one) map to gfx.FocalGradient
+//     between two circles of the same family: those at the ends of the
+//     color line (pad) or of the range of t over the area to cover
+//     (repeat, reflect), moved to the circle of radius 0 where the line
+//     reaches negative radii. Exact for every configuration, cones
+//     included.
 //   - PaintSweepGradient: gfx.ConicGradient. COLR angles are counter-
 //     clockwise in font space with the OpenType 1.9.1 bias ((value + 1) *
 //     180 degrees), a point's angle is taken in [0, 360) degrees, and the
@@ -156,21 +156,18 @@
 //   - PaintColrGlyph: the referenced glyph's graph, clipped to its clip box;
 //     cycles are cut.
 //   - PaintComposite: Src, Dest, SrcOver, DestOver and Clear are drawing
-//     orders. SrcIn and DestIn with a solid mask are exact (a layer with the
-//     mask's alpha as opacity); with any other mask, the mask's alpha is
-//     approximated by the union of the glyph outlines it paints, used as a
-//     clip (exact where the mask is opaque inside its outlines). SrcAtop and
-//     DestAtop combine both. SrcOut, DestOut and Xor are approximated by the
+//     orders. SrcIn and DestIn are exact: with a solid mask, a layer with
+//     the mask's alpha as opacity; with any other mask, a layer whose alpha
+//     mask (gfx.Mask) is the mask paint recorded into a list of its own.
+//     SrcAtop and DestAtop draw the backdrop (source) and then the source
+//     (backdrop) masked by it, which differs from Porter-Duff atop where
+//     both are translucent. SrcOut, DestOut and Xor are approximated by the
 //     source, the backdrop and source-over. The blend modes (multiply,
 //     screen, overlay, darken, lighten, color-dodge, color-burn, hard-light,
 //     soft-light, difference, exclusion, hue, saturation, color,
-//     luminosity) and Plus map to gfx blend layers (an isolated group with
-//     the backdrop, the source in a layer with the blend mode), but package
-//     raster does not implement blend modes before phase 6, so until
-//     exactBlend is turned on they are approximated with source-over
-//     (approxBlend): soft-light, overlay and hard-light sources become
-//     white or black by their lightness, other modes draw the source as it
-//     is.
+//     luminosity) and Plus are exact gfx blend layers: an isolated group
+//     with the backdrop, the source in a layer with the blend mode
+//     (ADR-074).
 //   - Variable paints (PaintVar*, variable color stops and clip boxes): the
 //     deltas are evaluated at the face's coordinates with the fusion-safe
 //     item variation store code.
@@ -182,9 +179,9 @@
 // SrcIn in 296 glyphs (source a gradient or layers, mask a layer stack of
 // glyphs or a translucent solid) and SoftLight in the 262 flags (shading).
 // TestCOLRSurvey reproduces these numbers. Against Chromium, the golden
-// emoji differ by a mean of 0.2 to 1.6 levels per channel (anti-aliasing),
-// and the flags by 1.6 to 3.7 because of the soft-light approximation
-// (TestChromiumEmoji).
+// emoji and the flags differ by a mean of 0.2 to 1.7 levels per channel,
+// mostly anti-aliasing (TestChromiumEmoji; the flags were 1.6 to 3.7
+// before blend modes, masks and focal gradients were exact).
 //
 // Bitmap (CBDT, sbix) and SVG glyphs are not supported: ColorGlyph returns
 // nil for them and they draw their outline, if any.

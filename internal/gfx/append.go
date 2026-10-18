@@ -99,15 +99,7 @@ func (b *Builder) AppendList(dl *DisplayList, marker func(Marker)) {
 // appendLayer opens a PushLayer taken from a list (already sanitized).
 func (b *Builder) appendLayer(c PushLayer) {
 	b.begin()
-	skip := b.suppressed()
-	f := b.open(kindLayer, "PushLayer", skip)
-	if skip {
-		return
-	}
-	f.idx = b.recordPush(c)
-	f.reach = FiltersOutset(c.Filters) * b.ctm.MaxScale()
-	b.reach[f.idx] = f.reach
-	b.clip = b.clip.Outset(f.reach)
+	b.openLayer("PushLayer", c)
 }
 
 // backdropRead returns the read bounds of the BackdropFilter at index i.

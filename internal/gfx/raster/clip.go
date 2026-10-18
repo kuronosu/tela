@@ -1,7 +1,6 @@
 package raster
 
 import (
-	"fmt"
 	"image"
 	"math"
 
@@ -30,10 +29,21 @@ import (
 // A layer (PushLayer) renders its content into an offscreen premultiplied
 // buffer that covers the clip rectangle ∩ the layer's device bounds,
 // starting transparent and with no clip mask: the clip that is active at
-// PushLayer is applied once, at PopLayer, when the buffer is composited with
-// source-over at the layer's opacity (times the clip mask). Clipping the
-// group as a whole, rather than each child, is what CSS does for opacity
-// groups and keeps antialiased clip edges free of seams.
+// PushLayer is applied once, at PopLayer, when the buffer is composited
+// with the layer's opacity, mask and blend mode through the clip mask (see
+// blend.go). Clipping the group as a whole, rather than each child, is what
+// CSS does for opacity groups and keeps antialiased clip edges free of
+// seams.
+//
+// A layer's mask (gfx.Mask) is rendered at PushLayer, before the content:
+// its list is drawn, under the transform current at PushLayer, onto a
+// transparent surface over the pixels the layer composites (the whole
+// device bounds of the mask when its list holds backdrop filters that
+// spread, which read their surface), with no clip, and converted to an
+// 8-bit coverage (alpha, or luminance times alpha). The mask is not clipped
+// by the region or by the clips around the layer, only cut to the pixels
+// that are composited, so its values depend on the geometry and the
+// absolute pixel coordinates only.
 
 // pushClip intersects the clip with the shape of a PushClip* command. The
 // state has already been saved.
@@ -217,9 +227,6 @@ func (r *Renderer) rrectInner(rr gfx.RRect) image.Rectangle {
 // pushLayer starts an offscreen layer for the PushLayer at index i of the
 // list. The state has already been saved.
 func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
-	if c.Blend != gfx.SrcOver {
-		panic(fmt.Sprintf("raster: blend mode %s is not implemented until phase 6", c.Blend))
-	}
 	op := unit8(float64(c.Opacity))
 	if op == 0 {
 		r.narrow(image.Rectangle{})
@@ -237,12 +244,59 @@ func (r *Renderer) pushLayer(i int, c gfx.PushLayer) {
 	}
 	b := &r.blit
 	rect := b.clip
+	mask := r.renderMask(c.Mask, rect)
 	buf := r.getBuf(4 * rect.Dx() * rect.Dy())
 	st := &r.stack[len(r.stack)-1]
 	st.layer, st.pix, st.stride, st.origin, st.surf, st.opacity = true, b.pix, b.stride, b.origin, buf, op
-	st.comp, st.surfRect = rect, rect
+	st.comp, st.surfRect, st.blend, st.mask = rect, rect, c.Blend, mask
 	// The saved clip is the one before narrow: the layer is composited
 	// within the narrowed rectangle, which lies inside it.
 	b.pix, b.stride, b.origin, b.cm = buf, 4*rect.Dx(), rect.Min, clipMask{}
 	r.surfBounds = rect
+}
+
+// renderMask renders the mask m of a layer that composites the device
+// pixels comp (not empty) and returns its 8-bit coverage over comp (stride
+// comp.Dx()), or nil when the layer has no mask. The blitter still targets
+// the surface below the layer, which is left untouched.
+func (r *Renderer) renderMask(m gfx.Mask, comp image.Rectangle) []uint8 {
+	if m.List == nil {
+		return nil
+	}
+	lim := image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit)
+	rect := comp
+	if m.List.BackdropReach() > 0 {
+		// Its backdrop filters read their whole shapes on the mask's
+		// surface: render all of it, so that they never see the region.
+		saved := r.root
+		r.root = r.ctm
+		rect = r.devBounds(m.List.Bounds()).Intersect(lim).Union(comp)
+		r.root = saved
+	}
+	b := &r.blit
+	pix := r.getBuf(4 * rect.Dx() * rect.Dy())
+	surf, stride, origin := b.pix, b.stride, b.origin
+	dl, root := r.dl, r.root
+	r.save()
+	b.pix, b.stride, b.origin = pix, 4*rect.Dx(), rect.Min
+	b.clip, b.cm = rect, clipMask{}
+	r.region, r.bound, r.surfBounds = rect, lim, rect
+	r.skipping = false
+	// The root space of the mask list is the current local space.
+	r.dl, r.root = m.List, r.ctm
+	for i := range m.List.Len() {
+		r.visit(i, m.List.At(i))
+	}
+	r.dl, r.root = dl, root
+	r.restore()
+	b.pix, b.stride, b.origin = surf, stride, origin
+
+	cov := r.getBuf(comp.Dx() * comp.Dy())
+	w := comp.Dx()
+	for y := comp.Min.Y; y < comp.Max.Y; y++ {
+		i := (y-rect.Min.Y)*4*rect.Dx() + 4*(comp.Min.X-rect.Min.X)
+		maskCoverage(cov[(y-comp.Min.Y)*w:(y-comp.Min.Y+1)*w], pix[i:i+4*w], w, m.Mode)
+	}
+	r.putBuf(pix)
+	return cov
 }

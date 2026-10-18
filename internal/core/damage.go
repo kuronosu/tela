@@ -760,7 +760,12 @@ func (d *damager) shiftExact(c gfx.Command) bool {
 		return true
 	case gfx.PushTransform:
 		return d.intTranslation(c.Affine)
-	case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushLayer,
+	case gfx.PushLayer:
+		// Blend modes combine the shifted source and backdrop pixel by
+		// pixel; a mask's list is not checked, so a masked layer is not
+		// shifted.
+		return c.Mask.List == nil
+	case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath,
 		gfx.PopClip, gfx.PopTransform, gfx.PopLayer:
 		return true
 	}

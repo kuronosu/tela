@@ -23,7 +23,7 @@ func TestEqualDeep(t *testing.T) {
 			DrawGlyphRun{Font: font, Size: 12, Origin: Pt(3, 4), Glyphs: []Glyph{{1, 0, 0}, {2, 5, 0}}, Paint: White},
 			PushClipPath{p.Clone(), NonZero},
 			PushTransform{Rotate(0.5)},
-			PushLayer{0.5, SrcOver, []Filter{Blur{2}, Brightness(1.2)}},
+			PushLayer{Opacity: 0.5, Filters: []Filter{Blur{2}, Brightness(1.2)}},
 			BackdropFilter{NewRRect(RectXYWH(0, 0, 9, 9), 2), []Filter{Blur{3}}},
 			Marker{3},
 			PopLayer{},

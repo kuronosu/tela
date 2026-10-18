@@ -20,7 +20,14 @@ import (
 //     relative to an axis-aligned ellipse (CSS radial-gradient);
 //   - conic: t = the angle of p - Center, measured from "up" (-Y) and
 //     clockwise on screen, minus StartAngle, in turns, wrapped to [0, 1)
-//     (CSS conic-gradient).
+//     (CSS conic-gradient);
+//   - focal (two-point conical): t is the largest root of
+//     |p - c(t)| = r(t) with r(t) >= 0, where c(t) and r(t) interpolate
+//     the focal and the end circle (the Canvas and COLRv1 definition). With
+//     u = p - Focal, d = Center - Focal and dr = Radius - FocalRadius, the
+//     equation is the quadratic a·t² - 2b·t + c = 0 with a = d·d - dr²,
+//     b = u·d + FocalRadius·dr and c = u·u - FocalRadius²; a point without
+//     a root with r(t) >= 0 is transparent (outside the cone).
 //
 // t below the first stop offset gives the first color, at or above the last
 // offset the last color (pad). The map from device pixels to t is affine (an
@@ -61,6 +68,7 @@ const (
 	gradLinear gradKind = iota
 	gradRadial
 	gradConic
+	gradFocal
 )
 
 // gradShader shades linear, radial and conic gradients. With (X, Y) the
@@ -70,15 +78,22 @@ const (
 //	linear: t = p
 //	radial: t = sqrt(p² + q²)
 //	conic:  t = atan2(p, -q) / 2π - start, wrapped to [0, 1)
+//	focal:  the root t of the quadratic above, with u = (p, q)
 type gradShader struct {
 	kind       gradKind
 	ramp       *ramp
 	pa, pb, pc float64
 	qa, qb, qc float64
 	start      float64
+	// focal: d = (dx, dy), dr, r0 = FocalRadius, r0dr = r0·dr, r0sq = r0²,
+	// the quadratic's a, and whether every pixel has a root.
+	dx, dy, dr     float64
+	r0, r0dr, r0sq float64
+	a              float64
+	covers         bool
 }
 
-func (g *gradShader) opaque() bool { return g.ramp.opaque }
+func (g *gradShader) opaque() bool { return g.ramp.opaque && (g.kind != gradFocal || g.covers) }
 
 func (g *gradShader) shadeSpan(x, y int, dst []uint8) {
 	Y := float64(y) + 0.5
@@ -112,7 +127,57 @@ func (g *gradShader) shadeSpan(x, y int, dst []uint8) {
 			c := rp.at(t)
 			copy(dst[4*i:4*i+4], c[:])
 		}
+	case gradFocal:
+		for i := 0; i < n; i++ {
+			X := float64(x+i) + 0.5
+			u := float64(g.pa*X) + p0
+			v := float64(g.qa*X) + q0
+			d := dst[4*i : 4*i+4 : 4*i+4]
+			t, ok := g.focalT(u, v)
+			if !ok {
+				d[0], d[1], d[2], d[3] = 0, 0, 0, 0
+				continue
+			}
+			c := rp.at(t)
+			d[0], d[1], d[2], d[3] = c[0], c[1], c[2], c[3]
+		}
 	}
+}
+
+// focalT returns the gradient parameter of the local point Focal + (u, v):
+// the largest t with |(u, v) - t·d| = r0 + t·dr and r0 + t·dr >= 0. ok is
+// false when there is none (outside the cone of a two-point gradient whose
+// circles are not nested).
+func (g *gradShader) focalT(u, v float64) (t float64, ok bool) {
+	b := float64(u*g.dx) + float64(v*g.dy) + g.r0dr
+	c := float64(u*u) + float64(v*v) - g.r0sq
+	if g.a == 0 {
+		// |d| = |dr|: the quadratic is linear, -2b·t + c = 0.
+		if b == 0 {
+			return 0, false
+		}
+		t = c / float64(2*b)
+		return t, float64(t*g.dr)+g.r0 >= 0
+	}
+	disc := float64(b*b) - float64(g.a*c)
+	if disc < 0 || math.IsNaN(disc) {
+		return 0, false
+	}
+	// The roots (b ± √disc)/a, computed without cancellation: q/a and c/q
+	// with q = b + sign(b)·√disc (their product is c/a).
+	q := b + math.Copysign(math.Sqrt(disc), b)
+	var t1, t2 float64
+	if q != 0 {
+		t1, t2 = q/g.a, c/q
+	}
+	hi, lo := max(t1, t2), min(t1, t2)
+	switch {
+	case float64(hi*g.dr)+g.r0 >= 0:
+		return hi, true
+	case float64(lo*g.dr)+g.r0 >= 0:
+		return lo, true
+	}
+	return 0, false
 }
 
 // inverse is the inverse of a device transform, in float64: a local point
@@ -192,10 +257,39 @@ func (r *Renderer) shaderFor(p gfx.Paint) shader {
 		g.qa, g.qb, g.qc = inv.compose(0, 1, -float64(p.Center.Y))
 		g.start = float64(p.StartAngle) * (1 / (2 * math.Pi))
 		return g
+	case gfx.FocalGradient:
+		inv, sh := r.gradientStart(p.Stops)
+		if sh != nil {
+			return sh
+		}
+		return r.focalShader(p, inv)
 	case nil:
 		panic("raster: nil paint in a display list")
 	}
 	panic(fmt.Sprintf("raster: %T paint is not implemented", p))
+}
+
+// focalShader sets up the shader of a two-point conical gradient (see the
+// comment of gradShader). The Builder never stores equal circles; for them
+// every pixel would be transparent.
+func (r *Renderer) focalShader(p gfx.FocalGradient, inv inverse) shader {
+	g := r.gradient(gradFocal, p.Stops, p.Interp)
+	fx, fy := float64(p.Focal.X), float64(p.Focal.Y)
+	g.pa, g.pb, g.pc = inv.compose(1, 0, -fx)
+	g.qa, g.qb, g.qc = inv.compose(0, 1, -fy)
+	r0 := max(float64(p.FocalRadius), 0)
+	// Differences and squares of float32 values are exact in float64.
+	g.dx, g.dy = float64(p.Center.X)-fx, float64(p.Center.Y)-fy
+	g.dr = max(float64(p.Radius), 0) - r0
+	g.r0, g.r0dr, g.r0sq = r0, float64(r0*g.dr), float64(r0*r0)
+	dd := float64(g.dx*g.dx) + float64(g.dy*g.dy)
+	drr := float64(g.dr * g.dr)
+	g.a = dd - drr
+	// When |d| < |dr| one circle contains the other and the circles of
+	// large |t| contain every point: every pixel has a root. The margin
+	// keeps rounding from claiming it at the boundary.
+	g.covers = g.a < -1e-9*(dd+drr)
+	return g
 }
 
 func (r *Renderer) solidFor(c gfx.Color) shader {

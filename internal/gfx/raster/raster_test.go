@@ -265,30 +265,6 @@ func TestRobustness(t *testing.T) {
 	}
 }
 
-func TestUnimplementedPanics(t *testing.T) {
-	img := image.NewRGBA(image.Rect(0, 0, 8, 8))
-	for _, tc := range []struct {
-		draw func(b *gfx.Builder)
-		want string
-	}{
-		{func(b *gfx.Builder) {
-			b.PushLayer(1, gfx.Multiply, gfx.Blur{StdDev: 2})
-			b.FillRect(gfx.Rect{X1: 4, Y1: 4}, gfx.Black)
-			b.PopLayer()
-		}, "raster: blend mode multiply is not implemented until phase 6"},
-	} {
-		func() {
-			defer func() {
-				r := recover()
-				if s, _ := r.(string); !strings.Contains(s, tc.want) {
-					t.Errorf("panic %v, want %q", r, tc.want)
-				}
-			}()
-			Render(img, build(tc.draw), Options{})
-		}()
-	}
-}
-
 func TestOptionsValidation(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
 	dl := build(func(b *gfx.Builder) { b.FillRect(gfx.Rect{X1: 1, Y1: 1}, gfx.Black) })

@@ -196,16 +196,73 @@ type PopTransform struct{}
 
 // PushLayer starts a group: everything up to the matching PopLayer is
 // rendered to an offscreen buffer (isolated: blend modes inside blend only
-// with the group), then Filters are applied in order, and the result is
-// composited onto what is below with Opacity and Blend. The group is bounded
-// by the clip that is current at PushLayer time.
+// with the group), then Filters are applied in order, the result is
+// multiplied by Mask, and it is composited onto what is below with Opacity
+// and Blend. The group is bounded by the clip that is current at PushLayer
+// time (and by the mask's bounds).
 //
-// Opacity is in [0, 1] (the Builder clamps). A layer with Opacity 1, SrcOver
-// and no Filters is still an isolated group.
+// This is the order of CSS (filter, then clip and mask, then opacity and
+// mix-blend-mode): Opacity and Mask scale the group's premultiplied pixels,
+// Blend then composites them with the backdrop (W3C Compositing and
+// Blending Level 1, on sRGB-encoded values, ADR-007), and the coverage of
+// the clip interpolates between the backdrop and that result.
+//
+// Opacity is in [0, 1] (the Builder clamps). A layer with Opacity 1, SrcOver,
+// no Filters and no Mask is still an isolated group.
 type PushLayer struct {
 	Opacity float32
 	Blend   BlendMode
 	Filters []Filter
+	// Mask, when its List is not nil, multiplies the group's pixels by the
+	// mask's coverage; see Mask.
+	Mask Mask
+}
+
+// MaskMode selects how the pixels of a Mask become coverage.
+type MaskMode uint8
+
+const (
+	// MaskAlpha takes the mask's alpha (CSS mask-mode: alpha). It is the
+	// zero value.
+	MaskAlpha MaskMode = iota
+	// MaskLuminance takes the luminance of the mask's colors times their
+	// alpha (CSS mask-mode: luminance, SVG <mask>): 0.2126 R + 0.7152 G +
+	// 0.0722 B of the premultiplied sRGB-encoded values, like Chromium.
+	MaskLuminance
+)
+
+// String returns "alpha" or "luminance".
+func (m MaskMode) String() string {
+	switch m {
+	case MaskAlpha:
+		return "alpha"
+	case MaskLuminance:
+		return "luminance"
+	}
+	return "MaskMode(?)"
+}
+
+// Mask is painted content used as the mask of a layer (PushLayer.Mask,
+// Builder.PushMaskLayer): List is rendered as an isolated group onto a
+// transparent surface, in the local coordinate space of the PushLayer (its
+// root space is the space where the layer is pushed), and each pixel's
+// coverage is its alpha or its luminance (Mode). The group's pixels are
+// multiplied by that coverage: where the mask paints nothing, the layer
+// shows nothing.
+//
+// Uses: the source of a COLR SrcIn composite masked by its backdrop, and
+// CSS background-clip: text (the backgrounds in a layer masked by the
+// element's glyph runs), CSS mask-image. Unlike a clip, a mask applies to
+// the group as a whole, so overlapping content inside it is not blended
+// twice at the mask's edges.
+//
+// Rasterizers render the mask list whole (it is not culled by the
+// region), not clipped by the clips around the layer, over the pixels the
+// layer composites. It is a backdrop root: backdrop filters in it read the
+// mask's own pixels.
+type Mask struct {
+	List *DisplayList
+	Mode MaskMode
 }
 
 // PopLayer composites the group started by the matching PushLayer.

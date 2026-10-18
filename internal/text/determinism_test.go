@@ -68,6 +68,9 @@ func (d *digest) paint(p gfx.Paint) {
 	case gfx.ConicGradient:
 		d.f32(v.Center.X, v.Center.Y, v.StartAngle)
 		stops(v.Stops)
+	case gfx.FocalGradient:
+		d.f32(v.Focal.X, v.Focal.Y, v.FocalRadius, v.Center.X, v.Center.Y, v.Radius)
+		stops(v.Stops)
 	}
 }
 
@@ -90,6 +93,10 @@ func (d *digest) list(l *gfx.DisplayList) {
 		case gfx.PushLayer:
 			d.f32(v.Opacity)
 			d.f64(float64(v.Blend))
+			if v.Mask.List != nil {
+				d.f64(float64(v.Mask.Mode))
+				d.list(v.Mask.List)
+			}
 		}
 	}
 }
@@ -131,8 +138,8 @@ func outlineDigest(t testing.TB) uint64 {
 }
 
 // colorDigest hashes the display lists of color glyphs: the golden emoji,
-// the emoji that use two-point radial gradients and three flags (blend
-// composites).
+// the emoji that use two-point radial gradients (focal gradients), three
+// flags (blend composites) and the masks of SrcIn composites.
 func colorDigest(t testing.TB) uint64 {
 	f := NewDefaultCollection().Face(Query{Families: []string{"emoji"}}, 64)
 	d := newDigest()
@@ -152,7 +159,7 @@ func colorDigest(t testing.TB) uint64 {
 
 const (
 	wantOutlineDigest uint64 = 0x2d8d5f094f0b0d96
-	wantColorDigest   uint64 = 0x5e5f32fd34bd8708
+	wantColorDigest   uint64 = 0x60aedea938411030
 )
 
 func TestOutlinesDeterministic(t *testing.T) {

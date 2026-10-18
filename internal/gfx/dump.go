@@ -124,6 +124,9 @@ func dumpArgs(sb *strings.Builder, c Command) {
 		if len(c.Filters) > 0 {
 			attr("filters", fmtFilters(c.Filters))
 		}
+		if c.Mask.List != nil {
+			attr("mask", fmt.Sprintf("%s(%d cmds %s)", c.Mask.Mode, c.Mask.List.Len(), fmtRect(c.Mask.List.Bounds())))
+		}
 	case BackdropFilter:
 		attr("rect", fmtRect(c.Shape.Rect))
 		attr("r", fmtRadii(c.Shape))
@@ -239,6 +242,9 @@ func fmtPaint(p Paint) string {
 		return "radial(c=" + fmtPt(p.Center) + " r=" + fmtPt(p.Radius) + " " + p.Interp.String() + " " + fmtStops(p.Stops) + ")"
 	case ConicGradient:
 		return "conic(c=" + fmtPt(p.Center) + " from=" + fmtF(p.StartAngle) + " " + p.Interp.String() + " " + fmtStops(p.Stops) + ")"
+	case FocalGradient:
+		return "focal(f=" + fmtPt(p.Focal) + " fr=" + fmtF(p.FocalRadius) + " c=" + fmtPt(p.Center) + " r=" + fmtF(p.Radius) +
+			" " + p.Interp.String() + " " + fmtStops(p.Stops) + ")"
 	}
 	return "paint(?)"
 }

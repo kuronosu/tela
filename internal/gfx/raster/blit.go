@@ -116,10 +116,11 @@ type blitter struct {
 	a8Stride int
 	a8Origin image.Point
 
-	sh      shader
-	solid   *solidShader // sh, when it is a solid color
-	scratch []uint8      // shadeSpan output for non-solid shaders
-	cmBuf   []uint8      // coverage times clip mask
+	sh       shader
+	solid    *solidShader // sh, when it is a solid color
+	scratch  []uint8      // shadeSpan output for non-solid shaders
+	cmBuf    []uint8      // coverage times clip mask
+	blendBuf []uint8      // blended layer row before the clip interpolates it
 
 	// Cached lookup tables of blendLUT.
 	lut      [4][256]uint8

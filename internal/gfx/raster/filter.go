@@ -143,7 +143,6 @@ func bbox(a, b image.Rectangle) image.Rectangle {
 // this file. The state has been saved; op is the layer's 8-bit opacity.
 func (r *Renderer) pushFilterLayer(i int, c gfx.PushLayer, op uint8) {
 	b := &r.blit
-	st := &r.stack[len(r.stack)-1]
 	bbDev := r.devBounds(r.dl.BoundsAt(i))
 	comp := b.clip.Intersect(bbDev) // the pixels the layer composites onto
 	if comp.Empty() {
@@ -166,9 +165,11 @@ func (r *Renderer) pushFilterLayer(i int, c gfx.PushLayer, op uint8) {
 	in := region.Intersect(bound) // where the content is drawn (inside surf)
 	surf := growXY(comp, rx, ry)
 
+	mask := r.renderMask(c.Mask, comp)
+	st := &r.stack[len(r.stack)-1] // after the mask: rendering it may grow the stack
 	buf := r.getBuf(4 * surf.Dx() * surf.Dy())
 	st.layer, st.pix, st.stride, st.origin, st.surf, st.opacity = true, b.pix, b.stride, b.origin, buf, op
-	st.comp, st.surfRect, st.nf = comp, surf, len(fs)
+	st.comp, st.surfRect, st.nf, st.blend, st.mask = comp, surf, len(fs), c.Blend, mask
 	b.pix, b.stride, b.origin, b.cm = buf, 4*surf.Dx(), surf.Min, clipMask{}
 	b.clip, r.region, r.bound = in, region, bound
 	r.surfBounds = surf

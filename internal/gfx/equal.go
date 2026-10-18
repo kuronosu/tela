@@ -44,7 +44,8 @@ func Equal(a, b Command) bool {
 		return ok && a == b
 	case PushLayer:
 		b, ok := b.(PushLayer)
-		return ok && a.Opacity == b.Opacity && a.Blend == b.Blend && sameSlice(a.Filters, b.Filters)
+		return ok && a.Opacity == b.Opacity && a.Blend == b.Blend && sameSlice(a.Filters, b.Filters) &&
+			a.Mask.Mode == b.Mask.Mode && listEqual(a.Mask.List, b.Mask.List)
 	case BackdropFilter:
 		b, ok := b.(BackdropFilter)
 		return ok && a.Shape == b.Shape && sameSlice(a.Filters, b.Filters)
@@ -79,8 +80,29 @@ func PaintEqual(a, b Paint) bool {
 	case ConicGradient:
 		b, ok := b.(ConicGradient)
 		return ok && a.Center == b.Center && a.StartAngle == b.StartAngle && a.Interp == b.Interp && sameSlice(a.Stops, b.Stops)
+	case FocalGradient:
+		b, ok := b.(FocalGradient)
+		return ok && a.Focal == b.Focal && a.FocalRadius == b.FocalRadius && a.Center == b.Center &&
+			a.Radius == b.Radius && a.Interp == b.Interp && sameSlice(a.Stops, b.Stops)
 	}
 	return false
+}
+
+// listEqual reports whether two lists hold equal commands with equal
+// bounds (the same pointer, or nil for both, is equal).
+func listEqual(a, b *DisplayList) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil || len(a.cmds) != len(b.cmds) {
+		return false
+	}
+	for i := range a.cmds {
+		if a.bounds[i] != b.bounds[i] || !Equal(a.cmds[i], b.cmds[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // sameSlice compares two slices of comparable values, element by element

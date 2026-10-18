@@ -25,7 +25,7 @@ var parallelSplits = []struct{ workers, rows int }{
 // allScenes returns every golden scene and the random scenes of the region
 // tests.
 func allScenes() []scene {
-	all := append(append(append(append([]scene(nil), scenes...), scenes2...), scenes3...), textScenes...)
+	all := append(append(append(append(append([]scene(nil), scenes...), scenes2...), scenes3...), scenes4...), textScenes...)
 	for seed := uint64(1); seed <= 4; seed++ {
 		all = append(all, randomScene(seed, 150, 110))
 	}
@@ -190,21 +190,23 @@ func waitGoroutines(t *testing.T, n int) {
 // its original value, after every worker has stopped, that no goroutine is
 // left behind and that the Renderer keeps working.
 func TestParallelPanic(t *testing.T) {
+	// A font whose color glyph panics: user code that fails in a band.
+	const msg = "raster test: color glyph panics"
+	pf := newTestFont("Panicking")
+	pf.glyphs[gBadge].color = func(*testFont, gfx.Color) *gfx.DisplayList { panic(msg) }
 	cases := []struct {
 		draw func(b *gfx.Builder)
 		want string
 	}{
 		{func(b *gfx.Builder) { // only in the bottom bands
 			b.FillRect(gfx.Rect{X1: 200, Y1: 200}, sky)
-			b.PushLayer(1, gfx.Screen)
-			b.FillRect(gfx.RectXYWH(0, 180, 200, 20), gfx.Black)
-			b.PopLayer()
-		}, "raster: blend mode screen is not implemented until phase 6"},
+			b.DrawGlyphRun(pf.run("*", 16, 20, 196, gfx.Black))
+		}, msg},
 		{func(b *gfx.Builder) { // in every band
-			b.PushLayer(1, gfx.Multiply)
-			b.FillRect(gfx.Rect{X1: 200, Y1: 200}, gfx.Black)
-			b.PopLayer()
-		}, "raster: blend mode multiply is not implemented until phase 6"},
+			for y := float32(10); y < 200; y += 6 {
+				b.DrawGlyphRun(pf.run("*", 8, 20, y, gfx.Black))
+			}
+		}, msg},
 	}
 	good := build(scenes[1].draw)
 	want := image.NewRGBA(image.Rect(0, 0, 200, 200))

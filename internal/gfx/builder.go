@@ -37,15 +37,16 @@ import (
 //     one-pixel margin of their culling covers);
 //   - layers: the union of the content grown by FiltersOutset (3 sigma per
 //     Gaussian, plus the offset of a drop shadow), converted to root space with
-//     Affine.MaxScale, and limited to the clip active at PushLayer. Inside a
-//     layer with filters, the content is limited by that clip grown by the
-//     same reach, since the filters pull content from outside the clip;
+//     Affine.MaxScale, and limited to the clip active at PushLayer and to
+//     the bounds of its mask, if any. Inside a layer with filters, the
+//     content is limited by that area grown by the same reach, since the
+//     filters pull content from outside it;
 //   - everything is intersected with the active clip.
 //
 // # Invalid input and no-op commands
 //
-// Programmer errors (unbalanced pushes, a nil Paint, an unknown BlendMode)
-// panic. Bad VALUES never reach the rasterizer:
+// Programmer errors (unbalanced pushes, a nil Paint, an unknown BlendMode
+// or MaskMode) panic. Bad VALUES never reach the rasterizer:
 //
 //   - A command with a NaN or infinite coordinate, color, parameter or
 //     transform is dropped. A push command with such a value drops its whole
@@ -53,7 +54,8 @@ import (
 //   - Commands that cannot change any pixel are dropped as well: empty
 //     geometry, a fully transparent solid color, a stroke of zero width,
 //     content whose bounds do not meet the active clip, a clip or layer that
-//     can show nothing (empty clip, singular transform, opacity 0), and
+//     can show nothing (empty clip, singular transform, opacity 0, an empty
+//     mask or one outside the clip), and
 //     blocks left empty after their commands were dropped. The indices
 //     returned by DisplayList therefore do not match the number of Builder
 //     calls.
@@ -92,6 +94,7 @@ type frame struct {
 	prevCTM  Affine
 	prevClip Rect
 	reach    float32 // PushLayer: root-space outset of filters
+	visible  Rect    // PushLayer: the clip at PushLayer, cut by the mask's bounds
 }
 
 // NewBuilder returns an empty Builder.
@@ -438,22 +441,63 @@ func (b *Builder) PopTransform() { b.pop(kindTransform, "PopTransform", PopTrans
 // content.
 func (b *Builder) PushLayer(opacity float32, blend BlendMode, filters ...Filter) {
 	b.begin()
+	b.pushLayer("PushLayer", opacity, blend, Mask{}, filters)
+}
+
+// PushMaskLayer starts a group like PushLayer whose pixels are also
+// multiplied by mask (see Mask) before they are composited; it is closed by
+// PopLayer. mask.List is a finished list in the current local space (its
+// root space), for example glyph runs recorded by another Builder. A nil or
+// empty mask list shows nothing: the layer is dropped with its content,
+// like a layer of opacity 0. Content outside the mask's bounds cannot show
+// and is dropped too.
+func (b *Builder) PushMaskLayer(mask Mask, opacity float32, blend BlendMode, filters ...Filter) {
+	b.begin()
+	if mask.Mode > MaskLuminance {
+		panic(fmt.Sprintf("gfx.Builder.PushMaskLayer: unknown MaskMode(%d); use MaskAlpha or MaskLuminance", mask.Mode))
+	}
+	if mask.List == nil || mask.List.Len() == 0 {
+		b.open(kindLayer, "PushMaskLayer", true)
+		return
+	}
+	b.pushLayer("PushMaskLayer", opacity, blend, mask, filters)
+}
+
+func (b *Builder) pushLayer(name string, opacity float32, blend BlendMode, mask Mask, filters []Filter) {
 	if blend > PlusLighter {
-		panic(fmt.Sprintf("gfx.Builder.PushLayer: unknown BlendMode(%d); use the BlendMode constants", blend))
+		panic(fmt.Sprintf("gfx.Builder.%s: unknown BlendMode(%d); use the BlendMode constants", name, blend))
 	}
 	fs, ok := sanitizeFilters(filters)
-	skip := b.suppressed() || !ok || !finite(opacity) || opacity <= 0
-	f := b.open(kindLayer, "PushLayer", skip)
+	if b.suppressed() || !ok || !finite(opacity) || opacity <= 0 {
+		b.open(kindLayer, name, true)
+		return
+	}
+	b.openLayer(name, PushLayer{clamp01(opacity), blend, fs, mask})
+}
+
+// openLayer opens a layer block for a sanitized PushLayer (the Builder
+// methods and AppendList). The block is dropped when nothing in it can
+// show: inside a dropped block, or a mask outside the clip.
+func (b *Builder) openLayer(name string, c PushLayer) {
+	skip := b.suppressed()
+	visible := b.clip
+	if !skip && c.Mask.List != nil {
+		// The layer shows only where the mask paints.
+		visible = visible.Intersect(b.ctm.TransformRect(c.Mask.List.Bounds()))
+		skip = visible.Empty()
+	}
+	f := b.open(kindLayer, name, skip)
 	if skip {
 		return
 	}
-	f.idx = b.recordPush(PushLayer{clamp01(opacity), blend, fs})
-	f.reach = FiltersOutset(fs) * b.ctm.MaxScale()
+	f.idx = b.recordPush(c)
+	f.reach = FiltersOutset(c.Filters) * b.ctm.MaxScale()
+	f.visible = visible
 	b.reach[f.idx] = f.reach
 	// The filters read the content up to reach beyond the clip active at
 	// PushLayer (the clip applies to the filtered result), so content that
 	// lies outside that clip but within reach of it is kept.
-	b.clip = b.clip.Outset(f.reach)
+	b.clip = visible.Outset(f.reach)
 }
 
 // PopLayer closes the innermost block, which must be a PushLayer.
@@ -479,8 +523,9 @@ func (b *Builder) pop(kind stackKind, name string, c Command) {
 	acc := f.acc
 	if kind == kindLayer && !acc.Empty() {
 		// A layer can only paint where its content is, grown by the reach of
-		// its filters, and never outside the clip active at PushLayer.
-		acc = acc.Outset(f.reach).Intersect(f.prevClip)
+		// its filters, and never outside the clip active at PushLayer nor
+		// outside its mask.
+		acc = acc.Outset(f.reach).Intersect(f.visible)
 	}
 	if acc.Empty() {
 		// Everything inside was dropped or invisible: remove the block.

@@ -93,12 +93,12 @@ func absDiff(a, b uint8) int {
 // p0, the gradient runs horizontally from p0 to the projection of p1.
 func TestLinearGradientP2(t *testing.T) {
 	p := newTestPainter(t)
-	paint, emulate := p.simplePaint(tables.PaintLinearGradient{
+	paint := p.simplePaint(tables.PaintLinearGradient{
 		ColorLine: redBlueLine(tables.ExtendPad), X0: 0, Y0: 0, X1: 1024, Y1: 1024, X2: 0, Y2: 512,
 	}, p.cover)
 	g, ok := paint.(gfx.LinearGradient)
-	if !ok || emulate != nil {
-		t.Fatalf("got %T, emulate %v", paint, emulate != nil)
+	if !ok {
+		t.Fatalf("got %T", paint)
 	}
 	if g.Start != (gfx.Point{}) || g.End != (gfx.Point{X: 0.5}) || g.Interp != gfx.InterpSRGB {
 		t.Errorf("gradient line %v -> %v (%v), want (0, 0) -> (0.5, 0) in srgb", g.Start, g.End, g.Interp)
@@ -107,7 +107,7 @@ func TestLinearGradientP2(t *testing.T) {
 		t.Errorf("stops %v", g.Stops)
 	}
 	// Degenerate: p0 == p2.
-	if paint, _ := p.simplePaint(tables.PaintLinearGradient{ColorLine: redBlueLine(tables.ExtendPad), X1: 100}, p.cover); paint != nil {
+	if paint := p.simplePaint(tables.PaintLinearGradient{ColorLine: redBlueLine(tables.ExtendPad), X1: 100}, p.cover); paint != nil {
 		t.Errorf("degenerate gradient painted %v", paint)
 	}
 }
@@ -116,11 +116,11 @@ func TestLinearGradientP2(t *testing.T) {
 // with a non-zero start radius onto gfx's radial gradient.
 func TestRadialConcentric(t *testing.T) {
 	p := newTestPainter(t)
-	paint, emulate := p.simplePaint(tables.PaintRadialGradient{
+	paint := p.simplePaint(tables.PaintRadialGradient{
 		ColorLine: redBlueLine(tables.ExtendPad), X0: 1024, Y0: 0, Radius0: 256, X1: 1024, Y1: 0, Radius1: 1024,
 	}, p.cover)
 	g, ok := paint.(gfx.RadialGradient)
-	if !ok || emulate != nil {
+	if !ok {
 		t.Fatalf("got %T", paint)
 	}
 	if g.Center != (gfx.Point{X: 0.5}) || g.Radius != (gfx.Point{X: 0.5, Y: 0.5}) {
@@ -131,11 +131,44 @@ func TestRadialConcentric(t *testing.T) {
 	if len(g.Stops) != 3 || g.Stops[0].Offset != want[0] || g.Stops[1].Offset != want[1] || g.Stops[2].Offset != want[2] {
 		t.Errorf("stops %v, want offsets %v", g.Stops, want)
 	}
-	// Two-point gradients have no gfx equivalent.
-	if paint, emulate := p.simplePaint(tables.PaintRadialGradient{
+	// Two-point gradients become focal gradients between the circles at
+	// the ends of the color line.
+	fg, ok := p.simplePaint(tables.PaintRadialGradient{
 		ColorLine: redBlueLine(tables.ExtendPad), X0: 100, Radius1: 1024,
-	}, p.cover); paint != nil || emulate == nil {
-		t.Error("a two-point gradient is not emulated")
+	}, p.cover).(gfx.FocalGradient)
+	if !ok || fg.Focal != (gfx.Point{X: 100.0 / 2048}) || fg.FocalRadius != 0 || fg.Center != (gfx.Point{}) || fg.Radius != 0.5 {
+		t.Errorf("two-point gradient: %#v", fg)
+	}
+}
+
+// TestTwoPointRanges checks the circles chosen for color lines that reach
+// beyond the circles of radius 0, and for repeating lines.
+func TestTwoPointRanges(t *testing.T) {
+	p := newTestPainter(t)
+	line := func(ext tables.Extend, t0, t1 float64) tables.ColorLine {
+		return tables.ColorLine{Extend: ext, ColorStops: []tables.ColorStop{
+			{StopOffset: tables.Coord(t0 * 16384), PaletteIndex: 0, Alpha: 1 << 14},
+			{StopOffset: tables.Coord(t1 * 16384), PaletteIndex: 1, Alpha: 1 << 14},
+		}}
+	}
+	// Growing circles, the line starting at t = -1 where r < 0: the focal
+	// circle is moved to the circle of radius 0 (t = -0.5).
+	g := p.simplePaint(tables.PaintRadialGradient{ColorLine: line(tables.ExtendPad, -1, 1),
+		X0: 0, Radius0: 512, X1: 1024, Radius1: 1536}, p.cover).(gfx.FocalGradient)
+	if g.FocalRadius != 0 || g.Focal != (gfx.Point{X: -0.25}) || g.Radius != 0.75 || g.Stops[0].Color.R != 0.75 {
+		t.Errorf("negative start radius: %#v", g)
+	}
+	// Shrinking circles that reach radius 0 before the line's end.
+	g = p.simplePaint(tables.PaintRadialGradient{ColorLine: line(tables.ExtendPad, 0, 1.5),
+		X0: 0, Radius0: 1024, X1: 512, Radius1: 0}, p.cover).(gfx.FocalGradient)
+	if g.Radius != 0 || g.Center != (gfx.Point{X: 0.25}) || g.FocalRadius != 0.5 {
+		t.Errorf("shrinking to radius 0: %#v", g)
+	}
+	// Repeat: unrolled over the range of t of the cover area.
+	g = p.simplePaint(tables.PaintRadialGradient{ColorLine: line(tables.ExtendRepeat, 0, 0.25),
+		X0: 300, Radius0: 0, X1: 0, Radius1: 1024}, p.cover).(gfx.FocalGradient)
+	if len(g.Stops) < 8 {
+		t.Errorf("repeat: %d stops, want the line repeated over the cover", len(g.Stops))
 	}
 }
 
@@ -235,7 +268,7 @@ func TestPaintStructure(t *testing.T) {
 		}, []string{"PushTransform", "PushLayer", "FillPath", "PopLayer", "PopTransform"}},
 		{"src-in glyph mask", func(p *painter) tables.PaintTable {
 			return tables.PaintComposite{CompositeMode: tables.CompositeSrcIn, SourcePaint: solid(0, 1), BackdropPaint: glyphPaint(t, p, 'H', solid(1, 1))}
-		}, []string{"PushTransform", "PushClipPath", "FillRect", "PopClip", "PopTransform"}},
+		}, []string{"PushTransform", "PushLayer", "FillRect", "PopLayer", "PopTransform"}},
 		{"dest-over", func(p *painter) tables.PaintTable {
 			return tables.PaintComposite{CompositeMode: tables.CompositeDestOver, SourcePaint: glyphPaint(t, p, 'O', solid(0, 1)), BackdropPaint: solid(1, 1)}
 		}, []string{"PushTransform", "FillPath", "FillRect", "PopTransform"}},
@@ -264,11 +297,9 @@ func TestPaintStructure(t *testing.T) {
 	}
 }
 
-// TestCompositeExactBlend checks the layer structure used for blend modes
-// once raster implements them (exactBlend).
-func TestCompositeExactBlend(t *testing.T) {
-	defer func(v bool) { exactBlend = v }(exactBlend)
-	exactBlend = true
+// TestCompositeBlend checks the layer structure of blend composites: an
+// isolated group with the backdrop and a layer with the blend mode.
+func TestCompositeBlend(t *testing.T) {
 	p := newTestPainter(t)
 	p.paint(tables.PaintComposite{CompositeMode: tables.CompositeSoftLight,
 		SourcePaint:   tables.PaintSolid{PaletteIndex: 0, Alpha: 1 << 14},
@@ -285,19 +316,44 @@ func TestCompositeExactBlend(t *testing.T) {
 	}
 }
 
-// TestApproxBlend checks the source-over approximation of soft-light.
-func TestApproxBlend(t *testing.T) {
-	if c := approxBlend(gfx.SoftLight, gfx.Color{R: 0.5, G: 0.5, B: 0.5, A: 1}); c.A != 0 {
-		t.Errorf("mid-gray soft-light: %v, want transparent", c)
+// TestCompositeSrcInMask checks that SrcIn with a gradient mask multiplies
+// the source by the mask's alpha: a red fill masked by a glyph filled with
+// a gradient from opaque to transparent.
+func TestCompositeSrcInMask(t *testing.T) {
+	p := newTestPainter(t)
+	fade := tables.ColorLine{ColorStops: []tables.ColorStop{
+		{StopOffset: 0, PaletteIndex: 1, Alpha: 1 << 14},
+		{StopOffset: 1 << 14, PaletteIndex: 1, Alpha: 0},
+	}}
+	o, _ := p.f.GlyphIndex('H')
+	p.paint(tables.PaintComposite{CompositeMode: tables.CompositeSrcIn,
+		SourcePaint: tables.PaintSolid{PaletteIndex: 0, Alpha: 1 << 14},
+		// The mask: 'H' filled from x = 0 (opaque) to x = 2048 units (1 em, transparent).
+		BackdropPaint: tables.PaintGlyph{GlyphID: uint16(o), Paint: tables.PaintLinearGradient{ColorLine: fade, X1: 2048, Y2: 2048}}})
+	l := p.b
+	l.PopTransform()
+	dl := l.Finish()
+	layer, ok := dl.At(1).(gfx.PushLayer)
+	if !ok || layer.Mask.List == nil || layer.Mask.Mode != gfx.MaskAlpha {
+		t.Fatalf("command 1 is %v, want a layer with an alpha mask", dl.At(1))
 	}
-	if c := approxBlend(gfx.SoftLight, gfx.White.WithAlpha(0.5)); c.R != 1 || c.A != 0.05 {
-		t.Errorf("white soft-light: %v, want white at 5%%", c)
+	img := image.NewRGBA(image.Rect(0, 0, 200, 200))
+	raster.Clear(img, image.Rectangle{}, gfx.White)
+	raster.Render(img, dl, raster.Options{})
+	// Inside the left stem of 'H' (x about 0.15 em) the red is nearly
+	// opaque; outside the glyph nothing is painted.
+	var stem, out [4]uint8
+	for x := 100; x < 160; x++ {
+		i := img.PixOffset(x, 70)
+		if img.Pix[i+1] < 100 { // red, not white
+			copy(stem[:], img.Pix[i:i+4])
+			break
+		}
 	}
-	if c := approxBlend(gfx.SoftLight, gfx.Black); c.R != 0 || c.A != 0.1 {
-		t.Errorf("black soft-light: %v, want black at 10%%", c)
-	}
-	if c := approxBlend(gfx.Multiply, gfx.White); c != gfx.White {
-		t.Errorf("multiply: %v, want the color unchanged", c)
+	i := img.PixOffset(195, 195)
+	copy(out[:], img.Pix[i:i+4])
+	if stem[0] != 255 || stem[1] > 80 || out != [4]uint8{255, 255, 255, 255} {
+		t.Errorf("stem %v (want red, mostly opaque), outside %v (want white)", stem, out)
 	}
 }
 

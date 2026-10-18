@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+html, body { margin: 0; padding: 0; overflow: hidden; background: #fff; }
+canvas { display: block; width: 600px; height: 300px; }
+</style></head><body><canvas id="c"></canvas>
+<script>
+const cells = [
+[0, 0, -30, -25, 0, 0, 0, 60, 1, ["rgb(245.000 158.000 11.000 / 1.000)", "rgb(244.000 63.000 94.000 / 1.000)", "rgb(99.000 102.000 241.000 / 1.000)"]],
+[150, 0, 20, 10, 15, 0, 0, 65, 1, ["rgb(14.000 165.000 233.000 / 1.000)", "rgb(16.000 185.000 129.000 / 1.000)", "rgb(15.000 23.000 42.000 / 1.000)"]],
+[300, 0, 60, 0, 0, 0, 0, 60, 1, ["rgb(132.000 204.000 22.000 / 1.000)", "rgb(14.000 165.000 233.000 / 1.000)", "rgb(99.000 102.000 241.000 / 1.000)"]],
+[450, 0, -45, 0, 10, 30, 0, 30, 1, ["rgb(244.000 63.000 94.000 / 1.000)", "rgb(245.000 158.000 11.000 / 1.000)", "rgb(132.000 204.000 22.000 / 1.000)"]],
+[0, 150, 0, 0, 20, 0, 0, 60, 1, ["rgb(99.000 102.000 241.000 / 1.000)", "rgb(245.000 158.000 11.000 / 1.000)", "rgb(244.000 63.000 94.000 / 1.000)"]],
+[150, 150, -30, 0, 25, 30, 0, 25, 1, ["rgb(16.000 185.000 129.000 / 1.000)", "rgb(192.000 38.000 211.000 / 1.000)"]],
+[300, 150, -30, -25, 0, 0, 0, 60, 0.6, ["rgb(245.000 158.000 11.000 / 1.000)", "rgb(244.000 63.000 94.000 / 1.000)", "rgb(99.000 102.000 241.000 / 1.000)"]],
+[450, 150, 0, 0, 60, 20, -10, 5, 1, ["rgb(15.000 23.000 42.000 / 1.000)", "rgb(14.000 165.000 233.000 / 1.000)", "rgb(255.000 255.000 0.000 / 1.000)"]]
+];
+const dpr = window.devicePixelRatio, cv = document.getElementById("c");
+cv.width = 600 * dpr; cv.height = 300 * dpr;
+const ctx = cv.getContext("2d");
+ctx.scale(dpr, dpr);
+for (const [x, y, fx, fy, fr, cx, cy, r, sy, cols] of cells) {
+  const ox = x + 75, oy = y + 75;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, 150, 150); ctx.clip();
+  ctx.translate(ox, oy); ctx.scale(1, sy); ctx.translate(-ox, -oy);
+  const g = ctx.createRadialGradient(ox + fx, oy + fy, fr, ox + cx, oy + cy, r);
+  cols.forEach((c, i) => g.addColorStop(i / (cols.length - 1), c));
+  ctx.fillStyle = g;
+  ctx.fillRect(x, oy - 75 / sy, 150, 150 / sy);
+  ctx.restore();
+}
+</script></body></html>
