@@ -12,6 +12,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Fractional scaling on Wayland (`wp_fractional_scale_v1` + `wp_viewporter`): windows render at the compositor's exact scale (1.25, 1.5, 1.75…) instead of a rounded-up integer one, with pixel-shifting scroll frames at fractional scales as at integer ones.
+- All CSS blend modes in the renderer (the 16 `mix-blend-mode` modes plus `plus-lighter`), mask layers and two-point (focal) radial gradients; color emoji now composite exactly (flags went from up to 3.7 to under 1.7 mean levels against Chromium).
+
+### Fixed
+
+- Text selection highlights and scrollbar thumbs snap to device pixels, so selected lines no longer show a light seam at fractional scales (the 1x and 2x selection edges now match Chromium).
+
 ## [0.5.2] - 2026-10-14
 
 ### Added
