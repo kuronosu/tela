@@ -702,7 +702,7 @@ fmt.Println("damping 10:", springEnd(tela.Stiffness(400), tela.Damping(10)))
 func Duration(d time.Duration) AnimationOption
 ```
 
-Duration sets how long a tween takes, or, for a spring ([`UseSpring`](#func-usespring), or inside [`Spring`](#func-spring)), the time a spring found from it settles in (Motion's duration/bounce springs; it ends no earlier). A Duration of 0 jumps to the target.
+Duration sets how long a tween takes, or, for a spring ([`UseSpring`](#func-usespring), or inside [`Spring`](#func-spring)), the time a spring found from it settles in (Motion's duration/bounce springs; it ends no earlier). A Duration of 0 jumps to the target: the value is stored at once, a tween's or a spring's, and an [`OnDone`](#func-ondone) is queued right after, as for any target that applies at once.
 
 **Example**
 
@@ -738,7 +738,7 @@ fmt.Println("steps:", springEnd(tela.Duration(time.Second), tela.Ease("steps(4, 
 func OnDone(fn func()) AnimationOption
 ```
 
-OnDone calls fn when the animation comes to rest at its target: once, on the UI thread, queued with the state updates like [`Post`](#func-post), so it runs before the next build and state it sets is built in the frame that shows the target. It is not called when the animation is interrupted: by another Animate, Set or Update of the Value, by a new target of [`UseSpring`](#func-usespring) or [`UseTween`](#func-usetween), or by the unmount of the Value's component. When the target applies at once (reduced motion, a tree that no frame clock drives, a value already at its target and at rest, a NaN target) fn is queued right after it applies. For UseSpring and UseTween it is the OnDone of the build that set the target that runs.
+OnDone calls fn when the animation comes to rest at its target: once, on the UI thread, queued with the state updates like [`Post`](#func-post), so it runs before the next build and state it sets is built in the frame that shows the target. It is not called when the animation is interrupted: by another Animate, Set or Update of the Value, by a new target of [`UseSpring`](#func-usespring) or [`UseTween`](#func-usetween), or by the unmount of the Value's component. When the target applies at once (reduced motion, a tree that no frame clock drives, [`Duration`](#func-duration)(0), a value already at its target and at rest, a NaN target) fn is queued right after it applies. For UseSpring and UseTween it is the OnDone of the build that set the target that runs.
 
 ```go
 tela.Animate(x, 0, tela.Spring(), tela.OnDone(func() { setOpen.Set(false) }))

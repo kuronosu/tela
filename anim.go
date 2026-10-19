@@ -146,7 +146,8 @@ func Bounce(b float64) AnimationOption { return core.Bounce(b) }
 // Duration sets how long a tween takes, or, for a spring ([UseSpring], or
 // inside [Spring]), the time a spring found from it settles in (Motion's
 // duration/bounce springs; it ends no earlier). A Duration of 0 jumps to
-// the target.
+// the target: the value is stored at once, a tween's or a spring's, and an
+// [OnDone] is queued right after, as for any target that applies at once.
 func Duration(d time.Duration) AnimationOption { return core.Duration(d) }
 
 // Ease sets the easing curve of a tween, a CSS <easing-function>: one of
@@ -165,9 +166,9 @@ func Ease(css string) AnimationOption { return core.Ease(css) }
 // by another Animate, Set or Update of the Value, by a new target of
 // [UseSpring] or [UseTween], or by the unmount of the Value's component.
 // When the target applies at once (reduced motion, a tree that no frame
-// clock drives, a value already at its target and at rest, a NaN target)
-// fn is queued right after it applies. For UseSpring and UseTween it is
-// the OnDone of the build that set the target that runs.
+// clock drives, [Duration](0), a value already at its target and at rest,
+// a NaN target) fn is queued right after it applies. For UseSpring and
+// UseTween it is the OnDone of the build that set the target that runs.
 //
 //	tela.Animate(x, 0, tela.Spring(), tela.OnDone(func() { setOpen.Set(false) }))
 //

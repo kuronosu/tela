@@ -39,7 +39,9 @@ import (
 //
 // With reduced motion, or in a tree that no frame clock drives (Render),
 // a new target is applied at once and running animations jump to their
-// targets: no frames are spent. An animation that ends, or comes to rest,
+// targets: no frames are spent. So is a target animated with Duration(0),
+// a tween's or a spring's (which SpringForDuration would otherwise clamp
+// to 10 ms). An animation that ends, or comes to rest,
 // leaves the ticker, so an app is idle once its Values stop moving.
 
 // Point is a point in logical pixels (tela.Point).
@@ -102,7 +104,7 @@ func Damping(c float64) AnimOption { return AnimOption{&animOpt{kind: optDamping
 func Bounce(b float64) AnimOption { return AnimOption{&animOpt{kind: optBounce, f: b}} }
 
 // Duration sets the duration of a tween, or of a spring defined by its
-// duration.
+// duration. Duration(0) applies the target at once.
 func Duration(d time.Duration) AnimOption { return AnimOption{&animOpt{kind: optDuration, d: d}} }
 
 // Ease sets the easing curve of a tween from a CSS <easing-function>.
@@ -191,6 +193,8 @@ type motionOpts struct {
 	onDone func()
 	vel    anim.Vec
 	hasVel bool
+	// instant: Duration(0), the target applies at once.
+	instant bool
 }
 
 // resolveMotion turns the options of hook, animating a Value of type typ,
@@ -299,6 +303,7 @@ func (t *Tree) resolveMotion(hook string, mode animMode, typ string, opts []Anim
 			curve = anim.Ease
 		}
 		m.spec = anim.MotionSpec{Duration: d, Curve: curve}
+		m.instant = d == 0
 		return m
 	}
 	if curve != nil {
@@ -349,6 +354,13 @@ func (t *Tree) resolveMotion(hook string, mode animMode, typ string, opts []Anim
 		} else if math.IsNaN(b) || math.IsInf(b, 0) {
 			problem("Bounce(%v): the bounce must be a number, from 0 (no bounce) toward 1 (very bouncy)", b)
 			b = defaultBounce
+		}
+		if d == 0 {
+			// Duration(0) jumps to the target (SpringForDuration would
+			// clamp it to a 10 ms spring).
+			m.spec = anim.MotionSpec{Spring: true, Physics: anim.DefaultSpring()}
+			m.instant = true
+			return m
 		}
 		// SpringForDuration clamps the duration to Motion's 10 ms to 10 s.
 		md := min(max(d, 10*time.Millisecond), 10*time.Second)
@@ -462,8 +474,9 @@ func animateTo[T Animatable](v *Value[T], target T, m motionOpts) {
 	if !v.el.mounted {
 		return
 	}
-	if !t.anim.driven || t.cx.ReducedMotion {
-		// No clock (Render) or reduced motion: the target at once.
+	if !t.anim.driven || t.cx.ReducedMotion || m.instant {
+		// No clock (Render), reduced motion or Duration(0): the target
+		// at once.
 		v.stopAnim()
 		v.storeUI(target)
 		t.doneLater(m.onDone)
@@ -641,10 +654,17 @@ func useMotion[T Animatable](kind hookKind, mode animMode, initial, target T, op
 		s = &motionSlot[T]{v: newValue(el, initial), target: initial}
 		el.hooks = append(el.hooks, s)
 	}
-	m := el.tree.resolveMotion(kind.String(), mode, typeName[T](), opts)
-	if !sameValue(target, s.target) {
-		s.target = target
-		animateTo(s.v, target, m)
+	// The options are only used when the target changes, so they are
+	// resolved then (a spring defined by its duration solves for its
+	// physics). Dev mode resolves them on every build, so that a mistake
+	// panics on the build that makes it even while the target holds.
+	changed := !sameValue(target, s.target)
+	if changed || el.tree.dev {
+		m := el.tree.resolveMotion(kind.String(), mode, typeName[T](), opts)
+		if changed {
+			s.target = target
+			animateTo(s.v, target, m)
+		}
 	}
 	return s.v
 }

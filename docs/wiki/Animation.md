@@ -190,7 +190,7 @@ two frames starts at the next one.
 |---|---|---|
 | [`tela.Stiffness`](https://pkg.go.dev/github.com/kuronosu/tela#Stiffness)(k), [`tela.Damping`](https://pkg.go.dev/github.com/kuronosu/tela#Damping)(c) | springs | The spring's physics (defaults 100 and 10, Motion's). `Damping(2*sqrt(k))` does not overshoot |
 | [`tela.Bounce`](https://pkg.go.dev/github.com/kuronosu/tela#Bounce)(b) | springs | A spring by its bounciness, 0 to 1 (with `Duration`, default 800 ms) |
-| [`tela.Duration`](https://pkg.go.dev/github.com/kuronosu/tela#Duration)(d) | both | A tween's duration (default 300 ms), or a spring's (default bounce 0.3) |
+| [`tela.Duration`](https://pkg.go.dev/github.com/kuronosu/tela#Duration)(d) | both | A tween's duration (default 300 ms), or a spring's (default bounce 0.3); 0 applies the target at once |
 | [`tela.Ease`](https://pkg.go.dev/github.com/kuronosu/tela#Ease)(css) | tweens | A CSS easing: `linear`, `ease` (the default), `ease-in`, `ease-out`, `ease-in-out`, `step-start`, `step-end`, `cubic-bezier(...)`, `steps(...)` |
 | [`tela.Velocity`](https://pkg.go.dev/github.com/kuronosu/tela#Velocity)(v) | springs | The initial velocity, in the value's units per second, per component (not for colors); it replaces the velocity of an interrupted animation |
 | [`tela.Spring`](https://pkg.go.dev/github.com/kuronosu/tela#Spring)(opts...) | `Animate` | Makes it a spring with these options |
