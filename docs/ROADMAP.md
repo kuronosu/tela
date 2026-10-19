@@ -6,7 +6,7 @@
 
 ## Current status
 
-- **Phase in progress:** 6 (advanced CSS and animation), plan approved 2026-10-18. Done and merged: T1 grid (ADR-073), T4 `internal/anim`, CSS transitions and `animate-*` (ADR-076), T2 blend modes/masks/focal gradients (ADR-074), T3 Wayland fractional scaling (ADR-075; live check at a fractional monitor scale pending the owner's consent). Running in worktrees: T5 fast blur, T6 core effects, T7 animation hooks and Presence, T8 fixed/sticky/Portal/color scheme. The laptop shut down twice from overheating on 2026-10-18 while five agents ran; work in the worktrees survived. Phase 5 is tagged `v0.5.0` (8a4bf5d), with CI fixes in `v0.5.1` and docs plus `examples/native` in `v0.5.2`; phase 4 `v0.4.0` (9243106).
+- **Phase in progress:** 6 (advanced CSS and animation), plan approved 2026-10-18. Done and merged: T1 grid (ADR-073), T6 core effects (ADR-079), T7 animation hooks and Presence (ADR-080, follow-up T7b ADR-082), T8 fixed/sticky/Portal/color scheme (ADR-077), T4 `internal/anim`, CSS transitions and `animate-*` (ADR-076), T2 blend modes/masks/focal gradients (ADR-074), T3 Wayland fractional scaling (ADR-075; live check at a fractional monitor scale pending the owner's consent). Running in worktrees: T5 fast blur and T9 layout animations (both done, being rebased onto main). The laptop shut down twice from overheating on 2026-10-18 while five agents ran; work in the worktrees survived. Phase 5 is tagged `v0.5.0` (8a4bf5d), with CI fixes in `v0.5.1` and docs plus `examples/native` in `v0.5.2`; phase 4 `v0.4.0` (9243106).
 - **Phase 4 done** (2026-10-13): the §1 `Counter` is interactive by mouse and keyboard, live on Wayland and X11 and through `telatest`; scrolling at 800×600 logical x2, p95 frame time with raster over 1200 scripted frames is 2.28 ms for a 100,000-row `VirtualList` and 2.58 ms for a 10,000-row plain list (target ≤ 16 ms); live in a 2832×1692 window the `fps` overlay reads 6.5 ms (VirtualList) and 8.5 ms (plain list) per frame. Windows after interactive scrolling are pixel-identical to `tela snapshot` on Wayland and X11; 0 idle CPU; arm64 (qemu) and Wine pass. A `/code-review high` of the phase found 7 issues (worst: X11 `XI_DeviceChanged` decoded at the wrong offsets, with a test that shared the mistake); all fixed with regression tests.
 - **Phase 4 delivered:** a shared platform event loop and `KeyEvent` with W3C names (ADR-050); hooks with comparable handles (`Setter`, `Dispatcher`, `Callback`, `Ref`, `ElementRef`), `deps ...any`, `C`/`CP`/`Memo` skipping, `Post`, dev hook-order checks (ADR-051); `UseValue` with phase-deferred reads (ADR-053); a pure-Go XKB subset checked against libxkbcommon, Wayland keyboard with Compose and client-side repeat (ADR-052); vendored xgb, XInput2 scrolling and the X11 keyboard (ADR-054); DOM pointer events with a Flutter gesture arena and interaction variants (ADR-055); focus, Tab order and keyboard dispatch (ADR-056); scrolling with viewport scrolling, overlay/classic scrollbars, smooth wheel and kinetic touchpad (ADR-057); a semantics tree and Playwright aria snapshots, `tela inspect --aria` by default (ADR-058); `telatest` and a public headless entry point, so the CLI works outside the tela module (ADR-059); `h.VirtualList` (ADR-060); layers as cached display lists with exact damage and pixel shifts (ADR-061); debug overlays (ADR-062); five example screens (`dashboard`, `pricing`, `settings`, `player`, `board`) plus `virtuallist`. The race detector is allowed for verification only (AGENTS.md); `staticcheck` is clean and part of the checks.
 - **Phase 4 known limitations:** classic scrollbar gutters square off rounded corners; positioned descendants can paint over overlay scrollbars; no `sticky`; X11 has no touchpad fling (no gesture-end signal); gradients and images in scrolled content are re-rasterized on scroll (`examples/shapes` stays ~180 ms per frame at x2); a plain 10k-row list peaks at ~840 MB RSS after mounting ~90k elements; hit-testing got ~20% slower with scroll spaces (4.2 µs on 10k); X11 multi-layout AltGr levels are approximate (core mapping, ADR-054); `telatest` cannot isolate `tela.Post` between parallel tests; `Type` produces no text until phase 5's inputs.
@@ -111,16 +111,16 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 ### Phase 6: Advanced CSS and animation
 
 - [x] Full grid (port Taffy grid fixtures) (T1)
-- [ ] `fixed` and `sticky` positioning
-- [ ] Animation:
+- [x] `fixed` and `sticky` positioning (T8)
+- [x] Animation:
   - [x] Transitions (`transition`, `duration-*`, `ease-*`) (T4)
-  - `UseAnimation`, `UseSpring`, `Presence`
+  - [x] `UseSpring`, `UseTween`, `Animate`, `Presence` (T7; `UseAnimation` became `UseTween`/`Animate` by the owner's choice)
   - [x] `animate-*` classes (T4)
 - [ ] Layout animations: `AnimateLayout`, `LayoutID`
-- [ ] Effects (blend modes in the rasterizer done in T2): `backdrop-filter`, `filter`, `mix-blend-mode`, basic `clip-path`, full transforms
-- [ ] Background images (`bg-[url(...)]`, `bg-cover`/`contain`, position) and `bg-clip-text` (gradient text)
-- [ ] Portal layer, z-index and stacking contexts
-- [ ] Responsive breakpoints, `dark:`, `motion-reduce:`
+- [x] Effects (T2 raster blend modes, T6 core; transforms stay 2D by the owner's choice): `backdrop-filter`, `filter`, `mix-blend-mode`, basic `clip-path`, full transforms
+- [x] Background images (`bg-[url(...)]`, `bg-cover`/`contain`, position) and `bg-clip-text` (gradient text)
+- [x] Portal layer, z-index and stacking contexts (T8; z-index and stacking contexts since phase 3)
+- [x] Responsive breakpoints, `dark:`, `motion-reduce:` (variants since phases 3–4; T4 reduced motion, T8 color scheme API)
 - [x] Wayland fractional scaling (live check at a fractional monitor scale pending)
 
 **Done when:** a "dashboard" example with glassmorphism, layout animations and transitions runs at 60 fps at 1080p on CPU rendering.
@@ -166,3 +166,4 @@ One line per session: date, what was done, what is pending.
 - **2026-10-18:** phase 6 planned and approved (T1–T10, API decisions up front). T2 (blend modes, masks, focal gradients; exact COLR emoji) and T3 (Wayland fractional scaling, grid-snapped translations, snapped selections/scrollbars) verified and merged; T1, T4, T5, T6, T8 running in parallel worktrees.
 - **2026-10-18:** T4 (`internal/anim`, CSS transitions, `animate-*`, reduced motion; ADR-076) verified (incl. arm64) and merged. Two thermal shutdowns interrupted the agents; T1, T8 resumed from their worktrees, T5, T6 restarted, T7 started. Open owner question from T4: a public way to snapshot mid-transition in `telatest`.
 - **2026-10-18:** T1 grid (Taffy port, 553/553 included grid fixtures and 630/630 flex fixtures match Chromium; ADR-073) verified (incl. arm64) and merged. Follow-ups: `grid-template-areas` unreachable from classes (no Tailwind utility); typed grid `Style` props would be a public-API decision.
+- **2026-10-18:** owner paused work 17:12–19:52. Merged after verification (build, vet, staticcheck, tests, cross-builds, race, arm64): T7 (ADR-080), T8 (ADR-077; rebased by its agent, then onto T7 by the main session), T6 (ADR-079), T7b `OnDone`/`Velocity`/`BgFn`/`TextColorFn` (ADR-082; a `text/paint.go` conflict with T6 resolved). Owner decisions: `telatest.NoSettle`, T7b API, layout default spring 500/25 (Motion's own default is a 450 ms tween). Task board kept in `TASKS.local.md`.

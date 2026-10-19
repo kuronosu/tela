@@ -15,12 +15,22 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Added
 
 - Fractional scaling on Wayland (`wp_fractional_scale_v1` + `wp_viewporter`): windows render at the compositor's exact scale (1.25, 1.5, 1.75…) instead of a rounded-up integer one, with pixel-shifting scroll frames at fractional scales as at integer ones.
+- `fixed` positioning (to the window, or to a transformed/filtered ancestor, as in browsers) and `sticky` positioning (stuck and pushed out within scroll containers, the window and `VirtualList` section headers), matched against Chromium.
+- `h.Portal(...)`: content shown above the window's content (modals, menus, tooltips) while state, context and event bubbling follow the component tree.
+- Color scheme: `tela.UseColorScheme()`, `tela.UseReducedMotion()`, `tela.SetColorScheme(tela.Light|tela.Dark|tela.System)`, `App.ColorScheme` and `telatest.ColorScheme(...)`; `dark:` follows the app's choice, else the system's.
+- Explicit animations: `tela.UseSpring`, `tela.UseTween` and `tela.Animate` drive a `*tela.Value[T]` (`float32`, `Color`, `Point`, `Size`, `Rect`) without rebuilding, with `Stiffness`, `Damping`, `Bounce`, `Duration`, `Ease`, `Spring`, `Velocity` and `OnDone` options; new `tela.Point` and `tela.Size`.
+- Enter and exit animations: the `starting:` variant (CSS `@starting-style`), `h.Presence` with `h.Exit(classes)`, and `tela.UsePresence()` for manual exits; `examples/motion`.
+- `telatest.NoSettle()` captures frames mid-transition after `Advance`.
+- Deferred color props `tela.BgFn` and `tela.TextColorFn`: animated colors repaint without rebuilding.
+- `mix-blend-*` and `bg-blend-*`, `[clip-path:…]` with `inset()`, `circle()`, `ellipse()` and `polygon()` (clips painting and hit-testing; transitions with `transition-[clip-path]`), background images from files registered with `tela.Assets(fs.FS)` (`bg-[url(img/hero.jpg)]`, PNG, JPEG, GIF, WebP) or `Style(tela.BgImage(img))` with size, position, repeat, origin and clip, and `bg-clip-text` gradient and image text; matched against Chromium in 62 cells.
 - CSS grid: `grid`/`inline-grid` with fixed, `%`, `fr`, `auto`, `min-content`, `max-content`, `minmax()`, `fit-content()` and `repeat()` tracks (incl. `auto-fill`/`auto-fit`), auto and dense placement, spans, named lines (`grid-cols-[[sidebar]_200px_[main]_1fr]`, `col-[main]`), implicit tracks, gaps and alignment; Tailwind v4's `col-N`/`row-N`. All 553 included Taffy grid fixtures match Chromium.
 - CSS transitions and animations: `transition`, `duration-*`, `ease-*` and `delay-*` animate colors, opacity, transforms, shadows, filters, sizes and spacing when state, classes or the environment change (CSS Transitions semantics, matched against Chromium); `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce`; reduced motion ends transitions at once. Transform and opacity animations repaint without rebuilding or relayout, and no frames are requested once they end.
 - All CSS blend modes in the renderer (the 16 `mix-blend-mode` modes plus `plus-lighter`), mask layers and two-point (focal) radial gradients; color emoji now composite exactly (flags went from up to 3.7 to under 1.7 mean levels against Chromium).
 
 ### Fixed
 
+- An absolutely positioned box inside a transformed, filtered or backdrop-filtered ancestor is now positioned against that ancestor, as in browsers.
+- Color emoji in transparent or translucent text now disappear or fade like the text, as in Chromium.
 - Text selection highlights and scrollbar thumbs snap to device pixels, so selected lines no longer show a light seam at fractional scales (the 1x and 2x selection edges now match Chromium).
 
 ## [0.5.2] - 2026-10-14
