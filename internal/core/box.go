@@ -86,6 +86,9 @@ type Box struct {
 	// isPeer report the marker classes group and peer (input.go).
 	stateUse, groupUse, peerUse style.StateFlags
 	isGroup, isPeer             bool
+	// startingUse reports starting: rules: a box that starts being
+	// rendered transitions from its starting style (anim.go).
+	startingUse bool
 
 	// built reports that the box's own structure (kids or paragraph) is
 	// current: it is a block-level or flex-level box, not inline content.

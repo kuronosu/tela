@@ -72,6 +72,13 @@ type Element struct {
 	// fscope is the focus scope of a primitive with FocusScope (focus.go).
 	fscope *focusScope
 
+	// Presence (presence.go): pchild is the state of a child of a
+	// Presence (its UsePresence components, its exit); inert marks the
+	// subtree of an exiting child (no hit testing, focus or semantics);
+	// exitOn marks a primitive whose Exit classes apply.
+	pchild        *presenceChild
+	inert, exitOn bool
+
 	mounted    bool
 	needsBuild bool // a component whose state or context changed
 	// dirtyKids marks the ancestors of a component marked needsBuild, so
@@ -454,6 +461,10 @@ func (t *Tree) update(el *Element, n Node) {
 			t.updateProvider(el, n)
 			return
 		}
+		if d.comp.presence {
+			t.updatePresence(el, n)
+			return
+		}
 		if !el.needsBuild && (old == d || canSkip(el.comp, d.comp)) {
 			// Automatic skipping (ARCHITECTURE section 7): the same node,
 			// or equal props, and no state or context change. The new
@@ -493,6 +504,7 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 	el := &Element{
 		tree: t, parent: parent, depth: parent.depth + 1, node: e.n,
 		scope: e.scope, sub: e.sub, key: e.key, keyed: e.keyed, mounted: true,
+		inert: parent.inert,
 	}
 	t.stats.Mounts++
 	switch d.kind {
@@ -528,6 +540,10 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		el.comp = d.comp
 		if d.comp.ctx != nil {
 			t.mountProvider(el)
+			break
+		}
+		if d.comp.presence {
+			t.mountPresence(el)
 			break
 		}
 		if t.dev && d.comp.anon != nil {

@@ -42,7 +42,9 @@
 // is logged, and actions then run only a few frames.
 //
 // [App.Advance] moves the clock by hand: it is how a test waits for a
-// long-press timer, an animation or a fade.
+// long-press timer, an animation or a fade. To capture the frames of an
+// animation, mount with [NoSettle]: actions and screenshots then leave
+// running animations where they are, and only Advance moves them.
 //
 // The expectations ([App.ExpectText], [App.ExpectNoText], [App.ExpectRole],
 // [App.ExpectCount], [App.ExpectFocused], [App.ExpectValue] and

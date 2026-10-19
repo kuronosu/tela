@@ -154,7 +154,7 @@ func (a *App) Count(l Locator) int {
 func (a *App) pointer(act platform.PointerAction, p platform.Point, button platform.PointerButton, buttons platform.Buttons) {
 	a.tb.Helper()
 	a.win.Inject(platform.PointerEvent{Action: act, Pos: p, Button: button, Buttons: buttons})
-	a.settle()
+	a.settleAfter()
 }
 
 // moveTo moves the pointer, unless it is already there.
@@ -215,7 +215,7 @@ func (a *App) Click(l Locator, opts ...ClickOption) {
 	a.down()
 	if cfg.delay > 0 {
 		a.advance(cfg.delay)
-		a.settle()
+		a.settleAfter()
 	}
 	a.up()
 }
@@ -255,7 +255,7 @@ func (a *App) Focus(l Locator) {
 		}
 		a.fatalf("cannot focus %s: %v", describeNode(n), err)
 	}
-	a.settle()
+	a.settleAfter()
 }
 
 // Scroll moves the pointer to the center of the element l locates and
@@ -268,7 +268,7 @@ func (a *App) Scroll(l Locator, dx, dy float32) {
 	_, p := a.target(l, "scroll", false)
 	a.moveTo(p)
 	a.win.Inject(platform.ScrollEvent{Pos: p, Delta: platform.Point{X: dx, Y: dy}})
-	a.settle()
+	a.settleAfter()
 }
 
 // MouseMove moves the pointer to (x, y), in logical pixels from the window's

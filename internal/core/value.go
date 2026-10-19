@@ -129,6 +129,9 @@ type Value[T any] struct {
 	// Latest. The UI thread removes an operation when it commits it.
 	pmu  sync.Mutex
 	pend []valueOp[T]
+	// anim is the running animation of the Value (Animate, UseSpring,
+	// UseTween; valueanim.go), nil when none (UI thread).
+	anim valueAnimator
 }
 
 // valueOp is a queued change of a Value: a new value (f nil) or a
@@ -222,6 +225,8 @@ func (v *Value[T]) applyPending() bool {
 	}
 	op := v.pend[0]
 	v.pmu.Unlock()
+	// A Set or Update interrupts an animation of the Value.
+	v.stopAnim()
 	// Outside the lock, so that f may call Latest; only the UI thread
 	// changes cur.
 	p := new(T)
@@ -277,6 +282,7 @@ func (v *Value[T]) store(p *T) bool {
 // unmount removes the subscriptions to the Value when its component
 // unmounts; queued updates of it are dropped (ApplyUpdates).
 func (v *Value[T]) unmount(*Tree) {
+	v.stopAnim()
 	for _, s := range v.subs {
 		s.obs.removeSub(s)
 		s.vidx = -1

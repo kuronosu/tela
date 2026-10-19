@@ -146,6 +146,10 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 		}
 	}
 	t := NewTree(cfg)
+	// The frame clock drives the tree from its first frame on, so the
+	// animations its first builds start (UseSpring) wait for it instead
+	// of jumping to their targets as in a tree without a clock (Render).
+	t.anim.driven = true
 	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog)}
 	t.SetWake(b.Wake)
 	t.SetClipboard(b.Clipboard())

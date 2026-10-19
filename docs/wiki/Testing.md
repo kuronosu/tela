@@ -201,6 +201,29 @@ func LongPress() tela.Node {
 
 [`App.Now`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Now) returns the clock.
 
+### Capturing an animation
+
+Actions settle the app, so a screenshot after `Click` shows the end of the
+transitions it started. To look at the frames in between, mount with
+[`telatest.NoSettle`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#NoSettle): the events of an action, and `Screenshot` and `Golden`,
+then handle only the work due (state updates and the frames they ask for)
+and leave running transitions and animations where they are; the clock moves
+with `Advance`.
+
+```go
+func TestDialogEntrance(t *testing.T) {
+	app := telatest.Mount(t, tela.C(Dialog), telatest.NoSettle())
+	app.Click(telatest.ByRole("button", "Open"))
+	app.Advance(100 * time.Millisecond)
+	app.Golden("dialog_100ms.png") // 100 ms into the entrance
+}
+```
+
+Actions still wait for their target and settle the app before acting, and
+expectations, `AriaSnapshot`, `Count`, `Stats` and `Cursor` still settle it,
+so the animations an earlier step started end before the next action. See
+[Animation](Animation) for what animates.
+
 ## Goldens
 
 [`App.Golden`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Golden) compares the window's pixels with `testdata/<name>` next

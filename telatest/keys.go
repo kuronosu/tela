@@ -274,5 +274,5 @@ func (a *App) pressKeyDef(name string) {
 func (a *App) sendKey(e platform.KeyEvent) {
 	a.tb.Helper()
 	a.win.Inject(e)
-	a.settle()
+	a.settleAfter()
 }

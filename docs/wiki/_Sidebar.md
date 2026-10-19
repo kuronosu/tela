@@ -9,6 +9,7 @@
 - [Elements and Props](Elements-and-Props)
 - [Forms and Text Input](Forms-and-Text-Input)
 - [Scrolling and VirtualList](Scrolling-and-VirtualList)
+- [Animation](Animation)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)

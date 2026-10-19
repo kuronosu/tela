@@ -76,9 +76,10 @@ import (
 // animState is the animation state of a Tree.
 type animState struct {
 	tk anim.Ticker
-	// driven reports that Animate was called: frames carry a clock, so
-	// transitions run.
-	driven bool
+	// driven reports that a frame clock drives the tree (a Host, or
+	// Animate was called): transitions run. advanced reports that Animate
+	// was called: the ticker has the time of a frame.
+	driven, advanced bool
 	// inherited is set while the children of a restyled box are styled:
 	// they follow its inherited properties instead of transitioning them.
 	inherited bool
@@ -229,6 +230,30 @@ func (t *Tree) animRestyle(el *Element, bx *Box, old, cs *style.ComputedStyle) *
 		t.anim.tk.Add(ba) // a tree without a clock shows the first state
 	}
 	return u
+}
+
+// beforeChange returns the before-change style of a restyle from old to
+// cs (CSS Transitions Level 1, 3): old, unless the box starts being
+// rendered (it mounts, or its display: none ends). Such a box has no
+// before-change style, so it starts no transition (and running ones are
+// cancelled), except from its starting style when its classes have
+// starting: rules (CSS @starting-style, Tailwind's starting: variant): in
+// is the input of cs, computed again with those rules.
+func (t *Tree) beforeChange(bx *Box, old, cs *style.ComputedStyle, in style.Input) *style.ComputedStyle {
+	if old != nil && (old.Display != style.DisplayNone || cs.Display == style.DisplayNone) {
+		return old
+	}
+	if cs.Display == style.DisplayNone {
+		return nil // still not rendered
+	}
+	if ba := bx.anim; ba != nil && old != nil {
+		ba.trans = nil // shown again: what ran while hidden ends
+	}
+	if !bx.startingUse || !t.anim.driven || t.cx.ReducedMotion {
+		return nil
+	}
+	in.Starting = true
+	return style.Compute(&t.cx, in)
 }
 
 // mayTransition reports whether the change from old to cs may start a
@@ -505,12 +530,14 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 // animateStyles is the style part of the animation phase: it advances the
 // transitions and keyframe animations to now, the time of the frame.
 func (t *Tree) animateStyles(now time.Duration) {
-	t.anim.driven = true
+	t.anim.driven, t.anim.advanced = true, true
 	// The marks of the animations belong to the frame the Host runs next:
 	// they do not ask for another.
 	was := t.inFrame
 	t.inFrame = true
 	t.anim.tk.Advance(now)
+	// Exits whose transitions ended this frame unmount (presence.go).
+	t.checkExits(t.anim.tk.Now(), false)
 	t.inFrame = was
 }
 

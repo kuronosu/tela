@@ -313,7 +313,20 @@
 // none wait until shown), and Tree.OnlyEndlessAnimations lets a test
 // runner not wait for them. Reduced motion (Config.ReducedMotion, the
 // system setting) removes transitions; the motion-reduce: variants handle
-// the animate-* classes.
+// the animate-* classes. A box that starts being rendered (it mounts, or
+// its display: none ends) has no before-change style and starts no
+// transition, except from its starting style when its classes have
+// starting: rules (CSS @starting-style).
+//
+// Explicit animations (valueanim.go) drive Values: UseSpring and UseTween
+// follow a target that changes between builds, and Animate moves any
+// Value from handlers, effects or goroutines. Each running one is an
+// anim.Motion advanced by the same ticker, which stores the Value at
+// every frame, so its readers are redone in the phase they read it in; a
+// new target starts from the position and velocity the running motion
+// has. A Presence (presence.go) keeps a removed child mounted and inert
+// while its Exit classes transition and its UsePresence components run
+// their exits, then unmounts it.
 //
 // # Pipeline
 //

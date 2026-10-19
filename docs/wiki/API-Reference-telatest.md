@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Exact`](#func-exact) · [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Exact`](#func-exact) · [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
   - [`type App`](#type-app): [`Mount`](#func-mount) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`Hover`](#func-app-hover) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay)
@@ -20,7 +20,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
-  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`InstantScroll`](#func-instantscroll) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Timeout`](#func-timeout)
+  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`InstantScroll`](#func-instantscroll) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Timeout`](#func-timeout)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
 
@@ -47,7 +47,7 @@ func TestCounter(t *testing.T) {
 
 Before acting, an action waits until the element is visible, enabled, in view and not covered by another element. Before and after, the app is settled: pending state updates are applied and frames run, advancing the app's clock to each one, until nothing is dirty and no animation or scroll fling is running: transitions (hover:, focus:, dark: changes with transition classes) and finite animations run to their end, so a screenshot after an action shows the settled state. Infinite animations (animate-spin, animate-pulse) are never waited for, and use [`App.Advance`](#func-app-advance) to step them. An app that never goes quiet otherwise (a goroutine that updates state all the time) is not waited for either: the first time it is logged, and actions then run only a few frames.
 
-[`App.Advance`](#func-app-advance) moves the clock by hand: it is how a test waits for a long-press timer, an animation or a fade.
+[`App.Advance`](#func-app-advance) moves the clock by hand: it is how a test waits for a long-press timer, an animation or a fade. To capture the frames of an animation, mount with [`NoSettle`](#func-nosettle): actions and screenshots then leave running animations where they are, and only Advance moves them.
 
 The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`](#func-app-expectnotext), [`App.ExpectRole`](#func-app-expectrole), [`App.ExpectCount`](#func-app-expectcount), [`App.ExpectFocused`](#func-app-expectfocused), [`App.ExpectValue`](#func-app-expectvalue) and [`App.ExpectAria`](#func-app-expectaria)) retry until they hold or the [`Timeout`](#func-timeout) expires, letting a frame of app time and a moment of real time pass between tries, so state set by a goroutine arrives.
 
@@ -430,7 +430,7 @@ Focus gives the keyboard focus to the element l locates, like calling focus() on
 func (a *App) Golden(name string, opts ...GoldenOption)
 ```
 
-Golden compares the window's content, after settling the app, with the PNG testdata/\<name\> next to the test (a name without the ".png" extension gets it), bit by bit unless a [`Tolerance`](#func-tolerance) is given. TELA_UPDATE=1 writes the golden instead of comparing (ADR-022); review the PNG before committing it. On a mismatch, \<name\>\_actual.png and \<name\>\_diff.png are written next to the golden.
+Golden compares the window's content, after settling the app (with [`NoSettle`](#func-nosettle), at the current time: see [`App.Screenshot`](#func-app-screenshot)), with the PNG testdata/\<name\> next to the test (a name without the ".png" extension gets it), bit by bit unless a [`Tolerance`](#func-tolerance) is given. TELA_UPDATE=1 writes the golden instead of comparing (ADR-022); review the PNG before committing it. On a mismatch, \<name\>\_actual.png and \<name\>\_diff.png are written next to the golden.
 
 The picture is physical pixels, so a golden depends on [`Size`](#func-size) and [`Scale`](#func-scale); it also shows the overlay scrollbars while they are visible: advance the clock to hide them first when that matters.
 
@@ -519,7 +519,7 @@ fmt.Println("ok")
 func (a *App) Screenshot() *image.RGBA
 ```
 
-Screenshot returns a copy of the window's content, in physical pixels (the logical size times the scale), after settling the app.
+Screenshot returns a copy of the window's content, in physical pixels (the logical size times the scale), after settling the app; with [`NoSettle`](#func-nosettle), the content at the current time, running animations where they are.
 
 #### func (*App) Scroll
 
@@ -823,6 +823,46 @@ func InstantScroll() Option
 ```
 
 InstantScroll makes user scrolling jump, without animation or flings (tela.App.InstantScroll).
+
+#### func NoSettle
+
+```go
+func NoSettle() Option
+```
+
+NoSettle makes the app keep its animations where they are for [`App.Screenshot`](#func-app-screenshot) and [`App.Golden`](#func-app-golden), so a test can capture the frames of a transition, a [`tela.UseSpring`](API-Reference-tela#func-usespring) or the enter and exit of an h.Presence:
+
+```go
+app := telatest.Mount(t, tela.C(Dialog), telatest.NoSettle())
+app.Click(telatest.ByRole("button", "Open"))
+app.Advance(100 * time.Millisecond)
+app.Golden("dialog_100ms.png") // 100 ms into the entrance
+```
+
+With it, Mount, the events of an action and Screenshot and Golden handle the work due (state updates, the frames they ask for) but do not run the clock until running transitions and animations end: the clock moves with [`App.Advance`](#func-app-advance), and with the waits of actions and expectations. Those keep their auto-wait: before acting, an action still waits for the app to settle (so the animations an earlier step started end first), and the expectations, [`App.AriaSnapshot`](#func-app-ariasnapshot), [`App.Count`](#func-app-count), [`App.Stats`](#func-app-stats) and [`App.Cursor`](#func-app-cursor) still settle it.
+
+**Example**
+
+```go
+// A box that fades in over 200 ms when it is shown.
+page := func() tela.Node {
+    shown, setShown := tela.UseState(false)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setShown.Set(true) }), Text("Show")),
+        If(shown, Div(Class("size-10 bg-black transition-opacity duration-200 ease-linear starting:opacity-0"))))
+}
+app := telatest.Mount(t, tela.C(page), telatest.Size(100, 100), telatest.NoSettle())
+app.Click(telatest.ByRole("button", "Show"))
+app.Advance(100 * time.Millisecond)
+// Halfway: black at 50% over white. app.Golden("fade_100ms.png") would
+// capture the same frame.
+fmt.Println(app.Screenshot().RGBAAt(5, 40))
+app.Advance(100 * time.Millisecond)
+fmt.Println(app.Screenshot().RGBAAt(5, 40))
+// Output:
+// {128 128 128 255}
+// {0 0 0 255}
+```
 
 #### func ReducedMotion
 

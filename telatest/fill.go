@@ -29,7 +29,7 @@ func (a *App) Fill(l Locator, text string) {
 		}
 		a.fatalf("cannot fill %s: %v", describeNode(n), err)
 	}
-	a.settle()
+	a.settleAfter()
 }
 
 // ExpectValue waits until the text field l locates holds value

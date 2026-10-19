@@ -35,6 +35,10 @@ type Input struct {
 	Classes []*Classes
 	// Props are the typed Style props, applied after the classes.
 	Props []Op
+	// Starting computes the starting style (the starting: variants hold):
+	// the style the first transitions of an element that was not rendered
+	// before start from (CSS @starting-style).
+	Starting bool
 }
 
 // env is the state of one computation, passed to every op.
@@ -161,6 +165,7 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		ViewportWidth: cx.Viewport.W,
 		Dark:          cx.Dark,
 		ReducedMotion: cx.ReducedMotion,
+		Starting:      in.Starting,
 		State:         in.State, Group: in.Group, Peer: in.Peer,
 	}
 

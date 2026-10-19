@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tela starting-style oracle</title>
+<style>
+*, ::before, ::after { box-sizing: border-box; border: 0 solid; margin: 0; padding: 0; }
+html, body { background: #fff; }
+.grid { display: grid; grid-template-columns: repeat(4, 120px); }
+.cell { width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; }
+.c-fade { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(51.1% .262 276.966); transition: opacity .4s cubic-bezier(0, 0, .2, 1); }
+@starting-style { .c-fade { opacity: 0; } }
+.c-pop { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(69.6% .17 162.48); opacity: 1; scale: 1; transition: opacity .4s cubic-bezier(0, 0, .2, 1), scale .4s cubic-bezier(0, 0, .2, 1); }
+@starting-style { .c-pop { opacity: 0; scale: .75; } }
+.c-slide { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(64.5% .246 16.439); transition: transform .4s cubic-bezier(.4, 0, .2, 1), translate .4s cubic-bezier(.4, 0, .2, 1), scale .4s cubic-bezier(.4, 0, .2, 1), rotate .4s cubic-bezier(.4, 0, .2, 1); }
+@starting-style { .c-slide { translate: 0 2rem; rotate: 12deg; } }
+.c-color { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(62.3% .214 259.815); transition: color .4s cubic-bezier(.4, 0, .2, 1), background-color .4s cubic-bezier(.4, 0, .2, 1), border-color .4s cubic-bezier(.4, 0, .2, 1); }
+@starting-style { .c-color { background-color: oklch(87.9% .169 91.605); } }
+.c-width { width: 6rem; height: 4rem; border-radius: .375rem; background-color: oklch(60.6% .25 292.717); transition: width .6s cubic-bezier(.4, 0, .2, 1); }
+@starting-style { .c-width { width: 1rem; } }
+.c-delay { width: 4rem; height: 4rem; border-radius: 9999px; background-color: oklch(68.5% .169 237.323); transition: opacity .3s linear .15s; }
+@starting-style { .c-delay { opacity: 0; } }
+.c-blur { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(66.7% .295 322.15); transition: filter .4s cubic-bezier(.4, 0, .2, 1); }
+@starting-style { .c-blur { filter: blur(16px); } }
+.c-after { width: 4rem; height: 4rem; border-radius: .75rem; background-color: oklch(92.9% .013 255.508); opacity: 1; }
+@starting-style { .c-after { opacity: 0; } }
+</style></head><body>
+<div class="grid">
+<div class="cell" data-name="fade"></div>
+<div class="cell" data-name="pop"></div>
+<div class="cell" data-name="slide"></div>
+<div class="cell" data-name="color"></div>
+<div class="cell" data-name="width"></div>
+<div class="cell" data-name="delay"></div>
+<div class="cell" data-name="blur"></div>
+<div class="cell" data-name="after"></div>
+</div>
+<script>
+// Insert every box (its first style change event starts its transitions
+// from its @starting-style), pause every animation and set its current
+// time to ?t= (ms).
+const t = +new URLSearchParams(location.search).get("t");
+document.body.offsetWidth;
+for (const c of document.querySelectorAll(".cell")) {
+  const b = document.createElement("div");
+  b.className = "box c-" + c.dataset.name;
+  c.appendChild(b);
+}
+document.body.offsetWidth; // the style change event: transitions are created
+for (const a of document.getAnimations()) {
+  a.pause();
+  a.currentTime = t;
+}
+</script>
+</body></html>

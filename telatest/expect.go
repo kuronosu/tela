@@ -244,7 +244,8 @@ func Tolerance(maxDelta uint8, maxPixels int) GoldenOption {
 	return GoldenOption{[]golden.Option{golden.MaxDelta(maxDelta), golden.MaxPixels(maxPixels)}}
 }
 
-// Golden compares the window's content, after settling the app, with the
+// Golden compares the window's content, after settling the app (with
+// [NoSettle], at the current time: see [App.Screenshot]), with the
 // PNG testdata/<name> next to the test (a name without the ".png" extension
 // gets it), bit by bit unless a [Tolerance] is given. TELA_UPDATE=1 writes
 // the golden instead of comparing (ADR-022); review the PNG before

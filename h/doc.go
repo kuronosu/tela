@@ -25,8 +25,8 @@
 // OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition...,
 // OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props
 // alike), Map, MapIndex, Fragment and TextFn (text that a Value changes
-// without rebuilding the component), and VirtualList with its Overscan
-// prop.
+// without rebuilding the component), VirtualList with its Overscan
+// prop, and Presence with its Exit prop (enter and exit animations).
 //
 // Everything else (App, Run, hooks, events, colors, typed style props)
 // lives in package tela.

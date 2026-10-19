@@ -167,6 +167,9 @@ func blockifies(cs *style.ComputedStyle) bool {
 // semElement appends the nodes of el (components: of their children) to
 // parent.
 func (t *Tree) semElement(el *Element, parent *semantics.Node, inh semInherit) {
+	if el.exiting() {
+		return // an exiting Presence child is gone for semantics (presence.go)
+	}
 	switch el.kind {
 	case elemComponent:
 		for _, c := range el.children {

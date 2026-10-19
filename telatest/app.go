@@ -104,7 +104,7 @@ func Mount(tb testing.TB, root tela.Node, opts ...Option) *App {
 	a.win.SetFocused(true)
 	a.stop = a.tree.ReceivePosts()
 	tb.Cleanup(a.Close)
-	a.settle()
+	a.settleAfter()
 	return a
 }
 
@@ -314,6 +314,55 @@ func (a *App) settle() {
 	a.flushDev()
 }
 
+// settleAfter settles the app after the events of an action (or at
+// Mount): fully, or under [NoSettle] only the work due, leaving running
+// animations where they are.
+func (a *App) settleAfter() {
+	a.tb.Helper()
+	if a.cfg.noSettle {
+		a.flush()
+		return
+	}
+	a.settle()
+}
+
+// flush handles the work due without waiting for animations: the events
+// queued, the state updates and the frames they request, advancing the
+// clock only to those frames, until the tree has nothing left to do but
+// the frames of running animations (NoSettle).
+func (a *App) flush() {
+	a.tb.Helper()
+	a.mustBeOpen()
+	a.backend.Wake()
+	start, realStart := a.backend.Now(), time.Now()
+	limit := min(a.cfg.timeout, DefaultTimeout)
+	for stalls := 0; ; {
+		a.deliver()
+		if !a.backend.Pending() && !a.tree.Dirty() && !a.host.NeedsFrame() {
+			break
+		}
+		now := a.backend.Now()
+		var step time.Duration
+		if next, ok := a.backend.NextFrameTime(); ok && next > now {
+			step = next - now
+		}
+		if step == 0 {
+			if stalls++; stalls > 100 {
+				a.fatalf("the app did not settle: the tree reports pending work but no frame is requested (is the window zero-sized?)")
+			}
+			a.backend.Wake()
+			continue
+		}
+		stalls = 0
+		if now+step-start > limit || time.Since(realStart) > limit {
+			break // a goroutine that sets state all the time
+		}
+		a.backend.Advance(step)
+		a.backend.Wake()
+	}
+	a.flushDev()
+}
+
 // advance moves the app clock forward by d, running every frame and
 // deadline (a long press, scrollbars starting to fade) on the way.
 func (a *App) advance(d time.Duration) {
@@ -405,10 +454,12 @@ func (a *App) WaitFor(what string, cond func() bool) {
 // Inspection.
 
 // Screenshot returns a copy of the window's content, in physical pixels
-// (the logical size times the scale), after settling the app.
+// (the logical size times the scale), after settling the app; with
+// [NoSettle], the content at the current time, running animations where
+// they are.
 func (a *App) Screenshot() *image.RGBA {
 	a.tb.Helper()
-	a.settle()
+	a.settleAfter()
 	img := a.win.Frame()
 	if img == nil {
 		a.fatalf("the window has not presented a frame yet (is the window zero-sized?)")

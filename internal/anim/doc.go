@@ -47,6 +47,15 @@
 // fill), [Keyframes] a @keyframes rule sampled by [Keyframes.At], and
 // [Builtin] has Tailwind's spin, ping, pulse and bounce.
 //
+// # Motions of values
+//
+// A [Motion] moves a value of up to four components ([Vec]: a number, a
+// point, a size, a rectangle, or a color as [ColorVec] premultiplies it
+// in LerpColor's space) toward a target with a spring or a tween
+// ([MotionSpec]), and reports its velocity, so that the motion replacing
+// it starts at the same position and speed. core drives them for
+// UseSpring, UseTween and Animate.
+//
 // # Determinism
 //
 // Float code is fusion-safe (ADR-041): every product that feeds an addition

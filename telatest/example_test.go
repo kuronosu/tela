@@ -153,3 +153,24 @@ func ExampleRender() {
 	fmt.Println(img.Bounds().Dx(), img.Bounds().Dy(), img.RGBAAt(2, 2))
 	// Output: 32 32 {0 0 0 255}
 }
+
+func ExampleNoSettle() {
+	// A box that fades in over 200 ms when it is shown.
+	page := func() tela.Node {
+		shown, setShown := tela.UseState(false)
+		return Div(
+			Button(OnClick(func(tela.MouseEvent) { setShown.Set(true) }), Text("Show")),
+			If(shown, Div(Class("size-10 bg-black transition-opacity duration-200 ease-linear starting:opacity-0"))))
+	}
+	app := telatest.Mount(t, tela.C(page), telatest.Size(100, 100), telatest.NoSettle())
+	app.Click(telatest.ByRole("button", "Show"))
+	app.Advance(100 * time.Millisecond)
+	// Halfway: black at 50% over white. app.Golden("fade_100ms.png") would
+	// capture the same frame.
+	fmt.Println(app.Screenshot().RGBAAt(5, 40))
+	app.Advance(100 * time.Millisecond)
+	fmt.Println(app.Screenshot().RGBAAt(5, 40))
+	// Output:
+	// {128 128 128 255}
+	// {0 0 0 255}
+}

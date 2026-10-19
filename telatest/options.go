@@ -31,6 +31,7 @@ type config struct {
 	checkDamage   bool
 	debug         []string
 	debugClock    func() time.Duration
+	noSettle      bool
 }
 
 func newConfig(opts []Option) config {
@@ -84,6 +85,25 @@ func (c config) coreConfig() core.Config {
 		InstantScroll:     c.instant,
 	}
 }
+
+// NoSettle makes the app keep its animations where they are for
+// [App.Screenshot] and [App.Golden], so a test can capture the frames of a
+// transition, a [tela.UseSpring] or the enter and exit of an h.Presence:
+//
+//	app := telatest.Mount(t, tela.C(Dialog), telatest.NoSettle())
+//	app.Click(telatest.ByRole("button", "Open"))
+//	app.Advance(100 * time.Millisecond)
+//	app.Golden("dialog_100ms.png") // 100 ms into the entrance
+//
+// With it, Mount, the events of an action and Screenshot and Golden handle
+// the work due (state updates, the frames they ask for) but do not run the
+// clock until running transitions and animations end: the clock moves with
+// [App.Advance], and with the waits of actions and expectations. Those
+// keep their auto-wait: before acting, an action still waits for the app
+// to settle (so the animations an earlier step started end first), and
+// the expectations, [App.AriaSnapshot], [App.Count], [App.Stats] and
+// [App.Cursor] still settle it.
+func NoSettle() Option { return func(c *config) { c.noSettle = true } }
 
 // EnvCheckDamage is the environment variable that turns [CheckDamage] on
 // for every app ("1").

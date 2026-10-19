@@ -203,8 +203,11 @@ const (
 	hookValue
 	hookElementRef
 	hookScroll
-	hookVirtual // the state of a VirtualList (virtual.go)
-	hookBounds  // UseBounds (bounds.go)
+	hookVirtual  // the state of a VirtualList (virtual.go)
+	hookBounds   // UseBounds (bounds.go)
+	hookSpring   // UseSpring (valueanim.go)
+	hookTween    // UseTween (valueanim.go)
+	hookPresence // UsePresence (presence.go)
 )
 
 var hookNames = [...]string{
@@ -222,6 +225,9 @@ var hookNames = [...]string{
 	hookScroll:       "UseScroll",
 	hookVirtual:      "VirtualList",
 	hookBounds:       "UseBounds",
+	hookSpring:       "UseSpring",
+	hookTween:        "UseTween",
+	hookPresence:     "UsePresence",
 }
 
 func (k hookKind) String() string { return hookNames[k] }

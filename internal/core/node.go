@@ -63,6 +63,8 @@ type desc struct {
 	// prop (form.go).
 	fp *formProps
 	id string
+	// exit are the Exit classes (presence.go).
+	exit string
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings
@@ -120,6 +122,10 @@ type compDesc struct {
 	ctx   any
 	value any
 
+	// presence marks a Presence (presence.go): a component without a
+	// function whose removed children exit before they unmount.
+	presence bool
+
 	// anon is set in dev mode when ComponentProps or Memo get an
 	// anonymous function or a method value, whose captured variables
 	// are not compared (reported once per call site at mount).
@@ -130,6 +136,9 @@ type compDesc struct {
 func (c *compDesc) name() string {
 	if c.ctx != nil {
 		return "Context.Provider"
+	}
+	if c.presence {
+		return "Presence"
 	}
 	if f := runtime.FuncForPC(c.typ); f != nil {
 		return f.Name()

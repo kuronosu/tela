@@ -61,18 +61,20 @@ func (t *Tree) restyle(el *Element) {
 	if bx.peerUse != 0 {
 		peer = peerState(el)
 	}
-	cs := style.Compute(&t.cx, style.Input{
+	in := style.Input{
 		Kind: bx.kind, Parent: parent, State: state, Group: group, Peer: peer,
 		Classes: bx.classes, Props: el.node.d.props,
-	})
+	}
+	cs := style.Compute(&t.cx, in)
 	if el == t.root {
 		// The root is the viewport (scroll.go).
 		cs.OverflowX, cs.OverflowY = viewportOverflow(cs.OverflowX), viewportOverflow(cs.OverflowY)
 	}
 	old := bx.cs
 	// Transitions and keyframe animations: cs is the target; the style the
-	// box uses now may differ from it (anim.go).
-	cs = t.animRestyle(el, bx, old, cs)
+	// box uses now may differ from it (anim.go). A box that starts being
+	// rendered transitions from its starting style, or not at all.
+	cs = t.animRestyle(el, bx, t.beforeChange(bx, old, cs, in), cs)
 	bx.cs = cs
 	if bx.fld != nil {
 		t.fieldRestyled(bx.fld, old, cs)
@@ -139,9 +141,10 @@ func (t *Tree) restyleChildren(el *Element) {
 func (t *Tree) compileClasses(el *Element) {
 	bx := el.box
 	bx.classesDirty = false
-	srcs := el.node.d.classes
+	srcs := exitClasses(el)
 	bx.classes = make([]*style.Classes, len(srcs))
 	bx.structural = false
+	bx.startingUse = false
 	bx.stateUse, bx.groupUse, bx.peerUse = 0, 0, 0
 	bx.isGroup, bx.isPeer = false, false
 	for i, s := range srcs {
@@ -157,12 +160,19 @@ func (t *Tree) compileClasses(el *Element) {
 			if cond.State&structuralStates != 0 {
 				bx.structural = true
 			}
+			bx.startingUse = bx.startingUse || cond.Starting
 			bx.stateUse |= cond.State &^ structuralStates
 			if cond.Enabled {
 				bx.stateUse |= style.StateDisabled
 			}
 			bx.groupUse |= cond.Group
 			bx.peerUse |= cond.Peer
+		}
+	}
+	if d := el.node.d; t.dev && d.exit != "" && !el.exitOn {
+		// Report the errors of Exit classes at mount, not at the exit.
+		if c := t.parser.Compile(d.exit); c.Err != nil {
+			t.reportClasses(d.exit, c.Err, el)
 		}
 	}
 	if bx.groupUse != 0 {

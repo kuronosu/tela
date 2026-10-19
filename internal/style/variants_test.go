@@ -30,6 +30,10 @@ func TestConditionMatches(t *testing.T) {
 		{"motion-reduce off", Condition{MotionReduce: true}, VariantContext{}, false},
 		{"motion-safe", Condition{MotionSafe: true}, VariantContext{}, true},
 		{"motion-safe reduced", Condition{MotionSafe: true}, VariantContext{ReducedMotion: true}, false},
+		{"starting off", Condition{Starting: true}, VariantContext{}, false},
+		{"starting on", Condition{Starting: true}, VariantContext{Starting: true}, true},
+		{"plain in the starting style", Condition{}, VariantContext{Starting: true}, true},
+		{"starting dark", Condition{Starting: true, Dark: true}, VariantContext{Starting: true}, false},
 		{"breakpoint below", Condition{MinWidth: 768}, VariantContext{ViewportWidth: 767}, false},
 		{"breakpoint at", Condition{MinWidth: 768}, VariantContext{ViewportWidth: 768}, true},
 		{"stacked", Condition{Dark: true, State: StateHover, MinWidth: 640}, VariantContext{Dark: true, State: StateHover, ViewportWidth: 700}, true},
@@ -69,6 +73,7 @@ func TestVariantParsing(t *testing.T) {
 		{"dark", Condition{Dark: true}},
 		{"motion-reduce", Condition{MotionReduce: true}},
 		{"motion-safe", Condition{MotionSafe: true}},
+		{"starting", Condition{Starting: true}},
 		{"sm", Condition{MinWidth: 640}},
 		{"md", Condition{MinWidth: 768}},
 		{"lg", Condition{MinWidth: 1024}},
@@ -120,6 +125,23 @@ func TestVariantRules(t *testing.T) {
 	eq(t, "md", c.Rules[2].Cond, Condition{MinWidth: 768})
 	eq(t, "group", c.Rules[3].Cond, Condition{Group: StateHover})
 	eq(t, "class text", c.Rules[1].Class, "dark:hover:bg-black")
+}
+
+// TestStartingStyle: starting: rules apply only to the starting style
+// (CSS @starting-style), in order of appearance like every other rule.
+func TestStartingStyle(t *testing.T) {
+	c := mustCompile(t, "opacity-100 scale-100 starting:opacity-0 starting:scale-95 dark:starting:opacity-50")
+	eq(t, "stacked", c.Rules[4].Cond, Condition{Dark: true, Starting: true})
+	cx := &Context{Viewport: gfx.Size{W: 800, H: 600}}
+	s := Compute(cx, Input{Kind: KindDiv, Classes: []*Classes{c}})
+	eq(t, "opacity", s.Opacity, float32(1))
+	eq(t, "scale", s.Transform.ScaleX, float32(1))
+	st := Compute(cx, Input{Kind: KindDiv, Classes: []*Classes{c}, Starting: true})
+	eq(t, "starting opacity", st.Opacity, float32(0))
+	eq(t, "starting scale", st.Transform.ScaleX, float32(0.95))
+	cx.Dark = true
+	st = Compute(cx, Input{Kind: KindDiv, Classes: []*Classes{c}, Starting: true})
+	eq(t, "dark starting opacity", st.Opacity, float32(0.5))
 }
 
 func TestVariantEvaluationInCompute(t *testing.T) {

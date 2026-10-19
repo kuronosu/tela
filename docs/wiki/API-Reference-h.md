@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`Id`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`Id`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
 
 ## Overview
 
@@ -31,7 +31,7 @@ func Greeting(name string) tela.Node {
 }
 ```
 
-To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Src, Alt, Href, Id, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, Fragment and TextFn (text that a Value changes without rebuilding the component), and VirtualList with its Overscan prop.
+To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Src, Alt, Href, Id, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, Fragment and TextFn (text that a Value changes without rebuilding the component), VirtualList with its Overscan prop, and Presence with its Exit prop (enter and exit animations).
 
 Everything else (App, Run, hooks, events, colors, typed style props) lives in package tela.
 
@@ -385,6 +385,48 @@ func Em(children ...tela.Child) tela.Node
 ```
 
 Em returns italic inline text.
+
+### func Exit
+
+```go
+func Exit(classes string) tela.Prop
+```
+
+Exit sets the classes an element takes when the child of a [`Presence`](#func-presence) it is in is removed: they apply on top of its classes, and its transitions (transition, duration-\*, ease-\*, delay-\*) run to them before the child unmounts. The usual exit is the reverse of the entrance:
+
+```go
+Div(Class("transition duration-150 starting:opacity-0 starting:translate-y-2"),
+    Exit("opacity-0 translate-y-2"), ...)
+```
+
+Any element of the removed child may have Exit classes (a dialog's backdrop and panel can fade differently); the child unmounts when all their transitions have ended. Outside a Presence, Exit does nothing. It may repeat; the strings concatenate. Unknown classes are reported in dev mode like those of Class.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var style string
+toast := func() tela.Node {
+    shown, setShown := tela.UseState(true)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setShown.Set(false) }), Text("Dismiss")),
+        // The backdrop and the card each have their own exit; the
+        // child unmounts when both transitions have ended.
+        Presence(If(shown, Div(Key("toast"),
+            Div(Class("pointer-events-none fixed inset-0 bg-black/20 transition-opacity duration-300"), Exit("opacity-0")),
+            Div(Role("status"), Class("rounded-lg bg-slate-900 p-3 text-white transition duration-150"),
+                Exit("opacity-0 translate-y-2"), Text("Saved"))))))
+}
+app := telatest.Mount(t, tela.C(toast))
+start := app.Now()
+app.Click(telatest.ByRole("button", "Dismiss")) // waits for the exit
+if app.Now()-start >= 300*time.Millisecond {
+    style = "waited for the slower exit"
+}
+fmt.Println(style, app.Count(telatest.ByRole("status", "")))
+// Output: waited for the slower exit 0
+```
 
 ### func For
 
@@ -1111,6 +1153,47 @@ func Placeholder(s string) tela.Prop
 ```
 
 Placeholder sets the text a text field shows while it is empty, in the field's color at half opacity unless placeholder: classes style it.
+
+### func Presence
+
+```go
+func Presence(children ...tela.Child) tela.Node
+```
+
+Presence keeps a removed child mounted until its exit animation ends, then unmounts it (Motion's AnimatePresence). Children are matched by key (or by position, which h.If keeps): when a build no longer has a child, the child exits if it has something to animate, its [`Exit`](#func-exit) classes or a component that uses tela.UsePresence; a child without either goes at once.
+
+```go
+Presence(
+    If(open, Div(Key("dialog"), Role("dialog"),
+        Class("rounded-xl bg-white p-6 shadow-xl transition duration-200 ease-out "+
+            "opacity-100 scale-100 starting:opacity-0 starting:scale-95"),
+        Exit("opacity-0 scale-95"),
+        Text("Saved"))),
+)
+```
+
+The entrance is the starting: variant (CSS @starting-style), which works on any element that starts being rendered, inside a Presence or not: its first style is computed with the starting: classes, and its transitions run from it to its normal style. The exit applies the Exit classes on top of the element's classes, so the same transitions run to them; the child unmounts when they end (at once with reduced motion or without a transition).
+
+An exiting child keeps its place in the layout (Motion's default, not popLayout): position it absolutely, or inside an overlay, when the content around it should not wait. It shows its last build: the parent's builds do not update it, but its own components still build. It is inert while it exits: the pointer goes through it to what is below, it cannot take the focus (focus inside it is lost and its focus scopes end, as on unmount), and it is gone from the semantics tree, so aria snapshots and telatest locators no longer see it. Adding the child back while it exits cancels the exit: the transitions run back from where they are, as in Motion.
+
+Several children can exit at once, each at its old position. A Presence has no box: its children are children of its parent. It takes only Key as a prop. A nested Presence's children do not exit with an outer child; they unmount with it.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, tela.C(dialogDemo), telatest.NoSettle())
+app.Click(telatest.ByRole("button", "Open"))
+app.Advance(300 * time.Millisecond) // the entrance is over
+app.Click(telatest.ByRole("button", "Close"))
+app.Advance(100 * time.Millisecond)
+// Halfway out the dialog is still drawn, but inert: gone for the
+// semantics tree, the pointer and the focus. (Count settles the app,
+// which ends the exit; the dialog then unmounts.)
+fmt.Println(app.Count(telatest.ByRole("dialog", "")))
+// Output: 0
+```
 
 ### func ReadOnly
 

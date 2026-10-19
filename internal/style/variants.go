@@ -82,6 +82,10 @@ type VariantContext struct {
 	ViewportWidth float32
 	Dark          bool
 	ReducedMotion bool
+	// Starting selects the starting: variants: the style is the starting
+	// style of an element that was not rendered before (CSS
+	// @starting-style), which its transitions start from.
+	Starting bool
 	// State is the element's own state; Group the states of its
 	// ancestors with the class "group" and Peer those of its preceding
 	// siblings with the class "peer", combined (Tailwind's group-hover:
@@ -102,6 +106,10 @@ type Condition struct {
 	Dark bool
 	// MotionReduce requires reduced motion, MotionSafe its absence.
 	MotionReduce, MotionSafe bool
+	// Starting requires the starting style (starting:, CSS
+	// @starting-style): the rule applies only to the style an element's
+	// first transitions start from.
+	Starting bool
 	// MinWidth requires a viewport at least this wide, in pixels (the
 	// largest of the breakpoint variants of the class).
 	MinWidth float32
@@ -124,6 +132,7 @@ func (c Condition) Matches(v VariantContext) bool {
 		c.Dark && !v.Dark,
 		c.MotionReduce && !v.ReducedMotion,
 		c.MotionSafe && v.ReducedMotion,
+		c.Starting && !v.Starting,
 		v.ViewportWidth < c.MinWidth:
 		return false
 	}
@@ -139,6 +148,7 @@ func (c Condition) and(d Condition) Condition {
 	c.Dark = c.Dark || d.Dark
 	c.MotionReduce = c.MotionReduce || d.MotionReduce
 	c.MotionSafe = c.MotionSafe || d.MotionSafe
+	c.Starting = c.Starting || d.Starting
 	c.MinWidth = max(c.MinWidth, d.MinWidth)
 	c.Pseudo |= d.Pseudo
 	return c
@@ -160,6 +170,8 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 		return Condition{MotionReduce: true}, nil
 	case "motion-safe":
 		return Condition{MotionSafe: true}, nil
+	case "starting":
+		return Condition{Starting: true}, nil
 	case "placeholder":
 		return Condition{Pseudo: PseudoPlaceholder}, nil
 	case "selection":
@@ -217,7 +229,7 @@ func variantNames(th *Theme) []string {
 			out = append(out, "group-"+sv.name, "peer-"+sv.name)
 		}
 	}
-	out = append(out, "enabled", "dark", "motion-reduce", "motion-safe", "placeholder", "selection")
+	out = append(out, "enabled", "dark", "motion-reduce", "motion-safe", "starting", "placeholder", "selection")
 	out = append(out, th.Keys(NamespaceBreakpoint)...)
 	slices.Sort(out)
 	return out

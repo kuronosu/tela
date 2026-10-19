@@ -181,6 +181,8 @@ type Tree struct {
 	// anim is the state of the transitions and keyframe animations
 	// (anim.go).
 	anim animState
+	// pres holds the exits of Presence children (presence.go).
+	pres presenceState
 
 	// dbg is the state of the debug overlays (debug.go).
 	dbg debugState
@@ -407,6 +409,9 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	if full {
 		t.buildPhase()
 		t.stylePhase()
+		if t.presencePhase() {
+			t.stylePhase() // the structural variants of the siblings
+		}
 		if t.focusPending() {
 			// Focus fix-up, AutoFocus and scope restoration need the new
 			// styles; the states they change are styled now.

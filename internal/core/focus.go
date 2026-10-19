@@ -217,6 +217,9 @@ func (t *Tree) focusable(el *Element) bool {
 	if cs == nil || cs.Display == style.DisplayContents || cs.Visibility != style.VisibilityVisible {
 		return false
 	}
+	if el.inert {
+		return false // in an exiting Presence child (presence.go)
+	}
 	for a := el; a != nil; a = a.styleParent() {
 		acs := a.box.cs
 		if acs == nil || acs.Display == style.DisplayNone || a.istate&style.StateDisabled != 0 {
@@ -431,7 +434,7 @@ func (w *tabWalker) walk(el *Element, hidden, inert bool) {
 	if cs == nil || cs.Display == style.DisplayNone {
 		hidden = true
 	}
-	if el.istate&style.StateDisabled != 0 {
+	if el.istate&style.StateDisabled != 0 || el.inert {
 		inert = true
 	}
 	if !hidden && !inert && el.parent != nil && cs.Display != style.DisplayContents &&

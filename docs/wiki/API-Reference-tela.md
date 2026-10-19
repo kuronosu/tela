@@ -13,8 +13,10 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseValue`](#func-usevalue) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
+  - [`type Animatable`](#type-animatable)
+  - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness)
   - [`type App`](#type-app)
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
@@ -37,6 +39,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type MouseButtons`](#type-mousebuttons): [`Has`](#func-mousebuttons-has)
   - [`type MouseEvent`](#type-mouseevent): [`DefaultPrevented`](#func-mouseevent-defaultprevented) · [`PreventDefault`](#func-mouseevent-preventdefault) · [`StopPropagation`](#func-mouseevent-stoppropagation)
   - [`type Node`](#type-node): [`C`](#func-c) · [`CP`](#func-cp) · [`Memo`](#func-memo) · [`WithKey`](#func-withkey) · [`IsZero`](#func-node-iszero) · [`Key`](#func-node-key) · [`String`](#func-node-string)
+  - [`type Point`](#type-point)
   - [`type PointerEvent`](#type-pointerevent): [`DefaultPrevented`](#func-pointerevent-defaultprevented) · [`PreventDefault`](#func-pointerevent-preventdefault) · [`StopPropagation`](#func-pointerevent-stoppropagation)
   - [`type PointerKind`](#type-pointerkind): [`String`](#func-pointerkind-string)
   - [`type Previews`](#type-previews): [`Names`](#func-previews-names)
@@ -48,9 +51,10 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type SelectEvent`](#type-selectevent): [`DefaultPrevented`](#func-selectevent-defaultprevented) · [`PreventDefault`](#func-selectevent-preventdefault) · [`StopPropagation`](#func-selectevent-stoppropagation)
   - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
   - [`type Shadow`](#type-shadow)
+  - [`type Size`](#type-size)
   - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
-  - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UseScroll`](#func-usescroll) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
+  - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
 
 ## Overview
@@ -235,6 +239,50 @@ Common colors.
 
 ## Functions
 
+### func Animate
+
+```go
+func Animate[T Animatable](v *Value[T], target T, opts ...AnimationOption)
+```
+
+Animate moves v to target: with a spring by default (Motion's default, or as [`Stiffness`](#func-stiffness), [`Damping`](#func-damping), [`Bounce`](#func-bounce) or [`Spring`](#func-spring) say), or with a tween when the options are [`Duration`](#func-duration) and [`Ease`](#func-ease) only. v is any [`Value`](#type-value) of an [`Animatable`](#type-animatable) type, from [`UseValue`](#func-usevalue), [`UseSpring`](#func-usespring) or [`UseTween`](#func-usetween).
+
+```go
+y := tela.UseValue[float32](0)
+Button(OnClick(func(tela.MouseEvent) { tela.Animate(y, 200, tela.Spring(tela.Bounce(0.25))) }),
+    Text("Drop"))
+tela.Animate(y, 0, tela.Duration(300*time.Millisecond), tela.Ease("ease-in-out"))
+```
+
+A new Animate on the same Value interrupts the running animation: the new one starts where the value is and, for a spring, at the speed it has, so a fling continues smoothly; a Set or Update of the Value stops the animation. Like Set, Animate is safe from any goroutine: the animation starts when the UI thread applies it, in order with the Value's Set and Update calls (an animation applied between two frames starts at the next one). Value.Latest does not anticipate animations: it returns the value they have reached.
+
+With reduced motion, or in a tree that no frame clock drives, the value jumps to target. An animation of a Value whose component unmounts ends.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var y *tela.Value[float32]
+ball := func() tela.Node {
+    y = tela.UseValue[float32](0)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { tela.Animate(y, 200, tela.Spring(tela.Bounce(0.25))) }), Text("Drop")),
+        Button(OnClick(func(tela.MouseEvent) {
+            tela.Animate(y, 0, tela.Duration(300*time.Millisecond), tela.Ease("ease-in-out"))
+        }), Text("Lift")),
+        Div(Class("size-8 rounded-full bg-indigo-500"), Style(tela.TranslateFn(func() (float32, float32) { return 0, y.Get() }))))
+}
+app := telatest.Mount(t, tela.C(ball))
+app.Click(telatest.ByRole("button", "Drop")) // settles: the spring ends
+fmt.Println(y.Get())
+app.Click(telatest.ByRole("button", "Lift"))
+fmt.Println(y.Get())
+// Output:
+// 200
+// 0
+```
+
 ### func Post
 
 ```go
@@ -353,6 +401,67 @@ UseMemo returns compute(), computed on the first build and again only when the d
 visible := tela.UseMemo(func() []Todo { return filter(todos, query) }, len(todos), query)
 ```
 
+### func UsePresence
+
+```go
+func UsePresence() (present bool, done func())
+```
+
+UsePresence reports whether the component is present, for a component inside a child of an h.Presence: present is false while that child exits, after it was removed. The component then runs its own exit (an [`Animate`](#func-animate), saving a draft...) and calls done when it is finished; the child unmounts once every component that used UsePresence called done and the transitions of its h.Exit classes ended. done is the same function on every build, safe from any goroutine, and does nothing while the component is present (a call from a previous exit that was cancelled is ignored). Outside any Presence, present is always true.
+
+A toast that slides down and fades out before it unmounts: while it exits, its body reads the tween (so it builds on each frame of the exit, and only then) and calls done when the tween has arrived.
+
+```go
+func Toast(msg string) tela.Node {
+    present, done := tela.UsePresence()
+    target := float32(0)
+    if !present {
+        target = 1
+    }
+    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond))
+    if !present && out.Get() == target {
+        done()
+    }
+    return Div(Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
+        Style(tela.TranslateFn(func() (float32, float32) { return 0, 40 * out.Get() }),
+            tela.OpacityFn(func() float32 { return 1 - out.Get() })),
+        Text(msg))
+}
+
+Presence(If(saved, tela.C(func() tela.Node { return Toast("Saved") })))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+toast := func() tela.Node {
+    present, done := tela.UsePresence()
+    target := float32(0)
+    if !present {
+        target = 1
+    }
+    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond))
+    if !present && out.Get() == target {
+        done() // the exit is over: unmount
+    }
+    return Div(Role("status"), Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
+        Style(tela.OpacityFn(func() float32 { return 1 - out.Get() })), Text("Saved"))
+}
+page := func() tela.Node {
+    shown, setShown := tela.UseState(true)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setShown.Set(false) }), Text("Dismiss")),
+        Presence(If(shown, tela.C(toast))))
+}
+app := telatest.Mount(t, tela.C(page))
+start := app.Now()
+app.Click(telatest.ByRole("button", "Dismiss")) // waits for the exit
+fmt.Println(app.Count(telatest.ByRole("status", "")), app.Now()-start >= 200*time.Millisecond)
+// Output: 0 true
+```
+
 ### func UseStateSet
 
 ```go
@@ -380,6 +489,201 @@ update(func(n int) int { return n + 1 })
 ```
 
 ## Types
+
+### type Animatable
+
+```go
+type Animatable = core.Animatable
+```
+
+Animatable lists the types that [`UseSpring`](#func-usespring), [`UseTween`](#func-usetween) and [`Animate`](#func-animate) animate:
+
+- float32: a number (an offset, a scale, an opacity, a progress);
+- [`Color`](#type-color): interpolated as CSS transitions interpolate colors, premultiplied by alpha, in sRGB between two colors written as hex, rgb() or named colors, and in Oklab otherwise (the Oklch palette of Tailwind, [`OKLCH`](#func-oklch));
+- [`Point`](#type-point), [`Size`](#type-size) and [`Rect`](#type-rect): component by component, each with its own velocity.
+
+`Animatable` is an alias of `core.Animatable`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Animatable interface {
+    float32 | gfx.Color | Point | Size | Rect
+}
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var bg *tela.Value[tela.Color]
+app := telatest.Mount(t, tela.C(func() tela.Node {
+    bg = tela.UseValue(tela.Hex("#ffffff"))
+    // Read in the body: the component builds on each frame of the
+    // animation (style props have no deferred color).
+    return Div(Class("size-10"), Style(tela.Bg(bg.Get())))
+}), telatest.NoSettle())
+// Hex colors interpolate in sRGB, like a CSS transition between them.
+tela.Animate(bg, tela.Hex("#000000"), tela.Duration(100*time.Millisecond), tela.Ease("linear"))
+app.Advance(50 * time.Millisecond) // 33 ms of the tween: see ExamplePoint
+fmt.Println(bg.Get())
+// Output: #aaaaaa
+```
+
+### type AnimationOption
+
+```go
+type AnimationOption = core.AnimOption
+```
+
+AnimationOption configures an animation of [`UseSpring`](#func-usespring), [`UseTween`](#func-usetween) or [`Animate`](#func-animate): [`Stiffness`](#func-stiffness), [`Damping`](#func-damping), [`Bounce`](#func-bounce), [`Duration`](#func-duration), [`Ease`](#func-ease) and [`Spring`](#func-spring), which groups spring options. The zero AnimationOption changes nothing.
+
+Springs (Motion's model) are defined either by their physics or by how long they take:
+
+```go
+tela.Stiffness(300), tela.Damping(30)        // physics; mass 1
+tela.Spring(tela.Duration(500*time.Millisecond), tela.Bounce(0.25))
+```
+
+Without options a spring has stiffness 100 and damping 10 (Motion's default, slightly bouncy); Bounce without a Duration takes 800 ms, and a Duration without Bounce a bounce of 0.3. Tweens take a [`Duration`](#func-duration) (default 300 ms) and an [`Ease`](#func-ease) (default CSS's "ease").
+
+Options that contradict each other or the hook (Ease on a spring, Stiffness and Duration together, spring options on UseTween), invalid numbers and invalid easing strings panic in dev mode (TELA_DEV=1) with what to write instead; otherwise they are ignored.
+
+`AnimationOption` is an alias of `core.AnimOption`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type AnimOption struct {
+    // contains filtered or unexported fields
+}
+```
+
+**Example**
+
+```go
+// Options for the three kinds of motion.
+physics := []tela.AnimationOption{tela.Stiffness(300), tela.Damping(30)}
+timed := []tela.AnimationOption{tela.Spring(tela.Duration(400*time.Millisecond), tela.Bounce(0.2))}
+tween := []tela.AnimationOption{tela.Duration(250 * time.Millisecond), tela.Ease("cubic-bezier(0, 0, 0.2, 1)")}
+fmt.Println(len(physics), len(timed), len(tween))
+// Output: 2 1 2
+```
+
+#### func Bounce
+
+```go
+func Bounce(b float64) AnimationOption
+```
+
+Bounce sets how bouncy a spring defined by its duration is (Motion's bounce): 0 does not overshoot, 0.25 bounces a little, values toward 1 oscillate longer. Without a [`Duration`](#func-duration) the spring takes 800 ms. It makes [`Animate`](#func-animate) use a spring.
+
+**Example**
+
+```go
+// A spring defined by its duration (800 ms without Duration) ends no
+// earlier than it, at rest.
+fmt.Println("bounce 0:", springEnd(tela.Spring(tela.Bounce(0))))
+fmt.Println("bounce 0.5:", springEnd(tela.Spring(tela.Bounce(0.5))))
+// Output:
+// bounce 0: 830ms
+// bounce 0.5: 870ms
+```
+
+#### func Damping
+
+```go
+func Damping(c float64) AnimationOption
+```
+
+Damping sets the damping of a spring: how strongly it resists motion (default 10). Low values bounce around the target; damping = 2\*sqrt(stiffness) is critically damped (no overshoot), so Stiffness(300) with Damping(35) settles without bouncing. It makes [`Animate`](#func-animate) use a spring.
+
+**Example**
+
+```go
+// Damping 2*sqrt(stiffness) is critically damped: no overshoot. Less
+// bounces around the target and takes longer to come to rest.
+fmt.Println("damping 40:", springEnd(tela.Stiffness(400), tela.Damping(40)))
+fmt.Println("damping 10:", springEnd(tela.Stiffness(400), tela.Damping(10)))
+// Output:
+// damping 40: 480ms
+// damping 10: 1.15s
+```
+
+#### func Duration
+
+```go
+func Duration(d time.Duration) AnimationOption
+```
+
+Duration sets how long a tween takes, or, for a spring ([`UseSpring`](#func-usespring), or inside [`Spring`](#func-spring)), the time a spring found from it settles in (Motion's duration/bounce springs; it ends no earlier). A Duration of 0 jumps to the target.
+
+**Example**
+
+```go
+fmt.Println("tween:", springEnd(tela.Duration(250*time.Millisecond)))
+fmt.Println("spring:", springEnd(tela.Spring(tela.Duration(250*time.Millisecond))))
+// Output:
+// tween: 270ms
+// spring: 320ms
+```
+
+#### func Ease
+
+```go
+func Ease(css string) AnimationOption
+```
+
+Ease sets the easing curve of a tween, a CSS \<easing-function\>: one of the keywords linear, ease, ease-in, ease-out, ease-in-out, step-start and step-end, cubic-bezier(x1, y1, x2, y2) or steps(n\[, position\]). The keywords are CSS's curves: Tailwind's ease-out utility is Ease("cubic-bezier(0, 0, 0.2, 1)"). An invalid string panics in dev mode with a suggestion (Ease("ease-out-cubic"): did you mean "ease-out"?); otherwise the tween uses "ease".
+
+**Example**
+
+```go
+fmt.Println("ease-out:", springEnd(tela.Ease("ease-out"))) // 300 ms by default
+fmt.Println("steps:", springEnd(tela.Duration(time.Second), tela.Ease("steps(4, jump-end)")))
+// Output:
+// ease-out: 320ms
+// steps: 1.03s
+```
+
+#### func Spring
+
+```go
+func Spring(opts ...AnimationOption) AnimationOption
+```
+
+Spring makes the animation a spring with the options given: [`Stiffness`](#func-stiffness) and [`Damping`](#func-damping), or [`Duration`](#func-duration) and [`Bounce`](#func-bounce). Spring() alone is Motion's default spring. It is how [`Animate`](#func-animate) gets a spring defined by its duration:
+
+```go
+tela.Animate(y, 200, tela.Spring(tela.Duration(400*time.Millisecond), tela.Bounce(0.3)))
+```
+
+**Example**
+
+```go
+fmt.Println("Motion's default:", springEnd(tela.Spring()))
+fmt.Println("500 ms, bounce 0.3:", springEnd(tela.Spring(tela.Duration(500*time.Millisecond), tela.Bounce(0.3))))
+// Output:
+// Motion's default: 1.07s
+// 500 ms, bounce 0.3: 530ms
+```
+
+#### func Stiffness
+
+```go
+func Stiffness(k float64) AnimationOption
+```
+
+Stiffness sets the stiffness of a spring: how strongly it pulls the value to its target (default 100). Higher is faster. With [`Damping`](#func-damping) it defines the spring by its physics, so it cannot be combined with [`Duration`](#func-duration) or [`Bounce`](#func-bounce). It makes [`Animate`](#func-animate) use a spring.
+
+**Example**
+
+```go
+// Four times the stiffness (with the damping that keeps both critically
+// damped) arrives in about half the time.
+fmt.Println("stiffness 100:", springEnd(tela.Stiffness(100), tela.Damping(20)))
+fmt.Println("stiffness 400:", springEnd(tela.Stiffness(400), tela.Damping(40)))
+// Output:
+// stiffness 100: 870ms
+// stiffness 400: 480ms
+```
 
 ### type App
 
@@ -1988,6 +2292,43 @@ Key returns the node's key and whether it has one.
 func (n Node) String() string
 ```
 
+### type Point
+
+```go
+type Point = core.Point
+```
+
+Point is a point in logical pixels: X to the right, Y down. It is one of the [`Animatable`](#type-animatable) types, for a position that moves as a whole, such as a dragged card's offset.
+
+`Point` is an alias of `core.Point`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Point struct{ X, Y float32 }
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var pos *tela.Value[tela.Point]
+card := func() tela.Node {
+    pos = tela.UseValue(tela.Point{})
+    return Div(Class("size-24 rounded-xl bg-white shadow"),
+        Style(tela.TranslateFn(func() (float32, float32) { p := pos.Get(); return p.X, p.Y })),
+        // Released: back to the origin on a bouncy spring.
+        OnDragEnd(func(tela.DragEvent) { tela.Animate(pos, tela.Point{}, tela.Spring(tela.Bounce(0.4))) }),
+        OnDrag(func(e tela.DragEvent) { pos.Set(tela.Point{X: e.OffsetX, Y: e.OffsetY}) }))
+}
+app := telatest.Mount(t, tela.C(card), telatest.NoSettle())
+// Called between frames (like from a goroutine), Animate starts at the
+// next frame: 50 ms later the tween has run for 33 ms of its 100.
+tela.Animate(pos, tela.Point{X: 40, Y: 30}, tela.Duration(100*time.Millisecond), tela.Ease("linear"))
+app.Advance(50 * time.Millisecond)
+fmt.Printf("%.0f %.0f\n", pos.Get().X, pos.Get().Y)
+// Output: 13 10
+```
+
 ### type PointerEvent
 
 ```go
@@ -2414,6 +2755,38 @@ type Shadow struct {
 }
 ```
 
+### type Size
+
+```go
+type Size = core.Size
+```
+
+Size is a width and a height in logical pixels. It is one of the [`Animatable`](#type-animatable) types.
+
+`Size` is an alias of `core.Size`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Size struct{ Width, Height float32 }
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var size *tela.Value[tela.Size]
+app := telatest.Mount(t, tela.C(func() tela.Node {
+    size = tela.UseSpring(tela.Size{Width: 100, Height: 40}, tela.Size{Width: 200, Height: 120})
+    return Div(Class("rounded-lg bg-sky-500"), Style(
+        tela.WidthFn(func() float32 { return size.Get().Width }),
+        tela.HeightFn(func() float32 { return size.Get().Height })))
+}))
+// Mount settles: the spring from the initial size to the target ended.
+_, _, w, h := app.Bounds(telatest.ByClass("bg-sky-500"))
+fmt.Println(w, h)
+// Output: 200 120
+```
+
 ### type StyleProp
 
 ```go
@@ -2814,6 +3187,108 @@ func Page() tela.Node {
 ```
 
 Reading y.Get() in the component's body instead rebuilds the component on every scrolled frame; use h.OnScroll for logic that runs once per frame of scrolling.
+
+#### func UseSpring
+
+```go
+func UseSpring[T Animatable](initial, target T, opts ...AnimationOption) *Value[T]
+```
+
+UseSpring returns a [`Value`](#type-value) that follows target with a spring: on the first build it holds initial and, if target differs, starts moving to it; whenever a build passes a target that differs from the previous one, the spring retargets from where the value is, keeping its velocity, so an interrupted motion turns smoothly instead of stopping (Compose's animate\*AsState, Motion's useSpring). It is a Value like [`UseValue`](#func-usevalue)'s: read it in a deferred style closure ([`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn), [`WidthFn`](#func-widthfn)...) and the element animates by repainting or laying out only, without rebuilding the component; the same \*Value is returned on every build.
+
+The options are \[AnimationOption\]s: [`Stiffness`](#func-stiffness) and [`Damping`](#func-damping), or [`Duration`](#func-duration) and [`Bounce`](#func-bounce); without them, Motion's default spring (stiffness 100, damping 10). The spring ends when it comes to rest (its speed and its distance to the target are below Motion's thresholds), at exactly the target, and from then on the app requests no frames.
+
+A panel that slides in when open changes:
+
+```go
+target := float32(-320)
+if open {
+    target = 0
+}
+x := tela.UseSpring(float32(-320), target, tela.Stiffness(300), tela.Damping(30))
+return Div(Class("fixed inset-y-0 left-0 w-80 bg-white shadow-xl"),
+    Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
+```
+
+With reduced motion ([`App`](#type-app), or the system setting), or in a tree that no frame clock drives (telatest.Render, tela snapshot), the value jumps to each new target. Calling Set on the Value stops the spring; the next target change starts from the value set.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var x *tela.Value[float32]
+panel := func() tela.Node {
+    open, setOpen := tela.UseState(false)
+    target := float32(-320)
+    if open {
+        target = 0
+    }
+    x = tela.UseSpring(float32(-320), target, tela.Stiffness(300), tela.Damping(30))
+    return Div(Class("relative h-full"),
+        Button(OnClick(func(tela.MouseEvent) { setOpen.Set(true) }), Text("Open")),
+        Div(Class("absolute inset-y-0 left-0 w-80 bg-white shadow-xl"),
+            Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 }))))
+}
+// NoSettle: the click does not run the spring to its end.
+app := telatest.Mount(t, tela.C(panel), telatest.NoSettle())
+app.Click(telatest.ByRole("button", "Open"))
+for range 3 {
+    app.Advance(100 * time.Millisecond)
+    fmt.Printf("%.1f\n", x.Get())
+}
+app.ExpectText("Open") // expectations settle: the spring comes to rest
+fmt.Println(x.Get())
+// Output:
+// -140.5
+// -24.7
+// -0.1
+// 0
+```
+
+#### func UseTween
+
+```go
+func UseTween[T Animatable](initial, target T, opts ...AnimationOption) *Value[T]
+```
+
+UseTween is [`UseSpring`](#func-usespring) with a tween: the value moves to each new target in a fixed [`Duration`](#func-duration) along an [`Ease`](#func-ease) curve (default 300 ms, CSS's "ease"), like a CSS transition of the value. A new target starts a new tween from where the value is (tweens have no velocity to keep).
+
+```go
+op := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.Ease("ease-out"))
+Div(Class("rounded-lg bg-slate-900 p-3 text-white"),
+    Style(tela.OpacityFn(op.Get)), Text("Saved"))
+```
+
+It takes only Duration and Ease; spring options panic in dev mode.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var op *tela.Value[float32]
+toast := func() tela.Node {
+    shown, setShown := tela.UseState(false)
+    target := float32(0)
+    if shown {
+        target = 1
+    }
+    op = tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.Ease("linear"))
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setShown.Set(true) }), Text("Save")),
+        Div(Class("rounded-lg bg-slate-900 p-3 text-white"), Style(tela.OpacityFn(op.Get)), Text("Saved")))
+}
+app := telatest.Mount(t, tela.C(toast), telatest.NoSettle())
+app.Click(telatest.ByRole("button", "Save"))
+app.Advance(50 * time.Millisecond)
+fmt.Printf("%.2f\n", op.Get())
+app.Advance(150 * time.Millisecond)
+fmt.Printf("%.2f\n", op.Get())
+// Output:
+// 0.25
+// 1.00
+```
 
 #### func UseValue
 

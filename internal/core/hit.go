@@ -73,11 +73,12 @@ func (t *Tree) hitTest(pt gfx.Point) *Element {
 	return el
 }
 
-// alive reports whether bx was painted and its element still exists: a
-// box of an element unmounted since the last frame stays in its parent's
-// children until the next box phase.
+// alive reports whether bx was painted and its element still exists and
+// takes events: a box of an element unmounted since the last frame stays
+// in its parent's children until the next box phase, and the boxes of an
+// exiting Presence child are inert (presence.go).
 func alive(bx *Box) bool {
-	return bx.pcs != nil && bx.owner != nil && bx.owner.mounted
+	return bx.pcs != nil && bx.owner != nil && bx.owner.mounted && !bx.owner.inert
 }
 
 // hitTarget returns the element a hit on box bx targets: its own, or the
@@ -307,7 +308,7 @@ func (h *hitter) text(bx *Box, p gfx.Point) *Element {
 	}
 	owner := bx.owner
 	for el := para.targetAt(para.lay.Cluster(hit.Cluster).TextStart); el != nil && el != owner; el = el.styleParent() {
-		if !el.mounted || el.kind != elemPrimitive {
+		if !el.mounted || el.kind != elemPrimitive || el.inert {
 			continue
 		}
 		if cs := el.box.cs; cs != nil && cs.PointerEvents == style.PointerEventsAuto && cs.Visibility == style.VisibilityVisible {
