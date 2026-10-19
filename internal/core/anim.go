@@ -41,7 +41,11 @@ import (
 //
 // Inherited properties (color, font size) are the exception to "a restyle
 // compares": a child restyled because its parent's inherited value changed
-// follows the parent's current value and starts no transition for it.
+// follows the parent's current value and starts no transition for the
+// values it inherits (nor for its currentColor borders, outlines and
+// decorations while its text color is inherited). The values it sets
+// itself in the same restyle (a group-hover: text color, say) transition
+// as usual (followsParent).
 //
 // # What a frame of an animation invalidates
 //
@@ -292,12 +296,10 @@ func (t *Tree) updateTransitions(ba *boxAnim, old, cs *style.ComputedStyle, now 
 			}
 			continue
 		}
-		inherited := t.anim.inherited && p.Inherited()
-		if t.anim.inherited && followsColor(p) && old.Text.Color != cs.Text.Color {
-			// A child whose text color follows its parent's: the colors
-			// that are currentColor follow it too.
-			inherited = true
-		}
+		// A child restyled because its parent's inherited values changed
+		// follows the values it takes from the parent; the ones it sets
+		// itself transition like any other.
+		inherited := t.anim.inherited && followsParent(p, cs)
 		if i < 0 {
 			if inherited {
 				continue
@@ -331,11 +333,28 @@ func (t *Tree) updateTransitions(ba *boxAnim, old, cs *style.ComputedStyle, now 
 	}
 }
 
-// followsColor reports whether p is a color property whose value is the
-// text color when its style says currentColor (borders, outlines and
-// decorations): Tela resolves it when the style is computed.
-func followsColor(p anim.Prop) bool {
-	return p == anim.PropBorderColor || p == anim.PropOutlineColor || p == anim.PropDecorationColor
+// followsParent reports whether the value of p in cs is not the element's
+// own but its parent's: an inherited property the element does not set
+// (color, font size, decoration color), or a color that is currentColor
+// (borders, outlines, decorations; Tela resolves it when the style is
+// computed) while the text color is inherited. A value set relative to the
+// parent's (an em font size, text-current/50) counts as the element's own
+// font size but not as its own text color (TextColorSet; ADR-082).
+func followsParent(p anim.Prop, cs *style.ComputedStyle) bool {
+	switch p {
+	case anim.PropColor:
+		return !cs.TextColorSet
+	case anim.PropFontSize:
+		return !cs.FontSizeSet
+	case anim.PropDecorationColor:
+		if cs.DecorationInherited {
+			return true
+		}
+		fallthrough
+	case anim.PropBorderColor, anim.PropOutlineColor:
+		return cs.CurrentColors&p.Mask() != 0 && !cs.TextColorSet
+	}
+	return false
 }
 
 // updateKeyframes starts, keeps or cancels the keyframe animation of the

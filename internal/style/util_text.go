@@ -11,9 +11,11 @@ import (
 // fontSizeOp builds an op that sets the font size and, in the second pass,
 // the line height modifier of text-sm/6. size resolves against the parent's
 // font size for em and %.
-func fontSizeOp(size func(e *env) float32, sizeLeading float32, hasLeading bool, post func(*env)) Op {
+// relative reports that size depends on the parent's font size.
+func fontSizeOp(size func(e *env) float32, relative bool, sizeLeading float32, hasLeading bool, post func(*env)) Op {
 	return Op{font: true, apply: func(e *env) {
 		e.s.Text.FontSize = max(size(e), 0)
+		e.s.FontSizeSet = !relative
 		if hasLeading {
 			e.sc.sizeLeading, e.sc.sizeLeadingSet = sizeLeading, true
 		}
@@ -82,7 +84,7 @@ func registerTypography(r *registry) {
 	r.add("text", false, func(c *pctx, a *arg) (Op, error) {
 		var size func(*env) float32
 		var sizeLeading float32
-		hasLeading := false
+		hasLeading, relative := false, false
 		switch {
 		case a.arb:
 			if a.hint != "" && a.hint != "length" && a.hint != "percentage" && a.hint != "absolute-size" && a.hint != "relative-size" {
@@ -105,6 +107,7 @@ func registerTypography(r *registry) {
 				lp := e.lp(&ex)
 				return lp.Px + float32(e.parentFontSize*lp.Pct)/100
 			}
+			relative = ex.fontRelative()
 		default:
 			ts, ok := c.th.Text[a.value]
 			if !ok {
@@ -115,6 +118,7 @@ func registerTypography(r *registry) {
 				// em in a theme size is relative to the parent's size.
 				return e.lp(&ex).Px
 			}
+			relative = ex.fontRelative()
 			sizeLeading, hasLeading = ts.LineHeight, true
 		}
 		var post func(*env)
@@ -138,7 +142,7 @@ func registerTypography(r *registry) {
 			}
 			post = func(e *env) { e.sc.leading, e.sc.leadingSet = lh(e), true }
 		}
-		return fontSizeOp(size, sizeLeading, hasLeading, post), nil
+		return fontSizeOp(size, relative, sizeLeading, hasLeading, post), nil
 	}, func(th *Theme) []string { return th.Keys(NamespaceText) })
 	r.colorUtil("text", slotText, nil)
 

@@ -362,6 +362,18 @@ func (e *env) finalize() {
 		}
 		return def
 	}
+	// isCurrent reports that the color of slot is currentColor, set or by
+	// default.
+	isCurrent := func(slot colorSlot) bool {
+		spec := sc.colors[slot]
+		return !spec.set || spec.current
+	}
+	if isCurrent(slotBorderTop) && isCurrent(slotBorderRight) && isCurrent(slotBorderBottom) && isCurrent(slotBorderLeft) {
+		s.CurrentColors |= TransitionBorderColor
+	}
+	if isCurrent(slotOutline) {
+		s.CurrentColors |= TransitionOutlineColor
+	}
 
 	s.BackgroundColor = pick(slotBg, gfx.Transparent)
 
@@ -405,8 +417,14 @@ func (e *env) finalize() {
 	switch {
 	case sc.colors[slotDecoration].set:
 		s.Text.Decoration.Color = sc.colors[slotDecoration].resolve(cur)
+		if sc.colors[slotDecoration].current {
+			s.CurrentColors |= TransitionDecorationColor
+		}
 	case sc.decoLinesSet:
 		s.Text.Decoration.Color = cur
+		s.CurrentColors |= TransitionDecorationColor
+	default:
+		s.DecorationInherited = true
 	}
 
 	// Box shadows, rings and filters.

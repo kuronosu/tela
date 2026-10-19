@@ -593,3 +593,80 @@ func TestAnimationsDamageMatchesFullRender(t *testing.T) {
 	}
 	t.Logf("frames %d: full %d, partial %d, shifted %d, skipped %d", x.frames, x.full, x.partial, x.shifted, x.skipped)
 }
+
+// TestOwnColorTransitionsUnderAnInheritedChange: a child restyled because
+// its parent's text color changed still transitions the values it sets
+// itself in the same restyle (CSS Transitions: its own computed value
+// changed); only the values it inherits follow the parent.
+func TestOwnColorTransitionsUnderAnInheritedChange(t *testing.T) {
+	const kid = `group-hover:text-[#0000ff] group-hover:border-[#ff0000] border-2 transition-colors duration-200 ease-linear`
+	x := newInput(t, div(
+		div(Key("g"), Class("group size-20 text-[#000000] hover:text-[#ffffff]"),
+			div(Key("own"), Class("h-4 "+kid), Text("own")),
+			div(Key("inh"), Class("h-4 border-2 transition-colors duration-200 ease-linear"), Text("inherits")),
+			div(Key("bd"), Class("h-4 border-2 group-hover:border-[#ff0000] transition-colors duration-200 ease-linear"), Text("border")),
+		),
+	), 200, 100)
+	x.settle()
+	x.send(move(5, 5))
+	x.frame()
+	own := x.cs("own")
+	if own.anim == nil || len(own.anim.trans) == 0 {
+		t.Fatal("the child's own color snapped: no transition started")
+	}
+	start := own.anim.trans[0].Start
+	x.advanceTo(start + 100*time.Millisecond)
+	// Black to blue and black (currentColor) to red, linear in sRGB.
+	if c := x.cs("own").cs.Text.Color; !near32(c.B, 0.5, 1e-3) || c.R != 0 || c.G != 0 {
+		t.Errorf("own text color at the middle: %v, want half blue", c)
+	}
+	if c := x.cs("own").cs.Border.Top.Color; !near32(c.R, 0.5, 1e-3) || c.G != 0 || c.B != 0 {
+		t.Errorf("own border color at the middle: %v, want half red", c)
+	}
+	// The inherited text color and the currentColor border that follows it
+	// take the parent's value at once.
+	if c := x.cs("inh").cs.Text.Color; c != gfx.White {
+		t.Errorf("inherited text color %v, want the parent's white", c)
+	}
+	if c := x.cs("inh").cs.Border.Top.Color; c != gfx.White {
+		t.Errorf("currentColor border of an inheriting child %v, want white", c)
+	}
+	if a := x.cs("inh").anim; a != nil && len(a.trans) > 0 {
+		t.Errorf("the inheriting child started %d transitions", len(a.trans))
+	}
+	// A child that inherits its text color but sets its border color
+	// transitions the border only.
+	if c := x.cs("bd").cs.Text.Color; c != gfx.White {
+		t.Errorf("inherited text color %v, want white", c)
+	}
+	if c := x.cs("bd").cs.Border.Top.Color; !near32(c.R, 0.5, 1e-3) || c.G != 0 || c.B != 0 {
+		t.Errorf("own border color under an inherited text color: %v, want half red", c)
+	}
+	x.settle()
+	if c := x.cs("own").cs.Text.Color; c != (gfx.Color{B: 1, A: 1}) {
+		t.Errorf("own end color %v", c)
+	}
+
+	// The same for the font size: an own size transitions, an inherited
+	// or em size follows.
+	y := newInput(t, div(
+		div(Key("g"), Class("group size-20 text-[10px] hover:text-[30px]"),
+			div(Key("own"), Class("text-[14px] group-hover:text-[18px] transition-[font-size] duration-200 ease-linear"), Text("own")),
+			div(Key("em"), Class("text-[1em] transition-[font-size] duration-200 ease-linear"), Text("em")),
+		),
+	), 200, 100)
+	y.settle()
+	y.send(move(5, 5))
+	y.frame()
+	if a := y.cs("own").anim; a == nil || len(a.trans) == 0 {
+		t.Fatal("the child's own font size snapped")
+	}
+	start = y.cs("own").anim.trans[0].Start
+	y.advanceTo(start + 100*time.Millisecond)
+	if s := y.cs("own").cs.Text.FontSize; !near32(s, 16, 1e-3) {
+		t.Errorf("own font size at the middle: %v, want 16", s)
+	}
+	if s := y.cs("em").cs.Text.FontSize; s != 30 {
+		t.Errorf("em font size %v, want the parent's 30 at once", s)
+	}
+}

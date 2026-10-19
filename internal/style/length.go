@@ -151,6 +151,22 @@ type lenFn struct {
 	args []lenExpr
 }
 
+// fontRelative reports that the expression depends on the font size (em,
+// ch) or, as a font size, on the parent's (%).
+func (x *lenExpr) fontRelative() bool {
+	if x.em != 0 || x.ch != 0 || x.pct != 0 {
+		return true
+	}
+	if x.fn != nil {
+		for i := range x.fn.args {
+			if x.fn.args[i].fontRelative() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func exprPx(v float32) lenExpr  { return lenExpr{px: v} }
 func exprRem(v float32) lenExpr { return lenExpr{rem: v} }
 func exprPct(v float32) lenExpr { return lenExpr{pct: v} }

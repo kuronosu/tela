@@ -403,14 +403,16 @@ func parseGridLine(s string) (GridLine, error) {
 		switch {
 		case f == "span" && !span:
 			span = true
+		case name == "" && isGridIdent(f):
+			// Before the number: an identifier may start with a hyphen
+			// ("-side"), while "-1" is not one.
+			name = f
 		case !hasNum && (f[0] == '-' || f[0] == '+' || f[0] >= '0' && f[0] <= '9'):
 			v, ok := parseFloat(f)
 			if !ok || v != float32(int(v)) || v == 0 {
 				return bad()
 			}
 			num, hasNum = int(v), true
-		case name == "" && isGridIdent(f):
-			name = f
 		default:
 			return bad()
 		}

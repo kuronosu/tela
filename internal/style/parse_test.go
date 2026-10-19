@@ -285,6 +285,14 @@ func TestGridClasses(t *testing.T) {
 		eq(t, "row String", s.GridRow.String(), "span header / footer")
 		eq(t, "col-span-[name]", style(t, "col-span-[card]").GridColumn.Start, GridLine{Kind: GridLineNamedSpan, N: 1, Name: "card"})
 		eq(t, "col-[main_/_span_2]", style(t, "col-[main_/_span_2]").GridColumn, GridPlacement{main, line(GridLineSpan, 2)})
+		// A name that starts with a hyphen is an identifier, not a number.
+		side := GridLine{Kind: GridLineNamed, Name: "-side"}
+		eq(t, "col-[-side]", style(t, "grid-cols-[[-side]_200px_[main]_1fr] col-[-side]").GridColumn, GridPlacement{side, side})
+		eq(t, "col-[-side_2]", style(t, "col-[-side_2]").GridColumn.Start, GridLine{Kind: GridLineNamed, N: 2, Name: "-side"})
+		eq(t, "col-[-2_-side]", style(t, "col-[-2_-side]").GridColumn.Start, GridLine{Kind: GridLineNamed, N: -2, Name: "-side"})
+		eq(t, "col-[span_-side]", style(t, "col-[span_-side]").GridColumn.Start, GridLine{Kind: GridLineNamedSpan, N: 1, Name: "-side"})
+		eq(t, "col-[-1]", style(t, "col-[-1]").GridColumn.Start, line(GridLineIndex, -1))
+		eq(t, "col-[-1/-3]", style(t, "col-[-1/-3]").GridColumn, GridPlacement{line(GridLineIndex, -1), line(GridLineIndex, -3)})
 	})
 	t.Run("flow and auto tracks", func(t *testing.T) {
 		s := style(t, "grid-flow-col-dense auto-rows-fr auto-cols-[minmax(0,2fr)]")

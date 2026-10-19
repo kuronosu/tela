@@ -727,6 +727,19 @@ type ComputedStyle struct {
 	// text color (Text.Color is not inherited): its text does not follow
 	// an ancestor's TextColorFn.
 	TextColorSet bool
+	// FontSizeSet reports that the element's classes or props set its font
+	// size to a length that does not depend on the parent's (not em or %),
+	// so it is not the parent's or derived from it.
+	FontSizeSet bool
+	// CurrentColors are the border, outline and decoration colors (as
+	// TransitionProps bits) that are the element's text color: currentColor
+	// (the default of borders and outlines, a *-current class, or a
+	// decoration line without a decoration color). DecorationInherited
+	// reports that the decoration color is the parent's (no class or prop
+	// set the decoration color or lines). Transitions use them to tell a
+	// value of the element's own from one that follows its parent.
+	CurrentColors       TransitionProps
+	DecorationInherited bool
 }
 
 // Resolved returns the style with the deferred props of phase applied. It

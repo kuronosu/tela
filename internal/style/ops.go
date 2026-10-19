@@ -162,7 +162,7 @@ func Rotate(deg float32) Op {
 
 // FontSize sets the font size in pixels.
 func FontSize(px float32) Op {
-	return Op{font: true, apply: func(e *env) { e.s.Text.FontSize = max(px, 0) }}
+	return Op{font: true, apply: func(e *env) { e.s.Text.FontSize, e.s.FontSizeSet = max(px, 0), true }}
 }
 
 // FontWeight sets the font weight (100 to 900).
