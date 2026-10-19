@@ -115,12 +115,24 @@ type damager struct {
 	// The valid units: old and new runs.
 	ua, ub []unit
 	rects  []image.Rectangle
+	// scratch holds the buffers reused between frames.
+	scratch *damageScratch
+}
+
+// damageScratch holds buffers that frameDamage reuses from frame to frame
+// (layerState.dmg), so that a scroll frame allocates none for them.
+type damageScratch struct {
+	// seen is origin's set of chunk instances already looked at.
+	seen map[uint32]bool
 }
 
 // frameDamage returns how to bring the pixels of frame a to frame b in a
-// framebuffer of the given bounds.
-func frameDamage(a, b *frame, bounds image.Rectangle) Damage {
-	d := damager{a: a, b: b, scale: float64(b.scale), bounds: bounds}
+// framebuffer of the given bounds. s holds reused buffers (nil: new ones).
+func frameDamage(a, b *frame, bounds image.Rectangle, s *damageScratch) Damage {
+	if s == nil {
+		s = new(damageScratch)
+	}
+	d := damager{a: a, b: b, scale: float64(b.scale), bounds: bounds, scratch: s}
 	return d.run()
 }
 
@@ -473,7 +485,12 @@ func (d *damager) origin(f *frame, u *unit, enc []int) (o gfx.Point, ok bool) {
 		}
 	}
 	o = gfx.Point{X: m[4], Y: m[5]}
-	seen := map[uint32]bool{}
+	seen := d.scratch.seen
+	if seen == nil {
+		seen = map[uint32]bool{}
+		d.scratch.seen = seen
+	}
+	clear(seen)
 	first := true
 	for i := u.start; i < u.end; i++ {
 		k := dl.Tag(i)

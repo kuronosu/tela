@@ -236,7 +236,7 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 		p.t.reportOnce("bg-tiles", "tela: a background layer has too many tiles; only the first ones are painted")
 	}
 	if img != nil {
-		p.paintImageTiles(img, ax, ay, clip, true, true)
+		p.paintImageTiles(img, ax, ay, clip)
 		return
 	}
 	tiles := 0
@@ -327,9 +327,10 @@ func bgTiling(mode style.BackgroundRepeat, t, a0, a float32, pos style.LP, c0, c
 	return ax
 }
 
-// paintImageTiles draws the tiles of an image layer under clip. Along an
-// axis that repeats, tile edges are snapped to device pixels.
-func (p *painter) paintImageTiles(img *gfx.Image, ax, ay bgAxis, clip gfx.RRect, snapX, snapY bool) {
+// paintImageTiles draws the tiles of an image layer under clip. The edges
+// of every tile snap to device pixels on both axes, repeating or not, as
+// Blink snaps them (ADR-079).
+func (p *painter) paintImageTiles(img *gfx.Image, ax, ay bgAxis, clip gfx.RRect) {
 	// The mip level whose size is the smallest that is not smaller than
 	// the tile in device pixels (Chromium's choice for downscaled images).
 	kx := float64(float64(ax.size)*p.scale) / float64(img.Width())
@@ -350,13 +351,7 @@ func (p *painter) paintImageTiles(img *gfx.Image, ax, ay bgAxis, clip gfx.RRect,
 	for j := ay.from; j < ay.to; j++ {
 		for i := ax.from; i < ax.to && tiles < maxBgTiles; i++ {
 			tx, ty := ax.start+float32(float32(i)*ax.period), ay.start+float32(float32(j)*ay.period)
-			tile := gfx.Rect{X0: tx, Y0: ty, X1: tx + ax.size, Y1: ty + ay.size}
-			if snapX {
-				tile.X0, tile.X1 = p.snap(tile.X0), p.snap(tile.X1)
-			}
-			if snapY {
-				tile.Y0, tile.Y1 = p.snap(tile.Y0), p.snap(tile.Y1)
-			}
+			tile := gfx.Rect{X0: p.snap(tx), Y0: p.snap(ty), X1: p.snap(tx + ax.size), Y1: p.snap(ty + ay.size)}
 			if tile.Empty() || !tile.Intersects(cb) {
 				continue
 			}

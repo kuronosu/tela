@@ -225,17 +225,26 @@ func convertBgImage(src image.Image) *gfx.Image {
 	if c.m == nil {
 		c.m = map[image.Image]*convEntry{}
 	}
-	e := &convEntry{src: src, img: img}
-	c.m[src] = e
+	c.add(&convEntry{src: src, img: img}, bgImageCacheBytes)
+	return img
+}
+
+// add inserts e as the most recently used entry and evicts the least
+// recently used ones while the cache holds more than limit bytes (the
+// newest entry stays even when larger).
+func (c *convCache) add(e *convEntry, limit int) {
+	c.m[e.src] = e
 	c.order = append(c.order, e)
-	c.bytes += len(img.Pix())
-	for c.bytes > bgImageCacheBytes && len(c.order) > 1 {
+	c.bytes += len(e.img.Pix())
+	for c.bytes > limit && len(c.order) > 1 {
 		old := c.order[0]
+		// Clear the slot: the backing array outlives the reslice, and a
+		// pointer left in it would keep the evicted pixels alive.
+		c.order[0] = nil
 		c.order = c.order[1:]
 		delete(c.m, old.src)
 		c.bytes -= len(old.img.Pix())
 	}
-	return img
 }
 
 // touch moves e to the most recently used end.

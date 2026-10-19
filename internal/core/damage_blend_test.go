@@ -107,7 +107,7 @@ func TestDamageBlendAndMaskLayers(t *testing.T) {
 		for step := range 120 {
 			what := s.mutate(rng)
 			next := &frame{dl: s.list(), scale: scale}
-			d := frameDamage(prev, next, fb.Rect)
+			d := frameDamage(prev, next, fb.Rect, nil)
 			if d.Full {
 				raster.Clear(fb, image.Rectangle{}, gfx.White)
 				raster.Render(fb, next.dl, raster.Options{Scale: scale})

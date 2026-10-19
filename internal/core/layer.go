@@ -150,6 +150,8 @@ type layerState struct {
 	cur, ras *frame
 	rasRect  image.Rectangle
 	damage   Damage
+	// dmg holds the buffers frameDamage reuses.
+	dmg damageScratch
 	// recorded counts the layers recorded by the last paint.
 	recorded int
 }
@@ -503,7 +505,7 @@ func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damag
 		r.Render(fb, f.dl, raster.Options{Scale: f.scale})
 		d.Full = true
 	case L.ras != f:
-		d = frameDamage(L.ras, f, fb.Rect)
+		d = frameDamage(L.ras, f, fb.Rect, &L.dmg)
 		if d.Full {
 			raster.Clear(fb, image.Rectangle{}, t.CanvasColor())
 			r.Render(fb, f.dl, raster.Options{Scale: f.scale})
