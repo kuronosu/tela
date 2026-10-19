@@ -22,15 +22,16 @@ type Size = core.Size
 //   - [Color]: interpolated as CSS transitions interpolate colors,
 //     premultiplied by alpha, in sRGB between two colors written as hex,
 //     rgb() or named colors, and in Oklab otherwise (the Oklch palette
-//     of Tailwind, [OKLCH]);
+//     of Tailwind, [OKLCH]); read it in a [BgFn] or [TextColorFn] to
+//     animate a color by repainting only;
 //   - [Point], [Size] and [Rect]: component by component, each with its
 //     own velocity.
 type Animatable = core.Animatable
 
 // AnimationOption configures an animation of [UseSpring], [UseTween] or
-// [Animate]: [Stiffness], [Damping], [Bounce], [Duration], [Ease] and
-// [Spring], which groups spring options. The zero AnimationOption changes
-// nothing.
+// [Animate]: [Stiffness], [Damping], [Bounce], [Duration], [Ease],
+// [Velocity] and [Spring], which groups spring options, and [OnDone]. The
+// zero AnimationOption changes nothing.
 //
 // Springs (Motion's model) are defined either by their physics or by how
 // long they take:
@@ -157,6 +158,40 @@ func Duration(d time.Duration) AnimationOption { return core.Duration(d) }
 // "ease-out"?); otherwise the tween uses "ease".
 func Ease(css string) AnimationOption { return core.Ease(css) }
 
+// OnDone calls fn when the animation comes to rest at its target: once,
+// on the UI thread, queued with the state updates like [Post], so it runs
+// before the next build and state it sets is built in the frame that
+// shows the target. It is not called when the animation is interrupted:
+// by another Animate, Set or Update of the Value, by a new target of
+// [UseSpring] or [UseTween], or by the unmount of the Value's component.
+// When the target applies at once (reduced motion, a tree that no frame
+// clock drives, a value already at its target and at rest, a NaN target)
+// fn is queued right after it applies. For UseSpring and UseTween it is
+// the OnDone of the build that set the target that runs.
+//
+//	tela.Animate(x, 0, tela.Spring(), tela.OnDone(func() { setOpen.Set(false) }))
+//
+// It is how a component inside an h.Presence child ends its own exit:
+// see [UsePresence].
+func OnDone(fn func()) AnimationOption { return core.OnDone(fn) }
+
+// Velocity sets the initial velocity of a spring, in the Value's units per
+// second, component by component (a [Point]'s X and Y, a [Rect]'s X, Y,
+// Width and Height). It replaces the velocity an interrupted animation
+// would pass on: a released drag hands its pointer velocity to the spring
+// that brings the element back:
+//
+//	OnDragEnd(func(e tela.DragEvent) {
+//	    tela.Animate(pos, tela.Point{}, tela.Spring(), tela.Velocity(tela.Point{X: e.VelocityX, Y: e.VelocityY}))
+//	})
+//
+// It makes [Animate] use a spring. Its type must be the Value's, and it
+// does not apply to tweens ([UseTween], or Duration and Ease alone) nor to
+// [Color] values, whose components move in a space (sRGB or Oklab,
+// premultiplied) that depends on the two colors: those panic in dev mode
+// and are ignored otherwise.
+func Velocity[T Animatable](v T) AnimationOption { return core.Velocity(v) }
+
 // Spring makes the animation a spring with the options given:
 // [Stiffness] and [Damping], or [Duration] and [Bounce]. Spring() alone is
 // Motion's default spring. It is how [Animate] gets a spring defined by
@@ -175,9 +210,9 @@ func Spring(opts ...AnimationOption) AnimationOption { return core.Spring(opts..
 // the component is present (a call from a previous exit that was
 // cancelled is ignored). Outside any Presence, present is always true.
 //
-// A toast that slides down and fades out before it unmounts: while it
-// exits, its body reads the tween (so it builds on each frame of the
-// exit, and only then) and calls done when the tween has arrived.
+// A toast that slides down and fades out before it unmounts: the tween to
+// its exit position calls done when it arrives ([OnDone]; done does
+// nothing while the toast is present, so the entrance may pass it too).
 //
 //	func Toast(msg string) tela.Node {
 //	    present, done := tela.UsePresence()
@@ -185,10 +220,7 @@ func Spring(opts ...AnimationOption) AnimationOption { return core.Spring(opts..
 //	    if !present {
 //	        target = 1
 //	    }
-//	    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond))
-//	    if !present && out.Get() == target {
-//	        done()
-//	    }
+//	    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
 //	    return Div(Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
 //	        Style(tela.TranslateFn(func() (float32, float32) { return 0, 40 * out.Get() }),
 //	            tela.OpacityFn(func() float32 { return 1 - out.Get() })),

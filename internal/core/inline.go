@@ -197,6 +197,7 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 	para := bx.para
 	l := para.lay
 	frags := para.fragments()
+	paints := p.textPaints(bx)
 	fi := 0
 	for li := range l.NumLines() {
 		for ; fi < len(frags) && frags[fi].Line == li; fi++ {
@@ -205,7 +206,7 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 			}
 		}
 		if visible {
-			l.PaintLine(p.b, origin, li, float32(p.scale))
+			l.PaintLineRecolored(p.b, origin, li, float32(p.scale), paints)
 		}
 		for i, k := range para.atoms {
 			if k.parent == bx && l.BoxLine(para.atomBox[i]) == li {
@@ -219,7 +220,7 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 	// Outlines, after the content (CSS paints them last).
 	for i := range frags {
 		f := &frags[i]
-		cs := para.inlineStyle(f.Inline)
+		cs := p.inlinePaintStyle(para, f.Inline)
 		if cs == nil || cs.Visibility != style.VisibilityVisible || cs.Outline.Width <= 0 || cs.Outline.Color.A == 0 ||
 			cs.Outline.Style == style.BorderNone || cs.Outline.Style == style.BorderHidden {
 			continue
@@ -236,7 +237,7 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 // background, border), a slice of its stitched box when it lacks an edge.
 func (p *painter) paintFragment(para *paragraph, frags []text.InlineFragment, i int, origin gfx.Point) {
 	f := &frags[i]
-	cs := para.inlineStyle(f.Inline)
+	cs := p.inlinePaintStyle(para, f.Inline)
 	if cs == nil || cs.Visibility != style.VisibilityVisible || !hasDecorations(cs) {
 		return
 	}

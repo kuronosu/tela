@@ -67,6 +67,8 @@ const (
 	optDuration
 	optEase
 	optSpring
+	optOnDone
+	optVelocity
 )
 
 // AnimOption configures an animation: its spring or its tween
@@ -78,10 +80,16 @@ type animOpt struct {
 	f     float64
 	d     time.Duration
 	curve anim.Curve
-	// err says why the string given to Ease is not an easing function.
+	// err says why the option is not valid (an Ease string that is not an
+	// easing function, a Velocity of a color).
 	err string
 	// sub are the options of Spring.
 	sub []AnimOption
+	// fn is OnDone's function.
+	fn func()
+	// vel and typ are Velocity's components and the name of its type.
+	vel anim.Vec
+	typ string
 }
 
 // Stiffness sets the stiffness of a spring (default 100).
@@ -110,6 +118,22 @@ func Ease(css string) AnimOption {
 // Spring makes the animation a spring with the options given.
 func Spring(opts ...AnimOption) AnimOption {
 	return AnimOption{&animOpt{kind: optSpring, sub: opts}}
+}
+
+// OnDone calls fn on the UI thread when the motion comes to rest at its
+// target (tela.OnDone).
+func OnDone(fn func()) AnimOption { return AnimOption{&animOpt{kind: optOnDone, fn: fn}} }
+
+// Velocity sets the initial velocity of a spring, per component in units
+// per second (tela.Velocity). Colors have none.
+func Velocity[T Animatable](v T) AnimOption {
+	o := &animOpt{kind: optVelocity, typ: typeName[T]()}
+	if _, ok := any(v).(gfx.Color); ok {
+		o.err = "Velocity does not apply to colors: a color moves in premultiplied sRGB or Oklab depending on the two colors, so its components have no common unit; animate a float32 progress and mix the colors in a BgFn or TextColorFn instead"
+	} else {
+		o.vel = vecOf(v, false)
+	}
+	return AnimOption{o}
 }
 
 var easeKeywords = []string{"linear", "ease", "ease-in", "ease-out", "ease-in-out", "step-start", "step-end"}
@@ -160,29 +184,55 @@ const (
 	defaultTween          = 300 * time.Millisecond
 )
 
-// resolveMotion turns the options of hook into the motion they describe.
-// Mistakes (options that contradict each other or the hook, invalid
-// values) panic in dev mode with what to write instead; otherwise the
-// offending option is ignored, as Motion does.
-func (t *Tree) resolveMotion(hook string, mode animMode, opts []AnimOption) anim.MotionSpec {
+// motionOpts is what the options of an animation resolve to: the motion,
+// and the OnDone and Velocity options.
+type motionOpts struct {
+	spec   anim.MotionSpec
+	onDone func()
+	vel    anim.Vec
+	hasVel bool
+}
+
+// resolveMotion turns the options of hook, animating a Value of type typ,
+// into the motion they describe. Mistakes (options that contradict each
+// other or the hook, invalid values) panic in dev mode with what to write
+// instead; otherwise the offending option is ignored, as Motion does.
+func (t *Tree) resolveMotion(hook string, mode animMode, typ string, opts []AnimOption) motionOpts {
 	problem := func(format string, args ...any) {
 		if t.dev {
 			panic("tela: " + hook + ": " + fmt.Sprintf(format, args...))
 		}
 	}
+	var m motionOpts
+	velocity := func(op *animOpt) {
+		switch {
+		case op.err != "":
+			problem("%s", op.err)
+		case op.typ != typ:
+			problem("Velocity of a %s for a Value of %s: pass a velocity of the Value's type, such as tela.Velocity(%s(...))", op.typ, typ, typ)
+		default:
+			m.vel, m.hasVel = op.vel, true
+		}
+	}
 	var (
-		stiff, damp, bounce, top []*animOpt
-		dur, springDur           *time.Duration
-		curve                    anim.Curve
-		spring                   bool
+		stiff, damp, bounce []*animOpt
+		dur, springDur      *time.Duration
+		curve               anim.Curve
+		spring              bool
 	)
-	_ = top
 	for _, o := range opts {
 		op := o.o
 		if op == nil {
 			continue
 		}
 		switch op.kind {
+		case optOnDone:
+			if op.fn == nil {
+				problem("OnDone(nil): pass the function to call when the animation ends")
+			}
+			m.onDone = op.fn
+		case optVelocity:
+			velocity(op)
 		case optStiffness:
 			stiff = append(stiff, op)
 		case optDamping:
@@ -219,14 +269,18 @@ func (t *Tree) resolveMotion(hook string, mode animMode, opts []AnimOption) anim
 					problem("Ease does not apply to a spring, whose motion comes from Stiffness and Damping, or Duration and Bounce; remove it, or use a tween (Duration and Ease without Spring)")
 				case optSpring:
 					problem("Spring inside Spring: pass the spring options to one Spring")
+				case optVelocity:
+					velocity(sp)
+				case optOnDone:
+					problem("OnDone inside Spring: pass it next to Spring, as an option of the animation")
 				}
 			}
 		}
 	}
-	springOpts := spring || len(stiff) > 0 || len(damp) > 0 || len(bounce) > 0
+	springOpts := spring || len(stiff) > 0 || len(damp) > 0 || len(bounce) > 0 || m.hasVel
 	if mode == animTween && springOpts {
-		problem("UseTween takes Duration and Ease; Stiffness, Damping, Bounce and Spring are for springs (use UseSpring)")
-		springOpts = false
+		problem("UseTween takes Duration, Ease and OnDone; Stiffness, Damping, Bounce, Velocity and Spring are for springs (use UseSpring)")
+		springOpts, m.hasVel = false, false
 	}
 	springy := mode == animSpring || springOpts || (mode == animAuto && dur == nil && curve == nil)
 	if mode == animTween {
@@ -244,7 +298,8 @@ func (t *Tree) resolveMotion(hook string, mode animMode, opts []AnimOption) anim
 		if curve == nil {
 			curve = anim.Ease
 		}
-		return anim.MotionSpec{Duration: d, Curve: curve}
+		m.spec = anim.MotionSpec{Duration: d, Curve: curve}
+		return m
 	}
 	if curve != nil {
 		problem("Ease applies to tweens; a spring's motion comes from Stiffness and Damping, or Duration and Bounce: remove Ease, or the spring options for a tween")
@@ -277,7 +332,8 @@ func (t *Tree) resolveMotion(hook string, mode animMode, opts []AnimOption) anim
 			problem("Damping(%v): the damping must be 0 or more, such as 30", c)
 			c = 10
 		}
-		return anim.MotionSpec{Spring: true, Physics: anim.Spring{Stiffness: k, Damping: c, Mass: 1}}
+		m.spec = anim.MotionSpec{Spring: true, Physics: anim.Spring{Stiffness: k, Damping: c, Mass: 1}}
+		return m
 	}
 	if springDur != nil || hasB {
 		d := defaultSpringDuration
@@ -296,9 +352,11 @@ func (t *Tree) resolveMotion(hook string, mode animMode, opts []AnimOption) anim
 		}
 		// SpringForDuration clamps the duration to Motion's 10 ms to 10 s.
 		md := min(max(d, 10*time.Millisecond), 10*time.Second)
-		return anim.MotionSpec{Spring: true, Physics: anim.SpringForDuration(d, b), MinDuration: md}
+		m.spec = anim.MotionSpec{Spring: true, Physics: anim.SpringForDuration(d, b), MinDuration: md}
+		return m
 	}
-	return anim.MotionSpec{Spring: true, Physics: anim.DefaultSpring()}
+	m.spec = anim.MotionSpec{Spring: true, Physics: anim.DefaultSpring()}
+	return m
 }
 
 // ---------------------------------------------------------------------
@@ -384,21 +442,22 @@ type valueAnimator interface {
 type valueAnim[T Animatable] struct {
 	v *Value[T]
 	// cur is the motion in progress (when running), toward toT, in the
-	// color space oklab.
+	// color space oklab; onDone is its OnDone.
 	cur     anim.Motion
 	running bool
 	toT     T
 	oklab   bool
+	onDone  func()
 	// next is a motion that starts at the next frame (or at once inside
 	// a frame), from wherever cur is then.
-	next    *anim.MotionSpec
+	next    motionOpts
 	nextTo  T
 	hasNext bool
 }
 
-// animateTo starts an animation of v toward target with spec, replacing
+// animateTo starts an animation of v toward target as m says, replacing
 // the running one, on the UI thread.
-func animateTo[T Animatable](v *Value[T], target T, spec anim.MotionSpec) {
+func animateTo[T Animatable](v *Value[T], target T, m motionOpts) {
 	t := v.el.tree
 	if !v.el.mounted {
 		return
@@ -407,6 +466,7 @@ func animateTo[T Animatable](v *Value[T], target T, spec anim.MotionSpec) {
 		// No clock (Render) or reduced motion: the target at once.
 		v.stopAnim()
 		v.storeUI(target)
+		t.doneLater(m.onDone)
 		return
 	}
 	a, _ := v.anim.(*valueAnim[T])
@@ -414,8 +474,7 @@ func animateTo[T Animatable](v *Value[T], target T, spec anim.MotionSpec) {
 		a = &valueAnim[T]{v: v}
 		v.anim = a
 	}
-	s := spec
-	a.next, a.nextTo, a.hasNext = &s, target, true
+	a.next, a.nextTo, a.hasNext = m, target, true
 	if t.inFrame && t.anim.advanced {
 		// Inside a frame the ticker's time is the frame's: start now.
 		a.begin(t.anim.tk.Now())
@@ -429,11 +488,22 @@ func animateTo[T Animatable](v *Value[T], target T, spec anim.MotionSpec) {
 	}
 }
 
+// doneLater queues an OnDone function: it runs on the UI thread with the
+// updates, before the next build.
+func (t *Tree) doneLater(fn func()) {
+	if fn != nil {
+		t.enqueue(update{post: fn})
+	}
+}
+
 // begin starts the pending motion at now, from the position and velocity
-// of the running one (or the Value's current value, at rest).
+// of the running one (or the Value's current value, at rest); a Velocity
+// option replaces the velocity. The running motion is interrupted: its
+// OnDone is never called.
 func (a *valueAnim[T]) begin(now time.Duration) {
-	spec, target := *a.next, a.nextTo
-	a.next, a.hasNext = nil, false
+	m, target := a.next, a.nextTo
+	spec := m.spec
+	a.next, a.hasNext = motionOpts{}, false
 	cur := *a.v.cur.Load()
 	oklab := colorSpace(cur, target)
 	var pos, vel anim.Vec
@@ -453,21 +523,27 @@ func (a *valueAnim[T]) begin(now time.Duration) {
 		pos = vecOf(cur, oklab)
 	}
 	vel.N = pos.N
+	if m.hasVel && m.vel.N == pos.N {
+		vel = m.vel
+	}
 	to := vecOf(target, oklab)
 	if !spec.Spring {
 		vel = anim.Vec{N: pos.N} // tweens do not carry a velocity
 	}
-	a.running = false
+	a.running, a.onDone = false, nil
+	t := a.v.el.tree
 	if !pos.Finite() || !to.Finite() || !vel.Finite() {
 		a.v.storeUI(target) // NaN or infinity: nothing to interpolate
+		t.doneLater(m.onDone)
 		return
 	}
 	if pos.Same(to) && vel.Same(anim.Vec{N: pos.N}) {
 		a.v.storeUI(target) // already there, at rest
+		t.doneLater(m.onDone)
 		return
 	}
 	a.cur = anim.NewMotion(spec, pos, to, vel, now)
-	a.toT, a.oklab, a.running = target, oklab, true
+	a.toT, a.oklab, a.running, a.onDone = target, oklab, true, m.onDone
 }
 
 // Advance implements anim.Animator: it moves the Value to its value at
@@ -483,24 +559,29 @@ func (a *valueAnim[T]) Advance(now time.Duration) anim.State {
 	if !a.running {
 		return anim.Done
 	}
-	if v.el.tree.cx.ReducedMotion {
-		a.running = false
-		v.storeUI(a.toT)
-		return anim.Done
-	}
 	x, _, done := a.cur.At(now)
-	if done {
-		a.running = false
-		v.storeUI(a.toT) // exactly the target
+	if done || v.el.tree.cx.ReducedMotion {
+		a.finish()
 		return anim.Done
 	}
 	v.storeUI(valueOf[T](x, a.oklab))
 	return anim.Running
 }
 
-// stop implements valueAnimator.
+// finish ends the running motion at exactly its target and queues its
+// OnDone.
+func (a *valueAnim[T]) finish() {
+	a.running = false
+	a.v.storeUI(a.toT)
+	fn := a.onDone
+	a.onDone = nil
+	a.v.el.tree.doneLater(fn)
+}
+
+// stop implements valueAnimator: the motion is interrupted, its OnDone
+// is never called.
 func (a *valueAnim[T]) stop() {
-	a.running, a.next, a.hasNext = false, nil, false
+	a.running, a.next, a.hasNext, a.onDone = false, motionOpts{}, false, nil
 	a.v.el.tree.anim.tk.Remove(a)
 }
 
@@ -520,9 +601,9 @@ func (v *Value[T]) stopAnim() {
 func Animate[T Animatable](v *Value[T], target T, opts ...AnimOption) {
 	v.load("Animate")
 	t := v.el.tree
-	spec := t.resolveMotion("Animate", animAuto, opts)
+	m := t.resolveMotion("Animate", animAuto, typeName[T](), opts)
 	t.enqueue(update{el: v.el, set: func() bool {
-		animateTo(v, target, spec)
+		animateTo(v, target, m)
 		return false
 	}})
 }
@@ -560,10 +641,10 @@ func useMotion[T Animatable](kind hookKind, mode animMode, initial, target T, op
 		s = &motionSlot[T]{v: newValue(el, initial), target: initial}
 		el.hooks = append(el.hooks, s)
 	}
-	spec := el.tree.resolveMotion(kind.String(), mode, opts)
+	m := el.tree.resolveMotion(kind.String(), mode, typeName[T](), opts)
 	if !sameValue(target, s.target) {
 		s.target = target
-		animateTo(s.v, target, spec)
+		animateTo(s.v, target, m)
 	}
 	return s.v
 }

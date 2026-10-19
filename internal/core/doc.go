@@ -341,7 +341,10 @@
 // anim.Motion advanced by the same ticker, which stores the Value at
 // every frame, so its readers are redone in the phase they read it in; a
 // new target starts from the position and velocity the running motion
-// has. A Presence (presence.go) keeps a removed child mounted and inert
+// has (or from a Velocity option), and OnDone is queued when a motion
+// comes to rest at its target. BgFn and TextColorFn are paint-phase
+// deferred colors; text inherits a TextColorFn when it is painted
+// (colorfn.go). A Presence (presence.go) keeps a removed child mounted and inert
 // while its Exit classes transition and its UsePresence components run
 // their exits, then unmounts it.
 //

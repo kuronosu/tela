@@ -155,9 +155,8 @@ func ExampleAnimatable() {
 	var bg *tela.Value[tela.Color]
 	app := telatest.Mount(t, tela.C(func() tela.Node {
 		bg = tela.UseValue(tela.Hex("#ffffff"))
-		// Read in the body: the component builds on each frame of the
-		// animation (style props have no deferred color).
-		return Div(Class("size-10"), Style(tela.Bg(bg.Get())))
+		// Read in the paint phase: the animation only repaints the box.
+		return Div(Class("size-10"), Style(tela.BgFn(bg.Get)))
 	}), telatest.NoSettle())
 	// Hex colors interpolate in sRGB, like a CSS transition between them.
 	tela.Animate(bg, tela.Hex("#000000"), tela.Duration(100*time.Millisecond), tela.Ease("linear"))
@@ -257,10 +256,8 @@ func ExampleUsePresence() {
 		if !present {
 			target = 1
 		}
-		out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond))
-		if !present && out.Get() == target {
-			done() // the exit is over: unmount
-		}
+		// The tween out ends the exit: done does nothing while present.
+		out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
 		return Div(Role("status"), Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
 			Style(tela.OpacityFn(func() float32 { return 1 - out.Get() })), Text("Saved"))
 	}
@@ -275,4 +272,78 @@ func ExampleUsePresence() {
 	app.Click(telatest.ByRole("button", "Dismiss")) // waits for the exit
 	fmt.Println(app.Count(telatest.ByRole("status", "")), app.Now()-start >= 200*time.Millisecond)
 	// Output: 0 true
+}
+
+func ExampleOnDone() {
+	t := &exampleT{}
+	defer t.close()
+	var x *tela.Value[float32]
+	var log []string
+	app := telatest.Mount(t, tela.C(func() tela.Node {
+		x = tela.UseValue[float32](0)
+		return Div(Class("size-8 bg-black"), Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
+	}), telatest.NoSettle())
+	tela.Animate(x, 100, tela.OnDone(func() { log = append(log, "first") }))
+	app.Advance(50 * time.Millisecond)
+	// Interrupted: the first OnDone never runs.
+	tela.Animate(x, 0, tela.Duration(100*time.Millisecond), tela.OnDone(func() { log = append(log, "second") }))
+	app.Advance(time.Second)
+	fmt.Println(log, x.Get())
+	// Output: [second] 0
+}
+
+func ExampleVelocity() {
+	t := &exampleT{}
+	defer t.close()
+	var x *tela.Value[float32]
+	app := telatest.Mount(t, tela.C(func() tela.Node {
+		x = tela.UseValue[float32](0)
+		return Div(Class("size-8 bg-black"), Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
+	}), telatest.NoSettle())
+	// A flick at rest: the value is already at its target, the velocity
+	// carries it away and the spring brings it back.
+	tela.Animate(x, 0, tela.Stiffness(200), tela.Damping(20), tela.Velocity(float32(600)))
+	var peak float32
+	for range 30 {
+		app.Advance(time.Second / 60)
+		peak = max(peak, x.Get())
+	}
+	app.Advance(2 * time.Second)
+	fmt.Printf("peak %.0f, rest %v\n", peak, x.Get())
+	// Output: peak 19, rest 0
+}
+
+func ExampleBgFn() {
+	t := &exampleT{}
+	defer t.close()
+	var bg *tela.Value[tela.Color]
+	app := telatest.Mount(t, tela.C(func() tela.Node {
+		bg = tela.UseValue(tela.Hex("#ffffff"))
+		return Div(Class("size-10"), Style(tela.BgFn(bg.Get)))
+	}), telatest.Size(40, 40))
+	before := app.Stats()
+	bg.Set(tela.Hex("#4f46e5"))
+	after := app.Stats() // settles: the frame that shows the change
+	// The change repainted the box: no build, style or layout.
+	fmt.Println(app.Screenshot().RGBAAt(5, 5), after.Builds-before.Builds, after.Styles-before.Styles, after.Layouts-before.Layouts)
+	// Output: {79 70 229 255} 0 0 0
+}
+
+func ExampleTextColorFn() {
+	t := &exampleT{}
+	defer t.close()
+	var c *tela.Value[tela.Color]
+	app := telatest.Mount(t, tela.C(func() tela.Node {
+		c = tela.UseValue(tela.Hex("#0f172a"))
+		// The Strong inherits the paragraph's color, so it follows the Fn
+		// too; the Span has a color of its own.
+		return P(Style(tela.TextColorFn(c.Get)),
+			Text("Status: "), Strong(Text("online")), Span(Class("text-slate-400"), Text(" (auto)")))
+	}))
+	before := app.Stats()
+	c.Set(tela.Hex("#16a34a"))
+	after := app.Stats()
+	// Builds, styles, layouts and paints of the change.
+	fmt.Println(after.Builds-before.Builds, after.Styles-before.Styles, after.Layouts-before.Layouts, after.Paints-before.Paints)
+	// Output: 0 0 0 1
 }

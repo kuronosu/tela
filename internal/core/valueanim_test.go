@@ -163,7 +163,7 @@ func TestUseTween(t *testing.T) {
 	}
 	// The default tween is 300 ms with CSS's ease.
 	tr := NewTree(Config{Fonts: testFonts})
-	spec := tr.resolveMotion("UseTween", animTween, nil)
+	spec := tr.resolveMotion("UseTween", animTween, "float32", nil).spec
 	if spec.Spring || spec.Duration != 300*time.Millisecond || spec.Curve != anim.Ease {
 		t.Errorf("default tween %+v", spec)
 	}
@@ -505,7 +505,7 @@ func TestAnimationOptions(t *testing.T) {
 		{"auto tween by ease", animAuto, []AnimOption{Ease("steps(4)")}, anim.MotionSpec{Duration: 300 * time.Millisecond, Curve: anim.Steps{N: 4}}, ""},
 		{"bad ease", animTween, []AnimOption{Ease("ease-out-cubic")}, anim.MotionSpec{Duration: 300 * time.Millisecond, Curve: anim.Ease}, `did you mean "ease-out"?`},
 		{"tailwind token", animTween, []AnimOption{Ease("out")}, anim.MotionSpec{Duration: 300 * time.Millisecond, Curve: anim.Ease}, `Ease("cubic-bezier(0, 0, 0.2, 1)") for Tailwind's ease-out`},
-		{"spring on tween", animTween, []AnimOption{Stiffness(10)}, anim.MotionSpec{Duration: 300 * time.Millisecond, Curve: anim.Ease}, "UseTween takes Duration and Ease"},
+		{"spring on tween", animTween, []AnimOption{Stiffness(10)}, anim.MotionSpec{Duration: 300 * time.Millisecond, Curve: anim.Ease}, "UseTween takes Duration, Ease and OnDone"},
 		{"ease on spring", animSpring, []AnimOption{Ease("linear")}, anim.MotionSpec{Spring: true, Physics: anim.DefaultSpring()}, "Ease applies to tweens"},
 		{"ease in Spring", animAuto, []AnimOption{Spring(Ease("linear"))}, anim.MotionSpec{Spring: true, Physics: anim.DefaultSpring()}, "Ease does not apply to a spring"},
 		{"physics and duration", animAuto, []AnimOption{Stiffness(10), Duration(time.Second), Bounce(0.1)}, anim.MotionSpec{Spring: true, Physics: anim.Spring{Stiffness: 10, Damping: 10, Mass: 1}}, "use one pair or the other"},
@@ -514,7 +514,7 @@ func TestAnimationOptions(t *testing.T) {
 		{"zero option", animAuto, []AnimOption{{}}, anim.MotionSpec{Spring: true, Physics: anim.DefaultSpring()}, ""},
 	}
 	for _, c := range cases {
-		got := prod.resolveMotion("Animate", c.mode, c.opts)
+		got := prod.resolveMotion("Animate", c.mode, "float32", c.opts).spec
 		if got != c.want {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)
 		}
@@ -524,7 +524,7 @@ func TestAnimationOptions(t *testing.T) {
 					msg = r.(string)
 				}
 			}()
-			dev.resolveMotion("Animate", c.mode, c.opts)
+			dev.resolveMotion("Animate", c.mode, "float32", c.opts)
 			return ""
 		}()
 		if (c.msg == "") != (msg == "") || !strings.Contains(msg, c.msg) {

@@ -168,6 +168,9 @@ func (b *Box) detach() {
 		b.tree.dropScroller(b)
 	}
 	b.tree.dropAnim(b)
+	if b.cs != nil && b.cs.HasTextColorFn() {
+		b.tree.textColorFns--
+	}
 	b.parent = nil
 	b.kids = nil
 	b.anon = nil
@@ -331,6 +334,9 @@ type paragraph struct {
 	inl     []*Element
 	atoms   []*Box
 	atomBox []int
+	// spanEls are the elements whose styles the spans have (span i is
+	// style i+1 of the layout), for TextColorFn (paint.go).
+	spanEls []*Element
 	// final holds the atoms' sizes of the last full layout and finalW
 	// the width it broke the lines at; sized reports that the layout's
 	// boxes have them (a size query since may have changed them).
@@ -574,6 +580,8 @@ type paraAssembler struct {
 	atoms   []*Box
 	atomBox []int
 	open    int
+	// spanEls are the elements whose styles the spans have.
+	spanEls []*Element
 }
 
 func (a *paraAssembler) reset() {
@@ -581,6 +589,8 @@ func (a *paraAssembler) reset() {
 	clear(a.inlines)
 	clear(a.inl)
 	clear(a.atoms)
+	clear(a.spanEls)
+	a.spanEls = a.spanEls[:0]
 	a.parts, a.boxes, a.spans, a.n = a.parts[:0], a.boxes[:0], a.spans[:0], 0
 	a.inlines, a.inl, a.atoms, a.atomBox, a.open = a.inlines[:0], a.inl[:0], a.atoms[:0], a.atomBox[:0], 0
 }
@@ -686,6 +696,7 @@ func (a *paraAssembler) build() (string, []text.Span) {
 				a.spans[len(a.spans)-1].End = end
 			} else {
 				a.spans = append(a.spans, text.Span{Start: off, End: end, Style: p.cs.TextStyle()})
+				a.spanEls = append(a.spanEls, p.el)
 			}
 		}
 		off = end
@@ -770,6 +781,8 @@ func sameInlines(a, b []text.Inline) bool {
 func (p *paragraph) setElements(a *paraAssembler) {
 	clear(p.inl)
 	p.inl = append(p.inl[:0], a.inl...)
+	clear(p.spanEls)
+	p.spanEls = append(p.spanEls[:0], a.spanEls...)
 	clear(p.atoms)
 	p.atoms = append(p.atoms[:0], a.atoms...)
 	p.atomBox = append(p.atomBox[:0], a.atomBox...)

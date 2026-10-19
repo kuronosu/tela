@@ -373,7 +373,8 @@ func UseContext[T any](ctx *Context[T]) T { return core.UseContext(ctx) }
 //     their build);
 //   - inside a layout-phase style closure ([WidthFn], [HeightFn]): that
 //     element is laid out again, with no build and no style computation;
-//   - inside a paint-phase style closure ([TranslateFn], [OpacityFn]):
+//   - inside a paint-phase style closure ([TranslateFn], [OpacityFn],
+//     [BgFn], [TextColorFn]):
 //     that element is repainted, with no build, style or layout;
 //   - anywhere else (event handlers, effects, goroutines): nothing; Get
 //     just returns the value.

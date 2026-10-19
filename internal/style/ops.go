@@ -25,6 +25,8 @@ type Op struct {
 	// def is the closure of a phase-deferred op; phase says when it runs.
 	def   func(*ComputedStyle)
 	phase Phase
+	// textColor marks TextColorFn (Deferred.TextColor).
+	textColor bool
 	// post, for a font op, runs in the second pass: the part of the op
 	// that does not set the font size (the line height of text-sm/6).
 	post func(*env)
@@ -216,6 +218,19 @@ func TranslateFn(fn func() (x, y float32)) Op {
 // OpacityFn defers the opacity to the paint phase.
 func OpacityFn(fn func() float32) Op {
 	return Op{phase: PhasePaint, def: func(s *ComputedStyle) { s.Opacity = clampf(fn(), 0, 1) }}
+}
+
+// BgFn defers the background color to the paint phase.
+func BgFn(fn func() gfx.Color) Op {
+	return Op{phase: PhasePaint, def: func(s *ComputedStyle) { s.BackgroundColor = fn() }}
+}
+
+// TextColorFn defers the text color to the paint phase. Text that
+// inherits the element's color follows it when it is painted (core);
+// colors resolved from currentColor when the style was computed (borders,
+// outlines) do not.
+func TextColorFn(fn func() gfx.Color) Op {
+	return Op{phase: PhasePaint, textColor: true, def: func(s *ComputedStyle) { s.Text.Color = fn() }}
 }
 
 // WidthFn defers the width, in pixels, to the layout phase (a progress bar

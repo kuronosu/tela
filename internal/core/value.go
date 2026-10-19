@@ -459,7 +459,10 @@ func (t *Tree) valueChanged(v *valueCore) bool {
 				hit = true
 			}
 		case obsPaint:
-			if o.box.parent != nil {
+			// An inline box (inPara) paints in its paragraph's layer, and
+			// a display: contents one's TextColorFn colors its children's
+			// text (colorfn.go).
+			if o.box.parent != nil || o.box.inPara != nil || contentsBox(o.box) {
 				t.markPaint(o.box)
 				hit = true
 			}

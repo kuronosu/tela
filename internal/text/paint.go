@@ -28,11 +28,45 @@ func (l *Layout) PaintScaled(b *gfx.Builder, origin gfx.Point, scale float32) {
 // under a clip. Color glyphs (emoji) keep their own colors.
 func (l *Layout) PaintWith(b *gfx.Builder, origin gfx.Point, scale float32, paint gfx.Paint) {
 	var gs []gfx.Glyph
+	o := paintOver{all: paint}
 	for li := range l.lines {
-		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline, scale, paint)
-		gs = l.paintGlyphs(b, origin, li, gs, paint)
-		l.paintDecorations(b, origin, li, DecorationLineThrough, scale, paint)
+		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline, scale, o)
+		gs = l.paintGlyphs(b, origin, li, gs, o)
+		l.paintDecorations(b, origin, li, DecorationLineThrough, scale, o)
 	}
+}
+
+// paintOver replaces paints while painting: all replaces every paint
+// (PaintWith); styles[s], when set, replaces the paint of the text of
+// style s and of its decorations that have the text's paint
+// (PaintLineRecolored).
+type paintOver struct {
+	all    gfx.Paint
+	styles []gfx.Paint
+}
+
+// glyph returns the paint of the glyphs of style s.
+func (o paintOver) glyph(l *Layout, s int) gfx.Paint {
+	if o.all != nil {
+		return o.all
+	}
+	if s < len(o.styles) && o.styles[s] != nil {
+		return o.styles[s]
+	}
+	return l.sinfo[s].paint
+}
+
+// deco returns the paint of the decorations of style s: the text's, when
+// they have no color of their own (currentColor).
+func (o paintOver) deco(l *Layout, s int) gfx.Paint {
+	if o.all != nil {
+		return o.all
+	}
+	si := &l.sinfo[s]
+	if s < len(o.styles) && o.styles[s] != nil && samePaint(si.decoPaint, si.paint) {
+		return o.styles[s]
+	}
+	return si.decoPaint
 }
 
 // PaintLine draws line i as PaintScaled does, for callers that paint
@@ -49,9 +83,41 @@ func (l *Layout) PaintLineWith(b *gfx.Builder, origin gfx.Point, i int, scale fl
 	if i < 0 || i >= len(l.lines) {
 		return
 	}
-	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale, paint)
-	l.paintGlyphs(b, origin, i, nil, paint)
-	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, paint)
+	o := paintOver{all: paint}
+	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale, o)
+	l.paintGlyphs(b, origin, i, nil, o)
+	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, o)
+}
+
+// PaintRecolored is PaintScaled with the paints of some text styles
+// replaced, as PaintLineRecolored does for one line; nil paints is
+// PaintScaled.
+func (l *Layout) PaintRecolored(b *gfx.Builder, origin gfx.Point, scale float32, paints []gfx.Paint) {
+	var gs []gfx.Glyph
+	o := paintOver{styles: paints}
+	for li := range l.lines {
+		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline, scale, o)
+		gs = l.paintGlyphs(b, origin, li, gs, o)
+		l.paintDecorations(b, origin, li, DecorationLineThrough, scale, o)
+	}
+}
+
+// PaintLineRecolored is PaintLine with the paints of some text styles
+// replaced: when paints[s] is not nil, the glyphs of style s and its
+// decorations that have the text's paint (a decoration without a color
+// of its own) are painted with it. Styles are numbered as the paragraph
+// gives them: 0 is Paragraph.Default, 1 to n its Spans in order, then the
+// styles of its Inlines. Color glyphs (emoji) keep their own colors.
+// Recoloring changes no geometry: the lines, their ink and the
+// decorations stay where they are.
+func (l *Layout) PaintLineRecolored(b *gfx.Builder, origin gfx.Point, i int, scale float32, paints []gfx.Paint) {
+	if i < 0 || i >= len(l.lines) {
+		return
+	}
+	o := paintOver{styles: paints}
+	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale, o)
+	l.paintGlyphs(b, origin, i, nil, o)
+	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, o)
 }
 
 // snappedUnderline returns the top (relative to the baseline at y, in
@@ -81,7 +147,7 @@ func samePaint(a, b gfx.Paint) bool {
 	return ok1 && ok2 && ca == cb
 }
 
-func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.Glyph, over gfx.Paint) []gfx.Glyph {
+func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.Glyph, over paintOver) []gfx.Glyph {
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
 	var (
@@ -92,16 +158,13 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 	)
 	flush := func() {
 		if face != nil && len(gs) > 0 {
-			p := l.sinfo[style].paint
-			if over != nil {
-				p = over
-			}
+			p := over.glyph(l, style)
 			b.DrawGlyphRun(gfx.DrawGlyphRun{Font: face, Size: size, Origin: gfx.Pt(origin.X+x0, by), Glyphs: gs, Paint: p})
 		}
 		gs = gs[:0]
 	}
 	start := func(f *Face, sz float32, s int, x float32) {
-		if f == face && sz == size && (s == style || samePaint(l.sinfo[s].paint, l.sinfo[style].paint)) {
+		if f == face && sz == size && (s == style || samePaint(over.glyph(l, s), over.glyph(l, style))) {
 			return
 		}
 		flush()
@@ -157,7 +220,7 @@ func (l *Layout) paintGlyphs(b *gfx.Builder, origin gfx.Point, li int, gs []gfx.
 
 // paintDecorations draws the decoration lines in mask of line li; at a
 // display scale (not 0), underlines are snapped to its device pixels.
-func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration, scale float32, over gfx.Paint) {
+func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask Decoration, scale float32, over paintOver) {
 	ln := &l.lines[li]
 	by := origin.Y + ln.baseline
 	type seg struct {
@@ -170,11 +233,7 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 	emit := func(k int) {
 		if open[k] && cur[k].x1 > cur[k].x0 && cur[k].h > 0 {
 			s := cur[k]
-			p := s.paint
-			if over != nil {
-				p = over
-			}
-			b.FillRect(gfx.Rect{X0: origin.X + s.x0, Y0: by + s.y, X1: origin.X + s.x1, Y1: by + s.y + s.h}, p)
+			b.FillRect(gfx.Rect{X0: origin.X + s.x0, Y0: by + s.y, X1: origin.X + s.x1, Y1: by + s.y + s.h}, s.paint)
 		}
 		open[k] = false
 	}
@@ -191,6 +250,7 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 				lines = 0
 			}
 			si := &l.sinfo[cl.style]
+			dp := over.deco(l, int(cl.style))
 			x0, x1 := l.cx[c], l.cx[c]+l.cadv[c]
 			for kind := range 3 {
 				bit := Decoration(1 << kind)
@@ -211,13 +271,13 @@ func (l *Layout) paintDecorations(b *gfx.Builder, origin gfx.Point, li int, mask
 					y, h = si.strike, si.strikeThick
 				}
 				s := &cur[kind]
-				if open[kind] && s.y == y && s.h == h && (s.style == cl.style || samePaint(s.paint, si.decoPaint)) &&
+				if open[kind] && s.y == y && s.h == h && (s.style == cl.style || samePaint(s.paint, dp)) &&
 					absf(s.x1-x0) < 0.01 {
 					s.x1 = x1
 					continue
 				}
 				emit(kind)
-				cur[kind] = seg{x0, x1, y, h, si.decoPaint, cl.style}
+				cur[kind] = seg{x0, x1, y, h, dp, cl.style}
 				open[kind] = true
 			}
 		}

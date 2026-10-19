@@ -78,6 +78,7 @@ func (t *Tree) restyle(el *Element) {
 	// box uses now may differ from it (anim.go). A box that starts being
 	// rendered transitions from its starting style, or not at all.
 	cs = t.animRestyle(el, bx, t.beforeChange(bx, old, cs, in), cs)
+	t.countTextColorFn(old, cs)
 	bx.cs = cs
 	if bx.fld != nil {
 		t.fieldRestyled(bx.fld, old, cs)

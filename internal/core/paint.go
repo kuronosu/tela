@@ -294,13 +294,26 @@ func (p *painter) update(marked []*Box) {
 		p.updateSticky()
 	}
 	for _, bx := range marked {
+		if (bx.inPara != nil || contentsBox(bx)) && bx.el != nil && bx.el.mounted && bx.cs != nil && hasPhase(bx.cs, style.PhasePaint) {
+			// An inline element's paint props (BgFn, TextColorFn), and a
+			// display: contents element's TextColorFn, are read when the
+			// paragraphs are recorded (inline.go, colorfn.go).
+			t.lay.needFull = true
+			continue
+		}
 		if !bx.deferPaint || bx.pcs == nil || bx == t.rootBox || !t.inTree(bx) {
 			continue
 		}
+		old := bx.pcs
 		bx.pcs = t.resolveDeferred(bx, style.PhasePaint)
 		if stacking(bx) != bx.layerSC {
 			t.lay.needFull, t.lay.needPlace = true, true
 			return
+		}
+		if old.BackgroundColor != bx.pcs.BackgroundColor || old.Text.Color != bx.pcs.Text.Color {
+			// BgFn, TextColorFn: what the box records changes (not its
+			// bounds): record the layers again without placing.
+			t.lay.needFull = true
 		}
 		// The new hit bounds, and those of the ancestors in the same
 		// space (they only grow: bounds that are too large cull less).
@@ -883,7 +896,7 @@ func (p *painter) paintContent(bx *Box) {
 		// its content layer (paintInner).
 		c := contentRect(p.rect(bx), l)
 		para.prepare(p.t, max(c.Width(), 0))
-		para.lay.PaintScaled(p.b, c.Origin(), float32(p.scale))
+		para.lay.PaintRecolored(p.b, c.Origin(), float32(p.scale), p.textPaints(bx))
 	case modeField:
 		if bx.fld != nil {
 			p.paintField(bx)

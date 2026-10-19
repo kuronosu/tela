@@ -1,9 +1,10 @@
 // Command motion shows Tela's explicit animations (ARCHITECTURE section
 // 12): a dialog that enters with the starting: variant and leaves with
 // h.Exit inside h.Presence, a toast that runs its own exit with
-// tela.UsePresence and a tween, and a card that follows a drag through a
-// spring (tela.Animate retargeted on every move, keeping its velocity) and
-// springs back when it is released.
+// tela.UsePresence and a tween that calls done (tela.OnDone), and a card
+// that follows a drag through a spring (tela.Animate retargeted on every
+// move, keeping its velocity) and springs back when it is released, with
+// the pointer's release velocity (tela.Velocity).
 package main
 
 import (
@@ -49,7 +50,8 @@ func Motion() tela.Node {
 // DragCard follows the pointer through a spring while it is dragged and
 // springs back to its place when released. Every OnDrag retargets the
 // spring, which keeps its velocity, so the card trails the pointer
-// smoothly; the release turns that velocity into the bounce back. The
+// smoothly; the release starts the spring back with the pointer's
+// velocity, so a fling carries the card on before it returns. The
 // component never builds during the drag: the position is a Value read
 // by a TranslateFn.
 func DragCard() tela.Node {
@@ -63,8 +65,9 @@ func DragCard() tela.Node {
 			to := tela.Point{X: start.Current.X + e.OffsetX, Y: start.Current.Y + e.OffsetY}
 			tela.Animate(pos, to, tela.Stiffness(700), tela.Damping(45))
 		}),
-		OnDragEnd(func(tela.DragEvent) {
-			tela.Animate(pos, tela.Point{}, tela.Stiffness(250), tela.Damping(12))
+		OnDragEnd(func(e tela.DragEvent) {
+			tela.Animate(pos, tela.Point{}, tela.Spring(tela.Stiffness(250), tela.Damping(12)),
+				tela.Velocity(tela.Point{X: e.VelocityX, Y: e.VelocityY}))
 		}),
 		Text("Drag me"),
 	)
@@ -72,18 +75,16 @@ func DragCard() tela.Node {
 
 // Toast enters and leaves with its own tween: a manual exit. It tweens
 // in when it mounts; while its Presence child exits, present is false and
-// it tweens out, reading the tween in its body only then, and calls done
-// when the tween arrives.
+// it tweens out, and the tween calls done when it arrives (OnDone; done
+// does nothing while the toast is present). It never builds during
+// either tween.
 func Toast() tela.Node {
 	present, done := tela.UsePresence()
 	target := float32(1)
 	if !present {
 		target = 0
 	}
-	shown := tela.UseTween(float32(0), target, tela.Duration(250*time.Millisecond), tela.Ease("ease-out"))
-	if !present && shown.Get() == target {
-		done()
-	}
+	shown := tela.UseTween(float32(0), target, tela.Duration(250*time.Millisecond), tela.Ease("ease-out"), tela.OnDone(done))
 	return Div(Class("absolute inset-x-0 bottom-8 flex justify-center"),
 		Div(Role("status"), Class("rounded-xl bg-slate-900 px-5 py-3 text-sm text-white shadow-lg"),
 			Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),

@@ -13,10 +13,10 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
-  - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness)
+  - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
   - [`type App`](#type-app)
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
@@ -53,7 +53,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
   - [`type Shadow`](#type-shadow)
   - [`type Size`](#type-size)
-  - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
+  - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
   - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
@@ -481,7 +481,7 @@ func UsePresence() (present bool, done func())
 
 UsePresence reports whether the component is present, for a component inside a child of an h.Presence: present is false while that child exits, after it was removed. The component then runs its own exit (an [`Animate`](#func-animate), saving a draft...) and calls done when it is finished; the child unmounts once every component that used UsePresence called done and the transitions of its h.Exit classes ended. done is the same function on every build, safe from any goroutine, and does nothing while the component is present (a call from a previous exit that was cancelled is ignored). Outside any Presence, present is always true.
 
-A toast that slides down and fades out before it unmounts: while it exits, its body reads the tween (so it builds on each frame of the exit, and only then) and calls done when the tween has arrived.
+A toast that slides down and fades out before it unmounts: the tween to its exit position calls done when it arrives ([`OnDone`](#func-ondone); done does nothing while the toast is present, so the entrance may pass it too).
 
 ```go
 func Toast(msg string) tela.Node {
@@ -490,10 +490,7 @@ func Toast(msg string) tela.Node {
     if !present {
         target = 1
     }
-    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond))
-    if !present && out.Get() == target {
-        done()
-    }
+    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
     return Div(Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
         Style(tela.TranslateFn(func() (float32, float32) { return 0, 40 * out.Get() }),
             tela.OpacityFn(func() float32 { return 1 - out.Get() })),
@@ -514,10 +511,8 @@ toast := func() tela.Node {
     if !present {
         target = 1
     }
-    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond))
-    if !present && out.Get() == target {
-        done() // the exit is over: unmount
-    }
+    // The tween out ends the exit: done does nothing while present.
+    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
     return Div(Role("status"), Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
         Style(tela.OpacityFn(func() float32 { return 1 - out.Get() })), Text("Saved"))
 }
@@ -594,7 +589,7 @@ type Animatable = core.Animatable
 Animatable lists the types that [`UseSpring`](#func-usespring), [`UseTween`](#func-usetween) and [`Animate`](#func-animate) animate:
 
 - float32: a number (an offset, a scale, an opacity, a progress);
-- [`Color`](#type-color): interpolated as CSS transitions interpolate colors, premultiplied by alpha, in sRGB between two colors written as hex, rgb() or named colors, and in Oklab otherwise (the Oklch palette of Tailwind, [`OKLCH`](#func-oklch));
+- [`Color`](#type-color): interpolated as CSS transitions interpolate colors, premultiplied by alpha, in sRGB between two colors written as hex, rgb() or named colors, and in Oklab otherwise (the Oklch palette of Tailwind, [`OKLCH`](#func-oklch)); read it in a [`BgFn`](#func-bgfn) or [`TextColorFn`](#func-textcolorfn) to animate a color by repainting only;
 - [`Point`](#type-point), [`Size`](#type-size) and [`Rect`](#type-rect): component by component, each with its own velocity.
 
 `Animatable` is an alias of `core.Animatable`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
@@ -613,9 +608,8 @@ defer t.close()
 var bg *tela.Value[tela.Color]
 app := telatest.Mount(t, tela.C(func() tela.Node {
     bg = tela.UseValue(tela.Hex("#ffffff"))
-    // Read in the body: the component builds on each frame of the
-    // animation (style props have no deferred color).
-    return Div(Class("size-10"), Style(tela.Bg(bg.Get())))
+    // Read in the paint phase: the animation only repaints the box.
+    return Div(Class("size-10"), Style(tela.BgFn(bg.Get)))
 }), telatest.NoSettle())
 // Hex colors interpolate in sRGB, like a CSS transition between them.
 tela.Animate(bg, tela.Hex("#000000"), tela.Duration(100*time.Millisecond), tela.Ease("linear"))
@@ -630,7 +624,7 @@ fmt.Println(bg.Get())
 type AnimationOption = core.AnimOption
 ```
 
-AnimationOption configures an animation of [`UseSpring`](#func-usespring), [`UseTween`](#func-usetween) or [`Animate`](#func-animate): [`Stiffness`](#func-stiffness), [`Damping`](#func-damping), [`Bounce`](#func-bounce), [`Duration`](#func-duration), [`Ease`](#func-ease) and [`Spring`](#func-spring), which groups spring options. The zero AnimationOption changes nothing.
+AnimationOption configures an animation of [`UseSpring`](#func-usespring), [`UseTween`](#func-usetween) or [`Animate`](#func-animate): [`Stiffness`](#func-stiffness), [`Damping`](#func-damping), [`Bounce`](#func-bounce), [`Duration`](#func-duration), [`Ease`](#func-ease), [`Velocity`](#func-velocity) and [`Spring`](#func-spring), which groups spring options, and [`OnDone`](#func-ondone). The zero AnimationOption changes nothing.
 
 Springs (Motion's model) are defined either by their physics or by how long they take:
 
@@ -738,6 +732,40 @@ fmt.Println("steps:", springEnd(tela.Duration(time.Second), tela.Ease("steps(4, 
 // steps: 1.03s
 ```
 
+#### func OnDone
+
+```go
+func OnDone(fn func()) AnimationOption
+```
+
+OnDone calls fn when the animation comes to rest at its target: once, on the UI thread, queued with the state updates like [`Post`](#func-post), so it runs before the next build and state it sets is built in the frame that shows the target. It is not called when the animation is interrupted: by another Animate, Set or Update of the Value, by a new target of [`UseSpring`](#func-usespring) or [`UseTween`](#func-usetween), or by the unmount of the Value's component. When the target applies at once (reduced motion, a tree that no frame clock drives, a value already at its target and at rest, a NaN target) fn is queued right after it applies. For UseSpring and UseTween it is the OnDone of the build that set the target that runs.
+
+```go
+tela.Animate(x, 0, tela.Spring(), tela.OnDone(func() { setOpen.Set(false) }))
+```
+
+It is how a component inside an h.Presence child ends its own exit: see [`UsePresence`](#func-usepresence).
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var x *tela.Value[float32]
+var log []string
+app := telatest.Mount(t, tela.C(func() tela.Node {
+    x = tela.UseValue[float32](0)
+    return Div(Class("size-8 bg-black"), Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
+}), telatest.NoSettle())
+tela.Animate(x, 100, tela.OnDone(func() { log = append(log, "first") }))
+app.Advance(50 * time.Millisecond)
+// Interrupted: the first OnDone never runs.
+tela.Animate(x, 0, tela.Duration(100*time.Millisecond), tela.OnDone(func() { log = append(log, "second") }))
+app.Advance(time.Second)
+fmt.Println(log, x.Get())
+// Output: [second] 0
+```
+
 #### func Spring
 
 ```go
@@ -778,6 +806,45 @@ fmt.Println("stiffness 400:", springEnd(tela.Stiffness(400), tela.Damping(40)))
 // Output:
 // stiffness 100: 870ms
 // stiffness 400: 480ms
+```
+
+#### func Velocity
+
+```go
+func Velocity[T Animatable](v T) AnimationOption
+```
+
+Velocity sets the initial velocity of a spring, in the Value's units per second, component by component (a [`Point`](#type-point)'s X and Y, a [`Rect`](#type-rect)'s X, Y, Width and Height). It replaces the velocity an interrupted animation would pass on: a released drag hands its pointer velocity to the spring that brings the element back:
+
+```go
+OnDragEnd(func(e tela.DragEvent) {
+    tela.Animate(pos, tela.Point{}, tela.Spring(), tela.Velocity(tela.Point{X: e.VelocityX, Y: e.VelocityY}))
+})
+```
+
+It makes [`Animate`](#func-animate) use a spring. Its type must be the Value's, and it does not apply to tweens ([`UseTween`](#func-usetween), or Duration and Ease alone) nor to [`Color`](#type-color) values, whose components move in a space (sRGB or Oklab, premultiplied) that depends on the two colors: those panic in dev mode and are ignored otherwise.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var x *tela.Value[float32]
+app := telatest.Mount(t, tela.C(func() tela.Node {
+    x = tela.UseValue[float32](0)
+    return Div(Class("size-8 bg-black"), Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
+}), telatest.NoSettle())
+// A flick at rest: the value is already at its target, the velocity
+// carries it away and the spring brings it back.
+tela.Animate(x, 0, tela.Stiffness(200), tela.Damping(20), tela.Velocity(float32(600)))
+var peak float32
+for range 30 {
+    app.Advance(time.Second / 60)
+    peak = max(peak, x.Get())
+}
+app.Advance(2 * time.Second)
+fmt.Printf("peak %.0f, rest %v\n", peak, x.Get())
+// Output: peak 19, rest 0
 ```
 
 ### type App
@@ -3003,6 +3070,37 @@ func Bg(c Color) StyleProp
 
 Bg sets the background color.
 
+#### func BgFn
+
+```go
+func BgFn(fn func() Color) StyleProp
+```
+
+BgFn defers [`Bg`](#func-bg) to the paint phase: the element's background color is fn's, and a change of the Values fn reads repaints the element without building, computing styles or laying out. Like the other Fn props it wins over the background classes, and over their transitions. With a [`UseSpring`](#func-usespring) or [`Animate`](#func-animate) of a [`Color`](#type-color) it animates a background without rebuilding:
+
+```go
+bg := tela.UseSpring(tela.Hex("#ffffff"), target)
+Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var bg *tela.Value[tela.Color]
+app := telatest.Mount(t, tela.C(func() tela.Node {
+    bg = tela.UseValue(tela.Hex("#ffffff"))
+    return Div(Class("size-10"), Style(tela.BgFn(bg.Get)))
+}), telatest.Size(40, 40))
+before := app.Stats()
+bg.Set(tela.Hex("#4f46e5"))
+after := app.Stats() // settles: the frame that shows the change
+// The change repainted the box: no build, style or layout.
+fmt.Println(app.Screenshot().RGBAAt(5, 5), after.Builds-before.Builds, after.Styles-before.Styles, after.Layouts-before.Layouts)
+// Output: {79 70 229 255} 0 0 0
+```
+
 #### func BgImage
 
 ```go
@@ -3219,6 +3317,40 @@ func TextColor(c Color) StyleProp
 ```
 
 TextColor sets the text color, which the element's descendants inherit.
+
+#### func TextColorFn
+
+```go
+func TextColorFn(fn func() Color) StyleProp
+```
+
+TextColorFn defers [`TextColor`](#func-textcolor) to the paint phase: a change of the Values fn reads repaints the text without building, computing styles or laying out. The element's text takes fn's color, and so does the text of its descendants that inherits the element's color: those whose classes (and the classes of the elements between) set no text color of their own, as CSS inheritance would give it. Underlines and other decorations without a color of their own follow the text. Colors that the classes derive from the text color when the style is computed (currentColor borders, outlines, ring colors) and the text of h.Input and h.Textarea keep the color their classes give. It wins over the text color classes and their transitions.
+
+```go
+color := tela.UseTween(tela.Hex("#0f172a"), target, tela.Duration(200*time.Millisecond))
+P(Style(tela.TextColorFn(color.Get)), Text("Status: "), Strong(Text("online")))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var c *tela.Value[tela.Color]
+app := telatest.Mount(t, tela.C(func() tela.Node {
+    c = tela.UseValue(tela.Hex("#0f172a"))
+    // The Strong inherits the paragraph's color, so it follows the Fn
+    // too; the Span has a color of its own.
+    return P(Style(tela.TextColorFn(c.Get)),
+        Text("Status: "), Strong(Text("online")), Span(Class("text-slate-400"), Text(" (auto)")))
+}))
+before := app.Stats()
+c.Set(tela.Hex("#16a34a"))
+after := app.Stats()
+// Builds, styles, layouts and paints of the change.
+fmt.Println(after.Builds-before.Builds, after.Styles-before.Styles, after.Layouts-before.Layouts, after.Paints-before.Paints)
+// Output: 0 0 0 1
+```
 
 #### func Top
 
@@ -3511,7 +3643,7 @@ Where v.Get() is called decides what a change redoes:
 
 - in the component's body while it builds: the component builds again, like with [`UseState`](#func-usestate) (also when the components above it skip their build);
 - inside a layout-phase style closure ([`WidthFn`](#func-widthfn), [`HeightFn`](#func-heightfn)): that element is laid out again, with no build and no style computation;
-- inside a paint-phase style closure ([`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn)): that element is repainted, with no build, style or layout;
+- inside a paint-phase style closure ([`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn), [`BgFn`](#func-bgfn), [`TextColorFn`](#func-textcolorfn)): that element is repainted, with no build, style or layout;
 - anywhere else (event handlers, effects, goroutines): nothing; Get just returns the value.
 
 The reads are taken again on every evaluation, so a closure that stops reading a Value stops being redone by it. A progress bar fed by a goroutine, which lays out the bar again without building Download:

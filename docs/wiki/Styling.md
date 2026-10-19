@@ -65,7 +65,7 @@ The props, by area:
 | Border and shadow | [`tela.BorderWidth`](https://pkg.go.dev/github.com/kuronosu/tela#BorderWidth), [`tela.Radius`](https://pkg.go.dev/github.com/kuronosu/tela#Radius), [`tela.BoxShadow`](https://pkg.go.dev/github.com/kuronosu/tela#BoxShadow) |
 | Transform | [`tela.Translate`](https://pkg.go.dev/github.com/kuronosu/tela#Translate), [`tela.Scale`](https://pkg.go.dev/github.com/kuronosu/tela#Scale), [`tela.Rotate`](https://pkg.go.dev/github.com/kuronosu/tela#Rotate) |
 | Text | [`tela.FontSize`](https://pkg.go.dev/github.com/kuronosu/tela#FontSize), [`tela.FontWeight`](https://pkg.go.dev/github.com/kuronosu/tela#FontWeight) |
-| Deferred (see [Hooks](Hooks#observable-values-usevalue)) | [`tela.TranslateFn`](https://pkg.go.dev/github.com/kuronosu/tela#TranslateFn), [`tela.OpacityFn`](https://pkg.go.dev/github.com/kuronosu/tela#OpacityFn), [`tela.WidthFn`](https://pkg.go.dev/github.com/kuronosu/tela#WidthFn), [`tela.HeightFn`](https://pkg.go.dev/github.com/kuronosu/tela#HeightFn) |
+| Deferred (see [Hooks](Hooks#observable-values-usevalue)) | [`tela.TranslateFn`](https://pkg.go.dev/github.com/kuronosu/tela#TranslateFn), [`tela.OpacityFn`](https://pkg.go.dev/github.com/kuronosu/tela#OpacityFn), [`tela.BgFn`](https://pkg.go.dev/github.com/kuronosu/tela#BgFn), [`tela.TextColorFn`](https://pkg.go.dev/github.com/kuronosu/tela#TextColorFn), [`tela.WidthFn`](https://pkg.go.dev/github.com/kuronosu/tela#WidthFn), [`tela.HeightFn`](https://pkg.go.dev/github.com/kuronosu/tela#HeightFn) |
 
 ### Colors, gradients and shadows
 

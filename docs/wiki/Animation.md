@@ -98,10 +98,9 @@ func Toast() tela.Node {
 	if !present {
 		target = 0
 	}
-	shown := tela.UseTween(float32(0), target, tela.Duration(250*time.Millisecond))
-	if !present && shown.Get() == target {
-		done() // the tween arrived: unmount
-	}
+	// OnDone(done) ends the exit when the tween out arrives; done does
+	// nothing while the toast is present.
+	shown := tela.UseTween(float32(0), target, tela.Duration(250*time.Millisecond), tela.OnDone(done))
 	return Div(Role("status"), Class("rounded-xl bg-slate-900 px-5 py-3 text-white"),
 		Style(tela.OpacityFn(shown.Get)), Text("Saved"))
 }
@@ -109,9 +108,8 @@ func Toast() tela.Node {
 // Presence(If(saved, tela.C(Toast)))
 ```
 
-Reading `shown.Get()` in the body makes the component build on every frame of
-its exit, and only then; the rest of the time the tween is read by
-`OpacityFn` only.
+The toast never builds during its tweens: `OpacityFn` reads the value, and
+[`tela.OnDone`](https://pkg.go.dev/github.com/kuronosu/tela#OnDone) calls `done` when the exit tween comes to rest.
 
 ## Springs and tweens: `UseSpring`, `UseTween`
 
@@ -134,10 +132,20 @@ func Drawer(open bool) tela.Node {
 ```
 
 Read the value in a deferred style closure (`TranslateFn`, `OpacityFn`,
-`WidthFn`, `HeightFn`, `h.TextFn`) and the animation runs without building the
-component: a `TranslateFn` or `OpacityFn` frame only composites, a `WidthFn`
-frame only lays out. Reading it in the body builds the component on every
-frame.
+`BgFn`, `TextColorFn`, `WidthFn`, `HeightFn`, `h.TextFn`) and the animation
+runs without building the component: a `TranslateFn` or `OpacityFn` frame only
+composites, a `BgFn` or `TextColorFn` frame only repaints, a `WidthFn` frame
+only lays out. Reading it in the body builds the component on every frame.
+
+```go
+bg := tela.UseSpring(tela.Hex("#ffffff"), target)
+Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)), Text("Selected"))
+```
+
+[`tela.TextColorFn`](https://pkg.go.dev/github.com/kuronosu/tela#TextColorFn) also recolors the text of the descendants that inherit
+the element's color (those that set no text color of their own); colors the
+classes derived from the text color (`currentColor` borders and outlines) and
+the text of `Input` and `Textarea` keep their class color.
 
 The animated types ([`tela.Animatable`](https://pkg.go.dev/github.com/kuronosu/tela#Animatable)) are `float32`, [`tela.Color`](https://pkg.go.dev/github.com/kuronosu/tela#Color)
 (interpolated like CSS transitions: in sRGB between hex colors, in Oklab when
@@ -159,6 +167,18 @@ tela.Animate(y, 0, tela.Duration(300*time.Millisecond), tela.Ease("ease-in-out")
 A new `Animate` on the same Value interrupts the running one from where it is
 (a spring keeps the velocity: a drag that animates to the pointer on every
 move, then springs back on release, never jumps). `Set` and `Update` stop it.
+[`tela.Velocity`](https://pkg.go.dev/github.com/kuronosu/tela#Velocity) gives a spring its initial velocity, such as a drag's
+release velocity, and [`tela.OnDone`](https://pkg.go.dev/github.com/kuronosu/tela#OnDone) runs code when the animation
+arrives:
+
+```go
+OnDragEnd(func(e tela.DragEvent) {
+	tela.Animate(pos, tela.Point{}, tela.Spring(),
+		tela.Velocity(tela.Point{X: e.VelocityX, Y: e.VelocityY}),
+		tela.OnDone(func() { setDocked.Set(true) }))
+})
+```
+
 Like `Set`, `Animate` is safe from any goroutine; an animation applied between
 two frames starts at the next one.
 
@@ -170,12 +190,15 @@ two frames starts at the next one.
 | [`tela.Bounce`](https://pkg.go.dev/github.com/kuronosu/tela#Bounce)(b) | springs | A spring by its bounciness, 0 to 1 (with `Duration`, default 800 ms) |
 | [`tela.Duration`](https://pkg.go.dev/github.com/kuronosu/tela#Duration)(d) | both | A tween's duration (default 300 ms), or a spring's (default bounce 0.3) |
 | [`tela.Ease`](https://pkg.go.dev/github.com/kuronosu/tela#Ease)(css) | tweens | A CSS easing: `linear`, `ease` (the default), `ease-in`, `ease-out`, `ease-in-out`, `step-start`, `step-end`, `cubic-bezier(...)`, `steps(...)` |
+| [`tela.Velocity`](https://pkg.go.dev/github.com/kuronosu/tela#Velocity)(v) | springs | The initial velocity, in the value's units per second, per component (not for colors); it replaces the velocity of an interrupted animation |
 | [`tela.Spring`](https://pkg.go.dev/github.com/kuronosu/tela#Spring)(opts...) | `Animate` | Makes it a spring with these options |
+| [`tela.OnDone`](https://pkg.go.dev/github.com/kuronosu/tela#OnDone)(fn) | both | Calls `fn` once, on the UI thread before the next build, when the animation comes to rest at its target; not when it is interrupted (another target, `Animate`, `Set`, `Update`, an unmount). With reduced motion or without a frame clock, right after the target applies |
 
 The keywords are CSS's curves; Tailwind's `ease-out` utility is
 `Ease("cubic-bezier(0, 0, 0.2, 1)")`. Contradicting options (`Ease` on a
-spring, `Stiffness` with `Duration`, spring options on `UseTween`) and invalid
-easings panic in dev mode (`TELA_DEV=1`) with what to write; otherwise they are
+spring, `Stiffness` with `Duration`, spring options or `Velocity` on
+`UseTween`, a `Velocity` of a color or of another type than the value's) and
+invalid easings panic in dev mode (`TELA_DEV=1`) with what to write; otherwise they are
 ignored.
 
 ## Testing animations

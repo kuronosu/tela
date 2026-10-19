@@ -570,6 +570,19 @@ const (
 type Deferred struct {
 	Phase Phase
 	Apply func(*ComputedStyle)
+	// TextColor marks TextColorFn: the text color it sets is also the
+	// color of the descendants' text that inherits it, at paint time.
+	TextColor bool
+}
+
+// HasTextColorFn reports whether s has a paint-phase TextColorFn.
+func (s *ComputedStyle) HasTextColorFn() bool {
+	for i := range s.Deferred {
+		if s.Deferred[i].TextColor {
+			return true
+		}
+	}
+	return false
 }
 
 // ComputedStyle is the fully resolved style of a box: typed values, no
@@ -703,6 +716,10 @@ type ComputedStyle struct {
 	// Deferred are the phase-deferred props (ARCHITECTURE section 7),
 	// applied by Resolved.
 	Deferred []Deferred
+	// TextColorSet reports that the element's classes or props set its
+	// text color (Text.Color is not inherited): its text does not follow
+	// an ancestor's TextColorFn.
+	TextColorSet bool
 }
 
 // Resolved returns the style with the deferred props of phase applied. It

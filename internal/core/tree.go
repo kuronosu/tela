@@ -194,6 +194,9 @@ type Tree struct {
 	anim animState
 	// pres holds the exits of Presence children (presence.go).
 	pres presenceState
+	// textColorFns counts the mounted boxes with a TextColorFn: while it
+	// is 0 paragraphs paint their styles' colors as laid out (paint.go).
+	textColorFns int
 
 	// dbg is the state of the debug overlays (debug.go).
 	dbg debugState

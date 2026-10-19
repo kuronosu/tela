@@ -314,7 +314,7 @@ it decides what a change redoes**:
 |---|---|
 | the component's body | the component's build, like `UseState` |
 | a layout closure ([`tela.WidthFn`](https://pkg.go.dev/github.com/kuronosu/tela#WidthFn), [`tela.HeightFn`](https://pkg.go.dev/github.com/kuronosu/tela#HeightFn)) | that element's layout only |
-| a paint closure ([`tela.TranslateFn`](https://pkg.go.dev/github.com/kuronosu/tela#TranslateFn), [`tela.OpacityFn`](https://pkg.go.dev/github.com/kuronosu/tela#OpacityFn)) | that element's paint only |
+| a paint closure ([`tela.TranslateFn`](https://pkg.go.dev/github.com/kuronosu/tela#TranslateFn), [`tela.OpacityFn`](https://pkg.go.dev/github.com/kuronosu/tela#OpacityFn), [`tela.BgFn`](https://pkg.go.dev/github.com/kuronosu/tela#BgFn), [`tela.TextColorFn`](https://pkg.go.dev/github.com/kuronosu/tela#TextColorFn)) | that element's paint only |
 | an event handler, effect or goroutine | nothing; `Get` just returns the value |
 
 A progress bar fed by a goroutine, which lays out the bar again without

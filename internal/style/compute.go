@@ -297,7 +297,7 @@ func (e *env) run(op Op, fontPass bool) {
 		if fontPass {
 			return
 		}
-		e.s.Deferred = append(e.s.Deferred, Deferred{Phase: op.phase, Apply: op.def})
+		e.s.Deferred = append(e.s.Deferred, Deferred{Phase: op.phase, Apply: op.def, TextColor: op.textColor})
 		return
 	}
 	if op.apply != nil {
@@ -352,6 +352,8 @@ func (e *env) finalize() {
 	// Text color: currentColor in a text-color class keeps the inherited color.
 	if spec := sc.colors[slotText]; spec.set {
 		s.Text.Color = spec.resolve(s.Text.Color)
+		// currentColor (text-current) keeps the inherited color.
+		s.TextColorSet = !spec.current || spec.c.A != 1
 	}
 	cur := s.Text.Color
 	pick := func(slot colorSlot, def gfx.Color) gfx.Color {

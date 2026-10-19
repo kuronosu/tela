@@ -156,8 +156,8 @@ func BoxShadow(layers ...Shadow) StyleProp { return style.BoxShadow(layers...) }
 // the last time changes. Read a [UseValue] inside fn to drive drags,
 // scroll effects and progress bars without building components: a change
 // redoes only that element's layout (WidthFn, HeightFn) or paint
-// (TranslateFn, OpacityFn). fn runs on the UI thread and should only
-// compute the value.
+// (TranslateFn, OpacityFn, BgFn, TextColorFn). fn runs on the UI thread
+// and should only compute the value.
 
 // TranslateFn defers Translate to the paint phase: a change of the Values
 // fn reads repaints the element, without layout.
@@ -168,6 +168,33 @@ func TranslateFn(fn func() (x, y float32)) StyleProp { return style.TranslateFn(
 // OpacityFn defers Opacity to the paint phase: a change of the Values fn
 // reads repaints the element, without layout.
 func OpacityFn(fn func() float32) StyleProp { return style.OpacityFn(fn) }
+
+// BgFn defers [Bg] to the paint phase: the element's background color is
+// fn's, and a change of the Values fn reads repaints the element without
+// building, computing styles or laying out. Like the other Fn props it
+// wins over the background classes, and over their transitions. With a
+// [UseSpring] or [Animate] of a [Color] it animates a background without
+// rebuilding:
+//
+//	bg := tela.UseSpring(tela.Hex("#ffffff"), target)
+//	Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)))
+func BgFn(fn func() Color) StyleProp { return style.BgFn(fn) }
+
+// TextColorFn defers [TextColor] to the paint phase: a change of the
+// Values fn reads repaints the text without building, computing styles or
+// laying out. The element's text takes fn's color, and so does the text
+// of its descendants that inherits the element's color: those whose
+// classes (and the classes of the elements between) set no text color of
+// their own, as CSS inheritance would give it. Underlines and other
+// decorations without a color of their own follow the text. Colors that
+// the classes derive from the text color when the style is computed
+// (currentColor borders, outlines, ring colors) and the text of
+// h.Input and h.Textarea keep the color their classes give. It wins over
+// the text color classes and their transitions.
+//
+//	color := tela.UseTween(tela.Hex("#0f172a"), target, tela.Duration(200*time.Millisecond))
+//	P(Style(tela.TextColorFn(color.Get)), Text("Status: "), Strong(Text("online")))
+func TextColorFn(fn func() Color) StyleProp { return style.TextColorFn(fn) }
 
 // WidthFn defers Width, in pixels, to the layout phase: a change of the
 // Values fn reads lays the element out again, without building it.
