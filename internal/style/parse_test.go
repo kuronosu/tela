@@ -821,7 +821,7 @@ func TestEffectClasses(t *testing.T) {
 		}
 		l := s.Filter.List()
 		ds, ok := l[0].(gfx.DropShadow)
-		if !ok || ds.StdDev != 2 || ds.Offset.Y != 4 { // blur radius 4 -> sigma 2
+		if !ok || ds.StdDev != 4 || ds.Offset.Y != 4 { // blur radius 4 is the standard deviation
 			t.Errorf("filter = %+v", l)
 		}
 		c := style(t, "drop-shadow-lg drop-shadow-red-500/50")

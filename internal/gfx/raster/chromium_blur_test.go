@@ -42,7 +42,8 @@ var blurPresets = []struct {
 // radius, black alpha), and a colored, opaque 2xl that makes differences
 // visible. Chromium 152 blurs drop-shadow() with a standard deviation equal
 // to the blur radius (Filter Effects 1: stdDeviation="[radius]"), not half
-// of it as box-shadow does, and so does this scene.
+// of it as box-shadow does, and so do this scene and internal/style
+// (ADR-078).
 var dropPresets = []struct {
 	name  string
 	y, r  float32

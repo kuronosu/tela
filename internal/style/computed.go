@@ -457,7 +457,9 @@ type FilterSet struct {
 	Saturate   float32 // 1 is identity
 	Sepia      float32 // 0 is identity
 	// DropShadow are the drop-shadow() layers (Blur is the CSS blur
-	// radius, twice the standard deviation).
+	// radius, which is the standard deviation: Filter Effects 1 maps
+	// drop-shadow() to feGaussianBlur stdDeviation="[radius]", and Chromium
+	// draws it so, unlike box-shadow's radius/2; ADR-078).
 	DropShadow []Shadow
 }
 
@@ -498,7 +500,7 @@ func (f *FilterSet) List() []gfx.Filter {
 	for _, s := range f.DropShadow {
 		out = append(out, gfx.DropShadow{
 			Offset: gfx.Point{X: s.OffsetX, Y: s.OffsetY},
-			StdDev: s.Blur / 2,
+			StdDev: s.Blur,
 			Color:  s.Color,
 		})
 	}
