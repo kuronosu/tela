@@ -23,12 +23,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `telatest.NoSettle()` captures frames mid-transition after `Advance`.
 - Deferred color props `tela.BgFn` and `tela.TextColorFn`: animated colors repaint without rebuilding.
 - `mix-blend-*` and `bg-blend-*`, `[clip-path:…]` with `inset()`, `circle()`, `ellipse()` and `polygon()` (clips painting and hit-testing; transitions with `transition-[clip-path]`), background images from files registered with `tela.Assets(fs.FS)` (`bg-[url(img/hero.jpg)]`, PNG, JPEG, GIF, WebP) or `Style(tela.BgImage(img))` with size, position, repeat, origin and clip, and `bg-clip-text` gradient and image text; matched against Chromium in 62 cells.
+- Layout animations: `h.AnimateLayout()` animates an element from its old box to its new one (reorders, expand/collapse) with FLIP transforms, and `h.LayoutID(id)` animates between two elements with the same ID (shared element transitions); the timing comes from `duration-*`/`ease-*` or a default spring. `examples/layout`.
+- Large blurs (`blur-2xl`, `backdrop-blur-xl`…) are 2–4× faster, backdrop filters render in parallel and only around what changed: a 1080p glass frame rasterizes in about 16 ms (was 46), a small change under a glass panel in about 5 ms (was 40).
 - CSS grid: `grid`/`inline-grid` with fixed, `%`, `fr`, `auto`, `min-content`, `max-content`, `minmax()`, `fit-content()` and `repeat()` tracks (incl. `auto-fill`/`auto-fit`), auto and dense placement, spans, named lines (`grid-cols-[[sidebar]_200px_[main]_1fr]`, `col-[main]`), implicit tracks, gaps and alignment; Tailwind v4's `col-N`/`row-N`. All 553 included Taffy grid fixtures match Chromium.
 - CSS transitions and animations: `transition`, `duration-*`, `ease-*` and `delay-*` animate colors, opacity, transforms, shadows, filters, sizes and spacing when state, classes or the environment change (CSS Transitions semantics, matched against Chromium); `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce`; reduced motion ends transitions at once. Transform and opacity animations repaint without rebuilding or relayout, and no frames are requested once they end.
 - All CSS blend modes in the renderer (the 16 `mix-blend-mode` modes plus `plus-lighter`), mask layers and two-point (focal) radial gradients; color emoji now composite exactly (flags went from up to 3.7 to under 1.7 mean levels against Chromium).
 
 ### Fixed
 
+- `drop-shadow-*` blurs with its radius as the standard deviation, as browsers do (it was half as wide).
 - An absolutely positioned box inside a transformed, filtered or backdrop-filtered ancestor is now positioned against that ancestor, as in browsers.
 - Color emoji in transparent or translucent text now disappear or fade like the text, as in Chromium.
 - Text selection highlights and scrollbar thumbs snap to device pixels, so selected lines no longer show a light seam at fractional scales (the 1x and 2x selection edges now match Chromium).
