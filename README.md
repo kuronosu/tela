@@ -147,16 +147,19 @@ and tests. They are the best way to see what the framework does today.
 
 ### Dashboard
 
-A shadcn-style admin dashboard: tabs, stat cards, a chart built from `div`s,
-`group-hover:` reveals and dark mode. Small `tela.CP` components skip their
-build when their props do not change.
+A glassmorphism analytics dashboard, the showcase of phase 6: CSS grid,
+`sticky` and `fixed`, translucent panels with `backdrop-blur` over an image,
+springs, layout animations (`AnimateLayout`, `LayoutID`), `h.Presence`
+dialogs and toasts in an `h.Portal`, and a light/dark switch. It runs at 60 fps
+at 1080p on CPU rendering (p95 of 14.6 ms per frame on 4 cores; the benchmark
+and the "glass budget" are in its README).
 
 <p align="center">
   <img src="docs/images/dashboard.png" alt="dashboard example, light" width="49%">
   <img src="docs/images/dashboard-dark.png" alt="dashboard example, dark" width="49%">
 </p>
 
-Dark mode is a class pair (`bg-white dark:bg-zinc-900`); render it with
+Dark mode is a class pair (`bg-white/55 dark:bg-white/5`); render it with
 `tela snapshot --dark`.
 
 ### Signup form
