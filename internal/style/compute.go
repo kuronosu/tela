@@ -1,6 +1,8 @@
 package style
 
 import (
+	"image"
+
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/text"
 )
@@ -141,9 +143,11 @@ type scratch struct {
 }
 
 type bgImage struct {
-	kind     uint8 // 0 none/unset, 1 gradient, 2 url, 3 explicit none
+	kind     uint8 // 0 none/unset, 1 gradient, 2 url, 3 explicit none, 4 decoded image, 5 list
 	gradient Gradient
 	url      string
+	img      image.Image
+	list     []bgImage // kind 5: the layers, topmost first (kinds 1 and 2)
 }
 
 // Compute resolves the style of an element: the element defaults, then the
@@ -489,10 +493,17 @@ func (e *env) finalizeBackground(cur gfx.Color) {
 		return
 	}
 	img := sc.bgImage
-	if img.kind != 1 && img.kind != 2 {
+	items := []bgImage{img}
+	switch img.kind {
+	case 1, 2, 4:
+	case 5:
+		items = img.list
+	default:
 		return
 	}
-	layer := BackgroundLayer{
+	// Size, position, repeat and origin apply to every layer (a single
+	// CSS value repeats for each layer).
+	base := BackgroundLayer{
 		Size:   sc.bgSize,
 		PosX:   sc.bgPosX,
 		PosY:   sc.bgPosY,
@@ -500,18 +511,25 @@ func (e *env) finalizeBackground(cur gfx.Color) {
 		Origin: BackgroundPaddingBox,
 	}
 	if sc.bgOriginOK {
-		layer.Origin = sc.bgOrigin
+		base.Origin = sc.bgOrigin
 	}
-	if img.kind == 2 {
-		layer.URL = img.url
-	} else {
-		g := img.gradient
-		if len(g.Stops) == 0 {
-			g.Stops = e.gradientStops(cur)
+	s.Backgrounds = make([]BackgroundLayer, 0, len(items))
+	for _, it := range items {
+		layer := base
+		switch it.kind {
+		case 2:
+			layer.URL = it.url
+		case 4:
+			layer.Image = it.img
+		default:
+			g := it.gradient
+			if len(g.Stops) == 0 {
+				g.Stops = e.gradientStops(cur)
+			}
+			layer.Gradient = &g
 		}
-		layer.Gradient = &g
+		s.Backgrounds = append(s.Backgrounds, layer)
 	}
-	s.Backgrounds = []BackgroundLayer{layer}
 }
 
 // gradientStops builds the from-*, via-* and to-* stops (Tailwind: from

@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness)
@@ -53,7 +53,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
   - [`type Shadow`](#type-shadow)
   - [`type Size`](#type-size)
-  - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
+  - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
   - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
@@ -282,6 +282,43 @@ fmt.Println(y.Get())
 // Output:
 // 200
 // 0
+```
+
+### func Assets
+
+```go
+func Assets(fsys fs.FS)
+```
+
+Assets registers a file system that background images are loaded from: the path in a class such as bg-\[url(img/hero.jpg)\] names a file of fsys, relative to its root (a leading "/" or "./" is ignored, so url(/img/hero.jpg) is the same file; ".." is not allowed). Call it from an init function, so that the files are found the same way by [`Run`](#func-run), tela snapshot, tela inspect and telatest:
+
+```go
+//go:embed img
+var images embed.FS
+
+func init() { tela.Assets(images) }
+```
+
+Assets may be called several times: the file systems are searched in the order they were registered and the first one that has the file wins. Files are decoded once, when first painted, and kept for the life of the process: PNG, JPEG, GIF (the first frame) and WebP, recognized by their content. A missing or undecodable file paints nothing and is reported once in the dev log, with the path and the registered file systems, like an unknown class. Remote and data: URLs are not supported.
+
+**Example**
+
+```go
+// An app embeds its images and registers them from an init function:
+//
+//	//go:embed img
+//	var images embed.FS
+//
+//	func init() { tela.Assets(images) }
+//
+// Here an in-memory file system holds one red PNG.
+tela.Assets(fstest.MapFS{"img/red.png": {Data: solidPNG(color.RGBA{R: 255, A: 255})}})
+
+// With package h: Div(Class("size-8 bg-[url(img/red.png)] bg-cover")).
+card := core.Primitive(style.KindDiv, core.Class("size-8 bg-[url(img/red.png)] bg-cover"))
+_, img := core.Render(card, core.RenderOptions{Width: 32, Height: 32})
+fmt.Println(img.RGBAAt(16, 16))
+// Output: {255 0 0 255}
 ```
 
 ### func Post
@@ -2965,6 +3002,31 @@ func Bg(c Color) StyleProp
 ```
 
 Bg sets the background color.
+
+#### func BgImage
+
+```go
+func BgImage(img image.Image) StyleProp
+```
+
+BgImage sets a decoded image as the background image, over the background color. The background classes apply to it as to a bg-\[url(...)\] image: bg-cover, bg-contain, bg-center, bg-no-repeat, bg-origin-\*, bg-clip-\* and the others. Each image.Image value is converted once and cached (the cache keeps the most recently used images, up to 256 MiB of pixels), so pass the same value on every build and do not modify its pixels afterwards: give a new image instead. For images stored as files, register them with [`Assets`](#func-assets) and use a class.
+
+**Example**
+
+```go
+// A decoded image, such as one from image.Decode or generated in
+// code. Pass the same value on every build: it is converted once.
+photo := image.NewRGBA(image.Rect(0, 0, 4, 4))
+for i := range 16 {
+    photo.Set(i%4, i/4, color.RGBA{B: 255, A: 255})
+}
+
+// With package h: Div(Class("size-8 bg-cover bg-center"), Style(tela.BgImage(photo))).
+card := core.Primitive(style.KindDiv, core.Class("size-8 bg-cover bg-center"), core.Style(tela.BgImage(photo)))
+_, img := core.Render(card, core.RenderOptions{Width: 32, Height: 32})
+fmt.Println(img.RGBAAt(16, 16))
+// Output: {0 0 255 255}
+```
 
 #### func BorderColor
 

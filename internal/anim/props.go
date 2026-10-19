@@ -31,6 +31,7 @@ const (
 	PropBorderRadius                // border-radius
 	PropBorderWidth                 // border-width
 	PropFontSize                    // font-size (inherited)
+	PropClipPath                    // clip-path
 
 	// NumProps is the number of groups.
 	NumProps
@@ -38,7 +39,7 @@ const (
 
 var propNames = [...]string{"color", "background-color", "border-color", "outline-color",
 	"text-decoration-color", "opacity", "box-shadow", "transform", "filter", "backdrop-filter",
-	"width", "height", "spacing", "inset", "border-radius", "border-width", "font-size"}
+	"width", "height", "spacing", "inset", "border-radius", "border-width", "font-size", "clip-path"}
 
 // String returns the CSS name of the group.
 func (p Prop) String() string {
@@ -85,7 +86,8 @@ func (p Prop) Class() Class {
 	switch p {
 	case PropOpacity, PropTransform:
 		return ClassLayer
-	case PropShadow, PropFilter, PropBackdropFilter:
+	case PropShadow, PropFilter, PropBackdropFilter, PropClipPath:
+		// A clip path also makes the box a stacking context or not.
 		return ClassInk
 	case PropWidth, PropHeight, PropSpacing, PropInset, PropBorderWidth, PropFontSize:
 		return ClassLayout
@@ -147,6 +149,8 @@ func Equal(p Prop, a, b *style.ComputedStyle) bool {
 			a.Border.Bottom.Width == b.Border.Bottom.Width && a.Border.Left.Width == b.Border.Left.Width
 	case PropFontSize:
 		return a.Text.FontSize == b.Text.FontSize
+	case PropClipPath:
+		return a.ClipPath.Equal(&b.ClipPath)
 	}
 	return true
 }
@@ -176,6 +180,8 @@ func CanInterpolate(p Prop, a, b *style.ComputedStyle) bool {
 				return false
 			}
 		}
+	case PropClipPath:
+		return a.ClipPath.Interpolable(&b.ClipPath)
 	}
 	return true
 }
@@ -221,6 +227,8 @@ func Copy(p Prop, dst, src *style.ComputedStyle) {
 		dst.Border.Bottom.Width, dst.Border.Left.Width = src.Border.Bottom.Width, src.Border.Left.Width
 	case PropFontSize:
 		dst.Text.FontSize = src.Text.FontSize
+	case PropClipPath:
+		dst.ClipPath = src.ClipPath
 	}
 }
 
@@ -286,7 +294,28 @@ func Blend(p Prop, dst, from, to *style.ComputedStyle, t float64) {
 		}
 	case PropFontSize:
 		dst.Text.FontSize = max(Lerp(from.Text.FontSize, to.Text.FontSize, t), 0)
+	case PropClipPath:
+		dst.ClipPath = LerpClipPath(from.ClipPath, to.ClipPath, t)
 	}
+}
+
+// LerpClipPath interpolates two clip paths of the same shape value by
+// value (CSS Shapes 1: basic shapes of the same type with the same number
+// of values and the same keywords interpolate); other pairs switch at t =
+// 0.5.
+func LerpClipPath(a, b style.ClipPath, t float64) style.ClipPath {
+	if !a.Interpolable(&b) {
+		if t < 0.5 {
+			return a
+		}
+		return b
+	}
+	out := b
+	out.Values = make([]style.LP, len(a.Values))
+	for i := range out.Values {
+		out.Values[i] = LerpLP(a.Values[i], b.Values[i], t)
+	}
+	return out
 }
 
 func blendSpacing(dst, from, to *style.ComputedStyle, t float64) {

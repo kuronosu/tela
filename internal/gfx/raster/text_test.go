@@ -436,7 +436,7 @@ func TestColorGlyph(t *testing.T) {
 	if d, n := pixDiff(redImg, at(red, true, nil, gfx.Identity)); d > 2 {
 		t.Errorf("sprite and inline color glyph differ by up to %d (%d pixels)", d, n)
 	}
-	// A transparent paint hides the outline glyphs but not the color ones.
+	// A transparent paint hides the outline glyphs and the color ones.
 	clearImg := at(gfx.Transparent, false, NewGlyphCache(1<<20), gfx.Identity)
 	clearPaths := at(gfx.Transparent, true, nil, gfx.Identity)
 	if d, _ := pixDiff(clearImg, clearPaths); d > 2 {
@@ -453,8 +453,20 @@ func TestColorGlyph(t *testing.T) {
 			}
 		}
 	}
-	if inO != 0 || inBadge == 0 {
-		t.Errorf("transparent paint: alpha %d in the outline glyph (want 0), %d in the color glyphs (want > 0)", inO, inBadge)
+	if inO != 0 || inBadge != 0 {
+		t.Errorf("transparent paint: alpha %d in the outline glyph, %d in the color glyphs (want 0: Chromium hides both)", inO, inBadge)
+	}
+	// A translucent paint fades the color glyphs (sprites) by its alpha.
+	half := at(gfx.Color{R: 1, A: 0.5}, false, NewGlyphCache(1<<20), gfx.Identity)
+	var full, faded int
+	for y := 0; y < 60; y++ {
+		for x := 0; x < 32; x++ {
+			full += int(redImg.Pix[redImg.PixOffset(x, y)+3])
+			faded += int(half.Pix[half.PixOffset(x, y)+3])
+		}
+	}
+	if full == 0 || faded < full*45/100 || faded > full*55/100 {
+		t.Errorf("translucent paint: color glyph alpha %d, opaque %d (want half)", faded, full)
 	}
 	// Rotated: inline, close to the reference of the same commands.
 	rot := gfx.RotateAbout(0.5, gfx.Pt(80, 30))

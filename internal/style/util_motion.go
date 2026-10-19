@@ -138,7 +138,7 @@ var transitionProps = map[string]TransitionProps{
 	"padding": TransitionSpacing, "margin": TransitionSpacing, "gap": TransitionSpacing,
 	"top": TransitionInset, "right": TransitionInset, "bottom": TransitionInset, "left": TransitionInset,
 	"inset": TransitionInset, "border-radius": TransitionBorderRadius, "border-width": TransitionBorderWidth,
-	"font-size": TransitionFontSize, "fill": 0, "stroke": 0,
+	"font-size": TransitionFontSize, "clip-path": TransitionClipPath, "fill": 0, "stroke": 0,
 }
 
 func registerTransitions(r *registry) {

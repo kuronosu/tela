@@ -1,6 +1,10 @@
 package tela
 
-import "github.com/kuronosu/tela/internal/style"
+import (
+	"image"
+
+	"github.com/kuronosu/tela/internal/style"
+)
 
 // StyleProp is one typed style declaration, built by the functions below
 // and passed to h.Style. Typed props apply after the element's classes, so
@@ -92,6 +96,21 @@ func Bg(c Color) StyleProp { return style.Bg(c) }
 // BackgroundGradient sets a gradient as the background image, over the
 // background color.
 func BackgroundGradient(g Gradient) StyleProp { return style.BackgroundGradient(g) }
+
+// BgImage sets a decoded image as the background image, over the
+// background color. The background classes apply to it as to a
+// bg-[url(...)] image: bg-cover, bg-contain, bg-center, bg-no-repeat,
+// bg-origin-*, bg-clip-* and the others. Each image.Image value is
+// converted once and cached (the cache keeps the most recently used
+// images, up to 256 MiB of pixels), so pass the same value on every build
+// and do not modify its pixels afterwards: give a new image instead. For
+// images stored as files, register them with [Assets] and use a class.
+func BgImage(img image.Image) StyleProp {
+	if img == nil {
+		panic("tela: BgImage(nil): pass a decoded image.Image, for example from image.Decode")
+	}
+	return style.BgImage(img)
+}
 
 // TextColor sets the text color, which the element's descendants inherit.
 func TextColor(c Color) StyleProp { return style.Color(c) }

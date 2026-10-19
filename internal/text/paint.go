@@ -40,12 +40,18 @@ func (l *Layout) PaintWith(b *gfx.Builder, origin gfx.Point, scale float32, pain
 // paints line by line: a later line's backgrounds cover an earlier line's
 // text).
 func (l *Layout) PaintLine(b *gfx.Builder, origin gfx.Point, i int, scale float32) {
+	l.PaintLineWith(b, origin, i, scale, nil)
+}
+
+// PaintLineWith is PaintLine with every glyph run and decoration painted
+// with paint, as in PaintWith (nil keeps the styles' paints).
+func (l *Layout) PaintLineWith(b *gfx.Builder, origin gfx.Point, i int, scale float32, paint gfx.Paint) {
 	if i < 0 || i >= len(l.lines) {
 		return
 	}
-	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale, nil)
-	l.paintGlyphs(b, origin, i, nil, nil)
-	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, nil)
+	l.paintDecorations(b, origin, i, DecorationUnderline|DecorationOverline, scale, paint)
+	l.paintGlyphs(b, origin, i, nil, paint)
+	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, paint)
 }
 
 // snappedUnderline returns the top (relative to the baseline at y, in

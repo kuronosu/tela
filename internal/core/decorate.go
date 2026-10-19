@@ -22,14 +22,18 @@ func (p *painter) paintSelf(bx *Box) {
 	if g.border.Rect.Empty() {
 		return
 	}
-	p.paintDecor(cs, &g, bx.ld.Layout().Padding, bx == p.t.rootBox)
+	var mask func() *gfx.DisplayList
+	if cs.BackgroundClip == style.BackgroundText {
+		mask = func() *gfx.DisplayList { return p.textMask(bx) }
+	}
+	p.paintDecor(cs, &g, bx.ld.Layout().Padding, bx == p.t.rootBox, mask)
 }
 
 // paintDecor paints the decorations of a box with style cs and snapped
 // geometry g (paintSelf; the fragments of inline boxes, inline.go): pad
 // are its padding widths, root reports the root (whose background color is
-// the canvas).
-func (p *painter) paintDecor(cs *style.ComputedStyle, g *boxGeom, pad layout.Insets, root bool) {
+// the canvas), and mask returns the glyphs of background-clip: text.
+func (p *painter) paintDecor(cs *style.ComputedStyle, g *boxGeom, pad layout.Insets, root bool, mask func() *gfx.DisplayList) {
 	// Blink clips an outer shadow out of the box shrunk by one pixel when
 	// the background is opaque and covers the border box, so that the
 	// shadow reaches under the anti-aliased edge: the same shadow shape
@@ -46,7 +50,7 @@ func (p *painter) paintDecor(cs *style.ComputedStyle, g *boxGeom, pad layout.Ins
 				Blur: s.Blur, Spread: s.Spread + grow, Color: s.Color})
 		}
 	}
-	p.paintBackground(cs, g, pad, root)
+	p.paintBackground(cs, g, pad, root, mask)
 	if !g.padding.Rect.Empty() {
 		for i := len(cs.BoxShadows) - 1; i >= 0; i-- {
 			if s := &cs.BoxShadows[i]; s.Inset {
@@ -84,32 +88,64 @@ func (p *painter) bgBox(g *boxGeom, pad layout.Insets, which style.BackgroundBox
 
 // paintBackground paints the background color and image layers of a box in
 // its background painting area. The root's color is the canvas, already
-// painted.
-func (p *painter) paintBackground(cs *style.ComputedStyle, g *boxGeom, pad layout.Insets, root bool) {
+// painted. With background-clip: text, mask gives the list of the glyphs
+// the background is painted through (a mask layer, ADR-074); a nil mask
+// or one that paints nothing paints no background. With a
+// background-blend-mode, the image layers blend with what is below them
+// in a group of their own.
+func (p *painter) paintBackground(cs *style.ComputedStyle, g *boxGeom, pad layout.Insets, root bool, mask func() *gfx.DisplayList) {
 	if cs.BackgroundColor.A == 0 && len(cs.Backgrounds) == 0 {
 		return
 	}
+	var clip gfx.RRect
+	group := false
 	if cs.BackgroundClip == style.BackgroundText {
-		p.t.reportOnce("bg-clip-text", "tela: background-clip: text is not painted yet; the background is skipped")
-		return
-	}
-	clip := p.bgBox(g, pad, cs.BackgroundClip)
-	if cs.BackgroundClip == style.BackgroundBorderBox && !clip.IsRect() && borderObscuresEdge(cs, g) {
-		// Blink's bleed avoidance: under an opaque border the background
-		// shrinks by a device pixel, so that its anti-aliased edge does
-		// not show through the border's.
-		d := float32(1 / p.scale)
-		clip = insetRRect(clip, d, d, d, d)
-	}
-	if clip.Rect.Empty() {
-		return
+		// The painting area is the border box, cut by the text.
+		var m *gfx.DisplayList
+		if mask != nil {
+			m = mask()
+		}
+		if m == nil || m.Len() == 0 || g.border.Rect.Empty() {
+			return
+		}
+		clip = g.border
+		p.b.PushMaskLayer(gfx.Mask{List: m}, 1, gfx.SrcOver)
+		group = true
+	} else {
+		clip = p.bgBox(g, pad, cs.BackgroundClip)
+		if cs.BackgroundClip == style.BackgroundBorderBox && !clip.IsRect() && borderObscuresEdge(cs, g) {
+			// Blink's bleed avoidance: under an opaque border the background
+			// shrinks by a device pixel, so that its anti-aliased edge does
+			// not show through the border's.
+			d := float32(1 / p.scale)
+			clip = insetRRect(clip, d, d, d, d)
+		}
+		if clip.Rect.Empty() {
+			return
+		}
+		if cs.BackgroundBlend != gfx.SrcOver && len(cs.Backgrounds) > 0 {
+			// The layers blend only with the element's background: an
+			// isolated group.
+			p.b.PushLayer(1, gfx.SrcOver)
+			group = true
+		}
 	}
 	if !root && cs.BackgroundColor.A > 0 {
 		p.fillRRect(clip, cs.BackgroundColor)
 	}
 	for i := len(cs.Backgrounds) - 1; i >= 0; i-- {
 		l := &cs.Backgrounds[i]
+		blend := cs.BackgroundBlend != gfx.SrcOver
+		if blend {
+			p.b.PushLayer(1, cs.BackgroundBlend)
+		}
 		p.paintBgLayer(l, p.bgBox(g, pad, l.Origin).Rect, clip)
+		if blend {
+			p.b.PopLayer()
+		}
+	}
+	if group {
+		p.b.PopLayer()
 	}
 }
 
@@ -126,66 +162,88 @@ func borderObscuresEdge(cs *style.ComputedStyle, g *boxGeom) bool {
 }
 
 // maxBgTiles bounds the tiles of one background layer.
-const maxBgTiles = 1024
+const maxBgTiles = 4096
+
+// bgAxis is the tiling of a background layer along one axis: tiles of
+// size, the first at start, every period, over [from, to) tiles.
+type bgAxis struct {
+	size, start, period float32
+	from, to            int
+}
 
 // paintBgLayer paints one background image layer whose positioning area
-// is area, clipped to clip. Gradients have no natural size: an auto
-// size, cover and contain all make one tile the size of the area (CSS
-// Backgrounds 3 section 3.9). repeat: space is painted as repeat.
+// is area, clipped to clip (CSS Backgrounds 3 sections 3.6 to 3.9): the
+// tile size from background-size (gradients have no natural size, so
+// auto, cover and contain make one tile the size of the area; images keep
+// their aspect ratio when one size is auto), round rescales it to a whole
+// number of tiles, space spreads whole tiles over the area (position
+// ignored when two or more fit), and the tiles repeat over the painting
+// area. Image tiles that repeat are snapped to device pixels so that they
+// meet without seams; an image drawn much smaller than its pixels is
+// drawn from a prefiltered mip level (gfx.Image.Level).
 func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx.RRect) {
-	if l.Gradient == nil {
-		if l.URL != "" {
-			p.t.reportOnce("bg-url", "tela: background images (url()) are not painted yet")
+	var img *gfx.Image
+	switch {
+	case l.Gradient != nil:
+	case l.Image != nil:
+		img = convertBgImage(l.Image)
+	case l.URL != "":
+		var err error
+		if img, err = loadAsset(l.URL); err != nil {
+			p.t.reportOnce("bg-url:"+l.URL, "tela: "+err.Error())
+			return
 		}
+	}
+	if l.Gradient == nil && (img == nil || img.Width() == 0 || img.Height() == 0) {
 		return
 	}
 	aw, ah := area.Width(), area.Height()
 	if !(aw > 0 && ah > 0) {
 		return
 	}
-	tw, th := aw, ah
-	if l.Size.Kind == style.SizeLength {
-		if v, ok := l.Size.W.Resolve(aw); ok {
-			tw = v
-		}
-		if v, ok := l.Size.H.Resolve(ah); ok {
-			th = v
-		}
-	}
+	tw, th := bgTileSize(l, img, aw, ah)
 	if !(tw > 0 && th > 0) {
 		return
 	}
-	var repX, repY bool
+	cb := clip.Rect
+	rx, ry := l.Repeat, l.Repeat
 	switch l.Repeat {
-	case style.RepeatBoth, style.RepeatRound, style.RepeatSpace:
-		repX, repY = true, true
 	case style.RepeatX:
-		repX = true
+		rx, ry = style.RepeatBoth, style.RepeatNone
 	case style.RepeatY:
-		repY = true
+		rx, ry = style.RepeatNone, style.RepeatBoth
 	}
-	if l.Repeat == style.RepeatRound {
+	if rx == style.RepeatRound {
 		tw = aw / float32(max(1, math.Round(float64(aw/tw))))
+	}
+	if ry == style.RepeatRound {
 		th = ah / float32(max(1, math.Round(float64(ah/th))))
 	}
-	x := area.X0 + l.PosX.Resolve(aw-tw)
-	y := area.Y0 + l.PosY.Resolve(ah-th)
-	cb := clip.Rect
-	i0, i1, j0, j1 := 0, 1, 0, 1
-	if repX {
-		i0, i1 = int(math.Floor(float64((cb.X0-x)/tw))), int(math.Ceil(float64((cb.X1-x)/tw)))
+	if img != nil {
+		// Like Blink, an image tile has whole device pixels, and it is
+		// positioned with that size (a centered image whose size is not
+		// whole is placed by its rounded size).
+		if rx != style.RepeatRound {
+			tw = p.snapSize(tw)
+		}
+		if ry != style.RepeatRound {
+			th = p.snapSize(th)
+		}
 	}
-	if repY {
-		j0, j1 = int(math.Floor(float64((cb.Y0-y)/th))), int(math.Ceil(float64((cb.Y1-y)/th)))
-	}
-	if (i1-i0)*(j1-j0) > maxBgTiles {
+	ax := bgTiling(rx, tw, area.X0, aw, l.PosX, cb.X0, cb.X1)
+	ay := bgTiling(ry, th, area.Y0, ah, l.PosY, cb.Y0, cb.Y1)
+	if (ax.to-ax.from)*(ay.to-ay.from) > maxBgTiles {
 		p.t.reportOnce("bg-tiles", "tela: a background layer has too many tiles; only the first ones are painted")
 	}
+	if img != nil {
+		p.paintImageTiles(img, ax, ay, clip, true, true)
+		return
+	}
 	tiles := 0
-	for j := j0; j < j1; j++ {
-		for i := i0; i < i1 && tiles < maxBgTiles; i++ {
-			tx, ty := x+float32(float32(i)*tw), y+float32(float32(j)*th)
-			tile := gfx.Rect{X0: tx, Y0: ty, X1: tx + tw, Y1: ty + th}
+	for j := ay.from; j < ay.to; j++ {
+		for i := ax.from; i < ax.to && tiles < maxBgTiles; i++ {
+			tx, ty := ax.start+float32(float32(i)*ax.period), ay.start+float32(float32(j)*ay.period)
+			tile := gfx.Rect{X0: tx, Y0: ty, X1: tx + ax.size, Y1: ty + ay.size}
 			if !tile.Intersects(cb) {
 				continue
 			}
@@ -200,6 +258,113 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 			p.b.PopClip()
 		}
 	}
+}
+
+// snapSize rounds a size to whole device pixels, at least one.
+func (p *painter) snapSize(v float32) float32 {
+	d := math.Max(math.Floor(float64(float64(v)*p.scale)+0.5), 1)
+	return float32(d / p.scale)
+}
+
+// bgTileSize returns the size of a background layer's tile in an area of
+// aw × ah; img is nil for a gradient.
+func bgTileSize(l *style.BackgroundLayer, img *gfx.Image, aw, ah float32) (float32, float32) {
+	if img == nil {
+		tw, th := aw, ah
+		if l.Size.Kind == style.SizeLength {
+			if v, ok := l.Size.W.Resolve(aw); ok {
+				tw = v
+			}
+			if v, ok := l.Size.H.Resolve(ah); ok {
+				th = v
+			}
+		}
+		return tw, th
+	}
+	iw, ih := float32(img.Width()), float32(img.Height())
+	switch l.Size.Kind {
+	case style.SizeCover, style.SizeContain:
+		sx, sy := float64(aw)/float64(iw), float64(ah)/float64(ih)
+		s := min(sx, sy)
+		if l.Size.Kind == style.SizeCover {
+			s = max(sx, sy)
+		}
+		return float32(float64(iw) * s), float32(float64(ih) * s)
+	case style.SizeLength:
+		w, okW := l.Size.W.Resolve(aw)
+		h, okH := l.Size.H.Resolve(ah)
+		switch {
+		case okW && okH:
+			return w, h
+		case okW:
+			return w, float32(float64(w) * float64(ih) / float64(iw))
+		case okH:
+			return float32(float64(h) * float64(iw) / float64(ih)), h
+		}
+	}
+	return iw, ih
+}
+
+// bgTiling returns the tiling along one axis of tiles of size t in the
+// positioning area [a0, a0+a) at position pos, repeated per mode over the
+// painting area [c0, c1).
+func bgTiling(mode style.BackgroundRepeat, t, a0, a float32, pos style.LP, c0, c1 float32) bgAxis {
+	ax := bgAxis{size: t, start: a0 + pos.Resolve(a-t), period: t, from: 0, to: 1}
+	switch mode {
+	case style.RepeatNone:
+		return ax
+	case style.RepeatSpace:
+		n := int(math.Floor(float64(a / t)))
+		if n < 2 {
+			return ax // one tile, placed by the position
+		}
+		// Whole tiles from edge to edge, the space shared between them.
+		ax.start = a0
+		ax.period = t + (a-float32(float32(n)*t))/float32(n-1)
+	}
+	ax.from = int(math.Floor(float64((c0 - ax.start) / ax.period)))
+	ax.to = int(math.Ceil(float64((c1 - ax.start) / ax.period)))
+	return ax
+}
+
+// paintImageTiles draws the tiles of an image layer under clip. Along an
+// axis that repeats, tile edges are snapped to device pixels.
+func (p *painter) paintImageTiles(img *gfx.Image, ax, ay bgAxis, clip gfx.RRect, snapX, snapY bool) {
+	// The mip level whose size is the smallest that is not smaller than
+	// the tile in device pixels (Chromium's choice for downscaled images).
+	kx := float64(float64(ax.size)*p.scale) / float64(img.Width())
+	ky := float64(float64(ay.size)*p.scale) / float64(img.Height())
+	src := img
+	if k := max(kx, ky); k > 0 && k < 1 {
+		if n := int(math.Floor(math.Log2(1 / k))); n > 0 {
+			src = img.Level(n)
+		}
+	}
+	cb := clip.Rect
+	if clip.IsRect() {
+		p.b.PushClipRect(cb)
+	} else {
+		p.b.PushClipRRect(clip)
+	}
+	tiles := 0
+	for j := ay.from; j < ay.to; j++ {
+		for i := ax.from; i < ax.to && tiles < maxBgTiles; i++ {
+			tx, ty := ax.start+float32(float32(i)*ax.period), ay.start+float32(float32(j)*ay.period)
+			tile := gfx.Rect{X0: tx, Y0: ty, X1: tx + ax.size, Y1: ty + ay.size}
+			if snapX {
+				tile.X0, tile.X1 = p.snap(tile.X0), p.snap(tile.X1)
+			}
+			if snapY {
+				tile.Y0, tile.Y1 = p.snap(tile.Y0), p.snap(tile.Y1)
+			}
+			if tile.Empty() || !tile.Intersects(cb) {
+				continue
+			}
+			tiles++
+			p.b.DrawImage(src, gfx.Rect{}, tile, gfx.SampleLinear)
+		}
+	}
+	p.b.PopClip()
 }
 
 // ---------------------------------------------------------------------

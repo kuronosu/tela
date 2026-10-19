@@ -3,6 +3,7 @@ package style
 import (
 	"errors"
 	"fmt"
+	"image"
 	"math"
 	"strings"
 
@@ -290,12 +291,17 @@ const (
 	RepeatRound
 )
 
-// BackgroundLayer is one background image layer.
+// BackgroundLayer is one background image layer: a gradient, an image
+// named by url() (resolved by core through the assets registered with
+// tela.Assets) or a decoded image (tela.BgImage).
 type BackgroundLayer struct {
 	// Gradient is the image when it is a gradient; nil for URL images.
 	Gradient *Gradient
 	// URL is the source of an image layer, as written in url().
-	URL    string
+	URL string
+	// Image is a decoded image (tela.BgImage). Its dynamic type need not
+	// be comparable: do not compare layers with ==.
+	Image  image.Image
 	Size   BackgroundSize
 	PosX   LP // position of the image in the box; 0% is the top-left corner
 	PosY   LP

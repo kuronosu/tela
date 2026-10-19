@@ -122,6 +122,10 @@ type Box struct {
 	// (painter.collect skips subtrees without them).
 	ink     gfx.Rect
 	hasPart bool
+	// blendDesc reports descendants with a mix-blend-mode in the box's
+	// stacking context scope (not inside nested stacking contexts): a
+	// stacking context with them is an isolated group (cssfx.go).
+	blendDesc bool
 	// layerSC reports whether the box is a layer of its own (a stacking
 	// context with paint-phase deferred props, layer.go) at the last full
 	// recording.

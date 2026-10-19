@@ -68,7 +68,10 @@ type Glyph struct {
 // their DisplayList (Font.ColorGlyph) is drawn with Paint's color as the
 // foreground when Paint is a Color, and with a transparent foreground when it
 // is a gradient (as in CSS, where gradient text is drawn with a transparent
-// color, so foreground layers vanish).
+// color, so foreground layers vanish). Like Chromium, a Color paint's alpha
+// also fades color glyphs, and a fully transparent Color draws nothing
+// (ADR-079; package raster applies the alpha to cached glyph sprites only,
+// not to color glyphs too large or too transformed to be cached).
 //
 // Rasterizers may snap the pen position to their device grid (see package
 // raster: x to a quarter of a device pixel and y to whole device pixels
@@ -88,7 +91,7 @@ func (DrawGlyphRun) Name() string { return "DrawGlyphRun" }
 // glyph slice is copied. A nil Font or Paint panics. The run is dropped if
 // Size is not positive, a position is not finite, the paint is not finite,
 // or no glyph has non-empty bounds (Font.GlyphBounds). A fully transparent
-// Paint is kept: color glyphs paint their own colors.
+// Paint is kept (it draws nothing).
 func (b *Builder) DrawGlyphRun(run DrawGlyphRun) {
 	b.begin()
 	if run.Font == nil {
@@ -129,8 +132,7 @@ func (b *Builder) DrawGlyphRun(run DrawGlyphRun) {
 	}
 }
 
-// sanitizeGlyphPaint is sanitizePaint without the visibility test: a
-// transparent text color still lets color glyphs paint.
+// sanitizeGlyphPaint is sanitizePaint without the visibility test.
 func sanitizeGlyphPaint(p Paint) (Paint, bool) {
 	if c, ok := p.(Color); ok {
 		if !c.IsFinite() {

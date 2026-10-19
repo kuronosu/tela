@@ -43,6 +43,9 @@ type cssGallery struct {
 	// geom is the largest edge difference accepted, per scale, in logical
 	// pixels.
 	geom [2]float64
+	// fontCSS replaces the page's @theme font and @font-face rules
+	// (cssGalleryFonts with Inter as the sans font when empty).
+	fontCSS string
 }
 
 // cssRow is one row of a gallery: height logical pixels tall, its
@@ -136,8 +139,12 @@ func (g *cssGallery) regenerate(t *testing.T) {
 		t.Fatalf("%s is not inside a node_modules directory", tw)
 	}
 	input := filepath.Join(t.TempDir(), "input.css")
-	css := fmt.Sprintf("@import %q;\n@source %q;\n@theme { --font-sans: \"Inter\"; }\n%s",
-		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, cssGalleryFonts)
+	fonts := g.fontCSS
+	if fonts == "" {
+		fonts = "@theme { --font-sans: \"Inter\"; }\n" + cssGalleryFonts
+	}
+	css := fmt.Sprintf("@import %q;\n@source %q;\n%s",
+		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, fonts)
 	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -168,6 +175,7 @@ func (g *cssGallery) regenerate(t *testing.T) {
 			t.Fatal(err)
 		}
 		cmd = exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
+			"--virtual-time-budget=10000", // fonts and background images loaded
 			"--force-color-profile=srgb", fmt.Sprintf("--force-device-scale-factor=%d", scale),
 			fmt.Sprintf("--window-size=%d,%d", int(w), int(h)), "--screenshot="+shot, "file://"+htmlPath)
 		if out, err := cmd.CombinedOutput(); err != nil {

@@ -25,11 +25,13 @@ import (
 //     box, as CSS does;
 //  2. its background: the color, then the image layers from the last to
 //     the first, in the background painting area (background-clip) with
-//     its rounded corners. Gradient layers are sized, positioned and
-//     tiled per background-size, -position, -repeat and -origin; url()
-//     layers and background-clip: text are not painted yet (no image
-//     source, no glyph clip). The root's background color is the canvas,
-//     painted over the whole viewport first;
+//     its rounded corners. Gradient and image layers (url() through the
+//     registered assets, tela.BgImage; assets.go) are sized, positioned
+//     and tiled per background-size, -position, -repeat and -origin, and
+//     blended per background-blend-mode in a group of their own;
+//     background-clip: text paints them in a layer masked by the glyphs
+//     of the box's text (cssfx.go). The root's background color is the
+//     canvas, painted over the whole viewport first;
 //  3. its inset box shadows, inside the padding box (the inner border
 //     edge with the inner radii), last listed first;
 //  4. its border;
@@ -63,8 +65,8 @@ import (
 //
 // A box creates a stacking context when it has a z-index other than auto
 // and is positioned or a flex item, is fixed or sticky, has opacity < 1, a
-// transform, a filter, a backdrop filter, a mix-blend-mode or isolation:
-// isolate. The root is a stacking context. z-index on a box that is
+// transform, a filter, a backdrop filter, a mix-blend-mode, a clip-path or
+// isolation: isolate. The root is a stacking context. z-index on a box that is
 // neither positioned nor a flex item does nothing, as in CSS.
 //
 // A stacking context paints its own decorations (1-4), then its
@@ -89,12 +91,13 @@ import (
 //
 // Around a stacking context, in this order: its transform
 // (PushTransform with Transform.Matrix of its unsnapped border box, around
-// everything it paints, outline included), its backdrop filter
-// (BackdropFilter over its border box, before anything else of the box is
-// painted), and one layer (PushLayer) with its opacity and filters. The
+// everything it paints, outline included), its clip path (cssfx.go), its
+// backdrop filter (BackdropFilter over its border box, before anything
+// else of the box is painted), and one layer (PushLayer) with its opacity,
+// filters and blend mode, also pushed, with nothing else, by a stacking
+// context whose descendants blend, to isolate them (cssfx.go). The
 // backdrop is therefore not faded by the box's own opacity, as CSS would
-// do; mix-blend-mode is painted as normal until the rasterizer has blend
-// modes (phase 6).
+// do.
 //
 // # Pixel snapping
 //
@@ -204,13 +207,14 @@ func (p *painter) place(bx *Box, parent *Box) {
 		// painted, outside the box too (vertical padding).
 		sub = sub.Union(bx.para.fragmentsBox(contentRect(bx.u, l).Origin()))
 	}
-	part, content := false, false
+	part, content, blend := false, false, false
 	chunked := bx.scr != nil && bx.scr.chunked
 	for _, k := range bx.kids {
 		p.place(k, bx)
 		if k.ls.Display == layout.DisplayNone {
 			continue
 		}
+		blend = blend || blendsIn(k)
 		switch {
 		case k.space == bx.space:
 			sub = sub.Union(k.hitBounds)
@@ -236,7 +240,7 @@ func (p *painter) place(bx *Box, parent *Box) {
 			sub = sub.Union(pad)
 		}
 	}
-	bx.ink, bx.hasPart = ink, part
+	bx.ink, bx.hasPart, bx.blendDesc = ink, part, blend
 	if sub != unbounded {
 		// Grown by one pixel for the snapping of the painted edges.
 		sub = sub.Outset(1)
@@ -408,7 +412,7 @@ func stacking(bx *Box) bool {
 	}
 	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky ||
 		(bx.anim != nil && bx.anim.layer) || cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
-		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate
+		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate || !cs.ClipPath.IsNone()
 }
 
 // participant reports whether bx is painted by its stacking context out of
@@ -641,11 +645,15 @@ func (p *painter) paintInner(bx *Box) {
 // effect kinds pushed by pushEffects.
 const (
 	pushedTransform = 1 << iota
+	pushedClip
 	pushedLayer
 )
 
-// pushEffects opens the transform and the layer of a stacking context and
-// applies its backdrop filter; popEffects closes them.
+// pushEffects opens the transform, the clip path and the layer of a
+// stacking context and applies its backdrop filter; popEffects closes
+// them. The layer carries the opacity, the filters and the blend mode; a
+// stacking context with blending descendants gets one to isolate them
+// (cssfx.go).
 func (p *painter) pushEffects(bx *Box) int {
 	if bx == p.t.rootBox {
 		return 0
@@ -656,16 +664,16 @@ func (p *painter) pushEffects(bx *Box) int {
 		p.b.PushTransform(cs.Transform.Matrix(p.rect(bx)))
 		pops |= pushedTransform
 	}
+	if p.pushClipPath(bx) {
+		pops |= pushedClip
+	}
 	if !cs.BackdropFilter.IsEmpty() && cs.Visibility == style.VisibilityVisible {
 		if g := p.geom(bx); !g.border.Rect.Empty() {
 			p.b.BackdropFilter(g.border, cs.BackdropFilter.List()...)
 		}
 	}
-	if cs.MixBlendMode != gfx.SrcOver {
-		p.t.reportOnce("mix-blend-mode", "tela: mix-blend-mode is painted as normal until phase 6")
-	}
-	if cs.Opacity < 1 || !cs.Filter.IsEmpty() {
-		p.b.PushLayer(cs.Opacity, gfx.SrcOver, cs.Filter.List()...)
+	if cs.Opacity < 1 || !cs.Filter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || bx.blendDesc {
+		p.b.PushLayer(cs.Opacity, cs.MixBlendMode, cs.Filter.List()...)
 		pops |= pushedLayer
 	}
 	return pops
@@ -674,6 +682,9 @@ func (p *painter) pushEffects(bx *Box) int {
 func (p *painter) popEffects(pops int) {
 	if pops&pushedLayer != 0 {
 		p.b.PopLayer()
+	}
+	if pops&pushedClip != 0 {
+		p.b.PopClip()
 	}
 	if pops&pushedTransform != 0 {
 		p.b.PopTransform()

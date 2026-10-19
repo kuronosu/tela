@@ -245,9 +245,15 @@ func (p *painter) paintFragment(para *paragraph, frags []text.InlineFragment, i 
 		return
 	}
 	pad := edgeWidths(cs).padding
+	var mask func() *gfx.DisplayList
+	if cs.BackgroundClip == style.BackgroundText {
+		// Its glyphs: those of its line (the background is clipped to the
+		// fragment).
+		mask = func() *gfx.DisplayList { return p.lineMask(para.lay, f.Line, origin) }
+	}
 	if f.Left && f.Right {
 		g := p.geomOf(cs, r.Translate(origin.X, origin.Y))
-		p.paintDecor(cs, &g, pad, false)
+		p.paintDecor(cs, &g, pad, false, mask)
 		return
 	}
 	s := para.stitched(frags, i, cs, r).Translate(origin.X, origin.Y)
@@ -262,7 +268,7 @@ func (p *painter) paintFragment(para *paragraph, frags []text.InlineFragment, i 
 	}
 	g := p.geomOf(cs, s)
 	p.b.PushClipRect(clip)
-	p.paintDecor(cs, &g, pad, false)
+	p.paintDecor(cs, &g, pad, false, mask)
 	p.b.PopClip()
 }
 

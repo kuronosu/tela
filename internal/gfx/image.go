@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"sync"
 	"sync/atomic"
 )
 
@@ -37,6 +38,9 @@ type Image struct {
 	id   uint64
 	w, h int
 	pix  []byte // 4*w*h bytes, premultiplied RGBA, row-major, stride 4*w
+
+	mu   sync.Mutex
+	mips []*Image // levels 1, 2, ... computed so far (Level)
 }
 
 // NewImage copies src into a new Image. An *image.RGBA is copied as is (it
@@ -88,3 +92,81 @@ func (i *Image) Stride() int { return 4 * i.w }
 // Pix returns the premultiplied RGBA8 pixels, row-major with Stride bytes per
 // row. The slice is shared with the Image and must not be modified.
 func (i *Image) Pix() []byte { return i.pix }
+
+// Level returns mip level n of the image (n <= 0 is the image itself):
+// each level halves the previous one, rounding down to at least one pixel,
+// with Skia's mipmap box filter on the premultiplied values (two taps of
+// weight 1/2 along an even dimension, 1/4, 1/2, 1/4 along an odd one),
+// rounded once per pixel. Drawing a large image much smaller than its size
+// from the level whose size is just above the drawn size, instead of from
+// the image, avoids the aliasing of bilinear sampling (ADR-079). Levels
+// are computed on first use and kept with the image; Level is safe for
+// concurrent use. n is clamped to the last level (1x1).
+func (i *Image) Level(n int) *Image {
+	if n <= 0 || (i.w <= 1 && i.h <= 1) {
+		return i
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	cur := i
+	if k := len(i.mips); k > 0 {
+		cur = i.mips[k-1]
+	}
+	for len(i.mips) < n && (cur.w > 1 || cur.h > 1) {
+		cur = cur.halve()
+		i.mips = append(i.mips, cur)
+	}
+	return i.mips[min(n, len(i.mips))-1]
+}
+
+// halve returns the next mip level of i.
+func (i *Image) halve() *Image {
+	taps := func(size int) (int, [3]uint32) {
+		switch {
+		case size <= 1:
+			return 1, [3]uint32{1, 0, 0}
+		case size%2 == 0:
+			return size / 2, [3]uint32{1, 1, 0}
+		}
+		return size / 2, [3]uint32{1, 2, 1}
+	}
+	w, wx := taps(i.w)
+	h, wy := taps(i.h)
+	var sx, sy uint32
+	for _, v := range wx {
+		sx += v
+	}
+	for _, v := range wy {
+		sy += v
+	}
+	total := sx * sy
+	pix := make([]byte, 4*w*h)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			var acc [4]uint32
+			for ty, ky := range wy {
+				if ky == 0 {
+					continue
+				}
+				yy := min(2*y+ty, i.h-1)
+				for tx, kx := range wx {
+					if kx == 0 {
+						continue
+					}
+					xx := min(2*x+tx, i.w-1)
+					o := yy*4*i.w + 4*xx
+					k := kx * ky
+					acc[0] += k * uint32(i.pix[o])
+					acc[1] += k * uint32(i.pix[o+1])
+					acc[2] += k * uint32(i.pix[o+2])
+					acc[3] += k * uint32(i.pix[o+3])
+				}
+			}
+			d := 4 * (y*w + x)
+			for c := range 4 {
+				pix[d+c] = uint8((acc[c] + total/2) / total)
+			}
+		}
+	}
+	return &Image{id: nextImageID.Add(1), w: w, h: h, pix: pix}
+}

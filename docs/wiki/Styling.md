@@ -25,7 +25,8 @@ What is supported: spacing, sizing, colors (with opacity as `bg-white/15`),
 borders, radius, shadows, gradients (`bg-linear-to-br from-indigo-500
 to-fuchsia-600`), typography, block, flex and grid layout, positioning
 (`relative`, `absolute`, `fixed`, `sticky`; see [Positioning](#positioning)),
-overflow, transforms, transitions (`transition`, `duration-*`, `ease-*`, `delay-*`, also with `hover:` and `dark:`), the `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` classes, and arbitrary values (`w-[calc(50%-8px)]`,
+overflow, transforms, effects (filters, `mix-blend-*`,
+`[clip-path:…]`, see [Effects and background images](#effects-and-background-images)), background images, transitions (`transition`, `duration-*`, `ease-*`, `delay-*`, also with `hover:` and `dark:`), the `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` classes, and arbitrary values (`w-[calc(50%-8px)]`,
 `bg-[#1e1e2e]`). The vocabulary is generated from Tailwind v4's theme; the v3
 aliases that mean the same thing are accepted (`bg-gradient-to-br`). Custom
 keyframes are not implemented
@@ -60,7 +61,7 @@ The props, by area:
 | Size | [`tela.Width`](https://pkg.go.dev/github.com/kuronosu/tela#Width), [`tela.Height`](https://pkg.go.dev/github.com/kuronosu/tela#Height), [`tela.MinWidth`](https://pkg.go.dev/github.com/kuronosu/tela#MinWidth), [`tela.MinHeight`](https://pkg.go.dev/github.com/kuronosu/tela#MinHeight), [`tela.MaxWidth`](https://pkg.go.dev/github.com/kuronosu/tela#MaxWidth), [`tela.MaxHeight`](https://pkg.go.dev/github.com/kuronosu/tela#MaxHeight) |
 | Spacing | [`tela.Padding`](https://pkg.go.dev/github.com/kuronosu/tela#Padding), [`tela.PaddingXY`](https://pkg.go.dev/github.com/kuronosu/tela#PaddingXY), [`tela.Margin`](https://pkg.go.dev/github.com/kuronosu/tela#Margin), [`tela.Gap`](https://pkg.go.dev/github.com/kuronosu/tela#Gap) |
 | Position | [`tela.Left`](https://pkg.go.dev/github.com/kuronosu/tela#Left), [`tela.Top`](https://pkg.go.dev/github.com/kuronosu/tela#Top), [`tela.Right`](https://pkg.go.dev/github.com/kuronosu/tela#Right), [`tela.Bottom`](https://pkg.go.dev/github.com/kuronosu/tela#Bottom), [`tela.ZIndex`](https://pkg.go.dev/github.com/kuronosu/tela#ZIndex) |
-| Color | [`tela.Bg`](https://pkg.go.dev/github.com/kuronosu/tela#Bg), [`tela.BackgroundGradient`](https://pkg.go.dev/github.com/kuronosu/tela#BackgroundGradient), [`tela.TextColor`](https://pkg.go.dev/github.com/kuronosu/tela#TextColor), [`tela.BorderColor`](https://pkg.go.dev/github.com/kuronosu/tela#BorderColor), [`tela.Opacity`](https://pkg.go.dev/github.com/kuronosu/tela#Opacity) |
+| Color | [`tela.Bg`](https://pkg.go.dev/github.com/kuronosu/tela#Bg), [`tela.BackgroundGradient`](https://pkg.go.dev/github.com/kuronosu/tela#BackgroundGradient), [`tela.BgImage`](https://pkg.go.dev/github.com/kuronosu/tela#BgImage), [`tela.TextColor`](https://pkg.go.dev/github.com/kuronosu/tela#TextColor), [`tela.BorderColor`](https://pkg.go.dev/github.com/kuronosu/tela#BorderColor), [`tela.Opacity`](https://pkg.go.dev/github.com/kuronosu/tela#Opacity) |
 | Border and shadow | [`tela.BorderWidth`](https://pkg.go.dev/github.com/kuronosu/tela#BorderWidth), [`tela.Radius`](https://pkg.go.dev/github.com/kuronosu/tela#Radius), [`tela.BoxShadow`](https://pkg.go.dev/github.com/kuronosu/tela#BoxShadow) |
 | Transform | [`tela.Translate`](https://pkg.go.dev/github.com/kuronosu/tela#Translate), [`tela.Scale`](https://pkg.go.dev/github.com/kuronosu/tela#Scale), [`tela.Rotate`](https://pkg.go.dev/github.com/kuronosu/tela#Rotate) |
 | Text | [`tela.FontSize`](https://pkg.go.dev/github.com/kuronosu/tela#FontSize), [`tela.FontWeight`](https://pkg.go.dev/github.com/kuronosu/tela#FontWeight) |
@@ -92,6 +93,64 @@ func Banner() tela.Node {
 down) and at least two stops from [`tela.Stop`](https://pkg.go.dev/github.com/kuronosu/tela#Stop) (spread evenly, as in CSS) or
 [`tela.StopAt`](https://pkg.go.dev/github.com/kuronosu/tela#StopAt) (a percentage of the gradient line). Colors interpolate in Oklab,
 like Tailwind v4.
+
+## Effects and background images
+
+**Background images.** `bg-[url(img/hero.jpg)]` loads a file from the file
+systems registered with [`tela.Assets`](https://pkg.go.dev/github.com/kuronosu/tela#Assets), usually an embedded directory
+registered from `init`, so `tela.Run`, `tela snapshot`, `tela inspect` and
+`telatest` all find it:
+
+```go
+//go:embed img
+var images embed.FS
+
+func init() { tela.Assets(images) }
+
+func Hero() tela.Node {
+	return Div(Class("h-64 rounded-2xl bg-[url(img/hero.jpg)] bg-cover bg-center"),
+		H1(Class("p-8 text-4xl font-bold text-white"), Text("Welcome")))
+}
+```
+
+Paths are relative to the root of the file system (`/img/hero.jpg` and
+`./img/hero.jpg` are the same file). Several `Assets` calls are searched in
+the order they were made. PNG, JPEG, GIF (first frame) and WebP are decoded
+once and cached. A missing file paints nothing and is reported in dev mode
+with the path and the registered file systems. For an image you already
+decoded, use `Style(tela.BgImage(img))`; the background classes apply to it
+too. Sizes (`bg-cover`, `bg-contain`, `bg-auto`, `bg-[length:96px_auto]`),
+positions (`bg-center`, `bg-bottom-right`, `bg-[position:25%_75%]`), repeat
+modes (`bg-repeat`, `bg-no-repeat`, `bg-repeat-x`, `bg-repeat-y`,
+`bg-repeat-round`, `bg-repeat-space`), `bg-origin-*` and `bg-clip-*` work as
+in CSS, and `bg-[linear-gradient(to_bottom,transparent,rgb(0_0_0/0.6)),url(img/hero.jpg)]`
+stacks several layers, the first on top. `bg-blend-*` blends the layers with
+each other and with the background color.
+
+**Gradient text.** `bg-clip-text text-transparent` paints the background
+through the glyphs of the element's text, with gradients or images, over
+several lines and in inline spans:
+
+```go
+H1(Class("bg-linear-to-r from-indigo-500 to-pink-500 bg-clip-text text-5xl font-extrabold text-transparent"),
+	Text("Tela"))
+```
+
+**Blending.** `mix-blend-multiply`, `mix-blend-screen` and the other modes
+blend an element with what is painted under it in its stacking context; add
+`isolate` (or any other stacking context: `relative z-10`, opacity, a
+transform) to a parent to keep the blend inside it.
+
+**Clip paths.** Tailwind has no clip-path utility, so it is written as the
+arbitrary property, with underscores for spaces:
+`[clip-path:circle(50%)]`, `[clip-path:ellipse(50%_35%_at_50%_50%)]`,
+`[clip-path:inset(8px_round_1rem)]`,
+`[clip-path:polygon(0_0,100%_0,100%_80%,0_100%)]` (optionally
+`polygon(evenodd,…)`). Shapes are relative to the border box; the clip cuts
+everything the element paints (shadows and outline included) and its
+clicks. Variants work on it (`hover:[clip-path:circle(75%)]`), and
+`transition-[clip-path]` animates between shapes of the same kind. No other
+arbitrary property is accepted.
 
 ## Variants
 

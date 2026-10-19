@@ -526,6 +526,7 @@ const (
 	TransitionBorderRadius
 	TransitionBorderWidth
 	TransitionFontSize
+	TransitionClipPath
 
 	// TransitionNone transitions nothing. It is the zero value.
 	TransitionNone TransitionProps = 0
@@ -645,6 +646,10 @@ type ComputedStyle struct {
 	BackgroundColor gfx.Color
 	Backgrounds     []BackgroundLayer
 	BackgroundClip  BackgroundBox
+	// BackgroundBlend is the background-blend-mode of every image layer
+	// (bg-blend-*): each layer blends with the layers and the color below
+	// it, inside the element's background.
+	BackgroundBlend gfx.BlendMode
 
 	// Borders and outline.
 	Border  Sides[Border]
@@ -659,6 +664,9 @@ type ComputedStyle struct {
 	MixBlendMode   gfx.BlendMode
 	Filter         FilterSet
 	BackdropFilter FilterSet
+	// ClipPath is the clip-path ([clip-path:...]); it creates a stacking
+	// context and clips everything the box paints and its hit-testing.
+	ClipPath ClipPath
 
 	// Motion.
 	Transform  Transform

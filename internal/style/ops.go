@@ -1,6 +1,7 @@
 package style
 
 import (
+	"image"
 	"sync"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -187,6 +188,13 @@ func BoxShadow(layers ...Shadow) Op {
 // BackgroundGradient sets a gradient as the background image.
 func BackgroundGradient(g Gradient) Op {
 	return op(func(e *env) { e.sc.bgImage = bgImage{kind: 1, gradient: g} })
+}
+
+// BgImage sets a decoded image as the background image; the background
+// size, position, repeat and origin classes apply to it. img must not be
+// nil.
+func BgImage(img image.Image) Op {
+	return op(func(e *env) { e.sc.bgImage = bgImage{kind: 4, img: img} })
 }
 
 // ---------------------------------------------------------------------

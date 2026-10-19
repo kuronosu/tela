@@ -18,7 +18,8 @@ import (
 //   - a box is hit inside its snapped border box with its rounded
 //     corners; outlines and shadows are not hit (CSS);
 //   - the overflow clips of the ancestors that clip it in paint, with
-//     their rounded corners, cut it;
+//     their rounded corners, cut it, and so do the clip paths of the
+//     stacking contexts it is in (cssfx.go);
 //   - transforms (including the paint-phase deferred ones, TranslateFn)
 //     are undone, so a scaled or moved box is hit where it is drawn; a
 //     box with a singular transform (scale-0) is hit nowhere;
@@ -126,6 +127,9 @@ func (h *hitter) stacked(bx *Box, p gfx.Point) *Element {
 			return nil // a singular transform draws nothing
 		}
 		p = inv.Apply(p)
+	}
+	if bx != h.t.rootBox && !bx.pcs.ClipPath.IsNone() && !inClipPath(bx, p) {
+		return nil // clipped away with everything it paints (cssfx.go)
 	}
 	start := len(h.items)
 	h.collectAt(bx, p)

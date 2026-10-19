@@ -222,8 +222,21 @@ func withVariantPrefix(err error, tok string) error {
 func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 	c := &pctx{th: p.th, class: tok}
 	if strings.HasPrefix(util, "[") && strings.HasSuffix(util, "]") {
+		// Arbitrary properties: only [clip-path:...], which has no
+		// utility in Tailwind (ADR-079).
+		if v, ok := strings.CutPrefix(util[1:len(util)-1], "clip-path:"); ok {
+			o, err := parseClipPath(arbitrarySpaces(v))
+			if err != nil {
+				var us unsupportedErr
+				if errors.As(err, &us) {
+					return nil, &UnsupportedClassError{Class: tok, Reason: string(us)}
+				}
+				return nil, &InvalidClassError{Class: tok, Reason: err.Error()}
+			}
+			return []Op{o}, nil
+		}
 		return nil, &UnsupportedClassError{Class: tok,
-			Reason: "arbitrary properties are not supported; use a utility class, for example w-[320px]"}
+			Reason: "arbitrary properties are not supported (except [clip-path:...]); use a utility class, for example w-[320px]"}
 	}
 	if alias, ok := reg.aliases[util]; ok {
 		util = alias

@@ -379,9 +379,11 @@
 // a layer became stale (content that leaves its interest rect, a box that
 // starts or stops being a layer). The compositor appends the layers into
 // one display list for the frame (gfx.Builder.AppendList): CSS box
-// painting (shadows, backgrounds, borders, outlines), effects
-// (transforms, opacity, filters, backdrop filters), overflow clips and a
-// simplified CSS stacking order, with box edges snapped to device pixels
+// painting (shadows, backgrounds with gradients and images from the
+// registered assets, assets.go, borders, outlines), effects (transforms,
+// opacity, filters, backdrop filters, blend modes, clip paths and
+// background-clip: text, cssfx.go), overflow clips and a simplified CSS
+// stacking order, with box edges snapped to device pixels
 // at the tree's scale (SetScale); the comment at the top of paint.go is
 // the reference. A Frame with nothing dirty returns the previous list.
 //

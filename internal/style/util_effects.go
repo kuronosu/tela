@@ -109,7 +109,14 @@ func registerEffects(r *registry) {
 	}
 	r.enum("mix-blend", false, bl)
 	r.unsupported["mix-blend-plus-darker"] = "plus-darker is not supported; use mix-blend-multiply or mix-blend-darken"
-	r.unsupported["bg-blend"] = "background-blend-mode is not supported; use mix-blend-* on a layer"
+	// background-blend-mode takes the Level 1 modes (no plus-lighter).
+	bb := map[string]Op{}
+	for _, k := range sortedMapKeys(blends) {
+		if m := blends[k]; m != gfx.PlusLighter {
+			bb[k] = op(func(e *env) { e.s.BackgroundBlend = m })
+		}
+	}
+	r.enum("bg-blend", false, bb)
 
 	// Filters and backdrop filters.
 	registerFilters(r, "", func(s *ComputedStyle) *FilterSet { return &s.Filter })

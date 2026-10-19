@@ -247,17 +247,24 @@ func bgArbitrary(c *pctx, a *arg) (Op, error) {
 	default:
 		return Op{}, errNoMatch
 	}
-	if strings.HasPrefix(in, "url(") {
-		return bgImageOp(c, in)
-	}
-	for _, prefix := range sortedMapKeys(gradientFuncs) {
-		if strings.HasPrefix(in, prefix) && strings.HasSuffix(in, ")") {
-			g, err := parseGradientList(c, gradientFuncs[prefix], in[len(prefix):len(in)-1])
+	if items := splitTop(in, ','); len(items) > 1 && bgImageItem(items[0]) {
+		// Several layers, topmost first: bg-[linear-gradient(...),url(a.jpg)].
+		list := make([]bgImage, len(items))
+		for i, it := range items {
+			img, err := parseBgImage(c, strings.TrimSpace(it))
 			if err != nil {
 				return Op{}, err
 			}
-			return op(func(e *env) { e.sc.bgImage = bgImage{kind: 1, gradient: g} }), nil
+			list[i] = img
 		}
+		return op(func(e *env) { e.sc.bgImage = bgImage{kind: 5, list: list} }), nil
+	}
+	if bgImageItem(in) {
+		img, err := parseBgImage(c, in)
+		if err != nil {
+			return Op{}, err
+		}
+		return op(func(e *env) { e.sc.bgImage = img }), nil
 	}
 	if strings.Contains(in, "gradient(") {
 		return Op{}, unsupportedErr("only linear-gradient(), radial-gradient() and conic-gradient() are supported as backgrounds (repeating gradients are not)")
@@ -275,12 +282,52 @@ func bgImageOp(c *pctx, in string) (Op, error) {
 	if !strings.HasPrefix(in, "url(") || !strings.HasSuffix(in, ")") {
 		return Op{}, fmt.Errorf("%q is not an image; use bg-[url(/path/to/image.png)]", in)
 	}
-	u := strings.TrimSpace(in[4 : len(in)-1])
-	u = strings.Trim(u, `"'`)
-	if u == "" {
-		return Op{}, fmt.Errorf("url() is empty")
+	img, err := parseBgImage(c, in)
+	if err != nil {
+		return Op{}, err
 	}
-	return op(func(e *env) { e.sc.bgImage = bgImage{kind: 2, url: u} }), nil
+	return op(func(e *env) { e.sc.bgImage = img }), nil
+}
+
+// bgImageItem reports whether s starts like a background image: url() or
+// a gradient function.
+func bgImageItem(s string) bool {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "url(") {
+		return true
+	}
+	for prefix := range gradientFuncs {
+		if strings.HasPrefix(s, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// parseBgImage parses one background image: url(...) or a gradient
+// function.
+func parseBgImage(c *pctx, in string) (bgImage, error) {
+	if strings.HasPrefix(in, "url(") {
+		if !strings.HasSuffix(in, ")") {
+			return bgImage{}, fmt.Errorf("%q is not an image; use bg-[url(/path/to/image.png)]", in)
+		}
+		u := strings.TrimSpace(in[4 : len(in)-1])
+		u = strings.Trim(u, `"'`)
+		if u == "" {
+			return bgImage{}, fmt.Errorf("url() is empty")
+		}
+		return bgImage{kind: 2, url: u}, nil
+	}
+	for _, prefix := range sortedMapKeys(gradientFuncs) {
+		if strings.HasPrefix(in, prefix) && strings.HasSuffix(in, ")") {
+			g, err := parseGradientList(c, gradientFuncs[prefix], in[len(prefix):len(in)-1])
+			if err != nil {
+				return bgImage{}, err
+			}
+			return bgImage{kind: 1, gradient: g}, nil
+		}
+	}
+	return bgImage{}, fmt.Errorf("%q is not a background image; use url(...), linear-gradient(...), radial-gradient(...) or conic-gradient(...)", in)
 }
 
 func bgSizeOp(in string) (Op, error) {

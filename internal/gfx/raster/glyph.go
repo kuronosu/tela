@@ -47,6 +47,7 @@ type glyphRun struct {
 	c      *gfx.DrawGlyphRun
 	fg     gfx.Color // foreground of color glyphs
 	paint  bool      // the paint of outline glyphs can show
+	alpha  uint8     // the alpha of a solid paint, which color glyph sprites are drawn with
 	shaded bool      // the blitter's shader is the run's paint
 	fast   bool      // the transform allows cached glyphs
 	sx, sy float32   // device em size along x and y (fast)
@@ -60,9 +61,15 @@ func (r *Renderer) drawGlyphRun(c gfx.DrawGlyphRun) {
 	if r.blit.clip.Empty() {
 		return
 	}
-	run := glyphRun{c: &c, paint: true}
+	run := glyphRun{c: &c, paint: true, alpha: 255}
 	if col, ok := c.Paint.(gfx.Color); ok {
-		run.fg, run.paint = col, col.A > 0
+		if !(col.A > 0) {
+			// Like Chromium, a transparent text color hides color
+			// glyphs too (ADR-079: bg-clip-text with text-transparent).
+			return
+		}
+		run.fg = col
+		run.alpha = uint8(math.Round(float64(min(col.A, 1) * 255)))
 	}
 	m := &r.ctm
 	if m[1] == 0 && m[2] == 0 && !r.tune.glyphPaths {
@@ -194,7 +201,7 @@ func (r *Renderer) glyphCached(run *glyphRun, id gfx.GlyphID, gb gfx.Rect, lx, l
 		}
 		switch s.kind {
 		case entrySprite:
-			r.blitSprite(s, ix, iy)
+			r.blitSprite(s, ix, iy, run.alpha)
 		case entryDirect:
 			return false // too large for a sprite: draw it inline
 		}
@@ -321,7 +328,7 @@ func (r *Renderer) blitMask(e *glyphEntry, ix, iy int) {
 
 // blitSprite composites a cached sprite placed at whole pixels (ix, iy)
 // with source-over, through the clip.
-func (r *Renderer) blitSprite(e *glyphEntry, ix, iy int) {
+func (r *Renderer) blitSprite(e *glyphEntry, ix, iy int, alpha uint8) {
 	b := &r.blit
 	dr := e.rect.Add(image.Pt(ix, iy)).Intersect(b.clip)
 	if dr.Empty() {
@@ -331,7 +338,7 @@ func (r *Renderer) blitSprite(e *glyphEntry, ix, iy int) {
 	mx := dr.Min.X - ix - e.rect.Min.X
 	for y := dr.Min.Y; y < dr.Max.Y; y++ {
 		i := 4 * ((y-iy-e.rect.Min.Y)*w + mx)
-		b.composite(y, dr.Min.X, e.data[i:i+4*dr.Dx():i+4*dr.Dx()], 255)
+		b.composite(y, dr.Min.X, e.data[i:i+4*dr.Dx():i+4*dr.Dx()], alpha)
 	}
 }
 

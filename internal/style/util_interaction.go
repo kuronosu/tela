@@ -105,7 +105,7 @@ func registerUnsupported(r *registry) {
 	r.unsupported["touch"] = "touch-action is not supported yet"
 	r.unsupported["resize"] = "resizable elements are not supported"
 	r.unsupported["will-change"] = "will-change is not needed: Tela decides which boxes get a layer"
-	r.unsupported["clip-path"] = "clip-path is not supported yet; use rounded-* and overflow-hidden"
+	r.unsupported["clip-path"] = "clip-path has no utility class; write the arbitrary property, e.g. [clip-path:circle(50%)] or [clip-path:polygon(0_0,100%_0,100%_80%,0_100%)]"
 	r.unsupported["mask"] = "masks are not supported"
 	r.unsupported["forced-color-adjust"] = "forced colors are not supported"
 	r.unsupported["object"] = "object-fit and object-position are not supported yet; size the Img explicitly"
