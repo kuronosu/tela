@@ -2,7 +2,9 @@ package raster
 
 import (
 	"fmt"
+	"image"
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -45,6 +47,9 @@ func TestKernelSupport(t *testing.T) {
 			if float64(k.left) > limit+1e-9 || float64(k.right) > limit+1e-9 {
 				t.Fatalf("s=%v off=%v: support %d/%d beyond %v (box %v)", s, off, k.left, k.right, limit, k.box)
 			}
+			if k.down > 1 {
+				continue // TestDownsampledBlur
+			}
 			// The kernel's real extent matches its declared support.
 			n := 2*(k.support()+2) + 1
 			in := make([]int64, n)
@@ -62,13 +67,14 @@ func TestKernelSupport(t *testing.T) {
 }
 
 // TestKernelAccuracy compares the exact kernels' impulse responses with the
-// sampled Gaussian, and every kernel's step response with the ideal
-// Gaussian's: the three-box approximation (the SVG recommendation, about 6%
-// narrower than the Gaussian) stays within 3% of a step.
+// sampled Gaussian, and every full-resolution kernel's step response with
+// the ideal Gaussian's: the three-box approximation (the SVG
+// recommendation, about 6% narrower than the Gaussian) stays within 3% of
+// a step. (TestDownsampledBlur compares the downsampled kernels with these.)
 func TestKernelAccuracy(t *testing.T) {
 	for _, s := range []float64{0.3, 0.5, 1, 1.9, 2, 3, 4, 8, 12, 30, 100} {
 		for _, off := range []float64{0, 0.5, 3} {
-			k, _ := newKernel(s, off, nil)
+			k, _ := newFullKernel(s, off, 3*s+math.Abs(off), nil)
 			n := 2*(k.support()+int(3*s)+4) + 1
 			c := n / 2
 			conv := func(in []int64) []float64 {
@@ -130,7 +136,7 @@ func TestBlurPlane(t *testing.T) {
 				}
 				k, _ := newKernel(s, 0, nil)
 				var sc blurScratch
-				sc.blurPlane(pix, w*nch, w, h, nch, &k, &k)
+				sc.blurPlane(pix, w*nch, w, h, nch, 0, 0, &k, &k)
 				gx, gy := gaussLine(w, cx, s, 0), gaussLine(h, cy, s, 0)
 				lim := 1.5
 				if k.box {
@@ -226,6 +232,107 @@ func boxPass(src, dst []int64, n, nch, l, r int, sums []int64) {
 			row := src[j*nch : j*nch+nch]
 			for c := range sums {
 				sums[c] -= row[c]
+			}
+		}
+	}
+}
+
+// downPlane returns a w x h plane (nch channels) with an opaque disc and a
+// translucent bar: hard edges, the worst case for a blur's shape.
+func downPlane(w, h, nch int, s float64) []uint8 {
+	pix := make([]uint8, w*h*nch)
+	cx, cy, r := float64(w)/2-0.3*s, float64(h)/2, 0.8*s+3
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			dx, dy := float64(x)+0.5-cx, float64(y)+0.5-cy
+			var v uint8
+			if dx*dx+dy*dy <= r*r {
+				v = 255
+			} else if x >= w/2 && x < w/2+int(s)+5 && y >= h/2-int(s) && y < h/2+3 {
+				v = 140
+			}
+			for c := 0; c < nch; c++ {
+				pix[(y*w+x)*nch+c] = v >> uint(c)
+			}
+		}
+	}
+	return pix
+}
+
+// TestDownsampledBlur compares the downsampled blur of large standard
+// deviations with the full-resolution three-box blur (Chromium's), on hard
+// edges, with offsets and planes at odd device origins.
+func TestDownsampledBlur(t *testing.T) {
+	sigmas := []float64{21.3, 24, 31.9, 32, 40, 48, 64, 100, 128, 200, 256}
+	if testing.Short() {
+		sigmas = []float64{24, 48, 128}
+	}
+	var worst int
+	for _, s := range sigmas {
+		for _, off := range []float64{0, 9.4} {
+			kd, _ := newKernel(s, off, nil)
+			if kd.down < 2 {
+				t.Errorf("s=%v: not downsampled", s)
+				continue
+			}
+			limit := 3*s + math.Abs(off)
+			kf, _ := newFullKernel(s, off, limit, nil)
+			if float64(kd.left) > limit || float64(kd.right) > limit {
+				t.Errorf("s=%v off=%v: support %d/%d beyond %v", s, off, kd.left, kd.right, limit)
+			}
+			ky, _ := newKernel(s, 0, nil)
+			kyf, _ := newFullKernel(s, 0, 3*s, nil)
+			n := int(2*s) + 40
+			w, h := n+2*kd.support()+2, n+2*ky.support()+2
+			nch := 1
+			if s == 24 {
+				nch = 4
+			}
+			src := downPlane(w, h, nch, s)
+			got, want := slices.Clone(src), slices.Clone(src)
+			var sc blurScratch
+			sc.blurPlane(got, w*nch, w, h, nch, -37, 1003, &kd, &ky)
+			sc.blurPlane(want, w*nch, w, h, nch, 0, 0, &kf, &kyf)
+			m := 0
+			for i := range got {
+				m = max(m, iabs(int(got[i])-int(want[i])))
+			}
+			worst = max(worst, m)
+			t.Logf("s=%v off=%v: factor %d, box m=%d, support %d/%d (limit %.1f): max difference %d", s, off, kd.down, kd.fm, kd.left, kd.right, limit, m)
+			if m > 2 {
+				t.Errorf("s=%v off=%v: max difference %d from the full-resolution blur", s, off, m)
+			}
+		}
+	}
+	t.Logf("worst %d", worst)
+}
+
+// TestBlurPlanePool checks that splitting the stages of a blur among the
+// goroutines of a workPool does not change a pixel: full-resolution box
+// and exact kernels, offsets and downsampled kernels, 1 and 4 channels,
+// whole planes and windows.
+func TestBlurPlanePool(t *testing.T) {
+	for _, nch := range []int{1, 4} {
+		for _, k := range []struct{ sx, sy, off float64 }{{1.3, 0.7, 0}, {5, 9, 2.6}, {24, 3, 0}, {40, 64, -7.2}} {
+			kx, _ := newKernel(k.sx, k.off, nil)
+			ky, _ := newKernel(k.sy, 0, nil)
+			w, h := 300, 260
+			src := downPlane(w, h, nch, 30)
+			for _, out := range []image.Rectangle{image.Rect(0, 0, w, h), image.Rect(37, 51, 211, 130)} {
+				want := slices.Clone(src)
+				var sc blurScratch
+				sc.blurPlaneOut(want, w*nch, w, h, nch, 13, -9, out, &kx, &ky)
+				for _, n := range []int{2, 3, 7} {
+					got := slices.Clone(src)
+					sc := blurScratch{par: &workPool{n: n}}
+					sc.blurPlaneOut(got, w*nch, w, h, nch, 13, -9, out, &kx, &ky)
+					for y := out.Min.Y; y < out.Max.Y; y++ {
+						i, j := (y*w+out.Min.X)*nch, (y*w+out.Max.X)*nch
+						if !slices.Equal(got[i:j], want[i:j]) {
+							t.Fatalf("nch=%d %+v out=%v, %d goroutines: row %d differs", nch, k, out, n, y)
+						}
+					}
+				}
 			}
 		}
 	}

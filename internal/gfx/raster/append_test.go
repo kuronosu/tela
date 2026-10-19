@@ -1,6 +1,7 @@
 package raster
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"math"
@@ -128,11 +129,11 @@ func TestAppendListMarkers(t *testing.T) {
 	}
 }
 
-// TestBackdropRegionInPlace checks that a region grown by BackdropRegion
-// renders in place (no copy of the frame) with the pixels of a full
-// render, and that the growth reaches the read bounds of the backdrop
-// filters that touch it.
-func TestBackdropRegionInPlace(t *testing.T) {
+// TestBackdropRegionGrow checks that rendering the region grown by
+// BackdropRegion, and no more, gives the region the pixels of a full
+// render, and that Render gives them for the region alone; the growth
+// reaches what the backdrop filters read around their output in the region.
+func TestBackdropRegionGrow(t *testing.T) {
 	dl := build(func(b *gfx.Builder) {
 		backdropScene(b)
 		b.FillRect(gfx.RectXYWH(150, 0, 50, 100), gfx.MustParseHex("#22c55e"))
@@ -154,18 +155,23 @@ func TestBackdropRegionInPlace(t *testing.T) {
 				t.Fatalf("grown region %v does not contain %v", grown, region)
 			}
 			for k := range dl.NumBackdrops() {
-				i, read, _, _ := dl.Backdrop(k)
-				out := dl.BoundsAt(i)
-				dev := image.Rect(int(out.X0*scale)-1, int(out.Y0*scale)-1, int(out.X1*scale)+2, int(out.Y1*scale)+2)
-				rd := image.Rect(int(read.X0*scale), int(read.Y0*scale), int(read.X1*scale), int(read.Y1*scale))
-				if dev.Overlaps(grown) && !rd.Intersect(bounds).In(grown) {
-					t.Errorf("region %v grown to %v misses the read bounds %v of backdrop %d", region, grown, rd, k)
+				if rd := BackdropReadRegion(dl, scale, k, region).Intersect(bounds); !rd.In(grown) {
+					t.Errorf("region %v grown to %v misses the reads %v of backdrop %d", region, grown, rd, k)
 				}
 			}
+			// The grown region rendered as is (Render would grow it again).
 			got := cloneRGBA(bg)
 			r := NewRenderer()
-			r.Render(got, dl, Options{Scale: scale, Region: grown})
-			checkRegion(t, got, full, bg, grown)
+			r.render(got, dl, gfx.Scale(scale, scale), grown)
+			for y := region.Min.Y; y < region.Max.Y; y++ {
+				i, j := got.PixOffset(region.Min.X, y), got.PixOffset(region.Max.X, y)
+				if !bytes.Equal(got.Pix[i:j], full.Pix[i:j]) {
+					t.Fatalf("region %v grown to %v: row %d differs from a full render", region, grown, y)
+				}
+			}
+			got = cloneRGBA(bg)
+			r.Render(got, dl, Options{Scale: scale, Region: region})
+			checkRegion(t, got, full, bg, region)
 		}
 	}
 }

@@ -33,9 +33,10 @@ import (
 //     filters' reach (gfx.DisplayList.LayerReach of every enclosing layer);
 //   - a backdrop filter reads the pixels under its whole shape: when they
 //     meet the damage, its output is damaged too (until nothing changes);
-//   - every damage rectangle is grown to contain what the backdrop filters
-//     that reach it read (raster.BackdropRegion), so that rasterizing it
-//     as a region gives the pixels of a full rasterization.
+//   - rasterizing a damage rectangle as a region renders, on a scratch
+//     image, the pixels that the backdrop filters reaching it read
+//     (raster.BackdropRegion), so that its pixels are those of a full
+//     rasterization; the cost of the fallback below counts them.
 //
 // # Scrolling
 //
@@ -1074,49 +1075,57 @@ func subtract(a, b image.Rectangle) []image.Rectangle {
 // Backdrop filters and the final rectangles.
 
 // backdropClosure damages the output of every backdrop filter of the new
-// frame that reads damaged pixels, until nothing changes.
+// frame that reads damaged pixels: the part of its output within its reach
+// of the damaged pixels it reads (raster.BackdropOutputRegion), or its
+// whole output inside a layer with filters, which spreads it further. A
+// filter's output is read only by the filters after it, so one pass in
+// list order suffices (the damage of other commands counts whatever their
+// place in the list).
 func (d *damager) backdropClosure() {
 	B := d.b.dl
-	if B.NumBackdrops() == 0 {
-		return
-	}
-	done := make([]bool, B.NumBackdrops())
-	for changed := true; changed; {
-		changed = false
-		for k := range B.NumBackdrops() {
-			if done[k] {
+	scale := float32(d.scale)
+	for k := range B.NumBackdrops() {
+		i, read, _, inFilter := B.Backdrop(k)
+		rd := d.devRect(read)
+		var o image.Rectangle
+		for _, r := range d.rects {
+			if !r.Overlaps(rd) {
 				continue
 			}
-			i, read, _, _ := B.Backdrop(k)
-			rd := d.devRect(read)
-			for _, r := range d.rects {
-				if r.Overlaps(rd) {
-					d.add(d.devB(i))
-					done[k], changed = true, true
-					break
-				}
+			if inFilter {
+				o = d.devB(i)
+				break
 			}
+			o = union(o, raster.BackdropOutputRegion(B, scale, k, r))
 		}
+		d.add(o)
 	}
 }
 
-// finish merges the damage into a few rectangles closed under the
-// backdrop filters' reads, or turns it into a full rasterization.
+// union returns the smallest rectangle containing a and b (either may be
+// empty).
+func union(a, b image.Rectangle) image.Rectangle {
+	switch {
+	case a.Empty():
+		return b
+	case b.Empty():
+		return a
+	}
+	return a.Union(b)
+}
+
+// finish merges the damage into a few rectangles, or turns it into a full
+// rasterization when rasterizing them (with what their backdrop filters
+// read) costs most of a full one.
 func (d *damager) finish(shifts []Shift) Damage {
 	rects := mergeRects(d.rects)
-	for {
-		n := len(rects)
-		for k, r := range rects {
-			rects[k] = raster.BackdropRegion(d.b.dl, d.b.scale, r, d.bounds)
-		}
-		rects = mergeRects(rects)
-		if len(rects) == n {
-			break
-		}
-	}
 	area := 0
 	for _, r := range rects {
-		area += r.Dx() * r.Dy() // overlaps count twice: they are rasterized twice
+		// Rasterizing r renders the pixels its backdrop filters read too
+		// (raster.BackdropRegion). Overlaps count twice: they are
+		// rasterized twice.
+		g := raster.BackdropRegion(d.b.dl, d.b.scale, r, d.bounds)
+		area += g.Dx() * g.Dy()
 	}
 	for _, s := range shifts {
 		area += s.Rect.Dx() * s.Rect.Dy() / 8 // a shift costs a copy

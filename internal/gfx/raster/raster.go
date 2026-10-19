@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"runtime"
 	"sync"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -107,7 +108,13 @@ type Renderer struct {
 	glyphDepth  int
 	spriteDepth int
 
-	par *parallel // worker Renderers and the job of a parallel Render
+	par     *parallel // worker Renderers and the job of a parallel Render
+	scratch []uint8   // the pixels of scratchImage
+	pool    *workPool // blurPool
+	// A band of a phased render (phase.go): the barriers, and the next one
+	// this band has to pass.
+	ph     *phaser
+	phNext int
 	// tune overrides defaults for tests: the band split (zero values mean
 	// the defaults, see parallel.go), and glyphPaths draws every glyph
 	// without the glyph cache, as under rotations.
@@ -198,30 +205,73 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 	}
 	r.glyphs = opts.GlyphCache
 	if dl.BackdropReach() > 0 {
-		// A backdrop filter that reaches beyond a pixel reads the whole
-		// bounds of its shape, painted by earlier commands anywhere in
-		// them: render on this goroutine (see backdrop.go) a region grown
-		// to contain what the backdrop filters that touch it read
-		// (BackdropRegion). When the region is already closed, it is
-		// rendered in place; otherwise the grown region is rendered on a
-		// copy and the region copied back, so that its pixels are those of
-		// a full render and nothing else is touched.
+		// A backdrop filter that reaches beyond a pixel reads pixels
+		// painted by earlier commands around its output: render on this
+		// goroutine (see backdrop.go) a region grown to contain what the
+		// backdrop filters that touch it read (BackdropRegion). When
+		// nothing grows, the region is rendered in place; otherwise the
+		// grown region is rendered on a scratch copy and the region copied
+		// back, so that its pixels are those of a full render and nothing
+		// else is touched (the grown region's other pixels need not be).
+		//
+		// When the filters that spread pixels lie outside layers, the
+		// region is rendered in parallel bands that wait for each other at
+		// those filters (phase.go); otherwise on this goroutine, with the
+		// stages of large blurs split among several (pool.go).
 		full := dst.Rect.Intersect(image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit))
 		grown := BackdropRegion(dl, s, clip, full)
-		if grown == clip {
-			r.render(dst, dl, gfx.Scale(s, s), clip)
-			return
+		target := dst
+		if grown != clip {
+			target = r.scratchImage(grown)
+			copyRect(target, dst, grown)
 		}
-		tmp := image.NewRGBA(grown)
-		copyRect(tmp, dst, grown)
-		r.render(tmp, dl, gfx.Scale(s, s), grown)
-		copyRect(dst, tmp, clip)
+		rendered := false
+		if opts.Workers != 1 {
+			if bfs, ok := phaseBarriers(dl); ok {
+				rendered = r.renderPhased(target, dl, s, grown, opts.Workers, bfs)
+			}
+		}
+		if !rendered {
+			r.blurS.par = r.blurPool(opts.Workers)
+			r.render(target, dl, gfx.Scale(s, s), grown)
+			r.blurS.par = nil
+		}
+		if target != dst {
+			copyRect(dst, target, clip)
+		}
 		return
 	}
 	if opts.Workers != 1 && r.renderParallel(dst, dl, s, clip, opts.Workers) {
 		return
 	}
 	r.render(dst, dl, gfx.Scale(s, s), clip)
+}
+
+// blurPool returns the pool that splits the stages of large blurs among
+// workers goroutines (0 means GOMAXPROCS) when this Renderer renders alone,
+// or nil for one goroutine.
+func (r *Renderer) blurPool(workers int) *workPool {
+	if workers == 0 {
+		workers = runtime.GOMAXPROCS(0)
+	}
+	if workers <= 1 {
+		return nil
+	}
+	if r.pool == nil {
+		r.pool = new(workPool)
+	}
+	r.pool.n = workers
+	return r.pool
+}
+
+// scratchImage returns an image of bounds rect whose pixels are kept by
+// the Renderer between calls (with unspecified values).
+func (r *Renderer) scratchImage(rect image.Rectangle) *image.RGBA {
+	n := 4 * rect.Dx() * rect.Dy()
+	if cap(r.scratch) < n {
+		r.scratch = make([]uint8, n)
+	}
+	return &image.RGBA{Pix: r.scratch[:n], Stride: 4 * rect.Dx(), Rect: rect}
 }
 
 // render renders dl onto the device pixels clip of dst (clip lies inside
@@ -266,11 +316,24 @@ func (r *Renderer) render(dst *image.RGBA, dl *gfx.DisplayList, root gfx.Affine,
 		clear(r.dfs)
 		r.dfs = r.dfs[:0]
 	}()
+	r.phNext = 0
 	dl.Visit(rootClip, r.visitFn)
+	if r.ph != nil {
+		r.ph.pass(r, dl.Len(), nil) // the barriers of filters this band culled
+	}
 }
 
 // visit executes one command.
 func (r *Renderer) visit(i int, c gfx.Command) {
+	if ph := r.ph; ph != nil && r.phNext < len(ph.bfs) && ph.bfs[r.phNext] <= i {
+		// A band of a phased render reached a backdrop filter barrier.
+		if res, barrier := ph.pass(r, i, c); barrier {
+			if res != nil {
+				r.drawBackdrop(res.cmd.Shape, res.buf, res.win, res.out)
+			}
+			return
+		}
+	}
 	switch c := c.(type) {
 	case gfx.FillRect:
 		if !r.skipping {

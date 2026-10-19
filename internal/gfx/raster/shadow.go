@@ -432,7 +432,7 @@ func (r *Renderer) maskEval(shape gfx.RRect, zone image.Rectangle, kx, ky *gauss
 	}
 	buf := r.maskRRect(q, shape)
 	if kx != nil {
-		r.blurS.blurPlane(buf, q.Dx(), q.Dx(), q.Dy(), 1, kx, ky)
+		r.blurS.blurPlane(buf, q.Dx(), q.Dx(), q.Dy(), 1, q.Min.X, q.Min.Y, kx, ky)
 	}
 	r.shd.mask = maskShadow{zone: zone, rect: q, buf: buf}
 	return &r.shd.mask, buf

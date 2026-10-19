@@ -55,12 +55,12 @@ func (r *Renderer) backdropFilter(c gfx.BackdropFilter) {
 		clear(fs)
 		r.dfs = r.dfs[:first]
 	}()
-	var rx, ry int
+	spread := false
 	for k := range fs {
 		x, y := fs[k].reach()
-		rx, ry = rx+x, ry+y
+		spread = spread || x > 0 || y > 0
 	}
-	if rx == 0 && ry == 0 {
+	if !spread {
 		// Per-pixel filters only: read the pixels this render draws and no
 		// others. Bands rendered in parallel (BackdropReach is 0) must not
 		// read rows that other bands are writing.
@@ -68,31 +68,68 @@ func (r *Renderer) backdropFilter(c gfx.BackdropFilter) {
 			return
 		}
 	}
-	ext := image.Rect(in.Min.X-rx, in.Min.Y-ry, in.Max.X+rx, in.Max.Y+ry)
-	w, h := ext.Dx(), ext.Dy()
-	buf := r.getBuf(4 * w * h)
-	defer r.putBuf(buf)
-	iw, ih := in.Dx(), in.Dy()
-	for y := 0; y < h; y++ {
-		sy := in.Min.Y + mirror(ext.Min.Y+y-in.Min.Y, ih)
-		row := buf[4*y*w : 4*(y+1)*w]
-		src := b.pix[b.offset(in.Min.X, sy):]
-		// The columns of in, copied in one piece, then the mirrored
-		// margins.
-		copy(row[4*rx:4*(rx+iw)], src[:4*iw])
-		for x := 0; x < rx; x++ {
-			sx := mirror(x-rx, iw)
-			copy(row[4*x:4*x+4], src[4*sx:4*sx+4])
-			sx = mirror(iw+x, iw)
-			copy(row[4*(rx+iw+x):4*(rx+iw+x)+4], src[4*sx:4*sx+4])
-		}
+	out := in.Intersect(b.clip)
+	if out.Empty() {
+		return
 	}
-	r.applyFilters(buf, ext, fs)
-	sh := surfShader{pix: buf, rect: ext}
+	buf, win, out := r.filterBackdrop(b, in, out, fs)
+	r.drawBackdrop(c.Shape, buf, win, out)
+	r.putBuf(buf)
+}
+
+// filterBackdrop reads the pixels of the surface of b that the filters fs
+// (with total reach rx, ry) read to compute their output over out, a part
+// of in, the device bounds of the shape: only the pixels drawn are
+// computed, each from the pixels within the filters' reach of it, mirrored
+// at the edges of in (a mirrored pixel lies within the reach too), so the
+// filters run over win, out grown by the reach. It returns the filtered
+// window (a buffer from getBuf), win and out.
+func (r *Renderer) filterBackdrop(b *blitter, in, out image.Rectangle, fs []devFilter) ([]uint8, image.Rectangle, image.Rectangle) {
+	var rx, ry int
+	for k := range fs {
+		x, y := fs[k].reach()
+		rx, ry = rx+x, ry+y
+	}
+	ext := image.Rect(in.Min.X-rx, in.Min.Y-ry, in.Max.X+rx, in.Max.Y+ry)
+	win := image.Rect(out.Min.X-rx, out.Min.Y-ry, out.Max.X+rx, out.Max.Y+ry).Intersect(ext)
+	w, h := win.Dx(), win.Dy()
+	buf := r.getBuf(4 * w * h)
+	iw, ih := in.Dx(), in.Dy()
+	// The columns of win inside in are copied in one piece; the others are
+	// mirrored.
+	cx0, cx1 := max(win.Min.X, in.Min.X), min(win.Max.X, in.Max.X)
+	r.blurS.par.run(&r.blurS, h, rowGrain, func(_ *blurScratch, lo, hi int) {
+		for y := lo; y < hi; y++ {
+			sy := in.Min.Y + mirror(win.Min.Y+y-in.Min.Y, ih)
+			row := buf[4*y*w : 4*(y+1)*w]
+			src := b.pix[b.offset(in.Min.X, sy):]
+			if cx0 < cx1 {
+				copy(row[4*(cx0-win.Min.X):4*(cx1-win.Min.X)], src[4*(cx0-in.Min.X):4*(cx1-in.Min.X)])
+			}
+			for x := win.Min.X; x < win.Max.X; x++ {
+				if x >= in.Min.X && x < in.Max.X {
+					x = max(x, cx1-1)
+					continue
+				}
+				sx := mirror(x-in.Min.X, iw)
+				copy(row[4*(x-win.Min.X):4*(x-win.Min.X)+4], src[4*sx:4*sx+4])
+			}
+		}
+	})
+	r.applyFiltersOut(buf, win, fs, out)
+	return buf, win, out
+}
+
+// drawBackdrop paints a filtered backdrop, buf over win, through the
+// shape, inside out.
+func (r *Renderer) drawBackdrop(shape gfx.RRect, buf []uint8, win, out image.Rectangle) {
+	b := &r.blit
 	saved := b.clip
-	b.clip = b.clip.Intersect(in)
-	b.setShader(&sh)
-	r.coverRRect(c.Shape)
+	if b.clip = b.clip.Intersect(out); !b.clip.Empty() {
+		sh := surfShader{pix: buf, rect: win}
+		b.setShader(&sh)
+		r.coverRRect(shape)
+	}
 	b.clip = saved
 	b.sh, b.solid = nil, nil
 }
@@ -141,11 +178,13 @@ func copyRect(dst, src *image.RGBA, rect image.Rectangle) {
 // BackdropRegion returns the device pixels that a render of region (a
 // rectangle inside bounds, the destination's pixels) must cover so that
 // its backdrop filters read only pixels the same render paints: region
-// grown, until nothing changes, by the read bounds of every backdrop
-// filter that spreads pixels (a blur, a drop shadow) and whose output can
-// reach the grown region, clipped to bounds. The pixels of the grown
-// region rendered with Options.Region are those of a full render, and
-// rendering it costs its area instead of the whole frame.
+// grown by what every backdrop filter that spreads pixels (a blur, a drop
+// shadow) reads to compute its output inside the grown region, the pixels
+// of its read bounds within its reach of that output (BackdropReadRegion),
+// from the last filter to the first, clipped to bounds. The pixels of the
+// region rendered with Options.Region on the grown region are those of a
+// full render (the grown region's other pixels need not be), and rendering
+// it costs its area instead of the whole frame.
 //
 // A backdrop filter inside a layer with filters reads that layer's surface,
 // whose extent depends on the region; when one can reach the region,
@@ -158,27 +197,70 @@ func BackdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 	if dl == nil || dl.BackdropReach() <= 0 || region.Empty() {
 		return region
 	}
-	s := float64(scale)
-	dev := func(r gfx.Rect) image.Rectangle {
-		return pixelBounds(float64(r.X0)*s, float64(r.Y0)*s, float64(r.X1)*s, float64(r.Y1)*s)
-	}
-	for changed := true; changed; {
-		changed = false
-		for k := range dl.NumBackdrops() {
-			i, read, reach, inFilter := dl.Backdrop(k)
-			if reach <= 0 || !dev(dl.BoundsAt(i)).Overlaps(region) {
-				continue
-			}
-			if inFilter {
-				return bounds
-			}
-			rd := dev(read).Intersect(bounds)
-			if rd.Empty() || rd.In(region) {
-				continue
-			}
+	// The pixels a backdrop filter reads must be exact when it reads them:
+	// painted by this render, including the output of earlier backdrop
+	// filters. Its own output is read only by later ones, so one pass
+	// from the last filter to the first suffices.
+	for k := dl.NumBackdrops() - 1; k >= 0; k-- {
+		i, _, reach, inFilter := dl.Backdrop(k)
+		if reach <= 0 || !devRootRect(dl.BoundsAt(i), scale).Overlaps(region) {
+			continue
+		}
+		if inFilter {
+			return bounds
+		}
+		if rd := BackdropReadRegion(dl, scale, k, region).Intersect(bounds); !rd.Empty() {
 			region = region.Union(rd)
-			changed = true
 		}
 	}
 	return region
+}
+
+// BackdropReadRegion returns the device pixels that the k-th backdrop
+// filter of dl (in list order, see gfx.DisplayList.Backdrop) reads to
+// compute its output inside region: the part of its read bounds within its
+// device reach of its output bounds in region. A blur or a drop shadow
+// spreads a pixel no farther than the reach, and the mirrored pixels beyond
+// the read bounds' edges reflect pixels within the reach too, so the output
+// inside region depends on these pixels only; conversely, when pixels it
+// reads change, its output changes only within the reach of them
+// (BackdropOutputRegion).
+func BackdropReadRegion(dl *gfx.DisplayList, scale float32, k int, region image.Rectangle) image.Rectangle {
+	i, read, reach, _ := dl.Backdrop(k)
+	o := devRootRect(dl.BoundsAt(i), scale).Intersect(region)
+	if o.Empty() {
+		return image.Rectangle{}
+	}
+	n := deviceReach(reach, scale)
+	return growXY(o, n, n).Intersect(devRootRect(read, scale))
+}
+
+// BackdropOutputRegion returns the device pixels of the output of the k-th
+// backdrop filter of dl that change when the pixels of changed that it
+// reads change: its output bounds within its device reach of them.
+func BackdropOutputRegion(dl *gfx.DisplayList, scale float32, k int, changed image.Rectangle) image.Rectangle {
+	i, read, reach, _ := dl.Backdrop(k)
+	in := devRootRect(read, scale).Intersect(changed)
+	if in.Empty() {
+		return image.Rectangle{}
+	}
+	n := deviceReach(reach, scale)
+	return growXY(in, n, n).Intersect(devRootRect(dl.BoundsAt(i), scale))
+}
+
+// deviceReach returns a root-space filter reach in whole device pixels,
+// with a pixel of margin for the float32 rounding of the reach: no kernel
+// reads farther (newKernel keeps every kernel within the reach).
+func deviceReach(reach, scale float32) int {
+	if !(reach > 0) {
+		return 0
+	}
+	return int(math.Ceil(float64(reach)*float64(scale))) + 1
+}
+
+// devRootRect returns the device pixels a root-space rectangle can touch
+// at the display scale (pixelBounds' margin included).
+func devRootRect(r gfx.Rect, scale float32) image.Rectangle {
+	s := float64(scale)
+	return pixelBounds(float64(r.X0)*s, float64(r.Y0)*s, float64(r.X1)*s, float64(r.Y1)*s)
 }

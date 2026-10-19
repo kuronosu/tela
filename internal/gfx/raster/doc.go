@@ -116,10 +116,28 @@
 // Layer filters (filter.go) run at PopLayer over a surface that extends the
 // filters' reach beyond the region and beyond the clip active at PushLayer.
 // Blur and DropShadow use the separable Gaussian of blur.go (three box blurs
-// for device standard deviations of 2 and more, as SVG recommends, exact
-// kernels below), whose support never exceeds the reach gfx.FilterOutset
-// promises; ColorMatrix works on un-premultiplied values. The standard
-// normal CDF and its integral come from interpolated tables (gauss.go).
+// for device standard deviations of 2 and more, as SVG recommends and Skia
+// draws on the CPU, exact kernels below), whose support never exceeds the
+// reach gfx.FilterOutset promises; ColorMatrix works on un-premultiplied
+// values. The standard normal CDF and its integral come from interpolated
+// tables (gauss.go).
+//
+// Large blurs (device standard deviations from about 21) are computed at a
+// reduced resolution (ADR-078): the surface is averaged over f x f blocks
+// aligned to device coordinates (f a power of two, about s/10), the blocks
+// are blurred with three passes of a fractional box (a box with a
+// fractional weight at each end) whose variance makes the result's
+// variance that of the full-resolution three-box kernel, and the result is
+// interpolated linearly back to the pixel centers, all in integers. The
+// factor is the largest whose full-resolution support fits the reach, so
+// regions stay exact. Against the full-resolution blur the difference is
+// at most one level (TestDownsampledBlur), and against Chromium the presets
+// blur-xs ... blur-3xl, backdrop-blur-* and drop-shadow-* stay within 3
+// levels away from anti-aliased edges at scales 1 and 2
+// (TestChromiumBlur). On one goroutine a 1024x1024 RGBA plane takes 0.7 to
+// 0.85 of the full-resolution time at s = 24 to 32 (f = 2), half at s = 48
+// and a third at s = 128 (BenchmarkBlurPlane); the full-resolution time does
+// not depend on s.
 //
 // The accumulation is done in 64-bit integers, so it is associative: the
 // value of a pixel does not depend on the order in which edges and cells are
@@ -268,7 +286,17 @@
 // threads: about 1.6x for the cards under three blur-3xl circles, 3.3x for
 // a full-frame blur of 8, against 5-6x for the same cards alone).
 // Rendering such surfaces once per frame, shared read-only by the bands, is
-// left to layer caching.
+// left to layer caching; the downsampled blur of large standard deviations
+// makes the repeated work cheaper.
+//
+// Lists with backdrop filters that spread pixels are rendered in phases
+// when those filters lie outside layers (phase.go): one band per goroutine,
+// and at each such filter the bands wait for each other; the last to
+// arrive computes the filter's output over the whole region with a
+// workPool (pool.go, which splits the rows, column strips and block rows of
+// the blur among goroutines) while the others wait, and then every band
+// draws its part. Other lists with such filters are rendered on one
+// goroutine, with the blurs' stages split by a workPool.
 //
 // # Concurrency
 //
@@ -295,6 +323,13 @@
 //     (gaussTab, Gauss-Legendre nodes, color matrices). The band counter,
 //     the panic slot and the glyph cache's maps and LRU lists are the only
 //     shared writes; they are an atomic counter and mutexes.
+//   - In a phased render (phase.go) the barriers are under a mutex; a
+//     barrier filter's output is written by one goroutine while every
+//     other waits at the barrier (no band reads or writes dst then), and is
+//     read-only afterwards. The goroutines of a workPool write disjoint
+//     rows, strips or block rows of buffers that no other goroutine uses
+//     during the stage. A band that panics releases the bands waiting at a
+//     barrier.
 //   - Render waits for every goroutine before it returns. A panic in any
 //     band (in a font's code, for example) stops the claiming of
 //     new bands, and once every goroutine is done, Render panics again on
@@ -316,15 +351,22 @@
 //
 // BackdropFilter (backdrop.go) filters the pixels of the current surface
 // inside the device bounds of its shape, mirrored beyond them, and paints
-// the result through the shape, like Chromium. A list whose backdrop
-// filters reach beyond a pixel (DisplayList.BackdropReach > 0) is rendered
-// on one goroutine, since the filters read pixels painted anywhere in their
-// shapes' bounds: a region is grown to contain the read bounds of the
-// backdrop filters that can reach it (BackdropRegion) and rendered in
-// place when it already does, on a copy of the grown region otherwise. A
-// backdrop filter inside a layer with filters reads that layer's surface,
-// whose extent depends on the region: when one can reach the region, the
-// whole destination is rendered (on a copy).
+// the result through the shape, like Chromium. Only the output pixels drawn
+// are computed, each from the pixels within the filters' reach of it (a
+// mirrored pixel lies within the reach too). A list whose backdrop filters
+// reach beyond a pixel (DisplayList.BackdropReach > 0) is rendered in
+// phases or on one goroutine (see Parallel rendering), since the filters
+// read pixels other bands paint: a region is grown by what the backdrop
+// filters that can reach it read to compute their output inside it, the
+// pixels of their shapes' bounds within their reach of that output, from
+// the last filter to the first (BackdropRegion), and rendered in place when
+// nothing grows, on a scratch copy of the grown region otherwise, whose
+// other pixels need not be exact. Conversely, when pixels a backdrop
+// filter reads change, its output changes only within its reach of them
+// (BackdropOutputRegion), which is how core's damage stays small under
+// glass panels. A backdrop filter inside a layer with filters reads that
+// layer's surface, whose extent depends on the region: when one can reach
+// the region, the whole destination is rendered (on a copy).
 //
 // # Markers
 //

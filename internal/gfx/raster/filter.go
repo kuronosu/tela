@@ -183,14 +183,28 @@ func (r *Renderer) pushFilterLayer(i int, c gfx.PushLayer, op uint8) {
 // applyFilters runs the device filters fs over a premultiplied surface of
 // rect's size.
 func (r *Renderer) applyFilters(pix []uint8, rect image.Rectangle, fs []devFilter) {
+	r.applyFiltersOut(pix, rect, fs, rect)
+}
+
+// applyFiltersOut is applyFilters computing only the pixels of out (device
+// coordinates, inside rect): each filter computes the pixels that the
+// filters after it read, out grown by their reach. The other pixels of the
+// surface are left with unspecified values.
+func (r *Renderer) applyFiltersOut(pix []uint8, rect image.Rectangle, fs []devFilter, out image.Rectangle) {
 	w, h := rect.Dx(), rect.Dy()
 	for k := range fs {
+		need := out
+		for j := k + 1; j < len(fs); j++ {
+			x, y := fs[j].reach()
+			need = growXY(need, x, y)
+		}
+		need = need.Intersect(rect).Sub(rect.Min)
 		f := &fs[k]
 		switch f.kind {
 		case filterBlur:
-			r.blurS.blurPlane(pix, 4*w, w, h, 4, &f.kx, &f.ky)
+			r.blurS.blurPlaneOut(pix, 4*w, w, h, 4, rect.Min.X, rect.Min.Y, need, &f.kx, &f.ky)
 		case filterDrop:
-			r.dropShadow(pix, w, h, f)
+			r.dropShadow(pix, rect, need, f)
 		case filterMatrix:
 			colorMatrix(pix, &f.m)
 		}
@@ -199,12 +213,13 @@ func (r *Renderer) applyFilters(pix []uint8, rect image.Rectangle, fs []devFilte
 
 // dropShadow paints the blurred, offset, tinted alpha of the surface behind
 // its content: out = content over (color * blurred alpha).
-func (r *Renderer) dropShadow(pix []uint8, w, h int, f *devFilter) {
+func (r *Renderer) dropShadow(pix []uint8, rect, need image.Rectangle, f *devFilter) {
+	w, h := rect.Dx(), rect.Dy()
 	a := r.getBuf(w * h)
 	for i := range a {
 		a[i] = pix[4*i+3]
 	}
-	r.blurS.blurPlane(a, w, w, h, 1, &f.kx, &f.ky)
+	r.blurS.blurPlaneOut(a, w, w, h, 1, rect.Min.X, rect.Min.Y, need, &f.kx, &f.ky)
 	c0, c1, c2, c3 := uint32(f.color[0]), uint32(f.color[1]), uint32(f.color[2]), uint32(f.color[3])
 	for i, sa := range a {
 		if sa == 0 {

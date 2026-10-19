@@ -28,7 +28,7 @@ func shadowDigest() uint64 {
 		put(normCDF(x))
 		put(gaussI(x))
 	}
-	for _, s := range []float64{0.3, 1.7, 2, 5.5, 40} {
+	for _, s := range []float64{0.3, 1.7, 2, 5.5, 21.7, 40, 97.3, 256} {
 		for _, off := range []float64{0, 0.4, -3.6} {
 			k, _ := newKernel(s, off, nil)
 			for _, w := range k.w {
@@ -36,6 +36,12 @@ func shadowDigest() uint64 {
 			}
 			put(float64(k.left))
 			put(float64(k.right))
+			// Downsampled kernels (ADR-078): the fractional box weights
+			// come from float64 arithmetic.
+			put(float64(k.down))
+			put(float64(k.fm))
+			put(float64(k.fa))
+			put(float64(k.fb))
 		}
 	}
 	for _, m := range []gfx.Affine{gfx.Identity, gfx.Scale(1.5, 1.5), gfx.RotateAbout(0.3, gfx.Pt(50, 50)), gfx.Skew(0.3, 0)} {
@@ -52,6 +58,8 @@ func shadowDigest() uint64 {
 	for _, s := range scenes3[1:] {
 		h.Write(renderScene(s, 1.5).Pix)
 	}
+	// The blur presets at half scale: downsampled layer and backdrop blurs.
+	h.Write(renderScene(scene{"blur_presets", 1400, 600, drawBlurScene}, 0.5).Pix)
 	return h.Sum64()
 }
 
@@ -59,7 +67,7 @@ func shadowDigest() uint64 {
 // architecture must reproduce it; check with
 //
 //	GOARCH=arm64 go test -exec qemu-aarch64-static -run Deterministic ./internal/gfx/raster
-const wantShadowDigest uint64 = 0xe29171650b50c526
+const wantShadowDigest uint64 = 0x180a72af7b7c2294
 
 func TestShadowDeterministic(t *testing.T) {
 	if got := shadowDigest(); got != wantShadowDigest {
