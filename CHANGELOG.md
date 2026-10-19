@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-19
+
 ### Added
 
 - Fractional scaling on Wayland (`wp_fractional_scale_v1` + `wp_viewporter`): windows render at the compositor's exact scale (1.25, 1.5, 1.75…) instead of a rounded-up integer one, with pixel-shifting scroll frames at fractional scales as at integer ones.
@@ -33,6 +35,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- A box's opacity now fades its `backdrop-filter` too (an `opacity-0` glass panel no longer blurs what is behind it), as in Chromium.
 - `drop-shadow-*` blurs with its radius as the standard deviation, as browsers do (it was half as wide).
 - An absolutely positioned box inside a transformed, filtered or backdrop-filtered ancestor is now positioned against that ancestor, as in browsers.
 - Color emoji in transparent or translucent text now disappear or fade like the text, as in Chromium.
@@ -323,7 +326,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/kuronosu/tela/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/kuronosu/tela/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/kuronosu/tela/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/kuronosu/tela/compare/v0.4.0...v0.5.0
