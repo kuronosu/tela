@@ -21,8 +21,9 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.5.0).** Phases 1–5 are done and tagged: Linux
-> (Wayland, X11) and Windows windows, text inputs and IME. macOS is not there yet. The public API (`tela`, `h`) may
+> **Status: pre-1.0 (v0.6.0).** Phases 1–6 are done and tagged: Linux
+> (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
+> transitions and animations, glass effects. macOS is not there yet. The public API (`tela`, `h`) may
 > still break between minor versions. See [Project status](#project-status).
 
 ## Contents
@@ -197,18 +198,25 @@ system.
 </p>
 
 Also there: [`hello`](examples/hello), the screen at the top of this page;
-and [`virtuallist`](examples/virtuallist), 100,000 people in one
-`h.VirtualList` with variable row heights and `ScrollToIndex`.
+[`virtuallist`](examples/virtuallist), 100,000 people in one
+`h.VirtualList` with variable row heights and `ScrollToIndex`;
+[`motion`](examples/motion), a dialog, a toast and a draggable card with
+springs; and [`layout`](examples/layout), a reorderable list, an expanding
+card and a sliding tab underline with layout animations.
 
 ## Styling
 
 Classes are Tailwind v4's, generated from its theme and parsed into a typed
 `ComputedStyle`: spacing, sizing, colors with `/NN` opacity, borders, radius,
-shadows, gradients, typography, flex, overflow, transforms, arbitrary values
+shadows, gradients, typography, flex, grid, `relative`/`absolute`/`fixed`/
+`sticky` positioning, overflow, transforms, filters and `backdrop-blur-*`,
+`mix-blend-*`, `[clip-path:…]`, background images (`bg-[url(…)]` from files
+registered with `tela.Assets`), `bg-clip-text`, transitions (`transition`,
+`duration-*`, `ease-*`, `delay-*`), `animate-*`, arbitrary values
 (`w-[calc(50%-8px)]`) and variants (`hover:`, `active:`, `focus:`,
-`focus-visible:`, `disabled:`, `group-*`, `peer-*`, `dark:`, `md:`/`lg:`).
-Typed helpers cover what a class cannot, such as values that change every
-frame.
+`focus-visible:`, `disabled:`, `group-*`, `peer-*`, `dark:`, `motion-reduce:`,
+`starting:`, `md:`/`lg:`). Typed helpers cover what a class cannot, such as
+values that change every frame.
 
 ## State and hooks
 
@@ -217,6 +225,13 @@ frame.
 values that should repaint or relayout one element without rebuilding the
 component that owns them. Component boundaries `tela.C`, `tela.CP` and
 `tela.Memo` skip work when props are comparable and equal.
+
+Animation builds on the same values: `tela.UseSpring`, `tela.UseTween` and
+`tela.Animate` move a `Value` without rebuilding (`Velocity`, `OnDone` and
+other options), `h.Presence` with `starting:` classes and `h.Exit` animates
+enter and exit, and `h.AnimateLayout()` / `h.LayoutID(id)` animate layout
+changes and shared elements, Motion style. `tela.UseColorScheme` and
+`tela.SetColorScheme` read and switch light and dark.
 
 ```go
 type RowProps struct{ Index int }
@@ -262,7 +277,7 @@ JSON. Planned: `tela lint`, `tela dev`, `tela mcp` and a `docs/llms.txt`
 
 ## Project status
 
-**Current version: [v0.5.0](CHANGELOG.md)**, tagged 2026-10-13. Phases 1–5
+**Current version: [v0.6.0](CHANGELOG.md)**, tagged 2026-10-19. Phases 1–6
 are done.
 
 | Phase | Name | State |
@@ -272,7 +287,7 @@ are done.
 | 3 | Tree, style, layout: reconciler, Tailwind classes, flex, `tela snapshot` | ✅ v0.3.0 |
 | 4 | Interaction and state: hooks, pointer and keyboard, focus, scrolling, `VirtualList`, `telatest` | ✅ v0.4.0 |
 | 5 | Windows and text editing: `win32`, `Input`/`Textarea`, IME, inline decorations | ✅ v0.5.0 |
-| 6 | Advanced CSS and animation: grid, `fixed`/`sticky`, transitions, springs, `backdrop-filter`, breakpoints | planned |
+| 6 | Advanced CSS and animation: grid, `fixed`/`sticky`, transitions, springs, layout animations, blend modes, clip-path, background images, fractional scaling | ✅ v0.6.0 |
 | 7 | `aria` hooks, `kit` components, `tela add/lint/dev/mcp`, `llms.txt` | planned |
 | 8 | macOS, optional GPU backend, accessibility, IME on X11 and macOS | planned |
 
@@ -285,9 +300,12 @@ are done.
 | Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
 | IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (phase 8) | ✅ (injected) | ✅ (IMM32) | — |
 
-Implemented: block, flex and relative/absolute layout; Tailwind classes and
-variants; shaped text with fallback; gradients, shadows, blur, transforms and
-opacity layers; hooks; pointer events with a gesture arena (tap, drag,
+Implemented: block, flex and grid layout with relative, absolute, fixed and
+sticky positioning; Tailwind classes and variants; shaped text with fallback;
+gradients, shadows, blur and backdrop blur, blend modes, clip paths,
+background images, transforms and opacity layers; CSS transitions and
+`animate-*`; springs, tweens, enter/exit and layout animations; portals;
+light/dark switching; fractional scaling on Wayland; hooks; pointer events with a gesture arena (tap, drag,
 long-press); focus and Tab order; scrolling with kinetic touchpad support;
 `VirtualList`; text fields (`Input`, `Textarea`) with selection, undo,
 clipboard and IME, `Form` and `Label`; inline decorations in paragraphs; a
@@ -299,13 +317,12 @@ semantics tree; debug overlays; the `tela` CLI (`snapshot`, `inspect`).
   (XIM, phase 8).
 - **No checkbox, radio, select or slider elements** yet; `kit` brings them
   in phase 7 (a `Button` with `Role("checkbox")` works meanwhile).
-- **No CSS grid** (grid lays out as block), no `fixed`/`sticky`, no
-  transitions or animations, no `backdrop-filter` beyond the raster one,
-  no background images (phase 6).
-- **Large blurs are slow on CPU** (`examples/shapes` takes ~180 ms for a full
-  frame at 2x); unchanged glows are free thanks to damage tracking.
-- No fractional scaling on Wayland yet; no accessibility backend (AT-SPI,
-  UIA, NSAccessibility) yet.
+- **Glass pages at 2x are not 60 fps while scrolling** on CPU (the dashboard's
+  p95 is 36–48 ms per frame at 2880×1800 and 4K; it is 14.6 ms at 1080p).
+- Transforms are 2D only; `Img` takes a decoded `image.Image` (no SVG or file
+  paths; background images do read files); no `grid-template-areas` from
+  classes.
+- No accessibility backend (AT-SPI, UIA, NSAccessibility) yet.
 
 The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -319,8 +336,8 @@ The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
   [`telatest`](https://pkg.go.dev/github.com/kuronosu/tela/telatest) (tests
   without a window).
 - **Guides on the [wiki](https://github.com/kuronosu/tela/wiki)**: getting
-  started, styling, hooks, events, forms, scrolling, accessibility, testing
-  and the CLI, with a working example each. Its sources are versioned in
+  started, styling, hooks, animation, events, forms, scrolling, accessibility,
+  testing and the CLI, with a working example each. Its sources are versioned in
   [`docs/wiki`](docs/wiki); the API reference pages there are generated from
   the doc comments with `go generate`.
 

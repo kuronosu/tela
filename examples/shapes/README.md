@@ -40,7 +40,7 @@ The phase-1 scene used arbitrary paths, which the CSS subset has no way to expre
 
 ## Workarounds
 
-- `grid-cols-*` lays out as block until phase 6: the cards wrap in a flex row instead, each in a fixed-size cell.
+- The cards wrap in a flex row, each in a fixed-size cell (the example predates grid; `grid-cols-*` works since v0.6.0).
 - `!p-2.5` (important) is unsupported: the photo card does not use the shared `card` helper, which fixes the padding.
 - The conic ring's six stops are an arbitrary `bg-[conic-gradient(...)]`, since Tailwind's `from-`/`via-`/`to-` take one middle stop.
 - The knob of the ring and the glass pane use absolute positioning with fixed offsets, as the design is fixed-size.

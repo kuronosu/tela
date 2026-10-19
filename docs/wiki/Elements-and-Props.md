@@ -94,6 +94,7 @@ func Avatar() tela.Node {
 | [`Value`](https://pkg.go.dev/github.com/kuronosu/tela/h#Value), [`DefaultValue`](https://pkg.go.dev/github.com/kuronosu/tela/h#DefaultValue), [`Bind`](https://pkg.go.dev/github.com/kuronosu/tela/h#Bind), [`BindValue`](https://pkg.go.dev/github.com/kuronosu/tela/h#BindValue), [`Type`](https://pkg.go.dev/github.com/kuronosu/tela/h#Type), [`Rows`](https://pkg.go.dev/github.com/kuronosu/tela/h#Rows), [`Placeholder`](https://pkg.go.dev/github.com/kuronosu/tela/h#Placeholder), [`ReadOnly`](https://pkg.go.dev/github.com/kuronosu/tela/h#ReadOnly), [`MaxLength`](https://pkg.go.dev/github.com/kuronosu/tela/h#MaxLength), [`AutoComplete`](https://pkg.go.dev/github.com/kuronosu/tela/h#AutoComplete), [`SpellCheck`](https://pkg.go.dev/github.com/kuronosu/tela/h#SpellCheck) | Text fields: see [Forms and Text Input](Forms-and-Text-Input) |
 | `On...` handlers | See [Events](Events) |
 | [`Overscan`](https://pkg.go.dev/github.com/kuronosu/tela/h#Overscan) | How many extra items a `VirtualList` builds |
+| [`AnimateLayout`](https://pkg.go.dev/github.com/kuronosu/tela/h#AnimateLayout), [`LayoutID`](https://pkg.go.dev/github.com/kuronosu/tela/h#LayoutID), [`Exit`](https://pkg.go.dev/github.com/kuronosu/tela/h#Exit) | Layout animations, shared-element transitions and exit classes under a `Presence`: see [Animation](Animation) |
 
 ### Keys
 
@@ -196,6 +197,14 @@ func Menu() tela.Node {
 	)
 }
 ```
+
+### Presence
+
+[`Presence`](https://pkg.go.dev/github.com/kuronosu/tela/h#Presence) keeps a removed child mounted while it runs its
+exit (the classes of its [`Exit`](https://pkg.go.dev/github.com/kuronosu/tela/h#Exit) prop, or a component's own exit
+through `tela.UsePresence`), then unmounts it. Enter animations need no
+Presence: a `starting:` class gives a newly shown element the style it
+transitions from. See [Animation](Animation#exiting-presence-and-exit).
 
 ## See also
 

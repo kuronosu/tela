@@ -372,6 +372,34 @@ func FadingHeader(rows tela.Node) tela.Node {
 }
 ```
 
+## Animation: UseSpring, UseTween, Animate and UsePresence
+
+Animations are Values that move on the frame clock, so they cost what a
+`UseValue` read costs: a `TranslateFn` read only repaints, a `WidthFn` read
+only lays out. [`tela.UseSpring`](https://pkg.go.dev/github.com/kuronosu/tela#UseSpring) and
+[`tela.UseTween`](https://pkg.go.dev/github.com/kuronosu/tela#UseTween) follow a target that can change on every
+build (a new target restarts the motion from where it is; a spring keeps its
+velocity), and [`tela.Animate`](https://pkg.go.dev/github.com/kuronosu/tela#Animate) moves any `Value` from a handler,
+an effect or a goroutine. Options such as `Stiffness`, `Duration`, `Ease`,
+`Velocity` and `OnDone` tune them, and [`tela.UsePresence`](https://pkg.go.dev/github.com/kuronosu/tela#UsePresence)
+lets a component run its own exit inside an `h.Presence`:
+
+```go
+func Drawer(open bool) tela.Node {
+	target := float32(-320) // off screen to the left
+	if open {
+		target = 0
+	}
+	x := tela.UseSpring(target, target) // starts where it is, then follows open
+	return Div(Class("fixed inset-y-0 left-0 w-80 bg-white shadow-xl"),
+		Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })), // repaints only
+		Text("Menu"))
+}
+```
+
+The whole picture, with transitions, enter and exit and layout animations, is
+in [Animation](Animation).
+
 ## Environment: UseColorScheme and UseReducedMotion
 
 [`tela.UseColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#UseColorScheme) returns the effective color scheme, `tela.Light` or
