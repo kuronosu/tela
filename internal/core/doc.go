@@ -348,6 +348,13 @@
 // while its Exit classes transition and its UsePresence components run
 // their exits, then unmounts it.
 //
+// Layout animations (layoutanim.go) are found by the paint phase: a box
+// with AnimateLayout or LayoutID whose laid-out box changed is drawn
+// through a flip, a scale and translation from its new box to the visual
+// box of the frame folded into its paint-phase transform, which goes to
+// the identity on a spring or a tween. The same ticker marks the moving
+// boxes for painting, so their frames only composite.
+//
 // # Pipeline
 //
 // Tree.Animate (phase 2, called with the frame clock before Frame)

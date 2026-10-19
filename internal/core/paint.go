@@ -66,8 +66,9 @@ import (
 // A box creates a stacking context when it has a z-index other than auto
 // and is positioned or a flex item, is fixed or sticky, has opacity < 1, a
 // transform, a filter, a backdrop filter, a mix-blend-mode, a clip-path or
-// isolation: isolate. The root is a stacking context. z-index on a box that is
-// neither positioned nor a flex item does nothing, as in CSS.
+// isolation: isolate, or runs a transform animation (anim.go) or a layout
+// animation (layoutanim.go). The root is a stacking context. z-index on a
+// box that is neither positioned nor a flex item does nothing, as in CSS.
 //
 // A stacking context paints its own decorations (1-4), then its
 // descendants that are positioned or stacking contexts with a negative
@@ -189,6 +190,10 @@ func (p *painter) place(bx *Box, parent *Box) {
 		p.placeSticky(bx)
 		t.stickies = append(t.stickies, bx)
 	}
+	if bx.lanim != nil || t.wantsLayoutAnim(bx) {
+		// Layout animations (layoutanim.go): the flip of this frame.
+		p.layoutPlace(bx)
+	}
 	if s := bx.scr; s != nil {
 		p.offset(s)
 		p.placeScroller(bx, s)
@@ -306,6 +311,9 @@ func (p *painter) update(marked []*Box) {
 		}
 		old := bx.pcs
 		bx.pcs = t.resolveDeferred(bx, style.PhasePaint)
+		if bx.lanim != nil {
+			t.layoutUpdate(bx)
+		}
 		if stacking(bx) != bx.layerSC {
 			t.lay.needFull, t.lay.needPlace = true, true
 			return
@@ -424,7 +432,7 @@ func stacking(bx *Box) bool {
 		return true
 	}
 	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky ||
-		(bx.anim != nil && bx.anim.layer) || cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
+		(bx.anim != nil && bx.anim.layer) || layoutActive(bx) || cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
 		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate || !cs.ClipPath.IsNone()
 }
 
@@ -820,21 +828,38 @@ func (p *painter) rect(bx *Box) gfx.Rect { return bx.u }
 
 // geom returns the snapped geometry of bx.
 func (p *painter) geom(bx *Box) boxGeom {
+	if la := bx.lanim; la != nil && la.active && la.scale != (gfx.Point{X: 1, Y: 1}) {
+		// Scaled by a layout animation: the radii are corrected so that
+		// they look as at rest (layoutanim.go).
+		return p.geomScaled(bx.pcs, p.rect(bx), la.scale)
+	}
 	return p.geomOf(bx.pcs, p.rect(bx))
 }
 
 // geomOf returns the snapped geometry of a box with style cs whose
 // unsnapped border box is r.
 func (p *painter) geomOf(cs *style.ComputedStyle, r gfx.Rect) boxGeom {
+	return p.geomScaled(cs, r, gfx.Point{X: 1, Y: 1})
+}
+
+// geomScaled is geomOf for a box drawn at scale k: the lengths of its
+// radii are divided by k, per axis (percentages scale with the box).
+func (p *painter) geomScaled(cs *style.ComputedStyle, r gfx.Rect, k gfx.Point) boxGeom {
 	var g boxGeom
 	r = p.snapRect(r)
 	w, h := r.Width(), r.Height()
 	rd := &cs.Radius
+	res := func(l style.LP, basis, k float32) float32 {
+		if k == 1 || !(k > 0) {
+			return l.Resolve(basis)
+		}
+		return style.LP{Px: l.Px / k, Pct: l.Pct}.Resolve(basis)
+	}
 	g.border = gfx.RRect{Rect: r, Radii: [4]gfx.Point{
-		{X: rd.TopLeft.Resolve(w), Y: rd.TopLeft.Resolve(h)},
-		{X: rd.TopRight.Resolve(w), Y: rd.TopRight.Resolve(h)},
-		{X: rd.BottomRight.Resolve(w), Y: rd.BottomRight.Resolve(h)},
-		{X: rd.BottomLeft.Resolve(w), Y: rd.BottomLeft.Resolve(h)},
+		{X: res(rd.TopLeft, w, k.X), Y: res(rd.TopLeft, h, k.Y)},
+		{X: res(rd.TopRight, w, k.X), Y: res(rd.TopRight, h, k.Y)},
+		{X: res(rd.BottomRight, w, k.X), Y: res(rd.BottomRight, h, k.Y)},
+		{X: res(rd.BottomLeft, w, k.X), Y: res(rd.BottomLeft, h, k.Y)},
 	}}.Normalize()
 	g.bw = [4]float32{
 		p.snapWidth(cs.Border.Top.Width), p.snapWidth(cs.Border.Right.Width),

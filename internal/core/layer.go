@@ -36,8 +36,9 @@ import (
 //     frame, so a change of them only composites again. A box that stops
 //     or starts being a stacking context (its transform becomes the
 //     identity) records everything again. This is also where an explicit
-//     repaint boundary, and the animated transforms and opacity of anim.go
-//     belong: a box whose paint-phase props change often;
+//     repaint boundary, the animated transforms and opacity of anim.go
+//     and the flips of layout animations (layoutanim.go) belong: a box
+//     whose paint-phase props change often;
 //   - the scrollbars of a scroll container that has a chunk or classic
 //     bars, recorded on every frame that paints (they follow the offsets,
 //     the fades and the hover states);
@@ -197,6 +198,8 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	L := &t.lay
 	L.recorded = 0
 	L.paints++
+	t.la.paints++
+	defer t.endLayoutPaint()
 	// The boxes whose paint-phase reads changed (markPaint): their
 	// deferred props only move their layer, or make it stale.
 	marked := t.paintQ
@@ -226,6 +229,7 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	p.full = full
 	switch {
 	case place:
+		t.la.places++
 		p.place(t.rootBox, nil)
 		t.recordAll(&p)
 	case full:

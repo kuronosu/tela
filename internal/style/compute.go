@@ -426,6 +426,7 @@ func (e *env) finalize() {
 
 	// Transition defaults (Tailwind: the bare "transition" utilities use
 	// the theme's duration and easing unless duration-* or ease-* ran).
+	s.Transition.DurationSet, s.Transition.TimingSet = sc.durSet, sc.timingSet
 	if s.Transition.Properties != 0 {
 		if !sc.durSet {
 			s.Transition.Duration = th.DefaultTransition.Duration

@@ -67,6 +67,10 @@ type desc struct {
 	exit string
 	// portal marks a Portal node (portal.go).
 	portal bool
+	// animLayout is the AnimateLayout prop and layoutID the LayoutID
+	// prop (layoutanim.go).
+	animLayout bool
+	layoutID   string
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings

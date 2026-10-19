@@ -83,7 +83,7 @@ func (t *Tree) restyle(el *Element) {
 	if bx.fld != nil {
 		t.fieldRestyled(bx.fld, old, cs)
 	}
-	bx.deferLayout, bx.deferPaint = hasPhase(cs, style.PhaseLayout), hasPhase(cs, style.PhasePaint)
+	bx.deferLayout, bx.deferPaint = hasPhase(cs, style.PhaseLayout), hasPhase(cs, style.PhasePaint) || layoutActive(bx)
 	t.updateScroller(bx)
 	// Values read by deferred props the style no longer has stop
 	// invalidating the box; the others are tracked again when the props

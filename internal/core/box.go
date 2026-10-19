@@ -137,6 +137,9 @@ type Box struct {
 	// anim holds the running transitions and keyframe animation of the box
 	// (anim.go); nil when none.
 	anim *boxAnim
+	// lanim is the layout animation state of a box whose element has
+	// AnimateLayout or LayoutID (layoutanim.go); nil otherwise.
+	lanim *layoutAnim
 	// scr is the scroll state of a scroll container (scroll.go).
 	scr *scroller
 	// portal marks the box of a Portal: a portal layer (portal.go).
@@ -170,6 +173,9 @@ func (b *Box) detach() {
 	b.tree.dropAnim(b)
 	if b.cs != nil && b.cs.HasTextColorFn() {
 		b.tree.textColorFns--
+	}
+	if b.lanim != nil {
+		b.tree.dropLayoutAnim(b) // before the parent link goes: it records the box
 	}
 	b.parent = nil
 	b.kids = nil

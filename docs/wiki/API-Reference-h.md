@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`Id`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`Id`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
 
 ## Overview
 
@@ -78,6 +78,42 @@ Alt sets the alternative text of an Img: its accessible name. Use Alt("") for a 
 
 ```go
 Img(Src(avatar), Alt("Ada Lovelace"), Class("size-10 rounded-full"))
+```
+
+### func AnimateLayout
+
+```go
+func AnimateLayout() tela.Prop
+```
+
+AnimateLayout makes the element animate every change of its laid-out box (Motion's layout prop): when a reorder, an expand or collapse, a sibling inserted or removed, or a breakpoint moves or resizes it, it is laid out at its new place at once but drawn moving there from where it was, through a transform (FLIP). Layout is not run again during the animation, so its frames only composite.
+
+```go
+Map(items, func(it Item) tela.Node {
+    return Div(Key(it.ID), AnimateLayout(), Class("rounded-lg bg-white p-3 shadow-sm"),
+        Text(it.Title))
+})
+```
+
+The motion is a tween with the element's duration-\*, ease-\* (and delay-\*) classes when it has one of the first two, like a transition; otherwise a spring (stiffness 500, damping 25: Motion's spring for x and y). A change during the animation starts from where the element is drawn, keeping its speed.
+
+A size change is drawn as a scale toward the new size, as in Motion: the element's rounded corners and box shadows are corrected so they keep their look, but its text and children stretch for the duration of the animation, unless they have AnimateLayout too: a child with it keeps its own size and its place in the parent (put it on a card's content to keep the text crisp while the card grows). A clip-path and background images scale with the element, as under a CSS transform.
+
+Scrolling, transforms (hover:scale-105) and the display scale do not move an element's layout, so they never start an animation. While it animates, the element is hit by the pointer, and ElementRef.Bounds and tela.UseBounds report its box, where it is drawn (like getBoundingClientRect under a CSS transform); scrolling it into view uses its final place. With reduced motion, and without a frame clock (tela snapshot), it is drawn at its new place at once. telatest waits for layout animations like for other animations.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, tela.C(fruitList))
+_, before, _, _ := app.Bounds(telatest.ByText("Apples"))
+app.Click(telatest.ByRole("button", "Reverse"))
+// The row is laid out at the bottom at once and drawn sliding there;
+// telatest waits for the animation before it measures.
+_, after, _, _ := app.Bounds(telatest.ByText("Apples"))
+fmt.Println(before, after)
+// Output: 48 144
 ```
 
 ### func AriaChecked
@@ -653,6 +689,38 @@ Label returns a label for a field: inline text that gives the field its accessib
 ```go
 Label(For("name"), Text("Name")), Input(Id("name"))
 Label(Text("Name "), Input())
+```
+
+### func LayoutID
+
+```go
+func LayoutID(id string) tela.Prop
+```
+
+LayoutID gives the element a shared layout identity (Motion's layoutId): when an element with a LayoutID mounts in the same commit in which another element with the same ID unmounts, or while one is exiting under a [`Presence`](#func-presence), the new element starts from the old one's box and animates to its own, as AnimateLayout does (a shared element transition). It is how a tab underline slides between tabs and a thumbnail grows into a detail view:
+
+```go
+Map(tabs, func(t Tab) tela.Node {
+    return Button(Key(t.ID), Class("relative px-3 py-2"), OnClick(...), Text(t.Label),
+        If(t.ID == active, Div(LayoutID("underline"),
+            Class("absolute inset-x-0 -bottom-px h-0.5 bg-indigo-500"))))
+})
+```
+
+An element with a LayoutID also animates its own layout changes, like AnimateLayout. IDs are global to the window: use distinct ones for unrelated transitions. The element that unmounts or exits is not moved: give an exiting one Exit classes (opacity-0) to fade it out while the new one grows from it.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, tela.C(tabBar))
+underline := telatest.ByClass("bg-indigo-500")
+x0, _, _, _ := app.Bounds(underline)
+app.Click(telatest.ByRole("button", "Settings"))
+x1, _, _, _ := app.Bounds(underline)
+fmt.Println(x0 < x1)
+// Output: true
 ```
 
 ### func Map

@@ -40,7 +40,7 @@ func Counter() tela.Node {
 | [Elements and Props](Elements-and-Props) | Everything package `h` exports and how elements compose |
 | [Forms and Text Input](Forms-and-Text-Input) | `Input`, `Textarea`, `Form`, `Label`, IME |
 | [Scrolling and VirtualList](Scrolling-and-VirtualList) | Scroll containers, scroll APIs, 100,000-row lists |
-| [Animation](Animation) | Transitions, `starting:`, springs and tweens, enter and exit with `Presence` |
+| [Animation](Animation) | Transitions, `starting:`, springs and tweens, enter and exit with `Presence`, layout animations |
 | [Accessibility](Accessibility) | Roles, ARIA props, aria snapshots |
 | [Testing](Testing) | `telatest`: mount, click, expect, goldens, without a window |
 | [CLI](CLI) | `tela snapshot`, `tela inspect`, debug overlays, environment variables |

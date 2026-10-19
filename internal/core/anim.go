@@ -498,7 +498,7 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 		}
 	}
 	wasDeferred := bx.deferPaint
-	bx.deferPaint = hasPhase(u, style.PhasePaint)
+	bx.deferPaint = hasPhase(u, style.PhasePaint) || layoutActive(bx)
 	if !bx.deferPaint {
 		dropObserver(bx.paintObs)
 	}

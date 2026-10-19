@@ -549,6 +549,11 @@ type ComputedTransition struct {
 	Duration   time.Duration
 	Timing     CubicBezier
 	Delay      time.Duration
+	// DurationSet and TimingSet report that a duration-* or ease-* class
+	// (or prop) set Duration or Timing; otherwise they are the theme's
+	// defaults (with a transition-property) or zero. Layout animations
+	// use them to choose between a tween and their default spring.
+	DurationSet, TimingSet bool
 }
 
 // Phase says when a deferred prop value is evaluated (ARCHITECTURE

@@ -15,6 +15,8 @@ There are three tools, from the most declarative to the most manual:
 | An element to animate out before it disappears | [`h.Presence`](https://pkg.go.dev/github.com/kuronosu/tela/h#Presence) and [`h.Exit`](https://pkg.go.dev/github.com/kuronosu/tela/h#Exit) |
 | A number, color, point, size or rect that follows a target | [`tela.UseSpring`](https://pkg.go.dev/github.com/kuronosu/tela#UseSpring), [`tela.UseTween`](https://pkg.go.dev/github.com/kuronosu/tela#UseTween) |
 | To animate a value from a handler, an effect or a goroutine | [`tela.Animate`](https://pkg.go.dev/github.com/kuronosu/tela#Animate) |
+| An element to slide or grow to its new place when the layout changes | [`h.AnimateLayout`](https://pkg.go.dev/github.com/kuronosu/tela/h#AnimateLayout) |
+| An element to grow out of another one (a tab underline, a thumbnail into a detail view) | [`h.LayoutID`](https://pkg.go.dev/github.com/kuronosu/tela/h#LayoutID) |
 
 ## Transitions
 
@@ -201,9 +203,66 @@ spring, `Stiffness` with `Duration`, spring options or `Velocity` on
 invalid easings panic in dev mode (`TELA_DEV=1`) with what to write; otherwise they are
 ignored.
 
+## Layout animations: `AnimateLayout` and `LayoutID`
+
+[`h.AnimateLayout`](https://pkg.go.dev/github.com/kuronosu/tela/h#AnimateLayout)`()` animates every change of an element's laid-out box
+(Motion's `layout`): a reorder, an expand, a sibling inserted or removed, a
+breakpoint. The element is laid out at its new place at once and drawn moving
+there from where it was, through a transform (FLIP), so the frames of the
+animation only composite: no build, no layout.
+
+```go
+Map(tasks, func(t Task) tela.Node {
+	return Div(Key(t.ID), AnimateLayout(), Class("rounded-xl bg-white p-3 shadow-sm"), Text(t.Title))
+})
+```
+
+- **Timing:** a tween with the element's `duration-*` and `ease-*` classes
+  (and `delay-*`) when it has one of the first two, like a transition;
+  otherwise a spring (stiffness 500, damping 25, Motion's spring for `x` and
+  `y`). A change during the animation starts from where the element is drawn,
+  keeping its speed. (Motion's own default for layout is a 450 ms tween that
+  restarts from rest; Tela's spring keeps interruptions smooth.)
+- **Sizes** are drawn as a scale toward the new size, as in Motion. Rounded
+  corners and box shadows are corrected so they keep their look, but text and
+  children stretch while it runs, unless they have `AnimateLayout` too: then
+  they keep their own size and their place in the parent. Put it on a card's
+  header and body so the text stays crisp while the card grows, and give the
+  card `overflow-hidden` so new content is revealed as it grows.
+- **Nested:** a child with `AnimateLayout` that keeps its place inside a
+  parent that moves moves with the parent.
+- **What does not animate:** scrolling, transforms (`hover:scale-105`) and the
+  display scale do not change the layout; an element that mounts or is shown
+  appears at its place. With reduced motion and in `tela snapshot` there is no
+  animation.
+- While it moves, the pointer hits it where it is drawn, and
+  `ElementRef.Bounds` / `tela.UseBounds` report the drawn box (like
+  `getBoundingClientRect` under a CSS transform). Scrolling it into view uses
+  its final place.
+
+[`h.LayoutID`](https://pkg.go.dev/github.com/kuronosu/tela/h#LayoutID)`(id)` is a shared element transition (Motion's `layoutId`): when an
+element with a LayoutID mounts in the same commit in which another with the
+same ID unmounts (or while that one exits under a `Presence`), the new element
+starts from the old one's box. The classic case is a tab underline that each
+tab renders when it is selected:
+
+```go
+MapIndex(tabs, func(i int, label string) tela.Node {
+	return Button(Key(label), Class("relative px-3 py-2"), OnClick(func(tela.MouseEvent) { setActive.Set(i) }),
+		Text(label),
+		If(i == active, Div(LayoutID("underline"), Class("absolute inset-x-0 bottom-0 h-0.5 bg-indigo-500"))))
+})
+```
+
+IDs are global to the window. The old element is not moved: an exiting one
+runs its own `Exit` classes (fade it out with `opacity-0` while the new one
+grows from it). An element with a LayoutID also animates its own layout
+changes. `examples/layout` shows a reorderable list, the tab underline and an
+expanding card, with goldens of their frames.
+
 ## Testing animations
 
-Actions in [`telatest`](Testing) wait for animations to end, so a golden after an
+Actions in [`telatest`](Testing) wait for animations (layout animations included) to end, so a golden after an
 action shows the end state. Mount with [`telatest.NoSettle`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#NoSettle) to capture the
 frames in between with `Advance`:
 

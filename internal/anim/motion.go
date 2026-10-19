@@ -61,6 +61,10 @@ type MotionSpec struct {
 	// Duration and Curve are the tween's (a nil Curve is linear).
 	Duration time.Duration
 	Curve    Curve
+	// RestSpeed, when positive, replaces the speed threshold of a
+	// spring's rest detection for components that move more than 5
+	// units (Motion's restSpeed option; DefaultRest otherwise).
+	RestSpeed float64
 }
 
 // maxMotion bounds a spring motion: one that has not come to rest after
@@ -90,6 +94,9 @@ func NewMotion(spec MotionSpec, from, to, vel Vec, start time.Duration) Motion {
 	m.Vel.N = from.N
 	for i := range from.N {
 		m.rest[i] = DefaultRest(to.C[i] - from.C[i])
+		if spec.RestSpeed > 0 && math.Abs(to.C[i]-from.C[i]) > 5 {
+			m.rest[i].Speed = spec.RestSpeed
+		}
 	}
 	return m
 }
