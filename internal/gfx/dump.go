@@ -131,6 +131,9 @@ func dumpArgs(sb *strings.Builder, c Command) {
 		attr("rect", fmtRect(c.Shape.Rect))
 		attr("r", fmtRadii(c.Shape))
 		attr("filters", fmtFilters(c.Filters))
+		if c.Opacity != 1 {
+			attr("opacity", fmtF(c.Opacity))
+		}
 	case Marker:
 		attr("id", strconv.FormatUint(uint64(c.ID), 10))
 	}

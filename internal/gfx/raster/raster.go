@@ -329,7 +329,7 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 		// A band of a phased render reached a backdrop filter barrier.
 		if res, barrier := ph.pass(r, i, c); barrier {
 			if res != nil {
-				r.drawBackdrop(res.cmd.Shape, res.buf, res.win, res.out)
+				r.drawBackdrop(res.cmd.Shape, res.buf, res.win, res.out, unit8(float64(res.cmd.Opacity)))
 			}
 			return
 		}

@@ -96,9 +96,12 @@ import (
 // backdrop filter (BackdropFilter over its border box, before anything
 // else of the box is painted), and one layer (PushLayer) with its opacity,
 // filters and blend mode, also pushed, with nothing else, by a stacking
-// context whose descendants blend, to isolate them (cssfx.go). The
-// backdrop is therefore not faded by the box's own opacity, as CSS would
-// do.
+// context whose descendants blend, to isolate them (cssfx.go). Since the
+// layer is a backdrop root, the backdrop filter is drawn before it, faded
+// by the box's opacity on its own (and not drawn at opacity 0): the
+// filtered backdrop at opacity a, then the box's content in a layer at
+// opacity a, which is how Chromium composites them (ADR-084). The box's
+// filters and blend mode do not apply to its backdrop.
 //
 // # Pixel snapping
 //
@@ -688,9 +691,12 @@ func (p *painter) pushEffects(bx *Box) int {
 	if p.pushClipPath(bx) {
 		pops |= pushedClip
 	}
-	if !cs.BackdropFilter.IsEmpty() && cs.Visibility == style.VisibilityVisible {
+	if !cs.BackdropFilter.IsEmpty() && cs.Visibility == style.VisibilityVisible && cs.Opacity > 0 {
+		// The filtered backdrop is part of the box: its opacity fades it
+		// (ADR-084). It is drawn outside the layer, which would be its
+		// backdrop root, so it is faded by itself, as Chromium does.
 		if g := p.geom(bx); !g.border.Rect.Empty() {
-			p.b.BackdropFilter(g.border, cs.BackdropFilter.List()...)
+			p.b.BackdropFilterOpacity(g.border, cs.Opacity, cs.BackdropFilter.List()...)
 		}
 	}
 	if cs.Opacity < 1 || !cs.Filter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || bx.blendDesc {

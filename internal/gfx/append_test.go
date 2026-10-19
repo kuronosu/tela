@@ -24,7 +24,7 @@ func TestEqualDeep(t *testing.T) {
 			PushClipPath{p.Clone(), NonZero},
 			PushTransform{Rotate(0.5)},
 			PushLayer{Opacity: 0.5, Filters: []Filter{Blur{2}, Brightness(1.2)}},
-			BackdropFilter{NewRRect(RectXYWH(0, 0, 9, 9), 2), []Filter{Blur{3}}},
+			BackdropFilter{NewRRect(RectXYWH(0, 0, 9, 9), 2), []Filter{Blur{3}}, 1},
 			Marker{3},
 			PopLayer{},
 		}

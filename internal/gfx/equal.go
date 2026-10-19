@@ -48,7 +48,7 @@ func Equal(a, b Command) bool {
 			a.Mask.Mode == b.Mask.Mode && listEqual(a.Mask.List, b.Mask.List)
 	case BackdropFilter:
 		b, ok := b.(BackdropFilter)
-		return ok && a.Shape == b.Shape && sameSlice(a.Filters, b.Filters)
+		return ok && a.Shape == b.Shape && a.Opacity == b.Opacity && sameSlice(a.Filters, b.Filters)
 	case PopClip:
 		_, ok := b.(PopClip)
 		return ok

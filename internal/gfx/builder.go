@@ -304,8 +304,15 @@ func (b *Builder) DrawShadow(s DrawShadow) {
 // BackdropFilter applies filters to what is already painted inside shape;
 // see the BackdropFilter command. A call with no effective filter is dropped.
 func (b *Builder) BackdropFilter(shape RRect, filters ...Filter) {
+	b.BackdropFilterOpacity(shape, 1, filters...)
+}
+
+// BackdropFilterOpacity is BackdropFilter with the result painted at
+// opacity (clamped to 1). A call at opacity 0 (or NaN) paints nothing and is
+// dropped: it reads nothing either.
+func (b *Builder) BackdropFilterOpacity(shape RRect, opacity float32, filters ...Filter) {
 	b.begin()
-	if b.suppressed() {
+	if b.suppressed() || !(opacity > 0) {
 		return
 	}
 	shape = shape.Normalize()
@@ -314,7 +321,8 @@ func (b *Builder) BackdropFilter(shape RRect, filters ...Filter) {
 		return
 	}
 	if bb, ok := b.drawBounds(shape.Rect); ok {
-		b.recordBackdrop(BackdropFilter{shape, fs}, bb, b.ctm.TransformRect(shape.Rect))
+		c := BackdropFilter{Shape: shape, Filters: fs, Opacity: min(opacity, 1)}
+		b.recordBackdrop(c, bb, b.ctm.TransformRect(shape.Rect))
 	}
 }
 

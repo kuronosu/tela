@@ -50,6 +50,36 @@ func TestBackdropMirror(t *testing.T) {
 	}
 }
 
+// TestBackdropOpacity: a backdrop filter at opacity a paints its result
+// at that opacity over the backdrop (ADR-084), and one at opacity 0 is
+// dropped by the Builder and paints nothing.
+func TestBackdropOpacity(t *testing.T) {
+	shape := gfx.RRectFromRect(gfx.RectXYWH(10, 10, 40, 20))
+	render := func(op float32) *image.RGBA {
+		img := image.NewRGBA(image.Rect(0, 0, 60, 40))
+		NewRenderer().Render(img, build(func(b *gfx.Builder) {
+			b.FillRect(gfx.Rect{X1: 60, Y1: 40}, gfx.RGBA8(200, 40, 10, 255))
+			b.BackdropFilterOpacity(shape, op, gfx.Invert(1))
+		}), Options{Scale: 1})
+		return img
+	}
+	for _, c := range []struct {
+		op   float32
+		want color.RGBA
+	}{
+		{1, color.RGBA{55, 215, 245, 255}},
+		{0.5, color.RGBA{128, 128, 128, 255}},
+		{0, color.RGBA{200, 40, 10, 255}},
+	} {
+		if got := render(c.op).RGBAAt(30, 20); got != c.want {
+			t.Errorf("opacity %v: %v, want %v", c.op, got, c.want)
+		}
+	}
+	if n := build(func(b *gfx.Builder) { b.BackdropFilterOpacity(shape, 0, gfx.Blur{StdDev: 2}) }).NumBackdrops(); n != 0 {
+		t.Errorf("a backdrop filter at opacity 0 was recorded")
+	}
+}
+
 // TestBackdropRegions checks that regions and worker counts give the
 // pixels of a full render, at a fractional scale.
 func TestBackdropRegions(t *testing.T) {

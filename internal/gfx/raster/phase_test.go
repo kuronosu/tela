@@ -35,6 +35,19 @@ func multiBackdrop(b *gfx.Builder) {
 	b.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(0, 200, 300, 40), 0), gfx.Blur{StdDev: 2})
 }
 
+// fadedBackdrop is multiBackdrop with backdrop filters painted at an
+// opacity below 1 (ADR-084), and one at opacity 0, which is dropped.
+func fadedBackdrop(b *gfx.Builder) {
+	multiBackdrop(b)
+	b.BackdropFilterOpacity(gfx.NewRRect(gfx.RectXYWH(30, 40, 180, 120), 16), 0.5, gfx.Blur{StdDev: 8})
+	b.FillRRect(gfx.NewRRect(gfx.RectXYWH(30, 40, 180, 120), 16), gfx.White.WithAlpha(0.1))
+	b.PushTransform(gfx.RotateAbout(-0.15, gfx.Pt(150, 120)))
+	b.BackdropFilterOpacity(gfx.NewRRect(gfx.RectXYWH(120, 90, 150, 90), 10), 0.25, gfx.Blur{StdDev: 3}, gfx.Saturate(1.5))
+	b.PopTransform()
+	b.BackdropFilterOpacity(gfx.NewRRect(gfx.RectXYWH(0, 0, 300, 240), 0), 0, gfx.Blur{StdDev: 30})
+	b.BackdropFilterOpacity(gfx.NewRRect(gfx.RectXYWH(200, 0, 60, 240), 0), 0.7, gfx.Invert(1))
+}
+
 // TestPhasedMatchesSequential checks that a phased render (bands that wait
 // at backdrop filters) gives the pixels of a sequential render, for several
 // worker counts, the full frame and regions, and that lists with a
@@ -50,6 +63,8 @@ func TestPhasedMatchesSequential(t *testing.T) {
 		{"multi", 300, 240, build(multiBackdrop), 1},
 		{"multi_x2", 600, 480, build(multiBackdrop), 2},
 		{"multi_x1.5", 450, 360, build(multiBackdrop), 1.5},
+		{"faded", 300, 240, build(fadedBackdrop), 1},
+		{"faded_x1.5", 450, 360, build(fadedBackdrop), 1.5},
 		{"blur_presets", 1400, 600, build(drawBlurScene), 1},
 		{"glass", 1920, 1080, glassScene(1), 1},
 	}

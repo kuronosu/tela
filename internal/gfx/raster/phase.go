@@ -209,8 +209,8 @@ func (ph *phaser) compute(res *phaseResult) {
 	}()
 	in := r.backdropBounds(res.cmd.Shape.Rect).Intersect(res.surf)
 	out := in.Intersect(res.bound).Intersect(ph.area)
-	if out.Empty() {
-		return
+	if out.Empty() || unit8(float64(res.cmd.Opacity)) == 0 {
+		return // nothing to draw (a list built without the Builder may hold opacity 0)
 	}
 	r.blurS.par = ph.pool
 	defer func() { r.blurS.par = nil }()

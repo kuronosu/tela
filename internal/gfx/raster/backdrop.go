@@ -44,8 +44,9 @@ func (s *surfShader) opaque() bool { return false }
 // backdropFilter executes a BackdropFilter command.
 func (r *Renderer) backdropFilter(c gfx.BackdropFilter) {
 	b := &r.blit
+	op := unit8(float64(c.Opacity))
 	in := r.backdropBounds(c.Shape.Rect).Intersect(r.surfBounds)
-	if in.Empty() || !in.Overlaps(b.clip) {
+	if op == 0 || in.Empty() || !in.Overlaps(b.clip) {
 		return
 	}
 	first := len(r.dfs)
@@ -73,7 +74,7 @@ func (r *Renderer) backdropFilter(c gfx.BackdropFilter) {
 		return
 	}
 	buf, win, out := r.filterBackdrop(b, in, out, fs)
-	r.drawBackdrop(c.Shape, buf, win, out)
+	r.drawBackdrop(c.Shape, buf, win, out, op)
 	r.putBuf(buf)
 }
 
@@ -121,18 +122,40 @@ func (r *Renderer) filterBackdrop(b *blitter, in, out image.Rectangle, fs []devF
 }
 
 // drawBackdrop paints a filtered backdrop, buf over win, through the
-// shape, inside out.
-func (r *Renderer) drawBackdrop(shape gfx.RRect, buf []uint8, win, out image.Rectangle) {
+// shape, inside out, at opacity op (0-255).
+func (r *Renderer) drawBackdrop(shape gfx.RRect, buf []uint8, win, out image.Rectangle, op uint8) {
 	b := &r.blit
 	saved := b.clip
-	if b.clip = b.clip.Intersect(out); !b.clip.Empty() {
+	if b.clip = b.clip.Intersect(out); !b.clip.Empty() && op > 0 {
 		sh := surfShader{pix: buf, rect: win}
-		b.setShader(&sh)
+		if op == 255 {
+			b.setShader(&sh)
+		} else {
+			b.setShader(&fadedShader{surf: sh, op: op})
+		}
 		r.coverRRect(shape)
 	}
 	b.clip = saved
 	b.sh, b.solid = nil, nil
 }
+
+// fadedShader is a surfShader whose colors are multiplied by an opacity:
+// the filtered backdrop of a BackdropFilter with an Opacity below 1. It
+// scales the shaded span, so buf, which the bands of a phased render
+// share, is only read.
+type fadedShader struct {
+	surf surfShader
+	op   uint8
+}
+
+func (s *fadedShader) shadeSpan(x, y int, dst []uint8) {
+	s.surf.shadeSpan(x, y, dst)
+	for i := range dst {
+		dst[i] = mul8(dst[i], s.op)
+	}
+}
+
+func (s *fadedShader) opaque() bool { return false }
 
 // backdropBounds returns the device pixels that hold a local rectangle
 // under the current transform: the pixels its bounding box touches,

@@ -277,9 +277,15 @@ type PopLayer struct{}
 // (blur, drop shadow) reads the whole bounds; see DisplayList.BackdropReach.
 // Inside a layer the backdrop is the layer's own content (a layer is a
 // backdrop root).
+//
+// Opacity (0 to 1) fades the result: it is painted with source-over at
+// that opacity, as Chromium draws the filtered backdrop of an element with
+// the element's opacity (CSS draws the backdrop as part of the element,
+// whose opacity applies to it; ADR-084). Builder.BackdropFilter records 1.
 type BackdropFilter struct {
 	Shape   RRect
 	Filters []Filter
+	Opacity float32
 }
 
 // Marker is a placeholder: it paints nothing and stands for content
