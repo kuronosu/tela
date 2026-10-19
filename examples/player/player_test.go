@@ -233,11 +233,17 @@ func TestClockStopsOnUnmount(t *testing.T) {
 	fast(t, 5*time.Millisecond, 1)
 	before := clocks()
 	a := mount(t, windowW, windowH, Player) // mounting runs the passive effects
+	// The goroutine is spawned by the effect and may not be scheduled yet
+	// on a loaded runner, so wait for it as for its exit below.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && clocks() <= before {
+		time.Sleep(5 * time.Millisecond)
+	}
 	if clocks() <= before {
 		t.Fatal("the clock goroutine did not start")
 	}
 	a.Close()
-	deadline := time.Now().Add(2 * time.Second)
+	deadline = time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) && clocks() > before {
 		time.Sleep(5 * time.Millisecond)
 	}
