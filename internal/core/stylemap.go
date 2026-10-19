@@ -70,6 +70,9 @@ func (t *Tree) restyle(el *Element) {
 		// The root is the viewport (scroll.go).
 		cs.OverflowX, cs.OverflowY = viewportOverflow(cs.OverflowX), viewportOverflow(cs.OverflowY)
 	}
+	if bx.portal {
+		portalStyle(cs) // a portal layer (portal.go)
+	}
 	old := bx.cs
 	// Transitions and keyframe animations: cs is the target; the style the
 	// box uses now may differ from it (anim.go). A box that starts being
@@ -416,8 +419,6 @@ func applySpace(ls *layout.Style, pcs *style.ComputedStyle) {
 //
 // Approximations (until layout and the later phases support them):
 //
-//   - fixed lays out as absolute against the nearest positioned ancestor,
-//     sticky as relative;
 //   - in flow, inline-block, inline-flex and inline-grid boxes are the
 //     atomic inlines of a paragraph (ADR-066), with a fit-content width;
 //     the other inline-level boxes that a block lays out (absolutely
@@ -448,10 +449,14 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	}
 	switch cs.Position {
 	case style.PositionRelative, style.PositionSticky:
+		// Sticky is relative for layout; its insets move it when it is
+		// painted (sticky.go), not here.
 		ls.Position = layout.PositionRelative
 	case style.PositionAbsolute, style.PositionFixed:
 		ls.Position = layout.PositionAbsolute
+		ls.Fixed = cs.Position == style.PositionFixed
 	}
+	ls.ContainingBlock = containsPositioned(b)
 	ls.OverflowX, ls.OverflowY = overflowPair(cs.OverflowX, cs.OverflowY)
 	if b.kind == style.KindInput {
 		// An Input clips its line itself and keeps its text's baseline
@@ -482,7 +487,9 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 			ls.AspectRatio = float32(b.img.Width()) / float32(b.img.Height())
 		}
 	}
-	ls.Inset = edgesOf(cs.Inset)
+	if cs.Position != style.PositionSticky {
+		ls.Inset = edgesOf(cs.Inset)
+	}
 	ls.Margin = edgesOf(cs.Margin)
 	ls.Padding = layout.Edges{Top: lpDim(cs.Padding.Top), Right: lpDim(cs.Padding.Right),
 		Bottom: lpDim(cs.Padding.Bottom), Left: lpDim(cs.Padding.Left)}

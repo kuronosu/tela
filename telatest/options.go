@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 )
 
@@ -22,6 +23,7 @@ type config struct {
 	scale         float64
 	dark          bool
 	reducedMotion bool
+	scheme        tela.ColorScheme
 	classic       bool
 	instant       bool
 	dev           bool
@@ -80,6 +82,7 @@ func (c config) coreConfig() core.Config {
 		RootClass:         c.rootClass,
 		Dark:              c.dark,
 		ReducedMotion:     c.reducedMotion,
+		ColorScheme:       c.scheme,
 		Dev:               c.dev,
 		ClassicScrollbars: c.classic,
 		InstantScroll:     c.instant,
@@ -127,8 +130,20 @@ func Size(width, height float32) Option {
 func Scale(scale float64) Option { return func(c *config) { c.scale = scale } }
 
 // Dark makes the system prefer the dark color scheme, so the dark:
-// variants apply.
+// variants apply unless the app sets another scheme ([ColorScheme],
+// tela.App.ColorScheme, tela.SetColorScheme).
 func Dark() Option { return func(c *config) { c.dark = true } }
+
+// ColorScheme sets the app's color scheme, like tela.App.ColorScheme:
+// tela.Light or tela.Dark override the system's preference ([Dark] sets
+// that one), tela.System follows it. tela.SetColorScheme changes it while
+// the app runs.
+func ColorScheme(s tela.ColorScheme) Option {
+	if s > tela.Dark {
+		panic("telatest.ColorScheme: pass tela.Light, tela.Dark or tela.System")
+	}
+	return func(c *config) { c.scheme = s }
+}
 
 // ReducedMotion makes the system ask for reduced motion: the
 // motion-reduce: variants apply, transitions take no time and scrolling

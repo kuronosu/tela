@@ -135,6 +135,11 @@ type Box struct {
 	anim *boxAnim
 	// scr is the scroll state of a scroll container (scroll.go).
 	scr *scroller
+	// portal marks the box of a Portal: a portal layer (portal.go).
+	portal bool
+	// stick is the scroll space of a sticky box (sticky.go), nil until it
+	// is first painted sticky; the box is in it when space == stick.
+	stick *scroller
 	// fld is the state of a text field (field.go).
 	fld *field
 

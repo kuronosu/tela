@@ -1,0 +1,26 @@
+<!doctype html>
+<html class="overflow-hidden">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="h-screen overflow-auto bg-white">
+<div id="e0" class="relative px-4 pt-14 pb-[400px]"><div id="e1" class="fixed inset-x-0 top-0 z-20 h-10 bg-slate-800 px-3 text-sm/10 text-white">Header</div><div id="e2" class="relative h-16 w-24 overflow-hidden rounded-lg bg-amber-100"><div id="e3" class="fixed top-3 right-3 z-30 size-6 rounded-full bg-rose-500"></div></div><div id="e4" class="mt-4 h-20 w-40 translate-x-4 rounded-lg bg-sky-100"><div id="e5" class="fixed right-2 bottom-2 size-6 rounded bg-sky-600"></div></div><div id="e6" class="mt-4 ml-8 h-12 w-48 bg-emerald-100"><div id="e7" class="fixed h-4 w-10 bg-emerald-600"></div></div><div id="e8" class="fixed right-4 bottom-4 z-20 size-10 rounded-full bg-indigo-600 shadow-lg"></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+const steps = [[],[[-1,0,90]],[[-1,0,300]]];
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const k = +(location.hash.slice(1) || 0);
+  for (const [id, x, y] of steps[k]) {
+    if (id < 0) document.body.scrollTo(x, y); else document.getElementById("e" + id).scrollTo(x, y);
+  }
+  const out = [];
+  for (let i = 0; i < 9; i++) {
+    const q = document.getElementById("e" + i).getBoundingClientRect();
+    out.push([q.left, q.top, q.width, q.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

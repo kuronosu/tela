@@ -174,3 +174,11 @@ func ExampleNoSettle() {
 	// {128 128 128 255}
 	// {0 0 0 255}
 }
+
+func ExampleColorScheme() {
+	swatch := Div(Class("size-8 bg-white dark:bg-black"))
+	light, _ := telatest.Render(swatch, telatest.Size(8, 8), telatest.Dark(), telatest.ColorScheme(tela.Light))
+	dark, _ := telatest.Render(swatch, telatest.Size(8, 8), telatest.ColorScheme(tela.Dark))
+	fmt.Println(light.RGBAAt(4, 4), dark.RGBAAt(4, 4))
+	// Output: {255 255 255 255} {0 0 0 255}
+}

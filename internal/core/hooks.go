@@ -253,8 +253,10 @@ type update struct {
 	// set changes a Value of el (apply is nil): it invalidates the
 	// Value's readers itself and reports whether it invalidated any.
 	set func() bool
-	// post is a function given to Post (el, apply and set are nil).
-	post func()
+	// post is a function given to Post (el, apply and set are nil);
+	// postTree one that runs with the Tree applying it (SetColorScheme).
+	post     func()
+	postTree func(*Tree)
 }
 
 // enqueue adds an update. Safe from any goroutine.
@@ -296,6 +298,8 @@ func (t *Tree) ApplyUpdates() bool {
 			switch {
 			case u.post != nil:
 				u.post()
+			case u.postTree != nil:
+				u.postTree(t)
 			case !u.el.mounted:
 				// Dropped: the component is gone.
 			case u.set != nil:
@@ -323,7 +327,7 @@ var posts struct {
 	// the previous one still receiving (a test that mounts an app while
 	// another is alive).
 	stack   []*Tree
-	pending []func()
+	pending []update
 }
 
 // Post runs fn on the UI thread of the running app, in order with the
@@ -339,13 +343,18 @@ func Post(fn func()) {
 	if fn == nil {
 		panic("tela: Post(nil): pass the function to run on the UI thread")
 	}
+	postUpdate(update{post: fn})
+}
+
+// postUpdate queues u like Post queues a function.
+func postUpdate(u update) {
 	posts.mu.Lock()
 	defer posts.mu.Unlock()
 	if t := posts.target; t != nil {
-		t.enqueue(update{post: fn})
+		t.enqueue(u)
 		return
 	}
-	posts.pending = append(posts.pending, fn)
+	posts.pending = append(posts.pending, u)
 }
 
 // ReceivePosts makes t the Tree that runs the functions given to Post: in
@@ -362,9 +371,7 @@ func (t *Tree) ReceivePosts() (stop func()) {
 		pending := posts.pending
 		posts.pending = nil
 		t.mu.Lock()
-		for _, fn := range pending {
-			t.updates = append(t.updates, update{post: fn})
-		}
+		t.updates = append(t.updates, pending...)
 		wake := t.wake
 		t.mu.Unlock()
 		if wake != nil {

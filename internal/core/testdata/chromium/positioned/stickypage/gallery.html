@@ -1,0 +1,26 @@
+<!doctype html>
+<html class="overflow-hidden">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="h-screen overflow-auto bg-white">
+<div id="e0"><div id="e1" class="sticky top-0 z-20 h-10 bg-white/90 px-3 text-sm/10 shadow">Page</div><div id="e2" class="flex items-start gap-3 p-3"><div id="e3" class="sticky top-12 h-24 w-24 shrink-0 rounded-lg bg-indigo-100"></div><div id="e4" class="h-[360px] grow rounded-lg bg-slate-100"></div></div><div id="e5" class="h-[300px] bg-slate-200"></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+const steps = [[],[[-1,0,100]],[[-1,0,300]]];
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const k = +(location.hash.slice(1) || 0);
+  for (const [id, x, y] of steps[k]) {
+    if (id < 0) document.body.scrollTo(x, y); else document.getElementById("e" + id).scrollTo(x, y);
+  }
+  const out = [];
+  for (let i = 0; i < 6; i++) {
+    const q = document.getElementById("e" + i).getBoundingClientRect();
+    out.push([q.left, q.top, q.width, q.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

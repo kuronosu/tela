@@ -286,6 +286,23 @@
 // targets aligned, and builds and lays out again within the frame until
 // the lists settle.
 //
+// # Positioning, portals and the environment
+//
+// Fixed boxes are laid out against the window, or against an ancestor
+// with a transform, a filter or a backdrop filter, which contains
+// absolute and fixed descendants as in CSS (layout.Style.Fixed and
+// ContainingBlock, containingBlock in paint.go); they are painted outside
+// every scroll space they escape, so a scroll does not move them. Sticky
+// boxes (sticky.go, whose top comment is the reference) are laid out as
+// relative ones without offsets and painted in a scroll space of their
+// own whose offset is their sticky offset, recomputed on every paint, so
+// a scroll moves them in the compositor without recording anything.
+// Portal nodes (portal.go) put their content in a layer above the root's
+// content, laid out against the window, while state, context and event
+// bubbling follow the element tree. The color scheme and reduced motion
+// (env.go) are the system's preferences with the app's override of the
+// scheme; UseColorScheme and UseReducedMotion read them.
+//
 // The focus (focus.go) follows HTML: focusable elements (Button,
 // TabIndex), the sequential order, focus by pointer press, ElementRef,
 // AutoFocus, the fix-up of elements that stop being focusable, the

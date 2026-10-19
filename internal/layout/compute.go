@@ -77,6 +77,9 @@ type output struct {
 	// boxes whose containing block is above the node: the nearest
 	// positioned ancestor lays them out.
 	escapes bool
+	// escapesFixed reports that the subtree contains fixed boxes whose
+	// containing block is above the node (fixed.go).
+	escapesFixed bool
 }
 
 func outerSize(s size) output { return output{size: s} }
@@ -145,6 +148,9 @@ func (e *Engine) layout(n Node, in input) output {
 		if e.clobbers != clobbers {
 			d.cache.hasFinal = false
 		}
+	}
+	if in.run == performLayout && st.Display != DisplayNone {
+		out = e.fixedPass(n, st, in, out)
 	}
 	d.cache.store(&in, out)
 	if in.run == performLayout {

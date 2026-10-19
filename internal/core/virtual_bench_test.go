@@ -245,6 +245,30 @@ func BenchmarkScrollP95Virtual100kEstimated(b *testing.B) {
 }
 func BenchmarkScrollP95Plain10k(b *testing.B) { benchP95(b, plainPage(10_000)) }
 
+// stickyRow is personRow, with a sticky section header every 20 rows
+// (same 40 px).
+func stickyRow(i int) Node {
+	if i%20 == 0 {
+		return div(Class("sticky top-0 z-10 flex h-10 items-center bg-zinc-100 px-4 text-sm font-semibold"),
+			Textf("Section %d", i/20))
+	}
+	return personRow(i)
+}
+
+// stickyVirtualPage is virtualPage with sticky section headers (ADR-077).
+func stickyVirtualPage(n int) Node {
+	return div(Class("flex h-screen flex-col"),
+		VirtualList(n, est40, func(i int) Node { return ComponentProps(stickyRow, i) }, Class("flex-1")))
+}
+
+func BenchmarkVirtualStickyScrollFrame100k(b *testing.B) {
+	benchScroll(b, stickyVirtualPage(100_000), false)
+}
+func BenchmarkVirtualStickyScrollFrameRaster100k(b *testing.B) {
+	benchScroll(b, stickyVirtualPage(100_000), true)
+}
+func BenchmarkScrollP95VirtualSticky100k(b *testing.B) { benchP95(b, stickyVirtualPage(100_000)) }
+
 // BenchmarkPlainUnmount5kOf10k unmounts the last 5,000 rows of a plain
 // 10,000-row list (10,000 of its 20,000 truncate scroll containers) in one
 // frame: the frame of the rebuild, without the mount.

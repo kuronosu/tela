@@ -229,6 +229,21 @@ type scroller struct {
 	// index + 1 of s in each scroller set (0: not in it).
 	seq uint64
 	at  [numScrollSets]int32
+
+	// sticky marks the scroll space of a sticky box (sticky.go): box is
+	// the sticky box, soff its negated sticky offset, up the space the box
+	// is in without it. It is in no scroller set and never scrolls.
+	sticky bool
+	up     *scroller
+}
+
+// outer returns the scroll space that s is in: the space of its
+// container's box, or a sticky space's up.
+func (s *scroller) outer() *scroller {
+	if s.sticky {
+		return s.up
+	}
+	return s.box.space
 }
 
 // clamp returns p within [0, max].
@@ -964,6 +979,14 @@ func (t *Tree) pickScroller(el *Element, d gfx.Point) (s *scroller, contained bo
 	return nil, false
 }
 
+// fixedToWindow reports whether bx, whose containing block is cb, is a
+// fixed box positioned against the window (the root): the root's scroll
+// offset does not move it.
+func fixedToWindow(bx, cb *Box) bool {
+	cs := paintStyle(bx)
+	return cs != nil && cs.Position == style.PositionFixed && cb == bx.tree.rootBox
+}
+
 // containingBlockOf is containingBlock with the computed style for boxes
 // not painted yet.
 func containingBlockOf(bx *Box) *Box {
@@ -1560,8 +1583,8 @@ func (t *Tree) scrollIntoView(el *Element) {
 	r := t.targetRect(bx)
 	for b := bx; ; {
 		cb := containingBlockOf(b)
-		if cb == nil {
-			return
+		if cb == nil || fixedToWindow(b, cb) {
+			return // no scroll container moves a box fixed to the window
 		}
 		if s := cb.scr; s != nil {
 			c := t.clientRect(cb)
@@ -1597,10 +1620,18 @@ func (t *Tree) targetRect(bx *Box) gfx.Rect {
 	for b := bx; b != nil; b = b.parent {
 		o = o.Add(b.ld.Layout().Location)
 	}
-	for b := containingBlockOf(bx); b != nil; b = containingBlockOf(b) {
-		if b.scr != nil {
-			o = o.Sub(b.scr.target())
+	// A stuck box counts where it is stuck now (sticky.go), and a box
+	// fixed to the window does not move with the root.
+	for b := bx; b != nil; {
+		o = o.Add(stickyShift(b))
+		cb := containingBlockOf(b)
+		if fixedToWindow(b, cb) {
+			break
 		}
+		if cb != nil && cb.scr != nil {
+			o = o.Sub(cb.scr.target())
+		}
+		b = cb
 	}
 	return gfx.RectFromOriginSize(o, bx.ld.Layout().Size)
 }

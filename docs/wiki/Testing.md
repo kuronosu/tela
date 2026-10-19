@@ -52,6 +52,7 @@ running the cleanups of its effects. Options configure it:
 | [`telatest.Size`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Size)(w, h) | Logical window size (default 800x600) |
 | [`telatest.Scale`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Scale) | Display scale; goldens are `w*scale` by `h*scale` pixels |
 | [`telatest.Dark`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Dark) | The system prefers dark: `dark:` classes apply |
+| [`telatest.ColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ColorScheme)(s) | The app's color scheme, like `tela.App.ColorScheme` (`tela.Light`, `tela.Dark`, `tela.System`) |
 | [`telatest.ReducedMotion`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ReducedMotion) | The system asks for reduced motion |
 | [`telatest.ClassicScrollbars`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ClassicScrollbars), [`telatest.InstantScroll`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#InstantScroll), [`telatest.RootClass`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#RootClass) | The `tela.App` fields of the same name |
 | [`telatest.Dev`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Dev) | Dev mode: every dev message (unknown class, missing keys, hook order) **fails the test** at the action that triggered it |

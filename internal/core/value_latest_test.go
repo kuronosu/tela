@@ -110,8 +110,13 @@ func TestValueLatestFromGoroutines(t *testing.T) {
 			defer wg.Done()
 			for range each {
 				v.Update(func(n int) int { return n + 1 })
-				// Never behind the applied value, never ahead of the total.
-				if l, g := v.Latest(), v.Get(); l < g || l > goroutines*each {
+				// Never behind the value applied before it, never ahead of
+				// the total. Get must be read first: a Get after Latest may
+				// see updates that other goroutines queued (and the UI
+				// thread applied) in between, so Latest < Get is possible
+				// in that order.
+				g := v.Get()
+				if l := v.Latest(); l < g || l > goroutines*each {
 					t.Errorf("Latest %d, Get %d", l, g)
 					return
 				}

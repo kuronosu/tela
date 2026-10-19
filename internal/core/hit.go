@@ -265,8 +265,8 @@ func (h *hitter) scrollbar(bx *Box, p gfx.Point) *Element {
 // and accepting pointer events.
 func (h *hitter) self(bx *Box, p gfx.Point) bool {
 	cs := bx.pcs
-	if cs.Visibility != style.VisibilityVisible || cs.PointerEvents == style.PointerEventsNone {
-		return false
+	if cs.Visibility != style.VisibilityVisible || cs.PointerEvents == style.PointerEventsNone || bx.portal {
+		return false // a portal layer is not hit itself (portal.go)
 	}
 	return rrectContains(h.geom(bx).border, p)
 }

@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`Id`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`Id`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
 
 ## Overview
 
@@ -31,7 +31,7 @@ func Greeting(name string) tela.Node {
 }
 ```
 
-To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Src, Alt, Href, Id, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, Fragment and TextFn (text that a Value changes without rebuilding the component), VirtualList with its Overscan prop, and Presence with its Exit prop (enter and exit animations).
+To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Src, Alt, Href, Id, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, Fragment and TextFn (text that a Value changes without rebuilding the component), Portal (content shown above the window's content, for modals, menus and tooltips), VirtualList with its Overscan prop, and Presence with its Exit prop (enter and exit animations).
 
 Everything else (App, Run, hooks, events, colors, typed style props) lives in package tela.
 
@@ -1153,6 +1153,54 @@ func Placeholder(s string) tela.Prop
 ```
 
 Placeholder sets the text a text field shows while it is empty, in the field's color at half opacity unless placeholder: classes style it.
+
+### func Portal
+
+```go
+func Portal(children ...tela.Child) tela.Node
+```
+
+Portal shows its children in a layer above everything else in the window, like React's createPortal into document.body: use it for modals, drawers, menus, tooltips and toasts that must not be clipped or covered by the boxes around the component that renders them.
+
+The layer covers the window and is laid out against it, so fixed and absolute content inside it positions against the window (Div(Class("fixed inset-0 ..."))). It is a stacking context of its own above the window's content, whatever its z-index; portals mounted later are above earlier ones. The layer itself is never hit: clicks on its empty parts reach the content under it.
+
+Everything else follows the component tree, as in React: the children keep their component state, read the context of the Portal's ancestors, inherit their text style (color, font) from the Portal's parent element, and their events bubble to the Portal's ancestors (an OnClick on a Div around the Portal receives clicks from inside it). Tab order and the aria snapshot place the portal's content after the window's content, like content appended to the body.
+
+Portal takes children and a Key; other props panic (style its content).
+
+```go
+func Confirm(onClose func()) tela.Node {
+    return Portal(
+        Div(Class("fixed inset-0 flex items-center justify-center bg-black/40"),
+            Div(Role("dialog"), AriaLabel("Confirm"), Class("rounded-xl bg-white p-6 shadow-xl"),
+                Text("Delete this file?"),
+                Button(OnClick(func(tela.MouseEvent) { onClose() }), Text("Cancel")))))
+}
+```
+
+**Example**
+
+```go
+// The dialog is rendered by the card's component, but shown above
+// the page; its content comes after the page's, as if appended to the
+// body.
+page := Div(
+    Div(Class("relative z-10 overflow-hidden rounded-xl p-4"),
+        Text("Card"),
+        Portal(Div(Class("fixed inset-0 flex items-center justify-center bg-black/40"),
+            Div(Role("dialog"), AriaLabel("Confirm"), Class("rounded-xl bg-white p-6"),
+                Button(Text("OK"))))),
+    ),
+    Button(Text("Footer")),
+)
+yaml, _ := telatest.AriaSnapshot(page)
+fmt.Println(yaml)
+// Output:
+// - text: Card
+// - button "Footer"
+// - dialog "Confirm":
+//   - button "OK"
+```
 
 ### func Presence
 

@@ -18,7 +18,7 @@ import (
 // tree without a window and a test, and need no *testing.T. `tela
 // snapshot` and `tela inspect` are built on them, so the CLI works on any
 // module that requires github.com/kuronosu/tela (amends ADR-047). They
-// accept the options [Size], [Scale], [Dark], [ReducedMotion],
+// accept the options [Size], [Scale], [Dark], [ColorScheme], [ReducedMotion],
 // [ClassicScrollbars], [InstantScroll], [RootClass], [Dev] and [Debug]
 // (overlays are drawn into the image); the others concern mounted apps and
 // are ignored.

@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness)
@@ -23,6 +23,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Child`](#type-child)
   - [`type Code`](#type-code)
   - [`type Color`](#type-color): [`Hex`](#func-hex) · [`OKLCH`](#func-oklch) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Clamp`](#func-color-clamp) · [`IsFinite`](#func-color-isfinite) · [`IsOpaque`](#func-color-isopaque) · [`MulAlpha`](#func-color-mulalpha) · [`NRGBA8`](#func-color-nrgba8) · [`Premul8`](#func-color-premul8) · [`Premultiplied`](#func-color-premultiplied) · [`String`](#func-color-string) · [`ToOKLCH`](#func-color-tooklch) · [`ToOklab`](#func-color-tooklab) · [`WithAlpha`](#func-color-withalpha)
+  - [`type ColorScheme`](#type-colorscheme): [`UseColorScheme`](#func-usecolorscheme) · [`String`](#func-colorscheme-string)
   - [`type CompositionEvent`](#type-compositionevent): [`DefaultPrevented`](#func-compositionevent-defaultprevented) · [`PreventDefault`](#func-compositionevent-preventdefault) · [`StopPropagation`](#func-compositionevent-stoppropagation)
   - [`type Context`](#type-context): [`CreateContext`](#func-createcontext) · [`Provider`](#func-context-provider)
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
@@ -310,6 +311,40 @@ Run opens a window, shows app.Root and runs the event loop until the window is c
 
 Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil.
 
+### func SetColorScheme
+
+```go
+func SetColorScheme(s ColorScheme)
+```
+
+SetColorScheme sets the color scheme of the running app: [`Light`](#type-colorscheme) or [`Dark`](#type-colorscheme) override the system's preference, [`System`](#type-colorscheme) follows it again. Every element is styled again (dark: classes) and the components that call [`UseColorScheme`](#func-usecolorscheme) build again. It is safe from any goroutine, like a state setter: the change applies on the UI thread before the next frame. Called before [`Run`](#func-run), it applies when the window opens (it wins over [`App`](#type-app).ColorScheme). Like [`Post`](#func-post), it goes to the app that receives posted functions (telatest.Mount's app in tests).
+
+```go
+Button(OnClick(func(tela.MouseEvent) { tela.SetColorScheme(tela.Dark) }), Text("Dark"))
+```
+
+It panics for a value other than System, Light and Dark.
+
+**Example**
+
+```go
+toggle := func() tela.Node {
+    dark := tela.UseColorScheme() == tela.Dark
+    next, label := tela.Dark, "Dark mode"
+    if dark {
+        next, label = tela.Light, "Light mode"
+    }
+    return Button(Class("bg-white text-black dark:bg-black dark:text-white"),
+        OnClick(func(tela.MouseEvent) { tela.SetColorScheme(next) }), Text(label))
+}
+app := telatest.Mount(t, tela.C(toggle))
+defer app.Close()
+app.Click(telatest.ByRole("button", "Dark mode"))
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - button "Light mode"
+```
+
 ### func UseContext
 
 ```go
@@ -460,6 +495,29 @@ start := app.Now()
 app.Click(telatest.ByRole("button", "Dismiss")) // waits for the exit
 fmt.Println(app.Count(telatest.ByRole("status", "")), app.Now()-start >= 200*time.Millisecond)
 // Output: 0 true
+```
+
+### func UseReducedMotion
+
+```go
+func UseReducedMotion() bool
+```
+
+UseReducedMotion reports whether the system asks for reduced motion (the motion-reduce: classes apply, transitions take no time and scrolling jumps). The component builds again when it changes. It is a hook: call it at the top level of a component.
+
+**Example**
+
+```go
+spinner := func() tela.Node {
+    if tela.UseReducedMotion() {
+        return P(Text("Loading…"))
+    }
+    return Div(Class("size-6 animate-spin rounded-full border-2 border-t-transparent"), AriaLabel("Loading"), Role("status"))
+}
+yaml, _ := telatest.AriaSnapshot(tela.C(spinner), telatest.ReducedMotion())
+fmt.Println(yaml)
+// Output:
+// - paragraph: Loading…
 ```
 
 ### func UseStateSet
@@ -719,6 +777,11 @@ type App struct {
     // still animate; the class scroll-instant does the same for one
     // element.
     InstantScroll bool
+    // ColorScheme is the app's color scheme: Light or Dark override the
+    // system's preference (the dark: classes, UseColorScheme); the zero
+    // value, System, follows it. SetColorScheme changes it while the app
+    // runs.
+    ColorScheme ColorScheme
 }
 ```
 
@@ -1215,6 +1278,90 @@ func (c Color) WithAlpha(a float32) Color
 ```
 
 WithAlpha returns c with its alpha replaced by a.
+
+### type ColorScheme
+
+```go
+type ColorScheme = core.ColorScheme
+```
+
+ColorScheme is a color scheme: what the app asks for ([`System`](#type-colorscheme), [`Light`](#type-colorscheme) or [`Dark`](#type-colorscheme)) in [`App`](#type-app).ColorScheme and [`SetColorScheme`](#func-setcolorscheme), and the effective scheme [`UseColorScheme`](#func-usecolorscheme) returns ([`Light`](#type-colorscheme) or [`Dark`](#type-colorscheme)). The dark: classes apply in the effective [`Dark`](#type-colorscheme) scheme.
+
+`ColorScheme` is an alias of `core.ColorScheme`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type ColorScheme uint8
+```
+
+```go
+const (
+    ColorSchemeSystem ColorScheme = iota
+    ColorSchemeLight
+    ColorSchemeDark
+)// ColorSchemeSystem follows the system's preference (the zero
+// value).
+// ColorSchemeDark is the dark scheme: dark: variants apply.
+```
+
+```go
+const (
+    // System follows the system's light or dark preference. It is the
+    // zero value, so an [App] follows the system unless it sets
+    // ColorScheme.
+    System ColorScheme = core.ColorSchemeSystem
+    // Light is the light scheme: dark: classes do not apply.
+    Light ColorScheme = core.ColorSchemeLight
+    // Dark is the dark scheme: dark: classes apply.
+    Dark ColorScheme = core.ColorSchemeDark
+)
+```
+
+#### func UseColorScheme
+
+```go
+func UseColorScheme() ColorScheme
+```
+
+UseColorScheme returns the effective color scheme, [`Light`](#type-colorscheme) or [`Dark`](#type-colorscheme): the one the app set ([`App`](#type-app).ColorScheme, [`SetColorScheme`](#func-setcolorscheme)) or, with [`System`](#type-colorscheme), the system's preference. The component builds again when it changes, like with a state hook. It is a hook: call it at the top level of a component.
+
+```go
+func Logo() tela.Node {
+    src := lightLogo
+    if tela.UseColorScheme() == tela.Dark {
+        src = darkLogo
+    }
+    return Img(SrcImage(src), Alt("Tela"))
+}
+```
+
+Classes do not need it: dark:bg-slate-900 already follows the scheme.
+
+**Example**
+
+```go
+theme := func() tela.Node {
+    name := "light"
+    if tela.UseColorScheme() == tela.Dark {
+        name = "dark"
+    }
+    return P(Textf("Theme: %s", name))
+}
+// The system prefers dark (telatest.Dark), the app follows it.
+yaml, _ := telatest.AriaSnapshot(tela.C(theme), telatest.Dark())
+fmt.Println(yaml)
+// The app overrides the system (tela.App.ColorScheme).
+yaml, _ = telatest.AriaSnapshot(tela.C(theme), telatest.Dark(), telatest.ColorScheme(tela.Light))
+fmt.Println(yaml)
+// Output:
+// - paragraph: "Theme: dark"
+// - paragraph: "Theme: light"
+```
+
+#### func (ColorScheme) String
+
+```go
+func (s ColorScheme) String() string
+```
 
 ### type CompositionEvent
 

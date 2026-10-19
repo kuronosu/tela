@@ -243,6 +243,32 @@ type vlist struct {
 	// item aligned while measurements move it.
 	req   *alignReq
 	align *alignState
+	// sticky are the indices of the items seen sticky when they were last
+	// built, ascending (noteSticky).
+	sticky []int
+}
+
+// noteSticky records whether built item i is sticky (its box is
+// position: sticky).
+func (vl *vlist) noteSticky(i int, sticky bool) {
+	k, found := slices.BinarySearch(vl.sticky, i)
+	switch {
+	case sticky && !found:
+		vl.sticky = slices.Insert(vl.sticky, k, i)
+	case !sticky && found:
+		vl.sticky = slices.Delete(vl.sticky, k, k+1)
+	}
+}
+
+// stickyBefore returns the last item before index lo that was sticky when
+// it was last built, or -1: kept mounted, since it may be stuck over the
+// items of the window. An item never built is not known to be sticky.
+func (vl *vlist) stickyBefore(lo int) int {
+	k, _ := slices.BinarySearch(vl.sticky, min(lo, vl.sizes.len()))
+	if k == 0 {
+		return -1
+	}
+	return vl.sticky[k-1]
 }
 
 type alignReq struct {
@@ -411,8 +437,16 @@ func (vl *vlist) render(p *vprops) Node {
 	}
 	n := vl.sizes.len()
 	built := vl.built[:0]
+	// The last sticky item before the range stays mounted: it may be
+	// stuck over the visible items (sticky.go).
+	if sk := vl.stickyBefore(lo); sk >= 0 && (keep < 0 || sk < keep-1) {
+		built = append(built, sk)
+	}
 	for k := max(keep-1, 0); keep >= 0 && k <= keep+1 && k < lo; k++ {
 		built = append(built, k)
+	}
+	if sk := vl.stickyBefore(lo); sk >= 0 && keep >= 0 && sk >= keep-1 && sk > keep+1 {
+		built = append(built, sk)
 	}
 	for i := lo; i <= hi; i++ {
 		built = append(built, i)
@@ -757,6 +791,7 @@ func (vl *vlist) measure(outer, content *Box, s *scroller) bool {
 		if v == nil || v.role != virtItem || v.vl != vl || v.idx >= n {
 			continue
 		}
+		vl.noteSticky(v.idx, len(k.kids) > 0 && k.kids[0].cs != nil && k.kids[0].cs.Position == style.PositionSticky)
 		h := clampSize(k.ld.Layout().Size.H)
 		old := vl.sizes.at(v.idx)
 		if h == old {

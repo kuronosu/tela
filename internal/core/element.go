@@ -139,7 +139,7 @@ func (el *Element) sameType(n Node) bool {
 	case elemText:
 		return d.kind == nodeText
 	case elemPrimitive:
-		return d.kind == nodeElement && d.elem == el.box.kind
+		return d.kind == nodeElement && d.elem == el.box.kind && d.portal == el.box.portal
 	case elemComponent:
 		return d.kind == nodeComponent && d.comp.typ == el.comp.typ && d.comp.ctx == el.comp.ctx
 	}
@@ -529,6 +529,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.elem.IsTextField() {
 			t.mountField(el)
 		}
+		if d.portal {
+			t.mountPortal(el)
+		}
 		t.markStyle(el)
 		t.markBoxes(el)
 		if d.elem == style.KindImg {
@@ -568,6 +571,9 @@ func (t *Tree) unmount(el *Element) {
 		t.unmountIndexed(el)
 		if el.box.fld != nil {
 			t.unmountField(el)
+		}
+		if el.box.portal {
+			t.unmountPortal(el)
 		}
 	}
 	for _, h := range el.hooks {

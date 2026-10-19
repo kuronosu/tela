@@ -155,6 +155,16 @@ type Keyframes struct {
 	Frames []Keyframe
 }
 
+// AnimatesTransform reports whether a keyframe sets the transform.
+func (k *Keyframes) AnimatesTransform() bool {
+	for i := range k.Frames {
+		if k.Frames[i].Transform != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func f32(v float32) *float32 { return &v }
 
 func tf(t style.Transform) *style.Transform { return &t }

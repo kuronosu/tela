@@ -23,11 +23,12 @@ func Card(title, body string) tela.Node {
 
 What is supported: spacing, sizing, colors (with opacity as `bg-white/15`),
 borders, radius, shadows, gradients (`bg-linear-to-br from-indigo-500
-to-fuchsia-600`), typography, block and flex layout, relative and absolute
-positioning, overflow, transforms, transitions (`transition`, `duration-*`, `ease-*`, `delay-*`, also with `hover:` and `dark:`), the `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` classes, and arbitrary values (`w-[calc(50%-8px)]`,
+to-fuchsia-600`), typography, block, flex and grid layout, positioning
+(`relative`, `absolute`, `fixed`, `sticky`; see [Positioning](#positioning)),
+overflow, transforms, transitions (`transition`, `duration-*`, `ease-*`, `delay-*`, also with `hover:` and `dark:`), the `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` classes, and arbitrary values (`w-[calc(50%-8px)]`,
 `bg-[#1e1e2e]`). The vocabulary is generated from Tailwind v4's theme; the v3
-aliases that mean the same thing are accepted (`bg-gradient-to-br`). Grid,
-`fixed`/`sticky` positioning and custom keyframes are not implemented
+aliases that mean the same thing are accepted (`bg-gradient-to-br`). Custom
+keyframes are not implemented
 yet; check the [roadmap](https://github.com/kuronosu/tela/blob/main/docs/ROADMAP.md)
 before relying on them.
 
@@ -116,11 +117,47 @@ func Row(name string) tela.Node {
 }
 ```
 
+## Positioning
+
+Positioning follows CSS, measured against Chromium:
+
+- `relative` offsets a box by its insets; `absolute` places it against its
+  nearest positioned ancestor (or one with a transform or a filter, which
+  contains positioned descendants in CSS).
+- `fixed` places a box against the window: scrolling the page or any
+  container does not move it, and the overflow clips of its ancestors do not
+  cut it. A transformed or filtered ancestor (`translate-x-4`, `blur-sm`,
+  `backdrop-blur`) becomes its containing block instead, as in browsers. With
+  auto insets it stays at its static position.
+- `sticky` keeps a box in flow and, while its scroll container scrolls,
+  pushes it inside the scrollport by its insets (`top-0`, `bottom-4`,
+  `left-0`...), never out of its parent: a section header sticks while its
+  section scrolls by and is pushed out by the section's end. It works in
+  `overflow-auto` boxes, in the window, and for the items of
+  [`h.VirtualList`](Scrolling-and-VirtualList).
+
+```go
+func Page() tela.Node {
+	return Div(
+		Div(Class("sticky top-0 z-10 h-12 bg-white/90 px-4 shadow"), Text("Header")),
+		Div(Class("h-[2000px] p-4"), Text("Content")),
+		Button(Class("fixed right-4 bottom-4 rounded-full bg-indigo-600 px-4 py-2 text-white"), Text("New")),
+	)
+}
+```
+
+For overlays that must cover everything (modals, menus, toasts), render
+them through [`h.Portal`](Elements-and-Props#portals), which also escapes the
+stacking contexts and z-index of the component that renders them.
+
 ## Dark mode
 
-`dark:` applies when the system prefers a dark color scheme. Write both looks
-with a class pair; the `dark:` class overrides the plain one when dark mode
-is on:
+`dark:` applies when the color scheme is dark: the system's preference,
+unless the app chooses one with `ColorScheme` on the [`tela.App`](https://pkg.go.dev/github.com/kuronosu/tela#App)
+(`tela.Light`, `tela.Dark`; the zero value `tela.System` follows the system)
+or switches at run time with [`tela.SetColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#SetColorScheme)
+(safe from any goroutine). Write both looks with a class pair; the `dark:`
+class overrides the plain one when dark mode is on:
 
 ```go
 func Panel() tela.Node {
@@ -152,6 +189,26 @@ func TestPanelDark(t *testing.T) {
 	}
 }
 ```
+
+A component that needs the scheme in Go (to pick an image, say) reads it with
+[`tela.UseColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#UseColorScheme),
+which rebuilds it when the scheme changes; [`tela.UseReducedMotion`](https://pkg.go.dev/github.com/kuronosu/tela#UseReducedMotion)
+does the same for the system's reduced-motion setting (`motion-reduce:`).
+A toggle:
+
+```go
+func ThemeToggle() tela.Node {
+	dark := tela.UseColorScheme() == tela.Dark
+	next, label := tela.Dark, "Dark mode"
+	if dark {
+		next, label = tela.Light, "Light mode"
+	}
+	return Button(OnClick(func(tela.MouseEvent) { tela.SetColorScheme(next) }), Text(label))
+}
+```
+
+In tests, `telatest.Dark()` makes the system prefer dark and
+`telatest.ColorScheme(tela.Dark)` sets the app's scheme.
 
 Set the window background with `RootClass` on the [`tela.App`](https://pkg.go.dev/github.com/kuronosu/tela#App), which styles the
 root box that fills the window: `RootClass: "bg-white dark:bg-zinc-950"`.

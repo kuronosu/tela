@@ -26,7 +26,9 @@ import (
 //     (paintHoisted). Every box is painted at its unscrolled position (u),
 //     and the compositor moves a chunk by the scroll offsets between its
 //     space and the space of the list that holds its marker, so a scroll
-//     re-records nothing;
+//     re-records nothing. A sticky box has a scroll space of its own too
+//     (sticky.go), whose offset is its negated sticky offset: its chunk
+//     always carries its translation and nothing in it is culled;
 //   - a deferred layer: a stacking context with paint-phase deferred props
 //     (TranslateFn, OpacityFn: Box.deferPaint) other than the root. Its
 //     list holds everything inside its effects; the compositor pushes its
@@ -364,7 +366,7 @@ func (p *painter) placeScroller(bx *Box, s *scroller) {
 // of s and of the spaces it is in.
 func shiftOf(s *scroller) gfx.Point {
 	var d gfx.Point
-	for ; s != nil; s = s.box.space {
+	for ; s != nil; s = s.outer() {
 		d = d.Add(s.soff)
 	}
 	return d
@@ -415,7 +417,10 @@ func (t *Tree) composeLayer(m gfx.Marker) {
 	L.compCur = idx
 	switch l.kind {
 	case layerChunk:
-		moved := in.d != (gfx.Point{})
+		// A sticky space's chunk always has its translation, so that the
+		// damage sees it move when its offset starts or stops (a pushed
+		// block bounds its content, damage.go).
+		moved := in.d != (gfx.Point{}) || l.space != nil && l.space.sticky
 		if moved {
 			b.PushTransform(gfx.Translate(in.d.X, in.d.Y))
 		}

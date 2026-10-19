@@ -301,11 +301,12 @@ func (e *Engine) grid(n Node, st *Style, in input) output {
 			it.baseline.v = fmax(fmin(it.baseline.v, h), 0)
 		}
 		of = of.union(c)
-		escapes = escapes || (out.escapes && it.st.Position == PositionStatic)
+		escapes = escapes || (out.escapes && it.st.passesAbs())
 	}
 
-	// Absolutely positioned children.
-	cb := st.Position != PositionStatic || n.LayoutData().parent == nil
+	// Absolutely positioned children; fixed ones are laid out by their
+	// fixed containing block (fixed.go).
+	cb := st.absContainer(n.LayoutData().parent == nil)
 	var absOf rect
 	for i := 0; i < count; i++ {
 		ch := n.LayoutChild(i)
@@ -313,11 +314,11 @@ func (e *Engine) grid(n Node, st *Style, in input) output {
 		if cst.Display == DisplayNone || cst.Position != PositionAbsolute {
 			continue
 		}
-		if !cb {
+		if !cb || cst.Fixed {
 			// The static position: the content box as the grid area.
 			box := rect{l: cbi.l, r: borderBox.w - cbi.r, t: cbi.t, b: borderBox.h - cbi.b}
 			ch.LayoutData().static = gridStaticPos(box, cst, gs, false)
-			escapes = true
+			escapes = escapes || !cst.Fixed
 			continue
 		}
 		area := gridAbsoluteArea(names, colCounts, rowCounts, columns, rows, cst, borderBox, border, gutter, rtl)

@@ -1,0 +1,26 @@
+<!doctype html>
+<html class="overflow-hidden">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="h-screen overflow-auto bg-white">
+<div id="e0" class="p-3"><div id="e1" class="h-[180px] overflow-y-auto rounded-lg border border-slate-300 bg-white"><div id="e2"><div id="e3" class="sticky top-0 z-10 h-8 bg-slate-800 px-2 text-sm/8 text-white">Section A</div><div id="e4" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 0</div><div id="e5" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 1</div><div id="e6" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 2</div><div id="e7" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 3</div><div id="e8" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 4</div></div><div id="e9"><div id="e10" class="sticky top-0 z-10 h-8 bg-indigo-700 px-2 text-sm/8 text-white">Section B</div><div id="e11" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 0</div><div id="e12" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 1</div><div id="e13" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 2</div><div id="e14" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 3</div><div id="e15" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 4</div></div><div id="e16"><div id="e17" class="sticky top-2 z-10 h-8 bg-rose-700 px-2 text-sm/8 text-white">Section C</div><div id="e18" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 0</div><div id="e19" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 1</div><div id="e20" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 2</div><div id="e21" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 3</div><div id="e22" class="h-7 border-b border-slate-100 px-2 text-xs/7">Row 4</div><div id="e23" class="sticky bottom-0 h-6 bg-sky-600 px-2 text-xs/6 text-white">Footer</div></div></div><div id="e24" class="mt-3 flex overflow-x-auto rounded-lg bg-slate-100"><div id="e25" class="sticky left-0 z-10 h-12 w-16 shrink-0 bg-amber-300 p-2 text-xs">Name</div><div id="e26" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 0</div><div id="e27" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 1</div><div id="e28" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 2</div><div id="e29" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 3</div><div id="e30" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 4</div><div id="e31" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 5</div><div id="e32" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 6</div><div id="e33" class="h-12 w-20 shrink-0 border-r border-slate-300 p-2 text-xs">Col 7</div></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+const steps = [[],[[1,0,60],[24,120,0]],[[1,0,190]],[[1,0,330],[24,400,0]],[[1,0,1000]]];
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const k = +(location.hash.slice(1) || 0);
+  for (const [id, x, y] of steps[k]) {
+    if (id < 0) document.body.scrollTo(x, y); else document.getElementById("e" + id).scrollTo(x, y);
+  }
+  const out = [];
+  for (let i = 0; i < 34; i++) {
+    const q = document.getElementById("e" + i).getBoundingClientRect();
+    out.push([q.left, q.top, q.width, q.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

@@ -185,7 +185,7 @@ func (e *Engine) flexPreliminary(n Node, st *Style, in input) output {
 	inflowOverflow, escapes := e.flexFinalPass(n, lines, &c)
 	absOverflow, absEscapes := e.flexAbsolute(n, st, &c)
 	escapes = escapes || absEscapes
-	if escapes && (st.Position != PositionStatic || n.LayoutData().parent == nil) {
+	if escapes && st.absContainer(n.LayoutData().parent == nil) {
 		area, areaOffset := c.absoluteArea()
 		absOverflow = absOverflow.union(e.layoutEscaped(n, area, areaOffset, c.layoutDir, c.scrolls))
 		escapes = false
@@ -1446,5 +1446,5 @@ func (e *Engine) flexLayoutItem(n Node, it *flexItem, mainOffset *float32, cross
 		contribLoc.x = c.containerSize.w - (loc.x + sz.w) - c.border.r
 	}
 	*of = of.union(overflowContribution(contribLoc, sz, out.overflow, it.st, c.scrolls))
-	return out.escapes && it.st.Position == PositionStatic
+	return out.escapes && it.st.passesAbs()
 }

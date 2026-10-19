@@ -121,7 +121,9 @@ func (t *Tree) buildBoxes(el *Element) {
 			i++
 		}
 	default:
-		inline := len(items) > 0
+		// A root with portal layers is a container: they are its last
+		// children.
+		inline := len(items) > 0 && (el != t.root || len(t.portals) == 0)
 		for _, it := range items {
 			if !t.inlineLevel(it) {
 				inline = false
@@ -155,6 +157,9 @@ func (t *Tree) buildBoxes(el *Element) {
 			kids = append(kids, items[i].box)
 			i++
 		}
+	}
+	if el == t.root && len(t.portals) > 0 {
+		kids = t.portalBoxes(kids)
 	}
 	for _, a := range bx.anon[nAnon:] {
 		a.parent, a.para, a.kids = nil, nil, nil
@@ -200,6 +205,9 @@ func (t *Tree) collect(out []*Element, el *Element) []*Element {
 		case elemComponent:
 			out = t.collect(out, c)
 		case elemPrimitive:
+			if c.box.portal {
+				continue // a portal layer: a child of the root box (portal.go)
+			}
 			if cs := c.box.cs; cs != nil {
 				switch cs.Display {
 				case style.DisplayContents:

@@ -56,7 +56,8 @@ import (
 // (layer.go: enter), and the compositor moves it by the offsets, so an
 // absolutely positioned descendant whose containing block is outside a
 // scroll container does not scroll with it (CSS), and fixed boxes never
-// move with the root.
+// move with the root. A sticky box is painted in a scroll space of its
+// own, moved by its sticky offset (sticky.go).
 //
 // # Stacking (ARCHITECTURE section 13, simplified CSS 2 appendix E)
 //
@@ -175,6 +176,16 @@ func (p *painter) place(bx *Box, parent *Box) {
 	}
 	bx.space = space
 	bx.u = gfx.RectFromOriginSize(loc, l.Size)
+	if parent == nil {
+		clear(t.stickies)
+		t.stickies = t.stickies[:0]
+	} else if isSticky(bx) {
+		// Painted in a scroll space of its own, moved by its sticky
+		// offset (sticky.go).
+		bx.space = stickySpace(bx, space)
+		p.placeSticky(bx)
+		t.stickies = append(t.stickies, bx)
+	}
 	if s := bx.scr; s != nil {
 		p.offset(s)
 		p.placeScroller(bx, s)
@@ -274,6 +285,9 @@ func (p *painter) update(marked []*Box) {
 			p.offset(s)
 			p.placeScroller(bx, s)
 		}
+	}
+	if len(t.stickies) > 0 {
+		p.updateSticky()
 	}
 	for _, bx := range marked {
 		if !bx.deferPaint || bx.pcs == nil || bx == t.rootBox || !t.inTree(bx) {
@@ -528,24 +542,50 @@ func (p *painter) paintHoisted(root, e *Box) {
 
 // containingBlock returns the box whose padding box contains bx's layout
 // (CSS containing block): the parent for in-flow boxes, the nearest
-// positioned ancestor (or the root) for absolute boxes, the nearest
-// transformed or filtered ancestor (or the root) for fixed boxes.
+// positioned ancestor or ancestor that contains positioned descendants
+// (containsPositioned), or the root, for absolute boxes, the nearest
+// ancestor that contains positioned descendants (or the root) for fixed
+// boxes. It agrees with layout (layout.Style.ContainingBlock and Fixed).
 func containingBlock(bx *Box) *Box {
 	switch bx.pcs.Position {
 	case style.PositionAbsolute:
 		a := bx.parent
-		for a != nil && a.parent != nil && a.pcs.Position == style.PositionStatic {
+		for a != nil && a.parent != nil && a.pcs.Position == style.PositionStatic && !containsPositioned(a) {
 			a = a.parent
 		}
 		return a
 	case style.PositionFixed:
 		a := bx.parent
-		for a != nil && a.parent != nil && a.pcs.Transform.IsIdentity() && a.pcs.Filter.IsEmpty() {
+		for a != nil && a.parent != nil && !containsPositioned(a) {
 			a = a.parent
 		}
 		return a
 	}
 	return bx.parent
+}
+
+// containsPositioned reports whether bx is the containing block of its
+// absolutely positioned and fixed descendants even when it is static:
+// like Chromium, a transform, a filter or a backdrop filter makes it one.
+// What decides is stable between restyles, so that layout (which reads it
+// when the layout style is mapped) and paint agree: the target style of
+// the classes and props (not the value of a running transition, which
+// would flip it while it passes through the identity, without a relayout)
+// and, like Chromium's running transform animations, a keyframe animation
+// of the transform (animate-spin) while it is attached. A paint-phase
+// TranslateFn alone does not count, nor does a transition back to no
+// transform (Chromium counts the transform while it runs).
+func containsPositioned(bx *Box) bool {
+	cs := bx.cs
+	if ba := bx.anim; ba != nil {
+		if ba.target != nil {
+			cs = ba.target
+		}
+		if k := ba.kf; k != nil && k.kfs != nil && k.kfs.AnimatesTransform() {
+			return true
+		}
+	}
+	return !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() || !cs.BackdropFilter.IsEmpty()
 }
 
 // paintFlow paints an in-flow box that is not a participant, atomically,

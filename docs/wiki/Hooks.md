@@ -372,6 +372,17 @@ func FadingHeader(rows tela.Node) tela.Node {
 }
 ```
 
+## Environment: UseColorScheme and UseReducedMotion
+
+[`tela.UseColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#UseColorScheme) returns the effective color scheme, `tela.Light` or
+`tela.Dark` (the app's choice or the system's preference), and
+[`tela.UseReducedMotion`](https://pkg.go.dev/github.com/kuronosu/tela#UseReducedMotion) whether the system asks for reduced motion. The component
+builds again when they change; nothing else does. Classes do not need them
+(`dark:` and `motion-reduce:` follow the same settings); use them for what
+classes cannot do, such as picking an image.
+[`tela.SetColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#SetColorScheme) changes the app's scheme from any goroutine; see
+[Styling](Styling#dark-mode).
+
 ## Background work: Post
 
 [`tela.Post`](https://pkg.go.dev/github.com/kuronosu/tela#Post) runs a function on the UI thread, in order with state updates. It is

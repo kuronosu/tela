@@ -160,3 +160,25 @@ func ExampleVirtualList() {
 	// - listitem: Row 1
 	// - listitem: Row 2
 }
+
+func ExamplePortal() {
+	// The dialog is rendered by the card's component, but shown above
+	// the page; its content comes after the page's, as if appended to the
+	// body.
+	page := Div(
+		Div(Class("relative z-10 overflow-hidden rounded-xl p-4"),
+			Text("Card"),
+			Portal(Div(Class("fixed inset-0 flex items-center justify-center bg-black/40"),
+				Div(Role("dialog"), AriaLabel("Confirm"), Class("rounded-xl bg-white p-6"),
+					Button(Text("OK"))))),
+		),
+		Button(Text("Footer")),
+	)
+	yaml, _ := telatest.AriaSnapshot(page)
+	fmt.Println(yaml)
+	// Output:
+	// - text: Card
+	// - button "Footer"
+	// - dialog "Confirm":
+	//   - button "OK"
+}

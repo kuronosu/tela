@@ -203,31 +203,35 @@ const (
 	hookValue
 	hookElementRef
 	hookScroll
-	hookVirtual  // the state of a VirtualList (virtual.go)
-	hookBounds   // UseBounds (bounds.go)
-	hookSpring   // UseSpring (valueanim.go)
-	hookTween    // UseTween (valueanim.go)
-	hookPresence // UsePresence (presence.go)
+	hookVirtual       // the state of a VirtualList (virtual.go)
+	hookBounds        // UseBounds (bounds.go)
+	hookSpring        // UseSpring (valueanim.go)
+	hookTween         // UseTween (valueanim.go)
+	hookPresence      // UsePresence (presence.go)
+	hookColorScheme   // UseColorScheme (env.go)
+	hookReducedMotion // UseReducedMotion (env.go)
 )
 
 var hookNames = [...]string{
-	hookState:        "UseState",
-	hookReducer:      "UseReducer",
-	hookEffect:       "UseEffect",
-	hookLayoutEffect: "UseLayoutEffect",
-	hookMemo:         "UseMemo",
-	hookCallback:     "UseCallback",
-	hookRef:          "UseRef",
-	hookContext:      "UseContext",
-	hookID:           "UseId",
-	hookValue:        "UseValue",
-	hookElementRef:   "UseElementRef",
-	hookScroll:       "UseScroll",
-	hookVirtual:      "VirtualList",
-	hookBounds:       "UseBounds",
-	hookSpring:       "UseSpring",
-	hookTween:        "UseTween",
-	hookPresence:     "UsePresence",
+	hookState:         "UseState",
+	hookReducer:       "UseReducer",
+	hookEffect:        "UseEffect",
+	hookLayoutEffect:  "UseLayoutEffect",
+	hookMemo:          "UseMemo",
+	hookCallback:      "UseCallback",
+	hookRef:           "UseRef",
+	hookContext:       "UseContext",
+	hookID:            "UseId",
+	hookValue:         "UseValue",
+	hookElementRef:    "UseElementRef",
+	hookScroll:        "UseScroll",
+	hookVirtual:       "VirtualList",
+	hookBounds:        "UseBounds",
+	hookSpring:        "UseSpring",
+	hookTween:         "UseTween",
+	hookPresence:      "UsePresence",
+	hookColorScheme:   "UseColorScheme",
+	hookReducedMotion: "UseReducedMotion",
 }
 
 func (k hookKind) String() string { return hookNames[k] }

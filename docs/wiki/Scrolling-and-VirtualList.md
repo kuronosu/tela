@@ -35,6 +35,15 @@ By default scrollbars are thin overlay bars that appear while scrolling.
 
 The system's reduced-motion setting always turns the animation off.
 
+### Fixed and sticky boxes
+
+A `fixed` box is placed against the window and does not move when the page
+or a container scrolls; a `sticky` box scrolls with its container until its
+insets stop it at an edge of the scrollport, and its parent's end pushes it
+out ([Styling](Styling#positioning)). Both follow scrolling without any work
+but painting: a scroll frame records nothing again and moves them in the
+compositor.
+
 ## Scrolling from code
 
 Attach an [`tela.ElementRef`](https://pkg.go.dev/github.com/kuronosu/tela#ElementRef) with [`Ref`](https://pkg.go.dev/github.com/kuronosu/tela/h#Ref) (from [`tela.UseElementRef`](https://pkg.go.dev/github.com/kuronosu/tela#UseElementRef)) and call its
@@ -131,6 +140,12 @@ func People() tela.Node {
   ones (5 by default). More items cost more layout and paint per frame; 0
   rebuilds the list on every scroll that shows a new item.
 - Lists are vertical; horizontal lists and grids are not virtualized yet.
+- Items can be `sticky`: a section header with `sticky top-0` sticks while the
+  items after it scroll by, and the next header covers it (the item wrappers
+  do not contain it; the list does). The last sticky item above the window
+  stays mounted while it may be stuck. A header the list never built (the
+  list jumped past it with `ScrollToIndex`) is not known to be sticky until
+  it is built.
 
 ### Scrolling to an item
 

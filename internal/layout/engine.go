@@ -53,7 +53,8 @@ func (e *Engine) relayoutBoundaries() bool {
 		d.unrounded.ScrollableOverflow.X1 = out.overflow.r
 		d.unrounded.ScrollableOverflow.Y0 = out.overflow.t
 		d.unrounded.ScrollableOverflow.Y1 = out.overflow.b
-		if out.size != old.size || out.firstBaseline != old.firstBaseline || out.escapes || old.escapes {
+		if out.size != old.size || out.firstBaseline != old.firstBaseline || out.escapes || old.escapes ||
+			out.escapesFixed || old.escapesFixed {
 			e.markParentDirty(n)
 			again = true
 		}

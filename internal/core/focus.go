@@ -410,6 +410,19 @@ type tabWalker struct {
 	start    *Element
 	startIdx int32
 	found    bool
+	// top is the element being walked from (walkAll).
+	top *Element
+}
+
+// walkAll walks root, then the portals inside it in mount order: their
+// content follows the root's, like content appended to the body.
+func (w *tabWalker) walkAll(t *Tree, root *Element) {
+	w.top = root
+	w.walk(root, false, false)
+	for _, p := range t.portalsIn(root, nil) {
+		w.top = p
+		w.walk(p, false, false)
+	}
 }
 
 func (w *tabWalker) walk(el *Element, hidden, inert bool) {
@@ -422,8 +435,8 @@ func (w *tabWalker) walk(el *Element, hidden, inert bool) {
 		}
 		return
 	}
-	if !el.mounted {
-		return
+	if !el.mounted || el != w.top && isPortal(el) {
+		return // a portal's content comes after the root's (walkAll)
 	}
 	idx := w.n
 	w.n++
@@ -468,7 +481,7 @@ func (t *Tree) moveFocus(backward bool) {
 		start = nil
 	}
 	w := tabWalker{out: f.tab[:0], start: start}
-	w.walk(root, false, false)
+	w.walkAll(t, root)
 	f.tab = w.out
 	defer func() {
 		clear(f.tab)

@@ -89,6 +89,9 @@ type semState struct {
 	// Scratch state of the name computation and of text bounds.
 	alt   altCtx
 	rects []gfx.Rect
+	// portal is the portal being built (its content follows the root's,
+	// portal.go); others met inside the tree are skipped.
+	portal *Element
 }
 
 // Semantics returns the semantics tree (see the comment at the top of
@@ -117,9 +120,17 @@ func (t *Tree) Semantics() *semantics.Node {
 			root.Actions |= semantics.ActionScroll
 		}
 		inh := semInherit{blockify: blockifies(t.rootBox.cs)}
+		s.portal = nil
 		for _, c := range t.root.children {
 			t.semElement(c, root, inh)
 		}
+		// The portals' content after the root's, as if appended to the
+		// body (portal.go).
+		for _, p := range t.portalsIn(t.root, nil) {
+			s.portal = p
+			t.semElement(p, root, semInherit{})
+		}
+		s.portal = nil
 	}
 	s.root, s.frame, s.valid = root, t.frame, !t.Dirty()
 	return root
@@ -188,6 +199,9 @@ func (t *Tree) semElement(el *Element, parent *semantics.Node, inh semInherit) {
 		}
 		parent.Children = append(parent.Children, n)
 	case elemPrimitive:
+		if isPortal(el) && el != t.sem.portal {
+			return // built after the root's content
+		}
 		t.semPrimitive(el, parent, inh)
 	}
 }
@@ -699,6 +713,7 @@ func (t *Tree) semOrigin(bx *Box) gfx.Point {
 		o = o.Add(b.ld.Layout().Location)
 	}
 	for b := bx; ; {
+		o = o.Add(stickyShift(b)) // a stuck box (sticky.go)
 		cb := containingBlockOf(b)
 		if cb == nil {
 			break

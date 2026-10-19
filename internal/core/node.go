@@ -65,6 +65,8 @@ type desc struct {
 	id string
 	// exit are the Exit classes (presence.go).
 	exit string
+	// portal marks a Portal node (portal.go).
+	portal bool
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings
@@ -464,6 +466,9 @@ func If(cond bool, n Node) Node {
 // describe returns a short description of a primitive for messages:
 // `<div class="p-4">`.
 func (d *desc) describe() string {
+	if d.portal {
+		return "<Portal>"
+	}
 	if len(d.classes) == 0 {
 		return "<" + d.elem.String() + ">"
 	}

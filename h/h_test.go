@@ -193,7 +193,7 @@ func TestExportedNames(t *testing.T) {
 		"OnCompositionUpdate", "OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus",
 		"OnKeyDown", "OnKeyUp", "OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove",
 		"OnMouseUp", "OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove",
-		"OnPointerUp", "OnScroll", "OnSelect", "OnSubmit", "OnWheel", "Overscan", "P", "Placeholder", "Presence", "ReadOnly",
+		"OnPointerUp", "OnScroll", "OnSelect", "OnSubmit", "OnWheel", "Overscan", "P", "Placeholder", "Portal", "Presence", "ReadOnly",
 		"Ref", "Role", "Rows", "Span", "SpellCheck", "Src", "Strong", "Style", "TabIndex", "Text", "TextFn",
 		"Textarea", "Textf", "Type", "Value",
 		"VirtualList",

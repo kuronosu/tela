@@ -33,9 +33,13 @@ type Config struct {
 	// both axes (overflow auto) unless these classes set an overflow
 	// (scroll.go).
 	RootClass string
-	// Dark and ReducedMotion are the initial environment of the dark: and
-	// motion-reduce: variants (a Host takes them from the system).
+	// Dark and ReducedMotion are the system's initial preferences (a
+	// Host takes them from the platform): the dark: variants, unless
+	// ColorScheme overrides the scheme, and motion-reduce: (env.go).
 	Dark, ReducedMotion bool
+	// ColorScheme is the app's color scheme; the zero value follows the
+	// system (Dark).
+	ColorScheme ColorScheme
 	// Dev turns dev mode on: warnings about lists without keys, and class
 	// errors on stderr when Log is nil. TELA_DEV=1 does the same.
 	Dev bool
@@ -177,6 +181,13 @@ type Tree struct {
 
 	// lay holds the layers and the composed frames (layer.go).
 	lay layerState
+	// stickies are the sticky boxes of the last place, in tree order
+	// (sticky.go).
+	stickies []*Box
+	// portals are the mounted Portal elements, in mount order (portal.go).
+	portals []*Element
+	// env is the color scheme and reduced motion (env.go).
+	env envState
 
 	// anim is the state of the transitions and keyframe animations
 	// (anim.go).
@@ -229,7 +240,9 @@ func NewTree(cfg Config) *Tree {
 	if t.idPrefix == "" {
 		t.idPrefix = "t" + strconv.FormatUint(treeSerial.Add(1)-1, 36) + "-"
 	}
-	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: cfg.Dark, ReducedMotion: cfg.ReducedMotion}
+	checkScheme(cfg.ColorScheme)
+	t.env = envState{sysDark: cfg.Dark, sysReduced: cfg.ReducedMotion, scheme: cfg.ColorScheme}
+	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: t.env.effectiveDark(), ReducedMotion: cfg.ReducedMotion}
 	return t
 }
 
@@ -292,6 +305,7 @@ func (t *Tree) Mount(root Node) {
 		el := &Element{tree: t, kind: elemPrimitive, node: n, mounted: true}
 		el.box = newBox(t, el, style.KindRoot)
 		t.root, t.rootBox = el, el.box
+		t.initEnv()
 		t.markStyle(el)
 		t.markBoxes(el)
 		t.reconcile(el, n.d.children)
@@ -345,16 +359,6 @@ func (t *Tree) SetScale(scale float32) {
 	}
 	t.scale = scale
 	t.dirty()
-}
-
-// SetEnvironment sets dark mode and reduced motion (the dark: and
-// motion-reduce: variants).
-func (t *Tree) SetEnvironment(dark, reducedMotion bool) {
-	if dark == t.cx.Dark && reducedMotion == t.cx.ReducedMotion {
-		return
-	}
-	t.cx.Dark, t.cx.ReducedMotion = dark, reducedMotion
-	t.restyleAll()
 }
 
 // restyleAll queues every primitive for the style phase.

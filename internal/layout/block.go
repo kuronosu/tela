@@ -168,7 +168,7 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 	absInset := rBorder.add(gutter)
 	area := final.sub(absInset.sum())
 	areaOffset := point{absInset.l, absInset.t}
-	cb := st.Position != PositionStatic || n.LayoutData().parent == nil
+	cb := st.absContainer(n.LayoutData().parent == nil)
 	var absOverflow rect
 	for i := range items {
 		it := &items[i]
@@ -176,6 +176,9 @@ func (e *Engine) blockInner(n Node, st *Style, in input) output {
 			continue
 		}
 		it.node.LayoutData().static = it.static
+		if it.st.Fixed {
+			continue // laid out by its fixed containing block (fixed.go)
+		}
 		if cb {
 			absOverflow = absOverflow.union(e.layoutAbsolute(n, it.node, it.st, area, areaOffset, it.static, dir, scrolls, point{}))
 		} else {
@@ -350,7 +353,7 @@ func (e *Engine) blockInFlow(n Node, run runMode, items []blockItem, outerW floa
 			avail:  availSize{DefiniteSpace(stretchW), MaxContentConstraint},
 		})
 		final := out.size
-		escapes = escapes || (out.escapes && it.st.Position == PositionStatic)
+		escapes = escapes || (out.escapes && it.st.passesAbs())
 
 		// Auto margins share the free horizontal space; vertical auto
 		// margins are 0.

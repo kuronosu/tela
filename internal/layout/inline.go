@@ -208,7 +208,7 @@ func (e *Engine) inline(n Node, ic InlineContainer, st *Style, in input) output 
 		}
 		cst := c.LayoutStyle()
 		c.LayoutData().setLayout(it.loc, it.out.size, it.border, it.padding, it.margin, it.sb, it.out.overflow, it.out.firstBaseline)
-		escapes = escapes || (it.out.escapes && cst.Position == PositionStatic)
+		escapes = escapes || (it.out.escapes && cst.passesAbs())
 		ol := point{it.loc.x - border.l, it.loc.y - border.t}
 		out.overflow = out.overflow.union(overflowContribution(ol, it.out.size, it.out.overflow, cst, st.isScrollContainer()))
 	}

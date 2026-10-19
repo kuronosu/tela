@@ -43,6 +43,11 @@ type App struct {
 	// still animate; the class scroll-instant does the same for one
 	// element.
 	InstantScroll bool
+	// ColorScheme is the app's color scheme: Light or Dark override the
+	// system's preference (the dark: classes, UseColorScheme); the zero
+	// value, System, follows it. SetColorScheme changes it while the app
+	// runs.
+	ColorScheme ColorScheme
 }
 
 // Run opens a window, shows app.Root and runs the event loop until the
@@ -66,6 +71,7 @@ func (app App) options() core.Options {
 			RootClass:         app.RootClass,
 			ClassicScrollbars: app.ClassicScrollbars,
 			InstantScroll:     app.InstantScroll,
+			ColorScheme:       app.ColorScheme,
 		},
 		Title:  app.Title,
 		AppID:  app.AppID,

@@ -132,11 +132,13 @@ const (
 	// descendants.
 	PositionRelative
 	// PositionAbsolute takes the node out of flow and places it against
-	// the padding box of its nearest positioned ancestor (or the layout
-	// root), using its insets or, where they are auto, its static
-	// position.
+	// the padding box of its nearest positioned ancestor (or the nearest
+	// ancestor with ContainingBlock, or the layout root), using its insets
+	// or, where they are auto, its static position. With Style.Fixed it
+	// is CSS's position: fixed instead (fixed.go).
 	PositionAbsolute
-	// fixed and sticky arrive in a later phase.
+	// Sticky positioning is relative positioning for layout: core moves
+	// the box when it paints.
 )
 
 // Overflow is one axis of the CSS overflow property. Layout only uses its
@@ -302,7 +304,38 @@ type Style struct {
 	// Replaced marks a replaced element (an image): in block layout an
 	// auto width takes the measured content size instead of stretching.
 	Replaced bool
+
+	// Fixed makes a PositionAbsolute node CSS's position: fixed: its
+	// containing block is the nearest ancestor with ContainingBlock, or
+	// the layout root (the viewport), never a positioned ancestor. Its
+	// parent records its static position like an absolute node's, and its
+	// containing block lays it out after its own subtree (fixed.go). A
+	// fixed node laid out by the root adds nothing to the root's
+	// scrollable overflow (it does not scroll with it).
+	Fixed bool
+	// ContainingBlock makes the node the containing block of its
+	// absolutely positioned and fixed descendants even when it is static:
+	// CSS's transform, filter and backdrop-filter do this.
+	ContainingBlock bool
 }
+
+// absContainer reports whether a node with style s is the containing
+// block of its absolutely positioned (not fixed) descendants; root
+// reports the layout root.
+func (s *Style) absContainer(root bool) bool {
+	return s.Position != PositionStatic || s.ContainingBlock || root
+}
+
+// passesAbs reports whether the absolutely positioned descendants that a
+// node with style s hoists go on to its parent: it is not their
+// containing block.
+func (s *Style) passesAbs() bool {
+	return s.Position == PositionStatic && !s.ContainingBlock
+}
+
+// isFixed reports a fixed node: out of flow, placed against the nearest
+// fixed containing block.
+func (s *Style) isFixed() bool { return s.Fixed && s.Position == PositionAbsolute }
 
 // DefaultStyle returns the CSS initial style: the zero Style with
 // FlexShrink 1.

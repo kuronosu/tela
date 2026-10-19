@@ -169,6 +169,34 @@ func Elapsed(seconds *tela.Value[float64]) tela.Node {
 }
 ```
 
+### Portals
+
+[`Portal`](https://pkg.go.dev/github.com/kuronosu/tela/h#Portal) shows its children in a layer above the whole window, like React's
+`createPortal` into `document.body`: the overlay is not clipped by
+`overflow-hidden` ancestors and not covered by their z-index. The layer is laid
+out against the window, so `fixed inset-0` covers it and `absolute` content
+positions against it; later portals are above earlier ones; clicks on the
+layer's empty parts reach what is under it.
+
+Everything else follows the component tree: the content keeps its state,
+reads the context of the Portal's ancestors, inherits their text color and
+font, and its events bubble to the Portal's ancestors. Tab order and the aria
+snapshot put it after the window's content.
+
+```go
+func Menu() tela.Node {
+	open, setOpen := tela.UseState(false)
+	return Div(Class("relative overflow-hidden"),
+		Button(OnClick(func(tela.MouseEvent) { setOpen.Set(!open) }), Text("Menu")),
+		If(open, Portal(
+			Div(Class("fixed inset-0"), OnClick(func(tela.MouseEvent) { setOpen.Set(false) })),
+			Div(Role("menu"), Class("fixed top-12 left-4 rounded-lg bg-white p-2 shadow-xl"),
+				Button(Role("menuitem"), Text("Rename"))),
+		)),
+	)
+}
+```
+
 ## See also
 
 - [API-Reference-h](API-Reference-h) lists every symbol with its doc comment.

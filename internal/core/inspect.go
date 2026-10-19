@@ -17,7 +17,7 @@ import (
 // plain data; the JSON tags give the serialized form.
 type InspectNode struct {
 	// Kind is the primitive ("root", "div", "h1", "button"...) or
-	// "anonymous" for an anonymous paragraph box.
+	// "anonymous" for an anonymous paragraph box, "portal" for a portal layer.
 	Kind string `json:"kind"`
 	// Key is the element's key formatted with %v, if it has one.
 	Key string `json:"key,omitempty"`
@@ -190,6 +190,9 @@ func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {
 	if b.el == nil {
 		n.Kind = "anonymous"
 	} else {
+		if b.portal {
+			n.Kind = "portal"
+		}
 		if b.el.keyed {
 			n.Key = fmt.Sprint(b.el.key)
 		}

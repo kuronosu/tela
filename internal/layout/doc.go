@@ -1,10 +1,11 @@
 // Package layout is Tela's layout engine (ARCHITECTURE section 9): block
-// layout without margin collapsing, flexbox, CSS grid, relative and
-// absolute positioning, intrinsic sizes, leaf measurement by callback,
+// layout without margin collapsing, flexbox, CSS grid, relative, absolute
+// and fixed positioning, intrinsic sizes, leaf measurement by callback,
 // caching and relayout boundaries. The algorithms are ported from Taffy
 // v0.14.0 and checked against Taffy's fixtures with expected boxes measured
-// by headless Chromium (ADR-039, ADR-073). Fixed and sticky positioning
-// are core's (as absolute and relative).
+// by headless Chromium (ADR-039, ADR-073). Sticky positioning is relative
+// positioning here (core moves sticky boxes when it paints, ADR-077);
+// scrolling is core's.
 //
 // The package depends only on the standard library and internal/gfx (for
 // result geometry). It knows nothing of styles, text or the Box tree:
@@ -93,9 +94,14 @@
 //
 // Taffy places an absolutely positioned box against its parent. Tela, like
 // CSS, places it against its nearest positioned ancestor (relative or
-// absolute) or, without one, against the root: a static parent records the
-// box's static position (where it would be in flow) and reports it
-// upwards; the containing block lays such boxes out after its own children.
+// absolute) or ancestor with Style.ContainingBlock (CSS's transform,
+// filter, backdrop-filter) or, without one, against the root: a static
+// parent records the box's static position (where it would be in flow)
+// and reports it upwards; the containing block lays such boxes out after
+// its own children. A fixed box (Style.Fixed) skips the positioned
+// ancestors: its containing block is the nearest ancestor with
+// ContainingBlock, or the root (the viewport), and fixed.go lays it out
+// for any container algorithm.
 // Absolutely positioned boxes are laid out by CSS 2's rules (10.3.7,
 // 10.6.4): the available space and auto margins come from the insets that
 // are set, percentages from the containing block's padding box; an auto

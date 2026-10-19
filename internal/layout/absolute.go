@@ -264,11 +264,12 @@ func (e *Engine) walkEscaped(x Node, off point, top bool, area size, areaOffset 
 		d := ch.LayoutData()
 		switch {
 		case st.Position == PositionAbsolute:
-			// cb's own absolutely positioned children are already laid out.
-			if !top {
+			// cb's own absolutely positioned children are already laid
+			// out; fixed ones belong to their fixed containing block.
+			if !top && !st.Fixed {
 				*of = of.union(e.layoutAbsolute(x, ch, st, area, areaOffset, d.static.translate(off), dir, scrolls, off))
 			}
-		case st.Position == PositionStatic && d.hasLast && d.lastOut.escapes:
+		case st.passesAbs() && d.hasLast && d.lastOut.escapes:
 			l := d.unrounded.Location
 			e.walkEscaped(ch, point{off.x + l.X, off.y + l.Y}, false, area, areaOffset, dir, scrolls, of)
 		}
@@ -285,7 +286,7 @@ func (e *Engine) walkEscaped(x Node, off point, top bool, area size, areaOffset 
 // space and auto margins from the insets, percentages against the padding
 // box) with the flex static position (CSS Flexbox 4.1); Chromium agrees.
 func (e *Engine) flexAbsolute(n Node, st *Style, c *flexConsts) (rect, bool) {
-	cb := st.Position != PositionStatic || n.LayoutData().parent == nil
+	cb := st.absContainer(n.LayoutData().parent == nil)
 	area, areaOffset := c.absoluteArea()
 	mainIsRTL := c.isRow && c.layoutDir == RTL
 	crossIsRTL := !c.isRow && c.layoutDir == RTL
@@ -310,11 +311,16 @@ func (e *Engine) flexAbsolute(n Node, st *Style, c *flexConsts) (rect, bool) {
 		alignSelf := cst.AlignSelf
 		if alignSelf == AlignNormal {
 			alignSelf = c.alignItems &^ AlignSafe
-		} else if !cb {
+		} else if !cb || cst.Fixed {
 			alignSelf &^= AlignSafe
 		}
 		alignSelf = resolveSelfAlign(alignSelf, cst.Direction, c.layoutDir, c.isColumn)
 		sp := flexStaticPos(c, justify, alignSelf, mainIsRTL, crossIsRTL, mainReversed, crossReversed)
+		if cst.Fixed {
+			// Laid out by its fixed containing block (fixed.go).
+			ch.LayoutData().static = sp
+			continue
+		}
 		if !cb {
 			ch.LayoutData().static = sp
 			escapes = true
