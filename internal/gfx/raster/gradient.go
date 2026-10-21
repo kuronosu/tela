@@ -30,7 +30,10 @@ import (
 //     a root with r(t) >= 0 is transparent (outside the cone).
 //
 // t below the first stop offset gives the first color, at or above the last
-// offset the last color (pad). The map from device pixels to t is affine (an
+// offset the last color (pad). Under the reflect and repeat spread modes
+// (linear, radial and focal gradients), t is first folded into [0, 1]:
+// t - floor(t) repeats, and t - 2·floor(t/2), mirrored to 2 - u above 1,
+// reflects; both are exact or correctly rounded operations. The map from device pixels to t is affine (an
 // affine function feeding a distance or an angle for radial and conic), its
 // coefficients are computed once per command in float64 with explicit
 // rounding, and t is evaluated from the absolute pixel coordinates, never
@@ -91,6 +94,7 @@ type gradShader struct {
 	r0, r0dr, r0sq float64
 	a              float64
 	covers         bool
+	spread         gfx.SpreadMode
 }
 
 func (g *gradShader) opaque() bool { return g.ramp.opaque && (g.kind != gradFocal || g.covers) }
@@ -105,7 +109,11 @@ func (g *gradShader) shadeSpan(x, y int, dst []uint8) {
 	case gradLinear:
 		for i := 0; i < n; i++ {
 			X := float64(x+i) + 0.5
-			c := rp.at(float64(g.pa*X) + p0)
+			t := float64(g.pa*X) + p0
+			if g.spread != gfx.SpreadPad {
+				t = spreadT(t, g.spread)
+			}
+			c := rp.at(t)
 			copy(dst[4*i:4*i+4], c[:])
 		}
 	case gradRadial:
@@ -113,7 +121,11 @@ func (g *gradShader) shadeSpan(x, y int, dst []uint8) {
 			X := float64(x+i) + 0.5
 			u := float64(g.pa*X) + p0
 			v := float64(g.qa*X) + q0
-			c := rp.at(math.Sqrt(float64(u*u) + float64(v*v)))
+			t := math.Sqrt(float64(u*u) + float64(v*v))
+			if g.spread != gfx.SpreadPad {
+				t = spreadT(t, g.spread)
+			}
+			c := rp.at(t)
 			copy(dst[4*i:4*i+4], c[:])
 		}
 	case gradConic:
@@ -138,10 +150,31 @@ func (g *gradShader) shadeSpan(x, y int, dst []uint8) {
 				d[0], d[1], d[2], d[3] = 0, 0, 0, 0
 				continue
 			}
+			if g.spread != gfx.SpreadPad {
+				t = spreadT(t, g.spread)
+			}
 			c := rp.at(t)
 			d[0], d[1], d[2], d[3] = c[0], c[1], c[2], c[3]
 		}
 	}
+}
+
+// spreadT folds the gradient parameter t into [0, 1] for the reflect and
+// repeat spread modes. NaN and infinities give NaN, which the ramp paints
+// with its first color.
+func spreadT(t float64, s gfx.SpreadMode) float64 {
+	switch s {
+	case gfx.SpreadRepeat:
+		return t - math.Floor(t)
+	case gfx.SpreadReflect:
+		// 2·floor(t/2) is exact, so the subtraction is the only rounding.
+		u := t - float64(2*math.Floor(t*0.5))
+		if u > 1 {
+			u = 2 - u
+		}
+		return u
+	}
+	return t
 }
 
 // focalT returns the gradient parameter of the local point Focal + (u, v):
@@ -231,6 +264,7 @@ func (r *Renderer) shaderFor(p gfx.Paint) shader {
 			return r.solidFor(p.Stops[len(p.Stops)-1].Color)
 		}
 		g := r.gradient(gradLinear, p.Stops, p.Interp)
+		g.spread = p.Spread
 		kx, ky := dx/l2, dy/l2
 		g.pa, g.pb, g.pc = inv.compose(kx, ky, -(float64(kx*sx) + float64(ky*sy)))
 		return g
@@ -244,6 +278,7 @@ func (r *Renderer) shaderFor(p gfx.Paint) shader {
 			return r.solidFor(p.Stops[len(p.Stops)-1].Color)
 		}
 		g := r.gradient(gradRadial, p.Stops, p.Interp)
+		g.spread = p.Spread
 		g.pa, g.pb, g.pc = inv.compose(1/rx, 0, -float64(p.Center.X)/rx)
 		g.qa, g.qb, g.qc = inv.compose(0, 1/ry, -float64(p.Center.Y)/ry)
 		return g
@@ -274,6 +309,7 @@ func (r *Renderer) shaderFor(p gfx.Paint) shader {
 // every pixel would be transparent.
 func (r *Renderer) focalShader(p gfx.FocalGradient, inv inverse) shader {
 	g := r.gradient(gradFocal, p.Stops, p.Interp)
+	g.spread = p.Spread
 	fx, fy := float64(p.Focal.X), float64(p.Focal.Y)
 	g.pa, g.pb, g.pc = inv.compose(1, 0, -fx)
 	g.qa, g.qb, g.qc = inv.compose(0, 1, -fy)

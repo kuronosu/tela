@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <defs>
+    <linearGradient id="l" x1=".36" x2=".61"><stop offset="0" stop-color="#f43f5e"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#4f46e5"/></linearGradient>
+    <linearGradient id="lr" href="#l" spreadMethod="reflect"/>
+    <linearGradient id="lp" href="#l" spreadMethod="repeat"/>
+    <radialGradient id="r" r=".2"><stop offset="0" stop-color="#f43f5e"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#4f46e5"/></radialGradient>
+    <radialGradient id="rr" href="#r" spreadMethod="reflect"/>
+    <radialGradient id="rp" href="#r" spreadMethod="repeat"/>
+    <radialGradient id="f" r=".25" fx=".4" fy=".4" fr=".03" spreadMethod="repeat"><stop offset="0" stop-color="#0ea5e9"/><stop offset="1" stop-color="#fef3c7"/></radialGradient>
+    <radialGradient id="fr" href="#f" spreadMethod="reflect"/>
+    <linearGradient id="t" x2=".2" spreadMethod="repeat" gradientTransform="rotate(30)"><stop offset="0" stop-color="#111827"/><stop offset=".5" stop-color="#111827"/><stop offset=".5" stop-color="#f9fafb"/><stop offset="1" stop-color="#f9fafb"/></linearGradient>
+  </defs>
+  <rect x="2" y="2" width="30" height="30" fill="url(#l)"/>
+  <rect x="35" y="2" width="30" height="30" fill="url(#lr)"/>
+  <rect x="68" y="2" width="30" height="30" fill="url(#lp)"/>
+  <rect x="2" y="35" width="30" height="30" fill="url(#r)"/>
+  <rect x="35" y="35" width="30" height="30" fill="url(#rr)"/>
+  <rect x="68" y="35" width="30" height="30" fill="url(#rp)"/>
+  <rect x="2" y="68" width="30" height="30" fill="url(#f)"/>
+  <rect x="35" y="68" width="30" height="30" fill="url(#fr)"/>
+  <rect x="68" y="68" width="30" height="30" fill="url(#t)"/>
+</svg>

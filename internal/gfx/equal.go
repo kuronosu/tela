@@ -73,17 +73,17 @@ func PaintEqual(a, b Paint) bool {
 		return ok && a == b
 	case LinearGradient:
 		b, ok := b.(LinearGradient)
-		return ok && a.Start == b.Start && a.End == b.End && a.Interp == b.Interp && sameSlice(a.Stops, b.Stops)
+		return ok && a.Start == b.Start && a.End == b.End && a.Interp == b.Interp && a.Spread == b.Spread && sameSlice(a.Stops, b.Stops)
 	case RadialGradient:
 		b, ok := b.(RadialGradient)
-		return ok && a.Center == b.Center && a.Radius == b.Radius && a.Interp == b.Interp && sameSlice(a.Stops, b.Stops)
+		return ok && a.Center == b.Center && a.Radius == b.Radius && a.Interp == b.Interp && a.Spread == b.Spread && sameSlice(a.Stops, b.Stops)
 	case ConicGradient:
 		b, ok := b.(ConicGradient)
 		return ok && a.Center == b.Center && a.StartAngle == b.StartAngle && a.Interp == b.Interp && sameSlice(a.Stops, b.Stops)
 	case FocalGradient:
 		b, ok := b.(FocalGradient)
 		return ok && a.Focal == b.Focal && a.FocalRadius == b.FocalRadius && a.Center == b.Center &&
-			a.Radius == b.Radius && a.Interp == b.Interp && sameSlice(a.Stops, b.Stops)
+			a.Radius == b.Radius && a.Interp == b.Interp && a.Spread == b.Spread && sameSlice(a.Stops, b.Stops)
 	}
 	return false
 }

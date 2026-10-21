@@ -52,6 +52,36 @@ func (c ColorSpace) String() string {
 	return "ColorSpace(?)"
 }
 
+// SpreadMode selects how a gradient paints the points whose offset falls
+// outside [0, 1]: SVG's spreadMethod, Canvas and Skia's tile modes.
+type SpreadMode uint8
+
+const (
+	// SpreadPad extends the first and last stop colors (CSS gradients,
+	// SVG spreadMethod="pad"). It is the zero value.
+	SpreadPad SpreadMode = iota
+	// SpreadReflect mirrors the gradient on every repetition: offsets
+	// 1 to 2 run from the last stop back to the first, and so on (SVG
+	// spreadMethod="reflect").
+	SpreadReflect
+	// SpreadRepeat repeats the gradient: the offset t paints the color
+	// at t - floor(t) (SVG spreadMethod="repeat").
+	SpreadRepeat
+)
+
+// String returns "pad", "reflect" or "repeat".
+func (s SpreadMode) String() string {
+	switch s {
+	case SpreadPad:
+		return "pad"
+	case SpreadReflect:
+		return "reflect"
+	case SpreadRepeat:
+		return "repeat"
+	}
+	return "SpreadMode(?)"
+}
+
 // GradientStop is a color at an offset along the gradient. Offset 0 is the
 // start and 1 the end of the gradient line (linear), the radius (radial) or
 // the full turn (conic).
@@ -136,7 +166,7 @@ func NormalizeStops(stops []GradientStop) []GradientStop {
 // a point is the one at the offset of its orthogonal projection on the line
 // (CSS linear-gradient; the style layer converts angles and corner keywords
 // into Start and End). Colors outside the line are padded with the first and
-// last stop colors.
+// last stop colors, or reflected or repeated (Spread).
 //
 // Interpolation between stops is done on premultiplied colors (CSS Color 4,
 // section 12.3), in the color space Interp. If Start == End the gradient
@@ -145,6 +175,9 @@ type LinearGradient struct {
 	Start, End Point
 	Stops      []GradientStop
 	Interp     ColorSpace
+	// Spread selects how offsets outside [0, 1] are painted; the zero
+	// value pads.
+	Spread SpreadMode
 }
 
 // RadialGradient is a gradient around Center. Radius holds the horizontal and
@@ -152,7 +185,8 @@ type LinearGradient struct {
 // coordinates (equal for a circle); the color at a point is the one at the
 // offset d, where d is the point's distance to the center divided by the
 // radius of the ellipse in its direction (CSS radial-gradient). Points
-// outside the ellipse are padded with the last stop color.
+// outside the ellipse are padded with the last stop color, or take the
+// reflected or repeated gradient (Spread).
 //
 // Interpolation is premultiplied, in color space Interp. If either radius is
 // not positive the gradient paints the last stop's color.
@@ -161,6 +195,9 @@ type RadialGradient struct {
 	Radius Point
 	Stops  []GradientStop
 	Interp ColorSpace
+	// Spread selects how offsets above 1 are painted; the zero value
+	// pads.
+	Spread SpreadMode
 }
 
 // ConicGradient is a gradient sweeping around Center (CSS conic-gradient).
@@ -186,7 +223,8 @@ type ConicGradient struct {
 // t·(Radius - FocalRadius)) interpolate the two circles for every real t.
 // A point takes the color at offset t of the largest t whose circle C(t)
 // passes through it with a radius of 0 or more; offsets beyond [0, 1]
-// take the first or last stop color (pad). Points that no such circle
+// take the first or last stop color (pad), or the reflected or repeated
+// gradient (Spread). Points that no such circle
 // passes through are transparent: when the focal circle lies inside the end
 // circle (the usual focal gradient) every point has one, otherwise the
 // circles sweep a cone and the plane outside it is not painted.
@@ -200,6 +238,9 @@ type FocalGradient struct {
 	Radius      float32
 	Stops       []GradientStop
 	Interp      ColorSpace
+	// Spread selects how offsets outside [0, 1] are painted; the zero
+	// value pads.
+	Spread SpreadMode
 }
 
 // sanitizePaint validates a Paint for the Builder and returns a copy that

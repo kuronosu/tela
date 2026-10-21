@@ -26,7 +26,8 @@
 // pixel. Gradients (linear, radial, conic and the two-point FocalGradient)
 // carry their interpolation color space, Oklab by default (ADR-023);
 // interpolation is done on premultiplied colors (CSS Color 4, section
-// 12.3).
+// 12.3). Linear, radial and focal gradients pad, reflect or repeat
+// beyond their ends (SpreadMode, SVG's spreadMethod; ADR-095).
 //
 // # Paths
 //

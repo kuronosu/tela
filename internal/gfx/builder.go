@@ -626,10 +626,22 @@ func pushNames(k stackKind) string {
 	return "Push?"
 }
 
-// checkPaint panics on a nil paint, which is a programmer error.
+// checkPaint panics on a nil paint or an unknown SpreadMode, which are
+// programmer errors.
 func checkPaint(op string, p Paint) {
-	if p == nil {
+	var s SpreadMode
+	switch p := p.(type) {
+	case nil:
 		panic("gfx.Builder." + op + ": paint is nil; pass a gfx.Color or a gradient")
+	case LinearGradient:
+		s = p.Spread
+	case RadialGradient:
+		s = p.Spread
+	case FocalGradient:
+		s = p.Spread
+	}
+	if s > SpreadRepeat {
+		panic(fmt.Sprintf("gfx.Builder.%s: unknown SpreadMode(%d); use SpreadPad, SpreadReflect or SpreadRepeat", op, s))
 	}
 }
 

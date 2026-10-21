@@ -26,6 +26,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/platform/wayland/wlgen/` and `internal/platform/wayland/wire/`
 - **Notes:** Design reference only (XML-driven generator, one typed proxy per interface, request/event split). No source was copied: the generator and the wire runtime are written from scratch against `wayland.dtd` and libwayland's wire format and differ in API (typed event structs and handler setters, descriptor tables, zombie handling, explicit non-blocking `Flush`/`Read`/`Dispatch`). Listed here as a courtesy to the project.
 
+## resvg / usvg
+
+- **Source:** https://github.com/linebender/resvg (`crates/usvg/src/parser`, commit 5192641, design reference)
+- **License:** Apache-2.0 OR MIT, Copyright 2018 the Resvg Authors
+- **Used in:** `internal/svg/`
+- **Notes:** Design reference only, for the normalization rules of static SVG (`use` and `symbol` instancing and recursion checks, the attributes and stops gradients take from their `href` chains, units, invalid geometry and references). No source was copied: the parser, the cascade and the converters are written from scratch against SVG 2 and CSS, and follow Chromium (the test oracle) where the two differ. The test SVGs in `internal/svg/testdata/chromium/cells` are written for Tela, not taken from resvg's test suite. Listed here as a courtesy to the project.
+
 ## kurbo
 
 - **Source:** https://github.com/linebender/kurbo (v0.13.1, commit 9366cda)

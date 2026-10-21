@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">
+  <defs>
+    <linearGradient id="a"><stop offset="0" stop-color="#f43f5e"/><stop offset="1" stop-color="#3b82f6"/></linearGradient>
+    <linearGradient id="b" gradientUnits="userSpaceOnUse" x1="35" y1="5" x2="60" y2="30">
+      <stop offset="0%" stop-color="#facc15"/><stop offset="50%" stop-color="#16a34a"/><stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="c" xlink:href="#b" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="0" y2="1" gradientTransform="rotate(30 .5 .5)"/>
+    <linearGradient id="d" href="#a" x2="50%"/>
+    <linearGradient id="e"><stop offset=".6" stop-color="#7c3aed"/><stop offset=".3" stop-color="#fbbf24"/><stop offset="1.5" stop-color="#0f766e"/><stop stop-color="#000"/></linearGradient>
+    <linearGradient id="f"><stop offset=".5" stop-color="#ec4899"/></linearGradient>
+    <linearGradient id="g"/>
+    <linearGradient id="h"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+    <linearGradient id="i"><stop offset="0" stop-color="#ef4444" stop-opacity="1"/><stop offset="1" stop-color="#2563eb" stop-opacity=".1"/></linearGradient>
+    <linearGradient id="j" x1="0" y1="0" x2="0" y2="0"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="#0891b2"/></linearGradient>
+    <linearGradient id="k" style="color: #a21caf"><stop offset="0" stop-color="currentColor"/><stop offset="1" stop-color="#fde047" style="stop-opacity: .5"/></linearGradient>
+  </defs>
+  <rect x="5" y="5" width="25" height="25" fill="url(#a)"/>
+  <rect x="35" y="5" width="25" height="25" fill="url(#b)"/>
+  <rect x="65" y="5" width="30" height="25" fill="url(#c)"/>
+  <rect x="5" y="35" width="25" height="25" fill="url(#d)"/>
+  <rect x="35" y="35" width="25" height="25" fill="url(#e)"/>
+  <rect x="65" y="35" width="30" height="25" fill="url(#f)"/>
+  <rect x="5" y="65" width="25" height="12" fill="url(#g) #84cc16" stroke="#000"/>
+  <rect x="5" y="80" width="25" height="15" fill="url(#h)"/>
+  <rect x="35" y="65" width="25" height="30" fill="url(#i)"/>
+  <rect x="65" y="65" width="14" height="30" fill="url(#j)"/>
+  <rect x="81" y="65" width="14" height="30" fill="url(#k)" fill-opacity=".8"/>
+</svg>

@@ -240,16 +240,25 @@ func fmtPaint(p Paint) string {
 	case Color:
 		return p.String()
 	case LinearGradient:
-		return "linear(" + fmtPt(p.Start) + "->" + fmtPt(p.End) + " " + p.Interp.String() + " " + fmtStops(p.Stops) + ")"
+		return "linear(" + fmtPt(p.Start) + "->" + fmtPt(p.End) + " " + p.Interp.String() + fmtSpread(p.Spread) + " " + fmtStops(p.Stops) + ")"
 	case RadialGradient:
-		return "radial(c=" + fmtPt(p.Center) + " r=" + fmtPt(p.Radius) + " " + p.Interp.String() + " " + fmtStops(p.Stops) + ")"
+		return "radial(c=" + fmtPt(p.Center) + " r=" + fmtPt(p.Radius) + " " + p.Interp.String() + fmtSpread(p.Spread) + " " + fmtStops(p.Stops) + ")"
 	case ConicGradient:
 		return "conic(c=" + fmtPt(p.Center) + " from=" + fmtF(p.StartAngle) + " " + p.Interp.String() + " " + fmtStops(p.Stops) + ")"
 	case FocalGradient:
 		return "focal(f=" + fmtPt(p.Focal) + " fr=" + fmtF(p.FocalRadius) + " c=" + fmtPt(p.Center) + " r=" + fmtF(p.Radius) +
-			" " + p.Interp.String() + " " + fmtStops(p.Stops) + ")"
+			" " + p.Interp.String() + fmtSpread(p.Spread) + " " + fmtStops(p.Stops) + ")"
 	}
 	return "paint(?)"
+}
+
+// fmtSpread returns "" for the default pad, so that the dumps of padded
+// gradients do not change, and " reflect" or " repeat" otherwise.
+func fmtSpread(s SpreadMode) string {
+	if s == SpreadPad {
+		return ""
+	}
+	return " " + s.String()
 }
 
 func fmtFilters(fs []Filter) string {

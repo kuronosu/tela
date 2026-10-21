@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <defs>
+    <radialGradient id="a"><stop offset="0" stop-color="#fef08a"/><stop offset=".6" stop-color="#f97316"/><stop offset="1" stop-color="#7f1d1d"/></radialGradient>
+    <radialGradient id="b" gradientUnits="userSpaceOnUse" cx="80" cy="18" r="16" fx="74" fy="12"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#1d4ed8"/></radialGradient>
+    <radialGradient id="c" fx=".3" fy=".3" fr=".1"><stop offset="0" stop-color="#ecfccb"/><stop offset="1" stop-color="#3f6212"/></radialGradient>
+    <radialGradient id="d" gradientUnits="userSpaceOnUse" cx="30" cy="60" r="8" fx="45" fy="60"><stop offset="0" stop-color="#e11d48"/><stop offset="1" stop-color="#4338ca"/></radialGradient>
+    <radialGradient id="e" gradientTransform="rotate(45 .5 .5) scale(1 .5)" cy=".75" ><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#134e4a"/></radialGradient>
+    <radialGradient id="f" r="0"><stop offset="0" stop-color="red"/><stop offset="1" stop-color="#a16207"/></radialGradient>
+    <radialGradient id="g" cx="40%" r="30%" fx="20%" fy="60%" fr="5%" gradientTransform="translate(.1 0)"><stop offset="0" stop-color="#fdf4ff"/><stop offset=".5" stop-color="#c026d3" stop-opacity=".6"/><stop offset="1" stop-color="#4a044e"/></radialGradient>
+  </defs>
+  <rect x="5" y="5" width="55" height="28" fill="url(#a)"/>
+  <circle cx="80" cy="18" r="16" fill="url(#b)"/>
+  <rect x="5" y="40" width="20" height="20" fill="url(#c)"/>
+  <rect x="5" y="65" width="55" height="30" fill="url(#d)"/>
+  <rect x="30" y="40" width="30" height="20" fill="url(#e)"/>
+  <rect x="65" y="40" width="30" height="20" fill="url(#f)"/>
+  <rect x="65" y="65" width="30" height="30" fill="url(#g)"/>
+</svg>

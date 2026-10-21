@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100">
+  <defs>
+    <clipPath id="c1"><circle cx="22" cy="22" r="18"/></clipPath>
+    <clipPath id="c2" clipPathUnits="objectBoundingBox"><ellipse cx=".5" cy=".5" rx=".5" ry=".3"/></clipPath>
+    <clipPath id="c3"><path d="M75 4 L87 40 L57 17 L93 17 L63 40 Z" clip-rule="evenodd"/></clipPath>
+    <clipPath id="c4"><rect x="5" y="50" width="15" height="40"/><circle cx="30" cy="70" r="12"/></clipPath>
+    <clipPath id="c5" clip-path="url(#c6)"><rect x="55" y="50" width="40" height="40" transform="rotate(20 75 70)"/></clipPath>
+    <clipPath id="c6"><circle cx="75" cy="70" r="22"/></clipPath>
+    <circle id="dot" cx="0" cy="0" r="8"/>
+    <clipPath id="c7" transform="translate(45 75)"><use href="#dot" x="2"/><use xlink:href="#dot" x="14" y="5"/></clipPath>
+    <clipPath id="c8"></clipPath>
+  </defs>
+  <rect width="45" height="45" fill="#2563eb" clip-path="url(#c1)"/>
+  <rect x="5" y="5" width="40" height="40" fill="none" stroke="#000" stroke-width="0.5"/>
+  <g clip-path="url(#c3)"><rect x="50" width="50" height="45" fill="#db2777"/></g>
+  <rect x="50" y="5" width="45" height="40" fill="#16a34a" opacity=".25" clip-path="url(#c2)"/>
+  <rect y="45" width="50" height="55" fill="#ea580c" clip-path="url(#c4)"/>
+  <rect x="50" y="45" width="50" height="55" fill="#7c3aed" clip-path="url(#c5)"/>
+  <g clip-path="url(#c7)"><rect x="35" y="60" width="40" height="40" fill="#0d9488"/></g>
+  <rect width="100" height="100" fill="red" clip-path="url(#c8)"/>
+</svg>
