@@ -3829,7 +3829,7 @@ Button(OnClick(tela.StopPropagation(ctrl.Remove)), Text("Delete")) // the row's 
 Div(OnKeyDown(tela.StopPropagation(close)))
 ```
 
-A handler that needs the event, to stop propagation only for some events, calls e.StopPropagation() itself. The press hook of the aria package (aria.UsePress) will stop propagation by default, as React Aria does. StopPropagation(nil) panics.
+A handler that needs the event, to stop propagation only for some events, calls e.StopPropagation() itself. The press hook of the aria package (aria.UsePress) stops propagation by default, as React Aria does. StopPropagation(nil) panics.
 
 ### type StyleProp
 

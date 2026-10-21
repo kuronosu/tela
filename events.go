@@ -55,7 +55,7 @@ type StopHandler func()
 //
 // A handler that needs the event, to stop propagation only for some
 // events, calls e.StopPropagation() itself. The press hook of the aria
-// package (aria.UsePress) will stop propagation by default, as React Aria
+// package (aria.UsePress) stops propagation by default, as React Aria
 // does. StopPropagation(nil) panics.
 func StopPropagation(f func()) StopHandler {
 	if f == nil {

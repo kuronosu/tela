@@ -33,7 +33,7 @@ Div(OnKeyDown(tela.StopPropagation(closeDialog)))
 
 It calls `e.StopPropagation()` and then the function. A handler that stops
 the event only sometimes takes the event and calls `e.StopPropagation()`
-itself. (The press hook of the `aria` package will stop propagation by
+itself. (The press hook of the `aria` package stops propagation by
 default, as React Aria does.)
 
 ## How events travel

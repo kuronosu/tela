@@ -205,7 +205,7 @@ Variants combine (`dark:md:hover:bg-slate-700`); every part must hold.
 
 | Kind | Variants |
 |---|---|
-| State | `hover:` `active:` `focus:` `focus-visible:` `focus-within:` `disabled:` `enabled:` `checked:` |
+| State | `hover:` `active:` `focus:` `focus-visible:` `focus-within:` `disabled:` `enabled:` `checked:` (an element whose `AriaChecked` is true, such as a checkbox or switch made with the [`aria`](Aria) hooks; also `group-checked:` and `peer-checked:`) |
 | ARIA | `aria-busy:` `aria-checked:` `aria-disabled:` `aria-expanded:` `aria-hidden:` `aria-pressed:` `aria-readonly:` `aria-required:` `aria-selected:`: they match when the element's `AriaBusy(true)`, `AriaChecked(true)`... prop is set (Tailwind's `[aria-x="true"]`), not an implicit state; `aria-[checked=true]:` is `aria-checked:`, and other arbitrary selectors such as `aria-[sort=ascending]:` are not supported |
 | Structure | `first:` `last:` `only:` `odd:` `even:` |
 | Text fields | `read-only:` `placeholder-shown:` `invalid:` `placeholder:` (style the placeholder text) `selection:` (style the selected text) |

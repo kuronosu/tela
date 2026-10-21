@@ -440,7 +440,7 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 			(s.userX && s.max.X > 0 || s.userY && s.max.Y > 0) {
 			// Touch scrolling: the container's pan competes with the
 			// drags of the elements inside it (scroll.go).
-			rs = append(rs, t.panRecognizer(s))
+			rs = append(rs, t.panRecognizer(s, ps))
 		}
 		m := el.node.d.evMask
 		if m&evLongPress.mask() != 0 {

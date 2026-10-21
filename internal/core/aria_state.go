@@ -27,10 +27,12 @@ func AriaBusy(busy bool) Prop {
 	return ariaProp("AriaBusy", func(a *ariaProps) { a.busy = semantics.Of(busy) })
 }
 
-// ariaStates returns the aria-* states that a's props set to true: what
-// the aria-busy:, aria-checked:... variants (and their group- and peer-
-// forms) test, as Tailwind's [aria-x="true"] selectors do. A mixed
-// checkbox or pressed button is not "true".
+// ariaStates returns the states that a's props set to true: what the
+// aria-busy:, aria-checked:... variants (and their group- and peer-
+// forms) test, as Tailwind's [aria-x="true"] selectors do, and what
+// checked: tests (an element whose AriaChecked is true: Tela has no
+// native checkbox, ADR-100). A mixed checkbox or pressed button is not
+// "true".
 func ariaStates(a *ariaProps) style.StateFlags {
 	if a == nil {
 		return 0
@@ -41,7 +43,7 @@ func ariaStates(a *ariaProps) style.StateFlags {
 		flag style.StateFlags
 	}{
 		{a.busy == semantics.ToggleTrue, style.StateAriaBusy},
-		{a.checked == semantics.ToggleTrue, style.StateAriaChecked},
+		{a.checked == semantics.ToggleTrue, style.StateAriaChecked | style.StateChecked},
 		{a.disabled == semantics.ToggleTrue, style.StateAriaDisabled},
 		{a.expanded == semantics.ToggleTrue, style.StateAriaExpanded},
 		{a.hiddenSet && a.hidden, style.StateAriaHidden},

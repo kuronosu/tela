@@ -96,3 +96,16 @@ func FocusVisible(r ElementRef) bool {
 	f := &el.tree.foc
 	return f.window && f.el == el && f.visible
 }
+
+// FocusVisibleWithin reports whether the focus is inside the element r
+// is attached to (it included) and shows as focus-visible: FocusVisible
+// for a focus ring that also covers the descendants (React Aria's
+// useFocusRing with within).
+func FocusVisibleWithin(r ElementRef) bool {
+	el := r.element()
+	if el == nil {
+		return false
+	}
+	f := &el.tree.foc
+	return f.window && f.visible && ContainsFocus(r)
+}

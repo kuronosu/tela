@@ -39,13 +39,13 @@ func TestAriaStatesOfProps(t *testing.T) {
 		AriaPressed(true), AriaReadOnly(true), AriaRequired(true), AriaSelected(false)} {
 		p.apply(&desc{aria: a})
 	}
-	const want = style.StateAriaBusy | style.StateAriaChecked | style.StateAriaExpanded | style.StateAriaHidden | style.StateAriaPressed | style.StateAriaReadOnly | style.StateAriaRequired
+	const want = style.StateAriaBusy | style.StateAriaChecked | style.StateChecked | style.StateAriaExpanded | style.StateAriaHidden | style.StateAriaPressed | style.StateAriaReadOnly | style.StateAriaRequired
 	if got := ariaStates(a); got != want {
 		t.Errorf("ariaStates = %b, want %b", got, want)
 	}
 	// A mixed value is not "true".
 	a.checked = semantics.ToggleMixed
-	if got := ariaStates(a); got&style.StateAriaChecked != 0 {
+	if got := ariaStates(a); got&(style.StateAriaChecked|style.StateChecked) != 0 {
 		t.Errorf("a mixed checkbox matches aria-checked: %b", got)
 	}
 	if ariaStates(nil) != 0 {

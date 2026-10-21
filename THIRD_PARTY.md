@@ -256,3 +256,10 @@ their original copyright notice. Add one section per source project.
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
   ```
+
+## React Aria (ported behavior)
+
+- **Source:** https://github.com/adobe/react-spectrum (`@react-aria/interactions`: `usePress`, `useHover`; `@react-aria/focus`: `useFocusRing`, `FocusScope`, `useFocusManager`; `@react-aria/button`: `useButton`, `useToggleButton`; `@react-aria/checkbox`, `@react-aria/switch`, `@react-aria/toggle` and `@react-stately/toggle`: `useCheckbox`, `useSwitch`, `useToggle`, `useToggleState`)
+- **License:** Apache-2.0, Copyright 2020 Adobe. Licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+- **Used in:** `aria/press.go`, `aria/hover.go`, `aria/focus.go`, `aria/focusscope.go`, `aria/button.go`, `aria/checkbox.go` (each file names the hooks it follows in its header)
+- **Notes:** The rules and the event sequences are ported, not the source: React Aria works on DOM events and Tela's handlers receive its own (pointer events with the engine's capture and `Bounds` instead of document listeners and `getBoundingClientRect`; key and click events; `ElementRef` instead of refs to DOM nodes). It diverges where the owner or the engine decided: options structs and `Props` (merged with `core.MergeProps`) instead of prop getters; the state of toggles is integrated, controlled when `OnChange` is set (no react-stately layer); Enter presses on the key down and Space on the key up, where React Aria completes both on the key up; a virtual press is a click with no preceding pointer release; no `Type` option, link handling, text-selection control or `useFocusVisible` global listeners; the focus manager takes `FocusOptions` and has no `accept` filter; no indeterminate state. The tests are written for Tela, not taken from React Aria's suite.

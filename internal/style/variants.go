@@ -19,6 +19,9 @@ const (
 	StateFocusVisible
 	StateFocusWithin
 	StateDisabled
+	// StateChecked: an element whose AriaChecked is true (Tela has no native
+	// checkbox; ADR-100), as the aria-checked: variant, which tests the
+	// attribute selector.
 	StateChecked
 	StateFirst
 	StateLast

@@ -1258,8 +1258,11 @@ func (t *Tree) outermostScroller(d gfx.Point) *scroller {
 // panRecognizer returns the pan recognizer of a touch press on scroll
 // container s: it competes in the arena with drags and taps and wins past
 // the touch slop along the axes s can scroll; the content follows the
-// finger and flings on release.
-func (t *Tree) panRecognizer(s *scroller) *gesture.Drag {
+// finger and flings on release. When it wins, the pointer is cancelled
+// for the element it pressed (pointercancel), as a browser does when it
+// takes a touch over for scrolling: a press hook (aria.UsePress) ends
+// without a press.
+func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 	ax := gesture.AxisFree
 	switch {
 	case s.userX && s.max.X > 0 && !(s.userY && s.max.Y > 0):
@@ -1272,6 +1275,10 @@ func (t *Tree) panRecognizer(s *scroller) *gesture.Drag {
 		OnStart: func(gesture.DragUpdate) {
 			s.stop()
 			t.breakLatch()
+			if el := ps.down; el != nil && el.mounted {
+				fire(t, evPointerCancel, el, t.pointerEvent(ps, platform.ButtonNone), true)
+				t.flushDiscrete()
+			}
 		},
 		OnUpdate: func(u gesture.DragUpdate) {
 			if s.box.scr == s {

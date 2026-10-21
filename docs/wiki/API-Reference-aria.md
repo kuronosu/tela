@@ -11,23 +11,103 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- Functions: [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`UseFloating`](#func-usefloating)
+- Functions: [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UsePress`](#func-usepress) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
   - [`type Available`](#type-available): [`MaxHeight`](#func-available-maxheight) · [`MaxWidth`](#func-available-maxwidth)
+  - [`type ButtonOptions`](#type-buttonoptions)
+  - [`type ButtonResult`](#type-buttonresult): [`UseButton`](#func-usebutton)
   - [`type FlipOptions`](#type-flipoptions)
   - [`type Floating`](#type-floating): [`UseFloating`](#func-usefloating)
   - [`type FloatingOption`](#type-floatingoption): [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size)
+  - [`type FocusManager`](#type-focusmanager): [`FocusFirst`](#func-focusmanager-focusfirst) · [`FocusLast`](#func-focusmanager-focuslast) · [`FocusNext`](#func-focusmanager-focusnext) · [`FocusPrevious`](#func-focusmanager-focusprevious)
+  - [`type FocusOptions`](#type-focusoptions)
+  - [`type FocusRingOptions`](#type-focusringoptions)
+  - [`type FocusRingResult`](#type-focusringresult): [`UseFocusRing`](#func-usefocusring)
+  - [`type FocusScopeOptions`](#type-focusscopeoptions)
+  - [`type FocusScopeResult`](#type-focusscoperesult): [`UseFocusScope`](#func-usefocusscope)
   - [`type HideOptions`](#type-hideoptions)
+  - [`type HoverEvent`](#type-hoverevent)
+  - [`type HoverOptions`](#type-hoveroptions)
+  - [`type HoverResult`](#type-hoverresult): [`UseHover`](#func-usehover)
   - [`type LimitShiftOptions`](#type-limitshiftoptions)
   - [`type OffsetOptions`](#type-offsetoptions)
+  - [`type PointerType`](#type-pointertype)
+  - [`type PressEvent`](#type-pressevent): [`ContinuePropagation`](#func-pressevent-continuepropagation)
+  - [`type PressOptions`](#type-pressoptions)
+  - [`type PressResult`](#type-pressresult): [`UsePress`](#func-usepress)
   - [`type Rects`](#type-rects)
   - [`type ShiftLimiter`](#type-shiftlimiter): [`LimitShift`](#func-limitshift)
   - [`type ShiftOptions`](#type-shiftoptions)
   - [`type SizeOptions`](#type-sizeoptions)
+  - [`type ToggleOptions`](#type-toggleoptions)
+  - [`type ToggleResult`](#type-toggleresult): [`UseCheckbox`](#func-usecheckbox) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton)
 
 ## Overview
+
+Package aria provides unstyled behavior hooks for building components: the interaction and accessibility that a button, a checkbox or a dialog needs, without a look. It follows React Aria (Adobe's behavior hooks, Apache-2.0): the same names, the same rules for pointers, keys and focus, translated to Tela's hooks and props. The styled components of package kit are built on it; use it directly to build your own.
+
+### The pattern: options in, Props out
+
+A hook takes an options struct and returns a struct. Its Props field is one tela.Prop that carries everything the hook needs on the element: event handlers, the ref, the role and the aria states. Give it to the element, and style the element from the other fields of the result:
+
+```go
+press := aria.UsePress(aria.PressOptions{
+    OnPress:  func(e aria.PressEvent) { save() },
+    Disabled: busy,
+})
+return Button(press.Props, Class("rounded-md px-3 py-1.5"),
+    If(press.Pressed, Class("scale-95")), Text("Save"))
+```
+
+Props merges several props into one (core's MergeProps): the handlers of one event all run, in the order given, and the others (a class, a role) follow the same rules as props given one after the other. So hook props combine with your own props and with each other:
+
+```go
+hover := aria.UseHover(aria.HoverOptions{})
+ring := aria.UseFocusRing(aria.FocusRingOptions{})
+return Button(btn.Props, hover.Props, ring.Props,
+    Class("rounded-md px-3 py-1.5 transition"),
+    If(hover.Hovered, Class("bg-accent")),
+    If(ring.FocusVisible, Class("ring-2 ring-primary")), ...)
+```
+
+The hooks are ordinary custom hooks (ADR-085): call them at the top level of a component, in the same order on every build.
+
+### One element, several hooks: the ref
+
+A few hooks need the element itself (press measures it to know when the pointer leaves, the focus ring asks the engine who has the focus) and attach a ref to it. An element has one ref, so when several hooks serve one element they must share it: make it once with tela.UseElementRef and give it to each hook as its Ref option. The hooks that need no ref (UseHover) take none. Without the shared ref each hook attaches its own and only the last one stays attached.
+
+```go
+ref := tela.UseElementRef()
+btn := aria.UseButton(aria.ButtonOptions{Ref: ref, OnPress: func(aria.PressEvent) { save() }})
+ring := aria.UseFocusRing(aria.FocusRingOptions{Ref: ref})
+return Button(btn.Props, ring.Props, ...)
+```
+
+Do not add h.Ref(other) to an element that has hook props: it replaces the hook's ref. Use the Ref field of the hook's result instead.
+
+### Controlled and uncontrolled state
+
+A hook that holds state keeps it itself by default (uncontrolled), and lets the caller keep it (controlled) when the caller passes the value together with the callback that asks for changes, as h.Input does with Value and OnChange:
+
+```go
+// Uncontrolled: DefaultSelected is the initial state.
+box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})
+// Controlled: the caller keeps the state.
+on, setOn := tela.UseState(false)
+sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+```
+
+A controlled control shows what the caller passes: a change that the caller does not store is refused, as with any controlled field.
+
+### Hooks
+
+Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press.
+
+### Testing and agents
+
+The roles and states the hooks set are the ones the aria snapshot shows: a checkbox made with [`UseCheckbox`](#func-usecheckbox) prints as `checkbox "Name" [checked]`, and telatest finds it with ByRole("checkbox", "Name").
 
 ## Types
 
@@ -100,6 +180,94 @@ func (a Available) MaxWidth(w float32)
 ```
 
 MaxWidth limits the floating element's border-box width to w: the smaller of w and the element's own max-width wins, and the element is laid out again within the frame. Not calling it removes the limit.
+
+### type ButtonOptions
+
+```go
+type ButtonOptions struct {
+    // OnPress is called when the button is pressed and released over it,
+    // with Enter, with Space, or by a virtual click.
+    OnPress func(PressEvent)
+    // OnPressStart is called when a press begins.
+    OnPressStart func(PressEvent)
+    // OnPressEnd is called when a press ends, whether it counts or not.
+    OnPressEnd func(PressEvent)
+    // OnPressChange is called with true when a press starts and false when
+    // it ends.
+    OnPressChange func(pressed bool)
+    // OnPressUp is called when the pointer or the key is released over the
+    // button.
+    OnPressUp func(PressEvent)
+    // Disabled makes the button inert and disabled for styling and
+    // assistive technologies (h.Disabled): it cannot be focused or
+    // pressed, and the `disabled:` variants apply.
+    Disabled bool
+    // ShouldCancelOnPointerExit ends the press for good when the pointer
+    // leaves the button.
+    ShouldCancelOnPointerExit bool
+    // PreventFocusOnPress keeps the focus where it is when the button is
+    // pressed with a pointer.
+    PreventFocusOnPress bool
+    // Ref is the element's ref, for a hook that is used together with
+    // others on one element (see the package documentation); the zero
+    // value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+ButtonOptions configures [`UseButton`](#func-usebutton). The press fields are those of [`PressOptions`](#type-pressoptions).
+
+### type ButtonResult
+
+```go
+type ButtonResult struct {
+    // Props go to the element: everything [UsePress] returns, the
+    // "button" role, a tab stop and the disabled state.
+    Props tela.Prop
+    // Pressed is true while the button is pressed.
+    Pressed bool
+    // Ref is the ref attached to the element by Props.
+    Ref tela.ElementRef
+}
+```
+
+ButtonResult is what [`UseButton`](#func-usebutton) and [`UseToggleButton`](#func-usetogglebutton) return.
+
+#### func UseButton
+
+```go
+func UseButton(o ButtonOptions) ButtonResult
+```
+
+UseButton returns the props that make an element a button (React Aria's useButton): [`UsePress`](#func-usepress) plus the "button" role, a tab stop and the disabled state. It works on a Button element and on any other, such as a Div or an A, that should behave as one.
+
+```go
+btn := aria.UseButton(aria.ButtonOptions{OnPress: func(aria.PressEvent) { save() }})
+return Button(btn.Props, Class("rounded-md bg-primary px-3 py-1.5 text-primary-foreground"),
+    If(btn.Pressed, Class("scale-95")), Text("Save"))
+```
+
+A Button that has the hook's props presses with Enter and Space. Like every press, it prevents the default action of the click, so it does not submit or reset its Form: do that from OnPress.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    clicks, setClicks := tela.UseState(0)
+    btn := aria.UseButton(aria.ButtonOptions{
+        OnPress: func(aria.PressEvent) { setClicks.Update(func(n int) int { return n + 1 }) },
+    })
+    // A Div that is a button: role, tab stop and the press come with the hook.
+    return Div(btn.Props, Class("rounded-md bg-primary px-3 py-1.5 text-primary-foreground"),
+        If(btn.Pressed, Class("scale-95")), Textf("Clicked %d", clicks))
+}
+app := telatest.MountFunc(t, page)
+app.Click(telatest.ByRole("button", "Clicked 0"))
+fmt.Println(app.AriaSnapshot())
+// Output: - button "Clicked 1"
+```
 
 ### type FlipOptions
 
@@ -418,6 +586,268 @@ fmt.Printf("list y %.0f to %.0f of 300\n", r.Y, r.Bottom())
 // list y 86 to 292 of 300
 ```
 
+### type FocusManager
+
+```go
+type FocusManager struct {
+    // contains filtered or unexported fields
+}
+```
+
+FocusManager moves the focus among the focusable elements of a scope (React Aria's FocusManager), in tree order. Hidden, disabled and inert elements, and those outside an open modal, are not candidates. Call its methods from event handlers and effects; each reports whether it found an element to focus. The zero FocusManager does nothing.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+toolbar := func() tela.Node {
+    scope := aria.UseFocusScope(aria.FocusScopeOptions{})
+    return Div(scope.Props, Role("toolbar"), AriaLabel("Format"),
+        OnKeyDown(func(e tela.KeyboardEvent) {
+            switch e.Key {
+            case tela.KeyArrowRight:
+                e.PreventDefault()
+                scope.Manager.FocusNext(aria.FocusOptions{Wrap: true})
+            case tela.KeyArrowLeft:
+                e.PreventDefault()
+                scope.Manager.FocusPrevious(aria.FocusOptions{Wrap: true})
+            }
+        }),
+        Button(Text("Bold")), Button(Text("Italic")), Button(Text("Underline")))
+}
+app := telatest.MountFunc(t, toolbar)
+app.Focus(telatest.ByRole("button", "Underline"))
+app.Press("ArrowRight") // wraps around
+app.ExpectFocused(telatest.ByRole("button", "Bold"))
+app.Press("ArrowLeft")
+app.ExpectFocused(telatest.ByRole("button", "Underline"))
+fmt.Println("the arrows move the focus")
+// Output: the arrows move the focus
+```
+
+#### func (FocusManager) FocusFirst
+
+```go
+func (m FocusManager) FocusFirst(o FocusOptions) bool
+```
+
+FocusFirst focuses the first element of the scope.
+
+#### func (FocusManager) FocusLast
+
+```go
+func (m FocusManager) FocusLast(o FocusOptions) bool
+```
+
+FocusLast focuses the last element of the scope.
+
+#### func (FocusManager) FocusNext
+
+```go
+func (m FocusManager) FocusNext(o FocusOptions) bool
+```
+
+FocusNext focuses the element after o.From (or after the focused element) in the scope.
+
+#### func (FocusManager) FocusPrevious
+
+```go
+func (m FocusManager) FocusPrevious(o FocusOptions) bool
+```
+
+FocusPrevious focuses the element before o.From (or before the focused element) in the scope.
+
+### type FocusOptions
+
+```go
+type FocusOptions struct {
+    // Tabbable limits the candidates to the elements in the sequential
+    // focus order (h.TabIndex of 0 or more, Buttons and fields), leaving
+    // out those that only a script can focus (h.TabIndex(-1)).
+    Tabbable bool
+    // Wrap goes around at the ends: FocusNext from the last candidate
+    // focuses the first, FocusPrevious from the first focuses the last.
+    // It applies to FocusNext and FocusPrevious.
+    Wrap bool
+    // From is where FocusNext and FocusPrevious start, an element of the
+    // scope; the zero value starts from the focused element.
+    From tela.ElementRef
+}
+```
+
+FocusOptions configures the moves of a [`FocusManager`](#type-focusmanager).
+
+### type FocusRingOptions
+
+```go
+type FocusRingOptions struct {
+    // Within makes the ring follow the focus anywhere inside the element,
+    // not only on the element itself (CSS's :focus-within and
+    // React Aria's within): a group that shows a ring around all its
+    // parts.
+    Within bool
+    // Ref is the element's ref, for a hook that is used together with
+    // others on one element (see the package documentation); the zero
+    // value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+FocusRingOptions configures [`UseFocusRing`](#func-usefocusring).
+
+### type FocusRingResult
+
+```go
+type FocusRingResult struct {
+    // Props go to the element: the focus, blur, key and pointer handlers
+    // that keep the state, and the ref.
+    Props tela.Prop
+    // Focused is true while the element has the keyboard focus (with
+    // Within: or one of its descendants does), in an active window.
+    Focused bool
+    // FocusVisible is true while Focused and the focus came, or was last
+    // moved, with the keyboard: Tela's focus-visible heuristic, Chromium's
+    // (a text field matches it whatever moved the focus). A ring drawn
+    // from FocusVisible does not flash when a button is clicked.
+    FocusVisible bool
+    // Ref is the ref attached to the element by Props.
+    Ref tela.ElementRef
+}
+```
+
+FocusRingResult is what [`UseFocusRing`](#func-usefocusring) returns.
+
+#### func UseFocusRing
+
+```go
+func UseFocusRing(o FocusRingOptions) FocusRingResult
+```
+
+UseFocusRing returns the props that track the focus of an element, and whether it should show a focus ring (React Aria's useFocusRing): the ring appears after the keyboard moves the focus and not after a click. The `focus:`, `focus-visible:` and `focus-within:` variants do the same for classes; use the hook when Go needs to know, or when a ring is made of several elements.
+
+```go
+ring := aria.UseFocusRing(aria.FocusRingOptions{})
+return Button(ring.Props, Class("rounded-md px-3 py-1.5"),
+    If(ring.FocusVisible, Class("ring-2 ring-primary")), Text("Save"))
+```
+
+The element must be focusable (a Button, an Input, or h.TabIndex).
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+field := func() tela.Node {
+    ring := aria.UseFocusRing(aria.FocusRingOptions{})
+    return Button(ring.Props, Class("px-3 py-1.5"),
+        If(ring.FocusVisible, Text("Ring on")), If(!ring.FocusVisible, Text("Ring off")))
+}
+app := telatest.MountFunc(t, field)
+app.Click(telatest.ByRole("button", "Ring off")) // a click does not show the ring
+app.ExpectText("Ring off")
+app.Press("Shift+Tab") // the keyboard does
+app.Press("Tab")
+app.ExpectText("Ring on")
+fmt.Println("the ring follows the keyboard")
+// Output: the ring follows the keyboard
+```
+
+### type FocusScopeOptions
+
+```go
+type FocusScopeOptions struct {
+    // Contain keeps Tab and Shift+Tab inside the scope: the focus wraps
+    // around its focusable elements instead of leaving. The most recently
+    // mounted containing scope wins.
+    Contain bool
+    // Restore gives the focus back when the scope unmounts, to the element
+    // that had it when the scope mounted, if that element can still take
+    // it.
+    Restore bool
+    // AutoFocus focuses the first tabbable element of the scope (the first
+    // focusable one if none is tabbable) after the frame that mounts it,
+    // unless the focus is already inside.
+    AutoFocus bool
+    // Ref is the element's ref, for a hook that is used together with
+    // others on one element (see the package documentation); the zero
+    // value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+FocusScopeOptions configures [`UseFocusScope`](#func-usefocusscope).
+
+### type FocusScopeResult
+
+```go
+type FocusScopeResult struct {
+    // Props go to the element that holds the scope: the scope itself and
+    // the ref. The scope is the element's subtree (the content of the
+    // portals rendered from inside it counts, after its own).
+    Props tela.Prop
+    // Manager moves the focus inside the scope.
+    Manager FocusManager
+    // Ref is the ref attached to the element by Props.
+    Ref tela.ElementRef
+}
+```
+
+FocusScopeResult is what [`UseFocusScope`](#func-usefocusscope) returns.
+
+#### func UseFocusScope
+
+```go
+func UseFocusScope(o FocusScopeOptions) FocusScopeResult
+```
+
+UseFocusScope returns the props that make an element a focus scope: contain Tab inside it (a dialog, a popover), restore the focus when it closes, focus its first element when it opens, and the manager that moves the focus inside it (React Aria's FocusScope and useFocusManager).
+
+```go
+scope := aria.UseFocusScope(aria.FocusScopeOptions{Contain: true, Restore: true, AutoFocus: true})
+return Div(scope.Props, Role("dialog"), Class("rounded-lg p-4"), ...)
+```
+
+An arrow-key toolbar uses the manager from its key handler:
+
+```go
+scope := aria.UseFocusScope(aria.FocusScopeOptions{})
+return Div(scope.Props, Role("toolbar"), OnKeyDown(func(e tela.KeyboardEvent) {
+    switch e.Key {
+    case tela.KeyArrowRight:
+        e.PreventDefault()
+        scope.Manager.FocusNext(aria.FocusOptions{Wrap: true})
+    case tela.KeyArrowLeft:
+        e.PreventDefault()
+        scope.Manager.FocusPrevious(aria.FocusOptions{Wrap: true})
+    }
+}), ...)
+```
+
+The scope's element holds the hook's ref; see the package documentation when it must also hold other hooks'.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    open, setOpen := tela.UseState(false)
+    return Div(
+        Button(OnClick(func() { setOpen.Set(true) }), Text("Open")),
+        If(open, tela.C(settingsDialog)))
+}
+app := telatest.MountFunc(t, page)
+app.Click(telatest.ByRole("button", "Open"))
+app.ExpectFocused(telatest.ByRole("button", "First")) // AutoFocus
+app.Press("Tab")
+app.Press("Tab")
+app.ExpectFocused(telatest.ByRole("button", "First")) // Contain wraps around
+fmt.Println("the focus stays inside the dialog")
+// Output: the focus stays inside the dialog
+```
+
 ### type HideOptions
 
 ```go
@@ -432,6 +862,85 @@ type HideOptions struct {
 ```
 
 HideOptions are the options of [`Hide`](#func-hide).
+
+### type HoverEvent
+
+```go
+type HoverEvent struct {
+    // PointerType is [PointerMouse] or [PointerPen]: a touch never hovers.
+    PointerType PointerType
+    // Modifier keys held during the event; Meta is the Windows, Command or
+    // Super key.
+    Shift, Ctrl, Alt, Meta bool
+}
+```
+
+HoverEvent is passed to the callbacks of [`HoverOptions`](#type-hoveroptions).
+
+### type HoverOptions
+
+```go
+type HoverOptions struct {
+    // OnHoverStart is called when a mouse or a pen enters the element.
+    OnHoverStart func(HoverEvent)
+    // OnHoverEnd is called when it leaves, or when the element becomes
+    // Disabled while hovered.
+    OnHoverEnd func(HoverEvent)
+    // OnHoverChange is called with true on a start and false on an end.
+    OnHoverChange func(hovered bool)
+    // Disabled turns hovering off: no callbacks, Hovered stays false.
+    Disabled bool
+}
+```
+
+HoverOptions configures [`UseHover`](#func-usehover).
+
+### type HoverResult
+
+```go
+type HoverResult struct {
+    // Props go to the element: the pointer enter and leave handlers.
+    Props tela.Prop
+    // Hovered is true while a mouse or a pen is over the element or one of
+    // its descendants.
+    Hovered bool
+}
+```
+
+HoverResult is what [`UseHover`](#func-usehover) returns.
+
+#### func UseHover
+
+```go
+func UseHover(o HoverOptions) HoverResult
+```
+
+UseHover returns the props that track whether a mouse or a pen is over the element (React Aria's useHover). Unlike the `hover:` variant it reaches Go: show a tooltip, start a preview, drive an animation. It ignores touch: a finger does not hover, and the enter that a touch press makes is not a hover.
+
+```go
+hover := aria.UseHover(aria.HoverOptions{})
+return Div(hover.Props, If(hover.Hovered, Class("ring-2")), Text("Card"))
+```
+
+Like the `hover:` variant, the element is hovered while the pointer is over it or its descendants.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+card := func() tela.Node {
+    hover := aria.UseHover(aria.HoverOptions{})
+    return Div(hover.Props, Class("h-20 w-40"),
+        If(hover.Hovered, Text("Hovered")), If(!hover.Hovered, Text("Idle")))
+}
+app := telatest.MountFunc(t, card)
+app.ExpectText("Idle")
+app.Hover(telatest.ByText("Idle"))
+app.ExpectText("Hovered")
+fmt.Println("hovered")
+// Output: hovered
+```
 
 ### type LimitShiftOptions
 
@@ -471,6 +980,194 @@ type OffsetOptions struct {
 ```
 
 OffsetOptions are the options of [`Offset`](#func-offset) beyond the distance.
+
+### type PointerType
+
+```go
+type PointerType string
+```
+
+PointerType is the device or the way a press, or a hover, came from.
+
+```go
+const (
+    // PointerMouse is a mouse or a touchpad.
+    PointerMouse PointerType = "mouse"
+    // PointerTouch is a finger on a touchscreen.
+    PointerTouch PointerType = "touch"
+    // PointerPen is a stylus.
+    PointerPen PointerType = "pen"
+    // PointerKeyboard is a press made with Enter or Space on the focused
+    // element.
+    PointerKeyboard PointerType = "keyboard"
+    // PointerVirtual is a click that no pointer or key made: an assistive
+    // technology or an agent (the "click" action of the semantics tree),
+    // or the click a Label sends to the control it labels.
+    PointerVirtual PointerType = "virtual"
+)
+```
+
+The pointer types.
+
+### type PressEvent
+
+```go
+type PressEvent struct {
+    // PointerType is where the press came from.
+    PointerType PointerType
+    // X and Y are window coordinates; LocalX and LocalY are relative to the
+    // element's border box.
+    X, Y, LocalX, LocalY float32
+    // Modifier keys held during the event; Meta is the Windows, Command or
+    // Super key.
+    Shift, Ctrl, Alt, Meta bool
+    // contains filtered or unexported fields
+}
+```
+
+PressEvent is passed to the callbacks of [`PressOptions`](#type-pressoptions). X and Y are the position of the event in the window, LocalX and LocalY relative to the border box of the element, in logical pixels; a press that no pointer made (keyboard, virtual) reports the center of the element.
+
+Pressing stops the propagation of the events that make it (the pointer's, the key's, the click), as React Aria does, so a pressable card inside a pressable row presses only the card. Call [`PressEvent.ContinuePropagation`](#func-pressevent-continuepropagation) in a callback to let them bubble.
+
+#### func (PressEvent) ContinuePropagation
+
+```go
+func (e PressEvent) ContinuePropagation()
+```
+
+ContinuePropagation lets the event that made this press bubble to the ancestors' handlers, instead of stopping it. It applies to the whole step of the press: if any of its callbacks continues, the event does.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var log []string
+page := func() tela.Node {
+    press := aria.UsePress(aria.PressOptions{
+        // Let the card's own handlers see the press too.
+        OnPressStart: func(e aria.PressEvent) { e.ContinuePropagation() },
+    })
+    return Div(OnPointerDown(func() { log = append(log, "the card saw the pointer down") }),
+        Button(press.Props, Text("Like")))
+}
+app := telatest.MountFunc(t, page)
+app.Click(telatest.ByRole("button", "Like"))
+fmt.Println(log)
+// Output: [the card saw the pointer down]
+```
+
+### type PressOptions
+
+```go
+type PressOptions struct {
+    // OnPressStart is called when a press begins: the pointer goes down on
+    // the element, or Space goes down on it while it is focused. A press
+    // that left the element (without [PressOptions.ShouldCancelOnPointerExit])
+    // starts again if the pointer comes back while still held.
+    OnPressStart func(PressEvent)
+    // OnPressEnd is called when a press ends, whether it counts or not: the
+    // release over the element, the pointer leaving it, the cancel of the
+    // pointer or a lost focus.
+    OnPressEnd func(PressEvent)
+    // OnPressChange is called with true when a press starts and false when
+    // it ends: the callback form of the Pressed field of the result.
+    OnPressChange func(pressed bool)
+    // OnPressUp is called when the pointer or the key is released over the
+    // element, before OnPressEnd.
+    OnPressUp func(PressEvent)
+    // OnPress is called when the press completes: the release over the
+    // element, Space released on it, Enter pressed on it, or a virtual
+    // click. It does not run for a disabled element.
+    OnPress func(PressEvent)
+    // Disabled ignores every pointer, key and click on the element, and
+    // ends a press in progress. It sets no prop: for a disabled look and
+    // semantics use [UseButton] or h.Disabled.
+    Disabled bool
+    // ShouldCancelOnPointerExit ends the press for good when the pointer
+    // leaves the element, instead of letting it start again when the
+    // pointer comes back while pressed.
+    ShouldCancelOnPointerExit bool
+    // PreventFocusOnPress keeps the focus where it is when the pointer
+    // goes down on the element (the default action of a press is to focus
+    // the nearest focusable element).
+    PreventFocusOnPress bool
+    // Ref is the element's ref, for a hook that is used together with
+    // others on one element (see the package documentation); the zero
+    // value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+PressOptions configures [`UsePress`](#func-usepress).
+
+### type PressResult
+
+```go
+type PressResult struct {
+    // Props go to the element: the pointer, key, click and blur handlers
+    // and the ref, merged. Props given after them in the element's
+    // arguments override what they set, but handlers of the same event all
+    // run.
+    Props tela.Prop
+    // Pressed is true while the element is pressed (a pointer is down on
+    // it, or Space is held): style it with a class, since `active:` follows
+    // the pointer only.
+    Pressed bool
+    // Ref is the ref attached to the element by Props.
+    Ref tela.ElementRef
+}
+```
+
+PressResult is what [`UsePress`](#func-usepress) returns.
+
+#### func UsePress
+
+```go
+func UsePress(o PressOptions) PressResult
+```
+
+UsePress returns the props that make an element pressable, the same across mouse, touch, pen and keyboard (React Aria's usePress).
+
+```go
+press := aria.UsePress(aria.PressOptions{
+    OnPress: func(e aria.PressEvent) { save() },
+    Disabled: busy,
+})
+return Div(press.Props, Role("button"), TabIndex(0),
+    Class("rounded-md px-3 py-1.5"), If(press.Pressed, Class("scale-95")), Text("Save"))
+```
+
+A press starts when the primary button, a touch contact or a pen tip goes down on the element. It ends when the pointer is released ([`PressOptions.OnPress`](#type-pressoptions) runs if that was over the element), leaves the element (which also ends it for good with [`PressOptions.ShouldCancelOnPointerExit`](#type-pressoptions)) or is cancelled: the system takes the touch, a touch becomes a scroll, or the element is unmounted. The element keeps receiving the pointer while it is pressed, wherever it goes.
+
+With the keyboard, Enter on the focused element presses it at once (OnPressStart, OnPressUp, OnPressEnd and OnPress on the key down, never on a repeat), and Space starts the press on the key down and completes it on the key up; a press by Space ends without OnPress when the focus leaves the element. The hook prevents the default action of those keys (the click of a Button, the scroll of Space). A click that no pointer made (an assistive technology, an agent, a Label) is a virtual press.
+
+The hook stops the propagation of the events that make a press (PressEvent.ContinuePropagation lets them bubble), prevents the default action of the click (a Button does not submit its Form), and does not run for a Disabled element.
+
+The element needs no role: UsePress adds none. For a button use [`UseButton`](#func-usebutton), which adds the role, the tab stop and the disabled state.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+save := func() tela.Node {
+    saved, setSaved := tela.UseState(0)
+    press := aria.UsePress(aria.PressOptions{
+        OnPress: func(e aria.PressEvent) { setSaved.Update(func(n int) int { return n + 1 }) },
+    })
+    return Div(press.Props, Role("button"), TabIndex(0),
+        Class("rounded-md px-3 py-1.5"), If(press.Pressed, Class("scale-95")),
+        Textf("Saved %d times", saved))
+}
+app := telatest.MountFunc(t, save)
+app.Click(telatest.ByRole("button", "Saved 0 times"))
+app.Press("Enter") // the button has the focus after the click
+app.Press("Space")
+app.ExpectText("Saved 3 times")
+fmt.Println("3 presses: mouse, Enter, Space")
+// Output: 3 presses: mouse, Enter, Space
+```
 
 ### type Rects
 
@@ -537,3 +1234,170 @@ type SizeOptions struct {
 ```
 
 SizeOptions are the options of [`Size`](#func-size).
+
+### type ToggleOptions
+
+```go
+type ToggleOptions struct {
+    // Selected is the state of a controlled control; it is used only when
+    // OnChange is set.
+    Selected bool
+    // DefaultSelected is the initial state of an uncontrolled control.
+    DefaultSelected bool
+    // OnChange is called with the next state when the user toggles the
+    // control. Setting it makes the control controlled.
+    OnChange func(selected bool)
+    // Disabled makes the control inert and disabled for styling and
+    // assistive technologies (h.Disabled).
+    Disabled bool
+    // ReadOnly keeps the control focusable and readable but not
+    // changeable (aria-readonly).
+    ReadOnly bool
+    // ID is the id of the element, for a Label's For; the default is one
+    // made with tela.UseID, returned in the ID field of the result.
+    ID string
+    // Ref is the element's ref, for a hook that is used together with
+    // others on one element (see the package documentation); the zero
+    // value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+ToggleOptions configures [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch): a two-state control. Its state is uncontrolled by default (the hook keeps it, starting at DefaultSelected) and controlled when OnChange is set: the control then shows Selected and only asks OnChange for the next value, as an Input with Value and OnChange does.
+
+```go
+// Uncontrolled: the hook keeps the state.
+aria.ToggleOptions{DefaultSelected: true}
+// Controlled: the caller keeps it.
+on, setOn := tela.UseState(false)
+aria.ToggleOptions{Selected: on, OnChange: setOn.Set}
+```
+
+To follow an uncontrolled control, read the Selected field of its result.
+
+### type ToggleResult
+
+```go
+type ToggleResult struct {
+    // Props go to the element: the press, the role, the tab stop, the
+    // checked or pressed state, the disabled and read-only states and the
+    // ID.
+    Props tela.Prop
+    // Selected is the current state, controlled or not.
+    Selected bool
+    // Pressed is true while the control is pressed.
+    Pressed bool
+    // ID is the element's id: ToggleOptions.ID, or one made by the hook.
+    // A Label(For(id)) names the control and toggles it when clicked, if
+    // the control is a Button element.
+    ID string
+    // Ref is the ref attached to the element by Props.
+    Ref tela.ElementRef
+}
+```
+
+ToggleResult is what [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch) return.
+
+#### func UseCheckbox
+
+```go
+func UseCheckbox(o ToggleOptions) ToggleResult
+```
+
+UseCheckbox returns the props of a checkbox (React Aria's useCheckbox): press (a click or a tap toggles it, and so does Space, but not Enter, as in HTML), the "checkbox" role, `aria-checked`, a tab stop, the disabled and read-only states and an ID for a Label. The `checked:` variant, and `peer-checked:` and `group-checked:`, match it while it is selected (so do `aria-checked:` and its peer and group forms).
+
+```go
+box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})
+return Div(Class("flex items-center gap-2"),
+    Button(box.Props, Class("size-4 rounded border checked:bg-primary")),
+    Label(For(box.ID), Text("Notifications")))
+```
+
+Render a checkbox with a Button, so that a Label can name it and toggle it when it is clicked: Tela's Label does that for an Input, a Textarea or a Button.
+
+Selected, DefaultSelected and OnChange follow [`ToggleOptions`](#type-toggleoptions). There is no indeterminate state yet.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})
+    return Div(Class("flex items-center gap-2"),
+        Button(box.Props, Class("size-4 rounded border checked:bg-primary")),
+        Label(For(box.ID), Text("Notifications")))
+}
+app := telatest.MountFunc(t, page)
+fmt.Println(app.AriaSnapshot())
+app.Click(telatest.ByText("Notifications")) // the Label toggles it
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - checkbox "Notifications" [checked]
+// - text: Notifications
+// - checkbox "Notifications"
+// - text: Notifications
+```
+
+#### func UseSwitch
+
+```go
+func UseSwitch(o ToggleOptions) ToggleResult
+```
+
+UseSwitch returns the props of a switch (React Aria's useSwitch): the same as [`UseCheckbox`](#func-usecheckbox) with the "switch" role.
+
+```go
+sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+return Button(sw.Props, Class("h-6 w-11 rounded-full bg-muted checked:bg-primary"),
+    Span(Class("block size-5 rounded-full bg-white transition checked:translate-x-5")))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    on, setOn := tela.UseState(false)
+    sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+    return Button(sw.Props, AriaLabel("Wi-Fi"), Class("h-6 w-11 rounded-full bg-muted checked:bg-primary"))
+}
+app := telatest.MountFunc(t, page)
+app.Click(telatest.ByRole("switch", "Wi-Fi"))
+fmt.Println(app.AriaSnapshot())
+// Output: - switch "Wi-Fi" [checked]
+```
+
+#### func UseToggleButton
+
+```go
+func UseToggleButton(o ToggleOptions) ToggleResult
+```
+
+UseToggleButton returns the props of a button that is on or off (React Aria's useToggleButton): [`UseButton`](#func-usebutton) plus the state, shown as `aria-pressed`, so the `aria-pressed:` variants style it. Enter, Space, a click or a tap toggles it.
+
+```go
+bold, setBold := tela.UseState(false)
+tb := aria.UseToggleButton(aria.ToggleOptions{Selected: bold, OnChange: setBold.Set})
+return Button(tb.Props, Class("rounded px-2 aria-pressed:bg-accent"), Text("B"))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    bold, setBold := tela.UseState(false)
+    tb := aria.UseToggleButton(aria.ToggleOptions{Selected: bold, OnChange: setBold.Set})
+    return Button(tb.Props, Class("rounded px-2 aria-pressed:bg-accent"), Text("Bold"))
+}
+app := telatest.MountFunc(t, page)
+fmt.Println(app.AriaSnapshot())
+app.Click(telatest.ByRole("button", "Bold"))
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - button "Bold"
+// - button "Bold" [pressed]
+```

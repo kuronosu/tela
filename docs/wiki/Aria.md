@@ -12,9 +12,204 @@ import "github.com/kuronosu/tela/aria"
 
 | You want | Use |
 |---|---|
+| One "press" for mouse, touch, pen and keyboard | [`aria.UsePress`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UsePress) |
+| A button, on any element | [`aria.UseButton`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseButton) |
+| A button that is on or off | [`aria.UseToggleButton`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseToggleButton) |
+| A checkbox or a switch | [`aria.UseCheckbox`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseCheckbox), [`aria.UseSwitch`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseSwitch) |
+| To know that a mouse or a pen is over an element | [`aria.UseHover`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseHover) |
+| A focus ring that shows after the keyboard, not after a click | [`aria.UseFocusRing`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusRing) |
+| A dialog that keeps the focus, or a toolbar with arrow keys | [`aria.UseFocusScope`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusScope) |
 | A popover, tooltip, menu or select list next to its button | [`aria.UseFloating`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFloating) |
 
 This page grows with the package; the sections below cover what exists.
+
+## The pattern: options in, `Props` out
+
+A hook takes an options struct and returns a struct. Its `Props` field is one
+`tela.Prop` with everything the hook needs on the element (handlers, ref,
+role, aria states); the other fields are state to style from:
+
+```go
+press := aria.UsePress(aria.PressOptions{
+	OnPress:  func(e aria.PressEvent) { save() },
+	Disabled: busy,
+})
+return Button(press.Props, Class("rounded-md px-3 py-1.5"),
+	If(press.Pressed, Class("scale-95")), Text("Save"))
+```
+
+`Props` merges several props: the handlers of one event all run, in the order
+given, so hook props combine with your own and with each other:
+
+```go
+ref := tela.UseElementRef()
+btn := aria.UseButton(aria.ButtonOptions{Ref: ref, OnPress: func(aria.PressEvent) { save() }})
+ring := aria.UseFocusRing(aria.FocusRingOptions{Ref: ref})
+hover := aria.UseHover(aria.HoverOptions{})
+return Button(btn.Props, ring.Props, hover.Props,
+	OnPointerDown(func() { track("down") }),
+	Class("rounded-md px-3 py-1.5 transition"),
+	If(hover.Hovered, Class("bg-accent")),
+	If(ring.FocusVisible, Class("ring-2 ring-primary")), Text("Save"))
+```
+
+**One ref per element.** The hooks that need the element itself (press, focus
+ring, focus scope, and the controls built on press) attach a ref to it, and an
+element has one. When several hooks serve one element, make the ref once with
+`tela.UseElementRef` and give it to each as `Ref`, as above; without it each
+hook attaches its own and only the last stays attached (a press then never
+sees the pointer leave). Do not add `h.Ref(other)` to an element that has hook
+props: use the `Ref` field of a hook's result.
+
+**Controlled or not.** A hook that holds state keeps it itself (uncontrolled,
+starting at `DefaultSelected`), and lets you keep it (controlled) when you pass
+`OnChange`: it then shows `Selected` and only asks `OnChange` for the next
+value, like an `Input` with `Value` and `OnChange`. A change you do not store
+is refused.
+
+```go
+box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})          // uncontrolled
+on, setOn := tela.UseState(false)
+sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set}) // controlled
+```
+
+## Press: `UsePress`
+
+`UsePress` is React Aria's `usePress`: the same press for every input.
+
+| Input | The press |
+|---|---|
+| Mouse, touch, pen | Starts when the primary button, a finger or the pen goes down on the element. A release over the element completes it; leaving the element ends it (`OnPressEnd`, no `OnPress`) and coming back while held starts it again, unless `ShouldCancelOnPointerExit`. The system taking the touch, a touch that becomes a scroll, or the element unmounting cancel it. |
+| Enter | On the focused element, presses at once on the key down. Key repeats are ignored. |
+| Space | On the focused element, starts on the key down and completes on the key up. Repeats are ignored, and a blur in the middle cancels it. |
+| Virtual | A click that no pointer or key made: an agent's "click" action, a Label forwarding its click to the control, assistive technology. `PointerType` is `aria.PointerVirtual`. |
+
+The callbacks are `OnPressStart`, `OnPressUp`, `OnPressEnd`, `OnPressChange`
+and `OnPress`; `PressEvent` has the `PointerType`, the modifier keys and the
+position of the event (`X`, `Y` in the window, `LocalX`, `LocalY` in the
+element; the center for the keyboard and virtual presses). The result's
+`Pressed` is true while pressed: use it for the look, since the `active:`
+variant follows the pointer only.
+
+A press **stops the propagation** of the events that make it, so a pressable
+card inside a pressable row presses only the card. Call
+`e.ContinuePropagation()` in a callback to let them bubble. It also prevents
+the default action of the click: a `Button` with press props does not submit
+its `Form` (call the handler from `OnPress`), and a `Label` does not forward
+the click. A disabled press (`Disabled: true`) ignores everything. The hook
+adds no role and no tab stop: for a button use `UseButton`.
+
+## Buttons and toggles
+
+`UseButton` is a press plus `Role("button")`, a tab stop and `Disabled`: it
+makes a `Div` or an `A` a button, and a `Button` a correct one.
+
+`UseToggleButton`, `UseCheckbox` and `UseSwitch` take `aria.ToggleOptions`
+(`Selected`, `DefaultSelected`, `OnChange`, `Disabled`, `ReadOnly`, `ID`,
+`Ref`) and return `Selected`, `Pressed`, `ID` and `Props`:
+
+| Hook | Role and state | Keys |
+|---|---|---|
+| `UseToggleButton` | `button`, `aria-pressed` | Enter and Space |
+| `UseCheckbox` | `checkbox`, `aria-checked` | Space (not Enter, as in HTML) |
+| `UseSwitch` | `switch`, `aria-checked` | Space |
+
+```go
+func Notifications() tela.Node {
+	box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})
+	return Div(Class("flex items-center gap-2"),
+		Button(box.Props, Class("size-4 rounded border checked:bg-primary")),
+		Label(For(box.ID), Text("Notifications")))
+}
+```
+
+- Render a checkbox or switch with a **`Button`**: it is the element a `Label`
+  can label, so `Label(For(box.ID), ...)` names the control and a click on the
+  label toggles it.
+- A selected checkbox or switch matches **`checked:`** (and `peer-checked:`,
+  `group-checked:`), and `aria-checked:`; a toggle button matches
+  `aria-pressed:`. `checked:` matches an element whose `h.AriaChecked` is
+  true, because Tela has no native checkbox.
+- `ReadOnly` keeps the control focusable and readable but not changeable
+  (`aria-readonly`). There is no indeterminate state yet.
+
+The aria snapshot shows them as Playwright does:
+
+```yaml
+- checkbox "Notifications" [checked]
+- switch "Wi-Fi" [checked]
+- switch "Bluetooth" [disabled]
+- button "Bold" [pressed]
+```
+
+## Hover: `UseHover`
+
+```go
+hover := aria.UseHover(aria.HoverOptions{OnHoverStart: func(aria.HoverEvent) { preload() }})
+return Div(hover.Props, If(hover.Hovered, Class("ring-2")), Text("Card"))
+```
+
+`Hovered` is true while a mouse or a pen is over the element or its
+descendants. A touch never hovers (the enter that a touch press makes is
+ignored). The `hover:` variant covers styling; use the hook when Go needs to
+know.
+
+## Focus ring: `UseFocusRing`
+
+`UseFocusRing` returns `Focused` and `FocusVisible`: the ring shows after the
+keyboard moves the focus (Tab, arrows) and not after a click, as Chromium's
+`:focus-visible` does. With `Within: true` it follows the focus anywhere
+inside the element (a group that rings all its parts).
+
+```go
+ring := aria.UseFocusRing(aria.FocusRingOptions{})
+return Button(ring.Props, If(ring.FocusVisible, Class("ring-2 ring-primary")), Text("Save"))
+```
+
+## Focus scope: `UseFocusScope`
+
+`UseFocusScope(aria.FocusScopeOptions{Contain, Restore, AutoFocus})` makes an
+element a focus scope and returns `Props` and a `Manager`:
+
+- `Contain` keeps Tab and Shift+Tab inside the scope (a dialog).
+- `Restore` gives the focus back, when the scope unmounts, to the element that
+  had it when the scope mounted (the button that opened the dialog).
+- `AutoFocus` focuses the first tabbable element after the frame that mounts
+  the scope, unless the focus is already inside.
+
+```go
+scope := aria.UseFocusScope(aria.FocusScopeOptions{Contain: true, Restore: true, AutoFocus: true})
+return Div(scope.Props, Role("dialog"), AriaLabel("Settings"), ...)
+```
+
+The `Manager` moves the focus among the focusable elements of the scope from
+your handlers, in tree order; each method reports whether it found one:
+
+```go
+scope := aria.UseFocusScope(aria.FocusScopeOptions{})
+return Div(scope.Props, Role("toolbar"), OnKeyDown(func(e tela.KeyboardEvent) {
+	switch e.Key {
+	case tela.KeyArrowRight:
+		e.PreventDefault()
+		scope.Manager.FocusNext(aria.FocusOptions{Wrap: true})
+	case tela.KeyArrowLeft:
+		e.PreventDefault()
+		scope.Manager.FocusPrevious(aria.FocusOptions{Wrap: true})
+	}
+}), buttons)
+```
+
+`FocusFirst`, `FocusLast`, `FocusNext` and `FocusPrevious` take
+`aria.FocusOptions`: `Wrap` goes around at the ends, `Tabbable` leaves out the
+elements that only a script can focus (`TabIndex(-1)`), `From` starts at
+another element of the scope.
+
+## Testing
+
+Everything above runs in `telatest`: `app.Click`, `app.Press("Enter")`,
+`app.Press("Space")`, `app.Focus`, `app.Hover`, `app.Expect(loc,
+telatest.Checked(true))`, `app.AriaSnapshot()`. Touch and pen have no
+`telatest` action yet; the package's own tests inject them as platform events.
 
 ## Floating elements: `UseFloating`
 
