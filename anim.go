@@ -1,6 +1,7 @@
 package tela
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/kuronosu/tela/internal/core"
@@ -171,14 +172,48 @@ func Bounce(b float64) AnimationOption { return core.Bounce(b) }
 // [OnDone] is queued right after, as for any target that applies at once.
 func Duration(d time.Duration) AnimationOption { return core.Duration(d) }
 
-// Ease sets the easing curve of a tween, a CSS <easing-function>: one of
-// the keywords linear, ease, ease-in, ease-out, ease-in-out, step-start
-// and step-end, cubic-bezier(x1, y1, x2, y2) or steps(n[, position]).
-// The keywords are CSS's curves: Tailwind's ease-out utility is
-// Ease("cubic-bezier(0, 0, 0.2, 1)"). An invalid string panics in dev
-// mode with a suggestion (Ease("ease-out-cubic"): did you mean
-// "ease-out"?); otherwise the tween uses "ease".
-func Ease(css string) AnimationOption { return core.Ease(css) }
+// Easing is a CSS <easing-function> as a string: one of the constants
+// [EaseLinear], [EaseIn], [EaseOut] and [EaseInOut], the keywords "ease",
+// "step-start" and "step-end", [CubicBezier], or "steps(n[, position])".
+// It is a string type, so a literal such as "ease-out" keeps compiling
+// where an Easing is wanted.
+type Easing string
+
+// The easing keywords of CSS Easing Functions Level 1 that Tailwind and
+// Motion also name. They are CSS's curves: Tailwind's ease-out utility is
+// CubicBezier(0, 0, 0.2, 1), which is not EaseOut. The default of a tween
+// is CSS's "ease", which has no constant.
+const (
+	// EaseLinear is "linear": constant speed.
+	EaseLinear Easing = "linear"
+	// EaseIn is "ease-in", cubic-bezier(0.42, 0, 1, 1): starts slow.
+	EaseIn Easing = "ease-in"
+	// EaseOut is "ease-out", cubic-bezier(0, 0, 0.58, 1): ends slow.
+	EaseOut Easing = "ease-out"
+	// EaseInOut is "ease-in-out", cubic-bezier(0.42, 0, 0.58, 1): slow at
+	// both ends.
+	EaseInOut Easing = "ease-in-out"
+)
+
+// CubicBezier returns the easing cubic-bezier(x1, y1, x2, y2): a Bezier
+// curve from (0, 0) to (1, 1) with those control points. x1 and x2 must
+// be from 0 to 1 (y1 and y2 may overshoot, for a bounce); [Ease] panics
+// in dev mode otherwise.
+//
+//	tela.Ease(tela.CubicBezier(0, 0, 0.2, 1)) // Tailwind's ease-out
+func CubicBezier(x1, y1, x2, y2 float32) Easing {
+	f := func(v float32) string { return strconv.FormatFloat(float64(v), 'g', -1, 32) }
+	return Easing("cubic-bezier(" + f(x1) + ", " + f(y1) + ", " + f(x2) + ", " + f(y2) + ")")
+}
+
+// Ease sets the easing curve of a tween, an [Easing]: a CSS
+// <easing-function>, one of the keywords linear, ease, ease-in, ease-out,
+// ease-in-out, step-start and step-end, [CubicBezier] or
+// steps(n[, position]). The keywords are CSS's curves: Tailwind's
+// ease-out utility is Ease(CubicBezier(0, 0, 0.2, 1)). An invalid string
+// panics in dev mode with a suggestion (Ease("ease-out-cubic"): did you
+// mean "ease-out"?); otherwise the tween uses "ease".
+func Ease(e Easing) AnimationOption { return core.Ease(string(e)) }
 
 // OnDone calls fn when the animation comes to rest at its target: once,
 // on the UI thread, queued with the state updates like [Post], so it runs
@@ -251,3 +286,31 @@ func Spring(opts ...AnimationOption) AnimationOption { return core.Spring(opts..
 //
 //	Presence(If(saved, tela.C(func() tela.Node { return Toast("Saved") })))
 func UsePresence() (present bool, done func()) { return core.UsePresence() }
+
+// UsePresenceTween is the entrance and the exit of a component inside a
+// child of an h.Presence as one [Value]: a number that goes from 0 to 1
+// when the component mounts and from 1 to 0 while its child exits, and
+// that calls [UsePresence]'s done when the exit arrives, so the child
+// unmounts then. Read it in deferred style closures and the component
+// does not build while it moves.
+//
+// The options are those of [UseTween]: [Duration] (300 ms by default),
+// [Ease], and [OnDone], which runs after each of the two motions, before
+// done. With spring options ([Stiffness], [Damping], [Bounce],
+// [Velocity], [Spring]) it is a [UseSpring] instead. The entrance starts
+// from 0, as with [Initial]; the same *Value is returned on every build.
+//
+// A toast that slides up and fades in, and out again before it unmounts:
+//
+//	func Toast() tela.Node {
+//	    shown := tela.UsePresenceTween(tela.Duration(250*time.Millisecond), tela.Ease(tela.EaseOut))
+//	    return Div(Class("fixed bottom-8 rounded-xl bg-slate-900 px-5 py-3 text-white"),
+//	        Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
+//	            tela.OpacityFn(shown.Get)),
+//	        Text("Saved"))
+//	}
+//
+//	Presence(If(saved, tela.C(Toast)))
+func UsePresenceTween(opts ...AnimationOption) *Value[float32] {
+	return core.UsePresenceTween(opts...)
+}

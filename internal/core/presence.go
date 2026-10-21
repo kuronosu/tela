@@ -484,3 +484,44 @@ func UsePresence() (present bool, done func()) {
 	}
 	return s.root == nil || !s.root.exiting(), s.doneFn
 }
+
+// UsePresenceTween is the entrance and exit of a component inside a
+// Presence child as one Value (tela.UsePresenceTween): 0 to 1 when it
+// mounts, 1 to 0 while its child exits, calling done when the exit
+// arrives. It is a tween unless the options are spring options
+// (Stiffness, Damping, Bounce, Velocity or Spring), then a spring. An
+// OnDone option runs before done, after each of the two motions.
+func UsePresenceTween(opts ...AnimOption) *Value[float32] {
+	present, done := UsePresence()
+	target := float32(1)
+	if !present {
+		target = 0
+	}
+	all := make([]AnimOption, 0, len(opts)+2)
+	all = append(all, Initial(float32(0)))
+	spring := false
+	var user []func()
+	for _, o := range opts {
+		switch op := o.o; {
+		case op == nil:
+		case op.kind == optOnDone && op.fn != nil:
+			user = append(user, op.fn)
+		default:
+			switch op.kind {
+			case optStiffness, optDamping, optBounce, optSpring, optVelocity:
+				spring = true
+			}
+			all = append(all, o)
+		}
+	}
+	all = append(all, OnDone(func() {
+		for _, f := range user {
+			f()
+		}
+		done()
+	}))
+	if spring {
+		return UseSpring(target, all...)
+	}
+	return UseTween(target, all...)
+}

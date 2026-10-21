@@ -70,7 +70,7 @@ func ExampleBgImage() {
 	}
 
 	// With package h: Div(Class("size-8 bg-cover bg-center"), Style(tela.BgImage(photo))).
-	card := core.Primitive(style.KindDiv, core.Class("size-8 bg-cover bg-center"), core.Style(tela.BgImage(photo)))
+	card := core.Primitive(style.KindDiv, core.Class("size-8 bg-cover bg-center"), tela.BgImage(photo))
 	_, img := core.Render(card, core.RenderOptions{Width: 32, Height: 32})
 	fmt.Println(img.RGBAAt(16, 16))
 	// Output: {0 0 255 255}

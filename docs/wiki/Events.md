@@ -52,6 +52,18 @@ the right call.
 | Wheel and scroll | [`OnWheel`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnWheel) [`OnScroll`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnScroll) | [`tela.WheelEvent`](https://pkg.go.dev/github.com/kuronosu/tela#WheelEvent), [`tela.ScrollEvent`](https://pkg.go.dev/github.com/kuronosu/tela#ScrollEvent) |
 | Text fields and forms | [`OnChange`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnChange) [`OnBeforeInput`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnBeforeInput) [`OnCompositionStart`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnCompositionStart) [`OnCompositionUpdate`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnCompositionUpdate) [`OnCompositionEnd`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnCompositionEnd) [`OnSelect`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnSelect) [`OnSubmit`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnSubmit) | see [Forms and Text Input](Forms-and-Text-Input) |
 
+Every handler takes a `func()` or a func of its event type, so write the
+event only when the handler reads it (about four handlers in five do not):
+
+```go
+Button(OnClick(func() { setCount.Update(func(n int) int { return n + 1 }) }), Text("+1"))
+Div(OnMouseMove(func(e tela.MouseEvent) { pos.Set(e.LocalX) }))
+```
+
+A nil handler panics, naming both shapes. [`tela.Toggle`](https://pkg.go.dev/github.com/kuronosu/tela#Toggle)`(setOpen)` is a
+ready-made `func()` that flips a `bool` state with `Update`, so two clicks
+that land in one frame both count: `OnClick(tela.Toggle(setOpen))`.
+
 The fields and methods of the event types are listed in
 [API-Reference-tela](API-Reference-tela#types); the common ones are below.
 

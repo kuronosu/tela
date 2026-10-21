@@ -5,6 +5,7 @@ import (
 	"image"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -286,6 +287,11 @@ func propOf(c Child) (Prop, bool) {
 	switch c := c.(type) {
 	case Prop:
 		return c, true
+	case StyleProp:
+		if len(c.ops) == 0 {
+			return Prop{}, true // the zero StyleProp of If(false, ...)
+		}
+		return Style(c.ops...), true
 	case Node:
 		if c.d != nil && c.d.kind == nodeProp {
 			return *c.d.prop, true
@@ -475,13 +481,30 @@ func Textf(format string, args ...any) Node { return Text(fmt.Sprintf(format, ar
 // parent builds, because fn may capture values that changed; only the
 // very same node (an identical *desc, such as a node kept in a variable
 // or a UseMemo) is not built again.
-func Component(fn func() Node) Node {
+//
+// key gives the node a key (the h.Key prop, the only prop accepted).
+func Component(fn func() Node, key ...Prop) Node {
 	if fn == nil {
 		panic("tela: C(nil): pass a component function, such as tela.C(Counter)")
 	}
-	return Node{&desc{kind: nodeComponent, comp: &compDesc{
+	return keyedComponent(Node{&desc{kind: nodeComponent, comp: &compDesc{
 		typ: reflect.ValueOf(fn).Pointer(), fn: fn, build: fn,
-	}}}
+	}}}, "C", key)
+}
+
+// keyedComponent gives the new component node n the keys of key, which
+// are h.Key props: the optional last argument of C, CP and Memo.
+func keyedComponent(n Node, who string, key []Prop) Node {
+	for _, p := range key {
+		if p.apply == nil {
+			continue // the zero Prop of If(false, Key(...))
+		}
+		if p.name != "Key" {
+			panic(fmt.Sprintf("tela: %s takes only Key as its last argument, not %s; classes, styles and handlers go on the elements the component builds, for example tela.%s(..., Key(id))", who, propName(p), who))
+		}
+		p.apply(n.d)
+	}
+	return n
 }
 
 // ComponentProps returns a node that builds fn(props): a component with
@@ -494,7 +517,7 @@ func Component(fn func() Node) Node {
 //
 // Variables captured by fn are not compared: in dev mode, an anonymous
 // function or a method value is reported once per call site.
-func ComponentProps[P comparable](fn func(P) Node, props P) Node {
+func ComponentProps[P comparable](fn func(P) Node, props P, key ...Prop) Node {
 	if fn == nil {
 		panic("tela: CP(nil, ...): pass a component function, such as tela.CP(Card, CardProps{...})")
 	}
@@ -505,14 +528,14 @@ func ComponentProps[P comparable](fn func(P) Node, props P) Node {
 	if devAny.Load() {
 		c.anon = noteAnon(c.typ, "CP")
 	}
-	return Node{&desc{kind: nodeComponent, comp: c}}
+	return keyedComponent(Node{&desc{kind: nodeComponent, comp: c}}, "CP", key)
 }
 
 // Memo returns a node that builds fn(props), like ComponentProps, but
 // skips the build when equal(old, new) reports the props equal (tela.Memo):
 // for props that are not comparable, or that compare in another way.
 // equal is the new node's; it must be pure.
-func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool) Node {
+func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Prop) Node {
 	if fn == nil {
 		panic("tela: Memo(nil, ...): pass a component function, such as tela.Memo(Chart, props, sameSeries)")
 	}
@@ -531,7 +554,7 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool) Node {
 	if devAny.Load() {
 		c.anon = noteAnon(c.typ, "Memo")
 	}
-	return Node{&desc{kind: nodeComponent, comp: c}}
+	return keyedComponent(Node{&desc{kind: nodeComponent, comp: c}}, "Memo", key)
 }
 
 // WithKey returns a copy of the node of c with key k (see Key). It works
@@ -570,6 +593,13 @@ func List(nodes []Node) Node {
 		d.site.capture(-1)
 	}
 	return Node{d}
+}
+
+// NodeList returns a fragment of nodes without a box of its own: the
+// children of h.Nodes. Unlike List it is not dynamic, so dev mode does not
+// ask for keys: it is the slice form of Fragment(a, b, c).
+func NodeList(nodes []Node) Node {
+	return Node{&desc{kind: nodeFragment, children: slices.Clone(nodes)}}
 }
 
 // Map returns the List of f applied to every item.

@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Id`](#func-id-deprecated) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Id`](#func-id-deprecated) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
 
 ## Overview
 
@@ -50,7 +50,7 @@ Text fields are controlled, like React's:
 ```go
 func Signup() tela.Node {
     email, setEmail := tela.UseState("")
-    return Form(Class("flex flex-col gap-2"), OnSubmit(func(tela.SubmitEvent) { register(email) }),
+    return Form(Class("flex flex-col gap-2"), OnSubmit(func() { register(email) }),
         Label(For("email"), Class("text-sm font-medium"), Text("Email")),
         Input(ID("email"), Type("email"), Bind(email, setEmail), Placeholder("you@example.com"),
             Class("rounded-md border border-slate-300 px-3 py-2 invalid:border-red-500")),
@@ -301,14 +301,38 @@ Button(AutoFocus(true), OnClick(confirm), Text("OK"))
 ### func Bind
 
 ```go
-func Bind(text string, set tela.Setter[string]) tela.Prop
+func Bind[S tela.Setter[string] | func(string)](text string, set S) tela.Prop
 ```
 
-Bind makes a text field controlled by a state: Value(text) plus an OnChange that calls set.Set(e.Value).
+Bind makes a text field controlled by a state: Value(text) plus an OnChange that sends every new value to set, a tela.Setter or any func(string), such as one that dispatches an action to a reducer. A nil function panics.
 
 ```go
 name, setName := tela.UseState("")
 Input(Bind(name, setName))
+
+form, d := tela.UseReducer(reduce, Form{})
+Input(Bind(form.Email, func(s string) { d.Dispatch(setEmail(s)) }))
+```
+
+**Example (func)**
+
+```go
+type action struct{ text string }
+form := func() tela.Node {
+    text, d := tela.UseReducer(func(_ string, a action) string { return a.text }, "")
+    // A func(string) binds as well as a Setter: here, a Dispatcher.
+    return Div(
+        Input(AriaLabel("Name"), Bind(text, func(s string) { d.Dispatch(action{s}) })),
+        P(Textf("Hello, %s", text)))
+}
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, tela.C(form), telatest.Size(300, 100))
+app.Fill(telatest.ByRole("textbox", "Name"), "Ada")
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - textbox "Name": Ada
+// - paragraph: Hello, Ada
 ```
 
 ### func BindValue
@@ -335,10 +359,20 @@ Button returns a button. It has no background, border or padding of its own (Tai
 ### func Class
 
 ```go
-func Class(classes string) tela.Prop
+func Class(parts ...string) tela.Prop
 ```
 
-Class adds Tailwind v4 classes ("flex items-center gap-4 hover:bg-white/10"). It may repeat on an element; the strings concatenate in order and a later class wins over an earlier one that sets the same property. An unknown class is reported in dev mode (on in development builds, see tela.App.Dev) with the closest valid one.
+Class adds Tailwind v4 classes ("flex items-center gap-4 hover:bg-white/10"). It takes several strings and joins them with one space, skipping the empty ones, so a class that depends on state needs no concatenation:
+
+```go
+tone := "text-slate-500"
+if active {
+    tone = "text-indigo-600 font-semibold"
+}
+Div(Class("flex items-center gap-2 rounded-lg px-3 py-1", tone))
+```
+
+It may repeat on an element; the strings concatenate in order and a later class wins over an earlier one that sets the same property. An unknown class is reported in dev mode (on in development builds, see tela.App.Dev) with the closest valid one. For a whole prop that depends on a condition, If(selected, Class("ring-2")) is the form.
 
 **Example**
 
@@ -349,6 +383,23 @@ img, _ := telatest.Render(swatch, telatest.Size(64, 64))
 fmt.Println(img.RGBAAt(32, 32))
 // Output:
 // {251 44 54 255}
+```
+
+**Example (parts)**
+
+```go
+// Parts are joined with one space and empty ones are skipped: no
+// concatenation, no trailing-space convention.
+tab := func(active bool) tela.Node {
+    tone := "bg-white text-slate-500"
+    if active {
+        tone = "bg-indigo-600 text-white"
+    }
+    return Div(Class("size-16 rounded-lg", "", tone))
+}
+img, _ := telatest.Render(tab(true), telatest.Size(64, 64))
+fmt.Println(img.RGBAAt(32, 32))
+// Output: {79 57 246 255}
 ```
 
 ### func Code
@@ -504,7 +555,7 @@ func Form(children ...tela.Child) tela.Node
 Form returns a form: a block that groups fields and buttons. Enter in one of its single-line fields, or a click on a Button inside it, submits it (OnSubmit); a Button with Type("reset") restores the DefaultValue of its uncontrolled fields. Buttons inside a form are submit buttons unless Type says "button".
 
 ```go
-Form(OnSubmit(func(tela.SubmitEvent) { save() }),
+Form(OnSubmit(func() { save() }),
     Input(Bind(name, setName)),
     Button(Type("submit"), Text("Save")))
 ```
@@ -720,6 +771,79 @@ fmt.Println(yaml)
 // - button "Sign up"
 ```
 
+### func ItemHeight
+
+```go
+func ItemHeight(px float32) tela.Prop
+```
+
+ItemHeight gives every item of a [`VirtualList`](#func-virtuallist) the same height in logical pixels, 1 or more. The items are not measured, so the list does no per-item measuring work, the scroll positions are exact from the first frame and the scrollbar does not change while scrolling; the estimateSize argument is not needed (pass nil). An item taller than the height spills over the next one (it is not clipped).
+
+```go
+VirtualList(len(rows), nil, func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+    ItemHeight(40), Class("h-96"))
+```
+
+**Example**
+
+```go
+// Rows of one height need no estimate and are never measured.
+rows := VirtualList(1_000_000, nil,
+    func(i int) tela.Node { return Div(Class("truncate"), Textf("Row %d", i)) },
+    ItemHeight(40), Class("h-[120px]"), Overscan(0))
+yaml, _ := telatest.AriaSnapshot(rows, telatest.Size(200, 120))
+fmt.Println(yaml)
+// Output:
+// - list:
+//   - listitem: Row 0
+//   - listitem: Row 1
+//   - listitem: Row 2
+```
+
+### func ItemKey
+
+```go
+func ItemKey[K comparable](key func(i int) K) tela.Prop
+```
+
+ItemKey keys the items of a [`VirtualList`](#func-virtuallist) by key(i), the identity of item i, instead of by its index, so that the state of an item component follows the item when others are inserted or removed before it (Key's rule for lists, and TanStack Virtual's getItemKey). K is any comparable type, such as an ID; a nil key or one that cannot be compared panics when the list builds. Give the key function with the data the list shows: it runs for the items that are built, with the indices of the list's current items.
+
+The heights measured so far stay with the indices, not with the items: after an insertion the items that moved are measured again when they are laid out.
+
+```go
+VirtualList(len(rows), estimate,
+    func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+    ItemKey(func(i int) int { return rows[i].ID }))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var set tela.Setter[[]todoItem]
+list := func() tela.Node {
+    todos, s := tela.UseState([]todoItem{{1, "Write"}, {2, "Test"}})
+    set = s
+    return VirtualList(len(todos), func(int) float32 { return 30 },
+        func(i int) tela.Node { return Fragment(todos[i]) },
+        // The state of an item follows its ID, not its position.
+        ItemKey(func(i int) int { return todos[i].ID }), Class("h-24"))
+}
+app := telatest.Mount(t, tela.C(list), telatest.Size(200, 100))
+app.Click(telatest.ByRole("checkbox", "Test"))
+set.Set([]todoItem{{3, "Plan"}, {1, "Write"}, {2, "Test"}})
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - list:
+//   - listitem:
+//     - checkbox "Plan"
+//   - listitem:
+//     - checkbox "Write"
+//   - listitem:
+//     - checkbox "Test" [checked]
+```
+
 ### func Key
 
 ```go
@@ -844,6 +968,44 @@ fmt.Println(yaml)
 //   - listitem: 3. Expect
 ```
 
+### func MapKeyed
+
+```go
+func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela.Component) tela.Node
+```
+
+MapKeyed returns the components of render applied to every item, as one keyed list: each is keyed by key(item), so reordering, inserting and removing items keeps the state of the component of every item that stays. It replaces Map(items, func(t T) tela.Node { return tela.WithKey(tela.CP(...), t.ID) }): render returns a node or a struct component, which MapKeyed keys (tela.WithKey), and K is any comparable type, so a slice or a map as a key does not compile. Dev mode warns about duplicate keys, once per call site, as it does for Map.
+
+```go
+MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Component {
+    return TodoRow{Todo: t}
+})
+```
+
+A render that wants a function component returns tela.CP(TodoRow, t). The key of a node that render keys itself, with Key, is replaced by key(item).
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var set tela.Setter[[]todoItem]
+list := func() tela.Node {
+    todos, s := tela.UseState([]todoItem{{1, "Write"}, {2, "Test"}})
+    set = s
+    return Div(MapKeyed(todos, func(t todoItem) int { return t.ID }, func(t todoItem) tela.Component { return t }))
+}
+app := telatest.Mount(t, tela.C(list))
+app.Click(telatest.ByRole("checkbox", "Test")) // checks "Test"
+// A new item arrives first: "Test" keeps its state.
+set.Set([]todoItem{{3, "Plan"}, {1, "Write"}, {2, "Test"}})
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - checkbox "Plan"
+// - checkbox "Write"
+// - checkbox "Test" [checked]
+```
+
 ### func MaxLength
 
 ```go
@@ -860,10 +1022,40 @@ func Name(s string) tela.Prop
 
 Name names a text field or a button in its form (HTML's name).
 
+### func Nodes
+
+```go
+func Nodes(ns []tela.Node) tela.Node
+```
+
+Nodes returns the nodes of ns as one fragment, for a slice built in a loop that is given as children (Go does not spread a \[\]tela.Node into the children of Div(...)). The nodes keep their order and, like the children of Fragment, have no box of their own. A node slice that comes from data and changes is a list: key it with Map or MapKeyed.
+
+```go
+var cells []tela.Node
+for _, c := range columns {
+    cells = append(cells, Div(Class("px-3"), Text(c)))
+}
+Div(Class("flex"), Nodes(cells))
+```
+
+**Example**
+
+```go
+var cells []tela.Node
+for _, name := range []string{"Name", "Role", "Team"} {
+    cells = append(cells, Div(Key(name), Class("px-3"), Text(name)))
+}
+// A slice cannot be spread into Div(...): Nodes makes it one child.
+header := Div(Class("flex border-b"), Nodes(cells))
+yaml, _ := telatest.AriaSnapshot(header)
+fmt.Println(yaml)
+// Output: - text: Name Role Team
+```
+
 ### func OnBeforeInput
 
 ```go
-func OnBeforeInput(handler func(tela.InputEvent)) tela.Prop
+func OnBeforeInput[F func() | func(tela.InputEvent)](handler F) tela.Prop
 ```
 
 OnBeforeInput calls handler before a text field's value changes by an edit of the user (the DOM's beforeinput); e.PreventDefault() cancels the edit (except an IME composition's). It bubbles.
@@ -871,19 +1063,19 @@ OnBeforeInput calls handler before a text field's value changes by an edit of th
 ### func OnBlur
 
 ```go
-func OnBlur(handler func(tela.FocusEvent)) tela.Prop
+func OnBlur[F func() | func(tela.FocusEvent)](handler F) tela.Prop
 ```
 
 OnBlur calls handler when the element or one of its descendants loses the focus (React's onBlur: it bubbles), also when the window loses the keyboard focus. Unmounting the focused element does not call it.
 
 ```go
-Div(TabIndex(0), OnBlur(func(tela.FocusEvent) { commit() }))
+Div(TabIndex(0), OnBlur(func() { commit() }))
 ```
 
 ### func OnChange
 
 ```go
-func OnChange(handler func(tela.ChangeEvent)) tela.Prop
+func OnChange[F func() | func(tela.ChangeEvent)](handler F) tela.Prop
 ```
 
 OnChange calls handler after every edit of a text field's value (React's onChange: each keystroke, paste, cut, undo, and the text an IME composes, with e.IsComposing). It bubbles: on a Form it sees every field.
@@ -895,21 +1087,47 @@ Input(Value(name), OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) }))
 ### func OnClick
 
 ```go
-func OnClick(handler func(tela.MouseEvent)) tela.Prop
+func OnClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnClick calls handler when the element is clicked: the primary button is pressed and released over it or its descendants (the click goes to the nearest element that contains both the press and the release, as in the DOM), even if the pointer moved in between, unless the press became a drag or a long press. The event bubbles to the ancestors.
 
 ```go
-Button(OnClick(func(e tela.MouseEvent) { setCount.Set(count + 1) }), Text("+1"))
+Button(OnClick(func() { setCount.Update(func(n int) int { return n + 1 }) }), Text("+1"))
+Button(OnClick(func(e tela.MouseEvent) { menu.At(e.X, e.Y) }), Text("Open"))
 ```
 
-Every handler prop panics when handler is nil.
+Every handler prop of this package (OnClick, OnKeyDown, OnChange, OnSubmit...) takes a func() or a func of its event type: write the event only when the handler reads it. A nil handler panics.
+
+**Example**
+
+```go
+counter := func() tela.Node {
+    n, setN := tela.UseState(0)
+    return Div(
+        // Without the event: most handlers only set state.
+        Button(OnClick(func() { setN.Update(func(n int) int { return n + 1 }) }), Text("Add")),
+        // With it, when the handler reads it.
+        Button(OnClick(func(e tela.MouseEvent) { setN.Set(int(e.X)) }), Text("At x")),
+        Textf("n=%d", n))
+}
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, tela.C(counter), telatest.Size(300, 100))
+app.Click(telatest.ByRole("button", "Add"))
+app.Click(telatest.ByRole("button", "Add"))
+app.ExpectText("n=2")
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - button "Add"
+// - button "At x"
+// - text: n=2
+```
 
 ### func OnCompositionEnd
 
 ```go
-func OnCompositionEnd(handler func(tela.CompositionEvent)) tela.Prop
+func OnCompositionEnd[F func() | func(tela.CompositionEvent)](handler F) tela.Prop
 ```
 
 OnCompositionEnd calls handler when an input method ends a composition, committed (e.Data) or canceled (""). It bubbles.
@@ -917,7 +1135,7 @@ OnCompositionEnd calls handler when an input method ends a composition, committe
 ### func OnCompositionStart
 
 ```go
-func OnCompositionStart(handler func(tela.CompositionEvent)) tela.Prop
+func OnCompositionStart[F func() | func(tela.CompositionEvent)](handler F) tela.Prop
 ```
 
 OnCompositionStart calls handler when an input method (IME) starts composing text in a text field. It bubbles.
@@ -925,7 +1143,7 @@ OnCompositionStart calls handler when an input method (IME) starts composing tex
 ### func OnCompositionUpdate
 
 ```go
-func OnCompositionUpdate(handler func(tela.CompositionEvent)) tela.Prop
+func OnCompositionUpdate[F func() | func(tela.CompositionEvent)](handler F) tela.Prop
 ```
 
 OnCompositionUpdate calls handler when the text an input method composes changes (e.Data). It bubbles.
@@ -933,7 +1151,7 @@ OnCompositionUpdate calls handler when the text an input method composes changes
 ### func OnContextMenu
 
 ```go
-func OnContextMenu(handler func(tela.MouseEvent)) tela.Prop
+func OnContextMenu[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnContextMenu calls handler when the secondary (right) button is released over the element.
@@ -945,19 +1163,19 @@ Div(OnContextMenu(func(e tela.MouseEvent) { openMenu(e.X, e.Y) }))
 ### func OnDoubleClick
 
 ```go
-func OnDoubleClick(handler func(tela.MouseEvent)) tela.Prop
+func OnDoubleClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnDoubleClick calls handler on the second click of a double click: two clicks within 500 ms and 5 px (300 ms and 100 px for touch). The first click is not delayed: OnClick runs for both, with e.ClickCount 1 and 2.
 
 ```go
-Div(OnDoubleClick(func(tela.MouseEvent) { setEditing.Set(true) }), Text(title))
+Div(OnDoubleClick(func() { setEditing.Set(true) }), Text(title))
 ```
 
 ### func OnDrag
 
 ```go
-func OnDrag(handler func(tela.DragEvent)) tela.Prop
+func OnDrag[F func() | func(tela.DragEvent)](handler F) tela.Prop
 ```
 
 OnDrag calls handler for every move of a drag (see OnDragStart), with the movement since the previous one (DeltaX, DeltaY) and since the press (OffsetX, OffsetY). Moves are batched: state set here is applied once per frame.
@@ -969,7 +1187,7 @@ Div(OnDrag(func(e tela.DragEvent) { pos.Update(func(p float64) float64 { return 
 ### func OnDragEnd
 
 ```go
-func OnDragEnd(handler func(tela.DragEvent)) tela.Prop
+func OnDragEnd[F func() | func(tela.DragEvent)](handler F) tela.Prop
 ```
 
 OnDragEnd calls handler when a drag ends: the button is released (or the press cancelled). VelocityX and VelocityY give the release velocity in pixels per second, for flings.
@@ -985,7 +1203,7 @@ Div(OnDragEnd(func(e tela.DragEvent) {
 ### func OnDragStart
 
 ```go
-func OnDragStart(handler func(tela.DragEvent)) tela.Prop
+func OnDragStart[F func() | func(tela.DragEvent)](handler F) tela.Prop
 ```
 
 OnDragStart calls handler when a press on the element becomes a drag: the pointer moved more than a few pixels (4 for a mouse, 18 for touch and pens) before a long press. The press then does not click. Drag events go to the innermost element with drag handlers and do not bubble.
@@ -995,7 +1213,7 @@ pos := tela.UseValue(0.0)
 start := tela.UseRef(0.0)
 Div(Class("size-10 rounded-full bg-indigo-500"),
     Style(tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 })),
-    OnDragStart(func(tela.DragEvent) { start.Current = pos.Get() }),
+    OnDragStart(func() { start.Current = pos.Get() }),
     OnDrag(func(e tela.DragEvent) { pos.Set(start.Current + float64(e.OffsetX)) }),
 )
 ```
@@ -1003,19 +1221,19 @@ Div(Class("size-10 rounded-full bg-indigo-500"),
 ### func OnFocus
 
 ```go
-func OnFocus(handler func(tela.FocusEvent)) tela.Prop
+func OnFocus[F func() | func(tela.FocusEvent)](handler F) tela.Prop
 ```
 
 OnFocus calls handler when the element or one of its descendants gains the focus (React's onFocus: it bubbles), and again when the window regains the keyboard focus.
 
 ```go
-Div(TabIndex(0), OnFocus(func(tela.FocusEvent) { setActive.Set(true) }))
+Div(TabIndex(0), OnFocus(func() { setActive.Set(true) }))
 ```
 
 ### func OnKeyDown
 
 ```go
-func OnKeyDown(handler func(tela.KeyboardEvent)) tela.Prop
+func OnKeyDown[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop
 ```
 
 OnKeyDown calls handler when a key is pressed (and again for each repeat while it is held, with e.Repeat) while the element or one of its descendants has the focus; the event bubbles. With nothing focused, key events go to the outermost element of the window's content. e.PreventDefault() cancels the key's default action: the focus move of Tab, the click of Enter or Space on a focused Button.
@@ -1034,7 +1252,7 @@ Div(OnKeyDown(func(e tela.KeyboardEvent) {
 ### func OnKeyUp
 
 ```go
-func OnKeyUp(handler func(tela.KeyboardEvent)) tela.Prop
+func OnKeyUp[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop
 ```
 
 OnKeyUp calls handler when a key is released while the element or one of its descendants has the focus; the event bubbles. Keys held when the window loses the focus are released then. e.PreventDefault() cancels the click of Space on a focused Button.
@@ -1050,7 +1268,7 @@ Div(OnKeyUp(func(e tela.KeyboardEvent) {
 ### func OnLongPress
 
 ```go
-func OnLongPress(handler func(tela.PointerEvent)) tela.Prop
+func OnLongPress[F func() | func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnLongPress calls handler when the primary button (or a touch) stays pressed on the element for 500 ms without moving more than a few pixels (4 for a mouse, 18 for touch and pens). The press then does not click or drag. It goes to the innermost element with OnLongPress and does not bubble.
@@ -1062,7 +1280,7 @@ Div(OnLongPress(func(e tela.PointerEvent) { openMenu(e.X, e.Y) }), Text(name))
 ### func OnMouseDown
 
 ```go
-func OnMouseDown(handler func(tela.MouseEvent)) tela.Prop
+func OnMouseDown[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseDown calls handler when a button is pressed over the element.
@@ -1078,31 +1296,31 @@ Div(OnMouseDown(func(e tela.MouseEvent) {
 ### func OnMouseEnter
 
 ```go
-func OnMouseEnter(handler func(tela.MouseEvent)) tela.Prop
+func OnMouseEnter[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseEnter calls handler when the pointer enters the element or one of its descendants from outside. It does not bubble.
 
 ```go
-Div(OnMouseEnter(func(tela.MouseEvent) { setShowTip.Set(true) }))
+Div(OnMouseEnter(func() { setShowTip.Set(true) }))
 ```
 
 ### func OnMouseLeave
 
 ```go
-func OnMouseLeave(handler func(tela.MouseEvent)) tela.Prop
+func OnMouseLeave[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseLeave calls handler when the pointer leaves the element and its descendants. It does not bubble.
 
 ```go
-Div(OnMouseLeave(func(tela.MouseEvent) { setShowTip.Set(false) }))
+Div(OnMouseLeave(func() { setShowTip.Set(false) }))
 ```
 
 ### func OnMouseMove
 
 ```go
-func OnMouseMove(handler func(tela.MouseEvent)) tela.Prop
+func OnMouseMove[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseMove calls handler when the pointer moves over the element. Moves are batched: state set here is applied once per frame.
@@ -1114,31 +1332,31 @@ Div(OnMouseMove(func(e tela.MouseEvent) { pos.Set(e.LocalX) }))
 ### func OnMouseUp
 
 ```go
-func OnMouseUp(handler func(tela.MouseEvent)) tela.Prop
+func OnMouseUp[F func() | func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseUp calls handler when a button is released over the element.
 
 ```go
-Div(OnMouseUp(func(tela.MouseEvent) { setPressed.Set(false) }))
+Div(OnMouseUp(func() { setPressed.Set(false) }))
 ```
 
 ### func OnPointerCancel
 
 ```go
-func OnPointerCancel(handler func(tela.PointerEvent)) tela.Prop
+func OnPointerCancel[F func() | func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerCancel calls handler when the system takes a pointer away during a press (a touch turned into a system gesture, a lost grab): treat it as an aborted press, not a release.
 
 ```go
-Div(OnPointerCancel(func(tela.PointerEvent) { discardStroke() }))
+Div(OnPointerCancel(func() { discardStroke() }))
 ```
 
 ### func OnPointerDown
 
 ```go
-func OnPointerDown(handler func(tela.PointerEvent)) tela.Prop
+func OnPointerDown[F func() | func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerDown calls handler when a pointer (mouse, touch or pen) is pressed over the element: the first button of a mouse, the contact of a touch. While a touch or pen is down its events go to this element. e.PreventDefault() suppresses the mouse events of the press (not the click).
@@ -1154,7 +1372,7 @@ Div(OnPointerDown(func(e tela.PointerEvent) {
 ### func OnPointerEnter
 
 ```go
-func OnPointerEnter(handler func(tela.PointerEvent)) tela.Prop
+func OnPointerEnter[F func() | func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerEnter calls handler when a pointer enters the element or one of its descendants. It does not bubble.
@@ -1166,19 +1384,19 @@ Div(OnPointerEnter(func(e tela.PointerEvent) { setHoverKind.Set(e.Kind) }))
 ### func OnPointerLeave
 
 ```go
-func OnPointerLeave(handler func(tela.PointerEvent)) tela.Prop
+func OnPointerLeave[F func() | func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerLeave calls handler when a pointer leaves the element and its descendants. It does not bubble.
 
 ```go
-Div(OnPointerLeave(func(tela.PointerEvent) { setHovered.Set(false) }))
+Div(OnPointerLeave(func() { setHovered.Set(false) }))
 ```
 
 ### func OnPointerMove
 
 ```go
-func OnPointerMove(handler func(tela.PointerEvent)) tela.Prop
+func OnPointerMove[F func() | func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerMove calls handler when a pointer moves over the element (or, for a touch or pen that pressed it, anywhere), and when a button is pressed or released while another is held.
@@ -1190,19 +1408,19 @@ Div(OnPointerMove(func(e tela.PointerEvent) { addPoint(e.LocalX, e.LocalY, e.Pre
 ### func OnPointerUp
 
 ```go
-func OnPointerUp(handler func(tela.PointerEvent)) tela.Prop
+func OnPointerUp[F func() | func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerUp calls handler when the last button of a pointer is released over the element.
 
 ```go
-Div(OnPointerUp(func(tela.PointerEvent) { endStroke() }))
+Div(OnPointerUp(func() { endStroke() }))
 ```
 
 ### func OnScroll
 
 ```go
-func OnScroll(handler func(tela.ScrollEvent)) tela.Prop
+func OnScroll[F func() | func(tela.ScrollEvent)](handler F) tela.Prop
 ```
 
 OnScroll calls handler after the element's scroll offsets changed, by the user or by code: at most once per frame, on the scrolling element itself (it does not bubble), with its offsets and sizes. To tie a style to the scroll position without rebuilding, use tela.UseScroll instead.
@@ -1216,7 +1434,7 @@ Div(Class("h-96 overflow-y-auto"), OnScroll(func(e tela.ScrollEvent) {
 ### func OnSelect
 
 ```go
-func OnSelect(handler func(tela.SelectEvent)) tela.Prop
+func OnSelect[F func() | func(tela.SelectEvent)](handler F) tela.Prop
 ```
 
 OnSelect calls handler when the user selects text in a text field, or code changes its selection (e.Start, e.End). It bubbles.
@@ -1224,7 +1442,7 @@ OnSelect calls handler when the user selects text in a text field, or code chang
 ### func OnSubmit
 
 ```go
-func OnSubmit(handler func(tela.SubmitEvent)) tela.Prop
+func OnSubmit[F func() | func(tela.SubmitEvent)](handler F) tela.Prop
 ```
 
 OnSubmit calls handler when a Form is submitted: Enter in one of its single-line fields, or a click on a submit Button inside it. It bubbles.
@@ -1232,7 +1450,7 @@ OnSubmit calls handler when a Form is submitted: Enter in one of its single-line
 ### func OnWheel
 
 ```go
-func OnWheel(handler func(tela.WheelEvent)) tela.Prop
+func OnWheel[F func() | func(tela.WheelEvent)](handler F) tela.Prop
 ```
 
 OnWheel calls handler when a mouse wheel turns or a touchpad scrolls over the element (the DOM's wheel event). The event bubbles. Unless a handler calls e.PreventDefault(), the nearest scrolling element (with overflow-auto or overflow-scroll) that can move in that direction scrolls, chaining to its scrolling ancestors at its edges unless it has overscroll-contain.
@@ -1294,7 +1512,7 @@ func Confirm(onClose func()) tela.Node {
         Div(Class("fixed inset-0 flex items-center justify-center bg-black/40"),
             Div(Role("dialog"), AriaLabel("Confirm"), Class("rounded-xl bg-white p-6 shadow-xl"),
                 Text("Delete this file?"),
-                Button(OnClick(func(tela.MouseEvent) { onClose() }), Text("Cancel")))))
+                Button(OnClick(func() { onClose() }), Text("Cancel")))))
 }
 ```
 
@@ -1398,7 +1616,7 @@ Role sets the ARIA role of an element (WAI-ARIA 1.2), for components built from 
 
 ```go
 Button(Role("switch"), AriaChecked(on), AriaLabel("Wi-Fi"),
-    OnClick(func(tela.MouseEvent) { setOn.Set(!on) }), knob)
+    OnClick(func() { setOn.Set(!on) }), knob)
 ```
 
 **Example**
@@ -1420,6 +1638,38 @@ func Rows(n int) tela.Prop
 ```
 
 Rows sets how many lines tall a Textarea is (2 by default).
+
+### func Scale
+
+```go
+func Scale(v *tela.Value[float32], k float32) func() float32
+```
+
+Scale returns a function that reads v and multiplies it by k, for the deferred style props that take a func() float32 (tela.WidthFn, tela.HeightFn, tela.OpacityFn): the Value is tracked where the prop is evaluated, not when the component builds. It replaces the closure func() float32 { return 36 \* v.Get() }; tela.MapValue is the general form.
+
+```go
+open := tela.UseSpring(target) // a *tela.Value[float32] from 0 to 1
+Div(Class("overflow-hidden"), Style(tela.HeightFn(Scale(open, 36))))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var open *tela.Value[float32]
+section := func() tela.Node {
+    open = tela.UseValue(float32(0))
+    // 36 px closed, 72 px at 1: the box is laid out again when open
+    // changes; the component does not build.
+    return Div(TestID("body"), Class("w-40 overflow-hidden bg-slate-100"), Style(tela.HeightFn(Scale(open, 72))))
+}
+app := telatest.Mount(t, tela.C(section))
+open.Set(0.5)
+app.Advance(32 * time.Millisecond)
+fmt.Println(app.Bounds(telatest.ByTestID("body")).Height)
+// Output: 36
+```
 
 ### func Scheme
 
@@ -1482,7 +1732,11 @@ Style adds typed style props from package tela, for values computed in code:
 Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e")))
 ```
 
-They apply after the element's classes and win over them.
+They apply after the element's classes and win over them. A tela.StyleProp is also a child, so an element takes one directly, which is the same:
+
+```go
+Div(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e")))
+```
 
 **Example**
 
@@ -1599,14 +1853,14 @@ VirtualList is a vertical scrolling list of count items that builds, lays out an
 
 estimateSize(i) estimates the height of item i in logical pixels, before it is built; renderItem(i) returns it. Each item is measured once it is laid out, and the measurement replaces the estimate (per index; a new estimateSize function resets them), so items may have any height and the scrollbar, OnScroll's ScrollHeight and the aria tree reflect the whole list. When a measurement changes the size of an item above the top of the list's viewport, the scroll offset moves by the difference in the same frame: the content on screen does not jump.
 
-Items are keyed by their index: an item component's state follows its index. renderItem runs inside the list's build, so it must not call hooks; return a component node (tela.C, tela.CP) for items with state, and prefer tela.CP so that a list rebuilt by its parent skips the items whose props did not change. Scrolling never rebuilds the items that stay in view: a scroll inside the built items only repaints, and a scroll past them builds the entering items and unmounts the leaving ones. The focused item stays mounted while it is scrolled away, so Tab goes on from it.
+Items are keyed by their index unless ItemKey says otherwise: an item component's state follows its index, so give the list [`ItemKey`](#func-itemkey) when items are inserted, removed or reordered, and the state must follow the item. For rows of one height, [`ItemHeight`](#func-itemheight) sets it, skips measuring and makes estimateSize unnecessary (it may be nil). The list has the role "list" and its items "listitem", for the semantics tree and the aria snapshot; Role on the list replaces its role (the items are then not listitems), and an item's own role goes on the element renderItem returns. renderItem runs inside the list's build, so it must not call hooks; return a component node (tela.C, tela.CP) for items with state, and prefer tela.CP so that a list rebuilt by its parent skips the items whose props did not change. Scrolling never rebuilds the items that stay in view: a scroll inside the built items only repaints, and a scroll past them builds the entering items and unmounts the leaving ones. The focused item stays mounted while it is scrolled away, so Tab goes on from it.
 
 Scroll to an item with the ref's ScrollToIndex (tela.AlignAuto, AlignStart, AlignCenter, AlignEnd), which keeps the item aligned while the items around it are measured, and which jumps or animates like ScrollTo (scroll-smooth):
 
 ```go
 list := tela.UseElementRef()
 return Div(Class("flex h-screen flex-col"),
-    Button(OnClick(func(tela.MouseEvent) { list.ScrollToIndex(5000, tela.AlignCenter) }),
+    Button(OnClick(func() { list.ScrollToIndex(5000, tela.AlignCenter) }),
         Text("Go to 5000")),
     VirtualList(100_000,
         func(int) float32 { return 40 },
@@ -1623,12 +1877,13 @@ Lists are vertical; horizontal lists and grids are not virtualized yet.
 // A million rows cost about as much as the ones in view.
 rows := VirtualList(1_000_000,
     func(int) float32 { return 40 },
-    func(i int) tela.Node { return Div(Role("listitem"), Class("h-10"), Textf("Row %d", i)) },
+    func(i int) tela.Node { return Div(Class("h-10"), Textf("Row %d", i)) },
     Class("h-[120px]"), Overscan(0))
 yaml, _ := telatest.AriaSnapshot(rows, telatest.Size(200, 120))
 fmt.Println(yaml)
 // Output:
-// - listitem: Row 0
-// - listitem: Row 1
-// - listitem: Row 2
+// - list:
+//   - listitem: Row 0
+//   - listitem: Row 1
+//   - listitem: Row 2
 ```

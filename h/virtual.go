@@ -25,8 +25,15 @@ import (
 // the list's viewport, the scroll offset moves by the difference in the
 // same frame: the content on screen does not jump.
 //
-// Items are keyed by their index: an item component's state follows its
-// index. renderItem runs inside the list's build, so it must not call
+// Items are keyed by their index unless ItemKey says otherwise: an item
+// component's state follows its index, so give the list [ItemKey] when
+// items are inserted, removed or reordered, and the state must follow the
+// item. For rows of one height, [ItemHeight] sets it, skips measuring and
+// makes estimateSize unnecessary (it may be nil). The list has the role
+// "list" and its items "listitem", for the semantics tree and the aria
+// snapshot; Role on the list replaces its role (the items are then not
+// listitems), and an item's own role goes on the element renderItem
+// returns. renderItem runs inside the list's build, so it must not call
 // hooks; return a component node (tela.C, tela.CP) for items with state,
 // and prefer tela.CP so that a list rebuilt by its parent skips the items
 // whose props did not change. Scrolling never rebuilds the items that stay
@@ -42,7 +49,7 @@ import (
 //
 //	list := tela.UseElementRef()
 //	return Div(Class("flex h-screen flex-col"),
-//	    Button(OnClick(func(tela.MouseEvent) { list.ScrollToIndex(5000, tela.AlignCenter) }),
+//	    Button(OnClick(func() { list.ScrollToIndex(5000, tela.AlignCenter) }),
 //	        Text("Go to 5000")),
 //	    VirtualList(100_000,
 //	        func(int) float32 { return 40 },
@@ -65,3 +72,32 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 //
 //	VirtualList(len(rows), estimate, render, Overscan(10))
 func Overscan(n int) tela.Prop { return core.Overscan(n) }
+
+// ItemKey keys the items of a [VirtualList] by key(i), the identity of
+// item i, instead of by its index, so that the state of an item component
+// follows the item when others are inserted or removed before it
+// (Key's rule for lists, and TanStack Virtual's getItemKey). K is any
+// comparable type, such as an ID; a nil key or one that cannot be
+// compared panics when the list builds. Give the key function with the
+// data the list shows: it runs for the items that are built, with the
+// indices of the list's current items.
+//
+// The heights measured so far stay with the indices, not with the items:
+// after an insertion the items that moved are measured again when they are
+// laid out.
+//
+//	VirtualList(len(rows), estimate,
+//	    func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+//	    ItemKey(func(i int) int { return rows[i].ID }))
+func ItemKey[K comparable](key func(i int) K) tela.Prop { return core.ItemKey(key) }
+
+// ItemHeight gives every item of a [VirtualList] the same height in
+// logical pixels, 1 or more. The items are not measured, so the list
+// does no per-item measuring work, the scroll positions are exact from the
+// first frame and the scrollbar does not change while scrolling; the
+// estimateSize argument is not needed (pass nil). An item taller than the
+// height spills over the next one (it is not clipped).
+//
+//	VirtualList(len(rows), nil, func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+//	    ItemHeight(40), Class("h-96"))
+func ItemHeight(px float32) tela.Prop { return core.ItemHeight(px) }

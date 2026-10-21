@@ -269,7 +269,7 @@ func CheckIf[C any]() {
 		return
 	}
 	t := reflect.TypeFor[C]()
-	if t.Kind() == reflect.Interface || t == reflect.TypeFor[Node]() || t == reflect.TypeFor[Prop]() {
+	if t.Kind() == reflect.Interface || t == reflect.TypeFor[Node]() || t == reflect.TypeFor[Prop]() || t == reflect.TypeFor[StyleProp]() {
 		return
 	}
 	n := shortTypeName(t)

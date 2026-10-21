@@ -319,7 +319,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 // comment at the top of semantics.go); "" is no role (generic).
 func (t *Tree) semRole(el *Element) (string, bool) {
 	a := el.node.d.aria
-	implicit := implicitRole(el)
+	implicit := t.implicitRole(el)
 	if a != nil && a.role != "" {
 		if r, _ := semantics.ParseRole(a.role); r != "" {
 			if (r == "none" || r == "presentation") && (globalAria(a, implicit) || ariaFocusable(el)) {
@@ -332,8 +332,24 @@ func (t *Tree) semRole(el *Element) (string, bool) {
 }
 
 // implicitRole returns the HTML-AAM role of primitive el.
-func implicitRole(el *Element) string {
+func (t *Tree) implicitRole(el *Element) string {
 	d := el.node.d
+	if v := d.virt; v != nil {
+		// The parts of a VirtualList: a list of listitems. Role on the
+		// list replaces "list", and its items are listitems only while it
+		// is a list (the role of an item's content is its own).
+		switch v.role {
+		case virtList:
+			return "list"
+		case virtItem:
+			if v.vl != nil && len(v.vl.el.children) > 0 {
+				if r, _ := t.semRole(v.vl.el.children[0]); r == "list" {
+					return "listitem"
+				}
+			}
+		}
+		return ""
+	}
 	switch el.box.kind {
 	case style.KindButton:
 		return "button"

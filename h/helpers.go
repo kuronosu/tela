@@ -69,6 +69,65 @@ func MapIndex[T any](items []T, f func(i int, item T) tela.Node) tela.Node {
 	return core.MapIndex(items, f)
 }
 
+// MapKeyed returns the components of render applied to every item, as one
+// keyed list: each is keyed by key(item), so reordering, inserting and
+// removing items keeps the state of the component of every item that
+// stays. It replaces Map(items, func(t T) tela.Node { return
+// tela.WithKey(tela.CP(...), t.ID) }): render returns a node or a struct
+// component, which MapKeyed keys (tela.WithKey), and K is any comparable
+// type, so a slice or a map as a key does not compile. Dev mode warns
+// about duplicate keys, once per call site, as it does for Map.
+//
+//	MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Component {
+//	    return TodoRow{Todo: t}
+//	})
+//
+// A render that wants a function component returns tela.CP(TodoRow, t).
+// The key of a node that render keys itself, with Key, is replaced by
+// key(item).
+func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela.Component) tela.Node {
+	if key == nil {
+		panic("h: MapKeyed(items, nil, ...): pass the function that returns an item's key, such as func(t Todo) int { return t.ID }")
+	}
+	if render == nil {
+		panic("h: MapKeyed(items, key, nil): pass the function that returns an item's component, such as func(t Todo) tela.Component { return TodoRow{Todo: t} }")
+	}
+	nodes := make([]tela.Node, len(items))
+	for i, it := range items {
+		nodes[i] = tela.WithKey(render(it), key(it))
+	}
+	return core.List(nodes)
+}
+
+// Nodes returns the nodes of ns as one fragment, for a slice built in a
+// loop that is given as children (Go does not spread a []tela.Node into
+// the children of Div(...)). The nodes keep their order and, like the
+// children of Fragment, have no box of their own. A node slice that comes
+// from data and changes is a list: key it with Map or MapKeyed.
+//
+//	var cells []tela.Node
+//	for _, c := range columns {
+//	    cells = append(cells, Div(Class("px-3"), Text(c)))
+//	}
+//	Div(Class("flex"), Nodes(cells))
+func Nodes(ns []tela.Node) tela.Node { return core.NodeList(ns) }
+
+// Scale returns a function that reads v and multiplies it by k, for the
+// deferred style props that take a func() float32 (tela.WidthFn,
+// tela.HeightFn, tela.OpacityFn): the Value is tracked where the prop is
+// evaluated, not when the component builds. It replaces the closure
+// func() float32 { return 36 * v.Get() }; tela.MapValue is the general
+// form.
+//
+//	open := tela.UseSpring(target) // a *tela.Value[float32] from 0 to 1
+//	Div(Class("overflow-hidden"), Style(tela.HeightFn(Scale(open, 36))))
+func Scale(v *tela.Value[float32], k float32) func() float32 {
+	if v == nil {
+		panic("h: Scale(nil, k): pass the *tela.Value[float32] returned by tela.UseValue, tela.UseSpring or tela.UseTween")
+	}
+	return func() float32 { return k * v.Get() }
+}
+
 // Fragment groups children without a box of their own: they become
 // children of the fragment's parent. It takes only Key as a prop.
 //

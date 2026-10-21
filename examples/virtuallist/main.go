@@ -75,7 +75,7 @@ type RowProps struct {
 // of one row in seven.
 func Row(p RowProps) tela.Node {
 	person := PersonAt(p.Index)
-	return Div(Role("listitem"), Class("flex items-start gap-3 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800"),
+	return Div(Class("flex items-start gap-3 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800"),
 		Div(Class("flex size-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br text-sm font-semibold text-white "+person.Colors),
 			Text(person.Initials)),
 		Div(Class("flex min-w-0 flex-1 flex-col"),

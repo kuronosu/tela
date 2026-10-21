@@ -2,25 +2,57 @@ package h
 
 import (
 	"image"
+	"strings"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 )
 
 // Class adds Tailwind v4 classes ("flex items-center gap-4 hover:bg-white/10").
+// It takes several strings and joins them with one space, skipping the
+// empty ones, so a class that depends on state needs no concatenation:
+//
+//	tone := "text-slate-500"
+//	if active {
+//	    tone = "text-indigo-600 font-semibold"
+//	}
+//	Div(Class("flex items-center gap-2 rounded-lg px-3 py-1", tone))
+//
 // It may repeat on an element; the strings concatenate in order and a later
 // class wins over an earlier one that sets the same property. An unknown
 // class is reported in dev mode (on in development builds, see tela.App.Dev)
-// with the closest valid one.
-func Class(classes string) tela.Prop { return core.Class(classes) }
+// with the closest valid one. For a whole prop that depends on a
+// condition, If(selected, Class("ring-2")) is the form.
+func Class(parts ...string) tela.Prop {
+	switch len(parts) {
+	case 0:
+		return core.Class("")
+	case 1:
+		return core.Class(parts[0])
+	}
+	var b strings.Builder
+	for _, p := range parts {
+		if strings.TrimSpace(p) == "" {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(p)
+	}
+	return core.Class(b.String())
+}
 
 // Style adds typed style props from package tela, for values computed in
 // code:
 //
 //	Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e")))
 //
-// They apply after the element's classes and win over them.
-func Style(props ...tela.StyleProp) tela.Prop { return core.Style(props...) }
+// They apply after the element's classes and win over them. A tela.StyleProp
+// is also a child, so an element takes one directly, which is the same:
+//
+//	Div(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e")))
+func Style(props ...tela.StyleProp) tela.Prop { return core.Style(core.StyleOpsOf(props)...) }
 
 // Key gives an element an identity among its siblings: when a list changes,
 // the element with the same key keeps its state wherever it moves. k is a
@@ -85,26 +117,31 @@ func Disabled(disabled bool) tela.Prop { return core.Disabled(disabled) }
 // DOM), even if the pointer moved in between, unless the press became a
 // drag or a long press. The event bubbles to the ancestors.
 //
-//	Button(OnClick(func(e tela.MouseEvent) { setCount.Set(count + 1) }), Text("+1"))
+//	Button(OnClick(func() { setCount.Update(func(n int) int { return n + 1 }) }), Text("+1"))
+//	Button(OnClick(func(e tela.MouseEvent) { menu.At(e.X, e.Y) }), Text("Open"))
 //
-// Every handler prop panics when handler is nil.
-func OnClick(handler func(tela.MouseEvent)) tela.Prop { return onMouse("click", "OnClick", handler) }
+// Every handler prop of this package (OnClick, OnKeyDown, OnChange,
+// OnSubmit...) takes a func() or a func of its event type: write the
+// event only when the handler reads it. A nil handler panics.
+func OnClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("click", "OnClick", handler)
+}
 
 // OnDoubleClick calls handler on the second click of a double click: two
 // clicks within 500 ms and 5 px (300 ms and 100 px for touch). The first
 // click is not delayed: OnClick runs for both, with e.ClickCount 1 and 2.
 //
-//	Div(OnDoubleClick(func(tela.MouseEvent) { setEditing.Set(true) }), Text(title))
-func OnDoubleClick(handler func(tela.MouseEvent)) tela.Prop {
-	return onMouse("dblclick", "OnDoubleClick", handler)
+//	Div(OnDoubleClick(func() { setEditing.Set(true) }), Text(title))
+func OnDoubleClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("dblclick", "OnDoubleClick", handler)
 }
 
 // OnContextMenu calls handler when the secondary (right) button is
 // released over the element.
 //
 //	Div(OnContextMenu(func(e tela.MouseEvent) { openMenu(e.X, e.Y) }))
-func OnContextMenu(handler func(tela.MouseEvent)) tela.Prop {
-	return onMouse("contextmenu", "OnContextMenu", handler)
+func OnContextMenu[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("contextmenu", "OnContextMenu", handler)
 }
 
 // OnMouseDown calls handler when a button is pressed over the element.
@@ -114,39 +151,39 @@ func OnContextMenu(handler func(tela.MouseEvent)) tela.Prop {
 //	        closeTab()
 //	    }
 //	}))
-func OnMouseDown(handler func(tela.MouseEvent)) tela.Prop {
-	return onMouse("mousedown", "OnMouseDown", handler)
+func OnMouseDown[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("mousedown", "OnMouseDown", handler)
 }
 
 // OnMouseUp calls handler when a button is released over the element.
 //
-//	Div(OnMouseUp(func(tela.MouseEvent) { setPressed.Set(false) }))
-func OnMouseUp(handler func(tela.MouseEvent)) tela.Prop {
-	return onMouse("mouseup", "OnMouseUp", handler)
+//	Div(OnMouseUp(func() { setPressed.Set(false) }))
+func OnMouseUp[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("mouseup", "OnMouseUp", handler)
 }
 
 // OnMouseMove calls handler when the pointer moves over the element.
 // Moves are batched: state set here is applied once per frame.
 //
 //	Div(OnMouseMove(func(e tela.MouseEvent) { pos.Set(e.LocalX) }))
-func OnMouseMove(handler func(tela.MouseEvent)) tela.Prop {
-	return onMouse("mousemove", "OnMouseMove", handler)
+func OnMouseMove[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("mousemove", "OnMouseMove", handler)
 }
 
 // OnMouseEnter calls handler when the pointer enters the element or one
 // of its descendants from outside. It does not bubble.
 //
-//	Div(OnMouseEnter(func(tela.MouseEvent) { setShowTip.Set(true) }))
-func OnMouseEnter(handler func(tela.MouseEvent)) tela.Prop {
-	return onMouse("mouseenter", "OnMouseEnter", handler)
+//	Div(OnMouseEnter(func() { setShowTip.Set(true) }))
+func OnMouseEnter[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("mouseenter", "OnMouseEnter", handler)
 }
 
 // OnMouseLeave calls handler when the pointer leaves the element and its
 // descendants. It does not bubble.
 //
-//	Div(OnMouseLeave(func(tela.MouseEvent) { setShowTip.Set(false) }))
-func OnMouseLeave(handler func(tela.MouseEvent)) tela.Prop {
-	return onMouse("mouseleave", "OnMouseLeave", handler)
+//	Div(OnMouseLeave(func() { setShowTip.Set(false) }))
+func OnMouseLeave[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+	return onEvent[tela.MouseEvent]("mouseleave", "OnMouseLeave", handler)
 }
 
 // OnPointerDown calls handler when a pointer (mouse, touch or pen) is
@@ -160,8 +197,8 @@ func OnMouseLeave(handler func(tela.MouseEvent)) tela.Prop {
 //	        startStroke(e.LocalX, e.LocalY)
 //	    }
 //	}))
-func OnPointerDown(handler func(tela.PointerEvent)) tela.Prop {
-	return onPointer("pointerdown", "OnPointerDown", handler)
+func OnPointerDown[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+	return onEvent[tela.PointerEvent]("pointerdown", "OnPointerDown", handler)
 }
 
 // OnPointerMove calls handler when a pointer moves over the element (or,
@@ -169,41 +206,41 @@ func OnPointerDown(handler func(tela.PointerEvent)) tela.Prop {
 // pressed or released while another is held.
 //
 //	Div(OnPointerMove(func(e tela.PointerEvent) { addPoint(e.LocalX, e.LocalY, e.Pressure) }))
-func OnPointerMove(handler func(tela.PointerEvent)) tela.Prop {
-	return onPointer("pointermove", "OnPointerMove", handler)
+func OnPointerMove[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+	return onEvent[tela.PointerEvent]("pointermove", "OnPointerMove", handler)
 }
 
 // OnPointerUp calls handler when the last button of a pointer is released
 // over the element.
 //
-//	Div(OnPointerUp(func(tela.PointerEvent) { endStroke() }))
-func OnPointerUp(handler func(tela.PointerEvent)) tela.Prop {
-	return onPointer("pointerup", "OnPointerUp", handler)
+//	Div(OnPointerUp(func() { endStroke() }))
+func OnPointerUp[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+	return onEvent[tela.PointerEvent]("pointerup", "OnPointerUp", handler)
 }
 
 // OnPointerCancel calls handler when the system takes a pointer away
 // during a press (a touch turned into a system gesture, a lost grab):
 // treat it as an aborted press, not a release.
 //
-//	Div(OnPointerCancel(func(tela.PointerEvent) { discardStroke() }))
-func OnPointerCancel(handler func(tela.PointerEvent)) tela.Prop {
-	return onPointer("pointercancel", "OnPointerCancel", handler)
+//	Div(OnPointerCancel(func() { discardStroke() }))
+func OnPointerCancel[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+	return onEvent[tela.PointerEvent]("pointercancel", "OnPointerCancel", handler)
 }
 
 // OnPointerEnter calls handler when a pointer enters the element or one of
 // its descendants. It does not bubble.
 //
 //	Div(OnPointerEnter(func(e tela.PointerEvent) { setHoverKind.Set(e.Kind) }))
-func OnPointerEnter(handler func(tela.PointerEvent)) tela.Prop {
-	return onPointer("pointerenter", "OnPointerEnter", handler)
+func OnPointerEnter[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+	return onEvent[tela.PointerEvent]("pointerenter", "OnPointerEnter", handler)
 }
 
 // OnPointerLeave calls handler when a pointer leaves the element and its
 // descendants. It does not bubble.
 //
-//	Div(OnPointerLeave(func(tela.PointerEvent) { setHovered.Set(false) }))
-func OnPointerLeave(handler func(tela.PointerEvent)) tela.Prop {
-	return onPointer("pointerleave", "OnPointerLeave", handler)
+//	Div(OnPointerLeave(func() { setHovered.Set(false) }))
+func OnPointerLeave[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+	return onEvent[tela.PointerEvent]("pointerleave", "OnPointerLeave", handler)
 }
 
 // OnLongPress calls handler when the primary button (or a touch) stays
@@ -213,8 +250,8 @@ func OnPointerLeave(handler func(tela.PointerEvent)) tela.Prop {
 // bubble.
 //
 //	Div(OnLongPress(func(e tela.PointerEvent) { openMenu(e.X, e.Y) }), Text(name))
-func OnLongPress(handler func(tela.PointerEvent)) tela.Prop {
-	return onPointer("longpress", "OnLongPress", handler)
+func OnLongPress[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+	return onEvent[tela.PointerEvent]("longpress", "OnLongPress", handler)
 }
 
 // OnDragStart calls handler when a press on the element becomes a drag:
@@ -226,11 +263,11 @@ func OnLongPress(handler func(tela.PointerEvent)) tela.Prop {
 //	start := tela.UseRef(0.0)
 //	Div(Class("size-10 rounded-full bg-indigo-500"),
 //	    Style(tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 })),
-//	    OnDragStart(func(tela.DragEvent) { start.Current = pos.Get() }),
+//	    OnDragStart(func() { start.Current = pos.Get() }),
 //	    OnDrag(func(e tela.DragEvent) { pos.Set(start.Current + float64(e.OffsetX)) }),
 //	)
-func OnDragStart(handler func(tela.DragEvent)) tela.Prop {
-	return onDrag("dragstart", "OnDragStart", handler)
+func OnDragStart[F func() | func(tela.DragEvent)](handler F) tela.Prop {
+	return onEvent[tela.DragEvent]("dragstart", "OnDragStart", handler)
 }
 
 // OnDrag calls handler for every move of a drag (see OnDragStart), with
@@ -239,7 +276,9 @@ func OnDragStart(handler func(tela.DragEvent)) tela.Prop {
 // per frame.
 //
 //	Div(OnDrag(func(e tela.DragEvent) { pos.Update(func(p float64) float64 { return p + float64(e.DeltaX) }) }))
-func OnDrag(handler func(tela.DragEvent)) tela.Prop { return onDrag("drag", "OnDrag", handler) }
+func OnDrag[F func() | func(tela.DragEvent)](handler F) tela.Prop {
+	return onEvent[tela.DragEvent]("drag", "OnDrag", handler)
+}
 
 // OnDragEnd calls handler when a drag ends: the button is released (or the
 // press cancelled). VelocityX and VelocityY give the release velocity in
@@ -250,8 +289,8 @@ func OnDrag(handler func(tela.DragEvent)) tela.Prop { return onDrag("drag", "OnD
 //	        dismiss()
 //	    }
 //	}))
-func OnDragEnd(handler func(tela.DragEvent)) tela.Prop {
-	return onDrag("dragend", "OnDragEnd", handler)
+func OnDragEnd[F func() | func(tela.DragEvent)](handler F) tela.Prop {
+	return onEvent[tela.DragEvent]("dragend", "OnDragEnd", handler)
 }
 
 // OnWheel calls handler when a mouse wheel turns or a touchpad scrolls
@@ -267,11 +306,8 @@ func OnDragEnd(handler func(tela.DragEvent)) tela.Prop {
 //	        zoomBy(-e.DeltaY)
 //	    }
 //	}))
-func OnWheel(handler func(tela.WheelEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: OnWheel(nil): pass a handler, for example OnWheel(func(e tela.WheelEvent) { ... })")
-	}
-	return core.On("wheel", handler)
+func OnWheel[F func() | func(tela.WheelEvent)](handler F) tela.Prop {
+	return onEvent[tela.WheelEvent]("wheel", "OnWheel", handler)
 }
 
 // OnScroll calls handler after the element's scroll offsets changed, by
@@ -282,30 +318,6 @@ func OnWheel(handler func(tela.WheelEvent)) tela.Prop {
 //	Div(Class("h-96 overflow-y-auto"), OnScroll(func(e tela.ScrollEvent) {
 //	    setAtTop.Set(e.ScrollTop == 0)
 //	}), rows)
-func OnScroll(handler func(tela.ScrollEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: OnScroll(nil): pass a handler, for example OnScroll(func(e tela.ScrollEvent) { ... })")
-	}
-	return core.On("scroll", handler)
-}
-
-func onMouse(event, name string, handler func(tela.MouseEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.MouseEvent) { ... })")
-	}
-	return core.On(event, handler)
-}
-
-func onPointer(event, name string, handler func(tela.PointerEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.PointerEvent) { ... })")
-	}
-	return core.On(event, handler)
-}
-
-func onDrag(event, name string, handler func(tela.DragEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.DragEvent) { ... })")
-	}
-	return core.On(event, handler)
+func OnScroll[F func() | func(tela.ScrollEvent)](handler F) tela.Prop {
+	return onEvent[tela.ScrollEvent]("scroll", "OnScroll", handler)
 }

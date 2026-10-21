@@ -180,7 +180,20 @@ func Bind(text string, set Setter[string]) Prop {
 	if set.s == nil {
 		panic("tela: Bind(text, zero Setter): pass the Setter returned by tela.UseState")
 	}
-	h := func(e ChangeEvent) { set.Set(e.Value) }
+	return bindProp(text, func(s string) { set.Set(s) })
+}
+
+// BindFunc is Bind for a plain function that receives every new value,
+// such as a Dispatcher's action wrapped in a closure.
+func BindFunc(text string, set func(string)) Prop {
+	if set == nil {
+		panic("tela: Bind(text, nil): pass the Setter returned by tela.UseState, or a func(string) that stores the new value")
+	}
+	return bindProp(text, set)
+}
+
+func bindProp(text string, set func(string)) Prop {
+	h := func(e ChangeEvent) { set(e.Value) }
 	return Prop{name: "Bind", apply: func(d *desc) {
 		if d.fp == nil {
 			d.fp = &formProps{}

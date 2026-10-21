@@ -18,7 +18,7 @@ import (
 // with the closest valid one.
 //
 //	Button(Role("switch"), AriaChecked(on), AriaLabel("Wi-Fi"),
-//	    OnClick(func(tela.MouseEvent) { setOn.Set(!on) }), knob)
+//	    OnClick(func() { setOn.Set(!on) }), knob)
 func Role(role string) tela.Prop { return core.Role(role) }
 
 // AriaLabel sets the accessible name of an element, for elements whose

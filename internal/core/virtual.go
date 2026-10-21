@@ -184,8 +184,12 @@ type virtNode struct {
 	role virtRole
 	// idx is an item wrapper's index.
 	idx int
-	// overscan is the Overscan prop, in the list's props template only.
+	// The props of the list, in its props template only: overscan is the
+	// Overscan prop, itemKey the ItemKey prop (nil: items are keyed by
+	// index) and fixed the ItemHeight prop (0: items are measured).
 	overscan int
+	itemKey  func(i int) any
+	fixed    float32
 }
 
 // virtMark returns the virtual-list mark of box b's node, or nil.
@@ -206,6 +210,11 @@ type vprops struct {
 	// applied once.
 	outer    *desc
 	overscan int
+	// itemKey keys the item wrappers by something else than the index,
+	// and fixed (ItemHeight) is the height of every item, which are then
+	// not measured; both are zero for the defaults.
+	itemKey func(i int) any
+	fixed   float32
 }
 
 // virtState is the virtualization state of a Tree (UI thread).
@@ -226,6 +235,7 @@ type vlist struct {
 	// the estimate function the sizes come from.
 	props    *vprops
 	estFn    uintptr
+	fixed    float32
 	overscan int
 	sizes    sizeIndex
 	// lo and hi are the built range, built every built index (the range
@@ -301,8 +311,6 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 	switch {
 	case count < 0:
 		panic(fmt.Sprintf("h: VirtualList(%d, ...): count is the number of items, 0 or more", count))
-	case estimateSize == nil:
-		panic("h: VirtualList(n, nil, ...): pass estimateSize, a func(i int) float32 that estimates the height of item i in px, such as func(int) float32 { return 40 }")
 	case renderItem == nil:
 		panic("h: VirtualList(n, estimate, nil): pass renderItem, a func(i int) tela.Node that returns item i, such as func(i int) tela.Node { return tela.CP(Row, i) }")
 	}
@@ -321,9 +329,18 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 	case d.aria != nil && d.aria.hasAlt:
 		panic("h: Alt on VirtualList: only Img takes an alternative text; name the list with AriaLabel")
 	}
+	fixed := d.virt.fixed
+	if fixed > 0 {
+		// ItemHeight: every item has that height and nothing is measured,
+		// so estimateSize is not needed (and not used).
+		estimateSize = fixedEstimate(fixed)
+	} else if estimateSize == nil {
+		panic("h: VirtualList(n, nil, ...): pass estimateSize, a func(i int) float32 that estimates the height of item i in px, such as func(int) float32 { return 40 }, or give the items one height with ItemHeight(40)")
+	}
 	p := &vprops{
 		count: count, estimate: estimateSize, estFn: reflect.ValueOf(estimateSize).Pointer(),
 		render: renderItem, outer: d, overscan: d.virt.overscan,
+		itemKey: d.virt.itemKey, fixed: fixed,
 	}
 	n := &desc{kind: nodeComponent, comp: &compDesc{
 		typ: virtualTyp, fn: virtualList, build: func() Node { return virtualList(p) }, props: p,
@@ -335,6 +352,46 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 		d.key, d.keyed = nil, false
 	}
 	return Node{n}
+}
+
+// fixedEstimate is the estimate of a list whose items all have the height
+// h (ItemHeight). Every call returns the same code pointer, so the sizes
+// reset only when the height changes (vlist.sync compares it).
+func fixedEstimate(h float32) func(int) float32 {
+	return func(int) float32 { return h }
+}
+
+// ItemKey keys the items of a VirtualList by key(i) instead of by their
+// index, so that an item component's state follows the item when others
+// are inserted or removed before it (tela.Key's rule for lists). It
+// panics on other elements, for a nil key function, and, when the list
+// builds, for a key that is nil or not comparable.
+func ItemKey[K comparable](key func(i int) K) Prop {
+	if key == nil {
+		panic("h: ItemKey(nil): pass a func(i int) that returns the key of item i, such as func(i int) int { return rows[i].ID }")
+	}
+	return Prop{name: "ItemKey", apply: func(d *desc) {
+		if d.virt == nil || d.virt.role != virtList {
+			panic("h: ItemKey is a prop of VirtualList; key the children of other elements with Key")
+		}
+		d.virt.itemKey = func(i int) any { return key(i) }
+	}}
+}
+
+// ItemHeight gives every item of a VirtualList the same height in
+// logical pixels: they are not measured, the list's size is count times
+// px, and estimateSize is not needed. It panics on other elements and for
+// a height below 1 px.
+func ItemHeight(px float32) Prop {
+	if !(px >= 1) || px > maxItemSize {
+		panic(fmt.Sprintf("h: ItemHeight(%v): pass the height of every item in px, 1 or more, such as ItemHeight(40)", px))
+	}
+	return Prop{name: "ItemHeight", apply: func(d *desc) {
+		if d.virt == nil || d.virt.role != virtList {
+			panic("h: ItemHeight is a prop of VirtualList; size other elements with Height or a class")
+		}
+		d.virt.fixed = px
+	}}
 }
 
 // Overscan sets the number of items a VirtualList builds beyond each side
@@ -404,11 +461,11 @@ func virtualListOf(el *Element) *vlist {
 // follow count and estimateSize, and every item is rendered again
 // (renderItem may capture new data).
 func (vl *vlist) sync(p *vprops) {
-	reset := vl.props == nil || p.estFn != vl.estFn
+	reset := vl.props == nil || p.estFn != vl.estFn || p.fixed != vl.fixed
 	if reset || p.count != vl.sizes.len() {
 		vl.sizes.resize(p.count, p.estimate, reset)
 	}
-	vl.props, vl.estFn, vl.overscan = p, p.estFn, p.overscan
+	vl.props, vl.estFn, vl.fixed, vl.overscan = p, p.estFn, p.fixed, p.overscan
 	clear(vl.nodes)
 	if vl.req != nil && vl.req.idx >= p.count {
 		vl.req.idx = p.count - 1
@@ -486,7 +543,12 @@ func (vl *vlist) item(i int, p *vprops) Node {
 	if el.hookIdx != before {
 		panic(fmt.Sprintf("tela: the renderItem function of a VirtualList called a hook while rendering item %d; it runs inside the list's build, so items with state must be components: return tela.C(...) or tela.CP(Row, i) from renderItem", i))
 	}
-	return Node{&desc{kind: nodeElement, elem: style.KindDiv, key: i, keyed: true,
+	var key any = i
+	if p.itemKey != nil {
+		key = p.itemKey(i)
+		checkKey(key)
+	}
+	return Node{&desc{kind: nodeElement, elem: style.KindDiv, key: key, keyed: true,
 		children: []Node{child}, virt: &virtNode{vl: vl, role: virtItem, idx: i}}}
 }
 
@@ -698,6 +760,9 @@ func (v *virtNode) layoutStyle(ls *layout.Style) {
 	case virtItem:
 		*ls = layout0
 		ls.Margin.Top = layout.Px(v.vl.gapBefore(v.idx))
+		if h := v.vl.fixed; h > 0 {
+			ls.Height = layout.Px(h)
+		}
 	}
 }
 
@@ -794,6 +859,9 @@ func (vl *vlist) measure(outer, content *Box, s *scroller) bool {
 			continue
 		}
 		vl.noteSticky(v.idx, len(k.kids) > 0 && k.kids[0].cs != nil && k.kids[0].cs.Position == style.PositionSticky)
+		if vl.fixed > 0 {
+			continue // ItemHeight: the sizes are the heights
+		}
 		h := clampSize(k.ld.Layout().Size.H)
 		old := vl.sizes.at(v.idx)
 		if h == old {

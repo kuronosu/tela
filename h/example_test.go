@@ -151,14 +151,15 @@ func ExampleVirtualList() {
 	// A million rows cost about as much as the ones in view.
 	rows := VirtualList(1_000_000,
 		func(int) float32 { return 40 },
-		func(i int) tela.Node { return Div(Role("listitem"), Class("h-10"), Textf("Row %d", i)) },
+		func(i int) tela.Node { return Div(Class("h-10"), Textf("Row %d", i)) },
 		Class("h-[120px]"), Overscan(0))
 	yaml, _ := telatest.AriaSnapshot(rows, telatest.Size(200, 120))
 	fmt.Println(yaml)
 	// Output:
-	// - listitem: Row 0
-	// - listitem: Row 1
-	// - listitem: Row 2
+	// - list:
+	//   - listitem: Row 0
+	//   - listitem: Row 1
+	//   - listitem: Row 2
 }
 
 func ExamplePortal() {

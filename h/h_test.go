@@ -154,8 +154,8 @@ func TestProgrammerErrors(t *testing.T) {
 		f    func()
 		want string
 	}{
-		"OnClick nil":   {func() { OnClick(nil) }, "OnClick(nil)"},
-		"OnMouseUp nil": {func() { OnMouseUp(nil) }, "OnMouseUp(nil)"},
+		"OnClick nil":   {func() { OnClick[func()](nil) }, "OnClick(nil)"},
+		"OnMouseUp nil": {func() { OnMouseUp[func()](nil) }, "OnMouseUp(nil)"},
 		// Key(nil) and Key([]int{1}) do not compile (Key[K comparable]);
 		// an interface holding nil or a slice still panics.
 		"Key nil":       {func() { Key[any](nil) }, "non-nil comparable"},
@@ -190,13 +190,13 @@ func TestExportedNames(t *testing.T) {
 		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaSelected", "AriaValueMax", "AriaValueMin",
 		"AriaValueNow", "AriaValueText", "AutoComplete", "AutoFocus", "Bind", "BindValue", "Button", "Class",
 		"Code", "DefaultValue", "Dir", "Disabled", "Div", "Em", "Exit", "For", "Form", "Fragment", "H1", "H2", "H3", "H4", "H5",
-		"H6", "Href", "ID", "Id", "If", "IfElse", "Img", "Input", "Key", "Label", "LayoutID", "Map", "MapIndex", "MaxLength", "Name",
+		"H6", "Href", "ID", "Id", "If", "IfElse", "Img", "Input", "ItemHeight", "ItemKey", "Key", "Label", "LayoutID", "Map", "MapIndex", "MapKeyed", "MaxLength", "Name", "Nodes",
 		"OnBeforeInput", "OnBlur", "OnChange", "OnClick", "OnCompositionEnd", "OnCompositionStart",
 		"OnCompositionUpdate", "OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus",
 		"OnKeyDown", "OnKeyUp", "OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove",
 		"OnMouseUp", "OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove",
 		"OnPointerUp", "OnScroll", "OnSelect", "OnSubmit", "OnWheel", "Overscan", "P", "Placeholder", "Portal", "Presence", "ReadOnly",
-		"Ref", "Role", "Rows", "Scheme", "Span", "SpellCheck", "Src", "Strong", "Style", "TabIndex", "TestID", "Text", "TextFn",
+		"Ref", "Role", "Rows", "Scale", "Scheme", "Span", "SpellCheck", "Src", "Strong", "Style", "TabIndex", "TestID", "Text", "TextFn",
 		"Textarea", "Textf", "Type", "Value",
 		"VirtualList",
 	}

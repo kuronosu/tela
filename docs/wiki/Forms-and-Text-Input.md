@@ -37,6 +37,8 @@ func Signup() tela.Node {
 
 Written out, the same field is
 `Input(Value(email), OnChange(func(e tela.ChangeEvent) { setEmail.Set(e.Value) }))`.
+`Bind` also takes a `func(string)` in place of the setter, so a reducer's
+`Dispatcher` can bind: `Bind(form.Email, func(s string) { d.Dispatch(setEmail(s)) })`.
 After every event the field shows `Value` again unless your handler changed it,
 which is also how you restrict input.
 

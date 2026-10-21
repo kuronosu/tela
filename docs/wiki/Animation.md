@@ -113,6 +113,22 @@ func Toast() tela.Node {
 The toast never builds during its tweens: `OpacityFn` reads the value, and
 [`tela.OnDone`](https://pkg.go.dev/github.com/kuronosu/tela#OnDone) calls `done` when the exit tween comes to rest.
 
+That pattern is [`tela.UsePresenceTween`](https://pkg.go.dev/github.com/kuronosu/tela#UsePresenceTween): a `Value` that goes
+from 0 to 1 when the component mounts and from 1 to 0 while its child exits,
+and calls `done` when the exit arrives. It takes the options of `UseTween`
+(`Duration`, `Ease`, `OnDone`, which runs after each motion); with spring
+options (`Stiffness`, `Damping`, `Bounce`, `Spring`) it is a spring:
+
+```go
+func Toast() tela.Node {
+	shown := tela.UsePresenceTween(tela.Duration(250*time.Millisecond), tela.Ease(tela.EaseOut))
+	return Div(Role("status"), Class("rounded-xl bg-slate-900 px-5 py-3 text-white"),
+		Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
+			tela.OpacityFn(shown.Get)),
+		Text("Saved"))
+}
+```
+
 ## Springs and tweens: `UseSpring`, `UseTween`
 
 [`tela.UseSpring`](https://pkg.go.dev/github.com/kuronosu/tela#UseSpring)`(target, opts...)` returns a [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) that follows
@@ -200,8 +216,11 @@ two frames starts at the next one.
 | [`tela.OnDone`](https://pkg.go.dev/github.com/kuronosu/tela#OnDone)(fn) | both | Calls `fn` once, on the UI thread before the next build, when the animation comes to rest at its target; not when it is interrupted (another target, `Animate`, `Set`, `Update`, an unmount). With reduced motion or without a frame clock, right after the target applies |
 | [`tela.Initial`](https://pkg.go.dev/github.com/kuronosu/tela#Initial)(v) | `UseSpring`, `UseTween` | The value on the first build, from which it moves to the target; of the target's type (a mismatch panics in dev mode) |
 
+`Ease` takes a [`tela.Easing`](https://pkg.go.dev/github.com/kuronosu/tela#Easing), a string type: the constants
+`EaseLinear`, `EaseIn`, `EaseOut` and `EaseInOut`, any CSS easing string
+(literals keep compiling) or [`tela.CubicBezier`](https://pkg.go.dev/github.com/kuronosu/tela#CubicBezier)`(x1, y1, x2, y2)`.
 The keywords are CSS's curves; Tailwind's `ease-out` utility is
-`Ease("cubic-bezier(0, 0, 0.2, 1)")`. Contradicting options (`Ease` on a
+`Ease(tela.CubicBezier(0, 0, 0.2, 1))`. Contradicting options (`Ease` on a
 spring, `Stiffness` with `Duration`, spring options or `Velocity` on
 `UseTween`, a `Velocity` of a color or of another type than the value's) and
 invalid easings panic in dev mode (on in development builds and tests) with what to write; otherwise they are

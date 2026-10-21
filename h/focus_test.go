@@ -100,10 +100,10 @@ func TestFocusPropsPanic(t *testing.T) {
 		f    func()
 		want string
 	}{
-		"OnKeyDown": {func() { OnKeyDown(nil) }, "OnKeyDown(nil)"},
-		"OnKeyUp":   {func() { OnKeyUp(nil) }, "OnKeyUp(nil)"},
-		"OnFocus":   {func() { OnFocus(nil) }, "OnFocus(nil)"},
-		"OnBlur":    {func() { OnBlur(nil) }, "OnBlur(nil)"},
+		"OnKeyDown": {func() { OnKeyDown[func()](nil) }, "OnKeyDown(nil)"},
+		"OnKeyUp":   {func() { OnKeyUp[func()](nil) }, "OnKeyUp(nil)"},
+		"OnFocus":   {func() { OnFocus[func()](nil) }, "OnFocus(nil)"},
+		"OnBlur":    {func() { OnBlur[func()](nil) }, "OnBlur(nil)"},
 		"Ref":       {func() { Ref(tela.ElementRef{}) }, "UseElementRef"},
 	} {
 		func() {

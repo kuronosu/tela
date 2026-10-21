@@ -167,6 +167,39 @@ type Context[T any] = core.Context[T]
 // For comparable types, a value == to the current one changes nothing.
 type Value[T any] = core.Value[T]
 
+// Toggle returns a function that flips set's state, for a handler:
+// OnClick(tela.Toggle(setOpen)). It uses [Setter].Update, so two clicks
+// that land in one frame both count and the state ends where it started,
+// which setOpen.Set(!open) does not give (both clicks read the same open).
+//
+//	open, setOpen := tela.UseState(false)
+//	Button(OnClick(tela.Toggle(setOpen)), Text("Menu"))
+func Toggle(set Setter[bool]) func() {
+	if set.IsZero() {
+		panic("tela: Toggle(zero Setter): pass the Setter of a bool returned by tela.UseState, for example tela.Toggle(setOpen)")
+	}
+	return func() { set.Update(func(b bool) bool { return !b }) }
+}
+
+// MapValue returns a function that reads v and applies f, for the deferred
+// style props ([WidthFn], [HeightFn], [OpacityFn], [BgFn], [TextColorFn]),
+// which take a func with one result: v is read, and tracked, when the prop
+// is evaluated in a later phase, not when the component builds.
+//
+//	Style(tela.HeightFn(tela.MapValue(open, func(t float32) float32 { return 36 + 120*t })))
+//	Style(tela.BgFn(tela.MapValue(progress, func(p float32) tela.Color { return mix(from, to, p) })))
+//
+// h.Scale is MapValue for a float32 times a constant.
+func MapValue[T, U any](v *Value[T], f func(T) U) func() U {
+	if v == nil {
+		panic("tela: MapValue(nil, ...): pass the *tela.Value returned by tela.UseValue, tela.UseSpring or tela.UseTween")
+	}
+	if f == nil {
+		panic("tela: MapValue(v, nil): pass the function that computes the result from the Value, such as func(x float32) float32 { return 36 * x }")
+	}
+	return func() U { return f(v.Get()) }
+}
+
 // UseState returns the state of this hook slot and its [Setter]
 // (ARCHITECTURE section 7). The first build stores initial; later builds
 // return the latest value set. Setting a different value rebuilds the
@@ -550,10 +583,14 @@ var Once = core.Once
 //
 //	Div(tela.C(Header), tela.C(Body))
 //
+// The optional last argument is the component's key, h.Key(id), for a
+// component in a list: tela.C(Row, Key(id)) is tela.WithKey(tela.C(Row),
+// id). Anything else but Key panics.
+//
 // A C component builds whenever its parent builds, since fn may capture
 // values that changed; use [CP] for automatic skipping. Only the very same
 // node (one kept in a variable or a [UseMemo]) is not built again.
-func C(fn func() Node) Node { return core.Component(fn) }
+func C(fn func() Node, key ...Prop) Node { return core.Component(fn, key...) }
 
 // CP returns a node that builds fn(props) as a component with its own
 // state. When its parent builds again with props == to the previous ones,
@@ -574,7 +611,15 @@ func C(fn func() Node) Node { return core.Component(fn) }
 // anonymous functions once per call site. Keep props
 // comparable by passing [Callback] values instead of funcs, and IDs instead
 // of slices or maps; a props value whose == panics counts as changed.
-func CP[P comparable](fn func(P) Node, props P) Node { return core.ComponentProps(fn, props) }
+//
+// The optional last argument is the component's key, h.Key(id), for the
+// items of a list: tela.CP(Row, RowProps{...}, Key(row.ID)) is
+// tela.WithKey(tela.CP(Row, RowProps{...}), row.ID). Anything else but Key
+// panics; the key is not a prop of the component and is not compared with
+// the props.
+func CP[P comparable](fn func(P) Node, props P, key ...Prop) Node {
+	return core.ComponentProps(fn, props, key...)
+}
 
 // Memo is [CP] for props that are not comparable, or that compare in
 // another way: the build is skipped when equal(old, new) reports them
@@ -583,8 +628,10 @@ func CP[P comparable](fn func(P) Node, props P) Node { return core.ComponentProp
 //	tela.Memo(Chart, ChartProps{Points: pts}, func(a, b ChartProps) bool {
 //	    return slices.Equal(a.Points, b.Points)
 //	})
-func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool) Node {
-	return core.Memo(fn, props, equal)
+//
+// Like [CP], it takes an optional last argument, the key h.Key(id).
+func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Prop) Node {
+	return core.Memo(fn, props, equal, key...)
 }
 
 // Post runs fn on the UI thread of the running application, in order with

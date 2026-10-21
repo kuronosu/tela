@@ -32,6 +32,6 @@ import (
 //	        Div(Class("fixed inset-0 flex items-center justify-center bg-black/40"),
 //	            Div(Role("dialog"), AriaLabel("Confirm"), Class("rounded-xl bg-white p-6 shadow-xl"),
 //	                Text("Delete this file?"),
-//	                Button(OnClick(func(tela.MouseEvent) { onClose() }), Text("Cancel")))))
+//	                Button(OnClick(func() { onClose() }), Text("Cancel")))))
 //	}
 func Portal(children ...tela.Child) tela.Node { return core.Portal(children...) }

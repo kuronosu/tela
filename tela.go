@@ -45,10 +45,15 @@
 //	Div(Class("rounded-xl p-4"), If(selected, Class("ring-2 ring-indigo-500")),
 //	    Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e"))))
 //
+// h.Class takes several strings and joins them with a space, and a
+// [StyleProp] is also a child, so Div(Class("p-4", tone), tela.Width(w))
+// needs neither concatenation nor Style; [WH] and [Box] set several at once.
+//
 // Values that change every frame (a drag position, a progress bar) can be
 // deferred to a later phase with [TranslateFn], [OpacityFn], [WidthFn] and
 // [HeightFn]: a [UseValue] read inside them redoes only that element's
-// layout or paint when it changes. Colors are extended sRGB; see [Color].
+// layout or paint when it changes ([MapValue] and h.Scale compute from one).
+// Colors are extended sRGB; see [Color].
 //
 // # Components
 //

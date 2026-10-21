@@ -45,7 +45,7 @@ func Textarea(children ...tela.Child) tela.Node {
 // its uncontrolled fields. Buttons inside a form are submit buttons
 // unless Type says "button".
 //
-//	Form(OnSubmit(func(tela.SubmitEvent) { save() }),
+//	Form(OnSubmit(func() { save() }),
 //	    Input(Bind(name, setName)),
 //	    Button(Type("submit"), Text("Save")))
 func Form(children ...tela.Child) tela.Node { return core.Primitive(style.KindForm, children...) }
@@ -74,11 +74,24 @@ func Value(s string) tela.Prop { return core.FieldValue(s) }
 func DefaultValue(s string) tela.Prop { return core.DefaultValue(s) }
 
 // Bind makes a text field controlled by a state: Value(text) plus an
-// OnChange that calls set.Set(e.Value).
+// OnChange that sends every new value to set, a tela.Setter or any
+// func(string), such as one that dispatches an action to a reducer. A nil
+// function panics.
 //
 //	name, setName := tela.UseState("")
 //	Input(Bind(name, setName))
-func Bind(text string, set tela.Setter[string]) tela.Prop { return core.Bind(text, set) }
+//
+//	form, d := tela.UseReducer(reduce, Form{})
+//	Input(Bind(form.Email, func(s string) { d.Dispatch(setEmail(s)) }))
+func Bind[S tela.Setter[string] | func(string)](text string, set S) tela.Prop {
+	switch s := any(set).(type) {
+	case tela.Setter[string]:
+		return core.Bind(text, s)
+	case func(string):
+		return core.BindFunc(text, s)
+	}
+	panic("h: Bind: unreachable")
+}
 
 // BindValue binds a text field to v, from tela.UseValue: the field shows
 // v's value and writes every edit to it without rebuilding the component
@@ -142,62 +155,43 @@ func For(id string) tela.Prop { return core.For(id) }
 // field.
 //
 //	Input(Value(name), OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) }))
-func OnChange(handler func(tela.ChangeEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: OnChange(nil): pass a handler, for example OnChange(func(e tela.ChangeEvent) { setText.Set(e.Value) })")
-	}
-	return core.On("change", handler)
+func OnChange[F func() | func(tela.ChangeEvent)](handler F) tela.Prop {
+	return onEvent[tela.ChangeEvent]("change", "OnChange", handler)
 }
 
 // OnBeforeInput calls handler before a text field's value changes by an
 // edit of the user (the DOM's beforeinput); e.PreventDefault() cancels
 // the edit (except an IME composition's). It bubbles.
-func OnBeforeInput(handler func(tela.InputEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: OnBeforeInput(nil): pass a handler, for example OnBeforeInput(func(e tela.InputEvent) { ... })")
-	}
-	return core.On("beforeinput", handler)
+func OnBeforeInput[F func() | func(tela.InputEvent)](handler F) tela.Prop {
+	return onEvent[tela.InputEvent]("beforeinput", "OnBeforeInput", handler)
 }
 
 // OnCompositionStart calls handler when an input method (IME) starts
 // composing text in a text field. It bubbles.
-func OnCompositionStart(handler func(tela.CompositionEvent)) tela.Prop {
-	return onComposition("compositionstart", "OnCompositionStart", handler)
+func OnCompositionStart[F func() | func(tela.CompositionEvent)](handler F) tela.Prop {
+	return onEvent[tela.CompositionEvent]("compositionstart", "OnCompositionStart", handler)
 }
 
 // OnCompositionUpdate calls handler when the text an input method
 // composes changes (e.Data). It bubbles.
-func OnCompositionUpdate(handler func(tela.CompositionEvent)) tela.Prop {
-	return onComposition("compositionupdate", "OnCompositionUpdate", handler)
+func OnCompositionUpdate[F func() | func(tela.CompositionEvent)](handler F) tela.Prop {
+	return onEvent[tela.CompositionEvent]("compositionupdate", "OnCompositionUpdate", handler)
 }
 
 // OnCompositionEnd calls handler when an input method ends a
 // composition, committed (e.Data) or canceled (""). It bubbles.
-func OnCompositionEnd(handler func(tela.CompositionEvent)) tela.Prop {
-	return onComposition("compositionend", "OnCompositionEnd", handler)
+func OnCompositionEnd[F func() | func(tela.CompositionEvent)](handler F) tela.Prop {
+	return onEvent[tela.CompositionEvent]("compositionend", "OnCompositionEnd", handler)
 }
 
 // OnSelect calls handler when the user selects text in a text field, or
 // code changes its selection (e.Start, e.End). It bubbles.
-func OnSelect(handler func(tela.SelectEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: OnSelect(nil): pass a handler, for example OnSelect(func(e tela.SelectEvent) { ... })")
-	}
-	return core.On("select", handler)
+func OnSelect[F func() | func(tela.SelectEvent)](handler F) tela.Prop {
+	return onEvent[tela.SelectEvent]("select", "OnSelect", handler)
 }
 
 // OnSubmit calls handler when a Form is submitted: Enter in one of its
 // single-line fields, or a click on a submit Button inside it. It bubbles.
-func OnSubmit(handler func(tela.SubmitEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: OnSubmit(nil): pass a handler, for example OnSubmit(func(e tela.SubmitEvent) { save() })")
-	}
-	return core.On("submit", handler)
-}
-
-func onComposition(event, name string, handler func(tela.CompositionEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.CompositionEvent) { ... })")
-	}
-	return core.On(event, handler)
+func OnSubmit[F func() | func(tela.SubmitEvent)](handler F) tela.Prop {
+	return onEvent[tela.SubmitEvent]("submit", "OnSubmit", handler)
 }

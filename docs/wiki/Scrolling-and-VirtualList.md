@@ -110,7 +110,7 @@ var people = make([]Person, 100_000)
 type RowProps struct{ Index int }
 
 func Row(p RowProps) tela.Node {
-	return Div(Role("listitem"), Class("flex h-16 items-center border-b px-4"),
+	return Div(Class("flex h-16 items-center border-b px-4"),
 		Textf("%d. %s", p.Index+1, people[p.Index].Name))
 }
 
@@ -132,8 +132,18 @@ func People() tela.Node {
   not call hooks: return a component node ([`tela.C`](https://pkg.go.dev/github.com/kuronosu/tela#C), [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP)) for items with
   state. Prefer `CP`, so a list rebuilt by its parent skips the items whose
   props did not change.
-- Items are keyed by index: an item component's state follows its index. The
-  focused item stays mounted while it is scrolled away, so Tab goes on from it.
+- Items are keyed by index unless the list has [`ItemKey`](https://pkg.go.dev/github.com/kuronosu/tela/h#ItemKey)`(func(i int) K)`,
+  which keys them by the item's identity, so an item component's state follows
+  the item when others are inserted or removed before it:
+  `ItemKey(func(i int) int { return rows[i].ID })`. The focused item stays
+  mounted while it is scrolled away, so Tab goes on from it.
+- [`ItemHeight`](https://pkg.go.dev/github.com/kuronosu/tela/h#ItemHeight)`(px)` gives every item the same height: nothing is
+  measured, positions are exact from the first frame, and `estimateSize` may
+  be `nil`. An item taller than that spills over the next one.
+- The list has the role `list` and its items `listitem` (in the aria snapshot
+  and for assistive technology); `Role` on the list replaces its role, and
+  the items are then no listitems. An item's own role goes on the element
+  `renderItem` returns.
 - Scrolling inside the built items only repaints; scrolling past them builds
   the entering items and unmounts the leaving ones.
 - [`Overscan`](https://pkg.go.dev/github.com/kuronosu/tela/h#Overscan) sets how many items are built beyond each side of the visible

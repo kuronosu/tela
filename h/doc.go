@@ -55,7 +55,7 @@
 //
 //	func Signup() tela.Node {
 //	    email, setEmail := tela.UseState("")
-//	    return Form(Class("flex flex-col gap-2"), OnSubmit(func(tela.SubmitEvent) { register(email) }),
+//	    return Form(Class("flex flex-col gap-2"), OnSubmit(func() { register(email) }),
 //	        Label(For("email"), Class("text-sm font-medium"), Text("Email")),
 //	        Input(ID("email"), Type("email"), Bind(email, setEmail), Placeholder("you@example.com"),
 //	            Class("rounded-md border border-slate-300 px-3 py-2 invalid:border-red-500")),

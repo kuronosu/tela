@@ -238,10 +238,10 @@ func TestPublicUseValue(t *testing.T) {
 		builds++
 		pos = tela.UseValue(0.0)
 		width = tela.UseValue[float32](10)
-		return div(core.Class("h-4 bg-sky-500"), core.Style(
+		return div(core.Class("h-4 bg-sky-500"),
 			tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 }),
 			tela.WidthFn(func() float32 { return width.Get() }),
-		))
+		)
 	}
 	tr := mount(t, tela.C(comp), nil)
 	first := pos

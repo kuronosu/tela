@@ -20,8 +20,8 @@ import (
 //	        save()
 //	    }
 //	}))
-func OnKeyDown(handler func(tela.KeyboardEvent)) tela.Prop {
-	return onKey("keydown", "OnKeyDown", handler)
+func OnKeyDown[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop {
+	return onEvent[tela.KeyboardEvent]("keydown", "OnKeyDown", handler)
 }
 
 // OnKeyUp calls handler when a key is released while the element or one
@@ -34,26 +34,26 @@ func OnKeyDown(handler func(tela.KeyboardEvent)) tela.Prop {
 //	        setMulti.Set(false)
 //	    }
 //	}))
-func OnKeyUp(handler func(tela.KeyboardEvent)) tela.Prop {
-	return onKey("keyup", "OnKeyUp", handler)
+func OnKeyUp[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop {
+	return onEvent[tela.KeyboardEvent]("keyup", "OnKeyUp", handler)
 }
 
 // OnFocus calls handler when the element or one of its descendants gains
 // the focus (React's onFocus: it bubbles), and again when the window
 // regains the keyboard focus.
 //
-//	Div(TabIndex(0), OnFocus(func(tela.FocusEvent) { setActive.Set(true) }))
-func OnFocus(handler func(tela.FocusEvent)) tela.Prop {
-	return onFocusEvent("focus", "OnFocus", handler)
+//	Div(TabIndex(0), OnFocus(func() { setActive.Set(true) }))
+func OnFocus[F func() | func(tela.FocusEvent)](handler F) tela.Prop {
+	return onEvent[tela.FocusEvent]("focus", "OnFocus", handler)
 }
 
 // OnBlur calls handler when the element or one of its descendants loses
 // the focus (React's onBlur: it bubbles), also when the window loses the
 // keyboard focus. Unmounting the focused element does not call it.
 //
-//	Div(TabIndex(0), OnBlur(func(tela.FocusEvent) { commit() }))
-func OnBlur(handler func(tela.FocusEvent)) tela.Prop {
-	return onFocusEvent("blur", "OnBlur", handler)
+//	Div(TabIndex(0), OnBlur(func() { commit() }))
+func OnBlur[F func() | func(tela.FocusEvent)](handler F) tela.Prop {
+	return onEvent[tela.FocusEvent]("blur", "OnBlur", handler)
 }
 
 // TabIndex makes an element focusable (a Button already is) and places it
@@ -94,17 +94,3 @@ func AutoFocus(on bool) tela.Prop { return core.AutoFocus(on) }
 //	})
 //	return Div(Ref(input), TabIndex(0), Class("focus:ring-2"), Text("Name"))
 func Ref(ref tela.ElementRef) tela.Prop { return core.AttachRef(ref) }
-
-func onKey(event, name string, handler func(tela.KeyboardEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.KeyboardEvent) { ... })")
-	}
-	return core.On(event, handler)
-}
-
-func onFocusEvent(event, name string, handler func(tela.FocusEvent)) tela.Prop {
-	if handler == nil {
-		panic("h: " + name + "(nil): pass a handler, for example " + name + "(func(e tela.FocusEvent) { ... })")
-	}
-	return core.On(event, handler)
-}

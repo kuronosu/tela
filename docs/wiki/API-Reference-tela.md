@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseId`](#func-useid-deprecated) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseId`](#func-useid-deprecated) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -29,6 +29,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Context`](#type-context): [`CreateContext`](#func-createcontext) · [`Provider`](#func-context-provider)
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
   - [`type DragEvent`](#type-dragevent): [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
+  - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
@@ -58,11 +59,11 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`IsZero`](#func-setter-iszero) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
   - [`type Shadow`](#type-shadow)
   - [`type Size`](#type-size)
-  - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
+  - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`Build`](#func-styleprop-build) · [`Ops`](#func-styleprop-ops)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
   - [`type Theme`](#type-theme): [`DefaultTheme`](#func-defaulttheme)
   - [`type ThemeValues`](#type-themevalues): [`UseTheme`](#func-usetheme) · [`Color`](#func-themevalues-color) · [`FontMono`](#func-themevalues-fontmono) · [`FontSans`](#func-themevalues-fontsans) · [`Lookup`](#func-themevalues-lookup) · [`Radius`](#func-themevalues-radius) · [`Scheme`](#func-themevalues-scheme) · [`Tokens`](#func-themevalues-tokens)
-  - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
+  - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UsePresenceTween`](#func-usepresencetween) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
 
 ## Overview
@@ -103,7 +104,9 @@ Div(Class("rounded-xl p-4"), If(selected, Class("ring-2 ring-indigo-500")),
     Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e"))))
 ```
 
-Values that change every frame (a drag position, a progress bar) can be deferred to a later phase with [`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn), [`WidthFn`](#func-widthfn) and [`HeightFn`](#func-heightfn): a [`UseValue`](#func-usevalue) read inside them redoes only that element's layout or paint when it changes. Colors are extended sRGB; see [`Color`](#type-color).
+h.Class takes several strings and joins them with a space, and a [`StyleProp`](#type-styleprop) is also a child, so Div(Class("p-4", tone), tela.Width(w)) needs neither concatenation nor Style; [`WH`](#func-wh) and [`Box`](#func-box) set several at once.
+
+Values that change every frame (a drag position, a progress bar) can be deferred to a later phase with [`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn), [`WidthFn`](#func-widthfn) and [`HeightFn`](#func-heightfn): a [`UseValue`](#func-usevalue) read inside them redoes only that element's layout or paint when it changes ([`MapValue`](#func-mapvalue) and h.Scale compute from one). Colors are extended sRGB; see [`Color`](#type-color).
 
 ### Components
 
@@ -417,6 +420,44 @@ counter := func() tela.Node {
 tela.Main(tela.App{Title: "Demo", Width: 400, Height: 300, Root: counter})
 ```
 
+### func MapValue
+
+```go
+func MapValue[T, U any](v *Value[T], f func(T) U) func() U
+```
+
+MapValue returns a function that reads v and applies f, for the deferred style props ([`WidthFn`](#func-widthfn), [`HeightFn`](#func-heightfn), [`OpacityFn`](#func-opacityfn), [`BgFn`](#func-bgfn), [`TextColorFn`](#func-textcolorfn)), which take a func with one result: v is read, and tracked, when the prop is evaluated in a later phase, not when the component builds.
+
+```go
+Style(tela.HeightFn(tela.MapValue(open, func(t float32) float32 { return 36 + 120*t })))
+Style(tela.BgFn(tela.MapValue(progress, func(p float32) tela.Color { return mix(from, to, p) })))
+```
+
+h.Scale is MapValue for a float32 times a constant.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var open *tela.Value[float32]
+panel := func() tela.Node {
+    open = tela.UseValue(float32(0))
+    // 36 px closed, 156 px open: only the box is laid out again when
+    // open changes, the component does not build.
+    return Div(TestID("panel"), Class("w-40 overflow-hidden bg-slate-100"),
+        Style(tela.HeightFn(tela.MapValue(open, func(t float32) float32 { return 36 + 120*t }))))
+}
+app := telatest.Mount(t, tela.C(panel))
+fmt.Println(app.Bounds(telatest.ByTestID("panel")).Height)
+tela.Animate(open, 1, tela.Duration(100*time.Millisecond))
+app.Advance(time.Second)
+fmt.Println(app.Bounds(telatest.ByTestID("panel")).Height)
+// Output:
+// 36
+// 156
+```
+
 ### func Post
 
 ```go
@@ -485,6 +526,40 @@ func SetTheme(t Theme)
 ```
 
 SetTheme replaces the theme of the running app: classes are compiled again against it (with the app's ClassAliases), every element is styled again and the components that call [`UseTheme`](#func-usetheme) build again. Like [`SetColorScheme`](#func-setcolorscheme) it is safe from any goroutine, applies on the UI thread before the next frame, goes to the app that receives posted functions, and called before [`Run`](#func-run) applies when the window opens (it wins over [`App`](#type-app).Theme). It panics for a token name classes cannot use.
+
+### func Toggle
+
+```go
+func Toggle(set Setter[bool]) func()
+```
+
+Toggle returns a function that flips set's state, for a handler: OnClick(tela.Toggle(setOpen)). It uses [`Setter`](#type-setter).Update, so two clicks that land in one frame both count and the state ends where it started, which setOpen.Set(!open) does not give (both clicks read the same open).
+
+```go
+open, setOpen := tela.UseState(false)
+Button(OnClick(tela.Toggle(setOpen)), Text("Menu"))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+menu := func() tela.Node {
+    open, setOpen := tela.UseState(false)
+    return Div(
+        Button(OnClick(tela.Toggle(setOpen)), Text("Menu")),
+        If(open, P(Text("Settings"))))
+}
+app := telatest.Mount(t, tela.C(menu))
+app.Click(telatest.ByRole("button", "Menu"))
+fmt.Println(app.Count(telatest.ByText("Settings")))
+app.Click(telatest.ByRole("button", "Menu"))
+fmt.Println(app.Count(telatest.ByText("Settings")))
+// Output:
+// 1
+// 0
+```
 
 ### func UseContext
 
@@ -1052,10 +1127,10 @@ fmt.Println("spring:", springEnd(tela.Spring(tela.Duration(250*time.Millisecond)
 #### func Ease
 
 ```go
-func Ease(css string) AnimationOption
+func Ease(e Easing) AnimationOption
 ```
 
-Ease sets the easing curve of a tween, a CSS \<easing-function\>: one of the keywords linear, ease, ease-in, ease-out, ease-in-out, step-start and step-end, cubic-bezier(x1, y1, x2, y2) or steps(n\[, position\]). The keywords are CSS's curves: Tailwind's ease-out utility is Ease("cubic-bezier(0, 0, 0.2, 1)"). An invalid string panics in dev mode with a suggestion (Ease("ease-out-cubic"): did you mean "ease-out"?); otherwise the tween uses "ease".
+Ease sets the easing curve of a tween, an [`Easing`](#type-easing): a CSS \<easing-function\>, one of the keywords linear, ease, ease-in, ease-out, ease-in-out, step-start and step-end, [`CubicBezier`](#func-cubicbezier) or steps(n\[, position\]). The keywords are CSS's curves: Tailwind's ease-out utility is Ease(CubicBezier(0, 0, 0.2, 1)). An invalid string panics in dev mode with a suggestion (Ease("ease-out-cubic"): did you mean "ease-out"?); otherwise the tween uses "ease".
 
 **Example**
 
@@ -1931,6 +2006,68 @@ func (e DragEvent) StopPropagation()
 ```
 
 StopPropagation does nothing for drags, which go to one element; it exists for symmetry with the other events.
+
+### type Easing
+
+```go
+type Easing string
+```
+
+Easing is a CSS \<easing-function\> as a string: one of the constants [`EaseLinear`](#type-easing), [`EaseIn`](#type-easing), [`EaseOut`](#type-easing) and [`EaseInOut`](#type-easing), the keywords "ease", "step-start" and "step-end", [`CubicBezier`](#func-cubicbezier), or "steps(n\[, position\])". It is a string type, so a literal such as "ease-out" keeps compiling where an Easing is wanted.
+
+```go
+const (
+    // EaseLinear is "linear": constant speed.
+    EaseLinear Easing = "linear"
+    // EaseIn is "ease-in", cubic-bezier(0.42, 0, 1, 1): starts slow.
+    EaseIn Easing = "ease-in"
+    // EaseOut is "ease-out", cubic-bezier(0, 0, 0.58, 1): ends slow.
+    EaseOut Easing = "ease-out"
+    // EaseInOut is "ease-in-out", cubic-bezier(0.42, 0, 0.58, 1): slow at
+    // both ends.
+    EaseInOut Easing = "ease-in-out"
+)
+```
+
+The easing keywords of CSS Easing Functions Level 1 that Tailwind and Motion also name. They are CSS's curves: Tailwind's ease-out utility is CubicBezier(0, 0, 0.2, 1), which is not EaseOut. The default of a tween is CSS's "ease", which has no constant.
+
+**Example**
+
+```go
+// The constants and string literals are both Easings; a variable
+// that holds a CSS easing converts with tela.Easing(s).
+opts := []tela.AnimationOption{
+    tela.Ease(tela.EaseInOut),
+    tela.Ease("ease-out"),
+    tela.Ease(tela.Easing("steps(4, jump-end)")),
+}
+fmt.Println(len(opts), tela.EaseLinear, tela.EaseIn, tela.EaseOut, tela.EaseInOut)
+// Output: 3 linear ease-in ease-out ease-in-out
+```
+
+#### func CubicBezier
+
+```go
+func CubicBezier(x1, y1, x2, y2 float32) Easing
+```
+
+CubicBezier returns the easing cubic-bezier(x1, y1, x2, y2): a Bezier curve from (0, 0) to (1, 1) with those control points. x1 and x2 must be from 0 to 1 (y1 and y2 may overshoot, for a bounce); [`Ease`](#func-ease) panics in dev mode otherwise.
+
+```go
+tela.Ease(tela.CubicBezier(0, 0, 0.2, 1)) // Tailwind's ease-out
+```
+
+**Example**
+
+```go
+// Tailwind's ease-out utility, and a curve that overshoots.
+fmt.Println(tela.CubicBezier(0, 0, 0.2, 1))
+fmt.Println(tela.CubicBezier(0.34, 1.56, 0.64, 1))
+_ = tela.Ease(tela.CubicBezier(0, 0, 0.2, 1))
+// Output:
+// cubic-bezier(0, 0, 0.2, 1)
+// cubic-bezier(0.34, 1.56, 0.64, 1)
+```
 
 ### type ElementRef
 
@@ -2978,7 +3115,7 @@ type Node struct {
 #### func C
 
 ```go
-func C(fn func() Node) Node
+func C(fn func() Node, key ...Prop) Node
 ```
 
 C returns a node that builds fn as a component with its own state: a component boundary (ARCHITECTURE section 7). Calling fn() directly instead runs it inside the caller's build, so its hooks would take the caller's slots: dev mode panics when a hook is called from a function that is neither the component being built (or a function literal inside it) nor a custom hook named UseXxx or useXxx, and says to wrap it.
@@ -2987,12 +3124,14 @@ C returns a node that builds fn as a component with its own state: a component b
 Div(tela.C(Header), tela.C(Body))
 ```
 
+The optional last argument is the component's key, h.Key(id), for a component in a list: tela.C(Row, Key(id)) is tela.WithKey(tela.C(Row), id). Anything else but Key panics.
+
 A C component builds whenever its parent builds, since fn may capture values that changed; use [`CP`](#func-cp) for automatic skipping. Only the very same node (one kept in a variable or a [`UseMemo`](#func-usememo)) is not built again.
 
 #### func CP
 
 ```go
-func CP[P comparable](fn func(P) Node, props P) Node
+func CP[P comparable](fn func(P) Node, props P, key ...Prop) Node
 ```
 
 CP returns a node that builds fn(props) as a component with its own state. When its parent builds again with props == to the previous ones, and neither its state nor a context it reads changed, the build is skipped (Jetpack Compose's automatic skipping): free memoization.
@@ -3010,10 +3149,37 @@ tela.CP(Card, CardProps{Title: "Inbox", OnOpen: onOpen})
 
 Give CP a named function and pass everything it uses in its props: variables captured by a closure are not compared, so dev mode reports anonymous functions once per call site. Keep props comparable by passing [`Callback`](#type-callback) values instead of funcs, and IDs instead of slices or maps; a props value whose == panics counts as changed.
 
+The optional last argument is the component's key, h.Key(id), for the items of a list: tela.CP(Row, RowProps{...}, Key(row.ID)) is tela.WithKey(tela.CP(Row, RowProps{...}), row.ID). Anything else but Key panics; the key is not a prop of the component and is not compared with the props.
+
+**Example (key)**
+
+```go
+t := &exampleT{}
+defer t.close()
+var set tela.Setter[[]exampleRowProps]
+list := func() tela.Node {
+    rows, s := tela.UseState([]exampleRowProps{{1, "Ada"}, {2, "Grace"}})
+    set = s
+    nodes := make([]tela.Node, len(rows))
+    for i, r := range rows {
+        // The key goes last: it is not a prop of the row.
+        nodes[i] = tela.CP(exampleRow, r, Key(r.ID))
+    }
+    return Div(Nodes(nodes))
+}
+app := telatest.Mount(t, tela.C(list))
+app.Click(telatest.ByText("Grace 0")) // Grace has been clicked once
+set.Set([]exampleRowProps{{2, "Grace"}, {1, "Ada"}})
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - button "Grace 1"
+// - button "Ada 0"
+```
+
 #### func Memo
 
 ```go
-func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool) Node
+func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Prop) Node
 ```
 
 Memo is [`CP`](#func-cp) for props that are not comparable, or that compare in another way: the build is skipped when equal(old, new) reports them equal. equal must be pure.
@@ -3023,6 +3189,8 @@ tela.Memo(Chart, ChartProps{Points: pts}, func(a, b ChartProps) bool {
     return slices.Equal(a.Points, b.Points)
 })
 ```
+
+Like [`CP`](#func-cp), it takes an optional last argument, the key h.Key(id).
 
 #### func WithKey
 
@@ -3672,17 +3840,33 @@ fmt.Println(w, h)
 ### type StyleProp
 
 ```go
-type StyleProp = style.Op
+type StyleProp = core.StyleProp
 ```
 
 StyleProp is one typed style declaration, built by the functions below and passed to h.Style. Typed props apply after the element's classes, so they win over a class that sets the same property; use them for values that come from code (a measured width, a color from state). Lengths are logical pixels.
 
-`StyleProp` is an alias of `style.Op`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+A StyleProp is a [`Child`](#type-child): besides h.Style(tela.Width(10)), an element takes it directly, Div(tela.Width(10), tela.Bg(c)), which is the same (and h.If(cond, tela.Opacity(0.5)) works). [`Box`](#func-box) and [`WH`](#func-wh) return a StyleProp of several declarations.
+
+`StyleProp` is an alias of `core.StyleProp`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
 ```go
-type Op struct {
+type StyleProp struct {
     // contains filtered or unexported fields
 }
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+// A StyleProp is a child: no Style(...) around it, and If takes it.
+selected := true
+app := telatest.Mount(t, Div(TestID("swatch"), Class("size-8"),
+    tela.Bg(tela.Hex("#336699")), If(selected, tela.Opacity(0.5))),
+    telatest.Size(100, 100))
+fmt.Println(app.Bounds(telatest.ByTestID("swatch")).Width, app.PixelAt(16, 16))
+// Output: 32 {153 178 204 255}
 ```
 
 #### func BackgroundGradient
@@ -3751,7 +3935,7 @@ for i := range 16 {
 }
 
 // With package h: Div(Class("size-8 bg-cover bg-center"), Style(tela.BgImage(photo))).
-card := core.Primitive(style.KindDiv, core.Class("size-8 bg-cover bg-center"), core.Style(tela.BgImage(photo)))
+card := core.Primitive(style.KindDiv, core.Class("size-8 bg-cover bg-center"), tela.BgImage(photo))
 _, img := core.Render(card, core.RenderOptions{Width: 32, Height: 32})
 fmt.Println(img.RGBAAt(16, 16))
 // Output: {0 0 255 255}
@@ -3780,6 +3964,30 @@ func Bottom(px float32) StyleProp
 ```
 
 Bottom sets the bottom inset of a positioned element in pixels.
+
+#### func Box
+
+```go
+func Box(x, y, w, h float32) StyleProp
+```
+
+Box places and sizes a positioned element in pixels: its Left and Top insets and its Width and Height, in one StyleProp (the typed form of "left-\[x\] top-\[y\] w-\[w\] h-[`h`](API-Reference-h)"; the element needs a position class such as absolute or relative, and a rectangle from [`ElementRef`](#type-elementref).Bounds or [`UseBounds`](#func-usebounds) fits it).
+
+```go
+Div(Class("absolute rounded-md ring-2 ring-indigo-500"), tela.Box(r.X, r.Y, r.Width, r.Height))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, Div(Class("relative h-40 w-60"),
+    Div(TestID("marker"), Class("absolute rounded ring-2 ring-indigo-500"), tela.Box(20, 10, 80, 30))),
+    telatest.Size(240, 160))
+fmt.Println(app.Bounds(telatest.ByTestID("marker")))
+// Output: {20 10 80 30}
+```
 
 #### func BoxShadow
 
@@ -4011,6 +4219,29 @@ TranslateFn defers Translate to the paint phase: a change of the Values fn reads
 Style(tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 }))
 ```
 
+#### func WH
+
+```go
+func WH(w, h float32) StyleProp
+```
+
+WH sets the width and the height in pixels: WH(w, h) is Width(w) and Height(h) in one StyleProp. It is named for its two arguments because Size is the type of the animatable sizes.
+
+```go
+Div(tela.WH(240, 160), Class("rounded-xl bg-white"))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, Div(TestID("card"), Class("rounded-xl bg-white"), tela.WH(240, 160)),
+    telatest.Size(300, 200))
+fmt.Println(app.Bounds(telatest.ByTestID("card")))
+// Output: {0 0 240 160}
+```
+
 #### func Width
 
 ```go
@@ -4035,21 +4266,21 @@ func ZIndex(z int) StyleProp
 
 ZIndex sets an explicit z-index (it applies to positioned elements and flex items).
 
-#### func (StyleProp) IsZero
+#### func (StyleProp) Build
 
 ```go
-func (o StyleProp) IsZero() bool
+func (p StyleProp) Build() Node
 ```
 
-IsZero reports whether the op does nothing.
+Build returns the node of Style(p): given to an element it applies the typed style props after the classes, like h.Style(p); mounted on its own it panics, since a prop renders nothing.
 
-#### func (StyleProp) Phase
+#### func (StyleProp) Ops
 
 ```go
-func (o StyleProp) Phase() Phase
+func (p StyleProp) Ops() []style.Op
 ```
 
-Phase returns the phase in which the op takes effect: PhaseStyle for ordinary ops, PhaseLayout or PhasePaint for deferred ones.
+Ops returns the ops of p, in order. The slice must not be modified.
 
 ### type SubmitEvent
 
@@ -4263,6 +4494,58 @@ func Meter() tela.Node {
 ```
 
 In an event handler, [`ElementRef`](#type-elementref).Bounds gives the same rectangle without a Value: a seek bar turns the pointer's x into a fraction with e.X-ref.Bounds().X over ref.Bounds().Width.
+
+#### func UsePresenceTween
+
+```go
+func UsePresenceTween(opts ...AnimationOption) *Value[float32]
+```
+
+UsePresenceTween is the entrance and the exit of a component inside a child of an h.Presence as one [`Value`](#type-value): a number that goes from 0 to 1 when the component mounts and from 1 to 0 while its child exits, and that calls [`UsePresence`](#func-usepresence)'s done when the exit arrives, so the child unmounts then. Read it in deferred style closures and the component does not build while it moves.
+
+The options are those of [`UseTween`](#func-usetween): [`Duration`](#func-duration) (300 ms by default), [`Ease`](#func-ease), and [`OnDone`](#func-ondone), which runs after each of the two motions, before done. With spring options ([`Stiffness`](#func-stiffness), [`Damping`](#func-damping), [`Bounce`](#func-bounce), [`Velocity`](#func-velocity), [`Spring`](#func-spring)) it is a [`UseSpring`](#func-usespring) instead. The entrance starts from 0, as with [`Initial`](#func-initial); the same \*Value is returned on every build.
+
+A toast that slides up and fades in, and out again before it unmounts:
+
+```go
+func Toast() tela.Node {
+    shown := tela.UsePresenceTween(tela.Duration(250*time.Millisecond), tela.Ease(tela.EaseOut))
+    return Div(Class("fixed bottom-8 rounded-xl bg-slate-900 px-5 py-3 text-white"),
+        Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
+            tela.OpacityFn(shown.Get)),
+        Text("Saved"))
+}
+
+Presence(If(saved, tela.C(Toast)))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+toast := func() tela.Node {
+    shown := tela.UsePresenceTween(tela.Duration(200*time.Millisecond), tela.Ease(tela.EaseOut))
+    return Div(Role("status"), Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
+        Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
+            tela.OpacityFn(shown.Get)),
+        Text("Saved"))
+}
+page := func() tela.Node {
+    saved, setSaved := tela.UseState(true)
+    return Div(
+        Button(OnClick(tela.Toggle(setSaved)), Text("Dismiss")),
+        Presence(If(saved, tela.C(toast))))
+}
+app := telatest.Mount(t, tela.C(page))
+fmt.Println(app.Count(telatest.ByRole("status", "")))
+start := app.Now()
+app.Click(telatest.ByRole("button", "Dismiss")) // waits for the exit tween
+fmt.Println(app.Count(telatest.ByRole("status", "")), app.Now()-start >= 200*time.Millisecond)
+// Output:
+// 1
+// 0 true
+```
 
 #### func UseScroll
 

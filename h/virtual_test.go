@@ -16,7 +16,7 @@ var vrowBuilt = map[int]int{}
 
 func vrow(p vrowProps) tela.Node {
 	vrowBuilt[p.I]++
-	return Div(Role("listitem"), Class("h-[30px]"), Textf("Row %d", p.I))
+	return Div(Class("h-[30px]"), Textf("Row %d", p.I))
 }
 
 // TestVirtualListAPI drives h.VirtualList, h.Overscan and

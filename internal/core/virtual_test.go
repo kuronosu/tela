@@ -969,7 +969,7 @@ func TestVirtualClassicScrollbars(t *testing.T) {
 
 func TestVirtualAriaSnapshot(t *testing.T) {
 	render := func(i int) Node {
-		return div(Role("listitem"), Class("h-[40px]"), Textf("Row %d", i))
+		return div(Class("h-[40px]"), Textf("Row %d", i))
 	}
 	tr := newTestTree(t, 400, 600, div(VirtualList(1000, est40, render, Role("list"), AriaLabel("Rows"), Class("h-[120px]"), Overscan(1))), nil)
 	settleTree(t, tr)

@@ -101,7 +101,7 @@ func Avatar() tela.Node {
 | [`Role`](https://pkg.go.dev/github.com/kuronosu/tela/h#Role) and the `Aria...` props | Semantics: see [Accessibility](Accessibility) |
 | [`Value`](https://pkg.go.dev/github.com/kuronosu/tela/h#Value), [`DefaultValue`](https://pkg.go.dev/github.com/kuronosu/tela/h#DefaultValue), [`Bind`](https://pkg.go.dev/github.com/kuronosu/tela/h#Bind), [`BindValue`](https://pkg.go.dev/github.com/kuronosu/tela/h#BindValue), [`Type`](https://pkg.go.dev/github.com/kuronosu/tela/h#Type), [`Rows`](https://pkg.go.dev/github.com/kuronosu/tela/h#Rows), [`Placeholder`](https://pkg.go.dev/github.com/kuronosu/tela/h#Placeholder), [`ReadOnly`](https://pkg.go.dev/github.com/kuronosu/tela/h#ReadOnly), [`MaxLength`](https://pkg.go.dev/github.com/kuronosu/tela/h#MaxLength), [`AutoComplete`](https://pkg.go.dev/github.com/kuronosu/tela/h#AutoComplete), [`SpellCheck`](https://pkg.go.dev/github.com/kuronosu/tela/h#SpellCheck) | Text fields: see [Forms and Text Input](Forms-and-Text-Input) |
 | `On...` handlers | See [Events](Events) |
-| [`Overscan`](https://pkg.go.dev/github.com/kuronosu/tela/h#Overscan) | How many extra items a `VirtualList` builds |
+| [`Overscan`](https://pkg.go.dev/github.com/kuronosu/tela/h#Overscan), [`ItemKey`](https://pkg.go.dev/github.com/kuronosu/tela/h#ItemKey), [`ItemHeight`](https://pkg.go.dev/github.com/kuronosu/tela/h#ItemHeight) | How many extra items a `VirtualList` builds, what keys its items, and a fixed item height |
 | [`AnimateLayout`](https://pkg.go.dev/github.com/kuronosu/tela/h#AnimateLayout), [`LayoutID`](https://pkg.go.dev/github.com/kuronosu/tela/h#LayoutID), [`Exit`](https://pkg.go.dev/github.com/kuronosu/tela/h#Exit) | Layout animations, shared-element transitions and exit classes under a `Presence`: see [Animation](Animation) |
 
 ### Keys
@@ -116,6 +116,16 @@ the list. A component or fragment cannot take the `Key` prop; use
 
 ```go
 Map(cards, func(c CardData) tela.Node { return tela.WithKey(Card{Title: c.Title}, c.ID) })
+```
+
+A component built with `tela.C`, `tela.CP` or `tela.Memo` takes the key as its
+last argument: `tela.CP(Row, RowProps{...}, Key(row.ID))`. And for a list of
+components [`MapKeyed`](https://pkg.go.dev/github.com/kuronosu/tela/h#MapKeyed) does the keying:
+
+```go
+MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Component {
+	return TodoRow{Todo: t} // a struct component, or tela.CP(TodoRow, t)
+})
 ```
 
 ## Helpers
@@ -171,6 +181,23 @@ func Steps(steps []Step) tela.Node {
 		}),
 	)
 }
+```
+
+### MapKeyed and Nodes
+
+[`MapKeyed`](https://pkg.go.dev/github.com/kuronosu/tela/h#MapKeyed)`(items, key, render)` is `Map` for components: it keys each
+one by `key(item)`, so reordering, inserting and removing keeps the state of
+the others. `render` returns a node or a struct component; the key type is
+any comparable type. [`Nodes`](https://pkg.go.dev/github.com/kuronosu/tela/h#Nodes)`(ns)` passes a `[]tela.Node` built in a loop as
+one child (Go does not spread it into `Div(...)`); the nodes have no box of
+their own, like those of `Fragment`.
+
+```go
+var cells []tela.Node
+for _, c := range columns {
+	cells = append(cells, Div(Class("px-3"), Text(c)))
+}
+Div(Class("flex"), Nodes(cells))
 ```
 
 ### Fragment and TextFn

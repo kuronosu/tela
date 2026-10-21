@@ -41,6 +41,17 @@ development build and every `telatest` test; see
 valid class, for example `unknown class "rounded-xxl"; did you mean
 "rounded-2xl"?`, and in a test it fails the test.
 
+[`Class`](https://pkg.go.dev/github.com/kuronosu/tela/h#Class) takes several strings and joins them with one space, skipping
+the empty ones, so a class held in a variable needs no concatenation:
+
+```go
+tone := "text-slate-500"
+if active {
+	tone = "text-indigo-600 font-semibold"
+}
+Div(Class("flex items-center gap-2 rounded-lg px-3 py-1", tone))
+```
+
 ### Classes that depend on state
 
 [`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) takes props as well as nodes, so a class that depends on state is one
@@ -70,6 +81,24 @@ func Meter(width float32, accent tela.Color) tela.Node {
 	)
 }
 ```
+
+A [`tela.StyleProp`](https://pkg.go.dev/github.com/kuronosu/tela#StyleProp) is also a child, so an element takes it
+directly and `If` takes it too: `Div(tela.Width(width), tela.Bg(accent),
+If(dim, tela.Opacity(0.5)))` is the same as the `Style(...)` form.
+[`tela.WH`](https://pkg.go.dev/github.com/kuronosu/tela#WH)`(w, h)` sets the width and the height, and
+[`tela.Box`](https://pkg.go.dev/github.com/kuronosu/tela#Box)`(x, y, w, h)` the left, top, width and height of a
+positioned element (a rectangle from `ElementRef.Bounds` fits it):
+
+```go
+Div(Class("absolute rounded-md ring-2 ring-indigo-500"), tela.Box(r.X, r.Y, r.Width, r.Height))
+```
+
+`WH` is not called `Size` because `tela.Size` is the type of animated sizes.
+
+For deferred props, [`h.Scale`](https://pkg.go.dev/github.com/kuronosu/tela/h#Scale)`(v, 36)` and
+[`tela.MapValue`](https://pkg.go.dev/github.com/kuronosu/tela#MapValue)`(v, f)` read a `Value` where the prop is
+evaluated, replacing the closure `func() float32 { return 36 * v.Get() }`:
+`Style(tela.HeightFn(Scale(open, 36)))`.
 
 The props, by area:
 

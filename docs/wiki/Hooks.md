@@ -96,6 +96,9 @@ func Toolbar() tela.Node {
   it uses in the props; dev mode reports anonymous functions.
 - [`tela.Memo`](https://pkg.go.dev/github.com/kuronosu/tela#Memo) is [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) for props that are not comparable: you give the
   comparison function.
+- `C`, `CP` and `Memo` take an optional last argument, the key `Key(id)`, for
+  the items of a list: `tela.CP(Row, p, Key(p.ID))` is `tela.WithKey(tela.CP(Row, p), p.ID)`.
+  Anything else but `Key` panics.
 - Calling a component function directly, `Header()`, runs it inside the
   caller. That is fine for a function without hooks (a wrapper that styles
   its children and passes them on with [`Fragment`](https://pkg.go.dev/github.com/kuronosu/tela/h#Fragment)), but the hooks of
@@ -165,6 +168,10 @@ func NameField() tela.Node {
 	return Input(Value(name), OnChange(func(e tela.ChangeEvent) { setName(e.Value) }))
 }
 ```
+
+[`tela.Toggle`](https://pkg.go.dev/github.com/kuronosu/tela#Toggle)`(setOpen)` returns a `func()` that flips a `bool` state with
+`Update`: `OnClick(tela.Toggle(setOpen))`. Two clicks that land in one frame
+both count, which `setOpen.Set(!open)` loses (both read the same `open`).
 
 ## State machines: UseReducer
 
@@ -455,6 +462,10 @@ it decides what a change redoes**:
 | a paint closure ([`tela.TranslateFn`](https://pkg.go.dev/github.com/kuronosu/tela#TranslateFn), [`tela.OpacityFn`](https://pkg.go.dev/github.com/kuronosu/tela#OpacityFn), [`tela.BgFn`](https://pkg.go.dev/github.com/kuronosu/tela#BgFn), [`tela.TextColorFn`](https://pkg.go.dev/github.com/kuronosu/tela#TextColorFn)) | that element's paint only |
 | an event handler, effect or goroutine | nothing; `Get` just returns the value |
 
+[`tela.MapValue`](https://pkg.go.dev/github.com/kuronosu/tela#MapValue)`(v, f)` returns `func() U` that applies `f` to the value
+when the closure runs, for the deferred props, and `h.Scale(v, 36)` is its
+float32 shorthand: `Style(tela.HeightFn(Scale(open, 36)))`.
+
 A progress bar fed by a goroutine, which lays out the bar again without
 building `Download`:
 
@@ -520,8 +531,10 @@ velocity), and [`tela.Animate`](https://pkg.go.dev/github.com/kuronosu/tela#Anim
 an effect or a goroutine. They start at their target unless the `Initial` option
 gives a start value (`tela.UseSpring(target, tela.Initial(float32(0)))`).
 Options such as `Stiffness`, `Duration`, `Ease`,
-`Velocity` and `OnDone` tune them, and [`tela.UsePresence`](https://pkg.go.dev/github.com/kuronosu/tela#UsePresence)
-lets a component run its own exit inside an `h.Presence`:
+`Velocity` and `OnDone` tune them, [`tela.UsePresence`](https://pkg.go.dev/github.com/kuronosu/tela#UsePresence)
+lets a component run its own exit inside an `h.Presence`, and
+[`tela.UsePresenceTween`](https://pkg.go.dev/github.com/kuronosu/tela#UsePresenceTween) is the whole enter-and-exit
+tween as one `Value` from 0 to 1 and back:
 
 ```go
 func Drawer(open bool) tela.Node {

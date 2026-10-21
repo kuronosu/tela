@@ -182,21 +182,21 @@ func TestEveryHandlerProp(t *testing.T) {
 
 func TestHandlerPropsPanicOnNil(t *testing.T) {
 	for name, f := range map[string]func(){
-		"OnDoubleClick":   func() { OnDoubleClick(nil) },
-		"OnContextMenu":   func() { OnContextMenu(nil) },
-		"OnMouseMove":     func() { OnMouseMove(nil) },
-		"OnPointerDown":   func() { OnPointerDown(nil) },
-		"OnPointerMove":   func() { OnPointerMove(nil) },
-		"OnPointerUp":     func() { OnPointerUp(nil) },
-		"OnPointerCancel": func() { OnPointerCancel(nil) },
-		"OnPointerEnter":  func() { OnPointerEnter(nil) },
-		"OnPointerLeave":  func() { OnPointerLeave(nil) },
-		"OnLongPress":     func() { OnLongPress(nil) },
-		"OnDragStart":     func() { OnDragStart(nil) },
-		"OnDrag":          func() { OnDrag(nil) },
-		"OnDragEnd":       func() { OnDragEnd(nil) },
-		"OnWheel":         func() { OnWheel(nil) },
-		"OnScroll":        func() { OnScroll(nil) },
+		"OnDoubleClick":   func() { OnDoubleClick[func()](nil) },
+		"OnContextMenu":   func() { OnContextMenu[func()](nil) },
+		"OnMouseMove":     func() { OnMouseMove[func()](nil) },
+		"OnPointerDown":   func() { OnPointerDown[func()](nil) },
+		"OnPointerMove":   func() { OnPointerMove[func()](nil) },
+		"OnPointerUp":     func() { OnPointerUp[func()](nil) },
+		"OnPointerCancel": func() { OnPointerCancel[func()](nil) },
+		"OnPointerEnter":  func() { OnPointerEnter[func()](nil) },
+		"OnPointerLeave":  func() { OnPointerLeave[func()](nil) },
+		"OnLongPress":     func() { OnLongPress[func()](nil) },
+		"OnDragStart":     func() { OnDragStart[func()](nil) },
+		"OnDrag":          func() { OnDrag[func()](nil) },
+		"OnDragEnd":       func() { OnDragEnd[func()](nil) },
+		"OnWheel":         func() { OnWheel[func()](nil) },
+		"OnScroll":        func() { OnScroll[func()](nil) },
 	} {
 		func() {
 			defer func() {
