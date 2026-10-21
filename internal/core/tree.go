@@ -120,6 +120,9 @@ type Tree struct {
 	devLabels []*Element
 	// intervals are the running UseInterval slots (interval.go).
 	intervals []*intervalSlot
+	// autoDirs are the elements with Dir("auto") and whether their text
+	// was right to left when they were last styled (direction.go).
+	autoDirs map[*Element]bool
 
 	root     *Element
 	rootBox  *Box

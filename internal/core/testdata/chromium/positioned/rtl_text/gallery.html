@@ -1,0 +1,26 @@
+<!doctype html>
+<html class="overflow-hidden">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="h-screen overflow-auto bg-white">
+<div id="e0" class="space-y-2 p-3 text-sm"><p id="e1" class="bg-slate-50" dir="rtl">مرحبا بالعالم، هذا نص عربي للاختبار</p><p id="e2" dir="rtl">النسخة 2.5 من Tela تدعم RTL بالكامل</p><p id="e3" class="text-left" dir="rtl">نص إلى اليسار</p><p id="e4" class="text-end" dir="rtl">نص في النهاية</p><p id="e5" class="text-center" dir="rtl">نص في الوسط</p><p id="e6">Hello مرحبا بكم world, version 3</p><p id="e7" dir="auto">عربي أولا then English</p><p id="e8" dir="auto">English first ثم عربي</p><p id="e9" dir="rtl">قبل <span id="e10" class="font-bold text-indigo-700">غامق</span> و <code id="e11" class="rounded bg-slate-100 px-1 font-mono text-xs">code()</code> ثم <button id="e12" class="rounded bg-indigo-500 px-2 text-white">زر</button> بعد</p><p id="e13" class="w-48 bg-amber-50" dir="rtl">هذه فقرة طويلة تلتف على عدة أسطر لاختبار كسر الأسطر من اليمين إلى اليسار</p></div>
+<pre id="out" style="display: none"></pre>
+<script>
+const steps = [[]];
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const k = +(location.hash.slice(1) || 0);
+  for (const [id, x, y] of steps[k]) {
+    if (id < 0) document.body.scrollTo(x, y); else document.getElementById("e" + id).scrollTo(x, y);
+  }
+  const out = [];
+  for (let i = 0; i < 14; i++) {
+    const q = document.getElementById("e" + i).getBoundingClientRect();
+    out.push([q.left, q.top, q.width, q.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

@@ -119,6 +119,9 @@ func (p *painter) stickyOffset(bx *Box, up *scroller) gfx.Point {
 	// container's content.
 	pad := paddingRect(sb.u, sl)
 	port := gfx.Rect{X0: pad.X0, Y0: pad.Y0, X1: pad.X1 - sl.ScrollbarSize.W, Y1: pad.Y1 - sl.ScrollbarSize.H}
+	if s != nil && s.rtl {
+		port.X0, port.X1 = port.X0+sl.ScrollbarSize.W, port.X1+sl.ScrollbarSize.W
+	}
 	view := port.InsetEdges(sl.Padding.Left, sl.Padding.Top, sl.Padding.Right, sl.Padding.Bottom)
 	if space == s {
 		view = view.Translate(s.soff.X, s.soff.Y)
@@ -128,6 +131,9 @@ func (p *painter) stickyOffset(bx *Box, up *scroller) gfx.Point {
 	if cbx == sb {
 		// The scroll container: its whole scrollable area.
 		area := gfx.Rect{X0: port.X0, Y0: port.Y0, X1: port.X1 + s.max.X, Y1: port.Y1 + s.max.Y}
+		if s.rtl {
+			area.X0, area.X1 = port.X0-s.max.X, port.X1 // the content overflows to the left
+		}
 		block = area.InsetEdges(sl.Padding.Left, sl.Padding.Top, sl.Padding.Right, sl.Padding.Bottom)
 	} else {
 		block = contentRect(cbx.u, cbx.ld.Layout())

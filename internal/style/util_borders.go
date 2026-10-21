@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/text"
 )
 
 type cornerMask uint8
@@ -14,7 +15,38 @@ const (
 	cTR
 	cBR
 	cBL
+	// The logical corners, named block side then inline side:
+	// start-start, start-end, end-end and end-start (env.corners
+	// resolves them with the element's direction).
+	cSS
+	cSE
+	cEE
+	cES
 )
+
+// corners resolves the logical corners of m against the element's
+// direction: in a right-to-left element the inline start is the right.
+func (e *env) corners(m cornerMask) cornerMask {
+	if m&(cSS|cSE|cEE|cES) == 0 {
+		return m
+	}
+	rtl := e.s.Text.Direction == text.DirectionRTL
+	out := m &^ (cSS | cSE | cEE | cES)
+	pick := func(bit, ltr, rtlCorner cornerMask) {
+		if m&bit != 0 {
+			if rtl {
+				out |= rtlCorner
+			} else {
+				out |= ltr
+			}
+		}
+	}
+	pick(cSS, cTL, cTR)
+	pick(cSE, cTR, cTL)
+	pick(cEE, cBR, cBL)
+	pick(cES, cBL, cBR)
+	return out
+}
 
 func setCorners(c *Corners[LP], m cornerMask, l LP) {
 	if m&cTL != 0 {
@@ -48,16 +80,18 @@ func registerBorders(r *registry) {
 	// Border width, color and style.
 	for _, p := range sideRoots("border", "-") {
 		root, mask := p.root, p.mask
-		sideSlots := func(set func(slot colorSlot)) {
-			for i, m := range []sideMask{sTop, sRight, sBottom, sLeft} {
-				if mask&m != 0 {
+		sideSlots := func(e *env, set func(slot colorSlot)) {
+			m := e.sides(mask)
+			for i, side := range []sideMask{sTop, sRight, sBottom, sLeft} {
+				if m&side != 0 {
 					set(slotBorderTop + colorSlot(i))
 				}
 			}
 		}
 		setWidth := func(e *env, w float32) {
-			for i, m := range []sideMask{sTop, sRight, sBottom, sLeft} {
-				if mask&m != 0 {
+			m := e.sides(mask)
+			for i, side := range []sideMask{sTop, sRight, sBottom, sLeft} {
+				if m&side != 0 {
 					borderSides(e.s)[i].Width = w
 				}
 			}
@@ -105,7 +139,7 @@ func registerBorders(r *registry) {
 			if err != nil {
 				return Op{}, err
 			}
-			return op(func(e *env) { sideSlots(func(s colorSlot) { e.sc.colors[s] = spec }) }), nil
+			return op(func(e *env) { sideSlots(e, func(s colorSlot) { e.sc.colors[s] = spec }) }), nil
 		}, colorKeys)
 	}
 	// Style keywords exist for the whole border only (vocabulary).
@@ -120,9 +154,9 @@ func registerBorders(r *registry) {
 	}{
 		{"rounded", cTL | cTR | cBR | cBL},
 		{"rounded-t", cTL | cTR}, {"rounded-r", cTR | cBR}, {"rounded-b", cBR | cBL}, {"rounded-l", cTL | cBL},
-		{"rounded-s", cTL | cBL}, {"rounded-e", cTR | cBR},
+		{"rounded-s", cSS | cES}, {"rounded-e", cSE | cEE},
 		{"rounded-tl", cTL}, {"rounded-tr", cTR}, {"rounded-br", cBR}, {"rounded-bl", cBL},
-		{"rounded-ss", cTL}, {"rounded-se", cTR}, {"rounded-ee", cBR}, {"rounded-es", cBL},
+		{"rounded-ss", cSS}, {"rounded-se", cSE}, {"rounded-ee", cEE}, {"rounded-es", cES},
 	}
 	for _, cn := range corners {
 		mask := cn.mask
@@ -160,7 +194,7 @@ func registerBorders(r *registry) {
 				}
 				ex = exprFromLength(l)
 			}
-			return op(func(e *env) { setCorners(&e.s.Radius, mask, e.lp(&ex)) }), nil
+			return op(func(e *env) { setCorners(&e.s.Radius, e.corners(mask), e.lp(&ex)) }), nil
 		}, func(th *Theme) []string { return append(th.Keys(NamespaceRadius), "none", "full") })
 	}
 

@@ -1,0 +1,25 @@
+{
+  "language": "Español",
+  "title": "Tu pedido",
+  "greeting": "¡Hola, {name}!",
+  "messages": "{count, plural, =0 {Sin mensajes nuevos} one {# mensaje nuevo} other {# mensajes nuevos}}",
+  "items": "{count, plural, one {# artículo} other {# artículos}} en tu carrito",
+  "rank": "Eres el {n}.º de la fila",
+  "step": "Paso {step} de {total}",
+  "add": "Añadir",
+  "remove": "Quitar",
+  "summary": {
+    "subtotal": "Subtotal",
+    "discount": "Descuento",
+    "delivery": "Entrega",
+    "updated": "Actualizado",
+    "contents": "Contenido"
+  },
+  "fruit": {
+    "apples": "manzanas",
+    "pears": "peras",
+    "figs": "higos"
+  },
+  "back": "Volver",
+  "checkout": "Pagar"
+}

@@ -22,6 +22,9 @@ const structuralStates = style.StateFirst | style.StateLast | style.StateOnly | 
 // first. A change of inherited properties restyles the children
 // (ARCHITECTURE section 10: no cascade, only inheritance).
 func (t *Tree) stylePhase() {
+	if len(t.autoDirs) > 0 {
+		t.checkAutoDirs()
+	}
 	for len(t.styleQ) > 0 {
 		q := t.styleQ
 		t.styleQ = nil
@@ -64,6 +67,7 @@ func (t *Tree) restyle(el *Element) {
 	in := style.Input{
 		Kind: bx.kind, Parent: parent, State: state, Group: group, Peer: peer,
 		Classes: bx.classes, Props: el.node.d.props, Scheme: styleScheme(el.node.d.scheme),
+		Dir: t.styleDir(el),
 	}
 	cs := style.Compute(&t.cx, in)
 	if el == t.root {
@@ -263,6 +267,7 @@ func sameInherited(a, b *style.ComputedStyle) bool {
 		ta.WhiteSpace == tb.WhiteSpace && ta.WordBreak == tb.WordBreak &&
 		ta.OverflowWrap == tb.OverflowWrap && ta.TabSize == tb.TabSize &&
 		ta.Numeric == tb.Numeric && slices.Equal(ta.Shadow, tb.Shadow) &&
+		ta.Direction == tb.Direction &&
 		a.Visibility == b.Visibility && a.Cursor == b.Cursor &&
 		a.PointerEvents == b.PointerEvents && a.UserSelect == b.UserSelect
 }
@@ -404,15 +409,21 @@ func hasSpaceAfter(k *Box, last *Element) bool {
 }
 
 // applySpace gives ls the space-x-* and space-y-* of a container whose
-// style is pcs as margins on the inline-end and block-end sides. They come
-// from a rule without specificity in Tailwind v4, so a margin of the child
-// on that side wins; an explicit zero margin cannot be told from none.
+// style is pcs as margins on the inline-end and block-end sides (the
+// inline end of the child's own direction: the left in right to left).
+// They come from a rule without specificity in Tailwind v4, so a margin
+// of the child on that side wins; an explicit zero margin cannot be told
+// from none.
 func applySpace(ls *layout.Style, pcs *style.ComputedStyle) {
 	if pcs.SpaceY != (style.LP{}) && isZeroPx(ls.Margin.Bottom) {
 		ls.Margin.Bottom = lpDim(pcs.SpaceY)
 	}
-	if pcs.SpaceX != (style.LP{}) && isZeroPx(ls.Margin.Right) {
-		ls.Margin.Right = lpDim(pcs.SpaceX)
+	end := &ls.Margin.Right
+	if ls.Direction == layout.RTL {
+		end = &ls.Margin.Left
+	}
+	if pcs.SpaceX != (style.LP{}) && isZeroPx(*end) {
+		*end = lpDim(pcs.SpaceX)
 	}
 }
 
@@ -436,6 +447,9 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		cs = b.tree.resolveDeferred(b, style.PhaseLayout)
 	}
 	ls := layout0
+	if cs.Text.Direction == text.DirectionRTL {
+		ls.Direction = layout.RTL
+	}
 
 	switch cs.Display {
 	case style.DisplayFlex, style.DisplayInlineFlex:
@@ -545,11 +559,27 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 			ls.Width = layout.FitContent
 		}
 		if inFlow(cs) && isZeroPx(ls.Margin.Left) && isZeroPx(ls.Margin.Right) {
+			// The box sits at the inline start of the parent's content
+			// box (its direction's: the right in right to left); an auto
+			// margin on that side moves it to the other one.
+			rtl := pcs.Text.Direction == text.DirectionRTL
 			switch pcs.Text.TextAlign {
 			case text.AlignCenter:
 				ls.Margin.Left, ls.Margin.Right = layout.Auto, layout.Auto
-			case text.AlignRight, text.AlignEnd:
-				ls.Margin.Left = layout.Auto
+			case text.AlignRight:
+				if !rtl {
+					ls.Margin.Left = layout.Auto
+				}
+			case text.AlignLeft:
+				if rtl {
+					ls.Margin.Right = layout.Auto
+				}
+			case text.AlignEnd:
+				if rtl {
+					ls.Margin.Right = layout.Auto
+				} else {
+					ls.Margin.Left = layout.Auto
+				}
 			}
 		}
 	}

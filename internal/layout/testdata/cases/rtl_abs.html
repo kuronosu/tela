@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Absolutely positioned boxes in right-to-left containers: static positions at the inline start, insets, and over-constrained insets dropping left</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 300px; height: 200px; direction: rtl;">
+  <div style="display: block; position: relative; height: 40px; padding-right: 10px; direction: rtl;">
+    <div style="width: 30px; height: 10px; display: block; direction: rtl;"></div>
+    <div style="width: 20px; height: 20px; position: absolute; direction: rtl;"></div>
+    <div style="width: 20px; height: 20px; position: absolute; left: 5px; direction: rtl;"></div>
+    <div style="width: 20px; height: 20px; position: absolute; left: 5px; right: 7px; direction: rtl;"></div>
+    <div style="position: absolute; left: 10px; right: 30px; height: 5px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; position: relative; height: 40px; gap: 10px; direction: rtl;">
+    <div style="width: 30px; height: 10px; direction: rtl;"></div>
+    <div style="width: 20px; height: 20px; position: absolute; direction: rtl;"></div>
+    <div style="width: 25px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; position: relative; height: 40px; justify-content: center; direction: rtl;">
+    <div style="width: 20px; height: 20px; position: absolute; direction: rtl;"></div>
+  </div>
+  <div style="display: grid; position: relative; height: 40px; grid-template-columns: 60px 60px; direction: rtl;">
+    <div style="width: 30px; height: 10px; direction: rtl;"></div>
+    <div style="width: 20px; height: 20px; position: absolute; grid-column: 2; direction: rtl;"></div>
+    <div style="width: 20px; height: 20px; position: absolute; direction: rtl;"></div>
+  </div>
+</div>
+
+</body>
+</html>

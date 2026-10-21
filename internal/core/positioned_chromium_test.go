@@ -61,6 +61,12 @@ type posScene struct {
 	geom float64
 	mean [2]float64
 	maxd [2]int
+	// geomY2 is a larger bound for vertical edges at scale 2, where
+	// Blink rounds line boxes in device pixels (ADR-048); 0 is geom.
+	geomY2 float64
+	// arabic adds the embedded Noto Sans Arabic to the page's fonts (Tela
+	// falls back to it for Arabic script).
+	arabic bool
 }
 
 func (s *posScene) dir() string { return filepath.Join("testdata", "chromium", "positioned", s.name) }
@@ -139,8 +145,13 @@ func (s *posScene) regenerate(t *testing.T) {
 	}
 	input := filepath.Join(t.TempDir(), "input.css")
 	fonts := strings.ReplaceAll(cssGalleryFonts, "../../../../", "../../../../../")
-	css := fmt.Sprintf("@import %q;\n@source %q;\n@theme { --font-sans: \"Inter\"; }\n%s",
-		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, fonts)
+	sans := `"Inter"`
+	if s.arabic {
+		fonts += `@font-face { font-family: "Noto Sans Arabic"; src: url("../../../../../assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf"); font-weight: 100 900; font-stretch: 62.5% 100%; }` + "\n"
+		sans = `"Inter", "Noto Sans Arabic"`
+	}
+	css := fmt.Sprintf("@import %q;\n@source %q;\n@theme { --font-sans: %s; }\n%s",
+		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, sans, fonts)
 	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +233,7 @@ func (s *posScene) render(t *testing.T, scale float32) ([]*image.RGBA, [][]gfx.R
 			if target == nil {
 				t.Fatalf("scroll target %d is not a scroll container", sc.id)
 			}
-			tr.scrollScripted(target, gfx.Point{X: sc.x, Y: sc.y})
+			tr.scrollScripted(target, target.flip(gfx.Point{X: sc.x, Y: sc.y})) // scrollTo's coordinates
 			tr.Frame()
 		}
 		// Let the overlay scrollbars fade out (Chromium's are hidden).
@@ -277,18 +288,29 @@ func (s *posScene) compare(t *testing.T) {
 			if dump != "" {
 				writePNG(t, filepath.Join(dump, fmt.Sprintf("%s_x%d_s%d_tela.png", s.name, scale, k)), imgs[k])
 			}
-			worst, worstAt := 0.0, ""
+			worst, worstAt, worstX := 0.0, "", 0.0
+			skip := map[int]bool{}
+			s.root.skipped(new(int), skip)
 			for e, r := range rects[k] {
+				if skip[e] {
+					continue
+				}
 				w := want[k][e]
 				got := [4]float64{float64(r.X0), float64(r.Y0), float64(r.Width()), float64(r.Height())}
-				d := 0.0
+				var dc [2]float64
 				for c := range 2 {
-					d = math.Max(d, math.Max(math.Abs(got[c]-w[c]), math.Abs(got[c]+got[c+2]-w[c]-w[c+2])))
+					dc[c] = math.Max(math.Abs(got[c]-w[c]), math.Abs(got[c]+got[c+2]-w[c]-w[c+2]))
 				}
+				d := math.Max(dc[0], dc[1])
 				if d > worst {
 					worst, worstAt = d, fmt.Sprintf("element %d: %v, Chromium %v", e, got, w)
 				}
-				if d > s.geom {
+				worstX = math.Max(worstX, dc[0])
+				yBound := s.geom
+				if scale == 2 {
+					yBound = math.Max(yBound, s.geomY2)
+				}
+				if dc[0] > s.geom || dc[1] > yBound {
 					t.Errorf("x%d step %d element %d: %.3f %.3f %.3f %.3f, Chromium %.3f %.3f %.3f %.3f", scale, k, e,
 						got[0], got[1], got[2], got[3], w[0], w[1], w[2], w[3])
 				}
@@ -298,8 +320,8 @@ func (s *posScene) compare(t *testing.T) {
 				t.Fatalf("x%d step %d: render %v, Chromium %v", scale, k, imgs[k].Rect, shot.Rect)
 			}
 			d := diffRegion(imgs[k], shot, shot.Rect)
-			fmt.Fprintf(&report, "x%d step %d: largest edge difference %.3f px (%s); pixels max %d mean %.3f >16 %d\n",
-				scale, k, worst, worstAt, d.max, d.mean, d.over)
+			fmt.Fprintf(&report, "x%d step %d: largest edge difference %.3f px (%s), horizontal %.3f px; pixels max %d mean %.3f >16 %d\n",
+				scale, k, worst, worstAt, worstX, d.max, d.mean, d.over)
 			if d.mean > s.mean[si] || (s.maxd[si] > 0 && d.max > s.maxd[si]) {
 				t.Errorf("x%d step %d: pixels differ from Chromium by max %d mean %.3f (bounds %d, %.3f)", scale, k, d.max, d.mean, s.maxd[si], s.mean[si])
 			}

@@ -80,6 +80,8 @@ type desc struct {
 	// scheme is the Scheme prop (theme.go): the color scheme of the
 	// element's subtree, ColorSchemeSystem for none.
 	scheme ColorScheme
+	// dir is the Dir prop (direction.go).
+	dir dirValue
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings

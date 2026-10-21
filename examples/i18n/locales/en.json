@@ -1,0 +1,25 @@
+{
+  "language": "English",
+  "title": "Your order",
+  "greeting": "Hello, {name}!",
+  "messages": "{count, plural, =0 {No new messages} one {# new message} other {# new messages}}",
+  "items": "{count, plural, one {# item} other {# items}} in your cart",
+  "rank": "You are {n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} in line",
+  "step": "Step {step} of {total}",
+  "add": "Add",
+  "remove": "Remove",
+  "summary": {
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "delivery": "Delivery",
+    "updated": "Updated",
+    "contents": "Contents"
+  },
+  "fruit": {
+    "apples": "apples",
+    "pears": "pears",
+    "figs": "figs"
+  },
+  "back": "Back",
+  "checkout": "Checkout"
+}

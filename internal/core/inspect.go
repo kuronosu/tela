@@ -144,10 +144,12 @@ type StyleSummary struct {
 	Classes  string `json:"classes,omitempty"`
 	Display  string `json:"display"`
 	Position string `json:"position,omitempty"`
-	Width    string `json:"width,omitempty"`
-	Height   string `json:"height,omitempty"`
-	MinWidth string `json:"minWidth,omitempty"`
-	MaxWidth string `json:"maxWidth,omitempty"`
+	// Direction is "rtl" for a right-to-left element (Dir; inherited).
+	Direction string `json:"direction,omitempty"`
+	Width     string `json:"width,omitempty"`
+	Height    string `json:"height,omitempty"`
+	MinWidth  string `json:"minWidth,omitempty"`
+	MaxWidth  string `json:"maxWidth,omitempty"`
 	// Flex is "row wrap gap 16px/16px justify center items center" for
 	// flex containers.
 	Flex     string `json:"flex,omitempty"`
@@ -283,6 +285,9 @@ func summarize(b *Box) StyleSummary {
 	}
 	if cs.Position != style.PositionStatic {
 		s.Position = cs.Position.String()
+	}
+	if cs.Text.Direction == text.DirectionRTL {
+		s.Direction = "rtl"
 	}
 	dim := func(d style.Dim) string {
 		if d.IsAuto() {

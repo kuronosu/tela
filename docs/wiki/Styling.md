@@ -181,6 +181,7 @@ Variants combine (`dark:md:hover:bg-slate-700`); every part must hold.
 | Text fields | `read-only:` `placeholder-shown:` `invalid:` `placeholder:` (style the placeholder text) `selection:` (style the selected text) |
 | Ancestors and siblings | `group-hover:` and the other state variants after `group-`, on a descendant of an element with the class `group`; `peer-*` for the following siblings of an element with the class `peer` (named groups and peers are not supported) |
 | Environment | `dark:` `motion-reduce:` `motion-safe:` and the breakpoints `sm:` `md:` `lg:` `xl:` `2xl:` (by window width) |
+| Direction | `rtl:` `ltr:`: the element's direction, set with [`Dir`](https://pkg.go.dev/github.com/kuronosu/tela/h#Dir) on it or an ancestor (see [Right to left](#right-to-left)) |
 
 ```go
 func Row(name string) tela.Node {
@@ -305,6 +306,37 @@ func Gallery() tela.Node {
 	)
 }
 ```
+
+## Right to left
+
+`Dir("rtl")` on an element lays it and its subtree out right to left, like
+HTML's `dir` attribute: flex rows start at the right, grid column 1 is the
+rightmost, text aligns right, absolutely positioned boxes take their static
+position from the right and scroll containers scroll from the right. The
+logical classes follow the direction; the physical ones do not:
+
+| Logical (start is the right in `rtl`) | Physical (never mirrored) |
+|---|---|
+| `ms-*` `me-*` `ps-*` `pe-*` | `ml-*` `mr-*` `pl-*` `pr-*` |
+| `start-*` `end-*` `inset-s-*` `inset-e-*` | `left-*` `right-*` |
+| `border-s-*` `border-e-*` (widths and colors) | `border-l-*` `border-r-*` |
+| `rounded-s-*` `rounded-e-*` `rounded-ss-*` `rounded-se-*` `rounded-es-*` `rounded-ee-*` | `rounded-l-*` `rounded-tl-*` ... |
+| `text-start` `text-end` (and the default alignment) | `text-left` `text-right` |
+| `space-x-*` (margins on the inline end), `justify-start`, `justify-end`, `gap-*` | `translate-x-*`, `bg-linear-to-r`, `origin-left` |
+
+The block-direction classes `mbs-*` `mbe-*` `pbs-*` `pbe-*` `inset-bs-*`
+`inset-be-*` `border-bs-*` `border-be-*` are top and bottom. Use `rtl:` and
+`ltr:` for what has no logical class, such as turning an arrow:
+
+```go
+Button(Class("flex items-center gap-2"),
+	Div(Class("rtl:rotate-180"), Text("←")), // points back in both directions
+	Span(Text(t("back"))),
+)
+```
+
+With [`i18n`](Internationalization), the direction comes from the locale:
+`Dir(i18n.Dir(i18n.UseLocale()).String())`.
 
 ## See also
 

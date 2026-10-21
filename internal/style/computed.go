@@ -355,6 +355,12 @@ type TextProps struct {
 	Numeric text.NumericVariant
 	// Shadow is the text-shadow list; its colors are resolved.
 	Shadow []Shadow
+	// Direction is the inline base direction (CSS direction): LTR or RTL,
+	// never DirectionAuto. It is inherited, and set by an element's dir
+	// (Input.Dir); the logical utilities (ms-*, ps-*, border-s-*,
+	// rounded-s-*, start-*...) and the rtl: and ltr: variants read it,
+	// and it is the base direction of the element's paragraphs.
+	Direction text.Direction
 }
 
 // CaretColor is the CSS caret-color: auto (the zero value: the text

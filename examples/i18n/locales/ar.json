@@ -1,0 +1,25 @@
+{
+  "language": "العربية",
+  "title": "طلبك",
+  "greeting": "مرحبا يا {name}!",
+  "messages": "{count, plural, zero {لا توجد رسائل جديدة} one {رسالة جديدة واحدة} two {رسالتان جديدتان} few {# رسائل جديدة} many {# رسالة جديدة} other {# رسالة جديدة}}",
+  "items": "{count, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}} في سلتك",
+  "rank": "ترتيبك {n} في الطابور",
+  "step": "الخطوة {step} من {total}",
+  "add": "إضافة",
+  "remove": "إزالة",
+  "summary": {
+    "subtotal": "المجموع الفرعي",
+    "discount": "الخصم",
+    "delivery": "التوصيل",
+    "updated": "آخر تحديث",
+    "contents": "المحتويات"
+  },
+  "fruit": {
+    "apples": "تفاح",
+    "pears": "كمثرى",
+    "figs": "تين"
+  },
+  "back": "رجوع",
+  "checkout": "الدفع"
+}

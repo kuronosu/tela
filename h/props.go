@@ -30,6 +30,31 @@ func Style(props ...tela.StyleProp) tela.Prop { return core.Style(props...) }
 // component or a fragment takes its key from tela.WithKey.
 func Key[K comparable](k K) tela.Prop { return core.Key(k) }
 
+// Dir sets the direction of an element and its subtree, like HTML's dir
+// attribute: "rtl" lays it out right to left, "ltr" left to right, and
+// "auto" takes the direction of the first strong character of its text
+// (of its value for an Input or Textarea). Direction is inherited; the
+// root is left to right. The value is case-insensitive and "" inherits.
+//
+// Under "rtl" layout mirrors like a browser's: flex rows start at the
+// right, grid columns count from the right, text aligns right by default
+// (text-start, text-end), paragraphs have a right-to-left base direction,
+// absolutely positioned boxes take their static position from the right,
+// and the logical utilities (ms-*, me-*, ps-*, pe-*, start-*, end-*,
+// inset-s-*, border-s-*, rounded-s-*, rounded-ss-*, space-x-*...) use the
+// right as the start side. Physical classes (ml-*, left-*, text-left)
+// stay physical. The rtl: and ltr: variants test the direction:
+//
+//	Div(Dir("rtl"), Class("flex gap-2 ps-4 rtl:font-bold"), ...)
+//
+// With package i18n, the direction of the current locale:
+//
+//	loc := i18n.UseLocale()
+//	Div(Dir(i18n.Dir(loc).String()), ...)
+//
+// Any other value panics in dev mode and is ignored otherwise.
+func Dir(dir string) tela.Prop { return core.Dir(dir) }
+
 // Src sets the image of an Img. Pass the same image.Image value on every
 // build: it is converted for drawing only when another image is given.
 func Src(img image.Image) tela.Prop {

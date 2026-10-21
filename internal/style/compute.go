@@ -23,6 +23,20 @@ type Context struct {
 	ReducedMotion bool
 }
 
+// Dir is the direction an element sets for itself and its descendants:
+// the HTML dir attribute, with "auto" already resolved by the caller.
+type Dir uint8
+
+const (
+	// DirInherit is the zero value: the element takes its parent's
+	// direction (left to right at the root).
+	DirInherit Dir = iota
+	// DirLTR sets left to right.
+	DirLTR
+	// DirRTL sets right to left.
+	DirRTL
+)
+
 // Input describes one element whose style is computed.
 type Input struct {
 	// Kind selects the element defaults (ADR-038).
@@ -46,6 +60,10 @@ type Input struct {
 	// the theme tokens follow it instead of Context.Dark. SchemeInherit
 	// keeps the parent's.
 	Scheme Scheme
+	// Dir is the element's own direction (its dir attribute). It is set
+	// before any class runs: the rtl: and ltr: variants and the logical
+	// utilities see it.
+	Dir Dir
 }
 
 // env is the state of one computation, passed to every op.
@@ -170,6 +188,12 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 	if in.Scheme != SchemeInherit {
 		s.Scheme = in.Scheme
 	}
+	switch in.Dir {
+	case DirLTR:
+		s.Text.Direction = text.DirectionLTR
+	case DirRTL:
+		s.Text.Direction = text.DirectionRTL
+	}
 	dark := s.IsDark(cx)
 	var sc scratch
 	e := env{s: s, sc: &sc, parent: in.Parent, theme: th, viewport: cx.Viewport, dark: dark}
@@ -181,6 +205,7 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		Dark:          dark,
 		ReducedMotion: cx.ReducedMotion,
 		Starting:      in.Starting,
+		RTL:           s.Text.Direction == text.DirectionRTL,
 		State:         in.State, Group: in.Group, Peer: in.Peer,
 	}
 

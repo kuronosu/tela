@@ -496,7 +496,7 @@ func (t *Tree) update(el *Element, n Node) {
 		if !slices.Equal(old.classes, d.classes) {
 			bx.classesDirty = true
 			t.markStyle(el)
-		} else if len(old.props) > 0 || len(d.props) > 0 {
+		} else if len(old.props) > 0 || len(d.props) > 0 || old.dir != d.dir {
 			// Typed props hold closures and cannot be compared.
 			t.markStyle(el)
 		}

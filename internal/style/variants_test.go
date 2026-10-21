@@ -34,6 +34,10 @@ func TestConditionMatches(t *testing.T) {
 		{"starting on", Condition{Starting: true}, VariantContext{Starting: true}, true},
 		{"plain in the starting style", Condition{}, VariantContext{Starting: true}, true},
 		{"starting dark", Condition{Starting: true, Dark: true}, VariantContext{Starting: true}, false},
+		{"rtl in ltr", Condition{RTL: true}, VariantContext{}, false},
+		{"rtl in rtl", Condition{RTL: true}, VariantContext{RTL: true}, true},
+		{"ltr in ltr", Condition{LTR: true}, VariantContext{}, true},
+		{"ltr in rtl", Condition{LTR: true}, VariantContext{RTL: true}, false},
 		{"breakpoint below", Condition{MinWidth: 768}, VariantContext{ViewportWidth: 767}, false},
 		{"breakpoint at", Condition{MinWidth: 768}, VariantContext{ViewportWidth: 768}, true},
 		{"stacked", Condition{Dark: true, State: StateHover, MinWidth: 640}, VariantContext{Dark: true, State: StateHover, ViewportWidth: 700}, true},
@@ -74,6 +78,8 @@ func TestVariantParsing(t *testing.T) {
 		{"motion-reduce", Condition{MotionReduce: true}},
 		{"motion-safe", Condition{MotionSafe: true}},
 		{"starting", Condition{Starting: true}},
+		{"rtl", Condition{RTL: true}},
+		{"ltr", Condition{LTR: true}},
 		{"sm", Condition{MinWidth: 640}},
 		{"md", Condition{MinWidth: 768}},
 		{"lg", Condition{MinWidth: 1024}},
@@ -104,7 +110,7 @@ func TestVariantErrors(t *testing.T) {
 	if _, err := parseVariant(th, "hoverr"); err == nil || err.Error() != `unknown variant "hoverr"; did you mean "hover"?` {
 		t.Errorf("message = %v", err)
 	}
-	for _, v := range []string{"before", "after", "marker", "print", "group-hover/item", "rtl", "aria-checked", "data-open", "has-checked", "max-md", "@lg"} {
+	for _, v := range []string{"before", "after", "marker", "print", "group-hover/item", "aria-checked", "data-open", "has-checked", "max-md", "@lg"} {
 		_, err := parseVariant(th, v)
 		var u *UnsupportedClassError
 		if !errors.As(err, &u) {

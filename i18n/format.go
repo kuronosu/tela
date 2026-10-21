@@ -42,6 +42,9 @@ var rtlScripts = map[string]bool{
 // [LTR] otherwise. The script is the tag's own ("sr-Latn", "ku-Arab") or
 // the language's default ("ar" is Arabic script, "he" Hebrew). A tag that
 // is not valid BCP 47 is LTR.
+//
+// Its String ("RTL", "LTR") is a value of h.Dir, which lays a subtree out
+// in that direction: Div(Dir(i18n.Dir(locale).String()), ...).
 func Dir(tag string) Direction {
 	t, err := parseTag(tag)
 	if err != nil {

@@ -533,7 +533,8 @@ func (t *Tree) fieldAutoscrolling() bool {
 	if !f.multi {
 		left := f.scrollX
 		right := left + f.textWidth()
-		return pt.X < left && f.scrollX > 0 || pt.X > right && f.scrollX < f.maxScrollX()
+		lo, hi := f.scrollXRange()
+		return pt.X < left && f.scrollX > lo || pt.X > right && f.scrollX < hi
 	}
 	s := f.bx.scr
 	if s == nil {
@@ -544,13 +545,19 @@ func (t *Tree) fieldAutoscrolling() bool {
 	return pt.Y < top && s.pos.Y > 0 || pt.Y > bottom && s.pos.Y < s.max.Y
 }
 
-// maxScrollX returns the largest horizontal scroll of an Input.
-func (f *field) maxScrollX() float32 {
+// scrollXRange returns the smallest and largest horizontal scroll of an
+// Input: from 0 to the overflow of its line, or, for a right-to-left
+// line, whose overflow is on the left, from minus that overflow to 0.
+func (f *field) scrollXRange() (lo, hi float32) {
 	lay := f.layout()
 	if lay == nil {
-		return 0
+		return 0, 0
 	}
-	return max(lay.MaxContentWidth()+caretWidth-f.textWidth(), 0)
+	m := max(lay.MaxContentWidth()+caretWidth-f.textWidth(), 0)
+	if lay.RTL() {
+		return -m, 0
+	}
+	return 0, m
 }
 
 // animateFields runs one autoscroll step of a selection drag past the

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>In right-to-left grids column line 1 is on the right: explicit and auto placement, spans, dense packing, gaps and justify alignment mirror</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 300px; direction: rtl;">
+  <div style="display: grid; width: 300px; grid-template-columns: 50px 1fr 80px; column-gap: 10px; row-gap: 5px; direction: rtl;">
+    <div style="width: 20px; height: 10px; direction: rtl;"></div>
+    <div style="height: 10px; grid-column: 1 / span 2; direction: rtl;"></div>
+    <div style="height: 20px; grid-column-start: 3; direction: rtl;"></div>
+    <div style="height: 10px; direction: rtl;"></div>
+    <div style="width: 30px; height: 10px; justify-self: end; direction: rtl;"></div>
+    <div style="width: 30px; height: 10px; justify-self: start; direction: rtl;"></div>
+  </div>
+  <div style="display: grid; width: 300px; grid-template-columns: repeat(4, 60px); grid-auto-flow: row dense; justify-content: center; direction: rtl;">
+    <div style="height: 10px; grid-column: span 3; direction: rtl;"></div>
+    <div style="height: 10px; grid-column: span 2; direction: rtl;"></div>
+    <div style="height: 10px; direction: rtl;"></div>
+    <div style="height: 10px; grid-column: -2; direction: rtl;"></div>
+  </div>
+  <div style="display: grid; width: 300px; grid-template-columns: 100px 100px; justify-content: end; justify-items: center; direction: rtl;">
+    <div style="width: 20px; height: 10px; direction: rtl;"></div>
+    <div style="width: 30px; height: 10px; direction: rtl;"></div>
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: grid; width: 300px; grid-auto-flow: column; grid-auto-columns: 40px; height: 20px; direction: rtl;">
+    <div style="height: 10px; direction: rtl;"></div>
+    <div style="height: 10px; direction: rtl;"></div>
+    <div style="height: 10px; grid-row: 1; grid-column: 5; direction: rtl;"></div>
+  </div>
+</div>
+
+</body>
+</html>

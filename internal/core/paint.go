@@ -272,7 +272,8 @@ func hitBounds(bx *Box) gfx.Rect {
 // offset snaps the painted offset of s to device pixels, like box edges,
 // and decides whether its content moves (a content layer).
 func (p *painter) offset(s *scroller) {
-	off := gfx.Point{X: p.snap(s.pos.X), Y: p.snap(s.pos.Y)}
+	pos := s.flip(s.pos) // negative x in a right-to-left container
+	off := gfx.Point{X: p.snap(pos.X), Y: p.snap(pos.Y)}
 	if off != s.soff {
 		s.soff = off
 		p.t.scr.moved = true
@@ -759,7 +760,11 @@ func (p *painter) overflowClip(bx *Box) gfx.RRect {
 		// the content is clipped to the rounded padding box and the
 		// scrollport rectangle, whose corners at a gutter are square.
 		r, rd := pad.Rect, pad.Radii
-		if l.ScrollbarSize.W > 0 {
+		switch {
+		case l.ScrollbarSize.W > 0 && bx.scr != nil && bx.scr.rtl:
+			r.X0 = min(r.X0+p.snapWidth(l.ScrollbarSize.W), r.X1)
+			rd[0], rd[3] = gfx.Point{}, gfx.Point{}
+		case l.ScrollbarSize.W > 0:
 			r.X1 = max(r.X1-p.snapWidth(l.ScrollbarSize.W), r.X0)
 			rd[1], rd[2] = gfx.Point{}, gfx.Point{}
 		}

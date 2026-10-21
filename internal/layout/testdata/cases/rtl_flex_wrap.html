@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Wrapped right-to-left flex lines fill from the right; row gaps, wrap-reverse and align-content are unchanged vertically</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 200px; direction: rtl;">
+  <div style="display: flex; flex-wrap: wrap; width: 200px; gap: 8px 10px; direction: rtl;">
+    <div style="width: 70px; height: 20px; direction: rtl;"></div>
+    <div style="width: 70px; height: 10px; direction: rtl;"></div>
+    <div style="width: 70px; height: 15px; direction: rtl;"></div>
+    <div style="width: 30px; height: 10px; direction: rtl;"></div>
+    <div style="width: 90px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap-reverse; width: 200px; height: 80px; align-content: space-between; column-gap: 4px; direction: rtl;">
+    <div style="width: 80px; height: 20px; direction: rtl;"></div>
+    <div style="width: 80px; height: 10px; direction: rtl;"></div>
+    <div style="width: 80px; height: 15px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; width: 200px; justify-content: center; padding-right: 20px; direction: rtl;">
+    <div style="width: 70px; height: 10px; direction: rtl;"></div>
+    <div style="width: 70px; height: 10px; direction: rtl;"></div>
+    <div style="width: 70px; height: 10px; direction: rtl;"></div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -90,6 +90,35 @@ func firstStrongDirection(text []rune) uint8 {
 	return 0
 }
 
+// StrongDirection returns the direction of the first strong character of
+// s that is not inside an isolate (UAX #9 rules P2 and P3, with the same
+// approximation as DirectionAuto), and false when s has none. Core uses
+// it for HTML's dir="auto", which looks at an element's text.
+func StrongDirection(s string) (Direction, bool) {
+	depth := 0
+	for _, r := range s {
+		switch {
+		case r == 0x2066 || r == 0x2067 || r == 0x2068: // LRI, RLI, FSI
+			depth++
+			continue
+		case r == 0x2069: // PDI
+			if depth > 0 {
+				depth--
+			}
+			continue
+		case depth > 0:
+			continue
+		}
+		if d, ok := strongDirection(r); ok {
+			if d == 1 {
+				return DirectionRTL, true
+			}
+			return DirectionLTR, true
+		}
+	}
+	return DirectionLTR, false
+}
+
 // strongDirection returns 1 for characters of bidi class R or AL, 0 for L,
 // and false for the others (approximated, see firstStrongDirection).
 func strongDirection(r rune) (uint8, bool) {

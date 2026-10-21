@@ -58,5 +58,6 @@
 // internal/gen: other locales use the closest one. Dates are Gregorian and
 // in the time.Time's own zone.
 //
-// [Dir] tells the direction of a locale ([LTR] or [RTL]).
+// [Dir] tells the direction of a locale ([LTR] or [RTL]); h.Dir with its
+// String lays a subtree out right to left.
 package i18n

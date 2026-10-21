@@ -596,6 +596,9 @@ func (t *Tree) fieldChanged(f *field, r edit.Result) {
 		t.fieldResized(f)
 		t.fieldStates(f)
 	}
+	if r.ValueChanged {
+		t.autoDirChanged(f.el) // Dir("auto") follows the value
+	}
 	f.reveal()
 	f.markPaint()
 }
@@ -762,6 +765,11 @@ func (f *field) layoutAt(cs *style.ComputedStyle, w float32) *text.Layout {
 			t.stats.Breaks++
 		case math.IsInf(float64(w), 1):
 			return f.lay // a measurement: the line is never broken
+		case f.lay.RTL():
+			// A right-to-left line that overflows starts at the right
+			// edge and runs off to the left (negative x): the start
+			// shows at scrollX 0, and scrollXRange goes negative.
+			f.lay.AlignTo(w)
 		default:
 			f.lay.AlignTo(max(w, f.lay.MaxContentWidth()))
 		}
@@ -978,7 +986,7 @@ func (f *field) reveal() {
 	c := lay.Caret(f.ed.Selection().Focus)
 	if !f.multi {
 		w := f.textWidth()
-		maxX := max(lay.MaxContentWidth()+caretWidth-w, 0)
+		lo, hi := f.scrollXRange()
 		x := f.scrollX
 		switch {
 		case c.X < x:
@@ -986,7 +994,7 @@ func (f *field) reveal() {
 		case c.X+caretWidth > x+w:
 			x = c.X + caretWidth - w
 		}
-		x = min(max(x, 0), maxX)
+		x = min(max(x, lo), hi)
 		if x != f.scrollX {
 			f.scrollX = x
 			f.markPaint()

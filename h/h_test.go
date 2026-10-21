@@ -189,7 +189,7 @@ func TestExportedNames(t *testing.T) {
 		"A", "Alt", "AnimateLayout", "AriaChecked", "AriaDescription", "AriaDisabled", "AriaExpanded", "AriaHidden", "AriaLabel",
 		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaSelected", "AriaValueMax", "AriaValueMin",
 		"AriaValueNow", "AriaValueText", "AutoComplete", "AutoFocus", "Bind", "BindValue", "Button", "Class",
-		"Code", "DefaultValue", "Disabled", "Div", "Em", "Exit", "For", "Form", "Fragment", "H1", "H2", "H3", "H4", "H5",
+		"Code", "DefaultValue", "Dir", "Disabled", "Div", "Em", "Exit", "For", "Form", "Fragment", "H1", "H2", "H3", "H4", "H5",
 		"H6", "Href", "ID", "Id", "If", "IfElse", "Img", "Input", "Key", "Label", "LayoutID", "Map", "MapIndex", "MaxLength", "Name",
 		"OnBeforeInput", "OnBlur", "OnChange", "OnClick", "OnCompositionEnd", "OnCompositionStart",
 		"OnCompositionUpdate", "OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus",

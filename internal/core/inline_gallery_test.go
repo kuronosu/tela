@@ -61,9 +61,14 @@ type inode struct {
 	// dark gives the element the dark scheme: SchemeProp here, the
 	// class "dark" in the page (theme_gallery_test.go).
 	dark bool
+	// dir is the element's dir attribute (Dir prop), if any.
+	dir string
 }
 
 func itext(s string) inode { return inode{text: s} }
+
+// idir returns n with the dir attribute d.
+func idir(d string, n inode) inode { n.dir = d; return n }
 
 func iel(tag, class string, kids ...inode) inode { return inode{tag: tag, class: class, kids: kids} }
 
@@ -85,6 +90,9 @@ func (n inode) node(id *int) Node {
 	if n.dark {
 		c = append(c, SchemeProp(ColorSchemeDark))
 	}
+	if n.dir != "" {
+		c = append(c, Dir(n.dir))
+	}
 	for _, k := range n.kids {
 		c = append(c, k.node(id))
 	}
@@ -104,6 +112,9 @@ func (n inode) html(sb *strings.Builder, id *int) {
 			cls = strings.TrimSpace("dark " + cls)
 		}
 		fmt.Fprintf(sb, " class=\"%s\"", html.EscapeString(cls))
+	}
+	if n.dir != "" {
+		fmt.Fprintf(sb, " dir=\"%s\"", n.dir)
 	}
 	sb.WriteString(">")
 	for _, k := range n.kids {

@@ -86,6 +86,9 @@ type VariantContext struct {
 	// style of an element that was not rendered before (CSS
 	// @starting-style), which its transitions start from.
 	Starting bool
+	// RTL selects the rtl: variants and deselects the ltr: ones: the
+	// element's direction is right to left.
+	RTL bool
 	// State is the element's own state; Group the states of its
 	// ancestors with the class "group" and Peer those of its preceding
 	// siblings with the class "peer", combined (Tailwind's group-hover:
@@ -110,6 +113,11 @@ type Condition struct {
 	// @starting-style): the rule applies only to the style an element's
 	// first transitions start from.
 	Starting bool
+	// RTL requires a right-to-left element (rtl:), LTR a left-to-right
+	// one (ltr:). Tailwind matches them on the nearest dir attribute; in
+	// Tela the direction comes only from dir (h.Dir), so they test the
+	// element's inherited direction.
+	RTL, LTR bool
 	// MinWidth requires a viewport at least this wide, in pixels (the
 	// largest of the breakpoint variants of the class).
 	MinWidth float32
@@ -133,6 +141,8 @@ func (c Condition) Matches(v VariantContext) bool {
 		c.MotionReduce && !v.ReducedMotion,
 		c.MotionSafe && v.ReducedMotion,
 		c.Starting && !v.Starting,
+		c.RTL && !v.RTL,
+		c.LTR && v.RTL,
 		v.ViewportWidth < c.MinWidth:
 		return false
 	}
@@ -149,6 +159,8 @@ func (c Condition) and(d Condition) Condition {
 	c.MotionReduce = c.MotionReduce || d.MotionReduce
 	c.MotionSafe = c.MotionSafe || d.MotionSafe
 	c.Starting = c.Starting || d.Starting
+	c.RTL = c.RTL || d.RTL
+	c.LTR = c.LTR || d.LTR
 	c.MinWidth = max(c.MinWidth, d.MinWidth)
 	c.Pseudo |= d.Pseudo
 	return c
@@ -172,6 +184,10 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 		return Condition{MotionSafe: true}, nil
 	case "starting":
 		return Condition{Starting: true}, nil
+	case "rtl":
+		return Condition{RTL: true}, nil
+	case "ltr":
+		return Condition{LTR: true}, nil
 	case "placeholder":
 		return Condition{Pseudo: PseudoPlaceholder}, nil
 	case "selection":
@@ -206,9 +222,6 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 	case "print", "supports", "portrait", "landscape", "contrast-more", "forced-colors":
 		return Condition{}, &UnsupportedClassError{Class: name,
 			Reason: "the " + name + " variant is not supported"}
-	case "rtl", "ltr":
-		return Condition{}, &UnsupportedClassError{Class: name,
-			Reason: "text direction variants are not supported yet; Tela lays out left to right"}
 	}
 	if strings.HasPrefix(name, "max-") || strings.HasPrefix(name, "min-") || strings.HasPrefix(name, "@") ||
 		strings.HasPrefix(name, "aria-") || strings.HasPrefix(name, "data-") || strings.HasPrefix(name, "has-") ||
@@ -229,7 +242,7 @@ func variantNames(th *Theme) []string {
 			out = append(out, "group-"+sv.name, "peer-"+sv.name)
 		}
 	}
-	out = append(out, "enabled", "dark", "motion-reduce", "motion-safe", "starting", "placeholder", "selection")
+	out = append(out, "enabled", "dark", "motion-reduce", "motion-safe", "starting", "rtl", "ltr", "placeholder", "selection")
 	out = append(out, th.Keys(NamespaceBreakpoint)...)
 	slices.Sort(out)
 	return out

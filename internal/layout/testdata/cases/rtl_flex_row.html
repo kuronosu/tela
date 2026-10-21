@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>In right-to-left flex rows the main axis starts at the right: gaps, justify-content, auto and logical margins, order, grow, overflow and row-reverse mirror</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 300px; direction: rtl;">
+  <div style="display: flex; width: 300px; height: 30px; gap: 10px; direction: rtl;">
+    <div style="width: 40px; height: 20px; direction: rtl;"></div>
+    <div style="width: 60px; height: 10px; direction: rtl;"></div>
+    <div style="width: 30px; height: 30px; align-self: flex-end; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; justify-content: flex-end; direction: rtl;">
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; justify-content: center; column-gap: 6px; direction: rtl;">
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; justify-content: space-between; padding-left: 7px; padding-right: 13px; direction: rtl;">
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+    <div style="width: 20px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; justify-content: start; direction: rtl;">
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; justify-content: end; direction: rtl;">
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; direction: rtl;">
+    <div style="width: 40px; height: 10px; margin-left: auto; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; direction: rtl;">
+    <div style="width: 40px; height: 10px; margin-inline-start: 12px; margin-inline-end: 4px; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; margin-right: 9px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; direction: rtl;">
+    <div style="width: 40px; height: 10px; order: 2; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+    <div style="width: 20px; height: 10px; order: -1; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; flex-direction: row-reverse; width: 300px; height: 20px; gap: 5px; direction: rtl;">
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 300px; height: 20px; direction: rtl;">
+    <div style="width: 40px; height: 10px; flex-grow: 1; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; flex-grow: 2; direction: rtl;"></div>
+  </div>
+  <div style="display: flex; width: 120px; height: 20px; direction: rtl;">
+    <div style="width: 100px; height: 10px; flex-shrink: 0; direction: rtl;"></div>
+    <div style="width: 50px; height: 10px; flex-shrink: 0; direction: rtl;"></div>
+  </div>
+</div>
+
+</body>
+</html>

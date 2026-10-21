@@ -26,8 +26,34 @@ const (
 	sRight
 	sBottom
 	sLeft
+	// sStart and sEnd are the inline-start and inline-end sides: left
+	// and right in a left-to-right element, right and left in a
+	// right-to-left one (env.sides resolves them).
+	sStart
+	sEnd
 	sAll = sTop | sRight | sBottom | sLeft
 )
+
+// sides resolves the logical sides of m against the element's direction
+// (CSS logical properties map to physical ones with the element's own
+// direction).
+func (e *env) sides(m sideMask) sideMask {
+	if m&(sStart|sEnd) == 0 {
+		return m
+	}
+	start, end := sLeft, sRight
+	if e.s.Text.Direction == text.DirectionRTL {
+		start, end = sRight, sLeft
+	}
+	out := m &^ (sStart | sEnd)
+	if m&sStart != 0 {
+		out |= start
+	}
+	if m&sEnd != 0 {
+		out |= end
+	}
+	return out
+}
 
 func setSidesDim(s *Sides[Dim], m sideMask, d Dim) {
 	if m&sTop != 0 {
@@ -60,8 +86,10 @@ func setSidesLP(s *Sides[LP], m sideMask, l LP) {
 }
 
 // sideRoots lists the roots of a per-side utility family: "p", "px", "py",
-// "pt", "pr", "pb", "pl", "ps", "pe" for prefix "p". Start and end are
-// left and right (Tela lays out left to right).
+// "pt", "pr", "pb", "pl", "ps", "pe", "pbs", "pbe" for prefix "p". Start
+// and end (s, e) are the inline sides, resolved with the element's
+// direction when the op runs; block start and end (bs, be) are top and
+// bottom (Tela has no vertical writing modes).
 func sideRoots(prefix, sep string) []struct {
 	root string
 	mask sideMask
@@ -72,7 +100,8 @@ func sideRoots(prefix, sep string) []struct {
 	}{
 		{prefix, sAll}, {prefix + sep + "x", sLeft | sRight}, {prefix + sep + "y", sTop | sBottom},
 		{prefix + sep + "t", sTop}, {prefix + sep + "r", sRight}, {prefix + sep + "b", sBottom}, {prefix + sep + "l", sLeft},
-		{prefix + sep + "s", sLeft}, {prefix + sep + "e", sRight},
+		{prefix + sep + "s", sStart}, {prefix + sep + "e", sEnd},
+		{prefix + sep + "bs", sTop}, {prefix + sep + "be", sBottom},
 	}
 }
 
@@ -96,7 +125,9 @@ func registerLayout(r *registry) {
 		r.static(k, op(func(e *env) { e.s.Position = p }))
 	}
 
-	// Insets: top, right, bottom, left, inset, inset-x, inset-y, start, end.
+	// Insets: top, right, bottom, left, inset, inset-x, inset-y, the
+	// logical inset-s, inset-e (and their older names start, end),
+	// inset-bs and inset-be.
 	insetOpts := dimAuto | dimFull | dimFrac | dimSpacing | dimNeg
 	for _, p := range []struct {
 		root string
@@ -104,10 +135,11 @@ func registerLayout(r *registry) {
 	}{
 		{"inset", sAll}, {"inset-x", sLeft | sRight}, {"inset-y", sTop | sBottom},
 		{"top", sTop}, {"right", sRight}, {"bottom", sBottom}, {"left", sLeft},
-		{"start", sLeft}, {"end", sRight},
+		{"start", sStart}, {"end", sEnd}, {"inset-s", sStart}, {"inset-e", sEnd},
+		{"inset-bs", sTop}, {"inset-be", sBottom},
 	} {
 		mask := p.mask
-		r.dimUtil(p.root, insetOpts, axisX, func(e *env, d Dim) { setSidesDim(&e.s.Inset, mask, d) })
+		r.dimUtil(p.root, insetOpts, axisX, func(e *env, d Dim) { setSidesDim(&e.s.Inset, e.sides(mask), d) })
 	}
 
 	// z-index.
@@ -231,11 +263,11 @@ func registerLayout(r *registry) {
 	// Padding and margin.
 	for _, p := range sideRoots("p", "") {
 		mask := p.mask
-		r.dimUtil(p.root, dimSpacing, axisX, func(e *env, d Dim) { setSidesLP(&e.s.Padding, mask, d.LP) })
+		r.dimUtil(p.root, dimSpacing, axisX, func(e *env, d Dim) { setSidesLP(&e.s.Padding, e.sides(mask), d.LP) })
 	}
 	for _, p := range sideRoots("m", "") {
 		mask := p.mask
-		r.dimUtil(p.root, dimAuto|dimSpacing|dimNeg, axisX, func(e *env, d Dim) { setSidesDim(&e.s.Margin, mask, d) })
+		r.dimUtil(p.root, dimAuto|dimSpacing|dimNeg, axisX, func(e *env, d Dim) { setSidesDim(&e.s.Margin, e.sides(mask), d) })
 	}
 
 	// Gap.

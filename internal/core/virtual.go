@@ -597,7 +597,7 @@ func (t *Tree) liveOrigin(bx *Box) gfx.Point {
 	}
 	for b := containingBlockOf(bx); b != nil; b = containingBlockOf(b) {
 		if b.scr != nil {
-			o = o.Sub(b.scr.pos)
+			o = o.Sub(b.scr.flip(b.scr.pos))
 		}
 	}
 	return o

@@ -1942,7 +1942,7 @@ ElementRef is a handle on the element it is attached to with h.Ref, returned by 
 - Focus focuses the element, if it is focusable (a Button, an h.Input or h.Textarea, or an element with h.TabIndex, not disabled or hidden).
 - Blur removes the focus from the element if it has it.
 - Focused reports whether the element has the focus of its window.
-- ScrollTo(x, y) and ScrollBy(dx, dy) scroll a scrolling element (overflow auto, scroll or hidden) to or by offsets, clamped to its content; ScrollOffset returns its offsets (the DOM's scrollLeft and scrollTop). They jump, or animate when the element has scroll-smooth, and do nothing (or return 0) for other elements.
+- ScrollTo(x, y) and ScrollBy(dx, dy) scroll a scrolling element (overflow auto, scroll or hidden) to or by offsets, clamped to its content; ScrollOffset returns its offsets (the DOM's scrollLeft and scrollTop; in a right-to-left element x is 0 at the right and negative toward the left). They jump, or animate when the element has scroll-smooth, and do nothing (or return 0) for other elements.
 - ScrollIntoView scrolls every scrolling ancestor of the element so that it is visible, each as little as possible (block and inline "nearest").
 - Bounds returns the element's border box in window coordinates as a [`Rect`](#type-rect), moved by scrolling and transforms (getBoundingClientRect); the zero Rect before it is laid out. [`UseBounds`](#func-usebounds) follows it in a [`Value`](#type-value).
 - ScrollToIndex(i, align) scrolls an h.VirtualList to item i, placed as [`ScrollAlign`](#type-scrollalign) says, and keeps it there while the items around it are measured; it does nothing for other elements.
@@ -2053,7 +2053,7 @@ ScrollIntoView scrolls every scroll container around the element so that it is v
 func (r ElementRef) ScrollOffset() (x, y float32)
 ```
 
-ScrollOffset returns the element's scroll offsets (the DOM's scrollLeft and scrollTop): zero when it is not a scroll container or not mounted. During a smooth scroll it is the current, animated position.
+ScrollOffset returns the element's scroll offsets (the DOM's scrollLeft and scrollTop): zero when it is not a scroll container or not mounted. During a smooth scroll it is the current, animated position. In a right-to-left container x is 0 at the right and negative toward the left.
 
 #### func (ElementRef) ScrollTo
 
@@ -2061,7 +2061,7 @@ ScrollOffset returns the element's scroll offsets (the DOM's scrollLeft and scro
 func (r ElementRef) ScrollTo(x, y float32)
 ```
 
-ScrollTo scrolls the element to offsets (x, y), clamped to its extents (CSSOM View's scrollTo): at once, or animated when it has scroll-smooth. It does nothing for an element that is not a scroll container (overflow auto, scroll or hidden) or not mounted.
+ScrollTo scrolls the element to offsets (x, y), clamped to its extents (CSSOM View's scrollTo): at once, or animated when it has scroll-smooth. It does nothing for an element that is not a scroll container (overflow auto, scroll or hidden) or not mounted. In a right-to-left container x is 0 at the right and negative toward the left, like the DOM's scrollLeft.
 
 #### func (ElementRef) ScrollToIndex
 
@@ -3398,7 +3398,9 @@ Div(Class("h-96 overflow-y-auto"), OnScroll(func(e tela.ScrollEvent) {
 ```go
 type ScrollEvent struct {
     // ScrollLeft and ScrollTop are the scroll offsets: how far the
-    // content is scrolled from its start.
+    // content is scrolled from its start. In a right-to-left container
+    // (Dir("rtl")) the start is the right: ScrollLeft is 0 there and
+    // negative toward the left, as in the DOM.
     ScrollLeft, ScrollTop float32
     // ScrollWidth and ScrollHeight are the size of the scrollable content
     // (at least the client size); the largest offsets are ScrollWidth -

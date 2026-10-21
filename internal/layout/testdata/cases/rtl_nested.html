@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Direction changes in nested blocks and flex containers: each container lays out its children with its own direction</title>
+</head>
+<body>
+
+<div id="test-root" style="display: block; width: 300px; padding-left: 10px; padding-right: 30px; border-left-width: 2px; border-right-width: 6px; border-style: solid; direction: rtl;">
+  <div style="width: 50px; height: 10px; display: block; direction: rtl;"></div>
+  <div style="display: block; width: fit-content; height: 10px; direction: rtl;">
+    <div style="width: 40px; height: 10px; direction: rtl;"></div>
+  </div>
+  <div style="display: block; width: 60px; height: 10px; margin-left: auto; margin-right: auto; direction: rtl;"></div>
+  <div style="display: block; width: 60px; height: 10px; margin-inline-start: 20px; direction: rtl;"></div>
+  <div style="display: block; padding-left: 5px; padding-right: 15px; direction: ltr;">
+    <div style="width: 40px; height: 10px; display: block; direction: ltr;"></div>
+    <div style="display: flex; height: 20px; gap: 4px; direction: ltr;">
+      <div style="width: 30px; height: 10px; direction: ltr;"></div>
+      <div style="width: 20px; height: 10px; direction: ltr;"></div>
+      <div style="display: flex; width: 100px; gap: 3px; direction: rtl;">
+        <div style="width: 15px; height: 10px; direction: rtl;"></div>
+        <div style="width: 25px; height: 10px; direction: rtl;"></div>
+      </div>
+    </div>
+  </div>
+  <div style="display: flex; height: 20px; direction: rtl;">
+    <div style="width: 30px; height: 10px; direction: rtl;"></div>
+    <div style="display: flex; width: 120px; justify-content: flex-start; direction: ltr;">
+      <div style="width: 20px; height: 10px; direction: ltr;"></div>
+      <div style="width: 10px; height: 10px; direction: ltr;"></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

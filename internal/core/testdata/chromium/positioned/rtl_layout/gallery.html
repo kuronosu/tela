@@ -1,0 +1,26 @@
+<!doctype html>
+<html class="overflow-hidden">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="h-screen overflow-auto bg-white">
+<div id="e0" class="space-y-3 p-3"><div id="e1" class="flex gap-2 rounded-lg bg-slate-100 py-2 ps-4 pe-1" dir="rtl"><div id="e2" class="ms-2 size-8 rounded-s-lg bg-indigo-500"></div><div id="e3" class="me-3 h-8 w-16 border-s-4 border-indigo-700 bg-indigo-200"></div><div id="e4" class="size-8 rounded-ss-xl rounded-ee-xl bg-rose-400"></div><div id="e5" class="ms-auto size-8 rounded-e-full bg-emerald-400"></div></div><div id="e6" class="flex space-x-4 bg-slate-50" dir="rtl"><div id="e7" class="h-6 w-12 bg-amber-300"></div><div id="e8" class="h-6 w-12 bg-amber-400"></div><div id="e9" class="h-6 w-12 bg-amber-500"></div></div><div id="e10" class="space-x-4 bg-slate-50" dir="rtl"><div id="e11" class="inline-block h-6 w-12 bg-lime-300"></div><div id="e12" class="inline-block h-6 w-12 bg-lime-500"></div></div><div id="e13" class="grid grid-cols-4 gap-2" dir="rtl"><div id="e14" class="col-span-2 h-6 bg-sky-300"></div><div id="e15" class="h-6 bg-sky-500"></div><div id="e16" class="col-start-1 h-6 bg-sky-700"></div><div id="e17" class="col-end-5 h-6 bg-sky-200"></div><div id="e18" class="col-span-3 h-6 justify-self-end bg-sky-400 w-20"></div></div><div id="e19" class="relative h-16 bg-slate-100" dir="rtl"><div id="e20" class="absolute top-2 start-2 size-6 bg-violet-500"></div><div id="e21" class="absolute bottom-2 end-4 size-6 bg-violet-300"></div><div id="e22" class="absolute top-2 left-2 size-4 bg-slate-900"></div><div id="e23" class="absolute inset-s-20 top-4 size-4 bg-pink-400"></div><div id="e24" class="absolute top-8 size-4 bg-pink-600"></div></div><div id="e25" class="flex items-center justify-between bg-slate-100 p-2" dir="rtl"><div id="e26" class="h-6 w-10 bg-teal-400"></div><div id="e27" class="flex gap-1" dir="ltr"><div id="e28" class="size-4 bg-teal-700"></div><div id="e29" class="size-4 bg-teal-300"></div></div><div id="e30" class="h-6 w-10 bg-blue-500 rtl:bg-red-500"></div></div><div id="e31" class="flex gap-2"><div id="e32" class="size-6 bg-slate-300 ltr:bg-green-500 rtl:bg-red-500"></div><div id="e33" class="flex w-40 justify-end gap-2 bg-slate-100" dir="rtl"><div id="e34" class="size-6 bg-slate-300 ltr:bg-green-500 rtl:bg-red-500"></div><div id="e35" class="size-6 border-e-4 border-orange-500 bg-orange-200"></div></div></div><div id="e36" class="flex flex-row-reverse flex-wrap gap-x-3 gap-y-1 bg-slate-50" dir="rtl"><div id="e37" class="h-5 w-32 bg-fuchsia-300"></div><div id="e38" class="h-5 w-32 bg-fuchsia-400"></div><div id="e39" class="h-5 w-32 bg-fuchsia-500"></div><div id="e40" class="h-5 w-32 bg-fuchsia-600"></div></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+const steps = [[]];
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const k = +(location.hash.slice(1) || 0);
+  for (const [id, x, y] of steps[k]) {
+    if (id < 0) document.body.scrollTo(x, y); else document.getElementById("e" + id).scrollTo(x, y);
+  }
+  const out = [];
+  for (let i = 0; i < 41; i++) {
+    const q = document.getElementById("e" + i).getBoundingClientRect();
+    out.push([q.left, q.top, q.width, q.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

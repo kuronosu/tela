@@ -141,8 +141,69 @@ localized names.
 ## Right to left
 
 `i18n.Dir("ar")` is `i18n.RTL`, `Dir("en")` is `i18n.LTR`: the direction of
-the locale's script. It is the information the `rtl:` variant and layout
-mirroring will use.
+the locale's script (Arabic, Hebrew, Persian, Urdu and the other
+right-to-left scripts). Give it to [`h.Dir`](https://pkg.go.dev/github.com/kuronosu/tela/h#Dir),
+the `dir` attribute of HTML, at the top of the screen:
+
+```go
+func App() tela.Node {
+	f := i18n.UseFormatter() // rebuilds when the locale changes
+	return Div(Dir(f.Dir().String()), Class("min-h-screen p-6"), // "RTL" or "LTR"
+		Header(), Content(),
+	)
+}
+```
+
+Direction is inherited, and under `Dir("rtl")` the layout mirrors like a
+browser's:
+
+- flex rows (and `row-reverse`) start at the right; `justify-start`,
+  `justify-end`, `gap-*`, `order-*` and auto margins follow;
+- grid column 1 is the rightmost; explicit and automatic placement, spans
+  and `justify-*` follow;
+- paragraphs are right to left: they align right by default (`text-start`
+  and `text-end` follow, `text-left` and `text-right` do not), and Latin
+  words, numbers and punctuation inside Arabic text are ordered by the
+  Unicode bidi algorithm with a right-to-left base;
+- the logical classes use the right as the start: `ms-*`, `me-*`, `ps-*`,
+  `pe-*`, `start-*`, `end-*`, `inset-s-*`, `inset-e-*`, `border-s-*`,
+  `border-e-*`, `rounded-s-*`, `rounded-e-*`, `rounded-ss-*` and friends,
+  and `space-x-*`; physical ones (`ml-*`, `left-*`, `border-l-*`,
+  `rounded-tl-*`) stay where they are;
+- an absolutely positioned box without horizontal insets starts at the
+  right of where it would be in flow;
+- scroll containers start scrolled to the right, content overflows to the
+  left, and the vertical scrollbar is on the left; `ScrollOffset`,
+  `ScrollTo`, `UseScroll` and `OnScroll` use the DOM's convention (x is 0
+  at the right and negative toward the left);
+- `Input` and `Textarea` type right to left and align right.
+
+`rtl:` and `ltr:` classes apply under each direction, for what has no
+logical class: `Div(Class("rtl:rotate-180"), Text("→"))`. `Dir("ltr")`
+inside a right-to-left screen goes back to left to right for its subtree
+(a code sample, a phone number field).
+
+`Dir("auto")` takes the direction of the first strong letter of the
+element's text (of its value in an `Input` or `Textarea`, as you type),
+like HTML's `dir="auto"`, for user content in either direction:
+
+```go
+P(Dir("auto"), Text(comment.Body)) // an Arabic comment is right to left
+```
+
+The direction is not part of `i18n.Provider`: a Provider is a context
+without a box of its own, so it cannot lay anything out. Put the `Dir` on
+the element under it, as above.
+
+Not mirrored: `Dir` on an inline element inside a paragraph (`Span`,
+`Strong`, `A`) does not isolate its text from the paragraph's bidi
+ordering (write the Unicode isolates U+2067 RLI / U+2066 LRI ... U+2069 PDI
+in the text instead), and there is no `divide-x-*` (Tela has no
+`divide-*` classes).
+
+[`examples/i18n`](https://github.com/kuronosu/tela/tree/main/examples/i18n)
+is an order summary in English, Spanish and Arabic with a language switcher
+that mirrors the screen.
 
 ## Testing
 

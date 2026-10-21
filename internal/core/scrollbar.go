@@ -339,6 +339,22 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 				start: tr.X0, length: max(tr.Width(), 0)}
 		}
 	}
+	if s.rtl {
+		// A right-to-left container has its vertical bar on the left
+		// (Chromium), and the corner between the bars there too.
+		c := pr.X0 + pr.X1
+		mirror := func(r gfx.Rect) gfx.Rect { return gfx.Rect{X0: c - r.X1, Y0: r.Y0, X1: c - r.X0, Y1: r.Y1} }
+		for i := range geo {
+			g := &geo[i]
+			if !g.ok {
+				continue
+			}
+			g.track, g.hit, g.near = mirror(g.track), mirror(g.hit), mirror(g.near)
+			if i == 0 {
+				g.start = c - (g.start + g.length)
+			}
+		}
+	}
 	// The thumbs: their length is the visible part of the content, their
 	// position the offset's part of the largest one.
 	for i := range 2 {
@@ -347,6 +363,7 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 		if !gb.ok || mx <= 0 || gb.length <= 0 {
 			continue
 		}
+		rtlX := i == 0 && s.rtl // the thumb starts at the right
 		client := s.client.W
 		if i == 1 {
 			client = s.client.H
@@ -358,6 +375,9 @@ func (p *painter) barGeometry(bx *Box, g *boxGeom, geo *[2]barGeom) {
 		tl = min(max(tl, minThumb), gb.length)
 		gb.thumbLen = tl
 		f := min(max(axis(s.pos, i)/mx, 0), 1)
+		if rtlX {
+			f = 1 - f
+		}
 		a0 := p.snap(gb.start + float32(float64(f)*float64(gb.length-tl)))
 		a1 := p.snap(a0 + tl)
 		tr := gb.track
@@ -564,6 +584,9 @@ func (t *Tree) barPress(hit barHit) gesture.Recognizer {
 			off := u.Offset.X
 			if i == 1 {
 				off = u.Offset.Y
+			}
+			if i == 0 && s.rtl {
+				off = -off // dragging right goes toward the start
 			}
 			p := s.pos
 			setAxis(&p, i, start+float32(float64(off)*float64(axis(s.max, i))/float64(travel)))

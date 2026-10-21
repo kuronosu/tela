@@ -1,0 +1,26 @@
+<!doctype html>
+<html class="overflow-hidden">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="h-screen overflow-auto bg-white">
+<div id="e0" class="space-y-3 p-3"><div id="e1" class="flex gap-2 overflow-x-auto rounded-lg bg-slate-100 p-2" dir="rtl"><div id="e2" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 0</div><div id="e3" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 1</div><div id="e4" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 2</div><div id="e5" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 3</div><div id="e6" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 4</div><div id="e7" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 5</div><div id="e8" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 6</div><div id="e9" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 7</div><div id="e10" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 8</div><div id="e11" class="h-12 w-20 shrink-0 rounded bg-indigo-300 p-2 text-xs">Item 9</div></div><div id="e12" class="h-24 overflow-y-auto rounded-lg border border-slate-300" dir="rtl"><div id="e13" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 0</div><div id="e14" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 1</div><div id="e15" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 2</div><div id="e16" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 3</div><div id="e17" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 4</div><div id="e18" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 5</div><div id="e19" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 6</div><div id="e20" class="h-8 border-b border-slate-200 px-2 text-xs/8">Row 7</div></div><div id="e21" class="flex overflow-x-auto bg-slate-50" dir="rtl"><div id="e22" class="sticky start-0 z-10 h-10 w-16 shrink-0 bg-amber-300 p-2 text-xs">Name</div><div id="e23" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 0</div><div id="e24" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 1</div><div id="e25" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 2</div><div id="e26" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 3</div><div id="e27" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 4</div><div id="e28" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 5</div><div id="e29" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 6</div><div id="e30" class="h-10 w-20 shrink-0 border-e border-slate-300 p-2 text-xs">Col 7</div></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+const steps = [[],[[1,-100,0],[12,0,50],[21,-150,0]],[[1,-1000,0],[12,0,1000],[21,-1000,0]]];
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const k = +(location.hash.slice(1) || 0);
+  for (const [id, x, y] of steps[k]) {
+    if (id < 0) document.body.scrollTo(x, y); else document.getElementById("e" + id).scrollTo(x, y);
+  }
+  const out = [];
+  for (let i = 0; i < 31; i++) {
+    const q = document.getElementById("e" + i).getBoundingClientRect();
+    out.push([q.left, q.top, q.width, q.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

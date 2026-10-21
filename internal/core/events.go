@@ -253,7 +253,9 @@ func (e WheelEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 // DOM's Element scroll properties, in logical pixels.
 type ScrollEvent struct {
 	// ScrollLeft and ScrollTop are the scroll offsets: how far the
-	// content is scrolled from its start.
+	// content is scrolled from its start. In a right-to-left container
+	// (Dir("rtl")) the start is the right: ScrollLeft is 0 there and
+	// negative toward the left, as in the DOM.
 	ScrollLeft, ScrollTop float32
 	// ScrollWidth and ScrollHeight are the size of the scrollable content
 	// (at least the client size); the largest offsets are ScrollWidth -

@@ -86,8 +86,9 @@ type Ref[T any] = core.Ref[T]
 //   - ScrollTo(x, y) and ScrollBy(dx, dy) scroll a scrolling element
 //     (overflow auto, scroll or hidden) to or by offsets, clamped to its
 //     content; ScrollOffset returns its offsets (the DOM's scrollLeft and
-//     scrollTop). They jump, or animate when the element has
-//     scroll-smooth, and do nothing (or return 0) for other elements.
+//     scrollTop; in a right-to-left element x is 0 at the right and
+//     negative toward the left). They jump, or animate when the element
+//     has scroll-smooth, and do nothing (or return 0) for other elements.
 //   - ScrollIntoView scrolls every scrolling ancestor of the element so
 //     that it is visible, each as little as possible (block and inline
 //     "nearest").

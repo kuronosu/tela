@@ -12,6 +12,7 @@ import (
 	"github.com/kuronosu/tela/internal/layout"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/style"
+	"github.com/kuronosu/tela/internal/text"
 )
 
 // Scrolling (ARCHITECTURE sections 9 and 14) follows CSSOM View and the
@@ -235,6 +236,24 @@ type scroller struct {
 	// is in without it. It is in no scroller set and never scrolls.
 	sticky bool
 	up     *scroller
+
+	// rtl marks a right-to-left container (ADR-090): its scroll origin
+	// is at the right and its content overflows to the left. pos.X is
+	// then how far it scrolled from the right, toward the left; the
+	// DOM's scrollLeft (and the painted offset soff.X) is -pos.X.
+	// Everything that meets the outside (user deltas, painted offsets,
+	// the public API) goes through flip.
+	rtl bool
+}
+
+// flip converts between the internal offsets or deltas of s and the
+// physical ones (scrollLeft, a wheel's dx): it negates x in a
+// right-to-left container.
+func (s *scroller) flip(p gfx.Point) gfx.Point {
+	if s.rtl {
+		p.X = -p.X
+	}
+	return p
 }
 
 // outer returns the scroll space that s is in: the space of its
@@ -767,6 +786,7 @@ func (t *Tree) updateScroller(bx *Box) {
 	}
 	x, y := overflowAxes(cs)
 	s.userX, s.userY = userAxis(x), userAxis(y)
+	s.rtl = cs.Text.Direction == text.DirectionRTL
 }
 
 // dropScroller removes the scroller of bx.
@@ -864,6 +884,7 @@ func (t *Tree) layoutCurrent() bool { return t.inFrame || !t.changed }
 // scrollUser moves s by d as user scrolling: animated (retargeting a
 // running animation) when the container's settings allow, else at once.
 func (t *Tree) scrollUser(s *scroller, d gfx.Point) {
+	d = s.flip(d)
 	if t.userAnimated(s.box.cs) {
 		tgt := s.target()
 		for i := range 2 {
@@ -929,6 +950,7 @@ func (t *Tree) requestRepaint() {
 // canMove reports whether s can still move along d (from its target, so
 // that queued notches count).
 func (s *scroller) canMove(d gfx.Point) bool {
+	d = s.flip(d)
 	tgt := s.target()
 	for i := range 2 {
 		di := axis(d, i)
@@ -1067,9 +1089,9 @@ func (t *Tree) wheelScroll(target *Element, d gfx.Point, notch bool, e platform.
 		t.scrollUser(s, d)
 		return
 	}
-	t.scrollDirect(s, s.pos.Add(d))
+	t.scrollDirect(s, s.pos.Add(s.flip(d)))
 	if g.phased {
-		g.hist = append(g.hist, wheelSample{at: e.Time, d: d})
+		g.hist = append(g.hist, wheelSample{at: e.Time, d: s.flip(d)})
 		// Keep the samples of the window before the newest (GTK 4's
 		// scroll history).
 		n := 0
@@ -1174,10 +1196,16 @@ func (t *Tree) keyScroll(kind keyScrollKind, i int, dir float32) {
 		amount = max(float32(float64(c)*pageFraction), 1)
 	case keyEdge:
 		tgt := axis(s.target(), i)
+		if i == 0 && s.rtl {
+			dir = -dir // toward the right is toward the start
+		}
 		if dir > 0 {
 			amount = axis(s.max, i) - tgt
 		} else {
 			amount = tgt
+		}
+		if i == 0 && s.rtl {
+			dir = -dir
 		}
 	}
 	setAxis(&d, i, dir*amount)
@@ -1238,16 +1266,16 @@ func (t *Tree) panRecognizer(s *scroller) *gesture.Drag {
 		},
 		OnUpdate: func(u gesture.DragUpdate) {
 			if s.box.scr == s {
-				t.scrollDirect(s, s.pos.Sub(gfx.Point{X: u.Delta.X, Y: u.Delta.Y}))
+				t.scrollDirect(s, s.pos.Sub(s.flip(gfx.Point{X: u.Delta.X, Y: u.Delta.Y})))
 			}
 		},
 		OnEnd: func(u gesture.DragUpdate) {
 			if s.box.scr != s {
 				return
 			}
-			t.scrollDirect(s, s.pos.Sub(gfx.Point{X: u.Delta.X, Y: u.Delta.Y}))
+			t.scrollDirect(s, s.pos.Sub(s.flip(gfx.Point{X: u.Delta.X, Y: u.Delta.Y})))
 			if t.userAnimated(s.box.cs) {
-				s.startFling(gfx.Point{X: -u.Velocity.X, Y: -u.Velocity.Y}, u.Time)
+				s.startFling(s.flip(gfx.Point{X: -u.Velocity.X, Y: -u.Velocity.Y}), u.Time)
 				if s.animating() {
 					t.requestRepaint()
 				}
@@ -1377,8 +1405,9 @@ func (t *Tree) fireScrollEvents() bool {
 
 // event returns the OnScroll event of s.
 func (s *scroller) event() ScrollEvent {
+	p := s.flip(s.pos)
 	return ScrollEvent{
-		ScrollLeft: s.pos.X, ScrollTop: s.pos.Y,
+		ScrollLeft: p.X, ScrollTop: p.Y,
 		ScrollWidth: s.client.W + s.max.X, ScrollHeight: s.client.H + s.max.Y,
 		ClientWidth: s.client.W, ClientHeight: s.client.H,
 	}
@@ -1590,9 +1619,10 @@ func (t *Tree) scrollIntoView(el *Element) {
 			c := t.clientRect(cb)
 			tgt := s.target()
 			d := gfx.Point{X: nearest(r.X0, r.X1, c.X0, c.X1), Y: nearest(r.Y0, r.Y1, c.Y0, c.Y1)}
-			to := s.clamp(tgt.Add(d))
+			to := s.clamp(tgt.Add(s.flip(d)))
 			t.scrollScripted(s, to)
-			r = r.Translate(tgt.X-to.X, tgt.Y-to.Y)
+			moved := s.flip(to.Sub(tgt))
+			r = r.Translate(-moved.X, -moved.Y)
 		}
 		b = cb
 	}
@@ -1629,7 +1659,7 @@ func (t *Tree) targetRect(bx *Box) gfx.Rect {
 			break
 		}
 		if cb != nil && cb.scr != nil {
-			o = o.Sub(cb.scr.target())
+			o = o.Sub(cb.scr.flip(cb.scr.target()))
 		}
 		b = cb
 	}
@@ -1641,19 +1671,26 @@ func (t *Tree) targetRect(bx *Box) gfx.Rect {
 func (t *Tree) clientRect(bx *Box) gfx.Rect {
 	r := t.targetRect(bx)
 	l := bx.ld.Layout()
-	return gfx.Rect{
+	c := gfx.Rect{
 		X0: r.X0 + l.Border.Left, Y0: r.Y0 + l.Border.Top,
 		X1: r.X1 - l.Border.Right - l.ScrollbarSize.W, Y1: r.Y1 - l.Border.Bottom - l.ScrollbarSize.H,
 	}
+	if s := bx.scr; s != nil && s.rtl {
+		// The vertical scrollbar's gutter is on the left.
+		c.X0, c.X1 = c.X0+l.ScrollbarSize.W, c.X1+l.ScrollbarSize.W
+	}
+	return c
 }
 
 // ScrollTo scrolls the element to offsets (x, y), clamped to its extents
 // (CSSOM View's scrollTo): at once, or animated when it has
 // scroll-smooth. It does nothing for an element that is not a scroll
-// container (overflow auto, scroll or hidden) or not mounted.
+// container (overflow auto, scroll or hidden) or not mounted. In a
+// right-to-left container x is 0 at the right and negative toward the
+// left, like the DOM's scrollLeft.
 func (r ElementRef) ScrollTo(x, y float32) {
 	if s := scrollerOf(r.element()); s != nil {
-		s.box.tree.scrollScripted(s, gfx.Point{X: x, Y: y})
+		s.box.tree.scrollScripted(s, s.flip(gfx.Point{X: x, Y: y}))
 	}
 }
 
@@ -1661,17 +1698,19 @@ func (r ElementRef) ScrollTo(x, y float32) {
 // ScrollTo).
 func (r ElementRef) ScrollBy(dx, dy float32) {
 	if s := scrollerOf(r.element()); s != nil {
-		s.box.tree.scrollScripted(s, s.pos.Add(gfx.Point{X: dx, Y: dy}))
+		s.box.tree.scrollScripted(s, s.pos.Add(s.flip(gfx.Point{X: dx, Y: dy})))
 	}
 }
 
 // ScrollOffset returns the element's scroll offsets (the DOM's
 // scrollLeft and scrollTop): zero when it is not a scroll container or
 // not mounted. During a smooth scroll it is the current, animated
-// position.
+// position. In a right-to-left container x is 0 at the right and
+// negative toward the left.
 func (r ElementRef) ScrollOffset() (x, y float32) {
 	if s := scrollerOf(r.element()); s != nil {
-		return s.pos.X, s.pos.Y
+		p := s.flip(s.pos)
+		return p.X, p.Y
 	}
 	return 0, 0
 }
@@ -1775,9 +1814,10 @@ func (t *Tree) syncValues(s *scroller) {
 		return
 	}
 	if r := el.node.d.ref; r != nil && r.el == el && len(r.follow) > 0 {
+		p := s.flip(s.pos)
 		for _, f := range r.follow {
-			f.x.storeUI(s.pos.X)
-			f.y.storeUI(s.pos.Y)
+			f.x.storeUI(p.X)
+			f.y.storeUI(p.Y)
 		}
 	}
 }
@@ -1788,7 +1828,7 @@ func (t *Tree) syncRef(r *elemRef) {
 	var p gfx.Point
 	if el := r.el; el != nil && el.mounted && el.tree == t {
 		if s := el.box.scr; s != nil {
-			p = s.pos
+			p = s.flip(s.pos)
 		}
 	}
 	for _, f := range r.follow {
