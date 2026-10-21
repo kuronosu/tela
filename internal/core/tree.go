@@ -16,7 +16,8 @@ import (
 	"github.com/kuronosu/tela/internal/text"
 )
 
-// EnvDev is the environment variable that turns dev mode on ("1").
+// EnvDev is the environment variable that turns dev mode on ("1") or off
+// ("0") whatever the build and the app choose (ADR-085).
 const EnvDev = "TELA_DEV"
 
 // Config configures a Tree.
@@ -40,12 +41,20 @@ type Config struct {
 	// ColorScheme is the app's color scheme; the zero value follows the
 	// system (Dark).
 	ColorScheme ColorScheme
-	// Dev turns dev mode on: warnings about lists without keys, and class
-	// errors on stderr when Log is nil. TELA_DEV=1 does the same.
+	// Dev turns dev mode on: the hook checks, class errors on stderr when
+	// Log is nil, and the dev warnings. TELA_DEV=1 turns it on and
+	// TELA_DEV=0 off whatever Dev says; callers resolve the default with
+	// ResolveDev (on unless the binary is a release build, ADR-085).
 	Dev bool
-	// Log receives dev messages (class errors, warnings), one per call.
-	// Nil means stderr in dev mode, and nothing otherwise.
+	// Log receives dev errors (unknown classes, an image that cannot be
+	// loaded...), one per call. Nil means stderr in dev mode, and nothing
+	// otherwise.
 	Log func(msg string)
+	// Warn receives dev warnings: code that works as written but is
+	// likely a mistake (a list without keys, nil dependencies, a Value
+	// read while changes are queued...). It may be called from any
+	// goroutine. Nil means Log.
+	Warn func(msg string)
 	// IDPrefix starts the strings of UseId. Empty means "t<n>-", where
 	// <n> numbers the Trees of the process in base 36 (Render uses "r-"),
 	// so IDs are unique within the process.
@@ -94,6 +103,16 @@ type Tree struct {
 	rootClasses []string
 	dev         bool
 	log         func(string)
+	warn        func(string)
+	// devMu guards devSeen, the warnings already given (warnOnce), which
+	// may come from any goroutine.
+	devMu   sync.Mutex
+	devSeen map[string]bool
+	// devLabels are the Labels mounted since the last check (dev mode,
+	// form.go).
+	devLabels []*Element
+	// intervals are the running UseInterval slots (interval.go).
+	intervals []*intervalSlot
 
 	root     *Element
 	rootBox  *Box
@@ -216,8 +235,9 @@ func NewTree(cfg Config) *Tree {
 	t := &Tree{
 		fonts:    cfg.Fonts,
 		parser:   cfg.Parser,
-		dev:      cfg.Dev || os.Getenv(EnvDev) == "1",
+		dev:      configDev(cfg.Dev),
 		log:      cfg.Log,
+		warn:     cfg.Warn,
 		reported: map[string]bool{},
 		viewport: gfx.Size{W: 800, H: 600},
 		scale:    1,
@@ -237,6 +257,9 @@ func NewTree(cfg Config) *Tree {
 	}
 	if t.log == nil && t.dev {
 		t.log = func(msg string) { fmt.Fprintln(os.Stderr, msg) }
+	}
+	if t.warn == nil {
+		t.warn = t.log
 	}
 	if t.dev {
 		devAny.Store(true)
@@ -417,6 +440,9 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	full := t.changed || t.lastDL == nil
 	if full {
 		t.buildPhase()
+		if len(t.devLabels) > 0 {
+			t.checkLabels()
+		}
 		t.stylePhase()
 		if t.presencePhase() {
 			t.stylePhase() // the structural variants of the siblings

@@ -31,7 +31,10 @@ func Greeting(name string) tela.Node {
   [`Style`](https://pkg.go.dev/github.com/kuronosu/tela/h#Style) wins over every class.
 - Children are **nodes only**. The parameters are `tela.Child`, an interface
   that a bare `string` does not satisfy, so passing one is a compile error:
-  wrap text in [`Text`](https://pkg.go.dev/github.com/kuronosu/tela/h#Text) or [`Textf`](https://pkg.go.dev/github.com/kuronosu/tela/h#Textf).
+  wrap text in [`Text`](https://pkg.go.dev/github.com/kuronosu/tela/h#Text) or [`Textf`](https://pkg.go.dev/github.com/kuronosu/tela/h#Textf). The compiler names the internal type behind
+  the alias, so `Div("hello")` reads: `cannot use "hello" (constant of type
+  string) as tela.Child value in argument to Div: string does not implement
+  core.Child (missing method applyChild)`.
 - Elements have the defaults of Tailwind's Preflight: no margins, padding or
   borders, headings in the surrounding font size, block images. Style
   everything with [classes](Styling).
@@ -100,9 +103,10 @@ func Avatar() tela.Node {
 
 When a list changes, the element with the same [`Key`](https://pkg.go.dev/github.com/kuronosu/tela/h#Key) keeps its state wherever
 it moves. The key must be a non-nil comparable value, such as an item ID (not
-its index when the list reorders). Dev mode reports a list of two or more nodes
-without keys. A component or fragment cannot take the `Key` prop; use
-[`tela.WithKey`](https://pkg.go.dev/github.com/kuronosu/tela#WithKey).
+its index when the list reorders). Dev mode warns about a list of two or more
+nodes without keys and about duplicate keys among siblings, once per call site
+of the `Map` that made the list. A component or fragment cannot take the `Key`
+prop; use [`tela.WithKey`](https://pkg.go.dev/github.com/kuronosu/tela#WithKey).
 
 ## Helpers
 
@@ -157,7 +161,20 @@ func Steps(steps []Step) tela.Node {
 ### Fragment and TextFn
 
 [`Fragment`](https://pkg.go.dev/github.com/kuronosu/tela/h#Fragment) groups children without a box of their own: they become children of
-the fragment's parent (it takes only `Key` as a prop). [`TextFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#TextFn) is a text node
+the fragment's parent (it takes only `Key` as a prop). It is also how a
+wrapper puts the children it receives next to its own, since Go does not allow
+`Div(Class("..."), H2(...), children...)`:
+
+```go
+// Card has no hooks, so it is a plain function that wraps its children.
+func Card(title string, children ...tela.Child) tela.Node {
+	return Div(Class("rounded-xl border p-4"),
+		H2(Class("font-semibold"), Text(title)),
+		Fragment(children...))
+}
+```
+
+[`TextFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#TextFn) is a text node
 whose content is read in a later phase, so a change of a `tela.Value` it reads
 lays out only the paragraph, without building any component; see
 [Hooks](Hooks#observable-values-usevalue).

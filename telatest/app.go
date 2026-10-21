@@ -57,8 +57,13 @@ type App struct {
 	hasPos bool
 	held   platform.Buttons
 
-	mu   sync.Mutex // guards logs (dev messages may come from any goroutine)
-	logs []string
+	// dev is whether the tree runs in dev mode (the options and
+	// TELA_DEV).
+	dev bool
+
+	mu    sync.Mutex // guards logs and warns (dev messages may come from any goroutine)
+	logs  []string   // dev errors
+	warns []string   // dev warnings
 }
 
 // Mount shows root in a headless window and returns the running app. The
@@ -76,7 +81,7 @@ func Mount(tb testing.TB, root tela.Node, opts ...Option) *App {
 	if err := cfg.validate(); err != nil {
 		tb.Fatalf("telatest: %v", err)
 	}
-	a := &App{tb: tb, cfg: cfg}
+	a := &App{tb: tb, cfg: cfg, dev: cfg.devMode()}
 	size := platform.Size{W: cfg.width, H: cfg.height}
 	a.backend = headless.New(headless.Options{
 		Size:     size,
@@ -86,6 +91,7 @@ func Mount(tb testing.TB, root tela.Node, opts ...Option) *App {
 	cc := cfg.coreConfig()
 	cc.IDPrefix = idPrefix
 	cc.Log = a.log
+	cc.Warn = a.warn
 	host, err := core.NewHost(a.backend, core.Options{
 		Config: cc,
 		Title:  "telatest",
@@ -161,27 +167,38 @@ func (a *App) Close() {
 	a.flushDev()
 }
 
-// log collects a dev message.
+// log collects a dev error.
 func (a *App) log(msg string) {
 	a.mu.Lock()
 	a.logs = append(a.logs, msg)
 	a.mu.Unlock()
 }
 
-// flushDev reports the dev messages logged since the last call: they fail
-// the test under [Dev] unless allowed, and are test logs otherwise.
+// warn collects a dev warning.
+func (a *App) warn(msg string) {
+	a.mu.Lock()
+	a.warns = append(a.warns, msg)
+	a.mu.Unlock()
+}
+
+// flushDev reports the dev messages logged since the last call: errors
+// fail the test in dev mode unless allowed ([AllowDev]) and are test logs
+// otherwise; warnings are test logs.
 func (a *App) flushDev() {
 	a.tb.Helper()
 	a.mu.Lock()
-	logs := a.logs
-	a.logs = nil
+	logs, warns := a.logs, a.warns
+	a.logs, a.warns = nil, nil
 	a.mu.Unlock()
 	for _, m := range logs {
-		if a.cfg.dev && !a.devAllowed(m) {
+		if a.dev && !a.devAllowed(m) {
 			a.tb.Errorf("telatest: dev message: %s\n(telatest.AllowDev(%q) lets a test accept it)", m, firstLine(m))
 		} else {
 			a.tb.Logf("dev message: %s", m)
 		}
+	}
+	for _, m := range warns {
+		a.tb.Logf("dev warning: %s", m)
 	}
 }
 

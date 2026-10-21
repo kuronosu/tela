@@ -33,10 +33,25 @@ keyframes are not implemented
 yet; check the [roadmap](https://github.com/kuronosu/tela/blob/main/docs/ROADMAP.md)
 before relying on them.
 
-A class Tela does not know is not silently ignored: in dev mode
-(`TELA_DEV=1`, or `telatest.Dev()` in a test) it is reported with the closest
+A class Tela does not know is not silently ignored: in dev mode (on in every
+development build and every `telatest` test; see
+[Getting Started](Getting-Started#dev-mode)) it is reported with the closest
 valid class, for example `unknown class "rounded-xxl"; did you mean
-"rounded-2xl"?`.
+"rounded-2xl"?`, and in a test it fails the test.
+
+### Classes that depend on state
+
+[`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) takes props as well as nodes, so a class that depends on state is one
+more prop, without concatenating strings; [`IfElse`](https://pkg.go.dev/github.com/kuronosu/tela/h#IfElse) picks one of two:
+
+```go
+func Tab(label string, active bool) tela.Node {
+	return Button(Class("rounded-md px-3 py-1.5 text-sm"),
+		If(active, Class("bg-white shadow-sm")),
+		IfElse(active, Class("text-slate-900"), Class("text-slate-500 hover:text-slate-700")),
+		Text(label))
+}
+```
 
 ## Typed style props
 

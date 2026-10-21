@@ -40,7 +40,9 @@
 // Props apply in order, so a later Class wins over an earlier one and
 // Style wins over every class. Children are nodes only; wrap text in Text
 // or Textf. The parameters are tela.Child, so passing a bare string is a
-// compile error.
+// compile error, which names the internal type behind the alias: "string
+// does not implement core.Child (missing method applyChild)" means
+// Div("hi") should be Div(Text("hi")).
 //
 // Elements have the defaults of Tailwind's Preflight: no margins, padding
 // or borders, headings in the surrounding font size, block images. A Button

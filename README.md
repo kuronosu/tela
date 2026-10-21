@@ -138,8 +138,9 @@ agent sees:
 ### Debug overlays
 
 `TELA_DEBUG=layout,paint-flash,layers,fps,semantics` draws diagnostics on top
-of a running app with Tela's own renderer, at no cost when off. `TELA_DEV=1`
-enables dev-mode checks such as hook-order errors that print both call sites.
+of a running app with Tela's own renderer, at no cost when off. Dev mode,
+on in development builds and tests (`TELA_DEV=0` turns it off), reports
+unknown classes, hook misuse with both call sites, and likely mistakes.
 
 ## Examples
 
@@ -221,7 +222,8 @@ values that change every frame.
 ## State and hooks
 
 `UseState`, `UseReducer`, `UseEffect`, `UseLayoutEffect`, `UseMemo`,
-`UseCallback`, `UseRef`, `UseContext`, `UseId`, plus `tela.UseValue` for
+`UseCallback`, `UseRef`, `UseContext`, `UseId`, `UseMount`, `UseOnce`,
+`UseInterval`, `UseGo`, plus `tela.UseValue` for
 values that should repaint or relayout one element without rebuilding the
 component that owns them. Component boundaries `tela.C`, `tela.CP` and
 `tela.Memo` skip work when props are comparable and equal.
@@ -252,7 +254,7 @@ pixels or semantics. It finds elements the way an assistive technology does:
 
 ```go
 func TestIncrement(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Counter), telatest.Size(800, 600), telatest.Dev())
+	app := telatest.Mount(t, tela.C(Counter), telatest.Size(800, 600))
 
 	app.Click(telatest.ByRole("button", "Increment"))
 

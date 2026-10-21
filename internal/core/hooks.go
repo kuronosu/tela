@@ -58,17 +58,19 @@ func (t *Tree) build(el *Element) {
 }
 
 // currentElement returns the component being built, or panics with an
-// actionable message when a hook is called outside a build.
+// actionable message when a hook is called outside a build (the stack is
+// read only then: a component called directly, telatest.Mount(t,
+// Counter()), is told to use tela.C).
 func currentElement(hook string) *Element {
 	el := current
 	if el == nil {
-		panic("tela: " + hook + " called outside a component build; call hooks at the top level of a component function while it builds (ARCHITECTURE section 7), not in event handlers, effects or goroutines")
+		panic(outsideBuildMessage(hook))
 	}
 	return el
 }
 
 // nextSlot returns the component being built and the index of the next
-// hook slot, after the dev-mode order check.
+// hook slot, after the dev-mode order and boundary checks.
 func nextSlot(kind hookKind) (*Element, int) {
 	el := currentElement(kind.String())
 	i := el.hookIdx
@@ -134,6 +136,13 @@ func (st Setter[T]) Update(f func(T) T) {
 	}
 	s.el.tree.enqueue(update{el: s.el, apply: func() bool { return s.store(f(s.value)) }})
 }
+
+// IsZero reports whether st is the zero Setter, which is not tied to any
+// state: its methods panic. A Setter left unset in a struct, or read from
+// a context default without a Provider, is zero.
+func (st Setter[T]) IsZero() bool { return st.s == nil }
+
+func (st Setter[T]) zeroHandle() bool { return st.s == nil }
 
 func (st Setter[T]) slot(method string) *stateSlot[T] {
 	if st.s == nil {
@@ -217,6 +226,8 @@ func (d Dispatcher[A]) Dispatch(a A) {
 	}
 	d.t.dispatch(a)
 }
+
+func (d Dispatcher[A]) zeroHandle() bool { return d.t == nil }
 
 // UseReducer returns the state of this hook slot and a Dispatcher whose
 // actions update it with reducer (React's useReducer). The first build

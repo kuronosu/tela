@@ -13,12 +13,12 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseElementRef`](#func-useelementref) · [`UseId`](#func-useid) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseId`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
   - [`type App`](#type-app)
-  - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn)
+  - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
   - [`type Child`](#type-child)
   - [`type Code`](#type-code)
@@ -50,7 +50,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ScrollAlign`](#type-scrollalign): [`String`](#func-scrollalign-string)
   - [`type ScrollEvent`](#type-scrollevent): [`DefaultPrevented`](#func-scrollevent-defaultprevented) · [`PreventDefault`](#func-scrollevent-preventdefault) · [`StopPropagation`](#func-scrollevent-stoppropagation)
   - [`type SelectEvent`](#type-selectevent): [`DefaultPrevented`](#func-selectevent-defaultprevented) · [`PreventDefault`](#func-selectevent-preventdefault) · [`StopPropagation`](#func-selectevent-stoppropagation)
-  - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
+  - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`IsZero`](#func-setter-iszero) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
   - [`type Shadow`](#type-shadow)
   - [`type Size`](#type-size)
   - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
@@ -62,7 +62,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 Package tela is the public API of Tela, a desktop UI framework written in pure Go: no cgo, no webview, a React-like component model and Tailwind CSS styling.
 
-A UI is a tree of [`Node`](#type-node) values built by function components. Elements (Div, Button, Text...) live in the companion package h, designed to be dot-imported; this package holds the application ([`App`](#type-app), [`Run`](#func-run)), hooks and component boundaries ([`UseState`](#func-usestate), [`C`](#func-c), [`CP`](#func-cp)...), events ([`MouseEvent`](#type-mouseevent), [`PointerEvent`](#type-pointerevent), [`DragEvent`](#type-dragevent), [`KeyboardEvent`](#type-keyboardevent) with the [`Key`](#type-key) and [`Code`](#type-code) constants, [`FocusEvent`](#type-focusevent), and the [`ChangeEvent`](#type-changeevent), [`InputEvent`](#type-inputevent), [`CompositionEvent`](#type-compositionevent), [`SelectEvent`](#type-selectevent) and [`SubmitEvent`](#type-submitevent) of text fields and forms), [`ElementRef`](#type-elementref), the typed style props for h.Style, colors, and the [`Previews`](#type-previews) that `tela snapshot` and `tela inspect` render.
+A UI is a tree of [`Node`](#type-node) values built by function components. Elements (Div, Button, Text...) live in the companion package h, designed to be dot-imported; this package holds the application ([`App`](#type-app), [`Main`](#func-main), [`Run`](#func-run)), hooks and component boundaries ([`UseState`](#func-usestate), [`C`](#func-c), [`CP`](#func-cp)...), events ([`MouseEvent`](#type-mouseevent), [`PointerEvent`](#type-pointerevent), [`DragEvent`](#type-dragevent), [`KeyboardEvent`](#type-keyboardevent) with the [`Key`](#type-key) and [`Code`](#type-code) constants, [`FocusEvent`](#type-focusevent), and the [`ChangeEvent`](#type-changeevent), [`InputEvent`](#type-inputevent), [`CompositionEvent`](#type-compositionevent), [`SelectEvent`](#type-selectevent) and [`SubmitEvent`](#type-submitevent) of text fields and forms), [`ElementRef`](#type-elementref), the typed style props for h.Style, colors, and the [`Previews`](#type-previews) that `tela snapshot` and `tela inspect` render.
 
 ```go
 import (
@@ -81,35 +81,51 @@ func Counter() tela.Node {
 }
 
 func main() {
-    tela.Run(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
 }
 ```
 
+[`Main`](#func-main) runs the app and, if no window can be opened, prints the error and exits with status 1; [`Run`](#func-run) returns the error instead.
+
 ### Styling
 
-Static styling uses Tailwind v4 classes (h.Class). Dynamic values go through typed props, which apply after the classes:
+Static styling uses Tailwind v4 classes (h.Class). A class that depends on state goes in h.If, which takes props as well as nodes, and dynamic values go through typed props, which apply after the classes:
 
 ```go
-Div(Class("rounded-xl p-4"), Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e"))))
+Div(Class("rounded-xl p-4"), If(selected, Class("ring-2 ring-indigo-500")),
+    Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e"))))
 ```
 
 Values that change every frame (a drag position, a progress bar) can be deferred to a later phase with [`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn), [`WidthFn`](#func-widthfn) and [`HeightFn`](#func-heightfn): a [`UseValue`](#func-usevalue) read inside them redoes only that element's layout or paint when it changes. Colors are extended sRGB; see [`Color`](#type-color).
 
 ### Components
 
-A component is a function returning a [`Node`](#type-node). Wrapped in [`C`](#func-c) (no props) or [`CP`](#func-cp) (comparable props), it becomes a component boundary: an element with its own hook state, rebuilt on its own when that state changes. [`CP`](#func-cp) skips the build when its props are == to the previous ones and nothing it reads changed (automatic skipping, as in Jetpack Compose); [`Memo`](#func-memo) does the same with a comparison function. Calling a component function directly runs it inside the caller, as a custom hook.
+A component is a function returning a [`Node`](#type-node). Wrapped in [`C`](#func-c) (no props) or [`CP`](#func-cp) (comparable props), it becomes a component boundary: an element with its own hook state, rebuilt on its own when that state changes. [`CP`](#func-cp) skips the build when its props are == to the previous ones and nothing it reads changed (automatic skipping, as in Jetpack Compose); [`Memo`](#func-memo) does the same with a comparison function.
 
 ```go
 Div(tela.C(Header), tela.CP(Card, CardProps{Title: "Inbox"}))
 ```
+
+Calling a component function directly runs it inside the caller, whose hook slots its hooks would take: in dev mode a hook called from a function that is neither the component being built (or a function literal inside it) nor a custom hook panics with the fix. A custom hook is a function named UseXxx or useXxx that calls hooks for the component that calls it; a struct of [`Value`](#type-value) pointers is a good thing for one to return, since it is stable and comparable:
+
+```go
+type Drag struct{ X, Y *tela.Value[float32] }
+
+func UseDrag() Drag {
+    return Drag{X: tela.UseValue(float32(0)), Y: tela.UseValue(float32(0))}
+}
+```
+
+A plain function without hooks (a wrapper that styles its children) needs no boundary; h.Fragment(children...) passes the children it receives through.
 
 ### Hooks
 
 Hooks keep state and run code across builds, with React's names and semantics:
 
 - [`UseState`](#func-usestate) (and [`UseStateSet`](#func-usestateset), [`UseStateUpdate`](#func-usestateupdate)) and [`UseReducer`](#func-usereducer) hold state; their [`Setter`](#type-setter) and [`Dispatcher`](#type-dispatcher) are comparable, stable and safe from any goroutine.
-- [`UseEffect`](#func-useeffect) runs code after the frame is presented and [`UseLayoutEffect`](#func-uselayouteffect) after layout, with cleanups; UseEffect(f, nil) runs only on mount.
-- [`UseMemo`](#func-usememo) caches a computation; [`UseCallback`](#func-usecallback) gives a stable [`Callback`](#type-callback) that always calls the latest function; [`UseRef`](#func-useref) keeps a mutable box.
+- [`UseEffect`](#func-useeffect) runs code after the frame is presented and [`UseLayoutEffect`](#func-uselayouteffect) after layout, with cleanups, when their dependencies change; [`UseMount`](#func-usemount) runs once, on mount (with its cleanup on unmount), [`UseEffectDo`](#func-useeffectdo) has no cleanup and [`UseUpdateEffect`](#func-useupdateeffect) skips the first build.
+- [`UseInterval`](#func-useinterval) calls a function every period on the UI thread, and [`UseGo`](#func-usego) runs a function on its own goroutine with a context that is cancelled when its dependencies change or the component unmounts.
+- [`UseMemo`](#func-usememo) caches a computation and [`UseOnce`](#func-useonce) computes a value once; [`UseCallback`](#func-usecallback) gives a stable [`Callback`](#type-callback) that always calls the latest function; [`UseRef`](#func-useref) keeps a mutable box.
 - [`CreateContext`](#func-createcontext) and [`UseContext`](#func-usecontext) pass values down the tree.
 - [`UseId`](#func-useid) gives a stable unique ID.
 - [`UseElementRef`](#func-useelementref) gives an [`ElementRef`](#type-elementref) to attach with h.Ref, to focus or scroll an element from handlers and effects.
@@ -139,13 +155,21 @@ Text can be deferred the same way with h.TextFn: a Value read inside it lays out
 A Value moved from a handler or a goroutine repaints only the element whose closure reads it:
 
 ```go
-pos := tela.UseValue(0.0)
+pos := tela.UseValue(float32(0)) // UseValue(0.0) would hold a float64
 Div(Class("size-8 rounded-full bg-indigo-500"),
-    Style(tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 })))
+    Style(tela.TranslateFn(func() (x, y float32) { return pos.Get(), 0 })))
 // later, from anywhere: pos.Set(120)
 ```
 
-Hooks follow React's rules: call them at the top level of a component function, in the same order on every build, never inside conditions or loops. A hook called outside a component build panics with an explanation; in dev mode (TELA_DEV=1) a change of the hook order panics with both call sites. Everything runs on the UI thread except the Setter, Dispatcher and Value methods and [`Post`](#func-post), which are safe from any goroutine.
+Hooks follow React's rules: call them at the top level of a component function, in the same order on every build, never inside conditions or loops. A hook called outside a component build panics with an explanation (a component called where a node is expected is told to use [`C`](#func-c)); in dev mode a change of the hook order panics with both call sites. Everything runs on the UI thread except the Setter, Dispatcher and Value methods and [`Post`](#func-post), which are safe from any goroutine.
+
+### Dev mode
+
+Dev mode reports the mistakes that compile. It is on unless the program is a release build (built with -trimpath, or installed with go install pkg@version; go run and go build in a source checkout are development builds); [`App`](#type-app).Dev overrides that, and TELA_DEV=1 or TELA_DEV=0 overrides both. telatest runs in dev mode unless telatest.NoDev says otherwise. In dev mode:
+
+- unknown classes are printed on standard error with the closest class (in telatest they fail the test);
+- unknown roles, input types and easings, hook-order changes and hooks called outside their component panic with the fix;
+- likely mistakes are printed as warnings, once per call site: lists without keys or with duplicate keys, UseEffect(f, nil) (deprecated: use [`UseMount`](#func-usemount)), dependencies that cannot be compared, a [`Value`](#type-value) read with Get in a handler while changes are queued (use Latest), a context read without a Provider whose default is not safe to use, and an h.Label that labels no field.
 
 ### Text fields and forms
 
@@ -321,6 +345,34 @@ fmt.Println(img.RGBAAt(16, 16))
 // Output: {255 0 0 255}
 ```
 
+### func Main
+
+```go
+func Main(app App)
+```
+
+Main runs app with [`Run`](#func-run) and, when Run returns an error (no display, for example), prints it on standard error and exits with status 1. It is the usual body of main:
+
+```go
+func main() {
+    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+}
+```
+
+Main returns when the window is closed. Like Run, it must be called from the main goroutine, and it panics when app.Root is nil.
+
+**Example**
+
+```go
+counter := func() tela.Node {
+    count, setCount := tela.UseState(0)
+    return Button(OnClick(func(tela.MouseEvent) { setCount.Set(count + 1) }), Textf("Clicked %d times", count))
+}
+// In package main. Main returns when the window is closed; without a
+// display it prints the error and exits with status 1.
+tela.Main(tela.App{Title: "Demo", Width: 400, Height: 300, Root: counter})
+```
+
 ### func Post
 
 ```go
@@ -346,7 +398,7 @@ func Run(app App) error
 
 Run opens a window, shows app.Root and runs the event loop until the window is closed. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux, Win32 and Cocoa elsewhere.
 
-Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil.
+Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil. [`Main`](#func-main) runs it and handles the error.
 
 ### func SetColorScheme
 
@@ -394,6 +446,8 @@ UseContext returns the value of the nearest Provider of ctx above the component,
 theme := tela.UseContext(Theme)
 ```
 
+In dev mode, reading a context without a Provider above warns (once per context) when its default is not safe to use: nil, or holding a nil function, pointer, map, channel or interface, or a zero [`Setter`](#type-setter) or [`Callback`](#type-callback), in an exported field. Either provide the context above every reader, or give CreateContext a default that works; IsZero tells a zero Setter or Callback apart where a missing Provider is expected.
+
 ### func UseEffect
 
 ```go
@@ -406,33 +460,95 @@ The dependencies follow React:
 
 ```go
 tela.UseEffect(f)          // after every build
-tela.UseEffect(f, nil)     // only after the first build (React's [])
 tela.UseEffect(f, id, n)   // when id or n changed (compared with ==)
+tela.UseMount(f)           // only after the first build (React's [])
 ```
 
-A single nil is a constant dependency, so the effect runs only on mount and its cleanup only on unmount: the idiom for subscriptions and timers.
+For an effect that runs once, on mount, with its cleanup on unmount (a subscription), use [`UseMount`](#func-usemount); [`UseEffectDo`](#func-useeffectdo) takes an effect without a cleanup, [`UseUpdateEffect`](#func-useupdateeffect) skips the first build, and periodic and background work have [`UseInterval`](#func-useinterval) and [`UseGo`](#func-usego). A single nil dependency, UseEffect(f, nil), still means "only on mount", but it is deprecated (React reads a null list as "after every render"): dev mode warns about it, and a later version will reject it.
 
-```go
-tela.UseEffect(func() func() {
-    tick := time.NewTicker(time.Second)
-    done := make(chan struct{})
-    go func() {
-        for {
-            select {
-            case now := <-tick.C:
-                setNow.Set(now) // safe from any goroutine
-            case <-done:
-                return
-            }
-        }
-    }()
-    return func() { tick.Stop(); close(done) }
-}, nil)
-```
-
-Values that cannot be compared (functions, slices, maps) count as changed on every build; dev mode (TELA_DEV=1) reports them, and a dependency count that changes between builds. Pass an ID, a comparable value or a [`Callback`](#type-callback) instead.
+Values that cannot be compared (functions, slices, maps) count as changed on every build; dev mode reports them, and a dependency count that changes between builds. Pass an ID, a comparable value or a [`Callback`](#type-callback) instead.
 
 Within a frame, the effects of children run before their parents', and every cleanup runs before the effects that follow it. Effects of a component whose build was skipped do not run. State set by an effect is applied in a later frame.
+
+### func UseEffectDo
+
+```go
+func UseEffectDo(f func(), deps ...any)
+```
+
+UseEffectDo is [`UseEffect`](#func-useeffect) for an effect without a cleanup: f runs after the frame is presented when the dependencies changed.
+
+```go
+tela.UseEffectDo(func() { title.Set(fmt.Sprintf("%d unread", n)) }, n)
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var title string
+inbox := func() tela.Node {
+    unread, setUnread := tela.UseState(3)
+    tela.UseEffectDo(func() { title = fmt.Sprintf("Inbox (%d)", unread) }, unread)
+    return Button(OnClick(func(tela.MouseEvent) { setUnread.Set(0) }), Text("Mark all read"))
+}
+app := telatest.Mount(t, tela.C(inbox))
+fmt.Println(title)
+app.Click(telatest.ByRole("button", "Mark all read"))
+fmt.Println(title)
+// Output:
+// Inbox (3)
+// Inbox (0)
+```
+
+### func UseGo
+
+```go
+func UseGo(f func(ctx context.Context), deps ...any)
+```
+
+UseGo runs f on a goroutine of its own after the frame is presented, when its dependencies changed, like [`UseEffect`](#func-useeffect); ctx is cancelled at cleanup, when the dependencies change again or the component unmounts, before the next run starts. f must return soon after ctx is done (it is not waited for) and must change the UI only through what is safe from any goroutine: a [`Setter`](#type-setter), a [`Value`](#type-value), [`Post`](#func-post).
+
+```go
+tela.UseGo(func(ctx context.Context) {
+    for page := range fetchPages(ctx, query) {
+        setResults.Update(func(r []Result) []Result { return append(r, page...) })
+    }
+}, query) // restarts, cancelling the old fetch, when query changes
+```
+
+The dependencies follow UseEffect's: none restarts f after every build.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+search := func(ctx context.Context, q string) []string {
+    return []string{q + " one", q + " two"} // a slow call that honors ctx
+}
+results := func() tela.Node {
+    query, setQuery := tela.UseState("tela")
+    found, setFound := tela.UseState([]string(nil))
+    tela.UseGo(func(ctx context.Context) {
+        r := search(ctx, query)
+        if ctx.Err() == nil { // a newer query cancelled this one
+            setFound.Set(r) // safe from any goroutine
+        }
+    }, query)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setQuery.Set("go") }), Text("Search go")),
+        Map(found, func(s string) tela.Node { return P(Key(s), Text(s)) }),
+    )
+}
+app := telatest.Mount(t, tela.C(results))
+app.ExpectText("tela two") // expectations wait for the goroutine
+app.Click(telatest.ByRole("button", "Search go"))
+app.ExpectText("go one")
+fmt.Println("ok")
+// Output: ok
+```
 
 ### func UseId
 
@@ -446,6 +562,47 @@ UseId returns a string that identifies this hook slot, for accessibility relatio
 id := tela.UseId()
 ```
 
+### func UseInterval
+
+```go
+func UseInterval(d time.Duration, f func())
+```
+
+UseInterval calls f on the UI thread every d, the first time d after the frame that first shows the component, until it unmounts. d \<= 0 pauses it, and a new d restarts it. f is always the latest build's function, so it sees the latest state and needs no dependencies. It runs on the window's frame clock, like the long-press timer, with no goroutine: telatest's App.Advance moves it, and a headless Render never runs it.
+
+```go
+now, setNow := tela.UseState(time.Now())
+tela.UseInterval(time.Second, func() { setNow.Set(time.Now()) })
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+timer := func() tela.Node {
+    seconds, setSeconds := tela.UseState(0)
+    running, setRunning := tela.UseState(true)
+    period := time.Second
+    if !running {
+        period = 0 // paused
+    }
+    tela.UseInterval(period, func() { setSeconds.Set(seconds + 1) })
+    return Div(
+        P(Textf("%d s", seconds)),
+        Button(OnClick(func(tela.MouseEvent) { setRunning.Set(!running) }), Text("Pause")),
+    )
+}
+app := telatest.Mount(t, tela.C(timer))
+app.Advance(3 * time.Second) // the interval runs on the app's clock
+app.ExpectText("3 s")
+app.Click(telatest.ByRole("button", "Pause"))
+app.Advance(5 * time.Second)
+app.ExpectText("3 s")
+fmt.Println("ok")
+// Output: ok
+```
+
 ### func UseLayoutEffect
 
 ```go
@@ -456,9 +613,9 @@ UseLayoutEffect is [`UseEffect`](#func-useeffect), but the effect runs in the fr
 
 ```go
 tela.UseLayoutEffect(func() func() {
-    log.Println("laid out")
+    list.ScrollIntoView() // before the frame with the new item is painted
     return nil
-}, nil)
+}, len(items))
 ```
 
 ### func UseMemo
@@ -467,10 +624,84 @@ tela.UseLayoutEffect(func() func() {
 func UseMemo[T any](compute func() T, deps ...any) T
 ```
 
-UseMemo returns compute(), computed on the first build and again only when the dependencies changed (compared like [`UseEffect`](#func-useeffect)'s: none recomputes on every build, a single nil never).
+UseMemo returns compute(), computed on the first build and again only when the dependencies changed (compared like [`UseEffect`](#func-useeffect)'s: none recomputes on every build). For a value computed once, use [`UseOnce`](#func-useonce).
 
 ```go
 visible := tela.UseMemo(func() []Todo { return filter(todos, query) }, len(todos), query)
+```
+
+### func UseMount
+
+```go
+func UseMount(effect func() func())
+```
+
+UseMount runs effect once, after the frame that first shows the component, and the cleanup it returns (nil for none) when the component unmounts: the idiom for subscriptions, listeners and other setup that lives as long as the component (React's useEffect(f, \[\])).
+
+```go
+tela.UseMount(func() func() {
+    unsubscribe := store.Subscribe(func(s State) { setState.Set(s) })
+    return unsubscribe
+})
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var events []string
+panel := func() tela.Node {
+    tela.UseMount(func() func() {
+        events = append(events, "subscribe")
+        return func() { events = append(events, "unsubscribe") }
+    })
+    return Text("Panel")
+}
+page := func() tela.Node {
+    open, setOpen := tela.UseState(true)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setOpen.Set(!open) }), Text("Toggle")),
+        If(open, tela.C(panel)),
+    )
+}
+app := telatest.Mount(t, tela.C(page))
+app.Click(telatest.ByRole("button", "Toggle")) // unmounts the panel
+app.Click(telatest.ByRole("button", "Toggle")) // mounts it again
+fmt.Println(events)
+// Output: [subscribe unsubscribe subscribe]
+```
+
+### func UseOnce
+
+```go
+func UseOnce[T any](init func() T) T
+```
+
+UseOnce returns init(), called on the first build only; later builds return the same value. Use it for what a component creates once and keeps: a client, a buffer, the state struct of a custom hook. It is [`UseMemo`](#func-usememo) without dependencies; the value is not reactive (store what changes in [`UseState`](#func-usestate) or [`UseValue`](#func-usevalue)).
+
+```go
+cache := tela.UseOnce(func() map[string]Image { return map[string]Image{} })
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+created := 0
+type cache struct{ hits map[string]int }
+page := func() tela.Node {
+    c := tela.UseOnce(func() *cache { created++; return &cache{hits: map[string]int{}} })
+    n, setN := tela.UseState(0)
+    c.hits["build"]++
+    return Button(OnClick(func(tela.MouseEvent) { setN.Set(n + 1) }), Textf("Add %d", n))
+}
+app := telatest.Mount(t, tela.C(page))
+app.Click(telatest.ByText("Add"))
+app.Click(telatest.ByText("Add"))
+fmt.Println("created", created, "times")
+// Output: created 1 times
 ```
 
 ### func UsePresence
@@ -565,17 +796,57 @@ name, setName := tela.UseStateSet("")
 setName("Ada")
 ```
 
+It exists for code that wants React's shape, a setter that is a function: to pass it where a func(T) is expected (a callback of a library, a field's handler) without wrapping it, and to keep code ported from React reading the same. The function is the same on every build, but funcs are not comparable in Go, so a props struct holding one makes [`CP`](#func-cp) rebuild its component every time; pass the [`Setter`](#type-setter) of UseState in props instead.
+
 ### func UseStateUpdate
 
 ```go
 func UseStateUpdate[T any](initial T) (T, func(func(T) T))
 ```
 
-UseStateUpdate is [`UseState`](#func-usestate) for those who only update from the previous state: it returns the Setter's Update method as a plain function, made once per slot.
+UseStateUpdate is [`UseState`](#func-usestate) for those who only update from the previous state: it returns the Setter's Update method as a plain function, made once per slot, for the same reasons as [`UseStateSet`](#func-usestateset).
 
 ```go
 count, update := tela.UseStateUpdate(0)
 update(func(n int) int { return n + 1 })
+```
+
+### func UseUpdateEffect
+
+```go
+func UseUpdateEffect(effect func() func(), deps ...any)
+```
+
+UseUpdateEffect is [`UseEffect`](#func-useeffect) without the run of the first build: the effect runs after the later builds whose dependencies changed (react-use's useUpdateEffect), and its cleanup before it runs again and on unmount. Use it to react to changes, not to the initial value.
+
+```go
+tela.UseUpdateEffect(func() func() {
+    save(settings) // not on mount, only when settings change
+    return nil
+}, settings)
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var saved []string
+editor := func() tela.Node {
+    theme, setTheme := tela.UseState("light")
+    tela.UseUpdateEffect(func() func() {
+        saved = append(saved, theme) // not on mount: only changes are saved
+        return nil
+    }, theme)
+    return Button(OnClick(func(tela.MouseEvent) { setTheme.Set("dark") }), Text("Dark"))
+}
+app := telatest.Mount(t, tela.C(editor))
+fmt.Println(saved)
+app.Click(telatest.ByRole("button", "Dark"))
+fmt.Println(saved)
+// Output:
+// []
+// [dark]
 ```
 
 ## Types
@@ -635,7 +906,7 @@ tela.Spring(tela.Duration(500*time.Millisecond), tela.Bounce(0.25))
 
 Without options a spring has stiffness 100 and damping 10 (Motion's default, slightly bouncy); Bounce without a Duration takes 800 ms, and a Duration without Bounce a bounce of 0.3. Tweens take a [`Duration`](#func-duration) (default 300 ms) and an [`Ease`](#func-ease) (default CSS's "ease").
 
-Options that contradict each other or the hook (Ease on a spring, Stiffness and Duration together, spring options on UseTween), invalid numbers and invalid easing strings panic in dev mode (TELA_DEV=1) with what to write instead; otherwise they are ignored.
+Options that contradict each other or the hook (Ease on a spring, Stiffness and Duration together, spring options on UseTween), invalid numbers and invalid easing strings panic in dev mode (see [`App`](#type-app).Dev) with what to write instead; otherwise they are ignored.
 
 `AnimationOption` is an alias of `core.AnimOption`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -886,6 +1157,23 @@ type App struct {
     // value, System, follows it. SetColorScheme changes it while the app
     // runs.
     ColorScheme ColorScheme
+    // Dev turns dev mode on or off. Dev mode reports the mistakes that
+    // compile: unknown classes are printed on standard error; unknown
+    // roles, input types and easings panic with the closest valid name;
+    // hooks called in another order or outside their component panic
+    // with the fix; likely mistakes (lists without keys, nil
+    // dependencies, a Value read while changes are queued...) are printed
+    // as warnings. It costs some speed.
+    //
+    // Nil, the default, means on unless the program is a release build:
+    // go run and go build in a source checkout give development builds,
+    // while a binary built with -trimpath, or installed with go install
+    // pkg@version, is a release build. The environment variable
+    // TELA_DEV=1 or TELA_DEV=0 overrides both Dev and the default.
+    //
+    //	off := false
+    //	tela.Main(tela.App{Title: "Notes", Root: Notes, Dev: &off})
+    Dev *bool
 }
 ```
 
@@ -906,7 +1194,13 @@ tela.Run(tela.App{
 type Callback[F any] = core.Callback[F]
 ```
 
-Callback is a stable handle on the latest function given to [`UseCallback`](#func-usecallback): cb.Fn() returns one forwarding function, the same on every build, that calls the latest function. It is comparable, so a props struct holding one stays comparable and [`CP`](#func-cp) can skip the component that receives it.
+Callback is a stable handle on the latest function given to [`UseCallback`](#func-usecallback): cb.Fn() returns one forwarding function, the same on every build, that calls the latest function. It is comparable, so a props struct holding one stays comparable and [`CP`](#func-cp) can skip the component that receives it. The zero Callback is tied to no slot: Fn panics, and IsZero reports it, for optional callbacks in props:
+
+```go
+if !p.OnClose.IsZero() {
+    p.OnClose.Fn()()
+}
+```
 
 `Callback` is an alias of `core.Callback`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -941,6 +1235,14 @@ func (c Callback[F]) Fn() F
 ```
 
 Fn returns the slot's forwarding function: one function of type F, the same on every build, that calls the latest function given to UseCallback at the time it is called. Call it on the UI thread (event handlers and effects run there); from other goroutines, use Post.
+
+#### func (Callback) IsZero
+
+```go
+func (c Callback[F]) IsZero() bool
+```
+
+IsZero reports whether c is the zero Callback, which is not tied to any UseCallback slot: Fn panics. A Callback left unset in a props struct, or read from a context default without a Provider, is zero.
 
 ### type ChangeEvent
 
@@ -998,7 +1300,15 @@ StopPropagation stops the event from bubbling (see MouseEvent).
 type Child = core.Child
 ```
 
-Child is what an element takes: a [`Node`](#type-node) (a child) or a [`Prop`](#type-prop) (h.Class, h.Style, h.Key, h.OnClick...). Props and children may be mixed in any order. The interface is sealed: passing a string or any other value is a compile error; wrap text in h.Text.
+Child is what an element takes: a [`Node`](#type-node) (a child) or a [`Prop`](#type-prop) (h.Class, h.Style, h.Key, h.OnClick...). Props and children may be mixed in any order. The interface is sealed: passing a string or any other value is a compile error; wrap text in h.Text. The compiler names the internal type behind the alias and its unexported method:
+
+```go
+cannot use "hello" (constant of type string) as tela.Child value in
+argument to Div: string does not implement core.Child (missing method
+applyChild)
+```
+
+means Div("hello") should be Div(Text("hello")).
 
 `Child` is an alias of `core.Child`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -1718,10 +2028,10 @@ UseElementRef returns the [`ElementRef`](#type-elementref) of this hook slot, th
 ```go
 func Search() tela.Node {
     input := tela.UseElementRef()
-    tela.UseEffect(func() func() {
+    tela.UseMount(func() func() {
         input.Focus()
         return nil
-    }, nil)
+    })
     return Div(Ref(input), TabIndex(0), Class("rounded-md p-2 focus:ring-2"), Text("Search"))
 }
 ```
@@ -2470,7 +2780,7 @@ type Node struct {
 func C(fn func() Node) Node
 ```
 
-C returns a node that builds fn as a component with its own state: a component boundary (ARCHITECTURE section 7). Calling fn() directly instead runs it inside the caller's build, as a custom hook whose hooks belong to the caller.
+C returns a node that builds fn as a component with its own state: a component boundary (ARCHITECTURE section 7). Calling fn() directly instead runs it inside the caller's build, so its hooks would take the caller's slots: dev mode panics when a hook is called from a function that is neither the component being built (or a function literal inside it) nor a custom hook named UseXxx or useXxx, and says to wrap it.
 
 ```go
 Div(tela.C(Header), tela.C(Body))
@@ -2497,7 +2807,7 @@ func Card(p CardProps) tela.Node { ... }
 tela.CP(Card, CardProps{Title: "Inbox", OnOpen: onOpen})
 ```
 
-Give CP a named function and pass everything it uses in its props: variables captured by a closure are not compared, so dev mode (TELA_DEV=1) reports anonymous functions once per call site. Keep props comparable by passing [`Callback`](#type-callback) values instead of funcs, and IDs instead of slices or maps; a props value whose == panics counts as changed.
+Give CP a named function and pass everything it uses in its props: variables captured by a closure are not compared, so dev mode reports anonymous functions once per call site. Keep props comparable by passing [`Callback`](#type-callback) values instead of funcs, and IDs instead of slices or maps; a props value whose == panics counts as changed.
 
 #### func Memo
 
@@ -2932,7 +3242,7 @@ StopPropagation stops the event from bubbling (see MouseEvent).
 type Setter[T any] = core.Setter[T]
 ```
 
-Setter sets the state of one [`UseState`](#func-usestate) slot. It is a small comparable value, the same on every build of the slot, so it can be stored, passed to goroutines and put in props compared by [`CP`](#func-cp). Its methods are safe from any goroutine: they queue the update and wake the UI thread, which applies the queued updates in order before the next build. Updates to a component that has been unmounted are dropped. The zero Setter is not tied to any state; its methods panic.
+Setter sets the state of one [`UseState`](#func-usestate) slot. It is a small comparable value, the same on every build of the slot, so it can be stored, passed to goroutines and put in props compared by [`CP`](#func-cp). Its methods are safe from any goroutine: they queue the update and wake the UI thread, which applies the queued updates in order before the next build. Updates to a component that has been unmounted are dropped. The zero Setter is not tied to any state; its methods panic, and IsZero reports it (a Setter field left unset, or one read from a context default without a Provider).
 
 ```go
 setCount.Set(0)
@@ -2968,6 +3278,14 @@ func Counter() tela.Node {
 Use setCount.Update(func(n int) int { return n + 1 }) when the new state depends on the old one and several updates may be queued before the next build (from goroutines, or several events in one frame).
 
 Hooks follow React's rules: call them at the top level of a component function, in the same order on every build, never inside conditions or loops. UseState panics when called outside a component build or when the call order changed since the previous build.
+
+#### func (Setter) IsZero
+
+```go
+func (st Setter[T]) IsZero() bool
+```
+
+IsZero reports whether st is the zero Setter, which is not tied to any state: its methods panic. A Setter left unset in a struct, or read from a context default without a Provider, is zero.
 
 #### func (Setter) Set
 
@@ -3650,13 +3968,11 @@ Where v.Get() is called decides what a change redoes:
 The reads are taken again on every evaluation, so a closure that stops reading a Value stops being redone by it. A progress bar fed by a goroutine, which lays out the bar again without building Download:
 
 ```go
-func Download() tela.Node {
+func Download(url string) tela.Node {
     progress := tela.UseValue(0.0) // from 0 to 1
-    tela.UseEffect(func() func() {
-        ctx, cancel := context.WithCancel(context.Background())
-        go fetch(ctx, func(done float64) { progress.Set(done) }) // any goroutine
-        return cancel
-    }, nil)
+    tela.UseGo(func(ctx context.Context) {
+        fetch(ctx, url, func(done float64) { progress.Set(done) }) // any goroutine
+    }, url)
     return Div(Class("h-2 w-64 overflow-hidden rounded-full bg-slate-200"),
         Div(Class("h-full bg-indigo-500"),
             Style(tela.WidthFn(func() float32 { return float32(256 * progress.Get()) }))))
@@ -3678,6 +3994,18 @@ card := Div(Class("rounded-xl bg-white p-6 shadow-lg"),
 
 Reading the same Value in the body instead (x := offset.Get()) would build the component on every change. Values read by the closures of another window's tree are not tracked.
 
+Because the \*Value is stable and comparable, a struct of Values is a good return value for a custom hook: the caller keeps the struct between builds, passes it in [`CP`](#func-cp) props or a context without defeating skipping, and each reader redoes only what it read.
+
+```go
+type Drag struct{ X, Y *tela.Value[float32] }
+
+func UseDrag() Drag {
+    return Drag{X: tela.UseValue(float32(0)), Y: tela.UseValue(float32(0))}
+}
+```
+
+In handlers, effects and goroutines, read a Value that may have queued changes with Latest: Get returns the value applied last, and dev mode warns about a Get that misses queued changes.
+
 #### func (*Value) Get
 
 ```go
@@ -3686,7 +4014,7 @@ func (v *Value[T]) Get() T
 
 Get returns the value. On the UI thread, while a component builds or a deferred style closure is evaluated in layout or paint, the read subscribes what is being evaluated: when the value changes, that component is built again, or that box laid out or repainted, and nothing else. Elsewhere (event handlers, effects) nothing is subscribed.
 
-Get is safe from any goroutine. It returns the value the UI thread applied last: Set and Update calls still waiting in the queue are not visible until the UI thread applies them (on its next wake or frame).
+Get is safe from any goroutine. It returns the value the UI thread applied last: Set and Update calls still waiting in the queue are not visible until the UI thread applies them (on its next wake or frame). In dev mode, a Get outside a build or a deferred closure (a handler, an effect, a goroutine) while changes are queued is reported once per call site, with Latest as the fix (ADR-085).
 
 #### func (*Value) Latest
 

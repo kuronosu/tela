@@ -97,4 +97,4 @@ func main() {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return Motion() }
+func Preview() tela.Node { return tela.C(Motion) }

@@ -4,7 +4,7 @@
 //
 // A UI is a tree of [Node] values built by function components. Elements
 // (Div, Button, Text...) live in the companion package h, designed to be
-// dot-imported; this package holds the application ([App], [Run]), hooks
+// dot-imported; this package holds the application ([App], [Main], [Run]), hooks
 // and component boundaries ([UseState], [C], [CP]...), events
 // ([MouseEvent], [PointerEvent], [DragEvent], [KeyboardEvent] with the
 // [Key] and [Code] constants, [FocusEvent], and the [ChangeEvent],
@@ -29,15 +29,20 @@
 //	}
 //
 //	func main() {
-//	    tela.Run(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
 //	}
+//
+// [Main] runs the app and, if no window can be opened, prints the error
+// and exits with status 1; [Run] returns the error instead.
 //
 // # Styling
 //
-// Static styling uses Tailwind v4 classes (h.Class). Dynamic values go
-// through typed props, which apply after the classes:
+// Static styling uses Tailwind v4 classes (h.Class). A class that depends
+// on state goes in h.If, which takes props as well as nodes, and dynamic
+// values go through typed props, which apply after the classes:
 //
-//	Div(Class("rounded-xl p-4"), Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e"))))
+//	Div(Class("rounded-xl p-4"), If(selected, Class("ring-2 ring-indigo-500")),
+//	    Style(tela.Width(w), tela.Bg(tela.Hex("#1e1e2e"))))
 //
 // Values that change every frame (a drag position, a progress bar) can be
 // deferred to a later phase with [TranslateFn], [OpacityFn], [WidthFn] and
@@ -51,10 +56,27 @@
 // with its own hook state, rebuilt on its own when that state changes.
 // [CP] skips the build when its props are == to the previous ones and
 // nothing it reads changed (automatic skipping, as in Jetpack Compose);
-// [Memo] does the same with a comparison function. Calling a component
-// function directly runs it inside the caller, as a custom hook.
+// [Memo] does the same with a comparison function.
 //
 //	Div(tela.C(Header), tela.CP(Card, CardProps{Title: "Inbox"}))
+//
+// Calling a component function directly runs it inside the caller, whose
+// hook slots its hooks would take: in dev mode a hook called from a
+// function that is neither the component being built (or a function
+// literal inside it) nor a custom hook panics with the fix. A custom hook
+// is a function named UseXxx or useXxx that calls hooks for the
+// component that calls it; a struct of [Value] pointers is a good thing
+// for one to return, since it is stable and comparable:
+//
+//	type Drag struct{ X, Y *tela.Value[float32] }
+//
+//	func UseDrag() Drag {
+//	    return Drag{X: tela.UseValue(float32(0)), Y: tela.UseValue(float32(0))}
+//	}
+//
+// A plain function without hooks (a wrapper that styles its children)
+// needs no boundary; h.Fragment(children...) passes the children it
+// receives through.
 //
 // # Hooks
 //
@@ -65,11 +87,17 @@
 //     hold state; their [Setter] and [Dispatcher] are comparable, stable
 //     and safe from any goroutine.
 //   - [UseEffect] runs code after the frame is presented and
-//     [UseLayoutEffect] after layout, with cleanups; UseEffect(f, nil)
-//     runs only on mount.
-//   - [UseMemo] caches a computation; [UseCallback] gives a stable
-//     [Callback] that always calls the latest function; [UseRef] keeps a
-//     mutable box.
+//     [UseLayoutEffect] after layout, with cleanups, when their
+//     dependencies change; [UseMount] runs once, on mount (with its
+//     cleanup on unmount), [UseEffectDo] has no cleanup and
+//     [UseUpdateEffect] skips the first build.
+//   - [UseInterval] calls a function every period on the UI thread, and
+//     [UseGo] runs a function on its own goroutine with a context that
+//     is cancelled when its dependencies change or the component
+//     unmounts.
+//   - [UseMemo] caches a computation and [UseOnce] computes a value once;
+//     [UseCallback] gives a stable [Callback] that always calls the latest
+//     function; [UseRef] keeps a mutable box.
 //   - [CreateContext] and [UseContext] pass values down the tree.
 //   - [UseId] gives a stable unique ID.
 //   - [UseElementRef] gives an [ElementRef] to attach with h.Ref, to
@@ -124,18 +152,38 @@
 // A Value moved from a handler or a goroutine repaints only the element
 // whose closure reads it:
 //
-//	pos := tela.UseValue(0.0)
+//	pos := tela.UseValue(float32(0)) // UseValue(0.0) would hold a float64
 //	Div(Class("size-8 rounded-full bg-indigo-500"),
-//	    Style(tela.TranslateFn(func() (x, y float32) { return float32(pos.Get()), 0 })))
+//	    Style(tela.TranslateFn(func() (x, y float32) { return pos.Get(), 0 })))
 //	// later, from anywhere: pos.Set(120)
 //
 // Hooks follow React's rules: call them at the top level of a component
 // function, in the same order on every build, never inside conditions or
 // loops. A hook called outside a component build panics with an
-// explanation; in dev mode (TELA_DEV=1) a change of the hook order panics
-// with both call sites. Everything runs on the UI thread except the
-// Setter, Dispatcher and Value methods and [Post], which are safe from any
-// goroutine.
+// explanation (a component called where a node is expected is told to use
+// [C]); in dev mode a change of the hook order panics with both call
+// sites. Everything runs on the UI thread except the Setter, Dispatcher
+// and Value methods and [Post], which are safe from any goroutine.
+//
+// # Dev mode
+//
+// Dev mode reports the mistakes that compile. It is on unless the program
+// is a release build (built with -trimpath, or installed with go install
+// pkg@version; go run and go build in a source checkout are development
+// builds); [App].Dev overrides that, and TELA_DEV=1 or TELA_DEV=0 overrides
+// both. telatest runs in dev mode unless telatest.NoDev says otherwise. In
+// dev mode:
+//
+//   - unknown classes are printed on standard error with the closest
+//     class (in telatest they fail the test);
+//   - unknown roles, input types and easings, hook-order changes and hooks
+//     called outside their component panic with the fix;
+//   - likely mistakes are printed as warnings, once per call site: lists
+//     without keys or with duplicate keys, UseEffect(f, nil) (deprecated:
+//     use [UseMount]), dependencies that cannot be compared, a [Value]
+//     read with Get in a handler while changes are queued (use Latest), a
+//     context read without a Provider whose default is not safe to use,
+//     and an h.Label that labels no field.
 //
 // # Text fields and forms
 //

@@ -21,9 +21,10 @@ import (
 
 // Player is the page: the player card and, from the lg breakpoint, the
 // queue next to it, over a soft radial glow.
-func Player() tela.Node { return playerAt(0) }
+func Player() tela.Node { return tela.CP(playerAt, 0) }
 
-// playerAt is Player with the first track already startAt seconds in.
+// playerAt is Player with the first track already startAt seconds in. It
+// keeps the transport's state, so it is a component of its own (tela.CP).
 func playerAt(startAt float64) tela.Node { return page(useTransport(startAt)) }
 
 // page is the content of the player for a transport.
@@ -37,7 +38,7 @@ func page(tr *Transport) tela.Node {
 
 // Preview is the screen of `tela snapshot` and `tela inspect`: the player
 // a minute and 24 seconds into the first track.
-func Preview() tela.Node { return tela.C(func() tela.Node { return playerAt(84) }) }
+func Preview() tela.Node { return tela.CP(playerAt, 84) }
 
 func main() {
 	tela.Run(tela.App{

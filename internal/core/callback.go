@@ -33,6 +33,13 @@ func (c Callback[F]) Fn() F {
 	return c.s.fwd
 }
 
+// IsZero reports whether c is the zero Callback, which is not tied to any
+// UseCallback slot: Fn panics. A Callback left unset in a props struct,
+// or read from a context default without a Provider, is zero.
+func (c Callback[F]) IsZero() bool { return c.s == nil }
+
+func (c Callback[F]) zeroHandle() bool { return c.s == nil }
+
 // UseCallback stores fn as the latest function of this hook slot and
 // returns the slot's Callback, whose Fn always calls the latest fn. F
 // must be a func type. There are no dependencies: the forwarder never

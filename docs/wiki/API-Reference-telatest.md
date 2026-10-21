@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountFunc`](#func-mountfunc) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountFunc`](#func-mountfunc) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
   - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay)
@@ -20,7 +20,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
-  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`InstantScroll`](#func-instantscroll) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Timeout`](#func-timeout)
+  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`InstantScroll`](#func-instantscroll) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Timeout`](#func-timeout)
   - [`type State`](#type-state): [`Checked`](#func-checked) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasValue`](#func-hasvalue) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
@@ -983,7 +983,7 @@ Option configures [`Mount`](#func-mount) and the headless entry points [`Render`
 func AllowDev(substrings ...string) Option
 ```
 
-AllowDev lists dev messages that do not fail a test under [`Dev`](#func-dev): those containing any of the substrings. It has no effect without [`Dev`](#func-dev).
+AllowDev lists dev errors that do not fail a test: those containing any of the substrings, which are logged instead. Dev warnings never fail a test, and AllowDev does nothing under [`NoDev`](#func-nodev).
 
 #### func CheckDamage
 
@@ -1051,7 +1051,7 @@ DebugClock replaces the clock the fps overlay times frames with: a frame took th
 func Dev() Option
 ```
 
-Dev turns dev mode on: unknown classes, lists without keys, hook-order mistakes and the other dev messages of the framework. With [`Mount`](#func-mount), every dev message fails the test (at the action that triggered it) unless [`AllowDev`](#func-allowdev) lists it. With [`Render`](#func-render) and the other entry points, the messages go to standard error.
+Dev turns dev mode on. It is the default since dev mode became the default (see [`NoDev`](#func-nodev)), so Dev changes nothing; it is kept for the tests written before, and undoes a [`NoDev`](#func-nodev) given earlier in the options.
 
 #### func InstantScroll
 
@@ -1060,6 +1060,31 @@ func InstantScroll() Option
 ```
 
 InstantScroll makes user scrolling jump, without animation or flings (tela.App.InstantScroll).
+
+#### func NoDev
+
+```go
+func NoDev() Option
+```
+
+NoDev turns dev mode off. Apps and the headless entry points run in dev mode by default, as a development build of an app does: unknown classes, roles, input types and easings, hooks called in another order or outside their component, and the dev warnings (lists without keys, nil dependencies, a Value read while changes are queued, a Label without a control...) are reported. With [`Mount`](#func-mount), a dev error (an unknown class, an image that cannot be loaded) fails the test at the action that caused it unless [`AllowDev`](#func-allowdev) lists it, a dev panic fails it as any panic does, and a warning is a test log line; with [`Render`](#func-render) and the other entry points, errors and warnings go to standard error.
+
+Use NoDev to test what a release build does. TELA_DEV=1 or TELA_DEV=0 in the environment overrides both NoDev and the default.
+
+**Example**
+
+```go
+// A typo in a class: in dev mode (the default) it fails the test with
+// the closest class, "rounded-2xl".
+card := func() tela.Node { return Div(Class("rounded-xxl p-4"), Text("Card")) }
+
+// NoDev tests what a release build does: the class is ignored and the
+// test goes on.
+app := telatest.Mount(t, tela.C(card), telatest.Size(200, 100), telatest.NoDev())
+app.ExpectText("Card")
+fmt.Println("ok")
+// Output: ok
+```
 
 #### func NoSettle
 

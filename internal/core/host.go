@@ -50,8 +50,13 @@ type Options struct {
 // Without opts.Fonts, the text uses the embedded fonts plus the system's
 // fonts for the scripts the embedded ones cannot draw (ADR-035). Without
 // opts.Debug, the debug overlays are the ones TELA_DEBUG names (debug.go).
+// opts.Dev (with TELA_DEV) also becomes the process default of dev mode,
+// which the node constructors check.
 func Run(opts Options) error {
 	runtime.LockOSThread()
+	// The app's dev mode is the process default of the node constructors
+	// (one app per process; ADR-085).
+	devAny.Store(configDev(opts.Dev))
 	if opts.Fonts == nil {
 		fonts := text.NewDefaultCollection()
 		if err := fonts.EnableSystemFonts(text.SystemFontOptions{}); err != nil {

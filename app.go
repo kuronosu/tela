@@ -1,6 +1,10 @@
 package tela
 
 import (
+	"fmt"
+	"io"
+	"os"
+
 	"github.com/kuronosu/tela/internal/core"
 )
 
@@ -48,6 +52,23 @@ type App struct {
 	// value, System, follows it. SetColorScheme changes it while the app
 	// runs.
 	ColorScheme ColorScheme
+	// Dev turns dev mode on or off. Dev mode reports the mistakes that
+	// compile: unknown classes are printed on standard error; unknown
+	// roles, input types and easings panic with the closest valid name;
+	// hooks called in another order or outside their component panic
+	// with the fix; likely mistakes (lists without keys, nil
+	// dependencies, a Value read while changes are queued...) are printed
+	// as warnings. It costs some speed.
+	//
+	// Nil, the default, means on unless the program is a release build:
+	// go run and go build in a source checkout give development builds,
+	// while a binary built with -trimpath, or installed with go install
+	// pkg@version, is a release build. The environment variable
+	// TELA_DEV=1 or TELA_DEV=0 overrides both Dev and the default.
+	//
+	//	off := false
+	//	tela.Main(tela.App{Title: "Notes", Root: Notes, Dev: &off})
+	Dev *bool
 }
 
 // Run opens a window, shows app.Root and runs the event loop until the
@@ -57,12 +78,37 @@ type App struct {
 //
 // Run returns an error when the platform cannot open a window (for
 // example, no display is available). It panics when app.Root is nil.
+// [Main] runs it and handles the error.
 func Run(app App) error {
 	if app.Root == nil {
 		panic("tela: Run(App{...}) needs a Root component; for example tela.Run(tela.App{Title: \"Demo\", Root: Counter}) where Counter is a func() tela.Node")
 	}
 	return core.Run(app.options())
 }
+
+// Main runs app with [Run] and, when Run returns an error (no display,
+// for example), prints it on standard error and exits with status 1. It
+// is the usual body of main:
+//
+//	func main() {
+//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+//	}
+//
+// Main returns when the window is closed. Like Run, it must be called
+// from the main goroutine, and it panics when app.Root is nil.
+func Main(app App) {
+	if err := mainRun(app); err != nil {
+		fmt.Fprintf(mainStderr, "tela: %v\n", err)
+		mainExit(1)
+	}
+}
+
+// What Main calls, replaced by its tests.
+var (
+	mainRun              = Run
+	mainExit             = os.Exit
+	mainStderr io.Writer = os.Stderr
+)
 
 // options returns the core options of the app.
 func (app App) options() core.Options {
@@ -72,6 +118,7 @@ func (app App) options() core.Options {
 			ClassicScrollbars: app.ClassicScrollbars,
 			InstantScroll:     app.InstantScroll,
 			ColorScheme:       app.ColorScheme,
+			Dev:               core.ResolveDev(app.Dev),
 		},
 		Title:  app.Title,
 		AppID:  app.AppID,

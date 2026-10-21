@@ -91,7 +91,7 @@ func Row(p RowProps) tela.Node {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return Directory() }
+func Preview() tela.Node { return tela.C(Directory) }
 
 func main() {
 	tela.Run(tela.App{

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/style"
@@ -194,6 +196,66 @@ func (t *Tree) labelControl(label *Element) *Element {
 	}
 	walk(label)
 	return found
+}
+
+// checkLabels warns, in dev mode, about the Labels mounted since the last
+// check that label no control: they neither wrap an Input, Textarea or
+// Button nor name a mounted one with For(id). Such a label names nothing
+// and its clicks focus nothing. Once per For value, or per wrapping
+// label's classes and text.
+func (t *Tree) checkLabels() {
+	labels := t.devLabels
+	t.devLabels = nil
+	for _, el := range labels {
+		if !el.mounted || t.labelControl(el) != nil {
+			continue
+		}
+		id := forID(el.node.d)
+		key := "label-for:" + id
+		if id == "" {
+			key = "label:" + el.node.d.describe() + ":" + t.labelText(el)
+		}
+		t.warnOnce(key, func() string {
+			if id != "" {
+				what := "no mounted element has Id(" + fmt.Sprintf("%q", id) + ")"
+				if o := t.byID(id); o != nil {
+					what = t.describe(o) + " has Id(" + fmt.Sprintf("%q", id) + ") but is not an Input, Textarea or Button"
+				}
+				return fmt.Sprintf("tela: Label %s %q has For(%q), but %s, so the label names no control and its clicks focus nothing. Give the field Id(%q), or put the field inside the Label; for a caption that labels nothing use Span or P",
+					el.node.d.describe(), t.labelText(el), id, what, id)
+			}
+			return fmt.Sprintf("tela: Label %s %q labels no control: it neither wraps an Input, Textarea or Button nor names one with For(id), so it names nothing and its clicks focus nothing. Put the field inside the Label, or give the field Id(\"x\") and the Label For(\"x\"); for a caption that labels nothing use Span or P",
+				el.node.d.describe(), t.labelText(el))
+		})
+	}
+}
+
+// labelText returns the text inside label el, for messages (truncated).
+func (t *Tree) labelText(el *Element) string {
+	var b strings.Builder
+	var walk func(e *Element)
+	walk = func(e *Element) {
+		for _, c := range e.children {
+			if b.Len() > 40 {
+				return
+			}
+			if c.kind == elemText {
+				b.WriteString(c.text)
+				continue
+			}
+			walk(c)
+		}
+	}
+	walk(el)
+	s := b.String()
+	if len(s) > 40 {
+		cut := 40
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		s = s[:cut] + "..."
+	}
+	return s
 }
 
 // labelsOf returns the Labels of control el in tree order: those whose

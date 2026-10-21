@@ -35,7 +35,7 @@ func Counter() tela.Node {
 |---|---|
 | [Getting Started](Getting-Started) | Install, write a counter, run it, render it without a window |
 | [Styling](Styling) | Tailwind classes, typed style props, variants, dark mode |
-| [Hooks](Hooks) | State, effects, memoization, context, refs, observable values |
+| [Hooks](Hooks) | State, effects, intervals and goroutines, memoization, context, refs, observable values |
 | [Events](Events) | Pointer, keyboard, focus, drag, long press, wheel |
 | [Elements and Props](Elements-and-Props) | Everything package `h` exports and how elements compose |
 | [Forms and Text Input](Forms-and-Text-Input) | `Input`, `Textarea`, `Form`, `Label`, IME |

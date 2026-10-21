@@ -175,6 +175,19 @@ func ExampleNoSettle() {
 	// {0 0 0 255}
 }
 
+func ExampleNoDev() {
+	// A typo in a class: in dev mode (the default) it fails the test with
+	// the closest class, "rounded-2xl".
+	card := func() tela.Node { return Div(Class("rounded-xxl p-4"), Text("Card")) }
+
+	// NoDev tests what a release build does: the class is ignored and the
+	// test goes on.
+	app := telatest.Mount(t, tela.C(card), telatest.Size(200, 100), telatest.NoDev())
+	app.ExpectText("Card")
+	fmt.Println("ok")
+	// Output: ok
+}
+
 func ExampleColorScheme() {
 	swatch := Div(Class("size-8 bg-white dark:bg-black"))
 	light, _ := telatest.Render(swatch, telatest.Size(8, 8), telatest.Dark(), telatest.ColorScheme(tela.Light))

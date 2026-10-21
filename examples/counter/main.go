@@ -34,6 +34,8 @@ func main() {
 	tela.Run(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
 }
 
-// Preview is the screen of `tela snapshot` and `tela inspect`. The CLI builds
-// it as a component, so Counter's UseState works.
-func Preview() tela.Node { return Counter() }
+// Preview is the screen of `tela snapshot` and `tela inspect`. Counter has
+// state, so it gets a component boundary of its own (calling Counter()
+// here would run its UseState as a hook of Preview, which dev mode
+// rejects).
+func Preview() tela.Node { return tela.C(Counter) }

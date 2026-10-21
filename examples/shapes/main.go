@@ -34,8 +34,8 @@ func Shapes() tela.Node {
 		// Glows: blurred discs behind the grid, clipped by the page.
 		Div(Class("absolute -top-40 -right-24 size-[28rem] rounded-full bg-indigo-200/60 blur-3xl")),
 		Div(Class("absolute -bottom-40 -left-24 size-[28rem] rounded-full bg-sky-200/70 blur-3xl")),
-		// Grid layout arrives with phase 6: the cards wrap in a flex row,
-		// each in a cell of the card size.
+		// The cards wrap in a flex row, each in a cell of the card size
+		// (written before grid existed; flex-wrap keeps the layout).
 		Div(cells...),
 	)
 }

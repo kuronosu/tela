@@ -56,6 +56,11 @@ func Form(children ...tela.Child) tela.Node { return core.Primitive(style.KindFo
 //
 //	Label(For("name"), Text("Name")), Input(Id("name"))
 //	Label(Text("Name "), Input())
+//
+// A Label that labels nothing (For naming no mounted Input, Textarea or
+// Button, and no such element inside) names nothing and focuses nothing;
+// dev mode warns about it once. For a caption that labels no field, use
+// Span or P.
 func Label(children ...tela.Child) tela.Node { return core.Primitive(style.KindLabel, children...) }
 
 // Value makes a text field controlled: it shows s, and after every event

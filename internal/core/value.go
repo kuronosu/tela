@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -157,12 +158,34 @@ func (o valueOp[T]) apply(cur T) T {
 // Get is safe from any goroutine. It returns the value the UI thread
 // applied last: Set and Update calls still waiting in the queue are not
 // visible until the UI thread applies them (on its next wake or frame).
+// In dev mode, a Get outside a build or a deferred closure (a handler, an
+// effect, a goroutine) while changes are queued is reported once per
+// call site, with Latest as the fix (ADR-085).
 func (v *Value[T]) Get() T {
 	p := v.load("Get")
 	if t := v.el.tree; t.trackDepth.Load() > 0 {
 		t.recordRead(&v.valueCore)
+	} else if t.dev {
+		v.checkPending(t)
 	}
 	return *p
+}
+
+// checkPending warns when Get reads v while changes of v are queued.
+func (v *Value[T]) checkPending(t *Tree) {
+	v.pmu.Lock()
+	n := len(v.pend)
+	v.pmu.Unlock()
+	if n == 0 {
+		return
+	}
+	var s callStack
+	s.capture(1) // from Get's caller
+	site := s.site()
+	t.warnOnce("get-pending:"+site, func() string {
+		return fmt.Sprintf("tela: Value.Get at %s reads a Value of %s while %d change(s) of it (Set, Update) are queued and not applied yet, so it returns the old value: Get returns what the UI thread applied last. In handlers, effects and goroutines use Latest(), which applies the queued changes",
+			site, typeName[T](), n)
+	})
 }
 
 // Set queues setting the value to x. Safe from any goroutine; the UI

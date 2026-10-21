@@ -10,7 +10,8 @@ import (
 // Class adds Tailwind v4 classes ("flex items-center gap-4 hover:bg-white/10").
 // It may repeat on an element; the strings concatenate in order and a later
 // class wins over an earlier one that sets the same property. An unknown
-// class is reported in dev mode (TELA_DEV=1) with the closest valid one.
+// class is reported in dev mode (on in development builds, see tela.App.Dev)
+// with the closest valid one.
 func Class(classes string) tela.Prop { return core.Class(classes) }
 
 // Style adds typed style props from package tela, for values computed in

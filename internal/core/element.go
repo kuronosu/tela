@@ -120,7 +120,8 @@ type flatEntry struct {
 	scope, sub int32
 	key        any
 	keyed      bool
-	dynamic    bool // comes from a Map or List
+	dynamic    bool       // comes from a Map or List
+	site       *callStack // where that list was made (dev mode)
 }
 
 func (e *flatEntry) id() childID {
@@ -212,7 +213,7 @@ func flatten(out []flatEntry, children []Node) []flatEntry {
 			if d.keyed {
 				prefix = d.key
 			}
-			out = flattenFragment(out, d, int32(i), &sub, prefix, &inner, d.dynamic)
+			out = flattenFragment(out, d, int32(i), &sub, prefix, &inner, listOf(nil, d))
 			continue
 		}
 		out = append(out, flatEntry{n: c, scope: -1, sub: int32(i), key: d.key, keyed: d.keyed})
@@ -225,8 +226,9 @@ func flatten(out []flatEntry, children []Node) []flatEntry {
 // whole list (nested fragments flattened). Inside a keyed fragment the
 // children get the key keyPair{fragment key, own key or position in the
 // keyed fragment}, so a keyed group keeps its children's identities when
-// it moves; inner counts those positions.
-func flattenFragment(out []flatEntry, f *desc, scope int32, sub *int32, prefix any, inner *int32, dynamic bool) []flatEntry {
+// it moves; inner counts those positions. list is the innermost dynamic
+// fragment (Map, List) f is in, or nil: its children are dynamic entries.
+func flattenFragment(out []flatEntry, f *desc, scope int32, sub *int32, prefix any, inner *int32, list *desc) []flatEntry {
 	for _, c := range f.children {
 		d := c.d
 		if d == nil {
@@ -237,14 +239,17 @@ func flattenFragment(out []flatEntry, f *desc, scope int32, sub *int32, prefix a
 		if d.kind == nodeFragment {
 			if d.keyed {
 				var n int32
-				out = flattenFragment(out, d, scope, sub, keyPair{prefix, d.key}, &n, dynamic || d.dynamic)
+				out = flattenFragment(out, d, scope, sub, keyPair{prefix, d.key}, &n, listOf(list, d))
 			} else {
-				out = flattenFragment(out, d, scope, sub, prefix, inner, dynamic || d.dynamic)
+				out = flattenFragment(out, d, scope, sub, prefix, inner, listOf(list, d))
 			}
 			*inner++
 			continue
 		}
-		e := flatEntry{n: c, scope: scope, sub: *sub, key: d.key, keyed: d.keyed, dynamic: dynamic}
+		e := flatEntry{n: c, scope: scope, sub: *sub, key: d.key, keyed: d.keyed}
+		if list != nil {
+			e.dynamic, e.site = true, list.site
+		}
 		if prefix != nil {
 			k := any(*inner)
 			if d.keyed {
@@ -257,6 +262,15 @@ func flattenFragment(out []flatEntry, f *desc, scope int32, sub *int32, prefix a
 		*inner++
 	}
 	return out
+}
+
+// listOf returns the innermost dynamic fragment for the children of
+// fragment d inside list (nil when neither is dynamic).
+func listOf(list, d *desc) *desc {
+	if d.dynamic {
+		return d
+	}
+	return list
 }
 
 // ---------------------------------------------------------------------
@@ -286,7 +300,7 @@ func (t *Tree) reconcileOne(parent *Element, n Node) {
 		if d.keyed {
 			prefix = d.key
 		}
-		entries = flattenFragment(buf[:0], d, 0, &sub, prefix, &inner, d.dynamic)
+		entries = flattenFragment(buf[:0], d, 0, &sub, prefix, &inner, listOf(nil, d))
 	default:
 		entries = append(buf[:0], flatEntry{n: n, scope: -1, key: d.key, keyed: d.keyed})
 	}
@@ -365,15 +379,22 @@ func (t *Tree) reconcileEntries(parent *Element, entries []flatEntry) {
 	t.markStructural(p)
 }
 
-// checkKeys warns, once per parent, about dynamic lists (Map, List) with
-// two or more children without keys, and about duplicate keys.
+// checkKeys warns about dynamic lists (Map, List) with two or more
+// children without keys, and about duplicate keys among siblings: once
+// per call site of the list's Map or List when it is known (dev mode
+// records it), else once per parent. A parent is checked until it is
+// warned about.
 func (t *Tree) checkKeys(parent *Element, entries []flatEntry) {
 	unkeyed := 0
+	var site *callStack
 	var seen map[childID]bool
 	for i := range entries {
 		e := &entries[i]
 		if e.dynamic && !e.keyed {
 			unkeyed++
+			if site == nil {
+				site = e.site
+			}
 		}
 		if e.keyed {
 			if seen == nil {
@@ -382,7 +403,10 @@ func (t *Tree) checkKeys(parent *Element, entries []flatEntry) {
 			id := e.id()
 			if seen[id] {
 				parent.warnedKeys = true
-				t.logf("tela: duplicate key %v among the children of %s; keys must be unique among siblings, or the duplicates are remounted on every build", e.key, t.describe(parent))
+				where := keySite(e.site)
+				t.warnOnce(keyWarnKey("dup-key", e.site, parent), func() string {
+					return fmt.Sprintf("tela: duplicate key %v among the children of %s%s; keys must be unique among siblings, or the duplicates are remounted on every build", e.key, t.describe(parent), where)
+				})
 				return
 			}
 			seen[id] = true
@@ -390,8 +414,29 @@ func (t *Tree) checkKeys(parent *Element, entries []flatEntry) {
 	}
 	if unkeyed >= 2 {
 		parent.warnedKeys = true
-		t.logf("tela: %d children of a list (Map or List) under %s have no key; give each item a Key (its ID) so that its state follows it when the list changes", unkeyed, t.describe(parent))
+		where := keySite(site)
+		t.warnOnce(keyWarnKey("no-key", site, parent), func() string {
+			return fmt.Sprintf("tela: %d children of a list (Map or List) under %s%s have no key; give each item a Key (its ID) so that its state follows it when the list changes", unkeyed, t.describe(parent), where)
+		})
 	}
+}
+
+// keySite returns " (the list made at pkg.F (f.go:12))" for a known
+// call site, "" otherwise.
+func keySite(s *callStack) string {
+	if s == nil {
+		return ""
+	}
+	return " (the list made at " + s.site() + ")"
+}
+
+// keyWarnKey returns the key of a key warning: per call site of the list
+// when known, else per parent element.
+func keyWarnKey(kind string, s *callStack, parent *Element) string {
+	if s != nil {
+		return kind + ":" + s.site()
+	}
+	return fmt.Sprintf("%s:%p", kind, parent)
 }
 
 // describe names an element for messages.
@@ -525,6 +570,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		}
 		if d.fp != nil {
 			t.setLabelFor(el, "")
+		}
+		if t.dev && d.elem == style.KindLabel {
+			t.devLabels = append(t.devLabels, el)
 		}
 		if d.elem.IsTextField() {
 			t.mountField(el)

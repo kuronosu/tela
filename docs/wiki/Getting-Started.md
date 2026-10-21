@@ -51,19 +51,17 @@ func Counter() tela.Node {
 }
 
 // Preview lets `tela snapshot` and `tela inspect` render the screen.
+// Counter has state, so it is wrapped in tela.C, like App.Root.
 func Preview() tela.Node { return tela.C(Counter) }
 
 func main() {
-	err := tela.Run(tela.App{
+	tela.Main(tela.App{
 		Title:     "Counter",
 		Width:     480,
 		Height:    320,
 		RootClass: "bg-slate-100",
 		Root:      Counter,
 	})
-	if err != nil {
-		panic(err)
-	}
 }
 ```
 
@@ -76,9 +74,13 @@ The pieces:
 - [`Class`](https://pkg.go.dev/github.com/kuronosu/tela/h#Class) takes [Tailwind v4](https://tailwindcss.com/docs) classes. Variants
   such as `hover:` and `active:` restyle the button under the pointer.
 - [`OnClick`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnClick) receives a [`tela.MouseEvent`](https://pkg.go.dev/github.com/kuronosu/tela#MouseEvent) by value.
-- [`tela.App`](https://pkg.go.dev/github.com/kuronosu/tela#App) describes the window and [`tela.Run`](https://pkg.go.dev/github.com/kuronosu/tela#Run) opens it and runs the event loop
-  until it is closed. It returns an error when no display is available, and
-  panics when `Root` is nil.
+- [`tela.App`](https://pkg.go.dev/github.com/kuronosu/tela#App) describes the window and [`tela.Main`](https://pkg.go.dev/github.com/kuronosu/tela#Main) opens it and runs the event loop
+  until it is closed. When no display is available it prints the error and
+  exits with status 1 ([`tela.Run`](https://pkg.go.dev/github.com/kuronosu/tela#Run) returns the error instead). Both panic when
+  `Root` is nil.
+- `Preview` returns `tela.C(Counter)`, not `Counter()`: calling a component
+  with hooks directly would run its hooks inside `Preview`, and dev mode
+  stops you with the fix.
 
 ## Run it
 
@@ -137,11 +139,24 @@ clock.
 
 ## Dev mode
 
-Set `TELA_DEV=1` while developing: Tela then reports mistakes it would
-otherwise let pass, with the fix: an unknown class (`unknown class
-"rounded-xxl"; did you mean "rounded-2xl"?`), a list without keys, a change in
-the order of hooks, and props that a [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) component cannot compare.
-`telatest.Dev()` turns it on in a test and makes every message fail the test.
+While you develop, Tela reports the mistakes that compile, with the fix. Dev
+mode is on in every development build (`go run .`, `go build` in a source
+checkout) and in every `telatest` test, and off in release builds (built with
+`-trimpath`, or installed with `go install pkg@version`).
+[`App.Dev`](https://pkg.go.dev/github.com/kuronosu/tela#App) overrides that, and `TELA_DEV=1` or `TELA_DEV=0` overrides both.
+
+- An unknown class is printed with the closest one (`unknown class
+  "rounded-xxl"; did you mean "rounded-2xl"?`); in a test it fails the test.
+- An unknown role, input type or easing, a change in the order of hooks, and
+  a hook called outside its component (`Counter()` where `tela.C(Counter)`
+  belongs) panic with the fix.
+- Likely mistakes are warnings, printed once per call site (test log lines in
+  `telatest`): a list without keys, `UseEffect(f, nil)` (use `UseMount`), props
+  that a [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) component cannot compare, a `Value.Get` that misses queued
+  changes (use `Latest`), a context without a Provider whose default would
+  panic, a `Label` that labels nothing.
+
+`telatest.NoDev()` tests what a release build does.
 
 ## Next steps
 

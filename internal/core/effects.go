@@ -1,5 +1,7 @@
 package core
 
+import "context"
+
 // Effects (ARCHITECTURE sections 7 and 8). A build records which effect
 // slots must run (their dependencies changed); when the build ends they
 // are queued on the Tree after the effects of the components built inside
@@ -15,9 +17,12 @@ package core
 // unmounted before its commit never run. Frame and Mount first flush
 // the passive effects of a previous frame that was never presented.
 
-// effectSlot is the slot of one UseEffect or UseLayoutEffect call.
+// effectSlot is the slot of one UseEffect or UseLayoutEffect call (and of
+// the effect hooks built on them: UseMount, UseEffectDo, UseUpdateEffect,
+// UseGo, UseInterval).
 type effectSlot struct {
 	el      *Element
+	kind    hookKind
 	layout  bool
 	effect  func() func()
 	cleanup func() // from the last run of effect
@@ -49,8 +54,9 @@ func (s *effectSlot) unmount(t *Tree) {
 //
 // Dependencies follow React: none runs the effect after every build; a
 // single nil (UseEffect(f, nil)) runs it only after the first build (a
-// constant dependency, React's []); otherwise the values are compared
-// with == against the previous build's. Values that cannot be compared
+// constant dependency, React's []; deprecated in favor of UseMount, and
+// warned about in dev mode); otherwise the values are compared with ==
+// against the previous build's. Values that cannot be compared
 // (functions, slices, maps) count as changed on every build.
 func UseEffect(effect func() func(), deps ...any) { useEffect(hookEffect, effect, deps) }
 
@@ -65,29 +71,87 @@ func useEffect(kind hookKind, effect func() func(), deps []any) {
 		panic("tela: " + kind.String() + "(nil): pass the effect, a func() func() that returns its cleanup or nil")
 	}
 	el, i := nextSlot(kind)
-	layout := kind == hookLayoutEffect
 	if i < len(el.hooks) {
 		s, ok := el.hooks[i].(*effectSlot)
-		if !ok || s.layout != layout {
+		if !ok || s.kind != kind {
 			el.tree.slotMismatch(el, i, kind.String())
 		}
-		changed := el.tree.depsChanged(el, i, s.deps, deps)
-		if changed {
-			s.deps = append(s.deps[:0], deps...)
-		}
-		if changed || s.pending {
-			s.effect = effect
-		}
-		if changed && !s.pending {
-			s.pending = true
-			el.fx = append(el.fx, s)
-		}
+		s.update(i, effect, deps)
 		return
 	}
-	el.tree.checkDeps(el, i, deps)
-	s := &effectSlot{el: el, layout: layout, effect: effect, deps: append([]any(nil), deps...), pending: true}
-	el.hooks = append(el.hooks, s)
-	el.fx = append(el.fx, s)
+	el.hooks = append(el.hooks, newEffectSlot(el, i, kind, effect, deps))
+}
+
+// newEffectSlot returns effect slot i of el, created by this build. It
+// runs at the next commit, except an update effect's, which skips the
+// first build.
+func newEffectSlot(el *Element, i int, kind hookKind, effect func() func(), deps []any) *effectSlot {
+	t := el.tree
+	t.checkDeps(el, i, deps)
+	t.checkNilDeps(el, i, kind, deps)
+	s := &effectSlot{el: el, kind: kind, layout: kind == hookLayoutEffect, effect: effect,
+		deps: append([]any(nil), deps...), pending: kind != hookUpdateEffect}
+	if s.pending {
+		el.fx = append(el.fx, s)
+	}
+	return s
+}
+
+// update records the effect and the dependencies of a later build of
+// slot i: the effect runs at the next commit when they changed.
+func (s *effectSlot) update(i int, effect func() func(), deps []any) {
+	el := s.el
+	changed := el.tree.depsChanged(el, i, s.deps, deps)
+	if changed {
+		s.deps = append(s.deps[:0], deps...)
+	}
+	if changed || s.pending {
+		s.effect = effect
+	}
+	if changed && !s.pending {
+		s.pending = true
+		el.fx = append(el.fx, s)
+	}
+}
+
+// mountOnly is the dependency list of UseMount: a constant, so the effect
+// runs after the first build only.
+var mountOnly = []any{struct{ mount bool }{true}}
+
+// UseMount runs effect once, after the frame that shows the component for
+// the first time; the cleanup it returns (nil for none) runs when the
+// component unmounts. It is UseEffect with a constant dependency.
+func UseMount(effect func() func()) { useEffect(hookMount, effect, mountOnly) }
+
+// UseEffectDo is UseEffect for an effect without a cleanup.
+func UseEffectDo(f func(), deps ...any) {
+	if f == nil {
+		panic("tela: UseEffectDo(nil, ...): pass the function to run after the frame is presented")
+	}
+	useEffect(hookEffectDo, func() func() { f(); return nil }, deps)
+}
+
+// UseUpdateEffect is UseEffect without the run of the first build: the
+// effect runs after the later builds whose dependencies changed (React's
+// useUpdateEffect), and its cleanup before it runs again and on unmount.
+func UseUpdateEffect(effect func() func(), deps ...any) {
+	useEffect(hookUpdateEffect, effect, deps)
+}
+
+// UseGo runs f on a goroutine of its own after the frame is presented,
+// when its dependencies changed, like UseEffect; the cleanup cancels ctx
+// (when the dependencies change again or the component unmounts) before
+// the next run starts. The goroutine is not waited for: f must return
+// soon after ctx is done.
+func UseGo(f func(ctx context.Context), deps ...any) {
+	if f == nil {
+		panic("tela: UseGo(nil, ...): pass the function to run on a goroutine, a func(ctx context.Context) that returns when ctx is done")
+	}
+	useEffect(hookGo, func() func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		go f(ctx)
+		return cancel
+	}, deps)
 }
 
 // queueEffects moves the effects recorded by the build of el to the
@@ -201,8 +265,34 @@ func UseMemo[T any](compute func() T, deps ...any) T {
 		return s.value
 	}
 	el.tree.checkDeps(el, i, deps)
+	el.tree.checkNilDeps(el, i, hookMemo, deps)
 	s := &memoSlot[T]{deps: append([]any(nil), deps...)}
 	el.hooks = append(el.hooks, s)
 	s.value = compute()
+	return s.value
+}
+
+// onceSlot is the slot of one UseOnce call.
+type onceSlot[T any] struct{ value T }
+
+// UseOnce returns init(), called on the first build only; later builds
+// return the same value. It is UseMemo without dependencies, for a value
+// that a component creates once (a client, a buffer, a struct of
+// custom-hook state).
+func UseOnce[T any](init func() T) T {
+	if init == nil {
+		panic("tela: UseOnce(nil): pass the function that creates the value")
+	}
+	el, i := nextSlot(hookOnce)
+	if i < len(el.hooks) {
+		s, ok := el.hooks[i].(*onceSlot[T])
+		if !ok {
+			el.tree.slotMismatch(el, i, "UseOnce["+typeName[T]()+"]")
+		}
+		return s.value
+	}
+	s := &onceSlot[T]{}
+	el.hooks = append(el.hooks, s)
+	s.value = init()
 	return s.value
 }

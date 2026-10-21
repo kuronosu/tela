@@ -1,6 +1,11 @@
 package tela
 
-import "github.com/kuronosu/tela/internal/core"
+import (
+	"context"
+	"time"
+
+	"github.com/kuronosu/tela/internal/core"
+)
 
 func init() {
 	// UseCallback builds the forwarders of the event handler types
@@ -34,7 +39,9 @@ func init() {
 // from any goroutine: they queue the update and wake the UI thread, which
 // applies the queued updates in order before the next build. Updates to a
 // component that has been unmounted are dropped. The zero Setter is not
-// tied to any state; its methods panic.
+// tied to any state; its methods panic, and IsZero reports it (a Setter
+// field left unset, or one read from a context default without a
+// Provider).
 //
 //	setCount.Set(0)
 //	setCount.Update(func(n int) int { return n + 1 })
@@ -54,7 +61,12 @@ type Dispatcher[A any] = core.Dispatcher[A]
 // [UseCallback]: cb.Fn() returns one forwarding function, the same on
 // every build, that calls the latest function. It is comparable, so a
 // props struct holding one stays comparable and [CP] can skip the
-// component that receives it.
+// component that receives it. The zero Callback is tied to no slot: Fn
+// panics, and IsZero reports it, for optional callbacks in props:
+//
+//	if !p.OnClose.IsZero() {
+//	    p.OnClose.Fn()()
+//	}
 type Callback[F any] = core.Callback[F]
 
 // Ref is a mutable box returned by [UseRef]: the same pointer on every
@@ -180,11 +192,19 @@ func UseState[T any](initial T) (T, Setter[T]) { return core.UseState(initial) }
 //
 //	name, setName := tela.UseStateSet("")
 //	setName("Ada")
+//
+// It exists for code that wants React's shape, a setter that is a
+// function: to pass it where a func(T) is expected (a callback of a
+// library, a field's handler) without wrapping it, and to keep code ported
+// from React reading the same. The function is the same on every build,
+// but funcs are not comparable in Go, so a props struct holding one makes
+// [CP] rebuild its component every time; pass the [Setter] of UseState in
+// props instead.
 func UseStateSet[T any](initial T) (T, func(T)) { return core.UseStateSet(initial) }
 
 // UseStateUpdate is [UseState] for those who only update from the
 // previous state: it returns the Setter's Update method as a plain
-// function, made once per slot.
+// function, made once per slot, for the same reasons as [UseStateSet].
 //
 //	count, update := tela.UseStateUpdate(0)
 //	update(func(n int) int { return n + 1 })
@@ -223,32 +243,21 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 // The dependencies follow React:
 //
 //	tela.UseEffect(f)          // after every build
-//	tela.UseEffect(f, nil)     // only after the first build (React's [])
 //	tela.UseEffect(f, id, n)   // when id or n changed (compared with ==)
+//	tela.UseMount(f)           // only after the first build (React's [])
 //
-// A single nil is a constant dependency, so the effect runs only on mount
-// and its cleanup only on unmount: the idiom for subscriptions and timers.
-//
-//	tela.UseEffect(func() func() {
-//	    tick := time.NewTicker(time.Second)
-//	    done := make(chan struct{})
-//	    go func() {
-//	        for {
-//	            select {
-//	            case now := <-tick.C:
-//	                setNow.Set(now) // safe from any goroutine
-//	            case <-done:
-//	                return
-//	            }
-//	        }
-//	    }()
-//	    return func() { tick.Stop(); close(done) }
-//	}, nil)
+// For an effect that runs once, on mount, with its cleanup on unmount (a
+// subscription), use [UseMount]; [UseEffectDo] takes an effect without a
+// cleanup, [UseUpdateEffect] skips the first build, and periodic and
+// background work have [UseInterval] and [UseGo]. A single nil
+// dependency, UseEffect(f, nil), still means "only on mount", but it is
+// deprecated (React reads a null list as "after every render"): dev mode
+// warns about it, and a later version will reject it.
 //
 // Values that cannot be compared (functions, slices, maps) count as
-// changed on every build; dev mode (TELA_DEV=1) reports them, and a
-// dependency count that changes between builds. Pass an ID, a comparable
-// value or a [Callback] instead.
+// changed on every build; dev mode reports them, and a dependency count
+// that changes between builds. Pass an ID, a comparable value or a
+// [Callback] instead.
 //
 // Within a frame, the effects of children run before their parents', and
 // every cleanup runs before the effects that follow it. Effects of a
@@ -256,19 +265,83 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 // applied in a later frame.
 func UseEffect(effect func() func(), deps ...any) { core.UseEffect(effect, deps...) }
 
+// UseMount runs effect once, after the frame that first shows the
+// component, and the cleanup it returns (nil for none) when the component
+// unmounts: the idiom for subscriptions, listeners and other setup that
+// lives as long as the component (React's useEffect(f, [])).
+//
+//	tela.UseMount(func() func() {
+//	    unsubscribe := store.Subscribe(func(s State) { setState.Set(s) })
+//	    return unsubscribe
+//	})
+func UseMount(effect func() func()) { core.UseMount(effect) }
+
+// UseOnce returns init(), called on the first build only; later builds
+// return the same value. Use it for what a component creates once and
+// keeps: a client, a buffer, the state struct of a custom hook. It is
+// [UseMemo] without dependencies; the value is not reactive (store
+// what changes in [UseState] or [UseValue]).
+//
+//	cache := tela.UseOnce(func() map[string]Image { return map[string]Image{} })
+func UseOnce[T any](init func() T) T { return core.UseOnce(init) }
+
+// UseEffectDo is [UseEffect] for an effect without a cleanup: f runs after
+// the frame is presented when the dependencies changed.
+//
+//	tela.UseEffectDo(func() { title.Set(fmt.Sprintf("%d unread", n)) }, n)
+func UseEffectDo(f func(), deps ...any) { core.UseEffectDo(f, deps...) }
+
+// UseUpdateEffect is [UseEffect] without the run of the first build: the
+// effect runs after the later builds whose dependencies changed (react-use's
+// useUpdateEffect), and its cleanup before it runs again and on unmount.
+// Use it to react to changes, not to the initial value.
+//
+//	tela.UseUpdateEffect(func() func() {
+//	    save(settings) // not on mount, only when settings change
+//	    return nil
+//	}, settings)
+func UseUpdateEffect(effect func() func(), deps ...any) { core.UseUpdateEffect(effect, deps...) }
+
+// UseInterval calls f on the UI thread every d, the first time d after the
+// frame that first shows the component, until it unmounts. d <= 0 pauses
+// it, and a new d restarts it. f is always the latest build's function, so
+// it sees the latest state and needs no dependencies. It runs on the
+// window's frame clock, like the long-press timer, with no goroutine:
+// telatest's App.Advance moves it, and a headless Render never runs it.
+//
+//	now, setNow := tela.UseState(time.Now())
+//	tela.UseInterval(time.Second, func() { setNow.Set(time.Now()) })
+func UseInterval(d time.Duration, f func()) { core.UseInterval(d, f) }
+
+// UseGo runs f on a goroutine of its own after the frame is presented,
+// when its dependencies changed, like [UseEffect]; ctx is cancelled at
+// cleanup, when the dependencies change again or the component unmounts,
+// before the next run starts. f must return soon after ctx is done (it is
+// not waited for) and must change the UI only through what is safe from
+// any goroutine: a [Setter], a [Value], [Post].
+//
+//	tela.UseGo(func(ctx context.Context) {
+//	    for page := range fetchPages(ctx, query) {
+//	        setResults.Update(func(r []Result) []Result { return append(r, page...) })
+//	    }
+//	}, query) // restarts, cancelling the old fetch, when query changes
+//
+// The dependencies follow UseEffect's: none restarts f after every build.
+func UseGo(f func(ctx context.Context), deps ...any) { core.UseGo(f, deps...) }
+
 // UseLayoutEffect is [UseEffect], but the effect runs in the frame after
 // layout and before paint, with the same dependencies and cleanups. Its
 // state updates are applied in the next frame.
 //
 //	tela.UseLayoutEffect(func() func() {
-//	    log.Println("laid out")
+//	    list.ScrollIntoView() // before the frame with the new item is painted
 //	    return nil
-//	}, nil)
+//	}, len(items))
 func UseLayoutEffect(effect func() func(), deps ...any) { core.UseLayoutEffect(effect, deps...) }
 
 // UseMemo returns compute(), computed on the first build and again only
 // when the dependencies changed (compared like [UseEffect]'s: none
-// recomputes on every build, a single nil never).
+// recomputes on every build). For a value computed once, use [UseOnce].
 //
 //	visible := tela.UseMemo(func() []Todo { return filter(todos, query) }, len(todos), query)
 func UseMemo[T any](compute func() T, deps ...any) T { return core.UseMemo(compute, deps...) }
@@ -305,10 +378,10 @@ func UseRef[T any](initial T) *Ref[T] { return core.UseRef(initial) }
 //
 //	func Search() tela.Node {
 //	    input := tela.UseElementRef()
-//	    tela.UseEffect(func() func() {
+//	    tela.UseMount(func() func() {
 //	        input.Focus()
 //	        return nil
-//	    }, nil)
+//	    })
 //	    return Div(Ref(input), TabIndex(0), Class("rounded-md p-2 focus:ring-2"), Text("Search"))
 //	}
 func UseElementRef() ElementRef { return core.UseElementRef() }
@@ -358,6 +431,13 @@ func CreateContext[T any](def T) *Context[T] { return core.CreateContext(def) }
 // component, or the context's default when there is none.
 //
 //	theme := tela.UseContext(Theme)
+//
+// In dev mode, reading a context without a Provider above warns (once per
+// context) when its default is not safe to use: nil, or holding a nil
+// function, pointer, map, channel or interface, or a zero [Setter] or
+// [Callback], in an exported field. Either provide the context above
+// every reader, or give CreateContext a default that works; IsZero tells
+// a zero Setter or Callback apart where a missing Provider is expected.
 func UseContext[T any](ctx *Context[T]) T { return core.UseContext(ctx) }
 
 // UseValue returns the [Value] of this hook slot: an observable value for
@@ -383,13 +463,11 @@ func UseContext[T any](ctx *Context[T]) T { return core.UseContext(ctx) }
 // reading a Value stops being redone by it. A progress bar fed by a
 // goroutine, which lays out the bar again without building Download:
 //
-//	func Download() tela.Node {
+//	func Download(url string) tela.Node {
 //	    progress := tela.UseValue(0.0) // from 0 to 1
-//	    tela.UseEffect(func() func() {
-//	        ctx, cancel := context.WithCancel(context.Background())
-//	        go fetch(ctx, func(done float64) { progress.Set(done) }) // any goroutine
-//	        return cancel
-//	    }, nil)
+//	    tela.UseGo(func(ctx context.Context) {
+//	        fetch(ctx, url, func(done float64) { progress.Set(done) }) // any goroutine
+//	    }, url)
 //	    return Div(Class("h-2 w-64 overflow-hidden rounded-full bg-slate-200"),
 //	        Div(Class("h-full bg-indigo-500"),
 //	            Style(tela.WidthFn(func() float32 { return float32(256 * progress.Get()) }))))
@@ -410,6 +488,21 @@ func UseContext[T any](ctx *Context[T]) T { return core.UseContext(ctx) }
 // Reading the same Value in the body instead (x := offset.Get()) would
 // build the component on every change. Values read by the closures of
 // another window's tree are not tracked.
+//
+// Because the *Value is stable and comparable, a struct of Values is a
+// good return value for a custom hook: the caller keeps the struct
+// between builds, passes it in [CP] props or a context without defeating
+// skipping, and each reader redoes only what it read.
+//
+//	type Drag struct{ X, Y *tela.Value[float32] }
+//
+//	func UseDrag() Drag {
+//	    return Drag{X: tela.UseValue(float32(0)), Y: tela.UseValue(float32(0))}
+//	}
+//
+// In handlers, effects and goroutines, read a Value that may have queued
+// changes with Latest: Get returns the value applied last, and dev mode
+// warns about a Get that misses queued changes.
 func UseValue[T any](initial T) *Value[T] { return core.UseValue(initial) }
 
 // UseId returns a string that identifies this hook slot, for accessibility
@@ -422,8 +515,10 @@ func UseId() string { return core.UseId() }
 
 // C returns a node that builds fn as a component with its own state: a
 // component boundary (ARCHITECTURE section 7). Calling fn() directly
-// instead runs it inside the caller's build, as a custom hook whose hooks
-// belong to the caller.
+// instead runs it inside the caller's build, so its hooks would take the
+// caller's slots: dev mode panics when a hook is called from a function
+// that is neither the component being built (or a function literal inside
+// it) nor a custom hook named UseXxx or useXxx, and says to wrap it.
 //
 //	Div(tela.C(Header), tela.C(Body))
 //
@@ -447,8 +542,8 @@ func C(fn func() Node) Node { return core.Component(fn) }
 //	tela.CP(Card, CardProps{Title: "Inbox", OnOpen: onOpen})
 //
 // Give CP a named function and pass everything it uses in its props:
-// variables captured by a closure are not compared, so dev mode
-// (TELA_DEV=1) reports anonymous functions once per call site. Keep props
+// variables captured by a closure are not compared, so dev mode reports
+// anonymous functions once per call site. Keep props
 // comparable by passing [Callback] values instead of funcs, and IDs instead
 // of slices or maps; a props value whose == panics counts as changed.
 func CP[P comparable](fn func(P) Node, props P) Node { return core.ComponentProps(fn, props) }

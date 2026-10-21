@@ -15,7 +15,14 @@ type Node = core.Node
 // Child is what an element takes: a [Node] (a child) or a [Prop] (h.Class,
 // h.Style, h.Key, h.OnClick...). Props and children may be mixed in any
 // order. The interface is sealed: passing a string or any other value is a
-// compile error; wrap text in h.Text.
+// compile error; wrap text in h.Text. The compiler names the internal type
+// behind the alias and its unexported method:
+//
+//	cannot use "hello" (constant of type string) as tela.Child value in
+//	argument to Div: string does not implement core.Child (missing method
+//	applyChild)
+//
+// means Div("hello") should be Div(Text("hello")).
 type Child = core.Child
 
 // Prop is a property of an element: classes, typed style, key, event

@@ -732,25 +732,70 @@ func TestUnmountsWhenTheTestEnds(t *testing.T) {
 }
 
 func TestDevMessages(t *testing.T) {
+	t.Setenv("TELA_DEV", "")
 	root := func() tela.Node { return Div(Class("rounded-xxl"), Text("x")) }
-	f := run(t, func(tb testing.TB) {
-		telatest.Mount(tb, tela.C(root), telatest.Size(100, 100), telatest.Dev())
-	})
-	got := f.failures()
-	if !f.failed || !strings.Contains(got, "dev message") || !strings.Contains(got, "rounded-2xl") {
-		t.Errorf("Dev() did not fail on an unknown class with a suggestion:\n%s", got)
+	// Dev mode is the default; Dev() is a no-op alias kept for old tests.
+	for _, opts := range [][]telatest.Option{nil, {telatest.Dev()}, {telatest.NoDev(), telatest.Dev()}} {
+		f := run(t, func(tb testing.TB) {
+			telatest.Mount(tb, tela.C(root), append([]telatest.Option{telatest.Size(100, 100)}, opts...)...)
+		})
+		got := f.failures()
+		if !f.failed || !strings.Contains(got, "dev message") || !strings.Contains(got, "rounded-2xl") {
+			t.Errorf("%d options: an unknown class did not fail the test with a suggestion:\n%s", len(opts), got)
+		}
 	}
-	f = run(t, func(tb testing.TB) {
-		telatest.Mount(tb, tela.C(root), telatest.Size(100, 100), telatest.Dev(), telatest.AllowDev("rounded-xxl"))
+	f := run(t, func(tb testing.TB) {
+		telatest.Mount(tb, tela.C(root), telatest.Size(100, 100), telatest.AllowDev("rounded-xxl"))
 	})
 	if f.failed {
 		t.Errorf("AllowDev did not accept the message:\n%s", f.failures())
 	}
 	f = run(t, func(tb testing.TB) {
-		telatest.Mount(tb, tela.C(root), telatest.Size(100, 100))
+		telatest.Mount(tb, tela.C(root), telatest.Size(100, 100), telatest.NoDev())
 	})
 	if f.failed {
-		t.Errorf("a message failed the test without Dev():\n%s", f.failures())
+		t.Errorf("a message failed the test under NoDev():\n%s", f.failures())
+	}
+	// TELA_DEV=0 overrides the default, TELA_DEV=1 overrides NoDev.
+	t.Setenv("TELA_DEV", "0")
+	if f = run(t, func(tb testing.TB) { telatest.Mount(tb, tela.C(root), telatest.Size(100, 100)) }); f.failed {
+		t.Errorf("TELA_DEV=0: a message failed the test:\n%s", f.failures())
+	}
+	t.Setenv("TELA_DEV", "1")
+	if f = run(t, func(tb testing.TB) { telatest.Mount(tb, tela.C(root), telatest.Size(100, 100), telatest.NoDev()) }); !f.failed {
+		t.Error("TELA_DEV=1 with NoDev: the unknown class did not fail the test")
+	}
+}
+
+// TestMountComponentCall checks the message of a component called where a
+// node is expected: its hooks run before any build.
+func TestMountComponentCall(t *testing.T) {
+	var msg string
+	func() {
+		defer func() { msg = fmt.Sprint(recover()) }()
+		telatest.Mount(t, Counter())
+	}()
+	for _, want := range []string{
+		"UseState called outside a component build, from telatest_test.Counter (telatest_test.go:",
+		"wrap the root in tela.C(Counter)",
+		"telatest.Mount(t, tela.C(Counter))",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("panic %q\ndoes not contain %q", msg, want)
+		}
+	}
+}
+
+func TestDevWarningsAreLogs(t *testing.T) {
+	t.Setenv("TELA_DEV", "")
+	items := []string{"a", "b", "c"}
+	root := func() tela.Node {
+		return Div(Map(items, func(s string) tela.Node { return Div(Text(s)) }))
+	}
+	f := mustPass(t, func(tb testing.TB) { telatest.Mount(tb, tela.C(root), telatest.Size(100, 100)) })
+	logs := strings.Join(f.logs, "\n")
+	if !strings.Contains(logs, "dev warning: tela: 3 children of a list (Map or List)") || !strings.Contains(logs, "telatest_test.go:") {
+		t.Errorf("the keyless list was not logged as a warning with its call site:\n%s", logs)
 	}
 }
 

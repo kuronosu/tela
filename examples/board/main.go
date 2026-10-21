@@ -52,7 +52,7 @@ func avatar(initials, colors string) tela.Node {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return Kanban() }
+func Preview() tela.Node { return tela.C(Kanban) }
 
 func main() {
 	tela.Run(tela.App{

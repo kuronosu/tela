@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -15,15 +14,16 @@ import (
 // errors that teach): the hook-order check with call sites, dependency
 // warnings and anonymous functions given to ComponentProps or Memo.
 
-// devAny reports whether dev mode may be on in some Tree of the process
-// (TELA_DEV=1, or a Tree created with Config.Dev). Node constructors,
-// which do not know their Tree, record call sites only then.
+// devAny is the process default of dev mode, for the node constructors,
+// which do not know their Tree: they check names (Role, Type) and record
+// call sites only when it is on. It starts as ResolveDev(nil) (TELA_DEV,
+// else on unless the binary is a release build; ADR-085); a Tree created
+// in dev mode turns it on, and Run sets it to the app's dev mode (one app
+// per process), so that tela.App.Dev = false turns those checks off too.
 var devAny atomic.Bool
 
 func init() {
-	if os.Getenv(EnvDev) == "1" {
-		devAny.Store(true)
-	}
+	devAny.Store(ResolveDev(nil))
 }
 
 var (
@@ -57,7 +57,7 @@ func (s *callStack) site() string {
 	frames := runtime.CallersFrames(s[:n])
 	for {
 		f, more := frames.Next()
-		if f.Function != "" && !apiFrame(f.Function) {
+		if f.Function != "" && (strings.HasSuffix(f.File, "_test.go") || !apiFrame(f.Function)) {
 			fn := f.Function
 			if i := strings.LastIndexByte(fn, '/'); i >= 0 {
 				fn = fn[i+1:]
@@ -71,16 +71,21 @@ func (s *callStack) site() string {
 }
 
 // apiFrame reports whether fn is a frame between the user's call and the
-// capture: a wrapper of package tela, or a hook or node constructor of
-// core (Use..., use..., ComponentProps, Memo).
+// capture: a wrapper of package tela or h, or a hook or node constructor
+// of core (Use..., use..., ComponentProps, Memo, List, Map, MapIndex).
 func apiFrame(fn string) bool {
 	if rest, ok := strings.CutPrefix(fn, telaPkg+"."); ok {
+		return !strings.Contains(rest, "/")
+	}
+	if rest, ok := strings.CutPrefix(fn, telaPkg+"/h."); ok {
 		return !strings.Contains(rest, "/")
 	}
 	if rest, ok := strings.CutPrefix(fn, corePkg+"."); ok {
 		return strings.HasPrefix(rest, "Use") || strings.HasPrefix(rest, "use") ||
 			strings.HasPrefix(rest, "ComponentProps") || strings.HasPrefix(rest, "Memo") ||
-			strings.HasPrefix(rest, "noteAnon") || strings.HasPrefix(rest, "nextSlot")
+			strings.HasPrefix(rest, "noteAnon") || strings.HasPrefix(rest, "nextSlot") ||
+			strings.HasPrefix(rest, "List") || strings.HasPrefix(rest, "Map") ||
+			strings.HasPrefix(rest, "(*Value[") || strings.HasPrefix(rest, "(*Tree).checkHook")
 	}
 	return false
 }
@@ -170,7 +175,7 @@ func (t *Tree) reportAnon(c *compDesc) {
 	if strings.HasSuffix(a.name, "-fm") {
 		what = "a method value (" + a.name + "): its receiver is not compared with the props, so the component skips its build while the receiver changes"
 	}
-	t.logf("tela: %s(...) at %s gets %s. Make the component a named function and pass everything it uses in its props, or use tela.C, which never skips because of props",
+	t.warnf("tela: %s(...) at %s gets %s. Make the component a named function and pass everything it uses in its props, or use tela.C, which never skips because of props",
 		a.api, site, what)
 }
 
@@ -210,6 +215,12 @@ const (
 	hookPresence      // UsePresence (presence.go)
 	hookColorScheme   // UseColorScheme (env.go)
 	hookReducedMotion // UseReducedMotion (env.go)
+	hookMount         // UseMount (effects.go)
+	hookOnce          // UseOnce (effects.go)
+	hookEffectDo      // UseEffectDo (effects.go)
+	hookUpdateEffect  // UseUpdateEffect (effects.go)
+	hookInterval      // UseInterval (interval.go)
+	hookGo            // UseGo (effects.go)
 )
 
 var hookNames = [...]string{
@@ -232,6 +243,12 @@ var hookNames = [...]string{
 	hookPresence:      "UsePresence",
 	hookColorScheme:   "UseColorScheme",
 	hookReducedMotion: "UseReducedMotion",
+	hookMount:         "UseMount",
+	hookOnce:          "UseOnce",
+	hookEffectDo:      "UseEffectDo",
+	hookUpdateEffect:  "UseUpdateEffect",
+	hookInterval:      "UseInterval",
+	hookGo:            "UseGo",
 }
 
 func (k hookKind) String() string { return hookNames[k] }
@@ -263,11 +280,16 @@ func (t *Tree) checkHook(el *Element, i int, kind hookKind) {
 	}
 	var r hookRecord
 	r.kind = kind
-	r.stack.capture(0)
+	// One capture serves the call site and the boundary check: from
+	// checkHook, 0 is runtime.Callers, 1 checkHook, 2 nextSlot.
+	var pcs [boundaryDepth]uintptr
+	n := runtime.Callers(2, pcs[:])
+	copy(r.stack[:], pcs[:n])
 	if el.builds > 1 {
 		panic(fmt.Sprintf("tela: %s called %s at %s, a hook its previous builds did not call (they called %d hooks). %s",
 			t.describe(el), kind, r.stack.site(), len(el.hookDev), orderAdvice))
 	}
+	t.checkBoundary(el, kind, pcs[:n])
 	el.hookDev = append(el.hookDev, r)
 }
 
@@ -312,14 +334,12 @@ func (t *Tree) slotMismatch(el *Element, i int, want string) {
 // "UseState[int]".
 func slotName(s any) string {
 	if e, ok := s.(*effectSlot); ok {
-		if e.layout {
-			return "UseLayoutEffect"
-		}
-		return "UseEffect"
+		return e.kind.String()
 	}
 	name := strings.TrimPrefix(fmt.Sprintf("%T", s), "*core.")
 	for _, r := range [...][2]string{
 		{"stateSlot", "UseState"}, {"reducerSlot", "UseReducer"}, {"memoSlot", "UseMemo"},
+		{"onceSlot", "UseOnce"}, {"intervalSlot", "UseInterval"},
 		{"cbSlot", "UseCallback"}, {"Ref", "UseRef"}, {"ctxSlot", "UseContext"}, {"idSlot", "UseId"},
 		{"Value", "UseValue"}, {"elemRef", "UseElementRef"}, {"vlist", "VirtualList"}, {"boundsFollow", "UseBounds"},
 	} {
@@ -342,7 +362,7 @@ func slotName(s any) string {
 func (t *Tree) depsChanged(el *Element, i int, old, deps []any) bool {
 	if len(old) != len(deps) {
 		if t.dev && t.firstReport("deps-count:"+el.hookSite(i)) {
-			t.logf("tela: %s at %s got %d dependencies in this build and %d in the previous one, so it counts as changed; pass the same dependencies on every build (none runs it on every build, a single nil only on mount)",
+			t.warnf("tela: %s at %s got %d dependencies in this build and %d in the previous one, so it counts as changed; pass the same dependencies on every build (none runs it on every build; tela.UseMount and tela.UseOnce run once)",
 				el.hookDev[i].kind, el.hookSite(i), len(deps), len(old))
 		}
 		return true
@@ -381,13 +401,43 @@ func (t *Tree) checkDeps(el *Element, i int, deps []any) {
 	}
 }
 
+// checkNilDeps warns, in dev mode and once per call site, about a new hook
+// slot whose dependency list is a single nil: it still means "only on
+// mount", but React reads a null list as "every render", so nil is
+// deprecated (ADR-085; a later version rejects it) in favor of UseMount
+// and UseOnce.
+func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
+	if !t.dev || len(deps) != 1 || deps[0] != nil {
+		return
+	}
+	site := el.hookSite(i)
+	if !t.firstReport("nil-deps:" + site) {
+		return
+	}
+	var advice string
+	switch kind {
+	case hookEffect:
+		advice = "use tela.UseMount(f) for an effect that runs once, on mount, with its cleanup on unmount"
+	case hookEffectDo:
+		advice = "use tela.UseMount(func() func() { f(); return nil }) to run f once, on mount"
+	case hookMemo:
+		advice = "use tela.UseOnce(f) for a value computed once, on the first build"
+	case hookUpdateEffect:
+		advice = "with nil it never runs (it skips the mount, and nil means only on mount); pass the values it depends on"
+	default:
+		advice = fmt.Sprintf("for one run on mount pass a constant dependency instead, such as tela.%s(f, true)", kind)
+	}
+	t.warnf("tela: %s(f, nil) at %s: nil deps is deprecated and will be rejected in a later version (React reads a null dependency list as \"after every render\", Tela as \"only on mount\"); %s",
+		kind, site, advice)
+}
+
 // reportDep warns, once per call site, about dependency k of hook slot i
 // of el, which cannot be compared.
 func (t *Tree) reportDep(el *Element, i, k int, ty reflect.Type) {
 	if !t.dev || !t.firstReport("dep:"+el.hookSite(i)) {
 		return
 	}
-	t.logf("tela: dependency %d of %s at %s is a %v, which cannot be compared with ==, so it counts as changed on every build. Use tela.UseCallback for a function, and an ID or a comparable value (a string, a number, a struct of those) for the rest",
+	t.warnf("tela: dependency %d of %s at %s is a %v, which cannot be compared with ==, so it counts as changed on every build. Use tela.UseCallback for a function, and an ID or a comparable value (a string, a number, a struct of those) for the rest",
 		k+1, el.hookDev[i].kind, el.hookSite(i), ty)
 }
 

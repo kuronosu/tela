@@ -37,7 +37,7 @@ type config struct {
 }
 
 func newConfig(opts []Option) config {
-	cfg := config{scale: 1, timeout: DefaultTimeout, checkDamage: os.Getenv(EnvCheckDamage) == "1"}
+	cfg := config{scale: 1, timeout: DefaultTimeout, checkDamage: os.Getenv(EnvCheckDamage) == "1", dev: true}
 	for _, o := range opts {
 		if o != nil {
 			o(&cfg)
@@ -83,7 +83,7 @@ func (c config) coreConfig() core.Config {
 		Dark:              c.dark,
 		ReducedMotion:     c.reducedMotion,
 		ColorScheme:       c.scheme,
-		Dev:               c.dev,
+		Dev:               c.devMode(),
 		ClassicScrollbars: c.classic,
 		InstantScroll:     c.instant,
 	}
@@ -158,15 +158,33 @@ func ClassicScrollbars() Option { return func(c *config) { c.classic = true } }
 // (tela.App.InstantScroll).
 func InstantScroll() Option { return func(c *config) { c.instant = true } }
 
-// Dev turns dev mode on: unknown classes, lists without keys, hook-order
-// mistakes and the other dev messages of the framework. With [Mount],
-// every dev message fails the test (at the action that triggered it)
-// unless [AllowDev] lists it. With [Render] and the other entry points,
-// the messages go to standard error.
+// devMode returns whether the tree runs in dev mode: TELA_DEV=1 or
+// TELA_DEV=0 overrides the option.
+func (c config) devMode() bool { return core.ResolveDev(&c.dev) }
+
+// NoDev turns dev mode off. Apps and the headless entry points run in dev
+// mode by default, as a development build of an app does: unknown
+// classes, roles, input types and easings, hooks called in another order
+// or outside their component, and the dev warnings (lists without keys,
+// nil dependencies, a Value read while changes are queued, a Label
+// without a control...) are reported. With [Mount], a dev error (an
+// unknown class, an image that cannot be loaded) fails the test at the
+// action that caused it unless [AllowDev] lists it, a dev panic fails it
+// as any panic does, and a warning is a test log line; with [Render] and
+// the other entry points, errors and warnings go to standard error.
+//
+// Use NoDev to test what a release build does. TELA_DEV=1 or TELA_DEV=0
+// in the environment overrides both NoDev and the default.
+func NoDev() Option { return func(c *config) { c.dev = false } }
+
+// Dev turns dev mode on. It is the default since dev mode became the
+// default (see [NoDev]), so Dev changes nothing; it is kept for the tests
+// written before, and undoes a [NoDev] given earlier in the options.
 func Dev() Option { return func(c *config) { c.dev = true } }
 
-// AllowDev lists dev messages that do not fail a test under [Dev]: those
-// containing any of the substrings. It has no effect without [Dev].
+// AllowDev lists dev errors that do not fail a test: those containing any
+// of the substrings, which are logged instead. Dev warnings never fail a
+// test, and AllowDev does nothing under [NoDev].
 func AllowDev(substrings ...string) Option {
 	return func(c *config) { c.allowDev = append(c.allowDev, substrings...) }
 }

@@ -41,7 +41,7 @@ An element takes its props and children in one list, in any order:
 Div(Class("p-4"), Key(id), Text("hi"), Span(Text("there")))
 ```
 
-Props apply in order, so a later Class wins over an earlier one and Style wins over every class. Children are nodes only; wrap text in Text or Textf. The parameters are tela.Child, so passing a bare string is a compile error.
+Props apply in order, so a later Class wins over an earlier one and Style wins over every class. Children are nodes only; wrap text in Text or Textf. The parameters are tela.Child, so passing a bare string is a compile error, which names the internal type behind the alias: "string does not implement core.Child (missing method applyChild)" means Div("hi") should be Div(Text("hi")).
 
 Elements have the defaults of Tailwind's Preflight: no margins, padding or borders, headings in the surrounding font size, block images. A Button has no background of its own, and neither has an Input or a Textarea: style fields with classes.
 
@@ -338,7 +338,7 @@ Button returns a button. It has no background, border or padding of its own (Tai
 func Class(classes string) tela.Prop
 ```
 
-Class adds Tailwind v4 classes ("flex items-center gap-4 hover:bg-white/10"). It may repeat on an element; the strings concatenate in order and a later class wins over an earlier one that sets the same property. An unknown class is reported in dev mode (TELA_DEV=1) with the closest valid one.
+Class adds Tailwind v4 classes ("flex items-center gap-4 hover:bg-white/10"). It may repeat on an element; the strings concatenate in order and a later class wins over an earlier one that sets the same property. An unknown class is reported in dev mode (on in development builds, see tela.App.Dev) with the closest valid one.
 
 **Example**
 
@@ -493,6 +493,17 @@ func Fragment(children ...tela.Child) tela.Node
 ```
 
 Fragment groups children without a box of their own: they become children of the fragment's parent. It takes only Key as a prop.
+
+It is how a component returns several siblings, and how a wrapper puts the children it receives next to its own: Go does not allow Div(Class("..."), H2(...), children...), but Fragment(children...) is one child. The children must be nodes (or Key):
+
+```go
+// Card has no hooks, so it is a plain function that wraps its children.
+func Card(title string, children ...tela.Child) tela.Node {
+    return Div(Class("rounded-xl border p-4"),
+        H2(Class("font-semibold"), Text(title)),
+        Fragment(children...))
+}
+```
 
 ### func H1
 
@@ -691,6 +702,8 @@ Label(For("name"), Text("Name")), Input(Id("name"))
 Label(Text("Name "), Input())
 ```
 
+A Label that labels nothing (For naming no mounted Input, Textarea or Button, and no such element inside) names nothing and focuses nothing; dev mode warns about it once. For a caption that labels no field, use Span or P.
+
 ### func LayoutID
 
 ```go
@@ -729,7 +742,7 @@ fmt.Println(x0 < x1)
 func Map[T any](items []T, f func(T) tela.Node) tela.Node
 ```
 
-Map returns the nodes of f applied to every item, as one list. Give each node a Key (the item's ID, not its index) so that reordering, inserting and removing keeps their state; in dev mode (TELA_DEV=1) a list of two or more nodes without keys is reported.
+Map returns the nodes of f applied to every item, as one list. Give each node a Key (the item's ID, not its index) so that reordering, inserting and removing keeps their state; dev mode (see tela.App.Dev) warns about a list of two or more nodes without keys, and about duplicate keys, once per call site of Map.
 
 ```go
 Map(todos, func(t Todo) tela.Node {
@@ -1329,10 +1342,10 @@ Ref attaches ref, from tela.UseElementRef, to the element: while it is mounted, 
 
 ```go
 input := tela.UseElementRef()
-tela.UseEffect(func() func() {
+tela.UseMount(func() func() {
     input.Focus()
     return nil
-}, nil)
+})
 return Div(Ref(input), TabIndex(0), Class("focus:ring-2"), Text("Name"))
 ```
 
@@ -1342,7 +1355,7 @@ return Div(Ref(input), TabIndex(0), Class("focus:ring-2"), Text("Name"))
 func Role(role string) tela.Prop
 ```
 
-Role sets the ARIA role of an element (WAI-ARIA 1.2), for components built from divs: Role("switch"), Role("dialog"), Role("tab"). An unknown role panics in dev mode (TELA_DEV=1) with the closest valid one.
+Role sets the ARIA role of an element (WAI-ARIA 1.2), for components built from divs: Role("switch"), Role("dialog"), Role("tab"). An unknown role panics in dev mode (on in development builds, see tela.App.Dev) with the closest valid one.
 
 ```go
 Button(Role("switch"), AriaChecked(on), AriaLabel("Wi-Fi"),

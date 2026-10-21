@@ -294,17 +294,19 @@ func TestDevHookOrderExtraAndMissing(t *testing.T) {
 	}
 }
 
+// useTestCounter is a custom hook (its name starts with use).
+func useTestCounter() int {
+	v, _ := UseState(0)
+	return v
+}
+
 func TestDevCustomHookSite(t *testing.T) {
 	// A hook inside a function called by the component (a custom hook)
 	// is reported where the custom hook calls it.
 	cond := true
-	counterHook := func() int {
-		v, _ := UseState(0)
-		return v
-	}
 	comp := func() Node {
 		if cond {
-			counterHook()
+			useTestCounter()
 		}
 		UseId()
 		return Text("c")
@@ -312,8 +314,8 @@ func TestDevCustomHookSite(t *testing.T) {
 	tr := devTree(t, Component(comp), nil)
 	cond = false
 	msg := panicMessage(func() { tr.Mount(Component(comp)) })
-	if !strings.Contains(msg, "it was UseState at core.TestDevCustomHookSite.func1 (hooks_test.go:") ||
-		!strings.Contains(msg, "hook 1 is UseId at core.TestDevCustomHookSite.func2 (hooks_test.go:") {
+	if !strings.Contains(msg, "it was UseState at core.useTestCounter (hooks_test.go:") ||
+		!strings.Contains(msg, "hook 1 is UseId at core.TestDevCustomHookSite.func1 (hooks_test.go:") {
 		t.Errorf("panic %q", msg)
 	}
 }

@@ -119,7 +119,10 @@ func Labels() tela.Node {
 ```
 
 Use [`tela.UseId`](https://pkg.go.dev/github.com/kuronosu/tela#UseId) to generate the `Id`s of a reusable field; see
-[Hooks](Hooks#identity-useid).
+[Hooks](Hooks#identity-useid). A `Label` that labels nothing (its `For` names
+no mounted `Input`, `Textarea` or `Button`, and none is inside it) names and
+focuses nothing, so dev mode warns about it once; for a caption that labels
+no field, use `Span` or `P`.
 
 ## Events of a text field
 

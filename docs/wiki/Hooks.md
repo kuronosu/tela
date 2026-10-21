@@ -8,8 +8,13 @@ call hooks; the sections below follow the order you usually need them.
 
 Hooks follow React's rules: call them at the top level of a component
 function, in the same order on every build, never inside conditions or loops.
-A hook called outside a component build panics with an explanation; in dev
-mode (`TELA_DEV=1`) a change of the hook order panics with both call sites.
+A hook called outside a component build panics with an explanation (a
+component called where a node is expected, `telatest.Mount(t, Counter())`, is
+told to write `tela.C(Counter)`). In dev mode, on in every development build
+and test (see [Getting Started](Getting-Started#dev-mode)), a change of the hook
+order panics with both call sites, and so does a hook called from a function
+that is neither the component being built (or a function literal inside it)
+nor a custom hook named `UseXxx` or `useXxx`.
 
 Everything runs on the UI thread except the methods of [`tela.Setter`](https://pkg.go.dev/github.com/kuronosu/tela#Setter),
 [`tela.Dispatcher`](https://pkg.go.dev/github.com/kuronosu/tela#Dispatcher) and [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value), and [`tela.Post`](https://pkg.go.dev/github.com/kuronosu/tela#Post), which are safe from any
@@ -46,7 +51,22 @@ func Screen() tela.Node {
 - [`tela.Memo`](https://pkg.go.dev/github.com/kuronosu/tela#Memo) is [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) for props that are not comparable: you give the
   comparison function.
 - Calling a component function directly, `Header()`, runs it inside the
-  caller, as a custom hook: its hooks belong to the caller.
+  caller. That is fine for a function without hooks (a wrapper that styles
+  its children and passes them on with [`Fragment`](https://pkg.go.dev/github.com/kuronosu/tela/h#Fragment)), but the hooks of
+  a function called this way would take the caller's slots: dev mode panics
+  and says to wrap it in `tela.C` or `tela.CP`.
+- A **custom hook** is a function named `UseXxx` or `useXxx` that calls hooks
+  for the component that calls it. A struct of [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) pointers is a good
+  return value: stable, comparable, and each reader redoes only what it read.
+
+```go
+type Drag struct{ X, Y *tela.Value[float32] }
+
+func UseDrag() Drag {
+	return Drag{X: tela.UseValue(float32(0)), Y: tela.UseValue(float32(0))}
+}
+```
+
 - [`tela.WithKey`](https://pkg.go.dev/github.com/kuronosu/tela#WithKey) keys a component or fragment, which cannot take the [`Key`](https://pkg.go.dev/github.com/kuronosu/tela/h#Key) prop.
 
 ## State: UseState
@@ -84,7 +104,11 @@ For comparable types, a new state `==` to the current one does not rebuild. A
 stored, passed to goroutines, and put in the props of a [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) component.
 
 [`tela.UseStateSet`](https://pkg.go.dev/github.com/kuronosu/tela#UseStateSet) and [`tela.UseStateUpdate`](https://pkg.go.dev/github.com/kuronosu/tela#UseStateUpdate) return the setter's `Set` and
-`Update` methods as plain functions when you only need one of them:
+`Update` methods as plain functions when you only need one of them. They
+exist for React's shape, a setter that is a function: to pass it where a
+`func(T)` is expected without wrapping it, and to keep code ported from React
+reading the same. Funcs are not comparable in Go, so in the props of a
+`tela.CP` component pass the `Setter` instead:
 
 ```go
 func NameField() tela.Node {
@@ -121,7 +145,7 @@ func Stepper() tela.Node {
 }
 ```
 
-## Effects: UseEffect and UseLayoutEffect
+## Effects: UseEffect, UseMount and UseLayoutEffect
 
 [`tela.UseEffect`](https://pkg.go.dev/github.com/kuronosu/tela#UseEffect) runs a function after the frame is presented, when its
 dependencies changed since the previous build. The function may return a
@@ -130,34 +154,48 @@ unmounts. The dependencies follow React:
 
 ```go
 tela.UseEffect(f)          // after every build
-tela.UseEffect(f, nil)     // only after the first build (React's [])
 tela.UseEffect(f, id, n)   // when id or n changed (compared with ==)
+tela.UseMount(f)           // only after the first build (React's [])
 ```
 
-A single `nil` is the idiom for subscriptions and timers: the effect runs on
-mount and the cleanup on unmount. State set from a goroutine is safe:
+[`tela.UseMount`](https://pkg.go.dev/github.com/kuronosu/tela#UseMount) is the idiom for subscriptions: the effect runs on mount and its
+cleanup on unmount. `UseEffect(f, nil)` still means the same, but it is
+deprecated (React reads a null list as "after every render"): dev mode warns,
+and a later version will reject it.
 
 ```go
-func Clock() tela.Node {
-	now, setNow := tela.UseState(time.Now())
+func Status(store *Store) tela.Node {
+	online, setOnline := tela.UseState(store.Online())
 
-	tela.UseEffect(func() func() {
-		tick := time.NewTicker(time.Second)
-		done := make(chan struct{})
-		go func() {
-			for {
-				select {
-				case t := <-tick.C:
-					setNow.Set(t) // safe from any goroutine
-				case <-done:
-					return
-				}
-			}
-		}()
-		return func() { tick.Stop(); close(done) }
-	}, nil)
+	tela.UseMount(func() func() {
+		return store.Subscribe(func(on bool) { setOnline.Set(on) }) // returns the unsubscribe
+	})
 
-	return Span(Class("tabular-nums"), Text(now.Format("15:04:05")))
+	label := "Offline"
+	if online {
+		label = "Online"
+	}
+	return Span(Text(label))
+}
+
+type Store struct{}
+
+func (*Store) Online() bool                      { return true }
+func (*Store) Subscribe(func(bool)) (stop func()) { return func() {} }
+```
+
+Two variants save the boilerplate of common effects:
+[`tela.UseEffectDo`](https://pkg.go.dev/github.com/kuronosu/tela#UseEffectDo) takes an effect without a cleanup, and
+[`tela.UseUpdateEffect`](https://pkg.go.dev/github.com/kuronosu/tela#UseUpdateEffect) skips the first build, to react to changes only:
+
+```go
+func ThemeSaver(theme string, save func(string)) tela.Node {
+	tela.UseEffectDo(func() { fmt.Println("the theme is", theme) }, theme)
+	tela.UseUpdateEffect(func() func() {
+		save(theme) // not on mount: only when the theme changes
+		return nil
+	}, theme)
+	return Text(theme)
 }
 ```
 
@@ -169,9 +207,49 @@ effects of a component whose build was skipped do not run.
 [`tela.UseLayoutEffect`](https://pkg.go.dev/github.com/kuronosu/tela#UseLayoutEffect) has the same shape but runs after layout and before
 paint, for code that needs the geometry.
 
-## Memoization: UseMemo, UseCallback, UseRef
+## Periodic and background work: UseInterval and UseGo
 
-[`tela.UseMemo`](https://pkg.go.dev/github.com/kuronosu/tela#UseMemo) caches a computation until its dependencies change:
+[`tela.UseInterval`](https://pkg.go.dev/github.com/kuronosu/tela#UseInterval) calls a function on the UI thread every period, until the
+component unmounts; a period of 0 or less pauses it, and a new period restarts
+it. The function is always the latest build's, so it sees the latest state.
+It runs on the window's frame clock, with no goroutine, so `telatest`'s
+`App.Advance` moves it:
+
+```go
+func Clock() tela.Node {
+	now, setNow := tela.UseState(time.Now())
+	tela.UseInterval(time.Second, func() { setNow.Set(time.Now()) })
+	return Span(Class("tabular-nums"), Text(now.Format("15:04:05")))
+}
+```
+
+[`tela.UseGo`](https://pkg.go.dev/github.com/kuronosu/tela#UseGo) runs a function on its own goroutine after the frame, like an effect
+with dependencies, and cancels its `context.Context` when the dependencies
+change or the component unmounts; the next run starts after that. The function
+must return soon after the context is done, and change the UI only through
+what is safe from any goroutine (a `Setter`, a `Value`, `tela.Post`):
+
+```go
+func Results(query string, search func(context.Context, string) []string) tela.Node {
+	found, setFound := tela.UseState([]string(nil))
+	tela.UseGo(func(ctx context.Context) {
+		r := search(ctx, query)
+		if ctx.Err() == nil { // a newer query did not cancel this one
+			setFound.Set(r)
+		}
+	}, query)
+	return Div(Map(found, func(s string) tela.Node { return P(Key(s), Text(s)) }))
+}
+```
+
+With no dependencies, `UseGo` restarts its goroutine after every build, as
+`UseEffect` runs after every build.
+
+## Memoization: UseMemo, UseOnce, UseCallback, UseRef
+
+[`tela.UseMemo`](https://pkg.go.dev/github.com/kuronosu/tela#UseMemo) caches a computation until its dependencies change, and
+[`tela.UseOnce`](https://pkg.go.dev/github.com/kuronosu/tela#UseOnce) computes a value on the first build and keeps it (a client, a
+cache, the state of a custom hook):
 
 ```go
 type Todo struct {
@@ -257,6 +335,14 @@ func Page() tela.Node {
 }
 ```
 
+A component that reads a context with no Provider above it gets the default.
+When the default would panic if used (it is nil, or holds a nil function,
+pointer, map or channel, or a zero `Setter` or `Callback`), dev mode warns
+once per context. Provide the context above every reader, give
+`CreateContext` a default that works, or check with `IsZero`, which
+[`tela.Setter`](https://pkg.go.dev/github.com/kuronosu/tela#Setter) and [`tela.Callback`](https://pkg.go.dev/github.com/kuronosu/tela#Callback) have for this (and for optional callbacks in
+props).
+
 ## Identity: UseId
 
 [`tela.UseId`](https://pkg.go.dev/github.com/kuronosu/tela#UseId) returns a string that is unique in the process and the same on every
@@ -283,10 +369,10 @@ read or select the text of a field.
 func Search() tela.Node {
 	input := tela.UseElementRef()
 
-	tela.UseEffect(func() func() {
+	tela.UseMount(func() func() {
 		input.Focus()
 		return nil
-	}, nil)
+	})
 
 	return Input(Ref(input), Type("search"), Placeholder("Search"),
 		Class("rounded-md border px-2 py-1"))
@@ -321,14 +407,12 @@ A progress bar fed by a goroutine, which lays out the bar again without
 building `Download`:
 
 ```go
-func Download() tela.Node {
+func Download(url string) tela.Node {
 	progress := tela.UseValue(0.0) // from 0 to 1
 
-	tela.UseEffect(func() func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		go fetch(ctx, func(done float64) { progress.Set(done) }) // any goroutine
-		return cancel
-	}, nil)
+	tela.UseGo(func(ctx context.Context) {
+		fetch(ctx, func(done float64) { progress.Set(done) }) // any goroutine
+	}, url)
 
 	return Div(Class("h-2 w-64 overflow-hidden rounded-full bg-slate-200"),
 		Div(Class("h-full bg-indigo-500"),
@@ -346,7 +430,8 @@ func fetch(ctx context.Context, report func(float64)) {
 `Set` and `Update` are safe from any goroutine and queue the change, in order
 with state updates. `Get` returns the value the UI thread applied last; use
 [`Value.Latest`](API-Reference-tela#func-value-latest) in a handler that has just called `Set` and wants the new
-value. A [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) is comparable (the same pointer on every build), so it can
+value. Dev mode warns, once per call site, about a `Get` outside a build or a
+deferred closure that misses queued changes. A [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) is comparable (the same pointer on every build), so it can
 go in the props of a [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) component or through a context.
 
 Text can be deferred the same way with [`TextFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#TextFn), and a field can be bound to a

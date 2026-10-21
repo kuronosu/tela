@@ -233,7 +233,11 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 	ax := bgTiling(rx, tw, area.X0, aw, l.PosX, cb.X0, cb.X1)
 	ay := bgTiling(ry, th, area.Y0, ah, l.PosY, cb.Y0, cb.Y1)
 	if (ax.to-ax.from)*(ay.to-ay.from) > maxBgTiles {
-		p.t.reportOnce("bg-tiles", "tela: a background layer has too many tiles; only the first ones are painted")
+		if p.t.dev {
+			p.t.warnOnce("bg-tiles", func() string {
+				return "tela: a background layer has too many tiles; only the first ones are painted"
+			})
+		}
 	}
 	if img != nil {
 		p.paintImageTiles(img, ax, ay, clip)

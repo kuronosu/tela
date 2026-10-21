@@ -89,8 +89,10 @@ type desc struct {
 	comp *compDesc
 
 	// Fragments: dynamic marks a list made by Map or List, whose children
-	// should carry keys (dev mode warns otherwise).
+	// should carry keys (dev mode warns otherwise), and site is where it
+	// was made (in dev mode), so the warnings come once per call site.
 	dynamic bool
+	site    *callStack
 }
 
 // compMode says when a component may skip its build (ARCHITECTURE
@@ -438,9 +440,15 @@ func Fragment(children ...Child) Node {
 
 // List returns a fragment of a dynamic list of nodes: children that come
 // from data and may be inserted, removed or reordered. They should carry
-// keys; dev mode warns when two or more do not.
+// keys; dev mode warns when two or more do not, or when two share one,
+// once per call site.
 func List(nodes []Node) Node {
-	return Node{&desc{kind: nodeFragment, children: nodes, dynamic: true}}
+	d := &desc{kind: nodeFragment, children: nodes, dynamic: true}
+	if devAny.Load() {
+		d.site = new(callStack)
+		d.site.capture(-1)
+	}
+	return Node{d}
 }
 
 // Map returns the List of f applied to every item.

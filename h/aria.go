@@ -14,7 +14,8 @@ import (
 
 // Role sets the ARIA role of an element (WAI-ARIA 1.2), for components
 // built from divs: Role("switch"), Role("dialog"), Role("tab"). An unknown
-// role panics in dev mode (TELA_DEV=1) with the closest valid one.
+// role panics in dev mode (on in development builds, see tela.App.Dev)
+// with the closest valid one.
 //
 //	Button(Role("switch"), AriaChecked(on), AriaLabel("Wi-Fi"),
 //	    OnClick(func(tela.MouseEvent) { setOn.Set(!on) }), knob)

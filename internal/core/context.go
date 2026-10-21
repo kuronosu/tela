@@ -1,6 +1,10 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+	"strings"
+)
 
 // Contexts (ARCHITECTURE section 7) pass a value down the tree without
 // props. A Provider is a component Element without a function: it holds
@@ -124,12 +128,18 @@ func UseContext[T any](c *Context[T]) T {
 			s.sub.unsubscribe()
 			s.ctx = c
 			s.sub.subscribe(el.findProvider(c))
+			if s.sub.prov == nil && el.tree.dev {
+				el.tree.checkContextDefault(el, i, c, typeName[T](), any(c.def))
+			}
 		}
 	} else {
 		s = &ctxSlot[T]{ctx: c}
 		s.sub.el = el
 		el.hooks = append(el.hooks, s)
 		s.sub.subscribe(el.findProvider(c))
+		if s.sub.prov == nil && el.tree.dev {
+			el.tree.checkContextDefault(el, i, c, typeName[T](), any(c.def))
+		}
 	}
 	if s.sub.prov == nil {
 		return c.def
@@ -164,4 +174,87 @@ func (t *Tree) updateProvider(el *Element, n Node) {
 	}
 	t.reconcile(el, d.children)
 	el.dirtyKids = false
+}
+
+// ---------------------------------------------------------------------
+// Defaults that are not safe to use (dev mode, ADR-085).
+
+// zeroHandle is implemented by the handles whose zero value panics when
+// used (Setter, Callback, Dispatcher): a context default holding one is
+// a trap when no Provider is above the reader.
+type zeroHandle interface{ zeroHandle() bool }
+
+var zeroHandleType = reflect.TypeFor[zeroHandle]()
+
+// checkContextDefault warns, once per context, when slot i of el reads
+// context c (of type typ) without a Provider above and c's default is not
+// safe to use: nil, or holding a nil func, pointer, map, channel or
+// interface, or a zero Setter, Callback or Dispatcher, in an exported
+// field.
+func (t *Tree) checkContextDefault(el *Element, i int, c any, typ string, def any) {
+	why := zeroUnsafe(def)
+	if why == "" {
+		return
+	}
+	t.warnOnce(fmt.Sprintf("ctx-default:%p", c), func() string {
+		return fmt.Sprintf("tela: UseContext at %s reads a Context[%s] with no Provider above %s, so it gets the default given to CreateContext, and %s: using it panics. Wrap the components that read it in ctx.Provider(value, ...), or give CreateContext a default that works (no-op functions, non-nil pointers)",
+			el.hookSite(i), typ, t.describe(el), why)
+	})
+}
+
+// zeroUnsafe says why a context default is not safe to use, or "".
+func zeroUnsafe(def any) string {
+	if def == nil {
+		return "the default is nil"
+	}
+	return unsafeValue(reflect.ValueOf(def), "the default", 0)
+}
+
+// unsafeValue says why v (described as what) is not safe to use, looking
+// into the exported fields of structs and the elements of small arrays,
+// a few levels deep; pointers are not followed.
+func unsafeValue(v reflect.Value, what string, depth int) string {
+	ty := v.Type()
+	if ty.Implements(zeroHandleType) && ty.Kind() == reflect.Struct && ty.NumField() > 0 {
+		if f := v.Field(0); (f.Kind() == reflect.Pointer || f.Kind() == reflect.Interface) && f.IsNil() {
+			return what + " is a zero " + ty.Name()
+		}
+		return ""
+	}
+	switch v.Kind() {
+	case reflect.Func, reflect.Pointer, reflect.Map, reflect.Chan, reflect.Interface, reflect.UnsafePointer:
+		if v.IsNil() {
+			return what + " is a nil " + ty.String()
+		}
+	case reflect.Struct:
+		if depth >= 4 {
+			return ""
+		}
+		for k := range ty.NumField() {
+			if f := ty.Field(k); f.IsExported() {
+				if why := unsafeValue(v.Field(k), fieldPath(what, f.Name), depth+1); why != "" {
+					return why
+				}
+			}
+		}
+	case reflect.Array:
+		if depth >= 4 {
+			return ""
+		}
+		for k := range min(v.Len(), 8) {
+			if why := unsafeValue(v.Index(k), fmt.Sprintf("%s[%d]", what, k), depth+1); why != "" {
+				return why
+			}
+		}
+	}
+	return ""
+}
+
+// fieldPath describes field name of what: "its field OnSave", then
+// "its field Theme.OnSave".
+func fieldPath(what, name string) string {
+	if rest, ok := strings.CutPrefix(what, "its field "); ok {
+		return "its field " + rest + "." + name
+	}
+	return "its field " + name
 }

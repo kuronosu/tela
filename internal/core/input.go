@@ -491,9 +491,9 @@ func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUp
 }
 
 // NextDeadline reports when the tree needs TickGestures, in the backend
-// clock: a long press waiting for its timeout, or overlay scrollbars
-// waiting to fade. ok is false when nothing waits: an idle app arms no
-// timer.
+// clock: a long press waiting for its timeout, overlay scrollbars
+// waiting to fade, a caret waiting to blink, a UseInterval due. ok is
+// false when nothing waits: an idle app arms no timer.
 func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
 	at, ok = t.in.arena.NextDeadline()
 	if s, has := t.scrollDeadline(); has && (!ok || s < at) {
@@ -502,17 +502,22 @@ func (t *Tree) NextDeadline() (at time.Duration, ok bool) {
 	if c, has := t.caretDeadline(); has && (!ok || c < at) {
 		at, ok = c, true
 	}
+	if c, has := t.intervalDeadline(); has && (!ok || c < at) {
+		at, ok = c, true
+	}
 	return at, ok
 }
 
 // TickGestures lets what waits for a deadline at or before now (the
 // backend clock) act: a long press is recognized and its handler runs,
-// overlay scrollbars start fading.
+// overlay scrollbars start fading, the caret blinks, the functions of the
+// UseInterval hooks due run.
 func (t *Tree) TickGestures(now time.Duration) {
 	t.scr.now = max(t.scr.now, now)
 	t.in.arena.Tick(now)
 	t.tickScroll(now)
 	t.tickCaret(now)
+	t.tickIntervals(now)
 }
 
 // resetInput forgets every pointer: presses end without events (the

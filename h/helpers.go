@@ -43,8 +43,9 @@ func IfElse[C tela.Child](cond bool, a, b C) C {
 
 // Map returns the nodes of f applied to every item, as one list. Give each
 // node a Key (the item's ID, not its index) so that reordering, inserting
-// and removing keeps their state; in dev mode (TELA_DEV=1) a list of two or
-// more nodes without keys is reported.
+// and removing keeps their state; dev mode (see tela.App.Dev) warns about a
+// list of two or more nodes without keys, and about duplicate keys, once
+// per call site of Map.
 //
 //	Map(todos, func(t Todo) tela.Node {
 //	    return Div(Key(t.ID), Text(t.Title))
@@ -64,6 +65,18 @@ func MapIndex[T any](items []T, f func(i int, item T) tela.Node) tela.Node {
 
 // Fragment groups children without a box of their own: they become
 // children of the fragment's parent. It takes only Key as a prop.
+//
+// It is how a component returns several siblings, and how a wrapper puts
+// the children it receives next to its own: Go does not allow
+// Div(Class("..."), H2(...), children...), but Fragment(children...) is
+// one child. The children must be nodes (or Key):
+//
+//	// Card has no hooks, so it is a plain function that wraps its children.
+//	func Card(title string, children ...tela.Child) tela.Node {
+//	    return Div(Class("rounded-xl border p-4"),
+//	        H2(Class("font-semibold"), Text(title)),
+//	        Fragment(children...))
+//	}
 func Fragment(children ...tela.Child) tela.Node { return core.Fragment(children...) }
 
 // TextFn returns a text node whose content is read by fn in a later phase,

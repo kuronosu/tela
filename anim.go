@@ -46,7 +46,7 @@ type Animatable = core.Animatable
 //
 // Options that contradict each other or the hook (Ease on a spring,
 // Stiffness and Duration together, spring options on UseTween), invalid
-// numbers and invalid easing strings panic in dev mode (TELA_DEV=1) with
+// numbers and invalid easing strings panic in dev mode (see [App].Dev) with
 // what to write instead; otherwise they are ignored.
 type AnimationOption = core.AnimOption
 

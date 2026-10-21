@@ -130,13 +130,21 @@
 // Render and telatest's headless entry points run those frames (at most
 // MaxRenderFrames).
 //
-// Dev mode (Config.Dev, TELA_DEV=1) records each slot's hook kind and call
-// site on the first build and panics with both call sites when a later
-// build calls another kind or another number of hooks; it reports
-// dependencies that cannot be compared, changing dependency counts, and
-// ComponentProps or Memo nodes made from anonymous functions or method
-// values, once per call site. Outside dev mode, a different hook count or
-// slot type still panics, without call sites.
+// Dev mode (Config.Dev, which callers resolve with ResolveDev: on unless
+// the binary is a release build, TELA_DEV=1 or 0 overriding; ADR-085)
+// records each slot's hook kind and call site on the first build and
+// panics with both call sites when a later build calls another kind or
+// another number of hooks; the same first build checks the hook's caller
+// (boundary.go) and panics when it is neither the component's function
+// nor a custom hook. Dev errors (unknown classes) go to Config.Log and
+// dev warnings to Config.Warn: dependencies that cannot be compared,
+// changing dependency counts, nil dependency lists, ComponentProps or
+// Memo nodes made from anonymous functions or method values, lists
+// without keys or with duplicate keys (per call site of Map and List),
+// Value.Get with changes queued outside a tracked evaluation, contexts
+// read without a Provider whose default is not safe, and Labels without a
+// control, each once per call site or per subject. Outside dev mode, a
+// different hook count or slot type still panics, without call sites.
 //
 // # Boxes and paragraphs
 //

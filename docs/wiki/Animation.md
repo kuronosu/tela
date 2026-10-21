@@ -200,7 +200,7 @@ The keywords are CSS's curves; Tailwind's `ease-out` utility is
 `Ease("cubic-bezier(0, 0, 0.2, 1)")`. Contradicting options (`Ease` on a
 spring, `Stiffness` with `Duration`, spring options or `Velocity` on
 `UseTween`, a `Velocity` of a color or of another type than the value's) and
-invalid easings panic in dev mode (`TELA_DEV=1`) with what to write; otherwise they are
+invalid easings panic in dev mode (on in development builds and tests) with what to write; otherwise they are
 ignored.
 
 ## Layout animations: `AnimateLayout` and `LayoutID`

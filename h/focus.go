@@ -88,10 +88,10 @@ func AutoFocus(on bool) tela.Prop { return core.AutoFocus(on) }
 // ElementRef.
 //
 //	input := tela.UseElementRef()
-//	tela.UseEffect(func() func() {
+//	tela.UseMount(func() func() {
 //	    input.Focus()
 //	    return nil
-//	}, nil)
+//	})
 //	return Div(Ref(input), TabIndex(0), Class("focus:ring-2"), Text("Name"))
 func Ref(ref tela.ElementRef) tela.Prop { return core.AttachRef(ref) }
 

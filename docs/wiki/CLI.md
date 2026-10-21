@@ -142,7 +142,7 @@ fading ones. The CLI does not draw overlays.
 
 | Variable | Effect |
 |---|---|
-| `TELA_DEV=1` | Dev mode: unknown classes, lists without keys, hook-order errors and other mistakes are reported with the fix |
+| `TELA_DEV=1`, `TELA_DEV=0` | Turns dev mode on or off, whatever the build and `tela.App.Dev` say (by default it is on unless the binary is a release build: built with `-trimpath` or installed with `go install pkg@version`). Dev mode reports unknown classes, hook misuse and other mistakes with the fix |
 | `TELA_DEBUG=...` | Debug overlays (above) |
 | `TELA_UPDATE=1` | `go test` writes goldens instead of comparing them; review the diff |
 | `TELA_BACKEND=...` | Chooses the window backend: `wayland`, `x11` (Linux) or `win32` (Windows), or `headless`. By default Wayland is tried first, then X11 |

@@ -43,7 +43,7 @@ func Settings() tela.Node {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return Settings() }
+func Preview() tela.Node { return tela.C(Settings) }
 
 func main() {
 	tela.Run(tela.App{
