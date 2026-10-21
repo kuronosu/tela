@@ -29,9 +29,10 @@ func T(key string, args ...any) string { return Formatter{}.T(key, args...) }
 // The catalog of the locale is searched first, then its parents (es-MX,
 // es) and the fallback locale ([SetFallback]; "en" by
 // default). A key that is in none is returned as is, and reported once in
-// dev mode (TELA_DEV=1); so is an argument the message uses but args does
-// not have (the message then shows its {name}). Numbers, dates (time.Time)
-// and plurals are formatted for the locale.
+// dev mode (Tela's, on unless the program is a release build; TELA_DEV=0
+// turns it off); so is an argument the message uses but args does not
+// have (the message then shows its {name}). Numbers, dates (time.Time) and
+// plurals are formatted for the locale.
 func (f Formatter) T(key string, args ...any) string {
 	d := f.loc()
 	st := current()

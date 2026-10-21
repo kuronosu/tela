@@ -31,8 +31,10 @@
 // Windows) when a loaded catalog covers its language, else the fallback
 // locale ("en", else the first catalog loaded, or [SetFallback]). A message is looked
 // up in the locale's catalog, then its parents' (es-MX, es) and the
-// fallback's; a key found nowhere is returned as is, and reported once when
-// TELA_DEV=1.
+// fallback's; a key found nowhere is returned as is, and reported once in
+// dev mode (Tela's: on unless the program is a release build, App.Dev
+// once Run starts, the mode of the app whose component calls T, TELA_DEV=0
+// or 1 overriding).
 //
 // SetLocale builds again only the components that called [UseLocale],
 // [UseT] or [UseFormatter]. In tests, [Provider] fixes the locale of one

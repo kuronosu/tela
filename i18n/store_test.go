@@ -5,6 +5,11 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/telatest"
 )
 
 var enES = map[string]string{
@@ -95,11 +100,12 @@ func TestMissingKey(t *testing.T) {
 	log := isolate(t)
 	mustLoad(t, enES)
 	SetLocale("es")
+	t.Setenv("TELA_DEV", "0")
 	if got := T("nope"); got != "nope" {
 		t.Errorf("missing key = %q", got)
 	}
 	if len(*log) != 0 {
-		t.Errorf("reported outside dev mode: %q", *log)
+		t.Errorf("reported with TELA_DEV=0: %q", *log)
 	}
 	t.Setenv("TELA_DEV", "1")
 	T("nope")
@@ -107,6 +113,32 @@ func TestMissingKey(t *testing.T) {
 	T("nope2")
 	if len(*log) != 2 || !strings.Contains((*log)[0], `no message "nope" for locale es`) || !strings.Contains((*log)[0], "searched es, en") {
 		t.Errorf("dev log = %q", *log)
+	}
+}
+
+// Without TELA_DEV, i18n follows Tela's dev mode (ADR-085): on by default
+// in a development build (a test binary is one), and the mode of the Tree
+// whose component calls T.
+func TestMissingKeyDefaultDevMode(t *testing.T) {
+	if !core.ResolveDev(nil) {
+		t.Skip("TELA_DEV=0 or a release build: the default is off")
+	}
+	log := isolate(t)
+	t.Setenv("TELA_DEV", "")
+	mustLoad(t, enES)
+	SetLocale("es")
+	T("absent")
+	if len(*log) != 1 || !strings.Contains((*log)[0], `no message "absent"`) {
+		t.Errorf("default: dev log = %q, want the missing key reported", *log)
+	}
+	// In a component of an app out of dev mode, nothing is reported.
+	telatest.MountFunc(t, func() tela.Node { return h.Text(T("absent-nodev")) }, telatest.NoDev())
+	if len(*log) != 1 {
+		t.Errorf("NoDev: reported %q", (*log)[1:])
+	}
+	telatest.MountFunc(t, func() tela.Node { return h.Text(T("absent-dev")) })
+	if len(*log) != 2 || !strings.Contains((*log)[1], `no message "absent-dev"`) {
+		t.Errorf("dev app: dev log = %q", *log)
 	}
 }
 

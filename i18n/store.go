@@ -388,7 +388,21 @@ func notify() {
 // ---------------------------------------------------------------------
 // Dev mode.
 
-func devMode() bool { return os.Getenv(core.EnvDev) == "1" }
+// devMode reports whether problems are reported (ADR-085): TELA_DEV=1 or
+// TELA_DEV=0 when set (read at each call, so that a test can change it),
+// else Tela's dev mode at the call (core.DevNow): the mode of the Tree
+// being built when T runs in a component, else the process default, on
+// unless the binary is a release build and the app's mode (App.Dev) once
+// Run starts.
+func devMode() bool {
+	switch os.Getenv(core.EnvDev) {
+	case "1":
+		return true
+	case "0":
+		return false
+	}
+	return core.DevNow()
+}
 
 var (
 	devOut  func(string) = func(s string) { fmt.Fprintln(os.Stderr, s) }

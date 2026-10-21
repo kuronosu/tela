@@ -80,8 +80,9 @@ func Files(n int) tela.Node {
 
 Arguments are name/value pairs, like `log/slog`. A number argument is
 formatted for the locale and picks the plural; a `time.Time` is a date; a
-string is itself. A key that is in no catalog is returned as is, and with
-`TELA_DEV=1` reported once on stderr; an argument that the message uses but the
+string is itself. A key that is in no catalog is returned as is, and in dev
+mode (on unless the program is a release build, the app's mode under
+`App.Dev`, `TELA_DEV=0` or `1` overriding) reported once on stderr; an argument that the message uses but the
 call does not pass keeps its `{name}` and is reported in dev mode too.
 
 Messages are looked up in the locale's catalog, then its parents (es-MX

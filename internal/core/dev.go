@@ -62,6 +62,13 @@ func devNow() bool {
 	return d
 }
 
+// DevNow reports whether dev mode is on for code that knows no Tree, such
+// as package i18n's reports: the mode of the Tree being built when called
+// from its build, else the process default (on unless the binary is a
+// release build, the app's mode once Run starts; ADR-085). It does not
+// read TELA_DEV again: the default was resolved with it.
+func DevNow() bool { return devNow() }
+
 // devMixed reports whether a Tree may be in another mode than dev (a
 // sticky answer: a Tree is never known to be gone).
 func devMixed(dev bool) bool {
