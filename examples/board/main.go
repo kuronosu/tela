@@ -33,21 +33,21 @@ func Kanban() tela.Node {
 					avatar("AL", "from-violet-400 to-indigo-500"), avatar("MK", "from-sky-400 to-cyan-500"),
 					avatar("JS", "from-amber-400 to-orange-500"), avatar("OM", "from-rose-400 to-pink-500"),
 				),
-				Button(Class("flex h-9 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-zinc-50 shadow-sm hover:bg-zinc-700 active:bg-zinc-950 "+
+				Button(Class("flex h-9 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-zinc-50 shadow-sm hover:bg-zinc-700 active:bg-zinc-950",
 					"dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"),
 					Text("Invite")),
 			),
 		),
 		Div(Class("flex min-h-0 flex-1 gap-4 px-6 pb-6 md:px-8 md:pb-8"),
-			Map([]int{0, 1, 2}, func(i int) tela.Node {
-				return tela.WithKey(tela.CP(Lane, LaneProps{Index: i, Cards: board[i], D: drag, Set: setBoard}), i)
+			MapKeyed([]int{0, 1, 2}, func(i int) int { return i }, func(i int) tela.Component {
+				return Lane{Index: i, Cards: board[i], D: drag, Set: setBoard}
 			}),
 		),
 	)
 }
 
 func avatar(initials, colors string) tela.Node {
-	return Div(Class("flex size-8 items-center justify-center -ml-2 rounded-full border-2 border-white bg-linear-to-br first:ml-0 text-xs font-semibold text-white dark:border-zinc-950 "+colors),
+	return Div(Class("flex size-8 items-center justify-center -ml-2 rounded-full border-2 border-white bg-linear-to-br first:ml-0 text-xs font-semibold text-white dark:border-zinc-950", colors),
 		Text(initials))
 }
 
@@ -55,7 +55,7 @@ func avatar(initials, colors string) tela.Node {
 func Preview() tela.Node { return tela.C(Kanban) }
 
 func main() {
-	tela.Run(tela.App{
+	tela.Main(tela.App{
 		Title:  "Tela — board",
 		AppID:  "dev.telaui.board",
 		Width:  1280,

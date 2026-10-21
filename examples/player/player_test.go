@@ -18,13 +18,13 @@ const windowW, windowH = 1280, 800
 // hard-coded 332 overflowed the card by 2 px. Only the tests know it.
 const barW = 330
 
-// mount opens the screen in dev mode, where any dev message fails the test.
-// The clock goroutine runs in real time, so the waits are generous for slow
-// machines.
-func mount(t *testing.T, w, h float32, root func() tela.Node, opts ...telatest.Option) *telatest.App {
+// mount opens the screen; dev mode is on, so any dev message fails the
+// test. The clock goroutine runs in real time, so the waits are generous
+// for slow machines.
+func mount(t *testing.T, w, h float32, root tela.Component, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev(), telatest.Timeout(30 * time.Second)}, opts...)
-	return telatest.Mount(t, tela.C(root), opts...)
+	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Timeout(30 * time.Second)}, opts...)
+	return telatest.Mount(t, root, opts...)
 }
 
 // fast makes the progress clock run scale times faster than real time and
@@ -43,7 +43,7 @@ func slow(t *testing.T) { fast(t, time.Hour, 1) }
 func TestNoDevMessages(t *testing.T) {
 	slow(t)
 	for _, s := range [][2]float32{{windowW, windowH}, {800, 600}, {700, 420}, {1600, 900}} {
-		mount(t, s[0], s[1], Player)
+		mount(t, s[0], s[1], Player{})
 	}
 }
 
@@ -52,7 +52,7 @@ func TestGolden(t *testing.T) {
 	slow(t)
 	for _, scale := range []float64{1, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
-			mount(t, windowW, windowH, Preview, telatest.Scale(scale)).Golden(fmt.Sprintf("player_x%g.png", scale))
+			mount(t, windowW, windowH, Preview(), telatest.Scale(scale)).Golden(fmt.Sprintf("player_x%g.png", scale))
 		})
 	}
 }
@@ -83,10 +83,10 @@ func TestProgressAdvancesWithoutBuilding(t *testing.T) {
 	// TELA_CHECK_DAMAGE).
 	slow(t)
 	var tr *Transport
-	a := mount(t, windowW, windowH, func() tela.Node {
+	a := mount(t, windowW, windowH, tela.C(func() tela.Node {
 		tr = useTransport(0)
 		return page(tr)
-	})
+	}))
 	if w := fillWidth(a); w != 0 {
 		t.Fatalf("the bar starts at %v px, want 0", w)
 	}
@@ -120,7 +120,7 @@ func TestProgressAdvancesWithoutBuilding(t *testing.T) {
 
 func TestPauseStopsTheClock(t *testing.T) {
 	fast(t, 5*time.Millisecond, 10)
-	a := mount(t, windowW, windowH, Player)
+	a := mount(t, windowW, windowH, Player{})
 	a.WaitFor("the bar to start moving", func() bool { return fillWidth(a) > 3 })
 	a.ExpectCount(pauseBars, 2) // the pause icon while playing
 
@@ -142,7 +142,7 @@ func TestPauseStopsTheClock(t *testing.T) {
 
 func TestNextPrevAndQueue(t *testing.T) {
 	slow(t)
-	a := mount(t, windowW, windowH, Player)
+	a := mount(t, windowW, windowH, Player{})
 	titleIs(a, "Midnight Drive")
 	prev, next := telatest.ByRole("button", "Previous track"), telatest.ByRole("button", "Next track")
 
@@ -185,14 +185,14 @@ func dragBetween(a *telatest.App, x0, y0, x1, y1 float32, steps int) {
 
 func TestSeek(t *testing.T) {
 	slow(t)
-	a := mount(t, windowW, windowH, Player)
+	a := mount(t, windowW, windowH, Player{})
 	a.ExpectCount(seekBar, 1)
-	bxBox := a.Bounds(seekBar)
-	bx, by, bw, bh := bxBox.X, bxBox.Y, bxBox.Width, bxBox.Height
-	if bw != barW {
-		t.Fatalf("the seek bar is %v px wide, the test assumes %v", bw, barW)
+	bar := a.Bounds(seekBar)
+	bx := bar.X
+	if bar.Width != barW {
+		t.Fatalf("the seek bar is %v px wide, the test assumes %v", bar.Width, barW)
 	}
-	y := by + bh/2
+	y := bar.Y + bar.Height/2
 
 	clickAt(a, bx+barW/2, y)
 	a.ExpectText("1:51") // half of 3:42
@@ -216,10 +216,10 @@ func TestSeek(t *testing.T) {
 func TestTrackEndsAndPlaysNext(t *testing.T) {
 	slow(t) // the test ticks the clock: 2 s of music per tick
 	var tr *Transport
-	a := mount(t, windowW, windowH, func() tela.Node {
+	a := mount(t, windowW, windowH, tela.C(func() tela.Node {
 		tr = useTransport(0)
 		return page(tr)
-	})
+	}))
 	for range 115 { // 230 s: past the end of the 3:42 first track
 		tela.Post(func() { tr.advance(2) })
 		a.Advance(16 * time.Millisecond)
@@ -233,7 +233,7 @@ func TestTrackEndsAndPlaysNext(t *testing.T) {
 func TestClockStopsOnUnmount(t *testing.T) {
 	fast(t, 5*time.Millisecond, 1)
 	before := clocks()
-	a := mount(t, windowW, windowH, Player) // mounting runs the passive effects
+	a := mount(t, windowW, windowH, Player{}) // mounting runs the passive effects
 	// The goroutine is spawned by the effect and may not be scheduled yet
 	// on a loaded runner, so wait for it as for its exit below.
 	deadline := time.Now().Add(2 * time.Second)

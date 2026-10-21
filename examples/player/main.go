@@ -20,32 +20,34 @@ import (
 )
 
 // Player is the page: the player card and, from the lg breakpoint, the
-// queue next to it, over a soft radial glow.
-func Player() tela.Node { return tela.CP(playerAt, 0) }
+// queue next to it, over a soft radial glow. StartAt is how many seconds
+// into the first track the player starts (a prop that seeds its state, as
+// in the preview below).
+type Player struct {
+	StartAt float64
+}
 
-// playerAt is Player with the first track already startAt seconds in. It
-// keeps the transport's state, so it is a component of its own (tela.CP).
-func playerAt(startAt float64) tela.Node { return page(useTransport(startAt)) }
+func (p Player) Build() tela.Node { return page(useTransport(p.StartAt)) }
 
 // page is the content of the player for a transport.
 func page(tr *Transport) tela.Node {
-	return Div(Class("flex min-h-screen items-center justify-center gap-6 overflow-hidden "+
+	return Div(Class("flex min-h-screen items-center justify-center gap-6 overflow-hidden",
 		"bg-zinc-950 bg-radial-[at_25%_15%] from-violet-950/70 to-zinc-950 to-70% px-6 py-3 text-white"),
-		tela.CP(NowPlaying, TransportProps{Tr: tr}),
-		tela.CP(Queue, QueueProps{Tr: tr}),
+		NowPlaying{Tr: tr},
+		Queue{Tr: tr},
 	)
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`: the player
 // a minute and 24 seconds into the first track.
-func Preview() tela.Node { return tela.CP(playerAt, 84) }
+func Preview() tela.Component { return Player{StartAt: 84} }
 
 func main() {
-	tela.Run(tela.App{
+	tela.Main(tela.App{
 		Title:  "Tela — player",
 		AppID:  "dev.telaui.player",
 		Width:  1280,
 		Height: 800,
-		Root:   Player,
+		Root:   func() tela.Node { return Fragment(Player{}) },
 	})
 }

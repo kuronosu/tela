@@ -107,7 +107,7 @@ func TestTickRasterizesTheBar(t *testing.T) {
 // at scale 2, checking every frame against a full rendering.
 func TestTickDamage(t *testing.T) {
 	fast(t, 5*time.Millisecond, 10)
-	a := mount(t, windowW, windowH, Player, telatest.Scale(2), telatest.CheckDamage())
+	a := mount(t, windowW, windowH, Player{}, telatest.Scale(2), telatest.CheckDamage())
 	for range 40 {
 		time.Sleep(3 * time.Millisecond)
 		a.Advance(16 * time.Millisecond)

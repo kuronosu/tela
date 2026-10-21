@@ -3,7 +3,6 @@ package main
 import (
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
@@ -138,7 +137,7 @@ func TestDragMoveRecordsNothing(t *testing.T) {
 // TestDragDamage drags cards at scale 2, checking every frame against a
 // full rendering.
 func TestDragDamage(t *testing.T) {
-	a := telatest.Mount(t, tela.C(Kanban), telatest.Size(1416, 846), telatest.Scale(2), telatest.CheckDamage())
+	a := telatest.MountFunc(t, Kanban, telatest.Size(1416, 846), telatest.Scale(2), telatest.CheckDamage())
 	a.DragBy(cardLoc("Design the onboarding flow"), 420, 60, telatest.Steps(30))
 	a.DragBy(cardLoc("Set up the CI pipeline"), -380, 10, telatest.Steps(30))
 }

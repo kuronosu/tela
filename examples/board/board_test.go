@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
 const windowW, windowH = 1280, 800
 
-// mount opens the screen in dev mode, where any dev message fails the test.
+// mount opens the screen; dev mode is on, so any dev message fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
-	return telatest.Mount(t, tela.C(Kanban), opts...)
+	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
+	return telatest.MountFunc(t, Kanban, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {

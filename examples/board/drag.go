@@ -26,7 +26,7 @@ type DragState struct {
 
 // useDrag is a custom hook (it calls hooks): call it from a component body.
 func useDrag() *DragState {
-	d := tela.UseMemo(func() *DragState { return &DragState{} }, nil)
+	d := tela.UseOnce(func() *DragState { return &DragState{} })
 	d.Dragging = tela.UseValue(0)
 	d.Offset = tela.UseValue(Offset{})
 	d.Over = tela.UseValue(Target{})

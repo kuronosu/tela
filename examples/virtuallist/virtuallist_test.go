@@ -5,17 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
 const windowW, windowH = 1280, 800
 
-// mount opens the screen in dev mode, where any dev message fails the test.
+// mount opens the screen; dev mode is on, so any dev message fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
-	return telatest.Mount(t, tela.C(Directory), opts...)
+	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
+	return telatest.MountFunc(t, Directory, opts...)
 }
 
 var (
@@ -38,9 +37,8 @@ func rowOf(i int) telatest.Locator {
 // viewport returns the top and bottom of the list's scrollport (inside
 // its 1 px border).
 func viewport(a *telatest.App) (top, bottom float32) {
-	yBox := a.Bounds(list)
-	y, h := yBox.Y, yBox.Height
-	return y + 1, y + h - 1
+	r := a.Bounds(list)
+	return r.Y + 1, r.Bottom() - 1
 }
 
 // near compares positions within a device pixel: the painted scroll
@@ -94,10 +92,9 @@ func TestJumpButtons(t *testing.T) {
 	top, bottom := viewport(a)
 
 	a.Click(telatest.ByRole("button", "Row 50,000"))
-	yBox := a.Bounds(rowOf(49_999))
-	y, h := yBox.Y, yBox.Height
-	if !near(y+h/2, (top+bottom)/2) {
-		t.Errorf("row 50,000 spans %v..%v, want it centered in %v..%v", y, y+h, top, bottom)
+	r := a.Bounds(rowOf(49_999))
+	if !near(r.Y+r.Height/2, (top+bottom)/2) {
+		t.Errorf("row 50,000 spans %v..%v, want it centered in %v..%v", r.Y, r.Bottom(), top, bottom)
 	}
 
 	a.Click(telatest.ByRole("button", "Row 1,000"))
@@ -157,13 +154,12 @@ func TestRowsAreMeasured(t *testing.T) {
 	}
 	taller := false
 	for i := first; a.Count(rowOf(i+1)) == 1; i++ {
-		yBox := a.Bounds(rowOf(i))
-		y, h := yBox.Y, yBox.Height
+		r := a.Bounds(rowOf(i))
 		y2 := a.Bounds(rowOf(i + 1)).Y
-		if !near(y+h, y2) {
-			t.Fatalf("row %d ends at %v, row %d starts at %v", i+1, y+h, i+2, y2)
+		if !near(r.Bottom(), y2) {
+			t.Fatalf("row %d ends at %v, row %d starts at %v", i+1, r.Bottom(), i+2, y2)
 		}
-		if HasNote(i) && h > noteHeight+10 {
+		if HasNote(i) && r.Height > noteHeight+10 {
 			taller = true
 		}
 	}

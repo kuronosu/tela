@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/kuronosu/tela"
@@ -46,7 +47,11 @@ var (
 //     the components that show them.
 //
 // A *Transport is created once per player (see useTransport) and is
-// comparable, so it can sit in the props of CP components.
+// comparable, so it can sit in the fields of struct components.
+//
+// Code that is not a build (the clock, the event handlers) reads the
+// Values with Latest, which applies the changes that are queued but not
+// yet applied; Get is for builds, where it also subscribes.
 type Transport struct {
 	Track   *tela.Value[int]
 	Playing *tela.Value[bool]
@@ -58,7 +63,7 @@ type Transport struct {
 // component body, in the same order on every build. It also starts the
 // clock goroutine, which stops when the player unmounts.
 func useTransport(startAt float64) *Transport {
-	tr := tela.UseMemo(func() *Transport { return &Transport{} }, nil)
+	tr := tela.UseOnce(func() *Transport { return &Transport{} })
 	// UseValue must be called on every build, in order, even though the
 	// Transport itself is created once.
 	tr.Track = tela.UseValue(0)
@@ -66,46 +71,48 @@ func useTransport(startAt float64) *Transport {
 	tr.Elapsed = tela.UseValue(startAt)
 	tr.Secs = tela.UseValue(int(startAt))
 
-	tela.UseEffect(func() func() {
-		done := make(chan struct{})
-		go func() {
-			tick := time.NewTicker(tickEvery)
-			defer tick.Stop()
-			last := time.Now()
-			for {
-				select {
-				case now := <-tick.C:
-					dt := now.Sub(last).Seconds() * timeScale
-					last = now
-					// Post runs on the UI thread, in order with the Value
-					// updates, so Get sees the state left by the previous ones.
-					tela.Post(func() { tr.advance(dt) })
-				case <-done:
-					return
-				}
+	// The clock: one goroutine for the life of the player, cancelled (ctx)
+	// when it unmounts.
+	tela.UseGo(func(ctx context.Context) {
+		tick := time.NewTicker(tickEvery)
+		defer tick.Stop()
+		last := time.Now()
+		for {
+			select {
+			case now := <-tick.C:
+				dt := now.Sub(last).Seconds() * timeScale
+				last = now
+				// Post runs on the UI thread, in order with the Value
+				// updates.
+				tela.Post(func() { tr.advance(dt) })
+			case <-ctx.Done():
+				return
 			}
-		}()
-		return func() { close(done) }
-	}, nil)
+		}
+	}, tela.Once)
 	return tr
 }
 
-// Current returns the track that is selected.
+// Current returns the track that is selected, for a build: it subscribes
+// the component to track changes.
 func (tr *Transport) Current() Track { return tracks[tr.Track.Get()] }
+
+// current is the selected track for code that is not a build.
+func (tr *Transport) current() Track { return tracks[tr.Track.Latest()] }
 
 // advance moves the progress by dt seconds while playing and goes to the
 // next track at the end. It runs on the UI thread.
 func (tr *Transport) advance(dt float64) {
-	if !tr.Playing.Get() {
+	if !tr.Playing.Latest() {
 		return
 	}
-	e := tr.Elapsed.Get() + dt
-	if e >= float64(tr.Current().Seconds) {
+	e := tr.Elapsed.Latest() + dt
+	if e >= float64(tr.current().Seconds) {
 		tr.Next()
 		return
 	}
 	tr.Elapsed.Set(e)
-	if s := int(e); s != tr.Secs.Get() {
+	if s := int(e); s != tr.Secs.Latest() {
 		tr.Secs.Set(s)
 	}
 }
@@ -118,16 +125,16 @@ func (tr *Transport) Select(i int) {
 }
 
 // Next plays the following track, wrapping around.
-func (tr *Transport) Next() { tr.Select((tr.Track.Get() + 1) % len(tracks)) }
+func (tr *Transport) Next() { tr.Select((tr.Track.Latest() + 1) % len(tracks)) }
 
 // Prev restarts the track, or goes to the previous one when it has just
 // started (the convention of every player).
 func (tr *Transport) Prev() {
-	if tr.Elapsed.Get() > 3 {
+	if tr.Elapsed.Latest() > 3 {
 		tr.Seek(0)
 		return
 	}
-	tr.Select((tr.Track.Get() + len(tracks) - 1) % len(tracks))
+	tr.Select((tr.Track.Latest() + len(tracks) - 1) % len(tracks))
 }
 
 // Toggle plays or pauses.
@@ -136,7 +143,7 @@ func (tr *Transport) Toggle() { tr.Playing.Update(func(p bool) bool { return !p 
 // Seek moves the progress to a fraction (0 to 1) of the current track.
 func (tr *Transport) Seek(frac float64) {
 	frac = min(max(frac, 0), 0.999)
-	e := frac * float64(tr.Current().Seconds)
+	e := frac * float64(tr.current().Seconds)
 	tr.Elapsed.Set(e)
 	tr.Secs.Set(int(e))
 }
