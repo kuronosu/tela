@@ -121,9 +121,10 @@ func Disabled(disabled bool) tela.Prop { return core.Disabled(disabled) }
 //	Button(OnClick(func(e tela.MouseEvent) { menu.At(e.X, e.Y) }), Text("Open"))
 //
 // Every handler prop of this package (OnClick, OnKeyDown, OnChange,
-// OnSubmit...) takes a func() or a func of its event type: write the
+// OnSubmit...) takes a func() or a func of its event type (or a named type
+// of either, such as type ClickHandler func(tela.MouseEvent)): write the
 // event only when the handler reads it. A nil handler panics.
-func OnClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnClick[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("click", "OnClick", handler)
 }
 
@@ -132,7 +133,7 @@ func OnClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
 // click is not delayed: OnClick runs for both, with e.ClickCount 1 and 2.
 //
 //	Div(OnDoubleClick(func() { setEditing.Set(true) }), Text(title))
-func OnDoubleClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnDoubleClick[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("dblclick", "OnDoubleClick", handler)
 }
 
@@ -140,7 +141,7 @@ func OnDoubleClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
 // released over the element.
 //
 //	Div(OnContextMenu(func(e tela.MouseEvent) { openMenu(e.X, e.Y) }))
-func OnContextMenu[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnContextMenu[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("contextmenu", "OnContextMenu", handler)
 }
 
@@ -151,14 +152,14 @@ func OnContextMenu[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
 //	        closeTab()
 //	    }
 //	}))
-func OnMouseDown[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnMouseDown[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("mousedown", "OnMouseDown", handler)
 }
 
 // OnMouseUp calls handler when a button is released over the element.
 //
 //	Div(OnMouseUp(func() { setPressed.Set(false) }))
-func OnMouseUp[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnMouseUp[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("mouseup", "OnMouseUp", handler)
 }
 
@@ -166,7 +167,7 @@ func OnMouseUp[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
 // Moves are batched: state set here is applied once per frame.
 //
 //	Div(OnMouseMove(func(e tela.MouseEvent) { pos.Set(e.LocalX) }))
-func OnMouseMove[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnMouseMove[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("mousemove", "OnMouseMove", handler)
 }
 
@@ -174,7 +175,7 @@ func OnMouseMove[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
 // of its descendants from outside. It does not bubble.
 //
 //	Div(OnMouseEnter(func() { setShowTip.Set(true) }))
-func OnMouseEnter[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnMouseEnter[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("mouseenter", "OnMouseEnter", handler)
 }
 
@@ -182,7 +183,7 @@ func OnMouseEnter[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
 // descendants. It does not bubble.
 //
 //	Div(OnMouseLeave(func() { setShowTip.Set(false) }))
-func OnMouseLeave[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
+func OnMouseLeave[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("mouseleave", "OnMouseLeave", handler)
 }
 
@@ -197,7 +198,7 @@ func OnMouseLeave[F func() | func(tela.MouseEvent)](handler F) tela.Prop {
 //	        startStroke(e.LocalX, e.LocalY)
 //	    }
 //	}))
-func OnPointerDown[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+func OnPointerDown[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 	return onEvent[tela.PointerEvent]("pointerdown", "OnPointerDown", handler)
 }
 
@@ -206,7 +207,7 @@ func OnPointerDown[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
 // pressed or released while another is held.
 //
 //	Div(OnPointerMove(func(e tela.PointerEvent) { addPoint(e.LocalX, e.LocalY, e.Pressure) }))
-func OnPointerMove[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+func OnPointerMove[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 	return onEvent[tela.PointerEvent]("pointermove", "OnPointerMove", handler)
 }
 
@@ -214,7 +215,7 @@ func OnPointerMove[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
 // over the element.
 //
 //	Div(OnPointerUp(func() { endStroke() }))
-func OnPointerUp[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+func OnPointerUp[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 	return onEvent[tela.PointerEvent]("pointerup", "OnPointerUp", handler)
 }
 
@@ -223,7 +224,7 @@ func OnPointerUp[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
 // treat it as an aborted press, not a release.
 //
 //	Div(OnPointerCancel(func() { discardStroke() }))
-func OnPointerCancel[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+func OnPointerCancel[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 	return onEvent[tela.PointerEvent]("pointercancel", "OnPointerCancel", handler)
 }
 
@@ -231,7 +232,7 @@ func OnPointerCancel[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
 // its descendants. It does not bubble.
 //
 //	Div(OnPointerEnter(func(e tela.PointerEvent) { setHoverKind.Set(e.Kind) }))
-func OnPointerEnter[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+func OnPointerEnter[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 	return onEvent[tela.PointerEvent]("pointerenter", "OnPointerEnter", handler)
 }
 
@@ -239,7 +240,7 @@ func OnPointerEnter[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
 // descendants. It does not bubble.
 //
 //	Div(OnPointerLeave(func() { setHovered.Set(false) }))
-func OnPointerLeave[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+func OnPointerLeave[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 	return onEvent[tela.PointerEvent]("pointerleave", "OnPointerLeave", handler)
 }
 
@@ -250,7 +251,7 @@ func OnPointerLeave[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
 // bubble.
 //
 //	Div(OnLongPress(func(e tela.PointerEvent) { openMenu(e.X, e.Y) }), Text(name))
-func OnLongPress[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
+func OnLongPress[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 	return onEvent[tela.PointerEvent]("longpress", "OnLongPress", handler)
 }
 
@@ -266,7 +267,7 @@ func OnLongPress[F func() | func(tela.PointerEvent)](handler F) tela.Prop {
 //	    OnDragStart(func() { start.Current = pos.Get() }),
 //	    OnDrag(func(e tela.DragEvent) { pos.Set(start.Current + float64(e.OffsetX)) }),
 //	)
-func OnDragStart[F func() | func(tela.DragEvent)](handler F) tela.Prop {
+func OnDragStart[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
 	return onEvent[tela.DragEvent]("dragstart", "OnDragStart", handler)
 }
 
@@ -276,7 +277,7 @@ func OnDragStart[F func() | func(tela.DragEvent)](handler F) tela.Prop {
 // per frame.
 //
 //	Div(OnDrag(func(e tela.DragEvent) { pos.Update(func(p float64) float64 { return p + float64(e.DeltaX) }) }))
-func OnDrag[F func() | func(tela.DragEvent)](handler F) tela.Prop {
+func OnDrag[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
 	return onEvent[tela.DragEvent]("drag", "OnDrag", handler)
 }
 
@@ -289,7 +290,7 @@ func OnDrag[F func() | func(tela.DragEvent)](handler F) tela.Prop {
 //	        dismiss()
 //	    }
 //	}))
-func OnDragEnd[F func() | func(tela.DragEvent)](handler F) tela.Prop {
+func OnDragEnd[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
 	return onEvent[tela.DragEvent]("dragend", "OnDragEnd", handler)
 }
 
@@ -306,7 +307,7 @@ func OnDragEnd[F func() | func(tela.DragEvent)](handler F) tela.Prop {
 //	        zoomBy(-e.DeltaY)
 //	    }
 //	}))
-func OnWheel[F func() | func(tela.WheelEvent)](handler F) tela.Prop {
+func OnWheel[F ~func() | ~func(tela.WheelEvent)](handler F) tela.Prop {
 	return onEvent[tela.WheelEvent]("wheel", "OnWheel", handler)
 }
 
@@ -318,6 +319,6 @@ func OnWheel[F func() | func(tela.WheelEvent)](handler F) tela.Prop {
 //	Div(Class("h-96 overflow-y-auto"), OnScroll(func(e tela.ScrollEvent) {
 //	    setAtTop.Set(e.ScrollTop == 0)
 //	}), rows)
-func OnScroll[F func() | func(tela.ScrollEvent)](handler F) tela.Prop {
+func OnScroll[F ~func() | ~func(tela.ScrollEvent)](handler F) tela.Prop {
 	return onEvent[tela.ScrollEvent]("scroll", "OnScroll", handler)
 }

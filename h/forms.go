@@ -1,6 +1,8 @@
 package h
 
 import (
+	"reflect"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/style"
@@ -75,22 +77,25 @@ func DefaultValue(s string) tela.Prop { return core.DefaultValue(s) }
 
 // Bind makes a text field controlled by a state: Value(text) plus an
 // OnChange that sends every new value to set, a tela.Setter or any
-// func(string), such as one that dispatches an action to a reducer. A nil
-// function panics.
+// func(string) (of a named func type too), such as one that dispatches an
+// action to a reducer. A nil function panics.
 //
 //	name, setName := tela.UseState("")
 //	Input(Bind(name, setName))
 //
 //	form, d := tela.UseReducer(reduce, Form{})
 //	Input(Bind(form.Email, func(s string) { d.Dispatch(setEmail(s)) }))
-func Bind[S tela.Setter[string] | func(string)](text string, set S) tela.Prop {
+func Bind[S tela.Setter[string] | ~func(string)](text string, set S) tela.Prop {
 	switch s := any(set).(type) {
 	case tela.Setter[string]:
 		return core.Bind(text, s)
 	case func(string):
 		return core.BindFunc(text, s)
+	default:
+		// A named func type: its underlying type is func(string).
+		f := reflect.ValueOf(s).Convert(reflect.TypeFor[func(string)]()).Interface().(func(string))
+		return core.BindFunc(text, f)
 	}
-	panic("h: Bind: unreachable")
 }
 
 // BindValue binds a text field to v, from tela.UseValue: the field shows
@@ -155,43 +160,43 @@ func For(id string) tela.Prop { return core.For(id) }
 // field.
 //
 //	Input(Value(name), OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) }))
-func OnChange[F func() | func(tela.ChangeEvent)](handler F) tela.Prop {
+func OnChange[F ~func() | ~func(tela.ChangeEvent)](handler F) tela.Prop {
 	return onEvent[tela.ChangeEvent]("change", "OnChange", handler)
 }
 
 // OnBeforeInput calls handler before a text field's value changes by an
 // edit of the user (the DOM's beforeinput); e.PreventDefault() cancels
 // the edit (except an IME composition's). It bubbles.
-func OnBeforeInput[F func() | func(tela.InputEvent)](handler F) tela.Prop {
+func OnBeforeInput[F ~func() | ~func(tela.InputEvent)](handler F) tela.Prop {
 	return onEvent[tela.InputEvent]("beforeinput", "OnBeforeInput", handler)
 }
 
 // OnCompositionStart calls handler when an input method (IME) starts
 // composing text in a text field. It bubbles.
-func OnCompositionStart[F func() | func(tela.CompositionEvent)](handler F) tela.Prop {
+func OnCompositionStart[F ~func() | ~func(tela.CompositionEvent)](handler F) tela.Prop {
 	return onEvent[tela.CompositionEvent]("compositionstart", "OnCompositionStart", handler)
 }
 
 // OnCompositionUpdate calls handler when the text an input method
 // composes changes (e.Data). It bubbles.
-func OnCompositionUpdate[F func() | func(tela.CompositionEvent)](handler F) tela.Prop {
+func OnCompositionUpdate[F ~func() | ~func(tela.CompositionEvent)](handler F) tela.Prop {
 	return onEvent[tela.CompositionEvent]("compositionupdate", "OnCompositionUpdate", handler)
 }
 
 // OnCompositionEnd calls handler when an input method ends a
 // composition, committed (e.Data) or canceled (""). It bubbles.
-func OnCompositionEnd[F func() | func(tela.CompositionEvent)](handler F) tela.Prop {
+func OnCompositionEnd[F ~func() | ~func(tela.CompositionEvent)](handler F) tela.Prop {
 	return onEvent[tela.CompositionEvent]("compositionend", "OnCompositionEnd", handler)
 }
 
 // OnSelect calls handler when the user selects text in a text field, or
 // code changes its selection (e.Start, e.End). It bubbles.
-func OnSelect[F func() | func(tela.SelectEvent)](handler F) tela.Prop {
+func OnSelect[F ~func() | ~func(tela.SelectEvent)](handler F) tela.Prop {
 	return onEvent[tela.SelectEvent]("select", "OnSelect", handler)
 }
 
 // OnSubmit calls handler when a Form is submitted: Enter in one of its
 // single-line fields, or a click on a submit Button inside it. It bubbles.
-func OnSubmit[F func() | func(tela.SubmitEvent)](handler F) tela.Prop {
+func OnSubmit[F ~func() | ~func(tela.SubmitEvent)](handler F) tela.Prop {
 	return onEvent[tela.SubmitEvent]("submit", "OnSubmit", handler)
 }

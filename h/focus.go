@@ -20,7 +20,7 @@ import (
 //	        save()
 //	    }
 //	}))
-func OnKeyDown[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop {
+func OnKeyDown[F ~func() | ~func(tela.KeyboardEvent)](handler F) tela.Prop {
 	return onEvent[tela.KeyboardEvent]("keydown", "OnKeyDown", handler)
 }
 
@@ -34,7 +34,7 @@ func OnKeyDown[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop {
 //	        setMulti.Set(false)
 //	    }
 //	}))
-func OnKeyUp[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop {
+func OnKeyUp[F ~func() | ~func(tela.KeyboardEvent)](handler F) tela.Prop {
 	return onEvent[tela.KeyboardEvent]("keyup", "OnKeyUp", handler)
 }
 
@@ -43,7 +43,7 @@ func OnKeyUp[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop {
 // regains the keyboard focus.
 //
 //	Div(TabIndex(0), OnFocus(func() { setActive.Set(true) }))
-func OnFocus[F func() | func(tela.FocusEvent)](handler F) tela.Prop {
+func OnFocus[F ~func() | ~func(tela.FocusEvent)](handler F) tela.Prop {
 	return onEvent[tela.FocusEvent]("focus", "OnFocus", handler)
 }
 
@@ -52,7 +52,7 @@ func OnFocus[F func() | func(tela.FocusEvent)](handler F) tela.Prop {
 // keyboard focus. Unmounting the focused element does not call it.
 //
 //	Div(TabIndex(0), OnBlur(func() { commit() }))
-func OnBlur[F func() | func(tela.FocusEvent)](handler F) tela.Prop {
+func OnBlur[F ~func() | ~func(tela.FocusEvent)](handler F) tela.Prop {
 	return onEvent[tela.FocusEvent]("blur", "OnBlur", handler)
 }
 
