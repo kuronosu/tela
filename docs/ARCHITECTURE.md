@@ -23,20 +23,20 @@ import (
 func Counter() tela.Node {
     count, setCount := tela.UseState(0)
 
-    return Div(Class("flex flex-col items-center gap-6 p-10 rounded-3xl "+
+    return Div(Class("flex flex-col items-center gap-6 p-10 rounded-3xl",
         "bg-linear-to-br from-indigo-500 to-fuchsia-600 shadow-2xl"),
         H1(Class("text-5xl font-bold text-white tracking-tight"),
             Textf("Count: %d", count)),
-        Button(Class("px-6 py-3 rounded-xl bg-white/15 text-white backdrop-blur "+
+        Button(Class("px-6 py-3 rounded-xl bg-white/15 text-white backdrop-blur",
             "hover:bg-white/25 active:scale-95 transition"),
-            OnClick(func(tela.MouseEvent) { setCount.Set(count + 1) }),
+            OnClick(func() { setCount.Update(func(n int) int { return n + 1 }) }),
             Text("Increment"),
         ),
     )
 }
 
 func main() {
-    tela.Run(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
 }
 ```
 
