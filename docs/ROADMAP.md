@@ -6,7 +6,7 @@
 
 ## Current status
 
-- **Phase in progress:** phase 7 (public API polish), plan approved 2026-10-20; wave A merged (T1 safety net 056caee, T2b `telatest` cc8ce46, T7a `i18n` 4db1e37); wave B next. Phase 6 is tagged `v0.6.0` (d8cd278, pushed with main on the owner's request); phase 5 `v0.5.0` (8a4bf5d) with `v0.5.1`/`v0.5.2`; phase 4 `v0.4.0` (9243106).
+- **Phase in progress:** phase 7 (public API polish), plan approved 2026-10-20; waves A and B merged (T1 056caee, T2b cc8ce46, T7a 4db1e37, T4 theme tokens 577957a, T3 struct components and renames 16899c9, T7b right-to-left a17667b); wave C running (T2a, T5). Phase 6 is tagged `v0.6.0` (d8cd278, pushed with main on the owner's request); phase 5 `v0.5.0` (8a4bf5d) with `v0.5.1`/`v0.5.2`; phase 4 `v0.4.0` (9243106).
 - **Phase 6 done** (2026-10-19): `examples/dashboard` (glassmorphism over an image backdrop, transitions, layout animations, springs, Presence dialog and toast) runs at 60 fps at 1080p on CPU: a headless 1920×1080 x1 scripted session of 644 frames has p95 14.6 ms on 4 CPUs (13.8 ms on 18); live at 1920×1080 physical the `fps` overlay reads 12.3–14.4 ms per frame on Wayland while scrolling (16.1–19.8 ms on X11). Wayland fractional scaling verified live at 1.5 (windows pixel-identical to `tela snapshot --scale 1.5`, scrolled frames identical to full redraws). arm64 (qemu) and the race detector pass. A `/code-review high` of the phase found 7 issues (worst: a child's own color transition snapped under an inherited change; evicted `BgImage` entries stayed reachable); all fixed with regression tests, plus T10's finding that opacity did not fade backdrop filters (ADR-084, now within 0.4 mean levels of Chromium).
 - **Phase 6 delivered:** CSS grid ported from Taffy (553/553 grid fixtures match Chromium; ADR-073); raster blend modes, mask layers and focal gradients, exact COLR emoji (ADR-074); Wayland fractional scaling (ADR-075); `internal/anim`, CSS transitions, `animate-*`, reduced motion (ADR-076); `fixed`/`sticky`, `h.Portal`, color-scheme API (ADR-077); fast downsampled blur and parallel damage-aware backdrop filters, `drop-shadow` σ = radius (ADR-078); `mix-blend-mode`, `[clip-path:…]`, background images via `tela.Assets`/`tela.BgImage`, `bg-clip-text` (ADR-079); `UseSpring`/`UseTween`/`Animate`, `starting:`, `Presence`/`Exit`/`UsePresence`, `telatest.NoSettle` (ADR-080); `AnimateLayout`/`LayoutID` (ADR-081); `OnDone`, `Velocity`, `BgFn`, `TextColorFn` (ADR-082); backdrop faded by opacity (ADR-084); `examples/motion`, `examples/layout`, the new `examples/dashboard`.
 - **Phase 6 known limitations:** scale 2 does not reach 60 fps while scrolling glass pages (p95 36–48 ms at 2880×1800 and 4K): backdrop blur inside a layer disables banded raster, scrolling over images/backdrops cannot pixel-shift, `drawShadow` does interior work, parallel efficiency is ~2× on 4 workers; no Windows run this phase (VM off); `wtype` keys did not reach an Xwayland window (wheel did; unverified whether Tela or wtype); 3D transforms are out of scope; `grid-template-areas` is unreachable from classes; layout animations: no crossfade on `LayoutID` handoff, inline elements not animated, breakpoints animate on every resize configure; `starting:` ignores an ancestor's `display: none` ending; exits wait only for transitions (not keyframes); a box's own `filter`/`mix-blend-mode` do not apply to its backdrop; repeated image tiles are drawn per tile (seams differ from Chromium by ~1 level at x2); color-glyph alpha only on cached sprites; `Img` still takes only `image.Image` (no files, SVG or tint).
@@ -28,7 +28,7 @@
 - **Phase-6 plan** (approved 2026-10-18; owner's API decisions taken up front, transforms stay 2D, component-API proposals deferred to before phase 7): T1 grid (tela-hard, ADR-073) · T2 raster blend modes, mask layers, focal gradient (ADR-074) · T3 Wayland fractional scaling (ADR-075) · T4 `internal/anim`, CSS transitions, `animate-*`, `motion-reduce` (ADR-076) · T5 fast large-σ blur (ADR-078) · T6 core `mix-blend-mode`, `[clip-path:…]`, background images via `tela.Assets`/`tela.BgImage`, `bg-clip-text` (ADR-079) · T7 `UseSpring`/`UseTween`/`Animate`, `Presence` with `starting:` and `Exit`, `UsePresence` · T8 `fixed`, `sticky`, `h.Portal`, `UseColorScheme`/`SetColorScheme`/`UseReducedMotion` (ADR-077) · T9 `AnimateLayout`, `LayoutID` · T10 dashboard example, 60 fps at 1080p, live and Windows checks. No limit on parallel agents (owner, 2026-10-18).
 - **Roadmap revision (2026-10-20):** a gap analysis against JavaFX, the Microsoft stack, Wails, Tauri and Electron, and a review of `examples/` and an external application for public-API problems, produced the plan below. Phase 7 is new (public API polish, before `aria` and `kit`, with theme tokens inside it); the old phases 7–8 and the desktop-integration, distribution and media phases were split by size (phases 5 and 6 had 10–11 tasks); desktop integration comes before macOS; "Road to v1.0" says when the API freezes. Phases 8 onwards are unplanned; order and scope are confirmed when each phase is planned. `tela add` is deferred. Phase numbers moved: "phase 8" in older text (macOS, X11 IME) is now phase 13.
 - **Phase-7 decisions** (owner, 2026-10-20; options D1–D12 in `API_PROPOSALS.md`): struct components (`func (c Card) Build() tela.Node`) with a `Children tela.Component` field and a dev panic for hooks outside a boundary; generic `Key`; `Value.Get` unchanged plus a dev warning on pending changes; `nil` deps deprecated (dev panic in phase 8); `ID`/`UseID`/`KeyName`/`KeyCode` renames; `UseStateSet`/`UseStateUpdate` stay; previews seeded by component fields and `Preview{Root, Wrap}`, CLI reads `var App`; `UseGo`; `UseSpring(target, …)` with `Initial`; shadcn token names; `i18n` on `golang.org/x/text` with JSON + ICU catalogs. Plan: waves A (T1, T2b, T7a), B (T3, T4), C (T2a, T5), D (T6 incl. the external app, T7b), E close.
-- **Next step:** wave B (T3 breaking changes, T4 theme tokens). Open from T1: a mount-only form for `UseGo`/`UseLayoutEffect` once `nil` deps go; `tela snapshot`/`inspect` hide dev warnings (stderr of the runner not forwarded; T5); `telatest.NoDev` does not turn off node-constructor checks (process-wide default). Race runs of `internal/core` take ~22 min under the capped scope: pass `-timeout 60m`. Agents run every heavy command through a memory- and CPU-capped scope (`cool-run`), use their own scratchpad subdirectory and never run Wine.
+- **Next step:** merge wave C (T2a, T5), then T6 (migration of the examples and the external app) and the phase close. The host lost power at 2026-10-21 00:38 with three agents at CPUQuota=800%; 90 git objects were empty (only worktree data), repaired with no loss; limits back to 400% and `-p 2`, race only from the main session. Open from T1: a mount-only form for `UseGo`/`UseLayoutEffect` once `nil` deps go; `tela snapshot`/`inspect` hide dev warnings (stderr of the runner not forwarded; T5); `telatest.NoDev` does not turn off node-constructor checks (process-wide default). Race runs of `internal/core` take ~22 min under the capped scope: pass `-timeout 60m`. Agents run every heavy command through a memory- and CPU-capped scope (`cool-run`), use their own scratchpad subdirectory and never run Wine.
 
 ## Phases
 
@@ -166,13 +166,13 @@ Rendering must not change: every golden stays bit-identical.
 Present as options in `API_PROPOSALS.md` before any agent starts, as with the
 hooks and text-field shapes.
 
-- [ ] `Key[K comparable]` / `WithKey` generic, so a non-comparable key fails at compile time instead of panicking
+- [x] `Key[K comparable]` / `WithKey` generic, so a non-comparable key fails at compile time instead of panicking
 - [ ] `Value.Get()` inside handlers and effects returns what `Latest()` returns (three examples work around the stale read; `player` has a latent bug); builds and `…Fn` closures keep the applied value
 - [ ] Reject `nil` as a dependency list (after `UseMount`/`UseOnce` exist)
-- [ ] Name collisions between `h` and `tela` under dot-import: `Key`, `Code`, `Value`, `Ref`, `Id`/`UseId` against Go's `ID`, `telatest.Scale/Dark/ColorScheme`; decide which side renames
-- [ ] Remove `UseStateSet`/`UseStateUpdate` (unused in 29 `UseState` calls) or document why they stay
+- [x] Name collisions between `h` and `tela` under dot-import: `Key`, `Code`, `Value`, `Ref`, `Id`/`UseId` against Go's `ID`, `telatest.Scale/Dark/ColorScheme`; decide which side renames
+- [x] Remove `UseStateSet`/`UseStateUpdate` (unused in 29 `UseState` calls) or document why they stay
 - [ ] One `Preview` convention (component call vs `tela.C(...)`); `tela snapshot` reads `var App = tela.App{...}` for size, `RootClass` and `ColorScheme`, so the PNG matches the window
-- [ ] The component API of `API_PROPOSALS.md` (already pending)
+- [x] The component API of `API_PROPOSALS.md` (already pending)
 - [ ] A `Deprecated:` period of one phase for anything removed, then removal in phase 8
 
 #### T4 Theme tokens (design decision, ADR)
@@ -181,10 +181,10 @@ Prerequisite of `kit`. Today a theme is a struct of class strings
 (a `palette` struct in the external app), reflection over `Look` structs (`examples/native`)
 or doubled `dark:` pairs (`settings`, `pricing`, `virtuallist`).
 
-- [ ] `App.Theme`: semantic color, radius and font tokens with light and dark values, usable as classes (`bg-surface`, `text-fg`, `bg-primary`), following the color scheme without `dark:` pairs
-- [ ] `App.ClassAliases` so `text-muted` can expand to a class set
-- [ ] A scoped scheme for a subtree (`Scheme(tela.Dark)`), so a dark panel can sit in a light app
-- [ ] `UseTheme()` to read tokens in Go (hex values for tinting icons and canvases)
+- [x] `App.Theme`: semantic color, radius and font tokens with light and dark values, usable as classes (`bg-surface`, `text-fg`, `bg-primary`), following the color scheme without `dark:` pairs
+- [x] `App.ClassAliases` so `text-muted` can expand to a class set
+- [x] A scoped scheme for a subtree (`Scheme(tela.Dark)`), so a dark panel can sit in a light app
+- [x] `UseTheme()` to read tokens in Go (hex values for tinting icons and canvases)
 
 #### T5 Previews and seeded state
 
@@ -200,7 +200,7 @@ or doubled `dark:` pairs (`settings`, `pricing`, `virtuallist`).
 
 #### T7 i18n / l10n (pure Go, independent of the rest)
 
-- [ ] Message catalogs, plurals, locale-aware date/number/list formatting, runtime locale switching, `rtl:` layout mirroring (replaces a hand-written i18n package in the external app)
+- [x] Message catalogs, plurals, locale-aware date/number/list formatting, runtime locale switching, `rtl:` layout mirroring (replaces a hand-written i18n package in the external app)
 
 **Done when:**
 1. All examples and the external app build and pass with the new API, goldens unchanged.
@@ -406,3 +406,4 @@ One line per session: date, what was done, what is pending.
 - **2026-10-20:** proposal applied: phases 7–19 replace the old 7–11 (public API polish first; desktop integration before macOS; macOS, accessibility and GPU split; `kit` in core with `tela add` deferred), plus "Road to v1.0". README references to "phase 8" now say phase 13. Pending: decide the phase-7 T3 options, plan phase 7.
 - **2026-10-20:** open roadmap decisions settled by the owner: i18n stays in phase 7 (T7, now with a done criterion); dev mode on by default in development builds, release detected with `debug.ReadBuildInfo`; no `tela fix`, release notes only; accessibility strictly after macOS. Pending: decide the phase-7 T3 options, plan phase 7.
 - **2026-10-20:** phase 7 planned and approved; the owner decided D1–D12 (struct components, `Children tela.Component`, `Value.Get` unchanged with a dev warning, `ID`/`KeyName`/`KeyCode`, `x/text` for i18n…). Wave A started (T1, T2b, T7a in worktrees).
+- **2026-10-21:** the host lost power at 00:38 (three agents, CPUQuota 800%): 90 empty git objects in worktree data, repaired without loss (main intact). T4 theme tokens (ADR-089), T3 struct components/generic keys/renames/`tela.Once`/`UseSpring(target)` (ADR-088) and T7b right-to-left layout with `examples/i18n` (ADR-090) verified and merged; wave C (T2a, T5) started.

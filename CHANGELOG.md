@@ -18,16 +18,26 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `tela.Main(app)` runs the app, prints the error and exits 1.
 - Hooks: `UseMount`, `UseOnce`, `UseEffectDo`, `UseUpdateEffect`, `UseInterval` (on the frame clock, so `telatest.Advance` drives it) and `UseGo` (a goroutine with a `context.Context` cancelled at cleanup); `Setter.IsZero` and `Callback.IsZero`.
 - Dev diagnostics: a hook called from a function that is neither the component being built nor a `UseXxx` custom hook panics with the fix (wrap it in `tela.C`/`tela.CP`); mounting a component call (`telatest.Mount(t, Counter())`) explains the missing boundary; warnings for a `UseContext` without a Provider whose default holds a zero `Setter`/nil func, a `Label` that labels no control, keyless or duplicate keys per `Map` call site, `Value.Get` in a handler while changes are queued (use `Latest()`), and `nil` dependency lists.
+- Struct components: any value with a `Build() tela.Node` method (value receiver) is a component with its own state, passed as a child like an element: `Div(Card{Title: "Inbox", Children: Fragment(...)})`. Children are an ordinary `tela.Component` field; equal props skip the build like `tela.CP`, compared safely (a non-comparable value counts as changed). Dev mode panics on pointer components, on a Prop in a `tela.Component` field and on a direct `Build()` call.
+- `tela.Once` as a dependency means "only on mount" for any hook (`tela.UseGo(f, tela.Once)`); `tela.Initial(v)` gives `UseSpring`/`UseTween` a start value.
+- `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode` (new names; see Deprecated).
+- Theme tokens with shadcn/ui's names (`bg-primary`, `text-muted-foreground`, `border-border`, `ring-ring/50`, `from-chart-1`…) in every color utility, with light and dark values that follow the color scheme without `dark:` pairs: `App.Theme`, `tela.DefaultTheme()` (shadcn neutral), `tela.SetTheme`, `tela.UseTheme()`, `App.ClassAliases` (`"text-muted": "text-sm text-muted-foreground"`), `h.Scheme(tela.Dark)` for a subtree with its own scheme, `telatest.Theme`/`telatest.ClassAliases`. Matched against Chromium with shadcn's CSS (mean ≤ 0.95 levels).
+- Right-to-left layout: `h.Dir("rtl"|"ltr"|"auto")`, `rtl:`/`ltr:` variants, logical utilities (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `border-s/e`, `rounded-s/e…`, plus `inset-s/e` and block-axis ones) and mirrored flex, grid, positioning, text alignment, inputs and scroll containers, matched against Chromium. `examples/i18n` switches between English, Spanish and Arabic at runtime.
 - `telatest`: `MountFunc`, `GoldenScales(name, 1, 2)` (one golden per scale, same app state), `ClickAt`/`DragFromTo` in window coordinates, `PixelAt`, `Measure(func())` for build/layout/paint deltas, and `Expect(locator, Checked(true), Disabled(false), HasValue("x")…)` state assertions with the node's states in the failure message.
 - `h.TestID(id)` and `telatest.ByTestID(id)`, test-only ids that never reach the aria snapshot or accessibility output.
 - `tela/i18n`: JSON message catalogs with ICU MessageFormat (`plural`, `select`, `selectordinal`), CLDR plural rules, locale-aware numbers, dates, times and lists, the system locale by default, runtime switching with `SetLocale` (only components that call `UseT`/`UseLocale` rebuild), `Provider` for a subtree's locale and `Dir` for text direction. New dependency: `golang.org/x/text`.
 
 ### Deprecated
 
-- `nil` as a hook's dependency list (mount-only today): use `tela.UseMount`, `tela.UseOnce` or a constant dependency. Dev mode warns now; it will be rejected in v0.8.0.
+- `h.Id`, `tela.UseId`, `tela.Key` and `tela.Code`: use `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode` (so `tela` and `h` can both be dot-imported). Removed in v0.8.0.
+- `nil` as a hook's dependency list (mount-only today): use `tela.Once` (`UseEffect(f, tela.Once)`), `tela.UseMount` or `tela.UseOnce`. Dev mode warns now; it will be rejected in v0.8.0.
 
 ### Breaking
 
+- `tela.UseSpring` and `tela.UseTween` take the target only; the start value is the `tela.Initial` option. Before: `tela.UseSpring(float32(0), target, opts...)`; after: `tela.UseSpring(target, tela.Initial(float32(0)), opts...)`.
+- `h.Key` and `tela.WithKey` are generic over `comparable`: a slice, map or func key no longer compiles (it panicked before). `WithKey` takes a `tela.Component` (a Node or a struct component).
+- `tela.Child` is no longer sealed: it is any value with `Build() tela.Node` (`Div(42)` still does not compile). `telatest.Mount`, `Render`, `AriaSnapshot` and `LayoutJSON` take a `tela.Component`.
+- The logical utilities `ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `border-s/e` and `rounded-s/e…` follow the element's direction (unchanged in left-to-right content).
 - In dev mode, calling a stateful component as a plain function from another component (its hooks landing in the caller's slots) now panics; wrap it in `tela.C`/`tela.CP`. `Preview` functions of the examples return `tela.C(X)`.
 - `telatest.Dev()` is a no-op (dev mode is the default); keyless keys, anonymous `CP`/`Memo` functions and non-comparable deps are warnings logged by `telatest` instead of test failures.
 - `telatest.App.Bounds` returns a `tela.Rect` (window coordinates, like `ElementRef.Bounds`) instead of four numbers.
