@@ -10,6 +10,7 @@
 - [Forms and Text Input](Forms-and-Text-Input)
 - [Scrolling and VirtualList](Scrolling-and-VirtualList)
 - [Animation](Animation)
+- [Internationalization](Internationalization)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)

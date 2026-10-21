@@ -1,0 +1,122 @@
+{
+ "main": {
+  "yue": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "y年M月d日 EEEE",
+       "long": "y年M月d日",
+       "medium": "y年M月d日",
+       "short": "y/M/d"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1}{0}",
+        "long": "{1}{0}",
+        "medium": "{1}{0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "上晝",
+         "pm": "下晝"
+        },
+        "wide": {
+         "am": "上晝",
+         "pm": "下晝"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "星期五",
+         "mon": "星期一",
+         "sat": "星期六",
+         "sun": "星期日",
+         "thu": "星期四",
+         "tue": "星期二",
+         "wed": "星期三"
+        },
+        "wide": {
+         "fri": "星期五",
+         "mon": "星期一",
+         "sat": "星期六",
+         "sun": "星期日",
+         "thu": "星期四",
+         "tue": "星期二",
+         "wed": "星期三"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "西元前",
+        "1": "西元"
+       },
+       "eraNames": {
+        "0": "西元前",
+        "1": "西元"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "1月",
+         "10": "10月",
+         "11": "11月",
+         "12": "12月",
+         "2": "2月",
+         "3": "3月",
+         "4": "4月",
+         "5": "5月",
+         "6": "6月",
+         "7": "7月",
+         "8": "8月",
+         "9": "9月"
+        },
+        "wide": {
+         "1": "1月",
+         "10": "10月",
+         "11": "11月",
+         "12": "12月",
+         "2": "2月",
+         "3": "3月",
+         "4": "4月",
+         "5": "5月",
+         "6": "6月",
+         "7": "7月",
+         "8": "8月",
+         "9": "9月"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "ah:mm:ss [zzzz]",
+       "long": "ah:mm:ss [z]",
+       "medium": "ah:mm:ss",
+       "short": "ah:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0}同{1}",
+     "end": "{0}同{1}",
+     "middle": "{0}、{1}",
+     "start": "{0}、{1}"
+    }
+   }
+  }
+ }
+}

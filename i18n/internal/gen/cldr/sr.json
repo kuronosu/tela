@@ -1,0 +1,122 @@
+{
+ "main": {
+  "sr": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, d. MMMM y.",
+       "long": "d. MMMM y.",
+       "medium": "d. M. y.",
+       "short": "d. M. y."
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} {0}",
+        "long": "{1} {0}",
+        "medium": "{1} {0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "AM",
+         "pm": "PM"
+        },
+        "wide": {
+         "am": "AM",
+         "pm": "PM"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "пет",
+         "mon": "пон",
+         "sat": "суб",
+         "sun": "нед",
+         "thu": "чет",
+         "tue": "уто",
+         "wed": "сре"
+        },
+        "wide": {
+         "fri": "петак",
+         "mon": "понедељак",
+         "sat": "субота",
+         "sun": "недеља",
+         "thu": "четвртак",
+         "tue": "уторак",
+         "wed": "среда"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "п. н. е.",
+        "1": "н. е."
+       },
+       "eraNames": {
+        "0": "пре нове ере",
+        "1": "нове ере"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "јан",
+         "10": "окт",
+         "11": "нов",
+         "12": "дец",
+         "2": "феб",
+         "3": "мар",
+         "4": "апр",
+         "5": "мај",
+         "6": "јун",
+         "7": "јул",
+         "8": "авг",
+         "9": "сеп"
+        },
+        "wide": {
+         "1": "јануар",
+         "10": "октобар",
+         "11": "новембар",
+         "12": "децембар",
+         "2": "фебруар",
+         "3": "март",
+         "4": "април",
+         "5": "мај",
+         "6": "јун",
+         "7": "јул",
+         "8": "август",
+         "9": "септембар"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} и {1}",
+     "end": "{0} и {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

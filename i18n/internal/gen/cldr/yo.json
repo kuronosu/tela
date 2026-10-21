@@ -1,0 +1,122 @@
+{
+ "main": {
+  "yo": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, d MMM y",
+       "long": "d MMM y",
+       "medium": "d MM y",
+       "short": "d/M/y"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'ní' {0}",
+        "long": "{1} 'ní' {0}",
+        "medium": "{1}, {0}",
+        "short": "{1}, {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "Àárọ̀",
+         "pm": "Ọ̀sán"
+        },
+        "wide": {
+         "am": "Àárọ̀",
+         "pm": "Ọ̀sán"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "Ẹtì",
+         "mon": "Ajé",
+         "sat": "Àbámẹ́ta",
+         "sun": "Àìkú",
+         "thu": "Ọjọ́bọ",
+         "tue": "Ìsẹ́gun",
+         "wed": "Ọjọ́rú"
+        },
+        "wide": {
+         "fri": "Ọjọ́ Ẹtì",
+         "mon": "Ọjọ́ Ajé",
+         "sat": "Ọjọ́ Àbámẹ́ta",
+         "sun": "Ọjọ́ Àìkú",
+         "thu": "Ọjọ́bọ",
+         "tue": "Ọjọ́ Ìsẹ́gun",
+         "wed": "Ọjọ́rú"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "BCE",
+        "1": "AD"
+       },
+       "eraNames": {
+        "0": "Saju Kristi",
+        "1": "Lehin Kristi"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "Oṣù Ṣẹ́rẹ́",
+         "10": "Oṣù Ọ̀wàrà",
+         "11": "Oṣù Bélú",
+         "12": "Oṣù Ọ̀pẹ̀",
+         "2": "Oṣù Èrèlè",
+         "3": "Oṣù Ẹrẹ̀nà",
+         "4": "Oṣù Ìgbé",
+         "5": "Oṣù Ẹ̀bibi",
+         "6": "Oṣù Òkúdu",
+         "7": "Oṣù Agẹmọ",
+         "8": "Oṣù Ògún",
+         "9": "Oṣù Owewe"
+        },
+        "wide": {
+         "1": "Oṣù Ṣẹ́rẹ́",
+         "10": "Oṣù Ọ̀wàrà",
+         "11": "Oṣù Bélú",
+         "12": "Oṣù Ọ̀pẹ̀",
+         "2": "Oṣù Èrèlè",
+         "3": "Oṣù Ẹrẹ̀nà",
+         "4": "Oṣù Ìgbé",
+         "5": "Oṣù Ẹ̀bibi",
+         "6": "Oṣù Òkúdu",
+         "7": "Oṣù Agẹmọ",
+         "8": "Oṣù Ògún",
+         "9": "Oṣù Owewe"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "H:mm:ss z",
+       "medium": "H:m:s",
+       "short": "H:m"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} àti{1}",
+     "end": "{0}, {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

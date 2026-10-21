@@ -1,0 +1,122 @@
+{
+ "main": {
+  "ur": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE، d MMMM، y",
+       "long": "d MMMM، y",
+       "medium": "d MMM، y",
+       "short": "d/M/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} کو {0}",
+        "long": "{1} کو {0}",
+        "medium": "{1}، {0}",
+        "short": "{1}، {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "AM",
+         "pm": "PM"
+        },
+        "wide": {
+         "am": "AM",
+         "pm": "PM"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "جمعہ",
+         "mon": "پیر",
+         "sat": "ہفتہ",
+         "sun": "اتوار",
+         "thu": "جمعرات",
+         "tue": "منگل",
+         "wed": "بدھ"
+        },
+        "wide": {
+         "fri": "جمعہ",
+         "mon": "پیر",
+         "sat": "ہفتہ",
+         "sun": "اتوار",
+         "thu": "جمعرات",
+         "tue": "منگل",
+         "wed": "بدھ"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "قبل مسیح",
+        "1": "عیسوی"
+       },
+       "eraNames": {
+        "0": "قبل مسیح",
+        "1": "عیسوی"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "جنوری",
+         "10": "اکتوبر",
+         "11": "نومبر",
+         "12": "دسمبر",
+         "2": "فروری",
+         "3": "مارچ",
+         "4": "اپریل",
+         "5": "مئی",
+         "6": "جون",
+         "7": "جولائی",
+         "8": "اگست",
+         "9": "ستمبر"
+        },
+        "wide": {
+         "1": "جنوری",
+         "10": "اکتوبر",
+         "11": "نومبر",
+         "12": "دسمبر",
+         "2": "فروری",
+         "3": "مارچ",
+         "4": "اپریل",
+         "5": "مئی",
+         "6": "جون",
+         "7": "جولائی",
+         "8": "اگست",
+         "9": "ستمبر"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "h:mm:ss a zzzz",
+       "long": "h:mm:ss a z",
+       "medium": "h:mm:ss a",
+       "short": "h:mm a"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} اور {1}",
+     "end": "{0}، اور {1}",
+     "middle": "{0}، {1}",
+     "start": "{0}، {1}"
+    }
+   }
+  }
+ }
+}

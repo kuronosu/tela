@@ -1,0 +1,122 @@
+{
+ "main": {
+  "id": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, dd MMMM y",
+       "long": "d MMMM y",
+       "medium": "d MMM y",
+       "short": "dd/MM/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'pukul' {0}",
+        "long": "{1} 'pukul' {0}",
+        "medium": "{1}, {0}",
+        "short": "{1}, {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "AM",
+         "pm": "PM"
+        },
+        "wide": {
+         "am": "AM",
+         "pm": "PM"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "Jum",
+         "mon": "Sen",
+         "sat": "Sab",
+         "sun": "Min",
+         "thu": "Kam",
+         "tue": "Sel",
+         "wed": "Rab"
+        },
+        "wide": {
+         "fri": "Jumat",
+         "mon": "Senin",
+         "sat": "Sabtu",
+         "sun": "Minggu",
+         "thu": "Kamis",
+         "tue": "Selasa",
+         "wed": "Rabu"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "SM",
+        "1": "M"
+       },
+       "eraNames": {
+        "0": "Sebelum Masehi",
+        "1": "Masehi"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nov",
+         "12": "Des",
+         "2": "Feb",
+         "3": "Mar",
+         "4": "Apr",
+         "5": "Mei",
+         "6": "Jun",
+         "7": "Jul",
+         "8": "Agu",
+         "9": "Sep"
+        },
+        "wide": {
+         "1": "Januari",
+         "10": "Oktober",
+         "11": "November",
+         "12": "Desember",
+         "2": "Februari",
+         "3": "Maret",
+         "4": "April",
+         "5": "Mei",
+         "6": "Juni",
+         "7": "Juli",
+         "8": "Agustus",
+         "9": "September"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH.mm.ss zzzz",
+       "long": "HH.mm.ss z",
+       "medium": "HH.mm.ss",
+       "short": "HH.mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} dan {1}",
+     "end": "{0}, dan {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

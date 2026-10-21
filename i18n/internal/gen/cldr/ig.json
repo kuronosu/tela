@@ -1,0 +1,122 @@
+{
+ "main": {
+  "ig": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, d MMMM y",
+       "long": "d MMMM y",
+       "medium": "d MMM y",
+       "short": "d/M/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{1}, {0}",
+       "long": "{1}, {0}",
+       "medium": "{1}, {0}",
+       "short": "{1}, {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'na' {0}",
+        "long": "{1} 'na' {0}",
+        "medium": "{1}, {0}",
+        "short": "{1}, {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "N’ụtụtụ",
+         "pm": "N’abalị"
+        },
+        "wide": {
+         "am": "N’ụtụtụ",
+         "pm": "N’abali"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "Fraị",
+         "mon": "Mọn",
+         "sat": "Sat",
+         "sun": "Sọn",
+         "thu": "Tọọ",
+         "tue": "Tiu",
+         "wed": "Wen"
+        },
+        "wide": {
+         "fri": "Fraịdee",
+         "mon": "Mọnde",
+         "sat": "Satọdee",
+         "sun": "Sọndee",
+         "thu": "Tọọzdee",
+         "tue": "Tiuzdee",
+         "wed": "Wenezdee"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "BC",
+        "1": "AD"
+       },
+       "eraNames": {
+        "0": "Tupu Kraist",
+        "1": "Afọ Kraịst"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "Jen",
+         "10": "Ọkt",
+         "11": "Nov",
+         "12": "Dis",
+         "2": "Feb",
+         "3": "Maa",
+         "4": "Epr",
+         "5": "Mee",
+         "6": "Juu",
+         "7": "Jul",
+         "8": "Ọgọ",
+         "9": "Sep"
+        },
+        "wide": {
+         "1": "Jenụwarị",
+         "10": "Ọktoba",
+         "11": "Novemba",
+         "12": "Disemba",
+         "2": "Febrụwarị",
+         "3": "Maachị",
+         "4": "Epreel",
+         "5": "Mee",
+         "6": "Jun",
+         "7": "Julaị",
+         "8": "Ọgọọst",
+         "9": "Septemba"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} na {1}",
+     "end": "{0}, na {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

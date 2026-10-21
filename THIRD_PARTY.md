@@ -205,3 +205,16 @@ their original copyright notice. Add one section per source project.
 - **License:** BSD-2-Clause (Apple) and BSD-3-Clause (Chromium Authors)
 - **Used in:** `internal/anim/curve.go`
 - **Notes:** No code is copied. The solver (Newton's method on x(t) with bisection as the fallback, then y(t)) is the one both engines use for CSS `cubic-bezier()`, written from the CSS Easing Functions Level 1 formulas with Tela's explicit rounding. `steps()` follows the same specification.
+
+## Unicode CLDR (vendored data)
+
+- **Source:** https://github.com/unicode-org/cldr-json (tag 48.0.0, packages `cldr-dates-full` `ca-gregorian.json` and `cldr-misc-full` `listPatterns.json`, per locale)
+- **License:** Unicode License v3, Copyright (c) 1991-2025 Unicode, Inc. (`i18n/internal/gen/cldr/LICENSE`, the repository's `LICENSE`)
+- **Used in:** `i18n/internal/gen/cldr/<locale>.json` (113 locales, trimmed to the parts the generator reads: month and weekday names, AM/PM markers, era names, date, time and date-time patterns, standard list patterns, under their original JSON paths) and the table generated from them, `i18n/dates_gen.go`
+- **Notes:** The files are CLDR data reduced to a subset and merged (one file per locale holds both source files' subtrees); `go run ./internal/gen -fetch` from `i18n` rebuilds them from the tag above, `go generate ./i18n` regenerates the table. The generated file keeps a copyright and license notice in its header.
+
+## golang.org/x/text (dependency)
+
+- **Source:** https://go.googlesource.com/text (v0.43.0)
+- **License:** BSD-3-Clause, Copyright 2009 The Go Authors
+- **Used in:** `i18n` (`language`, `feature/plural`, `number`, `message`), a module dependency, not vendored code (ARCHITECTURE §2). Its CLDR 32 tables give the plural rules and number formats; date patterns do not come from it (it keeps them private).

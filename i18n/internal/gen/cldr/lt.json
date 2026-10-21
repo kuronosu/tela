@@ -1,0 +1,122 @@
+{
+ "main": {
+  "lt": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "y 'm'. MMMM d 'd'., EEEE",
+       "long": "y 'm'. MMMM d 'd'.",
+       "medium": "y-MM-dd",
+       "short": "y-MM-dd"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} {0}",
+        "long": "{1} {0}",
+        "medium": "{1} {0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "priešpiet",
+         "pm": "popiet"
+        },
+        "wide": {
+         "am": "priešpiet",
+         "pm": "popiet"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "pn",
+         "mon": "pr",
+         "sat": "št",
+         "sun": "sk",
+         "thu": "kt",
+         "tue": "an",
+         "wed": "tr"
+        },
+        "wide": {
+         "fri": "penktadienis",
+         "mon": "pirmadienis",
+         "sat": "šeštadienis",
+         "sun": "sekmadienis",
+         "thu": "ketvirtadienis",
+         "tue": "antradienis",
+         "wed": "trečiadienis"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "pr. Kr.",
+        "1": "po Kr."
+       },
+       "eraNames": {
+        "0": "prieš Kristų",
+        "1": "po Kristaus"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "saus.",
+         "10": "spal.",
+         "11": "lapkr.",
+         "12": "gruod.",
+         "2": "vas.",
+         "3": "kov.",
+         "4": "bal.",
+         "5": "geg.",
+         "6": "birž.",
+         "7": "liep.",
+         "8": "rugp.",
+         "9": "rugs."
+        },
+        "wide": {
+         "1": "sausio",
+         "10": "spalio",
+         "11": "lapkričio",
+         "12": "gruodžio",
+         "2": "vasario",
+         "3": "kovo",
+         "4": "balandžio",
+         "5": "gegužės",
+         "6": "birželio",
+         "7": "liepos",
+         "8": "rugpjūčio",
+         "9": "rugsėjo"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} ir {1}",
+     "end": "{0} ir {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

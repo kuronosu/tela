@@ -1,0 +1,122 @@
+{
+ "main": {
+  "ko": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "y년 MMMM d일 EEEE",
+       "long": "y년 MMMM d일",
+       "medium": "y. M. d.",
+       "short": "yy. M. d."
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} {0}",
+        "long": "{1} {0}",
+        "medium": "{1} {0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "AM",
+         "pm": "PM"
+        },
+        "wide": {
+         "am": "오전",
+         "pm": "오후"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "금",
+         "mon": "월",
+         "sat": "토",
+         "sun": "일",
+         "thu": "목",
+         "tue": "화",
+         "wed": "수"
+        },
+        "wide": {
+         "fri": "금요일",
+         "mon": "월요일",
+         "sat": "토요일",
+         "sun": "일요일",
+         "thu": "목요일",
+         "tue": "화요일",
+         "wed": "수요일"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "BC",
+        "1": "AD"
+       },
+       "eraNames": {
+        "0": "기원전",
+        "1": "서기"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "1월",
+         "10": "10월",
+         "11": "11월",
+         "12": "12월",
+         "2": "2월",
+         "3": "3월",
+         "4": "4월",
+         "5": "5월",
+         "6": "6월",
+         "7": "7월",
+         "8": "8월",
+         "9": "9월"
+        },
+        "wide": {
+         "1": "1월",
+         "10": "10월",
+         "11": "11월",
+         "12": "12월",
+         "2": "2월",
+         "3": "3월",
+         "4": "4월",
+         "5": "5월",
+         "6": "6월",
+         "7": "7월",
+         "8": "8월",
+         "9": "9월"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "a h시 m분 s초 zzzz",
+       "long": "a h시 m분 s초 z",
+       "medium": "a h:mm:ss",
+       "short": "a h:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} 및 {1}",
+     "end": "{0} 및 {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

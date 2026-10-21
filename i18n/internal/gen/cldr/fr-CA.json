@@ -1,0 +1,122 @@
+{
+ "main": {
+  "fr-CA": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE d MMMM y",
+       "long": "d MMMM y",
+       "medium": "d MMM y",
+       "short": "y-MM-dd"
+      },
+      "dateTimeFormats": {
+       "full": "{1}, {0}",
+       "long": "{1}, {0}",
+       "medium": "{1}, {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'à' {0}",
+        "long": "{1} 'à' {0}",
+        "medium": "{1}, {0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "a.m.",
+         "pm": "p.m."
+        },
+        "wide": {
+         "am": "a.m.",
+         "pm": "p.m."
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "ven.",
+         "mon": "lun.",
+         "sat": "sam.",
+         "sun": "dim.",
+         "thu": "jeu.",
+         "tue": "mar.",
+         "wed": "mer."
+        },
+        "wide": {
+         "fri": "vendredi",
+         "mon": "lundi",
+         "sat": "samedi",
+         "sun": "dimanche",
+         "thu": "jeudi",
+         "tue": "mardi",
+         "wed": "mercredi"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "av. J.-C.",
+        "1": "ap. J.-C."
+       },
+       "eraNames": {
+        "0": "avant Jésus-Christ",
+        "1": "après Jésus-Christ"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "janv.",
+         "10": "oct.",
+         "11": "nov.",
+         "12": "déc.",
+         "2": "févr.",
+         "3": "mars",
+         "4": "avr.",
+         "5": "mai",
+         "6": "juin",
+         "7": "juill.",
+         "8": "août",
+         "9": "sept."
+        },
+        "wide": {
+         "1": "janvier",
+         "10": "octobre",
+         "11": "novembre",
+         "12": "décembre",
+         "2": "février",
+         "3": "mars",
+         "4": "avril",
+         "5": "mai",
+         "6": "juin",
+         "7": "juillet",
+         "8": "août",
+         "9": "septembre"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH 'h' mm 'min' ss 's' zzzz",
+       "long": "HH 'h' mm 'min' ss 's' z",
+       "medium": "HH 'h' mm 'min' ss 's'",
+       "short": "HH 'h' mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} et {1}",
+     "end": "{0} et {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

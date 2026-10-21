@@ -1,0 +1,122 @@
+{
+ "main": {
+  "gl": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, d 'de' MMMM 'de' y",
+       "long": "d 'de' MMMM 'de' y",
+       "medium": "d 'de' MMM 'de' y",
+       "short": "dd/MM/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{1}, {0}",
+       "long": "{1}, {0}",
+       "medium": "{1}, {0}",
+       "short": "{1}, {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1}, {0}",
+        "long": "{1}, {0}",
+        "medium": "{1}, {0}",
+        "short": "{1}, {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "a.m.",
+         "pm": "p.m."
+        },
+        "wide": {
+         "am": "a.m.",
+         "pm": "p.m."
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "ven.",
+         "mon": "luns",
+         "sat": "sáb.",
+         "sun": "dom.",
+         "thu": "xov.",
+         "tue": "mar.",
+         "wed": "mér."
+        },
+        "wide": {
+         "fri": "venres",
+         "mon": "luns",
+         "sat": "sábado",
+         "sun": "domingo",
+         "thu": "xoves",
+         "tue": "martes",
+         "wed": "mércores"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "a.C.",
+        "1": "d.C."
+       },
+       "eraNames": {
+        "0": "antes de Cristo",
+        "1": "despois de Cristo"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "xan.",
+         "10": "out.",
+         "11": "nov.",
+         "12": "dec.",
+         "2": "feb.",
+         "3": "mar.",
+         "4": "abr.",
+         "5": "maio",
+         "6": "xuño",
+         "7": "xul.",
+         "8": "ago.",
+         "9": "set."
+        },
+        "wide": {
+         "1": "xaneiro",
+         "10": "outubro",
+         "11": "novembro",
+         "12": "decembro",
+         "2": "febreiro",
+         "3": "marzo",
+         "4": "abril",
+         "5": "maio",
+         "6": "xuño",
+         "7": "xullo",
+         "8": "agosto",
+         "9": "setembro"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} e {1}",
+     "end": "{0} e {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

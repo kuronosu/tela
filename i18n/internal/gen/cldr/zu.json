@@ -1,0 +1,122 @@
+{
+ "main": {
+  "zu": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, MMMM d, y",
+       "long": "MMMM d, y",
+       "medium": "MMM d, y",
+       "short": "M/d/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} {0}",
+        "long": "{1} {0}",
+        "medium": "{1} {0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "AM",
+         "pm": "PM"
+        },
+        "wide": {
+         "am": "AM",
+         "pm": "PM"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "Hla",
+         "mon": "Mso",
+         "sat": "Mgq",
+         "sun": "Son",
+         "thu": "Sin",
+         "tue": "Bil",
+         "wed": "Tha"
+        },
+        "wide": {
+         "fri": "ULwesihlanu",
+         "mon": "UMsombuluko",
+         "sat": "UMgqibelo",
+         "sun": "ISonto",
+         "thu": "ULwesine",
+         "tue": "ULwesibili",
+         "wed": "ULwesithathu"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "BC",
+        "1": "AD"
+       },
+       "eraNames": {
+        "0": "BC",
+        "1": "AD"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nov",
+         "12": "Dis",
+         "2": "Feb",
+         "3": "Mas",
+         "4": "Eph",
+         "5": "Mey",
+         "6": "Jun",
+         "7": "Jul",
+         "8": "Aga",
+         "9": "Sep"
+        },
+        "wide": {
+         "1": "Januwari",
+         "10": "Okthoba",
+         "11": "Novemba",
+         "12": "Disemba",
+         "2": "Februwari",
+         "3": "Mashi",
+         "4": "Ephreli",
+         "5": "Meyi",
+         "6": "Juni",
+         "7": "Julayi",
+         "8": "Agasti",
+         "9": "Septhemba"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} ne-{1}",
+     "end": "{0}, ne-{1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

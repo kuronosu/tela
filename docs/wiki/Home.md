@@ -41,6 +41,7 @@ func Counter() tela.Node {
 | [Forms and Text Input](Forms-and-Text-Input) | `Input`, `Textarea`, `Form`, `Label`, IME |
 | [Scrolling and VirtualList](Scrolling-and-VirtualList) | Scroll containers, scroll APIs, 100,000-row lists |
 | [Animation](Animation) | Transitions, `starting:`, springs and tweens, enter and exit with `Presence`, layout animations |
+| [Internationalization](Internationalization) | Message catalogs (ICU), plurals, locale-aware numbers, dates and lists, switching the language at run time |
 | [Accessibility](Accessibility) | Roles, ARIA props, aria snapshots |
 | [Testing](Testing) | `telatest`: mount, click, expect, goldens, without a window |
 | [CLI](CLI) | `tela snapshot`, `tela inspect`, debug overlays, environment variables |

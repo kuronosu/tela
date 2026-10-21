@@ -1,0 +1,122 @@
+{
+ "main": {
+  "so": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, MMMM d, y",
+       "long": "MMMM d, y",
+       "medium": "dd-MMM-y",
+       "short": "dd/MM/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'ee' {0}",
+        "long": "{1} 'ee' {0}",
+        "medium": "{1} 'ee' {0}",
+        "short": "{1}, {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "GH",
+         "pm": "GD"
+        },
+        "wide": {
+         "am": "GH",
+         "pm": "GD"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "Jmc",
+         "mon": "Isn",
+         "sat": "Sbti",
+         "sun": "Axd",
+         "thu": "Khms",
+         "tue": "Tldo",
+         "wed": "Arbc"
+        },
+        "wide": {
+         "fri": "Jimco",
+         "mon": "Isniin",
+         "sat": "Sabti",
+         "sun": "Axad",
+         "thu": "Khamiis",
+         "tue": "Talaado",
+         "wed": "Arbaco"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "BC",
+        "1": "AD"
+       },
+       "eraNames": {
+        "0": "Ciise Hortii",
+        "1": "Ciise Dabadii"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nof",
+         "12": "Dis",
+         "2": "Feb",
+         "3": "Mar",
+         "4": "Abr",
+         "5": "May",
+         "6": "Jun",
+         "7": "Lul",
+         "8": "Ogs",
+         "9": "Seb"
+        },
+        "wide": {
+         "1": "Janaayo",
+         "10": "Oktoobar",
+         "11": "Noofeembar",
+         "12": "Diseembar",
+         "2": "Febraayo",
+         "3": "Maarso",
+         "4": "Abriil",
+         "5": "Maayo",
+         "6": "Juun",
+         "7": "Luulyo",
+         "8": "Agosto",
+         "9": "Sebtembar"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "h:mm:ss a zzzz",
+       "long": "h:mm:ss a z",
+       "medium": "h:mm:ss a",
+       "short": "h:mm a"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} iyo {1}",
+     "end": "{0} iyo {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

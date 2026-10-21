@@ -1,0 +1,122 @@
+{
+ "main": {
+  "hu": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "y. MMMM d., EEEE",
+       "long": "y. MMMM d.",
+       "medium": "y. MMM d.",
+       "short": "y. MM. dd."
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} {0}",
+        "long": "{1} {0}",
+        "medium": "{1} {0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "de.",
+         "pm": "du."
+        },
+        "wide": {
+         "am": "de.",
+         "pm": "du."
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "P",
+         "mon": "H",
+         "sat": "Szo",
+         "sun": "V",
+         "thu": "Cs",
+         "tue": "K",
+         "wed": "Sze"
+        },
+        "wide": {
+         "fri": "péntek",
+         "mon": "hétfő",
+         "sat": "szombat",
+         "sun": "vasárnap",
+         "thu": "csütörtök",
+         "tue": "kedd",
+         "wed": "szerda"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "i. e.",
+        "1": "i. sz."
+       },
+       "eraNames": {
+        "0": "Krisztus előtt",
+        "1": "időszámításunk szerint"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "jan.",
+         "10": "okt.",
+         "11": "nov.",
+         "12": "dec.",
+         "2": "febr.",
+         "3": "márc.",
+         "4": "ápr.",
+         "5": "máj.",
+         "6": "jún.",
+         "7": "júl.",
+         "8": "aug.",
+         "9": "szept."
+        },
+        "wide": {
+         "1": "január",
+         "10": "október",
+         "11": "november",
+         "12": "december",
+         "2": "február",
+         "3": "március",
+         "4": "április",
+         "5": "május",
+         "6": "június",
+         "7": "július",
+         "8": "augusztus",
+         "9": "szeptember"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "H:mm:ss zzzz",
+       "long": "H:mm:ss z",
+       "medium": "H:mm:ss",
+       "short": "H:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} és {1}",
+     "end": "{0} és {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

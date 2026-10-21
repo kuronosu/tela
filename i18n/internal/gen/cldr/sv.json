@@ -1,0 +1,122 @@
+{
+ "main": {
+  "sv": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE d MMMM y",
+       "long": "d MMMM y",
+       "medium": "d MMM y",
+       "short": "y-MM-dd"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'kl'. {0}",
+        "long": "{1} 'kl'. {0}",
+        "medium": "{1} {0}",
+        "short": "{1} {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "fm",
+         "pm": "em"
+        },
+        "wide": {
+         "am": "fm",
+         "pm": "em"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "fre",
+         "mon": "mån",
+         "sat": "lör",
+         "sun": "sön",
+         "thu": "tors",
+         "tue": "tis",
+         "wed": "ons"
+        },
+        "wide": {
+         "fri": "fredag",
+         "mon": "måndag",
+         "sat": "lördag",
+         "sun": "söndag",
+         "thu": "torsdag",
+         "tue": "tisdag",
+         "wed": "onsdag"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "f.Kr.",
+        "1": "e.Kr."
+       },
+       "eraNames": {
+        "0": "före Kristus",
+        "1": "efter Kristus"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "jan.",
+         "10": "okt.",
+         "11": "nov.",
+         "12": "dec.",
+         "2": "feb.",
+         "3": "mars",
+         "4": "apr.",
+         "5": "maj",
+         "6": "juni",
+         "7": "juli",
+         "8": "aug.",
+         "9": "sep."
+        },
+        "wide": {
+         "1": "januari",
+         "10": "oktober",
+         "11": "november",
+         "12": "december",
+         "2": "februari",
+         "3": "mars",
+         "4": "april",
+         "5": "maj",
+         "6": "juni",
+         "7": "juli",
+         "8": "augusti",
+         "9": "september"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} och {1}",
+     "end": "{0} och {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

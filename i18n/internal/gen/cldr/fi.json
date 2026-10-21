@@ -1,0 +1,122 @@
+{
+ "main": {
+  "fi": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "cccc d. MMMM y",
+       "long": "d. MMMM y",
+       "medium": "d.M.y",
+       "short": "d.M.y"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'klo' {0}",
+        "long": "{1} 'klo' {0}",
+        "medium": "{1} 'klo' {0}",
+        "short": "{1} 'klo' {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "ap.",
+         "pm": "ip."
+        },
+        "wide": {
+         "am": "ap.",
+         "pm": "ip."
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "pe",
+         "mon": "ma",
+         "sat": "la",
+         "sun": "su",
+         "thu": "to",
+         "tue": "ti",
+         "wed": "ke"
+        },
+        "wide": {
+         "fri": "perjantaina",
+         "mon": "maanantaina",
+         "sat": "lauantaina",
+         "sun": "sunnuntaina",
+         "thu": "torstaina",
+         "tue": "tiistaina",
+         "wed": "keskiviikkona"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "eKr.",
+        "1": "jKr."
+       },
+       "eraNames": {
+        "0": "ennen Kristuksen syntymää",
+        "1": "jälkeen Kristuksen syntymän"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "tammi",
+         "10": "loka",
+         "11": "marras",
+         "12": "joulu",
+         "2": "helmi",
+         "3": "maalis",
+         "4": "huhti",
+         "5": "touko",
+         "6": "kesä",
+         "7": "heinä",
+         "8": "elo",
+         "9": "syys"
+        },
+        "wide": {
+         "1": "tammikuuta",
+         "10": "lokakuuta",
+         "11": "marraskuuta",
+         "12": "joulukuuta",
+         "2": "helmikuuta",
+         "3": "maaliskuuta",
+         "4": "huhtikuuta",
+         "5": "toukokuuta",
+         "6": "kesäkuuta",
+         "7": "heinäkuuta",
+         "8": "elokuuta",
+         "9": "syyskuuta"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "H.mm.ss zzzz",
+       "long": "H.mm.ss z",
+       "medium": "H.mm.ss",
+       "short": "H.mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} ja {1}",
+     "end": "{0} ja {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

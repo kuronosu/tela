@@ -1,0 +1,122 @@
+{
+ "main": {
+  "pa": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, d MMMM y",
+       "long": "d MMMM y",
+       "medium": "d MMM y",
+       "short": "d/M/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1}, {0}",
+       "short": "{1}, {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} {0}",
+        "long": "{1} {0}",
+        "medium": "{1}, {0}",
+        "short": "{1}, {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "AM",
+         "pm": "PM"
+        },
+        "wide": {
+         "am": "AM",
+         "pm": "PM"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "ਸ਼ੁੱਕਰ",
+         "mon": "ਸੋਮ",
+         "sat": "ਸ਼ਨੀ",
+         "sun": "ਐਤ",
+         "thu": "ਵੀਰ",
+         "tue": "ਮੰਗਲ",
+         "wed": "ਬੁੱਧ"
+        },
+        "wide": {
+         "fri": "ਸ਼ੁੱਕਰਵਾਰ",
+         "mon": "ਸੋਮਵਾਰ",
+         "sat": "ਸ਼ਨੀਵਾਰ",
+         "sun": "ਐਤਵਾਰ",
+         "thu": "ਵੀਰਵਾਰ",
+         "tue": "ਮੰਗਲਵਾਰ",
+         "wed": "ਬੁੱਧਵਾਰ"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "ਈ. ਪੂ.",
+        "1": "ਸੰਨ"
+       },
+       "eraNames": {
+        "0": "ਈਸਵੀ ਪੂਰਵ",
+        "1": "ਈਸਵੀ ਸੰਨ"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "ਜਨ",
+         "10": "ਅਕਤੂ",
+         "11": "ਨਵੰ",
+         "12": "ਦਸੰ",
+         "2": "ਫ਼ਰ",
+         "3": "ਮਾਰਚ",
+         "4": "ਅਪ੍ਰੈ",
+         "5": "ਮਈ",
+         "6": "ਜੂਨ",
+         "7": "ਜੁਲਾ",
+         "8": "ਅਗ",
+         "9": "ਸਤੰ"
+        },
+        "wide": {
+         "1": "ਜਨਵਰੀ",
+         "10": "ਅਕਤੂਬਰ",
+         "11": "ਨਵੰਬਰ",
+         "12": "ਦਸੰਬਰ",
+         "2": "ਫ਼ਰਵਰੀ",
+         "3": "ਮਾਰਚ",
+         "4": "ਅਪ੍ਰੈਲ",
+         "5": "ਮਈ",
+         "6": "ਜੂਨ",
+         "7": "ਜੁਲਾਈ",
+         "8": "ਅਗਸਤ",
+         "9": "ਸਤੰਬਰ"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "h:mm:ss a zzzz",
+       "long": "h:mm:ss a z",
+       "medium": "h:mm:ss a",
+       "short": "h:mm a"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} ਅਤੇ {1}",
+     "end": "{0} ਅਤੇ {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

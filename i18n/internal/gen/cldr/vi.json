@@ -1,0 +1,122 @@
+{
+ "main": {
+  "vi": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "EEEE, d MMMM, y",
+       "long": "d MMMM, y",
+       "medium": "d MMM, y",
+       "short": "d/M/yy"
+      },
+      "dateTimeFormats": {
+       "full": "{0} {1}",
+       "long": "{0} {1}",
+       "medium": "{0} {1}",
+       "short": "{0} {1}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "'lúc' {0} {1}",
+        "long": "'lúc' {0} {1}",
+        "medium": "{0} {1}",
+        "short": "{0} {1}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "SA",
+         "pm": "CH"
+        },
+        "wide": {
+         "am": "SA",
+         "pm": "CH"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "Thứ 6",
+         "mon": "Thứ 2",
+         "sat": "Thứ 7",
+         "sun": "CN",
+         "thu": "Thứ 5",
+         "tue": "Thứ 3",
+         "wed": "Thứ 4"
+        },
+        "wide": {
+         "fri": "Thứ Sáu",
+         "mon": "Thứ Hai",
+         "sat": "Thứ Bảy",
+         "sun": "Chủ Nhật",
+         "thu": "Thứ Năm",
+         "tue": "Thứ Ba",
+         "wed": "Thứ Tư"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "TCN",
+        "1": "SCN"
+       },
+       "eraNames": {
+        "0": "Trước Chúa Giáng Sinh",
+        "1": "Sau Công Nguyên"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "thg 1",
+         "10": "thg 10",
+         "11": "thg 11",
+         "12": "thg 12",
+         "2": "thg 2",
+         "3": "thg 3",
+         "4": "thg 4",
+         "5": "thg 5",
+         "6": "thg 6",
+         "7": "thg 7",
+         "8": "thg 8",
+         "9": "thg 9"
+        },
+        "wide": {
+         "1": "tháng 1",
+         "10": "tháng 10",
+         "11": "tháng 11",
+         "12": "tháng 12",
+         "2": "tháng 2",
+         "3": "tháng 3",
+         "4": "tháng 4",
+         "5": "tháng 5",
+         "6": "tháng 6",
+         "7": "tháng 7",
+         "8": "tháng 8",
+         "9": "tháng 9"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} và {1}",
+     "end": "{0} và {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}

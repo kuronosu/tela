@@ -1,0 +1,122 @@
+{
+ "main": {
+  "tk": {
+   "dates": {
+    "calendars": {
+     "gregorian": {
+      "dateFormats": {
+       "full": "d MMMM y EEEE",
+       "long": "d MMMM y",
+       "medium": "d MMM y",
+       "short": "dd.MM.y"
+      },
+      "dateTimeFormats": {
+       "full": "{1} {0}",
+       "long": "{1} {0}",
+       "medium": "{1} {0}",
+       "short": "{1} {0}"
+      },
+      "dateTimeFormats-atTime": {
+       "standard": {
+        "full": "{1} 'sagat' {0}",
+        "long": "{1} 'sagat' {0}",
+        "medium": "{1}, {0}",
+        "short": "{1}, {0}"
+       }
+      },
+      "dayPeriods": {
+       "format": {
+        "abbreviated": {
+         "am": "go.öň",
+         "pm": "go.soň"
+        },
+        "wide": {
+         "am": "günortadan öň",
+         "pm": "günortadan soň"
+        }
+       }
+      },
+      "days": {
+       "format": {
+        "abbreviated": {
+         "fri": "ann",
+         "mon": "duş",
+         "sat": "şen",
+         "sun": "ýek",
+         "thu": "pen",
+         "tue": "siş",
+         "wed": "çar"
+        },
+        "wide": {
+         "fri": "anna",
+         "mon": "duşenbe",
+         "sat": "şenbe",
+         "sun": "ýekşenbe",
+         "thu": "penşenbe",
+         "tue": "sişenbe",
+         "wed": "çarşenbe"
+        }
+       }
+      },
+      "eras": {
+       "eraAbbr": {
+        "0": "B.e.öň",
+        "1": "B.e."
+       },
+       "eraNames": {
+        "0": "Isadan öň",
+        "1": "Isadan soň"
+       }
+      },
+      "months": {
+       "format": {
+        "abbreviated": {
+         "1": "ýan",
+         "10": "okt",
+         "11": "noý",
+         "12": "dek",
+         "2": "few",
+         "3": "mart",
+         "4": "apr",
+         "5": "maý",
+         "6": "iýun",
+         "7": "iýul",
+         "8": "awg",
+         "9": "sen"
+        },
+        "wide": {
+         "1": "ýanwar",
+         "10": "oktýabr",
+         "11": "noýabr",
+         "12": "dekabr",
+         "2": "fewral",
+         "3": "mart",
+         "4": "aprel",
+         "5": "maý",
+         "6": "iýun",
+         "7": "iýul",
+         "8": "awgust",
+         "9": "sentýabr"
+        }
+       }
+      },
+      "timeFormats": {
+       "full": "HH:mm:ss zzzz",
+       "long": "HH:mm:ss z",
+       "medium": "HH:mm:ss",
+       "short": "HH:mm"
+      }
+     }
+    }
+   },
+   "listPatterns": {
+    "listPattern-type-standard": {
+     "2": "{0} we {1}",
+     "end": "{0} we {1}",
+     "middle": "{0}, {1}",
+     "start": "{0}, {1}"
+    }
+   }
+  }
+ }
+}
