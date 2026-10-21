@@ -24,6 +24,7 @@ type ariaProps struct {
 	pressed    semantics.Toggle
 	selected   semantics.Toggle
 	expanded   semantics.Toggle
+	w          *ariaWidget // the widget props (ariawidget.go)
 	disabled   semantics.Toggle
 	required   semantics.Toggle // AriaRequired, AriaReadOnly and AriaBusy (aria_state.go)
 	readOnly   semantics.Toggle

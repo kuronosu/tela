@@ -226,6 +226,89 @@ var ariaCases = []ariaCase{
 		want: "- dialog \"Delete file?\":\n  - heading \"Delete file?\" [level=2]\n  - button \"Delete\"\n- region \"Hidden title\": Body\n- button \"Own label\": text",
 		html: `<div><div role="dialog" aria-labelledby="t"><h2 id="t">Delete file?</h2><button>Delete</button></div><div role="region" aria-labelledby="h"><span id="h" style="display:none">Hidden title</span>Body</div><button aria-labelledby="b" aria-label="ignored"><span id="b" aria-label="Own label">text</span></button></div>`,
 	},
+	{
+		// ADR-096: the snapshot prints none of the widget props; only
+		// aria-controls counts, as a global attribute that keeps the
+		// implicit role of an element with role presentation.
+		name: "widget patterns",
+		root: func() Node { return Component(widgetScreen) },
+		want: "- button \"Options\" [expanded]\n- menu:\n  - menuitem \"Copy\"\n- listbox:\n  - option \"One\" [selected]\n  - option \"Two\"\n" +
+			"- combobox \"Fruit\"\n- dialog \"Confirm\":\n  - button \"OK\"\n- heading \"Kept\" [level=1]\n- text: Gone",
+		html: `<div><button aria-haspopup="menu" aria-expanded="true" aria-controls="m">Options</button><div id="m" role="menu" aria-orientation="vertical"><div role="menuitem">Copy</div></div>` +
+			`<div role="listbox" aria-multiselectable="true" aria-orientation="horizontal" aria-activedescendant="o1" tabindex="0"><div id="o1" role="option" aria-selected="true">One</div><div role="option">Two</div></div>` +
+			`<div role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-label="Fruit" tabindex="0"></div>` +
+			`<div role="dialog" aria-modal="true" aria-label="Confirm"><button>OK</button></div>` +
+			`<h1 role="presentation" aria-controls="m">Kept</h1><h2 role="presentation" aria-haspopup="true">Gone</h2></div>`,
+	},
+}
+
+func widgetScreen() Node {
+	menu, opt := UseElementRef(), UseElementRef()
+	return div(
+		button(AriaHasPopup("menu"), AriaExpanded(true), AriaControls(menu), Text("Options")),
+		div(AttachRef(menu), Role("menu"), AriaOrientation("vertical"), div(Role("menuitem"), Text("Copy"))),
+		div(Role("listbox"), AriaMultiSelectable(true), AriaOrientation("horizontal"), AriaActiveDescendant(opt), TabIndex(0),
+			div(AttachRef(opt), Role("option"), AriaSelected(true), Text("One")), div(Role("option"), Text("Two"))),
+		div(Role("combobox"), AriaAutoComplete("list"), AriaHasPopup("listbox"), AriaExpanded(false), AriaLabel("Fruit"), TabIndex(0)),
+		div(Role("dialog"), AriaModal(true), AriaLabel("Confirm"), button(Text("OK"))),
+		h1(Role("presentation"), AriaControls(menu), Text("Kept")),
+		h2(Role("presentation"), AriaHasPopup("true"), Text("Gone")),
+	)
+}
+
+// TestWidgetSemantics: the widget props in the semantics tree.
+func TestWidgetSemantics(t *testing.T) {
+	tr, _ := snapshotOf(t, Component(widgetScreen))
+	btn := mustNode(t, tr, "button", "Options")
+	menu := mustNode(t, tr, "menu", "")
+	if btn.HasPopup != "menu" || btn.Controls != menu.ID || menu.Orientation != "vertical" {
+		t.Errorf("menu button %+v, menu %+v", btn, menu)
+	}
+	lb := mustNode(t, tr, "listbox", "")
+	one := mustNode(t, tr, "option", "One")
+	if !lb.MultiSelectable || lb.Orientation != "horizontal" || lb.ActiveDescendant != one.ID {
+		t.Errorf("listbox %+v", lb)
+	}
+	cb := mustNode(t, tr, "combobox", "Fruit")
+	if cb.AutoComplete != "list" || cb.HasPopup != "listbox" {
+		t.Errorf("combobox %+v", cb)
+	}
+	if d := mustNode(t, tr, "dialog", "Confirm"); !d.Modal {
+		t.Errorf("dialog %+v", d)
+	}
+}
+
+// TestWidgetPropValues: the string props take their ARIA tokens ASCII
+// case-insensitively, and unknown values panic in dev mode with the
+// closest one.
+func TestWidgetPropValues(t *testing.T) {
+	tr, _ := snapshotOf(t, div(
+		div(Key("a"), Role("button"), AriaHasPopup("Dialog")),
+		div(Key("b"), Role("tablist"), AriaOrientation("undefined")),
+		div(Key("c"), Role("combobox"), AriaAutoComplete("none"), AriaHasPopup("false"))))
+	if w := keyed(tr, "a").node.d.aria.w; w.hasPopup != "dialog" {
+		t.Errorf("AriaHasPopup(\"Dialog\"): %q", w.hasPopup)
+	}
+	if w := keyed(tr, "b").node.d.aria.w; w.orientation != "" {
+		t.Errorf("AriaOrientation(\"undefined\"): %q", w.orientation)
+	}
+	if w := keyed(tr, "c").node.d.aria.w; w.autoComplete != "" || w.hasPopup != "" {
+		t.Errorf("AriaAutoComplete(\"none\"), AriaHasPopup(\"false\"): %+v", w)
+	}
+	devTree(t, div(), nil) // dev mode on
+	for _, c := range []struct {
+		f    func()
+		want string
+	}{
+		{func() { AriaHasPopup("listbx") }, `AriaHasPopup("listbx"): unknown value; did you mean "listbox"?`},
+		{func() { AriaOrientation("vertcal") }, `did you mean "vertical"?`},
+		{func() { AriaAutoComplete("lists") }, `did you mean "list"?`},
+		{func() { AriaHasPopup("popup") }, `it takes "menu", "listbox"`},
+	} {
+		if msg := panicMessage(c.f); !strings.Contains(msg, c.want) {
+			t.Errorf("panic %q, want %q", msg, c.want)
+		}
+	}
 }
 
 func settingsFragment() Node {

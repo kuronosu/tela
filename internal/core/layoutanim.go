@@ -373,10 +373,14 @@ func (p *painter) layoutPlace(bx *Box) {
 	now := t.anim.tk.Now()
 	animate := t.anim.driven && !t.cx.ReducedMotion
 	switch places := t.la.places; {
-	case la.placed == places:
-		// Placed again in the same pass (ReferenceFrame): what it found
-		// holds.
-	case la.placed == 0 || la.placed+1 != places:
+	case la.placed == places && (tgt == la.target && rel == la.rel || !la.running):
+		// Placed again in the same pass: by ReferenceFrame, where what it
+		// found holds, or after the float pass laid the tree out again
+		// (floating.go), where a box that does not animate takes its new
+		// place at once (the first one was never painted); one that
+		// animates retargets below.
+		la.rel, la.target = rel, tgt
+	case la.placed != places && (la.placed == 0 || la.placed+1 != places):
 		// The box appears (it mounts, or its display: none ended): at
 		// its place, or from the box a LayoutID hands it.
 		la.rel, la.target, la.running = rel, tgt, false

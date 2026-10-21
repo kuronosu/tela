@@ -323,7 +323,20 @@
 // window's focus (SetWindowFocused), the focus:, focus-visible: (Chromium's
 // heuristic) and focus-within: states, and focus scopes reserved for
 // package aria. Focus work queued by a build (AutoFocus, scope
-// restoration, fix-up) runs in Frame after the style phase.
+// restoration and auto-focus, fix-up) runs in Frame after the style phase.
+//
+// # The engine of package aria
+//
+// Package aria (React Aria and Floating UI's model) builds its hooks on
+// internal pieces of core (ADR-096): floating elements placed next to
+// their anchors by a float pass of the paint phase, in the same frame
+// and with no frame of their own when an anchor scrolls or moves
+// (floating.go, whose top comment is the reference), PublishValue for
+// data computed inside a frame, UseSize, interact-outside listeners, the
+// overlay stack whose top overlay alone gets Escape and outside presses,
+// modality and the Inert prop (overlay.go), focus scopes with auto-focus
+// and the focus manager (focusmgr.go), MergeProps, pointer capture and
+// the focus-visible query (engine.go).
 //
 // # Animations
 //

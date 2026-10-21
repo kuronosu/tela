@@ -57,10 +57,12 @@ import (
 //
 // States: disabled (Disabled on the element or an ancestor, or the
 // nearest AriaDisabled), focused, focusable, hidden (display: none or
-// AriaHidden on it or an ancestor, or visibility other than visible),
-// scrollable (a user-scrollable container whose content overflows), and
-// the AriaChecked, AriaPressed, AriaSelected, AriaExpanded and AriaLevel
-// props (H1 to H6 keep their own level, as in Playwright). Bounds are in
+// AriaHidden on it or an ancestor, visibility other than visible, inert
+// or outside the active modal overlay: overlay.go), scrollable (a
+// user-scrollable container whose content overflows), the widget props
+// (ariawidget.go), and the AriaChecked, AriaPressed, AriaSelected,
+// AriaExpanded and AriaLevel props (H1 to H6 keep their own level, as in
+// Playwright). Bounds are in
 // window coordinates: layout positions, minus the scroll offsets painted
 // last of the containers on the containing-block chain, transformed by
 // every transform around the box; inline elements and texts bound their
@@ -192,7 +194,7 @@ func (t *Tree) semElement(el *Element, parent *semantics.Node, inh semInherit) {
 		}
 		n := &semantics.Node{ID: t.semID(el), Kind: semantics.KindText, Text: el.text, Inline: true}
 		sp := el.styleParent()
-		if inh.hidden || sp == nil || sp.box.cs == nil || sp.box.cs.Visibility != style.VisibilityVisible {
+		if inh.hidden || el.inert || el.outside == outsideYes || sp == nil || sp.box.cs == nil || sp.box.cs.Visibility != style.VisibilityVisible {
 			n.States |= semantics.StateHidden
 		} else {
 			n.Bounds = t.textBounds(el, inh.transformed)
@@ -217,7 +219,9 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	d := el.node.d
 	a := d.aria
 	none := inh.none || cs.Display == style.DisplayNone
-	hidden := inh.hidden || none || a != nil && a.hidden
+	// Inert (Inert, overlay.go) and outside the active modal overlay:
+	// hidden, as React Aria's ariaHideOutside does.
+	hidden := inh.hidden || none || a != nil && a.hidden || el.inert || el.outside == outsideYes
 	role, explicit := t.semRole(el)
 	n := &semantics.Node{ID: t.semID(el), Kind: semantics.KindElement, Role: role, ExplicitRole: explicit}
 	if role == "" {
@@ -259,6 +263,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		n.Checked, n.Pressed, n.Selected, n.Expanded = a.checked, a.pressed, a.selected, a.expanded
 		n.Description = a.desc
 		n.Range = a.rng
+		t.semWidget(a, n) // ariawidget.go
 	}
 	if n.Level = headingLevel(bx.kind); n.Level == 0 && a != nil && a.level >= 1 {
 		n.Level = int(a.level)
@@ -412,7 +417,9 @@ func globalAria(a *ariaProps, role string) bool {
 	if a == nil {
 		return false
 	}
-	return a.hiddenSet || (a.hasLabel || a.labelledBy != nil) && !semantics.LabelProhibited(role)
+	return a.hiddenSet || (a.hasLabel || a.labelledBy != nil) && !semantics.LabelProhibited(role) ||
+		a.w != nil && a.w.controls != nil || // aria-controls (ariawidget.go)
+		a.busy != semantics.ToggleUnset // aria-busy, set or not, as Playwright checks the attribute
 }
 
 // ariaFocusable reports whether el is focusable for ARIA's presentational
@@ -738,7 +745,7 @@ func (t *Tree) semOrigin(bx *Box) gfx.Point {
 		o = o.Add(b.ld.Layout().Location)
 	}
 	for b := bx; ; {
-		o = o.Add(stickyShift(b)) // a stuck box (sticky.go)
+		o = o.Add(ownShift(b)) // a stuck box (sticky.go), a floating one (floating.go)
 		cb := containingBlockOf(b)
 		if cb == nil {
 			break

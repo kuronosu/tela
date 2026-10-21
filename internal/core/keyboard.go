@@ -164,6 +164,9 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 		st := fire(t, evKeyDown, target, ke, true)
 		t.flushDiscrete()
 		if !st.defaultPrevented() {
+			if ke.Key == KeyValue(platform.KeyEscape) && !ke.Repeat && t.escapeOverlay(ke, st) {
+				return // dismissed the top overlay (overlay.go)
+			}
 			t.keyDownDefault(target, ke, e.Text)
 		}
 		return

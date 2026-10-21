@@ -313,6 +313,7 @@ const (
 	hookInterval      // UseInterval (interval.go)
 	hookGo            // UseGo (effects.go)
 	hookTheme         // UseTheme (theme.go)
+	hookSize          // UseSize (bounds.go)
 )
 
 var hookNames = [...]string{
@@ -342,6 +343,7 @@ var hookNames = [...]string{
 	hookInterval:      "UseInterval",
 	hookGo:            "UseGo",
 	hookTheme:         "UseTheme",
+	hookSize:          "UseSize",
 }
 
 func (k hookKind) String() string { return hookNames[k] }

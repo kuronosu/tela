@@ -199,6 +199,9 @@ func TestExportedNames(t *testing.T) {
 		"Ref", "Role", "Rows", "Scale", "Scheme", "Span", "SpellCheck", "Src", "Strong", "Style", "TabIndex", "TestID", "Text", "TextFn",
 		"Textarea", "Textf", "Type", "Value",
 		"VirtualList",
+		// ADR-096: the widget ARIA props and Inert.
+		"AriaActiveDescendant", "AriaAutoComplete", "AriaControls", "AriaHasPopup", "AriaModal", "AriaMultiSelectable",
+		"AriaOrientation", "Inert",
 	}
 	fset := token.NewFileSet()
 	var got []string
@@ -244,6 +247,7 @@ func TestExportedNames(t *testing.T) {
 		}
 	}
 	sort.Strings(got)
+	sort.Strings(want)
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("package h exports\n  %v\nwant\n  %v\n(adding a name to h risks collisions in dot-importing packages: it needs a decision)", got, want)
 	}

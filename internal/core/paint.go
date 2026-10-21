@@ -64,10 +64,10 @@ import (
 // # Stacking (ARCHITECTURE section 13, simplified CSS 2 appendix E)
 //
 // A box creates a stacking context when it has a z-index other than auto
-// and is positioned or a flex item, is fixed or sticky, has opacity < 1, a
-// transform, a filter, a backdrop filter, a mix-blend-mode, a clip-path or
-// isolation: isolate, or runs a transform animation (anim.go) or a layout
-// animation (layoutanim.go). The root is a stacking context. z-index on a
+// and is positioned or a flex item, is fixed, sticky or floating
+// (floating.go), has opacity < 1, a transform, a filter, a backdrop
+// filter, a mix-blend-mode, a clip-path or isolation: isolate, or runs a
+// transform animation (anim.go) or a layout animation (layoutanim.go). The root is a stacking context. z-index on a
 // box that is neither positioned nor a flex item does nothing, as in CSS.
 //
 // A stacking context paints its own decorations (1-4), then its
@@ -186,6 +186,13 @@ func (p *painter) place(bx *Box, parent *Box) {
 	if parent == nil {
 		clear(t.stickies)
 		t.stickies = t.stickies[:0]
+		clear(t.flt.boxes)
+		t.flt.boxes = t.flt.boxes[:0]
+	} else if bx.flt != nil {
+		// A floating element is painted in a scroll space of its own,
+		// moved to its place by the float pass (floating.go).
+		bx.space = floatSpace(bx, space)
+		t.flt.boxes = append(t.flt.boxes, bx)
 	} else if isSticky(bx) {
 		// Painted in a scroll space of its own, moved by its sticky
 		// offset (sticky.go).
@@ -435,7 +442,7 @@ func stacking(bx *Box) bool {
 	if cs.ZIndex.Explicit && (cs.Position != style.PositionStatic || flexItem(bx)) {
 		return true
 	}
-	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky ||
+	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky || bx.flt != nil ||
 		(bx.anim != nil && bx.anim.layer) || layoutActive(bx) || cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
 		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate || !cs.ClipPath.IsNone()
 }

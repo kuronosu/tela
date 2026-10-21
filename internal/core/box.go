@@ -147,6 +147,9 @@ type Box struct {
 	// stick is the scroll space of a sticky box (sticky.go), nil until it
 	// is first painted sticky; the box is in it when space == stick.
 	stick *scroller
+	// flt is the state of a floating element (floating.go): its own scroll
+	// space, its Place function and its size limits; nil for other boxes.
+	flt *floatState
 	// fld is the state of a text field (field.go).
 	fld *field
 
@@ -185,6 +188,10 @@ func (b *Box) detach() {
 	b.built = false
 	dropObserver(b.layoutObs)
 	dropObserver(b.paintObs)
+	if f := b.flt; f != nil {
+		dropObserver(f.obs)
+		dropObserver(f.aobs)
+	}
 }
 
 // LayoutStyle implements layout.Node.

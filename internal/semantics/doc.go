@@ -37,5 +37,10 @@
 //     inputs) where Playwright shows the value only for input and textarea
 //     elements;
 //   - there are no iframes, slots, shadow roots, pseudo-element content,
-//     placeholders, aria-owns, aria-invalid or title attributes.
+//     placeholders, aria-owns, aria-invalid or title attributes;
+//   - inert subtrees (core's Inert prop, an exiting Presence child, the
+//     outside of a modal overlay) are hidden, as in the browser's
+//     accessibility tree, where Playwright 1.61, which ignores the inert
+//     attribute, would print them; the outside of a modal matches
+//     Playwright for aria-hidden="true", which React Aria sets there.
 package semantics

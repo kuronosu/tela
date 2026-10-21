@@ -222,6 +222,12 @@ type Tree struct {
 	stickies []*Box
 	// portals are the mounted Portal elements, in mount order (portal.go).
 	portals []*Element
+	// flt is the float pass state (floating.go), ovl the overlays, the
+	// interact-outside listeners and the modality (overlay.go), and pubs
+	// the Values published in the frame (PublishValue).
+	flt  floatTree
+	ovl  overlayState
+	pubs []*valueCore
 	// env is the color scheme and reduced motion (env.go).
 	env envState
 
@@ -352,9 +358,11 @@ func (t *Tree) Mount(root Node) {
 		t.markStyle(el)
 		t.markBoxes(el)
 		t.reconcile(el, n.d.children)
+		t.syncModal()
 		return
 	}
 	t.update(t.root, n)
+	t.syncModal()
 }
 
 // Unmount removes the content of the tree, running the cleanups of its
@@ -367,6 +375,7 @@ func (t *Tree) Unmount() {
 		t.lockBuild()
 		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
 		unlockBuild()
+		t.syncModal()
 	}
 	t.resetFocus()
 	t.dropEffects()
@@ -483,6 +492,9 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		full = true
 	}
 	full = t.scrollPhase(full)
+	if full {
+		t.syncSizes() // UseSize (bounds.go): paint-phase readers see it now
+	}
 	t.lastDL = t.paintPhase(full)
 	t.changed, t.repaint = false, false
 	return t.lastDL, true
@@ -492,6 +504,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 // outside it (scroll.go's scrollAfterFrame).
 func (t *Tree) afterFrame() {
 	t.inFrame = false
+	t.publishAfterFrame()
 	t.boundsAfterFrame()
 	t.scrollAfterFrame()
 	t.animAfterFrame()
@@ -510,6 +523,8 @@ func (t *Tree) buildPhase() {
 	}
 	t.lockBuild()
 	defer unlockBuild()
+	// The builds may mount, unmount or exit overlays (overlay.go).
+	defer t.syncModal()
 	for len(t.buildQ) > 0 {
 		q := t.buildQ
 		t.buildQ = nil

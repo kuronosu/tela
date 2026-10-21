@@ -497,6 +497,9 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	ls.Width, ls.Height = dimOf(cs.Width), dimOf(cs.Height)
 	ls.MinWidth, ls.MinHeight = dimOf(cs.MinWidth), dimOf(cs.MinHeight)
 	ls.MaxWidth, ls.MaxHeight = dimOf(cs.MaxWidth), dimOf(cs.MaxHeight)
+	if b.flt != nil {
+		b.flt.limitLayout(b, &ls) // the size limits of a floating element (floating.go)
+	}
 	ls.AspectRatio = cs.AspectRatio
 	if b.kind == style.KindImg {
 		ls.Replaced = true

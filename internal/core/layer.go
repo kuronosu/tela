@@ -203,14 +203,15 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	t.la.paints++
 	defer t.endLayoutPaint()
 	// The boxes whose paint-phase reads changed (markPaint): their
-	// deferred props only move their layer, or make it stale.
+	// deferred props only move their layer, or make it stale. The float
+	// pass may mark more (floating.go): every mark ends with the paint.
 	marked := t.paintQ
 	defer func() {
-		for _, b := range marked {
+		for _, b := range t.paintQ {
 			b.needsPaint = false
 		}
-		clear(marked)
-		t.paintQ = marked[:0]
+		clear(t.paintQ)
+		t.paintQ = t.paintQ[:0]
 	}()
 	if t.rootBox == nil || t.rootBox.cs == nil {
 		L.root, L.layers = nil, L.layers[:0]
@@ -229,10 +230,23 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 		L.needFull, L.needPlace = false, false
 	}
 	p.full = full
-	switch {
-	case place:
+	if place {
 		t.la.places++
 		p.place(t.rootBox, nil)
+	}
+	// The floating elements follow their anchors (floating.go), before
+	// anything is recorded.
+	if t.floatPhase(&p) {
+		place = true
+	}
+	if L.needFull || L.needPlace {
+		// A Value published by the float pass changed what a box records.
+		full = true
+	}
+	L.needFull, L.needPlace = false, false
+	p.full = full || place
+	switch {
+	case place:
 		t.recordAll(&p)
 	case full:
 		// The geometry holds: new interest rects, and every layer again.
@@ -423,10 +437,10 @@ func (t *Tree) composeLayer(m gfx.Marker) {
 	L.compCur = idx
 	switch l.kind {
 	case layerChunk:
-		// A sticky space's chunk always has its translation, so that the
-		// damage sees it move when its offset starts or stops (a pushed
-		// block bounds its content, damage.go).
-		moved := in.d != (gfx.Point{}) || l.space != nil && l.space.sticky
+		// A sticky or floating space's chunk always has its translation,
+		// so that the damage sees it move when its offset starts or stops
+		// (a pushed block bounds its content, damage.go).
+		moved := in.d != (gfx.Point{}) || l.space != nil && l.space.own()
 		if moved {
 			b.PushTransform(gfx.Translate(in.d.X, in.d.Y))
 		}

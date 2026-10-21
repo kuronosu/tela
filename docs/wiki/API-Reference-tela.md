@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -62,7 +62,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
   - [`type Theme`](#type-theme): [`DefaultTheme`](#func-defaulttheme)
   - [`type ThemeValues`](#type-themevalues): [`UseTheme`](#func-usetheme) · [`Color`](#func-themevalues-color) · [`FontMono`](#func-themevalues-fontmono) · [`FontSans`](#func-themevalues-fontsans) · [`Lookup`](#func-themevalues-lookup) · [`Radius`](#func-themevalues-radius) · [`Scheme`](#func-themevalues-scheme) · [`Tokens`](#func-themevalues-tokens)
-  - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UsePresenceTween`](#func-usepresencetween) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
+  - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UsePresenceTween`](#func-usepresencetween) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
 
 ## Overview
@@ -4562,6 +4562,49 @@ func Page() tela.Node {
 ```
 
 Reading y.Get() in the component's body instead rebuilds the component on every scrolled frame; use h.OnScroll for logic that runs once per frame of scrolling.
+
+#### func UseSize
+
+```go
+func UseSize(ref ElementRef) *Value[Size]
+```
+
+UseSize returns a [`Value`](#type-value) that follows the size of the element ref is attached to with h.Ref: its border box as laid out, like a ResizeObserver (borderBoxSize). Scrolling and transforms never change it, so it does not move while a list scrolls or a card animates its scale; it is the zero Size while the element is not mounted or not displayed, and for inline elements of a paragraph. Use it to size one element after another, or to make a popover as wide as its trigger.
+
+The Value is updated in every frame that lays out, before painting: a deferred style closure of the paint phase that reads it (TranslateFn, OpacityFn, BgFn) follows in that frame; a component that reads it rebuilds, and a WidthFn or HeightFn lays out, in the next frame. Frames that only scroll or animate transforms do not check it. The same Value is returned on every build.
+
+```go
+func Tabs() tela.Node {
+    tab := tela.UseElementRef()
+    size := tela.UseSize(tab)
+    return Div(Class("relative flex"),
+        Button(Ref(tab), Class("px-4 py-2"), Text("Overview")),
+        Div(Class("absolute bottom-0 h-0.5 bg-indigo-500"),
+            Style(tela.WidthFn(func() float32 { return size.Get().Width }))))
+}
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var size *tela.Value[tela.Size]
+feed := func() tela.Node {
+    card := tela.UseElementRef()
+    size = tela.UseSize(card)
+    s := size.Get() // a build reads it: the label follows the next frame
+    return Div(TestID("feed"), Class("h-40 overflow-y-auto"),
+        Div(Ref(card), Class("h-24 w-64 scale-150"), Textf("%.0f x %.0f", s.Width, s.Height)),
+        Div(Class("h-96")),
+    )
+}
+app := telatest.Mount(t, tela.C(feed))
+app.ExpectText("256 x 96") // the layout size: the scale does not count
+app.Scroll(telatest.ByTestID("feed"), 0, 80)
+fmt.Println(size.Get()) // scrolling does not change it either
+// Output: {256 96}
+```
 
 #### func UseSpring
 

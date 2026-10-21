@@ -236,6 +236,10 @@ type scroller struct {
 	// is in without it. It is in no scroller set and never scrolls.
 	sticky bool
 	up     *scroller
+	// floating marks the scroll space of a floating element (floating.go):
+	// box is the floating box, soff its negated offset, up the space the
+	// box is in without it, as for a sticky box.
+	floating bool
 
 	// rtl marks a right-to-left container (ADR-090): its scroll origin
 	// is at the right and its content overflows to the left. pos.X is
@@ -257,13 +261,18 @@ func (s *scroller) flip(p gfx.Point) gfx.Point {
 }
 
 // outer returns the scroll space that s is in: the space of its
-// container's box, or a sticky space's up.
+// container's box, or a sticky or floating space's up.
 func (s *scroller) outer() *scroller {
-	if s.sticky {
+	if s.own() {
 		return s.up
 	}
 	return s.box.space
 }
+
+// own reports the scroll space of a box's own offset (a sticky box's or a
+// floating element's) rather than a scroll container's: its offset is not
+// how far its pixels move on screen, and it never scrolls.
+func (s *scroller) own() bool { return s.sticky || s.floating }
 
 // clamp returns p within [0, max].
 func (s *scroller) clamp(p gfx.Point) gfx.Point {
@@ -1653,7 +1662,7 @@ func (t *Tree) targetRect(bx *Box) gfx.Rect {
 	// A stuck box counts where it is stuck now (sticky.go), and a box
 	// fixed to the window does not move with the root.
 	for b := bx; b != nil; {
-		o = o.Add(stickyShift(b))
+		o = o.Add(ownShift(b))
 		cb := containingBlockOf(b)
 		if fixedToWindow(b, cb) {
 			break

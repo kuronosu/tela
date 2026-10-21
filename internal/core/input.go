@@ -136,6 +136,11 @@ type pointerState struct {
 	// noMouse: pointerdown was cancelled, so the mouse events wait for
 	// all buttons to be up.
 	noMouse bool
+	// outside are the interact-outside listeners the press started
+	// outside of, and noClick reports that one cancelled its click
+	// (overlay.go).
+	outside []outsidePress
+	noClick bool
 }
 
 // inputState is the pointer input state of a Tree (UI thread).
@@ -269,7 +274,17 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 			ps.capture = target
 		}
 		t.noteMouse()
-		st := fire(t, evPointerDown, target, t.pointerEvent(ps, e.Button), true)
+		pe := t.pointerEvent(ps, e.Button)
+		st := &eventState{}
+		ps.noClick = false
+		if e.Button == platform.ButtonPrimary {
+			// The listeners of presses outside, as in the capture phase
+			// of the document (overlay.go).
+			t.outsideDown(ps, target, pe, st)
+		}
+		if !st.stopped {
+			dispatchWith(t, evPointerDown, target, pe, true, true, st)
+		}
 		ps.noMouse = st.defaultPrevented()
 		t.flushDiscrete()
 	} else {
@@ -313,7 +328,15 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 	target := t.pointerTarget(ps)
 	ps.target = target
 	if e.Buttons == 0 {
-		fire(t, evPointerUp, target, t.pointerEvent(ps, e.Button), true)
+		pe := t.pointerEvent(ps, e.Button)
+		st := &eventState{}
+		t.outsideUp(ps, target, pe, st)
+		if st.defaultPrevented() {
+			ps.noClick = true
+		}
+		if !st.stopped {
+			dispatchWith(t, evPointerUp, target, pe, true, true, st)
+		}
 		t.flushDiscrete()
 	} else {
 		fire(t, evPointerMove, target, t.pointerEvent(ps, e.Button), true)
@@ -344,6 +367,8 @@ func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
 	ps.target = target
 	ps.buttons = 0
 	fire(t, evPointerCancel, target, t.pointerEvent(ps, platform.ButtonNone), true)
+	clear(ps.outside)
+	ps.outside = ps.outside[:0]
 	if ps.pressing {
 		ps.pressing = false
 		t.fieldPointerUp(ps)
@@ -382,7 +407,7 @@ func (t *Tree) endPress(ps *pointerState) {
 func (t *Tree) flushDiscrete() {
 	t.ApplyUpdates()
 	t.buildPhase()
-	if t.foc.auto != nil || len(t.foc.restores) > 0 {
+	if t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0 {
 		t.focusWork()
 	}
 }
@@ -447,8 +472,8 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 // release targets.
 func (t *Tree) click(ps *pointerState) {
 	ct := commonAncestor(ps.down, ps.target)
-	if ct == nil {
-		return
+	if ct == nil || ps.noClick {
+		return // or an interact-outside listener cancelled it (overlay.go)
 	}
 	n := ps.clickCount
 	t.dispatchClick(ct, t.mouseEvent(ps, platform.ButtonPrimary, n))
@@ -883,7 +908,14 @@ func fire[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bu
 // dispatch is fire; skipInert false also runs the handlers of disabled
 // elements (the blur of an element that became disabled).
 func dispatch[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bubbles, skipInert bool) *eventState {
-	st := &eventState{}
+	return dispatchWith[E, P](t, k, target, e, bubbles, skipInert, &eventState{})
+}
+
+// dispatchWith is dispatch with the state st of a dispatch begun by the
+// listeners of the capture phase (overlay.go). Every handler of an
+// element runs, in the order its props were given: several props may
+// handle the same event (package aria merges its props with the user's).
+func dispatchWith[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bubbles, skipInert bool, st *eventState) *eventState {
 	if target == nil {
 		return st
 	}

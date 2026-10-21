@@ -20,6 +20,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `h.Range(n, render)`: `render(0)` … `render(n-1)` as a list keyed by index, with no missing-key warning; `render` returns a `tela.Node` or a `tela.Component`.
 - `h.VirtualList`'s `renderItem` may return a `tela.Component` as well as a `tela.Node` (struct-component rows need no wrapper); existing calls compile unchanged.
 - `tela.StopPropagation(f)`: a handler for every `h.On…` prop that stops the event's propagation and then calls `f`: `Button(OnClick(tela.StopPropagation(ctrl.Remove)))`. Its type is `tela.StopHandler`.
+- `tela.UseSize(ref)`: a Value with an element's border-box size as laid out, like a ResizeObserver; scrolling and transforms never change it, and it is updated before painting in every frame that lays out (paint-phase readers such as a `TranslateFn` follow in that frame).
+- `h.Inert(true)`: HTML's `inert` attribute. The subtree is not hit by the pointer, cannot take the focus (a focused element in it loses it), leaves the Tab order and is hidden from assistive technologies, telatest's locators and the aria snapshot; it is still painted.
+- ARIA props for widget patterns: `h.AriaHasPopup` (`"menu"`, `"listbox"`, `"tree"`, `"grid"`, `"dialog"`, `"true"`, `"false"`), `h.AriaControls(ref)`, `h.AriaActiveDescendant(ref)`, `h.AriaModal`, `h.AriaMultiSelectable`, `h.AriaOrientation` and `h.AriaAutoComplete`. Unknown values panic in dev mode with the closest valid one. The aria snapshot does not print them, as Playwright does not, except that `AriaControls` keeps the role of an element with `Role("presentation")`, as in Playwright.
 
 ### Changed
 

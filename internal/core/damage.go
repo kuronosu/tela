@@ -267,10 +267,10 @@ func (d *damager) findUnits() {
 	var order []*scroller
 	for _, in := range d.b.inst {
 		s := in.layer.space
-		if in.layer.kind != layerChunk || s == nil || cand[s] || s.sticky {
-			// A sticky space's offset is not how far its pixels move on
-			// screen (its container moves them too): it is matched
-			// command by command, never shifted.
+		if in.layer.kind != layerChunk || s == nil || cand[s] || s.own() {
+			// A sticky or floating space's offset is not how far its
+			// pixels move on screen (its container moves them too): it is
+			// matched command by command, never shifted.
 			continue
 		}
 		if oa, ok := sa[s]; ok && oa != sb[s] {

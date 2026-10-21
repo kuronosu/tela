@@ -1,6 +1,10 @@
 package core
 
-import "github.com/kuronosu/tela/internal/gfx"
+import (
+	"slices"
+
+	"github.com/kuronosu/tela/internal/gfx"
+)
 
 // Element bounds (ADR-070): ElementRef.Bounds reads an element's border
 // box in window coordinates, transforms included (the DOM's
@@ -56,11 +60,14 @@ func (f *boundsFollow) unmount(t *Tree) {
 	t.bnd.remove(f)
 }
 
-// boundsState is the Tree's list of UseBounds slots (UI thread).
+// boundsState is the Tree's list of UseBounds and UseSize slots (UI
+// thread).
 type boundsState struct {
 	follows []*boundsFollow
 	// frames is the frame count of the last check (-1: check again).
 	frames int
+	// sizes are the UseSize slots.
+	sizes []*sizeFollow
 }
 
 func (s *boundsState) remove(f *boundsFollow) {
@@ -121,6 +128,75 @@ func (t *Tree) boundsAfterFrame() {
 		b := ElementRef{f.ref}.Bounds()
 		if b != *f.v.cur.Load() {
 			f.v.storeUI(b)
+		}
+	}
+}
+
+// sizeFollow is the slot of one UseSize call: a Value that follows the
+// border-box size of the element ref is attached to.
+type sizeFollow struct {
+	ref *elemRef
+	v   *Value[Size]
+}
+
+func (f *sizeFollow) unmount(t *Tree) {
+	f.v.unmount(t)
+	s := &t.bnd
+	if i := slices.Index(s.sizes, f); i >= 0 {
+		s.sizes = slices.Delete(s.sizes, i, i+1)
+	}
+}
+
+// UseSize returns a Value that follows the size of the element ref is
+// attached to: its border box as laid out (ResizeObserver's
+// borderBoxSize), unaffected by scrolling and transforms, so a scroll or
+// an animated transform never changes it. It is the zero Size while the
+// element is not mounted or not displayed, and for an inline element of
+// a paragraph or a display: contents one, which have no box of their own.
+// The Value is updated in every frame that lays out, after layout and
+// before paint: a paint-phase deferred prop that reads it (TranslateFn,
+// OpacityFn, BgFn) follows in that frame; a component that reads it
+// rebuilds, and a layout-phase prop lays out, in the next frame. The same
+// Value is returned on every build.
+func UseSize(r ElementRef) *Value[Size] {
+	if r.r == nil {
+		panic("tela: UseSize(zero ElementRef): pass the ElementRef returned by tela.UseElementRef and attach it with h.Ref to the element")
+	}
+	el, i := nextSlot(hookSize)
+	if i < len(el.hooks) {
+		f, ok := el.hooks[i].(*sizeFollow)
+		if !ok {
+			el.tree.slotMismatch(el, i, "UseSize")
+		}
+		f.ref = r.r // a build: the frame lays out and checks it
+		return f.v
+	}
+	f := &sizeFollow{ref: r.r, v: newValue(el, Size{})}
+	el.hooks = append(el.hooks, f)
+	el.tree.bnd.sizes = append(el.tree.bnd.sizes, f)
+	return f.v
+}
+
+// elemSize returns the border-box size of the element r is attached to
+// as laid out, zero without a box of its own in the box tree.
+func (t *Tree) elemSize(r *elemRef) Size {
+	el := r.el
+	if el == nil || !el.mounted || el.kind != elemPrimitive || !t.ownBox(el, false) || !t.inTree(el.box) {
+		return Size{}
+	}
+	l := el.box.ld.Layout()
+	return Size{Width: l.Size.W, Height: l.Size.H}
+}
+
+// syncSizes updates the UseSize Values after a layout, inside the frame
+// (PublishValue: paint-phase readers follow in this frame, the others in
+// the next).
+func (t *Tree) syncSizes() {
+	for _, f := range t.bnd.sizes {
+		if f.v.el.mounted {
+			if s := t.elemSize(f.ref); s != *f.v.cur.Load() {
+				PublishValue(f.v, s)
+			}
 		}
 	}
 }

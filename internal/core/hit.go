@@ -35,7 +35,10 @@ import (
 //     paragraph's element.
 //
 // Disabled elements are hit like the others; dispatch skips their
-// handlers (input.go). The geometry is where boxes are painted (Box.u,
+// handlers (input.go). Inert elements (an exiting Presence child, the
+// Inert prop) are not hit, nor are those outside the active modal overlay
+// (overlay.go), whose ancestors are crossed but not hit themselves. The
+// geometry is where boxes are painted (Box.u,
 // the layout without the scroll offsets), and the point is moved into the
 // scroll space of each box it is compared with (toSpace: the offsets of
 // the scroll containers whose content layers hold it), so a scroll moves
@@ -194,7 +197,7 @@ func (h *hitter) stackedOrder(bx *Box, items []paintItem, p gfx.Point) *Element 
 // is in root's scroll space.
 func (h *hitter) hoisted(root, e *Box, p gfx.Point) *Element {
 	pe := toSpace(p, root.space, e.space)
-	if !e.hitBounds.Contains(pe) || !alive(e) {
+	if !e.hitBounds.Contains(pe) || !alive(e) || blockedBox(e) {
 		return nil
 	}
 	cb := containingBlock(e)
@@ -241,7 +244,7 @@ func (h *hitter) inner(bx *Box, p gfx.Point) *Element {
 	for i := len(bx.kids) - 1; i >= 0; i-- {
 		k := bx.kids[i]
 		pk := toSpace(p, bx.space, k.space)
-		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || !alive(k) || participant(k) || k.hiddenAtom {
+		if !k.hitBounds.Contains(pk) || k.ls.Display == layout.DisplayNone || !alive(k) || blockedBox(k) || participant(k) || k.hiddenAtom {
 			continue
 		}
 		if el := h.flowBox(k, pk); el != nil {
@@ -271,6 +274,9 @@ func (h *hitter) self(bx *Box, p gfx.Point) bool {
 	cs := bx.pcs
 	if cs.Visibility != style.VisibilityVisible || cs.PointerEvents == style.PointerEventsNone || bx.portal {
 		return false // a portal layer is not hit itself (portal.go)
+	}
+	if bx != h.t.rootBox && bx.owner != nil && bx.owner.outside != outsideNo {
+		return false // outside the active modal (overlay.go); the root takes the press
 	}
 	return rrectContains(h.geom(bx).border, p)
 }
@@ -312,7 +318,7 @@ func (h *hitter) text(bx *Box, p gfx.Point) *Element {
 	}
 	owner := bx.owner
 	for el := para.targetAt(para.lay.Cluster(hit.Cluster).TextStart); el != nil && el != owner; el = el.styleParent() {
-		if !el.mounted || el.kind != elemPrimitive || el.inert {
+		if !el.mounted || el.kind != elemPrimitive || el.inert || el.outside != outsideNo {
 			continue
 		}
 		if cs := el.box.cs; cs != nil && cs.PointerEvents == style.PointerEventsAuto && cs.Visibility == style.VisibilityVisible {

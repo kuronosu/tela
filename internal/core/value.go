@@ -76,6 +76,9 @@ type valueCore struct {
 	subs []*valueSub
 	// mark is scratch state of Tree.resubscribe.
 	mark uint64
+	// pub: published in the frame, its readers other than paint-phase
+	// ones wait for its end (PublishValue).
+	pub bool
 }
 
 func (v *valueCore) addSub(s *valueSub) {
@@ -464,10 +467,19 @@ func dropObserver(o *observer) {
 // valueChanged invalidates the readers of v after a change applied on the
 // UI thread, each in the phase it read v in. It reports whether any
 // reader was invalidated.
-func (t *Tree) valueChanged(v *valueCore) bool {
+func (t *Tree) valueChanged(v *valueCore) bool { return t.valueChangedSkip(v, obsNone) }
+
+// obsNone is no observer kind (valueChangedSkip skips nothing).
+const obsNone obsKind = 255
+
+// valueChangedSkip is valueChanged without the readers of kind skip.
+func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 	hit := false
 	for _, s := range v.subs {
 		o := s.obs
+		if o.kind == skip {
+			continue
+		}
 		switch o.kind {
 		case obsBuild:
 			if o.el.mounted {

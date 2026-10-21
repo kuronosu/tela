@@ -153,6 +153,19 @@ type Node struct {
 	Checked, Pressed, Selected, Expanded Toggle
 	States                               State
 	Actions                              Action
+
+	// The widget props (aria-haspopup, -modal, -multiselectable,
+	// -orientation, -autocomplete, -controls, -activedescendant; ADR-096),
+	// which aria snapshots do not print. HasPopup is "menu", "listbox",
+	// "tree", "grid" or "dialog" ("true" is "menu"); Orientation
+	// "horizontal" or "vertical"; AutoComplete "inline", "list" or "both";
+	// "" is unset or the default. Controls and ActiveDescendant are the
+	// IDs of the referenced elements' nodes, 0 for none (the node may be
+	// hidden or absent from the tree).
+	HasPopup                   string
+	Modal, MultiSelectable     bool
+	Orientation, AutoComplete  string
+	Controls, ActiveDescendant NodeID
 	// Inline reports that the element is laid out inline (CSS display
 	// inline in a paragraph): its text runs on with its neighbors'. Block
 	// boundaries separate words when texts are concatenated (names,

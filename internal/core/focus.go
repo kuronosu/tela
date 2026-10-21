@@ -11,14 +11,15 @@ import (
 // # Focusable elements
 //
 // A Button, an Input and a Textarea are focusable, as are the primitives
-// with a TabIndex; the others are not. An element is not focusable while it or an ancestor is
-// disabled (Disabled) or display: none, while it is visibility: hidden or
-// display: contents, or before it has a computed style (it has no box
-// yet). The sequential focus order (Tab) holds the focusable elements
-// with a tab index of 0 or more (a Button's is 0): those with a positive
-// index first, in ascending order, then those with 0, in tree order (HTML's
-// rules); -1 makes an element focusable by click and by ElementRef.Focus
-// only.
+// with a TabIndex; the others are not. An element is not focusable while
+// it or an ancestor is disabled (Disabled) or display: none, while it is
+// visibility: hidden or display: contents, inert (an exiting Presence
+// child, Inert) or outside the active modal overlay (overlay.go), or
+// before it has a computed style (it has no box yet). The sequential
+// focus order (Tab) holds the focusable elements with a tab index of 0 or
+// more (a Button's is 0): those with a positive index first, in ascending
+// order, then those with 0, in tree order (HTML's rules); -1 makes an
+// element focusable by click and by ElementRef.Focus only.
 //
 // # Moving the focus
 //
@@ -74,11 +75,16 @@ import (
 //
 // # Focus scopes
 //
-// A focus scope (FocusScope, reserved for package aria's UseFocusScope)
-// on a primitive contains Tab navigation inside its subtree while it is
-// mounted (the most recently mounted containing scope wins), and restores
-// the focus to the element focused when it mounted when it unmounts, if
-// the focus was inside it (or nowhere) then.
+// A focus scope (Scope and FocusScope, reserved for package aria's
+// UseFocusScope) on a primitive contains Tab navigation inside its
+// subtree while it is mounted (the most recently mounted containing scope
+// that is not inert nor outside the active modal wins), restores the
+// focus to the element focused when it mounted when it unmounts, if the
+// focus was inside it (or nowhere) then, and with AutoFocus focuses the
+// first tabbable element of its subtree (else the first focusable one)
+// after the style phase of the frame that mounts it, unless the focus is
+// already inside (React Aria's FocusScope). The focus manager of
+// focusmgr.go moves the focus within a subtree for package aria's hooks.
 
 // focusType is how the focus moved.
 type focusType uint8
@@ -117,9 +123,11 @@ type focusState struct {
 	auto    *Element
 	autoGen uint64
 	// scopes are the mounted focus scopes, in mount order; restores the
-	// elements to restore the focus to after unmounted scopes.
-	scopes   []*focusScope
-	restores []*Element
+	// elements to restore the focus to after unmounted scopes; scopeAuto
+	// the scopes mounted with AutoFocus waiting for their first style.
+	scopes    []*focusScope
+	restores  []*Element
+	scopeAuto []*focusScope
 	// space is the Button whose Space press waits for its release.
 	space *Element
 	// tab is the scratch list of tab order walks.
@@ -217,8 +225,10 @@ func (t *Tree) focusable(el *Element) bool {
 	if cs == nil || cs.Display == style.DisplayContents || cs.Visibility != style.VisibilityVisible {
 		return false
 	}
-	if el.inert {
-		return false // in an exiting Presence child (presence.go)
+	if el.inert || el.outside != outsideNo {
+		// In an exiting Presence child (presence.go), under Inert, or
+		// outside the active modal overlay (overlay.go).
+		return false
 	}
 	for a := el; a != nil; a = a.styleParent() {
 		acs := a.box.cs
@@ -447,10 +457,10 @@ func (w *tabWalker) walk(el *Element, hidden, inert bool) {
 	if cs == nil || cs.Display == style.DisplayNone {
 		hidden = true
 	}
-	if el.istate&style.StateDisabled != 0 || el.inert {
+	if el.istate&style.StateDisabled != 0 || el.inert || el.outside == outsideYes {
 		inert = true
 	}
-	if !hidden && !inert && el.parent != nil && cs.Display != style.DisplayContents &&
+	if !hidden && !inert && el.outside == outsideNo && el.parent != nil && cs.Display != style.DisplayContents &&
 		cs.Visibility == style.VisibilityVisible {
 		if r, ok := tabRank(el); ok {
 			w.out = append(w.out, tabEntry{el, r, idx})
@@ -549,6 +559,9 @@ func (t *Tree) focusWork() {
 			}
 		}
 	}
+	if len(f.scopeAuto) > 0 {
+		t.scopeAutoFocus()
+	}
 	for len(f.restores) > 0 {
 		el := f.restores[0]
 		f.restores = f.restores[1:]
@@ -559,9 +572,32 @@ func (t *Tree) focusWork() {
 	f.restores = nil
 }
 
+// scopeAutoFocus focuses the first tabbable element (else the first
+// focusable one) of each focus scope mounted with AutoFocus once it has a
+// style, unless the focus is already inside it (React Aria's FocusScope
+// autoFocus).
+func (t *Tree) scopeAutoFocus() {
+	f := &t.foc
+	q := f.scopeAuto
+	f.scopeAuto = nil
+	var wait []*focusScope
+	for _, s := range q {
+		switch {
+		case !s.el.mounted || s.el.fscope != s:
+		case s.el.box.cs == nil:
+			wait = append(wait, s) // mounted by a discrete event's build
+		case t.foc.el == nil || !isInside(t.foc.el, s.el):
+			if !t.focusFirstIn(s.el, true) {
+				t.focusFirstIn(s.el, false)
+			}
+		}
+	}
+	f.scopeAuto = append(f.scopeAuto, wait...)
+}
+
 // focusPending reports whether focusWork has anything to do.
 func (t *Tree) focusPending() bool {
-	return t.foc.el != nil || t.foc.auto != nil || len(t.foc.restores) > 0
+	return t.foc.el != nil || t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0
 }
 
 // mountFocus records the focus props of a primitive being mounted.
@@ -577,7 +613,7 @@ func (t *Tree) mountFocus(el *Element) {
 		t.foc.auto, t.foc.autoGen = el, t.foc.gen
 	}
 	if d.scope != nil {
-		t.addScope(el, *d.scope)
+		t.addScope(el, *d.scope, true)
 	}
 }
 
@@ -597,7 +633,7 @@ func (t *Tree) updateFocus(el *Element, old *desc) {
 	}
 	switch {
 	case d.scope != nil && el.fscope == nil:
-		t.addScope(el, *d.scope)
+		t.addScope(el, *d.scope, true)
 	case d.scope == nil && el.fscope != nil:
 		t.removeScope(el.fscope)
 		el.fscope = nil
@@ -642,7 +678,7 @@ func (t *Tree) resetFocus() {
 	t.cancelSpace()
 	f.el = nil
 	t.syncFocus()
-	f.start, f.auto, f.restores, f.scopes = nil, nil, nil, nil
+	f.start, f.auto, f.restores, f.scopes, f.scopeAuto = nil, nil, nil, nil, nil
 }
 
 // isInside reports whether el is anc or one of its descendants.
@@ -660,7 +696,7 @@ func isInside(el, anc *Element) bool {
 
 // scopeOpts are the options of a focus scope.
 type scopeOpts struct {
-	contain, restore bool
+	contain, restore, autoFocus bool
 }
 
 // focusScope is a mounted focus scope.
@@ -679,17 +715,44 @@ type focusScope struct {
 // to the element focused when it mounted, if that element is still
 // focusable.
 //
-// Reserved for package aria (UseFocusScope, phase 7); it is not exposed
-// by tela or h.
+// Reserved for package aria (UseFocusScope); it is not exposed by tela
+// or h. It is Scope without AutoFocus.
 func FocusScope(contain, restore bool) Prop {
-	o := &scopeOpts{contain: contain, restore: restore}
-	return Prop{name: "FocusScope", apply: func(d *desc) { d.scope = o }}
+	return Scope(ScopeOptions{Contain: contain, Restore: restore})
 }
 
-func (t *Tree) addScope(el *Element, o scopeOpts) {
+// ScopeOptions configures Scope: React Aria's FocusScope props.
+type ScopeOptions struct {
+	// Contain keeps Tab and Shift+Tab inside the scope's subtree.
+	Contain bool
+	// Restore gives the focus back, when the scope unmounts, to the
+	// element focused when it mounted.
+	Restore bool
+	// AutoFocus focuses the first tabbable element of the subtree (the
+	// first focusable one when none is tabbable) after the style phase of
+	// the frame that mounts the scope, unless the focus is already inside
+	// it.
+	AutoFocus bool
+}
+
+// Scope returns a prop that makes a primitive a focus scope while it is
+// mounted (see FocusScope); with AutoFocus the first tabbable element of
+// its subtree takes the focus when it mounts. Reserved for package aria
+// (UseFocusScope).
+func Scope(o ScopeOptions) Prop {
+	so := &scopeOpts{contain: o.Contain, restore: o.Restore, autoFocus: o.AutoFocus}
+	return Prop{name: "FocusScope", apply: func(d *desc) { d.scope = so }}
+}
+
+// addScope makes el a focus scope; auto queues its AutoFocus (a scope
+// given back by a cancelled exit does not focus again).
+func (t *Tree) addScope(el *Element, o scopeOpts, auto bool) {
 	s := &focusScope{el: el, opts: o, prev: t.foc.el}
 	el.fscope = s
 	t.foc.scopes = append(t.foc.scopes, s)
+	if auto && o.autoFocus {
+		t.foc.scopeAuto = append(t.foc.scopeAuto, s)
+	}
 }
 
 func (t *Tree) removeScope(s *focusScope) {
@@ -708,8 +771,8 @@ func (t *Tree) removeScope(s *focusScope) {
 func (t *Tree) activeScope() *focusScope {
 	ss := t.foc.scopes
 	for i := len(ss) - 1; i >= 0; i-- {
-		if ss[i].opts.contain && ss[i].el.mounted {
-			return ss[i]
+		if s := ss[i]; s.opts.contain && s.el.mounted && !s.el.inert && s.el.outside != outsideYes {
+			return s
 		}
 	}
 	return nil

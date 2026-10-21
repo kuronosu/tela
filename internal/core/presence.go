@@ -217,7 +217,7 @@ func (t *Tree) beginExit(o *Element) bool {
 	ex := &exitState{el: o, boxes: boxes}
 	pc.exit = ex
 	t.pres.exits = append(t.pres.exits, ex)
-	setInert(o, true)
+	t.refreshInert(o)
 	t.inertFocus(o)
 	for _, b := range boxes {
 		b.exitOn = true
@@ -239,7 +239,7 @@ func (t *Tree) cancelExit(o *Element) {
 	ex := o.pchild.exit
 	o.pchild.exit = nil
 	ex.gone = true
-	setInert(o, false)
+	t.refreshInert(o)
 	t.restoreScopes(o)
 	for _, b := range ex.boxes {
 		if b.mounted {
@@ -254,12 +254,22 @@ func (t *Tree) cancelExit(o *Element) {
 	}
 }
 
-// setInert marks el's subtree inert (on) or not; the subtrees of nested
-// exiting children stay inert.
-func setInert(el *Element, on bool) {
+// refreshInert computes again whether el and its subtree are inert (HTML's
+// inert): inside an exiting Presence child, under an Inert(true) prop
+// (overlay.go), or below an inert element. A change of an overlay's
+// inertness changes the overlay stack's top and the modality.
+func (t *Tree) refreshInert(el *Element) {
+	on := el.exiting() || el.kind == elemPrimitive && el.node.d.inert || el.parent != nil && el.parent.inert
+	if on == el.inert {
+		return
+	}
 	el.inert = on
+	if el.kind == elemPrimitive && el.node.d.overlay != nil {
+		t.ovl.dirty = true
+	}
+	t.dirty() // the focus fix-up (focusWork)
 	for _, c := range el.children {
-		setInert(c, on || c.exiting())
+		t.refreshInert(c)
 	}
 }
 
@@ -306,7 +316,7 @@ func (t *Tree) restoreScopes(o *Element) {
 	walk = func(e *Element) {
 		if e.kind == elemPrimitive && e.mounted && e.fscope == nil {
 			if sc := e.node.d.scope; sc != nil {
-				t.addScope(e, *sc)
+				t.addScope(e, *sc, false)
 			}
 		}
 		for _, c := range e.children {

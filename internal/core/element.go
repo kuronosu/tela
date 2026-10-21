@@ -78,6 +78,13 @@ type Element struct {
 	// exitOn marks a primitive whose Exit classes apply.
 	pchild        *presenceChild
 	inert, exitOn bool
+	// outside is where the element stands to the active modal overlay
+	// (overlay.go): inside one of the subtrees left alive (outsideNo, also
+	// without a modal), outside them (outsideYes: inert like inert), or an
+	// ancestor of one (outsideAncestor: not hit nor focusable itself, its
+	// descendants may be). Inert (HTML's inert, inherited) is set inside
+	// an exiting Presence child and by the Inert prop.
+	outside uint8
 
 	mounted    bool
 	needsBuild bool // a component whose state or context changed
@@ -489,6 +496,15 @@ func (t *Tree) update(el *Element, n Node) {
 		if old.ref != d.ref || old.scope != d.scope || el.fscope != nil {
 			t.updateFocus(el, old)
 		}
+		if old.float != d.float {
+			t.updateFloat(el, old)
+		}
+		if old.overlay != d.overlay || old.outside != d.outside {
+			t.updateListener(el, old)
+		}
+		if old.inert != d.inert {
+			t.refreshInert(el)
+		}
 		if old.id != d.id {
 			t.setID(el, old.id)
 		}
@@ -573,7 +589,7 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 	el := &Element{
 		tree: t, parent: parent, depth: parent.depth + 1, node: e.n,
 		scope: e.scope, sub: e.sub, key: e.key, keyed: e.keyed, mounted: true,
-		inert: parent.inert,
+		inert: parent.inert, outside: inheritOutside(parent),
 	}
 	t.stats.Mounts++
 	switch d.kind {
@@ -587,6 +603,15 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 			el.istate = style.StateDisabled
 		}
 		el.istate |= ariaStates(d.aria)
+		if d.inert {
+			el.inert = true // its children inherit it (overlay.go)
+		}
+		if d.float != nil {
+			t.updateFloat(el, nil)
+		}
+		if d.overlay != nil || d.outside != nil {
+			t.updateListener(el, nil)
+		}
 		if d.ref != nil || d.autoFocus || d.scope != nil {
 			t.mountFocus(el)
 		}
@@ -656,6 +681,9 @@ func (t *Tree) unmount(el *Element) {
 		}
 		if el.box.portal {
 			t.unmountPortal(el)
+		}
+		if d := el.node.d; d.overlay != nil || d.outside != nil {
+			t.removeListener(el)
 		}
 	}
 	for _, h := range el.hooks {
