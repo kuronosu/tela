@@ -43,6 +43,7 @@ const (
 // galleryCell is one cell of the gallery.
 type galleryCell struct {
 	name string
+	dir  string // the gallery's directory under testdata (file cells)
 	// inline cells: the svg markup (parsed by Tela as is), the CSS the
 	// page applies to its root and the wrapper's color, and the Options
 	// that express them.
@@ -81,17 +82,29 @@ var inlineCells = []galleryCell{
 	},
 }
 
-// galleryCells lists the file cells (sorted) and then the inline cells.
-func galleryCells(t testing.TB) []galleryCell {
-	entries, err := os.ReadDir(filepath.Join("testdata", "chromium", "cells"))
+// Galleries: testdata/chromium (ADR-095) and testdata/chromium-sheets
+// (style sheets and switch, ADR-098), a separate page so that the first
+// gallery and its golden stay as they were.
+const (
+	mainGallery   = "chromium"
+	sheetsGallery = "chromium-sheets"
+)
+
+// galleryCells lists the file cells (sorted) of a gallery and then, for
+// the main one, the inline cells.
+func galleryCells(t testing.TB, dir string) []galleryCell {
+	entries, err := os.ReadDir(filepath.Join("testdata", dir, "cells"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var cells []galleryCell
 	for _, e := range entries {
 		if name, ok := strings.CutSuffix(e.Name(), ".svg"); ok {
-			cells = append(cells, galleryCell{name: name, opts: Options{CurrentColor: gfx.Black}})
+			cells = append(cells, galleryCell{name: name, dir: dir, opts: Options{CurrentColor: gfx.Black}})
 		}
+	}
+	if dir != mainGallery {
+		return cells
 	}
 	return append(cells, inlineCells...)
 }
@@ -100,7 +113,7 @@ func (c galleryCell) source(t testing.TB) []byte {
 	if c.inline != "" {
 		return []byte(c.inline)
 	}
-	data, err := os.ReadFile(filepath.Join("testdata", "chromium", "cells", c.name+".svg"))
+	data, err := os.ReadFile(filepath.Join("testdata", c.dir, "cells", c.name+".svg"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,8 +286,8 @@ func writePNG(t testing.TB, path string, img image.Image) {
 }
 
 // regenerate writes the page and takes the Chromium screenshots.
-func regenerate(t *testing.T, cells []galleryCell) {
-	dir, err := filepath.Abs(filepath.Join("testdata", "chromium"))
+func regenerate(t *testing.T, gallery string, cells []galleryCell) {
+	dir, err := filepath.Abs(filepath.Join("testdata", gallery))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,11 +312,17 @@ func regenerate(t *testing.T, cells []galleryCell) {
 }
 
 func TestChromiumSVG(t *testing.T) {
-	cells := galleryCells(t)
-	if os.Getenv("TELA_CHROMIUM") == "1" {
-		regenerate(t, cells)
+	for _, g := range []string{mainGallery, sheetsGallery} {
+		t.Run(g, func(t *testing.T) { testChromiumGallery(t, g) })
 	}
-	dir := filepath.Join("testdata", "chromium")
+}
+
+func testChromiumGallery(t *testing.T, gallery string) {
+	cells := galleryCells(t, gallery)
+	if os.Getenv("TELA_CHROMIUM") == "1" {
+		regenerate(t, gallery, cells)
+	}
+	dir := filepath.Join("testdata", gallery)
 	if h, err := os.ReadFile(filepath.Join(dir, "gallery.html")); err != nil || string(h) != galleryHTML(cells) {
 		t.Fatalf("%s/gallery.html is out of date with the cells; regenerate it and the screenshots with TELA_CHROMIUM=1", dir)
 	}
@@ -318,7 +337,7 @@ func TestChromiumSVG(t *testing.T) {
 			t.Fatalf("x%d: render %v, Chromium %v", scale, got.Rect, ref.Rect)
 		}
 		if dump != "" {
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("svg_x%d_tela.png", scale)), got)
+			writePNG(t, filepath.Join(dump, fmt.Sprintf("svg_%s_x%d_tela.png", gallery, scale)), got)
 		}
 		for i := range cells {
 			x, y := cellOrigin(i)
@@ -344,11 +363,13 @@ func TestChromiumSVG(t *testing.T) {
 
 // TestGoldenGallery pins Tela's own rendering of the gallery, bit for bit.
 func TestGoldenGallery(t *testing.T) {
-	cells := galleryCells(t)
-	for _, scale := range []float32{1, 2} {
-		name := fmt.Sprintf("gallery_x%g", scale)
-		t.Run(name, func(t *testing.T) {
-			golden.Image(t, name, renderGallery(t, cells, scale))
-		})
+	for _, g := range []struct{ dir, prefix string }{{mainGallery, "gallery"}, {sheetsGallery, "sheets"}} {
+		cells := galleryCells(t, g.dir)
+		for _, scale := range []float32{1, 2} {
+			name := fmt.Sprintf("%s_x%g", g.prefix, scale)
+			t.Run(name, func(t *testing.T) {
+				golden.Image(t, name, renderGallery(t, cells, scale))
+			})
+		}
 	}
 }

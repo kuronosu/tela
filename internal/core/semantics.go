@@ -386,6 +386,8 @@ func (t *Tree) implicitRole(el *Element) string {
 			return "presentation"
 		}
 		return "img"
+	case style.KindSVG:
+		return "img"
 	case style.KindInput:
 		if fieldTypeOf(d) == fieldSearch {
 			return "searchbox"

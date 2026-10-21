@@ -116,6 +116,9 @@ type Tree struct {
 	// from any goroutine.
 	onceMu   sync.Mutex
 	onceSeen map[string]bool
+	// svgRecords counts the SVG documents recorded for Img and Icon
+	// boxes (media.go; tests).
+	svgRecords int
 	// devLabels are the Labels mounted since the last check (dev mode,
 	// form.go).
 	devLabels []*Element

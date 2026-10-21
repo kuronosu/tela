@@ -20,13 +20,15 @@
 // gradientTransform, href inheritance, pad/reflect/repeat, fx/fy/fr);
 // clipPath and mask; opacity, fill-opacity, stroke-opacity; fill, stroke
 // and every stroke property; transform; display and visibility;
-// presentation attributes and the style attribute; inheritance; CSS
-// units; CSS Color 4 colors without the newer color functions.
+// presentation attributes, the style attribute and style sheets in style
+// elements (type, class, id and universal selectors and their compounds,
+// in selector lists; css.go); inheritance; switch (its first child whose
+// conditions pass, as usvg evaluates them); CSS units; CSS Color 4 colors
+// without the newer color functions.
 //
 // Ignored, like browsers ignore what they do not render: text, images,
-// filters, patterns, markers, switch, foreignObject, <style> sheets,
-// animation, scripts and external references, and unknown elements and
-// attributes.
+// filters, patterns, markers, foreignObject, animation, scripts and
+// external references, and unknown elements and attributes.
 //
 // Rendering follows Chromium where SVG leaves room (it is the pixel
 // oracle of the tests): gradients interpolate unpremultiplied colors,

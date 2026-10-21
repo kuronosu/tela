@@ -52,7 +52,8 @@ func Greeting(name string) tela.Node {
 | [`H1`](https://pkg.go.dev/github.com/kuronosu/tela/h#H1) to [`H6`](https://pkg.go.dev/github.com/kuronosu/tela/h#H6) | Headings, with their level in the semantics tree. Unstyled: size and weight come from classes |
 | [`P`](https://pkg.go.dev/github.com/kuronosu/tela/h#P) | A paragraph of text and inline elements |
 | [`Button`](https://pkg.go.dev/github.com/kuronosu/tela/h#Button) | A button: no background, border or padding of its own, fits its content, shows the pointer cursor, focusable, clicks with Enter and Space |
-| [`Img`](https://pkg.go.dev/github.com/kuronosu/tela/h#Img) | An image. Give it a source with [`Src`](https://pkg.go.dev/github.com/kuronosu/tela/h#Src); without sizes it is drawn at its own size, shrunk to fit its container |
+| [`Img`](https://pkg.go.dev/github.com/kuronosu/tela/h#Img) | An image: PNG, JPEG, GIF, WebP or SVG (vector) from [`SrcPath`](https://pkg.go.dev/github.com/kuronosu/tela/h#SrcPath), [`SrcBytes`](https://pkg.go.dev/github.com/kuronosu/tela/h#SrcBytes), [`SrcFS`](https://pkg.go.dev/github.com/kuronosu/tela/h#SrcFS) or a decoded [`Src`](https://pkg.go.dev/github.com/kuronosu/tela/h#Src); without sizes it is drawn at its own size, shrunk to fit its container |
+| [`Icon`](https://pkg.go.dev/github.com/kuronosu/tela/h#Icon) | An SVG icon ([`tela.Icon`](https://pkg.go.dev/github.com/kuronosu/tela#Icon)): 1em by 1em unless sized, colored by the text color |
 | [`Strong`](https://pkg.go.dev/github.com/kuronosu/tela/h#Strong), [`Em`](https://pkg.go.dev/github.com/kuronosu/tela/h#Em), [`Code`](https://pkg.go.dev/github.com/kuronosu/tela/h#Code) | Inline bold, italic and monospace text |
 | [`A`](https://pkg.go.dev/github.com/kuronosu/tela/h#A) | A link: inline text with a destination from [`Href`](https://pkg.go.dev/github.com/kuronosu/tela/h#Href). Unstyled; Tela does not open links by itself yet, handle `OnClick` |
 | [`Input`](https://pkg.go.dev/github.com/kuronosu/tela/h#Input), [`Textarea`](https://pkg.go.dev/github.com/kuronosu/tela/h#Textarea), [`Form`](https://pkg.go.dev/github.com/kuronosu/tela/h#Form), [`Label`](https://pkg.go.dev/github.com/kuronosu/tela/h#Label) | Text fields and forms: see [Forms and Text Input](Forms-and-Text-Input) |
@@ -75,15 +76,54 @@ func Note() tela.Node {
 }
 ```
 
-An image comes from any `image.Image`; pass the same value on every build:
+### Images
+
+An image comes from a file of the file systems registered with
+[`tela.Assets`](https://pkg.go.dev/github.com/kuronosu/tela#Assets) (the same lookup as `bg-[url(...)]`), from bytes, from
+any `fs.FS`, or from an `image.Image` you decoded (pass the same value on
+every build). The format is recognized by its content; SVG stays vector, so
+it is sharp at every size and scale:
 
 ```go
-var avatar image.Image = image.NewRGBA(image.Rect(0, 0, 40, 40))
+//go:embed img
+var images embed.FS
 
-func Avatar() tela.Node {
-	return Img(Src(avatar), Alt("Ada Lovelace"), Class("size-10 rounded-full"))
+func init() { tela.Assets(images) }
+
+func Header(avatar image.Image) tela.Node {
+	return Div(Class("flex items-center gap-3"),
+		Img(SrcPath("img/logo.svg"), Alt("Acme"), Class("h-8")), // the width follows the ratio
+		Img(Src(avatar), Alt("Ada Lovelace"), Class("size-10 rounded-full object-cover")),
+	)
 }
 ```
+
+Files are decoded once and cached (by path, by content for `SrcBytes`, by file
+system and path for `SrcFS`); a missing or undecodable source shows nothing
+and is reported once in the dev log. `object-contain`, `object-cover`,
+`object-none`, `object-scale-down` and `object-top-left`, `object-[25%_75%]`...
+fit the image in its box as in CSS. [`Tint`](https://pkg.go.dev/github.com/kuronosu/tela/h#Tint) paints a monochrome image in one
+color through its alpha: `Img(SrcPath("icons/claude.png"), Tint(tela.Hex("#D97757")), Class("size-5"))`.
+
+### Icons
+
+[`Icon`](https://pkg.go.dev/github.com/kuronosu/tela/h#Icon) shows a [`tela.Icon`](https://pkg.go.dev/github.com/kuronosu/tela#Icon), the text of an SVG document that can be
+package-level data (`var Check = tela.Icon{SVG: "<svg ...>"}`, or
+`tela.MustSVG(data)` for an embedded file). It is parsed once and cached by its
+text. An icon is 1em by 1em, so it follows the font size like an icon font,
+unless `size-*`, `w-*`/`h-*` or a style sizes it; it is a block, like an svg
+under Preflight (`Class("inline")` puts it on a line of text). Its
+`currentColor` is the text color, so `text-*` classes, tokens and transitions
+recolor it, and `fill-*`, `stroke-*` and `stroke-[1.5]` (on the icon or on an
+ancestor such as the button) override the document's own paints:
+
+```go
+Button(Class("inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"),
+	Icon(Check, Class("size-4 stroke-[1.5]")), Text("Save"))
+```
+
+Icons are decorative (hidden from accessibility) unless they have an
+`AriaLabel` or `AriaLabelledBy`, which make them images with that name.
 
 ## Props
 
@@ -95,7 +135,7 @@ func Avatar() tela.Node {
 | [`Disabled`](https://pkg.go.dev/github.com/kuronosu/tela/h#Disabled) | Disables an element and its subtree for the pointer and the focus |
 | [`Scheme`](https://pkg.go.dev/github.com/kuronosu/tela/h#Scheme) | Gives an element and its subtree their own color scheme (`tela.Light`, `tela.Dark`): see [Theming](Theming) |
 | [`Dir`](https://pkg.go.dev/github.com/kuronosu/tela/h#Dir) | Direction of an element and its subtree (`"rtl"`, `"ltr"`, `"auto"`), like HTML's `dir`: see [Internationalization](Internationalization#right-to-left) |
-| [`Src`](https://pkg.go.dev/github.com/kuronosu/tela/h#Src), [`Alt`](https://pkg.go.dev/github.com/kuronosu/tela/h#Alt), [`Href`](https://pkg.go.dev/github.com/kuronosu/tela/h#Href) | Image source, its alternative text, a link's destination |
+| [`Src`](https://pkg.go.dev/github.com/kuronosu/tela/h#Src), [`SrcPath`](https://pkg.go.dev/github.com/kuronosu/tela/h#SrcPath), [`SrcBytes`](https://pkg.go.dev/github.com/kuronosu/tela/h#SrcBytes), [`SrcFS`](https://pkg.go.dev/github.com/kuronosu/tela/h#SrcFS), [`Tint`](https://pkg.go.dev/github.com/kuronosu/tela/h#Tint), [`Alt`](https://pkg.go.dev/github.com/kuronosu/tela/h#Alt), [`Href`](https://pkg.go.dev/github.com/kuronosu/tela/h#Href) | Image sources, a tint, the image's alternative text, a link's destination |
 | [`ID`](https://pkg.go.dev/github.com/kuronosu/tela/h#ID), [`For`](https://pkg.go.dev/github.com/kuronosu/tela/h#For), [`Name`](https://pkg.go.dev/github.com/kuronosu/tela/h#Name) | Identifier of an element, the field a label is for, name of a field in its form |
 | [`TabIndex`](https://pkg.go.dev/github.com/kuronosu/tela/h#TabIndex), [`AutoFocus`](https://pkg.go.dev/github.com/kuronosu/tela/h#AutoFocus), [`Ref`](https://pkg.go.dev/github.com/kuronosu/tela/h#Ref) | Focus order, focus on appearance, a handle on the element |
 | [`Role`](https://pkg.go.dev/github.com/kuronosu/tela/h#Role) and the `Aria...` props | Semantics: see [Accessibility](Accessibility) |

@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Icon`](#func-icon) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`SrcBytes`](#func-srcbytes) · [`SrcFS`](#func-srcfs) · [`SrcPath`](#func-srcpath) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Tint`](#func-tint) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
 
 ## Overview
 
@@ -771,6 +771,45 @@ func ID(id string) tela.Prop
 
 ID gives an element an identifier, unique in the window, that a Label's For refers to (HTML's id). tela.UseID makes one for a reusable field.
 
+### func Icon
+
+```go
+func Icon(icon tela.Icon, props ...tela.Child) tela.Node
+```
+
+Icon returns an SVG icon (tela.Icon), drawn as a vector at any size and scale. It is 1em by 1em (the element's font size, like an icon font) unless a size-\*, w-\* or h-\* class or a Style sizes it, and a block, like an svg under Tailwind's Preflight (Class("inline") puts it on a line of text; in a flex row it is an item). Its currentColor is the text color, so text-\* classes, theme tokens, TextColorFn and transitions recolor it without parsing it again; fill-\*, stroke-\* and stroke-\[1.5\] classes, on it or inherited from an ancestor (a Button's, as shadcn's \[\&\_svg\] classes do), override the document's own fill, stroke and stroke-width.
+
+```go
+Button(Class("inline-flex items-center gap-2 text-sm"),
+    Icon(lucide.Check, Class("size-4 stroke-[1.5]")), Text("Save"))
+```
+
+An icon is decorative: hidden from accessibility unless it has an AriaLabel or AriaLabelledBy, which make it an image with that name. An SVG that cannot be parsed renders nothing and is reported once in the log.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+ui := Div(Class("flex gap-2 text-2xl"),
+    // Decorative: hidden from accessibility; the button is named by
+    // its text. Its color is the text color.
+    Button(Class("inline-flex items-center gap-2 text-red-600"),
+        Icon(check, Class("size-4 stroke-[1.5]")), Text("Save")),
+    // Named: an image. Without a size it is 1em: 24 px here.
+    Button(Icon(check, AriaLabel("Done"))),
+)
+app := telatest.Mount(t, ui)
+fmt.Println(app.AriaSnapshot())
+r := app.Bounds(telatest.ByRole("img", "Done"))
+fmt.Println(r.Width, r.Height)
+// Output:
+// - button "Save"
+// - button "Done":
+//   - img "Done"
+// 24 24
+```
+
 ### func If
 
 ```go
@@ -864,7 +903,7 @@ fmt.Println(yaml)
 func Img(children ...tela.Child) tela.Node
 ```
 
-Img returns an image. Give it a source with Src; without Class or Style sizes it is drawn at the size of the image, shrunk to fit its container.
+Img returns an image. Give it a source with Src (a decoded image), SrcPath (a file of the file systems registered with tela.Assets), SrcBytes or SrcFS; PNG, JPEG, GIF, WebP and SVG are recognized by their content, and an SVG stays vector. Without Class or Style sizes it is drawn at the size of the image, shrunk to fit its container; with one size (h-8) the other follows the image's aspect ratio, as for an HTML img. object-contain, object-cover and the other object-\* classes fit it in its box, and Tint paints it in one color.
 
 ### func Inert
 
@@ -1882,6 +1921,55 @@ func Src(img image.Image) tela.Prop
 
 Src sets the image of an Img. Pass the same image.Image value on every build: it is converted for drawing only when another image is given.
 
+### func SrcBytes
+
+```go
+func SrcBytes(data []byte) tela.Prop
+```
+
+SrcBytes sets the image of an Img to encoded data: PNG, JPEG, GIF (the first frame), WebP or SVG, recognized by its content. The data is decoded once and cached by its content; passing the same slice on every build costs a comparison. Do not modify the slice afterwards.
+
+### func SrcFS
+
+```go
+func SrcFS(fsys fs.FS, path string) tela.Prop
+```
+
+SrcFS sets the image of an Img to file path of fsys (an embed.FS, an os.DirFS...), decoded once and cached by file system and path, like SrcPath but without registering fsys with tela.Assets.
+
+### func SrcPath
+
+```go
+func SrcPath(path string) tela.Prop
+```
+
+SrcPath sets the image of an Img to a file of the file systems registered with tela.Assets, resolved like the url() of bg-\[url(img/a.png)\]: searched in registration order, relative to their roots (a leading "/" or "./" is ignored, ".." is not allowed). The file is decoded once, when first shown, and cached for the life of the process; its format is recognized by its content: PNG, JPEG, GIF (the first frame), WebP or SVG. A missing or undecodable file shows nothing and is reported once in the dev log.
+
+```go
+//go:embed img
+var images embed.FS
+
+func init() { tela.Assets(images) }
+
+Img(SrcPath("img/logo.svg"), Class("h-8"))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+// Usually an embed.FS registered from an init function.
+tela.Assets(fstest.MapFS{"img/logo.svg": {Data: []byte(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="#4f46e5"/></svg>`)}})
+
+// With only a height, the width follows the image's aspect ratio.
+app := telatest.Mount(t, Img(SrcPath("img/logo.svg"), Alt("Logo"), Class("h-8")))
+r := app.Bounds(telatest.ByRole("img", "Logo"))
+fmt.Println(r.Width, r.Height)
+// Output: 96 32
+```
+
 ### func Strong
 
 ```go
@@ -1996,6 +2084,32 @@ func Textf(format string, args ...any) tela.Node
 ```
 
 Textf returns a text node formatted like fmt.Sprintf.
+
+### func Tint
+
+```go
+func Tint(c tela.Color) tela.Prop
+```
+
+Tint paints the image of an Img in color c through its alpha: each pixel becomes c with the image's opacity (the shading is lost), for raster and SVG sources alike. It is how monochrome PNG icons take a color:
+
+```go
+Img(SrcPath("icons/claude.png"), Tint(tela.Hex("#D97757")), Class("size-5"))
+```
+
+An element of any kind can do the same with a CSS mask: Div(Class("size-5 bg-\[#D97757\] mask-\[url(icons/claude.png)\] mask-contain")).
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+// A monochrome icon: only its alpha matters.
+glyph := `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#000"/></svg>`
+app := telatest.Mount(t, Img(SrcBytes([]byte(glyph)), Tint(tela.Hex("#D97757")), Class("size-8")))
+fmt.Println(app.PixelAt(16, 16))
+// Output: {217 119 87 255}
+```
 
 ### func Type
 

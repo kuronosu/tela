@@ -173,6 +173,33 @@ in CSS, and `bg-[linear-gradient(to_bottom,transparent,rgb(0_0_0/0.6)),url(img/h
 stacks several layers, the first on top. `bg-blend-*` blends the layers with
 each other and with the background color.
 
+SVG files work as background images too (drawn as vectors).
+
+**Masks.** Tailwind v4's mask utilities work on any element and its
+descendants (a mask makes a stacking context). An image mask shows the
+element where the image is opaque, which tints a monochrome PNG or SVG with
+any background:
+
+```go
+Div(Class("size-5 bg-[#D97757] mask-[url(icons/claude.png)] mask-contain mask-no-repeat"))
+```
+
+`mask-[url(...)]` loads from `tela.Assets` like `bg-[url(...)]`;
+`mask-contain`, `mask-cover`, `mask-size-[...]`, the positions (`mask-center`,
+`mask-top-left`...), the repeat modes, `mask-origin-*`, `mask-clip-*`,
+`mask-luminance` and `mask-add`/`subtract`/`intersect`/`exclude` work as in
+CSS. The gradient masks fade edges and shapes: `mask-t-from-50%`,
+`mask-b-to-80%`, `mask-x-from-70%` (and `r`, `l`, `y`), `mask-linear-45
+mask-linear-from-30%`, `mask-radial-from-40% mask-radial-to-70%` with
+`mask-circle`, `mask-radial-closest-side` and `mask-radial-at-top-left`, and
+`mask-conic-from-75%`; stops take percentages, spacing numbers, lengths and
+colors, and several families intersect, as in Tailwind.
+
+**SVG paints.** `fill-*` and `stroke-*` (colors, tokens, `/NN`,
+`fill-current`, `fill-none`) and `stroke-2`, `stroke-[1.5]` (stroke width in
+SVG units) restyle icons and SVG images; they are inherited, so a class on a
+button reaches the icons inside it.
+
 **Gradient text.** `bg-clip-text text-transparent` paints the background
 through the glyphs of the element's text, with gradients or images, over
 several lines and in inline spans:

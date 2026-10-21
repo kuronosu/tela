@@ -27,6 +27,7 @@ const (
 	maxEntityValue = 128     // bytes of an entity's replacement text
 	maxRefChain    = 32      // gradient href chains, nested use instances
 	maxPoints      = 4 << 20 // path points over all shapes and clip paths
+	maxStyleText   = 1 << 20 // bytes of <style> text
 )
 
 // ErrTooComplex is returned by Parse for documents beyond the limits on
@@ -50,6 +51,7 @@ type element struct {
 	children []*element
 
 	decl   *decls    // parsed presentation attributes and style, see props.go
+	sheet  []cssDecl // declarations of the style sheet rules that match, in cascade order
 	styled *style    // computed style at the element's own place in the tree
 	path   *gfx.Path // parsed d or points (they do not depend on the context)
 }
@@ -85,6 +87,10 @@ func decode(data []byte) (*element, error) {
 	var stack []*element
 	skip := 0 // depth inside a dropped (foreign) element
 	count := 0
+	// The text of the <style> element being read, and of those read.
+	var css strings.Builder
+	var sheets []string
+	cssLen := 0
 	for {
 		tok, err := d.Token()
 		if err == io.EOF {
@@ -134,12 +140,25 @@ func decode(data []byte) (*element, error) {
 				p.children = append(p.children, e)
 			}
 			stack = append(stack, e)
+		case xml.CharData:
+			if skip == 0 && len(stack) > 0 && stack[len(stack)-1].tag == "style" && isCSS(stack[len(stack)-1]) {
+				if cssLen += len(t); cssLen > maxStyleText {
+					return nil, ErrTooComplex
+				}
+				css.Write(t)
+			}
 		case xml.EndElement:
 			if skip > 0 {
 				skip--
 				continue
 			}
 			if len(stack) > 0 {
+				if stack[len(stack)-1].tag == "style" && css.Len() > 0 {
+					// Each element is a sheet of its own: an unclosed block
+					// ends with it.
+					sheets = append(sheets, css.String())
+					css.Reset()
+				}
 				stack = stack[:len(stack)-1]
 			}
 		}
@@ -147,7 +166,26 @@ func decode(data []byte) (*element, error) {
 	if root == nil {
 		return nil, errors.New("svg: no svg element")
 	}
+	if len(sheets) > 0 {
+		var rules []cssRule
+		for _, sh := range sheets {
+			rules = parseSheet(sh, rules)
+		}
+		if len(rules) > 0 {
+			if err := applySheet(indexRules(rules), root); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return root, nil
+}
+
+// isCSS reports whether a <style> element holds CSS: no type, or
+// text/css.
+func isCSS(e *element) bool {
+	t, ok := e.attr("type")
+	t = strings.TrimSpace(t)
+	return !ok || t == "" || strings.EqualFold(t, "text/css")
 }
 
 // declareEntities adds the general entities of an internal DTD subset

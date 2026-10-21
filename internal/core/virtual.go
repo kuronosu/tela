@@ -322,7 +322,7 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 		}
 	}
 	switch {
-	case d.src != nil || d.img != nil:
+	case d.src != nil || d.img != nil || d.media != nil:
 		panic("h: Src on VirtualList: only Img takes an image source")
 	case d.href != "":
 		panic("h: Href on VirtualList: only A takes a destination")

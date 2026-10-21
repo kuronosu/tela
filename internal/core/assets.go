@@ -29,7 +29,9 @@ import (
 // url(img/a.png) are the same file. Remote and data: URLs are not
 // supported. Files are decoded with the standard library and
 // golang.org/x/image: PNG, JPEG, GIF (its first frame) and WebP, chosen by
-// their content, not by their extension.
+// their content, not by their extension; SVG files are parsed by
+// internal/svg and drawn as vectors (ADR-098). Img's SrcPath and
+// mask-[url()] use the same registry and cache (media.go).
 //
 // A decoded file is converted to a gfx.Image once and kept for the life
 // of the process, keyed by its cleaned path (assets do not change while
@@ -55,10 +57,12 @@ type assetRegistry struct {
 	gen    uint64
 	// conv caches the conversions of tela.BgImage images.
 	conv convCache
+	// media caches the sources of SrcBytes, SrcFS and icons (media.go).
+	media mediaCache
 }
 
 type assetEntry struct {
-	img *gfx.Image
+	img *imageAsset
 	err error
 	gen uint64
 }
@@ -87,24 +91,25 @@ func resetAssets() {
 	assets.byPath = map[string]assetEntry{}
 	assets.gen++
 	assets.conv = convCache{}
+	assets.media = mediaCache{}
 }
 
 // assetPath returns the fs.FS path of the url() u.
 func assetPath(u string) (string, error) {
 	if strings.Contains(u, "://") || strings.HasPrefix(u, "data:") {
-		return "", fmt.Errorf("background image %q: remote and data: URLs are not supported; put the file in a file system registered with tela.Assets", u)
+		return "", fmt.Errorf("image %q: remote and data: URLs are not supported; put the file in a file system registered with tela.Assets", u)
 	}
 	p := strings.TrimLeft(u, "/")
 	p = path.Clean(p)
 	if p == "." || !fs.ValidPath(p) {
-		return "", fmt.Errorf("background image %q is not a valid path: write it relative to the root of a file system registered with tela.Assets, without \"..\"", u)
+		return "", fmt.Errorf("image %q is not a valid path: write it relative to the root of a file system registered with tela.Assets, without \"..\"", u)
 	}
 	return p, nil
 }
 
 // loadAsset returns the decoded image of url u, from the cache or from
 // the registered file systems.
-func loadAsset(u string) (*gfx.Image, error) {
+func loadAsset(u string) (*imageAsset, error) {
 	p, err := assetPath(u)
 	if err != nil {
 		return nil, err
@@ -126,9 +131,9 @@ func loadAsset(u string) (*gfx.Image, error) {
 
 // findAsset reads and decodes path p (url u) from the first of fss that
 // has it.
-func findAsset(u, p string, fss []fs.FS) (*gfx.Image, error) {
+func findAsset(u, p string, fss []fs.FS) (*imageAsset, error) {
 	if len(fss) == 0 {
-		return nil, fmt.Errorf("background image %q: no asset file system is registered; call tela.Assets(fsys) from an init function with the embed.FS or directory that holds it", u)
+		return nil, fmt.Errorf("image %q: no asset file system is registered; call tela.Assets(fsys) from an init function with the embed.FS or directory that holds it", u)
 	}
 	for _, fsys := range fss {
 		data, err := fs.ReadFile(fsys, p)
@@ -136,19 +141,19 @@ func findAsset(u, p string, fss []fs.FS) (*gfx.Image, error) {
 			continue
 		}
 		if err != nil {
-			return nil, fmt.Errorf("background image %q in %s: %v", u, describeFS(fsys), err)
+			return nil, fmt.Errorf("image %q in %s: %v", u, describeFS(fsys), err)
 		}
-		src, err := decodeImage(data)
+		a, err := decodeAsset(data)
 		if err != nil {
-			return nil, fmt.Errorf("background image %q in %s cannot be decoded: %v", u, describeFS(fsys), err)
+			return nil, fmt.Errorf("image %q in %s cannot be decoded: %v", u, describeFS(fsys), err)
 		}
-		return gfx.NewImage(src), nil
+		return a, nil
 	}
 	names := make([]string, len(fss))
 	for i, f := range fss {
 		names[i] = describeFS(f)
 	}
-	return nil, fmt.Errorf("background image %q not found as %q in the registered asset file systems (tela.Assets, searched in order: %s); paths are relative to their roots", u, p, strings.Join(names, ", "))
+	return nil, fmt.Errorf("image %q not found as %q in the registered asset file systems (tela.Assets, searched in order: %s); paths are relative to their roots", u, p, strings.Join(names, ", "))
 }
 
 // decodeImage decodes PNG, JPEG, GIF (first frame) and WebP data,
@@ -165,7 +170,7 @@ func decodeImage(data []byte) (image.Image, error) {
 	case len(data) >= 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP":
 		return webp.Decode(r)
 	}
-	return nil, errors.New("unknown format; Tela decodes PNG, JPEG, GIF and WebP")
+	return nil, errors.New("unknown format; Tela decodes PNG, JPEG, GIF, WebP and SVG")
 }
 
 // describeFS names a file system for error messages: its type, and its

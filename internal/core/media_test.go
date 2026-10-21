@@ -1,0 +1,271 @@
+package core
+
+import (
+	"image"
+	"image/color"
+	"strings"
+	"testing"
+	"testing/fstest"
+
+	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/style"
+)
+
+func icon(text string, c ...Child) Node {
+	return Primitive(style.KindSVG, append([]Child{IconSrc(text)}, c...)...)
+}
+
+// loadAssetImage is loadAsset for raster files.
+func loadAssetImage(u string) (*gfx.Image, error) {
+	a, err := loadAsset(u)
+	if err != nil {
+		return nil, err
+	}
+	return a.raster, nil
+}
+
+const checkSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
+
+// wideSVG has a natural size of 48 x 24.
+const wideSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="24" viewBox="0 0 48 24"><rect width="48" height="24" fill="#2563eb"/></svg>`
+
+func mediaDecodes() int {
+	assets.mu.Lock()
+	defer assets.mu.Unlock()
+	return assets.media.decodes
+}
+
+func TestIconCaching(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	var setBlue Setter[bool]
+	app := Component(func() Node {
+		blue, set := UseState(false)
+		setBlue = set
+		cls := "text-red-500"
+		if blue {
+			cls = "text-blue-500"
+		}
+		return div(Class(cls),
+			icon(checkSVG, Key("a")), icon(checkSVG, Key("b"), Class("size-8")))
+	})
+	tr := newTestTree(t, 200, 100, app, nil)
+	dl, _ := tr.Frame()
+	if n := mediaDecodes(); n != 1 {
+		t.Errorf("two icons with the same text: %d parses, want 1", n)
+	}
+	if !strings.Contains(dl.String(), "#fb2c36") {
+		t.Errorf("the icon's stroke is not the text color:\n%s", dl)
+	}
+	recs := tr.svgRecords
+	for range 3 {
+		tr.Frame()
+	}
+	// Recolor: the text color changes, the document is recorded again
+	// with the new currentColor but not parsed again.
+	setBlue.Set(true)
+	dl, _ = tr.Frame()
+	if n := mediaDecodes(); n != 1 {
+		t.Errorf("after a recolor: %d parses, want 1", n)
+	}
+	if !strings.Contains(dl.String(), "#2b7fff") || strings.Contains(dl.String(), "#fb2c36") {
+		t.Errorf("recolored icon:\n%s", dl)
+	}
+	if tr.svgRecords != recs+2 {
+		t.Errorf("records: %d, want %d (one per icon for the new color)", tr.svgRecords, recs+2)
+	}
+	// ParseIcon shares the cache.
+	if _, err := ParseIcon(checkSVG); err != nil || mediaDecodes() != 1 {
+		t.Errorf("ParseIcon: %v, %d parses", err, mediaDecodes())
+	}
+}
+
+func TestImgSourceCaching(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	red := pngBytes(t, color.RGBA{R: 255, A: 255})
+	fsys := &countFS{FS: fstest.MapFS{"img/a.png": {Data: red}, "logo.svg": {Data: []byte(wideSVG)}}}
+	RegisterAssets(fsys)
+	var setN Setter[int]
+	app := Component(func() Node {
+		_, set := UseState(0)
+		setN = set
+		return div(
+			img(Key("bytes"), SrcBytes(red)),
+			img(Key("copy"), SrcBytes(append([]byte(nil), red...))),
+			img(Key("path"), SrcPath("/img/a.png")),
+			img(Key("fs"), SrcFS(fsys, "logo.svg")),
+		)
+	})
+	tr := newTestTree(t, 200, 200, app, nil)
+	tr.Frame()
+	decodes, reads := mediaDecodes(), fsys.reads.Load()
+	if decodes != 2 { // the bytes (both slices: one content) and the fs file
+		t.Errorf("decodes = %d, want 2", decodes)
+	}
+	for i := 1; i <= 3; i++ {
+		setN.Set(i) // rebuild with the same sources
+		tr.Frame()
+	}
+	if mediaDecodes() != decodes || fsys.reads.Load() != reads {
+		t.Errorf("rebuilds decoded again: %d decodes (was %d), %d reads (was %d)", mediaDecodes(), decodes, fsys.reads.Load(), reads)
+	}
+	if b := mustFind(t, tr, "fs"); b.Rect.Width() != 48 || b.Rect.Height() != 24 {
+		t.Errorf("SVG natural size: %v", b.Rect)
+	}
+	if b := mustFind(t, tr, "path"); b.Rect.Width() != 3 || b.Rect.Height() != 2 {
+		t.Errorf("PNG natural size: %v", b.Rect)
+	}
+}
+
+func TestIconSizing(t *testing.T) {
+	tr := newTestTree(t, 300, 200, div(Class("text-2xl"),
+		icon(checkSVG, Key("em")),
+		icon(checkSVG, Key("size"), Class("size-8")),
+		icon(checkSVG, Key("h"), Class("h-10")),
+		div(Class("text-sm"), icon(checkSVG, Key("sm"))),
+		img(Key("ratio"), SrcBytes([]byte(wideSVG)), Class("h-8")),
+		img(Key("ratio-w"), SrcBytes([]byte(wideSVG)), Class("w-24")),
+	), nil)
+	tr.Frame()
+	for key, want := range map[string][2]float32{
+		"em": {24, 24}, "size": {32, 32}, "h": {24, 40}, "sm": {14, 14}, "ratio": {64, 32}, "ratio-w": {96, 48},
+	} {
+		if r := mustFind(t, tr, key).Rect; r.Width() != want[0] || r.Height() != want[1] {
+			t.Errorf("%s: %gx%g, want %gx%g", key, r.Width(), r.Height(), want[0], want[1])
+		}
+	}
+}
+
+func TestIconPaintInheritance(t *testing.T) {
+	s := paintDump(t, 100, 100, 1, button(Class("flex fill-current stroke-[1.5] text-red-500"),
+		icon(checkSVG, Class("size-6"))))
+	if !strings.Contains(s, "width=1.5") {
+		t.Errorf("stroke-[1.5] on the button does not reach the icon:\n%s", s)
+	}
+	if !strings.Contains(s, "FillPath") || !strings.Contains(s, "#fb2c36") {
+		t.Errorf("fill-current on the button: the icon's fill=none is not overridden:\n%s", s)
+	}
+	// On the icon itself; stroke-none removes the stroke.
+	s = paintDump(t, 100, 100, 1, icon(checkSVG, Class("size-6 fill-sky-500 stroke-none")))
+	if strings.Contains(s, "StrokePath") || !strings.Contains(s, "#00a6f4") {
+		t.Errorf("fill-sky-500 stroke-none:\n%s", s)
+	}
+	// The root's own color attribute wins over an inherited text color,
+	// not over the icon's own text-* class.
+	colored := `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2" color="#00ff00"><rect width="2" height="2" fill="currentColor"/></svg>`
+	if s := paintDump(t, 50, 50, 1, div(Class("text-red-500"), icon(colored))); !strings.Contains(s, "#00ff00") {
+		t.Errorf("inherited color beat the root's attribute:\n%s", s)
+	}
+	if s := paintDump(t, 50, 50, 1, icon(colored, Class("text-red-500"))); !strings.Contains(s, "#fb2c36") {
+		t.Errorf("the icon's own text color must beat the attribute:\n%s", s)
+	}
+}
+
+func TestIconSemantics(t *testing.T) {
+	tr := newTestTree(t, 200, 100, div(
+		button(icon(checkSVG), Text("Save")),
+		button(icon(checkSVG, AriaLabel("Close"))),
+		icon(checkSVG, AriaHidden(false), Key("plain")),
+	), nil)
+	tr.Frame()
+	got := tr.AriaSnapshot()
+	for _, want := range []string{`button "Save"`, `button "Close"`, `img "Close"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s in\n%s", want, got)
+		}
+	}
+	if strings.Count(got, "img") != 2 { // the labelled one and the one with AriaHidden(false)
+		t.Errorf("decorative icons must be hidden:\n%s", got)
+	}
+}
+
+func TestMediaErrors(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	RegisterAssets(fstest.MapFS{"bad.png": {Data: []byte("\x89PNG\r\n\x1a\nnope")}})
+	var logs []string
+	tr := newTestTree(t, 200, 100, div(
+		img(SrcPath("missing.png"), Class("size-4")),
+		img(SrcPath("bad.png"), Class("size-4")),
+		img(SrcBytes([]byte("plain text")), Class("size-4")),
+		img(SrcBytes([]byte("plain text")), Class("size-4")),
+		icon(`<svg><path d="M0 0`),
+		icon(`<g/>`),
+	), &logs)
+	dl, _ := tr.Frame()
+	tr.Frame()
+	all := strings.Join(logs, "\n")
+	for _, want := range []string{`"missing.png" not found`, `"bad.png"`, "SrcBytes cannot be decoded", "Icon: the SVG cannot be parsed", "not <svg>"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("missing %q in the log:\n%s", want, all)
+		}
+	}
+	if strings.Count(all, "SrcBytes cannot be decoded") != 1 {
+		t.Errorf("the same bad bytes must be reported once:\n%s", all)
+	}
+	if strings.Contains(dl.String(), "DrawImage") || strings.Contains(dl.String(), "Path") {
+		t.Errorf("bad sources must paint nothing:\n%s", dl)
+	}
+}
+
+func TestObjectFit(t *testing.T) {
+	src := pngBytes(t, color.RGBA{B: 255, A: 255}) // 3 x 2
+	cases := []struct {
+		class string
+		want  []string
+	}{
+		{"w-30 h-10", []string{"DrawImage", "dst=[0,0,120,40]"}},
+		{"w-30 h-10 object-contain", []string{"DrawImage", "dst=[30,0,90,40]"}},
+		{"w-30 h-10 object-contain object-left", []string{"dst=[0,0,60,40]"}},
+		{"w-30 h-10 object-cover", []string{"PushClipRect rect=[0,0,120,40]", "dst=[0,-20,120,60]", "PopClip"}},
+		{"w-30 h-10 object-none object-bottom-right", []string{"dst=[117,38,120,40]"}},
+		{"w-30 h-10 object-scale-down", []string{"dst=[58.5,19,61.5,21]"}},
+	}
+	for _, c := range cases {
+		s := paintDump(t, 200, 100, 1, img(SrcBytes(src), Class(c.class)))
+		order(t, s, c.want...)
+	}
+}
+
+func TestTint(t *testing.T) {
+	src := pngBytes(t, color.RGBA{G: 255, A: 255})
+	s := paintDump(t, 100, 100, 1, img(SrcBytes(src), Tint(gfx.MustParseHex("#d97757")), Class("size-5")))
+	order(t, s, "mask=alpha", "FillRect rect=[0,0,20,20] paint=#d97757", "PopLayer")
+	s = paintDump(t, 100, 100, 1, img(SrcBytes([]byte(wideSVG)), Tint(gfx.MustParseHex("#d97757")), Class("h-5")))
+	order(t, s, "mask=alpha", "FillRect rect=[0,0,40,20] paint=#d97757", "PopLayer")
+}
+
+func TestMaskPainting(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	RegisterAssets(fstest.MapFS{"m.png": {Data: pngBytes(t, color.RGBA{A: 255})}, "m.svg": {Data: []byte(wideSVG)}})
+	s := paintDump(t, 100, 100, 1, div(Class("size-5 bg-[#d97757] mask-[url(m.png)] mask-contain mask-no-repeat")))
+	order(t, s, "mask=alpha", "FillRect rect=[0,0,20,20] paint=#d97757", "PopLayer")
+	if s := paintDump(t, 100, 100, 1, div(Class("size-5 bg-[#d97757] mask-[url(m.svg)]"))); !strings.Contains(s, "mask=alpha") {
+		t.Errorf("SVG mask:\n%s", s)
+	}
+	// Two gradient families intersect: nested masks inside the mask.
+	tr := newTestTree(t, 100, 100, div(Class("size-20 bg-sky-500 mask-t-from-50% mask-radial-from-20%")), nil)
+	dl, _ := tr.Frame()
+	if n := strings.Count(dl.String(), "mask="); n < 1 {
+		t.Errorf("gradient masks:\n%s", dl)
+	}
+	// An unloadable mask image hides the element (a transparent layer).
+	var logs []string
+	tr = newTestTree(t, 100, 100, div(Class("size-5 bg-sky-500 mask-[url(none.png)]")), &logs)
+	dl, _ = tr.Frame()
+	if strings.Contains(dl.String(), "#00a6f4") || len(logs) == 0 {
+		t.Errorf("missing mask image: %v\n%s", logs, dl)
+	}
+}
+
+func TestImgSourceLastWins(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 5, 7))
+	if s := paintDump(t, 100, 100, 1, img(SrcBytes([]byte(wideSVG)), Src(src))); !strings.Contains(s, "image=5x7") {
+		t.Errorf("Src after SrcBytes:\n%s", s)
+	}
+	if s := paintDump(t, 100, 100, 1, img(Src(src), SrcBytes([]byte(wideSVG)))); strings.Contains(s, "DrawImage") || !strings.Contains(s, "#2563eb") {
+		t.Errorf("SrcBytes after Src:\n%s", s)
+	}
+}

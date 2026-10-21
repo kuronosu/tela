@@ -2,6 +2,7 @@ package h
 
 import (
 	"image"
+	"io/fs"
 	"strings"
 
 	"github.com/kuronosu/tela"
@@ -95,6 +96,50 @@ func Src(img image.Image) tela.Prop {
 	}
 	return core.Src(img)
 }
+
+// SrcPath sets the image of an Img to a file of the file systems
+// registered with tela.Assets, resolved like the url() of
+// bg-[url(img/a.png)]: searched in registration order, relative to their
+// roots (a leading "/" or "./" is ignored, ".." is not allowed). The file
+// is decoded once, when first shown, and cached for the life of the
+// process; its format is recognized by its content: PNG, JPEG, GIF (the
+// first frame), WebP or SVG. A missing or undecodable file shows nothing
+// and is reported once in the dev log.
+//
+//	//go:embed img
+//	var images embed.FS
+//
+//	func init() { tela.Assets(images) }
+//
+//	Img(SrcPath("img/logo.svg"), Class("h-8"))
+func SrcPath(path string) tela.Prop { return core.SrcPath(path) }
+
+// SrcBytes sets the image of an Img to encoded data: PNG, JPEG, GIF (the
+// first frame), WebP or SVG, recognized by its content. The data is
+// decoded once and cached by its content; passing the same slice on every
+// build costs a comparison. Do not modify the slice afterwards.
+func SrcBytes(data []byte) tela.Prop { return core.SrcBytes(data) }
+
+// SrcFS sets the image of an Img to file path of fsys (an embed.FS, an
+// os.DirFS...), decoded once and cached by file system and path, like
+// SrcPath but without registering fsys with tela.Assets.
+func SrcFS(fsys fs.FS, path string) tela.Prop {
+	if fsys == nil {
+		panic("h: SrcFS(nil, ...): pass a file system, such as an embed.FS or os.DirFS(\"assets\")")
+	}
+	return core.SrcFS(fsys, path)
+}
+
+// Tint paints the image of an Img in color c through its alpha: each
+// pixel becomes c with the image's opacity (the shading is lost), for
+// raster and SVG sources alike. It is how monochrome PNG icons take a
+// color:
+//
+//	Img(SrcPath("icons/claude.png"), Tint(tela.Hex("#D97757")), Class("size-5"))
+//
+// An element of any kind can do the same with a CSS mask:
+// Div(Class("size-5 bg-[#D97757] mask-[url(icons/claude.png)] mask-contain")).
+func Tint(c tela.Color) tela.Prop { return core.Tint(c) }
 
 // Href sets the destination of an A. Tela does not open links by itself
 // yet: handle OnClick.

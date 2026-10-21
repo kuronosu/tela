@@ -55,9 +55,38 @@ func P(children ...tela.Child) tela.Node { return core.Primitive(style.KindP, ch
 // cursor. Clicks are handled with OnClick.
 func Button(children ...tela.Child) tela.Node { return core.Primitive(style.KindButton, children...) }
 
-// Img returns an image. Give it a source with Src; without Class or Style
-// sizes it is drawn at the size of the image, shrunk to fit its container.
+// Img returns an image. Give it a source with Src (a decoded image),
+// SrcPath (a file of the file systems registered with tela.Assets),
+// SrcBytes or SrcFS; PNG, JPEG, GIF, WebP and SVG are recognized by their
+// content, and an SVG stays vector. Without Class or Style sizes it is
+// drawn at the size of the image, shrunk to fit its container; with one
+// size (h-8) the other follows the image's aspect ratio, as for an HTML
+// img. object-contain, object-cover and the other object-* classes fit it
+// in its box, and Tint paints it in one color.
 func Img(children ...tela.Child) tela.Node { return core.Primitive(style.KindImg, children...) }
+
+// Icon returns an SVG icon (tela.Icon), drawn as a vector at any size and
+// scale. It is 1em by 1em (the element's font size, like an icon font)
+// unless a size-*, w-* or h-* class or a Style sizes it, and a block, like
+// an svg under Tailwind's Preflight (Class("inline") puts it on a line of
+// text; in a flex row it is an item). Its currentColor is the text color,
+// so text-* classes, theme tokens, TextColorFn and transitions recolor it
+// without parsing it again; fill-*, stroke-* and stroke-[1.5] classes, on
+// it or inherited from an ancestor (a Button's, as shadcn's [&_svg]
+// classes do), override the document's own fill, stroke and stroke-width.
+//
+//	Button(Class("inline-flex items-center gap-2 text-sm"),
+//	    Icon(lucide.Check, Class("size-4 stroke-[1.5]")), Text("Save"))
+//
+// An icon is decorative: hidden from accessibility unless it has an
+// AriaLabel or AriaLabelledBy, which make it an image with that name. An
+// SVG that cannot be parsed renders nothing and is reported once in the
+// log.
+func Icon(icon tela.Icon, props ...tela.Child) tela.Node {
+	children := make([]tela.Child, 0, len(props)+1)
+	children = append(children, core.IconSrc(icon.SVG))
+	return core.Primitive(style.KindSVG, append(children, props...)...)
+}
 
 // Strong returns bold inline text.
 func Strong(children ...tela.Child) tela.Node { return core.Primitive(style.KindStrong, children...) }

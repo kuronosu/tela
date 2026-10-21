@@ -91,7 +91,7 @@ func (t *Tree) buildBoxes(el *Element) {
 	oldMode := bx.mode
 	nAnon := 0
 	switch {
-	case bx.kind == style.KindImg:
+	case bx.kind.IsReplaced():
 		bx.mode = modeImage
 		bx.para = nil
 	case bx.kind.IsTextField():
@@ -245,7 +245,7 @@ func (t *Tree) inlineLevel(el *Element) bool {
 	switch {
 	case atomicInline(bx):
 		v = true
-	case bx.cs.Display == style.DisplayInline && bx.kind != style.KindImg:
+	case bx.cs.Display == style.DisplayInline && !bx.kind.IsReplaced():
 		v = true
 		items := t.collect(t.getItems(), el)
 		for _, c := range items {
@@ -270,7 +270,7 @@ func atomicInline(bx *Box) bool {
 	switch cs.Display {
 	case style.DisplayInlineBlock, style.DisplayInlineFlex, style.DisplayInlineGrid:
 	case style.DisplayInline:
-		if bx.kind != style.KindImg {
+		if !bx.kind.IsReplaced() {
 			return false
 		}
 	default:

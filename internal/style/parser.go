@@ -648,6 +648,8 @@ func newRegistry() *registry {
 	registerTypography(r)
 	registerMotion(r)
 	registerInteraction(r)
+	registerMedia(r)
+	registerMasks(r)
 	registerUnsupported(r)
 	return r
 }

@@ -165,6 +165,9 @@ type scratch struct {
 	bgLayersOK bool
 
 	fromPos, viaPos, toPos StopPos
+
+	// Masks (util_mask.go).
+	mask maskScratch
 }
 
 type bgImage struct {
@@ -354,7 +357,10 @@ func initStyle(s *ComputedStyle, parent *ComputedStyle, th *Theme) {
 	}
 	s.Outline.Width = 3 // CSS medium
 	s.Transition.Timing = CubicBezier{0.25, 0.1, 0.25, 1}
+	s.ObjectPosX, s.ObjectPosY = PctLP(50), PctLP(50)
 	if parent != nil {
+		s.Fill, s.Stroke = parent.Fill, parent.Stroke
+		s.StrokeWidth, s.StrokeWidthSet = parent.StrokeWidth, parent.StrokeWidthSet
 		s.Text = parent.Text
 		s.Caret = parent.Caret
 		s.Selection = parent.Selection
@@ -483,6 +489,7 @@ func (e *env) finalize() {
 	s.Text.Shadow = resolveCurrentShadows(s.Text.Shadow, cur)
 
 	e.finalizeBackground(cur)
+	e.finalizeMask(cur)
 
 	// Transition defaults (Tailwind: the bare "transition" utilities use
 	// the theme's duration and easing unless duration-* or ease-* ran).

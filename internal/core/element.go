@@ -533,8 +533,11 @@ func (t *Tree) update(el *Element, n Node) {
 			// Typed props hold closures and cannot be compared.
 			t.markStyle(el)
 		}
-		if d.elem == style.KindImg {
+		if d.elem.IsReplaced() {
 			t.updateImage(el)
+			if old.media.tintOf() != d.media.tintOf() {
+				t.markMediaPaint(bx)
+			}
 		}
 		t.reconcile(el, d.children)
 		el.dirtyKids = false
@@ -632,7 +635,7 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		}
 		t.markStyle(el)
 		t.markBoxes(el)
-		if d.elem == style.KindImg {
+		if d.elem.IsReplaced() {
 			t.updateImage(el)
 		}
 		t.reconcile(el, d.children)

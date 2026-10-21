@@ -36,8 +36,9 @@ import (
 //     edge with the inner radii), last listed first;
 //  4. its border;
 //  5. its content, in its content box: a paragraph's text (broken and
-//     aligned at the content width first) or an image (stretched to the
-//     content box and clipped to the content box's rounded corners), and
+//     aligned at the content width first) or an image (placed by
+//     object-fit and clipped to the content box's rounded corners;
+//     media.go), and
 //     its in-flow children, both clipped to the padding box with the
 //     inner radii when overflow is not visible;
 //  6. its outline, outside the border box.
@@ -66,7 +67,7 @@ import (
 // A box creates a stacking context when it has a z-index other than auto
 // and is positioned or a flex item, is fixed, sticky or floating
 // (floating.go), has opacity < 1, a transform, a filter, a backdrop
-// filter, a mix-blend-mode, a clip-path or isolation: isolate, or runs a
+// filter, a mix-blend-mode, a clip-path, a mask or isolation: isolate, or runs a
 // transform animation (anim.go) or a layout animation (layoutanim.go). The root is a stacking context. z-index on a
 // box that is neither positioned nor a flex item does nothing, as in CSS.
 //
@@ -95,7 +96,8 @@ import (
 // everything it paints, outline included), its clip path (cssfx.go), its
 // backdrop filter (BackdropFilter over its border box, before anything
 // else of the box is painted), and one layer (PushLayer) with its opacity,
-// filters and blend mode, also pushed, with nothing else, by a stacking
+// filters and blend mode (a mask layer, PushMaskLayer, when it has a CSS
+// mask: cssfx.go), also pushed, with nothing else, by a stacking
 // context whose descendants blend, to isolate them (cssfx.go). Since the
 // layer is a backdrop root, the backdrop filter is drawn before it, faded
 // by the box's opacity on its own (and not drawn at opacity 0): the
@@ -133,6 +135,8 @@ type painter struct {
 	clips []*Box // scratch for hoisted boxes' ancestor clips
 	// full: place prepares a full recording (layer.go).
 	full bool
+	// inMask: background layers are painted as mask layers (cssfx.go).
+	inMask bool
 	// The list being recorded (layer.go): the scroll space it is painted
 	// in, its interest rect, whether boxes outside the interest rect are
 	// skipped, its layer, and the lists of the enclosing layers.
@@ -444,7 +448,8 @@ func stacking(bx *Box) bool {
 	}
 	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky || bx.flt != nil ||
 		(bx.anim != nil && bx.anim.layer) || layoutActive(bx) || cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
-		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate || !cs.ClipPath.IsNone()
+		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate || !cs.ClipPath.IsNone() ||
+		!cs.Mask.IsNone()
 }
 
 // participant reports whether bx is painted by its stacking context out of
@@ -707,6 +712,14 @@ func (p *painter) pushEffects(bx *Box) int {
 			p.b.BackdropFilterOpacity(g.border, cs.Opacity, cs.BackdropFilter.List()...)
 		}
 	}
+	if !cs.Mask.IsNone() {
+		// The mask multiplies the group after its filters, before its
+		// opacity and blending (CSS: filter, clip, mask, opacity).
+		if m, ok := p.cssMask(bx); ok {
+			p.b.PushMaskLayer(gfx.Mask{List: m, Mode: gfx.MaskAlpha}, cs.Opacity, cs.MixBlendMode, cs.Filter.List()...)
+			return pops | pushedLayer
+		}
+	}
 	if cs.Opacity < 1 || !cs.Filter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || bx.blendDesc {
 		p.b.PushLayer(cs.Opacity, cs.MixBlendMode, cs.Filter.List()...)
 		pops |= pushedLayer
@@ -936,23 +949,6 @@ func (p *painter) paintContent(bx *Box) {
 			p.paintField(bx)
 		}
 	case modeImage:
-		if bx.img == nil {
-			return
-		}
-		g := p.geom(bx)
-		c := p.contentRRect(bx, &g)
-		if c.Rect.Empty() {
-			return
-		}
-		// A replaced element's content is clipped to the content box's
-		// rounded corners (CSS Backgrounds 3 section 5.3).
-		rounded := !c.IsRect()
-		if rounded {
-			p.b.PushClipRRect(c)
-		}
-		p.b.DrawImage(bx.img, gfx.Rect{}, c.Rect, gfx.SampleLinear)
-		if rounded {
-			p.b.PopClip()
-		}
+		p.paintReplaced(bx) // media.go
 	}
 }

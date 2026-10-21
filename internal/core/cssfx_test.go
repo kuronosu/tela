@@ -203,7 +203,7 @@ func (c *countFS) Open(name string) (fs.File, error) {
 func TestAssetRegistry(t *testing.T) {
 	resetAssets()
 	t.Cleanup(resetAssets)
-	if _, err := loadAsset("a.png"); err == nil || !strings.Contains(err.Error(), "no asset file system is registered") {
+	if _, err := loadAssetImage("a.png"); err == nil || !strings.Contains(err.Error(), "no asset file system is registered") {
 		t.Errorf("nothing registered: %v", err)
 	}
 	red, blue := pngBytes(t, color.RGBA{R: 255, A: 255}), pngBytes(t, color.RGBA{B: 255, A: 255})
@@ -214,7 +214,7 @@ func TestAssetRegistry(t *testing.T) {
 	// The first file system that has the file wins; "/" and "./" are
 	// dropped.
 	for _, u := range []string{"img/a.png", "/img/a.png", "./img/a.png", "img/../img/a.png"} {
-		img, err := loadAsset(u)
+		img, err := loadAssetImage(u)
 		if err != nil {
 			t.Fatalf("%s: %v", u, err)
 		}
@@ -222,17 +222,17 @@ func TestAssetRegistry(t *testing.T) {
 			t.Errorf("%s: pixel %v, want the first file system's red", u, p[:4])
 		}
 	}
-	if img, err := loadAsset("img/b.png"); err != nil || img.Pix()[2] != 255 {
+	if img, err := loadAssetImage("img/b.png"); err != nil || img.Pix()[2] != 255 {
 		t.Errorf("img/b.png from the second file system: %v", err)
 	}
 	// Decoded once: the cache answers.
 	reads := first.reads.Load() + second.reads.Load()
-	a1, _ := loadAsset("img/a.png")
-	a2, _ := loadAsset("/img/a.png")
+	a1, _ := loadAssetImage("img/a.png")
+	a2, _ := loadAssetImage("/img/a.png")
 	if a1 != a2 || first.reads.Load()+second.reads.Load() != reads {
 		t.Error("an asset is read again")
 	}
-	_, err := loadAsset("img/missing.png")
+	_, err := loadAssetImage("img/missing.png")
 	if err == nil {
 		t.Fatal("a missing asset loads")
 	}
@@ -241,17 +241,17 @@ func TestAssetRegistry(t *testing.T) {
 			t.Errorf("missing asset error %q does not mention %s", err, s)
 		}
 	}
-	if _, err := loadAsset("bad.png"); err == nil || !strings.Contains(err.Error(), "cannot be decoded") {
+	if _, err := loadAssetImage("bad.png"); err == nil || !strings.Contains(err.Error(), "cannot be decoded") {
 		t.Errorf("undecodable: %v", err)
 	}
 	for _, u := range []string{"../x.png", "https://example.com/a.png", "data:image/png;base64,AAAA"} {
-		if _, err := loadAsset(u); err == nil {
+		if _, err := loadAssetImage(u); err == nil {
 			t.Errorf("%s loads", u)
 		}
 	}
 	// A failure is retried after another registration.
 	RegisterAssets(fstest.MapFS{"img/missing.png": {Data: red}})
-	if _, err := loadAsset("img/missing.png"); err != nil {
+	if _, err := loadAssetImage("img/missing.png"); err != nil {
 		t.Errorf("after registering it: %v", err)
 	}
 	if !strings.Contains(describeFS(os.DirFS("assets")), `"assets"`) {
@@ -264,12 +264,12 @@ func TestAssetFormats(t *testing.T) {
 	t.Cleanup(resetAssets)
 	dir := filepath.Join("testdata", "chromium", "effects", "img")
 	RegisterAssets(os.DirFS(dir))
-	ref, err := loadAsset("tile.png")
+	ref, err := loadAssetImage("tile.png")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Lossless WebP decodes to the PNG's pixels.
-	webp, err := loadAsset("tile.webp")
+	webp, err := loadAssetImage("tile.webp")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,12 +277,12 @@ func TestAssetFormats(t *testing.T) {
 		t.Error("tile.webp differs from tile.png")
 	}
 	for _, name := range []string{"photo.jpg", "checker.gif", "zone.png"} {
-		img, err := loadAsset(name)
+		img, err := loadAssetImage(name)
 		if err != nil || img.Width() == 0 {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	gif, _ := loadAsset("checker.gif")
+	gif, _ := loadAssetImage("checker.gif")
 	if p := gif.Pix(); p[3] != 255 || p[7] != 0 {
 		t.Errorf("checker.gif: first pixels %v", p[:8])
 	}

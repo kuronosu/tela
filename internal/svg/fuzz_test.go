@@ -17,6 +17,8 @@ import (
 //	go test -run '^$' -fuzz FuzzParse -parallel 2 ./internal/svg
 func FuzzParse(f *testing.F) {
 	files, _ := filepath.Glob(filepath.Join("testdata", "chromium", "cells", "*.svg"))
+	sheets, _ := filepath.Glob(filepath.Join("testdata", "chromium-sheets", "cells", "*.svg"))
+	files = append(files, sheets...)
 	for _, name := range files {
 		if data, err := os.ReadFile(name); err == nil {
 			f.Add(data)

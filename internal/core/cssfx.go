@@ -8,7 +8,8 @@ import (
 )
 
 // CSS effects of the paint phase (ADR-079): clip-path, the isolation that
-// mix-blend-mode needs, and the glyph masks of background-clip: text.
+// mix-blend-mode needs, the glyph masks of background-clip: text, and CSS
+// masks (mask-image and the mask-* properties, ADR-098; at the end).
 //
 // # clip-path
 //
@@ -158,4 +159,148 @@ func (p *painter) lineMask(l *text.Layout, li int, origin gfx.Point) *gfx.Displa
 	dl := mb.Finish()
 	L.free = append(L.free, mb)
 	return dl
+}
+
+// ---------------------------------------------------------------------
+// mask-image (ADR-098).
+
+// cssMask returns the mask of box bx as an alpha mask list, in the
+// coordinates bx is painted in: its layers painted like background
+// layers (sized, positioned and tiled in their origin box, clipped to the
+// mask clip box with its radii, or unclipped), turned into coverage by
+// the mask mode (a luminance layer becomes white covered by its
+// luminance) and combined from the bottom layer up by mask-composite:
+// add paints a layer over the result, intersect paints it masked by the
+// result, subtract masked by its inverse, exclude adds both differences.
+// An opaque gradient layer (Tailwind's unset mask variables) is skipped
+// under intersect, where it changes nothing. ok is false when the mask
+// changes nothing (every layer was skipped).
+func (p *painter) cssMask(bx *Box) (list *gfx.DisplayList, ok bool) {
+	m := &bx.pcs.Mask
+	g := p.geom(bx)
+	box := func(b style.BackgroundBox) gfx.RRect {
+		switch b {
+		case style.BackgroundPaddingBox:
+			return g.padding
+		case style.BackgroundContentBox:
+			return p.contentRRect(bx, &g)
+		}
+		return g.border
+	}
+	clip := box(m.Clip)
+	if m.NoClip {
+		clip = gfx.RRect{Rect: bx.ink.Union(g.border.Rect)}
+	}
+	var acc *gfx.DisplayList
+	have := false
+	for i := len(m.Layers) - 1; i >= 0; i-- {
+		l := &m.Layers[i]
+		if m.Composite == style.MaskIntersect && opaqueLayer(l) {
+			continue
+		}
+		lay := p.maskLayer(l, box(l.Origin).Rect, clip, m.Mode)
+		if !have {
+			acc, have = lay, true
+			continue
+		}
+		acc = p.composeMask(lay, acc, m.Composite, clip.Rect)
+	}
+	if !have {
+		// Only opaque layers: the mask clips to its box.
+		if clip.Rect.ContainsRect(bx.ink) {
+			return nil, false
+		}
+		b := p.t.lay.builder()
+		b.FillRRect(clip, gfx.White)
+		return p.finishMask(b), true
+	}
+	return acc, true
+}
+
+// opaqueLayer reports whether a mask layer is an opaque gradient that
+// tiles its whole area (Tailwind's linear-gradient(#fff, #fff)).
+func opaqueLayer(l *style.BackgroundLayer) bool {
+	if l.Gradient == nil || len(l.Gradient.Stops) == 0 || l.Repeat != style.RepeatBoth {
+		return false
+	}
+	for _, s := range l.Gradient.Stops {
+		if s.Color != gfx.White {
+			return false
+		}
+	}
+	return true
+}
+
+// maskLayer paints one mask layer into a list of alpha coverage.
+func (p *painter) maskLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx.RRect, mode style.MaskMode) *gfx.DisplayList {
+	saved := p.b
+	p.b = p.t.lay.builder()
+	p.inMask = true
+	p.paintBgLayer(l, area, clip)
+	p.inMask = false
+	list := p.finishMask(p.b)
+	p.b = saved
+	if mode != style.MaskModeLuminance || list == nil {
+		return list
+	}
+	b := p.t.lay.builder()
+	b.PushMaskLayer(gfx.Mask{List: list, Mode: gfx.MaskLuminance}, 1, gfx.SrcOver)
+	b.FillRRect(clip, gfx.White)
+	b.PopLayer()
+	return p.finishMask(b)
+}
+
+// composeMask combines mask layer top with the result of the layers below
+// it.
+func (p *painter) composeMask(top, below *gfx.DisplayList, op style.MaskComposite, area gfx.Rect) *gfx.DisplayList {
+	b := p.t.lay.builder()
+	switch op {
+	case style.MaskAdd:
+		appendMask(b, below)
+		appendMask(b, top)
+	case style.MaskIntersect:
+		b.PushMaskLayer(gfx.Mask{List: below, Mode: gfx.MaskAlpha}, 1, gfx.SrcOver)
+		appendMask(b, top)
+		b.PopLayer()
+	case style.MaskSubtract:
+		p.subtractMask(b, top, below, area)
+	case style.MaskExclude:
+		p.subtractMask(b, top, below, area)
+		b.PushLayer(1, gfx.PlusLighter)
+		p.subtractMask(b, below, top, area)
+		b.PopLayer()
+	}
+	return p.finishMask(b)
+}
+
+// subtractMask paints a × (1 − b's alpha) into mb: a masked by the
+// luminance of white with b painted black over it.
+func (p *painter) subtractMask(mb *gfx.Builder, a, b *gfx.DisplayList, area gfx.Rect) {
+	inv := p.t.lay.builder()
+	inv.FillRect(area, gfx.White)
+	if b != nil {
+		inv.PushLayer(1, gfx.SrcOver, gfx.Brightness(0))
+		inv.AppendList(b, nil)
+		inv.PopLayer()
+	}
+	mb.PushMaskLayer(gfx.Mask{List: p.finishMask(inv), Mode: gfx.MaskLuminance}, 1, gfx.SrcOver)
+	appendMask(mb, a)
+	mb.PopLayer()
+}
+
+func appendMask(b *gfx.Builder, l *gfx.DisplayList) {
+	if l != nil {
+		b.AppendList(l, nil)
+	}
+}
+
+// finishMask finishes a mask builder from the pool and returns it; an
+// empty list is nil (a transparent layer).
+func (p *painter) finishMask(b *gfx.Builder) *gfx.DisplayList {
+	list := b.Finish()
+	p.t.lay.free = append(p.t.lay.free, b)
+	if list.Len() == 0 {
+		return nil
+	}
+	return list
 }

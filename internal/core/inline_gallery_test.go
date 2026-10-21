@@ -63,6 +63,13 @@ type inode struct {
 	dark bool
 	// dir is the element's dir attribute (Dir prop), if any.
 	dir string
+	// Media (media_gallery_test.go): src is an img's path (SrcPath here,
+	// the src attribute in the page), tint its Tint (in the page, a div
+	// with that background color and the image as a mask), and svg the
+	// markup of an svg element (an Icon here, inline in the page, which
+	// gets attrs on its root too: width="1em" height="1em" models the
+	// Icon's default size).
+	src, tint, svg, attrs string
 }
 
 func itext(s string) inode { return inode{text: s} }
@@ -74,7 +81,7 @@ func iel(tag, class string, kids ...inode) inode { return inode{tag: tag, class:
 
 var inodeKinds = map[string]style.Kind{
 	"div": style.KindDiv, "p": style.KindP, "span": style.KindSpan, "code": style.KindCode, "a": style.KindA,
-	"strong": style.KindStrong, "em": style.KindEm, "button": style.KindButton,
+	"strong": style.KindStrong, "em": style.KindEm, "button": style.KindButton, "img": style.KindImg, "svg": style.KindSVG,
 }
 
 // node converts n to a Tela node; elements get keys in document order.
@@ -93,6 +100,15 @@ func (n inode) node(id *int) Node {
 	if n.dir != "" {
 		c = append(c, Dir(n.dir))
 	}
+	if n.src != "" {
+		c = append(c, SrcPath(n.src))
+	}
+	if n.tint != "" {
+		c = append(c, Tint(gfx.MustParseHex(n.tint)))
+	}
+	if n.svg != "" {
+		c = append(c, IconSrc(n.svg))
+	}
 	for _, k := range n.kids {
 		c = append(c, k.node(id))
 	}
@@ -103,6 +119,23 @@ func (n inode) node(id *int) Node {
 func (n inode) html(sb *strings.Builder, id *int) {
 	if n.tag == "" {
 		sb.WriteString(html.EscapeString(n.text))
+		return
+	}
+	switch {
+	case n.tint != "":
+		// A tinted image: the color masked by the image's alpha.
+		fmt.Fprintf(sb, "<div id=\"e%d\" class=\"%s\"></div>", *id,
+			html.EscapeString(strings.TrimSpace(n.class+fmt.Sprintf(" bg-[%s] mask-[url(%s)] mask-size-[100%%_100%%] mask-no-repeat", n.tint, n.src))))
+		*id++
+		return
+	case n.tag == "img":
+		fmt.Fprintf(sb, "<img id=\"e%d\" class=\"%s\" src=\"%s\">", *id, html.EscapeString(n.class), n.src)
+		*id++
+		return
+	case n.tag == "svg":
+		head, rest, _ := strings.Cut(n.svg, "<svg")
+		fmt.Fprintf(sb, "%s<svg id=\"e%d\" class=\"%s\" %s%s", head, *id, html.EscapeString(n.class), n.attrs, rest)
+		*id++
 		return
 	}
 	fmt.Fprintf(sb, "<%s id=\"e%d\"", n.tag, *id)

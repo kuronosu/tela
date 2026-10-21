@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <style>
+    rect { fill: #94a3b8; stroke: #0f172a; stroke-width: 2 }
+    .a { fill: #2563eb }
+    rect.b { fill: #16a34a }
+    #c { fill: #dc2626 }
+    .a.d { fill: #9333ea }
+    .e, circle { fill: #f59e0b; stroke: none }
+    * { stroke-linejoin: round }
+    .later { fill: #0891b2 }
+    .later { fill: #db2777 }
+    #f.later { stroke-width: 6; stroke: #f97316 }
+    .imp { fill: #14b8a6 !important }
+    g.grp { fill: #65a30d }
+  </style>
+  <rect x="5" y="5" width="25" height="25"/>
+  <rect class="a" x="37" y="5" width="25" height="25"/>
+  <rect class="a b" x="69" y="5" width="25" height="25"/>
+  <rect id="c" class="a b" x="5" y="37" width="25" height="25"/>
+  <rect class="d a" x="37" y="37" width="25" height="25"/>
+  <circle cx="81" cy="49" r="12"/>
+  <rect class="later" x="5" y="69" width="25" height="25" fill="#000"/>
+  <rect id="f" class="later e" x="37" y="69" width="25" height="25" style="fill: #4f46e5"/>
+  <g class="grp" stroke="#000"><rect class="imp" x="69" y="69" width="12" height="25" style="fill: #e11d48"/><path d="M83 69h11v25h-11z"/></g>
+</svg>

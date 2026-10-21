@@ -58,6 +58,7 @@ type desc struct {
 	scope     *scopeOpts
 	src       image.Image // Img source (Src)
 	img       *gfx.Image  // Img source (SrcImage)
+	media     *mediaProps // SrcPath, SrcBytes, SrcFS, IconSrc and Tint (media.go)
 	href      string      // A destination (Href)
 	// aria holds the semantics props (aria.go), nil without any.
 	aria *ariaProps
@@ -410,13 +411,23 @@ func Key(k any) Prop {
 // gfx.Image when it is first drawn and again only when another image is
 // given; pass the same image.Image value on every build.
 func Src(img image.Image) Prop {
-	return Prop{name: "Src", apply: func(d *desc) { d.src, d.img = img, nil }}
+	return Prop{name: "Src", apply: func(d *desc) {
+		d.src, d.img = img, nil
+		if d.media != nil {
+			d.media.src = srcSpec{} // the last source wins (media.go)
+		}
+	}}
 }
 
 // SrcImage sets the image of an Img primitive from an already converted
 // gfx.Image.
 func SrcImage(img *gfx.Image) Prop {
-	return Prop{name: "SrcImage", apply: func(d *desc) { d.img, d.src = img, nil }}
+	return Prop{name: "SrcImage", apply: func(d *desc) {
+		d.img, d.src = img, nil
+		if d.media != nil {
+			d.media.src = srcSpec{}
+		}
+	}}
 }
 
 // Href sets the destination of an A primitive. It is stored (for the
@@ -451,6 +462,16 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	}
 	if kind != style.KindImg && (d.src != nil || d.img != nil) {
 		panic(fmt.Sprintf("core: Src on <%v>: only Img takes an image source", kind))
+	}
+	checkMediaProps(kind, d)
+	if kind == style.KindSVG {
+		// Icons are decorative unless they are named (lucide-react's
+		// aria-hidden="true"): with AriaLabel or AriaLabelledBy they are
+		// images with that name.
+		if a := d.aria; a == nil || !a.hiddenSet && !a.hasLabel && a.labelledBy == nil {
+			a = d.ariaProps()
+			a.hidden, a.hiddenSet = true, true
+		}
 	}
 	if kind != style.KindA && d.href != "" {
 		panic(fmt.Sprintf("core: Href on <%v>: only A takes a destination", kind))

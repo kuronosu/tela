@@ -103,7 +103,7 @@ func TestUnsupportedClasses(t *testing.T) {
 		{"[mask-type:luminance]", "arbitrary properties"},
 		{"content-['x']", "regular nodes"},
 		{"before:flex", "pseudo-elements"},
-		{"fill-red-500", "SVG"},
+		{"stroke-[10%]", "percent"},
 		{"rotate-x-45", "2D"},
 		{"w-(--my-width)", "CSS variables"},
 		{"bg-[var(--x)]", "CSS variables"},

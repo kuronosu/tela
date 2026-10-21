@@ -16,7 +16,7 @@ import (
 // multiply-add on some architecture changes the digest (ADR-027, ADR-041).
 func svgDigest(t testing.TB) uint64 {
 	h := fnv.New64a()
-	for _, c := range galleryCells(t) {
+	for _, c := range galleryCells(t, mainGallery) {
 		d, err := Parse(c.source(t))
 		if err != nil {
 			t.Fatal(err)

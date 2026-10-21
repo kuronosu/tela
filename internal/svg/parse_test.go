@@ -318,7 +318,7 @@ func TestDisplayVisibility(t *testing.T) {
 	src := svgDoc(`
 		<g display="none"><rect width="10" height="10" fill="#ff0000"/></g>
 		<g visibility="hidden"><rect width="10" height="10" fill="#00ff00"/><rect width="20" height="20" fill="#0000ff" visibility="visible"/></g>
-		<text>ignored</text><image href="x.png" width="10" height="10"/><foreignObject><div/></foreignObject><switch><rect width="5" height="5"/></switch>
+		<text>ignored</text><image href="x.png" width="10" height="10"/><foreignObject><div/></foreignObject>
 		<unknown><rect width="10" height="10" fill="#ff0000"/></unknown>`)
 	got := dump(t, src, Options{})
 	if strings.Count(got, "FillPath") != 1 || !strings.Contains(got, "#0000ff") {

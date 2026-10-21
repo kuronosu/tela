@@ -275,11 +275,18 @@ const (
 	KindTextarea
 	KindForm
 	KindLabel
+	// KindSVG is an Icon: an SVG document shown as a replaced element,
+	// like an inline <svg> (ADR-098).
+	KindSVG
 	numKinds
 )
 
 var kindNames = [...]string{"div", "span", "text", "h1", "h2", "h3", "h4", "h5", "h6", "p", "button", "img", "root", "strong", "em", "code", "a",
-	"input", "textarea", "form", "label"}
+	"input", "textarea", "form", "label", "svg"}
+
+// IsReplaced reports whether k is a replaced element that shows an image
+// (Img, Icon).
+func (k Kind) IsReplaced() bool { return k == KindImg || k == KindSVG }
 
 // IsTextField reports whether k is a text field (Input, Textarea).
 func (k Kind) IsTextField() bool { return k == KindInput || k == KindTextarea }
@@ -343,6 +350,17 @@ func initKindDefaults() {
 			e.s.MaxWidth = DimPct(100)
 			e.s.Height = Auto
 			e.s.VerticalAlign = text.BoxMiddle
+		}),
+	}
+	// svg (Preflight): "svg { display: block; vertical-align: middle }".
+	// An Icon is 1em by 1em unless classes or props size it, like the
+	// width and height attributes of an inline <svg>, which are below
+	// every class (ADR-098).
+	kindOps[KindSVG] = []Op{
+		display(DisplayBlock),
+		op(func(e *env) {
+			e.s.VerticalAlign = text.BoxMiddle
+			e.s.Width, e.s.Height = DimPx(e.fontSize), DimPx(e.fontSize)
 		}),
 	}
 	// strong (Preflight): "b, strong { font-weight: bolder }".

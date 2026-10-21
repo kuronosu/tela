@@ -693,6 +693,21 @@ type ComputedStyle struct {
 	// ClipPath is the clip-path ([clip-path:...]); it creates a stacking
 	// context and clips everything the box paints and its hit-testing.
 	ClipPath ClipPath
+	// Mask is the mask (mask-[url()], Tailwind's gradient masks); it
+	// creates a stacking context and masks everything the box paints.
+	Mask Mask
+
+	// SVG paints (fill-*, stroke-*, stroke-<n>), inherited like CSS: the
+	// root overrides of the SVG documents shown by Icon and Img (ADR-098).
+	// StrokeWidth is in SVG user units and applies when StrokeWidthSet.
+	Fill, Stroke   SVGPaint
+	StrokeWidth    float32
+	StrokeWidthSet bool
+
+	// Replaced content (Img): object-fit and object-position (50% 50% by
+	// default; percentages of the free space, as in CSS).
+	ObjectFit              ObjectFit
+	ObjectPosX, ObjectPosY LP
 
 	// Motion.
 	Transform  Transform

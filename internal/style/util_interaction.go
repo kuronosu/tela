@@ -89,8 +89,6 @@ func registerUnsupported(r *registry) {
 	r.unsupported["hyphens"] = "hyphenation is not supported yet"
 	r.unsupported["indent"] = "text-indent is not supported yet; use padding"
 	r.unsupported["align"] = "only align-baseline, align-top, align-middle, align-bottom, align-text-top and align-text-bottom are supported (on inline-block, inline-flex and inline images in text); use flex alignment (items-center) otherwise"
-	r.unsupported["fill"] = "SVG fill and stroke are not supported yet; icons take the text color"
-	r.unsupported["stroke"] = r.unsupported["fill"]
 	r.unsupported["accent"] = "accent-color is not supported; style the control with classes"
 	r.unsupported["perspective"] = "3D transforms are not supported; Tela transforms are 2D"
 	r.unsupported["transform-3d"] = r.unsupported["perspective"]
@@ -106,9 +104,7 @@ func registerUnsupported(r *registry) {
 	r.unsupported["resize"] = "resizable elements are not supported"
 	r.unsupported["will-change"] = "will-change is not needed: Tela decides which boxes get a layer"
 	r.unsupported["clip-path"] = "clip-path has no utility class; write the arbitrary property, e.g. [clip-path:circle(50%)] or [clip-path:polygon(0_0,100%_0,100%_80%,0_100%)]"
-	r.unsupported["mask"] = "masks are not supported"
 	r.unsupported["forced-color-adjust"] = "forced colors are not supported"
-	r.unsupported["object"] = "object-fit and object-position are not supported yet; size the Img explicitly"
 	r.unsupported["contain"] = "CSS containment is not supported"
 	r.unsupported["content-visibility"] = "content-visibility is not supported; use VirtualList"
 	r.unsupported["decoration-clone"] = "box-decoration-break is not supported"

@@ -134,7 +134,10 @@ func (d *decls) has(p prop) bool { return d.set&(1<<p) != 0 }
 
 func (d *decls) inherits(p prop) bool { return d.inherit&(1<<p) != 0 }
 
-// declsOf returns the parsed declarations of e, parsing them on first use.
+// declsOf returns the parsed declarations of e, parsing them on first use:
+// its presentation attributes, the normal declarations of the style
+// sheet rules that match it (css.go) and of its style attribute, then the
+// important ones of the rules and of the style attribute.
 func declsOf(e *element) *decls {
 	if e.decl != nil {
 		return e.decl
@@ -145,40 +148,41 @@ func declsOf(e *element) *decls {
 			d.declare(p, a.value)
 		}
 	}
-	if st, ok := e.attr("style"); ok {
-		forEachDeclaration(st, func(name, value string) {
-			if p, ok := propNames[strings.ToLower(name)]; ok {
-				d.declare(p, value)
+	st, hasStyle := e.attr("style")
+	for _, important := range [2]bool{false, true} {
+		for _, sd := range e.sheet {
+			if sd.important == important {
+				d.declare(propNames[sd.name], sd.value)
 			}
-		})
+		}
+		if hasStyle {
+			forEachDeclaration(st, func(name, value string, imp bool) {
+				if p, ok := propNames[strings.ToLower(name)]; ok && imp == important {
+					d.declare(p, value)
+				}
+			})
+		}
 	}
 	e.decl = d
 	return d
 }
 
-// forEachDeclaration splits a style attribute into declarations, dropping
-// comments and !important.
-func forEachDeclaration(s string, fn func(name, value string)) {
-	for strings.Contains(s, "/*") {
-		i := strings.Index(s, "/*")
-		j := strings.Index(s[i+2:], "*/")
-		if j < 0 {
-			s = s[:i]
-			break
-		}
-		s = s[:i] + " " + s[i+2+j+2:]
-	}
+// forEachDeclaration splits a declaration block (a style attribute) into
+// declarations, dropping comments; important reports a !important.
+func forEachDeclaration(s string, fn func(name, value string, important bool)) {
+	s = stripComments(s)
 	for _, part := range strings.Split(s, ";") {
 		name, value, ok := strings.Cut(part, ":")
 		if !ok {
 			continue
 		}
 		name, value = strings.TrimSpace(name), strings.TrimSpace(value)
+		important := false
 		if i := strings.Index(strings.ToLower(value), "!important"); i >= 0 {
-			value = strings.TrimSpace(value[:i])
+			value, important = strings.TrimSpace(value[:i]), true
 		}
 		if name != "" && value != "" {
-			fn(name, value)
+			fn(name, value, important)
 		}
 	}
 }

@@ -501,10 +501,14 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		b.flt.limitLayout(b, &ls) // the size limits of a floating element (floating.go)
 	}
 	ls.AspectRatio = cs.AspectRatio
-	if b.kind == style.KindImg {
+	if b.kind.IsReplaced() {
 		ls.Replaced = true
-		if ls.AspectRatio == 0 && b.img != nil && b.img.Width() > 0 && b.img.Height() > 0 {
-			ls.AspectRatio = float32(b.img.Width()) / float32(b.img.Height())
+		// The natural ratio sizes an auto axis from the other; with both
+		// sizes given the image is fitted (object-fit), not resized.
+		if ls.AspectRatio == 0 && (ls.Width.Unit == layout.UnitAuto || ls.Height.Unit == layout.UnitAuto) {
+			if _, _, r := b.imageSize(); r > 0 {
+				ls.AspectRatio = r
+			}
 		}
 	}
 	if cs.Position != style.PositionSticky {
@@ -549,7 +553,7 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	if parent.mode == modeParagraph {
 		// An atomic inline of a paragraph: its line places it (text-align
 		// and space-x-* included); an auto width is fit-content.
-		if ls.Width.Unit == layout.UnitAuto && b.kind != style.KindImg {
+		if ls.Width.Unit == layout.UnitAuto && !b.kind.IsReplaced() {
 			ls.Width = layout.FitContent
 		}
 		return ls

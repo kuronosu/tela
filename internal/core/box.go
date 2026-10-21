@@ -71,9 +71,12 @@ type Box struct {
 	mode boxMode
 	para *paragraph
 
-	// Img.
+	// Img and Icon: a raster image (from Src, SrcImage or a decoded
+	// source) and the source given by SrcPath, SrcBytes, SrcFS or an
+	// Icon with what it decoded to (media.go).
 	img    *gfx.Image
 	imgSrc image.Image
+	med    *boxMedia
 
 	// Compiled classes of the element's Class props.
 	classes        []*style.Classes
@@ -246,13 +249,13 @@ func knownOnly(in layout.MeasureInput) layout.Measurement {
 }
 
 // measureImage returns the natural size of the image (1 image pixel = 1
-// logical pixel, like CSS), keeping its aspect ratio when one dimension is
-// known.
+// logical pixel, like CSS; an SVG's size without one, media.go), keeping
+// its aspect ratio when one dimension is known.
 func (b *Box) measureImage(in layout.MeasureInput) layout.Measurement {
-	if b.img == nil || b.img.Width() == 0 || b.img.Height() == 0 {
+	nw, nh, _ := b.imageSize()
+	if !(nw > 0 && nh > 0) {
 		return knownOnly(in)
 	}
-	nw, nh := float32(b.img.Width()), float32(b.img.Height())
 	m := layout.Measurement{Width: nw, Height: nh}
 	switch {
 	case in.HasWidth && in.HasHeight:
@@ -269,6 +272,18 @@ func (b *Box) measureImage(in layout.MeasureInput) layout.Measurement {
 func (t *Tree) updateImage(el *Element) {
 	d := el.node.d
 	b := el.box
+	if m := d.media; m != nil && m.src.kind != srcNone {
+		t.updateMedia(el, &m.src)
+		return
+	}
+	if b.med != nil {
+		// From a decoded source back to Src or SrcImage (or none).
+		b.med = nil
+		b.img, b.imgSrc = nil, nil
+		t.engine.MarkDirty(b)
+		b.queueRemap()
+		t.markMediaPaint(b)
+	}
 	img := d.img
 	if img == nil && d.src != nil {
 		if b.imgSrc != nil && safeEqual(b.imgSrc, d.src) && b.img != nil {

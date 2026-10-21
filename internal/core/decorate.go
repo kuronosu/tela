@@ -6,6 +6,7 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
 	"github.com/kuronosu/tela/internal/style"
+	"github.com/kuronosu/tela/internal/svg"
 )
 
 // Box decorations: shadows, backgrounds, borders and outlines (see the
@@ -183,16 +184,26 @@ type bgAxis struct {
 // drawn from a prefiltered mip level (gfx.Image.Level).
 func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx.RRect) {
 	var img *gfx.Image
+	var doc *svg.Doc
 	switch {
 	case l.Gradient != nil:
 	case l.Image != nil:
 		img = convertBgImage(l.Image)
 	case l.URL != "":
-		var err error
-		if img, err = loadAsset(l.URL); err != nil {
-			p.t.reportOnce("bg-url:"+l.URL, "tela: "+err.Error())
+		a, err := loadAsset(l.URL)
+		if err != nil {
+			what := "background"
+			if p.inMask {
+				what = "mask"
+			}
+			p.t.reportOnce(what+"-url:"+l.URL, "tela: "+what+" "+err.Error())
 			return
 		}
+		img, doc = a.raster, a.doc
+	}
+	if doc != nil {
+		p.paintBgDoc(l, doc, area, clip)
+		return
 	}
 	if l.Gradient == nil && (img == nil || img.Width() == 0 || img.Height() == 0) {
 		return
@@ -264,6 +275,61 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 	}
 }
 
+// paintBgDoc paints a layer whose image is an SVG document: sized like
+// an image of the document's Size (its natural size, or a size from its
+// viewBox), tiled like images, each tile drawn by the document with
+// currentColor black (an image document has no context).
+func (p *painter) paintBgDoc(l *style.BackgroundLayer, doc *svg.Doc, area gfx.Rect, clip gfx.RRect) {
+	aw, ah := area.Width(), area.Height()
+	if !(aw > 0 && ah > 0) {
+		return
+	}
+	sz := doc.Size()
+	tw, th := bgTileSizeOf(l, sz.W, sz.H, aw, ah)
+	if !(tw > 0 && th > 0) {
+		return
+	}
+	cb := clip.Rect
+	rx, ry := l.Repeat, l.Repeat
+	switch l.Repeat {
+	case style.RepeatX:
+		rx, ry = style.RepeatBoth, style.RepeatNone
+	case style.RepeatY:
+		rx, ry = style.RepeatNone, style.RepeatBoth
+	}
+	if rx == style.RepeatRound {
+		tw = aw / float32(max(1, math.Round(float64(aw/tw))))
+	} else {
+		tw = p.snapSize(tw)
+	}
+	if ry == style.RepeatRound {
+		th = ah / float32(max(1, math.Round(float64(ah/th))))
+	} else {
+		th = p.snapSize(th)
+	}
+	ax := bgTiling(rx, tw, area.X0, aw, l.PosX, cb.X0, cb.X1)
+	ay := bgTiling(ry, th, area.Y0, ah, l.PosY, cb.Y0, cb.Y1)
+	if clip.IsRect() {
+		p.b.PushClipRect(cb)
+	} else {
+		p.b.PushClipRRect(clip)
+	}
+	list := doc.Record(svg.Options{CurrentColor: gfx.Black})
+	tiles := 0
+	for j := ay.from; j < ay.to; j++ {
+		for i := ax.from; i < ax.to && tiles < maxBgTiles; i++ {
+			tx, ty := ax.start+float32(float32(i)*ax.period), ay.start+float32(float32(j)*ay.period)
+			tile := gfx.Rect{X0: p.snap(tx), Y0: p.snap(ty), X1: p.snap(tx + ax.size), Y1: p.snap(ty + ay.size)}
+			if tile.Empty() || !tile.Intersects(cb) {
+				continue
+			}
+			tiles++
+			doc.DrawRecorded(p.b, tile, list)
+		}
+	}
+	p.b.PopClip()
+}
+
 // snapSize rounds a size to whole device pixels, at least one.
 func (p *painter) snapSize(v float32) float32 {
 	d := math.Max(math.Floor(float64(float64(v)*p.scale)+0.5), 1)
@@ -285,7 +351,12 @@ func bgTileSize(l *style.BackgroundLayer, img *gfx.Image, aw, ah float32) (float
 		}
 		return tw, th
 	}
-	iw, ih := float32(img.Width()), float32(img.Height())
+	return bgTileSizeOf(l, float32(img.Width()), float32(img.Height()), aw, ah)
+}
+
+// bgTileSizeOf returns the size of the tile of an image of natural size
+// iw × ih in an area of aw × ah.
+func bgTileSizeOf(l *style.BackgroundLayer, iw, ih, aw, ah float32) (float32, float32) {
 	switch l.Size.Kind {
 	case style.SizeCover, style.SizeContain:
 		sx, sy := float64(aw)/float64(iw), float64(ah)/float64(ih)

@@ -291,8 +291,8 @@ func (p FileList) Build() tela.Node {
 	)
 }
 
-// Icon returns the icon of an entry at px pixels.
-func Icon(l *Look, e *Entry, px float32) tela.Node {
+// EntryIcon returns the icon of an entry at px pixels.
+func EntryIcon(l *Look, e *Entry, px float32) tela.Node {
 	if e.IsFolder() {
 		return FolderIcon(l, px)
 	}
@@ -338,7 +338,7 @@ func (p Row) Build() tela.Node {
 			return Div(Class("truncate", l.WSize, dim), Key(int(c)), Text(size))
 		}
 		return Div(Class("flex items-center gap-2.5", l.WName), Key(int(c)),
-			Icon(l, e, th.IconPx),
+			EntryIcon(l, e, th.IconPx),
 			Span(Class("truncate"), Text(e.Name)))
 	}
 	kids := []tela.Child{Class(l.Row, cls), Ref(ref), Role("option"), AriaLabel(e.Name), AriaSelected(p.On),
@@ -387,7 +387,7 @@ func Details(th *Theme, l *Look, dir *Entry, entries []*Entry, sel *Entry, path 
 	}
 	props = append(props, prop("Location", strings.Join(append([]string{th.Root}, Segments(loc)...), " › ")))
 	return Div(Class(l.Details), Role("complementary"), AriaLabel("Details"),
-		Div(Class(l.DetailsPreview), Icon(l, e, 72)),
+		Div(Class(l.DetailsPreview), EntryIcon(l, e, 72)),
 		Div(Class(l.DetailsTitle), Text(name)),
 		Div(props...),
 	)

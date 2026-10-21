@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+  <switch>
+    <rect systemLanguage="fr" x="5" y="5" width="40" height="40" fill="#dc2626"/>
+    <rect systemLanguage="de,en" x="5" y="5" width="40" height="40" fill="#16a34a"/>
+    <rect x="5" y="5" width="40" height="40" fill="#000"/>
+  </switch>
+  <switch transform="translate(50 0)" fill="#9333ea">
+    <g requiredExtensions="http://example.com/unknown"><rect x="5" y="5" width="40" height="40" fill="#dc2626"/></g>
+    <g requiredFeatures="http://www.w3.org/TR/SVG11/feature#Shape"><circle cx="25" cy="25" r="20"/></g>
+    <rect x="5" y="5" width="40" height="40" fill="#000"/>
+  </switch>
+  <switch opacity="0.5">
+    <foreignObject requiredExtensions="http://example.com/unknown" x="5" y="55" width="40" height="40"/>
+    <switch><path d="M5 55h40v40z" fill="#2563eb" systemLanguage="es"/><path d="M5 55h40l-40 40z" fill="#0891b2"/></switch>
+  </switch>
+  <switch>
+    <use href="#tri" systemLanguage="en"/>
+    <rect x="55" y="55" width="40" height="40" fill="#000"/>
+  </switch>
+  <defs><path id="tri" d="M55 95l20-40 20 40z" fill="#f59e0b"/></defs>
+</svg>

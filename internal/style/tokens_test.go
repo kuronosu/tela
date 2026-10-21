@@ -176,8 +176,9 @@ func TestTokenErrors(t *testing.T) {
 	}
 	// Palette names still work there.
 	mustCompile(t, "shadow-[0_0_4px_red-500]")
-	// fill-, stroke-, divide- and accent- stay unsupported with a token.
-	for _, cls := range []string{"fill-primary", "stroke-primary", "divide-border", "accent-primary"} {
+	// divide- and accent- stay unsupported with a token (fill- and stroke-
+	// take tokens since ADR-098).
+	for _, cls := range []string{"divide-border", "accent-primary"} {
 		var un *UnsupportedClassError
 		if c := Compile(cls); !errors.As(c.Err, &un) {
 			t.Errorf("%s: err = %v, want unsupported", cls, c.Err)

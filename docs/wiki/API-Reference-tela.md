@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -33,6 +33,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
+  - [`type Icon`](#type-icon): [`MustSVG`](#func-mustsvg) · [`ParseSVG`](#func-parsesvg)
   - [`type InputEvent`](#type-inputevent): [`DefaultPrevented`](#func-inputevent-defaultprevented) · [`PreventDefault`](#func-inputevent-preventdefault) · [`StopPropagation`](#func-inputevent-stoppropagation)
   - [`type KeyCode`](#type-keycode)
   - [`type KeyLocation`](#type-keylocation): [`String`](#func-keylocation-string)
@@ -360,7 +361,7 @@ fmt.Println(y.Get())
 func Assets(fsys fs.FS)
 ```
 
-Assets registers a file system that background images are loaded from: the path in a class such as bg-\[url(img/hero.jpg)\] names a file of fsys, relative to its root (a leading "/" or "./" is ignored, so url(/img/hero.jpg) is the same file; ".." is not allowed). Call it from an init function, so that the files are found the same way by [`Run`](#func-run), tela snapshot, tela inspect and telatest:
+Assets registers a file system that images are loaded from: the path in a class such as bg-\[url(img/hero.jpg)\] or mask-\[url(icons/star.svg)\], or in h.SrcPath("img/logo.svg"), names a file of fsys, relative to its root (a leading "/" or "./" is ignored, so url(/img/hero.jpg) is the same file; ".." is not allowed). Call it from an init function, so that the files are found the same way by [`Run`](#func-run), tela snapshot, tela inspect and telatest:
 
 ```go
 //go:embed img
@@ -369,7 +370,7 @@ var images embed.FS
 func init() { tela.Assets(images) }
 ```
 
-Assets may be called several times: the file systems are searched in the order they were registered and the first one that has the file wins. Files are decoded once, when first painted, and kept for the life of the process: PNG, JPEG, GIF (the first frame) and WebP, recognized by their content. A missing or undecodable file paints nothing and is reported once in the dev log, with the path and the registered file systems, like an unknown class. Remote and data: URLs are not supported.
+Assets may be called several times: the file systems are searched in the order they were registered and the first one that has the file wins. Files are decoded once, when first used, and kept for the life of the process: PNG, JPEG, GIF (the first frame), WebP and SVG (drawn as vectors), recognized by their content. A missing or undecodable file paints nothing and is reported once in the dev log, with the path and the registered file systems, like an unknown class. Remote and data: URLs are not supported.
 
 **Example**
 
@@ -2353,6 +2354,48 @@ func StopAt(c Color, percent float32) GradientStop
 ```
 
 StopAt returns a gradient stop at a percentage (0 to 100) of the gradient line.
+
+### type Icon
+
+```go
+type Icon struct {
+    SVG string
+}
+```
+
+Icon is an SVG icon, shown with h.Icon. Its SVG field holds the text of an SVG document, so that icons can be package-level data:
+
+```go
+var Check = tela.Icon{SVG: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M20 6 9 17l-5-5"/></svg>`}
+```
+
+The document is parsed the first time an icon with that text is drawn and the result is cached by the text for the life of the process (in a cache bounded by size), so drawing it again, at any size or color, never parses it again. Icon is comparable. ParseSVG and MustSVG check the text when the icon is created.
+
+Icons are drawn as vectors at the device scale, with currentColor as the element's text color; see h.Icon.
+
+#### func MustSVG
+
+```go
+func MustSVG(data []byte) Icon
+```
+
+MustSVG is ParseSVG for documents known to be valid, such as embedded files: it panics on error.
+
+```go
+//go:embed logo.svg
+var logoSVG []byte
+var Logo = tela.MustSVG(logoSVG)
+```
+
+#### func ParseSVG
+
+```go
+func ParseSVG(data []byte) (Icon, error)
+```
+
+ParseSVG parses data as an SVG document and returns it as an Icon. The parsed document is cached, so the first draw does not parse it again. It returns the parse error of malformed XML, a root that is not svg, or a document beyond Tela's limits on size.
 
 ### type InputEvent
 

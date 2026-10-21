@@ -1,6 +1,8 @@
 package svg
 
 import (
+	"strings"
+
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
@@ -138,6 +140,16 @@ func (c *conv) convert(e *element, parent *style, vp viewport) (node, bool) {
 		if len(n.children) == 0 {
 			return node{}, false
 		}
+	case "switch":
+		ch := switchChild(e)
+		if ch == nil {
+			return node{}, false
+		}
+		k, ok := c.convert(ch, &st, vp)
+		if !ok {
+			return node{}, false
+		}
+		n = node{kind: kindGroup, children: []node{k}}
 	case "svg":
 		var ok bool
 		if n, ok = c.viewportNode(e, e, &st, vp, nil); !ok {
@@ -167,6 +179,63 @@ func (c *conv) convert(e *element, parent *style, vp viewport) (node, bool) {
 		return node{}, false
 	}
 	return c.effects(n, &st, vp)
+}
+
+// switchChild returns the child of a switch element that is rendered: its
+// first direct child element whose conditional processing attributes
+// pass (usvg's rules: requiredExtensions always fails, requiredFeatures
+// passes only with SVG 1.1 feature strings of static SVG, and
+// systemLanguage matches English: "en" or a tag that starts with
+// "en-"). title, desc and metadata are not candidates. The chosen child
+// may render nothing (an unsupported element): nothing is drawn then.
+func switchChild(e *element) *element {
+	for _, ch := range e.children {
+		switch ch.tag {
+		case "title", "desc", "metadata":
+			continue
+		}
+		if conditionsPass(ch) {
+			return ch
+		}
+	}
+	return nil
+}
+
+// svgFeatures are the SVG 1.1 feature strings usvg supports.
+var svgFeatures = map[string]bool{}
+
+func init() {
+	for _, f := range []string{"SVGDOM-static", "SVG-static", "CoreAttribute", "Structure", "BasicStructure",
+		"ContainerAttribute", "ConditionalProcessing", "Image", "Style", "Shape", "Text", "BasicText",
+		"PaintAttribute", "BasicPaintAttribute", "OpacityAttribute", "GraphicsAttribute",
+		"BasicGraphicsAttribute", "Marker", "Gradient", "Pattern", "Clip", "BasicClip", "Mask",
+		"Filter", "BasicFilter", "XlinkAttribute"} {
+		svgFeatures["http://www.w3.org/TR/SVG11/feature#"+f] = true
+	}
+}
+
+// conditionsPass evaluates the conditional processing attributes of e.
+func conditionsPass(e *element) bool {
+	if _, ok := e.attr("requiredExtensions"); ok {
+		return false
+	}
+	if v, ok := e.attr("requiredFeatures"); ok {
+		for _, f := range strings.Split(v, " ") {
+			if !svgFeatures[f] {
+				return false
+			}
+		}
+	}
+	if v, ok := e.attr("systemLanguage"); ok {
+		for _, lang := range strings.Split(v, ",") {
+			lang = strings.TrimSpace(lang)
+			if lang == "en" || strings.HasPrefix(lang, "en-") {
+				return true
+			}
+		}
+		return false
+	}
+	return true
 }
 
 // effects sets the opacity, clip path and mask of n from st. ok is false
