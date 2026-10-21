@@ -136,9 +136,14 @@ func Switcher() tela.Node {
 // Previews are the screens of `tela snapshot` and `tela inspect`, one per
 // language, each with its locale fixed by i18n.Provider.
 var Previews = tela.Previews{
-	"ar": func() tela.Node { return i18n.Provider("ar", tela.C(Store)) },
-	"en": func() tela.Node { return i18n.Provider("en", tela.C(Store)) },
-	"es": func() tela.Node { return i18n.Provider("es", tela.C(Store)) },
+	"ar": {Root: tela.C(Store), Wrap: inLocale("ar")},
+	"en": {Root: tela.C(Store), Wrap: inLocale("en")},
+	"es": {Root: tela.C(Store), Wrap: inLocale("es")},
+}
+
+// inLocale wraps a preview in the provider that fixes its locale.
+func inLocale(tag string) func(tela.Node) tela.Node {
+	return func(n tela.Node) tela.Node { return i18n.Provider(tag, n) }
 }
 
 func main() {

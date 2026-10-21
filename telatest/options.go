@@ -245,3 +245,57 @@ func ClassAliases(aliases map[string]string) Option {
 	aliases = maps.Clone(aliases)
 	return func(c *config) { c.aliases = aliases }
 }
+
+// FromApp applies the settings of a [tela.App] that shape what is drawn, so
+// a test, `tela snapshot` and the window see the same app: the size when
+// both Width and Height are set, RootClass, ColorScheme, Theme,
+// ClassAliases, ClassicScrollbars, InstantScroll and Dev. It sets only
+// what the app sets, so it never undoes an earlier option, and the options
+// after it override it:
+//
+//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes}
+//
+//	app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
+//	app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
+//
+// Title, AppID and Root say nothing about how the app looks, so FromApp
+// ignores them; [MountApp] also mounts Root. The scale is not an App
+// setting (it comes from the display): use [Scale].
+func FromApp(app tela.App) Option {
+	if app.ColorScheme > tela.Dark {
+		panic("telatest.FromApp: App.ColorScheme must be tela.Light, tela.Dark or tela.System")
+	}
+	aliases := maps.Clone(app.ClassAliases)
+	var theme *tela.Theme
+	if app.Theme != nil {
+		t := *app.Theme
+		t.Colors = maps.Clone(t.Colors)
+		theme = &t
+	}
+	return func(c *config) {
+		if app.Width > 0 && app.Height > 0 {
+			c.width, c.height = app.Width, app.Height
+		}
+		if app.RootClass != "" {
+			c.rootClass = app.RootClass
+		}
+		if app.ColorScheme != tela.System {
+			c.scheme = app.ColorScheme
+		}
+		if theme != nil {
+			c.theme = theme
+		}
+		if aliases != nil {
+			c.aliases = aliases
+		}
+		if app.ClassicScrollbars {
+			c.classic = true
+		}
+		if app.InstantScroll {
+			c.instant = true
+		}
+		if app.Dev != nil {
+			c.dev = *app.Dev
+		}
+	}
+}

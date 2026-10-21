@@ -22,16 +22,38 @@ The package must define one of
 
 	func Preview() tela.Node
 
-		a single screen, or
+		a single screen (it may return a tela.Component, such as a struct
+		component, instead), or
 
-	var Previews = tela.Previews{"Login": Login, "Settings": Settings}
+	var Previews = tela.Previews{
+	    "Login":    {Root: tela.C(Login)},
+	    "Settings": {Root: Settings{Tab: "account"}},
+	}
 
 		several named screens; --preview picks one, and without it the first
 		name in byte order is rendered. If a package defines both, Previews
-		wins.
+		wins. A Preview may also give a Wrap function that returns its root
+		inside the providers of the contexts it reads.
 
-The screen is built as a component, so it may use hooks. It is drawn on a
-white canvas: give the screen its own background (min-h-screen bg-...).
+or a var App = tela.App{..., Root: Screen}, whose Root is the screen.
+
+What a preview returns is mounted as is, so a function component needs
+tela.C (a preview that calls hooks directly is a mistake dev mode reports).
+The screen is drawn on a white canvas: give it its own background
+(min-h-screen bg-...) or the App a RootClass.
+
+A package that also defines a package-level
+
+	var App = tela.App{Width: 1440, Height: 900, RootClass: "bg-background",
+	    ColorScheme: tela.Dark, Theme: &theme, ClassAliases: aliases, ...}
+
+(the value its main passes to tela.Main) is rendered in that window: the
+image has the App's Width and Height (unless --size is given), RootClass,
+ColorScheme, Theme, ClassAliases, ClassicScrollbars, InstantScroll and Dev
+apply, so the PNG matches what the window shows. Title and AppID are
+ignored, and so is Root when the package has previews. The App's
+ColorScheme overrides --dark, as it overrides the system in a window.
+Dev warnings and class errors of the screen are printed on standard error.
 
 For the packages of phase 1 (such as examples/text) a package may
 instead define
@@ -42,7 +64,8 @@ which builds a scene for a window of w x h logical pixels.
 
 Flags:
 
-	--size WxH       logical size of the window (default 960x640)
+	--size WxH       logical size of the window (default: the App's Width and
+	                 Height when the package defines them, else 960x640)
 	--scale N        display scale; fractional scales such as 1.25 are allowed
 	                 (default 1). The PNG is (W*N)x(H*N) pixels, rounded like
 	                 the window backends do

@@ -63,7 +63,7 @@ func TestColorConstructors(t *testing.T) {
 }
 
 func TestPreviewsNames(t *testing.T) {
-	p := tela.Previews{"b": nil, "A": nil, "a": nil, "1 first": nil}
+	p := tela.Previews{"b": {}, "A": {}, "a": {}, "1 first": {}}
 	if got, want := p.Names(), []string{"1 first", "A", "a", "b"}; !slices.Equal(got, want) {
 		t.Errorf("Names = %q, want %q", got, want)
 	}

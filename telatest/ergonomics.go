@@ -24,6 +24,31 @@ func MountFunc(tb testing.TB, fn func() tela.Node, opts ...Option) *App {
 	return Mount(tb, tela.C(fn), opts...)
 }
 
+// MountApp shows app.Root in a headless window configured like the app,
+// the way [tela.Main] shows it in a real one, and returns the running app.
+// The size, root class, color scheme, theme, class aliases, scrollbar
+// and scroll settings and Dev of the app apply (see [FromApp]); the
+// options override them. It fails the test when app.Root is nil.
+//
+//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes}
+//
+//	func main() { tela.Main(App) }
+//
+//	func TestNotes(t *testing.T) {
+//	    app := telatest.MountApp(t, App) // the same window as main's
+//	    app.ExpectText("Notes")
+//	}
+//
+// `tela snapshot` and `tela inspect` read the same package-level `var App`.
+// See [Mount] for what the app does and when it ends.
+func MountApp(tb testing.TB, app tela.App, opts ...Option) *App {
+	tb.Helper()
+	if app.Root == nil {
+		tb.Fatalf("telatest: MountApp needs app.Root, the root component; for example telatest.MountApp(t, tela.App{Root: Counter}) where Counter is a func() tela.Node")
+	}
+	return Mount(tb, tela.C(app.Root), append([]Option{FromApp(app)}, opts...)...)
+}
+
 // GoldenScales compares the window with one golden per display scale:
 // testdata/<name>_x<scale>.png, with the scale written like %g (name_x1.png,
 // name_x2.png, name_x1.5.png), the naming of the examples' goldens. A name

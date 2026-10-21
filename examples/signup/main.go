@@ -105,18 +105,12 @@ func Page(p Props) tela.Node {
 
 // Previews are the states the README and the goldens show.
 var Previews = tela.Previews{
-	"1 Empty": func() tela.Node { return tela.CP(Page, Props{}) },
-	"2 Filled": func() tela.Node {
-		return tela.CP(Page, Props{Initial: filled})
-	},
-	"3 Invalid": func() tela.Node {
-		return tela.CP(Page, Props{Touched: true, ShowPassword: true, Initial: Values{
-			Name: "Ana García", Email: "ana@", Password: "hunter2", Bio: "Writes Go by day.",
-		}})
-	},
-	"4 Created": func() tela.Node {
-		return tela.CP(Page, Props{Initial: filled, Created: true})
-	},
+	"1 Empty":  {Root: tela.CP(Page, Props{})},
+	"2 Filled": {Root: tela.CP(Page, Props{Initial: filled})},
+	"3 Invalid": {Root: tela.CP(Page, Props{Touched: true, ShowPassword: true, Initial: Values{
+		Name: "Ana García", Email: "ana@", Password: "hunter2", Bio: "Writes Go by day.",
+	}})},
+	"4 Created": {Root: tela.CP(Page, Props{Initial: filled, Created: true})},
 }
 
 // filled is a form ready to submit.

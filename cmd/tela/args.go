@@ -28,6 +28,7 @@ const (
 type renderOptions struct {
 	Pkg     string
 	W, H    float64 // logical size
+	SizeSet bool    // --size was given: it beats the size of the package's App
 	Scale   float64
 	Dark    bool
 	Preview string // name in the package's Previews; empty means the first
@@ -84,7 +85,7 @@ func (o *renderOptions) validate(size string) error {
 		if err != nil {
 			return err
 		}
-		o.W, o.H = w, h
+		o.W, o.H, o.SizeSet = w, h, true
 	}
 	if !(o.Scale > 0) || math.IsInf(o.Scale, 0) || o.Scale > 64 {
 		return fmt.Errorf("invalid --scale %v: use a number > 0 and <= 64, for example 1, 2 or 1.25", o.Scale)

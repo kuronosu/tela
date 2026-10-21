@@ -49,14 +49,18 @@ inlines (inline-block, inline-flex, buttons in the text) are its children,
 marked inlineBox: true.
 
 <pkg> and the screen are chosen as in "tela snapshot": the package defines
-func Preview() tela.Node or a Previews variable, and --preview picks a screen
-(without it, the first name in byte order).
+func Preview() tela.Node (or tela.Component), a Previews variable or an App,
+and --preview picks a screen (without it, the first name in byte order). A
+package-level App also sets the size, root class, color scheme, theme and
+class aliases of the render, as for "tela snapshot"; dev warnings and class
+errors go to standard error, so standard output is the output only.
 
 Flags:
 
 	--aria           print the aria snapshot as YAML (the default)
 	--layout         print the layout tree as JSON
-	--size WxH       logical size of the window (default 960x640)
+	--size WxH       logical size of the window (default: the App's Width and
+	                 Height when the package defines them, else 960x640)
 	--dark           render in dark mode: dark: variants apply
 	--preview NAME   the named screen of a Previews variable
 `

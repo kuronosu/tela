@@ -44,8 +44,8 @@ func Preview() tela.Node { return tela.C(Login) }
 
 // or Previews, several named screens.
 var Previews = tela.Previews{
-	"Login":    Login,
-	"Settings": Settings,
+	"Login":    {Root: tela.C(Login)},
+	"Settings": {Root: Settings{InitialTab: "account"}},
 }
 
 func Login() tela.Node {
@@ -53,19 +53,89 @@ func Login() tela.Node {
 		Div(Class("rounded-xl bg-white p-8 shadow-lg"), H1(Class("text-2xl font-bold"), Text("Log in"))))
 }
 
-func Settings() tela.Node {
-	return Div(Class("p-8"), H1(Class("text-2xl font-bold"), Text("Settings")))
+// Settings is a struct component: its fields seed its state.
+type Settings struct{ InitialTab string }
+
+func (s Settings) Build() tela.Node {
+	tab, _ := tela.UseState(s.InitialTab)
+	return Div(Class("p-8"), H1(Class("text-2xl font-bold"), Textf("Settings: %s", tab)))
 }
 ```
 
-[`tela.Previews`](https://pkg.go.dev/github.com/kuronosu/tela#Previews) maps names to functions; each function builds a screen as a
-component, so it may use hooks. `--preview NAME` selects one; without it the
-CLI renders the first name in byte order ([`Previews.Names`](https://pkg.go.dev/github.com/kuronosu/tela#Previews.Names)), so a name such
+[`tela.Previews`](https://pkg.go.dev/github.com/kuronosu/tela#Previews) maps names to [`tela.Preview`](https://pkg.go.dev/github.com/kuronosu/tela#Preview) values. A
+`Root` is a component: a node such as `tela.C(Login)`, or a struct component
+value, so it may use hooks. `--preview NAME` selects one; without it the CLI
+renders the first name in byte order ([`Previews.Names`](https://pkg.go.dev/github.com/kuronosu/tela#Previews.Names)), so a name such
 as `"1 Login"` can pick the default. When a package defines both, `Previews`
-wins. The screen is drawn on a white canvas: give it its own background.
+wins. `Preview()` may return a `tela.Node` or a `tela.Component`. What a
+preview gives is mounted as is: a function component needs `tela.C`, as in
+`App.Root`.
+
+The screen is drawn on a white canvas: give it its own background, or the
+`App` a `RootClass`.
 
 An `examples/` package such as `counter` shows the shape: `main` opens the
 window, and `Preview()` makes the same screen available to the CLI.
+
+### Starting a preview in a given state
+
+The local state of a screen is seeded through the fields of a struct
+component (`Settings{InitialTab: "account"}` above, with
+`tela.UseState(s.InitialTab)`): no global is needed. State that comes from a
+context is seeded with `Wrap`, which receives the root as a node and returns
+it inside the providers the screen reads:
+
+```go
+var Previews = tela.Previews{
+	"open":   {Root: Main{InitialTab: "open"}},
+	"mocked": {
+		Root: Main{},
+		Wrap: func(n tela.Node) tela.Node { return AppState.Provider(mockState, n) },
+	},
+}
+```
+
+A `tela.Preview` is itself a component, so a test mounts one the way the CLI
+does: `telatest.Mount(t, Previews["mocked"])`.
+
+Before `v0.7.0` the entries were functions (`"Login": Login`); write
+`"Login": {Root: tela.C(Login)}` now.
+
+### One `App` for the window, `tela snapshot` and tests
+
+When the package declares the `tela.App` its `main` runs as a package-level
+variable, the CLI renders in that window, so the PNG matches what the window
+shows:
+
+```go
+var App = tela.App{
+	Title:       "Notes",
+	Width:       900,
+	Height:      600,
+	RootClass:   "bg-background text-foreground",
+	ColorScheme: tela.Dark,
+	Theme:       &theme,
+	Root:        Notes,
+}
+
+func main() { tela.Main(App) }
+```
+
+| `App` field | In `tela snapshot` and `tela inspect` |
+|---|---|
+| `Width`, `Height` | The size of the window, unless `--size` is given (both must be set; otherwise 960x640) |
+| `RootClass`, `ColorScheme`, `Theme`, `ClassAliases` | Applied, as in the window; the app's `ColorScheme` overrides `--dark`, as it overrides the system in a window |
+| `ClassicScrollbars`, `InstantScroll`, `Dev` | Applied (`Dev` false silences the dev messages) |
+| `Root` | The screen when the package has no `Preview` or `Previews`; otherwise ignored |
+| `Title`, `AppID` | Ignored |
+
+[`telatest.MountApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountApp)(t, App) mounts the same `App` in a test, and
+[`telatest.FromApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#FromApp)(App) gives the options of an `App` to
+`Mount` and `Render`.
+
+The screen's dev warnings (a list without keys, a `nil` dependency) and class
+errors are printed on standard error, so a command's output on standard output
+stays clean.
 
 ## tela snapshot
 
@@ -75,7 +145,7 @@ tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <p
 
 | Flag | Meaning |
 |---|---|
-| `--size WxH` | Logical size of the window (default `960x640`) |
+| `--size WxH` | Logical size of the window (default: the package's `App.Width` and `App.Height`, else `960x640`) |
 | `--scale N` | Display scale; fractional values such as `1.25` are allowed (default 1). The PNG is `W*N` by `H*N` pixels |
 | `--dark` | Render in dark mode: `dark:` variants apply |
 | `--preview NAME` | The named screen of a `Previews` variable |

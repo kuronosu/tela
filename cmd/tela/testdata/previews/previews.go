@@ -9,8 +9,8 @@ import (
 
 // Previews are the screens of the package.
 var Previews = tela.Previews{
-	"Counter": counter,
-	"Alert":   alert,
+	"Counter": {Root: tela.C(counter)},
+	"Alert":   {Root: tela.C(alert)},
 }
 
 func alert() tela.Node {

@@ -17,6 +17,32 @@ func ExampleMountFunc() {
 	// Output: 1
 }
 
+func ExampleMountApp() {
+	// The App that main passes to tela.Main, and that `tela snapshot` reads
+	// from the package.
+	app := telatest.MountApp(t, tela.App{
+		Title:     "Counter",
+		Width:     480,
+		Height:    320,
+		RootClass: "bg-slate-100",
+		Root:      Counter,
+	})
+
+	app.Click(telatest.ByRole("button", "Increment"))
+	app.ExpectText("Count: 1")
+	fmt.Println(app.Screenshot().Bounds().Size()) // the App's window
+	// Output: (480,320)
+}
+
+func ExampleFromApp() {
+	appSettings := tela.App{Width: 400, Height: 300, RootClass: "bg-slate-100"}
+	// Mount a struct component (or a tela.Preview) in the app's window.
+	app := telatest.Mount(t, tela.C(Counter), telatest.FromApp(appSettings), telatest.Scale(2))
+
+	fmt.Println(app.Screenshot().Bounds().Size())
+	// Output: (800,600)
+}
+
 func ExampleByTestID() {
 	card := func() tela.Node {
 		return Div(TestID("card"), Class("size-16 bg-slate-200"))

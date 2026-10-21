@@ -96,8 +96,8 @@ var Previews = func() tela.Previews {
 	for _, id := range ThemeIDs {
 		for _, m := range []Mode{Light, Dark} {
 			th, mode := Themes[id], m
-			p[fmt.Sprintf("%d %s %s", n, th.Name(), mode)] = func() tela.Node {
-				return tela.CP(Explorer, Props{Theme: th.ID, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"})
+			p[fmt.Sprintf("%d %s %s", n, th.Name(), mode)] = tela.Preview{
+				Root: tela.CP(Explorer, Props{Theme: th.ID, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"}),
 			}
 			n++
 		}

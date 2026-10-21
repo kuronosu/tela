@@ -114,11 +114,11 @@ func Preview() tela.Node { return Dashboard() }
 
 // Previews are the states the README and the goldens show.
 var Previews = tela.Previews{
-	"1 Overview": Dashboard,
-	"2 Dialog":   func() tela.Node { return tela.CP(Page, Props{Range: 1, Dialog: true}) },
-	"3 Toast": func() tela.Node {
-		return tela.CP(Page, Props{Range: 2, Sort: "due", Toast: "Report queued: Q3 revenue summary", Pinned: true})
-	},
+	"1 Overview": {Root: tela.C(Dashboard)},
+	"2 Dialog":   {Root: tela.CP(Page, Props{Range: 1, Dialog: true})},
+	"3 Toast": {Root: tela.CP(Page, Props{
+		Range: 2, Sort: "due", Toast: "Report queued: Q3 revenue summary", Pinned: true,
+	})},
 }
 
 func main() {

@@ -51,8 +51,9 @@ func Counter() tela.Node {
 	)
 }
 
-// Preview lets `tela snapshot` and `tela inspect` render the screen.
-// Counter has state, so it is wrapped in tela.C, like App.Root.
+// Preview lets `tela snapshot` and `tela inspect` render the screen. It
+// returns what is mounted, and Counter has state, so it is wrapped in tela.C,
+// like App.Root.
 func Preview() tela.Node { return tela.C(Counter) }
 
 func main() {
@@ -143,7 +144,8 @@ go run github.com/kuronosu/tela/cmd/tela inspect --size 480x320 .
 ```
 
 The commands render the package's `Preview` function (or a [`tela.Previews`](https://pkg.go.dev/github.com/kuronosu/tela#Previews)
-variable with several named screens). See [CLI](CLI).
+variable with several named screens, each started in the state you give it),
+in the window of its package-level `var App` when it has one. See [CLI](CLI).
 
 ## Test it
 

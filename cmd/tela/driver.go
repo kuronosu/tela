@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -45,8 +46,9 @@ type contract int
 
 const (
 	contractNone     contract = iota
-	contractPreview           // func Preview() tela.Node
+	contractPreview           // func Preview() tela.Node (or tela.Component)
 	contractPreviews          // var Previews = tela.Previews{...}
+	contractApp               // var App = tela.App{...}, whose Root is the screen
 	contractScene             // func Scene(w, h float32) *gfx.DisplayList (phase 1)
 )
 
@@ -56,6 +58,8 @@ func (c contract) String() string {
 		return "Preview"
 	case contractPreviews:
 		return "Previews"
+	case contractApp:
+		return "App"
 	case contractScene:
 		return "Scene"
 	}
@@ -65,10 +69,13 @@ func (c contract) String() string {
 // contractHelp explains the contracts, for errors.
 const contractHelp = `it must define one of
 
-	func Preview() tela.Node
-	var Previews = tela.Previews{"Name": func() tela.Node { ... }}
+	func Preview() tela.Node        (or tela.Component)
+	var Previews = tela.Previews{"Name": {Root: tela.C(Screen)}}
+	var App = tela.App{Root: Screen, ...}
 
-(the phase-1 contract, func Scene(w, h float32) *gfx.DisplayList, also works for "tela snapshot")`
+(a package that defines App renders in the size, class, color scheme, theme and
+aliases of that App; alone, its Root is the screen. The phase-1 contract,
+func Scene(w, h float32) *gfx.DisplayList, also works for "tela snapshot")`
 
 // Names of the environment variables that carry the parameters to the
 // generated test (rather than test flags, which could clash with the
@@ -79,10 +86,12 @@ const (
 	envH       = "TELA_RUN_H"
 	envScale   = "TELA_RUN_SCALE"
 	envDark    = "TELA_RUN_DARK"
+	envSizeSet = "TELA_RUN_SIZE_SET" // "true" when --size was given, which beats App.Width and Height
 	envPreview = "TELA_RUN_PREVIEW"
 	envOut     = "TELA_RUN_OUT"  // the result: a PNG, JSON or YAML
 	envErr     = "TELA_RUN_ERR"  // a message for the user, when the run fails
 	envInfo    = "TELA_RUN_INFO" // JSON runInfo
+	envLog     = "TELA_RUN_LOG"  // what the run printed on standard error (dev warnings and class errors)
 )
 
 // generatedFile is the name of the generated test file inside the package
@@ -129,14 +138,55 @@ func listPackage(goBin, pkg string) (goPackage, error) {
 
 // detectContract reports which contract the package's source implements. It
 // parses the declarations only, so it works before anything compiles. When
-// several are defined, Previews wins over Preview, which wins over Scene.
+// several are defined, Previews wins over Preview, which wins over Scene,
+// which wins over App (a package that defines App next to another contract
+// still renders in that App; see scanPackage).
 func detectContract(dir string, files []string) (contract, error) {
-	var hasPreview, hasPreviews, hasScene bool
+	d, err := scanPackage(dir, files)
+	return d.contract, err
+}
+
+// detected is what the source of a package declares.
+type detected struct {
+	contract contract
+	// hasApp: the package declares a `var App` that may be a tela.App,
+	// whose settings the run applies.
+	hasApp bool
+}
+
+// mayBeTelaApp reports whether the i-th name of a var spec can be a
+// tela.App: a variable called App of an obviously other type (a literal of
+// another type, say) belongs to the package and is left alone, while
+// anything else is taken for the app, and a mistake is reported by the
+// compiler.
+func mayBeTelaApp(spec *ast.ValueSpec, i int) bool {
+	isApp := func(e ast.Expr) bool {
+		sel, ok := e.(*ast.SelectorExpr)
+		return ok && sel.Sel.Name == "App"
+	}
+	if spec.Type != nil {
+		return isApp(spec.Type)
+	}
+	if len(spec.Values) != len(spec.Names) {
+		return true // var a, App = f(): one call for several names
+	}
+	switch v := spec.Values[i].(type) {
+	case *ast.CompositeLit:
+		return isApp(v.Type)
+	case *ast.BasicLit, *ast.FuncLit, *ast.UnaryExpr:
+		return false
+	}
+	return true
+}
+
+// scanPackage parses the declarations of the package files.
+func scanPackage(dir string, files []string) (detected, error) {
+	var hasPreview, hasPreviews, hasScene, hasApp bool
 	fset := token.NewFileSet()
 	for _, name := range files {
 		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.SkipObjectResolution)
 		if err != nil {
-			return contractNone, fmt.Errorf("cannot read %s: %v", name, err)
+			return detected{}, fmt.Errorf("cannot read %s: %v", name, err)
 		}
 		for _, d := range f.Decls {
 			switch d := d.(type) {
@@ -155,24 +205,31 @@ func detectContract(dir string, files []string) (contract, error) {
 					continue
 				}
 				for _, s := range d.Specs {
-					for _, n := range s.(*ast.ValueSpec).Names {
-						if n.Name == "Previews" {
+					spec := s.(*ast.ValueSpec)
+					for i, n := range spec.Names {
+						switch n.Name {
+						case "Previews":
 							hasPreviews = true
+						case "App":
+							hasApp = hasApp || mayBeTelaApp(spec, i)
 						}
 					}
 				}
 			}
 		}
 	}
+	d := detected{hasApp: hasApp}
 	switch {
 	case hasPreviews:
-		return contractPreviews, nil
+		d.contract = contractPreviews
 	case hasPreview:
-		return contractPreview, nil
+		d.contract = contractPreview
 	case hasScene:
-		return contractScene, nil
+		d.contract = contractScene
+	case hasApp:
+		d.contract = contractApp
 	}
-	return contractNone, nil
+	return d, nil
 }
 
 // runInfo is what the generated test reports about the run.
@@ -192,7 +249,9 @@ type runResult struct {
 // runInPackage renders opts.Pkg with the generated test and returns its
 // output file. ext is the extension of the temporary output ("png", "json",
 // "yml").
-// Warnings go to stderr.
+// Warnings go to stderr, and so does what the run printed on its own
+// standard error: the dev warnings and class errors of the screen, which
+// the passing go test would otherwise hide.
 func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*runResult, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
@@ -202,10 +261,11 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	if err != nil {
 		return nil, err
 	}
-	c, err := detectContract(pkg.Dir, pkg.GoFiles)
+	det, err := scanPackage(pkg.Dir, pkg.GoFiles)
 	if err != nil {
 		return nil, err
 	}
+	c := det.contract
 	if err := checkContract(m, c, opts, pkg); err != nil {
 		return nil, err
 	}
@@ -220,7 +280,7 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	defer os.RemoveAll(tmp)
 
 	src := filepath.Join(tmp, generatedFile)
-	if err := os.WriteFile(src, generateSource(pkg.Name, c), 0o644); err != nil {
+	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp && c != contractScene), 0o644); err != nil {
 		return nil, err
 	}
 	overlay := filepath.Join(tmp, "overlay.json")
@@ -237,6 +297,12 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	outFile := filepath.Join(tmp, "out."+ext)
 	errFile := filepath.Join(tmp, "error.txt")
 	infoFile := filepath.Join(tmp, "info.json")
+	logFile := filepath.Join(tmp, "stderr.txt")
+	defer func() {
+		if b, err := os.ReadFile(logFile); err == nil && len(b) > 0 {
+			stderr.Write(b)
+		}
+	}()
 	cmd := exec.Command(goBin, "test", "-count=1", "-run", "^TestTelaRun$", "-overlay", overlay, opts.Pkg)
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
@@ -245,10 +311,12 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 		envH+"="+strconv.FormatFloat(opts.H, 'g', -1, 64),
 		envScale+"="+strconv.FormatFloat(opts.Scale, 'g', -1, 64),
 		envDark+"="+strconv.FormatBool(opts.Dark),
+		envSizeSet+"="+strconv.FormatBool(opts.SizeSet),
 		envPreview+"="+opts.Preview,
 		envOut+"="+outFile,
 		envErr+"="+errFile,
 		envInfo+"="+infoFile,
+		envLog+"="+logFile,
 	)
 	var output bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &output
@@ -280,9 +348,11 @@ func checkContract(m mode, c contract, opts renderOptions, pkg goPackage) error 
 	case c == contractNone:
 		return fmt.Errorf("package %s (%s) cannot be rendered: %s", pkg.Name, opts.Pkg, contractHelp)
 	case c == contractScene && m != modeSnapshot:
-		return fmt.Errorf("package %s (%s) only defines Scene, a display list without a layout tree: tela inspect needs func Preview() tela.Node or a Previews variable", pkg.Name, opts.Pkg)
+		return fmt.Errorf("package %s (%s) only defines Scene, a display list without a layout tree: tela inspect needs func Preview() tela.Node, a Previews variable or an App", pkg.Name, opts.Pkg)
 	case opts.Preview != "" && c == contractPreview:
 		return fmt.Errorf("--preview %q: package %s defines Preview(), a single screen; to choose among several, define var Previews = tela.Previews{...}", opts.Preview, pkg.Name)
+	case opts.Preview != "" && c == contractApp:
+		return fmt.Errorf("--preview %q: package %s defines App, whose Root is a single screen; to choose among several, define var Previews = tela.Previews{...}", opts.Preview, pkg.Name)
 	case opts.Preview != "" && c == contractScene:
 		return fmt.Errorf("--preview %q: package %s defines Scene, a single scene; to choose among several screens, define var Previews = tela.Previews{...}", opts.Preview, pkg.Name)
 	}
@@ -290,26 +360,39 @@ func checkContract(m mode, c contract, opts renderOptions, pkg goPackage) error 
 }
 
 // explainFailure turns the output of a failed `go test` into an error. A
-// missing or mistyped contract function, the usual mistake, gets a friendly
-// message; anything else is passed through as go printed it.
+// missing or mistyped contract declaration, the usual mistake, gets a
+// friendly message, and so does a Previews map written in the form before
+// tela.Preview; anything else is passed through as go printed it.
 func explainFailure(pkg, name string, c contract, output string) error {
 	output = strings.TrimRight(output, "\n")
-	if strings.Contains(output, generatedFile) {
-		var want string
-		switch c {
-		case contractPreview:
-			want = "func Preview() tela.Node"
-		case contractPreviews:
-			want = "var Previews = tela.Previews{\"Name\": func() tela.Node { ... }}   (a map[string]func() tela.Node)"
-		case contractScene:
-			want = "func Scene(w, h float32) *gfx.DisplayList"
+	// The compile errors of the generated file: <file>:<line>:<col>: msg.
+	// (A panic's stack trace names the file with a line only.)
+	if compileError.MatchString(output) {
+		for _, d := range []contract{c, contractApp} {
+			var want string
+			switch d {
+			case contractPreview:
+				want = "func Preview() tela.Node   (or tela.Component)"
+			case contractPreviews:
+				want = "var Previews = tela.Previews{\"Name\": {Root: tela.C(Screen)}}   (a map[string]tela.Preview)"
+			case contractApp:
+				want = "var App = tela.App{...}"
+			case contractScene:
+				want = "func Scene(w, h float32) *gfx.DisplayList"
+			}
+			if want != "" && (strings.Contains(output, "cannot use "+d.String()) || strings.Contains(output, "undefined: "+d.String())) {
+				return fmt.Errorf("package %s (%s) cannot be rendered: its %s has the wrong type; it must be\n\n\t%s\n\ngo reported:\n%s", name, pkg, d, want, output)
+			}
 		}
-		if want != "" && (strings.Contains(output, "cannot use "+c.String()) || strings.Contains(output, "undefined: "+c.String())) {
-			return fmt.Errorf("package %s (%s) cannot be rendered: its %s has the wrong type; it must be\n\n\t%s\n\ngo reported:\n%s", name, pkg, c, want, output)
-		}
+	}
+	if strings.Contains(output, "as tela.Preview value in map literal") {
+		return fmt.Errorf("go test failed:\n%s\n\nthe entries of tela.Previews are tela.Preview values; give each one a Root:\n\n\tbefore: \"Login\": LoginScreen\n\tafter:  \"Login\": {Root: tela.C(LoginScreen)}   (or a struct component: {Root: Login{}})", output)
 	}
 	return fmt.Errorf("go test failed:\n%s", output)
 }
+
+// compileError matches an error of the compiler in the generated file.
+var compileError = regexp.MustCompile(regexp.QuoteMeta(generatedFile) + `:\d+:\d+: `)
 
 // writeFileAtomic writes data to path, creating its directory. The data
 // goes to a temporary file in the same directory that is renamed over
@@ -341,21 +424,23 @@ func writeFileAtomic(path string, data []byte) error {
 }
 
 // generateSource returns the source of the generated test for a package
-// called pkgName that implements contract c. All imports have unusual
+// called pkgName that implements contract c; hasApp says the package also
+// declares `var App`, whose settings the run applies. All imports have unusual
 // aliases because import names live in the file scope of a package whose
 // declarations they could collide with.
-func generateSource(pkgName string, c contract) []byte {
+func generateSource(pkgName string, c contract, hasApp bool) []byte {
 	var buf bytes.Buffer
 	err := generatedTemplate.Execute(&buf, struct {
 		Package string
 		Kind    string
 		Scene   bool
+		HasApp  bool
 		Env     map[string]string
 	}{
-		Package: pkgName, Kind: c.String(), Scene: c == contractScene,
+		Package: pkgName, Kind: c.String(), Scene: c == contractScene, HasApp: hasApp,
 		Env: map[string]string{
-			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark,
-			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo,
+			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark, "SizeSet": envSizeSet,
+			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo, "Log": envLog,
 		},
 	})
 	if err != nil {
@@ -397,39 +482,55 @@ var (
 	_ = telastrings.Join
 )
 {{end}}
-{{if eq .Kind "Preview" -}}
-// The contract: func Preview() tela.Node.
-var telaPreview func() telatela.Node = Preview
+{{if .HasApp -}}
+// The App of the package: its size, root class, color scheme, theme and
+// class aliases apply to the run, as they do to its window.
+var telaApp telatela.App = App
 
-// telaBuild returns the root to render and the info about the previews.
-func telaBuild(want string) (telatela.Node, string, []string, error) {
-	return telatela.C(telaPreview), "", nil, nil
+{{end -}}
+{{if eq .Kind "Preview" -}}
+// The contract: func Preview() tela.Node or tela.Component. The run
+// mounts what it returns, as is.
+func telaBuild(want string) (telatela.Component, string, []string, error) {
+	var root telatela.Component = Preview()
+	if root == nil {
+		return nil, "", nil, telafmt.Errorf("Preview() returned nil; return the screen, such as tela.C(Screen) or a struct component")
+	}
+	return root, "", nil, nil
 }
 {{else if eq .Kind "Previews" -}}
-// The contract: var Previews = tela.Previews{...}, a map[string]func() tela.Node.
-var telaPreviews map[string]func() telatela.Node = Previews
+// The contract: var Previews = tela.Previews{...}.
+var telaPreviews telatela.Previews = Previews
 
-func telaBuild(want string) (telatela.Node, string, []string, error) {
+func telaBuild(want string) (telatela.Component, string, []string, error) {
 	names := make([]string, 0, len(telaPreviews))
 	for name := range telaPreviews {
 		names = append(names, name)
 	}
 	telasort.Strings(names)
 	if len(names) == 0 {
-		return telatela.Node{}, "", nil, telafmt.Errorf("Previews is empty; add at least one screen: tela.Previews{\"Name\": func() tela.Node { ... }}")
+		return nil, "", nil, telafmt.Errorf("Previews is empty; add at least one screen: tela.Previews{\"Name\": {Root: tela.C(Screen)}}")
 	}
 	name := want
 	if name == "" {
 		name = names[0]
 	}
-	fn, ok := telaPreviews[name]
+	p, ok := telaPreviews[name]
 	if !ok {
-		return telatela.Node{}, "", names, telafmt.Errorf("unknown preview %q; the package defines: %s", name, telastrings.Join(names, ", "))
+		return nil, "", names, telafmt.Errorf("unknown preview %q; the package defines: %s", name, telastrings.Join(names, ", "))
 	}
-	if fn == nil {
-		return telatela.Node{}, "", names, telafmt.Errorf("preview %q is nil; give it a func() tela.Node", name)
+	if p.Root == nil {
+		return nil, "", names, telafmt.Errorf("preview %q has no Root; give it one: {Root: tela.C(Screen)} or a struct component such as {Root: Screen{}}", name)
 	}
-	return telatela.C(fn), name, names, nil
+	return p, name, names, nil
+}
+{{else if eq .Kind "App" -}}
+// The contract: var App = tela.App{Root: ...}; its Root is the screen.
+func telaBuild(want string) (telatela.Component, string, []string, error) {
+	if telaApp.Root == nil {
+		return nil, "", nil, telafmt.Errorf("App has no Root; set it to the root component, such as tela.App{Root: Screen}, or define func Preview() tela.Node")
+	}
+	return telatela.C(telaApp.Root), "", nil, nil
 }
 {{else -}}
 // The phase-1 contract: func Scene(w, h float32) *gfx.DisplayList.
@@ -438,6 +539,13 @@ var telaScene func(w, h float32) *telagfx.DisplayList = Scene
 
 func TestTelaRun(t *telatesting.T) {
 	getenv := func(name string) string { return telaos.Getenv(name) }
+	// What the run prints on standard error (dev warnings, class errors)
+	// goes to a file that tela prints, since a passing go test hides it.
+	if f, err := telaos.Create(getenv({{printf "%q" .Env.Log}})); err == nil {
+		stderr := telaos.Stderr
+		telaos.Stderr = f
+		defer func() { telaos.Stderr = stderr; f.Close() }()
+	}
 	num := func(name string) float64 {
 		v, err := telastrconv.ParseFloat(getenv(name), 64)
 		if err != nil {
@@ -490,6 +598,16 @@ func TestTelaRun(t *telatesting.T) {
 	if dark {
 		opts = append(opts, telatest.Dark())
 	}
+{{- if .HasApp}}
+	// The App's settings; an explicit --size beats its Width and Height.
+	opts = append(opts, telatest.FromApp(telaApp))
+	if getenv({{printf "%q" .Env.SizeSet}}) == "true" {
+		opts = append(opts, telatest.Size(float32(w), float32(h)))
+	}
+	if dark && telaApp.ColorScheme == telatela.Light {
+		telafmt.Fprintln(telaos.Stderr, "tela: warning: --dark has no effect: App.ColorScheme is tela.Light, which overrides the system's preference")
+	}
+{{- end}}
 
 	switch getenv({{printf "%q" .Env.Mode}}) {
 	case {{printf "%q" "snapshot"}}:

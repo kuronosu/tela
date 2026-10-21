@@ -12,15 +12,15 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountFunc`](#func-mountfunc) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`FromApp`](#func-fromapp) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay)
   - [`type DragOption`](#type-dragoption): [`Steps`](#func-steps)
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
-  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`InstantScroll`](#func-instantscroll) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout)
+  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FromApp`](#func-fromapp) · [`InstantScroll`](#func-instantscroll) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout)
   - [`type State`](#type-state): [`Checked`](#func-checked) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasValue`](#func-hasvalue) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
@@ -52,7 +52,7 @@ Before acting, an action waits until the element is visible, enabled, in view an
 
 The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`](#func-app-expectnotext), [`App.ExpectRole`](#func-app-expectrole), [`App.ExpectCount`](#func-app-expectcount), [`App.ExpectFocused`](#func-app-expectfocused), [`App.ExpectValue`](#func-app-expectvalue), [`App.ExpectAria`](#func-app-expectaria) and [`App.Expect`](#func-app-expect)) retry until they hold or the [`Timeout`](#func-timeout) expires, letting a frame of app time and a moment of real time pass between tries, so state set by a goroutine arrives. [`App.Expect`](#func-app-expect) checks the states of an element ([`Checked`](#func-checked), [`Disabled`](#func-disabled), [`Expanded`](#func-expanded), [`Selected`](#func-selected), [`Pressed`](#func-pressed), [`Focused`](#func-focused), [`HasName`](#func-hasname), [`HasValue`](#func-hasvalue)) without matching strings of the aria snapshot.
 
-[`App.ClickAt`](#func-app-clickat) and [`App.DragFromTo`](#func-app-dragfromto) act at window coordinates, for what a locator cannot name; [`App.Bounds`](#func-app-bounds) returns an element's box as a tela.Rect. [`App.PixelAt`](#func-app-pixelat) reads the frame, [`App.Measure`](#func-app-measure) returns the work the tree did during some actions, and [`MountFunc`](#func-mountfunc) is Mount for one component.
+[`App.ClickAt`](#func-app-clickat) and [`App.DragFromTo`](#func-app-dragfromto) act at window coordinates, for what a locator cannot name; [`App.Bounds`](#func-app-bounds) returns an element's box as a tela.Rect. [`App.PixelAt`](#func-app-pixelat) reads the frame, [`App.Measure`](#func-app-measure) returns the work the tree did during some actions, and [`MountFunc`](#func-mountfunc) is Mount for one component. [`MountApp`](#func-mountapp) mounts a tela.App's Root in the app's own window (its size, root class, color scheme, theme and class aliases), the App that tela.Main runs and `tela snapshot` reads from the package; [`FromApp`](#func-fromapp) gives those settings to Mount, Render and the other entry points.
 
 ### The clock
 
@@ -178,6 +178,46 @@ fmt.Println(app.AriaSnapshot())
 // Output:
 // - 'heading "Count: 1" [level=1]'
 // - button "Increment"
+```
+
+#### func MountApp
+
+```go
+func MountApp(tb testing.TB, app tela.App, opts ...Option) *App
+```
+
+MountApp shows app.Root in a headless window configured like the app, the way [`tela.Main`](API-Reference-tela#func-main) shows it in a real one, and returns the running app. The size, root class, color scheme, theme, class aliases, scrollbar and scroll settings and Dev of the app apply (see [`FromApp`](#func-fromapp)); the options override them. It fails the test when app.Root is nil.
+
+```go
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes}
+
+func main() { tela.Main(App) }
+
+func TestNotes(t *testing.T) {
+    app := telatest.MountApp(t, App) // the same window as main's
+    app.ExpectText("Notes")
+}
+```
+
+`tela snapshot` and `tela inspect` read the same package-level `var App`. See [`Mount`](#func-mount) for what the app does and when it ends.
+
+**Example**
+
+```go
+// The App that main passes to tela.Main, and that `tela snapshot` reads
+// from the package.
+app := telatest.MountApp(t, tela.App{
+    Title:     "Counter",
+    Width:     480,
+    Height:    320,
+    RootClass: "bg-slate-100",
+    Root:      Counter,
+})
+
+app.Click(telatest.ByRole("button", "Increment"))
+app.ExpectText("Count: 1")
+fmt.Println(app.Screenshot().Bounds().Size()) // the App's window
+// Output: (480,320)
 ```
 
 #### func MountFunc
@@ -1061,6 +1101,34 @@ func Dev() Option
 ```
 
 Dev turns dev mode on. It is the default since dev mode became the default (see [`NoDev`](#func-nodev)), so Dev changes nothing; it is kept for the tests written before, and undoes a [`NoDev`](#func-nodev) given earlier in the options.
+
+#### func FromApp
+
+```go
+func FromApp(app tela.App) Option
+```
+
+FromApp applies the settings of a [`tela.App`](API-Reference-tela#type-app) that shape what is drawn, so a test, `tela snapshot` and the window see the same app: the size when both Width and Height are set, RootClass, ColorScheme, Theme, ClassAliases, ClassicScrollbars, InstantScroll and Dev. It sets only what the app sets, so it never undoes an earlier option, and the options after it override it:
+
+```go
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes}
+
+app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
+app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
+```
+
+Title, AppID and Root say nothing about how the app looks, so FromApp ignores them; [`MountApp`](#func-mountapp) also mounts Root. The scale is not an App setting (it comes from the display): use [`Scale`](#func-scale).
+
+**Example**
+
+```go
+appSettings := tela.App{Width: 400, Height: 300, RootClass: "bg-slate-100"}
+// Mount a struct component (or a tela.Preview) in the app's window.
+app := telatest.Mount(t, tela.C(Counter), telatest.FromApp(appSettings), telatest.Scale(2))
+
+fmt.Println(app.Screenshot().Bounds().Size())
+// Output: (800,600)
+```
 
 #### func InstantScroll
 

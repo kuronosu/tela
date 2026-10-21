@@ -226,12 +226,15 @@
 //
 // # Snapshots and inspection
 //
-// A package that defines `func Preview() tela.Node`, or a [Previews]
-// variable, can be rendered headlessly with `tela snapshot`, and `tela
-// inspect` prints its semantics tree as a Playwright aria snapshot (roles,
-// names and states set by the h.Role and h.Aria... props or implied by the
-// elements) or, with --layout, its layout tree. See the documentation of
-// cmd/tela.
+// A package that defines `func Preview() tela.Node` (or tela.Component),
+// or a [Previews] variable of [Preview] values, can be rendered headlessly
+// with `tela snapshot`, and `tela inspect` prints its semantics tree as a
+// Playwright aria snapshot (roles, names and states set by the h.Role and
+// h.Aria... props or implied by the elements) or, with --layout, its layout
+// tree. A package-level `var App = tela.App{...}` gives both the window's
+// size, root class, color scheme, theme and class aliases, so the image
+// matches the window; telatest.MountApp mounts the same App in a test. See
+// the documentation of cmd/tela.
 //
 // # Stability
 //

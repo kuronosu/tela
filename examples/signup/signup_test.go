@@ -42,7 +42,7 @@ func TestGolden(t *testing.T) {
 	for _, name := range Previews.Names() {
 		for _, scale := range []float64{1, 2} {
 			t.Run(fmt.Sprintf("%s/x%g", name, scale), func(t *testing.T) {
-				a := telatest.Mount(t, tela.C(Previews[name]), telatest.Size(windowW, windowH), telatest.Scale(scale), telatest.Dev())
+				a := telatest.Mount(t, Previews[name], telatest.Size(windowW, windowH), telatest.Scale(scale), telatest.Dev())
 				a.Golden(fmt.Sprintf("signup_%s_x%g.png", strings.ReplaceAll(strings.ToLower(name[2:]), " ", "_"), scale))
 			})
 		}
@@ -50,7 +50,7 @@ func TestGolden(t *testing.T) {
 }
 
 func TestGoldenDark(t *testing.T) {
-	a := telatest.Mount(t, tela.C(Previews["3 Invalid"]), telatest.Size(windowW, windowH), telatest.Dark(), telatest.Dev())
+	a := telatest.Mount(t, Previews["3 Invalid"], telatest.Size(windowW, windowH), telatest.Dark(), telatest.Dev())
 	a.Golden("signup_invalid_dark_x1.png")
 }
 

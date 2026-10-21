@@ -7,8 +7,12 @@
 //	tela version
 //
 // Both render a package headlessly: the package defines func Preview()
-// tela.Node, or a Previews variable (a tela.Previews map of named screens);
-// --preview NAME chooses one of them. snapshot writes a PNG; inspect prints
+// tela.Node (or tela.Component), or a Previews variable (a tela.Previews
+// map of named tela.Preview screens, each with a Root and an optional Wrap);
+// --preview NAME chooses one of them. A package-level App (a tela.App) sets
+// the size, root class, color scheme, theme and class aliases of the render,
+// so the image matches the window; alone, its Root is the screen. The dev
+// warnings of the screen go to standard error. snapshot writes a PNG; inspect prints
 // the aria snapshot as YAML (--aria, the default) or the layout tree as
 // JSON (--layout). The phase-1
 // contract func Scene(w, h float32) *gfx.DisplayList still works for

@@ -167,8 +167,8 @@ func TestInspectDispatch(t *testing.T) {
 }
 
 func TestGenerateSource(t *testing.T) {
-	for _, c := range []contract{contractPreview, contractPreviews, contractScene} {
-		src := generateSource("main", c)
+	for _, c := range []contract{contractPreview, contractPreviews, contractApp, contractScene} {
+		src := generateSource("main", c, c == contractApp)
 		f, err := parser.ParseFile(token.NewFileSet(), generatedFile, src, parser.AllErrors)
 		if err != nil {
 			t.Fatalf("%v: generated source does not parse: %v\n%s", c, err, src)
@@ -179,7 +179,7 @@ func TestGenerateSource(t *testing.T) {
 		if c != contractScene && !strings.Contains(string(src), `"TELA_RUN_MODE"`) {
 			t.Errorf("%v: generated source does not read the mode", c)
 		}
-		for _, want := range []string{"func TestTelaRun(", `"TELA_RUN_W"`, `"TELA_RUN_OUT"`, `"TELA_RUN_ERR"`, "= " + c.String()} {
+		for _, want := range []string{"func TestTelaRun(", `"TELA_RUN_W"`, `"TELA_RUN_OUT"`, `"TELA_RUN_ERR"`, `"TELA_RUN_LOG"`, c.String()} {
 			if !strings.Contains(string(src), want) {
 				t.Errorf("%v: generated source lacks %q", c, want)
 			}
@@ -200,8 +200,22 @@ func TestGenerateSource(t *testing.T) {
 			}
 		}
 	}
-	if other := generateSource("widgets", contractPreview); !strings.Contains(string(other), "package widgets\n") {
+	if other := generateSource("widgets", contractPreview, false); !strings.Contains(string(other), "package widgets\n") {
 		t.Errorf("package name not substituted:\n%s", other)
+	}
+	// An App next to Preview or Previews applies to the run; without one
+	// the generated file does not mention it.
+	for _, c := range []contract{contractPreview, contractPreviews} {
+		with, without := string(generateSource("main", c, true)), string(generateSource("main", c, false))
+		if !strings.Contains(with, "telatest.FromApp(telaApp)") || !strings.Contains(with, "= App") {
+			t.Errorf("%v with an App: the generated source does not apply it:\n%s", c, with)
+		}
+		if strings.Contains(without, "FromApp") || strings.Contains(without, "telaApp") {
+			t.Errorf("%v without an App: the generated source mentions it:\n%s", c, without)
+		}
+		if _, err := parser.ParseFile(token.NewFileSet(), generatedFile, with, parser.AllErrors); err != nil {
+			t.Errorf("%v with an App: does not parse: %v", c, err)
+		}
 	}
 }
 
@@ -225,6 +239,13 @@ func TestDetectContract(t *testing.T) {
 		{"previews wins", map[string]string{"a.go": "package a\nfunc Preview() {}\nfunc Scene() {}\n", "b.go": "package a\nvar Previews = 1\n"}, contractPreviews},
 		{"preview wins over scene", map[string]string{"a.go": "package a\nfunc Preview() {}\nfunc Scene() {}\n"}, contractPreview},
 		{"methods do not count", map[string]string{"a.go": "package a\ntype T int\nfunc (T) Preview() {}\n"}, contractNone},
+		{"app", map[string]string{"a.go": "package a\nvar App = tela.App{}\n"}, contractApp},
+		{"typed app", map[string]string{"a.go": "package a\nvar App tela.App\n"}, contractApp},
+		{"app from a call", map[string]string{"a.go": "package a\nvar App = newApp()\n"}, contractApp},
+		{"app of another type", map[string]string{"a.go": "package a\nvar App = other.Thing{}\nvar App2 = 1\n"}, contractNone},
+		{"app is not a literal", map[string]string{"a.go": "package a\nvar App = 3\n"}, contractNone},
+		{"preview wins over app", map[string]string{"a.go": "package a\nfunc Preview() {}\nvar App = tela.App{}\n"}, contractPreview},
+		{"scene wins over app", map[string]string{"a.go": "package a\nfunc Scene() {}\nvar App = tela.App{}\n"}, contractScene},
 	} {
 		var files []string
 		for name, src := range tc.files {
@@ -254,6 +275,9 @@ func TestCheckContract(t *testing.T) {
 		want string // "" means no error
 	}{
 		{modeSnapshot, contractNone, "", "func Preview() tela.Node"},
+		{modeSnapshot, contractApp, "", ""},
+		{modeAria, contractApp, "", ""},
+		{modeSnapshot, contractApp, "A", "defines App"},
 		{modeSnapshot, contractPreview, "", ""},
 		{modeSnapshot, contractPreviews, "A", ""},
 		{modeSnapshot, contractScene, "", ""},
@@ -282,6 +306,19 @@ func TestExplainFailure(t *testing.T) {
 	previews := "./" + generatedFile + ":19:92: cannot use Previews (variable of type int) as map[string]func() core.Node value"
 	if err := explainFailure("./x", "x", contractPreviews, previews); !strings.Contains(err.Error(), "tela.Previews") {
 		t.Errorf("friendly message missing for mistyped Previews: %v", err)
+	}
+	app := "./" + generatedFile + ":19:92: cannot use App (variable of type int) as telatela.App value in variable declaration"
+	if err := explainFailure("./x", "x", contractPreview, app); !strings.Contains(err.Error(), "var App = tela.App{...}") {
+		t.Errorf("friendly message missing for mistyped App: %v", err)
+	}
+	old := "x.go:9:13: cannot use LoginScreen (value of type func() tela.Node) as tela.Preview value in map literal"
+	if err := explainFailure("./x", "x", contractPreviews, old); !strings.Contains(err.Error(), `{Root: tela.C(LoginScreen)}`) {
+		t.Errorf("migration hint missing for the old Previews form: %v", err)
+	}
+	// A runtime panic that names the generated file is not a type error.
+	panicked := "panic: boom\n\n" + generatedFile + ":88 +0x1\nx.Preview()"
+	if err := explainFailure("./x", "x", contractPreview, panicked); strings.Contains(err.Error(), "wrong type") {
+		t.Errorf("a panic was taken for a type error: %v", err)
 	}
 	other := "x.go:3:1: syntax error"
 	if err := explainFailure("./x", "x", contractPreview, other); strings.Contains(err.Error(), "wrong type") || !strings.Contains(err.Error(), "syntax error") {

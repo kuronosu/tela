@@ -46,6 +46,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Point`](#type-point)
   - [`type PointerEvent`](#type-pointerevent): [`DefaultPrevented`](#func-pointerevent-defaultprevented) · [`PreventDefault`](#func-pointerevent-preventdefault) · [`StopPropagation`](#func-pointerevent-stoppropagation)
   - [`type PointerKind`](#type-pointerkind): [`String`](#func-pointerkind-string)
+  - [`type Preview`](#type-preview): [`Build`](#func-preview-build)
   - [`type Previews`](#type-previews): [`Names`](#func-previews-names)
   - [`type Prop`](#type-prop): [`Build`](#func-prop-build)
   - [`type Rect`](#type-rect): [`Bottom`](#func-rect-bottom) · [`Contains`](#func-rect-contains) · [`Right`](#func-rect-right)
@@ -205,7 +206,7 @@ h.Input and h.Textarea are editable text fields with the editing, selection, cli
 
 ### Snapshots and inspection
 
-A package that defines `func Preview() tela.Node`, or a [`Previews`](#type-previews) variable, can be rendered headlessly with `tela snapshot`, and `tela inspect` prints its semantics tree as a Playwright aria snapshot (roles, names and states set by the h.Role and h.Aria... props or implied by the elements) or, with --layout, its layout tree. See the documentation of cmd/tela.
+A package that defines `func Preview() tela.Node` (or tela.Component), or a [`Previews`](#type-previews) variable of [`Preview`](#type-preview) values, can be rendered headlessly with `tela snapshot`, and `tela inspect` prints its semantics tree as a Playwright aria snapshot (roles, names and states set by the h.Role and h.Aria... props or implied by the elements) or, with --layout, its layout tree. A package-level `var App = tela.App{...}` gives both the window's size, root class, color scheme, theme and class aliases, so the image matches the window; telatest.MountApp mounts the same App in a test. See the documentation of cmd/tela.
 
 ### Stability
 
@@ -3199,22 +3200,88 @@ func (k PointerKind) String() string
 
 String returns "mouse", "touch" or "pen".
 
+### type Preview
+
+```go
+type Preview struct {
+    // Root is the screen. It must not be nil.
+    Root Component
+    // Wrap, when not nil, receives the node of Root and returns what is
+    // mounted instead, normally Root inside the Provider of every context
+    // it reads. It runs each time the preview builds and may not use
+    // hooks: put state in a component.
+    Wrap func(Node) Node
+}
+```
+
+Preview is one screen of a package for `tela snapshot`, `tela inspect` and [`Previews`](#type-previews): the component to show, and optionally a wrapper that supplies what the screen reads from context.
+
+Root is a [`Component`](#type-component): a node such as tela.C(Settings), or a struct component value. The local state of a preview is seeded through the fields of a struct component, with no global:
+
+```go
+type Main struct{ InitialTab string }
+
+func (m Main) Build() tela.Node {
+    tab, setTab := tela.UseState(m.InitialTab)
+    ...
+}
+
+var Previews = tela.Previews{
+    "open": {Root: Main{InitialTab: "open"}},
+}
+```
+
+State that comes from a context is seeded with Wrap, which receives the root as a node and returns it inside the providers the screen needs:
+
+```go
+var Previews = tela.Previews{
+    "mocked": {
+        Root: Main{},
+        Wrap: func(n tela.Node) tela.Node { return AppState.Provider(mockState, n) },
+    },
+}
+```
+
+A Preview is itself a Component that builds Wrap(Root): the CLI mounts exactly that, and a test mounts a preview the way the CLI does with telatest.Mount(t, Previews\["mocked"\]).
+
+**Example**
+
+```go
+// A Preview is a Component: mount it as `tela snapshot` does.
+for _, name := range inboxPreviews.Names() {
+    yaml, _ := telatest.AriaSnapshot(inboxPreviews[name])
+    fmt.Printf("%s: %s\n", name, strings.TrimPrefix(yaml, "- text: "))
+}
+// Output:
+// closed: guest sees the closed tab
+// mocked: Ana sees the open tab
+// open: guest sees the open tab
+```
+
+#### func (Preview) Build
+
+```go
+func (p Preview) Build() Node
+```
+
+Build returns the node the preview mounts: Root, or Wrap(Root) when Wrap is set. It panics when Root is nil.
+
 ### type Previews
 
 ```go
-type Previews map[string]func() Node
+type Previews map[string]Preview
 ```
 
 Previews are the named screens of a package, for `tela snapshot` and `tela inspect` (ARCHITECTURE section 17). Define one as a package-level variable called Previews:
 
 ```go
 var Previews = tela.Previews{
-    "Login":    LoginScreen,
-    "Settings": SettingsScreen,
+    "Login":    {Root: tela.C(LoginScreen)},
+    "Settings": {Root: Settings{InitialTab: "account"}},
 }
 ```
 
-Each function builds a screen as a component, so it may use hooks. The CLI renders the preview selected with --preview NAME; without the flag it renders the first name in byte order (see [`Previews.Names`](#func-previews-names)), so a name such as "1 Login" can pick the default. A package with a single screen can define `func Preview() tela.Node` instead.
+Each Root is a component, so it may use hooks. The CLI renders the preview selected with --preview NAME; without the flag it renders the first name in byte order (see [`Previews.Names`](#func-previews-names)), so a name such as "1 Login" can pick the default. A package with a single screen can define `func Preview() tela.Node` (or tela.Component) instead. See [`Preview`](#type-preview) to start a screen in a given state.
 
 **Example**
 
@@ -3222,7 +3289,10 @@ Each function builds a screen as a component, so it may use hooks. The CLI rende
 login := func() tela.Node { return core.Text("Login") }
 settings := func() tela.Node { return core.Text("Settings") }
 
-previews := tela.Previews{"Settings": settings, "Login": login}
+previews := tela.Previews{
+    "Settings": {Root: tela.C(settings)},
+    "Login":    {Root: tela.C(login)},
+}
 // `tela snapshot` renders the first name unless --preview says otherwise.
 fmt.Println(previews.Names())
 // Output: [Login Settings]

@@ -52,7 +52,9 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-func Preview() tela.Node {
+func Preview() tela.Node { return tela.C(screen) }
+
+func screen() tela.Node {
 	count, _ := tela.UseState(7)
 	return Div(Class("flex min-h-screen flex-col gap-2 bg-slate-100 p-4 dark:bg-slate-900"),
 		H1(Class("text-2xl font-bold"), Textf("Outside %d", count)),
@@ -68,8 +70,26 @@ import (
 )
 
 var Previews = tela.Previews{
-	"One": func() tela.Node { return Div(Class("size-full bg-rose-500"), H2(Text("First"))) },
-	"Two": func() tela.Node { return Div(Class("size-full bg-emerald-500"), H2(Text("Second"))) },
+	"One": {Root: tela.C(func() tela.Node { return Div(Class("size-full bg-rose-500"), H2(Text("First"))) })},
+	"Two": {Root: Two{}},
+}
+
+type Two struct{}
+
+func (Two) Build() tela.Node {
+	return Div(Class("size-full bg-emerald-500"), H2(Text("Second")))
+}
+`,
+		"shell/shell.go": `package shell
+
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+)
+
+var App = tela.App{
+	Width: 90, Height: 60, RootClass: "bg-violet-500", ColorScheme: tela.Dark,
+	Root: func() tela.Node { return Div(Class("size-6 bg-white dark:bg-black")) },
 }
 `,
 	}
@@ -137,6 +157,20 @@ func TestOutsideModule(t *testing.T) {
 		}
 		if err := json.Unmarshal(out.Bytes(), &tree); err != nil || tree.Kind != "root" || len(tree.Children) == 0 || !strings.Contains(out.String(), "Outside 7") {
 			t.Errorf("inspect --layout did not print the layout tree (%v):\n%.300s", err, out.String())
+		}
+	})
+
+	t.Run("app", func(t *testing.T) {
+		// App alone: its size, root class and scheme, and its Root as the screen.
+		img, _, _ := snap(t, "./shell")
+		if b := img.Bounds(); b.Dx() != 90 || b.Dy() != 60 {
+			t.Errorf("image is %v, want the App's 90x60", b)
+		}
+		if got := pixel(img, 80, 50); got != [3]uint8{0x8e, 0x51, 0xff} {
+			t.Errorf("background %v, want violet-500", got)
+		}
+		if got := pixel(img, 5, 5); got != [3]uint8{0, 0, 0} {
+			t.Errorf("box %v, want black (App.ColorScheme is Dark)", got)
 		}
 	})
 

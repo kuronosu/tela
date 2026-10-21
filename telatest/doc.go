@@ -61,6 +61,10 @@
 // locator cannot name; [App.Bounds] returns an element's box as a tela.Rect.
 // [App.PixelAt] reads the frame, [App.Measure] returns the work the tree
 // did during some actions, and [MountFunc] is Mount for one component.
+// [MountApp] mounts a tela.App's Root in the app's own window (its size,
+// root class, color scheme, theme and class aliases), the App that
+// tela.Main runs and `tela snapshot` reads from the package; [FromApp]
+// gives those settings to Mount, Render and the other entry points.
 //
 // # The clock
 //

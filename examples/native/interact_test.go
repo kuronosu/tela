@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -246,6 +245,6 @@ func TestPreviews(t *testing.T) {
 		t.Fatalf("%d previews, want 6", len(Previews))
 	}
 	for _, name := range Previews.Names() {
-		telatest.Mount(t, tela.C(Previews[name]), telatest.Size(windowW, windowH), telatest.Dev())
+		telatest.Mount(t, Previews[name], telatest.Size(windowW, windowH), telatest.Dev())
 	}
 }

@@ -17,7 +17,10 @@ func ExamplePreviews() {
 	login := func() tela.Node { return core.Text("Login") }
 	settings := func() tela.Node { return core.Text("Settings") }
 
-	previews := tela.Previews{"Settings": settings, "Login": login}
+	previews := tela.Previews{
+		"Settings": {Root: tela.C(settings)},
+		"Login":    {Root: tela.C(login)},
+	}
 	// `tela snapshot` renders the first name unless --preview says otherwise.
 	fmt.Println(previews.Names())
 	// Output: [Login Settings]

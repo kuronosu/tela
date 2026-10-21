@@ -273,6 +273,27 @@ func Thumbnail() (*image.RGBA, error) {
 }
 ```
 
+## Testing the app as it runs
+
+[`telatest.MountApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountApp)(t, App) mounts `App.Root` in a window configured like
+the app: its size, `RootClass`, `ColorScheme`, `Theme`, `ClassAliases`,
+scrollbar and scroll settings and `Dev`. It is the same `App` that
+`tela.Main(App)` runs and that `tela snapshot` reads from the package, so the
+test, the PNG and the window agree; options after it override the app:
+
+```go
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes}
+
+func TestNotes(t *testing.T) {
+	app := telatest.MountApp(t, App)
+	app.ExpectText("Notes")
+}
+```
+
+[`telatest.FromApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#FromApp)(App) is the same as an option, for a test that mounts
+something else (a struct component, a [`tela.Preview`](https://pkg.go.dev/github.com/kuronosu/tela#Preview)) in the app's window:
+`telatest.Mount(t, Previews["mocked"], telatest.FromApp(App))`.
+
 ## Testing a package of screens
 
 Write one test per behavior, and use `telatest.Dev()` so mistakes the
