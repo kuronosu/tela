@@ -6,11 +6,11 @@
 
 ## Current status
 
-- **Phase in progress:** none; next is phase 7 (aria, kit, tooling, LLM docs), whose plan needs approval. Phase 6 is tagged `v0.6.0` (d8cd278, pushed with main on the owner's request); phase 5 `v0.5.0` (8a4bf5d) with `v0.5.1`/`v0.5.2`; phase 4 `v0.4.0` (9243106).
+- **Phase in progress:** none; next is phase 7 (public API polish), whose plan needs approval. Phase 6 is tagged `v0.6.0` (d8cd278, pushed with main on the owner's request); phase 5 `v0.5.0` (8a4bf5d) with `v0.5.1`/`v0.5.2`; phase 4 `v0.4.0` (9243106).
 - **Phase 6 done** (2026-10-19): `examples/dashboard` (glassmorphism over an image backdrop, transitions, layout animations, springs, Presence dialog and toast) runs at 60 fps at 1080p on CPU: a headless 1920×1080 x1 scripted session of 644 frames has p95 14.6 ms on 4 CPUs (13.8 ms on 18); live at 1920×1080 physical the `fps` overlay reads 12.3–14.4 ms per frame on Wayland while scrolling (16.1–19.8 ms on X11). Wayland fractional scaling verified live at 1.5 (windows pixel-identical to `tela snapshot --scale 1.5`, scrolled frames identical to full redraws). arm64 (qemu) and the race detector pass. A `/code-review high` of the phase found 7 issues (worst: a child's own color transition snapped under an inherited change; evicted `BgImage` entries stayed reachable); all fixed with regression tests, plus T10's finding that opacity did not fade backdrop filters (ADR-084, now within 0.4 mean levels of Chromium).
 - **Phase 6 delivered:** CSS grid ported from Taffy (553/553 grid fixtures match Chromium; ADR-073); raster blend modes, mask layers and focal gradients, exact COLR emoji (ADR-074); Wayland fractional scaling (ADR-075); `internal/anim`, CSS transitions, `animate-*`, reduced motion (ADR-076); `fixed`/`sticky`, `h.Portal`, color-scheme API (ADR-077); fast downsampled blur and parallel damage-aware backdrop filters, `drop-shadow` σ = radius (ADR-078); `mix-blend-mode`, `[clip-path:…]`, background images via `tela.Assets`/`tela.BgImage`, `bg-clip-text` (ADR-079); `UseSpring`/`UseTween`/`Animate`, `starting:`, `Presence`/`Exit`/`UsePresence`, `telatest.NoSettle` (ADR-080); `AnimateLayout`/`LayoutID` (ADR-081); `OnDone`, `Velocity`, `BgFn`, `TextColorFn` (ADR-082); backdrop faded by opacity (ADR-084); `examples/motion`, `examples/layout`, the new `examples/dashboard`.
 - **Phase 6 known limitations:** scale 2 does not reach 60 fps while scrolling glass pages (p95 36–48 ms at 2880×1800 and 4K): backdrop blur inside a layer disables banded raster, scrolling over images/backdrops cannot pixel-shift, `drawShadow` does interior work, parallel efficiency is ~2× on 4 workers; no Windows run this phase (VM off); `wtype` keys did not reach an Xwayland window (wheel did; unverified whether Tela or wtype); 3D transforms are out of scope; `grid-template-areas` is unreachable from classes; layout animations: no crossfade on `LayoutID` handoff, inline elements not animated, breakpoints animate on every resize configure; `starting:` ignores an ancestor's `display: none` ending; exits wait only for transitions (not keyframes); a box's own `filter`/`mix-blend-mode` do not apply to its backdrop; repeated image tiles are drawn per tile (seams differ from Chromium by ~1 level at x2); color-glyph alpha only on cached sprites; `Img` still takes only `image.Image` (no files, SVG or tint).
-- **API gaps found by the phase-6 examples** (to triage when planning phase 7): `UseBounds` changes with scrolling (no scroll-independent size); no `max-*:` variants; `telatest` queries settle under `NoSettle`; no SVG/icons; window control and tray (from an external port's notes); tooltips (phase 7's `aria`/`kit`); component API proposals in `API_PROPOSALS.md` (owner to decide before phase 7).
+- **API gaps found by the phase-6 examples** (scheduled: phase 7 and 8 below): `UseBounds` changes with scrolling (no scroll-independent size); no `max-*:` variants; `telatest` queries settle under `NoSettle`; no SVG/icons (phase 8); window control and tray (phase 11); tooltips (phase 8's `aria`, phase 9's `kit`); component API proposals in `API_PROPOSALS.md` (owner to decide in phase 7, T3).
 - **Phase 4 done** (2026-10-13): the §1 `Counter` is interactive by mouse and keyboard, live on Wayland and X11 and through `telatest`; scrolling at 800×600 logical x2, p95 frame time with raster over 1200 scripted frames is 2.28 ms for a 100,000-row `VirtualList` and 2.58 ms for a 10,000-row plain list (target ≤ 16 ms); live in a 2832×1692 window the `fps` overlay reads 6.5 ms (VirtualList) and 8.5 ms (plain list) per frame. Windows after interactive scrolling are pixel-identical to `tela snapshot` on Wayland and X11; 0 idle CPU; arm64 (qemu) and Wine pass. A `/code-review high` of the phase found 7 issues (worst: X11 `XI_DeviceChanged` decoded at the wrong offsets, with a test that shared the mistake); all fixed with regression tests.
 - **Phase 4 delivered:** a shared platform event loop and `KeyEvent` with W3C names (ADR-050); hooks with comparable handles (`Setter`, `Dispatcher`, `Callback`, `Ref`, `ElementRef`), `deps ...any`, `C`/`CP`/`Memo` skipping, `Post`, dev hook-order checks (ADR-051); `UseValue` with phase-deferred reads (ADR-053); a pure-Go XKB subset checked against libxkbcommon, Wayland keyboard with Compose and client-side repeat (ADR-052); vendored xgb, XInput2 scrolling and the X11 keyboard (ADR-054); DOM pointer events with a Flutter gesture arena and interaction variants (ADR-055); focus, Tab order and keyboard dispatch (ADR-056); scrolling with viewport scrolling, overlay/classic scrollbars, smooth wheel and kinetic touchpad (ADR-057); a semantics tree and Playwright aria snapshots, `tela inspect --aria` by default (ADR-058); `telatest` and a public headless entry point, so the CLI works outside the tela module (ADR-059); `h.VirtualList` (ADR-060); layers as cached display lists with exact damage and pixel shifts (ADR-061); debug overlays (ADR-062); five example screens (`dashboard`, `pricing`, `settings`, `player`, `board`) plus `virtuallist`. The race detector is allowed for verification only (AGENTS.md); `staticcheck` is clean and part of the checks.
 - **Phase 4 known limitations:** classic scrollbar gutters square off rounded corners; positioned descendants can paint over overlay scrollbars; no `sticky`; X11 has no touchpad fling (no gesture-end signal); gradients and images in scrolled content are re-rasterized on scroll (`examples/shapes` stays ~180 ms per frame at x2); a plain 10k-row list peaks at ~840 MB RSS after mounting ~90k elements; hit-testing got ~20% slower with scroll spaces (4.2 µs on 10k); X11 multi-layout AltGr levels are approximate (core mapping, ADR-054); `telatest` cannot isolate `tela.Post` between parallel tests; `Type` produces no text until phase 5's inputs.
@@ -23,10 +23,11 @@
 - **API gaps found by the phase-4 examples** (to triage when planning phase 5): (1) element size/bounds in handlers or hooks (`ElementRef.Bounds()`, a `DragEvent` drop target) — the player's seek bar hard-codes its width; (2) no phase-deferred text (`TextFn`), so a time label needs its own rebuilding component; (3) CSS border triangles (transparent adjacent borders need mitered joins) draw rectangles; (4) negative `space-x-*` has no effect; (5) conditional props are awkward (`If` takes only nodes; no `Prop` alias in `h`); (6) no indexed `Map`; (7) `Value.Get` in a handler returns the last applied value, not the latest set; (8) inspect rects ignore transforms.
 - **Phase 5 done criteria** (2026-10-13): every example runs on real Windows 11 (VM, job runner): 9 of 11 windows are pixel-identical to `tela snapshot` and the other two differ for known reasons (player's live progress, text's system CJK fonts); all example test binaries pass natively with bit-exact goldens. Japanese typed through the IME into a real `Input`: Mozc on Hyprland (にほんご → 日本語, `OnChange` with `IsComposing`) and Microsoft IME on Windows in `examples/signup` (preedit underlined, candidate list under the caret, 日本語 committed). Wine runs of the examples started cleanly before Wine was banned locally.
 - **Phase 5 delivered:** win32 backend (window, DPI, pointer, cursors, keyboard with layouts/AltGr/dead keys, clipboard, settings, IMM32 IME; ADRs 063, 067, 071); Wayland clipboard (ADR-064) and `text-input-v3` IME (ADR-068); `internal/text/edit` (ADR-065); inline decorations and atomic inline-blocks (ADR-066); `Input`, `Textarea`, `Form`, `Label` with the owner's API (ADR-069); the phase-4 API gaps (ADR-070); CI workflows (unverified until pushed); `examples/signup`; the VM job runner (outside the repo).
-- **Phase 5 known limitations:** no local Wine (three hard freezes of this host on 2026-10-13 started seconds after Wine launches, suspected `ntsync` on kernel 7.2; CI keeps its Wine job); `invalid:` without `required`/`pattern`; `number` inputs are hints only; no X11 IME (phase 8); untested: Korean/Chinese IMEs on Windows, IMM32 reconversion, DPI ≠ 1 IME placement; `telatest` cannot register a CJK font, so goldens show CJK only through system fonts in live windows; left Ctrl+Alt is not AltGr on Windows (contract choice); a paragraph with atomic inlines re-breaks lines on every layout request; `UseBounds` readers see changes one frame late.
+- **Phase 5 known limitations:** no local Wine (three hard freezes of this host on 2026-10-13 started seconds after Wine launches, suspected `ntsync` on kernel 7.2; CI keeps its Wine job); `invalid:` without `required`/`pattern`; `number` inputs are hints only; no X11 IME (phase 13); untested: Korean/Chinese IMEs on Windows, IMM32 reconversion, DPI ≠ 1 IME placement; `telatest` cannot register a CJK font, so goldens show CJK only through system fonts in live windows; left Ctrl+Alt is not AltGr on Windows (contract choice); a paragraph with atomic inlines re-breaks lines on every layout request; `UseBounds` readers see changes one frame late.
 - **Phase-5 plan:** T0 VM job runner · T1 win32 base · T2 Wayland clipboard · T3 `internal/text/edit` · T4 inline decorations and atomic inline-blocks · T5 win32 keyboard, clipboard, settings · T6 IME contract + Wayland `text-input-v3` · T7 `Input`/`Textarea`/`Form`/`Label` · T8 IMM32 IME · T9 phase-4 API gaps (all eight) · T10 CI (Wine, `windows-latest`) · T11 forms example and Windows validation. Waves: A (T1–T4), B (T5, T6), C (T7, T9), D (T8, T10, T11).
 - **Phase-6 plan** (approved 2026-10-18; owner's API decisions taken up front, transforms stay 2D, component-API proposals deferred to before phase 7): T1 grid (tela-hard, ADR-073) · T2 raster blend modes, mask layers, focal gradient (ADR-074) · T3 Wayland fractional scaling (ADR-075) · T4 `internal/anim`, CSS transitions, `animate-*`, `motion-reduce` (ADR-076) · T5 fast large-σ blur (ADR-078) · T6 core `mix-blend-mode`, `[clip-path:…]`, background images via `tela.Assets`/`tela.BgImage`, `bg-clip-text` (ADR-079) · T7 `UseSpring`/`UseTween`/`Animate`, `Presence` with `starting:` and `Exit`, `UsePresence` · T8 `fixed`, `sticky`, `h.Portal`, `UseColorScheme`/`SetColorScheme`/`UseReducedMotion` (ADR-077) · T9 `AnimateLayout`, `LayoutID` · T10 dashboard example, 60 fps at 1080p, live and Windows checks. No limit on parallel agents (owner, 2026-10-18).
-- **Next step:** decide `API_PROPOSALS.md` (component API) and plan phase 7. Agents run every heavy command through a memory- and CPU-capped scope (`cool-run`), use their own scratchpad subdirectory and never run Wine.
+- **Roadmap revision (2026-10-20):** a gap analysis against JavaFX, the Microsoft stack, Wails, Tauri and Electron, and a review of `examples/` and an external application for public-API problems, produced the plan below. Phase 7 is new (public API polish, before `aria` and `kit`, with theme tokens inside it); the old phases 7–8 and the desktop-integration, distribution and media phases were split by size (phases 5 and 6 had 10–11 tasks); desktop integration comes before macOS; "Road to v1.0" says when the API freezes. Phases 8 onwards are unplanned; order and scope are confirmed when each phase is planned. `tela add` is deferred. Phase numbers moved: "phase 8" in older text (macOS, X11 IME) is now phase 13.
+- **Next step:** decide the phase-7 T3 options in `API_PROPOSALS.md` (component API, `Key` generics, `Value.Get` in handlers, name collisions, `Preview` convention) and plan phase 7. Agents run every heavy command through a memory- and CPU-capped scope (`cool-run`), use their own scratchpad subdirectory and never run Wine.
 
 ## Phases
 
@@ -129,24 +130,247 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 
 **Done when:** a "dashboard" example with glassmorphism, layout animations and transitions runs at 60 fps at 1080p on CPU rendering.
 
-### Phase 7: aria, kit, tooling, LLM docs
+### Phase 7: Public API polish (`v0.7.0`)
 
-- [ ] `aria`:
-  - `UsePress`, `UseHover`, `UseFocusRing`, `UseFocusScope`, `UseOverlay`, `UseDialog`, `UseTooltip`
-  - Collections: `UseListBox`, `UseMenu`, `UseSelect`, `UseTabs`, `UseCombobox`
+Goal: remove the traps that compile and fail silently, the boilerplate every
+example repeats, and the naming collisions, while the user base is one
+repository and one external application. Evidence: the review of 14 examples and that application.
+Rendering must not change: every golden stays bit-identical.
+
+#### T1 Safety net (additive)
+
+- [ ] `tela.Main(app)`: runs `Run`, prints the error, exits 1 (12 of 13 examples drop `Run`'s error today)
+- [ ] Dev mode: `App.Dev`, on by default when the binary is not a release build (detected with `debug.ReadBuildInfo`; the exact rule is an ADR); `telatest.Mount` defaults to dev with `NoDev()` to opt out. Unknown classes, roles, keys and `Ease` strings then report
+- [ ] `telatest.Mount` given a component call (`Mount(t, Counter())`) says "wrap the root in `tela.C`" instead of the misleading hook panic
+- [ ] `IsZero()` on `Setter` and `Callback`; a dev warning when `UseContext` reads a context with no Provider and a zero-unsafe default (the external app has ~12 `if ctrl != nil` guards; `dashboard` keeps a `Setter` in a context default)
+- [ ] Dev warning for a `Label` that neither wraps nor points at a control, and for keyless or duplicate-key lists
+- [ ] "Mount only" idioms: `UseMount(f)`, `UseOnce(init)`
+- [ ] Effects without cleanup or without the first run: `UseEffectDo(f, deps...)`, `UseUpdateEffect(f, deps...)`; periodic work with `UseInterval(d, f)` or an effect that receives a `context.Context` (the external app builds the goroutine, `done` channel and ticker by hand)
+- [ ] Docs: fix stale or contradictory text (Getting-Started `Preview` form, `shapes` "phase 6" comment, `UseValue(0.0)` in the package doc, the sealed-`Child` error message); document `UseValue` structs as stable custom-hook state, `Fragment` for wrapper children and `If(cond, Class(...))`
+
+#### T2 Ergonomics (additive; existing code keeps compiling)
+
+- [ ] `Class(parts ...string)` joins with one space and skips empty parts (141 concatenation sites; two opposite trailing-space conventions in one package)
+- [ ] Components take props: `CP(fn, props, Key(id))`, `C(fn, Key(id))`, `Memo(..., Key(id))`; `MapKeyed(items, keyFn, render)` (11 `WithKey(CP(...))` sites; the external app wrote four `Memo(…, always-false)` + `WithKey`)
+- [ ] Handlers without the event: `OnClick`, pointer and key handlers accept `func()` or `func(Event)` (about 50 of 61 handlers ignore the event); `Toggle(setter)` (six `Set(!x)` sites lose a click when two land in one frame)
+- [ ] `Bind` accepts `func(string)` so a `Dispatcher` can use it; one shape for `Setter` and `*Value`
+- [ ] `type Easing string` with constants and `CubicBezier(...)`; `UsePresenceTween` for the manual-exit toast (copied verbatim in `motion` and `dashboard`); `Scale`/`Map` helpers for `Value` so `HeightFn(h.Scale(36))` replaces the closure; `UseSpring(target, …)` infers its type
+- [ ] Style packs: `tela.Box(x, y, w, h)`, `tela.Size(w, h)`; a `StyleProp` accepted directly as a child
+- [ ] `h.Nodes([]tela.Node)` to pass a node slice as children
+- [ ] `VirtualList`: `ItemKey` so state follows the item, not the index; `list`/`listitem` roles by default; `ItemHeight(px)` for fixed rows
+- [ ] `telatest`: `Bounds` returns `tela.Rect` (as `ElementRef.Bounds` does), `MountFunc`, `GoldenScales(name, 1, 2)`, `h.TestID` + `ByTestID`, `ClickAt`/`DragFromTo`, `PixelAt`, `Measure(func())` for build/layout deltas, `Checked(true)`-style state asserts instead of string matching on the aria snapshot
+
+#### T3 Source-breaking decisions (owner's choice and an ADR each)
+
+Present as options in `API_PROPOSALS.md` before any agent starts, as with the
+hooks and text-field shapes.
+
+- [ ] `Key[K comparable]` / `WithKey` generic, so a non-comparable key fails at compile time instead of panicking
+- [ ] `Value.Get()` inside handlers and effects returns what `Latest()` returns (three examples work around the stale read; `player` has a latent bug); builds and `…Fn` closures keep the applied value
+- [ ] Reject `nil` as a dependency list (after `UseMount`/`UseOnce` exist)
+- [ ] Name collisions between `h` and `tela` under dot-import: `Key`, `Code`, `Value`, `Ref`, `Id`/`UseId` against Go's `ID`, `telatest.Scale/Dark/ColorScheme`; decide which side renames
+- [ ] Remove `UseStateSet`/`UseStateUpdate` (unused in 29 `UseState` calls) or document why they stay
+- [ ] One `Preview` convention (component call vs `tela.C(...)`); `tela snapshot` reads `var App = tela.App{...}` for size, `RootClass` and `ColorScheme`, so the PNG matches the window
+- [ ] The component API of `API_PROPOSALS.md` (already pending)
+- [ ] A `Deprecated:` period of one phase for anything removed, then removal in phase 8
+
+#### T4 Theme tokens (design decision, ADR)
+
+Prerequisite of `kit`. Today a theme is a struct of class strings
+(a `palette` struct in the external app), reflection over `Look` structs (`examples/native`)
+or doubled `dark:` pairs (`settings`, `pricing`, `virtuallist`).
+
+- [ ] `App.Theme`: semantic color, radius and font tokens with light and dark values, usable as classes (`bg-surface`, `text-fg`, `bg-primary`), following the color scheme without `dark:` pairs
+- [ ] `App.ClassAliases` so `text-muted` can expand to a class set
+- [ ] A scoped scheme for a subtree (`Scheme(tela.Dark)`), so a dark panel can sit in a light app
+- [ ] `UseTheme()` to read tokens in Go (hex values for tinting icons and canvases)
+
+#### T5 Previews and seeded state
+
+- [ ] Start a preview in a given state without a global: the external app has `var previewOpen string` and a second provider, `MockAppStateProvider`, that copies the real one
+- [ ] `tela snapshot` and `telatest.MountApp` read the same `App` as `Main`
+- [ ] Shape decided with the owner (options: `Previews` entries with initial state and a wrapper, or a `tela.Seed` context)
+
+#### T6 Migration and validation
+
+- [ ] Migrate all 14 examples; their goldens stay bit-identical
+- [ ] Migrate the external app and delete what the API now covers: `box`/`cname`/`onClick`, the `ctrl != nil` guards, the `Memo`+`WithKey` wrappers, `previewOpen`, `MockAppStateProvider`, the polling goroutine
+- [ ] CHANGELOG "Migration" section with before/after for every breaking change
+
+#### T7 i18n / l10n (pure Go, independent of the rest)
+
+- [ ] Message catalogs, plurals, locale-aware date/number/list formatting, runtime locale switching, `rtl:` layout mirroring (replaces a hand-written i18n package in the external app)
+
+**Done when:**
+1. All examples and the external app build and pass with the new API, goldens unchanged.
+2. No example drops `Run`'s error, concatenates class strings, wraps `CP` in `WithKey` or uses an event-ignoring handler.
+3. A typo in a class, role, key or `Ease` is reported in a default `go run` of a development build and in every `telatest` test.
+4. The external app is smaller by the helpers listed in T6 and its previews need no global.
+5. Every removed symbol has a `Deprecated:` release behind it, and the CHANGELOG says how to migrate (no automatic rewriter; the owner chose release notes).
+6. A translated example switches locale at runtime, formats plurals, dates and numbers per locale, and mirrors its layout under `rtl:`.
+
+---
+
+### Phase 8: Icons, SVG, `aria` (`v0.8.0`)
+
+Built on the polished API and the theme tokens. Foundation for `kit`.
+
+- [ ] SVG rendering: paths, gradients, `currentColor`, transforms, `viewBox`; parsing and rasterizing on the existing `DisplayList` (conformance checked against Chromium like the other renderers)
+- [ ] `Icon` component with a bundled icon set (licenses in `THIRD_PARTY.md`)
+- [ ] `Img` from files, `embed.FS`, bytes and SVG, with **tint** (replaces the external app's `icons.go`: mask decoding, tint cache, hex parser)
+- [ ] `aria` behavior hooks: `UsePress`, `UseHover`, `UseFocusRing`, `UseFocusScope`, `UseOverlay`, `UseDialog`, `UseTooltip`
+- [ ] `aria` collections: `UseListBox`, `UseMenu`, `UseSelect`, `UseTabs`, `UseCombobox`
 - [ ] `aria.UseFloating` (Floating UI port: offset, flip, shift, size, arrow)
-- [ ] `kit` (shadcn-style look): Button, Input, Checkbox, Switch, Select, Dialog, Popover, Tooltip, Tabs, Table, Toast, Card, Badge, Avatar
-- [ ] CLI commands: `tela add`, `tela lint`, `tela dev`, `tela mcp`
-- [ ] `docs/llms.txt` and `examples/` with full screens (dashboard, login, settings, chat)
+- [ ] Phase-6 API gaps still open: scroll-independent `UseBounds`, `max-*:` variants, `telatest` queries under `NoSettle`
+
+**Done when:** an SVG icon set renders within a few levels of Chromium at scales 1 and 2, the external app drops its `icons.go`, and a dialog, a menu and a combobox built only from `aria` hooks pass keyboard and aria-snapshot tests.
+
+### Phase 9: `kit` (`v0.9.0`)
+
+Shipped as a package of the core module. `tela add` is deferred (see "Deferred"),
+so each component is written as one self-contained file with no imports from
+`internal/` and tokens instead of hard-coded colors; that keeps a later move to
+copied-source distribution cheap.
+
+- [ ] `kit` on the theme tokens: Button, Input, Checkbox, Switch, Radio, Select, Slider, Progress, Dialog, Popover, Tooltip, Tabs, Table (simple: sort, fixed columns), Toast, Card, Badge, Avatar, menu bar, context menu, date picker, color picker
+- [ ] Light and dark previews of every component as goldens
+
+**Done when:** the external app is rebuilt on `kit`, with no hand-made segmented control, switch, confirm row or icon code.
+
+### Phase 10: CLI tooling, LLM docs, full screens (`v0.10.0`)
+
+- [ ] `tela lint`: static check of class strings, roles and keys, so typos fail in CI even with dev mode off
+- [ ] `tela dev`: hot reload
+- [ ] `tela mcp`: MCP server over `snapshot`, `inspect` and `telatest` queries
+- [ ] `docs/llms.txt` matching the final API
+- [ ] `examples/` with full screens (dashboard, login, settings, chat)
 
 **Done when:** an agent with no prior context, given only `llms.txt` and `tela mcp`, builds a beautiful settings screen in under 3 snapshot iterations.
 
-### Phase 8: macOS, GPU, accessibility
+### Phase 11: Desktop essentials (`v0.11.0`)
 
-- [ ] `cocoa` backend via purego, with CI on `macos-latest`
-- [ ] Optional GPU backend (Vulkan, Metal) over the DisplayList
-- [ ] Accessibility: AT-SPI, UI Automation, NSAccessibility
-- [ ] IME on X11 (XIM) and macOS (`NSTextInputClient`)
+Linux (Wayland, X11) and Windows. macOS items are finished in phase 13.
+
+- [ ] App lifecycle: `tela.Quit()`, `tela.OpenURL/OpenPath` (default application; replaces `xdg-open` and `os.Exit(0)` in the external app), close-to-tray
+- [ ] Window control: minimize, maximize, fullscreen, move, resize, always-on-top, min/max size, a custom title bar with drag regions and window-control buttons
+- [ ] Multiple windows (modal and child windows, per-window state)
+- [ ] Native dialogs: open/save file and folder pickers, message boxes (XDG Desktop Portal, common item dialogs)
+- [ ] System tray and OS notifications (StatusNotifierItem, `Shell_NotifyIcon`)
+- [ ] App data: per-OS config/data/cache paths, a small settings store with change events, persisted window state (the external app hand-rolls its own settings and tracking stores)
+
+**Done when:** a "notes" example uses a tray icon, native open/save dialogs, two windows and a persisted window position on Linux and Windows; the external app has a tray icon, no `os/exec` for opening URLs and no hand-written config code.
+
+### Phase 12: Desktop integration, the rest (`v0.12.0`)
+
+- [ ] Drag and drop with the OS (files in, out, between windows); clipboard beyond text (images, files, rich text)
+- [ ] Native application and context menus where the OS has them, with a drawn fallback
+- [ ] Global shortcuts, single-instance apps, deep links and file associations
+- [ ] System theme and accent color, high contrast, text scale, with change notifications
+- [ ] Secure storage: Credential Manager, Secret Service (pure Go, no cgo)
+
+**Done when:** the "notes" example accepts a dropped file, registers a global shortcut, reopens in its running instance from a deep link and keeps a token in secure storage, on Linux and Windows.
+
+### Phase 13: macOS (and X11 IME) (`v0.13.0`)
+
+- [ ] `cocoa` backend via purego, with CI on `macos-latest`: window, event loop, present, HiDPI, keyboard, pointer, clipboard, settings
+- [ ] IME on macOS (`NSTextInputClient`) and on X11 (XIM)
+- [ ] macOS parity for every phase-11 and phase-12 item
+
+**Done when:** every example runs on macOS with snapshots pixel-identical up to text antialiasing, Japanese can be typed through the IME on macOS and on X11, and the phase-11/12 examples run on all three platforms.
+
+### Phase 14: Accessibility (`v0.14.0`)
+
+Strictly after phase 13: the bridges for AT-SPI, UI Automation and NSAccessibility are verified together (the owner chose strict order over starting the Linux and Windows bridges in parallel).
+
+- [ ] AT-SPI over D-Bus (pure Go)
+- [ ] UI Automation over COM
+- [ ] NSAccessibility
+- [ ] The semantics tree covers `aria` and `kit` roles, states, actions and live regions
+
+**Done when:** a screen reader reads, navigates and operates the `signup` example on Linux, Windows and macOS.
+
+### Phase 15: GPU backend (`v0.15.0`)
+
+Independent of phases 13–14 and the hardest technical item (`tela-hard`).
+
+- [ ] Vulkan (Linux, Windows) and Metal (macOS) via purego/syscall over the same DisplayList, with the fixed shader set of ARCHITECTURE §13
+- [ ] D3D11 on Windows optional
+- [ ] The CPU rasterizer stays the reference for goldens; GPU output is checked against it within a tolerance
+
+**Done when:** the `dashboard` example renders at 60 fps at scale 2 on the GPU backend (the CPU one does not reach it) and GPU snapshots stay within the agreed tolerance of the CPU goldens.
+
+### Phase 16: Packaging and auto-update (`v0.16.0`)
+
+- [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg`, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks
+- [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
+- [ ] Crash reporting hook and structured logging
+
+**Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
+
+### Phase 17: DevTools (`v0.17.0`)
+
+- [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
+- [ ] Frame profiler
+- [ ] Connect to a running app and pick an element
+
+**Done when:** DevTools shows why a given element re-rendered and where a frame spent its time.
+
+### Phase 18: Canvas and PDF (`v0.18.0`)
+
+Both sit on the `DisplayList`, so they are cheap next to the rest.
+
+- [ ] `Canvas` (2D): immediate-mode drawing surface (paths, gradients, text, images) with an animation-frame callback
+- [ ] Printing and PDF export: a vector PDF backend over the DisplayList (fonts embedded, gradients, clip, opacity), print dialogs, page-break CSS subset
+
+**Done when:** a `Canvas` example animates at 60 fps and a page exports to a PDF that two viewers render identically.
+
+### Phase 19: Audio and video (`v0.19.0`)
+
+Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
+
+- [ ] Audio playback and capture: pure-Go decoders (WAV, MP3, OGG/Vorbis, FLAC, Opus where one exists), output through ALSA/PulseAudio/PipeWire, WASAPI, CoreAudio
+- [ ] Video playback: patent-free subset first (VP8/VP9/AV1 if a pure-Go decoder is viable), A/V sync, a `Video` component with `kit` controls; an ADR settles codec scope before work starts
+- [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog
+
+**Done when:** a "player" example plays an audio file and a video with synced controls.
+
+## Road to v1.0
+
+`v1.0.0` is not scheduled; these gate it.
+
+- Phase 7's breaking changes are done and their deprecations removed. From phase 9 (`kit` on the final API) on, **breaking changes need an ADR and a deprecation cycle**.
+- The API freezes when phases 7–14 are done: stable `tela`, `h`, `aria`, `kit` and `telatest`; Linux (Wayland and X11), Windows and macOS supported; accessibility working on all three. The GPU backend (15) changes no public API and does not gate it.
+- Godoc and wiki cover every exported symbol with a runnable example; `llms.txt` matches the API.
+- At least two non-trivial applications outside the repository (the external app is the first) build against each release in CI.
+
+## Separate packages
+
+Optional, outside the core module. Until `tela add` exists (see "Deferred") they are plain Go modules that applications import. They are not scheduled; each starts when a real application needs it.
+
+- **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (phase 18) or plain `Div`/SVG until then
+- **DataGrid / TreeView:** sortable, resizable, editable cells, row selection, grouping, tree expansion, on top of `VirtualList`; the simple `Table` in `kit` stays in core
+
+## Deferred (not discarded)
+
+Out of scope for now, but kept open: a decision to add the platform items needs an ADR amending the non-goals in ARCHITECTURE §1, and the platform layer must not preclude them.
+
+- **WebAssembly / web:** a canvas-backed backend
+- **Android / iOS:** touch, virtual keyboard, app lifecycle, safe areas
+- **Embedded web content:** a webview or HTML component (contradicts "no webview", ADR-001)
+- **`tela add` and a component registry.** Picked up when `kit` has real users or a third party wants to publish components. `kit` is written meanwhile as self-contained files (no `internal/` imports, tokens instead of fixed colors), so a move to copied-source distribution stays cheap. Design questions for the ADR (options go to `API_PROPOSALS.md`):
+  - **Unit of distribution:** copied source (shadcn style), Go modules, or a hybrid (copied source for UI components, modules for logic-heavy packages)
+  - **Registry format:** static JSON index plus files over HTTPS with content hashes, the Go module proxy, or a git repository
+  - **Updates:** a lockfile with per-file hashes and a three-way `tela diff` / `tela update`, so local edits survive
+  - **Dependencies:** between items, on Go modules (pure Go only) and on theme tokens
+  - **Trust:** diff before writing, no install-time code execution, hash pinning, optional signatures, a registry allowlist, a license recorded per item
+  - **Third-party registries**, registry authoring tools, and non-interactive / `--json` modes with `tela mcp` tools for agents
+
+## Discarded
+
+Considered on 2026-10-20 and not planned. They can be reopened by the owner.
+
+- **Visual designer** (Scene Builder / XAML Designer style): `Preview()`, `tela snapshot` and `tela inspect` serve the same loop for code and agents
+- **Component gallery** (Storybook style): partly covered by `Preview()` and the `examples/`
 
 ## Session log
 
@@ -177,3 +401,6 @@ One line per session: date, what was done, what is pending.
 - **2026-10-19:** phase-close `/code-review high` (7 findings) plus T10's backdrop-opacity finding fixed with regression tests (ADR-084; Chromium-measured), verified (race, arm64) and merged. Phase 6 done; CHANGELOG moved to v0.6.0; tag proposed to the owner.
 - **2026-10-19:** `v0.6.0` tagged on d8cd278 and pushed with main at the owner's request.
 - **2026-10-19:** docs brought up to v0.6.0 (README, wiki Hooks/Elements pages, ARCHITECTURE's `UseAnimation` line); `docs/wiki` copied to `tela.wiki.git` (75b4ddf; it had been synced at v0.5.2 already) and pushed with main at the owner's request.
+- **2026-10-20:** roadmap revised after a gap analysis against JavaFX, the Microsoft stack, Wails, Tauri and Electron; the owner chose which doubtful features enter. Added phases 9 (desktop integration), 10 (distribution, auto-update, DevTools) and 11 (media and graphics: canvas, audio, video, print/PDF, exploratory 3D); widened phase 7 (icons/SVG, more `kit`, `tela add` registry); added "Separate packages" (charts, DataGrid/TreeView), "Deferred" (WASM, mobile, webview) and "Discarded" (visual designer, component gallery). The done criteria of phases 8–11 are proposals, to be confirmed when each phase is planned. Pending: decide `API_PROPOSALS.md`, plan phase 7.
+- **2026-10-20:** proposal applied: phases 7–19 replace the old 7–11 (public API polish first; desktop integration before macOS; macOS, accessibility and GPU split; `kit` in core with `tela add` deferred), plus "Road to v1.0". README references to "phase 8" now say phase 13. Pending: decide the phase-7 T3 options, plan phase 7.
+- **2026-10-20:** open roadmap decisions settled by the owner: i18n stays in phase 7 (T7, now with a done criterion); dev mode on by default in development builds, release detected with `debug.ReadBuildInfo`; no `tela fix`, release notes only; accessibility strictly after macOS. Pending: decide the phase-7 T3 options, plan phase 7.
