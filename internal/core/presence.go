@@ -392,6 +392,7 @@ func (t *Tree) finishExit(ex *exitState) {
 	pr := p.primitive()
 	t.markBoxes(pr)
 	t.markStructural(pr)
+	t.markAutoDir(p)
 }
 
 // presencePhase ends, after the style phase, the exits whose Exit

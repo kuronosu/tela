@@ -182,6 +182,71 @@ func TestDirAuto(t *testing.T) {
 	}
 }
 
+// TestDirAutoRechecksOnlyOnTextChange: the text below a Dir("auto")
+// element is walked again only when something below it changed (a text, a
+// TextFn's Value, children, a child's Dir), not at every style phase.
+func TestDirAutoRechecksOnlyOnTextChange(t *testing.T) {
+	var (
+		setCls      Setter[string]
+		setInnerDir Setter[string]
+		setShowHeb  Setter[bool]
+		v           *Value[string]
+	)
+	page := func() Node {
+		cls, sc := UseState("size-4")
+		innerDir, sd := UseState("rtl")
+		showHeb, sh := UseState(false)
+		val := UseValue("hello")
+		setCls, setInnerDir, setShowHeb, v = sc, sd, sh, val
+		var heb Node
+		if showHeb {
+			heb = Text("שלום ")
+		}
+		return div(
+			div(Key("auto"), Dir("auto"), heb,
+				div(Dir(innerDir), Text("עברית")),
+				span(TextFn(func() string { return val.Get() })),
+			),
+			div(Key("other"), Class(cls)),
+		)
+	}
+	tr := newTestTree(t, 400, 200, Component(page), nil)
+	tr.Frame()
+	dir := func() text.Direction { return keyed(tr, "auto").box.cs.Text.Direction }
+	step := func(name string, want text.Direction, maxWalks int) {
+		t.Helper()
+		before := tr.autoWalks
+		tr.Frame()
+		if got := dir(); got != want {
+			t.Errorf("%s: direction %v, want %v", name, got, want)
+		}
+		if n := tr.autoWalks - before; n > maxWalks {
+			t.Errorf("%s: %d walks of the text, want at most %d", name, n, maxWalks)
+		}
+	}
+	step("settled", text.DirectionLTR, 0)
+	// A frame that changes nothing below the element walks nothing.
+	setCls.Set("size-6")
+	step("unrelated restyle", text.DirectionLTR, 0)
+	setCls.Set("size-8 bg-red-500")
+	step("unrelated restyle again", text.DirectionLTR, 0)
+	// A TextFn's Value.
+	v.Set("مرحبا")
+	step("TextFn turned Arabic", text.DirectionRTL, 2)
+	v.Set("hello")
+	step("TextFn back to Latin", text.DirectionLTR, 2)
+	// A child's Dir: the Hebrew below it counts once it has none.
+	setInnerDir.Set("")
+	step("inner Dir removed", text.DirectionRTL, 2)
+	setInnerDir.Set("ltr")
+	step("inner Dir ltr", text.DirectionLTR, 2)
+	// A child inserted before the rest.
+	setShowHeb.Set(true)
+	step("Hebrew inserted first", text.DirectionRTL, 2)
+	setCls.Set("size-4")
+	step("unrelated restyle after", text.DirectionRTL, 0)
+}
+
 func TestDirInlineBlockAlignment(t *testing.T) {
 	// Inline-blocks in a block flow next to block siblings are placed by
 	// emulated text-align: the inline start of the parent's direction.

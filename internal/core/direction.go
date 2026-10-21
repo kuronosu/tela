@@ -75,6 +75,7 @@ func (t *Tree) styleDir(el *Element) style.Dir {
 			t.autoDirs = map[*Element]bool{}
 		}
 		t.autoDirs[el] = rtl
+		el.autoStale = false
 		if rtl {
 			return style.DirRTL
 		}
@@ -92,28 +93,30 @@ func (t *Tree) autoRTL(el *Element) bool {
 		d, _ := text.StrongDirection(f.ed.Value())
 		return d == text.DirectionRTL
 	}
-	d, _ := firstStrongBelow(el)
+	t.autoWalks++
+	d, _ := t.firstStrongBelow(el)
 	return d == text.DirectionRTL
 }
 
 // firstStrongBelow returns the direction of the first strong character of
-// the text below el (autoRTL's walk).
-func firstStrongBelow(el *Element) (text.Direction, bool) {
+// the text below el (autoRTL's walk). A TextFn whose Values changed is
+// evaluated first (textOf), as the paragraph will be.
+func (t *Tree) firstStrongBelow(el *Element) (text.Direction, bool) {
 	for _, c := range el.children {
 		switch c.kind {
 		case elemText:
-			if d, ok := text.StrongDirection(c.text); ok {
+			if d, ok := text.StrongDirection(t.textOf(c)); ok {
 				return d, true
 			}
 		case elemPrimitive:
 			if c.node.d.dir != dirNone || c.box.fld != nil {
 				continue
 			}
-			if d, ok := firstStrongBelow(c); ok {
+			if d, ok := t.firstStrongBelow(c); ok {
 				return d, true
 			}
 		case elemComponent:
-			if d, ok := firstStrongBelow(c); ok {
+			if d, ok := t.firstStrongBelow(c); ok {
 				return d, true
 			}
 		}
@@ -130,16 +133,43 @@ func (t *Tree) autoDirChanged(el *Element) {
 	}
 }
 
-// checkAutoDirs restyles the elements with dir="auto" whose text now
-// starts in the other direction (a build changed the text below them, or
-// the user typed in a field), and forgets the ones that are gone or no
-// longer auto. It runs at the start of the style phase.
+// markAutoDir records that the text below from changed (a text changed,
+// children were added, removed or moved, or a child's Dir changed): the
+// nearest primitive at or above from with a Dir of its own, if its Dir is
+// "auto", is marked autoStale, so that the next style phase resolves its
+// direction again. A primitive with another Dir hides the change from the
+// elements above it, as firstStrongBelow skips its subtree.
+func (t *Tree) markAutoDir(from *Element) {
+	if len(t.autoDirs) == 0 {
+		return
+	}
+	for p := from; p != nil; p = p.parent {
+		if p.kind != elemPrimitive || p.node.d.dir == dirNone {
+			continue
+		}
+		if p.node.d.dir == dirAuto && !p.autoStale {
+			p.autoStale, t.autoStale = true, true
+		}
+		return
+	}
+}
+
+// checkAutoDirs restyles the elements with dir="auto" marked autoStale
+// whose text now starts in the other direction, and forgets the ones that
+// are gone or no longer auto. It runs at the start of the style phase when
+// one is marked, so that a frame which changed no text below them (a
+// hover, an animation) walks no text.
 func (t *Tree) checkAutoDirs() {
+	t.autoStale = false
 	for el, rtl := range t.autoDirs {
 		if !el.mounted || el.node.d.dir != dirAuto {
 			delete(t.autoDirs, el)
 			continue
 		}
+		if !el.autoStale {
+			continue
+		}
+		el.autoStale = false
 		if !el.needsStyle && t.autoRTL(el) != rtl {
 			t.markStyle(el)
 		}

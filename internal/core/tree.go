@@ -124,6 +124,10 @@ type Tree struct {
 	// autoDirs are the elements with Dir("auto") and whether their text
 	// was right to left when they were last styled (direction.go).
 	autoDirs map[*Element]bool
+	// autoStale: some element of autoDirs is marked autoStale;
+	// autoWalks counts the walks of autoRTL (tests).
+	autoStale bool
+	autoWalks int
 
 	root     *Element
 	rootBox  *Box

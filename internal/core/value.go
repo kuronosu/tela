@@ -493,6 +493,7 @@ func (t *Tree) valueChanged(v *valueCore) bool {
 			if o.el.mounted {
 				o.el.textStale = true
 				t.markBoxes(o.el.primitive())
+				t.markAutoDir(o.el.parent)
 				hit = true
 			}
 		case obsField:

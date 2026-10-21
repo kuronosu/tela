@@ -90,7 +90,10 @@ type Element struct {
 	needsBoxes bool // a primitive whose box structure or paragraph may have changed
 	reused     bool // scratch flag of reconcile
 	warnedKeys bool // dev mode: the missing-keys warning was given
-	boxFrame   uint64
+	// autoStale: a primitive with Dir("auto") whose text below may have
+	// changed since its direction was resolved (direction.go).
+	autoStale bool
+	boxFrame  uint64
 }
 
 // childID is the identity of a child among its siblings. Direct children
@@ -373,10 +376,12 @@ func (t *Tree) reconcileEntries(parent *Element, entries []flatEntry) {
 	}
 	parent.children = kids
 	// The content of the nearest primitive changed: its boxes (and the
-	// structural variants of its children) must be computed again.
+	// structural variants of its children) must be computed again, and
+	// the text a Dir("auto") above reads may have changed.
 	p := parent.primitive()
 	t.markBoxes(p)
 	t.markStructural(p)
+	t.markAutoDir(parent)
 }
 
 // checkKeys warns about dynamic lists (Map, List) with two or more
@@ -462,6 +467,7 @@ func (t *Tree) update(el *Element, n Node) {
 		el.node = n
 		if t.syncText(el, d) {
 			t.markBoxes(el.primitive())
+			t.markAutoDir(el.parent)
 		}
 	case elemPrimitive:
 		if old == d {
@@ -492,6 +498,14 @@ func (t *Tree) update(el *Element, n Node) {
 		if old.scheme != d.scheme {
 			t.markStyle(el)
 			t.markSchemeReaders(el) // theme.go
+		}
+		if old.dir != d.dir {
+			// Its subtree is skipped, or no longer, by a Dir("auto")
+			// above (direction.go).
+			if old.dir == dirAuto {
+				delete(t.autoDirs, el)
+			}
+			t.markAutoDir(el.parent)
 		}
 		if !slices.Equal(old.classes, d.classes) {
 			bx.classesDirty = true
@@ -628,6 +642,9 @@ func (t *Tree) unmount(el *Element) {
 	el.mounted = false
 	t.stats.Unmounts++
 	if el.kind == elemPrimitive {
+		if el.node.d.dir == dirAuto {
+			delete(t.autoDirs, el)
+		}
 		t.unmountFocus(el)
 		t.unmountIndexed(el)
 		if el.box.fld != nil {
