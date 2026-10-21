@@ -12,14 +12,14 @@ import (
 // solves for its physics and allocates): 200 UseSprings add no
 // allocations to the rebuild.
 func TestUseSpringUnchangedTargetIsCheap(t *testing.T) {
-	opts := []AnimOption{Duration(500 * time.Millisecond), Bounce(0.2)}
+	opts := []AnimOption{Initial(float32(0)), Duration(500 * time.Millisecond), Bounce(0.2)}
 	allocs := func(springs int) float64 {
 		var set Setter[int]
 		tr := newTestTree(t, 200, 100, Component(func() Node {
 			n, s := UseState(0)
 			set = s
 			for range springs {
-				UseSpring(float32(0), 1, opts...)
+				UseSpring(float32(1), opts...)
 			}
 			return div(Class("size-4"), Textf("%d", n))
 		}), nil)
@@ -48,11 +48,11 @@ func TestUseSpringDevChecksEveryBuild(t *testing.T) {
 	tr.Mount(Component(func() Node {
 		bad, s := UseState(false)
 		set = s
-		opts := []AnimOption{Duration(time.Second)}
+		opts := []AnimOption{Initial(float32(0)), Duration(time.Second)}
 		if bad {
 			opts = append(opts, Ease("linear"))
 		}
-		UseSpring(float32(0), 1, opts...)
+		UseSpring(float32(1), opts...)
 		return div()
 	}))
 	tr.Frame()
@@ -77,8 +77,8 @@ func BenchmarkUseSpring200Unchanged(b *testing.B) {
 		n, s := UseState(0)
 		set = s
 		for range 200 {
-			UseSpring(float32(0), 1, Duration(500*time.Millisecond), Bounce(0.2))
-			UseTween(float32(0), 1, Duration(200*time.Millisecond), Ease("ease-out"))
+			UseSpring(float32(1), Initial(float32(0)), Duration(500*time.Millisecond), Bounce(0.2))
+			UseTween(float32(1), Initial(float32(0)), Duration(200*time.Millisecond), Ease("ease-out"))
 		}
 		return div(Class("size-4"), Textf("%d", n))
 	}), nil)

@@ -1,20 +1,22 @@
 # Hooks
 
 Hooks keep state and run code across builds, with the names and semantics of
-React's. A **component** is a plain function that returns a [`tela.Node`](https://pkg.go.dev/github.com/kuronosu/tela#Node) and may
-call hooks; the sections below follow the order you usually need them.
+React's. A **component** is a struct whose `Build` method returns a
+[`tela.Node`](https://pkg.go.dev/github.com/kuronosu/tela#Node), or a function wrapped in `tela.C` or `tela.CP`; it may call hooks. The
+sections below follow the order you usually need them.
 
 ## The rules
 
-Hooks follow React's rules: call them at the top level of a component
-function, in the same order on every build, never inside conditions or loops.
-A hook called outside a component build panics with an explanation (a
-component called where a node is expected, `telatest.Mount(t, Counter())`, is
-told to write `tela.C(Counter)`). In dev mode, on in every development build
-and test (see [Getting Started](Getting-Started#dev-mode)), a change of the hook
+Hooks follow React's rules: call them at the top level of a component's
+`Build` method or function, in the same order on every build, never inside
+conditions or loops. A hook called outside a component build panics with an
+explanation (a component called where a node is expected,
+`telatest.Mount(t, Counter())`, is told to write `tela.C(Counter)`, and
+`Card{}.Build()` to pass `Card{}` itself). In dev mode, on in every
+development build and test (see [Getting Started](Getting-Started#dev-mode)), a change of the hook
 order panics with both call sites, and so does a hook called from a function
-that is neither the component being built (or a function literal inside it)
-nor a custom hook named `UseXxx` or `useXxx`.
+that is neither the component being built (its `Build`, its function, or a
+function literal inside them) nor a custom hook named `UseXxx` or `useXxx`.
 
 Everything runs on the UI thread except the methods of [`tela.Setter`](https://pkg.go.dev/github.com/kuronosu/tela#Setter),
 [`tela.Dispatcher`](https://pkg.go.dev/github.com/kuronosu/tela#Dispatcher) and [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value), and [`tela.Post`](https://pkg.go.dev/github.com/kuronosu/tela#Post), which are safe from any
@@ -22,23 +24,67 @@ goroutine.
 
 ## Components
 
-A function that returns a node becomes a **component boundary**, an element
-with its own hook state that rebuilds on its own, when you wrap it:
+A **component** is a struct with a `Build` method (a value receiver) that
+returns a node: a [`tela.Component`](https://pkg.go.dev/github.com/kuronosu/tela#Component). Its fields are its props, and its
+children are an ordinary field of type `tela.Component` (several of them
+through [`Fragment`](https://pkg.go.dev/github.com/kuronosu/tela/h#Fragment)):
 
 ```go
-func Header() tela.Node { return H1(Text("Inbox")) }
+type Card struct {
+	Title    string
+	OnOpen   tela.Callback[func()]
+	Children tela.Component
+}
 
-type CardProps struct{ Title string }
-
-func Card(p CardProps) tela.Node {
-	return Div(Class("rounded-lg border p-4"), Text(p.Title))
+func (c Card) Build() tela.Node {
+	open, setOpen := tela.UseState(false)
+	return Div(Class("rounded-lg border p-4"),
+		Button(OnClick(func(tela.MouseEvent) { setOpen.Set(!open) }), Text(c.Title)),
+		If(open, c.Children))
 }
 
 func Screen() tela.Node {
 	return Div(
-		tela.C(Header),
-		tela.CP(Card, CardProps{Title: "Unread"}),
+		Card{Title: "Unread", Children: Fragment(Text("2 new"), Span(Text("from Ada")))},
+		Card{Title: "Archive", Children: Text("empty")},
 	)
+}
+```
+
+- Every component value given to an element is a **component boundary**: an
+  element with its own hook state that rebuilds on its own. Its identity
+  among its siblings is its type and its key, so at one position a value of
+  the same type keeps its state and a value of another type mounts anew.
+  [`tela.WithKey`](https://pkg.go.dev/github.com/kuronosu/tela#WithKey)`(Card{...}, id)` keys it (and turns it into a `tela.Node`,
+  for [`Map`](https://pkg.go.dev/github.com/kuronosu/tela/h#Map)).
+- When the parent builds again with an **equal** value, and neither the
+  component's own state nor a context it reads changed, its build is skipped
+  (automatic skipping, as in Jetpack Compose). The comparison is `==`, field
+  by field, and never panics: a field that cannot be compared (a slice, a
+  map, a func, or an interface holding one) makes it build every time. A
+  node in `Children` compares by identity, so a fresh `Div(...)` is a change;
+  pass a [`tela.Callback`](https://pkg.go.dev/github.com/kuronosu/tela#Callback) rather than a func to keep it skippable.
+- In dev mode, a pointer (`Div(&Card{})`) panics, and so does a prop in a
+  field of type `tela.Component` (`Card{Children: Class("p-4")}`): Go cannot
+  tell it from a component at compile time. A field meant to take props too
+  is declared as [`tela.Child`](https://pkg.go.dev/github.com/kuronosu/tela#Child).
+- [`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) returns the zero value of its argument's type when the condition is
+  false, and the zero value of a struct is a component that renders: write
+  `If(loading, tela.Component(Spinner{}))` (dev mode panics on
+  `If(loading, Spinner{})`).
+- A function returning a node is a component when you wrap it:
+
+```go
+func Header() tela.Node { return H1(Text("Inbox")) }
+
+type BadgeProps struct{ Count int }
+
+func Badge(p BadgeProps) tela.Node {
+	return Span(Class("rounded-full bg-indigo-500 px-2 text-white"), Textf("%d", p.Count))
+}
+
+func Toolbar() tela.Node {
+	return Div(tela.C(Header), tela.CP(Badge, BadgeProps{Count: 3}))
 }
 ```
 
@@ -54,7 +100,9 @@ func Screen() tela.Node {
   caller. That is fine for a function without hooks (a wrapper that styles
   its children and passes them on with [`Fragment`](https://pkg.go.dev/github.com/kuronosu/tela/h#Fragment)), but the hooks of
   a function called this way would take the caller's slots: dev mode panics
-  and says to wrap it in `tela.C` or `tela.CP`.
+  and says to wrap it in `tela.C` or `tela.CP`. The same goes for
+  `Card{}.Build()`: pass `Card{}` as a child instead (or `Fragment(Card{})`
+  where a `tela.Node` is expected).
 - A **custom hook** is a function named `UseXxx` or `useXxx` that calls hooks
   for the component that calls it. A struct of [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) pointers is a good
   return value: stable, comparable, and each reader redoes only what it read.
@@ -68,6 +116,7 @@ func UseDrag() Drag {
 ```
 
 - [`tela.WithKey`](https://pkg.go.dev/github.com/kuronosu/tela#WithKey) keys a component or fragment, which cannot take the [`Key`](https://pkg.go.dev/github.com/kuronosu/tela/h#Key) prop.
+  Both take a comparable key: a slice or a map does not compile.
 
 ## State: UseState
 
@@ -153,15 +202,18 @@ cleanup, which runs before the effect runs again and when the component
 unmounts. The dependencies follow React:
 
 ```go
-tela.UseEffect(f)          // after every build
-tela.UseEffect(f, id, n)   // when id or n changed (compared with ==)
-tela.UseMount(f)           // only after the first build (React's [])
+tela.UseEffect(f)            // after every build
+tela.UseEffect(f, id, n)     // when id or n changed (compared with ==)
+tela.UseEffect(f, tela.Once) // only after the first build (React's [])
+tela.UseMount(f)             // the same
 ```
 
 [`tela.UseMount`](https://pkg.go.dev/github.com/kuronosu/tela#UseMount) is the idiom for subscriptions: the effect runs on mount and its
-cleanup on unmount. `UseEffect(f, nil)` still means the same, but it is
-deprecated (React reads a null list as "after every render"): dev mode warns,
-and a later version will reject it.
+cleanup on unmount. [`tela.Once`](https://pkg.go.dev/github.com/kuronosu/tela#Once) is the "mount only" dependency of every hook
+that takes dependencies (`UseLayoutEffect`, `UseGo`, `UseEffectDo`,
+`UseMemo`). `UseEffect(f, nil)` still means the same, but it is deprecated
+(React reads a null list as "after every render"): dev mode warns and
+suggests `tela.Once`, and a later version will reject it.
 
 ```go
 func Status(store *Store) tela.Node {
@@ -343,18 +395,18 @@ once per context. Provide the context above every reader, give
 [`tela.Setter`](https://pkg.go.dev/github.com/kuronosu/tela#Setter) and [`tela.Callback`](https://pkg.go.dev/github.com/kuronosu/tela#Callback) have for this (and for optional callbacks in
 props).
 
-## Identity: UseId
+## Identity: UseID
 
-[`tela.UseId`](https://pkg.go.dev/github.com/kuronosu/tela#UseId) returns a string that is unique in the process and the same on every
+[`tela.UseID`](https://pkg.go.dev/github.com/kuronosu/tela#UseID) returns a string that is unique in the process and the same on every
 build (and the same for the same mount order, so snapshots are deterministic).
 Use it to relate elements, such as a label and its field:
 
 ```go
 func Field(label string) tela.Node {
-	id := tela.UseId()
+	id := tela.UseID()
 	return Div(
 		Label(For(id), Text(label)),
-		Input(Id(id)),
+		Input(ID(id)),
 	)
 }
 ```
@@ -465,7 +517,9 @@ only lays out. [`tela.UseSpring`](https://pkg.go.dev/github.com/kuronosu/tela#Us
 [`tela.UseTween`](https://pkg.go.dev/github.com/kuronosu/tela#UseTween) follow a target that can change on every
 build (a new target restarts the motion from where it is; a spring keeps its
 velocity), and [`tela.Animate`](https://pkg.go.dev/github.com/kuronosu/tela#Animate) moves any `Value` from a handler,
-an effect or a goroutine. Options such as `Stiffness`, `Duration`, `Ease`,
+an effect or a goroutine. They start at their target unless the `Initial` option
+gives a start value (`tela.UseSpring(target, tela.Initial(float32(0)))`).
+Options such as `Stiffness`, `Duration`, `Ease`,
 `Velocity` and `OnDone` tune them, and [`tela.UsePresence`](https://pkg.go.dev/github.com/kuronosu/tela#UsePresence)
 lets a component run its own exit inside an `h.Presence`:
 
@@ -475,7 +529,7 @@ func Drawer(open bool) tela.Node {
 	if open {
 		target = 0
 	}
-	x := tela.UseSpring(target, target) // starts where it is, then follows open
+	x := tela.UseSpring(target) // starts at the target, then follows open
 	return Div(Class("fixed inset-y-0 left-0 w-80 bg-white shadow-xl"),
 		Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })), // repaints only
 		Text("Menu"))

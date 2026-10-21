@@ -22,7 +22,7 @@ import (
 // update was.
 type Stats = core.Stats
 
-// idPrefix starts the strings of tela.UseId in mounted apps, so they do
+// idPrefix starts the strings of tela.UseID in mounted apps, so they do
 // not depend on how many trees the process made before.
 const idPrefix = "tt-"
 
@@ -68,18 +68,25 @@ type App struct {
 
 // Mount shows root in a headless window and returns the running app. The
 // window starts focused, so key events reach the focused element; it is
-// unmounted when the test ends, running the cleanups of its effects.
+// unmounted when the test ends, running the cleanups of its effects. root
+// is a node or a component: a struct component value, or a function
+// component wrapped in tela.C or tela.CP (or use [MountFunc]).
 //
 //	app := telatest.Mount(t, tela.C(Counter), telatest.Size(400, 300))
+//	app := telatest.Mount(t, Card{Title: "Inbox"})
 //
 // Mount makes the app receive the functions given to tela.Post, which are
 // delivered to one tree per process: do not mount apps that use Post from
 // parallel tests.
-func Mount(tb testing.TB, root tela.Node, opts ...Option) *App {
+func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	tb.Helper()
 	cfg := newConfig(opts)
 	if err := cfg.validate(); err != nil {
 		tb.Fatalf("telatest: %v", err)
+	}
+	rootNode, err := rootOf(root)
+	if err != nil {
+		tb.Fatalf("telatest: Mount: %v", err)
 	}
 	a := &App{tb: tb, cfg: cfg, dev: cfg.devMode()}
 	size := platform.Size{W: cfg.width, H: cfg.height}
@@ -96,7 +103,7 @@ func Mount(tb testing.TB, root tela.Node, opts ...Option) *App {
 		Config: cc,
 		Title:  "telatest",
 		Width:  cfg.width, Height: cfg.height,
-		Root:     root,
+		Root:     rootNode,
 		ErrorLog: testWriter{tb},
 	})
 	if err != nil {

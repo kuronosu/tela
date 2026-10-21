@@ -8,7 +8,7 @@ import "github.com/kuronosu/tela/internal/core"
 //	email, setEmail := tela.UseState("")
 //	return Form(OnSubmit(func(e tela.SubmitEvent) { login(email) }),
 //	    Label(For("email"), Text("Email")),
-//	    Input(Id("email"), Type("email"), Placeholder("you@example.com"), Bind(email, setEmail),
+//	    Input(ID("email"), Type("email"), Placeholder("you@example.com"), Bind(email, setEmail),
 //	        Class("w-full rounded-md border border-slate-300 px-3 py-2 placeholder:text-slate-400 "+
 //	            "focus:outline-2 focus:outline-indigo-500 invalid:border-red-500")),
 //	    Button(Class("rounded-md bg-indigo-600 px-4 py-2 text-white"), Text("Sign in")))

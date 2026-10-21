@@ -2,12 +2,13 @@
 // in pure Go: no cgo, no webview, a React-like component model and
 // Tailwind CSS styling.
 //
-// A UI is a tree of [Node] values built by function components. Elements
-// (Div, Button, Text...) live in the companion package h, designed to be
-// dot-imported; this package holds the application ([App], [Main], [Run]), hooks
-// and component boundaries ([UseState], [C], [CP]...), events
+// A UI is a tree of [Node] values built by components: struct values with
+// a Build method ([Component]) and functions. Elements (Div, Button,
+// Text...) live in the companion package h, designed to be dot-imported;
+// this package holds the application ([App], [Main], [Run]), hooks and
+// component boundaries ([Component], [UseState], [C], [CP]...), events
 // ([MouseEvent], [PointerEvent], [DragEvent], [KeyboardEvent] with the
-// [Key] and [Code] constants, [FocusEvent], and the [ChangeEvent],
+// [KeyName] and [KeyCode] constants, [FocusEvent], and the [ChangeEvent],
 // [InputEvent], [CompositionEvent], [SelectEvent] and [SubmitEvent] of
 // text fields and forms), [ElementRef], the typed style props for h.Style,
 // colors, and the [Previews] that `tela snapshot` and `tela inspect`
@@ -51,19 +52,45 @@
 //
 // # Components
 //
-// A component is a function returning a [Node]. Wrapped in [C] (no props)
-// or [CP] (comparable props), it becomes a component boundary: an element
-// with its own hook state, rebuilt on its own when that state changes.
-// [CP] skips the build when its props are == to the previous ones and
-// nothing it reads changed (automatic skipping, as in Jetpack Compose);
-// [Memo] does the same with a comparison function.
+// A component is a struct whose Build method returns a [Node]: its fields
+// are its props, and children are an ordinary field of type [Component]
+// (several of them through h.Fragment). Every component value given to an
+// element is a component boundary: an element with its own hook state,
+// rebuilt on its own when that state changes, and skipped when its parent
+// builds again with an equal value and nothing it reads changed
+// (automatic skipping, as in Jetpack Compose).
 //
-//	Div(tela.C(Header), tela.CP(Card, CardProps{Title: "Inbox"}))
+//	type Card struct {
+//	    Title    string
+//	    OnOpen   tela.Callback[func()]
+//	    Children tela.Component
+//	}
 //
-// Calling a component function directly runs it inside the caller, whose
-// hook slots its hooks would take: in dev mode a hook called from a
-// function that is neither the component being built (or a function
-// literal inside it) nor a custom hook panics with the fix. A custom hook
+//	func (c Card) Build() tela.Node {
+//	    n, setN := tela.UseState(0)
+//	    return Div(Class("rounded-xl border p-4"),
+//	        H2(Text(c.Title)),
+//	        Button(OnClick(func(tela.MouseEvent) { setN.Set(n + 1) }), Textf("Opened %d times", n)),
+//	        c.Children)
+//	}
+//
+//	Div(Card{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))})
+//
+// Build has a value receiver. The identity of a component among its
+// siblings is its type and its key ([WithKey]), and the comparison that
+// skips its build never panics: see [Component].
+//
+// A function returning a [Node] is a component too when it is wrapped in
+// [C] (no props) or [CP] (comparable props); [CP] skips like a struct
+// component, and [Memo] does the same with a comparison function.
+//
+//	Div(tela.C(Header), tela.CP(Badge, BadgeProps{Count: 3}))
+//
+// Calling Build, or a component function, directly runs it inside the
+// caller, whose hook slots its hooks would take: in dev mode a hook called
+// from a function that is neither the component being built (its Build,
+// its function, or a function literal inside them) nor a custom hook
+// panics with the fix. A custom hook
 // is a function named UseXxx or useXxx that calls hooks for the
 // component that calls it; a struct of [Value] pointers is a good thing
 // for one to return, since it is stable and comparable:
@@ -99,7 +126,7 @@
 //     [UseCallback] gives a stable [Callback] that always calls the latest
 //     function; [UseRef] keeps a mutable box.
 //   - [CreateContext] and [UseContext] pass values down the tree.
-//   - [UseId] gives a stable unique ID.
+//   - [UseID] gives a stable unique ID.
 //   - [UseElementRef] gives an [ElementRef] to attach with h.Ref, to
 //     focus or scroll an element from handlers and effects.
 //   - [UseValue] holds an observable [Value] for what changes every
@@ -157,12 +184,12 @@
 //	    Style(tela.TranslateFn(func() (x, y float32) { return pos.Get(), 0 })))
 //	// later, from anywhere: pos.Set(120)
 //
-// Hooks follow React's rules: call them at the top level of a component
-// function, in the same order on every build, never inside conditions or
-// loops. A hook called outside a component build panics with an
-// explanation (a component called where a node is expected is told to use
-// [C]); in dev mode a change of the hook order panics with both call
-// sites. Everything runs on the UI thread except the Setter, Dispatcher
+// Hooks follow React's rules: call them at the top level of a component's
+// Build or function, in the same order on every build, never inside
+// conditions or loops. A hook called outside a component build panics
+// with an explanation (a component called where a node is expected is
+// told to use [C], or to pass the struct value); in dev mode a change of
+// the hook order panics with both call sites. Everything runs on the UI thread except the Setter, Dispatcher
 // and Value methods and [Post], which are safe from any goroutine.
 //
 // # Dev mode
@@ -176,11 +203,12 @@
 //
 //   - unknown classes are printed on standard error with the closest
 //     class (in telatest they fail the test);
-//   - unknown roles, input types and easings, hook-order changes and hooks
-//     called outside their component panic with the fix;
+//   - unknown roles, input types and easings, hook-order changes, hooks
+//     called outside their component, a pointer given as a [Component]
+//     and a [Prop] in a field of type Component panic with the fix;
 //   - likely mistakes are printed as warnings, once per call site: lists
 //     without keys or with duplicate keys, UseEffect(f, nil) (deprecated:
-//     use [UseMount]), dependencies that cannot be compared, a [Value]
+//     use [Once] or [UseMount]), dependencies that cannot be compared, a [Value]
 //     read with Get in a handler while changes are queued (use Latest), a
 //     context read without a Provider whose default is not safe to use,
 //     and an h.Label that labels no field.
@@ -207,12 +235,12 @@
 //
 // # Stability
 //
-// [Node], [Child], [Prop], [StyleProp], [Color], [Shadow], [Gradient],
-// [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
+// [Node], [Component], [Child], [Prop], [StyleProp], [Color], [Shadow],
+// [Gradient], [GradientStop], [Setter], [Dispatcher], [Callback], [Ref], [Context],
 // [Value], [ElementRef], [Rect], [ScrollAlign], [MouseEvent],
 // [PointerEvent], [DragEvent], [KeyboardEvent], [FocusEvent], [WheelEvent],
 // [ScrollEvent], [InputEvent], [ChangeEvent], [CompositionEvent],
-// [SelectEvent], [SubmitEvent], [Key], [Code], [KeyLocation],
+// [SelectEvent], [SubmitEvent], [KeyName], [KeyCode], [KeyLocation],
 // [MouseButton], [MouseButtons] and [PointerKind] are aliases of types
 // defined in Tela's internal packages (the packages cannot be imported, but
 // their exported fields and methods are part of the API shown here).

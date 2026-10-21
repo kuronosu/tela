@@ -86,7 +86,7 @@ func Banner(name, email string) tela.Node {
 func NameField(name string, set tela.Setter[string]) tela.Node {
 	return Div(Class("flex flex-col gap-2"),
 		FieldLabel("name", "Display name", "(any language)"),
-		Input(Id("name"), Name("name"), AutoComplete("name"), AutoFocus(true),
+		Input(ID("name"), Name("name"), AutoComplete("name"), AutoFocus(true),
 			Placeholder("Ana García"),
 			Bind(name, set),
 			Class("h-9 "+fieldShell)),
@@ -107,7 +107,7 @@ func EmailField(email string, set tela.Setter[string], touched bool, setTouched 
 	}
 	return Div(Class("flex flex-col gap-2"),
 		FieldLabel("email", "E-mail", ""),
-		Input(Id("email"), Name("email"), Type("email"), AutoComplete("email"),
+		Input(ID("email"), Name("email"), Type("email"), AutoComplete("email"),
 			Placeholder("you@example.com"),
 			Bind(email, set),
 			OnBlur(func(tela.FocusEvent) { setTouched.Set(true) }),
@@ -129,7 +129,7 @@ func PasswordField(password string, set tela.Setter[string], show bool, setShow 
 	return Div(Class("flex flex-col gap-2"),
 		FieldLabel("password", "Password", ""),
 		Div(Class("relative"),
-			Input(Id("password"), Name("password"), Type(typ), AutoComplete("new-password"),
+			Input(ID("password"), Name("password"), Type(typ), AutoComplete("new-password"),
 				Placeholder("At least 8 characters"),
 				Bind(password, set),
 				Class("h-9 pr-14 "+fieldShell)),
@@ -172,7 +172,7 @@ func StrengthMeter(password string) tela.Node {
 func BioField(bio *tela.Value[string]) tela.Node {
 	return Div(Class("flex flex-col gap-2"),
 		FieldLabel("bio", "Short bio", "(optional)"),
-		Textarea(Id("bio"), Name("bio"), Rows(3), MaxLength(bioLimit), SpellCheck(false),
+		Textarea(ID("bio"), Name("bio"), Rows(3), MaxLength(bioLimit), SpellCheck(false),
 			Placeholder("Tell us what you build…"),
 			BindValue(bio),
 			Class("field-sizing-content max-h-40 min-h-[4.5rem] py-2 leading-5 "+fieldShell)),
@@ -198,7 +198,7 @@ func TermsField(on bool, toggle func()) tela.Node {
 	}
 	link := "font-medium text-zinc-950 underline underline-offset-4 dark:text-zinc-50"
 	return Div(Class("flex items-start gap-3"),
-		Button(Id("terms"), Type("button"), Role("checkbox"), AriaChecked(on),
+		Button(ID("terms"), Type("button"), Role("checkbox"), AriaChecked(on),
 			OnClick(func(tela.MouseEvent) { toggle() }),
 			Class("mt-px flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs transition-colors "+
 				"focus-visible:ring-[3px] focus-visible:ring-indigo-500/40 "+box),

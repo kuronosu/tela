@@ -42,10 +42,13 @@ var boundaryNames sync.Map // uintptr → string
 // hooks of a component built from c (normFunc of the component function),
 // or "" when c has no function (Providers, Presence).
 //
-// This is the hook point of other kinds of component: a struct component
-// (phase 7 T3: func (c Card) Build() tela.Node) returns the name of its
-// Build method here, so the hooks called from it are accepted.
+// A struct component (func (c Card) Build() tela.Node; ADR-088) returns
+// the name of its Build method, so the hooks called from it are accepted
+// (and those of the Build methods of embedded types; ownsHooks).
 func (c *compDesc) boundaryFunc() string {
+	if c.ct != nil {
+		return c.ct.owner
+	}
 	if c.typ == 0 {
 		return ""
 	}
@@ -101,7 +104,7 @@ func (t *Tree) checkBoundary(el *Element, kind hookKind, pcs []uintptr) {
 		case frameworkFrame(f.Function, f.File):
 		default:
 			fn := normFunc(f.Function)
-			if ownedBy(fn, owner) {
+			if el.comp.ownsHooks(fn, owner) {
 				more = false
 				break
 			}
@@ -124,6 +127,11 @@ func (t *Tree) checkBoundary(el *Element, kind hookKind, pcs []uintptr) {
 // component builds.
 func boundaryMessage(kind hookKind, f runtime.Frame, fn, owner string) string {
 	where := fmt.Sprintf("%s:%d", filepath.Base(f.File), f.Line)
+	if recv, ok := buildMethod(fn); ok {
+		// A struct component whose Build was called directly.
+		return fmt.Sprintf("tela: %s at %s is called from %s, which is not the component being built (%s): %s.Build was called directly, so its state would be kept in the hook slots of %s. To fix it, pass %s{...} as a child instead of calling Build, such as Div(%s{...}), and return Fragment(%s{...}) where a node is expected (ARCHITECTURE section 7)",
+			kind, where, describeFunc(fn), describeFunc(owner), recv, describeFunc(owner), recv, recv, recv)
+	}
 	base := funcBase(fn)
 	fix := "move its hooks into a component function and render that with tela.C or tela.CP (for the items of a VirtualList: return tela.CP(Row, i) from renderItem)"
 	if !isClosure(fn) {
@@ -297,6 +305,10 @@ func outsideBuildMessage(hook string) string {
 		return generic
 	}
 	fn := normFunc(user.Function)
+	if recv, ok := buildMethod(fn); ok {
+		return fmt.Sprintf("tela: %s called outside a component build, from %s (%s:%d), which ran as a plain method call. Pass the component value itself instead of calling Build, telatest.Mount(t, %s{...}) or Div(%s{...}), so that it builds with its own state. Hooks run only while a component builds (ARCHITECTURE section 7)",
+			hook, describeFunc(fn), filepath.Base(user.File), user.Line, recv, recv)
+	}
 	base := funcBase(fn)
 	return fmt.Sprintf("tela: %s called outside a component build, from %s (%s:%d), which ran as a plain function call. If %s is a component, give it a boundary instead of calling it: wrap the root in tela.C(%s) (telatest.Mount(t, tela.C(%s)), tela.App{Root: %s}, func Preview() tela.Node { return tela.C(%s) }) or use tela.CP(%s, props), so that it builds with its own state. Hooks run only while a component builds, at the top level of its function (ARCHITECTURE section 7)",
 		hook, describeFunc(fn), filepath.Base(user.File), user.Line, base, base, base, base, base, base)

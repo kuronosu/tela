@@ -19,7 +19,13 @@ import (
 //
 // Every argument of a call is evaluated: If(user != nil, Text(user.Name))
 // dereferences a nil user. Use an ordinary if for that case.
+//
+// The zero value of a struct component is a component that renders, so
+// give If a struct component as a tela.Component, whose zero value is nil
+// (nothing): If(loading, tela.Component(Spinner{})). Dev mode panics on
+// If(loading, Spinner{}).
 func If[C tela.Child](cond bool, c C) C {
+	core.CheckIf[C]()
 	if cond {
 		return c
 	}
@@ -66,10 +72,11 @@ func MapIndex[T any](items []T, f func(i int, item T) tela.Node) tela.Node {
 // Fragment groups children without a box of their own: they become
 // children of the fragment's parent. It takes only Key as a prop.
 //
-// It is how a component returns several siblings, and how a wrapper puts
-// the children it receives next to its own: Go does not allow
+// It is how a component returns several siblings, how a wrapper puts the
+// children it receives next to its own (Go does not allow
 // Div(Class("..."), H2(...), children...), but Fragment(children...) is
-// one child. The children must be nodes (or Key):
+// one child), and how several children go in one field of type
+// tela.Component. The children must be nodes or components (or Key):
 //
 //	// Card has no hooks, so it is a plain function that wraps its children.
 //	func Card(title string, children ...tela.Child) tela.Node {
@@ -77,6 +84,11 @@ func MapIndex[T any](items []T, f func(i int, item T) tela.Node) tela.Node {
 //	        H2(Class("font-semibold"), Text(title)),
 //	        Fragment(children...))
 //	}
+//
+//	Panel{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))}
+//
+// Fragment(c) is also a node of one component, for a function that must
+// return a tela.Node: return Fragment(Panel{...}).
 func Fragment(children ...tela.Child) tela.Node { return core.Fragment(children...) }
 
 // TextFn returns a text node whose content is read by fn in a later phase,

@@ -53,18 +53,31 @@ func recovered(err *error) {
 	}
 }
 
+// rootOf returns the node of a root given as a component: a node is
+// itself, a struct component becomes its component node, and a Prop,
+// which renders nothing, is an error.
+func rootOf(root tela.Component) (n tela.Node, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+	return core.NodeOf(root), nil
+}
+
 // Render mounts root, lays it out and paints it at the configured size and
 // scale (default 800x600 at scale 1) and returns the image, in physical
 // pixels over the root's background (white by default). Effects run as in
 // a window and then clean up; state passive effects set is rendered only
-// when the tree needs further frames.
-func Render(root tela.Node, opts ...Option) (img *image.RGBA, err error) {
+// when the tree needs further frames. root is a node or a component, as
+// for [Mount]; a Prop is an error.
+func Render(root tela.Component, opts ...Option) (img *image.RGBA, err error) {
 	cfg, size, err := headlessSetup(opts)
 	if err != nil {
 		return nil, err
 	}
 	defer recovered(&err)
-	_, img = core.Render(root, core.RenderOptions{
+	_, img = core.Render(core.NodeOf(root), core.RenderOptions{
 		Config: cfg.coreConfig(),
 		Width:  size.W, Height: size.H,
 		Scale: float32(cfg.scale),
@@ -75,7 +88,7 @@ func Render(root tela.Node, opts ...Option) (img *image.RGBA, err error) {
 // AriaSnapshot mounts root and returns its semantics tree as a Playwright
 // aria snapshot, without a trailing newline: the YAML `tela inspect --aria`
 // prints.
-func AriaSnapshot(root tela.Node, opts ...Option) (yaml string, err error) {
+func AriaSnapshot(root tela.Component, opts ...Option) (yaml string, err error) {
 	cfg, size, err := headlessSetup(opts)
 	if err != nil {
 		return "", err
@@ -94,7 +107,7 @@ func AriaSnapshot(root tela.Node, opts ...Option) (yaml string, err error) {
 // painted elsewhere, because of a transform or scrolled content, also has
 // bounds, the same shape: the bounding box of its transformed border box in
 // window coordinates, as tela.ElementRef.Bounds returns it.
-func LayoutJSON(root tela.Node, opts ...Option) (js []byte, err error) {
+func LayoutJSON(root tela.Component, opts ...Option) (js []byte, err error) {
 	cfg, size, err := headlessSetup(opts)
 	if err != nil {
 		return nil, err
@@ -113,13 +126,13 @@ func LayoutJSON(root tela.Node, opts ...Option) (js []byte, err error) {
 }
 
 // framed mounts root in a new tree of the given size and runs a frame.
-func framed(root tela.Node, cfg config, size gfx.Size) *core.Tree {
+func framed(root tela.Component, cfg config, size gfx.Size) *core.Tree {
 	cc := cfg.coreConfig()
 	cc.IDPrefix = "r-"
 	t := core.NewTree(cc)
 	t.SetViewport(size)
 	t.SetScale(float32(cfg.scale))
-	t.Mount(root)
+	t.Mount(core.NodeOf(root))
 	t.Frame()
 	for i := 1; i < core.MaxRenderFrames && t.Dirty(); i++ {
 		t.Frame()

@@ -175,7 +175,7 @@ func Signup() tela.Node {
 	welcome, setWelcome := tela.UseState("")
 	return Form(OnSubmit(func(tela.SubmitEvent) { setWelcome.Set("Welcome, " + email) }),
 		Label(For("email"), Text("Email")),
-		Input(Id("email"), Bind(email, setEmail)),
+		Input(ID("email"), Bind(email, setEmail)),
 		P(Text(welcome)),
 	)
 }

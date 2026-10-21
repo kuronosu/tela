@@ -125,7 +125,7 @@ func (w *pageWriter) page() {
 	if len(d.Funcs) > 0 {
 		w.heading(levelSection, "Functions")
 		for _, f := range d.Funcs {
-			w.function(f, levelSymbol, "func "+f.Name)
+			w.function(f, levelSymbol, w.p.funcTitle(f))
 		}
 	}
 	if len(d.Types) > 0 {
@@ -186,7 +186,7 @@ func (w *pageWriter) index() {
 	if len(funcs) > 0 {
 		var names []string
 		for _, f := range funcs {
-			names = append(names, link(f.Name, anchorOf("func "+f.Name)))
+			names = append(names, link(f.Name, anchorOf(w.p.funcTitle(f))))
 		}
 		label := "Functions"
 		if len(d.Funcs) > 0 {
@@ -200,7 +200,7 @@ func (w *pageWriter) index() {
 			line := "  - " + link("type "+t.Name, anchorOf("type "+t.Name))
 			var members []string
 			for _, f := range t.Funcs {
-				members = append(members, link(f.Name, anchorOf("func "+f.Name)))
+				members = append(members, link(f.Name, anchorOf(w.p.funcTitle(f))))
 			}
 			for _, m := range w.methods(t) {
 				members = append(members, link(m.Name, anchorOf("func ("+m.Recv+") "+m.Name)))
@@ -266,7 +266,7 @@ func (w *pageWriter) typ(t *doc.Type) {
 	}
 	w.examples(t.Examples, levelMember)
 	for _, f := range t.Funcs {
-		w.function(f, levelMember, "func "+f.Name)
+		w.function(f, levelMember, w.p.funcTitle(f))
 	}
 	for _, m := range w.methods(t) {
 		fset := p.fset

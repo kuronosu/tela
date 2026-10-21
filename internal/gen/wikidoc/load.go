@@ -266,6 +266,44 @@ func renameBase(e ast.Expr, name string) {
 	}
 }
 
+// funcTitle returns the heading of function f: "func Name", or "func Name
+// (deprecated)" for a deprecated function whose anchor would be another
+// function's, since GitHub's anchors ignore case (UseId, deprecated for
+// UseID).
+func (p *pkgInfo) funcTitle(f *docFunc) string {
+	title := "func " + f.Name
+	if !isDeprecated(f.Doc) {
+		return title
+	}
+	for _, g := range p.allFuncs() {
+		if g != f && strings.EqualFold(g.Name, f.Name) {
+			return title + " (deprecated)"
+		}
+	}
+	return title
+}
+
+// allFuncs returns the package's functions, those go/doc groups under a
+// type included.
+func (p *pkgInfo) allFuncs() []*docFunc {
+	fs := append([]*docFunc(nil), p.doc.Funcs...)
+	for _, t := range p.doc.Types {
+		fs = append(fs, t.Funcs...)
+	}
+	return fs
+}
+
+// isDeprecated reports whether a doc comment has a paragraph that starts
+// with "Deprecated: " (the Go convention).
+func isDeprecated(text string) bool {
+	for _, para := range strings.Split(text, "\n\n") {
+		if strings.HasPrefix(strings.TrimSpace(para), "Deprecated: ") {
+			return true
+		}
+	}
+	return false
+}
+
 // buildSyms fills the anchor table of p.
 func (p *pkgInfo) buildSyms() {
 	d := p.doc
@@ -280,7 +318,7 @@ func (p *pkgInfo) buildSyms() {
 		}
 	}
 	for _, f := range d.Funcs {
-		p.syms[f.Name] = anchorOf("func " + f.Name)
+		p.syms[f.Name] = anchorOf(p.funcTitle(f))
 	}
 	for _, t := range d.Types {
 		ta := anchorOf("type " + t.Name)
@@ -291,7 +329,7 @@ func (p *pkgInfo) buildSyms() {
 			}
 		}
 		for _, f := range t.Funcs {
-			p.syms[f.Name] = anchorOf("func " + f.Name)
+			p.syms[f.Name] = anchorOf(p.funcTitle(f))
 		}
 		for _, f := range members(t.Decl, t.Name) {
 			p.syms[t.Name+"."+f] = ta

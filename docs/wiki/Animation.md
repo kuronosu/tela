@@ -102,7 +102,7 @@ func Toast() tela.Node {
 	}
 	// OnDone(done) ends the exit when the tween out arrives; done does
 	// nothing while the toast is present.
-	shown := tela.UseTween(float32(0), target, tela.Duration(250*time.Millisecond), tela.OnDone(done))
+	shown := tela.UseTween(target, tela.Initial(float32(0)), tela.Duration(250*time.Millisecond), tela.OnDone(done))
 	return Div(Role("status"), Class("rounded-xl bg-slate-900 px-5 py-3 text-white"),
 		Style(tela.OpacityFn(shown.Get)), Text("Saved"))
 }
@@ -115,11 +115,14 @@ The toast never builds during its tweens: `OpacityFn` reads the value, and
 
 ## Springs and tweens: `UseSpring`, `UseTween`
 
-[`tela.UseSpring`](https://pkg.go.dev/github.com/kuronosu/tela#UseSpring)`(initial, target, opts...)` returns a [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) that follows
+[`tela.UseSpring`](https://pkg.go.dev/github.com/kuronosu/tela#UseSpring)`(target, opts...)` returns a [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) that follows
 `target` with a spring: when a build passes a new target, the spring moves
 there from where the value is, **keeping its velocity**, so interrupting it
 turns smoothly. [`tela.UseTween`](https://pkg.go.dev/github.com/kuronosu/tela#UseTween) does the same with a fixed duration and easing.
-On the first build the value is `initial` and moves to `target` if they differ.
+On the first build the value is the target, or the value of the
+[`tela.Initial`](https://pkg.go.dev/github.com/kuronosu/tela#Initial) option, from which it moves to the target (an entrance). The
+type of the value is the type of `target`, so a number needs a typed value
+(`float32(0)` or a `float32` variable).
 
 ```go
 func Drawer(open bool) tela.Node {
@@ -127,7 +130,7 @@ func Drawer(open bool) tela.Node {
 	if open {
 		target = 0
 	}
-	x := tela.UseSpring(float32(-320), target, tela.Stiffness(300), tela.Damping(30))
+	x := tela.UseSpring(target, tela.Initial(float32(-320)), tela.Stiffness(300), tela.Damping(30))
 	return Div(Class("fixed inset-y-0 left-0 w-80 bg-white shadow-xl"),
 		Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
 }
@@ -140,7 +143,7 @@ composites, a `BgFn` or `TextColorFn` frame only repaints, a `WidthFn` frame
 only lays out. Reading it in the body builds the component on every frame.
 
 ```go
-bg := tela.UseSpring(tela.Hex("#ffffff"), target)
+bg := tela.UseSpring(target) // target is a tela.Color
 Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)), Text("Selected"))
 ```
 
@@ -195,6 +198,7 @@ two frames starts at the next one.
 | [`tela.Velocity`](https://pkg.go.dev/github.com/kuronosu/tela#Velocity)(v) | springs | The initial velocity, in the value's units per second, per component (not for colors); it replaces the velocity of an interrupted animation |
 | [`tela.Spring`](https://pkg.go.dev/github.com/kuronosu/tela#Spring)(opts...) | `Animate` | Makes it a spring with these options |
 | [`tela.OnDone`](https://pkg.go.dev/github.com/kuronosu/tela#OnDone)(fn) | both | Calls `fn` once, on the UI thread before the next build, when the animation comes to rest at its target; not when it is interrupted (another target, `Animate`, `Set`, `Update`, an unmount). With reduced motion or without a frame clock, right after the target applies |
+| [`tela.Initial`](https://pkg.go.dev/github.com/kuronosu/tela#Initial)(v) | `UseSpring`, `UseTween` | The value on the first build, from which it moves to the target; of the target's type (a mismatch panics in dev mode) |
 
 The keywords are CSS's curves; Tailwind's `ease-out` utility is
 `Ease("cubic-bezier(0, 0, 0.2, 1)")`. Contradicting options (`Ease` on a

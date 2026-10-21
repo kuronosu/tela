@@ -87,7 +87,7 @@ func TestNoSettleSpring(t *testing.T) {
 	var x *tela.Value[float32]
 	app := telatest.Mount(t, tela.C(func() tela.Node {
 		target, setTarget := tela.UseState(float32(0))
-		x = tela.UseSpring(float32(0), target, tela.Stiffness(200), tela.Damping(20))
+		x = tela.UseSpring(target, tela.Stiffness(200), tela.Damping(20))
 		return Div(Class("p-4"),
 			Button(OnClick(func(tela.MouseEvent) { setTarget.Set(100) }), Text("Go")),
 			Div(Class("size-8 bg-black"), Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 }))))

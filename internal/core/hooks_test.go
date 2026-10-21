@@ -176,7 +176,7 @@ func TestHookMisuse(t *testing.T) {
 		"UseLayoutEffect": func() { UseLayoutEffect(func() func() { return nil }) },
 		"UseMemo":         func() { UseMemo(func() int { return 1 }) },
 		"UseRef":          func() { UseRef(0) },
-		"UseId":           func() { UseId() },
+		"UseID":           func() { UseID() },
 		"UseCallback":     func() { UseCallback(func() {}) },
 		"UseContext":      func() { UseContext(CreateContext(0)) },
 		"UseReducer":      func() { UseReducer(func(s, a int) int { return s + a }, 0) },
@@ -308,14 +308,14 @@ func TestDevCustomHookSite(t *testing.T) {
 		if cond {
 			useTestCounter()
 		}
-		UseId()
+		UseID()
 		return Text("c")
 	}
 	tr := devTree(t, Component(comp), nil)
 	cond = false
 	msg := panicMessage(func() { tr.Mount(Component(comp)) })
 	if !strings.Contains(msg, "it was UseState at core.useTestCounter (hooks_test.go:") ||
-		!strings.Contains(msg, "hook 1 is UseId at core.TestDevCustomHookSite.func1 (hooks_test.go:") {
+		!strings.Contains(msg, "hook 1 is UseID at core.TestDevCustomHookSite.func1 (hooks_test.go:") {
 		t.Errorf("panic %q", msg)
 	}
 }

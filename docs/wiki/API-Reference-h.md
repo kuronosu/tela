@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`Id`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Id`](#func-id-deprecated) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
 
 ## Overview
 
@@ -31,7 +31,7 @@ func Greeting(name string) tela.Node {
 }
 ```
 
-To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Scheme, Src, Alt, Href, Id, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, Fragment and TextFn (text that a Value changes without rebuilding the component), Portal (content shown above the window's content, for modals, menus and tooltips), VirtualList with its Overscan prop, and Presence with its Exit prop (enter and exit animations).
+To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Scheme, Src, Alt, Href, ID, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, Fragment and TextFn (text that a Value changes without rebuilding the component), Portal (content shown above the window's content, for modals, menus and tooltips), VirtualList with its Overscan prop, and Presence with its Exit prop (enter and exit animations).
 
 Everything else (App, Run, hooks, events, colors, typed style props) lives in package tela.
 
@@ -41,7 +41,7 @@ An element takes its props and children in one list, in any order:
 Div(Class("p-4"), Key(id), Text("hi"), Span(Text("there")))
 ```
 
-Props apply in order, so a later Class wins over an earlier one and Style wins over every class. Children are nodes only; wrap text in Text or Textf. The parameters are tela.Child, so passing a bare string is a compile error, which names the internal type behind the alias: "string does not implement core.Child (missing method applyChild)" means Div("hi") should be Div(Text("hi")).
+Props apply in order, so a later Class wins over an earlier one and Style wins over every class. Children are nodes or components (a tela.Component value, such as a struct with a Build method, is a component with its own state); wrap text in Text or Textf. The parameters are tela.Child, so passing a bare string is a compile error, which names the internal type behind the alias: "string does not implement core.Child (missing method Build)" means Div("hi") should be Div(Text("hi")).
 
 Elements have the defaults of Tailwind's Preflight: no margins, padding or borders, headings in the surrounding font size, block images. A Button has no background of its own, and neither has an Input or a Textarea: style fields with classes.
 
@@ -52,7 +52,7 @@ func Signup() tela.Node {
     email, setEmail := tela.UseState("")
     return Form(Class("flex flex-col gap-2"), OnSubmit(func(tela.SubmitEvent) { register(email) }),
         Label(For("email"), Class("text-sm font-medium"), Text("Email")),
-        Input(Id("email"), Type("email"), Bind(email, setEmail), Placeholder("you@example.com"),
+        Input(ID("email"), Type("email"), Bind(email, setEmail), Placeholder("you@example.com"),
             Class("rounded-md border border-slate-300 px-3 py-2 invalid:border-red-500")),
         Button(Class("rounded-md bg-indigo-600 px-4 py-2 text-white"), Text("Sign up")))
 }
@@ -470,7 +470,7 @@ fmt.Println(style, app.Count(telatest.ByRole("status", "")))
 func For(id string) tela.Prop
 ```
 
-For makes a Label label the element whose Id is id.
+For makes a Label label the element whose ID is id.
 
 ### func Form
 
@@ -494,7 +494,7 @@ func Fragment(children ...tela.Child) tela.Node
 
 Fragment groups children without a box of their own: they become children of the fragment's parent. It takes only Key as a prop.
 
-It is how a component returns several siblings, and how a wrapper puts the children it receives next to its own: Go does not allow Div(Class("..."), H2(...), children...), but Fragment(children...) is one child. The children must be nodes (or Key):
+It is how a component returns several siblings, how a wrapper puts the children it receives next to its own (Go does not allow Div(Class("..."), H2(...), children...), but Fragment(children...) is one child), and how several children go in one field of type tela.Component. The children must be nodes or components (or Key):
 
 ```go
 // Card has no hooks, so it is a plain function that wraps its children.
@@ -503,7 +503,11 @@ func Card(title string, children ...tela.Child) tela.Node {
         H2(Class("font-semibold"), Text(title)),
         Fragment(children...))
 }
+
+Panel{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))}
 ```
+
+Fragment(c) is also a node of one component, for a function that must return a tela.Node: return Fragment(Panel{...}).
 
 ### func H1
 
@@ -561,13 +565,23 @@ func Href(url string) tela.Prop
 
 Href sets the destination of an A. Tela does not open links by itself yet: handle OnClick.
 
-### func Id
+### func ID
+
+```go
+func ID(id string) tela.Prop
+```
+
+ID gives an element an identifier, unique in the window, that a Label's For refers to (HTML's id). tela.UseID makes one for a reusable field.
+
+### func Id (deprecated)
 
 ```go
 func Id(id string) tela.Prop
 ```
 
-Id gives an element an identifier, unique in the window, that a Label's For refers to.
+Id is the former name of [`ID`](#func-id).
+
+Deprecated: use ID. Id will be removed in phase 8.
 
 ### func If
 
@@ -586,6 +600,8 @@ Div(
 ```
 
 Every argument of a call is evaluated: If(user != nil, Text(user.Name)) dereferences a nil user. Use an ordinary if for that case.
+
+The zero value of a struct component is a component that renders, so give If a struct component as a tela.Component, whose zero value is nil (nothing): If(loading, tela.Component(Spinner{})). Dev mode panics on If(loading, Spinner{}).
 
 **Example**
 
@@ -668,7 +684,7 @@ signup := func() tela.Node {
     email, setEmail := tela.UseState("ana@example.com")
     return Form(Class("flex flex-col gap-2"),
         Label(For("email"), Text("Email")),
-        Input(Id("email"), Type("email"), Bind(email, setEmail),
+        Input(ID("email"), Type("email"), Bind(email, setEmail),
             Class("rounded-md border border-slate-300 px-3 py-2")),
         Button(Class("rounded-md bg-indigo-600 px-4 py-2 text-white"), Text("Sign up")),
     )
@@ -684,10 +700,10 @@ fmt.Println(yaml)
 ### func Key
 
 ```go
-func Key(k any) tela.Prop
+func Key[K comparable](k K) tela.Prop
 ```
 
-Key gives an element an identity among its siblings: when a list changes, the element with the same key keeps its state wherever it moves. k must be a non-nil comparable value, such as an item ID; Key panics otherwise. Elements built from data (Map) should have keys.
+Key gives an element an identity among its siblings: when a list changes, the element with the same key keeps its state wherever it moves. k is a comparable value, such as an item ID: a slice, a map or a func does not compile, and a nil interface, or one holding a value that cannot be compared, panics. Elements built from data (Map) should have keys. A component or a fragment takes its key from tela.WithKey.
 
 ### func Label
 
@@ -695,10 +711,10 @@ Key gives an element an identity among its siblings: when a list changes, the el
 func Label(children ...tela.Child) tela.Node
 ```
 
-Label returns a label for a field: inline text that gives the field its accessible name and focuses it when clicked. It labels the element whose Id is its For, or else the Input, Textarea or Button inside it.
+Label returns a label for a field: inline text that gives the field its accessible name and focuses it when clicked. It labels the element whose ID is its For, or else the Input, Textarea or Button inside it.
 
 ```go
-Label(For("name"), Text("Name")), Input(Id("name"))
+Label(For("name"), Text("Name")), Input(ID("name"))
 Label(Text("Name "), Input())
 ```
 

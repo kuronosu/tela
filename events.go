@@ -115,23 +115,36 @@ type DragEvent = core.DragEvent
 // element under the pointer and blurs the focused one otherwise
 // (PreventDefault on h.OnMouseDown or h.OnPointerDown prevents it).
 
-// Key is a logical key: what the key means with the active layout and
-// modifiers (a W3C KeyboardEvent key value). It is a named key, one of the
-// Key constants ("Enter", "Escape", "ArrowLeft", "Shift"), or the
-// character the key types ("a", "A", "é", " " for the space bar). Ctrl
-// does not change it: Ctrl+S has Key "s". Compare it with a constant or a
-// string literal:
+// KeyName is a logical key, the type of [KeyboardEvent].Key: what the key
+// means with the active layout and modifiers (a W3C KeyboardEvent key
+// value). It is a named key, one of the Key constants ("Enter", "Escape",
+// "ArrowLeft", "Shift"), or the character the key types ("a", "A", "é",
+// " " for the space bar). Ctrl does not change it: Ctrl+S has Key "s".
+// Compare it with a constant or a string literal:
 //
 //	if e.Key == tela.KeyEnter || e.Key == "+" { ... }
-type Key = core.KeyValue
+type KeyName = core.KeyValue
 
-// Code is a physical key: its position on the keyboard whatever the
-// layout (a W3C KeyboardEvent code value), one of the Code constants.
-// Use it for shortcuts that depend on the position (WASD), and Key for
-// those that depend on the meaning (Ctrl+Z):
+// KeyCode is a physical key, the type of [KeyboardEvent].Code: its
+// position on the keyboard whatever the layout (a W3C KeyboardEvent code
+// value), one of the Code constants. Use it for shortcuts that depend on
+// the position (WASD), and Key for those that depend on the meaning
+// (Ctrl+Z):
 //
 //	if e.Code == tela.CodeKeyW || e.Code == "ArrowUp" { moveUp() }
-type Code = core.CodeValue
+type KeyCode = core.CodeValue
+
+// Key is the former name of [KeyName]. It collides with h.Key when both
+// packages are dot-imported.
+//
+// Deprecated: use KeyName. Key will be removed in phase 8.
+type Key = KeyName
+
+// Code is the former name of [KeyCode]. It collides with the element h.Code
+// when both packages are dot-imported.
+//
+// Deprecated: use KeyCode. Code will be removed in phase 8.
+type Code = KeyCode
 
 // KeyLocation tells apart keys with the same meaning: the left and right
 // Shift, Control, Alt and Meta keys, and the numeric keypad.

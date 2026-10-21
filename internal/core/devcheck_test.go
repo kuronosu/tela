@@ -162,7 +162,7 @@ func TestHookBoundaryAccepts(t *testing.T) {
 			return Text("r")
 		}
 		for range seq {
-			UseId() // a range-over-func body
+			UseID() // a range-over-func body
 		}
 		return div(
 			row(1),
@@ -273,10 +273,10 @@ func TestNilDepsWarning(t *testing.T) {
 	tr.Mount(Component(comp))
 	tr.Frame()
 	want := []string{
-		"UseEffect(f, nil) at core.TestNilDepsWarning.func1 (devcheck_test.go:",
-		"UseLayoutEffect(f, nil)", "tela.UseLayoutEffect(f, true)",
-		"UseMemo(f, nil)", "use tela.UseOnce(f)",
-		"UseEffectDo(f, nil)",
+		"UseEffect(f, nil) at core.TestNilDepsWarning.func1 (devcheck_test.go:", "tela.UseEffect(f, tela.Once)",
+		"UseLayoutEffect(f, nil)", "tela.UseLayoutEffect(f, tela.Once)",
+		"UseMemo(f, nil)", "use tela.UseOnce(f), or tela.UseMemo(f, tela.Once)",
+		"UseEffectDo(f, nil)", "tela.UseEffectDo(f, tela.Once)",
 		"UseUpdateEffect(f, nil)", "it never runs",
 	}
 	all := strings.Join(logs, "\n")
@@ -382,8 +382,8 @@ func TestLabelWarning(t *testing.T) {
 		want string // "" for no warning
 	}{
 		{"no control", div(label(Text("Email"))), `Label <label> "Email" labels no control`},
-		{"missing id", div(label(For("mail"), Text("Email")), input(ID("email"))), `has For("mail"), but no mounted element has Id("mail")`},
-		{"not a control", div(label(For("box"), Text("Box")), div(ID("box"))), `<div> has Id("box") but is not an Input, Textarea or Button`},
+		{"missing id", div(label(For("mail"), Text("Email")), input(ID("email"))), `has For("mail"), but no mounted element has ID("mail")`},
+		{"not a control", div(label(For("box"), Text("Box")), div(ID("box"))), `<div> has ID("box") but is not an Input, Textarea or Button`},
 		{"wraps", div(label(Text("Name"), input())), ""},
 		{"for after", div(label(For("e"), Text("E")), input(ID("e"))), ""},
 		{"button", div(label(button(Text("Go")))), ""},

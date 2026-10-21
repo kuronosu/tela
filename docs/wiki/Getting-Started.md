@@ -21,7 +21,8 @@ go get github.com/kuronosu/tela@latest
 
 ## Write the app
 
-A Tela program is a tree of nodes built by function components. The elements
+A Tela program is a tree of nodes built by components: functions, like the one
+below, and structs with a `Build` method (next section). The elements
 (`Div`, `Button`, `Text`...) live in package `h`, which is meant to be
 dot-imported so markup reads like JSX; hooks, events and `Run` live in package
 `tela`.
@@ -81,6 +82,40 @@ The pieces:
 - `Preview` returns `tela.C(Counter)`, not `Counter()`: calling a component
   with hooks directly would run its hooks inside `Preview`, and dev mode
   stops you with the fix.
+
+## Components with props
+
+A component that takes props is a struct with a `Build` method. Its fields
+are the props, its children are a field of type `tela.Component`, and every
+value you put in a tree is a component of its own, with its own state:
+
+```go
+// Stat is a labeled number with a "details" toggle.
+type Stat struct {
+	Label    string
+	Value    int
+	Children tela.Component // shown when open; several nodes via Fragment
+}
+
+func (s Stat) Build() tela.Node {
+	open, setOpen := tela.UseState(false)
+	return Div(Class("rounded-xl bg-white p-4 shadow"),
+		P(Class("text-sm text-slate-500"), Text(s.Label)),
+		P(Class("text-3xl font-semibold"), Textf("%d", s.Value)),
+		Button(OnClick(func(tela.MouseEvent) { setOpen.Set(!open) }), Text("Details")),
+		If(open, s.Children))
+}
+
+func Dashboard() tela.Node {
+	return Div(Class("grid grid-cols-2 gap-4 p-6"),
+		Stat{Label: "Visitors", Value: 1284, Children: Text("+12% this week")},
+		Stat{Label: "Signups", Value: 87})
+}
+```
+
+`Build` has a value receiver. When `Dashboard` builds again and a `Stat`'s
+fields are equal to the previous ones, that `Stat` is not built again. See
+[Hooks](Hooks#components) for keys, skipping and function components.
 
 ## Run it
 
@@ -147,11 +182,13 @@ checkout) and in every `telatest` test, and off in release builds (built with
 
 - An unknown class is printed with the closest one (`unknown class
   "rounded-xxl"; did you mean "rounded-2xl"?`); in a test it fails the test.
-- An unknown role, input type or easing, a change in the order of hooks, and
-  a hook called outside its component (`Counter()` where `tela.C(Counter)`
-  belongs) panic with the fix.
+- An unknown role, input type or easing, a change in the order of hooks, a
+  hook called outside its component (`Counter()` where `tela.C(Counter)`
+  belongs, `Stat{}.Build()` where `Stat{}` belongs), a pointer given as a
+  component (`&Stat{}`) and a prop in a field of type `tela.Component` panic
+  with the fix.
 - Likely mistakes are warnings, printed once per call site (test log lines in
-  `telatest`): a list without keys, `UseEffect(f, nil)` (use `UseMount`), props
+  `telatest`): a list without keys, `UseEffect(f, nil)` (use `tela.Once` or `UseMount`), props
   that a [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) component cannot compare, a `Value.Get` that misses queued
   changes (use `Latest`), a context without a Provider whose default would
   panic, a `Label` that labels nothing.

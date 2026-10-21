@@ -62,7 +62,7 @@ type Config struct {
 	// read while changes are queued...). It may be called from any
 	// goroutine. Nil means Log.
 	Warn func(msg string)
-	// IDPrefix starts the strings of UseId. Empty means "t<n>-", where
+	// IDPrefix starts the strings of UseID. Empty means "t<n>-", where
 	// <n> numbers the Trees of the process in base 36 (Render uses "r-"),
 	// so IDs are unique within the process.
 	IDPrefix string
@@ -163,7 +163,7 @@ type Tree struct {
 	layoutFx, passiveFx, readyFx       []*effectSlot
 	layoutGone, passiveGone, readyGone []func()
 
-	// UseId.
+	// UseID.
 	idPrefix string
 	idNext   uint64
 
@@ -233,7 +233,7 @@ type Tree struct {
 	stats  Stats
 }
 
-// treeSerial numbers the Trees of the process (default UseId prefixes).
+// treeSerial numbers the Trees of the process (default UseID prefixes).
 var treeSerial atomic.Uint64
 
 // NewTree returns an empty Tree; Mount gives it content and SetViewport a

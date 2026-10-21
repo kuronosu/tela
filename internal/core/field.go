@@ -246,7 +246,7 @@ func For(id string) Prop {
 // ID gives a primitive an identifier, unique in its tree (h.Id), that
 // Label's For refers to.
 func ID(id string) Prop {
-	return Prop{name: "Id", apply: func(d *desc) { d.id = id }}
+	return Prop{name: "ID", apply: func(d *desc) { d.id = id }}
 }
 
 // checkFormProps panics when form props are given to an element that

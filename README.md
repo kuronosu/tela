@@ -14,8 +14,9 @@
 </p>
 
 Tela draws every pixel itself, like Flutter or a browser, with its own
-rasterizer, text layout and flexbox engine. You write function components with
-hooks and style them with the Tailwind v4 vocabulary; the same tree renders to
+rasterizer, text layout and flexbox engine. You write components (structs with
+a `Build` method, or functions) with hooks and style them with the Tailwind v4
+vocabulary; the same tree renders to
 a window on Linux or, with no window at all, to a PNG you can look at and a
 text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
@@ -222,7 +223,7 @@ values that change every frame.
 ## State and hooks
 
 `UseState`, `UseReducer`, `UseEffect`, `UseLayoutEffect`, `UseMemo`,
-`UseCallback`, `UseRef`, `UseContext`, `UseId`, `UseMount`, `UseOnce`,
+`UseCallback`, `UseRef`, `UseContext`, `UseID`, `UseMount`, `UseOnce`,
 `UseInterval`, `UseGo`, plus `tela.UseValue` for
 values that should repaint or relayout one element without rebuilding the
 component that owns them. Component boundaries `tela.C`, `tela.CP` and

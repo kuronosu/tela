@@ -30,8 +30,9 @@ type Animatable = core.Animatable
 
 // AnimationOption configures an animation of [UseSpring], [UseTween] or
 // [Animate]: [Stiffness], [Damping], [Bounce], [Duration], [Ease],
-// [Velocity] and [Spring], which groups spring options, and [OnDone]. The
-// zero AnimationOption changes nothing.
+// [Velocity] and [Spring], which groups spring options, [OnDone], and
+// [Initial] for the start value of UseSpring and UseTween. The zero
+// AnimationOption changes nothing.
 //
 // Springs (Motion's model) are defined either by their physics or by how
 // long they take:
@@ -51,15 +52,17 @@ type Animatable = core.Animatable
 type AnimationOption = core.AnimOption
 
 // UseSpring returns a [Value] that follows target with a spring: on the
-// first build it holds initial and, if target differs, starts moving to it;
-// whenever a build passes a target that differs from the previous one, the
-// spring retargets from where the value is, keeping its velocity, so an
-// interrupted motion turns smoothly instead of stopping (Compose's
-// animate*AsState, Motion's useSpring). It is a Value like [UseValue]'s:
-// read it in a deferred style closure ([TranslateFn], [OpacityFn],
-// [WidthFn]...) and the element animates by repainting or laying out
-// only, without rebuilding the component; the same *Value is returned on
-// every build.
+// first build it holds the [Initial] option's value (target itself when
+// there is none, so nothing moves) and, if target differs, starts moving
+// to it; whenever a build passes a target that differs from the previous
+// one, the spring retargets from where the value is, keeping its
+// velocity, so an interrupted motion turns smoothly instead of stopping
+// (Compose's animate*AsState, Motion's useSpring). T is the type of
+// target, so a float32 target needs a typed value (float32(0), a float32
+// variable). It is a Value like [UseValue]'s: read it in a deferred style
+// closure ([TranslateFn], [OpacityFn], [WidthFn]...) and the element
+// animates by repainting or laying out only, without rebuilding the
+// component; the same *Value is returned on every build.
 //
 // The options are [AnimationOption]s: [Stiffness] and [Damping], or
 // [Duration] and [Bounce]; without them, Motion's default spring
@@ -67,13 +70,14 @@ type AnimationOption = core.AnimOption
 // speed and its distance to the target are below Motion's thresholds), at
 // exactly the target, and from then on the app requests no frames.
 //
-// A panel that slides in when open changes:
+// A panel that slides in when open changes, and in from the left when it
+// mounts open:
 //
 //	target := float32(-320)
 //	if open {
 //	    target = 0
 //	}
-//	x := tela.UseSpring(float32(-320), target, tela.Stiffness(300), tela.Damping(30))
+//	x := tela.UseSpring(target, tela.Initial(float32(-320)), tela.Stiffness(300), tela.Damping(30))
 //	return Div(Class("fixed inset-y-0 left-0 w-80 bg-white shadow-xl"),
 //	    Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
 //
@@ -81,23 +85,40 @@ type AnimationOption = core.AnimOption
 // no frame clock drives (telatest.Render, tela snapshot), the value jumps
 // to each new target. Calling Set on the Value stops the spring; the next
 // target change starts from the value set.
-func UseSpring[T Animatable](initial, target T, opts ...AnimationOption) *Value[T] {
-	return core.UseSpring(initial, target, opts...)
+func UseSpring[T Animatable](target T, opts ...AnimationOption) *Value[T] {
+	return core.UseSpring(target, opts...)
 }
 
 // UseTween is [UseSpring] with a tween: the value moves to each new
 // target in a fixed [Duration] along an [Ease] curve (default 300 ms,
 // CSS's "ease"), like a CSS transition of the value. A new target starts a
 // new tween from where the value is (tweens have no velocity to keep).
+// Like UseSpring, it starts at the [Initial] option's value, or at target.
 //
-//	op := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.Ease("ease-out"))
+//	op := tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.Ease("ease-out"))
 //	Div(Class("rounded-lg bg-slate-900 p-3 text-white"),
 //	    Style(tela.OpacityFn(op.Get)), Text("Saved"))
 //
-// It takes only Duration and Ease; spring options panic in dev mode.
-func UseTween[T Animatable](initial, target T, opts ...AnimationOption) *Value[T] {
-	return core.UseTween(initial, target, opts...)
+// It takes only Duration, Ease, Initial and OnDone; spring options panic
+// in dev mode.
+func UseTween[T Animatable](target T, opts ...AnimationOption) *Value[T] {
+	return core.UseTween(target, opts...)
 }
+
+// Initial sets the value [UseSpring] and [UseTween] hold on their first
+// build, from which they move to their target: an entrance animation.
+// Without it they start at the target, and nothing moves until the target
+// changes. Later builds ignore it.
+//
+//	scale := tela.UseSpring(float32(1), tela.Initial(float32(0.8))) // pops in
+//
+// Its type must be the target's. AnimationOption is not generic, so the
+// compiler cannot check that: a mismatch, such as
+// tela.UseSpring(tela.Point{}, tela.Initial(float32(0))), panics in dev mode
+// (see [App].Dev) and is ignored otherwise (the value starts at the
+// target). It does not apply to [Animate], which starts where the Value
+// is (dev mode panics), nor inside [Spring].
+func Initial[T Animatable](v T) AnimationOption { return core.Initial(v) }
 
 // Animate moves v to target: with a spring by default (Motion's default,
 // or as [Stiffness], [Damping], [Bounce] or [Spring] say), or with a tween
@@ -221,7 +242,7 @@ func Spring(opts ...AnimationOption) AnimationOption { return core.Spring(opts..
 //	    if !present {
 //	        target = 1
 //	    }
-//	    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
+//	    out := tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
 //	    return Div(Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
 //	        Style(tela.TranslateFn(func() (float32, float32) { return 0, 40 * out.Get() }),
 //	            tela.OpacityFn(func() float32 { return 1 - out.Get() })),

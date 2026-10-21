@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -122,6 +123,44 @@ func TestCodeLang(t *testing.T) {
 	} {
 		if got := codeLang(in); got != want {
 			t.Errorf("codeLang(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestDeprecatedAnchorClash: a deprecated function whose name differs from
+// another's only in case (UseId and UseID) gets a heading of its own, and
+// links to it go there.
+func TestDeprecatedAnchorClash(t *testing.T) {
+	dir := t.TempDir()
+	src := `package dep
+
+// UseID is the new name.
+func UseID() string { return "" }
+
+// UseId is the old name.
+//
+// Deprecated: use [UseID].
+func UseId() string { return "" }
+
+// Make is deprecated, without a clash.
+//
+// Deprecated: use [UseID].
+func Make() {}
+`
+	if err := os.WriteFile(filepath.Join(dir, "dep.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/dep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pages, err := generate(dir, "example.com/dep", []pkgSpec{{Dir: ".", ImportPath: "example.com/dep", Page: "API-Reference-dep"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := string(pages[0])
+	for _, want := range []string{"### func UseID\n", "### func UseId (deprecated)\n", "### func Make\n", "[`UseId`](#func-useid-deprecated)"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page does not contain %q:\n%s", want, page)
 		}
 	}
 }

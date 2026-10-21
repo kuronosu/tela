@@ -46,11 +46,11 @@ func constsOfType(t *testing.T, path, typ string) map[string]string {
 	return out
 }
 
-// TestKeyConstantsMatchPlatform checks that tela has a Key constant for
-// every named key of the platform layer and a Code constant for every
+// TestKeyConstantsMatchPlatform checks that tela has a KeyName constant for
+// every named key of the platform layer and a KeyCode constant for every
 // physical key code, with the W3C value, and nothing else.
 func TestKeyConstantsMatchPlatform(t *testing.T) {
-	keys := constsOfType(t, "keys_gen.go", "Key")
+	keys := constsOfType(t, "keys_gen.go", "KeyName")
 	platKeys := constsOfType(t, "internal/platform/key.go", "Key")
 	if len(platKeys) < 150 {
 		t.Fatalf("found %d platform keys; the parse is broken", len(platKeys))
@@ -68,7 +68,7 @@ func TestKeyConstantsMatchPlatform(t *testing.T) {
 			t.Errorf("tela.%s has the value %q", name, v)
 		}
 	}
-	codes := constsOfType(t, "keys_gen.go", "Code")
+	codes := constsOfType(t, "keys_gen.go", "KeyCode")
 	n := 0
 	for c := platform.KeyCode(1); c.Identified(); c++ {
 		n++
@@ -89,7 +89,7 @@ func TestKeyConstantsMatchPlatform(t *testing.T) {
 // and with string literals alike.
 func TestKeyComparisons(t *testing.T) {
 	e := tela.KeyboardEvent{Key: "Enter", Code: tela.CodeKeyA, Location: tela.KeyLocationNumpad}
-	if e.Key != tela.KeyEnter || e.Code != "KeyA" || tela.Key(" ") != " " {
+	if e.Key != tela.KeyEnter || e.Code != "KeyA" || tela.KeyName(" ") != " " {
 		t.Error("string comparisons")
 	}
 	if e.Location.String() != "numpad" {

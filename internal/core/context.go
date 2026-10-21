@@ -35,20 +35,7 @@ func (c *Context[T]) Provider(value T, children ...Child) Node {
 	}
 	d := &desc{kind: nodeComponent, comp: &compDesc{ctx: c, value: value}, children: make([]Node, 0, len(children))}
 	for _, ch := range children {
-		switch ch := ch.(type) {
-		case nil:
-			d.children = append(d.children, Node{})
-		case Node:
-			d.children = append(d.children, ch)
-		case Prop:
-			if ch.apply == nil {
-				continue // the zero Prop of If(false, ...)
-			}
-			if ch.name != "Key" {
-				panic(fmt.Sprintf("tela: Context.Provider does not take %s; a provider has no box (wrap the children in a Div)", ch.name))
-			}
-			ch.apply(d)
-		}
+		d.addGroupChild(ch, "Context.Provider", "a provider has no box (wrap the children in a Div)")
 	}
 	return Node{d}
 }

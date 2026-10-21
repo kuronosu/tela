@@ -29,12 +29,15 @@ func Greeting(name string) tela.Node {
 
 - Props apply in order: a later [`Class`](https://pkg.go.dev/github.com/kuronosu/tela/h#Class) wins over an earlier one, and
   [`Style`](https://pkg.go.dev/github.com/kuronosu/tela/h#Style) wins over every class.
-- Children are **nodes only**. The parameters are `tela.Child`, an interface
+- Children are **nodes and components**: an element, a text, or a
+  [`tela.Component`](https://pkg.go.dev/github.com/kuronosu/tela#Component) value such as `Card{Title: "Inbox"}` (a struct with a `Build`
+  method, a component with its own state; see [Hooks](Hooks#components)). The
+  parameters are `tela.Child`, an interface (a `Build() tela.Node` method)
   that a bare `string` does not satisfy, so passing one is a compile error:
   wrap text in [`Text`](https://pkg.go.dev/github.com/kuronosu/tela/h#Text) or [`Textf`](https://pkg.go.dev/github.com/kuronosu/tela/h#Textf). The compiler names the internal type behind
   the alias, so `Div("hello")` reads: `cannot use "hello" (constant of type
   string) as tela.Child value in argument to Div: string does not implement
-  core.Child (missing method applyChild)`.
+  core.Child (missing method Build)`.
 - Elements have the defaults of Tailwind's Preflight: no margins, padding or
   borders, headings in the surrounding font size, block images. Style
   everything with [classes](Styling).
@@ -92,7 +95,7 @@ func Avatar() tela.Node {
 | [`Disabled`](https://pkg.go.dev/github.com/kuronosu/tela/h#Disabled) | Disables an element and its subtree for the pointer and the focus |
 | [`Scheme`](https://pkg.go.dev/github.com/kuronosu/tela/h#Scheme) | Gives an element and its subtree their own color scheme (`tela.Light`, `tela.Dark`): see [Theming](Theming) |
 | [`Src`](https://pkg.go.dev/github.com/kuronosu/tela/h#Src), [`Alt`](https://pkg.go.dev/github.com/kuronosu/tela/h#Alt), [`Href`](https://pkg.go.dev/github.com/kuronosu/tela/h#Href) | Image source, its alternative text, a link's destination |
-| [`Id`](https://pkg.go.dev/github.com/kuronosu/tela/h#Id), [`For`](https://pkg.go.dev/github.com/kuronosu/tela/h#For), [`Name`](https://pkg.go.dev/github.com/kuronosu/tela/h#Name) | Identifier of an element, the field a label is for, name of a field in its form |
+| [`ID`](https://pkg.go.dev/github.com/kuronosu/tela/h#ID), [`For`](https://pkg.go.dev/github.com/kuronosu/tela/h#For), [`Name`](https://pkg.go.dev/github.com/kuronosu/tela/h#Name) | Identifier of an element, the field a label is for, name of a field in its form |
 | [`TabIndex`](https://pkg.go.dev/github.com/kuronosu/tela/h#TabIndex), [`AutoFocus`](https://pkg.go.dev/github.com/kuronosu/tela/h#AutoFocus), [`Ref`](https://pkg.go.dev/github.com/kuronosu/tela/h#Ref) | Focus order, focus on appearance, a handle on the element |
 | [`Role`](https://pkg.go.dev/github.com/kuronosu/tela/h#Role) and the `Aria...` props | Semantics: see [Accessibility](Accessibility) |
 | [`Value`](https://pkg.go.dev/github.com/kuronosu/tela/h#Value), [`DefaultValue`](https://pkg.go.dev/github.com/kuronosu/tela/h#DefaultValue), [`Bind`](https://pkg.go.dev/github.com/kuronosu/tela/h#Bind), [`BindValue`](https://pkg.go.dev/github.com/kuronosu/tela/h#BindValue), [`Type`](https://pkg.go.dev/github.com/kuronosu/tela/h#Type), [`Rows`](https://pkg.go.dev/github.com/kuronosu/tela/h#Rows), [`Placeholder`](https://pkg.go.dev/github.com/kuronosu/tela/h#Placeholder), [`ReadOnly`](https://pkg.go.dev/github.com/kuronosu/tela/h#ReadOnly), [`MaxLength`](https://pkg.go.dev/github.com/kuronosu/tela/h#MaxLength), [`AutoComplete`](https://pkg.go.dev/github.com/kuronosu/tela/h#AutoComplete), [`SpellCheck`](https://pkg.go.dev/github.com/kuronosu/tela/h#SpellCheck) | Text fields: see [Forms and Text Input](Forms-and-Text-Input) |
@@ -103,11 +106,16 @@ func Avatar() tela.Node {
 ### Keys
 
 When a list changes, the element with the same [`Key`](https://pkg.go.dev/github.com/kuronosu/tela/h#Key) keeps its state wherever
-it moves. The key must be a non-nil comparable value, such as an item ID (not
-its index when the list reorders). Dev mode warns about a list of two or more
-nodes without keys and about duplicate keys among siblings, once per call site
-of the `Map` that made the list. A component or fragment cannot take the `Key`
-prop; use [`tela.WithKey`](https://pkg.go.dev/github.com/kuronosu/tela#WithKey).
+it moves. The key is a comparable value, such as an item ID (not its index
+when the list reorders): `Key` is generic, so a slice or a map does not
+compile. Dev mode warns about a list of two or more nodes without keys and
+about duplicate keys among siblings, once per call site of the `Map` that made
+the list. A component or fragment cannot take the `Key` prop; use
+[`tela.WithKey`](https://pkg.go.dev/github.com/kuronosu/tela#WithKey), which also keys a struct component and makes a node of it:
+
+```go
+Map(cards, func(c CardData) tela.Node { return tela.WithKey(Card{Title: c.Title}, c.ID) })
+```
 
 ## Helpers
 
@@ -138,6 +146,11 @@ func errorText(err error) string {
 
 Every argument of a call is evaluated: `If(user != nil, Text(user.Name))`
 dereferences a nil `user`. Use an ordinary `if` for that case.
+
+The zero value of a struct component (`Spinner{}`) is a component that
+renders, so pass one to `If` as a `tela.Component`, whose zero value is nil:
+`If(loading, tela.Component(Spinner{}))`. Dev mode panics on
+`If(loading, Spinner{})`.
 
 ### Map and MapIndex
 
@@ -174,6 +187,11 @@ func Card(title string, children ...tela.Child) tela.Node {
 		Fragment(children...))
 }
 ```
+
+It puts several children in one field of type `tela.Component`
+(`Panel{Children: Fragment(Text("a"), Span(Text("b")))}`), and makes a node of
+a struct component where a `tela.Node` is expected
+(`return Fragment(Panel{Title: "Inbox"})`).
 
 [`TextFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#TextFn) is a text node
 whose content is read in a later phase, so a change of a `tela.Value` it reads

@@ -1,6 +1,6 @@
-// Command keys generates keys_gen.go in package tela: a tela.Key constant
+// Command keys generates keys_gen.go in package tela: a tela.KeyName constant
 // for every named key of internal/platform (its Key constants) and a
-// tela.Code constant for every physical key code (its KeyCode constants
+// tela.KeyCode constant for every physical key code (its KeyCode constants
 // and their W3C names), so the public lists never drift from the
 // platform's.
 //
@@ -81,21 +81,21 @@ package tela
 // (W3C UI Events KeyboardEvent key values, https://www.w3.org/TR/uievents-key/).
 // A key that produces a character has that character as its Key ("a",
 // "A", "1", "é", and " " for the space bar), so compare with a string
-// literal: e.Key == "z". Key is a string type: e.Key == "Enter" and
+// literal: e.Key == "z". KeyName is a string type: e.Key == "Enter" and
 // e.Key == tela.KeyEnter mean the same.
 const (
 `)
-	write(&b, keys, "Key")
+	write(&b, keys, "KeyName")
 	b.WriteString(`)
 
 // Physical key codes: the values of KeyboardEvent.Code (W3C UI Events
 // KeyboardEvent code values, https://www.w3.org/TR/uievents-code/), the
 // position of the key whatever the layout: CodeKeyA is the key labeled A
-// on a US keyboard (it types "q" on AZERTY). Code is a string type:
+// on a US keyboard (it types "q" on AZERTY). KeyCode is a string type:
 // e.Code == "KeyS" and e.Code == tela.CodeKeyS mean the same.
 const (
 `)
-	write(&b, codes, "Code")
+	write(&b, codes, "KeyCode")
 	b.WriteString(")\n")
 	return format.Source(b.Bytes())
 }

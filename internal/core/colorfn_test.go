@@ -63,7 +63,7 @@ func TestOnDoneRetarget(t *testing.T) {
 	root := Component(func() Node {
 		target, s := UseState(float32(0))
 		set = s
-		v := UseSpring(float32(0), target, Stiffness(200), Damping(20), OnDone(func() { ended = append(ended, target) }))
+		v := UseSpring(target, Initial(float32(0)), Stiffness(200), Damping(20), OnDone(func() { ended = append(ended, target) }))
 		return div(Class("size-4"), Style(style.TranslateFn(func() (float32, float32) { return v.Get(), 0 })))
 	})
 	x := newHarness(t, root, false)
@@ -80,7 +80,7 @@ func TestOnDoneUnmount(t *testing.T) {
 	var setShow Setter[bool]
 	calls := 0
 	child := func() Node {
-		v := UseSpring(float32(0), 100, OnDone(func() { calls++ }))
+		v := UseSpring(float32(100), Initial(float32(0)), OnDone(func() { calls++ }))
 		return div(Class("size-4"), Style(style.TranslateFn(func() (float32, float32) { return v.Get(), 0 })))
 	}
 	root := Component(func() Node {
@@ -111,7 +111,7 @@ func TestOnDoneWithoutClock(t *testing.T) {
 	}
 	rendered := 0
 	Render(Component(func() Node {
-		v := UseSpring(float32(0), 30, OnDone(func() { rendered++ }))
+		v := UseSpring(float32(30), Initial(float32(0)), OnDone(func() { rendered++ }))
 		return div(Class("size-4"), Style(style.TranslateFn(func() (float32, float32) { return v.Get(), 0 })))
 	}), RenderOptions{Width: 50, Height: 50, Config: Config{Fonts: testFonts}})
 	if rendered != 1 {

@@ -16,7 +16,7 @@
 // To keep collisions with the importing package unlikely, h exports only
 // element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong,
 // Em, Code, A, and the form elements Input, Textarea, Form and Label),
-// props (Class, Style, Key, Disabled, Scheme, Src, Alt, Href, Id, the focus props
+// props (Class, Style, Key, Disabled, Scheme, Src, Alt, Href, ID, the focus props
 // TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the
 // field props Value, DefaultValue, Bind, BindValue, Type, Rows,
 // Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and
@@ -38,11 +38,13 @@
 //	Div(Class("p-4"), Key(id), Text("hi"), Span(Text("there")))
 //
 // Props apply in order, so a later Class wins over an earlier one and
-// Style wins over every class. Children are nodes only; wrap text in Text
-// or Textf. The parameters are tela.Child, so passing a bare string is a
-// compile error, which names the internal type behind the alias: "string
-// does not implement core.Child (missing method applyChild)" means
-// Div("hi") should be Div(Text("hi")).
+// Style wins over every class. Children are nodes or components (a
+// tela.Component value, such as a struct with a Build method, is a
+// component with its own state); wrap text in Text or Textf. The
+// parameters are tela.Child, so passing a bare string is a compile error,
+// which names the internal type behind the alias: "string does not
+// implement core.Child (missing method Build)" means Div("hi") should be
+// Div(Text("hi")).
 //
 // Elements have the defaults of Tailwind's Preflight: no margins, padding
 // or borders, headings in the surrounding font size, block images. A Button
@@ -55,7 +57,7 @@
 //	    email, setEmail := tela.UseState("")
 //	    return Form(Class("flex flex-col gap-2"), OnSubmit(func(tela.SubmitEvent) { register(email) }),
 //	        Label(For("email"), Class("text-sm font-medium"), Text("Email")),
-//	        Input(Id("email"), Type("email"), Bind(email, setEmail), Placeholder("you@example.com"),
+//	        Input(ID("email"), Type("email"), Bind(email, setEmail), Placeholder("you@example.com"),
 //	            Class("rounded-md border border-slate-300 px-3 py-2 invalid:border-red-500")),
 //	        Button(Class("rounded-md bg-indigo-600 px-4 py-2 text-white"), Text("Sign up")))
 //	}

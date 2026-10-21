@@ -1,8 +1,8 @@
 # Tela
 
 Tela is a desktop UI framework written in **pure Go**: no cgo, no webview, no
-native toolkits. You write function components with React-style hooks and
-style them with Tailwind v4 classes; Tela draws every pixel itself, on Linux
+native toolkits. You write components (structs with a `Build` method, or
+functions) with React-style hooks and style them with Tailwind v4 classes; Tela draws every pixel itself, on Linux
 (Wayland and X11) and Windows. The same tree also renders without a window, to
 a PNG and to a text tree, so both people and LLM agents can build and check
 interfaces without trial and error.

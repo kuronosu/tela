@@ -52,12 +52,12 @@ func (s *effectSlot) unmount(t *Tree) {
 // effect may return a cleanup, which runs before the effect runs again
 // and when the component unmounts.
 //
-// Dependencies follow React: none runs the effect after every build; a
-// single nil (UseEffect(f, nil)) runs it only after the first build (a
-// constant dependency, React's []; deprecated in favor of UseMount, and
-// warned about in dev mode); otherwise the values are compared with ==
-// against the previous build's. Values that cannot be compared
-// (functions, slices, maps) count as changed on every build.
+// Dependencies follow React: none runs the effect after every build;
+// Once (a constant dependency, React's []) runs it only after the first
+// build, and so does a single nil (deprecated in favor of Once and
+// UseMount, and warned about in dev mode); otherwise the values are
+// compared with == against the previous build's. Values that cannot be
+// compared (functions, slices, maps) count as changed on every build.
 func UseEffect(effect func() func(), deps ...any) { useEffect(hookEffect, effect, deps) }
 
 // UseLayoutEffect is UseEffect, but the effect runs in the frame after
@@ -114,9 +114,22 @@ func (s *effectSlot) update(i int, effect func() func(), deps []any) {
 	}
 }
 
-// mountOnly is the dependency list of UseMount: a constant, so the effect
-// runs after the first build only.
-var mountOnly = []any{struct{ mount bool }{true}}
+// onceDep is the type of Once.
+type onceDep struct{}
+
+// String names the value in messages.
+func (onceDep) String() string { return "tela.Once" }
+
+// Once is the dependency that never changes (tela.Once): UseEffect(f,
+// Once), UseLayoutEffect, UseGo, UseEffectDo and UseMemo with it run or
+// compute once, after or on the first build (React's []). Its type is
+// unexported, so it is equal to itself on every build and cannot be
+// confused with a value of the user's.
+var Once = onceDep{}
+
+// mountOnly is the dependency list of UseMount: Once, so the effect runs
+// after the first build only.
+var mountOnly = []any{Once}
 
 // UseMount runs effect once, after the frame that shows the component for
 // the first time; the cleanup it returns (nil for none) runs when the

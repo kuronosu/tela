@@ -25,7 +25,7 @@ func Signup() tela.Node {
 	return Form(Class("flex flex-col gap-2"),
 		OnSubmit(func(tela.SubmitEvent) { setSubmitted.Set(email) }),
 		Label(For("email"), Class("text-sm font-medium"), Text("Email")),
-		Input(Id("email"), Type("email"), Placeholder("you@example.com"),
+		Input(ID("email"), Type("email"), Placeholder("you@example.com"),
 			Bind(email, setEmail),
 			Class("rounded-md border border-slate-300 px-3 py-2 "+
 				"placeholder:text-slate-400 invalid:border-red-500")),
@@ -107,18 +107,18 @@ exists for familiarity. A button with `Type("reset")` restores the
 `DefaultValue` of the uncontrolled fields.
 
 [`Label`](https://pkg.go.dev/github.com/kuronosu/tela/h#Label) gives a field its accessible name and focuses it when clicked. It
-labels the element whose [`Id`](https://pkg.go.dev/github.com/kuronosu/tela/h#Id) is its [`For`](https://pkg.go.dev/github.com/kuronosu/tela/h#For), or else the field inside it:
+labels the element whose [`ID`](https://pkg.go.dev/github.com/kuronosu/tela/h#ID) is its [`For`](https://pkg.go.dev/github.com/kuronosu/tela/h#For), or else the field inside it:
 
 ```go
 func Labels() tela.Node {
 	return Div(
-		Label(For("name"), Text("Name")), Input(Id("name")),
+		Label(For("name"), Text("Name")), Input(ID("name")),
 		Label(Text("Nickname "), Input()),
 	)
 }
 ```
 
-Use [`tela.UseId`](https://pkg.go.dev/github.com/kuronosu/tela#UseId) to generate the `Id`s of a reusable field; see
+Use [`tela.UseID`](https://pkg.go.dev/github.com/kuronosu/tela#UseID) to generate the `ID`s of a reusable field; see
 [Hooks](Hooks#identity-useid). A `Label` that labels nothing (its `For` names
 no mounted `Input`, `Textarea` or `Button`, and none is inside it) names and
 focuses nothing, so dev mode warns about it once; for a caption that labels

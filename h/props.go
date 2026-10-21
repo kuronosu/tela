@@ -23,10 +23,12 @@ func Class(classes string) tela.Prop { return core.Class(classes) }
 func Style(props ...tela.StyleProp) tela.Prop { return core.Style(props...) }
 
 // Key gives an element an identity among its siblings: when a list changes,
-// the element with the same key keeps its state wherever it moves. k must
-// be a non-nil comparable value, such as an item ID; Key panics otherwise.
-// Elements built from data (Map) should have keys.
-func Key(k any) tela.Prop { return core.Key(k) }
+// the element with the same key keeps its state wherever it moves. k is a
+// comparable value, such as an item ID: a slice, a map or a func does not
+// compile, and a nil interface, or one holding a value that cannot be
+// compared, panics. Elements built from data (Map) should have keys. A
+// component or a fragment takes its key from tela.WithKey.
+func Key[K comparable](k K) tela.Prop { return core.Key(k) }
 
 // Src sets the image of an Img. Pass the same image.Image value on every
 // build: it is converted for drawing only when another image is given.

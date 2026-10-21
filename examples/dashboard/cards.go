@@ -43,7 +43,7 @@ type StatProps struct{ Index, Range int }
 func StatCard(p StatProps) tela.Node {
 	k := kpis[p.Index]
 	target := k.Value(periods[p.Range])
-	v := tela.UseSpring(float32(0), target, tela.Stiffness(90), tela.Damping(18))
+	v := tela.UseSpring(target, tela.Initial(float32(0)), tela.Stiffness(90), tela.Damping(18))
 
 	deltaTone := "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
 	arrow := "arrow-up"
@@ -85,7 +85,7 @@ type SparkProps struct{ Pct float32 }
 // SparkBar is one bar of a sparkline. Its height is a spring read by a
 // layout-phase closure: the 12 bars of 4 cards animate without building.
 func SparkBar(p SparkProps) tela.Node {
-	h := tela.UseSpring(float32(0.08), p.Pct, tela.Stiffness(170), tela.Damping(20))
+	h := tela.UseSpring(p.Pct, tela.Initial(float32(0.08)), tela.Stiffness(170), tela.Damping(20))
 	return Div(Class("w-1 rounded-full bg-linear-to-t from-indigo-500/70 to-fuchsia-400/70 dark:from-indigo-400/70 dark:to-fuchsia-300/70"),
 		Style(tela.HeightFn(func() float32 { return 36 * h.Get() })))
 }
@@ -188,7 +188,7 @@ type BarProps struct {
 // hovering the column brightens the bar and shows its value
 // (group-hover:), also without building.
 func Bar(p BarProps) tela.Node {
-	h := tela.UseSpring(float32(0), p.Pct, tela.Stiffness(160), tela.Damping(18))
+	h := tela.UseSpring(p.Pct, tela.Initial(float32(0)), tela.Stiffness(160), tela.Damping(18))
 	return Div(Class("group relative flex h-full flex-1 items-end"),
 		Div(Class("relative w-full rounded-t-lg bg-linear-to-t from-indigo-500 to-fuchsia-400 "),
 			Style(tela.HeightFn(func() float32 { return 320 * h.Get() })),

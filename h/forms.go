@@ -52,9 +52,9 @@ func Form(children ...tela.Child) tela.Node { return core.Primitive(style.KindFo
 
 // Label returns a label for a field: inline text that gives the field its
 // accessible name and focuses it when clicked. It labels the element
-// whose Id is its For, or else the Input, Textarea or Button inside it.
+// whose ID is its For, or else the Input, Textarea or Button inside it.
 //
-//	Label(For("name"), Text("Name")), Input(Id("name"))
+//	Label(For("name"), Text("Name")), Input(ID("name"))
 //	Label(Text("Name "), Input())
 //
 // A Label that labels nothing (For naming no mounted Input, Textarea or
@@ -124,11 +124,16 @@ func SpellCheck(on bool) tela.Prop { return core.SpellCheck(on) }
 // Name names a text field or a button in its form (HTML's name).
 func Name(s string) tela.Prop { return core.Name(s) }
 
-// Id gives an element an identifier, unique in the window, that a Label's
-// For refers to.
+// ID gives an element an identifier, unique in the window, that a Label's
+// For refers to (HTML's id). tela.UseID makes one for a reusable field.
+func ID(id string) tela.Prop { return core.ID(id) }
+
+// Id is the former name of [ID].
+//
+// Deprecated: use ID. Id will be removed in phase 8.
 func Id(id string) tela.Prop { return core.ID(id) }
 
-// For makes a Label label the element whose Id is id.
+// For makes a Label label the element whose ID is id.
 func For(id string) tela.Prop { return core.For(id) }
 
 // OnChange calls handler after every edit of a text field's value (React's

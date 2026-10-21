@@ -89,7 +89,7 @@ EnvCheckDamage is the environment variable that turns [`CheckDamage`](#func-chec
 ### func AriaSnapshot
 
 ```go
-func AriaSnapshot(root tela.Node, opts ...Option) (yaml string, err error)
+func AriaSnapshot(root tela.Component, opts ...Option) (yaml string, err error)
 ```
 
 AriaSnapshot mounts root and returns its semantics tree as a Playwright aria snapshot, without a trailing newline: the YAML `tela inspect --aria` prints.
@@ -110,7 +110,7 @@ fmt.Println(yaml)
 ### func LayoutJSON
 
 ```go
-func LayoutJSON(root tela.Node, opts ...Option) (js []byte, err error)
+func LayoutJSON(root tela.Component, opts ...Option) (js []byte, err error)
 ```
 
 LayoutJSON mounts root and returns its layout tree as indented JSON, one object per box with its border box, edges, text and computed style (paragraphs also with the fragments of their inline elements; atomic inlines with inlineBox), ending with a newline: the output of `tela inspect --layout`. rect is the box as layout placed it; a box that is painted elsewhere, because of a transform or scrolled content, also has bounds, the same shape: the bounding box of its transformed border box in window coordinates, as tela.ElementRef.Bounds returns it.
@@ -118,10 +118,10 @@ LayoutJSON mounts root and returns its layout tree as indented JSON, one object 
 ### func Render
 
 ```go
-func Render(root tela.Node, opts ...Option) (img *image.RGBA, err error)
+func Render(root tela.Component, opts ...Option) (img *image.RGBA, err error)
 ```
 
-Render mounts root, lays it out and paints it at the configured size and scale (default 800x600 at scale 1) and returns the image, in physical pixels over the root's background (white by default). Effects run as in a window and then clean up; state passive effects set is rendered only when the tree needs further frames.
+Render mounts root, lays it out and paints it at the configured size and scale (default 800x600 at scale 1) and returns the image, in physical pixels over the root's background (white by default). Effects run as in a window and then clean up; state passive effects set is rendered only when the tree needs further frames. root is a node or a component, as for [`Mount`](#func-mount); a Prop is an error.
 
 **Example**
 
@@ -154,13 +154,14 @@ An App must be used from the goroutine of its test; the state setters and tela.P
 #### func Mount
 
 ```go
-func Mount(tb testing.TB, root tela.Node, opts ...Option) *App
+func Mount(tb testing.TB, root tela.Component, opts ...Option) *App
 ```
 
-Mount shows root in a headless window and returns the running app. The window starts focused, so key events reach the focused element; it is unmounted when the test ends, running the cleanups of its effects.
+Mount shows root in a headless window and returns the running app. The window starts focused, so key events reach the focused element; it is unmounted when the test ends, running the cleanups of its effects. root is a node or a component: a struct component value, or a function component wrapped in tela.C or tela.CP (or use [`MountFunc`](#func-mountfunc)).
 
 ```go
 app := telatest.Mount(t, tela.C(Counter), telatest.Size(400, 300))
+app := telatest.Mount(t, Card{Title: "Inbox"})
 ```
 
 Mount makes the app receive the functions given to tela.Post, which are delivered to one tree per process: do not mount apps that use Post from parallel tests.
@@ -517,7 +518,7 @@ form := func() tela.Node {
     name, setName := tela.UseState("")
     return Div(
         Label(For("name"), Text("Name")),
-        Input(Id("name"), Bind(name, setName)),
+        Input(ID("name"), Bind(name, setName)),
         P(Textf("Hello, %s!", name)),
     )
 }

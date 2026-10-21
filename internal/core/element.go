@@ -133,7 +133,7 @@ func (e *flatEntry) id() childID {
 
 // sameType reports whether el can be updated with node n: same kind and,
 // for primitives, the same element kind; for components, the same
-// function.
+// function, or the same dynamic type for struct components.
 func (el *Element) sameType(n Node) bool {
 	d := n.d
 	switch el.kind {
@@ -142,7 +142,7 @@ func (el *Element) sameType(n Node) bool {
 	case elemPrimitive:
 		return d.kind == nodeElement && d.elem == el.box.kind && d.portal == el.box.portal
 	case elemComponent:
-		return d.kind == nodeComponent && d.comp.typ == el.comp.typ && d.comp.ctx == el.comp.ctx
+		return d.kind == nodeComponent && d.comp.typ == el.comp.typ && d.comp.rtype == el.comp.rtype && d.comp.ctx == el.comp.ctx
 	}
 	return false
 }
@@ -514,6 +514,9 @@ func (t *Tree) update(el *Element, n Node) {
 			t.updatePresence(el, n)
 			return
 		}
+		if t.dev && d.comp.ct != nil && old != d {
+			t.checkStructComp(d.comp)
+		}
 		if !el.needsBuild && (old == d || canSkip(el.comp, d.comp)) {
 			// Automatic skipping (ARCHITECTURE section 7): the same node,
 			// or equal props, and no state or context change. The new
@@ -604,7 +607,13 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if t.dev && d.comp.anon != nil {
 			t.reportAnon(d.comp)
 		}
+		if t.dev && d.comp.ct != nil {
+			t.checkStructComp(d.comp)
+		}
 		t.build(el)
+	case nodeProp:
+		n := propName(*d.prop)
+		panic(fmt.Sprintf("tela: a Prop (%s) cannot be rendered on its own (a component returned it, or the node its Build method made); props go to elements, such as Div(%s(...), ...)", n, n))
 	default:
 		panic(fmt.Sprintf("core: cannot mount node kind %d", d.kind))
 	}

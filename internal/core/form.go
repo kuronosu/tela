@@ -110,7 +110,7 @@ func (t *Tree) setID(el *Element, old string) {
 		if t.dev {
 			for _, o := range t.ids[id] {
 				if o != el && o.mounted {
-					t.logf("tela: duplicate Id(%q) on %s and %s; IDs must be unique in a window", id, t.describe(o), t.describe(el))
+					t.logf("tela: duplicate ID(%q) on %s and %s; IDs must be unique in a window", id, t.describe(o), t.describe(el))
 					break
 				}
 			}
@@ -217,14 +217,14 @@ func (t *Tree) checkLabels() {
 		}
 		t.warnOnce(key, func() string {
 			if id != "" {
-				what := "no mounted element has Id(" + fmt.Sprintf("%q", id) + ")"
+				what := "no mounted element has ID(" + fmt.Sprintf("%q", id) + ")"
 				if o := t.byID(id); o != nil {
-					what = t.describe(o) + " has Id(" + fmt.Sprintf("%q", id) + ") but is not an Input, Textarea or Button"
+					what = t.describe(o) + " has ID(" + fmt.Sprintf("%q", id) + ") but is not an Input, Textarea or Button"
 				}
-				return fmt.Sprintf("tela: Label %s %q has For(%q), but %s, so the label names no control and its clicks focus nothing. Give the field Id(%q), or put the field inside the Label; for a caption that labels nothing use Span or P",
+				return fmt.Sprintf("tela: Label %s %q has For(%q), but %s, so the label names no control and its clicks focus nothing. Give the field ID(%q), or put the field inside the Label; for a caption that labels nothing use Span or P",
 					el.node.d.describe(), t.labelText(el), id, what, id)
 			}
-			return fmt.Sprintf("tela: Label %s %q labels no control: it neither wraps an Input, Textarea or Button nor names one with For(id), so it names nothing and its clicks focus nothing. Put the field inside the Label, or give the field Id(\"x\") and the Label For(\"x\"); for a caption that labels nothing use Span or P",
+			return fmt.Sprintf("tela: Label %s %q labels no control: it neither wraps an Input, Textarea or Button nor names one with For(id), so it names nothing and its clicks focus nothing. Put the field inside the Label, or give the field ID(\"x\") and the Label For(\"x\"); for a caption that labels nothing use Span or P",
 				el.node.d.describe(), t.labelText(el))
 		})
 	}

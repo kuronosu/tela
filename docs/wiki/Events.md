@@ -96,10 +96,10 @@ Key events go to the focused element and bubble; with nothing focused they go
 to the outermost element of the window's content. A [`tela.KeyboardEvent`](https://pkg.go.dev/github.com/kuronosu/tela#KeyboardEvent) has:
 
 - `Key`, the **logical** key: what it means with the active layout and
-  modifiers. A [`tela.Key`](https://pkg.go.dev/github.com/kuronosu/tela#Key) is either a named key ([`tela.KeyEnter`](https://pkg.go.dev/github.com/kuronosu/tela#KeyEnter),
+  modifiers. A [`tela.KeyName`](https://pkg.go.dev/github.com/kuronosu/tela#KeyName) is either a named key ([`tela.KeyEnter`](https://pkg.go.dev/github.com/kuronosu/tela#KeyEnter),
   [`tela.KeyEscape`](https://pkg.go.dev/github.com/kuronosu/tela#KeyEscape), [`tela.KeyArrowDown`](https://pkg.go.dev/github.com/kuronosu/tela#KeyArrowDown)...) or the character the key types
   (`"a"`, `"A"`, `" "`). `Ctrl` does not change it: Ctrl+S has Key `"s"`.
-- `Code`, the **physical** key, whatever the layout: [`tela.CodeKeyS`](https://pkg.go.dev/github.com/kuronosu/tela#CodeKeyS),
+- `Code`, the **physical** key (a [`tela.KeyCode`](https://pkg.go.dev/github.com/kuronosu/tela#KeyCode)), whatever the layout: [`tela.CodeKeyS`](https://pkg.go.dev/github.com/kuronosu/tela#CodeKeyS),
   [`tela.CodeKeyW`](https://pkg.go.dev/github.com/kuronosu/tela#CodeKeyW)... Use it for positions (WASD) and `Key` for meanings
   (Ctrl+Z).
 - `Location` ([`tela.KeyLocationLeft`](https://pkg.go.dev/github.com/kuronosu/tela#KeyLocationLeft), [`tela.KeyLocationRight`](https://pkg.go.dev/github.com/kuronosu/tela#KeyLocationRight),

@@ -13,8 +13,11 @@
 // Primitive (a primitive such as Div, H1, Button or Img, with Props and children),
 // Text, Component (a func() Node; ComponentProps for func(P) Node) and
 // Fragment, List and Map (children without a box). If returns the zero
-// Node, which renders nothing. Children and props share the sealed Child
-// interface.
+// Node, which renders nothing. Children and props share the Child
+// interface, a Build() Node method: Node.Build returns the node, Prop.Build
+// a node that applies the prop, and any other value with the method (a
+// struct component, Comp) given as a child becomes a component node whose
+// identity is its dynamic type (structcomp.go, ADR-088).
 //
 // An Element is the persistent instance of a Node. Reconciliation
 // (Tree.reconcile) matches the new children of an Element with the old
@@ -32,7 +35,8 @@
 // A component Element calls its function when its own state or a
 // context it reads changes, and when its parent builds it again, unless
 // the build can be skipped (ARCHITECTURE section 7): a ComponentProps
-// node (tela.CP) whose props are == to the previous ones, a Memo node
+// node (tela.CP) whose props are == to the previous ones, a struct
+// component whose value equals the previous one (componentEqual), a Memo node
 // whose equal function says so, or the very same node (an identical
 // desc, for any component) are not built; a Component node (tela.C) is
 // built with its parent otherwise, since its closure may capture changed
@@ -46,7 +50,7 @@
 // Hooks keep their state in slots on the component Element being built,
 // by call order (ADR-040): UseState (UseStateSet, UseStateUpdate),
 // UseReducer, UseEffect, UseLayoutEffect, UseMemo, UseCallback, UseRef,
-// UseContext, UseId, UseValue, UseElementRef (focus.go), UseScroll and
+// UseContext, UseID, UseValue, UseElementRef (focus.go), UseScroll and
 // UseBounds (scroll.go, bounds.go); VirtualList keeps its state in a slot
 // too. A function
 // called directly from a

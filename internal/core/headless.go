@@ -39,7 +39,7 @@ type RenderOptions struct {
 // MaxRenderFrames in all, as a window gives it within a few vsyncs; the
 // passive effects of a frame run at the start of the next one, so state
 // they set is rendered only when such frames run. Without opts.IDPrefix,
-// UseId strings start with "r-", so they do not depend on the trees made
+// UseID strings start with "r-", so they do not depend on the trees made
 // before in the process.
 func Render(root Node, opts RenderOptions) (*gfx.DisplayList, *image.RGBA) {
 	size := gfx.Size{W: opts.Width, H: opts.Height}

@@ -146,10 +146,10 @@ func TestUseRef(t *testing.T) {
 	}
 }
 
-func TestUseId(t *testing.T) {
+func TestUseID(t *testing.T) {
 	var ids []string
 	item := func(int) Node {
-		ids = append(ids, UseId(), UseId())
+		ids = append(ids, UseID(), UseID())
 		return Text("i")
 	}
 	page := func(n int) Node {
@@ -182,7 +182,7 @@ func TestUseId(t *testing.T) {
 	}
 	// Stable across builds.
 	ids = nil
-	comp := func() Node { ids = append(ids, UseId()); return Text("x") }
+	comp := func() Node { ids = append(ids, UseID()); return Text("x") }
 	tr = NewTree(Config{Fonts: testFonts, IDPrefix: "c"})
 	tr.Mount(Component(comp))
 	tr.Mount(Component(comp))
@@ -191,9 +191,9 @@ func TestUseId(t *testing.T) {
 	}
 }
 
-func TestUseIdDefaultPrefixes(t *testing.T) {
+func TestUseIDDefaultPrefixes(t *testing.T) {
 	var ids []string
-	comp := func() Node { ids = append(ids, UseId()); return Text("x") }
+	comp := func() Node { ids = append(ids, UseID()); return Text("x") }
 	NewTree(Config{Fonts: testFonts}).Mount(Component(comp))
 	NewTree(Config{Fonts: testFonts}).Mount(Component(comp))
 	if len(ids) != 2 || ids[0] == ids[1] || !strings.HasPrefix(ids[0], "t") || !strings.HasSuffix(ids[0], "-0") {

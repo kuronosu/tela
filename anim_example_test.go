@@ -41,7 +41,7 @@ func ExampleUseSpring() {
 		if open {
 			target = 0
 		}
-		x = tela.UseSpring(float32(-320), target, tela.Stiffness(300), tela.Damping(30))
+		x = tela.UseSpring(target, tela.Stiffness(300), tela.Damping(30))
 		return Div(Class("relative h-full"),
 			Button(OnClick(func(tela.MouseEvent) { setOpen.Set(true) }), Text("Open")),
 			Div(Class("absolute inset-y-0 left-0 w-80 bg-white shadow-xl"),
@@ -73,7 +73,7 @@ func ExampleUseTween() {
 		if shown {
 			target = 1
 		}
-		op = tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.Ease("linear"))
+		op = tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.Ease("linear"))
 		return Div(
 			Button(OnClick(func(tela.MouseEvent) { setShown.Set(true) }), Text("Save")),
 			Div(Class("rounded-lg bg-slate-900 p-3 text-white"), Style(tela.OpacityFn(op.Get)), Text("Saved")))
@@ -138,7 +138,7 @@ func ExampleSize() {
 	defer t.close()
 	var size *tela.Value[tela.Size]
 	app := telatest.Mount(t, tela.C(func() tela.Node {
-		size = tela.UseSpring(tela.Size{Width: 100, Height: 40}, tela.Size{Width: 200, Height: 120})
+		size = tela.UseSpring(tela.Size{Width: 200, Height: 120}, tela.Initial(tela.Size{Width: 100, Height: 40}))
 		return Div(Class("rounded-lg bg-sky-500"), Style(
 			tela.WidthFn(func() float32 { return size.Get().Width }),
 			tela.HeightFn(func() float32 { return size.Get().Height })))
@@ -258,7 +258,7 @@ func ExampleUsePresence() {
 			target = 1
 		}
 		// The tween out ends the exit: done does nothing while present.
-		out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
+		out := tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
 		return Div(Role("status"), Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
 			Style(tela.OpacityFn(func() float32 { return 1 - out.Get() })), Text("Saved"))
 	}

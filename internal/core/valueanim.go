@@ -71,6 +71,7 @@ const (
 	optSpring
 	optOnDone
 	optVelocity
+	optInitial
 )
 
 // AnimOption configures an animation: its spring or its tween
@@ -89,9 +90,12 @@ type animOpt struct {
 	sub []AnimOption
 	// fn is OnDone's function.
 	fn func()
-	// vel and typ are Velocity's components and the name of its type.
+	// vel and typ are Velocity's components and the name of its type
+	// (also Initial's type).
 	vel anim.Vec
 	typ string
+	// init is Initial's value.
+	init any
 }
 
 // Stiffness sets the stiffness of a spring (default 100).
@@ -136,6 +140,31 @@ func Velocity[T Animatable](v T) AnimOption {
 		o.vel = vecOf(v, false)
 	}
 	return AnimOption{o}
+}
+
+// Initial sets the value UseSpring and UseTween hold on their first build
+// (tela.Initial), from which they move to the target; without it they
+// start at the target. Its type must be the target's: AnimOption is not
+// generic, so a mismatch is found when the hook resolves its options
+// (a dev-mode panic; ignored otherwise).
+func Initial[T Animatable](v T) AnimOption {
+	return AnimOption{&animOpt{kind: optInitial, init: v, typ: typeName[T]()}}
+}
+
+// initialOf returns the Initial value of opts for a Value of type T, if
+// any (the last one wins). A value of another type is ignored here;
+// resolveMotion reports it in dev mode.
+func initialOf[T Animatable](opts []AnimOption) (T, bool) {
+	var v T
+	found := false
+	for _, o := range opts {
+		if o.o != nil && o.o.kind == optInitial {
+			if x, ok := o.o.init.(T); ok {
+				v, found = x, true
+			}
+		}
+	}
+	return v, found
 }
 
 var easeKeywords = []string{"linear", "ease", "ease-in", "ease-out", "ease-in-out", "step-start", "step-end"}
@@ -235,6 +264,13 @@ func (t *Tree) resolveMotion(hook string, mode animMode, typ string, opts []Anim
 				problem("OnDone(nil): pass the function to call when the animation ends")
 			}
 			m.onDone = op.fn
+		case optInitial:
+			switch {
+			case mode == animAuto:
+				problem("Initial applies to UseSpring and UseTween, which start from it on their first build; Animate starts from the Value's current value (Set it first to start elsewhere)")
+			case op.typ != typ:
+				problem("Initial(%s) for a Value of %s: the initial value must have the target's type, such as tela.Initial(%s(...))", op.typ, typ, typ)
+			}
 		case optVelocity:
 			velocity(op)
 		case optStiffness:
@@ -277,6 +313,8 @@ func (t *Tree) resolveMotion(hook string, mode animMode, typ string, opts []Anim
 					velocity(sp)
 				case optOnDone:
 					problem("OnDone inside Spring: pass it next to Spring, as an option of the animation")
+				case optInitial:
+					problem("Initial inside Spring: pass it next to Spring, as an option of UseSpring")
 				}
 			}
 		}
@@ -630,18 +668,18 @@ type motionSlot[T Animatable] struct {
 func (s *motionSlot[T]) unmount(t *Tree) { s.v.unmount(t) }
 
 // UseSpring returns a Value that follows target with a spring
-// (tela.UseSpring).
-func UseSpring[T Animatable](initial, target T, opts ...AnimOption) *Value[T] {
-	return useMotion(hookSpring, animSpring, initial, target, opts)
+// (tela.UseSpring). It starts at the Initial option's value, or at target.
+func UseSpring[T Animatable](target T, opts ...AnimOption) *Value[T] {
+	return useMotion(hookSpring, animSpring, target, opts)
 }
 
 // UseTween returns a Value that follows target with a tween
-// (tela.UseTween).
-func UseTween[T Animatable](initial, target T, opts ...AnimOption) *Value[T] {
-	return useMotion(hookTween, animTween, initial, target, opts)
+// (tela.UseTween). It starts at the Initial option's value, or at target.
+func UseTween[T Animatable](target T, opts ...AnimOption) *Value[T] {
+	return useMotion(hookTween, animTween, target, opts)
 }
 
-func useMotion[T Animatable](kind hookKind, mode animMode, initial, target T, opts []AnimOption) *Value[T] {
+func useMotion[T Animatable](kind hookKind, mode animMode, target T, opts []AnimOption) *Value[T] {
 	el, i := nextSlot(kind)
 	var s *motionSlot[T]
 	if i < len(el.hooks) {
@@ -651,6 +689,10 @@ func useMotion[T Animatable](kind hookKind, mode animMode, initial, target T, op
 			el.tree.slotMismatch(el, i, kind.String()+"["+typeName[T]()+"]")
 		}
 	} else {
+		initial := target
+		if v, ok := initialOf[T](opts); ok {
+			initial = v
+		}
 		s = &motionSlot[T]{v: newValue(el, initial), target: initial}
 		el.hooks = append(el.hooks, s)
 	}

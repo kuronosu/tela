@@ -47,7 +47,7 @@ func ExampleApp_Fill() {
 		name, setName := tela.UseState("")
 		return Div(
 			Label(For("name"), Text("Name")),
-			Input(Id("name"), Bind(name, setName)),
+			Input(ID("name"), Bind(name, setName)),
 			P(Textf("Hello, %s!", name)),
 		)
 	}

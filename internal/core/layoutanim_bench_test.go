@@ -104,7 +104,7 @@ func BenchmarkLayoutExpand(b *testing.B) {
 							la = AnimateLayout()
 							c = card(la, la, Class("duration-300 ease-out"), Style(style.Height(target)))
 						} else {
-							h := UseTween(float32(100), target, Duration(300*time.Millisecond), Ease("ease-out"))
+							h := UseTween(target, Initial(float32(100)), Duration(300*time.Millisecond), Ease("ease-out"))
 							c = card(la, Style(style.HeightFn(h.Get)))
 						}
 						return div(append([]Child{Class("flex flex-col gap-1 p-6")}, append([]Child{c}, rows(la, n)...)...)...)

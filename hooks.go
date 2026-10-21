@@ -242,17 +242,19 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 //
 // The dependencies follow React:
 //
-//	tela.UseEffect(f)          // after every build
-//	tela.UseEffect(f, id, n)   // when id or n changed (compared with ==)
-//	tela.UseMount(f)           // only after the first build (React's [])
+//	tela.UseEffect(f)            // after every build
+//	tela.UseEffect(f, id, n)     // when id or n changed (compared with ==)
+//	tela.UseEffect(f, tela.Once) // only after the first build (React's [])
+//	tela.UseMount(f)             // the same
 //
 // For an effect that runs once, on mount, with its cleanup on unmount (a
-// subscription), use [UseMount]; [UseEffectDo] takes an effect without a
-// cleanup, [UseUpdateEffect] skips the first build, and periodic and
-// background work have [UseInterval] and [UseGo]. A single nil
-// dependency, UseEffect(f, nil), still means "only on mount", but it is
-// deprecated (React reads a null list as "after every render"): dev mode
-// warns about it, and a later version will reject it.
+// subscription), use [UseMount] or [Once]; [UseEffectDo] takes an effect
+// without a cleanup, [UseUpdateEffect] skips the first build, and
+// periodic and background work have [UseInterval] and [UseGo]. A single
+// nil dependency, UseEffect(f, nil), still means "only on mount", but it
+// is deprecated in favor of [Once] (React reads a null list as "after
+// every render"): dev mode warns about it, and a later version will
+// reject it.
 //
 // Values that cannot be compared (functions, slices, maps) count as
 // changed on every build; dev mode reports them, and a dependency count
@@ -326,7 +328,8 @@ func UseInterval(d time.Duration, f func()) { core.UseInterval(d, f) }
 //	    }
 //	}, query) // restarts, cancelling the old fetch, when query changes
 //
-// The dependencies follow UseEffect's: none restarts f after every build.
+// The dependencies follow UseEffect's: none restarts f after every build,
+// and [Once] runs one goroutine for the lifetime of the component.
 func UseGo(f func(ctx context.Context), deps ...any) { core.UseGo(f, deps...) }
 
 // UseLayoutEffect is [UseEffect], but the effect runs in the frame after
@@ -341,7 +344,8 @@ func UseLayoutEffect(effect func() func(), deps ...any) { core.UseLayoutEffect(e
 
 // UseMemo returns compute(), computed on the first build and again only
 // when the dependencies changed (compared like [UseEffect]'s: none
-// recomputes on every build). For a value computed once, use [UseOnce].
+// recomputes on every build). For a value computed once, use [UseOnce]
+// (or UseMemo(compute, tela.Once)).
 //
 //	visible := tela.UseMemo(func() []Todo { return filter(todos, query) }, len(todos), query)
 func UseMemo[T any](compute func() T, deps ...any) T { return core.UseMemo(compute, deps...) }
@@ -505,13 +509,36 @@ func UseContext[T any](ctx *Context[T]) T { return core.UseContext(ctx) }
 // warns about a Get that misses queued changes.
 func UseValue[T any](initial T) *Value[T] { return core.UseValue(initial) }
 
-// UseId returns a string that identifies this hook slot, for accessibility
+// UseID returns a string that identifies this hook slot, for accessibility
 // relations between elements (a label and its input). It is the same on
 // every build, unique within the process, and the same for the same
 // mount order (snapshots are deterministic).
 //
-//	id := tela.UseId()
-func UseId() string { return core.UseId() }
+//	id := tela.UseID()
+//	return Div(Label(For(id), Text("Email")), Input(ID(id)))
+func UseID() string { return core.UseID() }
+
+// UseId is the former name of [UseID].
+//
+// Deprecated: use UseID. UseId will be removed in phase 8.
+func UseId() string { return core.UseID() }
+
+// Once is the dependency of a hook that runs or computes only on the
+// first build (React's empty dependency list []):
+//
+//	tela.UseEffect(f, tela.Once)       // after the first build; cleanup on unmount
+//	tela.UseLayoutEffect(f, tela.Once) // the same, before the first paint
+//	tela.UseGo(f, tela.Once)           // one goroutine for the component's lifetime
+//	tela.UseMemo(f, tela.Once)         // computed once
+//
+// Its type is unexported, so it is equal to itself on every build and is
+// never confused with a value of yours. [UseMount] and [UseOnce] are the
+// shorthands for effects and values. It replaces a single nil dependency
+// (UseEffect(f, nil)), which still means "only on mount" but is
+// deprecated: React reads a null list as "after every render", and a
+// later version will reject it. With [UseUpdateEffect], which skips the
+// first build, Once never runs (dev mode warns).
+var Once = core.Once
 
 // C returns a node that builds fn as a component with its own state: a
 // component boundary (ARCHITECTURE section 7). Calling fn() directly

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"reflect"
 	"slices"
 	"sync/atomic"
@@ -61,20 +60,7 @@ var presenceTyp = reflect.ValueOf(presenceMarker).Pointer()
 func Presence(children ...Child) Node {
 	d := &desc{kind: nodeComponent, comp: &compDesc{typ: presenceTyp, presence: true}, children: make([]Node, 0, len(children))}
 	for _, c := range children {
-		switch c := c.(type) {
-		case nil:
-			d.children = append(d.children, Node{})
-		case Node:
-			d.children = append(d.children, c)
-		case Prop:
-			if c.apply == nil {
-				continue // the zero Prop of If(false, ...)
-			}
-			if c.name != "Key" {
-				panic(fmt.Sprintf("tela: Presence does not take %s; it has no box (put the prop on its children)", c.name))
-			}
-			c.apply(d)
-		}
+		d.addGroupChild(c, "Presence", "it has no box (put the prop on its children)")
 	}
 	return Node{d}
 }

@@ -134,12 +134,12 @@ func Toast(p ToastProps) tela.Node {
 	if !present {
 		target = 0
 	}
-	shown := tela.UseTween(float32(0), target, tela.Duration(250*time.Millisecond), tela.Ease("ease-out"), tela.OnDone(done))
+	shown := tela.UseTween(target, tela.Initial(float32(0)), tela.Duration(250*time.Millisecond), tela.Ease("ease-out"), tela.OnDone(done))
 	countdown := float32(0)
 	if p.Pinned {
 		countdown = 1
 	}
-	left := tela.UseTween(float32(1), countdown, tela.Duration(4*time.Second), tela.Ease("linear"),
+	left := tela.UseTween(countdown, tela.Initial(float32(1)), tela.Duration(4*time.Second), tela.Ease("linear"),
 		tela.OnDone(func() {
 			if !p.Pinned {
 				p.Dismiss.Set("")

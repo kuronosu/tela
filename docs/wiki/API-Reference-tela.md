@@ -13,10 +13,10 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseId`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseId`](#func-useid-deprecated) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
-  - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
+  - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
   - [`type App`](#type-app)
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
@@ -24,6 +24,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Code`](#type-code)
   - [`type Color`](#type-color): [`Hex`](#func-hex) · [`OKLCH`](#func-oklch) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Clamp`](#func-color-clamp) · [`IsFinite`](#func-color-isfinite) · [`IsOpaque`](#func-color-isopaque) · [`MulAlpha`](#func-color-mulalpha) · [`NRGBA8`](#func-color-nrgba8) · [`Premul8`](#func-color-premul8) · [`Premultiplied`](#func-color-premultiplied) · [`String`](#func-color-string) · [`ToOKLCH`](#func-color-tooklch) · [`ToOklab`](#func-color-tooklab) · [`WithAlpha`](#func-color-withalpha)
   - [`type ColorScheme`](#type-colorscheme): [`UseColorScheme`](#func-usecolorscheme) · [`String`](#func-colorscheme-string)
+  - [`type Component`](#type-component)
   - [`type CompositionEvent`](#type-compositionevent): [`DefaultPrevented`](#func-compositionevent-defaultprevented) · [`PreventDefault`](#func-compositionevent-preventdefault) · [`StopPropagation`](#func-compositionevent-stoppropagation)
   - [`type Context`](#type-context): [`CreateContext`](#func-createcontext) · [`Provider`](#func-context-provider)
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
@@ -34,17 +35,19 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
   - [`type InputEvent`](#type-inputevent): [`DefaultPrevented`](#func-inputevent-defaultprevented) · [`PreventDefault`](#func-inputevent-preventdefault) · [`StopPropagation`](#func-inputevent-stoppropagation)
   - [`type Key`](#type-key)
+  - [`type KeyCode`](#type-keycode)
   - [`type KeyLocation`](#type-keylocation): [`String`](#func-keylocation-string)
+  - [`type KeyName`](#type-keyname)
   - [`type KeyboardEvent`](#type-keyboardevent): [`DefaultPrevented`](#func-keyboardevent-defaultprevented) · [`PreventDefault`](#func-keyboardevent-preventdefault) · [`StopPropagation`](#func-keyboardevent-stoppropagation)
   - [`type MouseButton`](#type-mousebutton): [`String`](#func-mousebutton-string)
   - [`type MouseButtons`](#type-mousebuttons): [`Has`](#func-mousebuttons-has)
   - [`type MouseEvent`](#type-mouseevent): [`DefaultPrevented`](#func-mouseevent-defaultprevented) · [`PreventDefault`](#func-mouseevent-preventdefault) · [`StopPropagation`](#func-mouseevent-stoppropagation)
-  - [`type Node`](#type-node): [`C`](#func-c) · [`CP`](#func-cp) · [`Memo`](#func-memo) · [`WithKey`](#func-withkey) · [`IsZero`](#func-node-iszero) · [`Key`](#func-node-key) · [`String`](#func-node-string)
+  - [`type Node`](#type-node): [`C`](#func-c) · [`CP`](#func-cp) · [`Memo`](#func-memo) · [`WithKey`](#func-withkey) · [`Build`](#func-node-build) · [`IsZero`](#func-node-iszero) · [`Key`](#func-node-key) · [`String`](#func-node-string)
   - [`type Point`](#type-point)
   - [`type PointerEvent`](#type-pointerevent): [`DefaultPrevented`](#func-pointerevent-defaultprevented) · [`PreventDefault`](#func-pointerevent-preventdefault) · [`StopPropagation`](#func-pointerevent-stoppropagation)
   - [`type PointerKind`](#type-pointerkind): [`String`](#func-pointerkind-string)
   - [`type Previews`](#type-previews): [`Names`](#func-previews-names)
-  - [`type Prop`](#type-prop)
+  - [`type Prop`](#type-prop): [`Build`](#func-prop-build)
   - [`type Rect`](#type-rect): [`Bottom`](#func-rect-bottom) · [`Contains`](#func-rect-contains) · [`Right`](#func-rect-right)
   - [`type Ref`](#type-ref): [`UseRef`](#func-useref)
   - [`type SchemeColor`](#type-schemecolor)
@@ -65,7 +68,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 Package tela is the public API of Tela, a desktop UI framework written in pure Go: no cgo, no webview, a React-like component model and Tailwind CSS styling.
 
-A UI is a tree of [`Node`](#type-node) values built by function components. Elements (Div, Button, Text...) live in the companion package h, designed to be dot-imported; this package holds the application ([`App`](#type-app), [`Main`](#func-main), [`Run`](#func-run)), hooks and component boundaries ([`UseState`](#func-usestate), [`C`](#func-c), [`CP`](#func-cp)...), events ([`MouseEvent`](#type-mouseevent), [`PointerEvent`](#type-pointerevent), [`DragEvent`](#type-dragevent), [`KeyboardEvent`](#type-keyboardevent) with the [`Key`](#type-key) and [`Code`](#type-code) constants, [`FocusEvent`](#type-focusevent), and the [`ChangeEvent`](#type-changeevent), [`InputEvent`](#type-inputevent), [`CompositionEvent`](#type-compositionevent), [`SelectEvent`](#type-selectevent) and [`SubmitEvent`](#type-submitevent) of text fields and forms), [`ElementRef`](#type-elementref), the typed style props for h.Style, colors, and the [`Previews`](#type-previews) that `tela snapshot` and `tela inspect` render.
+A UI is a tree of [`Node`](#type-node) values built by components: struct values with a Build method ([`Component`](#type-component)) and functions. Elements (Div, Button, Text...) live in the companion package h, designed to be dot-imported; this package holds the application ([`App`](#type-app), [`Main`](#func-main), [`Run`](#func-run)), hooks and component boundaries ([`Component`](#type-component), [`UseState`](#func-usestate), [`C`](#func-c), [`CP`](#func-cp)...), events ([`MouseEvent`](#type-mouseevent), [`PointerEvent`](#type-pointerevent), [`DragEvent`](#type-dragevent), [`KeyboardEvent`](#type-keyboardevent) with the [`KeyName`](#type-keyname) and [`KeyCode`](#type-keycode) constants, [`FocusEvent`](#type-focusevent), and the [`ChangeEvent`](#type-changeevent), [`InputEvent`](#type-inputevent), [`CompositionEvent`](#type-compositionevent), [`SelectEvent`](#type-selectevent) and [`SubmitEvent`](#type-submitevent) of text fields and forms), [`ElementRef`](#type-elementref), the typed style props for h.Style, colors, and the [`Previews`](#type-previews) that `tela snapshot` and `tela inspect` render.
 
 ```go
 import (
@@ -103,13 +106,35 @@ Values that change every frame (a drag position, a progress bar) can be deferred
 
 ### Components
 
-A component is a function returning a [`Node`](#type-node). Wrapped in [`C`](#func-c) (no props) or [`CP`](#func-cp) (comparable props), it becomes a component boundary: an element with its own hook state, rebuilt on its own when that state changes. [`CP`](#func-cp) skips the build when its props are == to the previous ones and nothing it reads changed (automatic skipping, as in Jetpack Compose); [`Memo`](#func-memo) does the same with a comparison function.
+A component is a struct whose Build method returns a [`Node`](#type-node): its fields are its props, and children are an ordinary field of type [`Component`](#type-component) (several of them through h.Fragment). Every component value given to an element is a component boundary: an element with its own hook state, rebuilt on its own when that state changes, and skipped when its parent builds again with an equal value and nothing it reads changed (automatic skipping, as in Jetpack Compose).
 
 ```go
-Div(tela.C(Header), tela.CP(Card, CardProps{Title: "Inbox"}))
+type Card struct {
+    Title    string
+    OnOpen   tela.Callback[func()]
+    Children tela.Component
+}
+
+func (c Card) Build() tela.Node {
+    n, setN := tela.UseState(0)
+    return Div(Class("rounded-xl border p-4"),
+        H2(Text(c.Title)),
+        Button(OnClick(func(tela.MouseEvent) { setN.Set(n + 1) }), Textf("Opened %d times", n)),
+        c.Children)
+}
+
+Div(Card{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))})
 ```
 
-Calling a component function directly runs it inside the caller, whose hook slots its hooks would take: in dev mode a hook called from a function that is neither the component being built (or a function literal inside it) nor a custom hook panics with the fix. A custom hook is a function named UseXxx or useXxx that calls hooks for the component that calls it; a struct of [`Value`](#type-value) pointers is a good thing for one to return, since it is stable and comparable:
+Build has a value receiver. The identity of a component among its siblings is its type and its key ([`WithKey`](#func-withkey)), and the comparison that skips its build never panics: see [`Component`](#type-component).
+
+A function returning a [`Node`](#type-node) is a component too when it is wrapped in [`C`](#func-c) (no props) or [`CP`](#func-cp) (comparable props); [`CP`](#func-cp) skips like a struct component, and [`Memo`](#func-memo) does the same with a comparison function.
+
+```go
+Div(tela.C(Header), tela.CP(Badge, BadgeProps{Count: 3}))
+```
+
+Calling Build, or a component function, directly runs it inside the caller, whose hook slots its hooks would take: in dev mode a hook called from a function that is neither the component being built (its Build, its function, or a function literal inside them) nor a custom hook panics with the fix. A custom hook is a function named UseXxx or useXxx that calls hooks for the component that calls it; a struct of [`Value`](#type-value) pointers is a good thing for one to return, since it is stable and comparable:
 
 ```go
 type Drag struct{ X, Y *tela.Value[float32] }
@@ -130,7 +155,7 @@ Hooks keep state and run code across builds, with React's names and semantics:
 - [`UseInterval`](#func-useinterval) calls a function every period on the UI thread, and [`UseGo`](#func-usego) runs a function on its own goroutine with a context that is cancelled when its dependencies change or the component unmounts.
 - [`UseMemo`](#func-usememo) caches a computation and [`UseOnce`](#func-useonce) computes a value once; [`UseCallback`](#func-usecallback) gives a stable [`Callback`](#type-callback) that always calls the latest function; [`UseRef`](#func-useref) keeps a mutable box.
 - [`CreateContext`](#func-createcontext) and [`UseContext`](#func-usecontext) pass values down the tree.
-- [`UseId`](#func-useid) gives a stable unique ID.
+- [`UseID`](#func-useid) gives a stable unique ID.
 - [`UseElementRef`](#func-useelementref) gives an [`ElementRef`](#type-elementref) to attach with h.Ref, to focus or scroll an element from handlers and effects.
 - [`UseValue`](#func-usevalue) holds an observable [`Value`](#type-value) for what changes every frame: read in the component's body, a change builds it again; read inside a deferred style closure, a change only lays out or repaints that element.
 - [`UseScroll`](#func-usescroll) gives Values that follow an element's scroll offsets, for effects tied to scrolling that repaint without rebuilding.
@@ -164,15 +189,15 @@ Div(Class("size-8 rounded-full bg-indigo-500"),
 // later, from anywhere: pos.Set(120)
 ```
 
-Hooks follow React's rules: call them at the top level of a component function, in the same order on every build, never inside conditions or loops. A hook called outside a component build panics with an explanation (a component called where a node is expected is told to use [`C`](#func-c)); in dev mode a change of the hook order panics with both call sites. Everything runs on the UI thread except the Setter, Dispatcher and Value methods and [`Post`](#func-post), which are safe from any goroutine.
+Hooks follow React's rules: call them at the top level of a component's Build or function, in the same order on every build, never inside conditions or loops. A hook called outside a component build panics with an explanation (a component called where a node is expected is told to use [`C`](#func-c), or to pass the struct value); in dev mode a change of the hook order panics with both call sites. Everything runs on the UI thread except the Setter, Dispatcher and Value methods and [`Post`](#func-post), which are safe from any goroutine.
 
 ### Dev mode
 
 Dev mode reports the mistakes that compile. It is on unless the program is a release build (built with -trimpath, or installed with go install pkg@version; go run and go build in a source checkout are development builds); [`App`](#type-app).Dev overrides that, and TELA_DEV=1 or TELA_DEV=0 overrides both. telatest runs in dev mode unless telatest.NoDev says otherwise. In dev mode:
 
 - unknown classes are printed on standard error with the closest class (in telatest they fail the test);
-- unknown roles, input types and easings, hook-order changes and hooks called outside their component panic with the fix;
-- likely mistakes are printed as warnings, once per call site: lists without keys or with duplicate keys, UseEffect(f, nil) (deprecated: use [`UseMount`](#func-usemount)), dependencies that cannot be compared, a [`Value`](#type-value) read with Get in a handler while changes are queued (use Latest), a context read without a Provider whose default is not safe to use, and an h.Label that labels no field.
+- unknown roles, input types and easings, hook-order changes, hooks called outside their component, a pointer given as a [`Component`](#type-component) and a [`Prop`](#type-prop) in a field of type Component panic with the fix;
+- likely mistakes are printed as warnings, once per call site: lists without keys or with duplicate keys, UseEffect(f, nil) (deprecated: use [`Once`](#variables) or [`UseMount`](#func-usemount)), dependencies that cannot be compared, a [`Value`](#type-value) read with Get in a handler while changes are queued (use Latest), a context read without a Provider whose default is not safe to use, and an h.Label that labels no field.
 
 ### Text fields and forms
 
@@ -184,7 +209,7 @@ A package that defines `func Preview() tela.Node`, or a [`Previews`](#type-previ
 
 ### Stability
 
-[`Node`](#type-node), [`Child`](#type-child), [`Prop`](#type-prop), [`StyleProp`](#type-styleprop), [`Color`](#type-color), [`Shadow`](#type-shadow), [`Gradient`](#type-gradient), [`GradientStop`](#type-gradientstop), [`Setter`](#type-setter), [`Dispatcher`](#type-dispatcher), [`Callback`](#type-callback), [`Ref`](#type-ref), [`Context`](#type-context), [`Value`](#type-value), [`ElementRef`](#type-elementref), [`Rect`](#type-rect), [`ScrollAlign`](#type-scrollalign), [`MouseEvent`](#type-mouseevent), [`PointerEvent`](#type-pointerevent), [`DragEvent`](#type-dragevent), [`KeyboardEvent`](#type-keyboardevent), [`FocusEvent`](#type-focusevent), [`WheelEvent`](#type-wheelevent), [`ScrollEvent`](#type-scrollevent), [`InputEvent`](#type-inputevent), [`ChangeEvent`](#type-changeevent), [`CompositionEvent`](#type-compositionevent), [`SelectEvent`](#type-selectevent), [`SubmitEvent`](#type-submitevent), [`Key`](#type-key), [`Code`](#type-code), [`KeyLocation`](#type-keylocation), [`MouseButton`](#type-mousebutton), [`MouseButtons`](#type-mousebuttons) and [`PointerKind`](#type-pointerkind) are aliases of types defined in Tela's internal packages (the packages cannot be imported, but their exported fields and methods are part of the API shown here). Construct them with the functions of this package rather than with composite literals where one exists.
+[`Node`](#type-node), [`Component`](#type-component), [`Child`](#type-child), [`Prop`](#type-prop), [`StyleProp`](#type-styleprop), [`Color`](#type-color), [`Shadow`](#type-shadow), [`Gradient`](#type-gradient), [`GradientStop`](#type-gradientstop), [`Setter`](#type-setter), [`Dispatcher`](#type-dispatcher), [`Callback`](#type-callback), [`Ref`](#type-ref), [`Context`](#type-context), [`Value`](#type-value), [`ElementRef`](#type-elementref), [`Rect`](#type-rect), [`ScrollAlign`](#type-scrollalign), [`MouseEvent`](#type-mouseevent), [`PointerEvent`](#type-pointerevent), [`DragEvent`](#type-dragevent), [`KeyboardEvent`](#type-keyboardevent), [`FocusEvent`](#type-focusevent), [`WheelEvent`](#type-wheelevent), [`ScrollEvent`](#type-scrollevent), [`InputEvent`](#type-inputevent), [`ChangeEvent`](#type-changeevent), [`CompositionEvent`](#type-compositionevent), [`SelectEvent`](#type-selectevent), [`SubmitEvent`](#type-submitevent), [`KeyName`](#type-keyname), [`KeyCode`](#type-keycode), [`KeyLocation`](#type-keylocation), [`MouseButton`](#type-mousebutton), [`MouseButtons`](#type-mousebuttons) and [`PointerKind`](#type-pointerkind) are aliases of types defined in Tela's internal packages (the packages cannot be imported, but their exported fields and methods are part of the API shown here). Construct them with the functions of this package rather than with composite literals where one exists.
 
 ## Constants
 
@@ -264,6 +289,21 @@ var (
 ```
 
 Common colors.
+
+```go
+var Once = core.Once
+```
+
+Once is the dependency of a hook that runs or computes only on the first build (React's empty dependency list \[\]):
+
+```go
+tela.UseEffect(f, tela.Once)       // after the first build; cleanup on unmount
+tela.UseLayoutEffect(f, tela.Once) // the same, before the first paint
+tela.UseGo(f, tela.Once)           // one goroutine for the component's lifetime
+tela.UseMemo(f, tela.Once)         // computed once
+```
+
+Its type is unexported, so it is equal to itself on every build and is never confused with a value of yours. [`UseMount`](#func-usemount) and [`UseOnce`](#func-useonce) are the shorthands for effects and values. It replaces a single nil dependency (UseEffect(f, nil)), which still means "only on mount" but is deprecated: React reads a null list as "after every render", and a later version will reject it. With [`UseUpdateEffect`](#func-useupdateeffect), which skips the first build, Once never runs (dev mode warns).
 
 ## Functions
 
@@ -470,12 +510,13 @@ UseEffect runs effect after the frame is presented, when its dependencies change
 The dependencies follow React:
 
 ```go
-tela.UseEffect(f)          // after every build
-tela.UseEffect(f, id, n)   // when id or n changed (compared with ==)
-tela.UseMount(f)           // only after the first build (React's [])
+tela.UseEffect(f)            // after every build
+tela.UseEffect(f, id, n)     // when id or n changed (compared with ==)
+tela.UseEffect(f, tela.Once) // only after the first build (React's [])
+tela.UseMount(f)             // the same
 ```
 
-For an effect that runs once, on mount, with its cleanup on unmount (a subscription), use [`UseMount`](#func-usemount); [`UseEffectDo`](#func-useeffectdo) takes an effect without a cleanup, [`UseUpdateEffect`](#func-useupdateeffect) skips the first build, and periodic and background work have [`UseInterval`](#func-useinterval) and [`UseGo`](#func-usego). A single nil dependency, UseEffect(f, nil), still means "only on mount", but it is deprecated (React reads a null list as "after every render"): dev mode warns about it, and a later version will reject it.
+For an effect that runs once, on mount, with its cleanup on unmount (a subscription), use [`UseMount`](#func-usemount) or [`Once`](#variables); [`UseEffectDo`](#func-useeffectdo) takes an effect without a cleanup, [`UseUpdateEffect`](#func-useupdateeffect) skips the first build, and periodic and background work have [`UseInterval`](#func-useinterval) and [`UseGo`](#func-usego). A single nil dependency, UseEffect(f, nil), still means "only on mount", but it is deprecated in favor of [`Once`](#variables) (React reads a null list as "after every render"): dev mode warns about it, and a later version will reject it.
 
 Values that cannot be compared (functions, slices, maps) count as changed on every build; dev mode reports them, and a dependency count that changes between builds. Pass an ID, a comparable value or a [`Callback`](#type-callback) instead.
 
@@ -529,7 +570,7 @@ tela.UseGo(func(ctx context.Context) {
 }, query) // restarts, cancelling the old fetch, when query changes
 ```
 
-The dependencies follow UseEffect's: none restarts f after every build.
+The dependencies follow UseEffect's: none restarts f after every build, and [`Once`](#variables) runs one goroutine for the lifetime of the component.
 
 **Example**
 
@@ -561,17 +602,28 @@ fmt.Println("ok")
 // Output: ok
 ```
 
-### func UseId
+### func UseID
+
+```go
+func UseID() string
+```
+
+UseID returns a string that identifies this hook slot, for accessibility relations between elements (a label and its input). It is the same on every build, unique within the process, and the same for the same mount order (snapshots are deterministic).
+
+```go
+id := tela.UseID()
+return Div(Label(For(id), Text("Email")), Input(ID(id)))
+```
+
+### func UseId (deprecated)
 
 ```go
 func UseId() string
 ```
 
-UseId returns a string that identifies this hook slot, for accessibility relations between elements (a label and its input). It is the same on every build, unique within the process, and the same for the same mount order (snapshots are deterministic).
+UseId is the former name of [`UseID`](#func-useid).
 
-```go
-id := tela.UseId()
-```
+Deprecated: use UseID. UseId will be removed in phase 8.
 
 ### func UseInterval
 
@@ -635,7 +687,7 @@ tela.UseLayoutEffect(func() func() {
 func UseMemo[T any](compute func() T, deps ...any) T
 ```
 
-UseMemo returns compute(), computed on the first build and again only when the dependencies changed (compared like [`UseEffect`](#func-useeffect)'s: none recomputes on every build). For a value computed once, use [`UseOnce`](#func-useonce).
+UseMemo returns compute(), computed on the first build and again only when the dependencies changed (compared like [`UseEffect`](#func-useeffect)'s: none recomputes on every build). For a value computed once, use [`UseOnce`](#func-useonce) (or UseMemo(compute, tela.Once)).
 
 ```go
 visible := tela.UseMemo(func() []Todo { return filter(todos, query) }, len(todos), query)
@@ -732,7 +784,7 @@ func Toast(msg string) tela.Node {
     if !present {
         target = 1
     }
-    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
+    out := tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
     return Div(Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
         Style(tela.TranslateFn(func() (float32, float32) { return 0, 40 * out.Get() }),
             tela.OpacityFn(func() float32 { return 1 - out.Get() })),
@@ -754,7 +806,7 @@ toast := func() tela.Node {
         target = 1
     }
     // The tween out ends the exit: done does nothing while present.
-    out := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
+    out := tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.OnDone(done))
     return Div(Role("status"), Class("rounded-lg bg-slate-900 px-4 py-2 text-white"),
         Style(tela.OpacityFn(func() float32 { return 1 - out.Get() })), Text("Saved"))
 }
@@ -906,7 +958,7 @@ fmt.Println(bg.Get())
 type AnimationOption = core.AnimOption
 ```
 
-AnimationOption configures an animation of [`UseSpring`](#func-usespring), [`UseTween`](#func-usetween) or [`Animate`](#func-animate): [`Stiffness`](#func-stiffness), [`Damping`](#func-damping), [`Bounce`](#func-bounce), [`Duration`](#func-duration), [`Ease`](#func-ease), [`Velocity`](#func-velocity) and [`Spring`](#func-spring), which groups spring options, and [`OnDone`](#func-ondone). The zero AnimationOption changes nothing.
+AnimationOption configures an animation of [`UseSpring`](#func-usespring), [`UseTween`](#func-usetween) or [`Animate`](#func-animate): [`Stiffness`](#func-stiffness), [`Damping`](#func-damping), [`Bounce`](#func-bounce), [`Duration`](#func-duration), [`Ease`](#func-ease), [`Velocity`](#func-velocity) and [`Spring`](#func-spring), which groups spring options, [`OnDone`](#func-ondone), and [`Initial`](#func-initial) for the start value of UseSpring and UseTween. The zero AnimationOption changes nothing.
 
 Springs (Motion's model) are defined either by their physics or by how long they take:
 
@@ -1013,6 +1065,20 @@ fmt.Println("steps:", springEnd(tela.Duration(time.Second), tela.Ease("steps(4, 
 // ease-out: 320ms
 // steps: 1.03s
 ```
+
+#### func Initial
+
+```go
+func Initial[T Animatable](v T) AnimationOption
+```
+
+Initial sets the value [`UseSpring`](#func-usespring) and [`UseTween`](#func-usetween) hold on their first build, from which they move to their target: an entrance animation. Without it they start at the target, and nothing moves until the target changes. Later builds ignore it.
+
+```go
+scale := tela.UseSpring(float32(1), tela.Initial(float32(0.8))) // pops in
+```
+
+Its type must be the target's. AnimationOption is not generic, so the compiler cannot check that: a mismatch, such as tela.UseSpring(tela.Point{}, tela.Initial(float32(0))), panics in dev mode (see [`App`](#type-app).Dev) and is ignored otherwise (the value starts at the target). It does not apply to [`Animate`](#func-animate), which starts where the Value is (dev mode panics), nor inside [`Spring`](#func-spring).
 
 #### func OnDone
 
@@ -1334,12 +1400,12 @@ StopPropagation stops the event from bubbling (see MouseEvent).
 type Child = core.Child
 ```
 
-Child is what an element takes: a [`Node`](#type-node) (a child) or a [`Prop`](#type-prop) (h.Class, h.Style, h.Key, h.OnClick...). Props and children may be mixed in any order. The interface is sealed: passing a string or any other value is a compile error; wrap text in h.Text. The compiler names the internal type behind the alias and its unexported method:
+Child is what an element takes: a [`Node`](#type-node) (a child), a [`Prop`](#type-prop) (h.Class, h.Style, h.Key, h.OnClick...) or any other [`Component`](#type-component), which becomes a component with its own state. Props and children may be mixed in any order. It has the method set of Component but is a type of its own: a field or parameter of type Child takes props too, one of type Component is for what renders. Passing a string or a number is a compile error; wrap text in h.Text. The compiler names the internal type behind the alias:
 
 ```go
 cannot use "hello" (constant of type string) as tela.Child value in
 argument to Div: string does not implement core.Child (missing method
-applyChild)
+Build)
 ```
 
 means Div("hello") should be Div(Text("hello")).
@@ -1348,236 +1414,19 @@ means Div("hello") should be Div(Text("hello")).
 
 ```go
 type Child interface {
-    // contains filtered or unexported methods
+    Build() Node
 }
 ```
 
 ### type Code
 
 ```go
-type Code = core.CodeValue
+type Code = KeyCode
 ```
 
-Code is a physical key: its position on the keyboard whatever the layout (a W3C KeyboardEvent code value), one of the Code constants. Use it for shortcuts that depend on the position (WASD), and Key for those that depend on the meaning (Ctrl+Z):
+Code is the former name of [`KeyCode`](#type-keycode). It collides with the element h.Code when both packages are dot-imported.
 
-```go
-if e.Code == tela.CodeKeyW || e.Code == "ArrowUp" { moveUp() }
-```
-
-`Code` is an alias of `core.CodeValue`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
-
-```go
-type CodeValue string
-```
-
-```go
-const (
-    // CodeUnidentified is a key without a W3C code value.
-    CodeUnidentified Code = "Unidentified"
-
-    // Writing system keys (alphanumeric section). The comments give the
-    // US layout label.
-    CodeBackquote     Code = "Backquote"     // `~ (半角/全角 on Japanese keyboards)
-    CodeBackslash     Code = "Backslash"     // \| (# on UK layouts, row C)
-    CodeBracketLeft   Code = "BracketLeft"   // [{
-    CodeBracketRight  Code = "BracketRight"  // ]}
-    CodeComma         Code = "Comma"         // ,<
-    CodeDigit0        Code = "Digit0"        // 0)
-    CodeDigit1        Code = "Digit1"        // 1!
-    CodeDigit2        Code = "Digit2"        // 2@
-    CodeDigit3        Code = "Digit3"        // 3#
-    CodeDigit4        Code = "Digit4"        // 4$
-    CodeDigit5        Code = "Digit5"        // 5%
-    CodeDigit6        Code = "Digit6"        // 6^
-    CodeDigit7        Code = "Digit7"        // 7&
-    CodeDigit8        Code = "Digit8"        // 8*
-    CodeDigit9        Code = "Digit9"        // 9(
-    CodeEqual         Code = "Equal"         // =+
-    CodeIntlBackslash Code = "IntlBackslash" // between left Shift and Z on ISO keyboards
-    CodeIntlRo        Code = "IntlRo"        // ろ, between / and right Shift (Japanese)
-    CodeIntlYen       Code = "IntlYen"       // ¥, between = and Backspace (Japanese)
-    CodeKeyA          Code = "KeyA"
-    CodeKeyB          Code = "KeyB"
-    CodeKeyC          Code = "KeyC"
-    CodeKeyD          Code = "KeyD"
-    CodeKeyE          Code = "KeyE"
-    CodeKeyF          Code = "KeyF"
-    CodeKeyG          Code = "KeyG"
-    CodeKeyH          Code = "KeyH"
-    CodeKeyI          Code = "KeyI"
-    CodeKeyJ          Code = "KeyJ"
-    CodeKeyK          Code = "KeyK"
-    CodeKeyL          Code = "KeyL"
-    CodeKeyM          Code = "KeyM"
-    CodeKeyN          Code = "KeyN"
-    CodeKeyO          Code = "KeyO"
-    CodeKeyP          Code = "KeyP"
-    CodeKeyQ          Code = "KeyQ"
-    CodeKeyR          Code = "KeyR"
-    CodeKeyS          Code = "KeyS"
-    CodeKeyT          Code = "KeyT"
-    CodeKeyU          Code = "KeyU"
-    CodeKeyV          Code = "KeyV"
-    CodeKeyW          Code = "KeyW"
-    CodeKeyX          Code = "KeyX"
-    CodeKeyY          Code = "KeyY"
-    CodeKeyZ          Code = "KeyZ"
-    CodeMinus         Code = "Minus"     // -_
-    CodePeriod        Code = "Period"    // .>
-    CodeQuote         Code = "Quote"     // '"
-    CodeSemicolon     Code = "Semicolon" // ;:
-    CodeSlash         Code = "Slash"     // /?
-
-    // Functional keys of the alphanumeric section.
-    CodeAltLeft      Code = "AltLeft"
-    CodeAltRight     Code = "AltRight" // AltGr on many layouts
-    CodeBackspace    Code = "Backspace"
-    CodeCapsLock     Code = "CapsLock"
-    CodeContextMenu  Code = "ContextMenu"
-    CodeControlLeft  Code = "ControlLeft"
-    CodeControlRight Code = "ControlRight"
-    CodeEnter        Code = "Enter"
-    CodeMetaLeft     Code = "MetaLeft"  // Windows, Command (⌘) or Super key
-    CodeMetaRight    Code = "MetaRight" // Windows, Command (⌘) or Super key
-    CodeShiftLeft    Code = "ShiftLeft"
-    CodeShiftRight   Code = "ShiftRight"
-    CodeSpace        Code = "Space"
-    CodeTab          Code = "Tab"
-    CodeConvert      Code = "Convert"    // 変換 (Japanese)
-    CodeKanaMode     Code = "KanaMode"   // カタカナ/ひらがな/ローマ字 (Japanese)
-    CodeLang1        Code = "Lang1"      // 한/영 (Korean), かな (Apple Japanese)
-    CodeLang2        Code = "Lang2"      // 한자 (Korean), 英数 (Apple Japanese)
-    CodeLang3        Code = "Lang3"      // カタカナ (Japanese)
-    CodeLang4        Code = "Lang4"      // ひらがな (Japanese)
-    CodeLang5        Code = "Lang5"      // 半角/全角 (Japanese)
-    CodeNonConvert   Code = "NonConvert" // 無変換 (Japanese)
-
-    // Control pad.
-    CodeDelete   Code = "Delete"
-    CodeEnd      Code = "End"
-    CodeHelp     Code = "Help"
-    CodeHome     Code = "Home"
-    CodeInsert   Code = "Insert"
-    CodePageDown Code = "PageDown"
-    CodePageUp   Code = "PageUp"
-
-    // Arrow pad.
-    CodeArrowDown  Code = "ArrowDown"
-    CodeArrowLeft  Code = "ArrowLeft"
-    CodeArrowRight Code = "ArrowRight"
-    CodeArrowUp    Code = "ArrowUp"
-
-    // Numpad section.
-    CodeNumLock              Code = "NumLock"
-    CodeNumpad0              Code = "Numpad0"
-    CodeNumpad1              Code = "Numpad1"
-    CodeNumpad2              Code = "Numpad2"
-    CodeNumpad3              Code = "Numpad3"
-    CodeNumpad4              Code = "Numpad4"
-    CodeNumpad5              Code = "Numpad5"
-    CodeNumpad6              Code = "Numpad6"
-    CodeNumpad7              Code = "Numpad7"
-    CodeNumpad8              Code = "Numpad8"
-    CodeNumpad9              Code = "Numpad9"
-    CodeNumpadAdd            Code = "NumpadAdd"
-    CodeNumpadBackspace      Code = "NumpadBackspace"
-    CodeNumpadClear          Code = "NumpadClear"
-    CodeNumpadClearEntry     Code = "NumpadClearEntry"
-    CodeNumpadComma          Code = "NumpadComma"
-    CodeNumpadDecimal        Code = "NumpadDecimal"
-    CodeNumpadDivide         Code = "NumpadDivide"
-    CodeNumpadEnter          Code = "NumpadEnter"
-    CodeNumpadEqual          Code = "NumpadEqual"
-    CodeNumpadHash           Code = "NumpadHash"
-    CodeNumpadMemoryAdd      Code = "NumpadMemoryAdd"
-    CodeNumpadMemoryClear    Code = "NumpadMemoryClear"
-    CodeNumpadMemoryRecall   Code = "NumpadMemoryRecall"
-    CodeNumpadMemoryStore    Code = "NumpadMemoryStore"
-    CodeNumpadMemorySubtract Code = "NumpadMemorySubtract"
-    CodeNumpadMultiply       Code = "NumpadMultiply"
-    CodeNumpadParenLeft      Code = "NumpadParenLeft"
-    CodeNumpadParenRight     Code = "NumpadParenRight"
-    CodeNumpadStar           Code = "NumpadStar"
-    CodeNumpadSubtract       Code = "NumpadSubtract"
-
-    // Function section.
-    CodeEscape      Code = "Escape"
-    CodeF1          Code = "F1"
-    CodeF2          Code = "F2"
-    CodeF3          Code = "F3"
-    CodeF4          Code = "F4"
-    CodeF5          Code = "F5"
-    CodeF6          Code = "F6"
-    CodeF7          Code = "F7"
-    CodeF8          Code = "F8"
-    CodeF9          Code = "F9"
-    CodeF10         Code = "F10"
-    CodeF11         Code = "F11"
-    CodeF12         Code = "F12"
-    CodeF13         Code = "F13"
-    CodeF14         Code = "F14"
-    CodeF15         Code = "F15"
-    CodeF16         Code = "F16"
-    CodeF17         Code = "F17"
-    CodeF18         Code = "F18"
-    CodeF19         Code = "F19"
-    CodeF20         Code = "F20"
-    CodeF21         Code = "F21"
-    CodeF22         Code = "F22"
-    CodeF23         Code = "F23"
-    CodeF24         Code = "F24"
-    CodeFn          Code = "Fn"
-    CodeFnLock      Code = "FnLock"
-    CodePrintScreen Code = "PrintScreen"
-    CodeScrollLock  Code = "ScrollLock"
-    CodePause       Code = "Pause"
-
-    // Media keys.
-    CodeBrowserBack        Code = "BrowserBack"
-    CodeBrowserFavorites   Code = "BrowserFavorites"
-    CodeBrowserForward     Code = "BrowserForward"
-    CodeBrowserHome        Code = "BrowserHome"
-    CodeBrowserRefresh     Code = "BrowserRefresh"
-    CodeBrowserSearch      Code = "BrowserSearch"
-    CodeBrowserStop        Code = "BrowserStop"
-    CodeEject              Code = "Eject"
-    CodeLaunchApp1         Code = "LaunchApp1" // often "My Computer"
-    CodeLaunchApp2         Code = "LaunchApp2" // often "Calculator"
-    CodeLaunchMail         Code = "LaunchMail"
-    CodeMediaPlayPause     Code = "MediaPlayPause"
-    CodeMediaSelect        Code = "MediaSelect"
-    CodeMediaStop          Code = "MediaStop"
-    CodeMediaTrackNext     Code = "MediaTrackNext"
-    CodeMediaTrackPrevious Code = "MediaTrackPrevious"
-    CodePower              Code = "Power"
-    CodeSleep              Code = "Sleep"
-    CodeAudioVolumeDown    Code = "AudioVolumeDown"
-    CodeAudioVolumeMute    Code = "AudioVolumeMute"
-    CodeAudioVolumeUp      Code = "AudioVolumeUp"
-    CodeWakeUp             Code = "WakeUp"
-
-    // Legacy, non-standard and special keys.
-    CodeHyper    Code = "Hyper"
-    CodeSuper    Code = "Super"
-    CodeTurbo    Code = "Turbo"
-    CodeAbort    Code = "Abort"
-    CodeResume   Code = "Resume"
-    CodeSuspend  Code = "Suspend"
-    CodeAgain    Code = "Again"
-    CodeCopy     Code = "Copy"
-    CodeCut      Code = "Cut"
-    CodeFind     Code = "Find"
-    CodeOpen     Code = "Open"
-    CodePaste    Code = "Paste"
-    CodeProps    Code = "Props"
-    CodeSelect   Code = "Select"
-    CodeUndo     Code = "Undo"
-    CodeHiragana Code = "Hiragana"
-    CodeKatakana Code = "Katakana"
-)
-```
-
-Physical key codes: the values of KeyboardEvent.Code (W3C UI Events KeyboardEvent code values, <https://www.w3.org/TR/uievents-code/>), the position of the key whatever the layout: CodeKeyA is the key labeled A on a US keyboard (it types "q" on AZERTY). Code is a string type: e.Code == "KeyS" and e.Code == tela.CodeKeyS mean the same.
+Deprecated: use KeyCode. Code will be removed in phase 8.
 
 ### type Color
 
@@ -1809,6 +1658,86 @@ fmt.Println(yaml)
 
 ```go
 func (s ColorScheme) String() string
+```
+
+### type Component
+
+```go
+type Component = core.Comp
+```
+
+Component is a unit of UI with its own state boundary: a value whose Build method returns what it renders. Build must use a value receiver.
+
+```go
+type Card struct {
+    Title    string
+    OnOpen   tela.Callback[func()]
+    Children tela.Component // children are an ordinary field
+}
+
+func (c Card) Build() tela.Node {
+    open, setOpen := tela.UseState(false)
+    return Div(Class("rounded-xl border p-4"),
+        H2(OnClick(func(tela.MouseEvent) { setOpen.Set(!open) }), Text(c.Title)),
+        If(open, c.Children))
+}
+
+Div(Card{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))})
+```
+
+Every Component value given to an element as a child is a component of its own, with its own hook state: hooks called in Build (and in the function literals inside it) belong to it. Its identity among its siblings is its type and its key ([`WithKey`](#func-withkey)), so at one position a value of the same type keeps the state of the previous build and a value of another type mounts anew. When its parent builds again, its build is skipped if the new value equals the previous one and no state, Value or context it read changed, as with [`CP`](#func-cp). The comparison is ==, field by field, and never panics: a value that cannot be compared (a struct holding a slice, a map or a func, or a field of interface type holding one) counts as changed, so it always builds. A [`Node`](#type-node) in a field compares by identity: a fresh h.Div(...) is a change, a node kept in a [`UseMemo`](#func-usememo) is not. Pass [`Callback`](#type-callback) values instead of funcs to keep a component skippable.
+
+Calling Build directly (Card{}.Build() inside another component) runs it inside the caller, whose hook slots it would take: dev mode panics and says to pass Card{...} as a child instead. Where a [`Node`](#type-node) is expected (the result of a function component, an h.Map item), give the value to h.Fragment, or key it with [`WithKey`](#func-withkey). h.If renders nothing for the zero value of its type, and the zero value of a struct renders, so pass it as a Component: If(loading, tela.Component(Spinner{})).
+
+In dev mode (see [`App`](#type-app).Dev) a pointer (Div(\&Card{})) panics, since a component is a value that Tela compares, and so does a [`Prop`](#type-prop) held by a field of type Component (Card{Children: Class("p-4")}): Go cannot tell it from a component at compile time, and given to an element it would apply to that element. A field that is meant to take props too is declared as [`Child`](#type-child).
+
+[`Node`](#type-node) and [`Prop`](#type-prop) implement Component as well; a function component becomes one with [`C`](#func-c), [`CP`](#func-cp) or [`Memo`](#func-memo).
+
+`Component` is an alias of `core.Comp`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Comp interface {
+    Build() Node
+}
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+app := telatest.Mount(t, Div(Class("flex flex-col gap-2"),
+    Panel{Title: "Inbox", Children: Fragment(P(Text("2 new")), P(Text("from Ada")))},
+    Panel{Title: "Archive", Children: P(Text("empty"))}))
+// Each Panel has its own state: this closes the first one only.
+app.Click(telatest.ByRole("button", "Inbox"))
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - button "Inbox"
+// - button "Archive" [expanded]
+// - paragraph: empty
+```
+
+**Example (skipping)**
+
+```go
+t := &exampleT{}
+defer t.close()
+counts := map[string]int{}
+builds := &counts
+page := func() tela.Node {
+    clicks, setClicks := tela.UseState(0)
+    return Div(
+        Button(OnClick(func(tela.MouseEvent) { setClicks.Set(clicks + 1) }), Text("Click")),
+        Badge{Label: "Inbox", Count: 3, builds: builds},       // equal on every build: skipped
+        Badge{Label: "Clicks", Count: clicks, builds: builds}, // changes: built again
+    )
+}
+app := telatest.Mount(t, tela.C(page))
+app.Click(telatest.ByRole("button", "Click"))
+app.Click(telatest.ByRole("button", "Click"))
+fmt.Println(counts["Inbox"], counts["Clicks"])
+// Output: 1 3
 ```
 
 ### type CompositionEvent
@@ -2361,213 +2290,239 @@ StopPropagation stops the event from bubbling (see MouseEvent).
 ### type Key
 
 ```go
-type Key = core.KeyValue
+type Key = KeyName
 ```
 
-Key is a logical key: what the key means with the active layout and modifiers (a W3C KeyboardEvent key value). It is a named key, one of the Key constants ("Enter", "Escape", "ArrowLeft", "Shift"), or the character the key types ("a", "A", "é", " " for the space bar). Ctrl does not change it: Ctrl+S has Key "s". Compare it with a constant or a string literal:
+Key is the former name of [`KeyName`](#type-keyname). It collides with h.Key when both packages are dot-imported.
+
+Deprecated: use KeyName. Key will be removed in phase 8.
+
+### type KeyCode
 
 ```go
-if e.Key == tela.KeyEnter || e.Key == "+" { ... }
+type KeyCode = core.CodeValue
 ```
 
-`Key` is an alias of `core.KeyValue`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+KeyCode is a physical key, the type of [`KeyboardEvent`](#type-keyboardevent).Code: its position on the keyboard whatever the layout (a W3C KeyboardEvent code value), one of the Code constants. Use it for shortcuts that depend on the position (WASD), and Key for those that depend on the meaning (Ctrl+Z):
 
 ```go
-type KeyValue string
+if e.Code == tela.CodeKeyW || e.Code == "ArrowUp" { moveUp() }
+```
+
+`KeyCode` is an alias of `core.CodeValue`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type CodeValue string
 ```
 
 ```go
 const (
-    // KeyUnidentified is a key with neither a name nor a character.
-    KeyUnidentified Key = "Unidentified"
+    // CodeUnidentified is a key without a W3C code value.
+    CodeUnidentified KeyCode = "Unidentified"
 
-    // Modifier keys. AltGraph is AltGr (ISO_Level3_Shift); Meta is the
-    // Windows, Command (⌘) or Super key, as browsers report it on every
-    // OS.
-    KeyAlt        Key = "Alt"
-    KeyAltGraph   Key = "AltGraph"
-    KeyCapsLock   Key = "CapsLock"
-    KeyControl    Key = "Control"
-    KeyFn         Key = "Fn"
-    KeyFnLock     Key = "FnLock"
-    KeyMeta       Key = "Meta"
-    KeyNumLock    Key = "NumLock"
-    KeyScrollLock Key = "ScrollLock"
-    KeyShift      Key = "Shift"
-    KeySymbol     Key = "Symbol"
-    KeySymbolLock Key = "SymbolLock"
-    KeyHyper      Key = "Hyper"
-    KeySuper      Key = "Super"
+    // Writing system keys (alphanumeric section). The comments give the
+    // US layout label.
+    CodeBackquote     KeyCode = "Backquote"     // `~ (半角/全角 on Japanese keyboards)
+    CodeBackslash     KeyCode = "Backslash"     // \| (# on UK layouts, row C)
+    CodeBracketLeft   KeyCode = "BracketLeft"   // [{
+    CodeBracketRight  KeyCode = "BracketRight"  // ]}
+    CodeComma         KeyCode = "Comma"         // ,<
+    CodeDigit0        KeyCode = "Digit0"        // 0)
+    CodeDigit1        KeyCode = "Digit1"        // 1!
+    CodeDigit2        KeyCode = "Digit2"        // 2@
+    CodeDigit3        KeyCode = "Digit3"        // 3#
+    CodeDigit4        KeyCode = "Digit4"        // 4$
+    CodeDigit5        KeyCode = "Digit5"        // 5%
+    CodeDigit6        KeyCode = "Digit6"        // 6^
+    CodeDigit7        KeyCode = "Digit7"        // 7&
+    CodeDigit8        KeyCode = "Digit8"        // 8*
+    CodeDigit9        KeyCode = "Digit9"        // 9(
+    CodeEqual         KeyCode = "Equal"         // =+
+    CodeIntlBackslash KeyCode = "IntlBackslash" // between left Shift and Z on ISO keyboards
+    CodeIntlRo        KeyCode = "IntlRo"        // ろ, between / and right Shift (Japanese)
+    CodeIntlYen       KeyCode = "IntlYen"       // ¥, between = and Backspace (Japanese)
+    CodeKeyA          KeyCode = "KeyA"
+    CodeKeyB          KeyCode = "KeyB"
+    CodeKeyC          KeyCode = "KeyC"
+    CodeKeyD          KeyCode = "KeyD"
+    CodeKeyE          KeyCode = "KeyE"
+    CodeKeyF          KeyCode = "KeyF"
+    CodeKeyG          KeyCode = "KeyG"
+    CodeKeyH          KeyCode = "KeyH"
+    CodeKeyI          KeyCode = "KeyI"
+    CodeKeyJ          KeyCode = "KeyJ"
+    CodeKeyK          KeyCode = "KeyK"
+    CodeKeyL          KeyCode = "KeyL"
+    CodeKeyM          KeyCode = "KeyM"
+    CodeKeyN          KeyCode = "KeyN"
+    CodeKeyO          KeyCode = "KeyO"
+    CodeKeyP          KeyCode = "KeyP"
+    CodeKeyQ          KeyCode = "KeyQ"
+    CodeKeyR          KeyCode = "KeyR"
+    CodeKeyS          KeyCode = "KeyS"
+    CodeKeyT          KeyCode = "KeyT"
+    CodeKeyU          KeyCode = "KeyU"
+    CodeKeyV          KeyCode = "KeyV"
+    CodeKeyW          KeyCode = "KeyW"
+    CodeKeyX          KeyCode = "KeyX"
+    CodeKeyY          KeyCode = "KeyY"
+    CodeKeyZ          KeyCode = "KeyZ"
+    CodeMinus         KeyCode = "Minus"     // -_
+    CodePeriod        KeyCode = "Period"    // .>
+    CodeQuote         KeyCode = "Quote"     // '"
+    CodeSemicolon     KeyCode = "Semicolon" // ;:
+    CodeSlash         KeyCode = "Slash"     // /?
 
-    // Whitespace keys (the space bar is the character " ").
-    KeyEnter Key = "Enter"
-    KeyTab   Key = "Tab"
+    // Functional keys of the alphanumeric section.
+    CodeAltLeft      KeyCode = "AltLeft"
+    CodeAltRight     KeyCode = "AltRight" // AltGr on many layouts
+    CodeBackspace    KeyCode = "Backspace"
+    CodeCapsLock     KeyCode = "CapsLock"
+    CodeContextMenu  KeyCode = "ContextMenu"
+    CodeControlLeft  KeyCode = "ControlLeft"
+    CodeControlRight KeyCode = "ControlRight"
+    CodeEnter        KeyCode = "Enter"
+    CodeMetaLeft     KeyCode = "MetaLeft"  // Windows, Command (⌘) or Super key
+    CodeMetaRight    KeyCode = "MetaRight" // Windows, Command (⌘) or Super key
+    CodeShiftLeft    KeyCode = "ShiftLeft"
+    CodeShiftRight   KeyCode = "ShiftRight"
+    CodeSpace        KeyCode = "Space"
+    CodeTab          KeyCode = "Tab"
+    CodeConvert      KeyCode = "Convert"    // 変換 (Japanese)
+    CodeKanaMode     KeyCode = "KanaMode"   // カタカナ/ひらがな/ローマ字 (Japanese)
+    CodeLang1        KeyCode = "Lang1"      // 한/영 (Korean), かな (Apple Japanese)
+    CodeLang2        KeyCode = "Lang2"      // 한자 (Korean), 英数 (Apple Japanese)
+    CodeLang3        KeyCode = "Lang3"      // カタカナ (Japanese)
+    CodeLang4        KeyCode = "Lang4"      // ひらがな (Japanese)
+    CodeLang5        KeyCode = "Lang5"      // 半角/全角 (Japanese)
+    CodeNonConvert   KeyCode = "NonConvert" // 無変換 (Japanese)
 
-    // Navigation keys.
-    KeyArrowDown  Key = "ArrowDown"
-    KeyArrowLeft  Key = "ArrowLeft"
-    KeyArrowRight Key = "ArrowRight"
-    KeyArrowUp    Key = "ArrowUp"
-    KeyEnd        Key = "End"
-    KeyHome       Key = "Home"
-    KeyPageDown   Key = "PageDown"
-    KeyPageUp     Key = "PageUp"
+    // Control pad.
+    CodeDelete   KeyCode = "Delete"
+    CodeEnd      KeyCode = "End"
+    CodeHelp     KeyCode = "Help"
+    CodeHome     KeyCode = "Home"
+    CodeInsert   KeyCode = "Insert"
+    CodePageDown KeyCode = "PageDown"
+    CodePageUp   KeyCode = "PageUp"
 
-    // Editing keys.
-    KeyBackspace Key = "Backspace"
-    KeyClear     Key = "Clear"
-    KeyCopy      Key = "Copy"
-    KeyCrSel     Key = "CrSel"
-    KeyCut       Key = "Cut"
-    KeyDelete    Key = "Delete"
-    KeyEraseEof  Key = "EraseEof"
-    KeyExSel     Key = "ExSel"
-    KeyInsert    Key = "Insert"
-    KeyPaste     Key = "Paste"
-    KeyRedo      Key = "Redo"
-    KeyUndo      Key = "Undo"
+    // Arrow pad.
+    CodeArrowDown  KeyCode = "ArrowDown"
+    CodeArrowLeft  KeyCode = "ArrowLeft"
+    CodeArrowRight KeyCode = "ArrowRight"
+    CodeArrowUp    KeyCode = "ArrowUp"
 
-    // UI keys.
-    KeyAccept      Key = "Accept"
-    KeyAgain       Key = "Again"
-    KeyAttn        Key = "Attn"
-    KeyCancel      Key = "Cancel"
-    KeyContextMenu Key = "ContextMenu"
-    KeyEscape      Key = "Escape"
-    KeyExecute     Key = "Execute"
-    KeyFind        Key = "Find"
-    KeyHelp        Key = "Help"
-    KeyPause       Key = "Pause"
-    KeyPlay        Key = "Play"
-    KeyProps       Key = "Props"
-    KeySelect      Key = "Select"
-    KeyZoomIn      Key = "ZoomIn"
-    KeyZoomOut     Key = "ZoomOut"
+    // Numpad section.
+    CodeNumLock              KeyCode = "NumLock"
+    CodeNumpad0              KeyCode = "Numpad0"
+    CodeNumpad1              KeyCode = "Numpad1"
+    CodeNumpad2              KeyCode = "Numpad2"
+    CodeNumpad3              KeyCode = "Numpad3"
+    CodeNumpad4              KeyCode = "Numpad4"
+    CodeNumpad5              KeyCode = "Numpad5"
+    CodeNumpad6              KeyCode = "Numpad6"
+    CodeNumpad7              KeyCode = "Numpad7"
+    CodeNumpad8              KeyCode = "Numpad8"
+    CodeNumpad9              KeyCode = "Numpad9"
+    CodeNumpadAdd            KeyCode = "NumpadAdd"
+    CodeNumpadBackspace      KeyCode = "NumpadBackspace"
+    CodeNumpadClear          KeyCode = "NumpadClear"
+    CodeNumpadClearEntry     KeyCode = "NumpadClearEntry"
+    CodeNumpadComma          KeyCode = "NumpadComma"
+    CodeNumpadDecimal        KeyCode = "NumpadDecimal"
+    CodeNumpadDivide         KeyCode = "NumpadDivide"
+    CodeNumpadEnter          KeyCode = "NumpadEnter"
+    CodeNumpadEqual          KeyCode = "NumpadEqual"
+    CodeNumpadHash           KeyCode = "NumpadHash"
+    CodeNumpadMemoryAdd      KeyCode = "NumpadMemoryAdd"
+    CodeNumpadMemoryClear    KeyCode = "NumpadMemoryClear"
+    CodeNumpadMemoryRecall   KeyCode = "NumpadMemoryRecall"
+    CodeNumpadMemoryStore    KeyCode = "NumpadMemoryStore"
+    CodeNumpadMemorySubtract KeyCode = "NumpadMemorySubtract"
+    CodeNumpadMultiply       KeyCode = "NumpadMultiply"
+    CodeNumpadParenLeft      KeyCode = "NumpadParenLeft"
+    CodeNumpadParenRight     KeyCode = "NumpadParenRight"
+    CodeNumpadStar           KeyCode = "NumpadStar"
+    CodeNumpadSubtract       KeyCode = "NumpadSubtract"
 
-    // Device keys.
-    KeyBrightnessDown Key = "BrightnessDown"
-    KeyBrightnessUp   Key = "BrightnessUp"
-    KeyEject          Key = "Eject"
-    KeyLogOff         Key = "LogOff"
-    KeyPower          Key = "Power"
-    KeyPowerOff       Key = "PowerOff"
-    KeyPrintScreen    Key = "PrintScreen"
-    KeyHibernate      Key = "Hibernate"
-    KeyStandby        Key = "Standby"
-    KeyWakeUp         Key = "WakeUp"
+    // Function section.
+    CodeEscape      KeyCode = "Escape"
+    CodeF1          KeyCode = "F1"
+    CodeF2          KeyCode = "F2"
+    CodeF3          KeyCode = "F3"
+    CodeF4          KeyCode = "F4"
+    CodeF5          KeyCode = "F5"
+    CodeF6          KeyCode = "F6"
+    CodeF7          KeyCode = "F7"
+    CodeF8          KeyCode = "F8"
+    CodeF9          KeyCode = "F9"
+    CodeF10         KeyCode = "F10"
+    CodeF11         KeyCode = "F11"
+    CodeF12         KeyCode = "F12"
+    CodeF13         KeyCode = "F13"
+    CodeF14         KeyCode = "F14"
+    CodeF15         KeyCode = "F15"
+    CodeF16         KeyCode = "F16"
+    CodeF17         KeyCode = "F17"
+    CodeF18         KeyCode = "F18"
+    CodeF19         KeyCode = "F19"
+    CodeF20         KeyCode = "F20"
+    CodeF21         KeyCode = "F21"
+    CodeF22         KeyCode = "F22"
+    CodeF23         KeyCode = "F23"
+    CodeF24         KeyCode = "F24"
+    CodeFn          KeyCode = "Fn"
+    CodeFnLock      KeyCode = "FnLock"
+    CodePrintScreen KeyCode = "PrintScreen"
+    CodeScrollLock  KeyCode = "ScrollLock"
+    CodePause       KeyCode = "Pause"
 
-    // IME and composition keys. Dead is a dead key (a pending accent or
-    // other combining mark; the next key types the result).
-    KeyAllCandidates     Key = "AllCandidates"
-    KeyAlphanumeric      Key = "Alphanumeric"
-    KeyCodeInput         Key = "CodeInput"
-    KeyCompose           Key = "Compose"
-    KeyConvert           Key = "Convert"
-    KeyDead              Key = "Dead"
-    KeyFinalMode         Key = "FinalMode"
-    KeyGroupFirst        Key = "GroupFirst"
-    KeyGroupLast         Key = "GroupLast"
-    KeyGroupNext         Key = "GroupNext"
-    KeyGroupPrevious     Key = "GroupPrevious"
-    KeyModeChange        Key = "ModeChange"
-    KeyNextCandidate     Key = "NextCandidate"
-    KeyNonConvert        Key = "NonConvert"
-    KeyPreviousCandidate Key = "PreviousCandidate"
-    KeyProcess           Key = "Process"
-    KeySingleCandidate   Key = "SingleCandidate"
-    KeyHangulMode        Key = "HangulMode"
-    KeyHanjaMode         Key = "HanjaMode"
-    KeyJunjaMode         Key = "JunjaMode"
-    KeyEisu              Key = "Eisu"
-    KeyHankaku           Key = "Hankaku"
-    KeyHiragana          Key = "Hiragana"
-    KeyHiraganaKatakana  Key = "HiraganaKatakana"
-    KeyKanaMode          Key = "KanaMode"
-    KeyKanjiMode         Key = "KanjiMode"
-    KeyKatakana          Key = "Katakana"
-    KeyRomaji            Key = "Romaji"
-    KeyZenkaku           Key = "Zenkaku"
-    KeyZenkakuHankaku    Key = "ZenkakuHankaku"
+    // Media keys.
+    CodeBrowserBack        KeyCode = "BrowserBack"
+    CodeBrowserFavorites   KeyCode = "BrowserFavorites"
+    CodeBrowserForward     KeyCode = "BrowserForward"
+    CodeBrowserHome        KeyCode = "BrowserHome"
+    CodeBrowserRefresh     KeyCode = "BrowserRefresh"
+    CodeBrowserSearch      KeyCode = "BrowserSearch"
+    CodeBrowserStop        KeyCode = "BrowserStop"
+    CodeEject              KeyCode = "Eject"
+    CodeLaunchApp1         KeyCode = "LaunchApp1" // often "My Computer"
+    CodeLaunchApp2         KeyCode = "LaunchApp2" // often "Calculator"
+    CodeLaunchMail         KeyCode = "LaunchMail"
+    CodeMediaPlayPause     KeyCode = "MediaPlayPause"
+    CodeMediaSelect        KeyCode = "MediaSelect"
+    CodeMediaStop          KeyCode = "MediaStop"
+    CodeMediaTrackNext     KeyCode = "MediaTrackNext"
+    CodeMediaTrackPrevious KeyCode = "MediaTrackPrevious"
+    CodePower              KeyCode = "Power"
+    CodeSleep              KeyCode = "Sleep"
+    CodeAudioVolumeDown    KeyCode = "AudioVolumeDown"
+    CodeAudioVolumeMute    KeyCode = "AudioVolumeMute"
+    CodeAudioVolumeUp      KeyCode = "AudioVolumeUp"
+    CodeWakeUp             KeyCode = "WakeUp"
 
-    // General-purpose function keys.
-    KeyF1  Key = "F1"
-    KeyF2  Key = "F2"
-    KeyF3  Key = "F3"
-    KeyF4  Key = "F4"
-    KeyF5  Key = "F5"
-    KeyF6  Key = "F6"
-    KeyF7  Key = "F7"
-    KeyF8  Key = "F8"
-    KeyF9  Key = "F9"
-    KeyF10 Key = "F10"
-    KeyF11 Key = "F11"
-    KeyF12 Key = "F12"
-    KeyF13 Key = "F13"
-    KeyF14 Key = "F14"
-    KeyF15 Key = "F15"
-    KeyF16 Key = "F16"
-    KeyF17 Key = "F17"
-    KeyF18 Key = "F18"
-    KeyF19 Key = "F19"
-    KeyF20 Key = "F20"
-    KeyF21 Key = "F21"
-    KeyF22 Key = "F22"
-    KeyF23 Key = "F23"
-    KeyF24 Key = "F24"
-
-    // Multimedia keys.
-    KeyClose              Key = "Close"
-    KeyMailForward        Key = "MailForward"
-    KeyMailReply          Key = "MailReply"
-    KeyMailSend           Key = "MailSend"
-    KeyMediaClose         Key = "MediaClose"
-    KeyMediaFastForward   Key = "MediaFastForward"
-    KeyMediaPause         Key = "MediaPause"
-    KeyMediaPlay          Key = "MediaPlay"
-    KeyMediaPlayPause     Key = "MediaPlayPause"
-    KeyMediaRecord        Key = "MediaRecord"
-    KeyMediaRewind        Key = "MediaRewind"
-    KeyMediaStop          Key = "MediaStop"
-    KeyMediaTrackNext     Key = "MediaTrackNext"
-    KeyMediaTrackPrevious Key = "MediaTrackPrevious"
-    KeyNew                Key = "New"
-    KeyOpen               Key = "Open"
-    KeyPrint              Key = "Print"
-    KeySave               Key = "Save"
-    KeySpellCheck         Key = "SpellCheck"
-
-    // Audio keys.
-    KeyAudioVolumeDown      Key = "AudioVolumeDown"
-    KeyAudioVolumeUp        Key = "AudioVolumeUp"
-    KeyAudioVolumeMute      Key = "AudioVolumeMute"
-    KeyMicrophoneVolumeMute Key = "MicrophoneVolumeMute"
-
-    // Application launch keys.
-    KeyLaunchApplication1  Key = "LaunchApplication1"
-    KeyLaunchApplication2  Key = "LaunchApplication2"
-    KeyLaunchCalendar      Key = "LaunchCalendar"
-    KeyLaunchMail          Key = "LaunchMail"
-    KeyLaunchMediaPlayer   Key = "LaunchMediaPlayer"
-    KeyLaunchMusicPlayer   Key = "LaunchMusicPlayer"
-    KeyLaunchPhone         Key = "LaunchPhone"
-    KeyLaunchScreenSaver   Key = "LaunchScreenSaver"
-    KeyLaunchSpreadsheet   Key = "LaunchSpreadsheet"
-    KeyLaunchWebBrowser    Key = "LaunchWebBrowser"
-    KeyLaunchWebCam        Key = "LaunchWebCam"
-    KeyLaunchWordProcessor Key = "LaunchWordProcessor"
-
-    // Browser keys.
-    KeyBrowserBack      Key = "BrowserBack"
-    KeyBrowserFavorites Key = "BrowserFavorites"
-    KeyBrowserForward   Key = "BrowserForward"
-    KeyBrowserHome      Key = "BrowserHome"
-    KeyBrowserRefresh   Key = "BrowserRefresh"
-    KeyBrowserSearch    Key = "BrowserSearch"
-    KeyBrowserStop      Key = "BrowserStop"
+    // Legacy, non-standard and special keys.
+    CodeHyper    KeyCode = "Hyper"
+    CodeSuper    KeyCode = "Super"
+    CodeTurbo    KeyCode = "Turbo"
+    CodeAbort    KeyCode = "Abort"
+    CodeResume   KeyCode = "Resume"
+    CodeSuspend  KeyCode = "Suspend"
+    CodeAgain    KeyCode = "Again"
+    CodeCopy     KeyCode = "Copy"
+    CodeCut      KeyCode = "Cut"
+    CodeFind     KeyCode = "Find"
+    CodeOpen     KeyCode = "Open"
+    CodePaste    KeyCode = "Paste"
+    CodeProps    KeyCode = "Props"
+    CodeSelect   KeyCode = "Select"
+    CodeUndo     KeyCode = "Undo"
+    CodeHiragana KeyCode = "Hiragana"
+    CodeKatakana KeyCode = "Katakana"
 )
 ```
 
-Named keys: the values of KeyboardEvent.Key that are not characters (W3C UI Events KeyboardEvent key values, <https://www.w3.org/TR/uievents-key/>). A key that produces a character has that character as its Key ("a", "A", "1", "é", and " " for the space bar), so compare with a string literal: e.Key == "z". Key is a string type: e.Key == "Enter" and e.Key == tela.KeyEnter mean the same.
+Physical key codes: the values of KeyboardEvent.Code (W3C UI Events KeyboardEvent code values, <https://www.w3.org/TR/uievents-code/>), the position of the key whatever the layout: CodeKeyA is the key labeled A on a US keyboard (it types "q" on AZERTY). KeyCode is a string type: e.Code == "KeyS" and e.Code == tela.CodeKeyS mean the same.
 
 ### type KeyLocation
 
@@ -2602,6 +2557,217 @@ func (l KeyLocation) String() string
 ```
 
 String returns "standard", "left", "right" or "numpad".
+
+### type KeyName
+
+```go
+type KeyName = core.KeyValue
+```
+
+KeyName is a logical key, the type of [`KeyboardEvent`](#type-keyboardevent).Key: what the key means with the active layout and modifiers (a W3C KeyboardEvent key value). It is a named key, one of the Key constants ("Enter", "Escape", "ArrowLeft", "Shift"), or the character the key types ("a", "A", "é", " " for the space bar). Ctrl does not change it: Ctrl+S has Key "s". Compare it with a constant or a string literal:
+
+```go
+if e.Key == tela.KeyEnter || e.Key == "+" { ... }
+```
+
+`KeyName` is an alias of `core.KeyValue`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type KeyValue string
+```
+
+```go
+const (
+    // KeyUnidentified is a key with neither a name nor a character.
+    KeyUnidentified KeyName = "Unidentified"
+
+    // Modifier keys. AltGraph is AltGr (ISO_Level3_Shift); Meta is the
+    // Windows, Command (⌘) or Super key, as browsers report it on every
+    // OS.
+    KeyAlt        KeyName = "Alt"
+    KeyAltGraph   KeyName = "AltGraph"
+    KeyCapsLock   KeyName = "CapsLock"
+    KeyControl    KeyName = "Control"
+    KeyFn         KeyName = "Fn"
+    KeyFnLock     KeyName = "FnLock"
+    KeyMeta       KeyName = "Meta"
+    KeyNumLock    KeyName = "NumLock"
+    KeyScrollLock KeyName = "ScrollLock"
+    KeyShift      KeyName = "Shift"
+    KeySymbol     KeyName = "Symbol"
+    KeySymbolLock KeyName = "SymbolLock"
+    KeyHyper      KeyName = "Hyper"
+    KeySuper      KeyName = "Super"
+
+    // Whitespace keys (the space bar is the character " ").
+    KeyEnter KeyName = "Enter"
+    KeyTab   KeyName = "Tab"
+
+    // Navigation keys.
+    KeyArrowDown  KeyName = "ArrowDown"
+    KeyArrowLeft  KeyName = "ArrowLeft"
+    KeyArrowRight KeyName = "ArrowRight"
+    KeyArrowUp    KeyName = "ArrowUp"
+    KeyEnd        KeyName = "End"
+    KeyHome       KeyName = "Home"
+    KeyPageDown   KeyName = "PageDown"
+    KeyPageUp     KeyName = "PageUp"
+
+    // Editing keys.
+    KeyBackspace KeyName = "Backspace"
+    KeyClear     KeyName = "Clear"
+    KeyCopy      KeyName = "Copy"
+    KeyCrSel     KeyName = "CrSel"
+    KeyCut       KeyName = "Cut"
+    KeyDelete    KeyName = "Delete"
+    KeyEraseEof  KeyName = "EraseEof"
+    KeyExSel     KeyName = "ExSel"
+    KeyInsert    KeyName = "Insert"
+    KeyPaste     KeyName = "Paste"
+    KeyRedo      KeyName = "Redo"
+    KeyUndo      KeyName = "Undo"
+
+    // UI keys.
+    KeyAccept      KeyName = "Accept"
+    KeyAgain       KeyName = "Again"
+    KeyAttn        KeyName = "Attn"
+    KeyCancel      KeyName = "Cancel"
+    KeyContextMenu KeyName = "ContextMenu"
+    KeyEscape      KeyName = "Escape"
+    KeyExecute     KeyName = "Execute"
+    KeyFind        KeyName = "Find"
+    KeyHelp        KeyName = "Help"
+    KeyPause       KeyName = "Pause"
+    KeyPlay        KeyName = "Play"
+    KeyProps       KeyName = "Props"
+    KeySelect      KeyName = "Select"
+    KeyZoomIn      KeyName = "ZoomIn"
+    KeyZoomOut     KeyName = "ZoomOut"
+
+    // Device keys.
+    KeyBrightnessDown KeyName = "BrightnessDown"
+    KeyBrightnessUp   KeyName = "BrightnessUp"
+    KeyEject          KeyName = "Eject"
+    KeyLogOff         KeyName = "LogOff"
+    KeyPower          KeyName = "Power"
+    KeyPowerOff       KeyName = "PowerOff"
+    KeyPrintScreen    KeyName = "PrintScreen"
+    KeyHibernate      KeyName = "Hibernate"
+    KeyStandby        KeyName = "Standby"
+    KeyWakeUp         KeyName = "WakeUp"
+
+    // IME and composition keys. Dead is a dead key (a pending accent or
+    // other combining mark; the next key types the result).
+    KeyAllCandidates     KeyName = "AllCandidates"
+    KeyAlphanumeric      KeyName = "Alphanumeric"
+    KeyCodeInput         KeyName = "CodeInput"
+    KeyCompose           KeyName = "Compose"
+    KeyConvert           KeyName = "Convert"
+    KeyDead              KeyName = "Dead"
+    KeyFinalMode         KeyName = "FinalMode"
+    KeyGroupFirst        KeyName = "GroupFirst"
+    KeyGroupLast         KeyName = "GroupLast"
+    KeyGroupNext         KeyName = "GroupNext"
+    KeyGroupPrevious     KeyName = "GroupPrevious"
+    KeyModeChange        KeyName = "ModeChange"
+    KeyNextCandidate     KeyName = "NextCandidate"
+    KeyNonConvert        KeyName = "NonConvert"
+    KeyPreviousCandidate KeyName = "PreviousCandidate"
+    KeyProcess           KeyName = "Process"
+    KeySingleCandidate   KeyName = "SingleCandidate"
+    KeyHangulMode        KeyName = "HangulMode"
+    KeyHanjaMode         KeyName = "HanjaMode"
+    KeyJunjaMode         KeyName = "JunjaMode"
+    KeyEisu              KeyName = "Eisu"
+    KeyHankaku           KeyName = "Hankaku"
+    KeyHiragana          KeyName = "Hiragana"
+    KeyHiraganaKatakana  KeyName = "HiraganaKatakana"
+    KeyKanaMode          KeyName = "KanaMode"
+    KeyKanjiMode         KeyName = "KanjiMode"
+    KeyKatakana          KeyName = "Katakana"
+    KeyRomaji            KeyName = "Romaji"
+    KeyZenkaku           KeyName = "Zenkaku"
+    KeyZenkakuHankaku    KeyName = "ZenkakuHankaku"
+
+    // General-purpose function keys.
+    KeyF1  KeyName = "F1"
+    KeyF2  KeyName = "F2"
+    KeyF3  KeyName = "F3"
+    KeyF4  KeyName = "F4"
+    KeyF5  KeyName = "F5"
+    KeyF6  KeyName = "F6"
+    KeyF7  KeyName = "F7"
+    KeyF8  KeyName = "F8"
+    KeyF9  KeyName = "F9"
+    KeyF10 KeyName = "F10"
+    KeyF11 KeyName = "F11"
+    KeyF12 KeyName = "F12"
+    KeyF13 KeyName = "F13"
+    KeyF14 KeyName = "F14"
+    KeyF15 KeyName = "F15"
+    KeyF16 KeyName = "F16"
+    KeyF17 KeyName = "F17"
+    KeyF18 KeyName = "F18"
+    KeyF19 KeyName = "F19"
+    KeyF20 KeyName = "F20"
+    KeyF21 KeyName = "F21"
+    KeyF22 KeyName = "F22"
+    KeyF23 KeyName = "F23"
+    KeyF24 KeyName = "F24"
+
+    // Multimedia keys.
+    KeyClose              KeyName = "Close"
+    KeyMailForward        KeyName = "MailForward"
+    KeyMailReply          KeyName = "MailReply"
+    KeyMailSend           KeyName = "MailSend"
+    KeyMediaClose         KeyName = "MediaClose"
+    KeyMediaFastForward   KeyName = "MediaFastForward"
+    KeyMediaPause         KeyName = "MediaPause"
+    KeyMediaPlay          KeyName = "MediaPlay"
+    KeyMediaPlayPause     KeyName = "MediaPlayPause"
+    KeyMediaRecord        KeyName = "MediaRecord"
+    KeyMediaRewind        KeyName = "MediaRewind"
+    KeyMediaStop          KeyName = "MediaStop"
+    KeyMediaTrackNext     KeyName = "MediaTrackNext"
+    KeyMediaTrackPrevious KeyName = "MediaTrackPrevious"
+    KeyNew                KeyName = "New"
+    KeyOpen               KeyName = "Open"
+    KeyPrint              KeyName = "Print"
+    KeySave               KeyName = "Save"
+    KeySpellCheck         KeyName = "SpellCheck"
+
+    // Audio keys.
+    KeyAudioVolumeDown      KeyName = "AudioVolumeDown"
+    KeyAudioVolumeUp        KeyName = "AudioVolumeUp"
+    KeyAudioVolumeMute      KeyName = "AudioVolumeMute"
+    KeyMicrophoneVolumeMute KeyName = "MicrophoneVolumeMute"
+
+    // Application launch keys.
+    KeyLaunchApplication1  KeyName = "LaunchApplication1"
+    KeyLaunchApplication2  KeyName = "LaunchApplication2"
+    KeyLaunchCalendar      KeyName = "LaunchCalendar"
+    KeyLaunchMail          KeyName = "LaunchMail"
+    KeyLaunchMediaPlayer   KeyName = "LaunchMediaPlayer"
+    KeyLaunchMusicPlayer   KeyName = "LaunchMusicPlayer"
+    KeyLaunchPhone         KeyName = "LaunchPhone"
+    KeyLaunchScreenSaver   KeyName = "LaunchScreenSaver"
+    KeyLaunchSpreadsheet   KeyName = "LaunchSpreadsheet"
+    KeyLaunchWebBrowser    KeyName = "LaunchWebBrowser"
+    KeyLaunchWebCam        KeyName = "LaunchWebCam"
+    KeyLaunchWordProcessor KeyName = "LaunchWordProcessor"
+
+    // Browser keys.
+    KeyBrowserBack      KeyName = "BrowserBack"
+    KeyBrowserFavorites KeyName = "BrowserFavorites"
+    KeyBrowserForward   KeyName = "BrowserForward"
+    KeyBrowserHome      KeyName = "BrowserHome"
+    KeyBrowserRefresh   KeyName = "BrowserRefresh"
+    KeyBrowserSearch    KeyName = "BrowserSearch"
+    KeyBrowserStop      KeyName = "BrowserStop"
+)
+```
+
+Named keys: the values of KeyboardEvent.Key that are not characters (W3C UI Events KeyboardEvent key values, <https://www.w3.org/TR/uievents-key/>). A key that produces a character has that character as its Key ("a", "A", "1", "é", and " " for the space bar), so compare with a string literal: e.Key == "z". KeyName is a string type: e.Key == "Enter" and e.Key == tela.KeyEnter mean the same.
 
 ### type KeyboardEvent
 
@@ -2798,7 +2964,7 @@ type Node = core.Node
 
 Node is an immutable, cheap description of a piece of UI: an element (h.Div), a text (h.Text), a component or a fragment. Function components return one, and every build creates new ones; the persistent state lives elsewhere, keyed by position and key (ARCHITECTURE section 6).
 
-The zero Node renders nothing. As a child of an element it keeps the positions of its siblings, so h.If(cond, node) does not remount the siblings when cond changes.
+The zero Node renders nothing. As a child of an element it keeps the positions of its siblings, so h.If(cond, node) does not remount the siblings when cond changes. A Node is a [`Component`](#type-component) whose Build returns the node itself.
 
 `Node` is an alias of `core.Node`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -2860,10 +3026,24 @@ tela.Memo(Chart, ChartProps{Points: pts}, func(a, b ChartProps) bool {
 #### func WithKey
 
 ```go
-func WithKey(n Node, k any) Node
+func WithKey[K comparable](c Component, k K) Node
 ```
 
-WithKey returns a copy of n with the key k, whatever its kind. Use it to key a node that cannot take the h.Key prop, such as a component or a fragment. k must be a non-nil comparable value, such as an ID; otherwise WithKey panics.
+WithKey returns the node of c with the key k, whatever its kind: a node that cannot take the h.Key prop (a component or a fragment), or a struct component, WithKey(Card{...}, id), which it also turns into a [`Node`](#type-node) (for h.Map and other places that want one). k is a comparable value, such as an ID: a slice or a map does not compile, and a nil interface, or one holding a value that cannot be compared, panics. A nil c or the zero Node give the zero Node; a [`Prop`](#type-prop) panics.
+
+```go
+Map(cards, func(c CardData) tela.Node {
+    return tela.WithKey(Card{Title: c.Title}, c.ID)
+})
+```
+
+#### func (Node) Build
+
+```go
+func (n Node) Build() Node
+```
+
+Build returns n itself: a Node is a Component that renders as itself.
 
 #### func (Node) IsZero
 
@@ -3062,7 +3242,7 @@ Names returns the preview names in the order the CLI uses: sorted by bytes. The 
 type Prop = core.Prop
 ```
 
-Prop is a property of an element: classes, typed style, key, event handlers, an image source. Built by the functions of package h.
+Prop is a property of an element: classes, typed style, key, event handlers, an image source. Built by the functions of package h. A Prop is a [`Child`](#type-child) (and, by its method set, a [`Component`](#type-component), although it renders nothing: dev mode reports one held by a field of type Component).
 
 `Prop` is an alias of `core.Prop`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -3071,6 +3251,14 @@ type Prop struct {
     // contains filtered or unexported fields
 }
 ```
+
+#### func (Prop) Build
+
+```go
+func (p Prop) Build() Node
+```
+
+Build returns a node that holds p: given to an element (or to a Fragment, a Provider or a Presence, which take Key only) it applies like p itself; mounted on its own it panics, since a prop renders nothing. It is what makes Prop a Child.
 
 ### type Rect
 
@@ -3397,7 +3585,7 @@ t := &exampleT{}
 defer t.close()
 var size *tela.Value[tela.Size]
 app := telatest.Mount(t, tela.C(func() tela.Node {
-    size = tela.UseSpring(tela.Size{Width: 100, Height: 40}, tela.Size{Width: 200, Height: 120})
+    size = tela.UseSpring(tela.Size{Width: 200, Height: 120}, tela.Initial(tela.Size{Width: 100, Height: 40}))
     return Div(Class("rounded-lg bg-sky-500"), Style(
         tela.WidthFn(func() float32 { return size.Get().Width }),
         tela.HeightFn(func() float32 { return size.Get().Height })))
@@ -3450,7 +3638,7 @@ func BgFn(fn func() Color) StyleProp
 BgFn defers [`Bg`](#func-bg) to the paint phase: the element's background color is fn's, and a change of the Values fn reads repaints the element without building, computing styles or laying out. Like the other Fn props it wins over the background classes, and over their transitions. With a [`UseSpring`](#func-usespring) or [`Animate`](#func-animate) of a [`Color`](#type-color) it animates a background without rebuilding:
 
 ```go
-bg := tela.UseSpring(tela.Hex("#ffffff"), target)
+bg := tela.UseSpring(target) // target is a tela.Color
 Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)))
 ```
 
@@ -3698,7 +3886,7 @@ func TextColorFn(fn func() Color) StyleProp
 TextColorFn defers [`TextColor`](#func-textcolor) to the paint phase: a change of the Values fn reads repaints the text without building, computing styles or laying out. The element's text takes fn's color, and so does the text of its descendants that inherits the element's color: those whose classes (and the classes of the elements between) set no text color of their own, as CSS inheritance would give it. Underlines and other decorations without a color of their own follow the text. Colors that the classes derive from the text color when the style is computed (currentColor borders, outlines, ring colors) and the text of h.Input and h.Textarea keep the color their classes give. It wins over the text color classes and their transitions.
 
 ```go
-color := tela.UseTween(tela.Hex("#0f172a"), target, tela.Duration(200*time.Millisecond))
+color := tela.UseTween(target, tela.Duration(200*time.Millisecond)) // a tela.Color
 P(Style(tela.TextColorFn(color.Get)), Text("Status: "), Strong(Text("online")))
 ```
 
@@ -4029,21 +4217,21 @@ Reading y.Get() in the component's body instead rebuilds the component on every 
 #### func UseSpring
 
 ```go
-func UseSpring[T Animatable](initial, target T, opts ...AnimationOption) *Value[T]
+func UseSpring[T Animatable](target T, opts ...AnimationOption) *Value[T]
 ```
 
-UseSpring returns a [`Value`](#type-value) that follows target with a spring: on the first build it holds initial and, if target differs, starts moving to it; whenever a build passes a target that differs from the previous one, the spring retargets from where the value is, keeping its velocity, so an interrupted motion turns smoothly instead of stopping (Compose's animate\*AsState, Motion's useSpring). It is a Value like [`UseValue`](#func-usevalue)'s: read it in a deferred style closure ([`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn), [`WidthFn`](#func-widthfn)...) and the element animates by repainting or laying out only, without rebuilding the component; the same \*Value is returned on every build.
+UseSpring returns a [`Value`](#type-value) that follows target with a spring: on the first build it holds the [`Initial`](#func-initial) option's value (target itself when there is none, so nothing moves) and, if target differs, starts moving to it; whenever a build passes a target that differs from the previous one, the spring retargets from where the value is, keeping its velocity, so an interrupted motion turns smoothly instead of stopping (Compose's animate\*AsState, Motion's useSpring). T is the type of target, so a float32 target needs a typed value (float32(0), a float32 variable). It is a Value like [`UseValue`](#func-usevalue)'s: read it in a deferred style closure ([`TranslateFn`](#func-translatefn), [`OpacityFn`](#func-opacityfn), [`WidthFn`](#func-widthfn)...) and the element animates by repainting or laying out only, without rebuilding the component; the same \*Value is returned on every build.
 
 The options are \[AnimationOption\]s: [`Stiffness`](#func-stiffness) and [`Damping`](#func-damping), or [`Duration`](#func-duration) and [`Bounce`](#func-bounce); without them, Motion's default spring (stiffness 100, damping 10). The spring ends when it comes to rest (its speed and its distance to the target are below Motion's thresholds), at exactly the target, and from then on the app requests no frames.
 
-A panel that slides in when open changes:
+A panel that slides in when open changes, and in from the left when it mounts open:
 
 ```go
 target := float32(-320)
 if open {
     target = 0
 }
-x := tela.UseSpring(float32(-320), target, tela.Stiffness(300), tela.Damping(30))
+x := tela.UseSpring(target, tela.Initial(float32(-320)), tela.Stiffness(300), tela.Damping(30))
 return Div(Class("fixed inset-y-0 left-0 w-80 bg-white shadow-xl"),
     Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })))
 ```
@@ -4062,7 +4250,7 @@ panel := func() tela.Node {
     if open {
         target = 0
     }
-    x = tela.UseSpring(float32(-320), target, tela.Stiffness(300), tela.Damping(30))
+    x = tela.UseSpring(target, tela.Stiffness(300), tela.Damping(30))
     return Div(Class("relative h-full"),
         Button(OnClick(func(tela.MouseEvent) { setOpen.Set(true) }), Text("Open")),
         Div(Class("absolute inset-y-0 left-0 w-80 bg-white shadow-xl"),
@@ -4087,18 +4275,18 @@ fmt.Println(x.Get())
 #### func UseTween
 
 ```go
-func UseTween[T Animatable](initial, target T, opts ...AnimationOption) *Value[T]
+func UseTween[T Animatable](target T, opts ...AnimationOption) *Value[T]
 ```
 
-UseTween is [`UseSpring`](#func-usespring) with a tween: the value moves to each new target in a fixed [`Duration`](#func-duration) along an [`Ease`](#func-ease) curve (default 300 ms, CSS's "ease"), like a CSS transition of the value. A new target starts a new tween from where the value is (tweens have no velocity to keep).
+UseTween is [`UseSpring`](#func-usespring) with a tween: the value moves to each new target in a fixed [`Duration`](#func-duration) along an [`Ease`](#func-ease) curve (default 300 ms, CSS's "ease"), like a CSS transition of the value. A new target starts a new tween from where the value is (tweens have no velocity to keep). Like UseSpring, it starts at the [`Initial`](#func-initial) option's value, or at target.
 
 ```go
-op := tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.Ease("ease-out"))
+op := tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.Ease("ease-out"))
 Div(Class("rounded-lg bg-slate-900 p-3 text-white"),
     Style(tela.OpacityFn(op.Get)), Text("Saved"))
 ```
 
-It takes only Duration and Ease; spring options panic in dev mode.
+It takes only Duration, Ease, Initial and OnDone; spring options panic in dev mode.
 
 **Example**
 
@@ -4112,7 +4300,7 @@ toast := func() tela.Node {
     if shown {
         target = 1
     }
-    op = tela.UseTween(float32(0), target, tela.Duration(200*time.Millisecond), tela.Ease("linear"))
+    op = tela.UseTween(target, tela.Duration(200*time.Millisecond), tela.Ease("linear"))
     return Div(
         Button(OnClick(func(tela.MouseEvent) { setShown.Set(true) }), Text("Save")),
         Div(Class("rounded-lg bg-slate-900 p-3 text-white"), Style(tela.OpacityFn(op.Get)), Text("Saved")))

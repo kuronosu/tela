@@ -31,9 +31,9 @@ func (m *motionProbe) comp(tween bool, opts ...AnimOption) Node {
 		target, set := UseState(float32(0))
 		m.set = set
 		if tween {
-			m.v = UseTween(float32(0), target, opts...)
+			m.v = UseTween(target, opts...)
 		} else {
-			m.v = UseSpring(float32(0), target, opts...)
+			m.v = UseSpring(target, opts...)
 		}
 		return div(Class("p-4"), div(Key("card"), Class("size-10 bg-sky-500"),
 			Style(style.TranslateFn(func() (float32, float32) { return m.v.Get(), 0 }))))
@@ -353,7 +353,7 @@ func TestReducedMotionJumps(t *testing.T) {
 func TestRenderJumpsToTarget(t *testing.T) {
 	var got float32
 	_, img := Render(Component(func() Node {
-		v := UseSpring(float32(0), 30)
+		v := UseSpring(float32(30), Initial(float32(0)))
 		return div(Class("size-10 bg-black"), Style(style.TranslateFn(func() (float32, float32) {
 			got = v.Get()
 			return v.Get(), 0
@@ -380,8 +380,8 @@ func TestSpringUnderSkippedParent(t *testing.T) {
 		if p.Open {
 			target = 100
 		}
-		x = UseSpring(float32(0), target)
-		w = UseSpring(float32(20), 20+target/2)
+		x = UseSpring(target, Initial(float32(0)))
+		w = UseSpring(20+target/2, Initial(float32(20)))
 		return div(Key("card"), Class("h-10 bg-sky-500"), Style(
 			style.TranslateFn(func() (float32, float32) { return x.Get(), 0 }),
 			style.WidthFn(func() float32 { return w.Get() })))
@@ -418,7 +418,7 @@ func TestAnimationUnmount(t *testing.T) {
 	var v *Value[float32]
 	var setShow Setter[bool]
 	child := func() Node {
-		v = UseSpring(float32(0), 100)
+		v = UseSpring(float32(100), Initial(float32(0)))
 		return div(Class("size-4"), Style(style.TranslateFn(func() (float32, float32) { return v.Get(), 0 })))
 	}
 	root := Component(func() Node {

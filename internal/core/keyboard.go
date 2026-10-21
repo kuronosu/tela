@@ -56,7 +56,7 @@ import (
 // element focused by the mouse starts matching focus-visible: when such a
 // key is pressed (focus.go).
 
-// KeyValue is a logical key (tela.Key): a W3C UI Events KeyboardEvent
+// KeyValue is a logical key (tela.KeyName): a W3C UI Events KeyboardEvent
 // "key" value, what a browser reports as KeyboardEvent.key: a named key
 // ("Enter", "Escape", "ArrowLeft", "Shift") or the character the key
 // produces with the active layout and modifiers except Ctrl ("a", "A",
@@ -64,7 +64,7 @@ import (
 // every named key.
 type KeyValue string
 
-// CodeValue is a physical key (tela.Code): a W3C UI Events KeyboardEvent
+// CodeValue is a physical key (tela.KeyCode): a W3C UI Events KeyboardEvent
 // "code" value, what a browser reports as KeyboardEvent.code: the
 // position on the keyboard, independent of the layout ("KeyA" is the key
 // labeled A on a US keyboard, which types "q" on AZERTY), "Unidentified"

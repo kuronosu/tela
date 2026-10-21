@@ -25,6 +25,9 @@ const (
 	nodeComponent
 	// nodeFragment is a list of Nodes without a box of its own.
 	nodeFragment
+	// nodeProp is a Prop turned into a node by Prop.Build: given to an
+	// element it applies like the Prop; it cannot be rendered.
+	nodeProp
 )
 
 // desc is the immutable content of a Node. Nodes are built by the
@@ -91,6 +94,9 @@ type desc struct {
 	// Components.
 	comp *compDesc
 
+	// Props turned into nodes (nodeProp).
+	prop *Prop
+
 	// Fragments: dynamic marks a list made by Map or List, whose children
 	// should carry keys (dev mode warns otherwise), and site is where it
 	// was made (in dev mode), so the warnings come once per call site.
@@ -111,6 +117,10 @@ const (
 	compProps
 	// compMemo is Memo (tela.Memo): it skips when equal(old, new).
 	compMemo
+	// compStruct is a struct component (a Component value other than a
+	// Node or a Prop): it skips when the old and new values are equal
+	// (componentEqual, which never panics).
+	compStruct
 )
 
 // compDesc describes a component node, or a context provider.
@@ -118,8 +128,14 @@ type compDesc struct {
 	// typ identifies the component function: the code pointer of the
 	// function value. Two nodes of the same function are the same type,
 	// so the Element and its hook state are kept between builds.
-	// Providers have typ 0 and are identified by ctx.
+	// Providers have typ 0 and are identified by ctx. A struct
+	// component's typ is the code pointer of its Build method, and its
+	// identity is its dynamic type, rtype.
 	typ uintptr
+	// rtype is the dynamic type of a struct component (nil for the
+	// other kinds), and ct what is known about that type.
+	rtype reflect.Type
+	ct    *compType
 	// fn is the user's function, for its name.
 	fn any
 	// build calls the function (with its props, for ComponentProps).
@@ -146,13 +162,17 @@ type compDesc struct {
 	anon *anonSite
 }
 
-// name returns the component's function name ("main.Counter").
+// name returns the component's function name ("main.Counter"), or the
+// type name of a struct component ("main.Card").
 func (c *compDesc) name() string {
 	if c.ctx != nil {
 		return "Context.Provider"
 	}
 	if c.presence {
 		return "Presence"
+	}
+	if c.ct != nil {
+		return c.ct.name
 	}
 	if f := runtime.FuncForPC(c.typ); f != nil {
 		return f.Name()
@@ -172,6 +192,8 @@ func canSkip(old, nw *compDesc) bool {
 		return safeEqual(old.props, nw.props)
 	case compMemo:
 		return nw.equal(old.props, nw.props)
+	case compStruct:
+		return componentEqual(old.props, nw.props)
 	}
 	return false
 }
@@ -207,20 +229,41 @@ func (n Node) String() string {
 		return fmt.Sprintf("%q", d.text)
 	case nodeComponent:
 		return "<" + d.comp.name() + ">"
+	case nodeProp:
+		return "<prop " + propName(*d.prop) + ">"
 	}
 	return "<fragment>"
 }
 
-// Child is what a primitive's constructor takes: a Node (a child) or a
-// Prop (Class, Style, Key, an event handler, an image source). The
-// interface is sealed: only Node and Prop implement it, so passing
-// anything else is a compile error. A nil Child is a hole, like the zero
-// Node.
-type Child interface {
-	applyChild(d *desc)
+// Comp is a unit of UI with its own state boundary, a component
+// (tela.Component; the name Component is taken by the constructor behind
+// tela.C): a value whose Build method returns what it renders. Given to an
+// element as a child, a component other than a Node or a Prop becomes a
+// component node (componentOf): an Element of its own, with its own hook state,
+// identified by its dynamic type and its key, and skipped when the new
+// value equals the old one and nothing it read changed. Build must have a
+// value receiver.
+//
+// Node and Prop implement it too: Node.Build returns the node itself and
+// Prop.Build a node that applies the prop where it is given. Code here
+// must not assume that Comp has no other method than Build: an
+// unexported marker (a tela.Base embed) may be added later (ADR-088).
+type Comp interface {
+	Build() Node
 }
 
-func (n Node) applyChild(d *desc) { d.children = append(d.children, n) }
+// Child is what a primitive's constructor takes (tela.Child): a Node (a
+// child), a Prop (Class, Style, Key, an event handler, an image source)
+// or a Component, which becomes a component node. It has the method set
+// of Comp but is a type of its own, so that a field or a parameter
+// says whether it takes props (Child) or only what renders (Component).
+// A nil Child is a hole, like the zero Node.
+type Child interface {
+	Build() Node
+}
+
+// Build returns n itself: a Node is a Component that renders as itself.
+func (n Node) Build() Node { return n }
 
 // Prop is a property of a primitive: its classes, typed style, key, event
 // handlers or image source. Props and children may be mixed in any order;
@@ -230,10 +273,96 @@ type Prop struct {
 	apply func(d *desc)
 }
 
-func (p Prop) applyChild(d *desc) {
-	if p.apply != nil {
-		p.apply(d)
+// Build returns a node that holds p: given to an element (or to a
+// Fragment, a Provider or a Presence, which take Key only) it applies like
+// p itself; mounted on its own it panics, since a prop renders nothing. It
+// is what makes Prop a Child.
+func (p Prop) Build() Node { return Node{&desc{kind: nodeProp, prop: &p}} }
+
+// propOf returns the prop c holds: a Prop, or a node made by Prop.Build.
+func propOf(c Child) (Prop, bool) {
+	switch c := c.(type) {
+	case Prop:
+		return c, true
+	case Node:
+		if c.d != nil && c.d.kind == nodeProp {
+			return *c.d.prop, true
+		}
 	}
+	return Prop{}, false
+}
+
+// addChild adds c to primitive d: a nil Child is a hole, a node is a
+// child, a prop applies to d and any other Component becomes a component
+// node.
+func (d *desc) addChild(c Child) {
+	if p, ok := propOf(c); ok {
+		if p.apply != nil {
+			p.apply(d)
+		}
+		return
+	}
+	switch c := c.(type) {
+	case nil:
+		d.children = append(d.children, Node{})
+	case Node:
+		d.children = append(d.children, c)
+	default:
+		d.children = append(d.children, componentOf(c))
+	}
+}
+
+// addGroupChild adds c to d, a node without a box of its own (who:
+// Fragment, Context.Provider, Presence), which takes Key as its only prop;
+// fix ends the message for another prop.
+func (d *desc) addGroupChild(c Child, who, fix string) {
+	if p, ok := propOf(c); ok {
+		if p.apply == nil {
+			return // the zero Prop of If(false, ...)
+		}
+		if p.name != "Key" {
+			panic(fmt.Sprintf("tela: %s does not take %s; %s", who, p.name, fix))
+		}
+		p.apply(d)
+		return
+	}
+	switch c := c.(type) {
+	case nil:
+		d.children = append(d.children, Node{})
+	case Node:
+		d.children = append(d.children, c)
+	default:
+		d.children = append(d.children, componentOf(c))
+	}
+}
+
+// NodeOf returns the node of a Component: a Node is itself, nil is the
+// zero Node and a struct component becomes a component node. A Prop is
+// not a node and panics. It is how a root given as a Component
+// (telatest.Mount) is mounted.
+func NodeOf(c Comp) Node { return nodeOf(c, "the root") }
+
+// nodeOf is NodeOf, with what names c in the panic of a Prop.
+func nodeOf(c Comp, what string) Node {
+	if p, ok := propOf(c); ok {
+		n := propName(p)
+		panic(fmt.Sprintf("tela: %s is a Prop (%s), not a node or a component; props go to elements, such as Div(%s(...), ...)", what, n, n))
+	}
+	switch c := c.(type) {
+	case nil:
+		return Node{}
+	case Node:
+		return c
+	}
+	return componentOf(c)
+}
+
+// propName names a prop for messages.
+func propName(p Prop) string {
+	if p.name == "" {
+		return "the zero Prop"
+	}
+	return p.name
 }
 
 // Class adds Tailwind classes to a primitive (ARCHITECTURE section 10).
@@ -254,7 +383,9 @@ func Style(ops ...style.Op) Prop {
 // Key gives a node an identity among its siblings: reconciliation keeps
 // the Element (and its state) of the sibling with the same key and type,
 // wherever it moves. k must be a non-nil comparable value (a string, a
-// number, a struct of those).
+// number, a struct of those). h.Key and tela.WithKey are generic over
+// comparable keys, so a slice or a map does not compile there; an
+// interface holding one still panics here.
 func Key(k any) Prop {
 	checkKey(k)
 	return Prop{name: "Key", apply: func(d *desc) { d.key, d.keyed = k, true }}
@@ -301,11 +432,7 @@ func Primitive(kind style.Kind, children ...Child) Node {
 		d.children = make([]Node, 0, len(children))
 	}
 	for _, c := range children {
-		if c == nil {
-			d.children = append(d.children, Node{})
-			continue
-		}
-		c.applyChild(d)
+		d.addChild(c)
 	}
 	if kind != style.KindImg && (d.src != nil || d.img != nil) {
 		panic(fmt.Sprintf("core: Src on <%v>: only Img takes an image source", kind))
@@ -405,17 +532,19 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool) Node {
 	return Node{&desc{kind: nodeComponent, comp: c}}
 }
 
-// WithKey returns a copy of n with key k (see Key). It works for every
-// kind of node, components and fragments included. The zero Node stays
-// zero.
-func WithKey(n Node, k any) Node {
+// WithKey returns a copy of the node of c with key k (see Key). It works
+// for every kind of node, components and fragments included, and for
+// struct components (tela.WithKey(Card{...}, id)). The zero Node and a nil
+// c stay the zero Node; a Prop panics.
+func WithKey(c Comp, k any) Node {
 	checkKey(k)
+	n := nodeOf(c, "the first argument of WithKey")
 	if n.d == nil {
 		return n
 	}
-	c := *n.d
-	c.key, c.keyed = k, true
-	return Node{&c}
+	d := *n.d
+	d.key, d.keyed = k, true
+	return Node{&d}
 }
 
 // Fragment groups nodes without a box of their own; they become children
@@ -423,20 +552,7 @@ func WithKey(n Node, k any) Node {
 func Fragment(children ...Child) Node {
 	d := &desc{kind: nodeFragment, children: make([]Node, 0, len(children))}
 	for _, c := range children {
-		switch c := c.(type) {
-		case nil:
-			d.children = append(d.children, Node{})
-		case Node:
-			d.children = append(d.children, c)
-		case Prop:
-			if c.apply == nil {
-				continue // the zero Prop of If(false, ...)
-			}
-			if c.name != "Key" {
-				panic(fmt.Sprintf("core: Fragment does not take %s; a fragment has no box (wrap the children in a Div)", c.name))
-			}
-			c.apply(d)
-		}
+		d.addGroupChild(c, "Fragment", "a fragment has no box (wrap the children in a Div)")
 	}
 	return Node{d}
 }

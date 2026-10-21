@@ -94,7 +94,7 @@ func TestPublicMemoRefIdCallback(t *testing.T) {
 		g := gen
 		tela.UseMemo(func() int { computes++; return 1 }, "k")
 		refs = append(refs, tela.UseRef(0))
-		ids = append(ids, tela.UseId())
+		ids = append(ids, tela.UseID())
 		cbs = append(cbs, tela.UseCallback(func(e tela.MouseEvent) { clicks = append(clicks, e.X+float32(g)) }))
 		return div()
 	}

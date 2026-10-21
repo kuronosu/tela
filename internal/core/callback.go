@@ -156,22 +156,22 @@ func UseRef[T any](initial T) *Ref[T] {
 }
 
 // ---------------------------------------------------------------------
-// UseId.
+// UseID.
 
-// idSlot is the slot of one UseId call.
+// idSlot is the slot of one UseID call.
 type idSlot struct{ id string }
 
-// UseId returns a string that identifies this hook slot: the same on
-// every build, different from every other UseId of the process. It is
+// UseID returns a string that identifies this hook slot: the same on
+// every build, different from every other UseID of the process. It is
 // the Tree's ID prefix (Config.IDPrefix) followed by a counter of the
-// Tree's UseId slots in the order they were created, so the same mount
+// Tree's UseID slots in the order they were created, so the same mount
 // order gives the same IDs.
-func UseId() string {
+func UseID() string {
 	el, i := nextSlot(hookID)
 	if i < len(el.hooks) {
 		s, ok := el.hooks[i].(*idSlot)
 		if !ok {
-			el.tree.slotMismatch(el, i, "UseId")
+			el.tree.slotMismatch(el, i, "UseID")
 		}
 		return s.id
 	}

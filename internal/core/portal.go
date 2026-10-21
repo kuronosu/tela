@@ -39,11 +39,7 @@ import (
 func Portal(children ...Child) Node {
 	d := &desc{kind: nodeElement, elem: style.KindDiv, portal: true}
 	for _, c := range children {
-		if c == nil {
-			d.children = append(d.children, Node{})
-			continue
-		}
-		c.applyChild(d)
+		d.addChild(c)
 	}
 	switch {
 	case len(d.classes) > 0 || len(d.props) > 0:

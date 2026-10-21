@@ -813,7 +813,7 @@ func TestIDPrefixIsDeterministic(t *testing.T) {
 	id := func() string {
 		var got string
 		app := telatest.Mount(t, tela.C(func() tela.Node {
-			got = tela.UseId()
+			got = tela.UseID()
 			return Text("x")
 		}))
 		app.ExpectText("x")
@@ -821,6 +821,6 @@ func TestIDPrefixIsDeterministic(t *testing.T) {
 	}
 	a, b := id(), id()
 	if a != b || !strings.HasPrefix(a, "tt-") {
-		t.Errorf("UseId gave %q then %q: want the same, with the prefix tt-", a, b)
+		t.Errorf("UseID gave %q then %q: want the same, with the prefix tt-", a, b)
 	}
 }

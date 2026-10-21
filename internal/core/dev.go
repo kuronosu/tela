@@ -233,7 +233,7 @@ var hookNames = [...]string{
 	hookCallback:      "UseCallback",
 	hookRef:           "UseRef",
 	hookContext:       "UseContext",
-	hookID:            "UseId",
+	hookID:            "UseID",
 	hookValue:         "UseValue",
 	hookElementRef:    "UseElementRef",
 	hookScroll:        "UseScroll",
@@ -342,7 +342,7 @@ func slotName(s any) string {
 	for _, r := range [...][2]string{
 		{"stateSlot", "UseState"}, {"reducerSlot", "UseReducer"}, {"memoSlot", "UseMemo"},
 		{"onceSlot", "UseOnce"}, {"intervalSlot", "UseInterval"},
-		{"cbSlot", "UseCallback"}, {"Ref", "UseRef"}, {"ctxSlot", "UseContext"}, {"idSlot", "UseId"},
+		{"cbSlot", "UseCallback"}, {"Ref", "UseRef"}, {"ctxSlot", "UseContext"}, {"idSlot", "UseID"},
 		{"Value", "UseValue"}, {"elemRef", "UseElementRef"}, {"vlist", "VirtualList"}, {"boundsFollow", "UseBounds"},
 	} {
 		if rest, ok := strings.CutPrefix(name, r[0]); ok {
@@ -406,10 +406,21 @@ func (t *Tree) checkDeps(el *Element, i int, deps []any) {
 // checkNilDeps warns, in dev mode and once per call site, about a new hook
 // slot whose dependency list is a single nil: it still means "only on
 // mount", but React reads a null list as "every render", so nil is
-// deprecated (ADR-085; a later version rejects it) in favor of UseMount
-// and UseOnce.
+// deprecated (ADR-085, ADR-088; a later version rejects it) in favor of
+// tela.Once, UseMount and UseOnce. UseUpdateEffect with Once never runs,
+// which is warned about too.
 func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
-	if !t.dev || len(deps) != 1 || deps[0] != nil {
+	if !t.dev || len(deps) != 1 {
+		return
+	}
+	if kind == hookUpdateEffect && deps[0] == any(Once) {
+		site := el.hookSite(i)
+		if t.firstReport("once-deps:" + site) {
+			t.warnf("tela: UseUpdateEffect(f, tela.Once) at %s never runs: it skips the first build, and tela.Once never changes; pass the values it depends on, or use tela.UseMount for a run on mount", site)
+		}
+		return
+	}
+	if deps[0] != nil {
 		return
 	}
 	site := el.hookSite(i)
@@ -419,15 +430,15 @@ func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
 	var advice string
 	switch kind {
 	case hookEffect:
-		advice = "use tela.UseMount(f) for an effect that runs once, on mount, with its cleanup on unmount"
+		advice = "use tela.UseMount(f), or tela.UseEffect(f, tela.Once), for an effect that runs once, on mount, with its cleanup on unmount"
 	case hookEffectDo:
-		advice = "use tela.UseMount(func() func() { f(); return nil }) to run f once, on mount"
+		advice = "use tela.UseEffectDo(f, tela.Once) to run f once, on mount"
 	case hookMemo:
-		advice = "use tela.UseOnce(f) for a value computed once, on the first build"
+		advice = "use tela.UseOnce(f), or tela.UseMemo(f, tela.Once), for a value computed once, on the first build"
 	case hookUpdateEffect:
 		advice = "with nil it never runs (it skips the mount, and nil means only on mount); pass the values it depends on"
 	default:
-		advice = fmt.Sprintf("for one run on mount pass a constant dependency instead, such as tela.%s(f, true)", kind)
+		advice = fmt.Sprintf("use tela.%s(f, tela.Once) for one run on mount", kind)
 	}
 	t.warnf("tela: %s(f, nil) at %s: nil deps is deprecated and will be rejected in a later version (React reads a null dependency list as \"after every render\", Tela as \"only on mount\"); %s",
 		kind, site, advice)

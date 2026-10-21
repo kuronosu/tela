@@ -2,6 +2,7 @@ package h_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela"
@@ -41,6 +42,43 @@ func TestIfWithNodes(t *testing.T) {
 	var c tela.Child = If[tela.Child](false, Div())
 	if c != nil {
 		t.Errorf("If[tela.Child](false, ...) = %v", c)
+	}
+}
+
+// spinner is a struct component whose zero value renders.
+type spinner struct{ Size int }
+
+func (s spinner) Build() tela.Node { return Div(Class("animate-spin"), Textf("spin %d", s.Size)) }
+
+// TestIfWithStructComponents: the zero value of a struct component
+// renders, so If panics on one in dev mode (tests run in dev mode) and
+// works through tela.Component, whose zero value is nil.
+func TestIfWithStructComponents(t *testing.T) {
+	func() {
+		defer func() {
+			r := recover()
+			if msg := fmt.Sprint(r); r == nil || !strings.Contains(msg, "If(cond, spinner{...}) returns spinner{} when cond is false") ||
+				!strings.Contains(msg, "If(cond, tela.Component(spinner{...}))") {
+				t.Errorf("If(false, spinner{}): panic %v", r)
+			}
+		}()
+		If(false, spinner{})
+	}()
+	if c := If(false, tela.Component(spinner{Size: 2})); c != nil {
+		t.Errorf("If(false, tela.Component(...)) = %v, want nil", c)
+	}
+	var kids tela.Component = Text("kids")
+	if c := If(true, kids); c != kids {
+		t.Errorf("If(true, component) = %v", c)
+	}
+	screen := func(show bool) tela.Node {
+		return Div(If(show, tela.Component(spinner{Size: 3})), Div(Key("b"), Class("h-4")))
+	}
+	if got := findBox(t, screen(true), 200, 100, "b").Rect.Y; got == 0 {
+		t.Error("b at y 0 with the spinner")
+	}
+	if got := findBox(t, screen(false), 200, 100, "b").Rect.Y; got != 0 {
+		t.Errorf("b at y %g without the spinner, want 0", got)
 	}
 }
 

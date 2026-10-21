@@ -176,7 +176,7 @@ func OpacityFn(fn func() float32) StyleProp { return style.OpacityFn(fn) }
 // [UseSpring] or [Animate] of a [Color] it animates a background without
 // rebuilding:
 //
-//	bg := tela.UseSpring(tela.Hex("#ffffff"), target)
+//	bg := tela.UseSpring(target) // target is a tela.Color
 //	Div(Class("rounded-lg p-4"), Style(tela.BgFn(bg.Get)))
 func BgFn(fn func() Color) StyleProp { return style.BgFn(fn) }
 
@@ -192,7 +192,7 @@ func BgFn(fn func() Color) StyleProp { return style.BgFn(fn) }
 // h.Input and h.Textarea keep the color their classes give. It wins over
 // the text color classes and their transitions.
 //
-//	color := tela.UseTween(tela.Hex("#0f172a"), target, tela.Duration(200*time.Millisecond))
+//	color := tela.UseTween(target, tela.Duration(200*time.Millisecond)) // a tela.Color
 //	P(Style(tela.TextColorFn(color.Get)), Text("Status: "), Strong(Text("online")))
 func TextColorFn(fn func() Color) StyleProp { return style.TextColorFn(fn) }
 

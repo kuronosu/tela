@@ -19,7 +19,7 @@ func SignIn(submitted *[]string) func() tela.Node {
 		return Form(Class("flex flex-col gap-2 p-4"),
 			OnSubmit(func(tela.SubmitEvent) { *submitted = append(*submitted, email+"|"+pass) }),
 			Label(For("email"), Class("text-sm font-medium"), Text("Email")),
-			Input(Id("email"), Type("email"), Placeholder("you@example.com"), Bind(email, setEmail),
+			Input(ID("email"), Type("email"), Placeholder("you@example.com"), Bind(email, setEmail),
 				Class("w-full rounded-md border border-slate-300 px-3 py-2 placeholder:text-slate-400 focus:outline-2 invalid:border-red-500")),
 			Label(Class("text-sm font-medium"), Text("Password "),
 				Input(Type("password"), Bind(pass, setPass), Class("rounded-md border border-slate-300 px-3 py-2"))),

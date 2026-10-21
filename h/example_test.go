@@ -134,7 +134,7 @@ func ExampleInput() {
 		email, setEmail := tela.UseState("ana@example.com")
 		return Form(Class("flex flex-col gap-2"),
 			Label(For("email"), Text("Email")),
-			Input(Id("email"), Type("email"), Bind(email, setEmail),
+			Input(ID("email"), Type("email"), Bind(email, setEmail),
 				Class("rounded-md border border-slate-300 px-3 py-2")),
 			Button(Class("rounded-md bg-indigo-600 px-4 py-2 text-white"), Text("Sign up")),
 		)

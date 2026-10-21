@@ -309,7 +309,9 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 	d := &desc{kind: nodeElement, elem: style.KindDiv, classes: []string{"overflow-y-auto"},
 		virt: &virtNode{role: virtList, overscan: defaultOverscan}}
 	for _, p := range props {
-		p.applyChild(d)
+		if p.apply != nil {
+			p.apply(d)
+		}
 	}
 	switch {
 	case d.src != nil || d.img != nil:

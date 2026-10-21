@@ -156,8 +156,10 @@ func TestProgrammerErrors(t *testing.T) {
 	}{
 		"OnClick nil":   {func() { OnClick(nil) }, "OnClick(nil)"},
 		"OnMouseUp nil": {func() { OnMouseUp(nil) }, "OnMouseUp(nil)"},
-		"Key nil":       {func() { Key(nil) }, "non-nil comparable"},
-		"Key slice":     {func() { Key([]int{1}) }, "comparable"},
+		// Key(nil) and Key([]int{1}) do not compile (Key[K comparable]);
+		// an interface holding nil or a slice still panics.
+		"Key nil":       {func() { Key[any](nil) }, "non-nil comparable"},
+		"Key slice":     {func() { Key[any]([]int{1}) }, "comparable"},
 		"Src nil":       {func() { Src(nil) }, "Src(nil)"},
 		"Href on Div":   {func() { Div(Href("x")) }, "only A"},
 		"Src on Div":    {func() { Div(Src(image.NewRGBA(image.Rect(0, 0, 1, 1)))) }, "only Img"},
@@ -188,7 +190,7 @@ func TestExportedNames(t *testing.T) {
 		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaSelected", "AriaValueMax", "AriaValueMin",
 		"AriaValueNow", "AriaValueText", "AutoComplete", "AutoFocus", "Bind", "BindValue", "Button", "Class",
 		"Code", "DefaultValue", "Disabled", "Div", "Em", "Exit", "For", "Form", "Fragment", "H1", "H2", "H3", "H4", "H5",
-		"H6", "Href", "Id", "If", "IfElse", "Img", "Input", "Key", "Label", "LayoutID", "Map", "MapIndex", "MaxLength", "Name",
+		"H6", "Href", "ID", "Id", "If", "IfElse", "Img", "Input", "Key", "Label", "LayoutID", "Map", "MapIndex", "MaxLength", "Name",
 		"OnBeforeInput", "OnBlur", "OnChange", "OnClick", "OnCompositionEnd", "OnCompositionStart",
 		"OnCompositionUpdate", "OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus",
 		"OnKeyDown", "OnKeyUp", "OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove",

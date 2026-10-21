@@ -84,7 +84,7 @@ func Toast() tela.Node {
 	if !present {
 		target = 0
 	}
-	shown := tela.UseTween(float32(0), target, tela.Duration(250*time.Millisecond), tela.Ease("ease-out"), tela.OnDone(done))
+	shown := tela.UseTween(target, tela.Initial(float32(0)), tela.Duration(250*time.Millisecond), tela.Ease("ease-out"), tela.OnDone(done))
 	return Div(Class("absolute inset-x-0 bottom-8 flex justify-center"),
 		Div(Role("status"), Class("rounded-xl bg-slate-900 px-5 py-3 text-sm text-white shadow-lg"),
 			Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
