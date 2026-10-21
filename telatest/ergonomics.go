@@ -30,7 +30,7 @@ func MountFunc(tb testing.TB, fn func() tela.Node, opts ...Option) *App {
 // and scroll settings and Dev of the app apply (see [FromApp]); the
 // options override them. It fails the test when app.Root is nil.
 //
-//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes}
+//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: tela.C(Notes)}
 //
 //	func main() { tela.Main(App) }
 //
@@ -44,9 +44,9 @@ func MountFunc(tb testing.TB, fn func() tela.Node, opts ...Option) *App {
 func MountApp(tb testing.TB, app tela.App, opts ...Option) *App {
 	tb.Helper()
 	if app.Root == nil {
-		tb.Fatalf("telatest: MountApp needs app.Root, the root component; for example telatest.MountApp(t, tela.App{Root: Counter}) where Counter is a func() tela.Node")
+		tb.Fatalf("telatest: MountApp needs app.Root, the root component; for example telatest.MountApp(t, tela.App{Root: tela.C(Counter)}) where Counter is a func() tela.Node, or Root: Counter{} for a struct component")
 	}
-	return Mount(tb, tela.C(app.Root), append([]Option{FromApp(app)}, opts...)...)
+	return Mount(tb, app.Root, append([]Option{FromApp(app)}, opts...)...)
 }
 
 // GoldenScales compares the window with one golden per display scale:

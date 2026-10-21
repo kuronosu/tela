@@ -32,7 +32,7 @@ func shellApp() tela.App {
 			"brand": {Light: tela.Hex("#ff0000"), Dark: tela.Hex("#0000ff")},
 		}},
 		ClassAliases: map[string]string{"swatch": "size-8 bg-brand"},
-		Root:         shell,
+		Root:         tela.C(shell),
 	}
 }
 
@@ -95,13 +95,13 @@ func TestMountAppOptionsOverride(t *testing.T) {
 // failure.
 func TestMountAppDev(t *testing.T) {
 	typo := func() tela.Node { return Div(Class("flex-colum p-2"), Text("hi")) }
-	mustFail(t, func(tb testing.TB) { telatest.MountApp(tb, tela.App{Root: typo}) }, "flex-colum")
+	mustFail(t, func(tb testing.TB) { telatest.MountApp(tb, tela.App{Root: tela.C(typo)}) }, "flex-colum")
 	off := false
-	mustPass(t, func(tb testing.TB) { telatest.MountApp(tb, tela.App{Root: typo, Dev: &off}) })
+	mustPass(t, func(tb testing.TB) { telatest.MountApp(tb, tela.App{Root: tela.C(typo), Dev: &off}) })
 }
 
 func TestMountAppNeedsRoot(t *testing.T) {
-	mustFail(t, func(tb testing.TB) { telatest.MountApp(tb, tela.App{Title: "x"}) }, "MountApp needs app.Root", "tela.App{Root: Counter}")
+	mustFail(t, func(tb testing.TB) { telatest.MountApp(tb, tela.App{Title: "x"}) }, "MountApp needs app.Root", "tela.App{Root: tela.C(Counter)}", "Root: Counter{}")
 }
 
 // What `tela snapshot` renders and a window shows must not drift: every
@@ -129,12 +129,21 @@ func TestAppFieldsAreClassified(t *testing.T) {
 	}
 }
 
-// A struct component is mounted through a Root that wraps it in a Fragment.
+// A struct component is the Root as is; a function component is tela.C(fn).
 type badge struct{ Text string }
 
 func (b badge) Build() tela.Node { return Span(Text(b.Text)) }
 
 func TestMountAppStructRoot(t *testing.T) {
-	app := telatest.MountApp(t, tela.App{Root: func() tela.Node { return Fragment(badge{Text: "new"}) }})
+	app := telatest.MountApp(t, tela.App{Root: badge{Text: "new"}})
 	app.ExpectText("new")
+}
+
+func TestMountAppFuncRoot(t *testing.T) {
+	app := telatest.MountApp(t, tela.App{Root: tela.C(func() tela.Node {
+		n, set := tela.UseState(0)
+		return Button(OnClick(func() { set.Set(n + 1) }), Textf("n=%d", n))
+	})})
+	app.Click(telatest.ByRole("button", "n=0"))
+	app.ExpectText("n=1")
 }

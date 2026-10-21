@@ -98,6 +98,6 @@ func main() {
 		AppID:  "dev.telaui.virtuallist",
 		Width:  1280,
 		Height: 800,
-		Root:   Directory,
+		Root:   tela.C(Directory),
 	})
 }

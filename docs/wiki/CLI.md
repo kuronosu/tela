@@ -69,7 +69,7 @@ renders the first name in byte order ([`Previews.Names`](https://pkg.go.dev/gith
 as `"1 Login"` can pick the default. When a package defines both, `Previews`
 wins. `Preview()` may return a `tela.Node` or a `tela.Component`. What a
 preview gives is mounted as is: a function component needs `tela.C`, as in
-`App.Root`.
+`App.Root` (`Root: tela.C(Notes)`, or `Root: Notes{}` for a struct component).
 
 The screen is drawn on a white canvas: give it its own background, or the
 `App` a `RootClass`.
@@ -116,7 +116,7 @@ var App = tela.App{
 	RootClass:   "bg-background text-foreground",
 	ColorScheme: tela.Dark,
 	Theme:       &theme,
-	Root:        Notes,
+	Root:        tela.C(Notes),
 }
 
 func main() { tela.Main(App) }

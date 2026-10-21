@@ -89,7 +89,7 @@ func Counter() tela.Node {
 }
 
 func main() {
-    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
 }
 ```
 
@@ -402,7 +402,7 @@ Main runs app with [`Run`](#func-run) and, when Run returns an error (no display
 
 ```go
 func main() {
-    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
 }
 ```
 
@@ -417,7 +417,7 @@ counter := func() tela.Node {
 }
 // In package main. Main returns when the window is closed; without a
 // display it prints the error and exits with status 1.
-tela.Main(tela.App{Title: "Demo", Width: 400, Height: 300, Root: counter})
+tela.Main(tela.App{Title: "Demo", Width: 400, Height: 300, Root: tela.C(counter)})
 ```
 
 ### func MapValue
@@ -1291,9 +1291,11 @@ type App struct {
     // scrolls, unless RootClass sets an overflow ("overflow-hidden" keeps
     // the window from scrolling; CSS's overflow propagation).
     RootClass string
-    // Root is the root component. It is built as a component of its own,
-    // so it may use hooks.
-    Root func() Node
+    // Root is the root component: a struct component value (Root: Notes{})
+    // or a function component made with [C] (Root: tela.C(Notes)). It is a
+    // component of its own, so it may use hooks. A [Node] works too, but a
+    // root that uses hooks must be a component.
+    Root Component
     // ClassicScrollbars draws always-visible classic scrollbars (a
     // Windows look) that take space next to the content, instead of the
     // default thin overlay bars that appear while scrolling. The classes
@@ -1348,7 +1350,7 @@ type App struct {
     // TELA_DEV=1 or TELA_DEV=0 overrides both Dev and the default.
     //
     //	off := false
-    //	tela.Main(tela.App{Title: "Notes", Root: Notes, Dev: &off})
+    //	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Dev: &off})
     Dev *bool
 }
 ```
@@ -1358,7 +1360,7 @@ App describes an application window for [`Run`](#func-run).
 ```go
 tela.Run(tela.App{
     Title:             "Files",
-    Root:              Root,
+    Root:              Files{},          // a struct component; tela.C(Files) for a function
     ClassicScrollbars: true, // always-visible classic bars (a Windows look)
     InstantScroll:     true, // no scroll animation, no inertia
 })
@@ -1763,7 +1765,7 @@ Div(Card{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))})
 
 Every Component value given to an element as a child is a component of its own, with its own hook state: hooks called in Build (and in the function literals inside it) belong to it. Its identity among its siblings is its type and its key ([`WithKey`](#func-withkey)), so at one position a value of the same type keeps the state of the previous build and a value of another type mounts anew. When its parent builds again, its build is skipped if the new value equals the previous one and no state, Value or context it read changed, as with [`CP`](#func-cp). The comparison is ==, field by field, and never panics: a value that cannot be compared (a struct holding a slice, a map or a func, or a field of interface type holding one) counts as changed, so it always builds. A [`Node`](#type-node) in a field compares by identity: a fresh h.Div(...) is a change, a node kept in a [`UseMemo`](#func-usememo) is not. Pass [`Callback`](#type-callback) values instead of funcs to keep a component skippable.
 
-Calling Build directly (Card{}.Build() inside another component) runs it inside the caller, whose hook slots it would take: dev mode panics and says to pass Card{...} as a child instead. Where a [`Node`](#type-node) is expected (the result of a function component, an h.Map item), give the value to h.Fragment, or key it with [`WithKey`](#func-withkey). h.If renders nothing for the zero value of its type, and the zero value of a struct renders, so pass it as a Component: If(loading, tela.Component(Spinner{})).
+Calling Build directly (Card{}.Build() inside another component) runs it inside the caller, whose hook slots it would take: dev mode panics and says to pass Card{...} as a child instead. Where a [`Node`](#type-node) is expected (the result of a function component, an h.Map item), give the value to h.Fragment, or key it with [`WithKey`](#func-withkey). h.If takes a struct component as is, If(loading, Spinner{}), and renders nothing when the condition is false; it returns a [`Child`](#type-child), so a function that returns a [`Node`](#type-node) wraps it: Fragment(If(...)).
 
 In dev mode (see [`App`](#type-app).Dev) a pointer (Div(\&Card{})) panics, since a component is a value that Tela compares, and so does a [`Prop`](#type-prop) held by a field of type Component (Card{Children: Class("p-4")}): Go cannot tell it from a component at compile time, and given to an element it would apply to that element. A field that is meant to take props too is declared as [`Child`](#type-child).
 
@@ -3115,7 +3117,7 @@ type Node struct {
 #### func C
 
 ```go
-func C(fn func() Node, key ...Prop) Node
+func C(fn func() Node, key ...Child) Node
 ```
 
 C returns a node that builds fn as a component with its own state: a component boundary (ARCHITECTURE section 7). Calling fn() directly instead runs it inside the caller's build, so its hooks would take the caller's slots: dev mode panics when a hook is called from a function that is neither the component being built (or a function literal inside it) nor a custom hook named UseXxx or useXxx, and says to wrap it.
@@ -3131,7 +3133,7 @@ A C component builds whenever its parent builds, since fn may capture values tha
 #### func CP
 
 ```go
-func CP[P comparable](fn func(P) Node, props P, key ...Prop) Node
+func CP[P comparable](fn func(P) Node, props P, key ...Child) Node
 ```
 
 CP returns a node that builds fn(props) as a component with its own state. When its parent builds again with props == to the previous ones, and neither its state nor a context it reads changed, the build is skipped (Jetpack Compose's automatic skipping): free memoization.
@@ -3179,7 +3181,7 @@ fmt.Println(app.AriaSnapshot())
 #### func Memo
 
 ```go
-func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Prop) Node
+func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child) Node
 ```
 
 Memo is [`CP`](#func-cp) for props that are not comparable, or that compare in another way: the build is skipped when equal(old, new) reports them equal. equal must be pure.
@@ -4360,7 +4362,7 @@ theme := tela.DefaultTheme()
 theme.Colors["primary"] = tela.SchemeColor{Light: tela.OKLCH(0.55, 0.2, 264), Dark: tela.OKLCH(0.7, 0.16, 264)}
 theme.Colors["brand"] = tela.SchemeColor{Light: tela.Hex("#7c3aed"), Dark: tela.Hex("#a78bfa")} // bg-brand
 theme.Radius = 10 // shadcn/ui's 0.625rem
-tela.Main(tela.App{Title: "Notes", Root: Notes, Theme: &theme, RootClass: "bg-background text-foreground"})
+tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Theme: &theme, RootClass: "bg-background text-foreground"})
 ```
 
 A token missing from Colors keeps its value in DefaultTheme, so the shadcn/ui tokens always resolve. A token name is lowercase letters, digits and dashes, and cannot be a palette color ("red-500", "white") or transparent, current or inherit; [`Run`](#func-run) panics otherwise. Tokens cannot be used inside arbitrary values (bg-\[linear-gradient(...)\]): use the utilities (from-primary, shadow-primary).

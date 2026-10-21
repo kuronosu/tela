@@ -120,6 +120,28 @@ func TestAppOnly(t *testing.T) {
 	}
 }
 
+// An App whose Root is a struct component (ADR-094): its hooks work and its
+// fields seed the state; an App without a Root is an error with the fix.
+func TestAppStructRootAndNilRoot(t *testing.T) {
+	skipShort(t)
+	img, _, _ := snap(t, "./testdata/appstruct")
+	if b := img.Bounds(); b.Dx() != 160 || b.Dy() != 80 {
+		t.Errorf("image is %v, want the App's 160x80", b)
+	}
+	if got := pixel(img, 158, 78); got != [3]uint8{70, 236, 213} {
+		t.Errorf("background %v, want teal-300", got)
+	}
+	if out, _ := inspectRun(t, 0, "./testdata/appstruct"); out != "- heading \"struct n=7\" [level=1]\n" {
+		t.Errorf("inspect: %q", out)
+	}
+	msg := snapFails(t, "./testdata/appnoroot")
+	for _, want := range []string{"App has no Root", "tela.App{Root: tela.C(Screen)}", "Screen{}"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, msg)
+		}
+	}
+}
+
 // The dev warnings and class errors of the screen reach stderr, and stdout
 // keeps only the output of the command.
 func TestDevMessagesForwarded(t *testing.T) {

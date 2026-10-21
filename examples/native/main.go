@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela"
-	. "github.com/kuronosu/tela/h"
 )
 
 // parseTheme resolves the -theme flag: "auto" is win11 on Windows and
@@ -79,9 +78,7 @@ func main() {
 		AppID:  "dev.telaui.native",
 		Width:  windowW,
 		Height: windowH,
-		Root: func() tela.Node {
-			return Fragment(Explorer{Theme: id, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"})
-		},
+		Root:   Explorer{Theme: id, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"},
 	})
 }
 

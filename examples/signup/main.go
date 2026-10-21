@@ -74,7 +74,7 @@ func (p Page) Build() tela.Node {
 				OnChange(dismiss),
 
 				Header(),
-				If(created, tela.Component(Banner{Name: values.Name, Email: values.Email})),
+				If(created, Banner{Name: values.Name, Email: values.Email}),
 
 				NameField(name, setName),
 				EmailField(email, setEmail, touched, setTouched),
@@ -125,6 +125,6 @@ func main() {
 		AppID:  "dev.telaui.signup",
 		Width:  1100,
 		Height: 860,
-		Root:   func() tela.Node { return Fragment(Page{}) },
+		Root:   Page{},
 	})
 }

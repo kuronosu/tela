@@ -103,8 +103,8 @@ func (p Page) Build() tela.Node {
 		),
 		Portal(
 			If(dialog, Scrim(func() { setDialog.Set(false) })),
-			Presence(If(dialog, tela.Component(ReportDialog{Close: setDialog, Notify: setToast}))),
-			Presence(If(toast != "", tela.Component(Toast{Message: toast, Dismiss: setToast, Pinned: p.Pinned}))),
+			Presence(If(dialog, ReportDialog{Close: setDialog, Notify: setToast})),
+			Presence(If(toast != "", Toast{Message: toast, Dismiss: setToast, Pinned: p.Pinned})),
 		),
 	)
 }
@@ -117,7 +117,7 @@ var App = tela.App{
 	AppID:     "dev.telaui.dashboard",
 	Width:     1440,
 	Height:    900,
-	Root:      Dashboard,
+	Root:      tela.C(Dashboard),
 	RootClass: rootClass,
 }
 

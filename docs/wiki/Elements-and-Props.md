@@ -158,10 +158,10 @@ func errorText(err error) string {
 Every argument of a call is evaluated: `If(user != nil, Text(user.Name))`
 dereferences a nil `user`. Use an ordinary `if` for that case.
 
-The zero value of a struct component (`Spinner{}`) is a component that
-renders, so pass one to `If` as a `tela.Component`, whose zero value is nil:
-`If(loading, tela.Component(Spinner{}))`. Dev mode panics on
-`If(loading, Spinner{})`.
+`If` and `IfElse` return a `tela.Child`, so they take a node, a struct
+component (`If(loading, Spinner{})`) or a prop (`If(active, Class("ring-2"))`),
+and when the branch is absent they render and apply nothing. A function
+component that returns one wraps it: `return Fragment(If(...))`.
 
 ### Map and MapIndex
 

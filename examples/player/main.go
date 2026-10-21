@@ -48,6 +48,6 @@ func main() {
 		AppID:  "dev.telaui.player",
 		Width:  1280,
 		Height: 800,
-		Root:   func() tela.Node { return Fragment(Player{}) },
+		Root:   Player{},
 	})
 }

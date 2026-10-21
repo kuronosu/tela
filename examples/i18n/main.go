@@ -156,6 +156,6 @@ func main() {
 		AppID:  "dev.telaui.i18n",
 		Width:  720,
 		Height: 720,
-		Root:   Store,
+		Root:   tela.C(Store),
 	})
 }

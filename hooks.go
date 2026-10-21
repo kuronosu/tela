@@ -590,7 +590,7 @@ var Once = core.Once
 // A C component builds whenever its parent builds, since fn may capture
 // values that changed; use [CP] for automatic skipping. Only the very same
 // node (one kept in a variable or a [UseMemo]) is not built again.
-func C(fn func() Node, key ...Prop) Node { return core.Component(fn, key...) }
+func C(fn func() Node, key ...Child) Node { return core.Component(fn, key...) }
 
 // CP returns a node that builds fn(props) as a component with its own
 // state. When its parent builds again with props == to the previous ones,
@@ -617,7 +617,7 @@ func C(fn func() Node, key ...Prop) Node { return core.Component(fn, key...) }
 // tela.WithKey(tela.CP(Row, RowProps{...}), row.ID). Anything else but Key
 // panics; the key is not a prop of the component and is not compared with
 // the props.
-func CP[P comparable](fn func(P) Node, props P, key ...Prop) Node {
+func CP[P comparable](fn func(P) Node, props P, key ...Child) Node {
 	return core.ComponentProps(fn, props, key...)
 }
 
@@ -630,7 +630,7 @@ func CP[P comparable](fn func(P) Node, props P, key ...Prop) Node {
 //	})
 //
 // Like [CP], it takes an optional last argument, the key h.Key(id).
-func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Prop) Node {
+func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child) Node {
 	return core.Memo(fn, props, equal, key...)
 }
 

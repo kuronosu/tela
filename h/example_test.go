@@ -77,6 +77,31 @@ func ExampleIf() {
 	// - paragraph: Done
 }
 
+// Spinner is a struct component: If takes it as is, and renders nothing
+// when the condition is false.
+type Spinner struct{ Label string }
+
+func (s Spinner) Build() tela.Node {
+	return Div(Role("status"), AriaLabel(s.Label), Class("animate-spin size-4"))
+}
+
+func ExampleIf_structComponent() {
+	screen := func(loading bool) tela.Node {
+		return Div(
+			If(loading, Spinner{Label: "Loading"}),
+			P(Text("Inbox")),
+		)
+	}
+	for _, loading := range []bool{true, false} {
+		yaml, _ := telatest.AriaSnapshot(screen(loading))
+		fmt.Println(yaml)
+	}
+	// Output:
+	// - status "Loading"
+	// - paragraph: Inbox
+	// - paragraph: Inbox
+}
+
 func ExampleIfElse() {
 	toggle := func(on bool) tela.Node {
 		return Button(

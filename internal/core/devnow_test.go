@@ -6,19 +6,13 @@ import (
 	"testing"
 )
 
-// zeroCard is a struct component for the check of h.If (CheckIf).
-type zeroCard struct{}
-
-func (zeroCard) Build() Node { return Text("zero") }
-
 // TestDevChecksFollowTheTreeBeingBuilt: the dev checks of node
-// constructors (Role, Dir, Type, h.If's CheckIf) follow the mode of the
+// constructors (Role, Dir, Type) follow the mode of the
 // Tree whose build calls them, and the process default outside builds
 // (telatest.NoDev must test what a release build does).
 func TestDevChecksFollowTheTreeBeingBuilt(t *testing.T) {
 	defer devAny.Store(devAny.Load())
 	bad := func() Node {
-		CheckIf[zeroCard]()
 		return div(Role("buton"), Dir("sideways"), input(FieldType("emial")))
 	}
 	for _, def := range []bool{true, false} {
@@ -26,8 +20,8 @@ func TestDevChecksFollowTheTreeBeingBuilt(t *testing.T) {
 		if msg := panicMessage(func() { newTestTree(t, 100, 100, Component(bad), nil) }); msg != "" {
 			t.Errorf("default %v: a tree out of dev mode panicked: %s", def, msg)
 		}
-		if msg := panicMessage(func() { devTree(t, Component(bad), nil) }); !strings.Contains(msg, "If(cond, zeroCard{...})") {
-			t.Errorf("default %v: dev tree: panic %q, want CheckIf's", def, msg)
+		if msg := panicMessage(func() { devTree(t, Component(bad), nil) }); !strings.Contains(msg, "buton") {
+			t.Errorf("default %v: dev tree: panic %q, want the role's", def, msg)
 		}
 		// A dev tree turns the process default on (ADR-085).
 		devAny.Store(def)

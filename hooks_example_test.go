@@ -17,7 +17,7 @@ func ExampleMain() {
 	}
 	// In package main. Main returns when the window is closed; without a
 	// display it prints the error and exits with status 1.
-	tela.Main(tela.App{Title: "Demo", Width: 400, Height: 300, Root: counter})
+	tela.Main(tela.App{Title: "Demo", Width: 400, Height: 300, Root: tela.C(counter)})
 }
 
 func ExampleUseMount() {

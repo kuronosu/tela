@@ -35,7 +35,7 @@ The package must define one of
 		wins. A Preview may also give a Wrap function that returns its root
 		inside the providers of the contexts it reads.
 
-or a var App = tela.App{..., Root: Screen}, whose Root is the screen.
+or a var App = tela.App{..., Root: tela.C(Screen)}, whose Root is the screen.
 
 What a preview returns is mounted as is, so a function component needs
 tela.C (a preview that calls hooks directly is a mistake dev mode reports).

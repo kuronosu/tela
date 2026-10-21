@@ -60,6 +60,6 @@ func main() {
 		AppID:  "dev.telaui.board",
 		Width:  1280,
 		Height: 800,
-		Root:   Kanban,
+		Root:   tela.C(Kanban),
 	})
 }

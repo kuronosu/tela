@@ -46,7 +46,7 @@ func main() {
 		AppID:  "dev.telaui.shapes",
 		Width:  960,
 		Height: 640,
-		Root:   Shapes,
+		Root:   tela.C(Shapes),
 	})
 }
 

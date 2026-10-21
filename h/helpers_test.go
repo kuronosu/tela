@@ -1,7 +1,9 @@
 package h_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -22,7 +24,7 @@ func findBox(t *testing.T, root tela.Node, w, h float32, key string) *box {
 }
 
 func TestIfWithNodes(t *testing.T) {
-	// The zero Node keeps the positions of the siblings after it.
+	// The empty child keeps the positions of the siblings after it.
 	screen := func(show bool) tela.Node {
 		return Div(Class("w-[100px]"),
 			If(show, Div(Key("a"), Class("h-4"))),
@@ -34,51 +36,107 @@ func TestIfWithNodes(t *testing.T) {
 	if got := findBox(t, screen(false), 200, 100, "b").Rect.Y; got != 0 {
 		t.Errorf("b at y %g without it, want 0", got)
 	}
-	var n tela.Node = If(false, Div())
-	if !n.IsZero() {
-		t.Errorf("If(false, node) is not the zero Node")
+	// The absent branch of a node is the zero Node; of a struct component
+	// too (it renders nothing), of a prop the zero Prop.
+	for name, c := range map[string]tela.Child{
+		"node":      If(false, Div()),
+		"component": If(false, spinner{}),
+		"nil":       If(false, nil),
+	} {
+		if n, ok := c.(tela.Node); !ok || !n.IsZero() {
+			t.Errorf("If(false, %s) = %#v, want the zero Node", name, c)
+		}
 	}
-	// Existing call sites that name the child type keep compiling.
-	var c tela.Child = If[tela.Child](false, Div())
-	if c != nil {
-		t.Errorf("If[tela.Child](false, ...) = %v", c)
+	if p, ok := If(false, Class("x")).(tela.Prop); !ok || !reflect.ValueOf(p).IsZero() {
+		t.Errorf("If(false, prop) = %#v, want the zero Prop", If(false, Class("x")))
+	}
+	if c := If(true, Div()); c == nil {
+		t.Error("If(true, node) is nil")
 	}
 }
 
-// spinner is a struct component whose zero value renders.
+// dump returns the JSON of a box tree, to search it for text.
+func dump(b box) string {
+	js, _ := json.Marshal(b)
+	return string(js)
+}
+
+// spinner is a struct component: its zero value renders.
 type spinner struct{ Size int }
 
 func (s spinner) Build() tela.Node { return Div(Class("animate-spin"), Textf("spin %d", s.Size)) }
 
-// TestIfWithStructComponents: the zero value of a struct component
-// renders, so If panics on one in dev mode (tests run in dev mode) and
-// works through tela.Component, whose zero value is nil.
+// TestIfWithStructComponents: a struct component goes straight to If, and
+// when the condition is false nothing renders (ADR-094).
 func TestIfWithStructComponents(t *testing.T) {
-	func() {
-		defer func() {
-			r := recover()
-			if msg := fmt.Sprint(r); r == nil || !strings.Contains(msg, "If(cond, spinner{...}) returns spinner{} when cond is false") ||
-				!strings.Contains(msg, "If(cond, tela.Component(spinner{...}))") {
-				t.Errorf("If(false, spinner{}): panic %v", r)
-			}
-		}()
-		If(false, spinner{})
-	}()
-	if c := If(false, tela.Component(spinner{Size: 2})); c != nil {
-		t.Errorf("If(false, tela.Component(...)) = %v, want nil", c)
-	}
 	var kids tela.Component = Text("kids")
 	if c := If(true, kids); c != kids {
 		t.Errorf("If(true, component) = %v", c)
 	}
 	screen := func(show bool) tela.Node {
-		return Div(If(show, tela.Component(spinner{Size: 3})), Div(Key("b"), Class("h-4")))
+		return Div(If(show, spinner{Size: 3}), Div(Key("b"), Class("h-4")))
 	}
 	if got := findBox(t, screen(true), 200, 100, "b").Rect.Y; got == 0 {
 		t.Error("b at y 0 with the spinner")
 	}
 	if got := findBox(t, screen(false), 200, 100, "b").Rect.Y; got != 0 {
 		t.Errorf("b at y %g without the spinner, want 0", got)
+	}
+	// IfElse with two struct components.
+	pick := func(a bool) tela.Node {
+		return Div(Key("p"), IfElse(a, spinner{Size: 1}, other{}))
+	}
+	if got := dump(inspect(t, pick(true), 200, 100)); !strings.Contains(got, "spin 1") {
+		t.Errorf("IfElse(true) text %q", got)
+	}
+	if got := dump(inspect(t, pick(false), 200, 100)); !strings.Contains(got, "other") {
+		t.Errorf("IfElse(false) text %q", got)
+	}
+}
+
+type other struct{}
+
+func (other) Build() tela.Node { return Text("other") }
+
+// TestIfStructComponentKeepsState: toggling the condition mounts and
+// unmounts the component, and the sibling after it keeps its state.
+func TestIfStructComponentKeepsState(t *testing.T) {
+	var setShow tela.Setter[bool]
+	counter := func() tela.Node {
+		n := tela.UseRef(0)
+		n.Current++
+		return Div(Key("counter"), Textf("%d", n.Current))
+	}
+	root := tela.C(func() tela.Node {
+		show, set := tela.UseState(false)
+		setShow = set
+		return Div(If(show, spinner{}), tela.C(counter))
+	})
+	tr := core.NewTree(core.Config{})
+	tr.SetViewport(gfx.Size{W: 100, H: 100})
+	tr.Mount(root)
+	tr.Frame()
+	setShow.Set(true)
+	tr.Frame()
+	setShow.Set(false)
+	tr.Frame()
+	js, _ := json.Marshal(tr.Inspect())
+	if !strings.Contains(string(js), `"counter"`) {
+		t.Errorf("the counter is gone:\n%s", js)
+	}
+}
+
+// TestIfReturnsAChild: the result is a Child, so a function component
+// wraps it with Fragment, and it goes into a field of type tela.Child or
+// tela.Component.
+func TestIfReturnsAChild(t *testing.T) {
+	fn := func() tela.Node { return Fragment(If(true, spinner{Size: 4})) }
+	if got := dump(inspect(t, Div(Key("r"), tela.C(fn)), 200, 100)); !strings.Contains(got, "spin 4") {
+		t.Errorf("Fragment(If(...)) text %q", got)
+	}
+	var comp tela.Component = If(false, spinner{})
+	if got := dump(inspect(t, Div(comp, Div(Key("after"))), 200, 100)); strings.Contains(got, "spin") {
+		t.Error("a Component field holding an absent If renders")
 	}
 }
 
@@ -97,6 +155,54 @@ func TestIfWithProps(t *testing.T) {
 	card := off.find("card")
 	if card == nil || card.Style.Classes != "h-4 w-4 bg-sky-500" || card.Style.Background != "#00a6f4" {
 		t.Errorf("unselected card: %+v", card)
+	}
+	// An absent prop adds no child, so no position changes.
+	if len(card.Children) != 0 {
+		t.Errorf("an absent prop added children: %+v", card.Children)
+	}
+}
+
+// TestIfAbsentInEveryPosition: the false branch of If and IfElse goes
+// wherever a Child can: the children of an element, a Fragment, a
+// Provider, a Presence and a Portal, and the prop positions of each.
+func TestIfAbsentInEveryPosition(t *testing.T) {
+	ctx := tela.CreateContext(1)
+	for name, branches := range map[string][]tela.Child{
+		"node":      {If(false, Div(Key("x")))},
+		"component": {If(false, spinner{})},
+		"prop":      {If(false, Class("x")), If(false, tela.Width(9)), If(false, Key("k"))},
+		"ifelse":    {IfElse(false, spinner{}, tela.Node{}), IfElse(false, Class("a"), If(false, Class("b")))},
+		"nested":    {If(false, If(true, spinner{})), If(true, If(false, spinner{}))},
+	} {
+		for pos, build := range map[string]func(c ...tela.Child) tela.Node{
+			"element":  func(c ...tela.Child) tela.Node { return Div(c...) },
+			"fragment": func(c ...tela.Child) tela.Node { return Div(Fragment(c...)) },
+			"provider": func(c ...tela.Child) tela.Node { return Div(ctx.Provider(2, c...)) },
+			"presence": func(c ...tela.Child) tela.Node { return Div(Presence(c...)) },
+			"portal":   func(c ...tela.Child) tela.Node { return Div(Portal(c...)) },
+		} {
+			root := build(append(append([]tela.Child{}, branches...), Div(Key("after"), Class("h-4")))...)
+			b := inspect(t, Div(Class("w-[100px]"), root), 200, 100)
+			if n := b.find("after"); n == nil {
+				t.Errorf("%s in %s: the sibling is missing", name, pos)
+			}
+			if b.find("x") != nil || strings.Contains(dump(b), "spin") {
+				t.Errorf("%s in %s: an absent branch rendered", name, pos)
+			}
+		}
+	}
+	// A present spinner appears in every container.
+	for pos, build := range map[string]func(c ...tela.Child) tela.Node{
+		"element":  func(c ...tela.Child) tela.Node { return Div(c...) },
+		"fragment": func(c ...tela.Child) tela.Node { return Div(Fragment(c...)) },
+		"provider": func(c ...tela.Child) tela.Node { return Div(ctx.Provider(2, c...)) },
+		"presence": func(c ...tela.Child) tela.Node { return Div(Presence(c...)) },
+		"portal":   func(c ...tela.Child) tela.Node { return Div(Portal(c...)) },
+	} {
+		b := inspect(t, build(If(true, spinner{Size: 7})), 200, 100)
+		if !strings.Contains(dump(b), "spin 7") {
+			t.Errorf("a present struct component in %s did not render", pos)
+		}
 	}
 }
 
@@ -127,8 +233,7 @@ func TestIfElse(t *testing.T) {
 		t.Errorf("closed: panel %g\n%+v", got, off)
 	}
 	// Both branches are zero when they are: a hole.
-	var z tela.Node = IfElse(true, tela.Node{}, Div())
-	if !z.IsZero() {
+	if z := IfElse(true, tela.Node{}, Div()); z != (tela.Node{}) {
 		t.Error("IfElse picked the wrong branch")
 	}
 }

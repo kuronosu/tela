@@ -12,7 +12,7 @@ import (
 //
 //	tela.Run(tela.App{
 //	    Title:             "Files",
-//	    Root:              Root,
+//	    Root:              Files{},          // a struct component; tela.C(Files) for a function
 //	    ClassicScrollbars: true, // always-visible classic bars (a Windows look)
 //	    InstantScroll:     true, // no scroll animation, no inertia
 //	})
@@ -33,9 +33,11 @@ type App struct {
 	// scrolls, unless RootClass sets an overflow ("overflow-hidden" keeps
 	// the window from scrolling; CSS's overflow propagation).
 	RootClass string
-	// Root is the root component. It is built as a component of its own,
-	// so it may use hooks.
-	Root func() Node
+	// Root is the root component: a struct component value (Root: Notes{})
+	// or a function component made with [C] (Root: tela.C(Notes)). It is a
+	// component of its own, so it may use hooks. A [Node] works too, but a
+	// root that uses hooks must be a component.
+	Root Component
 	// ClassicScrollbars draws always-visible classic scrollbars (a
 	// Windows look) that take space next to the content, instead of the
 	// default thin overlay bars that appear while scrolling. The classes
@@ -90,7 +92,7 @@ type App struct {
 	// TELA_DEV=1 or TELA_DEV=0 overrides both Dev and the default.
 	//
 	//	off := false
-	//	tela.Main(tela.App{Title: "Notes", Root: Notes, Dev: &off})
+	//	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Dev: &off})
 	Dev *bool
 }
 
@@ -104,7 +106,7 @@ type App struct {
 // [Main] runs it and handles the error.
 func Run(app App) error {
 	if app.Root == nil {
-		panic("tela: Run(App{...}) needs a Root component; for example tela.Run(tela.App{Title: \"Demo\", Root: Counter}) where Counter is a func() tela.Node")
+		panic("tela: Run(App{...}) needs a Root component; for example tela.Run(tela.App{Title: \"Demo\", Root: tela.C(Counter)}) where Counter is a func() tela.Node, or Root: Counter{} for a struct component with a Build method")
 	}
 	return core.Run(app.options())
 }
@@ -114,7 +116,7 @@ func Run(app App) error {
 // is the usual body of main:
 //
 //	func main() {
-//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
 //	}
 //
 // Main returns when the window is closed. Like Run, it must be called
@@ -149,6 +151,6 @@ func (app App) options() core.Options {
 		AppID:  app.AppID,
 		Width:  app.Width,
 		Height: app.Height,
-		Root:   core.Component(app.Root),
+		Root:   core.NodeOf(app.Root),
 	}
 }

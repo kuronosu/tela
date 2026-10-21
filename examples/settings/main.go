@@ -51,6 +51,6 @@ func main() {
 		AppID:  "dev.telaui.settings",
 		Width:  1280,
 		Height: 800,
-		Root:   Settings,
+		Root:   tela.C(Settings),
 	})
 }

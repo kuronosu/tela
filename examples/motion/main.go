@@ -88,7 +88,7 @@ func Toast() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Motion", Width: 720, Height: 540, Root: Motion})
+	tela.Main(tela.App{Title: "Motion", Width: 720, Height: 540, Root: tela.C(Motion)})
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.

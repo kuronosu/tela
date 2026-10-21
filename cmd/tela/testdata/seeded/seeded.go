@@ -45,5 +45,5 @@ var App = tela.App{
 		"brand": {Light: tela.Hex("#ff0000"), Dark: tela.Hex("#0000ff")},
 	}},
 	ClassAliases: map[string]string{"swatch": "size-8 bg-brand"},
-	Root:         func() tela.Node { return Fragment(Main{InitialTab: "app"}) },
+	Root:         Main{InitialTab: "app"},
 }

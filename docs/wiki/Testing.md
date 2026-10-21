@@ -282,7 +282,7 @@ scrollbar and scroll settings and `Dev`. It is the same `App` that
 test, the PNG and the window agree; options after it override the app:
 
 ```go
-var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes}
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: tela.C(Notes)}
 
 func TestNotes(t *testing.T) {
 	app := telatest.MountApp(t, App)

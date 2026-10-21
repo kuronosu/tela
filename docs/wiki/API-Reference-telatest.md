@@ -189,7 +189,7 @@ func MountApp(tb testing.TB, app tela.App, opts ...Option) *App
 MountApp shows app.Root in a headless window configured like the app, the way [`tela.Main`](API-Reference-tela#func-main) shows it in a real one, and returns the running app. The size, root class, color scheme, theme, class aliases, scrollbar and scroll settings and Dev of the app apply (see [`FromApp`](#func-fromapp)); the options override them. It fails the test when app.Root is nil.
 
 ```go
-var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes}
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: tela.C(Notes)}
 
 func main() { tela.Main(App) }
 
@@ -211,7 +211,7 @@ app := telatest.MountApp(t, tela.App{
     Width:     480,
     Height:    320,
     RootClass: "bg-slate-100",
-    Root:      Counter,
+    Root:      tela.C(Counter),
 })
 
 app.Click(telatest.ByRole("button", "Increment"))
@@ -1111,7 +1111,7 @@ func FromApp(app tela.App) Option
 FromApp applies the settings of a [`tela.App`](API-Reference-tela#type-app) that shape what is drawn, so a test, `tela snapshot` and the window see the same app: the size when both Width and Height are set, RootClass, ColorScheme, Theme, ClassAliases, ClassicScrollbars, InstantScroll and Dev. It sets only what the app sets, so it never undoes an earlier option, and the options after it override it:
 
 ```go
-var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes}
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: tela.C(Notes)}
 
 app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
 app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))

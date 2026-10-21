@@ -5,46 +5,59 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 )
 
-// If returns c when cond holds and the zero value of its type otherwise.
-// It takes a node or a prop, so it works for children and for props: the
-// zero Node renders nothing but keeps the positions of the siblings after
-// it (toggling cond does not remount them), and the zero Prop changes
-// nothing.
+// If returns c when cond holds and an empty child otherwise: one that
+// renders nothing and applies nothing. It takes a node, a struct component
+// or a prop, so it works for children and for props: the empty child keeps
+// the positions of the siblings after it (toggling cond does not remount
+// them).
 //
 //	Div(
-//	    If(loading, Spinner()),
+//	    If(loading, Spinner{}),
 //	    If(selected, Class("ring-2 ring-indigo-500")),
 //	    If(err != nil, P(Class("text-red-600"), Text(err.Error()))),
 //	)
 //
+// The result is a [tela.Child], so it goes wherever one does: the children
+// of an element, Fragment, Presence, Portal and a Provider, and a field of
+// type tela.Child or tela.Component. It is not a [tela.Node]: a function
+// component that returns it wraps it, return Fragment(If(...)).
+//
 // Every argument of a call is evaluated: If(user != nil, Text(user.Name))
 // dereferences a nil user. Use an ordinary if for that case.
-//
-// The zero value of a struct component is a component that renders, so
-// give If a struct component as a tela.Component, whose zero value is nil
-// (nothing): If(loading, tela.Component(Spinner{})). Dev mode panics on
-// If(loading, Spinner{}).
-func If[C tela.Child](cond bool, c C) C {
-	core.CheckIf[C]()
+func If(cond bool, c tela.Child) tela.Child {
 	if cond {
 		return c
 	}
-	var zero C
-	return zero
+	return absent(c)
 }
 
-// IfElse returns a when cond holds and b otherwise: two nodes, or two
-// props.
+// IfElse returns a when cond holds and b otherwise: two nodes, two struct
+// components or two props. A branch that is itself empty (the nil child,
+// the zero Node, the result of an [If] that is off) renders nothing.
 //
 //	Div(IfElse(open, Class("h-64"), Class("h-0")),
-//	    IfElse(loading, Spinner(), Text(label)))
+//	    IfElse(loading, Spinner{}, Text(label)))
 //
 // Both arguments are evaluated, like those of [If].
-func IfElse[C tela.Child](cond bool, a, b C) C {
+func IfElse(cond bool, a, b tela.Child) tela.Child {
 	if cond {
 		return a
 	}
 	return b
+}
+
+// absent returns the empty child for a branch that is not taken: the zero
+// Prop or StyleProp when the branch is one (it applies nothing and adds no
+// child), and the zero Node, a hole that renders nothing, for every other
+// kind.
+func absent(c tela.Child) tela.Child {
+	switch c.(type) {
+	case tela.Prop:
+		return tela.Prop{}
+	case tela.StyleProp:
+		return tela.StyleProp{}
+	}
+	return tela.Node{}
 }
 
 // Map returns the nodes of f applied to every item, as one list. Give each

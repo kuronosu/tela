@@ -93,7 +93,7 @@ func Counter() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+	tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
 }
 ```
 

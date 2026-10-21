@@ -14,8 +14,8 @@ var App = tela.App{
 	Height:      100,
 	RootClass:   "bg-amber-300 dark:bg-amber-900",
 	ColorScheme: tela.Light,
-	Root: func() tela.Node {
+	Root: tela.C(func() tela.Node {
 		n, _ := tela.UseState(5)
 		return H1(Key("n"), Class("text-lg"), Textf("n=%d", n))
-	},
+	}),
 }

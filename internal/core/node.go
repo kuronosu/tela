@@ -483,7 +483,7 @@ func Textf(format string, args ...any) Node { return Text(fmt.Sprintf(format, ar
 // or a UseMemo) is not built again.
 //
 // key gives the node a key (the h.Key prop, the only prop accepted).
-func Component(fn func() Node, key ...Prop) Node {
+func Component(fn func() Node, key ...Child) Node {
 	if fn == nil {
 		panic("tela: C(nil): pass a component function, such as tela.C(Counter)")
 	}
@@ -493,9 +493,18 @@ func Component(fn func() Node, key ...Prop) Node {
 }
 
 // keyedComponent gives the new component node n the keys of key, which
-// are h.Key props: the optional last argument of C, CP and Memo.
-func keyedComponent(n Node, who string, key []Prop) Node {
-	for _, p := range key {
+// are h.Key props: the optional last argument of C, CP and Memo. It takes
+// Children so that If(cond, Key(id)) fits; a nil Child and the zero Prop
+// (the absent If) are skipped.
+func keyedComponent(n Node, who string, key []Child) Node {
+	for _, c := range key {
+		if c == nil {
+			continue
+		}
+		p, ok := propOf(c)
+		if !ok {
+			panic(fmt.Sprintf("tela: %s takes only Key as its last argument, not a node or a component; the element it builds takes classes and children, for example tela.%s(..., Key(id))", who, who))
+		}
 		if p.apply == nil {
 			continue // the zero Prop of If(false, Key(...))
 		}
@@ -517,7 +526,7 @@ func keyedComponent(n Node, who string, key []Prop) Node {
 //
 // Variables captured by fn are not compared: in dev mode, an anonymous
 // function or a method value is reported once per call site.
-func ComponentProps[P comparable](fn func(P) Node, props P, key ...Prop) Node {
+func ComponentProps[P comparable](fn func(P) Node, props P, key ...Child) Node {
 	if fn == nil {
 		panic("tela: CP(nil, ...): pass a component function, such as tela.CP(Card, CardProps{...})")
 	}
@@ -535,7 +544,7 @@ func ComponentProps[P comparable](fn func(P) Node, props P, key ...Prop) Node {
 // skips the build when equal(old, new) reports the props equal (tela.Memo):
 // for props that are not comparable, or that compare in another way.
 // equal is the new node's; it must be pure.
-func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Prop) Node {
+func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child) Node {
 	if fn == nil {
 		panic("tela: Memo(nil, ...): pass a component function, such as tela.Memo(Chart, props, sameSeries)")
 	}

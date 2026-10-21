@@ -660,22 +660,22 @@ Deprecated: use ID. Id will be removed in phase 8.
 ### func If
 
 ```go
-func If[C tela.Child](cond bool, c C) C
+func If(cond bool, c tela.Child) tela.Child
 ```
 
-If returns c when cond holds and the zero value of its type otherwise. It takes a node or a prop, so it works for children and for props: the zero Node renders nothing but keeps the positions of the siblings after it (toggling cond does not remount them), and the zero Prop changes nothing.
+If returns c when cond holds and an empty child otherwise: one that renders nothing and applies nothing. It takes a node, a struct component or a prop, so it works for children and for props: the empty child keeps the positions of the siblings after it (toggling cond does not remount them).
 
 ```go
 Div(
-    If(loading, Spinner()),
+    If(loading, Spinner{}),
     If(selected, Class("ring-2 ring-indigo-500")),
     If(err != nil, P(Class("text-red-600"), Text(err.Error()))),
 )
 ```
 
-Every argument of a call is evaluated: If(user != nil, Text(user.Name)) dereferences a nil user. Use an ordinary if for that case.
+The result is a [`tela.Child`](API-Reference-tela#type-child), so it goes wherever one does: the children of an element, Fragment, Presence, Portal and a Provider, and a field of type tela.Child or tela.Component. It is not a [`tela.Node`](API-Reference-tela#type-node): a function component that returns it wraps it, return Fragment(If(...)).
 
-The zero value of a struct component is a component that renders, so give If a struct component as a tela.Component, whose zero value is nil (nothing): If(loading, tela.Component(Spinner{})). Dev mode panics on If(loading, Spinner{}).
+Every argument of a call is evaluated: If(user != nil, Text(user.Name)) dereferences a nil user. Use an ordinary if for that case.
 
 **Example**
 
@@ -694,17 +694,36 @@ fmt.Println(yaml)
 // - paragraph: Done
 ```
 
+**Example (structComponent)**
+
+```go
+screen := func(loading bool) tela.Node {
+    return Div(
+        If(loading, Spinner{Label: "Loading"}),
+        P(Text("Inbox")),
+    )
+}
+for _, loading := range []bool{true, false} {
+    yaml, _ := telatest.AriaSnapshot(screen(loading))
+    fmt.Println(yaml)
+}
+// Output:
+// - status "Loading"
+// - paragraph: Inbox
+// - paragraph: Inbox
+```
+
 ### func IfElse
 
 ```go
-func IfElse[C tela.Child](cond bool, a, b C) C
+func IfElse(cond bool, a, b tela.Child) tela.Child
 ```
 
-IfElse returns a when cond holds and b otherwise: two nodes, or two props.
+IfElse returns a when cond holds and b otherwise: two nodes, two struct components or two props. A branch that is itself empty (the nil child, the zero Node, the result of an [`If`](#func-if) that is off) renders nothing.
 
 ```go
 Div(IfElse(open, Class("h-64"), Class("h-0")),
-    IfElse(loading, Spinner(), Text(label)))
+    IfElse(loading, Spinner{}, Text(label)))
 ```
 
 Both arguments are evaluated, like those of [`If`](#func-if).

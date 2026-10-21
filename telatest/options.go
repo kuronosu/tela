@@ -258,7 +258,7 @@ func ClassAliases(aliases map[string]string) Option {
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
 //
-//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes}
+//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: tela.C(Notes)}
 //
 //	app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
 //	app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))

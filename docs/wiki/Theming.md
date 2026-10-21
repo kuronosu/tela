@@ -48,7 +48,7 @@ palette):
 Give the window the page colors with `RootClass`:
 
 ```go
-tela.Main(tela.App{Title: "Notes", Root: Notes, RootClass: "bg-background text-foreground"})
+tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), RootClass: "bg-background text-foreground"})
 ```
 
 ## Your own theme
@@ -65,7 +65,7 @@ func main() {
 	theme.Radius = 10                                                                               // shadcn/ui's 0.625rem
 	theme.FontSans = "Geist"                                                                        // a system font; Inter stays as fallback
 
-	tela.Main(tela.App{Title: "Notes", Root: Notes, Theme: &theme, RootClass: "bg-background text-foreground"})
+	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Theme: &theme, RootClass: "bg-background text-foreground"})
 }
 ```
 

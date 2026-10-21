@@ -53,7 +53,7 @@ func Counter() tela.Node {
 
 // Preview lets `tela snapshot` and `tela inspect` render the screen. It
 // returns what is mounted, and Counter has state, so it is wrapped in tela.C,
-// like App.Root.
+// as in App.Root (a struct component needs no wrapper).
 func Preview() tela.Node { return tela.C(Counter) }
 
 func main() {
@@ -62,7 +62,7 @@ func main() {
 		Width:     480,
 		Height:    320,
 		RootClass: "bg-slate-100",
-		Root:      Counter,
+		Root:      tela.C(Counter),
 	})
 }
 ```

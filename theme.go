@@ -23,7 +23,7 @@ import "github.com/kuronosu/tela/internal/core"
 //	theme.Colors["primary"] = tela.SchemeColor{Light: tela.OKLCH(0.55, 0.2, 264), Dark: tela.OKLCH(0.7, 0.16, 264)}
 //	theme.Colors["brand"] = tela.SchemeColor{Light: tela.Hex("#7c3aed"), Dark: tela.Hex("#a78bfa")} // bg-brand
 //	theme.Radius = 10 // shadcn/ui's 0.625rem
-//	tela.Main(tela.App{Title: "Notes", Root: Notes, Theme: &theme, RootClass: "bg-background text-foreground"})
+//	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Theme: &theme, RootClass: "bg-background text-foreground"})
 //
 // A token missing from Colors keeps its value in DefaultTheme, so the
 // shadcn/ui tokens always resolve. A token name is lowercase letters,

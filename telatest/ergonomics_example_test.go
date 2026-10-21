@@ -25,7 +25,7 @@ func ExampleMountApp() {
 		Width:     480,
 		Height:    320,
 		RootClass: "bg-slate-100",
-		Root:      Counter,
+		Root:      tela.C(Counter),
 	})
 
 	app.Click(telatest.ByRole("button", "Increment"))

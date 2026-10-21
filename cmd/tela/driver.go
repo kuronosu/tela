@@ -71,7 +71,7 @@ const contractHelp = `it must define one of
 
 	func Preview() tela.Node        (or tela.Component)
 	var Previews = tela.Previews{"Name": {Root: tela.C(Screen)}}
-	var App = tela.App{Root: Screen, ...}
+	var App = tela.App{Root: tela.C(Screen), ...}
 
 (a package that defines App renders in the size, class, color scheme, theme and
 aliases of that App; alone, its Root is the screen. The phase-1 contract,
@@ -557,12 +557,12 @@ func telaBuild(want string) (telatela.Component, string, []string, error) {
 // The contract: var App = tela.App{Root: ...}; its Root is the screen.
 func telaBuild(want string) (telatela.Component, string, []string, error) {
 	if !telaHasApp {
-		return nil, "", nil, telafmt.Errorf("App is a %T, not a tela.App; define func Preview() tela.Node, or var App = tela.App{Root: Screen}", App)
+		return nil, "", nil, telafmt.Errorf("App is a %T, not a tela.App; define func Preview() tela.Node, or var App = tela.App{Root: tela.C(Screen)}", App)
 	}
 	if telaApp.Root == nil {
-		return nil, "", nil, telafmt.Errorf("App has no Root; set it to the root component, such as tela.App{Root: Screen}, or define func Preview() tela.Node")
+		return nil, "", nil, telafmt.Errorf("App has no Root; set it to the root component, such as tela.App{Root: tela.C(Screen)} or a struct component, tela.App{Root: Screen{}}, or define func Preview() tela.Node")
 	}
-	return telatela.C(telaApp.Root), "", nil, nil
+	return telaApp.Root, "", nil, nil
 }
 {{else -}}
 // The phase-1 contract: func Scene(w, h float32) *gfx.DisplayList.

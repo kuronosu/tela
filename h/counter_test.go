@@ -27,7 +27,7 @@ func Counter() tela.Node {
 }
 
 func main() {
-	tela.Run(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter})
+	tela.Run(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
 }
 
 // ExampleCounter checks that the example compiles as an application.

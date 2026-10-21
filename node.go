@@ -50,9 +50,10 @@ type Node = core.Node
 // inside the caller, whose hook slots it would take: dev mode panics and
 // says to pass Card{...} as a child instead. Where a [Node] is expected
 // (the result of a function component, an h.Map item), give the value to
-// h.Fragment, or key it with [WithKey]. h.If renders nothing for the zero
-// value of its type, and the zero value of a struct renders, so pass it
-// as a Component: If(loading, tela.Component(Spinner{})).
+// h.Fragment, or key it with [WithKey]. h.If takes a struct component as
+// is, If(loading, Spinner{}), and renders nothing when the condition is
+// false; it returns a [Child], so a function that returns a [Node] wraps it:
+// Fragment(If(...)).
 //
 // In dev mode (see [App].Dev) a pointer (Div(&Card{})) panics, since a
 // component is a value that Tela compares, and so does a [Prop] held by a

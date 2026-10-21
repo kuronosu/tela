@@ -147,7 +147,7 @@ func (s Stat) Build() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Layout animations", Width: 820, Height: 560, Root: Layout})
+	tela.Main(tela.App{Title: "Layout animations", Width: 820, Height: 560, Root: tela.C(Layout)})
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.

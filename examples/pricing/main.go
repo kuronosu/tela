@@ -46,6 +46,6 @@ func main() {
 		AppID:  "dev.telaui.pricing",
 		Width:  1280,
 		Height: 800,
-		Root:   Pricing,
+		Root:   tela.C(Pricing),
 	})
 }

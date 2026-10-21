@@ -68,10 +68,9 @@ func Screen() tela.Node {
   field of type `tela.Component` (`Card{Children: Class("p-4")}`): Go cannot
   tell it from a component at compile time. A field meant to take props too
   is declared as [`tela.Child`](https://pkg.go.dev/github.com/kuronosu/tela#Child).
-- [`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) returns the zero value of its argument's type when the condition is
-  false, and the zero value of a struct is a component that renders: write
-  `If(loading, tela.Component(Spinner{}))` (dev mode panics on
-  `If(loading, Spinner{})`).
+- [`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) takes a struct component directly, `If(loading, Spinner{})`, and
+  renders nothing when the condition is false. It returns a `tela.Child`, not
+  a `tela.Node`: a function component returns `Fragment(If(...))`.
 - A function returning a node is a component when you wrap it:
 
 ```go

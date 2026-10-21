@@ -89,7 +89,7 @@ import (
 
 var App = tela.App{
 	Width: 90, Height: 60, RootClass: "bg-violet-500", ColorScheme: tela.Dark,
-	Root: func() tela.Node { return Div(Class("size-6 bg-white dark:bg-black")) },
+	Root: tela.C(func() tela.Node { return Div(Class("size-6 bg-white dark:bg-black")) }),
 }
 `,
 	}

@@ -268,24 +268,6 @@ func propFieldMessage(ct *compType, field string, p Prop) string {
 		ct.short, field, n, field, n)
 }
 
-// CheckIf is the dev-mode check of h.If's type parameter: If returns the
-// zero value of C when its condition is false, which renders nothing only
-// for a Node (a hole), a Prop (no prop) or an interface (nil); the zero
-// value of a struct component is a component that renders (If(loading,
-// Spinner{}) would always show a Spinner). It panics with the fix, in
-// dev mode, whatever the condition.
-func CheckIf[C any]() {
-	if !devNow() {
-		return
-	}
-	t := reflect.TypeFor[C]()
-	if t.Kind() == reflect.Interface || t == reflect.TypeFor[Node]() || t == reflect.TypeFor[Prop]() || t == reflect.TypeFor[StyleProp]() {
-		return
-	}
-	n := shortTypeName(t)
-	panic(fmt.Sprintf("tela: If(cond, %s{...}) returns %s{} when cond is false, a component with zero fields that renders, not nothing: If renders nothing only for nodes, props and interfaces. Write If(cond, tela.Component(%s{...})), or an if statement", n, n, n))
-}
-
 // ---------------------------------------------------------------------
 // Equality.
 
