@@ -16,6 +16,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 - `telatest`: `MountFunc`, `GoldenScales(name, 1, 2)` (one golden per scale, same app state), `ClickAt`/`DragFromTo` in window coordinates, `PixelAt`, `Measure(func())` for build/layout/paint deltas, and `Expect(locator, Checked(true), Disabled(false), HasValue("x")…)` state assertions with the node's states in the failure message.
 - `h.TestID(id)` and `telatest.ByTestID(id)`, test-only ids that never reach the aria snapshot or accessibility output.
+- `tela/i18n`: JSON message catalogs with ICU MessageFormat (`plural`, `select`, `selectordinal`), CLDR plural rules, locale-aware numbers, dates, times and lists, the system locale by default, runtime switching with `SetLocale` (only components that call `UseT`/`UseLocale` rebuild), `Provider` for a subtree's locale and `Dir` for text direction. New dependency: `golang.org/x/text`.
 
 ### Breaking
 
