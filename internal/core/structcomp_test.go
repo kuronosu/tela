@@ -585,3 +585,64 @@ func TestInitialOption(t *testing.T) {
 	}
 	_ = tr
 }
+
+// ifaceCard embeds the Component interface and has a Build of its own;
+// deepIfaceCard embeds it one level deeper, and wrapIfaceCard has no Build
+// of its own (its Build is promoted from the interface).
+type ifaceCard struct {
+	Comp
+	Title string
+}
+
+func (c ifaceCard) Build() Node { return div(Text(c.Title), c.Comp) }
+
+type ifaceInner struct{ Comp }
+
+type deepIfaceCard struct {
+	ifaceInner
+	Title string
+}
+
+func (c deepIfaceCard) Build() Node { return div(Text(c.Title), c.Comp) }
+
+type childIfaceCard struct {
+	Child
+	Title string
+}
+
+func (c childIfaceCard) Build() Node { return div(Text(c.Title), c.Child) }
+
+type wrapIfaceCard struct{ Comp }
+
+// TestStructComponentEmbeddedInterface: an embedded interface with a
+// Build method (Component, Child) has no code reflect can name, which
+// crashed the type's first use in dev and release mode.
+func TestStructComponentEmbeddedInterface(t *testing.T) {
+	for _, dev := range []bool{true, false} {
+		mk := func(root Node) *Tree {
+			if dev {
+				return devTree(t, root, nil)
+			}
+			return newTestTree(t, 300, 200, root, nil)
+		}
+		for _, c := range []struct {
+			name string
+			root Node
+			want string
+		}{
+			{"embedded Component", div(ifaceCard{Title: "t", Comp: Text("kid")}), "tkid"},
+			{"embedded one level deeper", div(deepIfaceCard{Title: "d", ifaceInner: ifaceInner{Text("kid")}}), "dkid"},
+			{"embedded Child", div(childIfaceCard{Title: "c", Child: Text("kid")}), "ckid"},
+			{"Build promoted from the interface", div(wrapIfaceCard{Text("kid")}), "kid"},
+		} {
+			var tr *Tree
+			if msg := panicMessage(func() { tr = mk(c.root); tr.Frame() }); msg != "" {
+				t.Errorf("dev=%v %s: panicked: %s", dev, c.name, msg)
+				continue
+			}
+			if got := texts(tr); got != c.want {
+				t.Errorf("dev=%v %s: text %q, want %q", dev, c.name, got, c.want)
+			}
+		}
+	}
+}

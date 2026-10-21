@@ -93,7 +93,7 @@ func compTypeOf(rt reflect.Type) *compType {
 
 func newCompType(rt reflect.Type) *compType {
 	ct := &compType{name: fullTypeName(rt), short: shortTypeName(rt), eq: eqKindOf(rt)}
-	if m, ok := rt.MethodByName("Build"); ok {
+	if m, ok := rt.MethodByName("Build"); ok && m.Func.IsValid() {
 		ct.pc = m.Func.Pointer()
 		if f := runtime.FuncForPC(ct.pc); f != nil {
 			ct.owner = normFunc(f.Name())
@@ -139,14 +139,15 @@ func shortTypeName(rt reflect.Type) string {
 // embeddedBuilds appends the normalized names of the Build methods of the
 // types embedded in rt (through pointers too, recursively, a few levels
 // deep): a Build promoted from one of them is accepted as the boundary.
+// An embedded interface (tela.Component, tela.Child) is skipped: its Build
+// is whatever the field holds at run time, and reflect has no code for it
+// (its Method.Func is the zero Value, whose Pointer panics).
 func embeddedBuilds(rt reflect.Type, out []string, depth int) []string {
 	if rt.Kind() == reflect.Pointer {
 		rt = rt.Elem()
-		if m, ok := rt.MethodByName("Build"); ok && depth == 0 {
+		if depth == 0 {
 			// A pointer type: its Build is the element type's.
-			if f := runtime.FuncForPC(m.Func.Pointer()); f != nil {
-				out = append(out, normFunc(f.Name()))
-			}
+			out = appendBuildName(out, rt)
 		}
 	}
 	if rt.Kind() != reflect.Struct || depth > 4 {
@@ -154,15 +155,24 @@ func embeddedBuilds(rt reflect.Type, out []string, depth int) []string {
 	}
 	for i := range rt.NumField() {
 		f := rt.Field(i)
-		if !f.Anonymous {
+		if !f.Anonymous || f.Type.Kind() == reflect.Interface {
 			continue
 		}
-		if m, ok := f.Type.MethodByName("Build"); ok {
-			if fn := runtime.FuncForPC(m.Func.Pointer()); fn != nil {
-				out = append(out, normFunc(fn.Name()))
-			}
-		}
+		out = appendBuildName(out, f.Type)
 		out = embeddedBuilds(f.Type, out, depth+1)
+	}
+	return out
+}
+
+// appendBuildName appends the normalized name of the code of rt's Build
+// method, if rt has one with code (an interface type has none).
+func appendBuildName(out []string, rt reflect.Type) []string {
+	m, ok := rt.MethodByName("Build")
+	if !ok || !m.Func.IsValid() {
+		return out
+	}
+	if fn := runtime.FuncForPC(m.Func.Pointer()); fn != nil {
+		out = append(out, normFunc(fn.Name()))
 	}
 	return out
 }
