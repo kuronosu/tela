@@ -12,6 +12,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- `telatest`: `MountFunc`, `GoldenScales(name, 1, 2)` (one golden per scale, same app state), `ClickAt`/`DragFromTo` in window coordinates, `PixelAt`, `Measure(func())` for build/layout/paint deltas, and `Expect(locator, Checked(true), Disabled(false), HasValue("x")…)` state assertions with the node's states in the failure message.
+- `h.TestID(id)` and `telatest.ByTestID(id)`, test-only ids that never reach the aria snapshot or accessibility output.
+
+### Breaking
+
+- `telatest.App.Bounds` returns a `tela.Rect` (window coordinates, like `ElementRef.Bounds`) instead of four numbers.
+
 ## [0.6.0] - 2026-10-19
 
 ### Added
