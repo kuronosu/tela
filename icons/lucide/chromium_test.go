@@ -23,13 +23,13 @@ import (
 // The Chromium oracle for an icon set (ADR-102, phase 8's done criterion:
 // "an SVG icon set renders within a few levels of Chromium at scales 1 and
 // 2"). Every distinct Lucide icon (aliases have the same drawing and are
-// compared once) is shown in a 32 px cell of a grid, centered at 16 and at
+// compared once) is shown in a 32 px cell of a grid, drawn at
 // 24 px, in one color, through h.Icon and telatest; headless Chromium shows
 // the same SVG markup inline with the same CSS:
 //
 //	.g  { display: flex; flex-wrap: wrap; width: 2048px }
 //	.c  { flex: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center }
-//	svg { display: block; width: 16px (or 24px); height: ...; color: #1e293b }
+//	svg { display: block; width: 24px; height: 24px; color: #1e293b }
 //
 // With TELA_CHROMIUM=1 the test rebuilds the pages in a temporary
 // directory and takes the screenshots (TELA_CHROMIUM_BIN, default
@@ -52,7 +52,9 @@ const (
 	inkColor = "#1e293b" // slate-800
 )
 
-var gridSizes = []int{16, 24} // icon sizes in px
+// gridSizes are the icon sizes in px. 16 px was measured once (ADR-102) and
+// is no longer committed: only 24 px is checked.
+var gridSizes = []int{24}
 
 // distinct returns the icons with their first name (sorted), dropping the
 // ones that repeat an earlier SVG: Lucide's renamed icons keep the old name
@@ -221,14 +223,14 @@ func regenerate(t *testing.T, cells []entry, dir string) {
 	}
 }
 
-// Bounds: the measured worst values (ADR-102) plus a margin. The averages
-// are 0.5-0.9 levels per channel and 1.8-6.7% of the ink; the worst icons
-// are circles and curves at scale 1, where Skia's coverage of anti-aliased
-// edges differs from exact area coverage.
+// Bounds: the measured worst values at 24 px (ADR-102) plus a margin. The
+// averages are 0.5-0.9 levels per channel and 1.8-3.0% of the ink; the worst
+// icons are circles and curves at scale 1, where Skia's coverage of
+// anti-aliased edges differs from exact area coverage.
 const (
 	boundMean = 3.5  // mean difference of a cell, levels per channel (measured worst 3.10)
-	boundRel  = 0.25 // share of a cell's ink that differs (measured worst 0.21)
-	boundAvg  = 1.05 // mean of the cells' means (measured worst 0.93)
+	boundRel  = 0.16 // share of a cell's ink that differs (measured worst 0.117)
+	boundAvg  = 1.05 // mean of the cells' means (measured worst 0.91)
 )
 
 func TestChromiumLucide(t *testing.T) {

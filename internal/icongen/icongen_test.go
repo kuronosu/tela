@@ -378,3 +378,44 @@ func TestGenerateIgnoresOtherFiles(t *testing.T) {
 		t.Errorf("got %v, want A,B", got)
 	}
 }
+
+func TestGenerateDeprecated(t *testing.T) {
+	doc := &fstest.MapFile{Data: []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>`)}
+	fsys := fstest.MapFS{"circle-alert.svg": doc, "alert-circle.svg": doc, "old/arrow.svg": doc, "ok.svg": doc}
+	res, err := Generate(fsys, Options{Package: "icons", Recursive: true, Deprecated: map[string]string{
+		"alert-circle": "circle-alert",
+		"old/arrow":    "ok",
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(res.Code)
+	for _, want := range []string{
+		"// AlertCircle is the icon \"alert-circle\".\n//\n// Deprecated: use CircleAlert.\nvar AlertCircle =",
+		"// OldArrow is the icon \"old/arrow\".\n//\n// Deprecated: use Ok.\nvar OldArrow =",
+		"// CircleAlert is the icon \"circle-alert\".\nvar CircleAlert =",
+	} {
+		if !strings.Contains(code, want) {
+			t.Errorf("the file lacks %q:\n%s", want, code)
+		}
+	}
+	if strings.Count(code, "Deprecated:") != 2 {
+		t.Errorf("want 2 deprecation paragraphs:\n%s", code)
+	}
+
+	for _, tc := range []struct {
+		name string
+		dep  map[string]string
+		want string
+	}{
+		{"missing icon", map[string]string{"nope": "ok"}, `deprecated icon "nope" is not an icon`},
+		{"missing replacement", map[string]string{"ok": "nope"}, `in favor of "nope", which is not an icon`},
+		{"itself", map[string]string{"ok": "ok"}, "in favor of itself"},
+		{"chain", map[string]string{"alert-circle": "ok", "ok": "circle-alert"}, `"ok", which is deprecated too`},
+	} {
+		_, err := Generate(fsys, Options{Package: "icons", Recursive: true, Deprecated: tc.dep})
+		if err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%s: got %v, want %q", tc.name, err, tc.want)
+		}
+	}
+}

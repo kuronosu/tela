@@ -52,6 +52,14 @@ type Options struct {
 	// LicenseText is the text of the license file, copied into the
 	// generated file. All three are optional.
 	Source, License, LicenseText string
+	// Deprecated marks icons as deprecated in favor of others: each key is
+	// the name of an icon (its file name without the extension, slash
+	// separated) and the value the name of the icon that replaces it. The
+	// variable of a deprecated icon gets a "Deprecated: use X." paragraph in
+	// its documentation, so gopls and staticcheck flag its uses. A key or a
+	// value that is not an icon of the directory, and a replacement that is
+	// itself deprecated, are errors.
+	Deprecated map[string]string
 }
 
 // Icon is one generated icon.
@@ -59,6 +67,7 @@ type Icon struct {
 	File string // the path of the SVG file, relative to the directory
 	Name string // the file name without the extension, slash separated
 	Var  string // the Go variable
+	Use  string // the variable that replaces a deprecated icon, or ""
 	SVG  string // the document that went into the file
 	Size int    // the size of the file in bytes before minifying
 }
@@ -192,6 +201,9 @@ func Generate(fsys fs.FS, opt Options) (*Result, error) {
 	if len(res.Icons) == 0 {
 		return nil, errors.New("every .svg file was skipped; nothing to generate")
 	}
+	if err := markDeprecated(res.Icons, opt.Deprecated); err != nil {
+		return nil, err
+	}
 	sort.Slice(res.Icons, func(i, j int) bool { return res.Icons[i].Var < res.Icons[j].Var })
 
 	code, err := render(opt, res.Icons)
@@ -200,6 +212,48 @@ func Generate(fsys fs.FS, opt Options) (*Result, error) {
 	}
 	res.Code = code
 	return res, nil
+}
+
+// markDeprecated sets Icon.Use for the icons named by deprecated.
+func markDeprecated(icons []Icon, deprecated map[string]string) error {
+	if len(deprecated) == 0 {
+		return nil
+	}
+	byName := make(map[string]int, len(icons))
+	for i, ic := range icons {
+		byName[ic.Name] = i
+	}
+	names := make([]string, 0, len(deprecated))
+	for name := range deprecated {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var problems []Problem
+	for _, name := range names {
+		use := deprecated[name]
+		i, ok := byName[name]
+		if !ok {
+			problems = append(problems, Problem{File: name, Err: fmt.Errorf("deprecated icon %q is not an icon of the directory (a name is a file name without .svg, such as \"alert-circle\"; was the file skipped?)", name)})
+			continue
+		}
+		j, ok := byName[use]
+		switch {
+		case !ok:
+			problems = append(problems, Problem{File: name, Err: fmt.Errorf("deprecated in favor of %q, which is not an icon of the directory", use)})
+		case use == name:
+			problems = append(problems, Problem{File: name, Err: errors.New("deprecated in favor of itself")})
+		default:
+			if _, again := deprecated[use]; again {
+				problems = append(problems, Problem{File: name, Err: fmt.Errorf("deprecated in favor of %q, which is deprecated too; name the final icon", use)})
+				continue
+			}
+			icons[i].Use = icons[j].Var
+		}
+	}
+	if len(problems) > 0 {
+		return limitedError(problems, "fix the deprecated list (-deprecated)")
+	}
+	return nil
 }
 
 // convert reads, validates and minifies one file.
@@ -274,7 +328,11 @@ func render(opt Options, icons []Icon) ([]byte, error) {
 	b.WriteString("// name, so the linker leaves out the icons a program does not use.\n")
 	fmt.Fprintf(&b, "package %s\n\nimport \"github.com/kuronosu/tela\"\n", opt.Package)
 	for _, ic := range icons {
-		fmt.Fprintf(&b, "\n// %s is the icon %s.\nvar %s = tela.Icon{SVG: %s}\n", ic.Var, strconv.Quote(ic.Name), ic.Var, literal(ic.SVG))
+		fmt.Fprintf(&b, "\n// %s is the icon %s.\n", ic.Var, strconv.Quote(ic.Name))
+		if ic.Use != "" {
+			fmt.Fprintf(&b, "//\n// Deprecated: use %s.\n", ic.Use)
+		}
+		fmt.Fprintf(&b, "var %s = tela.Icon{SVG: %s}\n", ic.Var, literal(ic.SVG))
 	}
 	out, err := format.Source(b.Bytes())
 	if err != nil {

@@ -122,6 +122,46 @@ func TestIconsGenRecursiveAndAffixes(t *testing.T) {
 	}
 }
 
+func TestIconsGenDeprecated(t *testing.T) {
+	src := writeSVGs(t, map[string]string{"check.svg": checkSVG, "tick.svg": checkSVG})
+	list := filepath.Join(t.TempDir(), "deprecated.json")
+	if err := os.WriteFile(list, []byte(`{"tick": "check"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"icons", "gen", "-pkg", "demo", "-o", out, "-deprecated", list, src}, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(out, "icons_gen.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "// Tick is the icon \"tick\".\n//\n// Deprecated: use Check.\nvar Tick ="; !strings.Contains(string(data), want) {
+		t.Errorf("the file lacks %q:\n%s", want, data)
+	}
+
+	bad := filepath.Join(t.TempDir(), "bad.json")
+	for content, want := range map[string]string{
+		`["tick"]`:                "JSON object from icon name",
+		`{"tick": "check"} extra`: "unexpected data",
+		`{"tick": "nope"}`:        `"nope", which is not an icon`,
+		`{"nope": "check"}`:       `deprecated icon "nope" is not an icon`,
+	} {
+		if err := os.WriteFile(bad, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		stderr.Reset()
+		if code := run([]string{"icons", "gen", "-pkg", "demo", "-o", out, "-deprecated", bad, src}, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), want) {
+			t.Errorf("%s: exit %d, stderr %q; want exit 1 and %q", content, code, stderr.String(), want)
+		}
+	}
+	stderr.Reset()
+	if code := run([]string{"icons", "gen", "-pkg", "demo", "-deprecated", filepath.Join(src, "none.json"), src}, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "-deprecated") {
+		t.Errorf("missing file: exit %d, stderr %q", code, stderr.String())
+	}
+}
+
 func TestIconsGenUsageErrors(t *testing.T) {
 	src := writeSVGs(t, map[string]string{"a.svg": checkSVG})
 	for _, tc := range []struct {

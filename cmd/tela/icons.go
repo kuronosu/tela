@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -69,11 +71,20 @@ Flags:
 	                 package documentation ("Lucide 1.61.0, https://lucide.dev")
 	-license name    the license of the icons, for the same places ("ISC")
 	-license-file f  copy the text of this license file into the header
+	-deprecated f    a JSON file that marks icons as deprecated: an object from
+	                 the name of an icon (its file name without .svg) to the
+	                 name of the icon that replaces it, such as
+	                 {"alert-circle": "circle-alert"}. The variable of
+	                 alert-circle gets the paragraph "Deprecated: use
+	                 CircleAlert." in its documentation, so gopls and
+	                 staticcheck flag its uses. A name that is not a file of
+	                 <dir>, or a replacement that is deprecated too, is an
+	                 error.
 
 Example, the way the Lucide module of the Tela repository is generated:
 
 	tela icons gen -pkg lucide -source "Lucide 1.61.0" -license ISC \
-	    -license-file LICENSE ./lucide-static/icons
+	    -license-file LICENSE -deprecated deprecated.json ./lucide-static/icons
 `
 
 // iconsGenFile is the name of the generated file.
@@ -85,6 +96,8 @@ type iconsGenOptions struct {
 	Dir         string
 	Out         string
 	LicenseFile string
+	// DeprecatedFile is the -deprecated JSON file.
+	DeprecatedFile string
 }
 
 // parseIconsGenArgs parses the arguments of `tela icons gen`.
@@ -103,6 +116,7 @@ func parseIconsGenArgs(args []string) (iconsGenOptions, error) {
 	fs.StringVar(&opts.Source, "source", "", "")
 	fs.StringVar(&opts.License, "license", "", "")
 	fs.StringVar(&opts.LicenseFile, "license-file", "", "")
+	fs.StringVar(&opts.DeprecatedFile, "deprecated", "", "")
 
 	var dirs []string
 	for len(args) > 0 {
@@ -186,6 +200,19 @@ func iconsGen(opts iconsGenOptions, stdout, stderr io.Writer) error {
 			return fmt.Errorf("cannot read -license-file: %v", err)
 		}
 		opts.LicenseText = string(text)
+	}
+	if opts.DeprecatedFile != "" {
+		data, err := os.ReadFile(opts.DeprecatedFile)
+		if err != nil {
+			return fmt.Errorf("cannot read -deprecated: %v", err)
+		}
+		dec := json.NewDecoder(bytes.NewReader(data))
+		if err := dec.Decode(&opts.Deprecated); err != nil {
+			return fmt.Errorf("cannot read -deprecated %s: %v (it is a JSON object from icon name to replacement name, such as {\"alert-circle\": \"circle-alert\"})", opts.DeprecatedFile, err)
+		}
+		if _, err := dec.Token(); err != io.EOF {
+			return fmt.Errorf("cannot read -deprecated %s: unexpected data after the JSON object", opts.DeprecatedFile)
+		}
 	}
 	res, err := icongen.Generate(os.DirFS(opts.Dir), opts.Options)
 	if err != nil {
