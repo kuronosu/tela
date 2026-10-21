@@ -6,18 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
 const windowW, windowH = 1440, 900
 
-// mount opens the page in dev mode, where any dev message (an unknown
-// class, a hook misuse) fails the test.
+// mount opens App's window at a size; dev mode is on, so any dev message
+// (an unknown class, a hook misuse) fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
-	return telatest.Mount(t, tela.C(Dashboard), opts...)
+	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
+	return telatest.MountApp(t, App, opts...)
 }
 
 // TestNoDevMessages opens the page at several window sizes, from a narrow
@@ -101,10 +100,7 @@ func TestSort(t *testing.T) {
 	a := mount(t, windowW, windowH, telatest.NoSettle(), telatest.InstantScroll())
 	rows := telatest.ByText("Priorities", telatest.Exact())
 	a.Scroll(rows, 0, 500) // bring the list into view
-	row := func(title string) float32 {
-		y := a.Bounds(telatest.ByText(title, telatest.Exact())).Y
-		return y
-	}
+	row := func(title string) float32 { return a.Bounds(telatest.ByText(title, telatest.Exact())).Y }
 	first, last := "Fix the failed invoice retries", "Publish the API changelog"
 	if row(first) >= row(last) {
 		t.Fatalf("by priority %q should come before %q", first, last)
@@ -144,12 +140,9 @@ func TestTabs(t *testing.T) {
 	a.ExpectText("$9k")
 	a.Click(telatest.ByRole("tab", "Orders"))
 	a.ExpectCount(underline, 1)
-	uxBox := a.Bounds(underline)
-	ux, uw := uxBox.X, uxBox.Width
-	txBox := a.Bounds(telatest.ByRole("tab", "Orders"))
-	tx, tw := txBox.X, txBox.Width
-	if ux < tx || ux+uw > tx+tw {
-		t.Errorf("the underline spans %v to %v, outside the Orders tab (%v to %v)", ux, ux+uw, tx, tx+tw)
+	line, tab := a.Bounds(underline), a.Bounds(telatest.ByRole("tab", "Orders"))
+	if line.X < tab.X || line.Right() > tab.Right() {
+		t.Errorf("the underline spans %v to %v, outside the Orders tab (%v to %v)", line.X, line.Right(), tab.X, tab.Right())
 	}
 	a.ExpectNoText("$9k")
 	a.ExpectText("2.4k")

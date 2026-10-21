@@ -17,8 +17,7 @@ import (
 const (
 	// glass is a frosted panel: translucent white (or tinted) over the
 	// backdrop, a bright hairline edge and a soft shadow.
-	glass = "rounded-2xl border border-white/60 bg-white/55 " +
-		"dark:border-white/10 dark:bg-white/5"
+	glass = "rounded-2xl border border-white/60 bg-white/55 dark:border-white/10 dark:bg-white/5"
 	// lift is the hover reaction of an interactive panel. Only transform and
 	// shadow transition: the fills do not, so switching the theme repaints
 	// the page once instead of fading every card.
@@ -39,5 +38,5 @@ func Backdrop() tela.Node {
 	if tela.UseColorScheme() == tela.Dark {
 		img = "bg-[url(img/aurora-dark.jpg)]"
 	}
-	return Div(Class("pointer-events-none fixed inset-0 -z-10 bg-cover bg-center "+img), AriaHidden(true))
+	return Div(Class("pointer-events-none fixed inset-0 -z-10 bg-cover bg-center", img), AriaHidden(true))
 }

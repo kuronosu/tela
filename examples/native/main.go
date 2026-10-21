@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
 )
 
 // parseTheme resolves the -theme flag: "auto" is win11 on Windows and
@@ -73,19 +74,15 @@ func main() {
 		os.Exit(2)
 	}
 
-	th := Themes[id]
-	if err := tela.Run(tela.App{
-		Title:  th.Title,
+	tela.Main(tela.App{
+		Title:  Themes[id].Title,
 		AppID:  "dev.telaui.native",
 		Width:  windowW,
 		Height: windowH,
 		Root: func() tela.Node {
-			return tela.CP(Explorer, Props{Theme: id, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"})
+			return Fragment(Explorer{Theme: id, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"})
 		},
-	}); err != nil {
-		fmt.Fprintln(os.Stderr, "native:", err)
-		os.Exit(1)
-	}
+	})
 }
 
 // Previews are the screens `tela snapshot --preview` can render: every
@@ -97,7 +94,7 @@ var Previews = func() tela.Previews {
 		for _, m := range []Mode{Light, Dark} {
 			th, mode := Themes[id], m
 			p[fmt.Sprintf("%d %s %s", n, th.Name(), mode)] = tela.Preview{
-				Root: tela.CP(Explorer, Props{Theme: th.ID, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"}),
+				Root: Explorer{Theme: th.ID, Mode: mode, Path: "Documents", Sel: "Contract draft.docx"},
 			}
 			n++
 		}

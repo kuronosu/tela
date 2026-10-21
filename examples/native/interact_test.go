@@ -8,7 +8,7 @@ import (
 )
 
 func start(t *testing.T, id string, m Mode, path Path) *telatest.App {
-	return mount(t, Props{Theme: id, Mode: m, Path: path})
+	return mount(t, Explorer{Theme: id, Mode: m, Path: path})
 }
 
 // TestClickSelects: a click selects one row and a click on another moves the
@@ -17,13 +17,10 @@ func TestClickSelects(t *testing.T) {
 	eachTheme(t, func(t *testing.T, id string, m Mode) {
 		a := start(t, id, m, "Documents")
 		a.Click(opt("Resume.pdf"))
-		if !isSelected(a, "Resume.pdf") {
-			t.Fatal("Resume.pdf is not selected after a click")
-		}
+		a.Expect(opt("Resume.pdf"), telatest.Selected(true))
 		a.Click(opt("todo.md"))
-		if isSelected(a, "Resume.pdf") || !isSelected(a, "todo.md") {
-			t.Fatal("the selection did not move to todo.md")
-		}
+		a.Expect(opt("todo.md"), telatest.Selected(true))
+		a.Expect(opt("Resume.pdf"), telatest.Selected(false))
 		a.ExpectText("todo.md")
 	})
 }
@@ -32,9 +29,7 @@ func TestClickSelects(t *testing.T) {
 func TestNavigation(t *testing.T) {
 	eachTheme(t, func(t *testing.T, id string, m Mode) {
 		a := start(t, id, m, "Documents")
-		if !strings.Contains(a.AriaSnapshot(), `button "Back" [disabled]`) {
-			t.Fatal("Back is enabled before any navigation")
-		}
+		a.Expect(btn("Back"), telatest.Disabled(true)) // nothing to go back to
 
 		a.DoubleClick(opt("Projects"))
 		a.ExpectCount(opt("tela"), 1)
@@ -116,23 +111,15 @@ func TestKeyboard(t *testing.T) {
 	eachTheme(t, func(t *testing.T, id string, m Mode) {
 		a := start(t, id, m, "Documents")
 		a.Press("ArrowDown")
-		if !isSelected(a, "Projects") {
-			t.Fatalf("first ArrowDown did not select the first entry:\n%s", a.AriaSnapshot())
-		}
+		a.Expect(opt("Projects"), telatest.Selected(true)) // the first entry
 		a.Press("ArrowDown")
 		a.Press("ArrowDown")
-		if !isSelected(a, "Taxes 2025") {
-			t.Fatal("Taxes 2025 is not selected after three ArrowDown")
-		}
+		a.Expect(opt("Taxes 2025"), telatest.Selected(true))
 		a.Press("ArrowUp")
-		if !isSelected(a, "Reports") {
-			t.Fatal("Reports is not selected after ArrowUp")
-		}
+		a.Expect(opt("Reports"), telatest.Selected(true))
 		a.Press("ArrowUp")
 		a.Press("ArrowUp") // stays on the first entry
-		if !isSelected(a, "Projects") {
-			t.Fatal("selection left the first entry")
-		}
+		a.Expect(opt("Projects"), telatest.Selected(true))
 
 		a.Press("Enter") // Projects
 		a.ExpectCount(opt("tela"), 1)
@@ -146,10 +133,8 @@ func TestKeyboard(t *testing.T) {
 		a.ExpectCount(opt("Resume.pdf"), 1)
 
 		a.Press("End")
-		if !isSelected(a, "todo.md") {
-			t.Fatal("End did not select the last entry")
-		}
-		a.Press("Enter") // a file: it only says so
+		a.Expect(opt("todo.md"), telatest.Selected(true)) // the last entry
+		a.Press("Enter")                                  // a file: it only says so
 		a.ExpectText("Opening todo.md")
 
 		a.Press("Alt+ArrowUp")
@@ -191,19 +176,17 @@ func TestSortByColumn(t *testing.T) {
 func TestHoverAndSelectionPixels(t *testing.T) {
 	eachTheme(t, func(t *testing.T, id string, m Mode) {
 		a := mount(t, shown(id, m))
-		xBox := a.Bounds(opt("Resume.pdf"))
-		x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
-		px := int(x + w - 4)
-		py := int(y + h/2)
+		row := a.Bounds(opt("Resume.pdf"))
+		px := int(row.Right() - 4)
+		py := int(row.Y + row.Height/2)
 		rest := a.Screenshot().RGBAAt(px, py)
 		a.Hover(opt("Resume.pdf"))
 		hover := a.Screenshot().RGBAAt(px, py)
 		if hover == rest {
 			t.Errorf("hover did not change the row: %v", rest)
 		}
-		sxBox := a.Bounds(opt("Contract draft.docx"))
-		sx, sy, sw, sh := sxBox.X, sxBox.Y, sxBox.Width, sxBox.Height
-		sel := a.Screenshot().RGBAAt(int(sx+sw-4), int(sy+sh/2))
+		chosen := a.Bounds(opt("Contract draft.docx"))
+		sel := a.Screenshot().RGBAAt(int(chosen.Right()-4), int(chosen.Y+chosen.Height/2))
 		if sel == rest || sel == hover {
 			t.Errorf("selected row %v looks like an idle %v or hovered %v row", sel, rest, hover)
 		}
@@ -245,6 +228,6 @@ func TestPreviews(t *testing.T) {
 		t.Fatalf("%d previews, want 6", len(Previews))
 	}
 	for _, name := range Previews.Names() {
-		telatest.Mount(t, Previews[name], telatest.Size(windowW, windowH), telatest.Dev())
+		telatest.Mount(t, Previews[name], telatest.Size(windowW, windowH))
 	}
 }

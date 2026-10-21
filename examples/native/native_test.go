@@ -3,24 +3,22 @@ package main
 import (
 	"fmt"
 	"image"
-	"strings"
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
-// mount opens the explorer in dev mode, where any dev message (an unknown
+// mount opens the explorer; dev mode is on, so any dev message (an unknown
 // class in a theme, say) fails the test.
-func mount(t *testing.T, p Props, opts ...telatest.Option) *telatest.App {
+func mount(t *testing.T, p Explorer, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(windowW, windowH), telatest.Dev()}, opts...)
-	return telatest.Mount(t, tela.CP(Explorer, p), opts...)
+	opts = append([]telatest.Option{telatest.Size(windowW, windowH)}, opts...)
+	return telatest.Mount(t, p, opts...)
 }
 
 // shown is the screen of the previews: Documents with a file selected.
-func shown(theme string, m Mode) Props {
-	return Props{Theme: theme, Mode: m, Path: "Documents", Sel: "Contract draft.docx"}
+func shown(theme string, m Mode) Explorer {
+	return Explorer{Theme: theme, Mode: m, Path: "Documents", Sel: "Contract draft.docx"}
 }
 
 var modes = []Mode{Light, Dark}
@@ -43,8 +41,8 @@ func search() telatest.Locator         { return telatest.ByRole("searchbox", "Se
 func TestNoDevMessages(t *testing.T) {
 	eachTheme(t, func(t *testing.T, id string, m Mode) {
 		for _, s := range [][2]float32{{windowW, windowH}, {800, 500}, {1600, 900}} {
-			for _, p := range []Props{shown(id, m), {Theme: id, Mode: m}, {Theme: id, Mode: m, Path: "Documents", Query: "zzz"}} {
-				telatest.Mount(t, tela.CP(Explorer, p), telatest.Size(s[0], s[1]), telatest.Dev())
+			for _, p := range []Explorer{shown(id, m), {Theme: id, Mode: m}, {Theme: id, Mode: m, Path: "Documents", Query: "zzz"}} {
+				telatest.Mount(t, p, telatest.Size(s[0], s[1]))
 			}
 		}
 	})
@@ -107,11 +105,6 @@ func TestThemesDiffer(t *testing.T) {
 			}
 		}
 	}
-}
-
-// isSelected reports whether the option of that name is selected.
-func isSelected(a *telatest.App, name string) bool {
-	return strings.Contains(a.AriaSnapshot(), fmt.Sprintf("- option %q [selected]", name))
 }
 
 func TestAriaSnapshot(t *testing.T) {

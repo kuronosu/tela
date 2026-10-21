@@ -8,9 +8,11 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-// Props select the theme and the screen the explorer starts on. They are
-// comparable, so tela.CP skips the build when they do not change.
-type Props struct {
+// Explorer is the whole window. One tree serves every theme: the Theme only
+// supplies class strings, texts and number formats. Its fields select the
+// theme and the screen the explorer starts on (they seed its state); they
+// are comparable, so it is not built again when they do not change.
+type Explorer struct {
 	Theme string // a key of Themes
 	Mode  Mode
 	Path  Path
@@ -18,9 +20,7 @@ type Props struct {
 	Query string
 }
 
-// Explorer is the whole window. One tree serves every theme: the Theme only
-// supplies class strings, texts and number formats.
-func Explorer(p Props) tela.Node {
+func (p Explorer) Build() tela.Node {
 	th := Themes[p.Theme]
 	if th == nil {
 		panic(fmt.Sprintf("native: unknown theme %q; use one of %s", p.Theme, strings.Join(ThemeIDs, ", ")))
@@ -63,21 +63,23 @@ func Explorer(p Props) tela.Node {
 		e.PreventDefault()
 	}
 
-	return Div(Class("flex h-screen w-full flex-col overflow-hidden select-none "+l.Window),
+	return Div(Class("flex h-screen w-full flex-col overflow-hidden select-none", l.Window),
 		OnKeyDown(shortcuts),
-		Toolbar(ToolbarProps{Th: th, L: l, Path: st.Path, Query: st.Query, CanBack: len(st.Back) > 0,
-			CanForward: len(st.Forward) > 0, Search: search, D: d, Dir: dir.Name}),
+		Toolbar{Th: th, L: l, Path: st.Path, Query: st.Query, CanBack: len(st.Back) > 0,
+			CanForward: len(st.Forward) > 0, Search: search, D: d, Dir: dir.Name},
 		Div(Class("flex min-h-0 flex-1"),
-			tela.CP(Sidebar, SidebarProps{Th: th, L: l, Path: st.Path, D: d}),
-			FileList(FileListProps{Th: th, L: l, State: st, Entries: entries, Ref: list, D: d}),
+			Sidebar{Th: th, L: l, Path: st.Path, D: d},
+			FileList{Th: th, L: l, State: st, Entries: entries, Ref: list, D: d},
 			Details(th, l, dir, entries, sel, st.Path),
 		),
 		StatusBar(th, l, entries, sel, st.Msg),
 	)
 }
 
-// ToolbarProps are the inputs of Toolbar.
-type ToolbarProps struct {
+// Toolbar is the navigation buttons, the path bar and the search field,
+// plus whatever extras the theme shows (a command bar, a header bar's
+// buttons).
+type Toolbar struct {
 	Th                  *Theme
 	L                   *Look
 	Path                Path
@@ -88,15 +90,12 @@ type ToolbarProps struct {
 	Dir                 string
 }
 
-// Toolbar is the navigation buttons, the path bar and the search field,
-// plus whatever extras the theme shows (a command bar, a header bar's
-// buttons).
-func Toolbar(p ToolbarProps) tela.Node {
+func (p Toolbar) Build() tela.Node {
 	th, l, d := p.Th, p.L, p.D
 	px := th.SideIconPx
 	navBtn := func(label, glyph, kind string, enabled bool) tela.Node {
 		return Button(Class(l.NavBtn), AriaLabel(label), Disabled(!enabled),
-			OnClick(func(tela.MouseEvent) { d.Dispatch(Action{Kind: kind}) }),
+			OnClick(func() { d.Dispatch(Action{Kind: kind}) }),
 			Glyph(glyph, px))
 	}
 	dirName := p.Dir
@@ -153,12 +152,8 @@ func Toolbar(p ToolbarProps) tela.Node {
 func PathBar(th *Theme, l *Look, path Path, d tela.Dispatcher[Action]) tela.Node {
 	segs := Segments(path)
 	crumb := func(label, to string, last bool, home bool) tela.Node {
-		cls := l.PathSeg
-		if last {
-			cls += " " + l.PathSegCur
-		}
-		return Button(Class(cls), Key(to+"|"+label), AriaLabel("Go to "+label),
-			OnClick(func(tela.MouseEvent) { d.Dispatch(Action{Kind: "open", Path: to}) }),
+		return Button(Class(l.PathSeg), If(last, Class(l.PathSegCur)), Key(to+"|"+label), AriaLabel("Go to "+label),
+			OnClick(func() { d.Dispatch(Action{Kind: "open", Path: to}) }),
 			If(home, Glyph("home", 14)),
 			Span(Text(label)))
 	}
@@ -175,16 +170,15 @@ func PathBar(th *Theme, l *Look, path Path, d tela.Dispatcher[Action]) tela.Node
 	return Div(append([]tela.Child{Class(l.PathBar), Role("navigation"), AriaLabel("Path")}, nodes...)...)
 }
 
-// SidebarProps are the props of Sidebar.
-type SidebarProps struct {
+// Sidebar lists the places.
+type Sidebar struct {
 	Th   *Theme
 	L    *Look
 	Path Path
 	D    tela.Dispatcher[Action]
 }
 
-// Sidebar lists the places.
-func Sidebar(p SidebarProps) tela.Node {
+func (p Sidebar) Build() tela.Node {
 	th, l, d := p.Th, p.L, p.D
 	var kids []tela.Child
 	kids = append(kids, Role("navigation"), AriaLabel("Places"), Class(l.Sidebar))
@@ -197,13 +191,9 @@ func Sidebar(p SidebarProps) tela.Node {
 		}
 		for _, pl := range g.Items {
 			on := p.Path == pl.Path
-			cls := l.SideItem
-			if on {
-				cls += " " + l.SideItemOn
-			}
-			kids = append(kids, Button(Class(cls), Key("place"+pl.Name), AriaLabel(pl.Name),
+			kids = append(kids, Button(Class(l.SideItem), If(on, Class(l.SideItemOn)), Key("place"+pl.Name), AriaLabel(pl.Name),
 				AriaPressed(on),
-				OnClick(func(tela.MouseEvent) { d.Dispatch(Action{Kind: "open", Path: pl.Path}) }),
+				OnClick(func() { d.Dispatch(Action{Kind: "open", Path: pl.Path}) }),
 				If(on, Div(Class(l.SideMark))),
 				Glyph(pl.Icon, th.SideIconPx),
 				Span(Class("truncate"), Text(pl.Name)),
@@ -211,16 +201,6 @@ func Sidebar(p SidebarProps) tela.Node {
 		}
 	}
 	return Div(kids...)
-}
-
-// FileListProps are the inputs of FileList.
-type FileListProps struct {
-	Th      *Theme
-	L       *Look
-	State   State
-	Entries []*Entry
-	Ref     tela.ElementRef
-	D       tela.Dispatcher[Action]
 }
 
 func (l *Look) width(c Column) string {
@@ -236,7 +216,16 @@ func (l *Look) width(c Column) string {
 }
 
 // FileList is the column header and the rows.
-func FileList(p FileListProps) tela.Node {
+type FileList struct {
+	Th      *Theme
+	L       *Look
+	State   State
+	Entries []*Entry
+	Ref     tela.ElementRef
+	D       tela.Dispatcher[Action]
+}
+
+func (p FileList) Build() tela.Node {
 	th, l, st, d := p.Th, p.L, p.State, p.D
 	header := func(c Column) tela.Node {
 		sorted := st.Sort == c
@@ -244,8 +233,8 @@ func FileList(p FileListProps) tela.Node {
 		if st.Desc {
 			caret = "chevron-down"
 		}
-		return Button(Class(l.ColCell+" "+l.width(c)), Key(int(c)), AriaLabel("Sort by "+th.Label(c)),
-			OnClick(func(tela.MouseEvent) { d.Dispatch(Action{Kind: "sort", Col: c}) }),
+		return Button(Class(l.ColCell, l.width(c)), Key(int(c)), AriaLabel("Sort by "+th.Label(c)),
+			OnClick(func() { d.Dispatch(Action{Kind: "sort", Col: c}) }),
 			Span(Class("truncate"), Text(th.Label(c))),
 			If(sorted, Glyph(caret, 12)),
 			Div(Class(l.ColSep)),
@@ -263,8 +252,8 @@ func FileList(p FileListProps) tela.Node {
 	}
 	body := tela.Node(Div(Class(l.Empty), Text(empty)))
 	if len(p.Entries) > 0 {
-		body = Map(p.Entries, func(e *Entry) tela.Node {
-			return tela.WithKey(tela.CP(Row, RowProps{Th: th, L: l, E: e, On: e.Name == st.Sel, Path: st.Path, D: d}), e.Name)
+		body = MapKeyed(p.Entries, func(e *Entry) string { return e.Name }, func(e *Entry) tela.Component {
+			return Row{Th: th, L: l, E: e, On: e.Name == st.Sel, Path: st.Path, D: d}
 		})
 	}
 
@@ -302,16 +291,6 @@ func FileList(p FileListProps) tela.Node {
 	)
 }
 
-// RowProps are the props of Row.
-type RowProps struct {
-	Th   *Theme
-	L    *Look
-	E    *Entry
-	On   bool
-	Path Path
-	D    tela.Dispatcher[Action]
-}
-
 // Icon returns the icon of an entry at px pixels.
 func Icon(l *Look, e *Entry, px float32) tela.Node {
 	if e.IsFolder() {
@@ -321,26 +300,34 @@ func Icon(l *Look, e *Entry, px float32) tela.Node {
 }
 
 // Row is one entry of the list.
-func Row(p RowProps) tela.Node {
+type Row struct {
+	Th   *Theme
+	L    *Look
+	E    *Entry
+	On   bool
+	Path Path
+	D    tela.Dispatcher[Action]
+}
+
+func (p Row) Build() tela.Node {
 	th, l, e, d := p.Th, p.L, p.E, p.D
 	ref := tela.UseElementRef()
-	tela.UseEffect(func() func() {
+	tela.UseEffectDo(func() {
 		if p.On {
 			ref.ScrollIntoView()
 		}
-		return nil
 	}, p.On)
 
-	cls, dim := l.Row+" "+l.RowIdle, l.CellDim
+	cls, dim := l.RowIdle, l.CellDim
 	if p.On {
-		cls, dim = l.Row+" "+l.RowOn, l.CellDimOn
+		cls, dim = l.RowOn, l.CellDimOn
 	}
 	cell := func(c Column) tela.Node {
 		switch c {
 		case ColModified:
-			return Div(Class("truncate "+l.WModified+" "+dim), Key(int(c)), Text(th.Date(e.Modified)))
+			return Div(Class("truncate", l.WModified, dim), Key(int(c)), Text(th.Date(e.Modified)))
 		case ColType:
-			return Div(Class("truncate "+l.WType+" "+dim), Key(int(c)), Text(th.TypeName(e)))
+			return Div(Class("truncate", l.WType, dim), Key(int(c)), Text(th.TypeName(e)))
 		case ColSize:
 			size := ""
 			if e.IsFolder() {
@@ -348,15 +335,15 @@ func Row(p RowProps) tela.Node {
 			} else {
 				size = th.Size(e.Size)
 			}
-			return Div(Class("truncate "+l.WSize+" "+dim), Key(int(c)), Text(size))
+			return Div(Class("truncate", l.WSize, dim), Key(int(c)), Text(size))
 		}
-		return Div(Class("flex items-center gap-2.5 "+l.WName), Key(int(c)),
+		return Div(Class("flex items-center gap-2.5", l.WName), Key(int(c)),
 			Icon(l, e, th.IconPx),
 			Span(Class("truncate"), Text(e.Name)))
 	}
-	kids := []tela.Child{Class(cls), Ref(ref), Role("option"), AriaLabel(e.Name), AriaSelected(p.On),
-		OnClick(func(tela.MouseEvent) { d.Dispatch(Action{Kind: "select", Name: e.Name}) }),
-		OnDoubleClick(func(tela.MouseEvent) {
+	kids := []tela.Child{Class(l.Row, cls), Ref(ref), Role("option"), AriaLabel(e.Name), AriaSelected(p.On),
+		OnClick(func() { d.Dispatch(Action{Kind: "select", Name: e.Name}) }),
+		OnDoubleClick(func() {
 			d.Dispatch(Action{Kind: "select", Name: e.Name})
 			d.Dispatch(Action{Kind: "activate"})
 		}),
@@ -419,7 +406,7 @@ func StatusBar(th *Theme, l *Look, entries []*Entry, sel *Entry, msg string) tel
 			Div(Class(l.ZoomTrack), Div(Class(l.ZoomKnob))),
 		),
 		Div(Class("flex items-center gap-1"),
-			Button(Class(l.StatusToggle+" "+l.StatusToggleOn), AriaLabel("Details view"), AriaPressed(true), Glyph("view-list", 16)),
+			Button(Class(l.StatusToggle, l.StatusToggleOn), AriaLabel("Details view"), AriaPressed(true), Glyph("view-list", 16)),
 			Button(Class(l.StatusToggle), AriaLabel("Large icons view"), AriaPressed(false), Glyph("view-grid", 16)),
 		),
 	)

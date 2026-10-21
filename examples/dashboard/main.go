@@ -16,7 +16,7 @@
 //     the sortable list and the expanding card, LayoutID for the sliding
 //     nav, range and tab highlights.
 //   - Overlays: a dialog and a toast in an h.Portal, entering with starting:
-//     and leaving with h.Exit or tela.UsePresence.
+//     and leaving with h.Exit or tela.UsePresenceTween.
 //   - Environment: dark: classes, a theme switch with tela.SetColorScheme
 //     and tela.UseColorScheme (the backdrop picks its image).
 //
@@ -53,9 +53,10 @@ type AppState struct {
 // AppCtx carries the AppState.
 var AppCtx = tela.CreateContext(AppState{})
 
-// Props starts the page in any state; the zero Props is the real app. The
-// Previews use it to show the dialog and the toast.
-type Props struct {
+// Page is the page with its state. Its fields start it in any state: the
+// Previews use them to show the dialog and the toast, and the real app
+// starts from Dashboard.
+type Page struct {
 	Range  int    // index into periods
 	Dialog bool   // the new-report dialog is open
 	Toast  string // the toast's message, empty for none
@@ -63,11 +64,10 @@ type Props struct {
 	Sort   string // the task order: "priority" (default), "due" or "name"
 }
 
-// Dashboard is the page.
-func Dashboard() tela.Node { return tela.CP(Page, Props{Range: 1}) }
+// Dashboard is the root of the app: the page as the user opens it.
+func Dashboard() tela.Node { return Fragment(Page{Range: 1}) }
 
-// Page is the page with its state.
-func Page(p Props) tela.Node {
+func (p Page) Build() tela.Node {
 	rng, setRange := tela.UseState(p.Range)
 	dialog, setDialog := tela.UseState(p.Dialog)
 	toast, setToast := tela.UseState(p.Toast)
@@ -83,16 +83,16 @@ func Page(p Props) tela.Node {
 					Div(Class("flex flex-col gap-6 px-6 pt-8 pb-24 md:px-8"),
 						tela.C(Hero),
 						Div(Class("grid grid-cols-2 gap-4 xl:grid-cols-4"),
-							MapIndex(kpis, func(i int, k KPI) tela.Node {
-								return tela.WithKey(tela.CP(StatCard, StatProps{Index: i, Range: rng}), k.Title)
+							MapKeyed(upto(len(kpis)), func(i int) int { return i }, func(i int) tela.Component {
+								return StatCard{Index: i, Range: rng}
 							}),
 						),
 						Div(Class("grid grid-cols-1 gap-4 xl:grid-cols-3"),
-							Div(Class("flex xl:col-span-2"), tela.CP(RevenueCard, RevenueProps{Range: rng})),
+							Div(Class("flex xl:col-span-2"), RevenueCard{Range: rng}),
 							tela.C(TrafficCard),
 						),
 						Div(Class("grid grid-cols-1 items-start gap-4 xl:grid-cols-3"),
-							tela.CP(TasksCard, TasksProps{Sort: p.Sort}),
+							TasksCard{Sort: p.Sort},
 							tela.C(InsightCard),
 							tela.C(ActivityCard),
 						),
@@ -103,31 +103,32 @@ func Page(p Props) tela.Node {
 		),
 		Portal(
 			If(dialog, Scrim(func() { setDialog.Set(false) })),
-			Presence(If(dialog, tela.CP(ReportDialog, DialogProps{Close: setDialog, Notify: setToast}))),
-			Presence(If(toast != "", tela.CP(Toast, ToastProps{Message: toast, Dismiss: setToast, Pinned: p.Pinned}))),
+			Presence(If(dialog, tela.Component(ReportDialog{Close: setDialog, Notify: setToast}))),
+			Presence(If(toast != "", tela.Component(Toast{Message: toast, Dismiss: setToast, Pinned: p.Pinned}))),
 		),
 	)
 }
 
-// Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return Dashboard() }
+// App is the window: main runs it, the tests mount it (telatest.MountApp)
+// and `tela snapshot` renders it at the same size and with the same root
+// class.
+var App = tela.App{
+	Title:     "Tela - dashboard",
+	AppID:     "dev.telaui.dashboard",
+	Width:     1440,
+	Height:    900,
+	Root:      Dashboard,
+	RootClass: rootClass,
+}
 
-// Previews are the states the README and the goldens show.
+// Previews are the states the README and the goldens show, each in App's
+// window.
 var Previews = tela.Previews{
-	"1 Overview": {Root: tela.C(Dashboard)},
-	"2 Dialog":   {Root: tela.CP(Page, Props{Range: 1, Dialog: true})},
-	"3 Toast": {Root: tela.CP(Page, Props{
+	"1 Overview": {Root: Page{Range: 1}},
+	"2 Dialog":   {Root: Page{Range: 1, Dialog: true}},
+	"3 Toast": {Root: Page{
 		Range: 2, Sort: "due", Toast: "Report queued: Q3 revenue summary", Pinned: true,
-	})},
+	}},
 }
 
-func main() {
-	tela.Run(tela.App{
-		Title:     "Tela - dashboard",
-		AppID:     "dev.telaui.dashboard",
-		Width:     1440,
-		Height:    900,
-		Root:      Dashboard,
-		RootClass: rootClass,
-	})
-}
+func main() { tela.Main(App) }

@@ -111,6 +111,15 @@ var sales = []Sale{
 	{"William Kim", "Team workspace", "+$99.00", "WK", "from-emerald-400 to-cyan-500"},
 }
 
+// upto returns 0, 1, ... n-1: the keys of a list that is keyed by position.
+func upto(n int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = i
+	}
+	return out
+}
+
 // commas formats n with thousands separators.
 func commas(n int64) string {
 	s := fmt.Sprintf("%d", n)

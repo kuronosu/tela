@@ -11,7 +11,7 @@ import (
 // scales 1, 1.5 and 2, checking every frame against a full rendering.
 func TestScrollDamage(t *testing.T) {
 	for _, scale := range []float64{1, 1.5, 2} {
-		scrollAround(t, Dashboard, 700, 420, scale, 24)
+		scrollAround(t, App, 700, 420, scale, 24)
 	}
 }
 
@@ -22,7 +22,7 @@ func TestScrollDamage(t *testing.T) {
 // changed, and what they repaint is what a full frame has.
 func TestInteractionDamage(t *testing.T) {
 	for _, scale := range []float64{1, 1.5} {
-		a := telatest.Mount(t, tela.C(Dashboard), telatest.Size(1100, 760), telatest.Scale(scale), telatest.CheckDamage(), telatest.Dev())
+		a := telatest.MountApp(t, App, telatest.Size(1100, 760), telatest.Scale(scale), telatest.CheckDamage())
 		a.Click(telatest.ByRole("tab", "90D"))
 		a.Click(telatest.ByRole("tab", "Orders"))
 		a.Click(telatest.ByRole("button", "Due"))
@@ -38,13 +38,13 @@ func TestInteractionDamage(t *testing.T) {
 	}
 }
 
-// scrollAround opens root and checks every frame against a full rendering
+// scrollAround opens app and checks every frame against a full rendering
 // (telatest.CheckDamage) while the pointer moves over the screen and the
 // arrow and page keys scroll it down and back up (instantly, so that each
 // key is one frame).
-func scrollAround(t *testing.T, root func() tela.Node, w, h float32, scale float64, steps int) {
+func scrollAround(t *testing.T, app tela.App, w, h float32, scale float64, steps int) {
 	t.Helper()
-	a := telatest.Mount(t, tela.C(root), telatest.Size(w, h), telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
+	a := telatest.MountApp(t, app, telatest.Size(w, h), telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
 	first := string(a.Screenshot().Pix)
 	for i := range steps {
 		if i == steps/2 && string(a.Screenshot().Pix) == first {
