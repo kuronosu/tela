@@ -9,7 +9,8 @@
 // Both render a package headlessly: the package defines func Preview()
 // tela.Node (or tela.Component), or a Previews variable (a tela.Previews
 // map of named tela.Preview screens, each with a Root and an optional Wrap);
-// --preview NAME chooses one of them. A package-level App (a tela.App) sets
+// --preview NAME chooses one of them. A package-level App (a tela.App or a
+// *tela.App; a variable App of another type is ignored) sets
 // the size, root class, color scheme, theme and class aliases of the render,
 // so the image matches the window; alone, its Root is the screen. The dev
 // warnings of the screen go to standard error. snapshot writes a PNG; inspect prints

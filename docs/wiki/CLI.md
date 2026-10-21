@@ -104,8 +104,9 @@ Before `v0.7.0` the entries were functions (`"Login": Login`); write
 ### One `App` for the window, `tela snapshot` and tests
 
 When the package declares the `tela.App` its `main` runs as a package-level
-variable, the CLI renders in that window, so the PNG matches what the window
-shows:
+variable (a `tela.App` or a `*tela.App`), the CLI renders in that window, so
+the PNG matches what the window shows; a variable `App` of another type is
+left alone:
 
 ```go
 var App = tela.App{

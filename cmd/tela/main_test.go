@@ -207,7 +207,7 @@ func TestGenerateSource(t *testing.T) {
 	// the generated file does not mention it.
 	for _, c := range []contract{contractPreview, contractPreviews} {
 		with, without := string(generateSource("main", c, true)), string(generateSource("main", c, false))
-		if !strings.Contains(with, "telatest.FromApp(telaApp)") || !strings.Contains(with, "= App") {
+		if !strings.Contains(with, "telatest.FromApp(telaApp)") || !strings.Contains(with, "telaAppOf(App)") {
 			t.Errorf("%v with an App: the generated source does not apply it:\n%s", c, with)
 		}
 		if strings.Contains(without, "FromApp") || strings.Contains(without, "telaApp") {
@@ -244,6 +244,10 @@ func TestDetectContract(t *testing.T) {
 		{"app from a call", map[string]string{"a.go": "package a\nvar App = newApp()\n"}, contractApp},
 		{"app of another type", map[string]string{"a.go": "package a\nvar App = other.Thing{}\nvar App2 = 1\n"}, contractNone},
 		{"app is not a literal", map[string]string{"a.go": "package a\nvar App = 3\n"}, contractNone},
+		{"pointer to an app", map[string]string{"a.go": "package a\nvar App = &tela.App{}\n"}, contractApp},
+		{"typed pointer", map[string]string{"a.go": "package a\nvar App *tela.App\n"}, contractApp},
+		{"dot-imported app", map[string]string{"a.go": "package a\nvar App = App{}\n"}, contractApp},
+		{"pointer to another type", map[string]string{"a.go": "package a\nvar App = &other.Thing{}\n"}, contractNone},
 		{"preview wins over app", map[string]string{"a.go": "package a\nfunc Preview() {}\nvar App = tela.App{}\n"}, contractPreview},
 		{"scene wins over app", map[string]string{"a.go": "package a\nfunc Scene() {}\nvar App = tela.App{}\n"}, contractScene},
 	} {

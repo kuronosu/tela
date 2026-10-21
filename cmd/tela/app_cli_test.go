@@ -142,3 +142,27 @@ func TestDevMessagesForwarded(t *testing.T) {
 		t.Errorf("stderr with Dev off: %q", stderr)
 	}
 }
+
+// A variable App of another type next to Preview is not the package's
+// tela.App: the run ignores it, as v0.6.0 did, and a *tela.App applies.
+func TestAppOfAnotherType(t *testing.T) {
+	skipShort(t)
+	img, _, stderr := snap(t, "./testdata/otherapp")
+	ref, _, _ := snap(t, "./testdata/component")
+	if img.Bounds() != ref.Bounds() {
+		t.Errorf("image is %v, want the default %v", img.Bounds(), ref.Bounds())
+	}
+	if stderr != "" {
+		t.Errorf("stderr %q", stderr)
+	}
+	if out, _ := inspectRun(t, 0, "./testdata/otherapp"); out != "- heading \"Other app :8080\" [level=1]\n" {
+		t.Errorf("inspect: %q", out)
+	}
+	img, _, _ = snap(t, "./testdata/ptrapp")
+	if b := img.Bounds(); b.Dx() != 180 || b.Dy() != 90 {
+		t.Errorf("*tela.App: image is %v, want its 180x90", b)
+	}
+	if got := pixel(img, 178, 88); got == [3]uint8{0xff, 0xff, 0xff} {
+		t.Errorf("*tela.App: corner %v, want its RootClass (lime)", got)
+	}
+}

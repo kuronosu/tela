@@ -157,12 +157,23 @@ type detected struct {
 // mayBeTelaApp reports whether the i-th name of a var spec can be a
 // tela.App: a variable called App of an obviously other type (a literal of
 // another type, say) belongs to the package and is left alone, while
-// anything else is taken for the app, and a mistake is reported by the
-// compiler.
+// anything else (a call, a variable) may be the app. The generated runner
+// decides those with a type assertion that compiles for any type
+// (telaAppOf: a tela.App or a non-nil *tela.App), so a variable App of
+// another type is ignored there too.
 func mayBeTelaApp(spec *ast.ValueSpec, i int) bool {
+	// isApp: tela.App (any import name), or App through a dot import.
 	isApp := func(e ast.Expr) bool {
-		sel, ok := e.(*ast.SelectorExpr)
-		return ok && sel.Sel.Name == "App"
+		if star, ok := e.(*ast.StarExpr); ok {
+			e = star.X
+		}
+		switch e := e.(type) {
+		case *ast.SelectorExpr:
+			return e.Sel.Name == "App"
+		case *ast.Ident:
+			return e.Name == "App"
+		}
+		return false
 	}
 	if spec.Type != nil {
 		return isApp(spec.Type)
@@ -170,10 +181,14 @@ func mayBeTelaApp(spec *ast.ValueSpec, i int) bool {
 	if len(spec.Values) != len(spec.Names) {
 		return true // var a, App = f(): one call for several names
 	}
-	switch v := spec.Values[i].(type) {
+	v := spec.Values[i]
+	if u, ok := v.(*ast.UnaryExpr); ok && u.Op == token.AND {
+		v = u.X // &tela.App{...}
+	}
+	switch v := v.(type) {
 	case *ast.CompositeLit:
 		return isApp(v.Type)
-	case *ast.BasicLit, *ast.FuncLit, *ast.UnaryExpr:
+	case *ast.BasicLit, *ast.FuncLit, *ast.UnaryExpr, *ast.BinaryExpr:
 		return false
 	}
 	return true
@@ -484,8 +499,22 @@ var (
 {{end}}
 {{if .HasApp -}}
 // The App of the package: its size, root class, color scheme, theme and
-// class aliases apply to the run, as they do to its window.
-var telaApp telatela.App = App
+// class aliases apply to the run, as they do to its window. A variable App
+// of another type (the package's server, say) is left alone: the type
+// assertion compiles for any type.
+var telaApp, telaHasApp = telaAppOf(App)
+
+func telaAppOf(v any) (telatela.App, bool) {
+	switch a := v.(type) {
+	case telatela.App:
+		return a, true
+	case *telatela.App:
+		if a != nil {
+			return *a, true
+		}
+	}
+	return telatela.App{}, false
+}
 
 {{end -}}
 {{if eq .Kind "Preview" -}}
@@ -527,6 +556,9 @@ func telaBuild(want string) (telatela.Component, string, []string, error) {
 {{else if eq .Kind "App" -}}
 // The contract: var App = tela.App{Root: ...}; its Root is the screen.
 func telaBuild(want string) (telatela.Component, string, []string, error) {
+	if !telaHasApp {
+		return nil, "", nil, telafmt.Errorf("App is a %T, not a tela.App; define func Preview() tela.Node, or var App = tela.App{Root: Screen}", App)
+	}
 	if telaApp.Root == nil {
 		return nil, "", nil, telafmt.Errorf("App has no Root; set it to the root component, such as tela.App{Root: Screen}, or define func Preview() tela.Node")
 	}
@@ -600,12 +632,14 @@ func TestTelaRun(t *telatesting.T) {
 	}
 {{- if .HasApp}}
 	// The App's settings; an explicit --size beats its Width and Height.
-	opts = append(opts, telatest.FromApp(telaApp))
-	if getenv({{printf "%q" .Env.SizeSet}}) == "true" {
-		opts = append(opts, telatest.Size(float32(w), float32(h)))
-	}
-	if dark && telaApp.ColorScheme == telatela.Light {
-		telafmt.Fprintln(telaos.Stderr, "tela: warning: --dark has no effect: App.ColorScheme is tela.Light, which overrides the system's preference")
+	if telaHasApp {
+		opts = append(opts, telatest.FromApp(telaApp))
+		if getenv({{printf "%q" .Env.SizeSet}}) == "true" {
+			opts = append(opts, telatest.Size(float32(w), float32(h)))
+		}
+		if dark && telaApp.ColorScheme == telatela.Light {
+			telafmt.Fprintln(telaos.Stderr, "tela: warning: --dark has no effect: App.ColorScheme is tela.Light, which overrides the system's preference")
+		}
 	}
 {{- end}}
 
