@@ -12,6 +12,7 @@
 - [Scrolling and VirtualList](Scrolling-and-VirtualList)
 - [Animation](Animation)
 - [Internationalization](Internationalization)
+- [Aria](Aria)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)
@@ -20,6 +21,7 @@
 
 - [package tela](API-Reference-tela)
 - [package h](API-Reference-h)
+- [package aria](API-Reference-aria)
 - [package telatest](API-Reference-telatest)
 
 **Links**

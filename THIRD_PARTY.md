@@ -225,3 +225,34 @@ their original copyright notice. Add one section per source project.
 - **Source:** https://go.googlesource.com/text (v0.43.0)
 - **License:** BSD-3-Clause, Copyright 2009 The Go Authors
 - **Used in:** `i18n` (`language`, `feature/plural`, `number`, `message`), a module dependency, not vendored code (ARCHITECTURE §2). Its CLDR 32 tables give the plural rules and number formats; date patterns do not come from it (it keeps them private).
+
+## Floating UI (ported code; test oracle)
+
+- **Source:** https://github.com/floating-ui/floating-ui (`@floating-ui/core` 1.7.5 and `@floating-ui/utils` 0.2.11)
+- **License:** MIT, Copyright (c) 2021-present Floating UI contributors
+- **Used in:** `aria/floating_position.go` (`computePosition`, `computeCoordsFromPlacement`, `detectOverflow` and the placement helpers of `@floating-ui/utils`), `aria/floating_middleware.go` (`offset`, `flip`, `shift` with `limitShift`, `size`, `arrow`, `hide`, `autoPlacement`); test data in `aria/testdata/floatingui/`
+- **Notes:** Ported function by function from the published `@floating-ui/core` sources, keeping their names and structure. It diverges where Tela's engine does the work: it is synchronous and works on the rectangles of a frame (`core.FloatInput`) instead of a platform object, always with the fixed strategy and float32 window coordinates; `detectOverflow` takes the clipping rectangle of the floating element and of the reference from the engine; the `size` middleware does not measure the element again (it records the limits that its `apply` function asks for, and the engine lays out again and calls the position function again, ADR-099); the `arrow` middleware uses the floating element's border box for its client size; the `inline` middleware, `boundary`, `rootBoundary`, `elementContext` options, per-side padding and derivable options are not ported. `aria/testdata/floatingui/gen.mjs` runs the real `@floating-ui/core` over seeded random rectangles, placements and middleware stacks and writes `cases.json`, which `aria/floating_oracle_test.go` compares with the port; the package is not vendored (`npm install` in that directory fetches it).
+
+  ```text
+  MIT License
+
+  Copyright (c) 2021-present Floating UI contributors
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```

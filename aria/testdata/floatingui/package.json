@@ -1,0 +1,9 @@
+{
+  "name": "tela-floatingui-oracle",
+  "private": true,
+  "description": "Generates cases.json, the oracle of aria's Floating UI port (node gen.mjs 2400 > cases.json)",
+  "type": "module",
+  "dependencies": {
+    "@floating-ui/core": "1.7.5"
+  }
+}
