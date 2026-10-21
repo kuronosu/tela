@@ -137,7 +137,7 @@ func TestEffectDeps(t *testing.T) {
 	var logs []string
 	comp := func() Node {
 		UseEffect(l.effect("every"))
-		UseEffect(l.effect("mount"), nil)
+		UseEffect(l.effect("mount"), Once)
 		UseEffect(l.effect("a"), p.a)
 		UseEffect(l.effect("f"), p.f)
 		UseEffect(l.effect("var"), p.deps...)
@@ -153,12 +153,10 @@ func TestEffectDeps(t *testing.T) {
 	tr.Frame()
 	tr.FlushEffects()
 	expectEvents(t, &l, "mount", "every", "mount", "a", "f", "var")
-	// nil still means mount only, with a deprecation warning (ADR-085).
-	if len(logs) != 2 || !strings.Contains(logs[0], "UseEffect(f, nil) at core.TestEffectDeps.func1 (effects_test.go:") ||
-		!strings.Contains(logs[0], "nil deps is deprecated") || !strings.Contains(logs[0], "tela.UseMount(f)") ||
-		!strings.Contains(logs[1], "dependency 1 of UseEffect at core.TestEffectDeps.func1 (effects_test.go:") ||
-		!strings.Contains(logs[1], "is a func()") || !strings.Contains(logs[1], "tela.UseCallback") {
-		t.Errorf("logs %q, want the nil-deps warning and one about the func dependency", logs)
+	if len(logs) != 1 ||
+		!strings.Contains(logs[0], "dependency 1 of UseEffect at core.TestEffectDeps.func1 (effects_test.go:") ||
+		!strings.Contains(logs[0], "is a func()") || !strings.Contains(logs[0], "tela.UseCallback") {
+		t.Errorf("logs %q, want one warning about the func dependency", logs)
 	}
 	logs = nil
 
@@ -349,6 +347,7 @@ func TestUseMemo(t *testing.T) {
 	comp := func() Node {
 		x := UseMemo(func() int { computes["a"]++; return a * 10 }, a)
 		y := UseMemo(func() int { computes["every"]++; return b })
+		// Outside dev mode a nil list still means "only on mount" (ADR-097).
 		z := UseMemo(func() int { computes["once"]++; return 7 }, nil)
 		got = []int{x, y, z}
 		return Text("x")

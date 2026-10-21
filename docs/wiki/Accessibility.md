@@ -41,8 +41,19 @@ The props follow React's `aria-*` attributes:
 | [`AriaSelected`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaSelected) | Selected state of a tab, option, row or cell |
 | [`AriaExpanded`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaExpanded) | Whether what a button controls (a menu, a disclosure) is expanded |
 | [`AriaDisabled`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaDisabled) | Disabled for assistive technologies without making it inert (`Disabled` does both) |
+| [`AriaRequired`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaRequired) | A field the user must fill in |
+| [`AriaReadOnly`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaReadOnly) | A widget the user can focus but not edit |
+| [`AriaBusy`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaBusy) | An element that is being updated (a list that loads) |
 | [`AriaLevel`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLevel) | Level of a custom heading, list item, row or tree item |
 | [`AriaValueNow`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueNow), [`AriaValueMin`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMin), [`AriaValueMax`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMax), [`AriaValueText`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueText) | The value of a range widget (`slider`, `progressbar`, `spinbutton`, `meter`) |
+
+These props also drive the `aria-*` class variants: `aria-checked:`, `aria-expanded:`,
+`aria-pressed:`, `aria-selected:`, `aria-disabled:`, `aria-hidden:`, `aria-busy:`,
+`aria-required:` and `aria-readonly:` (and their `group-` and `peer-` forms) match
+when the element's prop is `true`, so the look follows the semantics:
+`Button(AriaExpanded(open), Class("aria-expanded:bg-slate-100"))`. The aria
+snapshot prints `required`, `readonly` and `busy` for none of them, as
+Playwright's does.
 
 ```go
 func WifiSwitch() tela.Node {

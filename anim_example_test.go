@@ -54,7 +54,7 @@ func ExampleUseSpring() {
 		app.Advance(100 * time.Millisecond)
 		fmt.Printf("%.1f\n", x.Get())
 	}
-	app.ExpectText("Open") // expectations settle: the spring comes to rest
+	app.Advance(time.Second) // Advance moves the clock: the spring comes to rest
 	fmt.Println(x.Get())
 	// Output:
 	// -140.5

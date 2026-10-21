@@ -1,12 +1,15 @@
 package style
 
 import (
+	"errors"
+	"math"
 	"slices"
+	"strconv"
 	"strings"
 )
 
 // StateFlags is a set of element states that variants test.
-type StateFlags uint16
+type StateFlags uint32
 
 // The states the state and structural variants test.
 const (
@@ -34,7 +37,25 @@ const (
 	StateInvalid
 	// StateEnabled is the absence of StateDisabled; the caller does not
 	// set it, enabled: tests that StateDisabled is clear.
+
+	// The aria-* variants (ADR-097) match the attribute selectors
+	// [aria-x="true"] of Tailwind: the element's own Aria… prop set to
+	// true, not the state it may have implicitly (a Button's Disabled
+	// does not match aria-disabled:).
+	StateAriaBusy
+	StateAriaChecked
+	StateAriaDisabled
+	StateAriaExpanded
+	StateAriaHidden
+	StateAriaPressed
+	StateAriaReadOnly
+	StateAriaRequired
+	StateAriaSelected
 )
+
+// AriaStates is the set of the aria-* states.
+const AriaStates = StateAriaBusy | StateAriaChecked | StateAriaDisabled | StateAriaExpanded |
+	StateAriaHidden | StateAriaPressed | StateAriaReadOnly | StateAriaRequired | StateAriaSelected
 
 // Variant state names, in the order of the flags.
 var stateVariants = []struct {
@@ -56,11 +77,21 @@ var stateVariants = []struct {
 	{"read-only", StateReadOnly},
 	{"placeholder-shown", StatePlaceholderShown},
 	{"invalid", StateInvalid},
+	{"aria-busy", StateAriaBusy},
+	{"aria-checked", StateAriaChecked},
+	{"aria-disabled", StateAriaDisabled},
+	{"aria-expanded", StateAriaExpanded},
+	{"aria-hidden", StateAriaHidden},
+	{"aria-pressed", StateAriaPressed},
+	{"aria-readonly", StateAriaReadOnly},
+	{"aria-required", StateAriaRequired},
+	{"aria-selected", StateAriaSelected},
 }
 
 // groupable lists the states usable after group- and peer-.
 var groupable = StateHover | StateActive | StateFocus | StateFocusVisible |
-	StateFocusWithin | StateDisabled | StateChecked | StateReadOnly | StatePlaceholderShown | StateInvalid
+	StateFocusWithin | StateDisabled | StateChecked | StateReadOnly | StatePlaceholderShown | StateInvalid |
+	AriaStates
 
 // Pseudo is a set of pseudo-elements a rule styles instead of the element
 // itself (the placeholder: and selection: variants).
@@ -78,7 +109,8 @@ const (
 
 // VariantContext is what a Condition is evaluated against.
 type VariantContext struct {
-	// ViewportWidth is the window width in logical pixels (sm: to 2xl:).
+	// ViewportWidth is the window width in logical pixels (sm: to 2xl:,
+	// max-sm: to max-2xl:, min-[…]: and max-[…]:).
 	ViewportWidth float32
 	Dark          bool
 	ReducedMotion bool
@@ -119,8 +151,14 @@ type Condition struct {
 	// element's inherited direction.
 	RTL, LTR bool
 	// MinWidth requires a viewport at least this wide, in pixels (the
-	// largest of the breakpoint variants of the class).
+	// largest of the sm: to 2xl: and min-[…]: variants of the class).
 	MinWidth float32
+	// MaxWidth, with HasMaxWidth, requires a viewport narrower than this,
+	// in pixels (Tailwind's @media (width < …): max-sm: to max-2xl: and
+	// max-[…]:; the smallest of the class's variants). md:max-xl: gives
+	// both limits.
+	MaxWidth    float32
+	HasMaxWidth bool
 	// Pseudo makes the rule style a pseudo-element: it does not apply to
 	// the element itself (Compute applies it to ComputedStyle.Placeholder
 	// or ComputedStyle.Selection).
@@ -143,7 +181,8 @@ func (c Condition) Matches(v VariantContext) bool {
 		c.Starting && !v.Starting,
 		c.RTL && !v.RTL,
 		c.LTR && v.RTL,
-		v.ViewportWidth < c.MinWidth:
+		v.ViewportWidth < c.MinWidth,
+		c.HasMaxWidth && !(v.ViewportWidth < c.MaxWidth):
 		return false
 	}
 	return true
@@ -162,6 +201,13 @@ func (c Condition) and(d Condition) Condition {
 	c.RTL = c.RTL || d.RTL
 	c.LTR = c.LTR || d.LTR
 	c.MinWidth = max(c.MinWidth, d.MinWidth)
+	if d.HasMaxWidth {
+		if c.HasMaxWidth {
+			c.MaxWidth = min(c.MaxWidth, d.MaxWidth)
+		} else {
+			c.MaxWidth, c.HasMaxWidth = d.MaxWidth, true
+		}
+	}
 	c.Pseudo |= d.Pseudo
 	return c
 }
@@ -196,6 +242,12 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 	if l, ok := th.Breakpoints[name]; ok {
 		return Condition{MinWidth: l.Resolve(th.RootFontSize, th.RootFontSize)}, nil
 	}
+	if c, ok, err := parseWidthVariant(th, name); ok {
+		return c, err
+	}
+	if c, ok, err := parseAriaVariant(name); ok {
+		return c, err
+	}
 	for _, prefix := range []string{"group-", "peer-"} {
 		rest, ok := strings.CutPrefix(name, prefix)
 		if !ok {
@@ -204,6 +256,16 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 		if strings.Contains(rest, "/") {
 			return Condition{}, &UnsupportedClassError{Class: name,
 				Reason: "named groups and peers (" + prefix + "hover/name:) are not supported; use the plain " + strings.TrimSuffix(prefix, "-") + " class"}
+		}
+		if strings.HasPrefix(rest, "aria-[") {
+			c, ok, err := parseAriaVariant(rest)
+			if err != nil || !ok {
+				return Condition{}, withClass(err, name)
+			}
+			if prefix == "group-" {
+				return Condition{Group: c.State}, nil
+			}
+			return Condition{Peer: c.State}, nil
 		}
 		for _, sv := range stateVariants {
 			if rest == sv.name && sv.flag&groupable != 0 {
@@ -223,12 +285,12 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 		return Condition{}, &UnsupportedClassError{Class: name,
 			Reason: "the " + name + " variant is not supported"}
 	}
-	if strings.HasPrefix(name, "max-") || strings.HasPrefix(name, "min-") || strings.HasPrefix(name, "@") ||
-		strings.HasPrefix(name, "aria-") || strings.HasPrefix(name, "data-") || strings.HasPrefix(name, "has-") ||
+	if strings.HasPrefix(name, "@") ||
+		strings.HasPrefix(name, "data-") || strings.HasPrefix(name, "has-") ||
 		strings.HasPrefix(name, "not-") || strings.HasPrefix(name, "nth-") || strings.HasPrefix(name, "supports-") ||
 		strings.HasPrefix(name, "*") || strings.HasPrefix(name, "[") {
 		return Condition{}, &UnsupportedClassError{Class: name,
-			Reason: "this variant is not supported; use explicit styles and the state, structural and environment variants (hover:, group-hover:, first:, dark:, sm:, motion-reduce:)"}
+			Reason: "this variant is not supported; use explicit styles and the state, structural, aria and environment variants (hover:, group-hover:, first:, aria-expanded:, dark:, sm:, max-md:, motion-reduce:)"}
 	}
 	return Condition{}, &UnknownClassError{Class: name, Suggestion: suggestVariant(th, name), Variant: true}
 }
@@ -243,11 +305,109 @@ func variantNames(th *Theme) []string {
 		}
 	}
 	out = append(out, "enabled", "dark", "motion-reduce", "motion-safe", "starting", "rtl", "ltr", "placeholder", "selection")
-	out = append(out, th.Keys(NamespaceBreakpoint)...)
+	for _, bp := range th.Keys(NamespaceBreakpoint) {
+		out = append(out, bp, "max-"+bp, "min-"+bp)
+	}
 	slices.Sort(out)
 	return out
 }
 
 func suggestVariant(th *Theme, name string) string {
 	return closest(name, variantNames(th))
+}
+
+// parseWidthVariant parses the width variants besides the breakpoints
+// themselves: max-sm: to max-2xl: (the window is narrower than the
+// breakpoint: Tailwind v4's @media (width < …)), min-sm: to min-2xl: (the
+// same as sm:), and the arbitrary min-[600px]: and max-[40rem]: (a length
+// in px, rem or em). ok is false when name is not one of them.
+func parseWidthVariant(th *Theme, name string) (c Condition, ok bool, err error) {
+	var isMax bool
+	var arg string
+	switch {
+	case strings.HasPrefix(name, "max-"):
+		isMax, arg = true, name[len("max-"):]
+	case strings.HasPrefix(name, "min-"):
+		arg = name[len("min-"):]
+	default:
+		return Condition{}, false, nil
+	}
+	set := func(px float32) Condition {
+		if isMax {
+			return Condition{MaxWidth: px, HasMaxWidth: true}
+		}
+		return Condition{MinWidth: px}
+	}
+	if inner, isArb := strings.CutPrefix(arg, "["); isArb && strings.HasSuffix(inner, "]") {
+		px, err := parseWidthLength(th, strings.TrimSuffix(inner, "]"))
+		if err != nil {
+			return Condition{}, true, &InvalidClassError{Class: name, Reason: err.Error()}
+		}
+		return set(px), true, nil
+	}
+	if l, found := th.Breakpoints[arg]; found {
+		return set(l.Resolve(th.RootFontSize, th.RootFontSize)), true, nil
+	}
+	if strings.HasPrefix(arg, "[") {
+		return Condition{}, true, &InvalidClassError{Class: name, Reason: "the arbitrary width variant needs a closing bracket, as in " + name[:4] + "[600px]"}
+	}
+	return Condition{}, true, &UnknownClassError{Class: name, Suggestion: suggestVariant(th, name), Variant: true}
+}
+
+// parseWidthLength parses the length of min-[…] and max-[…]: a number
+// followed by px, rem or em (media queries resolve em and rem against the
+// initial font size, th.RootFontSize).
+func parseWidthLength(th *Theme, s string) (float32, error) {
+	const hint = "the width must be a length in px, rem or em, such as the variants min-[600px] and max-[40rem]"
+	var unit float32
+	var num string
+	switch {
+	case strings.HasSuffix(s, "px"):
+		unit, num = 1, strings.TrimSuffix(s, "px")
+	case strings.HasSuffix(s, "rem"):
+		unit, num = th.RootFontSize, strings.TrimSuffix(s, "rem")
+	case strings.HasSuffix(s, "em"):
+		unit, num = th.RootFontSize, strings.TrimSuffix(s, "em")
+	default:
+		return 0, errors.New(hint)
+	}
+	v, err := strconv.ParseFloat(num, 32)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
+		return 0, errors.New(hint)
+	}
+	return float32(v) * unit, nil
+}
+
+// ariaVariantHint lists the aria variants for messages.
+const ariaVariantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-pressed:, aria-readonly:, aria-required:, aria-selected: (also group-aria-checked: and peer-aria-checked:)"
+
+// parseAriaVariant parses the arbitrary aria variant aria-[checked=true]:
+// (the same as aria-checked:) for the aria states Tela has props for. The
+// named ones (aria-checked:) are in stateVariants. ok is false when name
+// is not an arbitrary aria variant.
+func parseAriaVariant(name string) (c Condition, ok bool, err error) {
+	inner, isArb := strings.CutPrefix(name, "aria-[")
+	if !isArb || !strings.HasSuffix(inner, "]") {
+		return Condition{}, false, nil
+	}
+	inner = strings.TrimSuffix(inner, "]")
+	attr, value, hasValue := strings.Cut(inner, "=")
+	for _, sv := range stateVariants {
+		if sv.name == "aria-"+attr && sv.flag&AriaStates != 0 && hasValue && value == "true" {
+			return Condition{State: sv.flag}, true, nil
+		}
+	}
+	return Condition{}, true, &UnsupportedClassError{Class: name,
+		Reason: "Tela has no prop for the attribute selector [" + inner + "]; " + ariaVariantHint +
+			" (aria-[checked=true]: is aria-checked:)"}
+}
+
+// withClass gives an error found in a part of a variant the whole variant
+// name.
+func withClass(err error, name string) error {
+	var un *UnsupportedClassError
+	if errors.As(err, &un) {
+		return &UnsupportedClassError{Class: name, Reason: un.Reason}
+	}
+	return err
 }

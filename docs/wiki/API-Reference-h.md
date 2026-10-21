@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Id`](#func-id-deprecated) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHidden`](#func-ariahidden) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaSelected`](#func-ariaselected) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist)
 
 ## Overview
 
@@ -31,7 +31,9 @@ func Greeting(name string) tela.Node {
 }
 ```
 
-To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Scheme, Src, Alt, Href, ID, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, Fragment and TextFn (text that a Value changes without rebuilding the component), Portal (content shown above the window's content, for modals, menus and tooltips), VirtualList with its Overscan prop, and Presence with its Exit prop (enter and exit animations).
+To keep collisions with the importing package unlikely, h exports only element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong, Em, Code, A, and the form elements Input, Textarea, Form and Label), props (Class, Style, Key, Disabled, Scheme, Src, Alt, Href, ID, the focus props TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the field props Value, DefaultValue, Bind, BindValue, Type, Rows, Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and For, and the event handlers OnClick, OnDoubleClick, OnContextMenu, OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus, OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition..., OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props alike), Map, MapIndex, MapKeyed, Range, Fragment and TextFn (text that a Value changes without rebuilding the component), Portal (content shown above the window's content, for modals, menus and tooltips), VirtualList with its Overscan prop, and Presence with its Exit prop (enter and exit animations).
+
+Every event handler takes a func(), a func of its event, or the result of tela.StopPropagation(f), which stops the event's propagation and then calls f.
 
 Everything else (App, Run, hooks, events, colors, typed style props) lives in package tela.
 
@@ -114,6 +116,18 @@ app.Click(telatest.ByRole("button", "Reverse"))
 after := app.Bounds(telatest.ByText("Apples")).Y
 fmt.Println(before, after)
 // Output: 48 144
+```
+
+### func AriaBusy
+
+```go
+func AriaBusy(busy bool) tela.Prop
+```
+
+AriaBusy marks an element, and what it contains, as being updated (aria-busy): a list that loads. The aria-busy: variants style it.
+
+```go
+Div(AriaBusy(loading), Class("aria-busy:opacity-50 aria-busy:animate-pulse"), rows)
 ```
 
 ### func AriaChecked
@@ -224,6 +238,30 @@ AriaPressed makes a button a toggle button and sets whether it is pressed.
 
 ```go
 Button(AriaPressed(bold), OnClick(toggleBold), Text("B"))
+```
+
+### func AriaReadOnly
+
+```go
+func AriaReadOnly(readOnly bool) tela.Prop
+```
+
+AriaReadOnly marks a widget the user can focus but not edit (aria-readonly): a text field, checkbox, slider or listbox built from divs. An Input or Textarea with ReadOnly is already read-only; the aria-readonly: variants style the elements with AriaReadOnly(true).
+
+```go
+Div(Role("textbox"), AriaReadOnly(locked), Class("aria-readonly:bg-slate-100"))
+```
+
+### func AriaRequired
+
+```go
+func AriaRequired(required bool) tela.Prop
+```
+
+AriaRequired marks a field the user must fill in (aria-required): a text field, combobox, listbox or radio group. It changes nothing on screen; the aria-required: variants style it.
+
+```go
+Input(ID("email"), AriaRequired(true), Class("border aria-required:border-indigo-400"))
 ```
 
 ### func AriaSelected
@@ -647,16 +685,6 @@ func ID(id string) tela.Prop
 
 ID gives an element an identifier, unique in the window, that a Label's For refers to (HTML's id). tela.UseID makes one for a reusable field.
 
-### func Id (deprecated)
-
-```go
-func Id(id string) tela.Prop
-```
-
-Id is the former name of [`ID`](#func-id).
-
-Deprecated: use ID. Id will be removed in phase 8.
-
 ### func If
 
 ```go
@@ -799,7 +827,7 @@ func ItemHeight(px float32) tela.Prop
 ItemHeight gives every item of a [`VirtualList`](#func-virtuallist) the same height in logical pixels, 1 or more. The items are not measured, so the list does no per-item measuring work, the scroll positions are exact from the first frame and the scrollbar does not change while scrolling; the estimateSize argument is not needed (pass nil). An item taller than the height spills over the next one (it is not clipped).
 
 ```go
-VirtualList(len(rows), nil, func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+VirtualList(len(rows), nil, func(i int) tela.Component { return Row{Row: rows[i]} },
     ItemHeight(40), Class("h-96"))
 ```
 
@@ -831,7 +859,7 @@ The heights measured so far stay with the indices, not with the items: after an 
 
 ```go
 VirtualList(len(rows), estimate,
-    func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+    func(i int) tela.Component { return Row{Row: rows[i]} },
     ItemKey(func(i int) int { return rows[i].ID }))
 ```
 
@@ -1117,6 +1145,12 @@ Button(OnClick(func(e tela.MouseEvent) { menu.At(e.X, e.Y) }), Text("Open"))
 ```
 
 Every handler prop of this package (OnClick, OnKeyDown, OnChange, OnSubmit...) takes a func() or a func of its event type (or a named type of either, such as type ClickHandler func(tela.MouseEvent)): write the event only when the handler reads it. A nil handler panics.
+
+To keep a click from reaching the ancestors' OnClick (a delete button inside a clickable row), wrap the function in tela.StopPropagation, which every handler prop accepts: it calls e.StopPropagation() and then the function.
+
+```go
+Button(OnClick(tela.StopPropagation(ctrl.Remove)), Text("Delete"))
+```
 
 **Example**
 
@@ -1600,6 +1634,21 @@ fmt.Println(app.Count(telatest.ByRole("dialog", "")))
 // Output: 0
 ```
 
+### func Range
+
+```go
+func Range[R ~func(int) tela.Node | ~func(int) tela.Component](n int, render R) tela.Node
+```
+
+Range returns render(0) to render(n-1) as one list keyed by index: n items with no data behind them, such as skeleton rows, a star rating or the cells of a fixed grid. The index is the key, so no missing-key warning is given (a static range does not reorder), and a node that render keys itself is keyed by its index instead. render returns a tela.Node or a tela.Component, so a struct component needs no Fragment. n is 0 or more: a negative n panics in dev mode and renders nothing otherwise.
+
+```go
+Range(5, func(i int) tela.Node { return Span(Textf("%d", i)) })
+Range(5, func(i int) tela.Component { return Star{Filled: i < rating} })
+```
+
+For data that changes, use [`MapKeyed`](#func-mapkeyed) with the item's ID: an index as the key moves the state of a component to the wrong item when items are inserted or removed.
+
 ### func ReadOnly
 
 ```go
@@ -1865,14 +1914,14 @@ Value makes a text field controlled: it shows s, and after every event it shows 
 ### func VirtualList
 
 ```go
-func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i int) tela.Node, props ...tela.Prop) tela.Node
+func VirtualList[R ~func(int) tela.Node | ~func(int) tela.Component](count int, estimateSize func(i int) float32, renderItem R, props ...tela.Prop) tela.Node
 ```
 
 VirtualList is a vertical scrolling list of count items that builds, lays out and paints only the items in view, plus a few more on each side (see [`Overscan`](#func-overscan)), so a list of 100,000 rows costs about as much as one screenful of them (TanStack Virtual's model). The node is the scrolling element itself: props style it like a Div (Class, Style, Ref, handlers, Key, Role and the Aria props), and it is overflow-y-auto unless a class sets another overflow. Give it a height (h-96, flex-1 in a column, h-screen): the items it builds are bounded by what the window shows, but only a list that scrolls by itself keeps its position stable and supports ScrollToIndex.
 
-estimateSize(i) estimates the height of item i in logical pixels, before it is built; renderItem(i) returns it. Each item is measured once it is laid out, and the measurement replaces the estimate (per index; a new estimateSize function resets them), so items may have any height and the scrollbar, OnScroll's ScrollHeight and the aria tree reflect the whole list. When a measurement changes the size of an item above the top of the list's viewport, the scroll offset moves by the difference in the same frame: the content on screen does not jump.
+estimateSize(i) estimates the height of item i in logical pixels, before it is built; renderItem(i) returns it, as a tela.Node or as a tela.Component (renderItem is a func(i int) tela.Node or a func(i int) tela.Component, so a struct component row needs no wrapper). Each item is measured once it is laid out, and the measurement replaces the estimate (per index; a new estimateSize function resets them), so items may have any height and the scrollbar, OnScroll's ScrollHeight and the aria tree reflect the whole list. When a measurement changes the size of an item above the top of the list's viewport, the scroll offset moves by the difference in the same frame: the content on screen does not jump.
 
-Items are keyed by their index unless ItemKey says otherwise: an item component's state follows its index, so give the list [`ItemKey`](#func-itemkey) when items are inserted, removed or reordered, and the state must follow the item. For rows of one height, [`ItemHeight`](#func-itemheight) sets it, skips measuring and makes estimateSize unnecessary (it may be nil). The list has the role "list" and its items "listitem", for the semantics tree and the aria snapshot; Role on the list replaces its role (the items are then not listitems), and an item's own role goes on the element renderItem returns. renderItem runs inside the list's build, so it must not call hooks; return a component node (tela.C, tela.CP) for items with state, and prefer tela.CP so that a list rebuilt by its parent skips the items whose props did not change. Scrolling never rebuilds the items that stay in view: a scroll inside the built items only repaints, and a scroll past them builds the entering items and unmounts the leaving ones. The focused item stays mounted while it is scrolled away, so Tab goes on from it.
+Items are keyed by their index unless ItemKey says otherwise: an item component's state follows its index, so give the list [`ItemKey`](#func-itemkey) when items are inserted, removed or reordered, and the state must follow the item. For rows of one height, [`ItemHeight`](#func-itemheight) sets it, skips measuring and makes estimateSize unnecessary (it may be nil). The list has the role "list" and its items "listitem", for the semantics tree and the aria snapshot; Role on the list replaces its role (the items are then not listitems), and an item's own role goes on the element renderItem returns. renderItem runs inside the list's build, so it must not call hooks; return a component (a struct component such as Row{Item: it}, or a node from tela.C or tela.CP) for items with state, so that a list rebuilt by its parent skips the items whose props did not change. Scrolling never rebuilds the items that stay in view: a scroll inside the built items only repaints, and a scroll past them builds the entering items and unmounts the leaving ones. The focused item stays mounted while it is scrolled away, so Tab goes on from it.
 
 Scroll to an item with the ref's ScrollToIndex (tela.AlignAuto, AlignStart, AlignCenter, AlignEnd), which keeps the item aligned while the items around it are measured, and which jumps or animates like ScrollTo (scroll-smooth):
 
@@ -1883,7 +1932,7 @@ return Div(Class("flex h-screen flex-col"),
         Text("Go to 5000")),
     VirtualList(100_000,
         func(int) float32 { return 40 },
-        func(i int) tela.Node { return tela.CP(Row, i) },
+        func(i int) tela.Component { return Row{Index: i} },
         Ref(list), Class("flex-1 rounded-lg border")),
 )
 ```

@@ -45,14 +45,18 @@
 //
 // [App.Advance] moves the clock by hand: it is how a test waits for a
 // long-press timer, an animation or a fade. To capture the frames of an
-// animation, mount with [NoSettle]: actions and screenshots then leave
-// running animations where they are, and only Advance moves them.
+// animation, mount with [NoSettle]: actions, screenshots and the queries
+// ([App.AriaSnapshot], [App.Count], [App.Bounds], [App.Stats],
+// [App.Cursor]) then leave running animations where they are, and only
+// Advance moves them (ADR-097).
 //
 // The expectations ([App.ExpectText], [App.ExpectNoText], [App.ExpectRole],
 // [App.ExpectCount], [App.ExpectFocused], [App.ExpectValue],
 // [App.ExpectAria] and [App.Expect]) retry until they hold or the [Timeout]
 // expires, letting a frame of app time and a moment of real time pass
-// between tries, so state set by a goroutine arrives. [App.Expect] checks
+// between tries, so state set by a goroutine arrives (under [NoSettle] the
+// first try does not move the clock: it handles only the work due).
+// [App.Expect] checks
 // the states of an element ([Checked], [Disabled], [Expanded], [Selected],
 // [Pressed], [Focused], [HasName], [HasValue]) without matching strings of
 // the aria snapshot.

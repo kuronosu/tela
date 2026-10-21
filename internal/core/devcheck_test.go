@@ -256,37 +256,69 @@ func TestFuncNames(t *testing.T) {
 // ---------------------------------------------------------------------
 // Warnings.
 
-func TestNilDepsWarning(t *testing.T) {
+// TestNilDepsPanics: in dev mode a single nil dependency is rejected with
+// the fix (ADR-097); a typed nil is a dependency, and UseUpdateEffect with
+// Once only warns.
+func TestNilDepsPanics(t *testing.T) {
+	cases := []struct {
+		name string
+		comp func() Node
+		want []string
+	}{
+		{"UseEffect", func() Node { UseEffect(func() func() { return nil }, nil); return Text("x") },
+			[]string{"UseEffect(f, nil) at core.TestNilDepsPanics", "nil is not a dependency list", "tela.UseMount(f)", "tela.UseEffect(f, tela.Once)"}},
+		{"UseLayoutEffect", func() Node { UseLayoutEffect(func() func() { return nil }, nil); return Text("x") },
+			[]string{"UseLayoutEffect(f, nil)", "tela.UseLayoutEffect(f, tela.Once)"}},
+		{"UseMemo", func() Node { UseMemo(func() int { return 1 }, nil); return Text("x") },
+			[]string{"UseMemo(f, nil)", "use tela.UseOnce(f), or tela.UseMemo(f, tela.Once)"}},
+		{"UseEffectDo", func() Node { UseEffectDo(func() {}, nil); return Text("x") },
+			[]string{"UseEffectDo(f, nil)", "tela.UseEffectDo(f, tela.Once)"}},
+		{"UseUpdateEffect", func() Node { UseUpdateEffect(func() func() { return nil }, nil); return Text("x") },
+			[]string{"UseUpdateEffect(f, nil)", "skips the first build"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var logs []string
+			msg := panicMessage(func() { devTree(t, Component(c.comp), &logs).Frame() })
+			for _, w := range c.want {
+				if !strings.Contains(msg, w) {
+					t.Errorf("panic %q does not contain %q", msg, w)
+				}
+			}
+		})
+	}
+
 	var logs []string
 	comp := func() Node {
-		UseEffect(func() func() { return nil }, nil)
-		UseLayoutEffect(func() func() { return nil }, nil)
-		UseMemo(func() int { return 1 }, nil)
-		UseEffectDo(func() {}, nil)
-		UseUpdateEffect(func() func() { return nil }, nil)
 		UseEffect(func() func() { return nil }, (*int)(nil)) // a typed nil is a dependency
 		UseMount(func() func() { return nil })
+		UseUpdateEffect(func() func() { return nil }, Once)
 		return Text("x")
 	}
 	tr := devTree(t, Component(comp), &logs)
 	tr.Frame()
-	tr.Mount(Component(comp))
-	tr.Frame()
-	want := []string{
-		"UseEffect(f, nil) at core.TestNilDepsWarning.func1 (devcheck_test.go:", "tela.UseEffect(f, tela.Once)",
-		"UseLayoutEffect(f, nil)", "tela.UseLayoutEffect(f, tela.Once)",
-		"UseMemo(f, nil)", "use tela.UseOnce(f), or tela.UseMemo(f, tela.Once)",
-		"UseEffectDo(f, nil)", "tela.UseEffectDo(f, tela.Once)",
-		"UseUpdateEffect(f, nil)", "it never runs",
+	if all := strings.Join(logs, "\n"); strings.Count(all, "never runs") != 1 || strings.Contains(all, "nil is not") {
+		t.Errorf("logs %q, want only the UseUpdateEffect(f, Once) warning", logs)
 	}
-	all := strings.Join(logs, "\n")
-	for _, w := range want {
-		if !strings.Contains(all, w) {
-			t.Errorf("logs do not contain %q:\n%s", w, all)
-		}
+}
+
+// TestNilDepsMountOnlyInRelease: outside dev mode nil keeps meaning "only
+// on mount" (ADR-097).
+func TestNilDepsMountOnlyInRelease(t *testing.T) {
+	runs, memos := 0, 0
+	comp := func() Node {
+		UseEffect(func() func() { runs++; return nil }, nil)
+		UseMemo(func() int { memos++; return 1 }, nil)
+		return Text("x")
 	}
-	if n := strings.Count(all, "nil deps is deprecated"); n != 5 {
-		t.Errorf("%d nil-deps warnings, want 5 (once per call site):\n%s", n, all)
+	tr := newTestTree(t, 100, 100, Component(comp), nil)
+	for i := 0; i < 3; i++ {
+		tr.Mount(Component(comp))
+		tr.Frame()
+		tr.FlushEffects()
+	}
+	if runs != 1 || memos != 1 {
+		t.Errorf("effect ran %d times and memo %d, want 1 and 1", runs, memos)
 	}
 }
 

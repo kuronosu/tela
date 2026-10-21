@@ -25,6 +25,9 @@ type ariaProps struct {
 	selected   semantics.Toggle
 	expanded   semantics.Toggle
 	disabled   semantics.Toggle
+	required   semantics.Toggle // AriaRequired, AriaReadOnly and AriaBusy (aria_state.go)
+	readOnly   semantics.Toggle
+	busy       semantics.Toggle
 	level      int32
 	rng        semantics.Range
 	valueText  string

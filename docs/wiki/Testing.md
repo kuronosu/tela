@@ -216,7 +216,8 @@ func LongPress() tela.Node {
 
 Actions settle the app, so a screenshot after `Click` shows the end of the
 transitions it started. To look at the frames in between, mount with
-[`telatest.NoSettle`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#NoSettle): the events of an action, and `Screenshot` and `Golden`,
+[`telatest.NoSettle`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#NoSettle): the events of an action, `Screenshot` and `Golden`,
+and the queries `AriaSnapshot`, `Count`, `Bounds`, `Stats` and `Cursor`,
 then handle only the work due (state updates and the frames they ask for)
 and leave running transitions and animations where they are; the clock moves
 with `Advance`.
@@ -230,10 +231,11 @@ func TestDialogEntrance(t *testing.T) {
 }
 ```
 
-Actions still wait for their target and settle the app before acting, and
-expectations, `AriaSnapshot`, `Count`, `Stats` and `Cursor` still settle it,
-so the animations an earlier step started end before the next action. See
-[Animation](Animation) for what animates.
+Actions still wait for their target and settle the app before acting, so the
+animations an earlier step started end before the next action. Expectations
+keep polling, but their first try handles only the work due and the clock moves
+only between failed tries, a frame at a time. See [Animation](Animation) for
+what animates.
 
 ## Goldens
 

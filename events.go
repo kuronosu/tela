@@ -39,6 +39,31 @@ import "github.com/kuronosu/tela/internal/core"
 // updates are applied and components rebuilt before the next event, so
 // two clicks before a frame see each other's updates.
 
+// StopHandler is the handler tela.StopPropagation returns. It is a named
+// func() type, so every h.On… handler prop accepts it: the prop calls
+// e.StopPropagation() on the event and then the function.
+type StopHandler func()
+
+// StopPropagation turns f into a handler that stops the event from
+// bubbling to the ancestors' handlers and then calls f: the one-line form
+// of a handler that begins with e.StopPropagation(). It works in every
+// handler prop (OnClick, OnKeyDown, OnPointerDown, OnChange...), whatever
+// the event type, and f does not take the event:
+//
+//	Button(OnClick(tela.StopPropagation(ctrl.Remove)), Text("Delete")) // the row's OnClick does not run
+//	Div(OnKeyDown(tela.StopPropagation(close)))
+//
+// A handler that needs the event, to stop propagation only for some
+// events, calls e.StopPropagation() itself. The press hook of the aria
+// package (aria.UsePress) will stop propagation by default, as React Aria
+// does. StopPropagation(nil) panics.
+func StopPropagation(f func()) StopHandler {
+	if f == nil {
+		panic("tela: StopPropagation(nil): pass the function to call, for example OnClick(tela.StopPropagation(remove))")
+	}
+	return StopHandler(f)
+}
+
 // MouseButton is a mouse button, or the touch contact or pen tip that
 // stands for the primary one.
 type MouseButton = core.MouseButton
@@ -133,18 +158,6 @@ type KeyName = core.KeyValue
 //
 //	if e.Code == tela.CodeKeyW || e.Code == "ArrowUp" { moveUp() }
 type KeyCode = core.CodeValue
-
-// Key is the former name of [KeyName]. It collides with h.Key when both
-// packages are dot-imported.
-//
-// Deprecated: use KeyName. Key will be removed in phase 8.
-type Key = KeyName
-
-// Code is the former name of [KeyCode]. It collides with the element h.Code
-// when both packages are dot-imported.
-//
-// Deprecated: use KeyCode. Code will be removed in phase 8.
-type Code = KeyCode
 
 // KeyLocation tells apart keys with the same meaning: the left and right
 // Shift, Control, Alt and Meta keys, and the numeric keypad.

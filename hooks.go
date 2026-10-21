@@ -285,10 +285,9 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 // subscription), use [UseMount] or [Once]; [UseEffectDo] takes an effect
 // without a cleanup, [UseUpdateEffect] skips the first build, and
 // periodic and background work have [UseInterval] and [UseGo]. A single
-// nil dependency, UseEffect(f, nil), still means "only on mount", but it
-// is deprecated in favor of [Once] (React reads a null list as "after
-// every render"): dev mode warns about it, and a later version will
-// reject it.
+// nil dependency, UseEffect(f, nil), is rejected in dev mode with the fix
+// ([Once]: React reads a null list as "after every render"); outside dev
+// mode it keeps meaning "only on mount".
 //
 // Values that cannot be compared (functions, slices, maps) count as
 // changed on every build; dev mode reports them, and a dependency count
@@ -552,11 +551,6 @@ func UseValue[T any](initial T) *Value[T] { return core.UseValue(initial) }
 //	return Div(Label(For(id), Text("Email")), Input(ID(id)))
 func UseID() string { return core.UseID() }
 
-// UseId is the former name of [UseID].
-//
-// Deprecated: use UseID. UseId will be removed in phase 8.
-func UseId() string { return core.UseID() }
-
 // Once is the dependency of a hook that runs or computes only on the
 // first build (React's empty dependency list []):
 //
@@ -568,10 +562,10 @@ func UseId() string { return core.UseID() }
 // Its type is unexported, so it is equal to itself on every build and is
 // never confused with a value of yours. [UseMount] and [UseOnce] are the
 // shorthands for effects and values. It replaces a single nil dependency
-// (UseEffect(f, nil)), which still means "only on mount" but is
-// deprecated: React reads a null list as "after every render", and a
-// later version will reject it. With [UseUpdateEffect], which skips the
-// first build, Once never runs (dev mode warns).
+// (UseEffect(f, nil)): React reads a null list as "after every render", so
+// dev mode panics with this fix, and outside dev mode nil keeps meaning
+// "only on mount". With [UseUpdateEffect], which skips the first build,
+// Once never runs (dev mode warns).
 var Once = core.Once
 
 // C returns a node that builds fn as a component with its own state: a

@@ -84,8 +84,13 @@ const (
 	StateScrollable
 	// StateMultiline: a text field that takes several lines (Textarea).
 	StateMultiline
-	// StateReadOnly: a text field the user cannot edit (ReadOnly).
+	// StateReadOnly: a text field the user cannot edit (ReadOnly), or an
+	// element with AriaReadOnly(true).
 	StateReadOnly
+	// StateRequired: AriaRequired(true), a field the user must fill.
+	StateRequired
+	// StateBusy: AriaBusy(true), the element is being updated.
+	StateBusy
 )
 
 // Action is a set of actions a node supports (ARCHITECTURE section 16).

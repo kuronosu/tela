@@ -483,6 +483,9 @@ func (t *Tree) update(el *Element, n Node) {
 		if old.disabled != d.disabled {
 			t.setState(el, style.StateDisabled, d.disabled)
 		}
+		if old.aria != d.aria {
+			t.setAriaStates(el, ariaStates(old.aria), ariaStates(d.aria))
+		}
 		if old.ref != d.ref || old.scope != d.scope || el.fscope != nil {
 			t.updateFocus(el, old)
 		}
@@ -583,6 +586,7 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.disabled {
 			el.istate = style.StateDisabled
 		}
+		el.istate |= ariaStates(d.aria)
 		if d.ref != nil || d.autoFocus || d.scope != nil {
 			t.mountFocus(el)
 		}

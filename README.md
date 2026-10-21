@@ -237,14 +237,14 @@ changes and shared elements, Motion style. `tela.UseColorScheme` and
 `tela.SetColorScheme` read and switch light and dark.
 
 ```go
-type RowProps struct{ Index int }
+type Row struct{ Index int }
 
-func Row(p RowProps) tela.Node { /* ... */ }
+func (r Row) Build() tela.Node { /* ... */ }
 
 // Only rows that enter the viewport are built; a scroll that stays inside the
 // built rows only repaints.
-VirtualList(100_000, func(int) float32 { return 65 }, func(i int) tela.Node {
-	return tela.CP(Row, RowProps{Index: i})
+VirtualList(100_000, func(int) float32 { return 65 }, func(i int) tela.Component {
+	return Row{Index: i}
 })
 ```
 

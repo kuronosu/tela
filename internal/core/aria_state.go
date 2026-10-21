@@ -1,0 +1,72 @@
+package core
+
+import (
+	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/style"
+)
+
+// AriaRequired sets whether a field must be filled (aria-required): a
+// textbox, combobox, listbox, radio group, spin button or tree. It sets
+// the node's required state and matches the aria-required: variants.
+func AriaRequired(required bool) Prop {
+	return ariaProp("AriaRequired", func(a *ariaProps) { a.required = semantics.Of(required) })
+}
+
+// AriaReadOnly sets whether a widget the user can focus is not editable
+// (aria-readonly): a textbox, checkbox, combobox, grid, listbox, radio
+// group, slider or spin button. It sets the node's read-only state, like
+// a ReadOnly text field's, and matches the aria-readonly: variants.
+func AriaReadOnly(readOnly bool) Prop {
+	return ariaProp("AriaReadOnly", func(a *ariaProps) { a.readOnly = semantics.Of(readOnly) })
+}
+
+// AriaBusy sets whether the element, and what it contains, is being
+// updated (aria-busy): a region that loads. It sets the node's busy state
+// and matches the aria-busy: variants.
+func AriaBusy(busy bool) Prop {
+	return ariaProp("AriaBusy", func(a *ariaProps) { a.busy = semantics.Of(busy) })
+}
+
+// ariaStates returns the aria-* states that a's props set to true: what
+// the aria-busy:, aria-checked:... variants (and their group- and peer-
+// forms) test, as Tailwind's [aria-x="true"] selectors do. A mixed
+// checkbox or pressed button is not "true".
+func ariaStates(a *ariaProps) style.StateFlags {
+	if a == nil {
+		return 0
+	}
+	var s style.StateFlags
+	for _, f := range [...]struct {
+		on   bool
+		flag style.StateFlags
+	}{
+		{a.busy == semantics.ToggleTrue, style.StateAriaBusy},
+		{a.checked == semantics.ToggleTrue, style.StateAriaChecked},
+		{a.disabled == semantics.ToggleTrue, style.StateAriaDisabled},
+		{a.expanded == semantics.ToggleTrue, style.StateAriaExpanded},
+		{a.hiddenSet && a.hidden, style.StateAriaHidden},
+		{a.pressed == semantics.ToggleTrue, style.StateAriaPressed},
+		{a.readOnly == semantics.ToggleTrue, style.StateAriaReadOnly},
+		{a.required == semantics.ToggleTrue, style.StateAriaRequired},
+		{a.selected == semantics.ToggleTrue, style.StateAriaSelected},
+	} {
+		if f.on {
+			s |= f.flag
+		}
+	}
+	return s
+}
+
+// setAriaStates moves the aria states of primitive el from old to new,
+// restyling, as setState does for each, only the elements whose classes
+// test a state that changed: el, the descendants of a group and the
+// following siblings of a peer.
+func (t *Tree) setAriaStates(el *Element, old, new style.StateFlags) {
+	changed := old ^ new
+	for f := style.StateFlags(1); changed != 0; f <<= 1 {
+		if changed&f != 0 {
+			t.setState(el, f, new&f != 0)
+			changed &^= f
+		}
+	}
+}

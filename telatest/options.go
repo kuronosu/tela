@@ -103,14 +103,16 @@ func (c config) coreConfig() core.Config {
 //	app.Advance(100 * time.Millisecond)
 //	app.Golden("dialog_100ms.png") // 100 ms into the entrance
 //
-// With it, Mount, the events of an action and Screenshot and Golden handle
-// the work due (state updates, the frames they ask for) but do not run the
-// clock until running transitions and animations end: the clock moves with
-// [App.Advance], and with the waits of actions and expectations. Those
-// keep their auto-wait: before acting, an action still waits for the app
-// to settle (so the animations an earlier step started end first), and
-// the expectations, [App.AriaSnapshot], [App.Count], [App.Stats] and
-// [App.Cursor] still settle it.
+// With it, Mount, the events of an action, Screenshot and Golden and the
+// queries [App.AriaSnapshot], [App.Count], [App.Bounds], [App.Stats] and
+// [App.Cursor] handle the work due (state updates, the frames they ask
+// for) but do not run the clock until running transitions and animations
+// end: the clock moves with [App.Advance]. The expectations poll as ever,
+// but their first try handles only the work due, and the clock moves a
+// frame at a time only between failed tries. What keeps its full
+// auto-wait is the wait before an action: before acting, an action waits
+// for the app to settle (so the animations an earlier step started end
+// first).
 func NoSettle() Option { return func(c *config) { c.noSettle = true } }
 
 // EnvCheckDamage is the environment variable that turns [CheckDamage] on

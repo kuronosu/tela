@@ -1,6 +1,8 @@
 package h
 
 import (
+	"fmt"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 )
@@ -17,7 +19,10 @@ import (
 // and supports ScrollToIndex.
 //
 // estimateSize(i) estimates the height of item i in logical pixels, before
-// it is built; renderItem(i) returns it. Each item is measured once it is
+// it is built; renderItem(i) returns it, as a tela.Node or as a
+// tela.Component (renderItem is a func(i int) tela.Node or a
+// func(i int) tela.Component, so a struct component row needs no wrapper).
+// Each item is measured once it is
 // laid out, and the measurement replaces the estimate (per index; a new
 // estimateSize function resets them), so items may have any height and the
 // scrollbar, OnScroll's ScrollHeight and the aria tree reflect the whole
@@ -34,9 +39,9 @@ import (
 // snapshot; Role on the list replaces its role (the items are then not
 // listitems), and an item's own role goes on the element renderItem
 // returns. renderItem runs inside the list's build, so it must not call
-// hooks; return a component node (tela.C, tela.CP) for items with state,
-// and prefer tela.CP so that a list rebuilt by its parent skips the items
-// whose props did not change. Scrolling never rebuilds the items that stay
+// hooks; return a component (a struct component such as Row{Item: it}, or a
+// node from tela.C or tela.CP) for items with state, so that a list rebuilt
+// by its parent skips the items whose props did not change. Scrolling never rebuilds the items that stay
 // in view: a scroll inside the built items only repaints, and a scroll
 // past them builds the entering items and unmounts the leaving ones. The
 // focused item stays mounted while it is scrolled away, so Tab goes on
@@ -53,13 +58,32 @@ import (
 //	        Text("Go to 5000")),
 //	    VirtualList(100_000,
 //	        func(int) float32 { return 40 },
-//	        func(i int) tela.Node { return tela.CP(Row, i) },
+//	        func(i int) tela.Component { return Row{Index: i} },
 //	        Ref(list), Class("flex-1 rounded-lg border")),
 //	)
 //
 // Lists are vertical; horizontal lists and grids are not virtualized yet.
-func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i int) tela.Node, props ...tela.Prop) tela.Node {
-	return core.VirtualList(count, estimateSize, renderItem, props...)
+func VirtualList[R ~func(int) tela.Node | ~func(int) tela.Component](count int, estimateSize func(i int) float32, renderItem R, props ...tela.Prop) tela.Node {
+	var render func(i int) tela.Node
+	switch f := any(renderItem).(type) {
+	case func(int) tela.Node:
+		render = f
+	default:
+		if each := componentFunc(renderItem); each != nil {
+			render = func(i int) tela.Node { return itemNode(each(i), i) }
+		}
+	}
+	return core.VirtualList(count, estimateSize, render, props...)
+}
+
+// itemNode returns the node of a component that renderItem returned for
+// item i; a Prop is not an item.
+func itemNode(c tela.Component, i int) tela.Node {
+	switch c.(type) {
+	case tela.Prop, tela.StyleProp:
+		panic(fmt.Sprintf("h: the renderItem function of a VirtualList returned a prop for item %d; it must return the item's node or component, such as func(i int) tela.Component { return Row{Index: i} }", i))
+	}
+	return core.NodeOf(c)
 }
 
 // Overscan sets how many items a [VirtualList] builds beyond each side of
@@ -87,7 +111,7 @@ func Overscan(n int) tela.Prop { return core.Overscan(n) }
 // laid out.
 //
 //	VirtualList(len(rows), estimate,
-//	    func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+//	    func(i int) tela.Component { return Row{Row: rows[i]} },
 //	    ItemKey(func(i int) int { return rows[i].ID }))
 func ItemKey[K comparable](key func(i int) K) tela.Prop { return core.ItemKey(key) }
 
@@ -98,6 +122,6 @@ func ItemKey[K comparable](key func(i int) K) tela.Prop { return core.ItemKey(ke
 // estimateSize argument is not needed (pass nil). An item taller than the
 // height spills over the next one (it is not clipped).
 //
-//	VirtualList(len(rows), nil, func(i int) tela.Node { return tela.CP(Row, rows[i]) },
+//	VirtualList(len(rows), nil, func(i int) tela.Component { return Row{Row: rows[i]} },
 //	    ItemHeight(40), Class("h-96"))
 func ItemHeight(px float32) tela.Prop { return core.ItemHeight(px) }

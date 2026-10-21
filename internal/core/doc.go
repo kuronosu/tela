@@ -140,9 +140,11 @@
 // panics with both call sites when a later build calls another kind or
 // another number of hooks; the same first build checks the hook's caller
 // (boundary.go) and panics when it is neither the component's function
-// nor a custom hook. Dev errors (unknown classes) go to Config.Log and
+// nor a custom hook; a single nil dependency list panics with the fix
+// (tela.Once, ADR-097; outside dev mode nil keeps meaning "only on mount").
+// Dev errors (unknown classes) go to Config.Log and
 // dev warnings to Config.Warn: dependencies that cannot be compared,
-// changing dependency counts, nil dependency lists, ComponentProps or
+// changing dependency counts, ComponentProps or
 // Memo nodes made from anonymous functions or method values, lists
 // without keys or with duplicate keys (per call site of Map and List),
 // Value.Get with changes queued outside a tracked evaluation, contexts

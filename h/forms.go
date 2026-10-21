@@ -146,11 +146,6 @@ func Name(s string) tela.Prop { return core.Name(s) }
 // For refers to (HTML's id). tela.UseID makes one for a reusable field.
 func ID(id string) tela.Prop { return core.ID(id) }
 
-// Id is the former name of [ID].
-//
-// Deprecated: use ID. Id will be removed in phase 8.
-func Id(id string) tela.Prop { return core.ID(id) }
-
 // For makes a Label label the element whose ID is id.
 func For(id string) tela.Prop { return core.For(id) }
 

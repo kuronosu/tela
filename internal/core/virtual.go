@@ -363,7 +363,7 @@ func fixedEstimate(h float32) func(int) float32 {
 
 // ItemKey keys the items of a VirtualList by key(i) instead of by their
 // index, so that an item component's state follows the item when others
-// are inserted or removed before it (tela.Key's rule for lists). It
+// are inserted or removed before it (h.Key's rule for lists). It
 // panics on other elements, for a nil key function, and, when the list
 // builds, for a key that is nil or not comparable.
 func ItemKey[K comparable](key func(i int) K) Prop {

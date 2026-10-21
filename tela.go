@@ -209,11 +209,11 @@
 //   - unknown classes are printed on standard error with the closest
 //     class (in telatest they fail the test);
 //   - unknown roles, input types and easings, hook-order changes, hooks
-//     called outside their component, a pointer given as a [Component]
-//     and a [Prop] in a field of type Component panic with the fix;
+//     called outside their component, a pointer given as a [Component],
+//     a [Prop] in a field of type Component and a nil dependency list
+//     (UseEffect(f, nil): use [Once] or [UseMount]) panic with the fix;
 //   - likely mistakes are printed as warnings, once per call site: lists
-//     without keys or with duplicate keys, UseEffect(f, nil) (deprecated:
-//     use [Once] or [UseMount]), dependencies that cannot be compared, a [Value]
+//     without keys or with duplicate keys, dependencies that cannot be compared, a [Value]
 //     read with Get in a handler while changes are queued (use Latest), a
 //     context read without a Provider whose default is not safe to use,
 //     and an h.Label that labels no field.

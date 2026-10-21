@@ -27,7 +27,8 @@ func TestDialogFrames(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Close"))
 	app.Advance(80 * time.Millisecond)
 	app.Golden("dialog_exit_80ms.png")
-	app.ExpectNoText("Your profile is up to date") // settles: the exit ends
+	app.Advance(time.Second) // the exit ends
+	app.ExpectNoText("Your profile is up to date")
 	if n := app.Count(telatest.ByRole("dialog", "")); n != 0 {
 		t.Errorf("%d dialogs after the exit", n)
 	}
@@ -63,7 +64,8 @@ func TestDragSpring(t *testing.T) {
 	app.Golden("drag_release_120ms.png")
 	app.Advance(180 * time.Millisecond)
 	app.Golden("drag_release_300ms.png")
-	app.ExpectText("Drag me") // settles: the spring comes to rest
+	app.Advance(2 * time.Second) // the spring comes to rest
+	app.ExpectText("Drag me")
 	if r := app.Bounds(card); r != rest {
 		t.Errorf("the card rests at %v; it started at %v", r, rest)
 	}

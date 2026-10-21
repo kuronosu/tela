@@ -187,10 +187,11 @@ checkout) and in every `telatest` test, and off in release builds (built with
 - An unknown role, input type or easing, a change in the order of hooks, a
   hook called outside its component (`Counter()` where `tela.C(Counter)`
   belongs, `Stat{}.Build()` where `Stat{}` belongs), a pointer given as a
-  component (`&Stat{}`) and a prop in a field of type `tela.Component` panic
+  component (`&Stat{}`), a prop in a field of type `tela.Component` and a nil
+  dependency list (`UseEffect(f, nil)`: use `tela.Once` or `UseMount`) panic
   with the fix.
 - Likely mistakes are warnings, printed once per call site (test log lines in
-  `telatest`): a list without keys, `UseEffect(f, nil)` (use `tela.Once` or `UseMount`), props
+  `telatest`): a list without keys, props
   that a [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) component cannot compare, a `Value.Get` that misses queued
   changes (use `Latest`), a context without a Provider whose default would
   panic, a `Label` that labels nothing.

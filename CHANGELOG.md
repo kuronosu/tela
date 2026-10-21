@@ -12,6 +12,38 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Responsive range variants (Tailwind v4): `max-sm:` … `max-2xl:` (the window is narrower than the breakpoint), the arbitrary `min-[600px]:` and `max-[40rem]:` (px, rem or em), and `min-sm:` … `min-2xl:` (the same as `sm:` … `2xl:`); they stack with each other and with `sm:` … `2xl:` (`md:max-xl:`).
+- `aria-*` variants (Tailwind v4): `aria-busy:`, `aria-checked:`, `aria-disabled:`, `aria-expanded:`, `aria-hidden:`, `aria-pressed:`, `aria-readonly:`, `aria-required:` and `aria-selected:`, plus `group-aria-*:` and `peer-aria-*:`. They match when the element's `h.Aria…` prop is true (Tailwind's `[aria-x="true"]`), not an implicit state, and only the elements whose classes test them restyle when it changes. `aria-[checked=true]:` is `aria-checked:`; other arbitrary selectors (`aria-[sort=ascending]:`) report that Tela has no prop for them.
+- `h.AriaRequired(bool)`, `h.AriaReadOnly(bool)` and `h.AriaBusy(bool)`: semantics states (not printed by the aria snapshot, as in Playwright) and the matching variants.
+- `h.Range(n, render)`: `render(0)` … `render(n-1)` as a list keyed by index, with no missing-key warning; `render` returns a `tela.Node` or a `tela.Component`.
+- `h.VirtualList`'s `renderItem` may return a `tela.Component` as well as a `tela.Node` (struct-component rows need no wrapper); existing calls compile unchanged.
+- `tela.StopPropagation(f)`: a handler for every `h.On…` prop that stops the event's propagation and then calls `f`: `Button(OnClick(tela.StopPropagation(ctrl.Remove)))`. Its type is `tela.StopHandler`.
+
+### Changed
+
+- Under `telatest.NoSettle()`, `AriaSnapshot`, `Count`, `Bounds`, `Stats` and `Cursor` no longer run the clock for animations: they handle only the work due, like the events of an action. Expectations still poll, but their first try handles only the work due and the clock moves only between failed tries. The wait before an action still settles fully. Tests that relied on an expectation or a query to finish an animation under `NoSettle` call `app.Advance(d)` instead.
+- A single `nil` dependency list (`UseEffect(f, nil)`) panics in dev mode with the fix (`tela.Once`, `tela.UseMount` or `tela.UseOnce`); outside dev mode it keeps meaning "mount only". It was a warning in v0.7.0.
+
+### Breaking
+
+- Removed `h.Id`, `tela.UseId`, `tela.Key` and `tela.Code`, deprecated in v0.7.0: use `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode`.
+- `h.VirtualList` is generic over its `renderItem` (`VirtualList[R ~func(int) tela.Node | ~func(int) tela.Component]`): a call that passed `nil` as `renderItem` no longer compiles (it panicked before).
+
+### Migration
+
+| Before (v0.7) | After |
+|---|---|
+| `Input(Id("email"))` | `Input(ID("email"))` |
+| `id := tela.UseId()` | `id := tela.UseID()` |
+| `var k tela.Key`, `var c tela.Code` | `var k tela.KeyName`, `var c tela.KeyCode` |
+| `tela.UseEffect(f, nil)` (a dev panic now) | `tela.UseEffect(f, tela.Once)` or `tela.UseMount(f)` |
+| `tela.UseMemo(f, nil)` | `tela.UseMemo(f, tela.Once)` or `tela.UseOnce(f)` |
+| `OnClick(func(e tela.MouseEvent) { e.StopPropagation(); ctrl.Remove() })` | `OnClick(tela.StopPropagation(ctrl.Remove))` (optional) |
+| `Map(make([]int, 5), func(int) tela.Node { … })` for a fixed count (a dev warning about keys) | `Range(5, func(i int) tela.Node { … })` |
+| `app.ExpectText(…)` or `app.Count(…)` ending an animation under `NoSettle` | `app.Advance(d)` |
+
 ## [0.7.0] - 2026-10-21
 
 ### Added

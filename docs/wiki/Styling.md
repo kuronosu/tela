@@ -206,10 +206,11 @@ Variants combine (`dark:md:hover:bg-slate-700`); every part must hold.
 | Kind | Variants |
 |---|---|
 | State | `hover:` `active:` `focus:` `focus-visible:` `focus-within:` `disabled:` `enabled:` `checked:` |
+| ARIA | `aria-busy:` `aria-checked:` `aria-disabled:` `aria-expanded:` `aria-hidden:` `aria-pressed:` `aria-readonly:` `aria-required:` `aria-selected:`: they match when the element's `AriaBusy(true)`, `AriaChecked(true)`... prop is set (Tailwind's `[aria-x="true"]`), not an implicit state; `aria-[checked=true]:` is `aria-checked:`, and other arbitrary selectors such as `aria-[sort=ascending]:` are not supported |
 | Structure | `first:` `last:` `only:` `odd:` `even:` |
 | Text fields | `read-only:` `placeholder-shown:` `invalid:` `placeholder:` (style the placeholder text) `selection:` (style the selected text) |
 | Ancestors and siblings | `group-hover:` and the other state variants after `group-`, on a descendant of an element with the class `group`; `peer-*` for the following siblings of an element with the class `peer` (named groups and peers are not supported) |
-| Environment | `dark:` `motion-reduce:` `motion-safe:` and the breakpoints `sm:` `md:` `lg:` `xl:` `2xl:` (by window width) |
+| Environment | `dark:` `motion-reduce:` `motion-safe:` and the breakpoints `sm:` `md:` `lg:` `xl:` `2xl:` (window width at least), `max-sm:` … `max-2xl:` (window width below the breakpoint), `min-[600px]:` and `max-[40rem]:` (px, rem or em); they stack: `md:max-xl:flex-row` applies from 768 to 1279 px |
 | Direction | `rtl:` `ltr:`: the element's direction, set with [`Dir`](https://pkg.go.dev/github.com/kuronosu/tela/h#Dir) on it or an ancestor (see [Right to left](#right-to-left)) |
 
 ```go
@@ -325,7 +326,7 @@ root box that fills the window: `RootClass: "bg-white dark:bg-zinc-950"`.
 
 ## Responsive layout
 
-The breakpoint variants look at the window width, so one tree adapts:
+The breakpoint variants (`md:`, `max-md:`, `min-[600px]:`...) look at the window width, so one tree adapts:
 
 ```go
 func Gallery() tela.Node {

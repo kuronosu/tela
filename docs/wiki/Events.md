@@ -21,6 +21,21 @@ func Toggle() tela.Node {
 Every handler prop panics when its handler is `nil`, with a message that shows
 the right call.
 
+To stop an event from reaching the ancestors' handlers without reading it, wrap
+the function in [`tela.StopPropagation`](https://pkg.go.dev/github.com/kuronosu/tela#StopPropagation), which every handler prop accepts:
+
+```go
+Div(OnClick(openRow),
+	Button(OnClick(tela.StopPropagation(remove)), Text("Delete")), // openRow does not run
+)
+Div(OnKeyDown(tela.StopPropagation(closeDialog)))
+```
+
+It calls `e.StopPropagation()` and then the function. A handler that stops
+the event only sometimes takes the event and calls `e.StopPropagation()`
+itself. (The press hook of the `aria` package will stop propagation by
+default, as React Aria does.)
+
 ## How events travel
 
 - A pointer event's **target** is the topmost element under the pointer as

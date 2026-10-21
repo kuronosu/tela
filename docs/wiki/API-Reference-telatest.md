@@ -48,9 +48,9 @@ func TestCounter(t *testing.T) {
 
 Before acting, an action waits until the element is visible, enabled, in view and not covered by another element. Before and after, the app is settled: pending state updates are applied and frames run, advancing the app's clock to each one, until nothing is dirty and no animation or scroll fling is running: transitions (hover:, focus:, dark: changes with transition classes) and finite animations run to their end, so a screenshot after an action shows the settled state. Infinite animations (animate-spin, animate-pulse) are never waited for, and use [`App.Advance`](#func-app-advance) to step them. An app that never goes quiet otherwise (a goroutine that updates state all the time) is not waited for either: the first time it is logged, and actions then run only a few frames.
 
-[`App.Advance`](#func-app-advance) moves the clock by hand: it is how a test waits for a long-press timer, an animation or a fade. To capture the frames of an animation, mount with [`NoSettle`](#func-nosettle): actions and screenshots then leave running animations where they are, and only Advance moves them.
+[`App.Advance`](#func-app-advance) moves the clock by hand: it is how a test waits for a long-press timer, an animation or a fade. To capture the frames of an animation, mount with [`NoSettle`](#func-nosettle): actions, screenshots and the queries ([`App.AriaSnapshot`](#func-app-ariasnapshot), [`App.Count`](#func-app-count), [`App.Bounds`](#func-app-bounds), [`App.Stats`](#func-app-stats), [`App.Cursor`](#func-app-cursor)) then leave running animations where they are, and only Advance moves them (ADR-097).
 
-The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`](#func-app-expectnotext), [`App.ExpectRole`](#func-app-expectrole), [`App.ExpectCount`](#func-app-expectcount), [`App.ExpectFocused`](#func-app-expectfocused), [`App.ExpectValue`](#func-app-expectvalue), [`App.ExpectAria`](#func-app-expectaria) and [`App.Expect`](#func-app-expect)) retry until they hold or the [`Timeout`](#func-timeout) expires, letting a frame of app time and a moment of real time pass between tries, so state set by a goroutine arrives. [`App.Expect`](#func-app-expect) checks the states of an element ([`Checked`](#func-checked), [`Disabled`](#func-disabled), [`Expanded`](#func-expanded), [`Selected`](#func-selected), [`Pressed`](#func-pressed), [`Focused`](#func-focused), [`HasName`](#func-hasname), [`HasValue`](#func-hasvalue)) without matching strings of the aria snapshot.
+The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`](#func-app-expectnotext), [`App.ExpectRole`](#func-app-expectrole), [`App.ExpectCount`](#func-app-expectcount), [`App.ExpectFocused`](#func-app-expectfocused), [`App.ExpectValue`](#func-app-expectvalue), [`App.ExpectAria`](#func-app-expectaria) and [`App.Expect`](#func-app-expect)) retry until they hold or the [`Timeout`](#func-timeout) expires, letting a frame of app time and a moment of real time pass between tries, so state set by a goroutine arrives (under [`NoSettle`](#func-nosettle) the first try does not move the clock: it handles only the work due). [`App.Expect`](#func-app-expect) checks the states of an element ([`Checked`](#func-checked), [`Disabled`](#func-disabled), [`Expanded`](#func-expanded), [`Selected`](#func-selected), [`Pressed`](#func-pressed), [`Focused`](#func-focused), [`HasName`](#func-hasname), [`HasValue`](#func-hasvalue)) without matching strings of the aria snapshot.
 
 [`App.ClickAt`](#func-app-clickat) and [`App.DragFromTo`](#func-app-dragfromto) act at window coordinates, for what a locator cannot name; [`App.Bounds`](#func-app-bounds) returns an element's box as a tela.Rect. [`App.PixelAt`](#func-app-pixelat) reads the frame, [`App.Measure`](#func-app-measure) returns the work the tree did during some actions, and [`MountFunc`](#func-mountfunc) is Mount for one component. [`MountApp`](#func-mountapp) mounts a tela.App's Root in the app's own window (its size, root class, color scheme, theme and class aliases), the App that tela.Main runs and `tela snapshot` reads from the package; [`FromApp`](#func-fromapp) gives those settings to Mount, Render and the other entry points.
 
@@ -288,7 +288,7 @@ AriaGolden compares the app's aria snapshot, with a final newline (what `tela in
 func (a *App) AriaSnapshot() string
 ```
 
-AriaSnapshot returns the app's semantics tree as a Playwright aria snapshot, the YAML that `tela inspect` prints, without a trailing newline. For a counter:
+AriaSnapshot returns the app's semantics tree as a Playwright aria snapshot, the YAML that `tela inspect` prints, without a trailing newline, after settling the app (under [`NoSettle`](#func-nosettle), handling only the work due: running animations stay where they are). For a counter:
 
 ```go
 snap := app.AriaSnapshot()
@@ -356,7 +356,7 @@ Close unmounts the app now, running the cleanups of its effects. The test does i
 func (a *App) Count(l Locator) int
 ```
 
-Count returns how many elements l matches now, after settling the app. It does not wait.
+Count returns how many elements l matches now, after settling the app (under [`NoSettle`](#func-nosettle), handling only the work due: running animations stay where they are). It does not wait.
 
 #### func (*App) Cursor
 
@@ -364,7 +364,7 @@ Count returns how many elements l matches now, after settling the app. It does n
 func (a *App) Cursor() string
 ```
 
-Cursor returns the CSS name of the mouse cursor the window shows ("default", "pointer", "not-allowed"...), after settling the app.
+Cursor returns the CSS name of the mouse cursor the window shows ("default", "pointer", "not-allowed"...), after settling the app (under [`NoSettle`](#func-nosettle), handling only the work due).
 
 #### func (*App) DoubleClick
 
@@ -766,7 +766,7 @@ Scroll moves the pointer to the center of the element l locates and scrolls the 
 func (a *App) Stats() Stats
 ```
 
-Stats returns the work counters of the app's tree, after settling it.
+Stats returns the work counters of the app's tree, after settling it (under [`NoSettle`](#func-nosettle), handling only the work due).
 
 #### func (*App) Type
 
@@ -782,7 +782,7 @@ Type types text one character at a time, as key presses and releases sent to the
 func (a *App) WaitFor(what string, cond func() bool)
 ```
 
-WaitFor waits until cond reports true, settling the app and letting a frame of app time and a moment of real time pass between tries, until the timeout (see [`Timeout`](#func-timeout)). It is for conditions the locators cannot see: a value computed from [`App.Bounds`](#func-app-bounds), or Go state that a goroutine sets. what names the condition in the failure message ("the progress bar reached 3 s"). cond runs on the test goroutine.
+WaitFor waits until cond reports true, settling the app and letting a frame of app time and a moment of real time pass between tries, until the timeout (see [`Timeout`](#func-timeout)); under [`NoSettle`](#func-nosettle) the first try handles only the work due, and the clock moves only between failed tries. It is for conditions the locators cannot see: a value computed from [`App.Bounds`](#func-app-bounds), or Go state that a goroutine sets. what names the condition in the failure message ("the progress bar reached 3 s"). cond runs on the test goroutine.
 
 ### type ClickOption
 
@@ -1178,7 +1178,7 @@ app.Advance(100 * time.Millisecond)
 app.Golden("dialog_100ms.png") // 100 ms into the entrance
 ```
 
-With it, Mount, the events of an action and Screenshot and Golden handle the work due (state updates, the frames they ask for) but do not run the clock until running transitions and animations end: the clock moves with [`App.Advance`](#func-app-advance), and with the waits of actions and expectations. Those keep their auto-wait: before acting, an action still waits for the app to settle (so the animations an earlier step started end first), and the expectations, [`App.AriaSnapshot`](#func-app-ariasnapshot), [`App.Count`](#func-app-count), [`App.Stats`](#func-app-stats) and [`App.Cursor`](#func-app-cursor) still settle it.
+With it, Mount, the events of an action, Screenshot and Golden and the queries [`App.AriaSnapshot`](#func-app-ariasnapshot), [`App.Count`](#func-app-count), [`App.Bounds`](#func-app-bounds), [`App.Stats`](#func-app-stats) and [`App.Cursor`](#func-app-cursor) handle the work due (state updates, the frames they ask for) but do not run the clock until running transitions and animations end: the clock moves with [`App.Advance`](#func-app-advance). The expectations poll as ever, but their first try handles only the work due, and the clock moves a frame at a time only between failed tries. What keeps its full auto-wait is the wait before an action: before acting, an action waits for the app to settle (so the animations an earlier step started end first).
 
 **Example**
 

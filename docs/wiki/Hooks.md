@@ -217,9 +217,9 @@ tela.UseMount(f)             // the same
 [`tela.UseMount`](https://pkg.go.dev/github.com/kuronosu/tela#UseMount) is the idiom for subscriptions: the effect runs on mount and its
 cleanup on unmount. [`tela.Once`](https://pkg.go.dev/github.com/kuronosu/tela#Once) is the "mount only" dependency of every hook
 that takes dependencies (`UseLayoutEffect`, `UseGo`, `UseEffectDo`,
-`UseMemo`). `UseEffect(f, nil)` still means the same, but it is deprecated
-(React reads a null list as "after every render"): dev mode warns and
-suggests `tela.Once`, and a later version will reject it.
+`UseMemo`). `UseEffect(f, nil)` is rejected: React reads a null list as
+"after every render", so dev mode panics with the fix (`tela.Once`,
+`UseMount`, `UseOnce`); outside dev mode nil keeps meaning "mount only".
 
 ```go
 func Status(store *Store) tela.Node {

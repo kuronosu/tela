@@ -178,6 +178,12 @@ func describeStates(n *semantics.Node) string {
 	if n.Has(semantics.StateReadOnly) {
 		s = append(s, "readonly=true")
 	}
+	if n.Has(semantics.StateRequired) {
+		s = append(s, "required=true")
+	}
+	if n.Has(semantics.StateBusy) {
+		s = append(s, "busy=true")
+	}
 	if n.Name != "" {
 		s = append(s, "name="+strconv.Quote(n.Name))
 	}

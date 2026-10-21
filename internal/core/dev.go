@@ -494,12 +494,12 @@ func (t *Tree) checkDeps(el *Element, i int, deps []any) {
 	}
 }
 
-// checkNilDeps warns, in dev mode and once per call site, about a new hook
-// slot whose dependency list is a single nil: it still means "only on
-// mount", but React reads a null list as "every render", so nil is
-// deprecated (ADR-085, ADR-088; a later version rejects it) in favor of
-// tela.Once, UseMount and UseOnce. UseUpdateEffect with Once never runs,
-// which is warned about too.
+// checkNilDeps panics, in dev mode, for a new hook slot whose dependency
+// list is a single nil (ADR-097): React reads a null list as "after every
+// render" and Tela used to read it as "only on mount", so it is rejected
+// with the fix, tela.Once, UseMount or UseOnce. Outside dev mode nil keeps
+// meaning "only on mount". UseUpdateEffect with Once never runs, which is
+// a warning.
 func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
 	if !t.dev || len(deps) != 1 {
 		return
@@ -515,9 +515,6 @@ func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
 		return
 	}
 	site := el.hookSite(i)
-	if !t.once("nil-deps:" + site) {
-		return
-	}
 	var advice string
 	switch kind {
 	case hookEffect:
@@ -527,12 +524,12 @@ func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
 	case hookMemo:
 		advice = "use tela.UseOnce(f), or tela.UseMemo(f, tela.Once), for a value computed once, on the first build"
 	case hookUpdateEffect:
-		advice = "with nil it never runs (it skips the mount, and nil means only on mount); pass the values it depends on"
+		advice = "pass the values it depends on (UseUpdateEffect skips the first build, so a mount-only dependency never runs it)"
 	default:
 		advice = fmt.Sprintf("use tela.%s(f, tela.Once) for one run on mount", kind)
 	}
-	t.warnf("tela: %s(f, nil) at %s: nil deps is deprecated and will be rejected in a later version (React reads a null dependency list as \"after every render\", Tela as \"only on mount\"); %s",
-		kind, site, advice)
+	panic(fmt.Sprintf("tela: %s(f, nil) at %s: nil is not a dependency list (React reads a null list as \"after every render\"; Tela used to read it as \"only on mount\"); %s",
+		kind, site, advice))
 }
 
 // reportDep warns, once per call site, about dependency k of hook slot i

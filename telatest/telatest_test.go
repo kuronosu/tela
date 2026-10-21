@@ -336,7 +336,7 @@ func TestClickWaitsForEnabledAndFailsOnDisabled(t *testing.T) {
 				setReady.Set(true)
 			}()
 			return nil
-		}, nil)
+		}, tela.Once)
 		return Button(Disabled(!ready), OnClick(func(tela.MouseEvent) { clicks.Add(1) }), Text("Go"))
 	}), telatest.Size(200, 100))
 	app.Click(telatest.ByRole("button", "Go")) // waits until it is enabled
@@ -630,7 +630,7 @@ func TestAutoWaitForEffectsAndGoroutines(t *testing.T) {
 				setText.Set("loaded")
 			}()
 			return nil
-		}, nil)
+		}, tela.Once)
 		return Text(text)
 	}), telatest.Size(200, 100))
 	app2.ExpectText("loading")
@@ -648,7 +648,7 @@ func TestAutoWaitForEffectsAndGoroutines(t *testing.T) {
 				tela.Post(func() { setShow.Set(false) })
 			}()
 			return nil
-		}, nil)
+		}, tela.Once)
 		return Fragment(If(show, Text("toast")))
 	}), telatest.Size(200, 100))
 	app3.ExpectNoText("toast")
@@ -698,7 +698,7 @@ func TestEndlessActivityDoesNotBlockActions(t *testing.T) {
 func TestCloseRunsCleanupsAndForbidsUse(t *testing.T) {
 	var cleaned atomic.Bool
 	app := telatest.Mount(t, tela.C(func() tela.Node {
-		tela.UseEffect(func() func() { return func() { cleaned.Store(true) } }, nil)
+		tela.UseEffect(func() func() { return func() { cleaned.Store(true) } }, tela.Once)
 		return Text("x")
 	}), telatest.Size(100, 100))
 	app.ExpectText("x")
@@ -719,7 +719,7 @@ func TestUnmountsWhenTheTestEnds(t *testing.T) {
 	var cleaned atomic.Bool
 	f := run(t, func(tb testing.TB) {
 		telatest.Mount(tb, tela.C(func() tela.Node {
-			tela.UseEffect(func() func() { return func() { cleaned.Store(true) } }, nil)
+			tela.UseEffect(func() func() { return func() { cleaned.Store(true) } }, tela.Once)
 			return Text("x")
 		}), telatest.Size(100, 100))
 	})

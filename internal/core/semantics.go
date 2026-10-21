@@ -247,6 +247,15 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		n.Actions |= semantics.ActionScroll
 	}
 	if a != nil {
+		if a.required == semantics.ToggleTrue {
+			n.States |= semantics.StateRequired
+		}
+		if a.readOnly == semantics.ToggleTrue {
+			n.States |= semantics.StateReadOnly
+		}
+		if a.busy == semantics.ToggleTrue {
+			n.States |= semantics.StateBusy
+		}
 		n.Checked, n.Pressed, n.Selected, n.Expanded = a.checked, a.pressed, a.selected, a.expanded
 		n.Description = a.desc
 		n.Range = a.rng

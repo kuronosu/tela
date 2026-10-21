@@ -19,7 +19,7 @@ func TestLayoutEffectFocusRestructures(t *testing.T) {
 		tela.UseLayoutEffect(func() func() {
 			ref.Focus()
 			return nil
-		}, nil)
+		}, tela.Once)
 		return Div(Class("group p-4"),
 			Div(Class("hidden group-focus-within:block"), Text("Shown while focused")),
 			Button(Ref(ref), Text("Target")),
@@ -37,7 +37,7 @@ func TestLayoutEffectFocusRestructuresLater(t *testing.T) {
 		tela.UseLayoutEffect(func() func() {
 			ref.Focus()
 			return nil
-		}, nil)
+		}, tela.Once)
 		return Div(Class("group p-4"),
 			Div(Class("hidden group-focus-within:block"), Text("Shown while focused")),
 			Button(Ref(ref), Text("Target")),

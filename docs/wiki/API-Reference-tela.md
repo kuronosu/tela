@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseId`](#func-useid-deprecated) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -21,7 +21,6 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
   - [`type Child`](#type-child)
-  - [`type Code`](#type-code)
   - [`type Color`](#type-color): [`Hex`](#func-hex) · [`OKLCH`](#func-oklch) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Clamp`](#func-color-clamp) · [`IsFinite`](#func-color-isfinite) · [`IsOpaque`](#func-color-isopaque) · [`MulAlpha`](#func-color-mulalpha) · [`NRGBA8`](#func-color-nrgba8) · [`Premul8`](#func-color-premul8) · [`Premultiplied`](#func-color-premultiplied) · [`String`](#func-color-string) · [`ToOKLCH`](#func-color-tooklch) · [`ToOklab`](#func-color-tooklab) · [`WithAlpha`](#func-color-withalpha)
   - [`type ColorScheme`](#type-colorscheme): [`UseColorScheme`](#func-usecolorscheme) · [`String`](#func-colorscheme-string)
   - [`type Component`](#type-component)
@@ -35,7 +34,6 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
   - [`type InputEvent`](#type-inputevent): [`DefaultPrevented`](#func-inputevent-defaultprevented) · [`PreventDefault`](#func-inputevent-preventdefault) · [`StopPropagation`](#func-inputevent-stoppropagation)
-  - [`type Key`](#type-key)
   - [`type KeyCode`](#type-keycode)
   - [`type KeyLocation`](#type-keylocation): [`String`](#func-keylocation-string)
   - [`type KeyName`](#type-keyname)
@@ -59,6 +57,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Setter`](#type-setter): [`UseState`](#func-usestate) · [`IsZero`](#func-setter-iszero) · [`Set`](#func-setter-set) · [`Update`](#func-setter-update)
   - [`type Shadow`](#type-shadow)
   - [`type Size`](#type-size)
+  - [`type StopHandler`](#type-stophandler): [`StopPropagation`](#func-stoppropagation)
   - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`Build`](#func-styleprop-build) · [`Ops`](#func-styleprop-ops)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
   - [`type Theme`](#type-theme): [`DefaultTheme`](#func-defaulttheme)
@@ -200,8 +199,8 @@ Hooks follow React's rules: call them at the top level of a component's Build or
 Dev mode reports the mistakes that compile. It is on unless the program is a release build (built with -trimpath, or installed with go install pkg@version; go run and go build in a source checkout are development builds); [`App`](#type-app).Dev overrides that, and TELA_DEV=1 or TELA_DEV=0 overrides both. telatest runs in dev mode unless telatest.NoDev says otherwise. In dev mode:
 
 - unknown classes are printed on standard error with the closest class (in telatest they fail the test);
-- unknown roles, input types and easings, hook-order changes, hooks called outside their component, a pointer given as a [`Component`](#type-component) and a [`Prop`](#type-prop) in a field of type Component panic with the fix;
-- likely mistakes are printed as warnings, once per call site: lists without keys or with duplicate keys, UseEffect(f, nil) (deprecated: use [`Once`](#variables) or [`UseMount`](#func-usemount)), dependencies that cannot be compared, a [`Value`](#type-value) read with Get in a handler while changes are queued (use Latest), a context read without a Provider whose default is not safe to use, and an h.Label that labels no field.
+- unknown roles, input types and easings, hook-order changes, hooks called outside their component, a pointer given as a [`Component`](#type-component), a [`Prop`](#type-prop) in a field of type Component and a nil dependency list (UseEffect(f, nil): use [`Once`](#variables) or [`UseMount`](#func-usemount)) panic with the fix;
+- likely mistakes are printed as warnings, once per call site: lists without keys or with duplicate keys, dependencies that cannot be compared, a [`Value`](#type-value) read with Get in a handler while changes are queued (use Latest), a context read without a Provider whose default is not safe to use, and an h.Label that labels no field.
 
 ### Text fields and forms
 
@@ -307,7 +306,7 @@ tela.UseGo(f, tela.Once)           // one goroutine for the component's lifetime
 tela.UseMemo(f, tela.Once)         // computed once
 ```
 
-Its type is unexported, so it is equal to itself on every build and is never confused with a value of yours. [`UseMount`](#func-usemount) and [`UseOnce`](#func-useonce) are the shorthands for effects and values. It replaces a single nil dependency (UseEffect(f, nil)), which still means "only on mount" but is deprecated: React reads a null list as "after every render", and a later version will reject it. With [`UseUpdateEffect`](#func-useupdateeffect), which skips the first build, Once never runs (dev mode warns).
+Its type is unexported, so it is equal to itself on every build and is never confused with a value of yours. [`UseMount`](#func-usemount) and [`UseOnce`](#func-useonce) are the shorthands for effects and values. It replaces a single nil dependency (UseEffect(f, nil)): React reads a null list as "after every render", so dev mode panics with this fix, and outside dev mode nil keeps meaning "only on mount". With [`UseUpdateEffect`](#func-useupdateeffect), which skips the first build, Once never runs (dev mode warns).
 
 ## Functions
 
@@ -592,7 +591,7 @@ tela.UseEffect(f, tela.Once) // only after the first build (React's [])
 tela.UseMount(f)             // the same
 ```
 
-For an effect that runs once, on mount, with its cleanup on unmount (a subscription), use [`UseMount`](#func-usemount) or [`Once`](#variables); [`UseEffectDo`](#func-useeffectdo) takes an effect without a cleanup, [`UseUpdateEffect`](#func-useupdateeffect) skips the first build, and periodic and background work have [`UseInterval`](#func-useinterval) and [`UseGo`](#func-usego). A single nil dependency, UseEffect(f, nil), still means "only on mount", but it is deprecated in favor of [`Once`](#variables) (React reads a null list as "after every render"): dev mode warns about it, and a later version will reject it.
+For an effect that runs once, on mount, with its cleanup on unmount (a subscription), use [`UseMount`](#func-usemount) or [`Once`](#variables); [`UseEffectDo`](#func-useeffectdo) takes an effect without a cleanup, [`UseUpdateEffect`](#func-useupdateeffect) skips the first build, and periodic and background work have [`UseInterval`](#func-useinterval) and [`UseGo`](#func-usego). A single nil dependency, UseEffect(f, nil), is rejected in dev mode with the fix ([`Once`](#variables): React reads a null list as "after every render"); outside dev mode it keeps meaning "only on mount".
 
 Values that cannot be compared (functions, slices, maps) count as changed on every build; dev mode reports them, and a dependency count that changes between builds. Pass an ID, a comparable value or a [`Callback`](#type-callback) instead.
 
@@ -690,16 +689,6 @@ UseID returns a string that identifies this hook slot, for accessibility relatio
 id := tela.UseID()
 return Div(Label(For(id), Text("Email")), Input(ID(id)))
 ```
-
-### func UseId (deprecated)
-
-```go
-func UseId() string
-```
-
-UseId is the former name of [`UseID`](#func-useid).
-
-Deprecated: use UseID. UseId will be removed in phase 8.
 
 ### func UseInterval
 
@@ -1495,16 +1484,6 @@ type Child interface {
     Build() Node
 }
 ```
-
-### type Code
-
-```go
-type Code = KeyCode
-```
-
-Code is the former name of [`KeyCode`](#type-keycode). It collides with the element h.Code when both packages are dot-imported.
-
-Deprecated: use KeyCode. Code will be removed in phase 8.
 
 ### type Color
 
@@ -2426,16 +2405,6 @@ func (e InputEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling (see MouseEvent).
-
-### type Key
-
-```go
-type Key = KeyName
-```
-
-Key is the former name of [`KeyName`](#type-keyname). It collides with h.Key when both packages are dot-imported.
-
-Deprecated: use KeyName. Key will be removed in phase 8.
 
 ### type KeyCode
 
@@ -3839,6 +3808,29 @@ fmt.Println(w, h)
 // Output: 200 120
 ```
 
+### type StopHandler
+
+```go
+type StopHandler func()
+```
+
+StopHandler is the handler tela.StopPropagation returns. It is a named func() type, so every h.On… handler prop accepts it: the prop calls e.StopPropagation() on the event and then the function.
+
+#### func StopPropagation
+
+```go
+func StopPropagation(f func()) StopHandler
+```
+
+StopPropagation turns f into a handler that stops the event from bubbling to the ancestors' handlers and then calls f: the one-line form of a handler that begins with e.StopPropagation(). It works in every handler prop (OnClick, OnKeyDown, OnPointerDown, OnChange...), whatever the event type, and f does not take the event:
+
+```go
+Button(OnClick(tela.StopPropagation(ctrl.Remove)), Text("Delete")) // the row's OnClick does not run
+Div(OnKeyDown(tela.StopPropagation(close)))
+```
+
+A handler that needs the event, to stop propagation only for some events, calls e.StopPropagation() itself. The press hook of the aria package (aria.UsePress) will stop propagation by default, as React Aria does. StopPropagation(nil) panics.
+
 ### type StyleProp
 
 ```go
@@ -4620,7 +4612,7 @@ for range 3 {
     app.Advance(100 * time.Millisecond)
     fmt.Printf("%.1f\n", x.Get())
 }
-app.ExpectText("Open") // expectations settle: the spring comes to rest
+app.Advance(time.Second) // Advance moves the clock: the spring comes to rest
 fmt.Println(x.Get())
 // Output:
 // -140.5

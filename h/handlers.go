@@ -15,7 +15,13 @@ import (
 // prop's, for the message of a nil handler. F may be a named func type
 // (type ClickHandler func(tela.MouseEvent)), which is converted to its
 // underlying type.
-func onEvent[E any, F ~func() | ~func(E)](event, name string, handler F) tela.Prop {
+//
+// A [tela.StopHandler], which tela.StopPropagation returns, is a named func
+// type, so it satisfies ~func() with no change to the constraints: the
+// switch below tells it from a plain func() by its dynamic type, and its
+// handler stops the event's propagation before it calls f (ADR-097). That
+// is why E needs the StopPropagation method every event has.
+func onEvent[E interface{ StopPropagation() }, F ~func() | ~func(E)](event, name string, handler F) tela.Prop {
 	var fn func(E)
 	switch f := any(handler).(type) {
 	case func(E):
@@ -23,6 +29,10 @@ func onEvent[E any, F ~func() | ~func(E)](event, name string, handler F) tela.Pr
 	case func():
 		if f != nil {
 			fn = func(E) { f() }
+		}
+	case tela.StopHandler:
+		if f != nil {
+			fn = func(e E) { e.StopPropagation(); f() }
 		}
 	default:
 		fn = namedHandler[E](f)

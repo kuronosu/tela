@@ -186,16 +186,16 @@ func TestProgrammerErrors(t *testing.T) {
 // with a user's names.
 func TestExportedNames(t *testing.T) {
 	want := []string{
-		"A", "Alt", "AnimateLayout", "AriaChecked", "AriaDescription", "AriaDisabled", "AriaExpanded", "AriaHidden", "AriaLabel",
-		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaSelected", "AriaValueMax", "AriaValueMin",
+		"A", "Alt", "AnimateLayout", "AriaBusy", "AriaChecked", "AriaDescription", "AriaDisabled", "AriaExpanded", "AriaHidden", "AriaLabel",
+		"AriaLabelledBy", "AriaLevel", "AriaPressed", "AriaReadOnly", "AriaRequired", "AriaSelected", "AriaValueMax", "AriaValueMin",
 		"AriaValueNow", "AriaValueText", "AutoComplete", "AutoFocus", "Bind", "BindValue", "Button", "Class",
 		"Code", "DefaultValue", "Dir", "Disabled", "Div", "Em", "Exit", "For", "Form", "Fragment", "H1", "H2", "H3", "H4", "H5",
-		"H6", "Href", "ID", "Id", "If", "IfElse", "Img", "Input", "ItemHeight", "ItemKey", "Key", "Label", "LayoutID", "Map", "MapIndex", "MapKeyed", "MaxLength", "Name", "Nodes",
+		"H6", "Href", "ID", "If", "IfElse", "Img", "Input", "ItemHeight", "ItemKey", "Key", "Label", "LayoutID", "Map", "MapIndex", "MapKeyed", "MaxLength", "Name", "Nodes",
 		"OnBeforeInput", "OnBlur", "OnChange", "OnClick", "OnCompositionEnd", "OnCompositionStart",
 		"OnCompositionUpdate", "OnContextMenu", "OnDoubleClick", "OnDrag", "OnDragEnd", "OnDragStart", "OnFocus",
 		"OnKeyDown", "OnKeyUp", "OnLongPress", "OnMouseDown", "OnMouseEnter", "OnMouseLeave", "OnMouseMove",
 		"OnMouseUp", "OnPointerCancel", "OnPointerDown", "OnPointerEnter", "OnPointerLeave", "OnPointerMove",
-		"OnPointerUp", "OnScroll", "OnSelect", "OnSubmit", "OnWheel", "Overscan", "P", "Placeholder", "Portal", "Presence", "ReadOnly",
+		"OnPointerUp", "OnScroll", "OnSelect", "OnSubmit", "OnWheel", "Overscan", "P", "Placeholder", "Portal", "Presence", "Range", "ReadOnly",
 		"Ref", "Role", "Rows", "Scale", "Scheme", "Span", "SpellCheck", "Src", "Strong", "Style", "TabIndex", "TestID", "Text", "TextFn",
 		"Textarea", "Textf", "Type", "Value",
 		"VirtualList",

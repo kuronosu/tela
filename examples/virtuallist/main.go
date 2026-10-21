@@ -27,7 +27,7 @@ func estimate(i int) float32 {
 
 // renderRow returns row i: a struct component with comparable fields, so a
 // build of the list that only moves its window skips the rows that stay.
-func renderRow(i int) tela.Node { return Fragment(Row{Index: i}) }
+func renderRow(i int) tela.Component { return Row{Index: i} }
 
 // Directory is the page: a header with the jump buttons over the list.
 func Directory() tela.Node {

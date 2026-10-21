@@ -53,7 +53,7 @@ func TestKeyboardAndFocusProps(t *testing.T) {
 		tela.UseEffect(func() func() {
 			input.Focus()
 			return nil
-		}, nil)
+		}, tela.Once)
 		return Div(Class("flex flex-col gap-2 p-2"),
 			OnKeyDown(func(e tela.KeyboardEvent) {
 				if e.Key == "Escape" {

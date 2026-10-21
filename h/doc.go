@@ -24,11 +24,15 @@
 // OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus,
 // OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition...,
 // OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props
-// alike), Map, MapIndex, Fragment and TextFn (text that a Value changes
+// alike), Map, MapIndex, MapKeyed, Range, Fragment and TextFn (text that a Value changes
 // without rebuilding the component), Portal (content shown above the
 // window's content, for modals, menus and tooltips), VirtualList with its
 // Overscan prop, and Presence with its Exit prop (enter and exit
 // animations).
+//
+// Every event handler takes a func(), a func of its event, or the result of
+// tela.StopPropagation(f), which stops the event's propagation and then
+// calls f.
 //
 // Everything else (App, Run, hooks, events, colors, typed style props)
 // lives in package tela.

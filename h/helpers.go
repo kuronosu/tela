@@ -1,6 +1,9 @@
 package h
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 )
@@ -110,6 +113,61 @@ func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela
 		nodes[i] = tela.WithKey(render(it), key(it))
 	}
 	return core.List(nodes)
+}
+
+// Range returns render(0) to render(n-1) as one list keyed by index: n
+// items with no data behind them, such as skeleton rows, a star rating or
+// the cells of a fixed grid. The index is the key, so no missing-key
+// warning is given (a static range does not reorder), and a node that
+// render keys itself is keyed by its index instead. render returns a
+// tela.Node or a tela.Component, so a struct component needs no Fragment.
+// n is 0 or more: a negative n panics in dev mode and renders nothing
+// otherwise.
+//
+//	Range(5, func(i int) tela.Node { return Span(Textf("%d", i)) })
+//	Range(5, func(i int) tela.Component { return Star{Filled: i < rating} })
+//
+// For data that changes, use [MapKeyed] with the item's ID: an index as the
+// key moves the state of a component to the wrong item when items are
+// inserted or removed.
+func Range[R ~func(int) tela.Node | ~func(int) tela.Component](n int, render R) tela.Node {
+	if n < 0 && core.DevNow() {
+		panic(fmt.Sprintf("h: Range(%d, ...): n is the number of items, 0 or more", n))
+	}
+	each := componentFunc(render)
+	if each == nil {
+		panic("h: Range(n, nil): pass render, a func(i int) tela.Node or func(i int) tela.Component that returns item i, such as func(i int) tela.Node { return Span(Textf(\"%d\", i)) }")
+	}
+	nodes := make([]tela.Node, max(n, 0))
+	for i := range nodes {
+		nodes[i] = tela.WithKey(each(i), i)
+	}
+	return core.List(nodes)
+}
+
+// componentFunc returns r, a func(int) tela.Node or a func(int)
+// tela.Component (or a value of a named type of either), as a
+// func(int) tela.Component; nil stays nil. The constraint of the callers
+// guarantees one of the two shapes.
+func componentFunc(r any) func(int) tela.Component {
+	switch f := r.(type) {
+	case func(int) tela.Node:
+		if f == nil {
+			return nil
+		}
+		return func(i int) tela.Component { return f(i) }
+	case func(int) tela.Component:
+		return f
+	}
+	v := reflect.ValueOf(r)
+	if v.IsNil() {
+		return nil
+	}
+	if v.Type().Out(0) == reflect.TypeFor[tela.Node]() {
+		f := v.Convert(reflect.TypeFor[func(int) tela.Node]()).Interface().(func(int) tela.Node)
+		return func(i int) tela.Component { return f(i) }
+	}
+	return v.Convert(reflect.TypeFor[func(int) tela.Component]()).Interface().(func(int) tela.Component)
 }
 
 // Nodes returns the nodes of ns as one fragment, for a slice built in a

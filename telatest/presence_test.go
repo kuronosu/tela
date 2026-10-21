@@ -99,8 +99,12 @@ func TestNoSettleSpring(t *testing.T) {
 	if x.Get() != a || !(a > 0 && a < 100) {
 		t.Errorf("the screenshot moved the spring: %v then %v", a, x.Get())
 	}
-	app.ExpectText("Go") // expectations still settle
+	app.ExpectText("Go") // expectations handle only the work due (ADR-097)
+	if x.Get() != a {
+		t.Errorf("the expectation moved the spring: %v then %v", a, x.Get())
+	}
+	app.Advance(2 * time.Second) // only Advance moves it
 	if x.Get() != 100 {
-		t.Errorf("after an expectation: %v", x.Get())
+		t.Errorf("after Advance: %v", x.Get())
 	}
 }

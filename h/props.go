@@ -124,6 +124,13 @@ func Disabled(disabled bool) tela.Prop { return core.Disabled(disabled) }
 // OnSubmit...) takes a func() or a func of its event type (or a named type
 // of either, such as type ClickHandler func(tela.MouseEvent)): write the
 // event only when the handler reads it. A nil handler panics.
+//
+// To keep a click from reaching the ancestors' OnClick (a delete button
+// inside a clickable row), wrap the function in tela.StopPropagation,
+// which every handler prop accepts: it calls e.StopPropagation() and then
+// the function.
+//
+//	Button(OnClick(tela.StopPropagation(ctrl.Remove)), Text("Delete"))
 func OnClick[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop {
 	return onEvent[tela.MouseEvent]("click", "OnClick", handler)
 }

@@ -20,12 +20,25 @@ import (
 // timeout when it matches none.
 func (a *App) one(l Locator) *semantics.Node {
 	a.tb.Helper()
+	return a.oneWith(l, a.waitSettled)
+}
+
+// oneQuery is one for queries, which under [NoSettle] handle only the work
+// due.
+func (a *App) oneQuery(l Locator) *semantics.Node {
+	a.tb.Helper()
+	return a.oneWith(l, a.waitFor)
+}
+
+// oneWith is one with the wait that settles the app.
+func (a *App) oneWith(l Locator, wait func(check func() (bool, string))) *semantics.Node {
+	a.tb.Helper()
 	a.mustBeOpen()
 	if p := l.problem(); p != "" {
 		a.fatalf("%s", p)
 	}
 	var n *semantics.Node
-	a.waitFor(func() (bool, string) {
+	wait(func() (bool, string) {
 		a.tb.Helper()
 		nodes := a.find(l)
 		switch len(nodes) {
@@ -57,7 +70,7 @@ func (a *App) target(l Locator, verb string, needEnabled bool) (*semantics.Node,
 		found *semantics.Node
 		at    platform.Point
 	)
-	a.waitFor(func() (bool, string) {
+	a.waitSettled(func() (bool, string) {
 		a.tb.Helper()
 		nodes := a.find(l)
 		switch len(nodes) {
@@ -135,20 +148,21 @@ func (a *App) coveredInline(n *semantics.Node, hit semantics.NodeID) bool {
 //	if r.Width < 80 { t.Errorf("the button is %gpx wide", r.Width) }
 func (a *App) Bounds(l Locator) tela.Rect {
 	a.tb.Helper()
-	n := a.one(l)
+	n := a.oneQuery(l)
 	r := n.Bounds
 	return tela.Rect{X: r.X0, Y: r.Y0, Width: r.Width(), Height: r.Y1 - r.Y0}
 }
 
-// Count returns how many elements l matches now, after settling the app.
-// It does not wait.
+// Count returns how many elements l matches now, after settling the app
+// (under [NoSettle], handling only the work due: running animations stay
+// where they are). It does not wait.
 func (a *App) Count(l Locator) int {
 	a.tb.Helper()
 	a.mustBeOpen()
 	if p := l.problem(); p != "" {
 		a.fatalf("%s", p)
 	}
-	a.settle()
+	a.settleQuery()
 	return len(a.find(l))
 }
 

@@ -437,14 +437,42 @@ func (a *App) idle(round int) {
 	}
 }
 
-// waitFor settles the app and calls check until it reports done, or fails
-// the test with the message check returned at the timeout. A check that
-// cannot succeed by waiting fails the test itself.
+// settleQuery brings the app up to date for a query or an expectation:
+// fully, or under [NoSettle] only the work due, so that reading the app
+// never moves its animations (ADR-097).
+func (a *App) settleQuery() {
+	a.tb.Helper()
+	if a.cfg.noSettle {
+		a.flush()
+		return
+	}
+	a.settle()
+}
+
+// waitFor is wait for expectations and queries: the app is settled before
+// each try, but under [NoSettle] only the work due is handled.
 func (a *App) waitFor(check func() (done bool, why string)) {
+	a.tb.Helper()
+	a.wait(a.settleQuery, check)
+}
+
+// waitSettled is wait for the target of an action, which settles the app
+// fully even under [NoSettle]: the animations an earlier step started end
+// before the action acts (ADR-080).
+func (a *App) waitSettled(check func() (done bool, why string)) {
+	a.tb.Helper()
+	a.wait(a.settle, check)
+}
+
+// wait calls settle and then check until check reports done, or fails the
+// test with the message check returned at the timeout. A failed try lets a
+// frame of app time pass before the next. A check that cannot succeed by
+// waiting fails the test itself.
+func (a *App) wait(settle func(), check func() (done bool, why string)) {
 	a.tb.Helper()
 	deadline := time.Now().Add(a.cfg.timeout)
 	for round := 0; ; round++ {
-		a.settle()
+		settle()
 		done, why := check()
 		if done {
 			return
@@ -458,7 +486,9 @@ func (a *App) waitFor(check func() (done bool, why string)) {
 
 // WaitFor waits until cond reports true, settling the app and letting a
 // frame of app time and a moment of real time pass between tries, until the
-// timeout (see [Timeout]). It is for conditions the locators cannot see:
+// timeout (see [Timeout]); under [NoSettle] the first try handles only the
+// work due, and the clock moves only between failed tries. It is for
+// conditions the locators cannot see:
 // a value computed from [App.Bounds], or Go state that a goroutine sets.
 // what names the condition in the failure message ("the progress bar
 // reached 3 s"). cond runs on the test goroutine.
@@ -493,29 +523,32 @@ func (a *App) Screenshot() *image.RGBA {
 
 // AriaSnapshot returns the app's semantics tree as a Playwright aria
 // snapshot, the YAML that `tela inspect` prints, without a trailing
-// newline. For a counter:
+// newline, after settling the app (under [NoSettle], handling only the
+// work due: running animations stay where they are). For a counter:
 //
 //	snap := app.AriaSnapshot()
 //	// - heading "Count: 1" [level=1]
 //	// - button "Increment"
 func (a *App) AriaSnapshot() string {
 	a.tb.Helper()
-	a.settle()
+	a.settleQuery()
 	return semantics.Snapshot(a.tree.Semantics())
 }
 
-// Stats returns the work counters of the app's tree, after settling it.
+// Stats returns the work counters of the app's tree, after settling it
+// (under [NoSettle], handling only the work due).
 func (a *App) Stats() Stats {
 	a.tb.Helper()
-	a.settle()
+	a.settleQuery()
 	return a.tree.Stats()
 }
 
 // Cursor returns the CSS name of the mouse cursor the window shows ("default",
-// "pointer", "not-allowed"...), after settling the app.
+// "pointer", "not-allowed"...), after settling the app (under [NoSettle],
+// handling only the work due).
 func (a *App) Cursor() string {
 	a.tb.Helper()
-	a.settle()
+	a.settleQuery()
 	return a.win.Cursor().String()
 }
 

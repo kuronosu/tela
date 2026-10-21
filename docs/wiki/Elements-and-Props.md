@@ -183,6 +183,19 @@ func Steps(steps []Step) tela.Node {
 }
 ```
 
+### Range
+
+[`Range`](https://pkg.go.dev/github.com/kuronosu/tela/h#Range)`(n, render)` returns `render(0)` to `render(n-1)` as one list keyed by
+index, for items with no data behind them (skeleton rows, a star rating); a
+static range has no missing-key warning. `render` returns a `tela.Node` or a
+`tela.Component`, so a struct component needs no `Fragment`:
+
+```go
+Range(5, func(i int) tela.Component { return Star{Filled: i < rating} })
+```
+
+For data that changes, key by the item's identity with `Map` or `MapKeyed`.
+
 ### MapKeyed and Nodes
 
 [`MapKeyed`](https://pkg.go.dev/github.com/kuronosu/tela/h#MapKeyed)`(items, key, render)` is `Map` for components: it keys each

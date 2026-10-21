@@ -62,6 +62,8 @@ func TestPublicStateHooks(t *testing.T) {
 	}
 }
 
+// TestPublicEffects also checks that outside dev mode (mount is not given
+// logs) a nil dependency list still means "only on mount" (ADR-097).
 func TestPublicEffects(t *testing.T) {
 	var log []string
 	comp := func() tela.Node {

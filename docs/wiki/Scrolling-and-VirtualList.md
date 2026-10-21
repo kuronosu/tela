@@ -107,17 +107,17 @@ type Person struct{ Name string }
 
 var people = make([]Person, 100_000)
 
-type RowProps struct{ Index int }
+type Row struct{ Index int }
 
-func Row(p RowProps) tela.Node {
+func (r Row) Build() tela.Node {
 	return Div(Class("flex h-16 items-center border-b px-4"),
-		Textf("%d. %s", p.Index+1, people[p.Index].Name))
+		Textf("%d. %s", r.Index+1, people[r.Index].Name))
 }
 
 func People() tela.Node {
 	return VirtualList(len(people),
 		func(int) float32 { return 64 }, // estimated height of item i
-		func(i int) tela.Node { return tela.CP(Row, RowProps{Index: i}) },
+		func(i int) tela.Component { return Row{Index: i} },
 		Class("h-96 rounded-lg border"),
 	)
 }
@@ -128,10 +128,12 @@ func People() tela.Node {
   estimate. Items may have any height, and the scrollbar reflects the whole
   list. When a measurement changes an item above the viewport, the offset moves
   by the difference in the same frame, so the content on screen does not jump.
-- `renderItem(i)` returns the item. It runs inside the list's build, so it must
-  not call hooks: return a component node ([`tela.C`](https://pkg.go.dev/github.com/kuronosu/tela#C), [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP)) for items with
-  state. Prefer `CP`, so a list rebuilt by its parent skips the items whose
-  props did not change.
+- `renderItem(i)` returns the item as a `tela.Node` or a `tela.Component`
+  (a struct component such as `Row{Index: i}`). It runs inside the list's
+  build, so it must not call hooks: return a component (a struct component, or
+  a node from [`tela.C`](https://pkg.go.dev/github.com/kuronosu/tela#C) or [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP)) for items with state. A struct component skips
+  its build when its fields did not change, so a list rebuilt by its parent
+  rebuilds only the changed items.
 - Items are keyed by index unless the list has [`ItemKey`](https://pkg.go.dev/github.com/kuronosu/tela/h#ItemKey)`(func(i int) K)`,
   which keys them by the item's identity, so an item component's state follows
   the item when others are inserted or removed before it:

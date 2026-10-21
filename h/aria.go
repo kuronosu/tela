@@ -11,6 +11,12 @@ import (
 // the tree as a Playwright aria snapshot); nothing changes on screen.
 // Elements have implicit roles: Button is a button, H1 to H6 headings, P a
 // paragraph, Img an image, A with Href a link; Div and Span have none.
+//
+// The props that hold a state also drive the class variants of the same
+// name: AriaExpanded(true) matches aria-expanded:, AriaChecked(true)
+// matches aria-checked:, and so on for AriaBusy, AriaDisabled, AriaHidden,
+// AriaPressed, AriaReadOnly, AriaRequired and AriaSelected (with the
+// group-aria-* and peer-aria-* forms), as Tailwind's [aria-x="true"].
 
 // Role sets the ARIA role of an element (WAI-ARIA 1.2), for components
 // built from divs: Role("switch"), Role("dialog"), Role("tab"). An unknown
@@ -121,3 +127,24 @@ func Alt(text string) tela.Prop { return core.Alt(text) }
 // prefer telatest.ByRole and telatest.ByText when the element has a role
 // or text, since those tests also check what users see.
 func TestID(id string) tela.Prop { return core.TestID(id) }
+
+// AriaRequired marks a field the user must fill in (aria-required): a
+// text field, combobox, listbox or radio group. It changes nothing on
+// screen; the aria-required: variants style it.
+//
+//	Input(ID("email"), AriaRequired(true), Class("border aria-required:border-indigo-400"))
+func AriaRequired(required bool) tela.Prop { return core.AriaRequired(required) }
+
+// AriaReadOnly marks a widget the user can focus but not edit
+// (aria-readonly): a text field, checkbox, slider or listbox built from
+// divs. An Input or Textarea with ReadOnly is already read-only; the
+// aria-readonly: variants style the elements with AriaReadOnly(true).
+//
+//	Div(Role("textbox"), AriaReadOnly(locked), Class("aria-readonly:bg-slate-100"))
+func AriaReadOnly(readOnly bool) tela.Prop { return core.AriaReadOnly(readOnly) }
+
+// AriaBusy marks an element, and what it contains, as being updated
+// (aria-busy): a list that loads. The aria-busy: variants style it.
+//
+//	Div(AriaBusy(loading), Class("aria-busy:opacity-50 aria-busy:animate-pulse"), rows)
+func AriaBusy(busy bool) tela.Prop { return core.AriaBusy(busy) }
