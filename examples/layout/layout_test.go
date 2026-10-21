@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -13,7 +12,7 @@ import (
 // goldens with TELA_UPDATE=1 go test ./examples/layout and look at them.
 
 func mount(t *testing.T) *telatest.App {
-	return telatest.Mount(t, tela.C(Layout), telatest.Size(820, 560), telatest.NoSettle())
+	return telatest.MountFunc(t, Layout, telatest.Size(820, 560), telatest.NoSettle())
 }
 
 func TestReorderFrames(t *testing.T) {

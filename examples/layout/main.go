@@ -42,13 +42,13 @@ func Layout() tela.Node {
 // once and drawn sliding there on a spring.
 func TaskList() tela.Node {
 	order, setOrder := tela.UseState(tasks)
-	rotate := func(tela.MouseEvent) {
+	rotate := func() {
 		// The last task moves to the top: every row moves.
 		n := len(order)
 		next := append([]Task{order[n-1]}, order[:n-1]...)
 		setOrder.Set(next)
 	}
-	reverse := func(tela.MouseEvent) {
+	reverse := func() {
 		next := make([]Task, len(order))
 		for i, t := range order {
 			next[len(order)-1-i] = t
@@ -63,15 +63,27 @@ func TaskList() tela.Node {
 					OnClick(rotate), Text("Rotate")),
 				Button(Class("rounded-md bg-white px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"),
 					OnClick(reverse), Text("Reverse")))),
-		Map(order, func(t Task) tela.Node {
-			return Div(Key(t.ID), AnimateLayout(),
-				Class("flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-3 ring-1 ring-slate-200"),
-				Div(Class("size-2.5 shrink-0 rounded-full "+t.Dot)),
-				Div(Class("flex-1 text-sm text-slate-700"), Text(t.Title)),
-				Div(Class("rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200"),
-					Text(t.Tag)))
+		// The key is the task's ID, so a row keeps its identity (and its
+		// layout animation) wherever the list puts it.
+		MapKeyed(order, func(t Task) string { return t.ID }, func(t Task) tela.Component {
+			return TaskRow{Task: t}
 		}),
 	)
+}
+
+// TaskRow is one row of the list. Its props are comparable, so it is not
+// built again when the list reorders around it.
+type TaskRow struct {
+	Task Task
+}
+
+func (r TaskRow) Build() tela.Node {
+	return Div(AnimateLayout(),
+		Class("flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-3 ring-1 ring-slate-200"),
+		Div(Class("size-2.5 shrink-0 rounded-full", r.Task.Dot)),
+		Div(Class("flex-1 text-sm text-slate-700"), Text(r.Task.Title)),
+		Div(Class("rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 ring-1 ring-slate-200"),
+			Text(r.Task.Tag)))
 }
 
 // Tabs slides its underline between tabs: each tab renders an underline
@@ -91,8 +103,8 @@ func Tabs() tela.Node {
 			if i == active {
 				color = "text-indigo-600"
 			}
-			return Button(Key(label), Class("relative px-3 pb-3 pt-1 text-sm font-medium "+color),
-				OnClick(func(tela.MouseEvent) { setActive.Set(i) }),
+			return Button(Key(label), Class("relative px-3 pb-3 pt-1 text-sm font-medium", color),
+				OnClick(func() { setActive.Set(i) }),
 				Text(label),
 				If(i == active, Div(Key("underline"), LayoutID("tab-underline"),
 					Class("absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-indigo-500"))))
@@ -116,21 +128,26 @@ func ExpandingCard() tela.Node {
 				H2(Class("text-base font-semibold"), Text("Quarterly report")),
 				P(Class("text-sm text-indigo-100"), Text("Revenue grew 18% over the last quarter."))),
 			Button(Class("rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium hover:bg-white/25"),
-				OnClick(func(tela.MouseEvent) { setOpen.Set(!open) }), Text(label))),
+				OnClick(tela.Toggle(setOpen)), Text(label))),
 		If(open, Div(Key("details"), AnimateLayout(),
 			Class("mt-4 grid grid-cols-3 gap-3 transition-opacity duration-300 starting:opacity-0"),
-			stat("Revenue", "$1.2M"), stat("Customers", "4,210"), stat("Churn", "1.8%"))),
+			Stat{"Revenue", "$1.2M"}, Stat{"Customers", "4,210"}, Stat{"Churn", "1.8%"})),
 	)
 }
 
-func stat(label, value string) tela.Node {
+// Stat is one figure of the card's details.
+type Stat struct {
+	Label, Value string
+}
+
+func (s Stat) Build() tela.Node {
 	return Div(Class("rounded-xl bg-white/10 p-3"),
-		P(Class("text-xs text-indigo-100"), Text(label)),
-		P(Class("text-lg font-semibold"), Text(value)))
+		P(Class("text-xs text-indigo-100"), Text(s.Label)),
+		P(Class("text-lg font-semibold"), Text(s.Value)))
 }
 
 func main() {
-	tela.Run(tela.App{Title: "Layout animations", Width: 820, Height: 560, Root: Layout})
+	tela.Main(tela.App{Title: "Layout animations", Width: 820, Height: 560, Root: Layout})
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.

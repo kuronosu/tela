@@ -3,7 +3,6 @@ package main
 import (
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -11,7 +10,7 @@ import (
 // increments, hovering and pressing restyle the button and the pointer
 // cursor shows over it.
 func TestCounterClicks(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Counter), telatest.Size(800, 600), telatest.Dev())
+	app := telatest.MountFunc(t, Counter, telatest.Size(800, 600))
 	app.ExpectText("Count: 0")
 	inc := telatest.ByRole("button", "Increment")
 	xBox := app.Bounds(inc)

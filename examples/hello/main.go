@@ -25,7 +25,7 @@ func Hello() tela.Node {
 }
 
 func main() {
-	tela.Run(tela.App{Title: "Tela", Width: 800, Height: 450, Root: Hello})
+	tela.Main(tela.App{Title: "Tela", Width: 800, Height: 450, Root: Hello})
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
