@@ -171,6 +171,9 @@ type pressConfig struct {
 	PressOptions
 	// enter makes Enter press the element (buttons; not checkboxes).
 	enter bool
+	// activate is the activation behavior that follows a completed press:
+	// "submit" or "reset" the element's Form, "" nothing.
+	activate string
 }
 
 // pressState is the press in progress, kept across builds.
@@ -297,8 +300,13 @@ func (p *presser) fireEnd(in input, wasPressed bool, cont *bool) {
 		f(false)
 	}
 	p.setPressed.Set(false)
-	if f := p.c.OnPress; f != nil && wasPressed && !p.c.Disabled {
-		f(p.event(in, cont))
+	if wasPressed && !p.c.Disabled {
+		if f := p.c.OnPress; f != nil {
+			f(p.event(in, cont))
+		}
+		if p.c.activate != "" {
+			core.ActivateButton(p.ref, p.c.activate)
+		}
 	}
 }
 

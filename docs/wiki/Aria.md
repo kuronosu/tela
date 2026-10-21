@@ -20,8 +20,14 @@ import "github.com/kuronosu/tela/aria"
 | A focus ring that shows after the keyboard, not after a click | [`aria.UseFocusRing`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusRing) |
 | A dialog that keeps the focus, or a toolbar with arrow keys | [`aria.UseFocusScope`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusScope) |
 | A popover, tooltip, menu or select list next to its button | [`aria.UseFloating`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFloating) |
+| An overlay that Escape and a press outside dismiss, modal or not | [`aria.UseOverlay`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseOverlay) |
+| A dialog or an alert dialog (role, name, focus) | [`aria.UseDialog`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseDialog) |
+| A popover positioned next to its trigger and dismissed | [`aria.UsePopover`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UsePopover) |
+| The open state of an overlay and its trigger's props | [`aria.UseOverlayTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseOverlayTrigger) |
+| A menu button (press, long press, arrow keys) | [`aria.UseMenuTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMenuTrigger) |
+| A tooltip with delays | [`aria.UseTooltipTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseTooltipTrigger) |
 
-This page grows with the package; the sections below cover what exists.
+The menu, listbox, select, tabs and combobox collections come later.
 
 ## The pattern: options in, `Props` out
 
@@ -56,21 +62,26 @@ return Button(btn.Props, ring.Props, hover.Props,
 **One ref per element.** The hooks that need the element itself (press, focus
 ring, focus scope, and the controls built on press) attach a ref to it, and an
 element has one. When several hooks serve one element, make the ref once with
-`tela.UseElementRef` and give it to each as `Ref`, as above; without it each
-hook attaches its own and only the last stays attached (a press then never
-sees the pointer leave). Do not add `h.Ref(other)` to an element that has hook
-props: use the `Ref` field of a hook's result.
+`tela.UseElementRef` and give it to each as `Ref`, as above. Two different
+refs on one element are a mistake, and **dev mode panics** naming both call
+sites and the fix (outside dev mode the last one wins, and a press never sees
+the pointer leave). That includes an `h.Ref(other)` next to the props of a
+hook: use the `Ref` field of a hook's result, or pass the ref to the hook. The
+same ref twice is fine.
 
 **Controlled or not.** A hook that holds state keeps it itself (uncontrolled,
-starting at `DefaultSelected`), and lets you keep it (controlled) when you pass
-`OnChange`: it then shows `Selected` and only asks `OnChange` for the next
-value, like an `Input` with `Value` and `OnChange`. A change you do not store
-is refused.
+starting at `DefaultSelected` or `DefaultOpen`), and lets you keep it
+(controlled) when you pass a **pointer** to your value (`Selected: &on`,
+`Open: &open`): it then shows it and only asks `OnChange` or `OnOpenChange`
+for the next value, like an `Input` with `Value` and `OnChange`. A change you
+do not store is refused. `OnChange` is also called for an uncontrolled
+control, to follow it.
 
 ```go
 box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})          // uncontrolled
+box = aria.UseCheckbox(aria.ToggleOptions{OnChange: func(on bool) { save(on) }}) // uncontrolled, notified
 on, setOn := tela.UseState(false)
-sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set}) // controlled
+sw := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set}) // controlled
 ```
 
 ## Press: `UsePress`
@@ -95,8 +106,8 @@ A press **stops the propagation** of the events that make it, so a pressable
 card inside a pressable row presses only the card. Call
 `e.ContinuePropagation()` in a callback to let them bubble. It also prevents
 the default action of the click: a `Button` with press props does not submit
-its `Form` (call the handler from `OnPress`), and a `Label` does not forward
-the click. A disabled press (`Disabled: true`) ignores everything. The hook
+its `Form` (use `UseButton`'s `Type`, or call the handler from `OnPress`), and
+a `Label` does not forward the click. A disabled press (`Disabled: true`) ignores everything. The hook
 adds no role and no tab stop: for a button use `UseButton`.
 
 ## Buttons and toggles
@@ -104,9 +115,27 @@ adds no role and no tab stop: for a button use `UseButton`.
 `UseButton` is a press plus `Role("button")`, a tab stop and `Disabled`: it
 makes a `Div` or an `A` a button, and a `Button` a correct one.
 
+Its `Type` is HTML's: `"button"` (the default) does nothing to the `Form` that
+contains it, `"submit"` submits it and `"reset"` resets it, when the press
+completes (after `OnPress`), whatever the element is:
+
+```go
+save := aria.UseButton(aria.ButtonOptions{Type: "submit"})
+return Form(OnSubmit(func(tela.SubmitEvent) { send() }),
+	Input(Name("title")),
+	Div(save.Props, Class("rounded-md bg-primary px-3 py-1.5"), Text("Send")))
+```
+
+`ElementRef.Click()` is the DOM's `element.click()`: from a handler or an effect
+it dispatches a click (a virtual press for the hooks) at the element and runs
+its activation behavior, so a hook-made button with `Type: "submit"` submits
+through it, a `Button` in a `Form` submits or resets by its `h.Type`, and a
+`Label` forwards to its control. A disabled or unmounted element ignores it.
+
 `UseToggleButton`, `UseCheckbox` and `UseSwitch` take `aria.ToggleOptions`
-(`Selected`, `DefaultSelected`, `OnChange`, `Disabled`, `ReadOnly`, `ID`,
-`Ref`) and return `Selected`, `Pressed`, `ID` and `Props`:
+(`Selected`, `DefaultSelected`, `OnChange`, the press callbacks `OnPress`,
+`OnPressStart`, `OnPressEnd`, `OnPressChange` and `OnPressUp`, `Disabled`,
+`ReadOnly`, `ID`, `Ref`) and return `Selected`, `Pressed`, `ID` and `Props`:
 
 | Hook | Role and state | Keys |
 |---|---|---|
@@ -355,3 +384,172 @@ Div(fl.Props, Style(tela.OpacityFn(tela.MapValue(fl.ReferenceHidden, func(hidden
 - `offset` takes numbers only (no function of the placement), the arrow
   computes with the floating element's border box, and there is no `inline`
   middleware.
+
+## Overlays
+
+The overlay hooks follow React Aria's `useOverlay`, `useModalOverlay`,
+`useDialog`, `usePopover`, `useOverlayTrigger`, `useMenuTrigger` and
+`useTooltipTrigger`, with the open state built in. You render the overlay
+(in a `Portal`, while it is open); the hooks give the props.
+
+```go
+func Filters() tela.Node {
+	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{})
+	pop := aria.UsePopover(aria.PopoverOptions{
+		Trigger: trig.Ref, Ref: trig.OverlayRef, Open: trig.Open, OnClose: trig.Close,
+		Placement: "bottom-start", Offset: 4,
+	})
+	dlg := aria.UseDialog(aria.DialogOptions{Ref: trig.OverlayRef, AriaLabel: "Filters"})
+	return Fragment(
+		Button(trig.TriggerProps, Class("rounded-md border px-3 py-1.5"), Text("Filters")),
+		Portal(Presence(If(trig.Open,
+			Div(pop.Props, dlg.Props, Exit("opacity-0"),
+				Class("w-64 rounded-md border bg-popover p-4 shadow-md transition starting:opacity-0"),
+				Text("Content"))))))
+}
+```
+
+The trigger, the popover and the dialog all put props on the overlay's
+element, so they share its ref: `trig.OverlayRef` is made by the trigger hook
+and passed to the others as `Ref` (the dev panic of the previous section tells
+you when one is missing).
+
+### The overlay stack: `UseOverlay`
+
+`UseOverlay(aria.OverlayOptions{Open, OnClose, Dismissable, KeyboardDismissDisabled, ShouldCloseOnBlur, ShouldCloseOnInteractOutside, Modal})`
+returns `Props` that put the element on the **overlay stack** while it is
+mounted and open:
+
+- **Escape** calls `OnClose` of the top overlay only, and nothing below it
+  sees the key. With `KeyboardDismissDisabled` the overlay still takes the key
+  but ignores it.
+- A **press outside** (the left button, a touch or a pen; at its release, with
+  the press kept from what is under it and its click cancelled) calls
+  `OnClose` of the top overlay when it is `Dismissable` and
+  `ShouldCloseOnInteractOutside(e)` (default: yes) allows it. Inside means
+  inside in the element tree: the content of a `Portal` rendered from inside
+  an overlay, and the overlays opened from it, count, so a press in a
+  popover opened from a dialog does not close the dialog.
+- **`Modal`** makes everything outside the overlay (and outside the overlays
+  above it) inert while it is open: it is not hit, cannot be focused, is out
+  of the Tab order and is hidden from the aria snapshot, as React Aria's
+  `ariaHideOutside`. This folds React Aria's `useModalOverlay` into one hook:
+  there are no `underlayProps`, since a press outside already hits nothing
+  below; draw a scrim as an ordinary element.
+- `ShouldCloseOnBlur` calls `OnClose` when the focus moves to another element
+  outside the overlay.
+
+An alert dialog is an overlay that is not `Dismissable`.
+
+### Dialogs: `UseDialog`
+
+`UseDialog(aria.DialogOptions{Role, Modal, AriaLabel, Ref})` returns `Props`
+and `TitleProps`: the `dialog` (or `alertdialog`) role, `aria-modal`, the name
+(the element with `TitleProps`, or `AriaLabel`) and a focus scope that moves
+the focus to the first tabbable element inside when the dialog opens (the
+dialog itself when there is none), keeps Tab inside it when `Modal`, and gives
+the focus back to the element that had it when the dialog closes.
+
+```go
+dlg := aria.UseDialog(aria.DialogOptions{Modal: true, Ref: trig.OverlayRef})
+ov := aria.UseOverlay(aria.OverlayOptions{Open: trig.Open, OnClose: trig.Close, Dismissable: true, Modal: true})
+Portal(If(trig.Open,
+	Div(ov.Props, dlg.Props, Class("w-96 rounded-xl bg-background p-6 shadow-xl"),
+		H2(dlg.TitleProps, Text("Delete project?")), ...)))
+```
+
+```yaml
+- dialog "Delete project?":
+  - heading "Delete project?" [level=2]
+  - button "OK"
+  - button "Cancel"
+```
+
+### The trigger: `UseOverlayTrigger`
+
+Holds the open state (`Open *bool` to control it, `DefaultOpen`,
+`OnOpenChange`) and returns `TriggerProps` (a press that toggles, the `button`
+role, `aria-haspopup` from `Type` ("dialog", "menu", "listbox", "tree" or
+"grid"), `aria-expanded` and, while open, `aria-controls` the overlay),
+`Open`, `SetOpen`, `Toggle`, `Close`, and the refs `Ref` (the trigger's) and
+`OverlayRef`.
+
+### Popovers: `UsePopover`
+
+`UsePopover(aria.PopoverOptions{Trigger, Open, OnClose, Placement, Offset, Floating, Modal, ...})`
+positions the element with `UseFloating` (the placement and offset, `Flip`
+and `Shift(12)`, then the `Floating` options you add, such as a `Size`, then
+an arrow) and dismisses it with the overlay stack: Escape, a press outside, or
+the focus going elsewhere close it, but not a press on the trigger, which
+toggles it (a **modal** popover closes on a trigger press, since the trigger
+is inert). `ArrowProps` goes on an arrow element inside. The popover is where
+its trigger says in the first frame that shows it.
+
+### Menu buttons: `UseMenuTrigger`
+
+`UseMenuTrigger(aria.MenuTriggerOptions{Trigger, Type, Open, DefaultOpen, OnOpenChange, Disabled, OnPress})`
+returns `TriggerProps`, `MenuProps`, `Open`, `FocusStrategy`, `SetOpen`,
+`Toggle`, `Close`, `Ref` and `MenuRef`. A mouse or a pen opens the menu at the
+press and a touch at the release (focusing the menu itself); Enter, Space and
+ArrowDown open it with `FocusStrategy` `"first"`, ArrowUp with `"last"`. With
+`Trigger: "longPress"` a press that lasts opens it (`"first"`), the quick
+press is `OnPress`, and the keys need Alt. The menu collection (`UseMenu`,
+coming) reads `FocusStrategy` to focus its first or last item and calls
+`Close` when an item is chosen. `MenuProps` holds the ref, `aria-labelledby`
+the trigger, and a focus scope that gives the focus back to the trigger.
+
+### Tooltips: `UseTooltipTrigger`
+
+```go
+tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{})
+fl := aria.UseFloating(tip.Ref, aria.Placement("top"), aria.Offset(6), aria.Flip(), aria.Shift(8))
+return Fragment(
+	Button(tip.TriggerProps, Text("Save")),
+	Portal(Presence(If(tip.Open,
+		Div(tip.TooltipProps, fl.Props, Exit("opacity-0"),
+			Class("rounded bg-foreground px-2 py-1 text-xs text-background transition starting:opacity-0"),
+			Text("Saves the file (Ctrl+S)"))))))
+```
+
+React Aria's rules: the tooltip opens `Delay` (1.5 s) after the pointer
+rests on the trigger, or at once when the keyboard focuses it (a focus that a
+mouse press gave does not count), and closes `CloseDelay` (0.5 s) after the
+pointer leaves, when the trigger is pressed or a key is typed on it, when the
+focus leaves, and with Escape (which closes it before anything under it).
+Moving the pointer onto the tooltip keeps it open. The tooltips of a window
+are a group: opening one closes the others, and while one is open, or for
+`CloseDelay` after the last closed, the next one opens at once (the warm-up
+and cool-down). `Trigger: "focus"` ignores the pointer. A zero delay is the
+default; `aria.NoDelay` is none. The tooltip's `TooltipProps` give it the
+`tooltip` role and make the trigger `aria-describedby` it (`h.AriaDescribedBy`).
+
+The delays run on the frame clock, with no goroutine: `app.Advance` drives
+them in `telatest`, and a pending or open tooltip asks for no frames.
+
+```yaml
+- button "Save"
+- tooltip "Saves the file (Ctrl+S)"
+```
+
+### Exit animations
+
+Render the overlay inside a `Presence` with `If(open, ...)` and give its
+element `Exit` classes and a transition (and `starting:` for the entrance), as
+in the examples. While it exits the overlay is **inert** (ADR-080): it is
+out of the overlay stack, so the page under it works, a second Escape reaches
+the next overlay, and it is gone from the aria snapshot; the exit ends when
+its transitions do.
+
+### How it differs from React Aria
+
+- One hook for modal and non-modal overlays (`Modal`), and no underlay props;
+  popovers are non-modal unless `Modal` is set (React Aria's are modal unless
+  `isNonModal`).
+- `ShouldCloseOnInteractOutside` receives the press (`tela.PointerEvent`,
+  with its position), not the element; blur always closes.
+- A popover's trigger is excluded from outside presses by comparing the
+  press with the trigger's bounds.
+- Tooltips: the Escape is a window-level default action (the tooltip is on the
+  overlay stack as an Escape-only overlay, so it does not take presses), and
+  there is no separate `UseTooltip`.
+- `aria-haspopup="dialog"` is set for dialogs (React Aria omits it).

@@ -122,8 +122,11 @@ type Tree struct {
 	// devLabels are the Labels mounted since the last check (dev mode,
 	// form.go).
 	devLabels []*Element
-	// intervals are the running UseInterval slots (interval.go).
+	// intervals are the running UseInterval and UseTimeout slots
+	// (interval.go).
 	intervals []*intervalSlot
+	// locals are the values of TreeLocal (engine.go).
+	locals map[any]any
 	// autoDirs are the elements with Dir("auto") and whether their text
 	// was right to left when they were last styled (direction.go).
 	autoDirs map[*Element]bool
@@ -156,6 +159,10 @@ type Tree struct {
 	inFrame bool
 	asked   bool
 	onDirty func()
+	// handlerDepth counts the event dispatches that are running handlers:
+	// a click made from a handler (ElementRef.Click) leaves applying the
+	// updates and building to the event that is being handled.
+	handlerDepth int
 
 	// State updates from any goroutine.
 	mu      sync.Mutex

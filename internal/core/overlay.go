@@ -43,7 +43,10 @@ import "slices"
 // there is a top overlay, Escape does nothing else, even when it has no
 // OnEscape (it cannot be dismissed with the keyboard). An element inside
 // an overlay that handles Escape itself (a combobox closing its list)
-// prevents the keydown.
+// prevents the keydown. An EscapeOnly overlay (a tooltip) takes Escape
+// like the others, topmost first, but is not told of presses and does not
+// hide them from the overlay below; OnFocusOutside tells an overlay that
+// the focus moved from inside it to another element.
 //
 // # Modality
 //
@@ -122,6 +125,16 @@ type OverlayOptions struct {
 	// Modal makes everything outside the overlay, and outside the
 	// overlays above it, inert while it is the topmost modal overlay.
 	Modal bool
+	// OnFocusOutside runs when the focus moves from inside the element to
+	// another element outside it (React Aria's shouldCloseOnBlur), not
+	// when it goes nowhere (the window losing the focus).
+	OnFocusOutside func()
+	// EscapeOnly is for a tooltip: the overlay takes Escape while it is
+	// the topmost one on the stack (closing it first, as React Aria's
+	// tooltips stop the key before the overlays below), but it is not
+	// told of presses outside it and does not hide them from the overlay
+	// below, which stays the top overlay for them (IsTopOverlay).
+	EscapeOnly bool
 }
 
 // Overlay returns a prop that puts a primitive on the overlay stack while
@@ -214,8 +227,21 @@ func removeElement(s []*Element, el *Element) []*Element {
 	return s
 }
 
-// topOverlay returns the top overlay, or nil.
+// topOverlay returns the top overlay for presses, or nil: the last live
+// overlay that is not EscapeOnly.
 func (t *Tree) topOverlay() *Element {
+	s := t.ovl.stack
+	for i := len(s) - 1; i >= 0; i-- {
+		if el := s[i]; el.mounted && !el.inert && !el.node.d.overlay.EscapeOnly {
+			return el
+		}
+	}
+	return nil
+}
+
+// topEscapeOverlay returns the overlay that takes Escape, or nil: the
+// last live overlay, EscapeOnly ones included.
+func (t *Tree) topEscapeOverlay() *Element {
 	s := t.ovl.stack
 	for i := len(s) - 1; i >= 0; i-- {
 		if el := s[i]; el.mounted && !el.inert {
@@ -223,6 +249,21 @@ func (t *Tree) topOverlay() *Element {
 		}
 	}
 	return nil
+}
+
+// focusMoved tells the overlays that contain old but not now, where the
+// focus went, that it left them.
+func (t *Tree) focusMoved(old, now *Element) {
+	if old == nil || now == nil || len(t.ovl.stack) == 0 {
+		return
+	}
+	// A copy: the callbacks may unmount overlays (in later builds).
+	for _, el := range slices.Clone(t.ovl.stack) {
+		f := el.node.d.overlay.OnFocusOutside
+		if f != nil && el.mounted && !el.inert && isInside(old, el) && !isInside(now, el) {
+			f()
+		}
+	}
 }
 
 // outsideDown runs the interact-outside listeners of a primary press at
@@ -290,7 +331,7 @@ func (t *Tree) outsideUp(ps *pointerState, target *Element, e PointerEvent, st *
 // OnEscape. It reports whether there is a top overlay (which takes the
 // key whether or not it has OnEscape).
 func (t *Tree) escapeOverlay(ke KeyboardEvent, st *eventState) bool {
-	top := t.topOverlay()
+	top := t.topEscapeOverlay()
 	if top == nil {
 		return false
 	}

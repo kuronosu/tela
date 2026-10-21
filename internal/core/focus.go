@@ -290,6 +290,7 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	f.gen++
 	f.el, f.start = el, nil
 	t.syncFocus()
+	t.focusMoved(old, el)
 	t.revealFocused(el, typ)
 	if fld := textField(el); fld != nil {
 		t.fieldFocused(fld, typ)
@@ -867,9 +868,32 @@ func UseElementRef() ElementRef {
 // AttachRef attaches r to the primitive (h.Ref): while it is mounted, r's
 // methods act on it. A ref attached to several elements follows the last
 // one mounted or updated with it. It panics on the zero ElementRef.
+//
+// An element holds one ref. Two different refs on one element panic in
+// dev mode (naming both call sites and the fix: the hooks of package aria
+// take the shared ref as their Ref option); outside dev mode the last one
+// wins. The same ref twice is fine.
 func AttachRef(r ElementRef) Prop {
 	if r.r == nil {
 		panic("tela: Ref(zero ElementRef): pass the ElementRef returned by tela.UseElementRef")
 	}
-	return Prop{name: "Ref", apply: func(d *desc) { d.ref = r.r }}
+	var site *callStack
+	if devNow() {
+		site = new(callStack)
+		site.capture(0)
+	}
+	return Prop{name: "Ref", apply: func(d *desc) {
+		if site != nil && d.ref != nil && d.ref != r.r && d.refSite != nil {
+			panic(twoRefsMessage(d.refSite.site(), site.site()))
+		}
+		d.ref, d.refSite = r.r, site
+	}}
+}
+
+// twoRefsMessage explains an element that got two different refs.
+func twoRefsMessage(first, second string) string {
+	return "tela: an element received two different refs, one from " + first + " and one from " + second +
+		". An element has one h.Ref: make it once with tela.UseElementRef and pass the same ref everywhere, " +
+		"to the hooks of package aria as their Ref option (aria.PressOptions{Ref: ref}, aria.FocusRingOptions{Ref: ref}) " +
+		"and to h.Ref(ref)"
 }

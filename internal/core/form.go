@@ -305,7 +305,7 @@ func formOf(el *Element) *Element {
 // behavior of its path (see the comment at the top of form.go).
 func (t *Tree) dispatchClick(target *Element, me MouseEvent) {
 	st := fire(t, evClick, target, me, true)
-	t.flushDiscrete()
+	t.flushNested()
 	if st.defaultPrevented() {
 		return
 	}
@@ -351,13 +351,77 @@ func (t *Tree) activate(target *Element, me MouseEvent) {
 	}
 }
 
+// Click clicks the element like HTML's element.click(): a click event
+// (the primary button, a click count of 1, at the center of the element's
+// bounds, made by no pointer: the hooks of package aria see a virtual
+// press) is dispatched at it and bubbles, then, unless a handler
+// prevented it, the activation behavior of the Button or Label at or
+// above it runs (a Button in a Form submits it or resets it by its Type;
+// a Label focuses its control and clicks it). There are no pointer
+// events, no :active state and no focus change of its own. It does
+// nothing for an unmounted element or a disabled one (or one inside a
+// disabled element).
+//
+// Call it on the UI thread, in a handler or an effect: the updates the
+// click makes are applied and built by the event or the frame that is
+// running; called from elsewhere on the UI thread (a timer), it applies
+// and builds them before it returns, as a real click does.
+func (r ElementRef) Click() {
+	el := r.element()
+	if el == nil || outermostDisabled(el) != nil {
+		return
+	}
+	t := el.tree
+	me := MouseEvent{Button: MouseButtonLeft, ClickCount: 1}
+	if b := t.elemBounds(el); !b.Empty() {
+		c := b.Center()
+		me.X, me.Y = c.X, c.Y
+	}
+	t.dispatchClick(el, me)
+}
+
+// ActivateButton runs the activation behavior of a button of the given
+// type ("submit", "reset" or "button"; "" is "button") for the element r
+// is attached to, which need not be a Button: the Form that contains it
+// is submitted or reset. It is how a Div made a button by package aria's
+// UseButton submits its Form, where a Button does it with its click. It
+// does nothing for an unmounted or disabled element or one outside a
+// Form. For package aria; it is not exposed by tela or h.
+func ActivateButton(r ElementRef, typ string) {
+	el := r.element()
+	if el == nil || outermostDisabled(el) != nil {
+		return
+	}
+	form := formOf(el)
+	if form == nil {
+		return
+	}
+	switch typ {
+	case "submit":
+		el.tree.submitForm(form)
+	case "reset":
+		el.tree.resetForm(form)
+	}
+}
+
 // submitForm fires OnSubmit at form.
 func (t *Tree) submitForm(form *Element) {
 	if !form.mounted {
 		return
 	}
 	fire(t, evSubmit, form, SubmitEvent{}, true)
-	t.flushDiscrete()
+	t.flushNested()
+}
+
+// flushNested is flushDiscrete for the events that code can make from a
+// handler or an effect (ElementRef.Click, the activation of a button
+// hook): inside a dispatch, an update pass or a frame the updates and the
+// build belong to the event or the frame that is running, so it does
+// nothing there.
+func (t *Tree) flushNested() {
+	if t.handlerDepth == 0 && !t.inFrame {
+		t.flushDiscrete()
+	}
 }
 
 // resetForm gives the uncontrolled fields of form their DefaultValue

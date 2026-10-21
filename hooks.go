@@ -83,6 +83,15 @@ type Ref[T any] = core.Ref[T]
 //     or hidden).
 //   - Blur removes the focus from the element if it has it.
 //   - Focused reports whether the element has the focus of its window.
+//   - Click clicks the element like HTML's element.click(): a click event
+//     with the primary button, at the center of the element, is dispatched
+//     at it (OnClick handlers run and it bubbles; the hooks of package aria
+//     see a virtual press), then, unless a handler prevented it, the
+//     activation behavior runs: a Button in a Form submits it or resets it
+//     by its h.Type, a Label focuses its control and clicks it. No pointer
+//     events and no focus change. A disabled or unmounted element ignores
+//     it. Call it in a handler or an effect: the state it sets is applied
+//     and built by the event or the frame that is running.
 //   - ScrollTo(x, y) and ScrollBy(dx, dy) scroll a scrolling element
 //     (overflow auto, scroll or hidden) to or by offsets, clamped to its
 //     content; ScrollOffset returns its offsets (the DOM's scrollLeft and

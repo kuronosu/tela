@@ -18,8 +18,10 @@ import (
 // period changes; its cleanup stops it.
 type intervalSlot struct {
 	eff effectSlot
-	f   func() // the latest build's
-	d   time.Duration
+	// once makes the slot of a Timeout: it runs f once, d after Start.
+	once bool
+	f    func() // the latest build's
+	d    time.Duration
 	// next is when f runs next (tree clock); on whether the interval
 	// runs (in the tree's list).
 	next time.Duration
@@ -110,6 +112,11 @@ func (t *Tree) tickIntervals(now time.Duration) {
 		if !s.on || !s.eff.el.mounted || now < s.next {
 			continue
 		}
+		if s.once {
+			s.stop()
+			s.f()
+			continue
+		}
 		// The first period boundary after now, in one step: after a
 		// suspend, a 1 ms interval would otherwise loop once per missed
 		// period on the UI thread.
@@ -117,3 +124,55 @@ func (t *Tree) tickIntervals(now time.Duration) {
 		s.f()
 	}
 }
+
+// Timeout is a one-shot timer on the frame clock of the tree, made by
+// UseTimeout: Start arms it, and its function runs once on the UI thread
+// when the time comes, from TickGestures like UseInterval's. Starting it
+// again replaces the pending run. It stops when the component unmounts.
+// Its methods are for handlers and effects on the UI thread.
+type Timeout struct{ s *intervalSlot }
+
+// UseTimeout returns the Timeout of this hook slot, the same on every
+// build. It is for package aria's tooltips: delays that a hover starts and
+// a leave cancels, from the handler itself and not from the next effect.
+func UseTimeout() Timeout {
+	el, i := nextSlot(hookTimeout)
+	if i < len(el.hooks) {
+		s, ok := el.hooks[i].(*intervalSlot)
+		if !ok || !s.once {
+			el.tree.slotMismatch(el, i, "UseTimeout")
+		}
+		return Timeout{s}
+	}
+	s := &intervalSlot{once: true}
+	s.eff.el = el
+	el.hooks = append(el.hooks, s)
+	return Timeout{s}
+}
+
+// Start runs f once, d from now on the frame clock (at the next tick for
+// d <= 0), replacing the pending run.
+func (o Timeout) Start(d time.Duration, f func()) {
+	if o.s == nil || !o.s.eff.el.mounted {
+		return
+	}
+	if f == nil {
+		panic("tela: Timeout.Start(d, nil): pass the function to call")
+	}
+	s := o.s
+	s.stop()
+	t := s.eff.el.tree
+	d = max(d, 0)
+	s.f, s.d, s.next, s.on = f, max(d, 1), t.clock()+d, true
+	t.intervals = append(t.intervals, s)
+}
+
+// Stop cancels the pending run, if any.
+func (o Timeout) Stop() {
+	if o.s != nil {
+		o.s.stop()
+	}
+}
+
+// Pending reports whether a run is waiting.
+func (o Timeout) Pending() bool { return o.s != nil && o.s.on }

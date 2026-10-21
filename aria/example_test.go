@@ -178,7 +178,7 @@ func ExampleUseToggleButton() {
 	defer t.close()
 	page := func() tela.Node {
 		bold, setBold := tela.UseState(false)
-		tb := aria.UseToggleButton(aria.ToggleOptions{Selected: bold, OnChange: setBold.Set})
+		tb := aria.UseToggleButton(aria.ToggleOptions{Selected: &bold, OnChange: setBold.Set})
 		return Button(tb.Props, Class("rounded px-2 aria-pressed:bg-accent"), Text("Bold"))
 	}
 	app := telatest.MountFunc(t, page)
@@ -215,7 +215,7 @@ func ExampleUseSwitch() {
 	defer t.close()
 	page := func() tela.Node {
 		on, setOn := tela.UseState(false)
-		sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+		sw := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set})
 		return Button(sw.Props, AriaLabel("Wi-Fi"), Class("h-6 w-11 rounded-full bg-muted checked:bg-primary"))
 	}
 	app := telatest.MountFunc(t, page)

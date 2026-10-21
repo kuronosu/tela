@@ -181,6 +181,11 @@ func apiFrame(fn string) bool {
 	if rest, ok := strings.CutPrefix(fn, telaPkg+"/h."); ok {
 		return !strings.Contains(rest, "/")
 	}
+	if rest, ok := strings.CutPrefix(fn, telaPkg+"/aria."); ok {
+		// The hooks of package aria: the call site is the component that
+		// called the hook.
+		return strings.HasPrefix(rest, "Use") || strings.HasPrefix(rest, "use")
+	}
 	if rest, ok := strings.CutPrefix(fn, corePkg+"."); ok {
 		return strings.HasPrefix(rest, "Use") || strings.HasPrefix(rest, "use") ||
 			strings.HasPrefix(rest, "ComponentProps") || strings.HasPrefix(rest, "Memo") ||
@@ -314,6 +319,7 @@ const (
 	hookGo            // UseGo (effects.go)
 	hookTheme         // UseTheme (theme.go)
 	hookSize          // UseSize (bounds.go)
+	hookTimeout       // UseTimeout (interval.go)
 )
 
 var hookNames = [...]string{
@@ -344,6 +350,7 @@ var hookNames = [...]string{
 	hookGo:            "UseGo",
 	hookTheme:         "UseTheme",
 	hookSize:          "UseSize",
+	hookTimeout:       "UseTimeout",
 }
 
 func (k hookKind) String() string { return hookNames[k] }

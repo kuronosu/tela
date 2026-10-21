@@ -24,8 +24,10 @@
 // follow the same rules as props given one after the other. So hook props
 // combine with your own props and with each other:
 //
+//	ref := tela.UseElementRef() // see "One element, several hooks" below
+//	btn := aria.UseButton(aria.ButtonOptions{Ref: ref})
 //	hover := aria.UseHover(aria.HoverOptions{})
-//	ring := aria.UseFocusRing(aria.FocusRingOptions{})
+//	ring := aria.UseFocusRing(aria.FocusRingOptions{Ref: ref})
 //	return Button(btn.Props, hover.Props, ring.Props,
 //	    Class("rounded-md px-3 py-1.5 transition"),
 //	    If(hover.Hovered, Class("bg-accent")),
@@ -41,41 +43,86 @@
 // attach a ref to it. An element has one ref, so when several hooks serve
 // one element they must share it: make it once with tela.UseElementRef and
 // give it to each hook as its Ref option. The hooks that need no ref
-// (UseHover) take none. Without the shared ref each hook attaches its own
-// and only the last one stays attached.
+// (UseHover, UseOverlay) take none.
 //
 //	ref := tela.UseElementRef()
 //	btn := aria.UseButton(aria.ButtonOptions{Ref: ref, OnPress: func(aria.PressEvent) { save() }})
 //	ring := aria.UseFocusRing(aria.FocusRingOptions{Ref: ref})
 //	return Button(btn.Props, ring.Props, ...)
 //
-// Do not add h.Ref(other) to an element that has hook props: it replaces
-// the hook's ref. Use the Ref field of the hook's result instead.
+// Two different refs on one element are a mistake that dev mode reports
+// with a panic that names both call sites and this fix (outside dev mode
+// the last one wins). That includes h.Ref(other) next to the props of a
+// hook: use the Ref field of the hook's result instead, or pass the ref to
+// the hook. The same ref twice is fine.
 //
 // # Controlled and uncontrolled state
 //
 // A hook that holds state keeps it itself by default (uncontrolled), and
-// lets the caller keep it (controlled) when the caller passes the value
-// together with the callback that asks for changes, as h.Input does with
-// Value and OnChange:
+// lets the caller keep it (controlled) when the caller passes a pointer to
+// the value, next to the callback that asks for changes. The callback is
+// also called for an uncontrolled control, to follow it:
 //
 //	// Uncontrolled: DefaultSelected is the initial state.
 //	box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})
+//	// Uncontrolled and notified: read the result's Selected, or listen.
+//	box = aria.UseCheckbox(aria.ToggleOptions{OnChange: func(on bool) { save(on) }})
 //	// Controlled: the caller keeps the state.
 //	on, setOn := tela.UseState(false)
-//	sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+//	sw := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set})
 //
 // A controlled control shows what the caller passes: a change that the
-// caller does not store is refused, as with any controlled field.
+// caller does not store is refused, as with any controlled field. The open
+// state of the overlay hooks (OverlayTriggerOptions, MenuTriggerOptions and
+// TooltipTriggerOptions) follows the same rule with Open, DefaultOpen and
+// OnOpenChange.
 //
 // # Hooks
 //
 // Interactions: [UsePress] (mouse, touch, pen and keyboard as one press),
 // [UseHover] (mouse and pen) and [UseFocusRing] (the focus, and whether to
 // show it). Focus: [UseFocusScope] (contain, restore and auto-focus the
-// focus, and a [FocusManager] that moves it). Controls: [UseButton],
-// [UseToggleButton], [UseCheckbox] and [UseSwitch], which add the role,
-// the aria state, the tab stop and the toggle state to a press.
+// focus, and a [FocusManager] that moves it). Controls: [UseButton]
+// (which can submit or reset its Form), [UseToggleButton], [UseCheckbox]
+// and [UseSwitch], which add the role, the aria state, the tab stop and
+// the toggle state to a press. Positioning: [UseFloating].
+//
+// Overlays: [UseOverlay] (Escape and a press outside close the top
+// overlay; a modal one makes the rest of the window inert), [UseDialog]
+// (role, name and focus), [UsePopover] (a floating overlay next to its
+// trigger), [UseOverlayTrigger] (the open state and the trigger's props),
+// [UseMenuTrigger] (a trigger that opens with press, long press or keys)
+// and [UseTooltipTrigger] (hover and focus with React Aria's delays and
+// warm-up).
+//
+// # Overlays
+//
+// An overlay is rendered by its owner, in a Portal and only while it is
+// open; the hooks give the props. The trigger hook holds the state, the
+// popover positions and dismisses, the dialog names and focuses, and they
+// share the overlay element's ref:
+//
+//	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{})
+//	pop := aria.UsePopover(aria.PopoverOptions{
+//	    Trigger: trig.Ref, Ref: trig.OverlayRef, Open: trig.Open, OnClose: trig.Close,
+//	    Placement: "bottom-start", Offset: 4,
+//	})
+//	dlg := aria.UseDialog(aria.DialogOptions{Ref: trig.OverlayRef, AriaLabel: "Filters"})
+//	return Fragment(
+//	    Button(trig.TriggerProps, Text("Filters")),
+//	    Portal(Presence(If(trig.Open,
+//	        Div(pop.Props, dlg.Props, Exit("opacity-0"),
+//	            Class("rounded-md border bg-popover p-4 transition starting:opacity-0"), ...)))))
+//
+// To let an overlay fade out, render it inside a Presence with If and give
+// it Exit classes and a transition (and the starting: variant for the
+// entrance), as above. An exiting overlay is inert and off the overlay
+// stack at once, so the page below works while it fades, a second Escape
+// reaches the next overlay, and the hooks' Open value is already false.
+//
+// Presses and Escape reach only the top overlay. What is opened from an
+// overlay is inside it (a popover in a dialog, a tooltip on a button in a
+// popover), in a Portal or not.
 //
 // # Testing and agents
 //

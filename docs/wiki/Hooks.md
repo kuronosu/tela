@@ -438,7 +438,8 @@ func Search() tela.Node {
 ```
 
 Its methods are: [`ElementRef.Focus`](API-Reference-tela#func-elementref-focus), [`ElementRef.Blur`](API-Reference-tela#func-elementref-blur),
-[`ElementRef.Focused`](API-Reference-tela#func-elementref-focused), [`ElementRef.Bounds`](API-Reference-tela#func-elementref-bounds), the scroll methods
+[`ElementRef.Focused`](API-Reference-tela#func-elementref-focused), [`ElementRef.Click`](API-Reference-tela#func-elementref-click) (HTML's `element.click()`: it runs the
+activation behavior too, so a `Button` in a `Form` submits it), [`ElementRef.Bounds`](API-Reference-tela#func-elementref-bounds), the scroll methods
 [`ElementRef.ScrollTo`](API-Reference-tela#func-elementref-scrollto), [`ElementRef.ScrollBy`](API-Reference-tela#func-elementref-scrollby),
 [`ElementRef.ScrollOffset`](API-Reference-tela#func-elementref-scrolloffset), [`ElementRef.ScrollIntoView`](API-Reference-tela#func-elementref-scrollintoview) and
 [`ElementRef.ScrollToIndex`](API-Reference-tela#func-elementref-scrolltoindex), and, for text fields, [`ElementRef.Value`](API-Reference-tela#func-elementref-value),

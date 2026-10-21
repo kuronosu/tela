@@ -29,7 +29,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
   - [`type DragEvent`](#type-dragevent): [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
-  - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
+  - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
   - [`type Gradient`](#type-gradient): [`LinearGradient`](#func-lineargradient) · [`Paint`](#func-gradient-paint)
   - [`type GradientStop`](#type-gradientstop): [`Stop`](#func-stop) · [`StopAt`](#func-stopat)
@@ -2062,6 +2062,7 @@ ElementRef is a handle on the element it is attached to with h.Ref, returned by 
 - Focus focuses the element, if it is focusable (a Button, an h.Input or h.Textarea, or an element with h.TabIndex, not disabled or hidden).
 - Blur removes the focus from the element if it has it.
 - Focused reports whether the element has the focus of its window.
+- Click clicks the element like HTML's element.click(): a click event with the primary button, at the center of the element, is dispatched at it (OnClick handlers run and it bubbles; the hooks of package aria see a virtual press), then, unless a handler prevented it, the activation behavior runs: a Button in a Form submits it or resets it by its h.Type, a Label focuses its control and clicks it. No pointer events and no focus change. A disabled or unmounted element ignores it. Call it in a handler or an effect: the state it sets is applied and built by the event or the frame that is running.
 - ScrollTo(x, y) and ScrollBy(dx, dy) scroll a scrolling element (overflow auto, scroll or hidden) to or by offsets, clamped to its content; ScrollOffset returns its offsets (the DOM's scrollLeft and scrollTop; in a right-to-left element x is 0 at the right and negative toward the left). They jump, or animate when the element has scroll-smooth, and do nothing (or return 0) for other elements.
 - ScrollIntoView scrolls every scrolling ancestor of the element so that it is visible, each as little as possible (block and inline "nearest").
 - Bounds returns the element's border box in window coordinates as a [`Rect`](#type-rect), moved by scrolling and transforms (getBoundingClientRect); the zero Rect before it is laid out. [`UseBounds`](#func-usebounds) follows it in a [`Value`](#type-value).
@@ -2134,6 +2135,16 @@ func (r ElementRef) Bounds() Rect
 ```
 
 Bounds returns the border box of the element in window coordinates and logical pixels, as it was last laid out and painted: moved by the scroll offsets of the containers around it and by its own transform and those of its ancestors, as the axis-aligned bounding box of the transformed box (getBoundingClientRect). The window's top-left corner is (0, 0). An inline element (a Span in a paragraph) has the union of its fragments, and an element with display: contents that of its children. It is the zero Rect for an element that is not mounted, is display: none, or has not been laid out yet. Call it from event handlers and effects; UseBounds gives a Value that follows it.
+
+#### func (ElementRef) Click
+
+```go
+func (r ElementRef) Click()
+```
+
+Click clicks the element like HTML's element.click(): a click event (the primary button, a click count of 1, at the center of the element's bounds, made by no pointer: the hooks of package aria see a virtual press) is dispatched at it and bubbles, then, unless a handler prevented it, the activation behavior of the Button or Label at or above it runs (a Button in a Form submits it or resets it by its Type; a Label focuses its control and clicks it). There are no pointer events, no :active state and no focus change of its own. It does nothing for an unmounted element or a disabled one (or one inside a disabled element).
+
+Call it on the UI thread, in a handler or an effect: the updates the click makes are applied and built by the event or the frame that is running; called from elsewhere on the UI thread (a timer), it applies and builds them before it returns, as a real click does.
 
 #### func (ElementRef) Focus
 

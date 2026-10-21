@@ -919,6 +919,8 @@ func dispatchWith[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element,
 	if target == nil {
 		return st
 	}
+	t.handlerDepth++
+	defer func() { t.handlerDepth-- }()
 	var inert *Element
 	if skipInert {
 		inert = outermostDisabled(target)

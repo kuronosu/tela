@@ -1,10 +1,43 @@
 package core
 
-import "slices"
+import (
+	"slices"
+	"time"
+)
 
 // Small engine pieces of package aria (ADR-096): MergeProps for the Props
 // its hooks return, pointer capture (UsePress) and the focus-visible
 // query (UseFocusRing).
+
+// TreeLocal returns the value stored under key in the Tree being built,
+// making it with init the first time: state that every component of one
+// window shares, such as the tooltip group of package aria (a process
+// global would be shared by the windows and the tests). key is compared
+// with ==; use a pointer to a package variable. Call it while a component
+// builds (a hook, but it takes no slot).
+func TreeLocal[T any](key any, init func() T) T {
+	t := currentElement("TreeLocal").tree
+	if v, ok := t.locals[key]; ok {
+		return v.(T)
+	}
+	v := init()
+	if t.locals == nil {
+		t.locals = map[any]any{}
+	}
+	t.locals[key] = v
+	return v
+}
+
+// Clock returns the frame clock of the Tree the element r is attached to,
+// the time base of Timeout and UseInterval: the time of the last event or
+// frame it handled. It is zero for an unmounted ref. For package aria's
+// tooltips, whose cool-down is a deadline on this clock.
+func Clock(r ElementRef) time.Duration {
+	if el := r.element(); el != nil {
+		return el.tree.clock()
+	}
+	return 0
+}
 
 // MergeProps returns one prop that applies ps in order, for a hook that
 // returns several props as one (React Aria's mergeProps): event handlers

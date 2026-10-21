@@ -202,6 +202,8 @@ func TestExportedNames(t *testing.T) {
 		// ADR-096: the widget ARIA props and Inert.
 		"AriaActiveDescendant", "AriaAutoComplete", "AriaControls", "AriaHasPopup", "AriaModal", "AriaMultiSelectable",
 		"AriaOrientation", "Inert",
+		// ADR-101: the tooltip's description.
+		"AriaDescribedBy",
 	}
 	fset := token.NewFileSet()
 	var got []string

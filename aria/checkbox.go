@@ -35,7 +35,7 @@ func UseCheckbox(o ToggleOptions) ToggleResult { return useCheck(o, "checkbox") 
 // UseSwitch returns the props of a switch (React Aria's useSwitch): the
 // same as [UseCheckbox] with the "switch" role.
 //
-//	sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+//	sw := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set})
 //	return Button(sw.Props, Class("h-6 w-11 rounded-full bg-muted checked:bg-primary"),
 //	    Span(Class("block size-5 rounded-full bg-white transition checked:translate-x-5")))
 func UseSwitch(o ToggleOptions) ToggleResult { return useCheck(o, "switch") }
@@ -43,10 +43,8 @@ func UseSwitch(o ToggleOptions) ToggleResult { return useCheck(o, "switch") }
 func useCheck(o ToggleOptions, role string) ToggleResult {
 	selected, toggle := useToggleState(o)
 	id := useToggleID(o)
-	props, pressed, ref := usePressCore(pressConfig{
-		PressOptions: PressOptions{OnPress: func(PressEvent) { toggle() }, Disabled: o.Disabled, Ref: o.Ref},
-		// Enter does nothing on a checkbox: only Space and clicks toggle.
-	})
+	// Enter does nothing on a checkbox: only Space and clicks toggle.
+	props, pressed, ref := usePressCore(pressConfig{PressOptions: o.press(toggle)})
 	ps := []tela.Prop{h.Role(role), h.Disabled(o.Disabled), h.ID(id), h.AriaChecked(selected), readOnlyProp(o.ReadOnly)}
 	if !o.Disabled {
 		ps = append(ps, h.TabIndex(0))

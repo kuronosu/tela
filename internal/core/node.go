@@ -55,6 +55,7 @@ type desc struct {
 	hasTab    bool
 	autoFocus bool
 	ref       *elemRef
+	refSite   *callStack // where ref was attached (dev mode)
 	scope     *scopeOpts
 	src       image.Image // Img source (Src)
 	img       *gfx.Image  // Img source (SrcImage)

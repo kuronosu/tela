@@ -13,28 +13,29 @@ import (
 // ariaProps are the semantics props of a primitive node, allocated by the
 // first one applied.
 type ariaProps struct {
-	role       string // as given (a space-separated fallback list)
-	label      string
-	hasLabel   bool
-	labelledBy *elemRef
-	desc       string
-	hidden     bool
-	hiddenSet  bool
-	checked    semantics.Toggle
-	pressed    semantics.Toggle
-	selected   semantics.Toggle
-	expanded   semantics.Toggle
-	w          *ariaWidget // the widget props (ariawidget.go)
-	disabled   semantics.Toggle
-	required   semantics.Toggle // AriaRequired, AriaReadOnly and AriaBusy (aria_state.go)
-	readOnly   semantics.Toggle
-	busy       semantics.Toggle
-	level      int32
-	rng        semantics.Range
-	valueText  string
-	hasText    bool
-	alt        string
-	hasAlt     bool
+	role        string // as given (a space-separated fallback list)
+	label       string
+	hasLabel    bool
+	labelledBy  *elemRef
+	describedBy *elemRef
+	desc        string
+	hidden      bool
+	hiddenSet   bool
+	checked     semantics.Toggle
+	pressed     semantics.Toggle
+	selected    semantics.Toggle
+	expanded    semantics.Toggle
+	w           *ariaWidget // the widget props (ariawidget.go)
+	disabled    semantics.Toggle
+	required    semantics.Toggle // AriaRequired, AriaReadOnly and AriaBusy (aria_state.go)
+	readOnly    semantics.Toggle
+	busy        semantics.Toggle
+	level       int32
+	rng         semantics.Range
+	valueText   string
+	hasText     bool
+	alt         string
+	hasAlt      bool
 }
 
 // aria returns the semantics props of d, allocating them.
@@ -89,6 +90,16 @@ func AriaLabelledBy(r ElementRef) Prop {
 // AriaDescription sets the accessible description (aria-description).
 func AriaDescription(s string) Prop {
 	return ariaProp("AriaDescription", func(a *ariaProps) { a.desc = s })
+}
+
+// AriaDescribedBy describes a primitive with the text of the element r is
+// attached to (aria-describedby), the way a tooltip describes its
+// trigger; AriaDescription wins over it.
+func AriaDescribedBy(r ElementRef) Prop {
+	if r.r == nil {
+		panic("tela: AriaDescribedBy(zero ElementRef): pass an ElementRef from tela.UseElementRef attached with Ref to the describing element")
+	}
+	return ariaProp("AriaDescribedBy", func(a *ariaProps) { a.describedBy = r.r })
 }
 
 // AriaHidden hides a primitive and its subtree from the semantics tree

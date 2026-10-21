@@ -262,6 +262,11 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		}
 		n.Checked, n.Pressed, n.Selected, n.Expanded = a.checked, a.pressed, a.selected, a.expanded
 		n.Description = a.desc
+		if n.Description == "" && a.describedBy != nil {
+			if r := a.describedBy.el; r != nil && r.mounted && r.kind == elemPrimitive {
+				n.Description = semantics.NormalizeWhiteSpace(t.describedText(r))
+			}
+		}
 		n.Range = a.rng
 		t.semWidget(a, n) // ariawidget.go
 	}
@@ -530,6 +535,19 @@ func (t *Tree) accName(el *Element, role string, includeHidden bool) string {
 		clear(c.visited)
 	}
 	return t.textAlt(el, c, altOpts{target: altSelf})
+}
+
+// describedText returns the text of the element an AriaDescribedBy
+// references, computed like the text of an AriaLabelledBy reference.
+func (t *Tree) describedText(r *Element) string {
+	c := &t.sem.alt
+	c.includeHidden = false
+	if c.visited == nil {
+		c.visited = map[*Element]bool{}
+	} else {
+		clear(c.visited)
+	}
+	return t.textAlt(r, c, altOpts{inLB: true, lbHidden: t.hiddenForAria(r, false)})
 }
 
 // textAlt computes the text alternative of primitive el (AccName's steps

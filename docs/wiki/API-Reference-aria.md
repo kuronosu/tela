@@ -11,13 +11,16 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- Functions: [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UsePress`](#func-usepress) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton)
+- [Constants](#constants)
+- Functions: [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
   - [`type Available`](#type-available): [`MaxHeight`](#func-available-maxheight) · [`MaxWidth`](#func-available-maxwidth)
   - [`type ButtonOptions`](#type-buttonoptions)
   - [`type ButtonResult`](#type-buttonresult): [`UseButton`](#func-usebutton)
+  - [`type DialogOptions`](#type-dialogoptions)
+  - [`type DialogResult`](#type-dialogresult): [`UseDialog`](#func-usedialog)
   - [`type FlipOptions`](#type-flipoptions)
   - [`type Floating`](#type-floating): [`UseFloating`](#func-usefloating)
   - [`type FloatingOption`](#type-floatingoption): [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size)
@@ -32,8 +35,16 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type HoverOptions`](#type-hoveroptions)
   - [`type HoverResult`](#type-hoverresult): [`UseHover`](#func-usehover)
   - [`type LimitShiftOptions`](#type-limitshiftoptions)
+  - [`type MenuTriggerOptions`](#type-menutriggeroptions)
+  - [`type MenuTriggerResult`](#type-menutriggerresult): [`UseMenuTrigger`](#func-usemenutrigger)
   - [`type OffsetOptions`](#type-offsetoptions)
+  - [`type OverlayOptions`](#type-overlayoptions)
+  - [`type OverlayResult`](#type-overlayresult): [`UseOverlay`](#func-useoverlay)
+  - [`type OverlayTriggerOptions`](#type-overlaytriggeroptions)
+  - [`type OverlayTriggerResult`](#type-overlaytriggerresult): [`UseOverlayTrigger`](#func-useoverlaytrigger)
   - [`type PointerType`](#type-pointertype)
+  - [`type PopoverOptions`](#type-popoveroptions)
+  - [`type PopoverResult`](#type-popoverresult): [`UsePopover`](#func-usepopover)
   - [`type PressEvent`](#type-pressevent): [`ContinuePropagation`](#func-pressevent-continuepropagation)
   - [`type PressOptions`](#type-pressoptions)
   - [`type PressResult`](#type-pressresult): [`UsePress`](#func-usepress)
@@ -43,6 +54,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type SizeOptions`](#type-sizeoptions)
   - [`type ToggleOptions`](#type-toggleoptions)
   - [`type ToggleResult`](#type-toggleresult): [`UseCheckbox`](#func-usecheckbox) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton)
+  - [`type TooltipTriggerOptions`](#type-tooltiptriggeroptions)
+  - [`type TooltipTriggerResult`](#type-tooltiptriggerresult): [`UseTooltipTrigger`](#func-usetooltiptrigger)
 
 ## Overview
 
@@ -64,8 +77,10 @@ return Button(press.Props, Class("rounded-md px-3 py-1.5"),
 Props merges several props into one (core's MergeProps): the handlers of one event all run, in the order given, and the others (a class, a role) follow the same rules as props given one after the other. So hook props combine with your own props and with each other:
 
 ```go
+ref := tela.UseElementRef() // see "One element, several hooks" below
+btn := aria.UseButton(aria.ButtonOptions{Ref: ref})
 hover := aria.UseHover(aria.HoverOptions{})
-ring := aria.UseFocusRing(aria.FocusRingOptions{})
+ring := aria.UseFocusRing(aria.FocusRingOptions{Ref: ref})
 return Button(btn.Props, hover.Props, ring.Props,
     Class("rounded-md px-3 py-1.5 transition"),
     If(hover.Hovered, Class("bg-accent")),
@@ -76,7 +91,7 @@ The hooks are ordinary custom hooks (ADR-085): call them at the top level of a c
 
 ### One element, several hooks: the ref
 
-A few hooks need the element itself (press measures it to know when the pointer leaves, the focus ring asks the engine who has the focus) and attach a ref to it. An element has one ref, so when several hooks serve one element they must share it: make it once with tela.UseElementRef and give it to each hook as its Ref option. The hooks that need no ref (UseHover) take none. Without the shared ref each hook attaches its own and only the last one stays attached.
+A few hooks need the element itself (press measures it to know when the pointer leaves, the focus ring asks the engine who has the focus) and attach a ref to it. An element has one ref, so when several hooks serve one element they must share it: make it once with tela.UseElementRef and give it to each hook as its Ref option. The hooks that need no ref (UseHover, UseOverlay) take none.
 
 ```go
 ref := tela.UseElementRef()
@@ -85,29 +100,85 @@ ring := aria.UseFocusRing(aria.FocusRingOptions{Ref: ref})
 return Button(btn.Props, ring.Props, ...)
 ```
 
-Do not add h.Ref(other) to an element that has hook props: it replaces the hook's ref. Use the Ref field of the hook's result instead.
+Two different refs on one element are a mistake that dev mode reports with a panic that names both call sites and this fix (outside dev mode the last one wins). That includes h.Ref(other) next to the props of a hook: use the Ref field of the hook's result instead, or pass the ref to the hook. The same ref twice is fine.
 
 ### Controlled and uncontrolled state
 
-A hook that holds state keeps it itself by default (uncontrolled), and lets the caller keep it (controlled) when the caller passes the value together with the callback that asks for changes, as h.Input does with Value and OnChange:
+A hook that holds state keeps it itself by default (uncontrolled), and lets the caller keep it (controlled) when the caller passes a pointer to the value, next to the callback that asks for changes. The callback is also called for an uncontrolled control, to follow it:
 
 ```go
 // Uncontrolled: DefaultSelected is the initial state.
 box := aria.UseCheckbox(aria.ToggleOptions{DefaultSelected: true})
+// Uncontrolled and notified: read the result's Selected, or listen.
+box = aria.UseCheckbox(aria.ToggleOptions{OnChange: func(on bool) { save(on) }})
 // Controlled: the caller keeps the state.
 on, setOn := tela.UseState(false)
-sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+sw := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set})
 ```
 
-A controlled control shows what the caller passes: a change that the caller does not store is refused, as with any controlled field.
+A controlled control shows what the caller passes: a change that the caller does not store is refused, as with any controlled field. The open state of the overlay hooks (OverlayTriggerOptions, MenuTriggerOptions and TooltipTriggerOptions) follows the same rule with Open, DefaultOpen and OnOpenChange.
 
 ### Hooks
 
-Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press.
+Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton) (which can submit or reset its Form), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press. Positioning: [`UseFloating`](#func-usefloating).
+
+Overlays: [`UseOverlay`](#func-useoverlay) (Escape and a press outside close the top overlay; a modal one makes the rest of the window inert), [`UseDialog`](#func-usedialog) (role, name and focus), [`UsePopover`](#func-usepopover) (a floating overlay next to its trigger), [`UseOverlayTrigger`](#func-useoverlaytrigger) (the open state and the trigger's props), [`UseMenuTrigger`](#func-usemenutrigger) (a trigger that opens with press, long press or keys) and [`UseTooltipTrigger`](#func-usetooltiptrigger) (hover and focus with React Aria's delays and warm-up).
+
+### Overlays
+
+An overlay is rendered by its owner, in a Portal and only while it is open; the hooks give the props. The trigger hook holds the state, the popover positions and dismisses, the dialog names and focuses, and they share the overlay element's ref:
+
+```go
+trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{})
+pop := aria.UsePopover(aria.PopoverOptions{
+    Trigger: trig.Ref, Ref: trig.OverlayRef, Open: trig.Open, OnClose: trig.Close,
+    Placement: "bottom-start", Offset: 4,
+})
+dlg := aria.UseDialog(aria.DialogOptions{Ref: trig.OverlayRef, AriaLabel: "Filters"})
+return Fragment(
+    Button(trig.TriggerProps, Text("Filters")),
+    Portal(Presence(If(trig.Open,
+        Div(pop.Props, dlg.Props, Exit("opacity-0"),
+            Class("rounded-md border bg-popover p-4 transition starting:opacity-0"), ...)))))
+```
+
+To let an overlay fade out, render it inside a Presence with If and give it Exit classes and a transition (and the starting: variant for the entrance), as above. An exiting overlay is inert and off the overlay stack at once, so the page below works while it fades, a second Escape reaches the next overlay, and the hooks' Open value is already false.
+
+Presses and Escape reach only the top overlay. What is opened from an overlay is inside it (a popover in a dialog, a tooltip on a button in a popover), in a Portal or not.
 
 ### Testing and agents
 
 The roles and states the hooks set are the ones the aria snapshot shows: a checkbox made with [`UseCheckbox`](#func-usecheckbox) prints as `checkbox "Name" [checked]`, and telatest finds it with ByRole("checkbox", "Name").
+
+## Constants
+
+```go
+const (
+    // FocusFirst focuses the first item: the menu opened with the keyboard
+    // (ArrowDown, Enter, Space), a long press or a virtual click.
+    FocusFirst = "first"
+    // FocusLast focuses the last item: the menu opened with ArrowUp.
+    FocusLast = "last"
+)
+```
+
+Where the focus goes when a menu opens ([`MenuTriggerResult`](#type-menutriggerresult).FocusStrategy).
+
+```go
+const (
+    // DefaultTooltipDelay is TooltipTriggerOptions.Delay when it is zero.
+    DefaultTooltipDelay = 1500 * time.Millisecond
+    // DefaultTooltipCloseDelay is TooltipTriggerOptions.CloseDelay when it
+    // is zero; it is also how long after the last tooltip closes the next
+    // one still opens at once (the warm-up).
+    DefaultTooltipCloseDelay = 500 * time.Millisecond
+    // NoDelay as a delay of [TooltipTriggerOptions] opens or closes the
+    // tooltip at once (the zero value stands for the default delay).
+    NoDelay time.Duration = -1
+)
+```
+
+The tooltip delays of React Aria: a tooltip opens 1.5 s after the pointer enters its trigger, and closes 0.5 s after it leaves.
 
 ## Types
 
@@ -208,6 +279,13 @@ type ButtonOptions struct {
     // PreventFocusOnPress keeps the focus where it is when the button is
     // pressed with a pointer.
     PreventFocusOnPress bool
+    // Type is what pressing the button does to the Form that contains it,
+    // as HTML's type attribute: "button" (the default) nothing,
+    // "submit" submits the Form (OnSubmit) and "reset" resets it, after
+    // OnPress has run. A press has this effect whatever the element is, a
+    // Button or a Div, and so does ElementRef.Click on it. Another value
+    // panics in dev mode with the closest valid one.
+    Type string
     // Ref is the element's ref, for a hook that is used together with
     // others on one element (see the package documentation); the zero
     // value makes the hook create its own.
@@ -247,7 +325,13 @@ return Button(btn.Props, Class("rounded-md bg-primary px-3 py-1.5 text-primary-f
     If(btn.Pressed, Class("scale-95")), Text("Save"))
 ```
 
-A Button that has the hook's props presses with Enter and Space. Like every press, it prevents the default action of the click, so it does not submit or reset its Form: do that from OnPress.
+A Button that has the hook's props presses with Enter and Space. Like every press, it prevents the default action of the click, so the Form is not submitted or reset by the element's own activation: set Type to "submit" or "reset" and the hook does it when the press completes, on a Button or on any other element.
+
+```go
+save := aria.UseButton(aria.ButtonOptions{Type: "submit"})
+return Form(OnSubmit(func(tela.SubmitEvent) { send() }),
+    Div(save.Props, Class("rounded-md bg-primary px-3 py-1.5"), Text("Send")))
+```
 
 **Example**
 
@@ -267,6 +351,119 @@ app := telatest.MountFunc(t, page)
 app.Click(telatest.ByRole("button", "Clicked 0"))
 fmt.Println(app.AriaSnapshot())
 // Output: - button "Clicked 1"
+```
+
+**Example (submit)**
+
+```go
+// A Div made a button that submits its Form, as an HTML submit button
+// does.
+page := func() tela.Node {
+    sent, setSent := tela.UseState(0)
+    send := aria.UseButton(aria.ButtonOptions{Type: "submit"})
+    return Form(OnSubmit(func(tela.SubmitEvent) { setSent.Update(func(n int) int { return n + 1 }) }),
+        Div(send.Props, Class("rounded-md bg-primary px-3 py-1.5"), Text("Send")),
+        Textf("Sent %d times", sent))
+}
+app := telatest.MountFunc(&exampleTB{}, page)
+app.Click(telatest.ByRole("button", "Send"))
+app.Press("Enter")
+app.ExpectText("Sent 2 times")
+fmt.Println("submitted twice: mouse and Enter")
+// Output: submitted twice: mouse and Enter
+```
+
+### type DialogOptions
+
+```go
+type DialogOptions struct {
+    // Role is "dialog" (the default) or "alertdialog", for a dialog that
+    // interrupts the user with a message that needs a response. Another
+    // value panics in dev mode.
+    Role string
+    // Modal marks the dialog aria-modal and keeps Tab inside it. Make the
+    // dialog's [UseOverlay] modal too, so that the rest of the window is
+    // inert.
+    Modal bool
+    // AriaLabel names the dialog when it has no visible title. Without it
+    // the dialog is named by the element that has TitleProps.
+    AriaLabel string
+    // Ref is the dialog element's ref, for a hook used together with others
+    // on the same element (the overlay trigger's OverlayRef, UsePopover);
+    // the zero value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+DialogOptions configures [`UseDialog`](#func-usedialog).
+
+### type DialogResult
+
+```go
+type DialogResult struct {
+    // Props go to the dialog's element: its role, aria-modal, its name, a
+    // focus scope that moves the focus into the dialog when it opens, keeps
+    // it there (with Modal) and gives it back to the element that had it
+    // when the dialog closes, and the ref.
+    Props tela.Prop
+    // TitleProps go to the element that titles the dialog (a heading): its
+    // text names the dialog.
+    TitleProps tela.Prop
+    // Manager moves the focus inside the dialog.
+    Manager FocusManager
+    // Ref is the ref attached to the dialog's element by Props.
+    Ref tela.ElementRef
+}
+```
+
+DialogResult is what [`UseDialog`](#func-usedialog) returns.
+
+#### func UseDialog
+
+```go
+func UseDialog(o DialogOptions) DialogResult
+```
+
+UseDialog returns the props of a dialog (React Aria's useDialog): its role, its name from the title, and the focus: it goes to the first tabbable element inside when the dialog opens (the dialog itself when there is none), and returns to the element that had it when the dialog closes. Combine it with [`UseOverlay`](#func-useoverlay) for the dismissal and the modality, on the same element.
+
+```go
+dlg := aria.UseDialog(aria.DialogOptions{Modal: true})
+ov := aria.UseOverlay(aria.OverlayOptions{Open: open, OnClose: close, Dismissable: true, Modal: true})
+return Portal(If(open,
+    Div(ov.Props, dlg.Props, Class("w-96 rounded-xl bg-background p-6 shadow-xl"),
+        H2(dlg.TitleProps, Class("text-lg font-semibold"), Text("Delete project?")),
+        Button(OnClick(close), Text("Cancel")))))
+```
+
+An "alertdialog" is not dismissed by a press outside it: leave Dismissable off. The dialog element takes the focus when it has nothing tabbable (it is focusable with a script, not in the Tab order).
+
+**Example**
+
+```go
+// A modal dialog named by its title: it takes the focus when it opens,
+// keeps Tab inside, and gives the focus back when it closes.
+page := func() tela.Node {
+    trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{})
+    ov := aria.UseOverlay(aria.OverlayOptions{Open: trig.Open, OnClose: trig.Close, Dismissable: true, Modal: true})
+    dlg := aria.UseDialog(aria.DialogOptions{Modal: true, Ref: trig.OverlayRef})
+    return Div(
+        Button(trig.TriggerProps, Text("Delete")),
+        Portal(If(trig.Open,
+            Div(ov.Props, dlg.Props, Class("w-64 bg-white p-4"),
+                H2(dlg.TitleProps, Text("Delete project?")),
+                Button(Text("Cancel")),
+                Button(OnClick(trig.Close), Text("Delete"))))))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
+app.Click(telatest.ByRole("button", "Delete"))
+fmt.Println(app.AriaSnapshot())
+app.Press("Escape")
+app.ExpectFocused(telatest.ByRole("button", "Delete"))
+// Output:
+// - dialog "Delete project?":
+//   - heading "Delete project?" [level=2]
+//   - button "Cancel"
+//   - button "Delete"
 ```
 
 ### type FlipOptions
@@ -960,6 +1157,119 @@ type LimitShiftOptions struct {
 
 LimitShiftOptions are the options of [`LimitShift`](#func-limitshift); the zero value is Floating UI's defaults.
 
+### type MenuTriggerOptions
+
+```go
+type MenuTriggerOptions struct {
+    // Trigger is how a pointer opens the menu: "press" (the default), at
+    // the press of a mouse or a pen and at the release of a touch, or
+    // "longPress", when the press lasts, which leaves the quick press of the
+    // trigger to OnPress; the keyboard then opens it with Alt+ArrowDown and
+    // Alt+ArrowUp only. Another value panics in dev mode.
+    Trigger string
+    // Type is what the trigger opens: "menu" (the default) or "listbox".
+    Type string
+    // Open points to the open state of a controlled menu; nil leaves the
+    // state to the hook, starting at DefaultOpen. OnOpenChange is called
+    // with the next state: for a controlled menu it is how the change is
+    // asked for, for an uncontrolled one a notification.
+    Open         *bool
+    DefaultOpen  bool
+    OnOpenChange func(open bool)
+    // Disabled makes the trigger inert and disabled.
+    Disabled bool
+    // OnPress is the trigger's own press with Trigger "longPress"; it does
+    // not run after a long press that opened the menu.
+    OnPress func(PressEvent)
+    // Ref is the trigger's ref and MenuRef the menu's, for hooks used
+    // together with others on the same element; the zero value makes the
+    // hook create its own.
+    Ref, MenuRef tela.ElementRef
+}
+```
+
+MenuTriggerOptions configures [`UseMenuTrigger`](#func-usemenutrigger).
+
+### type MenuTriggerResult
+
+```go
+type MenuTriggerResult struct {
+    // TriggerProps go to the trigger: the press (and long press), the
+    // keyboard that opens the menu, the "button" role, a tab stop,
+    // aria-haspopup, aria-expanded and, while open, aria-controls.
+    TriggerProps tela.Prop
+    // MenuProps go to the menu's element: the ref, aria-labelledby (the
+    // trigger) and a focus scope that gives the focus back to the trigger
+    // when the menu closes. The menu's other hooks and [UsePopover] share
+    // MenuRef.
+    MenuProps tela.Prop
+    // Open is whether the menu is open.
+    Open bool
+    // FocusStrategy is where the focus goes when the menu opens: [FocusFirst],
+    // [FocusLast], or "" for the menu itself (opened with a mouse or a
+    // touch). The menu focuses accordingly when it mounts.
+    FocusStrategy string
+    // SetOpen asks for a state, Toggle for the other one and Close for
+    // closed. A menu closes itself when an item is chosen by calling Close.
+    SetOpen func(open bool)
+    Toggle  func()
+    Close   func()
+    // Pressed is true while the trigger is pressed.
+    Pressed bool
+    // Ref is the trigger's ref and MenuRef the menu's.
+    Ref, MenuRef tela.ElementRef
+}
+```
+
+MenuTriggerResult is what [`UseMenuTrigger`](#func-usemenutrigger) returns.
+
+#### func UseMenuTrigger
+
+```go
+func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult
+```
+
+UseMenuTrigger holds the open state of a menu and returns the props of its trigger (React Aria's useMenuTrigger with useMenuTriggerState): a press opens it, and so do Enter, Space and ArrowDown (focusing the first item) and ArrowUp (the last), or a long press with Trigger "longPress".
+
+```go
+mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{})
+pop := aria.UsePopover(aria.PopoverOptions{
+    Trigger: mt.Ref, Ref: mt.MenuRef, Open: mt.Open, OnClose: mt.Close,
+    Placement: "bottom-start", Modal: true,
+})
+return Fragment(
+    Button(mt.TriggerProps, Text("Actions")),
+    Portal(If(mt.Open, Div(pop.Props, mt.MenuProps, Role("menu"), ...))))
+```
+
+The menu itself, its items and keyboard navigation belong to the menu collection hook (UseMenu); this hook gives it the focus strategy and Close, to call when an item is chosen.
+
+**Example**
+
+```go
+// ArrowDown opens the menu focusing its first item, ArrowUp its last.
+page := func() tela.Node {
+    mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{})
+    pop := aria.UsePopover(aria.PopoverOptions{
+        Trigger: mt.Ref, Ref: mt.MenuRef, Open: mt.Open, OnClose: mt.Close, Placement: "bottom-start", Modal: true,
+    })
+    return Div(Class("relative h-full"),
+        Button(mt.TriggerProps, Class("absolute left-4 top-4 h-8 w-24"), Text("Actions")),
+        Portal(If(mt.Open,
+            Div(pop.Props, mt.MenuProps, Role("menu"), Class("w-40 bg-white"),
+                Textf("focus the %s item", mt.FocusStrategy)))))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(400, 300))
+app.Focus(telatest.ByRole("button", "Actions"))
+app.Press("ArrowDown")
+app.ExpectText("focus the first item")
+app.Press("Escape")
+app.Press("ArrowUp")
+app.ExpectText("focus the last item")
+fmt.Println("ArrowDown: first, ArrowUp: last")
+// Output: ArrowDown: first, ArrowUp: last
+```
+
 ### type OffsetOptions
 
 ```go
@@ -980,6 +1290,210 @@ type OffsetOptions struct {
 ```
 
 OffsetOptions are the options of [`Offset`](#func-offset) beyond the distance.
+
+### type OverlayOptions
+
+```go
+type OverlayOptions struct {
+    // Open is whether the overlay is open. A closed overlay is not on the
+    // overlay stack: its Props do nothing. Render the overlay only while
+    // it is open, and pass the same value here, or true when the
+    // component that calls the hook exists only while the overlay does.
+    Open bool
+    // OnClose is called when the user asks to close the overlay: Escape,
+    // a press outside it (with Dismissable) or the focus leaving it (with
+    // ShouldCloseOnBlur). The caller closes it, by changing the state that
+    // Open comes from.
+    OnClose func()
+    // Dismissable closes the overlay with a press outside it: at the
+    // pointer down, the press is kept from the elements under it, and at
+    // the release OnClose is called and the click the press would make is
+    // cancelled (React Aria's isDismissable). An alert dialog is not
+    // dismissable.
+    Dismissable bool
+    // KeyboardDismissDisabled keeps Escape from closing the overlay. The
+    // overlay still takes the key while it is the top one: Escape does not
+    // reach the overlays below it nor the page.
+    KeyboardDismissDisabled bool
+    // ShouldCloseOnBlur closes the overlay when the focus moves from
+    // inside it to another element outside it (not when it goes nowhere,
+    // such as the window losing the focus).
+    ShouldCloseOnBlur bool
+    // ShouldCloseOnInteractOutside decides, for a press outside the
+    // overlay, whether it closes it; nil closes it for every press. The
+    // event carries the position of the press in the window: a popover
+    // excludes its trigger by comparing it with the trigger's bounds. It
+    // applies to Dismissable overlays.
+    ShouldCloseOnInteractOutside func(tela.PointerEvent) bool
+    // Modal makes everything outside the overlay inert while it is open
+    // and the topmost modal overlay (the overlays opened from it stay
+    // usable): it cannot be pressed or focused, is out of the Tab order and
+    // is hidden from the aria snapshot (React Aria's ariaHideOutside).
+    // A dialog is modal; a popover, a menu or a toast usually is not.
+    Modal bool
+}
+```
+
+OverlayOptions configures [`UseOverlay`](#func-useoverlay).
+
+### type OverlayResult
+
+```go
+type OverlayResult struct {
+    // Props go to the overlay's element: they put it on the overlay stack
+    // while it is mounted and Open, so that Escape and presses outside
+    // reach only the top overlay, and make it modal if asked.
+    Props tela.Prop
+}
+```
+
+OverlayResult is what [`UseOverlay`](#func-useoverlay) returns.
+
+#### func UseOverlay
+
+```go
+func UseOverlay(o OverlayOptions) OverlayResult
+```
+
+UseOverlay returns the props that make an element an overlay (React Aria's useOverlay and, with Modal, useModalOverlay): the topmost one is closed by Escape and by a press outside it, and a modal one makes the rest of the window inert. Overlays opened from inside another count as inside it (a popover in a dialog, in a Portal or not), so pressing in the popover does not close the dialog, and Escape closes the popover first.
+
+```go
+func Confirm(open bool, close func()) tela.Node {
+    ov := aria.UseOverlay(aria.OverlayOptions{Open: open, OnClose: close, Dismissable: true, Modal: true})
+    return Portal(Presence(If(open,
+        Div(ov.Props, Exit("opacity-0"), Class("... transition starting:opacity-0"), ...))))
+}
+```
+
+Use [`UseDialog`](#func-usedialog) on the same element for the dialog role and the focus, and [`UseOverlayTrigger`](#func-useoverlaytrigger) for the state and the trigger. Rendering it inside a Presence lets it fade out: an exiting overlay is inert and no longer on the stack, so the page below is usable at once and a second Escape reaches the next overlay.
+
+The hook has no ref: [`FocusScopeOptions.Ref`](#type-focusscopeoptions) and the other hooks that share the element take theirs as usual.
+
+**Example**
+
+```go
+// A modal overlay: Escape and a press outside close it, and the page
+// below is inert while it is open.
+page := func() tela.Node {
+    open, setOpen := tela.UseState(true)
+    ov := aria.UseOverlay(aria.OverlayOptions{
+        Open: open, OnClose: func() { setOpen.Set(false) }, Dismissable: true, Modal: true,
+    })
+    return Div(Class("relative h-full"),
+        Button(Class("h-8 w-24"), Text("Page")),
+        If(open, Div(ov.Props, Class("absolute left-[100px] top-[100px] h-20 w-40 bg-white"), Text("Overlay"))))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
+fmt.Println(app.AriaSnapshot())
+app.Press("Escape")
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - text: Overlay
+// - button "Page"
+```
+
+### type OverlayTriggerOptions
+
+```go
+type OverlayTriggerOptions struct {
+    // Type is what the trigger opens: "dialog" (the default), "menu",
+    // "listbox", "tree" or "grid" (the values of aria-haspopup). Another
+    // value panics in dev mode with the closest valid one.
+    Type string
+    // Open points to the open state of a controlled overlay; nil leaves the
+    // state to the hook, starting at DefaultOpen. OnOpenChange is called
+    // with the next state when the trigger or the overlay asks for a change:
+    // for a controlled overlay it is how the change is asked for, for an
+    // uncontrolled one a notification.
+    Open         *bool
+    DefaultOpen  bool
+    OnOpenChange func(open bool)
+    // Disabled makes the trigger inert and disabled.
+    Disabled bool
+    // Ref is the trigger's ref, for a hook used together with others on the
+    // same element; the zero value makes the hook create its own.
+    Ref tela.ElementRef
+    // OverlayRef is the overlay's ref, which the trigger's aria-controls
+    // points to; the zero value makes the hook create its own. The hooks of
+    // the overlay's element (UsePopover, UseDialog, UseFocusScope...) must
+    // share it as their Ref option.
+    OverlayRef tela.ElementRef
+}
+```
+
+OverlayTriggerOptions configures [`UseOverlayTrigger`](#func-useoverlaytrigger).
+
+### type OverlayTriggerResult
+
+```go
+type OverlayTriggerResult struct {
+    // TriggerProps go to the trigger: a press that toggles the overlay,
+    // the "button" role, a tab stop, aria-haspopup, aria-expanded and,
+    // while the overlay is open, aria-controls. Override the role on an
+    // element that is not a button.
+    TriggerProps tela.Prop
+    // OverlayProps go to the overlay's element when no other hook of the
+    // element attaches the overlay's ref: they hold just that ref.
+    OverlayProps tela.Prop
+    // Open is the current state, controlled or not.
+    Open bool
+    // SetOpen asks for a state (a controlled overlay only reports it to
+    // OnOpenChange), Toggle for the other one, and Close for closed; Open
+    // for open is SetOpen(true).
+    SetOpen func(open bool)
+    Toggle  func()
+    Close   func()
+    // Pressed is true while the trigger is pressed.
+    Pressed bool
+    // Ref is the trigger's ref and OverlayRef the overlay's.
+    Ref, OverlayRef tela.ElementRef
+}
+```
+
+OverlayTriggerResult is what [`UseOverlayTrigger`](#func-useoverlaytrigger) returns.
+
+#### func UseOverlayTrigger
+
+```go
+func UseOverlayTrigger(o OverlayTriggerOptions) OverlayTriggerResult
+```
+
+UseOverlayTrigger holds the open state of an overlay and returns the props of its trigger (React Aria's useOverlayTrigger with useOverlayTriggerState): a press toggles the overlay, and the trigger says what it opens (aria-haspopup), whether it is open (aria-expanded) and which element it controls (aria-controls).
+
+```go
+trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{Type: "dialog"})
+ov := aria.UseOverlay(aria.OverlayOptions{Open: trig.Open, OnClose: trig.Close, Dismissable: true})
+return Fragment(
+    Button(trig.TriggerProps, Class("rounded-md border px-3 py-1.5"), Text("Share")),
+    Portal(If(trig.Open,
+        Div(ov.Props, trig.OverlayProps, Role("dialog"), Text("Link copied")))))
+```
+
+The state is uncontrolled by default; pass Open for a controlled one. Pair it with [`UsePopover`](#func-usepopover) or [`UseOverlay`](#func-useoverlay) and [`UseDialog`](#func-usedialog) for the overlay (sharing OverlayRef), and with [`UseMenuTrigger`](#func-usemenutrigger) for a menu.
+
+**Example**
+
+```go
+// The trigger holds the state and says what it opens and whether it is
+// open; OnOpenChange follows an uncontrolled overlay.
+page := func() tela.Node {
+    log, setLog := tela.UseState("")
+    trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
+        Type:         "menu",
+        OnOpenChange: func(open bool) { setLog.Set(fmt.Sprintf("open=%v", open)) },
+    })
+    return Div(
+        Button(trig.TriggerProps, Text("Actions")),
+        If(trig.Open, Div(Ref(trig.OverlayRef), Text("Items"))),
+        Text(log))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
+app.Click(telatest.ByRole("button", "Actions"))
+app.Expect(telatest.ByRole("button", "Actions"), telatest.Expanded(true))
+app.ExpectText("open=true")
+fmt.Println("open=true")
+// Output: open=true
+```
 
 ### type PointerType
 
@@ -1008,6 +1522,125 @@ const (
 ```
 
 The pointer types.
+
+### type PopoverOptions
+
+```go
+type PopoverOptions struct {
+    // Trigger is the ref of the element the popover is anchored to, the
+    // trigger that opens it ([OverlayTriggerResult].Ref).
+    Trigger tela.ElementRef
+    // Open is whether the popover is open, and OnClose how it is closed:
+    // see [OverlayOptions].
+    Open    bool
+    OnClose func()
+    // Placement is where the popover goes around its trigger, one of
+    // Floating UI's 12 placements such as "bottom-start"; "bottom" by
+    // default. It flips to the opposite side when there is no room.
+    Placement string
+    // Offset is the distance in pixels between the trigger and the
+    // popover.
+    Offset float32
+    // Floating are more options of [UseFloating], applied after the
+    // popover's own (the placement, [Offset], [Flip] and [Shift] with 12 px
+    // of room from the window's edges) and before the arrow's: a [Size]
+    // that limits the height to the room available, say.
+    Floating []FloatingOption
+    // Modal makes the rest of the window inert while the popover is open,
+    // as a menu does (React Aria's popovers are modal unless isNonModal
+    // is set: here it is the other way round). A press on the trigger then
+    // closes the popover, as it hits no element; a non-modal popover does
+    // not close for the trigger's presses, which toggle it.
+    Modal bool
+    // KeyboardDismissDisabled keeps Escape from closing the popover.
+    KeyboardDismissDisabled bool
+    // ShouldCloseOnInteractOutside decides, for a press outside the popover
+    // (and outside the popovers and dialogs opened from it), whether it
+    // closes it; nil closes it for every press but the non-modal trigger's.
+    ShouldCloseOnInteractOutside func(tela.PointerEvent) bool
+    // Ref is the popover element's ref, for a hook used together with
+    // others on the same element (the overlay trigger's OverlayRef, a
+    // dialog); the zero value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+PopoverOptions configures [`UsePopover`](#func-usepopover).
+
+### type PopoverResult
+
+```go
+type PopoverResult struct {
+    // Props go to the popover's element: it is fixed to the window and
+    // placed next to the trigger in the frame that shows it, it is on the
+    // overlay stack (Escape and presses outside close the top one), and
+    // the ref. Render the element in a Portal.
+    Props tela.Prop
+    // ArrowProps go to an arrow element inside the popover, which points at
+    // the trigger.
+    ArrowProps tela.Prop
+    // Placement is the placement the popover is in, after flipping; Side
+    // and Align split it. They follow the engine by one frame: see
+    // [Floating].
+    Placement, Side, Align string
+    // Ref is the ref attached to the popover's element by Props.
+    Ref tela.ElementRef
+}
+```
+
+PopoverResult is what [`UsePopover`](#func-usepopover) returns.
+
+#### func UsePopover
+
+```go
+func UsePopover(o PopoverOptions) PopoverResult
+```
+
+UsePopover returns the props of a popover (React Aria's usePopover): a floating element positioned by [`UseFloating`](#func-usefloating) next to its trigger, and dismissed by [`UseOverlay`](#func-useoverlay): Escape, a press outside, or the focus going to another element closes it (never the trigger's press or focus, which toggle it). A press inside a popover opened from it, in a Portal or not, is inside.
+
+```go
+trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{})
+pop := aria.UsePopover(aria.PopoverOptions{
+    Trigger: trig.Ref, Ref: trig.OverlayRef, Open: trig.Open, OnClose: trig.Close,
+    Placement: "bottom-start", Offset: 4,
+})
+return Fragment(
+    Button(trig.TriggerProps, Text("Filters")),
+    Portal(Presence(If(trig.Open,
+        Div(pop.Props, Exit("opacity-0"),
+            Class("w-64 rounded-md border bg-popover p-4 shadow-md transition starting:opacity-0"),
+            Div(pop.ArrowProps, Class("size-2 rotate-45 border bg-popover")),
+            Text("Content"))))))
+```
+
+Put [`UseDialog`](#func-usedialog) on the same element, sharing the ref, when the popover holds a form or content to be read as a dialog.
+
+**Example**
+
+```go
+// A popover 4 px below its trigger; a press outside it closes it.
+page := func() tela.Node {
+    trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{})
+    pop := aria.UsePopover(aria.PopoverOptions{
+        Trigger: trig.Ref, Ref: trig.OverlayRef, Open: trig.Open, OnClose: trig.Close,
+        Placement: "bottom-start", Offset: 4,
+    })
+    return Div(Class("relative h-full"),
+        Button(trig.TriggerProps, Class("absolute left-4 top-4 h-8 w-24"), Text("Filters")),
+        Portal(If(trig.Open,
+            Div(pop.Props, TestID("pop"), Class("h-24 w-48 rounded-md border bg-white p-2"), Text("Content")))))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(400, 300))
+app.Click(telatest.ByRole("button", "Filters"))
+r := app.Bounds(telatest.ByTestID("pop"))
+fmt.Printf("popover at (%.0f, %.0f), %.0fx%.0f\n", r.X, r.Y, r.Width, r.Height)
+app.ClickAt(350, 250)
+app.ExpectNoText("Content")
+fmt.Println("closed by a press outside")
+// Output:
+// popover at (16, 52), 192x96
+// closed by a press outside
+```
 
 ### type PressEvent
 
@@ -1239,14 +1872,28 @@ SizeOptions are the options of [`Size`](#func-size).
 
 ```go
 type ToggleOptions struct {
-    // Selected is the state of a controlled control; it is used only when
-    // OnChange is set.
-    Selected bool
+    // Selected points to the state of a controlled control; nil leaves the
+    // state to the hook.
+    Selected *bool
     // DefaultSelected is the initial state of an uncontrolled control.
     DefaultSelected bool
     // OnChange is called with the next state when the user toggles the
-    // control. Setting it makes the control controlled.
+    // control: for a controlled control it is how the change is asked for,
+    // for an uncontrolled one a notification.
     OnChange func(selected bool)
+    // OnPress is called when the control is pressed, before the state
+    // changes; the other press callbacks are those of [PressOptions].
+    OnPress func(PressEvent)
+    // OnPressStart is called when a press begins.
+    OnPressStart func(PressEvent)
+    // OnPressEnd is called when a press ends, whether it counts or not.
+    OnPressEnd func(PressEvent)
+    // OnPressChange is called with true when a press starts and false when
+    // it ends.
+    OnPressChange func(pressed bool)
+    // OnPressUp is called when the pointer or the key is released over the
+    // control.
+    OnPressUp func(PressEvent)
     // Disabled makes the control inert and disabled for styling and
     // assistive technologies (h.Disabled).
     Disabled bool
@@ -1263,17 +1910,45 @@ type ToggleOptions struct {
 }
 ```
 
-ToggleOptions configures [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch): a two-state control. Its state is uncontrolled by default (the hook keeps it, starting at DefaultSelected) and controlled when OnChange is set: the control then shows Selected and only asks OnChange for the next value, as an Input with Value and OnChange does.
+ToggleOptions configures [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch): a two-state control. Its state is uncontrolled when Selected is nil (the hook keeps it, starting at DefaultSelected) and controlled when Selected points to the caller's state: the control then shows it and only asks OnChange for the next value, as an Input with Value and OnChange does. OnChange is also called for an uncontrolled control, to follow it.
 
 ```go
 // Uncontrolled: the hook keeps the state.
 aria.ToggleOptions{DefaultSelected: true}
+// Uncontrolled, and told of every change.
+aria.ToggleOptions{DefaultSelected: true, OnChange: func(on bool) { save(on) }}
 // Controlled: the caller keeps it.
 on, setOn := tela.UseState(false)
-aria.ToggleOptions{Selected: on, OnChange: setOn.Set}
+aria.ToggleOptions{Selected: &on, OnChange: setOn.Set}
 ```
 
 To follow an uncontrolled control, read the Selected field of its result.
+
+**Example**
+
+```go
+// An uncontrolled switch that tells the app about every change, and a
+// controlled one: Selected points to the app's own state.
+page := func() tela.Node {
+    saved, setSaved := tela.UseState("none")
+    on, setOn := tela.UseState(true)
+    auto := aria.UseSwitch(aria.ToggleOptions{
+        DefaultSelected: true,
+        OnChange:        func(v bool) { setSaved.Set(fmt.Sprint(v)) },
+    })
+    manual := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set})
+    return Div(
+        Button(auto.Props, AriaLabel("Auto"), Class("h-6 w-11")),
+        Button(manual.Props, AriaLabel("Manual"), Class("h-6 w-11")),
+        Textf("auto saved: %s, manual: %v", saved, on))
+}
+app := telatest.MountFunc(&exampleTB{}, page)
+app.Click(telatest.ByRole("switch", "Auto"))
+app.Click(telatest.ByRole("switch", "Manual"))
+app.ExpectText("auto saved: false, manual: false")
+fmt.Println("auto saved: false, manual: false")
+// Output: auto saved: false, manual: false
+```
 
 ### type ToggleResult
 
@@ -1348,7 +2023,7 @@ func UseSwitch(o ToggleOptions) ToggleResult
 UseSwitch returns the props of a switch (React Aria's useSwitch): the same as [`UseCheckbox`](#func-usecheckbox) with the "switch" role.
 
 ```go
-sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+sw := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set})
 return Button(sw.Props, Class("h-6 w-11 rounded-full bg-muted checked:bg-primary"),
     Span(Class("block size-5 rounded-full bg-white transition checked:translate-x-5")))
 ```
@@ -1360,7 +2035,7 @@ t := &exampleT{}
 defer t.close()
 page := func() tela.Node {
     on, setOn := tela.UseState(false)
-    sw := aria.UseSwitch(aria.ToggleOptions{Selected: on, OnChange: setOn.Set})
+    sw := aria.UseSwitch(aria.ToggleOptions{Selected: &on, OnChange: setOn.Set})
     return Button(sw.Props, AriaLabel("Wi-Fi"), Class("h-6 w-11 rounded-full bg-muted checked:bg-primary"))
 }
 app := telatest.MountFunc(t, page)
@@ -1379,7 +2054,7 @@ UseToggleButton returns the props of a button that is on or off (React Aria's us
 
 ```go
 bold, setBold := tela.UseState(false)
-tb := aria.UseToggleButton(aria.ToggleOptions{Selected: bold, OnChange: setBold.Set})
+tb := aria.UseToggleButton(aria.ToggleOptions{Selected: &bold, OnChange: setBold.Set})
 return Button(tb.Props, Class("rounded px-2 aria-pressed:bg-accent"), Text("B"))
 ```
 
@@ -1390,7 +2065,7 @@ t := &exampleT{}
 defer t.close()
 page := func() tela.Node {
     bold, setBold := tela.UseState(false)
-    tb := aria.UseToggleButton(aria.ToggleOptions{Selected: bold, OnChange: setBold.Set})
+    tb := aria.UseToggleButton(aria.ToggleOptions{Selected: &bold, OnChange: setBold.Set})
     return Button(tb.Props, Class("rounded px-2 aria-pressed:bg-accent"), Text("Bold"))
 }
 app := telatest.MountFunc(t, page)
@@ -1400,4 +2075,117 @@ fmt.Println(app.AriaSnapshot())
 // Output:
 // - button "Bold"
 // - button "Bold" [pressed]
+```
+
+### type TooltipTriggerOptions
+
+```go
+type TooltipTriggerOptions struct {
+    // Delay is how long the pointer must stay on the trigger before the
+    // tooltip opens: [DefaultTooltipDelay] when zero, none with [NoDelay].
+    // A tooltip opened by the keyboard focus has no delay, and neither
+    // does one that opens while another tooltip is open or closed less than
+    // CloseDelay ago (React Aria's warm-up and cool-down).
+    Delay time.Duration
+    // CloseDelay is how long the tooltip stays after the pointer leaves:
+    // [DefaultTooltipCloseDelay] when zero, none with [NoDelay]. Moving to
+    // the tooltip itself keeps it open.
+    CloseDelay time.Duration
+    // Disabled turns the tooltip off: it does not open.
+    Disabled bool
+    // Trigger is what opens the tooltip: "" for both the pointer hovering
+    // and the keyboard focus (focus that a pointer press did not give), or
+    // "focus" for the keyboard focus alone. Another value panics in dev
+    // mode.
+    Trigger string
+    // Open points to the open state of a controlled tooltip; nil leaves the
+    // state to the hook, starting at DefaultOpen. OnOpenChange is called
+    // with the next state: for a controlled tooltip it is how the change is
+    // asked for, for an uncontrolled one a notification.
+    Open         *bool
+    DefaultOpen  bool
+    OnOpenChange func(open bool)
+    // Ref is the trigger's ref, for a hook used together with others on
+    // the same element; the zero value makes the hook create its own.
+    Ref tela.ElementRef
+    // TooltipRef is the tooltip element's ref, which the trigger's
+    // aria-describedby points to; the zero value makes the hook create its
+    // own.
+    TooltipRef tela.ElementRef
+}
+```
+
+TooltipTriggerOptions configures [`UseTooltipTrigger`](#func-usetooltiptrigger).
+
+### type TooltipTriggerResult
+
+```go
+type TooltipTriggerResult struct {
+    // TriggerProps go to the trigger: the hover, focus, key and pointer
+    // handlers that open and close the tooltip, the ref, and, while the
+    // tooltip is open, aria-describedby. The trigger keeps its own role and
+    // tab stop: tooltips are for elements that are already focusable.
+    TriggerProps tela.Prop
+    // TooltipProps go to the tooltip's element, rendered while Open (in a
+    // Portal, placed by [UseFloating] or [UsePopover]-like options): its
+    // "tooltip" role, the ref, hover that keeps it open, and Escape, which
+    // closes it before anything below it.
+    TooltipProps tela.Prop
+    // Open is whether the tooltip is open.
+    Open bool
+    // Ref is the trigger's ref and TooltipRef the tooltip's.
+    Ref, TooltipRef tela.ElementRef
+}
+```
+
+TooltipTriggerResult is what [`UseTooltipTrigger`](#func-usetooltiptrigger) returns.
+
+#### func UseTooltipTrigger
+
+```go
+func UseTooltipTrigger(o TooltipTriggerOptions) TooltipTriggerResult
+```
+
+UseTooltipTrigger returns the props of a tooltip and of its trigger (React Aria's useTooltipTrigger and useTooltip, with useTooltipTriggerState): it opens when the pointer rests on the trigger or the keyboard focuses it, closes when either leaves, when the trigger is pressed or a key is typed on it, and with Escape.
+
+```go
+tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{})
+fl := aria.UseFloating(tip.Ref, aria.Placement("top"), aria.Offset(6), aria.Flip(), aria.Shift(8))
+return Fragment(
+    Button(tip.TriggerProps, Class("rounded-md border p-2"), Text("Save")),
+    Portal(Presence(If(tip.Open,
+        Div(tip.TooltipProps, fl.Props, Exit("opacity-0"),
+            Class("rounded bg-foreground px-2 py-1 text-xs text-background transition starting:opacity-0"),
+            Text("Saves the file (Ctrl+S)"))))))
+```
+
+The tooltips of a window behave as a group: opening one closes the others, and while one is open, or one closed less than [`DefaultTooltipCloseDelay`](#constants) ago, the next one opens at once. The delays run on the frame clock, with no goroutine, so an idle window with a tooltip pending or open asks for no frames.
+
+**Example**
+
+```go
+// The tooltip opens 1.5 s after the pointer rests on its trigger, and
+// closes half a second after it leaves.
+page := func() tela.Node {
+    tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{})
+    fl := aria.UseFloating(tip.Ref, aria.Placement("top"), aria.Offset(6), aria.Flip(), aria.Shift(8))
+    return Div(Class("relative h-full"),
+        Button(tip.TriggerProps, Class("absolute left-4 top-[100px] h-8 w-24"), Text("Save")),
+        Portal(If(tip.Open,
+            Div(tip.TooltipProps, fl.Props, Class("rounded bg-black px-2 py-1 text-xs text-white"), Text("Saves the file")))))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(400, 300), telatest.NoSettle())
+count := func() int { return app.Count(telatest.ByRole("tooltip", "Saves the file")) }
+app.Hover(telatest.ByRole("button", "Save"))
+app.Advance(time.Second)
+fmt.Println("after 1 s:", count())
+app.Advance(600 * time.Millisecond)
+fmt.Println("after 1.6 s:", count())
+app.MouseMove(300, 250)
+app.Advance(600 * time.Millisecond)
+fmt.Println("0.6 s after leaving:", count())
+// Output:
+// after 1 s: 0
+// after 1.6 s: 1
+// 0.6 s after leaving: 0
 ```

@@ -66,7 +66,7 @@ func TestCheckboxControlled(t *testing.T) {
 		v, set := tela.UseState(false)
 		on, setOn = v, set
 		return useCheckboxPage(func() aria.ToggleOptions {
-			return aria.ToggleOptions{Selected: v, OnChange: func(next bool) { asked = append(asked, next); set.Set(next) }}
+			return aria.ToggleOptions{Selected: &v, OnChange: func(next bool) { asked = append(asked, next); set.Set(next) }}
 		}, aria.UseCheckbox)
 	}
 	app := telatest.MountFunc(t, page, telatest.Size(300, 100))
@@ -88,7 +88,8 @@ func TestCheckboxControlled(t *testing.T) {
 func TestCheckboxControlledRefusesChanges(t *testing.T) {
 	var asked []bool
 	page := checkboxPage(func() aria.ToggleOptions {
-		return aria.ToggleOptions{Selected: true, OnChange: func(next bool) { asked = append(asked, next) }}
+		on := true
+		return aria.ToggleOptions{Selected: &on, OnChange: func(next bool) { asked = append(asked, next) }}
 	}, aria.UseCheckbox)
 	app := telatest.MountFunc(t, page, telatest.Size(300, 100))
 	box := telatest.ByRole("checkbox", "Notifications")
@@ -131,7 +132,7 @@ func TestSwitch(t *testing.T) {
 		v, set := tela.UseState(false)
 		on = v
 		return useCheckboxPage(func() aria.ToggleOptions {
-			return aria.ToggleOptions{Selected: v, OnChange: set.Set}
+			return aria.ToggleOptions{Selected: &v, OnChange: set.Set}
 		}, aria.UseSwitch)
 	}
 	app := telatest.MountFunc(t, page, telatest.Size(300, 100))
@@ -149,7 +150,7 @@ func TestSwitch(t *testing.T) {
 func TestToggleButton(t *testing.T) {
 	page := func() tela.Node {
 		bold, setBold := tela.UseState(false)
-		tb := aria.UseToggleButton(aria.ToggleOptions{Selected: bold, OnChange: setBold.Set})
+		tb := aria.UseToggleButton(aria.ToggleOptions{Selected: &bold, OnChange: setBold.Set})
 		return Button(tb.Props, Class("px-2 w-[40px] aria-pressed:w-[80px] h-8"), If(tb.Pressed, Class("h-10")), TestID("b"), Text("Bold"))
 	}
 	app := telatest.MountFunc(t, page, telatest.Size(300, 100))

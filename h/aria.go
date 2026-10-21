@@ -47,6 +47,14 @@ func AriaLabelledBy(ref tela.ElementRef) tela.Prop { return core.AriaLabelledBy(
 //	Button(AriaDescription("Removes the file for everyone"), Text("Delete"))
 func AriaDescription(description string) tela.Prop { return core.AriaDescription(description) }
 
+// AriaDescribedBy describes an element with the text of another one,
+// attached to a ref with Ref (HTML's aria-describedby): a tooltip
+// describes its trigger. AriaDescription wins over it.
+//
+//	Div(Role("tooltip"), Ref(tip), Text("Saves the file")),
+//	Button(AriaDescribedBy(tip), Text("Save"))
+func AriaDescribedBy(ref tela.ElementRef) tela.Prop { return core.AriaDescribedBy(ref) }
+
 // AriaHidden hides an element and its subtree from the semantics tree
 // when true (decorations, duplicated content), without hiding it on
 // screen.

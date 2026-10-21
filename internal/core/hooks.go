@@ -297,6 +297,8 @@ const maxUpdatePasses = 16
 // changed.
 func (t *Tree) ApplyUpdates() bool {
 	changed := false
+	t.handlerDepth++ // a posted function that clicks leaves building to its caller
+	defer func() { t.handlerDepth-- }()
 	for pass := 0; pass < maxUpdatePasses; pass++ {
 		t.mu.Lock()
 		us := t.updates
