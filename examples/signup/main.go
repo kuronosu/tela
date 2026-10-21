@@ -22,9 +22,10 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-// Props starts the screen in any state. The zero Props is the real app: an
+// Page is the whole screen, with its state. Its fields seed that state, so
+// a preview can start it in any state; the zero Page is the real app: an
 // empty form.
-type Props struct {
+type Page struct {
 	Initial Values
 	// ShowPassword reveals the password.
 	ShowPassword bool
@@ -34,11 +35,7 @@ type Props struct {
 	Created bool
 }
 
-// Signup is the screen.
-func Signup() tela.Node { return tela.CP(Page, Props{}) }
-
-// Page is the whole screen, with its state.
-func Page(p Props) tela.Node {
+func (p Page) Build() tela.Node {
 	name, setName := tela.UseState(p.Initial.Name)
 	email, setEmail := tela.UseState(p.Initial.Email)
 	password, setPassword := tela.UseState(p.Initial.Password)
@@ -65,7 +62,7 @@ func Page(p Props) tela.Node {
 		Brand(),
 		Div(Class("flex flex-1 items-center justify-center px-6 py-8 md:px-10"),
 			Form(Class("flex w-full max-w-sm flex-col gap-5"),
-				OnSubmit(func(tela.SubmitEvent) {
+				OnSubmit(func() {
 					// Enter in a field and the submit button both land here; check again
 					// because a handler is the last line of defense, not the disabled
 					// button.
@@ -74,21 +71,21 @@ func Page(p Props) tela.Node {
 						setCreated.Set(true)
 					}
 				}),
-				OnChange(func(tela.ChangeEvent) { dismiss() }),
+				OnChange(dismiss),
 
 				Header(),
-				If(created, Banner(values.Name, values.Email)),
+				If(created, tela.Component(Banner{Name: values.Name, Email: values.Email})),
 
 				NameField(name, setName),
 				EmailField(email, setEmail, touched, setTouched),
 				PasswordField(password, setPassword, show, setShow),
 				BioField(bio),
-				TermsField(terms, func() { setTerms.Set(!terms); dismiss() }),
+				TermsField(terms, func() { setTerms.Update(func(on bool) bool { return !on }); dismiss() }),
 
 				Div(Class("flex flex-col gap-3"),
 					Button(Type("submit"), Disabled(!valid || created),
-						Class("flex h-9 w-full items-center justify-center rounded-md bg-indigo-600 text-sm font-medium text-white shadow-xs transition-colors "+
-							"hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-[3px] focus-visible:ring-indigo-500/40 "+
+						Class("flex h-9 w-full items-center justify-center rounded-md bg-indigo-600 text-sm font-medium text-white shadow-xs transition-colors",
+							"hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-[3px] focus-visible:ring-indigo-500/40",
 							"disabled:cursor-not-allowed disabled:opacity-50"),
 						Text("Create account")),
 					If(!valid && !created, P(Class("text-center text-xs text-zinc-500 dark:text-zinc-400"),
@@ -105,12 +102,12 @@ func Page(p Props) tela.Node {
 
 // Previews are the states the README and the goldens show.
 var Previews = tela.Previews{
-	"1 Empty":  {Root: tela.CP(Page, Props{})},
-	"2 Filled": {Root: tela.CP(Page, Props{Initial: filled})},
-	"3 Invalid": {Root: tela.CP(Page, Props{Touched: true, ShowPassword: true, Initial: Values{
+	"1 Empty":  {Root: Page{}},
+	"2 Filled": {Root: Page{Initial: filled}},
+	"3 Invalid": {Root: Page{Touched: true, ShowPassword: true, Initial: Values{
 		Name: "Ana García", Email: "ana@", Password: "hunter2", Bio: "Writes Go by day.",
-	}})},
-	"4 Created": {Root: tela.CP(Page, Props{Initial: filled, Created: true})},
+	}}},
+	"4 Created": {Root: Page{Initial: filled, Created: true}},
 }
 
 // filled is a form ready to submit.
@@ -123,11 +120,11 @@ var filled = Values{
 }
 
 func main() {
-	tela.Run(tela.App{
+	tela.Main(tela.App{
 		Title:  "Tela — create your account",
 		AppID:  "dev.telaui.signup",
 		Width:  1100,
 		Height: 860,
-		Root:   Signup,
+		Root:   func() tela.Node { return Fragment(Page{}) },
 	})
 }

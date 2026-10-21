@@ -12,7 +12,7 @@ const bioLimit = 160
 // minPassword is the shortest password the form accepts.
 const minPassword = 8
 
-// Values is what the form holds. Props.Initial uses it to start a preview in
+// Values is what the form holds. Page.Initial uses it to start a preview in
 // any state; a real window starts with the zero Values.
 type Values struct {
 	Name     string

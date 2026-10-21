@@ -25,7 +25,7 @@ func TestScrollDamage(t *testing.T) {
 // key is one frame).
 func scrollAround(t *testing.T, root func() tela.Node, w, h float32, scale float64, steps int) {
 	t.Helper()
-	a := telatest.Mount(t, tela.C(root), telatest.Size(w, h), telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
+	a := telatest.MountFunc(t, root, telatest.Size(w, h), telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
 	first := string(a.Screenshot().Pix)
 	for i := range steps {
 		if i == steps/2 && string(a.Screenshot().Pix) == first {

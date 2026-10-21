@@ -4,9 +4,9 @@
 //
 // The switch is a component built from divs: a track and a knob that move
 // with justify-start/justify-end when the state changes. The plan cards
-// are CP components whose props are an ID and the billing period: plain
-// comparable values, so a rebuild of the page that changes neither skips
-// them.
+// are struct components whose fields are an ID and the billing period:
+// plain comparable values, so a rebuild of the page that changes neither
+// skips them.
 //
 // `tela snapshot ./examples/pricing` renders it without a window; add
 // --dark for the dark theme.
@@ -28,10 +28,10 @@ func Pricing() tela.Node {
 			H1(Class("text-4xl font-bold tracking-tight md:text-5xl"), Text("Simple, transparent pricing")),
 			P(Class("text-base text-zinc-500 dark:text-zinc-400"), Text("Start free. Upgrade when your team grows. Cancel anytime.")),
 		),
-		tela.CP(BillingToggle, ToggleProps{Yearly: yearly, Set: setYearly}),
+		BillingToggle{Yearly: yearly, Set: setYearly},
 		Div(Class("flex flex-wrap items-stretch justify-center gap-6"),
-			Map(plans, func(p Plan) tela.Node {
-				return tela.WithKey(tela.CP(PlanCard, PlanProps{ID: p.ID, Yearly: yearly}), p.ID)
+			MapKeyed(plans, func(p Plan) string { return p.ID }, func(p Plan) tela.Component {
+				return PlanCard{ID: p.ID, Yearly: yearly}
 			}),
 		),
 	)
@@ -41,7 +41,7 @@ func Pricing() tela.Node {
 func Preview() tela.Node { return tela.C(Pricing) }
 
 func main() {
-	tela.Run(tela.App{
+	tela.Main(tela.App{
 		Title:  "Tela — pricing",
 		AppID:  "dev.telaui.pricing",
 		Width:  1280,

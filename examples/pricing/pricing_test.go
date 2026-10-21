@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -14,8 +13,8 @@ const windowW, windowH = 1280, 800
 // mount opens the screen in dev mode, where any dev message fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
-	return telatest.Mount(t, tela.C(Pricing), opts...)
+	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
+	return telatest.MountFunc(t, Pricing, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {
@@ -49,12 +48,9 @@ func TestThreePlansInARow(t *testing.T) {
 			t.Errorf("%s at y=%v, Starter at y=%v", name, got, y)
 		}
 	}
-	bxBox := a.Bounds(exact("Most popular"))
-	bx, by, bw, bh := bxBox.X, bxBox.Y, bxBox.Width, bxBox.Height
-	pxBox := a.Bounds(exact("Pro"))
-	px, py := pxBox.X, pxBox.Y
-	if by+bh > py || bx+bw/2 < px {
-		t.Errorf("badge at (%v, %v) is not above the Pro card heading at (%v, %v)", bx, by, px, py)
+	badge, pro := a.Bounds(exact("Most popular")), a.Bounds(exact("Pro"))
+	if badge.Y+badge.Height > pro.Y || badge.X+badge.Width/2 < pro.X {
+		t.Errorf("badge at (%v, %v) is not above the Pro card heading at (%v, %v)", badge.X, badge.Y, pro.X, pro.Y)
 	}
 }
 
@@ -64,8 +60,7 @@ func TestThreePlansInARow(t *testing.T) {
 func TestBillingToggle(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	knob := func() float32 {
-		x := a.Bounds(telatest.ByClass("size-5", "rounded-full", "shadow-sm")).X
-		return x
+		return a.Bounds(telatest.ByClass("size-5", "rounded-full", "shadow-sm")).X
 	}
 	for _, s := range []string{"$0", "$29", "$99", "Billed monthly", "Free forever"} {
 		if !hasText(a, s) {

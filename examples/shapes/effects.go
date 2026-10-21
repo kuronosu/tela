@@ -8,7 +8,7 @@ import (
 // GradientCard: bg-linear-to-br with a colored shadow, two translucent
 // decorative circles clipped by the card, a badge and a round button.
 func GradientCard() tela.Node {
-	return Div(Class(cell+"relative flex flex-col justify-between overflow-hidden rounded-3xl bg-linear-to-br from-indigo-500 to-fuchsia-600 p-5 shadow-lg shadow-indigo-500/50"),
+	return Div(Class(cell, "relative flex flex-col justify-between overflow-hidden rounded-3xl bg-linear-to-br from-indigo-500 to-fuchsia-600 p-5 shadow-lg shadow-indigo-500/50"),
 		Div(Class("absolute -top-14 left-[55%] size-32 rounded-full bg-white/12")),
 		Div(Class("absolute -bottom-12 -left-10 size-36 rounded-full bg-white/10")),
 		Div(Class("relative flex w-fit items-center gap-1.5 rounded-full border border-white/35 bg-white/15 py-1 pr-2.5 pl-2 text-xs leading-4 font-medium text-white"),
@@ -28,7 +28,7 @@ func GradientCard() tela.Node {
 // SunsetCard: a radial gradient with a bright spot, and a frosted pill at
 // the bottom that blurs what is behind it (backdrop-blur).
 func SunsetCard() tela.Node {
-	return Div(Class(cell+"relative flex flex-col justify-end overflow-hidden rounded-2xl bg-radial-[at_30%_28%] from-amber-200 via-rose-400 via-48% to-violet-600 p-3.5 shadow-xl shadow-rose-500/35"),
+	return Div(Class(cell, "relative flex flex-col justify-end overflow-hidden rounded-2xl bg-radial-[at_30%_28%] from-amber-200 via-rose-400 via-48% to-violet-600 p-3.5 shadow-xl shadow-rose-500/35"),
 		Div(Class("absolute top-0 left-3 size-24 bg-radial-[circle_closest-side] from-white/85 to-white/0")),
 		Div(Class("relative flex items-center gap-2.5 rounded-full border border-white/40 bg-white/20 px-2.5 py-2 backdrop-blur"),
 			Div(Class("size-4 shrink-0 rounded-full bg-white")),
@@ -59,7 +59,7 @@ func ConicCard() tela.Node {
 // GlassCard: blurred color discs on a dark card, and a pane of frosted glass
 // (backdrop-blur, translucent fill, hairline border) over them.
 func GlassCard() tela.Node {
-	return Div(Class(cell+"relative overflow-hidden rounded-[20px] bg-linear-to-br from-slate-900 to-slate-950 shadow-xl"),
+	return Div(Class(cell, "relative overflow-hidden rounded-[20px] bg-linear-to-br from-slate-900 to-slate-950 shadow-xl"),
 		Div(Class("absolute top-2 left-2 size-24 rounded-full bg-indigo-500 blur-xl")),
 		Div(Class("absolute top-0 right-3 size-20 rounded-full bg-fuchsia-500 blur-xl")),
 		Div(Class("absolute -bottom-5 left-14 size-24 rounded-full bg-sky-500 blur-xl")),
@@ -122,16 +122,16 @@ func DropCard() tela.Node {
 		}
 		zigzag = append(zigzag, stroke{i, tilt})
 	}
-	return Div(Class(cell+"flex flex-col justify-around rounded-2xl border-2 border-dashed border-indigo-300 bg-white/60 px-5 py-4"),
+	return Div(Class(cell, "flex flex-col justify-around rounded-2xl border-2 border-dashed border-indigo-300 bg-white/60 px-5 py-4"),
 		Div(Class("flex items-center justify-between"),
 			Map(wave, func(b bar) tela.Node {
-				return Div(Key(b.i), Class("w-1.5 rounded-full "+b.h+" "+b.color))
+				return Div(Key(b.i), Class("w-1.5 rounded-full", b.h, b.color))
 			}),
 		),
 		Div(Class("flex items-center justify-center"),
 			Map(zigzag, func(s stroke) tela.Node {
 				return Div(Key(s.i), Class("flex w-[15px] justify-center"),
-					Div(Class("h-[26px] w-[5px] rounded-full bg-emerald-500 "+s.tilt)))
+					Div(Class("h-[26px] w-[5px] rounded-full bg-emerald-500", s.tilt)))
 			}),
 		),
 		P(Class("text-center text-xs leading-4 text-indigo-400"), Text("Drop files here")),

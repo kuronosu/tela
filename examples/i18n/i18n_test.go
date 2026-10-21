@@ -10,11 +10,11 @@ import (
 
 const windowW, windowH = 720, 720
 
-// mountIn opens the screen with its locale fixed by i18n.Provider, in dev
-// mode (any dev message fails the test).
+// mountIn opens the screen with its locale fixed by i18n.Provider; dev mode
+// is on, so any dev message fails the test.
 func mountIn(t *testing.T, tag string, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(windowW, windowH), telatest.Dev()}, opts...)
+	opts = append([]telatest.Option{telatest.Size(windowW, windowH)}, opts...)
 	return telatest.Mount(t, i18n.Provider(tag, tela.C(Store)), opts...)
 }
 
@@ -71,7 +71,7 @@ func TestArabicPlurals(t *testing.T) {
 func TestSwitchMirrors(t *testing.T) {
 	i18n.SetLocale("en")
 	t.Cleanup(func() { i18n.SetLocale("") })
-	a := telatest.Mount(t, tela.C(Store), telatest.Size(windowW, windowH), telatest.Dev())
+	a := telatest.MountFunc(t, Store, telatest.Size(windowW, windowH))
 	a.ExpectText("Your order")
 	back, checkout := telatest.ByTestID("back"), telatest.ByTestID("checkout")
 	progress := telatest.ByTestID("progress")

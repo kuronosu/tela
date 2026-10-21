@@ -9,19 +9,22 @@ import (
 
 // fieldShell is what Input and Textarea share: shadcn's field. The ring of
 // focus: is the focus indicator; text fields match focus-visible: on every
-// focus, so focus: and focus-visible: look alike here.
-const fieldShell = "block w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-xs outline-none " +
-	"transition-colors placeholder:text-zinc-400 selection:bg-indigo-200 " +
-	"focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/25 " +
-	"dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500 dark:selection:bg-indigo-800 " +
-	"dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25"
+// focus, so focus: and focus-visible: look alike here. A Prop can be shared
+// by every element that needs it.
+var fieldShell = Class(
+	"block w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-xs outline-none",
+	"transition-colors placeholder:text-zinc-400 selection:bg-indigo-200",
+	"focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/25",
+	"dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500 dark:selection:bg-indigo-800",
+	"dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25")
 
 // invalidField paints a field red while its value is invalid (for an e-mail
 // field: not an address by HTML's syntax). Without the focus: twins, the
 // indigo focus classes above would win on a focused field.
-const invalidField = "invalid:border-red-500 invalid:ring-[3px] invalid:ring-red-500/20 " +
-	"focus:invalid:border-red-500 focus:invalid:ring-red-500/25 " +
-	"dark:invalid:border-red-400 dark:focus:invalid:border-red-400"
+var invalidField = Class(
+	"invalid:border-red-500 invalid:ring-[3px] invalid:ring-red-500/20",
+	"focus:invalid:border-red-500 focus:invalid:ring-red-500/25",
+	"dark:invalid:border-red-400 dark:focus:invalid:border-red-400")
 
 // FieldLabel is a Label tied to its field by id. hint is the faded
 // remainder, such as "(optional)".
@@ -34,12 +37,12 @@ func FieldLabel(id, text, hint string) tela.Node {
 
 // Hint is the small gray text under a field.
 func Hint(text, extra string) tela.Node {
-	return P(Class("text-xs text-zinc-500 dark:text-zinc-400 "+extra), Text(text))
+	return P(Class("text-xs text-zinc-500 dark:text-zinc-400", extra), Text(text))
 }
 
 // Brand is the left panel: a gradient with a tagline, hidden below md:.
 func Brand() tela.Node {
-	return Div(Class("relative hidden w-[400px] shrink-0 flex-col justify-between overflow-hidden "+
+	return Div(Class("relative hidden w-[400px] shrink-0 flex-col justify-between overflow-hidden",
 		"bg-linear-to-br from-indigo-600 via-violet-600 to-fuchsia-700 p-10 text-white md:flex"),
 		Div(Class("absolute -top-24 -right-24 size-80 rounded-full bg-white/10")),
 		Div(Class("absolute -bottom-32 -left-16 size-96 rounded-full bg-white/10")),
@@ -66,16 +69,20 @@ func Header() tela.Node {
 
 // Banner confirms the submission. It is a status region, so a screen reader
 // announces it.
-func Banner(name, email string) tela.Node {
+type Banner struct {
+	Name, Email string
+}
+
+func (b Banner) Build() tela.Node {
 	return Div(Role("status"),
-		Class("flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-950 shadow-xs "+
+		Class("flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-950 shadow-xs",
 			"dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-50"),
 		Div(Class("mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600"),
 			Div(Class("-mt-px h-2 w-1 rotate-45 border-r-2 border-b-2 border-white"))),
 		Div(Class("flex flex-col gap-0.5"),
-			Strong(Class("font-semibold"), Textf("Welcome, %s!", name)),
+			Strong(Class("font-semibold"), Textf("Welcome, %s!", b.Name)),
 			Span(Class("text-emerald-900/80 dark:text-emerald-100/70"),
-				Textf("We sent a confirmation link to %s.", email)),
+				Textf("We sent a confirmation link to %s.", b.Email)),
 		),
 	)
 }
@@ -89,7 +96,7 @@ func NameField(name string, set tela.Setter[string]) tela.Node {
 		Input(ID("name"), Name("name"), AutoComplete("name"), AutoFocus(true),
 			Placeholder("Ana García"),
 			Bind(name, set),
-			Class("h-9 "+fieldShell)),
+			Class("h-9"), fieldShell),
 	)
 }
 
@@ -99,10 +106,8 @@ func NameField(name string, set tela.Setter[string]) tela.Node {
 // wait until the user left the field once (touched), so nobody is told off
 // for the first letter.
 func EmailField(email string, set tela.Setter[string], touched bool, setTouched tela.Setter[bool]) tela.Node {
-	field := "peer h-9 " + fieldShell
 	hint := ""
 	if touched {
-		field += " " + invalidField
 		hint = "peer-invalid:hidden"
 	}
 	return Div(Class("flex flex-col gap-2"),
@@ -110,8 +115,8 @@ func EmailField(email string, set tela.Setter[string], touched bool, setTouched 
 		Input(ID("email"), Name("email"), Type("email"), AutoComplete("email"),
 			Placeholder("you@example.com"),
 			Bind(email, set),
-			OnBlur(func(tela.FocusEvent) { setTouched.Set(true) }),
-			Class(field)),
+			OnBlur(func() { setTouched.Set(true) }),
+			Class("peer h-9"), fieldShell, If(touched, invalidField)),
 		Hint("We only use it to confirm your account.", hint),
 		If(touched, P(Class("hidden text-xs font-medium text-red-600 peer-invalid:block dark:text-red-400"),
 			Text("Enter a valid e-mail address, like you@example.com."))),
@@ -132,20 +137,24 @@ func PasswordField(password string, set tela.Setter[string], show bool, setShow 
 			Input(ID("password"), Name("password"), Type(typ), AutoComplete("new-password"),
 				Placeholder("At least 8 characters"),
 				Bind(password, set),
-				Class("h-9 pr-14 "+fieldShell)),
+				Class("h-9 pr-14"), fieldShell),
 			Button(Type("button"), AriaPressed(show), AriaLabel("Show password"),
-				Class("absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-xs font-medium text-zinc-500 "+
+				Class("absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-xs font-medium text-zinc-500",
 					"transition-colors hover:text-zinc-950 focus-visible:text-indigo-600 dark:text-zinc-400 dark:hover:text-zinc-50"),
-				OnClick(func(tela.MouseEvent) { setShow.Set(!show) }),
+				OnClick(tela.Toggle(setShow)),
 				Text(map[bool]string{false: "Show", true: "Hide"}[show])),
 		),
-		StrengthMeter(password),
+		StrengthMeter{Password: password},
 	)
 }
 
 // StrengthMeter is four bars and a word, with the rule under them.
-func StrengthMeter(password string) tela.Node {
-	score := Strength(password)
+type StrengthMeter struct {
+	Password string
+}
+
+func (m StrengthMeter) Build() tela.Node {
+	score := Strength(m.Password)
 	words := []string{"", "Weak", "Fair", "Good", "Strong"}
 	colors := []string{"", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-emerald-500"}
 	bar := func(i int) tela.Node {
@@ -153,7 +162,7 @@ func StrengthMeter(password string) tela.Node {
 		if i <= score {
 			color = colors[score]
 		}
-		return Div(Key(i), Class("h-1 flex-1 rounded-full transition-colors "+color))
+		return Div(Key(i), Class("h-1 flex-1 rounded-full transition-colors", color))
 	}
 	return Div(Class("flex flex-col gap-2"),
 		Div(Class("flex items-center gap-3"),
@@ -175,7 +184,7 @@ func BioField(bio *tela.Value[string]) tela.Node {
 		Textarea(ID("bio"), Name("bio"), Rows(3), MaxLength(bioLimit), SpellCheck(false),
 			Placeholder("Tell us what you build…"),
 			BindValue(bio),
-			Class("field-sizing-content max-h-40 min-h-[4.5rem] py-2 leading-5 "+fieldShell)),
+			Class("field-sizing-content max-h-40 min-h-[4.5rem] py-2 leading-5"), fieldShell),
 		Div(Class("flex justify-between gap-4"),
 			Hint("Shown on your public profile.", ""),
 			Span(Class("text-xs text-zinc-500 tabular-nums dark:text-zinc-400"),
@@ -199,9 +208,9 @@ func TermsField(on bool, toggle func()) tela.Node {
 	link := "font-medium text-zinc-950 underline underline-offset-4 dark:text-zinc-50"
 	return Div(Class("flex items-start gap-3"),
 		Button(ID("terms"), Type("button"), Role("checkbox"), AriaChecked(on),
-			OnClick(func(tela.MouseEvent) { toggle() }),
-			Class("mt-px flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs transition-colors "+
-				"focus-visible:ring-[3px] focus-visible:ring-indigo-500/40 "+box),
+			OnClick(toggle),
+			Class("mt-px flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs transition-colors",
+				"focus-visible:ring-[3px] focus-visible:ring-indigo-500/40", box),
 			If(on, Div(Class("-mt-0.5 h-2 w-1 rotate-45 border-r-[1.5px] border-b-[1.5px] border-white"))),
 		),
 		Label(For("terms"), Class("cursor-pointer text-sm leading-snug text-zinc-600 dark:text-zinc-400"),

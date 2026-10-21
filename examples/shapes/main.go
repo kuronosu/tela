@@ -41,7 +41,7 @@ func Shapes() tela.Node {
 }
 
 func main() {
-	tela.Run(tela.App{
+	tela.Main(tela.App{
 		Title:  "Tela — shapes",
 		AppID:  "dev.telaui.shapes",
 		Width:  960,
@@ -54,13 +54,13 @@ func main() {
 func Preview() tela.Node { return Shapes() }
 
 // cell is what every card has: all the room of its cell.
-const cell = "min-w-0 flex-1 "
+const cell = "min-w-0 flex-1"
 
 // card is a white rounded card; shadow is a Tailwind shadow class and extra
 // any other classes. The 12 cards share it, so they share their padding
 // and radius.
 func card(shadow, extra string, children ...tela.Child) tela.Node {
-	return Div(append([]tela.Child{Class(cell + "flex flex-col rounded-2xl bg-white p-4 " + shadow + " " + extra)}, children...)...)
+	return Div(append([]tela.Child{Class(cell, "flex flex-col rounded-2xl bg-white p-4", shadow, extra)}, children...)...)
 }
 
 // title and subtitle are the two-line heading used by several cards.

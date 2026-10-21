@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -14,8 +13,8 @@ const windowW, windowH = 1280, 800
 // mount opens the screen in dev mode, where any dev message fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
-	return telatest.Mount(t, tela.C(Settings), opts...)
+	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
+	return telatest.MountFunc(t, Settings, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {
@@ -40,9 +39,8 @@ func switchLoc(name string) telatest.Locator { return telatest.ByRole("switch", 
 // trackPixel samples the left end of a switch track, away from the knob in
 // both positions of the knob (it is 18 px wide in a 40 px track).
 func trackPixel(a *telatest.App, sw telatest.Locator) color.RGBA {
-	xBox := a.Bounds(sw)
-	x, y, w := xBox.X, xBox.Y, xBox.Width
-	return a.Screenshot().RGBAAt(int(x+w/2), int(y)+2)
+	r := a.Bounds(sw)
+	return a.Screenshot().RGBAAt(int(r.X+r.Width/2), int(r.Y)+2)
 }
 
 func TestSwitchTogglesAndDirtiesTheForm(t *testing.T) {
@@ -55,8 +53,10 @@ func TestSwitchTogglesAndDirtiesTheForm(t *testing.T) {
 	knob := telatest.ByClass("size-[18px]", "rounded-full", "shadow-sm").Nth(2)
 	k0 := a.Bounds(knob).X
 
+	a.Expect(digest, telatest.Checked(false))
 	a.Click(digest)
 	a.MouseMove(5, 5)
+	a.Expect(digest, telatest.Checked(true))
 	a.ExpectText("You have unsaved changes")
 	if on := trackPixel(a, digest); on == off || on.R > 60 {
 		t.Errorf("the track is %v after switching on, was %v: want a dark track", on, off)

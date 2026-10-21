@@ -40,11 +40,11 @@ func ChartCard() tela.Node {
 		),
 		Div(Class("flex flex-1 items-end gap-2"),
 			Map(heights, func(h string) tela.Node {
-				cls := "flex-1 rounded-t-md bg-indigo-100 " + h
+				fill := "bg-indigo-100"
 				if h == "h-full" {
-					cls = "flex-1 rounded-t-md bg-linear-to-b from-indigo-400 to-indigo-600 h-full"
+					fill = "bg-linear-to-b from-indigo-400 to-indigo-600"
 				}
-				return Div(Key(h), Class(cls))
+				return Div(Key(h), Class("flex-1 rounded-t-md", fill, h))
 			}),
 		),
 	)
@@ -53,7 +53,7 @@ func ChartCard() tela.Node {
 // PhotoCard: shadow-lg, a picture drawn with gradients (sky, sun and two
 // waves, clipped by its rounded corners) and a round action button.
 func PhotoCard() tela.Node {
-	return Div(Class(cell+"flex flex-col justify-between rounded-2xl bg-white p-2.5 shadow-lg"),
+	return Div(Class(cell, "flex flex-col justify-between rounded-2xl bg-white p-2.5 shadow-lg"),
 		Div(Class("relative h-[88px] overflow-hidden rounded-xl bg-linear-to-b from-violet-400 to-pink-300"),
 			Div(Class("absolute top-3 right-12 size-7 rounded-full bg-amber-200")),
 			Div(Class("absolute -bottom-7 -left-6 h-14 w-[120%] rounded-[50%] bg-indigo-400")),
@@ -68,7 +68,7 @@ func PhotoCard() tela.Node {
 
 // arrowButton is a round button with an arrow.
 func arrowButton(class string) tela.Node {
-	return Div(Class("flex shrink-0 items-center justify-center rounded-full text-base font-semibold "+class), Text("→"))
+	return Div(Class("flex shrink-0 items-center justify-center rounded-full text-base font-semibold", class), Text("→"))
 }
 
 // TogglesCard: shadow-xl, three switches: a rounded track with a white
@@ -87,7 +87,7 @@ func toggle(on bool, label, hint string) tela.Node {
 		track = "bg-indigo-500 justify-end"
 	}
 	return Div(Class("flex items-center gap-3"),
-		Div(Class("flex h-[26px] w-[46px] shrink-0 items-center rounded-full p-0.5 "+track),
+		Div(Class("flex h-[26px] w-[46px] shrink-0 items-center rounded-full p-0.5", track),
 			Div(Class("size-[22px] rounded-full bg-white shadow-md")),
 		),
 		title(label, hint),
@@ -111,7 +111,7 @@ func progress(label, value, width, colors string) tela.Node {
 			Span(Class("text-slate-400"), Text(value)),
 		),
 		Div(Class("h-2.5 rounded-full bg-slate-100"),
-			Div(Class("h-full rounded-full bg-linear-to-r "+colors+" "+width)),
+			Div(Class("h-full rounded-full bg-linear-to-r", colors, width)),
 		),
 	)
 }
@@ -121,7 +121,7 @@ func progress(label, value, width, colors string) tela.Node {
 func SearchCard() tela.Node {
 	type chip struct{ label, dot string }
 	chips := []chip{{"UI", "bg-indigo-500"}, {"Go", "bg-emerald-500"}, {"Ops", "bg-rose-400"}, {"Docs", "bg-amber-400"}, {"AI", "bg-sky-500"}}
-	return Div(Class(cell+"flex flex-col gap-3 rounded-2xl bg-slate-100 p-3.5 inset-shadow-sm inset-ring inset-ring-slate-200"),
+	return Div(Class(cell, "flex flex-col gap-3 rounded-2xl bg-slate-100 p-3.5 inset-shadow-sm inset-ring inset-ring-slate-200"),
 		Div(Class("flex items-center gap-2 rounded-full bg-white px-3 py-2 shadow-xs"),
 			magnifier(),
 			Span(Class("text-xs leading-4 text-slate-400"), Text("Search")),
@@ -129,7 +129,7 @@ func SearchCard() tela.Node {
 		Div(Class("flex flex-wrap gap-2"),
 			Map(chips, func(c chip) tela.Node {
 				return Div(Key(c.label), Class("flex items-center gap-1.5 rounded-full bg-white py-1 pr-2.5 pl-2 text-xs leading-4 font-medium text-slate-600 shadow-sm"),
-					Div(Class("size-2.5 rounded-full "+c.dot)),
+					Div(Class("size-2.5 rounded-full", c.dot)),
 					Text(c.label),
 				)
 			}),

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -23,17 +22,17 @@ var (
 	showButton  = telatest.ByRole("button", "Show password")
 )
 
-// mount opens the screen in dev mode, where any dev message fails the test.
-func mount(t *testing.T, p Props, w, h float32, opts ...telatest.Option) *telatest.App {
+// mount opens the page; dev mode is on, so any dev message fails the test.
+func mount(t *testing.T, p Page, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
-	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Dev()}, opts...)
-	return telatest.Mount(t, tela.CP(Page, p), opts...)
+	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
+	return telatest.Mount(t, p, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {
 	for _, s := range [][2]float32{{windowW, windowH}, {700, 600}, {420, 900}, {1600, 700}} {
-		mount(t, Props{}, s[0], s[1])
-		mount(t, Props{Initial: filled, Touched: true, Created: true}, s[0], s[1])
+		mount(t, Page{}, s[0], s[1])
+		mount(t, Page{Initial: filled, Touched: true, Created: true}, s[0], s[1])
 	}
 }
 
@@ -42,7 +41,7 @@ func TestGolden(t *testing.T) {
 	for _, name := range Previews.Names() {
 		for _, scale := range []float64{1, 2} {
 			t.Run(fmt.Sprintf("%s/x%g", name, scale), func(t *testing.T) {
-				a := telatest.Mount(t, Previews[name], telatest.Size(windowW, windowH), telatest.Scale(scale), telatest.Dev())
+				a := telatest.Mount(t, Previews[name], telatest.Size(windowW, windowH), telatest.Scale(scale))
 				a.Golden(fmt.Sprintf("signup_%s_x%g.png", strings.ReplaceAll(strings.ToLower(name[2:]), " ", "_"), scale))
 			})
 		}
@@ -50,21 +49,21 @@ func TestGolden(t *testing.T) {
 }
 
 func TestGoldenDark(t *testing.T) {
-	a := telatest.Mount(t, Previews["3 Invalid"], telatest.Size(windowW, windowH), telatest.Dark(), telatest.Dev())
+	a := telatest.Mount(t, Previews["3 Invalid"], telatest.Size(windowW, windowH), telatest.Dark())
 	a.Golden("signup_invalid_dark_x1.png")
 }
 
 // TestAriaSnapshot pins what `tela inspect --aria` prints for the empty form
 // and for the confirmation: every field is a textbox named by its Label.
 func TestAriaSnapshot(t *testing.T) {
-	mount(t, Props{}, windowW, windowH).AriaGolden("signup.aria.yml")
-	mount(t, Props{Initial: filled, Created: true}, windowW, windowH).AriaGolden("signup_created.aria.yml")
+	mount(t, Page{}, windowW, windowH).AriaGolden("signup.aria.yml")
+	mount(t, Page{Initial: filled, Created: true}, windowW, windowH).AriaGolden("signup_created.aria.yml")
 }
 
 // TestSubmitFlow fills the form and submits it with the button. The button
 // is disabled until the form is valid.
 func TestSubmitFlow(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.ExpectText("Fill in your name, e-mail and password, and accept the terms.")
 
 	a.Fill(nameBox, "Ana García")
@@ -104,7 +103,7 @@ func TestSubmitFlow(t *testing.T) {
 // TestImplicitSubmission types the form key by key, then presses Enter in the
 // e-mail field: the form clicks its first submit button.
 func TestImplicitSubmission(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.Press("Tab") // the name field has the focus already; Tab goes to the e-mail
 	a.ExpectFocused(emailBox)
 	a.Type("ana@example.com")
@@ -127,7 +126,7 @@ func TestImplicitSubmission(t *testing.T) {
 // TestEmailInvalid checks the two things Type("email") gives: the invalid:
 // border and the peer-invalid: message, which wait for the first blur.
 func TestEmailInvalid(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.Click(emailBox)
 	a.Type("ana@")
 	a.ExpectNoText("Enter a valid e-mail address")
@@ -155,15 +154,14 @@ func TestEmailInvalid(t *testing.T) {
 // borderPixel samples the middle of the top border of a field, in the
 // middle of its width.
 func borderPixel(a *telatest.App, l telatest.Locator) color.RGBA {
-	xBox := a.Bounds(l)
-	x, y, w := xBox.X, xBox.Y, xBox.Width
-	return a.Screenshot().RGBAAt(int(x+w/2), int(y))
+	r := a.Bounds(l)
+	return a.Screenshot().RGBAAt(int(r.X+r.Width/2), int(r.Y))
 }
 
 // TestPasswordToggle checks the show/hide button: AriaPressed, and the
 // value swapping dots for text in the aria snapshot.
 func TestPasswordToggle(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.Fill(passwordBox, "s3cret!!")
 	if snap := a.AriaSnapshot(); !strings.Contains(snap, `textbox "Password": ••••••••`) {
 		t.Errorf("the password is not masked:\n%s", snap)
@@ -171,12 +169,14 @@ func TestPasswordToggle(t *testing.T) {
 	a.ExpectRole("button", "Show password")
 	a.Click(showButton)
 	a.ExpectText("Hide")
-	if snap := a.AriaSnapshot(); !strings.Contains(snap, `textbox "Password": s3cret!!`) || !strings.Contains(snap, "[pressed]") {
-		t.Errorf("the password is not shown, or the toggle not pressed:\n%s", snap)
+	if snap := a.AriaSnapshot(); !strings.Contains(snap, `textbox "Password": s3cret!!`) {
+		t.Errorf("the password is not shown:\n%s", snap)
 	}
+	a.Expect(showButton, telatest.Pressed(true))
 	a.ExpectValue(passwordBox, "s3cret!!") // the edit state survived the type change
 	a.Click(showButton)
 	a.ExpectText("Show")
+	a.Expect(showButton, telatest.Pressed(false))
 }
 
 func TestPasswordStrength(t *testing.T) {
@@ -185,7 +185,7 @@ func TestPasswordStrength(t *testing.T) {
 			t.Errorf("Strength(%q) = %d, want %d", p, got, want)
 		}
 	}
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	for _, w := range []struct{ pass, word string }{{"abc", "Weak"}, {"abcdefg1", "Fair"}, {"Abcdefg1", "Good"}, {"Abcdefg1!", "Strong"}} {
 		a.Fill(passwordBox, w.pass)
 		a.ExpectText(w.word)
@@ -195,7 +195,7 @@ func TestPasswordStrength(t *testing.T) {
 // TestBio checks the counter, MaxLength and field-sizing-content with
 // min-h and max-h; and that typing in a BindValue field rebuilds nothing.
 func TestBio(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.ExpectText("0/160")
 	h0 := a.Bounds(bioBox).Height
 	if h0 != 72 {
@@ -233,38 +233,32 @@ func TestBio(t *testing.T) {
 // TestLabels checks that a Label focuses its field, and the one of the terms
 // toggles its checkbox.
 func TestLabels(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.Click(telatest.ByText("E-mail", telatest.Exact()))
 	a.ExpectFocused(emailBox)
 	a.Click(telatest.ByText("Short bio"))
 	a.ExpectFocused(bioBox)
 
 	a.Click(telatest.ByText("I agree to the"))
-	a.WaitFor("the terms to be checked", func() bool { return termsChecked(a) })
-}
-
-// termsChecked reports whether the aria snapshot shows the terms checked.
-func termsChecked(a *telatest.App) bool {
-	return strings.Contains(a.AriaSnapshot(), `checkbox "`+termsLabel+`" [checked]`)
+	a.Expect(termsBox, telatest.Checked(true))
 }
 
 // TestTermsKeyboard checks the terms checkbox with the keyboard: Tab to
 // it, Space toggles it.
 func TestTermsKeyboard(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.Focus(termsBox)
 	a.Press("Space")
-	a.WaitFor("the terms to be checked", func() bool { return termsChecked(a) })
+	a.Expect(termsBox, telatest.Checked(true))
 	a.Press("Space")
-	a.WaitFor("the terms to be unchecked", func() bool { return !termsChecked(a) })
+	a.Expect(termsBox, telatest.Checked(false))
 }
 
 // TestFocusRing checks that focusing a field paints the ring around it.
 func TestFocusRing(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
-	xBox := a.Bounds(emailBox)
-	x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
-	ring := func() color.RGBA { return a.Screenshot().RGBAAt(int(x+w/2), int(y+h)+1) }
+	a := mount(t, Page{}, windowW, windowH)
+	r := a.Bounds(emailBox)
+	ring := func() color.RGBA { return a.Screenshot().RGBAAt(int(r.X+r.Width/2), int(r.Y+r.Height)+1) }
 	rest := ring()
 	a.Click(emailBox)
 	if focus := ring(); focus == rest {
@@ -275,7 +269,7 @@ func TestFocusRing(t *testing.T) {
 // TestAnyLanguage checks that any language reaches the field and the
 // counters: the screen has no filter on what a name is.
 func TestAnyLanguage(t *testing.T) {
-	a := mount(t, Props{}, windowW, windowH)
+	a := mount(t, Page{}, windowW, windowH)
 	a.Fill(nameBox, "田中 太郎")
 	a.ExpectValue(nameBox, "田中 太郎")
 	a.Fill(bioBox, "日本語でも書けます。")

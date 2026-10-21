@@ -73,10 +73,10 @@ func Store() tela.Node {
 					P(Class("flex-1 font-medium"), TestID("messages"), Text(t("messages", "count", messages))),
 					Button(Class("rounded-lg bg-slate-100 px-3 py-1 text-sm hover:bg-slate-200"),
 						Disabled(messages == 0),
-						OnClick(func(tela.MouseEvent) { setMessages.Update(func(n int) int { return max(n-1, 0) }) }),
+						OnClick(func() { setMessages.Update(func(n int) int { return max(n-1, 0) }) }),
 						Text(t("remove"))),
 					Button(Class("rounded-lg bg-indigo-600 px-3 py-1 text-sm text-white hover:bg-indigo-500"),
-						OnClick(func(tela.MouseEvent) { setMessages.Update(func(n int) int { return n + 1 }) }),
+						OnClick(func() { setMessages.Update(func(n int) int { return n + 1 }) }),
 						Text(t("add"))),
 				),
 				Div(Class("relative h-2 overflow-hidden rounded-full bg-slate-100"),
@@ -89,11 +89,11 @@ func Store() tela.Node {
 
 			// The summary: label at the start, value at the end of each row.
 			Div(Class("flex flex-col rounded-2xl bg-white px-5 py-2 shadow-sm"),
-				Row(t("items", "count", 4), f.Number(subtotal, i18n.MinFractionDigits(2))),
-				Row(t("summary.discount"), f.Number(discount, i18n.Percent())),
-				Row(t("summary.delivery"), f.Date(delivery, i18n.Full)),
-				Row(t("summary.updated"), f.Time(updated, i18n.Short)),
-				Row(t("summary.contents"), f.List([]string{t("fruit.apples"), t("fruit.pears"), t("fruit.figs")})),
+				Row{t("items", "count", 4), f.Number(subtotal, i18n.MinFractionDigits(2))},
+				Row{t("summary.discount"), f.Number(discount, i18n.Percent())},
+				Row{t("summary.delivery"), f.Date(delivery, i18n.Full)},
+				Row{t("summary.updated"), f.Time(updated, i18n.Short)},
+				Row{t("summary.contents"), f.List([]string{t("fruit.apples"), t("fruit.pears"), t("fruit.figs")})},
 			),
 
 			// Footer: Back at the start, its arrow pointing back in either
@@ -110,10 +110,14 @@ func Store() tela.Node {
 }
 
 // Row is a line of the summary.
-func Row(label, value string) tela.Node {
+type Row struct {
+	Label, Value string
+}
+
+func (r Row) Build() tela.Node {
 	return Div(Class("flex items-baseline gap-4 border-b border-slate-100 py-3 text-sm last:border-b-0"),
-		Span(Class("text-slate-500"), Text(label)),
-		Span(Class("ms-auto text-end font-medium"), Text(value)),
+		Span(Class("text-slate-500"), Text(r.Label)),
+		Span(Class("ms-auto text-end font-medium"), Text(r.Value)),
 	)
 }
 
@@ -127,7 +131,7 @@ func Switcher() tela.Node {
 			return Button(Key(tag), AriaPressed(on),
 				Class("rounded-lg px-3 py-1 text-sm text-slate-600 hover:bg-slate-100"),
 				If(on, Class("bg-slate-900 text-white hover:bg-slate-900")),
-				OnClick(func(tela.MouseEvent) { i18n.SetLocale(tag) }),
+				OnClick(func() { i18n.SetLocale(tag) }),
 				Text(i18n.For(tag).T("language")))
 		}),
 	)
