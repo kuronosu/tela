@@ -301,10 +301,10 @@ Button(AutoFocus(true), OnClick(confirm), Text("OK"))
 ### func Bind
 
 ```go
-func Bind[S tela.Setter[string] | func(string)](text string, set S) tela.Prop
+func Bind[S tela.Setter[string] | ~func(string)](text string, set S) tela.Prop
 ```
 
-Bind makes a text field controlled by a state: Value(text) plus an OnChange that sends every new value to set, a tela.Setter or any func(string), such as one that dispatches an action to a reducer. A nil function panics.
+Bind makes a text field controlled by a state: Value(text) plus an OnChange that sends every new value to set, a tela.Setter or any func(string) (of a named func type too), such as one that dispatches an action to a reducer. A nil function panics.
 
 ```go
 name, setName := tela.UseState("")
@@ -1055,7 +1055,7 @@ fmt.Println(yaml)
 ### func OnBeforeInput
 
 ```go
-func OnBeforeInput[F func() | func(tela.InputEvent)](handler F) tela.Prop
+func OnBeforeInput[F ~func() | ~func(tela.InputEvent)](handler F) tela.Prop
 ```
 
 OnBeforeInput calls handler before a text field's value changes by an edit of the user (the DOM's beforeinput); e.PreventDefault() cancels the edit (except an IME composition's). It bubbles.
@@ -1063,7 +1063,7 @@ OnBeforeInput calls handler before a text field's value changes by an edit of th
 ### func OnBlur
 
 ```go
-func OnBlur[F func() | func(tela.FocusEvent)](handler F) tela.Prop
+func OnBlur[F ~func() | ~func(tela.FocusEvent)](handler F) tela.Prop
 ```
 
 OnBlur calls handler when the element or one of its descendants loses the focus (React's onBlur: it bubbles), also when the window loses the keyboard focus. Unmounting the focused element does not call it.
@@ -1075,7 +1075,7 @@ Div(TabIndex(0), OnBlur(func() { commit() }))
 ### func OnChange
 
 ```go
-func OnChange[F func() | func(tela.ChangeEvent)](handler F) tela.Prop
+func OnChange[F ~func() | ~func(tela.ChangeEvent)](handler F) tela.Prop
 ```
 
 OnChange calls handler after every edit of a text field's value (React's onChange: each keystroke, paste, cut, undo, and the text an IME composes, with e.IsComposing). It bubbles: on a Form it sees every field.
@@ -1087,7 +1087,7 @@ Input(Value(name), OnChange(func(e tela.ChangeEvent) { setName.Set(e.Value) }))
 ### func OnClick
 
 ```go
-func OnClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnClick[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnClick calls handler when the element is clicked: the primary button is pressed and released over it or its descendants (the click goes to the nearest element that contains both the press and the release, as in the DOM), even if the pointer moved in between, unless the press became a drag or a long press. The event bubbles to the ancestors.
@@ -1097,7 +1097,7 @@ Button(OnClick(func() { setCount.Update(func(n int) int { return n + 1 }) }), Te
 Button(OnClick(func(e tela.MouseEvent) { menu.At(e.X, e.Y) }), Text("Open"))
 ```
 
-Every handler prop of this package (OnClick, OnKeyDown, OnChange, OnSubmit...) takes a func() or a func of its event type: write the event only when the handler reads it. A nil handler panics.
+Every handler prop of this package (OnClick, OnKeyDown, OnChange, OnSubmit...) takes a func() or a func of its event type (or a named type of either, such as type ClickHandler func(tela.MouseEvent)): write the event only when the handler reads it. A nil handler panics.
 
 **Example**
 
@@ -1127,7 +1127,7 @@ fmt.Println(app.AriaSnapshot())
 ### func OnCompositionEnd
 
 ```go
-func OnCompositionEnd[F func() | func(tela.CompositionEvent)](handler F) tela.Prop
+func OnCompositionEnd[F ~func() | ~func(tela.CompositionEvent)](handler F) tela.Prop
 ```
 
 OnCompositionEnd calls handler when an input method ends a composition, committed (e.Data) or canceled (""). It bubbles.
@@ -1135,7 +1135,7 @@ OnCompositionEnd calls handler when an input method ends a composition, committe
 ### func OnCompositionStart
 
 ```go
-func OnCompositionStart[F func() | func(tela.CompositionEvent)](handler F) tela.Prop
+func OnCompositionStart[F ~func() | ~func(tela.CompositionEvent)](handler F) tela.Prop
 ```
 
 OnCompositionStart calls handler when an input method (IME) starts composing text in a text field. It bubbles.
@@ -1143,7 +1143,7 @@ OnCompositionStart calls handler when an input method (IME) starts composing tex
 ### func OnCompositionUpdate
 
 ```go
-func OnCompositionUpdate[F func() | func(tela.CompositionEvent)](handler F) tela.Prop
+func OnCompositionUpdate[F ~func() | ~func(tela.CompositionEvent)](handler F) tela.Prop
 ```
 
 OnCompositionUpdate calls handler when the text an input method composes changes (e.Data). It bubbles.
@@ -1151,7 +1151,7 @@ OnCompositionUpdate calls handler when the text an input method composes changes
 ### func OnContextMenu
 
 ```go
-func OnContextMenu[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnContextMenu[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnContextMenu calls handler when the secondary (right) button is released over the element.
@@ -1163,7 +1163,7 @@ Div(OnContextMenu(func(e tela.MouseEvent) { openMenu(e.X, e.Y) }))
 ### func OnDoubleClick
 
 ```go
-func OnDoubleClick[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnDoubleClick[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnDoubleClick calls handler on the second click of a double click: two clicks within 500 ms and 5 px (300 ms and 100 px for touch). The first click is not delayed: OnClick runs for both, with e.ClickCount 1 and 2.
@@ -1175,7 +1175,7 @@ Div(OnDoubleClick(func() { setEditing.Set(true) }), Text(title))
 ### func OnDrag
 
 ```go
-func OnDrag[F func() | func(tela.DragEvent)](handler F) tela.Prop
+func OnDrag[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop
 ```
 
 OnDrag calls handler for every move of a drag (see OnDragStart), with the movement since the previous one (DeltaX, DeltaY) and since the press (OffsetX, OffsetY). Moves are batched: state set here is applied once per frame.
@@ -1187,7 +1187,7 @@ Div(OnDrag(func(e tela.DragEvent) { pos.Update(func(p float64) float64 { return 
 ### func OnDragEnd
 
 ```go
-func OnDragEnd[F func() | func(tela.DragEvent)](handler F) tela.Prop
+func OnDragEnd[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop
 ```
 
 OnDragEnd calls handler when a drag ends: the button is released (or the press cancelled). VelocityX and VelocityY give the release velocity in pixels per second, for flings.
@@ -1203,7 +1203,7 @@ Div(OnDragEnd(func(e tela.DragEvent) {
 ### func OnDragStart
 
 ```go
-func OnDragStart[F func() | func(tela.DragEvent)](handler F) tela.Prop
+func OnDragStart[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop
 ```
 
 OnDragStart calls handler when a press on the element becomes a drag: the pointer moved more than a few pixels (4 for a mouse, 18 for touch and pens) before a long press. The press then does not click. Drag events go to the innermost element with drag handlers and do not bubble.
@@ -1221,7 +1221,7 @@ Div(Class("size-10 rounded-full bg-indigo-500"),
 ### func OnFocus
 
 ```go
-func OnFocus[F func() | func(tela.FocusEvent)](handler F) tela.Prop
+func OnFocus[F ~func() | ~func(tela.FocusEvent)](handler F) tela.Prop
 ```
 
 OnFocus calls handler when the element or one of its descendants gains the focus (React's onFocus: it bubbles), and again when the window regains the keyboard focus.
@@ -1233,7 +1233,7 @@ Div(TabIndex(0), OnFocus(func() { setActive.Set(true) }))
 ### func OnKeyDown
 
 ```go
-func OnKeyDown[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop
+func OnKeyDown[F ~func() | ~func(tela.KeyboardEvent)](handler F) tela.Prop
 ```
 
 OnKeyDown calls handler when a key is pressed (and again for each repeat while it is held, with e.Repeat) while the element or one of its descendants has the focus; the event bubbles. With nothing focused, key events go to the outermost element of the window's content. e.PreventDefault() cancels the key's default action: the focus move of Tab, the click of Enter or Space on a focused Button.
@@ -1252,7 +1252,7 @@ Div(OnKeyDown(func(e tela.KeyboardEvent) {
 ### func OnKeyUp
 
 ```go
-func OnKeyUp[F func() | func(tela.KeyboardEvent)](handler F) tela.Prop
+func OnKeyUp[F ~func() | ~func(tela.KeyboardEvent)](handler F) tela.Prop
 ```
 
 OnKeyUp calls handler when a key is released while the element or one of its descendants has the focus; the event bubbles. Keys held when the window loses the focus are released then. e.PreventDefault() cancels the click of Space on a focused Button.
@@ -1268,7 +1268,7 @@ Div(OnKeyUp(func(e tela.KeyboardEvent) {
 ### func OnLongPress
 
 ```go
-func OnLongPress[F func() | func(tela.PointerEvent)](handler F) tela.Prop
+func OnLongPress[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnLongPress calls handler when the primary button (or a touch) stays pressed on the element for 500 ms without moving more than a few pixels (4 for a mouse, 18 for touch and pens). The press then does not click or drag. It goes to the innermost element with OnLongPress and does not bubble.
@@ -1280,7 +1280,7 @@ Div(OnLongPress(func(e tela.PointerEvent) { openMenu(e.X, e.Y) }), Text(name))
 ### func OnMouseDown
 
 ```go
-func OnMouseDown[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnMouseDown[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseDown calls handler when a button is pressed over the element.
@@ -1296,7 +1296,7 @@ Div(OnMouseDown(func(e tela.MouseEvent) {
 ### func OnMouseEnter
 
 ```go
-func OnMouseEnter[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnMouseEnter[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseEnter calls handler when the pointer enters the element or one of its descendants from outside. It does not bubble.
@@ -1308,7 +1308,7 @@ Div(OnMouseEnter(func() { setShowTip.Set(true) }))
 ### func OnMouseLeave
 
 ```go
-func OnMouseLeave[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnMouseLeave[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseLeave calls handler when the pointer leaves the element and its descendants. It does not bubble.
@@ -1320,7 +1320,7 @@ Div(OnMouseLeave(func() { setShowTip.Set(false) }))
 ### func OnMouseMove
 
 ```go
-func OnMouseMove[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnMouseMove[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseMove calls handler when the pointer moves over the element. Moves are batched: state set here is applied once per frame.
@@ -1332,7 +1332,7 @@ Div(OnMouseMove(func(e tela.MouseEvent) { pos.Set(e.LocalX) }))
 ### func OnMouseUp
 
 ```go
-func OnMouseUp[F func() | func(tela.MouseEvent)](handler F) tela.Prop
+func OnMouseUp[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
 OnMouseUp calls handler when a button is released over the element.
@@ -1344,7 +1344,7 @@ Div(OnMouseUp(func() { setPressed.Set(false) }))
 ### func OnPointerCancel
 
 ```go
-func OnPointerCancel[F func() | func(tela.PointerEvent)](handler F) tela.Prop
+func OnPointerCancel[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerCancel calls handler when the system takes a pointer away during a press (a touch turned into a system gesture, a lost grab): treat it as an aborted press, not a release.
@@ -1356,7 +1356,7 @@ Div(OnPointerCancel(func() { discardStroke() }))
 ### func OnPointerDown
 
 ```go
-func OnPointerDown[F func() | func(tela.PointerEvent)](handler F) tela.Prop
+func OnPointerDown[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerDown calls handler when a pointer (mouse, touch or pen) is pressed over the element: the first button of a mouse, the contact of a touch. While a touch or pen is down its events go to this element. e.PreventDefault() suppresses the mouse events of the press (not the click).
@@ -1372,7 +1372,7 @@ Div(OnPointerDown(func(e tela.PointerEvent) {
 ### func OnPointerEnter
 
 ```go
-func OnPointerEnter[F func() | func(tela.PointerEvent)](handler F) tela.Prop
+func OnPointerEnter[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerEnter calls handler when a pointer enters the element or one of its descendants. It does not bubble.
@@ -1384,7 +1384,7 @@ Div(OnPointerEnter(func(e tela.PointerEvent) { setHoverKind.Set(e.Kind) }))
 ### func OnPointerLeave
 
 ```go
-func OnPointerLeave[F func() | func(tela.PointerEvent)](handler F) tela.Prop
+func OnPointerLeave[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerLeave calls handler when a pointer leaves the element and its descendants. It does not bubble.
@@ -1396,7 +1396,7 @@ Div(OnPointerLeave(func() { setHovered.Set(false) }))
 ### func OnPointerMove
 
 ```go
-func OnPointerMove[F func() | func(tela.PointerEvent)](handler F) tela.Prop
+func OnPointerMove[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerMove calls handler when a pointer moves over the element (or, for a touch or pen that pressed it, anywhere), and when a button is pressed or released while another is held.
@@ -1408,7 +1408,7 @@ Div(OnPointerMove(func(e tela.PointerEvent) { addPoint(e.LocalX, e.LocalY, e.Pre
 ### func OnPointerUp
 
 ```go
-func OnPointerUp[F func() | func(tela.PointerEvent)](handler F) tela.Prop
+func OnPointerUp[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop
 ```
 
 OnPointerUp calls handler when the last button of a pointer is released over the element.
@@ -1420,7 +1420,7 @@ Div(OnPointerUp(func() { endStroke() }))
 ### func OnScroll
 
 ```go
-func OnScroll[F func() | func(tela.ScrollEvent)](handler F) tela.Prop
+func OnScroll[F ~func() | ~func(tela.ScrollEvent)](handler F) tela.Prop
 ```
 
 OnScroll calls handler after the element's scroll offsets changed, by the user or by code: at most once per frame, on the scrolling element itself (it does not bubble), with its offsets and sizes. To tie a style to the scroll position without rebuilding, use tela.UseScroll instead.
@@ -1434,7 +1434,7 @@ Div(Class("h-96 overflow-y-auto"), OnScroll(func(e tela.ScrollEvent) {
 ### func OnSelect
 
 ```go
-func OnSelect[F func() | func(tela.SelectEvent)](handler F) tela.Prop
+func OnSelect[F ~func() | ~func(tela.SelectEvent)](handler F) tela.Prop
 ```
 
 OnSelect calls handler when the user selects text in a text field, or code changes its selection (e.Start, e.End). It bubbles.
@@ -1442,7 +1442,7 @@ OnSelect calls handler when the user selects text in a text field, or code chang
 ### func OnSubmit
 
 ```go
-func OnSubmit[F func() | func(tela.SubmitEvent)](handler F) tela.Prop
+func OnSubmit[F ~func() | ~func(tela.SubmitEvent)](handler F) tela.Prop
 ```
 
 OnSubmit calls handler when a Form is submitted: Enter in one of its single-line fields, or a click on a submit Button inside it. It bubbles.
@@ -1450,7 +1450,7 @@ OnSubmit calls handler when a Form is submitted: Enter in one of its single-line
 ### func OnWheel
 
 ```go
-func OnWheel[F func() | func(tela.WheelEvent)](handler F) tela.Prop
+func OnWheel[F ~func() | ~func(tela.WheelEvent)](handler F) tela.Prop
 ```
 
 OnWheel calls handler when a mouse wheel turns or a touchpad scrolls over the element (the DOM's wheel event). The event bubbles. Unless a handler calls e.PreventDefault(), the nearest scrolling element (with overflow-auto or overflow-scroll) that can move in that direction scrolls, chaining to its scrolling ancestors at its edges unless it has overscroll-contain.

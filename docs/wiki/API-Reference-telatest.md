@@ -1146,7 +1146,7 @@ func NoDev() Option
 
 NoDev turns dev mode off. Apps and the headless entry points run in dev mode by default, as a development build of an app does: unknown classes, roles, input types and easings, hooks called in another order or outside their component, and the dev warnings (lists without keys, nil dependencies, a Value read while changes are queued, a Label without a control...) are reported. With [`Mount`](#func-mount), a dev error (an unknown class, an image that cannot be loaded) fails the test at the action that caused it unless [`AllowDev`](#func-allowdev) lists it, a dev panic fails it as any panic does, and a warning is a test log line; with [`Render`](#func-render) and the other entry points, errors and warnings go to standard error.
 
-Use NoDev to test what a release build does. TELA_DEV=1 or TELA_DEV=0 in the environment overrides both NoDev and the default.
+Use NoDev to test what a release build does. The checks of the node constructors (h.If with a struct component, Role, Type, Dir...) follow the app's dev mode when they run while a component builds, as in a function given to [`MountFunc`](#func-mountfunc); a node built outside any build (the root passed to [`Mount`](#func-mount) in the test's body) follows the process default, which is on in a test binary. TELA_DEV=1 or TELA_DEV=0 in the environment overrides both NoDev and the default.
 
 **Example**
 
