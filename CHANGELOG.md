@@ -30,6 +30,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `h.TestID(id)` and `telatest.ByTestID(id)`, test-only ids that never reach the aria snapshot or accessibility output.
 - `tela/i18n`: JSON message catalogs with ICU MessageFormat (`plural`, `select`, `selectordinal`), CLDR plural rules, locale-aware numbers, dates, times and lists, the system locale by default, runtime switching with `SetLocale` (only components that call `UseT`/`UseLocale` rebuild), `Provider` for a subtree's locale and `Dir` for text direction. New dependency: `golang.org/x/text`.
 
+### Fixed
+
+- A struct component that embeds an interface with a `Build` method (such as `tela.Component`) no longer crashes on its first build.
+- `telatest.NoDev()` (and `telatest.FromApp` with `Dev: false`) also turns off the checks made while building nodes (`h.If` with a struct component, unknown roles and input types, invalid `Dir`), so a test can check what a release build does.
+- `i18n` reports missing keys and bad ICU arguments under the default dev mode, not only with `TELA_DEV=1`.
+- `tela snapshot`/`inspect` accept a package whose `var App` is of another type (as v0.6.0 did) and honor a `*tela.App`.
+- Event props and `h.Bind` accept named function types again (`type ClickHandler func(tela.MouseEvent)`).
+- `tela.SetTheme` no longer repeats dev warnings that were already reported; `UseInterval` catches up after a long pause in one step; `h.Dir("auto")` re-reads its text only when the text below it changes.
+
 ### Deprecated
 
 - `h.Id`, `tela.UseId`, `tela.Key` and `tela.Code`: use `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode` (so `tela` and `h` can both be dot-imported). Removed in v0.8.0.
