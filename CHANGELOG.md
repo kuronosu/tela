@@ -12,13 +12,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-21
+
 ### Added
 
 - Dev mode is on by default in development builds (`go run`, `go build` in a checkout, test binaries) and off in release builds (`-trimpath` or `go install pkg@version`); `App.Dev` and `TELA_DEV=0/1` override it, and `telatest` mounts in dev mode unless given `telatest.NoDev()`. Unknown classes, roles, input types and easings are reported without setting anything.
 - `tela.Main(app)` runs the app, prints the error and exits 1.
 - Hooks: `UseMount`, `UseOnce`, `UseEffectDo`, `UseUpdateEffect`, `UseInterval` (on the frame clock, so `telatest.Advance` drives it) and `UseGo` (a goroutine with a `context.Context` cancelled at cleanup); `Setter.IsZero` and `Callback.IsZero`.
 - Dev diagnostics: a hook called from a function that is neither the component being built nor a `UseXxx` custom hook panics with the fix (wrap it in `tela.C`/`tela.CP`); mounting a component call (`telatest.Mount(t, Counter())`) explains the missing boundary; warnings for a `UseContext` without a Provider whose default holds a zero `Setter`/nil func, a `Label` that labels no control, keyless or duplicate keys per `Map` call site, `Value.Get` in a handler while changes are queued (use `Latest()`), and `nil` dependency lists.
-- Struct components: any value with a `Build() tela.Node` method (value receiver) is a component with its own state, passed as a child like an element: `Div(Card{Title: "Inbox", Children: Fragment(...)})`. Children are an ordinary `tela.Component` field; equal props skip the build like `tela.CP`, compared safely (a non-comparable value counts as changed). Dev mode panics on pointer components, on a Prop in a `tela.Component` field and on a direct `Build()` call.
+- Struct components: any value with a `Build() tela.Node` method (value receiver) is a component with its own state, passed as a child like an element: `Div(Card{Title: "Inbox", Children: Fragment(...)})`. Children are an ordinary `tela.Component` field; equal props skip the build like `tela.CP`, compared safely (a non-comparable value counts as changed). Dev mode panics on pointer components, on a Prop in a `tela.Component` field and on a direct `Build()` call. `App.Root` takes a component (`Root: Main{}` or `Root: tela.C(Counter)`), and `h.If`/`h.IfElse` accept struct components (`If(loading, Spinner{})`).
 - `tela.Once` as a dependency means "only on mount" for any hook (`tela.UseGo(f, tela.Once)`); `tela.Initial(v)` gives `UseSpring`/`UseTween` a start value.
 - `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode` (new names; see Deprecated).
 - Theme tokens with shadcn/ui's names (`bg-primary`, `text-muted-foreground`, `border-border`, `ring-ring/50`, `from-chart-1`…) in every color utility, with light and dark values that follow the color scheme without `dark:` pairs: `App.Theme`, `tela.DefaultTheme()` (shadcn neutral), `tela.SetTheme`, `tela.UseTheme()`, `App.ClassAliases` (`"text-muted": "text-sm text-muted-foreground"`), `h.Scheme(tela.Dark)` for a subtree with its own scheme, `telatest.Theme`/`telatest.ClassAliases`. Matched against Chromium with shadcn's CSS (mean ≤ 0.95 levels).
@@ -30,15 +32,6 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `h.TestID(id)` and `telatest.ByTestID(id)`, test-only ids that never reach the aria snapshot or accessibility output.
 - `tela/i18n`: JSON message catalogs with ICU MessageFormat (`plural`, `select`, `selectordinal`), CLDR plural rules, locale-aware numbers, dates, times and lists, the system locale by default, runtime switching with `SetLocale` (only components that call `UseT`/`UseLocale` rebuild), `Provider` for a subtree's locale and `Dir` for text direction. New dependency: `golang.org/x/text`.
 
-### Fixed
-
-- A struct component that embeds an interface with a `Build` method (such as `tela.Component`) no longer crashes on its first build.
-- `telatest.NoDev()` (and `telatest.FromApp` with `Dev: false`) also turns off the checks made while building nodes (`h.If` with a struct component, unknown roles and input types, invalid `Dir`), so a test can check what a release build does.
-- `i18n` reports missing keys and bad ICU arguments under the default dev mode, not only with `TELA_DEV=1`.
-- `tela snapshot`/`inspect` accept a package whose `var App` is of another type (as v0.6.0 did) and honor a `*tela.App`.
-- Event props and `h.Bind` accept named function types again (`type ClickHandler func(tela.MouseEvent)`).
-- `tela.SetTheme` no longer repeats dev warnings that were already reported; `UseInterval` catches up after a long pause in one step; `h.Dir("auto")` re-reads its text only when the text below it changes.
-
 ### Deprecated
 
 - `h.Id`, `tela.UseId`, `tela.Key` and `tela.Code`: use `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode` (so `tela` and `h` can both be dot-imported). Removed in v0.8.0.
@@ -46,6 +39,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Breaking
 
+- `App.Root` is a `tela.Component` instead of a `func() Node`: write `Root: tela.C(Counter)` or `Root: Main{}`.
+- `h.If` and `h.IfElse` return a `tela.Child` (an absent branch renders and applies nothing): returning `If(...)` where a `tela.Node` is required needs `Fragment(If(...))`, and `[]tela.Prop{If(...)}` no longer compiles. The optional key argument of `C`/`CP`/`Memo` is a `...tela.Child`.
 - `tela.Previews` is a `map[string]tela.Preview`; the CLI no longer wraps `Preview()` in `tela.C` (see Migration).
 - `h.OnClick(nil)` and other untyped-nil handlers no longer compile (write `OnClick[func()](nil)` or omit the prop); `tela.StyleProp` is a struct instead of an alias; `VirtualList` rows no longer need (and should not add) `Role("listitem")`.
 - `tela.UseSpring` and `tela.UseTween` take the target only; the start value is the `tela.Initial` option. Before: `tela.UseSpring(float32(0), target, opts...)`; after: `tela.UseSpring(target, tela.Initial(float32(0)), opts...)`.
@@ -63,6 +58,8 @@ Every change below fails to compile or is reported by dev mode, so the compiler 
 | Before (v0.6) | After (v0.7) |
 |---|---|
 | `tela.Run(app)` (error dropped) | `tela.Main(app)` |
+| `tela.App{Root: Counter}` | `tela.App{Root: tela.C(Counter)}` or `Root: Main{}` |
+| `return If(show, X)` in a function returning `tela.Node` | `return Fragment(If(show, X))` |
 | `Class("p-4 " + extra)` | `Class("p-4", extra)` |
 | `OnClick(func(tela.MouseEvent) { set.Set(!open) })` | `OnClick(tela.Toggle(set))` |
 | `WithKey(tela.CP(Row, item), item.ID)` | `tela.CP(Row, item, Key(item.ID))` or `h.MapKeyed(items, keyFn, render)` |
@@ -393,7 +390,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/kuronosu/tela/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kuronosu/tela/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/kuronosu/tela/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/kuronosu/tela/compare/v0.5.0...v0.5.1
