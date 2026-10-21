@@ -14,12 +14,22 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Added
 
+- Dev mode is on by default in development builds (`go run`, `go build` in a checkout, test binaries) and off in release builds (`-trimpath` or `go install pkg@version`); `App.Dev` and `TELA_DEV=0/1` override it, and `telatest` mounts in dev mode unless given `telatest.NoDev()`. Unknown classes, roles, input types and easings are reported without setting anything.
+- `tela.Main(app)` runs the app, prints the error and exits 1.
+- Hooks: `UseMount`, `UseOnce`, `UseEffectDo`, `UseUpdateEffect`, `UseInterval` (on the frame clock, so `telatest.Advance` drives it) and `UseGo` (a goroutine with a `context.Context` cancelled at cleanup); `Setter.IsZero` and `Callback.IsZero`.
+- Dev diagnostics: a hook called from a function that is neither the component being built nor a `UseXxx` custom hook panics with the fix (wrap it in `tela.C`/`tela.CP`); mounting a component call (`telatest.Mount(t, Counter())`) explains the missing boundary; warnings for a `UseContext` without a Provider whose default holds a zero `Setter`/nil func, a `Label` that labels no control, keyless or duplicate keys per `Map` call site, `Value.Get` in a handler while changes are queued (use `Latest()`), and `nil` dependency lists.
 - `telatest`: `MountFunc`, `GoldenScales(name, 1, 2)` (one golden per scale, same app state), `ClickAt`/`DragFromTo` in window coordinates, `PixelAt`, `Measure(func())` for build/layout/paint deltas, and `Expect(locator, Checked(true), Disabled(false), HasValue("x")…)` state assertions with the node's states in the failure message.
 - `h.TestID(id)` and `telatest.ByTestID(id)`, test-only ids that never reach the aria snapshot or accessibility output.
 - `tela/i18n`: JSON message catalogs with ICU MessageFormat (`plural`, `select`, `selectordinal`), CLDR plural rules, locale-aware numbers, dates, times and lists, the system locale by default, runtime switching with `SetLocale` (only components that call `UseT`/`UseLocale` rebuild), `Provider` for a subtree's locale and `Dir` for text direction. New dependency: `golang.org/x/text`.
 
+### Deprecated
+
+- `nil` as a hook's dependency list (mount-only today): use `tela.UseMount`, `tela.UseOnce` or a constant dependency. Dev mode warns now; it will be rejected in v0.8.0.
+
 ### Breaking
 
+- In dev mode, calling a stateful component as a plain function from another component (its hooks landing in the caller's slots) now panics; wrap it in `tela.C`/`tela.CP`. `Preview` functions of the examples return `tela.C(X)`.
+- `telatest.Dev()` is a no-op (dev mode is the default); keyless keys, anonymous `CP`/`Memo` functions and non-comparable deps are warnings logged by `telatest` instead of test failures.
 - `telatest.App.Bounds` returns a `tela.Rect` (window coordinates, like `ElementRef.Bounds`) instead of four numbers.
 
 ## [0.6.0] - 2026-10-19
