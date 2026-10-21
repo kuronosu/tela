@@ -23,6 +23,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode` (new names; see Deprecated).
 - Theme tokens with shadcn/ui's names (`bg-primary`, `text-muted-foreground`, `border-border`, `ring-ring/50`, `from-chart-1`…) in every color utility, with light and dark values that follow the color scheme without `dark:` pairs: `App.Theme`, `tela.DefaultTheme()` (shadcn neutral), `tela.SetTheme`, `tela.UseTheme()`, `App.ClassAliases` (`"text-muted": "text-sm text-muted-foreground"`), `h.Scheme(tela.Dark)` for a subtree with its own scheme, `telatest.Theme`/`telatest.ClassAliases`. Matched against Chromium with shadcn's CSS (mean ≤ 0.95 levels).
 - Right-to-left layout: `h.Dir("rtl"|"ltr"|"auto")`, `rtl:`/`ltr:` variants, logical utilities (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `border-s/e`, `rounded-s/e…`, plus `inset-s/e` and block-axis ones) and mirrored flex, grid, positioning, text alignment, inputs and scroll containers, matched against Chromium. `examples/i18n` switches between English, Spanish and Arabic at runtime.
+- Less boilerplate in `h` and `tela`: `Class(parts...)` joins and skips empty parts; every `On…` handler takes `func()` or `func(Event)`; `tela.Toggle(set)`; `Bind` accepts a `func(string)`; `C`, `CP` and `Memo` take an optional `Key(...)`; `h.MapKeyed(items, key, render)` (render may return a struct component); `h.Nodes(slice)`; `tela.Easing` with `EaseLinear`/`EaseIn`/`EaseOut`/`EaseInOut` and `CubicBezier`; `tela.UsePresenceTween` for manual exits; `tela.MapValue` and `h.Scale` for deferred style values; `tela.Box`/`tela.WH` style packs, and a style prop is accepted directly as a child (`Div(tela.Width(10))`).
+- `VirtualList`: `h.ItemKey` so state follows the item, `h.ItemHeight(px)` for fixed rows, and `list`/`listitem` roles by default.
+- Previews with seeded state: `tela.Previews` entries are `tela.Preview{Root, Wrap}` (local state through struct-component fields, context state through `Wrap` with a Provider); `func Preview()` may return a struct component; a package's `var App = tela.App{...}` is read by `tela snapshot`/`inspect` (size, `RootClass`, `ColorScheme`, `Theme`, `ClassAliases`, `Dev`) and by `telatest.MountApp`/`telatest.FromApp`, so tests, snapshots and the window share one `App`; `tela snapshot`/`inspect` now print dev warnings and class errors on stderr.
 - `telatest`: `MountFunc`, `GoldenScales(name, 1, 2)` (one golden per scale, same app state), `ClickAt`/`DragFromTo` in window coordinates, `PixelAt`, `Measure(func())` for build/layout/paint deltas, and `Expect(locator, Checked(true), Disabled(false), HasValue("x")…)` state assertions with the node's states in the failure message.
 - `h.TestID(id)` and `telatest.ByTestID(id)`, test-only ids that never reach the aria snapshot or accessibility output.
 - `tela/i18n`: JSON message catalogs with ICU MessageFormat (`plural`, `select`, `selectordinal`), CLDR plural rules, locale-aware numbers, dates, times and lists, the system locale by default, runtime switching with `SetLocale` (only components that call `UseT`/`UseLocale` rebuild), `Provider` for a subtree's locale and `Dir` for text direction. New dependency: `golang.org/x/text`.
@@ -34,6 +37,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Breaking
 
+- `tela.Previews` is a `map[string]tela.Preview`; the CLI no longer wraps `Preview()` in `tela.C` (see Migration).
+- `h.OnClick(nil)` and other untyped-nil handlers no longer compile (write `OnClick[func()](nil)` or omit the prop); `tela.StyleProp` is a struct instead of an alias; `VirtualList` rows no longer need (and should not add) `Role("listitem")`.
 - `tela.UseSpring` and `tela.UseTween` take the target only; the start value is the `tela.Initial` option. Before: `tela.UseSpring(float32(0), target, opts...)`; after: `tela.UseSpring(target, tela.Initial(float32(0)), opts...)`.
 - `h.Key` and `tela.WithKey` are generic over `comparable`: a slice, map or func key no longer compiles (it panicked before). `WithKey` takes a `tela.Component` (a Node or a struct component).
 - `tela.Child` is no longer sealed: it is any value with `Build() tela.Node` (`Div(42)` still does not compile). `telatest.Mount`, `Render`, `AriaSnapshot` and `LayoutJSON` take a `tela.Component`.
@@ -41,6 +46,29 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - In dev mode, calling a stateful component as a plain function from another component (its hooks landing in the caller's slots) now panics; wrap it in `tela.C`/`tela.CP`. `Preview` functions of the examples return `tela.C(X)`.
 - `telatest.Dev()` is a no-op (dev mode is the default); keyless keys, anonymous `CP`/`Memo` functions and non-comparable deps are warnings logged by `telatest` instead of test failures.
 - `telatest.App.Bounds` returns a `tela.Rect` (window coordinates, like `ElementRef.Bounds`) instead of four numbers.
+
+### Migration
+
+Every change below fails to compile or is reported by dev mode, so the compiler and `go test` find all the sites.
+
+| Before (v0.6) | After (v0.7) |
+|---|---|
+| `tela.Run(app)` (error dropped) | `tela.Main(app)` |
+| `Class("p-4 " + extra)` | `Class("p-4", extra)` |
+| `OnClick(func(tela.MouseEvent) { set.Set(!open) })` | `OnClick(tela.Toggle(set))` |
+| `WithKey(tela.CP(Row, item), item.ID)` | `tela.CP(Row, item, Key(item.ID))` or `h.MapKeyed(items, keyFn, render)` |
+| `func Card(p CardProps) tela.Node` + `tela.CP(Card, p)` | optionally `type Card struct{...}` + `func (c Card) Build() tela.Node`, used as `Card{...}` |
+| `Card()` called directly from another component (its hooks in the caller) | dev panic: `tela.C(Card)` / `tela.CP(Card, p)`, or a struct component |
+| `tela.UseEffect(f, nil)` (mount only) | `tela.UseEffect(f, tela.Once)` or `tela.UseMount(f)` |
+| `tela.UseSpring(float32(0), target, opts...)` | `tela.UseSpring(target, tela.Initial(float32(0)), opts...)` (same for `UseTween`) |
+| `h.Key(sliceOrMap)` | a comparable key (an ID) |
+| `h.Id("x")`, `tela.UseId()`, `tela.Key`, `tela.Code` | `h.ID("x")`, `tela.UseID()`, `tela.KeyName`, `tela.KeyCode` |
+| `var Previews = tela.Previews{"Login": Login}` | `var Previews = tela.Previews{"Login": {Root: tela.C(Login)}}` |
+| `func Preview() tela.Node { return Counter() }` (the CLI wrapped it) | `func Preview() tela.Node { return tela.C(Counter) }` |
+| `telatest.Mount(t, tela.C(Previews[name]))` | `telatest.Mount(t, Previews[name])` |
+| `x, y, w, h := app.Bounds(loc)` | `r := app.Bounds(loc)` (a `tela.Rect`) |
+| `Role("listitem")` on `VirtualList` rows | nothing (default roles) |
+| `ms-`/`me-`/`start-`/`end-` meant left/right | they follow `h.Dir`; use `ml-`/`mr-`/`left-`/`right-` for physical sides |
 
 ## [0.6.0] - 2026-10-19
 
