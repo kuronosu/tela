@@ -102,7 +102,7 @@ func TestSort(t *testing.T) {
 	rows := telatest.ByText("Priorities", telatest.Exact())
 	a.Scroll(rows, 0, 500) // bring the list into view
 	row := func(title string) float32 {
-		_, y, _, _ := a.Bounds(telatest.ByText(title, telatest.Exact()))
+		y := a.Bounds(telatest.ByText(title, telatest.Exact())).Y
 		return y
 	}
 	first, last := "Fix the failed invoice retries", "Publish the API changelog"
@@ -127,9 +127,9 @@ func TestSort(t *testing.T) {
 func TestFinishTask(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	title := telatest.ByText("Fix the failed invoice retries", telatest.Exact())
-	_, y0, _, _ := a.Bounds(title)
+	y0 := a.Bounds(title).Y
 	a.Click(telatest.ByRole("checkbox", "Fix the failed invoice retries"))
-	if _, y1, _, _ := a.Bounds(title); y1 <= y0 {
+	if y1 := a.Bounds(title).Y; y1 <= y0 {
 		t.Errorf("the finished task is at %v, it was at %v: it should have sunk", y1, y0)
 	}
 	a.ExpectCount(telatest.ByRole("checkbox", "Fix the failed invoice retries").Filter(telatest.HasClass("from-indigo-500")), 1)
@@ -144,8 +144,10 @@ func TestTabs(t *testing.T) {
 	a.ExpectText("$9k")
 	a.Click(telatest.ByRole("tab", "Orders"))
 	a.ExpectCount(underline, 1)
-	ux, _, uw, _ := a.Bounds(underline)
-	tx, _, tw, _ := a.Bounds(telatest.ByRole("tab", "Orders"))
+	uxBox := a.Bounds(underline)
+	ux, uw := uxBox.X, uxBox.Width
+	txBox := a.Bounds(telatest.ByRole("tab", "Orders"))
+	tx, tw := txBox.X, txBox.Width
 	if ux < tx || ux+uw > tx+tw {
 		t.Errorf("the underline spans %v to %v, outside the Orders tab (%v to %v)", ux, ux+uw, tx, tx+tw)
 	}
@@ -272,7 +274,7 @@ func TestIdle(t *testing.T) {
 // are, and the fixed help button too.
 func TestSticky(t *testing.T) {
 	a := mount(t, windowW, windowH, telatest.InstantScroll())
-	at := func(l telatest.Locator) [2]float32 { x, y, _, _ := a.Bounds(l); return [2]float32{x, y} }
+	at := func(l telatest.Locator) [2]float32 { r := a.Bounds(l); return [2]float32{r.X, r.Y} }
 	header, nav, help := telatest.ByRole("tablist", "Period"), telatest.ByRole("button", "Analytics"), telatest.ByRole("button", "Help")
 	h0, n0, f0 := at(header), at(nav), at(help)
 	a.Scroll(telatest.ByText("Performance", telatest.Exact()), 0, 300)
@@ -285,7 +287,7 @@ func TestSticky(t *testing.T) {
 	if got := at(help); got != f0 {
 		t.Errorf("the help button moved from %v to %v", f0, got)
 	}
-	if _, y, _, _ := a.Bounds(telatest.ByText("Performance", telatest.Exact())); y > 300 {
+	if y := a.Bounds(telatest.ByText("Performance", telatest.Exact())).Y; y > 300 {
 		t.Errorf("the page did not scroll: Performance is at y=%v", y)
 	}
 }

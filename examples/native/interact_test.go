@@ -192,7 +192,8 @@ func TestSortByColumn(t *testing.T) {
 func TestHoverAndSelectionPixels(t *testing.T) {
 	eachTheme(t, func(t *testing.T, id string, m Mode) {
 		a := mount(t, shown(id, m))
-		x, y, w, h := a.Bounds(opt("Resume.pdf"))
+		xBox := a.Bounds(opt("Resume.pdf"))
+		x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
 		px := int(x + w - 4)
 		py := int(y + h/2)
 		rest := a.Screenshot().RGBAAt(px, py)
@@ -201,7 +202,8 @@ func TestHoverAndSelectionPixels(t *testing.T) {
 		if hover == rest {
 			t.Errorf("hover did not change the row: %v", rest)
 		}
-		sx, sy, sw, sh := a.Bounds(opt("Contract draft.docx"))
+		sxBox := a.Bounds(opt("Contract draft.docx"))
+		sx, sy, sw, sh := sxBox.X, sxBox.Y, sxBox.Width, sxBox.Height
 		sel := a.Screenshot().RGBAAt(int(sx+sw-4), int(sy+sh/2))
 		if sel == rest || sel == hover {
 			t.Errorf("selected row %v looks like an idle %v or hovered %v row", sel, rest, hover)

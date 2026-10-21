@@ -16,7 +16,7 @@ func TestOptionsReachTheTree(t *testing.T) {
 	}
 	width := func(opts ...telatest.Option) float32 {
 		app := telatest.Mount(t, tela.C(list), append([]telatest.Option{telatest.Size(300, 200)}, opts...)...)
-		_, _, w, _ := app.Bounds(telatest.ByText("Tall"))
+		w := app.Bounds(telatest.ByText("Tall")).Width
 		return w
 	}
 	if w := width(); w != 200 {

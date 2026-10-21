@@ -14,7 +14,9 @@
 //
 // [ByRole], [ByText] and [ByClass] describe an element by what a user (or
 // an assistive technology) sees, resolved against the semantics tree each
-// time they are used. A locator that matches none or several elements makes
+// time they are used; [ByTestID] finds the element that carries an
+// h.TestID, for those a user cannot name (like data-testid, it is not in
+// the aria snapshot). A locator that matches none or several elements makes
 // an action fail with the aria snapshot and the closest names; narrow it
 // with [Locator.Filter] and [Locator.Nth]. Hidden elements are never
 // matched.
@@ -47,10 +49,18 @@
 // running animations where they are, and only Advance moves them.
 //
 // The expectations ([App.ExpectText], [App.ExpectNoText], [App.ExpectRole],
-// [App.ExpectCount], [App.ExpectFocused], [App.ExpectValue] and
-// [App.ExpectAria]) retry until they hold or the [Timeout] expires, letting
-// a frame of app time and a moment of real time pass between tries, so
-// state set by a goroutine arrives.
+// [App.ExpectCount], [App.ExpectFocused], [App.ExpectValue],
+// [App.ExpectAria] and [App.Expect]) retry until they hold or the [Timeout]
+// expires, letting a frame of app time and a moment of real time pass
+// between tries, so state set by a goroutine arrives. [App.Expect] checks
+// the states of an element ([Checked], [Disabled], [Expanded], [Selected],
+// [Pressed], [Focused], [HasName], [HasValue]) without matching strings of
+// the aria snapshot.
+//
+// [App.ClickAt] and [App.DragFromTo] act at window coordinates, for what a
+// locator cannot name; [App.Bounds] returns an element's box as a tela.Rect.
+// [App.PixelAt] reads the frame, [App.Measure] returns the work the tree
+// did during some actions, and [MountFunc] is Mount for one component.
 //
 // # The clock
 //
@@ -62,7 +72,8 @@
 //
 // [App.Golden] compares the window's pixels with testdata/<name>, bit by bit
 // unless a [Tolerance] is given (Tela renders the same pixels on every
-// platform, ADR-027). TELA_UPDATE=1 go test regenerates goldens (ADR-022).
+// platform, ADR-027); [App.GoldenScales] makes one golden per display
+// scale. TELA_UPDATE=1 go test regenerates goldens (ADR-022).
 // [App.AriaSnapshot] returns the YAML that `tela inspect` prints, and
 // [App.ExpectAria] and [App.AriaGolden] compare it.
 //

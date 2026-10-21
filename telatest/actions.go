@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
@@ -127,12 +128,16 @@ func (a *App) coveredInline(n *semantics.Node, hit semantics.NodeID) bool {
 
 // Bounds returns the border box of the element l locates, in logical
 // pixels from the window's top-left corner, after transforms and scroll
-// offsets. For an inline element it bounds its text.
-func (a *App) Bounds(l Locator) (x, y, w, h float32) {
+// offsets: the same rectangle as tela.ElementRef.Bounds. For an inline
+// element it bounds its text.
+//
+//	r := app.Bounds(telatest.ByRole("button", "Save"))
+//	if r.Width < 80 { t.Errorf("the button is %gpx wide", r.Width) }
+func (a *App) Bounds(l Locator) tela.Rect {
 	a.tb.Helper()
 	n := a.one(l)
 	r := n.Bounds
-	return r.X0, r.Y0, r.Width(), r.Y1 - r.Y0
+	return tela.Rect{X: r.X0, Y: r.Y0, Width: r.Width(), Height: r.Y1 - r.Y0}
 }
 
 // Count returns how many elements l matches now, after settling the app.
@@ -185,7 +190,7 @@ func (a *App) up() {
 	a.pointer(platform.PointerUp, a.pos, platform.ButtonPrimary, 0)
 }
 
-// ClickOption configures [App.Click].
+// ClickOption configures [App.Click] and [App.ClickAt].
 type ClickOption func(*clickConfig)
 
 type clickConfig struct{ delay time.Duration }
@@ -210,6 +215,12 @@ func (a *App) Click(l Locator, opts ...ClickOption) {
 		o(&cfg)
 	}
 	_, p := a.target(l, "click", true)
+	a.clickPoint(p, cfg)
+}
+
+// clickPoint presses and releases the primary button at p.
+func (a *App) clickPoint(p platform.Point, cfg clickConfig) {
+	a.tb.Helper()
 	a.moveTo(p)
 	a.tree.BreakClickSequence()
 	a.down()
@@ -218,6 +229,38 @@ func (a *App) Click(l Locator, opts ...ClickOption) {
 		a.settleAfter()
 	}
 	a.up()
+}
+
+// ClickAt clicks at the point (x, y) of the window, in logical pixels from
+// its top-left corner, with the same real pointer events as [App.Click]
+// (hover, :active, focus on press, the gesture arena and the click) but
+// without looking for an element: whatever is under the point receives
+// them, like a user clicking there. It is for what a locator cannot name
+// (a canvas, a chart, a drop zone found with [App.Bounds]) and fails the
+// test when the point is outside the window.
+//
+//	r := app.Bounds(telatest.ByTestID("chart"))
+//	app.ClickAt(r.X+r.Width/2, r.Y+10)
+func (a *App) ClickAt(x, y float32, opts ...ClickOption) {
+	a.tb.Helper()
+	var cfg clickConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
+	a.clickPoint(a.windowPoint("ClickAt", x, y), cfg)
+}
+
+// windowPoint checks that (x, y) is inside the window and returns it as a
+// pointer position.
+func (a *App) windowPoint(what string, x, y float32) platform.Point {
+	a.tb.Helper()
+	a.mustBeOpen()
+	vp := a.tree.Viewport()
+	if !(x >= 0 && y >= 0 && x < vp.W && y < vp.H) {
+		a.fatalf("%s(%g, %g): the point is outside the window, which is %gx%g logical pixels; "+
+			"give coordinates from its top-left corner (App.Bounds returns them for an element)", what, x, y, vp.W, vp.H)
+	}
+	return platform.Point{X: x, Y: y}
 }
 
 // DoubleClick clicks the element twice in a row, so the second click has a
@@ -297,7 +340,7 @@ func (a *App) MouseUp() {
 	a.up()
 }
 
-// DragOption configures [App.Drag] and [App.DragBy].
+// DragOption configures [App.Drag], [App.DragBy] and [App.DragFromTo].
 type DragOption func(*dragConfig)
 
 type dragConfig struct{ steps int }
@@ -340,6 +383,26 @@ func (a *App) DragBy(l Locator, dx, dy float32, opts ...DragOption) {
 	a.moveTo(p)
 	a.down()
 	a.dragPath(p, platform.Point{X: p.X + dx, Y: p.Y + dy}, steps)
+	a.up()
+}
+
+// DragFromTo presses the primary button at the point from, moves the
+// pointer in steps to the point to and releases it there, in logical pixels
+// from the window's top-left corner: the drag of [App.Drag] without
+// locators, for sources and targets a locator cannot name (a canvas, a
+// slider track at a given value). It fails the test when a point is
+// outside the window.
+//
+//	r := app.Bounds(telatest.ByTestID("track"))
+//	app.DragFromTo(tela.Point{X: r.X + 4, Y: r.Y + 8}, tela.Point{X: r.X + r.Width/2, Y: r.Y + 8})
+func (a *App) DragFromTo(from, to tela.Point, opts ...DragOption) {
+	a.tb.Helper()
+	steps := dragSteps(opts)
+	p := a.windowPoint("DragFromTo", from.X, from.Y)
+	end := a.windowPoint("DragFromTo", to.X, to.Y)
+	a.moveTo(p)
+	a.down()
+	a.dragPath(p, end, steps)
 	a.up()
 }
 

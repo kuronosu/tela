@@ -78,7 +78,8 @@ func cardLoc(title string) telatest.Locator {
 
 // center returns the center of the element.
 func center(a *telatest.App, l telatest.Locator) (x, y float32) {
-	bx, by, w, h := a.Bounds(l)
+	bxBox := a.Bounds(l)
+	bx, by, w, h := bxBox.X, bxBox.Y, bxBox.Width, bxBox.Height
 	return bx + w/2, by + h/2
 }
 
@@ -86,7 +87,8 @@ func center(a *telatest.App, l telatest.Locator) (x, y float32) {
 func laneOf(a *telatest.App, title string) int {
 	cx, _ := center(a, cardLoc(title))
 	for i := range 3 {
-		x, _, w, _ := a.Bounds(laneLoc(i))
+		xBox := a.Bounds(laneLoc(i))
+		x, w := xBox.X, xBox.Width
 		if cx >= x && cx < x+w {
 			return i
 		}
@@ -104,7 +106,7 @@ func order(a *telatest.App, lane int) []string {
 	for _, id := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10} {
 		title := tasks[id].Title
 		if a.Count(cardLoc(title)) == 1 && laneOf(a, title) == lane {
-			_, y, _, _ := a.Bounds(cardLoc(title))
+			y := a.Bounds(cardLoc(title)).Y
 			es = append(es, entry{y, title})
 		}
 	}
@@ -154,7 +156,8 @@ func TestStartLayout(t *testing.T) {
 func TestDragToAnotherColumn(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	cx, cy := center(a, cardLoc("Design the onboarding flow"))
-	dx, dy, dw, dh := a.Bounds(laneLoc(1))
+	dxBox := a.Bounds(laneLoc(1))
+	dx, dy, dw, dh := dxBox.X, dxBox.Y, dxBox.Width, dxBox.Height
 	a.DragBy(cardLoc("Design the onboarding flow"), dx+dw/2-cx, dy+dh-60-cy)
 
 	if got := order(a, 0); !equal(got, []string{"Write the API reference", "Audit color contrast", "Migrate the settings page"}) {
@@ -187,7 +190,8 @@ func TestDropBetweenCards(t *testing.T) {
 func TestReorderInsideColumn(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	_, cy := center(a, cardLoc("Design the onboarding flow"))
-	_, ly, _, lh := a.Bounds(laneLoc(0))
+	lyBox := a.Bounds(laneLoc(0))
+	ly, lh := lyBox.Y, lyBox.Height
 	a.DragBy(cardLoc("Design the onboarding flow"), 0, ly+lh-40-cy)
 	want := []string{"Write the API reference", "Audit color contrast", "Migrate the settings page", "Design the onboarding flow"}
 	if got := order(a, 0); !equal(got, want) {
@@ -225,7 +229,8 @@ func TestClickDoesNotMove(t *testing.T) {
 func TestCardFollowsThePointer(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	card := cardLoc("Write the API reference")
-	x, y, w, h := a.Bounds(card)
+	xBox := a.Bounds(card)
+	x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
 	cx, cy := x+w/2, y+h/2
 	// A point inside the card's padding, near its top-left corner.
 	px, py := int(x)+8, int(y)+8
@@ -274,15 +279,16 @@ func TestCardFollowsThePointer(t *testing.T) {
 func TestDropTargetFeedback(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	cx, cy := center(a, cardLoc("Implement dark mode"))
-	dx, dy, dw, dh := a.Bounds(laneLoc(2))
+	dxBox := a.Bounds(laneLoc(2))
+	dx, dy, dw, dh := dxBox.X, dxBox.Y, dxBox.Width, dxBox.Height
 	a.MouseMove(cx, cy)
 	a.MouseDown()
 	a.MouseMove(cx+20, cy+20)
 	a.MouseMove(dx+dw/2, dy+dh-100)
 	ring := telatest.ByClass("ring-indigo-400/70", "rounded-2xl")
 	a.ExpectCount(ring, 1)
-	if rx, ry, rw, rh := a.Bounds(ring); rx != dx || ry != dy || rw != dw || rh != dh {
-		t.Fatalf("the highlighted lane is (%v, %v, %v, %v) while hovering Done, want (%v, %v, %v, %v)", rx, ry, rw, rh, dx, dy, dw, dh)
+	if r := a.Bounds(ring); r.X != dx || r.Y != dy || r.Width != dw || r.Height != dh {
+		t.Fatalf("the highlighted lane is (%v, %v, %v, %v) while hovering Done, want (%v, %v, %v, %v)", r.X, r.Y, r.Width, r.Height, dx, dy, dw, dh)
 	}
 	a.MouseUp()
 	a.ExpectCount(telatest.ByClass("ring-indigo-400/70"), 0)

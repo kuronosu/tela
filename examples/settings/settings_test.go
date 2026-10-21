@@ -40,7 +40,8 @@ func switchLoc(name string) telatest.Locator { return telatest.ByRole("switch", 
 // trackPixel samples the left end of a switch track, away from the knob in
 // both positions of the knob (it is 18 px wide in a 40 px track).
 func trackPixel(a *telatest.App, sw telatest.Locator) color.RGBA {
-	x, y, w, _ := a.Bounds(sw)
+	xBox := a.Bounds(sw)
+	x, y, w := xBox.X, xBox.Y, xBox.Width
 	return a.Screenshot().RGBAAt(int(x+w/2), int(y)+2)
 }
 
@@ -52,7 +53,7 @@ func TestSwitchTogglesAndDirtiesTheForm(t *testing.T) {
 	off := trackPixel(a, digest)
 	// The knob is the only box inside a switch, and the third of the five.
 	knob := telatest.ByClass("size-[18px]", "rounded-full", "shadow-sm").Nth(2)
-	k0, _, _, _ := a.Bounds(knob)
+	k0 := a.Bounds(knob).X
 
 	a.Click(digest)
 	a.MouseMove(5, 5)
@@ -60,7 +61,7 @@ func TestSwitchTogglesAndDirtiesTheForm(t *testing.T) {
 	if on := trackPixel(a, digest); on == off || on.R > 60 {
 		t.Errorf("the track is %v after switching on, was %v: want a dark track", on, off)
 	}
-	if k, _, _, _ := a.Bounds(knob); k < k0+10 {
+	if k := a.Bounds(knob).X; k < k0+10 {
 		t.Errorf("knob did not move to the right: %v -> %v", k0, k)
 	}
 

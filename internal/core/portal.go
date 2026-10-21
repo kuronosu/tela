@@ -50,7 +50,7 @@ func Portal(children ...Child) Node {
 		panic("h: Class or Style on Portal: the portal layer covers the window and has no style of its own; style its content: Portal(Div(Class(\"fixed inset-0 ...\"), ...))")
 	case len(d.events) > 0 || d.ref != nil || d.hasTab || d.autoFocus || d.scope != nil || d.disabled ||
 		d.aria != nil || d.fp != nil || d.id != "" || d.virt != nil || d.src != nil || d.img != nil || d.href != "" ||
-		d.animLayout || d.layoutID != "":
+		d.animLayout || d.layoutID != "" || d.testID != "":
 		panic("h: Portal takes children and a Key only; put handlers, refs and other props on its content (events from it bubble to the Portal's ancestors)")
 	}
 	return Node{d}

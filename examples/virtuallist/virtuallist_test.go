@@ -38,7 +38,8 @@ func rowOf(i int) telatest.Locator {
 // viewport returns the top and bottom of the list's scrollport (inside
 // its 1 px border).
 func viewport(a *telatest.App) (top, bottom float32) {
-	_, y, _, h := a.Bounds(list)
+	yBox := a.Bounds(list)
+	y, h := yBox.Y, yBox.Height
 	return y + 1, y + h - 1
 }
 
@@ -93,24 +94,25 @@ func TestJumpButtons(t *testing.T) {
 	top, bottom := viewport(a)
 
 	a.Click(telatest.ByRole("button", "Row 50,000"))
-	_, y, _, h := a.Bounds(rowOf(49_999))
+	yBox := a.Bounds(rowOf(49_999))
+	y, h := yBox.Y, yBox.Height
 	if !near(y+h/2, (top+bottom)/2) {
 		t.Errorf("row 50,000 spans %v..%v, want it centered in %v..%v", y, y+h, top, bottom)
 	}
 
 	a.Click(telatest.ByRole("button", "Row 1,000"))
-	if _, y, _, _ := a.Bounds(rowOf(999)); !near(y, top) {
+	if y := a.Bounds(rowOf(999)).Y; !near(y, top) {
 		t.Errorf("row 1,000 starts at %v, want the top of the list (%v)", y, top)
 	}
 
 	a.Click(telatest.ByRole("button", "Last"))
 	a.ExpectText("#100,000")
-	if _, y, _, h := a.Bounds(rowOf(Count - 1)); !near(y+h, bottom) {
-		t.Errorf("the last row ends at %v, want the bottom of the list (%v)", y+h, bottom)
+	if r := a.Bounds(rowOf(Count - 1)); !near(r.Bottom(), bottom) {
+		t.Errorf("the last row ends at %v, want the bottom of the list (%v)", r.Bottom(), bottom)
 	}
 
 	a.Click(telatest.ByRole("button", "First"))
-	if _, y, _, _ := a.Bounds(rowOf(0)); !near(y, top) {
+	if y := a.Bounds(rowOf(0)).Y; !near(y, top) {
 		t.Errorf("the first row starts at %v, want %v", y, top)
 	}
 }
@@ -121,18 +123,18 @@ func TestWheelAndKeys(t *testing.T) {
 	if a.Count(row(0)) != 0 {
 		t.Error("row 1 is still built after scrolling 5,000 px")
 	}
-	_, y0, _, _ := a.Bounds(rowOf(80))
+	y0 := a.Bounds(rowOf(80)).Y
 	a.Press("PageDown") // nothing is focused: the list is the page
-	_, y1, _, _ := a.Bounds(rowOf(80))
-	_, _, _, lh := a.Bounds(list)
+	y1 := a.Bounds(rowOf(80)).Y
+	lh := a.Bounds(list).Height
 	if !near(y0-y1, (lh-2)*0.875) {
 		t.Errorf("Page Down moved row 81 by %v, want 87.5%% of the viewport (%v)", y0-y1, (lh-2)*0.875)
 	}
 	a.Press("End")
 	a.ExpectText("#100,000")
 	_, bottom := viewport(a)
-	if _, y, _, h := a.Bounds(rowOf(Count - 1)); !near(y+h, bottom) {
-		t.Errorf("End: the last row ends at %v, want %v", y+h, bottom)
+	if r := a.Bounds(rowOf(Count - 1)); !near(r.Bottom(), bottom) {
+		t.Errorf("End: the last row ends at %v, want %v", r.Bottom(), bottom)
 	}
 	a.Press("Home")
 	a.ExpectText("Ana Abbott")
@@ -155,8 +157,9 @@ func TestRowsAreMeasured(t *testing.T) {
 	}
 	taller := false
 	for i := first; a.Count(rowOf(i+1)) == 1; i++ {
-		_, y, _, h := a.Bounds(rowOf(i))
-		_, y2, _, _ := a.Bounds(rowOf(i + 1))
+		yBox := a.Bounds(rowOf(i))
+		y, h := yBox.Y, yBox.Height
+		y2 := a.Bounds(rowOf(i + 1)).Y
 		if !near(y+h, y2) {
 			t.Fatalf("row %d ends at %v, row %d starts at %v", i+1, y+h, i+2, y2)
 		}

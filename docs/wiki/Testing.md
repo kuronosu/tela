@@ -61,6 +61,9 @@ running the cleanups of its effects. Options configure it:
 | [`telatest.Debug`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Debug), [`telatest.DebugClock`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#DebugClock) | Debug overlays drawn into screenshots; see [CLI](CLI#debug-overlays) |
 | [`telatest.CheckDamage`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#CheckDamage) | Compares every frame with a full rendering (for tests of rendering) |
 
+[`telatest.MountFunc`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountFunc)(t, Counter) is `Mount(t, tela.C(Counter))`, for a test
+that mounts one component.
+
 An `App` is used from the goroutine of its test. State setters and `tela.Post`
 may be called from any goroutine; do not mount apps that use `Post` from
 parallel tests.
@@ -76,6 +79,7 @@ so it keeps working when the app rebuilds. Hidden elements are never matched.
 | [`telatest.ByRole`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ByRole)(role, name) | The role (explicit with `h.Role` or implicit) and, if `name` is not empty, exactly that accessible name |
 | [`telatest.ByText`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ByText)(text) | The deepest elements whose text contains `text`, case-insensitively; add [`telatest.Exact`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Exact) for the whole text |
 | [`telatest.ByClass`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ByClass)(classes...) | Elements with all those Tailwind classes. An escape hatch that ties the test to the styling |
+| [`telatest.ByTestID`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#ByTestID)(id) | The element with that `h.TestID(id)`, like `data-testid`: for elements a user cannot name (a card, a chart). The id is never part of the aria snapshot or of what assistive technologies see |
 
 Narrow a locator with [`Locator.Filter`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Locator.Filter) (with [`telatest.HasText`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#HasText) or
 [`telatest.HasClass`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#HasClass)) and [`Locator.Nth`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Locator.Nth) (0 is the first, -1 the last).
@@ -112,6 +116,7 @@ ones send key events to the focused element.
 | [`App.Focus`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Focus) | Focuses the element, like `focus()` |
 | [`App.Scroll`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Scroll) | Scrolls the wheel over the element by `(dx, dy)` pixels, like a touchpad |
 | [`App.Drag`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Drag), [`App.DragBy`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DragBy) | Press, move in steps ([`telatest.Steps`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Steps)) and release: a real drag |
+| [`App.ClickAt`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ClickAt)(x, y), [`App.DragFromTo`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DragFromTo)(from, to) | The same without locators, at window coordinates in logical pixels: for a canvas, a chart or a slider track (find the box with `App.Bounds`) |
 | [`App.MouseMove`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.MouseMove), [`App.MouseDown`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.MouseDown), [`App.MouseUp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.MouseUp) | The pointer by hand |
 | [`App.Press`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Press) | A key or combination, Playwright's syntax: `"Enter"`, `"Shift+Tab"`, `"Control+s"`, `"ArrowDown"`, `"a"` |
 | [`App.Type`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Type) | Characters one key at a time (an upper case letter has no Shift, like Playwright's `keyboard.type`) |
@@ -138,13 +143,18 @@ arrives.
 | [`App.ExpectCount`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ExpectCount)(l, n) | The locator matches exactly `n` elements |
 | [`App.ExpectFocused`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ExpectFocused) | The located element has the keyboard focus |
 | [`App.ExpectValue`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ExpectValue) | The located text field holds the value |
+| [`App.Expect`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Expect)(l, states...) | The located element has all the states: [`telatest.Checked`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Checked), `Pressed`, `Selected`, `Expanded`, `Disabled`, `Focused` (each takes a `bool`), [`telatest.HasName`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#HasName) and [`telatest.HasValue`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#HasValue). The failure shows the element's actual states and its aria line |
 | [`App.ExpectAria`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ExpectAria) | The aria snapshot equals the YAML (dedented, so a raw string may be indented) |
 | [`App.WaitFor`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.WaitFor)(what, cond) | `cond()` reports true: for conditions locators cannot see |
 
-Inspection helpers that do not wait: [`App.Count`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Count), [`App.Bounds`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Bounds),
+Inspection helpers that do not wait: [`App.Count`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Count), [`App.Bounds`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Bounds)
+(a `tela.Rect` in window coordinates, like `ElementRef.Bounds`),
+[`App.PixelAt`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.PixelAt)(x, y) (the color of the frame at a logical point; at scale 2 it reads the device pixel `(2x, 2y)`),
 [`App.AriaSnapshot`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.AriaSnapshot), [`App.Screenshot`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Screenshot), [`App.Cursor`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Cursor) (the
 CSS name of the mouse cursor) and [`App.Stats`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Stats) (counters of builds,
 skipped builds and layout and paint passes, to assert how narrow an update was).
+[`App.Measure`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Measure)(f) runs `f`, settles, and returns the difference of the counters:
+`st := app.Measure(func() { app.Click(inc) })`, then `st.Builds`.
 
 ```go
 func TestSignup(t *testing.T) {
@@ -241,6 +251,10 @@ the golden. Opt in to fuzziness with [`telatest.Tolerance`](https://pkg.go.dev/g
 The picture is in physical pixels, so it depends on `Size` and `Scale`, and it
 shows overlay scrollbars while they are visible: advance the clock to hide them
 when that matters.
+
+[`App.GoldenScales`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.GoldenScales)(name, 1, 2) compares one golden per display scale,
+`testdata/<name>_x1.png`, `<name>_x2.png`, re-rendering the app at each scale
+and keeping its state.
 
 [`App.AriaGolden`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.AriaGolden) does the same for the aria snapshot, in a text file;
 use it for snapshots too long to write in the test. For short ones prefer

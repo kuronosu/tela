@@ -104,3 +104,19 @@ func AriaValueText(text string) tela.Prop { return core.AriaValueText(text) }
 //
 //	Img(Src(avatar), Alt("Ada Lovelace"), Class("size-10 rounded-full"))
 func Alt(text string) tela.Prop { return core.Alt(text) }
+
+// TestID names an element for tests, like the data-testid attribute: find
+// it with telatest.ByTestID, which resolves the name to exactly the element
+// that carries it, whatever its role, text or classes. It changes nothing
+// on screen and is not exposed anywhere else: not in the semantics tree,
+// the aria snapshot or the platform's accessibility API, so it never leaks
+// into what assistive technologies or `tela inspect` show.
+//
+//	Div(TestID("sidebar"), Class("w-64"), ...)
+//	// in the test:
+//	app.Click(telatest.ByTestID("sidebar"))
+//
+// Use it for elements a user cannot name (a card, a chart, a drop zone);
+// prefer telatest.ByRole and telatest.ByText when the element has a role
+// or text, since those tests also check what users see.
+func TestID(id string) tela.Prop { return core.TestID(id) }

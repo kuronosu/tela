@@ -145,8 +145,10 @@ func TestLocatorsByText(t *testing.T) {
 		}
 	}
 	// The strong element holds "theme": its bounds are inside the paragraph's.
-	px, py, pw, ph := app.Bounds(telatest.ByText("Pick the theme you like"))
-	sx, sy, sw, sh := app.Bounds(telatest.ByText("theme"))
+	pxBox := app.Bounds(telatest.ByText("Pick the theme you like"))
+	px, py, pw, ph := pxBox.X, pxBox.Y, pxBox.Width, pxBox.Height
+	sxBox := app.Bounds(telatest.ByText("theme"))
+	sx, sy, sw, sh := sxBox.X, sxBox.Y, sxBox.Width, sxBox.Height
 	if sx < px || sy < py || sx+sw > px+pw+0.5 || sy+sh > py+ph+0.5 {
 		t.Errorf("theme at (%v,%v %vx%v) is not inside its paragraph (%v,%v %vx%v)", sx, sy, sw, sh, px, py, pw, ph)
 	}
@@ -156,7 +158,8 @@ func TestLocatorsByClass(t *testing.T) {
 	app := telatest.Mount(t, tela.C(Page), telatest.Size(400, 500))
 	app.ExpectCount(telatest.ByClass("rounded-full", "size-4"), 2)
 	app.ExpectCount(telatest.ByClass("rounded-full bg-red-500"), 1)
-	x, y, w, h := app.Bounds(telatest.ByClass("bg-blue-500"))
+	xBox := app.Bounds(telatest.ByClass("bg-blue-500"))
+	x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
 	if w != 16 || h != 16 || x != 16 || y <= 0 {
 		t.Errorf("bounds of the blue dot = (%v, %v, %v, %v), want a 16x16 box at x=16", x, y, w, h)
 	}
@@ -295,7 +298,8 @@ func TestClickIsRealPointerInput(t *testing.T) {
 		t.Errorf("a double click sent %q", got)
 	}
 	// Hover changes the picture through hover:bg-slate-300; away restores it.
-	x, y, w, h := app.Bounds(btn)
+	xBox := app.Bounds(btn)
+	x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
 	probe := func() uint8 { return app.Screenshot().RGBAAt(int(x+w/2), int(y+h-2)).R }
 	app.MouseMove(5, 150)
 	rest := probe()
@@ -366,7 +370,7 @@ func TestClickScrollsIntoView(t *testing.T) {
 			Div(Class("h-[600px]")),
 			Button(OnClick(func(tela.MouseEvent) { clicked.Store(true) }), Text("Far away")))
 	}), telatest.Size(200, 200), telatest.InstantScroll())
-	_, y, _, _ := app.Bounds(telatest.ByRole("button", "Far away"))
+	y := app.Bounds(telatest.ByRole("button", "Far away")).Y
 	if y < 200 {
 		t.Fatalf("the button is at y=%v: not below the fold", y)
 	}
@@ -395,8 +399,10 @@ func TestDragAndDragBy(t *testing.T) {
 	if e.OffsetX != 80 || e.OffsetY != 40 {
 		t.Errorf("the last drag offset is (%v, %v), want (80, 40)", e.OffsetX, e.OffsetY)
 	}
-	hx, hy, hw, hh := app.Bounds(telatest.ByRole("button", "Handle"))
-	tx, ty, tw, th := app.Bounds(telatest.ByRole("region", "Target"))
+	hxBox := app.Bounds(telatest.ByRole("button", "Handle"))
+	hx, hy, hw, hh := hxBox.X, hxBox.Y, hxBox.Width, hxBox.Height
+	txBox := app.Bounds(telatest.ByRole("region", "Target"))
+	tx, ty, tw, th := txBox.X, txBox.Y, txBox.Width, txBox.Height
 	app.Drag(telatest.ByRole("button", "Handle"), telatest.ByRole("region", "Target"), telatest.Steps(4))
 	e = last.Load().(tela.DragEvent)
 	if wantX, wantY := (tx+tw/2)-(hx+hw/2), (ty+th/2)-(hy+hh/2); e.OffsetX != wantX || e.OffsetY != wantY {
@@ -449,13 +455,13 @@ func TestScrollAndAutoWaitForAnimations(t *testing.T) {
 			}))
 	}), telatest.Size(300, 200))
 	row := telatest.ByText("Row 10", telatest.Exact())
-	_, y0, _, _ := app.Bounds(row)
+	y0 := app.Bounds(row).Y
 	if y0 < 200 {
 		t.Fatalf("Row 10 starts at %v: not below the fold", y0)
 	}
 	// A wheel at the list scrolls by the delta, at once.
 	app.Scroll(telatest.ByText("Row 1", telatest.Exact()), 0, 120)
-	_, y1, _, _ := app.Bounds(row)
+	y1 := app.Bounds(row).Y
 	if y1 != y0-120 {
 		t.Errorf("after Scroll(0, 120) Row 10 is at %v, want %v", y1, y0-120)
 	}
@@ -465,7 +471,7 @@ func TestScrollAndAutoWaitForAnimations(t *testing.T) {
 	// A page-down key animates for 150 ms: the action settles the app, so the
 	// animation has finished when it returns.
 	app.Press("PageDown")
-	_, y2, _, _ := app.Bounds(row)
+	y2 := app.Bounds(row).Y
 	if y2 >= y1 {
 		t.Errorf("PageDown did not scroll: %v -> %v", y1, y2)
 	}
@@ -474,7 +480,7 @@ func TestScrollAndAutoWaitForAnimations(t *testing.T) {
 	if app.Now() == now {
 		t.Error("an animated scroll did not move the clock")
 	}
-	_, y3, _, _ := app.Bounds(telatest.ByText("Row 19", telatest.Exact()))
+	y3 := app.Bounds(telatest.ByText("Row 19", telatest.Exact())).Y
 	if y3+50 > 200.5 || y3+50 < 199.5 {
 		t.Errorf("after End the last row ends at %v, want the bottom of the 200 px list", y3+50)
 	}

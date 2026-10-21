@@ -67,7 +67,7 @@ var (
 
 // fillWidth returns the width of the progress fill.
 func fillWidth(a *telatest.App) float32 {
-	_, _, w, _ := a.Bounds(progressFill)
+	w := a.Bounds(progressFill).Width
 	return w
 }
 
@@ -187,7 +187,8 @@ func TestSeek(t *testing.T) {
 	slow(t)
 	a := mount(t, windowW, windowH, Player)
 	a.ExpectCount(seekBar, 1)
-	bx, by, bw, bh := a.Bounds(seekBar)
+	bxBox := a.Bounds(seekBar)
+	bx, by, bw, bh := bxBox.X, bxBox.Y, bxBox.Width, bxBox.Height
 	if bw != barW {
 		t.Fatalf("the seek bar is %v px wide, the test assumes %v", bw, barW)
 	}

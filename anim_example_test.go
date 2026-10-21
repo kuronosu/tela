@@ -144,7 +144,8 @@ func ExampleSize() {
 			tela.HeightFn(func() float32 { return size.Get().Height })))
 	}))
 	// Mount settles: the spring from the initial size to the target ended.
-	_, _, w, h := app.Bounds(telatest.ByClass("bg-sky-500"))
+	wBox := app.Bounds(telatest.ByClass("bg-sky-500"))
+	w, h := wBox.Width, wBox.Height
 	fmt.Println(w, h)
 	// Output: 200 120
 }

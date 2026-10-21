@@ -14,7 +14,8 @@ func TestCounterClicks(t *testing.T) {
 	app := telatest.Mount(t, tela.C(Counter), telatest.Size(800, 600), telatest.Dev())
 	app.ExpectText("Count: 0")
 	inc := telatest.ByRole("button", "Increment")
-	x, y, w, h := app.Bounds(inc)
+	xBox := app.Bounds(inc)
+	x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
 	probe := func() (r, g, b uint8) {
 		px := app.Screenshot().RGBAAt(int(x+w/2)-50, int(y+h/2))
 		return px.R, px.G, px.B

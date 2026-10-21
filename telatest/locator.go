@@ -13,8 +13,8 @@ import (
 // Locator describes the element an action or expectation works on, like a
 // Playwright locator: it is resolved against the live semantics tree each
 // time it is used, so it keeps working when the app rebuilds. Make one
-// with [ByRole], [ByText] or [ByClass] and narrow it with [Locator.Filter]
-// and [Locator.Nth].
+// with [ByRole], [ByText], [ByClass] or [ByTestID] and narrow it with
+// [Locator.Filter] and [Locator.Nth].
 //
 // Hidden elements (display: none, visibility other than visible,
 // AriaHidden, and their descendants) are never matched. An action needs the
@@ -28,6 +28,7 @@ type Locator struct {
 	text    string
 	exact   bool
 	classes []string
+	testID  string
 	// hasText are the texts every match must contain (Filter), and
 	// hasClass the class names it must have.
 	hasText  []string
@@ -44,6 +45,7 @@ const (
 	locRole
 	locText
 	locClass
+	locTestID
 )
 
 // ByRole locates the elements with an ARIA role (explicit with h.Role or
@@ -92,6 +94,16 @@ func ByClass(classes ...string) Locator {
 	}
 	return Locator{kind: locClass, classes: names}
 }
+
+// ByTestID locates the element that carries the h.TestID with this exact
+// id, like Playwright's getByTestId. It is the way to find an element a
+// user cannot name (a card, a chart, a drop zone); the id is not part of
+// the semantics tree or the aria snapshot, so it is never visible to
+// assistive technologies. Hidden elements are not matched, like with the
+// other locators.
+//
+//	telatest.ByTestID("sidebar")
+func ByTestID(id string) Locator { return Locator{kind: locTestID, testID: id} }
 
 // FilterOption narrows a locator in [Locator.Filter].
 type FilterOption func(*Locator)
@@ -152,6 +164,8 @@ func (l Locator) String() string {
 		s += ")"
 	case locClass:
 		s = "getByClass(" + strconv.Quote(strings.Join(l.classes, " ")) + ")"
+	case locTestID:
+		s = "getByTestId(" + strconv.Quote(l.testID) + ")"
 	default:
 		s = "(empty locator)"
 	}
@@ -189,8 +203,12 @@ func (l Locator) problem() string {
 		if len(l.classes) == 0 {
 			return "ByClass needs at least one class name, such as ByClass(\"rounded-full\")"
 		}
+	case locTestID:
+		if l.testID == "" {
+			return "ByTestID needs the id given to h.TestID, such as ByTestID(\"sidebar\")"
+		}
 	default:
-		return "the zero Locator matches nothing; make one with ByRole, ByText or ByClass"
+		return "the zero Locator matches nothing; make one with ByRole, ByText, ByClass or ByTestID"
 	}
 	for _, t := range l.hasText {
 		if normalize(t) == "" {
@@ -237,6 +255,16 @@ func (a *App) find(l Locator) []*semantics.Node {
 				return false
 			}
 			if n.Kind == semantics.KindElement && hasClasses(a.tree.NodeClasses(n.ID), l.classes) {
+				nodes = append(nodes, n)
+			}
+			return true
+		})
+	case locTestID:
+		root.Walk(func(n *semantics.Node) bool {
+			if n.Has(semantics.StateHidden) {
+				return false
+			}
+			if n.Kind == semantics.KindElement && a.tree.NodeTestID(n.ID) == l.testID {
 				nodes = append(nodes, n)
 			}
 			return true
@@ -414,6 +442,11 @@ func (a *App) describeMatch(n *semantics.Node) string {
 			s += " (class " + strconv.Quote(c) + ")"
 		}
 	}
+	if n.Kind == semantics.KindElement {
+		if id := a.tree.NodeTestID(n.ID); id != "" {
+			s += " (testid " + strconv.Quote(id) + ")"
+		}
+	}
 	return s
 }
 
@@ -495,6 +528,27 @@ func (a *App) missMessage(l Locator) string {
 			})
 			if len(others) > 0 {
 				fmt.Fprintf(&b, "\nan element named %q has the role %s instead", l.name, strings.Join(others, ", "))
+			}
+		}
+	case locTestID:
+		var ids []string
+		root.Walk(func(n *semantics.Node) bool {
+			if n.Has(semantics.StateHidden) {
+				return false
+			}
+			if id := a.tree.NodeTestID(n.ID); n.Kind == semantics.KindElement && id != "" && !slices.Contains(ids, id) {
+				ids = append(ids, id)
+			}
+			return true
+		})
+		switch {
+		case len(ids) == 0:
+			b.WriteString("\nno visible element has an h.TestID")
+		default:
+			if sug := closest(l.testID, ids); len(sug) > 0 {
+				fmt.Fprintf(&b, "\ndid you mean %s?", quoteAll(sug))
+			} else {
+				fmt.Fprintf(&b, "\ntest ids on screen: %s", quoteAll(ids))
 			}
 		}
 	case locText:

@@ -155,7 +155,8 @@ func TestEmailInvalid(t *testing.T) {
 // borderPixel samples the middle of the top border of a field, in the
 // middle of its width.
 func borderPixel(a *telatest.App, l telatest.Locator) color.RGBA {
-	x, y, w, _ := a.Bounds(l)
+	xBox := a.Bounds(l)
+	x, y, w := xBox.X, xBox.Y, xBox.Width
 	return a.Screenshot().RGBAAt(int(x+w/2), int(y))
 }
 
@@ -196,7 +197,7 @@ func TestPasswordStrength(t *testing.T) {
 func TestBio(t *testing.T) {
 	a := mount(t, Props{}, windowW, windowH)
 	a.ExpectText("0/160")
-	_, _, _, h0 := a.Bounds(bioBox)
+	h0 := a.Bounds(bioBox).Height
 	if h0 != 72 {
 		t.Errorf("an empty bio is %v px tall, want min-h 72", h0)
 	}
@@ -211,16 +212,16 @@ func TestBio(t *testing.T) {
 
 	// Growing: more lines make the field taller, up to max-h-40 (160 px).
 	a.Fill(bioBox, strings.Repeat("line\n", 4)+"last")
-	_, _, _, h1 := a.Bounds(bioBox)
+	h1 := a.Bounds(bioBox).Height
 	if h1 <= h0 || h1 >= 160 {
 		t.Errorf("a 5-line bio is %v px tall, want between 72 and 160 exclusive", h1)
 	}
 	a.Fill(bioBox, strings.Repeat("line\n", 12)+"last")
-	if _, _, _, h2 := a.Bounds(bioBox); h2 != 160 {
+	if h2 := a.Bounds(bioBox).Height; h2 != 160 {
 		t.Errorf("a long bio is %v px tall, want max-h 160", h2)
 	}
 	a.Fill(bioBox, "")
-	if _, _, _, h3 := a.Bounds(bioBox); h3 != 72 {
+	if h3 := a.Bounds(bioBox).Height; h3 != 72 {
 		t.Errorf("an emptied bio is %v px tall, want 72", h3)
 	}
 
@@ -261,7 +262,8 @@ func TestTermsKeyboard(t *testing.T) {
 // TestFocusRing checks that focusing a field paints the ring around it.
 func TestFocusRing(t *testing.T) {
 	a := mount(t, Props{}, windowW, windowH)
-	x, y, w, h := a.Bounds(emailBox)
+	xBox := a.Bounds(emailBox)
+	x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
 	ring := func() color.RGBA { return a.Screenshot().RGBAAt(int(x+w/2), int(y+h)+1) }
 	rest := ring()
 	a.Click(emailBox)

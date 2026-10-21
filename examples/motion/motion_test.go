@@ -48,7 +48,8 @@ func TestToastFrames(t *testing.T) {
 func TestDragSpring(t *testing.T) {
 	app := mount(t)
 	card := telatest.ByClass("cursor-grab")
-	x0, y0, w, h := app.Bounds(card)
+	x0Box := app.Bounds(card)
+	x0, y0, w, h := x0Box.X, x0Box.Y, x0Box.Width, x0Box.Height
 	cx, cy := x0+w/2, y0+h/2
 	app.MouseMove(cx, cy)
 	app.MouseDown()
@@ -65,7 +66,7 @@ func TestDragSpring(t *testing.T) {
 	app.Advance(180 * time.Millisecond)
 	app.Golden("drag_release_300ms.png")
 	app.ExpectText("Drag me") // settles: the spring comes to rest
-	if x, y, _, _ := app.Bounds(card); x != x0 || y != y0 {
-		t.Errorf("the card rests at %v, %v; it started at %v, %v", x, y, x0, y0)
+	if r := app.Bounds(card); r.X != x0 || r.Y != y0 {
+		t.Errorf("the card rests at %v, %v; it started at %v, %v", r.X, r.Y, x0, y0)
 	}
 }

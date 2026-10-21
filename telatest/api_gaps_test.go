@@ -54,12 +54,12 @@ func Meter() tela.Node {
 
 func TestUseBoundsSizesFromAnotherElement(t *testing.T) {
 	app := telatest.Mount(t, tela.C(Meter), telatest.Size(500, 200))
-	_, _, w, _ := app.Bounds(telatest.ByRole("progressbar", "fill"))
+	w := app.Bounds(telatest.ByRole("progressbar", "fill")).Width
 	if w != 92 { // (400 - 32) / 4
 		t.Errorf("fill width %g, want 92", w)
 	}
 	app.Click(telatest.ByRole("button", "Toggle"))
-	_, _, w, _ = app.Bounds(telatest.ByRole("progressbar", "fill"))
+	w = app.Bounds(telatest.ByRole("progressbar", "fill")).Width
 	if w != 46 {
 		t.Errorf("fill width %g after the track halved, want 46", w)
 	}

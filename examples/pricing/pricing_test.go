@@ -43,14 +43,16 @@ func hasText(a *telatest.App, s string) bool { return a.Count(exact(s)) > 0 }
 // highlighted one carries the badge.
 func TestThreePlansInARow(t *testing.T) {
 	a := mount(t, windowW, windowH)
-	_, y, _, _ := a.Bounds(exact("Starter"))
+	y := a.Bounds(exact("Starter")).Y
 	for _, name := range []string{"Pro", "Enterprise"} {
-		if _, got, _, _ := a.Bounds(exact(name)); got != y {
+		if got := a.Bounds(exact(name)).Y; got != y {
 			t.Errorf("%s at y=%v, Starter at y=%v", name, got, y)
 		}
 	}
-	bx, by, bw, bh := a.Bounds(exact("Most popular"))
-	px, py, _, _ := a.Bounds(exact("Pro"))
+	bxBox := a.Bounds(exact("Most popular"))
+	bx, by, bw, bh := bxBox.X, bxBox.Y, bxBox.Width, bxBox.Height
+	pxBox := a.Bounds(exact("Pro"))
+	px, py := pxBox.X, pxBox.Y
 	if by+bh > py || bx+bw/2 < px {
 		t.Errorf("badge at (%v, %v) is not above the Pro card heading at (%v, %v)", bx, by, px, py)
 	}
@@ -62,7 +64,7 @@ func TestThreePlansInARow(t *testing.T) {
 func TestBillingToggle(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	knob := func() float32 {
-		x, _, _, _ := a.Bounds(telatest.ByClass("size-5", "rounded-full", "shadow-sm"))
+		x := a.Bounds(telatest.ByClass("size-5", "rounded-full", "shadow-sm")).X
 		return x
 	}
 	for _, s := range []string{"$0", "$29", "$99", "Billed monthly", "Free forever"} {

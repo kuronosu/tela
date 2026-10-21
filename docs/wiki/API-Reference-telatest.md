@@ -12,15 +12,16 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Exact`](#func-exact) · [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountFunc`](#func-mountfunc) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`Hover`](#func-app-hover) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay)
   - [`type DragOption`](#type-dragoption): [`Steps`](#func-steps)
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
-  - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
+  - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
   - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`InstantScroll`](#func-instantscroll) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Timeout`](#func-timeout)
+  - [`type State`](#type-state): [`Checked`](#func-checked) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasValue`](#func-hasvalue) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
 
@@ -39,7 +40,7 @@ func TestCounter(t *testing.T) {
 
 ### Locators
 
-[`ByRole`](#func-byrole), [`ByText`](#func-bytext) and [`ByClass`](#func-byclass) describe an element by what a user (or an assistive technology) sees, resolved against the semantics tree each time they are used. A locator that matches none or several elements makes an action fail with the aria snapshot and the closest names; narrow it with [`Locator.Filter`](#func-locator-filter) and [`Locator.Nth`](#func-locator-nth). Hidden elements are never matched.
+[`ByRole`](#func-byrole), [`ByText`](#func-bytext) and [`ByClass`](#func-byclass) describe an element by what a user (or an assistive technology) sees, resolved against the semantics tree each time they are used; [`ByTestID`](#func-bytestid) finds the element that carries an h.TestID, for those a user cannot name (like data-testid, it is not in the aria snapshot). A locator that matches none or several elements makes an action fail with the aria snapshot and the closest names; narrow it with [`Locator.Filter`](#func-locator-filter) and [`Locator.Nth`](#func-locator-nth). Hidden elements are never matched.
 
 ### Actions and auto-wait
 
@@ -49,7 +50,9 @@ Before acting, an action waits until the element is visible, enabled, in view an
 
 [`App.Advance`](#func-app-advance) moves the clock by hand: it is how a test waits for a long-press timer, an animation or a fade. To capture the frames of an animation, mount with [`NoSettle`](#func-nosettle): actions and screenshots then leave running animations where they are, and only Advance moves them.
 
-The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`](#func-app-expectnotext), [`App.ExpectRole`](#func-app-expectrole), [`App.ExpectCount`](#func-app-expectcount), [`App.ExpectFocused`](#func-app-expectfocused), [`App.ExpectValue`](#func-app-expectvalue) and [`App.ExpectAria`](#func-app-expectaria)) retry until they hold or the [`Timeout`](#func-timeout) expires, letting a frame of app time and a moment of real time pass between tries, so state set by a goroutine arrives.
+The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`](#func-app-expectnotext), [`App.ExpectRole`](#func-app-expectrole), [`App.ExpectCount`](#func-app-expectcount), [`App.ExpectFocused`](#func-app-expectfocused), [`App.ExpectValue`](#func-app-expectvalue), [`App.ExpectAria`](#func-app-expectaria) and [`App.Expect`](#func-app-expect)) retry until they hold or the [`Timeout`](#func-timeout) expires, letting a frame of app time and a moment of real time pass between tries, so state set by a goroutine arrives. [`App.Expect`](#func-app-expect) checks the states of an element ([`Checked`](#func-checked), [`Disabled`](#func-disabled), [`Expanded`](#func-expanded), [`Selected`](#func-selected), [`Pressed`](#func-pressed), [`Focused`](#func-focused), [`HasName`](#func-hasname), [`HasValue`](#func-hasvalue)) without matching strings of the aria snapshot.
+
+[`App.ClickAt`](#func-app-clickat) and [`App.DragFromTo`](#func-app-dragfromto) act at window coordinates, for what a locator cannot name; [`App.Bounds`](#func-app-bounds) returns an element's box as a tela.Rect. [`App.PixelAt`](#func-app-pixelat) reads the frame, [`App.Measure`](#func-app-measure) returns the work the tree did during some actions, and [`MountFunc`](#func-mountfunc) is Mount for one component.
 
 ### The clock
 
@@ -57,7 +60,7 @@ The window's clock is manual: it starts at zero and moves only when the app wait
 
 ### Goldens and snapshots
 
-[`App.Golden`](#func-app-golden) compares the window's pixels with testdata/\<name\>, bit by bit unless a [`Tolerance`](#func-tolerance) is given (Tela renders the same pixels on every platform, ADR-027). TELA_UPDATE=1 go test regenerates goldens (ADR-022). [`App.AriaSnapshot`](#func-app-ariasnapshot) returns the YAML that `tela inspect` prints, and [`App.ExpectAria`](#func-app-expectaria) and [`App.AriaGolden`](#func-app-ariagolden) compare it.
+[`App.Golden`](#func-app-golden) compares the window's pixels with testdata/\<name\>, bit by bit unless a [`Tolerance`](#func-tolerance) is given (Tela renders the same pixels on every platform, ADR-027); [`App.GoldenScales`](#func-app-goldenscales) makes one golden per display scale. TELA_UPDATE=1 go test regenerates goldens (ADR-022). [`App.AriaSnapshot`](#func-app-ariasnapshot) returns the YAML that `tela inspect` prints, and [`App.ExpectAria`](#func-app-expectaria) and [`App.AriaGolden`](#func-app-ariagolden) compare it.
 
 ### Debug overlays
 
@@ -176,6 +179,31 @@ fmt.Println(app.AriaSnapshot())
 // - button "Increment"
 ```
 
+#### func MountFunc
+
+```go
+func MountFunc(tb testing.TB, fn func() tela.Node, opts ...Option) *App
+```
+
+MountFunc shows the component fn in a headless window and returns the running app: it is Mount(tb, tela.C(fn), opts...), for the common case of a test that mounts one component.
+
+```go
+app := telatest.MountFunc(t, Counter, telatest.Size(400, 300))
+```
+
+See [`Mount`](#func-mount) for what the app does and when it ends.
+
+**Example**
+
+```go
+app := telatest.MountFunc(t, Counter, telatest.Size(400, 300))
+
+app.Click(telatest.ByRole("button", "Increment"))
+app.ExpectText("Count: 1")
+fmt.Println(app.Count(telatest.ByRole("button", "Increment")))
+// Output: 1
+```
+
 #### func (*App) Advance
 
 ```go
@@ -230,10 +258,15 @@ snap := app.AriaSnapshot()
 #### func (*App) Bounds
 
 ```go
-func (a *App) Bounds(l Locator) (x, y, w, h float32)
+func (a *App) Bounds(l Locator) tela.Rect
 ```
 
-Bounds returns the border box of the element l locates, in logical pixels from the window's top-left corner, after transforms and scroll offsets. For an inline element it bounds its text.
+Bounds returns the border box of the element l locates, in logical pixels from the window's top-left corner, after transforms and scroll offsets: the same rectangle as tela.ElementRef.Bounds. For an inline element it bounds its text.
+
+```go
+r := app.Bounds(telatest.ByRole("button", "Save"))
+if r.Width < 80 { t.Errorf("the button is %gpx wide", r.Width) }
+```
 
 #### func (*App) Click
 
@@ -242,6 +275,31 @@ func (a *App) Click(l Locator, opts ...ClickOption)
 ```
 
 Click moves the pointer to the center of the element l locates, presses the primary button and releases it: real pointer events (hover, :active, focus on press, the gesture arena and the click), not a call to the handler. Each Click is a first click (ClickCount 1) even right after another, as in Playwright; use [`App.DoubleClick`](#func-app-doubleclick) for two. It waits for the element to be visible, enabled, in view and not covered by another element, and fails the test when l matches none or several.
+
+#### func (*App) ClickAt
+
+```go
+func (a *App) ClickAt(x, y float32, opts ...ClickOption)
+```
+
+ClickAt clicks at the point (x, y) of the window, in logical pixels from its top-left corner, with the same real pointer events as [`App.Click`](#func-app-click) (hover, :active, focus on press, the gesture arena and the click) but without looking for an element: whatever is under the point receives them, like a user clicking there. It is for what a locator cannot name (a canvas, a chart, a drop zone found with [`App.Bounds`](#func-app-bounds)) and fails the test when the point is outside the window.
+
+```go
+r := app.Bounds(telatest.ByTestID("chart"))
+app.ClickAt(r.X+r.Width/2, r.Y+10)
+```
+
+**Example**
+
+```go
+app := telatest.MountFunc(t, Counter, telatest.Size(400, 300))
+
+r := app.Bounds(telatest.ByRole("button", "Increment"))
+app.ClickAt(r.X+r.Width/2, r.Y+r.Height/2)
+app.ExpectText("Count: 1")
+fmt.Println("clicked")
+// Output: clicked
+```
 
 #### func (*App) Close
 
@@ -290,6 +348,62 @@ func (a *App) DragBy(l Locator, dx, dy float32, opts ...DragOption)
 ```
 
 DragBy drags the element l locates by (dx, dy) logical pixels from its center. See [`App.Drag`](#func-app-drag).
+
+#### func (*App) DragFromTo
+
+```go
+func (a *App) DragFromTo(from, to tela.Point, opts ...DragOption)
+```
+
+DragFromTo presses the primary button at the point from, moves the pointer in steps to the point to and releases it there, in logical pixels from the window's top-left corner: the drag of [`App.Drag`](#func-app-drag) without locators, for sources and targets a locator cannot name (a canvas, a slider track at a given value). It fails the test when a point is outside the window.
+
+```go
+r := app.Bounds(telatest.ByTestID("track"))
+app.DragFromTo(tela.Point{X: r.X + 4, Y: r.Y + 8}, tela.Point{X: r.X + r.Width/2, Y: r.Y + 8})
+```
+
+**Example**
+
+```go
+moved := 0
+area := func() tela.Node {
+    return Div(Class("size-32 bg-slate-200"),
+        OnDrag(func(e tela.DragEvent) { moved = int(e.OffsetX) }))
+}
+app := telatest.MountFunc(t, area, telatest.Size(200, 200))
+
+app.DragFromTo(tela.Point{X: 10, Y: 10}, tela.Point{X: 90, Y: 10})
+fmt.Println(moved)
+// Output: 80
+```
+
+#### func (*App) Expect
+
+```go
+func (a *App) Expect(l Locator, states ...State)
+```
+
+Expect waits until the element l locates satisfies every state, like Playwright's toBeChecked, toBeDisabled and toBeExpanded: it settles the app and checks, and while a state does not hold lets a frame of app time pass and checks again, until it holds or the [`Timeout`](#func-timeout) expires. The locator must match exactly one element (strictness). The failure message says which states differ, shows the element's actual states and its line of the aria snapshot.
+
+```go
+app.Expect(telatest.ByRole("switch", "Wi-Fi"), telatest.Checked(true), telatest.Disabled(false))
+app.Expect(telatest.ByRole("button", "Menu"), telatest.Expanded(true))
+app.Expect(telatest.ByRole("textbox", "Email"), telatest.HasValue("ada@example.com"))
+```
+
+**Example**
+
+```go
+app := telatest.MountFunc(t, Settings, telatest.Size(400, 400))
+
+wifi := telatest.ByRole("switch", "Wi-Fi")
+app.Expect(wifi, telatest.Checked(false))
+app.Click(wifi)
+app.Expect(wifi, telatest.Checked(true), telatest.Disabled(false))
+app.Expect(telatest.ByRole("button", "Save"), telatest.Disabled(true))
+fmt.Println("ok")
+// Output: ok
+```
 
 #### func (*App) ExpectAria
 
@@ -434,6 +548,30 @@ Golden compares the window's content, after settling the app (with [`NoSettle`](
 
 The picture is physical pixels, so a golden depends on [`Size`](#func-size) and [`Scale`](#func-scale); it also shows the overlay scrollbars while they are visible: advance the clock to hide them first when that matters.
 
+#### func (*App) GoldenScales
+
+```go
+func (a *App) GoldenScales(name string, scales ...float64)
+```
+
+GoldenScales compares the window with one golden per display scale: testdata/\<name\>\_x\<scale\>.png, with the scale written like %g (name_x1.png, name_x2.png, name_x1.5.png), the naming of the examples' goldens. A name with the ".png" extension has it removed first. For each scale the window is moved to a display with that scale, as when a user drags it between monitors (the logical size is kept, the picture is size\*scale pixels), settled like [`App.Golden`](#func-app-golden) does, and compared; the app keeps its state and its original scale at the end. The comparison is bit by bit and TELA_UPDATE=1 writes the goldens, as with [`App.Golden`](#func-app-golden).
+
+```go
+app.GoldenScales("settings", 1, 2) // testdata/settings_x1.png, settings_x2.png
+```
+
+**Example**
+
+GoldenScales has no output to check: it compares files in testdata.
+
+```go
+app := telatest.MountFunc(t, Counter, telatest.Size(400, 300))
+
+// testdata/counter_x1.png and testdata/counter_x2.png; TELA_UPDATE=1
+// writes them.
+app.GoldenScales("counter", 1, 2)
+```
+
 #### func (*App) Hover
 
 ```go
@@ -441,6 +579,31 @@ func (a *App) Hover(l Locator)
 ```
 
 Hover moves the pointer to the center of the element l locates, so its hover: and group-hover: states apply. It waits for the element to be visible, in view and not covered.
+
+#### func (*App) Measure
+
+```go
+func (a *App) Measure(f func()) Stats
+```
+
+Measure runs f, which performs actions on the app, settles the app afterwards like an action does (with [`NoSettle`](#func-nosettle), only the work due is handled) and returns the work the tree did meanwhile: the difference of two readings of [`App.Stats`](#func-app-stats), so that a test can assert how narrow an update was without keeping the readings itself. The app is brought to rest before f runs, so work pending from earlier steps is not counted.
+
+```go
+st := app.Measure(func() { app.Click(telatest.ByRole("button", "Increment")) })
+if st.Builds != 1 { t.Errorf("the click rebuilt %d components, want 1", st.Builds) }
+```
+
+**Example**
+
+```go
+app := telatest.MountFunc(t, Counter, telatest.Size(400, 300))
+
+st := app.Measure(func() {
+    app.Click(telatest.ByRole("button", "Increment"))
+})
+fmt.Println("builds:", st.Builds, "frames:", st.Frames > 0)
+// Output: builds: 1 frames: true
+```
 
 #### func (*App) MouseDown
 
@@ -473,6 +636,33 @@ func (a *App) Now() time.Duration
 ```
 
 Now returns the app's clock: the time since the window was created, as moved by waits and [`App.Advance`](#func-app-advance).
+
+#### func (*App) PixelAt
+
+```go
+func (a *App) PixelAt(x, y float32) color.RGBA
+```
+
+PixelAt returns the color of the window's current frame at the point (x, y), in logical pixels from the top-left corner. The frame is in device pixels, so the sampled one is the device pixel that contains the point: (floor(x\*scale), floor(y\*scale)), where scale is the window's display scale; at scale 2, PixelAt(10, 10) reads the pixel (20, 20), the top-left one of the four that cover the logical pixel. The app is settled first (with [`NoSettle`](#func-nosettle), only the work due is handled). The color is as stored in the frame (alpha-premultiplied; windows are opaque, so A is 255). It fails the test when the point is outside the window.
+
+```go
+if c := app.PixelAt(40, 20); c != (color.RGBA{R: 59, G: 130, B: 246, A: 255}) {
+    t.Errorf("the button is %v, want blue-500", c)
+}
+```
+
+**Example**
+
+```go
+swatch := func() tela.Node {
+    return Div(Class("size-4 bg-[#ff0000]"))
+}
+// At scale 2 the logical point (8, 8) is the device pixel (16, 16).
+app := telatest.MountFunc(t, swatch, telatest.Size(32, 32), telatest.Scale(2))
+
+fmt.Println(app.PixelAt(8, 8), app.PixelAt(20, 20))
+// Output: {255 0 0 255} {255 255 255 255}
+```
 
 #### func (*App) Press
 
@@ -559,7 +749,7 @@ WaitFor waits until cond reports true, settling the app and letting a frame of a
 type ClickOption func(*clickConfig)
 ```
 
-ClickOption configures [`App.Click`](#func-app-click).
+ClickOption configures [`App.Click`](#func-app-click) and [`App.ClickAt`](#func-app-clickat).
 
 #### func Delay
 
@@ -575,7 +765,7 @@ Delay holds the button down for d of app time between the press and the release,
 type DragOption func(*dragConfig)
 ```
 
-DragOption configures [`App.Drag`](#func-app-drag) and [`App.DragBy`](#func-app-dragby).
+DragOption configures [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby) and [`App.DragFromTo`](#func-app-dragfromto).
 
 #### func Steps
 
@@ -635,7 +825,7 @@ type Locator struct {
 }
 ```
 
-Locator describes the element an action or expectation works on, like a Playwright locator: it is resolved against the live semantics tree each time it is used, so it keeps working when the app rebuilds. Make one with [`ByRole`](#func-byrole), [`ByText`](#func-bytext) or [`ByClass`](#func-byclass) and narrow it with [`Locator.Filter`](#func-locator-filter) and [`Locator.Nth`](#func-locator-nth).
+Locator describes the element an action or expectation works on, like a Playwright locator: it is resolved against the live semantics tree each time it is used, so it keeps working when the app rebuilds. Make one with [`ByRole`](#func-byrole), [`ByText`](#func-bytext), [`ByClass`](#func-byclass) or [`ByTestID`](#func-bytestid) and narrow it with [`Locator.Filter`](#func-locator-filter) and [`Locator.Nth`](#func-locator-nth).
 
 Hidden elements (display: none, visibility other than visible, AriaHidden, and their descendants) are never matched. An action needs the locator to match exactly one element (strictness, as in Playwright) and fails with the aria snapshot and the closest names when it matches none or several.
 
@@ -679,6 +869,35 @@ fmt.Println(telatest.ByRole("heading", ""))
 // Output:
 // getByRole("button", name="Increment")
 // getByRole("heading")
+```
+
+#### func ByTestID
+
+```go
+func ByTestID(id string) Locator
+```
+
+ByTestID locates the element that carries the h.TestID with this exact id, like Playwright's getByTestId. It is the way to find an element a user cannot name (a card, a chart, a drop zone); the id is not part of the semantics tree or the aria snapshot, so it is never visible to assistive technologies. Hidden elements are not matched, like with the other locators.
+
+```go
+telatest.ByTestID("sidebar")
+```
+
+**Example**
+
+```go
+card := func() tela.Node {
+    return Div(TestID("card"), Class("size-16 bg-slate-200"))
+}
+app := telatest.MountFunc(t, card, telatest.Size(100, 100))
+
+fmt.Println(telatest.ByTestID("card"))
+fmt.Println(app.Bounds(telatest.ByTestID("card")))
+fmt.Println(app.AriaSnapshot() == "") // the id is not in the snapshot
+// Output:
+// getByTestId("card")
+// {0 0 64 64}
+// true
 ```
 
 #### func ByText
@@ -921,6 +1140,80 @@ func Timeout(d time.Duration) Option
 ```
 
 Timeout sets how long actions and expectations wait for their condition before they fail the test (default [`DefaultTimeout`](#constants)). It is wall-clock time, as in Playwright, while the app's clock moves one frame at a time during the wait; it also bounds how long a single action spends waiting for the app to go quiet (an animation that never ends is logged, not waited for).
+
+### type State
+
+```go
+type State struct {
+    // contains filtered or unexported fields
+}
+```
+
+State is one condition on an element that [`App.Expect`](#func-app-expect) checks: a toggle such as [`Checked`](#func-checked), a flag such as [`Disabled`](#func-disabled), or its [`HasName`](#func-hasname) and [`HasValue`](#func-hasvalue). They read the element's semantics node, so they test what assistive technologies are told, without matching strings of the aria snapshot.
+
+#### func Checked
+
+```go
+func Checked(checked bool) State
+```
+
+Checked expects the element to have aria-checked equal to checked (a checkbox, radio, switch or option; h.AriaChecked sets it). An element without the state, or with the mixed one, does not satisfy it.
+
+#### func Disabled
+
+```go
+func Disabled(disabled bool) State
+```
+
+Disabled expects the element to be disabled (true) or enabled (false): disabled by h.Disabled on it or an ancestor, or by h.AriaDisabled.
+
+#### func Expanded
+
+```go
+func Expanded(expanded bool) State
+```
+
+Expanded expects the element to have aria-expanded equal to expanded (what a button, link or combobox controls; h.AriaExpanded sets it).
+
+#### func Focused
+
+```go
+func Focused(focused bool) State
+```
+
+Focused expects the element to have the keyboard focus (true) or not (false).
+
+#### func HasName
+
+```go
+func HasName(name string) State
+```
+
+HasName expects the element's accessible name to be exactly name (white space normalized, case sensitive): what [`ByRole`](#func-byrole) matches by.
+
+#### func HasValue
+
+```go
+func HasValue(value string) State
+```
+
+HasValue expects the element's value to be exactly value: the text of a text field, or the value text of a range widget (the h.AriaValueText or h.AriaValueNow of a slider or progress bar, as in the aria snapshot).
+
+#### func Pressed
+
+```go
+func Pressed(pressed bool) State
+```
+
+Pressed expects the element to have aria-pressed equal to pressed (a toggle button; h.AriaPressed sets it).
+
+#### func Selected
+
+```go
+func Selected(selected bool) State
+```
+
+Selected expects the element to have aria-selected equal to selected (a tab, option, row or cell; h.AriaSelected sets it).
 
 ### type Stats
 

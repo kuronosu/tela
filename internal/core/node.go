@@ -71,6 +71,9 @@ type desc struct {
 	// prop (layoutanim.go).
 	animLayout bool
 	layoutID   string
+	// testID is the TestID prop (probe.go): a name for telatest to find
+	// the element by, not exposed anywhere else.
+	testID string
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings

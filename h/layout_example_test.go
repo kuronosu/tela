@@ -29,11 +29,11 @@ func ExampleAnimateLayout() {
 	t := &exampleT{}
 	defer t.close()
 	app := telatest.Mount(t, tela.C(fruitList))
-	_, before, _, _ := app.Bounds(telatest.ByText("Apples"))
+	before := app.Bounds(telatest.ByText("Apples")).Y
 	app.Click(telatest.ByRole("button", "Reverse"))
 	// The row is laid out at the bottom at once and drawn sliding there;
 	// telatest waits for the animation before it measures.
-	_, after, _, _ := app.Bounds(telatest.ByText("Apples"))
+	after := app.Bounds(telatest.ByText("Apples")).Y
 	fmt.Println(before, after)
 	// Output: 48 144
 }
@@ -56,9 +56,9 @@ func ExampleLayoutID() {
 	defer t.close()
 	app := telatest.Mount(t, tela.C(tabBar))
 	underline := telatest.ByClass("bg-indigo-500")
-	x0, _, _, _ := app.Bounds(underline)
+	x0 := app.Bounds(underline).X
 	app.Click(telatest.ByRole("button", "Settings"))
-	x1, _, _, _ := app.Bounds(underline)
+	x1 := app.Bounds(underline).X
 	fmt.Println(x0 < x1)
 	// Output: true
 }

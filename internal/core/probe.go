@@ -40,6 +40,25 @@ func (t *Tree) NodeClasses(id semantics.NodeID) []string {
 	return out
 }
 
+// TestID names a primitive for tests, like the data-testid attribute: it
+// changes nothing on screen and is not part of the semantics tree, the
+// aria snapshot or what the platform's accessibility API sees; only
+// telatest.ByTestID finds elements by it (through Tree.NodeTestID).
+func TestID(id string) Prop {
+	return Prop{name: "TestID", apply: func(d *desc) { d.testID = id }}
+}
+
+// NodeTestID returns the TestID of the element of node id in the last
+// semantics tree. It is empty for a text, a node that is gone and an
+// element without one.
+func (t *Tree) NodeTestID(id semantics.NodeID) string {
+	el := t.sem.byID[id]
+	if el == nil || !el.mounted || el.kind != elemPrimitive {
+		return ""
+	}
+	return el.node.d.testID
+}
+
 // BreakClickSequence ends the sequence of consecutive clicks: the next
 // press counts as a first click (ClickCount 1) whatever the time and
 // distance since the last one. telatest calls it before each separate
