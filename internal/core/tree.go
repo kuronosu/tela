@@ -271,9 +271,7 @@ func NewTree(cfg Config) *Tree {
 	if t.warn == nil {
 		t.warn = t.log
 	}
-	if t.dev {
-		devAny.Store(true)
-	}
+	noteTreeDev(t.dev)
 	t.idPrefix = cfg.IDPrefix
 	if t.idPrefix == "" {
 		t.idPrefix = "t" + strconv.FormatUint(treeSerial.Add(1)-1, 36) + "-"
@@ -336,8 +334,8 @@ func (t *Tree) Stats() Stats { return t.stats }
 // effects of a previous frame that were not flushed run first.
 func (t *Tree) Mount(root Node) {
 	t.FlushEffects()
-	buildMu.Lock()
-	defer buildMu.Unlock()
+	t.lockBuild()
+	defer unlockBuild()
 	n := Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses, children: []Node{root}}}
 	if t.root == nil {
 		el := &Element{tree: t, kind: elemPrimitive, node: n, mounted: true}
@@ -359,9 +357,9 @@ func (t *Tree) Unmount() {
 	t.FlushEffects()
 	t.resetInput()
 	if t.root != nil {
-		buildMu.Lock()
+		t.lockBuild()
 		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
-		buildMu.Unlock()
+		unlockBuild()
 	}
 	t.resetFocus()
 	t.dropEffects()
@@ -503,8 +501,8 @@ func (t *Tree) buildPhase() {
 	if len(t.buildQ) == 0 {
 		return
 	}
-	buildMu.Lock()
-	defer buildMu.Unlock()
+	t.lockBuild()
+	defer unlockBuild()
 	for len(t.buildQ) > 0 {
 		q := t.buildQ
 		t.buildQ = nil

@@ -525,7 +525,7 @@ func ComponentProps[P comparable](fn func(P) Node, props P, key ...Prop) Node {
 		typ: reflect.ValueOf(fn).Pointer(), fn: fn,
 		build: func() Node { return fn(props) }, props: props, mode: compProps,
 	}
-	if devAny.Load() {
+	if devNow() {
 		c.anon = noteAnon(c.typ, "CP")
 	}
 	return keyedComponent(Node{&desc{kind: nodeComponent, comp: c}}, "CP", key)
@@ -551,7 +551,7 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Prop)
 			return equal(pa, pb)
 		},
 	}
-	if devAny.Load() {
+	if devNow() {
 		c.anon = noteAnon(c.typ, "Memo")
 	}
 	return keyedComponent(Node{&desc{kind: nodeComponent, comp: c}}, "Memo", key)
@@ -588,7 +588,7 @@ func Fragment(children ...Child) Node {
 // once per call site.
 func List(nodes []Node) Node {
 	d := &desc{kind: nodeFragment, children: nodes, dynamic: true}
-	if devAny.Load() {
+	if devNow() {
 		d.site = new(callStack)
 		d.site.capture(-1)
 	}

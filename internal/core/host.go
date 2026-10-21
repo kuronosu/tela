@@ -51,7 +51,7 @@ type Options struct {
 // fonts for the scripts the embedded ones cannot draw (ADR-035). Without
 // opts.Debug, the debug overlays are the ones TELA_DEBUG names (debug.go).
 // opts.Dev (with TELA_DEV) also becomes the process default of dev mode,
-// which the node constructors check.
+// which the node constructors called outside any build check (devNow).
 func Run(opts Options) error {
 	runtime.LockOSThread()
 	// The app's dev mode is the process default of the node constructors

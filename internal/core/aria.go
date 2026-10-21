@@ -53,7 +53,7 @@ func ariaProp(name string, f func(a *ariaProps)) Prop {
 // element's own role unless it is focusable or labelled (ARIA's
 // presentational role conflict resolution).
 func Role(role string) Prop {
-	if devAny.Load() {
+	if devNow() {
 		if _, bad := semantics.ParseRole(role); bad != "" {
 			msg := fmt.Sprintf("tela: Role(%q): unknown ARIA role %q", role, bad)
 			if s := semantics.SuggestRole(bad); s != "" {

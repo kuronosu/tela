@@ -14,16 +14,110 @@ import (
 // errors that teach): the hook-order check with call sites, dependency
 // warnings and anonymous functions given to ComponentProps or Memo.
 
-// devAny is the process default of dev mode, for the node constructors,
-// which do not know their Tree: they check names (Role, Type) and record
-// call sites only when it is on. It starts as ResolveDev(nil) (TELA_DEV,
-// else on unless the binary is a release build; ADR-085); a Tree created
-// in dev mode turns it on, and Run sets it to the app's dev mode (one app
-// per process), so that tela.App.Dev = false turns those checks off too.
+// devAny is the process default of dev mode, for the node constructors
+// called outside any build (devNow). It starts as ResolveDev(nil)
+// (TELA_DEV, else on unless the binary is a release build; ADR-085); a
+// Tree created in dev mode turns it on, and Run sets it to the app's dev
+// mode (one app per process), so that tela.App.Dev = false turns those
+// checks off too.
 var devAny atomic.Bool
 
 func init() {
 	devAny.Store(ResolveDev(nil))
+}
+
+// The node constructors (Role, Type, Dir, h.If, CP, Memo, List...) do not
+// know their Tree, but most run inside a component's build, and the build
+// phases of all Trees are serialized by buildMu. While a phase runs, the
+// goroutine running it and its Tree's dev mode are published here, so that
+// a constructor called from that goroutine follows the Tree being built
+// (telatest.NoDev turns its checks off while another test's Tree is in dev
+// mode); everything else, a root built before Mount or a node made in a
+// goroutine, follows devAny.
+//
+// Go has no goroutine-local storage, and reading the goroutine's id costs
+// a stack header (goid), so the id is only recorded and compared when the
+// process has, or had, Trees of both modes, or one whose mode differs from
+// devAny (devMixed): a release app, or a test binary whose Trees are all
+// in dev mode, never pays for it. buildDev is written before buildG by the
+// owner and read only by a goroutine that finds its own id in buildG,
+// which can only be the owner, so the pair needs no lock.
+var (
+	buildG                     atomic.Uint64 // goid of the goroutine in a build phase, 0 when none is recorded
+	buildDev                   atomic.Bool   // the dev mode of the Tree of that phase
+	devTreeSeen, noDevTreeSeen atomic.Bool   // a Tree in dev mode, or not, was created
+)
+
+// devNow reports whether dev mode is on for a node constructor: the mode
+// of the Tree being built when the caller runs inside its build phase,
+// else the process default (devAny).
+func devNow() bool {
+	d := devAny.Load()
+	if !devMixed(d) {
+		return d
+	}
+	if g := buildG.Load(); g != 0 && g == goid() {
+		return buildDev.Load()
+	}
+	return d
+}
+
+// devMixed reports whether a Tree may be in another mode than dev (a
+// sticky answer: a Tree is never known to be gone).
+func devMixed(dev bool) bool {
+	if dev {
+		return noDevTreeSeen.Load()
+	}
+	return devTreeSeen.Load()
+}
+
+// noteTreeDev records the creation of a Tree in dev mode or not.
+func noteTreeDev(dev bool) {
+	if dev {
+		devTreeSeen.Store(true)
+		devAny.Store(true)
+	} else {
+		noDevTreeSeen.Store(true)
+	}
+}
+
+// lockBuild starts a build phase of t (buildMu), publishing its goroutine
+// for devNow when another mode may be the default. A transition of devAny
+// or of the modes seen while the phase runs (a Tree of the other mode
+// created by another goroutine at that moment) is seen from the next phase
+// on.
+func (t *Tree) lockBuild() {
+	buildMu.Lock()
+	if t.dev != devAny.Load() || devMixed(t.dev) {
+		buildDev.Store(t.dev)
+		buildG.Store(goid())
+	}
+}
+
+// unlockBuild ends the build phase lockBuild started.
+func unlockBuild() {
+	buildG.Store(0)
+	buildMu.Unlock()
+}
+
+// goid returns the id of the calling goroutine, read from the header of
+// its stack trace ("goroutine 18 [running]:"), or 0 if it cannot be read
+// (which devNow treats as "not the goroutine of the build phase").
+func goid() uint64 {
+	const prefix = "goroutine "
+	var buf [32]byte
+	n := runtime.Stack(buf[:], false)
+	if n <= len(prefix) || string(buf[:len(prefix)]) != prefix {
+		return 0
+	}
+	var id uint64
+	for _, c := range buf[len(prefix):n] {
+		if c < '0' || c > '9' {
+			break
+		}
+		id = id*10 + uint64(c-'0')
+	}
+	return id
 }
 
 var (

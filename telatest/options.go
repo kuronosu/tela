@@ -178,8 +178,13 @@ func (c config) devMode() bool { return core.ResolveDev(&c.dev) }
 // as any panic does, and a warning is a test log line; with [Render] and
 // the other entry points, errors and warnings go to standard error.
 //
-// Use NoDev to test what a release build does. TELA_DEV=1 or TELA_DEV=0
-// in the environment overrides both NoDev and the default.
+// Use NoDev to test what a release build does. The checks of the node
+// constructors (h.If with a struct component, Role, Type, Dir...) follow
+// the app's dev mode when they run while a component builds, as in a
+// function given to [MountFunc]; a node built outside any build (the root
+// passed to [Mount] in the test's body) follows the process default,
+// which is on in a test binary. TELA_DEV=1 or TELA_DEV=0 in the
+// environment overrides both NoDev and the default.
 func NoDev() Option { return func(c *config) { c.dev = false } }
 
 // Dev turns dev mode on. It is the default since dev mode became the

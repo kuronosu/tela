@@ -54,7 +54,7 @@ func parseDir(v string) (dirValue, bool) {
 // as HTML ignores an invalid dir.
 func Dir(dir string) Prop {
 	v, ok := parseDir(dir)
-	if !ok && devAny.Load() {
+	if !ok && devNow() {
 		panic(fmt.Sprintf("tela: Dir(%q): the direction is \"rtl\", \"ltr\" or \"auto\"", dir))
 	}
 	return Prop{name: "Dir", apply: func(d *desc) { d.dir = v }}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"net/url"
-	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -301,7 +300,7 @@ func checkFormProps(kind style.Kind, d *desc) {
 				return
 			}
 		}
-		if devAny.Load() || os.Getenv(EnvDev) == "1" {
+		if devNow() {
 			msg := fmt.Sprintf("tela: Type(%q) on <%v>: unknown type; use one of %s", fp.typ, kind, strings.Join(names, ", "))
 			if s := closestName(fp.typ, names); s != "" {
 				msg = fmt.Sprintf("tela: Type(%q) on <%v>: unknown type; did you mean %q? (types: %s)", fp.typ, kind, s, strings.Join(names, ", "))

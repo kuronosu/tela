@@ -275,7 +275,7 @@ func propFieldMessage(ct *compType, field string, p Prop) string {
 // Spinner{}) would always show a Spinner). It panics with the fix, in
 // dev mode, whatever the condition.
 func CheckIf[C any]() {
-	if !devAny.Load() {
+	if !devNow() {
 		return
 	}
 	t := reflect.TypeFor[C]()
