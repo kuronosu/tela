@@ -12,6 +12,7 @@
 - [Scrolling and VirtualList](Scrolling-and-VirtualList)
 - [Animation](Animation)
 - [Internationalization](Internationalization)
+- [Icons](Icons)
 - [Aria](Aria)
 - [Accessibility](Accessibility)
 - [Testing](Testing)

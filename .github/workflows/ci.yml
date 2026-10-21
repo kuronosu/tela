@@ -105,6 +105,39 @@ jobs:
             **/*_diff.png
           if-no-files-found: ignore
 
+  icons-lucide:
+    name: icons/lucide (separate module)
+    # icons/lucide has its own go.mod (ADR-102): the root jobs do not build
+    # or test it. It builds against the tela next to it (a replace directive).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: icons/lucide
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet
+        env:
+          CGO_ENABLED: "0"
+        run: go vet ./...
+      - name: go test
+        env:
+          CGO_ENABLED: "0"
+        run: go test ./...
+      - name: go build (windows)
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+        run: go build ./...
+      - name: go build (darwin)
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+        run: go build ./...
+
   test-race:
     name: test (race detector, verification only)
     runs-on: ubuntu-latest

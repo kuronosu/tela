@@ -20,6 +20,7 @@ go install github.com/kuronosu/tela/cmd/tela@latest
 |---|---|
 | `tela snapshot` | Renders a screen to a PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
+| `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
 | `tela help [command]` | Shows the help |
 
@@ -185,6 +186,22 @@ settings, color, background, font, opacity) and **the class errors** of the
 element. A box painted elsewhere (a transform, scrolled content) also has
 `bounds`, which is what `ElementRef.Bounds` returns. The order of the fields is
 stable.
+
+## tela icons gen
+
+```text
+tela icons gen -pkg <name> [-o outdir] [-r] [-prefix text] [-suffix text] [-skip-invalid] [-minify=false] [-source text] [-license name] [-license-file file] <dir>
+```
+
+Reads the `*.svg` files of `<dir>` and writes `outdir/icons_gen.go` with one
+exported `tela.Icon` variable per file. It validates and minifies every file
+and does not need the `go` command or a module. The flags, the naming rules and
+what the minifier removes are on the [Icons](Icons) page; `tela help icons gen`
+prints them.
+
+```bash
+tela icons gen -pkg icons -o ./icons -license-file LICENSE -license ISC ./svg
+```
 
 ## Debug overlays
 

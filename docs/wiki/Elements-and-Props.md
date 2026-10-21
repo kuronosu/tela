@@ -125,6 +125,9 @@ Button(Class("inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 tex
 Icons are decorative (hidden from accessibility) unless they have an
 `AriaLabel` or `AriaLabelledBy`, which make them images with that name.
 
+The [Icons](Icons) page covers the Lucide set (`github.com/kuronosu/tela/icons/lucide`),
+generating a set from SVG files with `tela icons gen`, and the cost in a binary.
+
 ## Props
 
 | Prop | Does |
