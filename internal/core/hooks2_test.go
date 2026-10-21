@@ -182,6 +182,39 @@ func TestUseInterval(t *testing.T) {
 	}
 }
 
+// TestUseIntervalLongGap: after a long gap (a suspend) a short interval
+// fires once and jumps to the first period boundary after now in one
+// step, instead of looping once per missed period on the UI thread.
+func TestUseIntervalLongGap(t *testing.T) {
+	calls := 0
+	comp := func() Node {
+		UseInterval(time.Nanosecond, func() { calls++ })
+		return Text("x")
+	}
+	tr := devTree(t, Component(comp), nil)
+	tr.Animate(time.Second)
+	frameAndFlush(tr) // the interval starts at 1 s, next at 1 s + 1 ns
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		// Ten hours later: 3.6e13 missed periods.
+		now := time.Second + 10*time.Hour + 7
+		tr.Animate(now)
+		tr.TickGestures(now)
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the late tick did not return: it catches up one period at a time")
+	}
+	if calls != 1 {
+		t.Errorf("%d calls, want 1 (once, not once per missed period)", calls)
+	}
+	if dl, _ := tr.NextDeadline(); dl != time.Second+10*time.Hour+8 {
+		t.Errorf("deadline %v, want the first boundary after now (1s + 10h + 8ns)", dl)
+	}
+}
+
 func TestUseGo(t *testing.T) {
 	type run struct {
 		id        int

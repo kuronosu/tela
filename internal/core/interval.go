@@ -110,9 +110,10 @@ func (t *Tree) tickIntervals(now time.Duration) {
 		if !s.on || !s.eff.el.mounted || now < s.next {
 			continue
 		}
-		for s.next <= now {
-			s.next += s.d
-		}
+		// The first period boundary after now, in one step: after a
+		// suspend, a 1 ms interval would otherwise loop once per missed
+		// period on the UI thread.
+		s.next += ((now-s.next)/s.d + 1) * s.d
 		s.f()
 	}
 }
