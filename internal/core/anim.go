@@ -376,8 +376,7 @@ func (t *Tree) updateKeyframes(ba *boxAnim, el *Element, cs *style.ComputedStyle
 	}
 	e := t.animSpec(raw)
 	if e.err != "" {
-		if !t.reported[e.err] {
-			t.reported[e.err] = true
+		if t.once("anim:" + e.err) {
 			t.logf("tela: %s (in the animation of a <%v>)", e.err, ba.bx.kind)
 		}
 		ba.kf = nil

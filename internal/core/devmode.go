@@ -98,21 +98,38 @@ func (t *Tree) warnf(format string, args ...any) {
 	}
 }
 
+// once reports whether key is given for the first time in this tree,
+// recording it: the one deduplication of the tree's messages given once
+// per call site or subject (warnings, unloadable images, invalid animation
+// specs), whose keys carry a prefix naming their kind ("dep:", "anon:",
+// "bg-url:"...). Class errors have their own set (Tree.classReported),
+// which a new theme clears; this one lives as long as the tree. Safe from
+// any goroutine.
+func (t *Tree) once(key string) bool {
+	t.onceMu.Lock()
+	defer t.onceMu.Unlock()
+	if t.onceSeen[key] {
+		return false
+	}
+	if t.onceSeen == nil {
+		t.onceSeen = map[string]bool{}
+	}
+	t.onceSeen[key] = true
+	return true
+}
+
 // warnOnce sends the warning msg() the first time key is warned about in
-// this tree. Safe from any goroutine.
+// this tree (once). Safe from any goroutine.
 func (t *Tree) warnOnce(key string, msg func() string) {
-	if t.warn == nil {
-		return
+	if t.warn != nil && t.once(key) {
+		t.warn(msg())
 	}
-	t.devMu.Lock()
-	if t.devSeen[key] {
-		t.devMu.Unlock()
-		return
+}
+
+// reportOnce logs msg, an error, the first time key is reported in this
+// tree (once).
+func (t *Tree) reportOnce(key, msg string) {
+	if t.once(key) {
+		t.logf("%s", msg)
 	}
-	if t.devSeen == nil {
-		t.devSeen = map[string]bool{}
-	}
-	t.devSeen[key] = true
-	t.devMu.Unlock()
-	t.warn(msg())
 }

@@ -111,10 +111,11 @@ type Tree struct {
 	dev         bool
 	log         func(string)
 	warn        func(string)
-	// devMu guards devSeen, the warnings already given (warnOnce), which
-	// may come from any goroutine.
-	devMu   sync.Mutex
-	devSeen map[string]bool
+	// onceMu guards onceSeen, the keys of the messages already given once
+	// (Tree.once: warnings, image and animation errors), which may come
+	// from any goroutine.
+	onceMu   sync.Mutex
+	onceSeen map[string]bool
 	// devLabels are the Labels mounted since the last check (dev mode,
 	// form.go).
 	devLabels []*Element
@@ -154,7 +155,9 @@ type Tree struct {
 	updates []update
 	wake    func()
 
-	reported map[string]bool // class strings whose errors were reported
+	// classReported are the class strings whose errors were reported
+	// (UI thread); a new theme clears it (setParser).
+	classReported map[string]bool
 
 	flatFree [][]flatEntry
 	itemFree [][]*Element
@@ -243,14 +246,14 @@ var treeSerial atomic.Uint64
 // size.
 func NewTree(cfg Config) *Tree {
 	t := &Tree{
-		fonts:    cfg.Fonts,
-		parser:   cfg.Parser,
-		dev:      configDev(cfg.Dev),
-		log:      cfg.Log,
-		warn:     cfg.Warn,
-		reported: map[string]bool{},
-		viewport: gfx.Size{W: 800, H: 600},
-		scale:    1,
+		fonts:         cfg.Fonts,
+		parser:        cfg.Parser,
+		dev:           configDev(cfg.Dev),
+		log:           cfg.Log,
+		warn:          cfg.Warn,
+		classReported: map[string]bool{},
+		viewport:      gfx.Size{W: 800, H: 600},
+		scale:         1,
 	}
 	t.foc.window = true
 	t.dbg.flags = cfg.Debug & DebugAll

@@ -113,7 +113,7 @@ func (t *Tree) SetTheme(th Theme) {
 func (t *Tree) setParser(p *style.Parser) {
 	t.parser = p
 	t.cx.Theme = p.Theme()
-	t.reported = map[string]bool{} // report the class errors of the new theme
+	t.classReported = map[string]bool{} // report the class errors of the new theme
 	if t.env.theme != nil {
 		t.env.theme.storeUI(p.Theme())
 	}

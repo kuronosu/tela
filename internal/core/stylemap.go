@@ -200,10 +200,10 @@ func (t *Tree) compileClasses(el *Element) {
 // reportClasses reports the errors of a class string to the dev log, once
 // per distinct string (ARCHITECTURE section 3: errors that teach).
 func (t *Tree) reportClasses(src string, err error, el *Element) {
-	if t.reported[src] {
+	if t.classReported[src] {
 		return
 	}
-	t.reported[src] = true
+	t.classReported[src] = true
 	var errs style.ClassErrors
 	if errors.As(err, &errs) && len(errs) == 1 {
 		err = errs[0]

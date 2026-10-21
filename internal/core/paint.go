@@ -788,15 +788,6 @@ func (p *painter) overflowClip(bx *Box) gfx.RRect {
 	return gfx.RRect{Rect: r}
 }
 
-// reportOnce logs msg the first time key is reported in this tree.
-func (t *Tree) reportOnce(key, msg string) {
-	if t.reported[key] {
-		return
-	}
-	t.reported[key] = true
-	t.logf("%s", msg)
-}
-
 // ---------------------------------------------------------------------
 // Geometry.
 

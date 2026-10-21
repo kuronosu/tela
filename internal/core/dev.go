@@ -269,7 +269,7 @@ func allDigits(s string) bool {
 func (t *Tree) reportAnon(c *compDesc) {
 	a := c.anon
 	site := a.stack.site()
-	if !t.firstReport("anon:" + site) {
+	if !t.once("anon:" + site) {
 		return
 	}
 	what := "an anonymous function (" + a.name + "): the variables it captures are not compared with the props, so the component skips its build while they change"
@@ -278,16 +278,6 @@ func (t *Tree) reportAnon(c *compDesc) {
 	}
 	t.warnf("tela: %s(...) at %s gets %s. Make the component a named function and pass everything it uses in its props, or use tela.C, which never skips because of props",
 		a.api, site, what)
-}
-
-// firstReport reports whether key is reported for the first time in this
-// tree, recording it.
-func (t *Tree) firstReport(key string) bool {
-	if t.reported[key] {
-		return false
-	}
-	t.reported[key] = true
-	return true
 }
 
 // ---------------------------------------------------------------------
@@ -464,7 +454,7 @@ func slotName(s any) string {
 // and reported once per call site in dev mode. It never panics.
 func (t *Tree) depsChanged(el *Element, i int, old, deps []any) bool {
 	if len(old) != len(deps) {
-		if t.dev && t.firstReport("deps-count:"+el.hookSite(i)) {
+		if t.dev && t.once("deps-count:"+el.hookSite(i)) {
 			t.warnf("tela: %s at %s got %d dependencies in this build and %d in the previous one, so it counts as changed; pass the same dependencies on every build (none runs it on every build; tela.UseMount and tela.UseOnce run once)",
 				el.hookDev[i].kind, el.hookSite(i), len(deps), len(old))
 		}
@@ -516,7 +506,7 @@ func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
 	}
 	if kind == hookUpdateEffect && deps[0] == any(Once) {
 		site := el.hookSite(i)
-		if t.firstReport("once-deps:" + site) {
+		if t.once("once-deps:" + site) {
 			t.warnf("tela: UseUpdateEffect(f, tela.Once) at %s never runs: it skips the first build, and tela.Once never changes; pass the values it depends on, or use tela.UseMount for a run on mount", site)
 		}
 		return
@@ -525,7 +515,7 @@ func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
 		return
 	}
 	site := el.hookSite(i)
-	if !t.firstReport("nil-deps:" + site) {
+	if !t.once("nil-deps:" + site) {
 		return
 	}
 	var advice string
@@ -548,7 +538,7 @@ func (t *Tree) checkNilDeps(el *Element, i int, kind hookKind, deps []any) {
 // reportDep warns, once per call site, about dependency k of hook slot i
 // of el, which cannot be compared.
 func (t *Tree) reportDep(el *Element, i, k int, ty reflect.Type) {
-	if !t.dev || !t.firstReport("dep:"+el.hookSite(i)) {
+	if !t.dev || !t.once("dep:"+el.hookSite(i)) {
 		return
 	}
 	t.warnf("tela: dependency %d of %s at %s is a %v, which cannot be compared with ==, so it counts as changed on every build. Use tela.UseCallback for a function, and an ID or a comparable value (a string, a number, a struct of those) for the rest",
