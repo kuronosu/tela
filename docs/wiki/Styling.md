@@ -193,7 +193,13 @@ CSS. The gradient masks fade edges and shapes: `mask-t-from-50%`,
 mask-linear-from-30%`, `mask-radial-from-40% mask-radial-to-70%` with
 `mask-circle`, `mask-radial-closest-side` and `mask-radial-at-top-left`, and
 `mask-conic-from-75%`; stops take percentages, spacing numbers, lengths and
-colors, and several families intersect, as in Tailwind.
+colors, and several families intersect, as in Tailwind. Where two mask
+classes set the same value (`mask-b-from-50% mask-b-from-20%`, two angles,
+`mask-circle mask-ellipse`), the last one in the class string wins, as with
+every other class, variants included; in Tailwind the order of its
+stylesheet decides instead. The edge classes and `mask-linear-*` set the same
+linear mask, so the one written last is used: `mask-linear-from-20%
+mask-b-from-50%` fades the bottom edge.
 
 **SVG paints.** `fill-*` and `stroke-*` (colors, tokens, `/NN`,
 `fill-current`, `fill-none`) and `stroke-2`, `stroke-[1.5]` (stroke width in

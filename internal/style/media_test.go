@@ -125,7 +125,8 @@ func TestMaskGradientUtilities(t *testing.T) {
 	if left.Angle != 270 || left.Stops[1].Pos.LP != PctLP(80) || bottom.Stops[0].Color != gfx.White {
 		t.Errorf("left %+v bottom %+v", left, bottom)
 	}
-	// Stops win over the edges, whatever the order.
+	// The angle comes last, so --tw-mask-linear is the angle form, which
+	// takes the stops of mask-linear-from-20% (ADR-103).
 	s = style(t, "mask-linear-from-20% mask-t-from-50% mask-linear-45")
 	if g := s.Mask.Layers[0].Gradient; len(s.Mask.Layers) != 3 || g.Angle != 45 || g.Stops[0].Pos.LP != PctLP(20) {
 		t.Errorf("linear stops: %+v", s.Mask.Layers)

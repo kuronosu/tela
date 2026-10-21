@@ -33,14 +33,23 @@ import (
 // mask-ellipse), size (mask-radial-closest-side..., mask-radial-[...])
 // and position (mask-radial-at-*); the conic one mask-conic-<angle> and
 // mask-conic-from/to-*. A stop's color defaults to black (from) and
-// transparent (to), its position to 0% and 100%. Where two classes set
-// the same variable, the one Tailwind emits later wins, whatever their
-// order in the class string (edges < mask-linear-<angle> <
-// mask-linear-from/to; mask-radial-[size] < mask-radial-from/to;
-// mask-conic-<angle> < mask-conic-from/to). As in a browser, a family
-// whose variable is invalid (an angle or size without stops, a circle
-// with two radii, a length on a conic stop) makes the whole mask-image
-// invalid at computed-value time: the element is not masked at all.
+// transparent (to), its position to 0% and 100%.
+//
+// Where two classes set the same variable, the one that comes last in
+// the element's class order wins, as with every other Tela class
+// (ARCHITECTURE section 10, ADR-103), not the one Tailwind emits later
+// in its stylesheet. Each family variable (--tw-mask-linear and the
+// others) takes the form of its last setter: the four edges, an angle
+// (linear-gradient(var(--tw-mask-linear-stops, <angle>))) or the stops
+// (linear-gradient(var(--tw-mask-linear-stops))); the stops variable is
+// the same whichever from/to class sets it, so an angle form is valid
+// when any from/to class of the family is present, anywhere in the
+// class string. As in a browser, a family whose variable is invalid (an
+// angle or size without stops, a circle with two radii, a length on a
+// conic stop) makes the whole mask-image invalid at computed-value time:
+// the element is not masked at all. An explicit mask-add, -subtract,
+// -intersect or -exclude still wins over the intersect the gradient
+// classes set, whatever the order (ADR-098).
 
 // maskScratch is the mask state of one style computation.
 type maskScratch struct {
@@ -60,14 +69,19 @@ type maskScratch struct {
 	compOp   MaskComposite
 	edgesSet [4]bool // top, right, bottom, left
 	edges    [4]maskStops
-	// linMode: 0 unset, 1 the four edges, 2 an angle without stops, 3
-	// stops (with the angle).
-	linMode   uint8
+	// linForm is the form of --tw-mask-linear its last setter gave it:
+	// 0 unset, 1 the four edges, 2 an angle (valid with stops), 3 the
+	// stops. linStops reports a mask-linear-from/to class (which sets
+	// --tw-mask-linear-stops).
+	linForm   uint8
+	linStops  bool
 	lin       maskStops
 	linAngle  float32
 	linCorner Corner // a corner direction from mask-linear-[to_...]
-	// radMode: 0 unset, 1 a size without stops, 2 stops.
-	radMode   uint8
+	// radForm: 0 unset, 1 a size (valid with stops), 2 the stops;
+	// radStops reports a mask-radial-from/to class.
+	radForm   uint8
+	radStops  bool
 	rad       maskStops
 	radShape  RadialShape
 	radSize   RadialSize
@@ -77,8 +91,10 @@ type maskScratch struct {
 	radX      LP
 	radY      LP
 	radPosSet bool
-	// conMode: 0 unset, 1 an angle without stops, 2 stops.
-	conMode  uint8
+	// conForm: 0 unset, 1 an angle (valid with stops), 2 the stops;
+	// conStops reports a mask-conic-from/to class.
+	conForm  uint8
+	conStops bool
 	con      maskStops
 	conAngle float32
 }
@@ -160,7 +176,7 @@ func registerMasks(r *registry) {
 					m.edgesSet[i] = true
 					f(&m.edges[i])
 				}
-				m.linMode = max(m.linMode, 1)
+				m.linForm = 1
 			}), maskStopValues)
 		}
 	}
@@ -202,7 +218,7 @@ func registerMasks(r *registry) {
 			m := &e.sc.mask
 			m.gradients()
 			m.linAngle, m.linCorner = angle, corner
-			m.linMode = max(m.linMode, 2)
+			m.linForm = 2
 		}), nil
 	}, func(*Theme) []string { return []string{"0", "45", "90", "135", "180", "225", "270", "315"} })
 	for _, end := range []string{"from", "to"} {
@@ -210,7 +226,7 @@ func registerMasks(r *registry) {
 			m := &e.sc.mask
 			m.gradients()
 			f(&m.lin)
-			m.linMode = 3
+			m.linForm, m.linStops = 3, true
 		}), maskStopValues)
 	}
 	// Radial.
@@ -241,7 +257,7 @@ func registerMasks(r *registry) {
 			m := &e.sc.mask
 			m.gradients()
 			m.radSize, m.radRadius, m.radNVals, m.radPctR = size, radius, n, pct
-			m.radMode = max(m.radMode, 1)
+			m.radForm = 1
 		}), nil
 	}, nil)
 	sizes := map[string]RadialSize{"closest-side": SizeClosestSide, "closest-corner": SizeClosestCorner,
@@ -281,7 +297,7 @@ func registerMasks(r *registry) {
 			m := &e.sc.mask
 			m.gradients()
 			f(&m.rad)
-			m.radMode = 2
+			m.radForm, m.radStops = 2, true
 		}), maskStopValues)
 	}
 	// Conic.
@@ -310,7 +326,7 @@ func registerMasks(r *registry) {
 			m := &e.sc.mask
 			m.gradients()
 			m.conAngle = angle
-			m.conMode = max(m.conMode, 1)
+			m.conForm = 1
 		}), nil
 	}, func(*Theme) []string { return []string{"0", "45", "90", "135", "180", "225", "270", "315"} })
 	for _, end := range []string{"from", "to"} {
@@ -318,7 +334,7 @@ func registerMasks(r *registry) {
 			m := &e.sc.mask
 			m.gradients()
 			f(&m.con)
-			m.conMode = 2
+			m.conForm, m.conStops = 2, true
 		}), maskStopValues)
 	}
 }
@@ -538,7 +554,7 @@ func (s *maskStops) stops(cur gfx.Color) []ColorStop {
 // ones. ok is false when one of them is invalid.
 func (m *maskScratch) gradientLayers(cur gfx.Color) (layers []BackgroundLayer, ok bool) {
 	layer := func(g *Gradient) BackgroundLayer { return BackgroundLayer{Gradient: g} }
-	switch m.linMode {
+	switch m.linForm {
 	case 0:
 		layers = append(layers, layer(opaqueMask()))
 	case 1:
@@ -553,20 +569,22 @@ func (m *maskScratch) gradientLayers(cur gfx.Color) (layers []BackgroundLayer, o
 			g.Stops = m.edges[i].stops(cur)
 			layers = append(layers, layer(&g))
 		}
-	case 2:
-		return nil, false // linear-gradient(<angle>): no stops
-	case 3:
+	case 2, 3:
+		if !m.linStops {
+			return nil, false // linear-gradient(<angle>): no stops
+		}
 		g := newGradient(GradientLinear)
 		g.Angle, g.Corner, g.Interp = m.linAngle, m.linCorner, gfx.InterpSRGB
 		g.Stops = m.lin.stops(cur)
 		layers = append(layers, layer(&g))
 	}
-	switch m.radMode {
+	switch m.radForm {
 	case 0:
 		layers = append(layers, layer(opaqueMask()))
-	case 1:
-		return nil, false // radial-gradient(<size>): no stops
-	case 2:
+	case 1, 2:
+		if !m.radStops {
+			return nil, false // radial-gradient(<size>): no stops
+		}
 		g := newGradient(GradientRadial)
 		g.Interp = gfx.InterpSRGB
 		g.Shape, g.Size, g.Radius = m.radShape, m.radSize, m.radRadius
@@ -584,12 +602,13 @@ func (m *maskScratch) gradientLayers(cur gfx.Color) (layers []BackgroundLayer, o
 		g.Stops = m.rad.stops(cur)
 		layers = append(layers, layer(&g))
 	}
-	switch m.conMode {
+	switch m.conForm {
 	case 0:
 		layers = append(layers, layer(opaqueMask()))
-	case 1:
-		return nil, false
-	case 2:
+	case 1, 2:
+		if !m.conStops {
+			return nil, false // conic-gradient(<angle>): no stops
+		}
 		if m.con.lengthPos {
 			return nil, false // conic stops are angles or percentages
 		}
