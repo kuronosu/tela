@@ -4,6 +4,7 @@
 
 - [Getting Started](Getting-Started)
 - [Styling](Styling)
+- [Theming](Theming)
 - [Hooks](Hooks)
 - [Events](Events)
 - [Elements and Props](Elements-and-Props)

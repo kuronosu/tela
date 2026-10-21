@@ -28,7 +28,9 @@ to-fuchsia-600`), typography, block, flex and grid layout, positioning
 overflow, transforms, effects (filters, `mix-blend-*`,
 `[clip-path:…]`, see [Effects and background images](#effects-and-background-images)), background images, transitions (`transition`, `duration-*`, `ease-*`, `delay-*`, also with `hover:` and `dark:`), the `animate-spin`, `animate-ping`, `animate-pulse` and `animate-bounce` classes, and arbitrary values (`w-[calc(50%-8px)]`,
 `bg-[#1e1e2e]`). The vocabulary is generated from Tailwind v4's theme; the v3
-aliases that mean the same thing are accepted (`bg-gradient-to-br`). Custom
+aliases that mean the same thing are accepted (`bg-gradient-to-br`). The
+theme's semantic colors (`bg-primary`, `text-muted-foreground`) and the app's
+class aliases are described in [Theming](Theming). Custom
 keyframes are not implemented
 yet; check the [roadmap](https://github.com/kuronosu/tela/blob/main/docs/ROADMAP.md)
 before relying on them.
@@ -230,8 +232,12 @@ stacking contexts and z-index of the component that renders them.
 unless the app chooses one with `ColorScheme` on the [`tela.App`](https://pkg.go.dev/github.com/kuronosu/tela#App)
 (`tela.Light`, `tela.Dark`; the zero value `tela.System` follows the system)
 or switches at run time with [`tela.SetColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#SetColorScheme)
-(safe from any goroutine). Write both looks with a class pair; the `dark:`
-class overrides the plain one when dark mode is on:
+(safe from any goroutine). The theme's semantic colors follow the scheme
+by themselves (`bg-card text-card-foreground border-border`, shadcn/ui's
+names), and [`h.Scheme`](https://pkg.go.dev/github.com/kuronosu/tela/h#Scheme)
+gives part of the window a scheme of its own; see [Theming](Theming). With
+palette colors, write both looks with a class pair; the `dark:` class
+overrides the plain one when dark mode is on:
 
 ```go
 func Panel() tela.Node {

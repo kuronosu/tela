@@ -221,6 +221,7 @@ const (
 	hookUpdateEffect  // UseUpdateEffect (effects.go)
 	hookInterval      // UseInterval (interval.go)
 	hookGo            // UseGo (effects.go)
+	hookTheme         // UseTheme (theme.go)
 )
 
 var hookNames = [...]string{
@@ -249,6 +250,7 @@ var hookNames = [...]string{
 	hookUpdateEffect:  "UseUpdateEffect",
 	hookInterval:      "UseInterval",
 	hookGo:            "UseGo",
+	hookTheme:         "UseTheme",
 }
 
 func (k hookKind) String() string { return hookNames[k] }

@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseId`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseId`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -47,6 +47,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Prop`](#type-prop)
   - [`type Rect`](#type-rect): [`Bottom`](#func-rect-bottom) · [`Contains`](#func-rect-contains) · [`Right`](#func-rect-right)
   - [`type Ref`](#type-ref): [`UseRef`](#func-useref)
+  - [`type SchemeColor`](#type-schemecolor)
   - [`type ScrollAlign`](#type-scrollalign): [`String`](#func-scrollalign-string)
   - [`type ScrollEvent`](#type-scrollevent): [`DefaultPrevented`](#func-scrollevent-defaultprevented) · [`PreventDefault`](#func-scrollevent-preventdefault) · [`StopPropagation`](#func-scrollevent-stoppropagation)
   - [`type SelectEvent`](#type-selectevent): [`DefaultPrevented`](#func-selectevent-defaultprevented) · [`PreventDefault`](#func-selectevent-preventdefault) · [`StopPropagation`](#func-selectevent-stoppropagation)
@@ -55,6 +56,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Size`](#type-size)
   - [`type StyleProp`](#type-styleprop): [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`BoxShadow`](#func-boxshadow) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Left`](#func-left) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Scale`](#func-scale) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`ZIndex`](#func-zindex) · [`IsZero`](#func-styleprop-iszero) · [`Phase`](#func-styleprop-phase)
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
+  - [`type Theme`](#type-theme): [`DefaultTheme`](#func-defaulttheme)
+  - [`type ThemeValues`](#type-themevalues): [`UseTheme`](#func-usetheme) · [`Color`](#func-themevalues-color) · [`FontMono`](#func-themevalues-fontmono) · [`FontSans`](#func-themevalues-fontsans) · [`Lookup`](#func-themevalues-lookup) · [`Radius`](#func-themevalues-radius) · [`Scheme`](#func-themevalues-scheme) · [`Tokens`](#func-themevalues-tokens)
   - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UseScroll`](#func-usescroll) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
 
@@ -433,6 +436,14 @@ fmt.Println(app.AriaSnapshot())
 // Output:
 // - button "Light mode"
 ```
+
+### func SetTheme
+
+```go
+func SetTheme(t Theme)
+```
+
+SetTheme replaces the theme of the running app: classes are compiled again against it (with the app's ClassAliases), every element is styled again and the components that call [`UseTheme`](#func-usetheme) build again. Like [`SetColorScheme`](#func-setcolorscheme) it is safe from any goroutine, applies on the UI thread before the next frame, goes to the app that receives posted functions, and called before [`Run`](#func-run) applies when the window opens (it wins over [`App`](#type-app).Theme). It panics for a token name classes cannot use.
 
 ### func UseContext
 
@@ -1157,6 +1168,29 @@ type App struct {
     // value, System, follows it. SetColorScheme changes it while the app
     // runs.
     ColorScheme ColorScheme
+    // Theme holds the color tokens (bg-primary, text-muted-foreground),
+    // the base radius and the fonts of the app; nil means DefaultTheme,
+    // so the shadcn/ui tokens always resolve. SetTheme changes it while
+    // the app runs. See [Theme].
+    Theme *Theme
+    // ClassAliases are class names that stand for class strings, for the
+    // combinations an app repeats:
+    //
+    //	ClassAliases: map[string]string{
+    //	    "text-muted": "text-sm text-muted-foreground",
+    //	    "card-title": "text-lg font-semibold dark:text-white",
+    //	}
+    //
+    // An alias expands where it appears, so later classes still win over
+    // its classes and its classes over earlier ones. Its variants apply
+    // to every class of the expansion: "hover:card-title" is "hover:text-lg
+    // hover:font-semibold hover:dark:text-white". An alias may use other
+    // aliases; a cycle is reported like an unknown class. An alias wins
+    // over a class of the same name ("text-muted" is also the muted token
+    // as a text color). A key is one class name without variants, spaces
+    // or brackets; Run panics otherwise. Aliases are also suggested for
+    // misspelled classes.
+    ClassAliases map[string]string
     // Dev turns dev mode on or off. Dev mode reports the mistakes that
     // compile: unknown classes are printed on standard error; unknown
     // roles, input types and easings panic with the closest valid name;
@@ -1736,7 +1770,7 @@ const (
 func UseColorScheme() ColorScheme
 ```
 
-UseColorScheme returns the effective color scheme, [`Light`](#type-colorscheme) or [`Dark`](#type-colorscheme): the one the app set ([`App`](#type-app).ColorScheme, [`SetColorScheme`](#func-setcolorscheme)) or, with [`System`](#type-colorscheme), the system's preference. The component builds again when it changes, like with a state hook. It is a hook: call it at the top level of a component.
+UseColorScheme returns the color scheme at the component's position, [`Light`](#type-colorscheme) or [`Dark`](#type-colorscheme): the one the nearest element above it with an h.Scheme prop gives, else the app's, the one the app set ([`App`](#type-app).ColorScheme, [`SetColorScheme`](#func-setcolorscheme)) or, with [`System`](#type-colorscheme), the system's preference. The component builds again when it changes, like with a state hook. It is a hook: call it at the top level of a component.
 
 ```go
 func Logo() tela.Node {
@@ -3105,6 +3139,24 @@ renders := tela.UseRef(0)
 renders.Current++
 ```
 
+### type SchemeColor
+
+```go
+type SchemeColor = core.SchemeColor
+```
+
+SchemeColor is the value of a theme color in the light and the dark color scheme.
+
+```go
+tela.SchemeColor{Light: tela.Hex("#fafafa"), Dark: tela.Hex("#0a0a0a")}
+```
+
+`SchemeColor` is an alias of `core.SchemeColor`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type SchemeColor = style.SchemeColor
+```
+
 ### type ScrollAlign
 
 ```go
@@ -3785,6 +3837,132 @@ func (e SubmitEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling (see MouseEvent).
+
+### type Theme
+
+```go
+type Theme struct {
+    // Colors maps token names to their values in the light and the dark
+    // scheme.
+    Colors map[string]SchemeColor
+    // Radius is the base radius in logical pixels, shadcn/ui's --radius:
+    // rounded-lg is Radius, rounded-sm 0.6 x, rounded-md 0.8 x,
+    // rounded-xl 1.4 x, rounded-2xl 1.8 x, rounded-3xl 2.2 x and
+    // rounded-4xl 2.6 x (shadcn/ui v4's theme). 0 keeps Tailwind's radius
+    // scale, which DefaultTheme does so that existing pages do not change;
+    // set 10 for shadcn/ui's look.
+    Radius float32
+    // FontSans and FontMono are font family names for font-sans (also
+    // the default text font) and font-mono (code, kbd, pre, samp); the
+    // embedded Inter and JetBrains Mono stay as fallbacks. "" keeps the
+    // defaults.
+    FontSans, FontMono string
+}
+```
+
+Theme holds an app's design tokens: semantic colors with a light and a dark value, the base radius and the font families. Classes name the colors like palette colors, with every color utility, opacity modifier, variant and transition: bg-primary, text-muted-foreground, border-border, ring-ring/50, hover:bg-primary/90, from-chart-1. A token takes the value of the color scheme of the element that uses it ([`App`](#type-app).ColorScheme, [`SetColorScheme`](#func-setcolorscheme), or the Scheme prop of an ancestor, h.Scheme), so one class serves both schemes, without dark: pairs.
+
+The token names are shadcn/ui's (v4): background, foreground, card, card-foreground, popover, popover-foreground, primary, primary-foreground, secondary, secondary-foreground, muted, muted-foreground, accent, accent-foreground, destructive, border, input, ring and chart-1 to chart-5. [`DefaultTheme`](#func-defaulttheme) holds shadcn/ui's neutral values; start from it and change what you need:
+
+```go
+theme := tela.DefaultTheme()
+theme.Colors["primary"] = tela.SchemeColor{Light: tela.OKLCH(0.55, 0.2, 264), Dark: tela.OKLCH(0.7, 0.16, 264)}
+theme.Colors["brand"] = tela.SchemeColor{Light: tela.Hex("#7c3aed"), Dark: tela.Hex("#a78bfa")} // bg-brand
+theme.Radius = 10 // shadcn/ui's 0.625rem
+tela.Main(tela.App{Title: "Notes", Root: Notes, Theme: &theme, RootClass: "bg-background text-foreground"})
+```
+
+A token missing from Colors keeps its value in DefaultTheme, so the shadcn/ui tokens always resolve. A token name is lowercase letters, digits and dashes, and cannot be a palette color ("red-500", "white") or transparent, current or inherit; [`Run`](#func-run) panics otherwise. Tokens cannot be used inside arbitrary values (bg-\[linear-gradient(...)\]): use the utilities (from-primary, shadow-primary).
+
+#### func DefaultTheme
+
+```go
+func DefaultTheme() Theme
+```
+
+DefaultTheme returns the default theme: shadcn/ui's neutral colors (v4, converted from OKLCH to extended sRGB like the Tailwind palette), Tailwind's radius scale and the embedded fonts. It is the theme of an [`App`](#type-app) whose Theme is nil. Every call returns a new map.
+
+### type ThemeValues
+
+```go
+type ThemeValues struct {
+    // contains filtered or unexported fields
+}
+```
+
+ThemeValues are the theme's values at a component's position, from [`UseTheme`](#func-usetheme): the colors resolved for the color scheme there. Use them where classes cannot go: canvases, images tinted in Go, computed styles.
+
+#### func UseTheme
+
+```go
+func UseTheme() ThemeValues
+```
+
+UseTheme returns the theme's values for the color scheme at the component's position: the Scheme prop of the nearest element above it that has one (h.Scheme), else the app's scheme. The component builds again when that scheme or the theme ([`SetTheme`](#func-settheme)) changes. It is a hook: call it at the top level of a component.
+
+```go
+func Spark() tela.Node {
+    th := tela.UseTheme()
+    line := th.Color("chart-1")
+    return Div(Style(tela.Bg(th.Color("muted"))), ...)
+}
+```
+
+#### func (ThemeValues) Color
+
+```go
+func (t ThemeValues) Color(name string) Color
+```
+
+Color returns the value of a color token ("primary") or of a palette color ("red-500") in the scheme of the values. An unknown name is transparent; in dev mode it panics with the closest token name.
+
+#### func (ThemeValues) FontMono
+
+```go
+func (t ThemeValues) FontMono() string
+```
+
+FontMono returns the family of font-mono: the theme's FontMono, or the embedded "JetBrains Mono".
+
+#### func (ThemeValues) FontSans
+
+```go
+func (t ThemeValues) FontSans() string
+```
+
+FontSans returns the family of font-sans: the theme's FontSans, or the embedded "Inter".
+
+#### func (ThemeValues) Lookup
+
+```go
+func (t ThemeValues) Lookup(name string) (Color, bool)
+```
+
+Lookup returns the value of a color token or palette color, and whether the theme has it.
+
+#### func (ThemeValues) Radius
+
+```go
+func (t ThemeValues) Radius() float32
+```
+
+Radius returns the radius of rounded-lg in logical pixels: the theme's Radius, or Tailwind's 8 when the theme keeps Tailwind's scale.
+
+#### func (ThemeValues) Scheme
+
+```go
+func (t ThemeValues) Scheme() ColorScheme
+```
+
+Scheme returns the color scheme of the values, [`Light`](#type-colorscheme) or [`Dark`](#type-colorscheme).
+
+#### func (ThemeValues) Tokens
+
+```go
+func (t ThemeValues) Tokens() []string
+```
+
+Tokens returns the names of the theme's color tokens, sorted.
 
 ### type Value
 

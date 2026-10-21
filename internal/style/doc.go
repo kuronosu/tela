@@ -75,6 +75,13 @@
 // namespace in sorted order; the class parser uses it to expand the
 // vocabulary behind "did you mean" suggestions.
 //
+// Semantic color tokens (Theme.Tokens, shadcn/ui's neutral theme by
+// default) are named by classes like palette colors but stay symbolic in
+// the compiled rules: Compute resolves them for the element's color
+// scheme, Input.Scheme or the inherited ComputedStyle.Scheme, else
+// Context.Dark (tokens.go, ADR-089). NewParserAliases adds class aliases,
+// expanded where they appear.
+//
 // COVERAGE.md lists which Tailwind utilities are supported, partially
 // supported or not supported, and what to use instead.
 package style

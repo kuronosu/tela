@@ -11,6 +11,11 @@ import (
 // stop, a shadow color): a theme color name, or a CSS color.
 func (c *pctx) colorValue(tok string) (colorSpec, bool, error) {
 	if spec, ok := themeColor(c.th, tok); ok {
+		if spec.token != "" {
+			// An arbitrary value is resolved once, when it is parsed; a
+			// token depends on the element's color scheme.
+			return colorSpec{}, true, fmt.Errorf("the theme token %q cannot be used inside an arbitrary value; use a color utility (from-%s, shadow-%s) or a literal color", tok, tok, tok)
+		}
 		return spec, true, nil
 	}
 	if !looksLikeColor(tok) {

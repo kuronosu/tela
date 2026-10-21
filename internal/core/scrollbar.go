@@ -446,7 +446,7 @@ func (p *painter) drawBars(bx *Box) {
 	if s.bars.overlay && s.bars.alpha <= 0 {
 		return
 	}
-	dark := p.t.cx.Dark
+	dark := bx.pcs.IsDark(&p.t.cx) // the box's scheme (a Scheme prop, else the app's)
 	// The bars stay inside the rounded padding box.
 	rounded := !g.padding.IsRect()
 	if rounded {

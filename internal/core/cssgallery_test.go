@@ -46,6 +46,8 @@ type cssGallery struct {
 	// fontCSS replaces the page's @theme font and @font-face rules
 	// (cssGalleryFonts with Inter as the sans font when empty).
 	fontCSS string
+	// theme is the tree's theme (nil: the default).
+	theme *Theme
 }
 
 // cssRow is one row of a gallery: height logical pixels tall, its
@@ -212,7 +214,7 @@ func (g *cssGallery) regenerate(t *testing.T) {
 func (g *cssGallery) render(t *testing.T, scale float32) (*image.RGBA, [][]gfx.Rect) {
 	t.Helper()
 	var logs []string
-	cfg := Config{Fonts: testFonts, RootClass: "bg-white", IDPrefix: "r-", Log: func(m string) { logs = append(logs, m) }}
+	cfg := Config{Fonts: testFonts, RootClass: "bg-white", IDPrefix: "r-", Theme: g.theme, Log: func(m string) { logs = append(logs, m) }}
 	w, h := g.size()
 	tr := NewTree(cfg)
 	tr.SetViewport(gfx.Size{W: w, H: h})

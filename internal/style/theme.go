@@ -103,7 +103,8 @@ type Transition struct {
 // deprecates these but still honors them, and so does Tela.
 //
 // The colors "transparent" and "current" are not in Colors; the class
-// parser handles them.
+// parser handles them. The default theme also has shadcn/ui's semantic
+// color tokens (Tokens), which classes name like palette colors.
 type Theme struct {
 	// RootFontSize is the pixel size of 1rem.
 	RootFontSize float32
@@ -177,6 +178,12 @@ type Theme struct {
 	DefaultFont     string
 	DefaultMonoFont string
 
+	// Tokens are the semantic color tokens ("primary",
+	// "muted-foreground"), with a light and a dark value each. Classes
+	// name them like palette colors; they resolve for the element's color
+	// scheme when its style is computed (tokens.go).
+	Tokens map[string]SchemeColor
+
 	// Animate maps the animate-* names to their CSS animation shorthand
 	// ("spin" is "spin 1s linear infinite"). The strings are kept raw;
 	// animation support (phase 6) parses them.
@@ -187,6 +194,7 @@ type Theme struct {
 // independent copy: callers may modify its maps and slices freely.
 func DefaultTheme() *Theme {
 	t := newDefaultTheme()
+	t.Tokens = defaultTokens()
 	return &t
 }
 
@@ -211,6 +219,7 @@ func (t *Theme) Clone() *Theme {
 	c.Ease = maps.Clone(t.Ease)
 	c.Fonts = cloneSliceMap(t.Fonts)
 	c.Animate = maps.Clone(t.Animate)
+	c.Tokens = cloneTokens(t.Tokens)
 	return &c
 }
 

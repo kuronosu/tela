@@ -2,6 +2,7 @@ package telatest
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 	"time"
@@ -34,6 +35,8 @@ type config struct {
 	debug         []string
 	debugClock    func() time.Duration
 	noSettle      bool
+	theme         *tela.Theme
+	aliases       map[string]string
 }
 
 func newConfig(opts []Option) config {
@@ -86,6 +89,8 @@ func (c config) coreConfig() core.Config {
 		Dev:               c.devMode(),
 		ClassicScrollbars: c.classic,
 		InstantScroll:     c.instant,
+		Theme:             (*core.Theme)(c.theme),
+		ClassAliases:      c.aliases,
 	}
 }
 
@@ -223,4 +228,20 @@ func Debug(flags ...string) Option {
 // scripted clock.
 func DebugClock(now func() time.Duration) Option {
 	return func(c *config) { c.debugClock = now }
+}
+
+// Theme sets the app's theme, like tela.App.Theme: the color tokens
+// (bg-primary, text-muted-foreground), the base radius and the fonts.
+// Without it the app has tela.DefaultTheme. tela.SetTheme changes it
+// while the app runs.
+func Theme(t tela.Theme) Option {
+	t.Colors = maps.Clone(t.Colors) // the caller may reuse its map
+	return func(c *config) { c.theme = &t }
+}
+
+// ClassAliases sets the app's class aliases, like tela.App.ClassAliases:
+// class names that expand to class strings where they appear.
+func ClassAliases(aliases map[string]string) Option {
+	aliases = maps.Clone(aliases)
+	return func(c *config) { c.aliases = aliases }
 }

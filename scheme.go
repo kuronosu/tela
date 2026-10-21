@@ -19,11 +19,12 @@ const (
 	Dark ColorScheme = core.ColorSchemeDark
 )
 
-// UseColorScheme returns the effective color scheme, [Light] or [Dark]:
-// the one the app set ([App].ColorScheme, [SetColorScheme]) or, with
-// [System], the system's preference. The component builds again when it
-// changes, like with a state hook. It is a hook: call it at the top level
-// of a component.
+// UseColorScheme returns the color scheme at the component's position,
+// [Light] or [Dark]: the one the nearest element above it with an
+// h.Scheme prop gives, else the app's, the one the app set
+// ([App].ColorScheme, [SetColorScheme]) or, with [System], the system's
+// preference. The component builds again when it changes, like with a
+// state hook. It is a hook: call it at the top level of a component.
 //
 //	func Logo() tela.Node {
 //	    src := lightLogo

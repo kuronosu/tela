@@ -25,9 +25,16 @@ type Config struct {
 	// Fonts shapes the text. Nil means text.NewDefaultCollection() (the
 	// embedded fonts only; Run also enables the system fonts).
 	Fonts *text.Collection
-	// Parser compiles the classes, bound to a theme. Nil means
-	// style.DefaultParser().
+	// Parser compiles the classes, bound to a theme. Nil means the
+	// parser of Theme and ClassAliases (NewParser), style.DefaultParser()
+	// when both are empty.
 	Parser *style.Parser
+	// Theme holds the color tokens, radius and fonts (theme.go); nil is
+	// DefaultTheme.
+	Theme *Theme
+	// ClassAliases are class names that expand to class strings
+	// (style.NewParserAliases).
+	ClassAliases map[string]string
 	// RootClass are classes for the root box, which fills the window. Its
 	// background is the window's; without one the window is white, the
 	// browser canvas default. The root is the viewport: it scrolls on
@@ -250,7 +257,7 @@ func NewTree(cfg Config) *Tree {
 		t.fonts = text.NewDefaultCollection()
 	}
 	if t.parser == nil {
-		t.parser = style.DefaultParser()
+		t.parser = themeParser(&cfg)
 	}
 	if cfg.RootClass != "" {
 		t.rootClasses = []string{cfg.RootClass}

@@ -52,6 +52,29 @@ type App struct {
 	// value, System, follows it. SetColorScheme changes it while the app
 	// runs.
 	ColorScheme ColorScheme
+	// Theme holds the color tokens (bg-primary, text-muted-foreground),
+	// the base radius and the fonts of the app; nil means DefaultTheme,
+	// so the shadcn/ui tokens always resolve. SetTheme changes it while
+	// the app runs. See [Theme].
+	Theme *Theme
+	// ClassAliases are class names that stand for class strings, for the
+	// combinations an app repeats:
+	//
+	//	ClassAliases: map[string]string{
+	//	    "text-muted": "text-sm text-muted-foreground",
+	//	    "card-title": "text-lg font-semibold dark:text-white",
+	//	}
+	//
+	// An alias expands where it appears, so later classes still win over
+	// its classes and its classes over earlier ones. Its variants apply
+	// to every class of the expansion: "hover:card-title" is "hover:text-lg
+	// hover:font-semibold hover:dark:text-white". An alias may use other
+	// aliases; a cycle is reported like an unknown class. An alias wins
+	// over a class of the same name ("text-muted" is also the muted token
+	// as a text color). A key is one class name without variants, spaces
+	// or brackets; Run panics otherwise. Aliases are also suggested for
+	// misspelled classes.
+	ClassAliases map[string]string
 	// Dev turns dev mode on or off. Dev mode reports the mistakes that
 	// compile: unknown classes are printed on standard error; unknown
 	// roles, input types and easings panic with the closest valid name;
@@ -118,6 +141,8 @@ func (app App) options() core.Options {
 			ClassicScrollbars: app.ClassicScrollbars,
 			InstantScroll:     app.InstantScroll,
 			ColorScheme:       app.ColorScheme,
+			Theme:             (*core.Theme)(app.Theme),
+			ClassAliases:      app.ClassAliases,
 			Dev:               core.ResolveDev(app.Dev),
 		},
 		Title:  app.Title,

@@ -1,6 +1,10 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/kuronosu/tela/internal/style"
+)
 
 // The environment (ARCHITECTURE section 10, environment variants; ADR-077):
 // the color scheme and reduced motion.
@@ -14,7 +18,7 @@ import "fmt"
 // reduced motion. A change restyles every element and rebuilds the
 // components that read the environment with UseColorScheme or
 // UseReducedMotion (each reads a Value owned by the Tree, so only they
-// rebuild).
+// rebuild). A Scheme prop overrides the scheme for a subtree (theme.go).
 
 // ColorScheme is a color scheme: the app's choice, or the effective scheme
 // UseColorScheme returns (Light or Dark).
@@ -57,6 +61,8 @@ type envState struct {
 	// dark and reduced hold the effective values for the components
 	// that read them (owned by the root element; nil before Mount).
 	dark, reduced *Value[bool]
+	// theme holds the parser's theme for UseTheme (theme.go).
+	theme *Value[*style.Theme]
 }
 
 // effectiveDark reports whether the effective scheme is dark.
@@ -68,6 +74,7 @@ func (e *envState) effectiveDark() bool {
 func (t *Tree) initEnv() {
 	t.env.dark = newValue(t.root, t.env.effectiveDark())
 	t.env.reduced = newValue(t.root, t.env.sysReduced)
+	t.env.theme = newValue(t.root, t.parser.Theme())
 }
 
 // applyEnv brings the style context and the environment Values to the
@@ -133,12 +140,14 @@ func envSlot(kind hookKind) *Element {
 	return el
 }
 
-// UseColorScheme returns the effective color scheme (ColorSchemeLight or
-// ColorSchemeDark): the app's choice, or the system's preference. The
-// component builds again when it changes.
+// UseColorScheme returns the color scheme at the component's position
+// (ColorSchemeLight or ColorSchemeDark): the Scheme prop of its nearest
+// primitive ancestor that has one, else the effective scheme, the app's
+// choice or the system's preference (theme.go). The component builds
+// again when it changes.
 func UseColorScheme() ColorScheme {
-	el := envSlot(hookColorScheme)
-	if el.tree.env.dark.Get() {
+	el := schemeHookSlot(hookColorScheme)
+	if readScheme(el) {
 		return ColorSchemeDark
 	}
 	return ColorSchemeLight

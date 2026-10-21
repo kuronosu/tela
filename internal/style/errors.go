@@ -57,6 +57,22 @@ func (e *InvalidClassError) Error() string {
 	return msg
 }
 
+// AliasError reports a problem in the expansion of a class alias
+// (NewParserAliases): Alias is the alias written in the class string, Err
+// the error of the class of its expansion (an UnknownClassError,
+// UnsupportedClassError or InvalidClassError, which errors.As finds).
+type AliasError struct {
+	Alias string
+	Err   error
+}
+
+func (e *AliasError) Error() string {
+	return fmt.Sprintf("%v (in the class alias %q)", e.Err, e.Alias)
+}
+
+// Unwrap returns the error of the expanded class.
+func (e *AliasError) Unwrap() error { return e.Err }
+
 // ClassErrors holds every problem found in one class string. The known
 // classes of the string are still applied.
 type ClassErrors []error

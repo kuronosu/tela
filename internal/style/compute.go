@@ -41,6 +41,11 @@ type Input struct {
 	// the style the first transitions of an element that was not rendered
 	// before start from (CSS @starting-style).
 	Starting bool
+	// Scheme overrides the color scheme of the element and, through
+	// ComputedStyle.Scheme, of its descendants: the dark: variants and
+	// the theme tokens follow it instead of Context.Dark. SchemeInherit
+	// keeps the parent's.
+	Scheme Scheme
 }
 
 // env is the state of one computation, passed to every op.
@@ -54,6 +59,8 @@ type env struct {
 	// first pass has run, and the parent's before that.
 	fontSize       float32
 	parentFontSize float32
+	// dark is the element's color scheme, for the theme tokens.
+	dark bool
 }
 
 func (e *env) rootFont() float32 {
@@ -160,14 +167,18 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 	}
 	s := new(ComputedStyle)
 	initStyle(s, in.Parent, th)
+	if in.Scheme != SchemeInherit {
+		s.Scheme = in.Scheme
+	}
+	dark := s.IsDark(cx)
 	var sc scratch
-	e := env{s: s, sc: &sc, parent: in.Parent, theme: th, viewport: cx.Viewport}
+	e := env{s: s, sc: &sc, parent: in.Parent, theme: th, viewport: cx.Viewport, dark: dark}
 	e.parentFontSize = s.Text.FontSize
 	e.fontSize = s.Text.FontSize
 
 	vc := VariantContext{
 		ViewportWidth: cx.Viewport.W,
-		Dark:          cx.Dark,
+		Dark:          dark,
 		ReducedMotion: cx.ReducedMotion,
 		Starting:      in.Starting,
 		State:         in.State, Group: in.Group, Peer: in.Peer,
@@ -247,7 +258,7 @@ func computePseudo(cx *Context, th *Theme, s *ComputedStyle, classes []*Classes,
 	ps := new(ComputedStyle)
 	initStyle(ps, s, th)
 	var sc scratch
-	e := env{s: ps, sc: &sc, parent: s, theme: th, viewport: cx.Viewport}
+	e := env{s: ps, sc: &sc, parent: s, theme: th, viewport: cx.Viewport, dark: vc.Dark}
 	e.parentFontSize = ps.Text.FontSize
 	e.fontSize = ps.Text.FontSize
 	matched := false
@@ -326,6 +337,7 @@ func initStyle(s *ComputedStyle, parent *ComputedStyle, th *Theme) {
 		s.Cursor = parent.Cursor
 		s.PointerEvents = parent.PointerEvents
 		s.UserSelect = parent.UserSelect
+		s.Scheme = parent.Scheme
 		return
 	}
 	// The root text style (ADR-038): the theme's sans font at the root
@@ -348,6 +360,11 @@ func initStyle(s *ComputedStyle, parent *ComputedStyle, th *Theme) {
 // finalize combines the scratch state into the style.
 func (e *env) finalize() {
 	s, sc, th := e.s, e.sc, e.theme
+
+	// Theme tokens take their value for the element's color scheme.
+	for i := range sc.colors {
+		sc.colors[i] = sc.colors[i].bind(th, e.dark)
+	}
 
 	// Text color: currentColor in a text-color class keeps the inherited color.
 	if spec := sc.colors[slotText]; spec.set {

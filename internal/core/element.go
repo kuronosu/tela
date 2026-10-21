@@ -489,6 +489,10 @@ func (t *Tree) update(el *Element, n Node) {
 		if bx.fld != nil {
 			t.updateField(el, old)
 		}
+		if old.scheme != d.scheme {
+			t.markStyle(el)
+			t.markSchemeReaders(el) // theme.go
+		}
 		if !slices.Equal(old.classes, d.classes) {
 			bx.classesDirty = true
 			t.markStyle(el)

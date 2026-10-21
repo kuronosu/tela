@@ -16,7 +16,7 @@
 // To keep collisions with the importing package unlikely, h exports only
 // element constructors (Div, Span, Text, H1 to H6, P, Button, Img, Strong,
 // Em, Code, A, and the form elements Input, Textarea, Form and Label),
-// props (Class, Style, Key, Disabled, Src, Alt, Href, Id, the focus props
+// props (Class, Style, Key, Disabled, Scheme, Src, Alt, Href, Id, the focus props
 // TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the
 // field props Value, DefaultValue, Bind, BindValue, Type, Rows,
 // Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and

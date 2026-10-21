@@ -63,7 +63,7 @@ func (t *Tree) restyle(el *Element) {
 	}
 	in := style.Input{
 		Kind: bx.kind, Parent: parent, State: state, Group: group, Peer: peer,
-		Classes: bx.classes, Props: el.node.d.props,
+		Classes: bx.classes, Props: el.node.d.props, Scheme: styleScheme(el.node.d.scheme),
 	}
 	cs := style.Compute(&t.cx, in)
 	if el == t.root {
@@ -116,7 +116,9 @@ func (t *Tree) restyle(el *Element) {
 	if old.VerticalAlign != cs.VerticalAlign {
 		t.markBoxes(sp) // the inline box of an atomic inline
 	}
-	if inherited {
+	if inherited || old.Scheme != cs.Scheme {
+		// A new scheme override restyles the subtree (dark: variants and
+		// tokens), without laying out what only changes color.
 		t.restyleChildren(el)
 	}
 }

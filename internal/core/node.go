@@ -74,6 +74,9 @@ type desc struct {
 	// testID is the TestID prop (probe.go): a name for telatest to find
 	// the element by, not exposed anywhere else.
 	testID string
+	// scheme is the Scheme prop (theme.go): the color scheme of the
+	// element's subtree, ColorSchemeSystem for none.
+	scheme ColorScheme
 
 	// Primitives and fragments: the children as given. A zero Node is a
 	// hole: it renders nothing but keeps the positions of the siblings

@@ -58,6 +58,9 @@ type inode struct {
 	// noGeom leaves the element out of the geometry comparison (see the
 	// case).
 	noGeom bool
+	// dark gives the element the dark scheme: SchemeProp here, the
+	// class "dark" in the page (theme_gallery_test.go).
+	dark bool
 }
 
 func itext(s string) inode { return inode{text: s} }
@@ -79,6 +82,9 @@ func (n inode) node(id *int) Node {
 	if n.class != "" {
 		c = append(c, Class(n.class))
 	}
+	if n.dark {
+		c = append(c, SchemeProp(ColorSchemeDark))
+	}
 	for _, k := range n.kids {
 		c = append(c, k.node(id))
 	}
@@ -93,8 +99,11 @@ func (n inode) html(sb *strings.Builder, id *int) {
 	}
 	fmt.Fprintf(sb, "<%s id=\"e%d\"", n.tag, *id)
 	*id++
-	if n.class != "" {
-		fmt.Fprintf(sb, " class=\"%s\"", html.EscapeString(n.class))
+	if cls := n.class; cls != "" || n.dark {
+		if n.dark {
+			cls = strings.TrimSpace("dark " + cls)
+		}
+		fmt.Fprintf(sb, " class=\"%s\"", html.EscapeString(cls))
 	}
 	sb.WriteString(">")
 	for _, k := range n.kids {

@@ -740,6 +740,11 @@ type ComputedStyle struct {
 	// value of the element's own from one that follows its parent.
 	CurrentColors       TransitionProps
 	DecorationInherited bool
+	// Scheme is the color scheme override of the element (Input.Scheme)
+	// or, without one, of its nearest ancestor that has one: inherited.
+	// SchemeInherit follows Context.Dark. The dark: variants and the
+	// theme tokens use the scheme it gives (IsDark).
+	Scheme Scheme
 }
 
 // Resolved returns the style with the deferred props of phase applied. It

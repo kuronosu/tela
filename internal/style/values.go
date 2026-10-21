@@ -317,6 +317,7 @@ func parseAlphaModifier(m string) (float32, error) {
 // the vocabulary.
 func colorKeys(th *Theme) []string {
 	keys := th.Keys(NamespaceColor)
+	keys = append(keys, th.TokenNames()...)
 	return append(keys, "transparent", "current")
 }
 

@@ -90,6 +90,7 @@ func Avatar() tela.Node {
 | [`Style`](https://pkg.go.dev/github.com/kuronosu/tela/h#Style) | Adds typed style props from package `tela` |
 | [`Key`](https://pkg.go.dev/github.com/kuronosu/tela/h#Key) | Gives an element an identity among its siblings |
 | [`Disabled`](https://pkg.go.dev/github.com/kuronosu/tela/h#Disabled) | Disables an element and its subtree for the pointer and the focus |
+| [`Scheme`](https://pkg.go.dev/github.com/kuronosu/tela/h#Scheme) | Gives an element and its subtree their own color scheme (`tela.Light`, `tela.Dark`): see [Theming](Theming) |
 | [`Src`](https://pkg.go.dev/github.com/kuronosu/tela/h#Src), [`Alt`](https://pkg.go.dev/github.com/kuronosu/tela/h#Alt), [`Href`](https://pkg.go.dev/github.com/kuronosu/tela/h#Href) | Image source, its alternative text, a link's destination |
 | [`Id`](https://pkg.go.dev/github.com/kuronosu/tela/h#Id), [`For`](https://pkg.go.dev/github.com/kuronosu/tela/h#For), [`Name`](https://pkg.go.dev/github.com/kuronosu/tela/h#Name) | Identifier of an element, the field a label is for, name of a field in its form |
 | [`TabIndex`](https://pkg.go.dev/github.com/kuronosu/tela/h#TabIndex), [`AutoFocus`](https://pkg.go.dev/github.com/kuronosu/tela/h#AutoFocus), [`Ref`](https://pkg.go.dev/github.com/kuronosu/tela/h#Ref) | Focus order, focus on appearance, a handle on the element |

@@ -2,6 +2,8 @@ package style
 
 import (
 	"errors"
+	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -42,6 +44,9 @@ const DefaultCacheSize = 4096
 // is safe for concurrent use.
 type Parser struct {
 	th *Theme
+	// aliases are the class aliases (NewParserAliases): a class name that
+	// expands to a class string where it appears.
+	aliases map[string]string
 
 	mu       sync.RWMutex
 	cur, old map[string]*Classes
@@ -57,6 +62,46 @@ type Parser struct {
 func NewParser(th *Theme) *Parser {
 	return &Parser{th: th.Clone(), cur: map[string]*Classes{}, limit: DefaultCacheSize}
 }
+
+// NewParserAliases returns a parser for the theme that also expands class
+// aliases (ADR-089): a class whose name, after its variants, is a key of
+// aliases stands for the classes of its value, compiled in its place
+// with the alias's variants prepended to each of them. "hover:card-title"
+// with "card-title": "text-lg dark:text-white" is "hover:text-lg
+// hover:dark:text-white". An alias may name other aliases; a cycle is an
+// InvalidClassError of the class that enters it. Aliases win over
+// utilities of the same name. The map is copied. It returns an error for a
+// key that cannot be written as a class (see CheckAliases).
+func NewParserAliases(th *Theme, aliases map[string]string) (*Parser, error) {
+	if err := CheckAliases(aliases); err != nil {
+		return nil, err
+	}
+	p := NewParser(th)
+	if len(aliases) > 0 {
+		p.aliases = maps.Clone(aliases)
+	}
+	return p, nil
+}
+
+// CheckAliases reports alias names that a class can never match: empty
+// names and names with whitespace, a colon (a variant), brackets or a
+// leading "-" or "!".
+func CheckAliases(aliases map[string]string) error {
+	var bad []string
+	for _, k := range slices.Sorted(maps.Keys(aliases)) {
+		if k == "" || strings.ContainsAny(k, " \t\n\r:[]()") || k[0] == '-' || k[0] == '!' || strings.HasSuffix(k, "!") {
+			bad = append(bad, fmt.Sprintf("%q", k))
+		}
+	}
+	if len(bad) > 0 {
+		return fmt.Errorf("class aliases %s: an alias is one class name without variants, spaces or brackets, such as \"text-muted\"", strings.Join(bad, ", "))
+	}
+	return nil
+}
+
+// Aliases returns the parser's class aliases. The map must not be
+// modified.
+func (p *Parser) Aliases() map[string]string { return p.aliases }
 
 var (
 	defaultParserOnce sync.Once
@@ -126,7 +171,14 @@ func Compile(classes string) *Classes { return DefaultParser().Compile(classes) 
 // the "DEFAULT" keys (ADR-037). Arbitrary values, fractions and the
 // unbounded spacing scale are not enumerated beyond SpacingSuggestions.
 func (p *Parser) Vocabulary() []string {
-	p.vocabOnce.Do(func() { p.vocab = buildVocabulary(p.th) })
+	p.vocabOnce.Do(func() {
+		p.vocab = buildVocabulary(p.th)
+		if len(p.aliases) > 0 {
+			p.vocab = append(p.vocab, slices.Collect(maps.Keys(p.aliases))...)
+			slices.Sort(p.vocab)
+			p.vocab = slices.Compact(p.vocab)
+		}
+	})
 	return p.vocab
 }
 
@@ -145,24 +197,80 @@ type pctx struct {
 func (p *Parser) parse(src string) *Classes {
 	out := &Classes{Source: src}
 	var errs ClassErrors
-	for _, tok := range strings.Fields(src) {
-		rule, err := p.parseToken(tok)
+	p.parseList(out, &errs, strings.Fields(src), "", nil)
+	if len(errs) > 0 {
+		out.Err = errs
+	}
+	return out
+}
+
+// parseList compiles the classes toks into out, each with the variant
+// prefix (empty, or variants ending in ':') of the alias they come from;
+// stack holds the aliases being expanded, outermost first.
+func (p *Parser) parseList(out *Classes, errs *ClassErrors, toks []string, prefix string, stack []string) {
+	for _, tok := range toks {
+		full := prefix + tok
+		if name, variants, ok := p.alias(tok); ok {
+			if i := slices.Index(stack, name); i >= 0 {
+				cycle := append(slices.Clone(stack[i:]), name)
+				*errs = append(*errs, wrapAlias(stack, &InvalidClassError{Class: full,
+					Reason: "class aliases form a cycle: " + strings.Join(cycle, " → ")}))
+				continue
+			}
+			if err := p.checkVariants(full); err != nil {
+				*errs = append(*errs, wrapAlias(stack, err)) // once, not per expanded class
+				continue
+			}
+			p.parseList(out, errs, strings.Fields(p.aliases[name]), prefix+variants, append(stack, name))
+			continue
+		}
+		rule, err := p.parseToken(full)
 		if err != nil {
-			errs = append(errs, err)
+			*errs = append(*errs, wrapAlias(stack, err))
 			continue
 		}
 		out.Rules = append(out.Rules, rule...)
-		switch tok {
+		switch full {
 		case "group":
 			out.Group = true
 		case "peer":
 			out.Peer = true
 		}
 	}
-	if len(errs) > 0 {
-		out.Err = errs
+}
+
+// alias reports whether class tok names an alias: the name, and the
+// variants before it (with their trailing colon).
+func (p *Parser) alias(tok string) (name, variants string, ok bool) {
+	if len(p.aliases) == 0 {
+		return "", "", false
 	}
-	return out
+	parts := splitTop(tok, ':')
+	name = parts[len(parts)-1]
+	if _, ok := p.aliases[name]; !ok {
+		return "", "", false
+	}
+	return name, tok[:len(tok)-len(name)], true
+}
+
+// checkVariants reports the first invalid variant of class tok.
+func (p *Parser) checkVariants(tok string) error {
+	parts := splitTop(tok, ':')
+	for _, v := range parts[:len(parts)-1] {
+		if _, err := parseVariant(p.th, v); err != nil {
+			return withVariantPrefix(err, tok)
+		}
+	}
+	return nil
+}
+
+// wrapAlias gives an error found inside alias expansions the name of the
+// alias written in the class string (the outermost of stack).
+func wrapAlias(stack []string, err error) error {
+	if len(stack) == 0 {
+		return err
+	}
+	return &AliasError{Alias: stack[0], Err: err}
 }
 
 // parseToken compiles one class (with variants) into rules.

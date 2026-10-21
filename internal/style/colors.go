@@ -9,12 +9,31 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 )
 
-// colorSpec is a color as written in a class, before currentColor is known.
-// For a current spec, c.A is the opacity applied to the text color.
+// colorSpec is a color as written in a class, before currentColor and the
+// color scheme are known. For a current spec, c.A is the opacity applied
+// to the text color; for a token spec, the opacity applied to the token's
+// value (bind resolves it).
 type colorSpec struct {
 	c       gfx.Color
 	current bool
 	set     bool
+	token   string // a semantic token of the theme ("primary")
+}
+
+func tokenSpec(name string) colorSpec {
+	return colorSpec{c: gfx.Color{A: 1}, token: name, set: true}
+}
+
+// bind resolves a token spec for the color scheme (ADR-089): its value in
+// th, faded by the opacity modifier. Other specs are returned unchanged. A
+// token th does not have (a class compiled against another theme) is
+// transparent.
+func (s colorSpec) bind(th *Theme, dark bool) colorSpec {
+	if s.token == "" {
+		return s
+	}
+	c, _ := th.TokenColor(s.token, dark)
+	return colorSpec{c: c.MulAlpha(s.c.A), set: true}
 }
 
 func solidSpec(c gfx.Color) colorSpec { return colorSpec{c: c, set: true} }
@@ -32,7 +51,7 @@ func (s colorSpec) resolve(text gfx.Color) gfx.Color {
 }
 
 func (s colorSpec) withAlpha(a float32) colorSpec {
-	if s.current {
+	if s.current || s.token != "" {
 		s.c.A = float32(s.c.A * a)
 		return s
 	}
@@ -51,6 +70,9 @@ func themeColor(th *Theme, name string) (colorSpec, bool) {
 	}
 	if c, ok := th.Colors[name]; ok {
 		return solidSpec(c), true
+	}
+	if _, ok := th.Tokens[name]; ok {
+		return tokenSpec(name), true // resolved by Compute (tokens.go)
 	}
 	return colorSpec{}, false
 }
