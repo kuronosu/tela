@@ -29,6 +29,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - Under `telatest.NoSettle()`, `AriaSnapshot`, `Count`, `Bounds`, `Stats` and `Cursor` no longer run the clock for animations: they handle only the work due, like the events of an action. Expectations still poll, but their first try handles only the work due and the clock moves only between failed tries. The wait before an action still settles fully. Tests that relied on an expectation or a query to finish an animation under `NoSettle` call `app.Advance(d)` instead.
 - A single `nil` dependency list (`UseEffect(f, nil)`) panics in dev mode with the fix (`tela.Once`, `tela.UseMount` or `tela.UseOnce`); outside dev mode it keeps meaning "mount only". It was a warning in v0.7.0.
 
+### Fixed
+
+- `telatest` no longer cuts finite animations short on a slow or busy machine: whether the app goes quiet is decided in app time, so `Mount`, actions and `Golden` wait for transitions and springs to end however long their frames take, and only an app still requesting frames after the timeout of app time is reported as endless. Goldens could be captured mid-animation before.
+
 ### Breaking
 
 - Removed `h.Id`, `tela.UseId`, `tela.Key` and `tela.Code`, deprecated in v0.7.0: use `h.ID`, `tela.UseID`, `tela.KeyName` and `tela.KeyCode`.

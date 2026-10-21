@@ -286,22 +286,27 @@ const busyFrames = 3
 // (the clock advancing to each frame the window waits for) and animations
 // and flings finished.
 //
-// An app that never goes quiet (an animation that never ends, a goroutine
-// that sets state every few milliseconds) cannot be waited for, as in
-// Playwright: after the timeout, in app time or in real time, settle logs
-// it once and from then on runs only a few frames per call until a call
-// finds the app quiet again.
+// An app that never goes quiet cannot be waited for, as in Playwright.
+// That is decided in app time, so the machine's speed never changes it: a
+// finite animation runs to its end however long its frames take in real
+// time, and an app still requesting frames after the timeout of app time
+// (an animation that never ends, a goroutine that sets state all the
+// time) is given up on. Real time bounds only the rounds that do not move
+// the clock (a stall: work to deliver but no frame to wait for, such as a
+// goroutine that posts slow functions all the time). Either way settle
+// logs it once and from then on runs only a few frames per call until a
+// call finds the app quiet again.
 func (a *App) settle() {
 	a.tb.Helper()
 	a.mustBeOpen()
 	a.backend.Wake() // posted functions and state set from other goroutines
-	start, realStart := a.backend.Now(), time.Now()
+	start := a.backend.Now()
 	quietLimit := min(a.cfg.timeout, DefaultTimeout)
 	limit := quietLimit
 	if a.busy {
 		limit = busyFrames * a.backend.FrameInterval()
 	}
-	stalls := 0
+	var st stall
 	for {
 		a.deliver()
 		if !a.pendingWork() {
@@ -315,18 +320,22 @@ func (a *App) settle() {
 		}
 		if step == 0 {
 			// Dirty or pending without a frame to wait for: another
-			// round delivers it. A tree that stays dirty with nothing
-			// delivered would spin forever.
-			if stalls++; stalls > 100 {
-				a.fatalf("the app did not settle: the tree reports pending work but no frame is requested (is the window zero-sized?)")
+			// round delivers it, without moving the clock.
+			if st.tooLong(a, quietLimit) {
+				if !a.busy {
+					a.tb.Logf("telatest: the app kept handling work for %v of real time without a frame to run: a goroutine that "+
+						"posts functions or sets state all the time. Actions will not wait for it to go quiet; use App.Advance(d) to run a fixed time", quietLimit)
+				}
+				a.busy = true
+				break
 			}
 			a.backend.Wake()
 			continue
 		}
-		stalls = 0
-		if now+step-start > limit || (!a.busy && time.Since(realStart) > quietLimit) {
+		st = stall{}
+		if now+step-start > limit {
 			if !a.busy {
-				a.tb.Logf("telatest: the app was still requesting frames after %v: an endless animation, or a goroutine that "+
+				a.tb.Logf("telatest: the app was still requesting frames after %v of app time: an endless animation, or a goroutine that "+
 					"updates state all the time. Actions will not wait for it to go quiet; use App.Advance(d) to run a fixed time", quietLimit)
 			}
 			a.busy = true
@@ -336,6 +345,29 @@ func (a *App) settle() {
 		a.backend.Wake()
 	}
 	a.flushDev()
+}
+
+// stall counts the consecutive rounds of settle and flush that do not move
+// the clock, and when they began in real time.
+type stall struct {
+	rounds int
+	since  time.Time
+}
+
+// tooLong records a round that does not move the clock and reports
+// whether those rounds have lasted longer than limit in real time. A tree
+// that stays dirty with nothing to deliver would spin forever: the 101st
+// round in a row fails the test.
+func (s *stall) tooLong(a *App, limit time.Duration) bool {
+	a.tb.Helper()
+	now := time.Now()
+	if s.rounds == 0 {
+		s.since = now
+	}
+	if s.rounds++; s.rounds > 100 {
+		a.fatalf("the app did not settle: the tree reports pending work but no frame is requested (is the window zero-sized?)")
+	}
+	return now.Sub(s.since) > limit
 }
 
 // settleAfter settles the app after the events of an action (or at
@@ -358,9 +390,10 @@ func (a *App) flush() {
 	a.tb.Helper()
 	a.mustBeOpen()
 	a.backend.Wake()
-	start, realStart := a.backend.Now(), time.Now()
+	start := a.backend.Now()
 	limit := min(a.cfg.timeout, DefaultTimeout)
-	for stalls := 0; ; {
+	var st stall
+	for {
 		a.deliver()
 		if !a.backend.Pending() && !a.tree.Dirty() && !a.host.NeedsFrame() {
 			break
@@ -371,15 +404,15 @@ func (a *App) flush() {
 			step = next - now
 		}
 		if step == 0 {
-			if stalls++; stalls > 100 {
-				a.fatalf("the app did not settle: the tree reports pending work but no frame is requested (is the window zero-sized?)")
+			if st.tooLong(a, limit) {
+				break // a goroutine that posts slow functions all the time
 			}
 			a.backend.Wake()
 			continue
 		}
-		stalls = 0
-		if now+step-start > limit || time.Since(realStart) > limit {
-			break // a goroutine that sets state all the time
+		st = stall{}
+		if now+step-start > limit {
+			break // a goroutine that sets state all the time (app time, as settle)
 		}
 		a.backend.Advance(step)
 		a.backend.Wake()

@@ -208,9 +208,10 @@ func RootClass(classes string) Option { return func(c *config) { c.rootClass = c
 // Timeout sets how long actions and expectations wait for their condition
 // before they fail the test (default [DefaultTimeout]). It is wall-clock
 // time, as in Playwright, while the app's clock moves one frame at a time
-// during the wait; it also bounds how long a single action spends waiting
-// for the app to go quiet (an animation that never ends is logged, not
-// waited for).
+// during the wait. It also bounds, in app time (up to [DefaultTimeout]),
+// how long a single action lets the app run before it stops waiting for
+// it to go quiet (an animation that never ends is logged, not waited
+// for); a finite animation runs to its end however slow the machine is.
 func Timeout(d time.Duration) Option { return func(c *config) { c.timeout = d } }
 
 // Debug turns debug overlays on: any of "layout", "paint-flash", "layers",

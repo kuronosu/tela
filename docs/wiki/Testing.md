@@ -128,7 +128,8 @@ Before and after, the app is *settled*: pending state updates are applied and
 frames run until nothing is dirty and no animation or scroll fling is running.
 An app that never goes quiet (an endless animation, a goroutine that sets state
 all the time) is not waited for: it is logged once and actions then run only a
-few frames.
+few frames. This is decided in app time, so a slow machine never cuts a finite
+animation short.
 
 ## Expectations
 
