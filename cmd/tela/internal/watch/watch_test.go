@@ -255,9 +255,9 @@ func TestRemovedNames(t *testing.T) {
 }
 
 // TestDirectoryGoneRightAfterStart moves a directory away as soon as New
-// returns, in a tree whose walk reaches it last: the watcher knows it is
-// a directory (on Windows, New used to return before the walk that finds
-// the tree's directories, which then missed it).
+// returns, from a directory that a walk of the tree lists last: the
+// watcher knows it is a directory (on Windows, New used to return before
+// the walk that finds the tree's directories, which then missed it).
 func TestDirectoryGoneRightAfterStart(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
 		root, err := filepath.EvalSymlinks(t.TempDir())
@@ -267,14 +267,14 @@ func TestDirectoryGoneRightAfterStart(t *testing.T) {
 		for i := range 400 {
 			os.MkdirAll(filepath.Join(root, fmt.Sprintf("a%03d", i), "b"), 0o755)
 		}
-		if err := os.MkdirAll(filepath.Join(root, "zz", "sub"), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Join(root, "z", "pkg", "sub"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		h := newHarnessAt(t, root, Options{Filter: goFilter, SkipDir: skipHidden, Debounce: 30 * time.Millisecond, Poll: poll, PollInterval: 20 * time.Millisecond})
-		if err := os.Rename(h.path("zz"), filepath.Join(t.TempDir(), "zz")); err != nil {
+		if err := os.Rename(h.path("z/pkg"), filepath.Join(t.TempDir(), "pkg")); err != nil {
 			t.Fatal(err)
 		}
-		h.expect("directory moved away", []string{"zz"})
+		h.expect("directory moved away", []string{"z/pkg"})
 	})
 }
 

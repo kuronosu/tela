@@ -15,7 +15,7 @@ import (
 
 func TestShortName(t *testing.T) {
 	for name, want := range map[string]bool{
-		"MYPACK~1": true, "PROGRA~12": true, "MAIN~1.GO": true, "mypack~1": true, "A~1.TXT": true,
+		"MYPACK~1": true, "PROGR~12": true, "PROGRA~12": false, "MAIN~1.GO": true, "mypack~1": true, "A~1.TXT": true,
 		"4913": false, "main.go~": false, "pkg": false, "~1": false, "MYPACK~": false,
 		"LONGERNAME~1": false, "MAIN~1.GOLANG": false, "MY~X": false, "A~1.B.C": false,
 	} {
