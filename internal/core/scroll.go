@@ -1281,6 +1281,9 @@ func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 			ps.panned = true
 			clear(ps.outside)
 			ps.outside = ps.outside[:0]
+			// The press is over: active: ends when the scroll starts,
+			// as in Chromium (the tap is cancelled), not at the release.
+			t.clearActive(ps)
 			if el := ps.down; el != nil && el.mounted {
 				fire(t, evPointerCancel, el, t.pointerEvent(ps, platform.ButtonNone), true)
 				t.flushDiscrete()

@@ -85,7 +85,8 @@ import (
 //
 // An element is hovered while a mouse or pen pointer is over it or a
 // descendant (touch does not hover), active while the primary button
-// pressed on it or a descendant is held, and disabled with Disabled(true).
+// pressed on it or a descendant is held (a touch until a scroll takes it
+// over), and disabled with Disabled(true).
 // A change restyles only the elements whose classes test it: the element
 // for hover:, active:, disabled: and enabled:, the descendants of a group
 // element (class group) for group-*, the following siblings of a peer

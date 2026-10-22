@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/style"
 )
 
 // A touch pan that wins the arena cancels the pointer for the element the
@@ -35,8 +36,14 @@ func TestTouchPanCancelsThePressedElement(t *testing.T) {
 		t.Errorf("a tap: %q", got)
 	}
 	r.reset()
-	// A pan that starts on the row cancels it once.
+	// A pan that starts on the row cancels it once, and ends its active:
+	// state when the scroll starts, as Chromium does (not when the finger
+	// lifts).
 	x.send(touch(platform.PointerDown, 50))
+	row := keyed(x.tree(), "row")
+	if row.istate&style.StateActive == 0 {
+		t.Fatal("the pressed row is not active")
+	}
 	y := float32(50)
 	for range 8 {
 		x.b.Advance(10 * time.Millisecond)
@@ -45,6 +52,13 @@ func TestTouchPanCancelsThePressedElement(t *testing.T) {
 	}
 	if got := r.String(); got != "pointerdown:row pointercancel:row" {
 		t.Errorf("a pan from the row: %q", got)
+	}
+	if row.istate&style.StateActive != 0 {
+		t.Error("the row is still active while the touch scrolls")
+	}
+	x.send(touch(platform.PointerUp, y))
+	if row.istate&style.StateActive != 0 {
+		t.Error("the row is active after the release")
 	}
 }
 
