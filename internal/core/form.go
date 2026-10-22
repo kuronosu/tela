@@ -444,7 +444,10 @@ func (t *Tree) resetForm(form *Element) {
 }
 
 // implicitSubmit is Enter in single-line field f (HTML's implicit
-// submission).
+// submission): the Form's default button, its first submit button in tree
+// order (submitButton), is clicked, unless it is disabled, which blocks
+// the submission; without one a Form with a single text input is
+// submitted.
 func (t *Tree) implicitSubmit(f *field) {
 	form := formOf(f.el)
 	if form == nil {
@@ -457,7 +460,7 @@ func (t *Tree) implicitSubmit(f *field) {
 		for _, c := range el.children {
 			if c.kind == elemPrimitive {
 				switch {
-				case c.box.kind == style.KindButton && buttonType(c.node.d) == "submit":
+				case submitButton(c):
 					button = c
 					return false
 				case c.box.kind == style.KindInput:
@@ -486,6 +489,23 @@ func (t *Tree) implicitSubmit(f *field) {
 	if fields <= 1 {
 		t.submitForm(form)
 	}
+}
+
+// submitButton reports whether primitive el is a submit button: a Button
+// of type submit, or an element that a press hook made a button of type
+// submit (DefaultButtonType, or an explicit Type that wins over it: package
+// aria's UseButton with Type "submit" on a Div), whose click runs the
+// hook's activation. An element with a Type and no hook is not one:
+// clicking it does nothing.
+func submitButton(el *Element) bool {
+	d := el.node.d
+	switch {
+	case el.box.kind == style.KindButton:
+		return buttonType(d) == "submit"
+	case el.box.kind.IsTextField():
+		return false
+	}
+	return d.buttonDefault != "" && buttonType(d) == "submit"
 }
 
 // ---------------------------------------------------------------------

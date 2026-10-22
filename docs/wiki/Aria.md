@@ -136,6 +136,9 @@ A `Button` that has the props of a press hook is `type="button"` until the hook
 says `"submit"`: Enter in a text field presses the first button of type submit
 (the form's default button), and a select's trigger, a switch or a menu button
 that came first in the form must not be it. An explicit `h.Type` still wins.
+A `Div` made a button by a hook with `Type: "submit"`, as above, is a submit
+button too: Enter in any field of the form presses it, as an HTML submit
+button; when the default button is disabled, Enter submits nothing (HTML).
 
 `ElementRef.Click()` is the DOM's `element.click()`: from a handler or an effect
 it dispatches a click (a virtual press for the hooks) at the element and runs

@@ -359,8 +359,10 @@ func fieldTypeOf(d *desc) fieldType {
 // select's trigger or a menu button must not be taken by a Form for its
 // default button: Enter in a text field would press it. An explicit Type
 // wins, whatever the order of the props. It takes no check on the element
-// kind, so it may be on any element. For package aria; it is not exposed
-// by tela or h.
+// kind, so it may be on any element; an element other than a Button whose
+// type it makes "submit" (a Div made a submit button by the hook) is a
+// submit button for the Form's implicit submission too (submitButton).
+// For package aria; it is not exposed by tela or h.
 func DefaultButtonType(typ string) Prop {
 	return Prop{name: "DefaultButtonType", apply: func(d *desc) { d.buttonDefault = typ }}
 }
