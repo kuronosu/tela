@@ -2,6 +2,7 @@ package telatest
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -9,16 +10,18 @@ import (
 )
 
 // State is one condition on an element that [App.Expect] checks: a
-// toggle such as [Checked], a flag such as [Disabled], or its [HasName]
-// and [HasValue]. They read the element's semantics node, so they test
-// what assistive technologies are told, without matching strings of the
-// aria snapshot.
+// toggle such as [Checked], a flag such as [Disabled], its [HasName] and
+// [HasValue], or a widget property the aria snapshot does not print:
+// [HasPopup], [ActiveDescendant] and [Controls] (which compare the element
+// an ID reference points to with the one a Locator finds). They read the
+// element's semantics node, so they test what assistive technologies are
+// told, without matching strings of the aria snapshot.
 type State struct {
 	// want is the expectation as the failure message words it ("checked=true").
 	want string
 	// check reports whether n satisfies it and, when it does not, what n
 	// has instead.
-	check func(n *semantics.Node) (ok bool, got string)
+	check func(a *App, n *semantics.Node) (ok bool, got string)
 }
 
 // toggleState builds the State of an ARIA toggle (checked, pressed,
@@ -28,7 +31,7 @@ type State struct {
 func toggleState(name, prop string, want bool, get func(n *semantics.Node) semantics.Toggle) State {
 	return State{
 		want: name + "=" + strconv.FormatBool(want),
-		check: func(n *semantics.Node) (bool, string) {
+		check: func(_ *App, n *semantics.Node) (bool, string) {
 			switch got := get(n); got {
 			case semantics.ToggleUnset:
 				return false, name + " is not set on it (h." + prop + " sets it)"
@@ -70,7 +73,7 @@ func Expanded(expanded bool) State {
 func flagState(name string, flag semantics.State, want bool) State {
 	return State{
 		want: name + "=" + strconv.FormatBool(want),
-		check: func(n *semantics.Node) (bool, string) {
+		check: func(_ *App, n *semantics.Node) (bool, string) {
 			if n.Has(flag) == want {
 				return true, ""
 			}
@@ -93,7 +96,7 @@ func HasName(name string) State {
 	want := normalize(name)
 	return State{
 		want: "name=" + strconv.Quote(want),
-		check: func(n *semantics.Node) (bool, string) {
+		check: func(_ *App, n *semantics.Node) (bool, string) {
 			return n.Name == want, "name=" + strconv.Quote(n.Name)
 		},
 	}
@@ -105,10 +108,146 @@ func HasName(name string) State {
 func HasValue(value string) State {
 	return State{
 		want: "value=" + strconv.Quote(value),
-		check: func(n *semantics.Node) (bool, string) {
+		check: func(_ *App, n *semantics.Node) (bool, string) {
 			return n.Value == value, "value=" + strconv.Quote(n.Value)
 		},
 	}
+}
+
+// popupKinds are the values HasPopup accepts, after normalizing.
+var popupKinds = []string{"", "menu", "listbox", "tree", "grid", "dialog"}
+
+// HasPopup expects the element's aria-haspopup to be kind: "menu",
+// "listbox", "tree", "grid" or "dialog" (h.AriaHasPopup sets it), or ""
+// for an element that opens no popup. As in ARIA, "true" is "menu" and
+// "false" is "". The aria snapshot does not print it (Playwright's does
+// not either).
+//
+//	app.Expect(telatest.ByRole("button", "Show suggestions"), telatest.HasPopup("listbox"))
+func HasPopup(kind string) State {
+	switch kind {
+	case "true":
+		kind = "menu"
+	case "false":
+		kind = ""
+	}
+	if !slices.Contains(popupKinds, kind) {
+		panic(fmt.Sprintf("telatest: HasPopup(%q): not an aria-haspopup value; use \"menu\", \"listbox\", \"tree\", \"grid\", \"dialog\" or \"\" for none", kind))
+	}
+	return State{
+		want: "haspopup=" + strconv.Quote(kind),
+		check: func(_ *App, n *semantics.Node) (bool, string) {
+			return n.HasPopup == kind, "haspopup=" + strconv.Quote(n.HasPopup)
+		},
+	}
+}
+
+// ActiveDescendant expects the element's aria-activedescendant to point
+// to the element that loc locates (one element, strictness): the option a
+// combobox or a list box keeps its virtual focus on while the keyboard
+// focus stays on the input (h.AriaActiveDescendant sets it). Use
+// [NoActiveDescendant] for none. The aria snapshot does not print it.
+//
+//	app.Expect(telatest.ByRole("combobox", "Project"),
+//	    telatest.ActiveDescendant(telatest.ByRole("option", "users-db")))
+func ActiveDescendant(loc Locator) State {
+	return refState("activedescendant", loc, func(n *semantics.Node) semantics.NodeID { return n.ActiveDescendant })
+}
+
+// NoActiveDescendant expects the element to have no active descendant
+// (no aria-activedescendant, or one whose element is not in the tree).
+func NoActiveDescendant() State {
+	return noRefState("activedescendant", func(n *semantics.Node) semantics.NodeID { return n.ActiveDescendant })
+}
+
+// Controls expects the element's aria-controls to point to the element
+// that loc locates (one element, strictness): the list box of a combobox
+// or the panel of a tab (h.AriaControls sets it). The aria snapshot does
+// not print it.
+//
+//	app.Expect(telatest.ByRole("combobox", "Project"), telatest.Controls(telatest.ByRole("listbox", "Project")))
+func Controls(loc Locator) State {
+	return refState("controls", loc, func(n *semantics.Node) semantics.NodeID { return n.Controls })
+}
+
+// refState builds the State of an ID reference (aria-activedescendant,
+// aria-controls) that must point to the one element loc locates.
+func refState(name string, loc Locator, get func(*semantics.Node) semantics.NodeID) State {
+	return State{
+		want: name + "=" + loc.String(),
+		check: func(a *App, n *semantics.Node) (bool, string) {
+			a.tb.Helper()
+			if p := loc.problem(); p != "" {
+				if loc.kind == locNone && name == "activedescendant" {
+					p += "; to expect no active descendant use telatest.NoActiveDescendant()"
+				}
+				a.fatalf("%s(%s): %s", stateFunc(name), loc, p)
+			}
+			nodes := a.find(loc)
+			if len(nodes) > 1 {
+				a.fatalf("%s(%s): %s", stateFunc(name), loc, a.strictMessage(loc, nodes))
+			}
+			id := get(n)
+			if len(nodes) == 1 && id != 0 && nodes[0].ID == id {
+				return true, ""
+			}
+			got := name + "=" + a.describeRef(id)
+			if len(nodes) == 0 {
+				got += " (and " + loc.String() + " matches no element)"
+			}
+			return false, got
+		},
+	}
+}
+
+// noRefState builds the State of an ID reference that must point to
+// nothing in the tree.
+func noRefState(name string, get func(*semantics.Node) semantics.NodeID) State {
+	return State{
+		want: "no " + name,
+		check: func(a *App, n *semantics.Node) (bool, string) {
+			id := get(n)
+			if id == 0 || a.nodeByID(id) == nil {
+				return true, ""
+			}
+			return false, name + "=" + a.describeRef(id)
+		},
+	}
+}
+
+// stateFunc names the State constructor of an ID reference, for messages.
+func stateFunc(name string) string {
+	if name == "controls" {
+		return "Controls"
+	}
+	return "ActiveDescendant"
+}
+
+// nodeByID returns the node with id in the current semantics tree, or nil.
+func (a *App) nodeByID(id semantics.NodeID) *semantics.Node {
+	var found *semantics.Node
+	a.tree.Semantics().Walk(func(n *semantics.Node) bool {
+		if n.ID == id {
+			found = n
+		}
+		return found == nil
+	})
+	return found
+}
+
+// describeRef describes the element an ID reference points to.
+func (a *App) describeRef(id semantics.NodeID) string {
+	if id == 0 {
+		return "none"
+	}
+	n := a.nodeByID(id)
+	switch {
+	case n == nil:
+		return "an element that is not in the tree"
+	case n.Has(semantics.StateHidden):
+		return a.describeMatch(n) + " (hidden)"
+	}
+	return a.describeMatch(n)
 }
 
 // Expect waits until the element l locates satisfies every state, like
@@ -144,7 +283,7 @@ func (a *App) Expect(l Locator, states ...State) {
 		n := nodes[0]
 		var wants, gots []string
 		for _, s := range states {
-			if ok, got := s.check(n); !ok {
+			if ok, got := s.check(a, n); !ok {
 				wants = append(wants, s.want)
 				gots = append(gots, got)
 			}
@@ -189,6 +328,9 @@ func describeStates(n *semantics.Node) string {
 	}
 	if n.Value != "" {
 		s = append(s, "value="+strconv.Quote(n.Value))
+	}
+	if n.HasPopup != "" {
+		s = append(s, "haspopup="+strconv.Quote(n.HasPopup))
 	}
 	return strings.Join(s, ", ")
 }

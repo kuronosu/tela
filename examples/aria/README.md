@@ -42,7 +42,7 @@ CGO_ENABLED=0 go run ./examples/aria                                            
 | `TestTabOrder` | the tab order of the whole screen, and back |
 | `TestActionsMenuKeyboard` | Enter, Space, ArrowDown and ArrowUp open the menu on its first or last item; the full snapshot of the open menu (sections, separator, a disabled item) with the rest of the window inert; arrows skip the disabled item; Home, End and typeahead; Escape and choosing give the focus back to the button |
 | `TestViewMenuKeyboard` | a menu of `menuitemcheckbox`: Space toggles and the menu stays open; the list follows |
-| `TestComboboxKeyboard` | typing opens and filters the listbox (its snapshot), the focus stays on the input while the arrows highlight an option, Enter chooses, Escape and Tab put the text back, ArrowDown opens it with all thirty projects |
+| `TestComboboxKeyboard` | typing opens and filters the listbox (its snapshot), the focus stays on the input while the arrows highlight an option (its `aria-activedescendant`, `telatest.ActiveDescendant`), Enter chooses, Escape and Tab put the text back, ArrowDown opens it with all thirty projects |
 | `TestDialogKeyboard`, `TestDialogImplicitSubmissionAndCancel` | the full snapshot of the open modal dialog (the page is inert), the focus goes in, Tab goes round it and never leaves, the select inside it, Escape closes the select before the dialog, Space flips the switch, Enter submits (on Deploy and in the field), Escape and Cancel close, and the focus returns to the opening button every time |
 | `TestTabsKeyboard`, `TestListBoxKeyboard`, `TestTooltipKeyboard` | arrows and Home/End on tabs; Space, Ctrl+A, Escape and typeahead on a multiple selection; the tooltip opens with the keyboard focus and Escape closes it |
 

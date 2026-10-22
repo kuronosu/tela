@@ -56,7 +56,7 @@ func TestGoldenKeyboardStates(t *testing.T) {
 			a.Type("se")
 			a.Press("ArrowDown")
 			a.Press("ArrowDown")
-			a.Expect(highlighted, telatest.HasName("analytics-warehouse Database"))
+			a.Expect(projectBox, activeOption("analytics-warehouse Database"))
 			a.GoldenScales("aria_combobox_highlight_"+s.name, 1, 2)
 		})
 	}

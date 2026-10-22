@@ -2144,7 +2144,7 @@ func (r ElementRef) Click()
 
 Click clicks the element like HTML's element.click(): a click event (the primary button, a click count of 1, at the center of the element's bounds, made by no pointer: the hooks of package aria see a virtual press) is dispatched at it and bubbles, then, unless a handler prevented it, the activation behavior of the Button or Label at or above it runs (a Button in a Form submits it or resets it by its Type; a Label focuses its control and clicks it). There are no pointer events, no :active state and no focus change of its own. It does nothing for an unmounted element or a disabled one (or one inside a disabled element).
 
-Call it on the UI thread, in a handler or an effect: the updates the click makes are applied and built by the event or the frame that is running; called from elsewhere on the UI thread (a timer), it applies and builds them before it returns, as a real click does.
+Call it on the UI thread, in a handler or an effect: the updates the click makes are applied and built by the event or the frame that is running (after the passive effects, by the host's next step, which the updates wake); called from elsewhere on the UI thread, it applies and builds them before it returns, as a real click does.
 
 #### func (ElementRef) Focus
 

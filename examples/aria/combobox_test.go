@@ -6,9 +6,12 @@ import (
 	"github.com/kuronosu/tela/telatest"
 )
 
-// highlighted is the option the combobox's virtual focus is on: the input
-// keeps the focus and the list marks one item (aria-activedescendant).
-var highlighted = telatest.ByRole("option", "").Filter(telatest.HasClass("bg-accent"))
+// activeOption expects the combobox's virtual focus on the option named
+// name: the input keeps the focus and points to the highlighted item with
+// aria-activedescendant, which a screen reader announces.
+func activeOption(name string) telatest.State {
+	return telatest.ActiveDescendant(telatest.ByRole("option", name))
+}
 
 // TestComboboxKeyboard types in the project field: the list opens and
 // filters while the focus stays on the input, the arrows highlight an item,
@@ -32,19 +35,18 @@ func TestComboboxKeyboard(t *testing.T) {
 		  - option "users-db Database"
 		  - option "security-policy Docs"
 	`)
-	a.ExpectCount(highlighted, 0) // nothing is highlighted until an arrow says so
+	a.Expect(projectBox, telatest.NoActiveDescendant()) // nothing is highlighted until an arrow says so
 	a.Expect(projectBox, telatest.Expanded(true), telatest.HasValue("se"))
 
 	// The arrows highlight; the input keeps the focus.
 	a.Press("ArrowDown")
-	a.ExpectCount(highlighted, 1)
-	a.Expect(highlighted, telatest.HasName("billing-service Service"))
+	a.Expect(projectBox, activeOption("billing-service Service"))
 	a.ExpectFocused(projectBox)
 	a.Press("ArrowDown")
 	a.Press("ArrowDown")
-	a.Expect(highlighted, telatest.HasName("sessions-cache Database"))
+	a.Expect(projectBox, activeOption("sessions-cache Database"))
 	a.Press("ArrowUp")
-	a.Expect(highlighted, telatest.HasName("analytics-warehouse Database"))
+	a.Expect(projectBox, activeOption("analytics-warehouse Database"))
 	a.ExpectFocused(projectBox)
 
 	// Typing again filters again and drops the highlight.
@@ -53,9 +55,9 @@ func TestComboboxKeyboard(t *testing.T) {
 		- listbox "Project":
 		  - option "sessions-cache Database"
 	`)
-	a.ExpectCount(highlighted, 0)
+	a.Expect(projectBox, telatest.NoActiveDescendant())
 	a.Press("ArrowDown")
-	a.Expect(highlighted, telatest.HasName("sessions-cache Database"))
+	a.Expect(projectBox, activeOption("sessions-cache Database"))
 
 	// Enter chooses the highlighted item: the text and the selection agree,
 	// the list closes, the page follows and the focus stays on the input.
@@ -79,10 +81,10 @@ func TestComboboxKeyboard(t *testing.T) {
 	if n := optionsOf(a, "Project"); n != 30 {
 		t.Errorf("the open list has %d options, want the 30 projects", n)
 	}
-	a.Expect(highlighted, telatest.HasName("sessions-cache Database"))
+	a.Expect(projectBox, activeOption("sessions-cache Database"))
 	a.Expect(telatest.ByRole("option", "sessions-cache Database"), telatest.Selected(true))
 	a.Press("ArrowDown")
-	a.Expect(highlighted, telatest.HasName("users-db Database"))
+	a.Expect(projectBox, activeOption("users-db Database"))
 	a.Press("Escape")
 	a.ExpectCount(telatest.ByRole("listbox", "Project"), 0)
 

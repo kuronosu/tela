@@ -71,7 +71,7 @@ func TestComboboxPointer(t *testing.T) {
 	}
 	// The mouse highlights what it is over, and a press chooses.
 	a.Hover(telatest.ByRole("option", "edge-router Service"))
-	a.Expect(highlighted, telatest.HasName("edge-router Service"))
+	a.Expect(projectBox, activeOption("edge-router Service"))
 	a.Click(telatest.ByRole("option", "edge-router Service"))
 	a.ExpectCount(telatest.ByRole("listbox", "Project"), 0)
 	a.Expect(projectBox, telatest.HasValue("edge-router"))
