@@ -152,6 +152,9 @@ func UseRef[T any](initial T) *Ref[T] {
 	}
 	r := &Ref[T]{Current: initial}
 	el.hooks = append(el.hooks, r)
+	if devStateEnabled {
+		devSeed(el, i)
+	}
 	return r
 }
 

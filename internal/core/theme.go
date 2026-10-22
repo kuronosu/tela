@@ -107,6 +107,9 @@ func themeParser(cfg *Config) *style.Parser {
 // thread. It panics like NewParser for token names classes cannot use.
 func (t *Tree) SetTheme(th Theme) {
 	t.setParser(NewParser(&th, t.parser.Aliases()))
+	if devStateEnabled {
+		t.devNoteTheme(th)
+	}
 }
 
 // setParser makes p the tree's parser.

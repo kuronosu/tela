@@ -368,6 +368,9 @@ func (t *Tree) Mount(root Node) {
 		t.markStyle(el)
 		t.markBoxes(el)
 		t.reconcile(el, n.d.children)
+		if devStateEnabled {
+			t.devMounted() // tela dev: fields and focus of the saved state
+		}
 		t.syncModal()
 		return
 	}
@@ -502,6 +505,9 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		full = true
 	}
 	full = t.scrollPhase(full)
+	if devStateEnabled {
+		full = t.devFrame(full) // tela dev: scroll offsets of the saved state
+	}
 	if full {
 		t.syncSizes() // UseSize (bounds.go): paint-phase readers see it now
 	}

@@ -108,6 +108,9 @@ func (t *Tree) SetEnvironment(dark, reducedMotion bool) {
 func (t *Tree) SetColorScheme(s ColorScheme) {
 	checkScheme(s)
 	t.env.scheme = s
+	if devStateEnabled {
+		t.devNoteScheme(s)
+	}
 	t.applyEnv()
 }
 

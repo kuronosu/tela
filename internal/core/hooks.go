@@ -46,6 +46,9 @@ func (t *Tree) build(el *Element) {
 			}
 		}()
 		out = el.comp.build()
+		if devStateEnabled && first {
+			out = t.devFirstBuild(el, out) // tela dev: the hook signature check (ADR-113)
+		}
 		done = true
 	}()
 	t.observe(&el.vobs, obsBuild, el, nil, t.endTrack(mark))
@@ -163,6 +166,9 @@ func useStateSlot[T any](initial T) *stateSlot[T] {
 	}
 	s := &stateSlot[T]{value: initial, el: el, comparable: reflect.TypeFor[T]().Comparable()}
 	el.hooks = append(el.hooks, s)
+	if devStateEnabled {
+		devSeed(el, i)
+	}
 	return s
 }
 
@@ -248,6 +254,9 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 	s := &reducerSlot[S, A]{reducer: reducer}
 	s.value, s.el, s.comparable = initial, el, reflect.TypeFor[S]().Comparable()
 	el.hooks = append(el.hooks, s)
+	if devStateEnabled {
+		devSeed(el, i)
+	}
 	return s.value, Dispatcher[A]{s}
 }
 

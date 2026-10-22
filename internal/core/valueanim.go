@@ -695,6 +695,13 @@ func useMotion[T Animatable](kind hookKind, mode animMode, target T, opts []Anim
 		}
 		s = &motionSlot[T]{v: newValue(el, initial), target: initial}
 		el.hooks = append(el.hooks, s)
+		if devStateEnabled && devSeed(el, i) {
+			// tela dev: after a reload the motion starts at rest at its
+			// target, not at Initial (ADR-113).
+			to := target
+			s.v.cur.Store(&to)
+			s.target = to
+		}
 	}
 	// The options are only used when the target changes, so they are
 	// resolved then (a spring defined by its duration solves for its

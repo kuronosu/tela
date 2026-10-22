@@ -151,6 +151,9 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 		}
 	}
 	t := NewTree(cfg)
+	if devStateEnabled {
+		t.devAdoptSeed() // tela dev: the state given to SetDevSeed (ADR-113)
+	}
 	// The frame clock drives the tree from its first frame on, so the
 	// animations its first builds start (UseSpring) wait for it instead
 	// of jumping to their targets as in a tree without a clock (Render).

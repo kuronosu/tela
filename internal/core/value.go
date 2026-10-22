@@ -350,6 +350,9 @@ func UseValue[T any](initial T) *Value[T] {
 	}
 	v := newValue(el, initial)
 	el.hooks = append(el.hooks, v)
+	if devStateEnabled {
+		devSeed(el, i)
+	}
 	return v
 }
 
