@@ -468,6 +468,32 @@ func TestDevChildOutputDiscarded(t *testing.T) {
 	h.wait()
 }
 
+// A process a child started and left running keeps the child's output
+// pipes open. The child's exit is classified without waiting for them, and
+// the output is detached a moment later, with a line that says so (always,
+// not only with -v) instead of cutting it silently.
+func TestDevChildOutputHeldByAnotherProcess(t *testing.T) {
+	h := newDevHarness(t, devOptions{Verbose: true}, nil)
+	h.fb.set(1, "orphan")
+	h.expect("first start", 1, 0, 0)
+	h.logged("holder tick", 1) // forwarded while build 1 runs
+	h.s.push(evKey{'r'})
+	h.expect("the new build", 2, 0, 0)
+	const stopped, detached = "build 1 stopped (exited with status 0)", "a process started by build 1 still holds its output"
+	h.logged(stopped, 1)
+	h.logged(detached, 1)
+	time.Sleep(5 * fakeTick)
+	out := h.out.String()
+	i, j := strings.Index(out, stopped), strings.Index(out, detached)
+	if i > j {
+		t.Errorf("the exit was classified after the output was detached:\n%s", out)
+	}
+	// A line the holder wrote while the output was being cut may follow.
+	if n := strings.Count(out[j:], "holder tick"); n > 1 {
+		t.Errorf("%d lines of the holder after the output was detached:\n%s", n, out)
+	}
+}
+
 func TestDevRuntimeCrashThenFreshStart(t *testing.T) {
 	h := newDevHarness(t, devOptions{}, nil)
 	h.expect("first start", 1, 0, 0)

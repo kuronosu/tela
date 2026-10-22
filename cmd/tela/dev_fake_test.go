@@ -39,7 +39,9 @@ import (
 // start) and "noreport" (none); "stdio" checks that its standard output
 // and error are pipes and writes fakeLines numbered lines to each;
 // "nullout" checks that its standard output is not a pipe (the null
-// device). The key "g" panics in another goroutine.
+// device); "orphan" starts a process ("hold", fakeHolder) that inherits
+// its standard output and error and outlives it. The key "g" panics in
+// another goroutine.
 const envFake = "TELA_DEV_TEST_FAKE"
 
 const (
@@ -90,6 +92,9 @@ func fakeGo(goBin string, args []string) int {
 }
 
 func fakeChild(mode string) int {
+	if mode == "hold" {
+		return fakeHolder()
+	}
 	b, err := remote.DialEnv()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "fake:", err)
@@ -131,6 +136,18 @@ func fakeChild(mode string) int {
 		b.Notify(devloop.KindPanic, devloop.PanicPayload("startup boom", debug.Stack()))
 		fmt.Fprintln(os.Stderr, "panic: startup boom")
 		return 2
+	}
+	if mode == "orphan" {
+		exe, err := os.Executable()
+		if err == nil {
+			cmd := exec.Command(exe, "-test.run=^$")
+			cmd.Env = append(os.Environ(), envFake+"=hold") // the last value wins
+			cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+			err = cmd.Start() // not waited for: it outlives this process
+		}
+		if err != nil {
+			b.Notify("fake.error", []byte("orphan: "+err.Error()))
+		}
 	}
 	if mode == "nullout" {
 		if fi, err := os.Stdout.Stat(); err != nil || fi.Mode()&os.ModeNamedPipe != 0 {
@@ -229,6 +246,22 @@ func fakeChild(mode string) int {
 	}
 	return 0
 }
+
+// fakeHolder is the process an "orphan" child leaves running with its
+// output: it writes a line every fakeTick until a write fails (the pipe was
+// closed), for at most 10 s.
+func fakeHolder() int {
+	end := time.Now().Add(10 * time.Second)
+	for time.Now().Before(end) {
+		if _, err := fmt.Println("holder tick"); err != nil {
+			return 0
+		}
+		time.Sleep(fakeTick)
+	}
+	return 0
+}
+
+const fakeTick = 50 * time.Millisecond
 
 // fakeBuilder "builds" by returning the test binary in a fake mode.
 type fakeBuilder struct {

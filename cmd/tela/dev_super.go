@@ -714,32 +714,40 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	}
 	cmd := exec.Command(res.exe, res.args...)
 	cmd.Env = s.childEnv(tag, res.env)
-	// Neither writer is an *os.File, so exec gives the child pipes and
-	// copies them here, each stream in order: a child, in its own process
-	// group, never writes to the terminal itself (ADR-119). Without a
-	// writer for its standard output it gets the null device.
 	tail := &tailWriter{w: s.cfg.stderr}
-	cmd.Stderr = tail
-	if s.cfg.stdout != nil {
-		cmd.Stdout = forwardWriter{s.cfg.stdout}
-	}
-	// A process the child started and left running keeps the pipes open:
-	// Wait stops copying a moment after the child exits instead of
-	// waiting for it.
-	cmd.WaitDelay = childWaitDelay
-	cmd.SysProcAttr = childSysProcAttr()
-	sw.started = time.Now()
-	if err := cmd.Start(); err != nil {
+	out, err := newChildOutput(cmd, s.cfg.stdout, tail)
+	if err != nil {
 		s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("cannot start the new build: %v", err)})
 		return
 	}
+	cmd.SysProcAttr = childSysProcAttr()
+	sw.started = time.Now()
+	if err := cmd.Start(); err != nil {
+		out.close()
+		s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("cannot start the new build: %v", err)})
+		return
+	}
+	out.start(s.goSafe)
 	p := &proc{gen: res.gen, tag: tag, cmd: cmd, exe: res.exe, owned: res.owned, tail: tail, exited: make(chan struct{})}
 	s.procs[p.gen] = p
 	sw.proc = p
 	s.goSafe(func() {
-		err := cmd.Wait()
-		if errors.Is(err, exec.ErrWaitDelay) {
-			err = nil // exited with status 0; the pipes were closed after WaitDelay
+		err := cmd.Wait() // at the exit: the copies are not exec's
+		// The exit is classified with the child's output read to its end,
+		// which comes at once unless a process the child left running
+		// holds the pipes; then the classification goes ahead and that
+		// output is detached a moment later.
+		select {
+		case <-out.done:
+		case <-time.After(childOutputSettle):
+			s.goSafe(func() {
+				select {
+				case <-out.done:
+				case <-time.After(childOutputDetach - childOutputSettle):
+					out.detach()
+					s.log.printf("a process started by build %d still holds its output after it exited: detached, what it writes now is not shown", p.gen)
+				}
+			})
 		}
 		p.waitErr = err
 		close(p.exited)
