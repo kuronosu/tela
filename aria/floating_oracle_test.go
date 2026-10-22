@@ -7,21 +7,14 @@ import (
 	"testing"
 
 	"github.com/kuronosu/tela"
-	"github.com/kuronosu/tela/h"
-	"github.com/kuronosu/tela/telatest"
+	"github.com/kuronosu/tela/internal/core"
 )
 
-// testRef returns a mounted-looking ElementRef (the zero one is not a valid
-// argument of Arrow); the oracle only needs it to be non-zero.
-func testRef(t testing.TB) tela.ElementRef {
-	t.Helper()
-	var ref tela.ElementRef
-	telatest.Mount(t, tela.C(func() tela.Node {
-		ref = tela.UseElementRef()
-		return h.Div()
-	}))
-	return ref
-}
+// testRef returns a non-zero ElementRef (the zero one is not a valid
+// argument of Arrow); the oracle only needs it to be non-zero. It mounts
+// nothing: a Mount per case kept 2,400 headless windows and their
+// framebuffers alive until the test ended (3.5 GB).
+func testRef(testing.TB) tela.ElementRef { return core.NewElementRef() }
 
 // The oracle of the port: testdata/floatingui/cases.json holds random
 // rectangles, placements and middleware stacks run through the real
