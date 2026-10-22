@@ -54,10 +54,10 @@ type listedModule struct {
 // listFields are the fields go list prints (-json=...).
 const listFields = "ImportPath,Dir,Name,GoFiles,EmbedFiles,Standard,Module,Error"
 
-// goList runs go list -e -json with the teladev tag in dir and decodes the
-// stream of packages.
-func goList(goBin, dir string, args ...string) ([]listedPackage, error) {
-	all := append([]string{"list", "-e", "-json=" + listFields, "-tags", devBuildTags}, args...)
+// goList runs go list -e -json with the tags of the dev builds (devTags of
+// goflags, the user's GOFLAGS) in dir and decodes the stream of packages.
+func goList(goBin, dir, goflags string, args ...string) ([]listedPackage, error) {
+	all := append([]string{"list", "-e", "-json=" + listFields, "-tags", devTags(goflags)}, args...)
 	cmd := exec.Command(goBin, all...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
@@ -95,6 +95,9 @@ type devTarget struct {
 	// overlay maps the absolute paths of generated files to their
 	// contents (empty for a package main built as is).
 	overlay map[string][]byte
+	// goflags is the GOFLAGS the go command applies (goEnvFlags), for the
+	// flags and tags of the builds and of go list.
+	goflags string
 }
 
 // describe says what runs, for the start line.
@@ -112,7 +115,8 @@ func (t *devTarget) describe() string {
 
 // resolveDevTarget finds the package and decides how to build it.
 func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
-	pkgs, err := goList(goBin, "", opts.Pkg)
+	goflags := goEnvFlags(goBin, "", nil)
+	pkgs, err := goList(goBin, "", goflags, opts.Pkg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find package %q: %s\nuse a package path or a relative directory such as ./examples/counter", opts.Pkg, err)
 	}
@@ -130,7 +134,7 @@ func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
 	if p.Module == nil || p.Module.Dir == "" {
 		return nil, fmt.Errorf("package %s (%s) is not in a module; tela dev runs packages of a module that requires github.com/kuronosu/tela", p.Name, opts.Pkg)
 	}
-	t := &devTarget{pkg: p, modDir: p.Module.Dir}
+	t := &devTarget{pkg: p, modDir: p.Module.Dir, goflags: goflags}
 	rel, err := filepath.Rel(t.modDir, p.Dir)
 	if err != nil {
 		return nil, err
@@ -198,7 +202,7 @@ type depSet struct {
 
 // listDeps lists the dependencies of the target with go list -deps.
 func listDeps(goBin string, t *devTarget) (depSet, error) {
-	pkgs, err := goList(goBin, t.modDir, "-deps", t.pkg.Dir)
+	pkgs, err := goList(goBin, t.modDir, t.goflags, "-deps", t.pkg.Dir)
 	if err != nil {
 		return depSet{}, fmt.Errorf("listing the dependencies of %s: %v", t.pkg.ImportPath, err)
 	}

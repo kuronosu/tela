@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 )
@@ -23,7 +24,8 @@ const devBuildTags = "teladev"
 // GOFLAGS, so a flag the user sets there is left to them. The output path,
 // the overlay and the package are added by the builder.
 //
-//   - -tags teladev turns the dev-loop runtime on (ADR-111).
+//   - -tags teladev turns the dev-loop runtime on (ADR-111); the tags of
+//     GOFLAGS follow it (devTags), since -tags cannot be left to the user.
 //   - -buildvcs=false skips the version-control stamp, which runs git (or
 //     another VCS) on every build. Dev mode stays on: the supervisor sets
 //     TELA_DEV=1, and a binary without the stamp and without -trimpath is
@@ -41,7 +43,7 @@ const devBuildTags = "teladev"
 // a 600 ms build, -gcflags=-l about 90 ms, -buildvcs=false about 25 ms in a
 // git checkout.
 func devBuildFlags(goflags string) []string {
-	flags := []string{"-tags", devBuildTags}
+	flags := []string{"-tags", devTags(goflags)}
 	if !hasGoFlag(goflags, "buildvcs") {
 		flags = append(flags, "-buildvcs=false")
 	}
@@ -54,16 +56,82 @@ func devBuildFlags(goflags string) []string {
 	return flags
 }
 
-// hasGoFlag reports whether goflags (a space-separated GOFLAGS list) sets
-// the build flag name.
+// hasGoFlag reports whether goflags (a GOFLAGS list) sets the build flag
+// name.
 func hasGoFlag(goflags, name string) bool {
-	for _, f := range strings.Fields(goflags) {
-		f = strings.TrimLeft(f, "-")
-		if k, _, _ := strings.Cut(f, "="); k == name {
+	for _, f := range splitGoFlags(goflags) {
+		if k, _, _ := goFlag(f); k == name {
 			return true
 		}
 	}
 	return false
+}
+
+// devTags is the -tags value of the dev builds and of go list: teladev,
+// then the tags GOFLAGS sets (its last -tags, as the go command reads it),
+// which a -tags on the command line would otherwise replace. It takes
+// "-tags=a,b", the legacy space-separated list ("-tags=a b", quoted in
+// GOFLAGS) and "-tags a,b".
+func devTags(goflags string) string {
+	var user []string
+	fs := splitGoFlags(goflags)
+	for i := 0; i < len(fs); i++ {
+		name, value, ok := goFlag(fs[i])
+		if name != "tags" {
+			continue
+		}
+		if !ok && i+1 < len(fs) && !strings.HasPrefix(fs[i+1], "-") {
+			i++
+			value = fs[i]
+		}
+		user = strings.FieldsFunc(value, func(r rune) bool {
+			return r == ',' || r == ' ' || r == '\t' || r == '\'' || r == '"'
+		})
+	}
+	tags := []string{devBuildTags}
+	for _, t := range user {
+		if !slices.Contains(tags, t) {
+			tags = append(tags, t)
+		}
+	}
+	return strings.Join(tags, ",")
+}
+
+// goFlag splits a GOFLAGS entry ("-name=value", "--name") into the flag's
+// name and value; ok says whether it has a value.
+func goFlag(f string) (name, value string, ok bool) {
+	f = strings.TrimPrefix(f, "-")
+	f = strings.TrimPrefix(f, "-")
+	return strings.Cut(f, "=")
+}
+
+// splitGoFlags splits GOFLAGS into entries as the go command does
+// (cmd/internal/quoted): separated by spaces, an entry may be quoted whole
+// in single or double quotes to hold spaces ("-ldflags=-s -w").
+func splitGoFlags(s string) []string {
+	const space = " \t\n\r"
+	var fs []string
+	for {
+		s = strings.TrimLeft(s, space)
+		if s == "" {
+			return fs
+		}
+		if q := s[0]; q == '"' || q == '\'' {
+			i := strings.IndexByte(s[1:], q)
+			if i < 0 { // unterminated: the go command rejects it
+				return append(fs, s[1:])
+			}
+			fs = append(fs, s[1:1+i])
+			s = s[2+i:]
+			continue
+		}
+		i := strings.IndexAny(s, space)
+		if i < 0 {
+			return append(fs, s)
+		}
+		fs = append(fs, s[:i])
+		s = s[i:]
+	}
 }
 
 // goEnvFlags returns the GOFLAGS the go command uses in dir, which may come
@@ -111,7 +179,7 @@ type goBuilder struct {
 	overlay string // -overlay file, or ""
 	outDir  string
 	env     []string
-	// goflags is the user's GOFLAGS (devBuildFlags), filled by devMain.
+	// goflags is the user's GOFLAGS (devBuildFlags), the target's.
 	goflags string
 }
 
@@ -119,11 +187,12 @@ type goBuilder struct {
 // files of a generated runner there.
 func newGoBuilder(goBin string, t *devTarget, outDir string) (*goBuilder, error) {
 	b := &goBuilder{
-		goBin:  goBin,
-		dir:    t.modDir,
-		arg:    t.arg,
-		outDir: outDir,
-		env:    append(os.Environ(), "CGO_ENABLED=0"),
+		goBin:   goBin,
+		dir:     t.modDir,
+		arg:     t.arg,
+		outDir:  outDir,
+		env:     append(os.Environ(), "CGO_ENABLED=0"),
+		goflags: t.goflags,
 	}
 	if len(t.overlay) > 0 {
 		replace := map[string]string{}

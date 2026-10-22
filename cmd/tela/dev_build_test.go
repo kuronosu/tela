@@ -131,10 +131,54 @@ func TestDevBuildFlagsGOFLAGS(t *testing.T) {
 		{"-ldflags=-X=main.version=1", "-tags teladev -buildvcs=false -gcflags=-l"},
 		{"-mod=mod --gcflags=all=-N -buildvcs=true", "-tags teladev -ldflags=-s -w"},
 		{"-ldflagsx=1", "-tags teladev -buildvcs=false -ldflags=-s -w -gcflags=-l"},
+		// An entry quoted whole holds spaces, as the go command splits it.
+		{`"-ldflags=-s -w -X=main.v=1" '-gcflags=all=-N -l'`, "-tags teladev -buildvcs=false"},
+		// The user's tags follow teladev (the command line replaces them).
+		{"-mod=mod -tags=a,b", "-tags teladev,a,b -buildvcs=false -ldflags=-s -w -gcflags=-l"},
 	} {
 		if got := strings.Join(devBuildFlags(c.goflags), " "); got != c.want {
 			t.Errorf("GOFLAGS=%q: %q, want %q", c.goflags, got, c.want)
 		}
+	}
+}
+
+// TestDevTags merges the tags of GOFLAGS into teladev's -tags.
+func TestDevTags(t *testing.T) {
+	for _, c := range []struct{ goflags, want string }{
+		{"", "teladev"},
+		{"-mod=mod", "teladev"},
+		{"-tags=a,b", "teladev,a,b"},
+		{"--tags=a", "teladev,a"},
+		{"-tags a,b -mod=mod", "teladev,a,b"},
+		{`"-tags=a b"`, "teladev,a,b"},     // legacy space-separated list
+		{`'-tags=a b,c'`, "teladev,a,b,c"}, // both separators
+		{"-tags=teladev,a,a", "teladev,a"},
+		{"-tags=a -tags=b", "teladev,b"}, // the last one wins, as in the go command
+		{"-tags=", "teladev"},
+		{"-tags", "teladev"},
+		{"-tagsx=a", "teladev"},
+	} {
+		if got := devTags(c.goflags); got != c.want {
+			t.Errorf("GOFLAGS=%q: -tags %q, want %q", c.goflags, got, c.want)
+		}
+	}
+}
+
+// TestGoListKeepsGOFLAGSTags lists a package that builds only with the
+// user's tags besides teladev.
+func TestGoListKeepsGOFLAGSTags(t *testing.T) {
+	skipShort(t)
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip(err)
+	}
+	dir := tinyModule(t, "//go:build teladev && usertag\n\npackage main\n\nfunc main() {}\n")
+	pkgs, err := goList(goBin, dir, "-tags=usertag", ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 || pkgs[0].Name != "main" || len(pkgs[0].GoFiles) != 1 {
+		t.Errorf("go list: %+v, want package main with main.go", pkgs)
 	}
 }
 
@@ -174,5 +218,35 @@ func main() {
 	}
 	if !strings.Contains(string(out), "main.go:14") {
 		t.Errorf("the panic has no file:line:\n%s", out)
+	}
+}
+
+// TestGoBuilderKeepsGOFLAGSTags builds with -tags on the command line, which
+// replaces the -tags of GOFLAGS: the user's tags must be merged into it.
+func TestGoBuilderKeepsGOFLAGSTags(t *testing.T) {
+	skipShort(t)
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip(err)
+	}
+	dir := tinyModule(t, `//go:build teladev && usertag && other
+
+package main
+
+import "fmt"
+
+func main() { fmt.Println("built with both tags") }
+`)
+	b := tinyBuilder(t, goBin, dir)
+	b.env = append(b.env, "GOFLAGS=-mod=mod -tags=usertag,other")
+	b.goflags = goEnvFlags(goBin, dir, b.env)
+	res := b.build(context.Background(), 1)
+	if res.err != nil {
+		t.Fatalf("build: %v\n%s", res.err, res.output)
+	}
+	defer res.remove()
+	out, err := exec.Command(res.exe).Output()
+	if err != nil || strings.TrimSpace(string(out)) != "built with both tags" {
+		t.Errorf("running the build: %q, %v", out, err)
 	}
 }

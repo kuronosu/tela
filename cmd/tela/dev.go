@@ -187,7 +187,6 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 	if err != nil {
 		return 1, err
 	}
-	b.goflags = goEnvFlags(goBin, target.modDir, b.env)
 
 	// What to watch: the module (and local replacements) of the target,
 	// refreshed after each build together with the embedded files.
