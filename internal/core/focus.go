@@ -865,6 +865,15 @@ func UseElementRef() ElementRef {
 	return ElementRef{r}
 }
 
+// NewElementRef returns an ElementRef that belongs to no hook slot: the
+// zero state of what UseElementRef returns, for code that needs one ref
+// per item of a collection whose size changes between builds (package
+// aria keeps one per key of a list box, menu or tab list), where a hook
+// per item is not possible. Attach it with AttachRef like any other; it
+// follows the element while it is mounted and keeps working after the
+// element unmounts and mounts again.
+func NewElementRef() ElementRef { return ElementRef{&elemRef{}} }
+
 // AttachRef attaches r to the primitive (h.Ref): while it is mounted, r's
 // methods act on it. A ref attached to several elements follows the last
 // one mounted or updated with it. It panics on the zero ElementRef.

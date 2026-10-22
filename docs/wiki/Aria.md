@@ -26,8 +26,12 @@ import "github.com/kuronosu/tela/aria"
 | The open state of an overlay and its trigger's props | [`aria.UseOverlayTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseOverlayTrigger) |
 | A menu button (press, long press, arrow keys) | [`aria.UseMenuTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMenuTrigger) |
 | A tooltip with delays | [`aria.UseTooltipTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseTooltipTrigger) |
+| A list of options to select from, with the keyboard | [`aria.UseListBox`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseListBox) |
+| The menu that a menu button opens | [`aria.UseMenu`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMenu) |
+| Tabs and their panels | [`aria.UseTabs`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseTabs) |
+| What is selected in those | [`aria.Selection`](https://pkg.go.dev/github.com/kuronosu/tela/aria#Selection) |
 
-The menu, listbox, select, tabs and combobox collections come later.
+The select and combobox collections come later; they are built on the list box.
 
 ## The pattern: options in, `Props` out
 
@@ -493,8 +497,8 @@ returns `TriggerProps`, `MenuProps`, `Open`, `FocusStrategy`, `SetOpen`,
 press and a touch at the release (focusing the menu itself); Enter, Space and
 ArrowDown open it with `FocusStrategy` `"first"`, ArrowUp with `"last"`. With
 `Trigger: "longPress"` a press that lasts opens it (`"first"`), the quick
-press is `OnPress`, and the keys need Alt. The menu collection (`UseMenu`,
-coming) reads `FocusStrategy` to focus its first or last item and calls
+press is `OnPress`, and the keys need Alt. The menu collection ([`UseMenu`](#menus-usemenu))
+reads `FocusStrategy` to focus its first or last item and calls
 `Close` when an item is chosen. `MenuProps` holds the ref, `aria-labelledby`
 the trigger, and a focus scope that gives the focus back to the trigger.
 
@@ -553,3 +557,271 @@ its transitions do.
   overlay stack as an Escape-only overlay, so it does not take presses), and
   there is no separate `UseTooltip`.
 - `aria-haspopup="dialog"` is set for dialogs (React Aria omits it).
+
+## Collections
+
+A list box, a menu and a tab list are *collections*: keyed lists of items with
+a focused key and a selection. You give the keys (any comparable type) on every
+build and render one element per key with the props of `ItemProps(key)`; the
+hook holds the state, moves the focus and selects, with React Aria's rules.
+
+All three take `Keys []K`, `DisabledKeys []K` and (list box, menu) `TextValue
+func(K) string`, and return a result with `Props` for the collection's element
+and these, shared by the three (`aria.Collection[K]`):
+
+| | |
+|---|---|
+| `ItemProps(k)` | The props of the item with key `k`: role, `aria-selected` / `aria-checked` / `aria-disabled`, tab stop, ref and handlers. |
+| `IsSelected(k)`, `IsFocused(k)`, `IsFocusVisible(k)`, `IsDisabled(k)` | The state, for styling in Go. |
+| `Focused()` | The focused key and whether there is one. |
+| `FocusKey(k)`, `Focus(strategy)`, `ClearFocus()` | Move the focus from a handler or an effect. |
+| `ItemRef(k)` | The ref `ItemProps` attaches (one ref per element: do not attach another). |
+| `Section(name)` | The props of a group of items and of its heading. |
+
+Style items with the `aria-selected:`, `aria-checked:` and `aria-disabled:`
+variants (the item's own props, so they match exactly when the item is
+selected, checked or disabled), with `focus-visible:` (the element that has the
+focus, a ring only after the keyboard) and with the booleans above. A disabled
+item also gets `Disabled`, so `disabled:` matches too.
+
+### The selection: `aria.Selection`
+
+```go
+sel := aria.SelectionOf("b", "c")
+sel.Has("b")             // true
+sel.With("a").Keys()     // [b c a]
+sel.Without("b").Keys()  // [c]
+sel.In(allKeys)          // the selected keys in the order of allKeys
+aria.All[string]()       // React Aria's "all"
+```
+
+A `Selection[K]` is an immutable set: its methods return new values, so it is
+safe in `tela.UseState` and shared freely. `All` is a selection of every item
+that can be selected; it does not list the keys (`Len` is 0), so turn it into
+keys with `Resolve(keys)` when you need them. `Equal` compares the keys
+(`==` compares identity, so two equal sets are not `==`).
+
+The **zero** `Selection` means "not given": a hook option left at it is
+*uncontrolled*, the hook keeps the selection (starting at `DefaultSelected`).
+A non-zero `Selected` is *controlled*: the collection shows it and only asks
+`OnSelectionChange` for the next one, so a change you do not store is refused.
+`aria.SelectionOf[string]()` (no keys) is a controlled, empty selection.
+`OnSelectionChange` is also called for an uncontrolled collection.
+
+```go
+// Uncontrolled.
+aria.ListBoxOptions[string]{Keys: fruit, SelectionMode: "multiple", DefaultSelected: aria.SelectionOf("banana")}
+
+// Controlled.
+sel, setSel := tela.UseState(aria.SelectionOf("banana"))
+aria.ListBoxOptions[string]{Keys: fruit, SelectionMode: "multiple", Selected: sel, OnSelectionChange: setSel.Set}
+```
+
+### List boxes: `UseListBox`
+
+```go
+var fruit = []string{"apple", "banana", "cherry"}
+
+lb := aria.UseListBox(aria.ListBoxOptions[string]{
+	Keys: fruit, TextValue: strings.ToUpper, SelectionMode: "single", AriaLabel: "Fruit",
+})
+return Div(lb.Props, Class("w-48 rounded-md border p-1"),
+	Range(len(fruit), func(i int) tela.Node {
+		k := fruit[i]
+		return Div(lb.ItemProps(k), Key(k),
+			Class("rounded px-2 py-1 aria-selected:bg-primary aria-selected:text-primary-foreground focus-visible:ring-2"),
+			Text(k))
+	}))
+```
+
+```yaml
+- listbox "Fruit":
+  - option "apple"
+  - option "banana" [selected]
+  - option "cherry"
+```
+
+Render the items as `Div`s or `Li`s, not Buttons (a Button activates on Enter
+and Space by itself). The options:
+
+| Option | Does |
+|---|---|
+| `SelectionMode` | `"none"` (default), `"single"`, `"multiple"`. |
+| `SelectionBehavior` | `"toggle"` (default: a click toggles the item, so plain clicks build a multiple selection) or `"replace"` (a click selects only that item; Ctrl+click toggles, Shift+click selects a range; the arrow keys move the selection). |
+| `Selected`, `DefaultSelected`, `OnSelectionChange` | See above. |
+| `DisallowEmptySelection`, `DisallowSelectAll` | Keep one item selected; turn off Ctrl+A. |
+| `OnAction` | Called when an item is activated: Enter, a tap, or a click when nothing is selected (`"toggle"`) or the list does not select. With `"replace"` and a selection, a click selects and a double click or Enter runs the action. |
+| `Orientation`, `Direction` | `"horizontal"` lists use the left and right arrows (swapped by `"rtl"`). |
+| `ShouldFocusWrap` | ArrowDown on the last item focuses the first. |
+| `ShouldFocusOnHover` | The mouse focuses the item it moves over. |
+| `AutoFocus`, `FocusStrategy` | Focus on mount: the first selected item, else `aria.FocusFirst` / `aria.FocusLast`, else the list. |
+| `AriaLabel`, `AriaLabelledBy`, `Ref` | Name the list; share its ref with other hooks. |
+
+**Keyboard.** Tab enters the list (the first selected item, else the first, takes
+the focus; only the focused item is a tab stop). ArrowUp and ArrowDown, Home and
+End move the focus and skip disabled items; PageUp and PageDown move a
+viewport of items; typing text moves to the next item that starts with it
+(case-insensitive; the typed string expires after one second on the frame clock);
+Space and Enter select or act; with a multiple selection Shift+ArrowDown extends
+the range, Ctrl+A (Cmd+A on a Mac) selects everything, Ctrl+ArrowDown moves
+without selecting (`"replace"`) and Escape clears the selection.
+
+**Sections.** `lb.Section("fruit")` returns `Props` for a group of items (role
+`group`, named by its heading) and `HeadingProps` for the heading; the keys stay
+one flat list, so the arrow keys cross sections.
+
+```yaml
+- listbox "Food":
+  - group "Fruit":
+    - text: Fruit
+    - option "Apple"
+```
+
+#### Long lists
+
+Give the items to a [`h.VirtualList`](Scrolling-and-VirtualList) with `lb.Props`
+on the list itself (it carries the ref the hook scrolls through):
+
+```go
+h.VirtualList(len(keys), func(int) float32 { return 32 }, func(i int) tela.Node {
+	return Div(lb.ItemProps(keys[i]), Class("h-8"), Text(keys[i]))
+}, lb.Props, Class("h-64"))
+```
+
+Keys of items that are not rendered can be focused: End, typeahead and the page
+keys scroll the list to the item, which takes the focus when it mounts. Ctrl+A
+selects the whole list.
+
+#### Virtual focus
+
+With `ShouldUseVirtualFocus` the list keeps the focus and *highlights* an item
+(`aria-activedescendant`); the items are not focusable and `IsFocused(k)` says
+which one is highlighted. `ExternalFocus` is the same for a list that never has
+the focus because another element does, a combobox's input: that element calls
+`lb.HandleKeyDown` from its key handler and puts `lb.ActiveDescendant()` on
+itself; a press on an option leaves the focus where it is.
+
+```go
+Input(AriaLabel("Search"), OnKeyDown(lb.HandleKeyDown), lb.ActiveDescendant(), OnBlur(lb.ClearFocus))
+```
+
+The input keeps its own Home, End, Space, Ctrl+A and Escape, and there is no
+typeahead; the arrows, PageUp, PageDown and Enter go to the list.
+
+### Menus: `UseMenu`
+
+`UseMenu` is the collection of a [menu button](#menu-buttons-usemenutrigger). Call
+it in the component that is rendered while the menu is open (it focuses an item
+when it mounts), give it the trigger's `FocusStrategy`, `Close` and `MenuRef`,
+and put the trigger's `MenuProps` on the same element: they hold the focus
+scope that gives the focus back to the trigger, so `UseMenu` adds none.
+
+```go
+func ActionsButton() tela.Node {
+	mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{})
+	pop := aria.UsePopover(aria.PopoverOptions{
+		Trigger: mt.Ref, Ref: mt.MenuRef, Open: mt.Open, OnClose: mt.Close,
+		Placement: "bottom-start", Modal: true,
+	})
+	return Fragment(
+		Button(mt.TriggerProps, Text("Actions")),
+		Portal(If(mt.Open, ActionsMenu{Trigger: mt, Popover: pop})))
+}
+
+type ActionsMenu struct {
+	Trigger aria.MenuTriggerResult
+	Popover aria.PopoverResult
+}
+
+func (m ActionsMenu) Build() tela.Node {
+	menu := aria.UseMenu(aria.MenuOptions[string]{
+		Keys: actions, TextValue: strings.ToUpper,
+		OnAction: run, OnClose: m.Trigger.Close,
+		AutoFocus: true, FocusStrategy: m.Trigger.FocusStrategy, Ref: m.Trigger.MenuRef,
+	})
+	return Div(m.Popover.Props, m.Trigger.MenuProps, menu.Props,
+		Class("w-48 rounded-md border bg-popover p-1 shadow-md"),
+		Range(len(actions), func(i int) tela.Node {
+			return Div(menu.ItemProps(actions[i]), Key(actions[i]),
+				Class("rounded px-2 py-1.5 focus-visible:bg-accent aria-disabled:opacity-50"), Text(actions[i]))
+		}))
+}
+```
+
+```yaml
+- menu "Actions":
+  - menuitem "Edit"
+  - menuitem "Duplicate"
+  - menuitem "Archive" [disabled]
+```
+
+ArrowDown on the trigger opens the menu with the first item focused, ArrowUp
+the last; a mouse opens it with the menu itself focused. Enter, Space and
+a click choose an item: it is selected (with a selection mode), `OnAction(key)`
+runs, `OnClose` closes the menu and the focus goes back to the trigger. Escape
+closes it. The mouse focuses the item it moves over; typeahead and disabled
+items work as in a list box.
+
+`SelectionMode: "single"` makes the items radio items (`menuitemradio`) and
+`"multiple"` checkbox items (`menuitemcheckbox`), with `aria-checked`:
+
+```yaml
+- menu "View":
+  - menuitemcheckbox "Ruler" [checked]
+  - menuitemcheckbox "Grid"
+```
+
+Choosing an item closes the menu unless the selection is multiple (several
+checkbox items are toggled in a row); `CloseOnSelect` (a `*bool`) overrides it.
+A single selection never unchecks by choosing the checked item. There are no
+submenus yet.
+
+### Tabs: `UseTabs`
+
+```go
+tabs := aria.UseTabs(aria.TabsOptions[string]{Keys: names, AriaLabel: "Settings"})
+sel, _ := tabs.Selected.First()
+return Div(
+	Div(tabs.Props, Class("flex gap-1 border-b"),
+		Range(len(names), func(i int) tela.Node {
+			k := names[i]
+			return Div(tabs.TabProps(k), Key(k),
+				Class("px-3 py-2 aria-selected:border-b-2 aria-selected:border-primary focus-visible:ring-2"), Text(k))
+		})),
+	Div(tabs.PanelProps(sel), Class("p-4"), panel(sel)))
+```
+
+```yaml
+- tablist "Settings":
+  - tab "account" [selected]
+  - tab "password"
+- tabpanel "account": account settings
+```
+
+`UseTabs` is React Aria's `useTabList`, `useTab` and `useTabPanel` in one hook.
+The selected tab is the only tab stop; the arrow keys (up and down for
+`Orientation: "vertical"`; swapped by `Direction: "rtl"`) move between tabs and
+wrap, Home and End jump, and disabled tabs are skipped. By default the focused
+tab is selected (`KeyboardActivation: "automatic"`); with `"manual"` the arrows
+only move the focus and Enter or Space selects. A tab list always has one
+selected, enabled tab: the first when none is given. The selection is a
+`Selection` of one key, uncontrolled or controlled like any other
+(`tabs.Selected.First()` is the key). A tab has `aria-controls` the panel while
+it is selected and `PanelProps(k)` names the panel by its tab; render the panel
+of the selected tab only. `PanelProps` makes the panel a tab stop (as React Aria
+does when it has no focusable content): add `TabIndex(-1)` after it when the
+panel has controls of its own.
+
+### How it differs from React Aria
+
+- No collection object, `Item` or `Section` elements and no `Node` type: the
+  keys are a Go slice and the items are ordinary elements. One state per hook and
+  one ref per key replace the hook that React Aria calls in every item.
+- The selection is an immutable `Selection` with an `All` value, controlled
+  when non-zero, instead of `selectedKeys` as a `Set` or `"all"`.
+- A menu's radio items cannot be unchecked by choosing them again; there are no
+  submenus, per-item `closeOnSelect`, `disabledBehavior`, links or press, drag and
+  release across menu items.
+- Typeahead is a case-insensitive prefix match (no collator).
+- Shift+Tab into a list focuses its first item, not the last one: Tela's focus
+  events do not carry the element the focus came from.

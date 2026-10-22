@@ -95,6 +95,10 @@
 // and [UseTooltipTrigger] (hover and focus with React Aria's delays and
 // warm-up).
 //
+// Collections, keyed lists of items with a focused key and a selection:
+// [UseListBox], [UseMenu] (the menu of [UseMenuTrigger]) and [UseTabs],
+// with the [Selection] type for what is selected.
+//
 // # Overlays
 //
 // An overlay is rendered by its owner, in a Portal and only while it is
@@ -123,6 +127,33 @@
 // Presses and Escape reach only the top overlay. What is opened from an
 // overlay is inside it (a popover in a dialog, a tooltip on a button in a
 // popover), in a Portal or not.
+//
+// # Collections
+//
+// A list box, a menu and a tab list are collections: the caller gives the
+// keys of the items (any comparable type) on every build, and renders one
+// element per key with the props of ItemProps(key). The hook keeps the
+// focused key and the selection, moves the focus with the arrow keys,
+// Home, End, PageUp, PageDown and typeahead, and selects with the pointer
+// and the keyboard as React Aria does.
+//
+//	lb := aria.UseListBox(aria.ListBoxOptions[string]{Keys: names, SelectionMode: "multiple"})
+//	return Div(lb.Props, Range(len(names), func(i int) tela.Node {
+//	    return Div(lb.ItemProps(names[i]), Key(names[i]),
+//	        Class("aria-selected:bg-accent focus-visible:ring-2"), Text(names[i]))
+//	}))
+//
+// The selection is a [Selection], uncontrolled by default and controlled
+// when the options hold a non-zero one:
+//
+//	sel, setSel := tela.UseState(aria.SelectionOf("b"))
+//	aria.ListBoxOptions[string]{Keys: names, SelectionMode: "multiple",
+//	    Selected: sel, OnSelectionChange: setSel.Set}
+//
+// The focus is roving (the focused item's element has it) unless
+// ShouldUseVirtualFocus keeps it on the collection and marks the focused
+// item with aria-activedescendant. Give the items of a long list to a
+// h.VirtualList: keys that are not rendered can still be focused.
 //
 // # Testing and agents
 //

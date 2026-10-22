@@ -372,3 +372,41 @@ func mustJSON(t *testing.T, n *InspectNode) []byte {
 	}
 	return js
 }
+
+// A NewElementRef belongs to no hook slot: one per item of a list whose
+// length changes, attached, focused and measured like a hook's.
+func TestNewElementRef(t *testing.T) {
+	refs := map[string]ElementRef{}
+	var setN Setter[int]
+	comp := func() Node {
+		n, set := UseState(2)
+		setN = set
+		var kids []Child
+		for _, k := range []string{"a", "b"}[:n] {
+			r, ok := refs[k]
+			if !ok {
+				r = NewElementRef()
+				refs[k] = r
+			}
+			kids = append(kids, div(Key(k), AttachRef(r), TabIndex(-1), Class("h-10 w-20")))
+		}
+		return div(kids...)
+	}
+	tr := newTestTree(t, 300, 200, Component(comp), nil)
+	tr.Frame()
+	wantBounds(t, "b", refs["b"].Bounds(), 0, 40, 80, 40)
+	refs["b"].Focus()
+	if !refs["b"].Focused() || refs["a"].Focused() {
+		t.Error("the focus did not go to b")
+	}
+	// The ref of an item that unmounts is detached, and works again when
+	// an element with it mounts.
+	setN.Set(1)
+	settleFrames(t, tr)
+	if refs["b"].Bounds() != (Rect{}) || refs["b"].Focused() {
+		t.Error("the ref of an unmounted element still follows it")
+	}
+	setN.Set(2)
+	settleFrames(t, tr)
+	wantBounds(t, "b again", refs["b"].Bounds(), 0, 40, 80, 40)
+}

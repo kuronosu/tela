@@ -1,0 +1,271 @@
+package aria_test
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/aria"
+	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/telatest"
+)
+
+var actions = []string{"edit", "duplicate", "archive", "delete"}
+
+// testMenu is the menu of a menu button: a component of its own, rendered
+// only while the menu is open, so UseMenu focuses an item when it mounts.
+type testMenu struct {
+	mt   aria.MenuTriggerResult
+	pop  aria.PopoverResult
+	opts aria.MenuOptions[string]
+	ev   *events
+}
+
+func (m testMenu) Build() tela.Node {
+	o := m.opts
+	o.Keys, o.TextValue = actions, capital
+	o.OnClose, o.AutoFocus, o.FocusStrategy, o.Ref = m.mt.Close, true, m.mt.FocusStrategy, m.mt.MenuRef
+	o.OnAction = func(k string) { m.ev.add("action:" + k) }
+	menu := aria.UseMenu(o)
+	return Div(m.pop.Props, m.mt.MenuProps, menu.Props, Class("absolute w-40 bg-white"),
+		Range(len(actions), func(i int) tela.Node {
+			k := actions[i]
+			return Div(menu.ItemProps(k), Key(k), Class("h-8 px-2 focus-visible:bg-sky-100 aria-checked:font-bold"), Text(capital(k)))
+		}))
+}
+
+// menuApp is a menu button with a menu of actions.
+func menuApp(o aria.MenuOptions[string], ev *events) func() tela.Node {
+	return func() tela.Node {
+		mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{})
+		pop := aria.UsePopover(aria.PopoverOptions{
+			Trigger: mt.Ref, Ref: mt.MenuRef, Open: mt.Open, OnClose: mt.Close, Placement: "bottom-start", Modal: true,
+		})
+		return Div(Class("relative h-full"),
+			Button(mt.TriggerProps, Class("absolute left-4 top-4 h-8 w-24"), Text("Actions")),
+			Portal(If(mt.Open, testMenu{mt: mt, pop: pop, opts: o, ev: ev})))
+	}
+}
+
+func menuitem(name string) telatest.Locator { return telatest.ByRole("menuitem", name) }
+
+func TestMenuOpenWithKeys(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{}, &ev), telatest.Size(400, 300))
+	trigger := telatest.ByRole("button", "Actions")
+	app.Focus(trigger)
+	// ArrowDown opens it and focuses the first item.
+	app.Press("ArrowDown")
+	app.ExpectFocused(menuitem("Edit"))
+	app.Press("Escape")
+	app.ExpectFocused(trigger)
+	app.Expect(trigger, telatest.Expanded(false))
+	// ArrowUp focuses the last.
+	app.Press("ArrowUp")
+	app.ExpectFocused(menuitem("Delete"))
+	app.Press("ArrowUp")
+	app.ExpectFocused(menuitem("Archive"))
+	app.Press("Home")
+	app.ExpectFocused(menuitem("Edit"))
+	app.Press("End")
+	app.ExpectFocused(menuitem("Delete"))
+	app.Press("ArrowDown") // no wrap by default
+	app.ExpectFocused(menuitem("Delete"))
+	app.Press("Escape")
+	// Enter and Space open it as well.
+	app.Press("Enter")
+	app.ExpectFocused(menuitem("Edit"))
+	app.Press("Escape")
+	app.Press("Space")
+	app.ExpectFocused(menuitem("Edit"))
+	if got := ev.take(); got != "" {
+		t.Errorf("events %q", got)
+	}
+}
+
+func TestMenuActionClosesAndRestoresFocus(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{}, &ev), telatest.Size(400, 300))
+	trigger := telatest.ByRole("button", "Actions")
+	app.Focus(trigger)
+	app.Press("ArrowDown")
+	app.Press("ArrowDown")
+	app.Press("Enter")
+	if got := ev.take(); got != "action:duplicate" {
+		t.Errorf("events %q", got)
+	}
+	app.ExpectNoText("Archive")
+	app.ExpectFocused(trigger) // the trigger's scope restores the focus
+	// Space chooses too; the mouse chooses on a click.
+	app.Press("ArrowUp")
+	app.Press("Space")
+	if got := ev.take(); got != "action:delete" {
+		t.Errorf("events %q", got)
+	}
+	app.ExpectFocused(trigger)
+	app.Click(trigger)
+	app.Click(menuitem("Archive"))
+	if got := ev.take(); got != "action:archive" {
+		t.Errorf("events %q", got)
+	}
+	app.ExpectNoText("Archive")
+}
+
+func TestMenuMouseOpensWithNoItemFocused(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{}, &ev), telatest.Size(400, 300))
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.ExpectFocused(telatest.ByRole("menu", "Actions")) // the menu itself
+	app.Press("ArrowDown")
+	app.ExpectFocused(menuitem("Edit"))
+	app.Press("Escape")
+	app.ExpectFocused(telatest.ByRole("button", "Actions"))
+}
+
+func TestMenuHoverFocusesItems(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{}, &ev), telatest.Size(400, 300))
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.Hover(menuitem("Archive"))
+	app.ExpectFocused(menuitem("Archive"))
+	app.Hover(menuitem("Duplicate"))
+	app.ExpectFocused(menuitem("Duplicate"))
+	app.Press("ArrowDown")
+	app.ExpectFocused(menuitem("Archive"))
+}
+
+func TestMenuDisabledAndTypeahead(t *testing.T) {
+	var ev events
+	o := aria.MenuOptions[string]{DisabledKeys: []string{"duplicate"}, ShouldFocusWrap: true}
+	app := telatest.MountFunc(t, menuApp(o, &ev), telatest.Size(400, 300))
+	app.Focus(telatest.ByRole("button", "Actions"))
+	app.Press("ArrowDown")
+	app.ExpectFocused(menuitem("Edit"))
+	app.Press("ArrowDown") // duplicate is disabled
+	app.ExpectFocused(menuitem("Archive"))
+	app.Press("ArrowDown")
+	app.Press("ArrowDown") // wraps
+	app.ExpectFocused(menuitem("Edit"))
+	app.Press("d")
+	app.ExpectFocused(menuitem("Delete")) // "d" skips the disabled "duplicate"
+	app.Expect(menuitem("Duplicate"), telatest.Disabled(true))
+	app.Press("Escape")
+	if got := ev.take(); got != "" {
+		t.Errorf("events %q", got)
+	}
+}
+
+func TestMenuAriaSnapshot(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{DisabledKeys: []string{"archive"}}, &ev), telatest.Size(400, 300))
+	app.Focus(telatest.ByRole("button", "Actions"))
+	app.Press("ArrowDown")
+	app.ExpectAria(`
+		- menu "Actions":
+		  - menuitem "Edit"
+		  - menuitem "Duplicate"
+		  - menuitem "Archive" [disabled]
+		  - menuitem "Delete"
+	`)
+}
+
+// Checkbox and radio items: they show their state, a radio choice closes
+// the menu and a checkbox keeps it open.
+func TestMenuCheckboxItems(t *testing.T) {
+	var ev events
+	o := aria.MenuOptions[string]{SelectionMode: "multiple", DefaultSelected: aria.SelectionOf("duplicate")}
+	app := telatest.MountFunc(t, menuApp(o, &ev), telatest.Size(400, 300))
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.ExpectAria(`
+		- menu "Actions":
+		  - menuitemcheckbox "Edit"
+		  - menuitemcheckbox "Duplicate" [checked]
+		  - menuitemcheckbox "Archive"
+		  - menuitemcheckbox "Delete"
+	`)
+	app.Click(telatest.ByRole("menuitemcheckbox", "Edit"))
+	app.Expect(telatest.ByRole("menuitemcheckbox", "Edit"), telatest.Checked(true))
+	app.Press("ArrowDown")
+	app.Press("Space")
+	app.Expect(telatest.ByRole("menuitemcheckbox", "Duplicate"), telatest.Checked(false))
+	// The menu is still open and the actions ran.
+	app.ExpectText("Delete")
+	if got := ev.take(); got != "action:edit action:duplicate" {
+		t.Errorf("events %q", got)
+	}
+	app.Press("Escape")
+	// The selection survives a close: it belongs to the menu that was
+	// open, so the next one starts from DefaultSelected again.
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.Expect(telatest.ByRole("menuitemcheckbox", "Duplicate"), telatest.Checked(true))
+}
+
+func TestMenuRadioItems(t *testing.T) {
+	var ev events
+	var chosen string
+	o := aria.MenuOptions[string]{SelectionMode: "single", DefaultSelected: aria.SelectionOf("archive"),
+		OnSelectionChange: func(s aria.Selection[string]) { chosen, _ = s.First() }}
+	app := telatest.MountFunc(t, menuApp(o, &ev), telatest.Size(400, 300))
+	trigger := telatest.ByRole("button", "Actions")
+	app.Focus(trigger)
+	app.Press("ArrowDown")
+	// The selected radio item takes the focus when the menu opens.
+	app.ExpectFocused(telatest.ByRole("menuitemradio", "Archive"))
+	app.ExpectAria(`
+		- menu "Actions":
+		  - menuitemradio "Edit"
+		  - menuitemradio "Duplicate"
+		  - menuitemradio "Archive" [checked]
+		  - menuitemradio "Delete"
+	`)
+	app.Press("ArrowUp")
+	app.Press("Enter")
+	if chosen != "duplicate" {
+		t.Errorf("chosen %q", chosen)
+	}
+	app.ExpectNoText("Archive")
+	app.ExpectFocused(trigger)
+	// Choosing the checked radio item again keeps it checked.
+	app.Press("Enter")
+	app.Press("Enter")
+	if chosen != "duplicate" {
+		t.Errorf("chosen %q after choosing the same item", chosen)
+	}
+}
+
+func TestMenuCloseOnSelect(t *testing.T) {
+	var ev events
+	no, yes := false, true
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{CloseOnSelect: &no}, &ev), telatest.Size(400, 300))
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.Click(menuitem("Edit"))
+	app.ExpectText("Archive") // still open
+	if got := ev.take(); got != "action:edit" {
+		t.Errorf("events %q", got)
+	}
+	app2 := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{SelectionMode: "multiple", CloseOnSelect: &yes}, &ev), telatest.Size(400, 300))
+	app2.Click(telatest.ByRole("button", "Actions"))
+	app2.Click(telatest.ByRole("menuitemcheckbox", "Edit"))
+	app2.ExpectNoText("Archive")
+}
+
+func ExampleUseMenu() {
+	// A menu button: ArrowDown opens the menu with the first item focused,
+	// Enter chooses it, the menu closes and the focus goes back.
+	var ev events
+	app := telatest.MountFunc(&exampleTB{}, menuApp(aria.MenuOptions[string]{}, &ev), telatest.Size(400, 300))
+	trigger := telatest.ByRole("button", "Actions")
+	app.Focus(trigger)
+	app.Press("ArrowDown")
+	fmt.Println(app.AriaSnapshot())
+	app.Press("Enter")
+	app.ExpectFocused(trigger)
+	fmt.Println(ev.take())
+	// Output:
+	// - menu "Actions":
+	//   - menuitem "Edit"
+	//   - menuitem "Duplicate"
+	//   - menuitem "Archive"
+	//   - menuitem "Delete"
+	// action:edit
+}

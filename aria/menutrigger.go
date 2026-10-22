@@ -161,6 +161,13 @@ func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult {
 				st.request(false) // a non-modal menu: the trigger toggles it
 				return
 			}
+			// The press focuses the trigger after this handler, but the
+			// menu's focus scope remembers the focus when it mounts, which
+			// is before: focus it now, as React Aria's usePress does, so
+			// that closing the menu gives the focus back to the trigger.
+			if !o.Disabled && e.PointerType != PointerVirtual {
+				ref.Focus()
+			}
 			openWith(s)
 		}
 		pressOpts.OnPress = func(e PressEvent) {

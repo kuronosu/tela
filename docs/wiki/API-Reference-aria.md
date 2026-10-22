@@ -12,13 +12,14 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- Functions: [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
+- Functions: [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
   - [`type Available`](#type-available): [`MaxHeight`](#func-available-maxheight) · [`MaxWidth`](#func-available-maxwidth)
   - [`type ButtonOptions`](#type-buttonoptions)
   - [`type ButtonResult`](#type-buttonresult): [`UseButton`](#func-usebutton)
+  - [`type Collection`](#type-collection): [`ActiveDescendant`](#func-collectionk-activedescendant) · [`ClearFocus`](#func-collectionk-clearfocus) · [`Focus`](#func-collectionk-focus) · [`FocusKey`](#func-collectionk-focuskey) · [`Focused`](#func-collectionk-focused) · [`HandleKeyDown`](#func-collectionk-handlekeydown) · [`IsDisabled`](#func-collectionk-isdisabled) · [`IsFocusVisible`](#func-collectionk-isfocusvisible) · [`IsFocused`](#func-collectionk-isfocused) · [`IsSelected`](#func-collectionk-isselected) · [`ItemProps`](#func-collectionk-itemprops) · [`ItemRef`](#func-collectionk-itemref) · [`Section`](#func-collectionk-section)
   - [`type DialogOptions`](#type-dialogoptions)
   - [`type DialogResult`](#type-dialogresult): [`UseDialog`](#func-usedialog)
   - [`type FlipOptions`](#type-flipoptions)
@@ -35,6 +36,10 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type HoverOptions`](#type-hoveroptions)
   - [`type HoverResult`](#type-hoverresult): [`UseHover`](#func-usehover)
   - [`type LimitShiftOptions`](#type-limitshiftoptions)
+  - [`type ListBoxOptions`](#type-listboxoptions)
+  - [`type ListBoxResult`](#type-listboxresult): [`UseListBox`](#func-uselistbox)
+  - [`type MenuOptions`](#type-menuoptions)
+  - [`type MenuResult`](#type-menuresult): [`UseMenu`](#func-usemenu)
   - [`type MenuTriggerOptions`](#type-menutriggeroptions)
   - [`type MenuTriggerResult`](#type-menutriggerresult): [`UseMenuTrigger`](#func-usemenutrigger)
   - [`type OffsetOptions`](#type-offsetoptions)
@@ -49,9 +54,13 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type PressOptions`](#type-pressoptions)
   - [`type PressResult`](#type-pressresult): [`UsePress`](#func-usepress)
   - [`type Rects`](#type-rects)
+  - [`type SectionResult`](#type-sectionresult)
+  - [`type Selection`](#type-selection): [`All`](#func-all) · [`SelectionOf`](#func-selectionof) · [`Equal`](#func-selectionk-equal) · [`First`](#func-selectionk-first) · [`Has`](#func-selectionk-has) · [`In`](#func-selectionk-in) · [`IsAll`](#func-selectionk-isall) · [`IsEmpty`](#func-selectionk-isempty) · [`IsSet`](#func-selectionk-isset) · [`Keys`](#func-selectionk-keys) · [`Len`](#func-selectionk-len) · [`Resolve`](#func-selectionk-resolve) · [`String`](#func-selectionk-string) · [`Toggle`](#func-selectionk-toggle) · [`With`](#func-selectionk-with) · [`Without`](#func-selectionk-without)
   - [`type ShiftLimiter`](#type-shiftlimiter): [`LimitShift`](#func-limitshift)
   - [`type ShiftOptions`](#type-shiftoptions)
   - [`type SizeOptions`](#type-sizeoptions)
+  - [`type TabsOptions`](#type-tabsoptions)
+  - [`type TabsResult`](#type-tabsresult): [`UseTabs`](#func-usetabs) · [`PanelProps`](#func-tabsresultk-panelprops) · [`TabProps`](#func-tabsresultk-tabprops)
   - [`type ToggleOptions`](#type-toggleoptions)
   - [`type ToggleResult`](#type-toggleresult): [`UseCheckbox`](#func-usecheckbox) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton)
   - [`type TooltipTriggerOptions`](#type-tooltiptriggeroptions)
@@ -124,6 +133,8 @@ Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as on
 
 Overlays: [`UseOverlay`](#func-useoverlay) (Escape and a press outside close the top overlay; a modal one makes the rest of the window inert), [`UseDialog`](#func-usedialog) (role, name and focus), [`UsePopover`](#func-usepopover) (a floating overlay next to its trigger), [`UseOverlayTrigger`](#func-useoverlaytrigger) (the open state and the trigger's props), [`UseMenuTrigger`](#func-usemenutrigger) (a trigger that opens with press, long press or keys) and [`UseTooltipTrigger`](#func-usetooltiptrigger) (hover and focus with React Aria's delays and warm-up).
 
+Collections, keyed lists of items with a focused key and a selection: [`UseListBox`](#func-uselistbox), [`UseMenu`](#func-usemenu) (the menu of [`UseMenuTrigger`](#func-usemenutrigger)) and [`UseTabs`](#func-usetabs), with the [`Selection`](#type-selection) type for what is selected.
+
 ### Overlays
 
 An overlay is rendered by its owner, in a Portal and only while it is open; the hooks give the props. The trigger hook holds the state, the popover positions and dismisses, the dialog names and focuses, and they share the overlay element's ref:
@@ -145,6 +156,28 @@ return Fragment(
 To let an overlay fade out, render it inside a Presence with If and give it Exit classes and a transition (and the starting: variant for the entrance), as above. An exiting overlay is inert and off the overlay stack at once, so the page below works while it fades, a second Escape reaches the next overlay, and the hooks' Open value is already false.
 
 Presses and Escape reach only the top overlay. What is opened from an overlay is inside it (a popover in a dialog, a tooltip on a button in a popover), in a Portal or not.
+
+### Collections
+
+A list box, a menu and a tab list are collections: the caller gives the keys of the items (any comparable type) on every build, and renders one element per key with the props of ItemProps(key). The hook keeps the focused key and the selection, moves the focus with the arrow keys, Home, End, PageUp, PageDown and typeahead, and selects with the pointer and the keyboard as React Aria does.
+
+```go
+lb := aria.UseListBox(aria.ListBoxOptions[string]{Keys: names, SelectionMode: "multiple"})
+return Div(lb.Props, Range(len(names), func(i int) tela.Node {
+    return Div(lb.ItemProps(names[i]), Key(names[i]),
+        Class("aria-selected:bg-accent focus-visible:ring-2"), Text(names[i]))
+}))
+```
+
+The selection is a [`Selection`](#type-selection), uncontrolled by default and controlled when the options hold a non-zero one:
+
+```go
+sel, setSel := tela.UseState(aria.SelectionOf("b"))
+aria.ListBoxOptions[string]{Keys: names, SelectionMode: "multiple",
+    Selected: sel, OnSelectionChange: setSel.Set}
+```
+
+The focus is roving (the focused item's element has it) unless ShouldUseVirtualFocus keeps it on the collection and marks the focused item with aria-activedescendant. Give the items of a long list to a h.VirtualList: keys that are not rendered can still be focused.
 
 ### Testing and agents
 
@@ -371,6 +404,156 @@ app.Press("Enter")
 app.ExpectText("Sent 2 times")
 fmt.Println("submitted twice: mouse and Enter")
 // Output: submitted twice: mouse and Enter
+```
+
+### type Collection
+
+```go
+type Collection[K comparable] struct {
+    // contains filtered or unexported fields
+}
+```
+
+Collection is what the collection hooks share: the state of the items (selected, focused, disabled), the props of an item and the way to move the focus. It is embedded in the results of [`UseListBox`](#func-uselistbox), [`UseMenu`](#func-usemenu) and [`UseTabs`](#func-usetabs).
+
+#### func (Collection[K]) ActiveDescendant
+
+```go
+func (r Collection[K]) ActiveDescendant() tela.Prop
+```
+
+ActiveDescendant returns the aria-activedescendant prop that points to the focused item, for the element that has the focus when the focus is virtual and external; it is empty while no item is focused.
+
+#### func (Collection[K]) ClearFocus
+
+```go
+func (r Collection[K]) ClearFocus()
+```
+
+ClearFocus forgets the focused key: no item is highlighted.
+
+#### func (Collection[K]) Focus
+
+```go
+func (r Collection[K]) Focus(strategy string)
+```
+
+Focus focuses the first item ([`FocusFirst`](#constants)), the last ([`FocusLast`](#constants)), or the first selected one (the first when none is selected) for any other strategy, like the focus a Tab gives the collection.
+
+#### func (Collection[K]) FocusKey
+
+```go
+func (r Collection[K]) FocusKey(k K)
+```
+
+FocusKey focuses the item with key k from a handler or an effect (a disabled or unknown key is ignored). With a roving focus the item's element takes the focus, scrolling a virtual list to it first when it is not rendered; with a virtual focus it becomes the highlighted item.
+
+#### func (Collection[K]) Focused
+
+```go
+func (r Collection[K]) Focused() (K, bool)
+```
+
+Focused returns the focused key, and whether there is one (it is remembered after the focus leaves the collection, since it is the item that takes the focus when it comes back).
+
+#### func (Collection[K]) HandleKeyDown
+
+```go
+func (r Collection[K]) HandleKeyDown(e tela.KeyboardEvent)
+```
+
+HandleKeyDown handles a key as the list's own handler does (navigation, selection, typeahead, Enter and Space on the focused item). Props already carries it; this is for another element that has the focus while the list is shown, as a combobox's input does with ExternalFocus.
+
+**Example**
+
+```go
+// A list whose focus stays on a text field, as in a combobox: the
+// field forwards its keys and carries aria-activedescendant.
+names := []string{"apple", "banana", "cherry"}
+page := func() tela.Node {
+    lb := aria.UseListBox(aria.ListBoxOptions[string]{
+        Keys: names, SelectionMode: "single", AriaLabel: "Fruit", ExternalFocus: true,
+    })
+    picked, _ := lb.Selected.First()
+    return Div(
+        Input(AriaLabel("Search"), OnKeyDown(lb.HandleKeyDown), lb.ActiveDescendant(),
+            OnBlur(lb.ClearFocus)),
+        Div(lb.Props, Range(len(names), func(i int) tela.Node {
+            return Div(lb.ItemProps(names[i]), Key(names[i]), Class("h-8"), Text(names[i]))
+        })),
+        Textf("picked: %s", picked))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
+app.Focus(telatest.ByRole("textbox", "Search"))
+app.Press("ArrowDown")
+app.Press("ArrowDown")
+app.Press("Enter")
+app.ExpectText("picked: banana")
+fmt.Println("picked: banana")
+// Output: picked: banana
+```
+
+#### func (Collection[K]) IsDisabled
+
+```go
+func (r Collection[K]) IsDisabled(k K) bool
+```
+
+IsDisabled reports whether the item is in DisabledKeys.
+
+#### func (Collection[K]) IsFocusVisible
+
+```go
+func (r Collection[K]) IsFocusVisible(k K) bool
+```
+
+IsFocusVisible is IsFocused for a focus that came with the keyboard: the item that should show a focus ring.
+
+#### func (Collection[K]) IsFocused
+
+```go
+func (r Collection[K]) IsFocused(k K) bool
+```
+
+IsFocused reports whether the item is the focused one while the focus is in the collection: with a roving focus, the element that has the focus; with a virtual focus, the highlighted item.
+
+#### func (Collection[K]) IsSelected
+
+```go
+func (r Collection[K]) IsSelected(k K) bool
+```
+
+IsSelected reports whether the item is selected (with [`All`](#func-all), every item that is not disabled).
+
+#### func (Collection[K]) ItemProps
+
+```go
+func (r Collection[K]) ItemProps(k K) tela.Prop
+```
+
+ItemProps returns the props of the item with key k: its role (option, menuitem... by the hook), the aria state (aria-selected, aria-checked, aria-disabled), the ref, a tab stop (0 on the focused item, -1 on the others, none on a disabled one) and the pointer and focus handlers. Give every item of Keys its props, and the element a key of its own. An item element holds one ref: do not attach another (use [`Collection.ItemRef`](#func-collectionk-itemref)).
+
+#### func (Collection[K]) ItemRef
+
+```go
+func (r Collection[K]) ItemRef(k K) tela.ElementRef
+```
+
+ItemRef returns the ref that ItemProps attaches to the item with key k, for measuring or focusing it; it has no element while the item is not rendered.
+
+#### func (Collection[K]) Section
+
+```go
+func (r Collection[K]) Section(name string) SectionResult
+```
+
+Section returns the props of a group of items and of its heading (React Aria's useListBoxSection and useMenuSection). name identifies the section within the list; sections do not change the keys, which stay one flat list.
+
+```go
+fruit := lb.Section("fruit")
+Div(fruit.Props,
+    Div(fruit.HeadingProps, Class("text-xs text-muted-foreground"), Text("Fruit")),
+    Div(lb.ItemProps("apple"), Key("apple"), Text("Apple")))
 ```
 
 ### type DialogOptions
@@ -1157,6 +1340,362 @@ type LimitShiftOptions struct {
 
 LimitShiftOptions are the options of [`LimitShift`](#func-limitshift); the zero value is Floating UI's defaults.
 
+### type ListBoxOptions
+
+```go
+type ListBoxOptions[K comparable] struct {
+    // Keys are the keys of the items, in the order they are shown. The
+    // list must be given on every build; a key that goes takes its
+    // selection with it only when the caller drops it (the focus moves to
+    // the nearest item).
+    Keys []K
+    // TextValue is the text of an item, for typeahead (typing "ba" focuses
+    // the first item whose text starts with it, ignoring case). Without
+    // it there is no typeahead.
+    TextValue func(K) string
+    // DisabledKeys are the items that can not be focused, selected or
+    // acted on. They are skipped by the keyboard, and get Disabled and
+    // AriaDisabled, so both the `disabled:` and the `aria-disabled:`
+    // variants match.
+    DisabledKeys []K
+    // SelectionMode is "none" (the default: the list has actions, not a
+    // selection), "single" or "multiple".
+    SelectionMode string
+    // SelectionBehavior is "toggle" (the default: a click or Space toggles
+    // the item, so several can be selected with plain clicks) or
+    // "replace" (a click selects only that item, Ctrl+click toggles it,
+    // Shift+click selects a range, and moving the focus with the arrow
+    // keys moves the selection with it).
+    SelectionBehavior string
+    // Selected is the selection of a controlled list, with
+    // OnSelectionChange asking for the next one. The zero Selection leaves
+    // the selection to the hook, which starts at DefaultSelected. See
+    // [Selection].
+    Selected          Selection[K]
+    DefaultSelected   Selection[K]
+    OnSelectionChange func(Selection[K])
+    // DisallowEmptySelection keeps one item selected once there is one.
+    DisallowEmptySelection bool
+    // DisallowSelectAll turns off Ctrl+A (Cmd+A on a Mac) in a multiple
+    // selection.
+    DisallowSelectAll bool
+    // OnAction is called when an item is activated: with Enter, with a
+    // tap, or with a click when nothing is selected (SelectionBehavior
+    // "toggle") or the list does not select (SelectionMode "none"). With
+    // SelectionBehavior "replace" and a selection, a click selects and a
+    // double click or Enter runs the action.
+    OnAction func(K)
+    // Orientation is "vertical" (the default; ArrowUp and ArrowDown move
+    // the focus) or "horizontal" (ArrowLeft and ArrowRight).
+    Orientation string
+    // Direction is "ltr" (the default) or "rtl": the arrow keys of a
+    // horizontal list swap in a right-to-left one.
+    Direction string
+    // ShouldFocusWrap makes ArrowDown on the last item focus the first,
+    // and ArrowUp on the first the last.
+    ShouldFocusWrap bool
+    // ShouldUseVirtualFocus keeps the focus on the list itself and
+    // marks the focused item with aria-activedescendant, as a combobox's
+    // popup does: items are not focusable, and IsFocused(k) says which one
+    // is highlighted.
+    ShouldUseVirtualFocus bool
+    // ExternalFocus is ShouldUseVirtualFocus for a list that never has
+    // the focus: another element does (a combobox's input), and calls
+    // [Collection.HandleKeyDown] from its key handler and puts
+    // [Collection.ActiveDescendant] on itself. The list is not a tab stop
+    // and pressing an item does not move the focus away from that element.
+    // The keys of a text field stay its own: HandleKeyDown handles the
+    // arrow keys, PageUp, PageDown and Enter, and there is no typeahead.
+    ExternalFocus bool
+    // ShouldFocusOnHover focuses an item when the mouse moves over it.
+    ShouldFocusOnHover bool
+    // DisallowTypeAhead turns off typeahead.
+    DisallowTypeAhead bool
+    // EscapeKeyBehavior is "clearSelection" (the default: Escape clears
+    // the selection, and is not passed on while there is one) or "none".
+    EscapeKeyBehavior string
+    // AutoFocus focuses the list when it mounts: the first selected item
+    // if there is one, else the item FocusStrategy says, else the list.
+    AutoFocus bool
+    // FocusStrategy is FocusFirst or FocusLast: it implies AutoFocus.
+    FocusStrategy string
+    // AriaLabel and AriaLabelledBy name the list.
+    AriaLabel      string
+    AriaLabelledBy tela.ElementRef
+    // Ref is the list's ref, for a hook that is used together with others
+    // on one element (see the package documentation) and for a
+    // VirtualList: the list scrolls its items into view through it. The
+    // zero value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+ListBoxOptions configures [`UseListBox`](#func-uselistbox). K is the type of the items' keys: a string, an int, an ID type; any comparable value.
+
+### type ListBoxResult
+
+```go
+type ListBoxResult[K comparable] struct {
+    Collection[K]
+    // Props go to the list's element: the "listbox" role, aria-multiselectable,
+    // the ref, the key handler and, with a roving focus, a tab stop while
+    // no item is focused. Give them to the element that scrolls (or to a
+    // h.VirtualList).
+    Props tela.Prop
+    // Selected is the current selection (for a single selection, its
+    // [Selection.First] is the selected key).
+    Selected Selection[K]
+    // Ref is the ref attached to the list by Props.
+    Ref tela.ElementRef
+}
+```
+
+ListBoxResult is what [`UseListBox`](#func-uselistbox) returns.
+
+#### func UseListBox
+
+```go
+func UseListBox[K comparable](o ListBoxOptions[K]) ListBoxResult[K]
+```
+
+UseListBox holds the state of a list box and returns the props of its element and its options (React Aria's useListBox with useListState, useSelectableList and useOption): a keyed collection with a focused key, a selection, and the keyboard and pointer rules of a listbox.
+
+```go
+var fruit = []string{"apple", "banana", "cherry"}
+
+lb := aria.UseListBox(aria.ListBoxOptions[string]{
+    Keys: fruit, TextValue: strings.ToUpper, SelectionMode: "single",
+    AriaLabel: "Fruit",
+})
+return Div(lb.Props, Class("w-48 rounded-md border p-1"),
+    h.Range(len(fruit), func(i int) tela.Node {
+        k := fruit[i]
+        return Div(lb.ItemProps(k), Key(k),
+            Class("rounded px-2 py-1 aria-selected:bg-primary aria-selected:text-primary-foreground focus-visible:ring-2"),
+            Text(k))
+    }))
+```
+
+The keyboard: ArrowUp and ArrowDown (ArrowLeft and ArrowRight for a horizontal list) move the focus, skipping disabled items, with ShouldFocusWrap going around the ends; Home and End jump; PageUp and PageDown move a viewport of items; typing text focuses the next item that starts with it (the string expires after a second); Space and Enter select or act; with a multiple selection Shift+ArrowDown extends the range, Ctrl+A selects everything and Ctrl+ArrowDown moves without selecting (with SelectionBehavior "replace"). A click selects, Shift+click extends, Ctrl+click toggles.
+
+Style items with the `aria-selected:` and `aria-disabled:` variants, with `focus-visible:` (the element that has the focus), or in Go from IsSelected, IsFocused and IsDisabled. The list uses a roving focus: the focused item's element has the focus of the window and is the list's only tab stop. Render the items as Divs or Lis, not Buttons.
+
+##### Selection
+
+The selection is a [`Selection`](#type-selection). A list keeps it itself by default:
+
+```go
+aria.ListBoxOptions[string]{Keys: fruit, SelectionMode: "multiple",
+    DefaultSelected: aria.SelectionOf("banana")}
+```
+
+and is controlled by passing the selection, next to the callback that asks for changes (OnSelectionChange is also called for an uncontrolled list):
+
+```go
+sel, setSel := tela.UseState(aria.SelectionOf("banana"))
+aria.ListBoxOptions[string]{Keys: fruit, SelectionMode: "multiple",
+    Selected: sel, OnSelectionChange: setSel.Set}
+```
+
+Ctrl+A passes [`All`](#func-all); resolve it with [`Selection.Resolve`](#func-selectionk-resolve) to get keys.
+
+##### Long lists
+
+A h.VirtualList works as the list: give it Props and render its items with ItemProps. Keys that are not rendered can be focused: the list scrolls to their index and the item takes the focus when it mounts. PageUp and PageDown measure the rendered items. Typeahead and Ctrl+A work on the whole list.
+
+```go
+h.VirtualList(len(keys), func(int) float32 { return 32 }, func(i int) tela.Node {
+    return Div(lb.ItemProps(keys[i]), Key(keys[i]), Class("h-8"), Text(keys[i]))
+}, lb.Props, Class("h-64"))
+```
+
+##### Sections
+
+Section returns the props of a group of items and of its heading, which names the group: the keys stay one flat list.
+
+**Example**
+
+```go
+names := []string{"apple", "banana", "cherry"}
+page := func() tela.Node {
+    lb := aria.UseListBox(aria.ListBoxOptions[string]{
+        Keys: names, TextValue: strings.ToUpper, SelectionMode: "single", AriaLabel: "Fruit",
+    })
+    return Div(lb.Props, Class("w-48 rounded-md border p-1"),
+        Range(len(names), func(i int) tela.Node {
+            k := names[i]
+            return Div(lb.ItemProps(k), Key(k),
+                Class("rounded px-2 py-1 aria-selected:bg-primary aria-selected:text-primary-foreground focus-visible:ring-2"),
+                Text(k))
+        }))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
+app.Press("Tab")
+app.Press("ArrowDown")
+app.Press("Enter")
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - listbox "Fruit":
+//   - option "apple"
+//   - option "banana" [selected]
+//   - option "cherry"
+```
+
+**Example (controlled)**
+
+```go
+// A multiple selection that the app keeps, with the other half of the
+// page reading it.
+names := []string{"apple", "banana", "cherry"}
+page := func() tela.Node {
+    sel, setSel := tela.UseState(aria.SelectionOf("banana"))
+    lb := aria.UseListBox(aria.ListBoxOptions[string]{
+        Keys: names, SelectionMode: "multiple", AriaLabel: "Fruit",
+        Selected: sel, OnSelectionChange: setSel.Set,
+    })
+    return Div(
+        Div(lb.Props, Range(len(names), func(i int) tela.Node {
+            return Div(lb.ItemProps(names[i]), Key(names[i]), Class("h-8"), Text(names[i]))
+        })),
+        Textf("%d selected", sel.Resolve(names).Len()))
+}
+app := telatest.MountFunc(&exampleTB{}, page, telatest.Size(300, 200))
+app.Click(telatest.ByRole("option", "cherry"))
+app.Press("Control+a")
+app.ExpectText("3 selected")
+fmt.Println("3 selected")
+// Output: 3 selected
+```
+
+### type MenuOptions
+
+```go
+type MenuOptions[K comparable] struct {
+    Keys         []K
+    TextValue    func(K) string
+    DisabledKeys []K
+    // SelectionMode is "none" (the default: the items are commands,
+    // "menuitem"), "single" (radio items, "menuitemradio", of which one
+    // is selected) or "multiple" (checkbox items, "menuitemcheckbox").
+    // A single selection keeps one item selected once there is one.
+    SelectionMode     string
+    Selected          Selection[K]
+    DefaultSelected   Selection[K]
+    OnSelectionChange func(Selection[K])
+    // OnAction is called with the key of an item when it is chosen (a
+    // click, Enter or Space), whether the menu selects or not.
+    OnAction func(K)
+    // OnClose is called when choosing an item should close the menu: pass
+    // the trigger's Close. See CloseOnSelect.
+    OnClose func()
+    // CloseOnSelect decides whether choosing an item calls OnClose: nil
+    // (the default) closes the menu unless the selection is "multiple",
+    // where several items are toggled in a row; point to true or false to
+    // decide.
+    CloseOnSelect *bool
+    // AutoFocus focuses the menu when it mounts, and FocusStrategy
+    // (FocusFirst, FocusLast, from the trigger's result) the item that
+    // takes the focus; a selected item wins. A menu that mounts when it
+    // opens passes AutoFocus: true and the trigger's FocusStrategy; a
+    // non-empty FocusStrategy alone implies AutoFocus.
+    AutoFocus     bool
+    FocusStrategy string
+    // ShouldFocusWrap makes the arrow keys go around the ends.
+    ShouldFocusWrap bool
+    Direction       string
+    // DisallowTypeAhead turns off typeahead.
+    DisallowTypeAhead bool
+    // AriaLabel names the menu; the trigger's MenuProps already name it
+    // by the trigger.
+    AriaLabel string
+    // Ref is the menu's ref: pass the trigger's MenuRef, which its
+    // MenuProps attach too.
+    Ref tela.ElementRef
+}
+```
+
+MenuOptions configures [`UseMenu`](#func-usemenu). The items are keyed like those of a list box: see [`ListBoxOptions`](#type-listboxoptions) for Keys, TextValue, DisabledKeys, Selected, DefaultSelected, OnSelectionChange, ShouldFocusWrap and Direction.
+
+### type MenuResult
+
+```go
+type MenuResult[K comparable] struct {
+    Collection[K]
+    // Props go to the menu's element: the "menu" role, the ref, the key
+    // handler and a tab stop for the menu itself while no item is
+    // focused. Give them next to the trigger's MenuProps and the popover's
+    // props.
+    Props tela.Prop
+    // Selected is the current selection.
+    Selected Selection[K]
+    // Ref is the ref attached to the menu by Props.
+    Ref tela.ElementRef
+}
+```
+
+MenuResult is what [`UseMenu`](#func-usemenu) returns.
+
+#### func UseMenu
+
+```go
+func UseMenu[K comparable](o MenuOptions[K]) MenuResult[K]
+```
+
+UseMenu holds the state of a menu and returns the props of its element and its items (React Aria's useMenu, useMenuItem and useMenuSection with useTreeState). It is the collection of a menu button: it takes the trigger's results, focuses the first or last item as the trigger says, chooses with Enter, Space and clicks, closes the menu, and the focus returns to the trigger by the scope of the trigger's MenuProps (UseMenu adds none).
+
+Call it in the component that is rendered while the menu is open: it focuses an item when it mounts, so a menu that stays mounted while closed would not focus again.
+
+```go
+mt := aria.UseMenuTrigger(aria.MenuTriggerOptions{})
+pop := aria.UsePopover(aria.PopoverOptions{
+    Trigger: mt.Ref, Ref: mt.MenuRef, Open: mt.Open, OnClose: mt.Close,
+    Placement: "bottom-start", Modal: true,
+})
+return Fragment(
+    Button(mt.TriggerProps, Text("Actions")),
+    Portal(If(mt.Open, tela.C(actionMenu, mt, pop))))
+
+type actionMenu struct{ mt aria.MenuTriggerResult; pop aria.PopoverResult }
+
+func (m actionMenu) Build() tela.Node {
+    menu := aria.UseMenu(aria.MenuOptions[string]{
+        Keys: actions, TextValue: strings.ToUpper,
+        OnAction: run, OnClose: m.mt.Close,
+        AutoFocus: true, FocusStrategy: m.mt.FocusStrategy, Ref: m.mt.MenuRef,
+    })
+    return Div(m.pop.Props, m.mt.MenuProps, menu.Props, Class("w-48 rounded-md border bg-popover p-1"),
+        h.Range(len(actions), func(i int) tela.Node {
+            return Div(menu.ItemProps(actions[i]), Key(actions[i]),
+                Class("rounded px-2 py-1.5 focus-visible:bg-accent aria-disabled:opacity-50"), Text(actions[i]))
+        }))
+}
+```
+
+Items with SelectionMode "single" or "multiple" are radio and checkbox items: they print as `menuitemradio "Name" [checked]` and `menuitemcheckbox "Name" [checked]`, and `aria-checked:` styles them. The mouse focuses the item under it, as in a native menu. Disabled items are skipped. Submenus are not part of this hook.
+
+**Example**
+
+```go
+// A menu button: ArrowDown opens the menu with the first item focused,
+// Enter chooses it, the menu closes and the focus goes back.
+var ev events
+app := telatest.MountFunc(&exampleTB{}, menuApp(aria.MenuOptions[string]{}, &ev), telatest.Size(400, 300))
+trigger := telatest.ByRole("button", "Actions")
+app.Focus(trigger)
+app.Press("ArrowDown")
+fmt.Println(app.AriaSnapshot())
+app.Press("Enter")
+app.ExpectFocused(trigger)
+fmt.Println(ev.take())
+// Output:
+// - menu "Actions":
+//   - menuitem "Edit"
+//   - menuitem "Duplicate"
+//   - menuitem "Archive"
+//   - menuitem "Delete"
+// action:edit
+```
+
 ### type MenuTriggerOptions
 
 ```go
@@ -1816,6 +2355,195 @@ type Rects struct {
 
 Rects are the rectangles of the anchor and the floating element, in window coordinates.
 
+### type SectionResult
+
+```go
+type SectionResult struct {
+    // Props go to the element that groups the items: the "group" role,
+    // named by the heading.
+    Props tela.Prop
+    // HeadingProps go to the heading's element, which only names the group
+    // (role "presentation").
+    HeadingProps tela.Prop
+}
+```
+
+SectionResult is what [`Collection.Section`](#func-collectionk-section) returns.
+
+### type Selection
+
+```go
+type Selection[K comparable] struct {
+    // contains filtered or unexported fields
+}
+```
+
+Selection is an immutable set of keys, the selection of the collection hooks ([`UseListBox`](#func-uselistbox), [`UseMenu`](#func-usemenu) and [`UseTabs`](#func-usetabs)): an explicit set of keys or [`All`](#func-all), React Aria's "all". Its methods never change the receiver, so a Selection can be kept in tela.UseState and shared freely.
+
+```go
+sel := aria.SelectionOf("b", "c")
+sel.Has("b")              // true
+sel.With("a").Keys()      // [b c a]
+sel.Without("b").Keys()   // [c]
+```
+
+The zero Selection is "not given": a hook option left at it is uncontrolled, and the hook keeps the selection itself. Pass [`SelectionOf`](#func-selectionof) with no keys for a controlled, empty selection:
+
+```go
+// Uncontrolled: the hook keeps the selection.
+aria.ListBoxOptions[string]{Keys: keys, SelectionMode: "multiple", DefaultSelected: aria.SelectionOf("b")}
+// Controlled: the app keeps it.
+sel, setSel := tela.UseState(aria.SelectionOf("b"))
+aria.ListBoxOptions[string]{Keys: keys, SelectionMode: "multiple", Selected: sel, OnSelectionChange: setSel.Set}
+```
+
+A Selection is comparable with == (it holds a pointer), but two selections with the same keys are not == unless they are the same value: use [`Selection.Equal`](#func-selectionk-equal) to compare keys.
+
+**Example**
+
+```go
+sel := aria.SelectionOf("banana", "cherry")
+fmt.Println(sel.Has("banana"), sel.Has("apple"))
+fmt.Println(sel.With("apple").Without("cherry"))
+// Keys listed in the order of a collection:
+fmt.Println(sel.In([]string{"apple", "banana", "cherry", "date"}))
+// React Aria's "all", resolved against the keys:
+fmt.Println(aria.All[string]().Resolve([]string{"apple", "banana"}))
+// Output:
+// true false
+// {banana apple}
+// [banana cherry]
+// {apple banana}
+```
+
+#### func All
+
+```go
+func All[K comparable]() Selection[K]
+```
+
+All returns the selection of every key that can be selected: React Aria's "all". A collection hook shows every enabled key selected; its keys are not listed in the value, so [`Selection.Len`](#func-selectionk-len) is 0 and [`Selection.Keys`](#func-selectionk-keys) empty for it: use [`Selection.Resolve`](#func-selectionk-resolve) to turn it into the explicit keys of a collection.
+
+#### func SelectionOf
+
+```go
+func SelectionOf[K comparable](keys ...K) Selection[K]
+```
+
+SelectionOf returns the selection of exactly the given keys (duplicates count once). With no keys it is the empty selection, which, unlike the zero Selection, is a value: it makes a controlled hook show nothing selected.
+
+#### func (Selection[K]) Equal
+
+```go
+func (s Selection[K]) Equal(o Selection[K]) bool
+```
+
+Equal reports whether s and o select the same keys, whatever their order: two [`All`](#func-all) are equal, an [`All`](#func-all) and an explicit selection are not, and the zero Selection equals only itself.
+
+#### func (Selection[K]) First
+
+```go
+func (s Selection[K]) First() (K, bool)
+```
+
+First returns the first key of an explicit selection, in the order the keys were added, and whether there is one: the key of a single selection.
+
+#### func (Selection[K]) Has
+
+```go
+func (s Selection[K]) Has(k K) bool
+```
+
+Has reports whether k is selected. For [`All`](#func-all) it is always true (a hook still never selects a disabled key).
+
+#### func (Selection[K]) In
+
+```go
+func (s Selection[K]) In(order []K) []K
+```
+
+In returns the selected keys among order, in the order of order: the selection of a collection listed in the order of its keys. For [`All`](#func-all) it is every key of order.
+
+#### func (Selection[K]) IsAll
+
+```go
+func (s Selection[K]) IsAll() bool
+```
+
+IsAll reports whether s is [`All`](#func-all).
+
+#### func (Selection[K]) IsEmpty
+
+```go
+func (s Selection[K]) IsEmpty() bool
+```
+
+IsEmpty reports whether no key is selected: the zero Selection and [`SelectionOf`](#func-selectionof) with no keys. [`All`](#func-all) is not empty.
+
+#### func (Selection[K]) IsSet
+
+```go
+func (s Selection[K]) IsSet() bool
+```
+
+IsSet reports whether s is a selection. The zero Selection is not: it means "none given" in the options of the hooks (uncontrolled).
+
+#### func (Selection[K]) Keys
+
+```go
+func (s Selection[K]) Keys() []K
+```
+
+Keys returns the keys of an explicit selection in the order they were added (nil for [`All`](#func-all) and the zero Selection). The slice is a copy. Use [`Selection.In`](#func-selectionk-in) to list them in the order of a collection.
+
+#### func (Selection[K]) Len
+
+```go
+func (s Selection[K]) Len() int
+```
+
+Len returns the number of keys of an explicit selection. [`All`](#func-all) has no count of its own and returns 0: resolve it with [`Selection.Resolve`](#func-selectionk-resolve).
+
+#### func (Selection[K]) Resolve
+
+```go
+func (s Selection[K]) Resolve(order []K) Selection[K]
+```
+
+Resolve returns s as an explicit selection of keys among order: for [`All`](#func-all) the keys of order, for an explicit selection s itself.
+
+#### func (Selection[K]) String
+
+```go
+func (s Selection[K]) String() string
+```
+
+String returns "all", "unset" for the zero Selection, or the keys in braces.
+
+#### func (Selection[K]) Toggle
+
+```go
+func (s Selection[K]) Toggle(k K) Selection[K]
+```
+
+Toggle returns s without k when it has it and with k when it does not.
+
+#### func (Selection[K]) With
+
+```go
+func (s Selection[K]) With(keys ...K) Selection[K]
+```
+
+With returns s with the keys added. Adding to [`All`](#func-all) returns it as is.
+
+#### func (Selection[K]) Without
+
+```go
+func (s Selection[K]) Without(keys ...K) Selection[K]
+```
+
+Without returns s with the keys removed. Removing from [`All`](#func-all) returns it as is, since it does not list its keys: resolve it first.
+
 ### type ShiftLimiter
 
 ```go
@@ -1867,6 +2595,121 @@ type SizeOptions struct {
 ```
 
 SizeOptions are the options of [`Size`](#func-size).
+
+### type TabsOptions
+
+```go
+type TabsOptions[K comparable] struct {
+    Keys         []K
+    DisabledKeys []K
+    // Orientation is "horizontal" (the default; ArrowLeft and ArrowRight
+    // move between tabs) or "vertical" (ArrowUp and ArrowDown).
+    Orientation string
+    // KeyboardActivation is "automatic" (the default: the tab that has the
+    // focus is selected, so the arrows change the panel) or "manual" (the
+    // arrows move the focus and Enter or Space selects).
+    KeyboardActivation string
+    // Selected is the selected tab of a controlled list, as a [Selection]
+    // of one key; the zero Selection leaves it to the hook, which starts
+    // at DefaultSelected. A tab list always has one selected tab: the
+    // first enabled one when none is given or the given one is missing or
+    // disabled.
+    Selected          Selection[K]
+    DefaultSelected   Selection[K]
+    OnSelectionChange func(Selection[K])
+    Direction         string
+    AriaLabel         string
+    AriaLabelledBy    tela.ElementRef
+    // Ref is the tab list's ref, for a hook that is used together with
+    // others on one element; the zero value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+TabsOptions configures [`UseTabs`](#func-usetabs). The tabs are keyed like the items of a list box: see [`ListBoxOptions`](#type-listboxoptions) for Keys, DisabledKeys, Selected, DefaultSelected, OnSelectionChange, Direction, AriaLabel and AriaLabelledBy.
+
+### type TabsResult
+
+```go
+type TabsResult[K comparable] struct {
+    Collection[K]
+    // Props go to the tab list's element: the "tablist" role,
+    // aria-orientation, the ref and the key handler.
+    Props tela.Prop
+    // Selected is the selected tab (its [Selection.First] is the key).
+    Selected Selection[K]
+    // Ref is the ref attached to the tab list by Props.
+    Ref tela.ElementRef
+}
+```
+
+TabsResult is what [`UseTabs`](#func-usetabs) returns.
+
+#### func UseTabs
+
+```go
+func UseTabs[K comparable](o TabsOptions[K]) TabsResult[K]
+```
+
+UseTabs holds the state of a tab list and returns the props of the list, its tabs and its panels (React Aria's useTabList, useTab and useTabPanel with useTabListState).
+
+```go
+tabs := aria.UseTabs(aria.TabsOptions[string]{Keys: names, AriaLabel: "Settings"})
+sel, _ := tabs.Selected.First()
+return Div(
+    Div(tabs.Props, Class("flex gap-1 border-b"),
+        h.Range(len(names), func(i int) tela.Node {
+            k := names[i]
+            return Div(tabs.TabProps(k), Key(k),
+                Class("px-3 py-2 aria-selected:border-b-2 aria-selected:border-primary focus-visible:ring-2"),
+                Text(k))
+        })),
+    Div(tabs.PanelProps(sel), Class("p-4"), panel(sel)))
+```
+
+The arrow keys move the focus between tabs and go around the ends; Home and End jump; with the default automatic activation the focused tab is selected, with KeyboardActivation "manual" Enter or Space selects it. Disabled tabs are skipped. Only the selected tab is a tab stop: Tab goes from it to its panel.
+
+**Example**
+
+```go
+names := []string{"account", "password"}
+page := func() tela.Node {
+    tabs := aria.UseTabs(aria.TabsOptions[string]{Keys: names, AriaLabel: "Settings"})
+    sel, _ := tabs.Selected.First()
+    return Div(
+        Div(tabs.Props, Class("flex gap-1"),
+            Range(len(names), func(i int) tela.Node {
+                k := names[i]
+                return Div(tabs.TabProps(k), Key(k), Class("px-3 py-2 aria-selected:border-b-2"), Text(k))
+            })),
+        Div(tabs.PanelProps(sel), Class("p-4"), Textf("%s settings", sel)))
+}
+app := telatest.MountFunc(&exampleTB{}, page)
+app.Press("Tab")
+app.Press("ArrowRight")
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - tablist "Settings":
+//   - tab "account"
+//   - tab "password" [selected]
+// - tabpanel "password": password settings
+```
+
+#### func (TabsResult[K]) PanelProps
+
+```go
+func (r TabsResult[K]) PanelProps(k K) tela.Prop
+```
+
+PanelProps returns the props of the panel of the tab with key k: the "tabpanel" role, named by the tab, the ref that the tab's aria-controls points to, and a tab stop (give the panel TabIndex(-1) after Props when it holds focusable content of its own). Render the panel of the selected tab only.
+
+#### func (TabsResult[K]) TabProps
+
+```go
+func (r TabsResult[K]) TabProps(k K) tela.Prop
+```
+
+TabProps returns the props of the tab with key k: the "tab" role, aria-selected, aria-controls (the panel, while selected), the ref, a tab stop on the selected tab (the arrows move between the others) and the handlers. It is [`Collection.ItemProps`](#func-collectionk-itemprops).
 
 ### type ToggleOptions
 
