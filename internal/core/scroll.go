@@ -1261,7 +1261,10 @@ func (t *Tree) outermostScroller(d gfx.Point) *scroller {
 // finger and flings on release. When it wins, the pointer is cancelled
 // for the element it pressed (pointercancel), as a browser does when it
 // takes a touch over for scrolling: a press hook (aria.UsePress) ends
-// without a press.
+// without a press. Nothing else of the pointer is dispatched until it is
+// released (pointerState.panned): no moves, no pointerup or mouseup, and
+// the interact-outside listeners the press started outside of are
+// forgotten, so an overlay is not dismissed by a touch that scrolled.
 func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 	ax := gesture.AxisFree
 	switch {
@@ -1275,6 +1278,9 @@ func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 		OnStart: func(gesture.DragUpdate) {
 			s.stop()
 			t.breakLatch()
+			ps.panned = true
+			clear(ps.outside)
+			ps.outside = ps.outside[:0]
 			if el := ps.down; el != nil && el.mounted {
 				fire(t, evPointerCancel, el, t.pointerEvent(ps, platform.ButtonNone), true)
 				t.flushDiscrete()

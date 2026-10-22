@@ -65,7 +65,10 @@ import (
 //
 // Scrolling (scroll.go, scrollbar.go): a touch press also adds the pan
 // recognizer of each scroll container on the path that can scroll, which
-// competes like a drag (the inner elements' drags first); a primary press
+// competes like a drag (the inner elements' drags first); when it wins,
+// the pressed element gets pointercancel and nothing more of that touch is
+// dispatched (no moves, pointerup, mouseup or end of an interact-outside
+// press) until it is released, as in a browser; a primary press
 // on a visible scrollbar takes no part in the arena of the content: the
 // thumb's eager drag or a page of the track, without click or focus
 // change. A press stops the flings, and pointer movement ends the latched
@@ -141,6 +144,12 @@ type pointerState struct {
 	// (overlay.go).
 	outside []outsidePress
 	noClick bool
+	// panned: a touch pan took the press over and cancelled the pointer
+	// (scroll.go's panRecognizer). As in a browser, which sends nothing
+	// after pointercancel, its later moves and its release are not
+	// dispatched to elements (the gestures still see them: the pan scrolls
+	// and flings) until the press ends.
+	panned bool
 }
 
 // inputState is the pointer input state of a Tree (UI thread).
@@ -229,9 +238,11 @@ func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
 		t.updateOver(ps, target)
 	}
 	t.fireBoundary(ps)
-	fire(t, evPointerMove, target, t.pointerEvent(ps, platform.ButtonNone), true)
-	if ps.primary && !ps.noMouse {
-		fire(t, evMouseMove, target, t.mouseEvent(ps, platform.ButtonNone, 0), true)
+	if !ps.panned {
+		fire(t, evPointerMove, target, t.pointerEvent(ps, platform.ButtonNone), true)
+		if ps.primary && !ps.noMouse {
+			fire(t, evMouseMove, target, t.mouseEvent(ps, platform.ButtonNone, 0), true)
+		}
 	}
 	if ps.pressing {
 		t.in.arena.Move(t.gestureEvent(ps, e.Time))
@@ -254,7 +265,7 @@ func (t *Tree) pointerLeave(ps *pointerState) {
 func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platform.Buttons) {
 	if prev == 0 && ps.pressing {
 		// The release of the previous press never came: drop it.
-		ps.pressing = false
+		ps.pressing, ps.panned = false, false
 		t.in.arena.Cancel(t.gestureEvent(ps, e.Time))
 		t.clearActive(ps)
 	}
@@ -327,7 +338,10 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 	target := t.pointerTarget(ps)
 	ps.target = target
-	if e.Buttons == 0 {
+	switch {
+	case ps.panned:
+		// Cancelled by a touch pan: the release only ends the gestures.
+	case e.Buttons == 0:
 		pe := t.pointerEvent(ps, e.Button)
 		st := &eventState{}
 		t.outsideUp(ps, target, pe, st)
@@ -338,10 +352,10 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 			dispatchWith(t, evPointerUp, target, pe, true, true, st)
 		}
 		t.flushDiscrete()
-	} else {
+	default:
 		fire(t, evPointerMove, target, t.pointerEvent(ps, e.Button), true)
 	}
-	if ps.primary && !ps.noMouse {
+	if ps.primary && !ps.noMouse && !ps.panned {
 		fire(t, evMouseUp, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
 		t.flushDiscrete()
 	}
@@ -353,7 +367,7 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 		t.clearActive(ps)
 		ps.down = nil
 	}
-	if e.Button == platform.ButtonSecondary && ps.primary {
+	if e.Button == platform.ButtonSecondary && ps.primary && !ps.panned {
 		fire(t, evContextMenu, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
 		t.flushDiscrete()
 	}
@@ -366,7 +380,9 @@ func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
 	target := t.pointerTarget(ps)
 	ps.target = target
 	ps.buttons = 0
-	fire(t, evPointerCancel, target, t.pointerEvent(ps, platform.ButtonNone), true)
+	if !ps.panned { // a pan cancelled it already
+		fire(t, evPointerCancel, target, t.pointerEvent(ps, platform.ButtonNone), true)
+	}
 	clear(ps.outside)
 	ps.outside = ps.outside[:0]
 	if ps.pressing {
@@ -384,7 +400,7 @@ func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
 // endPress ends the capture once every button is up: a touch contact is
 // gone (it leaves everything), a pen goes back to hovering.
 func (t *Tree) endPress(ps *pointerState) {
-	ps.noMouse = false
+	ps.noMouse, ps.panned = false, false
 	captured := ps.capture != nil
 	ps.capture = nil
 	switch {

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -44,6 +45,68 @@ func TestTouchPanCancelsThePressedElement(t *testing.T) {
 	}
 	if got := r.String(); got != "pointerdown:row pointercancel:row" {
 		t.Errorf("a pan from the row: %q", got)
+	}
+}
+
+// TestTouchPanEndsThePress: once a touch pan took the touch over
+// (pointercancel), the pointer's later events are not dispatched, as in
+// a browser: no pointermove, pointerup or mouseup reaches the element the
+// finger pressed, and a popover whose outside the touch started in is not
+// told that the press ended outside it (it would close although the user
+// only scrolled past it). The next touch is a press again.
+func TestTouchPanEndsThePress(t *testing.T) {
+	var r recorder
+	row := []Child{Key("row"), Class("h-[60px]"),
+		r.pointer("pointerdown", "row"), r.pointer("pointermove", "row"), r.pointer("pointercancel", "row"),
+		r.pointer("pointerup", "row"), r.mouse("mouseup", "row")}
+	root := div(Key("page"),
+		div(Key("list"), Class("h-[200px] w-[200px] overflow-y-auto"), div(row...), div(Class("h-[1000px]"))),
+		Portal(div(Key("pop"), Class("fixed top-[250px] left-[250px] size-10"),
+			InteractOutside(OutsideOptions{
+				OnStart: func(PointerEvent) { r.add("start") },
+				OnEnd:   func(PointerEvent) { r.add("end") },
+			}),
+			Overlay(OverlayOptions{
+				OnInteractOutsideStart: func(PointerEvent) { r.add("overlay-start") },
+				OnInteractOutside:      func(PointerEvent) { r.add("overlay-outside") },
+			}))))
+	x := newScrollHost(t, root, 300, 300, Config{})
+	touch := func(a platform.PointerAction, py float32) platform.PointerEvent {
+		e := ptr(a, 100, py, platform.ButtonNone, 0)
+		e.Kind = platform.PointerTouch
+		switch a {
+		case platform.PointerDown:
+			e.Button, e.Buttons = platform.ButtonPrimary, platform.ButtonPrimary.Mask()
+		case platform.PointerMove:
+			e.Buttons = platform.ButtonPrimary.Mask()
+		case platform.PointerUp:
+			e.Button = platform.ButtonPrimary
+		}
+		return e
+	}
+	const tap = "start overlay-start pointerdown:row end overlay-outside pointerup:row mouseup:row"
+	x.send(touch(platform.PointerDown, 30), touch(platform.PointerUp, 30))
+	if got := r.String(); got != tap {
+		t.Errorf("a tap: %q", got)
+	}
+	r.reset()
+	x.send(touch(platform.PointerDown, 50))
+	y := float32(50)
+	for range 8 {
+		x.b.Advance(10 * time.Millisecond)
+		y -= 5
+		x.send(touch(platform.PointerMove, y))
+	}
+	x.send(touch(platform.PointerUp, y))
+	got := r.String()
+	if !strings.HasPrefix(got, "start overlay-start pointerdown:row pointermove:row") || !strings.HasSuffix(got, "pointermove:row pointercancel:row") {
+		t.Errorf("a pan from the row, released: %q", got)
+	}
+	r.reset()
+	x.frame()
+	x.send(touch(platform.PointerDown, 30), touch(platform.PointerUp, 30))
+	if got := r.String(); got != tap {
+		t.Errorf("a tap after the pan: %q", got)
 	}
 }
 
