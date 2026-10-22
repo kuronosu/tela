@@ -4,6 +4,7 @@
 //
 //	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
 //	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
+//	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
 //	tela version
 //
@@ -31,7 +32,13 @@
 // tela.Icon variable per file (ADR-102); it does not run the package's code
 // and needs neither the go command nor a module.
 //
-// More commands (lint, dev, add, mcp) arrive in later phases; see
+// dev runs a package's app as a child process under a window it owns,
+// rebuilds it with -tags teladev when its sources change and swaps the
+// running process for the new build, keeping the state of its components
+// (ADR-111, ADR-115). Like snapshot, a package that is not a package main
+// runs its Preview, Previews or App.
+//
+// More commands (lint, add, mcp) arrive in later phases; see
 // docs/ARCHITECTURE.md section 17.
 package main
 
@@ -51,6 +58,7 @@ Commands:
 
 	snapshot    render a package's screen headlessly to a PNG
 	inspect     print a package's aria snapshot (YAML) or layout tree (JSON)
+	dev         run an app, rebuilding and reloading it as its sources change
 	icons       generate a Go package of tela.Icon variables from SVG files
 	version     print the tela version
 	help        show this help
@@ -76,6 +84,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runInspect(args[1:], stdout, stderr)
 	case "icons":
 		return runIcons(args[1:], stdout, stderr)
+	case "dev":
+		return runDev(args[1:], stdout, stderr)
 	case "version":
 		return runVersion(args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
@@ -86,6 +96,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 				return 0
 			case "inspect":
 				fmt.Fprint(stdout, inspectUsage)
+				return 0
+			case "dev":
+				fmt.Fprint(stdout, devUsage)
 				return 0
 			case "icons":
 				if len(args) > 2 && args[2] == "gen" {
