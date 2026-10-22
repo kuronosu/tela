@@ -146,10 +146,12 @@ type pointerState struct {
 	outside []outsidePress
 	noClick bool
 	// panned: a touch pan took the press over and cancelled the pointer
-	// (scroll.go's panRecognizer). As in a browser, which sends nothing
-	// after pointercancel, its later moves and its release are not
-	// dispatched to elements (the gestures still see them: the pan scrolls
-	// and flings) until the press ends.
+	// (scroll.go's panRecognizer), and the pointer left its boundary
+	// chain. As in a browser, which sends nothing after pointercancel and
+	// the pointerout and pointerleave that follow it, its later moves and
+	// its release are not dispatched to elements, nor enter or leave the
+	// elements it passes over (the gestures still see them: the pan
+	// scrolls and flings), until the press ends.
 	panned bool
 }
 
@@ -235,11 +237,13 @@ func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
 	ps.inside = true
 	target := t.pointerTarget(ps)
 	ps.target = target
-	if ps.key.kind != platform.PointerTouch || ps.buttons != 0 {
-		t.updateOver(ps, target)
-	}
-	t.fireBoundary(ps)
 	if !ps.panned {
+		// A panned touch left its chain at the pointercancel
+		// (panRecognizer) and enters nothing until it lifts.
+		if ps.key.kind != platform.PointerTouch || ps.buttons != 0 {
+			t.updateOver(ps, target)
+		}
+		t.fireBoundary(ps)
 		fire(t, evPointerMove, target, t.pointerEvent(ps, platform.ButtonNone), true)
 		if ps.primary && !ps.noMouse {
 			fire(t, evMouseMove, target, t.mouseEvent(ps, platform.ButtonNone, 0), true)

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +123,109 @@ func TestTouchPanEndsThePress(t *testing.T) {
 	x.send(touch(platform.PointerDown, 30), touch(platform.PointerUp, 30))
 	if got := r.String(); got != tap {
 		t.Errorf("a tap after the pan: %q", got)
+	}
+}
+
+// touchEv is a touch event of the primary contact at (px, py), with the
+// buttons a pressed contact holds.
+func touchEv(a platform.PointerAction, px, py float32) platform.PointerEvent {
+	e := ptr(a, px, py, platform.ButtonNone, 0)
+	e.Kind = platform.PointerTouch
+	switch a {
+	case platform.PointerDown:
+		e.Button, e.Buttons = platform.ButtonPrimary, platform.ButtonPrimary.Mask()
+	case platform.PointerMove:
+		e.Buttons = platform.ButtonPrimary.Mask()
+	case platform.PointerUp:
+		e.Button = platform.ButtonPrimary
+	}
+	return e
+}
+
+// TestTouchPanResetsClicks: a press that a touch pan took over did not
+// click, so it does not start a click sequence: a quick tap after the
+// scroll counts 1 (2 would select a word in a text field or fire
+// OnDoubleClick), even where no tap recognizer was rejected (the row has
+// no click handler).
+func TestTouchPanResetsClicks(t *testing.T) {
+	var counts []int
+	root := div(Key("list"), Class("h-[200px] w-[200px] overflow-y-auto"),
+		div(Key("row"), Class("h-[60px]"), On("mousedown", func(e MouseEvent) { counts = append(counts, e.ClickCount) })),
+		div(Class("h-[1000px]")))
+	x := newScrollHost(t, root, 300, 300, Config{})
+	x.send(touchEv(platform.PointerDown, 100, 50))
+	y := float32(50)
+	for range 8 {
+		x.b.Advance(10 * time.Millisecond)
+		y -= 5
+		x.send(touchEv(platform.PointerMove, 100, y))
+	}
+	x.send(touchEv(platform.PointerUp, 100, y))
+	x.frame()
+	x.send(touchEv(platform.PointerDown, 100, 20), touchEv(platform.PointerUp, 100, 20))
+	if want := []int{1, 1}; !slices.Equal(counts, want) {
+		t.Errorf("a tap after a pan: click counts %v, want %v", counts, want)
+	}
+	// A second tap right away is a double tap.
+	x.send(touchEv(platform.PointerDown, 100, 20), touchEv(platform.PointerUp, 100, 20))
+	if want := []int{1, 1, 2}; !slices.Equal(counts, want) {
+		t.Errorf("a double tap: click counts %v, want %v", counts, want)
+	}
+}
+
+// TestTouchPanNoBoundaryEvents: once a pan cancelled the pointer, the
+// elements the finger passes over get no enter or leave events: the
+// pressed element's chain is left right after the pointercancel (Pointer
+// Events: pointerout and pointerleave follow pointercancel), and nothing
+// more of the touch is dispatched until it lifts, even with the implicit
+// capture released (here by the row's pointerdown handler) or lost.
+func TestTouchPanNoBoundaryEvents(t *testing.T) {
+	var r recorder
+	var refs [4]ElementRef
+	comp := func() Node {
+		var rows []Child
+		for i := range refs {
+			refs[i] = UseElementRef()
+			id := fmt.Sprintf("r%d", i)
+			ref := refs[i]
+			rows = append(rows, div(Key(id), AttachRef(ref), Class("h-[40px]"),
+				On("pointerdown", func(e PointerEvent) {
+					r.add("pointerdown:" + id)
+					ReleasePointerCapture(ref, e.PointerID)
+				}),
+				r.pointer("pointerenter", id), r.pointer("pointerleave", id), r.pointer("pointercancel", id),
+				r.pointer("pointerup", id), r.mouse("mouseenter", id), r.mouse("mouseleave", id)))
+		}
+		return div(Key("list"), Class("h-[200px] w-[200px] overflow-y-auto"), div(rows...), div(Class("h-[1000px]")))
+	}
+	x := newScrollHost(t, Component(comp), 300, 300, Config{})
+	// The list is at its top: a pan down does not scroll it, so the
+	// finger moves over r1, r2 and r3.
+	x.send(touchEv(platform.PointerDown, 100, 5))
+	const pressed = "pointerenter:r0 mouseenter:r0 pointerdown:r0"
+	if got := r.String(); got != pressed {
+		t.Fatalf("the press: %q, want %q", got, pressed)
+	}
+	r.reset()
+	for y := float32(10); y <= 150; y += 5 {
+		x.b.Advance(10 * time.Millisecond)
+		x.send(touchEv(platform.PointerMove, 100, y))
+	}
+	const cancelled = "pointercancel:r0 pointerleave:r0 mouseleave:r0"
+	if got := r.String(); got != cancelled {
+		t.Errorf("the pan: %q, want %q", got, cancelled)
+	}
+	r.reset()
+	x.send(touchEv(platform.PointerUp, 100, 150))
+	if got := r.String(); got != "" {
+		t.Errorf("the release after the pan: %q, want nothing", got)
+	}
+	r.reset()
+	x.frame()
+	x.send(touchEv(platform.PointerDown, 100, 60), touchEv(platform.PointerUp, 100, 60))
+	const tap = "pointerenter:r1 mouseenter:r1 pointerdown:r1 pointerup:r1 pointerleave:r1 mouseleave:r1"
+	if got := r.String(); got != tap {
+		t.Errorf("a tap after the pan: %q, want %q", got, tap)
 	}
 }
 

@@ -1261,10 +1261,17 @@ func (t *Tree) outermostScroller(d gfx.Point) *scroller {
 // finger and flings on release. When it wins, the pointer is cancelled
 // for the element it pressed (pointercancel), as a browser does when it
 // takes a touch over for scrolling: a press hook (aria.UsePress) ends
-// without a press. Nothing else of the pointer is dispatched until it is
-// released (pointerState.panned): no moves, no pointerup or mouseup, and
-// the interact-outside listeners the press started outside of are
-// forgotten, so an overlay is not dismissed by a touch that scrolled.
+// without a press. The pointer then leaves the elements it is over
+// (pointerleave and mouseleave), as pointerout and pointerleave follow
+// pointercancel in the Pointer Events spec. Nothing else of the pointer is
+// dispatched until it is released (pointerState.panned): no moves, no
+// enter or leave of the elements it passes over, no pointerup or
+// mouseup, and the interact-outside listeners the press started outside
+// of are forgotten, so an overlay is not dismissed by a touch that
+// scrolled. The press did not click: the click sequence starts again, so
+// a quick tap after the scroll is a single click (pointerCancel does the
+// same; the tap recognizer's OnReject only covers a path with click
+// handlers).
 func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 	ax := gesture.AxisFree
 	switch {
@@ -1279,6 +1286,7 @@ func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 			s.stop()
 			t.breakLatch()
 			ps.panned = true
+			t.in.clicks.Reset()
 			clear(ps.outside)
 			ps.outside = ps.outside[:0]
 			// The press is over: active: ends when the scroll starts,
@@ -1286,8 +1294,10 @@ func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 			t.clearActive(ps)
 			if el := ps.down; el != nil && el.mounted {
 				fire(t, evPointerCancel, el, t.pointerEvent(ps, platform.ButtonNone), true)
-				t.flushDiscrete()
 			}
+			t.updateOver(ps, nil)
+			t.fireBoundary(ps)
+			t.flushDiscrete()
 		},
 		OnUpdate: func(u gesture.DragUpdate) {
 			if s.box.scr == s {
