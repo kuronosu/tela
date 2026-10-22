@@ -12,6 +12,18 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- `tela dev` on Windows: when a build takes more than 400 ms to show its first frame, it prints once how to exclude its build directory and the Go build cache from Microsoft Defender's real-time scanning, which scans every new build on its first run (a dashboard reload went from 2.2 s to 1.1 s with them excluded). It never changes the settings itself (ADR-125).
+
+### Changed
+
+- `tela dev` on Windows builds into `%TEMP%\tela-dev` (one directory for every session) and keeps the go command's temporary files there, unless `GOTMPDIR` is set (ADR-125).
+
+### Fixed
+
+- `tela dev` on Windows: a frame an app presents at a new size right before it exits now reaches the window (`-v` reported "OpenFileMapping …: The system cannot find the file specified"), and removing a file without an extension (vim's `4913` probe, `LICENSE`) no longer rebuilds the app (ADR-125).
+
 ## [0.9.0] - 2026-10-22
 
 ### Added
