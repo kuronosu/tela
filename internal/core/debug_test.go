@@ -450,3 +450,14 @@ func TestDebugRender(t *testing.T) {
 		t.Error("Render with overlays equals Render without")
 	}
 }
+
+// TestLayerColorsCoverKinds: every layer kind has a border color in the
+// layers overlay (the field kind had none, and TELA_DEBUG=layers panicked
+// on any window with a text field).
+func TestLayerColorsCoverKinds(t *testing.T) {
+	for i, name := range layerKindNames {
+		if layerColors[i] == (gfx.Color{}) {
+			t.Errorf("layer kind %q has no color in layerColors", name)
+		}
+	}
+}

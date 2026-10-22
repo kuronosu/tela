@@ -182,3 +182,14 @@ func TestDebugWithCheckDamage(t *testing.T) {
 	app.Scroll(telatest.ByClass("overflow-y-auto"), 0, 30)
 	app.Advance(time.Second)
 }
+
+// TestDebugLayersWithTextField: the layers overlay draws a text field's
+// layer (it indexed its colors past the end and panicked on any window
+// with an Input).
+func TestDebugLayersWithTextField(t *testing.T) {
+	app := telatest.Mount(t, tela.C(func() tela.Node {
+		return Div(Class("p-4"), Input(AriaLabel("Name"), DefaultValue("Ada")))
+	}), telatest.Debug("layers"))
+	app.Click(telatest.ByRole("textbox", "Name"))
+	app.Screenshot()
+}

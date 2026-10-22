@@ -41,12 +41,15 @@ var (
 	colSlow      = gfx.RGBA8(245, 158, 11, 255)
 	colJank      = gfx.RGBA8(239, 68, 68, 255)
 
-	// layerColors are the borders of the layers by kind (layerKindNames).
-	layerColors = [...]gfx.Color{
+	// layerColors are the borders of the layers by kind (layerKindNames);
+	// its length follows the kinds, so a new kind without a color is a
+	// zero entry that TestLayerColorsCoverKinds reports, not a panic.
+	layerColors = [len(layerKindNames)]gfx.Color{
 		gfx.RGBA8(59, 130, 246, 255), // root
 		gfx.RGBA8(168, 85, 247, 255), // scroll
 		gfx.RGBA8(236, 72, 153, 255), // deferred
 		gfx.RGBA8(20, 184, 166, 255), // scrollbars
+		gfx.RGBA8(245, 158, 11, 255), // field
 	}
 )
 
