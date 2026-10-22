@@ -7,8 +7,10 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"os/exec"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -44,11 +46,46 @@ const (
 	fakeLines = 500
 )
 
+// envFakeGo makes this test binary a go command (fakeGo) that runs the real
+// one, named by the variable, except for go env GOFLAGS: it prints the
+// contents of fakeGoFlagsFile in its working directory (a GOFLAGS that
+// depends on the directory, as a go.env of the toolchain a module selects
+// can), or nothing.
+const envFakeGo = "TELA_DEV_TEST_FAKEGO"
+
+const fakeGoFlagsFile = "fake-goflags"
+
 func TestMain(m *testing.M) {
+	if goBin, ok := os.LookupEnv(envFakeGo); ok {
+		os.Exit(fakeGo(goBin, os.Args[1:]))
+	}
 	if mode, ok := os.LookupEnv(envFake); ok {
 		os.Exit(fakeChild(mode))
 	}
 	os.Exit(m.Run())
+}
+
+func fakeGo(goBin string, args []string) int {
+	if len(args) == 2 && args[0] == "env" && args[1] == "GOFLAGS" {
+		if os.Getenv("CGO_ENABLED") != "0" {
+			fmt.Fprintln(os.Stderr, "fake go: go env runs without the builds' CGO_ENABLED=0")
+			return 1
+		}
+		data, _ := os.ReadFile(fakeGoFlagsFile)
+		fmt.Println(strings.TrimSpace(string(data)))
+		return 0
+	}
+	cmd := exec.Command(goBin, args...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return ee.ExitCode()
+		}
+		fmt.Fprintln(os.Stderr, "fake go:", err)
+		return 1
+	}
+	return 0
 }
 
 func fakeChild(mode string) int {

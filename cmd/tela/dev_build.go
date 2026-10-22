@@ -165,8 +165,15 @@ func splitGoFlags(s string) []string {
 	}
 }
 
-// goEnvFlags returns the GOFLAGS the go command uses in dir, which may come
-// from go env -w as well as from the environment; "" when it cannot tell.
+// goEnv is the environment of every go command tela dev runs: its builds,
+// go list and go env.
+func goEnv() []string {
+	return append(os.Environ(), "CGO_ENABLED=0")
+}
+
+// goEnvFlags returns the GOFLAGS the go command uses in dir with env, which
+// may come from go env -w or the go.env of the toolchain dir selects as
+// well as from the environment; "" when it cannot tell.
 func goEnvFlags(goBin, dir string, env []string) string {
 	cmd := exec.Command(goBin, "env", "GOFLAGS")
 	cmd.Dir = dir
@@ -222,7 +229,7 @@ func newGoBuilder(goBin string, t *devTarget, outDir string) (*goBuilder, error)
 		dir:     t.modDir,
 		arg:     t.arg,
 		outDir:  outDir,
-		env:     append(os.Environ(), "CGO_ENABLED=0"),
+		env:     goEnv(),
 		goflags: t.goflags,
 	}
 	if len(t.overlay) > 0 {

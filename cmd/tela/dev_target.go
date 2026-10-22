@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -60,7 +59,7 @@ func goList(goBin, dir, goflags string, args ...string) ([]listedPackage, error)
 	all := append([]string{"list", "-e", "-json=" + listFields, "-tags", devTags(goflags)}, args...)
 	cmd := exec.Command(goBin, all...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	cmd.Env = goEnv()
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
@@ -95,8 +94,8 @@ type devTarget struct {
 	// overlay maps the absolute paths of generated files to their
 	// contents (empty for a package main built as is).
 	overlay map[string][]byte
-	// goflags is the GOFLAGS the go command applies (goEnvFlags), for the
-	// flags and tags of the builds and of go list.
+	// goflags is the GOFLAGS the go command applies in modDir (goEnvFlags),
+	// for the flags and tags of the builds and of go list.
 	goflags string
 }
 
@@ -115,8 +114,9 @@ func (t *devTarget) describe() string {
 
 // resolveDevTarget finds the package and decides how to build it.
 func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
-	goflags := goEnvFlags(goBin, "", nil)
-	pkgs, err := goList(goBin, "", goflags, opts.Pkg)
+	// This go list runs here, with the GOFLAGS that apply here; the builds
+	// and the later go list run in the target's module, with its own.
+	pkgs, err := goList(goBin, "", goEnvFlags(goBin, "", goEnv()), opts.Pkg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find package %q: %s\nuse a package path or a relative directory such as ./examples/counter", opts.Pkg, err)
 	}
@@ -134,7 +134,8 @@ func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
 	if p.Module == nil || p.Module.Dir == "" {
 		return nil, fmt.Errorf("package %s (%s) is not in a module; tela dev runs packages of a module that requires github.com/kuronosu/tela", p.Name, opts.Pkg)
 	}
-	t := &devTarget{pkg: p, modDir: p.Module.Dir, goflags: goflags}
+	t := &devTarget{pkg: p, modDir: p.Module.Dir}
+	t.goflags = goEnvFlags(goBin, t.modDir, goEnv())
 	rel, err := filepath.Rel(t.modDir, p.Dir)
 	if err != nil {
 		return nil, err

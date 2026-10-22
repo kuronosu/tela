@@ -182,6 +182,41 @@ func TestDevTags(t *testing.T) {
 	}
 }
 
+// TestDevTargetGOFLAGSOfItsModule reads GOFLAGS where the builds run: in
+// the target's module, with the builds' environment, not in the current
+// directory (a module may select a toolchain whose go.env sets other
+// flags).
+func TestDevTargetGOFLAGSOfItsModule(t *testing.T) {
+	skipShort(t)
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip(err)
+	}
+	fake, err := os.Executable()
+	if err != nil {
+		t.Skip(err)
+	}
+	t.Setenv(envFakeGo, goBin)
+	t.Setenv("GOFLAGS", "")
+	dir := tinyModule(t, "package main\n\nfunc main() {}\n")
+	if err := os.WriteFile(filepath.Join(dir, fakeGoFlagsFile), []byte("-tags=frommodule\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// tela dev .. from a directory of the module without that GOFLAGS.
+	sub := filepath.Join(dir, "sub")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(sub)
+	tg, err := resolveDevTarget(fake, devOptions{Pkg: ".."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tg.goflags != "-tags=frommodule" {
+		t.Errorf("goflags %q, want the module's %q", tg.goflags, "-tags=frommodule")
+	}
+}
+
 // TestGoListKeepsGOFLAGSTags lists a package that builds only with the
 // user's tags besides teladev.
 func TestGoListKeepsGOFLAGSTags(t *testing.T) {
