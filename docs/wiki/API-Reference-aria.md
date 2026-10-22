@@ -1661,7 +1661,11 @@ type ListBoxOptions[K comparable] struct {
     Keys []K
     // TextValue is the text of an item, for typeahead (typing "ba" focuses
     // the first item whose text starts with it, ignoring case). Without
-    // it there is no typeahead.
+    // it the text of an item is its key as fmt.Sprint prints it, so
+    // typeahead works for string keys; give TextValue when the keys are
+    // IDs, or DisallowTypeAhead to turn typeahead off. While a search is
+    // going (it expires after one second without keys) a Space is a
+    // character of it and selects nothing, as in React Aria.
     TextValue func(K) string
     // DisabledKeys are the items that can not be focused, selected or
     // acted on. They are skipped by the keyboard, and get Disabled and
@@ -1881,7 +1885,9 @@ fmt.Println("3 selected")
 
 ```go
 type MenuOptions[K comparable] struct {
-    Keys         []K
+    Keys []K
+    // TextValue is the text of an item, for typeahead; the key as
+    // fmt.Sprint prints it when nil. See [ListBoxOptions].
     TextValue    func(K) string
     DisabledKeys []K
     // SelectionMode is "none" (the default: the items are commands,
@@ -3023,7 +3029,7 @@ Keys returns the keys of an explicit selection in the order they were added (nil
 func (s Selection[K]) Len() int
 ```
 
-Len returns the number of keys of an explicit selection. [`All`](#func-all) has no count of its own and returns 0: resolve it with [`Selection.Resolve`](#func-selectionk-resolve).
+Len returns the number of keys of an explicit selection. [`All`](#func-all) has no count of its own and returns 0: use len(s.In(keys)) for the number of selected items, or resolve it with [`Selection.Resolve`](#func-selectionk-resolve).
 
 #### func (Selection[K]) Resolve
 
@@ -3121,7 +3127,10 @@ SizeOptions are the options of [`Size`](#func-size).
 
 ```go
 type TabsOptions[K comparable] struct {
-    Keys         []K
+    Keys []K
+    // TextValue is the text of a tab, for typeahead; the key as fmt.Sprint
+    // prints it when nil. See [ListBoxOptions].
+    TextValue    func(K) string
     DisabledKeys []K
     // Orientation is "horizontal" (the default; ArrowLeft and ArrowRight
     // move between tabs) or "vertical" (ArrowUp and ArrowDown).
@@ -3510,7 +3519,7 @@ TooltipTriggerResult is what [`UseTooltipTrigger`](#func-usetooltiptrigger) retu
 func UseTooltipTrigger(o TooltipTriggerOptions) TooltipTriggerResult
 ```
 
-UseTooltipTrigger returns the props of a tooltip and of its trigger (React Aria's useTooltipTrigger and useTooltip, with useTooltipTriggerState): it opens when the pointer rests on the trigger or the keyboard focuses it, closes when either leaves, when the trigger is pressed or a key is typed on it, and with Escape.
+UseTooltipTrigger returns the props of a tooltip and of its trigger (React Aria's useTooltipTrigger and useTooltip, with useTooltipTriggerState): it opens when the pointer rests on the trigger or the keyboard focuses it, closes when either leaves, when the trigger is pressed (a pointer, or Enter or Space) and with Escape; other keys leave it open.
 
 ```go
 tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{})

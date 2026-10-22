@@ -15,7 +15,9 @@ import (
 // Selected, DefaultSelected, OnSelectionChange, ShouldFocusWrap and
 // Direction.
 type MenuOptions[K comparable] struct {
-	Keys         []K
+	Keys []K
+	// TextValue is the text of an item, for typeahead; the key as
+	// fmt.Sprint prints it when nil. See [ListBoxOptions].
 	TextValue    func(K) string
 	DisabledKeys []K
 	// SelectionMode is "none" (the default: the items are commands,

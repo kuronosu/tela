@@ -7,6 +7,7 @@
 package aria
 
 import (
+	"cmp"
 	"fmt"
 
 	"github.com/kuronosu/tela"
@@ -151,10 +152,7 @@ type SelectResult[K comparable] struct {
 // item when the list opens. There is no hidden native select, so a Form
 // does not submit the value: read SelectResult.Selected in OnSubmit.
 func UseSelect[K comparable](o SelectOptions[K]) SelectResult[K] {
-	placement := o.Placement
-	if placement == "" {
-		placement = "bottom-start"
-	}
+	placement := cmp.Or(o.Placement, "bottom-start")
 	text := o.TextValue
 	if text == nil {
 		text = func(k K) string { return fmt.Sprint(k) }

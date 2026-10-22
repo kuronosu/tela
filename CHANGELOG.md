@@ -49,6 +49,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- `aria.UseListBox`, `aria.UseMenu` and `aria.UseTabs` search the text of a key as `fmt.Sprint` prints it when `TextValue` is nil (as `UseSelect` and `UseCombobox` already did), so typeahead works with string keys; `aria.TabsOptions.TextValue` is new. A Space typed within the one-second search window is a character of the search and selects nothing (React Aria's behavior), and `Selection.Len()` of `aria.All` is 0 (use `len(sel.In(keys))`): both are documented.
 - A text field with the `combobox` role (`Input(Role("combobox"))`) shows its text in the aria snapshot and `tela inspect`, as Playwright prints an `input role="combobox"`: `combobox "Fruit": App`. An element may be named by several references (`aria-labelledby="a b"`) inside the framework (`core.AriaLabelledBy`); `h.AriaLabelledBy` still takes one.
 - `aria.ToggleOptions.Selected` is a `*bool` (nil: uncontrolled; `Selected: &on` with `OnChange` controls it), so `DefaultSelected` and `OnChange` can be used together. `aria` is new since v0.7.0, so this breaks no released code. An element that receives two different `h.Ref`s (for instance the props of two `aria` hooks that each made their own ref) panics in dev mode, naming both call sites and the fix; before, the last ref silently won.
 - An `Img` with both a width and a height (`w-30 h-10`) is drawn at that size, its image fitted by `object-fit` (stretched by default), as in a browser; it used to take the image's aspect ratio for its height.
@@ -58,6 +59,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- `aria` collections: when the focused item goes, the focus no longer lands on an item that the same build disables; it moves like react-stately's `useListState` (the item that took its place, never a disabled one, going back at the end; several items gone at once move it back by their number), and a collection that had the focus keeps it.
+- `aria.UseTooltipTrigger`: only Enter and Space on the trigger close the tooltip (a press, as in React Aria); Shift, the arrow keys and shortcuts no longer hide it.
 - Enter in a text field no longer presses the first hook-made button of its `Form`: a `Button` with the props of an `aria` press hook (a select's trigger, a switch, a menu button, `UseButton`) is `type="button"` until the hook's `Type` says `"submit"` or `"reset"`, so the form's default button is the first real submit button; an explicit `h.Type` still wins. Enter used to open a select or flip a switch that came first in the form instead of submitting it (ADR-106).
 - `aria.UseMenuTrigger` focuses its trigger when a mouse or a pen presses it, before the menu opens, so that closing the menu (Escape, choosing an item) gives the focus back to the trigger; it used to give it back to nothing after a mouse open.
 - The `checked:` variant, and `peer-checked:` and `group-checked:`, now match an element whose `h.AriaChecked` is true (a checkbox or switch, such as one made with `aria.UseCheckbox`); they never matched anything before, since Tela has no native checkbox. A false or mixed value does not match, and only the elements whose classes test it restyle.

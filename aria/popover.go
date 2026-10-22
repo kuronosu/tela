@@ -6,6 +6,7 @@
 package aria
 
 import (
+	"cmp"
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
@@ -96,10 +97,7 @@ func UsePopover(o PopoverOptions) PopoverResult {
 	if ref == (tela.ElementRef{}) {
 		ref = own
 	}
-	placement := o.Placement
-	if placement == "" {
-		placement = "bottom"
-	}
+	placement := cmp.Or(o.Placement, "bottom")
 	opts := []FloatingOption{Placement(placement), Offset(o.Offset), Flip(), Shift(12)}
 	opts = append(opts, o.Floating...)
 	opts = append(opts, Arrow(arrow))

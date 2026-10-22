@@ -7,6 +7,7 @@
 package aria
 
 import (
+	"cmp"
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
@@ -109,10 +110,7 @@ func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult {
 			panic("aria: MenuTriggerOptions.Trigger " + quote(o.Trigger) + ": use \"press\" (the default) or \"longPress\"")
 		}
 	}
-	popup := o.Type
-	if popup == "" {
-		popup = "menu"
-	}
+	popup := cmp.Or(o.Type, "menu")
 	if popup != "menu" && popup != "listbox" && core.DevNow() {
 		panic("aria: MenuTriggerOptions.Type " + quote(o.Type) + ": use \"menu\" (the default) or \"listbox\"")
 	}

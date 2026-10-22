@@ -9,6 +9,7 @@
 package aria
 
 import (
+	"fmt"
 	"runtime"
 	"slices"
 	"strings"
@@ -105,7 +106,7 @@ type collState[K comparable] struct {
 	pending       K
 	hasPending    bool
 	autoContainer bool
-	repair        bool
+	repair        bool // the focus was inside when its item vanished: give it to the key that took over
 	within        bool // the focus is inside the collection
 	visible       bool // and it shows as focus-visible
 
@@ -154,7 +155,7 @@ func useCollection[K comparable](cfg collConfig[K]) *collState[K] {
 	tela.UseEffect(func() func() {
 		if c.repair {
 			c.repair = false
-			if c.hasFocused && c.within && !c.cfg.virtualFocus {
+			if c.hasFocused && !c.cfg.virtualFocus {
 				c.focusElement(c.focused)
 			}
 		}
@@ -163,12 +164,19 @@ func useCollection[K comparable](cfg collConfig[K]) *collState[K] {
 	return c
 }
 
+// sprintKey is the text of an item that has no TextValue: its key as
+// fmt.Sprint prints it.
+func sprintKey[K comparable](k K) string { return fmt.Sprint(k) }
+
 func (c *collState[K]) invalidate() {
 	c.bump.Update(func(n int) int { return n + 1 })
 }
 
 // sync takes the options of a build.
 func (c *collState[K]) sync(cfg collConfig[K]) {
+	if cfg.textValue == nil {
+		cfg.textValue = sprintKey[K]
+	}
 	c.cfg = cfg
 	first := !c.started
 	c.started = true
@@ -183,6 +191,16 @@ func (c *collState[K]) sync(cfg collConfig[K]) {
 		c.sel = cfg.selected
 	} else {
 		c.controlled = false
+	}
+	// Disabled keys: usually few. They come first: when the keys change,
+	// the focus is repaired with this build's disabled set.
+	if len(cfg.disabled) == 0 {
+		c.disabled = nil
+	} else {
+		c.disabled = make(map[K]struct{}, len(cfg.disabled))
+		for _, k := range cfg.disabled {
+			c.disabled[k] = struct{}{}
+		}
 	}
 	// Keys: the index is rebuilt only when they change.
 	if first || !slices.Equal(c.keys, cfg.keys) {
@@ -206,15 +224,6 @@ func (c *collState[K]) sync(cfg collConfig[K]) {
 			c.keysChanged(old)
 		}
 	}
-	// Disabled keys: usually few.
-	if len(cfg.disabled) == 0 {
-		c.disabled = nil
-	} else {
-		c.disabled = make(map[K]struct{}, len(cfg.disabled))
-		for _, k := range cfg.disabled {
-			c.disabled[k] = struct{}{}
-		}
-	}
 	if first {
 		if cfg.autoFocus || cfg.strategy != "" {
 			c.autoFocusInit()
@@ -226,7 +235,10 @@ func (c *collState[K]) sync(cfg collConfig[K]) {
 }
 
 // keysChanged keeps the focused key valid: when its item went, the focus
-// moves to the nearest item that is left (react-stately's useListState).
+// moves to the item that took its place, else to the one before it, never
+// to a disabled one (react-stately's useListState: the old index of the
+// focused item, moved back by the number of items that went when more than
+// one did, then the first enabled item from there on, else going back).
 func (c *collState[K]) keysChanged(old []K) {
 	if c.hasPending {
 		if _, ok := c.index[c.pending]; !ok {
@@ -240,19 +252,30 @@ func (c *collState[K]) keysChanged(old []K) {
 		c.focusedIdx = i
 		return
 	}
-	_ = old
-	i := min(c.focusedIdx, len(c.keys)-1)
-	for j := i; j < len(c.keys) && j >= 0; j++ {
+	start := c.focusedIdx
+	if i := slices.Index(old, c.focused); i >= 0 {
+		start = i
+	}
+	i := start
+	if diff := len(old) - len(c.keys); diff > 1 {
+		i = max(start-diff+1, 0)
+	}
+	i = min(i, len(c.keys)-1)
+	if i < 0 {
+		c.hasFocused = false
+		return
+	}
+	for j := i; j < len(c.keys); j++ {
 		if !c.isDisabled(c.keys[j]) {
 			c.focused, c.focusedIdx = c.keys[j], j
-			c.repair = true
+			c.repair = c.within
 			return
 		}
 	}
-	for j := i; j >= 0; j-- {
+	for j := i - 1; j >= 0; j-- {
 		if !c.isDisabled(c.keys[j]) {
 			c.focused, c.focusedIdx = c.keys[j], j
-			c.repair = true
+			c.repair = c.within
 			return
 		}
 	}

@@ -188,7 +188,7 @@ func delayOf(d, def time.Duration) time.Duration {
 // (React Aria's useTooltipTrigger and useTooltip, with
 // useTooltipTriggerState): it opens when the pointer rests on the trigger
 // or the keyboard focuses it, closes when either leaves, when the trigger
-// is pressed or a key is typed on it, and with Escape.
+// is pressed (a pointer, or Enter or Space) and with Escape; other keys leave it open.
 //
 //	tip := aria.UseTooltipTrigger(aria.TooltipTriggerOptions{})
 //	fl := aria.UseFloating(tip.Ref, aria.Placement("top"), aria.Offset(6), aria.Flip(), aria.Shift(8))
@@ -286,7 +286,13 @@ func UseTooltipTrigger(o TooltipTriggerOptions) TooltipTriggerResult {
 		}),
 		h.OnBlur(func() { t.focused, t.hovered = false, false; t.hide(true) }),
 		h.OnPointerDown(pressStart),
-		h.OnKeyDown(pressStart),
+		// A key press closes it as a press does in React Aria (usePress
+		// starts on Enter and Space): Shift, arrows and shortcuts leave it.
+		h.OnKeyDown(func(e tela.KeyboardEvent) {
+			if e.Key == tela.KeyEnter || e.Key == " " {
+				pressStart()
+			}
+		}),
 	}
 	if open {
 		trigger = append(trigger, h.AriaDescribedBy(tipRef))

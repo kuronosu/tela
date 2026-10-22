@@ -525,8 +525,8 @@ return Fragment(
 React Aria's rules: the tooltip opens `Delay` (1.5 s) after the pointer
 rests on the trigger, or at once when the keyboard focuses it (a focus that a
 mouse press gave does not count), and closes `CloseDelay` (0.5 s) after the
-pointer leaves, when the trigger is pressed or a key is typed on it, when the
-focus leaves, and with Escape (which closes it before anything under it).
+pointer leaves, when the trigger is pressed (a pointer, or Enter or Space; other
+keys such as Shift or the arrows leave it open), when the focus leaves, and with Escape (which closes it before anything under it).
 Moving the pointer onto the tooltip keeps it open. The tooltips of a window
 are a group: opening one closes the others, and while one is open, or for
 `CloseDelay` after the last closed, the next one opens at once (the warm-up
@@ -572,8 +572,10 @@ lists of items with a focused key and a selection. You give the keys (any compar
 build and render one element per key with the props of `ItemProps(key)`; the
 hook holds the state, moves the focus and selects, with React Aria's rules.
 
-All of them take `Keys []K`, `DisabledKeys []K` and (all but tabs) `TextValue
-func(K) string`, and return a result with `Props` for the collection's element
+All of them take `Keys []K`, `DisabledKeys []K` and `TextValue
+func(K) string` (the text of an item, for typeahead; without it the key as
+`fmt.Sprint` prints it, so typeahead works with string keys and you give
+`TextValue` for IDs), and return a result with `Props` for the collection's element
 (for the select and the combobox, `ListBox.Props`) and these, shared by all
 (`aria.Collection[K]`):
 
@@ -665,11 +667,17 @@ and Space by itself). The options:
 | `AutoFocus`, `FocusStrategy` | Focus on mount: the first selected item, else `aria.FocusFirst` / `aria.FocusLast`, else the list. |
 | `AriaLabel`, `AriaLabelledBy`, `Ref` | Name the list; share its ref with other hooks. |
 
+**Counting a selection.** `sel.Len()` counts an explicit selection only: for
+`aria.All` it is 0. Use `len(sel.In(keys))` for the number of selected items
+whatever the selection is.
+
 **Keyboard.** Tab enters the list (the first selected item, else the first, takes
 the focus; only the focused item is a tab stop). ArrowUp and ArrowDown, Home and
 End move the focus and skip disabled items; PageUp and PageDown move a
 viewport of items; typing text moves to the next item that starts with it
-(case-insensitive; the typed string expires after one second on the frame clock);
+(case-insensitive; the typed string expires after one second on the frame clock,
+and a Space typed inside that second is a character of the search and selects
+nothing, as in React Aria);
 Space and Enter select or act; with a multiple selection Shift+ArrowDown extends
 the range, Ctrl+A (Cmd+A on a Mac) selects everything, Ctrl+ArrowDown moves
 without selecting (`"replace"`) and Escape clears the selection.
@@ -991,6 +999,9 @@ focuses the input; without one, give `AriaLabel`.
   submenus, per-item `closeOnSelect`, `disabledBehavior`, links or press, drag and
   release across menu items.
 - Typeahead is a case-insensitive prefix match (no collator).
+- When the focused item goes, the focus moves like react-stately's `useListState`
+  does (the item that took its place, never a disabled one, going back at the
+  end), and a collection that had the focus keeps it.
 - Select: no hidden native select (a `Form` does not submit it), the popover is
   non-modal by default, and an item is chosen on the click (React Aria selects on
   the press's release, so a press that starts on the trigger can be dragged onto

@@ -7,6 +7,7 @@
 package aria
 
 import (
+	"cmp"
 	"fmt"
 
 	"github.com/kuronosu/tela"
@@ -348,7 +349,7 @@ func UseCombobox[K comparable](o ComboboxOptions[K]) ComboboxResult[K] {
 	size := tela.UseSize(anchor)
 	pop := UsePopover(PopoverOptions{
 		Trigger: anchor, Open: open, OnClose: s.closeMenu,
-		Placement: orDefault(o.Placement, "bottom-start"), Offset: o.Offset, Floating: o.Floating,
+		Placement: cmp.Or(o.Placement, "bottom-start"), Offset: o.Offset, Floating: o.Floating,
 		// The press that leaves the input blurs it, which commits the text
 		// and closes the list; the press itself reaches its target.
 		ShouldCloseOnInteractOutside: func(tela.PointerEvent) bool { return false },
@@ -405,10 +406,7 @@ func UseCombobox[K comparable](o ComboboxOptions[K]) ComboboxResult[K] {
 		},
 		enter: true,
 	})
-	buttonLabel := o.ButtonLabel
-	if buttonLabel == "" {
-		buttonLabel = "Show suggestions"
-	}
+	buttonLabel := cmp.Or(o.ButtonLabel, "Show suggestions")
 	buttonProps := []tela.Prop{
 		press, h.Role("button"), h.Disabled(o.Disabled), h.TabIndex(-1),
 		h.AriaLabel(buttonLabel), h.AriaHasPopup("listbox"), h.AriaExpanded(open),
@@ -442,13 +440,6 @@ func UseCombobox[K comparable](o ComboboxOptions[K]) ComboboxResult[K] {
 		ButtonRef:    buttonRef,
 		PopoverRef:   pop.Ref,
 	}
-}
-
-func orDefault(s, def string) string {
-	if s == "" {
-		return def
-	}
-	return s
 }
 
 // ---------------------------------------------------------------------

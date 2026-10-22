@@ -44,7 +44,11 @@ type ListBoxOptions[K comparable] struct {
 	Keys []K
 	// TextValue is the text of an item, for typeahead (typing "ba" focuses
 	// the first item whose text starts with it, ignoring case). Without
-	// it there is no typeahead.
+	// it the text of an item is its key as fmt.Sprint prints it, so
+	// typeahead works for string keys; give TextValue when the keys are
+	// IDs, or DisallowTypeAhead to turn typeahead off. While a search is
+	// going (it expires after one second without keys) a Space is a
+	// character of it and selects nothing, as in React Aria.
 	TextValue func(K) string
 	// DisabledKeys are the items that can not be focused, selected or
 	// acted on. They are skipped by the keyboard, and get Disabled and

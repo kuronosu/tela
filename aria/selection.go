@@ -101,7 +101,8 @@ func (s Selection[K]) Has(k K) bool {
 }
 
 // Len returns the number of keys of an explicit selection. [All] has no
-// count of its own and returns 0: resolve it with [Selection.Resolve].
+// count of its own and returns 0: use len(s.In(keys)) for the number of
+// selected items, or resolve it with [Selection.Resolve].
 func (s Selection[K]) Len() int {
 	if s.s == nil {
 		return 0
