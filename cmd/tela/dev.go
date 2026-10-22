@@ -60,10 +60,10 @@ first frame. A build error, or a crash of the app, is printed here and the
 window keeps the last good frame; the next good build takes over.
 
 On Windows, Microsoft Defender scans each new build on its first run, which
-can make every reload about twice as slow. When a build takes more than
-400ms to show its first frame, tela dev prints once the directories to
-exclude from real-time scanning (its build directory, tela-dev in the
-temporary directory, and the Go build cache, go env GOCACHE) and the
+can make every reload about twice as slow. When the build of a reload takes
+more than 400ms to start, tela dev prints once the directories to exclude
+from real-time scanning (its build directory, tela-dev in the temporary
+directory, and the Go build cache, go env GOCACHE) and the
 PowerShell command to run as administrator (Add-MpPreference
 -ExclusionPath ...). It never changes the settings itself.
 

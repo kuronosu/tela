@@ -73,9 +73,10 @@ type supervisorConfig struct {
 	overlay bool
 	// describe and watching complete the start line.
 	describe, watching string
-	// slowStart, when positive, is the start → first frame time above
-	// which the supervisor prints, once, the hint of slowStartHint naming
-	// exclusions (dev_hint.go; Windows only outside tests).
+	// slowStart, when positive, is the start → connection time of a
+	// reload's build above which the supervisor prints, once, the hint of
+	// slowStartHint naming exclusions (checkSlowStart, dev_hint.go;
+	// Windows only outside tests).
 	slowStart  time.Duration
 	exclusions []string
 
@@ -143,12 +144,13 @@ type proc struct {
 	exited  chan struct{}
 	waitErr error // valid once exited is closed
 
-	child    *remote.Child
-	tail     *tailWriter // the end of its standard error
-	panic    string
-	report   *devloop.StateReport
-	stopping bool
-	lostConn *time.Timer
+	child     *remote.Child
+	connected time.Time   // when child connected
+	tail      *tailWriter // the end of its standard error
+	panic     string
+	report    *devloop.StateReport
+	stopping  bool
+	lostConn  *time.Timer
 
 	exitSeen     bool // the process exited
 	disconnected bool // its connection ended
@@ -191,7 +193,10 @@ type (
 		d   depSet
 		err error
 	}
-	evConnected    struct{ c *remote.Child }
+	evConnected struct {
+		c  *remote.Child
+		at time.Time // when the host reported the connection
+	}
 	evFirstFrame   struct{ c *remote.Child }
 	evDisconnected struct {
 		c   *remote.Child
@@ -263,7 +268,7 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 func (s *supervisor) hostOptions() remote.HostOptions {
 	o := remote.HostOptions{
 		Scale:        s.opts.Scale,
-		OnConnect:    func(c *remote.Child) { s.push(evConnected{c}) },
+		OnConnect:    func(c *remote.Child) { s.push(evConnected{c, time.Now()}) },
 		OnFirstFrame: func(c *remote.Child) { s.push(evFirstFrame{c}) },
 		OnDisconnect: func(c *remote.Child, err error) { s.push(evDisconnected{c, err}) },
 		OnUnhandled: func(w platform.Window, e platform.Event) {
@@ -436,8 +441,9 @@ func (s *supervisor) handle(e any) {
 			e.c.Close()
 			return
 		}
-		p.child = e.c
+		p.child, p.connected = e.c, e.at
 		s.log.verbosef("build %d connected (pid %d)", p.gen, e.c.PID())
+		s.checkSlowStart(p, e.at)
 	case evFirstFrame:
 		s.firstFrame(e.c)
 	case evPromoted:
@@ -827,10 +833,6 @@ func (s *supervisor) firstFrame(c *remote.Child) {
 	sw.promoting = true
 	sw.first = time.Now()
 	gen := p.gen
-	if d := sw.first.Sub(sw.started); s.cfg.slowStart > 0 && d > s.cfg.slowStart && !s.hinted {
-		s.hinted = true
-		s.log.printf("%s", slowStartHint(gen, d, s.cfg.exclusions))
-	}
 	h := s.host
 	h.Post(func() {
 		err := h.Promote(c)
@@ -947,6 +949,9 @@ func (s *supervisor) report(sw *swapState, now time.Time) {
 		parts = append(parts, fmt.Sprintf("build %v", ms(res.end.Sub(res.start))))
 		if !sw.saved.IsZero() {
 			parts = append(parts, fmt.Sprintf("state save %v", ms(sw.saved.Sub(res.end))))
+		}
+		if !p.connected.IsZero() {
+			parts = append(parts, fmt.Sprintf("start→connect %v", ms(p.connected.Sub(sw.started))))
 		}
 		parts = append(parts, fmt.Sprintf("start→first frame %v", ms(sw.first.Sub(sw.started))))
 		parts = append(parts, fmt.Sprintf("promote %v", ms(now.Sub(sw.first))))

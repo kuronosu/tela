@@ -33,7 +33,9 @@ import (
 // increments the counter; the key "p" makes it panic; a close request
 // closes the window and quits (exit 0).
 //
-// Modes: "ok"; "slow" (the first frame waits fakeSlow); "noframe" (never
+// Modes: "ok"; "slow" (the first frame waits fakeSlow); "slowstart" (it
+// waits fakeSlow before it connects, as a scanned executable starts late);
+// "noframe" (never
 // presents); "crash" (exits with status 3 before connecting its window);
 // "panic" (reports a panic and exits with status 2 at startup); "nosave"
 // (no state.save handler); "late" (the state report comes 150 ms after
@@ -120,6 +122,9 @@ func fakeGo(goBin string, args []string) int {
 func fakeChild(mode string) int {
 	if mode == "hold" {
 		return fakeHolder()
+	}
+	if mode == "slowstart" {
+		time.Sleep(fakeSlow)
 	}
 	b, err := remote.DialEnv()
 	if err != nil {

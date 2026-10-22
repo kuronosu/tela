@@ -367,26 +367,32 @@ func TestDevInputFrozenAndReplayed(t *testing.T) {
 	}
 }
 
-// TestDevSlowStartHint: a build slower than slowStart from its start to its
-// first frame prints the Defender hint (on Windows; the threshold is set
-// here on every OS), once per session, naming the exclusions as
-// PowerShell literals. Without slowStart (other systems) nothing is
-// printed.
+// TestDevSlowStartHint: a reload's build that connects more than slowStart
+// after its start prints the Defender hint (on Windows; the threshold is
+// set here on every OS), once per session, naming the exclusions as
+// PowerShell literals. The first start of a session never does, however
+// slow. Every build here waits fakeSlow before it connects, more than the
+// threshold, so nothing depends on how fast a process starts. Without
+// slowStart (other systems) nothing is printed.
 func TestDevSlowStartHint(t *testing.T) {
 	const hint = "Add-MpPreference -ExclusionPath"
+	slowFirst := func(h *devHarness, _ *remote.HostOptions) { h.fb.set(1, "slowstart") }
 	t.Run("on", func(t *testing.T) {
-		h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) {
-			c.slowStart = fakeSlow - 50*time.Millisecond
+		h := newDevHarnessHost(t, devOptions{}, func(c *supervisorConfig) {
+			c.slowStart = fakeSlow - 100*time.Millisecond
 			c.exclusions = []string{`C:\Users\dev\AppData\Local\Temp\tela-dev`, `C:\it's\go-build`}
-		})
+		}, slowFirst)
 		h.expect("first start", 1, 0, 0)
-		h.fb.set(2, "slow")
+		if out := h.out.String(); strings.Contains(out, hint) {
+			t.Errorf("a hint for the first start:\n%s", out)
+		}
+		h.fb.set(2, "slowstart")
 		h.s.push(evKey{'r'})
-		h.expect("the slow build", 2, 0, 0)
+		h.expect("a slow reload", 2, 0, 0)
 		h.logged(hint, 1)
-		h.fb.set(3, "slow")
+		h.fb.set(3, "slowstart")
 		h.s.push(evKey{'r'})
-		h.expect("another slow build", 3, 0, 0)
+		h.expect("another slow reload", 3, 0, 0)
 		h.logged("reloaded in", 2)
 		out := h.out.String()
 		if n := strings.Count(out, hint); n != 1 {
@@ -404,11 +410,11 @@ func TestDevSlowStartHint(t *testing.T) {
 		}
 	})
 	t.Run("off", func(t *testing.T) {
-		h := newDevHarness(t, devOptions{}, nil)
+		h := newDevHarnessHost(t, devOptions{}, nil, slowFirst)
 		h.expect("first start", 1, 0, 0)
-		h.fb.set(2, "slow")
+		h.fb.set(2, "slowstart")
 		h.s.push(evKey{'r'})
-		h.expect("the slow build", 2, 0, 0)
+		h.expect("a slow reload", 2, 0, 0)
 		h.logged("reloaded in", 1)
 		if out := h.out.String(); strings.Contains(out, hint) {
 			t.Errorf("a hint without slowStart:\n%s", out)
