@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -437,11 +438,7 @@ func RegisterDevState(name string, save func() ([]byte, error), restore func([]b
 func devExtrasNow() map[string]devExtra {
 	devExtras.Lock()
 	defer devExtras.Unlock()
-	m := make(map[string]devExtra, len(devExtras.m))
-	for k, v := range devExtras.m {
-		m[k] = v
-	}
-	return m
+	return maps.Clone(devExtras.m)
 }
 
 // extras runs the registered save functions.
@@ -552,19 +549,8 @@ func (t *Tree) devNoteScheme(s ColorScheme) {
 
 // devNoteTheme records a theme set at run time.
 func (t *Tree) devNoteTheme(th Theme) {
-	th.Colors = cloneColors(th.Colors)
+	th.Colors = maps.Clone(th.Colors)
 	t.devStateMake().theme = &th
-}
-
-func cloneColors(m map[string]SchemeColor) map[string]SchemeColor {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]SchemeColor, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }
 
 // ---------------------------------------------------------------------
