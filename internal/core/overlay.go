@@ -26,7 +26,11 @@ import "slices"
 // PreventDefault on the pointerdown cancels its default (the mouse
 // events of the press and the focus change, input.go), and on the
 // pointerup it cancels the click of the press (React Aria stops that
-// click). Inert listeners are skipped.
+// click). Inert listeners are skipped. These callbacks, and OnEscape and
+// OnFocusOutside below, run as handlers do (Tree.handlerDepth): the
+// updates of a click they make (ElementRef.Click, a button hook's
+// activation) are applied and built by the event that is running, after
+// its dispatch, not in the middle of it.
 //
 // # The overlay stack
 //
@@ -257,6 +261,8 @@ func (t *Tree) focusMoved(old, now *Element) {
 	if old == nil || now == nil || len(t.ovl.stack) == 0 {
 		return
 	}
+	t.handlerDepth++ // the callbacks run as handlers (flushNested)
+	defer func() { t.handlerDepth-- }()
 	// A copy: the callbacks may unmount overlays (in later builds).
 	for _, el := range slices.Clone(t.ovl.stack) {
 		f := el.node.d.overlay.OnFocusOutside
@@ -277,6 +283,8 @@ func (t *Tree) outsideDown(ps *pointerState, target *Element, e PointerEvent, st
 		return
 	}
 	top := t.topOverlay()
+	t.handlerDepth++ // the listeners run as handlers (flushNested)
+	defer func() { t.handlerDepth-- }()
 	// A copy: the handlers may mount and unmount listeners (in later
 	// builds; discrete events build after the dispatch).
 	for _, el := range slices.Clone(O.listeners) {
@@ -310,6 +318,8 @@ func (t *Tree) outsideUp(ps *pointerState, target *Element, e PointerEvent, st *
 	presses := slices.Clone(ps.outside)
 	clear(ps.outside)
 	ps.outside = ps.outside[:0]
+	t.handlerDepth++ // the listeners run as handlers (flushNested)
+	defer func() { t.handlerDepth-- }()
 	for _, op := range presses {
 		el := op.el
 		if !el.mounted || el.inert || target != nil && isInside(target, el) {
@@ -337,7 +347,11 @@ func (t *Tree) escapeOverlay(ke KeyboardEvent, st *eventState) bool {
 	}
 	if f := top.node.d.overlay.OnEscape; f != nil {
 		(&ke).prepare(t, st, top)
-		f(ke)
+		t.handlerDepth++ // it runs as a handler (flushNested)
+		func() {
+			defer func() { t.handlerDepth-- }()
+			f(ke)
+		}()
 		t.flushDiscrete()
 	}
 	return true

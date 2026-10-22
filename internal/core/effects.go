@@ -200,13 +200,18 @@ func (t *Tree) commitLayout() {
 // ran since the previous flush, with the cleanups that precede them. A
 // Host calls it after presenting a frame, and Render after rasterizing;
 // tests that drive a Tree with Frame call it to run them. It runs on the
-// UI thread; state set by an effect is applied in a later frame.
+// UI thread; state set by an effect is applied in a later frame. The
+// effects run as handlers do (handlerDepth): a click one makes
+// (ElementRef.Click) queues its updates for the host's next step (the
+// setters wake it) instead of building in the middle of the commit.
 func (t *Tree) FlushEffects() {
 	if len(t.readyGone) == 0 && len(t.readyFx) == 0 {
 		return
 	}
 	gone, fx := t.readyGone, t.readyFx
 	t.readyGone, t.readyFx = nil, nil
+	t.handlerDepth++
+	defer func() { t.handlerDepth-- }()
 	runEffects(gone, fx)
 }
 

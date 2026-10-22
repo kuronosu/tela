@@ -364,8 +364,9 @@ func (t *Tree) activate(target *Element, me MouseEvent) {
 //
 // Call it on the UI thread, in a handler or an effect: the updates the
 // click makes are applied and built by the event or the frame that is
-// running; called from elsewhere on the UI thread (a timer), it applies
-// and builds them before it returns, as a real click does.
+// running (after the passive effects, by the host's next step, which the
+// updates wake); called from elsewhere on the UI thread, it applies and
+// builds them before it returns, as a real click does.
 func (r ElementRef) Click() {
 	el := r.element()
 	if el == nil || outermostDisabled(el) != nil {
@@ -415,9 +416,10 @@ func (t *Tree) submitForm(form *Element) {
 
 // flushNested is flushDiscrete for the events that code can make from a
 // handler or an effect (ElementRef.Click, the activation of a button
-// hook): inside a dispatch, an update pass or a frame the updates and the
-// build belong to the event or the frame that is running, so it does
-// nothing there.
+// hook): inside a dispatch (handlers, and the overlay callbacks of
+// overlay.go), an update pass, a frame or a flush of the passive effects
+// the updates and the build belong to the event, the frame or the host's
+// next step, so it does nothing there.
 func (t *Tree) flushNested() {
 	if t.handlerDepth == 0 && !t.inFrame {
 		t.flushDiscrete()
