@@ -385,10 +385,10 @@ func loadSource(s *srcSpec) (*imageAsset, error) {
 			return a, nil
 		}
 		var a *imageAsset
-		if s.fsys != nil && reflect.TypeOf(s.fsys).Comparable() {
+		if s.fsys != nil && hashable(reflect.ValueOf(s.fsys)) {
 			a, err = cachedMedia(fsKey{s.fsys, p}, 0, load)
 		} else {
-			a, err = load() // not comparable: the box keeps it while the source is the same
+			a, err = load() // not hashable: the box keeps it while the source is the same
 		}
 		if err != nil {
 			return nil, err
@@ -402,6 +402,64 @@ func loadSource(s *srcSpec) (*imageAsset, error) {
 		return &imageAsset{doc: doc}, nil
 	}
 	return nil, nil
+}
+
+// hashable reports whether v can be a map key without panicking. A
+// comparable type is not enough: an interface inside it (a struct field,
+// an array element) may hold a value of a type that is not comparable,
+// such as the fstest.MapFS of a struct with an fs.FS field, and hashing
+// it panics ("hash of unhashable type"). So the dynamic value is walked:
+// maps, slices and functions are not hashable, interfaces are what they
+// hold, structs and arrays what their parts are. Pointers are not
+// followed (a pointer hashes by address), so the walk ends.
+func hashable(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Invalid:
+		return true // a nil interface
+	case reflect.Map, reflect.Slice, reflect.Func:
+		return false
+	case reflect.Interface:
+		return v.IsNil() || hashable(v.Elem())
+	case reflect.Struct:
+		if !hasInterface(v.Type()) {
+			return v.Type().Comparable()
+		}
+		for i := range v.NumField() {
+			if !hashable(v.Field(i)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Array:
+		if !hasInterface(v.Type()) {
+			return v.Type().Comparable()
+		}
+		for i := range v.Len() {
+			if !hashable(v.Index(i)) {
+				return false
+			}
+		}
+		return true
+	}
+	return true
+}
+
+// hasInterface reports whether values of type t hold interfaces in
+// place (in fields or array elements, not behind pointers).
+func hasInterface(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Interface:
+		return true
+	case reflect.Struct:
+		for i := range t.NumField() {
+			if hasInterface(t.Field(i).Type) {
+				return true
+			}
+		}
+	case reflect.Array:
+		return hasInterface(t.Elem())
+	}
+	return false
 }
 
 // reportKey is the key of a source's load error in reportOnce.

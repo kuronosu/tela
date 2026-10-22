@@ -3,6 +3,8 @@ package core
 import (
 	"image"
 	"image/color"
+	"io/fs"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -115,6 +117,53 @@ func TestImgSourceCaching(t *testing.T) {
 	}
 	if b := mustFind(t, tr, "path"); b.Rect.Width() != 3 || b.Rect.Height() != 2 {
 		t.Errorf("PNG natural size: %v", b.Rect)
+	}
+}
+
+// wrapFS is a comparable file system type whose value may not be
+// hashable: its interface field can hold a map (fstest.MapFS).
+type wrapFS struct{ fs.FS }
+
+// TestSrcFSUnhashable: a comparable fs.FS type whose value cannot be
+// hashed (a struct holding a map in an interface field) never panics as
+// a cache key: it loads without the cache, while one whose value can be
+// hashed is cached.
+func TestSrcFSUnhashable(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	unhashable := wrapFS{fstest.MapFS{"logo.svg": {Data: []byte(wideSVG)}}}
+	counted := &countFS{FS: fstest.MapFS{"logo.svg": {Data: []byte(wideSVG)}}}
+	wrapped := wrapFS{counted} // a pointer in the interface field
+	tr := newTestTree(t, 200, 200, div(
+		img(Key("a"), SrcFS(unhashable, "logo.svg")),
+		img(Key("b"), SrcFS(wrapped, "logo.svg")),
+		img(Key("c"), SrcFS(wrapped, "logo.svg")),
+	), nil)
+	tr.Frame()
+	for _, k := range []string{"a", "b", "c"} {
+		if b := mustFind(t, tr, k); b.Rect.Width() != 48 || b.Rect.Height() != 24 {
+			t.Errorf("%s: natural size %v, want 48x24", k, b.Rect)
+		}
+	}
+	if n := counted.reads.Load(); n != 1 {
+		t.Errorf("a hashable wrapper read %d times, want 1 (cached)", n)
+	}
+}
+
+func TestHashable(t *testing.T) {
+	unhashable := wrapFS{fstest.MapFS{}}
+	counted := &countFS{FS: fstest.MapFS{}}
+	for _, c := range []struct {
+		v    any
+		want bool
+	}{
+		{unhashable, false}, {wrapFS{counted}, true}, {fstest.MapFS{}, false}, {counted, true},
+		{wrapFS{}, true}, {[2]fs.FS{counted, unhashable}, false}, {[2]fs.FS{counted, nil}, true},
+		{struct{ a [3]int }{}, true}, {struct{ f func() }{}, false},
+	} {
+		if got := hashable(reflect.ValueOf(c.v)); got != c.want {
+			t.Errorf("hashable(%T %v) = %v, want %v", c.v, c.v, got, c.want)
+		}
 	}
 }
 
