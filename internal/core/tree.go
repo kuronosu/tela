@@ -476,13 +476,19 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		t.ApplyUpdates()
 	}
 	if !t.changed && !t.repaint && t.lastDL != nil {
-		// Nothing to build or lay out: the caret reveals held above run
-		// with the current layout, and the frame stays idle unless one
-		// scrolls a field.
-		t.runReveals()
-		if !t.repaint {
-			t.commitLayout()
-			return t.lastDL, false
+		// Nothing to build or lay out. The layout effects of builds that
+		// changed nothing (a Mount of the same content) run, then the caret
+		// reveals held above or asked for by those effects, with the
+		// current layout. The frame stays idle unless a reveal scrolls a
+		// field or the effects left work (ElementRef.Focus), which it does
+		// now: a paint pass, or the whole frame, whose layout the reveals
+		// then wait for.
+		t.commitLayout()
+		if !t.changed {
+			t.runReveals()
+			if !t.repaint {
+				return t.lastDL, false
+			}
 		}
 	}
 	t.frame++
@@ -538,8 +544,8 @@ func (t *Tree) afterFrame() {
 	t.inFrame = false
 	t.frev.hold = false
 	if len(t.frev.q) > 0 {
-		// Reveals the frame left held (it panicked, or a layout effect of a
-		// frame with nothing to lay out asked for them): the next frame.
+		// Reveals the frame left held (it panicked before running them):
+		// the next frame.
 		t.requestRepaint()
 	}
 	t.publishAfterFrame()

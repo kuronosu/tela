@@ -746,3 +746,79 @@ func TestFieldRevealHandlerResizes(t *testing.T) {
 		})
 	}
 }
+
+// A layout effect that runs in a frame with nothing to build or lay out
+// (the effects of a Mount that changed nothing, as a tela dev reload of the
+// same code) is followed by the frame's caret reveals, with the current
+// layout, and the frame does the work the effect left: it paints the
+// revealed field, or styles and paints the button the effect focused.
+// Before, the idle frame ran the held reveals before its layout effects
+// and returned: the field's reveal stayed held and the frame asked for a
+// whole extra frame to run it, and the focused button was neither styled
+// nor painted until something else asked for a frame (Dirty, but no frame
+// requested).
+func TestIdleFrameLayoutEffect(t *testing.T) {
+	long := strings.Repeat("word ", 10) // overflows w-32
+	for _, target := range []string{"field", "button"} {
+		t.Run(target, func(t *testing.T) {
+			focus := false
+			comp := func() Node {
+				in, btn := UseElementRef(), UseElementRef()
+				UseLayoutEffect(func() func() {
+					switch {
+					case !focus:
+					case target == "field":
+						in.Focus()
+						in.SetSelectionRange(len(long), len(long))
+					default:
+						btn.Focus()
+					}
+					return nil
+				})
+				return div(Class("p-4 flex items-start gap-2"),
+					input(Key("in"), Class("w-32"), AttachRef(in), DefaultValue(long)),
+					button(Key("btn"), Class("size-6 bg-white focus:bg-black"), AttachRef(btn)))
+			}
+			tr := NewTree(Config{Fonts: testFonts})
+			tr.SetViewport(gfx.Size{W: 400, H: 100})
+			tr.Mount(Component(comp))
+			tr.Frame()
+			tr.FlushEffects()
+			f := fieldOf(t, tr, "in")
+			if f.scrollX != 0 || tr.Dirty() {
+				t.Fatalf("setup: scrollX %v, dirty %v", f.scrollX, tr.Dirty())
+			}
+			requests := 0
+			tr.SetRequestFrame(func() { requests++ })
+			focus = true
+			tr.Mount(Component(comp)) // the same content: its layout effect runs in the next frame
+			if tr.changed || tr.repaint {
+				t.Fatalf("setup: the Mount left work (changed %v, repaint %v)", tr.changed, tr.repaint)
+			}
+			s0 := tr.Stats()
+			_, changed := tr.Frame()
+			s1 := tr.Stats()
+			if !changed || s1.Frames-s0.Frames != 1 || s1.Paints-s0.Paints != 1 {
+				t.Errorf("changed %v, %d frames, %d paints; want true, 1, 1 (the frame paints the effect's work)", changed, s1.Frames-s0.Frames, s1.Paints-s0.Paints)
+			}
+			if requests != 0 || len(tr.frev.q) != 0 || tr.Dirty() {
+				t.Errorf("after the frame: %d frame requests, %d reveals wait, dirty %v; want none", requests, len(tr.frev.q), tr.Dirty())
+			}
+			switch target {
+			case "field":
+				if tr.foc.el != f.el {
+					t.Fatal("the layout effect did not focus the field")
+				}
+				wantRevealed(t, "after the frame", f)
+			case "button":
+				b := keyed(tr, "btn")
+				if tr.foc.el != b {
+					t.Fatal("the layout effect did not focus the button")
+				}
+				if bg := b.box.cs.BackgroundColor; bg != gfx.Black {
+					t.Errorf("background %v, want black (focus:)", bg)
+				}
+			}
+		})
+	}
+}

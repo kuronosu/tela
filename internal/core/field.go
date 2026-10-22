@@ -1012,10 +1012,10 @@ type revealState struct {
 	// runs, and that the code holding it runs the reveals when it ends: a
 	// frame from its start (its passive effects, posted functions and
 	// scroll handlers, whose updates its build applies) to the end of its
-	// scroll phase (which may lay out again; revealFields, or the check
-	// for a frame with nothing to lay out), and the passive effects run
-	// outside a frame (FlushEffects, revealAfterEffects), which may queue
-	// updates.
+	// scroll phase (which may lay out again; revealFields, or, in a frame
+	// with nothing to build or lay out, the end of its layout effects), and
+	// the passive effects run outside a frame (FlushEffects,
+	// revealAfterEffects), which may queue updates.
 	hold bool
 	// q are the fields whose reveal waits, in the order they asked.
 	q []*field
