@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Removed
+
+- `aria.TabsOptions.TextValue`: a tab list has no typeahead, as in React Aria. Typing a letter used to move the focus without selecting the tab, so the panel disagreed with the focused tab.
+
 ## [0.8.1] - 2026-10-21
 
 ### Fixed

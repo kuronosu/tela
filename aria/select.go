@@ -8,7 +8,6 @@ package aria
 
 import (
 	"cmp"
-	"fmt"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
@@ -155,7 +154,7 @@ func UseSelect[K comparable](o SelectOptions[K]) SelectResult[K] {
 	placement := cmp.Or(o.Placement, "bottom-start")
 	text := o.TextValue
 	if text == nil {
-		text = func(k K) string { return fmt.Sprint(k) }
+		text = sprintKey[K]
 	}
 	listRef, valueRef, labelRef := tela.UseElementRef(), tela.UseElementRef(), tela.UseElementRef()
 	// took is whether the key being handled is a space of the typeahead

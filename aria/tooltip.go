@@ -289,7 +289,7 @@ func UseTooltipTrigger(o TooltipTriggerOptions) TooltipTriggerResult {
 		// A key press closes it as a press does in React Aria (usePress
 		// starts on Enter and Space): Shift, arrows and shortcuts leave it.
 		h.OnKeyDown(func(e tela.KeyboardEvent) {
-			if e.Key == tela.KeyEnter || e.Key == " " {
+			if e.Key == tela.KeyEnter || isSpace(e) {
 				pressStart()
 			}
 		}),

@@ -15,12 +15,9 @@ import (
 // TabsOptions configures [UseTabs]. The tabs are keyed like the items of a
 // list box: see [ListBoxOptions] for Keys, DisabledKeys, Selected,
 // DefaultSelected, OnSelectionChange, Direction, AriaLabel and
-// AriaLabelledBy.
+// AriaLabelledBy. A tab list has no typeahead, as in React Aria.
 type TabsOptions[K comparable] struct {
-	Keys []K
-	// TextValue is the text of a tab, for typeahead; the key as fmt.Sprint
-	// prints it when nil. See [ListBoxOptions].
-	TextValue    func(K) string
+	Keys         []K
 	DisabledKeys []K
 	// Orientation is "horizontal" (the default; ArrowLeft and ArrowRight
 	// move between tabs) or "vertical" (ArrowUp and ArrowDown).
@@ -101,7 +98,7 @@ func UseTabs[K comparable](o TabsOptions[K]) TabsResult[K] {
 	dir := checkChoice(hook, "Direction", o.Direction, "ltr", "ltr", "rtl")
 	c := useCollection(collConfig[K]{
 		kind: kindTabs, role: "tablist",
-		keys: o.Keys, textValue: o.TextValue, disabled: o.DisabledKeys,
+		keys: o.Keys, disabled: o.DisabledKeys, disableType: true,
 		mode: "single", behavior: "replace", disallowEmpty: true,
 		selected: o.Selected, defaultSelected: o.DefaultSelected, onSelectionChange: o.OnSelectionChange,
 		wrap: true, orientation: orient, rtl: dir == "rtl", manual: act == "manual",

@@ -575,10 +575,10 @@ lists of items with a focused key and a selection. You give the keys (any compar
 build and render one element per key with the props of `ItemProps(key)`; the
 hook holds the state, moves the focus and selects, with React Aria's rules.
 
-All of them take `Keys []K`, `DisabledKeys []K` and `TextValue
-func(K) string` (the text of an item, for typeahead; without it the key as
-`fmt.Sprint` prints it, so typeahead works with string keys and you give
-`TextValue` for IDs), and return a result with `Props` for the collection's element
+All of them take `Keys []K` and `DisabledKeys []K`; all but the tab list take
+`TextValue func(K) string` (the text of an item, for typeahead; without it the
+key as `fmt.Sprint` prints it, so typeahead works with string keys and you give
+`TextValue` for IDs; `DisallowTypeAhead` turns it off). They return a result with `Props` for the collection's element
 (for the select and the combobox, `ListBox.Props`) and these, shared by all
 (`aria.Collection[K]`):
 
@@ -820,7 +820,8 @@ return Div(
 `UseTabs` is React Aria's `useTabList`, `useTab` and `useTabPanel` in one hook.
 The selected tab is the only tab stop; the arrow keys (up and down for
 `Orientation: "vertical"`; swapped by `Direction: "rtl"`) move between tabs and
-wrap, Home and End jump, and disabled tabs are skipped. By default the focused
+wrap, Home and End jump, and disabled tabs are skipped; a tab list has no
+typeahead, as in React Aria. By default the focused
 tab is selected (`KeyboardActivation: "automatic"`); with `"manual"` the arrows
 only move the focus and Enter or Space selects. A tab list always has one
 selected, enabled tab: the first when none is given. The selection is a

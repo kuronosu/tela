@@ -88,8 +88,8 @@ func TestTooltipOnlyAPressOfAKeyClosesIt(t *testing.T) {
 	}
 }
 
-// Without TextValue, list boxes, menus and tab lists search the text of a
-// key as fmt.Sprint prints it, as UseSelect does.
+// Without TextValue, list boxes and menus search the text of a key as
+// fmt.Sprint prints it, as UseSelect does (tab lists have no typeahead).
 func TestCollectionsDefaultTextValue(t *testing.T) {
 	lb := telatest.MountFunc(t, func() tela.Node {
 		l := aria.UseListBox(aria.ListBoxOptions[string]{Keys: fruits, AriaLabel: "Fruit"})
@@ -110,11 +110,6 @@ func TestCollectionsDefaultTextValue(t *testing.T) {
 	menu.Focus(menuitem("Edit"))
 	menu.Press("a")
 	menu.ExpectFocused(menuitem("Archive"))
-
-	tabs := telatest.MountFunc(t, tabsPage(aria.TabsOptions[string]{KeyboardActivation: "manual"}), telatest.Size(500, 300), telatest.NoSettle())
-	tabs.Focus(tab("General"))
-	tabs.Press("b")
-	tabs.ExpectFocused(tab("Billing"))
 }
 
 // A search lives a second; a Space typed inside it is a character of the

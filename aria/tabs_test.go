@@ -215,3 +215,22 @@ func ExampleUseTabs() {
 	//   - tab "password" [selected]
 	// - tabpanel "password": password settings
 }
+
+// A tab list has no typeahead (React Aria's TabsKeyboardDelegate has no
+// getKeyForSearch): typing a letter moves neither the focus nor the
+// selection, so the panel never disagrees with the focused tab.
+func TestTabsHaveNoTypeahead(t *testing.T) {
+	for _, act := range []string{"automatic", "manual"} {
+		t.Run(act, func(t *testing.T) {
+			app := telatest.MountFunc(t, tabsPage(aria.TabsOptions[string]{KeyboardActivation: act}), telatest.Size(500, 300))
+			app.Press("Tab")
+			app.ExpectFocused(tab("General"))
+			app.Press("p")
+			app.Press("b")
+			app.ExpectFocused(tab("General"))
+			app.Expect(tab("General"), telatest.Selected(true))
+			app.Expect(tab("Privacy"), telatest.Selected(false))
+			app.ExpectText("general panel")
+		})
+	}
+}

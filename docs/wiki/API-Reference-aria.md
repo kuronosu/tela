@@ -3127,10 +3127,7 @@ SizeOptions are the options of [`Size`](#func-size).
 
 ```go
 type TabsOptions[K comparable] struct {
-    Keys []K
-    // TextValue is the text of a tab, for typeahead; the key as fmt.Sprint
-    // prints it when nil. See [ListBoxOptions].
-    TextValue    func(K) string
+    Keys         []K
     DisabledKeys []K
     // Orientation is "horizontal" (the default; ArrowLeft and ArrowRight
     // move between tabs) or "vertical" (ArrowUp and ArrowDown).
@@ -3156,7 +3153,7 @@ type TabsOptions[K comparable] struct {
 }
 ```
 
-TabsOptions configures [`UseTabs`](#func-usetabs). The tabs are keyed like the items of a list box: see [`ListBoxOptions`](#type-listboxoptions) for Keys, DisabledKeys, Selected, DefaultSelected, OnSelectionChange, Direction, AriaLabel and AriaLabelledBy.
+TabsOptions configures [`UseTabs`](#func-usetabs). The tabs are keyed like the items of a list box: see [`ListBoxOptions`](#type-listboxoptions) for Keys, DisabledKeys, Selected, DefaultSelected, OnSelectionChange, Direction, AriaLabel and AriaLabelledBy. A tab list has no typeahead, as in React Aria.
 
 ### type TabsResult
 

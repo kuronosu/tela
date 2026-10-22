@@ -487,9 +487,6 @@ func (c *collState[K]) pageKey(k K, down bool) (K, bool) {
 // included) whose text starts with the search, ignoring case.
 func (c *collState[K]) keyForSearch(search string, from K, hasFrom bool) (K, bool) {
 	var zero K
-	if c.cfg.textValue == nil {
-		return zero, false
-	}
 	start := 0
 	if hasFrom {
 		if i, ok := c.index[from]; ok {
@@ -1201,10 +1198,10 @@ func (c *collState[K]) onKey(k K, e tela.KeyboardEvent) {
 // enabled item from from (when hasFrom, else from the top) whose text
 // starts with the search, else the first of the whole list. took reports
 // that the key was a space inside a search, which is a character and not a
-// selection (it is stopped and prevented). Without TextValue, with
-// typeahead disabled or for a key that is not a character it does nothing.
+// selection (it is stopped and prevented). With typeahead disabled
+// (DisallowTypeAhead) or for a key that is not a character it does nothing.
 func (c *collState[K]) typeAhead(e tela.KeyboardEvent, from K, hasFrom bool) (k K, found, took bool) {
-	if c.cfg.disableType || c.cfg.textValue == nil || e.Ctrl || e.Meta {
+	if c.cfg.disableType || e.Ctrl || e.Meta {
 		return
 	}
 	s := string(e.Key)
