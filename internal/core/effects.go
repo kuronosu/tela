@@ -214,24 +214,28 @@ func (t *Tree) FlushEffects() {
 	}
 	gone, fx := t.readyGone, t.readyFx
 	t.readyGone, t.readyFx = nil, nil
-	hold := t.frev.hold
-	t.runPassive(gone, fx)
-	if !hold {
+	// held: the caller holds the reveals (a frame, which runs them after
+	// its layout); else the hold ends with the effects, which run them.
+	held := t.frev.hold
+	t.runPassive(gone, fx, held)
+	if !held {
 		t.revealAfterEffects()
 	}
 }
 
 // runPassive runs a commit of passive effects as handlers run
-// (handlerDepth), holding the caret reveals they ask for.
-func (t *Tree) runPassive(gone []func(), fx []*effectSlot) {
+// (handlerDepth), holding the caret reveals they ask for. held is the hold
+// of FlushEffects' caller, restored when they end: when the caller does
+// not hold the reveals and an effect panics, the next frame runs those
+// held, since FlushEffects does not get to.
+func (t *Tree) runPassive(gone []func(), fx []*effectSlot, held bool) {
 	t.handlerDepth++
-	hold := t.frev.hold
 	t.frev.hold = true
 	done := false
 	defer func() {
 		t.handlerDepth--
-		t.frev.hold = hold
-		if !done && !hold && len(t.frev.q) > 0 {
+		t.frev.hold = held
+		if !done && !held && len(t.frev.q) > 0 {
 			t.requestRepaint() // an effect panicked: the next frame reveals
 		}
 	}()
