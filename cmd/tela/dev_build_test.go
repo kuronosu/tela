@@ -142,21 +142,39 @@ func TestDevBuildFlagsGOFLAGS(t *testing.T) {
 	}
 }
 
-// TestDevTags merges the tags of GOFLAGS into teladev's -tags.
+// TestDevTags merges the tags of GOFLAGS into teladev's -tags, reading
+// GOFLAGS as the go command does.
 func TestDevTags(t *testing.T) {
 	for _, c := range []struct{ goflags, want string }{
 		{"", "teladev"},
 		{"-mod=mod", "teladev"},
 		{"-tags=a,b", "teladev,a,b"},
 		{"--tags=a", "teladev,a"},
-		{"-tags a,b -mod=mod", "teladev,a,b"},
-		{`"-tags=a b"`, "teladev,a,b"},     // legacy space-separated list
-		{`'-tags=a b,c'`, "teladev,a,b,c"}, // both separators
+		{"-tags=a,,b,", "teladev,a,b"},
+		// One entry is one flag: the go command rejects "a,b" as a
+		// non-flag, and a "-tags" without a value.
+		{"-tags a,b -mod=mod", "teladev"},
+		{"-tags", "teladev"},
+		{"tags=a", "teladev"},
+		{"---tags=a", "teladev"},
+		// The legacy space-separated list, quoted whole in GOFLAGS: a
+		// comma is part of a word there, and quotes at the start of a
+		// word group it as cmd/internal/quoted does.
+		{`"-tags=a b"`, "teladev,a,b"},
+		{`'-tags=a b.c'`, "teladev,a,b.c"},
+		{`"-tags='a' b"`, "teladev,a,b"},
+		{`"-tags=a,b c"`, "teladev,c"},
+		{`"-tags='a b' c"`, "teladev,c"},
+		// Without a space or a single quote the value is split on commas
+		// only: a double quote is part of a tag, which no constraint can
+		// name.
+		{`-tags="a",b`, "teladev,b"},
 		{"-tags=teladev,a,a", "teladev,a"},
 		{"-tags=a -tags=b", "teladev,b"}, // the last one wins, as in the go command
+		{"-tags=a -tags=", "teladev"},
 		{"-tags=", "teladev"},
-		{"-tags", "teladev"},
 		{"-tagsx=a", "teladev"},
+		{"-tags=ñ_1,go1.25", "teladev,ñ_1,go1.25"},
 	} {
 		if got := devTags(c.goflags); got != c.want {
 			t.Errorf("GOFLAGS=%q: -tags %q, want %q", c.goflags, got, c.want)

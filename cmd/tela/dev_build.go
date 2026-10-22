@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // devBuildTags is the build tag of the dev-loop runtime (ADR-111).
@@ -68,25 +69,19 @@ func hasGoFlag(goflags, name string) bool {
 }
 
 // devTags is the -tags value of the dev builds and of go list: teladev,
-// then the tags GOFLAGS sets (its last -tags, as the go command reads it),
-// which a -tags on the command line would otherwise replace. It takes
-// "-tags=a,b", the legacy space-separated list ("-tags=a b", quoted in
-// GOFLAGS) and "-tags a,b".
+// then the tags GOFLAGS sets, which a -tags on the command line would
+// otherwise replace. It reads GOFLAGS as the go command does: an entry is
+// one flag, so only "-tags=..." (or "--tags=...") sets tags, and the last
+// one wins ("-tags a,b" is rejected by the go command as a non-flag
+// "a,b"); the value is a comma-separated list, or the legacy
+// space-separated one ("-tags=a b", quoted whole in GOFLAGS), split by
+// tagsValue.
 func devTags(goflags string) string {
 	var user []string
-	fs := splitGoFlags(goflags)
-	for i := 0; i < len(fs); i++ {
-		name, value, ok := goFlag(fs[i])
-		if name != "tags" {
-			continue
+	for _, f := range splitGoFlags(goflags) {
+		if name, value, ok := goFlag(f); name == "tags" && ok {
+			user = tagsValue(value)
 		}
-		if !ok && i+1 < len(fs) && !strings.HasPrefix(fs[i+1], "-") {
-			i++
-			value = fs[i]
-		}
-		user = strings.FieldsFunc(value, func(r rune) bool {
-			return r == ',' || r == ' ' || r == '\t' || r == '\'' || r == '"'
-		})
 	}
 	tags := []string{devBuildTags}
 	for _, t := range user {
@@ -97,9 +92,45 @@ func devTags(goflags string) string {
 	return strings.Join(tags, ",")
 }
 
+// tagsValue splits the value of a -tags flag as the go command does
+// (cmd/go/internal/work's tagsFlag): a value with a space or a single quote
+// is the legacy list, split by cmd/internal/quoted (a word may be quoted
+// whole), anything else is split on commas. Tags that no build constraint
+// can name (go/build/constraint takes letters, digits, '_' and '.') are
+// dropped: they select nothing, and joined with commas into the command
+// line's -tags they would be split differently ("a b" would make the go
+// command read the whole list as the legacy form, teladev included).
+func tagsValue(v string) []string {
+	var words []string
+	if strings.ContainsAny(v, " '") {
+		words = splitGoFlags(v)
+	} else {
+		words = strings.Split(v, ",")
+	}
+	return slices.DeleteFunc(words, func(t string) bool { return !isBuildTag(t) })
+}
+
+// isBuildTag reports whether t can appear in a build constraint
+// (go/build/constraint's isValidTag).
+func isBuildTag(t string) bool {
+	if t == "" {
+		return false
+	}
+	for _, c := range t {
+		if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' && c != '.' {
+			return false
+		}
+	}
+	return true
+}
+
 // goFlag splits a GOFLAGS entry ("-name=value", "--name") into the flag's
-// name and value; ok says whether it has a value.
+// name and value; ok says whether it has a value. An entry that is not a
+// flag (no leading '-', as the go command requires) has no name.
 func goFlag(f string) (name, value string, ok bool) {
+	if !strings.HasPrefix(f, "-") || strings.HasPrefix(f, "---") {
+		return "", "", false
+	}
 	f = strings.TrimPrefix(f, "-")
 	f = strings.TrimPrefix(f, "-")
 	return strings.Cut(f, "=")
