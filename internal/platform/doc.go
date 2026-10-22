@@ -3,7 +3,8 @@
 // events and framebuffers; it does not know gfx. A backend receives a
 // finished *image.RGBA framebuffer plus damage rectangles and shows them.
 //
-// Backends live in subpackages: wayland, x11, win32, cocoa and headless.
+// Backends live in subpackages: wayland, x11, win32, cocoa and headless,
+// plus remote, the IPC backend of the dev loop (ADR-112).
 // This package only defines the interfaces, the event set and a few helpers
 // that every backend uses so they behave identically (sizing rule, option
 // validation, framebuffer checks, damage clipping, pixel copies). It imports
