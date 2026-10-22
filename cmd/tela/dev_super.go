@@ -589,7 +589,7 @@ func (s *supervisor) built(res buildResult) {
 		s.maybeFinish()
 		return
 	}
-	if res.gen != s.gen || s.quitting {
+	if res.gen != s.gen {
 		// Cancelled or superseded.
 		if res.err == nil {
 			res.remove()
