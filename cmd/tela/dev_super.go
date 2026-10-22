@@ -43,8 +43,11 @@ import (
 //     closed and the process killed.
 //
 // If the new child exits or times out before its first frame, the input is
-// unfrozen and the old child stays. When no child is alive (the app
-// crashed), a build starts fresh: no state, nothing frozen.
+// unfrozen and the old child stays. Once its promotion is posted, the
+// promotion's result alone decides: an exit in between waits for it, and is
+// a crash of the app if the host showed the new child, or a failed swap if
+// not (ADR-121). When no child is alive (the app crashed), a build starts
+// fresh: no state, nothing frozen.
 
 // supervisorConfig are the parts the supervisor works with; the tests give
 // fakes.
@@ -160,13 +163,16 @@ type swapState struct {
 	// promoting: the promotion of proc is posted to the host. From then on
 	// the host may show proc and detach the old child at any moment, so
 	// only the promotion's result (evPromoted) decides the swap, not the
-	// first-frame timeout.
+	// first-frame timeout nor an exit of proc.
 	promoting bool
-	state     string // "kept", "fresh", or why it was not kept
-	timer     *time.Timer
-	saved     time.Time
-	started   time.Time
-	first     time.Time
+	// exitPending: proc exited while promoting; its exit is classified once
+	// the promotion's result says whether it was the app (ADR-121).
+	exitPending bool
+	state       string // "kept", "fresh", or why it was not kept
+	timer       *time.Timer
+	saved       time.Time
+	started     time.Time
+	first       time.Time
 }
 
 // Events of the supervisor's queue.
@@ -828,6 +834,12 @@ func (s *supervisor) promoted(gen int, err error) {
 		return
 	}
 	if err != nil {
+		if sw.exitPending {
+			// Not shown: the exit failed the swap, the old child stays.
+			sw.promoting = false
+			s.exited(sw.proc)
+			return
+		}
 		s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("the new build went away before it was shown (%v); %s", err, s.stays())})
 		return
 	}
@@ -854,6 +866,11 @@ func (s *supervisor) promoted(gen int, err error) {
 		s.report(sw, now)
 	}
 	s.started = true
+	if sw.exitPending {
+		// Shown, then gone: a crash of the app (the window keeps its last
+		// frame, and the next build starts fresh).
+		s.exited(sw.proc)
+	}
 	s.maybeSwap()
 }
 
@@ -985,6 +1002,15 @@ func (s *supervisor) exited(p *proc) {
 	if p.classified {
 		return
 	}
+	if sw := s.swap; sw != nil && sw.proc == p && sw.promoting && !p.stopping {
+		// The host may already show p and have detached the old child: the
+		// promotion's result decides what this exit is (promoted).
+		if !sw.exitPending {
+			sw.exitPending = true
+			s.log.verbosef("build %d %s while its promotion was pending", p.gen, describeExit(p.waitErr))
+		}
+		return
+	}
 	p.classified = true
 	delete(s.procs, p.gen)
 	if p.lostConn != nil {
@@ -1074,6 +1100,12 @@ func (s *supervisor) quit(code int, msg string) {
 		s.stop(p)
 	}
 	s.quitByTime = time.AfterFunc(s.cfg.stopTimeout+2*time.Second, func() { s.push(evQuitTimeout{}) })
+	if sw := s.swap; sw != nil && sw.exitPending {
+		// Stopping now: its exit no longer waits for the promotion (whose
+		// result may never come once the host's loop has ended).
+		s.exited(sw.proc)
+		return // exited finishes the quit when nothing else is left
+	}
 	s.maybeFinish()
 }
 
