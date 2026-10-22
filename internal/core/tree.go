@@ -217,11 +217,13 @@ type Tree struct {
 	sem semState
 
 	// Text fields (field.go, fieldime.go, form.go): the clipboard, the
-	// blinking caret, the IME state, the mounted elements by Id and the
-	// mounted Labels by For (form.go).
+	// blinking caret, the IME state, the caret reveals waiting for the
+	// frame's layout, the mounted elements by Id and the mounted Labels by
+	// For (form.go).
 	clip   platform.Clipboard
 	caret  caretState
 	ime    imeState
+	frev   revealState
 	ids    map[string][]*Element
 	labels map[string][]*Element
 
@@ -472,6 +474,8 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	}
 	t.frame++
 	t.stats.Frames++
+	// Caret reveals wait for the layout of the frame (field.go).
+	t.frev.hold = true
 	// A frame that builds, restyles or lays out records every layer; one
 	// that only repaints records only what changed (layer.go).
 	full := t.changed || t.lastDL == nil
@@ -505,6 +509,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		full = true
 	}
 	full = t.scrollPhase(full)
+	t.revealFields()
 	if devStateEnabled {
 		full = t.devFrame(full) // tela dev: scroll offsets of the saved state
 	}
@@ -520,6 +525,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 // outside it (scroll.go's scrollAfterFrame).
 func (t *Tree) afterFrame() {
 	t.inFrame = false
+	t.frev.hold = false // after a panic in the frame: its reveals go on in the next one
 	t.publishAfterFrame()
 	t.boundsAfterFrame()
 	t.scrollAfterFrame()

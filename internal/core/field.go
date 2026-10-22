@@ -425,6 +425,7 @@ type field struct {
 	emptyPS          text.ParagraphStyle
 	scrollX          float32 // an Input's horizontal scroll
 	paintDirty       bool    // its layer must be recorded again
+	revealQueued     bool    // in Tree.frev.q: its caret reveal waits for a layout
 	selStart, selEnd int     // the selection of the last select check
 }
 
@@ -1005,10 +1006,56 @@ func (f *field) textOrigin() (x, y float32) {
 // ---------------------------------------------------------------------
 // Keeping the caret in view.
 
+// revealState holds the caret reveals that wait for a layout.
+type revealState struct {
+	// hold reports a frame before its layout is done: from its build to
+	// the end of its scroll phase (which may lay out again).
+	hold bool
+	// q are the fields whose reveal waits, in the order they asked.
+	q []*field
+}
+
 // reveal scrolls the field so that the selection's focus (the caret) is
 // visible: an Input's own horizontal scroll, a Textarea's scroll
-// container (at once, "nearest").
+// container (at once, "nearest"). It needs the field's laid-out content
+// box, so while the layout is not current it waits for the next one
+// (revealFields): in a frame before its layout is done (the focus an
+// AutoFocus field takes after the style phase, a caret moved by a
+// controlled Value in the build) and outside a frame while a frame's
+// work is pending (a key that resizes a field-sizing-content Input). The
+// content width of a field never laid out is zero, which scrolled an
+// AutoFocus Input whose value fits by the caret's 1 px, and a width the
+// coming layout changes is stale.
 func (f *field) reveal() {
+	t := f.t
+	if t.frev.hold || !t.layoutCurrent() {
+		if !f.revealQueued {
+			f.revealQueued = true
+			t.frev.q = append(t.frev.q, f)
+		}
+		return
+	}
+	f.revealNow()
+}
+
+// revealFields runs the caret reveals that waited for the frame's layout,
+// after its scroll phase (the extents of a Textarea's scroll container are
+// current); the reveals asked for from now on run at once.
+func (t *Tree) revealFields() {
+	t.frev.hold = false
+	q := t.frev.q
+	for _, f := range q {
+		f.revealQueued = false
+		if f.alive() {
+			f.revealNow() // never queues: the layout is current
+		}
+	}
+	clear(q)
+	t.frev.q = q[:0]
+}
+
+// revealNow is reveal with the field's current layout.
+func (f *field) revealNow() {
 	lay := f.layout()
 	if lay == nil || f.bx.cs == nil {
 		return
@@ -1032,7 +1079,7 @@ func (f *field) reveal() {
 		return
 	}
 	s := f.bx.scr
-	if s == nil || !f.t.layoutCurrent() {
+	if s == nil {
 		return
 	}
 	l := f.bx.ld.Layout()
