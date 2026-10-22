@@ -16,7 +16,7 @@ type ariaProps struct {
 	role        string // as given (a space-separated fallback list)
 	label       string
 	hasLabel    bool
-	labelledBy  *elemRef
+	labelledBy  []*elemRef
 	describedBy *elemRef
 	desc        string
 	hidden      bool
@@ -79,12 +79,19 @@ func AriaLabel(label string) Prop {
 }
 
 // AriaLabelledBy names a primitive with the text of the element r is
-// attached to (aria-labelledby): its AriaLabel, or its content.
-func AriaLabelledBy(r ElementRef) Prop {
-	if r.r == nil {
-		panic("tela: AriaLabelledBy(zero ElementRef): pass an ElementRef from tela.UseElementRef attached with Ref to the labelling element")
+// attached to (aria-labelledby): its AriaLabel, or its content. With
+// more references, the name is the text of each one that is mounted, in
+// the order given and joined by a space (aria-labelledby="a b"); a
+// reference to the primitive itself contributes its own AriaLabel.
+func AriaLabelledBy(r ElementRef, more ...ElementRef) Prop {
+	refs := make([]*elemRef, 0, 1+len(more))
+	for _, x := range append([]ElementRef{r}, more...) {
+		if x.r == nil {
+			panic("tela: AriaLabelledBy(zero ElementRef): pass an ElementRef from tela.UseElementRef attached with Ref to the labelling element")
+		}
+		refs = append(refs, x.r)
 	}
-	return ariaProp("AriaLabelledBy", func(a *ariaProps) { a.labelledBy = r.r })
+	return ariaProp("AriaLabelledBy", func(a *ariaProps) { a.labelledBy = refs })
 }
 
 // AriaDescription sets the accessible description (aria-description).

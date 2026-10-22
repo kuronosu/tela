@@ -47,6 +47,10 @@ type MenuTriggerOptions struct {
 	// together with others on the same element; the zero value makes the
 	// hook create its own.
 	Ref, MenuRef tela.ElementRef
+
+	// skipKey lets a hook built on this one (a select) take a key first: the
+	// space inside its typeahead search does not open the list.
+	skipKey func(tela.KeyboardEvent) bool
 }
 
 // MenuTriggerResult is what [UseMenuTrigger] returns.
@@ -178,7 +182,7 @@ func UseMenuTrigger(o MenuTriggerOptions) MenuTriggerResult {
 	}
 	props, pressed, _ := usePressCore(pressConfig{PressOptions: pressOpts, enter: true})
 	onKeyDown := func(e tela.KeyboardEvent) {
-		if o.Disabled || !ref.Focused() {
+		if o.Disabled || !ref.Focused() || (o.skipKey != nil && o.skipKey(e)) {
 			return
 		}
 		if longPress && !e.Alt {

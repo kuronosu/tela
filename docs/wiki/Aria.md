@@ -29,9 +29,11 @@ import "github.com/kuronosu/tela/aria"
 | A list of options to select from, with the keyboard | [`aria.UseListBox`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseListBox) |
 | The menu that a menu button opens | [`aria.UseMenu`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMenu) |
 | Tabs and their panels | [`aria.UseTabs`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseTabs) |
+| A select: a button that shows the chosen item and opens a list | [`aria.UseSelect`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseSelect) |
+| A text field that filters a list of suggestions | [`aria.UseCombobox`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseCombobox) |
 | What is selected in those | [`aria.Selection`](https://pkg.go.dev/github.com/kuronosu/tela/aria#Selection) |
 
-The select and combobox collections come later; they are built on the list box.
+The select and the combobox are built on the list box and the popover.
 
 ## The pattern: options in, `Props` out
 
@@ -560,14 +562,15 @@ its transitions do.
 
 ## Collections
 
-A list box, a menu and a tab list are *collections*: keyed lists of items with
-a focused key and a selection. You give the keys (any comparable type) on every
+A list box, a menu, a tab list, a select and a combobox are *collections*: keyed
+lists of items with a focused key and a selection. You give the keys (any comparable type) on every
 build and render one element per key with the props of `ItemProps(key)`; the
 hook holds the state, moves the focus and selects, with React Aria's rules.
 
-All three take `Keys []K`, `DisabledKeys []K` and (list box, menu) `TextValue
+All of them take `Keys []K`, `DisabledKeys []K` and (all but tabs) `TextValue
 func(K) string`, and return a result with `Props` for the collection's element
-and these, shared by the three (`aria.Collection[K]`):
+(for the select and the combobox, `ListBox.Props`) and these, shared by all
+(`aria.Collection[K]`):
 
 | | |
 |---|---|
@@ -812,6 +815,166 @@ of the selected tab only. `PanelProps` makes the panel a tab stop (as React Aria
 does when it has no focusable content): add `TabIndex(-1)` after it when the
 panel has controls of its own.
 
+### Selects: `UseSelect`
+
+A select is a button that shows the chosen item and opens a list of options
+next to it. `UseSelect` is the menu button (`UseMenuTrigger` with
+`aria-haspopup="listbox"`), a list box and a popover in one hook. It returns the
+props of five elements: the label, the trigger, the element inside it that shows
+the value, the popover and the list.
+
+```go
+sel := aria.UseSelect(aria.SelectOptions[string]{
+	Keys: fruit, TextValue: capital, Placeholder: "Pick a fruit", MatchWidth: true,
+})
+return Fragment(
+	Span(sel.LabelProps, Text("Favorite fruit")),
+	Button(sel.TriggerProps, Class("flex w-48 justify-between rounded-md border px-3 py-2"),
+		Span(sel.ValueProps, Text(sel.Value)), Icon(chevronDown)),
+	Portal(If(sel.Open,
+		Div(sel.PopoverProps, Class("rounded-md border bg-popover p-1 shadow-md"),
+			Div(sel.ListBox.Props, Class("max-h-60 overflow-auto"),
+				Range(len(fruit), func(i int) tela.Node {
+					k := fruit[i]
+					return Div(sel.ListBox.ItemProps(k), Key(k),
+						Class("rounded px-2 py-1.5 focus-visible:bg-accent aria-selected:font-medium"),
+						Text(capital(k)))
+				}))))))
+```
+
+The aria snapshot, closed and open, reads like React Aria's select in Chromium
+(checked against Playwright): a `button` named by its value and its label, and
+the `listbox` next to it.
+
+```yaml
+- text: Favorite fruit
+- button "Banana Favorite fruit" [expanded]: Banana
+- listbox "Favorite fruit":
+  - option "Apple"
+  - option "Banana" [selected]
+  - option "Cherry" [disabled]
+```
+
+The options are those of a [list box](#list-boxes-uselistbox) for `Keys`,
+`TextValue` (the text shown for the selected item, `fmt.Sprint(key)` when
+omitted), `DisabledKeys` and the single `Selected`, `DefaultSelected` and
+`OnSelectionChange`; those of a [menu button](#menu-buttons-usemenutrigger) for
+`Open`, `DefaultOpen` and `OnOpenChange`; and these:
+
+| Option | Does |
+|---|---|
+| `Placeholder` | What `sel.Value` says while nothing is selected. |
+| `Disabled` | The trigger is inert and disabled. |
+| `Placement`, `Offset`, `Floating` | Where the popover goes (`"bottom-start"` by default), as in [`UsePopover`](#popovers-usepopover). |
+| `MatchWidth` | The popover is as wide as the trigger. |
+| `Modal` | The rest of the window is inert while the list is open (React Aria's select is modal; the default here is a non-modal popover). |
+| `DisallowTypeAhead` | Turns off typeahead on the trigger and in the list. |
+| `AriaLabel` | Names the select when there is no label element. |
+| `Ref` | The trigger's ref, for hooks used together on one element. |
+
+**Keyboard and pointer.** A press, Enter, Space and ArrowDown open the list
+(ArrowUp too, with the last item as the strategy); the selected item has the
+focus, else the first (the last for ArrowUp), else the list itself. Choosing an
+item (a click, Enter or Space) selects it, closes the list and gives the focus
+back to the trigger; choosing the selected item closes it without a change.
+Escape and a press outside close it, Tab closes it and moves on from the
+trigger, the mouse focuses the item it moves over, and typeahead and disabled
+items work as in a list box. **On the closed trigger** typing text selects the
+next item that starts with it (a one-second buffer; a space inside a search is a
+character) and ArrowLeft and ArrowRight select the previous and next item, with
+the list closed, as React Aria does.
+
+**Name.** The trigger is named by the value followed by the label, the way React
+Aria sets `aria-labelledby="value label"`: `LabelProps` marks the label (a click
+on it focuses the trigger) and `ValueProps` the element that shows the value;
+`AriaLabel` adds a name when there is no label. The list is named by the label
+too.
+
+The list lives in the component that calls the hook, and its items are rendered
+by you only while `sel.Open`. There is no hidden native `<select>`: a `Form`
+does not submit the value, read `sel.Selected` (`sel.Selected.First()` is the
+key) in `OnSubmit`.
+
+### Comboboxes: `UseCombobox`
+
+A combobox is a text field with a list of suggestions. `UseCombobox` holds the
+text, the filter, the selection and the open state, and returns the props of the
+input, an optional toggle button, the popover and the list. The input **keeps
+the focus** at all times: the list items are highlighted (virtual focus,
+`aria-activedescendant`), never focused.
+
+```go
+cb := aria.UseCombobox(aria.ComboboxOptions[string]{
+	Items: fruit, TextValue: capital, AriaLabel: "Fruit", MatchWidth: true,
+})
+return Fragment(
+	Div(Class("flex"),
+		Input(cb.InputProps, Class("w-48 rounded-l-md border px-3 py-2")),
+		Button(cb.ButtonProps, Class("rounded-r-md border px-2"), Icon(chevronDown))),
+	Portal(If(cb.Open,
+		Div(cb.PopoverProps, Class("rounded-md border bg-popover p-1 shadow-md"),
+			Div(cb.ListBox.Props, Class("max-h-60 overflow-auto"),
+				Range(len(cb.Keys), func(i int) tela.Node {
+					k := cb.Keys[i]
+					return Div(cb.ListBox.ItemProps(k), Key(k), Class("rounded px-2 py-1.5"),
+						If(cb.ListBox.IsFocused(k), Class("bg-accent")), Text(capital(k)))
+				}))))))
+```
+
+```yaml
+- combobox "Fruit" [expanded]: blu
+- button "Show suggestions" [expanded]: v
+- listbox "Fruit":
+  - option "Blueberry"
+```
+
+**The items.** Give `Items` (all of them) and the hook shows the ones that match
+the text with `Filter` (`aria.Contains` by default, or `aria.StartsWith`,
+`aria.EndsWith` or your own `func(text, query string) bool`); render
+`cb.Keys`. Or give `Keys`, already filtered by you (a server search, a fuzzy
+match), and the hook shows them as they are. `aria.Contains` and its siblings
+ignore case and diacritics (`"zur"` finds "Zürich": React Aria's collator with
+base sensitivity). After the list was opened by hand (the button, the arrows)
+every item is shown until the text changes; `cb.ShowAll` says so, for a caller
+who filters `Keys`.
+
+**The text.** `InputValue` (a `*string`), `DefaultInputValue` and
+`OnInputChange` work like the selection of a list box: uncontrolled by default,
+controlled when `InputValue` is non-nil. The text starts as the text of the
+selected item, and choosing an item sets it to that item's `TextValue`.
+
+| Option | Does |
+|---|---|
+| `MenuTrigger` | When the list opens: `aria.MenuTriggerInput` (typing; the default), `aria.MenuTriggerFocus` (also when the input gets the focus, with every item) or `aria.MenuTriggerManual` (only the arrows and the button). |
+| `AllowsCustomValue` | The text may stay as typed when the input loses the focus; the selection is cleared. Without it the text goes back to that of the selected item (empty when none is). |
+| `AllowsEmptyCollection` | The list stays open when nothing matches, to show a "no results" message. |
+| `Disabled`, `ReadOnly` | The input and the button are inert; a read-only input never opens the list. |
+| `ShouldFocusWrap` | The arrows go around the ends. |
+| `AnchorRef`, `MatchWidth`, `Placement`, `Offset`, `Floating` | The popover is placed next to `AnchorRef` (the input by default; give the wrapper of the input and the button), as wide as it with `MatchWidth`. |
+| `Selected`, `DefaultSelected`, `OnSelectionChange`, `Open`, `DefaultOpen`, `OnOpenChange`, `TextValue`, `DisabledKeys`, `AriaLabel`, `Ref` | As above. |
+
+**Keyboard** (React Aria's `useComboBox`). Typing filters the list and, in the
+default mode, opens it. ArrowDown and ArrowUp open it on the first or last item
+(the selected item when there is one) and then highlight the next and previous;
+PageUp and PageDown move a page. Enter chooses the highlighted item (sets the
+text, closes the list: selection and text agree); with none highlighted, or a
+closed list, it commits the text as Tab does. Escape closes the list and puts the
+text back to that of the selected item (cleared when none is); it reaches an
+enclosing dialog only when there was nothing to put back. Home, End, Space,
+ArrowLeft and ArrowRight stay with the text field (the arrows drop the
+highlight). **While an IME composes text no key navigates**, and the list follows
+the preedit text without disturbing the composition.
+
+**Pointer.** Pressing an option chooses it and the input keeps the focus; the
+mouse highlights the option it moves over. A press outside moves the focus away,
+which commits the text and closes the list (the press reaches what it hits). The
+toggle button opens the list with every item or closes it, and keeps the focus on
+the input; it is not a tab stop and is labelled "Show suggestions" (an
+`AriaLabel` after `ButtonProps` replaces the label).
+
+The label: `cb.LabelProps` on a label element names the input and a click on it
+focuses the input; without one, give `AriaLabel`.
+
 ### How it differs from React Aria
 
 - No collection object, `Item` or `Section` elements and no `Node` type: the
@@ -823,5 +986,19 @@ panel has controls of its own.
   submenus, per-item `closeOnSelect`, `disabledBehavior`, links or press, drag and
   release across menu items.
 - Typeahead is a case-insensitive prefix match (no collator).
+- Select: no hidden native select (a `Form` does not submit it), the popover is
+  non-modal by default, and an item is chosen on the click (React Aria selects on
+  the press's release, so a press that starts on the trigger can be dragged onto
+  an item); the trigger's `aria-labelledby` points at the value and label elements
+  you mark with `ValueProps` and `LabelProps`; no `isRequired`, validation,
+  description or error message.
+- Combobox: `Items` with `Filter`, or `Keys` filtered by you, replace
+  `defaultItems`/`items` with `defaultFilter`; `Contains` and `StartsWith` fold
+  case and diacritics (NFD without combining marks) instead of using a collator;
+  a press outside the popover does not dismiss it by itself: the input blurs and
+  that commits the text; blur always commits (no `shouldCloseOnBlur`);
+  `aria-autocomplete` is always `list`; the button's label is the English "Show
+  suggestions" (React Aria localizes it); `OnOpenChange` does not tell what opened
+  the list; no `name` or `formValue`.
 - Shift+Tab into a list focuses its first item, not the last one: Tela's focus
   events do not carry the element the focus came from.

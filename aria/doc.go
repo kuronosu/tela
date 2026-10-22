@@ -96,7 +96,9 @@
 // warm-up).
 //
 // Collections, keyed lists of items with a focused key and a selection:
-// [UseListBox], [UseMenu] (the menu of [UseMenuTrigger]) and [UseTabs],
+// [UseListBox], [UseMenu] (the menu of [UseMenuTrigger]), [UseTabs],
+// [UseSelect] (a button that opens a list box) and [UseCombobox] (a text
+// field that filters one, with the [Contains] and [StartsWith] filters),
 // with the [Selection] type for what is selected.
 //
 // # Overlays
@@ -154,6 +156,14 @@
 // ShouldUseVirtualFocus keeps it on the collection and marks the focused
 // item with aria-activedescendant. Give the items of a long list to a
 // h.VirtualList: keys that are not rendered can still be focused.
+//
+// A select and a combobox put a list box in a popover next to a trigger or
+// an input. They return the props of each of their elements; the popover
+// goes in a Portal, only while Open, and the items are rendered from
+// ListBox.ItemProps as in a list box:
+//
+//	sel := aria.UseSelect(aria.SelectOptions[string]{Keys: fruit, Placeholder: "Pick one"})
+//	cb := aria.UseCombobox(aria.ComboboxOptions[string]{Items: fruit, AriaLabel: "Fruit"})
 //
 // # Testing and agents
 //

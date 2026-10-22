@@ -647,3 +647,40 @@ func BenchmarkAriaSnapshot10k(b *testing.B) {
 		semantics.Snapshot(root)
 	}
 }
+
+func labelledByManyScreen() Node {
+	value, label, self, missing := UseElementRef(), UseElementRef(), UseElementRef(), UseElementRef()
+	return div(
+		span(AttachRef(label), Text("Favorite fruit")),
+		button(AriaLabelledBy(value, label), span(AttachRef(value), Text("Apple"))),
+		button(AriaLabel("Pick"), AttachRef(self), AriaLabelledBy(value, self), span(Text("ignored"))),
+		button(AriaLabelledBy(missing, label), Text("content")),
+	)
+}
+
+// TestAriaLabelledByMany: several references name an element with the text
+// of each mounted one, in the order given and joined by a space
+// (aria-labelledby="value label"); a reference to the element itself
+// gives its AriaLabel, and one that is not mounted gives nothing.
+func TestAriaLabelledByMany(t *testing.T) {
+	_, got := snapshotOf(t, Component(labelledByManyScreen))
+	want := "- text: Favorite fruit\n" +
+		"- button \"Apple Favorite fruit\": Apple\n" +
+		"- button \"Apple Pick\": ignored\n" +
+		"- button \"Favorite fruit\": content"
+	if got != want {
+		t.Errorf("snapshot\n%s\nwant\n%s", got, want)
+	}
+}
+
+// TestComboboxFieldValue: a text field with the combobox role exposes its
+// text, as Playwright prints an `input role="combobox"`.
+func TestComboboxFieldValue(t *testing.T) {
+	_, got := snapshotOf(t, div(
+		input(Role("combobox"), AriaLabel("Fruit"), AriaExpanded(true), DefaultValue("App")),
+		input(Role("combobox"), AriaLabel("Empty"))))
+	want := "- combobox \"Fruit\" [expanded]: App\n- combobox \"Empty\""
+	if got != want {
+		t.Errorf("snapshot\n%s\nwant\n%s", got, want)
+	}
+}

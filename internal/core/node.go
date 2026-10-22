@@ -469,7 +469,7 @@ func Primitive(kind style.Kind, children ...Child) Node {
 		// Icons are decorative unless they are named (lucide-react's
 		// aria-hidden="true"): with AriaLabel or AriaLabelledBy they are
 		// images with that name.
-		if a := d.aria; a == nil || !a.hiddenSet && !a.hasLabel && a.labelledBy == nil {
+		if a := d.aria; a == nil || !a.hiddenSet && !a.hasLabel && len(a.labelledBy) == 0 {
 			a = d.ariaProps()
 			a.hidden, a.hiddenSet = true, true
 		}

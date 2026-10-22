@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- Functions: [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
+- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseCombobox`](#func-usecombobox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseSelect`](#func-useselect) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
@@ -20,8 +20,11 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ButtonOptions`](#type-buttonoptions)
   - [`type ButtonResult`](#type-buttonresult): [`UseButton`](#func-usebutton)
   - [`type Collection`](#type-collection): [`ActiveDescendant`](#func-collectionk-activedescendant) · [`ClearFocus`](#func-collectionk-clearfocus) · [`Focus`](#func-collectionk-focus) · [`FocusKey`](#func-collectionk-focuskey) · [`Focused`](#func-collectionk-focused) · [`HandleKeyDown`](#func-collectionk-handlekeydown) · [`IsDisabled`](#func-collectionk-isdisabled) · [`IsFocusVisible`](#func-collectionk-isfocusvisible) · [`IsFocused`](#func-collectionk-isfocused) · [`IsSelected`](#func-collectionk-isselected) · [`ItemProps`](#func-collectionk-itemprops) · [`ItemRef`](#func-collectionk-itemref) · [`Section`](#func-collectionk-section)
+  - [`type ComboboxOptions`](#type-comboboxoptions)
+  - [`type ComboboxResult`](#type-comboboxresult): [`UseCombobox`](#func-usecombobox)
   - [`type DialogOptions`](#type-dialogoptions)
   - [`type DialogResult`](#type-dialogresult): [`UseDialog`](#func-usedialog)
+  - [`type Filter`](#type-filter)
   - [`type FlipOptions`](#type-flipoptions)
   - [`type Floating`](#type-floating): [`UseFloating`](#func-usefloating)
   - [`type FloatingOption`](#type-floatingoption): [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`Shift`](#func-shift) · [`Size`](#func-size)
@@ -55,6 +58,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type PressResult`](#type-pressresult): [`UsePress`](#func-usepress)
   - [`type Rects`](#type-rects)
   - [`type SectionResult`](#type-sectionresult)
+  - [`type SelectOptions`](#type-selectoptions)
+  - [`type SelectResult`](#type-selectresult): [`UseSelect`](#func-useselect)
   - [`type Selection`](#type-selection): [`All`](#func-all) · [`SelectionOf`](#func-selectionof) · [`Equal`](#func-selectionk-equal) · [`First`](#func-selectionk-first) · [`Has`](#func-selectionk-has) · [`In`](#func-selectionk-in) · [`IsAll`](#func-selectionk-isall) · [`IsEmpty`](#func-selectionk-isempty) · [`IsSet`](#func-selectionk-isset) · [`Keys`](#func-selectionk-keys) · [`Len`](#func-selectionk-len) · [`Resolve`](#func-selectionk-resolve) · [`String`](#func-selectionk-string) · [`Toggle`](#func-selectionk-toggle) · [`With`](#func-selectionk-with) · [`Without`](#func-selectionk-without)
   - [`type ShiftLimiter`](#type-shiftlimiter): [`LimitShift`](#func-limitshift)
   - [`type ShiftOptions`](#type-shiftoptions)
@@ -133,7 +138,7 @@ Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as on
 
 Overlays: [`UseOverlay`](#func-useoverlay) (Escape and a press outside close the top overlay; a modal one makes the rest of the window inert), [`UseDialog`](#func-usedialog) (role, name and focus), [`UsePopover`](#func-usepopover) (a floating overlay next to its trigger), [`UseOverlayTrigger`](#func-useoverlaytrigger) (the open state and the trigger's props), [`UseMenuTrigger`](#func-usemenutrigger) (a trigger that opens with press, long press or keys) and [`UseTooltipTrigger`](#func-usetooltiptrigger) (hover and focus with React Aria's delays and warm-up).
 
-Collections, keyed lists of items with a focused key and a selection: [`UseListBox`](#func-uselistbox), [`UseMenu`](#func-usemenu) (the menu of [`UseMenuTrigger`](#func-usemenutrigger)) and [`UseTabs`](#func-usetabs), with the [`Selection`](#type-selection) type for what is selected.
+Collections, keyed lists of items with a focused key and a selection: [`UseListBox`](#func-uselistbox), [`UseMenu`](#func-usemenu) (the menu of [`UseMenuTrigger`](#func-usemenutrigger)), [`UseTabs`](#func-usetabs), [`UseSelect`](#func-useselect) (a button that opens a list box) and [`UseCombobox`](#func-usecombobox) (a text field that filters one, with the [`Contains`](#func-contains) and [`StartsWith`](#func-startswith) filters), with the [`Selection`](#type-selection) type for what is selected.
 
 ### Overlays
 
@@ -179,11 +184,33 @@ aria.ListBoxOptions[string]{Keys: names, SelectionMode: "multiple",
 
 The focus is roving (the focused item's element has it) unless ShouldUseVirtualFocus keeps it on the collection and marks the focused item with aria-activedescendant. Give the items of a long list to a h.VirtualList: keys that are not rendered can still be focused.
 
+A select and a combobox put a list box in a popover next to a trigger or an input. They return the props of each of their elements; the popover goes in a Portal, only while Open, and the items are rendered from ListBox.ItemProps as in a list box:
+
+```go
+sel := aria.UseSelect(aria.SelectOptions[string]{Keys: fruit, Placeholder: "Pick one"})
+cb := aria.UseCombobox(aria.ComboboxOptions[string]{Items: fruit, AriaLabel: "Fruit"})
+```
+
 ### Testing and agents
 
 The roles and states the hooks set are the ones the aria snapshot shows: a checkbox made with [`UseCheckbox`](#func-usecheckbox) prints as `checkbox "Name" [checked]`, and telatest finds it with ByRole("checkbox", "Name").
 
 ## Constants
+
+```go
+const (
+    // MenuTriggerInput opens the list when the user types (the default).
+    MenuTriggerInput = "input"
+    // MenuTriggerFocus opens it when the input gets the focus too, with
+    // every item.
+    MenuTriggerFocus = "focus"
+    // MenuTriggerManual opens it only with ArrowDown, ArrowUp and the
+    // toggle button.
+    MenuTriggerManual = "manual"
+)
+```
+
+The ways a combobox's menu opens ([`ComboboxOptions`](#type-comboboxoptions).MenuTrigger).
 
 ```go
 const (
@@ -212,6 +239,44 @@ const (
 ```
 
 The tooltip delays of React Aria: a tooltip opens 1.5 s after the pointer enters its trigger, and closes 0.5 s after it leaves.
+
+## Functions
+
+### func Contains
+
+```go
+func Contains(text, query string) bool
+```
+
+Contains reports whether text contains query anywhere, ignoring case and diacritics ("cafe" matches "Café"; React Aria's useFilter with the "base" sensitivity of its collator). An empty query matches everything.
+
+**Example**
+
+```go
+fmt.Println(aria.Contains("São Paulo", "ao p"))
+fmt.Println(aria.StartsWith("Zürich", "ZUR"))
+fmt.Println(aria.EndsWith("Zürich", "ch"), aria.EndsWith("Zürich", "ürix"))
+// Output:
+// true
+// true
+// true false
+```
+
+### func EndsWith
+
+```go
+func EndsWith(text, query string) bool
+```
+
+EndsWith reports whether text ends with query, ignoring case and diacritics. An empty query matches everything.
+
+### func StartsWith
+
+```go
+func StartsWith(text, query string) bool
+```
+
+StartsWith reports whether text starts with query, ignoring case and diacritics. An empty query matches everything.
 
 ## Types
 
@@ -556,6 +621,239 @@ Div(fruit.Props,
     Div(lb.ItemProps("apple"), Key("apple"), Text("Apple")))
 ```
 
+### type ComboboxOptions
+
+```go
+type ComboboxOptions[K comparable] struct {
+    // Keys are the items to show, filtered by the caller: the caller keeps
+    // the text, filters its data as it likes (a server search, a fuzzy
+    // match) and gives the result on every build. Or give Items.
+    Keys []K
+    // Items are all the items, in order, and the hook shows the ones that
+    // match the text with Filter (React Aria's defaultItems with
+    // defaultFilter). Give Keys or Items, not both; an empty, non-nil Items
+    // is a combobox without items. ComboboxResult.Keys are the items to
+    // render.
+    Items []K
+    // Filter decides whether the text of an item matches what is typed;
+    // [Contains] (the default), [StartsWith] or your own function. It
+    // applies to Items only.
+    Filter Filter
+    // TextValue is the text of an item: it goes to the input when the item
+    // is chosen and Filter matches it. The default is fmt.Sprint of the
+    // key.
+    TextValue         func(K) string
+    DisabledKeys      []K
+    Selected          Selection[K]
+    DefaultSelected   Selection[K]
+    OnSelectionChange func(Selection[K])
+    // InputValue points to the text of a controlled combobox, with
+    // OnInputChange asking for the next one; nil leaves it to the hook,
+    // which starts at DefaultInputValue (else the text of the selected
+    // item). OnInputChange is also called for an uncontrolled combobox and
+    // for the text that choosing an item or leaving the input puts back.
+    InputValue        *string
+    DefaultInputValue string
+    OnInputChange     func(string)
+    // Open points to the open state of a controlled list; nil leaves it to
+    // the hook, starting at DefaultOpen. OnOpenChange is called with the
+    // next state.
+    Open         *bool
+    DefaultOpen  bool
+    OnOpenChange func(open bool)
+    // MenuTrigger is how the list opens: [MenuTriggerInput] (the default),
+    // [MenuTriggerFocus] or [MenuTriggerManual]. ArrowDown (first item)
+    // and ArrowUp (last) and the toggle button open it in every mode, with
+    // all the items.
+    MenuTrigger string
+    // AllowsCustomValue lets the text stay as typed when the input loses
+    // the focus or Enter is pressed with no item chosen, clearing the
+    // selection. Without it the text goes back to that of the selected item
+    // (empty when none is).
+    AllowsCustomValue bool
+    // AllowsEmptyCollection keeps the list open when no item matches, to
+    // show a "no results" message. By default it closes.
+    AllowsEmptyCollection bool
+    // Disabled makes the input and the button inert and disabled; ReadOnly
+    // makes the input read-only and the list does not open.
+    Disabled, ReadOnly bool
+    // ShouldFocusWrap makes ArrowDown on the last item highlight the first,
+    // and ArrowUp on the first the last.
+    ShouldFocusWrap bool
+    // Placement is where the popover goes around its anchor, one of
+    // Floating UI's 12 placements; "bottom-start" by default. Offset is the
+    // distance in pixels, and Floating are more options of [UseFloating].
+    Placement string
+    Offset    float32
+    Floating  []FloatingOption
+    // MatchWidth makes the popover as wide as the anchor.
+    MatchWidth bool
+    // AnchorRef is the element the popover is placed next to and
+    // MatchWidth measures: the wrapper of the input and the button, say. The
+    // zero value anchors it to the input.
+    AnchorRef tela.ElementRef
+    // AriaLabel names the input when there is no label element; with
+    // LabelProps the label element names it.
+    AriaLabel string
+    // Ref is the input's ref, for a hook used together with others on the
+    // same element; the zero value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+ComboboxOptions configures [`UseCombobox`](#func-usecombobox). The items are keyed like those of a list box: see [`ListBoxOptions`](#type-listboxoptions) for TextValue, DisabledKeys, and the controlled and uncontrolled Selected, DefaultSelected and OnSelectionChange (a combobox holds at most one selected key).
+
+### type ComboboxResult
+
+```go
+type ComboboxResult[K comparable] struct {
+    // InputProps go to the Input: the "combobox" role, the text and its
+    // change, the keys (arrows, Enter, Tab, Escape), aria-autocomplete,
+    // aria-expanded, aria-controls while open and aria-activedescendant
+    // for the highlighted item. The input keeps the focus: the items are
+    // highlighted, never focused.
+    InputProps tela.Prop
+    // ButtonProps go to an optional toggle button: it shows or hides the
+    // list with every item, and keeps the focus on the input. It is not a
+    // tab stop and is labelled "Show suggestions" (put an AriaLabel after
+    // the props to change it).
+    ButtonProps tela.Prop
+    // LabelProps go to the label element: it names the input, and a click
+    // on it focuses the input.
+    LabelProps tela.Prop
+    // PopoverProps go to the popover's element, which holds the list box:
+    // it is fixed to the window and placed next to the anchor in the frame
+    // that shows it, it is on the overlay stack (Escape closes it), and a
+    // press in it keeps the focus on the input. With MatchWidth it is as
+    // wide as the anchor. Render it in a Portal, only while Open.
+    PopoverProps tela.Prop
+    // ArrowProps go to an arrow element inside the popover.
+    ArrowProps tela.Prop
+    // ListBox is the list: its Props go to the element that holds the
+    // items and ItemProps(k) to each item, as in [UseListBox]. The items
+    // are rendered inside the popover, only while Open, from Keys.
+    ListBox ListBoxResult[K]
+    // Keys are the items to render: ComboboxOptions.Keys, or the Items that
+    // match the text (all of them after the list was opened with the
+    // arrows or the button, until the text changes).
+    Keys []K
+    // InputValue is the text of the input.
+    InputValue string
+    // ShowAll is true after the list was opened by hand (the button, the
+    // arrows, or the focus with MenuTriggerFocus) and until the text
+    // changes: the list shows every item whatever the text. A hook given
+    // Items does it itself; a caller who filters Keys should too.
+    ShowAll bool
+    // Selected is the current selection: [Selection.First] is the selected
+    // key.
+    Selected Selection[K]
+    // Open is whether the list is open; SetOpen asks for a state, Toggle for
+    // the other one and Close for closed.
+    Open    bool
+    SetOpen func(open bool)
+    Toggle  func()
+    Close   func()
+    // Pressed is true while the button is pressed.
+    Pressed bool
+    // Placement is the popover's placement after flipping (see
+    // [PopoverResult]).
+    Placement string
+    // InputRef, ButtonRef and PopoverRef are the refs of those elements.
+    InputRef, ButtonRef, PopoverRef tela.ElementRef
+}
+```
+
+ComboboxResult is what [`UseCombobox`](#func-usecombobox) returns.
+
+#### func UseCombobox
+
+```go
+func UseCombobox[K comparable](o ComboboxOptions[K]) ComboboxResult[K]
+```
+
+UseCombobox holds the state of a combobox and returns the props of its input, its toggle button, its popover and its list (React Aria's useComboBox with useComboBoxState): a text field that filters a list of options, and a list that opens next to it.
+
+```go
+cb := aria.UseCombobox(aria.ComboboxOptions[string]{
+    Items: fruit, TextValue: capital, AriaLabel: "Fruit", MatchWidth: true,
+})
+return Fragment(
+    Div(Class("flex"),
+        Input(cb.InputProps, Class("w-48 rounded-l-md border px-3 py-2")),
+        Button(cb.ButtonProps, Class("rounded-r-md border px-2"), Icon(chevronDown))),
+    Portal(If(cb.Open,
+        Div(cb.PopoverProps, Class("rounded-md border bg-popover p-1 shadow-md"),
+            Div(cb.ListBox.Props, Class("max-h-60 overflow-auto"),
+                Range(len(cb.Keys), func(i int) tela.Node {
+                    k := cb.Keys[i]
+                    return Div(cb.ListBox.ItemProps(k), Key(k),
+                        Class("rounded px-2 py-1.5 aria-selected:font-medium"),
+                        If(cb.ListBox.IsFocused(k), Class("bg-accent")), Text(capital(k)))
+                }))))))
+```
+
+Typing filters the list and opens it (see MenuTrigger). The input keeps the focus: ArrowDown and ArrowUp highlight the next and previous item (the first and the last, opening the list when closed), Enter chooses the highlighted item, which sets the text to its TextValue and closes the list, Tab chooses it and moves on, and Escape closes the list and puts the text back to that of the selected item (cleared when there is none). When the input loses the focus the text is committed: reset to the selected item's, or kept as a custom value with AllowsCustomValue. Home, End, Space and the left and right arrows stay with the text field, and nothing moves while an IME composes text.
+
+Items are highlighted with [`Collection.IsFocused`](#func-collectionk-isfocused) (there is no DOM focus on them); the input carries aria-activedescendant. In the aria snapshot the input is `combobox "Fruit" [expanded]: b`, the button `button "Show suggestions"` and the list a listbox named by the label.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    cb := aria.UseCombobox(aria.ComboboxOptions[string]{
+        Items: fruits, TextValue: capital, AriaLabel: "Fruit", MatchWidth: true,
+    })
+    return Div(Class("p-4"),
+        Div(Class("flex"),
+            Input(cb.InputProps, Class("w-48 rounded-l-md border px-3 py-2")),
+            Button(cb.ButtonProps, Class("rounded-r-md border px-2"), Text("v"))),
+        Portal(If(cb.Open,
+            Div(cb.PopoverProps, Class("rounded-md border bg-popover p-1 shadow-md"),
+                Div(cb.ListBox.Props, Class("max-h-60 overflow-auto"),
+                    Range(len(cb.Keys), func(i int) tela.Node {
+                        k := cb.Keys[i]
+                        return Div(cb.ListBox.ItemProps(k), Key(k), Class("rounded px-2 py-1.5"),
+                            If(cb.ListBox.IsFocused(k), Class("bg-accent")), Text(capital(k)))
+                    }))))))
+}
+app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+app.Focus(telatest.ByRole("combobox", "Fruit"))
+app.Type("blu") // filters and opens the list
+fmt.Println(app.AriaSnapshot())
+app.Press("ArrowDown") // highlights the item, the input keeps the focus
+app.Press("Enter")     // chooses it
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - combobox "Fruit" [expanded]: blu
+// - button "Show suggestions" [expanded]: v
+// - listbox "Fruit":
+//   - option "Blueberry"
+// - combobox "Fruit": Blueberry
+// - button "Show suggestions": v
+```
+
+**Example (allowsCustomValue)**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    cb := aria.UseCombobox(aria.ComboboxOptions[string]{
+        Items: fruits, TextValue: capital, AriaLabel: "Tag", AllowsCustomValue: true,
+        OnSelectionChange: func(s aria.Selection[string]) { fmt.Println("selected:", s) },
+    })
+    return Input(cb.InputProps, Class("w-48 border"))
+}
+app := telatest.MountFunc(t, page, telatest.Size(300, 100))
+app.Focus(telatest.ByRole("combobox", "Tag"))
+app.Fill(telatest.ByRole("combobox", "Tag"), "kiwi")
+app.Press("Tab") // the text stays, and the selection is cleared
+fmt.Println(app.AriaSnapshot())
+// Output: - combobox "Tag": kiwi
+```
+
 ### type DialogOptions
 
 ```go
@@ -648,6 +946,14 @@ app.ExpectFocused(telatest.ByRole("button", "Delete"))
 //   - button "Cancel"
 //   - button "Delete"
 ```
+
+### type Filter
+
+```go
+type Filter func(text, query string) bool
+```
+
+Filter decides whether the text of an item matches what the user typed: the filter of [`ComboboxOptions`](#type-comboboxoptions). Contains, StartsWith and EndsWith are ready to use.
 
 ### type FlipOptions
 
@@ -1724,6 +2030,7 @@ type MenuTriggerOptions struct {
     // together with others on the same element; the zero value makes the
     // hook create its own.
     Ref, MenuRef tela.ElementRef
+    // contains filtered or unexported fields
 }
 ```
 
@@ -2369,6 +2676,216 @@ type SectionResult struct {
 ```
 
 SectionResult is what [`Collection.Section`](#func-collectionk-section) returns.
+
+### type SelectOptions
+
+```go
+type SelectOptions[K comparable] struct {
+    Keys []K
+    // TextValue is the text of an item: it is what the select shows when
+    // the item is selected (SelectResult.Value) and what typeahead matches.
+    // The default is fmt.Sprint of the key.
+    TextValue         func(K) string
+    DisabledKeys      []K
+    Selected          Selection[K]
+    DefaultSelected   Selection[K]
+    OnSelectionChange func(Selection[K])
+    // Open points to the open state of a controlled select; nil leaves it
+    // to the hook, starting at DefaultOpen. OnOpenChange is called with the
+    // next state, as a request for a controlled select and as a
+    // notification for an uncontrolled one.
+    Open         *bool
+    DefaultOpen  bool
+    OnOpenChange func(open bool)
+    // Placeholder is what SelectResult.Value says while nothing is
+    // selected.
+    Placeholder string
+    // Disabled makes the trigger inert and disabled.
+    Disabled bool
+    // Placement is where the popover goes around the trigger, one of
+    // Floating UI's 12 placements; "bottom-start" by default. Offset is the
+    // distance in pixels, and Floating are more options of [UseFloating] (a
+    // [Size] that limits the height, say), as in [PopoverOptions].
+    Placement string
+    Offset    float32
+    Floating  []FloatingOption
+    // MatchWidth makes the popover as wide as the trigger (see
+    // SelectResult.PopoverProps).
+    MatchWidth bool
+    // Modal makes the rest of the window inert while the list is open, as
+    // React Aria's select does; see [PopoverOptions]. The default is a
+    // non-modal popover.
+    Modal bool
+    // DisallowTypeAhead turns off typeahead, on the trigger and in the
+    // list.
+    DisallowTypeAhead bool
+    // AriaLabel names the select when there is no label element; with
+    // LabelProps the label element names it. The trigger's name is the
+    // value followed by the name, as in React Aria ("Apple Favorite fruit").
+    AriaLabel string
+    // Ref is the trigger's ref, for a hook used together with others on the
+    // same element; the zero value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+SelectOptions configures [`UseSelect`](#func-useselect). The items are keyed like those of a list box: see [`ListBoxOptions`](#type-listboxoptions) for Keys, TextValue, DisabledKeys and the controlled and uncontrolled Selected, DefaultSelected and OnSelectionChange (a select holds one selected key).
+
+### type SelectResult
+
+```go
+type SelectResult[K comparable] struct {
+    // TriggerProps go to the trigger, a Button or any element: the press
+    // that opens the list, the keys that open it (Enter, Space, ArrowDown
+    // and ArrowUp) and change the selection while it is closed (typeahead
+    // and ArrowLeft and ArrowRight), the "button" role, a tab stop,
+    // aria-haspopup="listbox", aria-expanded, aria-controls while open
+    // and aria-labelledby (the value and the label).
+    TriggerProps tela.Prop
+    // ValueProps go to the element inside the trigger that shows the
+    // selected text (or the placeholder): the trigger is named by it.
+    ValueProps tela.Prop
+    // LabelProps go to the label element: it names the select, and a click
+    // on it focuses the trigger.
+    LabelProps tela.Prop
+    // PopoverProps go to the popover's element, which holds the list
+    // box: it is fixed to the window and placed next to the trigger in the
+    // frame that shows it, it is on the overlay stack (Escape and a press
+    // outside close it) and a focus scope gives the focus back to the
+    // trigger when it unmounts. With MatchWidth it is as wide as the
+    // trigger. Render it in a Portal, only while Open.
+    PopoverProps tela.Prop
+    // ArrowProps go to an arrow element inside the popover.
+    ArrowProps tela.Prop
+    // ListBox is the list: its Props go to the element that holds the
+    // items (it scrolls) and ItemProps(k) to each item, as in [UseListBox].
+    // The items are rendered inside the popover, only while Open.
+    ListBox ListBoxResult[K]
+    // Value is the text of the selected item, or the Placeholder.
+    Value string
+    // Selected is the current selection: [Selection.First] is the
+    // selected key.
+    Selected Selection[K]
+    // Open is whether the list is open; SetOpen asks for a state, Toggle for
+    // the other one and Close for closed.
+    Open    bool
+    SetOpen func(open bool)
+    Toggle  func()
+    Close   func()
+    // Pressed is true while the trigger is pressed.
+    Pressed bool
+    // Placement is the popover's placement after flipping (see
+    // [PopoverResult]).
+    Placement string
+    // TriggerRef and PopoverRef are the refs of the trigger and the
+    // popover.
+    TriggerRef, PopoverRef tela.ElementRef
+}
+```
+
+SelectResult is what [`UseSelect`](#func-useselect) returns.
+
+#### func UseSelect
+
+```go
+func UseSelect[K comparable](o SelectOptions[K]) SelectResult[K]
+```
+
+UseSelect holds the state of a select and returns the props of its trigger, its popover and its list (React Aria's useSelect with useSelectState): a button that shows the selected item and opens a list box next to it. A press, Enter, Space and ArrowDown open the list (the last also with ArrowUp), the selected item or else the first (the last for ArrowUp) has the focus, choosing an item selects it, closes the list and gives the focus back to the trigger, and Escape closes it. On the closed trigger typing text selects the next item that starts with it and the left and right arrows select the previous and next item.
+
+```go
+sel := aria.UseSelect(aria.SelectOptions[string]{
+    Keys: fruit, TextValue: capital, Placeholder: "Pick a fruit", MatchWidth: true,
+})
+return Fragment(
+    Span(sel.LabelProps, Text("Favorite fruit")),
+    Button(sel.TriggerProps, Class("flex w-48 justify-between rounded-md border px-3 py-2"),
+        Span(sel.ValueProps, Text(sel.Value)), Icon(chevronDown)),
+    Portal(If(sel.Open,
+        Div(sel.PopoverProps, Class("rounded-md border bg-popover p-1 shadow-md"),
+            Div(sel.ListBox.Props, Class("max-h-60 overflow-auto"),
+                Range(len(fruit), func(i int) tela.Node {
+                    k := fruit[i]
+                    return Div(sel.ListBox.ItemProps(k), Key(k),
+                        Class("rounded px-2 py-1.5 focus-visible:bg-accent aria-selected:font-medium"),
+                        Text(capital(k)))
+                }))))))
+```
+
+In the aria snapshot the closed select is a button named by its value and its label (`button "Banana Favorite fruit": Banana`), and the open list, a listbox named by the label, sits next to it.
+
+The list lives in the component that calls the hook (its items are rendered by the caller only while open): the hook focuses the selected item when the list opens. There is no hidden native select, so a Form does not submit the value: read SelectResult.Selected in OnSubmit.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+names := []string{"apple", "banana", "cherry"}
+page := func() tela.Node {
+    sel := aria.UseSelect(aria.SelectOptions[string]{
+        Keys: names, TextValue: capital, Placeholder: "Pick a fruit", MatchWidth: true,
+    })
+    return Div(Class("flex flex-col gap-1 p-4"),
+        Span(sel.LabelProps, Class("text-sm font-medium"), Text("Favorite fruit")),
+        Button(sel.TriggerProps, Class("flex w-48 justify-between rounded-md border px-3 py-2"),
+            Span(sel.ValueProps, Text(sel.Value))),
+        Portal(If(sel.Open,
+            Div(sel.PopoverProps, Class("rounded-md border bg-popover p-1 shadow-md"),
+                Div(sel.ListBox.Props, Class("max-h-60 overflow-auto"),
+                    Range(len(names), func(i int) tela.Node {
+                        k := names[i]
+                        return Div(sel.ListBox.ItemProps(k), Key(k),
+                            Class("rounded px-2 py-1.5 focus-visible:bg-accent aria-selected:font-medium"),
+                            Text(capital(k)))
+                    }))))))
+}
+app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+fmt.Println(app.AriaSnapshot())
+app.Focus(telatest.ByRole("button", "Pick a fruit Favorite fruit"))
+app.Press("ArrowDown") // opens it on the first item
+app.Press("ArrowDown")
+fmt.Println(app.AriaSnapshot())
+app.Press("Enter") // selects Banana, closes and gives the focus back
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - text: Favorite fruit
+// - button "Pick a fruit Favorite fruit": Pick a fruit
+// - text: Favorite fruit
+// - button "Pick a fruit Favorite fruit" [expanded]: Pick a fruit
+// - listbox "Favorite fruit":
+//   - option "Apple"
+//   - option "Banana"
+//   - option "Cherry"
+// - text: Favorite fruit
+// - button "Banana Favorite fruit": Banana
+```
+
+**Example (controlled)**
+
+```go
+t := &exampleT{}
+defer t.close()
+names := []string{"apple", "banana", "cherry"}
+page := func() tela.Node {
+    sel, setSel := tela.UseState(aria.SelectionOf("banana"))
+    s := aria.UseSelect(aria.SelectOptions[string]{
+        Keys: names, TextValue: capital, AriaLabel: "Fruit",
+        Selected: sel, OnSelectionChange: setSel.Set,
+    })
+    return Div(
+        Button(s.TriggerProps, Span(s.ValueProps, Text(s.Value))),
+        Portal(If(s.Open, Div(s.PopoverProps, Div(s.ListBox.Props,
+            Range(len(names), func(i int) tela.Node {
+                return Div(s.ListBox.ItemProps(names[i]), Key(names[i]), Text(capital(names[i])))
+            }))))))
+}
+app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+app.Click(telatest.ByRole("button", "Banana Fruit"))
+app.Click(telatest.ByRole("option", "Cherry"))
+fmt.Println(app.AriaSnapshot())
+// Output: - button "Cherry Fruit": Cherry
+```
 
 ### type Selection
 

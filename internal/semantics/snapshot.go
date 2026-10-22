@@ -90,8 +90,10 @@ func visit(parent *ariaNode, n *Node) {
 	target := parent
 	if !n.Flattened() {
 		an := &ariaNode{n: n, role: n.Role, name: NormalizeWhiteSpace(n.Name)}
-		if (n.Role == "textbox" || n.Role == "searchbox") && n.Value != "" {
-			// An input's value is its content (toAriaNode).
+		if (n.Role == "textbox" || n.Role == "searchbox" || n.Role == "combobox") && n.Value != "" {
+			// An input's value is its content (toAriaNode), whatever its
+			// role; Tela sets the value of text fields only, so the roles
+			// are those that fields are given.
 			an.children = append(an.children, ariaChild{text: n.Value})
 		}
 		if n.Role == "link" && n.URL != "" {

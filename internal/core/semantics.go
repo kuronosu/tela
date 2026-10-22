@@ -305,7 +305,9 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		}
 	}
 	switch {
-	case bx.fld != nil && (role == "textbox" || role == "searchbox"):
+	case bx.fld != nil && (role == "textbox" || role == "searchbox" || role == "combobox"):
+		// A text field with the combobox role (an editable combobox's input)
+		// exposes its text, as Playwright prints it: `combobox "Fruit": App`.
 		n.Value = exposedValue(bx.fld)
 	case role == "textbox" || role == "searchbox":
 		n.Value = textContent(el)
@@ -402,7 +404,7 @@ func (t *Tree) implicitRole(el *Element) string {
 		return "textbox"
 	case style.KindForm:
 		// A form is a landmark only when it has a name (HTML-AAM).
-		if a := d.aria; a != nil && (semantics.TrimSpace(a.label) != "" || a.labelledBy != nil) {
+		if a := d.aria; a != nil && (semantics.TrimSpace(a.label) != "" || len(a.labelledBy) > 0) {
 			return "form"
 		}
 	}
@@ -424,7 +426,7 @@ func globalAria(a *ariaProps, role string) bool {
 	if a == nil {
 		return false
 	}
-	return a.hiddenSet || (a.hasLabel || a.labelledBy != nil) && !semantics.LabelProhibited(role) ||
+	return a.hiddenSet || (a.hasLabel || len(a.labelledBy) > 0) && !semantics.LabelProhibited(role) ||
 		a.w != nil && a.w.controls != nil || // aria-controls (ariawidget.go)
 		a.busy != semantics.ToggleUnset // aria-busy, set or not, as Playwright checks the attribute
 }
@@ -569,16 +571,29 @@ func (t *Tree) textAlt(el *Element, c *altCtx, o altOpts) string {
 		return ""
 	}
 	a := el.node.d.aria
-	var lb *Element
-	if a != nil && a.labelledBy != nil {
-		if r := a.labelledBy.el; r != nil && r.mounted && r.kind == elemPrimitive {
-			lb = r
+	var lb *Element // the element itself when it names itself, for the embedded-control rule below
+	if a != nil {
+		for _, ref := range a.labelledBy {
+			if ref.el == el {
+				lb = el
+			}
 		}
 	}
-	// 2B: aria-labelledby, once.
-	if !o.inLB && lb != nil {
-		if s := t.textAlt(lb, c, altOpts{inLB: true, lbHidden: t.hiddenForAria(lb, false)}); s != "" {
-			return s
+	// 2B: aria-labelledby, once; each mounted reference gives its text and
+	// the texts are joined by a space.
+	if !o.inLB && a != nil && len(a.labelledBy) > 0 {
+		var parts []string
+		for _, ref := range a.labelledBy {
+			r := ref.el
+			if r == nil || !r.mounted || r.kind != elemPrimitive {
+				continue
+			}
+			if s := t.textAlt(r, c, altOpts{inLB: true, lbHidden: t.hiddenForAria(r, false)}); s != "" {
+				parts = append(parts, s)
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, " ")
 		}
 	}
 	role, _ := t.semRole(el)

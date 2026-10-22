@@ -66,6 +66,11 @@ type collConfig[K comparable] struct {
 	onAction      func(K)
 	onClose       func()
 	closeOnSelect *bool
+	// onChosen is called when the user chooses an item of a single
+	// selection (a click, Enter, Space, a tap), after the selection was
+	// updated, whether or not it changed: same says that the item already
+	// was the selection. A select closes and a combobox commits with it.
+	onChosen func(k K, same bool)
 	// Element.
 	ref        tela.ElementRef
 	role       string
@@ -751,10 +756,14 @@ func (c *collState[K]) onSelect(k K, a activation) {
 	switch {
 	case !c.selectable():
 	case c.cfg.mode == "single":
-		if c.isSelected(k) && !c.cfg.disallowEmpty {
+		was := c.isSelected(k)
+		if was && !c.cfg.disallowEmpty {
 			c.toggleSelection(k)
 		} else {
 			c.replaceSelection(k)
+		}
+		if f := c.cfg.onChosen; f != nil && c.canSelect(k) {
+			f(k, was)
 		}
 	case a.shift:
 		c.extendSelection(k)
@@ -960,7 +969,7 @@ func (c *collState[K]) containerProps() tela.Prop {
 		default:
 			ps = append(ps, h.TabIndex(-1))
 		}
-		if c.autoContainer && !c.mounted {
+		if c.autoContainer {
 			ps = append(ps, h.AutoFocus(true))
 		}
 	}
@@ -1164,39 +1173,88 @@ func (c *collState[K]) onKey(k K, e tela.KeyboardEvent) {
 	}
 }
 
-// typeSelect is useTypeSelect: printable keys build a search string that
-// expires after a second without keys, and the focus goes to the first
-// item whose text starts with it. It reports whether it took the key (a
-// space inside a search is a character, not a selection).
-func (c *collState[K]) typeSelect(e tela.KeyboardEvent) bool {
+// typeAhead is useTypeSelect's buffer: printable keys build a search
+// string that expires after a second without keys. It returns the first
+// enabled item from from (when hasFrom, else from the top) whose text
+// starts with the search, else the first of the whole list. took reports
+// that the key was a space inside a search, which is a character and not a
+// selection (it is stopped and prevented). Without TextValue, with
+// typeahead disabled or for a key that is not a character it does nothing.
+func (c *collState[K]) typeAhead(e tela.KeyboardEvent, from K, hasFrom bool) (k K, found, took bool) {
 	if c.cfg.disableType || c.cfg.textValue == nil || e.Ctrl || e.Meta {
-		return false
+		return
 	}
 	s := string(e.Key)
 	if utf8.RuneCountInString(s) != 1 {
-		return false
+		return
 	}
 	if r, _ := utf8.DecodeRuneInString(s); !unicode.IsPrint(r) {
-		return false
+		return
 	}
 	if c.search == "" && s == " " {
-		return false
+		return
 	}
-	inSearch := s == " " && strings.TrimSpace(c.search) != ""
-	if inSearch {
+	took = s == " " && strings.TrimSpace(c.search) != ""
+	if took {
 		e.PreventDefault()
 		e.StopPropagation()
 	}
 	c.search += s
-	k, ok := c.keyForSearch(c.search, c.focused, c.hasFocused)
-	if !ok {
-		k, ok = c.keyForSearch(c.search, c.focused, false)
+	k, found = c.keyForSearch(c.search, from, hasFrom)
+	if !found {
+		k, found = c.keyForSearch(c.search, from, false)
 	}
+	c.t.Start(time.Second, func() { c.search = "" })
+	return
+}
+
+// typeSelect is useTypeSelect: the focus goes to the item typeAhead finds,
+// starting at the focused one. It reports whether it took the key.
+func (c *collState[K]) typeSelect(e tela.KeyboardEvent) bool {
+	k, ok, took := c.typeAhead(e, c.focused, c.hasFocused)
 	if ok {
 		c.moveFocus(k)
 	}
-	c.t.Start(time.Second, func() { c.search = "" })
-	return inSearch
+	return took
+}
+
+// focusOnOpen decides what has the focus when a collection that is
+// rendered only while it is open opens (a select's list): the first
+// selected item, else the first or last by the strategy ([FocusFirst],
+// [FocusLast]), else the collection itself. It runs in the build that shows
+// the collection, before the items are rendered, so the key waits for its
+// element (pending) and the container asks for the focus when it mounts.
+func (c *collState[K]) focusOnOpen(strategy string) {
+	c.hasPending, c.autoContainer = false, false
+	c.within = true
+	var key K
+	ok := false
+	switch strategy {
+	case FocusFirst:
+		key, ok = c.firstKey()
+	case FocusLast:
+		key, ok = c.lastKey()
+	}
+	if k, found := c.firstSelected(); found {
+		key, ok = k, true
+	}
+	if !ok {
+		c.hasFocused = false
+		c.autoContainer = !c.cfg.external
+		return
+	}
+	c.focused, c.hasFocused, c.focusedIdx = key, true, c.index[key]
+	if !c.cfg.virtualFocus {
+		c.pending, c.hasPending = key, true
+	}
+}
+
+// closed forgets the focus of a collection that closed: its elements are
+// gone, and the next opening decides again.
+func (c *collState[K]) closed() {
+	c.hasPending, c.hasFocused, c.autoContainer = false, false, false
+	c.within, c.visible = false, false
+	c.search = ""
 }
 
 // ---------------------------------------------------------------------

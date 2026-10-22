@@ -139,3 +139,17 @@ func (a *rawApp) clickNode(role, name string) {
 	}
 	a.settle()
 }
+
+// findNode returns the first node of the semantics tree with the role and
+// name, or nil.
+func findNode(n *semantics.Node, role, name string) *semantics.Node {
+	if n.Role == role && n.Name == name {
+		return n
+	}
+	for _, c := range n.Children {
+		if f := findNode(c, role, name); f != nil {
+			return f
+		}
+	}
+	return nil
+}
