@@ -95,7 +95,9 @@
 // --scale): their ConfigureEvents carry it, with the real logical size,
 // and the host resamples their frames to the real physical size with
 // nearest-neighbor sampling (damage mapped exactly). Input coordinates
-// are logical and need no change.
+// are logical and need no change. [HostOptions.WindowOptions] rewrites the
+// options of a new real window (--size), and [HostOptions.Settings] the
+// system settings children see (--dark).
 //
 // [Host.SetOverlay] installs a hook that draws over each frame right
 // before it is presented (tela dev's error overlay, drawn over the last

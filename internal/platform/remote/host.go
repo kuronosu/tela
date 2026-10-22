@@ -31,6 +31,18 @@ type HostOptions struct {
 	// nearest-neighbor sampling. Pointer and IME coordinates are logical,
 	// so they are unchanged.
 	Scale float64
+	// WindowOptions, when set, rewrites the options a child asked for
+	// before the host creates a real window with them (tela dev --size
+	// overrides the size). id is the window ID. It is not called when a
+	// child maps onto an existing real window, which keeps its size. The
+	// result is resolved (platform.WindowOptions.Resolve) and must be
+	// valid; an invalid one fails the window like a backend error.
+	WindowOptions func(id uint32, opts platform.WindowOptions) platform.WindowOptions
+	// Settings, when set, rewrites the real backend's system settings
+	// before children see them, in their welcome and in every
+	// SettingsEvent (tela dev --dark forces DarkMode). It is called on the
+	// UI thread with the backend's latest settings.
+	Settings func(platform.SystemSettings) platform.SystemSettings
 	// OnConnect is called when a child connected (it is pending or, if no
 	// child was active and input is not frozen, active).
 	OnConnect func(c *Child)
@@ -116,7 +128,7 @@ func NewHost(b platform.Backend, opts HostOptions) (*Host, error) {
 		opts:     opts,
 		ln:       ln,
 		addr:     addr,
-		settings: b.Settings(),
+		settings: opts.filterSettings(b.Settings()),
 		handlers: map[string]func(*Child, []byte) ([]byte, error){},
 		all:      map[*Child]struct{}{},
 		byID:     map[uint32]*realWin{},
@@ -124,6 +136,14 @@ func NewHost(b platform.Backend, opts HostOptions) (*Host, error) {
 	}
 	go h.accept()
 	return h, nil
+}
+
+// filterSettings applies the Settings option.
+func (o *HostOptions) filterSettings(s platform.SystemSettings) platform.SystemSettings {
+	if o.Settings != nil {
+		s = o.Settings(s)
+	}
+	return s
 }
 
 // Addr returns the socket path children dial. Safe from any goroutine.
@@ -347,9 +367,15 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		h.drain()
 		return
 	case platform.SettingsEvent:
+		s := h.opts.filterSettings(e.Settings)
 		h.mu.Lock()
-		h.settings = e.Settings
+		same := s == h.settings
+		h.settings = s
 		h.mu.Unlock()
+		if same && h.opts.Settings != nil {
+			return // the override hides the change (--dark and a dark-mode toggle)
+		}
+		e.Settings = s
 		for _, c := range h.children {
 			if c.state != stateDetached {
 				c.sendEvent(0, e)
@@ -640,7 +666,15 @@ func (h *Host) attach(cw *childWin) {
 	}
 	rw := h.byID[cw.id]
 	if rw == nil {
-		w, err := h.b.NewWindow(cw.opts)
+		opts := cw.opts
+		var err error
+		if fn := h.opts.WindowOptions; fn != nil {
+			err = try(func() { opts = fn(cw.id, opts).Resolve() })
+		}
+		var w platform.Window
+		if err == nil {
+			w, err = h.b.NewWindow(opts)
+		}
 		if err != nil {
 			h.reportError(fmt.Errorf("remote: creating window %d: %w", cw.id, err))
 			c.Close()
