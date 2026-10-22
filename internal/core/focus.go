@@ -180,12 +180,12 @@ func (t *Tree) SetWindowFocused(focused bool) {
 
 // afterFocusEvent applies the updates of focus handlers and builds, as
 // after other discrete events; inside a frame the frame goes on with the
-// focus states and the updates wait for the next one.
-func (t *Tree) afterFocusEvent() {
-	if !t.inFrame {
-		t.flushDiscrete()
-	}
-}
+// focus states and the updates wait for the next one. A focus change made
+// by code that runs as a handler (ElementRef.Focus, the focus manager or a
+// focus scope from a handler, an overlay callback or a passive effect)
+// leaves them to the event, the frame or the host's next step, as
+// flushNested does: the code after the call runs before the build.
+func (t *Tree) afterFocusEvent() { t.flushNested() }
 
 // ---------------------------------------------------------------------
 // Focusability.
@@ -827,7 +827,11 @@ func (r ElementRef) element() *Element {
 }
 
 // Focus focuses the element, if it is focusable (HTML's focus()): OnBlur
-// runs on the element that loses the focus and OnFocus on this one.
+// runs on the element that loses the focus and OnFocus on this one,
+// before it returns. Called from a handler or an effect, the updates those
+// handlers make are applied and built by the event or the frame that is
+// running (after the passive effects, by the host's next step), as for
+// Click.
 func (r ElementRef) Focus() {
 	if el := r.element(); el != nil {
 		el.tree.focusElement(el)

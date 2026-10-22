@@ -2152,7 +2152,7 @@ Call it on the UI thread, in a handler or an effect: the updates the click makes
 func (r ElementRef) Focus()
 ```
 
-Focus focuses the element, if it is focusable (HTML's focus()): OnBlur runs on the element that loses the focus and OnFocus on this one.
+Focus focuses the element, if it is focusable (HTML's focus()): OnBlur runs on the element that loses the focus and OnFocus on this one, before it returns. Called from a handler or an effect, the updates those handlers make are applied and built by the event or the frame that is running (after the passive effects, by the host's next step), as for Click.
 
 #### func (ElementRef) Focused
 
