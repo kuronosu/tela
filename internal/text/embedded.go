@@ -33,16 +33,36 @@ var (
 
 // embeddedTypefaces parses the embedded fonts once per process; typefaces
 // are immutable and shared by every Collection.
+//
+// The files are parsed concurrently, one goroutine each, and assembled in
+// their fixed order, so the result is the same as a sequential parse. It is
+// on the start-up path of every app (and of every reload of tela dev,
+// ADR-116): go-text parses every outline of Noto Color Emoji up front,
+// about 40 ms of the 70 ms the six files take one after another.
 func embeddedTypefaces() [][]*Typeface {
 	embeddedOnce.Do(func() {
+		type job struct {
+			tfs []*Typeface
+			err error
+		}
+		jobs := make([][]job, len(embeddedFamilies))
+		var wg sync.WaitGroup
+		for i, ef := range embeddedFamilies {
+			jobs[i] = make([]job, len(ef.fonts))
+			for j, f := range ef.fonts {
+				wg.Go(func() {
+					jobs[i][j].tfs, jobs[i][j].err = ParseTypefaces(fonts.Data(f), ef.family)
+				})
+			}
+		}
+		wg.Wait()
 		embeddedTFs = make([][]*Typeface, len(embeddedFamilies))
 		for i, ef := range embeddedFamilies {
-			for _, f := range ef.fonts {
-				tfs, err := ParseTypefaces(fonts.Data(f), ef.family)
-				if err != nil {
+			for j, f := range ef.fonts {
+				if err := jobs[i][j].err; err != nil {
 					panic(fmt.Sprintf("text: embedded font %s: %v", fonts.Name(f), err))
 				}
-				embeddedTFs[i] = append(embeddedTFs[i], tfs...)
+				embeddedTFs[i] = append(embeddedTFs[i], jobs[i][j].tfs...)
 			}
 		}
 	})
