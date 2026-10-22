@@ -716,9 +716,13 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	cmd.Env = s.childEnv(tag, res.env)
 	// Neither writer is an *os.File, so exec gives the child pipes and
 	// copies them here, each stream in order: a child, in its own process
-	// group, never writes to the terminal itself (ADR-119).
+	// group, never writes to the terminal itself (ADR-119). Without a
+	// writer for its standard output it gets the null device.
 	tail := &tailWriter{w: s.cfg.stderr}
-	cmd.Stdout, cmd.Stderr = forwardWriter{s.cfg.stdout}, tail
+	cmd.Stderr = tail
+	if s.cfg.stdout != nil {
+		cmd.Stdout = forwardWriter{s.cfg.stdout}
+	}
 	// A process the child started and left running keeps the pipes open:
 	// Wait stops copying a moment after the child exits instead of
 	// waiting for it.

@@ -458,6 +458,16 @@ func TestDevChildOutputForwarded(t *testing.T) {
 	}
 }
 
+// Without a writer for the children's standard output (nil), a child gets
+// the null device, not a pipe and a goroutine that discard what it writes.
+func TestDevChildOutputDiscarded(t *testing.T) {
+	h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) { c.stdout = nil })
+	h.fb.set(1, "nullout")
+	h.expect("first start", 1, 0, 0)
+	h.s.push(evKey{'q'})
+	h.wait()
+}
+
 func TestDevRuntimeCrashThenFreshStart(t *testing.T) {
 	h := newDevHarness(t, devOptions{}, nil)
 	h.expect("first start", 1, 0, 0)

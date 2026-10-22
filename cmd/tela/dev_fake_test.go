@@ -37,8 +37,9 @@ import (
 // "panic" (reports a panic and exits with status 2 at startup); "nosave"
 // (no state.save handler); "late" (the state report comes 150 ms after
 // start) and "noreport" (none); "stdio" checks that its standard output
-// and error are pipes and writes fakeLines numbered lines to each. The key
-// "g" panics in another goroutine.
+// and error are pipes and writes fakeLines numbered lines to each;
+// "nullout" checks that its standard output is not a pipe (the null
+// device). The key "g" panics in another goroutine.
 const envFake = "TELA_DEV_TEST_FAKE"
 
 const (
@@ -130,6 +131,11 @@ func fakeChild(mode string) int {
 		b.Notify(devloop.KindPanic, devloop.PanicPayload("startup boom", debug.Stack()))
 		fmt.Fprintln(os.Stderr, "panic: startup boom")
 		return 2
+	}
+	if mode == "nullout" {
+		if fi, err := os.Stdout.Stat(); err != nil || fi.Mode()&os.ModeNamedPipe != 0 {
+			b.Notify("fake.error", []byte(fmt.Sprintf("stdout is a pipe nobody needs (%v)", err)))
+		}
 	}
 	if mode == "stdio" {
 		// The supervisor forwards its children's output: they never write

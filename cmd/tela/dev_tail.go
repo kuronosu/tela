@@ -36,17 +36,12 @@ func (t *tailWriter) Write(p []byte) (int, error) {
 	return t.w.Write(p)
 }
 
-// forwardWriter forwards a child's standard output (to nothing when w is
-// nil). It is not an *os.File, so the child writes to a pipe that the
-// supervisor copies from (ADR-119).
+// forwardWriter forwards a child's standard output to w. It is not an
+// *os.File, so the child writes to a pipe that the supervisor copies from
+// (ADR-119).
 type forwardWriter struct{ w io.Writer }
 
-func (f forwardWriter) Write(p []byte) (int, error) {
-	if f.w == nil {
-		return len(p), nil
-	}
-	return f.w.Write(p)
-}
+func (f forwardWriter) Write(p []byte) (int, error) { return f.w.Write(p) }
 
 // childWaitDelay is how long the output of a child that exited is still
 // copied while another process holds its pipes (exec.Cmd.WaitDelay).
