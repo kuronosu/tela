@@ -12,8 +12,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- `tela dev [pkg]`: a development loop that feels like fast refresh. It watches the module, rebuilds in the background while the app stays usable, and swaps the new build in under the same window, which never closes. Hook state (`UseState`, `UseReducer`, `UseValue`, `UseRef`), the text, selection and undo history of text fields, scroll offsets, the focus, the runtime color scheme, theme and locale survive the reload; a component whose hooks changed starts fresh, and dev mode names every slot that cannot be kept. Build errors and panics are drawn over the last good frame and printed on the terminal; the next good save clears them. Flags `--size`, `--scale`, `--dark`, `--preview NAME`, `--no-state`, `-v`; terminal keys `r` (reload), `R` (reload without state) and `q` (quit). Linux and Windows (ADR-111 to ADR-117).
+- `App.DevState{Save, Restore}`: keeps state that lives outside the component tree across `tela dev` reloads. Assign it from a `//go:build teladev` file so release builds link none of it (ADR-114).
+- Release builds are unchanged: everything of the dev loop compiles only with the `teladev` build tag, which `tela dev` passes.
+
 ### Fixed
 
+- A focused element restored before its first style pass is no longer blurred by a window focus change (ADR-114).
 - A text field reveals its caret after layout: an `AutoFocus` input no longer starts scrolled by 1 px with its caret hidden, a caret moved to the end before the first frame shows the end of the text, a field resized in the same build reveals with its new width, and typing into a `field-sizing-content` input no longer scrolls the text away (ADR-118).
 
 ## [0.8.2] - 2026-10-21
