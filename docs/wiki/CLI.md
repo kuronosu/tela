@@ -20,12 +20,13 @@ go install github.com/kuronosu/tela/cmd/tela@latest
 |---|---|
 | `tela snapshot` | Renders a screen to a PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
+| `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
 | `tela help [command]` | Shows the help |
 
 Exit codes: 0 on success, 1 on failure (the message says what and how to fix
-it), 2 on a usage error. `tela lint`, `tela dev`, `tela add` and `tela mcp`
+it), 2 on a usage error. `tela lint`, `tela add` and `tela mcp`
 are planned, not available yet.
 
 ## What a package must define
@@ -186,6 +187,90 @@ settings, color, background, font, opacity) and **the class errors** of the
 element. A box painted elsewhere (a transform, scrolled content) also has
 `bounds`, which is what `ElementRef.Bounds` returns. The order of the fields is
 stable.
+
+## tela dev
+
+```text
+tela dev [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
+```
+
+Runs the app and reloads it every time you save, in the same window and with
+its state: the counter keeps its count, the text field its text, caret and
+undo history, the list its scroll position, the focused element its focus.
+A reload of `examples/dashboard` takes about 0.6 s from the save to the new
+frame.
+
+```bash
+tela dev ./examples/dashboard
+tela dev --preview Empty ./ui        # one entry of a package's Previews
+```
+
+Go cannot replace code in a running process, so `tela dev` owns the window
+and runs the app as a child process. On a save it builds the app in the
+background (the running app stays usable), starts the new build with the old
+one's state, and shows its first frame in place of the old one's: the window
+never closes. `<pkg>` defaults to `.`; a package `main` is built as is, and
+any other package (or `--preview`) gets a generated `main` that runs the same
+screen `tela snapshot` renders, with the window settings of its `var App`.
+
+**What triggers a rebuild:** any non-test `.go` file of the module, `go.mod`,
+`go.sum`, files the module embeds, and files under directories registered with
+`tela.Assets(os.DirFS(...))`.
+
+**What is kept:** the values of `UseState`, `UseReducer`, `UseValue` and
+`UseRef` that `encoding/gob` can encode in full (no funcs, channels or
+unexported fields), matched by the component's place in the tree and the
+hook's position, as React Fast Refresh does; the text, selection and undo
+history of text fields; scroll offsets; the focus; the color scheme, theme
+and locale set at run time. A component whose hooks changed (one added,
+removed or of another type) starts fresh, with its children; in dev mode
+every value that cannot be kept is named once on the terminal. Animations
+restart from rest and effects run again, as on a new mount. State outside
+the tree (package variables, controllers) is kept with
+[`App.DevState`](https://pkg.go.dev/github.com/kuronosu/tela#DevState):
+
+```go
+// main.go
+var devState tela.DevState // assigned only in dev builds
+
+func main() { tela.Main(tela.App{Root: tela.C(Notes), DevState: devState}) }
+
+// devstate.go
+//go:build teladev
+
+package main
+
+func init() {
+	devState = tela.DevState{
+		Save:    func() ([]byte, error) { return json.Marshal(store) },
+		Restore: func(b []byte) error { return json.Unmarshal(b, &store) },
+	}
+}
+```
+
+**Errors:** a build error keeps the running app and shows the compiler's
+output in a panel docked at the bottom of the window; a panic shows its stack
+over the last frame. Both are also printed on the terminal; `Esc` hides the
+panel and the next good build clears it.
+
+**Release builds do not change:** dev builds use the `teladev` build tag, and
+everything of the dev loop compiles only with it; a plain `go build` links
+none of it. Dev builds also skip the VCS stamp, the symbol table and DWARF,
+and inlining in the app's package, to build faster (panics keep their
+`file:line`, but a debugger cannot attach).
+
+| Flag | Does |
+|---|---|
+| `--size WxH` | The window's logical size (default: the app's) |
+| `--scale N` | Renders at scale N instead of the display's |
+| `--dark` | The app sees the system in dark mode (`App.ColorScheme` still wins) |
+| `--preview NAME` | Runs the preview `NAME` of the package's `Previews` |
+| `--no-state` | Starts every build fresh |
+| `-v` | Prints the timing of every step of a reload |
+
+Keys, when standard input is a terminal: `r` reloads keeping state, `R`
+reloads with fresh state, `q` quits (as does closing the window or Ctrl+C).
+Linux (Wayland, X11) and Windows; macOS comes with its backend.
 
 ## tela icons gen
 

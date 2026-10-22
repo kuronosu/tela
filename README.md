@@ -275,8 +275,9 @@ the diff.
 Because the whole pipeline is headless, a loop of *write → `tela snapshot` →
 look at the PNG → `tela inspect` → fix* needs no window and no human. Unknown
 classes come with suggestions, and `tela inspect --layout` prints boxes as
-JSON. Planned: `tela dev` with the window and state kept across rebuilds
-(phase 9), then `tela lint`, `tela mcp` and a `docs/llms.txt` (phase 11).
+JSON. For people, `tela dev ./yourapp` reloads the open window on every save in
+about half a second, keeping its state (see the [CLI](docs/wiki/CLI.md#tela-dev)
+page). Planned: `tela lint`, `tela mcp` and a `docs/llms.txt` (phase 11).
 
 ## Project status
 
