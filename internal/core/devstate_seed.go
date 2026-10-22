@@ -457,6 +457,15 @@ func (t *Tree) devFocus(el *Element, typ focusType, hadKey bool) {
 	}
 }
 
+// devFocusWaits reports whether the focus fix-up (fixFocus) leaves the
+// focused element el alone because it has no computed style yet: a focus
+// given back by devFocus before the first style phase, when the window's
+// focus event arrives first (the remote host sends it right after the
+// configure event). The frame's fix-up, after its style phase, decides.
+// Only this restore focuses an element without a computed style, so
+// release builds do not have the test (ADR-114, ADR-120).
+func devFocusWaits(el *Element) bool { return el.mounted && el.box.cs == nil }
+
 // devFinite reports whether x is a finite number.
 func devFinite(x float32) bool { return !math.IsNaN(float64(x)) && !math.IsInf(float64(x), 0) }
 

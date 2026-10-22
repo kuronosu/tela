@@ -16,3 +16,4 @@ func (t *Tree) devMounted()                             {}
 func (t *Tree) devFrame(full bool) bool                 { return full }
 func (t *Tree) devNoteScheme(ColorScheme)               {}
 func (t *Tree) devNoteTheme(Theme)                      {}
+func devFocusWaits(*Element) bool                       { return false }
