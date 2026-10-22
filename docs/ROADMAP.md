@@ -34,7 +34,7 @@
 - **Phase-5 plan:** T0 VM job runner · T1 win32 base · T2 Wayland clipboard · T3 `internal/text/edit` · T4 inline decorations and atomic inline-blocks · T5 win32 keyboard, clipboard, settings · T6 IME contract + Wayland `text-input-v3` · T7 `Input`/`Textarea`/`Form`/`Label` · T8 IMM32 IME · T9 phase-4 API gaps (all eight) · T10 CI (Wine, `windows-latest`) · T11 forms example and Windows validation. Waves: A (T1–T4), B (T5, T6), C (T7, T9), D (T8, T10, T11).
 - **Phase-6 plan** (approved 2026-10-18; owner's API decisions taken up front, transforms stay 2D, component-API proposals deferred to before phase 7): T1 grid (tela-hard, ADR-073) · T2 raster blend modes, mask layers, focal gradient (ADR-074) · T3 Wayland fractional scaling (ADR-075) · T4 `internal/anim`, CSS transitions, `animate-*`, `motion-reduce` (ADR-076) · T5 fast large-σ blur (ADR-078) · T6 core `mix-blend-mode`, `[clip-path:…]`, background images via `tela.Assets`/`tela.BgImage`, `bg-clip-text` (ADR-079) · T7 `UseSpring`/`UseTween`/`Animate`, `Presence` with `starting:` and `Exit`, `UsePresence` · T8 `fixed`, `sticky`, `h.Portal`, `UseColorScheme`/`SetColorScheme`/`UseReducedMotion` (ADR-077) · T9 `AnimateLayout`, `LayoutID` · T10 dashboard example, 60 fps at 1080p, live and Windows checks. No limit on parallel agents (owner, 2026-10-18).
 - **Roadmap revision (2026-10-20):** a gap analysis against JavaFX, the Microsoft stack, Wails, Tauri and Electron, and a review of `examples/` and an external application for public-API problems, produced the plan below. Phase 7 is new (public API polish, before `aria` and `kit`, with theme tokens inside it); the old phases 7–8 and the desktop-integration, distribution and media phases were split by size (phases 5 and 6 had 10–11 tasks); desktop integration comes before macOS; "Road to v1.0" says when the API freezes. Phases 8 onwards are unplanned; order and scope are confirmed when each phase is planned. `tela add` is deferred. Phase numbers moved: "phase 8" in older text (macOS, X11 IME) is now phase 13.
-- **Next step:** the owner decides `DEVMODE_PROPOSAL.md` (G1–G9); then plan phase 9 (dev loop). `kit` is phase 10.
+- **Next step:** plan phase 9 (dev loop) on the decided `DEVMODE_PROPOSAL.md` (G1–G9, 2026-10-22) and present it for approval. `kit` is phase 10.
 
 ## Phases
 
@@ -235,7 +235,7 @@ Built on the polished API and the theme tokens. Foundation for `kit`.
 
 ### Phase 9: Dev loop, `tela dev` (`v0.9.0`)
 
-Moved before `kit` by the owner (2026-10-21): iterating on components with their state kept pays off from `kit` on. Options for the owner in `DEVMODE_PROPOSAL.md` (G1–G9); decided before the plan, recorded as an ADR. Go cannot swap code in a running process without cgo, so the build-and-restart is made invisible instead.
+Moved before `kit` by the owner (2026-10-21): iterating on components with their state kept pays off from `kit` on. Options in `DEVMODE_PROPOSAL.md` (G1–G9), decided by the owner on 2026-10-22; recorded as an ADR when the phase starts. Release builds must not change: the dev loop compiles only under a `teladev` build tag. Go cannot swap code in a running process without cgo, so the build-and-restart is made invisible instead.
 
 - [ ] `tela dev [pkg]`: watch, build in the background while the running app stays interactive, swap only after a successful build
 - [ ] The window survives reloads: a supervisor owns it and runs the app as a child over a remote backend (shared-memory frames, proxied events, clipboard, IME, settings); the new child's first frame replaces the old one with no visible close or reopen
@@ -243,7 +243,7 @@ Moved before `kit` by the owner (2026-10-21): iterating on components with their
 - [ ] Build errors and panics shown as an overlay over the last good frame, never closing the window
 - [ ] `--preview NAME` to iterate on one `Previews` entry; terminal keys for reload, reload without state, quit
 
-**Done when:** editing `examples/dashboard` (a class, a component's markup, a new hook) updates the open window within 1.5 s of saving with no visible close or reopen, the scroll position, focused field and typed text kept; a build error shows over the last good frame and the next good save clears it; on Linux (Wayland and X11) and Windows.
+**Done when:** editing `examples/dashboard` (a class, a component's markup, a new hook) updates the open window within 1.5 s of saving with no visible close or reopen, the scroll position, focused field and typed text kept; a build error shows over the last good frame and the next good save clears it; on Linux (Wayland and X11) and Windows; a release build of the same app has the same size as before the phase (no dev-loop code linked). Stretch goal: under 1 s.
 
 ### Phase 10: `kit` (`v0.10.0`)
 
