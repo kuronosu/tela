@@ -24,8 +24,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
-- A focused element restored before its first style pass is no longer blurred by a window focus change (ADR-114).
-- A text field reveals its caret after layout: an `AutoFocus` input no longer starts scrolled by 1 px with its caret hidden, a caret moved to the end before the first frame shows the end of the text, a field resized in the same build reveals with its new width, and typing into a `field-sizing-content` input no longer scrolls the text away (ADR-118).
+- A text field reveals its caret after layout: an `AutoFocus` input no longer starts scrolled by 1 px with its caret hidden, a caret moved to the end before the first frame shows the end of the text, a field resized in the same build reveals with its new width, and typing into a `field-sizing-content` input no longer scrolls the text away, and a field focused from an effect that also resizes it reveals its caret with the new size (ADR-118, ADR-120).
 
 ## [0.8.2] - 2026-10-21
 
