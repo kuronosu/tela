@@ -518,6 +518,7 @@ func (t *Tree) afterFrame() {
 	t.boundsAfterFrame()
 	t.scrollAfterFrame()
 	t.animAfterFrame()
+	t.floatAfterFrame()
 }
 
 // buildPhase builds the components marked needsBuild in tree order,

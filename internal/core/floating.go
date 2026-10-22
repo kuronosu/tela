@@ -62,8 +62,10 @@ import (
 // the tree is laid out again within the frame, then placed again, and the
 // pass runs again with the new size (Floating UI's reset). A frame runs at
 // most maxFloatRelayouts such layouts; limits that still change after
-// them are kept as they are until a later frame (a flip and a limit that
-// keep undoing each other cannot spin). Scroll containers inside a
+// them wait for the next frame, which calls Place again and is requested
+// for them, up to maxFloatRetryFrames frames in a row (a flip and a limit
+// that keep undoing each other cannot spin: after those frames the
+// limits wait for a frame that runs for another reason). Scroll containers inside a
 // floating element take their new extents in the same frame; a
 // VirtualList measures its items in the next one.
 //
@@ -84,8 +86,21 @@ import (
 // the result says.
 
 // maxFloatRelayouts bounds the layouts that the size limits of floating
-// elements run again in one frame.
-const maxFloatRelayouts = 2
+// elements run again in one frame; maxFloatRetryFrames the frames in a
+// row that limits still changing after them ask for.
+const (
+	maxFloatRelayouts   = 2
+	maxFloatRetryFrames = 3
+)
+
+// floatAfterFrame asks for the frame that applies the limits a float pass
+// left (afterFrame: outside Frame, so that the request is made).
+func (t *Tree) floatAfterFrame() {
+	if t.flt.again {
+		t.flt.again = false
+		t.requestRepaint()
+	}
+}
 
 // FloatInput is what the Place function of a floating element receives,
 // in logical pixels and window coordinates (the window's top-left corner
@@ -238,6 +253,11 @@ type floatTree struct {
 	// the frame.
 	pass  uint64
 	moved bool
+	// dropped reports that the frame's pass left new limits for the next
+	// frame; again asks for that frame (afterFrame), and retries counts
+	// the frames in a row that asked, up to maxFloatRetryFrames.
+	dropped, again bool
+	retries        int
 }
 
 // updateFloat gives the box of primitive el the Floating prop of its node
@@ -304,7 +324,7 @@ func (t *Tree) floatPhase(p *painter) (replaced bool) {
 		return false
 	}
 	start := len(t.paintQ)
-	F.moved = false
+	F.moved, F.dropped = false, false
 	for pass := 0; ; pass++ {
 		F.pass++
 		relayout := false
@@ -321,6 +341,13 @@ func (t *Tree) floatPhase(p *painter) (replaced bool) {
 		p.full = true
 		p.place(t.rootBox, nil)
 		replaced = true
+	}
+	switch {
+	case !F.dropped:
+		F.retries = 0
+	case F.retries < maxFloatRetryFrames:
+		F.retries++
+		F.again = true
 	}
 	if F.moved && len(t.stickies) > 0 {
 		// A sticky box in a floating element whose scroll container is
@@ -428,11 +455,19 @@ func (t *Tree) floatOne(p *painter, bx *Box, relayout bool) (laid bool) {
 		if (in.Anchored || !f.placed) && finite32(res.X) && finite32(res.Y) {
 			f.target, f.placed = gfx.Point{X: res.X, Y: res.Y}, true
 		}
-		if lim := limitsOf(res); lim != f.limits && relayout {
-			f.limits = lim
-			old := bx.ls
-			t.remapOne(bx)
-			laid = laid || bx.ls != old
+		if lim := limitsOf(res); lim != f.limits {
+			if relayout {
+				f.limits = lim
+				old := bx.ls
+				t.remapOne(bx)
+				laid = laid || bx.ls != old
+			} else {
+				// The frame's layouts are spent: Place runs again in the
+				// next frame (its input is the same, so the key alone
+				// would not call it) and applies the limits then.
+				f.forced = true
+				F.dropped = true
+			}
 		}
 	}
 	var off gfx.Point

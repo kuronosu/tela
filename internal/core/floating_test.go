@@ -233,6 +233,72 @@ func TestFloatingSizeLimit(t *testing.T) {
 	}
 }
 
+// TestFloatingLimitsAfterSpentBudget: a size limit that still changes
+// after the relayouts a frame allows is not dropped: the frame after
+// calls Place again and applies it, until the limits settle; then
+// nothing runs. A limit that never settles stops asking for frames.
+func TestFloatingLimitsAfterSpentBudget(t *testing.T) {
+	var anchor ElementRef
+	var tick *Value[float32]
+	calls := 0
+	const floor = 50
+	// Each call shrinks the element by 10 px, down to floor: it settles
+	// only after several layouts.
+	place := func(in FloatInput) FloatResult {
+		calls++
+		return FloatResult{X: in.Anchor.X, Y: in.Anchor.Bottom(), MaxHeight: max(in.Floating.Height-10, floor), HasMaxHeight: true}
+	}
+	comp := func() Node {
+		anchor = UseElementRef()
+		tick = UseValue[float32](0)
+		return div(
+			div(Key("anchor"), AttachRef(anchor), Class("h-8 w-20"), Style(style.TranslateFn(func() (float32, float32) { return tick.Get(), 0 })), Text("Open")),
+			Portal(div(Key("pop"), Floating(FloatOptions{Anchor: anchor, Place: func(in FloatInput) FloatResult { return place(in) }}),
+				Class("fixed h-[100px] w-40"))))
+	}
+	tr := newTestTree(t, 400, 300, Component(comp), nil)
+	tr.Frame()
+	if g := popRect(tr, "pop").Height(); g >= 100 {
+		t.Fatalf("first frame: height %g, want a limit", g)
+	}
+	for i := 0; i < 10 && tr.Dirty(); i++ {
+		tr.Frame()
+	}
+	if g := popRect(tr, "pop").Height(); !near(g, 50, 1e-3) {
+		t.Errorf("after the follow-up frames: height %g, want 50", g)
+	}
+	if tr.Dirty() {
+		t.Errorf("settled limits still ask for frames")
+	}
+	// A frame for something else (the anchor moves) keeps them.
+	tick.storeUI(1)
+	tr.Frame()
+	if g := popRect(tr, "pop").Height(); !near(g, 50, 1e-3) {
+		t.Errorf("after an unrelated frame: height %g, want 50", g)
+	}
+	// A limit that never settles (it keeps shrinking to 0 and then
+	// growing back) does not spin.
+	grow := false
+	place2 := func(in FloatInput) FloatResult {
+		calls++
+		grow = !grow
+		h := float32(20)
+		if grow {
+			h = 40
+		}
+		return FloatResult{X: in.Anchor.X, Y: in.Anchor.Bottom(), MaxHeight: h, HasMaxHeight: true}
+	}
+	place = place2
+	tick.storeUI(2)
+	frames := 0
+	for ; frames < 50 && tr.Dirty(); frames++ {
+		tr.Frame()
+	}
+	if frames >= 50 {
+		t.Errorf("limits that never settle keep requesting frames")
+	}
+}
+
 // TestFloatingPublish: Place publishes the arrow's offset (read by its
 // TranslateFn in the same frame) and the final side (read by a build in
 // the next frame).
