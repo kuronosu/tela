@@ -218,8 +218,15 @@ func usePressCore(c pressConfig) (tela.Prop, bool, tela.ElementRef) {
 		}
 		return nil
 	}, c.Disabled)
+	// A Button with a press hook is not the Form's default button unless the
+	// hook is told to submit: Enter in a text field would press it.
+	buttonType := "button"
+	if c.activate != "" {
+		buttonType = c.activate
+	}
 	props := core.MergeProps(
 		h.Ref(ref),
+		core.DefaultButtonType(buttonType),
 		h.OnPointerDown(p.onPointerDown),
 		h.OnPointerMove(p.onPointerMove),
 		h.OnPointerUp(p.onPointerUp),

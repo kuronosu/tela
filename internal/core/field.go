@@ -352,6 +352,19 @@ func fieldTypeOf(d *desc) fieldType {
 	return fieldText
 }
 
+// DefaultButtonType sets the type a Button has when no Type is given,
+// where HTML's default is "submit": a press hook of package aria makes
+// "button" the default of the element it is on, because the hook runs the
+// activation itself (see ActivateButton), and a Button that is a switch, a
+// select's trigger or a menu button must not be taken by a Form for its
+// default button: Enter in a text field would press it. An explicit Type
+// wins, whatever the order of the props. It takes no check on the element
+// kind, so it may be on any element. For package aria; it is not exposed
+// by tela or h.
+func DefaultButtonType(typ string) Prop {
+	return Prop{name: "DefaultButtonType", apply: func(d *desc) { d.buttonDefault = typ }}
+}
+
 // buttonType returns the type of a Button: submit (the default), button
 // or reset.
 func buttonType(d *desc) string {
@@ -361,6 +374,9 @@ func buttonType(d *desc) string {
 				return n
 			}
 		}
+	}
+	if d.buttonDefault != "" {
+		return d.buttonDefault
 	}
 	return "submit"
 }

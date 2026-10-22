@@ -102,6 +102,59 @@ func TestUseButtonType(t *testing.T) {
 	}
 }
 
+// Enter in a text field presses the Form's default button: the first Button
+// of type submit. A Button that a press hook drives (a switch, a select's
+// trigger, a menu button, a plain UseButton) is type "button" until its
+// hook says "submit", so it is not that default: Enter used to open the
+// select and flip the switch that came first in the form instead of
+// submitting it. An explicit Type still wins.
+func TestImplicitSubmissionSkipsHookButtons(t *testing.T) {
+	var ev events
+	page := func() tela.Node {
+		sw := aria.UseSwitch(aria.ToggleOptions{OnChange: func(bool) { ev.add("switch") }})
+		sel := aria.UseSelect(aria.SelectOptions[string]{Keys: []string{"a", "b"}, OnOpenChange: func(bool) { ev.add("select") }})
+		plain := aria.UseButton(aria.ButtonOptions{OnPress: func(aria.PressEvent) { ev.add("plain") }})
+		send := aria.UseButton(aria.ButtonOptions{Type: "submit", OnPress: func(aria.PressEvent) { ev.add("send") }})
+		return Form(OnSubmit(func() { ev.add("submit") }),
+			Button(sw.Props, AriaLabel("Notify"), Class("h-6 w-11")),
+			Button(sel.TriggerProps, Class("h-8 w-24"), Span(sel.ValueProps, Text("Pick"))),
+			Button(plain.Props, Class("h-8 w-20"), Text("Plain")),
+			Input(TestID("field"), Class("h-8 w-40")),
+			Button(send.Props, Class("h-8 w-20"), Text("Send")))
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(300, 200))
+	app.Focus(telatest.ByTestID("field"))
+	app.Press("Enter")
+	if got := ev.take(); got != "send submit" {
+		t.Errorf("Enter in the field: %q, want only the submit button's press and the submit", got)
+	}
+}
+
+// A hook-driven Button with an explicit Type "submit" is the default button
+// again, before or after the hook's props.
+func TestImplicitSubmissionExplicitType(t *testing.T) {
+	var ev events
+	for name, props := range map[string]func(p tela.Prop) []tela.Child{
+		"before": func(p tela.Prop) []tela.Child { return []tela.Child{Type("submit"), p} },
+		"after":  func(p tela.Prop) []tela.Child { return []tela.Child{p, Type("submit")} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			page := func() tela.Node {
+				send := aria.UseButton(aria.ButtonOptions{OnPress: func(aria.PressEvent) { ev.add("press") }})
+				return Form(OnSubmit(func() { ev.add("submit") }),
+					Input(TestID("field"), Class("h-8 w-40")),
+					Button(append(props(send.Props), Class("h-8 w-20"))...))
+			}
+			app := telatest.MountFunc(t, page, telatest.Size(300, 100))
+			app.Focus(telatest.ByTestID("field"))
+			app.Press("Enter")
+			if got := ev.take(); got != "press" {
+				t.Errorf("%s: %q, want the button's press (the hook did not ask to submit)", name, got)
+			}
+		})
+	}
+}
+
 func TestUseButtonTypePanics(t *testing.T) {
 	msg := recoverMount(t, func() tela.Node {
 		aria.UseButton(aria.ButtonOptions{Type: "sumbit"})

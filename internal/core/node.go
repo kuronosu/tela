@@ -69,6 +69,9 @@ type desc struct {
 	// prop (form.go).
 	fp *formProps
 	id string
+	// buttonDefault is the type a Button has when it was not given one
+	// (DefaultButtonType): "" is HTML's "submit".
+	buttonDefault string
 	// exit are the Exit classes (presence.go).
 	exit string
 	// portal marks a Portal node (portal.go).

@@ -132,6 +132,11 @@ return Form(OnSubmit(func(tela.SubmitEvent) { send() }),
 	Div(save.Props, Class("rounded-md bg-primary px-3 py-1.5"), Text("Send")))
 ```
 
+A `Button` that has the props of a press hook is `type="button"` until the hook
+says `"submit"`: Enter in a text field presses the first button of type submit
+(the form's default button), and a select's trigger, a switch or a menu button
+that came first in the form must not be it. An explicit `h.Type` still wins.
+
 `ElementRef.Click()` is the DOM's `element.click()`: from a handler or an effect
 it dispatches a click (a virtual press for the hooks) at the element and runs
 its activation behavior, so a hook-made button with `Type: "submit"` submits
@@ -997,8 +1002,21 @@ focuses the input; without one, give `AriaLabel`.
   case and diacritics (NFD without combining marks) instead of using a collator;
   a press outside the popover does not dismiss it by itself: the input blurs and
   that commits the text; blur always commits (no `shouldCloseOnBlur`);
-  `aria-autocomplete` is always `list`; the button's label is the English "Show
-  suggestions" (React Aria localizes it); `OnOpenChange` does not tell what opened
+  `aria-autocomplete` is always `list`; the button's label is `ButtonLabel`, "Show
+  suggestions" by default (React Aria localizes it; here you pass the text); `OnOpenChange` does not tell what opened
   the list; no `name` or `formValue`.
 - Shift+Tab into a list focuses its first item, not the last one: Tela's focus
   events do not carry the element the focus came from.
+
+## A complete screen
+
+[`examples/aria`](https://github.com/kuronosu/tela/tree/main/examples/aria) is a
+"Command center" screen in the style of shadcn/ui built only from the hooks on
+this page, the elements of `h` and classes with the theme tokens: a project
+combobox, a tooltip, two menus (one of checkbox items), a modal dialog with a form
+(an `Input`, a select, a switch, a submit button), tabs and a multiple-selection
+list box, with entrances and exits, light and dark. Its tests drive the menu, the
+combobox and the dialog **with the keyboard alone** and assert their aria
+snapshots and where the focus is; its README lists which hook does what.
+
+![The Actions menu of the example](https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/aria.png)

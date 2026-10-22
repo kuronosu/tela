@@ -1,0 +1,51 @@
+- banner:
+  - text: Command center
+  - combobox "Project" [expanded]: se
+  - button "Show all projects" [expanded]
+  - button "Notifications"
+  - button "View"
+  - button "Actions"
+  - button "New deployment"
+- main:
+  - heading "Deployments" [level=1]
+  - text: Releases of acme-api
+  - tablist "Sections":
+    - tab "Overview" [selected]
+    - tab "Activity"
+    - tab "Alerts"
+  - text: Updated just now
+  - tabpanel "Overview":
+    - text: Deployments 128 last 30 days Success rate 97.4% +1.2% from last month Median time 3m 12s -18s from last month
+    - heading "Recent deployments" [level=3]
+    - list "Recent deployments":
+      - listitem:
+        - img "Running"
+        - text: acme-api Staging v2.14.0 main 1m 48s just now
+      - listitem:
+        - img "Succeeded"
+        - text: customer-portal Production v5.2.3 release/5.2 3m 12s 24 min ago
+      - listitem:
+        - img "Failed"
+        - text: payments-worker Production v1.9.1 fix/retry-backoff 2m 05s 1 h ago
+      - listitem:
+        - img "Succeeded"
+        - text: design-system Staging v8.0.0 main 4m 31s 3 h ago
+      - listitem:
+        - img "Succeeded"
+        - text: auth-gateway Production v3.7.4 main 2m 49s 5 h ago
+  - heading "Release notes" [level=3]
+  - paragraph: Choose who is notified when a deployment finishes.
+  - listbox "People to notify":
+    - option "Ana García Platform lead" [selected]
+    - option "Mei Tanaka Site reliability" [selected]
+    - option "Omar Haddad Backend engineer"
+    - option "Lena Fischer Frontend engineer"
+    - option "Sofia Rossi Product designer"
+    - option "Kwame Mensah Security engineer"
+  - text: 2 of 6 selected Space toggles, Ctrl+A selects all
+- listbox "Project":
+  - option "billing-service Service"
+  - option "analytics-warehouse Database"
+  - option "sessions-cache Database"
+  - option "users-db Database"
+  - option "security-policy Docs"
