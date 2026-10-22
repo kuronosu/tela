@@ -97,6 +97,9 @@ type devTarget struct {
 	// goflags is the GOFLAGS the go command applies in modDir (readGoEnv),
 	// for the flags and tags of the builds and of go list.
 	goflags string
+	// gocache and gotmpdir are GOCACHE and the user's GOTMPDIR there (the
+	// slow-start hint and the builds' temporary files, dev_hint.go).
+	gocache, gotmpdir string
 }
 
 // describe says what runs, for the start line.
@@ -138,10 +141,11 @@ func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
 	t := &devTarget{pkg: p, modDir: p.Module.Dir}
 	// Usually tela dev runs in the target's module, whose GOFLAGS are those
 	// read here; go env runs again only in another module (or workspace).
-	t.goflags = here.flags
+	env := here
 	if !here.sameIn(t.modDir) {
-		t.goflags = readGoEnv(goBin, t.modDir, goEnv()).flags
+		env = readGoEnv(goBin, t.modDir, goEnv())
 	}
+	t.goflags, t.gocache, t.gotmpdir = env.flags, env.gocache, env.gotmpdir
 	rel, err := filepath.Rel(t.modDir, p.Dir)
 	if err != nil {
 		return nil, err

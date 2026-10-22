@@ -272,6 +272,21 @@ Keys, when standard input is a terminal: `r` reloads keeping state, `R`
 reloads with fresh state, `q` quits (as does closing the window or Ctrl+C).
 Linux (Wayland, X11) and Windows; macOS comes with its backend.
 
+**Windows and Microsoft Defender:** Defender scans every new executable on its
+first run, and every reload is a new build: on a Windows 11 machine that made a
+reload of `examples/dashboard` take 2.2 s instead of 1.1 s. When a build takes
+more than 400 ms to show its first frame, `tela dev` prints once the
+directories to exclude from real-time scanning, its build directory
+(`%TEMP%\tela-dev`, shared by all sessions) and the Go build cache
+(`go env GOCACHE`), with the PowerShell command to run as administrator:
+
+```powershell
+Add-MpPreference -ExclusionPath "$env:TEMP\tela-dev", "$(go env GOCACHE)"
+```
+
+`tela dev` never changes these settings itself; whether to exclude them is
+your call.
+
 ## tela icons gen
 
 ```text

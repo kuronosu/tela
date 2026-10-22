@@ -178,23 +178,26 @@ func goEnv() []string {
 type goEnvInfo struct {
 	flags         string
 	gomod, gowork string // empty when go env failed
+	// gocache and gotmpdir are named by the slow-start hint (dev_hint.go);
+	// gotmpdir is empty unless the user set GOTMPDIR.
+	gocache, gotmpdir string
 }
 
 // readGoEnv runs go env in dir with env. When it fails, flags is the
 // environment's GOFLAGS.
 func readGoEnv(goBin, dir string, env []string) goEnvInfo {
-	cmd := exec.Command(goBin, "env", "-json", "GOFLAGS", "GOMOD", "GOWORK")
+	cmd := exec.Command(goBin, "env", "-json", "GOFLAGS", "GOMOD", "GOWORK", "GOCACHE", "GOTMPDIR")
 	cmd.Dir = dir
 	cmd.Env = env
 	out, err := cmd.Output()
-	var v struct{ GOFLAGS, GOMOD, GOWORK string }
+	var v struct{ GOFLAGS, GOMOD, GOWORK, GOCACHE, GOTMPDIR string }
 	if err == nil {
 		err = json.Unmarshal(out, &v)
 	}
 	if err != nil {
-		return goEnvInfo{flags: os.Getenv("GOFLAGS")}
+		return goEnvInfo{flags: os.Getenv("GOFLAGS"), gotmpdir: os.Getenv("GOTMPDIR")}
 	}
-	return goEnvInfo{flags: strings.TrimSpace(v.GOFLAGS), gomod: v.GOMOD, gowork: v.GOWORK}
+	return goEnvInfo{flags: strings.TrimSpace(v.GOFLAGS), gomod: v.GOMOD, gowork: v.GOWORK, gocache: v.GOCACHE, gotmpdir: v.GOTMPDIR}
 }
 
 // sameIn reports whether go env, with the same environment, says the same

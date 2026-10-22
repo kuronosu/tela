@@ -73,6 +73,11 @@ type supervisorConfig struct {
 	overlay bool
 	// describe and watching complete the start line.
 	describe, watching string
+	// slowStart, when positive, is the start → first frame time above
+	// which the supervisor prints, once, the hint of slowStartHint naming
+	// exclusions (dev_hint.go; Windows only outside tests).
+	slowStart  time.Duration
+	exclusions []string
 
 	// Timeouts; zero means devloop's, and reportWait the default below.
 	saveTimeout, firstFrameTimeout, stopTimeout, reportWait time.Duration
@@ -108,6 +113,7 @@ type supervisor struct {
 	held     *heldLine // the line of the latest swap, waiting for the state report
 	problem  bool      // a problem is shown
 	started  bool      // a child has been promoted once
+	hinted   bool      // the slow-start hint was printed
 
 	quitting   bool
 	exitCode   int
@@ -821,6 +827,10 @@ func (s *supervisor) firstFrame(c *remote.Child) {
 	sw.promoting = true
 	sw.first = time.Now()
 	gen := p.gen
+	if d := sw.first.Sub(sw.started); s.cfg.slowStart > 0 && d > s.cfg.slowStart && !s.hinted {
+		s.hinted = true
+		s.log.printf("%s", slowStartHint(gen, d, s.cfg.exclusions))
+	}
 	h := s.host
 	h.Post(func() {
 		err := h.Promote(c)

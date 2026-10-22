@@ -367,6 +367,55 @@ func TestDevInputFrozenAndReplayed(t *testing.T) {
 	}
 }
 
+// TestDevSlowStartHint: a build slower than slowStart from its start to its
+// first frame prints the Defender hint (on Windows; the threshold is set
+// here on every OS), once per session, naming the exclusions as
+// PowerShell literals. Without slowStart (other systems) nothing is
+// printed.
+func TestDevSlowStartHint(t *testing.T) {
+	const hint = "Add-MpPreference -ExclusionPath"
+	t.Run("on", func(t *testing.T) {
+		h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) {
+			c.slowStart = fakeSlow - 50*time.Millisecond
+			c.exclusions = []string{`C:\Users\dev\AppData\Local\Temp\tela-dev`, `C:\it's\go-build`}
+		})
+		h.expect("first start", 1, 0, 0)
+		h.fb.set(2, "slow")
+		h.s.push(evKey{'r'})
+		h.expect("the slow build", 2, 0, 0)
+		h.logged(hint, 1)
+		h.fb.set(3, "slow")
+		h.s.push(evKey{'r'})
+		h.expect("another slow build", 3, 0, 0)
+		h.logged("reloaded in", 2)
+		out := h.out.String()
+		if n := strings.Count(out, hint); n != 1 {
+			t.Errorf("the hint was printed %d times, want once:\n%s", n, out)
+		}
+		for _, want := range []string{
+			"tela dev: build 2 took ",
+			"Microsoft Defender",
+			hint + ` 'C:\Users\dev\AppData\Local\Temp\tela-dev', 'C:\it''s\go-build'` + "\n",
+			"never changes these settings",
+		} {
+			if !strings.Contains(out, want) {
+				t.Errorf("the output lacks %q:\n%s", want, out)
+			}
+		}
+	})
+	t.Run("off", func(t *testing.T) {
+		h := newDevHarness(t, devOptions{}, nil)
+		h.expect("first start", 1, 0, 0)
+		h.fb.set(2, "slow")
+		h.s.push(evKey{'r'})
+		h.expect("the slow build", 2, 0, 0)
+		h.logged("reloaded in", 1)
+		if out := h.out.String(); strings.Contains(out, hint) {
+			t.Errorf("a hint without slowStart:\n%s", out)
+		}
+	})
+}
+
 func TestDevNewBuildCrashesBeforeFirstFrame(t *testing.T) {
 	for _, mode := range []string{"crash", "panic", "noframe"} {
 		t.Run(mode, func(t *testing.T) {

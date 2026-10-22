@@ -59,6 +59,14 @@ Before a swap the input is held; it reaches the new build once it shows its
 first frame. A build error, or a crash of the app, is printed here and the
 window keeps the last good frame; the next good build takes over.
 
+On Windows, Microsoft Defender scans each new build on its first run, which
+can make every reload about twice as slow. When a build takes more than
+400ms to show its first frame, tela dev prints once the directories to
+exclude from real-time scanning (its build directory, tela-dev in the
+temporary directory, and the Go build cache, go env GOCACHE) and the
+PowerShell command to run as administrator (Add-MpPreference
+-ExclusionPath ...). It never changes the settings itself.
+
 Flags:
 
 	--size WxH     the window's logical size (default: the app's)
@@ -178,7 +186,7 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 	if err != nil {
 		return 1, err
 	}
-	tmp, err := os.MkdirTemp("", "tela-dev-")
+	tmp, exclude, err := newBuildDir()
 	if err != nil {
 		return 1, err
 	}
@@ -187,6 +195,7 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 	if err != nil {
 		return 1, err
 	}
+	b.env = append(b.env, buildTempEnv(tmp, target.gotmpdir)...)
 
 	// What to watch: the module (and local replacements) of the target,
 	// refreshed after each build together with the embedded files.
@@ -232,8 +241,10 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 		refreshDeps: func() (depSet, error) {
 			return listDeps(goBin, target)
 		},
-		describe: target.describe(),
-		watching: watchDescription(w),
+		describe:   target.describe(),
+		watching:   watchDescription(w),
+		slowStart:  defaultSlowStart(),
+		exclusions: exclusions(exclude, target),
 	})
 	host, err := remote.NewHost(backend, s.hostOptions())
 	if err != nil {
