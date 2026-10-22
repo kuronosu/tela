@@ -5,10 +5,13 @@ package watch
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -30,18 +33,29 @@ import (
 //   - A removed name cannot be inspected any more, and the records do not
 //     say whether it was a directory (inotify's IN_ISDIR has no
 //     equivalent here). Each root keeps the set of directories in its
-//     tree (walked when the first read is pending, and again after an
-//     overflow; updated by the records), and a removed or renamed-away
-//     name is reported as a directory (dir = true) only when it is in the
-//     set. Guessing from the name instead (no extension) reported vim's
-//     "4913" write probe, and any other extensionless file removed, as a
-//     directory that may have held packages, which a filter must accept.
-//     Keys are lowercased: NTFS names are case-insensitive.
+//     tree, and a removed or renamed-away name is reported as a directory
+//     (dir = true) only when it is in the set. The set is walked once the
+//     first read is pending and before open returns (so a directory made
+//     during the walk is walked or reported, and one removed after
+//     SetRoots returns is known), again after an overflow, and updated by
+//     the records. Guessing from the name instead (no extension) reported
+//     vim's "4913" write probe, and any other extensionless file removed,
+//     as a directory that may have held packages, which a filter must
+//     accept. Keys are lowercased: NTFS names are case-insensitive.
+//   - Records may carry a name's 8.3 short form (MYPACK~1) instead of the
+//     long one ("it is unspecified which one", says the documentation),
+//     which the set, made of long names, never matches: a removed name
+//     not in the set that looks like a short name is reported both ways,
+//     as the old guess did.
+//   - The walks run on the root's goroutine and stop when the root or the
+//     watcher is closed, so Close does not wait for a large tree.
 //   - Names are relative to the root, in UTF-16; the handle is opened with
 //     FILE_FLAG_BACKUP_SEMANTICS, which a directory handle requires, and
 //     shares delete access so the watched trees can still be renamed.
 type rdcw struct {
 	w *Watcher
+
+	closing atomic.Bool // close was called: walks stop
 
 	mu    sync.Mutex
 	roots []*rootWatch
@@ -53,40 +67,122 @@ type rootWatch struct {
 	stop windows.Handle
 	done chan struct{}
 
-	// dirs is the set of directories under path (lowercased, root
-	// excluded, skipped directories excluded). Only the root's loop
-	// goroutine touches it.
-	dirs map[string]struct{}
+	stopping atomic.Bool // close was called: walks stop
+
+	// The directories under path (lowercased, root excluded, skipped
+	// directories excluded), and for each directory key the keys of the
+	// directories in it, so that removing a subtree visits only it. Only
+	// the root's goroutine touches them (open waits for its first walk).
+	dirs     map[string]struct{}
+	children map[string]map[string]struct{}
 }
 
 func dirKey(path string) string { return strings.ToLower(path) }
 
-// scan rebuilds the set of directories of the tree.
-func (d *rdcw) scan(r *rootWatch) {
-	r.dirs = map[string]struct{}{}
-	d.w.walk(r.path, func(p string) error {
-		if p != r.path {
-			r.dirs[dirKey(p)] = struct{}{}
-		}
-		return nil
-	}, nil)
+// addDir adds a directory (a key) to the set.
+func (r *rootWatch) addDir(k string) {
+	if _, ok := r.dirs[k]; ok {
+		return
+	}
+	r.dirs[k] = struct{}{}
+	parent := filepath.Dir(k)
+	c := r.children[parent]
+	if c == nil {
+		c = map[string]struct{}{}
+		r.children[parent] = c
+	}
+	c[k] = struct{}{}
 }
 
 // removeDirs removes dir and the directories under it from the set and
-// reports whether dir was in it.
+// reports whether dir was in it. It visits only the removed subtree.
 func (r *rootWatch) removeDirs(dir string) bool {
 	k := dirKey(dir)
-	_, was := r.dirs[k]
-	if !was {
+	if _, ok := r.dirs[k]; !ok {
 		return false
 	}
-	prefix := k + string(filepath.Separator)
-	for p := range r.dirs {
-		if p == k || strings.HasPrefix(p, prefix) {
-			delete(r.dirs, p)
+	if c := r.children[filepath.Dir(k)]; c != nil {
+		delete(c, k)
+		if len(c) == 0 {
+			delete(r.children, filepath.Dir(k))
+		}
+	}
+	stack := []string{k}
+	for len(stack) > 0 {
+		x := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		delete(r.dirs, x)
+		for c := range r.children[x] {
+			stack = append(stack, c)
+		}
+		delete(r.children, x)
+	}
+	return true
+}
+
+// shortName reports whether base looks like an NTFS 8.3 short name: at
+// most eight characters, a "~" followed by digits at the end of the name
+// part, and an extension of at most three characters.
+func shortName(base string) bool {
+	name, ext, _ := strings.Cut(base, ".")
+	if len(name) > 8 || len(ext) > 3 || strings.Contains(ext, ".") {
+		return false
+	}
+	i := strings.LastIndexByte(name, '~')
+	if i < 1 || i == len(name)-1 {
+		return false
+	}
+	for _, c := range name[i+1:] {
+		if c < '0' || c > '9' {
+			return false
 		}
 	}
 	return true
+}
+
+// stopped reports whether walks of r should stop.
+func (d *rdcw) stopped(r *rootWatch) bool { return r.stopping.Load() || d.closing.Load() }
+
+// walkTree walks dir, a directory of r's tree, adding the directories
+// that are not skipped to the set and calling file, if not nil, for every
+// other entry. It stops when r or the watcher is closed. Errors of
+// vanished entries are ignored.
+func (d *rdcw) walkTree(r *rootWatch, dir string, file func(path string)) {
+	filepath.WalkDir(dir, func(path string, e fs.DirEntry, err error) error {
+		if d.stopped(r) {
+			return filepath.SkipAll
+		}
+		if err != nil {
+			if path == dir || errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			d.w.error(err)
+			if e != nil && e.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if e.IsDir() {
+			if path != r.path {
+				if d.w.skip(path) {
+					return filepath.SkipDir
+				}
+				r.addDir(dirKey(path))
+			}
+			return nil
+		}
+		if file != nil {
+			file(path)
+		}
+		return nil
+	})
+}
+
+// scan rebuilds the set of directories of the tree.
+func (d *rdcw) scan(r *rootWatch) {
+	r.dirs = map[string]struct{}{}
+	r.children = map[string]map[string]struct{}{}
+	d.walkTree(r, r.path, nil)
 }
 
 const rdcwMask = windows.FILE_NOTIFY_CHANGE_FILE_NAME | windows.FILE_NOTIFY_CHANGE_DIR_NAME |
@@ -95,14 +191,28 @@ const rdcwMask = windows.FILE_NOTIFY_CHANGE_FILE_NAME | windows.FILE_NOTIFY_CHAN
 
 func newNative(w *Watcher) (impl, error) { return &rdcw{w: w}, nil }
 
+// setRoots keeps the watches of roots that stay, closes the others and
+// opens the new ones.
 func (d *rdcw) setRoots(roots []string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	kept := map[string]*rootWatch{}
 	for _, r := range d.roots {
-		r.close()
+		if slices.Contains(roots, r.path) {
+			kept[r.path] = r
+		} else {
+			r.close()
+		}
 	}
 	d.roots = nil
 	for _, path := range roots {
+		if r := kept[path]; r != nil {
+			d.roots = append(d.roots, r)
+			continue
+		}
+		if d.closing.Load() {
+			break
+		}
 		r, err := d.open(path)
 		if err != nil {
 			d.w.error(err)
@@ -114,6 +224,7 @@ func (d *rdcw) setRoots(roots []string) error {
 }
 
 func (d *rdcw) close() error {
+	d.closing.Store(true) // stops a walk that holds d.mu (open)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	for _, r := range d.roots {
@@ -152,6 +263,7 @@ func (d *rdcw) open(path string) (*rootWatch, error) {
 }
 
 func (r *rootWatch) close() {
+	r.stopping.Store(true)
 	windows.SetEvent(r.stop)
 	<-r.done
 	windows.CloseHandle(r.h)
@@ -159,7 +271,9 @@ func (r *rootWatch) close() {
 }
 
 // loop reads the changes of one root. ready receives the result of the
-// first read request, so that changes made after open returns are seen.
+// first read request once the tree's directories are known, so that
+// changes made after open returns are seen and removed directories are
+// recognized.
 func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 	defer close(r.done)
 	ev, err := windows.CreateEvent(nil, 1, 0, nil)
@@ -176,12 +290,10 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 		ov := windows.Overlapped{HEvent: ev}
 		windows.ResetEvent(ev)
 		err := windows.ReadDirectoryChanges(r.h, &buf[0], uint32(len(buf)), true, rdcwMask, nil, &ov, 0)
-		if first {
-			first = false
-			ready <- err
-		}
 		if err != nil {
-			if !errors.Is(err, windows.ERROR_OPERATION_ABORTED) {
+			if first {
+				ready <- err
+			} else if !errors.Is(err, windows.ERROR_OPERATION_ABORTED) {
 				d.w.error(fmt.Errorf("watch: %s: %w", r.path, err))
 			}
 			return
@@ -191,6 +303,10 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 			// walk is either walked or reported (or both).
 			rescan = false
 			d.scan(r)
+		}
+		if first {
+			first = false
+			ready <- nil
 		}
 		which, err := windows.WaitForMultipleObjects([]windows.Handle{ev, r.stop}, false, windows.INFINITE)
 		if err != nil || which != windows.WAIT_OBJECT_0 {
@@ -246,16 +362,19 @@ func (d *rdcw) event(r *rootWatch, path string, action uint32) {
 		if fi, err := os.Lstat(path); err == nil && fi.IsDir() {
 			if !d.w.skip(path) {
 				// Its subtree is watched already: report what is in it.
-				d.w.walk(path, func(p string) error {
-					r.dirs[dirKey(p)] = struct{}{}
-					return nil
-				}, func(p string, _ os.DirEntry) { d.w.changed(p, false) })
+				d.walkTree(r, path, func(p string) { d.w.changed(p, false) })
 			}
 			return
 		}
 		d.w.changed(path, false)
 	case windows.FILE_ACTION_REMOVED, windows.FILE_ACTION_RENAMED_OLD_NAME:
-		d.w.changed(path, r.removeDirs(path))
+		dir := r.removeDirs(path)
+		if !dir && shortName(filepath.Base(path)) {
+			// Perhaps a known directory under its short name.
+			d.w.changed(path, false)
+			dir = true
+		}
+		d.w.changed(path, dir)
 	case windows.FILE_ACTION_MODIFIED:
 		if fi, err := os.Lstat(path); err == nil && fi.IsDir() {
 			return // a directory's timestamps; its entries report themselves
