@@ -14,7 +14,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Added
 
-- `tela dev` on Windows: when a build takes more than 400 ms to show its first frame, it prints once how to exclude its build directory and the Go build cache from Microsoft Defender's real-time scanning, which scans every new build on its first run (a dashboard reload went from 2.2 s to 1.1 s with them excluded). It never changes the settings itself (ADR-125).
+- `tela dev` on Windows: when the build of a reload takes more than 400 ms to start, it prints once how to exclude its build directory and the Go build cache from Microsoft Defender's real-time scanning, which scans every new build on its first run (a dashboard reload went from 2.2 s to 1.1 s with them excluded). It never changes the settings itself (ADR-125).
 
 ### Changed
 
