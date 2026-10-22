@@ -9,11 +9,11 @@ package core
 
 const devStateEnabled = false
 
-func devSeed(*Element, int) bool                        { return false }
-func (t *Tree) devFirstBuild(_ *Element, out Node) Node { return out }
-func (t *Tree) devAdoptSeed()                           {}
-func (t *Tree) devMounted()                             {}
-func (t *Tree) devFrame(full bool) bool                 { return full }
-func (t *Tree) devNoteScheme(ColorScheme)               {}
-func (t *Tree) devNoteTheme(Theme)                      {}
-func devFocusWaits(*Element) bool                       { return false }
+func devSeed(*Element, int) bool                               { return false }
+func (t *Tree) devFirstBuild(_ *Element, out Node, _ int) Node { return out }
+func (t *Tree) devAdoptSeed()                                  {}
+func (t *Tree) devMounted()                                    {}
+func (t *Tree) devFrame(full bool) bool                        { return full }
+func (t *Tree) devNoteScheme(ColorScheme)                      {}
+func (t *Tree) devNoteTheme(Theme)                             {}
+func devFocusWaits(*Element) bool                              { return false }

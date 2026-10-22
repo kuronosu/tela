@@ -47,7 +47,7 @@ func (t *Tree) build(el *Element) {
 		}()
 		out = el.comp.build()
 		if devStateEnabled && first {
-			out = t.devFirstBuild(el, out) // tela dev: the hook signature check (ADR-113)
+			out = t.devFirstBuild(el, out, mark) // tela dev: the hook signature check (ADR-113)
 		}
 		done = true
 	}()

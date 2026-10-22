@@ -150,6 +150,73 @@ func TestDevStateSubtreeResets(t *testing.T) {
 	}
 }
 
+// devTrackV is the Value of the last devTrackHost built.
+var devTrackV *Value[int]
+
+// devTrackHost passes a Value of its own to a child that reads it only
+// while the child's state is true; devTrackHostMore's child has a hook
+// added.
+func devTrackHost() Node {
+	v := UseValue(0)
+	devTrackV = v
+	return div(ComponentProps(devTrackChild, v))
+}
+
+func devTrackHostMore() Node {
+	v := UseValue(0)
+	devTrackV = v
+	return div(ComponentProps(devTrackChildMore, v))
+}
+
+func devTrackChild(v *Value[int]) Node {
+	show, _ := UseState(false)
+	if show {
+		_ = v.Get()
+	}
+	return div(Textf("show %v", show))
+}
+
+func devTrackChildMore(v *Value[int]) Node {
+	show, _ := UseState(false)
+	UseMemo(func() int { return 1 }, Once)
+	if show {
+		_ = v.Get()
+	}
+	return div(Textf("show %v", show))
+}
+
+func TestDevStateDiscardedBuildReads(t *testing.T) {
+	// A component whose hooks changed after a slot was seeded builds again
+	// from scratch: the Values only the discarded build read are not its
+	// subscriptions (a change would rebuild it for nothing, and keep the
+	// Value referenced).
+	a := devTestTree(t, Component(devTrackHost), nil, nil)
+	devSet(t, a, devComp(t, a, "devTrackChild"), 0, true)
+	if el := devComp(t, a, "devTrackChild"); el.vobs == nil || len(el.vobs.subs) != 1 {
+		t.Fatal("setup: the child does not read the Value")
+	}
+	data, _ := devSnap(t, a)
+
+	devAlias(t, map[string]string{"devTrackHostMore": "devTrackHost", "devTrackChildMore": "devTrackChild"})
+	b := devTestTree(t, Component(devTrackHostMore), data, nil)
+	el := devComp(t, b, "devTrackChildMore")
+	if devState[bool](t, el, 0) {
+		t.Fatal("the child whose hooks changed kept its state")
+	}
+	if r := b.DevSeedReport(); len(r.Remounted) != 1 {
+		t.Fatalf("remounted %q, want the child", r.Remounted)
+	}
+	if el.vobs != nil && len(el.vobs.subs) != 0 {
+		t.Errorf("the child is subscribed to %d Values read only by its discarded build", len(el.vobs.subs))
+	}
+	builds := el.builds
+	devTrackV.Set(1)
+	devFrames(b)
+	if el.builds != builds {
+		t.Errorf("a Value only the discarded build read rebuilt the child (%d builds, want %d)", el.builds, builds)
+	}
+}
+
 // devRow is a list item with state.
 func devRow(id int) Node {
 	n, _ := UseState(0)

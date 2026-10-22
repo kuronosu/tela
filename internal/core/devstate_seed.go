@@ -226,7 +226,10 @@ func devSeed(el *Element, i int) bool {
 // returned out: when its hook signature is not the saved one, its node is
 // dropped (its subtree mounts fresh) and, if some of its slots were
 // seeded, it builds again from scratch, returning that build's result.
-func (t *Tree) devFirstBuild(el *Element, out Node) Node {
+// mark is where build began tracking the Values the build reads: those
+// the discarded build read are dropped, so they do not become el's
+// subscriptions.
+func (t *Tree) devFirstBuild(el *Element, out Node, mark int) Node {
 	s := t.devSeedNow()
 	if s == nil {
 		return out
@@ -256,6 +259,8 @@ func (t *Tree) devFirstBuild(el *Element, out Node) Node {
 	clear(el.fx)
 	el.fx = el.fx[:0]
 	el.hookIdx = 0
+	t.endTrack(mark) // the discarded build's reads; build ends the tracking
+	t.beginTrack()   // begun again at mark
 	return el.comp.build()
 }
 
