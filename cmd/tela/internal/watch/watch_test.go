@@ -220,6 +220,39 @@ func TestDirectoryMovedInAndOut(t *testing.T) {
 	})
 }
 
+// TestRemovedNames removes names that were in the tree before the watcher
+// started: a directory is reported as one (dir = true, which goFilter
+// accepts), an extensionless file is not (Windows' records do not say
+// which a removed name was; the watcher knows its tree's directories).
+func TestRemovedNames(t *testing.T) {
+	modes(t, func(t *testing.T, poll bool) {
+		root, err := filepath.EvalSymlinks(t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range []string{"pre/sub/f.go", "Makefile", "4913", "pkg/LICENSE"} {
+			p = filepath.Join(root, filepath.FromSlash(p))
+			os.MkdirAll(filepath.Dir(p), 0o755)
+			if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		h := newHarnessAt(t, root, Options{Filter: goFilter, SkipDir: skipHidden, Debounce: 30 * time.Millisecond, Poll: poll, PollInterval: 20 * time.Millisecond})
+		time.Sleep(50 * time.Millisecond) // the poller's first scan
+		for _, p := range []string{"Makefile", "4913", "pkg/LICENSE"} {
+			if err := os.Remove(h.path(p)); err != nil {
+				t.Fatal(err)
+			}
+		}
+		h.quiet("extensionless files removed", 300*time.Millisecond)
+		outside := t.TempDir()
+		if err := os.Rename(h.path("pre"), filepath.Join(outside, "pre")); err != nil {
+			t.Fatal(err)
+		}
+		h.expect("directory moved away", []string{"pre"})
+	})
+}
+
 func TestFilters(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
 		h := newHarness(t, poll, Options{})

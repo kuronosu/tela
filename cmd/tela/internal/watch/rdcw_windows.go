@@ -26,9 +26,17 @@ import (
 //     by path: every directory between the root and the file is checked
 //     with SkipDir.
 //   - A directory created or renamed into the tree reports only its own
-//     name, so it is scanned for files. A removed name cannot be inspected
-//     any more; one without an extension is also reported as a possible
-//     directory (dir = true).
+//     name, so it is scanned for files.
+//   - A removed name cannot be inspected any more, and the records do not
+//     say whether it was a directory (inotify's IN_ISDIR has no
+//     equivalent here). Each root keeps the set of directories in its
+//     tree (walked when the first read is pending, and again after an
+//     overflow; updated by the records), and a removed or renamed-away
+//     name is reported as a directory (dir = true) only when it is in the
+//     set. Guessing from the name instead (no extension) reported vim's
+//     "4913" write probe, and any other extensionless file removed, as a
+//     directory that may have held packages, which a filter must accept.
+//     Keys are lowercased: NTFS names are case-insensitive.
 //   - Names are relative to the root, in UTF-16; the handle is opened with
 //     FILE_FLAG_BACKUP_SEMANTICS, which a directory handle requires, and
 //     shares delete access so the watched trees can still be renamed.
@@ -44,6 +52,41 @@ type rootWatch struct {
 	h    windows.Handle
 	stop windows.Handle
 	done chan struct{}
+
+	// dirs is the set of directories under path (lowercased, root
+	// excluded, skipped directories excluded). Only the root's loop
+	// goroutine touches it.
+	dirs map[string]struct{}
+}
+
+func dirKey(path string) string { return strings.ToLower(path) }
+
+// scan rebuilds the set of directories of the tree.
+func (d *rdcw) scan(r *rootWatch) {
+	r.dirs = map[string]struct{}{}
+	d.w.walk(r.path, func(p string) error {
+		if p != r.path {
+			r.dirs[dirKey(p)] = struct{}{}
+		}
+		return nil
+	}, nil)
+}
+
+// removeDirs removes dir and the directories under it from the set and
+// reports whether dir was in it.
+func (r *rootWatch) removeDirs(dir string) bool {
+	k := dirKey(dir)
+	_, was := r.dirs[k]
+	if !was {
+		return false
+	}
+	prefix := k + string(filepath.Separator)
+	for p := range r.dirs {
+		if p == k || strings.HasPrefix(p, prefix) {
+			delete(r.dirs, p)
+		}
+	}
+	return true
 }
 
 const rdcwMask = windows.FILE_NOTIFY_CHANGE_FILE_NAME | windows.FILE_NOTIFY_CHANGE_DIR_NAME |
@@ -128,7 +171,7 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 	// DWORD-aligned, as the API requires (a []uint64 is 8-aligned).
 	words := make([]uint64, 64<<10/8)
 	buf := unsafe.Slice((*byte)(unsafe.Pointer(&words[0])), len(words)*8)
-	first := true
+	first, rescan := true, true
 	for {
 		ov := windows.Overlapped{HEvent: ev}
 		windows.ResetEvent(ev)
@@ -143,6 +186,12 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 			}
 			return
 		}
+		if rescan {
+			// With the read pending, so a directory created during the
+			// walk is either walked or reported (or both).
+			rescan = false
+			d.scan(r)
+		}
 		which, err := windows.WaitForMultipleObjects([]windows.Handle{ev, r.stop}, false, windows.INFINITE)
 		if err != nil || which != windows.WAIT_OBJECT_0 {
 			windows.CancelIoEx(r.h, &ov)
@@ -154,6 +203,7 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 		if err := windows.GetOverlappedResult(r.h, &ov, &n, false); err != nil {
 			if errors.Is(err, windows.ERROR_NOTIFY_ENUM_DIR) {
 				d.w.lost()
+				rescan = true
 				continue
 			}
 			if !errors.Is(err, windows.ERROR_OPERATION_ABORTED) {
@@ -163,19 +213,20 @@ func (d *rdcw) loop(r *rootWatch, ready chan<- error) {
 		}
 		if n == 0 {
 			d.w.lost()
+			rescan = true
 			continue
 		}
-		d.parse(r.path, buf[:n])
+		d.parse(r, buf[:n])
 	}
 }
 
 // parse reports the FILE_NOTIFY_INFORMATION records of buf.
-func (d *rdcw) parse(root string, buf []byte) {
+func (d *rdcw) parse(r *rootWatch, buf []byte) {
 	for off := uint32(0); int(off)+int(unsafe.Sizeof(windows.FileNotifyInformation{})) <= len(buf); {
 		info := (*windows.FileNotifyInformation)(unsafe.Pointer(&buf[off]))
 		name := unsafe.Slice(&info.FileName, info.FileNameLength/2)
 		rel := windows.UTF16ToString(name)
-		d.event(root, filepath.Join(root, rel), info.Action)
+		d.event(r, filepath.Join(r.path, rel), info.Action)
 		if info.NextEntryOffset == 0 {
 			return
 		}
@@ -183,9 +234,9 @@ func (d *rdcw) parse(root string, buf []byte) {
 	}
 }
 
-func (d *rdcw) event(root, path string, action uint32) {
+func (d *rdcw) event(r *rootWatch, path string, action uint32) {
 	// Skipped directories: check every directory between root and path.
-	for dir := filepath.Dir(path); within(dir, root) && dir != root; dir = filepath.Dir(dir) {
+	for dir := filepath.Dir(path); within(dir, r.path) && dir != r.path; dir = filepath.Dir(dir) {
 		if d.w.skip(dir) {
 			return
 		}
@@ -195,16 +246,16 @@ func (d *rdcw) event(root, path string, action uint32) {
 		if fi, err := os.Lstat(path); err == nil && fi.IsDir() {
 			if !d.w.skip(path) {
 				// Its subtree is watched already: report what is in it.
-				d.w.walk(path, nil, func(p string, _ os.DirEntry) { d.w.changed(p, false) })
+				d.w.walk(path, func(p string) error {
+					r.dirs[dirKey(p)] = struct{}{}
+					return nil
+				}, func(p string, _ os.DirEntry) { d.w.changed(p, false) })
 			}
 			return
 		}
 		d.w.changed(path, false)
 	case windows.FILE_ACTION_REMOVED, windows.FILE_ACTION_RENAMED_OLD_NAME:
-		d.w.changed(path, false)
-		if filepath.Ext(path) == "" && !strings.HasSuffix(path, ".") {
-			d.w.changed(path, true)
-		}
+		d.w.changed(path, r.removeDirs(path))
 	case windows.FILE_ACTION_MODIFIED:
 		if fi, err := os.Lstat(path); err == nil && fi.IsDir() {
 			return // a directory's timestamps; its entries report themselves
