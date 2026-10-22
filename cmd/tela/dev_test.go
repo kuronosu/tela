@@ -55,6 +55,12 @@ func (v *recordView) show(p problem) {
 	v.last = p
 }
 
+func (v *recordView) lastProblem() problem {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.last
+}
+
 func (v *recordView) clear() {
 	v.mu.Lock()
 	defer v.mu.Unlock()
@@ -378,8 +384,8 @@ func TestDevRuntimeCrashThenFreshStart(t *testing.T) {
 	h.logged("the app panicked: boom; save a change or press r to start it again", 1)
 	// The window stays, with the last frame.
 	h.still("the last frame after the crash", 1, 1, 1, 100*time.Millisecond)
-	if h.view.last.kind != problemPanic || !strings.Contains(h.view.last.text, "goroutine") {
-		t.Errorf("panic problem %+v, want the payload with its stack", h.view.last)
+	if last := h.view.lastProblem(); last.kind != problemPanic || !strings.Contains(last.text, "goroutine") {
+		t.Errorf("panic problem %+v, want the payload with its stack", last)
 	}
 	// The next build starts fresh: no stale state.
 	h.s.push(evKey{'r'})
