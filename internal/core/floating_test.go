@@ -299,6 +299,62 @@ func TestFloatingLimitsAfterSpentBudget(t *testing.T) {
 	}
 }
 
+// TestFloatingRetriesPerFloat: the frames that apply limits left by a
+// spent relayout budget are counted per floating element. One whose
+// limits never settle spends its own frames and keeps dropping limits in
+// every later frame, yet another one whose limits are dropped afterwards
+// still gets the frames it needs, and the frames still stop.
+func TestFloatingRetriesPerFloat(t *testing.T) {
+	var a, b ElementRef
+	var tickB *Value[float32]
+	// pop-a's limit depends on its own size and always undoes itself.
+	oscillate := func(in FloatInput) FloatResult {
+		h := float32(20)
+		if in.Floating.Height <= 30 {
+			h = 40
+		}
+		return FloatResult{X: in.Anchor.X, Y: in.Anchor.Bottom(), MaxHeight: h, HasMaxHeight: true}
+	}
+	shrink := false
+	settle := func(in FloatInput) FloatResult {
+		r := FloatResult{X: in.Anchor.X, Y: in.Anchor.Bottom()}
+		if shrink { // 10 px per call, down to 50: several frames' worth
+			r.MaxHeight, r.HasMaxHeight = max(in.Floating.Height-10, 50), true
+		}
+		return r
+	}
+	comp := func() Node {
+		a, b = UseElementRef(), UseElementRef()
+		tickB = UseValue[float32](0)
+		return div(
+			div(Key("a"), AttachRef(a), Class("h-8 w-20"), Text("A")),
+			div(Key("b"), AttachRef(b), Class("h-8 w-20"), Style(style.TranslateFn(func() (float32, float32) { return tickB.Get(), 0 })), Text("B")),
+			Portal(div(Key("pop-a"), Floating(FloatOptions{Anchor: a, Place: oscillate}), Class("fixed h-[100px] w-40"))),
+			Portal(div(Key("pop-b"), Floating(FloatOptions{Anchor: b, Place: settle}), Class("fixed h-[100px] w-40"))))
+	}
+	tr := newTestTree(t, 400, 300, Component(comp), nil)
+	settleFrames := func(what string) {
+		t.Helper()
+		frames := 0
+		for ; frames < 50 && tr.Dirty(); frames++ {
+			tr.Frame()
+		}
+		if frames >= 50 {
+			t.Fatalf("%s: the frames never stop", what)
+		}
+	}
+	tr.Frame()
+	settleFrames("an oscillating float")
+	// pop-a has spent its frames; pop-b's limits now need several.
+	shrink = true
+	tickB.storeUI(1)
+	tr.Frame()
+	settleFrames("a second float")
+	if g := popRect(tr, "pop-b").Height(); !near(g, 50, 1e-3) {
+		t.Errorf("pop-b: height %g, want 50 (its limits were starved by pop-a's spent frames)", g)
+	}
+}
+
 // TestFloatingRebuildPlaces: a build of the component that renders a
 // floating element gives it a new Place closure, whose captured options
 // core cannot compare (functions are not comparable, and the same code
