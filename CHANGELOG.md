@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-22
+
 ### Added
 
 - `tela dev` on Windows: when the build of a reload takes more than 400 ms to start, it prints once how to exclude its build directory and the Go build cache from Microsoft Defender's real-time scanning, which scans every new build on its first run (a dashboard reload went from 2.2 s to 1.1 s with them excluded). It never changes the settings itself (ADR-125).
@@ -520,7 +522,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/kuronosu/tela/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/kuronosu/tela/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/kuronosu/tela/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/kuronosu/tela/compare/v0.8.0...v0.8.1
