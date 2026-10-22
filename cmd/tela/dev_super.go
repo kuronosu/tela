@@ -172,7 +172,7 @@ type swapState struct {
 	timer       *time.Timer
 	saved       time.Time
 	started     time.Time
-	first       time.Time
+	first       time.Time // when proc's first frame was seen (zero before)
 }
 
 // Events of the supervisor's queue.
@@ -856,6 +856,15 @@ func (s *supervisor) promoted(gen int, err error) {
 		s.view.clear()
 	}
 	s.flushHeld()
+	if sw.exitPending {
+		// Shown, then gone: a crash of the app (the window keeps its last
+		// frame, and the next build starts fresh). It is reported as such,
+		// with no reload line or timing for a build that is already gone.
+		s.started = true
+		s.exited(sw.proc)
+		s.maybeSwap()
+		return
+	}
 	if sw.state == "kept" && sw.proc.report == nil {
 		// The child reports what it kept a few frames after its first one:
 		// the line (timed now) waits for it, a moment at most.
@@ -865,12 +874,7 @@ func (s *supervisor) promoted(gen int, err error) {
 	} else {
 		s.report(sw, now)
 	}
-	s.started = true
-	if sw.exitPending {
-		// Shown, then gone: a crash of the app (the window keeps its last
-		// frame, and the next build starts fresh).
-		s.exited(sw.proc)
-	}
+	s.started = true // after the line: the first one says "started"
 	s.maybeSwap()
 }
 
@@ -1033,10 +1037,19 @@ func (s *supervisor) exited(p *proc) {
 	case p.stopping:
 		s.log.verbosef("build %d stopped (%s)", p.gen, status)
 	case s.swap != nil && s.swap.proc == p:
-		if p.panic != "" {
+		// Its first frame was seen when its promotion failed after the exit
+		// (the host saw the connection end first).
+		shown := !s.swap.first.IsZero()
+		switch {
+		case p.panic != "" && shown:
+			s.swapFailed(problem{kind: problemPanic, text: p.panic,
+				summary: fmt.Sprintf("the new build showed its first frame, then panicked before it could take over: %s; %s", panicValue(p.panic), s.stays())})
+		case p.panic != "":
 			s.swapFailed(problem{kind: problemPanic, text: p.panic,
 				summary: fmt.Sprintf("the new build panicked before its first frame: %s; %s", panicValue(p.panic), s.stays())})
-		} else {
+		case shown:
+			s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("the new build showed its first frame, then %s before it could take over; %s", status, s.stays())})
+		default:
 			s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("the new build %s before its first frame; %s", status, s.stays())})
 		}
 	case p == s.active:
@@ -1093,18 +1106,22 @@ func (s *supervisor) quit(code int, msg string) {
 		s.building()
 		s.building = nil
 	}
-	if sw := s.swap; sw != nil && sw.timer != nil {
+	// The swap in progress ends here: its child is stopped with the others,
+	// and a promotion's result that the host's loop still delivers finds no
+	// swap, so it is never completed (ADR-123).
+	sw := s.swap
+	s.swap = nil
+	if sw != nil && sw.timer != nil {
 		sw.timer.Stop()
 	}
 	for _, p := range s.procs {
 		s.stop(p)
 	}
 	s.quitByTime = time.AfterFunc(s.cfg.stopTimeout+2*time.Second, func() { s.push(evQuitTimeout{}) })
-	if sw := s.swap; sw != nil && sw.exitPending {
-		// Stopping now: its exit no longer waits for the promotion (whose
-		// result may never come once the host's loop has ended).
+	if sw != nil && sw.exitPending {
+		// Its exit no longer waits for the promotion (whose result may never
+		// come once the host's loop has ended): a stopped child's.
 		s.exited(sw.proc)
-		return // exited finishes the quit when nothing else is left
 	}
 	s.maybeFinish()
 }

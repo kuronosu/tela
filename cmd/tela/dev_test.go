@@ -269,6 +269,22 @@ func (h *devHarness) logged(s string, n int) {
 	}
 }
 
+// waitOutput waits until the output contains one of subs, for at most
+// devWait. It may run on the host's UI thread, so it does not fail the
+// test: the test's own checks report what is missing.
+func (h *devHarness) waitOutput(subs ...string) {
+	deadline := time.Now().Add(devWait)
+	for time.Now().Before(deadline) {
+		out := h.out.String()
+		for _, s := range subs {
+			if strings.Contains(out, s) {
+				return
+			}
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+}
+
 func (h *devHarness) ui(fn func()) {
 	h.t.Helper()
 	ch := make(chan struct{})
@@ -289,7 +305,10 @@ func (h *devHarness) frozen() bool {
 func TestDevFirstStartAndSwapWithState(t *testing.T) {
 	h := newDevHarness(t, devOptions{Verbose: true}, nil)
 	h.expect("first start", 1, 0, 0)
-	h.logged("started in", 1)
+	h.logged("tela dev: started in", 1)
+	if out := h.out.String(); strings.Contains(out, "restarted in") {
+		t.Errorf("the first start is reported as a restart:\n%s", out)
+	}
 	if w := h.window(); w.Title() != "fake 1" {
 		t.Errorf("title %q", w.Title())
 	}
@@ -424,57 +443,59 @@ func TestDevTimeoutAfterPromotionPosted(t *testing.T) {
 // The new build exits after the supervisor posted its promotion and before
 // the promotion's result. The promotion decides what the exit is: if the
 // host showed the new build (and detached the old child), a crash of the
-// app now shown, after which the next build starts fresh; if not (the host
-// saw the connection end first), a failed swap that keeps the old child.
-// Before, the exit always failed the swap, so a shown build left the
-// detached old child as the app.
+// app now shown, after which the next build starts fresh, with no reload
+// line for that build; if not (the host saw the connection end first), a
+// failed swap that keeps the old child, reported as a build that showed a
+// frame and went away before it could take over. Before, the exit always
+// failed the swap, so a shown build left the detached old child as the app.
 func TestDevExitAfterPromotionPosted(t *testing.T) {
 	const pending, failed = "while its promotion was pending", "before its first frame"
 	for _, shown := range []bool{true, false} {
 		t.Run(fmt.Sprintf("shown=%v", shown), func(t *testing.T) {
 			h := newDevHarnessHost(t, devOptions{Verbose: true}, nil, func(h *devHarness, o *remote.HostOptions) {
-				first := o.OnFirstFrame
-				o.OnFirstFrame = func(c *remote.Child) {
-					if c.Tag() != "2" {
-						first(c)
-						return
+				first, disconnect := o.OnFirstFrame, o.OnDisconnect
+				kill := func(c *remote.Child) {
+					if p, err := os.FindProcess(c.PID()); err == nil {
+						p.Kill()
 					}
-					// This runs on the host's UI thread: what is posted to
-					// it meanwhile (the promotion, the end of the
-					// connection) runs once this returns, in order.
-					waitOutput := func(subs ...string) {
-						deadline := time.Now().Add(devWait)
-						for time.Now().Before(deadline) {
-							out := h.out.String()
-							for _, s := range subs {
-								if strings.Contains(out, s) {
-									return
-								}
-							}
-							time.Sleep(2 * time.Millisecond)
-						}
-					}
-					kill := func() {
-						if p, err := os.FindProcess(c.PID()); err == nil {
-							p.Kill()
-						}
-					}
-					if !shown {
-						// The end of the connection is posted before the
-						// promotion, which then fails.
-						kill()
-						time.Sleep(100 * time.Millisecond)
-					}
+				}
+				// promote hands the first frame of build 2 to the supervisor
+				// and returns once the supervisor holds the build's exit for
+				// the promotion's result. It runs on the host's UI thread:
+				// what is posted to it meanwhile (the promotion, the end of
+				// the connection) runs once it returns, in order.
+				promote := func(c *remote.Child) {
 					first(c)
 					// Once the supervisor has handled the first frame (and
 					// posted the promotion), it logs the marker queued
 					// after it.
 					h.s.push(evHostError{errors.New("marker")})
-					waitOutput("host: marker")
+					h.waitOutput("host: marker")
 					if shown {
-						kill()
+						kill(c)
 					}
-					waitOutput(pending, failed)
+					h.waitOutput(pending, failed)
+				}
+				o.OnFirstFrame = func(c *remote.Child) {
+					switch {
+					case c.Tag() != "2":
+						first(c)
+					case shown:
+						promote(c)
+					default:
+						// The supervisor learns of the first frame once the
+						// host has seen the connection end (below), so the
+						// promotion it then posts fails.
+						kill(c)
+					}
+				}
+				o.OnDisconnect = func(c *remote.Child, err error) {
+					if c.Tag() == "2" && !shown {
+						// The host has detached build 2; its exit reaches the
+						// supervisor before this disconnect does.
+						promote(c)
+					}
+					disconnect(c, err)
 				}
 			})
 			h.expect("first start", 1, 0, 0)
@@ -482,22 +503,24 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 			h.expect("one click", 1, 1, 1)
 			h.s.push(evKey{'r'})
 			if !shown {
-				h.logged("before its first frame; the previous build stays", 1)
-				if out := h.out.String(); !strings.Contains(out, pending) || strings.Contains(out, "reloaded in") {
+				const msg = "the new build showed its first frame, then was killed (signal: killed) before it could take over; the previous build stays"
+				h.logged("before it could take over; the previous build stays", 1)
+				if out := h.out.String(); !strings.Contains(out, pending) || strings.Contains(out, failed) || strings.Contains(out, "reloaded in") {
 					t.Errorf("want the exit to wait for the failed promotion:\n%s", out)
 				}
 				// The old build stays and gets input.
 				h.click()
 				h.expect("the old build", 1, 2, 2)
-				if got := h.view.entries(); len(got) != 1 || !strings.HasPrefix(got[0], fmt.Sprintf("show %d: the new build ", problemStart)) {
-					t.Errorf("problems %v", got)
+				if got := h.view.entries(); len(got) != 1 || got[0] != fmt.Sprintf("show %d: %s", problemStart, msg) {
+					t.Errorf("problems %v, want %q", got, msg)
 				}
 				return
 			}
 			h.logged("; save a change or press r to start it again", 1)
 			h.logged("build 1 stopped", 1)
-			if out := h.out.String(); !strings.Contains(out, pending) || strings.Contains(out, failed) || !strings.Contains(out, "reloaded in") {
-				t.Errorf("want the swap to finish and the exit to wait for it:\n%s", out)
+			// The build shown is gone: the crash, and no reload line for it.
+			if out := h.out.String(); !strings.Contains(out, pending) || strings.Contains(out, failed) || strings.Contains(out, "reloaded in") {
+				t.Errorf("want the swap to finish, its exit to wait for it, and no reload line:\n%s", out)
 			}
 			// The window keeps the killed build's last frame.
 			h.still("the last frame of build 2", 2, 1, 0, 100*time.Millisecond)
@@ -508,6 +531,54 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 			h.s.push(evKey{'r'})
 			h.expect("fresh start", 3, 0, 0)
 			h.logged("restarted in", 1)
+		})
+	}
+}
+
+// A quit while the promotion of a new build is pending ends the swap: the
+// promotion's result, which the host's loop may still deliver, is ignored,
+// whether the new build had already exited or not. Before, a successful
+// result completed the swap after the quit: the build being stopped became
+// the active app and a reload line followed the quit.
+func TestDevQuitWhilePromotionPending(t *testing.T) {
+	for _, exited := range []bool{true, false} {
+		t.Run(fmt.Sprintf("exited=%v", exited), func(t *testing.T) {
+			h := newDevHarnessHost(t, devOptions{Verbose: true}, nil, func(h *devHarness, o *remote.HostOptions) {
+				first := o.OnFirstFrame
+				o.OnFirstFrame = func(c *remote.Child) {
+					first(c)
+					if c.Tag() != "2" {
+						return
+					}
+					// On the host's UI thread: the promotion the supervisor
+					// posts runs once this returns, after the quit.
+					h.s.push(evHostError{errors.New("posted")})
+					h.waitOutput("host: posted")
+					if exited {
+						if p, err := os.FindProcess(c.PID()); err == nil {
+							p.Kill()
+						}
+						h.waitOutput("while its promotion was pending")
+					}
+					h.s.push(evKey{'q'})
+					h.s.push(evHostError{errors.New("quitting")})
+					h.waitOutput("host: quitting")
+				}
+			})
+			h.expect("first start", 1, 0, 0)
+			h.s.push(evKey{'r'})
+			if code := h.wait(); code != 0 {
+				t.Errorf("exit code %d", code)
+			}
+			if p := h.s.active; p != nil && p.gen == 2 {
+				t.Error("build 2 became the active app after the quit")
+			}
+			if out := h.out.String(); strings.Contains(out, "reloaded in") || !strings.Contains(out, "host: quitting") {
+				t.Errorf("want the quit to end the swap, with no reload line:\n%s", out)
+			}
+			if got := h.view.entries(); len(got) != 0 {
+				t.Errorf("problems shown: %v", got)
+			}
 		})
 	}
 }
