@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -503,7 +504,13 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 			h.expect("one click", 1, 1, 1)
 			h.s.push(evKey{'r'})
 			if !shown {
-				const msg = "the new build showed its first frame, then was killed (signal: killed) before it could take over; the previous build stays"
+				killed := "was killed (signal: killed)"
+				if runtime.GOOS == "windows" {
+					// Process.Kill is TerminateProcess with exit code 1:
+					// Windows has no signals to report.
+					killed = "exited with status 1"
+				}
+				msg := "the new build showed its first frame, then " + killed + " before it could take over; the previous build stays"
 				h.logged("before it could take over; the previous build stays", 1)
 				if out := h.out.String(); !strings.Contains(out, pending) || strings.Contains(out, failed) || strings.Contains(out, "reloaded in") {
 					t.Errorf("want the exit to wait for the failed promotion:\n%s", out)
