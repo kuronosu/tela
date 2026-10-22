@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
@@ -50,11 +51,15 @@ const (
 )
 
 // envFakeGo makes this test binary a go command (fakeGo) that runs the real
-// one, named by the variable, except for go env GOFLAGS: it prints the
-// contents of fakeGoFlagsFile in its working directory (a GOFLAGS that
+// one, named by the variable, except that the GOFLAGS of go env -json is
+// the contents of fakeGoFlagsFile in its working directory (a GOFLAGS that
 // depends on the directory, as a go.env of the toolchain a module selects
-// can), or nothing.
-const envFakeGo = "TELA_DEV_TEST_FAKEGO"
+// can), or nothing. Each go env appends its working directory to the file
+// named by envFakeGoLog, if set.
+const (
+	envFakeGo    = "TELA_DEV_TEST_FAKEGO"
+	envFakeGoLog = "TELA_DEV_TEST_FAKEGO_LOG"
+)
 
 const fakeGoFlagsFile = "fake-goflags"
 
@@ -69,13 +74,34 @@ func TestMain(m *testing.M) {
 }
 
 func fakeGo(goBin string, args []string) int {
-	if len(args) == 2 && args[0] == "env" && args[1] == "GOFLAGS" {
+	if len(args) > 2 && args[0] == "env" && args[1] == "-json" {
 		if os.Getenv("CGO_ENABLED") != "0" {
 			fmt.Fprintln(os.Stderr, "fake go: go env runs without the builds' CGO_ENABLED=0")
 			return 1
 		}
+		if log := os.Getenv(envFakeGoLog); log != "" {
+			wd, _ := os.Getwd()
+			f, err := os.OpenFile(log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "fake go:", err)
+				return 1
+			}
+			fmt.Fprintln(f, wd)
+			f.Close()
+		}
+		out, err := exec.Command(goBin, args...).Output()
+		var v map[string]string
+		if err == nil {
+			err = json.Unmarshal(out, &v)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "fake go:", err)
+			return 1
+		}
 		data, _ := os.ReadFile(fakeGoFlagsFile)
-		fmt.Println(strings.TrimSpace(string(data)))
+		v["GOFLAGS"] = strings.TrimSpace(string(data))
+		out, _ = json.Marshal(v)
+		fmt.Printf("%s\n", out)
 		return 0
 	}
 	cmd := exec.Command(goBin, args...)

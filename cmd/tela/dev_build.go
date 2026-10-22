@@ -171,18 +171,49 @@ func goEnv() []string {
 	return append(os.Environ(), "CGO_ENABLED=0")
 }
 
-// goEnvFlags returns the GOFLAGS the go command uses in dir with env, which
-// may come from go env -w or the go.env of the toolchain dir selects as
-// well as from the environment; "" when it cannot tell.
-func goEnvFlags(goBin, dir string, env []string) string {
-	cmd := exec.Command(goBin, "env", "GOFLAGS")
+// goEnvInfo is what go env says in a directory: the GOFLAGS the go command
+// uses there, which may come from go env -w or the go.env of the toolchain
+// the directory selects as well as from the environment, and GOMOD and
+// GOWORK, the files that select that toolchain.
+type goEnvInfo struct {
+	flags         string
+	gomod, gowork string // empty when go env failed
+}
+
+// readGoEnv runs go env in dir with env. When it fails, flags is the
+// environment's GOFLAGS.
+func readGoEnv(goBin, dir string, env []string) goEnvInfo {
+	cmd := exec.Command(goBin, "env", "-json", "GOFLAGS", "GOMOD", "GOWORK")
 	cmd.Dir = dir
 	cmd.Env = env
 	out, err := cmd.Output()
-	if err != nil {
-		return os.Getenv("GOFLAGS")
+	var v struct{ GOFLAGS, GOMOD, GOWORK string }
+	if err == nil {
+		err = json.Unmarshal(out, &v)
 	}
-	return strings.TrimSpace(string(out))
+	if err != nil {
+		return goEnvInfo{flags: os.Getenv("GOFLAGS")}
+	}
+	return goEnvInfo{flags: strings.TrimSpace(v.GOFLAGS), gomod: v.GOMOD, gowork: v.GOWORK}
+}
+
+// sameIn reports whether go env, with the same environment, says the same
+// in modDir, a module root: GOFLAGS depends on the directory only through
+// the toolchain its go.work or go.mod selects (cmd/go/internal/toolchain),
+// found by walking up from the directory. When the directory g was read in
+// belongs to the module rooted at modDir, the walk from modDir is the end
+// of the walk from there, so it finds the same files unless the go.work
+// found lies below modDir.
+func (g goEnvInfo) sameIn(modDir string) bool {
+	modDir = filepath.Clean(modDir)
+	if g.gomod == "" || filepath.Dir(g.gomod) != modDir {
+		return false // another module, no module, or go env failed
+	}
+	switch g.gowork {
+	case "", "off":
+		return true
+	}
+	return under(modDir, []string{filepath.Dir(g.gowork)}) != ""
 }
 
 // builder produces runnable builds. build is called on its own goroutine

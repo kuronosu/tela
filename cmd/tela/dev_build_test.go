@@ -185,7 +185,8 @@ func TestDevTags(t *testing.T) {
 // TestDevTargetGOFLAGSOfItsModule reads GOFLAGS where the builds run: in
 // the target's module, with the builds' environment, not in the current
 // directory (a module may select a toolchain whose go.env sets other
-// flags).
+// flags). go env runs there only when the current directory may see other
+// flags: another module, or a go.work below the target's module root.
 func TestDevTargetGOFLAGSOfItsModule(t *testing.T) {
 	skipShort(t)
 	goBin, err := exec.LookPath("go")
@@ -198,22 +199,78 @@ func TestDevTargetGOFLAGSOfItsModule(t *testing.T) {
 	}
 	t.Setenv(envFakeGo, goBin)
 	t.Setenv("GOFLAGS", "")
-	dir := tinyModule(t, "package main\n\nfunc main() {}\n")
-	if err := os.WriteFile(filepath.Join(dir, fakeGoFlagsFile), []byte("-tags=frommodule\n"), 0o644); err != nil {
-		t.Fatal(err)
+	t.Setenv("GOWORK", "")
+	write := func(path, data string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	// tela dev .. from a directory of the module without that GOFLAGS.
-	sub := filepath.Join(dir, "sub")
-	if err := os.Mkdir(sub, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(sub)
-	tg, err := resolveDevTarget(fake, devOptions{Pkg: ".."})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if tg.goflags != "-tags=frommodule" {
-		t.Errorf("goflags %q, want the module's %q", tg.goflags, "-tags=frommodule")
+	const main = "package main\n\nfunc main() {}\n"
+	for _, c := range []struct {
+		name string
+		// files of the tree, the directory tela dev runs in and its
+		// argument (all relative to the tree)
+		files    map[string]string
+		cwd, pkg string
+		want     string
+		goEnvs   int
+	}{{
+		// The common case: the target's module is the current one, whose
+		// GOFLAGS go env read already.
+		name:   "same module",
+		files:  map[string]string{"go.mod": "module example.com/m\n\ngo 1.27\n", "main.go": main, "sub/" + fakeGoFlagsFile: "-tags=fromcwd"},
+		cwd:    "sub",
+		pkg:    "..",
+		want:   "-tags=fromcwd",
+		goEnvs: 1,
+	}, {
+		name: "another module of the workspace",
+		files: map[string]string{
+			"go.work":  "go 1.27\n\nuse (\n\t./a\n\t./b\n)\n",
+			"a/go.mod": "module example.com/a\n\ngo 1.27\n",
+			"b/go.mod": "module example.com/b\n\ngo 1.27\n", "b/main.go": main, "b/" + fakeGoFlagsFile: "-tags=frommodule",
+		},
+		cwd:    "a",
+		pkg:    "../b",
+		want:   "-tags=frommodule",
+		goEnvs: 2,
+	}, {
+		// The current directory finds a go.work that the module root does
+		// not: the toolchain, and so GOFLAGS, may differ.
+		name: "a go.work below the module root",
+		files: map[string]string{
+			"go.mod": "module example.com/m\n\ngo 1.27\n", "main.go": main, fakeGoFlagsFile: "-tags=frommodule",
+			"sub/go.work": "go 1.27\n\nuse ..\n",
+		},
+		cwd:    "sub",
+		pkg:    "..",
+		want:   "-tags=frommodule",
+		goEnvs: 2,
+	}} {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, data := range c.files {
+				write(filepath.Join(dir, filepath.FromSlash(name)), data)
+			}
+			log := filepath.Join(t.TempDir(), "goenv.log")
+			t.Setenv(envFakeGoLog, log)
+			t.Chdir(filepath.Join(dir, c.cwd))
+			tg, err := resolveDevTarget(fake, devOptions{Pkg: c.pkg})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tg.goflags != c.want {
+				t.Errorf("goflags %q, want %q", tg.goflags, c.want)
+			}
+			data, _ := os.ReadFile(log)
+			if n := strings.Count(string(data), "\n"); n != c.goEnvs {
+				t.Errorf("go env ran %d times, want %d; in:\n%s", n, c.goEnvs, data)
+			}
+		})
 	}
 }
 
@@ -292,7 +349,7 @@ func main() { fmt.Println("built with both tags") }
 `)
 	b := tinyBuilder(t, goBin, dir)
 	b.env = append(b.env, "GOFLAGS=-mod=mod -tags=usertag,other")
-	b.goflags = goEnvFlags(goBin, dir, b.env)
+	b.goflags = readGoEnv(goBin, dir, b.env).flags
 	res := b.build(context.Background(), 1)
 	if res.err != nil {
 		t.Fatalf("build: %v\n%s", res.err, res.output)

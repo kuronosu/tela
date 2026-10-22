@@ -94,7 +94,7 @@ type devTarget struct {
 	// overlay maps the absolute paths of generated files to their
 	// contents (empty for a package main built as is).
 	overlay map[string][]byte
-	// goflags is the GOFLAGS the go command applies in modDir (goEnvFlags),
+	// goflags is the GOFLAGS the go command applies in modDir (readGoEnv),
 	// for the flags and tags of the builds and of go list.
 	goflags string
 }
@@ -116,7 +116,8 @@ func (t *devTarget) describe() string {
 func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
 	// This go list runs here, with the GOFLAGS that apply here; the builds
 	// and the later go list run in the target's module, with its own.
-	pkgs, err := goList(goBin, "", goEnvFlags(goBin, "", goEnv()), opts.Pkg)
+	here := readGoEnv(goBin, "", goEnv())
+	pkgs, err := goList(goBin, "", here.flags, opts.Pkg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find package %q: %s\nuse a package path or a relative directory such as ./examples/counter", opts.Pkg, err)
 	}
@@ -135,7 +136,12 @@ func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
 		return nil, fmt.Errorf("package %s (%s) is not in a module; tela dev runs packages of a module that requires github.com/kuronosu/tela", p.Name, opts.Pkg)
 	}
 	t := &devTarget{pkg: p, modDir: p.Module.Dir}
-	t.goflags = goEnvFlags(goBin, t.modDir, goEnv())
+	// Usually tela dev runs in the target's module, whose GOFLAGS are those
+	// read here; go env runs again only in another module (or workspace).
+	t.goflags = here.flags
+	if !here.sameIn(t.modDir) {
+		t.goflags = readGoEnv(goBin, t.modDir, goEnv()).flags
+	}
 	rel, err := filepath.Rel(t.modDir, p.Dir)
 	if err != nil {
 		return nil, err
