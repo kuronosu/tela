@@ -68,3 +68,20 @@ func TestDevStateDamaged(t *testing.T) {
 		t.Errorf("value %q (undo %v), want %q without history", d.e.Value(), d.e.CanUndo(), "ab")
 	}
 }
+
+// TestDevStateCleanedValue checks that a value cleaned for the editor's
+// mode (a Textarea's text restored into an Input loses its line breaks)
+// keeps neither the saved selection nor the history, whose offsets are
+// the saved value's: the caret goes to the end, as SetText puts it.
+func TestDevStateCleanedValue(t *testing.T) {
+	src := parse(t, "ab\n[cd]\nef", Options{Multiline: true})
+	st := src.e.DevState()
+	d := parse(t, "|", Options{})
+	d.e.RestoreDevState(st)
+	expectState(t, "single-line", d.e, "abcdef|")
+	// Restored into a multi-line editor, the value is the saved one: the
+	// selection is kept.
+	m := parse(t, "|", Options{Multiline: true})
+	m.e.RestoreDevState(st)
+	expectState(t, "multi-line", m.e, "ab\n[cd]\nef")
+}

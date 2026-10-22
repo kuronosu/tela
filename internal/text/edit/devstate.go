@@ -61,13 +61,17 @@ func devSteps(steps []step) []DevStep {
 
 // RestoreDevState replaces the editor's value, selection and history with
 // s, as a reload restores them: an active composition is canceled first
-// (the caller resets the IME), the value is cleaned like SetText's, the
-// selection is clamped to it and moved to grapheme boundaries, and the
-// history is kept only when it is consistent with the value (every undo
-// step, undone from the value, and every redo step, redone from it, finds
-// the text it expects), so that a damaged state never breaks Undo. The
-// history starts closed: the next edit opens a step of its own. It fires
-// nothing and reports what changed, like SetText.
+// (the caller resets the IME) and the value is cleaned like SetText's.
+// When the cleaned value is the saved one, the selection is clamped to it
+// and moved to grapheme boundaries, and the history is kept only when it
+// is consistent with the value (every undo step, undone from the value,
+// and every redo step, redone from it, finds the text it expects), so that
+// a damaged state never breaks Undo. A value that cleaning changed (a
+// Textarea's text restored into an Input loses its line breaks) keeps
+// neither, since their offsets are the saved value's: the caret goes to
+// the end, as SetText puts it. The history starts closed: the next edit
+// opens a step of its own. It fires nothing and reports what changed,
+// like SetText.
 func (e *Editor) RestoreDevState(s DevState) Result {
 	if e.composing {
 		e.endComposition()
@@ -76,7 +80,8 @@ func (e *Editor) RestoreDevState(s DevState) Result {
 	v := sanitizeValue(s.Value, e.opts.Multiline)
 	e.value = v
 	e.hist.clear()
-	if v == s.Value && e.opts.undoLimit() >= 0 {
+	same := v == s.Value
+	if same && e.opts.undoLimit() >= 0 {
 		undo, ok := devHistory(v, s.Undo, true)
 		redo, ok2 := devHistory(v, s.Redo, false)
 		if ok && ok2 {
@@ -86,7 +91,10 @@ func (e *Editor) RestoreDevState(s DevState) Result {
 	}
 	e.hist.open = false
 	dc := e.rebuild()
-	vs := vsel{devCursor(v, s.Anchor), devCursor(v, s.Focus)}
+	vs := caretSel(len(v), text.Downstream)
+	if same {
+		vs = vsel{devCursor(v, s.Anchor), devCursor(v, s.Focus)}
+	}
 	e.sel = e.toDisplaySel(vs)
 	e.gen++
 	return e.report(oldValue, oldSel, dc)
