@@ -40,7 +40,9 @@ import (
 
 // slowStartAfter is the start → connection time above which tela dev
 // prints the hint on Windows. A build of the dashboard connects in about
-// 60 ms without the scan.
+// 115 ms on the Windows 11 VM without the scan (its first frame took
+// 412 ms on a first start there, which is why the first frame is not the
+// measure).
 const slowStartAfter = 400 * time.Millisecond
 
 // defaultSlowStart is the supervisor's slowStart: slowStartAfter on
