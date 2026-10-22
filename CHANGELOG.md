@@ -16,6 +16,13 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 - `aria.TabsOptions.TextValue`: a tab list has no typeahead, as in React Aria. Typing a letter used to move the focus without selecting the tab, so the panel disagreed with the focused tab.
 
+### Fixed
+
+- An image or icon load whose cache key panicked when hashed left the asset cache's lock held, so every later `Img`, `Icon` or background-image load deadlocked; the lock is now always released, and a `tela.BgImage` image that is comparable but holds a non-comparable value in an interface field is converted without the cache instead of panicking (ADR-109).
+- A floating element whose size limits keep changing no longer keeps other floating elements from getting the follow-up frames that apply their limits: the frames are counted per element (ADR-109).
+- A quick tap after a touch scroll is no longer counted as the second click of a double click (a word selected in a text field, `OnDoubleClick`) (ADR-109).
+- A touch that scrolls no longer fires `pointerenter`/`pointerleave` (and the mouse ones) on the elements the finger passes over: the pressed element's chain is left right after the `pointercancel`, then nothing more of the touch is dispatched until it lifts (ADR-109).
+
 ## [0.8.1] - 2026-10-21
 
 ### Fixed
