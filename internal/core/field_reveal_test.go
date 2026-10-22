@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 )
@@ -192,6 +193,156 @@ func TestFieldRevealStaleWidth(t *testing.T) {
 		t.Errorf("scrollX: %v, want %v (revealed with the new width)", fa.scrollX, fb.scrollX)
 	}
 	samePixels(t, "narrowed", a, b)
+}
+
+// A passive effect that narrows a field and focuses it, in either order,
+// reveals its caret with the narrowed width: the effect's state update
+// applies in the next frame, and the reveal waits for that frame's layout,
+// as when the field is focused after it. Before the fix the reveal ran in
+// the effect, with the wide layout (the value fit, nothing scrolled), and
+// the caret at the end of the narrowed field was clipped away.
+func TestFieldRevealFromEffect(t *testing.T) {
+	long := strings.Repeat("word ", 5) // fits w-80, not w-32
+	app := func(focusFirst bool, start *func()) Node {
+		return Component(func() Node {
+			narrow, setNarrow := UseState(false)
+			run, setRun := UseState(false)
+			*start = func() { setRun.Set(true) }
+			ref := UseElementRef()
+			UseEffect(func() func() {
+				if run {
+					if focusFirst {
+						ref.Focus()
+						setNarrow.Set(true)
+					} else {
+						setNarrow.Set(true)
+						ref.Focus()
+					}
+				}
+				return nil
+			}, run)
+			w := "w-80"
+			if narrow {
+				w = "w-32"
+			}
+			return div(Class("p-4"), input(Key("in"), Class(w), AttachRef(ref), DefaultValue(long)))
+		})
+	}
+	// caretToEnd puts the caret of the field at the end and blurs it.
+	caretToEnd := func(x *inputHarness, f *field) {
+		x.tree().focusElement(f.el)
+		x.key(platform.KeyEnd, 0)
+		x.settle()
+		x.tree().setFocus(nil, focusScript)
+		x.settle()
+		if x.tree().foc.el != nil || f.ed.Selection().Focus.Offset != len(long) {
+			t.Fatalf("setup: focused %v, caret %d", x.tree().foc.el != nil, f.ed.Selection().Focus.Offset)
+		}
+	}
+	// The reference: the narrow field laid out, then focused.
+	var refStart func()
+	b := newKeys(t, app(false, &refStart), 400, 100)
+	b.settle()
+	refStart()
+	b.settle()
+	fb := fieldOf(t, b.tree(), "in")
+	caretToEnd(b, fb)
+	b.tree().focusElement(fb.el)
+	b.settle()
+	if b.tree().foc.el != fb.el || fb.scrollX <= 0 {
+		t.Fatalf("reference: focused %v, scrollX %v, want the end revealed", b.tree().foc.el == fb.el, fb.scrollX)
+	}
+	for _, focusFirst := range []bool{false, true} {
+		name := "narrow then focus"
+		if focusFirst {
+			name = "focus then narrow"
+		}
+		t.Run(name, func(t *testing.T) {
+			var start func()
+			a := newKeys(t, app(focusFirst, &start), 400, 100)
+			a.settle()
+			fa := fieldOf(t, a.tree(), "in")
+			caretToEnd(a, fa)
+			if fa.scrollX != 0 {
+				t.Fatalf("setup: scrollX %v in the wide field", fa.scrollX)
+			}
+			start()
+			a.settle()
+			if a.tree().foc.el != fa.el {
+				t.Fatal("the effect did not focus the field")
+			}
+			if fa.scrollX != fb.scrollX {
+				t.Errorf("scrollX %v, want %v (revealed with the narrowed width)", fa.scrollX, fb.scrollX)
+			}
+			samePixels(t, name, a, b)
+		})
+	}
+}
+
+// The same at the start of a frame, before its build: a passive effect the
+// frame flushes (a Tree driven by Frame alone) and a posted function its
+// ApplyUpdates runs. The caret is revealed as by a focus after the layout.
+func TestFieldRevealAtFrameStart(t *testing.T) {
+	long := strings.Repeat("word ", 5) // fits w-80, not w-32
+	for _, via := range []string{"effect", "post"} {
+		t.Run(via, func(t *testing.T) {
+			var setRun, setNarrow Setter[bool]
+			var ref ElementRef
+			app := func() Node {
+				narrow, sn := UseState(false)
+				run, sr := UseState(false)
+				setNarrow, setRun = sn, sr
+				ref = UseElementRef()
+				UseEffect(func() func() {
+					if run {
+						setNarrow.Set(true)
+						ref.Focus()
+					}
+					return nil
+				}, run)
+				w := "w-80"
+				if narrow {
+					w = "w-32"
+				}
+				return div(Class("p-4"), input(Key("in"), Class(w), AttachRef(ref), DefaultValue(long)))
+			}
+			tr := NewTree(Config{Fonts: testFonts})
+			tr.SetViewport(gfx.Size{W: 400, H: 100})
+			tr.Mount(Component(app))
+			tr.Frame()
+			f := fieldOf(t, tr, "in")
+			f.ed.Select(len(long), len(long)) // the caret at the end, not focused
+			switch via {
+			case "effect":
+				setRun.Set(true)
+				tr.Frame() // builds; its passive effect waits
+				tr.Frame() // flushes the effect at its start
+			case "post":
+				stop := tr.ReceivePosts()
+				defer stop()
+				Post(func() {
+					setNarrow.Set(true)
+					ref.Focus()
+				})
+				tr.Frame()
+			}
+			for i := 0; i < 10 && tr.Dirty(); i++ {
+				tr.Frame()
+			}
+			if tr.foc.el != f.el {
+				t.Fatal("the field is not focused")
+			}
+			got := f.scrollX
+			f.scrollX = 0
+			f.revealNow() // the reveal of a focus after the layout
+			if f.scrollX <= 0 {
+				t.Fatalf("reference: scrollX %v, want the end revealed", f.scrollX)
+			}
+			if got != f.scrollX {
+				t.Errorf("scrollX %v, want %v (revealed with the narrowed width)", got, f.scrollX)
+			}
+		})
+	}
 }
 
 // Typing into a field sized to its content (field-sizing-content) widens

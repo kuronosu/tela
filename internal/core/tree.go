@@ -461,6 +461,10 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.inFrame = true
 	defer t.afterFrame()
 	t.asked = false
+	// Caret reveals wait for the layout of the frame (field.go), also those
+	// of the passive effects, posted functions and scroll handlers that run
+	// first: the build applies their updates.
+	t.frev.hold = true
 	t.FlushEffects()
 	t.ApplyUpdates()
 	// The scroll events of the offsets changed since the previous frame
@@ -474,8 +478,6 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	}
 	t.frame++
 	t.stats.Frames++
-	// Caret reveals wait for the layout of the frame (field.go).
-	t.frev.hold = true
 	// A frame that builds, restyles or lays out records every layer; one
 	// that only repaints records only what changed (layer.go).
 	full := t.changed || t.lastDL == nil

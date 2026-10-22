@@ -1008,8 +1008,11 @@ func (f *field) textOrigin() (x, y float32) {
 
 // revealState holds the caret reveals that wait for a layout.
 type revealState struct {
-	// hold reports a frame before its layout is done: from its build to
-	// the end of its scroll phase (which may lay out again).
+	// hold reports that the layout is not done for the code that runs: a
+	// frame from its start (its passive effects, posted functions and
+	// scroll handlers, whose updates its build applies) to the end of its
+	// scroll phase (which may lay out again), and the passive effects run
+	// outside a frame (FlushEffects), whose updates the next frame applies.
 	hold bool
 	// q are the fields whose reveal waits, in the order they asked.
 	q []*field
@@ -1021,11 +1024,14 @@ type revealState struct {
 // box, so while the layout is not current it waits for the next one
 // (revealFields): in a frame before its layout is done (the focus an
 // AutoFocus field takes after the style phase, a caret moved by a
-// controlled Value in the build) and outside a frame while a frame's
-// work is pending (a key that resizes a field-sizing-content Input). The
-// content width of a field never laid out is zero, which scrolled an
-// AutoFocus Input whose value fits by the caret's 1 px, and a width the
-// coming layout changes is stale.
+// controlled Value in the build, ElementRef.Focus in a passive effect,
+// a posted function or OnScroll that runs at the frame's start), in the
+// passive effects run after a frame (ElementRef.Focus in a UseEffect
+// that also resizes the field: its update applies in the next frame) and
+// outside a frame while a frame's work is pending (a key that resizes a
+// field-sizing-content Input). The content width of a field never laid
+// out is zero, which scrolled an AutoFocus Input whose value fits by the
+// caret's 1 px, and a width the coming layout changes is stale.
 func (f *field) reveal() {
 	t := f.t
 	if t.frev.hold || !t.layoutCurrent() {
@@ -1033,6 +1039,7 @@ func (f *field) reveal() {
 			f.revealQueued = true
 			t.frev.q = append(t.frev.q, f)
 		}
+		t.requestRepaint() // the frame that runs it (in a frame: no early return)
 		return
 	}
 	f.revealNow()

@@ -203,7 +203,9 @@ func (t *Tree) commitLayout() {
 // UI thread; state set by an effect is applied in a later frame. The
 // effects run as handlers do (handlerDepth): a click one makes
 // (ElementRef.Click) queues its updates for the host's next step (the
-// setters wake it) instead of building in the middle of the commit.
+// setters wake it) instead of building in the middle of the commit. A
+// caret reveal they ask for (ElementRef.Focus on a text field) waits for
+// the layout of the next frame, which applies their updates (field.go).
 func (t *Tree) FlushEffects() {
 	if len(t.readyGone) == 0 && len(t.readyFx) == 0 {
 		return
@@ -211,7 +213,12 @@ func (t *Tree) FlushEffects() {
 	gone, fx := t.readyGone, t.readyFx
 	t.readyGone, t.readyFx = nil, nil
 	t.handlerDepth++
-	defer func() { t.handlerDepth-- }()
+	hold := t.frev.hold
+	t.frev.hold = true
+	defer func() {
+		t.handlerDepth--
+		t.frev.hold = hold
+	}()
 	runEffects(gone, fx)
 }
 
