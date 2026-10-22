@@ -12,6 +12,12 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-21
+
+### Fixed
+
+- `TELA_DEBUG=layers` no longer panics on a window with a text field (`Input`, `Textarea`): the layers overlay had no border color for text-field layers since v0.5.0.
+
 ## [0.8.0] - 2026-10-21
 
 ### Added
@@ -471,7 +477,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/kuronosu/tela/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/kuronosu/tela/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kuronosu/tela/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/kuronosu/tela/compare/v0.5.2...v0.6.0
