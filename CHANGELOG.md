@@ -24,7 +24,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
-- A text field reveals its caret after layout: an `AutoFocus` input no longer starts scrolled by 1 px with its caret hidden, a caret moved to the end before the first frame shows the end of the text, a field resized in the same build reveals with its new width, and typing into a `field-sizing-content` input no longer scrolls the text away, and a field focused from an effect that also resizes it reveals its caret with the new size (ADR-118, ADR-120).
+- A text field reveals its caret after layout: an `AutoFocus` input no longer starts scrolled by 1 px with its caret hidden, a caret moved to the end before the first frame shows the end of the text, a field resized in the same build reveals with its new width, and typing into a `field-sizing-content` input no longer scrolls the text away, and a field focused from an effect, a handler or a posted function that also resizes it reveals its caret with the new size (ADR-118, ADR-120, ADR-122, ADR-124).
+- A layout effect that moves the focus in a frame with nothing else to do now applies the newly focused element's `focus:` styles in that frame; before, they waited for the next change (ADR-124).
 
 ## [0.8.2] - 2026-10-21
 
