@@ -221,6 +221,7 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 		stderr:   stderr,
 		env:      os.Environ(),
 		restore:  restore,
+		overlay:  true,
 		watchSet: set,
 		setRoots: func(roots []string) { w.SetRoots(roots) },
 		refreshDeps: func() (depSet, error) {

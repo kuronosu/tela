@@ -102,7 +102,10 @@
 // [Host.SetOverlay] installs a hook that draws over each frame right
 // before it is presented (tela dev's error overlay, drawn over the last
 // good frame: a detached or disconnected child's last frame stays on its
-// window). [Host.Frame] returns a copy of a window's current frame.
+// window). [HostOptions.Input] lets the supervisor consume input events
+// (the clicks on that overlay's panel, Escape) before any child sees them;
+// the pointer's hover in the child ends and resumes around them.
+// [Host.Frame] returns a copy of a window's current frame.
 //
 // # Control channel
 //

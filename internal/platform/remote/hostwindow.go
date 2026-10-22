@@ -29,6 +29,7 @@ type realWin struct {
 	focused   bool
 	textInput *platform.TextInputState // the state set on w
 	pointer   *platform.PointerEvent   // the latest pointer event while inside
+	covered   bool                     // the pointer is over ground HostOptions.Input consumes
 	out       *image.RGBA              // composition buffer (resampling, overlay)
 	smp       *sampler                 // cached for out
 }

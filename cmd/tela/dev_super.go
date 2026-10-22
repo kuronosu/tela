@@ -64,8 +64,10 @@ type supervisorConfig struct {
 	watchSet    *watchSet
 	setRoots    func(roots []string)
 	refreshDeps func() (depSet, error)
-	// view shows problems (nil: the terminal). T5 adds the overlay here.
+	// view shows problems (nil: the terminal).
 	view problemView
+	// overlay also draws them over the window (ADR-117).
+	overlay bool
 	// describe and watching complete the start line.
 	describe, watching string
 
@@ -78,6 +80,7 @@ type supervisor struct {
 	opts devOptions
 	log  *devLog
 	view problemView
+	ov   *overlayView // nil without cfg.overlay
 
 	host     *remote.Host
 	quitHost func()
@@ -218,6 +221,10 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 	if s.view == nil {
 		s.view = terminalView{s.log}
 	}
+	if cfg.overlay {
+		s.ov = newOverlayView(func(err error) { s.log.printf("%v", err) })
+		s.view = multiView{s.view, s.ov}
+	}
 	s.q.init()
 	return s
 }
@@ -236,6 +243,9 @@ func (s *supervisor) hostOptions() remote.HostOptions {
 			}
 		},
 		OnError: func(err error) { s.push(evHostError{err}) },
+	}
+	if s.ov != nil {
+		o.Input = s.ov.handleInput
 	}
 	if s.opts.SizeSet {
 		size := platform.Size{W: float32(s.opts.W), H: float32(s.opts.H)}
@@ -261,6 +271,9 @@ func (s *supervisor) hostOptions() remote.HostOptions {
 // handlers.
 func (s *supervisor) attach(h *remote.Host, quitHost func()) {
 	s.host, s.quitHost = h, quitHost
+	if s.ov != nil {
+		s.ov.attach(h)
+	}
 	h.Handle(devloop.KindStateLoad, func(c *remote.Child, _ []byte) ([]byte, error) {
 		s.stateMu.Lock()
 		defer s.stateMu.Unlock()
@@ -1038,6 +1051,9 @@ type problem struct {
 	// stack (empty when the summary says it all).
 	text string
 	gen  int
+	// live: a child is alive and shown, so the window stays usable under
+	// the problem (set by show).
+	live bool
 }
 
 // problemView shows the dev loop's problems: the one place that receives
@@ -1052,6 +1068,7 @@ type problemView interface {
 
 func (s *supervisor) show(p problem) {
 	s.problem = true
+	p.live = s.active != nil
 	s.view.show(p)
 }
 

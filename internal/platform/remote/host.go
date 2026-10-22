@@ -56,6 +56,20 @@ type HostOptions struct {
 	// detached first; the last frame of a child that was active stays on
 	// its windows.
 	OnDisconnect func(c *Child, err error)
+	// Input, when set, sees the input events of the real windows (pointer,
+	// scroll, key, IME and the like; not configure, frame or focus
+	// changes) before they are queued or delivered to a child, and returns
+	// true to consume one: no child sees it. tela dev's error overlay uses
+	// it to take the clicks on its panel and Escape. A pointer that moves
+	// onto consumed ground gets a PointerLeave sent to the child that was
+	// receiving it, and a PointerEnter at the first event that is not
+	// consumed again (a PointerLeave of the window itself that arrives
+	// meanwhile is dropped, as the child already has its own), so hover
+	// states cannot stick under the panel. A consumed key press is not
+	// seen by the child, which then drops the release that follows (it saw
+	// no press), so Input need not consume releases. It runs on the UI
+	// thread and must not block.
+	Input func(w platform.Window, e platform.Event) bool
 	// OnUnhandled receives the real windows' input events that no child
 	// receives (no child is active and input is not frozen), such as a
 	// CloseRequestedEvent after the app crashed.
@@ -440,8 +454,44 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 	}
 }
 
-// input delivers or queues an input event.
+// input offers an input event to the Input option, then delivers or
+// queues it.
 func (h *Host) input(rw *realWin, e platform.Event) {
+	if fn := h.opts.Input; fn != nil {
+		pe, isPointer := e.(platform.PointerEvent)
+		if fn(rw.w, e) {
+			if isPointer && !rw.covered {
+				// The pointer is over consumed ground: the child's
+				// hover states end.
+				rw.covered = true
+				leave := pe
+				leave.Action, leave.Button = platform.PointerLeave, platform.ButtonNone
+				if rw.pointer != nil {
+					leave.Pos = rw.pointer.Pos
+				}
+				h.forward(rw, leave)
+			}
+			return
+		}
+		if isPointer && rw.covered {
+			rw.covered = false
+			switch pe.Action {
+			case platform.PointerLeave:
+				return // the child already has its leave
+			case platform.PointerEnter:
+			default:
+				enter := pe
+				enter.Action, enter.Button = platform.PointerEnter, platform.ButtonNone
+				h.forward(rw, enter)
+			}
+		}
+	}
+	h.forward(rw, e)
+}
+
+// forward delivers an input event to the active child, or queues it while
+// input is frozen.
+func (h *Host) forward(rw *realWin, e platform.Event) {
 	if h.frozen {
 		h.queue = append(h.queue, queuedEvent{rw, e})
 		return
