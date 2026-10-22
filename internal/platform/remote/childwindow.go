@@ -38,7 +38,9 @@ import (
 // Windows the mapping lives by name and must outlive the host's open, and
 // the acknowledgment proves the host processed every message before it.
 // For the same reason a window closed before the host acknowledged its
-// latest segment keeps it until then. Releases of an older generation are
+// latest segment keeps it until then, and Backend.Close waits (at most
+// closeTimeout) for the acknowledgments still due before it closes the
+// connection and unmaps everything. Releases of an older generation are
 // ignored.
 
 // slotsPerWindow is the number of frame slots of a window's segment.

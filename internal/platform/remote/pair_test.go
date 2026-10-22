@@ -258,6 +258,57 @@ func TestCloseRightAfterPresent(t *testing.T) {
 	})
 }
 
+// TestQuitRightAfterPresent quits (Run returns and closes the Backend)
+// right after the Present that created a window's segment, as
+// platformtest's ConfigureThenFrame does: Close waits for the host's
+// acknowledgment before releasing the segment, which on Windows the host
+// opens by name (it failed there with "OpenFileMapping …: The system
+// cannot find the file specified"; on Unix the descriptor travels with
+// the message, so only the acknowledgment shows it here).
+func TestQuitRightAfterPresent(t *testing.T) {
+	for i := range 5 {
+		p := newPair(t, HostOptions{}, headless.Options{})
+		b, err := Dial(p.host.Addr(), DialOptions{Tag: "a"})
+		if err != nil {
+			t.Fatalf("Dial: %v", err)
+		}
+		// Events are delivered once Run is called.
+		pw, err := b.NewWindow(platform.WindowOptions{Size: platform.Size{W: float32(20 + i), H: 20}})
+		if err != nil {
+			t.Fatalf("NewWindow: %v", err)
+		}
+		w := pw.(*Window)
+		w.RequestFrame()
+		done := make(chan error, 1)
+		go func() {
+			done <- b.Run(platform.HandlerFunc(func(_ platform.Window, e platform.Event) {
+				if _, ok := e.(platform.FrameEvent); ok {
+					fb := image.NewRGBA(image.Rectangle{Max: w.Metrics().Physical()})
+					if err := w.Present(fb, nil); err != nil {
+						t.Errorf("Present: %v", err)
+					}
+					b.Quit()
+				}
+			}))
+		}()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+		case <-time.After(waitTimeout):
+			t.Fatalf("Run did not return")
+		}
+		b.mu.Lock()
+		gen, acked := w.gen, w.ackedGen
+		b.mu.Unlock()
+		if gen == 0 || acked != gen {
+			t.Errorf("run %d: Close released generation %d with generation %d acknowledged", i, gen, acked)
+		}
+		waitFor(t, "host frame", func() bool { return p.window(0).Frame() != nil })
+	}
+}
+
 func TestClipboard(t *testing.T) {
 	p := newPair(t, HostOptions{}, headless.Options{})
 	a := p.dial("a").start()

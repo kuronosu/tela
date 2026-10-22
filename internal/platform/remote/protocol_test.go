@@ -42,6 +42,15 @@ var eventSamples = []platform.Event{
 // type (a type with an isEvent method) that eventSamples, and therefore
 // the wire encoding, does not cover.
 func TestEveryEventHasAnEncoding(t *testing.T) {
+	for _, e := range eventSamples {
+		if got := roundTrip(t, e); !reflect.DeepEqual(got, e) {
+			t.Errorf("round trip of %T: got %+v, want %+v", e, got, e)
+		}
+	}
+	// go test runs a package's tests in its source directory, so package
+	// platform is the parent directory. A test binary run elsewhere (built
+	// with go test -c and copied to a machine without the repository) has
+	// no sources to compare eventSamples with.
 	dir := filepath.Join("..")
 	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
 	if err != nil {
@@ -49,6 +58,7 @@ func TestEveryEventHasAnEncoding(t *testing.T) {
 	}
 	var declared []string
 	fset := token.NewFileSet()
+	sources := 0
 	for _, name := range files {
 		if strings.HasSuffix(name, "_test.go") {
 			continue
@@ -57,6 +67,10 @@ func TestEveryEventHasAnEncoding(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if f.Name.Name != "platform" {
+			continue
+		}
+		sources++
 		for _, d := range f.Decls {
 			fd, ok := d.(*ast.FuncDecl)
 			if !ok || fd.Name.Name != "isEvent" || fd.Recv == nil || len(fd.Recv.List) != 1 {
@@ -70,6 +84,10 @@ func TestEveryEventHasAnEncoding(t *testing.T) {
 				declared = append(declared, id.Name)
 			}
 		}
+	}
+	if sources == 0 {
+		abs, _ := filepath.Abs(dir)
+		t.Skipf("no source file of package platform in %s (the test binary runs outside the source tree): the event types cannot be listed; the round trips above ran", abs)
 	}
 	if len(declared) < 10 {
 		t.Fatalf("found only %d event types in package platform (%v); the parser is looking in the wrong place", len(declared), declared)
@@ -88,11 +106,6 @@ func TestEveryEventHasAnEncoding(t *testing.T) {
 	for _, name := range sampled {
 		if !slices.Contains(declared, name) {
 			t.Errorf("eventSamples has %s, which is not an event type of package platform", name)
-		}
-	}
-	for _, e := range eventSamples {
-		if got := roundTrip(t, e); !reflect.DeepEqual(got, e) {
-			t.Errorf("round trip of %T: got %+v, want %+v", e, got, e)
 		}
 	}
 }

@@ -43,6 +43,9 @@ type Backend struct {
 
 	// notify wakes a blocked Run. Buffer 1, non-blocking sends.
 	notify chan struct{}
+	// ackedCh wakes Close's wait for acknowledgments (waitAcks). Buffer
+	// 1, non-blocking sends.
+	ackedCh chan struct{}
 
 	mu       sync.Mutex // the loop's lock (loop.Options.Lock) and everything below
 	loop     *loop.Loop[*Window]
@@ -134,6 +137,7 @@ func Dial(addr string, opts DialOptions) (*Backend, error) {
 		offset:   hostNow - (sent+got)/2,
 		host:     name,
 		notify:   make(chan struct{}, 1),
+		ackedCh:  make(chan struct{}, 1),
 		settings: settings,
 		windows:  map[uint32]*Window{},
 		closing:  map[uint32]*Window{},
@@ -230,7 +234,14 @@ func (b *Backend) Run(h platform.Handler) error {
 func (b *Backend) Close() error {
 	// What the app sent last (a window's close, a notification) leaves
 	// before the connection closes.
-	b.c.flush(time.Second)
+	deadline := time.Now().Add(closeTimeout)
+	b.c.flush(closeTimeout)
+	// Then the host acknowledges the segments it has not mapped yet: on
+	// Windows it opens a segment by name, and a mapping whose last handle
+	// closes is gone, so releasing it before the host's acknowledgment
+	// made a Present right before the end fail on the host
+	// ("OpenFileMapping …: The system cannot find the file specified").
+	b.waitAcks(deadline)
 	b.c.fail(ErrClosed)
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -243,6 +254,43 @@ func (b *Backend) Close() error {
 	clear(b.closing)
 	b.loop.Discard()
 	return nil
+}
+
+// closeTimeout bounds how long Close waits for the host to read what was
+// sent and to acknowledge the segments it has not mapped yet.
+const closeTimeout = time.Second
+
+// waitAcks waits until the host has acknowledged the latest segment of
+// every window, open or closed, until the connection ends or until
+// deadline.
+func (b *Backend) waitAcks(deadline time.Time) {
+	t := time.NewTimer(time.Until(deadline))
+	defer t.Stop()
+	for b.unacked() {
+		select {
+		case <-b.ackedCh:
+		case <-b.c.done:
+			return
+		case <-t.C:
+			return
+		}
+	}
+}
+
+// unacked reports whether a window has a segment the host has not
+// acknowledged.
+func (b *Backend) unacked() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.closing) > 0 {
+		return true
+	}
+	for _, w := range b.windows {
+		if w.seg != nil && w.ackedGen < w.gen {
+			return true
+		}
+	}
+	return false
 }
 
 // readLoop is the reader goroutine.
@@ -310,6 +358,10 @@ func (b *Backend) dispatch(t msgType, d *dec) error {
 			}
 		}
 		b.mu.Unlock()
+		select {
+		case b.ackedCh <- struct{}{}:
+		default:
+		}
 	case msgClipReply:
 		id, text, msg, failed := d.u32(), d.str(), d.str(), d.boolean()
 		if err := d.end(); err != nil {
