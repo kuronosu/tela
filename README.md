@@ -275,8 +275,8 @@ the diff.
 Because the whole pipeline is headless, a loop of *write → `tela snapshot` →
 look at the PNG → `tela inspect` → fix* needs no window and no human. Unknown
 classes come with suggestions, and `tela inspect --layout` prints boxes as
-JSON. Planned: `tela lint`, `tela dev`, `tela mcp` and a `docs/llms.txt`
-(phase 10).
+JSON. Planned: `tela dev` with the window and state kept across rebuilds
+(phase 9), then `tela lint`, `tela mcp` and a `docs/llms.txt` (phase 11).
 
 ## Project status
 
@@ -301,7 +301,7 @@ are done.
 | Window and rendering | ✅ | ✅ | ✅ | ✅ | cross-compiles, no backend yet |
 | Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
 | Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
-| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (phase 13) | ✅ (injected) | ✅ (IMM32) | — |
+| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (phase 14) | ✅ (injected) | ✅ (IMM32) | — |
 
 Implemented: block, flex and grid layout with relative, absolute, fixed and
 sticky positioning; Tailwind classes and variants; shaped text with fallback;
@@ -316,10 +316,10 @@ semantics tree; debug overlays; the `tela` CLI (`snapshot`, `inspect`).
 
 ### Not yet, or known limits
 
-- **No macOS window** yet (phase 13); it cross-compiles. No IME on X11 yet
-  (XIM, phase 13).
+- **No macOS window** yet (phase 14); it cross-compiles. No IME on X11 yet
+  (XIM, phase 14).
 - **No checkbox, radio, select or slider elements** yet; `kit` brings them
-  in phase 9 (a `Button` with `Role("checkbox")` works meanwhile).
+  in phase 10 (a `Button` with `Role("checkbox")` works meanwhile).
 - **Glass pages at 2x are not 60 fps while scrolling** on CPU (the dashboard's
   p95 is 36–48 ms per frame at 2880×1800 and 4K; it is 14.6 ms at 1080p).
 - Transforms are 2D only; `Img` takes a decoded `image.Image` (no SVG or file
