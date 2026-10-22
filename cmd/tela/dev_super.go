@@ -153,15 +153,20 @@ const exitSettle = 500 * time.Millisecond
 
 // swapState is a swap in progress.
 type swapState struct {
-	res     buildResult
-	trig    trigger
-	proc    *proc
-	frozen  bool
-	state   string // "kept", "fresh", or why it was not kept
-	timer   *time.Timer
-	saved   time.Time
-	started time.Time
-	first   time.Time
+	res    buildResult
+	trig   trigger
+	proc   *proc
+	frozen bool
+	// promoting: the promotion of proc is posted to the host. From then on
+	// the host may show proc and detach the old child at any moment, so
+	// only the promotion's result (evPromoted) decides the swap, not the
+	// first-frame timeout.
+	promoting bool
+	state     string // "kept", "fresh", or why it was not kept
+	timer     *time.Timer
+	saved     time.Time
+	started   time.Time
+	first     time.Time
 }
 
 // Events of the supervisor's queue.
@@ -428,7 +433,7 @@ func (s *supervisor) handle(e any) {
 	case evSaved:
 		s.saved(e.gen, e.data, e.err)
 	case evTimeout:
-		if sw := s.swap; sw != nil && sw.res.gen == e.gen && sw.proc != nil {
+		if sw := s.swap; sw != nil && sw.res.gen == e.gen && sw.proc != nil && !sw.promoting {
 			s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("the new build showed no frame in %v; %s", s.cfg.firstFrameTimeout, s.stays())})
 		}
 	case evDisconnected:
@@ -781,9 +786,10 @@ func (s *supervisor) firstFrame(c *remote.Child) {
 		return
 	}
 	sw := s.swap
-	if sw == nil || sw.proc != p {
+	if sw == nil || sw.proc != p || sw.promoting {
 		return
 	}
+	sw.promoting = true
 	sw.first = time.Now()
 	gen := p.gen
 	h := s.host

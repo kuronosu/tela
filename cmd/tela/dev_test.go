@@ -90,6 +90,13 @@ type devHarness struct {
 
 func newDevHarness(t *testing.T, opts devOptions, configure func(*supervisorConfig)) *devHarness {
 	t.Helper()
+	return newDevHarnessHost(t, opts, configure, nil)
+}
+
+// newDevHarnessHost is newDevHarness with a function that may rewrite the
+// remote host's options (to wrap the supervisor's callbacks).
+func newDevHarnessHost(t *testing.T, opts devOptions, configure func(*supervisorConfig), hostOpts func(*devHarness, *remote.HostOptions)) *devHarness {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("starts processes")
 	}
@@ -124,7 +131,11 @@ func newDevHarness(t *testing.T, opts devOptions, configure func(*supervisorConf
 	}
 	h.s = newSupervisor(cfg)
 	h.view.term = terminalView{h.s.log}
-	host, err := remote.NewHost(h.hb, h.s.hostOptions())
+	ho := h.s.hostOptions()
+	if hostOpts != nil {
+		hostOpts(h, &ho)
+	}
+	host, err := remote.NewHost(h.hb, ho)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,6 +383,39 @@ func TestDevNewBuildCrashesBeforeFirstFrame(t *testing.T) {
 				t.Errorf("problems %v", got)
 			}
 		})
+	}
+}
+
+// A first-frame timeout that the supervisor handles after it posted the
+// promotion of the new build (the timer fired between the first frame and
+// the promotion's result) must not undo the swap: the host has already
+// shown the new child and detached the old one, so failing the swap would
+// stop the child on screen and keep a detached one as the active app.
+func TestDevTimeoutAfterPromotionPosted(t *testing.T) {
+	h := newDevHarnessHost(t, devOptions{}, nil, func(h *devHarness, o *remote.HostOptions) {
+		first := o.OnFirstFrame
+		o.OnFirstFrame = func(c *remote.Child) {
+			first(c)
+			if c.Tag() == "2" {
+				// Queued after the first frame and before the promotion's
+				// result, which the host's UI thread (running this) can
+				// only push once this returns.
+				h.s.push(evTimeout{2})
+			}
+		}
+	})
+	h.expect("first start", 1, 0, 0)
+	h.click()
+	h.expect("one click", 1, 1, 1)
+	h.s.push(evKey{'r'})
+	h.expect("the new build", 2, 1, 0)
+	h.logged("reloaded in", 1)
+	// The new build is the app: it stays alive and gets the input.
+	h.click()
+	h.expect("a click after the swap", 2, 2, 1)
+	h.still("the new build", 2, 2, 1, 200*time.Millisecond)
+	if got := h.view.entries(); len(got) != 0 {
+		t.Errorf("problems shown: %v", got)
 	}
 }
 
