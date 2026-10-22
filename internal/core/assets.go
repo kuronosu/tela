@@ -43,8 +43,9 @@ import (
 // Decoded images given with tela.BgImage (style.BackgroundLayer.Image) are
 // converted once per image.Image value and kept in a cache bounded by
 // size (bgImageCacheBytes, least recently used first), so that passing
-// the same image on every build converts it once; an image whose dynamic
-// type is not comparable is converted on every paint.
+// the same image on every build converts it once; an image that cannot be
+// a map key (its dynamic type is not comparable, or it holds a value that
+// is not in an interface field: hashable) is converted on every paint.
 
 // assetRegistry is the process-wide registry of asset file systems and
 // the cache of decoded images.
@@ -210,20 +211,18 @@ func convertBgImage(src image.Image) *gfx.Image {
 	if src == nil {
 		return nil
 	}
-	if t := reflect.TypeOf(src); !t.Comparable() {
+	if !hashable(reflect.ValueOf(src)) {
+		// Not a map key: a type that is not comparable, or a comparable
+		// one holding such a value in an interface (hashing it panics).
 		return gfx.NewImage(src)
 	}
-	assets.mu.Lock()
-	c := &assets.conv
-	if e, ok := c.m[src]; ok {
-		c.touch(e)
-		assets.mu.Unlock()
-		return e.img
+	if img := lookupConv(src); img != nil {
+		return img
 	}
-	assets.mu.Unlock()
 	img := gfx.NewImage(src)
 	assets.mu.Lock()
 	defer assets.mu.Unlock()
+	c := &assets.conv
 	if e, ok := c.m[src]; ok { // converted meanwhile by another tree
 		return e.img
 	}
@@ -232,6 +231,18 @@ func convertBgImage(src image.Image) *gfx.Image {
 	}
 	c.add(&convEntry{src: src, img: img}, bgImageCacheBytes)
 	return img
+}
+
+// lookupConv returns the cached conversion of src, or nil.
+func lookupConv(src image.Image) *gfx.Image {
+	assets.mu.Lock()
+	defer assets.mu.Unlock()
+	c := &assets.conv
+	if e, ok := c.m[src]; ok {
+		c.touch(e)
+		return e.img
+	}
+	return nil
 }
 
 // add inserts e as the most recently used entry and evicts the least

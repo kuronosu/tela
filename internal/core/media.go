@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"math"
 	"reflect"
+	"sync"
 	"unsafe"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -314,21 +315,38 @@ func (c *mediaCache) add(e *mediaEntry) {
 	}
 }
 
-// cachedMedia returns the decoded source of key k, calling load once.
+// cachedMedia returns the decoded source of key k, calling load once
+// (outside the lock). k must be hashable (see hashable): hashing a key
+// that is not panics, and the deferred unlocks keep that panic from
+// leaving assets.mu locked, which would deadlock every later load.
 func cachedMedia(k any, srcLen int, load func() (*imageAsset, error)) (*imageAsset, error) {
-	assets.mu.Lock()
-	if e, ok := assets.media.get(k); ok {
-		assets.mu.Unlock()
+	if e := lookupMedia(k); e != nil {
 		return e.asset, e.err
 	}
-	assets.media.decodes++
-	assets.mu.Unlock()
 	a, err := load()
 	e := &mediaEntry{key: k, asset: a, err: err, cost: a.cost(srcLen)}
-	assets.mu.Lock()
-	assets.media.add(e)
-	assets.mu.Unlock()
+	addMedia(e)
 	return e.asset, e.err
+}
+
+// lookupMedia returns the cached entry of k, or nil after counting a
+// decode.
+func lookupMedia(k any) *mediaEntry {
+	assets.mu.Lock()
+	defer assets.mu.Unlock()
+	if e, ok := assets.media.get(k); ok {
+		return e
+	}
+	assets.media.decodes++
+	return nil
+}
+
+// addMedia adds e to the cache (or takes the entry another tree added
+// meanwhile).
+func addMedia(e *mediaEntry) {
+	assets.mu.Lock()
+	defer assets.mu.Unlock()
+	assets.media.add(e)
 }
 
 // ParseIcon parses the SVG text of an icon, or returns the cached result
@@ -444,22 +462,37 @@ func hashable(v reflect.Value) bool {
 	return true
 }
 
+// interfaceTypes caches hasInterface per struct and array type
+// (reflect.Type → bool): the walk of a type runs once per process, not on
+// every load.
+var interfaceTypes sync.Map
+
 // hasInterface reports whether values of type t hold interfaces in
 // place (in fields or array elements, not behind pointers).
 func hasInterface(t reflect.Type) bool {
 	switch t.Kind() {
 	case reflect.Interface:
 		return true
-	case reflect.Struct:
+	case reflect.Struct, reflect.Array:
+	default:
+		return false
+	}
+	if v, ok := interfaceTypes.Load(t); ok {
+		return v.(bool)
+	}
+	has := false
+	if t.Kind() == reflect.Array {
+		has = hasInterface(t.Elem())
+	} else {
 		for i := range t.NumField() {
 			if hasInterface(t.Field(i).Type) {
-				return true
+				has = true
+				break
 			}
 		}
-	case reflect.Array:
-		return hasInterface(t.Elem())
 	}
-	return false
+	interfaceTypes.Store(t, has)
+	return has
 }
 
 // reportKey is the key of a source's load error in reportOnce.

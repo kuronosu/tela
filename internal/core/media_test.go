@@ -150,6 +150,90 @@ func TestSrcFSUnhashable(t *testing.T) {
 	}
 }
 
+// TestCachedMediaUnlocksOnPanic: a key whose hashing panics (loadSource
+// guards against it with hashable; cachedMedia is called directly here)
+// does not leave the asset lock held, so later loads still work instead
+// of deadlocking.
+func TestCachedMediaUnlocksOnPanic(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("hashing an unhashable key did not panic")
+			}
+		}()
+		cachedMedia(fsKey{wrapFS{fstest.MapFS{}}, "logo.svg"}, 0, func() (*imageAsset, error) {
+			t.Error("load called for a key that cannot be hashed")
+			return nil, nil
+		})
+	}()
+	if !assets.mu.TryLock() {
+		assets.mu.Unlock() // so that the cleanup does not deadlock
+		t.Fatal("the asset lock is still held after the panic")
+	}
+	assets.mu.Unlock()
+	doc, err := ParseIcon(checkSVG)
+	if err != nil || doc == nil {
+		t.Fatalf("a load after the panic: %v, %v", doc, err)
+	}
+}
+
+// TestBgImageUnhashable: a tela.BgImage whose dynamic type is comparable
+// but whose value cannot be hashed (an image held in an interface field)
+// is converted without the cache instead of panicking under the asset
+// lock.
+func TestBgImageUnhashable(t *testing.T) {
+	resetAssets()
+	t.Cleanup(resetAssets)
+	type sliceImage struct {
+		image.Image
+		_ []byte // not comparable
+	}
+	type wrapImage struct{ image.Image }
+	src := wrapImage{sliceImage{Image: image.NewNRGBA(image.Rect(0, 0, 2, 2))}}
+	var g *gfx.Image
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				if !assets.mu.TryLock() {
+					t.Error("the panic left the asset lock held")
+				}
+				assets.mu.Unlock() // so that the cleanup does not deadlock
+				t.Fatalf("convertBgImage panicked: %v", r)
+			}
+		}()
+		g = convertBgImage(src)
+	}()
+	if g == nil {
+		t.Fatal("no image")
+	}
+	if !assets.mu.TryLock() {
+		assets.mu.Unlock()
+		t.Fatal("the asset lock is held")
+	}
+	assets.mu.Unlock()
+}
+
+// TestHasInterfaceCached: hashable looks up whether a type holds
+// interfaces once per type, not by walking it on every load.
+func TestHasInterfaceCached(t *testing.T) {
+	type nested struct {
+		_ [2]struct{ f fs.FS }
+		_ int
+	}
+	typ := reflect.TypeOf(nested{})
+	if !hasInterface(typ) {
+		t.Fatal("hasInterface(nested) = false")
+	}
+	if v, ok := interfaceTypes.Load(typ); !ok || v != true {
+		t.Errorf("hasInterface(nested) not cached: %v, %v", v, ok)
+	}
+	if hasInterface(reflect.TypeOf(struct{ a [3]int }{})) {
+		t.Error("hasInterface(struct{ a [3]int }) = true")
+	}
+}
+
 func TestHashable(t *testing.T) {
 	unhashable := wrapFS{fstest.MapFS{}}
 	counted := &countFS{FS: fstest.MapFS{}}
