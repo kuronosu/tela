@@ -375,3 +375,288 @@ func TestFieldRevealSizingContent(t *testing.T) {
 	}
 	samePixels(t, "typed", a, b)
 }
+
+// focusEndApp is an Input whose effect focuses it and puts the caret at
+// the end of its long value (the usual "focus and go to the end"),
+// changing nothing else, so the layout stays current. The effect runs on
+// mount, or when start is not nil, after start is called.
+func focusEndApp(long string, start *func()) Node {
+	return Component(func() Node {
+		run, setRun := UseState(start == nil)
+		if start != nil {
+			*start = func() { setRun.Set(true) }
+		}
+		ref := UseElementRef()
+		UseEffect(func() func() {
+			if run {
+				ref.Focus()
+				ref.SetSelectionRange(len(long), len(long))
+			}
+			return nil
+		}, run)
+		return div(Class("p-4"), input(Key("in"), Class("w-32"), AttachRef(ref), DefaultValue(long)))
+	})
+}
+
+// wantRevealed fails unless the field's scroll is the one a reveal with
+// its current layout gives, and that one scrolls (the caret at the end of
+// a value that overflows). It leaves that scroll.
+func wantRevealed(t *testing.T, what string, f *field) {
+	t.Helper()
+	got := f.scrollX
+	f.scrollX = 0
+	f.revealNow()
+	if f.scrollX <= 0 {
+		t.Fatalf("%s: reference scrollX %v, want the end revealed", what, f.scrollX)
+	}
+	if got != f.scrollX {
+		t.Errorf("%s: scrollX %v, want %v", what, got, f.scrollX)
+	}
+}
+
+// wantCaretArea fails unless the IME's caret area is inside the field.
+func wantCaretArea(t *testing.T, what string, st *platform.TextInputState, f *field) {
+	t.Helper()
+	if st == nil {
+		t.Fatalf("%s: no text input state", what)
+	}
+	r := windowRect(f.bx)
+	if x := st.CursorArea.X; x < r.X0 || x > r.X1 {
+		t.Errorf("%s: caret area x %v outside the field [%v, %v]", what, x, r.X0, r.X1)
+	}
+}
+
+// A caret reveal a passive effect asks for while leaving the layout
+// current (no frame work, no update queued) runs right after the effects
+// (ADR-122): the field is scrolled when FlushEffects returns, so a tree
+// that runs no other frame (a one-shot render, a test reading the state)
+// does not lose it, and a host gives the IME the revealed caret area at
+// once instead of a stale one first. Before, it waited for the next
+// frame: the caret area sent after the effects was outside the window.
+func TestFieldRevealEffectAtOnce(t *testing.T) {
+	long := strings.Repeat("word ", 10) // overflows w-32
+	t.Run("tree", func(t *testing.T) {
+		// No frame request (SetRequestFrame): one frame, then its effects.
+		tr := NewTree(Config{Fonts: testFonts})
+		tr.SetViewport(gfx.Size{W: 400, H: 100})
+		tr.Mount(focusEndApp(long, nil))
+		tr.Frame()
+		tr.FlushEffects()
+		f := fieldOf(t, tr, "in")
+		if tr.foc.el != f.el || f.ed.Selection().Focus.Offset != len(long) {
+			t.Fatalf("the effect: focused %v, caret %d", tr.foc.el == f.el, f.ed.Selection().Focus.Offset)
+		}
+		if len(tr.frev.q) != 0 {
+			t.Errorf("%d reveals wait after the effects, want none", len(tr.frev.q))
+		}
+		_, st, _ := tr.TextInput()
+		wantCaretArea(t, "after the effects", st, f)
+		wantRevealed(t, "after the effects", f)
+	})
+	t.Run("host", func(t *testing.T) {
+		var start func()
+		a := newKeys(t, focusEndApp(long, &start), 400, 100)
+		a.settle()
+		f := fieldOf(t, a.tree(), "in")
+		s0, ime0 := a.tree().Stats(), a.w.TextInputChanges()
+		start()
+		a.b.Drain(a.h) // the update
+		a.frame()      // its build; the effect runs after the present
+		if a.tree().foc.el != f.el {
+			t.Fatal("the effect did not focus the field")
+		}
+		wantCaretArea(t, "after the effects", a.w.TextInput(), f)
+		wantRevealed(t, "after the effects", f)
+		a.settle()
+		s1 := a.tree().Stats()
+		// The frame of the build and the one that paints the focus, as
+		// before; the IME gets one state, not a stale one first.
+		if n := s1.Frames - s0.Frames; n != 2 {
+			t.Errorf("%d frames, want 2", n)
+		}
+		if n := a.w.TextInputChanges() - ime0; n != 1 {
+			t.Errorf("%d text input states sent, want 1", n)
+		}
+		wantRevealed(t, "settled", f)
+	})
+}
+
+// A caret reveal a passive effect asks for while changing the layout (it
+// narrows the field) waits for the next frame, also in a tree with no
+// frame request: Dirty reports the work, and the frame its driver runs
+// reveals with the narrowed width.
+func TestFieldRevealEffectWaitsNoRequest(t *testing.T) {
+	long := strings.Repeat("word ", 5) // fits w-80, not w-32
+	var start func()
+	app := Component(func() Node {
+		narrow, setNarrow := UseState(false)
+		run, setRun := UseState(false)
+		start = func() { setRun.Set(true) }
+		ref := UseElementRef()
+		UseEffect(func() func() {
+			if run {
+				ref.Focus()
+				ref.SetSelectionRange(len(long), len(long))
+				setNarrow.Set(true)
+			}
+			return nil
+		}, run)
+		w := "w-80"
+		if narrow {
+			w = "w-32"
+		}
+		return div(Class("p-4"), input(Key("in"), Class(w), AttachRef(ref), DefaultValue(long)))
+	})
+	tr := NewTree(Config{Fonts: testFonts})
+	tr.SetViewport(gfx.Size{W: 400, H: 100})
+	tr.Mount(app)
+	tr.Frame()
+	tr.FlushEffects()
+	start()
+	tr.Frame() // builds; its effect waits
+	tr.FlushEffects()
+	f := fieldOf(t, tr, "in")
+	if f.scrollX != 0 || len(tr.frev.q) != 1 {
+		t.Fatalf("after the effects: scrollX %v, %d reveals waiting; want 0 and 1 (the wide layout is stale)", f.scrollX, len(tr.frev.q))
+	}
+	if !tr.Dirty() {
+		t.Fatal("Dirty is false with a reveal and an update waiting")
+	}
+	for i := 0; i < 10 && tr.Dirty(); i++ {
+		tr.Frame()
+	}
+	if len(tr.frev.q) != 0 {
+		t.Errorf("%d reveals still wait", len(tr.frev.q))
+	}
+	wantRevealed(t, "narrowed", f)
+}
+
+// A caret reveal held at the start of a frame (asked for by a passive
+// effect the frame flushes or a function posted to it) whose frame has
+// nothing to build or lay out runs with the current layout at the frame's
+// early-return check: one that scrolls nothing keeps the frame idle (no
+// paint pass), one that scrolls is painted by that frame. Before, a held
+// reveal always forced a paint pass.
+func TestFieldRevealHeldIdleFrame(t *testing.T) {
+	long := strings.Repeat("word ", 10) // overflows w-32
+	for _, via := range []string{"effect", "post"} {
+		t.Run(via, func(t *testing.T) {
+			var fld *field
+			var setTick Setter[int]
+			app := Component(func() Node {
+				tick, st := UseState(0)
+				setTick = st
+				UseEffect(func() func() {
+					if tick > 0 && fld != nil {
+						fld.reveal()
+					}
+					return nil
+				}, tick)
+				return div(Class("p-4"), input(Key("in"), Class("w-32"), DefaultValue(long)))
+			})
+			tr := NewTree(Config{Fonts: testFonts})
+			tr.SetViewport(gfx.Size{W: 400, H: 100})
+			tr.Mount(app)
+			tr.Frame()
+			fld = fieldOf(t, tr, "in")
+			stop := tr.ReceivePosts()
+			defer stop()
+			// ask queues a reveal for the start of the next frame.
+			n := 0
+			ask := func() {
+				switch via {
+				case "effect":
+					n++
+					setTick.Set(n)
+					tr.Frame() // builds; its effect waits for the next frame
+				case "post":
+					Post(fld.reveal)
+				}
+			}
+			for _, c := range []struct {
+				name   string
+				caret  int
+				paints int
+			}{
+				{"in view", 0, 0},
+				{"scrolls", len(long), 1},
+			} {
+				fld.ed.Select(c.caret, c.caret)
+				ask()
+				s0 := tr.Stats()
+				_, changed := tr.Frame()
+				s1 := tr.Stats()
+				if changed != (c.paints > 0) || s1.Frames-s0.Frames != c.paints || s1.Paints-s0.Paints != c.paints {
+					t.Errorf("%s: changed %v, %d frames, %d paints; want %d", c.name, changed, s1.Frames-s0.Frames, s1.Paints-s0.Paints, c.paints)
+				}
+				if len(tr.frev.q) != 0 || tr.Dirty() {
+					t.Errorf("%s: %d reveals wait, dirty %v", c.name, len(tr.frev.q), tr.Dirty())
+				}
+			}
+			wantRevealed(t, "scrolled", fld)
+		})
+	}
+}
+
+// A caret reveal still held when what holds it ends early (a posted
+// function at a frame's start, or a passive effect run after a frame,
+// panicked) asks for the next frame, which runs it: it is never stranded.
+func TestFieldRevealHeldAfterPanic(t *testing.T) {
+	long := strings.Repeat("word ", 10) // overflows w-32
+	for _, via := range []string{"frame", "effects"} {
+		t.Run(via, func(t *testing.T) {
+			var fld *field
+			var setRun Setter[bool]
+			app := Component(func() Node {
+				run, sr := UseState(false)
+				setRun = sr
+				UseEffect(func() func() {
+					if run {
+						fld.reveal()
+						panic("boom")
+					}
+					return nil
+				}, run)
+				return div(Class("p-4"), input(Key("in"), Class("w-32"), DefaultValue(long)))
+			})
+			tr := NewTree(Config{Fonts: testFonts})
+			tr.SetViewport(gfx.Size{W: 400, H: 100})
+			tr.Mount(app)
+			tr.Frame()
+			tr.FlushEffects()
+			fld = fieldOf(t, tr, "in")
+			fld.ed.Select(len(long), len(long))
+			stop := tr.ReceivePosts()
+			defer stop()
+			var panics func()
+			switch via {
+			case "frame":
+				Post(fld.reveal)
+				Post(func() { panic("boom") })
+				panics = func() { tr.Frame() }
+			case "effects":
+				setRun.Set(true)
+				tr.Frame() // builds; its effect waits
+				panics = tr.FlushEffects
+			}
+			requests := 0
+			tr.SetRequestFrame(func() { requests++ })
+			func() {
+				defer func() {
+					if recover() == nil {
+						t.Fatal("no panic")
+					}
+				}()
+				panics()
+			}()
+			if requests != 1 {
+				t.Errorf("%d frame requests after the panic, want 1 (the frame that runs the reveal)", requests)
+			}
+			tr.Frame()
+			if len(tr.frev.q) != 0 {
+				t.Errorf("%d reveals still wait", len(tr.frev.q))
+			}
+			wantRevealed(t, "next frame", fld)
+		})
+	}
+}

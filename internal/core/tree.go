@@ -334,9 +334,12 @@ func (t *Tree) dirty() {
 // Dirty reports whether the next Frame has work to do: state updates,
 // changed elements, a new viewport, boxes to repaint.
 func (t *Tree) Dirty() bool {
-	if t.changed || t.repaint {
-		return true
-	}
+	return t.changed || t.repaint || t.updatesQueued()
+}
+
+// updatesQueued reports whether state or Value updates or posted
+// functions wait for ApplyUpdates.
+func (t *Tree) updatesQueued() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return len(t.updates) > 0
@@ -473,8 +476,14 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		t.ApplyUpdates()
 	}
 	if !t.changed && !t.repaint && t.lastDL != nil {
-		t.commitLayout()
-		return t.lastDL, false
+		// Nothing to build or lay out: the caret reveals held above run
+		// with the current layout, and the frame stays idle unless one
+		// scrolls a field.
+		t.runReveals()
+		if !t.repaint {
+			t.commitLayout()
+			return t.lastDL, false
+		}
 	}
 	t.frame++
 	t.stats.Frames++
@@ -527,7 +536,12 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 // outside it (scroll.go's scrollAfterFrame).
 func (t *Tree) afterFrame() {
 	t.inFrame = false
-	t.frev.hold = false // after a panic in the frame: its reveals go on in the next one
+	t.frev.hold = false
+	if len(t.frev.q) > 0 {
+		// Reveals the frame left held (it panicked, or a layout effect of a
+		// frame with nothing to lay out asked for them): the next frame.
+		t.requestRepaint()
+	}
 	t.publishAfterFrame()
 	t.boundsAfterFrame()
 	t.scrollAfterFrame()

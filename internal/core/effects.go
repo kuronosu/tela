@@ -204,22 +204,39 @@ func (t *Tree) commitLayout() {
 // effects run as handlers do (handlerDepth): a click one makes
 // (ElementRef.Click) queues its updates for the host's next step (the
 // setters wake it) instead of building in the middle of the commit. A
-// caret reveal they ask for (ElementRef.Focus on a text field) waits for
-// the layout of the next frame, which applies their updates (field.go).
+// caret reveal they ask for (ElementRef.Focus on a text field) waits
+// until they end (field.go): then it runs at once when they left the
+// layout current (no frame work, no update queued), else in the next
+// frame, which applies their updates; in a frame, after its layout.
 func (t *Tree) FlushEffects() {
 	if len(t.readyGone) == 0 && len(t.readyFx) == 0 {
 		return
 	}
 	gone, fx := t.readyGone, t.readyFx
 	t.readyGone, t.readyFx = nil, nil
+	hold := t.frev.hold
+	t.runPassive(gone, fx)
+	if !hold {
+		t.revealAfterEffects()
+	}
+}
+
+// runPassive runs a commit of passive effects as handlers run
+// (handlerDepth), holding the caret reveals they ask for.
+func (t *Tree) runPassive(gone []func(), fx []*effectSlot) {
 	t.handlerDepth++
 	hold := t.frev.hold
 	t.frev.hold = true
+	done := false
 	defer func() {
 		t.handlerDepth--
 		t.frev.hold = hold
+		if !done && !hold && len(t.frev.q) > 0 {
+			t.requestRepaint() // an effect panicked: the next frame reveals
+		}
 	}()
 	runEffects(gone, fx)
+	done = true
 }
 
 // runEffects runs one commit: the cleanups of unmounted components, the

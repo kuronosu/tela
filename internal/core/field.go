@@ -1008,11 +1008,14 @@ func (f *field) textOrigin() (x, y float32) {
 
 // revealState holds the caret reveals that wait for a layout.
 type revealState struct {
-	// hold reports that the layout is not done for the code that runs: a
+	// hold reports that the layout may not be done for the code that
+	// runs, and that the code holding it runs the reveals when it ends: a
 	// frame from its start (its passive effects, posted functions and
 	// scroll handlers, whose updates its build applies) to the end of its
-	// scroll phase (which may lay out again), and the passive effects run
-	// outside a frame (FlushEffects), whose updates the next frame applies.
+	// scroll phase (which may lay out again; revealFields, or the check
+	// for a frame with nothing to lay out), and the passive effects run
+	// outside a frame (FlushEffects, revealAfterEffects), which may queue
+	// updates.
 	hold bool
 	// q are the fields whose reveal waits, in the order they asked.
 	q []*field
@@ -1021,28 +1024,34 @@ type revealState struct {
 // reveal scrolls the field so that the selection's focus (the caret) is
 // visible: an Input's own horizontal scroll, a Textarea's scroll
 // container (at once, "nearest"). It needs the field's laid-out content
-// box, so while the layout is not current it waits for the next one
-// (revealFields): in a frame before its layout is done (the focus an
-// AutoFocus field takes after the style phase, a caret moved by a
-// controlled Value in the build, ElementRef.Focus in a passive effect,
-// a posted function or OnScroll that runs at the frame's start), in the
-// passive effects run after a frame (ElementRef.Focus in a UseEffect
-// that also resizes the field: its update applies in the next frame) and
-// outside a frame while a frame's work is pending (a key that resizes a
+// box, so while the layout may not be current it waits: in a frame until
+// its layout is done (the focus an AutoFocus field takes after the style
+// phase, a caret moved by a controlled Value in the build,
+// ElementRef.Focus in a passive effect, a posted function or OnScroll
+// that runs at the frame's start), in the passive effects run after a
+// frame until they end (then at once if they left the layout current,
+// else in the next frame: ElementRef.Focus in a UseEffect that also
+// resizes the field, whose update that frame applies) and outside a
+// frame while a frame's work is pending (a key that resizes a
 // field-sizing-content Input). The content width of a field never laid
 // out is zero, which scrolled an AutoFocus Input whose value fits by the
-// caret's 1 px, and a width the coming layout changes is stale.
+// caret's 1 px, and a width the coming layout changes is stale. A field
+// is queued once; only a reveal that waits for a frame's work outside a
+// frame requests that frame (whoever holds runs the reveals itself).
 func (f *field) reveal() {
 	t := f.t
-	if t.frev.hold || !t.layoutCurrent() {
-		if !f.revealQueued {
-			f.revealQueued = true
-			t.frev.q = append(t.frev.q, f)
-		}
-		t.requestRepaint() // the frame that runs it (in a frame: no early return)
+	if !t.frev.hold && t.layoutCurrent() {
+		f.revealNow()
 		return
 	}
-	f.revealNow()
+	if f.revealQueued {
+		return
+	}
+	f.revealQueued = true
+	t.frev.q = append(t.frev.q, f)
+	if !t.frev.hold {
+		t.requestRepaint() // the frame of the pending work, which runs it
+	}
 }
 
 // revealFields runs the caret reveals that waited for the frame's layout,
@@ -1050,7 +1059,31 @@ func (f *field) reveal() {
 // current); the reveals asked for from now on run at once.
 func (t *Tree) revealFields() {
 	t.frev.hold = false
+	t.runReveals()
+}
+
+// revealAfterEffects runs the caret reveals that the passive effects run
+// outside a frame asked for (FlushEffects): at once when the layout is
+// still current (the effects left no frame work and no update, which the
+// next frame would apply), else in the next frame, which it requests (a
+// tree without a frame request reports it with Dirty).
+func (t *Tree) revealAfterEffects() {
+	if len(t.frev.q) == 0 {
+		return
+	}
+	if t.layoutCurrent() && !t.updatesQueued() {
+		t.runReveals()
+		return
+	}
+	t.requestRepaint()
+}
+
+// runReveals runs the queued caret reveals with the current layout.
+func (t *Tree) runReveals() {
 	q := t.frev.q
+	if len(q) == 0 {
+		return
+	}
 	for _, f := range q {
 		f.revealQueued = false
 		if f.alive() {
