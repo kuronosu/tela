@@ -33,13 +33,24 @@ func Role(role string) tela.Prop { return core.Role(role) }
 //	Button(AriaLabel("Close"), OnClick(close), closeIcon)
 func AriaLabel(label string) tela.Prop { return core.AriaLabel(label) }
 
-// AriaLabelledBy names an element with the text of another one, attached
-// to ref with Ref.
+// AriaLabelledBy names an element with the text of other elements, attached
+// to refs with Ref. With several references the name is the text of each one
+// that is mounted, in the order given, joined by a space
+// (aria-labelledby="a b"), as a select is named by its value and its label.
 //
 //	title := tela.UseElementRef()
 //	Div(Role("dialog"), AriaLabelledBy(title),
 //	    H2(Ref(title), Text("Delete file?")), ...)
-func AriaLabelledBy(ref tela.ElementRef) tela.Prop { return core.AriaLabelledBy(ref) }
+//
+//	Button(AriaLabelledBy(value, label), ...)
+//
+// Calling it with no reference, or with the zero ElementRef, panics.
+func AriaLabelledBy(refs ...tela.ElementRef) tela.Prop {
+	if len(refs) == 0 {
+		panic("tela: AriaLabelledBy() with no references: pass one or more ElementRefs from tela.UseElementRef, attached with Ref to the labelling elements")
+	}
+	return core.AriaLabelledBy(refs[0], refs[1:]...)
+}
 
 // AriaDescription sets the accessible description of an element: a
 // longer hint read after its name.

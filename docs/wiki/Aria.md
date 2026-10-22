@@ -969,8 +969,8 @@ the preedit text without disturbing the composition.
 mouse highlights the option it moves over. A press outside moves the focus away,
 which commits the text and closes the list (the press reaches what it hits). The
 toggle button opens the list with every item or closes it, and keeps the focus on
-the input; it is not a tab stop and is labelled "Show suggestions" (an
-`AriaLabel` after `ButtonProps` replaces the label).
+the input; it is not a tab stop and is labelled "Show suggestions" (set
+`ComboboxOptions.ButtonLabel` to change or translate the label).
 
 The label: `cb.LabelProps` on a label element names the input and a click on it
 focuses the input; without one, give `AriaLabel`.

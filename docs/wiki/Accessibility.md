@@ -33,7 +33,7 @@ The props follow React's `aria-*` attributes:
 |---|---|
 | [`Role`](https://pkg.go.dev/github.com/kuronosu/tela/h#Role) | The role: `"switch"`, `"dialog"`, `"tab"`, `"progressbar"`... |
 | [`AriaLabel`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLabel) | The accessible name, for elements whose content does not name them (an icon button) |
-| [`AriaLabelledBy`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLabelledBy) | Names an element with the text of another one, attached with [`Ref`](https://pkg.go.dev/github.com/kuronosu/tela/h#Ref) |
+| [`AriaLabelledBy`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLabelledBy) | Names an element with the text of one or more others (joined by a space), attached with [`Ref`](https://pkg.go.dev/github.com/kuronosu/tela/h#Ref) |
 | [`AriaDescription`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaDescription) | A longer hint read after the name |
 | [`AriaHidden`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaHidden) | Hides the subtree from the semantics tree, not from the screen |
 | [`AriaChecked`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaChecked) | Checked state of a checkbox, radio or switch |

@@ -695,6 +695,10 @@ type ComboboxOptions[K comparable] struct {
     // AriaLabel names the input when there is no label element; with
     // LabelProps the label element names it.
     AriaLabel string
+    // ButtonLabel is the accessible name of the toggle button that
+    // ButtonProps go to (default "Show suggestions"). Set it to translate
+    // the name.
+    ButtonLabel string
     // Ref is the input's ref, for a hook used together with others on the
     // same element; the zero value makes the hook create its own.
     Ref tela.ElementRef
@@ -715,8 +719,8 @@ type ComboboxResult[K comparable] struct {
     InputProps tela.Prop
     // ButtonProps go to an optional toggle button: it shows or hides the
     // list with every item, and keeps the focus on the input. It is not a
-    // tab stop and is labelled "Show suggestions" (put an AriaLabel after
-    // the props to change it).
+    // tab stop and is labelled with ButtonLabel ("Show suggestions" by
+    // default; an AriaLabel after the props also changes it).
     ButtonProps tela.Prop
     // LabelProps go to the label element: it names the input, and a click
     // on it focuses the input.

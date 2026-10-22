@@ -352,6 +352,12 @@ func TestComboboxMenuTriggerModes(t *testing.T) {
 	app.options(fruits2()...)
 }
 
+func TestComboboxButtonLabel(t *testing.T) {
+	app := mountCombo(t, aria.ComboboxOptions[string]{ButtonLabel: "Mostrar sugerencias"}, nil)
+	app.ExpectCount(telatest.ByRole("button", "Mostrar sugerencias"), 1)
+	app.ExpectCount(telatest.ByRole("button", "Show suggestions"), 0)
+}
+
 func TestComboboxToggleButton(t *testing.T) {
 	app := mountCombo(t, aria.ComboboxOptions[string]{DefaultInputValue: "app"}, nil)
 	button := telatest.ByRole("button", "Show suggestions")

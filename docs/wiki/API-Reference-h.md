@@ -268,16 +268,20 @@ Button(AriaLabel("Close"), OnClick(close), closeIcon)
 ### func AriaLabelledBy
 
 ```go
-func AriaLabelledBy(ref tela.ElementRef) tela.Prop
+func AriaLabelledBy(refs ...tela.ElementRef) tela.Prop
 ```
 
-AriaLabelledBy names an element with the text of another one, attached to ref with Ref.
+AriaLabelledBy names an element with the text of other elements, attached to refs with Ref. With several references the name is the text of each one that is mounted, in the order given, joined by a space (aria-labelledby="a b"), as a select is named by its value and its label.
 
 ```go
 title := tela.UseElementRef()
 Div(Role("dialog"), AriaLabelledBy(title),
     H2(Ref(title), Text("Delete file?")), ...)
+
+Button(AriaLabelledBy(value, label), ...)
 ```
+
+Calling it with no reference, or with the zero ElementRef, panics.
 
 ### func AriaLevel
 

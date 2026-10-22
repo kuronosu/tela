@@ -58,6 +58,30 @@ func TestSemanticsProps(t *testing.T) {
 	}
 }
 
+// A control named by several elements: the name is their texts joined by a
+// space, in the order given.
+func TestAriaLabelledByMany(t *testing.T) {
+	tr := core.NewTree(core.Config{})
+	tr.SetViewport(gfx.Size{W: 600, H: 400})
+	tr.Mount(tela.C(func() tela.Node {
+		value, label := tela.UseElementRef(), tela.UseElementRef()
+		return Div(
+			Span(Ref(label), Text("Favorite fruit")),
+			Button(AriaLabelledBy(value, label), Span(Ref(value), Text("Banana"))),
+			Button(AriaLabelledBy(label), Text("Other")),
+		)
+	}))
+	tr.Frame()
+	want := strings.Join([]string{
+		`- text: Favorite fruit`,
+		`- button "Banana Favorite fruit": Banana`,
+		`- button "Favorite fruit": Other`,
+	}, "\n")
+	if got := tr.AriaSnapshot(); got != want {
+		t.Errorf("aria snapshot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestSemanticsPropPanics(t *testing.T) {
 	recovered := func(f func()) (msg string) {
 		defer func() {
@@ -73,6 +97,9 @@ func TestSemanticsPropPanics(t *testing.T) {
 	}
 	if msg := recovered(func() { AriaLabelledBy(tela.ElementRef{}) }); !strings.Contains(msg, "zero ElementRef") {
 		t.Errorf("AriaLabelledBy(zero): %q", msg)
+	}
+	if msg := recovered(func() { AriaLabelledBy() }); !strings.Contains(msg, "no references") {
+		t.Errorf("AriaLabelledBy(): %q", msg)
 	}
 	core.NewTree(core.Config{Dev: true}) // dev mode on in this process
 	if msg := recovered(func() { Role("swich") }); !strings.Contains(msg, `did you mean "switch"?`) {
