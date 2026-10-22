@@ -48,7 +48,12 @@ The app is rebuilt when any non-test .go file of its module changes, or
 go.mod, go.sum, a file the module's packages embed, or a file under a
 directory the app registered with tela.Assets(os.DirFS(...)). Builds use
 -tags teladev (the dev-loop runtime) with CGO_ENABLED=0; release builds are
-unaffected. A save during a build restarts it.
+unaffected. A save during a build restarts it. To build faster, dev builds
+also skip the version-control stamp (-buildvcs=false), the symbol table and
+the DWARF debug information (-ldflags=-s -w: panics keep their file:line,
+but a debugger cannot attach) and inlining in the package built
+(-gcflags=-l); a -buildvcs, -ldflags or -gcflags set in GOFLAGS is used
+instead.
 
 Before a swap the input is held; it reaches the new build once it shows its
 first frame. A build error, or a crash of the app, is printed here and the
@@ -182,6 +187,7 @@ func devMain(goBin string, opts devOptions, stdout, stderr io.Writer) (int, erro
 	if err != nil {
 		return 1, err
 	}
+	b.goflags = goEnvFlags(goBin, target.modDir, b.env)
 
 	// What to watch: the module (and local replacements) of the target,
 	// refreshed after each build together with the embedded files.

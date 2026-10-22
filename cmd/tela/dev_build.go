@@ -17,12 +17,66 @@ import (
 // devBuildTags is the build tag of the dev-loop runtime (ADR-111).
 const devBuildTags = "teladev"
 
-// devBuildFlags are the go build flags of every dev build, in one place so
-// they can be tuned for speed (T6): -tags teladev turns the dev-loop
-// runtime on. The output path, the overlay and the package are added by the
-// builder.
-func devBuildFlags() []string {
-	return []string{"-tags", devBuildTags}
+// devBuildFlags are the go build flags of every dev build, in one place
+// (ADR-116). goflags is the GOFLAGS the go command applies (environment or
+// go env -w): a flag given on the command line replaces the same flag of
+// GOFLAGS, so a flag the user sets there is left to them. The output path,
+// the overlay and the package are added by the builder.
+//
+//   - -tags teladev turns the dev-loop runtime on (ADR-111).
+//   - -buildvcs=false skips the version-control stamp, which runs git (or
+//     another VCS) on every build. Dev mode stays on: the supervisor sets
+//     TELA_DEV=1, and a binary without the stamp and without -trimpath is
+//     not a release build anyway (ADR-085).
+//   - -ldflags=-s -w: no symbol table and no DWARF, so the link writes less.
+//     Panics keep their file:line (the runtime reads pclntab, which stays),
+//     and so do runtime.FuncForPC and the component names; a debugger
+//     cannot attach to a dev build.
+//   - -gcflags=-l: no inlining in the package built (the app's main
+//     package, or the generated runner), which the compiler spends most
+//     time on there; Tela and the other packages keep their usual flags
+//     and their cached builds.
+//
+// Measured on examples/dashboard (ADR-116): -ldflags saves about 110 ms of
+// a 600 ms build, -gcflags=-l about 90 ms, -buildvcs=false about 25 ms in a
+// git checkout.
+func devBuildFlags(goflags string) []string {
+	flags := []string{"-tags", devBuildTags}
+	if !hasGoFlag(goflags, "buildvcs") {
+		flags = append(flags, "-buildvcs=false")
+	}
+	if !hasGoFlag(goflags, "ldflags") {
+		flags = append(flags, "-ldflags=-s -w")
+	}
+	if !hasGoFlag(goflags, "gcflags") {
+		flags = append(flags, "-gcflags=-l")
+	}
+	return flags
+}
+
+// hasGoFlag reports whether goflags (a space-separated GOFLAGS list) sets
+// the build flag name.
+func hasGoFlag(goflags, name string) bool {
+	for _, f := range strings.Fields(goflags) {
+		f = strings.TrimLeft(f, "-")
+		if k, _, _ := strings.Cut(f, "="); k == name {
+			return true
+		}
+	}
+	return false
+}
+
+// goEnvFlags returns the GOFLAGS the go command uses in dir, which may come
+// from go env -w as well as from the environment; "" when it cannot tell.
+func goEnvFlags(goBin, dir string, env []string) string {
+	cmd := exec.Command(goBin, "env", "GOFLAGS")
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.Output()
+	if err != nil {
+		return os.Getenv("GOFLAGS")
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // builder produces runnable builds. build is called on its own goroutine
@@ -57,6 +111,8 @@ type goBuilder struct {
 	overlay string // -overlay file, or ""
 	outDir  string
 	env     []string
+	// goflags is the user's GOFLAGS (devBuildFlags), filled by devMain.
+	goflags string
 }
 
 // newGoBuilder prepares the builds of t into outDir, writing the overlay
@@ -103,7 +159,7 @@ func exeName(gen int) string {
 
 // args returns the go command line for a build into out.
 func (b *goBuilder) args(out string) []string {
-	args := append([]string{"build"}, devBuildFlags()...)
+	args := append([]string{"build"}, devBuildFlags(b.goflags)...)
 	args = append(args, "-o", out)
 	if b.overlay != "" {
 		args = append(args, "-overlay", b.overlay)

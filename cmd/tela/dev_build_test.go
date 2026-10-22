@@ -116,8 +116,63 @@ func TestGoBuilderCancel(t *testing.T) {
 func TestBuildArgs(t *testing.T) {
 	b := &goBuilder{arg: "./examples/x/zz_tela_dev_main", overlay: "/tmp/o.json"}
 	got := strings.Join(b.args("/tmp/app-3"), " ")
-	want := "build -tags teladev -o /tmp/app-3 -overlay /tmp/o.json ./examples/x/zz_tela_dev_main"
+	want := "build -tags teladev -buildvcs=false -ldflags=-s -w -gcflags=-l -o /tmp/app-3 -overlay /tmp/o.json ./examples/x/zz_tela_dev_main"
 	if got != want {
 		t.Errorf("args %q, want %q", got, want)
+	}
+}
+
+// TestDevBuildFlagsGOFLAGS leaves the flags the user sets in GOFLAGS to
+// them: the command line would replace them.
+func TestDevBuildFlagsGOFLAGS(t *testing.T) {
+	for _, c := range []struct{ goflags, want string }{
+		{"", "-tags teladev -buildvcs=false -ldflags=-s -w -gcflags=-l"},
+		{"-mod=mod", "-tags teladev -buildvcs=false -ldflags=-s -w -gcflags=-l"},
+		{"-ldflags=-X=main.version=1", "-tags teladev -buildvcs=false -gcflags=-l"},
+		{"-mod=mod --gcflags=all=-N -buildvcs=true", "-tags teladev -ldflags=-s -w"},
+		{"-ldflagsx=1", "-tags teladev -buildvcs=false -ldflags=-s -w -gcflags=-l"},
+	} {
+		if got := strings.Join(devBuildFlags(c.goflags), " "); got != c.want {
+			t.Errorf("GOFLAGS=%q: %q, want %q", c.goflags, got, c.want)
+		}
+	}
+}
+
+// TestDevBuildKeepsFileLines checks what -ldflags=-s -w and -gcflags=-l
+// must keep: a panic's stack has the file:line of the app's frames, and
+// the function names component identity uses (runtime.FuncForPC).
+func TestDevBuildKeepsFileLines(t *testing.T) {
+	skipShort(t)
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip(err)
+	}
+	dir := tinyModule(t, `package main
+
+import (
+	"fmt"
+	"reflect"
+	"runtime"
+)
+
+func Sidebar() int { return 1 }
+
+func main() {
+	fmt.Println(runtime.FuncForPC(reflect.ValueOf(Sidebar).Pointer()).Name())
+	var m map[string]int
+	m["x"] = 1
+}
+`)
+	res := tinyBuilder(t, goBin, dir).build(context.Background(), 1)
+	if res.err != nil {
+		t.Fatalf("build: %v\n%s", res.err, res.output)
+	}
+	defer res.remove()
+	out, _ := exec.Command(res.exe).CombinedOutput()
+	if !strings.Contains(string(out), "main.Sidebar\n") {
+		t.Errorf("FuncForPC lost the name:\n%s", out)
+	}
+	if !strings.Contains(string(out), "main.go:14") {
+		t.Errorf("the panic has no file:line:\n%s", out)
 	}
 }
