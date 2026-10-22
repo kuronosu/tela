@@ -188,11 +188,6 @@ func TestListDeps(t *testing.T) {
 	}
 }
 
-// TestDevEndToEnd is the end-to-end test of tela dev on a real Tela app.
-func TestDevEndToEnd(t *testing.T) {
-	t.Skip("needs the teladev child runtime (phase 9, task T3): until it is merged, a Tela app built with -tags teladev opens its own window instead of dialing the remote backend; T3/T7 enable this test: build examples/counter with tela dev on the headless backend, click, edit a file, check the count survives the swap")
-}
-
 // TestDevMainHeadless runs the whole command (devMain) on the headless
 // backend with a real go build of testdata/devfake, an app that speaks the
 // dev-loop protocol itself and exits with status 0 after a moment: tela dev

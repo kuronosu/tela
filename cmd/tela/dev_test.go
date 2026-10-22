@@ -397,6 +397,49 @@ func TestDevRuntimeCrashThenFreshStart(t *testing.T) {
 	}
 }
 
+// The child reports the state it kept a few frames after its first one,
+// usually after the promotion: the reload line waits for it (a moment at
+// most) instead of printing without the counts.
+func TestDevStateReportAfterPromotion(t *testing.T) {
+	h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) { c.reportWait = 5 * time.Second })
+	h.expect("first start", 1, 0, 0)
+	h.click()
+	h.expect("one click", 1, 1, 1)
+	h.fb.set(2, "late")
+	h.s.push(evKey{'r'})
+	h.expect("reload", 2, 1, 0)
+	h.logged("state: 1 kept, 2 reset", 1)
+	out := h.out.String()
+	if n := strings.Count(out, "reloaded in"); n != 1 || strings.Contains(out, "(state kept)") {
+		t.Errorf("want one reload line with the counts:\n%s", out)
+	}
+}
+
+func TestDevStateReportMissing(t *testing.T) {
+	h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) { c.reportWait = 100 * time.Millisecond })
+	h.expect("first start", 1, 0, 0)
+	h.click()
+	h.expect("one click", 1, 1, 1)
+	h.fb.set(2, "noreport")
+	h.s.push(evKey{'r'})
+	h.expect("reload", 2, 1, 0)
+	h.logged("(state kept)", 1)
+}
+
+// The child runtime cannot recover a panic of a goroutine other than the
+// UI thread's: the runtime prints it and exits with status 2, and the
+// supervisor shows it like a reported one, from the end of standard error.
+func TestDevGoroutinePanic(t *testing.T) {
+	h := newDevHarness(t, devOptions{}, nil)
+	h.expect("first start", 1, 0, 0)
+	h.press("g", platform.CodeKeyG)
+	h.logged("the app panicked: goroutine boom; save a change or press r to start it again", 1)
+	if last := h.view.lastProblem(); last.kind != problemPanic || !strings.HasPrefix(last.text, "panic: goroutine boom") || !strings.Contains(last.text, "goroutine") {
+		t.Errorf("problem %+v, want the runtime's panic text", last)
+	}
+	h.still("the last frame after the crash", 1, 0, 0, 100*time.Millisecond)
+}
+
 func TestDevNoState(t *testing.T) {
 	h := newDevHarness(t, devOptions{NoState: true}, nil)
 	h.expect("first start", 1, 0, 0)

@@ -114,7 +114,8 @@ func TestAppFieldsAreClassified(t *testing.T) {
 	}
 	ignored := map[string]string{
 		"Title": "the window title", "AppID": "the desktop identity",
-		"Root": "mounted by MountApp, not a setting",
+		"Root":     "mounted by MountApp, not a setting",
+		"DevState": "state outside the tree that only tela dev keeps across reloads",
 	}
 	typ := reflect.TypeFor[tela.App]()
 	for i := range typ.NumField() {

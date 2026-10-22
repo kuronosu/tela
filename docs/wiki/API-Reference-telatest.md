@@ -1117,7 +1117,7 @@ app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
 app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
 ```
 
-Title, AppID and Root say nothing about how the app looks, so FromApp ignores them; [`MountApp`](#func-mountapp) also mounts Root. The scale is not an App setting (it comes from the display): use [`Scale`](#func-scale).
+Title, AppID, Root and DevState say nothing about how the app looks, so FromApp ignores them; [`MountApp`](#func-mountapp) also mounts Root. The scale is not an App setting (it comes from the display): use [`Scale`](#func-scale).
 
 **Example**
 

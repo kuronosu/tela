@@ -33,7 +33,8 @@ import (
 // Modes: "ok"; "slow" (the first frame waits fakeSlow); "noframe" (never
 // presents); "crash" (exits with status 3 before connecting its window);
 // "panic" (reports a panic and exits with status 2 at startup); "nosave"
-// (no state.save handler).
+// (no state.save handler); "late" (the state report comes 150 ms after
+// start) and "noreport" (none). The key "g" panics in another goroutine.
 const envFake = "TELA_DEV_TEST_FAKE"
 
 const fakeSlow = 400 * time.Millisecond
@@ -68,7 +69,16 @@ func fakeChild(mode string) int {
 			b.Notify("fake.error", []byte("state.load: "+err.Error()))
 		} else if len(data) > 0 {
 			count, _ = strconv.Atoi(string(data))
-			b.Notify(devloop.KindStateReport, devloop.StateReport{Kept: 1, Reset: 2}.Encode())
+			report := devloop.StateReport{Kept: 1, Reset: 2}.Encode()
+			switch mode {
+			case "late":
+				// Like the real runtime: once the state is restored, a
+				// few frames after the first one.
+				time.AfterFunc(150*time.Millisecond, func() { b.Notify(devloop.KindStateReport, report) })
+			case "noreport":
+			default:
+				b.Notify(devloop.KindStateReport, report)
+			}
 		}
 	}
 	switch mode {
@@ -116,6 +126,11 @@ func fakeChild(mode string) int {
 				w.RequestFrame()
 			}
 		case platform.KeyEvent:
+			if e.Action == platform.KeyPress && e.Key == "g" {
+				// A panic in another goroutine: nobody can recover it, the
+				// runtime prints it and exits with status 2.
+				go func() { panic("goroutine boom") }()
+			}
 			if e.Action == platform.KeyPress && e.Key == "p" {
 				b.Notify(devloop.KindPanic, devloop.PanicPayload("boom", debug.Stack()))
 				fmt.Fprintln(os.Stderr, "panic: boom")

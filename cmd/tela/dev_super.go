@@ -71,9 +71,15 @@ type supervisorConfig struct {
 	// describe and watching complete the start line.
 	describe, watching string
 
-	// Timeouts; zero means devloop's.
-	saveTimeout, firstFrameTimeout, stopTimeout time.Duration
+	// Timeouts; zero means devloop's, and reportWait the default below.
+	saveTimeout, firstFrameTimeout, stopTimeout, reportWait time.Duration
 }
+
+// defaultReportWait is how long the line of a finished swap waits for the
+// new child's state report, which the child sends once the state is
+// restored (a few frames after its first one, so usually after the
+// promotion).
+const defaultReportWait = 300 * time.Millisecond
 
 type supervisor struct {
 	cfg  supervisorConfig
@@ -96,8 +102,9 @@ type supervisor struct {
 	procs    map[int]*proc
 	active   *proc // the child shown (nil: none alive)
 	swap     *swapState
-	problem  bool // a problem is shown
-	started  bool // a child has been promoted once
+	held     *heldLine // the line of the latest swap, waiting for the state report
+	problem  bool      // a problem is shown
+	started  bool      // a child has been promoted once
 
 	quitting   bool
 	exitCode   int
@@ -128,6 +135,7 @@ type proc struct {
 	waitErr error // valid once exited is closed
 
 	child    *remote.Child
+	tail     *tailWriter // the end of its standard error
 	panic    string
 	report   *devloop.StateReport
 	stopping bool
@@ -196,6 +204,7 @@ type (
 		c *remote.Child
 		r devloop.StateReport
 	}
+	evReportDue   struct{ gen int }
 	evAssets      struct{ dirs []string }
 	evQuitTimeout struct{}
 )
@@ -209,6 +218,9 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 	}
 	if cfg.stopTimeout <= 0 {
 		cfg.stopTimeout = devloop.StopTimeout
+	}
+	if cfg.reportWait <= 0 {
+		cfg.reportWait = defaultReportWait
 	}
 	s := &supervisor{
 		cfg:    cfg,
@@ -464,6 +476,13 @@ func (s *supervisor) handle(e any) {
 		if p := s.procOf(e.c); p != nil {
 			r := e.r
 			p.report = &r
+			if h := s.held; h != nil && h.sw.proc == p {
+				s.flushHeld() // the line of the swap, now with the counts
+			}
+		}
+	case evReportDue:
+		if h := s.held; h != nil && h.sw.res.gen == e.gen {
+			s.flushHeld()
 		}
 	case evAssets:
 		if s.cfg.watchSet != nil {
@@ -690,14 +709,15 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	}
 	cmd := exec.Command(res.exe, res.args...)
 	cmd.Env = s.childEnv(tag, res.env)
-	cmd.Stdout, cmd.Stderr = s.cfg.stdout, s.cfg.stderr
+	tail := &tailWriter{w: s.cfg.stderr}
+	cmd.Stdout, cmd.Stderr = s.cfg.stdout, tail
 	cmd.SysProcAttr = childSysProcAttr()
 	sw.started = time.Now()
 	if err := cmd.Start(); err != nil {
 		s.swapFailed(problem{kind: problemStart, summary: fmt.Sprintf("cannot start the new build: %v", err)})
 		return
 	}
-	p := &proc{gen: res.gen, tag: tag, cmd: cmd, exe: res.exe, owned: res.owned, exited: make(chan struct{})}
+	p := &proc{gen: res.gen, tag: tag, cmd: cmd, exe: res.exe, owned: res.owned, tail: tail, exited: make(chan struct{})}
 	s.procs[p.gen] = p
 	sw.proc = p
 	s.goSafe(func() {
@@ -794,9 +814,37 @@ func (s *supervisor) promoted(gen int, err error) {
 		s.problem = false
 		s.view.clear()
 	}
-	s.report(sw, now)
+	s.flushHeld()
+	if sw.state == "kept" && sw.proc.report == nil {
+		// The child reports what it kept a few frames after its first one:
+		// the line (timed now) waits for it, a moment at most.
+		gen := sw.res.gen
+		s.held = &heldLine{sw: sw, at: now,
+			timer: time.AfterFunc(s.cfg.reportWait, func() { s.push(evReportDue{gen}) })}
+	} else {
+		s.report(sw, now)
+	}
 	s.started = true
 	s.maybeSwap()
+}
+
+// heldLine is the line of a finished swap that waits for the state report.
+type heldLine struct {
+	sw    *swapState
+	at    time.Time
+	timer *time.Timer
+}
+
+// flushHeld prints the held line, with the child's state counts if its
+// report arrived.
+func (s *supervisor) flushHeld() {
+	h := s.held
+	if h == nil {
+		return
+	}
+	s.held = nil
+	h.timer.Stop()
+	s.report(h.sw, h.at)
 }
 
 // report prints the line of a finished swap.
@@ -921,6 +969,11 @@ func (s *supervisor) exited(p *proc) {
 		os.Remove(p.exe)
 	}
 	status := describeExit(p.waitErr)
+	if p.panic == "" && p.waitErr != nil && !p.stopping && p.tail != nil {
+		// A panic in another goroutine, or a fatal error, which the child
+		// runtime cannot report: the runtime printed it on standard error.
+		p.panic = p.tail.crash()
+	}
 	switch {
 	case p.stopping:
 		s.log.verbosef("build %d stopped (%s)", p.gen, status)
@@ -975,6 +1028,7 @@ func (s *supervisor) quit(code int, msg string) {
 	if s.quitting {
 		return
 	}
+	s.flushHeld()
 	if msg != "" {
 		s.log.printf("%s", msg)
 	}
@@ -1067,6 +1121,7 @@ type problemView interface {
 }
 
 func (s *supervisor) show(p problem) {
+	s.flushHeld()
 	s.problem = true
 	p.live = s.active != nil
 	s.view.show(p)

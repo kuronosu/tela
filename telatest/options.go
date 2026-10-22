@@ -266,8 +266,8 @@ func ClassAliases(aliases map[string]string) Option {
 //	app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
 //	app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
 //
-// Title, AppID and Root say nothing about how the app looks, so FromApp
-// ignores them; [MountApp] also mounts Root. The scale is not an App
+// Title, AppID, Root and DevState say nothing about how the app looks, so
+// FromApp ignores them; [MountApp] also mounts Root. The scale is not an App
 // setting (it comes from the display): use [Scale].
 func FromApp(app tela.App) Option {
 	if app.ColorScheme > tela.Dark {

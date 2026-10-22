@@ -129,7 +129,7 @@ func main() { tela.Main(App) }
 | `RootClass`, `ColorScheme`, `Theme`, `ClassAliases` | Applied, as in the window; the app's `ColorScheme` overrides `--dark`, as it overrides the system in a window |
 | `ClassicScrollbars`, `InstantScroll`, `Dev` | Applied (`Dev` false silences the dev messages) |
 | `Root` | The screen when the package has no `Preview` or `Previews`; otherwise ignored |
-| `Title`, `AppID` | Ignored |
+| `Title`, `AppID`, `DevState` | Ignored (`DevState` is for `tela dev`) |
 
 [`telatest.MountApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountApp)(t, App) mounts the same `App` in a test, and
 [`telatest.FromApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#FromApp)(App) gives the options of an `App` to

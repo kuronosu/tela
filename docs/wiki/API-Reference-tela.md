@@ -26,6 +26,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Component`](#type-component)
   - [`type CompositionEvent`](#type-compositionevent): [`DefaultPrevented`](#func-compositionevent-defaultprevented) · [`PreventDefault`](#func-compositionevent-preventdefault) · [`StopPropagation`](#func-compositionevent-stoppropagation)
   - [`type Context`](#type-context): [`CreateContext`](#func-createcontext) · [`Provider`](#func-context-provider)
+  - [`type DevState`](#type-devstate)
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
   - [`type DragEvent`](#type-dragevent): [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
@@ -1342,6 +1343,12 @@ type App struct {
     //	off := false
     //	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Dev: &off})
     Dev *bool
+    // DevState keeps state that lives outside the component tree across
+    // the reloads of tela dev: package variables, controllers, the
+    // settings of a connection. State in hooks, text fields, scroll
+    // offsets and focus is kept without it. See [DevState]; the field is
+    // ignored outside tela dev.
+    DevState DevState
 }
 ```
 
@@ -1881,6 +1888,67 @@ func (c *Context[T]) Provider(value T, children ...Child) Node
 ```
 
 Provider returns a node that gives value to the UseContext calls of its children's subtrees. It has no box: the children become children of the provider's parent, like a Fragment, and only Key is accepted as a prop.
+
+### type DevState
+
+```go
+type DevState struct {
+    // Save returns the state to keep. Nil keeps nothing.
+    Save func() ([]byte, error)
+    // Restore receives what Save returned in the previous process. Nil
+    // ignores it.
+    Restore func([]byte) error
+}
+```
+
+DevState is the state of an app that lives outside its component tree, to keep across the reloads of tela dev: package variables, a controller object, the settings of a connection. tela dev rebuilds the app on every save and runs the new build as a new process; the state of hooks, text fields, scroll offsets and focus is carried over by Tela itself (it is in the tree), and DevState carries the rest.
+
+Before it stops the old process, tela dev calls Save and keeps the bytes (encode them with encoding/gob, JSON or anything else). In the new process it calls Restore with those bytes before the root mounts, so the first build already sees the restored values. A Save or Restore that returns an error or panics is reported as a warning and that state starts fresh; Restore is not called when Save returned no bytes, nor on the first start or after a restart with fresh state (the R key, --no-state). Both run on the UI thread, so they need no locking against the components.
+
+Outside tela dev (tela.Main, tela snapshot, tests, release builds) DevState is ignored and neither function is called.
+
+To keep the save and restore code, and encoding/gob, out of release builds, give the field a variable that only a file built with the teladev tag assigns:
+
+```go
+// app.go
+var devState tela.DevState
+
+func main() {
+    tela.Main(tela.App{Title: "Notes", Root: Notes{}, DevState: devState})
+}
+
+// devstate_dev.go
+//go:build teladev
+
+func init() {
+    devState = tela.DevState{
+        Save:    func() ([]byte, error) { return json.Marshal(current) },
+        Restore: func(b []byte) error { return json.Unmarshal(b, &current) },
+    }
+}
+```
+
+tela dev builds with that tag; go build and go install do not.
+
+**Example**
+
+A variable outside the component tree survives a tela dev reload when the app saves and restores it. The example plays both processes: in a real app tela dev calls Save before it stops the old build and Restore before the new one mounts, and the functions live in a file built only with the teladev tag (see [`tela.DevState`](#type-devstate)).
+
+```go
+selected := "inbox" // lives in a package variable, not in a hook
+
+devState := tela.DevState{
+    Save:    func() ([]byte, error) { return json.Marshal(selected) },
+    Restore: func(b []byte) error { return json.Unmarshal(b, &selected) },
+}
+_ = tela.App{Title: "Mail", DevState: devState}
+
+saved, _ := devState.Save() // the old process, before it stops
+selected = ""               // the new process starts with the zero value...
+devState.Restore(saved)     // ...and gets the state back before it mounts
+fmt.Println(selected)
+// Output: inbox
+```
 
 ### type Dispatcher
 

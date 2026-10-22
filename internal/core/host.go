@@ -36,6 +36,11 @@ type Options struct {
 	Width, Height float32
 	// Root is the content of the window, usually Component(App).
 	Root Node
+	// DevSave and DevRestore are the app's state outside the tree for
+	// tela dev (tela.App.DevState): used only by a teladev build running
+	// under tela dev, ignored otherwise (ADR-114).
+	DevSave    func() ([]byte, error)
+	DevRestore func([]byte) error
 	// ErrorLog receives platform errors (a failed Present). Nil means
 	// stderr.
 	ErrorLog io.Writer
@@ -64,9 +69,24 @@ func Run(opts Options) error {
 		}
 		opts.Fonts = fonts
 	}
-	b, err := auto.New()
-	if err != nil {
-		return err
+	if devStateEnabled {
+		// tela dev: report a panic of the UI thread to the supervisor
+		// and exit with status 2 (ADR-114).
+		defer devRecover()
+	}
+	var b platform.Backend
+	var err error
+	if devStateEnabled {
+		// Under tela dev the backend is the supervisor's window, not a
+		// native one; nil, nil when the process is not a tela dev child.
+		if b, err = devBackend(opts); err != nil {
+			return err
+		}
+	}
+	if b == nil {
+		if b, err = auto.New(); err != nil {
+			return err
+		}
 	}
 	h, err := NewHost(b, opts)
 	if err != nil {
@@ -75,7 +95,11 @@ func Run(opts Options) error {
 	// The window's tree runs the functions given to Post, including the
 	// ones posted before Run.
 	stop := h.tree.ReceivePosts()
-	err = b.Run(h)
+	if devStateEnabled {
+		err = devRun(b, h)
+	} else {
+		err = b.Run(h)
+	}
 	stop()
 	h.stopTimer()
 	// The loop is over: run the effect cleanups, without waking it or
@@ -207,6 +231,9 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		// advance with the frame clock.
 		h.tree.Animate(e.Time)
 		h.frame(e.Time)
+		if devStateEnabled {
+			devAfterFrame(h) // tela dev: the state report
+		}
 		h.updateCursor()
 		h.syncTextInput()
 		h.armTimer()

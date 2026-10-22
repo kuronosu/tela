@@ -78,9 +78,12 @@ func RegisterAssets(fsys fs.FS) {
 		panic("tela: Assets(nil): pass a file system such as an embed.FS or os.DirFS(\"assets\")")
 	}
 	assets.mu.Lock()
-	defer assets.mu.Unlock()
 	assets.fss = append(assets.fss, fsys)
 	assets.gen++
+	assets.mu.Unlock()
+	if devStateEnabled {
+		devAssetAdded(fsys) // tela dev: watch the directory (ADR-114)
+	}
 }
 
 // resetAssets forgets every registered file system and cached image

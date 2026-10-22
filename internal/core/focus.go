@@ -242,7 +242,17 @@ func (t *Tree) focusable(el *Element) bool {
 // fixFocus blurs the focused element when it is no longer focusable
 // (disabled, hidden), firing OnBlur as Chromium does.
 func (t *Tree) fixFocus() {
-	if el := t.foc.el; el != nil && !t.focusable(el) {
+	el := t.foc.el
+	if el == nil {
+		return
+	}
+	if el.mounted && el.box.cs == nil {
+		// Not styled yet: a focus given back by tela dev (ADR-113) before
+		// the first frame, when the window's focus event arrives before
+		// the first style phase. The frame's fix-up decides.
+		return
+	}
+	if !t.focusable(el) {
 		t.setFocus(nil, focusScript)
 	}
 }

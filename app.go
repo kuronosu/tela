@@ -94,6 +94,62 @@ type App struct {
 	//	off := false
 	//	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Dev: &off})
 	Dev *bool
+	// DevState keeps state that lives outside the component tree across
+	// the reloads of tela dev: package variables, controllers, the
+	// settings of a connection. State in hooks, text fields, scroll
+	// offsets and focus is kept without it. See [DevState]; the field is
+	// ignored outside tela dev.
+	DevState DevState
+}
+
+// DevState is the state of an app that lives outside its component tree,
+// to keep across the reloads of tela dev: package variables, a controller
+// object, the settings of a connection. tela dev rebuilds the app on every
+// save and runs the new build as a new process; the state of hooks, text
+// fields, scroll offsets and focus is carried over by Tela itself (it is
+// in the tree), and DevState carries the rest.
+//
+// Before it stops the old process, tela dev calls Save and keeps the bytes
+// (encode them with encoding/gob, JSON or anything else). In the new
+// process it calls Restore with those bytes before the root mounts, so
+// the first build already sees the restored values. A Save or Restore that
+// returns an error or panics is reported as a warning and that state starts
+// fresh; Restore is not called when Save returned no bytes, nor on the
+// first start or after a restart with fresh state (the R key,
+// --no-state). Both run on the UI thread, so they need no locking against
+// the components.
+//
+// Outside tela dev (tela.Main, tela snapshot, tests, release builds)
+// DevState is ignored and neither function is called.
+//
+// To keep the save and restore code, and encoding/gob, out of release
+// builds, give the field a variable that only a file built with the
+// teladev tag assigns:
+//
+//	// app.go
+//	var devState tela.DevState
+//
+//	func main() {
+//	    tela.Main(tela.App{Title: "Notes", Root: Notes{}, DevState: devState})
+//	}
+//
+//	// devstate_dev.go
+//	//go:build teladev
+//
+//	func init() {
+//	    devState = tela.DevState{
+//	        Save:    func() ([]byte, error) { return json.Marshal(current) },
+//	        Restore: func(b []byte) error { return json.Unmarshal(b, &current) },
+//	    }
+//	}
+//
+// tela dev builds with that tag; go build and go install do not.
+type DevState struct {
+	// Save returns the state to keep. Nil keeps nothing.
+	Save func() ([]byte, error)
+	// Restore receives what Save returned in the previous process. Nil
+	// ignores it.
+	Restore func([]byte) error
 }
 
 // Run opens a window, shows app.Root and runs the event loop until the
@@ -147,10 +203,12 @@ func (app App) options() core.Options {
 			ClassAliases:      app.ClassAliases,
 			Dev:               core.ResolveDev(app.Dev),
 		},
-		Title:  app.Title,
-		AppID:  app.AppID,
-		Width:  app.Width,
-		Height: app.Height,
-		Root:   core.NodeOf(app.Root),
+		Title:      app.Title,
+		AppID:      app.AppID,
+		Width:      app.Width,
+		Height:     app.Height,
+		Root:       core.NodeOf(app.Root),
+		DevSave:    app.DevState.Save,
+		DevRestore: app.DevState.Restore,
 	}
 }
