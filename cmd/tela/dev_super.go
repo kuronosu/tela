@@ -52,7 +52,7 @@ type supervisorConfig struct {
 	opts    devOptions
 	builder builder
 	// log receives the supervisor's lines; stdout and stderr the
-	// children's output.
+	// children's output, copied from pipes (never handed to a child).
 	log, stdout, stderr io.Writer
 	// env is the environment children start from.
 	env []string
@@ -714,8 +714,15 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	}
 	cmd := exec.Command(res.exe, res.args...)
 	cmd.Env = s.childEnv(tag, res.env)
+	// Neither writer is an *os.File, so exec gives the child pipes and
+	// copies them here, each stream in order: a child, in its own process
+	// group, never writes to the terminal itself (ADR-119).
 	tail := &tailWriter{w: s.cfg.stderr}
-	cmd.Stdout, cmd.Stderr = s.cfg.stdout, tail
+	cmd.Stdout, cmd.Stderr = forwardWriter{s.cfg.stdout}, tail
+	// A process the child started and left running keeps the pipes open:
+	// Wait stops copying a moment after the child exits instead of
+	// waiting for it.
+	cmd.WaitDelay = childWaitDelay
 	cmd.SysProcAttr = childSysProcAttr()
 	sw.started = time.Now()
 	if err := cmd.Start(); err != nil {
@@ -726,7 +733,11 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 	s.procs[p.gen] = p
 	sw.proc = p
 	s.goSafe(func() {
-		p.waitErr = cmd.Wait()
+		err := cmd.Wait()
+		if errors.Is(err, exec.ErrWaitDelay) {
+			err = nil // exited with status 0; the pipes were closed after WaitDelay
+		}
+		p.waitErr = err
 		close(p.exited)
 		s.push(evExited{p})
 	})

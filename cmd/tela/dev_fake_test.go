@@ -34,10 +34,15 @@ import (
 // presents); "crash" (exits with status 3 before connecting its window);
 // "panic" (reports a panic and exits with status 2 at startup); "nosave"
 // (no state.save handler); "late" (the state report comes 150 ms after
-// start) and "noreport" (none). The key "g" panics in another goroutine.
+// start) and "noreport" (none); "stdio" checks that its standard output
+// and error are pipes and writes fakeLines numbered lines to each. The key
+// "g" panics in another goroutine.
 const envFake = "TELA_DEV_TEST_FAKE"
 
-const fakeSlow = 400 * time.Millisecond
+const (
+	fakeSlow  = 400 * time.Millisecond
+	fakeLines = 500
+)
 
 func TestMain(m *testing.M) {
 	if mode, ok := os.LookupEnv(envFake); ok {
@@ -88,6 +93,19 @@ func fakeChild(mode string) int {
 		b.Notify(devloop.KindPanic, devloop.PanicPayload("startup boom", debug.Stack()))
 		fmt.Fprintln(os.Stderr, "panic: startup boom")
 		return 2
+	}
+	if mode == "stdio" {
+		// The supervisor forwards its children's output: they never write
+		// to the terminal themselves (ADR-119).
+		for _, f := range []*os.File{os.Stdout, os.Stderr} {
+			if fi, err := f.Stat(); err != nil || fi.Mode()&os.ModeNamedPipe == 0 {
+				b.Notify("fake.error", []byte(fmt.Sprintf("%s is not a pipe (%v)", f.Name(), err)))
+			}
+		}
+		for i := range fakeLines {
+			fmt.Fprintf(os.Stdout, "out %d\n", i)
+			fmt.Fprintf(os.Stderr, "err %d\n", i)
+		}
 	}
 	if mode != "nosave" {
 		b.Handle(devloop.KindStateSave, func([]byte) ([]byte, error) {

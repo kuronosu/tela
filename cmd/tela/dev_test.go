@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image/color"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -416,6 +417,44 @@ func TestDevTimeoutAfterPromotionPosted(t *testing.T) {
 	h.still("the new build", 2, 2, 1, 200*time.Millisecond)
 	if got := h.view.entries(); len(got) != 0 {
 		t.Errorf("problems shown: %v", got)
+	}
+}
+
+// The children's standard output and error are pipes that the supervisor
+// copies to its own, even when those are files (a terminal, in tela dev): a
+// child in its own process group that wrote to the terminal would be
+// stopped by SIGTTOU under stty tostop. Each stream arrives whole and in
+// order.
+func TestDevChildOutputForwarded(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]*os.File{}
+	for _, name := range []string{"out", "err"} {
+		f, err := os.Create(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		files[name] = f
+	}
+	h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) {
+		c.stdout, c.stderr = files["out"], files["err"]
+	})
+	h.fb.set(1, "stdio")
+	h.expect("first start", 1, 0, 0)
+	h.s.push(evKey{'q'})
+	h.wait()
+	for name, f := range files {
+		data, err := os.ReadFile(f.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var want strings.Builder
+		for i := range fakeLines {
+			fmt.Fprintf(&want, "%s %d\n", name, i)
+		}
+		if string(data) != want.String() {
+			t.Errorf("std%s of the child: %d bytes, want %d in order:\n%.300s", name, len(data), want.Len(), data)
+		}
 	}
 }
 
