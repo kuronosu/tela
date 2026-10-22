@@ -198,6 +198,29 @@ checkout) and in every `telatest` test, and off in release builds (built with
 
 `telatest.NoDev()` tests what a release build does.
 
+## Ship it
+
+A release build is a plain `go build`. Build with `-trimpath`: Tela then
+treats the binary as a release build and turns dev mode off (see above).
+
+```bash
+CGO_ENABLED=0 go build -trimpath -o counter .
+CGO_ENABLED=0 GOOS=windows go build -trimpath -ldflags="-H=windowsgui" -o counter.exe .
+```
+
+**On Windows, add `-ldflags="-H=windowsgui"`.** Go builds console programs
+by default, and Windows opens a console window next to the app when a
+console program is started from Explorer, a shortcut or the Start menu.
+`-H=windowsgui` makes the executable a GUI program: only the app's window
+opens. Such a program has no standard output or error, so whatever it prints
+(dev warnings, a panic's message) goes nowhere; build without the flag, or
+run the app from a terminal, while you debug. `go run` and `tela dev` need
+nothing: they use the terminal you start them from.
+
+Tela does not hide the console at run time: the window would still flash on
+screen, which looks like malware. A future `tela build` sets the flag for
+Windows targets and writes panics to a log file (ADR-127).
+
 ## Next steps
 
 - [Styling](Styling) to make it look good.

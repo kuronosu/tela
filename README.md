@@ -136,6 +136,11 @@ agent sees:
 > The `tela` command runs a package's own code, so it needs the `go` command
 > and a package in a module that requires Tela (see [`cmd/tela`](cmd/tela)).
 
+> **Shipping on Windows:** build with
+> `go build -trimpath -ldflags="-H=windowsgui"` so that double-clicking the
+> app opens only its window, not a console next to it (see
+> [Getting Started](docs/wiki/Getting-Started.md#ship-it)).
+
 ### Debug overlays
 
 `TELA_DEBUG=layout,paint-flash,layers,fps,semantics` draws diagnostics on top
