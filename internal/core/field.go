@@ -1032,15 +1032,18 @@ type revealState struct {
 // frame until they end (then at once if they left the layout current,
 // else in the next frame: ElementRef.Focus in a UseEffect that also
 // resizes the field, whose update that frame applies) and outside a
-// frame while a frame's work is pending (a key that resizes a
-// field-sizing-content Input). The content width of a field never laid
-// out is zero, which scrolled an AutoFocus Input whose value fits by the
-// caret's 1 px, and a width the coming layout changes is stale. A field
-// is queued once; only a reveal that waits for a frame's work outside a
-// frame requests that frame (whoever holds runs the reveals itself).
+// frame while a frame's work is pending or an update is queued
+// (revealReady: a key that resizes a field-sizing-content Input, a
+// handler or a posted function that sets the state resizing the field
+// and then focuses it or moves its caret). The content width of a field
+// never laid out is zero, which scrolled an AutoFocus Input whose value
+// fits by the caret's 1 px, and a width the coming layout changes is
+// stale. A field is queued once; only a reveal that waits for a frame's
+// work outside a frame requests that frame (whoever holds runs the
+// reveals itself).
 func (f *field) reveal() {
 	t := f.t
-	if !t.frev.hold && t.layoutCurrent() {
+	if !t.frev.hold && t.revealReady() {
 		f.revealNow()
 		return
 	}
@@ -1054,6 +1057,16 @@ func (f *field) reveal() {
 	}
 }
 
+// revealReady reports whether a caret reveal not held can run with the
+// current layout: in a frame (after its layout; until then the frame
+// holds the reveals), and outside a frame when no frame work and no
+// update waits, since the next frame's build applies the updates (the
+// state a handler, a posted function or a passive effect set before
+// asking for the reveal) and may resize the field.
+func (t *Tree) revealReady() bool {
+	return t.inFrame || !t.changed && !t.updatesQueued()
+}
+
 // revealFields runs the caret reveals that waited for the frame's layout,
 // after its scroll phase (the extents of a Textarea's scroll container are
 // current); the reveals asked for from now on run at once.
@@ -1064,14 +1077,15 @@ func (t *Tree) revealFields() {
 
 // revealAfterEffects runs the caret reveals that the passive effects run
 // outside a frame asked for (FlushEffects): at once when the layout is
-// still current (the effects left no frame work and no update, which the
-// next frame would apply), else in the next frame, which it requests (a
-// tree without a frame request reports it with Dirty).
+// still current (revealReady: the effects left no frame work and no
+// update, which the next frame would apply), else in the next frame,
+// which it requests (a tree without a frame request reports it with
+// Dirty).
 func (t *Tree) revealAfterEffects() {
 	if len(t.frev.q) == 0 {
 		return
 	}
-	if t.layoutCurrent() && !t.updatesQueued() {
+	if t.revealReady() {
 		t.runReveals()
 		return
 	}

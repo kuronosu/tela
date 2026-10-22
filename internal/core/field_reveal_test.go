@@ -660,3 +660,89 @@ func TestFieldRevealHeldAfterPanic(t *testing.T) {
 		})
 	}
 }
+
+// A handler or a posted function run outside a frame that resizes a field
+// (a state update the next frame applies) and then focuses it or moves its
+// caret reveals the caret with the new width: with an update queued the
+// layout is not current, so the reveal waits for the frame that applies
+// it, as after the passive effects (ADR-122), and that frame, the only one
+// as before, runs it. Before, it ran at once with the old width (the value
+// fit, nothing scrolled) and the frame that narrowed the field did not
+// reveal again: the caret at the end was clipped away.
+func TestFieldRevealHandlerResizes(t *testing.T) {
+	long := strings.Repeat("word ", 5) // fits w-80, not w-32
+	for _, via := range []string{"click", "key", "post"} {
+		t.Run(via, func(t *testing.T) {
+			var setNarrow Setter[bool]
+			var ref ElementRef
+			app := Component(func() Node {
+				narrow, sn := UseState(false)
+				setNarrow = sn
+				ref = UseElementRef()
+				w := "w-80"
+				if narrow {
+					w = "w-32"
+				}
+				return div(Class("p-4 flex flex-col items-start gap-2"),
+					input(Key("in"), Class(w), AttachRef(ref), DefaultValue(long),
+						// A key handler that narrows the focused field and
+						// moves its caret to the end.
+						On("keydown", func(e KeyboardEvent) {
+							if e.Key == KeyValue(platform.KeyF2) {
+								setNarrow.Set(true)
+								ref.SetSelectionRange(len(long), len(long))
+							}
+						})),
+					// A click handler that narrows the field and focuses it.
+					button(Key("go"), Class("h-6 w-20"), On("click", func(MouseEvent) {
+						setNarrow.Set(true)
+						ref.Focus()
+					})))
+			})
+			x := newKeys(t, app, 400, 120)
+			x.settle()
+			f := fieldOf(t, x.tree(), "in")
+			var act func()
+			switch via {
+			case "click":
+				f.ed.Select(len(long), len(long)) // the caret at the end, not focused
+				act = func() { x.click(x.center("go")) }
+			case "key":
+				x.tree().focusElement(f.el)
+				x.settle()
+				if f.ed.Selection().Focus.Offset != 0 || f.scrollX != 0 {
+					t.Fatalf("setup: caret %d, scrollX %v", f.ed.Selection().Focus.Offset, f.scrollX)
+				}
+				act = func() { x.press(platform.KeyF2, platform.CodeF2, 0) }
+			case "post":
+				stop := x.tree().ReceivePosts()
+				defer stop()
+				f.ed.Select(len(long), len(long))
+				act = func() {
+					Post(func() {
+						setNarrow.Set(true)
+						ref.Focus()
+					})
+					x.b.Drain(x.h) // the wake: ApplyUpdates runs the function
+				}
+			}
+			s0 := x.tree().Stats()
+			act()
+			x.settle()
+			s1 := x.tree().Stats()
+			if x.tree().foc.el != f.el || f.ed.Selection().Focus.Offset != len(long) {
+				t.Fatalf("focused %v, caret %d", x.tree().foc.el == f.el, f.ed.Selection().Focus.Offset)
+			}
+			if w := f.textWidth(); w > 128 {
+				t.Fatalf("content width %v: the field was not narrowed", w)
+			}
+			if n, p := s1.Frames-s0.Frames, s1.Paints-s0.Paints; n != 1 || p != 1 {
+				t.Errorf("%d frames, %d paints; want 1 and 1 (the frame of the update)", n, p)
+			}
+			if len(x.tree().frev.q) != 0 {
+				t.Errorf("%d reveals still wait", len(x.tree().frev.q))
+			}
+			wantRevealed(t, "narrowed", f)
+		})
+	}
+}
