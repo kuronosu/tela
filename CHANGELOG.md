@@ -12,9 +12,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-22
+
 ### Added
 
-- `tela dev [pkg]`: a development loop that feels like fast refresh. It watches the module, rebuilds in the background while the app stays usable, and swaps the new build in under the same window, which never closes. Hook state (`UseState`, `UseReducer`, `UseValue`, `UseRef`), the text, selection and undo history of text fields, scroll offsets, the focus, the runtime color scheme, theme and locale survive the reload; a component whose hooks changed starts fresh, and dev mode names every slot that cannot be kept. Build errors and panics are drawn over the last good frame and printed on the terminal; the next good save clears them. Flags `--size`, `--scale`, `--dark`, `--preview NAME`, `--no-state`, `-v`; terminal keys `r` (reload), `R` (reload without state) and `q` (quit). Linux and Windows (ADR-111 to ADR-117).
+- `tela dev [pkg]`: a development loop that feels like fast refresh. It watches the module, rebuilds in the background while the app stays usable, and swaps the new build in under the same window, which never closes. Hook state (`UseState`, `UseReducer`, `UseValue`, `UseRef`), the text, selection and undo history of text fields, scroll offsets, the focus, the runtime color scheme, theme and locale survive the reload; a component whose hooks changed starts fresh, and dev mode names every slot that cannot be kept. Build errors and panics are drawn over the last good frame and printed on the terminal; the next good save clears them. Flags `--size`, `--scale`, `--dark`, `--preview NAME`, `--no-state`, `-v`; terminal keys `r` (reload), `R` (reload without state) and `q` (quit). Linux and Windows (ADR-111 to ADR-117; Windows fixes follow in patch versions).
 - `App.DevState{Save, Restore}`: keeps state that lives outside the component tree across `tela dev` reloads. Assign it from a `//go:build teladev` file so release builds link none of it (ADR-114).
 - Release builds are unchanged: everything of the dev loop compiles only with the `teladev` build tag, which `tela dev` passes.
 
@@ -505,7 +507,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/kuronosu/tela/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/kuronosu/tela/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/kuronosu/tela/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/kuronosu/tela/compare/v0.7.0...v0.8.0
