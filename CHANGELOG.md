@@ -23,6 +23,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Fixed
 
 - `tela dev` on Windows: a frame an app presents at a new size right before it exits now reaches the window (`-v` reported "OpenFileMapping …: The system cannot find the file specified"), and removing a file without an extension (vim's `4913` probe, `LICENSE`) no longer rebuilds the app (ADR-125).
+- `tela dev` on Windows: a package directory deleted or moved away right after `tela dev` starts, or by its 8.3 short name, now rebuilds the app; the Defender note counts only reloads (from a build's start to its connection), so an app that is just slow to start no longer gets it every session; and a `%TEMP%\tela-dev` that is a link or belongs to another user is not used (ADR-126).
 
 ## [0.9.0] - 2026-10-22
 
