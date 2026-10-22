@@ -497,6 +497,9 @@ func (t *Tree) update(el *Element, n Node) {
 			t.updateFocus(el, old)
 		}
 		if old.float != d.float {
+			// A new prop (each build makes one) places the element again:
+			// its Place and AnchorRect closures cannot be compared, and
+			// the same code may capture other options (ADR-107).
 			t.updateFloat(el, old)
 		}
 		if old.overlay != d.overlay || old.outside != d.outside {

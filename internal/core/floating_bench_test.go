@@ -106,3 +106,46 @@ func BenchmarkFloatingMovePipeline(b *testing.B) {
 		})
 	}
 }
+
+// BenchmarkFloatingRebuild is a frame in which the component that renders
+// a popover builds again (its counter changes), which gives the floating
+// element a new Floating prop: Place runs again in the frame (its options
+// may have changed; ADR-096, ADR-107). The Place function stands in for
+// package aria's computePosition with a few middleware.
+func BenchmarkFloatingRebuild(b *testing.B) {
+	var set Setter[int]
+	calls := 0
+	comp := func() Node {
+		anchor := UseElementRef()
+		n, s := UseState(0)
+		set = s
+		place := func(in FloatInput) FloatResult {
+			calls++
+			y := in.Anchor.Bottom() + 4
+			if y+in.Floating.Height > in.Clip.Bottom() {
+				y = in.Anchor.Y - 4 - in.Floating.Height
+			}
+			x := min(max(in.Anchor.X, in.Clip.X+8), in.Clip.Right()-8-in.Floating.Width)
+			return FloatResult{X: x, Y: y, MaxHeight: in.Clip.Bottom() - y - 8, HasMaxHeight: true}
+		}
+		items := []Child{Key("pop"), Floating(FloatOptions{Anchor: anchor, Place: place}),
+			Class("fixed w-48 rounded-lg bg-white p-1 shadow-lg ring-1 ring-black/10")}
+		for i := range 8 {
+			items = append(items, div(Key(i), Class("h-7 rounded px-2 text-sm"), Textf("Item %d", i)))
+		}
+		items = append(items, div(Key("n"), Class("h-7 px-2 text-sm"), Textf("Count %d", n)))
+		return div(div(Key("anchor"), AttachRef(anchor), Class("m-10 h-8 w-32"), Text("Anchor")), Portal(div(items...)))
+	}
+	tr := newTestTree(b, 800, 600, Component(comp), nil)
+	tr.SetScale(2)
+	tr.Frame()
+	calls = 0
+	i := 0
+	b.ReportAllocs()
+	for b.Loop() {
+		i++
+		set.Set(i)
+		tr.Frame()
+	}
+	b.ReportMetric(float64(calls)/float64(b.N), "places/op")
+}

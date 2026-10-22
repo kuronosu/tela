@@ -299,6 +299,45 @@ func TestFloatingLimitsAfterSpentBudget(t *testing.T) {
 	}
 }
 
+// TestFloatingRebuildPlaces: a build of the component that renders a
+// floating element gives it a new Place closure, whose captured options
+// core cannot compare (functions are not comparable, and the same code
+// with other captured values places elsewhere): Place runs again in that
+// frame, so a changed option (here the gap) moves the element at once. A
+// build elsewhere that does not render it calls nothing.
+func TestFloatingRebuildPlaces(t *testing.T) {
+	calls := 0
+	var setGap, setOther Setter[float32]
+	other := func() Node {
+		n, s := UseState[float32](0)
+		setOther = s
+		return div(Key("other"), Textf("%g", n))
+	}
+	comp := func() Node {
+		anchor := UseElementRef()
+		gap, s := UseState[float32](4)
+		setGap = s
+		return div(Class("p-10"),
+			div(Key("anchor"), AttachRef(anchor), Class("h-8 w-20"), Text("Open")),
+			Portal(div(Key("pop"), Floating(FloatOptions{Anchor: anchor, Place: below(gap, &calls)}), Class("fixed h-20 w-40"))))
+	}
+	tr := newTestTree(t, 400, 300, div(Component(comp), Component(other)), nil)
+	tr.Frame()
+	if g := popRect(tr, "pop").Y0; !near(g, 76, 1e-3) || calls != 1 {
+		t.Fatalf("first frame: y %g, %d calls", g, calls)
+	}
+	setGap.Set(12)
+	tr.Frame()
+	if g := popRect(tr, "pop").Y0; !near(g, 84, 1e-3) || calls != 2 {
+		t.Errorf("a build with a new gap: y %g (want 84), %d calls (want 2)", g, calls)
+	}
+	setOther.Set(1)
+	tr.Frame()
+	if calls != 2 {
+		t.Errorf("a build that does not render the floating element called Place: %d calls", calls)
+	}
+}
+
 // TestFloatingPublish: Place publishes the arrow's offset (read by its
 // TranslateFn in the same frame) and the final side (read by a build in
 // the next frame).
