@@ -158,12 +158,13 @@ func decodeDevSnapshot(b []byte) (*devSnapshot, error) {
 	return s, nil
 }
 
-// check validates the indexes of s.
+// check validates the indexes of s. Every node but the root has an
+// identity (the root's is never read).
 func (s *devSnapshot) check() error {
 	n := uint32(len(s.Idents))
 	var walk func(d *devNode) error
 	walk = func(d *devNode) error {
-		if d.Ident >= n && d.ID != "" {
+		if d != &s.Root && d.Ident >= n {
 			return fmt.Errorf("identity %d of %d", d.Ident, n)
 		}
 		for _, x := range d.Sig {

@@ -311,6 +311,16 @@ func TestDevStateBadSnapshot(t *testing.T) {
 	for i := len(devMagic) + 1; i < len(flip); i += 3 {
 		flip[i] ^= 0x5a
 	}
+	// Well-formed gob with an identity index out of range on a node that is
+	// not the root: an empty ID must not exempt it (only the root has no
+	// identity).
+	crafted := func(kid devNode) []byte {
+		b, err := encodeDevSnapshot(&devSnapshot{Idents: []string{"P:div"}, Root: devNode{Kids: []devNode{kid}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
 	for _, c := range []struct {
 		name string
 		data []byte
@@ -320,6 +330,9 @@ func TestDevStateBadSnapshot(t *testing.T) {
 		{"truncated", cut, "damaged"},
 		{"garbage", []byte("hello"), "not a tela dev state"},
 		{"flipped", flip, "cannot be restored"},
+		{"identity", crafted(devNode{Ident: 7, ID: "0/0"}), "identity 7 of 1"},
+		{"identity without ID", crafted(devNode{Ident: 7}), "identity 7 of 1"},
+		{"nested identity without ID", crafted(devNode{Ident: 0, ID: "0/0", Kids: []devNode{{Ident: 9}}}), "identity 9 of 1"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var warns []string
