@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-21
+
 ### Removed
 
 - `aria.TabsOptions.TextValue`: a tab list has no typeahead, as in React Aria. Typing a letter used to move the focus without selecting the tab, so the panel disagreed with the focused tab.
@@ -488,7 +490,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/kuronosu/tela/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/kuronosu/tela/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/kuronosu/tela/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/kuronosu/tela/compare/v0.6.0...v0.7.0
