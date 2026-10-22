@@ -18,6 +18,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `App.DevState{Save, Restore}`: keeps state that lives outside the component tree across `tela dev` reloads. Assign it from a `//go:build teladev` file so release builds link none of it (ADR-114).
 - Release builds are unchanged: everything of the dev loop compiles only with the `teladev` build tag, which `tela dev` passes.
 
+### Changed
+
+- Apps start about 20 ms sooner: the embedded fonts are parsed concurrently (the result is identical) (ADR-116).
+
 ### Fixed
 
 - A focused element restored before its first style pass is no longer blurred by a window focus change (ADR-114).
