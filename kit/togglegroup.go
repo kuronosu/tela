@@ -121,8 +121,9 @@ type ToggleGroup[K comparable] struct {
 	// keys follow; the items are laid out in a row either way (use Class
 	// "flex-col" for a column).
 	Orientation Orientation
-	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-	// right without one). Under "rtl" ArrowLeft goes to the next item and ArrowRight to the previous one; a Direction given here also
+	// Direction is "ltr" or "rtl"; empty is the direction at the component's
+	// position (tela.UseDirection: the nearest h.Dir above it, left to right
+	// without one). Under "rtl" ArrowLeft goes to the next item and ArrowRight to the previous one; a Direction given here also
 	// sets the direction of the layout.
 	Direction string
 	// Disabled disables every item.

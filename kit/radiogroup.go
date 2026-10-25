@@ -146,8 +146,9 @@ type RadioGroup[K comparable] struct {
 	// Orientation is Vertical (the default) or Horizontal; it is the
 	// group's aria-orientation and the arrangement of the options.
 	Orientation Orientation
-	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-	// right without one). Under "rtl" ArrowLeft goes to the next option and ArrowRight to the previous one; a Direction given here also
+	// Direction is "ltr" or "rtl"; empty is the direction at the component's
+	// position (tela.UseDirection: the nearest h.Dir above it, left to right
+	// without one). Under "rtl" ArrowLeft goes to the next option and ArrowRight to the previous one; a Direction given here also
 	// sets the direction of the layout.
 	Direction string
 	// Disabled disables every option.

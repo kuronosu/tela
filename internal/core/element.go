@@ -528,6 +528,7 @@ func (t *Tree) update(el *Element, n Node) {
 				delete(t.autoDirs, el)
 			}
 			t.markAutoDir(el.parent)
+			t.dirChanged(el) // UseDirection readers (direction.go)
 		}
 		if !slices.Equal(old.classes, d.classes) {
 			bx.classesDirty = true

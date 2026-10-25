@@ -134,6 +134,10 @@ type Tree struct {
 	// autoWalks counts the walks of autoRTL (tests).
 	autoStale bool
 	autoWalks int
+	// dirHooks: some component called UseDirection (direction.go);
+	// dirRebuild: the style phase marked its readers to build again;
+	// inStyle: the style phase runs.
+	dirHooks, dirRebuild, inStyle bool
 
 	root     *Element
 	rootBox  *Box
@@ -502,6 +506,14 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 			t.checkLabels()
 		}
 		t.stylePhase()
+		if t.dirRebuild {
+			// A dir="auto" element resolved other than what the
+			// UseDirection readers below it read (direction.go): they
+			// build again before anything is laid out.
+			t.dirRebuild = false
+			t.buildPhase()
+			t.stylePhase()
+		}
 		if t.presencePhase() {
 			t.stylePhase() // the structural variants of the siblings
 		}
@@ -543,6 +555,12 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 func (t *Tree) afterFrame() {
 	t.inFrame = false
 	t.frev.hold = false
+	if t.dirRebuild {
+		// UseDirection readers marked by a late style phase: the next
+		// frame builds them.
+		t.dirRebuild = false
+		t.dirty()
+	}
 	if len(t.frev.q) > 0 {
 		// Reveals the frame left held (it panicked before running them):
 		// the next frame.

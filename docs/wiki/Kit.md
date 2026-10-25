@@ -347,6 +347,26 @@ kit.ColorPicker{Value: &c, OnValueChange: setC.Set, Alpha: true, Swatches: []tel
 kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), OnValueCommit: save}
 ```
 
+## Right to left
+
+The recipes use logical classes (`ps-*`, `start-*`, `rounded-s-*`,
+`text-start`) and `rtl:`, so an `h.Dir("rtl")` around the page mirrors every
+component. The components whose arrow keys or drag follow the direction
+(`Slider`, `Tabs`, `ToggleGroup`, `RadioGroup`, `Menubar`, `ColorPicker`,
+`ColorInput` and the calendars) read it at their position with
+[`tela.UseDirection`](https://pkg.go.dev/github.com/kuronosu/tela#UseDirection):
+under `rtl`, ArrowLeft goes to the next item and a slider's minimum is at the
+right. Their `Direction` field (`"ltr"` or `"rtl"`) overrides the direction
+around them and sets it on their root.
+
+```go
+f := i18n.UseFormatter()
+return Div(Dir(f.Dir().String()),
+	kit.Tabs[string]{Tabs: tabs, AriaLabel: "Settings"}, // follows the locale
+	kit.Slider{AriaLabel: "Volume", Direction: "ltr"},   // always left to right
+)
+```
+
 ## Testing a screen made of kit components
 
 Components keep the roles and names a screen reader reads, so tests find them the

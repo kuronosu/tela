@@ -40,7 +40,6 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DateRangePicker`](#type-daterangepicker): [`Build`](#func-daterangepicker-build)
   - [`type Dialog`](#type-dialog): [`Build`](#func-dialog-build)
   - [`type DialogStyle`](#type-dialogstyle)
-  - [`type DirectionProvider`](#type-directionprovider): [`Build`](#func-directionprovider-build)
   - [`type DropdownMenu`](#type-dropdownmenu): [`Build`](#func-dropdownmenuk-build)
   - [`type Field`](#type-field): [`Build`](#func-field-build)
   - [`type FieldStyle`](#type-fieldstyle)
@@ -206,11 +205,14 @@ kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 
 The recipes of the kit are written with logical utilities (ps-\*, pe-\*, start-\*, end-\*, ms-\*, me-\*, rounded-s-\*, rounded-e-\*, text-start, text-end) and the rtl: variant, which are the physical ones in left-to-right and mirror under h.Dir("rtl"), so a kit page needs nothing but the direction to be mirrored: menu check marks and shortcuts, a select's items, a dialog's close button, a switch's thumb, a table's sticky columns, a progress bar's fill. What stays physical is a position that names a side (a Toaster's ToastBottomRight, a Popover's Placement "right"), as sonner's and Floating UI's do; an Align of "start" follows the direction.
 
-A component cannot read its direction while it builds, and the ones whose arrow keys or drag follow it need it: Slider, Tabs, ToggleGroup, RadioGroup, Menubar, ColorPicker and the calendars. Give it with a [`DirectionProvider`](#type-directionprovider) around the app (it sets h.Dir too) or a Direction field on the component:
+The components whose arrow keys or drag follow the direction (Slider, Tabs, ToggleGroup, RadioGroup, Menubar, ColorPicker, ColorInput and the calendars) read it at their position with tela.UseDirection, so an h.Dir around the app is all a right-to-left page needs: in it ArrowLeft goes to the next item and a slider's minimum is at the right.
 
 ```go
-kit.DirectionProvider{Direction: i18n.UseFormatter().Dir().String(), Children: App{}}
+f := i18n.UseFormatter()
+return h.Div(h.Dir(f.Dir().String()), App{})
 ```
+
+Each of them also has a Direction field ("ltr" or "rtl"), which wins over the direction at its position and sets h.Dir on its root, for a component whose direction differs from its surroundings (a calendar has its Locale too).
 
 ### Overlays and triggers
 
@@ -706,8 +708,10 @@ type Calendar struct {
     Today aria.Date
     // Locale is the BCP 47 tag of the names, digits, first weekday and
     // direction; empty is the component's locale (i18n.UseLocale).
-    // Direction is "ltr" or "rtl"; empty follows the locale. Either one
-    // given here also sets the direction of the calendar's layout.
+    // Direction is "ltr" or "rtl"; empty follows the Locale when one is
+    // given, else the direction at the calendar's position
+    // (tela.UseDirection: the nearest h.Dir above it). Either one given
+    // here also sets the direction of the calendar's layout.
     Locale, Direction string
     // AriaLabel names the calendar ("Appointment date"); the visible month
     // is appended. PreviousLabel and NextLabel name the month buttons
@@ -1032,8 +1036,9 @@ type ColorInput struct {
     // picker" by default).
     AreaLabel, HueLabel, AlphaLabel, HexLabel string
     AriaLabel                                 string
-    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-    // right without one). Under "rtl" the saturation grows toward the left
+    // Direction is "ltr" or "rtl"; empty is the direction at the component's
+    // position (tela.UseDirection: the nearest h.Dir above it, left to right
+    // without one). Under "rtl" the saturation grows toward the left
     // of the area, the hue and the opacity toward the left of their sliders,
     // and ArrowLeft increases them; a Direction given here also sets the
     // direction of the panel's layout, not the button's.
@@ -1123,8 +1128,9 @@ type ColorPicker struct {
     // default); set them for another language. The value texts ("Hue
     // 180°") are aria's English ones.
     AreaLabel, HueLabel, AlphaLabel, HexLabel string
-    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-    // right without one). Under "rtl" the saturation grows toward the left
+    // Direction is "ltr" or "rtl"; empty is the direction at the component's
+    // position (tela.UseDirection: the nearest h.Dir above it, left to right
+    // without one). Under "rtl" the saturation grows toward the left
     // of the area, the hue and the opacity toward the left of their sliders,
     // and ArrowLeft increases them; a Direction given here also sets the
     // direction of the panel's layout.
@@ -1777,34 +1783,6 @@ DialogStyle is the recipe of [`Dialog`](#type-dialog) (shadcn/ui's DialogOverlay
 
 Root is the dialog element, the panel with the role. shadcn centers it with fixed top-\[50%\] left-\[50%\] and a translation; here the Positioner, a fixed layer over the window, centers it with flex, which gives the same box and lets the panel keep its own transform for the entrance.
 
-### type DirectionProvider
-
-```go
-type DirectionProvider struct {
-    // Direction is "ltr" or "rtl".
-    Direction string
-    // Children is the subtree.
-    Children tela.Component
-}
-```
-
-DirectionProvider sets the writing direction of a subtree for the layout and for the components whose keys and drags depend on it, as Radix's DirectionProvider does: Direction is "rtl" or "ltr" (any case, so i18n.UseFormatter().Dir().String() works).
-
-```go
-f := i18n.UseFormatter()
-return kit.DirectionProvider{Direction: f.Dir().String(), Children: App{}}
-```
-
-It lays its children out with h.Dir (it has no box of its own: the children are laid out as if they were its parent's), so the layout mirrors and the logical utilities of the kit's recipes (ps-\*, pe-\*, start-\*, end-\*, rounded-s-\*, the rtl: variants) follow. The components that move with the arrow keys or with a drag along a line (Slider, Tabs, ToggleGroup, RadioGroup, Menubar, ColorPicker, and the calendars) read it as well: in a right-to-left subtree ArrowLeft goes to the next item and a slider's minimum is at the right. A bare h.Dir("rtl") above them mirrors the layout and the recipes but not those keys, because a component cannot read its direction while it builds; use the provider, or the component's Direction field, for them.
-
-#### func (DirectionProvider) Build
-
-```go
-func (p DirectionProvider) Build() tela.Node
-```
-
-Build lays the children out in the direction and provides it.
-
 ### type DropdownMenu
 
 ```go
@@ -2286,8 +2264,9 @@ type Menubar[K comparable] struct {
     OnSelect func(menu, item K)
     // AriaLabel names the bar.
     AriaLabel string
-    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-    // right without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
+    // Direction is "ltr" or "rtl"; empty is the direction at the component's
+    // position (tela.UseDirection: the nearest h.Dir above it, left to right
+    // without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
     // sets the direction of the layout.
     Direction string
     // CheckIcon and RadioIcon replace the check of a checkbox item and the
@@ -2616,8 +2595,9 @@ type RadioGroup[K comparable] struct {
     // Orientation is Vertical (the default) or Horizontal; it is the
     // group's aria-orientation and the arrangement of the options.
     Orientation Orientation
-    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-    // right without one). Under "rtl" ArrowLeft goes to the next option and ArrowRight to the previous one; a Direction given here also
+    // Direction is "ltr" or "rtl"; empty is the direction at the component's
+    // position (tela.UseDirection: the nearest h.Dir above it, left to right
+    // without one). Under "rtl" ArrowLeft goes to the next option and ArrowRight to the previous one; a Direction given here also
     // sets the direction of the layout.
     Direction string
     // Disabled disables every option.
@@ -3188,8 +3168,9 @@ type Slider struct {
     MinStepsBetweenThumbs int
     // Orientation is Horizontal (the default) or Vertical.
     Orientation Orientation
-    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s
-    // (left to right without one). Under "rtl" a horizontal slider has its
+    // Direction is "ltr" or "rtl"; empty is the direction at the slider's
+    // position (tela.UseDirection: the nearest h.Dir above it, left to right
+    // without one). Under "rtl" a horizontal slider has its
     // Min at the right, ArrowLeft increases the value and a drag follows
     // the pointer; a Direction given here also sets the direction of the
     // slider's layout.
@@ -3798,8 +3779,9 @@ type Tabs[K comparable] struct {
     Orientation Orientation
     // Variant is Default (the muted pill) or TabsLine.
     Variant Variant
-    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-    // right without one). Under "rtl" ArrowLeft goes to the next tab and ArrowRight to the previous one; a Direction given here also
+    // Direction is "ltr" or "rtl"; empty is the direction at the component's
+    // position (tela.UseDirection: the nearest h.Dir above it, left to right
+    // without one). Under "rtl" ArrowLeft goes to the next tab and ArrowRight to the previous one; a Direction given here also
     // sets the direction of the layout.
     Direction string
     // ManualActivation makes the arrow keys only move the focus; Enter or
@@ -4380,8 +4362,9 @@ type ToggleGroup[K comparable] struct {
     // keys follow; the items are laid out in a row either way (use Class
     // "flex-col" for a column).
     Orientation Orientation
-    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-    // right without one). Under "rtl" ArrowLeft goes to the next item and ArrowRight to the previous one; a Direction given here also
+    // Direction is "ltr" or "rtl"; empty is the direction at the component's
+    // position (tela.UseDirection: the nearest h.Dir above it, left to right
+    // without one). Under "rtl" ArrowLeft goes to the next item and ArrowRight to the previous one; a Direction given here also
     // sets the direction of the layout.
     Direction string
     // Disabled disables every item.

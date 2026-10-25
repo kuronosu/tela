@@ -133,7 +133,7 @@ func (c cell) wrapperClass() string {
 // is what its registry's right-to-left components are: the reference for a
 // right-to-left render is shadcn's markup written for right to left.
 var rtlMarkup = strings.NewReplacer(
-	`dir="ltr"`, `dir="rtl"`, // what Radix writes under DirectionProvider rtl
+	`dir="ltr"`, `dir="rtl"`, // what Radix writes under its DirectionProvider rtl
 	"rounded-l-md", "rounded-s-md", "rounded-r-md", "rounded-e-md",
 	"border-l-0", "border-s-0", "first:border-l", "first:border-s",
 	"text-left", "text-start", "text-right", "text-end",
@@ -167,13 +167,10 @@ func (s *sheet) cellNode(c cell, probe bool) tela.Node {
 	if probe {
 		kids = append(kids, h.TestID(c.name))
 	}
-	if s.rtl {
-		// The provider sets the direction for the components whose keys
-		// and drags depend on it (the panel's h.Dir does the layout).
-		kids = append(kids, kit.DirectionProvider{Direction: "rtl", Children: c.tela})
-	} else {
-		kids = append(kids, c.tela)
-	}
+	// Under rtl the panel's h.Dir lays the cells out right to left, and the
+	// components whose keys and drags depend on it read it with
+	// tela.UseDirection (ADR-155).
+	kids = append(kids, c.tela)
 	w := h.Div(kids...)
 	if s.slot > 0 {
 		return h.Div(h.Class(s.slotClass()), w)

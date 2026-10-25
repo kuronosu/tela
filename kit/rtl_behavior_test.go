@@ -18,17 +18,18 @@ import (
 // close button, a toast's action.
 
 // rtlScenarios are the two ways a component learns that it is right to left:
-// a DirectionProvider above it, and its own Direction field (the field is
-// applied by the function, which gets the direction).
-var rtlScenarios = []string{"provider", "field"}
+// an h.Dir above it, which it reads with tela.UseDirection (ADR-155), and
+// its own Direction field (the field is applied by the function, which gets
+// the direction).
+var rtlScenarios = []string{"dir", "field"}
 
-// mountRTL mounts the component a scenario builds: with the provider the
+// mountRTL mounts the component a scenario builds: under h.Dir the
 // component is built without a direction, with the field it is given "rtl".
 func mountRTL(t *testing.T, scenario string, build func(direction string) tela.Component, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	return telatest.MountFunc(t, func() tela.Node {
-		if scenario == "provider" {
-			return h.Div(h.Class("w-[300px] p-4"), kit.DirectionProvider{Direction: "rtl", Children: build("")})
+		if scenario == "dir" {
+			return h.Div(h.Class("w-[300px] p-4"), h.Div(h.Dir("rtl"), build("")))
 		}
 		return h.Div(h.Class("w-[300px] p-4"), build("rtl"))
 	}, append([]telatest.Option{telatest.Theme(kit.Theme())}, opts...)...)
@@ -133,8 +134,8 @@ func TestRTLSliderFill(t *testing.T) {
 
 func TestRTLSliderVerticalUnchanged(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Div(h.Class("h-[200px] p-4"), kit.DirectionProvider{Direction: "rtl", Children: kit.Slider{
-			AriaLabel: "Volume", Orientation: kit.Vertical, DefaultValue: new(50.0)}})
+		return h.Div(h.Class("h-[200px] p-4"), h.Dir("rtl"), kit.Slider{
+			AriaLabel: "Volume", Orientation: kit.Vertical, DefaultValue: new(50.0)})
 	}, telatest.Theme(kit.Theme()))
 	vol := sliderRole("Volume")
 	app.Focus(vol)
@@ -227,9 +228,9 @@ func TestRTLColorPickerKeys(t *testing.T) {
 	}
 }
 
-func TestRTLCalendarFollowsTheProvider(t *testing.T) {
-	app := calMount(t, kit.DirectionProvider{Direction: "rtl", Children: kit.Calendar{
-		Today: calToday, DefaultValue: calDate(2026, time.October, 14), AriaLabel: "Dates"}})
+func TestRTLCalendarFollowsDir(t *testing.T) {
+	app := calMount(t, h.Div(h.Dir("rtl"), kit.Calendar{
+		Today: calToday, DefaultValue: calDate(2026, time.October, 14), AriaLabel: "Dates"}))
 	app.Focus(calCell(calDate(2026, time.October, 14)))
 	app.Press("ArrowLeft") // the next day is at the left
 	app.ExpectFocused(calCell(calDate(2026, time.October, 15)))
@@ -351,30 +352,56 @@ func TestRTLToastActionAndPosition(t *testing.T) {
 	}
 }
 
-func TestDirectionProviderHasNoBox(t *testing.T) {
+// TestRTLFollowsDirChange: a component without a Direction field follows a
+// change of the h.Dir above it (tela.UseDirection builds it again): its
+// arrow keys swap with the layout.
+func TestRTLFollowsDirChange(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Div(h.Class("flex w-[300px] gap-2 p-4"), h.Div(h.TestID("a"), h.Class("size-10")),
-			kit.DirectionProvider{Direction: "RTL", Children: tela.C(func() tela.Node {
-				return h.Div(h.TestID("b"), h.Class("size-10"))
-			})})
-	})
-	a, b := app.Bounds(telatest.ByTestID("a")), app.Bounds(telatest.ByTestID("b"))
-	if b.X != a.X+a.Width+8 {
-		t.Errorf("b is at x=%v, want it next to a as a flex item of the same row (%v)", b.X, a.X+a.Width+8)
+		dir, setDir := tela.UseState("ltr")
+		return h.Div(h.Class("w-[300px] p-4"),
+			kit.Button{Children: h.Text("Flip"), Props: h.OnClick(func(tela.MouseEvent) { setDir.Set("rtl") })},
+			h.Div(h.Dir(dir), kit.ToggleGroup[string]{Items: tgViews, AriaLabel: "View", DefaultValue: new("list")}))
+	}, telatest.Theme(kit.Theme()))
+	app.Focus(tgRadio("List"))
+	app.Press("ArrowRight")
+	app.Expect(tgRadio("Grid"), telatest.Focused(true))
+	app.Click(telatest.ByRole("button", "Flip"))
+	list, grid := app.Bounds(tgRadio("List")), app.Bounds(tgRadio("Grid"))
+	if list.X < grid.X {
+		t.Fatalf("List is at x=%v, Grid at x=%v: the group is not mirrored", list.X, grid.X)
 	}
+	app.Focus(tgRadio("Grid"))
+	app.Press("ArrowLeft") // the next item is at the left now
+	app.Expect(tgRadio("Table"), telatest.Focused(true))
 }
 
-func TestDirectionProviderRejectsOtherValues(t *testing.T) {
+// TestRTLFieldWinsOverDir: a Direction field wins over the h.Dir above the
+// component, for its keys and its layout.
+func TestRTLFieldWinsOverDir(t *testing.T) {
+	app := telatest.MountFunc(t, func() tela.Node {
+		return h.Div(h.Dir("rtl"), h.Class("w-[300px] p-4"),
+			kit.Tabs[string]{Tabs: demoTabs(), AriaLabel: "Settings", Direction: "ltr"})
+	}, telatest.Theme(kit.Theme()))
+	account, password := app.Bounds(telatest.ByRole("tab", "Account")), app.Bounds(telatest.ByRole("tab", "Password"))
+	if account.X > password.X {
+		t.Errorf("Account is at x=%v, Password at x=%v: Direction ltr did not lay the tabs out left to right", account.X, password.X)
+	}
+	app.Focus(telatest.ByRole("tab", "Account"))
+	app.Press("ArrowRight")
+	selectedTab(app, "Password")
+}
+
+func TestRTLDirectionFieldRejectsOtherValues(t *testing.T) {
 	defer func() {
 		r := recover()
 		if r == nil {
-			t.Fatal("DirectionProvider{Direction: \"up\"} did not panic in dev mode")
+			t.Fatal("Tabs{Direction: \"up\"} did not panic in dev mode")
 		}
 		if s := fmt.Sprint(r); !strings.Contains(s, `"ltr" or "rtl"`) {
 			t.Errorf("the panic %q does not say what to use", s)
 		}
 	}()
-	telatest.Mount(t, kit.DirectionProvider{Direction: "up", Children: h.Div()})
+	telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), AriaLabel: "Settings", Direction: "up"})
 }
 
 // A menu at the start of its trigger starts where the text does: at the

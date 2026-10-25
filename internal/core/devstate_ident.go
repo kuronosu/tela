@@ -312,6 +312,8 @@ func devSlotKind(el *Element, j int) hookKind {
 		return hookSize
 	case *schemeSlot:
 		return hookColorScheme
+	case *dirSlot:
+		return hookDirection
 	case nil:
 		return hookReducedMotion
 	}

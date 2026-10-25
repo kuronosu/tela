@@ -141,10 +141,8 @@ func TestEveryKitComponentHasAPage(t *testing.T) {
 		t.Fatalf("found only %d components in kit: %v", len(components), components)
 	}
 	// StyleProvider is not a widget: the gallery's header uses it.
-	// DirectionProvider (ADR-151) is not one either: it has no box, only a
-	// direction.
 	for _, name := range components {
-		if name == "StyleProvider" || name == "DirectionProvider" {
+		if name == "StyleProvider" {
 			continue
 		}
 		found := false

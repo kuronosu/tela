@@ -120,8 +120,9 @@ type Slider struct {
 	MinStepsBetweenThumbs int
 	// Orientation is Horizontal (the default) or Vertical.
 	Orientation Orientation
-	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s
-	// (left to right without one). Under "rtl" a horizontal slider has its
+	// Direction is "ltr" or "rtl"; empty is the direction at the slider's
+	// position (tela.UseDirection: the nearest h.Dir above it, left to right
+	// without one). Under "rtl" a horizontal slider has its
 	// Min at the right, ArrowLeft increases the value and a drag follows
 	// the pointer; a Direction given here also sets the direction of the
 	// slider's layout.

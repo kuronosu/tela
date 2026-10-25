@@ -398,7 +398,10 @@ Button(Class("flex items-center gap-2"),
 ```
 
 With [`i18n`](Internationalization), the direction comes from the locale:
-`Dir(i18n.Dir(i18n.UseLocale()).String())`.
+`Dir(i18n.Dir(i18n.UseLocale()).String())`. A component reads the direction at
+its position with [`tela.UseDirection`](Hooks#environment-usecolorscheme-usereducedmotion-and-usedirection)
+(`"ltr"` or `"rtl"`), for what classes cannot mirror, such as arrow keys; the
+kit's components already do.
 
 ## See also
 

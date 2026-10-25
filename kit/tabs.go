@@ -145,8 +145,9 @@ type Tabs[K comparable] struct {
 	Orientation Orientation
 	// Variant is Default (the muted pill) or TabsLine.
 	Variant Variant
-	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-	// right without one). Under "rtl" ArrowLeft goes to the next tab and ArrowRight to the previous one; a Direction given here also
+	// Direction is "ltr" or "rtl"; empty is the direction at the component's
+	// position (tela.UseDirection: the nearest h.Dir above it, left to right
+	// without one). Under "rtl" ArrowLeft goes to the next tab and ArrowRight to the previous one; a Direction given here also
 	// sets the direction of the layout.
 	Direction string
 	// ManualActivation makes the arrow keys only move the focus; Enter or

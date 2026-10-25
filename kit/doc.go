@@ -149,12 +149,19 @@
 // (a Toaster's ToastBottomRight, a Popover's Placement "right"), as sonner's
 // and Floating UI's do; an Align of "start" follows the direction.
 //
-// A component cannot read its direction while it builds, and the ones whose
-// arrow keys or drag follow it need it: Slider, Tabs, ToggleGroup, RadioGroup,
-// Menubar, ColorPicker and the calendars. Give it with a [DirectionProvider]
-// around the app (it sets h.Dir too) or a Direction field on the component:
+// The components whose arrow keys or drag follow the direction (Slider,
+// Tabs, ToggleGroup, RadioGroup, Menubar, ColorPicker, ColorInput and the
+// calendars) read it at their position with tela.UseDirection, so an h.Dir
+// around the app is all a right-to-left page needs: in it ArrowLeft goes to
+// the next item and a slider's minimum is at the right.
 //
-//	kit.DirectionProvider{Direction: i18n.UseFormatter().Dir().String(), Children: App{}}
+//	f := i18n.UseFormatter()
+//	return h.Div(h.Dir(f.Dir().String()), App{})
+//
+// Each of them also has a Direction field ("ltr" or "rtl"), which wins over
+// the direction at its position and sets h.Dir on its root, for a component
+// whose direction differs from its surroundings (a calendar has its Locale
+// too).
 //
 // # Overlays and triggers
 //

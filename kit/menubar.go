@@ -86,8 +86,9 @@ type Menubar[K comparable] struct {
 	OnSelect func(menu, item K)
 	// AriaLabel names the bar.
 	AriaLabel string
-	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-	// right without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
+	// Direction is "ltr" or "rtl"; empty is the direction at the component's
+	// position (tela.UseDirection: the nearest h.Dir above it, left to right
+	// without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
 	// sets the direction of the layout.
 	Direction string
 	// CheckIcon and RadioIcon replace the check of a checkbox item and the

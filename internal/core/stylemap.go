@@ -22,6 +22,8 @@ const structuralStates = style.StateFirst | style.StateLast | style.StateOnly | 
 // first. A change of inherited properties restyles the children
 // (ARCHITECTURE section 10: no cascade, only inheritance).
 func (t *Tree) stylePhase() {
+	t.inStyle = true
+	defer func() { t.inStyle = false }()
 	if t.autoStale {
 		t.checkAutoDirs()
 	}

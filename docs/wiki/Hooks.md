@@ -565,7 +565,7 @@ func Drawer(open bool) tela.Node {
 The whole picture, with transitions, enter and exit and layout animations, is
 in [Animation](Animation).
 
-## Environment: UseColorScheme and UseReducedMotion
+## Environment: UseColorScheme, UseReducedMotion and UseDirection
 
 [`tela.UseColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#UseColorScheme) returns the effective color scheme, `tela.Light` or
 `tela.Dark` (the app's choice or the system's preference), and
@@ -575,6 +575,31 @@ builds again when they change; nothing else does. Classes do not need them
 classes cannot do, such as picking an image.
 [`tela.SetColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#SetColorScheme) changes the app's scheme from any goroutine; see
 [Styling](Styling#dark-mode).
+
+[`tela.UseDirection`](https://pkg.go.dev/github.com/kuronosu/tela#UseDirection) returns the writing direction at the component's position,
+`"ltr"` or `"rtl"`: the `Dir` of the nearest element above it that has one
+(`"auto"` resolved from its text), else `"ltr"`. The component builds again
+when it changes. Classes do not need it (the logical classes and `rtl:`
+follow `Dir`); use it for what they cannot do, such as which arrow key goes to
+the next item:
+
+```go
+func Pager() tela.Node {
+	page, setPage := tela.UseState(1)
+	next, prev := tela.KeyArrowRight, tela.KeyArrowLeft
+	if tela.UseDirection() == "rtl" {
+		next, prev = prev, next
+	}
+	return Div(TabIndex(0), OnKeyDown(func(e tela.KeyboardEvent) {
+		switch e.Key {
+		case next:
+			setPage.Update(func(p int) int { return p + 1 })
+		case prev:
+			setPage.Update(func(p int) int { return max(p-1, 1) })
+		}
+	}), Textf("Page %d", page))
+}
+```
 
 ## Background work: Post
 

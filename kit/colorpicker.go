@@ -149,8 +149,9 @@ type ColorPicker struct {
 	// default); set them for another language. The value texts ("Hue
 	// 180°") are aria's English ones.
 	AreaLabel, HueLabel, AlphaLabel, HexLabel string
-	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-	// right without one). Under "rtl" the saturation grows toward the left
+	// Direction is "ltr" or "rtl"; empty is the direction at the component's
+	// position (tela.UseDirection: the nearest h.Dir above it, left to right
+	// without one). Under "rtl" the saturation grows toward the left
 	// of the area, the hue and the opacity toward the left of their sliders,
 	// and ArrowLeft increases them; a Direction given here also sets the
 	// direction of the panel's layout.
@@ -432,8 +433,9 @@ type ColorInput struct {
 	// picker" by default).
 	AreaLabel, HueLabel, AlphaLabel, HexLabel string
 	AriaLabel                                 string
-	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
-	// right without one). Under "rtl" the saturation grows toward the left
+	// Direction is "ltr" or "rtl"; empty is the direction at the component's
+	// position (tela.UseDirection: the nearest h.Dir above it, left to right
+	// without one). Under "rtl" the saturation grows toward the left
 	// of the area, the hue and the opacity toward the left of their sliders,
 	// and ArrowLeft increases them; a Direction given here also sets the
 	// direction of the panel's layout, not the button's.

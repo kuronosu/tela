@@ -189,8 +189,10 @@ type Calendar struct {
 	Today aria.Date
 	// Locale is the BCP 47 tag of the names, digits, first weekday and
 	// direction; empty is the component's locale (i18n.UseLocale).
-	// Direction is "ltr" or "rtl"; empty follows the locale. Either one
-	// given here also sets the direction of the calendar's layout.
+	// Direction is "ltr" or "rtl"; empty follows the Locale when one is
+	// given, else the direction at the calendar's position
+	// (tela.UseDirection: the nearest h.Dir above it). Either one given
+	// here also sets the direction of the calendar's layout.
 	Locale, Direction string
 	// AriaLabel names the calendar ("Appointment date"); the visible month
 	// is appended. PreviousLabel and NextLabel name the month buttons
@@ -221,13 +223,13 @@ type Calendar struct {
 
 // Build returns the calendar element.
 func (c Calendar) Build() tela.Node {
-	c.Direction = useCalendarDirection(c.Direction, c.Locale)
+	keysDir := useCalendarDirection(c.Direction, c.Locale)
 	res := aria.UseCalendar(aria.CalendarOptions{
 		Value: c.Value, DefaultValue: ptrIfSet(c.DefaultValue), OnValueChange: c.OnValueChange,
 		Min: c.Min, Max: c.Max, IsDateUnavailable: c.IsDateUnavailable, Disabled: c.Disabled, ReadOnly: c.ReadOnly,
 		FocusedDate: c.FocusedDate, DefaultFocusedDate: c.DefaultFocusedDate, OnFocusChange: c.OnFocusChange,
 		VisibleMonths: c.VisibleMonths, FirstDayOfWeek: c.FirstDayOfWeek, FixedWeeks: c.FixedWeeks, Today: c.Today,
-		Locale: c.Locale, Direction: c.Direction, AriaLabel: c.AriaLabel,
+		Locale: c.Locale, Direction: keysDir, AriaLabel: c.AriaLabel,
 		PreviousLabel: c.PreviousLabel, NextLabel: c.NextLabel,
 	})
 	return useCalendarView(calendarLook{
@@ -294,7 +296,7 @@ type RangeCalendar struct {
 
 // Build returns the calendar element.
 func (c RangeCalendar) Build() tela.Node {
-	c.Direction = useCalendarDirection(c.Direction, c.Locale)
+	keysDir := useCalendarDirection(c.Direction, c.Locale)
 	var def *aria.DateRange
 	if !c.DefaultValue.IsZero() {
 		def = &c.DefaultValue
@@ -305,7 +307,7 @@ func (c RangeCalendar) Build() tela.Node {
 		Min:                       c.Min, Max: c.Max, IsDateUnavailable: c.IsDateUnavailable, Disabled: c.Disabled, ReadOnly: c.ReadOnly,
 		FocusedDate: c.FocusedDate, DefaultFocusedDate: c.DefaultFocusedDate, OnFocusChange: c.OnFocusChange,
 		VisibleMonths: c.VisibleMonths, FirstDayOfWeek: c.FirstDayOfWeek, FixedWeeks: c.FixedWeeks, Today: c.Today,
-		Locale: c.Locale, Direction: c.Direction, AriaLabel: c.AriaLabel,
+		Locale: c.Locale, Direction: keysDir, AriaLabel: c.AriaLabel,
 		PreviousLabel: c.PreviousLabel, NextLabel: c.NextLabel,
 	})
 	return useCalendarView(calendarLook{
@@ -315,13 +317,15 @@ func (c RangeCalendar) Build() tela.Node {
 	}, res, true)
 }
 
-// useCalendarDirection is a calendar's Direction: the one it was given, else the
-// locale's (the hook resolves it) when it has a Locale, else the nearest
-// [DirectionProvider]'s. It is a hook.
+// useCalendarDirection is the direction of a calendar's arrow keys: the
+// Direction it was given, else the locale's (the aria hook resolves "")
+// when it has a Locale, else the direction at its position. It is a hook.
+// Only a Direction or a Locale given to the calendar sets h.Dir on its root
+// (useCalendarView): the direction at its position is already its own.
 func useCalendarDirection(direction, locale string) string {
-	provided := tela.UseContext(directionCtx)
+	at := tela.UseDirection()
 	if direction == "" && locale == "" {
-		return provided
+		return at
 	}
 	return direction
 }

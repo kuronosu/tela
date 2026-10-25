@@ -15,6 +15,13 @@ import (
 // ltr: variants and the logical utilities see it. Layout mirrors flex,
 // grid, block and positioned layout with it (layout.Style.Direction) and
 // paragraphs take it as their base direction.
+//
+// Components read the direction at their position with UseDirection
+// (ADR-155), as UseColorScheme reads the scheme: the Dir of the nearest
+// primitive ancestor that has one, dir="auto" as the style phase resolved
+// it. Their slots (dirSlot) keep what the build returned, so that a Dir
+// change, or an auto element resolving the other way, builds again only
+// the readers that saw another direction.
 
 // dirValue is the parsed Dir prop.
 type dirValue uint8
@@ -74,8 +81,14 @@ func (t *Tree) styleDir(el *Element) style.Dir {
 		if t.autoDirs == nil {
 			t.autoDirs = map[*Element]bool{}
 		}
+		prev, had := t.autoDirs[el]
 		t.autoDirs[el] = rtl
 		el.autoStale = false
+		if t.dirHooks && (!had || prev != rtl) {
+			// UseDirection readers below built with the previous result,
+			// or with ltr before the first one (dirAt).
+			t.markDirReaders(el, rtl)
+		}
 		if rtl {
 			return style.DirRTL
 		}
@@ -173,5 +186,98 @@ func (t *Tree) checkAutoDirs() {
 		if !el.needsStyle && t.autoRTL(el) != rtl {
 			t.markStyle(el)
 		}
+	}
+}
+
+// ---------------------------------------------------------------------
+// UseDirection (ADR-155).
+
+// dirSlot is the hook slot of UseDirection: it marks the component as a
+// reader of the direction at its position and holds the direction its
+// last build returned.
+type dirSlot struct{ rtl bool }
+
+// UseDirection returns the direction at the component's position, "ltr"
+// or "rtl": the Dir prop of its nearest primitive ancestor that has one,
+// with "auto" resolved as the style phase resolves it, else "ltr". The
+// component builds again when it changes.
+func UseDirection() string {
+	el, i := nextSlot(hookDirection)
+	if i == len(el.hooks) {
+		el.hooks = append(el.hooks, &dirSlot{})
+		el.tree.dirHooks = true
+	}
+	s := el.hooks[i].(*dirSlot)
+	s.rtl = el.tree.dirAt(el.parent)
+	if s.rtl {
+		return "rtl"
+	}
+	return "ltr"
+}
+
+// dirAt reports whether the direction at el, a primitive or a position
+// below it, is right to left: the Dir of the nearest primitive at or
+// above el that has one. A dir="auto" element gives the direction its
+// last style computation resolved; before its first one (it mounts in
+// this build, and its text may come from the components being built)
+// it gives ltr, HTML's direction of a text without strong characters,
+// and the style phase builds the readers again in the same frame when it
+// resolves to rtl (markDirReaders, Tree.Frame).
+func (t *Tree) dirAt(el *Element) bool {
+	for p := el; p != nil; p = p.parent {
+		if p.kind != elemPrimitive || p.node.d == nil {
+			continue
+		}
+		switch p.node.d.dir {
+		case dirLTR:
+			return false
+		case dirRTL:
+			return true
+		case dirAuto:
+			return t.autoDirs[p]
+		}
+	}
+	return false
+}
+
+// markDirReaders builds again the components below el whose nearest
+// primitive with a Dir is el (or, when el has none, that have no Dir
+// between them and el) and whose UseDirection did not return the
+// direction rtl gives. A subtree with a Dir of its own is skipped: its
+// readers do not depend on el. Called in the style phase (dir="auto"
+// resolved), it asks the frame to build again (dirRebuild).
+func (t *Tree) markDirReaders(el *Element, rtl bool) {
+	var walk func(e *Element)
+	walk = func(e *Element) {
+		for _, c := range e.children {
+			switch c.kind {
+			case elemPrimitive:
+				if c.node.d.dir != dirNone {
+					continue
+				}
+			case elemComponent:
+				for _, h := range c.hooks {
+					if s, ok := h.(*dirSlot); ok && s.rtl != rtl {
+						t.markBuild(c)
+						if t.inStyle {
+							t.dirRebuild = true
+						}
+						break
+					}
+				}
+			default:
+				continue
+			}
+			walk(c)
+		}
+	}
+	walk(el)
+}
+
+// dirChanged follows a change of el's Dir prop (update, during the build):
+// the readers below it that read another direction build again.
+func (t *Tree) dirChanged(el *Element) {
+	if t.dirHooks {
+		t.markDirReaders(el, t.dirAt(el))
 	}
 }

@@ -265,3 +265,40 @@ func TestDevStateRoundTrip(t *testing.T) {
 		t.Errorf("second capture %+v", rep2)
 	}
 }
+
+// devDirReader reads the direction between two states (UseDirection's
+// slot is part of the hook signature, as UseColorScheme's is).
+func devDirReader() Node {
+	n, _ := UseState(0)
+	dir := UseDirection()
+	s, _ := UseState("")
+	return div(Text(dir + s + string(rune('0'+n))))
+}
+
+// TestDevStateUseDirection: a component that calls UseDirection keeps the
+// state around it across a reload, and its slot is neither kept nor
+// reported as reset (it holds no state: the new build reads the direction
+// again).
+func TestDevStateUseDirection(t *testing.T) {
+	root := Component(func() Node { return div(Dir("rtl"), Component(devDirReader)) })
+	a := devTestTree(t, root, nil, nil)
+	el := devComp(t, a, "devDirReader")
+	devSet(t, a, el, 0, 3)
+	devSet(t, a, el, 2, "x")
+	data, rep := devSnap(t, a)
+	if rep.Kept != 2 || len(rep.Reset) != 0 {
+		t.Errorf("capture report %+v, want 2 kept slots and none reset", rep)
+	}
+	b := devTestTree(t, root, data, nil)
+	sr := b.DevSeedReport()
+	if sr.Err != "" || sr.Restored != 2 || len(sr.Remounted) != 0 {
+		t.Errorf("seed report %+v", sr)
+	}
+	pb := devComp(t, b, "devDirReader")
+	if devState[int](t, pb, 0) != 3 || devState[string](t, pb, 2) != "x" {
+		t.Errorf("restored %d %q, want 3 x", devState[int](t, pb, 0), devState[string](t, pb, 2))
+	}
+	if !pb.hooks[1].(*dirSlot).rtl {
+		t.Error("the restored reader does not read rtl")
+	}
+}
