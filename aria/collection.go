@@ -106,6 +106,7 @@ type collState[K comparable] struct {
 	pending       K
 	hasPending    bool
 	autoContainer bool
+	leaving       bool // the mouse left an item of a menu: the menu keeps the focus with no item (onItemLeave)
 	repair        bool // the focus was inside when its item vanished: give it to the key that took over
 	within        bool // the focus is inside the collection
 	visible       bool // and it shows as focus-visible
@@ -879,7 +880,13 @@ func (c *collState[K]) itemProps(k K) tela.Prop {
 		}
 	}
 	if disabled {
-		return core.MergeProps(append(ps, h.Disabled(true), h.AriaDisabled(true))...)
+		ps = append(ps, h.Disabled(true), h.AriaDisabled(true))
+		if c.cfg.focusOnHover && c.cfg.kind == kindMenu {
+			// The mouse over a disabled item clears the highlight, as
+			// Radix's MenuItem calls onItemLeave for it.
+			ps = append(ps, h.OnPointerMove(func(e tela.PointerEvent) { c.onItemLeave(e) }))
+		}
+		return core.MergeProps(ps...)
 	}
 	if !c.cfg.virtualFocus {
 		stop := c.hasFocused && c.focused == k
@@ -905,6 +912,9 @@ func (c *collState[K]) itemProps(k K) tela.Prop {
 	}
 	if c.cfg.focusOnHover {
 		ps = append(ps, h.OnPointerMove(func(e tela.PointerEvent) { c.onItemHover(k, e) }))
+		if c.cfg.kind == kindMenu {
+			ps = append(ps, h.OnPointerLeave(func(e tela.PointerEvent) { c.onItemLeave(e) }))
+		}
 	}
 	return core.MergeProps(ps...)
 }
@@ -957,6 +967,22 @@ func (c *collState[K]) onItemHover(k K, e tela.PointerEvent) {
 	}
 	c.within = true
 	c.moveFocus(k)
+}
+
+// onItemLeave is Radix's onItemLeave of a menu: when the mouse leaves an
+// item (for the gap between items, a separator, a disabled item or the
+// outside of the menu) nothing is highlighted, and the focus stays on the
+// menu itself, so the keys still work: ArrowDown goes to the first item,
+// ArrowUp to the last, as on a menu that opened under the mouse.
+func (c *collState[K]) onItemLeave(e tela.PointerEvent) {
+	if e.Kind == tela.PointerTouch || !c.within {
+		return
+	}
+	c.clearFocus()
+	c.leaving = true
+	c.ref.Focus()
+	c.leaving = false
+	c.within = true
 }
 
 // containerProps are the props of the element that holds the items.
@@ -1016,6 +1042,8 @@ func (c *collState[K]) onFocus() {
 	// disabled item). With a roving focus it goes to the focused item, else
 	// to the first selected one or the first (React Aria's onFocus).
 	switch {
+	case c.leaving:
+		// The menu keeps the focus with no item highlighted (onItemLeave).
 	case c.hasFocused && !c.cfg.virtualFocus:
 		c.focusElement(c.focused)
 	case !was && !c.hasFocused:

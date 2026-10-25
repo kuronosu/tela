@@ -2,6 +2,7 @@ package core
 
 import (
 	"math"
+	"slices"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
@@ -79,7 +80,9 @@ import (
 // after a flip, the arrow's offset) with PublishValue: paint-phase
 // readers (an arrow's TranslateFn) are evaluated again in this frame,
 // before anything is recorded; builds, layout-phase readers and texts
-// that read it follow in the next frame.
+// that read it run in this frame too, before it is shown: Frame builds,
+// styles and lays out once more when the Values that Place published
+// changed what they read (rebuildPublished).
 //
 // # Without an anchor
 //
@@ -269,6 +272,9 @@ type floatTree struct {
 	drops []*floatState
 	again bool
 	run   int
+	// published are the Values that the Place functions of the frame
+	// published (pubs[n:] of each call), for rebuildPublished.
+	published []*valueCore
 }
 
 // updateFloat gives the box of primitive el the Floating prop of its node
@@ -530,6 +536,8 @@ func (t *Tree) floatOne(p *painter, bx *Box, relayout bool) (laid bool) {
 // Values it reads (a change places bx again).
 func (t *Tree) callPlace(bx *Box, f *floatState, in FloatInput) FloatResult {
 	mark := t.beginTrack()
+	pubs := len(t.pubs)
+	defer func() { t.flt.published = append(t.flt.published, t.pubs[min(pubs, len(t.pubs)):]...) }()
 	var res FloatResult
 	func() {
 		done := false
@@ -543,6 +551,34 @@ func (t *Tree) callPlace(bx *Box, f *floatState, in FloatInput) FloatResult {
 	}()
 	t.observe(&f.obs, obsPaint, nil, bx, t.endTrack(mark))
 	return res
+}
+
+// rebuildPublished makes what the float pass published, and builds read,
+// take effect before the frame is painted: the Values that the Place
+// functions of this frame published (the final placement after a flip, say)
+// invalidate their build, layout and text readers now instead of after the
+// frame, and rebuildPublished reports whether any reader was hit, so that
+// Frame builds, styles and lays out again before it presents anything. The
+// first paint of the frame is then never shown: a menu that flips above its
+// trigger is styled for the top side from its first frame, not one frame
+// later (ADR-164). Values published by anything but a Place function wait
+// for the end of the frame as ever.
+func (t *Tree) rebuildPublished() bool {
+	F := &t.flt
+	pubs := F.published
+	F.published = nil
+	hit := false
+	for _, v := range pubs {
+		if !v.pub {
+			continue
+		}
+		v.pub = false
+		t.pubs = slices.DeleteFunc(t.pubs, func(o *valueCore) bool { return o == v })
+		if v.el.mounted && t.valueChangedSkip(v, obsPaint) {
+			hit = true
+		}
+	}
+	return hit
 }
 
 // floatAnchorRect evaluates the virtual anchor of floating box bx,
@@ -669,9 +705,11 @@ func minDim(d layout.Dim, v, basis float32) layout.Dim {
 // inside a frame: the Place function of a floating element publishing
 // the final placement or the arrow's offset. The paint-phase readers of
 // v (a TranslateFn, an OpacityFn) are evaluated again in this frame,
-// before anything is painted; the builds, layout-phase readers and texts
-// that read it follow in the next frame. Outside a frame it is the UI
-// thread's direct store (all readers follow in the next frame). Queued
+// before anything is painted; what a Place function publishes is read by
+// builds, layout-phase readers and texts in the same frame (the frame runs
+// again before it is shown), the Values published by other code in the
+// next frame. Outside a frame it is the UI thread's direct store (all
+// readers follow in the next frame). Queued
 // Set and Update calls of v still apply after it; a comparable value
 // == to the current one changes nothing. Call it on the UI thread only.
 func PublishValue[T any](v *Value[T], x T) {

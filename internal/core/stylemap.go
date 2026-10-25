@@ -80,6 +80,21 @@ func (t *Tree) restyle(el *Element) {
 		portalStyle(cs) // a portal layer (portal.go)
 	}
 	old := bx.cs
+	if old == nil {
+		bx.styledFrame = t.frame
+	} else if t.rerun && bx.styledFrame == t.frame {
+		// The frame builds again before painting (the float pass
+		// published a placement): a box that mounted in it has not been
+		// seen yet, so it starts its transitions and animations again
+		// from its starting style, with the classes of the final side.
+		if ba := bx.anim; ba != nil {
+			t.anim.tk.Remove(ba)
+			ba.dormant = false
+			ba.trans, ba.kf = nil, nil
+			ba.release()
+		}
+		old = nil
+	}
 	// Transitions and keyframe animations: cs is the target; the style the
 	// box uses now may differ from it (anim.go). A box that starts being
 	// rendered transitions from its starting style, or not at all.

@@ -62,8 +62,8 @@ type PopoverResult struct {
 	// the trigger.
 	ArrowProps tela.Prop
 	// Placement is the placement the popover is in, after flipping; Side
-	// and Align split it. They follow the engine by one frame: see
-	// [Floating].
+	// and Align split it. They are the engine's in the frame that shows
+	// the popover: see [Floating].
 	Placement, Side, Align string
 	// Ref is the ref attached to the popover's element by Props.
 	Ref tela.ElementRef

@@ -241,9 +241,12 @@ type Tree struct {
 	// flt is the float pass state (floating.go), ovl the overlays, the
 	// interact-outside listeners and the modality (overlay.go), and pubs
 	// the Values published in the frame (PublishValue).
-	flt  floatTree
-	ovl  overlayState
-	pubs []*valueCore
+	flt floatTree
+	// rerun is set while a frame builds again after its float pass
+	// published what builds read (Frame).
+	rerun bool
+	ovl   overlayState
+	pubs  []*valueCore
 	// env is the color scheme and reduced motion (env.go).
 	env envState
 
@@ -535,52 +538,65 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	// A frame that builds, restyles or lays out records every layer; one
 	// that only repaints records only what changed (layer.go).
 	full := t.changed || t.lastDL == nil
-	if full {
-		t.buildPhase()
-		if len(t.devLabels) > 0 {
-			t.checkLabels()
-		}
-		t.stylePhase()
-		if t.dirRebuild {
-			// A dir="auto" element resolved other than what the
-			// UseDirection readers below it read (direction.go): they
-			// build again before anything is laid out.
-			t.dirRebuild = false
+	t.flt.published = nil
+	for again := false; ; again = true {
+		if full {
 			t.buildPhase()
+			if len(t.devLabels) > 0 {
+				t.checkLabels()
+			}
 			t.stylePhase()
+			if t.dirRebuild {
+				// A dir="auto" element resolved other than what the
+				// UseDirection readers below it read (direction.go): they
+				// build again before anything is laid out.
+				t.dirRebuild = false
+				t.buildPhase()
+				t.stylePhase()
+			}
+			if t.presencePhase() {
+				t.stylePhase() // the structural variants of the siblings
+			}
+			if t.focusPending() {
+				// Focus fix-up, AutoFocus and scope restoration need the new
+				// styles; the states they change are styled now.
+				t.focusWork()
+				t.stylePhase()
+			}
+			t.boxPhase()
+			t.layoutPhase()
 		}
-		if t.presencePhase() {
-			t.stylePhase() // the structural variants of the siblings
-		}
-		if t.focusPending() {
-			// Focus fix-up, AutoFocus and scope restoration need the new
-			// styles; the states they change are styled now.
-			t.focusWork()
+		t.commitLayout()
+		if len(t.styleQ) > 0 || len(t.boxQ) > 0 {
+			// A layout effect moved the focus (ElementRef.Focus): style and
+			// lay out again before painting.
 			t.stylePhase()
+			t.fixFocus()
+			t.stylePhase()
+			t.boxPhase()
+			t.layoutPhase()
+			full = true
 		}
-		t.boxPhase()
-		t.layoutPhase()
-	}
-	t.commitLayout()
-	if len(t.styleQ) > 0 || len(t.boxQ) > 0 {
-		// A layout effect moved the focus (ElementRef.Focus): style and
-		// lay out again before painting.
-		t.stylePhase()
-		t.fixFocus()
-		t.stylePhase()
-		t.boxPhase()
-		t.layoutPhase()
+		full = t.scrollPhase(full)
+		t.revealFields()
+		if devStateEnabled {
+			full = t.devFrame(full) // tela dev: scroll offsets of the saved state
+		}
+		if full {
+			t.syncSizes() // UseSize (bounds.go): paint-phase readers see it now
+		}
+		t.lastDL = t.paintPhase(full)
+		// What the float pass published and builds read (the placement
+		// after a flip) is applied before anything is shown: the frame
+		// builds, styles and lays out once more, and the boxes mounted in
+		// it start again from their starting style (floating.go).
+		if again || !t.rebuildPublished() {
+			break
+		}
+		t.rerun = true
 		full = true
 	}
-	full = t.scrollPhase(full)
-	t.revealFields()
-	if devStateEnabled {
-		full = t.devFrame(full) // tela dev: scroll offsets of the saved state
-	}
-	if full {
-		t.syncSizes() // UseSize (bounds.go): paint-phase readers see it now
-	}
-	t.lastDL = t.paintPhase(full)
+	t.rerun = false
 	t.changed, t.repaint = false, false
 	return t.lastDL, true
 }

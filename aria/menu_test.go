@@ -269,3 +269,85 @@ func ExampleUseMenu() {
 	//   - menuitem "Delete"
 	// action:edit
 }
+
+// TestMenuMouseLeavingAnItemClearsTheHighlight is Radix's onItemLeave: when
+// the mouse leaves an item (for the outside of the menu, or a disabled
+// item) no item is highlighted, and the focus stays on the menu, so the keys
+// still work from there.
+func TestMenuMouseLeavingAnItemClearsTheHighlight(t *testing.T) {
+	var ev events
+	o := aria.MenuOptions[string]{DisabledKeys: []string{"duplicate"}}
+	app := telatest.MountFunc(t, menuApp(o, &ev), telatest.Size(400, 300))
+	menu := telatest.ByRole("menu", "Actions")
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.Hover(menuitem("Archive"))
+	app.ExpectFocused(menuitem("Archive"))
+	app.MouseMove(350, 250) // outside the menu
+	app.ExpectFocused(menu)
+	// From the menu itself: ArrowDown goes to the first item, ArrowUp to
+	// the last, and typeahead finds an item.
+	app.Press("ArrowDown")
+	app.ExpectFocused(menuitem("Edit"))
+	app.Hover(menuitem("Archive"))
+	app.MouseMove(350, 250)
+	app.ExpectFocused(menu)
+	app.Press("ArrowUp")
+	app.ExpectFocused(menuitem("Delete"))
+	app.Hover(menuitem("Edit"))
+	app.MouseMove(350, 250)
+	app.Press("a")
+	app.ExpectFocused(menuitem("Archive"))
+	// A disabled item takes no highlight, and clears the one before it.
+	app.Hover(menuitem("Edit"))
+	app.ExpectFocused(menuitem("Edit"))
+	app.Hover(menuitem("Duplicate"))
+	app.ExpectFocused(menu)
+	// Moving from one item to the next is not a gap: the next one is
+	// highlighted.
+	app.Hover(menuitem("Archive"))
+	app.Hover(menuitem("Delete"))
+	app.ExpectFocused(menuitem("Delete"))
+}
+
+// TestMenuReopensWithTheRightItem: opened with the mouse nothing is
+// highlighted, whatever the last use of the menu was; opened with the
+// keyboard (Enter, Space or ArrowDown on the trigger) the first item is.
+func TestMenuReopensWithTheRightItem(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{}, &ev), telatest.Size(400, 300))
+	trigger := telatest.ByRole("button", "Actions")
+	menu := telatest.ByRole("menu", "Actions")
+	for range 2 {
+		app.Click(trigger)
+		app.ExpectFocused(menu)
+		app.Hover(menuitem("Archive"))
+		app.ExpectFocused(menuitem("Archive"))
+		app.MouseMove(350, 250)
+		app.ExpectFocused(menu)
+		app.Press("Escape")
+	}
+	app.Focus(trigger)
+	for _, key := range []string{"Enter", "Space", "ArrowDown"} {
+		app.Press(key)
+		app.ExpectFocused(menuitem("Edit"))
+		app.Hover(menuitem("Archive"))
+		app.MouseMove(350, 250)
+		app.Press("Escape")
+		app.ExpectFocused(trigger)
+	}
+	app.Click(trigger)
+	app.ExpectFocused(menu)
+}
+
+// TestMenuCheckboxAndRadioItemsHighlightLikeOthers: the items that can be
+// checked follow the same rule as any other item.
+func TestMenuCheckboxAndRadioItemsHighlightLikeOthers(t *testing.T) {
+	var ev events
+	app := telatest.MountFunc(t, menuApp(aria.MenuOptions[string]{SelectionMode: "multiple"}, &ev), telatest.Size(400, 300))
+	menu := telatest.ByRole("menu", "Actions")
+	app.Click(telatest.ByRole("button", "Actions"))
+	app.Hover(telatest.ByRole("menuitemcheckbox", "Duplicate"))
+	app.ExpectFocused(telatest.ByRole("menuitemcheckbox", "Duplicate"))
+	app.MouseMove(350, 250)
+	app.ExpectFocused(menu)
+}

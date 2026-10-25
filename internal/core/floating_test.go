@@ -395,8 +395,8 @@ func TestFloatingRebuildPlaces(t *testing.T) {
 }
 
 // TestFloatingPublish: Place publishes the arrow's offset (read by its
-// TranslateFn in the same frame) and the final side (read by a build in
-// the next frame).
+// TranslateFn in the same frame) and the final side (read by a build,
+// which runs again in the same frame).
 func TestFloatingPublish(t *testing.T) {
 	var anchor, arrow ElementRef
 	var arrowX *Value[float32]
@@ -433,16 +433,19 @@ func TestFloatingPublish(t *testing.T) {
 	if side.Get() != "bottom" {
 		t.Errorf("published side %q", side.Get())
 	}
-	if !tr.Dirty() {
-		t.Fatal("the build reader of the published side waits for no frame")
+	// The build reader of the published side ran again in the same frame,
+	// before it was shown (ADR-164): the label built twice, no frame is
+	// left to run, and the label shows the side.
+	if builds != 2 {
+		t.Errorf("the reader of the side built %d times in the first frame, want 2 (the first one and the one after Place)", builds)
+	}
+	if tr.Dirty() {
+		t.Error("the frame left work after rebuilding the reader of the published side")
 	}
 	b := builds
 	tr.Frame()
-	if builds != b+1 {
-		t.Errorf("the reader of the side built %d times, want 1", builds-b)
-	}
-	if tr.Dirty() {
-		t.Error("published values keep the tree dirty")
+	if builds != b {
+		t.Errorf("a frame built the reader of the side again: %d builds", builds-b)
 	}
 }
 
