@@ -224,9 +224,15 @@ func usePressCore(c pressConfig) (tela.Prop, bool, tela.ElementRef) {
 	if c.activate != "" {
 		buttonType = c.activate
 	}
-	props := core.MergeProps(
-		h.Ref(ref),
-		core.DefaultButtonType(buttonType),
+	props := core.MergeProps(h.Ref(ref), core.DefaultButtonType(buttonType), p.handlers())
+	return props, pressed, ref
+}
+
+// handlers are the event handlers of the press. A hook that presses one
+// element per key (the triggers of a menu bar) builds a presser for each
+// instead of calling usePressCore.
+func (p *presser) handlers() tela.Prop {
+	return core.MergeProps(
 		h.OnPointerDown(p.onPointerDown),
 		h.OnPointerMove(p.onPointerMove),
 		h.OnPointerUp(p.onPointerUp),
@@ -236,7 +242,6 @@ func usePressCore(c pressConfig) (tela.Prop, bool, tela.ElementRef) {
 		h.OnKeyUp(p.onKeyUp),
 		h.OnBlur(p.onBlur),
 	)
-	return props, pressed, ref
 }
 
 // input is what a step of the press knows about its cause.

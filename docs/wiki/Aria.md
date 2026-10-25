@@ -32,6 +32,8 @@ import "github.com/kuronosu/tela/aria"
 | A tooltip with delays | [`aria.UseTooltipTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseTooltipTrigger) |
 | A list of options to select from, with the keyboard | [`aria.UseListBox`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseListBox) |
 | The menu that a menu button opens | [`aria.UseMenu`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMenu) |
+| A menu bar (File, Edit, View) | [`aria.UseMenuBar`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMenuBar) |
+| A context menu: right click, long press, Shift+F10 | [`aria.UseContextMenuTrigger`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseContextMenuTrigger) |
 | Tabs and their panels | [`aria.UseTabs`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseTabs) |
 | A select: a button that shows the chosen item and opens a list | [`aria.UseSelect`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseSelect) |
 | A text field that filters a list of suggestions | [`aria.UseCombobox`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseCombobox) |
@@ -950,7 +952,120 @@ items work as in a list box.
 Choosing an item closes the menu unless the selection is multiple (several
 checkbox items are toggled in a row); `CloseOnSelect` (a `*bool`) overrides it.
 A single selection never unchecks by choosing the checked item. There are no
-submenus yet.
+submenus yet (nor in the menu bar).
+
+### Menu bars: `UseMenuBar`
+
+`UseMenuBar` is the WAI-ARIA menubar pattern over the same menu: a row of
+triggers, each with its own menu. Only one menu is open at a time, so the hook
+is called once, for the bar, and the menu that is open is rendered by a
+component of its own, keyed by the open menu so that each one mounts anew and
+focuses its first item.
+
+```go
+var titles = map[string]string{"file": "File", "edit": "Edit"}
+
+func AppMenuBar() tela.Node {
+	bar := aria.UseMenuBar(aria.MenuBarOptions[string]{
+		Keys: []string{"file", "edit"}, AriaLabel: "Application",
+	})
+	return Fragment(
+		Div(bar.Props, Class("flex gap-1"),
+			Range(2, func(i int) tela.Node {
+				k := []string{"file", "edit"}[i]
+				return Button(bar.TriggerProps(k), Key(k),
+					Class("rounded px-3 py-1 aria-expanded:bg-accent"), Text(titles[k]))
+			})),
+		Portal(If(bar.Open, tela.WithKey(AppMenu{bar}, bar.OpenKey))))
+}
+
+type AppMenu struct{ Bar aria.MenuBarResult[string] }
+
+func (m AppMenu) Build() tela.Node {
+	k := m.Bar.OpenKey
+	pop := aria.UsePopover(m.Bar.PopoverOptions(k))
+	menu := aria.UseMenu(aria.MenuOptions[string]{
+		Keys: items[k], OnAction: run, OnClose: m.Bar.Close,
+		AutoFocus: true, FocusStrategy: m.Bar.FocusStrategy, Ref: m.Bar.MenuRef(k),
+	})
+	return Div(pop.Props, m.Bar.MenuProps(k), menu.Props, Class("w-48 rounded-md border bg-popover p-1"),
+		Range(len(items[k]), func(i int) tela.Node {
+			return Div(menu.ItemProps(items[k][i]), Key(items[k][i]), Text(items[k][i]))
+		}))
+}
+```
+
+```yaml
+- menubar "Application":
+  - menuitem "File"
+  - menuitem "Edit" [expanded]
+- menu "Edit":
+  - menuitem "Undo"
+```
+
+`MenuBarOptions[K]` has `Keys`, `DisabledKeys`, `Disabled`, `Open *K`,
+`DefaultOpen *K`, `OnOpenChange(key, open)`, `Direction`, `NoWrap`, `AriaLabel`,
+`AriaLabelledBy` and `Ref`. The open menu is a key: uncontrolled by default,
+controlled with `Open` (a key that is not in `Keys`, such as `""`, means all
+closed). The result has `Props` (the `menubar`), `TriggerProps(k)` (a
+`menuitem` with `aria-haspopup` and `aria-expanded`), `MenuProps(k)`,
+`PopoverOptions(k)` (the options of `UsePopover`: below the trigger, not modal),
+`MenuRef(k)`, `TriggerRef(k)`, `Open`, `OpenKey`, `IsOpen(k)`, `FocusStrategy`,
+`SetOpen(k, open)`, `Close` and `Ref`.
+
+The bar is one tab stop that remembers its last trigger. ArrowLeft and
+ArrowRight (swapped by `Direction: "rtl"`) move between the triggers, wrapping
+unless `NoWrap`; Home and End jump; ArrowDown, Enter and Space open the menu of
+the focused trigger on its first item, ArrowUp on its last. While a menu is open
+ArrowLeft and ArrowRight close it and open the neighbor's, and hovering another
+trigger does the same (the popover is not modal, so the triggers stay under the
+pointer). A press on the open menu's trigger closes it, so do Escape, a press
+outside and choosing an item, and the focus goes back to the trigger. Tab closes
+the menu and leaves the bar. A touch opens a menu on the release. There are no
+submenus, no typeahead on the triggers and no mnemonics (Alt+letter).
+
+### Context menus: `UseContextMenuTrigger`
+
+`UseContextMenuTrigger(aria.ContextMenuTriggerOptions{Open, OnOpenChange, Disabled, NoLongPress, Ref, MenuRef})`
+returns the props of an area that opens a menu at the pointer: `TriggerProps`
+handles a right click (the contextmenu event, at the pointer), a touch that
+stays down 500 ms (at the finger, with the first item focused) and Shift+F10 or
+the ContextMenu key (at the area's top-left corner, with the first item
+focused). The event's default is prevented and its propagation stopped, so the
+innermost area wins. The result is shaped like `UseMenuTrigger`: `MenuProps`,
+`Open`, `FocusStrategy`, `SetOpen`, `Close`, `Ref`, `MenuRef`, plus `OpenAt(x, y)`
+and `Anchor`, the virtual rectangle that `AnchorRect` takes.
+`PopoverOptions()` fills `UsePopover` for it: anchored at the point, flipped and
+shifted to stay in the window.
+
+```go
+func Notes() tela.Node {
+	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
+	return Fragment(
+		Div(cm.TriggerProps, Class("h-48 rounded-md border"), Text("Right click here")),
+		Portal(If(cm.Open, NoteMenu{cm})))
+}
+
+type NoteMenu struct{ CM aria.ContextMenuTriggerResult }
+
+func (m NoteMenu) Build() tela.Node {
+	pop := aria.UsePopover(m.CM.PopoverOptions())
+	menu := aria.UseMenu(aria.MenuOptions[string]{
+		Keys: actions, OnAction: run, OnClose: m.CM.Close, AriaLabel: "Actions",
+		AutoFocus: true, FocusStrategy: m.CM.FocusStrategy, Ref: m.CM.MenuRef,
+	})
+	return Div(pop.Props, m.CM.MenuProps, menu.Props, Class("w-48 rounded-md border bg-popover p-1"), /* items */)
+}
+```
+
+The menu is the one of a dropdown menu: `UseMenu` takes the same results, so a
+component that renders a menu can serve both. Escape, a primary press outside and
+choosing an item close it, and the focus returns to where it was. The popover is
+not modal: a second right click on the area moves the menu to the new point. Two
+limits come from the engine: the long press is recognized for every pointer of
+the area, so a mouse button held 500 ms on it does not click (`NoLongPress` turns
+the touch gesture off), and the keyboard menu opens at the area's corner because
+a key event does not say which element has the focus.
 
 ### Tabs: `UseTabs`
 
@@ -1179,6 +1294,11 @@ focuses the input; without one, give `AriaLabel`.
   the list; no `name` or `formValue`.
 - Shift+Tab into a list focuses its first item, not the last one: Tela's focus
   events do not carry the element the focus came from.
+- Menu bar and context menu: React Aria has neither hook. The menu bar follows
+  the WAI-ARIA menubar pattern (and Radix's Menubar) on top of the menu trigger's
+  rules, with one press handler per trigger key and a non-modal popover; no
+  submenus, typeahead on the triggers or mnemonics. The context menu follows
+  Radix's ContextMenu; a keyboard menu opens at the area's corner.
 
 ## A complete screen
 

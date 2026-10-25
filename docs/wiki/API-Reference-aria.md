@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseCombobox`](#func-usecombobox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
+- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseCombobox`](#func-usecombobox) · [`UseContextMenuTrigger`](#func-usecontextmenutrigger) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuBar`](#func-usemenubar) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
@@ -22,6 +22,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Collection`](#type-collection): [`ActiveDescendant`](#func-collectionk-activedescendant) · [`ClearFocus`](#func-collectionk-clearfocus) · [`Focus`](#func-collectionk-focus) · [`FocusKey`](#func-collectionk-focuskey) · [`Focused`](#func-collectionk-focused) · [`HandleKeyDown`](#func-collectionk-handlekeydown) · [`IsDisabled`](#func-collectionk-isdisabled) · [`IsFocusVisible`](#func-collectionk-isfocusvisible) · [`IsFocused`](#func-collectionk-isfocused) · [`IsSelected`](#func-collectionk-isselected) · [`ItemProps`](#func-collectionk-itemprops) · [`ItemRef`](#func-collectionk-itemref) · [`Section`](#func-collectionk-section)
   - [`type ComboboxOptions`](#type-comboboxoptions)
   - [`type ComboboxResult`](#type-comboboxresult): [`UseCombobox`](#func-usecombobox)
+  - [`type ContextMenuTriggerOptions`](#type-contextmenutriggeroptions)
+  - [`type ContextMenuTriggerResult`](#type-contextmenutriggerresult): [`UseContextMenuTrigger`](#func-usecontextmenutrigger) · [`PopoverOptions`](#func-contextmenutriggerresult-popoveroptions)
   - [`type DialogOptions`](#type-dialogoptions)
   - [`type DialogResult`](#type-dialogresult): [`UseDialog`](#func-usedialog)
   - [`type Filter`](#type-filter)
@@ -41,6 +43,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type LimitShiftOptions`](#type-limitshiftoptions)
   - [`type ListBoxOptions`](#type-listboxoptions)
   - [`type ListBoxResult`](#type-listboxresult): [`UseListBox`](#func-uselistbox)
+  - [`type MenuBarOptions`](#type-menubaroptions)
+  - [`type MenuBarResult`](#type-menubarresult): [`UseMenuBar`](#func-usemenubar) · [`IsOpen`](#func-menubarresultk-isopen) · [`MenuProps`](#func-menubarresultk-menuprops) · [`MenuRef`](#func-menubarresultk-menuref) · [`PopoverOptions`](#func-menubarresultk-popoveroptions) · [`SetOpen`](#func-menubarresultk-setopen) · [`TriggerProps`](#func-menubarresultk-triggerprops) · [`TriggerRef`](#func-menubarresultk-triggerref)
   - [`type MenuOptions`](#type-menuoptions)
   - [`type MenuResult`](#type-menuresult): [`UseMenu`](#func-usemenu)
   - [`type MenuTriggerOptions`](#type-menutriggeroptions)
@@ -891,6 +895,137 @@ app.Press("Tab") // the text stays, and the selection is cleared
 fmt.Println(app.AriaSnapshot())
 // Output: - combobox "Tag": kiwi
 ```
+
+### type ContextMenuTriggerOptions
+
+```go
+type ContextMenuTriggerOptions struct {
+    // Open points to the open state of a controlled menu; nil leaves the
+    // state to the hook, which starts closed. OnOpenChange is called with
+    // the next state: for a controlled menu it is how the change is asked
+    // for, for an uncontrolled one a notification. A menu opens at a point,
+    // so there is no DefaultOpen.
+    Open         *bool
+    OnOpenChange func(open bool)
+    // Disabled makes the area ignore the gestures that open the menu: the
+    // browser's (here, the platform's) own, and an outer context menu's,
+    // take over.
+    Disabled bool
+    // NoLongPress keeps a touch that stays down from opening the menu. The
+    // long press is recognized for every pointer of the area, so a mouse
+    // button held for 500 ms on the area, or on a child that is not itself
+    // a long-press target, does not click; turn it off for an area whose
+    // content is used that way.
+    NoLongPress bool
+    // Ref is the area's ref and MenuRef the menu's, for hooks used together
+    // with others on the same element; the zero value makes the hook
+    // create its own.
+    Ref, MenuRef tela.ElementRef
+}
+```
+
+ContextMenuTriggerOptions configures [`UseContextMenuTrigger`](#func-usecontextmenutrigger).
+
+### type ContextMenuTriggerResult
+
+```go
+type ContextMenuTriggerResult struct {
+    // TriggerProps go to the area that has the context menu: the ref and
+    // the gestures that open the menu (see [UseContextMenuTrigger]).
+    TriggerProps tela.Prop
+    // MenuProps go to the menu's element: the ref and a focus scope that
+    // gives the focus back when the menu closes. The menu's other hooks and
+    // [UsePopover] share MenuRef. The menu has no name of its own: give
+    // [MenuOptions].AriaLabel one.
+    MenuProps tela.Prop
+    // Open is whether the menu is open.
+    Open bool
+    // FocusStrategy is where the focus goes when the menu opens:
+    // [FocusFirst] for a key or a long press, "" for the menu itself
+    // (opened with a mouse). Pass it to [MenuOptions].FocusStrategy.
+    FocusStrategy string
+    // Anchor returns the virtual rectangle the menu is placed at, in window
+    // coordinates: a point where the pointer was or the area's top-left
+    // corner. It is [AnchorRect]'s argument, for a menu placed with
+    // [UseFloating] instead of [UsePopover].
+    Anchor func() tela.Rect
+    // OpenAt opens the menu at a point of the window (a click handler of
+    // your own, a "More" button). Close closes it, and a menu closes itself
+    // when an item is chosen by calling Close. SetOpen asks for a state.
+    OpenAt  func(x, y float32)
+    SetOpen func(open bool)
+    Close   func()
+    // Ref is the area's ref and MenuRef the menu's.
+    Ref, MenuRef tela.ElementRef
+}
+```
+
+ContextMenuTriggerResult is what [`UseContextMenuTrigger`](#func-usecontextmenutrigger) returns.
+
+#### func UseContextMenuTrigger
+
+```go
+func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
+```
+
+UseContextMenuTrigger holds the open state of a context menu and returns the props of its area, which opens the menu at the pointer (the contextmenu event of the platform, Radix UI's ContextMenu):
+
+- a right click, at the pointer (the focus stays where it was, and the menu itself takes it),
+- a touch that stays down for 500 ms (h.OnLongPress), at the finger, with the first item focused,
+- Shift+F10 and the ContextMenu key, with the first item focused, at the top-left corner of the area.
+
+The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a primary press outside, the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click on the area while the menu is open moves it to the new point; one outside the area does nothing (the overlay stack only dismisses for primary presses).
+
+```go
+cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
+return Fragment(
+    Div(cm.TriggerProps, Class("h-48 w-full rounded-md border"), Text("Right click here")),
+    Portal(If(cm.Open, fileMenu{cm})))
+
+type fileMenu struct{ cm aria.ContextMenuTriggerResult }
+
+func (m fileMenu) Build() tela.Node {
+    pop := aria.UsePopover(m.cm.PopoverOptions())
+    menu := aria.UseMenu(aria.MenuOptions[string]{
+        Keys: actions, OnAction: run, OnClose: m.cm.Close, AriaLabel: "Actions",
+        AutoFocus: true, FocusStrategy: m.cm.FocusStrategy, Ref: m.cm.MenuRef,
+    })
+    return Div(pop.Props, m.cm.MenuProps, menu.Props, Class("w-48 rounded-md border bg-popover p-1"), ...)
+}
+```
+
+The menu is the one of a dropdown menu: [`UseMenu`](#func-usemenu) takes the same results. The area is not focusable by itself; the keys reach it from the element inside it that has the focus, and a keyboard menu opens at the area's corner, not at that element.
+
+**Example**
+
+```go
+// A context menu: Shift+F10 on the focused button opens it, Enter
+// chooses the first item and the focus goes back to the button.
+var ev events
+app := telatest.MountFunc(&exampleTB{}, ctxPage(aria.ContextMenuTriggerOptions{}, &ev), telatest.Size(400, 300))
+app.Focus(telatest.ByTestID("inner"))
+app.Press("Shift+F10")
+fmt.Println(app.AriaSnapshot())
+app.Press("Enter")
+app.ExpectFocused(telatest.ByTestID("inner"))
+fmt.Println(ev.take())
+// Output:
+// - button "Inner"
+// - button "Outside"
+// - menu "Actions":
+//   - menuitem "Copy"
+//   - menuitem "Paste"
+//   - menuitem "Delete"
+// action:copy
+```
+
+#### func (ContextMenuTriggerResult) PopoverOptions
+
+```go
+func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions
+```
+
+PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the menu: anchored at the point the menu was opened with ("bottom-start", flipped and shifted to stay in the window). The popover is not modal, so that a right click on the area while the menu is open reaches it and moves the menu to the new point; a primary press outside the menu closes it. Change what you need in the value returned (Offset, Floating).
 
 ### type DialogOptions
 
@@ -1914,6 +2049,188 @@ app.ExpectText("3 selected")
 fmt.Println("3 selected")
 // Output: 3 selected
 ```
+
+### type MenuBarOptions
+
+```go
+type MenuBarOptions[K comparable] struct {
+    // Keys are the keys of the menus, in the order their triggers are
+    // shown. The list must be given on every build.
+    Keys []K
+    // DisabledKeys are the triggers that can not be focused or opened.
+    DisabledKeys []K
+    // Disabled disables every trigger.
+    Disabled bool
+    // Open points to the open menu of a controlled bar; nil leaves it to
+    // the hook, which starts with DefaultOpen (nil: all closed).
+    Open        *K
+    DefaultOpen *K
+    // OnOpenChange is called with the menu that opened (open true) or the
+    // menu that closed (open false). Moving from one menu to another calls
+    // it once, with the one that opens. It is also called for an
+    // uncontrolled bar.
+    OnOpenChange func(key K, open bool)
+    // Direction is "ltr" (the default) or "rtl", which swaps ArrowLeft and
+    // ArrowRight.
+    Direction string
+    // NoWrap keeps ArrowLeft and ArrowRight from going around the ends of
+    // the bar (the pattern wraps).
+    NoWrap bool
+    // AriaLabel names the bar; else it is named by AriaLabelledBy.
+    AriaLabel      string
+    AriaLabelledBy tela.ElementRef
+    // Ref is the bar element's ref, for a hook used together with others on
+    // the same element; the zero value makes the hook create its own.
+    Ref tela.ElementRef
+}
+```
+
+MenuBarOptions configures [`UseMenuBar`](#func-usemenubar): a row of menu triggers, such as the File, Edit and View of an application. K is the type of the menus' keys; the triggers are keyed like the items of a list box (see [`ListBoxOptions`](#type-listboxoptions) for Keys and DisabledKeys).
+
+The open menu is a key, uncontrolled when Open is nil (the hook keeps it, starting at DefaultOpen) and controlled when Open points to it: the bar shows it and only asks OnOpenChange for the next one. A key that is not in Keys (the zero value of K, say) means that no menu is open.
+
+### type MenuBarResult
+
+```go
+type MenuBarResult[K comparable] struct {
+    // Props go to the bar's element: the "menubar" role, its orientation,
+    // its name and the ref.
+    Props tela.Prop
+    // Open is whether a menu is open, and OpenKey which one (the zero value
+    // of K when none is).
+    Open    bool
+    OpenKey K
+    // FocusStrategy is where the focus goes when the open menu mounts:
+    // [FocusFirst], [FocusLast], or "" for the menu itself (opened with a
+    // pointer). Pass it to [MenuOptions].FocusStrategy.
+    FocusStrategy string
+    // Close closes the open menu, if any: pass it to [MenuOptions].OnClose
+    // so that choosing an item closes the menu.
+    Close func()
+    // Ref is the ref attached to the bar by Props.
+    Ref tela.ElementRef
+    // contains filtered or unexported fields
+}
+```
+
+MenuBarResult is what [`UseMenuBar`](#func-usemenubar) returns.
+
+#### func UseMenuBar
+
+```go
+func UseMenuBar[K comparable](o MenuBarOptions[K]) MenuBarResult[K]
+```
+
+UseMenuBar holds the state of a menu bar and returns the props of the bar and of its triggers and menus (the WAI-ARIA menubar pattern with React Aria's menu trigger behavior), on top of [`UseMenu`](#func-usemenu) and [`UsePopover`](#func-usepopover). Only one menu is open at a time, so the hook is called once, and the menu that is open is rendered by a component of its own, in a Portal:
+
+```go
+bar := aria.UseMenuBar(aria.MenuBarOptions[string]{Keys: []string{"file", "edit"}, AriaLabel: "Application"})
+return Fragment(
+    Div(bar.Props, Class("flex gap-1"),
+        h.Range(len(titles), func(i int) tela.Node {
+            k := keys[i]
+            return Button(bar.TriggerProps(k), Key(k), Class("rounded px-3 py-1 aria-expanded:bg-accent"), Text(titles[k]))
+        })),
+    Portal(If(bar.Open, tela.WithKey(appMenu{bar}, bar.OpenKey))))
+
+type appMenu struct{ bar aria.MenuBarResult[string] }
+
+func (m appMenu) Build() tela.Node {
+    k := m.bar.OpenKey
+    pop := aria.UsePopover(m.bar.PopoverOptions(k))
+    menu := aria.UseMenu(aria.MenuOptions[string]{
+        Keys: items[k], OnAction: run, OnClose: m.bar.Close,
+        AutoFocus: true, FocusStrategy: m.bar.FocusStrategy, Ref: m.bar.MenuRef(k),
+    })
+    return Div(pop.Props, m.bar.MenuProps(k), menu.Props, Class("w-48 rounded-md border bg-popover p-1"), ...)
+}
+```
+
+The component has the open key as its key, so that each menu mounts anew and focuses its first item. The triggers are "menuitem"s with aria-haspopup and aria-expanded, and the bar is one tab stop that remembers its last trigger. ArrowLeft and ArrowRight (swapped by Direction "rtl") move the focus between the triggers, wrapping unless NoWrap, and Home and End jump; ArrowDown, Enter and Space open the menu of the focused trigger on its first item, ArrowUp on its last. While a menu is open ArrowLeft and ArrowRight close it and open the neighbor's, and hovering another trigger opens its menu: that is why the popover is not modal. A press on the open menu's trigger closes it, so do Escape, a press outside, and Tab, which also leaves the bar. Closing gives the focus back to the trigger.
+
+There are no submenus, no typeahead on the triggers and no mnemonics.
+
+**Example**
+
+```go
+// A menu bar: ArrowDown opens the File menu on its first item, ArrowRight
+// moves to the Edit menu.
+var ev events
+app := telatest.MountFunc(&exampleTB{}, barPage(aria.MenuBarOptions[string]{}, &ev), telatest.Size(400, 300))
+app.Focus(trigger("File"))
+app.Press("ArrowDown")
+app.Press("ArrowRight")
+app.ExpectFocused(menuitem("Undo"))
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - button "Before"
+// - menubar "Application":
+//   - menuitem "File"
+//   - menuitem "Edit" [expanded]
+//   - menuitem "View"
+// - button "After"
+// - menu "Edit":
+//   - menuitem "Undo"
+//   - menuitem "Redo"
+```
+
+#### func (MenuBarResult[K]) IsOpen
+
+```go
+func (r MenuBarResult[K]) IsOpen(k K) bool
+```
+
+IsOpen reports whether the menu with key k is open.
+
+#### func (MenuBarResult[K]) MenuProps
+
+```go
+func (r MenuBarResult[K]) MenuProps(k K) tela.Prop
+```
+
+MenuProps returns the props of the element of the menu with key k: its ref, aria-labelledby (the trigger), a focus scope that gives the focus back to the trigger when the menu closes, and the keys that move between the menus: ArrowLeft and ArrowRight open the neighbor's menu and Tab closes the menu and leaves the bar. Give them next to the popover's props and [`UseMenu`](#func-usemenu)'s.
+
+#### func (MenuBarResult[K]) MenuRef
+
+```go
+func (r MenuBarResult[K]) MenuRef(k K) tela.ElementRef
+```
+
+MenuRef returns the ref of the menu with key k: pass it as [`MenuOptions`](#type-menuoptions).Ref; [`MenuBarResult.MenuProps`](#func-menubarresultk-menuprops) and PopoverOptions share it.
+
+#### func (MenuBarResult[K]) PopoverOptions
+
+```go
+func (r MenuBarResult[K]) PopoverOptions(k K) PopoverOptions
+```
+
+PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the menu with key k: anchored below its trigger ("bottom-start"), open, closed through the bar, and not modal, so that the other triggers stay under the pointer: a press on any trigger is the trigger's own and not a press outside. Change what you need in the value returned (Offset, Floating).
+
+#### func (MenuBarResult[K]) SetOpen
+
+```go
+func (r MenuBarResult[K]) SetOpen(k K, open bool)
+```
+
+SetOpen opens the menu with key k (focusing the menu itself, as a pointer does), or closes it. It does nothing for a disabled or unknown key.
+
+#### func (MenuBarResult[K]) TriggerProps
+
+```go
+func (r MenuBarResult[K]) TriggerProps(k K) tela.Prop
+```
+
+TriggerProps returns the props of the trigger with key k: the "menuitem" role, aria-haspopup, aria-expanded and, while its menu is open, aria-controls; the ref, the disabled state, a tab stop on the trigger that had the focus last (else the first enabled one) and the handlers: a press opens the menu (a mouse or a pen on the press, a touch on the release) or closes it, hovering opens it while another menu is open, and the keys listed in [`UseMenuBar`](#func-usemenubar) work.
+
+Render the trigger with a Button, or with any element that should behave as one.
+
+#### func (MenuBarResult[K]) TriggerRef
+
+```go
+func (r MenuBarResult[K]) TriggerRef(k K) tela.ElementRef
+```
+
+TriggerRef returns the ref that TriggerProps(k) attaches to the trigger with key k, to share with another hook on its element.
 
 ### type MenuOptions
 
