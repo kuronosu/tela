@@ -1,12 +1,14 @@
 // Command gen generates i18n/dates_gen.go, the date, time and list
-// patterns of package i18n, from the Unicode CLDR JSON data vendored in
-// cldr/ (ADR-087).
+// patterns and the calendar data of package i18n, from the Unicode CLDR
+// JSON data vendored in cldr/ (ADR-087, ADR-131).
 //
 // It is run by "go generate ./i18n" (see generate.go there) from the i18n
 // directory. The output is deterministic and gofmt'ed. golang.org/x/text
 // has no date formatting (its date package keeps its tables private), so
 // the patterns, month and weekday names, AM/PM markers, era names and
-// list patterns of the locales in the locales variable come from CLDR.
+// list patterns of the locales in the locales variable come from CLDR, and
+// so does the first day of the week of each region (its supplemental
+// weekData).
 //
 // Flags:
 //
@@ -18,8 +20,10 @@
 // -fetch keeps only the parts of CLDR's ca-gregorian.json and
 // listPatterns.json that the generator reads, under their original paths
 // (main.<locale>.dates.calendars.gregorian..., main.<locale>.listPatterns...),
-// so the vendored files stay small (about 4 KB per locale instead of
-// 20 KB). The data is licensed under the Unicode License v3 (cldr/LICENSE).
+// so the vendored files stay small (about 4.5 KB per locale instead of
+// 20 KB), and of cldr-core's supplemental/weekData.json only
+// supplemental.weekData.firstDay, in cldr/supplemental/weekData.json. The
+// data is licensed under the Unicode License v3 (cldr/LICENSE).
 package main
 
 import (
@@ -60,7 +64,13 @@ var locales = []string{
 	"zh-Hant-HK",
 }
 
-const rawBase = "https://raw.githubusercontent.com/unicode-org/cldr-json/%s/cldr-json/%s/main/%s/%s"
+const (
+	rawBase     = "https://raw.githubusercontent.com/unicode-org/cldr-json/%s/cldr-json/%s/main/%s/%s"
+	rawWeekData = "https://raw.githubusercontent.com/unicode-org/cldr-json/%s/cldr-json/cldr-core/supplemental/weekData.json"
+	// weekDataFile is the vendored weekData, relative to the cldr
+	// directory (cldr-core's path).
+	weekDataFile = "supplemental/weekData.json"
+)
 
 func main() {
 	cldrDir := flag.String("cldr", "internal/gen/cldr", "directory of the vendored CLDR locale files")
@@ -163,8 +173,14 @@ func fetchAll(dir, version string) error {
 		periods := mustDig(greg, "dayPeriods", "format")
 		eras := mustDig(greg, "eras")
 		trim := map[string]any{
-			"months": map[string]any{"format": pick(mustDig(greg, "months", "format"), "abbreviated", "wide")},
-			"days":   map[string]any{"format": pick(mustDig(greg, "days", "format"), "abbreviated", "wide")},
+			"months": map[string]any{
+				"format":      pick(mustDig(greg, "months", "format"), "abbreviated", "wide"),
+				"stand-alone": pick(mustDig(greg, "months", "stand-alone"), "abbreviated", "narrow", "wide"),
+			},
+			"days": map[string]any{
+				"format":      pick(mustDig(greg, "days", "format"), "abbreviated", "wide"),
+				"stand-alone": pick(mustDig(greg, "days", "stand-alone"), "abbreviated", "narrow", "short", "wide"),
+			},
 			"dayPeriods": map[string]any{"format": map[string]any{
 				"abbreviated": pick(mustDig(periods, "abbreviated"), "am", "pm"),
 				"wide":        pick(mustDig(periods, "wide"), "am", "pm"),
@@ -199,6 +215,36 @@ func fetchAll(dir, version string) error {
 		}
 		fmt.Fprintln(os.Stderr, "fetched", loc)
 	}
+	return fetchWeekData(dir, version)
+}
+
+// fetchWeekData vendors supplemental.weekData.firstDay of cldr-core's
+// supplemental/weekData.json, under its original path.
+func fetchWeekData(dir, version string) error {
+	b, err := get(fmt.Sprintf(rawWeekData, version))
+	if err != nil {
+		return err
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(b, &doc); err != nil {
+		return fmt.Errorf("weekData.json: %v", err)
+	}
+	first, err := dig(doc, "supplemental", "weekData", "firstDay")
+	if err != nil {
+		return fmt.Errorf("weekData.json: %v", err)
+	}
+	out := map[string]any{"supplemental": map[string]any{"weekData": map[string]any{"firstDay": first}}}
+	if b, err = json.MarshalIndent(out, "", " "); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, weekDataFile)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, append(b, '\n'), 0o644); err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, "fetched", weekDataFile)
 	return nil
 }
 
@@ -207,18 +253,23 @@ func fetchAll(dir, version string) error {
 
 type strMap map[string]string
 
+// names holds the month or day names of one context (format or
+// stand-alone), per width.
+type names struct {
+	Abbreviated strMap `json:"abbreviated"`
+	Narrow      strMap `json:"narrow"`
+	Short       strMap `json:"short"` // days only
+	Wide        strMap `json:"wide"`
+}
+
 type gregorian struct {
 	Months struct {
-		Format struct {
-			Abbreviated strMap `json:"abbreviated"`
-			Wide        strMap `json:"wide"`
-		} `json:"format"`
+		Format     names `json:"format"`
+		StandAlone names `json:"stand-alone"`
 	} `json:"months"`
 	Days struct {
-		Format struct {
-			Abbreviated strMap `json:"abbreviated"`
-			Wide        strMap `json:"wide"`
-		} `json:"format"`
+		Format     names `json:"format"`
+		StandAlone names `json:"stand-alone"`
 	} `json:"days"`
 	DayPeriods struct {
 		Format struct {
@@ -268,7 +319,17 @@ const (
 	fListMiddle = 57
 	fListEnd    = 58
 	fListTwo    = 59
-	numFields   = 60
+	// The stand-alone names, which the public MonthName and WeekdayName
+	// return (calendars, pickers); the patterns use the format ones above.
+	// CLDR has no short month names.
+	fMonthsStandAbbr   = 60  // 12
+	fMonthsStandWide   = 72  // 12
+	fMonthsStandNarrow = 84  // 12
+	fDaysStandAbbr     = 96  // 7, Sunday first
+	fDaysStandWide     = 103 // 7
+	fDaysStandShort    = 110 // 7
+	fDaysStandNarrow   = 117 // 7
+	numFields          = 124
 )
 
 var dayKeys = []string{"sun", "mon", "tue", "wed", "thu", "fri", "sat"}
@@ -297,10 +358,17 @@ func record(loc string, f localeFile) ([numFields]string, error) {
 		k := strconv.Itoa(i + 1)
 		set(fMonthsAbbr+i, g.Months.Format.Abbreviated, k, "abbreviated month")
 		set(fMonthsWide+i, g.Months.Format.Wide, k, "wide month")
+		set(fMonthsStandAbbr+i, g.Months.StandAlone.Abbreviated, k, "stand-alone abbreviated month")
+		set(fMonthsStandWide+i, g.Months.StandAlone.Wide, k, "stand-alone wide month")
+		set(fMonthsStandNarrow+i, g.Months.StandAlone.Narrow, k, "stand-alone narrow month")
 	}
 	for i, k := range dayKeys {
 		set(fDaysAbbr+i, g.Days.Format.Abbreviated, k, "abbreviated day")
 		set(fDaysWide+i, g.Days.Format.Wide, k, "wide day")
+		set(fDaysStandAbbr+i, g.Days.StandAlone.Abbreviated, k, "stand-alone abbreviated day")
+		set(fDaysStandWide+i, g.Days.StandAlone.Wide, k, "stand-alone wide day")
+		set(fDaysStandShort+i, g.Days.StandAlone.Short, k, "stand-alone short day")
+		set(fDaysStandNarrow+i, g.Days.StandAlone.Narrow, k, "stand-alone narrow day")
 	}
 	set(fAM, g.DayPeriods.Format.Abbreviated, "am", "AM marker")
 	set(fPM, g.DayPeriods.Format.Abbreviated, "pm", "PM marker")
@@ -364,10 +432,73 @@ func unsupportedLetter(p string) string {
 	return ""
 }
 
+// firstDays reads the vendored weekData: the first day of the week of
+// the world ("001", the default) and, per other weekday, the regions
+// whose weeks start on it, as concatenated sorted two-letter codes.
+// Regions with the default day are left out, and so are CLDR's
+// alternative variants ("GB-alt-variant").
+func firstDays(dir string) (def int, regions [7]string, err error) {
+	b, err := os.ReadFile(filepath.Join(dir, weekDataFile))
+	if err != nil {
+		return 0, regions, fmt.Errorf("%v (run \"go run ./internal/gen -fetch\" to download the CLDR data)", err)
+	}
+	var f struct {
+		Supplemental struct {
+			WeekData struct {
+				FirstDay strMap `json:"firstDay"`
+			} `json:"weekData"`
+		} `json:"supplemental"`
+	}
+	if err := json.Unmarshal(b, &f); err != nil {
+		return 0, regions, fmt.Errorf("%s: %v", weekDataFile, err)
+	}
+	days := f.Supplemental.WeekData.FirstDay
+	day := func(region, key string) (int, error) {
+		for i, k := range dayKeys {
+			if k == key {
+				return i, nil
+			}
+		}
+		return 0, fmt.Errorf("%s: region %s starts the week on %q, not a day key", weekDataFile, region, key)
+	}
+	w, ok := days["001"]
+	if !ok {
+		return 0, regions, fmt.Errorf("%s: no firstDay for the world (001)", weekDataFile)
+	}
+	if def, err = day("001", w); err != nil {
+		return 0, regions, err
+	}
+	var codes []string
+	for r := range days {
+		codes = append(codes, r)
+	}
+	sort.Strings(codes)
+	for _, r := range codes {
+		if r == "001" || strings.Contains(r, "-alt-") {
+			continue
+		}
+		if len(r) != 2 || r[0] < 'A' || r[0] > 'Z' || r[1] < 'A' || r[1] > 'Z' {
+			return 0, regions, fmt.Errorf("%s: region %q is not a two-letter code", weekDataFile, r)
+		}
+		d, err := day(r, days[r])
+		if err != nil {
+			return 0, regions, err
+		}
+		if d != def {
+			regions[d] += r
+		}
+	}
+	return def, regions, nil
+}
+
 // ---------------------------------------------------------------------
 // Writing.
 
 func generate(dir string) ([]byte, error) {
+	firstDef, firstRegions, err := firstDays(dir)
+	if err != nil {
+		return nil, err
+	}
 	names := append([]string(nil), locales...)
 	sort.Strings(names)
 	recs := make([][numFields]string, len(names))
@@ -418,7 +549,10 @@ func generate(dir string) ([]byte, error) {
 		{"dfDaysWide", fDaysWide}, {"dfAM", fAM}, {"dfPM", fPM}, {"dfErasAbbr", fErasAbbr},
 		{"dfErasWide", fErasWide}, {"dfDate", fDate}, {"dfTime", fTime}, {"dfDateTime", fDateTime},
 		{"dfListStart", fListStart}, {"dfListMiddle", fListMiddle}, {"dfListEnd", fListEnd},
-		{"dfListTwo", fListTwo}, {"dfNumFields", numFields},
+		{"dfListTwo", fListTwo}, {"dfMonthsStandAbbr", fMonthsStandAbbr}, {"dfMonthsStandWide", fMonthsStandWide},
+		{"dfMonthsStandNarrow", fMonthsStandNarrow}, {"dfDaysStandAbbr", fDaysStandAbbr},
+		{"dfDaysStandWide", fDaysStandWide}, {"dfDaysStandShort", fDaysStandShort},
+		{"dfDaysStandNarrow", fDaysStandNarrow}, {"dfNumFields", numFields},
 	} {
 		w("\t%s = %d\n", c.n, c.v)
 	}
@@ -464,5 +598,18 @@ func generate(dir string) ([]byte, error) {
 		}
 		w("\t%s%s\n", strconv.Quote(s), sep)
 	}
+	w("\n// firstDayDefault is the first day of the week (0 is Sunday) of the\n")
+	w("// regions without an entry in firstDayRegions: CLDR's \"001\".\n")
+	w("const firstDayDefault = %d\n\n", firstDef)
+	w("// firstDayRegions lists, per first day of the week (0 is Sunday), the\n")
+	w("// regions whose weeks start on it: their two-letter codes concatenated,\n")
+	w("// sorted. Regions that start on firstDayDefault are left out.\n")
+	w("var firstDayRegions = [7]string{\n")
+	for d, rs := range firstRegions {
+		if rs != "" {
+			w("\t%d: %q, // %s\n", d, rs, dayKeys[d])
+		}
+	}
+	w("}\n")
 	return format.Source(b.Bytes())
 }

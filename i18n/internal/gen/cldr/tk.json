@@ -56,6 +56,44 @@
          "tue": "sişenbe",
          "wed": "çarşenbe"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Ann",
+         "mon": "Duş",
+         "sat": "Şen",
+         "sun": "Ýek",
+         "thu": "Pen",
+         "tue": "Siş",
+         "wed": "Çar"
+        },
+        "narrow": {
+         "fri": "A",
+         "mon": "D",
+         "sat": "Ş",
+         "sun": "Ý",
+         "thu": "P",
+         "tue": "S",
+         "wed": "Ç"
+        },
+        "short": {
+         "fri": "An",
+         "mon": "Db",
+         "sat": "Şb",
+         "sun": "Ýb",
+         "thu": "Pb",
+         "tue": "Sb",
+         "wed": "Çb"
+        },
+        "wide": {
+         "fri": "Anna",
+         "mon": "Duşenbe",
+         "sat": "Şenbe",
+         "sun": "Ýekşenbe",
+         "thu": "Penşenbe",
+         "tue": "Sişenbe",
+         "wed": "Çarşenbe"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "iýul",
          "8": "awgust",
          "9": "sentýabr"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Ýan",
+         "10": "Okt",
+         "11": "Noý",
+         "12": "Dek",
+         "2": "Few",
+         "3": "Mar",
+         "4": "Apr",
+         "5": "Maý",
+         "6": "Iýun",
+         "7": "Iýul",
+         "8": "Awg",
+         "9": "Sen"
+        },
+        "narrow": {
+         "1": "Ý",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "I",
+         "7": "I",
+         "8": "A",
+         "9": "S"
+        },
+        "wide": {
+         "1": "Ýanwar",
+         "10": "Oktýabr",
+         "11": "Noýabr",
+         "12": "Dekabr",
+         "2": "Fewral",
+         "3": "Mart",
+         "4": "Aprel",
+         "5": "Maý",
+         "6": "Iýun",
+         "7": "Iýul",
+         "8": "Awgust",
+         "9": "Sentýabr"
         }
        }
       },

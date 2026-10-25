@@ -202,6 +202,11 @@ func key(an *ariaNode) string {
 	if slices.Contains(expandedRoles, role) && n.Expanded == ToggleTrue {
 		b.WriteString(" [expanded]")
 	}
+	// Playwright reads the aria-invalid attribute alone (getAriaInvalid),
+	// not a field's own validity: the AriaInvalid prop, not StateInvalid.
+	if slices.Contains(invalidRoles, role) && n.Invalid == ToggleTrue {
+		b.WriteString(" [invalid]")
+	}
 	if slices.Contains(levelRoles, role) && n.Level > 0 {
 		b.WriteString(" [level=" + strconv.Itoa(n.Level) + "]")
 	}

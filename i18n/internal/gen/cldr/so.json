@@ -56,6 +56,44 @@
          "tue": "Talaado",
          "wed": "Arbaco"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Jmc",
+         "mon": "Isn",
+         "sat": "Sbti",
+         "sun": "Axd",
+         "thu": "Khms",
+         "tue": "Tldo",
+         "wed": "Arbc"
+        },
+        "narrow": {
+         "fri": "J",
+         "mon": "I",
+         "sat": "S",
+         "sun": "A",
+         "thu": "Kh",
+         "tue": "T",
+         "wed": "A"
+        },
+        "short": {
+         "fri": "Jmc",
+         "mon": "Isn",
+         "sat": "Sbti",
+         "sun": "Axd",
+         "thu": "Khms",
+         "tue": "Tldo",
+         "wed": "Arbc"
+        },
+        "wide": {
+         "fri": "Jimco",
+         "mon": "Isniin",
+         "sat": "Sabti",
+         "sun": "Axad",
+         "thu": "Khamiis",
+         "tue": "Talaado",
+         "wed": "Arbaco"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "Luulyo",
          "8": "Agosto",
          "9": "Sebtembar"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nof",
+         "12": "Dis",
+         "2": "Feb",
+         "3": "Mar",
+         "4": "Abr",
+         "5": "May",
+         "6": "Jun",
+         "7": "Lul",
+         "8": "Ogs",
+         "9": "Seb"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "L",
+         "8": "O",
+         "9": "S"
+        },
+        "wide": {
+         "1": "Jannaayo",
+         "10": "Oktoobar",
+         "11": "Noofeembar",
+         "12": "Diseembar",
+         "2": "Febraayo",
+         "3": "Maarso",
+         "4": "Abriil",
+         "5": "Maayo",
+         "6": "Juun",
+         "7": "Luulyo",
+         "8": "Ogosto",
+         "9": "Sebteembar"
         }
        }
       },

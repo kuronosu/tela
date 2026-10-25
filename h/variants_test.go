@@ -49,7 +49,11 @@ func TestAriaVariantsMatchTheProps(t *testing.T) {
 		{"disabled", AriaDisabled, "aria-disabled"},
 		{"expanded", AriaExpanded, "aria-expanded"},
 		{"hidden", AriaHidden, "aria-hidden"},
+		{"invalid", AriaInvalid, "aria-invalid"},
 		{"pressed", AriaPressed, "aria-pressed"},
+		// ADR-131: AriaSort's two variants, through a bool.
+		{"sort-ascending", func(on bool) tela.Prop { return AriaSort(map[bool]string{true: "ascending", false: "none"}[on]) }, "aria-[sort=ascending]"},
+		{"sort-descending", func(on bool) tela.Prop { return AriaSort(map[bool]string{true: "descending", false: "ascending"}[on]) }, "aria-[sort=descending]"},
 		{"readonly", AriaReadOnly, "aria-readonly"},
 		{"required", AriaRequired, "aria-required"},
 		{"selected", AriaSelected, "aria-selected"},
@@ -127,6 +131,42 @@ func TestAriaVariantsRestyleOnlyTheirUsers(t *testing.T) {
 	if st.Styles != 1 {
 		t.Errorf("the click restyled %d elements, want 1 (only the one whose class tests aria-busy)", st.Styles)
 	}
+}
+
+// ADR-131: a sorted header restyles only the elements that test the sort
+// (the header's own aria-[sort=…]: and its icon's group- form), and
+// AriaInvalid only those that test aria-invalid:.
+func TestSortAndInvalidVariantsRestyleOnlyTheirUsers(t *testing.T) {
+	page := func() tela.Node {
+		desc, setDesc := tela.UseState(false)
+		order := "ascending"
+		if desc {
+			order = "descending"
+		}
+		return Div(Class("flex flex-col"),
+			Button(OnClick(tela.Toggle(setDesc)), Text("Toggle")),
+			Div(TestID("header"), Role("columnheader"), AriaSort(order), Class("group flex h-4 w-10 aria-[sort=descending]:w-20"),
+				Div(TestID("icon"), Class("size-4 group-aria-[sort=ascending]:w-6"))),
+			Div(Role("columnheader"), AriaSort("other"), Class("h-4 w-10")),
+			Div(AriaInvalid(desc), Class("h-4 w-10 aria-invalid:w-20")),
+			Div(AriaInvalid(desc), Class("h-4 w-10")),
+			Div(Class("h-4 w-10 aria-expanded:w-20")),
+			Div(Class("h-4 w-10")),
+		)
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(300, 300))
+	width := func(id string) float32 { return app.Bounds(telatest.ByTestID(id)).Width }
+	if width("header") != 40 || width("icon") != 24 {
+		t.Fatalf("ascending: header %g, icon %g, want 40, 24", width("header"), width("icon"))
+	}
+	st := app.Measure(func() { app.Click(telatest.ByRole("button", "Toggle")) })
+	if st.Styles != 3 {
+		t.Errorf("the click restyled %d elements, want 3 (the header, its icon and the aria-invalid: user)", st.Styles)
+	}
+	if width("header") != 80 || width("icon") != 16 {
+		t.Errorf("descending: header %g, icon %g, want 80, 16", width("header"), width("icon"))
+	}
+	app.Expect(telatest.ByTestID("header"), telatest.Sort("descending"))
 }
 
 // Playwright's aria snapshot prints neither required, readonly nor busy

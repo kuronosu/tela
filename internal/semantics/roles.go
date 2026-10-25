@@ -118,6 +118,8 @@ var (
 	expandedRoles = []string{"application", "button", "checkbox", "combobox", "gridcell", "link", "listbox",
 		"menuitem", "row", "rowheader", "tab", "treeitem", "columnheader", "menuitemcheckbox", "menuitemradio",
 		"switch"}
+	invalidRoles = []string{"application", "checkbox", "columnheader", "combobox", "gridcell", "listbox",
+		"radiogroup", "rowheader", "searchbox", "slider", "spinbutton", "switch", "textbox", "tree"}
 	levelRoles    = []string{"heading", "listitem", "row", "treeitem"}
 	disabledRoles = []string{"application", "button", "composite", "gridcell", "group", "input", "link",
 		"menuitem", "scrollbar", "separator", "tab", "checkbox", "columnheader", "combobox", "grid", "listbox",

@@ -56,6 +56,44 @@
          "tue": "e martë",
          "wed": "e mërkurë"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "pre",
+         "mon": "hën",
+         "sat": "sht",
+         "sun": "die",
+         "thu": "enj",
+         "tue": "mar",
+         "wed": "mër"
+        },
+        "narrow": {
+         "fri": "p",
+         "mon": "h",
+         "sat": "sh",
+         "sun": "d",
+         "thu": "e",
+         "tue": "m",
+         "wed": "m"
+        },
+        "short": {
+         "fri": "pre",
+         "mon": "hën",
+         "sat": "sht",
+         "sun": "die",
+         "thu": "enj",
+         "tue": "mar",
+         "wed": "mër"
+        },
+        "wide": {
+         "fri": "e premte",
+         "mon": "e hënë",
+         "sat": "e shtunë",
+         "sun": "e diel",
+         "thu": "e enjte",
+         "tue": "e martë",
+         "wed": "e mërkurë"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "korr",
          "8": "gush",
          "9": "sht"
+        },
+        "wide": {
+         "1": "janar",
+         "10": "tetor",
+         "11": "nëntor",
+         "12": "dhjetor",
+         "2": "shkurt",
+         "3": "mars",
+         "4": "prill",
+         "5": "maj",
+         "6": "qershor",
+         "7": "korrik",
+         "8": "gusht",
+         "9": "shtator"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "jan",
+         "10": "tet",
+         "11": "nën",
+         "12": "dhj",
+         "2": "shk",
+         "3": "mar",
+         "4": "pri",
+         "5": "maj",
+         "6": "qer",
+         "7": "korr",
+         "8": "gush",
+         "9": "sht"
+        },
+        "narrow": {
+         "1": "j",
+         "10": "t",
+         "11": "n",
+         "12": "dh",
+         "2": "sh",
+         "3": "m",
+         "4": "p",
+         "5": "m",
+         "6": "q",
+         "7": "k",
+         "8": "g",
+         "9": "sh"
         },
         "wide": {
          "1": "janar",

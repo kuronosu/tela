@@ -56,6 +56,44 @@
          "tue": "Tuesday",
          "wed": "Wednesday"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Fri",
+         "mon": "Mon",
+         "sat": "Sat",
+         "sun": "Sun",
+         "thu": "Thu",
+         "tue": "Tue",
+         "wed": "Wed"
+        },
+        "narrow": {
+         "fri": "F",
+         "mon": "M",
+         "sat": "S",
+         "sun": "S",
+         "thu": "T",
+         "tue": "T",
+         "wed": "W"
+        },
+        "short": {
+         "fri": "Fr",
+         "mon": "Mo",
+         "sat": "Sa",
+         "sun": "Su",
+         "thu": "Th",
+         "tue": "Tu",
+         "wed": "We"
+        },
+        "wide": {
+         "fri": "Friday",
+         "mon": "Monday",
+         "sat": "Saturday",
+         "sun": "Sunday",
+         "thu": "Thursday",
+         "tue": "Tuesday",
+         "wed": "Wednesday"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "July",
          "8": "Aug",
          "9": "Sept"
+        },
+        "wide": {
+         "1": "January",
+         "10": "October",
+         "11": "November",
+         "12": "December",
+         "2": "February",
+         "3": "March",
+         "4": "April",
+         "5": "May",
+         "6": "June",
+         "7": "July",
+         "8": "August",
+         "9": "September"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Oct",
+         "11": "Nov",
+         "12": "Dec",
+         "2": "Feb",
+         "3": "Mar",
+         "4": "Apr",
+         "5": "May",
+         "6": "Jun",
+         "7": "Jul",
+         "8": "Aug",
+         "9": "Sept"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "January",

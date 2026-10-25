@@ -56,6 +56,44 @@
          "tue": "Tiuzdee",
          "wed": "Wenezdee"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Fraị",
+         "mon": "Mọn",
+         "sat": "Sat",
+         "sun": "Sọn",
+         "thu": "Tọọ",
+         "tue": "Tiu",
+         "wed": "Wen"
+        },
+        "narrow": {
+         "fri": "F",
+         "mon": "M",
+         "sat": "S",
+         "sun": "S",
+         "thu": "T",
+         "tue": "T",
+         "wed": "W"
+        },
+        "short": {
+         "fri": "Fraị",
+         "mon": "Mọn",
+         "sat": "Sat",
+         "sun": "Sọn",
+         "thu": "Tọọ",
+         "tue": "Tiu",
+         "wed": "Wen"
+        },
+        "wide": {
+         "fri": "Fraịdee",
+         "mon": "Mọnde",
+         "sat": "Satọdee",
+         "sun": "Sọndee",
+         "thu": "Tọọzdee",
+         "tue": "Tiuzdee",
+         "wed": "Wenezdee"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Jul",
          "8": "Ọgọ",
          "9": "Sep"
+        },
+        "wide": {
+         "1": "Jenụwarị",
+         "10": "Ọktoba",
+         "11": "Novemba",
+         "12": "Disemba",
+         "2": "Febrụwarị",
+         "3": "Maachị",
+         "4": "Epreel",
+         "5": "Mee",
+         "6": "Jun",
+         "7": "Julaị",
+         "8": "Ọgọọst",
+         "9": "Septemba"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jen",
+         "10": "Ọkt",
+         "11": "Nov",
+         "12": "Dis",
+         "2": "Feb",
+         "3": "Maa",
+         "4": "Epr",
+         "5": "Mee",
+         "6": "Juu",
+         "7": "Jul",
+         "8": "Ọgọ",
+         "9": "Sep"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "Ọ",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "E",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "Ọ",
+         "9": "S"
         },
         "wide": {
          "1": "Jenụwarị",

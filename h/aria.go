@@ -15,8 +15,10 @@ import (
 // The props that hold a state also drive the class variants of the same
 // name: AriaExpanded(true) matches aria-expanded:, AriaChecked(true)
 // matches aria-checked:, and so on for AriaBusy, AriaDisabled, AriaHidden,
-// AriaPressed, AriaReadOnly, AriaRequired and AriaSelected (with the
-// group-aria-* and peer-aria-* forms), as Tailwind's [aria-x="true"].
+// AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected
+// (with the group-aria-* and peer-aria-* forms), as Tailwind's
+// [aria-x="true"]; AriaSort("ascending") and AriaSort("descending") match
+// aria-[sort=ascending]: and aria-[sort=descending]:.
 
 // Role sets the ARIA role of an element (WAI-ARIA 1.2), for components
 // built from divs: Role("switch"), Role("dialog"), Role("tab"). An unknown
@@ -167,3 +169,24 @@ func AriaReadOnly(readOnly bool) tela.Prop { return core.AriaReadOnly(readOnly) 
 //
 //	Div(AriaBusy(loading), Class("aria-busy:opacity-50 aria-busy:animate-pulse"), rows)
 func AriaBusy(busy bool) tela.Prop { return core.AriaBusy(busy) }
+
+// AriaInvalid marks a field whose value failed the app's validation
+// (aria-invalid): a text field, checkbox, combobox or listbox. Assistive
+// technologies announce it, the aria snapshot prints it as [invalid] and
+// the aria-invalid: variants style it. An Input whose own value is
+// invalid (an email Type with a malformed address) is already invalid for
+// assistive technologies; AriaInvalid, true or false, overrides that.
+//
+//	Input(Bind(email, setEmail), AriaInvalid(err != ""),
+//	    Class("border aria-invalid:border-destructive aria-invalid:ring-destructive/20"))
+func AriaInvalid(invalid bool) tela.Prop { return core.AriaInvalid(invalid) }
+
+// AriaSort tells how a table is sorted by a column header (aria-sort):
+// "ascending", "descending", "other" or "none" (the default). Unknown
+// values panic in dev mode with the closest valid one. The
+// aria-[sort=ascending]: and aria-[sort=descending]: variants style the
+// header, and their group- forms what it contains, such as its arrow.
+//
+//	Div(Role("columnheader"), AriaSort(order), OnClick(toggleOrder), Class("group flex gap-1"),
+//	    Text("Name"), Icon(arrowUp, Class("size-4 group-aria-[sort=descending]:rotate-180")))
+func AriaSort(sort string) tela.Prop { return core.AriaSort(sort) }

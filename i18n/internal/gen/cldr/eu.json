@@ -56,6 +56,44 @@
          "tue": "asteartea",
          "wed": "asteazkena"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "or.",
+         "mon": "al.",
+         "sat": "lr.",
+         "sun": "ig.",
+         "thu": "og.",
+         "tue": "ar.",
+         "wed": "az."
+        },
+        "narrow": {
+         "fri": "O",
+         "mon": "A",
+         "sat": "L",
+         "sun": "I",
+         "thu": "O",
+         "tue": "A",
+         "wed": "A"
+        },
+        "short": {
+         "fri": "or.",
+         "mon": "al.",
+         "sat": "lr.",
+         "sun": "ig.",
+         "thu": "og.",
+         "tue": "ar.",
+         "wed": "az."
+        },
+        "wide": {
+         "fri": "ostirala",
+         "mon": "astelehena",
+         "sat": "larunbata",
+         "sun": "igandea",
+         "thu": "osteguna",
+         "tue": "asteartea",
+         "wed": "asteazkena"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "uzt.",
          "8": "abu.",
          "9": "ira."
+        },
+        "wide": {
+         "1": "urtarrila",
+         "10": "urria",
+         "11": "azaroa",
+         "12": "abendua",
+         "2": "otsaila",
+         "3": "martxoa",
+         "4": "apirila",
+         "5": "maiatza",
+         "6": "ekaina",
+         "7": "uztaila",
+         "8": "abuztua",
+         "9": "iraila"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "urt.",
+         "10": "urr.",
+         "11": "aza.",
+         "12": "abe.",
+         "2": "ots.",
+         "3": "mar.",
+         "4": "api.",
+         "5": "mai.",
+         "6": "eka.",
+         "7": "uzt.",
+         "8": "abu.",
+         "9": "ira."
+        },
+        "narrow": {
+         "1": "U",
+         "10": "U",
+         "11": "A",
+         "12": "A",
+         "2": "O",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "E",
+         "7": "U",
+         "8": "A",
+         "9": "I"
         },
         "wide": {
          "1": "urtarrila",

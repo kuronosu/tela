@@ -56,6 +56,44 @@
          "tue": "Talata",
          "wed": "Laraba"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Jum",
+         "mon": "Lit",
+         "sat": "Asa",
+         "sun": "Lah",
+         "thu": "Alh",
+         "tue": "Tal",
+         "wed": "Lar"
+        },
+        "narrow": {
+         "fri": "J",
+         "mon": "L",
+         "sat": "A",
+         "sun": "L",
+         "thu": "A",
+         "tue": "T",
+         "wed": "L"
+        },
+        "short": {
+         "fri": "Ju",
+         "mon": "Li",
+         "sat": "As",
+         "sun": "Lh",
+         "thu": "Al",
+         "tue": "Ta",
+         "wed": "Lr"
+        },
+        "wide": {
+         "fri": "Jummaʼa",
+         "mon": "Litinin",
+         "sat": "Asabar",
+         "sun": "Lahadi",
+         "thu": "Alhamis",
+         "tue": "Talata",
+         "wed": "Laraba"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Yul",
          "8": "Agu",
          "9": "Sat"
+        },
+        "wide": {
+         "1": "Janairu",
+         "10": "Oktoba",
+         "11": "Nuwamba",
+         "12": "Disamba",
+         "2": "Faburairu",
+         "3": "Maris",
+         "4": "Afirilu",
+         "5": "Mayu",
+         "6": "Yuni",
+         "7": "Yuli",
+         "8": "Agusta",
+         "9": "Satumba"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nuw",
+         "12": "Dis",
+         "2": "Fab",
+         "3": "Mar",
+         "4": "Afi",
+         "5": "May",
+         "6": "Yun",
+         "7": "Yul",
+         "8": "Agu",
+         "9": "Sat"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "Y",
+         "7": "Y",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "Janairu",

@@ -15,6 +15,7 @@ import "github.com/kuronosu/tela/i18n"
 | To translate in a handler or a goroutine | [`i18n.T`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#T) |
 | To switch the language | [`i18n.SetLocale`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#SetLocale) |
 | Numbers, dates, times and lists | [`FormatNumber`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#FormatNumber), [`FormatDate`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#FormatDate), [`FormatTime`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#FormatTime), [`FormatList`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#FormatList), or the methods of [`UseFormatter`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#UseFormatter) |
+| Calendar data | [`Formatter.MonthName`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#Formatter.MonthName), [`Formatter.WeekdayName`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#Formatter.WeekdayName), [`FirstDayOfWeek`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#FirstDayOfWeek) |
 | Whether to lay out right to left | [`i18n.Dir`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#Dir) |
 | A fixed locale in a test or a preview | [`i18n.Provider`](https://pkg.go.dev/github.com/kuronosu/tela/i18n#Provider) |
 
@@ -133,8 +134,26 @@ f.List([]string{"a", "b", "c"})        // "a, b, and c", "a, b y c", "a、b、c"
 with `UseLocale` in a component so that it rebuilds. `i18n.For("de")` is the
 formatter of any locale.
 
-Numbers and plural rules come from `golang.org/x/text` (CLDR 32); dates and
-lists from CLDR 48 tables generated into the package for 113 locales. Other
+For calendars and date pickers, a Formatter also has the names of months and
+weekdays on their own (CLDR's stand-alone form, which differs from the one in
+a date in languages such as Russian: "октябрь", "5 октября") in four widths,
+and the first day of the week:
+
+```go
+f.MonthName(time.October, i18n.NameWide)        // "October", "octubre", "октябрь"
+f.MonthName(time.October, i18n.NameAbbreviated) // "Oct"
+f.WeekdayName(time.Monday, i18n.NameShort)      // "Mo", "LU" (es), "月" (ja)
+f.WeekdayName(time.Monday, i18n.NameNarrow)     // "M"
+f.FirstDayOfWeek()                              // time.Sunday for en-US, time.Monday for de or es-ES
+i18n.FirstDayOfWeek("ar-EG")                    // time.Saturday
+```
+
+The first day goes by region: the tag's own, else its language's most likely
+one (`en` is the United States, `ar` Egypt), Monday when CLDR has no data;
+`-u-fw-mon` and `-u-rg-gbzzzz` in the tag override it.
+
+Numbers and plural rules come from `golang.org/x/text` (CLDR 32); dates,
+lists and week data from CLDR 48 tables generated into the package for 113 locales. Other
 locales use the closest one (en-SG uses en-001, es-PE uses es-419). Dates are
 Gregorian and in the time's own zone, with zone abbreviations rather than
 localized names.

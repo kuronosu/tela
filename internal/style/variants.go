@@ -50,15 +50,22 @@ const (
 	StateAriaDisabled
 	StateAriaExpanded
 	StateAriaHidden
+	StateAriaInvalid
 	StateAriaPressed
 	StateAriaReadOnly
 	StateAriaRequired
 	StateAriaSelected
+	// StateAriaSortAscending and StateAriaSortDescending: AriaSort set to
+	// "ascending" or "descending", which the arbitrary variants
+	// aria-[sort=ascending]: and aria-[sort=descending]: test (ADR-131).
+	StateAriaSortAscending
+	StateAriaSortDescending
 )
 
 // AriaStates is the set of the aria-* states.
 const AriaStates = StateAriaBusy | StateAriaChecked | StateAriaDisabled | StateAriaExpanded |
-	StateAriaHidden | StateAriaPressed | StateAriaReadOnly | StateAriaRequired | StateAriaSelected
+	StateAriaHidden | StateAriaInvalid | StateAriaPressed | StateAriaReadOnly | StateAriaRequired | StateAriaSelected |
+	StateAriaSortAscending | StateAriaSortDescending
 
 // Variant state names, in the order of the flags.
 var stateVariants = []struct {
@@ -85,6 +92,7 @@ var stateVariants = []struct {
 	{"aria-disabled", StateAriaDisabled},
 	{"aria-expanded", StateAriaExpanded},
 	{"aria-hidden", StateAriaHidden},
+	{"aria-invalid", StateAriaInvalid},
 	{"aria-pressed", StateAriaPressed},
 	{"aria-readonly", StateAriaReadOnly},
 	{"aria-required", StateAriaRequired},
@@ -382,12 +390,24 @@ func parseWidthLength(th *Theme, s string) (float32, error) {
 }
 
 // ariaVariantHint lists the aria variants for messages.
-const ariaVariantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-pressed:, aria-readonly:, aria-required:, aria-selected: (also group-aria-checked: and peer-aria-checked:)"
+const ariaVariantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-invalid:, aria-pressed:, aria-readonly:, aria-required:, aria-selected:, and AriaSort with aria-[sort=ascending]: and aria-[sort=descending]: (also group-aria-checked: and peer-aria-[sort=ascending]:)"
 
-// parseAriaVariant parses the arbitrary aria variant aria-[checked=true]:
-// (the same as aria-checked:) for the aria states Tela has props for. The
-// named ones (aria-checked:) are in stateVariants. ok is false when name
-// is not an arbitrary aria variant.
+// ariaSortValues are the AriaSort values the arbitrary aria-[sort=…]:
+// variants test.
+var ariaSortValues = []struct {
+	value string
+	flag  StateFlags
+}{
+	{"ascending", StateAriaSortAscending},
+	{"descending", StateAriaSortDescending},
+}
+
+// parseAriaVariant parses the arbitrary aria variants: aria-[checked=true]:
+// (the same as aria-checked:) for the aria states Tela has props for, and
+// aria-[sort=ascending]: and aria-[sort=descending]:, which test AriaSort.
+// The value may be quoted (aria-[sort="ascending"]:), as in a CSS
+// attribute selector. The named ones (aria-checked:) are in
+// stateVariants. ok is false when name is not an arbitrary aria variant.
 func parseAriaVariant(name string) (c Condition, ok bool, err error) {
 	inner, isArb := strings.CutPrefix(name, "aria-[")
 	if !isArb || !strings.HasSuffix(inner, "]") {
@@ -395,6 +415,16 @@ func parseAriaVariant(name string) (c Condition, ok bool, err error) {
 	}
 	inner = strings.TrimSuffix(inner, "]")
 	attr, value, hasValue := strings.Cut(inner, "=")
+	if len(value) >= 2 && (value[0] == '"' || value[0] == '\'') && value[len(value)-1] == value[0] {
+		value = value[1 : len(value)-1]
+	}
+	if hasValue && attr == "sort" {
+		for _, sv := range ariaSortValues {
+			if value == sv.value {
+				return Condition{State: sv.flag}, true, nil
+			}
+		}
+	}
 	for _, sv := range stateVariants {
 		if sv.name == "aria-"+attr && sv.flag&AriaStates != 0 && hasValue && value == "true" {
 			return Condition{State: sv.flag}, true, nil

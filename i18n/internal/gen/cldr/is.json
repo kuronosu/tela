@@ -56,6 +56,44 @@
          "tue": "þriðjudagur",
          "wed": "miðvikudagur"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "fös.",
+         "mon": "mán.",
+         "sat": "lau.",
+         "sun": "sun.",
+         "thu": "fim.",
+         "tue": "þri.",
+         "wed": "mið."
+        },
+        "narrow": {
+         "fri": "F",
+         "mon": "M",
+         "sat": "L",
+         "sun": "S",
+         "thu": "F",
+         "tue": "Þ",
+         "wed": "M"
+        },
+        "short": {
+         "fri": "fö.",
+         "mon": "má.",
+         "sat": "la.",
+         "sun": "su.",
+         "thu": "fi.",
+         "tue": "þr.",
+         "wed": "mi."
+        },
+        "wide": {
+         "fri": "föstudagur",
+         "mon": "mánudagur",
+         "sat": "laugardagur",
+         "sun": "sunnudagur",
+         "thu": "fimmtudagur",
+         "tue": "þriðjudagur",
+         "wed": "miðvikudagur"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "júl.",
          "8": "ágú.",
          "9": "sep."
+        },
+        "wide": {
+         "1": "janúar",
+         "10": "október",
+         "11": "nóvember",
+         "12": "desember",
+         "2": "febrúar",
+         "3": "mars",
+         "4": "apríl",
+         "5": "maí",
+         "6": "júní",
+         "7": "júlí",
+         "8": "ágúst",
+         "9": "september"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "jan.",
+         "10": "okt.",
+         "11": "nóv.",
+         "12": "des.",
+         "2": "feb.",
+         "3": "mar.",
+         "4": "apr.",
+         "5": "maí",
+         "6": "jún.",
+         "7": "júl.",
+         "8": "ágú.",
+         "9": "sep."
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "Á",
+         "9": "S"
         },
         "wide": {
          "1": "janúar",

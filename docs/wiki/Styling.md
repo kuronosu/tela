@@ -239,7 +239,7 @@ Variants combine (`dark:md:hover:bg-slate-700`); every part must hold.
 | Kind | Variants |
 |---|---|
 | State | `hover:` `active:` `focus:` `focus-visible:` `focus-within:` `disabled:` `enabled:` `checked:` (an element whose `AriaChecked` is true, such as a checkbox or switch made with the [`aria`](Aria) hooks; also `group-checked:` and `peer-checked:`) |
-| ARIA | `aria-busy:` `aria-checked:` `aria-disabled:` `aria-expanded:` `aria-hidden:` `aria-pressed:` `aria-readonly:` `aria-required:` `aria-selected:`: they match when the element's `AriaBusy(true)`, `AriaChecked(true)`... prop is set (Tailwind's `[aria-x="true"]`), not an implicit state; `aria-[checked=true]:` is `aria-checked:`, and other arbitrary selectors such as `aria-[sort=ascending]:` are not supported |
+| ARIA | `aria-busy:` `aria-checked:` `aria-disabled:` `aria-expanded:` `aria-hidden:` `aria-invalid:` `aria-pressed:` `aria-readonly:` `aria-required:` `aria-selected:`: they match when the element's `AriaBusy(true)`, `AriaChecked(true)`... prop is set (Tailwind's `[aria-x="true"]`), not an implicit state; `aria-[checked=true]:` is `aria-checked:`; `aria-[sort=ascending]:` and `aria-[sort=descending]:` match `AriaSort`; other arbitrary selectors such as `aria-[sort=other]:` are not supported |
 | Structure | `first:` `last:` `only:` `odd:` `even:` |
 | Text fields | `read-only:` `placeholder-shown:` `invalid:` `placeholder:` (style the placeholder text) `selection:` (style the selected text) |
 | Ancestors and siblings | `group-hover:` and the other state variants after `group-`, on a descendant of an element with the class `group`; `peer-*` for the following siblings of an element with the class `peer` (named groups and peers are not supported) |

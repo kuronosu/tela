@@ -56,6 +56,44 @@
          "tue": "Selasa",
          "wed": "Rabu"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Jum",
+         "mon": "Sen",
+         "sat": "Sab",
+         "sun": "Min",
+         "thu": "Kam",
+         "tue": "Sel",
+         "wed": "Rab"
+        },
+        "narrow": {
+         "fri": "J",
+         "mon": "S",
+         "sat": "S",
+         "sun": "M",
+         "thu": "K",
+         "tue": "S",
+         "wed": "R"
+        },
+        "short": {
+         "fri": "Jum",
+         "mon": "Sen",
+         "sat": "Sab",
+         "sun": "Min",
+         "thu": "Kam",
+         "tue": "Sel",
+         "wed": "Rab"
+        },
+        "wide": {
+         "fri": "Jumat",
+         "mon": "Senin",
+         "sat": "Sabtu",
+         "sun": "Minggu",
+         "thu": "Kamis",
+         "tue": "Selasa",
+         "wed": "Rabu"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Jul",
          "8": "Agu",
          "9": "Sep"
+        },
+        "wide": {
+         "1": "Januari",
+         "10": "Oktober",
+         "11": "November",
+         "12": "Desember",
+         "2": "Februari",
+         "3": "Maret",
+         "4": "April",
+         "5": "Mei",
+         "6": "Juni",
+         "7": "Juli",
+         "8": "Agustus",
+         "9": "September"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nov",
+         "12": "Des",
+         "2": "Feb",
+         "3": "Mar",
+         "4": "Apr",
+         "5": "Mei",
+         "6": "Jun",
+         "7": "Jul",
+         "8": "Agu",
+         "9": "Sep"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "Januari",

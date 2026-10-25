@@ -56,6 +56,44 @@
          "tue": "seshanba",
          "wed": "chorshanba"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Jum",
+         "mon": "Dush",
+         "sat": "Shan",
+         "sun": "Yak",
+         "thu": "Pay",
+         "tue": "Sesh",
+         "wed": "Chor"
+        },
+        "narrow": {
+         "fri": "J",
+         "mon": "D",
+         "sat": "S",
+         "sun": "Y",
+         "thu": "P",
+         "tue": "S",
+         "wed": "C"
+        },
+        "short": {
+         "fri": "Ju",
+         "mon": "Du",
+         "sat": "Sh",
+         "sun": "Ya",
+         "thu": "Pa",
+         "tue": "Se",
+         "wed": "Ch"
+        },
+        "wide": {
+         "fri": "juma",
+         "mon": "dushanba",
+         "sat": "shanba",
+         "sun": "yakshanba",
+         "thu": "payshanba",
+         "tue": "seshanba",
+         "wed": "chorshanba"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "iyul",
          "8": "avgust",
          "9": "sentabr"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Yan",
+         "10": "Okt",
+         "11": "Noy",
+         "12": "Dek",
+         "2": "Fev",
+         "3": "Mar",
+         "4": "Apr",
+         "5": "May",
+         "6": "Iyn",
+         "7": "Iyl",
+         "8": "Avg",
+         "9": "Sen"
+        },
+        "narrow": {
+         "1": "Y",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "I",
+         "7": "I",
+         "8": "A",
+         "9": "S"
+        },
+        "wide": {
+         "1": "Yanvar",
+         "10": "Oktabr",
+         "11": "Noyabr",
+         "12": "Dekabr",
+         "2": "Fevral",
+         "3": "Mart",
+         "4": "Aprel",
+         "5": "May",
+         "6": "Iyun",
+         "7": "Iyul",
+         "8": "Avgust",
+         "9": "Sentabr"
         }
        }
       },

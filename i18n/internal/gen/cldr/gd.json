@@ -56,6 +56,44 @@
          "tue": "DiMàirt",
          "wed": "DiCiadain"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Dih",
+         "mon": "DiL",
+         "sat": "DiS",
+         "sun": "DiD",
+         "thu": "Dia",
+         "tue": "DiM",
+         "wed": "DiC"
+        },
+        "narrow": {
+         "fri": "H",
+         "mon": "L",
+         "sat": "S",
+         "sun": "D",
+         "thu": "A",
+         "tue": "M",
+         "wed": "C"
+        },
+        "short": {
+         "fri": "hA",
+         "mon": "Lu",
+         "sat": "Sa",
+         "sun": "Dò",
+         "thu": "Da",
+         "tue": "Mà",
+         "wed": "Ci"
+        },
+        "wide": {
+         "fri": "DihAoine",
+         "mon": "DiLuain",
+         "sat": "DiSathairne",
+         "sun": "DiDòmhnaich",
+         "thu": "DiarDaoin",
+         "tue": "DiMàirt",
+         "wed": "DiCiadain"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "dhen Iuchar",
          "8": "dhen Lùnastal",
          "9": "dhen t-Sultain"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Faoi",
+         "10": "Dàmh",
+         "11": "Samh",
+         "12": "Dùbh",
+         "2": "Gearr",
+         "3": "Màrt",
+         "4": "Gibl",
+         "5": "Cèit",
+         "6": "Ògmh",
+         "7": "Iuch",
+         "8": "Lùna",
+         "9": "Sult"
+        },
+        "narrow": {
+         "1": "F",
+         "10": "D",
+         "11": "S",
+         "12": "D",
+         "2": "G",
+         "3": "M",
+         "4": "G",
+         "5": "C",
+         "6": "Ò",
+         "7": "I",
+         "8": "L",
+         "9": "S"
+        },
+        "wide": {
+         "1": "Am Faoilleach",
+         "10": "An Dàmhair",
+         "11": "An t-Samhain",
+         "12": "An Dùbhlachd",
+         "2": "An Gearran",
+         "3": "Am Màrt",
+         "4": "An Giblean",
+         "5": "An Cèitean",
+         "6": "An t-Ògmhios",
+         "7": "An t-Iuchar",
+         "8": "An Lùnastal",
+         "9": "An t-Sultain"
         }
        }
       },

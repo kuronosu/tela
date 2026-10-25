@@ -56,6 +56,44 @@
          "tue": "antradienis",
          "wed": "trečiadienis"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "pn",
+         "mon": "pr",
+         "sat": "št",
+         "sun": "sk",
+         "thu": "kt",
+         "tue": "an",
+         "wed": "tr"
+        },
+        "narrow": {
+         "fri": "P",
+         "mon": "P",
+         "sat": "Š",
+         "sun": "S",
+         "thu": "K",
+         "tue": "A",
+         "wed": "T"
+        },
+        "short": {
+         "fri": "Pn",
+         "mon": "Pr",
+         "sat": "Št",
+         "sun": "Sk",
+         "thu": "Kt",
+         "tue": "An",
+         "wed": "Tr"
+        },
+        "wide": {
+         "fri": "penktadienis",
+         "mon": "pirmadienis",
+         "sat": "šeštadienis",
+         "sun": "sekmadienis",
+         "thu": "ketvirtadienis",
+         "tue": "antradienis",
+         "wed": "trečiadienis"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "liepos",
          "8": "rugpjūčio",
          "9": "rugsėjo"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "saus.",
+         "10": "spal.",
+         "11": "lapkr.",
+         "12": "gruod.",
+         "2": "vas.",
+         "3": "kov.",
+         "4": "bal.",
+         "5": "geg.",
+         "6": "birž.",
+         "7": "liep.",
+         "8": "rugp.",
+         "9": "rugs."
+        },
+        "narrow": {
+         "1": "S",
+         "10": "S",
+         "11": "L",
+         "12": "G",
+         "2": "V",
+         "3": "K",
+         "4": "B",
+         "5": "G",
+         "6": "B",
+         "7": "L",
+         "8": "R",
+         "9": "R"
+        },
+        "wide": {
+         "1": "sausis",
+         "10": "spalis",
+         "11": "lapkritis",
+         "12": "gruodis",
+         "2": "vasaris",
+         "3": "kovas",
+         "4": "balandis",
+         "5": "gegužė",
+         "6": "birželis",
+         "7": "liepa",
+         "8": "rugpjūtis",
+         "9": "rugsėjis"
         }
        }
       },

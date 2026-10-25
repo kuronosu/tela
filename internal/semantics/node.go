@@ -91,6 +91,13 @@ const (
 	StateRequired
 	// StateBusy: AriaBusy(true), the element is being updated.
 	StateBusy
+	// StateInvalid: the element's value fails validation, as Chromium's
+	// accessibility tree computes it: AriaInvalid when it is set (true or
+	// false), else a text field's own validity (the invalid: variant: a
+	// type mismatch of an email or url value, a maxlength exceeded by an
+	// edit). Node.Invalid holds the prop alone, which is what aria
+	// snapshots print.
+	StateInvalid
 )
 
 // Action is a set of actions a node supports (ARCHITECTURE section 16).
@@ -151,8 +158,17 @@ type Node struct {
 	// Checked, Pressed, Selected and Expanded are the ARIA states set by
 	// the props of the same names.
 	Checked, Pressed, Selected, Expanded Toggle
-	States                               State
-	Actions                              Action
+	// Invalid is the AriaInvalid prop as given (unset, false or true):
+	// what Playwright's aria snapshot prints, since it reads the
+	// aria-invalid attribute alone. StateInvalid is the state assistive
+	// technologies get, which also covers a text field's own validity.
+	Invalid Toggle
+	// Sort is the AriaSort of a column or row header: "ascending",
+	// "descending" or "other"; "" when unset or "none". Aria snapshots do
+	// not print it.
+	Sort    string
+	States  State
+	Actions Action
 
 	// The widget props (aria-haspopup, -modal, -multiselectable,
 	// -orientation, -autocomplete, -controls, -activedescendant; ADR-096),

@@ -44,16 +44,21 @@ The props follow React's `aria-*` attributes:
 | [`AriaRequired`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaRequired) | A field the user must fill in |
 | [`AriaReadOnly`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaReadOnly) | A widget the user can focus but not edit |
 | [`AriaBusy`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaBusy) | An element that is being updated (a list that loads) |
+| [`AriaInvalid`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaInvalid) | A field whose value failed validation; it wins over an `Input`'s own validity (an email field with a malformed address is already invalid) |
+| [`AriaSort`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaSort) | How a table is sorted by a column header: `"ascending"`, `"descending"`, `"other"` or `"none"` |
 | [`AriaLevel`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLevel) | Level of a custom heading, list item, row or tree item |
 | [`AriaValueNow`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueNow), [`AriaValueMin`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMin), [`AriaValueMax`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMax), [`AriaValueText`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueText) | The value of a range widget (`slider`, `progressbar`, `spinbutton`, `meter`) |
 
 These props also drive the `aria-*` class variants: `aria-checked:`, `aria-expanded:`,
 `aria-pressed:`, `aria-selected:`, `aria-disabled:`, `aria-hidden:`, `aria-busy:`,
-`aria-required:` and `aria-readonly:` (and their `group-` and `peer-` forms) match
+`aria-required:`, `aria-readonly:` and `aria-invalid:` (and their `group-` and `peer-` forms) match
 when the element's prop is `true`, so the look follows the semantics:
-`Button(AriaExpanded(open), Class("aria-expanded:bg-slate-100"))`. The aria
-snapshot prints `required`, `readonly` and `busy` for none of them, as
-Playwright's does.
+`Button(AriaExpanded(open), Class("aria-expanded:bg-slate-100"))`;
+`aria-[sort=ascending]:` and `aria-[sort=descending]:` match the `AriaSort` of a
+header (`group-aria-[sort=descending]:rotate-180` turns its arrow). The aria
+snapshot prints `[invalid]` (from `AriaInvalid(true)` only, on the roles that
+support it) but not `required`, `readonly`, `busy` or the sort, as Playwright's
+does.
 
 ```go
 func WifiSwitch() tela.Node {

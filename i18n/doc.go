@@ -58,7 +58,10 @@
 // golang.org/x/text/number; dates and lists from CLDR 48 tables generated
 // into this package (go generate), for the locales listed in
 // internal/gen: other locales use the closest one. Dates are Gregorian and
-// in the time.Time's own zone.
+// in the time.Time's own zone. For calendars, [Formatter.MonthName] and
+// [Formatter.WeekdayName] give the names on their own in four widths
+// ([NameWidth]), and [FirstDayOfWeek] the day a week starts on, from
+// CLDR's week data by region.
 //
 // [Dir] tells the direction of a locale ([LTR] or [RTL]); h.Dir with its
 // String lays a subtree out right to left.

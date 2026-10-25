@@ -27,9 +27,11 @@ type ariaProps struct {
 	expanded    semantics.Toggle
 	w           *ariaWidget // the widget props (ariawidget.go)
 	disabled    semantics.Toggle
-	required    semantics.Toggle // AriaRequired, AriaReadOnly and AriaBusy (aria_state.go)
+	required    semantics.Toggle // AriaRequired, AriaReadOnly, AriaBusy, AriaInvalid and AriaSort (aria_state.go)
 	readOnly    semantics.Toggle
 	busy        semantics.Toggle
+	invalid     semantics.Toggle
+	sort        string // "ascending", "descending", "other"; "" unset or none
 	level       int32
 	rng         semantics.Range
 	valueText   string

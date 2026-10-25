@@ -56,6 +56,44 @@
          "tue": "tiistaina",
          "wed": "keskiviikkona"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "pe",
+         "mon": "ma",
+         "sat": "la",
+         "sun": "su",
+         "thu": "to",
+         "tue": "ti",
+         "wed": "ke"
+        },
+        "narrow": {
+         "fri": "P",
+         "mon": "M",
+         "sat": "L",
+         "sun": "S",
+         "thu": "T",
+         "tue": "T",
+         "wed": "K"
+        },
+        "short": {
+         "fri": "pe",
+         "mon": "ma",
+         "sat": "la",
+         "sun": "su",
+         "thu": "to",
+         "tue": "ti",
+         "wed": "ke"
+        },
+        "wide": {
+         "fri": "perjantai",
+         "mon": "maanantai",
+         "sat": "lauantai",
+         "sun": "sunnuntai",
+         "thu": "torstai",
+         "tue": "tiistai",
+         "wed": "keskiviikko"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "heinäkuuta",
          "8": "elokuuta",
          "9": "syyskuuta"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "tammi",
+         "10": "loka",
+         "11": "marras",
+         "12": "joulu",
+         "2": "helmi",
+         "3": "maalis",
+         "4": "huhti",
+         "5": "touko",
+         "6": "kesä",
+         "7": "heinä",
+         "8": "elo",
+         "9": "syys"
+        },
+        "narrow": {
+         "1": "T",
+         "10": "L",
+         "11": "M",
+         "12": "J",
+         "2": "H",
+         "3": "M",
+         "4": "H",
+         "5": "T",
+         "6": "K",
+         "7": "H",
+         "8": "E",
+         "9": "S"
+        },
+        "wide": {
+         "1": "tammikuu",
+         "10": "lokakuu",
+         "11": "marraskuu",
+         "12": "joulukuu",
+         "2": "helmikuu",
+         "3": "maaliskuu",
+         "4": "huhtikuu",
+         "5": "toukokuu",
+         "6": "kesäkuu",
+         "7": "heinäkuu",
+         "8": "elokuu",
+         "9": "syyskuu"
         }
        }
       },

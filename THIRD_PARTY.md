@@ -215,9 +215,9 @@ their original copyright notice. Add one section per source project.
 
 ## Unicode CLDR (vendored data)
 
-- **Source:** https://github.com/unicode-org/cldr-json (tag 48.0.0, packages `cldr-dates-full` `ca-gregorian.json` and `cldr-misc-full` `listPatterns.json`, per locale)
+- **Source:** https://github.com/unicode-org/cldr-json (tag 48.0.0, packages `cldr-dates-full` `ca-gregorian.json` and `cldr-misc-full` `listPatterns.json`, per locale, and `cldr-core` `supplemental/weekData.json`)
 - **License:** Unicode License v3, Copyright (c) 1991-2025 Unicode, Inc. (`i18n/internal/gen/cldr/LICENSE`, the repository's `LICENSE`)
-- **Used in:** `i18n/internal/gen/cldr/<locale>.json` (113 locales, trimmed to the parts the generator reads: month and weekday names, AM/PM markers, era names, date, time and date-time patterns, standard list patterns, under their original JSON paths) and the table generated from them, `i18n/dates_gen.go`
+- **Used in:** `i18n/internal/gen/cldr/<locale>.json` (113 locales, trimmed to the parts the generator reads: month and weekday names in their format and stand-alone forms, AM/PM markers, era names, date, time and date-time patterns, standard list patterns, under their original JSON paths), `i18n/internal/gen/cldr/supplemental/weekData.json` (only `supplemental.weekData.firstDay`, ADR-131) and the table generated from them, `i18n/dates_gen.go`
 - **Notes:** The files are CLDR data reduced to a subset and merged (one file per locale holds both source files' subtrees); `go run ./internal/gen -fetch` from `i18n` rebuilds them from the tag above, `go generate ./i18n` regenerates the table. The generated file keeps a copyright and license notice in its header.
 
 ## golang.org/x/text (dependency)

@@ -56,6 +56,44 @@
          "tue": "kedd",
          "wed": "szerda"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "P",
+         "mon": "H",
+         "sat": "Szo",
+         "sun": "V",
+         "thu": "Cs",
+         "tue": "K",
+         "wed": "Sze"
+        },
+        "narrow": {
+         "fri": "P",
+         "mon": "H",
+         "sat": "Sz",
+         "sun": "V",
+         "thu": "Cs",
+         "tue": "K",
+         "wed": "Sz"
+        },
+        "short": {
+         "fri": "P",
+         "mon": "H",
+         "sat": "Szo",
+         "sun": "V",
+         "thu": "Cs",
+         "tue": "K",
+         "wed": "Sze"
+        },
+        "wide": {
+         "fri": "péntek",
+         "mon": "hétfő",
+         "sat": "szombat",
+         "sun": "vasárnap",
+         "thu": "csütörtök",
+         "tue": "kedd",
+         "wed": "szerda"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "júl.",
          "8": "aug.",
          "9": "szept."
+        },
+        "wide": {
+         "1": "január",
+         "10": "október",
+         "11": "november",
+         "12": "december",
+         "2": "február",
+         "3": "március",
+         "4": "április",
+         "5": "május",
+         "6": "június",
+         "7": "július",
+         "8": "augusztus",
+         "9": "szeptember"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "jan.",
+         "10": "okt.",
+         "11": "nov.",
+         "12": "dec.",
+         "2": "febr.",
+         "3": "márc.",
+         "4": "ápr.",
+         "5": "máj.",
+         "6": "jún.",
+         "7": "júl.",
+         "8": "aug.",
+         "9": "szept."
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "Á",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "Sz"
         },
         "wide": {
          "1": "január",

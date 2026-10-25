@@ -56,6 +56,44 @@
          "tue": "teisipäev",
          "wed": "kolmapäev"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "R",
+         "mon": "E",
+         "sat": "L",
+         "sun": "P",
+         "thu": "N",
+         "tue": "T",
+         "wed": "K"
+        },
+        "narrow": {
+         "fri": "R",
+         "mon": "E",
+         "sat": "L",
+         "sun": "P",
+         "thu": "N",
+         "tue": "T",
+         "wed": "K"
+        },
+        "short": {
+         "fri": "R",
+         "mon": "E",
+         "sat": "L",
+         "sun": "P",
+         "thu": "N",
+         "tue": "T",
+         "wed": "K"
+        },
+        "wide": {
+         "fri": "reede",
+         "mon": "esmaspäev",
+         "sat": "laupäev",
+         "sun": "pühapäev",
+         "thu": "neljapäev",
+         "tue": "teisipäev",
+         "wed": "kolmapäev"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "juuli",
          "8": "aug",
          "9": "sept"
+        },
+        "wide": {
+         "1": "jaanuar",
+         "10": "oktoober",
+         "11": "november",
+         "12": "detsember",
+         "2": "veebruar",
+         "3": "märts",
+         "4": "aprill",
+         "5": "mai",
+         "6": "juuni",
+         "7": "juuli",
+         "8": "august",
+         "9": "september"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "jaan",
+         "10": "okt",
+         "11": "nov",
+         "12": "dets",
+         "2": "veebr",
+         "3": "märts",
+         "4": "apr",
+         "5": "mai",
+         "6": "juuni",
+         "7": "juuli",
+         "8": "aug",
+         "9": "sept"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "V",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "jaanuar",

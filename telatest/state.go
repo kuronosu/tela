@@ -90,6 +90,68 @@ func Disabled(disabled bool) State { return flagState("disabled", semantics.Stat
 // (false).
 func Focused(focused bool) State { return flagState("focused", semantics.StateFocused, focused) }
 
+// Invalid expects the element's value to be invalid (true) or valid
+// (false) for assistive technologies: h.AriaInvalid when it is set, else a
+// text field's own validity (an email or url Input whose value does not
+// parse), as Chromium tells them.
+//
+//	app.Fill(telatest.ByRole("textbox", "Email"), "ada@")
+//	app.Expect(telatest.ByRole("textbox", "Email"), telatest.Invalid(true))
+func Invalid(invalid bool) State {
+	return State{
+		want: "invalid=" + strconv.FormatBool(invalid),
+		check: func(_ *App, n *semantics.Node) (bool, string) {
+			got := n.Has(semantics.StateInvalid)
+			if got == invalid {
+				return true, ""
+			}
+			s := "invalid=" + strconv.FormatBool(got)
+			switch {
+			case n.Invalid != semantics.ToggleUnset:
+				s += " (from h.AriaInvalid(" + strconv.FormatBool(got) + "))"
+			case !got:
+				s += " (h.AriaInvalid sets it)"
+			default:
+				s += " (the field's own value is invalid; h.AriaInvalid(false) overrides it)"
+			}
+			return false, s
+		},
+	}
+}
+
+// sortValues are the values Sort accepts.
+var sortValues = []string{"ascending", "descending", "other", "none"}
+
+// Sort expects the element's aria-sort to be sort: "ascending",
+// "descending", "other" or "none", which is also what a header without
+// h.AriaSort has (the ARIA default). The aria snapshot does not print it
+// (Playwright's does not either).
+//
+//	app.Click(telatest.ByRole("columnheader", "Name"))
+//	app.Expect(telatest.ByRole("columnheader", "Name"), telatest.Sort("descending"))
+func Sort(sort string) State {
+	if !slices.Contains(sortValues, sort) {
+		panic(fmt.Sprintf("telatest: Sort(%q): not an aria-sort value; use \"ascending\", \"descending\", \"other\" or \"none\"", sort))
+	}
+	want := sort
+	if want == "none" {
+		want = ""
+	}
+	return State{
+		want: "sort=" + strconv.Quote(sort),
+		check: func(_ *App, n *semantics.Node) (bool, string) {
+			if n.Sort == want {
+				return true, ""
+			}
+			got := n.Sort
+			if got == "" {
+				return false, `sort="none" (h.AriaSort sets it)`
+			}
+			return false, "sort=" + strconv.Quote(got)
+		},
+	}
+}
+
 // HasName expects the element's accessible name to be exactly name (white
 // space normalized, case sensitive): what [ByRole] matches by.
 func HasName(name string) State {
@@ -322,6 +384,12 @@ func describeStates(n *semantics.Node) string {
 	}
 	if n.Has(semantics.StateBusy) {
 		s = append(s, "busy=true")
+	}
+	if n.Has(semantics.StateInvalid) {
+		s = append(s, "invalid=true")
+	}
+	if n.Sort != "" {
+		s = append(s, "sort="+strconv.Quote(n.Sort))
 	}
 	if n.Name != "" {
 		s = append(s, "name="+strconv.Quote(n.Name))

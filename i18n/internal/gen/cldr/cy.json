@@ -56,6 +56,44 @@
          "tue": "Dydd Mawrth",
          "wed": "Dydd Mercher"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Gwe",
+         "mon": "Llun",
+         "sat": "Sad",
+         "sun": "Sul",
+         "thu": "Iau",
+         "tue": "Maw",
+         "wed": "Mer"
+        },
+        "narrow": {
+         "fri": "G",
+         "mon": "Ll",
+         "sat": "S",
+         "sun": "S",
+         "thu": "I",
+         "tue": "M",
+         "wed": "M"
+        },
+        "short": {
+         "fri": "Gw",
+         "mon": "Ll",
+         "sat": "Sa",
+         "sun": "Su",
+         "thu": "Ia",
+         "tue": "Ma",
+         "wed": "Me"
+        },
+        "wide": {
+         "fri": "Dydd Gwener",
+         "mon": "Dydd Llun",
+         "sat": "Dydd Sadwrn",
+         "sun": "Dydd Sul",
+         "thu": "Dydd Iau",
+         "tue": "Dydd Mawrth",
+         "wed": "Dydd Mercher"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Gorff",
          "8": "Awst",
          "9": "Medi"
+        },
+        "wide": {
+         "1": "Ionawr",
+         "10": "Hydref",
+         "11": "Tachwedd",
+         "12": "Rhagfyr",
+         "2": "Chwefror",
+         "3": "Mawrth",
+         "4": "Ebrill",
+         "5": "Mai",
+         "6": "Mehefin",
+         "7": "Gorffennaf",
+         "8": "Awst",
+         "9": "Medi"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Ion",
+         "10": "Hyd",
+         "11": "Tach",
+         "12": "Rhag",
+         "2": "Chw",
+         "3": "Maw",
+         "4": "Ebr",
+         "5": "Mai",
+         "6": "Meh",
+         "7": "Gor",
+         "8": "Awst",
+         "9": "Medi"
+        },
+        "narrow": {
+         "1": "I",
+         "10": "H",
+         "11": "T",
+         "12": "Rh",
+         "2": "Ch",
+         "3": "M",
+         "4": "E",
+         "5": "M",
+         "6": "M",
+         "7": "G",
+         "8": "A",
+         "9": "M"
         },
         "wide": {
          "1": "Ionawr",

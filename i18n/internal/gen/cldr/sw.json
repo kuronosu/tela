@@ -56,6 +56,44 @@
          "tue": "Jumanne",
          "wed": "Jumatano"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Ijumaa",
+         "mon": "Jumatatu",
+         "sat": "Jumamosi",
+         "sun": "Jumapili",
+         "thu": "Alhamisi",
+         "tue": "Jumanne",
+         "wed": "Jumatano"
+        },
+        "narrow": {
+         "fri": "F",
+         "mon": "M",
+         "sat": "S",
+         "sun": "S",
+         "thu": "T",
+         "tue": "T",
+         "wed": "W"
+        },
+        "short": {
+         "fri": "Ijumaa",
+         "mon": "Jumatatu",
+         "sat": "Jumamosi",
+         "sun": "Jumapili",
+         "thu": "Alhamisi",
+         "tue": "Jumanne",
+         "wed": "Jumatano"
+        },
+        "wide": {
+         "fri": "Ijumaa",
+         "mon": "Jumatatu",
+         "sat": "Jumamosi",
+         "sun": "Jumapili",
+         "thu": "Alhamisi",
+         "tue": "Jumanne",
+         "wed": "Jumatano"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Jul",
          "8": "Ago",
          "9": "Sep"
+        },
+        "wide": {
+         "1": "Januari",
+         "10": "Oktoba",
+         "11": "Novemba",
+         "12": "Desemba",
+         "2": "Februari",
+         "3": "Machi",
+         "4": "Aprili",
+         "5": "Mei",
+         "6": "Juni",
+         "7": "Julai",
+         "8": "Agosti",
+         "9": "Septemba"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nov",
+         "12": "Des",
+         "2": "Feb",
+         "3": "Mac",
+         "4": "Apr",
+         "5": "Mei",
+         "6": "Jun",
+         "7": "Jul",
+         "8": "Ago",
+         "9": "Sep"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "Januari",

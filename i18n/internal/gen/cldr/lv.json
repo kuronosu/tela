@@ -56,6 +56,44 @@
          "tue": "otrdiena",
          "wed": "trešdiena"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Piektd.",
+         "mon": "Pirmd.",
+         "sat": "Sestd.",
+         "sun": "Svētd.",
+         "thu": "Ceturtd.",
+         "tue": "Otrd.",
+         "wed": "Trešd."
+        },
+        "narrow": {
+         "fri": "P",
+         "mon": "P",
+         "sat": "S",
+         "sun": "S",
+         "thu": "C",
+         "tue": "O",
+         "wed": "T"
+        },
+        "short": {
+         "fri": "Pk",
+         "mon": "Pr",
+         "sat": "Se",
+         "sun": "Sv",
+         "thu": "Ce",
+         "tue": "Ot",
+         "wed": "Tr"
+        },
+        "wide": {
+         "fri": "Piektdiena",
+         "mon": "Pirmdiena",
+         "sat": "Sestdiena",
+         "sun": "Svētdiena",
+         "thu": "Ceturtdiena",
+         "tue": "Otrdiena",
+         "wed": "Trešdiena"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "jūl.",
          "8": "aug.",
          "9": "sept."
+        },
+        "wide": {
+         "1": "janvāris",
+         "10": "oktobris",
+         "11": "novembris",
+         "12": "decembris",
+         "2": "februāris",
+         "3": "marts",
+         "4": "aprīlis",
+         "5": "maijs",
+         "6": "jūnijs",
+         "7": "jūlijs",
+         "8": "augusts",
+         "9": "septembris"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "janv.",
+         "10": "okt.",
+         "11": "nov.",
+         "12": "dec.",
+         "2": "febr.",
+         "3": "marts",
+         "4": "apr.",
+         "5": "maijs",
+         "6": "jūn.",
+         "7": "jūl.",
+         "8": "aug.",
+         "9": "sept."
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "janvāris",

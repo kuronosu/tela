@@ -56,6 +56,44 @@
          "tue": "Dé Máirt",
          "wed": "Dé Céadaoin"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Aoine",
+         "mon": "Luan",
+         "sat": "Sath",
+         "sun": "Domh",
+         "thu": "Déar",
+         "tue": "Máirt",
+         "wed": "Céad"
+        },
+        "narrow": {
+         "fri": "A",
+         "mon": "L",
+         "sat": "S",
+         "sun": "D",
+         "thu": "D",
+         "tue": "M",
+         "wed": "C"
+        },
+        "short": {
+         "fri": "Ao",
+         "mon": "Lu",
+         "sat": "Sa",
+         "sun": "Do",
+         "thu": "Dé",
+         "tue": "Má",
+         "wed": "Cé"
+        },
+        "wide": {
+         "fri": "Dé hAoine",
+         "mon": "Dé Luain",
+         "sat": "Dé Sathairn",
+         "sun": "Dé Domhnaigh",
+         "thu": "Déardaoin",
+         "tue": "Dé Máirt",
+         "wed": "Dé Céadaoin"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Iúil",
          "8": "Lún",
          "9": "MFómh"
+        },
+        "wide": {
+         "1": "Eanáir",
+         "10": "Deireadh Fómhair",
+         "11": "Samhain",
+         "12": "Nollaig",
+         "2": "Feabhra",
+         "3": "Márta",
+         "4": "Aibreán",
+         "5": "Bealtaine",
+         "6": "Meitheamh",
+         "7": "Iúil",
+         "8": "Lúnasa",
+         "9": "Meán Fómhair"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Ean",
+         "10": "DFómh",
+         "11": "Samh",
+         "12": "Noll",
+         "2": "Feabh",
+         "3": "Márta",
+         "4": "Aib",
+         "5": "Beal",
+         "6": "Meith",
+         "7": "Iúil",
+         "8": "Lún",
+         "9": "MFómh"
+        },
+        "narrow": {
+         "1": "E",
+         "10": "D",
+         "11": "S",
+         "12": "N",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "B",
+         "6": "M",
+         "7": "I",
+         "8": "L",
+         "9": "M"
         },
         "wide": {
          "1": "Eanáir",

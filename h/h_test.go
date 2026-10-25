@@ -204,6 +204,8 @@ func TestExportedNames(t *testing.T) {
 		"AriaOrientation", "Inert",
 		// ADR-101: the tooltip's description.
 		"AriaDescribedBy",
+		// ADR-131: aria-invalid and aria-sort.
+		"AriaInvalid", "AriaSort",
 	}
 	fset := token.NewFileSet()
 	var got []string

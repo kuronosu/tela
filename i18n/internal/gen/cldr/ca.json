@@ -56,6 +56,44 @@
          "tue": "dimarts",
          "wed": "dimecres"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "dv.",
+         "mon": "dl.",
+         "sat": "ds.",
+         "sun": "dg.",
+         "thu": "dj.",
+         "tue": "dt.",
+         "wed": "dc."
+        },
+        "narrow": {
+         "fri": "dv.",
+         "mon": "dl.",
+         "sat": "ds.",
+         "sun": "dg.",
+         "thu": "dj.",
+         "tue": "dt.",
+         "wed": "dc."
+        },
+        "short": {
+         "fri": "dv.",
+         "mon": "dl.",
+         "sat": "ds.",
+         "sun": "dg.",
+         "thu": "dj.",
+         "tue": "dt.",
+         "wed": "dc."
+        },
+        "wide": {
+         "fri": "divendres",
+         "mon": "dilluns",
+         "sat": "dissabte",
+         "sun": "diumenge",
+         "thu": "dijous",
+         "tue": "dimarts",
+         "wed": "dimecres"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "de juliol",
          "8": "d’agost",
          "9": "de setembre"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "gen.",
+         "10": "oct.",
+         "11": "nov.",
+         "12": "des.",
+         "2": "febr.",
+         "3": "març",
+         "4": "abr.",
+         "5": "maig",
+         "6": "juny",
+         "7": "jul.",
+         "8": "ag.",
+         "9": "set."
+        },
+        "narrow": {
+         "1": "GN",
+         "10": "OC",
+         "11": "NV",
+         "12": "DS",
+         "2": "FB",
+         "3": "MÇ",
+         "4": "AB",
+         "5": "MG",
+         "6": "JN",
+         "7": "JL",
+         "8": "AG",
+         "9": "ST"
+        },
+        "wide": {
+         "1": "gener",
+         "10": "octubre",
+         "11": "novembre",
+         "12": "desembre",
+         "2": "febrer",
+         "3": "març",
+         "4": "abril",
+         "5": "maig",
+         "6": "juny",
+         "7": "juliol",
+         "8": "agost",
+         "9": "setembre"
         }
        }
       },

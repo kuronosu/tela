@@ -261,6 +261,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 			n.States |= semantics.StateBusy
 		}
 		n.Checked, n.Pressed, n.Selected, n.Expanded = a.checked, a.pressed, a.selected, a.expanded
+		n.Invalid, n.Sort = a.invalid, a.sort
 		n.Description = a.desc
 		if n.Description == "" && a.describedBy != nil {
 			if r := a.describedBy.el; r != nil && r.mounted && r.kind == elemPrimitive {
@@ -303,6 +304,18 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		} else if !disabled {
 			n.Actions |= semantics.ActionSetValue
 		}
+	}
+	// Invalid as Chromium's accessibility tree has it (GetInvalidState,
+	// ADR-131): the AriaInvalid prop when it is set, true or false, else a
+	// text field's own validity (the invalid: variant's state: a type
+	// mismatch, a maxlength exceeded by an edit), except for a read-only or
+	// disabled field, which HTML bars from constraint validation.
+	if a != nil && a.invalid != semantics.ToggleUnset {
+		if a.invalid == semantics.ToggleTrue {
+			n.States |= semantics.StateInvalid
+		}
+	} else if f := bx.fld; f != nil && el.istate&style.StateInvalid != 0 && !f.props().readOnly && !disabled {
+		n.States |= semantics.StateInvalid
 	}
 	switch {
 	case bx.fld != nil && (role == "textbox" || role == "searchbox" || role == "combobox"):

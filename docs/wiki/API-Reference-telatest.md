@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`FromApp`](#func-fromapp) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`FromApp`](#func-fromapp) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
   - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay)
@@ -21,7 +21,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
   - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FromApp`](#func-fromapp) · [`InstantScroll`](#func-instantscroll) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout)
-  - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected)
+  - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
 
@@ -1346,6 +1346,19 @@ func HasValue(value string) State
 
 HasValue expects the element's value to be exactly value: the text of a text field, or the value text of a range widget (the h.AriaValueText or h.AriaValueNow of a slider or progress bar, as in the aria snapshot).
 
+#### func Invalid
+
+```go
+func Invalid(invalid bool) State
+```
+
+Invalid expects the element's value to be invalid (true) or valid (false) for assistive technologies: h.AriaInvalid when it is set, else a text field's own validity (an email or url Input whose value does not parse), as Chromium tells them.
+
+```go
+app.Fill(telatest.ByRole("textbox", "Email"), "ada@")
+app.Expect(telatest.ByRole("textbox", "Email"), telatest.Invalid(true))
+```
+
 #### func NoActiveDescendant
 
 ```go
@@ -1369,6 +1382,19 @@ func Selected(selected bool) State
 ```
 
 Selected expects the element to have aria-selected equal to selected (a tab, option, row or cell; h.AriaSelected sets it).
+
+#### func Sort
+
+```go
+func Sort(sort string) State
+```
+
+Sort expects the element's aria-sort to be sort: "ascending", "descending", "other" or "none", which is also what a header without h.AriaSort has (the ARIA default). The aria snapshot does not print it (Playwright's does not either).
+
+```go
+app.Click(telatest.ByRole("columnheader", "Name"))
+app.Expect(telatest.ByRole("columnheader", "Name"), telatest.Sort("descending"))
+```
 
 ### type Stats
 

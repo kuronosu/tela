@@ -37,7 +37,9 @@
 //     inputs) where Playwright shows the value only for input and textarea
 //     elements;
 //   - there are no iframes, slots, shadow roots, pseudo-element content,
-//     placeholders, aria-owns, aria-invalid or title attributes;
+//     placeholders, aria-owns or title attributes, and aria-invalid is
+//     only true or false (no "grammar" or "spelling"), so [invalid] is
+//     the only form printed;
 //   - inert subtrees (core's Inert prop, an exiting Presence child, the
 //     outside of a modal overlay) are hidden, as in the browser's
 //     accessibility tree, where Playwright 1.61, which ignores the inert

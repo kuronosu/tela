@@ -56,6 +56,44 @@
          "tue": "Salı",
          "wed": "Çarşamba"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Cum",
+         "mon": "Pzt",
+         "sat": "Cmt",
+         "sun": "Paz",
+         "thu": "Per",
+         "tue": "Sal",
+         "wed": "Çar"
+        },
+        "narrow": {
+         "fri": "C",
+         "mon": "P",
+         "sat": "C",
+         "sun": "P",
+         "thu": "P",
+         "tue": "S",
+         "wed": "Ç"
+        },
+        "short": {
+         "fri": "Cu",
+         "mon": "Pt",
+         "sat": "Ct",
+         "sun": "Pa",
+         "thu": "Pe",
+         "tue": "Sa",
+         "wed": "Ça"
+        },
+        "wide": {
+         "fri": "Cuma",
+         "mon": "Pazartesi",
+         "sat": "Cumartesi",
+         "sun": "Pazar",
+         "thu": "Perşembe",
+         "tue": "Salı",
+         "wed": "Çarşamba"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Tem",
          "8": "Ağu",
          "9": "Eyl"
+        },
+        "wide": {
+         "1": "Ocak",
+         "10": "Ekim",
+         "11": "Kasım",
+         "12": "Aralık",
+         "2": "Şubat",
+         "3": "Mart",
+         "4": "Nisan",
+         "5": "Mayıs",
+         "6": "Haziran",
+         "7": "Temmuz",
+         "8": "Ağustos",
+         "9": "Eylül"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Oca",
+         "10": "Eki",
+         "11": "Kas",
+         "12": "Ara",
+         "2": "Şub",
+         "3": "Mar",
+         "4": "Nis",
+         "5": "May",
+         "6": "Haz",
+         "7": "Tem",
+         "8": "Ağu",
+         "9": "Eyl"
+        },
+        "narrow": {
+         "1": "O",
+         "10": "E",
+         "11": "K",
+         "12": "A",
+         "2": "Ş",
+         "3": "M",
+         "4": "N",
+         "5": "M",
+         "6": "H",
+         "7": "T",
+         "8": "A",
+         "9": "E"
         },
         "wide": {
          "1": "Ocak",

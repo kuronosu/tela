@@ -56,6 +56,44 @@
          "tue": "martes",
          "wed": "mércores"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "ven.",
+         "mon": "luns",
+         "sat": "sáb.",
+         "sun": "dom.",
+         "thu": "xov.",
+         "tue": "mar.",
+         "wed": "mér."
+        },
+        "narrow": {
+         "fri": "V",
+         "mon": "L",
+         "sat": "S",
+         "sun": "D",
+         "thu": "X",
+         "tue": "M",
+         "wed": "M"
+        },
+        "short": {
+         "fri": "ve.",
+         "mon": "lu.",
+         "sat": "sá.",
+         "sun": "do.",
+         "thu": "xo.",
+         "tue": "ma.",
+         "wed": "mé."
+        },
+        "wide": {
+         "fri": "venres",
+         "mon": "luns",
+         "sat": "sábado",
+         "sun": "domingo",
+         "thu": "xoves",
+         "tue": "martes",
+         "wed": "mércores"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "xul.",
          "8": "ago.",
          "9": "set."
+        },
+        "wide": {
+         "1": "xaneiro",
+         "10": "outubro",
+         "11": "novembro",
+         "12": "decembro",
+         "2": "febreiro",
+         "3": "marzo",
+         "4": "abril",
+         "5": "maio",
+         "6": "xuño",
+         "7": "xullo",
+         "8": "agosto",
+         "9": "setembro"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "xan.",
+         "10": "out.",
+         "11": "nov.",
+         "12": "dec.",
+         "2": "feb.",
+         "3": "mar.",
+         "4": "abr.",
+         "5": "maio",
+         "6": "xuño",
+         "7": "xul.",
+         "8": "ago.",
+         "9": "set."
+        },
+        "narrow": {
+         "1": "X",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "X",
+         "7": "X",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "xaneiro",

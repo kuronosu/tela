@@ -27,9 +27,41 @@ func AriaBusy(busy bool) Prop {
 	return ariaProp("AriaBusy", func(a *ariaProps) { a.busy = semantics.Of(busy) })
 }
 
+// AriaInvalid sets whether the value of a field fails validation
+// (aria-invalid): a textbox, combobox, listbox, checkbox, radio group,
+// slider, spin button or grid cell. It sets the node's invalid state (true
+// or false: it wins over a text field's own validity, as in Chromium's
+// accessibility tree) and matches the aria-invalid: variants; Playwright's
+// aria snapshot prints it as [invalid] on the roles that support it.
+func AriaInvalid(invalid bool) Prop {
+	return ariaProp("AriaInvalid", func(a *ariaProps) { a.invalid = semantics.Of(invalid) })
+}
+
+var sortValues = []string{"ascending", "descending", "other", "none"}
+
+// AriaSort sets how the rows of a table or grid are sorted by a column or
+// row header (aria-sort): "ascending", "descending", "other" or "none"
+// (the default), ASCII case-insensitive. Unknown values panic in dev mode
+// with the closest valid one and are ignored otherwise. It sets the node's
+// Sort, and "ascending" and "descending" match the aria-[sort=ascending]:
+// and aria-[sort=descending]: variants; the aria snapshot does not print
+// it (Playwright's does not either).
+func AriaSort(sort string) Prop {
+	v, ok := ariaToken("AriaSort", sort, sortValues)
+	if v == "none" {
+		v = ""
+	}
+	return ariaProp("AriaSort", func(a *ariaProps) {
+		if ok {
+			a.sort = v
+		}
+	})
+}
+
 // ariaStates returns the states that a's props set to true: what the
 // aria-busy:, aria-checked:... variants (and their group- and peer-
-// forms) test, as Tailwind's [aria-x="true"] selectors do, and what
+// forms) test, as Tailwind's [aria-x="true"] selectors do (and
+// aria-[sort=ascending]: and aria-[sort=descending]:), and what
 // checked: tests (an element whose AriaChecked is true: Tela has no
 // native checkbox, ADR-100). A mixed checkbox or pressed button is not
 // "true".
@@ -47,10 +79,13 @@ func ariaStates(a *ariaProps) style.StateFlags {
 		{a.disabled == semantics.ToggleTrue, style.StateAriaDisabled},
 		{a.expanded == semantics.ToggleTrue, style.StateAriaExpanded},
 		{a.hiddenSet && a.hidden, style.StateAriaHidden},
+		{a.invalid == semantics.ToggleTrue, style.StateAriaInvalid},
 		{a.pressed == semantics.ToggleTrue, style.StateAriaPressed},
 		{a.readOnly == semantics.ToggleTrue, style.StateAriaReadOnly},
 		{a.required == semantics.ToggleTrue, style.StateAriaRequired},
 		{a.selected == semantics.ToggleTrue, style.StateAriaSelected},
+		{a.sort == "ascending", style.StateAriaSortAscending},
+		{a.sort == "descending", style.StateAriaSortDescending},
 	} {
 		if f.on {
 			s |= f.flag

@@ -56,6 +56,44 @@
          "tue": "Dinsdag",
          "wed": "Woensdag"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Vr.",
+         "mon": "Ma.",
+         "sat": "Sa.",
+         "sun": "So.",
+         "thu": "Do.",
+         "tue": "Di.",
+         "wed": "Wo."
+        },
+        "narrow": {
+         "fri": "V",
+         "mon": "M",
+         "sat": "S",
+         "sun": "S",
+         "thu": "D",
+         "tue": "D",
+         "wed": "W"
+        },
+        "short": {
+         "fri": "Vr.",
+         "mon": "Ma.",
+         "sat": "Sa.",
+         "sun": "So.",
+         "thu": "Do.",
+         "tue": "Di.",
+         "wed": "Wo."
+        },
+        "wide": {
+         "fri": "Vrydag",
+         "mon": "Maandag",
+         "sat": "Saterdag",
+         "sun": "Sondag",
+         "thu": "Donderdag",
+         "tue": "Dinsdag",
+         "wed": "Woensdag"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Jul.",
          "8": "Aug.",
          "9": "Sep."
+        },
+        "wide": {
+         "1": "Januarie",
+         "10": "Oktober",
+         "11": "November",
+         "12": "Desember",
+         "2": "Februarie",
+         "3": "Maart",
+         "4": "April",
+         "5": "Mei",
+         "6": "Junie",
+         "7": "Julie",
+         "8": "Augustus",
+         "9": "September"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jan.",
+         "10": "Okt.",
+         "11": "Nov.",
+         "12": "Des.",
+         "2": "Feb.",
+         "3": "Mrt.",
+         "4": "Apr.",
+         "5": "Mei",
+         "6": "Jun.",
+         "7": "Jul.",
+         "8": "Aug.",
+         "9": "Sep."
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "Januarie",

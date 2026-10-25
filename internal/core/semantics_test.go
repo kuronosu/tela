@@ -240,6 +240,32 @@ var ariaCases = []ariaCase{
 			`<div role="dialog" aria-modal="true" aria-label="Confirm"><button>OK</button></div>` +
 			`<h1 role="presentation" aria-controls="m">Kept</h1><h2 role="presentation" aria-haspopup="true">Gone</h2></div>`,
 	},
+	{
+		// ADR-131: [invalid] after [expanded], on the roles that support
+		// it, from the aria-invalid attribute alone (not a field's own
+		// validity); aria-sort is not printed.
+		name: "invalid and sort",
+		root: func() Node {
+			return div(
+				div(Role("textbox"), AriaLabel("Email"), AriaInvalid(true)),
+				div(Role("checkbox"), AriaChecked(true), AriaInvalid(true), Text("Terms")),
+				button(AriaInvalid(true), AriaExpanded(true), Text("Menu")),
+				div(Role("combobox"), AriaLabel("Fruit"), AriaExpanded(true), AriaInvalid(true), TabIndex(0)),
+				div(Role("textbox"), AriaLabel("Name"), AriaInvalid(false)),
+				input(FieldType("email"), AriaLabel("Mail"), DefaultValue("bad")),
+				div(Role("grid"), div(Role("row"),
+					div(Role("columnheader"), AriaSort("ascending"), AriaInvalid(true), Text("Name")),
+					div(Role("columnheader"), AriaSort("descending"), Text("Size")))),
+			)
+		},
+		want: "- textbox \"Email\" [invalid]\n- checkbox \"Terms\" [checked] [invalid]\n- button \"Menu\" [expanded]\n" +
+			"- combobox \"Fruit\" [expanded] [invalid]\n- textbox \"Name\"\n- textbox \"Mail\": bad\n" +
+			"- grid:\n  - row \"Name Size\":\n    - columnheader \"Name\" [invalid]\n    - columnheader \"Size\"",
+		html: `<div><div role="textbox" aria-label="Email" aria-invalid="true"></div><div role="checkbox" aria-checked="true" aria-invalid="true">Terms</div>` +
+			`<button aria-invalid="true" aria-expanded="true">Menu</button><div role="combobox" aria-label="Fruit" aria-expanded="true" aria-invalid="true" tabindex="0"></div>` +
+			`<div role="textbox" aria-label="Name" aria-invalid="false"></div><input type="email" aria-label="Mail" value="bad">` +
+			`<div role="grid"><div role="row"><div role="columnheader" aria-sort="ascending" aria-invalid="true">Name</div><div role="columnheader" aria-sort="descending">Size</div></div></div></div>`,
+	},
 }
 
 func widgetScreen() Node {

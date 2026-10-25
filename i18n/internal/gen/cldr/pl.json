@@ -56,6 +56,44 @@
          "tue": "wtorek",
          "wed": "środa"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "pt.",
+         "mon": "pon.",
+         "sat": "sob.",
+         "sun": "niedz.",
+         "thu": "czw.",
+         "tue": "wt.",
+         "wed": "śr."
+        },
+        "narrow": {
+         "fri": "P",
+         "mon": "P",
+         "sat": "S",
+         "sun": "N",
+         "thu": "C",
+         "tue": "W",
+         "wed": "Ś"
+        },
+        "short": {
+         "fri": "pią",
+         "mon": "pon",
+         "sat": "sob",
+         "sun": "nie",
+         "thu": "czw",
+         "tue": "wto",
+         "wed": "śro"
+        },
+        "wide": {
+         "fri": "piątek",
+         "mon": "poniedziałek",
+         "sat": "sobota",
+         "sun": "niedziela",
+         "thu": "czwartek",
+         "tue": "wtorek",
+         "wed": "środa"
+        }
        }
       },
       "eras": {
@@ -97,6 +135,50 @@
          "7": "lipca",
          "8": "sierpnia",
          "9": "września"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "sty",
+         "10": "paź",
+         "11": "lis",
+         "12": "gru",
+         "2": "lut",
+         "3": "mar",
+         "4": "kwi",
+         "5": "maj",
+         "6": "cze",
+         "7": "lip",
+         "8": "sie",
+         "9": "wrz"
+        },
+        "narrow": {
+         "1": "S",
+         "10": "P",
+         "11": "L",
+         "12": "G",
+         "2": "L",
+         "3": "M",
+         "4": "K",
+         "5": "M",
+         "6": "C",
+         "7": "L",
+         "8": "S",
+         "9": "W"
+        },
+        "wide": {
+         "1": "styczeń",
+         "10": "październik",
+         "11": "listopad",
+         "12": "grudzień",
+         "2": "luty",
+         "3": "marzec",
+         "4": "kwiecień",
+         "5": "maj",
+         "6": "czerwiec",
+         "7": "lipiec",
+         "8": "sierpień",
+         "9": "wrzesień"
         }
        }
       },

@@ -56,6 +56,44 @@
          "tue": "marți",
          "wed": "miercuri"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "vin.",
+         "mon": "lun.",
+         "sat": "sâm.",
+         "sun": "dum.",
+         "thu": "joi",
+         "tue": "mar.",
+         "wed": "mie."
+        },
+        "narrow": {
+         "fri": "V",
+         "mon": "L",
+         "sat": "S",
+         "sun": "D",
+         "thu": "J",
+         "tue": "M",
+         "wed": "M"
+        },
+        "short": {
+         "fri": "vi.",
+         "mon": "lu.",
+         "sat": "sâ.",
+         "sun": "du.",
+         "thu": "joi",
+         "tue": "ma.",
+         "wed": "mi."
+        },
+        "wide": {
+         "fri": "vineri",
+         "mon": "luni",
+         "sat": "sâmbătă",
+         "sun": "duminică",
+         "thu": "joi",
+         "tue": "marți",
+         "wed": "miercuri"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "iul.",
          "8": "aug.",
          "9": "sept."
+        },
+        "wide": {
+         "1": "ianuarie",
+         "10": "octombrie",
+         "11": "noiembrie",
+         "12": "decembrie",
+         "2": "februarie",
+         "3": "martie",
+         "4": "aprilie",
+         "5": "mai",
+         "6": "iunie",
+         "7": "iulie",
+         "8": "august",
+         "9": "septembrie"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "ian.",
+         "10": "oct.",
+         "11": "nov.",
+         "12": "dec.",
+         "2": "feb.",
+         "3": "mar.",
+         "4": "apr.",
+         "5": "mai",
+         "6": "iun.",
+         "7": "iul.",
+         "8": "aug.",
+         "9": "sept."
+        },
+        "narrow": {
+         "1": "I",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "I",
+         "7": "I",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "ianuarie",

@@ -56,6 +56,44 @@
          "tue": "ULwesibili",
          "wed": "ULwesithathu"
         }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "fri": "Hla",
+         "mon": "Mso",
+         "sat": "Mgq",
+         "sun": "Son",
+         "thu": "Sin",
+         "tue": "Bil",
+         "wed": "Tha"
+        },
+        "narrow": {
+         "fri": "H",
+         "mon": "M",
+         "sat": "M",
+         "sun": "S",
+         "thu": "S",
+         "tue": "B",
+         "wed": "T"
+        },
+        "short": {
+         "fri": "Hla",
+         "mon": "Mso",
+         "sat": "Mgq",
+         "sun": "Son",
+         "thu": "Sin",
+         "tue": "Bil",
+         "wed": "Tha"
+        },
+        "wide": {
+         "fri": "ULwesihlanu",
+         "mon": "UMsombuluko",
+         "sat": "UMgqibelo",
+         "sun": "ISonto",
+         "thu": "ULwesine",
+         "tue": "ULwesibili",
+         "wed": "ULwesithathu"
+        }
        }
       },
       "eras": {
@@ -83,6 +121,50 @@
          "7": "Jul",
          "8": "Aga",
          "9": "Sep"
+        },
+        "wide": {
+         "1": "Januwari",
+         "10": "Okthoba",
+         "11": "Novemba",
+         "12": "Disemba",
+         "2": "Februwari",
+         "3": "Mashi",
+         "4": "Ephreli",
+         "5": "Meyi",
+         "6": "Juni",
+         "7": "Julayi",
+         "8": "Agasti",
+         "9": "Septhemba"
+        }
+       },
+       "stand-alone": {
+        "abbreviated": {
+         "1": "Jan",
+         "10": "Okt",
+         "11": "Nov",
+         "12": "Dis",
+         "2": "Feb",
+         "3": "Mas",
+         "4": "Eph",
+         "5": "Mey",
+         "6": "Jun",
+         "7": "Jul",
+         "8": "Aga",
+         "9": "Sep"
+        },
+        "narrow": {
+         "1": "J",
+         "10": "O",
+         "11": "N",
+         "12": "D",
+         "2": "F",
+         "3": "M",
+         "4": "A",
+         "5": "M",
+         "6": "J",
+         "7": "J",
+         "8": "A",
+         "9": "S"
         },
         "wide": {
          "1": "Januwari",
