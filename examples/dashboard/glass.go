@@ -169,7 +169,7 @@ func glassStyle() kit.Style {
 	tb.Table = "grid w-full text-sm"
 	tb.Head = "flex h-9 items-center border-b border-border px-2 text-left text-xs font-medium tracking-wider whitespace-nowrap text-muted-foreground uppercase"
 	tb.HeadSticky = "sticky top-0 z-20" // the glass card shows through: no opaque bg-background
-	tb.Cell ="flex items-center border-b border-border px-2 py-2.5 whitespace-nowrap transition-colors duration-200 group-hover:bg-accent/60"
+	tb.Cell = "flex items-center border-b border-border px-2 py-2.5 whitespace-nowrap transition-colors duration-200 group-hover:bg-accent/60"
 
 	// The dialog and the toasts are the frosted glass that does blur: the
 	// whole page is behind them. The scrim appears at once and only the
