@@ -3,6 +3,7 @@ package aria_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
@@ -62,6 +63,31 @@ func (a *rawApp) settle() {
 	}
 }
 
+// advance moves the clock forward by d, stopping at the frames and the
+// gesture deadlines (a long press) on the way.
+func (a *rawApp) advance(d time.Duration) {
+	a.t.Helper()
+	target := a.b.Now() + d
+	a.b.Wake()
+	for {
+		a.b.Drain(a.host)
+		now := a.b.Now()
+		if now >= target {
+			break
+		}
+		next := target
+		if t, ok := a.b.NextFrameTime(); ok && t > now && t < next {
+			next = t
+		}
+		if t, ok := a.tree.NextDeadline(); ok && t > now && t < next {
+			next = t
+		}
+		a.b.Advance(next - now)
+		a.b.Wake()
+	}
+	a.settle()
+}
+
 func (a *rawApp) pointer(kind platform.PointerKind, act platform.PointerAction, x, y float32, held bool) {
 	a.t.Helper()
 	e := platform.PointerEvent{Action: act, Kind: kind, ID: 1, Pos: platform.Point{X: x, Y: y}}
@@ -101,6 +127,19 @@ func (a *rawApp) tap(kind platform.PointerKind, x, y float32) {
 	a.t.Helper()
 	a.down(kind, x, y)
 	a.up(kind, x, y)
+}
+
+// rightClick presses and releases the secondary button of a mouse, which
+// makes the contextmenu event.
+func (a *rawApp) rightClick(x, y float32) {
+	a.t.Helper()
+	a.pointer(platform.PointerMouse, platform.PointerMove, x, y, false)
+	a.win.Inject(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerMouse, ID: 1,
+		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonSecondary, Buttons: platform.ButtonSecondary.Mask()})
+	a.settle()
+	a.win.Inject(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerMouse, ID: 1,
+		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonSecondary})
+	a.settle()
 }
 
 func (a *rawApp) key(act platform.KeyAction, key platform.Key, code platform.KeyCode, repeat bool) {
