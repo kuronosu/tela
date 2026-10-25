@@ -134,7 +134,9 @@ func billingCard(o kit.RadioItem[string], st kit.RadioState) tela.Node {
 		Class("flex w-44 items-start gap-3 rounded-lg border border-border bg-card p-4 text-left text-sm text-card-foreground shadow-xs outline-none transition-colors",
 			"hover:bg-accent focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
 			"aria-checked:border-primary aria-checked:bg-accent/50"),
-		Span(Class("mt-0.5"), st.Indicator),
+		// A flex box, not an inline span: inline, the indicator would sit on
+		// its baseline, which moves when the checked dot appears.
+		Span(Class("mt-0.5 flex"), st.Indicator),
 		Div(Class("flex flex-col gap-0.5"), Span(Class("font-medium"), Text(o.Label)), Span(Class("text-muted-foreground"), Text(o.Description))))
 }
 

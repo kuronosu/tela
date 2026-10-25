@@ -48,7 +48,7 @@ func dropdownMenuPage() tela.Node {
 			},
 			readout(map[bool]string{true: "Status bar: shown", false: "Status bar: hidden"}[cols])),
 		demo("Row actions", "An icon button as the trigger; Align end opens the menu under its right edge.", "",
-			Div(Class("flex w-full max-w-sm items-center justify-between gap-4 text-sm"),
+			Div(Class("flex w-full items-center justify-between gap-4 text-sm"),
 				Div(Class("flex flex-col"), Span(Class("font-medium"), Text("quarterly-report.pdf")), muted("2.4 MB, edited today")),
 				kit.DropdownMenu[string]{
 					Trigger: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: icons.Ellipsis, AriaLabel: "Actions for quarterly-report.pdf"},
@@ -114,12 +114,14 @@ func menubarPage() tela.Node {
 func contextMenuPage() tela.Node {
 	last, setLast := tela.UseState("")
 	return grid(
-		demo("Right click", "A right click opens it at the pointer; a long press on touch; Shift+F10 or the context menu key open it from the keyboard.", col,
+		demo("Right click", "A right click opens it at the pointer; a long press on touch. From the keyboard, Tab to the box (TabIndex 0 makes it focusable) and press Shift+F10 or the context menu key.", col,
 			kit.ContextMenu[string]{
 				AriaLabel: "Page",
-				Class:     "flex h-40 w-72 items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground",
-				Children:  Text("Right click here"),
-				OnSelect:  func(key string) { setLast.Set(key) },
+				Props:     TabIndex(0),
+				Class: "flex h-40 w-72 items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground outline-none " +
+					"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+				Children: Text("Right click here"),
+				OnSelect: func(key string) { setLast.Set(key) },
 				Items: []kit.MenuItem[string]{
 					{Key: "back", Label: "Back", Shortcut: "Cmd+["},
 					{Key: "forward", Label: "Forward", Shortcut: "Cmd+]", Disabled: true},

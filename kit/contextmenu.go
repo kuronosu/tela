@@ -22,7 +22,11 @@ func init() {
 // area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a
 // right click opens it at the pointer, a touch that stays down opens it
 // under the finger, and Shift+F10 or the ContextMenu key opens it, on its
-// first item, at the area's top-left corner. The menu closes with Escape,
+// first item, at the area's top-left corner. The keys reach the area from
+// the element that has the focus inside it, as in the browser: an area with
+// nothing focusable inside opens from the keyboard only when it can take the
+// focus itself (Props: h.TabIndex(0), with a focus-visible: ring in Class).
+// The menu closes with Escape,
 // a press outside it or choosing an item, and the focus returns to where
 // it was. A right click inside the area while the menu is open moves it; in
 // nested areas the innermost wins.
