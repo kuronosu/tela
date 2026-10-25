@@ -1,7 +1,21 @@
-# Binaries
+# Binaries (go build ./cmd/tela or ./examples/<name> from the root)
 /bin/
 *.exe
 /tela
+/board
+/counter
+/dashboard
+/hello
+/layout
+/motion
+/native
+/player
+/pricing
+/settings
+/shapes
+/signup
+/text
+/virtuallist
 
 # Golden test failures
 *_actual.png
