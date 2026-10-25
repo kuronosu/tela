@@ -135,15 +135,30 @@
 // balance, float, vertical writing modes, legacy text-align). TestTelaCases
 // does the same for Tela's own cases (testdata/cases: containing blocks,
 // order, and grid placement by name, named areas, auto-fill and auto-fit,
-// dense packing, static positions, baselines and content-sized grids).
-// Where Chromium and Taffy disagree, layout follows Chromium:
+// dense packing, static positions, baselines and content-sized grids, zero
+// percentages, flex items with an aspect ratio or a keyword cross size),
+// measured by Chromium 154 (the cases measured before by Chromium 152
+// measure the same). Where Chromium and Taffy disagree, layout follows
+// Chromium:
 //
 //   - A flex container sized under definite available space is
 //     fit-content sized (Taffy sums the flex bases).
 //   - The flex base size alone clamps the intrinsic contributions of items
 //     that do not grow or shrink (Taffy also takes the preferred size).
 //   - An item with an aspect ratio and a definite cross size has the
-//     transferred size as its content size suggestion.
+//     transferred size as its content size suggestion, which the min and
+//     max cross sizes transferred through the ratio clamp.
+//   - An item with an aspect ratio: a cross size the ratio transfers from
+//     its own main size is not a known or definite cross size (a row of
+//     w-full aspect-square items shrinks to fit), a stretched cross size
+//     is used to measure it only when definite, and its hypothetical cross
+//     size follows its used main size (ADR-157).
+//   - An item with a min-content, max-content or fit-content cross size
+//     is measured at that size for its flex base size and its content
+//     contribution, not stretched; nor is one with an auto cross margin
+//     (ADR-157).
+//   - A percentage min main size of an indefinite basis counts as 0, not
+//     as auto (ADR-157).
 //   - Percentage margins count as zero in a block's intrinsic width.
 //   - Absolutely positioned boxes: see Containing blocks; Taffy gives them
 //     the whole containing block as available space, has a flex variant

@@ -337,7 +337,7 @@ func blendSpacing(dst, from, to *style.ComputedStyle, t float64) {
 // curve that overshoots can go there).
 func nonNegative(d style.Dim) style.Dim {
 	if d.Kind == style.DimLength {
-		d.LP = nonNegativeLP(d.LP)
+		d = style.DimLP(nonNegativeLP(d.LP), d.HasPercent())
 	}
 	return d
 }

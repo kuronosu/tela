@@ -46,7 +46,7 @@ func (d dimSpec) dim(e *env) Dim {
 	if d.kind != DimLength {
 		return Dim{Kind: d.kind}
 	}
-	return DimOf(e.lp(&d.expr))
+	return DimLP(e.lp(&d.expr), d.expr.hasPercent())
 }
 
 // dimOpts says which values a dimension utility accepts.

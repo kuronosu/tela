@@ -93,7 +93,7 @@ func init() {
 		Weekdays:       "flex",
 		Weekday:        "flex-1 rounded-md text-center text-[0.8rem] font-normal text-muted-foreground select-none",
 		Week:           "mt-2 flex w-full",
-		Day:            "relative h-full w-full p-0 text-center select-none",
+		Day:            "relative aspect-square h-full w-full p-0 text-center select-none",
 		Today:          "rounded-md bg-accent text-accent-foreground",
 		Outside:        "text-muted-foreground",
 		Disabled:       "text-muted-foreground opacity-50",

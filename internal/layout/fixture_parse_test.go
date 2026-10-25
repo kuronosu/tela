@@ -195,6 +195,7 @@ func parseDim(v string) (Dim, bool) {
 			return Dim{}, false
 		}
 		var px, f float32
+		pct := false
 		for k, d := range []Dim{a, b} {
 			m := float32(1)
 			if k == 1 {
@@ -205,9 +206,15 @@ func parseDim(v string) (Dim, bool) {
 				px += m * d.Value
 			case UnitPercent:
 				f += m * d.Value
+				pct = true
 			default:
 				return Dim{}, false
 			}
+		}
+		if pct && f == 0 {
+			// calc(0% + 10px) is still a percentage: indefinite against
+			// an indefinite basis (ADR-157). Calc would make it 10px.
+			return Dim{Unit: UnitCalc, Px: px}, true
 		}
 		return Calc(px, f), true
 	}

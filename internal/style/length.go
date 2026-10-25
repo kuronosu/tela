@@ -7,6 +7,12 @@ import "fmt"
 // height, the box's own size for translate and border-radius, the gradient
 // line for gradient stops). It covers CSS lengths, percentages and
 // calc(a + b) of one of each.
+//
+// An LP cannot tell 0% from 0px, and does not need to: for every property
+// that stores a bare LP (padding, gaps, radii, translate, positions) the
+// two resolve to the same length. Dim and TrackBreadth, whose percentages
+// can meet an indefinite basis and then behave unlike a length, keep that
+// distinction in a field of their own (ADR-157).
 type LP struct {
 	Px  float32
 	Pct float32 // percent: 50 means 50%
@@ -25,7 +31,8 @@ func (l LP) Resolve(basis float32) float32 {
 	return l.Px + p/100
 }
 
-// HasPercent reports whether the value depends on a reference length.
+// HasPercent reports whether the value depends on a reference length. A
+// zero percentage does not count here; see Dim.HasPercent.
 func (l LP) HasPercent() bool { return l.Pct != 0 }
 
 // String formats the value as CSS: "12px", "50%" or "calc(50% + 12px)".
@@ -62,6 +69,14 @@ const (
 // pixels and percentages.
 type Dim struct {
 	Kind DimKind
+	// ZeroPct marks a length-percentage whose percentage part is written
+	// but zero: 0%, calc(0% + 4px). CSS tells it from a length where the
+	// percentage basis is indefinite: Tailwind's flex-1 (flex: 1 1 0%) has
+	// a content-based flex basis in a column of auto height, and h-[0%] in
+	// a parent of auto height is auto, where a basis or a height of 0px is
+	// 0 (ADR-157). It is set only when Kind is DimLength and LP.Pct is 0,
+	// so == still compares values; build such values with DimPct or DimLP.
+	ZeroPct bool
 	LP
 }
 
@@ -76,17 +91,33 @@ var (
 // DimPx returns a dimension of v logical pixels.
 func DimPx(v float32) Dim { return Dim{Kind: DimLength, LP: LP{Px: v}} }
 
-// DimPct returns a dimension of v percent of the reference length.
-func DimPct(v float32) Dim { return Dim{Kind: DimLength, LP: LP{Pct: v}} }
+// DimPct returns a dimension of v percent of the reference length (0 is
+// 0%, not 0px).
+func DimPct(v float32) Dim { return DimLP(LP{Pct: v}, true) }
 
-// DimOf returns a dimension of the length-percentage lp.
+// DimOf returns a dimension of the length-percentage lp. A zero lp.Pct is
+// no percentage: use DimLP for 0% or calc(0% + 4px).
 func DimOf(lp LP) Dim { return Dim{Kind: DimLength, LP: lp} }
+
+// DimLP returns a dimension of the length-percentage lp; pct says that it
+// has a percentage part, which matters only when lp.Pct is 0 (0% is not
+// 0px, see Dim.ZeroPct).
+func DimLP(lp LP, pct bool) Dim {
+	return Dim{Kind: DimLength, LP: lp, ZeroPct: pct && lp.Pct == 0}
+}
 
 // IsAuto reports whether d is auto.
 func (d Dim) IsAuto() bool { return d.Kind == DimAuto }
 
 // IsLength reports whether d is a length-percentage.
 func (d Dim) IsLength() bool { return d.Kind == DimLength }
+
+// HasPercent reports whether d is a length-percentage with a percentage
+// part, zero (0%) included: one that depends on its reference length and
+// is indefinite where that length is.
+func (d Dim) HasPercent() bool {
+	return d.Kind == DimLength && (d.Pct != 0 || d.ZeroPct)
+}
 
 // Resolve returns the size in pixels and true for a length-percentage with
 // the given percentage basis, and 0, false for auto and the keywords.
@@ -101,6 +132,12 @@ func (d Dim) Resolve(basis float32) (float32, bool) {
 func (d Dim) String() string {
 	switch d.Kind {
 	case DimLength:
+		if d.ZeroPct && d.Pct == 0 {
+			if d.Px == 0 {
+				return "0%"
+			}
+			return fmt.Sprintf("calc(0%% + %gpx)", d.Px)
+		}
 		return d.LP.String()
 	case DimMinContent:
 		return "min-content"
@@ -133,7 +170,10 @@ const ChPerEm = 0.613
 // percentage are kept as a function node.
 type lenExpr struct {
 	px, rem, em, vw, vh, ch, pct float32
-	fn                           *lenFn
+	// pctSet says a percentage was written, so that 0% stays a percentage
+	// (Dim.ZeroPct).
+	pctSet bool
+	fn     *lenFn
 }
 
 type fnKind uint8
@@ -169,7 +209,7 @@ func (x *lenExpr) fontRelative() bool {
 
 func exprPx(v float32) lenExpr  { return lenExpr{px: v} }
 func exprRem(v float32) lenExpr { return lenExpr{rem: v} }
-func exprPct(v float32) lenExpr { return lenExpr{pct: v} }
+func exprPct(v float32) lenExpr { return lenExpr{pct: v, pctSet: true} }
 func exprVw(v float32) lenExpr  { return lenExpr{vw: v} }
 func exprVh(v float32) lenExpr  { return lenExpr{vh: v} }
 func exprCh(v float32) lenExpr  { return lenExpr{ch: v} }
@@ -196,7 +236,7 @@ func (l lenExpr) scaled(k float32) lenExpr {
 	return lenExpr{
 		px: float32(l.px * k), rem: float32(l.rem * k), em: float32(l.em * k),
 		vw: float32(l.vw * k), vh: float32(l.vh * k), ch: float32(l.ch * k),
-		pct: float32(l.pct * k),
+		pct: float32(l.pct * k), pctSet: l.pctSet,
 	}
 }
 
@@ -208,7 +248,24 @@ func (l lenExpr) add(m lenExpr) lenExpr {
 	return lenExpr{
 		px: l.px + m.px, rem: l.rem + m.rem, em: l.em + m.em,
 		vw: l.vw + m.vw, vh: l.vh + m.vh, ch: l.ch + m.ch, pct: l.pct + m.pct,
+		pctSet: l.pctSet || m.pctSet,
 	}
+}
+
+// hasPercent reports whether the expression has a percentage part, zero
+// included: what Dim.ZeroPct records. min(), max() and clamp() take no
+// percentages (their value is a length).
+func (l *lenExpr) hasPercent() bool {
+	if f := l.fn; f != nil {
+		switch f.kind {
+		case fnSum:
+			return f.args[0].hasPercent() || f.args[1].hasPercent()
+		case fnScale:
+			return f.args[0].hasPercent()
+		}
+		return false
+	}
+	return l.pct != 0 || l.pctSet
 }
 
 // eval evaluates the expression with the unit context of e.

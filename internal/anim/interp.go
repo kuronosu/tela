@@ -44,7 +44,11 @@ func LerpLP(a, b style.LP, t float64) style.LP {
 // interpolate switches from a to b halfway, like CSS's discrete animation.
 func LerpDim(a, b style.Dim, t float64) (d style.Dim, ok bool) {
 	if a.Kind == style.DimLength && b.Kind == style.DimLength {
-		return style.Dim{Kind: style.DimLength, LP: LerpLP(a.LP, b.LP, t)}, true
+		// The value is (1-t)·a + t·b, as calc() would write it: it has a
+		// percentage part (0% included, ADR-157) when a term that has one
+		// is there.
+		pct := a.HasPercent() && t != 1 || b.HasPercent() && t != 0
+		return style.DimLP(LerpLP(a.LP, b.LP, t), pct), true
 	}
 	if t < 0.5 {
 		return a, false

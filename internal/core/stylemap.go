@@ -497,7 +497,7 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	}
 
 	ls.Width, ls.Height = dimOf(cs.Width), dimOf(cs.Height)
-	ls.MinWidth, ls.MinHeight = dimOf(cs.MinWidth), dimOf(cs.MinHeight)
+	ls.MinWidth, ls.MinHeight = zeroDimOf(cs.MinWidth), zeroDimOf(cs.MinHeight)
 	ls.MaxWidth, ls.MaxHeight = dimOf(cs.MaxWidth), dimOf(cs.MaxHeight)
 	if b.flt != nil {
 		b.flt.limitLayout(b, &ls) // the size limits of a floating element (floating.go)
@@ -516,7 +516,8 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	if cs.Position != style.PositionSticky {
 		ls.Inset = edgesOf(cs.Inset)
 	}
-	ls.Margin = edgesOf(cs.Margin)
+	ls.Margin = layout.Edges{Top: zeroDimOf(cs.Margin.Top), Right: zeroDimOf(cs.Margin.Right),
+		Bottom: zeroDimOf(cs.Margin.Bottom), Left: zeroDimOf(cs.Margin.Left)}
 	ls.Padding = layout.Edges{Top: lpDim(cs.Padding.Top), Right: lpDim(cs.Padding.Right),
 		Bottom: lpDim(cs.Padding.Bottom), Left: lpDim(cs.Padding.Left)}
 	ls.Border = layout.Edges{Top: layout.Px(cs.Border.Top.Width), Right: layout.Px(cs.Border.Right.Width),
@@ -631,11 +632,15 @@ func overflowOf(o style.Overflow) layout.Overflow {
 	return layout.OverflowVisible
 }
 
-// dimOf maps a size, inset, margin or flex-basis value.
+// dimOf maps a size, max size, inset or flex-basis value. A zero
+// percentage stays a percentage (ADR-157): against an indefinite basis 0%
+// is indefinite, so a height or width of 0% is auto, a max size none, an
+// inset auto and a flex basis content-based (Tailwind's flex-1 is
+// flex: 1 1 0%), where 0px is a length.
 func dimOf(d style.Dim) layout.Dim {
 	switch d.Kind {
 	case style.DimLength:
-		return lpDim(d.LP)
+		return lpDimPct(d.LP, d.ZeroPct)
 	case style.DimMinContent:
 		return layout.MinContent
 	case style.DimMaxContent:
@@ -646,10 +651,34 @@ func dimOf(d style.Dim) layout.Dim {
 	return layout.Auto
 }
 
+// zeroDimOf maps a min size or a margin, where 0% means 0px: a percentage
+// min size of an indefinite basis counts as 0 (CSS 2.1 section 10.7, and
+// Chromium for min-width too) and percentage margins count as 0 in
+// intrinsic sizes, so a zero percentage there is 0 whatever the basis and
+// maps to a length, which also keeps a flex item's automatic minimum off
+// as min-h-0 does (ADR-157).
+func zeroDimOf(d style.Dim) layout.Dim {
+	d.ZeroPct = false
+	return dimOf(d)
+}
+
 // lpDim maps a length-percentage: a length, a percentage or, with both
 // parts (calc(100% - 2rem)), a layout calc value.
 func lpDim(lp style.LP) layout.Dim {
 	return layout.Calc(lp.Px, lp.Pct/100)
+}
+
+// lpDimPct maps a length-percentage whose percentage part may be written
+// but zero (pct; style.Dim.ZeroPct): 0% is a percentage and calc(0% + 4px)
+// a calc value, not lengths.
+func lpDimPct(lp style.LP, pct bool) layout.Dim {
+	if pct && lp.Pct == 0 {
+		if lp.Px == 0 {
+			return layout.Percent(0)
+		}
+		return layout.Dim{Unit: layout.UnitCalc, Px: lp.Px}
+	}
+	return lpDim(lp)
 }
 
 func edgesOf(s style.Sides[style.Dim]) layout.Edges {
@@ -754,11 +783,13 @@ func trackSizes(ts []style.TrackSize) []layout.TrackSize {
 	return out
 }
 
-// breadth maps a track breadth onto a layout Dim.
+// breadth maps a track breadth onto a layout Dim. A zero percentage stays
+// a percentage, as in dimOf: a 0% track of an indefinite grid size is auto
+// (ADR-157).
 func breadth(b style.TrackBreadth) layout.Dim {
 	switch b.Kind {
 	case style.BreadthLength:
-		return lpDim(b.LP)
+		return lpDimPct(b.LP, b.ZeroPct)
 	case style.BreadthFr:
 		return layout.Fr(b.Fr)
 	case style.BreadthMinContent:
@@ -766,7 +797,7 @@ func breadth(b style.TrackBreadth) layout.Dim {
 	case style.BreadthMaxContent:
 		return layout.MaxContent
 	case style.BreadthFitContent:
-		if b.LP.Pct == 0 {
+		if b.LP.Pct == 0 && !b.ZeroPct {
 			return layout.FitContentPx(b.LP.Px)
 		}
 		return layout.Dim{Unit: layout.UnitFitContentPercent, Value: b.LP.Pct / 100, Px: b.LP.Px}

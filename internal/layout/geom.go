@@ -275,11 +275,6 @@ func (s *optSize) setCross(dir FlexDirection, v opt) {
 	}
 }
 
-func (s optSize) withMain(dir FlexDirection, v opt) optSize {
-	s.setMain(dir, v)
-	return s
-}
-
 func (s optSize) or(b optSize) optSize     { return optSize{s.w.or(b.w), s.h.or(b.h)} }
 func (s optSize) maybeSubF(b size) optSize { return optSize{s.w.subF(b.w), s.h.subF(b.h)} }
 func (s optSize) maybeMaxF(b size) optSize { return optSize{s.w.maxF(b.w), s.h.maxF(b.h)} }

@@ -30,8 +30,13 @@ const (
 // TrackBreadth is a minimum or maximum track size.
 type TrackBreadth struct {
 	Kind BreadthKind
-	LP   LP
-	Fr   float32
+	// ZeroPct marks an LP whose percentage part is written but zero (0%,
+	// fit-content(0%)), as Dim.ZeroPct does: a percentage track of an
+	// indefinite grid size is auto, a 0px track is 0 (ADR-157). It is set
+	// only when LP.Pct is 0.
+	ZeroPct bool
+	LP      LP
+	Fr      float32
 }
 
 // TrackSize is the size of one track, minmax(Min, Max). A fixed length is
@@ -361,7 +366,7 @@ func parseBreadth(s string, root float32, allowFr bool) (TrackBreadth, error) {
 		if err != nil {
 			return TrackBreadth{}, err
 		}
-		return TrackBreadth{Kind: BreadthFitContent, LP: lp}, nil
+		return TrackBreadth{Kind: BreadthFitContent, LP: lp, ZeroPct: lp.Pct == 0 && e.hasPercent()}, nil
 	}
 	e, err := parseLengthExpr(s, true)
 	if err != nil {
@@ -374,7 +379,7 @@ func parseBreadth(s string, root float32, allowFr bool) (TrackBreadth, error) {
 	if err != nil {
 		return TrackBreadth{}, err
 	}
-	return TrackBreadth{Kind: BreadthLength, LP: lp}, nil
+	return TrackBreadth{Kind: BreadthLength, LP: lp, ZeroPct: lp.Pct == 0 && e.hasPercent()}, nil
 }
 
 // trackLP converts a length expression to an LP at parse time, with rem
@@ -461,7 +466,7 @@ func parseGridPlacement(s string) (GridPlacement, error) {
 func (b TrackBreadth) String() string {
 	switch b.Kind {
 	case BreadthLength:
-		return b.LP.String()
+		return DimLP(b.LP, b.ZeroPct).String()
 	case BreadthFr:
 		return strconv.FormatFloat(float64(b.Fr), 'g', -1, 32) + "fr"
 	case BreadthMinContent:
@@ -469,7 +474,7 @@ func (b TrackBreadth) String() string {
 	case BreadthMaxContent:
 		return "max-content"
 	case BreadthFitContent:
-		return "fit-content(" + b.LP.String() + ")"
+		return "fit-content(" + DimLP(b.LP, b.ZeroPct).String() + ")"
 	}
 	return "auto"
 }

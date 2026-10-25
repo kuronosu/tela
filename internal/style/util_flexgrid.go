@@ -174,7 +174,7 @@ func flexShorthand(c *pctx, inner string) (Op, error) {
 			if err != nil {
 				return Op{}, err
 			}
-			basis, hasBasis = DimOf(lp), true
+			basis, hasBasis = DimLP(lp, e.hasPercent()), true
 			continue
 		}
 		return Op{}, fmt.Errorf("invalid flex value %q; use e.g. [2_2_0%%], [1_1_auto] or [30%%]", inner)
