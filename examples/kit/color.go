@@ -55,7 +55,7 @@ func colorInputPage() tela.Node {
 	fill, setFill := tela.UseState(tela.Hex("#6366f1"))
 	saved, setSaved := tela.UseState("")
 	return grid(
-		demo("Basic", "The same picker behind a button that shows the color. The color lives in the ColorInput, so the swatch follows a drag in the panel.", colStart,
+		demo("Basic", "The same picker behind a button that shows the color. The color lives in the ColorInput, so the swatch and the code follow a drag in the panel.", colStart,
 			kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: func(c tela.Color) { setSaved.Set("Saved " + hexOf(c)) }},
 			readout(map[bool]string{true: "Nothing saved yet.", false: saved}[saved == ""])),
 		demo("With alpha and swatches", "", "",

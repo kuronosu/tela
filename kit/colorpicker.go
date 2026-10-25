@@ -64,6 +64,16 @@ type ColorInputStyle struct {
 	Trigger string
 	// Swatch is the small square of the color inside the trigger.
 	Swatch string
+	// Code is the hex code inside the trigger. Inter is proportional, so
+	// its digits are tabular (tabular-nums) and its minimum width is that
+	// of the widest code, "#" and six digits (the digits are wider than the
+	// letters a to f, which the code is written with), so the button does
+	// not change size while the color does. CodeAlpha is added to Code
+	// while the input has Alpha, with the width of "#" and eight digits.
+	// The widths are in em, for Inter at any size; another font needs its
+	// own.
+	Code      string
+	CodeAlpha string
 }
 
 func init() {
@@ -95,8 +105,10 @@ func init() {
 		SwatchSelected: "ring-2 ring-ring ring-offset-2 ring-offset-popover",
 	}
 	defaultStyle.ColorInput = ColorInputStyle{
-		Trigger: "justify-start font-normal tabular-nums",
-		Swatch:  "relative size-4 shrink-0 overflow-hidden rounded-sm border border-border",
+		Trigger:   "justify-start font-normal",
+		Swatch:    "relative size-4 shrink-0 overflow-hidden rounded-sm border border-border",
+		Code:      "tabular-nums min-w-[4.53em]",
+		CodeAlpha: "min-w-[5.83em]",
 	}
 }
 
@@ -526,7 +538,7 @@ func (c ColorInput) Build() tela.Node {
 			name = label + ", " + code
 		}
 		trig = Button{Variant: Outline, Disabled: c.Disabled, Class: joinClass(r.Trigger, c.Class), AriaLabel: name,
-			Props: tela.MergeProps(props...), Children: colorInputLabel{st: parts.st, text: code}}
+			Props: tela.MergeProps(props...), Children: colorInputLabel{st: parts.st, alpha: c.Alpha}}
 	}
 	return h.Fragment(Popover{
 		Trigger: trig, Placement: c.Placement, Align: orStr(c.Align, "start"), Offset: c.Offset,
@@ -543,14 +555,19 @@ func orStr(s, def string) string {
 	return s
 }
 
-// colorInputLabel is the content of the default trigger: the swatch, which
-// follows the color live, and its code as of the last build.
+// colorInputLabel is the content of the default trigger: the swatch and the
+// code, both following the color live (the code is a paint-phase text, so a
+// drag in the panel changes it without a build).
 type colorInputLabel struct {
-	st   *aria.ColorState
-	text string
+	st    *aria.ColorState
+	alpha bool
 }
 
 func (l colorInputLabel) Build() tela.Node {
-	r := &UseStyle().ColorInput
-	return h.Fragment(colorSwatch(l.st, UseStyle(), r.Swatch), h.Span(h.Dir("ltr"), h.Text(l.text)))
+	style := UseStyle()
+	r := &style.ColorInput
+	st, alpha := l.st, l.alpha
+	return h.Fragment(colorSwatch(st, style, r.Swatch),
+		h.Span(cls(r.Code, when(alpha, r.CodeAlpha)), h.Dir("ltr"),
+			h.TextFn(func() string { return aria.FormatHexColor(st.LiveColor(), alpha) })))
 }

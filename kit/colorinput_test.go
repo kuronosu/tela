@@ -1,6 +1,7 @@
 package kit_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/kuronosu/tela"
@@ -106,6 +107,83 @@ func TestColorInputDragRepaintsOnly(t *testing.T) {
 }
 
 var colorTriggerAlpha = telatest.ByRole("button", "#6366f1ff")
+
+// colorTriggerID names the default trigger by its test id, which the code
+// and the name on it do not change (the name is the code, and it lags a drag
+// until a build).
+var colorTriggerID = telatest.ByTestID("color-trigger")
+
+// The code on the button follows a drag in the panel as the swatch does: it
+// is a paint-phase text, so a move changes it with no build, and the
+// button's name (a build's) has caught up when the drag ends.
+func TestColorInputCodeFollowsTheDrag(t *testing.T) {
+	for _, alpha := range []bool{false, true} {
+		t.Run(fmt.Sprintf("alpha=%v", alpha), func(t *testing.T) {
+			var changed colorLog
+			app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: alpha,
+				OnValueChange: changed.add, Props: h.TestID("color-trigger")}), telatest.Theme(kit.Theme()), telatest.NoSettle())
+			app.Click(colorTriggerID)
+			area := app.Bounds(areaGroup)
+			app.MouseMove(at(area, 0.5, 0.5))
+			app.MouseDown()
+			shown := func(code string) int { return app.Count(telatest.ByText(code, telatest.Exact())) }
+			seen := map[string]bool{}
+			builds := 0
+			for i := 1; i <= 8; i++ {
+				fx := 0.5 - float32(i)*0.05
+				st := app.Measure(func() { app.MouseMove(at(area, fx, 0.5+float32(i)*0.05)) })
+				builds += st.Builds
+				code := hexOf(changed.last(), alpha)
+				if n := shown(code); n != 1 {
+					t.Fatalf("move %d: the button shows its code %d times, want %q once; the window:\\n%s", i, n, code, app.AriaSnapshot())
+				}
+				seen[code] = true
+			}
+			if len(seen) < 4 {
+				t.Errorf("the drag went through %d colors, want the code to change with it", len(seen))
+			}
+			if builds > 0 {
+				t.Errorf("%d builds while dragging, want none: the code is painted, not built", builds)
+			}
+			app.MouseUp()
+			// The drag's end builds: the name has the color the drag ended on.
+			code := hexOf(changed.last(), alpha)
+			app.Expect(colorTriggerID, telatest.HasName(code))
+			if shown(code) != 1 {
+				t.Errorf("after the drag the button does not show %q once", code)
+			}
+		})
+	}
+}
+
+// The button keeps its width while the color changes: Inter is proportional,
+// and the code has a minimum width that fits the widest code of its format
+// (the digits are wider than the letters a to f).
+func TestColorInputTriggerWidthIsStable(t *testing.T) {
+	for _, alpha := range []bool{false, true} {
+		t.Run(fmt.Sprintf("alpha=%v", alpha), func(t *testing.T) {
+			codes := []string{"#111111", "#000000", "#ffffff", "#dddddd", "#6366f1", "#eeeeee", "#ff0000", "#bdbdbd"}
+			app := telatest.MountFunc(t, func() tela.Node {
+				c, setC := tela.UseState(tela.Hex(codes[0]))
+				kids := []tela.Child{h.Class("flex flex-col items-start gap-2 p-4"),
+					kit.ColorInput{Value: &c, OnValueChange: setC.Set, Alpha: alpha, Props: h.TestID("color-trigger")}}
+				for _, code := range codes {
+					kids = append(kids, h.Button(h.Text("Set "+code), h.OnClick(func() { setC.Set(tela.Hex(code)) })))
+				}
+				return h.Div(kids...)
+			}, telatest.Theme(kit.Theme()))
+			want := app.Bounds(colorTriggerID).Width
+			for _, code := range codes {
+				app.Click(telatest.ByRole("button", "Set "+code))
+				name := hexOf(tela.Hex(code), alpha)
+				app.Expect(colorTriggerID, telatest.HasName(name))
+				if got := app.Bounds(colorTriggerID).Width; got < want-0.01 || got > want+0.01 {
+					t.Errorf("the button is %.2fpx wide with %s and was %.2fpx wide with %s, want the same width", got, name, want, codes[0])
+				}
+			}
+		})
+	}
+}
 
 func TestColorInputControlledOpen(t *testing.T) {
 	open := true
