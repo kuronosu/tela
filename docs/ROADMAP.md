@@ -38,7 +38,8 @@
 - **Phase-6 plan** (approved 2026-10-18; owner's API decisions taken up front, transforms stay 2D, component-API proposals deferred to before phase 7): T1 grid (tela-hard, ADR-073) · T2 raster blend modes, mask layers, focal gradient (ADR-074) · T3 Wayland fractional scaling (ADR-075) · T4 `internal/anim`, CSS transitions, `animate-*`, `motion-reduce` (ADR-076) · T5 fast large-σ blur (ADR-078) · T6 core `mix-blend-mode`, `[clip-path:…]`, background images via `tela.Assets`/`tela.BgImage`, `bg-clip-text` (ADR-079) · T7 `UseSpring`/`UseTween`/`Animate`, `Presence` with `starting:` and `Exit`, `UsePresence` · T8 `fixed`, `sticky`, `h.Portal`, `UseColorScheme`/`SetColorScheme`/`UseReducedMotion` (ADR-077) · T9 `AnimateLayout`, `LayoutID` · T10 dashboard example, 60 fps at 1080p, live and Windows checks. No limit on parallel agents (owner, 2026-10-18).
 - **Roadmap revision (2026-10-20):** a gap analysis against JavaFX, the Microsoft stack, Wails, Tauri and Electron, and a review of `examples/` for public-API problems, produced the plan below. Phase 7 is new (public API polish, before `aria` and `kit`, with theme tokens inside it); the old phases 7–8 and the desktop-integration, distribution and media phases were split by size (phases 5 and 6 had 10–11 tasks); desktop integration comes before macOS; "Road to v1.0" says when the API freezes. Phases 8 onwards are unplanned; order and scope are confirmed when each phase is planned. `tela add` is deferred. Phase numbers moved: "phase 8" in older text (macOS, X11 IME) is now phase 13.
 - **Phase in progress (2026-10-25):** phase 10 (`kit`) planned: the owner decided K1–K17 (ADR-129); waves A (T1–T3), B (T4, T5), C (T6–T9), D (D1–D6).
-- **Next step:** wave A (T1 foundation, T2 engine, T3 aria hooks). `tela new` (ADR-128) shipped in `v0.9.2` (tagged 2026-10-25, not pushed).
+- **Phase 10 progress (2026-10-25, owner asleep):** merged and verified on main: T1 kit foundation (ADR-130), T2 engine (ADR-131), T3 aria radio/toggle group/slider/progress (ADR-132), aria menubar/context menu (ADR-133), calendar (ADR-134), color (ADR-135), T4 toggles (ADR-136), T5a overlays and the trigger-slot rule (ADR-137), T5b select/tabs/toast (ADR-138), T7 table (ADR-139), kit class order as Tailwind's stylesheet (ADR-140). Running: kit menus (ADR-141), calendar/date picker (142), color picker (143), dashboard on kit with a glass recipe (144), settings + pricing on kit (145).
+- **Next step:** merge the running tasks; then migrations signup + i18n, board + player, native; the `examples/kit` gallery and wiki; phase review. `tela new` (ADR-128) shipped in `v0.9.2` (tagged 2026-10-25, not pushed).
 
 ## Phases
 
@@ -258,15 +259,15 @@ struct components with slots, shadcn/ui `new-york-v4` as the look checked agains
 recipes (`kit.DefaultStyle`, `kit.StyleProvider`) for customization, the app-screen examples
 migrated.
 
-- [ ] T1 foundation: shared types, recipes, `kit.Theme()`, Chromium harness, golden sheets; Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field
-- [ ] T2 engine: `h.AriaInvalid` + `aria-invalid:`, `h.AriaSort`, `i18n.FirstDayOfWeek`
-- [ ] T3 aria: `UseRadioGroup`/`UseRadio`, `UseToggleGroup`, `UseSlider`, `UseProgressBar`/`UseMeter`
-- [ ] T4 Checkbox, Switch, RadioGroup, ToggleGroup, Slider, Progress
-- [ ] T5 Dialog, AlertDialog, Popover, Tooltip, Toaster/`UseToast`, Select, Tabs
-- [ ] T6 aria `UseMenuBar`, `UseContextMenuTrigger`; DropdownMenu, Menubar, ContextMenu
-- [ ] T7 Table (sort, sticky header and leading columns)
-- [ ] T8 aria `UseCalendar`/`UseRangeCalendar`; Calendar, DatePicker
-- [ ] T9 aria `UseColorArea`/`UseColorSlider`; ColorPicker
+- [x] T1 foundation: shared types, recipes, `kit.Theme()`, Chromium harness, golden sheets; Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field
+- [x] T2 engine: `h.AriaInvalid` + `aria-invalid:`, `h.AriaSort`, `i18n.FirstDayOfWeek`
+- [x] T3 aria: `UseRadioGroup`/`UseRadio`, `UseToggleGroup`, `UseSlider`, `UseProgressBar`/`UseMeter`
+- [x] T4 Checkbox, Switch, RadioGroup, ToggleGroup, Slider, Progress
+- [x] T5 Dialog, AlertDialog, Popover, Tooltip, Toaster/`UseToast`, Select, Tabs
+- [ ] T6 aria `UseMenuBar`, `UseContextMenuTrigger` (done, ADR-133); DropdownMenu, Menubar, ContextMenu
+- [x] T7 Table (sort, sticky header and leading columns)
+- [ ] T8 aria `UseCalendar`/`UseRangeCalendar` (done, ADR-134); Calendar, DatePicker
+- [ ] T9 aria `UseColorArea`/`UseColorSlider` (done, ADR-135); ColorPicker
 - [ ] D1–D5 examples on kit: dashboard (glass style); settings + pricing; signup + i18n; board + player; native (three styles)
 - [ ] D6 `examples/kit` gallery (a `Previews` entry per component), wiki Kit page, README
 - [ ] Light and dark previews of every component as goldens
