@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-25
+
 ### Added
 
 - `tela new <dir>` creates an app: `go.mod`, a counter in `main.go` with a `var App`, a `telatest` test, a README and a `.gitignore`, then runs `go get` and `go mod tidy` (`-module` sets the module path, `-skip-deps` skips them). The app requires the version of the `tela` binary when it is a release, and the latest otherwise. A directory that is not empty is refused (ADR-128).
@@ -526,7 +528,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/kuronosu/tela/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/kuronosu/tela/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/kuronosu/tela/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/kuronosu/tela/compare/v0.8.1...v0.8.2
