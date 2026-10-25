@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- `tela new <dir>` creates an app: `go.mod`, a counter in `main.go` with a `var App`, a `telatest` test, a README and a `.gitignore`, then runs `go get` and `go mod tidy` (`-module` sets the module path, `-skip-deps` skips them). The app requires the version of the `tela` binary when it is a release, and the latest otherwise. A directory that is not empty is refused (ADR-128).
+
 ## [0.9.1] - 2026-10-22
 
 ### Added

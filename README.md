@@ -149,6 +149,7 @@ agent sees:
 > In your own project, install the command once instead of typing `go run
 > github.com/kuronosu/tela/cmd/tela` every time:
 > `CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest`, then
+> `tela new my-app` (a new app with a counter, a test and `go.mod` ready),
 > `tela snapshot`, `tela inspect` and `tela dev`. It runs a package's own code,
 > so it needs the `go` command and a package in a module that requires Tela
 > (see [`cmd/tela`](cmd/tela) and the [CLI](docs/wiki/CLI.md) page).

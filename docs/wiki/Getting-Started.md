@@ -13,6 +13,9 @@ counter, then shows how to render the same screen without a window.
 
 ## Create the module
 
+The `tela` command can do this and the next step for you: `tela new counter`
+(see [CLI](CLI#tela-new)). By hand:
+
 ```bash
 mkdir counter && cd counter
 go mod init example.com/counter

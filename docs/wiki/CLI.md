@@ -10,6 +10,14 @@ Install it once and use it from any module:
 ```bash
 CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest
 
+tela new my-app
+cd my-app
+tela dev
+```
+
+`tela new` is the quickest start; the rest of this page is about the commands you use in any module:
+
+```bash
 tela inspect .
 tela snapshot -o screen.png .
 tela dev .
@@ -33,6 +41,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 
 | Command | Does |
 |---|---|
+| `tela new` | Creates an app in a new directory (see [tela new](#tela-new)) |
 | `tela snapshot` | Renders a screen to a PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
@@ -158,6 +167,35 @@ func main() { tela.Main(App) }
 The screen's dev warnings (a list without keys, a `nil` dependency) and class
 errors are printed on standard error, so a command's output on standard output
 stays clean.
+
+## tela new
+
+```bash
+tela new my-app
+tela new -module github.com/you/my-app my-app
+tela new .            # in an empty directory
+```
+
+Creates the directory (it may exist if it is empty) with a `go.mod`, a
+`main.go` with a counter and a `var App`, a `main_test.go` that clicks its
+button through `telatest`, a README and a `.gitignore`. Then it runs `go get`
+and `go mod tidy`, so the app is ready:
+
+```bash
+cd my-app
+tela dev                      # or: CGO_ENABLED=0 go run .
+CGO_ENABLED=0 go test ./...
+```
+
+| Flag | Does |
+|---|---|
+| `-module path` | The module path (default: the directory name, lowercased) |
+| `-skip-deps` | Do not run `go get` and `go mod tidy` (offline, or no `go` command); the command prints what to run |
+
+The app requires the `tela` module at the version of the `tela` binary when
+that is a release (`go install ...@v0.9.1` gives apps on v0.9.1), and at the
+latest release when the binary was built from a checkout. A directory that is
+not empty is refused and left untouched.
 
 ## tela snapshot
 

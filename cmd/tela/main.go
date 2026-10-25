@@ -6,6 +6,7 @@
 //	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
+//	tela new      [-module path] [-skip-deps] <dir>
 //	tela version
 //
 // Both render a package headlessly: the package defines func Preview()
@@ -38,6 +39,10 @@
 // (ADR-111, ADR-115). Like snapshot, a package that is not a package main
 // runs its Preview, Previews or App.
 //
+// new creates an app in a new directory: a go.mod that requires Tela, a
+// counter in main.go, a telatest test, a README and a .gitignore (ADR-128).
+// It runs go get and go mod tidy unless -skip-deps is given.
+//
 // More commands (lint, add, mcp) arrive in later phases; see
 // docs/ARCHITECTURE.md section 17.
 package main
@@ -59,6 +64,7 @@ Commands:
 	snapshot    render a package's screen headlessly to a PNG
 	inspect     print a package's aria snapshot (YAML) or layout tree (JSON)
 	dev         run an app, rebuilding and reloading it as its sources change
+	new         create a new Tela app in a directory
 	icons       generate a Go package of tela.Icon variables from SVG files
 	version     print the tela version
 	help        show this help
@@ -86,6 +92,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runIcons(args[1:], stdout, stderr)
 	case "dev":
 		return runDev(args[1:], stdout, stderr)
+	case "new":
+		return runNew(args[1:], stdout, stderr)
 	case "version":
 		return runVersion(args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
@@ -106,6 +114,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 					return 0
 				}
 				fmt.Fprint(stdout, iconsUsage)
+				return 0
+			case "new":
+				fmt.Fprint(stdout, newUsage)
 				return 0
 			case "version":
 				fmt.Fprint(stdout, versionUsage)

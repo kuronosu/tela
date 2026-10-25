@@ -1,0 +1,17 @@
+# {{.Title}}
+
+A [Tela](https://github.com/kuronosu/tela) app.
+
+```bash
+tela dev                       # run it, reloading on every save
+CGO_ENABLED=0 go run .         # run it once
+CGO_ENABLED=0 go test ./...    # test it without a window
+tela snapshot -o app.png .     # render it to a PNG
+tela inspect .                 # print what it contains, as text
+```
+
+Install the `tela` command once with
+`CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest`.
+
+To ship it on Windows without a console window:
+`go build -trimpath -ldflags="-H=windowsgui"`.
