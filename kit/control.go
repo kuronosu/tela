@@ -14,6 +14,9 @@ type fieldInfo struct {
 	id          string
 	describedBy tela.ElementRef
 	invalid     bool
+	// label is the field's label text, which names a control that has no
+	// label element of its own to point to (a Select's trigger).
+	label string
 }
 
 // fieldCtx carries the enclosing Field's wiring to the control below it.

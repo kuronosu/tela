@@ -91,7 +91,7 @@
 // # What is there
 //
 // Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton,
-// Field and Table; and the controls that choose: Checkbox, Switch,
+// Field, Select, Tabs, Table and Toaster; and the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
 // Progress. A [Table] shows rows of any type through columns, sorts
 // by a header (aria-sort, Enter and Space) and keeps its header and leading
@@ -111,6 +111,26 @@
 //
 //	kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 //	    Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
+//
+// A [Select] and a [Tabs] take their items as slices of structs, generic
+// over the key type, and follow the value rule:
+//
+//	kit.Select[string]{Placeholder: "Select a fruit", Items: []kit.SelectItem[string]{
+//	    {Value: "apple", Label: "Apple"}, {Value: "banana", Label: "Banana"}}}
+//	kit.Tabs[string]{Tabs: []kit.Tab[string]{
+//	    {Value: "account", Label: "Account", Content: AccountForm{}},
+//	    {Value: "password", Label: "Password", Content: PasswordForm{}}}}
+//
+// Toasts have no component to place: a [Toaster] goes once around the app,
+// and any component below it gets a handle with [UseToast] and shows toasts
+// with it, from a handler or from any goroutine (the handle is comparable and
+// every method is safe to call from any goroutine; there is no global):
+//
+//	tela.Main(tela.App{Title: "Notes", Root: kit.Toaster{Children: Notes{}}})
+//
+//	toast := kit.UseToast()
+//	id := toast.Loading("Uploading…")
+//	go func() { upload(); toast.Success("Uploaded", kit.ToastReplace(id)) }()
 //
 // # The look and its tests
 //
