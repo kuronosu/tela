@@ -7,31 +7,79 @@
   - button "Go to Home": Home
   - button "Go to Documents": Documents
 - searchbox "Search"
-- button "View as list"
+- radiogroup "View":
+  - radio "Details view" [checked]
+  - radio "Large icons view"
 - button "More options"
 - navigation "Places":
-  - button "Home"
-  - button "Desktop"
-  - button "Documents" [pressed]
-  - button "Downloads"
-  - button "Music"
-  - button "Pictures"
-  - button "Videos"
-  - button "Data"
-  - button "Trash"
-- button "Sort by Name": Name
-- button "Sort by Size": Size
-- button "Sort by Type": Type
-- button "Sort by Modified": Modified
-- listbox "Files":
-  - option "Projects": Projects 2 items Folder Mon
-  - option "Reports": Reports 2 items Folder Thu
-  - option "Taxes 2025": Taxes 2025 0 items Folder Apr 14
-  - option "Budget 2026.xlsx": Budget 2026.xlsx 219.1 kB Excel 2007 spreadsheet Sat
-  - option "Contract draft.docx" [selected]: Contract draft.docx 59.4 kB Word 2007 document Fri
-  - option "Meeting notes.txt": Meeting notes.txt 4.1 kB Plain text document Mon
-  - option "Quarterly review.docx": Quarterly review.docx 134.1 kB Word 2007 document Sep 25
-  - option "Resume.pdf": Resume.pdf 749.6 kB PDF document Aug 19
-  - option "todo.md": todo.md 1.0 kB Markdown document Yesterday
+  - radiogroup "Home":
+    - radio "Home"
+  - radiogroup "Places":
+    - radio "Desktop"
+    - radio "Documents" [checked]
+    - radio "Downloads"
+    - radio "Music"
+    - radio "Pictures"
+    - radio "Videos"
+  - radiogroup "Devices":
+    - radio "Data"
+    - radio "Trash"
+- table "Files":
+  - rowgroup:
+    - row "Name Size Type Modified":
+      - columnheader "Name":
+        - button "Name"
+      - columnheader "Size":
+        - button "Size"
+      - columnheader "Type":
+        - button "Type"
+      - columnheader "Modified":
+        - button "Modified"
+  - rowgroup:
+    - row "Projects 2 items Folder Mon":
+      - cell "Projects"
+      - cell "2 items"
+      - cell "Folder"
+      - cell "Mon"
+    - row "Reports 2 items Folder Thu":
+      - cell "Reports"
+      - cell "2 items"
+      - cell "Folder"
+      - cell "Thu"
+    - row "Taxes 2025 0 items Folder Apr 14":
+      - cell "Taxes 2025"
+      - cell "0 items"
+      - cell "Folder"
+      - cell "Apr 14"
+    - row "Budget 2026.xlsx 219.1 kB Excel 2007 spreadsheet Sat":
+      - cell "Budget 2026.xlsx"
+      - cell "219.1 kB"
+      - cell "Excel 2007 spreadsheet"
+      - cell "Sat"
+    - row "Contract draft.docx 59.4 kB Word 2007 document Fri" [selected]:
+      - cell "Contract draft.docx"
+      - cell "59.4 kB"
+      - cell "Word 2007 document"
+      - cell "Fri"
+    - row "Meeting notes.txt 4.1 kB Plain text document Mon":
+      - cell "Meeting notes.txt"
+      - cell "4.1 kB"
+      - cell "Plain text document"
+      - cell "Mon"
+    - row "Quarterly review.docx 134.1 kB Word 2007 document Sep 25":
+      - cell "Quarterly review.docx"
+      - cell "134.1 kB"
+      - cell "Word 2007 document"
+      - cell "Sep 25"
+    - row "Resume.pdf 749.6 kB PDF document Aug 19":
+      - cell "Resume.pdf"
+      - cell "749.6 kB"
+      - cell "PDF document"
+      - cell "Aug 19"
+    - row "todo.md 1.0 kB Markdown document Yesterday":
+      - cell "todo.md"
+      - cell "1.0 kB"
+      - cell "Markdown document"
+      - cell "Yesterday"
 - complementary "Details": Contract draft.docx Type Word 2007 document Size 59.4 kB Modified Fri Location Home › Documents
 - status: “Contract draft.docx” selected (59.4 kB)

@@ -1,6 +1,6 @@
 # native
 
-A file explorer that looks native on Windows 11 (Fluent), GNOME (libadwaita) and KDE (Breeze), each in light and dark. One component tree draws all six looks.
+A file explorer that looks native on Windows 11 (Fluent), GNOME (libadwaita) and KDE (Breeze), each in light and dark, built only on package `kit`. One component tree draws all six looks, and each look is a set of kit recipes.
 
 <p align="center">
   <img src="../../docs/images/native-win11.png" alt="Windows 11" width="32%">
@@ -10,12 +10,13 @@ A file explorer that looks native on Windows 11 (Fluent), GNOME (libadwaita) and
 
 What it shows:
 
-- **A theme is data, not a tree.** `Theme` (`theme.go`, with `Win11`, `Adwaita` and `Breeze` in `theme_*.go`) holds a `Look`: one class string for each part of the window (toolbar, path bar, sidebar item, selected row, status bar...), split into a `Base` (geometry and type) and the `Light` and `Dark` colors appended to it. Colors are arbitrary values (`bg-[#cce8ff]`, `text-black/55`); radii, heights and gaps come from the same strings. Besides classes a theme says which columns show and in what order (Windows: name, date, type, size; GNOME: name, size, type, modified; KDE: name, size, date, type), how dates and sizes read (`10/9/2026 2:22 PM` and `58 KB`; `Fri` and `59.4 kB`; `2026-10-09 14:22` and `58.0 KiB`), what the status bar says and which sidebar sections exist. The tree in `explorer.go` never asks which platform it is.
-- **Light, dark and auto.** `Light` and `Dark` pick one color set. `Auto` writes both, the dark one as `dark:` classes, so the window follows the system's setting (and a settings change) with no code. `TestAutoFollowsTheSystem` checks that Auto draws the same pixels as the forced modes.
-- **Icons without assets.** Folders, dog-eared file pages (with a mark per kind), the sidebar glyphs and the toolbar glyphs are boxes: borders, rotated squares for chevrons, rotated squares clipped by `overflow-hidden` for triangles. Glyphs use `bg-current` / `border-current`, so they take the text color of their button and its hover and disabled states. (`icons.go`)
-- **Real interaction.** Click selects, double click enters a folder, the sidebar, the path bar's crumbs and Back / Forward / Up navigate, typing in the search field filters the folder, a column header sorts (twice reverses), and the list takes the keyboard: Up, Down, Home, End, Enter (open), Backspace (back); Alt+Left, Alt+Right and Alt+Up anywhere, Ctrl+F for the search. The state is one `UseReducer` (`state.go`) over an in-memory file tree (`fs.go`).
-- **Fonts.** Each theme asks for its platform's font first (`font-['Segoe_UI_Variable_Text','Segoe_UI',Inter,sans-serif]`, Adwaita Sans / Cantarell, Noto Sans) and Inter after; a window uses the system font when installed, and snapshots and goldens always get Inter.
-- **Header bar.** On GNOME the toolbar is a libadwaita header bar drawn inside the client area, with a lead over the sidebar. The OS title bar stays; Tela does not draw window controls or move the window by its header bar.
+- **A look is the three levels of kit's customization (ADR-129, K17).** `Look` (`look.go`, with `win11.go`, `adwaita.go` and `breeze.go`) holds: a `tela.Theme` (the tokens: colors with a light and a dark value, the base radius, the font), a `kit.Style` (`win11Style()`, `adwaitaStyle()`, `breezeStyle()`, each an edit of `nativeStyle()`, which is `kit.DefaultStyle()` made flat), and a `Frame`, the classes of the few regions the explorer lays out itself (the toolbar row, the sidebar, the details pane, the status bar). Switching look (More menu, "Look") swaps the `kit.StyleProvider`'s style and calls `tela.SetTheme`; nothing in the tree asks which platform it is. There is no `dark:` class anywhere: the dark values are in the tokens (`bg-background`, `text-muted-foreground`, and the example's own `bg-selection`, `bg-field`, `text-kind-pdf`...).
+- **What is kit.** Toolbar buttons are `kit.Button{Variant: kit.Ghost, Size: kit.Icon}` with a `kit.Tooltip`; the crumbs are small ghost buttons; the search field is a `kit.Input`; the sidebar is one `kit.ToggleGroup` per section (so the selected place is the group's choice and the arrows move through it); the view switcher is a `kit.ToggleGroup`, and the tiles of the icon view are `kit.Toggle`s; the file list is a `kit.Table` (sortable columns, sticky header, `aria-sort`) inside a `kit.ContextMenu`; the Sort, View, New and More menus are `kit.DropdownMenu`s with radio and checkbox items (the Look group is one); Rename is a `kit.Dialog` and Delete a `kit.AlertDialog`; KDE's zoom is a `kit.Slider`; the separators are `kit.Separator`. The new variants (`Sidebar`, `View`, `Tile`) and sizes of `kit.Toggle` are entries of each recipe's `Variants` and `Sizes`.
+- **Icons are Lucide's** (`icons/`, 39 of them, generated with `tela icons gen`). A look does not draw them differently: it colors them with tokens (`text-folder`, `text-kind-doc`...), and a look that wants another shape picks another icon.
+- **What is the example's own.** The regions of the window (they are layout, not controls), the column cells of the list, the details pane, the status text, the sidebar's selection mark and the rows' content. The few handlers a table cannot take (a row has no props) are on the cell's content.
+- **Real interaction.** Click selects, double click enters a folder, the sidebar, the crumbs and Back / Forward / Up navigate, typing filters the folder, a header sorts (three presses: ascending, descending, back to the name), and the list takes the keyboard: Up, Down, Home, End, Enter (open), Backspace (back), F2 (rename), Delete, Ctrl+X, C and V; Alt+Left, Alt+Right and Alt+Up anywhere, Ctrl+F for the search. New folder, Rename, Delete (with confirmation), Cut, Copy and Paste really change the in-memory file tree (`fs.go`; the tree is persistent, so the state is one `UseReducer`, `state.go`).
+- **Fonts.** Each look asks for its platform's font (`Segoe UI Variable Text`, `Adwaita Sans`, `Noto Sans`) in the theme; the embedded Inter is the fallback, and goldens always get Inter.
+- **Header bar.** On GNOME the toolbar is a libadwaita header bar drawn inside the client area, with a lead over the sidebar (sidebar toggle and main menu). The OS title bar stays; Tela does not draw window controls.
 
 ## Run it
 
@@ -24,17 +25,19 @@ CGO_ENABLED=0 go run ./examples/native                         # win11 on Window
 CGO_ENABLED=0 go run ./examples/native -theme=breeze -dark=true
 ```
 
-`-theme=auto|win11|adwaita|breeze` and `-dark=auto|true|false`.
+`-theme=auto|win11|adwaita|breeze` and `-dark=auto|true|false`; the menu changes the look while it runs.
 
-Without a window, one of the six previews:
+Without a window, one of the six previews. `tela snapshot` renders in one shot and takes the theme of `var App`, which starts as the platform's look or the one `NATIVE_LOOK` names, so name it:
 
 ```bash
-CGO_ENABLED=0 go run ./cmd/tela snapshot --size 1280x760 --scale 2 --preview "1 Windows 11 light" -o native.png ./examples/native
+NATIVE_LOOK=breeze CGO_ENABLED=0 go run ./cmd/tela snapshot --size 1280x760 --scale 2 --preview "5 KDE light" -o native.png ./examples/native
 ```
 
-Tests: `CGO_ENABLED=0 go test ./examples/native`. They mount every theme in both schemes: goldens at 1280x760 (`testdata/native_<theme>_<light|dark>.png`; regenerate with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run 'TestGolden' ./examples/native`), the Auto/Light/Dark equivalence, and the interactions (select, navigation, sidebar and path bar, search, keyboard, sort, hover and selection colors).
+Tests: `CGO_ENABLED=0 go test ./examples/native`. They mount every look in both schemes with its theme: goldens at 1280x760 and at scale 2 (`testdata/native_<look>_<light|dark>[_x2].png`; regenerate with `TELA_UPDATE=1 CGO_ENABLED=0 go test ./examples/native`), the icon view, the context menu and the two dialogs per look, that following the system draws the same pixels as the forced schemes, switching look at run time, and the interactions (select, navigation, sidebar and crumbs, search, keyboard, sort, rename, delete, clipboard, new folder, views, menus, tooltips, hover and selection colors).
 
 ## Limits
 
-- `dark:` follows the system, but package `tela` exposes no way to read whether the system is dark, so the example cannot pick a different class set in Go; it writes the dark values as `dark:` twins instead.
-- The look is an approximation drawn from memory of each platform: colors, radii and metrics are close, not measured. Window controls, native menus, context menus, drag and drop, icon theme fidelity and platform fonts are not reproduced.
+- The look is an approximation drawn from memory of each platform: colors, radii and metrics are close, not measured. Window controls, native menus, drag and drop and icon theme fidelity are not reproduced; icons are Lucide's outlines, not each platform's.
+- A table has no row element, so a row's selection and hover are painted by its cells (which is why Win11's and Adwaita's rounded rows are `first:rounded-l` / `last:rounded-r` on the cells), and columns have no resize handle.
+- The headless test window has no right button: the context menu is opened with Shift+F10 in the tests.
+- `kit.Input` takes one prop and no `AriaLabel`, so the search field is named by its placeholder.

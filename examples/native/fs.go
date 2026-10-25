@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -93,9 +95,8 @@ func Segments(p Path) []string {
 	return strings.Split(p, "/")
 }
 
-// Lookup returns the entry at path p, or nil.
-func Lookup(p Path) *Entry {
-	e := root
+// Find returns the entry at path p of the tree that e is the root of, or nil.
+func (e *Entry) Find(p Path) *Entry {
 	for _, name := range Segments(p) {
 		var next *Entry
 		for _, c := range e.Children {
@@ -110,6 +111,51 @@ func Lookup(p Path) *Entry {
 		e = next
 	}
 	return e
+}
+
+// Edit returns a tree like e with the children of the folder at p replaced
+// by what f returns for a copy of them. The tree is persistent: the entries
+// from the root down to that folder are copied and the rest is shared, so
+// a State that holds the old root is unchanged. When p does not exist it
+// returns e.
+func (e *Entry) Edit(p Path, f func(children []*Entry) []*Entry) *Entry {
+	return e.edit(Segments(p), f)
+}
+
+func (e *Entry) edit(segs []string, f func([]*Entry) []*Entry) *Entry {
+	c := *e
+	c.Children = slices.Clone(e.Children)
+	if len(segs) == 0 {
+		c.Children = f(c.Children)
+		return &c
+	}
+	for i, ch := range c.Children {
+		if ch.Name == segs[0] {
+			c.Children[i] = ch.edit(segs[1:], f)
+			return &c
+		}
+	}
+	return e
+}
+
+// UniqueName returns name, or name with " (2)", " (3)"... before its
+// extension, so that no entry of children has it.
+func UniqueName(children []*Entry, name string) string {
+	taken := func(n string) bool {
+		return slices.ContainsFunc(children, func(c *Entry) bool { return c.Name == n })
+	}
+	if !taken(name) {
+		return name
+	}
+	stem, ext := name, ""
+	if i := strings.LastIndexByte(name, '.'); i > 0 {
+		stem, ext = name[:i], name[i:]
+	}
+	for n := 2; ; n++ {
+		if c := fmt.Sprintf("%s (%d)%s", stem, n, ext); !taken(c) {
+			return c
+		}
+	}
 }
 
 // Column is a column of the file list.

@@ -5,409 +5,424 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/examples/native/icons"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
 
-// Explorer is the whole window. One tree serves every theme: the Theme only
-// supplies class strings, texts and number formats. Its fields select the
-// theme and the screen the explorer starts on (they seed its state); they
-// are comparable, so it is not built again when they do not change.
+// Explorer is the app: it holds which look is drawn and gives the window the
+// look's style and theme. Switching look (the Look group of the menu) swaps
+// the kit.StyleProvider's style and calls tela.SetTheme with the look's
+// tokens; the tree below never asks which platform it is.
+//
+// Its fields select the look, the color scheme and the screen the explorer
+// starts on (they seed its state); they are comparable, so it is not built
+// again when they do not change.
 type Explorer struct {
-	Theme string // a key of Themes
-	Mode  Mode
-	Path  Path
-	Sel   string
-	Query string
+	Look   string           // a key of Looks
+	Scheme tela.ColorScheme // System follows the system's setting
+	Path   Path
+	Sel    string
+	Query  string
+	View   string // "details" (the default) or "icons"
 }
 
 func (p Explorer) Build() tela.Node {
-	th := Themes[p.Theme]
-	if th == nil {
-		panic(fmt.Sprintf("native: unknown theme %q; use one of %s", p.Theme, strings.Join(ThemeIDs, ", ")))
+	look, setLook := tela.UseState(p.Look)
+	l := Looks[look]
+	if l == nil {
+		panic(fmt.Sprintf("native: unknown look %q; use one of %s", look, strings.Join(LookIDs, ", ")))
 	}
-	l := th.Resolve(p.Mode)
+	// The tokens of the look: App.Theme has them already when the app
+	// starts with this look (the first build), and this is what changes
+	// them when the look does.
+	tela.UseUpdateEffect(func() func() {
+		tela.SetTheme(l.Theme)
+		return nil
+	}, look)
 
-	st, d := tela.UseReducer(reduce, State{Path: p.Path, Sel: p.Sel, Query: p.Query})
-	search := tela.UseElementRef()
-	list := tela.UseElementRef()
+	return Div(Class("h-screen w-full bg-background text-foreground"), Scheme(p.Scheme),
+		kit.StyleProvider{Style: l.Style, Children: Window{Look: l, SetLook: setLook, Path: p.Path, Sel: p.Sel, Query: p.Query, View: p.View}})
+}
 
-	dir := Lookup(st.Path)
-	entries := Sorted(dir, st.Sort, st.Desc, st.Query)
-	var sel *Entry
-	for _, e := range entries {
-		if e.Name == st.Sel {
-			sel = e
-		}
+// Window is the explorer's window: the toolbar, the sidebar, the file list,
+// the details pane and the status bar of one look.
+type Window struct {
+	Look    *Look
+	SetLook tela.Setter[string]
+	Path    Path
+	Sel     string
+	Query   string
+	View    string
+}
+
+// win is what the parts of the window share while it builds.
+type win struct {
+	l       *Look
+	setLook tela.Setter[string]
+	st      State
+	d       tela.Dispatcher[Action]
+	list    tela.ElementRef
+	search  tela.ElementRef
+	sel     *Entry
+	entries []*Entry
+
+	view       string
+	setView    tela.Setter[string]
+	details    bool
+	setDetails tela.Setter[bool]
+	zoom       float64
+	setZoom    tela.Setter[float64]
+	setRename  tela.Setter[bool]
+	setDelete  tela.Setter[bool]
+}
+
+func (p Window) Build() tela.Node {
+	st, d := tela.UseReducer(reduce, State{FS: root, Path: p.Path, Sel: p.Sel, Query: p.Query})
+	view, setView := tela.UseState(p.View)
+	details, setDetails := tela.UseState(true)
+	sidebar, setSidebar := tela.UseState(true)
+	zoom, setZoom := tela.UseState(40.0)
+	renaming, setRenaming := tela.UseState(false)
+	deleting, setDeleting := tela.UseState(false)
+	w := &win{
+		l: p.Look, setLook: p.SetLook, st: st, d: d,
+		list: tela.UseElementRef(), search: tela.UseElementRef(),
+		sel: st.Selected(), entries: st.Entries(),
+		view: view, setView: setView, details: details, setDetails: setDetails,
+		zoom: zoom, setZoom: setZoom, setRename: setRenaming, setDelete: setDeleting,
 	}
-
-	// nav dispatches and hands the keyboard back to the list, so the arrow
-	// keys keep working after a click on a button.
-	nav := func(a Action) {
-		d.Dispatch(a)
-		list.Focus()
+	if w.view == "" {
+		w.view = "details"
 	}
+	l, f := w.l, w.l.Frame
+
 	shortcuts := func(e tela.KeyboardEvent) {
 		switch {
 		case e.Alt && e.Key == tela.KeyArrowLeft:
-			nav(Action{Kind: "back"})
+			w.nav(Action{Kind: "back"})
 		case e.Alt && e.Key == tela.KeyArrowRight:
-			nav(Action{Kind: "forward"})
+			w.nav(Action{Kind: "forward"})
 		case e.Alt && e.Key == tela.KeyArrowUp:
-			nav(Action{Kind: "up"})
+			w.nav(Action{Kind: "up"})
 		case e.Ctrl && (e.Key == "f" || e.Key == "F"):
-			e.PreventDefault()
-			search.Focus()
+			w.search.Focus()
 		default:
 			return
 		}
 		e.PreventDefault()
 	}
 
-	return Div(Class("flex h-screen w-full flex-col overflow-hidden select-none", l.Window),
-		OnKeyDown(shortcuts),
-		Toolbar{Th: th, L: l, Path: st.Path, Query: st.Query, CanBack: len(st.Back) > 0,
-			CanForward: len(st.Forward) > 0, Search: search, D: d, Dir: dir.Name},
-		Div(Class("flex min-h-0 flex-1"),
-			Sidebar{Th: th, L: l, Path: st.Path, D: d},
-			FileList{Th: th, L: l, State: st, Entries: entries, Ref: list, D: d},
-			Details(th, l, dir, entries, sel, st.Path),
-		),
-		StatusBar(th, l, entries, sel, st.Msg),
+	body := []tela.Child{Class("flex min-h-0 flex-1")}
+	if sidebar || !l.HeaderBar {
+		body = append(body, w.sidebar())
+	}
+	body = append(body, w.content())
+	if details {
+		body = append(body, w.detailsPane())
+	}
+	return Div(Class("flex h-full w-full flex-col overflow-hidden select-none", f.Window), OnKeyDown(shortcuts),
+		w.toolbar(sidebar, setSidebar),
+		Div(body...),
+		w.statusBar(),
+		kit.Dialog{
+			Open: &renaming, OnOpenChange: w.dialogClosed(setRenaming),
+			Title: Text("Rename"), Description: Text("Type a new name for this item."),
+			Children: renameForm{Name: st.Sel, OnRename: func(to string) {
+				d.Dispatch(Action{Kind: "rename", Name: st.Sel, To: to})
+				setRenaming.Set(false)
+				w.list.Focus()
+			}, OnCancel: func() { setRenaming.Set(false); w.list.Focus() }},
+		},
+		kit.AlertDialog{
+			Open: &deleting, OnOpenChange: w.dialogClosed(setDeleting),
+			Title:       Text("Delete “" + st.Sel + "”?"),
+			Description: Text("The item is deleted for good. This cannot be undone."),
+			Action:      Text("Delete"), Destructive: true,
+			OnAction: func() { d.Dispatch(Action{Kind: "delete", Name: st.Sel}); w.list.Focus() },
+			OnCancel: func() { w.list.Focus() },
+		},
 	)
 }
 
-// Toolbar is the navigation buttons, the path bar and the search field,
-// plus whatever extras the theme shows (a command bar, a header bar's
-// buttons).
-type Toolbar struct {
-	Th                  *Theme
-	L                   *Look
-	Path                Path
-	Query               string
-	CanBack, CanForward bool
-	Search              tela.ElementRef
-	D                   tela.Dispatcher[Action]
-	Dir                 string
+// dialogClosed hands the keyboard back to the list when a dialog closes.
+func (w *win) dialogClosed(set tela.Setter[bool]) func(bool) {
+	return func(open bool) {
+		set.Set(open)
+		if !open {
+			w.list.Focus()
+		}
+	}
 }
 
-func (p Toolbar) Build() tela.Node {
-	th, l, d := p.Th, p.L, p.D
-	px := th.SideIconPx
-	navBtn := func(label, glyph, kind string, enabled bool) tela.Node {
-		return Button(Class(l.NavBtn), AriaLabel(label), Disabled(!enabled),
-			OnClick(func() { d.Dispatch(Action{Kind: kind}) }),
-			Glyph(glyph, px))
+// nav dispatches and hands the keyboard back to the list, so the arrow keys
+// keep working after a click on a button.
+func (w *win) nav(a Action) {
+	w.d.Dispatch(a)
+	w.list.Focus()
+}
+
+// iconButton is a toolbar button that holds an icon and has a tooltip.
+func (w *win) iconButton(label string, ic tela.Icon, enabled bool, class string, onClick func()) tela.Component {
+	return kit.Tooltip{
+		Trigger: kit.Button{Variant: kit.Ghost, Size: kit.Icon, AriaLabel: label, Icon: ic, Disabled: !enabled, Class: class, OnClick: onClick},
+		Content: Text(label),
 	}
-	dirName := p.Dir
+}
+
+// ---------------------------------------------------------------------------
+// The toolbar.
+
+func (w *win) toolbar(sidebar bool, setSidebar tela.Setter[bool]) tela.Node {
+	l, f, st := w.l, w.l.Frame, w.st
+	dirName := st.Dir().Name
 	if dirName == "" {
-		dirName = th.Root
+		dirName = l.Root
 	}
-	return Div(Class(l.Toolbar),
-		Div(Class(l.ToolbarRow),
-			Div(Class(l.ToolbarLead),
-				Button(Class(l.NavBtn), AriaLabel("Toggle sidebar"), Glyph("sidebar", px)),
-				Button(Class(l.NavBtn), AriaLabel("Main menu"), Glyph("menu", px)),
-			),
-			Div(Class(l.NavGroup),
-				navBtn("Back", "back", "back", p.CanBack),
-				navBtn("Forward", "forward", "forward", p.CanForward),
-				navBtn("Up", "up", "up", p.Path != ""),
-			),
-			PathBar(th, l, p.Path, d),
-			Div(Class(l.Search),
-				Span(Class(l.SearchIcon), Glyph("search", 14)),
-				Input(Class(l.SearchInput), Type("search"), Placeholder(th.SearchHint(dirName)),
-					AriaLabel("Search"), Ref(p.Search), Value(p.Query),
-					OnChange(func(e tela.ChangeEvent) { d.Dispatch(Action{Kind: "query", Query: e.Value}) }),
-					OnKeyDown(func(e tela.KeyboardEvent) {
-						if e.Key == tela.KeyEscape {
-							d.Dispatch(Action{Kind: "query"})
-							p.Search.Blur()
-						}
-					})),
-			),
-			Div(Class(l.ToolbarEnd),
-				Button(Class(l.NavBtn), AriaLabel("View as list"), Glyph("view-list", px)),
-				Button(Class(l.NavBtn), AriaLabel("More options"), Glyph("more", px)),
-			),
-		),
-		Div(Class(l.CmdBar),
-			Button(Class(l.CmdBtn), AriaLabel("New"), Glyph("plus", 16), Span(Text("New")), Glyph("chevron-down", 12)),
-			Div(Class(l.CmdSep)),
-			Button(Class(l.CmdBtn), AriaLabel("Cut"), Glyph("cut", 16)),
-			Button(Class(l.CmdBtn), AriaLabel("Copy"), Glyph("copy", 16)),
-			Button(Class(l.CmdBtn), AriaLabel("Paste"), Glyph("paste", 16)),
-			Button(Class(l.CmdBtn), AriaLabel("Rename"), Glyph("rename", 16)),
-			Button(Class(l.CmdBtn), AriaLabel("Share"), Glyph("share", 16)),
-			Button(Class(l.CmdBtn), AriaLabel("Delete"), Glyph("trash", 16)),
-			Div(Class(l.CmdSep)),
-			Button(Class(l.CmdBtn), AriaLabel("Sort"), Glyph("sort", 16), Span(Text("Sort")), Glyph("chevron-down", 12)),
-			Button(Class(l.CmdBtn), AriaLabel("View"), Glyph("view-grid", 16), Span(Text("View")), Glyph("chevron-down", 12)),
-			Button(Class(l.CmdBtn), AriaLabel("See more"), Glyph("more", 16)),
-		),
+
+	nav := Div(Class(f.Nav),
+		w.iconButton("Back", icons.ArrowLeft, len(st.Back) > 0, "", func() { w.nav(Action{Kind: "back"}) }),
+		w.iconButton("Forward", icons.ArrowRight, len(st.Forward) > 0, "", func() { w.nav(Action{Kind: "forward"}) }),
+		w.iconButton("Up", icons.ArrowUp, st.Path != "", "", func() { w.nav(Action{Kind: "up"}) }),
 	)
+	search := Div(Class(f.Search),
+		Icon(icons.Search, Class(f.SearchIcon)),
+		kit.Input{
+			Type: "search", Placeholder: l.SearchHint(dirName),
+			Value: &st.Query, OnValueChange: func(q string) { w.d.Dispatch(Action{Kind: "query", Query: q}) },
+			Props: Ref(w.search),
+		},
+		// Escape clears the search and hands the keyboard back to the list.
+		OnKeyDown(func(e tela.KeyboardEvent) {
+			if e.Key == tela.KeyEscape {
+				w.d.Dispatch(Action{Kind: "query"})
+				w.search.Blur()
+				w.list.Focus()
+			}
+		}),
+	)
+
+	row := []tela.Child{Class(f.ToolbarRow)}
+	if l.HeaderBar {
+		row = append(row, Div(Class(f.ToolbarLead),
+			w.iconButton("Toggle sidebar", icons.PanelLeft, true, "", func() { setSidebar.Set(!sidebar) }),
+			kit.DropdownMenu[string]{
+				Trigger: kit.Button{Variant: kit.Ghost, Size: kit.Icon, AriaLabel: "Main menu", Icon: icons.Menu},
+				Align:   "start", AriaLabel: "Main menu",
+				Items:    w.menu(menuLook, menuDetails),
+				OnSelect: w.onMenu,
+			},
+		))
+	}
+	row = append(row, nav, w.pathBar(), search)
+	if l.ToolbarViews || l.HeaderBar {
+		end := []tela.Child{Class(f.ToolbarEnd)}
+		if l.ToolbarViews {
+			end = append(end, w.viewSwitcher())
+		}
+		end = append(end, kit.DropdownMenu[string]{
+			Trigger: kit.Button{Variant: kit.Ghost, Size: kit.Icon, AriaLabel: "More options", Icon: icons.Ellipsis},
+			Align:   "end", AriaLabel: "More options",
+			Items:    w.menu(menuNew, menuSort, menuDetails, menuLook),
+			OnSelect: w.onMenu,
+		})
+		row = append(row, Div(end...))
+	}
+
+	out := []tela.Child{Class("flex shrink-0 flex-col"), Div(row...)}
+	if l.CommandBar {
+		out = append(out, w.commandBar())
+	}
+	return Div(out...)
 }
 
-// PathBar is the breadcrumb bar: one button per folder of the path.
-func PathBar(th *Theme, l *Look, path Path, d tela.Dispatcher[Action]) tela.Node {
-	segs := Segments(path)
-	crumb := func(label, to string, last bool, home bool) tela.Node {
-		return Button(Class(l.PathSeg), If(last, Class(l.PathSegCur)), Key(to+"|"+label), AriaLabel("Go to "+label),
-			OnClick(func() { d.Dispatch(Action{Kind: "open", Path: to}) }),
-			If(home, Glyph("home", 14)),
-			Span(Text(label)))
+// pathBar is the breadcrumb bar: one button per folder of the path.
+func (w *win) pathBar() tela.Node {
+	l, f := w.l, w.l.Frame
+	segs := Segments(w.st.Path)
+	crumb := func(label, to string, last, home bool) tela.Component {
+		b := kit.Button{
+			Variant: kit.Ghost, Size: kit.Sm, AriaLabel: "Go to " + label,
+			Props:    Key(to + "|" + label),
+			Children: Text(label),
+			OnClick:  func() { w.d.Dispatch(Action{Kind: "open", Path: to}) },
+		}
+		if home {
+			b.Icon = icons.House
+		}
+		if last {
+			b.Class = f.PathCur
+		}
+		return b
 	}
-	sep := func(i int) tela.Node {
-		return Div(Class(l.PathSep), Key(fmt.Sprint("sep", i)),
-			If(th.Chevrons, Glyph("chevron-right", 12)))
+	sep := func(i int) tela.Child {
+		if l.Chevrons {
+			return Div(Class(f.PathSep), Key(fmt.Sprint("sep", i)), Icon(icons.ChevronRight, Class("size-3")))
+		}
+		return Div(Class(f.PathSep), Key(fmt.Sprint("sep", i)), kit.Separator{Orientation: kit.Vertical, Class: "h-4"})
 	}
-	nodes := []tela.Child{crumb(th.Root, "", len(segs) == 0, true)}
+	nodes := []tela.Child{Class(f.PathBar), Role("navigation"), AriaLabel("Path"), crumb(l.Root, "", len(segs) == 0, true)}
 	to := Path("")
 	for i, s := range segs {
 		to = Join(to, s)
 		nodes = append(nodes, sep(i), crumb(s, to, i == len(segs)-1, false))
 	}
-	return Div(append([]tela.Child{Class(l.PathBar), Role("navigation"), AriaLabel("Path")}, nodes...)...)
+	return Div(nodes...)
 }
 
-// Sidebar lists the places.
-type Sidebar struct {
-	Th   *Theme
-	L    *Look
-	Path Path
-	D    tela.Dispatcher[Action]
+// commandBar is Windows' command bar: New, the clipboard, Rename, Share and
+// Delete, then Sort, View and the rest as menus.
+func (w *win) commandBar() tela.Node {
+	f, st := w.l.Frame, w.st
+	has := w.sel != nil
+	cmd := func(label string, ic tela.Icon, enabled bool, onClick func()) tela.Component {
+		return kit.Button{Variant: kit.Ghost, AriaLabel: label, Icon: ic, Disabled: !enabled, OnClick: onClick}
+	}
+	menuBtn := func(label string, ic tela.Icon) kit.Button {
+		return kit.Button{Variant: kit.Ghost, AriaLabel: label, Icon: ic, IconEnd: icons.ChevronDown, Children: Text(label)}
+	}
+	sep := func(k string) tela.Child {
+		return kit.Separator{Orientation: kit.Vertical, Class: f.CmdSep, Props: Key(k)}
+	}
+	return Div(Class(f.CmdBar),
+		kit.DropdownMenu[string]{Trigger: menuBtn("New", icons.Plus), Align: "start", AriaLabel: "New",
+			Items: w.menu(menuNew), OnSelect: w.onMenu},
+		sep("a"),
+		cmd("Cut", icons.Scissors, has, func() { w.nav(Action{Kind: "cut", Name: st.Sel}) }),
+		cmd("Copy", icons.Copy, has, func() { w.nav(Action{Kind: "copy", Name: st.Sel}) }),
+		cmd("Paste", icons.ClipboardPaste, st.Clip != nil, func() { w.nav(Action{Kind: "paste"}) }),
+		cmd("Rename", icons.Pencil, has, func() { w.setRename.Set(true) }),
+		cmd("Share", icons.Share2, has, func() { w.nav(Action{Kind: "msg", Name: "Sharing is not available in this demo"}) }),
+		cmd("Delete", icons.Trash2, has, func() { w.setDelete.Set(true) }),
+		sep("b"),
+		kit.DropdownMenu[string]{Trigger: menuBtn("Sort", icons.ArrowUpDown), Align: "start", AriaLabel: "Sort",
+			Items: w.menu(menuSort), OnSelect: w.onMenu},
+		kit.DropdownMenu[string]{Trigger: menuBtn("View", icons.LayoutGrid), Align: "start", AriaLabel: "View",
+			Items: w.menu(menuView, menuDetails), OnSelect: w.onMenu},
+		kit.DropdownMenu[string]{Trigger: kit.Button{Variant: kit.Ghost, Size: kit.Icon, AriaLabel: "See more", Icon: icons.Ellipsis},
+			Align: "start", AriaLabel: "See more", Items: w.menu(menuLook), OnSelect: w.onMenu},
+	)
 }
 
-func (p Sidebar) Build() tela.Node {
-	th, l, d := p.Th, p.L, p.D
-	var kids []tela.Child
-	kids = append(kids, Role("navigation"), AriaLabel("Places"), Class(l.Sidebar))
-	for i, g := range th.SideGroups {
+// viewSwitcher is the segmented control that picks how the folder shows:
+// as a list with columns or as large icons.
+func (w *win) viewSwitcher() tela.Component {
+	view := w.view
+	return kit.ToggleGroup[string]{
+		Items: []kit.ToggleGroupItem[string]{
+			{Value: "details", Icon: icons.List, AriaLabel: "Details view"},
+			{Value: "icons", Icon: icons.LayoutGrid, AriaLabel: "Large icons view"},
+		},
+		Variant: View, Size: ViewSize, Spacing: 1, Class: w.l.Frame.Views,
+		Value: &view, OnValueChange: w.setView.Set, DisallowEmptySelection: true, AriaLabel: "View",
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The menus.
+
+// The groups of items a menu is made of.
+const (
+	menuNew = iota
+	menuSort
+	menuView
+	menuDetails
+	menuLook
+)
+
+// menu returns the items of the groups, with a separator between them.
+func (w *win) menu(groups ...int) []kit.MenuItem[string] {
+	var items []kit.MenuItem[string]
+	for i, g := range groups {
 		if i > 0 {
-			kids = append(kids, Div(Class(l.SideSep), Key(fmt.Sprint("sep", i))))
+			items = append(items, kit.MenuItem[string]{Kind: kit.MenuSeparator})
 		}
-		if g.Title != "" {
-			kids = append(kids, Div(Class(l.SideHead), Key("head"+g.Title), Text(g.Title)))
-		}
-		for _, pl := range g.Items {
-			on := p.Path == pl.Path
-			kids = append(kids, Button(Class(l.SideItem), If(on, Class(l.SideItemOn)), Key("place"+pl.Name), AriaLabel(pl.Name),
-				AriaPressed(on),
-				OnClick(func() { d.Dispatch(Action{Kind: "open", Path: pl.Path}) }),
-				If(on, Div(Class(l.SideMark))),
-				Glyph(pl.Icon, th.SideIconPx),
-				Span(Class("truncate"), Text(pl.Name)),
-			))
-		}
+		items = append(items, w.menuGroup(g)...)
 	}
-	return Div(kids...)
+	return items
 }
 
-func (l *Look) width(c Column) string {
-	switch c {
-	case ColModified:
-		return l.WModified
-	case ColType:
-		return l.WType
-	case ColSize:
-		return l.WSize
-	}
-	return l.WName
-}
-
-// FileList is the column header and the rows.
-type FileList struct {
-	Th      *Theme
-	L       *Look
-	State   State
-	Entries []*Entry
-	Ref     tela.ElementRef
-	D       tela.Dispatcher[Action]
-}
-
-func (p FileList) Build() tela.Node {
-	th, l, st, d := p.Th, p.L, p.State, p.D
-	header := func(c Column) tela.Node {
-		sorted := st.Sort == c
-		caret := "chevron-up"
+func (w *win) menuGroup(g int) []kit.MenuItem[string] {
+	type item = kit.MenuItem[string]
+	st := w.st
+	switch g {
+	case menuNew:
+		return []item{{Key: "new-folder", Label: "New folder", Icon: icons.FolderPlus}}
+	case menuSort:
+		sortBy, order := "sort:"+colIDs[st.Sort], "order:asc"
 		if st.Desc {
-			caret = "chevron-down"
+			order = "order:desc"
 		}
-		return Button(Class(l.ColCell, l.width(c)), Key(int(c)), AriaLabel("Sort by "+th.Label(c)),
-			OnClick(func() { d.Dispatch(Action{Kind: "sort", Col: c}) }),
-			Span(Class("truncate"), Text(th.Label(c))),
-			If(sorted, Glyph(caret, 12)),
-			Div(Class(l.ColSep)),
-		)
-	}
-	var cols []tela.Child
-	cols = append(cols, Class(l.ColHeader))
-	for _, c := range th.Columns {
-		cols = append(cols, header(c))
-	}
-
-	empty := "This folder is empty"
-	if st.Query != "" {
-		empty = "No results for “" + st.Query + "”"
-	}
-	body := tela.Node(Div(Class(l.Empty), Text(empty)))
-	if len(p.Entries) > 0 {
-		body = MapKeyed(p.Entries, func(e *Entry) string { return e.Name }, func(e *Entry) tela.Component {
-			return Row{Th: th, L: l, E: e, On: e.Name == st.Sel, Path: st.Path, D: d}
-		})
-	}
-
-	return Div(Class(l.Content),
-		Div(cols...),
-		Div(Class(l.List), Ref(p.Ref), Role("listbox"), AriaLabel("Files"), TabIndex(0), AutoFocus(true),
-			OnKeyDown(func(e tela.KeyboardEvent) {
-				if e.Alt || e.Ctrl || e.Meta {
-					return
-				}
-				switch e.Key {
-				case tela.KeyArrowDown:
-					d.Dispatch(Action{Kind: "move", Delta: 1})
-				case tela.KeyArrowUp:
-					d.Dispatch(Action{Kind: "move", Delta: -1})
-				case tela.KeyPageDown:
-					d.Dispatch(Action{Kind: "move", Delta: 10})
-				case tela.KeyPageUp:
-					d.Dispatch(Action{Kind: "move", Delta: -10})
-				case tela.KeyHome:
-					d.Dispatch(Action{Kind: "first"})
-				case tela.KeyEnd:
-					d.Dispatch(Action{Kind: "last"})
-				case tela.KeyEnter:
-					d.Dispatch(Action{Kind: "activate"})
-				case tela.KeyBackspace:
-					d.Dispatch(Action{Kind: "back"})
-				default:
-					return
-				}
-				e.PreventDefault()
-			}),
-			body,
-		),
-	)
-}
-
-// EntryIcon returns the icon of an entry at px pixels.
-func EntryIcon(l *Look, e *Entry, px float32) tela.Node {
-	if e.IsFolder() {
-		return FolderIcon(l, px)
-	}
-	return FileIcon(l, e.Kind, px)
-}
-
-// Row is one entry of the list.
-type Row struct {
-	Th   *Theme
-	L    *Look
-	E    *Entry
-	On   bool
-	Path Path
-	D    tela.Dispatcher[Action]
-}
-
-func (p Row) Build() tela.Node {
-	th, l, e, d := p.Th, p.L, p.E, p.D
-	ref := tela.UseElementRef()
-	tela.UseEffectDo(func() {
-		if p.On {
-			ref.ScrollIntoView()
+		return []item{
+			{Kind: kit.MenuLabel, Label: "Sort by"},
+			{Kind: kit.MenuRadioGroup, Key: "sort", Value: &sortBy, OnValueChange: func(k string) {
+				w.d.Dispatch(Action{Kind: "sort", Col: colOf(strings.TrimPrefix(k, "sort:")), Desc: st.Desc})
+			}, Items: w.sortItems()},
+			{Kind: kit.MenuSeparator},
+			{Kind: kit.MenuRadioGroup, Key: "order", Value: &order, OnValueChange: func(k string) {
+				w.d.Dispatch(Action{Kind: "sort", Col: st.Sort, Desc: k == "order:desc"})
+			}, Items: []item{{Key: "order:asc", Label: "Ascending"}, {Key: "order:desc", Label: "Descending"}}},
 		}
-	}, p.On)
-
-	cls, dim := l.RowIdle, l.CellDim
-	if p.On {
-		cls, dim = l.RowOn, l.CellDimOn
-	}
-	cell := func(c Column) tela.Node {
-		switch c {
-		case ColModified:
-			return Div(Class("truncate", l.WModified, dim), Key(int(c)), Text(th.Date(e.Modified)))
-		case ColType:
-			return Div(Class("truncate", l.WType, dim), Key(int(c)), Text(th.TypeName(e)))
-		case ColSize:
-			size := ""
-			if e.IsFolder() {
-				size = th.FolderSize(len(e.Visible()))
-			} else {
-				size = th.Size(e.Size)
-			}
-			return Div(Class("truncate", l.WSize, dim), Key(int(c)), Text(size))
+	case menuView:
+		view := w.view
+		return []item{
+			{Kind: kit.MenuLabel, Label: "View"},
+			{Kind: kit.MenuRadioGroup, Key: "view", Value: &view, OnValueChange: w.setView.Set,
+				Items: []item{{Key: "details", Label: "Details"}, {Key: "icons", Label: "Large icons"}}},
 		}
-		return Div(Class("flex items-center gap-2.5", l.WName), Key(int(c)),
-			EntryIcon(l, e, th.IconPx),
-			Span(Class("truncate"), Text(e.Name)))
+	case menuDetails:
+		details := w.details
+		return []item{{Kind: kit.MenuCheckbox, Key: "details-pane", Label: "Details pane", Checked: &details, OnCheckedChange: w.setDetails.Set}}
+	default:
+		look := "look:" + w.l.ID
+		items := make([]item, len(LookIDs))
+		for i, id := range LookIDs {
+			items[i] = item{Key: "look:" + id, Label: Looks[id].Name}
+		}
+		return []item{
+			{Kind: kit.MenuLabel, Label: "Look"},
+			{Kind: kit.MenuRadioGroup, Key: "look", Value: &look, Items: items,
+				OnValueChange: func(k string) { w.setLook.Set(strings.TrimPrefix(k, "look:")) }},
+		}
 	}
-	kids := []tela.Child{Class(l.Row, cls), Ref(ref), Role("option"), AriaLabel(e.Name), AriaSelected(p.On),
-		OnClick(func() { d.Dispatch(Action{Kind: "select", Name: e.Name}) }),
-		OnDoubleClick(func() {
-			d.Dispatch(Action{Kind: "select", Name: e.Name})
-			d.Dispatch(Action{Kind: "activate"})
-		}),
-	}
-	for _, c := range th.Columns {
-		kids = append(kids, cell(c))
-	}
-	return Div(kids...)
 }
 
-// Details is the preview pane: the selected entry, or the folder.
-func Details(th *Theme, l *Look, dir *Entry, entries []*Entry, sel *Entry, path Path) tela.Node {
-	e := sel
-	if e == nil {
-		e = dir
+// sortItems are the columns of the look as radio items.
+func (w *win) sortItems() []kit.MenuItem[string] {
+	items := make([]kit.MenuItem[string], len(w.l.Columns))
+	for i, c := range w.l.Columns {
+		items[i] = kit.MenuItem[string]{Key: "sort:" + colIDs[c], Label: w.l.Label(c)}
 	}
-	name := e.Name
-	if name == "" {
-		name = th.Root
-	}
-	prop := func(k, v string) tela.Node {
-		return Div(Class("flex flex-col gap-0.5"), Key(k),
-			Span(Class(l.DetailsKey), Text(k)),
-			Span(Class(l.DetailsVal), Text(v)))
-	}
-	var props []tela.Child
-	props = append(props, Class("flex flex-col gap-3"))
-	if e.IsFolder() {
-		items := len(e.Visible())
-		if e == dir {
-			items = len(entries)
-		}
-		props = append(props, prop("Type", th.TypeName(e)), prop("Items", fmt.Sprint(items)))
-	} else {
-		props = append(props, prop("Type", th.TypeName(e)), prop("Size", th.Size(e.Size)))
-	}
-	props = append(props, prop(th.Label(ColModified), th.Date(e.Modified)))
-	loc := path
-	if sel == nil {
-		loc = Parent(path)
-	}
-	props = append(props, prop("Location", strings.Join(append([]string{th.Root}, Segments(loc)...), " › ")))
-	return Div(Class(l.Details), Role("complementary"), AriaLabel("Details"),
-		Div(Class(l.DetailsPreview), EntryIcon(l, e, 72)),
-		Div(Class(l.DetailsTitle), Text(name)),
-		Div(props...),
-	)
+	return items
 }
 
-// StatusBar counts the entries and the selection.
-func StatusBar(th *Theme, l *Look, entries []*Entry, sel *Entry, msg string) tela.Node {
-	files, folders, size := Total(entries)
-	text := th.Status(files, folders, size, sel)
-	if msg != "" {
-		text = msg
+// onMenu runs the plain items of every menu.
+func (w *win) onMenu(key string) {
+	switch key {
+	case "new-folder":
+		w.nav(Action{Kind: "newfolder"})
+	case "open":
+		w.nav(Action{Kind: "activate"})
+	case "cut", "copy":
+		w.nav(Action{Kind: key, Name: w.st.Sel})
+	case "paste":
+		w.nav(Action{Kind: "paste"})
+	case "rename":
+		w.setRename.Set(true)
+	case "delete":
+		w.setDelete.Set(true)
 	}
-	return Div(Class(l.Status), Role("status"),
-		Span(Class("truncate"), Text(text)),
-		Div(Class(l.Zoom),
-			Div(Class(l.ZoomTrack), Div(Class(l.ZoomKnob))),
-		),
-		Div(Class("flex items-center gap-1"),
-			Button(Class(l.StatusToggle, l.StatusToggleOn), AriaLabel("Details view"), AriaPressed(true), Glyph("view-list", 16)),
-			Button(Class(l.StatusToggle), AriaLabel("Large icons view"), AriaPressed(false), Glyph("view-grid", 16)),
-		),
-	)
+}
+
+// colIDs name the columns for the table's sort state and the menus.
+var colIDs = map[Column]string{ColName: "name", ColModified: "modified", ColType: "type", ColSize: "size"}
+
+// colOf is the column with an id.
+func colOf(id string) Column {
+	for c, s := range colIDs {
+		if s == id {
+			return c
+		}
+	}
+	return ColName
 }
