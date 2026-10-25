@@ -57,6 +57,9 @@ type SliderOptions struct {
 	// Step is the distance between the values the thumbs can take, from
 	// Min; 1 by default. Values are rounded to it.
 	Step float64
+	// PageSize is how far PageUp, PageDown and Shift with an arrow move a
+	// thumb, rounded to Step; a tenth of the range by default.
+	PageSize float64
 	// MinStepsBetweenThumbs is the least number of Steps between two
 	// thumbs; 0 lets them touch.
 	MinStepsBetweenThumbs int
@@ -231,6 +234,7 @@ type sliderState struct {
 	t       core.Timeout
 
 	min, max, step, gap float64
+	page                float64
 	vertical, rtl       bool
 	disabled            bool
 	controlled          bool
@@ -272,6 +276,7 @@ func (s *sliderState) repaint() {
 // sync takes the options of a build.
 func (s *sliderState) sync(o SliderOptions, vertical, rtl bool) {
 	s.min, s.max, s.step, s.gap = o.Min, o.Max, o.Step, float64(max(o.MinStepsBetweenThumbs, 0))*o.Step
+	s.page = o.PageSize
 	s.vertical, s.rtl, s.disabled = vertical, rtl, o.Disabled
 	s.onChange, s.onEnd, s.labels = o.OnValuesChange, o.OnChangeEnd, o.ThumbLabels
 	s.format = o.FormatValue
@@ -343,9 +348,13 @@ func snapValueToStep(v, lo, hi, step float64) float64 {
 	return roundToStepPrecision(snapped, step)
 }
 
-// pageSize is how far PageUp, PageDown and Shift+arrow move a thumb: a
-// tenth of the range, rounded to a step, at least one step.
+// pageSize is how far PageUp, PageDown and Shift+arrow move a thumb: the
+// PageSize option, else a tenth of the range, rounded to a step, at least
+// one step.
 func (s *sliderState) pageSize() float64 {
+	if s.page > 0 {
+		return max(s.step, math.Floor(s.page/s.step+0.5)*s.step)
+	}
 	return max(s.step, math.Floor((s.max-s.min)/10/s.step+0.5)*s.step)
 }
 

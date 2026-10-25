@@ -89,7 +89,10 @@
 // checked radio, which the arrow keys move and check), [UseToggleGroup] (a
 // segmented control or a toolbar of toggle buttons), [UseSlider] (one or
 // more thumbs on a track, dragged by repainting), [UseProgressBar] and
-// [UseMeter]. Positioning: [UseFloating].
+// [UseMeter]. Colors: [UseColorState] (the color that a picker shares, as an
+// [HSB] that keeps the hue), [UseColorArea], [UseColorSlider] and
+// [UseColorField], with the [HSB] and [HSL] types, [ToHSB], [ToHSL],
+// [ParseHexColor] and [FormatHexColor]. Positioning: [UseFloating].
 //
 // Overlays: [UseOverlay] (Escape and a press outside close the top
 // overlay; a modal one makes the rest of the window inert), [UseDialog]
@@ -195,6 +198,23 @@
 //	                return float32(s.ThumbPercent(i)) / 100 * track.Get().Width, 0
 //	            })))
 //	    })))
+//
+// # Colors
+//
+// A color picker is a [UseColorState] that its parts share: an area
+// ([UseColorArea]: saturation along one axis, brightness along the other),
+// sliders for the hue and the opacity ([UseColorSlider], whose
+// TrackColors are the stops of the gradient behind the thumb) and a hex
+// field ([UseColorField]). The state is the color the picker shows,
+// uncontrolled by default and controlled when Value points to the caller's
+// tela.Color; it keeps the color as an [HSB], so that dragging through gray
+// or black does not lose the hue. All the parts are made in one component,
+// and dragging moves the thumbs by repainting, as a slider does:
+//
+//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+//	area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
+//	hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
+//	hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
 //
 // # Testing and agents
 //

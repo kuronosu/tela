@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseCombobox`](#func-usecombobox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
+- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`FormatHexColor`](#func-formathexcolor) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`ParseHexColor`](#func-parsehexcolor) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`ToHSB`](#func-tohsb) · [`ToHSL`](#func-tohsl) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseColorArea`](#func-usecolorarea) · [`UseColorField`](#func-usecolorfield) · [`UseColorSlider`](#func-usecolorslider) · [`UseColorState`](#func-usecolorstate) · [`UseCombobox`](#func-usecombobox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
@@ -20,6 +20,15 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ButtonOptions`](#type-buttonoptions)
   - [`type ButtonResult`](#type-buttonresult): [`UseButton`](#func-usebutton)
   - [`type Collection`](#type-collection): [`ActiveDescendant`](#func-collectionk-activedescendant) · [`ClearFocus`](#func-collectionk-clearfocus) · [`Focus`](#func-collectionk-focus) · [`FocusKey`](#func-collectionk-focuskey) · [`Focused`](#func-collectionk-focused) · [`HandleKeyDown`](#func-collectionk-handlekeydown) · [`IsDisabled`](#func-collectionk-isdisabled) · [`IsFocusVisible`](#func-collectionk-isfocusvisible) · [`IsFocused`](#func-collectionk-isfocused) · [`IsSelected`](#func-collectionk-isselected) · [`ItemProps`](#func-collectionk-itemprops) · [`ItemRef`](#func-collectionk-itemref) · [`Section`](#func-collectionk-section)
+  - [`type ColorAreaOptions`](#type-colorareaoptions)
+  - [`type ColorAreaResult`](#type-colorarearesult): [`UseColorArea`](#func-usecolorarea) · [`ThumbPercent`](#func-colorarearesult-thumbpercent) · [`ValueText`](#func-colorarearesult-valuetext)
+  - [`type ColorChannel`](#type-colorchannel)
+  - [`type ColorFieldOptions`](#type-colorfieldoptions)
+  - [`type ColorFieldResult`](#type-colorfieldresult): [`UseColorField`](#func-usecolorfield)
+  - [`type ColorSliderOptions`](#type-colorslideroptions)
+  - [`type ColorSliderResult`](#type-colorsliderresult): [`UseColorSlider`](#func-usecolorslider) · [`ThumbPercent`](#func-colorsliderresult-thumbpercent) · [`TrackColors`](#func-colorsliderresult-trackcolors) · [`Value`](#func-colorsliderresult-value) · [`ValueText`](#func-colorsliderresult-valuetext)
+  - [`type ColorState`](#type-colorstate): [`UseColorState`](#func-usecolorstate) · [`Color`](#func-colorstate-color) · [`HSB`](#func-colorstate-hsb) · [`LiveColor`](#func-colorstate-livecolor) · [`LiveHSB`](#func-colorstate-livehsb) · [`Set`](#func-colorstate-set) · [`SetHSB`](#func-colorstate-sethsb)
+  - [`type ColorStateOptions`](#type-colorstateoptions)
   - [`type ComboboxOptions`](#type-comboboxoptions)
   - [`type ComboboxResult`](#type-comboboxresult): [`UseCombobox`](#func-usecombobox)
   - [`type DialogOptions`](#type-dialogoptions)
@@ -34,6 +43,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type FocusRingResult`](#type-focusringresult): [`UseFocusRing`](#func-usefocusring)
   - [`type FocusScopeOptions`](#type-focusscopeoptions)
   - [`type FocusScopeResult`](#type-focusscoperesult): [`UseFocusScope`](#func-usefocusscope)
+  - [`type HSB`](#type-hsb): [`ToHSB`](#func-tohsb) · [`Color`](#func-hsb-color) · [`HSL`](#func-hsb-hsl)
+  - [`type HSL`](#type-hsl): [`ToHSL`](#func-tohsl) · [`Color`](#func-hsl-color) · [`HSB`](#func-hsl-hsb)
   - [`type HideOptions`](#type-hideoptions)
   - [`type HoverEvent`](#type-hoverevent)
   - [`type HoverOptions`](#type-hoveroptions)
@@ -143,7 +154,7 @@ A controlled control shows what the caller passes: a change that the caller does
 
 ### Hooks
 
-Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton) (which can submit or reset its Form), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press. Choices and ranges: [`UseRadioGroup`](#func-useradiogroup) (one checked radio, which the arrow keys move and check), [`UseToggleGroup`](#func-usetogglegroup) (a segmented control or a toolbar of toggle buttons), [`UseSlider`](#func-useslider) (one or more thumbs on a track, dragged by repainting), [`UseProgressBar`](#func-useprogressbar) and [`UseMeter`](#func-usemeter). Positioning: [`UseFloating`](#func-usefloating).
+Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton) (which can submit or reset its Form), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press. Choices and ranges: [`UseRadioGroup`](#func-useradiogroup) (one checked radio, which the arrow keys move and check), [`UseToggleGroup`](#func-usetogglegroup) (a segmented control or a toolbar of toggle buttons), [`UseSlider`](#func-useslider) (one or more thumbs on a track, dragged by repainting), [`UseProgressBar`](#func-useprogressbar) and [`UseMeter`](#func-usemeter). Colors: [`UseColorState`](#func-usecolorstate) (the color that a picker shares, as an [`HSB`](#type-hsb) that keeps the hue), [`UseColorArea`](#func-usecolorarea), [`UseColorSlider`](#func-usecolorslider) and [`UseColorField`](#func-usecolorfield), with the [`HSB`](#type-hsb) and [`HSL`](#type-hsl) types, [`ToHSB`](#func-tohsb), [`ToHSL`](#func-tohsl), [`ParseHexColor`](#func-parsehexcolor) and [`FormatHexColor`](#func-formathexcolor). Positioning: [`UseFloating`](#func-usefloating).
 
 Overlays: [`UseOverlay`](#func-useoverlay) (Escape and a press outside close the top overlay; a modal one makes the rest of the window inert), [`UseDialog`](#func-usedialog) (role, name and focus), [`UsePopover`](#func-usepopover) (a floating overlay next to its trigger), [`UseOverlayTrigger`](#func-useoverlaytrigger) (the open state and the trigger's props), [`UseMenuTrigger`](#func-usemenutrigger) (a trigger that opens with press, long press or keys) and [`UseTooltipTrigger`](#func-usetooltiptrigger) (hover and focus with React Aria's delays and warm-up).
 
@@ -225,6 +236,17 @@ return Div(s.Props, Div(s.TrackProps, Class("relative h-2 w-64 bg-muted"),
     })))
 ```
 
+### Colors
+
+A color picker is a [`UseColorState`](#func-usecolorstate) that its parts share: an area ([`UseColorArea`](#func-usecolorarea): saturation along one axis, brightness along the other), sliders for the hue and the opacity ([`UseColorSlider`](#func-usecolorslider), whose TrackColors are the stops of the gradient behind the thumb) and a hex field ([`UseColorField`](#func-usecolorfield)). The state is the color the picker shows, uncontrolled by default and controlled when Value points to the caller's tela.Color; it keeps the color as an [`HSB`](#type-hsb), so that dragging through gray or black does not lose the hue. All the parts are made in one component, and dragging moves the thumbs by repainting, as a slider does:
+
+```go
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
+hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
+hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
+```
+
 ### Testing and agents
 
 The roles and states the hooks set are the ones the aria snapshot shows: a checkbox made with [`UseCheckbox`](#func-usecheckbox) prints as `checkbox "Name" [checked]`, and telatest finds it with ByRole("checkbox", "Name").
@@ -303,6 +325,38 @@ func EndsWith(text, query string) bool
 ```
 
 EndsWith reports whether text ends with query, ignoring case and diacritics. An empty query matches everything.
+
+### func FormatHexColor
+
+```go
+func FormatHexColor(c tela.Color, alpha bool) string
+```
+
+FormatHexColor returns c as "#rrggbb", in lower case with the components rounded to 8 bits and clamped to the sRGB gamut; with alpha it is "#rrggbbaa". [`ParseHexColor`](#func-parsehexcolor) reads it back.
+
+### func ParseHexColor
+
+```go
+func ParseHexColor(s string) (tela.Color, error)
+```
+
+ParseHexColor parses a hex color as people type it: "#rgb", "#rgba", "#rrggbb" or "#rrggbbaa", in any case, with or without the leading "#" and with surrounding spaces ignored. The error says what is wrong and is meant to be shown (or the input reverted).
+
+```go
+c, err := aria.ParseHexColor("#1e1e2e")
+```
+
+**Example**
+
+```go
+c, err := aria.ParseHexColor("1E1E2E")
+fmt.Println(aria.FormatHexColor(c, false), err)
+_, err = aria.ParseHexColor("#12345")
+fmt.Println(err)
+// Output:
+// #1e1e2e <nil>
+// aria: invalid hex color "#12345": expected 3, 4, 6 or 8 hex digits (#rgb, #rgba, #rrggbb or #rrggbbaa), got 5
+```
 
 ### func StartsWith
 
@@ -653,6 +707,510 @@ fruit := lb.Section("fruit")
 Div(fruit.Props,
     Div(fruit.HeadingProps, Class("text-xs text-muted-foreground"), Text("Fruit")),
     Div(lb.ItemProps("apple"), Key("apple"), Text("Apple")))
+```
+
+### type ColorAreaOptions
+
+```go
+type ColorAreaOptions struct {
+    // State is the color the area changes, from [UseColorState]. It is
+    // required, and must come from the same component.
+    State *ColorState
+    // XChannel and YChannel are the channels along the two axes: any two
+    // of [ColorHue], [ColorSaturation] and [ColorBrightness] (the HSB
+    // model), the third one stays as it is. The defaults are the picker's:
+    // saturation along X and brightness along Y.
+    XChannel, YChannel ColorChannel
+    // Direction is "ltr" (the default) or "rtl", which mirrors the X axis
+    // and the left and right arrow keys, as React Aria's area does.
+    Direction string
+    // Disabled makes the thumb inert and disabled, and the area ignores
+    // presses.
+    Disabled bool
+    // OnChangeEnd is called with the color when the user stops changing
+    // it: the pointer is released, or a key changed it.
+    OnChangeEnd func(tela.Color)
+    // FormatValue returns the text of a channel's value for aria-valuetext
+    // and [ColorAreaResult.ValueText]; the default is English ("Saturation
+    // 50%"). Use package i18n for another language.
+    FormatValue func(ColorChannel, float64) string
+    // AriaLabel names the area ("Color area" by default); else it is named
+    // by AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the area.
+    AriaLabelledBy tela.ElementRef
+}
+```
+
+ColorAreaOptions configures [`UseColorArea`](#func-usecolorarea): a two-dimensional slider that changes two channels of the color at once.
+
+### type ColorAreaResult
+
+```go
+type ColorAreaResult struct {
+    // AreaProps go to the area element: the "group" role and its name,
+    // and the handlers that make a press on it move the thumb to the
+    // point and start dragging it, with a mouse, a finger or a pen.
+    AreaProps tela.Prop
+    // ThumbProps go to the thumb: the "slider" role (one for both
+    // channels, as the semantics tree has no two-dimensional slider) with
+    // the first channel's aria-valuenow and a value text that has both, a
+    // tab stop, and the handlers: a press drags it (it keeps the grab, with
+    // no jump), the arrow keys move it by one step (by a page with Shift,
+    // mirrored in a "rtl" Direction), PageUp and PageDown change the Y
+    // channel by a page, Home and End the X channel.
+    ThumbProps tela.Prop
+    // AreaRef and ThumbRef are the refs that the props attach.
+    AreaRef, ThumbRef tela.ElementRef
+    // Dragging is whether the thumb is being dragged, as of this build.
+    Dragging bool
+    // contains filtered or unexported fields
+}
+```
+
+ColorAreaResult is what [`UseColorArea`](#func-usecolorarea) returns.
+
+#### func UseColorArea
+
+```go
+func UseColorArea(o ColorAreaOptions) ColorAreaResult
+```
+
+UseColorArea holds the interaction of a color area (React Aria's useColorArea): a thumb in a rectangle, dragged with a pointer or moved with the keys, that changes two channels of the shared [`ColorState`](#type-colorstate). The caller renders the area (its background is the gradients of the hue, as the kit's does) and the thumb:
+
+```go
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
+size := tela.UseSize(area.AreaRef)
+return Div(area.AreaProps, Class("relative size-48 rounded-md"),
+    Style(tela.BgFn(func() tela.Color { return aria.HSB{H: st.LiveHSB().H, S: 100, B: 100, A: 1}.Color() })),
+    Div(area.ThumbProps, Class("absolute -ml-2.5 -mt-2.5 size-5 rounded-full border-2 border-white"),
+        Style(tela.TranslateFn(func() (x, y float32) {
+            px, py := area.ThumbPercent()
+            return float32(px) / 100 * size.Get().Width, float32(py) / 100 * size.Get().Height
+        }))))
+```
+
+Dragging moves the thumb by repainting only: like [`UseSlider`](#func-useslider), an uncontrolled color builds when the drag starts and ends and when the pointer rests, not on every move.
+
+Unlike a slider's, the Home and End keys step the X channel by a page and PageUp and PageDown the Y channel, as React Aria's area does. The third channel (the hue, in the default area) is the state's: it is kept while the area moves the other two.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 220, S: 50, B: 50, A: 1}.Color()})
+    area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
+    size := tela.UseSize(area.AreaRef)
+    return Div(area.AreaProps, Class("relative size-48 rounded-md bg-muted"),
+        Div(area.ThumbProps, Class("absolute left-0 top-0 -ml-2.5 -mt-2.5 size-5 rounded-full border-2 border-white"),
+            Style(tela.TranslateFn(func() (x, y float32) {
+                px, py := area.ThumbPercent()
+                sz := size.Get()
+                return float32(px) / 100 * sz.Width, float32(py) / 100 * sz.Height
+            }))))
+}
+app := telatest.MountFunc(t, page)
+thumb := telatest.ByRole("slider", "Color")
+app.Focus(thumb)
+app.Press("Shift+ArrowRight") // a page of saturation
+app.Press("ArrowDown")
+fmt.Println(app.AriaSnapshot())
+app.Expect(thumb, telatest.HasValue("Saturation 60%, Brightness 49%"))
+// Output:
+// - group "Color":
+//   - slider "Color"
+```
+
+#### func (ColorAreaResult) ThumbPercent
+
+```go
+func (r ColorAreaResult) ThumbPercent() (x, y float64)
+```
+
+ThumbPercent returns the position of the thumb in the area as it is now, in percent from the left edge (x) and from the top edge (y), 0 to 100: the X axis runs from the minimum of the X channel at the left to its maximum at the right (reversed in a "rtl" Direction) and the Y axis from the maximum at the top. It subscribes what reads it: read it in a paint-phase closure to place the thumb while it is dragged without building the component, as
+
+```go
+Style(tela.TranslateFn(func() (x, y float32) {
+    px, py := area.ThumbPercent()
+    sz := size.Get()
+    return float32(px) / 100 * sz.Width, float32(py) / 100 * sz.Height
+}))
+```
+
+where size is tela.UseSize(area.AreaRef). Read in the component's body it makes the component build on every move.
+
+#### func (ColorAreaResult) ValueText
+
+```go
+func (r ColorAreaResult) ValueText() string
+```
+
+ValueText returns the text of both channels as it is now ("Saturation 50%, Brightness 70%").
+
+### type ColorChannel
+
+```go
+type ColorChannel string
+```
+
+ColorChannel names one component of a color, for the sliders and the areas that change it.
+
+```go
+const (
+    // ColorHue is the hue, in degrees from 0 to 360.
+    ColorHue ColorChannel = "hue"
+    // ColorSaturation is the saturation, from 0 to 100.
+    ColorSaturation ColorChannel = "saturation"
+    // ColorBrightness is the brightness of the HSB model, from 0 to 100.
+    ColorBrightness ColorChannel = "brightness"
+    // ColorLightness is the lightness of the HSL model, from 0 to 100.
+    ColorLightness ColorChannel = "lightness"
+    // ColorAlpha is the opacity, from 0 to 1.
+    ColorAlpha ColorChannel = "alpha"
+)
+```
+
+The channels of the color hooks. Hue, saturation and brightness are those of [`HSB`](#type-hsb), saturation and lightness (in a "hsl" space) those of [`HSL`](#type-hsl), and alpha is the opacity.
+
+### type ColorFieldOptions
+
+```go
+type ColorFieldOptions struct {
+    // State is the color the field edits, from [UseColorState]. It is
+    // required, and must come from the same component.
+    State *ColorState
+    // Alpha shows the opacity in the text ("#rrggbbaa"). Without it the
+    // text is "#rrggbb" and a code of 3 or 6 digits keeps the opacity;
+    // with it a code of 4 or 8 digits sets it too.
+    Alpha bool
+    // Disabled and ReadOnly stop the field from changing the color.
+    Disabled, ReadOnly bool
+    // AriaLabel names the field; else it is named by the element with
+    // LabelProps, or by AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the field, when it is not
+    // the one with LabelProps.
+    AriaLabelledBy tela.ElementRef
+    // Ref is the ref to attach to the input, to focus it from outside;
+    // the hook makes one when it is zero.
+    Ref tela.ElementRef
+}
+```
+
+ColorFieldOptions configures [`UseColorField`](#func-usecolorfield): a text field for the hex code of the shared color.
+
+### type ColorFieldResult
+
+```go
+type ColorFieldResult struct {
+    // InputProps go to the Input: the text, the handlers and the name.
+    InputProps tela.Prop
+    // LabelProps go to the element that labels the field; a press on it
+    // focuses the field.
+    LabelProps tela.Prop
+    // InputValue is the text of the input as of this build: what the user
+    // is typing, or the color's code.
+    InputValue string
+    // Editing is whether the text is a draft that is not committed yet.
+    Editing bool
+    // Ref is the ref that InputProps attaches to the input.
+    Ref tela.ElementRef
+}
+```
+
+ColorFieldResult is what [`UseColorField`](#func-usecolorfield) returns.
+
+#### func UseColorField
+
+```go
+func UseColorField(o ColorFieldOptions) ColorFieldResult
+```
+
+UseColorField holds a hex text field for the shared color (React Aria's useColorField). The user types a code ("#6366f1", "6366f1" or "#fff") and it is committed when the field loses the focus or on Enter: a code that parses sets the color, anything else (including an empty text) is reverted to the color's code. While the field is not being edited it shows the color, so a drag elsewhere in the picker updates it. ArrowUp and ArrowDown add or subtract one from the color as a 24-bit number, PageUp and PageDown sixteen.
+
+```go
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
+return Input(hex.InputProps, Class("w-28 rounded-md border px-2 py-1 font-mono"))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+    hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
+    return Div(Class("p-4"),
+        Input(hex.InputProps, Class("w-28 rounded-md border px-2 font-mono")),
+        Span(Text("color "+aria.FormatHexColor(st.Color(), false))))
+}
+app := telatest.MountFunc(t, page)
+field := telatest.ByRole("textbox", "Hex")
+app.Focus(field)
+app.Press("Control+a")
+app.Type("ff8800\n") // Enter commits; so does leaving the field
+app.ExpectText("color #ff8800")
+app.Press("Control+a")
+app.Type("oops\n") // not a color: reverted
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - textbox "Hex": "#ff8800"
+// - text: "color #ff8800"
+```
+
+### type ColorSliderOptions
+
+```go
+type ColorSliderOptions struct {
+    // State is the color the slider changes, from [UseColorState]. It is
+    // required, and must come from the same component.
+    State *ColorState
+    // Channel is the channel the slider changes. It is required:
+    // [ColorHue] (0 to 360), [ColorAlpha] (0 to 1), [ColorSaturation] and
+    // [ColorBrightness] (0 to 100), or [ColorLightness] with a "hsl"
+    // Space.
+    Channel ColorChannel
+    // Space is the color model of the saturation and the lightness:
+    // "hsb" (the default; it has a brightness) or "hsl" (it has a
+    // lightness, and its saturation is not the HSB's). Hue and alpha are
+    // the same in both.
+    Space string
+    // Orientation is "horizontal" (the default) or "vertical" (the minimum
+    // at the bottom).
+    Orientation string
+    // Direction is "ltr" (the default) or "rtl", which mirrors a
+    // horizontal slider and its arrow keys.
+    Direction string
+    // Disabled makes the thumb inert and disabled.
+    Disabled bool
+    // OnChangeEnd is called with the color when the user stops changing it.
+    OnChangeEnd func(tela.Color)
+    // FormatValue returns the text of the value for aria-valuetext and
+    // [ColorSliderResult.ValueText]; the default is English ("Hue 180°",
+    // "Alpha 80%"). Use package i18n for another language.
+    FormatValue func(ColorChannel, float64) string
+    // AriaLabel names the slider; the default is the channel's name
+    // ("Hue"). A visible label is the slider's name with AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the slider.
+    AriaLabelledBy tela.ElementRef
+}
+```
+
+ColorSliderOptions configures [`UseColorSlider`](#func-usecolorslider): a slider for one channel of the shared color.
+
+### type ColorSliderResult
+
+```go
+type ColorSliderResult struct {
+    // Props go to the slider's root element: the "group" role and its
+    // name.
+    Props tela.Prop
+    // TrackProps go to the track, which is the gradient: a press on it
+    // moves the thumb to the point and starts dragging it.
+    TrackProps tela.Prop
+    // ThumbProps go to the thumb: the "slider" role, aria-valuenow,
+    // aria-valuetext (the channel's name and value), a tab stop and the
+    // handlers of [UseSlider] (arrows by one step, Shift and the page keys
+    // by a page, Home and End to the ends).
+    ThumbProps tela.Prop
+    // TrackRef and ThumbRef are the refs that the props attach.
+    TrackRef, ThumbRef tela.ElementRef
+    // Channel is the channel of the slider, and Min, Max and Step its
+    // range: 0 to 360 for the hue, 0 to 1 by 0.01 for the alpha and 0 to
+    // 100 for the others.
+    Channel        ColorChannel
+    Min, Max, Step float64
+    // Dragging is whether the thumb is being dragged, as of this build.
+    Dragging bool
+    // contains filtered or unexported fields
+}
+```
+
+ColorSliderResult is what [`UseColorSlider`](#func-usecolorslider) returns.
+
+#### func UseColorSlider
+
+```go
+func UseColorSlider(o ColorSliderOptions) ColorSliderResult
+```
+
+UseColorSlider holds the interaction of a slider for one channel of a color (React Aria's useColorSlider). It is built on [`UseSlider`](#func-useslider), so it drags, rounds and answers keys like it, with the channel's range, step and page. The caller renders the track (a gradient of TrackColors) and the thumb:
+
+```go
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
+track := tela.UseSize(hue.TrackRef)
+return Div(hue.Props, Class("w-64"),
+    Div(hue.TrackProps, Class("relative h-3 rounded-full"),
+        Div(hue.ThumbProps, Class("absolute -top-1 -ml-2.5 size-5 rounded-full border-2 border-white"),
+            Style(tela.TranslateFn(func() (x, y float32) {
+                return float32(hue.ThumbPercent()) / 100 * track.Get().Width, 0
+            })))))
+```
+
+Dragging repaints and does not build, as the slider does.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 220, S: 80, B: 90, A: 1}.Color()})
+    hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
+    track := tela.UseSize(hue.TrackRef)
+    return Div(hue.Props, Class("w-64 p-4"),
+        Div(hue.TrackProps, Class("relative h-3 w-full rounded-full bg-muted"),
+            Div(hue.ThumbProps, Class("absolute -top-1 -ml-2.5 size-5 rounded-full border-2 border-white"),
+                Style(tela.TranslateFn(func() (x, y float32) {
+                    return float32(hue.ThumbPercent()) / 100 * track.Get().Width, 0
+                })))))
+}
+app := telatest.MountFunc(t, page)
+thumb := telatest.ByRole("slider", "Hue")
+app.Focus(thumb)
+app.Press("PageUp") // a page of hue is 15 degrees
+fmt.Println(app.AriaSnapshot())
+app.Expect(thumb, telatest.HasValue("Hue 235°"))
+// Output:
+// - group "Hue":
+//   - slider "Hue"
+```
+
+#### func (ColorSliderResult) ThumbPercent
+
+```go
+func (r ColorSliderResult) ThumbPercent() float64
+```
+
+ThumbPercent returns the position of the thumb along the track as it is now, from 0 (Min) to 100 (Max), exactly as [`SliderResult.ThumbPercent`](#func-sliderresult-thumbpercent): it subscribes what reads it, so read it in a paint-phase closure to place the thumb while it is dragged without building the component.
+
+#### func (ColorSliderResult) TrackColors
+
+```go
+func (r ColorSliderResult) TrackColors() []tela.Color
+```
+
+TrackColors returns the colors of the track from the minimum of the channel to its maximum, with the other channels of the color as they are now: the stops of the gradient behind the thumb. The hue has seven (every 60 degrees), the lightness three (black, the color, white) and the other channels two. For the alpha the first is transparent and the last opaque, to show over a checkerboard. It subscribes what reads it, so a track whose gradient follows the color is drawn from a paint-phase closure.
+
+#### func (ColorSliderResult) Value
+
+```go
+func (r ColorSliderResult) Value() float64
+```
+
+Value returns the value of the channel as it is now, in the channel's range. Like ThumbPercent it subscribes what reads it.
+
+#### func (ColorSliderResult) ValueText
+
+```go
+func (r ColorSliderResult) ValueText() string
+```
+
+ValueText returns the text of the value as it is now.
+
+### type ColorState
+
+```go
+type ColorState struct {
+    // contains filtered or unexported fields
+}
+```
+
+ColorState is the color that the area, the sliders and the field of one picker share (react-stately's useColorPickerState), made by [`UseColorState`](#func-usecolorstate). It keeps the color as an [`HSB`](#type-hsb) and not as the [`tela.Color`](API-Reference-tela#type-color) it reports, so that dragging through a gray or through black does not lose the hue (or the saturation), and a color the caller passes back is recognized as the one the state reported.
+
+The hooks that use a ColorState must be called in the component that made it: the state asks that component to build when a drag starts, when it ends and when the pointer has rested, as the slider does, and not on every move.
+
+#### func UseColorState
+
+```go
+func UseColorState(o ColorStateOptions) *ColorState
+```
+
+UseColorState holds the color of a picker and returns the state that [`UseColorArea`](#func-usecolorarea), [`UseColorSlider`](#func-usecolorslider) and [`UseColorField`](#func-usecolorfield) share.
+
+#### func (*ColorState) Color
+
+```go
+func (s *ColorState) Color() tela.Color
+```
+
+Color returns the color as of the last build. While a drag moves an uncontrolled state the build waits for the pointer to rest or the drag to end; read [`ColorState.LiveColor`](#func-colorstate-livecolor) in a paint-phase closure for the color that is shown now.
+
+#### func (*ColorState) HSB
+
+```go
+func (s *ColorState) HSB() HSB
+```
+
+HSB returns the color as of the last build, in the HSB model with the hue it keeps.
+
+#### func (*ColorState) LiveColor
+
+```go
+func (s *ColorState) LiveColor() tela.Color
+```
+
+LiveColor returns the color as it is now. It subscribes what reads it: read it in a paint-phase closure (tela.BgFn, tela.TextColorFn) to follow a drag without building; read in the component's body it makes the component build on every move.
+
+#### func (*ColorState) LiveHSB
+
+```go
+func (s *ColorState) LiveHSB() HSB
+```
+
+LiveHSB is [`ColorState.LiveColor`](#func-colorstate-livecolor) in the HSB model.
+
+#### func (*ColorState) Set
+
+```go
+func (s *ColorState) Set(c tela.Color)
+```
+
+Set asks for a color, as a swatch or a hex field does. A color that is the one the state holds changes nothing; a gray keeps the hue.
+
+#### func (*ColorState) SetHSB
+
+```go
+func (s *ColorState) SetHSB(h HSB)
+```
+
+SetHSB asks for a color in the HSB model. The values are clamped to their ranges.
+
+### type ColorStateOptions
+
+```go
+type ColorStateOptions struct {
+    // Value points to the color of a controlled state; nil leaves it to
+    // the hook.
+    Value *tela.Color
+    // DefaultValue is the color of an uncontrolled state at the start.
+    // The zero Color is transparent black: pass tela.Black, or a color,
+    // to start with an opaque one.
+    DefaultValue tela.Color
+    // OnChange is called with the next color every time the user changes
+    // it: while dragging, on each key, on a hex commit and when a swatch is
+    // set. The color is in the sRGB gamut.
+    OnChange func(tela.Color)
+}
+```
+
+ColorStateOptions configures [`UseColorState`](#func-usecolorstate).
+
+The color is uncontrolled when Value is nil (the state keeps it, starting at DefaultValue) and controlled when Value points to the caller's state: the hooks show it and only ask OnChange for the next one, so a change the caller does not store is refused. OnChange is also called for an uncontrolled state.
+
+```go
+// A picker that keeps its color.
+aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")}
+// A controlled one.
+c, setC := tela.UseState(tela.Hex("#6366f1"))
+aria.ColorStateOptions{Value: &c, OnChange: setC.Set}
 ```
 
 ### type ComboboxOptions
@@ -1571,6 +2129,83 @@ app.ExpectFocused(telatest.ByRole("button", "First")) // Contain wraps around
 fmt.Println("the focus stays inside the dialog")
 // Output: the focus stays inside the dialog
 ```
+
+### type HSB
+
+```go
+type HSB struct{ H, S, B, A float64 }
+```
+
+HSB is a color in the hue, saturation and brightness model (HSV, what a color picker's area shows). H is in degrees, from 0 to 360; S and B are percentages, from 0 to 100; A is the opacity, from 0 to 1.
+
+The model keeps what RGB forgets: the hue of a gray (S is 0) and the hue and saturation of black (B is 0). That is why the color hooks keep an HSB in their [`ColorState`](#type-colorstate) and not the [`tela.Color`](API-Reference-tela#type-color) they report: a drag that passes through the gray axis does not lose the hue.
+
+#### func ToHSB
+
+```go
+func ToHSB(c tela.Color) HSB
+```
+
+ToHSB returns c in the HSB model. The color is clamped to the sRGB gamut first. The hue of a gray is 0 (RGB does not have one): a caller that holds a hue keeps it itself, as [`ColorState`](#type-colorstate) does.
+
+**Example**
+
+```go
+hsb := aria.ToHSB(tela.Hex("#336699"))
+fmt.Printf("hue %.0f, saturation %.0f%%, brightness %.0f%%\n", hsb.H, hsb.S, hsb.B)
+fmt.Println(aria.FormatHexColor(aria.HSB{H: 210, S: 66.667, B: 60, A: 1}.Color(), false))
+// Output:
+// hue 210, saturation 67%, brightness 60%
+// #336699
+```
+
+#### func (HSB) Color
+
+```go
+func (c HSB) Color() tela.Color
+```
+
+Color returns c as a [`tela.Color`](API-Reference-tela#type-color) in the sRGB gamut. A hue of 360 is the hue of 0. Values out of range are clamped.
+
+#### func (HSB) HSL
+
+```go
+func (c HSB) HSL() HSL
+```
+
+HSL returns the same color in the HSL model.
+
+### type HSL
+
+```go
+type HSL struct{ H, S, L, A float64 }
+```
+
+HSL is a color in the hue, saturation and lightness model. H is in degrees, from 0 to 360; S and L are percentages, from 0 to 100; A is the opacity, from 0 to 1. Its saturation is not [`HSB`](#type-hsb)'s.
+
+#### func ToHSL
+
+```go
+func ToHSL(c tela.Color) HSL
+```
+
+ToHSL returns c in the HSL model, with the clamping and the hue of [`ToHSB`](#func-tohsb).
+
+#### func (HSL) Color
+
+```go
+func (c HSL) Color() tela.Color
+```
+
+Color returns c as a [`tela.Color`](API-Reference-tela#type-color) in the sRGB gamut. A hue of 360 is the hue of 0. Values out of range are clamped.
+
+#### func (HSL) HSB
+
+```go
+func (c HSL) HSB() HSB
+```
+
+HSB returns the same color in the HSB model.
 
 ### type HideOptions
 
@@ -3481,6 +4116,9 @@ type SliderOptions struct {
     // Step is the distance between the values the thumbs can take, from
     // Min; 1 by default. Values are rounded to it.
     Step float64
+    // PageSize is how far PageUp, PageDown and Shift with an arrow move a
+    // thumb, rounded to Step; a tenth of the range by default.
+    PageSize float64
     // MinStepsBetweenThumbs is the least number of Steps between two
     // thumbs; 0 lets them touch.
     MinStepsBetweenThumbs int
