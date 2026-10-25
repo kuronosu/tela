@@ -25,7 +25,8 @@ import (
 //
 // The focus moves by keyboard (Tab and Shift+Tab, keyboard.go), by mouse
 // (a press of the primary button focuses the nearest focusable element at
-// or above the target; a press elsewhere blurs the focused element, and
+// or above the target; a press elsewhere blurs the focused element, unless
+// a containing focus scope holds it (Containment, below), and
 // PreventDefault on OnPointerDown or OnMouseDown keeps the focus where it
 // is), by script (ElementRef.Focus and Blur, AutoFocus, the restoration
 // of a focus scope) and by fix-up: a focused element that stops being
@@ -76,15 +77,49 @@ import (
 // # Focus scopes
 //
 // A focus scope (Scope and FocusScope, reserved for package aria's
-// UseFocusScope) on a primitive contains Tab navigation inside its
-// subtree while it is mounted (the most recently mounted containing scope
-// that is not inert nor outside the active modal wins), restores the
+// UseFocusScope) on a primitive contains the focus inside its subtree
+// while it is mounted (the most recently mounted containing scope that is
+// not inert nor outside the active modal is the active one), restores the
 // focus to the element focused when it mounted when it unmounts, if the
 // focus was inside it (or nowhere) then, and with AutoFocus focuses the
 // first tabbable element of its subtree (else the first focusable one)
 // after the style phase of the frame that mounts it, unless the focus is
 // already inside (React Aria's FocusScope). The focus manager of
 // focusmgr.go moves the focus within a subtree for package aria's hooks.
+//
+// # Containment
+//
+// Inside the active containing scope means inside its subtree in the
+// element tree, so the content of a Portal rendered from inside it (a
+// popover or a select opened from a dialog) and a nested scope count. Tab
+// and Shift+Tab wrap among its elements (moveFocus). Every other focus
+// change is checked too (React Aria's useFocusContainment, ADR-160):
+//
+//   - A primary press on nothing focusable (the scrim of an alert dialog,
+//     which hits the root, or plain content) leaves the focus where it is
+//     while it is inside the scope, as if the pointerdown had been
+//     prevented (Radix's AlertDialog prevents it): no OnBlur, and the
+//     focus-visible state stays the one the heuristic gives a prevented
+//     press (Chromium keeps the element's state when the focus does not
+//     change).
+//   - A focus change to an element outside the scope, by a press on a
+//     focusable element that is still hit (an overlay alive above a modal,
+//     or any element around a scope that is not modal), a Label, or a
+//     script (ElementRef.Focus, the focus manager, AutoFocus, the
+//     restoration of another scope), does not happen: the focus stays
+//     where it is when it is inside the scope, and otherwise goes to the
+//     element focused last inside it while it can take the focus, else to
+//     the first tabbable element of the scope, else to the first
+//     focusable one. React Aria lets the focus reach the outside element
+//     and moves it back in its focusin listener; Tela checks before the
+//     change, so the handlers never see the focus go out and come back.
+//   - ElementRef.Blur on an element inside the scope does nothing (React
+//     Aria's blur listener focuses it again).
+//
+// The window losing the focus is not a change (the element stays
+// focused), and the fix-up blur of a focused element that stops being
+// focusable, or its unmount, still leave nothing focused: the next Tab
+// starts inside the scope again.
 
 // focusType is how the focus moved.
 type focusType uint8
@@ -291,6 +326,11 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	}
 	f.gen++
 	f.el, f.start = el, nil
+	for _, s := range f.scopes {
+		if s.opts.contain && isInside(el, s.el) {
+			s.last = el
+		}
+	}
 	t.syncFocus()
 	t.focusMoved(old, el)
 	t.revealFocused(el, typ)
@@ -382,9 +422,20 @@ func (t *Tree) mouseFocus(target *Element) {
 	}
 	for x := el; x != nil; x = x.styleParent() {
 		if t.focusable(x) {
+			if s := t.trapping(x); s != nil {
+				t.keepInScope(s)
+				return
+			}
 			t.setFocus(x, focusMouse)
 			return
 		}
+	}
+	if t.holdsFocus() {
+		// Nothing focusable under the press, and the active containing
+		// scope holds the focus: it stays, as after a prevented
+		// pointerdown (no lastType change, so focus-visible keeps what
+		// noteMouse left).
+		return
 	}
 	t.setFocus(nil, focusMouse)
 	t.foc.lastType = focusMouse
@@ -397,9 +448,14 @@ func (t *Tree) mouseFocus(target *Element) {
 // focusElement focuses el programmatically (ElementRef.Focus): nothing
 // happens when el is not focusable.
 func (t *Tree) focusElement(el *Element) {
-	if t.focusable(el) {
-		t.setFocus(el, focusScript)
+	if !t.focusable(el) {
+		return
 	}
+	if s := t.trapping(el); s != nil {
+		t.keepInScope(s)
+		return
+	}
+	t.setFocus(el, focusScript)
 }
 
 // ---------------------------------------------------------------------
@@ -708,12 +764,17 @@ type focusScope struct {
 	opts scopeOpts
 	// prev was focused when the scope mounted.
 	prev *Element
+	// last is the element focused last inside a containing scope (where
+	// keepInScope brings the focus back), or nil.
+	last *Element
 }
 
 // FocusScope returns a prop that makes a primitive a focus scope while it
 // is mounted: with contain, Tab and Shift+Tab move the focus only among
 // the focusable elements of its subtree (wrapping around inside it; the
-// most recently mounted containing scope wins); with restore, when it
+// most recently mounted containing scope wins), and no press or script
+// takes the focus out of it (Containment at the top of focus.go); with
+// restore, when it
 // unmounts while the focus is inside it (or nowhere), the focus returns
 // to the element focused when it mounted, if that element is still
 // focusable.
@@ -726,7 +787,9 @@ func FocusScope(contain, restore bool) Prop {
 
 // ScopeOptions configures Scope: React Aria's FocusScope props.
 type ScopeOptions struct {
-	// Contain keeps Tab and Shift+Tab inside the scope's subtree.
+	// Contain keeps the focus inside the scope's subtree: Tab and
+	// Shift+Tab wrap inside it, and presses and scripts do not take the
+	// focus out (Containment at the top of focus.go).
 	Contain bool
 	// Restore gives the focus back, when the scope unmounts, to the
 	// element focused when it mounted.
@@ -779,6 +842,49 @@ func (t *Tree) activeScope() *focusScope {
 		}
 	}
 	return nil
+}
+
+// trapping returns the active containing scope when focusing el would take
+// the focus out of it, or nil when the change is allowed (no active
+// containing scope, or el inside it).
+func (t *Tree) trapping(el *Element) *focusScope {
+	s := t.activeScope()
+	if s == nil || isInside(el, s.el) {
+		return nil
+	}
+	return s
+}
+
+// holdsFocus reports whether the focused element is inside the active
+// containing scope, which then keeps it from going nowhere.
+func (t *Tree) holdsFocus() bool {
+	el := t.foc.el
+	if el == nil || !el.mounted {
+		return false
+	}
+	s := t.activeScope()
+	return s != nil && isInside(el, s.el)
+}
+
+// keepInScope replaces a focus change that would take the focus out of the
+// active containing scope s (see Containment at the top of focus.go): the
+// focus stays where it is when it is inside s, otherwise it goes to the
+// element focused last inside s while it is focusable, else to the first
+// tabbable element of s, else to the first focusable one. At most one
+// focus change happens, to an element inside s, so it cannot come back
+// here.
+func (t *Tree) keepInScope(s *focusScope) {
+	f := &t.foc
+	if f.el != nil && f.el.mounted && isInside(f.el, s.el) {
+		return
+	}
+	if l := s.last; l != nil && isInside(l, s.el) && t.focusable(l) {
+		t.setFocus(l, focusScript)
+		return
+	}
+	if !t.focusFirstIn(s.el, true) {
+		t.focusFirstIn(s.el, false)
+	}
 }
 
 // ---------------------------------------------------------------------
@@ -841,9 +947,11 @@ func (r ElementRef) Focus() {
 }
 
 // Blur removes the focus from the element if it has it (HTML's blur()):
-// nothing is focused afterwards.
+// nothing is focused afterwards. Inside an active containing focus scope
+// it does nothing: the scope keeps the focus (React Aria's FocusScope
+// contain focuses the element again).
 func (r ElementRef) Blur() {
-	if el := r.element(); el != nil && el.tree.foc.el == el {
+	if el := r.element(); el != nil && el.tree.foc.el == el && !el.tree.holdsFocus() {
 		el.tree.setFocus(nil, focusScript)
 	}
 }

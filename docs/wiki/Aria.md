@@ -222,7 +222,11 @@ return Button(ring.Props, If(ring.FocusVisible, Class("ring-2 ring-primary")), T
 `UseFocusScope(aria.FocusScopeOptions{Contain, Restore, AutoFocus})` makes an
 element a focus scope and returns `Props` and a `Manager`:
 
-- `Contain` keeps Tab and Shift+Tab inside the scope (a dialog).
+- `Contain` keeps the focus inside the scope (a dialog): Tab and Shift+Tab wrap
+  around inside it, a press on something that is not focusable (the scrim of an
+  alert dialog) leaves the focus where it is, and a press or a script that would
+  focus an element outside keeps it inside. Popovers and selects opened from
+  inside the scope count as inside.
 - `Restore` gives the focus back, when the scope unmounts, to the element that
   had it when the scope mounted (the button that opened the dialog).
 - `AutoFocus` focuses the first tabbable element after the frame that mounts

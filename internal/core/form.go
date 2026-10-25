@@ -341,7 +341,11 @@ func (t *Tree) activate(target *Element, me MouseEvent) {
 				return
 			}
 			if t.focusable(ctl) {
-				t.setFocus(ctl, focusMouse)
+				if s := t.trapping(ctl); s != nil {
+					t.keepInScope(s) // a control outside the active containing scope
+				} else {
+					t.setFocus(ctl, focusMouse)
+				}
 			}
 			if ctl.mounted {
 				t.dispatchClick(ctl, me)

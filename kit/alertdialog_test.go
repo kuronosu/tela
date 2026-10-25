@@ -96,17 +96,20 @@ func TestAlertDialogNeedsAnAnswer(t *testing.T) {
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
 
 	// A press outside does not close it: the page behind is inert, and the
-	// dialog stays.
+	// dialog stays, with the focus where it was (ADR-160).
 	app.Click(deleteButton)
 	app.ClickAt(10, 10)
 	app.ExpectCount(alertDlg, 1)
+	app.ExpectFocused(telatest.ByRole("button", "Cancel"))
 
-	// Tab stays inside, whatever the press did to the focus.
+	// Tab stays inside.
+	app.Press("Tab")
+	app.ExpectFocused(telatest.ByRole("button", "Delete"))
 	app.Press("Tab")
 	app.ExpectFocused(telatest.ByRole("button", "Cancel"))
 	app.Press("Tab")
 	app.ExpectFocused(telatest.ByRole("button", "Delete"))
-	app.Press("Tab")
+	app.Press("Shift+Tab")
 	app.ExpectFocused(telatest.ByRole("button", "Cancel"))
 
 	// Cancel closes it and gives the focus back.

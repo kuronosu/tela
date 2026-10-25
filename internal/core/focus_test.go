@@ -784,14 +784,15 @@ func TestUseElementRefHookOrder(t *testing.T) {
 // Focus scopes (reserved for aria).
 
 func TestFocusScope(t *testing.T) {
-	var setOpen Setter[bool]
+	var setOpen, setContain Setter[bool]
 	app := func() Node {
 		open, s := UseState(false)
-		setOpen = s
+		contain, sc := UseState(true)
+		setOpen, setContain = s, sc
 		return div(Key("page"),
 			button(Key("trigger"), Class("h-6 w-10"), On("click", func(MouseEvent) { setOpen.Set(true) }), Text("t")),
 			button(Key("after"), Text("after")),
-			If(open, div(Key("dialog"), FocusScope(true, true),
+			If(open, div(Key("dialog"), FocusScope(contain, true),
 				button(Key("d1"), AutoFocus(true), Text("1")),
 				div(Key("plain"), Text("p")),
 				button(Key("d2"), Text("2")),
@@ -830,9 +831,16 @@ func TestFocusScope(t *testing.T) {
 	if focusedName(tr) != "after" {
 		t.Errorf("Tab after the scope closed: %s", focusedName(tr))
 	}
-	// A scope that unmounts while the focus is elsewhere does not steal it.
+	// A scope that unmounts while the focus is elsewhere does not steal it
+	// (a containing scope does not let it go elsewhere, ADR-160).
 	x.shiftTab()
 	x.enter()
+	x.frame()
+	tr.focusElement(keyed(tr, "after"))
+	if focusedName(tr) != "d1" {
+		t.Errorf("Focus outside a containing scope moved the focus to %s", focusedName(tr))
+	}
+	setContain.Set(false)
 	x.frame()
 	tr.focusElement(keyed(tr, "after"))
 	setOpen.Set(false)

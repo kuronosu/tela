@@ -2251,7 +2251,7 @@ func Search() tela.Node {
 func (r ElementRef) Blur()
 ```
 
-Blur removes the focus from the element if it has it (HTML's blur()): nothing is focused afterwards.
+Blur removes the focus from the element if it has it (HTML's blur()): nothing is focused afterwards. Inside an active containing focus scope it does nothing: the scope keeps the focus (React Aria's FocusScope contain focuses the element again).
 
 #### func (ElementRef) Bounds
 

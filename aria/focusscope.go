@@ -13,9 +13,13 @@ import (
 
 // FocusScopeOptions configures [UseFocusScope].
 type FocusScopeOptions struct {
-	// Contain keeps Tab and Shift+Tab inside the scope: the focus wraps
-	// around its focusable elements instead of leaving. The most recently
-	// mounted containing scope wins.
+	// Contain keeps the focus inside the scope: Tab and Shift+Tab wrap
+	// around its focusable elements instead of leaving, a press on
+	// something that is not focusable (a scrim) leaves the focus where it
+	// is, and a press or a script that would focus an element outside
+	// keeps it inside instead (React Aria's contain). The content of
+	// portals and overlays opened from inside the scope is inside it. The
+	// most recently mounted containing scope wins.
 	Contain bool
 	// Restore gives the focus back when the scope unmounts, to the element
 	// that had it when the scope mounted, if that element can still take
