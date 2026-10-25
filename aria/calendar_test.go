@@ -85,7 +85,7 @@ func cell(day aria.Date) telatest.Locator { return telatest.ByRole("gridcell", e
 
 func TestCalendarRendersTheMonth(t *testing.T) {
 	app := telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
-		DefaultValue: new(d(2026, time.October, 5)), AriaLabel: "Appointment",
+		DefaultValue: d(2026, time.October, 5), AriaLabel: "Appointment",
 	}), telatest.Size(400, 360))
 	// Sunday first for en-US; October 2026 starts on a Thursday and has
 	// five weeks, filled with the neighbouring months.

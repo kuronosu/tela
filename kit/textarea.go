@@ -41,6 +41,8 @@ type Textarea struct {
 	// ID is the field's id, for a [Label]'s For. Inside a [Field] it
 	// defaults to the field's.
 	ID string
+	// AriaLabel names a field that has no label of its own (see [Input]).
+	AriaLabel string
 	// Rows is the number of lines the field is tall (h.Rows); 0 leaves the
 	// recipe's minimum height and the text to size it.
 	Rows     int
@@ -66,7 +68,7 @@ func (t Textarea) Build() tela.Node {
 	}
 	kids = append(kids, useTextField(textFieldProps{
 		value: t.Value, defaultValue: t.DefaultValue, onChange: t.OnValueChange,
-		placeholder: t.Placeholder, name: t.Name, id: t.ID,
+		placeholder: t.Placeholder, name: t.Name, id: t.ID, ariaLabel: t.AriaLabel,
 		disabled: t.Disabled, readOnly: t.ReadOnly, invalid: t.Invalid, autoFocus: t.AutoFocus, maxLength: t.MaxLength,
 	})...)
 	return h.Textarea(kids...)

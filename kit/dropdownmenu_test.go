@@ -292,7 +292,7 @@ func TestDropdownMenuRadioGroup(t *testing.T) {
 	var chosen []string
 	app := mountDropdown(t, actionsMenu(nil, func(d *kit.DropdownMenu[string]) {
 		d.Items = []kit.MenuItem[string]{
-			{Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: "light", OnValueChange: func(v string) { chosen = append(chosen, v) },
+			{Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: new("light"), OnValueChange: func(v string) { chosen = append(chosen, v) },
 				Items: []kit.MenuItem[string]{
 					{Key: "light", Label: "Light"}, {Key: "dark", Label: "Dark"}, {Key: "system", Label: "System", Disabled: true}}},
 		}
@@ -506,7 +506,7 @@ func TestDropdownMenuOpenGolden(t *testing.T) {
 			{Key: "profile", Label: "Profile", Icon: iconMail, Shortcut: "⇧⌘P"},
 			{Key: "billing", Label: "Billing", Shortcut: "⌘B"},
 			{Kind: kit.MenuCheckbox, Key: "bars", Label: "Status Bar", DefaultChecked: true},
-			{Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: "dark", Items: []kit.MenuItem[string]{
+			{Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: new("dark"), Items: []kit.MenuItem[string]{
 				{Key: "light", Label: "Light"}, {Key: "dark", Label: "Dark"}}},
 			{Kind: kit.MenuSeparator},
 			{Key: "api", Label: "API", Disabled: true},

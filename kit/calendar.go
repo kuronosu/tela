@@ -225,7 +225,7 @@ type Calendar struct {
 func (c Calendar) Build() tela.Node {
 	keysDir := useCalendarDirection(c.Direction, c.Locale)
 	res := aria.UseCalendar(aria.CalendarOptions{
-		Value: c.Value, DefaultValue: ptrIfSet(c.DefaultValue), OnValueChange: c.OnValueChange,
+		Value: c.Value, DefaultValue: c.DefaultValue, OnValueChange: c.OnValueChange,
 		Min: c.Min, Max: c.Max, IsDateUnavailable: c.IsDateUnavailable, Disabled: c.Disabled, ReadOnly: c.ReadOnly,
 		FocusedDate: c.FocusedDate, DefaultFocusedDate: c.DefaultFocusedDate, OnFocusChange: c.OnFocusChange,
 		VisibleMonths: c.VisibleMonths, FirstDayOfWeek: c.FirstDayOfWeek, FixedWeeks: c.FixedWeeks, Today: c.Today,
@@ -297,12 +297,8 @@ type RangeCalendar struct {
 // Build returns the calendar element.
 func (c RangeCalendar) Build() tela.Node {
 	keysDir := useCalendarDirection(c.Direction, c.Locale)
-	var def *aria.DateRange
-	if !c.DefaultValue.IsZero() {
-		def = &c.DefaultValue
-	}
 	res := aria.UseRangeCalendar(aria.RangeCalendarOptions{
-		Value: c.Value, DefaultValue: def, OnValueChange: c.OnValueChange,
+		Value: c.Value, DefaultValue: c.DefaultValue, OnValueChange: c.OnValueChange,
 		AllowsNonContiguousRanges: c.AllowsNonContiguousRanges,
 		Min:                       c.Min, Max: c.Max, IsDateUnavailable: c.IsDateUnavailable, Disabled: c.Disabled, ReadOnly: c.ReadOnly,
 		FocusedDate: c.FocusedDate, DefaultFocusedDate: c.DefaultFocusedDate, OnFocusChange: c.OnFocusChange,
@@ -342,14 +338,6 @@ type calendarLook struct {
 	dayButton                   string
 	props                       tela.Child
 	autoFocus                   bool
-}
-
-// ptrIfSet returns &d, or nil for the zero Date.
-func ptrIfSet(d aria.Date) *aria.Date {
-	if d.IsZero() {
-		return nil
-	}
-	return &d
 }
 
 // useCalendarView draws a calendar from the hook's result; it is the part

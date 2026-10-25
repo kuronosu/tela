@@ -151,8 +151,9 @@ func (c SummaryCard) Build() tela.Node {
 		body = append(body, r)
 	}
 	return Fragment(kit.Card{
-		Title:    H2(Text(t("summaryTitle"))),
-		Children: Div(append([]tela.Child{Class("flex flex-col gap-3")}, body...)...),
+		TitleLevel: 2,
+		Title:      Text(t("summaryTitle")),
+		Children:   Div(append([]tela.Child{Class("flex flex-col gap-3")}, body...)...),
 	})
 }
 

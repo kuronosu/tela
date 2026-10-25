@@ -238,7 +238,7 @@
 // or black does not lose the hue. All the parts are made in one component,
 // and dragging moves the thumbs by repainting, as a slider does:
 //
-//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 //	area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
 //	hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
 //	hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})

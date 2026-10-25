@@ -43,7 +43,7 @@ func TestCalendarClickSelectsAndFocuses(t *testing.T) {
 func TestCalendarMonthButtonsMoveTheFocusedDate(t *testing.T) {
 	var ev events
 	app := telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
-		DefaultValue:  new(d(2026, time.January, 31)),
+		DefaultValue:  d(2026, time.January, 31),
 		OnFocusChange: func(v aria.Date) { ev.add(v.String()) },
 	}), telatest.Size(400, 360))
 	app.Click(telatest.ByRole("button", "Next"))

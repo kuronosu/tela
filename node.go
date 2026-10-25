@@ -1,6 +1,10 @@
 package tela
 
-import "github.com/kuronosu/tela/internal/core"
+import (
+	"fmt"
+
+	"github.com/kuronosu/tela/internal/core"
+)
 
 // Node is an immutable, cheap description of a piece of UI: an element
 // (h.Div), a text (h.Text), a component or a fragment. Function components
@@ -100,3 +104,39 @@ type Prop = core.Prop
 //	    return tela.WithKey(Card{Title: c.Title}, c.ID)
 //	})
 func WithKey[K comparable](c Component, k K) Node { return core.WithKey(c, k) }
+
+// MergeProps returns one [Prop] that applies props in order, for a place
+// that takes a single one: kit's Props field of type [Child], or a hook's
+// result next to your own props. Event handlers accumulate (every handler
+// of an event runs, in order); the other props are set by the last one that
+// sets them, as when they are given one after the other to an element. Nil
+// and the zero Prop are skipped.
+//
+// It takes only props, and style props such as tela.Width. A [Node] or
+// another [Component] is not a prop and cannot be merged into one: dev mode
+// panics, naming the argument, and otherwise it is ignored.
+//
+//	kit.Button{Children: Text("Save"), Props: tela.MergeProps(
+//	    TestID("save"), OnMouseEnter(prefetch), AriaLabel("Save the draft"))}
+func MergeProps(props ...Child) Prop {
+	ps := make([]core.Prop, 0, len(props))
+	for i, c := range props {
+		if c == nil || c == Child(Node{}) {
+			continue // a hole
+		}
+		if p, ok := core.PropOf(c); ok {
+			ps = append(ps, p)
+			continue
+		}
+		notAProp(i, c)
+	}
+	return core.MergeProps(ps...)
+}
+
+// notAProp is MergeProps' dev-mode report of an argument that is not a prop.
+func notAProp(i int, c Child) {
+	if DevMode() {
+		panic(fmt.Sprintf("tela: MergeProps argument %d is a %T, not a prop; MergeProps takes props (h.Class, h.OnClick, h.AriaLabel...). "+
+			"To add a child or a component, give it to the element or to the Children field instead", i, c))
+	}
+}

@@ -22,7 +22,7 @@ func browserItems() []kit.MenuItem[string] {
 		{Kind: kit.MenuCheckbox, Key: "urls", Label: "Show Full URLs"},
 		{Kind: kit.MenuSeparator},
 		{Kind: kit.MenuLabel, Label: "People", Inset: true},
-		{Kind: kit.MenuRadioGroup, Key: "person", DefaultValue: "pedro", Items: []kit.MenuItem[string]{
+		{Kind: kit.MenuRadioGroup, Key: "person", DefaultValue: new("pedro"), Items: []kit.MenuItem[string]{
 			{Key: "pedro", Label: "Pedro Duarte"}, {Key: "colm", Label: "Colm Tuite"}}},
 		{Kind: kit.MenuSeparator},
 		{Key: "delete", Label: "Delete", Variant: kit.Destructive, Icon: iconCircleAlert},

@@ -119,7 +119,7 @@ kit.Button{Variant: kit.Outline, Size: kit.Sm, OnClick: save, Children: h.Text("
 Every component has the same few fields, with the same meaning:
 
 - Class is added to the classes of the root element after the component's own, and Tela's class order is last-wins, so Class overrides the look with no merging: Class: "w-full" widens a Card, Class: "rounded-full" rounds a Button.
-- Props is a tela.Child with more props for the root element, such as h.Key, h.TestID or h.OnMouseEnter(...).
+- Props is a tela.Child with more props for the root element, such as h.Key, h.TestID or h.OnMouseEnter(...). It takes one value: merge several with tela.MergeProps(h.TestID("save"), h.OnMouseEnter(warm)).
 - Children is a tela.Component, the content of the component. A component with several parts has a slot for each as a tela.Component field (kit.Card has Title, Description, Action, Children and Footer); nil leaves a slot out. A slot that is only text for assistive technologies, such as a Field's Label, Description and Error, is a string. The Class of a part is named after it: HeaderClass, FooterClass.
 - Behavior fields are named after the HTML or React prop they stand for: Disabled, OnClick, Type, Placeholder, Name, ID, ReadOnly, AutoFocus, MaxLength. Variant and Size choose among the looks of the recipe.
 - Icons are slots: every icon a component draws is a tela.Icon field (Button.Icon and IconEnd, Badge.Icon), so an app uses the icon set it likes, such as icons/lucide. Where shadcn draws an icon itself, the field has Lucide's as its default (the X of Dialog.CloseIcon).
@@ -136,7 +136,9 @@ kit.Input{Value: &name, OnValueChange: setName.Set} // controlled
 kit.Input{DefaultValue: "Ana"}                      // uncontrolled
 ```
 
-The same names recur: Value/DefaultValue/OnValueChange for a string, Checked (\*bool)/DefaultChecked/OnCheckedChange for an on/off control, Open (\*bool)/DefaultOpen/OnOpenChange for what opens and closes. A control that holds a choice among keys takes Value \*K, DefaultValue K and OnValueChange func(K).
+The same names recur: Value/DefaultValue/OnValueChange for a string, Checked (\*bool)/DefaultChecked/OnCheckedChange for an on/off control, Open (\*bool)/DefaultOpen/OnOpenChange for what opens and closes. A control that holds a choice among keys takes Value \*K, DefaultValue \*K and OnValueChange func(K).
+
+A DefaultValue is a pointer when the zero value of its type is a valid value, so that "no default" and "the zero value" differ: a choice among keys (the int 0 can be a tab), a slider (0 can be where it starts) and a color (the zero Color is transparent black) take new(...) of the value (kit.Tabs\[int\]{DefaultValue: new(0)}), and nil leaves the choice to the component. Where the zero value means "none" it stays a value: a string, an aria.Date, an aria.DateRange.
 
 ### Customization, in three levels
 
@@ -163,7 +165,7 @@ A Variant or Size is valid when the active recipe defines it, so "glass" above i
 3\. Per instance. Class, the Class of a part, Props and the icon slots change one component:
 
 ```go
-kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", Title: h.Text("Billing")}
+kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", TitleLevel: 2, Title: h.Text("Billing")}
 ```
 
 ### What is there
@@ -173,7 +175,7 @@ Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field,
 ```go
 kit.ColorPicker{Value: &color, OnValueChange: setColor.Set, Alpha: true,
     Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}}
-kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), OnValueCommit: save}
+kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: save}
 ```
 
 A [`Table`](#type-table) shows rows of any type through columns, sorts by a header (aria-sort, Enter and Space) and keeps its header and leading columns in place when it scrolls:
@@ -194,7 +196,7 @@ day, setDay := tela.UseState(aria.Date{})
 kit.DatePicker{Value: &day, OnValueChange: setDay.Set, Min: aria.Today()}
 ```
 
-A [`Field`](#type-field) is the usual way to put a label, a control, help text and an error together: it ties them with an id, so the label names the control and clicking it focuses the control, and the control is described by the error or the help text.
+A [`Field`](#type-field) is the usual way to put a label, a control, help text and an error together: it ties them with an id, so the label names the control and clicking it focuses the control, and the control is described by the error or the help text. Input, Textarea, Select, DatePicker, DateRangePicker, ColorInput, Checkbox and Switch take the field's id; a ColorPicker gives it to its hex field.
 
 ```go
 kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
@@ -225,7 +227,6 @@ kit.Dialog{
     Description: h.Text("Make changes to your profile here."),
     Children:    form,
     Footer:      kit.Button{Children: h.Text("Save changes")},
-    ShowClose:   true,
 }
 ```
 
@@ -840,6 +841,10 @@ shadcn sizes the calendar with the CSS variable --cell-size (2rem); the engine h
 type Card struct {
     // Title and Description are the header's heading and its muted line.
     Title, Description tela.Component
+    // TitleLevel makes the Title a heading of that level, 1 to 6 (h1 to
+    // h6); 0 keeps shadcn's div. A level outside 0 to 6 panics in dev mode
+    // and is clamped otherwise.
+    TitleLevel int
     // Action sits at the header's right end: a button, a menu.
     Action tela.Component
     // Children is the content.
@@ -871,6 +876,12 @@ kit.Card{
     Children:    form,
     Footer:      h.Fragment(kit.Button{Variant: kit.Outline, Children: h.Text("Cancel")}, ...),
 }
+```
+
+The Title is a div, as in shadcn. TitleLevel from 1 to 6 makes it a heading (h1 to h6) with the same classes, so that assistive technologies list it and a screen reader user can jump to it; give it the level that fits the page's outline, with plain text in Title:
+
+```go
+kit.Card{TitleLevel: 2, Title: h.Text("Notifications")}
 ```
 
 The recipe's Header, Title, Description, Action, Content and Footer classes style the parts; the fields ending in Class add to them for one card.
@@ -1010,7 +1021,7 @@ CheckboxStyle is the recipe of [`Checkbox`](#type-checkbox) (shadcn/ui's Checkbo
 type ColorInput struct {
     // The color, as in [ColorPicker].
     Value         *tela.Color
-    DefaultValue  tela.Color
+    DefaultValue  *tela.Color
     OnValueChange func(tela.Color)
     OnValueCommit func(tela.Color)
     Alpha         bool
@@ -1032,10 +1043,16 @@ type ColorInput struct {
     OnOpenChange func(open bool)
 
     // AreaLabel, HueLabel, AlphaLabel and HexLabel name the picker's
-    // controls, as in [ColorPicker]. AriaLabel names the panel ("Color
-    // picker" by default).
+    // controls, as in [ColorPicker].
     AreaLabel, HueLabel, AlphaLabel, HexLabel string
-    AriaLabel                                 string
+    // AriaLabel names the button, followed by its color ("Brand color,
+    // #6366f1"), and the panel ("Color picker" when it is empty); inside a
+    // [Field] with a Label that label is used. ID is the button's id, for a
+    // [Label]'s For, and inside a Field defaults to the field's. With a
+    // Trigger of your own, these are for the panel only: name the button and
+    // give it its id yourself.
+    AriaLabel string
+    ID        string
     // Direction is "ltr" or "rtl"; empty is the direction at the component's
     // position (tela.UseDirection: the nearest h.Dir above it, left to right
     // without one). Under "rtl" the saturation grows toward the left
@@ -1057,7 +1074,7 @@ type ColorInput struct {
 ColorInput is a button that shows a color and opens a [`ColorPicker`](#type-colorpicker) in a [`Popover`](#type-popover) to change it: the swatch and the hex code on a button, the picker in a panel under it. It takes the values of a ColorPicker and the open state of a Popover.
 
 ```go
-kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), Alpha: true, OnValueCommit: save}
+kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), Alpha: true, OnValueCommit: save}
 ```
 
 The color lives in the ColorInput, not in the panel, so the swatch and the code on the button follow a drag in the panel without building the component on every move, and the color survives the panel being closed. The panel is a dialog; the focus goes into it when it opens and returns to the button when it closes (Escape, or a press outside it).
@@ -1070,7 +1087,7 @@ Trigger replaces the button, with the rule of every trigger slot (see [`Trigger`
 t := &exampleT{}
 defer t.close()
 page := func() tela.Node {
-    return h.Div(h.Class("p-6"), kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}})
+    return h.Div(h.Class("p-6"), kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}})
 }
 app := telatest.MountFunc(t, page)
 app.Click(telatest.ByRole("button", "#6366f1"))
@@ -1109,8 +1126,11 @@ type ColorPicker struct {
     // Value points to the color of a controlled picker; nil leaves it to
     // the picker, which starts at DefaultValue. OnValueChange is called with
     // the next color on every change.
-    Value         *tela.Color
-    DefaultValue  tela.Color
+    Value *tela.Color
+    // DefaultValue is the color of an uncontrolled picker at the start; nil
+    // starts at opaque black (tela.Black). It is a pointer because the zero
+    // Color is a color too, transparent black.
+    DefaultValue  *tela.Color
     OnValueChange func(tela.Color)
     // OnValueCommit is called with the color when the user stops changing
     // it, and not for a change that left it as it was.
@@ -1135,6 +1155,14 @@ type ColorPicker struct {
     // and ArrowLeft increases them; a Direction given here also sets the
     // direction of the panel's layout.
     Direction string
+    // ID is the id of the picker's hex field, for a [Label]'s For. Inside
+    // a [Field] it defaults to the field's, so the field's label points to
+    // it and a press on the label focuses it.
+    ID string
+    // AriaLabel names the picker as a group for assistive technologies;
+    // inside a Field with a Label that label is used. A picker with neither
+    // is not a group.
+    AriaLabel string
     // Class is added after the recipe's Root classes. Props are more props
     // for the root element.
     Class string
@@ -1185,7 +1213,7 @@ fmt.Println(strings.Join(saved, " "))
 func (p ColorPicker) Build() tela.Node
 ```
 
-Build returns the picker.
+Build returns the picker. Inside a [`Field`](#type-field) the hex field takes the field's id, description and invalid state, and the picker is named by the field's label.
 
 ### type ColorPickerStyle
 
@@ -1636,9 +1664,10 @@ type Dialog struct {
     Children tela.Component
     // Footer is the row of actions at the bottom, usually buttons.
     Footer tela.Component
-    // ShowClose draws the close button in the top-right corner. shadcn
-    // draws it unless told not to; here it is off until asked for.
-    ShowClose bool
+    // HideClose leaves out the close button in the top-right corner, which
+    // is drawn by default (shadcn's showCloseButton={false}). CloseIcon and
+    // CloseLabel are for the button when it is drawn.
+    HideClose bool
     // CloseIcon replaces the X of the close button; CloseLabel is its
     // accessible name ("Close").
     CloseIcon  tela.Icon
@@ -1681,7 +1710,6 @@ kit.Dialog{
     Description: h.Text("Make changes to your profile here."),
     Children:    form,
     Footer:      kit.Button{Children: h.Text("Save changes")},
-    ShowClose:   true,
 }
 ```
 
@@ -1707,7 +1735,6 @@ page := func() tela.Node {
         Description: h.Text("Make changes to your profile here."),
         Children:    kit.Input{Placeholder: "Name"},
         Footer:      kit.Button{Children: h.Text("Save changes")},
-        ShowClose:   true,
     })
 }
 app := telatest.MountFunc(t, page)
@@ -1773,7 +1800,7 @@ type DialogStyle struct {
     Title       string
     Description string
     Footer      string
-    // Close is the button in the corner (ShowClose) and CloseIcon its icon.
+    // Close is the button in the corner (unless HideClose) and CloseIcon its icon.
     Close     string
     CloseIcon string
 }
@@ -2002,9 +2029,13 @@ type Input struct {
     Name string
     // ID is the field's id, for a [Label]'s For. Inside a [Field] it
     // defaults to the field's.
-    ID       string
-    Disabled bool
-    ReadOnly bool
+    ID string
+    // AriaLabel names a field that has no label of its own, such as a
+    // search box; a [Field]'s Label or a [Label] pointing to the field
+    // names it otherwise.
+    AriaLabel string
+    Disabled  bool
+    ReadOnly  bool
     // Invalid marks the value as wrong: assistive technologies announce it
     // and the recipe's aria-invalid: classes (a red border and ring) apply.
     // A [Field] with an Error sets it on its control.
@@ -2137,10 +2168,11 @@ type MenuItem[K comparable] struct {
 
     // Value points to the chosen item of a controlled radio group; nil
     // leaves it to the menu, which starts at DefaultValue (an item whose
-    // Key it equals). OnValueChange is called with the Key of the item the
-    // user chose.
+    // Key it equals; nil: none chosen, a pointer so that the zero K can be
+    // a key). OnValueChange is called with the Key of the item the user
+    // chose.
     Value         *K
-    DefaultValue  K
+    DefaultValue  *K
     OnValueChange func(K)
 
     // Items are the radio items of a radio group, or the entries of a
@@ -2162,7 +2194,7 @@ MenuItem is one entry of a menu, whatever its kind: the model that [`DropdownMen
     {Kind: kit.MenuSeparator},
     {Kind: kit.MenuCheckbox, Key: "bars", Label: "Status bar", DefaultChecked: true},
     {Kind: kit.MenuSeparator},
-    {Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: "light", Items: []kit.MenuItem[string]{
+    {Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: new("light"), Items: []kit.MenuItem[string]{
         {Key: "light", Label: "Light"}, {Key: "dark", Label: "Dark"}}},
     {Key: "logout", Label: "Log out", Variant: kit.Destructive},
 }
@@ -2854,8 +2886,9 @@ type Select[K comparable] struct {
     // Value points to the chosen option of a controlled Select; nil leaves
     // the choice to the component, which starts at DefaultValue.
     Value *K
-    // DefaultValue is the option an uncontrolled Select starts with.
-    DefaultValue K
+    // DefaultValue points to the option an uncontrolled Select starts with;
+    // nil starts with nothing chosen.
+    DefaultValue *K
     // OnValueChange is called with the key of the option the user chose. For
     // a controlled Select it is how the change is asked for.
     OnValueChange func(K)
@@ -2911,7 +2944,7 @@ kit.Select[string]{
 }
 ```
 
-The chosen option follows the kit's value rule: Value (a pointer to your state) with OnValueChange controls it, DefaultValue starts an uncontrolled one. Value and DefaultValue choose the option whose Value equals them; when none does, which is how the zero K shows the placeholder, nothing is chosen. A select whose keys include the zero value of K (the int 0, say) has that option chosen by an unset DefaultValue: give such keys a sentinel option, or use strings.
+The chosen option follows the kit's value rule: Value (a pointer to your state) with OnValueChange controls it, DefaultValue starts an uncontrolled one. Value and DefaultValue choose the option whose Value equals them; when none does, or DefaultValue is nil, nothing is chosen and the placeholder shows. Both are pointers, so that the zero value of K (the int 0, say) can be an option: new(0) chooses it, nil chooses nothing.
 
 Inside a [`Field`](#type-field) the trigger takes the field's id, so the label points to it and names it, the field's description or error describes it, and an error marks it invalid.
 
@@ -3562,6 +3595,17 @@ type Table[T any] struct {
     // look and aria-selected. Nil leaves the rows unselectable.
     Selected func(row T) bool
 
+    // RowProps returns more props for the element of a body row, such as
+    // h.AriaLabel, h.TestID or a handler (h.OnClick, h.OnKeyDown): what
+    // Column.CellProps does for one cell, for the whole row. The row is a
+    // display: contents element, which has no box of its own (see
+    // [TableStyle]), and the engine treats it as the cells it holds: its
+    // pointer and key handlers are called for events on any of its cells,
+    // as events bubble through the tree, and a ref on it, h.Ref, reports
+    // the bounds of its cells together. Classes on the row do not paint (it
+    // has no box): style a row through the cells, with CellClass or Column.Class.
+    RowProps func(row T) tela.Child
+
     // Caption is drawn below the rows, and names the table for assistive
     // technologies. AriaLabel names a table that has none.
     Caption   string
@@ -3769,9 +3813,11 @@ type Tabs[K comparable] struct {
     // Value points to the selected tab of a controlled Tabs; nil leaves
     // the selection to the component, which starts at DefaultValue.
     Value *K
-    // DefaultValue is the tab an uncontrolled Tabs starts on; the first
-    // enabled tab when it is not one of Tabs.
-    DefaultValue K
+    // DefaultValue points to the tab an uncontrolled Tabs starts on; the
+    // first enabled tab when it is nil or not one of Tabs. It is a pointer
+    // so that the zero value of K (the int 0, say) can be a tab:
+    // new(0) selects it.
+    DefaultValue *K
     // OnValueChange is called with the key of the tab the user selected. For
     // a controlled Tabs it is how the change is asked for.
     OnValueChange func(K)
@@ -3813,7 +3859,7 @@ Tabs is a tab list with its panels, shadcn/ui's Tabs: a strip of triggers and th
 
 ```go
 kit.Tabs[string]{
-    DefaultValue: "account",
+    DefaultValue: new("account"),
     Tabs: []kit.Tab[string]{
         {Value: "account", Label: "Account", Content: AccountForm{}},
         {Value: "password", Label: "Password", Content: PasswordForm{}},
@@ -3831,7 +3877,7 @@ Orientation Vertical lays the list out as a column beside the panel and moves wi
 t := &exampleT{}
 defer t.close()
 page := kit.Tabs[string]{
-    DefaultValue: "account",
+    DefaultValue: new("account"),
     Tabs: []kit.Tab[string]{
         {Value: "account", Label: "Account", Content: h.Text("Make changes to your account.")},
         {Value: "password", Label: "Password", Content: h.Text("Change your password.")},
@@ -3906,6 +3952,8 @@ type Textarea struct {
     // ID is the field's id, for a [Label]'s For. Inside a [Field] it
     // defaults to the field's.
     ID string
+    // AriaLabel names a field that has no label of its own (see [Input]).
+    AriaLabel string
     // Rows is the number of lines the field is tall (h.Rows); 0 leaves the
     // recipe's minimum height and the text to size it.
     Rows     int

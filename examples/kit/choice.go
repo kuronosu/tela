@@ -88,7 +88,7 @@ func switchPage() tela.Node {
 				kit.Label{For: "wifi", Children: Text("Wi-Fi")}),
 			readout(map[bool]string{true: "Connected to Home-5G", false: "Not connected"}[wifi])),
 		demo("Settings rows", "A Field with flex-row-reverse puts the switch at the end of the row.", col,
-			kit.Card{Class: "w-full max-w-md", Title: H2(Text("Notifications")), Description: Text("Choose what you want to be told about."),
+			kit.Card{Class: "w-full max-w-md", TitleLevel: 2, Title: Text("Notifications"), Description: Text("Choose what you want to be told about."),
 				Children: Div(Class("flex flex-col gap-5"),
 					switchRow("Comments", "When someone replies to you.", true),
 					switchRow("Mentions", "When someone @mentions you.", true),

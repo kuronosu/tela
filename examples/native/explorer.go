@@ -126,7 +126,7 @@ func (p Window) Build() tela.Node {
 		Div(body...),
 		w.statusBar(),
 		kit.Dialog{
-			Open: &renaming, OnOpenChange: w.dialogClosed(setRenaming),
+			Open: &renaming, OnOpenChange: w.dialogClosed(setRenaming), HideClose: true,
 			Title: Text("Rename"), Description: Text("Type a new name for this item."),
 			Children: renameForm{Name: st.Sel, OnRename: func(to string) {
 				d.Dispatch(Action{Kind: "rename", Name: st.Sel, To: to})

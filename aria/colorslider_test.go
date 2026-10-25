@@ -16,7 +16,7 @@ func hueThumb() telatest.Locator   { return telatest.ByRole("slider", "Hue") }
 func alphaThumb() telatest.Locator { return telatest.ByRole("slider", "Alpha") }
 
 func TestColorSliderSnapshotAndValueText(t *testing.T) {
-	p := picker{state: aria.ColorStateOptions{DefaultValue: tela.Hex("#336699").WithAlpha(0.8)}, parts: "hl"}
+	p := picker{state: aria.ColorStateOptions{DefaultValue: new(tela.Hex("#336699").WithAlpha(0.8))}, parts: "hl"}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	app.ExpectAria(`
 		- group "Hue":
@@ -32,7 +32,7 @@ func TestColorSliderSnapshotAndValueText(t *testing.T) {
 func TestColorSliderKeyboard(t *testing.T) {
 	var ends events
 	p := picker{
-		state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 100, S: 80, B: 80, A: 0.5}.Color()},
+		state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 100, S: 80, B: 80, A: 0.5}.Color())},
 		hue:   aria.ColorSliderOptions{OnChangeEnd: func(c tela.Color) { ends.add(fmt.Sprintf("%.0f", aria.ToHSB(c).H)) }},
 		parts: "hl",
 	}
@@ -73,7 +73,7 @@ func TestColorSliderKeyboard(t *testing.T) {
 }
 
 func TestColorSliderPointer(t *testing.T) {
-	p := picker{state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color()}, parts: "hl"}
+	p := picker{state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color())}, parts: "hl"}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	hue, alpha := hueThumb(), alphaThumb()
 	app.ClickAt(16+0.5*areaLen, hueY)
@@ -97,7 +97,7 @@ func TestColorSliderPointer(t *testing.T) {
 func TestColorSliderTouch(t *testing.T) {
 	for _, kind := range []platform.PointerKind{platform.PointerTouch, platform.PointerPen} {
 		t.Run(fmt.Sprint(kind), func(t *testing.T) {
-			p := picker{state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 90, S: 100, B: 100, A: 1}.Color()}, parts: "h"}
+			p := picker{state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 90, S: 100, B: 100, A: 1}.Color())}, parts: "h"}
 			a := mountRaw(t, tela.C(p.page()), 232, 400)
 			value := func() string { return findNode(a.tree.Semantics(), "slider", "Hue").Value }
 			x := float32(16 + 0.25*areaLen) // hue 90
@@ -114,7 +114,7 @@ func TestColorSliderTouch(t *testing.T) {
 // Hue and saturation sliders keep working at the gray axis: the hue the
 // slider shows is the hue kept, not 0.
 func TestColorSliderKeepsTheHueAtGray(t *testing.T) {
-	p := picker{state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 200, S: 100, B: 100, A: 1}.Color()}, parts: "ah"}
+	p := picker{state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 200, S: 100, B: 100, A: 1}.Color())}, parts: "ah"}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	x, y := areaPoint(0, 60)
 	app.ClickAt(x, y) // gray
@@ -132,7 +132,7 @@ func TestColorSliderOtherChannels(t *testing.T) {
 	var sat, bri, lit aria.ColorSliderResult
 	var stops []tela.Color
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color()})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color())})
 		sat = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorSaturation})
 		bri = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorBrightness})
 		lit = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorLightness, Space: "hsl"})
@@ -190,7 +190,7 @@ func TestColorSliderOtherChannels(t *testing.T) {
 func TestColorSliderTrackColors(t *testing.T) {
 	var hue, alpha aria.ColorSliderResult
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#336699").WithAlpha(0.5)})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#336699").WithAlpha(0.5))})
 		hue = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
 		alpha = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorAlpha})
 		return Div(Class("p-4"), Div(hue.ThumbProps, Class("size-5")), Div(alpha.ThumbProps, Class("size-5")))
@@ -243,7 +243,7 @@ func TestColorSliderControlled(t *testing.T) {
 func TestColorSliderDisabledAndVertical(t *testing.T) {
 	var changes int
 	p := picker{
-		state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 100, S: 100, B: 100, A: 1}.Color(), OnChange: func(tela.Color) { changes++ }},
+		state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 100, S: 100, B: 100, A: 1}.Color()), OnChange: func(tela.Color) { changes++ }},
 		hue:   aria.ColorSliderOptions{Disabled: true}, parts: "h",
 	}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
@@ -254,7 +254,7 @@ func TestColorSliderDisabledAndVertical(t *testing.T) {
 	}
 
 	vertical := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 100, S: 100, B: 100, A: 1}.Color()})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 100, S: 100, B: 100, A: 1}.Color())})
 		hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue, Orientation: "vertical"})
 		return Div(Class("p-4"), Div(hue.TrackProps, Class("h-[200px] w-3"), Div(hue.ThumbProps, Class("size-5"))))
 	}
@@ -268,7 +268,7 @@ func TestColorSliderDisabledAndVertical(t *testing.T) {
 
 func TestColorSliderCustomText(t *testing.T) {
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 90, S: 100, B: 100, A: 1}.Color()})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 90, S: 100, B: 100, A: 1}.Color())})
 		hue := aria.UseColorSlider(aria.ColorSliderOptions{
 			State: st, Channel: aria.ColorHue, AriaLabel: "Matiz",
 			FormatValue: func(ch aria.ColorChannel, v float64) string { return fmt.Sprintf("matiz %g grados", v) },
@@ -283,7 +283,7 @@ func TestColorSliderCustomText(t *testing.T) {
 // A slider is named by a visible label.
 func TestColorSliderLabelledBy(t *testing.T) {
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Black})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Black)})
 		label := tela.UseElementRef()
 		a := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorAlpha, AriaLabelledBy: label})
 		return Div(a.Props, Span(Ref(label), Text("Opacity")), Div(a.TrackProps, Class("w-[200px]"), Div(a.ThumbProps, Class("size-5"))))
@@ -297,7 +297,7 @@ func TestColorSliderLabelledBy(t *testing.T) {
 // slider that follows the color.
 func TestColorSliderDragDoesNotBuildPerMove(t *testing.T) {
 	var builds int
-	p := picker{state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color()}, parts: "ahl", builds: &builds}
+	p := picker{state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color())}, parts: "ahl", builds: &builds}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	hue := hueThumb()
 	start := builds

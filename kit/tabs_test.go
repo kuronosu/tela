@@ -84,8 +84,8 @@ const tabsPanelHTML = `<p class="text-sm text-muted-foreground">%s</p>`
 
 func tabsCell(name string, t kit.Tabs[string], selected int, width int) cell {
 	t.Props = h.TestID(name + "-tabs")
-	if selected >= 0 && t.Value == nil && t.DefaultValue == "" {
-		t.DefaultValue = t.Tabs[selected].Value
+	if selected >= 0 && t.Value == nil && t.DefaultValue == nil {
+		t.DefaultValue = new(t.Tabs[selected].Value)
 	}
 	panel := ""
 	if selected >= 0 && t.Tabs[selected].Content != nil {
@@ -164,7 +164,7 @@ func TestTabsManualActivation(t *testing.T) {
 
 func TestTabsPointerAndUncontrolled(t *testing.T) {
 	var seen []string
-	app := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), DefaultValue: "password", OnValueChange: func(k string) { seen = append(seen, k) }})
+	app := telatest.Mount(t, kit.Tabs[string]{Tabs: demoTabs(), DefaultValue: new("password"), OnValueChange: func(k string) { seen = append(seen, k) }})
 	selectedTab(app, "Password")
 	app.ExpectText(passwordText)
 	app.Click(telatest.ByRole("tab", "Team"))
@@ -229,7 +229,7 @@ func TestTabsLineDrawsAnIndicator(t *testing.T) {
 }
 
 func TestTabsAriaSnapshot(t *testing.T) {
-	snap, err := telatest.AriaSnapshot(kit.Tabs[string]{Tabs: demoTabs(), AriaLabel: "Settings", DefaultValue: "password"})
+	snap, err := telatest.AriaSnapshot(kit.Tabs[string]{Tabs: demoTabs(), AriaLabel: "Settings", DefaultValue: new("password")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func ExampleTabs() {
 	t := &exampleT{}
 	defer t.close()
 	page := kit.Tabs[string]{
-		DefaultValue: "account",
+		DefaultValue: new("account"),
 		Tabs: []kit.Tab[string]{
 			{Value: "account", Label: "Account", Content: h.Text("Make changes to your account.")},
 			{Value: "password", Label: "Password", Content: h.Text("Change your password.")},

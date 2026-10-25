@@ -27,7 +27,7 @@ func clickDisabled(app *telatest.App, l telatest.Locator) {
 
 func TestCalendarTabStopIsTheFocusedDate(t *testing.T) {
 	app := telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
-		DefaultValue: new(d(2026, time.October, 5)),
+		DefaultValue: d(2026, time.October, 5),
 	}), telatest.Size(400, 360))
 	// Previous, next, then the grid: one tab stop, on the selected date.
 	app.Press("Tab")
@@ -58,7 +58,7 @@ func TestCalendarTabStopWithoutValueIsToday(t *testing.T) {
 
 func TestCalendarArrowKeys(t *testing.T) {
 	app := telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
-		DefaultValue: new(d(2026, time.October, 28)),
+		DefaultValue: d(2026, time.October, 28),
 	}), telatest.Size(400, 360))
 	app.Focus(cell(d(2026, time.October, 28)))
 	expectKeys(t, app,
@@ -141,7 +141,7 @@ func TestCalendarLeapYears(t *testing.T) {
 
 func TestCalendarHomeEnd(t *testing.T) {
 	app := telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
-		DefaultValue: new(d(2026, time.October, 7)), // a Wednesday
+		DefaultValue: d(2026, time.October, 7), // a Wednesday
 	}), telatest.Size(400, 360))
 	app.Focus(cell(d(2026, time.October, 7)))
 	// Sunday first: the week of the 7th is the 4th to the 10th.
@@ -158,7 +158,7 @@ func TestCalendarHomeEnd(t *testing.T) {
 	// Monday first (the option, or de-DE's locale): the week of the 7th is
 	// the 5th to the 11th.
 	app = telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
-		DefaultValue: new(d(2026, time.October, 7)), FirstDayOfWeek: new(time.Monday),
+		DefaultValue: d(2026, time.October, 7), FirstDayOfWeek: new(time.Monday),
 	}), telatest.Size(400, 360))
 	app.Focus(cell(d(2026, time.October, 7)))
 	expectKeys(t, app, "Home", d(2026, time.October, 5), "End", d(2026, time.October, 11))
@@ -190,7 +190,7 @@ func TestCalendarSelectsWithEnterAndSpace(t *testing.T) {
 func TestCalendarStopsAtMinAndMax(t *testing.T) {
 	app := telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
 		Min: d(2026, time.October, 10), Max: d(2026, time.October, 20),
-		DefaultValue: new(d(2026, time.October, 12)),
+		DefaultValue: d(2026, time.October, 12),
 	}), telatest.Size(400, 360))
 	app.Expect(cell(d(2026, time.October, 9)), telatest.Disabled(true))
 	app.Expect(cell(d(2026, time.October, 10)), telatest.Disabled(false))

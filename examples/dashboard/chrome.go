@@ -115,7 +115,7 @@ func header() tela.Node {
 		),
 		Div(Class("relative ml-auto hidden w-64 lg:block"),
 			Icon(icons.Search, Class("pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground")),
-			kit.Input{Type: "search", Placeholder: "Search reports", Class: "pl-9", Props: AriaLabel("Search")},
+			kit.Input{Type: "search", Placeholder: "Search reports", Class: "pl-9", AriaLabel: "Search"},
 		),
 		RangeControl(),
 		ThemeSwitch(),

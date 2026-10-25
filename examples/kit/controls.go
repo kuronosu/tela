@@ -103,35 +103,35 @@ func progressPage() tela.Node {
 func tabsPage() tela.Node {
 	return grid(
 		demo("Account", "A Tabs with a form in each panel, as in shadcn's example. Only the selected panel is built.", "",
-			kit.Tabs[string]{DefaultValue: "account", Class: "w-full max-w-md", AriaLabel: "Settings", Tabs: []kit.Tab[string]{
+			kit.Tabs[string]{DefaultValue: new("account"), Class: "w-full max-w-md", AriaLabel: "Settings", Tabs: []kit.Tab[string]{
 				{Value: "account", Label: "Account", Content: kit.Card{
-					Title: H2(Text("Account")), Description: Text("Make changes to your account here."),
+					TitleLevel: 2, Title: Text("Account"), Description: Text("Make changes to your account here."),
 					Children: Div(Class("flex flex-col gap-4"),
 						kit.Field{Label: "Name", Children: kit.Input{DefaultValue: "Mei Tanaka"}},
 						kit.Field{Label: "Username", Children: kit.Input{DefaultValue: "@mei"}}),
 					Footer: kit.Button{Children: Text("Save changes")}}},
 				{Value: "password", Label: "Password", Content: kit.Card{
-					Title: H2(Text("Password")), Description: Text("Change your password here."),
+					TitleLevel: 2, Title: Text("Password"), Description: Text("Change your password here."),
 					Children: Div(Class("flex flex-col gap-4"),
 						kit.Field{Label: "Current password", Children: kit.Input{Type: "password"}},
 						kit.Field{Label: "New password", Children: kit.Input{Type: "password"}}),
 					Footer: kit.Button{Children: Text("Save password")}}},
 			}}),
 		demo("Line variant", "TabsLine draws no pill and underlines the selected tab; a tab can have an icon or be disabled.", col,
-			kit.Tabs[string]{Variant: kit.TabsLine, DefaultValue: "overview", AriaLabel: "Project", Tabs: []kit.Tab[string]{
+			kit.Tabs[string]{Variant: kit.TabsLine, DefaultValue: new("overview"), AriaLabel: "Project", Tabs: []kit.Tab[string]{
 				{Value: "overview", Label: "Overview", Icon: icons.LayoutGrid, Content: muted("Everything about the project, at a glance.")},
 				{Value: "activity", Label: "Activity", Icon: icons.Bell, Content: muted("Commits, comments and deployments.")},
 				{Value: "settings", Label: "Settings", Icon: icons.Settings, Content: muted("Names, access and integrations.")},
 				{Value: "billing", Label: "Billing", Icon: icons.CreditCard, Disabled: true, Content: muted("Not available on this plan.")},
 			}}),
 		demo("Vertical", "Orientation Vertical lays the list out beside the panel and moves with the up and down arrows.", "",
-			kit.Tabs[string]{Orientation: kit.Vertical, DefaultValue: "profile", AriaLabel: "Preferences", Class: "w-full max-w-md", Tabs: []kit.Tab[string]{
+			kit.Tabs[string]{Orientation: kit.Vertical, DefaultValue: new("profile"), AriaLabel: "Preferences", Class: "w-full max-w-md", Tabs: []kit.Tab[string]{
 				{Value: "profile", Label: "Profile", Content: muted("Your name, picture and bio.")},
 				{Value: "security", Label: "Security", Content: muted("Password and two-factor authentication.")},
 				{Value: "notifications", Label: "Notifications", Content: muted("What reaches your inbox.")},
 			}}),
 		demo("Manual activation", "ManualActivation makes the arrows move the focus only; Enter or Space selects.", col,
-			kit.Tabs[string]{ManualActivation: true, DefaultValue: "a", AriaLabel: "Manual", Tabs: []kit.Tab[string]{
+			kit.Tabs[string]{ManualActivation: true, DefaultValue: new("a"), AriaLabel: "Manual", Tabs: []kit.Tab[string]{
 				{Value: "a", Label: "First", Content: muted("The first panel.")},
 				{Value: "b", Label: "Second", Content: muted("The second panel.")},
 				{Value: "c", Label: "Third", Content: muted("The third panel.")},

@@ -21,7 +21,7 @@ func TestSelectItemsMirrorInRTL(t *testing.T) {
 		t.Run(c.dir, func(t *testing.T) {
 			app := telatest.MountFunc(t, func() tela.Node {
 				return h.Div(h.Dir(c.dir), h.Class("p-6"),
-					kit.Select[string]{Items: fruitItems, DefaultValue: "banana", DefaultOpen: true, AriaLabel: "Fruit"})
+					kit.Select[string]{Items: fruitItems, DefaultValue: new("banana"), DefaultOpen: true, AriaLabel: "Fruit"})
 			}, telatest.Size(400, 360), telatest.Theme(kit.Theme()))
 			row := app.Bounds(telatest.ByRole("option", "Banana"))
 			check := app.Bounds(telatest.ByClass("absolute", "end-2").Nth(1)) // the second option, Banana

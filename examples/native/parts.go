@@ -157,20 +157,21 @@ func (w *win) iconPx() float32 {
 	return 16 + float32(w.zoom)*0.15
 }
 
-// rowProps are the handlers of what a row of the list is made of: a click
-// selects, a double click opens and a right click selects what the context
-// menu is about. A table has no props for a row, so each cell's content
-// carries them.
-func (w *win) rowProps(e *Entry) []tela.Child {
+// rowProps are the props of a row of the list (Table.RowProps): its name,
+// and the handlers that see a press on any of its cells: a click selects, a
+// double click opens and a right click selects what the context menu is
+// about.
+func (w *win) rowProps(e *Entry) tela.Child {
 	d := w.d
-	return []tela.Child{
+	return tela.MergeProps(
+		AriaLabel(e.Name),
 		OnClick(func() { d.Dispatch(Action{Kind: "select", Name: e.Name}) }),
 		OnContextMenu(func() { d.Dispatch(Action{Kind: "select", Name: e.Name}) }),
 		OnDoubleClick(func() {
 			d.Dispatch(Action{Kind: "select", Name: e.Name})
 			d.Dispatch(Action{Kind: "activate"})
 		}),
-	}
+	)
 }
 
 // table is the file list: a kit.Table whose headers sort.
@@ -213,6 +214,7 @@ func (w *win) table() tela.Component {
 			d.Dispatch(Action{Kind: "sort", Col: colOf(s.Column), Desc: s.Direction == kit.Descending})
 		},
 		Selected: func(e *Entry) bool { return e.Name == st.Sel },
+		RowProps: w.rowProps,
 	}
 }
 
@@ -223,7 +225,7 @@ func (w *win) cell(c Column, e *Entry) tela.Node {
 	if l.Right[c] {
 		align = "justify-end text-right"
 	}
-	kids := append([]tela.Child{Class("flex h-full w-full min-w-0 items-center gap-2.5 px-2", align)}, w.rowProps(e)...)
+	kids := []tela.Child{Class("flex h-full w-full min-w-0 items-center gap-2.5 px-2", align)}
 	var text string
 	switch c {
 	case ColName:

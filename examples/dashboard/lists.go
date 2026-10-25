@@ -56,7 +56,8 @@ func (p TasksCard) Build() tela.Node {
 	}
 	slide := func(Task) tela.Child { return AnimateLayout() }
 	return Fragment(kit.Card{
-		Title: H2(Text("Priorities")),
+		TitleLevel: 2,
+		Title:      Text("Priorities"),
 		Action: kit.ToggleGroup[string]{Items: chips, Value: &sortBy, OnValueChange: setSort.Set, DisallowEmptySelection: true,
 			Size: kit.Sm, AriaLabel: "Sort by", Class: "rounded-lg border-0 bg-muted p-0.5",
 			ItemClass: "checked:bg-white checked:text-foreground checked:shadow-sm dark:checked:bg-white/15"},
@@ -154,8 +155,9 @@ func ActivityCard() tela.Node { return tela.C(activityCard) }
 
 func activityCard() tela.Node {
 	return Fragment(kit.Card{
-		Title:  H2(Text("Recent sales")),
-		Action: kit.Button{Variant: kit.Link, Class: "h-auto px-1", Children: Text("View all")},
+		TitleLevel: 2,
+		Title:      Text("Recent sales"),
+		Action:     kit.Button{Variant: kit.Link, Class: "h-auto px-1", Children: Text("View all")},
 		Children: kit.Table[Sale]{
 			Rows: sales, RowKey: func(s Sale) any { return s.Name }, AriaLabel: "Recent sales",
 			Columns: []kit.Column[Sale]{

@@ -269,7 +269,7 @@ The selected date is uncontrolled by default and controlled when Value points to
 A color picker is a [`UseColorState`](#func-usecolorstate) that its parts share: an area ([`UseColorArea`](#func-usecolorarea): saturation along one axis, brightness along the other), sliders for the hue and the opacity ([`UseColorSlider`](#func-usecolorslider), whose TrackColors are the stops of the gradient behind the thumb) and a hex field ([`UseColorField`](#func-usecolorfield)). The state is the color the picker shows, uncontrolled by default and controlled when Value points to the caller's tela.Color; it keeps the color as an [`HSB`](#type-hsb), so that dragging through gray or black does not lose the hue. All the parts are made in one component, and dragging moves the thumbs by repainting, as a slider does:
 
 ```go
-st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
 hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
 hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
@@ -595,8 +595,8 @@ type CalendarOptions struct {
     // leaves it to the hook.
     Value *Date
     // DefaultValue is the selected date of an uncontrolled calendar at the
-    // start; nil selects nothing.
-    DefaultValue *Date
+    // start; the zero Date selects nothing.
+    DefaultValue Date
     // OnValueChange is called with the date the user selects: how a
     // controlled calendar asks for the change, a notification for an
     // uncontrolled one. It is not called for the date that already is
@@ -1256,7 +1256,7 @@ func UseColorArea(o ColorAreaOptions) ColorAreaResult
 UseColorArea holds the interaction of a color area (React Aria's useColorArea): a thumb in a rectangle, dragged with a pointer or moved with the keys, that changes two channels of the shared [`ColorState`](#type-colorstate). The caller renders the area (its background is the gradients of the hue, as the kit's does) and the thumb:
 
 ```go
-st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
 size := tela.UseSize(area.AreaRef)
 return Div(area.AreaProps, Class("relative size-48 rounded-md"),
@@ -1278,7 +1278,7 @@ Unlike a slider's, the Home and End keys step the X channel by a page and PageUp
 t := &exampleT{}
 defer t.close()
 page := func() tela.Node {
-    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 220, S: 50, B: 50, A: 1}.Color()})
+    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 220, S: 50, B: 50, A: 1}.Color())})
     area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
     size := tela.UseSize(area.AreaRef)
     return Div(area.AreaProps, Class("relative size-48 rounded-md bg-muted"),
@@ -1409,7 +1409,7 @@ func UseColorField(o ColorFieldOptions) ColorFieldResult
 UseColorField holds a hex text field for the shared color (React Aria's useColorField). The user types a code ("#6366f1", "6366f1" or "#fff") and it is committed when the field loses the focus or on Enter: a code that parses sets the color, anything else (including an empty text) is reverted to the color's code. While the field is not being edited it shows the color, so a drag elsewhere in the picker updates it. ArrowUp and ArrowDown add or subtract one from the color as a 24-bit number, PageUp and PageDown sixteen.
 
 ```go
-st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
 return Input(hex.InputProps, Class("w-28 rounded-md border px-2 py-1 font-mono"))
 ```
@@ -1420,7 +1420,7 @@ return Input(hex.InputProps, Class("w-28 rounded-md border px-2 py-1 font-mono")
 t := &exampleT{}
 defer t.close()
 page := func() tela.Node {
-    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
     hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
     return Div(Class("p-4"),
         Input(hex.InputProps, Class("w-28 rounded-md border px-2 font-mono")),
@@ -1520,7 +1520,7 @@ func UseColorSlider(o ColorSliderOptions) ColorSliderResult
 UseColorSlider holds the interaction of a slider for one channel of a color (React Aria's useColorSlider). It is built on [`UseSlider`](#func-useslider), so it drags, rounds and answers keys like it, with the channel's range, step and page. The caller renders the track (a gradient of TrackColors) and the thumb:
 
 ```go
-st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
 track := tela.UseSize(hue.TrackRef)
 return Div(hue.Props, Class("w-64"),
@@ -1539,7 +1539,7 @@ Dragging repaints and does not build, as the slider does.
 t := &exampleT{}
 defer t.close()
 page := func() tela.Node {
-    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 220, S: 80, B: 90, A: 1}.Color()})
+    st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 220, S: 80, B: 90, A: 1}.Color())})
     hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
     track := tela.UseSize(hue.TrackRef)
     return Div(hue.Props, Class("w-64 p-4"),
@@ -1667,10 +1667,10 @@ type ColorStateOptions struct {
     // Value points to the color of a controlled state; nil leaves it to
     // the hook.
     Value *tela.Color
-    // DefaultValue is the color of an uncontrolled state at the start.
-    // The zero Color is transparent black: pass tela.Black, or a color,
-    // to start with an opaque one.
-    DefaultValue tela.Color
+    // DefaultValue is the color of an uncontrolled state at the start; nil
+    // starts at opaque black (tela.Black). It is a pointer because the
+    // zero Color is a color too, transparent black: new(tela.Hex("#6366f1")).
+    DefaultValue *tela.Color
     // OnChange is called with the next color every time the user changes
     // it: while dragging, on each key, on a hex commit and when a swatch is
     // set. The color is in the sRGB gamut.
@@ -1684,7 +1684,7 @@ The color is uncontrolled when Value is nil (the state keeps it, starting at Def
 
 ```go
 // A picker that keeps its color.
-aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")}
+aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))}
 // A controlled one.
 c, setC := tela.UseState(tela.Hex("#6366f1"))
 aria.ColorStateOptions{Value: &c, OnChange: setC.Set}
@@ -4589,9 +4589,9 @@ type RangeCalendarOptions struct {
     // Value points to the selected range of a controlled calendar; nil
     // leaves it to the hook. DefaultValue starts an uncontrolled one,
     // and OnValueChange is called with the range the user completes (the
-    // earlier date first).
+    // earlier date first). The zero DateRange selects nothing.
     Value         *DateRange
-    DefaultValue  *DateRange
+    DefaultValue  DateRange
     OnValueChange func(DateRange)
     // AllowsNonContiguousRanges lets a range cross unavailable dates.
     // Without it, once the first date is chosen the dates beyond the

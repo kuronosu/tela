@@ -62,7 +62,7 @@ type ColorFieldResult struct {
 // and ArrowDown add or subtract one from the color as a 24-bit number,
 // PageUp and PageDown sixteen.
 //
-//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 //	hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
 //	return Input(hex.InputProps, Class("w-28 rounded-md border px-2 py-1 font-mono"))
 func UseColorField(o ColorFieldOptions) ColorFieldResult {

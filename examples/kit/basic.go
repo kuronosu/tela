@@ -119,7 +119,8 @@ func cardPage() tela.Node {
 		demo("Login", "A header with an action, content and a footer.", "",
 			kit.Card{
 				Class:       "w-full max-w-sm",
-				Title:       H2(Text("Login to your account")),
+				TitleLevel:  2,
+				Title:       Text("Login to your account"),
 				Description: Text("Enter your email below to login."),
 				Action:      kit.Button{Variant: kit.Link, Children: Text("Sign up")},
 				Children: Div(Class("flex flex-col gap-4"),
@@ -134,7 +135,8 @@ func cardPage() tela.Node {
 		demo("Notifications", "A list in the content slot.", "",
 			kit.Card{
 				Class:       "w-full max-w-sm",
-				Title:       H2(Text("Notifications")),
+				TitleLevel:  2,
+				Title:       Text("Notifications"),
 				Description: Text("You have 3 unread messages."),
 				Children: Div(Class("flex flex-col gap-4"),
 					notification("Your call has been confirmed.", "1 hour ago"),
@@ -148,7 +150,7 @@ func cardPage() tela.Node {
 				Span(Class("text-sm text-muted-foreground"), Text("Total revenue")),
 				Span(Class("text-3xl font-semibold tabular-nums"), Text("$45,231.89")),
 				Span(Class("text-xs text-muted-foreground"), Text("+20.1% from last month")))},
-			kit.Card{Class: "w-64", Title: H2(Text("Storage")), Description: Text("62% of 10 GB used"),
+			kit.Card{Class: "w-64", TitleLevel: 2, Title: Text("Storage"), Description: Text("62% of 10 GB used"),
 				Children: kit.Progress{Value: 62, AriaLabel: "Storage used"}},
 		),
 	)

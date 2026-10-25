@@ -18,7 +18,8 @@
 //     overrides the look with no merging: Class: "w-full" widens a Card,
 //     Class: "rounded-full" rounds a Button.
 //   - Props is a tela.Child with more props for the root element, such as
-//     h.Key, h.TestID or h.OnMouseEnter(...).
+//     h.Key, h.TestID or h.OnMouseEnter(...). It takes one value: merge
+//     several with tela.MergeProps(h.TestID("save"), h.OnMouseEnter(warm)).
 //   - Children is a tela.Component, the content of the component. A
 //     component with several parts has a slot for each as a tela.Component
 //     field (kit.Card has Title, Description, Action, Children and Footer);
@@ -51,8 +52,16 @@
 // The same names recur: Value/DefaultValue/OnValueChange for a string, Checked
 // (*bool)/DefaultChecked/OnCheckedChange for an on/off control, Open
 // (*bool)/DefaultOpen/OnOpenChange for what opens and closes. A control that
-// holds a choice among keys takes Value *K, DefaultValue K and OnValueChange
+// holds a choice among keys takes Value *K, DefaultValue *K and OnValueChange
 // func(K).
+//
+// A DefaultValue is a pointer when the zero value of its type is a valid
+// value, so that "no default" and "the zero value" differ: a choice among
+// keys (the int 0 can be a tab), a slider (0 can be where it starts) and a
+// color (the zero Color is transparent black) take new(...) of the value
+// (kit.Tabs[int]{DefaultValue: new(0)}), and nil leaves the choice to the
+// component. Where the zero value means "none" it stays a value: a string,
+// an aria.Date, an aria.DateRange.
 //
 // # Customization, in three levels
 //
@@ -87,7 +96,7 @@
 // 3. Per instance. Class, the Class of a part, Props and the icon slots
 // change one component:
 //
-//	kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", Title: h.Text("Billing")}
+//	kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", TitleLevel: 2, Title: h.Text("Billing")}
 //
 // # What is there
 //
@@ -105,7 +114,7 @@
 //
 //	kit.ColorPicker{Value: &color, OnValueChange: setColor.Set, Alpha: true,
 //	    Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}}
-//	kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), OnValueCommit: save}
+//	kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: save}
 //
 // A [Table] shows rows of any type through columns, sorts
 // by a header (aria-sort, Enter and Space) and keeps its header and leading
@@ -132,7 +141,9 @@
 // A [Field] is the usual way to put a label, a control, help text
 // and an error together: it ties them with an id, so the label names the
 // control and clicking it focuses the control, and the control is described
-// by the error or the help text.
+// by the error or the help text. Input, Textarea, Select, DatePicker,
+// DateRangePicker, ColorInput, Checkbox and Switch take the field's id; a
+// ColorPicker gives it to its hex field.
 //
 //	kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 //	    Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
@@ -177,7 +188,6 @@
 //	    Description: h.Text("Make changes to your profile here."),
 //	    Children:    form,
 //	    Footer:      kit.Button{Children: h.Text("Save changes")},
-//	    ShowClose:   true,
 //	}
 //
 // One rule makes every trigger slot of the kit work, Radix's asChild: the

@@ -213,7 +213,7 @@ func TestRTLColorPickerKeys(t *testing.T) {
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			app := mountRTL(t, sc, func(dir string) tela.Component {
-				return kit.ColorPicker{DefaultValue: tela.Hex("#ff0000"), Direction: dir}
+				return kit.ColorPicker{DefaultValue: new(tela.Hex("#ff0000")), Direction: dir}
 			})
 			hue := telatest.ByRole("slider", "Hue")
 			app.Focus(hue)
@@ -273,7 +273,7 @@ func TestRTLDialogCloseAndHeader(t *testing.T) {
 	for _, dir := range []string{"ltr", "rtl"} {
 		t.Run(dir, func(t *testing.T) {
 			app := telatest.MountFunc(t, func() tela.Node {
-				return h.Div(h.Dir(dir), pageUnder(editDialog(kit.Dialog{DefaultOpen: true, ShowClose: true}))())
+				return h.Div(h.Dir(dir), pageUnder(editDialog(kit.Dialog{DefaultOpen: true}))())
 			}, telatest.Theme(kit.Theme()), telatest.Size(640, 480))
 			dlg, closeBtn, title := app.Bounds(profileDlg), app.Bounds(closeButton), app.Bounds(telatest.ByRole("heading", "Edit profile"))
 			// The close button is 16 px (top-4 end-4) from the end corner; the

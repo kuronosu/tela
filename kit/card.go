@@ -6,6 +6,8 @@
 package kit
 
 import (
+	"fmt"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 )
@@ -51,6 +53,13 @@ func init() {
 //	    Footer:      h.Fragment(kit.Button{Variant: kit.Outline, Children: h.Text("Cancel")}, ...),
 //	}
 //
+// The Title is a div, as in shadcn. TitleLevel from 1 to 6 makes it a
+// heading (h1 to h6) with the same classes, so that assistive technologies
+// list it and a screen reader user can jump to it; give it the level that
+// fits the page's outline, with plain text in Title:
+//
+//	kit.Card{TitleLevel: 2, Title: h.Text("Notifications")}
+//
 // The recipe's Header, Title, Description, Action, Content and Footer
 // classes style the parts; the fields ending in Class add to them for one
 // card.
@@ -61,6 +70,10 @@ func init() {
 type Card struct {
 	// Title and Description are the header's heading and its muted line.
 	Title, Description tela.Component
+	// TitleLevel makes the Title a heading of that level, 1 to 6 (h1 to
+	// h6); 0 keeps shadcn's div. A level outside 0 to 6 panics in dev mode
+	// and is clamped otherwise.
+	TitleLevel int
 	// Action sits at the header's right end: a button, a menu.
 	Action tela.Component
 	// Children is the content.
@@ -89,7 +102,7 @@ func (c Card) Build() tela.Node {
 	if c.Title != nil || c.Description != nil || c.Action != nil {
 		header := []tela.Child{cls(s.Header, when(c.Action != nil, s.HeaderWithAction), c.HeaderClass)}
 		if c.Title != nil {
-			header = append(header, h.Div(cls(s.Title, c.TitleClass), c.Title))
+			header = append(header, cardTitle(c.TitleLevel)(cls(s.Title, c.TitleClass), c.Title))
 		}
 		if c.Description != nil {
 			header = append(header, h.Div(cls(s.Description, c.DescriptionClass), c.Description))
@@ -106,4 +119,30 @@ func (c Card) Build() tela.Node {
 		parts = append(parts, h.Div(cls(s.Footer, c.FooterClass), c.Footer))
 	}
 	return h.Div(parts...)
+}
+
+// cardTitle returns the constructor of the element of a card's title for
+// TitleLevel: a div for 0, h1 to h6 for 1 to 6.
+func cardTitle(level int) func(...tela.Child) tela.Node {
+	if level < 0 || level > 6 {
+		if devMode() {
+			panic(fmt.Sprintf("kit: Card.TitleLevel is %d; use 0 for a div or 1 to 6 for a heading (h1 to h6)", level))
+		}
+		level = min(max(level, 0), 6)
+	}
+	switch level {
+	case 1:
+		return h.H1
+	case 2:
+		return h.H2
+	case 3:
+		return h.H3
+	case 4:
+		return h.H4
+	case 5:
+		return h.H5
+	case 6:
+		return h.H6
+	}
+	return h.Div
 }

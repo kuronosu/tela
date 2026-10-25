@@ -23,7 +23,7 @@ func TestCalendarAriaSnapshot(t *testing.T) {
 	// the 1st and 2nd are before Min (disabled), and so is the previous
 	// month button.
 	app := telatest.MountFunc(t, calendarPage(aria.CalendarOptions{
-		AriaLabel: "Appointment", DefaultValue: new(d(2026, time.February, 10)),
+		AriaLabel: "Appointment", DefaultValue: d(2026, time.February, 10),
 		Min: d(2026, time.February, 3), IsDateUnavailable: func(x aria.Date) bool { return x.Day == 12 },
 		DefaultFocusedDate: d(2026, time.February, 10),
 	}), telatest.Size(400, 360))
@@ -35,7 +35,7 @@ func TestRangeCalendarAriaSnapshot(t *testing.T) {
 	// aria-multiselectable, and the cells of the range are selected.
 	app := telatest.MountFunc(t, rangePage(aria.RangeCalendarOptions{
 		AriaLabel: "Stay", ReadOnly: true,
-		DefaultValue:       &aria.DateRange{Start: d(2026, time.February, 10), End: d(2026, time.February, 12)},
+		DefaultValue:       aria.DateRange{Start: d(2026, time.February, 10), End: d(2026, time.February, 12)},
 		DefaultFocusedDate: d(2026, time.February, 10),
 	}), telatest.Size(400, 360))
 	app.AriaGolden("calendar_range.aria.txt")

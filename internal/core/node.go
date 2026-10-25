@@ -312,6 +312,11 @@ func propOf(c Child) (Prop, bool) {
 	return Prop{}, false
 }
 
+// PropOf returns the prop c holds, for tela.MergeProps: a Prop, a
+// StyleProp (the zero one of an If that is off included) or the node
+// made by Prop.Build; ok is false for anything else.
+func PropOf(c Child) (Prop, bool) { return propOf(c) }
+
 // addChild adds c to primitive d: a nil Child is a hole, a node is a
 // child, a prop applies to d and any other Component becomes a component
 // node.

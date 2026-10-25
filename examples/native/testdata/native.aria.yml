@@ -36,47 +36,47 @@
       - columnheader "Modified":
         - button "Modified"
   - rowgroup:
-    - row "Projects 2 items Folder Mon":
+    - row "Projects":
       - cell "Projects"
       - cell "2 items"
       - cell "Folder"
       - cell "Mon"
-    - row "Reports 2 items Folder Thu":
+    - row "Reports":
       - cell "Reports"
       - cell "2 items"
       - cell "Folder"
       - cell "Thu"
-    - row "Taxes 2025 0 items Folder Apr 14":
+    - row "Taxes 2025":
       - cell "Taxes 2025"
       - cell "0 items"
       - cell "Folder"
       - cell "Apr 14"
-    - row "Budget 2026.xlsx 219.1 kB Excel 2007 spreadsheet Sat":
+    - row "Budget 2026.xlsx":
       - cell "Budget 2026.xlsx"
       - cell "219.1 kB"
       - cell "Excel 2007 spreadsheet"
       - cell "Sat"
-    - row "Contract draft.docx 59.4 kB Word 2007 document Fri" [selected]:
+    - row "Contract draft.docx" [selected]:
       - cell "Contract draft.docx"
       - cell "59.4 kB"
       - cell "Word 2007 document"
       - cell "Fri"
-    - row "Meeting notes.txt 4.1 kB Plain text document Mon":
+    - row "Meeting notes.txt":
       - cell "Meeting notes.txt"
       - cell "4.1 kB"
       - cell "Plain text document"
       - cell "Mon"
-    - row "Quarterly review.docx 134.1 kB Word 2007 document Sep 25":
+    - row "Quarterly review.docx":
       - cell "Quarterly review.docx"
       - cell "134.1 kB"
       - cell "Word 2007 document"
       - cell "Sep 25"
-    - row "Resume.pdf 749.6 kB PDF document Aug 19":
+    - row "Resume.pdf":
       - cell "Resume.pdf"
       - cell "749.6 kB"
       - cell "PDF document"
       - cell "Aug 19"
-    - row "todo.md 1.0 kB Markdown document Yesterday":
+    - row "todo.md":
       - cell "todo.md"
       - cell "1.0 kB"
       - cell "Markdown document"

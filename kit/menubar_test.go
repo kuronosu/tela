@@ -49,7 +49,7 @@ func viewMenu() kit.MenubarMenu[string] {
 		{Key: "force", Label: "Force Reload", Shortcut: "⇧⌘R", Inset: true, Disabled: true},
 		{Kind: kit.MenuSeparator},
 		{Kind: kit.MenuLabel, Label: "Profile", Inset: true},
-		{Kind: kit.MenuRadioGroup, Key: "profile", DefaultValue: "benoit", Items: []kit.MenuItem[string]{
+		{Kind: kit.MenuRadioGroup, Key: "profile", DefaultValue: new("benoit"), Items: []kit.MenuItem[string]{
 			{Key: "andy", Label: "Andy"}, {Key: "benoit", Label: "Benoit"}, {Key: "luis", Label: "Luis"}}},
 	}}
 }

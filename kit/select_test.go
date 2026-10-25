@@ -70,7 +70,7 @@ func selectHTML(s kit.Select[string], probe string, value string, open, focused 
 	}
 	ic := ""
 	for _, it := range s.Items {
-		if it.Value == s.DefaultValue && it.Icon != (tela.Icon{}) {
+		if s.DefaultValue != nil && it.Value == *s.DefaultValue && it.Icon != (tela.Icon{}) {
 			ic = svgHTML(it.Icon)
 		}
 	}
@@ -149,7 +149,7 @@ func selectCell(name string, s kit.Select[string], height int) cell {
 	}
 	value := ""
 	for _, it := range s.Items {
-		if it.Value == s.DefaultValue && s.DefaultValue != "" {
+		if s.DefaultValue != nil && it.Value == *s.DefaultValue {
 			value = it.Label
 		}
 	}
@@ -178,14 +178,14 @@ func selectSheet() *sheet {
 	}
 	return &sheet{name: "select", slot: 220, cells: []cell{
 		selectCell("placeholder", kit.Select[string]{Items: fruitItems, Placeholder: "Select a fruit"}, 0),
-		selectCell("value", kit.Select[string]{Items: fruitItems, DefaultValue: "banana", Placeholder: "Select a fruit"}, 0),
-		selectCell("small", kit.Select[string]{Items: fruitItems, DefaultValue: "banana", Size: kit.Sm}, 0),
+		selectCell("value", kit.Select[string]{Items: fruitItems, DefaultValue: new("banana"), Placeholder: "Select a fruit"}, 0),
+		selectCell("small", kit.Select[string]{Items: fruitItems, DefaultValue: new("banana"), Size: kit.Sm}, 0),
 		selectCell("disabled", kit.Select[string]{Items: fruitItems, Placeholder: "Select a fruit", Disabled: true}, 0),
 		selectCell("invalid", kit.Select[string]{Items: fruitItems, Placeholder: "Select a fruit", Invalid: true}, 0),
-		selectCell("icon-value", kit.Select[string]{Items: icons, DefaultValue: "done"}, 0),
-		selectCell("open", kit.Select[string]{Items: fruitItems, DefaultValue: "banana", DefaultOpen: true}, 220),
-		selectCell("open-groups", kit.Select[string]{Items: groupedItems, DefaultValue: "carrot", DefaultOpen: true}, 290),
-		selectCell("open-icons", kit.Select[string]{Items: icons, DefaultValue: "mail", DefaultOpen: true}, 150),
+		selectCell("icon-value", kit.Select[string]{Items: icons, DefaultValue: new("done")}, 0),
+		selectCell("open", kit.Select[string]{Items: fruitItems, DefaultValue: new("banana"), DefaultOpen: true}, 220),
+		selectCell("open-groups", kit.Select[string]{Items: groupedItems, DefaultValue: new("carrot"), DefaultOpen: true}, 290),
+		selectCell("open-icons", kit.Select[string]{Items: icons, DefaultValue: new("mail"), DefaultOpen: true}, 150),
 	}}
 }
 

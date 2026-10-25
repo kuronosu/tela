@@ -17,23 +17,23 @@ func inputPage() tela.Node {
 	name, setName := tela.UseState("")
 	return grid(
 		demo("Types", "Type is the HTML one: text, email, password, search, number...", col,
-			kit.Input{Class: "max-w-xs", Placeholder: "Full name", Props: AriaLabel("Full name")},
-			kit.Input{Class: "max-w-xs", Type: "email", Placeholder: "Email", Props: AriaLabel("Email")},
-			kit.Input{Class: "max-w-xs", Type: "password", DefaultValue: "correct horse", Props: AriaLabel("Password")},
-			kit.Input{Class: "max-w-xs", Type: "search", Placeholder: "Search components...", Props: AriaLabel("Search")},
+			kit.Input{Class: "max-w-xs", Placeholder: "Full name", AriaLabel: "Full name"},
+			kit.Input{Class: "max-w-xs", Type: "email", Placeholder: "Email", AriaLabel: "Email"},
+			kit.Input{Class: "max-w-xs", Type: "password", DefaultValue: "correct horse", AriaLabel: "Password"},
+			kit.Input{Class: "max-w-xs", Type: "search", Placeholder: "Search components...", AriaLabel: "Search"},
 		),
 		demo("States", "A value, disabled, read-only and invalid (aria-invalid draws the red border and ring).", col,
-			kit.Input{Class: "max-w-xs", DefaultValue: "mei@example.com", Props: AriaLabel("With a value")},
-			kit.Input{Class: "max-w-xs", Disabled: true, Placeholder: "Disabled", Props: AriaLabel("Disabled")},
-			kit.Input{Class: "max-w-xs", ReadOnly: true, DefaultValue: "Read only", Props: AriaLabel("Read only")},
-			kit.Input{Class: "max-w-xs", Invalid: true, DefaultValue: "not-an-email", Props: AriaLabel("Invalid")},
+			kit.Input{Class: "max-w-xs", DefaultValue: "mei@example.com", AriaLabel: "With a value"},
+			kit.Input{Class: "max-w-xs", Disabled: true, Placeholder: "Disabled", AriaLabel: "Disabled"},
+			kit.Input{Class: "max-w-xs", ReadOnly: true, DefaultValue: "Read only", AriaLabel: "Read only"},
+			kit.Input{Class: "max-w-xs", Invalid: true, DefaultValue: "not-an-email", AriaLabel: "Invalid"},
 		),
 		demo("With a button", "An input and a button in a row, as in a newsletter form.", "",
 			Div(Class("flex w-full max-w-sm items-center gap-2"),
-				kit.Input{Type: "email", Placeholder: "Email", Props: AriaLabel("Email")},
+				kit.Input{Type: "email", Placeholder: "Email", AriaLabel: "Email"},
 				kit.Button{Children: Text("Subscribe")})),
 		demo("Controlled", "Value points to your state; OnValueChange is how the field asks for a change.", col,
-			kit.Input{Class: "max-w-xs", Value: &name, OnValueChange: setName.Set, Placeholder: "Your name", Props: AriaLabel("Your name")},
+			kit.Input{Class: "max-w-xs", Value: &name, OnValueChange: setName.Set, Placeholder: "Your name", AriaLabel: "Your name"},
 			readout(map[bool]string{true: "Type something.", false: fmt.Sprintf("Hello, %s!", name)}[name == ""]),
 		),
 	)
@@ -44,7 +44,7 @@ func textareaPage() tela.Node {
 	const limit = 140
 	return grid(
 		demo("Basic", "It grows with its text from a minimum height of 64 px.", col,
-			kit.Textarea{Class: "max-w-sm", Placeholder: "Type your message here.", Props: AriaLabel("Message")}),
+			kit.Textarea{Class: "max-w-sm", Placeholder: "Type your message here.", AriaLabel: "Message"}),
 		demo("With a label and a button", "", col,
 			Div(Class("flex w-full max-w-sm flex-col gap-3"),
 				kit.Field{Label: "Your message", Description: "Your message will be copied to the support team.",
@@ -52,11 +52,11 @@ func textareaPage() tela.Node {
 				kit.Button{Children: Text("Send message")})),
 		demo("Counter", fmt.Sprintf("MaxLength stops typing at %d characters; the count is the app's.", limit), col,
 			kit.Textarea{Class: "max-w-sm", Value: &msg, OnValueChange: setMsg.Set, MaxLength: limit, Rows: 3,
-				Placeholder: "What are you working on?", Props: AriaLabel("Status")},
+				Placeholder: "What are you working on?", AriaLabel: "Status"},
 			readout(fmt.Sprintf("%d / %d", utf8.RuneCountInString(msg), limit))),
 		demo("States", "Disabled and invalid.", col,
-			kit.Textarea{Class: "max-w-sm", Disabled: true, Placeholder: "Disabled", Props: AriaLabel("Disabled")},
-			kit.Textarea{Class: "max-w-sm", Invalid: true, DefaultValue: "Too short.", Props: AriaLabel("Invalid")}),
+			kit.Textarea{Class: "max-w-sm", Disabled: true, Placeholder: "Disabled", AriaLabel: "Disabled"},
+			kit.Textarea{Class: "max-w-sm", Invalid: true, DefaultValue: "Too short.", AriaLabel: "Invalid"}),
 	)
 }
 

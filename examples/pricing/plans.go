@@ -83,7 +83,8 @@ func (p PlanCard) Build() tela.Node {
 		Class:            class,
 		TitleClass:       "text-lg",
 		DescriptionClass: muted,
-		Title:            H3(Text(plan.Name)),
+		TitleLevel:       3,
+		Title:            Text(plan.Name),
 		Description:      Text(plan.Description),
 		ContentClass:     "flex flex-col gap-6",
 		Children: Fragment(

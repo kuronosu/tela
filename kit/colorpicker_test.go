@@ -24,11 +24,11 @@ var (
 
 func colorPickerSheet() *sheet {
 	return &sheet{name: "colorpicker", width: 800, cells: []cell{
-		{name: "default", tela: kit.ColorPicker{DefaultValue: indigo}},
-		{name: "alpha", tela: kit.ColorPicker{DefaultValue: tela.Hex("#f59e0b99"), Alpha: true, Swatches: presets}},
-		{name: "gray", tela: kit.ColorPicker{DefaultValue: tela.Hex("#808080"), Swatches: presets}},
-		{name: "selected", tela: kit.ColorPicker{DefaultValue: tela.Hex("#3b82f6"), Swatches: presets}},
-		{name: "disabled", tela: kit.ColorPicker{DefaultValue: tela.Hex("#22c55e"), Alpha: true, Disabled: true}},
+		{name: "default", tela: kit.ColorPicker{DefaultValue: new(indigo)}},
+		{name: "alpha", tela: kit.ColorPicker{DefaultValue: new(tela.Hex("#f59e0b99")), Alpha: true, Swatches: presets}},
+		{name: "gray", tela: kit.ColorPicker{DefaultValue: new(tela.Hex("#808080")), Swatches: presets}},
+		{name: "selected", tela: kit.ColorPicker{DefaultValue: new(tela.Hex("#3b82f6")), Swatches: presets}},
+		{name: "disabled", tela: kit.ColorPicker{DefaultValue: new(tela.Hex("#22c55e")), Alpha: true, Disabled: true}},
 	}}
 }
 
@@ -72,7 +72,7 @@ func at(r tela.Rect, fx, fy float32) (float32, float32) {
 
 func TestColorPickerAreaMouse(t *testing.T) {
 	var changed, committed colorLog
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: hsb(0, 100, 100),
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(hsb(0, 100, 100)),
 		OnValueChange: changed.add, OnValueCommit: committed.add}), telatest.Theme(kit.Theme()))
 	area := app.Bounds(areaGroup)
 	if area.Width != 256 || area.Height != 160 {
@@ -110,7 +110,7 @@ func TestColorPickerAreaMouse(t *testing.T) {
 
 func TestColorPickerHueAndAlphaMouse(t *testing.T) {
 	var committed colorLog
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: hsb(30, 80, 90), Alpha: true, OnValueCommit: committed.add}))
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(hsb(30, 80, 90)), Alpha: true, OnValueCommit: committed.add}))
 	hue := app.Bounds(hueGroup)
 	app.MouseMove(at(hue, 0.5, 0.5))
 	app.MouseDown()
@@ -135,7 +135,7 @@ func TestColorPickerHueAndAlphaMouse(t *testing.T) {
 
 func TestColorPickerKeyboard(t *testing.T) {
 	var committed colorLog
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: hsb(120, 50, 50), Alpha: true, OnValueCommit: committed.add}))
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(hsb(120, 50, 50)), Alpha: true, OnValueCommit: committed.add}))
 	app.Focus(areaThumb)
 	app.Press("ArrowRight")
 	app.Expect(areaThumb, telatest.HasValue("Saturation 51%, Brightness 50%"))
@@ -167,7 +167,7 @@ func TestColorPickerKeyboard(t *testing.T) {
 
 func TestColorPickerHexField(t *testing.T) {
 	var changed, committed colorLog
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: indigo, Alpha: true,
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(indigo), Alpha: true,
 		OnValueChange: changed.add, OnValueCommit: committed.add}))
 	app.Expect(hexField, telatest.HasValue("#6366f1ff"))
 	app.Focus(hexField)
@@ -210,7 +210,7 @@ func TestColorPickerHexField(t *testing.T) {
 
 func TestColorPickerSwatches(t *testing.T) {
 	var committed colorLog
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: indigo, Swatches: presets, OnValueCommit: committed.add}))
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(indigo), Swatches: presets, OnValueCommit: committed.add}))
 	red := telatest.ByRole("button", "#ef4444")
 	app.Expect(red, telatest.Pressed(false))
 	app.Click(red)
@@ -232,7 +232,7 @@ func TestColorPickerSwatches(t *testing.T) {
 }
 
 func TestColorPickerKeepsTheHue(t *testing.T) {
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: hsb(200, 70, 80)}))
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(hsb(200, 70, 80))}))
 	area := app.Bounds(areaGroup)
 	// Down to black and across to the left edge (gray): the hue stays.
 	app.MouseMove(at(area, 0.6, 0.9999))
@@ -291,7 +291,7 @@ func TestColorPickerZeroDefaultIsBlack(t *testing.T) {
 
 func TestColorPickerDisabled(t *testing.T) {
 	var changed colorLog
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: indigo, Alpha: true, Swatches: presets, Disabled: true, OnValueChange: changed.add}))
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(indigo), Alpha: true, Swatches: presets, Disabled: true, OnValueChange: changed.add}))
 	area := app.Bounds(areaGroup)
 	app.MouseMove(at(area, 0.1, 0.9))
 	app.MouseDown()
@@ -320,7 +320,7 @@ func TestColorPickerLabels(t *testing.T) {
 }
 
 func TestColorPickerAriaSnapshot(t *testing.T) {
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: indigo, Swatches: presets[:2]}))
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(indigo), Swatches: presets[:2]}))
 	app.ExpectAria(`
 - group "Color area":
   - slider "Color area"
@@ -335,7 +335,7 @@ func TestColorPickerAriaSnapshot(t *testing.T) {
 // Dragging repaints: the picker builds when a drag starts and ends, not on
 // every move (ADR-132, ADR-135).
 func TestColorPickerDragRepaintsOnly(t *testing.T) {
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: hsb(30, 50, 50), Alpha: true}))
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(hsb(30, 50, 50)), Alpha: true}))
 	for _, g := range []struct {
 		name string
 		loc  telatest.Locator
@@ -369,7 +369,7 @@ func TestColorPickerDragRepaintsOnly(t *testing.T) {
 }
 
 func TestColorPickerIdle(t *testing.T) {
-	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: indigo, Alpha: true, Swatches: presets}), telatest.NoSettle())
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(indigo), Alpha: true, Swatches: presets}), telatest.NoSettle())
 	area := app.Bounds(areaGroup)
 	app.MouseMove(at(area, 0.3, 0.3))
 	app.MouseDown()

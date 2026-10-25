@@ -80,7 +80,7 @@ func channelText(ch ColorChannel, v float64) string {
 // called for an uncontrolled state.
 //
 //	// A picker that keeps its color.
-//	aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")}
+//	aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))}
 //	// A controlled one.
 //	c, setC := tela.UseState(tela.Hex("#6366f1"))
 //	aria.ColorStateOptions{Value: &c, OnChange: setC.Set}
@@ -88,10 +88,10 @@ type ColorStateOptions struct {
 	// Value points to the color of a controlled state; nil leaves it to
 	// the hook.
 	Value *tela.Color
-	// DefaultValue is the color of an uncontrolled state at the start.
-	// The zero Color is transparent black: pass tela.Black, or a color,
-	// to start with an opaque one.
-	DefaultValue tela.Color
+	// DefaultValue is the color of an uncontrolled state at the start; nil
+	// starts at opaque black (tela.Black). It is a pointer because the
+	// zero Color is a color too, transparent black: new(tela.Hex("#6366f1")).
+	DefaultValue *tela.Color
 	// OnChange is called with the next color every time the user changes
 	// it: while dragging, on each key, on a hex commit and when a swatch is
 	// set. The color is in the sRGB gamut.
@@ -170,7 +170,11 @@ func (s *ColorState) sync(o ColorStateOptions) {
 			s.shown = fromColorKeeping(v, s.shown)
 		}
 	case !s.started:
-		s.shown = ToHSB(o.DefaultValue)
+		start := tela.Black
+		if o.DefaultValue != nil {
+			start = *o.DefaultValue
+		}
+		s.shown = ToHSB(start)
 	}
 	s.started = true
 	s.noteHSL(s.shown)

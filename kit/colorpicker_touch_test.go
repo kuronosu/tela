@@ -104,7 +104,7 @@ func TestColorPickerTouchAndPen(t *testing.T) {
 	for _, kind := range []platform.PointerKind{platform.PointerTouch, platform.PointerPen} {
 		t.Run(fmt.Sprint(kind), func(t *testing.T) {
 			var committed colorLog
-			picker := kit.ColorPicker{DefaultValue: hsb(30, 80, 90), Alpha: true, OnValueCommit: committed.add}
+			picker := kit.ColorPicker{DefaultValue: new(hsb(30, 80, 90)), Alpha: true, OnValueCommit: committed.add}
 			a := mountTouch(t, tela.C(colorPage(picker)), 320, 400)
 
 			// The area: a press places the thumb, the drag follows the finger,

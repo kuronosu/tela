@@ -59,7 +59,7 @@ const (
 //	    {Kind: kit.MenuSeparator},
 //	    {Kind: kit.MenuCheckbox, Key: "bars", Label: "Status bar", DefaultChecked: true},
 //	    {Kind: kit.MenuSeparator},
-//	    {Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: "light", Items: []kit.MenuItem[string]{
+//	    {Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: new("light"), Items: []kit.MenuItem[string]{
 //	        {Key: "light", Label: "Light"}, {Key: "dark", Label: "Dark"}}},
 //	    {Key: "logout", Label: "Log out", Variant: kit.Destructive},
 //	}
@@ -116,10 +116,11 @@ type MenuItem[K comparable] struct {
 
 	// Value points to the chosen item of a controlled radio group; nil
 	// leaves it to the menu, which starts at DefaultValue (an item whose
-	// Key it equals). OnValueChange is called with the Key of the item the
-	// user chose.
+	// Key it equals; nil: none chosen, a pointer so that the zero K can be
+	// a key). OnValueChange is called with the Key of the item the user
+	// chose.
 	Value         *K
-	DefaultValue  K
+	DefaultValue  *K
 	OnValueChange func(K)
 
 	// Items are the radio items of a radio group, or the entries of a
@@ -252,14 +253,19 @@ func (s *menuStore[K]) isChecked(it MenuItem[K]) bool {
 	return it.DefaultChecked
 }
 
-func (s *menuStore[K]) value(g MenuItem[K]) K {
-	if g.Value != nil {
-		return *g.Value
+// chosen reports whether k is the chosen item of the radio group g: the
+// controlled Value, else what the user chose, else DefaultValue. A group
+// with none of them has nothing chosen, even for the zero K.
+func (s *menuStore[K]) chosen(g MenuItem[K], k K) bool {
+	switch {
+	case g.Value != nil:
+		return *g.Value == k
+	default:
+		if v, ok := s.radio[g.Key]; ok {
+			return v == k
+		}
 	}
-	if v, ok := s.radio[g.Key]; ok {
-		return v
-	}
-	return g.DefaultValue
+	return g.DefaultValue != nil && *g.DefaultValue == k
 }
 
 // menuEntry is a chosen-able item with the group it is in.
@@ -370,7 +376,7 @@ func (p menuPanel[K]) choose(flat *menuFlat[K], k K) {
 	switch {
 	case e.group != nil:
 		g := *e.group
-		if p.store.value(g) != k {
+		if !p.store.chosen(g, k) {
 			if g.Value == nil {
 				p.store.radio[g.Key] = k
 				p.store.rebuild()
@@ -456,7 +462,7 @@ func (r menuRenderer[K]) item(it MenuItem[K], radio *MenuItem[K]) tela.Child {
 	kids := []tela.Child{r.menu.ItemProps(it.Key), h.Key(it.Key)}
 	switch {
 	case radio != nil:
-		on := r.store.value(*radio) == it.Key
+		on := r.store.chosen(*radio, it.Key)
 		kids = append(kids, h.Role("menuitemradio"), h.AriaChecked(on),
 			cls(st.RadioItem, it.Class),
 			h.Span(cls(st.Indicator), h.If(on, icon(orIcon(r.radioIcon, iconCircle), st.RadioIcon))))

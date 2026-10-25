@@ -278,6 +278,17 @@ type Table[T any] struct {
 	// look and aria-selected. Nil leaves the rows unselectable.
 	Selected func(row T) bool
 
+	// RowProps returns more props for the element of a body row, such as
+	// h.AriaLabel, h.TestID or a handler (h.OnClick, h.OnKeyDown): what
+	// Column.CellProps does for one cell, for the whole row. The row is a
+	// display: contents element, which has no box of its own (see
+	// [TableStyle]), and the engine treats it as the cells it holds: its
+	// pointer and key handlers are called for events on any of its cells,
+	// as events bubble through the tree, and a ref on it, h.Ref, reports
+	// the bounds of its cells together. Classes on the row do not paint (it
+	// has no box): style a row through the cells, with CellClass or Column.Class.
+	RowProps func(row T) tela.Child
+
 	// Caption is drawn below the rows, and names the table for assistive
 	// technologies. AriaLabel names a table that has none.
 	Caption   string
@@ -386,6 +397,9 @@ func (t Table[T]) Build() tela.Node {
 		kids := []tela.Child{h.Key(key), cls(s.Row), h.Role("row")}
 		if t.Selected != nil {
 			kids = append(kids, h.AriaSelected(t.Selected(row)))
+		}
+		if t.RowProps != nil {
+			kids = append(kids, t.RowProps(row))
 		}
 		kids = append(kids, h.Fragment(cells...))
 		rows[n] = h.Div(kids...)

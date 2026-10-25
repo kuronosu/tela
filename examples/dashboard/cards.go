@@ -62,7 +62,8 @@ func (p StatCard) Build() tela.Node {
 	return Fragment(kit.Card{
 		Class:       lift + " gap-4 py-5",
 		HeaderClass: "px-5", ContentClass: "px-5",
-		Title:      H3(Text(k.Title)),
+		TitleLevel: 3,
+		Title:      Text(k.Title),
 		TitleClass: "text-sm font-medium tracking-normal text-muted-foreground",
 		Action: Div(Class("flex size-9 items-center justify-center rounded-xl bg-linear-to-br text-white shadow-md", k.Tone),
 			Icon(k.Icon, Class("size-4"))),
@@ -149,8 +150,8 @@ func (p RevenueCard) Build() tela.Node {
 		tabs[i] = kit.Tab[string]{Value: mm.ID, Label: mm.Label}
 	}
 	return Fragment(kit.Card{
-		Class: "min-w-0 flex-1",
-		Title: H2(Text("Performance")), Description: Textf("%s, last %s", m.Label, period.Caption),
+		Class:      "min-w-0 flex-1",
+		TitleLevel: 2, Title: Text("Performance"), Description: Textf("%s, last %s", m.Label, period.Caption),
 		// The content of the metric is the chart below, outside the tab list:
 		// the tabs are a tab list with no panels.
 		Action: kit.Tabs[string]{Tabs: tabs, Variant: kit.TabsLine, Value: &tab, OnValueChange: setTab.Set, AriaLabel: "Metric",
@@ -214,7 +215,7 @@ func TrafficCard() tela.Node { return tela.C(trafficCard) }
 
 func trafficCard() tela.Node {
 	return Fragment(kit.Card{
-		Title: H2(Text("Traffic sources")), Description: Text("Where visitors come from"),
+		TitleLevel: 2, Title: Text("Traffic sources"), Description: Text("Where visitors come from"),
 		Children: Fragment(
 			Div(Class("relative mx-auto my-6 size-44 shrink-0 rounded-full", donut()),
 				Div(Class("absolute inset-6 flex flex-col items-center justify-center rounded-full border border-border bg-popover backdrop-blur-md"),

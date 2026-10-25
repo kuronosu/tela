@@ -47,7 +47,7 @@ func colorPickerPage() tela.Node {
 					Div(Class("flex size-12 items-center justify-center rounded-full"), Style(tela.Bg(overlay)))),
 				Span(Class("font-mono text-sm"), Text(hexOf(overlay))))),
 		demo("Disabled", "", "",
-			kit.ColorPicker{DefaultValue: tela.Hex("#22c55e"), Disabled: true}),
+			kit.ColorPicker{DefaultValue: new(tela.Hex("#22c55e")), Disabled: true}),
 	)
 }
 
@@ -56,18 +56,16 @@ func colorInputPage() tela.Node {
 	saved, setSaved := tela.UseState("")
 	return grid(
 		demo("Basic", "The same picker behind a button that shows the color. The color lives in the ColorInput, so the swatch follows a drag in the panel.", colStart,
-			kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), OnValueCommit: func(c tela.Color) { setSaved.Set("Saved " + hexOf(c)) }},
+			kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: func(c tela.Color) { setSaved.Set("Saved " + hexOf(c)) }},
 			readout(map[bool]string{true: "Nothing saved yet.", false: saved}[saved == ""])),
 		demo("With alpha and swatches", "", "",
-			kit.ColorInput{DefaultValue: tela.Hex("#ec4899").WithAlpha(0.8), Alpha: true, Swatches: brand}),
-		demo("As a form row", "Draw the caption yourself: a Field's label points to a control by id, which ColorInput does not take yet.", col,
-			Div(Class("flex w-full max-w-xs flex-col gap-2"),
-				Span(Class("text-sm leading-none font-medium"), Text("Brand color")),
-				Div(Class("flex items-center gap-3"),
+			kit.ColorInput{DefaultValue: new(tela.Hex("#ec4899").WithAlpha(0.8)), Alpha: true, Swatches: brand}),
+		demo("As a form row", "A Field's label points to the button by id and names it, and the field's description describes it.", col,
+			kit.Field{Label: "Brand color", Description: "Used for buttons and links.", Class: "max-w-xs",
+				Children: Div(Class("flex items-center gap-3"),
 					kit.ColorInput{Value: &fill, OnValueChange: setFill.Set, Swatches: brand},
-					chip(fill, "size-9")),
-				muted("Used for buttons and links."))),
+					chip(fill, "size-9"))}),
 		demo("Disabled", "", "",
-			kit.ColorInput{DefaultValue: tela.Hex("#22c55e"), Disabled: true}),
+			kit.ColorInput{DefaultValue: new(tela.Hex("#22c55e")), Disabled: true}),
 	)
 }

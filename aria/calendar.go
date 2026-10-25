@@ -38,8 +38,8 @@ type CalendarOptions struct {
 	// leaves it to the hook.
 	Value *Date
 	// DefaultValue is the selected date of an uncontrolled calendar at the
-	// start; nil selects nothing.
-	DefaultValue *Date
+	// start; the zero Date selects nothing.
+	DefaultValue Date
 	// OnValueChange is called with the date the user selects: how a
 	// controlled calendar asks for the change, a notification for an
 	// uncontrolled one. It is not called for the date that already is
@@ -112,9 +112,9 @@ type RangeCalendarOptions struct {
 	// Value points to the selected range of a controlled calendar; nil
 	// leaves it to the hook. DefaultValue starts an uncontrolled one,
 	// and OnValueChange is called with the range the user completes (the
-	// earlier date first).
+	// earlier date first). The zero DateRange selects nothing.
 	Value         *DateRange
-	DefaultValue  *DateRange
+	DefaultValue  DateRange
 	OnValueChange func(DateRange)
 	// AllowsNonContiguousRanges lets a range cross unavailable dates.
 	// Without it, once the first date is chosen the dates beyond the
@@ -306,7 +306,11 @@ func (v rangeValue) set(r DateRange) { v.c.request(r) }
 // unavailable dates can, and are not selectable.
 func UseCalendar(o CalendarOptions) CalendarResult {
 	f := i18n.UseFormatter()
-	val := useChoice(o.Value, o.DefaultValue, o.OnValueChange)
+	var def *Date
+	if !o.DefaultValue.IsZero() {
+		def = &o.DefaultValue
+	}
+	val := useChoice(o.Value, def, o.OnValueChange)
 	return useCalendar("UseCalendar", calSpec{
 		min: o.Min, max: o.Max, unavailable: o.IsDateUnavailable, disabled: o.Disabled, readOnly: o.ReadOnly,
 		focusedDate: o.FocusedDate, defaultFocused: o.DefaultFocusedDate, onFocusChange: o.OnFocusChange,
@@ -329,7 +333,11 @@ func UseCalendar(o CalendarOptions) CalendarResult {
 // date of a range being chosen.
 func UseRangeCalendar(o RangeCalendarOptions) CalendarResult {
 	f := i18n.UseFormatter()
-	val := useChoice(o.Value, o.DefaultValue, o.OnValueChange)
+	var def *DateRange
+	if !o.DefaultValue.IsZero() {
+		def = &o.DefaultValue
+	}
+	val := useChoice(o.Value, def, o.OnValueChange)
 	return useCalendar("UseRangeCalendar", calSpec{
 		min: o.Min, max: o.Max, unavailable: o.IsDateUnavailable, disabled: o.Disabled, readOnly: o.ReadOnly,
 		focusedDate: o.FocusedDate, defaultFocused: o.DefaultFocusedDate, onFocusChange: o.OnFocusChange,

@@ -27,7 +27,7 @@ type dialogSpec struct {
 	title, description string
 	body               *part
 	footer             *part
-	showClose          bool
+	hideClose          bool
 	class              string
 }
 
@@ -36,7 +36,7 @@ type dialogSpec struct {
 // DialogDescription and DialogFooter, with the content placed in the flow
 // (see staticClasses).
 func dialogCell(name string, s dialogSpec) cell {
-	d := kit.Dialog{ShowClose: s.showClose, Class: s.class, Props: h.TestID(name + "-panel")}
+	d := kit.Dialog{HideClose: s.hideClose, Class: s.class, Props: h.TestID(name + "-panel")}
 	var inner string
 	var header string
 	if s.title != "" {
@@ -58,7 +58,7 @@ func dialogCell(name string, s dialogSpec) cell {
 		d.Footer = s.footer.c
 		inner += fmt.Sprintf(`<div data-slot="dialog-footer" class="%s">%s</div>`, shadcnDialogFooter, s.footer.html)
 	}
-	if s.showClose {
+	if !s.hideClose {
 		inner += fmt.Sprintf(`<button data-slot="dialog-close" class="%s">%s<span class="sr-only">Close</span></button>`,
 			shadcnDialogClose, svgHTML(iconX))
 		d.CloseIcon = iconX
@@ -95,11 +95,11 @@ func dialogSheet() *sheet {
 		html: `<p>Anyone with the link can view this document.</p>`}
 	return &sheet{name: "dialog", cells: []cell{
 		dialogCell("edit-profile", dialogSpec{title: "Edit profile", description: "Make changes to your profile here. Click save when you're done.",
-			body: profileForm(), footer: &footer, showClose: true}),
-		dialogCell("no-close", dialogSpec{title: "Share link", description: "Anyone with the link can view this document.", footer: &footer}),
-		dialogCell("title-only", dialogSpec{title: "Are you sure?", body: text, showClose: true}),
-		dialogCell("content-only", dialogSpec{body: text, footer: &footer}),
-		dialogCell("class", dialogSpec{title: "Narrow", description: "A dialog with its own width.", showClose: true, class: "sm:max-w-sm"}),
+			body: profileForm(), footer: &footer}),
+		dialogCell("no-close", dialogSpec{title: "Share link", description: "Anyone with the link can view this document.", footer: &footer, hideClose: true}),
+		dialogCell("title-only", dialogSpec{title: "Are you sure?", body: text}),
+		dialogCell("content-only", dialogSpec{body: text, footer: &footer, hideClose: true}),
+		dialogCell("class", dialogSpec{title: "Narrow", description: "A dialog with its own width.", class: "sm:max-w-sm"}),
 	}}
 }
 
@@ -128,7 +128,7 @@ var (
 )
 
 func TestDialogOpenAndClose(t *testing.T) {
-	page := pageUnder(editDialog(kit.Dialog{ShowClose: true}))
+	page := pageUnder(editDialog(kit.Dialog{}))
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
 	app.ExpectCount(telatest.ByRole("dialog", ""), 0)
 	app.Expect(editButton, telatest.HasPopup("dialog"), telatest.Expanded(false))
@@ -150,7 +150,7 @@ func TestDialogOpenAndClose(t *testing.T) {
 
 func TestDialogIsModal(t *testing.T) {
 	var saved int
-	page := pageUnder(editDialog(kit.Dialog{ShowClose: true}), kit.Button{Children: h.Text("Other"), OnClick: func() { saved++ }})
+	page := pageUnder(editDialog(kit.Dialog{}), kit.Button{Children: h.Text("Other"), OnClick: func() { saved++ }})
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
 	app.Click(editButton)
 	// The page behind is inert: it is not in the semantics tree and a press
@@ -163,7 +163,7 @@ func TestDialogIsModal(t *testing.T) {
 }
 
 func TestDialogFocus(t *testing.T) {
-	page := pageUnder(editDialog(kit.Dialog{ShowClose: true}))
+	page := pageUnder(editDialog(kit.Dialog{}))
 	app := telatest.MountFunc(t, page, telatest.Theme(kit.Theme()))
 	app.Focus(editButton)
 	app.Press("Enter")
@@ -191,7 +191,7 @@ func TestDialogFocus(t *testing.T) {
 }
 
 func TestDialogWaysToClose(t *testing.T) {
-	page := pageUnder(editDialog(kit.Dialog{ShowClose: true}))
+	page := pageUnder(editDialog(kit.Dialog{}))
 	for _, tc := range []struct {
 		name  string
 		close func(*telatest.App)
@@ -230,12 +230,18 @@ func TestDialogFormInside(t *testing.T) {
 	app.ExpectValue(telatest.ByRole("textbox", "Name"), "")
 }
 
-func TestDialogShowClose(t *testing.T) {
+// The close button shows by default (shadcn's showCloseButton); HideClose
+// leaves it out; CloseLabel names it.
+func TestDialogHideClose(t *testing.T) {
 	app := telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{})), telatest.Theme(kit.Theme()))
+	app.Click(editButton)
+	app.ExpectCount(closeButton, 1)
+
+	app = telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{HideClose: true})), telatest.Theme(kit.Theme()))
 	app.Click(editButton)
 	app.ExpectCount(closeButton, 0)
 
-	app = telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{ShowClose: true, CloseLabel: "Cerrar"})), telatest.Theme(kit.Theme()))
+	app = telatest.MountFunc(t, pageUnder(editDialog(kit.Dialog{CloseLabel: "Cerrar"})), telatest.Theme(kit.Theme()))
 	app.Click(editButton)
 	app.ExpectCount(closeButton, 0)
 	app.ExpectCount(telatest.ByRole("button", "Cerrar"), 1)
@@ -262,7 +268,7 @@ func (c controlledDialog) Build() tela.Node {
 	return h.Div(h.Class("p-6"),
 		kit.Button{Children: h.Text("Open from outside"), OnClick: func() { setOpen.Set(true) }},
 		kit.Dialog{Open: &open, OnOpenChange: func(next bool) { *c.log = append(*c.log, next); setOpen.Set(next) },
-			Title: h.Text("Controlled"), Description: h.Text("Opened by state."), ShowClose: true})
+			Title: h.Text("Controlled"), Description: h.Text("Opened by state.")})
 }
 
 func TestDialogControlledByState(t *testing.T) {
@@ -381,13 +387,13 @@ func TestDialogStyleProvider(t *testing.T) {
 }
 
 func TestDialogOpenGolden(t *testing.T) {
-	page := pageUnder(editDialog(kit.Dialog{ShowClose: true}))
+	page := pageUnder(editDialog(kit.Dialog{}))
 	openGolden(t, "dialog", 800, 500, page, func(a *telatest.App) { a.Click(editButton) })
 }
 
 func TestDialogIdle(t *testing.T) {
 	// No text field in it, so that no caret blinks.
-	expectIdle(t, pageUnder(kit.Dialog{DefaultOpen: true, ShowClose: true, Title: h.Text("Delete"), Description: h.Text("This cannot be undone."),
+	expectIdle(t, pageUnder(kit.Dialog{DefaultOpen: true, Title: h.Text("Delete"), Description: h.Text("This cannot be undone."),
 		Footer: kit.Button{Children: h.Text("Delete")}}), nil)
 }
 

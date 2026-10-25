@@ -18,7 +18,7 @@ func StaticDialog(d Dialog) tela.Component {
 		s := &UseStyle().Dialog
 		p := dialogPanel{
 			style: s, title: d.Title, description: d.Description, children: d.Children, footer: d.Footer,
-			showClose: d.ShowClose, closeIcon: d.CloseIcon, closeLabel: d.CloseLabel,
+			showClose: !d.HideClose, closeIcon: d.CloseIcon, closeLabel: d.CloseLabel,
 			class: d.Class, headerClass: d.HeaderClass, titleClass: d.TitleClass, descriptionClass: d.DescriptionClass,
 			footerClass: d.FooterClass, closeClass: d.CloseClass,
 		}

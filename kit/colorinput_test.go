@@ -14,10 +14,10 @@ import (
 
 func colorInputSheet() *sheet {
 	return &sheet{name: "colorinput", width: 800, slot: 200, cells: []cell{
-		{name: "default", tela: kit.ColorInput{DefaultValue: indigo}},
-		{name: "alpha", tela: kit.ColorInput{DefaultValue: tela.Hex("#f59e0b99"), Alpha: true}},
-		{name: "disabled", tela: kit.ColorInput{DefaultValue: indigo, Disabled: true}},
-		{name: "wide", width: 192, tela: kit.ColorInput{DefaultValue: tela.Hex("#22c55e"), Class: "w-full"}},
+		{name: "default", tela: kit.ColorInput{DefaultValue: new(indigo)}},
+		{name: "alpha", tela: kit.ColorInput{DefaultValue: new(tela.Hex("#f59e0b99")), Alpha: true}},
+		{name: "disabled", tela: kit.ColorInput{DefaultValue: new(indigo), Disabled: true}},
+		{name: "wide", width: 192, tela: kit.ColorInput{DefaultValue: new(tela.Hex("#22c55e")), Class: "w-full"}},
 	}}
 }
 
@@ -31,12 +31,12 @@ var (
 func colorInputPage(c kit.ColorInput) func() tela.Node { return pageUnder(c) }
 
 func TestColorInputOpenGolden(t *testing.T) {
-	page := colorInputPage(kit.ColorInput{DefaultValue: indigo, Alpha: true, Swatches: presets})
+	page := colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: true, Swatches: presets})
 	openGolden(t, "colorinput", 480, 640, page, func(a *telatest.App) { a.Click(colorTriggerAlpha) })
 }
 
 func TestColorInputOpenClose(t *testing.T) {
-	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: indigo}), telatest.Theme(kit.Theme()))
+	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo)}), telatest.Theme(kit.Theme()))
 	app.ExpectCount(colorPanelEl, 0)
 	app.Expect(colorTrigger, telatest.HasPopup("dialog"), telatest.Expanded(false))
 	app.Click(colorTrigger)
@@ -59,7 +59,7 @@ func TestColorInputOpenClose(t *testing.T) {
 // the panel is opened again, and the trigger shows it.
 func TestColorInputKeepsTheColor(t *testing.T) {
 	var changed, committed colorLog
-	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: indigo, Alpha: true, Swatches: presets,
+	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: true, Swatches: presets,
 		OnValueChange: changed.add, OnValueCommit: committed.add}), telatest.Theme(kit.Theme()))
 	app.Expect(telatest.ByRole("button", "#6366f1ff"), telatest.Expanded(false))
 	app.Click(telatest.ByRole("button", "#6366f1ff"))
@@ -88,7 +88,7 @@ func TestColorInputKeepsTheColor(t *testing.T) {
 }
 
 func TestColorInputDragRepaintsOnly(t *testing.T) {
-	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: indigo, Alpha: true}), telatest.Theme(kit.Theme()))
+	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: true}), telatest.Theme(kit.Theme()))
 	app.Click(colorTriggerAlpha)
 	area := app.Bounds(areaGroup)
 	app.MouseMove(at(area, 0.1, 0.1))
@@ -110,7 +110,7 @@ var colorTriggerAlpha = telatest.ByRole("button", "#6366f1ff")
 func TestColorInputControlledOpen(t *testing.T) {
 	open := true
 	app := telatest.MountFunc(t, func() tela.Node {
-		return pageUnder(kit.ColorInput{DefaultValue: indigo, Open: &open, OnOpenChange: func(o bool) { open = o }})()
+		return pageUnder(kit.ColorInput{DefaultValue: new(indigo), Open: &open, OnOpenChange: func(o bool) { open = o }})()
 	}, telatest.Theme(kit.Theme()))
 	app.ExpectCount(colorPanelEl, 1)
 	app.Press("Escape")
@@ -140,7 +140,7 @@ func TestColorInputControlledValue(t *testing.T) {
 
 func TestColorInputCustomTrigger(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Div(h.Class("p-6"), kit.ColorInput{DefaultValue: indigo,
+		return h.Div(h.Class("p-6"), kit.ColorInput{DefaultValue: new(indigo),
 			Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node {
 				return h.Button(p, h.Class("rounded-full bg-primary size-8"), h.AriaLabel("Pick a color"))
 			})})
@@ -153,7 +153,7 @@ func TestColorInputCustomTrigger(t *testing.T) {
 }
 
 func TestColorInputDisabled(t *testing.T) {
-	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: indigo, Disabled: true}), telatest.Theme(kit.Theme()))
+	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Disabled: true}), telatest.Theme(kit.Theme()))
 	app.Expect(colorTrigger, telatest.Disabled(true))
 	// It is a Popover's trigger (Popover.Disabled, ADR-145), not a bare
 	// button: it says what it would open, and does not open it.
@@ -162,14 +162,14 @@ func TestColorInputDisabled(t *testing.T) {
 }
 
 func TestColorInputIdle(t *testing.T) {
-	expectIdle(t, colorInputPage(kit.ColorInput{DefaultValue: indigo, DefaultOpen: true, Alpha: true, Swatches: presets}), nil)
+	expectIdle(t, colorInputPage(kit.ColorInput{DefaultValue: new(indigo), DefaultOpen: true, Alpha: true, Swatches: presets}), nil)
 }
 
 func ExampleColorInput() {
 	t := &exampleT{}
 	defer t.close()
 	page := func() tela.Node {
-		return h.Div(h.Class("p-6"), kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}})
+		return h.Div(h.Class("p-6"), kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}})
 	}
 	app := telatest.MountFunc(t, page)
 	app.Click(telatest.ByRole("button", "#6366f1"))

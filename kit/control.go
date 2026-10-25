@@ -31,6 +31,7 @@ type textFieldProps struct {
 	onChange     func(string)
 	placeholder  string
 	name, id     string
+	ariaLabel    string
 	disabled     bool
 	readOnly     bool
 	invalid      bool
@@ -66,6 +67,9 @@ func useTextField(p textFieldProps) []tela.Child {
 	}
 	if id != "" {
 		kids = append(kids, h.ID(id))
+	}
+	if p.ariaLabel != "" {
+		kids = append(kids, h.AriaLabel(p.ariaLabel))
 	}
 	if fc.describedBy != (tela.ElementRef{}) {
 		kids = append(kids, h.AriaDescribedBy(fc.describedBy))

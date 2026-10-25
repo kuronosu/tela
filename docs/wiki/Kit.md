@@ -38,7 +38,8 @@ func Login() tela.Node {
 	return Div(Class("flex min-h-screen items-center justify-center"),
 		kit.Card{
 			Class:       "w-full max-w-sm",
-			Title:       H2(Text("Login to your account")),
+			TitleLevel:  2,
+			Title:       Text("Login to your account"),
 			Description: Text("Enter your email below to login."),
 			Children: kit.Field{Label: "Email",
 				Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}},
@@ -66,7 +67,7 @@ every component:
 | Field | Meaning |
 |---|---|
 | `Class` | Classes added to the root element after the component's own. Tela applies classes last-wins, so `Class: "w-full"` or `Class: "rounded-full"` overrides the look with no tailwind-merge. The `Class` of a part is named after it: `HeaderClass`, `FooterClass`, `ContentClass`. |
-| `Props` | A `tela.Child` with more props for the root element: `h.Key`, `h.TestID`, `h.AriaLabel`, `h.OnMouseEnter(...)`. |
+| `Props` | A `tela.Child` with more props for the root element: `h.Key`, `h.TestID`, `h.AriaLabel`, `h.OnMouseEnter(...)`. It takes one value: for several, merge them with `tela.MergeProps(h.TestID("save"), h.OnMouseEnter(warm))`. |
 | `Children` | The content, a `tela.Component`. |
 | Slots | A component with several parts has a `tela.Component` field for each (`kit.Card` has `Title`, `Description`, `Action`, `Children` and `Footer`); `nil` leaves it out. A slot that is only text for assistive technologies (a `Field`'s `Label`, `Description` and `Error`) is a `string`. |
 | Items | Components that choose take their options as a slice of structs, generic over the key: `kit.Tabs[K]{Tabs: []kit.Tab[K]{...}}`, `kit.Select[K]{Items: []kit.SelectItem[K]{...}}`, `kit.RadioGroup[K]`, `kit.ToggleGroup[K]`, and the menus' `[]kit.MenuItem[K]`. |
@@ -98,9 +99,9 @@ kit.Input{DefaultValue: "Ana"}                      // uncontrolled
 | A string | `Value *string`, `DefaultValue`, `OnValueChange func(string)` |
 | On or off | `Checked *bool`, `DefaultChecked`, `OnCheckedChange func(bool)`; `Pressed` for a `Toggle` |
 | Open or closed | `Open *bool`, `DefaultOpen`, `OnOpenChange func(bool)` |
-| A choice among keys | `Value *K`, `DefaultValue K`, `OnValueChange func(K)` |
+| A choice among keys | `Value *K`, `DefaultValue *K`, `OnValueChange func(K)` (`new("pro")`; nil is no default, so the zero key can be a real one) |
 | Several choices | `aria.Selection[K]`: `Selected`, `DefaultSelected`, `OnSelectionChange` |
-| A number, a date, a color | `Value *float64`, `*aria.Date`, `*aria.DateRange`, `*tela.Color`, the same three names (a `Slider`'s `DefaultValue` is a `*float64`, so that 0 is a start: `new(0.0)`) |
+| A number, a date, a color | `Value *float64`, `*aria.Date`, `*aria.DateRange`, `*tela.Color`, the same three names. `DefaultValue` is a pointer where the zero value is a valid one (`Slider`: `new(0.0)`; `ColorPicker`, `ColorInput`: `new(tela.Hex("#6366f1"))`, nil is opaque black) and a plain value where the zero means none (`aria.Date`, `aria.DateRange`) |
 
 ## Overlays and trigger slots
 
@@ -191,7 +192,7 @@ for 40 edits that restyle every component.
 change one component:
 
 ```go
-kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", Title: H2(Text("Billing"))}
+kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", TitleLevel: 2, Title: Text("Billing")}
 ```
 
 Plain classes apply last-wins and a class with a variant (`hover:`, `dark:`,
@@ -210,8 +211,9 @@ kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 	Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
 ```
 
-`Input`, `Textarea`, `Select`, `DatePicker`, `DateRangePicker`, `Checkbox` and
-`Switch` take the field's id; a `RadioGroup` takes its description and invalid
+`Input`, `Textarea`, `Select`, `DatePicker`, `DateRangePicker`, `ColorInput`,
+`Checkbox` and `Switch` take the field's id (a `ColorPicker` gives it to its hex
+field and is named by the label); a `RadioGroup` takes its description and invalid
 state (name it with `AriaLabel`). `Orientation: kit.Horizontal` puts a checkbox
 or switch beside its label.
 
@@ -239,10 +241,13 @@ with slots; `Label`; `Separator`; `Skeleton` a pulsing placeholder.
 ```go
 kit.Avatar{Fallback: "MT", Size: kit.Lg}
 kit.Badge{Variant: kit.Secondary, Icon: lucide.Check, Children: Text("Verified")}
-kit.Card{Title: H2(Text("Notifications")), Description: Text("3 unread."), Children: list, Footer: markRead}
+kit.Card{TitleLevel: 2, Title: Text("Notifications"), Description: Text("3 unread."), Children: list, Footer: markRead}
 kit.Separator{Orientation: kit.Vertical}
 kit.Skeleton{Class: "h-4 w-[250px]"}
 ```
+
+A `Card`'s `Title` is a `div`, as in shadcn; `TitleLevel` from 1 to 6 makes it an
+`h1` to `h6` with the same classes.
 
 ### Buttons and choices
 
@@ -269,8 +274,8 @@ kit.Progress{Value: 62, AriaLabel: "Storage used"}
 `Input`, `Textarea`, `Field`, `Select`.
 
 ```go
-kit.Input{Placeholder: "Search...", Props: AriaLabel("Search"), Value: &q, OnValueChange: setQ.Set}
-kit.Textarea{Rows: 3, MaxLength: 140, Value: &msg, OnValueChange: setMsg.Set, Props: AriaLabel("Message")}
+kit.Input{Placeholder: "Search...", AriaLabel: "Search", Value: &q, OnValueChange: setQ.Set}
+kit.Textarea{Rows: 3, MaxLength: 140, Value: &msg, OnValueChange: setMsg.Set, AriaLabel: "Message"}
 kit.Select[string]{Placeholder: "Select a fruit", Items: []kit.SelectItem[string]{
 	{Value: "apple", Label: "Apple"}, {Value: "banana", Label: "Banana"}}}
 ```
@@ -281,11 +286,12 @@ kit.Select[string]{Placeholder: "Select a fruit", Items: []kit.SelectItem[string
 `ContextMenu`. A dialog is modal (the page is inert, Tab stays inside, Escape and
 a press on the scrim close it, the focus returns to the trigger); an alert dialog
 is not closed by a press outside; a popover is not modal; a tooltip opens on
-hover or keyboard focus and describes its trigger.
+hover or keyboard focus and describes its trigger. A dialog draws its close button
+(an X in the corner) unless `HideClose` is set.
 
 ```go
 kit.Dialog{Trigger: kit.Button{Children: Text("Edit profile")}, Title: Text("Edit profile"),
-	Description: Text("Make changes here."), Children: form, Footer: save, ShowClose: true}
+	Description: Text("Make changes here."), Children: form, Footer: save}
 kit.AlertDialog{Trigger: kit.Button{Variant: kit.Outline, Children: Text("Delete")}, Title: Text("Are you sure?"),
 	Description: Text("This cannot be undone."), Action: Text("Delete"), Destructive: true, OnAction: remove}
 kit.Popover{Trigger: kit.Button{Children: Text("Dimensions")}, Align: "start", Children: dimensions}
@@ -317,7 +323,7 @@ header (`aria-sort`, Enter and Space) and keeps its header and leading columns i
 place when it scrolls.
 
 ```go
-kit.Tabs[string]{DefaultValue: "account", Tabs: []kit.Tab[string]{
+kit.Tabs[string]{DefaultValue: new("account"), Tabs: []kit.Tab[string]{
 	{Value: "account", Label: "Account", Content: AccountForm{}},
 	{Value: "password", Label: "Password", Content: PasswordForm{}}}}
 kit.Table[Invoice]{Rows: invoices, RowKey: func(i Invoice) any { return i.ID }, Columns: []kit.Column[Invoice]{
@@ -325,6 +331,9 @@ kit.Table[Invoice]{Rows: invoices, RowKey: func(i Invoice) any { return i.ID }, 
 		Sort: func(a, b Invoice) int { return strings.Compare(a.ID, b.ID) }},
 	{Header: "Amount", Align: kit.AlignRight, Cell: showAmount, Sort: byAmount}}}
 ```
+
+`Column.CellProps` puts props on a cell and `RowProps` on a whole row (a name, a
+handler: events from the row's cells reach it).
 
 ### Dates and color
 
@@ -344,7 +353,7 @@ kit.RangeCalendar{VisibleMonths: 2, OnValueChange: func(r aria.DateRange) { stay
 kit.DatePicker{Value: &day, OnValueChange: setDay.Set, Placeholder: "Pick a date"}
 kit.DateRangePicker{OnValueChange: func(r aria.DateRange) { stay = r }}
 kit.ColorPicker{Value: &c, OnValueChange: setC.Set, Alpha: true, Swatches: []tela.Color{tela.Hex("#ef4444")}}
-kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), OnValueCommit: save}
+kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), OnValueCommit: save}
 ```
 
 ## Right to left
@@ -401,8 +410,5 @@ anti-aliasing of text.
 - **`Toaster`** has no swipe to dismiss, no promise helper (show a `Loading` toast and replace it), no rich colors.
 - **Dates**: no time of day and no typed date segments; `Calendar` has no year and month dropdowns, week numbers or multiple-date mode.
 - **`Table`**: no virtualization, column resizing, row selection or editing.
-- **`Dialog`**: the close button is off until `ShowClose` is set (shadcn draws it unless told not to).
-- **`Card.Title` is a `div`** (as in shadcn): pass `H2` or `H3` as the slot for a heading.
-- **`Field`** puts a control before its text only (`flex-row-reverse` in `Class` puts it after) and has no group caption (shadcn's FieldSet and FieldLegend); `ColorInput` takes no field id.
-- **`Input` and `Textarea` have no `AriaLabel` field**: use `Props: h.AriaLabel("...")`.
+- **`Field`** puts a control before its text only (`flex-row-reverse` in `Class` puts it after) and has no group caption (shadcn's FieldSet and FieldLegend).
 - **`tela add <component>`**, which copies a component's source into your project (shadcn's model), is not there yet; customization is by recipes.

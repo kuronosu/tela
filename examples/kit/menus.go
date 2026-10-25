@@ -42,7 +42,7 @@ func dropdownMenuPage() tela.Node {
 					{Kind: kit.MenuCheckbox, Key: "panel", Label: "Panel", Disabled: true},
 					{Kind: kit.MenuSeparator},
 					{Kind: kit.MenuLabel, Label: "Panel position"},
-					{Kind: kit.MenuRadioGroup, Key: "position", DefaultValue: "bottom", Items: []kit.MenuItem[string]{
+					{Kind: kit.MenuRadioGroup, Key: "position", DefaultValue: new("bottom"), Items: []kit.MenuItem[string]{
 						{Key: "top", Label: "Top"}, {Key: "bottom", Label: "Bottom"}, {Key: "right", Label: "Right"}}},
 				},
 			},
@@ -99,7 +99,7 @@ func menubarPage() tela.Node {
 						{Key: "force", Label: "Force Reload", Shortcut: "Shift+Cmd+R", Inset: true, Disabled: true},
 					}},
 					{Key: "profiles", Label: "Profiles", Items: []kit.MenuItem[string]{
-						{Kind: kit.MenuRadioGroup, Key: "profile", DefaultValue: "benoit", Items: []kit.MenuItem[string]{
+						{Kind: kit.MenuRadioGroup, Key: "profile", DefaultValue: new("benoit"), Items: []kit.MenuItem[string]{
 							{Key: "andy", Label: "Andy"}, {Key: "benoit", Label: "Benoit"}, {Key: "luis", Label: "Luis"}}},
 						{Kind: kit.MenuSeparator},
 						{Key: "edit-profile", Label: "Edit...", Inset: true},
@@ -129,7 +129,7 @@ func contextMenuPage() tela.Node {
 					{Kind: kit.MenuCheckbox, Key: "urls", Label: "Show Full URLs"},
 					{Kind: kit.MenuSeparator},
 					{Kind: kit.MenuLabel, Label: "People"},
-					{Kind: kit.MenuRadioGroup, Key: "person", DefaultValue: "pedro", Items: []kit.MenuItem[string]{
+					{Kind: kit.MenuRadioGroup, Key: "person", DefaultValue: new("pedro"), Items: []kit.MenuItem[string]{
 						{Key: "pedro", Label: "Pedro Duarte"}, {Key: "colm", Label: "Colm Tuite"}}},
 				},
 			},

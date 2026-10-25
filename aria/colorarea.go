@@ -94,7 +94,7 @@ func (r ColorAreaResult) ValueText() string { return r.a.valueText() }
 // caller renders the area (its background is the gradients of the hue, as
 // the kit's does) and the thumb:
 //
-//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 //	area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
 //	size := tela.UseSize(area.AreaRef)
 //	return Div(area.AreaProps, Class("relative size-48 rounded-md"),

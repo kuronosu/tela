@@ -114,7 +114,7 @@ func (r ColorSliderResult) TrackColors() []tela.Color {
 // and page. The caller renders the track (a gradient of TrackColors) and
 // the thumb:
 //
-//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+//	st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 //	hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
 //	track := tela.UseSize(hue.TrackRef)
 //	return Div(hue.Props, Class("w-64"),

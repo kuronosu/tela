@@ -114,7 +114,7 @@ type Tab[K comparable] struct {
 // to its panel, and disabled tabs are skipped.
 //
 //	kit.Tabs[string]{
-//	    DefaultValue: "account",
+//	    DefaultValue: new("account"),
 //	    Tabs: []kit.Tab[string]{
 //	        {Value: "account", Label: "Account", Content: AccountForm{}},
 //	        {Value: "password", Label: "Password", Content: PasswordForm{}},
@@ -135,9 +135,11 @@ type Tabs[K comparable] struct {
 	// Value points to the selected tab of a controlled Tabs; nil leaves
 	// the selection to the component, which starts at DefaultValue.
 	Value *K
-	// DefaultValue is the tab an uncontrolled Tabs starts on; the first
-	// enabled tab when it is not one of Tabs.
-	DefaultValue K
+	// DefaultValue points to the tab an uncontrolled Tabs starts on; the
+	// first enabled tab when it is nil or not one of Tabs. It is a pointer
+	// so that the zero value of K (the int 0, say) can be a tab:
+	// new(0) selects it.
+	DefaultValue *K
 	// OnValueChange is called with the key of the tab the user selected. For
 	// a controlled Tabs it is how the change is asked for.
 	OnValueChange func(K)
@@ -191,7 +193,9 @@ func (t Tabs[K]) Build() tela.Node {
 	}
 	o := aria.TabsOptions[K]{
 		Keys: keys, DisabledKeys: disabled, Orientation: string(orient), AriaLabel: t.AriaLabel,
-		DefaultSelected: aria.SelectionOf(t.DefaultValue),
+	}
+	if t.DefaultValue != nil {
+		o.DefaultSelected = aria.SelectionOf(*t.DefaultValue)
 	}
 	if t.ManualActivation {
 		o.KeyboardActivation = "manual"

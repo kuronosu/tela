@@ -103,7 +103,7 @@ func TestRangeCalendarKeyboard(t *testing.T) {
 
 func TestRangeCalendarValueAndStyleQueries(t *testing.T) {
 	app := telatest.MountFunc(t, rangePage(aria.RangeCalendarOptions{
-		DefaultValue: &aria.DateRange{Start: d(2026, time.October, 8), End: d(2026, time.October, 10)},
+		DefaultValue: aria.DateRange{Start: d(2026, time.October, 8), End: d(2026, time.October, 10)},
 	}), telatest.Size(400, 360))
 	if got := selectedDays(t, app); got != " 8 9 10" {
 		t.Errorf("default range:%s", got)
@@ -119,7 +119,7 @@ func TestRangeCalendarQueries(t *testing.T) {
 	var res aria.CalendarResult
 	telatest.MountFunc(t, func() tela.Node {
 		res = aria.UseRangeCalendar(aria.RangeCalendarOptions{
-			DefaultValue: &aria.DateRange{Start: d(2026, time.October, 8), End: d(2026, time.October, 10)},
+			DefaultValue: aria.DateRange{Start: d(2026, time.October, 8), End: d(2026, time.October, 10)},
 			Locale:       "en-US", Today: calToday,
 		})
 		return renderCalendar(res)

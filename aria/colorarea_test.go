@@ -98,7 +98,7 @@ func center(app *telatest.App, l telatest.Locator) (x, y float32) {
 }
 
 func TestColorAreaSnapshot(t *testing.T) {
-	p := picker{state: aria.ColorStateOptions{DefaultValue: tela.Hex("#336699")}, parts: "a"}
+	p := picker{state: aria.ColorStateOptions{DefaultValue: new(tela.Hex("#336699"))}, parts: "a"}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	app.ExpectAria(`
 		- group "Color":
@@ -112,7 +112,7 @@ func TestColorAreaPointerPlacesAndDrags(t *testing.T) {
 	var changes, ends events
 	p := picker{
 		state: aria.ColorStateOptions{
-			DefaultValue: aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color(),
+			DefaultValue: new(aria.HSB{H: 0, S: 100, B: 100, A: 1}.Color()),
 			OnChange:     func(c tela.Color) { changes.add(aria.FormatHexColor(c, false)) },
 		},
 		area:  aria.ColorAreaOptions{OnChangeEnd: func(c tela.Color) { ends.add(aria.FormatHexColor(c, false)) }},
@@ -158,7 +158,7 @@ func TestColorAreaPointerPlacesAndDrags(t *testing.T) {
 
 // The thumb dragged by its edge does not jump.
 func TestColorAreaThumbKeepsTheGrab(t *testing.T) {
-	p := picker{state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 200, S: 50, B: 50, A: 1}.Color()}, parts: "a"}
+	p := picker{state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 200, S: 50, B: 50, A: 1}.Color())}, parts: "a"}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	th := areaThumb()
 	cx, cy := center(app, th)
@@ -171,7 +171,7 @@ func TestColorAreaKeyboard(t *testing.T) {
 	var changes, ends events
 	p := picker{
 		state: aria.ColorStateOptions{
-			DefaultValue: aria.HSB{H: 120, S: 50, B: 50, A: 1}.Color(),
+			DefaultValue: new(aria.HSB{H: 120, S: 50, B: 50, A: 1}.Color()),
 			OnChange:     func(c tela.Color) { changes.add(aria.FormatHexColor(c, false)) },
 		},
 		area:  aria.ColorAreaOptions{OnChangeEnd: func(c tela.Color) { ends.add(aria.FormatHexColor(c, false)) }},
@@ -221,7 +221,7 @@ func TestColorAreaKeyboard(t *testing.T) {
 // grows toward the left, and so do the arrow keys.
 func TestColorAreaRTL(t *testing.T) {
 	p := picker{
-		state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 120, S: 50, B: 50, A: 1}.Color()},
+		state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 120, S: 50, B: 50, A: 1}.Color())},
 		area:  aria.ColorAreaOptions{Direction: "rtl"}, parts: "a",
 	}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
@@ -247,7 +247,7 @@ func TestColorAreaRTL(t *testing.T) {
 
 func TestColorAreaOtherChannels(t *testing.T) {
 	p := picker{
-		state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 100, S: 80, B: 80, A: 1}.Color()},
+		state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 100, S: 80, B: 80, A: 1}.Color())},
 		area:  aria.ColorAreaOptions{XChannel: aria.ColorHue, YChannel: aria.ColorSaturation}, parts: "a",
 	}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
@@ -265,7 +265,7 @@ func TestColorAreaOtherChannels(t *testing.T) {
 func TestColorAreaDisabled(t *testing.T) {
 	var changes int
 	p := picker{
-		state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 0, S: 50, B: 50, A: 1}.Color(), OnChange: func(tela.Color) { changes++ }},
+		state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 0, S: 50, B: 50, A: 1}.Color()), OnChange: func(tela.Color) { changes++ }},
 		area:  aria.ColorAreaOptions{Disabled: true}, parts: "a",
 	}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
@@ -285,7 +285,7 @@ func TestColorAreaKeepsTheHue(t *testing.T) {
 	var last tela.Color
 	p := picker{
 		state: aria.ColorStateOptions{
-			DefaultValue: aria.HSB{H: 200, S: 100, B: 100, A: 1}.Color(),
+			DefaultValue: new(aria.HSB{H: 200, S: 100, B: 100, A: 1}.Color()),
 			OnChange:     func(c tela.Color) { last = c },
 		},
 		parts: "a",
@@ -313,7 +313,7 @@ func TestColorAreaTouchAndPen(t *testing.T) {
 		t.Run(fmt.Sprint(kind), func(t *testing.T) {
 			var ends events
 			p := picker{
-				state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 0, S: 50, B: 50, A: 1}.Color()},
+				state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 0, S: 50, B: 50, A: 1}.Color())},
 				area:  aria.ColorAreaOptions{OnChangeEnd: func(c tela.Color) { ends.add(aria.FormatHexColor(c, false)) }},
 				parts: "a",
 			}
@@ -352,7 +352,7 @@ func TestColorAreaTouchAndPen(t *testing.T) {
 // pointer in the meantime.
 func TestColorAreaDragDoesNotBuildPerMove(t *testing.T) {
 	var builds int
-	p := picker{state: aria.ColorStateOptions{DefaultValue: aria.HSB{H: 30, S: 0, B: 100, A: 1}.Color()}, parts: "a", builds: &builds}
+	p := picker{state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 30, S: 0, B: 100, A: 1}.Color())}, parts: "a", builds: &builds}
 	app := telatest.MountFunc(t, p.page(), telatest.Size(232, 400))
 	th := areaThumb()
 	start := builds

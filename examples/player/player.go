@@ -179,7 +179,9 @@ func (p Queue) Build() tela.Node {
 	current, playing := p.Tr.Track.Get(), p.Tr.Playing.Get()
 	return Fragment(kit.Card{
 		Class:        "hidden w-[420px] shrink-0 gap-2 rounded-3xl bg-card/60 py-4 lg:flex",
-		Title:        H2(Class("text-lg tracking-tight"), Text("Up next")),
+		TitleLevel:   2,
+		TitleClass:   "text-lg leading-7 tracking-tight",
+		Title:        Text("Up next"),
 		Action:       Span(Class("text-xs text-muted-foreground"), Textf("%d tracks", len(tracks))),
 		HeaderClass:  "items-baseline px-6 pb-1",
 		ContentClass: "flex flex-col gap-1 px-3",

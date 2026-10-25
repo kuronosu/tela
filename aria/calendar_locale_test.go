@@ -119,7 +119,7 @@ func TestCalendarNamesAndHeadings(t *testing.T) {
 		{"ar", "أكتوبر ٢٠٢٦", "سبت أحد إثنين ثلاثاء أربعاء خميس جمعة", "الاثنين، ٥ أكتوبر ٢٠٢٦", "٥"},
 		{"de", "Oktober 2026", "Mo. Di. Mi. Do. Fr. Sa. So.", "Montag, 5. Oktober 2026", "5"},
 	} {
-		app, res := calendarIn(t, aria.CalendarOptions{Locale: tt.locale, DefaultValue: &oct})
+		app, res := calendarIn(t, aria.CalendarOptions{Locale: tt.locale, DefaultValue: oct})
 		if got := res.Heading(0); got != tt.heading {
 			t.Errorf("%s: heading %q, want %q", tt.locale, got, tt.heading)
 		}
@@ -158,7 +158,7 @@ func TestCalendarUsesTheComponentsLocale(t *testing.T) {
 func TestCalendarRightToLeft(t *testing.T) {
 	// Arabic is right to left by locale: the arrows are mirrored.
 	app, _ := calendarIn(t, aria.CalendarOptions{
-		Locale: "ar-EG", DefaultValue: new(d(2026, time.October, 14)),
+		Locale: "ar-EG", DefaultValue: d(2026, time.October, 14),
 	})
 	app.Focus(cell2(d(2026, time.October, 14), "ar-EG"))
 	app.Press("ArrowLeft")
@@ -178,13 +178,13 @@ func TestCalendarRightToLeft(t *testing.T) {
 	// An English calendar set to rtl is mirrored too, and an Arabic one set
 	// to ltr is not.
 	app, _ = calendarIn(t, aria.CalendarOptions{
-		Locale: "en-US", Direction: "rtl", DefaultValue: new(d(2026, time.October, 14)),
+		Locale: "en-US", Direction: "rtl", DefaultValue: d(2026, time.October, 14),
 	})
 	app.Focus(cell(d(2026, time.October, 14)))
 	app.Press("ArrowLeft")
 	app.ExpectFocused(cell(d(2026, time.October, 15)))
 	app, _ = calendarIn(t, aria.CalendarOptions{
-		Locale: "ar-EG", Direction: "ltr", DefaultValue: new(d(2026, time.October, 14)),
+		Locale: "ar-EG", Direction: "ltr", DefaultValue: d(2026, time.October, 14),
 	})
 	app.Focus(cell2(d(2026, time.October, 14), "ar-EG"))
 	app.Press("ArrowLeft")

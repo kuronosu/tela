@@ -1,6 +1,7 @@
 package kit
 
 import (
+	"cmp"
 	"strings"
 
 	"github.com/kuronosu/tela"
@@ -130,8 +131,11 @@ type ColorPicker struct {
 	// Value points to the color of a controlled picker; nil leaves it to
 	// the picker, which starts at DefaultValue. OnValueChange is called with
 	// the next color on every change.
-	Value         *tela.Color
-	DefaultValue  tela.Color
+	Value *tela.Color
+	// DefaultValue is the color of an uncontrolled picker at the start; nil
+	// starts at opaque black (tela.Black). It is a pointer because the zero
+	// Color is a color too, transparent black.
+	DefaultValue  *tela.Color
 	OnValueChange func(tela.Color)
 	// OnValueCommit is called with the color when the user stops changing
 	// it, and not for a change that left it as it was.
@@ -156,15 +160,37 @@ type ColorPicker struct {
 	// and ArrowLeft increases them; a Direction given here also sets the
 	// direction of the panel's layout.
 	Direction string
+	// ID is the id of the picker's hex field, for a [Label]'s For. Inside
+	// a [Field] it defaults to the field's, so the field's label points to
+	// it and a press on the label focuses it.
+	ID string
+	// AriaLabel names the picker as a group for assistive technologies;
+	// inside a Field with a Label that label is used. A picker with neither
+	// is not a group.
+	AriaLabel string
 	// Class is added after the recipe's Root classes. Props are more props
 	// for the root element.
 	Class string
 	Props tela.Child
 }
 
-// Build returns the picker.
+// Build returns the picker. Inside a [Field] the hex field takes the
+// field's id, description and invalid state, and the picker is named by
+// the field's label.
 func (p ColorPicker) Build() tela.Node {
-	return colorPanel{p: p, parts: useColorParts(p)}.node(UseStyle())
+	fc := tela.UseContext(fieldCtx)
+	field := colorField{id: cmp.Or(p.ID, fc.id), label: cmp.Or(p.AriaLabel, fc.label), describedBy: fc.describedBy, invalid: fc.invalid}
+	return colorPanel{p: p, parts: useColorParts(p), field: field}.node(UseStyle())
+}
+
+// colorField is what a picker takes from its [Field], or from its own ID
+// and AriaLabel: the id of its hex field, its name as a group, and the
+// description and invalid state of the field. The panel of a ColorInput
+// has none (the button does).
+type colorField struct {
+	id, label   string
+	describedBy tela.ElementRef
+	invalid     bool
 }
 
 // colorShared is what the controls need of the color state's owner: the
@@ -224,12 +250,11 @@ type colorParts struct {
 // props are (the alpha slider's too, drawn or not), so that a picker can
 // change its Alpha or its Disabled.
 //
-// The zero Color as a default means black, as the zero Color transparent
-// would make every color the picker made transparent.
+// A nil DefaultValue starts at opaque black.
 func useColorParts(p ColorPicker) colorParts {
-	def := p.DefaultValue
-	if def == (tela.Color{}) {
-		def = tela.Black
+	def := tela.Black
+	if p.DefaultValue != nil {
+		def = *p.DefaultValue
 	}
 	sh := tela.UseOnce(func() *colorShared {
 		start := def
@@ -239,7 +264,7 @@ func useColorParts(p ColorPicker) colorParts {
 		return &colorShared{cur: start, committed: start}
 	})
 	sh.onChange, sh.onCommit = p.OnValueChange, p.OnValueCommit
-	st := aria.UseColorState(aria.ColorStateOptions{Value: p.Value, DefaultValue: def, OnChange: sh.changed})
+	st := aria.UseColorState(aria.ColorStateOptions{Value: p.Value, DefaultValue: &def, OnChange: sh.changed})
 	end := func(tela.Color) { sh.commit() }
 	dir, rootDir := useDirection("ColorPicker", p.Direction)
 	c := colorParts{st: st, sh: sh, color: st.Color(), rtl: dir == "rtl", rootDir: rootDir}
@@ -257,6 +282,7 @@ func useColorParts(p ColorPicker) colorParts {
 type colorPanel struct {
 	p     ColorPicker
 	parts colorParts
+	field colorField
 }
 
 // Build is the component of a ColorInput's popover, which draws the parts its
@@ -268,6 +294,9 @@ func (c colorPanel) node(style *Style) tela.Node {
 	s := &style.ColorPicker
 	p, k := c.p, c.parts
 	kids := []tela.Child{cls(s.Root, when(p.Disabled, s.Disabled), p.Class), k.rootDir, p.Props, c.areaNode(s)}
+	if c.field.label != "" {
+		kids = append(kids, h.Role("group"), h.AriaLabel(c.field.label))
+	}
 	kids = append(kids, c.hueNode(s))
 	if p.Alpha {
 		kids = append(kids, c.alphaNode(s))
@@ -378,14 +407,25 @@ func sliderNode(s *ColorPickerStyle, rtl bool, sl aria.ColorSliderResult, track,
 func (c colorPanel) hexNode(st *Style) tela.Node {
 	k := c.parts
 	sh := k.sh
-	return h.Input(cls(st.Input.Root, st.ColorPicker.Input), h.Dir("ltr"), k.hex.InputProps,
+	f := c.field
+	kids := []tela.Child{cls(st.Input.Root, st.ColorPicker.Input), h.Dir("ltr"), k.hex.InputProps}
+	if f.id != "" {
+		kids = append(kids, h.ID(f.id))
+	}
+	if f.describedBy != (tela.ElementRef{}) {
+		kids = append(kids, h.AriaDescribedBy(f.describedBy))
+	}
+	if f.invalid {
+		kids = append(kids, h.AriaInvalid(true))
+	}
+	return h.Input(append(kids,
 		// Enter and a blur commit the text (the hook's handlers ran first).
 		h.OnBlur(sh.commit),
 		h.OnKeyDown(func(e tela.KeyboardEvent) {
 			if e.Key == "Enter" {
 				sh.commit()
 			}
-		}))
+		}))...)
 }
 
 // ColorInput is a button that shows a color and opens a [ColorPicker] in a
@@ -393,7 +433,7 @@ func (c colorPanel) hexNode(st *Style) tela.Node {
 // picker in a panel under it. It takes the values of a ColorPicker and the
 // open state of a Popover.
 //
-//	kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), Alpha: true, OnValueCommit: save}
+//	kit.ColorInput{DefaultValue: new(tela.Hex("#6366f1")), Alpha: true, OnValueCommit: save}
 //
 // The color lives in the ColorInput, not in the panel, so the swatch and the
 // code on the button follow a drag in the panel without building the
@@ -407,7 +447,7 @@ func (c colorPanel) hexNode(st *Style) tela.Node {
 type ColorInput struct {
 	// The color, as in [ColorPicker].
 	Value         *tela.Color
-	DefaultValue  tela.Color
+	DefaultValue  *tela.Color
 	OnValueChange func(tela.Color)
 	OnValueCommit func(tela.Color)
 	Alpha         bool
@@ -429,10 +469,16 @@ type ColorInput struct {
 	OnOpenChange func(open bool)
 
 	// AreaLabel, HueLabel, AlphaLabel and HexLabel name the picker's
-	// controls, as in [ColorPicker]. AriaLabel names the panel ("Color
-	// picker" by default).
+	// controls, as in [ColorPicker].
 	AreaLabel, HueLabel, AlphaLabel, HexLabel string
-	AriaLabel                                 string
+	// AriaLabel names the button, followed by its color ("Brand color,
+	// #6366f1"), and the panel ("Color picker" when it is empty); inside a
+	// [Field] with a Label that label is used. ID is the button's id, for a
+	// [Label]'s For, and inside a Field defaults to the field's. With a
+	// Trigger of your own, these are for the panel only: name the button and
+	// give it its id yourself.
+	AriaLabel string
+	ID        string
 	// Direction is "ltr" or "rtl"; empty is the direction at the component's
 	// position (tela.UseDirection: the nearest h.Dir above it, left to right
 	// without one). Under "rtl" the saturation grows toward the left
@@ -460,15 +506,32 @@ func (c ColorInput) Build() tela.Node {
 		Direction: c.Direction,
 	}
 	parts := useColorParts(p)
+	fc := tela.UseContext(fieldCtx)
+	label := cmp.Or(c.AriaLabel, fc.label)
 	trig := c.Trigger
 	if trig == nil {
-		trig = Button{Variant: Outline, Disabled: c.Disabled, Class: joinClass(r.Trigger, c.Class), Props: c.Props,
-			Children: colorInputLabel{st: parts.st, text: aria.FormatHexColor(parts.color, c.Alpha)}}
+		code := aria.FormatHexColor(parts.color, c.Alpha)
+		props := []tela.Child{c.Props}
+		if id := cmp.Or(c.ID, fc.id); id != "" {
+			props = append(props, h.ID(id))
+		}
+		if fc.describedBy != (tela.ElementRef{}) {
+			props = append(props, h.AriaDescribedBy(fc.describedBy))
+		}
+		if fc.invalid {
+			props = append(props, h.AriaInvalid(true))
+		}
+		name := ""
+		if label != "" {
+			name = label + ", " + code
+		}
+		trig = Button{Variant: Outline, Disabled: c.Disabled, Class: joinClass(r.Trigger, c.Class), AriaLabel: name,
+			Props: tela.MergeProps(props...), Children: colorInputLabel{st: parts.st, text: code}}
 	}
 	return h.Fragment(Popover{
 		Trigger: trig, Placement: c.Placement, Align: orStr(c.Align, "start"), Offset: c.Offset,
 		Open: c.Open, DefaultOpen: c.DefaultOpen, OnOpenChange: c.OnOpenChange, Disabled: c.Disabled,
-		AriaLabel: orStr(c.AriaLabel, "Color picker"), Class: c.PopoverClass,
+		AriaLabel: orStr(label, "Color picker"), Class: c.PopoverClass,
 		Children: colorPanel{p: p, parts: parts},
 	})
 }

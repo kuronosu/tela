@@ -13,7 +13,7 @@ func hexField() telatest.Locator { return telatest.ByRole("textbox", "Hex") }
 
 func fieldPicker(def tela.Color, f aria.ColorFieldOptions, changes *events) picker {
 	f.AriaLabel = "Hex"
-	st := aria.ColorStateOptions{DefaultValue: def}
+	st := aria.ColorStateOptions{DefaultValue: &def}
 	if changes != nil {
 		st.OnChange = func(c tela.Color) { changes.add(aria.FormatHexColor(c, true)) }
 	}
@@ -183,7 +183,7 @@ func TestColorFieldDisabledAndReadOnly(t *testing.T) {
 
 func TestColorFieldLabel(t *testing.T) {
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Black})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Black)})
 		f := aria.UseColorField(aria.ColorFieldOptions{State: st})
 		return Div(Class("flex gap-2 p-4"), Span(f.LabelProps, Text("Hex code")), Input(f.InputProps, Class("w-28 border")))
 	}

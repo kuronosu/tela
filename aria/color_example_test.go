@@ -32,7 +32,7 @@ func ExampleUseColorArea() {
 	t := &exampleT{}
 	defer t.close()
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 220, S: 50, B: 50, A: 1}.Color()})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 220, S: 50, B: 50, A: 1}.Color())})
 		area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
 		size := tela.UseSize(area.AreaRef)
 		return Div(area.AreaProps, Class("relative size-48 rounded-md bg-muted"),
@@ -59,7 +59,7 @@ func ExampleUseColorSlider() {
 	t := &exampleT{}
 	defer t.close()
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: aria.HSB{H: 220, S: 80, B: 90, A: 1}.Color()})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 220, S: 80, B: 90, A: 1}.Color())})
 		hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
 		track := tela.UseSize(hue.TrackRef)
 		return Div(hue.Props, Class("w-64 p-4"),
@@ -84,7 +84,7 @@ func ExampleUseColorField() {
 	t := &exampleT{}
 	defer t.close()
 	page := func() tela.Node {
-		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+		st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: new(tela.Hex("#6366f1"))})
 		hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
 		return Div(Class("p-4"),
 			Input(hex.InputProps, Class("w-28 rounded-md border px-2 font-mono")),

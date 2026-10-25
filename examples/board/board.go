@@ -117,7 +117,7 @@ func (p TaskCard) Build() tela.Node {
 
 	items := p.items(toast, func() { setDraft.Set(task); setEditing.Set(true) }, func() { setDeleting.Set(true) })
 
-	wrapper := []tela.Child{
+	props := []tela.Child{
 		TestID("card"), Class("select-none"),
 		If(p.Dragging, Class("pointer-events-none relative z-50 rotate-2")),
 		OnDragStart(func() { p.D.Start(p.ID, p.Col) }),
@@ -136,7 +136,7 @@ func (p TaskCard) Build() tela.Node {
 		}),
 	}
 	if p.Dragging {
-		wrapper = append(wrapper, Style(tela.TranslateFn(func() (x, y float32) {
+		props = append(props, Style(tela.TranslateFn(func() (x, y float32) {
 			o := p.D.Offset.Get()
 			return o.X, o.Y
 		})))
@@ -146,13 +146,15 @@ func (p TaskCard) Build() tela.Node {
 	if p.Dragging {
 		look = "border-primary shadow-2xl ring-2 ring-ring/50"
 	}
-	wrapper = append(wrapper, kit.Card{
+	card := kit.Card{
+		Props:            tela.MergeProps(props...),
 		Class:            "gap-3 py-4 " + look,
 		HeaderClass:      "gap-1 px-4",
 		TitleClass:       "text-sm leading-5 font-medium",
 		DescriptionClass: "line-clamp-2 text-xs leading-4",
 		ContentClass:     "px-4",
-		Title:            H3(Text(task.Title)),
+		TitleLevel:       3,
+		Title:            Text(task.Title),
 		Description:      Text(task.Note),
 		Action: kit.DropdownMenu[string]{
 			Trigger: kit.Button{
@@ -169,13 +171,13 @@ func (p TaskCard) Build() tela.Node {
 			),
 			kit.Avatar{Size: kit.Sm, Fallback: task.Assignee, Alt: task.Assignee},
 		),
-	})
+	}
 
 	return Fragment(kit.ContextMenu[string]{
 		Class: "relative", AriaLabel: "Actions for " + task.Title, Items: items,
 		Children: Fragment(
 			If(p.Line == LineBefore, insertion("-top-[7px]")),
-			Div(wrapper...),
+			card,
 			If(p.Line == LineAfter, insertion("-bottom-[7px]")),
 			EditDialog{Open: editing, SetOpen: setEditing, Draft: draft, SetDraft: setDraft, ID: p.ID, SetTasks: p.SetTasks, Toast: toast},
 			DeleteDialog{Open: deleting, SetOpen: setDeleting, ID: p.ID, Title: task.Title, Set: p.Set, Toast: toast},

@@ -17,7 +17,8 @@ type NotificationsCard struct {
 func (p NotificationsCard) Build() tela.Node {
 	return Fragment(kit.Card{
 		Class:        "min-w-[340px] flex-1 basis-[420px]",
-		Title:        H2(Text("Notifications")),
+		TitleLevel:   2,
+		Title:        Text("Notifications"),
 		Description:  Text("Choose what you want to be told about."),
 		ContentClass: "flex flex-1 flex-col",
 		Children: Fragment(
@@ -86,7 +87,8 @@ func (p AppearanceCard) Build() tela.Node {
 	}
 	return Fragment(kit.Card{
 		Class:        "min-w-[340px] flex-1 basis-[420px]",
-		Title:        H2(Text("Appearance")),
+		TitleLevel:   2,
+		Title:        Text("Appearance"),
 		Description:  Text("Pick a theme and how much room the interface takes."),
 		ContentClass: "flex flex-col gap-6",
 		Children: Fragment(

@@ -92,7 +92,7 @@ func menuEntriesHTML(sb *strings.Builder, f menuFlavor, items []kit.MenuItem[str
 		}
 		switch {
 		case radio != nil:
-			on := radio.DefaultValue == it.Key
+			on := radio.DefaultValue != nil && *radio.DefaultValue == it.Key
 			fmt.Fprintf(sb, `<div role="menuitemradio" aria-checked=%t data-state=%q data-slot="%s-radio-item"%s class=%q><span class=%q>`,
 				on, checkedState(on), f.slot, extra, cn(fmt.Sprintf(shadcnMenuIndicatorRow, f.rounded), it.Class), shadcnMenuIndicator)
 			if on {
@@ -207,7 +207,7 @@ func kindsItems() []kit.MenuItem[string] {
 		{Kind: kit.MenuCheckbox, Key: "minimap", Label: "Minimap", Shortcut: "⌘M"},
 		{Kind: kit.MenuSeparator},
 		{Kind: kit.MenuLabel, Label: "Theme", Inset: true},
-		{Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: "dark", Items: []kit.MenuItem[string]{
+		{Kind: kit.MenuRadioGroup, Key: "theme", DefaultValue: new("dark"), Items: []kit.MenuItem[string]{
 			{Key: "light", Label: "Light"},
 			{Key: "dark", Label: "Dark"},
 			{Key: "system", Label: "System", Disabled: true},

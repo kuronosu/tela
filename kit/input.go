@@ -54,9 +54,13 @@ type Input struct {
 	Name string
 	// ID is the field's id, for a [Label]'s For. Inside a [Field] it
 	// defaults to the field's.
-	ID       string
-	Disabled bool
-	ReadOnly bool
+	ID string
+	// AriaLabel names a field that has no label of its own, such as a
+	// search box; a [Field]'s Label or a [Label] pointing to the field
+	// names it otherwise.
+	AriaLabel string
+	Disabled  bool
+	ReadOnly  bool
 	// Invalid marks the value as wrong: assistive technologies announce it
 	// and the recipe's aria-invalid: classes (a red border and ring) apply.
 	// A [Field] with an Error sets it on its control.
@@ -80,7 +84,7 @@ func (i Input) Build() tela.Node {
 	}
 	kids = append(kids, useTextField(textFieldProps{
 		value: i.Value, defaultValue: i.DefaultValue, onChange: i.OnValueChange,
-		placeholder: i.Placeholder, name: i.Name, id: i.ID,
+		placeholder: i.Placeholder, name: i.Name, id: i.ID, ariaLabel: i.AriaLabel,
 		disabled: i.Disabled, readOnly: i.ReadOnly, invalid: i.Invalid, autoFocus: i.AutoFocus, maxLength: i.MaxLength,
 	})...)
 	return h.Input(kids...)

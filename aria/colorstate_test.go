@@ -23,7 +23,7 @@ func stateApp(t *testing.T, o aria.ColorStateOptions) (*telatest.App, **aria.Col
 func TestColorStateSetKeepsTheHue(t *testing.T) {
 	var changes events
 	app, st := stateApp(t, aria.ColorStateOptions{
-		DefaultValue: aria.HSB{H: 200, S: 100, B: 100, A: 1}.Color(),
+		DefaultValue: new(aria.HSB{H: 200, S: 100, B: 100, A: 1}.Color()),
 		OnChange:     func(c tela.Color) { changes.add(aria.FormatHexColor(c, true)) },
 	})
 	app.ExpectText("color #00aaffff")
@@ -56,7 +56,7 @@ func TestColorStateSetKeepsTheHue(t *testing.T) {
 }
 
 func TestColorStateSetHSBClamps(t *testing.T) {
-	app, st := stateApp(t, aria.ColorStateOptions{DefaultValue: tela.Black})
+	app, st := stateApp(t, aria.ColorStateOptions{DefaultValue: new(tela.Black)})
 	(*st).SetHSB(aria.HSB{H: 999, S: -5, B: 500, A: 7})
 	app.ExpectText("color #ffffffff")
 	if h := (*st).HSB(); h.H != 360 || h.S != 0 || h.B != 100 || h.A != 1 {
@@ -94,7 +94,7 @@ func TestColorStateControlledKeepsTheHue(t *testing.T) {
 }
 
 func TestColorStateStartsFromTheColor(t *testing.T) {
-	_, st := stateApp(t, aria.ColorStateOptions{DefaultValue: tela.Hex("#336699").WithAlpha(0.25)})
+	_, st := stateApp(t, aria.ColorStateOptions{DefaultValue: new(tela.Hex("#336699").WithAlpha(0.25))})
 	h := (*st).HSB()
 	if !closeTo(h.H, 210, 0.01) || !closeTo(h.S, 66.667, 0.01) || !closeTo(h.B, 60, 0.01) || h.A != 0.25 {
 		t.Errorf("%+v", h)

@@ -42,7 +42,7 @@ type DialogStyle struct {
 	Title       string
 	Description string
 	Footer      string
-	// Close is the button in the corner (ShowClose) and CloseIcon its icon.
+	// Close is the button in the corner (unless HideClose) and CloseIcon its icon.
 	Close     string
 	CloseIcon string
 }
@@ -82,7 +82,6 @@ var iconX = tela.Icon{SVG: `<svg xmlns="http://www.w3.org/2000/svg" width="24" h
 //	    Description: h.Text("Make changes to your profile here."),
 //	    Children:    form,
 //	    Footer:      kit.Button{Children: h.Text("Save changes")},
-//	    ShowClose:   true,
 //	}
 //
 // The Trigger slot is a [Trigger]: a [Button], or anything made one with
@@ -110,9 +109,10 @@ type Dialog struct {
 	Children tela.Component
 	// Footer is the row of actions at the bottom, usually buttons.
 	Footer tela.Component
-	// ShowClose draws the close button in the top-right corner. shadcn
-	// draws it unless told not to; here it is off until asked for.
-	ShowClose bool
+	// HideClose leaves out the close button in the top-right corner, which
+	// is drawn by default (shadcn's showCloseButton={false}). CloseIcon and
+	// CloseLabel are for the button when it is drawn.
+	HideClose bool
 	// CloseIcon replaces the X of the close button; CloseLabel is its
 	// accessible name ("Close").
 	CloseIcon  tela.Icon
@@ -159,7 +159,7 @@ func (d Dialog) Build() tela.Node {
 
 	panel := dialogPanel{
 		style: s, title: d.Title, description: d.Description, children: d.Children, footer: d.Footer,
-		showClose: d.ShowClose, closeIcon: d.CloseIcon, closeLabel: d.CloseLabel, onClose: trig.Close,
+		showClose: !d.HideClose, closeIcon: d.CloseIcon, closeLabel: d.CloseLabel, onClose: trig.Close,
 		class: d.Class, headerClass: d.HeaderClass, titleClass: d.TitleClass, descriptionClass: d.DescriptionClass,
 		footerClass: d.FooterClass, closeClass: d.CloseClass,
 		titleProps: dlg.TitleProps, descriptionRef: desc,

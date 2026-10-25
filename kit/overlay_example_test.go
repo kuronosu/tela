@@ -20,7 +20,6 @@ func ExampleDialog() {
 			Description: h.Text("Make changes to your profile here."),
 			Children:    kit.Input{Placeholder: "Name"},
 			Footer:      kit.Button{Children: h.Text("Save changes")},
-			ShowClose:   true,
 		})
 	}
 	app := telatest.MountFunc(t, page)

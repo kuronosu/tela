@@ -149,10 +149,9 @@ type SelectItem[K comparable] struct {
 // The chosen option follows the kit's value rule: Value (a pointer to your
 // state) with OnValueChange controls it, DefaultValue starts an uncontrolled
 // one. Value and DefaultValue choose the option whose Value equals them;
-// when none does, which is how the zero K shows the placeholder, nothing is
-// chosen. A select whose keys include the zero value of K (the int 0, say)
-// has that option chosen by an unset DefaultValue: give such keys a
-// sentinel option, or use strings.
+// when none does, or DefaultValue is nil, nothing is chosen and the
+// placeholder shows. Both are pointers, so that the zero value of K (the
+// int 0, say) can be an option: new(0) chooses it, nil chooses nothing.
 //
 // Inside a [Field] the trigger takes the field's id, so the label points to
 // it and names it, the field's description or error describes it, and an
@@ -168,8 +167,9 @@ type Select[K comparable] struct {
 	// Value points to the chosen option of a controlled Select; nil leaves
 	// the choice to the component, which starts at DefaultValue.
 	Value *K
-	// DefaultValue is the option an uncontrolled Select starts with.
-	DefaultValue K
+	// DefaultValue points to the option an uncontrolled Select starts with;
+	// nil starts with nothing chosen.
+	DefaultValue *K
 	// OnValueChange is called with the key of the option the user chose. For
 	// a controlled Select it is how the change is asked for.
 	OnValueChange func(K)
@@ -252,8 +252,8 @@ func (s Select[K]) Build() tela.Node {
 		o.Selected = aria.SelectionOf(*s.Value)
 	case s.Value != nil:
 		o.Selected = aria.SelectionOf[K]()
-	case has(s.DefaultValue):
-		o.DefaultSelected = aria.SelectionOf(s.DefaultValue)
+	case s.DefaultValue != nil && has(*s.DefaultValue):
+		o.DefaultSelected = aria.SelectionOf(*s.DefaultValue)
 	}
 	if on := s.OnValueChange; on != nil {
 		o.OnSelectionChange = func(sel aria.Selection[K]) {

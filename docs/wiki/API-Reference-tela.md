@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -49,7 +49,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type PointerKind`](#type-pointerkind): [`String`](#func-pointerkind-string)
   - [`type Preview`](#type-preview): [`Build`](#func-preview-build)
   - [`type Previews`](#type-previews): [`Names`](#func-previews-names)
-  - [`type Prop`](#type-prop): [`Build`](#func-prop-build)
+  - [`type Prop`](#type-prop): [`MergeProps`](#func-mergeprops) · [`Build`](#func-prop-build)
   - [`type Rect`](#type-rect): [`Bottom`](#func-rect-bottom) · [`Contains`](#func-rect-contains) · [`Right`](#func-rect-right)
   - [`type Ref`](#type-ref): [`UseRef`](#func-useref)
   - [`type SchemeColor`](#type-schemecolor)
@@ -3648,6 +3648,46 @@ Prop is a property of an element: classes, typed style, key, event handlers, an 
 type Prop struct {
     // contains filtered or unexported fields
 }
+```
+
+#### func MergeProps
+
+```go
+func MergeProps(props ...Child) Prop
+```
+
+MergeProps returns one [`Prop`](#type-prop) that applies props in order, for a place that takes a single one: kit's Props field of type [`Child`](#type-child), or a hook's result next to your own props. Event handlers accumulate (every handler of an event runs, in order); the other props are set by the last one that sets them, as when they are given one after the other to an element. Nil and the zero Prop are skipped.
+
+It takes only props, and style props such as tela.Width. A [`Node`](#type-node) or another [`Component`](#type-component) is not a prop and cannot be merged into one: dev mode panics, naming the argument, and otherwise it is ignored.
+
+```go
+kit.Button{Children: Text("Save"), Props: tela.MergeProps(
+    TestID("save"), OnMouseEnter(prefetch), AriaLabel("Save the draft"))}
+```
+
+**Example**
+
+Several props where one is taken: a kit component's Props field.
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    return Div(
+        Button(Class("rounded border px-3"), Text("Save"),
+            tela.MergeProps(
+                TestID("save"),
+                AriaLabel("Save the draft"),
+                OnClick(func() { fmt.Println("clicked") }),
+                OnClick(func() { fmt.Println("and again") }),
+            )))
+}
+app := telatest.Mount(t, tela.C(page))
+app.Click(telatest.ByTestID("save"))
+app.ExpectRole("button", "Save the draft")
+// Output:
+// clicked
+// and again
 ```
 
 #### func (Prop) Build
