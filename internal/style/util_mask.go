@@ -452,9 +452,6 @@ func maskArbitrary(c *pctx, a *arg) (Op, error) {
 		if err != nil {
 			return Op{}, err
 		}
-		if img.kind == 1 {
-			img.gradient.Interp = gfx.InterpSRGB // CSS's default; Tailwind's bg-linear-* add "in oklab"
-		}
 		list[i] = img
 	}
 	return op(func(e *env) { e.sc.mask.image, e.sc.mask.layers = 2, list }), nil

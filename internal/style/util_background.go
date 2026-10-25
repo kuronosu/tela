@@ -171,7 +171,9 @@ var cornerDirs = map[string]struct {
 // gradientUtility handles bg-linear-*, bg-radial-* and bg-conic-*.
 func gradientUtility(c *pctx, a *arg, kind GradientKind) (Op, error) {
 	g := newGradient(kind)
+	modSet := false
 	if a.hasMod {
+		modSet = true
 		switch a.mod {
 		case "srgb":
 			g.Interp = gfx.InterpSRGB
@@ -186,11 +188,20 @@ func gradientUtility(c *pctx, a *arg, kind GradientKind) (Op, error) {
 	value := a.value
 	switch {
 	case a.arb:
-		gr, err := parseGradientList(c, kind, a.inner)
+		// Tailwind's arbitrary forms put the text in the gradient as it is,
+		// without "in oklab": sRGB unless the text says "in <space>". The
+		// /srgb and /oklab modifiers are a Tela extension that sets it
+		// without writing it (Tailwind rejects a modifier here).
+		gr, explicit, err := parseGradientListIn(c, kind, a.inner)
 		if err != nil {
 			return Op{}, err
 		}
-		gr.Interp = g.Interp
+		if modSet {
+			if explicit && gr.Interp != g.Interp {
+				return Op{}, fmt.Errorf("the /%s modifier contradicts \"in %s\" in the value; write only one of them", a.mod, gr.Interp)
+			}
+			gr.Interp = g.Interp
+		}
 		g = gr
 	case kind == GradientLinear:
 		if d, ok := cornerDirs[value]; ok {

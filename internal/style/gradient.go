@@ -87,7 +87,9 @@ type Gradient struct {
 	// box, from its top-left corner. The default is 50% 50%.
 	CenterX, CenterY LP
 
-	// Interp is the color space of the interpolation, Oklab by default.
+	// Interp is the color space of the interpolation. The zero value is
+	// Oklab, the default of Tailwind's named gradient utilities; gradients
+	// written as CSS functions default to sRGB, as in CSS (ADR-158).
 	Interp gfx.ColorSpace
 
 	Stops []ColorStop
@@ -548,35 +550,63 @@ func parseColorStop(c *pctx, s string) ([]ColorStop, error) {
 }
 
 // parseGradientList parses the comma separated argument list of an
-// arbitrary gradient class: an optional prelude followed by color stops.
+// arbitrary gradient (the inside of linear-gradient(...) and friends, or of
+// bg-linear-[...]): an optional prelude followed by color stops.
+//
+// The result interpolates in sRGB unless the prelude says otherwise with
+// "in srgb" or "in oklab": that is what CSS does for a gradient without a
+// color interpolation method, and what Tailwind v4 emits for its arbitrary
+// forms (only its named utilities add "in oklab"; ADR-158).
 func parseGradientList(c *pctx, kind GradientKind, inner string) (Gradient, error) {
-	g := newGradient(kind)
+	g, _, err := parseGradientListIn(c, kind, inner)
+	return g, err
+}
+
+// parseGradientListIn is parseGradientList that also reports whether the
+// prelude named the color space.
+func parseGradientListIn(c *pctx, kind GradientKind, inner string) (g Gradient, explicit bool, err error) {
+	g = newGradient(kind)
+	g.Interp = gfx.InterpSRGB
 	parts := splitTop(inner, ',')
 	first := strings.TrimSpace(parts[0])
 	hasPrelude := false
 	if first != "" {
+		rest, space, found, err := extractInterpolation(first)
+		if err != nil {
+			return g, false, err
+		}
+		if found {
+			g.Interp, explicit, hasPrelude = space, true, true
+		}
+		first = rest
+	}
+	if first != "" {
+		hadRest := hasPrelude
 		switch kind {
 		case GradientLinear:
 			if strings.HasPrefix(first, "to ") || isAngleToken(first) {
-				hasPrelude = true
+				hasPrelude, hadRest = true, false
 				if err := parseLinearDirection(first, &g); err != nil {
-					return g, err
+					return g, explicit, err
 				}
 			}
 		case GradientRadial:
 			if isRadialPrelude(first) {
-				hasPrelude = true
+				hasPrelude, hadRest = true, false
 				if err := parseRadialPrelude(first, &g); err != nil {
-					return g, err
+					return g, explicit, err
 				}
 			}
 		case GradientConic:
 			if strings.HasPrefix(first, "from ") || strings.HasPrefix(first, "at ") {
-				hasPrelude = true
+				hasPrelude, hadRest = true, false
 				if err := parseConicPrelude(first, &g); err != nil {
-					return g, err
+					return g, explicit, err
 				}
 			}
+		}
+		if hadRest {
+			return g, explicit, fmt.Errorf("invalid gradient argument %q next to \"in %s\"; the color space goes with the direction, shape or position, before the first color stop", first, g.Interp)
 		}
 	}
 	if hasPrelude {
@@ -585,14 +615,54 @@ func parseGradientList(c *pctx, kind GradientKind, inner string) (Gradient, erro
 	for _, p := range parts {
 		stops, err := parseColorStop(c, p)
 		if err != nil {
-			return g, err
+			return g, explicit, err
 		}
 		g.Stops = append(g.Stops, stops...)
 	}
 	if len(g.Stops) == 0 && hasPrelude {
 		g.Stops = nil // prelude only: stops come from from-*, via-* and to-*
 	}
-	return g, nil
+	return g, explicit, nil
+}
+
+// extractInterpolation removes the color interpolation method ("in srgb",
+// "in oklab") from a gradient prelude. CSS allows it before or after the
+// direction, shape or position: "to right in oklab", "in srgb to right",
+// "circle in oklab at top". Only srgb and oklab are supported; the other
+// spaces and the hue methods are an error that says what to use instead.
+func extractInterpolation(prelude string) (rest string, space gfx.ColorSpace, found bool, err error) {
+	f := strings.Fields(prelude)
+	at := -1
+	for i, w := range f {
+		if w == "in" {
+			at = i
+			break
+		}
+	}
+	if at < 0 {
+		return prelude, 0, false, nil
+	}
+	if at+1 >= len(f) {
+		return "", 0, false, errors.New("\"in\" needs a color space: in srgb or in oklab")
+	}
+	name := f[at+1]
+	switch name {
+	case "srgb":
+		space = gfx.InterpSRGB
+	case "oklab":
+		space = gfx.InterpOklab
+	case "srgb-linear", "display-p3", "a98-rgb", "prophoto-rgb", "rec2020", "lab", "lch", "oklch", "hsl", "hwb", "xyz", "xyz-d50", "xyz-d65":
+		return "", 0, false, unsupportedErr(fmt.Sprintf("gradients interpolate in srgb or oklab only, not in %s; use \"in srgb\" or \"in oklab\"", name))
+	default:
+		return "", 0, false, fmt.Errorf("unknown color space %q in the gradient; use \"in srgb\" or \"in oklab\"", name)
+	}
+	n := 2
+	if at+3 < len(f) && f[at+3] == "hue" {
+		// "in oklab shorter hue": a hue method only exists for polar spaces.
+		return "", 0, false, fmt.Errorf("a hue interpolation method (%s hue) only applies to polar color spaces, which gradients do not support; use \"in %s\" alone", f[at+2], name)
+	}
+	f = append(f[:at:at], f[at+n:]...)
+	return strings.Join(f, " "), space, true, nil
 }
 
 func isAngleToken(s string) bool {

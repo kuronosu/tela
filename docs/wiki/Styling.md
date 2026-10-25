@@ -140,6 +140,10 @@ down) and at least two stops from [`tela.Stop`](https://pkg.go.dev/github.com/ku
 [`tela.StopAt`](https://pkg.go.dev/github.com/kuronosu/tela#StopAt) (a percentage of the gradient line). Colors interpolate in Oklab,
 like Tailwind v4.
 
+The same goes for `bg-linear-*`, `bg-radial-*` and `bg-conic-*` with a number or a direction. A gradient you write as CSS text
+(`bg-[linear-gradient(...)]`, `bg-linear-[to_right,#f00,#00f]`) interpolates in sRGB, as CSS does, unless it says
+`in oklab` (`bg-[linear-gradient(to_right_in_oklab,#f00,#00f)]`). Other color spaces (`in oklch`, `in hsl`) are not supported.
+
 ## Effects and background images
 
 **Background images.** `bg-[url(img/hero.jpg)]` loads a file from the file
