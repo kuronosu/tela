@@ -1,0 +1,21 @@
+- text: Pricing
+- heading "Simple, transparent pricing" [level=1]
+- paragraph: Start free. Upgrade when your team grows. Cancel anytime.
+- radiogroup "Billing period":
+  - radio "Monthly" [checked]
+  - radio "Yearly Save 20%"
+- heading "Starter" [level=3]
+- text: For individuals and side projects. $0 / month
+- paragraph: Free forever
+- text: 1 project 2 GB of storage Community support Basic analytics Public API access
+- button "Get started"
+- heading "Pro" [level=3]
+- text: For growing teams that ship fast. Most popular $29 / month
+- paragraph: Billed monthly
+- text: Unlimited projects 100 GB of storage Priority email support Advanced analytics Custom domains
+- button "Start free trial"
+- heading "Enterprise" [level=3]
+- text: For organizations with advanced needs. $99 / month
+- paragraph: Billed monthly
+- text: Everything in Pro SSO and audit logs 99.99% uptime SLA Dedicated success manager On-premise deployment
+- button "Contact sales"

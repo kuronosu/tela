@@ -2,21 +2,10 @@ package main
 
 import (
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/examples/settings/icons"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
-
-const (
-	card  = "rounded-xl border border-zinc-200 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900"
-	muted = "text-zinc-500 dark:text-zinc-400"
-)
-
-// cardHeader is the title and description at the top of a card.
-func cardHeader(title, description string) tela.Node {
-	return Div(Class("flex flex-col gap-1.5 px-6 pt-6"),
-		H2(Class("leading-none font-semibold tracking-tight"), Text(title)),
-		P(Class("text-sm", muted), Text(description)),
-	)
-}
 
 // NotificationsCard lists one switch per kind of notification. Its fields
 // are comparable, so it is built again only when the form changes.
@@ -26,9 +15,12 @@ type NotificationsCard struct {
 }
 
 func (p NotificationsCard) Build() tela.Node {
-	return Div(Class(card, "flex min-w-[340px] flex-1 basis-[420px] flex-col pb-2"),
-		cardHeader("Notifications", "Choose what you want to be told about."),
-		Div(Class("mt-4 flex flex-1 flex-col"),
+	return Fragment(kit.Card{
+		Class:        "min-w-[340px] flex-1 basis-[420px]",
+		Title:        H2(Text("Notifications")),
+		Description:  Text("Choose what you want to be told about."),
+		ContentClass: "flex flex-1 flex-col",
+		Children: Fragment(
 			MapKeyed(notifications, func(n Notification) Field { return n.Field }, func(n Notification) tela.Component {
 				return SettingRow{Field: n.Field, Title: n.Title, Hint: n.Hint, On: p.Prefs.Bool(n.Field), Set: p.Set}
 			}),
@@ -37,11 +29,12 @@ func (p NotificationsCard) Build() tela.Node {
 				On: true, Locked: true, Set: p.Set,
 			},
 		),
-	)
+	})
 }
 
-// SettingRow is a label with a description and its switch. Rows after the
-// first have a top border (first:border-t-0).
+// SettingRow is a label with a description and its switch: a horizontal
+// Field whose control comes after the text (flex-row-reverse). Rows after
+// the first have a top border (first:border-t-0).
 type SettingRow struct {
 	Field       Field
 	Title, Hint string
@@ -50,74 +43,108 @@ type SettingRow struct {
 }
 
 func (p SettingRow) Build() tela.Node {
-	return Div(Class("flex flex-1 items-center justify-between gap-6 border-t border-zinc-100 px-6 py-4 first:border-t-0 dark:border-zinc-800"),
-		Div(Class("flex min-w-0 flex-col gap-0.5"),
-			Span(Class("text-sm leading-5 font-medium"), Text(p.Title)),
-			Span(Class("text-sm leading-5", muted), Text(p.Hint)),
-		),
-		Switch{Field: p.Field, Label: p.Title, On: p.On, Locked: p.Locked, Set: p.Set},
-	)
+	on := p.On
+	return Fragment(kit.Field{
+		Orientation: kit.Horizontal,
+		Label:       p.Title,
+		Description: p.Hint,
+		Class:       "flex-1 flex-row-reverse items-center justify-between gap-6 border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0",
+		Children: kit.Switch{
+			Checked: &on, Disabled: p.Locked,
+			OnCheckedChange: func(bool) { p.Set.Update(func(x Prefs) Prefs { return x.Toggle(p.Field) }) },
+		},
+	})
 }
 
-// AppearanceCard has two radio groups, named by their labels: a theme
-// with previews and a density list.
+// The caption of a group of controls (shadcn's FieldLegend, which kit does
+// not have) and the column that holds it and the group.
+const (
+	caption = "text-sm leading-none font-medium"
+	group   = "flex flex-col gap-3"
+)
+
+// AppearanceCard has a theme RadioGroup, whose options are cards with a
+// miniature of each theme, and a density ToggleGroup (a segmented control).
 type AppearanceCard struct {
 	Prefs Prefs
 	Set   tela.Setter[Prefs]
 }
 
 func (p AppearanceCard) Build() tela.Node {
-	themeLabel, densityLabel := tela.UseElementRef(), tela.UseElementRef()
-	return Div(Class(card, "flex min-w-[340px] flex-1 basis-[420px] flex-col pb-6"),
-		cardHeader("Appearance", "Pick a theme and how much room the interface takes."),
-		Div(Class("mt-5 flex flex-col gap-2.5 px-6"),
-			Span(Ref(themeLabel), Class("text-sm font-medium"), Text("Theme")),
-			Div(Class("flex gap-3"), Role("radiogroup"), AriaLabelledBy(themeLabel),
-				MapKeyed(themes, func(o Option) string { return o.Value }, func(o Option) tela.Component {
-					return ThemeOption{Value: o.Value, Selected: p.Prefs.Theme == o.Value, Set: p.Set}
+	theme, density := p.Prefs.Theme, p.Prefs.Density
+	items := make([]kit.RadioItem[string], len(themes))
+	for i, t := range themes {
+		items[i] = kit.RadioItem[string]{Value: t.Value, Label: t.Title}
+	}
+	segments := make([]kit.ToggleGroupItem[string], len(densities))
+	var hint string
+	for i, d := range densities {
+		segments[i] = kit.ToggleGroupItem[string]{Value: d.Value, Label: d.Title}
+		if d.Value == density {
+			hint = d.Hint
+		}
+	}
+	return Fragment(kit.Card{
+		Class:        "min-w-[340px] flex-1 basis-[420px]",
+		Title:        H2(Text("Appearance")),
+		Description:  Text("Pick a theme and how much room the interface takes."),
+		ContentClass: "flex flex-col gap-6",
+		Children: Fragment(
+			Div(Class(group), Span(Class(caption), Text("Theme")),
+				kit.RadioGroup[string]{
+					AriaLabel: "Theme", Items: items, Render: themeCard, Class: "grid-cols-3",
+					Value: &theme, OnValueChange: func(v string) {
+						p.Set.Update(func(x Prefs) Prefs { return x.Choose(FieldTheme, v) })
+					},
 				}),
+			Div(Class(group), Span(Class(caption), Text("Density")),
+				kit.ToggleGroup[string]{
+					AriaLabel: "Density", Items: segments, Variant: kit.Outline, DisallowEmptySelection: true,
+					Class: "w-full", ItemClass: "flex-1",
+					Value: &density, OnValueChange: func(v string) {
+						p.Set.Update(func(x Prefs) Prefs { return x.Choose(FieldDensity, v) })
+					},
+				},
+				P(Class("text-sm text-muted-foreground"), Text(hint)),
 			),
 		),
-		Div(Class("mt-6 flex flex-col gap-2.5 px-6"),
-			Span(Ref(densityLabel), Class("text-sm font-medium"), Text("Density")),
-			Div(Class("flex flex-col gap-2"), Role("radiogroup"), AriaLabelledBy(densityLabel),
-				MapKeyed(densities, func(o Option) string { return o.Value }, func(o Option) tela.Component {
-					return DensityOption{Value: o.Value, Selected: p.Prefs.Density == o.Value, Set: p.Set}
-				}),
-			),
-		),
-	)
+	})
 }
 
 // Footer shows the save state and the Reset and Save changes buttons,
-// which are disabled while there is nothing to save. Save and Reset are
-// Callback handles (UseCallback): comparable, so the footer rebuilds only
-// when Dirty changes.
+// which are disabled while there is nothing to save. Reset asks first, with
+// an AlertDialog. Save and Reset are Callback handles (UseCallback):
+// comparable, so the footer rebuilds only when Dirty changes.
 type Footer struct {
 	Dirty       bool
 	Save, Reset tela.Callback[func()]
 }
 
 func (p Footer) Build() tela.Node {
-	status := Div(Class("flex items-center gap-2 text-sm", muted),
-		Div(Class("size-2 rounded-full bg-emerald-500")),
+	status := Div(Class("flex items-center gap-2 text-sm text-muted-foreground"),
+		Icon(icons.CircleCheck, Class("size-4 text-emerald-600 dark:text-emerald-400")),
 		Text("All changes saved"))
 	if p.Dirty {
-		status = Div(Class("flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400"),
-			Div(Class("size-2 rounded-full bg-amber-500")),
+		status = Div(Class("flex items-center gap-2 text-sm font-medium"),
+			Icon(icons.CircleAlert, Class("size-4 text-amber-600 dark:text-amber-400")),
 			Text("You have unsaved changes"))
 	}
-	return Div(Class(card, "flex flex-wrap items-center justify-between gap-4 px-6 py-4"),
-		status,
-		Div(Class("flex gap-3"),
-			Button(Class("flex h-9 items-center rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium shadow-xs",
-				"hover:bg-zinc-100 active:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white",
-				"dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:disabled:hover:bg-zinc-800"),
-				Disabled(!p.Dirty), OnClick(p.Reset.Fn()), Text("Reset")),
-			Button(Class("flex h-9 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-zinc-50 shadow-sm",
-				"hover:bg-zinc-700 active:bg-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zinc-900",
-				"dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:disabled:hover:bg-zinc-50"),
-				Disabled(!p.Dirty), OnClick(p.Save.Fn()), Text("Save changes")),
+	return Fragment(kit.Card{
+		Class: "py-4",
+		Children: Div(Class("flex flex-wrap items-center justify-between gap-4"),
+			status,
+			Div(Class("flex gap-3"),
+				kit.AlertDialog{
+					Trigger:     kit.Button{Variant: kit.Outline, Children: Text("Reset")},
+					Disabled:    !p.Dirty,
+					Title:       Text("Discard your changes?"),
+					Description: Text("The form goes back to the last saved settings. This cannot be undone."),
+					Action:      Text("Discard changes"),
+					Destructive: true,
+					OnAction:    p.Reset.Fn(),
+				},
+				kit.Button{Disabled: !p.Dirty, OnClick: p.Save.Fn(), Children: Text("Save changes")},
+			),
 		),
-	)
+	})
 }

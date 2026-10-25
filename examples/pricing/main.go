@@ -1,12 +1,14 @@
-// Command pricing is a pricing page: three plans with a highlighted one,
-// feature lists with check marks and a monthly/yearly switch that changes
-// the prices.
+// Command pricing is a pricing page built on package kit in its default
+// style: three plans as cards with a highlighted one, feature lists with
+// check icons and a monthly/yearly segmented control that changes the
+// prices.
 //
-// The switch is a component built from divs: a track and a knob that move
-// with justify-start/justify-end when the state changes. The plan cards
-// are struct components whose fields are an ID and the billing period:
-// plain comparable values, so a rebuild of the page that changes neither
-// skips them.
+// The segmented control is a kit.ToggleGroup whose value is the billing
+// period. The plan cards are struct components whose fields are an ID and
+// the billing period: plain comparable values, so a rebuild of the page
+// that changes neither skips them. Colors are theme tokens (bg-primary,
+// text-muted-foreground), so the page follows the color scheme with no
+// dark: classes except in two accents.
 //
 // `tela snapshot ./examples/pricing` renders it without a window; add
 // --dark for the dark theme.
@@ -15,6 +17,7 @@ package main
 import (
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
 
 // Pricing is the page. The billing period lives here and goes down as a
@@ -23,12 +26,11 @@ func Pricing() tela.Node { return tela.C(pricing) }
 
 func pricing() tela.Node {
 	yearly, setYearly := tela.UseState(false)
-	return Div(Class("flex min-h-screen flex-col items-center gap-8 overflow-hidden bg-zinc-50 px-6 pt-12 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
+	return Div(Class("flex min-h-screen flex-col items-center gap-8 overflow-hidden px-6 pt-12"),
 		Div(Class("flex flex-col items-center gap-3 text-center"),
-			Div(Class("rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-600 shadow-xs dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"),
-				Text("Pricing")),
+			kit.Badge{Variant: kit.Outline, Class: "px-3 py-1", Children: Text("Pricing")},
 			H1(Class("text-4xl font-bold tracking-tight md:text-5xl"), Text("Simple, transparent pricing")),
-			P(Class("text-base text-zinc-500 dark:text-zinc-400"), Text("Start free. Upgrade when your team grows. Cancel anytime.")),
+			P(Class("text-base text-muted-foreground"), Text("Start free. Upgrade when your team grows. Cancel anytime.")),
 		),
 		BillingToggle{Yearly: yearly, Set: setYearly},
 		Div(Class("flex flex-wrap items-stretch justify-center gap-6"),
@@ -39,15 +41,17 @@ func pricing() tela.Node {
 	)
 }
 
-// Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return Pricing() }
+var theme = kit.Theme()
 
-func main() {
-	tela.Main(tela.App{
-		Title:  "Tela — pricing",
-		AppID:  "dev.telaui.pricing",
-		Width:  1280,
-		Height: 800,
-		Root:   Pricing(),
-	})
+// App is the window; `tela snapshot` and the tests read it too.
+var App = tela.App{
+	Title:     "Tela — pricing",
+	AppID:     "dev.telaui.pricing",
+	Width:     1280,
+	Height:    800,
+	Theme:     &theme,
+	RootClass: "bg-background text-foreground",
+	Root:      Pricing(),
 }
+
+func main() { tela.Main(App) }

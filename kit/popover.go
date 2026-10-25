@@ -90,6 +90,10 @@ type Popover struct {
 	Open         *bool
 	DefaultOpen  bool
 	OnOpenChange func(open bool)
+	// Disabled disables the trigger, which is then inert and dimmed by its
+	// recipe; the popover does not open. Set it here: the trigger props
+	// override a Disabled given to the trigger component itself.
+	Disabled bool
 
 	// Class is added after the recipe's Root classes, to the panel.
 	Class string
@@ -101,7 +105,7 @@ type Popover struct {
 func (p Popover) Build() tela.Node {
 	s := &UseStyle().Popover
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange,
+		Open: p.Open, DefaultOpen: p.DefaultOpen, OnOpenChange: p.OnOpenChange, Disabled: p.Disabled,
 	})
 	offset := p.Offset
 	switch {

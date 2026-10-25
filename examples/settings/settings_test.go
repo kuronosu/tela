@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	"testing"
 
 	"github.com/kuronosu/tela/telatest"
@@ -10,11 +9,12 @@ import (
 
 const windowW, windowH = 1280, 800
 
-// mount opens the screen in dev mode, where any dev message fails the test.
+// mount opens the screen as main does, in dev mode, where any dev message
+// fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
-	return telatest.Mount(t, Settings(), opts...)
+	return telatest.MountApp(t, App, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {
@@ -33,36 +33,54 @@ func TestGolden(t *testing.T) {
 	}
 }
 
+// TestGoldenStates are the page in dark mode, edited (the footer says so),
+// with the Reset confirmation open and with the toast of Save, at scales 1
+// and 2.
+func TestGoldenStates(t *testing.T) {
+	for _, scale := range []float64{1, 2} {
+		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
+			mount(t, windowW, windowH, telatest.Scale(scale), telatest.Dark()).Golden(fmt.Sprintf("settings_dark_x%g.png", scale))
+
+			a := mount(t, windowW, windowH, telatest.Scale(scale))
+			a.Click(switchLoc("Weekly digest"))
+			a.Click(telatest.ByRole("radio", "Dark"))
+			a.Click(telatest.ByRole("button", "Reset"))
+			a.ExpectText("Discard your changes?")
+			a.Golden(fmt.Sprintf("settings_reset_x%g.png", scale))
+
+			// Cancel, then Save: the toast is at the bottom right.
+			a.Click(telatest.ByRole("button", "Cancel"))
+			a.Click(telatest.ByRole("button", "Save changes"))
+			a.MouseMove(5, 5)
+			a.ExpectText("Settings saved")
+			a.Golden(fmt.Sprintf("settings_saved_x%g.png", scale))
+		})
+	}
+}
+
 // switchLoc returns the locator of a switch by its name.
 func switchLoc(name string) telatest.Locator { return telatest.ByRole("switch", name) }
-
-// trackPixel samples the left end of a switch track, away from the knob in
-// both positions of the knob (it is 18 px wide in a 40 px track).
-func trackPixel(a *telatest.App, sw telatest.Locator) color.RGBA {
-	r := a.Bounds(sw)
-	return a.Screenshot().RGBAAt(int(r.X+r.Width/2), int(r.Y)+2)
-}
 
 func TestSwitchTogglesAndDirtiesTheForm(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	a.ExpectText("All changes saved")
 	a.ExpectCount(telatest.ByRole("switch", ""), 5)
 	digest := switchLoc("Weekly digest")
-	off := trackPixel(a, digest)
 	// The knob is the only box inside a switch, and the third of the five.
-	knob := telatest.ByClass("size-[18px]", "rounded-full", "shadow-sm").Nth(2)
+	knob := telatest.ByClass("pointer-events-none", "block", "rounded-full").Nth(2)
 	k0 := a.Bounds(knob).X
+	off := a.Screenshot()
 
 	a.Expect(digest, telatest.Checked(false))
 	a.Click(digest)
 	a.MouseMove(5, 5)
 	a.Expect(digest, telatest.Checked(true))
 	a.ExpectText("You have unsaved changes")
-	if on := trackPixel(a, digest); on == off || on.R > 60 {
-		t.Errorf("the track is %v after switching on, was %v: want a dark track", on, off)
-	}
-	if k := a.Bounds(knob).X; k < k0+10 {
+	if k := a.Bounds(knob).X; k < k0+8 {
 		t.Errorf("knob did not move to the right: %v -> %v", k0, k)
+	}
+	if string(a.Screenshot().Pix) == string(off.Pix) {
+		t.Error("the picture did not change after switching on")
 	}
 
 	// Toggling back makes the form clean again: prefs == saved.
@@ -70,36 +88,27 @@ func TestSwitchTogglesAndDirtiesTheForm(t *testing.T) {
 	a.ExpectText("All changes saved")
 }
 
-// TestSwitchStates checks hover: and active: on a switch, and that the
-// pointer cursor shows over it.
-func TestSwitchStates(t *testing.T) {
+// TestSwitchKeyboard flips a switch with the keyboard, as its label does
+// with a click.
+func TestSwitchKeyboard(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	sw := switchLoc("Product updates")
-	rest := trackPixel(a, sw)
-
-	a.Hover(sw)
-	hover := trackPixel(a, sw)
-	if hover == rest {
-		t.Error("hover: did not change the track")
-	}
-	if got := a.Cursor(); got != "pointer" {
-		t.Errorf("cursor over a switch is %v, want pointer", got)
-	}
-	a.MouseDown()
-	active := trackPixel(a, sw)
-	if active == hover || active == rest {
-		t.Errorf("active: did not change the track (rest %v hover %v active %v)", rest, hover, active)
-	}
-	a.MouseUp() // click: switches on
-	a.MouseMove(5, 5)
+	a.Focus(sw)
+	a.Press("Space")
+	a.Expect(sw, telatest.Checked(true))
 	a.ExpectText("You have unsaved changes")
+	// The row's label names the switch and a click on it toggles it.
+	a.Click(telatest.ByText("Product updates", telatest.Exact()))
+	a.Expect(sw, telatest.Checked(false))
+	a.ExpectText("All changes saved")
 }
 
 // TestLockedSwitch checks the disabled switch ignores clicks, and shows the
-// not-allowed cursor of its disabled: classes.
+// not-allowed cursor of the recipe's disabled: classes.
 func TestLockedSwitch(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	sw := switchLoc("Security alerts")
+	a.Expect(sw, telatest.Checked(true), telatest.Disabled(true))
 	a.Hover(sw)
 	if got := a.Cursor(); got != "not-allowed" {
 		t.Errorf("cursor over the locked switch is %v, want not-allowed (disabled:cursor-not-allowed)", got)
@@ -111,71 +120,101 @@ func TestLockedSwitch(t *testing.T) {
 }
 
 // TestSaveAndReset drives the footer: Save and Reset are disabled until the
-// form changes, Save stores the changes and Reset throws them away.
+// form changes, Save stores the changes and shows a toast, and Reset asks
+// before it throws them away.
 func TestSaveAndReset(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	save := telatest.ByRole("button", "Save changes")
+	reset := telatest.ByRole("button", "Reset")
 
-	// Disabled: a click does nothing and the not-allowed cursor shows.
-	a.Hover(save)
-	a.MouseDown()
-	a.MouseUp()
-	a.ExpectText("All changes saved")
-	if got := a.Cursor(); got != "not-allowed" {
-		t.Errorf("cursor over a disabled Save is %v", got)
+	// Disabled (pointer-events-none): pressing where they are does nothing.
+	a.Expect(save, telatest.Disabled(true))
+	a.Expect(reset, telatest.Disabled(true))
+	for _, b := range []telatest.Locator{save, reset} {
+		r := a.Bounds(b)
+		a.ClickAt(r.X+r.Width/2, r.Y+r.Height/2)
 	}
+	a.ExpectText("All changes saved")
+	a.ExpectNoText("Discard your changes?")
 
-	// Change something, then Save.
+	// Change something, then Save: the toast says so.
+	a.ExpectNoText("Settings saved")
 	a.Click(telatest.ByRole("radio", "Dark"))
 	a.ExpectText("You have unsaved changes")
 	a.Click(save)
 	a.MouseMove(5, 5)
 	a.ExpectText("All changes saved")
+	a.ExpectText("Settings saved")
+	a.ExpectText("Your preferences were updated.")
 
-	// Change again, then Reset: back to the saved theme (Dark).
-	a.Click(telatest.ByRole("radio", "").Filter(telatest.HasText("Spacious")))
-	a.Click(telatest.ByRole("button", "Reset"))
+	// Change again, then Reset: the dialog asks first, Cancel keeps the
+	// change and the action throws it away.
+	a.Click(telatest.ByRole("radio", "Spacious"))
+	a.Click(reset)
+	a.ExpectText("Discard your changes?")
+	a.Click(telatest.ByRole("button", "Cancel"))
+	a.ExpectNoText("Discard your changes?")
+	a.ExpectText("You have unsaved changes")
+	a.Expect(telatest.ByRole("radio", "Spacious"), telatest.Checked(true))
+
+	a.Click(reset)
+	a.Click(telatest.ByRole("button", "Discard changes"))
 	a.MouseMove(5, 5)
+	a.ExpectNoText("Discard your changes?")
 	a.ExpectText("All changes saved")
-	// The theme and the density are selected (ring-1).
-	a.ExpectCount(telatest.ByClass("ring-1", "border"), 2)
+	// Back to the saved settings: Dark theme, Comfortable density.
+	a.Expect(telatest.ByRole("radio", "Dark"), telatest.Checked(true))
+	a.Expect(telatest.ByRole("radio", "Comfortable"), telatest.Checked(true))
 }
 
-// TestRadioGroups checks that choosing an option selects it and only it in
-// its group, and leaves the other group alone.
-func TestRadioGroups(t *testing.T) {
+// TestAppearanceGroups checks that choosing an option selects it and only it
+// in its group, and leaves the other group alone: the theme is a radio group
+// of cards, the density a segmented control.
+func TestAppearanceGroups(t *testing.T) {
 	a := mount(t, windowW, windowH)
-	selected := func(label string) bool {
-		return a.Count(telatest.ByRole("radio", "").Filter(telatest.HasText(label), telatest.HasClass("ring-1"))) == 1
-	}
-	if !selected("System") || !selected("Comfortable") {
-		t.Fatal("the defaults are not selected")
-	}
+	a.Expect(telatest.ByRole("radio", "System"), telatest.Checked(true))
+	a.Expect(telatest.ByRole("radio", "Comfortable"), telatest.Checked(true))
+
 	a.Click(telatest.ByRole("radio", "Dark"))
-	if !selected("Dark") || selected("System") || selected("Light") {
-		t.Error("theme group: Dark should be the only selected theme")
-	}
-	if !selected("Comfortable") {
-		t.Error("choosing a theme changed the density")
-	}
-	a.Click(telatest.ByRole("radio", "").Filter(telatest.HasText("Compact")))
-	if !selected("Compact") || selected("Comfortable") || selected("Spacious") {
-		t.Error("density group: Compact should be the only selected density")
-	}
-	if !selected("Dark") {
-		t.Error("choosing a density changed the theme")
-	}
+	a.Expect(telatest.ByRole("radio", "Dark"), telatest.Checked(true))
+	a.Expect(telatest.ByRole("radio", "System"), telatest.Checked(false))
+	a.Expect(telatest.ByRole("radio", "Light"), telatest.Checked(false))
+	a.Expect(telatest.ByRole("radio", "Comfortable"), telatest.Checked(true))
+
+	a.Click(telatest.ByRole("radio", "Compact"))
+	a.Expect(telatest.ByRole("radio", "Compact"), telatest.Checked(true))
+	a.Expect(telatest.ByRole("radio", "Comfortable"), telatest.Checked(false))
+	a.Expect(telatest.ByRole("radio", "Spacious"), telatest.Checked(false))
+	a.Expect(telatest.ByRole("radio", "Dark"), telatest.Checked(true))
+	a.ExpectText("Fit more on screen.")
+
+	// A segmented control keeps one item on: pressing it again does nothing.
+	a.Click(telatest.ByRole("radio", "Compact"))
+	a.Expect(telatest.ByRole("radio", "Compact"), telatest.Checked(true))
+}
+
+// TestRadioKeyboard moves the theme with the arrow keys, which check as
+// they move (a radio group).
+func TestRadioKeyboard(t *testing.T) {
+	a := mount(t, windowW, windowH)
+	a.Focus(telatest.ByRole("radio", "System"))
+	a.Press("ArrowLeft")
+	a.Expect(telatest.ByRole("radio", "Dark"), telatest.Checked(true))
+	a.ExpectText("You have unsaved changes")
 }
 
 // TestRebuildsAreNarrow checks that toggling a switch does not rebuild the
 // whole page: the unchanged rows and the appearance card skip their build.
+// Every kit component is a component of its own, so a row costs a few builds
+// more than the divs it replaced (about 17 against 9), but the unchanged
+// rows still skip.
 func TestRebuildsAreNarrow(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	before := a.Stats()
 	a.Click(switchLoc("Weekly digest"))
 	after := a.Stats()
-	if builds := after.Builds - before.Builds; builds > 12 {
-		t.Errorf("one switch rebuilt %d components, want about 9 (page, three cards, one row, one switch...)", builds)
+	if builds := after.Builds - before.Builds; builds > 20 {
+		t.Errorf("one switch rebuilt %d components, want about 17: the page, the row with its kit Field, Label and Switch, and the footer with its kit Card and Buttons", builds)
 	}
 	if skips := after.Skips - before.Skips; skips < 4 {
 		t.Errorf("only %d builds skipped: the unchanged rows should skip", skips)

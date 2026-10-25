@@ -10,11 +10,11 @@ import (
 
 const windowW, windowH = 1280, 800
 
-// mount opens the screen in dev mode, where any dev message fails the test.
+// mount opens the screen as main does, in dev mode, where any dev message fails the test.
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
-	return telatest.Mount(t, Pricing(), opts...)
+	return telatest.MountApp(t, App, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {
@@ -23,11 +23,13 @@ func TestNoDevMessages(t *testing.T) {
 	}
 }
 
-// TestGolden is the monthly page at 1280x800, at scale 1 and 2.
+// TestGolden is the monthly page at 1280x800, at scale 1 and 2, and in dark
+// mode.
 func TestGolden(t *testing.T) {
 	for _, scale := range []float64{1, 2} {
 		t.Run(fmt.Sprintf("x%g", scale), func(t *testing.T) {
 			mount(t, windowW, windowH, telatest.Scale(scale)).Golden(fmt.Sprintf("pricing_x%g.png", scale))
+			mount(t, windowW, windowH, telatest.Scale(scale), telatest.Dark()).Golden(fmt.Sprintf("pricing_dark_x%g.png", scale))
 		})
 	}
 }
@@ -54,23 +56,31 @@ func TestThreePlansInARow(t *testing.T) {
 	}
 }
 
-// TestBillingToggle clicks the switch: prices drop to their yearly
-// values, the knob moves to the right, and clicking again restores the
-// monthly page bit by bit.
+// The two options of the billing segmented control; the yearly one holds a
+// badge, which is part of its name.
+var (
+	monthlyOpt = telatest.ByRole("radio", "Monthly")
+	yearlyOpt  = telatest.ByRole("radio", "Yearly Save 20%")
+)
+
+// TestBillingToggle presses the yearly option: prices drop to their yearly
+// values and the option is on, and pressing Monthly restores the monthly
+// page bit by bit.
 func TestBillingToggle(t *testing.T) {
 	a := mount(t, windowW, windowH)
-	knob := func() float32 {
-		return a.Bounds(telatest.ByClass("size-5", "rounded-full", "shadow-sm")).X
-	}
 	for _, s := range []string{"$0", "$29", "$99", "Billed monthly", "Free forever"} {
 		if !hasText(a, s) {
 			t.Errorf("monthly page lacks %q", s)
 		}
 	}
-	monthly, knob0 := a.Screenshot(), knob()
+	a.Expect(monthlyOpt, telatest.Checked(true))
+	a.Expect(yearlyOpt, telatest.Checked(false))
+	a.MouseMove(5, 5)
+	monthly := a.Screenshot()
 
-	track := telatest.ByClass("h-6", "w-11", "rounded-full")
-	a.Click(track)
+	a.Click(yearlyOpt)
+	a.Expect(yearlyOpt, telatest.Checked(true))
+	a.Expect(monthlyOpt, telatest.Checked(false))
 	for _, s := range []string{"$0", "$24", "$79", "Billed $288 per year", "Billed $948 per year", "Free forever"} {
 		if !hasText(a, s) {
 			t.Errorf("yearly page lacks %q", s)
@@ -81,31 +91,37 @@ func TestBillingToggle(t *testing.T) {
 			t.Errorf("yearly page still shows %q", s)
 		}
 	}
-	if k := knob(); k <= knob0+10 {
-		t.Errorf("knob did not move right: x %v -> %v", knob0, k)
-	}
 
-	// The pointer is still over the switch: move away to compare pictures.
-	a.MouseMove(5, 5)
-	a.Click(track)
+	// The pointer is still over the control: move away to compare pictures.
+	a.Click(monthlyOpt)
 	a.MouseMove(5, 5)
 	if !hasText(a, "$29") || hasText(a, "$24") {
-		t.Error("second click did not restore the monthly prices")
+		t.Error("pressing Monthly did not restore the monthly prices")
 	}
 	if got := a.Screenshot(); !bytes.Equal(got.Pix, monthly.Pix) {
 		t.Error("the monthly page is not the same picture after toggling twice")
 	}
 }
 
-// TestBillingLabels checks the two labels are buttons too.
-func TestBillingLabels(t *testing.T) {
+// TestBillingKeyboard moves the choice with the arrow keys, as a segmented
+// control does, and a segmented control keeps one option on.
+func TestBillingKeyboard(t *testing.T) {
 	a := mount(t, windowW, windowH)
-	a.Click(telatest.ByRole("button", "Monthly"))
-	a.ExpectText("$29")
-	a.Click(telatest.ByText("Yearly")) // the button holds "Yearly" and a badge
+	a.Focus(monthlyOpt)
+	a.Press("ArrowRight")
+	a.Press("Enter")
 	a.ExpectText("$24")
-	a.Click(telatest.ByRole("button", "Monthly"))
-	a.ExpectText("$29")
+	a.Expect(yearlyOpt, telatest.Checked(true))
+	a.Click(yearlyOpt)
+	a.Expect(yearlyOpt, telatest.Checked(true)) // not emptied
+	a.ExpectText("$24")
+}
+
+// TestAriaSnapshot pins what `tela inspect --aria ./examples/pricing` prints
+// (testdata/pricing.aria.yml): the segmented control as a radio group, the
+// plans' headings and their buttons. The check icons are decorative.
+func TestAriaSnapshot(t *testing.T) {
+	mount(t, windowW, windowH).AriaGolden("pricing.aria.yml")
 }
 
 // TestHoverBuildsNothing checks that pointer movement over the cards and

@@ -118,6 +118,10 @@ type Dialog struct {
 	Open         *bool
 	DefaultOpen  bool
 	OnOpenChange func(open bool)
+	// Disabled disables the trigger, which is then inert and dimmed by its
+	// recipe; the dialog does not open. Set it here: the trigger props
+	// override a Disabled given to the trigger component itself.
+	Disabled bool
 
 	// Class is added after the recipe's Root classes, to the panel. The
 	// other Class fields do the same for their part.
@@ -136,7 +140,7 @@ type Dialog struct {
 func (d Dialog) Build() tela.Node {
 	s := &UseStyle().Dialog
 	trig := aria.UseOverlayTrigger(aria.OverlayTriggerOptions{
-		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange,
+		Open: d.Open, DefaultOpen: d.DefaultOpen, OnOpenChange: d.OnOpenChange, Disabled: d.Disabled,
 	})
 	overlay := aria.UseOverlay(aria.OverlayOptions{
 		Open: trig.Open, OnClose: trig.Close, Dismissable: true, Modal: true,
