@@ -298,6 +298,10 @@ func (d *locData) field(dl dateLocale, letter byte, n int, t time.Time) string {
 		switch {
 		case (letter == 'c' || letter == 'e') && n <= 2:
 			return d.num(wd+1, n)
+		case n == 6 && letter == 'c':
+			// CLDR's short width; the data has it only stand-alone, so E and
+			// e of six letters use the abbreviated name.
+			return dl.str(dfDaysStandShort + wd)
 		case n <= 3 || n == 6:
 			return dl.str(abbr + wd)
 		case n == 4:

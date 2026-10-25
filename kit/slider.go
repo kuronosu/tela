@@ -1,3 +1,8 @@
+// Portions of this file follow shadcn/ui, slider.tsx (apps/v4/registry/new-york-v4/ui) at the commit
+// kit.ShadcnCommit (https://github.com/shadcn-ui/ui), Copyright (c) 2023 shadcn,
+// licensed under the MIT License.
+// See THIRD_PARTY.md.
+
 package kit
 
 import (
@@ -67,6 +72,10 @@ func init() {
 //	vol, setVol := tela.UseState(30.0)
 //	kit.Slider{Value: &vol, OnValueChange: setVol.Set, Max: 100, Step: 5, AriaLabel: "Volume"}
 //
+// An uncontrolled one starts where DefaultValue points (new(50.0) makes the
+// pointer), and at Min without one, so that a slider from -50 to 50 can
+// start at 0.
+//
 // With several (a price range has two), the values are a slice, as in Radix
 // and shadcn/ui, and the knobs never pass each other:
 //
@@ -76,10 +85,11 @@ func init() {
 // container (at least 11rem).
 type Slider struct {
 	// Value points to the value of a controlled one-knob slider; nil leaves
-	// it to the slider, which starts at DefaultValue (Min when it is 0).
+	// it to the slider, which starts at DefaultValue (Min when it is nil: a
+	// pointer, so that 0 can be a start, as RadioGroup.DefaultValue is).
 	// OnValueChange is called with the new value on every change.
 	Value         *float64
-	DefaultValue  float64
+	DefaultValue  *float64
 	OnValueChange func(float64)
 	// ValueSource is Value for a slider whose value is moved by something
 	// other than the user, many times a second, such as a seek bar a clock
@@ -158,8 +168,8 @@ func (s Slider) Build() tela.Node {
 		so.Values = s.Values
 	case s.Value != nil:
 		so.Values = &[]float64{*s.Value}
-	case len(s.DefaultValues) == 0 && s.DefaultValue != 0:
-		so.DefaultValues = []float64{s.DefaultValue}
+	case len(s.DefaultValues) == 0 && s.DefaultValue != nil:
+		so.DefaultValues = []float64{*s.DefaultValue}
 	}
 	if on := s.OnValueChange; on != nil && s.OnValuesChange == nil {
 		so.OnValuesChange = func(v []float64) { on(v[0]) }

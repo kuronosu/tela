@@ -1,3 +1,8 @@
+// Portions of this file follow shadcn/ui, the theming CSS of apps/v4 at the commit
+// kit.ShadcnCommit (https://github.com/shadcn-ui/ui), Copyright (c) 2023 shadcn,
+// licensed under the MIT License.
+// See THIRD_PARTY.md.
+
 package kit
 
 import (
@@ -8,6 +13,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/core"
 )
 
 // ShadcnCommit is the commit of github.com/shadcn-ui/ui (branch main) whose
@@ -229,22 +235,12 @@ func (p StyleProvider) Build() tela.Node {
 //	}
 func UseStyle() *Style { return tela.UseContext(styleCtx) }
 
-// devProbe is a role no element has: h.Role panics on it in dev mode.
-const devProbe = "kit-dev-probe"
-
-// devMode reports whether Tela's dev mode is on at the call. Package tela
-// has no public query for it, so kit asks the one public API whose
-// constructor checks in dev mode and nothing else: h.Role panics for an
-// unknown role there. It is only used on the way to a panic.
-func devMode() (on bool) {
-	defer func() {
-		if recover() != nil {
-			on = true
-		}
-	}()
-	h.Role(devProbe)
-	return false
-}
+// devMode reports whether Tela's dev mode is on at the call: the mode of
+// the Tree being built, else the process default (core.DevNow, ADR-093;
+// TELA_DEV=1 or 0 overrides both, ADR-085). It is a lookup, so a build may
+// ask it freely. Package tela has no public query for it, which is why kit
+// reads core's; this one import is the only one of package kit.
+func devMode() bool { return core.DevNow() }
 
 // pick returns the classes recipe[k] defines for the Variant, Size or other
 // name k of a component's field, or those of the default (the empty name)

@@ -55,7 +55,7 @@ func sliderPage() tela.Node {
 	var bands []tela.Child
 	for i, name := range []string{"Bass", "Mid", "Treble"} {
 		bands = append(bands, Div(Key(name), Class("flex flex-col items-center gap-3"),
-			kit.Slider{Orientation: kit.Vertical, Class: "h-44", DefaultValue: float64(30 + 25*i), AriaLabel: name},
+			kit.Slider{Orientation: kit.Vertical, Class: "h-44", DefaultValue: new(float64(30 + 25*i)), AriaLabel: name},
 			Span(Class("text-xs text-muted-foreground"), Text(name))))
 	}
 	return grid(
@@ -67,8 +67,8 @@ func sliderPage() tela.Node {
 				ThumbLabels: []string{"Minimum price", "Maximum price"}},
 			readout(fmt.Sprintf("Price: $%.0f - $%.0f", price[0], price[1]))),
 		demo("Steps and disabled", "Step 25 over 0 to 100; a disabled slider.", col,
-			kit.Slider{Class: "max-w-sm", DefaultValue: 50, Step: 25, AriaLabel: "In steps of 25"},
-			kit.Slider{Class: "max-w-sm", DefaultValue: 70, Disabled: true, AriaLabel: "Disabled"}),
+			kit.Slider{Class: "max-w-sm", DefaultValue: new(50.0), Step: 25, AriaLabel: "In steps of 25"},
+			kit.Slider{Class: "max-w-sm", DefaultValue: new(70.0), Disabled: true, AriaLabel: "Disabled"}),
 		demo("Vertical", "A vertical slider has its Min at the bottom.", "flex flex-wrap items-end gap-10", Fragment(bands...)),
 	)
 }

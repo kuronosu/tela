@@ -100,7 +100,7 @@ kit.Input{DefaultValue: "Ana"}                      // uncontrolled
 | Open or closed | `Open *bool`, `DefaultOpen`, `OnOpenChange func(bool)` |
 | A choice among keys | `Value *K`, `DefaultValue K`, `OnValueChange func(K)` |
 | Several choices | `aria.Selection[K]`: `Selected`, `DefaultSelected`, `OnSelectionChange` |
-| A number, a date, a color | `Value *float64`, `*aria.Date`, `*aria.DateRange`, `*tela.Color`, the same three names |
+| A number, a date, a color | `Value *float64`, `*aria.Date`, `*aria.DateRange`, `*tela.Color`, the same three names (a `Slider`'s `DefaultValue` is a `*float64`, so that 0 is a start: `new(0.0)`) |
 
 ## Overlays and trigger slots
 

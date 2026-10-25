@@ -3153,10 +3153,11 @@ SkeletonStyle is the recipe of [`Skeleton`](#type-skeleton) (shadcn/ui's Skeleto
 ```go
 type Slider struct {
     // Value points to the value of a controlled one-knob slider; nil leaves
-    // it to the slider, which starts at DefaultValue (Min when it is 0).
+    // it to the slider, which starts at DefaultValue (Min when it is nil: a
+    // pointer, so that 0 can be a start, as RadioGroup.DefaultValue is).
     // OnValueChange is called with the new value on every change.
     Value         *float64
-    DefaultValue  float64
+    DefaultValue  *float64
     OnValueChange func(float64)
     // ValueSource is Value for a slider whose value is moved by something
     // other than the user, many times a second, such as a seek bar a clock
@@ -3220,6 +3221,8 @@ vol, setVol := tela.UseState(30.0)
 kit.Slider{Value: &vol, OnValueChange: setVol.Set, Max: 100, Step: 5, AriaLabel: "Volume"}
 ```
 
+An uncontrolled one starts where DefaultValue points (new(50.0) makes the pointer), and at Min without one, so that a slider from -50 to 50 can start at 0.
+
 With several (a price range has two), the values are a slice, as in Radix and shadcn/ui, and the knobs never pass each other:
 
 ```go
@@ -3235,7 +3238,7 @@ t := &exampleT{}
 defer t.close()
 volume := 30.0
 page := func() tela.Node {
-    return h.Div(h.Class("w-64 p-6"), kit.Slider{AriaLabel: "Volume", DefaultValue: volume, Step: 10,
+    return h.Div(h.Class("w-64 p-6"), kit.Slider{AriaLabel: "Volume", DefaultValue: &volume, Step: 10,
         OnValueChange: func(v float64) { volume = v }})
 }
 app := telatest.MountFunc(t, page)

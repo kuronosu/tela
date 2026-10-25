@@ -463,14 +463,9 @@ func (c ColorInput) Build() tela.Node {
 		trig = Button{Variant: Outline, Disabled: c.Disabled, Class: joinClass(r.Trigger, c.Class), Props: c.Props,
 			Children: colorInputLabel{st: parts.st, text: aria.FormatHexColor(parts.color, c.Alpha)}}
 	}
-	if c.Disabled {
-		// A Popover has no disabled state of its own, and its trigger props
-		// would make the button enabled: the button is drawn without it.
-		return h.Fragment(triggerOf(trig, h.Disabled(true)))
-	}
 	return h.Fragment(Popover{
 		Trigger: trig, Placement: c.Placement, Align: orStr(c.Align, "start"), Offset: c.Offset,
-		Open: c.Open, DefaultOpen: c.DefaultOpen, OnOpenChange: c.OnOpenChange,
+		Open: c.Open, DefaultOpen: c.DefaultOpen, OnOpenChange: c.OnOpenChange, Disabled: c.Disabled,
 		AriaLabel: orStr(c.AriaLabel, "Color picker"), Class: c.PopoverClass,
 		Children: colorPanel{p: p, parts: parts},
 	})

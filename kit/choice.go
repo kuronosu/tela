@@ -1,3 +1,8 @@
+// The icons embedded in this file are copied unaltered from Lucide
+// (https://lucide.dev, lucide-static 1.61.0), Copyright (c) 2026 Lucide Icons and
+// Contributors, licensed under the ISC License (the icons derived from Feather are
+// MIT, Copyright (c) 2013-present Cole Bemis). See THIRD_PARTY.md.
+
 package kit
 
 import (

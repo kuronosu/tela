@@ -155,6 +155,10 @@ func TestColorInputCustomTrigger(t *testing.T) {
 func TestColorInputDisabled(t *testing.T) {
 	app := telatest.MountFunc(t, colorInputPage(kit.ColorInput{DefaultValue: indigo, Disabled: true}), telatest.Theme(kit.Theme()))
 	app.Expect(colorTrigger, telatest.Disabled(true))
+	// It is a Popover's trigger (Popover.Disabled, ADR-145), not a bare
+	// button: it says what it would open, and does not open it.
+	app.Expect(colorTrigger, telatest.Expanded(false))
+	app.ExpectCount(colorPanelEl, 0)
 }
 
 func TestColorInputIdle(t *testing.T) {

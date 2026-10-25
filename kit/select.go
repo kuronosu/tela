@@ -1,3 +1,12 @@
+// Portions of this file follow shadcn/ui, select.tsx (apps/v4/registry/new-york-v4/ui) at the commit
+// kit.ShadcnCommit (https://github.com/shadcn-ui/ui), Copyright (c) 2023 shadcn,
+// licensed under the MIT License.
+// Icons embedded in this file are copied unaltered from Lucide
+// (https://lucide.dev, lucide-static 1.61.0), Copyright (c) 2026 Lucide Icons and
+// Contributors, licensed under the ISC License (the icons derived from Feather are
+// MIT, Copyright (c) 2013-present Cole Bemis).
+// See THIRD_PARTY.md.
+
 package kit
 
 import (
@@ -202,8 +211,13 @@ type Select[K comparable] struct {
 }
 
 // selectRowKey keys the rows of the list that are not options (a group, a
-// separator), apart from the options' own keys.
-type selectRowKey struct{ kind, name string }
+// separator), apart from the options' own keys: by the index of the item
+// where the group or the separator begins, because a group name can come
+// back after another group.
+type selectRowKey struct {
+	kind  string
+	index int
+}
 
 // Build returns the trigger and, in a portal, the list while it is open.
 func (s Select[K]) Build() tela.Node {
@@ -303,11 +317,11 @@ func (s Select[K]) Build() tela.Node {
 		minWidth := max(trigger.Get().Width, 128)
 		var rows []tela.Child
 		var group []tela.Child
-		groupName, inGroup := "", false
+		groupName, inGroup, groupStart := "", false, 0
 		flush := func() {
 			if inGroup {
 				sec := sel.ListBox.Section(groupName)
-				head := []tela.Child{sec.Props, h.Key(selectRowKey{"group", groupName})}
+				head := []tela.Child{sec.Props, h.Key(selectRowKey{"group", groupStart})}
 				head = append(head, h.Div(sec.HeadingProps, cls(st.Label, s.LabelClass), h.Text(groupName)))
 				rows = append(rows, h.Div(append(head, group...)...))
 			}
@@ -316,12 +330,15 @@ func (s Select[K]) Build() tela.Node {
 		for i, it := range s.Items {
 			if i > 0 && it.Group != s.Items[i-1].Group {
 				flush()
-				rows = append(rows, h.Div(cls(st.Separator), h.Key(selectRowKey{"separator", it.Group})))
+				rows = append(rows, h.Div(cls(st.Separator), h.Key(selectRowKey{"separator", i})))
 			}
 			text := h.Span(cls(st.ItemText), icon(it.Icon, st.ItemIcon), h.Text(it.Label))
 			indicator := h.Span(cls(st.ItemIndicator), h.If(sel.ListBox.IsSelected(it.Value), icon(check, st.ItemCheck)))
 			row := h.Div(sel.ListBox.ItemProps(it.Value), h.Key(it.Value), cls(st.Item, s.ItemClass), indicator, text)
 			if it.Group != "" {
+				if !inGroup {
+					groupStart = i
+				}
 				groupName, inGroup = it.Group, true
 				group = append(group, row)
 			} else {

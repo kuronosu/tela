@@ -65,7 +65,7 @@ func sliderCell(name string, s kit.Slider, width int) cell {
 	s.Props = h.TestID(name + "-slider")
 	values := s.DefaultValues
 	if len(values) == 0 {
-		values = []float64{s.DefaultValue}
+		values = []float64{*s.DefaultValue}
 	}
 	s.AriaLabel = name
 	return cell{name: name, width: width, probes: []string{name + "-slider"}, tela: s,
@@ -74,14 +74,14 @@ func sliderCell(name string, s kit.Slider, width int) cell {
 
 func sliderSheet() *sheet {
 	return &sheet{name: "slider", slot: 300, cells: []cell{
-		sliderCell("zero", kit.Slider{DefaultValue: 0}, 280),
-		sliderCell("forty", kit.Slider{DefaultValue: 40}, 280),
-		sliderCell("full", kit.Slider{DefaultValue: 100}, 280),
-		sliderCell("third", kit.Slider{DefaultValue: 33}, 281),
-		sliderCell("disabled", kit.Slider{DefaultValue: 60, Disabled: true}, 280),
+		sliderCell("zero", kit.Slider{DefaultValue: new(0.0)}, 280),
+		sliderCell("forty", kit.Slider{DefaultValue: new(40.0)}, 280),
+		sliderCell("full", kit.Slider{DefaultValue: new(100.0)}, 280),
+		sliderCell("third", kit.Slider{DefaultValue: new(33.0)}, 281),
+		sliderCell("disabled", kit.Slider{DefaultValue: new(60.0), Disabled: true}, 280),
 		sliderCell("range", kit.Slider{DefaultValues: []float64{25, 75}}, 280),
 		sliderCell("range-close", kit.Slider{DefaultValues: []float64{48, 52}}, 280),
-		sliderCell("vertical", kit.Slider{DefaultValue: 30, Orientation: kit.Vertical}, 20),
+		sliderCell("vertical", kit.Slider{DefaultValue: new(30.0), Orientation: kit.Vertical}, 20),
 		sliderCell("vertical-range", kit.Slider{DefaultValues: []float64{20, 80}, Orientation: kit.Vertical}, 20),
 	}}
 }
@@ -94,7 +94,7 @@ func sliderRole(name string) telatest.Locator { return telatest.ByRole("slider",
 func TestSliderKeyboard(t *testing.T) {
 	var got [][]float64
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{AriaLabel: "Volume", DefaultValue: 50, Step: 5,
+		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{AriaLabel: "Volume", DefaultValue: new(50.0), Step: 5,
 			OnValuesChange: func(v []float64) { got = append(got, v) }})
 	})
 	vol := sliderRole("Volume")
@@ -144,7 +144,7 @@ func TestSliderPointer(t *testing.T) {
 // the ends and in the middle: it stays inside the track, as Radix's.
 func TestSliderKnobFollowsTheValue(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{AriaLabel: "Volume", Props: h.TestID("s"), DefaultValue: 0})
+		return h.Div(h.Class("w-[300px] p-4"), kit.Slider{AriaLabel: "Volume", Props: h.TestID("s"), DefaultValue: new(0.0)})
 	})
 	root := app.Bounds(telatest.ByTestID("s"))
 	knob := sliderRole("Volume")
@@ -218,8 +218,8 @@ func TestSliderControlled(t *testing.T) {
 func TestSliderVerticalAndDisabled(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("flex h-[200px] gap-8 p-4"),
-			kit.Slider{AriaLabel: "Tall", Orientation: kit.Vertical, DefaultValue: 0, Props: h.TestID("v")},
-			kit.Slider{AriaLabel: "Off", Disabled: true, DefaultValue: 50, Class: "w-[100px]"})
+			kit.Slider{AriaLabel: "Tall", Orientation: kit.Vertical, DefaultValue: new(0.0), Props: h.TestID("v")},
+			kit.Slider{AriaLabel: "Off", Disabled: true, DefaultValue: new(50.0), Class: "w-[100px]"})
 	})
 	tall := sliderRole("Tall")
 	track := app.Bounds(telatest.ByTestID("v"))
@@ -242,7 +242,7 @@ func TestSliderVerticalAndDisabled(t *testing.T) {
 
 func TestSliderAriaSnapshot(t *testing.T) {
 	got, err := telatest.AriaSnapshot(h.Div(
-		kit.Slider{AriaLabel: "Volume", DefaultValue: 30},
+		kit.Slider{AriaLabel: "Volume", DefaultValue: new(30.0)},
 		kit.Slider{AriaLabel: "Price", DefaultValues: []float64{10, 90}, ThumbLabels: []string{"Minimum", "Maximum"}}))
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +372,7 @@ func ExampleSlider() {
 	defer t.close()
 	volume := 30.0
 	page := func() tela.Node {
-		return h.Div(h.Class("w-64 p-6"), kit.Slider{AriaLabel: "Volume", DefaultValue: volume, Step: 10,
+		return h.Div(h.Class("w-64 p-6"), kit.Slider{AriaLabel: "Volume", DefaultValue: &volume, Step: 10,
 			OnValueChange: func(v float64) { volume = v }})
 	}
 	app := telatest.MountFunc(t, page)

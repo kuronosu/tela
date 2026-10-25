@@ -1,3 +1,8 @@
+// Portions of this file follow shadcn/ui, label.tsx (apps/v4/registry/new-york-v4/ui) at the commit
+// kit.ShadcnCommit (https://github.com/shadcn-ui/ui), Copyright (c) 2023 shadcn,
+// licensed under the MIT License.
+// See THIRD_PARTY.md.
+
 package kit
 
 import (

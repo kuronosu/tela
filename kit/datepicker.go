@@ -1,3 +1,8 @@
+// Portions of this file follow shadcn/ui, the date picker examples (date-picker-demo.tsx) at the commit
+// kit.ShadcnCommit (https://github.com/shadcn-ui/ui), Copyright (c) 2023 shadcn,
+// licensed under the MIT License.
+// See THIRD_PARTY.md.
+
 package kit
 
 import (

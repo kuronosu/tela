@@ -1,3 +1,15 @@
+// Portions of this file follow shadcn/ui, sonner.tsx (apps/v4/registry/new-york-v4/ui) at the commit
+// kit.ShadcnCommit (https://github.com/shadcn-ui/ui), Copyright (c) 2023 shadcn,
+// licensed under the MIT License.
+// Portions also follow Sonner's default styles and stacking rule
+// (https://github.com/emilkowalski/sonner, 2.0.7), Copyright (c) 2023 Emil Kowalski,
+// licensed under the MIT License.
+// Icons embedded in this file are copied unaltered from Lucide
+// (https://lucide.dev, lucide-static 1.61.0), Copyright (c) 2026 Lucide Icons and
+// Contributors, licensed under the ISC License (the icons derived from Feather are
+// MIT, Copyright (c) 2013-present Cole Bemis).
+// See THIRD_PARTY.md.
+
 package kit
 
 import (
@@ -269,6 +281,10 @@ func (s *toastStore) show(kind toastKind, title string, opts []ToastOption) Toas
 		if t.id == 0 {
 			s.next++
 			t.id = s.next
+		} else if t.id > s.next {
+			// ToastReplace of an id no toast has: reserve it, so that the
+			// automatic ids never reach it.
+			s.next = t.id
 		}
 		s.toasts = append([]toastData{t}, s.toasts...)
 	}
@@ -489,7 +505,6 @@ type Toaster struct {
 
 const (
 	toastGap      = 14 // px between toasts when expanded, and the lift of a stacked one
-	toastChrome   = 34 // padding and border around a toast's body, px
 	toastTick     = 100 * time.Millisecond
 	toastDuration = 4 * time.Second
 	toastVisible  = 3
@@ -565,7 +580,9 @@ func (t Toaster) Build() tela.Node {
 		case i > 0:
 			cls = append(cls, fmt.Sprintf("translate-y-[%spx]", fmtPx(lift*toastGap*float32(i))),
 				fmt.Sprintf("scale-[%s]", fmtPx(1-0.05*float32(i))))
-			if frontH > 0 {
+			// A toast not measured yet has its natural height, which is what
+			// toastItem measures: a forced one would be measured back.
+			if frontH > 0 && own > 0 {
 				cls = append(cls, fmt.Sprintf("h-[%spx]", fmtPx(frontH)))
 			}
 		default:
@@ -576,7 +593,7 @@ func (t Toaster) Build() tela.Node {
 		offset += own + toastGap
 		items = append(items, tela.WithKey(toastItem{
 			store: store, data: td, class: joinClass(cls...), exit: st.Exit[y],
-			collapsedBehind: collapsedBehind, expanded: expanded, paused: expanded,
+			collapsedBehind: collapsedBehind, expanded: expanded, paused: hovered, unforced: own == 0,
 			closeButton: t.CloseButton, icons: icons, closeIcon: closeIcon,
 		}, td.id))
 	}
@@ -614,6 +631,7 @@ type toastItem struct {
 	collapsedBehind bool
 	expanded        bool
 	paused          bool
+	unforced        bool // no height class applies yet: the root has its natural height
 	closeButton     bool
 	icons           ToastIcons
 	closeIcon       tela.Icon
@@ -627,14 +645,25 @@ type toastTimer struct {
 func (it toastItem) Build() tela.Node {
 	st := &UseStyle().Toast
 	d := it.data
-	body := tela.UseElementRef()
-	size := tela.UseSize(body)
-	ch := size.Get().Height
+	// The toast's height is what its root lays out: the body plus the
+	// padding and border the recipe gives it. The root is measured while no
+	// height class applies (a forced height would be measured back); the
+	// difference to the body is kept, and a body that changes later (a
+	// replaced toast, a narrower window) is that difference taller.
+	body, root := tela.UseElementRef(), tela.UseElementRef()
+	size, rootSize := tela.UseSize(body), tela.UseSize(root)
+	ch, rh := size.Get().Height, rootSize.Get().Height
+	chrome := tela.UseRef(float32(-1))
 	tela.UseEffectDo(func() {
-		if ch > 0 {
-			it.store.setHeight(d.id, ch+toastChrome)
+		switch {
+		case ch <= 0:
+		case it.unforced && rh > 0:
+			chrome.Current = rh - ch
+			it.store.setHeight(d.id, rh)
+		case chrome.Current >= 0:
+			it.store.setHeight(d.id, ch+chrome.Current)
 		}
-	}, ch)
+	}, ch, rh, it.unforced)
 
 	// The timer counts the frame clock in ticks, so that pausing it keeps
 	// what is left; a replaced toast starts over.
@@ -705,7 +734,7 @@ func (it toastItem) Build() tela.Node {
 	if d.kind == toastError {
 		role = "alert"
 	}
-	return h.Div(cls(it.class), h.Role(role), h.TabIndex(0), h.Exit(it.exit), closeBtn, bridge,
+	return h.Div(h.Ref(root), cls(it.class), h.Role(role), h.TabIndex(0), h.Exit(it.exit), closeBtn, bridge,
 		h.Div(h.Ref(body), cls(st.Body, when(it.collapsedBehind, st.Collapsed)),
 			iconBox,
 			h.Div(cls(st.Content), h.Div(cls(st.Title), h.Text(d.title)), desc),

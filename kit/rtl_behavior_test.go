@@ -62,7 +62,7 @@ func TestRTLSliderKeys(t *testing.T) {
 	for _, sc := range rtlScenarios {
 		t.Run(sc, func(t *testing.T) {
 			app := mountRTL(t, sc, func(dir string) tela.Component {
-				return kit.Slider{AriaLabel: "Volume", DefaultValue: 50, Step: 5, Direction: dir}
+				return kit.Slider{AriaLabel: "Volume", DefaultValue: new(50.0), Step: 5, Direction: dir}
 			})
 			vol := sliderRole("Volume")
 			app.Focus(vol)
@@ -118,7 +118,7 @@ func TestRTLSliderPointer(t *testing.T) {
 // not.
 func TestRTLSliderFill(t *testing.T) {
 	app := mountRTL(t, "field", func(dir string) tela.Component {
-		return kit.Slider{AriaLabel: "Volume", DefaultValue: 30, Props: h.TestID("s"), Direction: dir}
+		return kit.Slider{AriaLabel: "Volume", DefaultValue: new(30.0), Props: h.TestID("s"), Direction: dir}
 	})
 	root := app.Bounds(telatest.ByTestID("s"))
 	y := root.Y + root.Height/2
@@ -134,7 +134,7 @@ func TestRTLSliderFill(t *testing.T) {
 func TestRTLSliderVerticalUnchanged(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
 		return h.Div(h.Class("h-[200px] p-4"), kit.DirectionProvider{Direction: "rtl", Children: kit.Slider{
-			AriaLabel: "Volume", Orientation: kit.Vertical, DefaultValue: 50}})
+			AriaLabel: "Volume", Orientation: kit.Vertical, DefaultValue: new(50.0)}})
 	}, telatest.Theme(kit.Theme()))
 	vol := sliderRole("Volume")
 	app.Focus(vol)

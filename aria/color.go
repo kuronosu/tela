@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/internal/gfx"
 )
 
 // HSB is a color in the hue, saturation and brightness model (HSV, what a
@@ -163,29 +164,13 @@ func ParseHexColor(s string) (tela.Color, error) {
 	default:
 		return tela.Color{}, fmt.Errorf("aria: invalid hex color %q: expected 3, 4, 6 or 8 hex digits (#rgb, #rgba, #rrggbb or #rrggbbaa), got %d", s, len(digits))
 	}
-	var v [8]uint8
 	for i := 0; i < len(digits); i++ {
-		d, ok := hexDigit(digits[i])
-		if !ok {
+		if _, ok := hexDigit(digits[i]); !ok {
 			return tela.Color{}, fmt.Errorf("aria: invalid hex color %q: %q is not a hex digit (0-9, a-f)", s, digits[i])
 		}
-		v[i] = d
 	}
-	a := uint8(255)
-	var r, g, b uint8
-	switch len(digits) {
-	case 3, 4:
-		r, g, b = v[0]*17, v[1]*17, v[2]*17
-		if len(digits) == 4 {
-			a = v[3] * 17
-		}
-	default:
-		r, g, b = v[0]<<4|v[1], v[2]<<4|v[3], v[4]<<4|v[5]
-		if len(digits) == 8 {
-			a = v[6]<<4 | v[7]
-		}
-	}
-	return tela.Color{R: float32(r) / 255, G: float32(g) / 255, B: float32(b) / 255, A: float32(a) / 255}, nil
+	// The input is valid by now, whatever gfx's own messages would say.
+	return gfx.ParseHex("#" + digits)
 }
 
 func hexDigit(c byte) (uint8, bool) {
@@ -204,9 +189,13 @@ func hexDigit(c byte) (uint8, bool) {
 // rounded to 8 bits and clamped to the sRGB gamut; with alpha it is
 // "#rrggbbaa". [ParseHexColor] reads it back.
 func FormatHexColor(c tela.Color, alpha bool) string {
-	n := c.NRGBA8()
 	if alpha {
-		return fmt.Sprintf("#%02x%02x%02x%02x", n.R, n.G, n.B, n.A)
+		str := c.String()
+		if len(str) == len("#rrggbb") {
+			str += "ff"
+		}
+		return str
 	}
-	return fmt.Sprintf("#%02x%02x%02x", n.R, n.G, n.B)
+	c.A = 1
+	return c.String()
 }

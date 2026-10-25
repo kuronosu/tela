@@ -1,3 +1,12 @@
+// Portions of this file follow shadcn/ui, calendar.tsx (apps/v4/registry/new-york-v4/ui) at the commit
+// kit.ShadcnCommit (https://github.com/shadcn-ui/ui), Copyright (c) 2023 shadcn,
+// licensed under the MIT License.
+// Icons embedded in this file are copied unaltered from Lucide
+// (https://lucide.dev, lucide-static 1.61.0), Copyright (c) 2026 Lucide Icons and
+// Contributors, licensed under the ISC License (the icons derived from Feather are
+// MIT, Copyright (c) 2013-present Cole Bemis).
+// See THIRD_PARTY.md.
+
 package kit
 
 import (

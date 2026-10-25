@@ -55,6 +55,9 @@ func TestStandAlonePatternLetters(t *testing.T) {
 		{"ru", "LLLL / MMMM", "октябрь / октября"},
 		{"ru", "LLL", "окт."},
 		{"fi", "cccc / EEEE", "maanantai / maanantaina"},
+		// Six letters are CLDR's short width, the one WeekdayName(NameShort) gives.
+		{"en", "cccccc", "Mo"},
+		{"en", "ccc", "Mon"},
 	} {
 		if got := For(tt.loc).loc().interpret(tt.pattern, mon, "", ""); got != tt.want {
 			t.Errorf("%s %q = %q, want %q", tt.loc, tt.pattern, got, tt.want)

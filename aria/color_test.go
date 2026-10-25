@@ -178,6 +178,9 @@ func TestFormatHexColor(t *testing.T) {
 	if got := aria.FormatHexColor(c.WithAlpha(0.5), true); got != "#6366f180" {
 		t.Errorf("got %s", got)
 	}
+	if got := aria.FormatHexColor(c, true); got != "#6366f1ff" {
+		t.Errorf("an opaque color with alpha: %s", got)
+	}
 	if got := aria.FormatHexColor(c.WithAlpha(0.5), false); got != "#6366f1" {
 		t.Errorf("got %s", got)
 	}
