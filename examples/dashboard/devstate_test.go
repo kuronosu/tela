@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/gfx"
 )
@@ -20,7 +19,7 @@ import (
 func TestDevStateDashboard(t *testing.T) {
 	r := newRig(t, 1280, 800, 1, false)
 	r.settle(600)
-	for _, c := range [][]func(){r.click("tab", "90D"), r.click("tab", "Orders"), r.click("button", "Due")} {
+	for _, c := range [][]func(){r.click("radio", "90D"), r.click("tab", "Orders"), r.click("radio", "Due")} {
 		r.tick(nil, c...)
 		r.settle(600)
 	}
@@ -40,7 +39,7 @@ func TestDevStateDashboard(t *testing.T) {
 		data, rep = d, rp
 	}
 	mount := func(seed []byte) (time.Duration, *core.Tree) {
-		tr := core.NewTree(core.Config{RootClass: rootClass})
+		tr := core.NewTree(core.Config{RootClass: rootClass, Theme: (*core.Theme)(&theme)})
 		tr.SetViewport(gfx.Size{W: 1280, H: 800})
 		tr.Animate(0)
 		t0 := time.Now()

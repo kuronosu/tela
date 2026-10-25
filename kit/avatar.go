@@ -53,8 +53,10 @@ type Avatar struct {
 	Alt string
 	// Fallback is the text shown without a picture, normally initials.
 	Fallback string
-	// Class is added after the recipe's Root classes.
-	Class string
+	// Class is added after the recipe's Root classes; FallbackClass does the
+	// same for the fallback disc, such as a gradient of its own per person.
+	Class         string
+	FallbackClass string
 	// Props are more props for the root element.
 	Props tela.Child
 }
@@ -64,7 +66,7 @@ func (a Avatar) Build() tela.Node {
 	s := &UseStyle().Avatar
 	kids := []tela.Child{cls(s.Root, pick("Avatar", "Size", s.Sizes, a.Size), a.Class), a.Props}
 	if a.Fallback != "" {
-		kids = append(kids, h.Div(cls(s.Fallback, s.FallbackSizes[a.Size]), h.Text(a.Fallback)))
+		kids = append(kids, h.Div(cls(s.Fallback, s.FallbackSizes[a.Size], a.FallbackClass), h.Text(a.Fallback)))
 	}
 	if a.Src != nil {
 		img := []tela.Child{cls(s.Image), a.Src}

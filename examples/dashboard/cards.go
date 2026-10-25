@@ -4,14 +4,16 @@ import (
 	"fmt"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/examples/dashboard/icons"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
 
 // KPI is the definition of a stat card: its title, how it reads a Period
 // and how it prints the (animated) number.
 type KPI struct {
 	Title  string
-	Icon   string
+	Icon   tela.Icon
 	Tone   string // gradient of the icon chip
 	Value  func(Period) float32
 	Format func(float32) string
@@ -20,16 +22,21 @@ type KPI struct {
 }
 
 var kpis = []KPI{
-	{"Revenue", "chart", "from-indigo-500 to-violet-500", func(p Period) float32 { return p.Revenue }, dollars,
+	{"Revenue", icons.DollarSign, "from-indigo-500 to-violet-500", func(p Period) float32 { return p.Revenue }, dollars,
 		[3]string{"+8.2%", "+20.1%", "+31.4%"}, [3]bool{true, true, true}},
-	{"Subscribers", "users", "from-fuchsia-500 to-pink-500", func(p Period) float32 { return p.Subs }, count,
+	{"Subscribers", icons.Users, "from-fuchsia-500 to-pink-500", func(p Period) float32 { return p.Subs }, count,
 		[3]string{"+2.4%", "+18.0%", "-1.3%"}, [3]bool{true, true, false}},
-	{"Orders", "box", "from-sky-500 to-cyan-500", func(p Period) float32 { return p.Orders }, count,
+	{"Orders", icons.Package, "from-sky-500 to-cyan-500", func(p Period) float32 { return p.Orders }, count,
 		[3]string{"-3.1%", "+19.0%", "+12.6%"}, [3]bool{false, true, true}},
-	{"Monthly goal", "grid", "from-amber-500 to-orange-500", func(p Period) float32 { return p.Goal },
+	{"Monthly goal", icons.Target, "from-amber-500 to-orange-500", func(p Period) float32 { return p.Goal },
 		func(v float32) string { return fmt.Sprintf("%.0f%%", v) },
 		[3]string{"+4 pts", "+12 pts", "+9 pts"}, [3]bool{true, true, true}},
 }
+
+// lift is the hover reaction of an interactive panel. Only transform and
+// shadow transition: the fills do not, so switching the theme repaints the
+// page once instead of fading every card.
+const lift = "transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-950/10"
 
 // StatCard is one number: which card, and the period. Both fields are small
 // comparable values, so a card that is not affected skips its build. The
@@ -38,6 +45,9 @@ var kpis = []KPI{
 // lay out the paragraph, and the component builds once, when the period
 // changes. The last card shows its value as a meter whose width and color
 // are springs too (WidthFn, BgFn).
+//
+// The card is a kit.Card (its Action slot holds the icon chip); the delta
+// is a kit.Badge with the "up" or "down" variant of the glass style.
 type StatCard struct{ Index, Range int }
 
 func (p StatCard) Build() tela.Node {
@@ -45,27 +55,28 @@ func (p StatCard) Build() tela.Node {
 	target := k.Value(periods[p.Range])
 	v := tela.UseSpring(target, tela.Initial(float32(0)), tela.Stiffness(90), tela.Damping(18))
 
-	deltaTone := "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-	arrow := "arrow-up"
+	delta := kit.Badge{Variant: "up", Icon: icons.ArrowUp, Children: Text(k.Deltas[p.Range])}
 	if !k.Up[p.Range] {
-		deltaTone, arrow = "bg-rose-500/15 text-rose-700 dark:text-rose-300", "arrow-down"
+		delta = kit.Badge{Variant: "down", Icon: icons.ArrowDown, Children: Text(k.Deltas[p.Range])}
 	}
-	return Div(Class(glass, lift, "flex flex-col gap-4 p-5"),
-		Div(Class("flex items-center justify-between"),
-			H3(Class("text-sm font-medium", muted), Text(k.Title)),
-			Div(Class("flex size-9 items-center justify-center rounded-xl bg-linear-to-br text-white shadow-md", k.Tone), icon(k.Icon)),
-		),
-		Div(Class("text-3xl font-bold tracking-tight text-slate-900 tabular-nums dark:text-white"),
-			TextFn(func() string { return k.Format(v.Get()) })),
-		Div(Class("flex items-end justify-between gap-3"),
-			Div(Class("flex flex-col gap-1.5"),
-				Span(Class("flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold", deltaTone),
-					icon(arrow), Text(k.Deltas[p.Range])),
-				Span(Class("text-xs", muted), Text("vs last period")),
-			),
-			IfElse(p.Index == len(kpis)-1, goalMeter(v), spark(p)),
-		),
-	)
+	return Fragment(kit.Card{
+		Class:       lift + " gap-4 py-5",
+		HeaderClass: "px-5", ContentClass: "px-5",
+		Title:      H3(Text(k.Title)),
+		TitleClass: "text-sm font-medium tracking-normal text-muted-foreground",
+		Action: Div(Class("flex size-9 items-center justify-center rounded-xl bg-linear-to-br text-white shadow-md", k.Tone),
+			Icon(k.Icon, Class("size-4"))),
+		Children: Fragment(
+			Div(Class("text-3xl font-bold tracking-tight text-foreground tabular-nums"),
+				TextFn(func() string { return k.Format(v.Get()) })),
+			Div(Class("mt-4 flex items-end justify-between gap-3"),
+				Div(Class("flex flex-col gap-1.5"),
+					delta,
+					Span(Class("text-xs text-muted-foreground"), Text("vs last period")),
+				),
+				IfElse(p.Index == len(kpis)-1, goalMeter(v), spark(p)),
+			)),
+	})
 }
 
 // spark is the card's mini bar chart: twelve bars that spring to the new
@@ -92,9 +103,12 @@ func (p SparkBar) Build() tela.Node {
 
 // goalMeter is a 112px track whose fill follows the animated percentage:
 // its width is a layout closure, and its color a paint closure that goes
-// from rose through amber to emerald as the value rises (BgFn).
+// from rose through amber to emerald as the value rises (BgFn). It is
+// drawn here, not with kit.Progress: a Progress is built from a value that
+// changes between builds, and this meter's value changes every frame
+// without building.
 func goalMeter(v *tela.Value[float32]) tela.Node {
-	return Div(Class("h-2.5 w-28 shrink-0 overflow-hidden rounded-full bg-black/10 dark:bg-white/10"),
+	return Div(Class("h-2.5 w-28 shrink-0 overflow-hidden rounded-full bg-black/10 dark:bg-white/10"), AriaHidden(true),
 		Div(Class("h-full rounded-full"),
 			Style(
 				tela.WidthFn(func() float32 { return 112 * min(v.Get(), 100) / 100 }),
@@ -114,40 +128,36 @@ func goalColor(pct float32) tela.Color {
 	return tela.Hex("#10b981")
 }
 
-// RevenueCard is the bar chart with its metric tabs. The tabs' underline is
-// a shared LayoutID: it slides between tabs. The bars spring to the data of
-// the metric and the period (Range indexes periods).
+// RevenueCard is the bar chart with its metric tabs. The tabs are a
+// kit.Tabs with a sliding underline (its Indicator slot has a shared
+// LayoutID); the chart is the example's own drawing. The bars spring to the
+// data of the metric and the period (Range indexes periods).
 type RevenueCard struct{ Range int }
 
 func (p RevenueCard) Build() tela.Node {
-	tab, setTab := tela.UseState(0)
-	m := metrics[tab]
+	tab, setTab := tela.UseState(metrics[0].ID)
+	var m Metric
+	for _, mm := range metrics {
+		if mm.ID == tab {
+			m = mm
+		}
+	}
 	data := series(m, p.Range)
 	period := periods[p.Range]
-	return Div(Class(glass, "flex min-w-0 flex-1 flex-col p-6"),
-		Div(Class("flex flex-wrap items-start justify-between gap-4"),
-			Div(
-				H2(Class("text-lg", heading), Text("Performance")),
-				P(Class("mt-1 text-sm", muted), Textf("%s, last %s", m.Label, period.Caption)),
-			),
-			Div(Role("tablist"), Class("flex gap-1 border-b border-black/10 dark:border-white/10"),
-				MapIndex(metrics, func(i int, mm Metric) tela.Node {
-					color := "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-					if i == tab {
-						color = "text-indigo-600 dark:text-indigo-300"
-					}
-					return Button(Key(mm.ID), Role("tab"), AriaSelected(i == tab),
-						Class("relative px-3 pb-2.5 text-sm font-medium transition-colors duration-200", color),
-						OnClick(func() { setTab.Set(i) }),
-						Text(mm.Label),
-						If(i == tab, Div(Key("underline"), LayoutID("tab-underline"),
-							Class("absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-linear-to-r from-indigo-500 to-fuchsia-500"))),
-					)
-				}),
-			),
-		),
-		Div(Class("mt-6 flex gap-3"),
-			Div(Class("flex h-80 flex-col justify-between text-right text-xs leading-none", muted, "tabular-nums"),
+	tabs := make([]kit.Tab[string], len(metrics))
+	for i, mm := range metrics {
+		tabs[i] = kit.Tab[string]{Value: mm.ID, Label: mm.Label}
+	}
+	return Fragment(kit.Card{
+		Class: "min-w-0 flex-1",
+		Title: H2(Text("Performance")), Description: Textf("%s, last %s", m.Label, period.Caption),
+		// The content of the metric is the chart below, outside the tab list:
+		// the tabs are a tab list with no panels.
+		Action: kit.Tabs[string]{Tabs: tabs, Variant: kit.TabsLine, Value: &tab, OnValueChange: setTab.Set, AriaLabel: "Metric",
+			Indicator: Div(Key("underline"), LayoutID("tab-underline"),
+				Class("absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-linear-to-r from-indigo-500 to-fuchsia-500"))},
+		Children: Div(Class("mt-2 flex gap-3"),
+			Div(Class("flex h-80 flex-col justify-between text-right text-xs leading-none text-muted-foreground tabular-nums"),
 				Map([]float32{1, 0.75, 0.5, 0.25, 0}, func(f float32) tela.Node {
 					return Span(Key(f), Text(m.Unit+compact(m.Scale*f)))
 				}),
@@ -165,14 +175,14 @@ func (p RevenueCard) Build() tela.Node {
 						}),
 					),
 				),
-				Div(Class("mt-2 flex gap-2 text-xs", muted),
+				Div(Class("mt-2 flex gap-2 text-xs text-muted-foreground"),
 					MapIndex(period.XLabels[:], func(i int, l string) tela.Node {
 						return Span(Key(i), Class("flex-1 text-center"), Text(l))
 					}),
 				),
 			),
 		),
-	)
+	})
 }
 
 // Bar is one column: Pct is its height as a fraction of the plot and Label
@@ -203,25 +213,26 @@ func (p Bar) Build() tela.Node {
 func TrafficCard() tela.Node { return tela.C(trafficCard) }
 
 func trafficCard() tela.Node {
-	return Div(Class(glass, "flex flex-col p-6"),
-		H2(Class("text-lg", heading), Text("Traffic sources")),
-		P(Class("mt-1 text-sm", muted), Text("Where visitors come from")),
-		Div(Class("relative mx-auto my-6 size-44 shrink-0 rounded-full", donut()),
-			Div(Class("absolute inset-6 flex flex-col items-center justify-center rounded-full border border-white/60 bg-white/60 backdrop-blur-md dark:border-white/10 dark:bg-slate-900/50"),
-				Div(Class("text-2xl font-bold tracking-tight tabular-nums"), Text("48.2k")),
-				Div(Class("text-xs", muted), Text("visitors")),
+	return Fragment(kit.Card{
+		Title: H2(Text("Traffic sources")), Description: Text("Where visitors come from"),
+		Children: Fragment(
+			Div(Class("relative mx-auto my-6 size-44 shrink-0 rounded-full", donut()),
+				Div(Class("absolute inset-6 flex flex-col items-center justify-center rounded-full border border-border bg-popover backdrop-blur-md"),
+					Div(Class("text-2xl font-bold tracking-tight tabular-nums"), Text("48.2k")),
+					Div(Class("text-xs text-muted-foreground"), Text("visitors")),
+				),
+			),
+			Div(Class("flex flex-col gap-1"),
+				Map(sources, func(s Source) tela.Node {
+					return Div(Key(s.Name), Class("flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors duration-200 hover:bg-accent/60"),
+						Span(Class("size-2.5 rounded-full", s.Color)),
+						Span(Class("flex-1"), Text(s.Name)),
+						Span(Class("font-medium tabular-nums"), Textf("%d%%", s.Pct)),
+					)
+				}),
 			),
 		),
-		Div(Class("flex flex-col gap-1"),
-			Map(sources, func(s Source) tela.Node {
-				return Div(Key(s.Name), Class("flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors duration-200 hover:bg-white/50 dark:hover:bg-white/10"),
-					Span(Class("size-2.5 rounded-full", s.Color)),
-					Span(Class("flex-1"), Text(s.Name)),
-					Span(Class("font-medium tabular-nums"), Textf("%d%%", s.Pct)),
-				)
-			}),
-		),
-	)
+	})
 }
 
 // compact prints v as 9k or 6.8k, or the number itself below 1000.

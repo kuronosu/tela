@@ -5,8 +5,6 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-// Shared class strings. The page is written once with light and dark: pairs.
-//
 // The glass budget. A backdrop-blur recomputes its pixels whenever what is
 // behind it changes, and the backdrop of a card that scrolls over a fixed
 // image changes on every scroll frame, so blur is spent where there is
@@ -15,18 +13,8 @@ import (
 // chips over gradients. A card over the smooth aurora gets the same look
 // from a translucent fill and a hairline border, without the blur.
 const (
-	// glass is a frosted panel: translucent white (or tinted) over the
-	// backdrop, a bright hairline edge and a soft shadow.
-	glass = "rounded-2xl border border-white/60 bg-white/55 dark:border-white/10 dark:bg-white/5"
-	// lift is the hover reaction of an interactive panel. Only transform and
-	// shadow transition: the fills do not, so switching the theme repaints
-	// the page once instead of fading every card.
-	lift = "transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-950/10"
 	// bar is a bar of glass over content that moves (the header): blurred.
-	bar = "border-white/50 bg-white/40 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/30"
-
-	muted   = "text-slate-600 dark:text-slate-400"
-	heading = "font-semibold tracking-tight text-slate-900 dark:text-white"
+	bar = "border-border bg-white/40 backdrop-blur-xl dark:bg-slate-950/30"
 )
 
 // Backdrop is what the glass is over: a fixed layer behind the page, so the

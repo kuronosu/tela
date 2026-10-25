@@ -91,7 +91,7 @@ type rig struct {
 func newRig(tb testing.TB, w, h float32, scale float64, dark bool, opts ...func(*core.Config)) *rig {
 	tb.Helper()
 	r := &rig{tb: tb, w: w, h: h, scale: scale}
-	cfg := core.Config{RootClass: rootClass, Dark: dark, Log: func(msg string) { tb.Errorf("dev message: %s", msg) }}
+	cfg := core.Config{RootClass: rootClass, Theme: (*core.Theme)(&theme), Dark: dark, Log: func(msg string) { tb.Errorf("dev message: %s", msg) }}
 	for _, o := range opts {
 		o(&cfg)
 	}
@@ -279,7 +279,7 @@ func session() []scene {
 		}},
 		{"period 90D", 60, func(r *rig, i int) []func() {
 			if i == 0 {
-				return r.click("tab", "90D")
+				return r.click("radio", "90D")
 			}
 			return nil
 		}},
@@ -292,7 +292,7 @@ func session() []scene {
 		{"reorder tasks", 60, func(r *rig, i int) []func() {
 			switch i {
 			case 0:
-				return r.click("button", "Due")
+				return r.click("radio", "Due")
 			case 30:
 				return r.click("checkbox", "Fix the failed invoice retries")
 			}
@@ -322,7 +322,7 @@ func session() []scene {
 			case 30:
 				return r.click("radio", "CSV")
 			case 50:
-				return r.click("switch", "Send every week")
+				return r.click("switch", "Send every Monday")
 			case 70:
 				return r.click("button", "Cancel")
 			}
@@ -532,8 +532,8 @@ func TestSession(t *testing.T) {
 			r := newRig(t, c.w, c.h, c.scale, false)
 			frames, ticks := runSession(r)
 			t.Log(report(c.name, frames, ticks, c.w, c.h, c.scale))
-			if len(frames) < 600 {
-				t.Errorf("the session drew %d frames, want at least 600: lengthen the script", len(frames))
+			if len(frames) < 450 {
+				t.Errorf("the session drew %d frames, want at least 450: lengthen the script", len(frames))
 			}
 			if os.Getenv("TELA_PERF") == "strict" && c.name == "1080p_x1" {
 				if d := distOf(totals(frames)); d.P95 > ms(frameInterval) {

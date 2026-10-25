@@ -59,6 +59,24 @@ func TestGoldenScrolled(t *testing.T) {
 	}
 }
 
+// TestGoldenToast is the page that starts with a pinned toast (the "3 Toast"
+// preview), in both schemes.
+func TestGoldenToast(t *testing.T) {
+	for _, scheme := range []string{"light", "dark"} {
+		t.Run(scheme, func(t *testing.T) {
+			opts := []telatest.Option{telatest.Size(windowW, windowH)}
+			if scheme == "dark" {
+				opts = append(opts, telatest.Dark())
+			}
+			app := App
+			app.Root = Previews["3 Toast"].Root
+			a := telatest.MountApp(t, app, opts...)
+			a.ExpectText("Report queued: Q3 revenue summary")
+			a.Golden(fmt.Sprintf("toast_%s.png", scheme))
+		})
+	}
+}
+
 // TestGoldenDialog is the new-report dialog, open, in both schemes.
 func TestGoldenDialog(t *testing.T) {
 	for _, scheme := range []string{"light", "dark"} {
@@ -81,14 +99,16 @@ func TestRange(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	a.ExpectText("$45,231.89")
 	before := a.Stats()
-	a.Click(telatest.ByRole("tab", "90D"))
+	a.Expect(telatest.ByRole("radio", "30D"), telatest.Checked(true))
+	a.Click(telatest.ByRole("radio", "90D"))
 	a.ExpectText("$128,904.12")
 	a.ExpectText("6,718")
-	a.ExpectCount(telatest.ByRole("tab", "90D").Filter(telatest.HasClass("text-slate-900")), 1)
+	a.Expect(telatest.ByRole("radio", "90D"), telatest.Checked(true))
+	a.Expect(telatest.ByRole("radio", "30D"), telatest.Checked(false))
 	// The springs (numbers, 12 bars, 48 sparkline bars) move through layout
 	// and paint closures: the frames of the animation build nothing.
-	if got := a.Stats().Builds - before.Builds; got > 90 {
-		t.Errorf("changing the period built %d components, want the cards, the chart and the bars once each", got)
+	if got := a.Stats().Builds - before.Builds; got > 120 {
+		t.Errorf("changing the period built %d components, want the cards (and the kit components inside them), the chart and the bars once each", got)
 	}
 }
 
@@ -106,7 +126,7 @@ func TestSort(t *testing.T) {
 		t.Fatalf("by priority %q should come before %q", first, last)
 	}
 	before := string(a.Screenshot().Pix)
-	a.Click(telatest.ByRole("button", "A-Z"))
+	a.Click(telatest.ByRole("radio", "A-Z"))
 	a.Advance(40 * time.Millisecond)
 	mid := string(a.Screenshot().Pix)
 	a.Advance(2 * time.Second)
@@ -128,7 +148,7 @@ func TestFinishTask(t *testing.T) {
 	if y1 := a.Bounds(title).Y; y1 <= y0 {
 		t.Errorf("the finished task is at %v, it was at %v: it should have sunk", y1, y0)
 	}
-	a.ExpectCount(telatest.ByRole("checkbox", "Fix the failed invoice retries").Filter(telatest.HasClass("from-indigo-500")), 1)
+	a.Expect(telatest.ByRole("checkbox", "Fix the failed invoice retries"), telatest.Checked(true))
 }
 
 // TestTabs moves the chart's tab: one underline, under the selected tab,
@@ -138,7 +158,9 @@ func TestTabs(t *testing.T) {
 	underline := telatest.ByClass("h-0.5", "bg-linear-to-r")
 	a.ExpectCount(underline, 1)
 	a.ExpectText("$9k")
+	a.Expect(telatest.ByRole("tab", "Revenue"), telatest.Selected(true))
 	a.Click(telatest.ByRole("tab", "Orders"))
+	a.Expect(telatest.ByRole("tab", "Orders"), telatest.Selected(true))
 	a.ExpectCount(underline, 1)
 	line, tab := a.Bounds(underline), a.Bounds(telatest.ByRole("tab", "Orders"))
 	if line.X < tab.X || line.Right() > tab.Right() {
@@ -154,9 +176,10 @@ func TestDialog(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	a.Click(telatest.ByRole("button", "New report"))
 	a.ExpectCount(telatest.ByRole("dialog", "New report"), 1)
-	a.ExpectCount(telatest.ByRole("radio", "PDF").Filter(telatest.HasClass("text-slate-900")), 1)
+	a.Expect(telatest.ByRole("radio", "PDF"), telatest.Checked(true))
 	a.Click(telatest.ByRole("radio", "CSV"))
-	a.ExpectCount(telatest.ByRole("radio", "CSV").Filter(telatest.HasClass("text-slate-900")), 1)
+	a.Expect(telatest.ByRole("radio", "CSV"), telatest.Checked(true))
+	a.Expect(telatest.ByRole("radio", "PDF"), telatest.Checked(false))
 	a.Press("Escape")
 	a.ExpectCount(telatest.ByRole("dialog", "New report"), 0)
 
@@ -238,7 +261,7 @@ func TestThemeSwitch(t *testing.T) {
 	a := mount(t, windowW, windowH)
 	light := a.Screenshot().RGBAAt(700, 600)
 	a.Click(telatest.ByRole("switch", "Dark mode"))
-	a.ExpectCount(telatest.ByRole("switch", "Dark mode").Filter(telatest.HasClass("w-[84px]")), 1)
+	a.Expect(telatest.ByRole("switch", "Dark mode"), telatest.Checked(true))
 	dark := a.Screenshot().RGBAAt(700, 600)
 	if dark.R > light.R/2 || dark.G > light.G/2 {
 		t.Errorf("the page did not go dark: %v before, %v after", light, dark)
@@ -253,7 +276,7 @@ func TestThemeSwitch(t *testing.T) {
 // interaction has ended: no infinite animation is left running.
 func TestIdle(t *testing.T) {
 	a := mount(t, windowW, windowH)
-	a.Click(telatest.ByRole("tab", "7D")) // the sync spinner runs for a moment
+	a.Click(telatest.ByRole("radio", "7D")) // the sync spinner runs for a moment
 	a.Click(telatest.ByRole("button", "Export"))
 	a.Advance(6 * time.Second) // the toast counts down and leaves
 	frames := a.Stats().Frames
@@ -268,7 +291,7 @@ func TestIdle(t *testing.T) {
 func TestSticky(t *testing.T) {
 	a := mount(t, windowW, windowH, telatest.InstantScroll())
 	at := func(l telatest.Locator) [2]float32 { r := a.Bounds(l); return [2]float32{r.X, r.Y} }
-	header, nav, help := telatest.ByRole("tablist", "Period"), telatest.ByRole("button", "Analytics"), telatest.ByRole("button", "Help")
+	header, nav, help := telatest.ByRole("radiogroup", "Period"), telatest.ByRole("button", "Analytics"), telatest.ByRole("button", "Help")
 	h0, n0, f0 := at(header), at(nav), at(help)
 	a.Scroll(telatest.ByText("Performance", telatest.Exact()), 0, 300)
 	if got := at(header); got != h0 {

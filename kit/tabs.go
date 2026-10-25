@@ -145,6 +145,14 @@ type Tabs[K comparable] struct {
 	ManualActivation bool
 	// AriaLabel names the tab list.
 	AriaLabel string
+	// Indicator replaces the underline of the TabsLine variant (and adds
+	// one to any other variant): it is drawn inside the selected tab only,
+	// so it is mounted by the tab that gains the selection and unmounted by
+	// the one that loses it, and a LayoutID on its element makes it slide
+	// between the tabs (a shared element transition). Give it an element
+	// that is positioned against the tab, such as
+	// h.Div(h.LayoutID("underline"), h.Class("absolute inset-x-0 -bottom-px h-0.5 bg-primary")).
+	Indicator tela.Component
 
 	// Class is added after the recipe's Root classes; the other Class
 	// fields do the same for their part.
@@ -201,7 +209,12 @@ func (t Tabs[K]) Build() tela.Node {
 	var panel tela.Child
 	for _, tab := range t.Tabs {
 		var indicator tela.Child
-		if t.Variant == TabsLine {
+		switch {
+		case t.Indicator != nil:
+			if tab.Value == current {
+				indicator = t.Indicator
+			}
+		case t.Variant == TabsLine:
 			indicator = h.Span(cls(s.Indicator, s.IndicatorOrientations[orient]))
 		}
 		triggers = append(triggers, h.Div(tabs.TabProps(tab.Value), h.Key(tab.Value), cls(triggerClass),

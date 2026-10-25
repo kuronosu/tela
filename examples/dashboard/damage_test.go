@@ -23,9 +23,9 @@ func TestScrollDamage(t *testing.T) {
 func TestInteractionDamage(t *testing.T) {
 	for _, scale := range []float64{1, 1.5} {
 		a := telatest.MountApp(t, App, telatest.Size(1100, 760), telatest.Scale(scale), telatest.CheckDamage())
-		a.Click(telatest.ByRole("tab", "90D"))
+		a.Click(telatest.ByRole("radio", "90D"))
 		a.Click(telatest.ByRole("tab", "Orders"))
-		a.Click(telatest.ByRole("button", "Due"))
+		a.Click(telatest.ByRole("radio", "Due"))
 		a.Click(telatest.ByRole("checkbox", "Fix the failed invoice retries"))
 		a.Scroll(telatest.ByRole("heading", "Priorities"), 0, -2000) // back to the top
 		a.Click(telatest.ByRole("button", "New report"))
