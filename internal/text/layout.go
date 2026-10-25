@@ -28,6 +28,7 @@ type Layout struct {
 	text   procText
 	segs   []uint8 // per boundary of text.runes: seg* flags (grapheme, line and word boundaries)
 	base   uint8   // paragraph embedding level: 0 LTR, 1 RTL
+	scale  float32 // display scale the line boxes are quantized for (Paragraph.Scale)
 
 	runs     []run
 	clusters []cluster
@@ -223,6 +224,7 @@ func NewLayout(c *Collection, p *Paragraph) *Layout {
 		coll:       c,
 		src:        p.Text,
 		para:       p.Style,
+		scale:      normScale(p.Scale),
 		minContent: float32(math.NaN()),
 		maxContent: float32(math.NaN()),
 	}
@@ -271,32 +273,11 @@ func (l *Layout) resolveStyles() {
 		if si.face != nil {
 			m = si.face.Metrics()
 		}
-		si.ascent, si.descent = qround(m.Ascent, si.size), qround(m.Descent, si.size)
-		gap := qround(m.LineGap, si.size)
-		switch st.LineHeight.Kind {
-		case LineHeightScale:
-			si.lineHeight = float32(st.LineHeight.Value * si.size)
-		case LineHeightPx:
-			si.lineHeight = st.LineHeight.Value
-		default:
-			si.lineHeight = si.ascent + si.descent + gap
-			si.normal = true
-		}
-		if !finite32(si.lineHeight) || si.lineHeight < 0 {
-			si.lineHeight = si.ascent + si.descent + gap
-		}
-		si.over, si.under = halfLeading(si.ascent, si.descent, si.lineHeight)
-		// The x-height is not rounded: Chromium places vertical-align:
-		// middle boxes with the exact value.
-		si.xHeight = float32(m.XHeight * si.size)
-		if si.xHeight <= 0 {
-			si.xHeight = float32(si.ascent * 0.56)
-		}
+		l.resolveMetrics(i)
 		si.underline = float32(m.UnderlineOffset * si.size)
 		si.underlineThick = float32(m.UnderlineThickness * si.size)
 		si.strike = float32(m.StrikeoutOffset * si.size)
 		si.strikeThick = float32(m.StrikeoutThickness * si.size)
-		si.overline = -si.ascent
 		if t := st.Decoration.Thickness; t > 0 && finite32(t) {
 			si.strike += (si.strikeThick - t) / 2 // keep the strikeout centered
 			si.underlineThick, si.strikeThick = t, t
@@ -308,16 +289,116 @@ func (l *Layout) resolveStyles() {
 	}
 }
 
-// qround rounds a font metric scaled to px to whole pixels, as Blink and
-// Parley do for line box metrics.
-func qround(em, size float32) float32 {
-	return float32(math.Round(float64(em) * float64(size)))
+// resolveMetrics sets the vertical metrics of style i at the layout's
+// scale: the quantized ascent and descent of its first available font, its
+// line height (line-height: normal is the quantized ascent, descent and
+// line gap) and its box above and below the baseline.
+func (l *Layout) resolveMetrics(i int) {
+	st := &l.styles[i]
+	si := &l.sinfo[i]
+	var m Metrics
+	if si.face != nil {
+		m = si.face.Metrics()
+	}
+	si.ascent, si.descent = l.qround(m.Ascent, si.size), l.qround(m.Descent, si.size)
+	gap := l.qround(m.LineGap, si.size)
+	normal := l.lineSum(si.ascent, si.descent, gap)
+	si.normal = false
+	switch st.LineHeight.Kind {
+	case LineHeightScale:
+		si.lineHeight = float32(st.LineHeight.Value * si.size)
+	case LineHeightPx:
+		si.lineHeight = st.LineHeight.Value
+	default:
+		si.lineHeight = normal
+		si.normal = true
+	}
+	if !finite32(si.lineHeight) || si.lineHeight < 0 {
+		si.lineHeight = normal
+	}
+	si.over, si.under = l.halfLeading(si.ascent, si.descent, si.lineHeight)
+	// The x-height is not rounded: Chromium places vertical-align:
+	// middle boxes with the exact value.
+	si.xHeight = float32(m.XHeight * si.size)
+	if si.xHeight <= 0 {
+		si.xHeight = float32(si.ascent * 0.56)
+	}
+	si.overline = -si.ascent
 }
 
-// halfLeading splits the leading of a box (CSS 2.1, section 10.8.1): the
-// part above the baseline is ascent plus the half-leading rounded down.
-func halfLeading(ascent, descent, lineHeight float32) (over, under float32) {
-	over = ascent + float32(math.Floor(float64(lineHeight-(ascent+descent))/2))
+// normScale returns the display scale s, or 1 when s is not a positive
+// finite number.
+func normScale(s float32) float32 {
+	if !(s > 0) || math.IsInf(float64(s), 0) {
+		return 1
+	}
+	return s
+}
+
+// Scale returns the display scale the line boxes are quantized for
+// (Paragraph.Scale, SetScale).
+func (l *Layout) Scale() float32 { return l.scale }
+
+// SetScale quantizes the line boxes for display scale s (see
+// Paragraph.Scale; zero, negative and non-finite values mean 1): the
+// metrics of the styles and runs and the lines' heights and baselines
+// are computed again, without shaping or breaking the lines again.
+func (l *Layout) SetScale(s float32) {
+	s = normScale(s)
+	if s == l.scale {
+		return
+	}
+	l.scale = s
+	for i := range l.sinfo {
+		l.resolveMetrics(i)
+	}
+	for i := range l.runs {
+		l.runMetrics(&l.runs[i])
+	}
+	l.placeLines()
+}
+
+// qround returns a font metric (em units) of a font of size px in logical
+// px, rounded to whole device pixels at the layout's scale: Blink scales
+// the font by the device scale factor and rounds its ascent, descent and
+// line gap to whole pixels (SkScalarRoundToScalar), and so does Parley at
+// scale 1.
+func (l *Layout) qround(em, size float32) float32 {
+	k := float64(l.scale)
+	d := math.Round(float64(float64(em)*float64(size)) * k)
+	return float32(d / k)
+}
+
+// lineSum returns the line height of line-height: normal from quantized
+// metrics (logical px): their sum in whole device pixels, as Blink's line
+// spacing.
+func (l *Layout) lineSum(ascent, descent, gap float32) float32 {
+	k := float64(l.scale)
+	d := l.dev(ascent) + l.dev(descent) + l.dev(gap)
+	return float32(d / k)
+}
+
+// dev returns a quantized metric (logical px, a whole number of device
+// pixels) in whole device pixels.
+func (l *Layout) dev(v float32) float64 {
+	return math.Round(float64(v) * float64(l.scale))
+}
+
+// halfLeading splits the leading of a box (CSS 2.1, section 10.8.1) as
+// Blink does in device pixels (FontHeight::AddLeading): the line height
+// in LayoutUnits (1/64 device px, rounded to the nearest), the leading
+// halved in LayoutUnits (truncated toward zero) and rounded down to whole
+// device pixels; the part above the baseline is the quantized ascent plus
+// that half-leading, the part below is the rest of the line height.
+func (l *Layout) halfLeading(ascent, descent, lineHeight float32) (over, under float32) {
+	// Whole LayoutUnits are exact in float64 (no int64 overflow for any
+	// finite input).
+	k := float64(l.scale)
+	a, d := l.dev(ascent), l.dev(descent)
+	lu := math.Round(float64(lineHeight) * k * 64)
+	half := math.Trunc((lu - float64((a+d)*64)) / 2)
+	o := a + math.Floor(half/64)
+	over = float32(o / k)
 	return over, lineHeight - over
 }
 

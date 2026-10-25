@@ -94,19 +94,14 @@ func TestCounterHTML(t *testing.T) {
 }
 
 // edgeTolerance is the largest difference, in CSS px, accepted between an
-// edge of Chromium's layout and Tela's. Measured: at most 0.008 (Chromium
-// snaps to 1/64 px, LayoutUnit), except for the baseline at scale 2.
+// edge of Chromium's layout and Tela's, baselines included. Measured: at
+// most 0.008 (Chromium snaps to 1/64 px, LayoutUnit). At scale 2 both
+// round the font's ascent and descent in device pixels (ADR-159; the
+// heading's ascent is 93 device px, 46.5 CSS px): the heading's baseline
+// is at 81.5 CSS px and the button's at 141.5 in both. Before ADR-159 Tela
+// quantized line metrics in logical pixels and both texts were one device
+// pixel off.
 const edgeTolerance = 0.02
-
-// baselineTolerance2x is the largest difference accepted for the baseline of
-// the texts at scale 2. Blink lays text out in device pixels at a
-// device scale factor of 2: it rounds the font ascent (46.5 CSS px, 93
-// device px) to whole device pixels and its baseline lands on 81.5 CSS px
-// (163 device px). Tela quantizes line metrics to logical pixels (ADR-034),
-// puts the baseline at 81 (162 device px) and so the text is one device
-// pixel higher. The button's text goes the other way: Tela's baseline is
-// 0.5 CSS px lower than Blink's. Measured: exactly 0.5 CSS px in both.
-const baselineTolerance2x = 0.5
 
 // edges are the left, top, right and bottom of a box, or the left, baseline
 // and right of a text range.
@@ -173,9 +168,6 @@ func TestCounterLayoutChromium(t *testing.T) {
 				d := math.Abs(p.want[e] - p.got[e])
 				worst = math.Max(worst, d)
 				tol := edgeTolerance
-				if strings.HasSuffix(p.name, "text") && e == 1 && scale == 2 {
-					tol = baselineTolerance2x
-				}
 				if d > tol {
 					t.Errorf("x%g %s (%s): Tela %s, Chromium %s: an edge differs by %.3f px, more than %g", scale, p.name, p.edges, p.got, p.want, d, tol)
 				}
@@ -277,14 +269,16 @@ type pixelBound struct {
 // pixelBounds are set from what TestCounterPixelsChromium measured
 // (Chromium 152, Tailwind 4.3.3), a little above it so that a regression
 // shows. Measured at x1 and x2: whole image max 182/186 mean 0.229/0.213;
-// heading 182/186, 2.888/1.887; button 59/169, 0.935/2.235; card edge 32/50,
-// 0.342/0.327; card body 2/2, 0.259/0.259; shadow 1/1, 0.500/0.415; canvas 0.
+// heading 182/151, 2.888/1.050; button 59/148, 0.935/1.045; card edge 32/50,
+// 0.342/0.327; card body 2/2, 0.259/0.259; shadow 1/1, 0.500/0.415; canvas 0
+// (the whole image at x2 was measured before ADR-159, which put the texts'
+// baselines at x2 where Blink's are: heading 186, 1.887 and button 169, 2.235
+// before it).
 var pixelBounds = map[string]pixelBound{
 	"whole": {200, 0.3, "the sum of the regions below"},
 	"heading": {200, 3.2, "text: Skia's glyph anti-aliasing differs from ours on glyph edges (the diff image shows a thin " +
-		"outline of every glyph); at x2 Blink's baseline is one device pixel lower than ours (ADR-034: 81.5 against 81 CSS px)"},
-	"button": {190, 2.5, "text, as the heading; at x2 our baseline is one device pixel lower than Blink's (142 against 141.5 CSS px), " +
-		"which doubles the rim of the small glyphs"},
+		"outline of every glyph)"},
+	"button": {170, 1.3, "text, as the heading"},
 	"card edge": {60, 0.45, "Skia's rounded-rectangle coverage is not the exact area coverage of our rasterizer " +
 		"(single anti-aliased pixels on the corner arcs)"},
 	"card body": {4, 0.35, "the gradient: stops are extended sRGB, interpolated and clipped per pixel like Chromium; " +

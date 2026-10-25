@@ -174,15 +174,29 @@ func (l *Layout) special(kind runKind, i int, level uint8, si *styleInfo, adv fl
 	ci := int32(len(l.clusters))
 	g := int32(len(l.glyphs))
 	rn := run{kind: kind, level: level, face: si.face, size: si.size, r0: int32(i), r1: int32(i + 1), c0: ci, c1: ci + 1, box: -1}
-	rn.ascent, rn.descent, rn.gap = si.ascent, si.descent, 0
-	if si.normal && si.face != nil {
-		rn.gap = qround(si.face.Metrics().LineGap, si.size)
-	}
 	l.runs = append(l.runs, rn)
 	l.clusters = append(l.clusters, cluster{
 		r0: int32(i), r1: int32(i + 1), g0: g, g1: g, run: ri,
 		style: l.text.style[i], flags: flags, graph: 1, adv: adv,
 	})
+	l.runMetrics(&l.runs[ri])
+}
+
+// runMetrics sets the quantized metrics of run r at the layout's scale
+// (for line-height: normal): its face's for a text run, its style's
+// first available font's for a special run (the line gap only with
+// line-height: normal).
+func (l *Layout) runMetrics(r *run) {
+	if r.kind == runText {
+		m := r.face.Metrics()
+		r.ascent, r.descent, r.gap = l.qround(m.Ascent, r.size), l.qround(m.Descent, r.size), l.qround(m.LineGap, r.size)
+		return
+	}
+	si := &l.sinfo[l.clusters[r.c0].style]
+	r.ascent, r.descent, r.gap = si.ascent, si.descent, 0
+	if si.normal && si.face != nil {
+		r.gap = l.qround(si.face.Metrics().LineGap, si.size)
+	}
 }
 
 // shapeRun shapes the runes [r0, r1) with face f and appends the run, its
@@ -211,7 +225,7 @@ func (l *Layout) shapeRun(f *Face, r0, r1 int32, level uint8, script language.Sc
 	m := f.Metrics()
 	ri := int32(len(l.runs))
 	rn := run{kind: runText, level: level, face: f, size: si.size, r0: r0, r1: r1, box: -1,
-		ascent: qround(m.Ascent, si.size), descent: qround(m.Descent, si.size), gap: qround(m.LineGap, si.size)}
+		ascent: l.qround(m.Ascent, si.size), descent: l.qround(m.Descent, si.size), gap: l.qround(m.LineGap, si.size)}
 
 	// Glyphs, scaled from font units to px. The nominal advances come from
 	// Face.Advance, which is fusion-safe; HarfBuzz's own (go-text's float32

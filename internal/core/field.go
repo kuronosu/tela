@@ -33,8 +33,11 @@ import (
 // columns) plus the classic scrollbar's 15 px when scrollbars are classic,
 // and Rows lines tall (2 by default). field-sizing-content sizes both to
 // their text (or placeholder), at least the 1 px caret wide. The line of an Input
-// is centered vertically in its content box and is its baseline; a
-// Textarea's baseline is its bottom margin edge (a scroll container).
+// is centered vertically in its content box and is its baseline; an Input
+// lays its line out with line-height: normal where Chromium's inner editor
+// does (field.textStyle: a height taller than the line height, or a font
+// size at least as large, ADR-159). A Textarea's baseline is its bottom
+// margin edge (a scroll container).
 //
 // An Input clips its text to its content box horizontally and scrolls it
 // itself (field.scrollX) to keep the caret visible; a Textarea is a
@@ -744,7 +747,7 @@ func (t *Tree) fieldRestyled(f *field, old, cs *style.ComputedStyle) {
 	if old == nil {
 		return
 	}
-	ots, nts := old.TextStyle(), cs.TextStyle()
+	ots, nts := f.textStyle(old), f.textStyle(cs)
 	ots.Paint, nts.Paint = nil, nil // colors do not lay out
 	ots.Decoration.Paint, nts.Decoration.Paint = nil, nil
 	if !sameTextStyle(&ots, &nts) || f.paraStyle(old) != f.paraStyle(cs) || old.FieldSizing != cs.FieldSizing ||
@@ -768,6 +771,56 @@ func (f *field) paraStyle(cs *style.ComputedStyle) text.ParagraphStyle {
 	return ps
 }
 
+// textStyle returns the text style of the field's text. An Input lays its
+// line out with line-height: normal, as Chromium's inner editor does
+// (TextControlInnerEditorElement::CreateInnerEditorStyle), when its font
+// size is at least its line height in whole device pixels ("do not allow
+// line-height to be smaller than our default") or when its height is a
+// percentage or a length larger than that line height ("remove
+// line-height if the INPUT fixed height is taller than the line-height",
+// border and padding included whatever the box-sizing): then the font's
+// content area is what is centered in its content box (h-9 with
+// text-sm). Measured against Chromium 154 (ADR-159).
+func (f *field) textStyle(cs *style.ComputedStyle) text.TextStyle {
+	ts := cs.TextStyle()
+	if f.multi {
+		return ts
+	}
+	var lh float64
+	switch ts.LineHeight.Kind {
+	case text.LineHeightScale:
+		lh = float64(float64(ts.LineHeight.Value) * float64(ts.Size))
+	case text.LineHeightPx:
+		lh = float64(ts.LineHeight.Value)
+	default:
+		return ts
+	}
+	k := float64(f.t.scale)
+	dev := math.Trunc(lh * k) // Blink's int ComputedLineHeight, in device px
+	h := cs.Height
+	if float64(ts.Size)*k >= dev || (h.Kind == style.DimLength && (h.Pct != 0 || float64(h.Px)*k > dev)) {
+		ts.LineHeight = text.LineHeight{}
+	}
+	return ts
+}
+
+// rescale follows a new scale of the tree: the field's layouts are
+// quantized for it (text.Layout.SetScale), their lines broken again, and
+// the field laid out again (an Input's line height is in device pixels,
+// and textStyle depends on the scale).
+func (f *field) rescale() {
+	s := f.t.scale
+	for _, l := range []*text.Layout{f.lay, f.ph, f.empty} {
+		if l != nil {
+			l.SetScale(s)
+		}
+	}
+	f.brokeAt, f.phBroke = nan32(), nan32()
+	f.t.engine.MarkDirty(f.bx)
+	f.markPaint()
+	f.t.dirty()
+}
+
 // layout returns the layout of the editor's Display, rebuilt when the
 // display or the style changed and broken (aligned, for an Input) at the
 // width of the field's text area; nil before the field has a style.
@@ -782,11 +835,15 @@ func (f *field) layout() *text.Layout {
 // layoutAt is layout at width w.
 func (f *field) layoutAt(cs *style.ComputedStyle, w float32) *text.Layout {
 	t := f.t
-	ts, ps := cs.TextStyle(), f.paraStyle(cs)
+	ts, ps := f.textStyle(cs), f.paraStyle(cs)
 	if f.lay == nil || f.layVer != f.ed.DisplayVersion() || f.ps != ps || !sameTextStyle(&f.ts, &ts) {
-		f.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: f.ed.Display(), Style: ps, Default: ts})
+		f.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: f.ed.Display(), Style: ps, Default: ts, Scale: t.scale})
 		t.stats.Shapes++
 		f.layVer, f.ts, f.ps = f.ed.DisplayVersion(), ts, ps
+		f.brokeAt = nan32()
+	}
+	if f.lay.Scale() != t.scale {
+		f.lay.SetScale(t.scale)
 		f.brokeAt = nan32()
 	}
 	if f.brokeAt != w {
@@ -827,8 +884,12 @@ func (f *field) placeholder(cs *style.ComputedStyle, w float32) *text.Layout {
 	}
 	ts, ps := f.placeholderStyle(cs), f.paraStyle(cs)
 	if f.ph == nil || f.phText != s || f.phPS != ps || !sameTextStyle(&f.phTS, &ts) {
-		f.ph = text.NewLayout(f.t.fonts, &text.Paragraph{Text: s, Style: ps, Default: ts})
+		f.ph = text.NewLayout(f.t.fonts, &text.Paragraph{Text: s, Style: ps, Default: ts, Scale: f.t.scale})
 		f.phText, f.phTS, f.phPS = s, ts, ps
+		f.phBroke = nan32()
+	}
+	if f.ph.Scale() != f.t.scale {
+		f.ph.SetScale(f.t.scale)
 		f.phBroke = nan32()
 	}
 	if f.phBroke != w {
@@ -852,9 +913,15 @@ func (f *field) placeholder(cs *style.ComputedStyle, w float32) *text.Layout {
 func (f *field) placeholderStyle(cs *style.ComputedStyle) text.TextStyle {
 	if cs.Placeholder != nil {
 		c := style.ComputedStyle{Text: *cs.Placeholder}
-		return c.TextStyle()
+		ts := c.TextStyle()
+		if !f.multi && f.textStyle(cs).LineHeight.Kind == text.LineHeightNormal {
+			// An Input's placeholder sits where its value does
+			// (Chromium; see textStyle).
+			ts.LineHeight = text.LineHeight{}
+		}
+		return ts
 	}
-	ts := cs.TextStyle()
+	ts := f.textStyle(cs)
 	col := cs.Text.Color
 	col.A = float32(col.A * 0.5)
 	ts.Paint = col
@@ -864,11 +931,12 @@ func (f *field) placeholderStyle(cs *style.ComputedStyle) text.TextStyle {
 // lineHeight returns the height of one line of the field's text: the
 // line box of an empty line in its style.
 func (f *field) lineHeight(cs *style.ComputedStyle) float32 {
-	ts, ps := cs.TextStyle(), f.paraStyle(cs)
+	ts, ps := f.textStyle(cs), f.paraStyle(cs)
 	if f.empty == nil || f.emptyPS != ps || !sameTextStyle(&f.emptyTS, &ts) {
-		f.empty = text.NewLayout(f.t.fonts, &text.Paragraph{Text: "", Style: ps, Default: ts})
+		f.empty = text.NewLayout(f.t.fonts, &text.Paragraph{Text: "", Style: ps, Default: ts, Scale: f.t.scale})
 		f.emptyTS, f.emptyPS = ts, ps
 	}
+	f.empty.SetScale(f.t.scale)
 	return f.empty.Line(0).Height
 }
 

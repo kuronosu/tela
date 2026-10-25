@@ -51,8 +51,11 @@ func labelledSwitch(name, text string, s kit.Switch) cell {
 			cn(shadcnFieldHorizontal), switchHTML(name+"-switch", id, s.DefaultChecked, s.Disabled, s.Size), id, cn(shadcnLabel, shadcnFieldLabel), text)}
 }
 
+// switchSheet has the default bounds since ADR-159 put the labels'
+// baselines at x2 where Chromium's are (the worst cells were 3.98 at x2
+// before it, 1.31 after).
 func switchSheet() *sheet {
-	return &sheet{name: "switch", slot: 280, mean: [2]float64{3.5, 4.5}, cells: []cell{
+	return &sheet{name: "switch", slot: 280, cells: []cell{
 		switchCell("off", kit.Switch{}),
 		switchCell("on", kit.Switch{DefaultChecked: true}),
 		switchCell("sm-off", kit.Switch{Size: kit.Sm}),

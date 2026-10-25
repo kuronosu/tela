@@ -71,8 +71,11 @@ func labelledCheckbox(name, text string, c kit.Checkbox) cell {
 			cn(shadcnFieldHorizontal), box, id, cn(shadcnLabel, shadcnFieldLabel), text)}
 }
 
+// checkboxSheet has the default bounds since ADR-159 put the labels'
+// baselines at x2 where Chromium's are (the worst cells were 5.11 at x2
+// before it, 1.51 after).
 func checkboxSheet() *sheet {
-	return &sheet{name: "checkbox", slot: 280, mean: [2]float64{3.5, 6}, cells: []cell{
+	return &sheet{name: "checkbox", slot: 280, cells: []cell{
 		checkboxCell("unchecked", kit.Checkbox{}),
 		checkboxCell("checked", kit.Checkbox{DefaultChecked: true}),
 		checkboxCell("disabled", kit.Checkbox{Disabled: true}),

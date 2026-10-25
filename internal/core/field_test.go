@@ -709,10 +709,15 @@ func TestFieldDefaultSizes(t *testing.T) {
 	if s := size("tfs"); math.Abs(float64(s.W-61.5)) > 0.1 || s.H != 24 {
 		t.Errorf("textarea field-sizing-content %v, want about 61.5x24", s)
 	}
-	// The line of a tall input is centered.
+	// The line of a tall input is centered: with line-height normal, as
+	// its height is larger than its line height (Chromium's inner
+	// editor, ADR-159): (48 - 20) / 2, the baseline at 14 + 16.
 	f := fieldOf(t, tr, "tall")
-	if off := f.lineOffset(); off != 12 {
-		t.Errorf("line offset %v, want 12", off)
+	if off := f.lineOffset(); off != 14 {
+		t.Errorf("line offset %v, want 14", off)
+	}
+	if b := f.lineOffset() + f.layout().Line(0).Baseline; b != 30 {
+		t.Errorf("baseline %v, want 30 (Chromium)", b)
 	}
 	// Classic scrollbars add Chromium's 15 px gutter to a textarea.
 	cl := fieldTree(t, div(textarea(Key("t"))), 600, 200, Config{Fonts: testFonts, ClassicScrollbars: true})

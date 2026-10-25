@@ -186,7 +186,11 @@
 // above its max-content width only realigns them. A paragraph with atomic
 // inlines breaks its lines again on every layout request, since their
 // sizes depend on the width; the sizes of its last full layout are put
-// back before painting (paragraph.prepare).
+// back before painting (paragraph.prepare). Paragraphs and text fields are
+// laid out for the tree's display scale (text.Paragraph.Scale: line boxes
+// in whole device pixels, as Blink's, ADR-159), so a new scale (SetScale)
+// quantizes their line boxes again (text.Layout.SetScale, no shaping) and
+// lays their boxes out again.
 //
 // # Style and layout styles
 //
@@ -243,7 +247,9 @@
 // rebuilt only when the display or the style changes, and the
 // placeholder's. They are sized like Chromium's (size=20, cols=20 and
 // rows=2 from the primary font's average and maximum character widths,
-// field-sizing-content), an Input centers its line and scrolls it
+// field-sizing-content), an Input centers its line (with line-height:
+// normal when Chromium's inner editor drops the line height: a height
+// taller than it, or a font size at least as large; ADR-159) and scrolls it
 // horizontally itself, a Textarea is a scroll container whose extents
 // come from its text. Values are uncontrolled (DefaultValue), controlled
 // (FieldValue, Bind: restored after every event unless the app changed

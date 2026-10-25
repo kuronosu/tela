@@ -122,7 +122,8 @@ import (
 // thumbs are snapped like border boxes, so that at fractional scales the
 // highlights of consecutive lines meet without a seam and the bars stay
 // sharp (ADR-075). The scale is the Tree's (SetScale); a new scale
-// repaints.
+// repaints, and lays text out again (line boxes are quantized in device
+// pixels, ADR-159).
 
 // painter is the state of one paint pass.
 type painter struct {

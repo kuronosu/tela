@@ -40,8 +40,11 @@ func inputCell(name string, i kit.Input) cell {
 	}
 }
 
+// inputSheet has the default bounds since ADR-159 centered an Input's
+// line as Chromium's inner editor does, with line-height: normal under
+// h-9 (the worst cells were 4.60 at x1 before it, 1.83 after).
 func inputSheet() *sheet {
-	return &sheet{name: "input", mean: [2]float64{5, 3.5}, cells: []cell{
+	return &sheet{name: "input", cells: []cell{
 		inputCell("placeholder", kit.Input{Placeholder: "Email", Type: "email"}),
 		inputCell("value", kit.Input{DefaultValue: "ana@example.com", Type: "email"}),
 		inputCell("disabled", kit.Input{Disabled: true, Placeholder: "Disabled"}),

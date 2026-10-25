@@ -399,6 +399,20 @@ func (p *paragraph) targetAt(off int) *Element {
 	return nil
 }
 
+// rescale quantizes the line boxes for the tree's scale
+// (text.Layout.SetScale) and forgets what depends on them: the lines are
+// broken again and box b is laid out again.
+func (p *paragraph) rescale(t *Tree, b *Box) {
+	if p.lay == nil || p.lay.Scale() == t.scale {
+		return
+	}
+	p.lay.SetScale(t.scale)
+	p.inkAt, p.fragAt = [3]float32{}, [2]float32{}
+	p.brokeAt = float32(math.NaN())
+	t.engine.MarkDirty(b)
+	t.dirty()
+}
+
 // breakAt breaks the lines at width w unless they already are.
 func (p *paragraph) breakAt(t *Tree, w float32) {
 	if p.brokeAt == w {
@@ -749,6 +763,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 		a.setTargets(p)
 		a.setSources(b)
 		p.setElements(a)
+		p.rescale(t, b)
 		return !p.empty
 	}
 	if p == nil {
@@ -770,7 +785,7 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	p.boxes = slices.Clone(a.boxes)
 	p.lay = nil
 	if !empty {
-		p.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: s, Style: pstyle, Default: def, Spans: p.spans, Boxes: p.boxes, Inlines: p.inlines})
+		p.lay = text.NewLayout(t.fonts, &text.Paragraph{Text: s, Style: pstyle, Default: def, Spans: p.spans, Boxes: p.boxes, Inlines: p.inlines, Scale: t.scale})
 		t.stats.Shapes++
 	}
 	inf := float32(math.Inf(1))

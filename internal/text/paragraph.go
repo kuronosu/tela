@@ -399,6 +399,13 @@ type Inline struct {
 // Inlines are in tree order (an inline before the inlines it contains,
 // siblings in text order) and properly nested: an inline that starts
 // inside another one (in text and in boxes) ends inside it.
+//
+// Scale is the display scale (device pixels per logical pixel) the line
+// boxes are quantized for: font ascents and descents round to whole device
+// pixels and half-leadings round down to whole device pixels, as Blink does
+// with the font scaled by the device scale factor (ADR-159). Zero, negative
+// and non-finite values mean 1. Layout.SetScale changes it without shaping
+// again.
 type Paragraph struct {
 	Text    string
 	Style   ParagraphStyle
@@ -406,6 +413,7 @@ type Paragraph struct {
 	Spans   []Span
 	Boxes   []InlineBox
 	Inlines []Inline
+	Scale   float32
 
 	open []int // the inlines OpenInline opened and CloseInline did not close
 }

@@ -242,9 +242,14 @@
 //  8. Lines (lines.go): items in visual order; line boxes per CSS 2.1
 //     section 10.8: the strut (Default style), the span box of every style
 //     on the line and, with line-height normal, the boxes of fallback fonts
-//     (CSS Inline 3), plus inline boxes by vertical-align. Ascent and
-//     descent are rounded to whole logical px and the half-leading split
-//     rounds down, as Blink does at device scale 1. line-clamp keeps the
+//     (CSS Inline 3), plus inline boxes by vertical-align. Line boxes are
+//     quantized in device pixels at the paragraph's display scale
+//     (Paragraph.Scale, Layout.SetScale), as Blink does with the font
+//     scaled by the device scale factor (ADR-159): ascent, descent and line
+//     gap rounded to whole device pixels, the line height in LayoutUnits
+//     (1/64 device px, the nearest), the leading halved in LayoutUnits
+//     (truncated) and rounded down to whole device pixels; results are in
+//     logical px (multiples of 1/scale). line-clamp keeps the
 //     first lines; text-overflow and line-clamp truncate at the end edge,
 //     hiding whole clusters in visual order, with an ellipsis in the
 //     Default style.
@@ -281,6 +286,12 @@
 // nesting, wrapping, empty inlines, bidi splits, right-to-left
 // paragraphs, struts, truncation) and compares their fragments too:
 // every fragment and cluster edge is within 0.06 px.
+// TestChromiumBaselines compares one line of Inter in 13 sizes and 18 line
+// heights at scales 1, 1.25, 1.5, 2 and 3: the baseline and the content
+// area match to the device pixel and the line box within 1/64 device px,
+// except 7 cases of 1170 where Blink's float32 line-height arithmetic
+// truncates 4/3 of a 30 or 60 px device font below a whole pixel and its
+// baseline is one device pixel higher.
 // Not implemented: hyphenation, text-decoration-skip-ink, vertical-align on
 // spans, synthetic bold and oblique, reshaping across emergency breaks
 // (an Arabic word broken by overflow-wrap keeps its joining forms).

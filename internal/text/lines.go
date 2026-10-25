@@ -59,17 +59,11 @@ func (l *Layout) BreakLines(maxWidth float32) {
 		}
 	}
 	l.buildFrags()
-	var top float32
 	l.width = 0
 	for li := range l.lines {
-		ln := &l.lines[li]
-		l.lineMetrics(li)
-		ln.top = top
-		ln.baseline = top + ln.ascent
-		top += ln.height
-		l.width = max(l.width, ln.width)
+		l.width = max(l.width, l.lines[li].width)
 	}
-	l.height = top
+	l.placeLines()
 	aw := maxWidth
 	if math.IsInf(float64(aw), 1) {
 		aw = l.width
@@ -256,6 +250,20 @@ func (l *Layout) ellipsisFor(s uint16) *ellipsisData {
 	return e
 }
 
+// placeLines computes the line boxes and stacks them: their heights,
+// tops and baselines, and the paragraph's height.
+func (l *Layout) placeLines() {
+	var top float32
+	for li := range l.lines {
+		ln := &l.lines[li]
+		l.lineMetrics(li)
+		ln.top = top
+		ln.baseline = top + ln.ascent
+		top += ln.height
+	}
+	l.height = top
+}
+
 // lineMetrics computes the line box of line li (CSS 2.1, section 10.8):
 // the strut (the paragraph's Default style), the span box of every style
 // on the line, the boxes of the fonts used when the style's line-height is
@@ -276,7 +284,7 @@ func (l *Layout) lineMetrics(li int) {
 			si := &l.sinfo[e.style]
 			add(si.over, si.under)
 			if si.normal && e.face != nil && e.face != si.face {
-				add(faceBox(e.face, e.size))
+				add(l.faceBox(e.face, e.size))
 			}
 		case itemBox:
 			b := &l.boxes[l.runs[it.run].box]
@@ -299,7 +307,7 @@ func (l *Layout) lineMetrics(li int) {
 				if si := &l.sinfo[cc.style]; si.normal && cc.run != lastRun {
 					lastRun = cc.run
 					if r := &l.runs[cc.run]; r.kind == runText && r.face != si.face {
-						add(halfLeading(r.ascent, r.descent, r.ascent+r.descent+r.gap))
+						add(l.halfLeading(r.ascent, r.descent, l.lineSum(r.ascent, r.descent, r.gap)))
 					}
 				}
 			}
@@ -327,10 +335,10 @@ func (l *Layout) lineMetrics(li int) {
 
 // faceBox returns the box above and below the baseline of a font used
 // with line-height: normal.
-func faceBox(f *Face, size float32) (over, under float32) {
+func (l *Layout) faceBox(f *Face, size float32) (over, under float32) {
 	m := f.Metrics()
-	a, d, g := qround(m.Ascent, size), qround(m.Descent, size), qround(m.LineGap, size)
-	return halfLeading(a, d, a+d+g)
+	a, d, g := l.qround(m.Ascent, size), l.qround(m.Descent, size), l.qround(m.LineGap, size)
+	return l.halfLeading(a, d, l.lineSum(a, d, g))
 }
 
 // boxExtents returns how far a baseline-relative inline box extends above

@@ -423,7 +423,9 @@ func (t *Tree) Scale() float32 { return t.scale }
 // SetScale sets the display scale (device pixels per logical pixel; zero
 // or less means 1). The display list stays in logical pixels, but the
 // paint phase snaps box edges to device pixels at this scale, so a new
-// scale repaints the tree.
+// scale repaints the tree; and line boxes are quantized in device pixels
+// (text.Paragraph.Scale, ADR-159), so it lays out every paragraph and text
+// field again (without shaping them again).
 func (t *Tree) SetScale(scale float32) {
 	if !(scale > 0) || math.IsInf(float64(scale), 0) {
 		scale = 1
@@ -432,7 +434,40 @@ func (t *Tree) SetScale(scale float32) {
 		return
 	}
 	t.scale = scale
+	t.rescaleText()
 	t.dirty()
+}
+
+// rescaleText quantizes the line boxes of every paragraph and text field
+// for the tree's scale and queues their boxes for layout.
+func (t *Tree) rescaleText() {
+	if t.root == nil {
+		return
+	}
+	var walk func(el *Element)
+	walk = func(el *Element) {
+		if b := el.box; b != nil {
+			t.rescaleBox(b)
+			for _, a := range b.anon {
+				t.rescaleBox(a)
+			}
+		}
+		for _, c := range el.children {
+			walk(c)
+		}
+	}
+	walk(t.root)
+}
+
+// rescaleBox quantizes the line boxes of box b's paragraph or text field
+// for the tree's scale.
+func (t *Tree) rescaleBox(b *Box) {
+	if p := b.para; p != nil {
+		p.rescale(t, b)
+	}
+	if f := b.fld; f != nil {
+		f.rescale()
+	}
 }
 
 // restyleAll queues every primitive for the style phase.
