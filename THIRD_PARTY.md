@@ -301,3 +301,41 @@ their original copyright notice. Add one section per source project.
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
   ```
+
+## Sonner (default styles; test oracle for the toast stack)
+
+- **Source:** https://github.com/emilkowalski/sonner (sonner 2.0.7, the version shadcn/ui's `sonner.tsx` at the pinned commit depends on, `^2.0.0`)
+- **License:** MIT, Copyright (c) 2023 Emil Kowalski
+- **Used in:** `kit/toast.go` (the sizes, gaps, stacking rule, timings and the dark-theme colors of `kit.Toaster`'s recipe are sonner's default stylesheet's, ported as classes), and `kit/testdata/sonner/` (`styles.css`, sonner's stylesheet unchanged, and the DOM it renders in a React page, captured with `capture.jsx`, as the Chromium conformance page of `kit/toast_test.go`)
+- **Notes:** The stack's behavior (the newest toast in front, the others `translateY(gap * n) scale(1 - 0.05 n)` behind it, fanned out by their measured heights while the pointer is over them, timers paused meanwhile) follows sonner's `Toaster`; the code is written for Tela. Swipe to dismiss, promise toasts and rich colors are not ported.
+
+  ```
+  MIT License
+
+  Copyright (c) 2023 Emil Kowalski
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```
+
+## shadcn/ui Select, Tabs and Sonner wrapper; Lucide icons in `kit`
+
+- **Source:** shadcn/ui `select.tsx`, `tabs.tsx` and `sonner.tsx` at the commit of the shadcn/ui section above; Lucide (`lucide-static` 1.61.0, see the Lucide section)
+- **License:** MIT (shadcn/ui); ISC (Lucide), Copyright (c) 2026 Lucide Icons and Contributors
+- **Used in:** `kit/select.go`, `kit/tabs.go`, `kit/toast.go` (the class strings of the recipes) and their tests
+- **Notes:** `kit/select.go` draws chevron-down and check, and `kit/toast.go` circle-check, info, triangle-alert, octagon-x, loader-circle and x, as unexported `tela.Icon` literals copied unaltered from the files `icons/lucide` holds (ADR-129, K7); each is replaceable by a field of the component. The ISC notice is in `icons/lucide/LICENSE`.

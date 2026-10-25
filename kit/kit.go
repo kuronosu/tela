@@ -119,12 +119,15 @@ type Style struct {
 	Popover     PopoverStyle
 	Progress    ProgressStyle
 	RadioGroup  RadioGroupStyle
+	Select      SelectStyle
 	Separator   SeparatorStyle
 	Skeleton    SkeletonStyle
 	Slider      SliderStyle
 	Switch      SwitchStyle
 	Table       TableStyle
+	Tabs        TabsStyle
 	Textarea    TextareaStyle
+	Toast       ToastStyle
 	Toggle      ToggleStyle
 	ToggleGroup ToggleGroupStyle
 	Tooltip     TooltipStyle

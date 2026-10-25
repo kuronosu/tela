@@ -136,5 +136,5 @@ func (f Field) Build() tela.Node {
 	return h.Div(h.Class(s.Root, pick("Field", "Orientation", s.Orientations, orientationOr(f.Orientation, Vertical)),
 		when(hasContent, s.HorizontalWithContent), when(invalid, s.Invalid), f.Class),
 		h.Role("group"), f.Props,
-		fieldCtx.Provider(fieldInfo{id: id, describedBy: describedBy, invalid: invalid}, body...))
+		fieldCtx.Provider(fieldInfo{id: id, describedBy: describedBy, invalid: invalid, label: f.Label}, body...))
 }
