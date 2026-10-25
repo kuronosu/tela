@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="bg-white">
+<div data-probe="page" class="w-[800px]">
+<div data-probe="panel" class="flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div data-probe="horizontal" class="flex w-[240px]">
+<div class="flex w-full flex-col gap-2"><div class="text-sm font-medium">Radix Primitives</div><div data-orientation="horizontal" class="shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div><div class="text-sm text-muted-foreground">An open-source UI component library.</div></div>
+</div>
+<div data-probe="vertical" class="flex">
+<div class="flex h-5 items-center gap-4 text-sm"><div>Blog</div><div data-orientation="vertical" class="shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div><div>Docs</div><div data-orientation="vertical" class="shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div><div>Source</div></div>
+</div>
+<div data-probe="class" class="flex w-[200px]">
+<div data-orientation="horizontal" class="shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px bg-primary"></div>
+</div>
+</div>
+<div data-probe="panel" class="dark flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div data-probe="horizontal" class="flex w-[240px]">
+<div class="flex w-full flex-col gap-2"><div class="text-sm font-medium">Radix Primitives</div><div data-orientation="horizontal" class="shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div><div class="text-sm text-muted-foreground">An open-source UI component library.</div></div>
+</div>
+<div data-probe="vertical" class="flex">
+<div class="flex h-5 items-center gap-4 text-sm"><div>Blog</div><div data-orientation="vertical" class="shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div><div>Docs</div><div data-orientation="vertical" class="shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px"></div><div>Source</div></div>
+</div>
+<div data-probe="class" class="flex w-[200px]">
+<div data-orientation="horizontal" class="shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px bg-primary"></div>
+</div>
+</div>
+</div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const out = [];
+  for (const e of document.querySelectorAll("[data-probe]")) {
+    const r = e.getBoundingClientRect();
+    out.push([e.dataset.probe, r.left + scrollX, r.top + scrollY, r.width, r.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

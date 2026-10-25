@@ -269,4 +269,35 @@ their original copyright notice. Add one section per source project.
 - **Source:** https://lucide.dev (`lucide-static` 1.61.0 from npm, https://github.com/lucide-icons/lucide; tarball integrity `sha512-yLAiQB3MWUJEstsEDAwenSA3m7vr1tdLvgnC16Q/XMxRRma0DWwMs8M2bWlvgShrIs1m2mWMJ+0AiahqQO4GrA==`)
 - **License:** ISC, Copyright (c) 2026 Lucide Icons and Contributors; the icons Lucide derived from Feather (listed in the license file) are MIT, Copyright (c) 2013-present Cole Bemis
 - **Used in:** `icons/lucide/` (the separate module `github.com/kuronosu/tela/icons/lucide`): `icons_gen.go` holds the SVG drawings as Go string data, and `LICENSE` is Lucide's license file, unchanged, with the Feather notice; and, also a subset (27 icons copied from the same `lucide-static` 1.61.0 files, unaltered), in `examples/aria/icons/` (the `*.svg` files, `icons_gen.go` generated from them by `tela icons gen`, and the same `LICENSE`), because the root module cannot import `icons/lucide`
-- **Notes:** The SVG files are minified by `tela icons gen` (comments, class attributes and white space removed; the minified document is checked to draw the same display lists as the original) and wrapped in one `tela.Icon` variable each; the drawings are not altered. The license text is copied into the header of `icons_gen.go`. The root module (`github.com/kuronosu/tela`) contains none of it.
+- **Notes:** The SVG files are minified by `tela icons gen` (comments, class attributes and white space removed; the minified document is checked to draw the same display lists as the original) and wrapped in one `tela.Icon` variable each; the drawings are not altered. The license text is copied into the header of `icons_gen.go`. The root module (`github.com/kuronosu/tela`) contains none of it, except six icons (mail, chevron-right, arrow-right, circle-alert, check, x) copied unaltered into `kit/icons_test.go` as test fixtures, since kit's components draw no icon of their own and cannot import `icons/lucide`.
+
+## shadcn/ui (class strings and markup; test oracle)
+
+- **Source:** https://github.com/shadcn-ui/ui, `apps/v4/registry/new-york-v4/ui/*.tsx` and the theming CSS of `apps/v4`, at commit `617134d5810bba521803b3ed787190bacbb80b35` (branch main, 2026-10-24). Every component of `kit` follows this one commit (`kit.ShadcnCommit`)
+- **License:** MIT, Copyright (c) 2023 shadcn
+- **Used in:** `kit/` (the class strings of the recipes in `button.go`, `badge.go`, `card.go`, `avatar.go`, `label.go`, `input.go`, `textarea.go`, `separator.go`, `skeleton.go`, `field.go`), and the tests' copies of shadcn's own strings and markup in `kit/*_test.go`, `kit/harness_test.go` (the theme CSS) and `kit/testdata/chromium/`
+- **Notes:** The class strings are ported, translated for what Tela does not have (`data-[state=...]:` to `checked:` or `aria-*:`, `[&_svg]:` to classes on the icon slots, `has-[>svg]:` to a Go condition, `border` to `border border-border`; `kit/doc.go` and ADR-130 list every deviation). The recipes are data in Go, not shadcn's cva code; the components are written for Tela's hooks. The pages in `kit/testdata/chromium/` are shadcn's markup rendered by headless Chromium with Tailwind CSS 4.3.3 (MIT), as the oracle of the conformance tests.
+
+  ```
+  MIT License
+
+  Copyright (c) 2023 shadcn
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```

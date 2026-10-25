@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+<style>
+*, *::before, *::after { animation: none !important; }
+</style>
+</head>
+<body class="bg-white">
+<div data-probe="page" class="w-[800px]">
+<div data-probe="panel" class="flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div data-probe="profile" class="flex">
+<div class="flex items-center gap-4"><div class="animate-pulse bg-accent size-12 rounded-full"></div><div class="flex flex-col gap-2"><div class="animate-pulse rounded-md bg-accent h-4 w-[250px]"></div><div class="animate-pulse rounded-md bg-accent h-4 w-[200px]"></div></div></div>
+</div>
+<div data-probe="card" class="flex w-[240px]">
+<div class="flex w-full flex-col gap-3"><div class="animate-pulse bg-accent h-[125px] w-full rounded-xl"></div><div class="flex flex-col gap-2"><div class="animate-pulse rounded-md bg-accent h-4 w-full"></div><div class="animate-pulse rounded-md bg-accent h-4 w-4/5"></div></div></div>
+</div>
+</div>
+<div data-probe="panel" class="dark flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+<div data-probe="profile" class="flex">
+<div class="flex items-center gap-4"><div class="animate-pulse bg-accent size-12 rounded-full"></div><div class="flex flex-col gap-2"><div class="animate-pulse rounded-md bg-accent h-4 w-[250px]"></div><div class="animate-pulse rounded-md bg-accent h-4 w-[200px]"></div></div></div>
+</div>
+<div data-probe="card" class="flex w-[240px]">
+<div class="flex w-full flex-col gap-3"><div class="animate-pulse bg-accent h-[125px] w-full rounded-xl"></div><div class="flex flex-col gap-2"><div class="animate-pulse rounded-md bg-accent h-4 w-full"></div><div class="animate-pulse rounded-md bg-accent h-4 w-4/5"></div></div></div>
+</div>
+</div>
+</div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const out = [];
+  for (const e of document.querySelectorAll("[data-probe]")) {
+    const r = e.getBoundingClientRect();
+    out.push([e.dataset.probe, r.left + scrollX, r.top + scrollY, r.width, r.height]);
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>
