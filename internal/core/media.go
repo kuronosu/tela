@@ -548,6 +548,18 @@ func (bx *Box) imageSize() (w, h, ratio float32) {
 	return w, h, ratio
 }
 
+// noNaturalSize reports an image with an aspect ratio but neither a
+// natural width nor a natural height (an SVG with only a viewBox): its
+// imageSize is a fallback, which layout must not take for content
+// (layout.Style.NoNaturalSize).
+func (bx *Box) noNaturalSize() bool {
+	if bx.med == nil || bx.med.asset == nil {
+		return false
+	}
+	w, h, r := bx.med.asset.natural()
+	return w == 0 && h == 0 && r > 0
+}
+
 // updateMedia loads the source s of el's box when it changed.
 func (t *Tree) updateMedia(el *Element, s *srcSpec) {
 	b := el.box
@@ -563,6 +575,7 @@ func (t *Tree) updateMedia(el *Element, s *srcSpec) {
 		t.reportOnce(s.reportKey(), "tela: "+what+": "+err.Error())
 	}
 	ow, oh, or := b.imageSize()
+	onn := b.noNaturalSize()
 	if b.med == nil {
 		b.med = &boxMedia{}
 	}
@@ -571,7 +584,7 @@ func (t *Tree) updateMedia(el *Element, s *srcSpec) {
 	if a != nil {
 		b.img = a.raster
 	}
-	if w, h, r := b.imageSize(); w != ow || h != oh || r != or {
+	if w, h, r := b.imageSize(); w != ow || h != oh || r != or || b.noNaturalSize() != onn {
 		t.engine.MarkDirty(b)
 		b.queueRemap() // the natural aspect ratio is part of the layout style
 	}

@@ -13,7 +13,12 @@ import (
 //
 //	GOARCH=arm64 go test -short -exec qemu-aarch64-static -run Deterministic ./internal/layout/
 //	GOAMD64=v3 go test -run Deterministic ./internal/layout/
-const wantLayoutDigest uint64 = 0xacb86b7e328e6863
+//
+// Recorded again for ADR-157: its three new cases, and 73 of the 200
+// random trees, each with a flex item that has an aspect ratio, a
+// min-content or fit-content cross size, or an auto cross margin in a
+// column; every Taffy fixture and earlier case hashes as before.
+const wantLayoutDigest uint64 = 0xc59edaaf69e4bdb2
 
 // layoutDigest hashes the unrounded and rounded layouts of the Taffy
 // fixtures, Tela's cases and random trees with fractional sizes.

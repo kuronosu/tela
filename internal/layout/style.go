@@ -304,6 +304,14 @@ type Style struct {
 	// Replaced marks a replaced element (an image): in block layout an
 	// auto width takes the measured content size instead of stretching.
 	Replaced bool
+	// NoNaturalSize marks a replaced element with an aspect ratio but
+	// neither a natural width nor a natural height (an SVG with only a
+	// viewBox), whose measured size is a fallback, not content. As a flex
+	// item its content size suggestion is then Chromium's: the
+	// container's inner width in a row (the stretch-fit inline size), the
+	// default object size (300 x 150) fitted to the ratio in a column
+	// (ADR-157).
+	NoNaturalSize bool
 
 	// Fixed makes a PositionAbsolute node CSS's position: fixed: its
 	// containing block is the nearest ancestor with ContainingBlock, or

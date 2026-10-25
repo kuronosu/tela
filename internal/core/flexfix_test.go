@@ -163,3 +163,42 @@ func TestFitContentItemInStretchingColumn(t *testing.T) {
 		})
 	}
 }
+
+// TestReplacedItemWithoutNaturalSize: an SVG with only a viewBox has an
+// aspect ratio but no natural size, so the size Tela draws it at when
+// nothing sizes it (its viewBox's, ADR-098) is not content. As a flex item
+// its content size suggestion is Chromium's: the container's inner width
+// in a row (it never shrinks below the width it would stretch to), the
+// default object size fitted to the ratio (150 for a square) in a column.
+// An image with a natural size (40 x 40) shrinks to the size its definite
+// height transfers, 48 here (the media gallery's img-svg row).
+func TestReplacedItemWithoutNaturalSize(t *testing.T) {
+	const square = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24"/></svg>`
+	const natural = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40"/></svg>`
+	for _, tt := range []struct {
+		name         string
+		root         Node
+		img, sibling [4]float32
+	}{
+		{"row: no shrink below the container", div(Class("flex items-center w-[200px]"),
+			img(Key("img"), SrcBytes([]byte(square)), Class("w-[300px] max-w-none")),
+			div(Key("sib"), Class("w-[100px] h-[10px] min-w-0"))),
+			[4]float32{0, 0, 200, 200}, [4]float32{200, 95, 0, 10}},
+		{"row: the sibling shrinks", div(Class("flex h-[88px] items-center gap-6 px-4 w-[200px]"),
+			img(Key("img"), SrcBytes([]byte(square)), Class("w-16")),
+			img(Key("sib"), SrcBytes([]byte(natural)), Class("w-24 h-12"))),
+			[4]float32{16, 12, 64, 64}, [4]float32{104, 20, 80, 48}},
+		{"column: the default object size", div(Class("flex flex-col items-center h-[200px] w-[100px]"),
+			img(Key("img"), SrcBytes([]byte(square)), Class("h-[300px] max-w-none")),
+			div(Key("sib"), Class("h-[100px] w-[10px] min-h-0"))),
+			[4]float32{-25, 0, 150, 150}, [4]float32{45, 150, 10, 50}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := newTestTree(t, 800, 600, tt.root, nil)
+			tr.Frame()
+			i, s := tt.img, tt.sibling
+			wantRect(t, mustFind(t, tr, "img"), i[0], i[1], i[2], i[3])
+			wantRect(t, mustFind(t, tr, "sib"), s[0], s[1], s[2], s[3])
+		})
+	}
+}

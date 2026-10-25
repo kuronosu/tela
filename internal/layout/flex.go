@@ -593,6 +593,19 @@ func (e *Engine) flexBaseSizes(n Node, c *flexConsts, avail availSize, items []f
 				} else {
 					minContent = fmax(minContent, cross.v/it.ratio.v)
 				}
+			} else if it.st.NoNaturalSize && it.ratio.ok {
+				// A replaced element without a natural size (an SVG with
+				// only a viewBox) measures a fallback, not content.
+				// Chromium's min-content size is then its stretch-fit
+				// width in a row and, in a column, the height of the
+				// default object size (300 x 150) fitted to the ratio.
+				if dir.isRow() {
+					if inner := c.nodeInner.w; inner.ok {
+						minContent = fmax(inner.v-it.margin.mainSum(dir), 0)
+					}
+				} else {
+					minContent = fmin(150, 300/it.ratio.v)
+				}
 			}
 			// With an aspect ratio, the content size suggestion is clamped
 			// by the min and max cross sizes converted through it (4.5).

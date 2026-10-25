@@ -512,6 +512,7 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 				ls.AspectRatio = r
 			}
 		}
+		ls.NoNaturalSize = b.noNaturalSize()
 	}
 	if cs.Position != style.PositionSticky {
 		ls.Inset = edgesOf(cs.Inset)

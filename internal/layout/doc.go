@@ -152,7 +152,10 @@
 //     its own main size is not a known or definite cross size (a row of
 //     w-full aspect-square items shrinks to fit), a stretched cross size
 //     is used to measure it only when definite, and its hypothetical cross
-//     size follows its used main size (ADR-157).
+//     size follows its used main size. A replaced item without a natural
+//     size (Style.NoNaturalSize) has Chromium's content size suggestion:
+//     the container's inner width in a row, the default object size
+//     fitted to the ratio in a column (ADR-157).
 //   - An item with a min-content, max-content or fit-content cross size
 //     is measured at that size for its flex base size and its content
 //     contribution, not stretched; nor is one with an auto cross margin
