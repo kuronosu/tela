@@ -17,7 +17,9 @@ var navItems = []Nav{
 
 // Sidebar is the navigation column: sticky, as tall as the window, so it
 // stays while the page scrolls. It is glass too, over the same backdrop.
-func Sidebar() tela.Node {
+func Sidebar() tela.Node { return tela.C(sidebar) }
+
+func sidebar() tela.Node {
 	active, setActive := tela.UseState("Overview")
 	return Div(Class("sticky top-0 hidden h-screen flex-col gap-6 self-start border-r border-white/50 bg-white/40 p-5",
 		"lg:flex dark:border-white/10 dark:bg-slate-950/30"),
@@ -93,7 +95,9 @@ func (a Avatar) Build() tela.Node {
 
 // Header is the glass bar over the content: sticky, so the page scrolls
 // under it and its backdrop-blur frosts whatever passes.
-func Header() tela.Node {
+func Header() tela.Node { return tela.C(header) }
+
+func header() tela.Node {
 	return Div(Class("sticky top-0 z-30 flex h-16 shrink-0 items-center gap-4 border-b px-6 md:px-8", bar),
 		Div(Class("hidden items-center gap-2 text-sm sm:flex"),
 			Span(Class(muted), Text("Dashboard")),
@@ -107,8 +111,8 @@ func Header() tela.Node {
 			Input(Type("search"), AriaLabel("Search"), Placeholder("Search reports"),
 				Class("min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-500 dark:text-white dark:placeholder:text-slate-400")),
 		),
-		tela.C(RangeControl),
-		tela.C(ThemeSwitch),
+		RangeControl(),
+		ThemeSwitch(),
 		Button(AriaLabel("Notifications"), Class("relative flex size-10 items-center justify-center rounded-xl border border-white/60 bg-white/50",
 			"text-slate-700 transition duration-200 hover:bg-white/80 active:scale-95 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"),
 			icon("bell"),
@@ -120,7 +124,9 @@ func Header() tela.Node {
 // RangeControl is the segmented control that picks the period. Its pill
 // slides between the segments (LayoutID), and the whole page follows the
 // choice through AppCtx.
-func RangeControl() tela.Node {
+func RangeControl() tela.Node { return tela.C(rangeControl) }
+
+func rangeControl() tela.Node {
 	app := tela.UseContext(AppCtx)
 	return Div(Role("tablist"), AriaLabel("Period"),
 		Class("ml-auto flex rounded-xl border border-white/60 bg-white/40 p-1 lg:ml-0 dark:border-white/10 dark:bg-white/5"),
@@ -143,7 +149,9 @@ func RangeControl() tela.Node {
 // ThemeSwitch toggles the color scheme. tela.UseColorScheme is the scheme
 // in effect (the system's, until the app picks one) and tela.SetColorScheme
 // changes it from here; the knob slides with a transition.
-func ThemeSwitch() tela.Node {
+func ThemeSwitch() tela.Node { return tela.C(themeSwitch) }
+
+func themeSwitch() tela.Node {
 	dark := tela.UseColorScheme() == tela.Dark
 	next := tela.Dark
 	if dark {
@@ -166,7 +174,9 @@ func ThemeSwitch() tela.Node {
 
 // Hero is the greeting, with a gradient headline painted through the
 // glyphs (bg-clip-text), the sync state and the two actions.
-func Hero() tela.Node {
+func Hero() tela.Node { return tela.C(hero) }
+
+func hero() tela.Node {
 	app := tela.UseContext(AppCtx)
 	return Div(Class("flex flex-wrap items-end justify-between gap-4"),
 		Div(
@@ -175,7 +185,7 @@ func Hero() tela.Node {
 				Text("Good evening, Olivia")),
 			Div(Class("mt-1 flex items-center gap-3 text-sm", muted),
 				Span(Text("Here is how Aurora is doing.")),
-				tela.C(LiveBadge),
+				LiveBadge(),
 			),
 		),
 		Div(Class("flex items-center gap-3"),
@@ -196,7 +206,9 @@ func Hero() tela.Node {
 // Both are infinite animations, so the badge only has them while it syncs;
 // an idle page requests no frames. The end of the sync is a tween on the
 // frame clock (tela.Animate with OnDone), not a timer.
-func LiveBadge() tela.Node {
+func LiveBadge() tela.Node { return tela.C(liveBadge) }
+
+func liveBadge() tela.Node {
 	app := tela.UseContext(AppCtx)
 	syncing, setSyncing := tela.UseState(false)
 	clock := tela.UseValue(float32(0))
@@ -220,7 +232,9 @@ func LiveBadge() tela.Node {
 
 // HelpButton is the round button fixed to the corner of the window: it
 // stays there while the page scrolls under it.
-func HelpButton() tela.Node {
+func HelpButton() tela.Node { return tela.C(helpButton) }
+
+func helpButton() tela.Node {
 	app := tela.UseContext(AppCtx)
 	return Button(AriaLabel("Help"),
 		Class("fixed right-6 bottom-6 z-40 flex size-12 items-center justify-center rounded-full bg-linear-to-br from-indigo-500 to-fuchsia-500",

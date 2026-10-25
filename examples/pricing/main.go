@@ -19,7 +19,9 @@ import (
 
 // Pricing is the page. The billing period lives here and goes down as a
 // bool plus its Setter.
-func Pricing() tela.Node {
+func Pricing() tela.Node { return tela.C(pricing) }
+
+func pricing() tela.Node {
 	yearly, setYearly := tela.UseState(false)
 	return Div(Class("flex min-h-screen flex-col items-center gap-8 overflow-hidden bg-zinc-50 px-6 pt-12 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
 		Div(Class("flex flex-col items-center gap-3 text-center"),
@@ -38,7 +40,7 @@ func Pricing() tela.Node {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return tela.C(Pricing) }
+func Preview() tela.Node { return Pricing() }
 
 func main() {
 	tela.Main(tela.App{
@@ -46,6 +48,6 @@ func main() {
 		AppID:  "dev.telaui.pricing",
 		Width:  1280,
 		Height: 800,
-		Root:   tela.C(Pricing),
+		Root:   Pricing(),
 	})
 }

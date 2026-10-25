@@ -16,8 +16,11 @@ import (
 
 // Counter is the example of ARCHITECTURE section 1 and the README, in the
 // phase-7 API: Class takes several strings, a handler that ignores its event
-// is a func(), and the state updates from the previous one.
-func Counter() tela.Node {
+// is a func(), and the state updates from the previous one. Counter is the
+// public name, with its component boundary; counter has the hooks.
+func Counter() tela.Node { return tela.C(counter) }
+
+func counter() tela.Node {
 	count, setCount := tela.UseState(0)
 
 	return Div(Class("flex flex-col items-center gap-6 p-10 rounded-3xl",
@@ -33,11 +36,10 @@ func Counter() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
+	tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter()})
 }
 
-// Preview is the screen of `tela snapshot` and `tela inspect`. Counter has
-// state, so it gets a component boundary of its own (calling Counter()
-// here would run its UseState as a hook of Preview, which dev mode
-// rejects).
-func Preview() tela.Node { return tela.C(Counter) }
+// Preview is the screen of `tela snapshot` and `tela inspect`. Counter() is
+// the component boundary around counter, so its UseState is not a hook of
+// Preview.
+func Preview() tela.Node { return Counter() }

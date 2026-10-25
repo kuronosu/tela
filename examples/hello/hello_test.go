@@ -10,7 +10,7 @@ import (
 func mount(t *testing.T, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	opts = append([]telatest.Option{telatest.Size(800, 450)}, opts...)
-	return telatest.MountFunc(t, Hello, opts...)
+	return telatest.Mount(t, Hello(), opts...)
 }
 
 func TestText(t *testing.T) {

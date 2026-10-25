@@ -3,7 +3,6 @@ package main
 import (
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/i18n"
 	"github.com/kuronosu/tela/telatest"
 )
@@ -15,7 +14,7 @@ const windowW, windowH = 720, 720
 func mountIn(t *testing.T, tag string, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	opts = append([]telatest.Option{telatest.Size(windowW, windowH)}, opts...)
-	return telatest.Mount(t, i18n.Provider(tag, tela.C(Store)), opts...)
+	return telatest.Mount(t, i18n.Provider(tag, Store()), opts...)
 }
 
 func TestGolden(t *testing.T) {
@@ -71,7 +70,7 @@ func TestArabicPlurals(t *testing.T) {
 func TestSwitchMirrors(t *testing.T) {
 	i18n.SetLocale("en")
 	t.Cleanup(func() { i18n.SetLocale("") })
-	a := telatest.MountFunc(t, Store, telatest.Size(windowW, windowH))
+	a := telatest.Mount(t, Store(), telatest.Size(windowW, windowH))
 	a.ExpectText("Your order")
 	back, checkout := telatest.ByTestID("back"), telatest.ByTestID("checkout")
 	progress := telatest.ByTestID("progress")

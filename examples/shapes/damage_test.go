@@ -15,7 +15,7 @@ func TestScrollDamage(t *testing.T) {
 		t.Skip("full frames of blurs")
 	}
 	for _, scale := range []float64{1} {
-		scrollAround(t, Shapes, 640, 420, scale, 8)
+		scrollAround(t, Shapes(), 640, 420, scale, 8)
 	}
 }
 
@@ -23,9 +23,9 @@ func TestScrollDamage(t *testing.T) {
 // (telatest.CheckDamage) while the pointer moves over the screen and the
 // arrow and page keys scroll it down and back up (instantly, so that each
 // key is one frame).
-func scrollAround(t *testing.T, root func() tela.Node, w, h float32, scale float64, steps int) {
+func scrollAround(t *testing.T, root tela.Component, w, h float32, scale float64, steps int) {
 	t.Helper()
-	a := telatest.MountFunc(t, root, telatest.Size(w, h), telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
+	a := telatest.Mount(t, root, telatest.Size(w, h), telatest.Scale(scale), telatest.InstantScroll(), telatest.CheckDamage())
 	first := string(a.Screenshot().Pix)
 	for i := range steps {
 		if i == steps/2 && string(a.Screenshot().Pix) == first {

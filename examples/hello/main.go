@@ -10,7 +10,9 @@ import (
 )
 
 // Hello is the whole screen.
-func Hello() tela.Node {
+func Hello() tela.Node { return tela.C(hello) }
+
+func hello() tela.Node {
 	return Div(Class("flex flex-col justify-center h-full p-12 bg-stone-200 text-stone-800"),
 		Span(Class("text-sm font-medium tracking-widest text-stone-500"),
 			Text("TELA / GO UI FRAMEWORK")),
@@ -25,7 +27,7 @@ func Hello() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Tela", Width: 800, Height: 450, Root: tela.C(Hello)})
+	tela.Main(tela.App{Title: "Tela", Width: 800, Height: 450, Root: Hello()})
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.

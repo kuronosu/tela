@@ -116,7 +116,9 @@ func maps2(m map[string]bool) map[string]bool {
 // shadow stay as they are) while the header keeps its size and the details
 // fade in (starting:). overflow-hidden reveals the new content as the card
 // grows.
-func InsightCard() tela.Node {
+func InsightCard() tela.Node { return tela.C(insightCard) }
+
+func insightCard() tela.Node {
 	open, setOpen := tela.UseState(false)
 	label := "Show details"
 	if open {
@@ -150,7 +152,9 @@ func (i Insight) Build() tela.Node {
 }
 
 // ActivityCard lists the latest sales.
-func ActivityCard() tela.Node {
+func ActivityCard() tela.Node { return tela.C(activityCard) }
+
+func activityCard() tela.Node {
 	return Div(Class(glass, "flex flex-col gap-3 p-6"),
 		Div(Class("flex items-center justify-between"),
 			H2(Class("text-lg", heading), Text("Recent sales")),

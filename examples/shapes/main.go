@@ -20,7 +20,9 @@ import (
 // two blurred glows in the corners. The cards wrap and center in the
 // window: four columns at the default 960x640, three in a tiled window
 // about 700 px wide (with less padding below the md breakpoint).
-func Shapes() tela.Node {
+func Shapes() tela.Node { return tela.C(shapes) }
+
+func shapes() tela.Node {
 	cards := []tela.Node{
 		ProfileCard(), ChartCard(), PhotoCard(), TogglesCard(),
 		ProgressCard(), SearchCard(), GradientCard(), SunsetCard(),
@@ -46,7 +48,7 @@ func main() {
 		AppID:  "dev.telaui.shapes",
 		Width:  960,
 		Height: 640,
-		Root:   tela.C(Shapes),
+		Root:   Shapes(),
 	})
 }
 

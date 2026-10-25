@@ -11,7 +11,7 @@ import (
 // shapesWindow opens the page at 1416x846, scale 2, in a headless window.
 func shapesWindow(tb testing.TB) (*headless.Backend, *core.Host, *headless.Window) {
 	b := headless.New(headless.Options{Size: platform.Size{W: 1416, H: 846}, Scale: 2})
-	host, err := core.NewHost(b, core.Options{Root: core.Component(Shapes)})
+	host, err := core.NewHost(b, core.Options{Root: Shapes()})
 	if err != nil {
 		tb.Fatal(err)
 	}

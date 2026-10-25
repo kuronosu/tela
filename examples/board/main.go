@@ -18,7 +18,9 @@ import (
 )
 
 // Kanban is the page.
-func Kanban() tela.Node {
+func Kanban() tela.Node { return tela.C(kanban) }
+
+func kanban() tela.Node {
 	board, setBoard := tela.UseState(Initial)
 	drag := useDrag()
 
@@ -52,7 +54,7 @@ func avatar(initials, colors string) tela.Node {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return tela.C(Kanban) }
+func Preview() tela.Node { return Kanban() }
 
 func main() {
 	tela.Main(tela.App{
@@ -60,6 +62,6 @@ func main() {
 		AppID:  "dev.telaui.board",
 		Width:  1280,
 		Height: 800,
-		Root:   tela.C(Kanban),
+		Root:   Kanban(),
 	})
 }

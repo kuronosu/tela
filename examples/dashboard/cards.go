@@ -200,7 +200,9 @@ func (p Bar) Build() tela.Node {
 
 // TrafficCard is the donut of traffic sources: a conic-gradient circle with
 // a glass disc over its middle, and a legend.
-func TrafficCard() tela.Node {
+func TrafficCard() tela.Node { return tela.C(trafficCard) }
+
+func trafficCard() tela.Node {
 	return Div(Class(glass, "flex flex-col p-6"),
 		H2(Class("text-lg", heading), Text("Traffic sources")),
 		P(Class("mt-1 text-sm", muted), Text("Where visitors come from")),

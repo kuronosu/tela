@@ -47,7 +47,7 @@ func TestDevStateDashboard(t *testing.T) {
 		if seed != nil {
 			tr.SeedDevState(seed)
 		}
-		tr.Mount(tela.C(Dashboard))
+		tr.Mount(Dashboard())
 		return time.Since(t0), tr
 	}
 	var last *core.Tree

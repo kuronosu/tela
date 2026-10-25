@@ -75,13 +75,13 @@ func (p Page) Build() tela.Node {
 	app := AppState{Range: rng, SetRange: setRange, SetDialog: setDialog, SetToast: setToast}
 	return AppCtx.Provider(app,
 		Div(Class("relative isolate min-h-screen text-slate-900 dark:text-slate-100"),
-			tela.C(Backdrop),
+			Backdrop(),
 			Div(Class("grid min-h-screen grid-cols-1 lg:grid-cols-[16rem_1fr]"),
-				tela.C(Sidebar),
+				Sidebar(),
 				Div(Class("flex min-w-0 flex-col"),
-					tela.C(Header),
+					Header(),
 					Div(Class("flex flex-col gap-6 px-6 pt-8 pb-24 md:px-8"),
-						tela.C(Hero),
+						Hero(),
 						Div(Class("grid grid-cols-2 gap-4 xl:grid-cols-4"),
 							MapKeyed(upto(len(kpis)), func(i int) int { return i }, func(i int) tela.Component {
 								return StatCard{Index: i, Range: rng}
@@ -89,17 +89,17 @@ func (p Page) Build() tela.Node {
 						),
 						Div(Class("grid grid-cols-1 gap-4 xl:grid-cols-3"),
 							Div(Class("flex xl:col-span-2"), RevenueCard{Range: rng}),
-							tela.C(TrafficCard),
+							TrafficCard(),
 						),
 						Div(Class("grid grid-cols-1 items-start gap-4 xl:grid-cols-3"),
 							TasksCard{Sort: p.Sort},
-							tela.C(InsightCard),
-							tela.C(ActivityCard),
+							InsightCard(),
+							ActivityCard(),
 						),
 					),
 				),
 			),
-			tela.C(HelpButton),
+			HelpButton(),
 		),
 		Portal(
 			If(dialog, Scrim(func() { setDialog.Set(false) })),
@@ -117,7 +117,7 @@ var App = tela.App{
 	AppID:     "dev.telaui.dashboard",
 	Width:     1440,
 	Height:    900,
-	Root:      tela.C(Dashboard),
+	Root:      Dashboard(),
 	RootClass: rootClass,
 }
 

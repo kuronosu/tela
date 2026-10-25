@@ -12,7 +12,7 @@ import (
 // TELA_UPDATE=1 go test ./examples/motion and look at them.
 
 func mount(t *testing.T) *telatest.App {
-	return telatest.MountFunc(t, Motion, telatest.Size(720, 540), telatest.NoSettle())
+	return telatest.Mount(t, Motion(), telatest.Size(720, 540), telatest.NoSettle())
 }
 
 func TestDialogFrames(t *testing.T) {

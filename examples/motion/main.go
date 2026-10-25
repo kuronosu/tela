@@ -15,7 +15,9 @@ import (
 )
 
 // Motion is the example's screen.
-func Motion() tela.Node {
+func Motion() tela.Node { return tela.C(motion) }
+
+func motion() tela.Node {
 	open, setOpen := tela.UseState(false)
 	saved, setSaved := tela.UseState(false)
 	closeDialog := func() { setOpen.Set(false) }
@@ -27,8 +29,8 @@ func Motion() tela.Node {
 			Button(Class("rounded-lg bg-white px-4 py-2 font-medium text-slate-700 shadow-sm ring-1 ring-slate-200 transition-colors hover:bg-slate-50"),
 				OnClick(tela.Toggle(setSaved)), IfElse(saved, Text("Hide toast"), Text("Show toast"))),
 		),
-		tela.C(DragCard),
-		Presence(If(saved, tela.C(Toast))),
+		DragCard(),
+		Presence(If(saved, Toast())),
 		Presence(If(open, Div(Key("dialog"), Class("absolute inset-0 flex items-center justify-center"),
 			// The backdrop and the panel enter and leave with their own
 			// transitions; the dialog unmounts when both have ended.
@@ -55,7 +57,9 @@ func Motion() tela.Node {
 // velocity, so a fling carries the card on before it returns. The
 // component never builds during the drag: the position is a Value read
 // by a TranslateFn.
-func DragCard() tela.Node {
+func DragCard() tela.Node { return tela.C(dragCard) }
+
+func dragCard() tela.Node {
 	pos := tela.UseValue(tela.Point{})
 	start := tela.UseRef(tela.Point{})
 	return Div(Class("flex size-36 cursor-grab select-none items-center justify-center rounded-3xl",
@@ -78,7 +82,9 @@ func DragCard() tela.Node {
 // tweens from 0 to 1 when it mounts; while its Presence child exits it
 // tweens back to 0 and tells Presence when it arrives, so the toast
 // unmounts then. It never builds during either tween.
-func Toast() tela.Node {
+func Toast() tela.Node { return tela.C(toast) }
+
+func toast() tela.Node {
 	shown := tela.UsePresenceTween(tela.Duration(250*time.Millisecond), tela.Ease(tela.EaseOut))
 	return Div(Class("absolute inset-x-0 bottom-8 flex justify-center"),
 		Div(Role("status"), Class("rounded-xl bg-slate-900 px-5 py-3 text-sm text-white shadow-lg"),
@@ -88,8 +94,8 @@ func Toast() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Motion", Width: 720, Height: 540, Root: tela.C(Motion)})
+	tela.Main(tela.App{Title: "Motion", Width: 720, Height: 540, Root: Motion()})
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return tela.C(Motion) }
+func Preview() tela.Node { return Motion() }

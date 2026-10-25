@@ -48,7 +48,9 @@ var (
 )
 
 // Store is the screen.
-func Store() tela.Node {
+func Store() tela.Node { return tela.C(store) }
+
+func store() tela.Node {
 	f := i18n.UseFormatter() // the locale's messages and formats; rebuilds on SetLocale
 	t := f.T
 	messages, setMessages := tela.UseState(3)
@@ -63,7 +65,7 @@ func Store() tela.Node {
 					H1(Class("text-xl font-bold tracking-tight"), Text(t("title"))),
 					P(Class("text-sm text-slate-500"), Text(t("greeting", "name", "Ana"))),
 				),
-				tela.C(Switcher),
+				Switcher(),
 			),
 
 			// Messages: a plural with a counter, and a progress bar that
@@ -123,7 +125,9 @@ func (r Row) Build() tela.Node {
 
 // Switcher picks the language: each button is named in its own language
 // and pressed for the current one.
-func Switcher() tela.Node {
+func Switcher() tela.Node { return tela.C(switcher) }
+
+func switcher() tela.Node {
 	current := i18n.UseLocale()
 	return Div(Class("flex gap-1 rounded-xl bg-white p-1 shadow-sm"),
 		Map(Languages, func(tag string) tela.Node {
@@ -140,9 +144,9 @@ func Switcher() tela.Node {
 // Previews are the screens of `tela snapshot` and `tela inspect`, one per
 // language, each with its locale fixed by i18n.Provider.
 var Previews = tela.Previews{
-	"ar": {Root: tela.C(Store), Wrap: inLocale("ar")},
-	"en": {Root: tela.C(Store), Wrap: inLocale("en")},
-	"es": {Root: tela.C(Store), Wrap: inLocale("es")},
+	"ar": {Root: Store(), Wrap: inLocale("ar")},
+	"en": {Root: Store(), Wrap: inLocale("en")},
+	"es": {Root: Store(), Wrap: inLocale("es")},
 }
 
 // inLocale wraps a preview in the provider that fixes its locale.
@@ -156,6 +160,6 @@ func main() {
 		AppID:  "dev.telaui.i18n",
 		Width:  720,
 		Height: 720,
-		Root:   tela.C(Store),
+		Root:   Store(),
 	})
 }

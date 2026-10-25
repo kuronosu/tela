@@ -20,7 +20,9 @@ import (
 )
 
 // Settings is the page.
-func Settings() tela.Node {
+func Settings() tela.Node { return tela.C(settings) }
+
+func settings() tela.Node {
 	prefs, setPrefs := tela.UseState(Default)
 	saved, setSaved := tela.UseState(Default)
 
@@ -43,7 +45,7 @@ func Settings() tela.Node {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return tela.C(Settings) }
+func Preview() tela.Node { return Settings() }
 
 func main() {
 	tela.Main(tela.App{
@@ -51,6 +53,6 @@ func main() {
 		AppID:  "dev.telaui.settings",
 		Width:  1280,
 		Height: 800,
-		Root:   tela.C(Settings),
+		Root:   Settings(),
 	})
 }

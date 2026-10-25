@@ -23,7 +23,7 @@ type dragger struct {
 
 func newDragger(tb testing.TB) *dragger {
 	d := &dragger{b: headless.New(headless.Options{Size: platform.Size{W: 1416, H: 846}, Scale: 2})}
-	host, err := core.NewHost(d.b, core.Options{Root: core.Component(Kanban)})
+	host, err := core.NewHost(d.b, core.Options{Root: Kanban()})
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestDragMoveRecordsNothing(t *testing.T) {
 // TestDragDamage drags cards at scale 2, checking every frame against a
 // full rendering.
 func TestDragDamage(t *testing.T) {
-	a := telatest.MountFunc(t, Kanban, telatest.Size(1416, 846), telatest.Scale(2), telatest.CheckDamage())
+	a := telatest.Mount(t, Kanban(), telatest.Size(1416, 846), telatest.Scale(2), telatest.CheckDamage())
 	a.DragBy(cardLoc("Design the onboarding flow"), 420, 60, telatest.Steps(30))
 	a.DragBy(cardLoc("Set up the CI pipeline"), -380, 10, telatest.Steps(30))
 }

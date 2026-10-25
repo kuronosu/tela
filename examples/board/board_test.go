@@ -13,7 +13,7 @@ const windowW, windowH = 1280, 800
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
-	return telatest.MountFunc(t, Kanban, opts...)
+	return telatest.Mount(t, Kanban(), opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {

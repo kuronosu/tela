@@ -30,7 +30,9 @@ func estimate(i int) float32 {
 func renderRow(i int) tela.Component { return Row{Index: i} }
 
 // Directory is the page: a header with the jump buttons over the list.
-func Directory() tela.Node {
+func Directory() tela.Node { return tela.C(directory) }
+
+func directory() tela.Node {
 	list := tela.UseElementRef()
 	jump := func(label string, i int, align tela.ScrollAlign) tela.Node {
 		return Button(Class("flex h-8 items-center rounded-md border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-700 shadow-xs",
@@ -90,7 +92,7 @@ func (p Row) Build() tela.Node {
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return tela.C(Directory) }
+func Preview() tela.Node { return Directory() }
 
 func main() {
 	tela.Main(tela.App{
@@ -98,6 +100,6 @@ func main() {
 		AppID:  "dev.telaui.virtuallist",
 		Width:  1280,
 		Height: 800,
-		Root:   tela.C(Directory),
+		Root:   Directory(),
 	})
 }

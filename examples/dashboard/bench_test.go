@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/raster"
@@ -108,7 +107,7 @@ func newRig(tb testing.TB, w, h float32, scale float64, dark bool, opts ...func(
 	r.fb = image.NewRGBA(image.Rect(0, 0, phys.X, phys.Y))
 	r.outStr = 4 * phys.X
 	r.out = make([]byte, r.outStr*phys.Y)
-	r.tree.Mount(tela.C(Dashboard))
+	r.tree.Mount(Dashboard())
 	r.asked = true
 	return r
 }

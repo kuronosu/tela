@@ -33,7 +33,9 @@ const (
 // content scrolls over it. The image is made for the scheme (the component
 // reads it with tela.UseColorScheme, which is what that hook is for) and
 // covers the window.
-func Backdrop() tela.Node {
+func Backdrop() tela.Node { return tela.C(backdrop) }
+
+func backdrop() tela.Node {
 	img := "bg-[url(img/aurora-light.jpg)]"
 	if tela.UseColorScheme() == tela.Dark {
 		img = "bg-[url(img/aurora-dark.jpg)]"

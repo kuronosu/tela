@@ -25,12 +25,14 @@ var tasks = []Task{
 }
 
 // Layout is the example's screen.
-func Layout() tela.Node {
+func Layout() tela.Node { return tela.C(layout) }
+
+func layout() tela.Node {
 	return Div(Class("flex h-screen gap-6 bg-slate-100 p-8 font-sans"),
-		tela.C(TaskList),
+		TaskList(),
 		Div(Class("flex flex-1 flex-col gap-6"),
-			tela.C(Tabs),
-			tela.C(ExpandingCard),
+			Tabs(),
+			ExpandingCard(),
 			// The note follows the card's bottom edge.
 			P(AnimateLayout(), Class("px-1 text-xs text-slate-400"),
 				Text("Rows, underline and card animate with FLIP transforms: layout runs once per change.")),
@@ -40,7 +42,9 @@ func Layout() tela.Node {
 
 // TaskList reorders its rows: each row is laid out at its new place at
 // once and drawn sliding there on a spring.
-func TaskList() tela.Node {
+func TaskList() tela.Node { return tela.C(taskList) }
+
+func taskList() tela.Node {
 	order, setOrder := tela.UseState(tasks)
 	rotate := func() {
 		// The last task moves to the top: every row moves.
@@ -89,7 +93,9 @@ func (r TaskRow) Build() tela.Node {
 // Tabs slides its underline between tabs: each tab renders an underline
 // when it is selected, and their shared LayoutID moves the new one from
 // where the old one was.
-func Tabs() tela.Node {
+func Tabs() tela.Node { return tela.C(tabs) }
+
+func tabs() tela.Node {
 	active, setActive := tela.UseState(0)
 	labels := []string{"Overview", "Activity", "Settings"}
 	bodies := []string{
@@ -116,7 +122,9 @@ func Tabs() tela.Node {
 // ExpandingCard grows when it is opened. The card scales toward its new
 // size (its corners and shadow are corrected); its header and body have
 // AnimateLayout too, so they keep their own size instead of stretching.
-func ExpandingCard() tela.Node {
+func ExpandingCard() tela.Node { return tela.C(expandingCard) }
+
+func expandingCard() tela.Node {
 	open, setOpen := tela.UseState(false)
 	label := "Show details"
 	if open {
@@ -147,7 +155,7 @@ func (s Stat) Build() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Layout animations", Width: 820, Height: 560, Root: tela.C(Layout)})
+	tela.Main(tela.App{Title: "Layout animations", Width: 820, Height: 560, Root: Layout()})
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`.
