@@ -1,5 +1,7 @@
-// Command board is a small kanban board: three columns of cards that can be
-// dragged from one column to another, or reordered inside a column.
+// Command board is a small kanban board built on package kit in its default
+// style: three columns of cards that can be dragged from one column to
+// another, or reordered inside a column, and moved, edited or deleted from
+// a menu.
 //
 // Dragging uses the gesture handlers OnDragStart, OnDrag and OnDragEnd. The
 // dragged card follows the pointer with tela.TranslateFn reading a
@@ -8,6 +10,11 @@
 // (see DragState), and the board, a comparable array of card IDs in
 // UseState, is updated when the pointer is released.
 //
+// Each card is a kit.Card whose action is a kit.DropdownMenu (Move to,
+// Edit, Delete) and whose area is a kit.ContextMenu with the same items;
+// Edit opens a kit.Dialog with a kit.Field per input, Delete asks with a
+// kit.AlertDialog, and both answer with a toast.
+//
 // `tela snapshot ./examples/board` renders it without a window; add --dark
 // for the dark theme.
 package main
@@ -15,53 +22,56 @@ package main
 import (
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
 
-// Kanban is the page.
-func Kanban() tela.Node { return tela.C(kanban) }
+// Kanban is the page, inside the Toaster that the cards show their toasts in.
+func Kanban() tela.Component { return kit.Toaster{Children: tela.C(kanban)} }
 
 func kanban() tela.Node {
 	board, setBoard := tela.UseState(Initial)
+	cards, setCards := tela.UseState(tasks)
 	drag := useDrag()
+	full := board.Full()
 
-	return Div(Class("flex min-h-screen flex-col overflow-hidden bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
+	return Div(Class("flex min-h-screen flex-col overflow-hidden"),
 		Div(Class("flex flex-wrap items-center justify-between gap-4 px-6 pt-6 pb-4 md:px-8 md:pt-8"),
 			Div(Class("flex flex-col gap-1"),
 				H1(Class("text-2xl font-bold tracking-tight"), Text("Roadmap")),
-				P(Class("text-sm text-zinc-500 dark:text-zinc-400"), Text("Drag cards between columns to update their status.")),
+				P(Class("text-sm text-muted-foreground"), Text("Drag cards between columns to update their status.")),
 			),
 			Div(Class("flex items-center gap-4"),
-				Div(Class("hidden items-center sm:flex"),
-					avatar("AL", "from-violet-400 to-indigo-500"), avatar("MK", "from-sky-400 to-cyan-500"),
-					avatar("JS", "from-amber-400 to-orange-500"), avatar("OM", "from-rose-400 to-pink-500"),
+				Div(Class("hidden items-center gap-1.5 sm:flex"),
+					team("AL"), team("MK"), team("JS"), team("OM"),
 				),
-				Button(Class("flex h-9 items-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-zinc-50 shadow-sm hover:bg-zinc-700 active:bg-zinc-950",
-					"dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"),
-					Text("Invite")),
+				kit.Button{Children: Text("Invite")},
 			),
 		),
 		Div(Class("flex min-h-0 flex-1 gap-4 px-6 pb-6 md:px-8 md:pb-8"),
 			MapKeyed([]int{0, 1, 2}, func(i int) int { return i }, func(i int) tela.Component {
-				return Lane{Index: i, Cards: board[i], D: drag, Set: setBoard}
+				return Lane{Index: i, Cards: board[i], Tasks: cards, Full: full, D: drag, Set: setBoard, SetTasks: setCards}
 			}),
 		),
 	)
 }
 
-func avatar(initials, colors string) tela.Node {
-	return Div(Class("flex size-8 items-center justify-center -ml-2 rounded-full border-2 border-white bg-linear-to-br first:ml-0 text-xs font-semibold text-white dark:border-zinc-950", colors),
-		Text(initials))
+// team is one avatar of the row in the header (kit.Avatar draws the initials
+// on a muted disc).
+func team(initials string) tela.Component {
+	return kit.Avatar{Fallback: initials, Alt: initials}
 }
 
-// Preview is the screen of `tela snapshot` and `tela inspect`.
-func Preview() tela.Node { return Kanban() }
+var theme = kit.Theme()
 
-func main() {
-	tela.Main(tela.App{
-		Title:  "Tela — board",
-		AppID:  "dev.telaui.board",
-		Width:  1280,
-		Height: 800,
-		Root:   Kanban(),
-	})
+// App is the window; `tela snapshot` and the tests read it too.
+var App = tela.App{
+	Title:     "Tela — board",
+	AppID:     "dev.telaui.board",
+	Width:     1280,
+	Height:    800,
+	Theme:     &theme,
+	RootClass: "bg-background text-foreground",
+	Root:      Kanban(),
 }
+
+func main() { tela.Main(App) }

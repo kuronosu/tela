@@ -1,0 +1,51 @@
+- heading "Roadmap" [level=1]
+- paragraph: Drag cards between columns to update their status.
+- text: AL MK JS OM
+- button "Invite"
+- heading "To do" [level=2]
+- text: "4"
+- heading "Design the onboarding flow" [level=3]
+- text: "Three screens, one goal: first project in under a minute."
+- button "Actions for Design the onboarding flow"
+- text: Design 3 AL
+- heading "Write the API reference" [level=3]
+- text: Every exported function gets an example.
+- button "Actions for Write the API reference"
+- text: Docs MK
+- heading "Audit color contrast" [level=3]
+- text: Check text on tinted surfaces against WCAG AA.
+- button "Actions for Audit color contrast"
+- text: A11y 1 JS
+- heading "Migrate the settings page" [level=3]
+- text: Move preferences to the new form components.
+- button "Actions for Migrate the settings page"
+- text: Frontend 1 OM
+- heading "In progress" [level=2]
+- text: "3"
+- heading "Implement dark mode" [level=3]
+- text: Use theme tokens instead of pairs of colors.
+- button "Actions for Implement dark mode"
+- text: Frontend 5 OM
+- heading "Fix the login redirect bug" [level=3]
+- text: Users land on a blank page after signing in.
+- button "Actions for Fix the login redirect bug"
+- text: Bug 2 WK
+- heading "Review the pricing copy" [level=3]
+- text: Make the plan names consistent everywhere.
+- button "Actions for Review the pricing copy"
+- text: Docs WK
+- heading "Done" [level=2]
+- text: "3"
+- heading "Set up the CI pipeline" [level=3]
+- text: Build, vet and test on three platforms.
+- button "Actions for Set up the CI pipeline"
+- text: DevOps AL
+- heading "Ship the v0.4 changelog" [level=3]
+- text: Group entries by user-visible change.
+- button "Actions for Ship the v0.4 changelog"
+- text: Docs 4 MK
+- heading "Define the color tokens" [level=3]
+- text: Neutral scale plus one accent.
+- button "Actions for Define the color tokens"
+- text: Design 2 JS
+- region "Notifications"

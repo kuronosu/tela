@@ -13,43 +13,51 @@ type Column [maxCards]int
 // Board is the three columns.
 type Board [3]Column
 
-// Task is the data of a card; the card with ID n is tasks[n].
+// Task is the data of a card.
 type Task struct {
 	Title    string
 	Note     string
 	Tag      string
-	Colors   string // Tailwind classes of the tag chip
 	Assignee string // initials
 	Comments int
 }
 
+// Tasks is the data of every card, indexed by card ID (Tasks[0] is unused).
+// It is an array, so it is comparable and sits in UseState and in the
+// props of components that skip their build when it does not change.
+type Tasks [11]Task
+
 var columnNames = [3]string{"To do", "In progress", "Done"}
 
-// dots are the colors of the dots before the column names.
+// dots are the colors of the dots before the column names: decoration,
+// the same in both schemes.
 var dots = [3]string{"bg-zinc-400", "bg-amber-500", "bg-emerald-500"}
 
-const (
-	tagDesign   = "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
-	tagDocs     = "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
-	tagA11y     = "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
-	tagFrontend = "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-	tagBug      = "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
-	tagDevOps   = "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-)
+// tags are the labels a card can have, and tagDots the color of the dot
+// that goes before each (decoration as well).
+var tags = []string{"Design", "Docs", "A11y", "Frontend", "Bug", "DevOps"}
 
-// tasks is indexed by card ID; tasks[0] is unused.
-var tasks = [...]Task{
-	0:  {},
-	1:  {"Design the onboarding flow", "Three screens, one goal: first project in under a minute.", "Design", tagDesign, "AL", 3},
-	2:  {"Write the API reference", "Every exported function gets an example.", "Docs", tagDocs, "MK", 0},
-	3:  {"Audit color contrast", "Check text on tinted surfaces against WCAG AA.", "A11y", tagA11y, "JS", 1},
-	4:  {"Implement dark mode", "Pair every color with its dark: variant.", "Frontend", tagFrontend, "OM", 5},
-	5:  {"Fix the login redirect bug", "Users land on a blank page after signing in.", "Bug", tagBug, "WK", 2},
-	6:  {"Set up the CI pipeline", "Build, vet and test on three platforms.", "DevOps", tagDevOps, "AL", 0},
-	7:  {"Ship the v0.4 changelog", "Group entries by user-visible change.", "Docs", tagDocs, "MK", 4},
-	8:  {"Define the color tokens", "Neutral scale plus one accent.", "Design", tagDesign, "JS", 2},
-	9:  {"Migrate the settings page", "Move preferences to the new form components.", "Frontend", tagFrontend, "OM", 1},
-	10: {"Review the pricing copy", "Make the plan names consistent everywhere.", "Docs", tagDocs, "WK", 0},
+var tagDots = map[string]string{
+	"Design":   "bg-violet-500",
+	"Docs":     "bg-sky-500",
+	"A11y":     "bg-amber-500",
+	"Frontend": "bg-indigo-500",
+	"Bug":      "bg-rose-500",
+	"DevOps":   "bg-emerald-500",
+}
+
+// tasks are the cards at the start.
+var tasks = Tasks{
+	1:  {"Design the onboarding flow", "Three screens, one goal: first project in under a minute.", "Design", "AL", 3},
+	2:  {"Write the API reference", "Every exported function gets an example.", "Docs", "MK", 0},
+	3:  {"Audit color contrast", "Check text on tinted surfaces against WCAG AA.", "A11y", "JS", 1},
+	4:  {"Implement dark mode", "Use theme tokens instead of pairs of colors.", "Frontend", "OM", 5},
+	5:  {"Fix the login redirect bug", "Users land on a blank page after signing in.", "Bug", "WK", 2},
+	6:  {"Set up the CI pipeline", "Build, vet and test on three platforms.", "DevOps", "AL", 0},
+	7:  {"Ship the v0.4 changelog", "Group entries by user-visible change.", "Docs", "MK", 4},
+	8:  {"Define the color tokens", "Neutral scale plus one accent.", "Design", "JS", 2},
+	9:  {"Migrate the settings page", "Move preferences to the new form components.", "Frontend", "OM", 1},
+	10: {"Review the pricing copy", "Make the plan names consistent everywhere.", "Docs", "WK", 0},
 }
 
 // Initial is the board at the start.
@@ -125,4 +133,28 @@ func (b Board) Move(id int, t Target) Board {
 		copy(out[ci][:], ids[ci])
 	}
 	return out
+}
+
+// Remove returns b without card id.
+func (b Board) Remove(id int) Board {
+	var out Board
+	for ci, col := range b {
+		n := 0
+		for _, c := range col.IDs() {
+			if c != id {
+				out[ci][n] = c
+				n++
+			}
+		}
+	}
+	return out
+}
+
+// Full reports which columns cannot take another card.
+func (b Board) Full() [3]bool {
+	var full [3]bool
+	for ci, col := range b {
+		full[ci] = col.Len() >= maxCards
+	}
+	return full
 }
