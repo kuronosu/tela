@@ -91,10 +91,10 @@ func init() {
 		},
 		Viewport:      "min-h-0 flex-auto overflow-x-hidden overflow-y-auto p-1 outline-none",
 		Label:         "px-2 py-1.5 text-xs text-muted-foreground",
-		Item:          "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50",
+		Item:          "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pe-8 ps-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50",
 		ItemIcon:      "pointer-events-none size-4 shrink-0 text-muted-foreground",
 		ItemText:      "flex items-center gap-2",
-		ItemIndicator: "absolute right-2 flex size-3.5 items-center justify-center",
+		ItemIndicator: "absolute end-2 flex size-3.5 items-center justify-center",
 		ItemCheck:     "size-4",
 		Separator:     "pointer-events-none -mx-1 my-1 h-px bg-border",
 	}

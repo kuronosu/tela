@@ -1,0 +1,17 @@
+- text: T
+- heading "Your order" [level=1]
+- paragraph: Hello, Ana!
+- button "English Language": English
+- text: 3 new messages
+- button "Remove"
+- button "Add"
+- progressbar "Step 3 of 4"
+- text: Step 3 of 4 You are 2nd in line
+- heading "Order summary" [level=2]
+- text: 4 items in your cart 1,234.50 Discount 15% Delivery Not chosen yet Updated 3:30 PM Contents apples, pears, and figs
+- group:
+  - text: Delivery date
+  - button "Delivery date": Pick a date
+  - paragraph: We do not deliver on Sundays.
+- button "Back"
+- button "Checkout"

@@ -1,0 +1,17 @@
+- text: T
+- heading "Tu pedido" [level=1]
+- paragraph: ¡Hola, Ana!
+- button "Español Idioma": Español
+- text: 3 mensajes nuevos
+- button "Quitar"
+- button "Añadir"
+- progressbar "Paso 3 de 4"
+- text: Paso 3 de 4 Eres el 2.º de la fila
+- heading "Resumen del pedido" [level=2]
+- text: 4 artículos en tu carrito 1.234,50 Descuento 15 % Entrega Sin elegir Actualizado 15:30 Contenido manzanas, peras y higos
+- group:
+  - text: Fecha de entrega
+  - button "Fecha de entrega": Elige una fecha
+  - paragraph: No entregamos los domingos.
+- button "Volver"
+- button "Pagar"

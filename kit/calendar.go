@@ -169,6 +169,12 @@ type Calendar struct {
 	// HideOutsideDays leaves out the dates of the neighbouring months that
 	// fill the first and last week (shadcn shows them by default).
 	HideOutsideDays bool
+	// NarrowWeekdays writes the column headers with the narrowest weekday
+	// names (one letter, usually) instead of the short ones ("M" for "Mo"):
+	// for a locale whose short names do not fit a 32 px cell, such as
+	// Arabic's. The headers keep the full weekday as their name for
+	// assistive technologies.
+	NarrowWeekdays bool
 	// Today is the date drawn as today; the zero Date is the current day.
 	// Set it to make a test or a golden deterministic.
 	Today aria.Date
@@ -215,7 +221,7 @@ func (c Calendar) Build() tela.Node {
 		PreviousLabel: c.PreviousLabel, NextLabel: c.NextLabel,
 	})
 	return useCalendarView(calendarLook{
-		hideOutside: c.HideOutsideDays, min: c.Min, max: c.Max, locale: c.Locale, direction: c.Direction, prev: c.PreviousIcon, next: c.NextIcon,
+		hideOutside: c.HideOutsideDays, narrowWeekdays: c.NarrowWeekdays, min: c.Min, max: c.Max, locale: c.Locale, direction: c.Direction, prev: c.PreviousIcon, next: c.NextIcon,
 		class: c.Class, months: c.MonthsClass, month: c.MonthClass, nav: c.NavClass, caption: c.CaptionClass,
 		weekday: c.WeekdayClass, day: c.DayClass, dayButton: c.DayButtonClass, props: c.Props, autoFocus: c.autoFocus,
 	}, res, false)
@@ -256,6 +262,7 @@ type RangeCalendar struct {
 	FirstDayOfWeek           *time.Weekday
 	FixedWeeks               bool
 	HideOutsideDays          bool
+	NarrowWeekdays           bool
 	Today                    aria.Date
 	Locale, Direction        string
 	AriaLabel                string
@@ -291,7 +298,7 @@ func (c RangeCalendar) Build() tela.Node {
 		PreviousLabel: c.PreviousLabel, NextLabel: c.NextLabel,
 	})
 	return useCalendarView(calendarLook{
-		hideOutside: c.HideOutsideDays, min: c.Min, max: c.Max, locale: c.Locale, direction: c.Direction, prev: c.PreviousIcon, next: c.NextIcon,
+		hideOutside: c.HideOutsideDays, narrowWeekdays: c.NarrowWeekdays, min: c.Min, max: c.Max, locale: c.Locale, direction: c.Direction, prev: c.PreviousIcon, next: c.NextIcon,
 		class: c.Class, months: c.MonthsClass, month: c.MonthClass, nav: c.NavClass, caption: c.CaptionClass,
 		weekday: c.WeekdayClass, day: c.DayClass, dayButton: c.DayButtonClass, props: c.Props, autoFocus: c.autoFocus,
 	}, res, true)
@@ -300,15 +307,15 @@ func (c RangeCalendar) Build() tela.Node {
 // calendarLook is what Calendar and RangeCalendar tell the view besides the
 // hook's result: the presentation fields of the two structs.
 type calendarLook struct {
-	hideOutside               bool
-	min, max                  aria.Date
-	locale, direction         string
-	prev, next                tela.Icon
-	class, months, month, nav string
-	caption, weekday, day     string
-	dayButton                 string
-	props                     tela.Child
-	autoFocus                 bool
+	hideOutside, narrowWeekdays bool
+	min, max                    aria.Date
+	locale, direction           string
+	prev, next                  tela.Icon
+	class, months, month, nav   string
+	caption, weekday, day       string
+	dayButton                   string
+	props                       tela.Child
+	autoFocus                   bool
 }
 
 // ptrIfSet returns &d, or nil for the zero Date.
@@ -348,7 +355,11 @@ func useCalendarView(o calendarLook, res aria.CalendarResult, rng bool) tela.Nod
 	monthNodes = append(monthNodes, h.Div(cls(s.Nav, o.nav),
 		navButton(res.PrevProps(), s.ButtonPrevious, prevIcon),
 		navButton(res.NextProps(), s.ButtonNext, nextIcon)))
-	weekdays := res.WeekdayNames(i18n.NameShort)
+	width := i18n.NameShort
+	if o.narrowWeekdays {
+		width = i18n.NameNarrow
+	}
+	weekdays := res.WeekdayNames(width)
 	for m := range months {
 		month := res.Month(m)
 		weeks := res.Weeks(m)

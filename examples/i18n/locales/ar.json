@@ -1,5 +1,12 @@
 {
   "language": "العربية",
+  "languageLabel": "اللغة",
+  "pickDate": "اختر تاريخًا",
+  "deliveryDate": "تاريخ التوصيل",
+  "deliveryHint": "لا نوصل أيام الأحد.",
+  "previousMonth": "الشهر السابق",
+  "nextMonth": "الشهر التالي",
+  "summaryTitle": "ملخص الطلب",
   "title": "طلبك",
   "greeting": "مرحبا يا {name}!",
   "messages": "{count, plural, zero {لا توجد رسائل جديدة} one {رسالة جديدة واحدة} two {رسالتان جديدتان} few {# رسائل جديدة} many {# رسالة جديدة} other {# رسالة جديدة}}",
@@ -12,6 +19,7 @@
     "subtotal": "المجموع الفرعي",
     "discount": "الخصم",
     "delivery": "التوصيل",
+    "pending": "لم يُحدد بعد",
     "updated": "آخر تحديث",
     "contents": "المحتويات"
   },

@@ -13,8 +13,9 @@ import (
 type ProgressStyle struct {
 	// Root is the track, which clips the indicator.
 	Root string
-	// Indicator is the bar; it is as wide as the track and moves left by
-	// the part that is not done (the component adds the translate class).
+	// Indicator is the bar; it is as wide as the track and moves toward the
+	// start (left, or right under a right-to-left direction, with the
+	// rtl: class the component adds) by the part that is not done.
 	Indicator string
 	// Indeterminate is added to the indicator while the amount of progress
 	// is unknown (a pulsing, full bar; shadcn draws an empty one).
@@ -72,5 +73,5 @@ func (p Progress) Build() tela.Node {
 	}
 	left = math.Round(left*100) / 100
 	return h.Div(cls(s.Root, p.Class), pb.Props, p.Props,
-		h.Div(cls(s.Indicator, when(p.Indeterminate, s.Indeterminate), fmt.Sprintf("-translate-x-[%g%%]", left), p.IndicatorClass)))
+		h.Div(cls(s.Indicator, when(p.Indeterminate, s.Indeterminate), fmt.Sprintf("-translate-x-[%g%%] rtl:translate-x-[%g%%]", left, left), p.IndicatorClass)))
 }

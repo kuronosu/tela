@@ -209,6 +209,35 @@ func TestCalendarLocales(t *testing.T) {
 	}
 }
 
+// TestCalendarNarrowWeekdays writes the column headers with the narrow
+// names, and keeps the full weekday as their accessible name.
+func TestCalendarNarrowWeekdays(t *testing.T) {
+	for _, c := range []struct {
+		name          string
+		cal           kit.Calendar
+		short, short2 string
+	}{
+		{"es", kit.Calendar{Locale: "es"}, `columnheader "lunes": LU`, `columnheader "martes": MA`},
+		{"es narrow", kit.Calendar{Locale: "es", NarrowWeekdays: true}, `columnheader "lunes": L`, `columnheader "martes": M`},
+		{"ar narrow", kit.Calendar{Locale: "ar", NarrowWeekdays: true}, `columnheader "السبت": س`, `columnheader "الأحد": ح`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			c.cal.Today = calToday
+			snap := calMount(t, c.cal).AriaSnapshot()
+			for _, want := range []string{c.short, c.short2} {
+				if !strings.Contains(snap, want+"\n") {
+					t.Errorf("snapshot lacks %q:\n%s", want, snap)
+				}
+			}
+		})
+	}
+	// The pickers pass it on to their calendar.
+	app := pickerMount(t, kit.DatePicker{Today: calToday, Locale: "es", NarrowWeekdays: true, AriaLabel: "Cita", Props: h.TestID("picker"), DefaultOpen: true})
+	if snap := app.AriaSnapshot(); !strings.Contains(snap, `columnheader "lunes": L`+"\n") {
+		t.Errorf("DatePicker does not narrow the weekdays:\n%s", snap)
+	}
+}
+
 func TestCalendarRTLArrowKeys(t *testing.T) {
 	// In a right-to-left calendar ArrowLeft moves forward, and the layout
 	// is mirrored.

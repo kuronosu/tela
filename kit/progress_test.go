@@ -125,3 +125,19 @@ func ExampleProgress() {
 	fmt.Println("progress shown")
 	// Output: progress shown
 }
+
+// TestProgressRTL fills the bar from the right under a right-to-left
+// direction: the indicator is as wide as the track and slid 60% toward the
+// start, which is the right edge, so its left edge is at 120 px and the
+// track shows the right 80 px of it.
+func TestProgressRTL(t *testing.T) {
+	app := telatest.MountFunc(t, func() tela.Node {
+		return h.Div(h.Dir("rtl"), h.Class("w-[200px]"),
+			kit.Progress{Value: 40, AriaLabel: "Upload", Props: h.TestID("bar")})
+	})
+	bar := app.Bounds(telatest.ByTestID("bar"))
+	ind := app.Bounds(telatest.ByClass("h-full", "flex-1"))
+	if shown := bar.X + bar.Width - ind.X; shown < 79.9 || shown > 80.1 {
+		t.Errorf("rtl: the indicator is at %v in the bar %v, want the right 80 px of the bar filled", ind, bar)
+	}
+}

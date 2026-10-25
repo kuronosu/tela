@@ -81,14 +81,15 @@ type DatePicker struct {
 	Format func(f i18n.Formatter, d aria.Date) string
 
 	// Min, Max, IsDateUnavailable, VisibleMonths, FirstDayOfWeek,
-	// FixedWeeks, HideOutsideDays, Today, Locale, Direction, PreviousLabel
-	// and NextLabel are those of [Calendar].
+	// FixedWeeks, HideOutsideDays, NarrowWeekdays, Today, Locale, Direction,
+	// PreviousLabel and NextLabel are those of [Calendar].
 	Min, Max                 aria.Date
 	IsDateUnavailable        func(aria.Date) bool
 	VisibleMonths            int
 	FirstDayOfWeek           *time.Weekday
 	FixedWeeks               bool
 	HideOutsideDays          bool
+	NarrowWeekdays           bool
 	Today                    aria.Date
 	Locale, Direction        string
 	PreviousLabel, NextLabel string
@@ -165,7 +166,7 @@ func (p DatePicker) Build() tela.Node {
 				done()
 			},
 			Min: p.Min, Max: p.Max, IsDateUnavailable: p.IsDateUnavailable, VisibleMonths: p.VisibleMonths,
-			FirstDayOfWeek: p.FirstDayOfWeek, FixedWeeks: p.FixedWeeks, HideOutsideDays: p.HideOutsideDays, Today: p.Today,
+			FirstDayOfWeek: p.FirstDayOfWeek, FixedWeeks: p.FixedWeeks, HideOutsideDays: p.HideOutsideDays, NarrowWeekdays: p.NarrowWeekdays, Today: p.Today,
 			Locale: p.Locale, Direction: p.Direction, PreviousLabel: p.PreviousLabel, NextLabel: p.NextLabel,
 			AriaLabel: label, Class: p.CalendarClass, autoFocus: true,
 		}
@@ -207,6 +208,7 @@ type DateRangePicker struct {
 	FirstDayOfWeek           *time.Weekday
 	FixedWeeks               bool
 	HideOutsideDays          bool
+	NarrowWeekdays           bool
 	Today                    aria.Date
 	Locale, Direction        string
 	PreviousLabel, NextLabel string
@@ -271,7 +273,7 @@ func (p DateRangePicker) Build() tela.Node {
 			},
 			AllowsNonContiguousRanges: p.AllowsNonContiguousRanges,
 			Min:                       p.Min, Max: p.Max, IsDateUnavailable: p.IsDateUnavailable, VisibleMonths: months,
-			FirstDayOfWeek: p.FirstDayOfWeek, FixedWeeks: p.FixedWeeks, HideOutsideDays: p.HideOutsideDays, Today: p.Today,
+			FirstDayOfWeek: p.FirstDayOfWeek, FixedWeeks: p.FixedWeeks, HideOutsideDays: p.HideOutsideDays, NarrowWeekdays: p.NarrowWeekdays, Today: p.Today,
 			Locale: p.Locale, Direction: p.Direction, PreviousLabel: p.PreviousLabel, NextLabel: p.NextLabel,
 			AriaLabel: label, Class: p.CalendarClass, autoFocus: true,
 		}

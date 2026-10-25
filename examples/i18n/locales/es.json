@@ -1,5 +1,12 @@
 {
   "language": "Español",
+  "languageLabel": "Idioma",
+  "pickDate": "Elige una fecha",
+  "deliveryDate": "Fecha de entrega",
+  "deliveryHint": "No entregamos los domingos.",
+  "previousMonth": "Mes anterior",
+  "nextMonth": "Mes siguiente",
+  "summaryTitle": "Resumen del pedido",
   "title": "Tu pedido",
   "greeting": "¡Hola, {name}!",
   "messages": "{count, plural, =0 {Sin mensajes nuevos} one {# mensaje nuevo} other {# mensajes nuevos}}",
@@ -12,6 +19,7 @@
     "subtotal": "Subtotal",
     "discount": "Descuento",
     "delivery": "Entrega",
+    "pending": "Sin elegir",
     "updated": "Actualizado",
     "contents": "Contenido"
   },

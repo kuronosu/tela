@@ -1,0 +1,71 @@
+- text: T
+- heading "Your order" [level=1]
+- paragraph: Hello, Ana!
+- button "English Language": English
+- text: 3 new messages
+- button "Remove"
+- button "Add"
+- progressbar "Step 3 of 4"
+- text: Step 3 of 4 You are 2nd in line
+- heading "Order summary" [level=2]
+- text: 4 items in your cart 1,234.50 Discount 15% Delivery Not chosen yet Updated 3:30 PM Contents apples, pears, and figs
+- group:
+  - text: Delivery date
+  - button "Delivery date" [expanded]: Pick a date
+  - paragraph: We do not deliver on Sundays.
+- button "Back"
+- button "Checkout"
+- dialog "Delivery date":
+  - application "Delivery date, March 2026":
+    - button "Previous month" [disabled]
+    - button "Next month"
+    - heading "March 2026" [level=2]
+    - grid "March 2026":
+      - row "Sunday Monday Tuesday Wednesday Thursday Friday Saturday":
+        - columnheader "Sunday": Su
+        - columnheader "Monday": Mo
+        - columnheader "Tuesday": Tu
+        - columnheader "Wednesday": We
+        - columnheader "Thursday": Th
+        - columnheader "Friday": Fr
+        - columnheader "Saturday": Sa
+      - row "Sunday, March 1, 2026 Monday, March 2, 2026 Tuesday, March 3, 2026 Wednesday, March 4, 2026 Thursday, March 5, 2026 Friday, March 6, 2026 Saturday, March 7, 2026":
+        - gridcell "Sunday, March 1, 2026" [disabled]: "1"
+        - gridcell "Monday, March 2, 2026" [disabled]: "2"
+        - gridcell "Tuesday, March 3, 2026" [disabled]: "3"
+        - gridcell "Wednesday, March 4, 2026" [disabled]: "4"
+        - gridcell "Thursday, March 5, 2026" [disabled]: "5"
+        - gridcell "Friday, March 6, 2026" [disabled]: "6"
+        - gridcell "Saturday, March 7, 2026" [disabled]: "7"
+      - row "Sunday, March 8, 2026 Monday, March 9, 2026 Tuesday, March 10, 2026 Wednesday, March 11, 2026 Thursday, March 12, 2026 Friday, March 13, 2026 Saturday, March 14, 2026":
+        - gridcell "Sunday, March 8, 2026" [disabled]: "8"
+        - gridcell "Monday, March 9, 2026" [disabled]: "9"
+        - gridcell "Tuesday, March 10, 2026" [disabled]: "10"
+        - gridcell "Wednesday, March 11, 2026" [disabled]: "11"
+        - gridcell "Thursday, March 12, 2026" [disabled]: "12"
+        - gridcell "Friday, March 13, 2026" [disabled]: "13"
+        - gridcell "Saturday, March 14, 2026": "14"
+      - row "Sunday, March 15, 2026 Monday, March 16, 2026 Tuesday, March 17, 2026 Wednesday, March 18, 2026 Thursday, March 19, 2026 Friday, March 20, 2026 Saturday, March 21, 2026":
+        - gridcell "Sunday, March 15, 2026" [disabled]: "15"
+        - gridcell "Monday, March 16, 2026": "16"
+        - gridcell "Tuesday, March 17, 2026": "17"
+        - gridcell "Wednesday, March 18, 2026": "18"
+        - gridcell "Thursday, March 19, 2026": "19"
+        - gridcell "Friday, March 20, 2026": "20"
+        - gridcell "Saturday, March 21, 2026": "21"
+      - row "Sunday, March 22, 2026 Monday, March 23, 2026 Tuesday, March 24, 2026 Wednesday, March 25, 2026 Thursday, March 26, 2026 Friday, March 27, 2026 Saturday, March 28, 2026":
+        - gridcell "Sunday, March 22, 2026" [disabled]: "22"
+        - gridcell "Monday, March 23, 2026": "23"
+        - gridcell "Tuesday, March 24, 2026": "24"
+        - gridcell "Wednesday, March 25, 2026": "25"
+        - gridcell "Thursday, March 26, 2026": "26"
+        - gridcell "Friday, March 27, 2026": "27"
+        - gridcell "Saturday, March 28, 2026": "28"
+      - row "Sunday, March 29, 2026 Monday, March 30, 2026 Tuesday, March 31, 2026 Wednesday, April 1, 2026 Thursday, April 2, 2026 Friday, April 3, 2026 Saturday, April 4, 2026":
+        - gridcell "Sunday, March 29, 2026" [disabled]: "29"
+        - gridcell "Monday, March 30, 2026": "30"
+        - gridcell "Tuesday, March 31, 2026": "31"
+        - gridcell "Wednesday, April 1, 2026": "1"
+        - gridcell "Thursday, April 2, 2026": "2"
+        - gridcell "Friday, April 3, 2026": "3"
+        - gridcell "Saturday, April 4, 2026": "4"

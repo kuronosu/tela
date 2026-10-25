@@ -1,5 +1,12 @@
 {
   "language": "English",
+  "languageLabel": "Language",
+  "pickDate": "Pick a date",
+  "deliveryDate": "Delivery date",
+  "deliveryHint": "We do not deliver on Sundays.",
+  "previousMonth": "Previous month",
+  "nextMonth": "Next month",
+  "summaryTitle": "Order summary",
   "title": "Your order",
   "greeting": "Hello, {name}!",
   "messages": "{count, plural, =0 {No new messages} one {# new message} other {# new messages}}",
@@ -12,6 +19,7 @@
     "subtotal": "Subtotal",
     "discount": "Discount",
     "delivery": "Delivery",
+    "pending": "Not chosen yet",
     "updated": "Updated",
     "contents": "Contents"
   },
