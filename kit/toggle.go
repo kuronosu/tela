@@ -94,7 +94,7 @@ func (t Toggle) Build() tela.Node {
 	s := &UseStyle().Toggle
 	tb := aria.UseToggleButton(aria.ToggleOptions{Selected: t.Pressed, DefaultSelected: t.DefaultPressed,
 		OnChange: t.OnPressedChange, Disabled: t.Disabled})
-	kids := []tela.Child{h.Class(s.Root, pick("Toggle", "Variant", s.Variants, t.Variant),
+	kids := []tela.Child{cls(s.Root, pick("Toggle", "Variant", s.Variants, t.Variant),
 		pick("Toggle", "Size", s.Sizes, t.Size), s.On, t.Class), tb.Props, t.Props}
 	if t.Invalid {
 		kids = append(kids, h.AriaInvalid(true))

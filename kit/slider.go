@@ -147,9 +147,9 @@ func (s Slider) Build() tela.Node {
 	track := tela.UseSize(sl.TrackRef)
 
 	n := len(sl.Values)
-	kids := []tela.Child{h.Class(r.Root, rootClass, when(s.Disabled, r.Disabled), s.Class),
+	kids := []tela.Child{cls(r.Root, rootClass, when(s.Disabled, r.Disabled), s.Class),
 		sl.Props, sl.TrackProps, s.Props}
-	kids = append(kids, h.Div(h.Class(r.Track, trackClass, s.TrackClass),
+	kids = append(kids, h.Div(cls(r.Track, trackClass, s.TrackClass),
 		sliderRange{res: sl, n: n, track: track, vertical: vertical,
 			class: joinClass(r.Range, rangeClass, s.RangeClass)}))
 	for i := range n {
@@ -174,7 +174,7 @@ func (r sliderRange) Build() tela.Node {
 	if r.n == 1 {
 		// The track clips what sticks out: the bar is slid back by the part
 		// that is not filled.
-		return h.Div(h.Class(r.class, "size-full", "top-0 left-0"),
+		return h.Div(cls(r.class, "size-full", "top-0 left-0"),
 			h.Style(tela.TranslateFn(func() (x, y float32) {
 				rest := float32(1 - res.ThumbPercent(0)/100)
 				if r.vertical {
@@ -192,7 +192,7 @@ func (r sliderRange) Build() tela.Node {
 		return lo / 100, hi / 100
 	}
 	if r.vertical {
-		return h.Div(h.Class(r.class, "bottom-0 left-0"),
+		return h.Div(cls(r.class, "bottom-0 left-0"),
 			h.Style(tela.HeightFn(func() float32 {
 				lo, hi := extent()
 				return float32(hi-lo) * track.Get().Height
@@ -201,7 +201,7 @@ func (r sliderRange) Build() tela.Node {
 				return 0, -float32(lo) * track.Get().Height
 			})))
 	}
-	return h.Div(h.Class(r.class, "top-0 left-0"),
+	return h.Div(cls(r.class, "top-0 left-0"),
 		h.Style(tela.WidthFn(func() float32 {
 			lo, hi := extent()
 			return float32(hi-lo) * track.Get().Width
@@ -229,7 +229,7 @@ func (t sliderThumb) Build() tela.Node {
 	if t.vertical {
 		pos = "bottom-0"
 	}
-	return h.Div(h.Class("absolute", pos, t.class), res.ThumbProps(i),
+	return h.Div(cls("absolute", pos, t.class), res.ThumbProps(i),
 		h.Style(tela.TranslateFn(func() (x, y float32) {
 			p := float32(res.ThumbPercent(i)) / 100
 			if t.vertical {

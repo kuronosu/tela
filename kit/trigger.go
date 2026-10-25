@@ -38,7 +38,7 @@ type Trigger interface {
 //
 //	kit.Popover{
 //	    Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node {
-//	        return h.Button(p, h.Class("rounded-full"), kit.Avatar{Fallback: "AB"})
+//	        return h.Button(p, cls("rounded-full"), kit.Avatar{Fallback: "AB"})
 //	    }),
 //	    Children: profile,
 //	}

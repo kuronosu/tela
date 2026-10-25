@@ -28,7 +28,7 @@ func init() {
 // Radix's decorative separator; Semantic gives it the separator role.
 //
 //	kit.Separator{}
-//	h.Div(h.Class("flex h-5 items-center gap-4"), h.Text("Blog"), kit.Separator{Orientation: kit.Vertical}, h.Text("Docs"))
+//	h.Div(cls("flex h-5 items-center gap-4"), h.Text("Blog"), kit.Separator{Orientation: kit.Vertical}, h.Text("Docs"))
 type Separator struct {
 	// Orientation is Horizontal (the default) or Vertical.
 	Orientation Orientation
@@ -46,7 +46,7 @@ type Separator struct {
 func (s Separator) Build() tela.Node {
 	r := &UseStyle().Separator
 	o := orientationOr(s.Orientation, Horizontal)
-	kids := []tela.Child{h.Class(r.Root, pick("Separator", "Orientation", r.Orientations, o), s.Class), s.Props}
+	kids := []tela.Child{cls(r.Root, pick("Separator", "Orientation", r.Orientations, o), s.Class), s.Props}
 	if s.Semantic {
 		kids = append(kids, h.Role("separator"), h.AriaOrientation(string(o)))
 	} else {

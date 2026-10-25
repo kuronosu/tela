@@ -580,7 +580,7 @@ func (t Toaster) Build() tela.Node {
 	}
 
 	root := joinClass(st.Root, when(t.Inline, st.Inline), when(!t.Inline, st.Fixed), posClass, t.Class)
-	viewport := h.Div(h.Class(root), h.Role("region"), h.AriaLabel("Notifications"), t.Props,
+	viewport := h.Div(cls(root), h.Role("region"), h.AriaLabel("Notifications"), t.Props,
 		h.OnMouseEnter(func() { setHovered.Set(true) }), h.OnMouseLeave(func() { setHovered.Set(false) }),
 		h.Presence(items...))
 	var layer tela.Child = viewport
@@ -675,15 +675,15 @@ func (it toastItem) Build() tela.Node {
 	}
 	var iconBox tela.Child
 	if ic != (tela.Icon{}) {
-		iconBox = h.Div(h.Class(st.Icon), h.Icon(ic, h.Class(st.IconSvg, spinner)))
+		iconBox = h.Div(cls(st.Icon), h.Icon(ic, cls(st.IconSvg, spinner)))
 	}
 	var desc, action tela.Child
 	if d.description != "" {
-		desc = h.Div(h.Class(st.Description), h.Text(d.description))
+		desc = h.Div(cls(st.Description), h.Text(d.description))
 	}
 	if d.action != "" {
 		on := d.onAction
-		action = h.Button(h.Type("button"), h.Class(st.Action), h.OnClick(func() {
+		action = h.Button(h.Type("button"), cls(st.Action), h.OnClick(func() {
 			if on != nil {
 				on()
 			}
@@ -692,21 +692,21 @@ func (it toastItem) Build() tela.Node {
 	}
 	var closeBtn tela.Child
 	if it.closeButton {
-		closeBtn = h.Button(h.Type("button"), h.AriaLabel("Close toast"), h.Class(st.Close),
-			h.OnClick(func() { it.store.dismiss(d.id, false) }), h.Icon(it.closeIcon, h.Class(st.CloseIcon)))
+		closeBtn = h.Button(h.Type("button"), h.AriaLabel("Close toast"), cls(st.Close),
+			h.OnClick(func() { it.store.dismiss(d.id, false) }), h.Icon(it.closeIcon, cls(st.CloseIcon)))
 	}
 	var bridge tela.Child
 	if it.expanded {
-		bridge = h.Div(h.Class(st.Bridge))
+		bridge = h.Div(cls(st.Bridge))
 	}
 	role := "status"
 	if d.kind == toastError {
 		role = "alert"
 	}
-	return h.Div(h.Class(it.class), h.Role(role), h.TabIndex(0), h.Exit(it.exit), closeBtn, bridge,
-		h.Div(h.Ref(body), h.Class(st.Body, when(it.collapsedBehind, st.Collapsed)),
+	return h.Div(cls(it.class), h.Role(role), h.TabIndex(0), h.Exit(it.exit), closeBtn, bridge,
+		h.Div(h.Ref(body), cls(st.Body, when(it.collapsedBehind, st.Collapsed)),
 			iconBox,
-			h.Div(h.Class(st.Content), h.Div(h.Class(st.Title), h.Text(d.title)), desc),
+			h.Div(cls(st.Content), h.Div(cls(st.Title), h.Text(d.title)), desc),
 			action))
 }
 

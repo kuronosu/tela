@@ -62,12 +62,12 @@ type Avatar struct {
 // Build returns the avatar element.
 func (a Avatar) Build() tela.Node {
 	s := &UseStyle().Avatar
-	kids := []tela.Child{h.Class(s.Root, pick("Avatar", "Size", s.Sizes, a.Size), a.Class), a.Props}
+	kids := []tela.Child{cls(s.Root, pick("Avatar", "Size", s.Sizes, a.Size), a.Class), a.Props}
 	if a.Fallback != "" {
-		kids = append(kids, h.Div(h.Class(s.Fallback, s.FallbackSizes[a.Size]), h.Text(a.Fallback)))
+		kids = append(kids, h.Div(cls(s.Fallback, s.FallbackSizes[a.Size]), h.Text(a.Fallback)))
 	}
 	if a.Src != nil {
-		img := []tela.Child{h.Class(s.Image), a.Src}
+		img := []tela.Child{cls(s.Image), a.Src}
 		if a.Alt != "" {
 			img = append(img, h.Alt(a.Alt))
 		}

@@ -129,7 +129,7 @@ func init() {
 		HeadSticky:           "sticky top-0 z-20 bg-background",
 		HeadStickyColumn:     "z-30",
 		StickyColumn:         "sticky z-10 bg-background",
-		StickyColumnHover:    "group-hover:bg-linear-to-r group-hover:from-muted/50 group-hover:to-muted/50",
+		StickyColumnHover:    "group-hover:bg-background group-hover:bg-linear-to-r group-hover:from-muted/50 group-hover:to-muted/50",
 		StickyColumnSelected: "group-aria-selected:bg-muted",
 		StickyColumnFooter:   "bg-linear-to-r from-muted/50 to-muted/50",
 		Caption:              "col-span-full mt-4 text-center text-sm text-muted-foreground",
@@ -299,7 +299,7 @@ func (t Table[T]) Build() tela.Node {
 	}
 	cols := t.Columns
 	if len(cols) == 0 {
-		return h.Div(h.Class(s.Root, t.Class), t.Props)
+		return h.Div(cls(s.Root, t.Class), t.Props)
 	}
 	offsets := t.checkColumns()
 
@@ -348,8 +348,8 @@ func (t Table[T]) Build() tela.Node {
 			}
 		})
 	}
-	header := h.Div(h.Class(s.Header), h.Role("rowgroup"),
-		h.Div(h.Class(s.Row), h.Role("row"), h.Fragment(headCells...)))
+	header := h.Div(cls(s.Header), h.Role("rowgroup"),
+		h.Div(cls(s.Row), h.Role("row"), h.Fragment(headCells...)))
 
 	// The body.
 	rows := make([]tela.Child, len(order))
@@ -361,15 +361,15 @@ func (t Table[T]) Build() tela.Node {
 		}
 		cells := make([]tela.Child, len(cols))
 		for j, c := range cols {
-			cls := joinClass(s.Cell, s.Aligns[c.Align], t.CellClass, when(c.Sticky, t.stickyClass(s, offsets[j], false)),
+			classes := joinClass(s.Cell, s.Aligns[c.Align], t.CellClass, when(c.Sticky, t.stickyClass(s, offsets[j], false)),
 				c.Class, when(n == len(order)-1, s.CellWithLastRow))
 			var props tela.Child
 			if c.CellProps != nil {
 				props = c.CellProps(row)
 			}
-			cells[j] = h.Div(h.Class(cls), h.Role("cell"), props, c.Cell(row))
+			cells[j] = h.Div(cls(classes), h.Role("cell"), props, c.Cell(row))
 		}
-		kids := []tela.Child{h.Key(key), h.Class(s.Row), h.Role("row")}
+		kids := []tela.Child{h.Key(key), cls(s.Row), h.Role("row")}
 		if t.Selected != nil {
 			kids = append(kids, h.AriaSelected(t.Selected(row)))
 		}
@@ -377,12 +377,12 @@ func (t Table[T]) Build() tela.Node {
 		rows[n] = h.Div(kids...)
 	}
 	if len(rows) == 0 && t.Empty != nil {
-		rows = append(rows, h.Div(h.Class(s.Row), h.Role("row"),
-			h.Div(h.Class(joinClass(s.Cell, t.CellClass, s.Empty)), h.Role("cell"), t.Empty)))
+		rows = append(rows, h.Div(cls(s.Row), h.Role("row"),
+			h.Div(cls(joinClass(s.Cell, t.CellClass, s.Empty)), h.Role("cell"), t.Empty)))
 	}
-	body := h.Div(h.Class(s.Body), h.Role("rowgroup"), h.Fragment(rows...))
+	body := h.Div(cls(s.Body), h.Role("rowgroup"), h.Fragment(rows...))
 
-	parts := []tela.Child{h.Class(s.Table, gridCols, t.TableClass), h.Role("table")}
+	parts := []tela.Child{cls(s.Table, gridCols, t.TableClass), h.Role("table")}
 	footer := t.footer(s, offsets)
 	switch {
 	case t.Caption != "":
@@ -393,7 +393,7 @@ func (t Table[T]) Build() tela.Node {
 			last++
 		}
 		parts = append(parts, h.AriaLabelledBy(captionRef),
-			h.Div(h.Class(s.Caption, "row-start-"+strconv.Itoa(last), t.CaptionClass), h.Role("caption"), h.Ref(captionRef), h.Text(t.Caption)))
+			h.Div(cls(s.Caption, "row-start-"+strconv.Itoa(last), t.CaptionClass), h.Role("caption"), h.Ref(captionRef), h.Text(t.Caption)))
 	case t.AriaLabel != "":
 		parts = append(parts, h.AriaLabel(t.AriaLabel))
 	}
@@ -401,7 +401,7 @@ func (t Table[T]) Build() tela.Node {
 	if footer != nil {
 		parts = append(parts, footer)
 	}
-	return h.Div(h.Class(s.Root, t.Class), t.Props, h.Div(parts...))
+	return h.Div(cls(s.Root, t.Class), t.Props, h.Div(parts...))
 }
 
 // stickyClass is the classes of a cell of a sticky column that starts left
@@ -428,19 +428,19 @@ func (t Table[T]) footer(s *TableStyle, offsets []float32) tela.Child {
 		c := t.Columns[i]
 		span := max(c.FooterSpan, 1)
 		span = min(span, len(t.Columns)-i)
-		cls := joinClass(s.Cell, s.Aligns[c.Align], t.CellClass, s.FooterCell, when(span > 1, "col-span-"+strconv.Itoa(span)),
+		classes := joinClass(s.Cell, s.Aligns[c.Align], t.CellClass, s.FooterCell, when(span > 1, "col-span-"+strconv.Itoa(span)),
 			when(c.Sticky, t.stickyClass(s, offsets[i], true)), c.FooterClass, "border-b-0")
-		cells = append(cells, h.Div(h.Class(cls), h.Role("cell"), c.FooterProps, c.Footer))
+		cells = append(cells, h.Div(cls(classes), h.Role("cell"), c.FooterProps, c.Footer))
 		i += span - 1
 	}
-	return h.Div(h.Class(s.Footer), h.Role("rowgroup"), h.Div(h.Class(s.Row), h.Role("row"), h.Fragment(cells...)))
+	return h.Div(cls(s.Footer), h.Role("rowgroup"), h.Div(cls(s.Row), h.Role("row"), h.Fragment(cells...)))
 }
 
 // headCell returns the header cell of column c (the i-th).
 func (t Table[T]) headCell(s *TableStyle, c Column[T], i int, sorted bool, cur SortState, left float32, set func(SortState)) tela.Child {
-	cls := joinClass(s.Head, s.Aligns[c.Align], s.HeadSticky, t.HeadClass,
+	classes := joinClass(s.Head, s.Aligns[c.Align], s.HeadSticky, t.HeadClass,
 		when(c.Sticky, joinClass(s.HeadStickyColumn, stickyLeft(left))), when(c.sortable(), "group"), c.HeaderClass)
-	kids := []tela.Child{h.Class(cls), h.Role("columnheader"), c.HeaderProps}
+	kids := []tela.Child{cls(classes), h.Role("columnheader"), c.HeaderProps}
 	var content tela.Component = h.Text(c.Header)
 	if c.HeaderContent != nil {
 		content = c.HeaderContent

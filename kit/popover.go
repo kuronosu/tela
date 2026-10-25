@@ -119,7 +119,7 @@ func (p Popover) Build() tela.Node {
 		triggerOf(p.Trigger, trig.TriggerProps),
 		h.Portal(h.Presence(h.If(trig.Open,
 			h.Div(pop.Props, dlg.Props, h.Exit(s.Exit),
-				h.Class(s.Root, s.Sides[pop.Side], p.Class), p.Props, p.Children)))),
+				cls(s.Root, s.Sides[pop.Side], p.Class), p.Props, p.Children)))),
 	)
 }
 

@@ -174,9 +174,9 @@ func (g ToggleGroup[K]) Build() tela.Node {
 	joined := g.Spacing <= 0
 	itemClass := joinClass(t.Root, variant, size, t.On, r.Item,
 		when(joined, joinClass(r.ItemWithoutSpacing, when(g.Variant == Outline, r.OutlineItemWithoutSpacing))), g.ItemClass)
-	kids := []tela.Child{h.Class(r.Root, when(!joined, fmt.Sprintf("gap-%d", g.Spacing)), g.Class), grp.Props, g.Props}
+	kids := []tela.Child{cls(r.Root, when(!joined, fmt.Sprintf("gap-%d", g.Spacing)), g.Class), grp.Props, g.Props}
 	for _, it := range g.Items {
-		ik := []tela.Child{h.Key(it.Value), h.Class(itemClass), grp.ItemProps(it.Value)}
+		ik := []tela.Child{h.Key(it.Value), cls(itemClass), grp.ItemProps(it.Value)}
 		if it.AriaLabel != "" {
 			ik = append(ik, h.AriaLabel(it.AriaLabel))
 		}

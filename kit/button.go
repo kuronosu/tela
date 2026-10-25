@@ -124,7 +124,7 @@ func (b Button) Build() tela.Node {
 	if !ok {
 		iconSize = s.IconSizes[""]
 	}
-	kids := []tela.Child{h.Class(s.Root, pick("Button", "Variant", s.Variants, b.Variant),
+	kids := []tela.Child{cls(s.Root, pick("Button", "Variant", s.Variants, b.Variant),
 		pick("Button", "Size", s.Sizes, b.Size), when(hasIcon, s.HasIcon[b.Size]), b.Class)}
 	if b.Type != "" {
 		kids = append(kids, h.Type(b.Type))

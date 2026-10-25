@@ -69,7 +69,7 @@ type Input struct {
 // Build returns the input element.
 func (i Input) Build() tela.Node {
 	s := &UseStyle().Input
-	kids := []tela.Child{h.Class(s.Root, i.Class), i.Props}
+	kids := []tela.Child{cls(s.Root, i.Class), i.Props}
 	if i.Type != "" {
 		kids = append(kids, h.Type(i.Type))
 	}

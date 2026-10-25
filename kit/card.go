@@ -80,25 +80,25 @@ type Card struct {
 func (c Card) Build() tela.Node {
 	s := &UseStyle().Card
 	var parts []tela.Child
-	parts = append(parts, h.Class(s.Root, c.Class), c.Props)
+	parts = append(parts, cls(s.Root, c.Class), c.Props)
 	if c.Title != nil || c.Description != nil || c.Action != nil {
-		header := []tela.Child{h.Class(s.Header, when(c.Action != nil, s.HeaderWithAction), c.HeaderClass)}
+		header := []tela.Child{cls(s.Header, when(c.Action != nil, s.HeaderWithAction), c.HeaderClass)}
 		if c.Title != nil {
-			header = append(header, h.Div(h.Class(s.Title, c.TitleClass), c.Title))
+			header = append(header, h.Div(cls(s.Title, c.TitleClass), c.Title))
 		}
 		if c.Description != nil {
-			header = append(header, h.Div(h.Class(s.Description, c.DescriptionClass), c.Description))
+			header = append(header, h.Div(cls(s.Description, c.DescriptionClass), c.Description))
 		}
 		if c.Action != nil {
-			header = append(header, h.Div(h.Class(s.Action, c.ActionClass), c.Action))
+			header = append(header, h.Div(cls(s.Action, c.ActionClass), c.Action))
 		}
 		parts = append(parts, h.Div(header...))
 	}
 	if c.Children != nil {
-		parts = append(parts, h.Div(h.Class(s.Content, c.ContentClass), c.Children))
+		parts = append(parts, h.Div(cls(s.Content, c.ContentClass), c.Children))
 	}
 	if c.Footer != nil {
-		parts = append(parts, h.Div(h.Class(s.Footer, c.FooterClass), c.Footer))
+		parts = append(parts, h.Div(cls(s.Footer, c.FooterClass), c.Footer))
 	}
 	return h.Div(parts...)
 }

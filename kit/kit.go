@@ -218,7 +218,7 @@ func (p StyleProvider) Build() tela.Node {
 //
 //	func (b Banner) Build() tela.Node {
 //	    s := kit.UseStyle()
-//	    return h.Div(h.Class(s.Card.Root, "bg-accent"), b.Children)
+//	    return h.Div(cls(s.Card.Root, "bg-accent"), b.Children)
 //	}
 func UseStyle() *Style { return tela.UseContext(styleCtx) }
 
@@ -319,7 +319,7 @@ func icon(ic tela.Icon, class ...string) tela.Child {
 	if ic == (tela.Icon{}) {
 		return nil
 	}
-	return h.Icon(ic, h.Class(class...))
+	return h.Icon(ic, cls(class...))
 }
 
 // orientationOr returns o, or def for the zero value.
@@ -338,17 +338,49 @@ func when(cond bool, class string) string {
 	return ""
 }
 
-// joinClass joins class strings with a space, skipping the empty ones.
+// cls is the class prop of a kit element: its parts joined by joinClass.
+func cls(parts ...string) tela.Prop { return h.Class(joinClass(parts...)) }
+
+// joinClass joins class strings with a space, skipping the empty ones, and
+// puts every class that has a variant (hover:, focus-visible:, dark:,
+// aria-invalid:...) after every class that has none, keeping the order
+// within each group. Tela applies classes in order, last wins, variants
+// included (ARCHITECTURE §10), while Tailwind's stylesheet emits variant
+// utilities after the plain ones, so in CSS a matching variant beats a plain
+// class wherever each is written. shadcn's recipes rely on that: the root's
+// focus-visible:border-ring must beat the outline variant's border-border.
+// Joining in two groups gives a recipe the stylesheet's precedence, and an
+// instance Class, joined last, still overrides within its group.
 func joinClass(parts ...string) string {
-	out := ""
+	var plain, variant []string
 	for _, p := range parts {
-		if p == "" {
-			continue
+		for _, c := range strings.Fields(p) {
+			if hasVariant(c) {
+				variant = append(variant, c)
+			} else {
+				plain = append(plain, c)
+			}
 		}
-		if out != "" {
-			out += " "
-		}
-		out += p
 	}
-	return out
+	return strings.Join(append(plain, variant...), " ")
+}
+
+// hasVariant reports whether a class has a variant prefix: a colon outside
+// square brackets and parentheses (bg-[url(a:b)] and [clip-path:...] have
+// none).
+func hasVariant(class string) bool {
+	depth := 0
+	for _, r := range class {
+		switch r {
+		case '[', '(':
+			depth++
+		case ']', ')':
+			depth--
+		case ':':
+			if depth == 0 {
+				return true
+			}
+		}
+	}
+	return false
 }

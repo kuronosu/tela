@@ -91,7 +91,7 @@ func (s Switch) Build() tela.Node {
 	id, _, field := useChoiceField(s.ID, s.Invalid)
 	sw := aria.UseSwitch(aria.ToggleOptions{Selected: s.Checked, DefaultSelected: s.DefaultChecked,
 		OnChange: s.OnCheckedChange, Disabled: s.Disabled, ID: id})
-	kids := []tela.Child{h.Class(r.Root, pick("Switch", "Size", r.Sizes, s.Size), s.Class), sw.Props, s.Props}
+	kids := []tela.Child{cls(r.Root, pick("Switch", "Size", r.Sizes, s.Size), s.Class), sw.Props, s.Props}
 	kids = append(kids, field...)
 	if s.Required {
 		kids = append(kids, h.AriaRequired(true))
@@ -99,6 +99,6 @@ func (s Switch) Build() tela.Node {
 	if s.AriaLabel != "" {
 		kids = append(kids, h.AriaLabel(s.AriaLabel))
 	}
-	kids = append(kids, h.Span(h.Class(r.Thumb, pick("Switch", "Size", r.ThumbSizes, s.Size), s.ThumbClass)))
+	kids = append(kids, h.Span(cls(r.Thumb, pick("Switch", "Size", r.ThumbSizes, s.Size), s.ThumbClass)))
 	return h.Button(kids...)
 }

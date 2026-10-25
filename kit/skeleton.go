@@ -17,9 +17,9 @@ func init() {
 // Skeleton is a placeholder that pulses while content loads, shadcn/ui's
 // Skeleton. Size it with Class, to the shape of what it stands for.
 //
-//	h.Div(h.Class("flex items-center gap-4"),
+//	h.Div(cls("flex items-center gap-4"),
 //	    kit.Skeleton{Class: "size-12 rounded-full"},
-//	    h.Div(h.Class("flex flex-col gap-2"),
+//	    h.Div(cls("flex flex-col gap-2"),
 //	        kit.Skeleton{Class: "h-4 w-[250px]"},
 //	        kit.Skeleton{Class: "h-4 w-[200px]"}))
 //
@@ -35,5 +35,5 @@ type Skeleton struct {
 // Build returns the skeleton element.
 func (s Skeleton) Build() tela.Node {
 	r := &UseStyle().Skeleton
-	return h.Div(h.Class(r.Root, s.Class), s.Props)
+	return h.Div(cls(r.Root, s.Class), s.Props)
 }

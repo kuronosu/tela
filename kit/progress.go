@@ -71,6 +71,6 @@ func (p Progress) Build() tela.Node {
 		left = 0
 	}
 	left = math.Round(left*100) / 100
-	return h.Div(h.Class(s.Root, p.Class), pb.Props, p.Props,
-		h.Div(h.Class(s.Indicator, when(p.Indeterminate, s.Indeterminate), fmt.Sprintf("-translate-x-[%g%%]", left), p.IndicatorClass)))
+	return h.Div(cls(s.Root, p.Class), pb.Props, p.Props,
+		h.Div(cls(s.Indicator, when(p.Indeterminate, s.Indeterminate), fmt.Sprintf("-translate-x-[%g%%]", left), p.IndicatorClass)))
 }

@@ -56,6 +56,6 @@ type Badge struct {
 // Build returns the badge element.
 func (b Badge) Build() tela.Node {
 	s := &UseStyle().Badge
-	return h.Span(h.Class(s.Root, pick("Badge", "Variant", s.Variants, b.Variant), b.Class),
+	return h.Span(cls(s.Root, pick("Badge", "Variant", s.Variants, b.Variant), b.Class),
 		b.Props, icon(b.Icon, s.Icon), b.Children)
 }

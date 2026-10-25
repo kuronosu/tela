@@ -122,7 +122,7 @@ type RadioState struct {
 //
 //	kit.RadioGroup[string]{AriaLabel: "Theme", DefaultValue: new("light"), Orientation: kit.Horizontal,
 //	    Items: themes, Render: func(it kit.RadioItem[string], st kit.RadioState) tela.Node {
-//	        return h.Button(st.Props, h.Class("rounded-lg border p-4 aria-checked:border-primary"),
+//	        return h.Button(st.Props, cls("rounded-lg border p-4 aria-checked:border-primary"),
 //	            h.Text(it.Label))
 //	    }}
 //
@@ -176,9 +176,9 @@ type radioIndicator struct {
 
 func (r radioIndicator) Build() tela.Node {
 	s := &UseStyle().RadioGroup
-	kids := []tela.Child{h.Class("inline-flex", s.Item, r.class), h.AriaHidden(true)}
+	kids := []tela.Child{cls("inline-flex", s.Item, r.class), h.AriaHidden(true)}
 	if r.checked {
-		kids = append(kids, h.Span(h.Class(s.Indicator), h.Icon(iconCircle, h.Class(s.Icon, r.icon))))
+		kids = append(kids, h.Span(cls(s.Indicator), h.Icon(iconCircle, cls(s.Icon, r.icon))))
 	}
 	return h.Span(kids...)
 }
@@ -200,7 +200,7 @@ func (g RadioGroup[K]) Build() tela.Node {
 		Keys: keys, DisabledKeys: disabled, Value: g.Value, DefaultValue: g.DefaultValue, OnValueChange: g.OnValueChange,
 		Disabled: g.Disabled, ReadOnly: g.ReadOnly, Required: g.Required, Orientation: string(o), AriaLabel: g.AriaLabel,
 	})
-	kids := []tela.Child{h.Class(s.Root, pick("RadioGroup", "Orientation", s.Orientations, o), g.Class), grp.Props, g.Props}
+	kids := []tela.Child{cls(s.Root, pick("RadioGroup", "Orientation", s.Orientations, o), g.Class), grp.Props, g.Props}
 	kids = append(kids, field...)
 	if id != "" {
 		kids = append(kids, h.ID(id))
@@ -216,21 +216,21 @@ func (g RadioGroup[K]) Build() tela.Node {
 			continue
 		}
 		hasDesc := it.Description != ""
-		radio := []tela.Child{h.Class(s.Item, when(hasDesc, s.ItemWithDescription), g.ItemClass), grp.RadioProps(it.Value)}
+		radio := []tela.Child{cls(s.Item, when(hasDesc, s.ItemWithDescription), g.ItemClass), grp.RadioProps(it.Value)}
 		if invalid {
 			radio = append(radio, h.AriaInvalid(true))
 		}
 		if grp.IsSelected(it.Value) {
-			radio = append(radio, h.Span(h.Class(s.Indicator), h.Icon(iconCircle, h.Class(s.Icon))))
+			radio = append(radio, h.Span(cls(s.Indicator), h.Icon(iconCircle, cls(s.Icon))))
 		}
 		var text tela.Child
 		label := Label{For: grp.RadioID(it.Value), Children: h.Text(it.Label), Class: joinClass(s.Label, when(hasDesc, s.LabelWithDescription), g.LabelClass)}
 		if hasDesc {
-			text = h.Div(h.Class(s.Content), label, h.P(h.Class(s.Description, g.DescriptionClass), h.Text(it.Description)))
+			text = h.Div(cls(s.Content), label, h.P(cls(s.Description, g.DescriptionClass), h.Text(it.Description)))
 		} else {
 			text = label
 		}
-		kids = append(kids, h.Div(h.Key(it.Value), h.Class(s.Option, when(hasDesc, s.OptionWithDescription), g.OptionClass),
+		kids = append(kids, h.Div(h.Key(it.Value), cls(s.Option, when(hasDesc, s.OptionWithDescription), g.OptionClass),
 			h.Button(radio...), text))
 	}
 	return h.Div(kids...)

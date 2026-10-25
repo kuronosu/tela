@@ -47,7 +47,7 @@ type Label struct {
 // Build returns the label element.
 func (l Label) Build() tela.Node {
 	s := &UseStyle().Label
-	kids := []tela.Child{h.Class(s.Root, when(l.Disabled, s.Disabled), l.Class), l.Props}
+	kids := []tela.Child{cls(s.Root, when(l.Disabled, s.Disabled), l.Class), l.Props}
 	if l.For != "" {
 		kids = append(kids, h.For(l.For))
 	}

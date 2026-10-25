@@ -88,7 +88,7 @@ func (c Checkbox) Build() tela.Node {
 	id, _, field := useChoiceField(c.ID, c.Invalid)
 	box := aria.UseCheckbox(aria.ToggleOptions{Selected: c.Checked, DefaultSelected: c.DefaultChecked,
 		OnChange: c.OnCheckedChange, Disabled: c.Disabled, ID: id})
-	kids := []tela.Child{h.Class(s.Root, c.Class), box.Props, c.Props}
+	kids := []tela.Child{cls(s.Root, c.Class), box.Props, c.Props}
 	kids = append(kids, field...)
 	if c.Required {
 		kids = append(kids, h.AriaRequired(true))
@@ -97,7 +97,7 @@ func (c Checkbox) Build() tela.Node {
 		kids = append(kids, h.AriaLabel(c.AriaLabel))
 	}
 	if box.Selected {
-		kids = append(kids, h.Span(h.Class(s.Indicator, c.IndicatorClass), h.Icon(iconOr(c.Icon, iconCheck), h.Class(s.Icon, c.IconClass))))
+		kids = append(kids, h.Span(cls(s.Indicator, c.IndicatorClass), h.Icon(iconOr(c.Icon, iconCheck), cls(s.Icon, c.IconClass))))
 	}
 	return h.Button(kids...)
 }

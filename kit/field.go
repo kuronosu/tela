@@ -116,11 +116,11 @@ func (f Field) Build() tela.Node {
 			Class: joinClass(s.Label, when(!vertical && !hasContent, s.HorizontalLabel), f.LabelClass)}
 	}
 	if f.Description != "" {
-		desc = h.P(h.Class(s.Description, when(f.Error != "", s.DescriptionWithError), f.DescriptionClass),
+		desc = h.P(cls(s.Description, when(f.Error != "", s.DescriptionWithError), f.DescriptionClass),
 			h.Ref(descRef), h.Text(f.Description))
 	}
 	if f.Error != "" {
-		errNode = h.Div(h.Class(s.Error, f.ErrorClass), h.Role("alert"), h.Ref(errRef), h.Text(f.Error))
+		errNode = h.Div(cls(s.Error, f.ErrorClass), h.Role("alert"), h.Ref(errRef), h.Text(f.Error))
 	}
 
 	var body []tela.Child
@@ -128,12 +128,12 @@ func (f Field) Build() tela.Node {
 		body = []tela.Child{label, f.Children, desc, errNode}
 	} else {
 		if hasContent {
-			body = []tela.Child{f.Children, h.Div(h.Class(s.Content, f.ContentClass), label, desc, errNode)}
+			body = []tela.Child{f.Children, h.Div(cls(s.Content, f.ContentClass), label, desc, errNode)}
 		} else {
 			body = []tela.Child{f.Children, label}
 		}
 	}
-	return h.Div(h.Class(s.Root, pick("Field", "Orientation", s.Orientations, orientationOr(f.Orientation, Vertical)),
+	return h.Div(cls(s.Root, pick("Field", "Orientation", s.Orientations, orientationOr(f.Orientation, Vertical)),
 		when(hasContent, s.HorizontalWithContent), when(invalid, s.Invalid), f.Class),
 		h.Role("group"), f.Props,
 		fieldCtx.Provider(fieldInfo{id: id, describedBy: describedBy, invalid: invalid, label: f.Label}, body...))

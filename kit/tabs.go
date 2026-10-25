@@ -197,18 +197,18 @@ func (t Tabs[K]) Build() tela.Node {
 		pick("Tabs", "Orientation", s.TriggerOrientations, orient), t.TriggerClass)
 
 	triggers := make([]tela.Child, 0, len(t.Tabs)+1)
-	triggers = append(triggers, tabs.Props, h.Class(listClass))
+	triggers = append(triggers, tabs.Props, cls(listClass))
 	var panel tela.Child
 	for _, tab := range t.Tabs {
 		var indicator tela.Child
 		if t.Variant == TabsLine {
-			indicator = h.Span(h.Class(s.Indicator, s.IndicatorOrientations[orient]))
+			indicator = h.Span(cls(s.Indicator, s.IndicatorOrientations[orient]))
 		}
-		triggers = append(triggers, h.Div(tabs.TabProps(tab.Value), h.Key(tab.Value), h.Class(triggerClass),
+		triggers = append(triggers, h.Div(tabs.TabProps(tab.Value), h.Key(tab.Value), cls(triggerClass),
 			icon(tab.Icon, s.Icon), h.Text(tab.Label), indicator))
 		if tab.Value == current && tab.Content != nil {
-			panel = h.Div(tabs.PanelProps(tab.Value), h.Class(s.Content, t.ContentClass), tab.Content)
+			panel = h.Div(tabs.PanelProps(tab.Value), cls(s.Content, t.ContentClass), tab.Content)
 		}
 	}
-	return h.Div(h.Class(s.Root, rootClass, t.Class), t.Props, h.Div(triggers...), panel)
+	return h.Div(cls(s.Root, rootClass, t.Class), t.Props, h.Div(triggers...), panel)
 }

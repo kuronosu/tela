@@ -136,8 +136,8 @@ func (a AlertDialog) Build() tela.Node {
 	return h.Fragment(
 		triggerOf(a.Trigger, trig.TriggerProps),
 		h.Portal(h.Presence(h.If(trig.Open,
-			h.Div(h.Class(s.Positioner),
-				h.Div(h.Class(s.Overlay, a.OverlayClass), h.Exit(s.OverlayExit)),
+			h.Div(cls(s.Positioner),
+				h.Div(cls(s.Overlay, a.OverlayClass), h.Exit(s.OverlayExit)),
 				root,
 			)))),
 	)
@@ -147,18 +147,18 @@ func (a AlertDialog) Build() tela.Node {
 // instance's, and the parts.
 func alertDialogRoot(s *AlertDialogStyle, a AlertDialog, sizeClass string, size Size,
 	overlay, dialog, titleProps tela.Prop, desc tela.ElementRef, closeIt func()) tela.Node {
-	kids := []tela.Child{h.Class(s.Root, sizeClass, a.Class), h.Exit(s.Exit), overlay, dialog, a.Props}
+	kids := []tela.Child{cls(s.Root, sizeClass, a.Class), h.Exit(s.Exit), overlay, dialog, a.Props}
 	hasDesc := a.Description != nil && desc != (tela.ElementRef{})
 	if hasDesc {
 		kids = append(kids, h.AriaDescribedBy(desc))
 	}
 	if a.Title != nil || a.Description != nil {
-		header := []tela.Child{h.Class(s.Header, s.HeaderSizes[size], a.HeaderClass)}
+		header := []tela.Child{cls(s.Header, s.HeaderSizes[size], a.HeaderClass)}
 		if a.Title != nil {
-			header = append(header, h.H2(titleProps, h.Class(s.Title, a.TitleClass), a.Title))
+			header = append(header, h.H2(titleProps, cls(s.Title, a.TitleClass), a.Title))
 		}
 		if a.Description != nil {
-			dk := []tela.Child{h.Class(s.Description, a.DescriptionClass)}
+			dk := []tela.Child{cls(s.Description, a.DescriptionClass)}
 			if hasDesc {
 				dk = append(dk, h.Ref(desc))
 			}
@@ -179,7 +179,7 @@ func alertDialogRoot(s *AlertDialogStyle, a AlertDialog, sizeClass string, size 
 		actionVariant = Destructive
 	}
 	onCancel, onAction := a.OnCancel, a.OnAction
-	kids = append(kids, h.Div(h.Class(s.Footer, s.FooterSizes[size], a.FooterClass),
+	kids = append(kids, h.Div(cls(s.Footer, s.FooterSizes[size], a.FooterClass),
 		Button{Variant: Outline, Type: "button", Class: a.CancelClass, Children: cancel, OnClick: func() {
 			if onCancel != nil {
 				onCancel()

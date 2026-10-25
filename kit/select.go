@@ -274,9 +274,9 @@ func (s Select[K]) Build() tela.Node {
 	}
 	kids := []tela.Child{
 		sel.TriggerProps, h.Type("button"),
-		h.Class(st.Root, pick("Select", "Size", st.Sizes, s.Size), when(!hasCurrent, st.Placeholder), s.Class),
+		cls(st.Root, pick("Select", "Size", st.Sizes, s.Size), when(!hasCurrent, st.Placeholder), s.Class),
 		s.Props,
-		h.Span(sel.ValueProps, h.Class(st.Value), icon(currentItem.Icon, st.ValueIcon), h.Text(sel.Value)),
+		h.Span(sel.ValueProps, cls(st.Value), icon(currentItem.Icon, st.ValueIcon), h.Text(sel.Value)),
 		icon(ic, st.Icon),
 	}
 	id := s.ID
@@ -308,7 +308,7 @@ func (s Select[K]) Build() tela.Node {
 			if inGroup {
 				sec := sel.ListBox.Section(groupName)
 				head := []tela.Child{sec.Props, h.Key(selectRowKey{"group", groupName})}
-				head = append(head, h.Div(sec.HeadingProps, h.Class(st.Label, s.LabelClass), h.Text(groupName)))
+				head = append(head, h.Div(sec.HeadingProps, cls(st.Label, s.LabelClass), h.Text(groupName)))
 				rows = append(rows, h.Div(append(head, group...)...))
 			}
 			group, inGroup = nil, false
@@ -316,11 +316,11 @@ func (s Select[K]) Build() tela.Node {
 		for i, it := range s.Items {
 			if i > 0 && it.Group != s.Items[i-1].Group {
 				flush()
-				rows = append(rows, h.Div(h.Class(st.Separator), h.Key(selectRowKey{"separator", it.Group})))
+				rows = append(rows, h.Div(cls(st.Separator), h.Key(selectRowKey{"separator", it.Group})))
 			}
-			text := h.Span(h.Class(st.ItemText), icon(it.Icon, st.ItemIcon), h.Text(it.Label))
-			indicator := h.Span(h.Class(st.ItemIndicator), h.If(sel.ListBox.IsSelected(it.Value), icon(check, st.ItemCheck)))
-			row := h.Div(sel.ListBox.ItemProps(it.Value), h.Key(it.Value), h.Class(st.Item, s.ItemClass), indicator, text)
+			text := h.Span(cls(st.ItemText), icon(it.Icon, st.ItemIcon), h.Text(it.Label))
+			indicator := h.Span(cls(st.ItemIndicator), h.If(sel.ListBox.IsSelected(it.Value), icon(check, st.ItemCheck)))
+			row := h.Div(sel.ListBox.ItemProps(it.Value), h.Key(it.Value), cls(st.Item, s.ItemClass), indicator, text)
 			if it.Group != "" {
 				groupName, inGroup = it.Group, true
 				group = append(group, row)
@@ -330,9 +330,9 @@ func (s Select[K]) Build() tela.Node {
 		}
 		flush()
 		content := h.Div(sel.PopoverProps,
-			h.Class(st.Content, st.ContentSides[side], st.ContentEnter, st.ContentEnterSides[side], s.ContentClass),
+			cls(st.Content, st.ContentSides[side], st.ContentEnter, st.ContentEnterSides[side], s.ContentClass),
 			h.Exit(st.ContentExit), h.Style(tela.MinWidth(minWidth)),
-			h.Div(append([]tela.Child{sel.ListBox.Props, h.Class(st.Viewport)}, rows...)...))
+			h.Div(append([]tela.Child{sel.ListBox.Props, cls(st.Viewport)}, rows...)...))
 		list = content
 	}
 	return h.Fragment(h.Button(kids...), h.Portal(h.Presence(list)))

@@ -155,8 +155,8 @@ func (d Dialog) Build() tela.Node {
 	return h.Fragment(
 		triggerOf(d.Trigger, trig.TriggerProps),
 		h.Portal(h.Presence(h.If(trig.Open,
-			h.Div(h.Class(s.Positioner),
-				h.Div(h.Class(s.Overlay, d.OverlayClass), h.Exit(s.OverlayExit)),
+			h.Div(cls(s.Positioner),
+				h.Div(cls(s.Overlay, d.OverlayClass), h.Exit(s.OverlayExit)),
 				root,
 			)))),
 	)
@@ -183,18 +183,18 @@ type dialogPanel struct {
 // instance's) applied.
 func (p dialogPanel) root(props ...tela.Child) tela.Node {
 	s := p.style
-	kids := []tela.Child{h.Class(s.Root, p.class), h.Exit(s.Exit)}
+	kids := []tela.Child{cls(s.Root, p.class), h.Exit(s.Exit)}
 	kids = append(kids, props...)
 	if p.description != nil && p.descriptionRef != (tela.ElementRef{}) {
 		kids = append(kids, h.AriaDescribedBy(p.descriptionRef))
 	}
 	if p.title != nil || p.description != nil {
-		header := []tela.Child{h.Class(s.Header, p.headerClass)}
+		header := []tela.Child{cls(s.Header, p.headerClass)}
 		if p.title != nil {
-			header = append(header, h.H2(p.titleProps, h.Class(s.Title, p.titleClass), p.title))
+			header = append(header, h.H2(p.titleProps, cls(s.Title, p.titleClass), p.title))
 		}
 		if p.description != nil {
-			dk := []tela.Child{h.Class(s.Description, p.descriptionClass)}
+			dk := []tela.Child{cls(s.Description, p.descriptionClass)}
 			if p.descriptionRef != (tela.ElementRef{}) {
 				dk = append(dk, h.Ref(p.descriptionRef))
 			}
@@ -204,7 +204,7 @@ func (p dialogPanel) root(props ...tela.Child) tela.Node {
 	}
 	kids = append(kids, p.children)
 	if p.footer != nil {
-		kids = append(kids, h.Div(h.Class(s.Footer, p.footerClass), p.footer))
+		kids = append(kids, h.Div(cls(s.Footer, p.footerClass), p.footer))
 	}
 	if p.showClose {
 		ic := p.closeIcon
@@ -216,7 +216,7 @@ func (p dialogPanel) root(props ...tela.Child) tela.Node {
 			label = "Close"
 		}
 		close := p.onClose
-		kids = append(kids, h.Button(h.Class(s.Close, p.closeClass), h.Type("button"), h.AriaLabel(label),
+		kids = append(kids, h.Button(cls(s.Close, p.closeClass), h.Type("button"), h.AriaLabel(label),
 			h.OnClick(func() {
 				if close != nil {
 					close()

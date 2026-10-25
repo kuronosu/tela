@@ -55,7 +55,7 @@ type Textarea struct {
 // Build returns the textarea element.
 func (t Textarea) Build() tela.Node {
 	s := &UseStyle().Textarea
-	kids := []tela.Child{h.Class(s.Root, t.Class), t.Props}
+	kids := []tela.Child{cls(s.Root, t.Class), t.Props}
 	if t.Rows > 0 {
 		kids = append(kids, h.Rows(t.Rows))
 	}

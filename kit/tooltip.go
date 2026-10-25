@@ -123,8 +123,8 @@ func (t Tooltip) Build() tela.Node {
 		triggerOf(t.Trigger, tip.TriggerProps),
 		h.Portal(h.Presence(h.If(tip.Open,
 			h.Div(tip.TooltipProps, fl.Props, h.Exit(s.Exit),
-				h.Class(s.Root, s.Sides[fl.Side], t.Class), t.Props,
+				cls(s.Root, s.Sides[fl.Side], t.Class), t.Props,
 				t.Content,
-				h.Div(h.Ref(arrow), fl.ArrowProps, h.Class(s.Arrow, s.ArrowSides[fl.Side], t.ArrowClass)))))),
+				h.Div(h.Ref(arrow), fl.ArrowProps, cls(s.Arrow, s.ArrowSides[fl.Side], t.ArrowClass)))))),
 	)
 }
