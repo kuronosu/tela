@@ -46,11 +46,11 @@ func init() {
 		Root: "relative grid w-full max-w-lg gap-4 rounded-lg border border-border bg-background p-6 shadow-lg outline-none " +
 			"transition duration-200 starting:scale-95 starting:opacity-0",
 		Exit:        "scale-95 opacity-0",
-		Header:      "flex flex-col gap-2 text-center sm:text-left",
+		Header:      "flex flex-col gap-2 text-center sm:text-start",
 		Title:       "text-lg leading-none font-semibold",
 		Description: "text-sm text-muted-foreground",
 		Footer:      "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
-		Close: "absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 " +
+		Close: "absolute top-4 end-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 " +
 			"focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none",
 		CloseIcon: "pointer-events-none size-4 shrink-0",
 	}

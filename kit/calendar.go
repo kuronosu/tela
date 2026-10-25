@@ -89,9 +89,9 @@ func init() {
 		Outside:        "text-muted-foreground",
 		Disabled:       "text-muted-foreground opacity-50",
 		Hidden:         "invisible",
-		RangeStart:     "rounded-l-md bg-accent",
+		RangeStart:     "rounded-s-md bg-accent",
 		RangeMiddle:    "rounded-none",
-		RangeEnd:       "rounded-r-md bg-accent",
+		RangeEnd:       "rounded-e-md bg-accent",
 
 		TodayWithSelected: "rounded-none",
 		DayButton:         "flex aspect-square size-auto w-full min-w-8 flex-col gap-1 leading-none font-normal focus-visible:relative focus-visible:z-10",
@@ -99,9 +99,9 @@ func init() {
 		// classes shadcn writes win over the ghost variant's hover: classes
 		// in the stylesheet, so here they are restated as hover: ones.
 		DayButtonWithSelected:    "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground dark:hover:bg-primary",
-		DayButtonWithRangeStart:  "rounded-md rounded-l-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground dark:hover:bg-primary",
+		DayButtonWithRangeStart:  "rounded-md rounded-s-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground dark:hover:bg-primary",
 		DayButtonWithRangeMiddle: "rounded-none bg-accent text-accent-foreground hover:bg-accent dark:hover:bg-accent",
-		DayButtonWithRangeEnd:    "rounded-md rounded-r-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground dark:hover:bg-primary",
+		DayButtonWithRangeEnd:    "rounded-md rounded-e-md bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground dark:hover:bg-primary",
 	}
 }
 
@@ -212,6 +212,7 @@ type Calendar struct {
 
 // Build returns the calendar element.
 func (c Calendar) Build() tela.Node {
+	c.Direction = useCalendarDirection(c.Direction, c.Locale)
 	res := aria.UseCalendar(aria.CalendarOptions{
 		Value: c.Value, DefaultValue: ptrIfSet(c.DefaultValue), OnValueChange: c.OnValueChange,
 		Min: c.Min, Max: c.Max, IsDateUnavailable: c.IsDateUnavailable, Disabled: c.Disabled, ReadOnly: c.ReadOnly,
@@ -284,6 +285,7 @@ type RangeCalendar struct {
 
 // Build returns the calendar element.
 func (c RangeCalendar) Build() tela.Node {
+	c.Direction = useCalendarDirection(c.Direction, c.Locale)
 	var def *aria.DateRange
 	if !c.DefaultValue.IsZero() {
 		def = &c.DefaultValue
@@ -302,6 +304,17 @@ func (c RangeCalendar) Build() tela.Node {
 		class: c.Class, months: c.MonthsClass, month: c.MonthClass, nav: c.NavClass, caption: c.CaptionClass,
 		weekday: c.WeekdayClass, day: c.DayClass, dayButton: c.DayButtonClass, props: c.Props, autoFocus: c.autoFocus,
 	}, res, true)
+}
+
+// useCalendarDirection is a calendar's Direction: the one it was given, else the
+// locale's (the hook resolves it) when it has a Locale, else the nearest
+// [DirectionProvider]'s. It is a hook.
+func useCalendarDirection(direction, locale string) string {
+	provided := tela.UseContext(directionCtx)
+	if direction == "" && locale == "" {
+		return provided
+	}
+	return direction
 }
 
 // calendarLook is what Calendar and RangeCalendar tell the view besides the

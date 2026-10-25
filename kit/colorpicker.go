@@ -1,6 +1,8 @@
 package kit
 
 import (
+	"strings"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
 	"github.com/kuronosu/tela/h"
@@ -147,6 +149,12 @@ type ColorPicker struct {
 	// default); set them for another language. The value texts ("Hue
 	// 180°") are aria's English ones.
 	AreaLabel, HueLabel, AlphaLabel, HexLabel string
+	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+	// right without one). Under "rtl" the saturation grows toward the left
+	// of the area, the hue and the opacity toward the left of their sliders,
+	// and ArrowLeft increases them; a Direction given here also sets the
+	// direction of the panel's layout.
+	Direction string
 	// Class is added after the recipe's Root classes. Props are more props
 	// for the root element.
 	Class string
@@ -202,6 +210,11 @@ type colorParts struct {
 	hex   aria.ColorFieldResult
 
 	areaSize, areaThumb, hueTrack, hueThumb, alphaTrack, alphaThumb *tela.Value[tela.Size]
+
+	// rtl is a right-to-left picker; rootDir is the h.Dir its own Direction
+	// asks for.
+	rtl     bool
+	rootDir tela.Child
 }
 
 // useColorParts is the hook of a picker, called by the component that
@@ -227,10 +240,11 @@ func useColorParts(p ColorPicker) colorParts {
 	sh.onChange, sh.onCommit = p.OnValueChange, p.OnValueCommit
 	st := aria.UseColorState(aria.ColorStateOptions{Value: p.Value, DefaultValue: def, OnChange: sh.changed})
 	end := func(tela.Color) { sh.commit() }
-	c := colorParts{st: st, sh: sh, color: st.Color()}
-	c.area = aria.UseColorArea(aria.ColorAreaOptions{State: st, Disabled: p.Disabled, AriaLabel: p.AreaLabel, OnChangeEnd: end})
-	c.hue = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue, Disabled: p.Disabled, AriaLabel: p.HueLabel, OnChangeEnd: end})
-	c.alpha = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorAlpha, Disabled: p.Disabled, AriaLabel: p.AlphaLabel, OnChangeEnd: end})
+	dir, rootDir := useDirection("ColorPicker", p.Direction)
+	c := colorParts{st: st, sh: sh, color: st.Color(), rtl: dir == "rtl", rootDir: rootDir}
+	c.area = aria.UseColorArea(aria.ColorAreaOptions{State: st, Disabled: p.Disabled, AriaLabel: p.AreaLabel, OnChangeEnd: end, Direction: dir})
+	c.hue = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue, Disabled: p.Disabled, AriaLabel: p.HueLabel, OnChangeEnd: end, Direction: dir})
+	c.alpha = aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorAlpha, Disabled: p.Disabled, AriaLabel: p.AlphaLabel, OnChangeEnd: end, Direction: dir})
 	c.hex = aria.UseColorField(aria.ColorFieldOptions{State: st, Alpha: p.Alpha, Disabled: p.Disabled, AriaLabel: orStr(p.HexLabel, "Hex")})
 	c.areaSize, c.areaThumb = tela.UseSize(c.area.AreaRef), tela.UseSize(c.area.ThumbRef)
 	c.hueTrack, c.hueThumb = tela.UseSize(c.hue.TrackRef), tela.UseSize(c.hue.ThumbRef)
@@ -252,7 +266,7 @@ func (c colorPanel) Build() tela.Node { return c.node(UseStyle()) }
 func (c colorPanel) node(style *Style) tela.Node {
 	s := &style.ColorPicker
 	p, k := c.p, c.parts
-	kids := []tela.Child{cls(s.Root, when(p.Disabled, s.Disabled), p.Class), p.Props, c.areaNode(s)}
+	kids := []tela.Child{cls(s.Root, when(p.Disabled, s.Disabled), p.Class), k.rootDir, p.Props, c.areaNode(s)}
 	kids = append(kids, c.hueNode(s))
 	if p.Alpha {
 		kids = append(kids, c.alphaNode(s))
@@ -295,7 +309,9 @@ func (c colorPanel) areaNode(s *ColorPickerStyle) tela.Node {
 	st, area, size, self := k.st, k.area, k.areaSize, k.areaThumb
 	return h.Div(cls(s.Area), area.AreaProps,
 		h.Style(tela.BgFn(func() tela.Color { return hueColor(st.LiveHSB()) })),
-		h.Div(cls(s.AreaSaturation)), h.Div(cls(s.AreaBrightness)),
+		// The saturation is at its least at the start of the area: the
+		// right, in a right-to-left picker.
+		h.Div(cls(s.AreaSaturation, when(k.rtl, "bg-linear-to-l"))), h.Div(cls(s.AreaBrightness)),
 		h.Div(cls(s.AreaThumb), area.ThumbProps,
 			h.Style(tela.BgFn(func() tela.Color { return opaque(st.LiveColor()) }),
 				tela.TranslateFn(func() (x, y float32) {
@@ -311,8 +327,12 @@ func (c colorPanel) areaNode(s *ColorPickerStyle) tela.Node {
 func (c colorPanel) hueNode(s *ColorPickerStyle) tela.Node {
 	k := c.parts
 	st := k.st
-	return sliderNode(s, k.hue, k.hueTrack, k.hueThumb,
-		[]tela.Child{cls(s.Track, s.HueTrack)},
+	hue := s.HueTrack
+	if k.rtl {
+		hue = strings.Replace(hue, "linear-[90deg", "linear-[270deg", 1)
+	}
+	return sliderNode(s, k.rtl, k.hue, k.hueTrack, k.hueThumb,
+		[]tela.Child{cls(s.Track, hue)},
 		func() tela.Color { return hueColor(st.LiveHSB()) })
 }
 
@@ -325,20 +345,31 @@ func (c colorPanel) alphaNode(s *ColorPickerStyle) tela.Node {
 	st := k.st
 	clear, solid := k.color, opaque(k.color)
 	clear.A = 0
-	return sliderNode(s, k.alpha, k.alphaTrack, k.alphaThumb,
+	angle := float32(90)
+	if k.rtl {
+		angle = 270
+	}
+	return sliderNode(s, k.rtl, k.alpha, k.alphaTrack, k.alphaThumb,
 		[]tela.Child{cls(s.Checkerboard, s.Track, s.AlphaTrack),
-			h.Div(cls(s.AlphaFill), h.Style(tela.BackgroundGradient(tela.LinearGradient(90, tela.Stop(clear), tela.Stop(solid)))))},
+			h.Div(cls(s.AlphaFill), h.Style(tela.BackgroundGradient(tela.LinearGradient(angle, tela.Stop(clear), tela.Stop(solid)))))},
 		func() tela.Color { return opaque(st.LiveColor()) })
 }
 
 // sliderNode is a slider row: its track, with the given classes and
-// children, and its thumb, centered on the value and filled by fill.
-func sliderNode(s *ColorPickerStyle, sl aria.ColorSliderResult, track, self *tela.Value[tela.Size], trackKids []tela.Child, fill func() tela.Color) tela.Node {
+// children, and its thumb, centered on the value and filled by fill. A
+// right-to-left row has its minimum at the right, where its thumb is
+// anchored (right-0 and not end-0: the keys and the drag follow the
+// picker's Direction, which the thumb must agree with).
+func sliderNode(s *ColorPickerStyle, rtl bool, sl aria.ColorSliderResult, track, self *tela.Value[tela.Size], trackKids []tela.Child, fill func() tela.Color) tela.Node {
 	return h.Div(cls(s.Slider), sl.Props,
 		h.Div(append(trackKids, sl.TrackProps)...),
-		h.Div(cls(s.Thumb), sl.ThumbProps,
+		h.Div(cls(s.Thumb, when(rtl, "right-0 left-auto")), sl.ThumbProps,
 			h.Style(tela.BgFn(fill), tela.TranslateFn(func() (x, y float32) {
-				return float32(sl.ThumbPercent())/100*track.Get().Width - self.Get().Width/2, 0
+				x = float32(sl.ThumbPercent())/100*track.Get().Width - self.Get().Width/2
+				if rtl {
+					x = -x
+				}
+				return x, 0
 			}))))
 }
 
@@ -346,7 +377,7 @@ func sliderNode(s *ColorPickerStyle, sl aria.ColorSliderResult, track, self *tel
 func (c colorPanel) hexNode(st *Style) tela.Node {
 	k := c.parts
 	sh := k.sh
-	return h.Input(cls(st.Input.Root, st.ColorPicker.Input), k.hex.InputProps,
+	return h.Input(cls(st.Input.Root, st.ColorPicker.Input), h.Dir("ltr"), k.hex.InputProps,
 		// Enter and a blur commit the text (the hook's handlers ran first).
 		h.OnBlur(sh.commit),
 		h.OnKeyDown(func(e tela.KeyboardEvent) {
@@ -401,6 +432,12 @@ type ColorInput struct {
 	// picker" by default).
 	AreaLabel, HueLabel, AlphaLabel, HexLabel string
 	AriaLabel                                 string
+	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+	// right without one). Under "rtl" the saturation grows toward the left
+	// of the area, the hue and the opacity toward the left of their sliders,
+	// and ArrowLeft increases them; a Direction given here also sets the
+	// direction of the panel's layout, not the button's.
+	Direction string
 
 	// Class is added to the default button's classes; PanelClass to the
 	// picker's root; PopoverClass to the popover's panel.
@@ -418,6 +455,7 @@ func (c ColorInput) Build() tela.Node {
 		Value: c.Value, DefaultValue: c.DefaultValue, OnValueChange: c.OnValueChange, OnValueCommit: c.OnValueCommit,
 		Alpha: c.Alpha, Swatches: c.Swatches, Disabled: c.Disabled, Class: c.PanelClass,
 		AreaLabel: c.AreaLabel, HueLabel: c.HueLabel, AlphaLabel: c.AlphaLabel, HexLabel: c.HexLabel,
+		Direction: c.Direction,
 	}
 	parts := useColorParts(p)
 	trig := c.Trigger
@@ -454,5 +492,5 @@ type colorInputLabel struct {
 
 func (l colorInputLabel) Build() tela.Node {
 	r := &UseStyle().ColorInput
-	return h.Fragment(colorSwatch(l.st, UseStyle(), r.Swatch), h.Text(l.text))
+	return h.Fragment(colorSwatch(l.st, UseStyle(), r.Swatch), h.Span(h.Dir("ltr"), h.Text(l.text)))
 }

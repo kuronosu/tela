@@ -30,8 +30,8 @@ func init() {
 	defaultStyle.ToggleGroup = ToggleGroupStyle{
 		Root:                      "flex w-fit items-center rounded-md",
 		Item:                      "w-auto min-w-0 shrink-0 px-3 focus:z-10 focus-visible:z-10",
-		ItemWithoutSpacing:        "rounded-none shadow-none first:rounded-l-md last:rounded-r-md",
-		OutlineItemWithoutSpacing: "border-l-0 first:border-l",
+		ItemWithoutSpacing:        "rounded-none shadow-none first:rounded-s-md last:rounded-e-md",
+		OutlineItemWithoutSpacing: "border-s-0 first:border-s",
 	}
 }
 
@@ -116,6 +116,10 @@ type ToggleGroup[K comparable] struct {
 	// keys follow; the items are laid out in a row either way (use Class
 	// "flex-col" for a column).
 	Orientation Orientation
+	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+	// right without one). Under "rtl" ArrowLeft goes to the next item and ArrowRight to the previous one; a Direction given here also
+	// sets the direction of the layout.
+	Direction string
 	// Disabled disables every item.
 	Disabled bool
 	// AriaLabel names the group.
@@ -168,13 +172,15 @@ func (g ToggleGroup[K]) Build() tela.Node {
 			}
 		}
 	}
+	dir, rootDir := useDirection("ToggleGroup", g.Direction)
+	o.Direction = dir
 	grp := aria.UseToggleGroup(o)
 
 	variant, size := pick("Toggle", "Variant", t.Variants, g.Variant), pick("Toggle", "Size", t.Sizes, g.Size)
 	joined := g.Spacing <= 0
 	itemClass := joinClass(t.Root, variant, size, t.On, r.Item,
 		when(joined, joinClass(r.ItemWithoutSpacing, when(g.Variant == Outline, r.OutlineItemWithoutSpacing))), g.ItemClass)
-	kids := []tela.Child{cls(r.Root, when(!joined, fmt.Sprintf("gap-%d", g.Spacing)), g.Class), grp.Props, g.Props}
+	kids := []tela.Child{cls(r.Root, when(!joined, fmt.Sprintf("gap-%d", g.Spacing)), g.Class), rootDir, grp.Props, g.Props}
 	for _, it := range g.Items {
 		ik := []tela.Child{h.Key(it.Value), cls(itemClass), grp.ItemProps(it.Value)}
 		if it.AriaLabel != "" {

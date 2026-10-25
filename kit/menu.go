@@ -170,7 +170,7 @@ type MenuStyle struct {
 // holds, at the pinned commit. A menu's open and close animation are the
 // popover's.
 func defaultMenuStyle() MenuStyle {
-	const indicatorItem = "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
+	const indicatorItem = "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pe-2 ps-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
 	return MenuStyle{
 		Content: "z-50 min-w-32 overflow-x-hidden overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md outline-hidden " +
 			"transition duration-150 starting:scale-95 starting:opacity-0",
@@ -187,7 +187,7 @@ func defaultMenuStyle() MenuStyle {
 			"":          "",
 			Destructive: "text-destructive focus:bg-destructive/10 focus:text-destructive dark:focus:bg-destructive/20",
 		},
-		ItemInset: "pl-8",
+		ItemInset: "ps-8",
 		ItemIcon:  "pointer-events-none size-4 shrink-0",
 		ItemIconVariants: map[Variant]string{
 			"":          "text-muted-foreground",
@@ -195,13 +195,13 @@ func defaultMenuStyle() MenuStyle {
 		},
 		CheckboxItem: indicatorItem,
 		RadioItem:    indicatorItem,
-		Indicator:    "pointer-events-none absolute left-2 flex size-3.5 items-center justify-center",
+		Indicator:    "pointer-events-none absolute start-2 flex size-3.5 items-center justify-center",
 		CheckIcon:    "size-4",
 		RadioIcon:    "size-2 fill-current",
 		Label:        "px-2 py-1.5 text-sm font-medium",
-		LabelInset:   "pl-8",
+		LabelInset:   "ps-8",
 		Separator:    "-mx-1 my-1 h-px bg-border",
-		Shortcut:     "ml-auto text-xs tracking-widest text-muted-foreground",
+		Shortcut:     "ms-auto text-xs tracking-widest text-muted-foreground",
 	}
 }
 

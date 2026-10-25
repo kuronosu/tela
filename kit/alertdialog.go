@@ -46,7 +46,7 @@ func init() {
 		Exit:   "scale-95 opacity-0",
 		Header: "grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center",
 		HeaderSizes: map[Size]string{
-			"": "sm:place-items-start sm:text-left",
+			"": "sm:place-items-start sm:text-start",
 		},
 		Title:       "text-lg font-semibold",
 		Description: "text-sm text-muted-foreground",

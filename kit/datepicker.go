@@ -33,7 +33,7 @@ type DatePickerStyle struct {
 
 func init() {
 	defaultStyle.DatePicker = DatePickerStyle{
-		Root:     "w-[240px] justify-start text-left font-normal",
+		Root:     "w-[240px] justify-start text-start font-normal",
 		Range:    "w-[300px]",
 		Empty:    "text-muted-foreground",
 		Content:  "w-auto p-0",

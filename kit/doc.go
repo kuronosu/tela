@@ -137,6 +137,25 @@
 //	kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 //	    Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
 //
+// # Right to left
+//
+// The recipes of the kit are written with logical utilities (ps-*, pe-*,
+// start-*, end-*, ms-*, me-*, rounded-s-*, rounded-e-*, text-start, text-end)
+// and the rtl: variant, which are the physical ones in left-to-right and
+// mirror under h.Dir("rtl"), so a kit page needs nothing but the direction
+// to be mirrored: menu check marks and shortcuts, a select's items, a
+// dialog's close button, a switch's thumb, a table's sticky columns, a
+// progress bar's fill. What stays physical is a position that names a side
+// (a Toaster's ToastBottomRight, a Popover's Placement "right"), as sonner's
+// and Floating UI's do; an Align of "start" follows the direction.
+//
+// A component cannot read its direction while it builds, and the ones whose
+// arrow keys or drag follow it need it: Slider, Tabs, ToggleGroup, RadioGroup,
+// Menubar, ColorPicker and the calendars. Give it with a [DirectionProvider]
+// around the app (it sets h.Dir too) or a Direction field on the component:
+//
+//	kit.DirectionProvider{Direction: i18n.UseFormatter().Dir().String(), Children: App{}}
+//
 // # Overlays and triggers
 //
 // A [Dialog], [AlertDialog], [Popover] and [Tooltip] draw in a Portal over

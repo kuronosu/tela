@@ -24,7 +24,9 @@ var (
 )
 
 // ToastPosition is the corner or edge of the window a [Toaster] puts its
-// toasts at. The zero value is ToastBottomRight.
+// toasts at. The zero value is ToastBottomRight. Left and right are the
+// window's, whatever the direction, as sonner's positions are (the toast's
+// own layout, its icon, action and close button, follows the direction).
 type ToastPosition string
 
 const (
@@ -91,7 +93,7 @@ func init() {
 			ToastBottomCenter: "bottom-6 left-1/2 -translate-x-1/2",
 			ToastBottomRight:  "bottom-6 right-6",
 		},
-		Item: "absolute left-0 box-border flex w-full items-center gap-1.5 rounded-lg border border-border bg-popover p-4 text-[13px] text-popover-foreground " +
+		Item: "absolute start-0 box-border flex w-full items-center gap-1.5 rounded-lg border border-border bg-popover p-4 text-[13px] text-popover-foreground " +
 			"shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-[transform,opacity,height,box-shadow] duration-[400ms] outline-none focus-visible:ring-2 focus-visible:ring-black/20",
 		Sides: map[string]string{
 			"top":    "top-0",
@@ -108,16 +110,16 @@ func init() {
 		Hidden:      "pointer-events-none opacity-0",
 		Body:        "flex w-full items-center gap-1.5 transition-opacity duration-[400ms]",
 		Collapsed:   "opacity-0",
-		Bridge:      "absolute bottom-full left-0 h-[15px] w-full",
-		Icon:        "relative -ml-[3px] mr-1 flex size-4 shrink-0 items-center justify-start",
-		IconSvg:     "-ml-px size-4 shrink-0",
+		Bridge:      "absolute bottom-full start-0 h-[15px] w-full",
+		Icon:        "relative -ms-[3px] me-1 flex size-4 shrink-0 items-center justify-start",
+		IconSvg:     "-ms-px size-4 shrink-0",
 		Spinner:     "animate-spin",
 		Content:     "flex flex-col gap-0.5",
 		Title:       "leading-normal font-medium",
 		Description: "leading-[1.4] font-normal text-[#3f3f3f] dark:text-[#e8e8e8]",
-		Action: "ml-auto flex h-6 shrink-0 cursor-pointer items-center rounded bg-popover-foreground px-2 text-xs font-medium text-popover outline-none " +
+		Action: "ms-auto flex h-6 shrink-0 cursor-pointer items-center rounded bg-popover-foreground px-2 text-xs font-medium text-popover outline-none " +
 			"focus-visible:ring-2 focus-visible:ring-black/40",
-		Close: "absolute top-0 left-0 z-10 flex size-5 -translate-x-[35%] -translate-y-[35%] cursor-pointer items-center justify-center rounded-full border border-[#ededed] " +
+		Close: "absolute top-0 start-0 z-10 flex size-5 -translate-x-[35%] -translate-y-[35%] rtl:translate-x-[35%] cursor-pointer items-center justify-center rounded-full border border-[#ededed] " +
 			"bg-popover p-0 text-[#171717] outline-none transition-colors hover:border-[#e8e8e8] hover:bg-[#f8f8f8] focus-visible:ring-2 focus-visible:ring-black/20 " +
 			"dark:border-border dark:text-popover-foreground dark:hover:border-[#404040] dark:hover:bg-[#1f1f1f]",
 		CloseIcon: "size-3 stroke-[1.5]",

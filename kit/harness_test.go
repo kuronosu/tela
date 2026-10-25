@@ -92,6 +92,9 @@ type sheet struct {
 	mean [2]float64
 	// theme is the tree's theme (nil: kit.Theme()).
 	theme *tela.Theme
+	// rtl lays the panels out right to left (h.Dir("rtl") on Tela's, dir="rtl"
+	// on Chromium's); its golden is the light panel at scale 1 only.
+	rtl bool
 }
 
 func (s *sheet) pageWidth() int {
@@ -125,6 +128,25 @@ func (c cell) wrapperClass() string {
 	return "flex"
 }
 
+// rtlMarkup turns the physical classes of shadcn's markup (the pinned commit
+// predates its right-to-left registry) into their logical equivalents, which
+// is what its registry's right-to-left components are: the reference for a
+// right-to-left render is shadcn's markup written for right to left.
+var rtlMarkup = strings.NewReplacer(
+	`dir="ltr"`, `dir="rtl"`, // what Radix writes under DirectionProvider rtl
+	"rounded-l-md", "rounded-s-md", "rounded-r-md", "rounded-e-md",
+	"border-l-0", "border-s-0", "first:border-l", "first:border-s",
+	"text-left", "text-start", "text-right", "text-end",
+	"pr-8 pl-2", "pe-8 ps-2", "pr-2 pl-8", "pe-2 ps-8", "data-[inset]:pl-8", "data-[inset]:ps-8",
+	"absolute left-2", "absolute start-2", "absolute right-2", "absolute end-2", "ml-auto", "ms-auto",
+	"transform: translateX(-50%); position: absolute; left:", "transform: translateX(50%); position: absolute; right:", // Radix's slider thumb
+	"transform: translateX(-", "transform: translateX(", // shadcn's progress indicator, filled from the right
+	"absolute top-4 right-4", "absolute top-4 end-4", "after:-right-1", "after:-end-1",
+	"data-[state=checked]:translate-x-[calc(100%-2px)]", "data-[state=checked]:translate-x-[calc(100%-2px)] rtl:data-[state=checked]:-translate-x-[calc(100%-2px)]",
+)
+
+var sliderRangeInset = regexp.MustCompile(`style="left: ([0-9.]+)%; right: ([0-9.]+)%;"`)
+
 // slotClass is the class of the fixed-width slot a cell sits in when the
 // sheet has a slot width ("" without one). Slots keep a cell where it is
 // whatever the text widths before it are, which Chromium rounds to 1/64 px
@@ -145,7 +167,13 @@ func (s *sheet) cellNode(c cell, probe bool) tela.Node {
 	if probe {
 		kids = append(kids, h.TestID(c.name))
 	}
-	kids = append(kids, c.tela)
+	if s.rtl {
+		// The provider sets the direction for the components whose keys
+		// and drags depend on it (the panel's h.Dir does the layout).
+		kids = append(kids, kit.DirectionProvider{Direction: "rtl", Children: c.tela})
+	} else {
+		kids = append(kids, c.tela)
+	}
 	w := h.Div(kids...)
 	if s.slot > 0 {
 		return h.Div(h.Class(s.slotClass()), w)
@@ -155,7 +183,13 @@ func (s *sheet) cellNode(c cell, probe bool) tela.Node {
 
 // cellHTML is the Chromium side of a cell.
 func (s *sheet) cellHTML(c cell) string {
-	w := fmt.Sprintf("<div data-probe=%q class=%q>\n%s\n</div>\n", c.name, c.wrapperClass(), strings.TrimSpace(c.html))
+	markup := strings.TrimSpace(c.html)
+	if s.rtl {
+		markup = rtlMarkup.Replace(markup)
+		// Radix's slider range is inset from the side it starts at.
+		markup = sliderRangeInset.ReplaceAllString(markup, `style="right: $1%; left: $2%;"`)
+	}
+	w := fmt.Sprintf("<div data-probe=%q class=%q>\n%s\n</div>\n", c.name, c.wrapperClass(), markup)
 	if s.slot > 0 {
 		return fmt.Sprintf("<div class=%q>\n%s</div>\n", s.slotClass(), w)
 	}
@@ -165,6 +199,9 @@ func (s *sheet) cellHTML(c cell) string {
 // panel is the Tela side of a panel; dark puts it under a dark Scheme.
 func (s *sheet) panel(dark bool) tela.Node {
 	kids := []tela.Child{h.Class(panelClass), h.TestID("panel")}
+	if s.rtl {
+		kids = append(kids, h.Dir("rtl"))
+	}
 	if dark {
 		kids = append(kids, h.Scheme(tela.Dark))
 	}
@@ -200,7 +237,11 @@ func (s *sheet) golden(t *testing.T) {
 	t.Helper()
 	w := s.pageWidth()
 	light, _ := s.heights(t)
-	for _, scheme := range []string{"light", "dark"} {
+	schemes, scales := []string{"light", "dark"}, []float64{1, 2}
+	if s.rtl {
+		schemes, scales = schemes[:1], scales[:1]
+	}
+	for _, scheme := range schemes {
 		opts := []telatest.Option{telatest.Size(float32(w), float32(light)), telatest.Theme(s.themeOf()),
 			telatest.RootClass("bg-background text-foreground")}
 		if scheme == "dark" {
@@ -208,12 +249,15 @@ func (s *sheet) golden(t *testing.T) {
 		}
 		app := telatest.MountFunc(t, func() tela.Node {
 			kids := []tela.Child{h.Class(panelClass)}
+			if s.rtl {
+				kids = append(kids, h.Dir("rtl"))
+			}
 			for _, c := range s.cells {
 				kids = append(kids, s.cellNode(c, false))
 			}
 			return h.Div(kids...)
 		}, opts...)
-		app.GoldenScales(s.name+"_"+scheme, 1, 2)
+		app.GoldenScales(s.name+"_"+scheme, scales...)
 	}
 }
 
@@ -232,7 +276,11 @@ func (s *sheet) html() string {
 		if dark {
 			cls = "dark " + cls
 		}
-		fmt.Fprintf(&sb, "<div data-probe=\"panel\" class=%q>\n", cls)
+		attrs := ""
+		if s.rtl {
+			attrs = " dir=\"rtl\""
+		}
+		fmt.Fprintf(&sb, "<div data-probe=\"panel\"%s class=%q>\n", attrs, cls)
 		for _, c := range s.cells {
 			sb.WriteString(s.cellHTML(c))
 		}

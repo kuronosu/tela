@@ -15,7 +15,9 @@ type SwitchStyle struct {
 	// Sizes are the track's dimensions: the default and Sm.
 	Sizes map[Size]string
 	// Thumb is the knob: its colors and its move from the off position to
-	// the on one (shadcn's data-[state=checked]:translate-x-[calc(100%-2px)]).
+	// the on one (shadcn's data-[state=checked]:translate-x-[calc(100%-2px)],
+	// which goes the other way under a right-to-left direction, as in
+	// shadcn's right-to-left registry).
 	Thumb string
 	// ThumbSizes are the knob's size per switch size.
 	ThumbSizes map[Size]string
@@ -31,7 +33,7 @@ func init() {
 			Sm: "h-3.5 w-6",
 		},
 		Thumb: "pointer-events-none block rounded-full bg-background ring-0 transition-transform translate-x-0 " +
-			"group-checked:translate-x-[calc(100%-2px)] dark:bg-foreground group-checked:dark:bg-primary-foreground",
+			"group-checked:translate-x-[calc(100%-2px)] group-checked:rtl:-translate-x-[calc(100%-2px)] dark:bg-foreground group-checked:dark:bg-primary-foreground",
 		ThumbSizes: map[Size]string{
 			"": "size-4",
 			Sm: "size-3",

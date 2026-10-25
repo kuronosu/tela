@@ -20,7 +20,11 @@ var (
 )
 
 // ColumnAlign is the horizontal alignment of a [Column]'s header, cells and
-// footer. The zero value is left, as shadcn's `text-left`.
+// footer. The zero value is left, as shadcn's `text-left`. Left and right
+// are the start and the end of the line: under a right-to-left direction
+// (h.Dir("rtl")) the table mirrors and AlignRight is at the left, where
+// numbers belong, as in shadcn's right-to-left registry (text-start and
+// text-end).
 type ColumnAlign string
 
 const (
@@ -116,7 +120,7 @@ func init() {
 		Body:   "contents",
 		Footer: "contents font-medium",
 		Row:    "group contents",
-		Head:   "flex h-10 items-center border-b border-border px-2 text-left font-medium whitespace-nowrap text-foreground",
+		Head:   "flex h-10 items-center border-b border-border px-2 text-start font-medium whitespace-nowrap text-foreground",
 		Cell: "flex items-center border-b border-border p-2 whitespace-nowrap transition-colors " +
 			"group-hover:bg-muted/50 group-aria-selected:bg-muted",
 		CellWithLastRow: "border-b-0",
@@ -124,7 +128,7 @@ func init() {
 		Aligns: map[ColumnAlign]string{
 			AlignLeft:   "",
 			AlignCenter: "justify-center text-center",
-			AlignRight:  "justify-end text-right",
+			AlignRight:  "justify-end text-end",
 		},
 		HeadSticky:           "sticky top-0 z-20 bg-background",
 		HeadStickyColumn:     "z-30",
@@ -162,7 +166,8 @@ type Column[T any] struct {
 	// Width is the column's grid track: "200px", "1fr", "auto", "minmax(120px, 1fr)",
 	// "min-content"... The default is "auto".
 	Width string
-	// Align is AlignLeft (the default), AlignCenter or AlignRight.
+	// Align is AlignLeft (the default), AlignCenter or AlignRight; the first
+	// and the last are the start and the end of the line (see ColumnAlign).
 	Align ColumnAlign
 	// Sticky keeps the column in place when the table scrolls
 	// horizontally. Sticky columns come first, and every sticky column
@@ -405,7 +410,8 @@ func (t Table[T]) Build() tela.Node {
 }
 
 // stickyClass is the classes of a cell of a sticky column that starts left
-// px from the container's left edge; footer picks the footer's background.
+// px from the container's start edge (its left, or its right under a
+// right-to-left direction); footer picks the footer's background.
 func (t Table[T]) stickyClass(s *TableStyle, left float32, footer bool) string {
 	l := stickyLeft(left)
 	if footer {
@@ -471,12 +477,13 @@ func (t Table[T]) headCell(s *TableStyle, c Column[T], i int, sorted bool, cur S
 	return h.Div(append(kids, btn)...)
 }
 
-// stickyLeft is the left inset class of a sticky cell.
+// stickyLeft is the inline-start inset class of a sticky cell: left-N in a
+// left-to-right table and right-N in a right-to-left one.
 func stickyLeft(left float32) string {
 	if left > 0 {
-		return "left-[" + strconv.FormatFloat(float64(left), 'f', -1, 32) + "px]"
+		return "start-[" + strconv.FormatFloat(float64(left), 'f', -1, 32) + "px]"
 	}
-	return "left-0"
+	return "start-0"
 }
 
 // nextSort is the state after pressing the header of column id: ascending,

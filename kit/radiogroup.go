@@ -141,6 +141,10 @@ type RadioGroup[K comparable] struct {
 	// Orientation is Vertical (the default) or Horizontal; it is the
 	// group's aria-orientation and the arrangement of the options.
 	Orientation Orientation
+	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+	// right without one). Under "rtl" ArrowLeft goes to the next option and ArrowRight to the previous one; a Direction given here also
+	// sets the direction of the layout.
+	Direction string
 	// Disabled disables every option.
 	Disabled bool
 	// ReadOnly keeps the options focusable but not changeable.
@@ -196,11 +200,12 @@ func (g RadioGroup[K]) Build() tela.Node {
 			disabled = append(disabled, it.Value)
 		}
 	}
+	dir, rootDir := useDirection("RadioGroup", g.Direction)
 	grp := aria.UseRadioGroup(aria.RadioGroupOptions[K]{
 		Keys: keys, DisabledKeys: disabled, Value: g.Value, DefaultValue: g.DefaultValue, OnValueChange: g.OnValueChange,
-		Disabled: g.Disabled, ReadOnly: g.ReadOnly, Required: g.Required, Orientation: string(o), AriaLabel: g.AriaLabel,
+		Disabled: g.Disabled, ReadOnly: g.ReadOnly, Required: g.Required, Orientation: string(o), AriaLabel: g.AriaLabel, Direction: dir,
 	})
-	kids := []tela.Child{cls(s.Root, pick("RadioGroup", "Orientation", s.Orientations, o), g.Class), grp.Props, g.Props}
+	kids := []tela.Child{cls(s.Root, pick("RadioGroup", "Orientation", s.Orientations, o), g.Class), rootDir, grp.Props, g.Props}
 	kids = append(kids, field...)
 	if id != "" {
 		kids = append(kids, h.ID(id))

@@ -22,7 +22,7 @@ func init() {
 	menu := defaultMenuStyle()
 	menu.Content = "z-50 min-w-48 overflow-x-hidden overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md outline-hidden " +
 		"transition duration-150 starting:scale-95 starting:opacity-0"
-	menu.CheckboxItem = "relative flex cursor-default items-center gap-2 rounded-xs py-1.5 pr-2 pl-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
+	menu.CheckboxItem = "relative flex cursor-default items-center gap-2 rounded-xs py-1.5 pe-2 ps-8 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
 	menu.RadioItem = menu.CheckboxItem
 	defaultStyle.Menubar = MenubarStyle{
 		Root: "flex h-9 items-center gap-1 rounded-md border border-border bg-background p-1 shadow-xs",
@@ -81,6 +81,10 @@ type Menubar[K comparable] struct {
 	OnSelect func(menu, item K)
 	// AriaLabel names the bar.
 	AriaLabel string
+	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+	// right without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
+	// sets the direction of the layout.
+	Direction string
 	// CheckIcon and RadioIcon replace the check of a checkbox item and the
 	// dot of a radio item.
 	CheckIcon, RadioIcon tela.Icon
@@ -116,12 +120,13 @@ func (m Menubar[K]) Build() tela.Node {
 			disabled = append(disabled, mm.Key)
 		}
 	}
+	dir, rootDir := useDirection("Menubar", m.Direction)
 	bar := aria.UseMenuBar(aria.MenuBarOptions[K]{
 		Keys: keys, DisabledKeys: disabled, Open: m.Open, DefaultOpen: m.DefaultOpen, OnOpenChange: m.OnOpenChange,
-		AriaLabel: m.AriaLabel,
+		AriaLabel: m.AriaLabel, Direction: dir,
 	})
 
-	kids := []tela.Child{bar.Props, cls(st.Root, m.Class), m.Props}
+	kids := []tela.Child{bar.Props, cls(st.Root, m.Class), rootDir, m.Props}
 	for _, mm := range m.Menus {
 		kids = append(kids, h.Button(bar.TriggerProps(mm.Key), h.Key(mm.Key), cls(st.Trigger, m.TriggerClass), h.Text(mm.Label)))
 	}

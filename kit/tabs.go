@@ -78,7 +78,7 @@ func init() {
 		Indicator: "absolute bg-foreground opacity-0 transition-opacity group-aria-selected:opacity-100",
 		IndicatorOrientations: map[Orientation]string{
 			Horizontal: "inset-x-0 bottom-[-5px] h-0.5",
-			Vertical:   "inset-y-0 -right-1 w-0.5",
+			Vertical:   "inset-y-0 -end-1 w-0.5",
 		},
 		Content: "flex-1 outline-none",
 	}
@@ -140,6 +140,10 @@ type Tabs[K comparable] struct {
 	Orientation Orientation
 	// Variant is Default (the muted pill) or TabsLine.
 	Variant Variant
+	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+	// right without one). Under "rtl" ArrowLeft goes to the next tab and ArrowRight to the previous one; a Direction given here also
+	// sets the direction of the layout.
+	Direction string
 	// ManualActivation makes the arrow keys only move the focus; Enter or
 	// Space selects the focused tab. By default the focused tab is selected.
 	ManualActivation bool
@@ -196,6 +200,8 @@ func (t Tabs[K]) Build() tela.Node {
 			}
 		}
 	}
+	dir, rootDir := useDirection("Tabs", t.Direction)
+	o.Direction = dir
 	tabs := aria.UseTabs(o)
 	current, _ := tabs.Selected.First()
 
@@ -223,5 +229,5 @@ func (t Tabs[K]) Build() tela.Node {
 			panel = h.Div(tabs.PanelProps(tab.Value), cls(s.Content, t.ContentClass), tab.Content)
 		}
 	}
-	return h.Div(cls(s.Root, rootClass, t.Class), t.Props, h.Div(triggers...), panel)
+	return h.Div(cls(s.Root, rootClass, t.Class), rootDir, t.Props, h.Div(triggers...), panel)
 }

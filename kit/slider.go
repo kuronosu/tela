@@ -110,6 +110,12 @@ type Slider struct {
 	MinStepsBetweenThumbs int
 	// Orientation is Horizontal (the default) or Vertical.
 	Orientation Orientation
+	// Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s
+	// (left to right without one). Under "rtl" a horizontal slider has its
+	// Min at the right, ArrowLeft increases the value and a drag follows
+	// the pointer; a Direction given here also sets the direction of the
+	// slider's layout.
+	Direction string
 	// Disabled dims the slider and makes it ignore the user.
 	Disabled bool
 	// FormatValue returns a value as people read it (aria-valuetext).
@@ -174,6 +180,11 @@ func (s Slider) Build() tela.Node {
 			}
 		}
 	}
+	dir, rootDir := useDirection("Slider", s.Direction)
+	rtl := dir == "rtl" && !vertical
+	if rtl {
+		so.Direction = dir // a vertical slider does not mirror, as Radix's
+	}
 	sl := aria.UseSlider(so)
 	dragging = &sl.Dragging
 	track := tela.UseSize(sl.TrackRef)
@@ -189,12 +200,12 @@ func (s Slider) Build() tela.Node {
 		pct = func(int) float64 { return (min(max(src.Get(), lo), hi) - lo) / (hi - lo) * 100 }
 	}
 	kids := []tela.Child{cls(r.Root, rootClass, when(s.Disabled, r.Disabled), s.Class),
-		sl.Props, sl.TrackProps, s.Props}
+		rootDir, sl.Props, sl.TrackProps, s.Props}
 	kids = append(kids, h.Div(cls(r.Track, trackClass, s.TrackClass),
-		sliderRange{pct: pct, n: n, track: track, vertical: vertical,
+		sliderRange{pct: pct, n: n, track: track, vertical: vertical, rtl: rtl,
 			class: joinClass(r.Range, rangeClass, s.RangeClass)}))
 	for i := range n {
-		kids = append(kids, sliderThumb{res: sl, pct: pct, i: i, track: track, vertical: vertical, class: joinClass(r.Thumb, s.ThumbClass)})
+		kids = append(kids, sliderThumb{res: sl, pct: pct, i: i, track: track, vertical: vertical, rtl: rtl, class: joinClass(r.Thumb, s.ThumbClass)})
 	}
 	return h.Div(kids...)
 }
@@ -207,7 +218,12 @@ type sliderRange struct {
 	n        int
 	track    *tela.Value[tela.Size]
 	vertical bool
-	class    string
+	// rtl is a horizontal slider with its Min at the right: the range is
+	// anchored at the right edge and moves the other way. The classes are
+	// physical (right-0, not end-0) because the slider's keys and drag are
+	// decided by Direction, not by the layout's, and the two must agree.
+	rtl   bool
+	class string
 }
 
 func (r sliderRange) Build() tela.Node {
@@ -215,11 +231,14 @@ func (r sliderRange) Build() tela.Node {
 	if r.n == 1 {
 		// The track clips what sticks out: the bar is slid back by the part
 		// that is not filled.
-		return h.Div(cls(r.class, "size-full", "top-0 left-0"),
+		return h.Div(cls(r.class, "size-full", "top-0", r.anchor()),
 			h.Style(tela.TranslateFn(func() (x, y float32) {
 				rest := float32(1 - pct(0)/100)
 				if r.vertical {
 					return 0, rest * track.Get().Height
+				}
+				if r.rtl {
+					return rest * track.Get().Width, 0
 				}
 				return -rest * track.Get().Width, 0
 			})))
@@ -242,14 +261,25 @@ func (r sliderRange) Build() tela.Node {
 				return 0, -float32(lo) * track.Get().Height
 			})))
 	}
-	return h.Div(cls(r.class, "top-0 left-0"),
+	return h.Div(cls(r.class, "top-0", r.anchor()),
 		h.Style(tela.WidthFn(func() float32 {
 			lo, hi := extent()
 			return float32(hi-lo) * track.Get().Width
 		}), tela.TranslateFn(func() (x, y float32) {
 			lo, _ := extent()
+			if r.rtl {
+				return -float32(lo) * track.Get().Width, 0
+			}
 			return float32(lo) * track.Get().Width, 0
 		})))
+}
+
+// anchor is the edge a horizontal range starts from.
+func (r sliderRange) anchor() string {
+	if r.rtl {
+		return "right-0"
+	}
+	return "left-0"
 }
 
 // sliderThumb is one knob. It is a component of its own to measure itself
@@ -261,6 +291,7 @@ type sliderThumb struct {
 	i        int
 	track    *tela.Value[tela.Size]
 	vertical bool
+	rtl      bool // see sliderRange.rtl
 	class    string
 }
 
@@ -268,14 +299,20 @@ func (t sliderThumb) Build() tela.Node {
 	res, i, track := t.res, t.i, t.track
 	self := tela.UseSize(res.ThumbRef(i))
 	pos := "left-0"
-	if t.vertical {
+	switch {
+	case t.vertical:
 		pos = "bottom-0"
+	case t.rtl:
+		pos = "right-0"
 	}
 	return h.Div(cls("absolute", pos, t.class), res.ThumbProps(i),
 		h.Style(tela.TranslateFn(func() (x, y float32) {
 			p := float32(t.pct(i)) / 100
 			if t.vertical {
 				return 0, -p * (track.Get().Height - self.Get().Height)
+			}
+			if t.rtl {
+				return -p * (track.Get().Width - self.Get().Width), 0
 			}
 			return p * (track.Get().Width - self.Get().Width), 0
 		})))
