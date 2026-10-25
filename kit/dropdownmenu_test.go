@@ -464,7 +464,7 @@ func TestDropdownMenuLongMenuScrolls(t *testing.T) {
 	app := mountDropdown(t, d, telatest.Size(400, 300))
 	app.Click(ddTrigger)
 	m := app.Bounds(ddMenu)
-	if m.Y < 0 || m.Y+m.Height > 300 {
+	if m.Y < 0 || m.Y+m.Height > 300.01 { // the limit is the room to the window's edge, with no margin (ADR-163)
 		t.Errorf("a long menu at %v does not fit the 300 px window", m)
 	}
 	// The keyboard scrolls the focused item into view.

@@ -242,7 +242,13 @@ type menuRaw struct {
 
 func mountMenuRaw(t *testing.T, page func() tela.Node, w, hgt float32) *menuRaw {
 	t.Helper()
-	b := headless.New(headless.Options{Size: platform.Size{W: w, H: hgt}})
+	return mountMenuRawScale(t, page, w, hgt, 1)
+}
+
+// mountMenuRawScale is mountMenuRaw on a display with the given scale.
+func mountMenuRawScale(t *testing.T, page func() tela.Node, w, hgt float32, scale float64) *menuRaw {
+	t.Helper()
+	b := headless.New(headless.Options{Size: platform.Size{W: w, H: hgt}, Scale: scale})
 	theme := kit.Theme()
 	host, err := core.NewHost(b, core.Options{
 		Config: core.Config{Dev: true, IDPrefix: "tt-", Theme: (*core.Theme)(&theme)},

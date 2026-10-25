@@ -245,7 +245,7 @@ func (s Select[K]) Build() tela.Node {
 		Open: s.Open, DefaultOpen: s.DefaultOpen, OnOpenChange: s.OnOpenChange,
 		Placeholder: s.Placeholder, Disabled: s.Disabled, AriaLabel: ariaLabel,
 		Placement: "bottom", Offset: 4,
-		Floating: []aria.FloatingOption{aria.Size(func(a aria.Available) { a.MaxHeight(a.Height) }, aria.SizeOptions{Padding: 10})},
+		Floating: menuFloating(),
 	}
 	switch {
 	case s.Value != nil && has(*s.Value):

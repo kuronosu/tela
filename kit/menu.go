@@ -217,10 +217,17 @@ type menuRowKey struct {
 	index int
 }
 
-// menuFloating limits a menu's height to the room the window has left, so
-// that a long one scrolls (shadcn's max-h-(--radix-...-available-height)).
+// menuFloating limits the height of a menu (or the list of a select) to the
+// room the window has left, so that a long one scrolls (shadcn's
+// max-h-(--radix-...-available-height)).
+//
+// The limit takes no margin from the window's edge, as Radix's (its
+// collisionPadding is 0): it has to agree with the Flip that UsePopover
+// puts before it, which keeps no margin either, or a menu that Flip finds
+// room for would be limited anyway, to the room minus the margin, and
+// scroll for nothing (ADR-163).
 func menuFloating() []aria.FloatingOption {
-	return []aria.FloatingOption{aria.Size(func(a aria.Available) { a.MaxHeight(a.Height) }, aria.SizeOptions{Padding: 10})}
+	return []aria.FloatingOption{aria.Size(func(a aria.Available) { a.MaxHeight(a.Height) })}
 }
 
 // menuStore keeps the state of the uncontrolled checkbox items and radio
