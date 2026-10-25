@@ -91,7 +91,9 @@
 // # What is there
 //
 // Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton,
-// Field and Table. A [Table] shows rows of any type through columns, sorts
+// Field and Table; and the controls that choose: Checkbox, Switch,
+// RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
+// Progress. A [Table] shows rows of any type through columns, sorts
 // by a header (aria-sort, Enter and Space) and keeps its header and leading
 // columns in place when it scrolls:
 //
