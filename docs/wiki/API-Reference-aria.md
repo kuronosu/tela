@@ -12,7 +12,7 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseCombobox`](#func-usecombobox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseSelect`](#func-useselect) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
+- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseCombobox`](#func-usecombobox) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
@@ -45,6 +45,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type MenuResult`](#type-menuresult): [`UseMenu`](#func-usemenu)
   - [`type MenuTriggerOptions`](#type-menutriggeroptions)
   - [`type MenuTriggerResult`](#type-menutriggerresult): [`UseMenuTrigger`](#func-usemenutrigger)
+  - [`type MeterOptions`](#type-meteroptions)
   - [`type OffsetOptions`](#type-offsetoptions)
   - [`type OverlayOptions`](#type-overlayoptions)
   - [`type OverlayResult`](#type-overlayresult): [`UseOverlay`](#func-useoverlay)
@@ -56,6 +57,10 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type PressEvent`](#type-pressevent): [`ContinuePropagation`](#func-pressevent-continuepropagation)
   - [`type PressOptions`](#type-pressoptions)
   - [`type PressResult`](#type-pressresult): [`UsePress`](#func-usepress)
+  - [`type ProgressBarOptions`](#type-progressbaroptions)
+  - [`type ProgressBarResult`](#type-progressbarresult): [`UseMeter`](#func-usemeter) · [`UseProgressBar`](#func-useprogressbar)
+  - [`type RadioGroupOptions`](#type-radiogroupoptions)
+  - [`type RadioGroupResult`](#type-radiogroupresult): [`UseRadioGroup`](#func-useradiogroup) · [`IsSelected`](#func-radiogroupresultk-isselected) · [`RadioID`](#func-radiogroupresultk-radioid) · [`RadioProps`](#func-radiogroupresultk-radioprops) · [`RadioRef`](#func-radiogroupresultk-radioref)
   - [`type Rects`](#type-rects)
   - [`type SectionResult`](#type-sectionresult)
   - [`type SelectOptions`](#type-selectoptions)
@@ -64,8 +69,12 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ShiftLimiter`](#type-shiftlimiter): [`LimitShift`](#func-limitshift)
   - [`type ShiftOptions`](#type-shiftoptions)
   - [`type SizeOptions`](#type-sizeoptions)
+  - [`type SliderOptions`](#type-slideroptions)
+  - [`type SliderResult`](#type-sliderresult): [`UseSlider`](#func-useslider) · [`IsThumbDragging`](#func-sliderresult-isthumbdragging) · [`ThumbPercent`](#func-sliderresult-thumbpercent) · [`ThumbProps`](#func-sliderresult-thumbprops) · [`ThumbRef`](#func-sliderresult-thumbref) · [`ValueText`](#func-sliderresult-valuetext)
   - [`type TabsOptions`](#type-tabsoptions)
   - [`type TabsResult`](#type-tabsresult): [`UseTabs`](#func-usetabs) · [`PanelProps`](#func-tabsresultk-panelprops) · [`TabProps`](#func-tabsresultk-tabprops)
+  - [`type ToggleGroupOptions`](#type-togglegroupoptions)
+  - [`type ToggleGroupResult`](#type-togglegroupresult): [`UseToggleGroup`](#func-usetogglegroup) · [`IsSelected`](#func-togglegroupresultk-isselected) · [`ItemProps`](#func-togglegroupresultk-itemprops) · [`ItemRef`](#func-togglegroupresultk-itemref)
   - [`type ToggleOptions`](#type-toggleoptions)
   - [`type ToggleResult`](#type-toggleresult): [`UseCheckbox`](#func-usecheckbox) · [`UseSwitch`](#func-useswitch) · [`UseToggleButton`](#func-usetogglebutton)
   - [`type TooltipTriggerOptions`](#type-tooltiptriggeroptions)
@@ -134,7 +143,7 @@ A controlled control shows what the caller passes: a change that the caller does
 
 ### Hooks
 
-Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton) (which can submit or reset its Form), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press. Positioning: [`UseFloating`](#func-usefloating).
+Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton) (which can submit or reset its Form), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press. Choices and ranges: [`UseRadioGroup`](#func-useradiogroup) (one checked radio, which the arrow keys move and check), [`UseToggleGroup`](#func-usetogglegroup) (a segmented control or a toolbar of toggle buttons), [`UseSlider`](#func-useslider) (one or more thumbs on a track, dragged by repainting), [`UseProgressBar`](#func-useprogressbar) and [`UseMeter`](#func-usemeter). Positioning: [`UseFloating`](#func-usefloating).
 
 Overlays: [`UseOverlay`](#func-useoverlay) (Escape and a press outside close the top overlay; a modal one makes the rest of the window inert), [`UseDialog`](#func-usedialog) (role, name and focus), [`UsePopover`](#func-usepopover) (a floating overlay next to its trigger), [`UseOverlayTrigger`](#func-useoverlaytrigger) (the open state and the trigger's props), [`UseMenuTrigger`](#func-usemenutrigger) (a trigger that opens with press, long press or keys) and [`UseTooltipTrigger`](#func-usetooltiptrigger) (hover and focus with React Aria's delays and warm-up).
 
@@ -189,6 +198,31 @@ A select and a combobox put a list box in a popover next to a trigger or an inpu
 ```go
 sel := aria.UseSelect(aria.SelectOptions[string]{Keys: fruit, Placeholder: "Pick one"})
 cb := aria.UseCombobox(aria.ComboboxOptions[string]{Items: fruit, AriaLabel: "Fruit"})
+```
+
+### Radio groups, toggle groups and sliders
+
+A radio group keeps one checked key, uncontrolled by default and controlled when Value points to the caller's state; the caller renders a Button per key with RadioProps(key), and a Label(For(RadioID(key))) names and checks it:
+
+```go
+g := aria.UseRadioGroup(aria.RadioGroupOptions[string]{Keys: plans, AriaLabel: "Plan"})
+return Div(g.Props, Range(len(plans), func(i int) tela.Node {
+    return Button(g.RadioProps(plans[i]), Key(plans[i]), Class("checked:bg-primary"), Text(plans[i]))
+}))
+```
+
+A toggle group is the same with a [`Selection`](#type-selection): SelectionMode "single" (a radio group of toggle buttons) or "multiple" (a toolbar of aria-pressed buttons). A slider has one thumb per value; its ThumbPercent is read in a paint-phase closure, so that dragging repaints and does not build:
+
+```go
+s := aria.UseSlider(aria.SliderOptions{DefaultValues: []float64{20, 80}, AriaLabel: "Price"})
+track := tela.UseSize(s.TrackRef)
+return Div(s.Props, Div(s.TrackProps, Class("relative h-2 w-64 bg-muted"),
+    Range(2, func(i int) tela.Node {
+        return Div(s.ThumbProps(i), Key(i), Class("absolute size-5 -ml-2.5 rounded-full bg-primary"),
+            Style(tela.TranslateFn(func() (x, y float32) {
+                return float32(s.ThumbPercent(i)) / 100 * track.Get().Width, 0
+            })))
+    })))
 ```
 
 ### Testing and agents
@@ -2126,6 +2160,29 @@ fmt.Println("ArrowDown: first, ArrowUp: last")
 // Output: ArrowDown: first, ArrowUp: last
 ```
 
+### type MeterOptions
+
+```go
+type MeterOptions struct {
+    // Value is the measure, from Min to Max.
+    Value float64
+    // Min and Max are the ends of the scale. Min is 0 by default and Max
+    // 100 when both are 0.
+    Min, Max float64
+    // FormatValue returns Value as people read it, for aria-valuetext; the
+    // default is the percentage, rounded ("40%").
+    FormatValue func(float64) string
+    // AriaLabel names the meter; else it is named by the element with
+    // LabelProps, or by AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the meter, when it is not
+    // the one with LabelProps.
+    AriaLabelledBy tela.ElementRef
+}
+```
+
+MeterOptions configures [`UseMeter`](#func-usemeter): a measure within a known range, such as disk usage, as opposed to the progress of a task. The fields are those of [`ProgressBarOptions`](#type-progressbaroptions) without Indeterminate.
+
 ### type OffsetOptions
 
 ```go
@@ -2658,6 +2715,286 @@ fmt.Println("3 presses: mouse, Enter, Space")
 // Output: 3 presses: mouse, Enter, Space
 ```
 
+### type ProgressBarOptions
+
+```go
+type ProgressBarOptions struct {
+    // Value is the progress, from Min to Max. It is ignored while
+    // Indeterminate.
+    Value float64
+    // Min and Max are the ends of the scale. Min is 0 by default and Max
+    // 100 when both are 0.
+    Min, Max float64
+    // Indeterminate says that the amount of progress is unknown: the bar
+    // has no aria-valuenow, and Percent is 0.
+    Indeterminate bool
+    // FormatValue returns Value as people read it, for aria-valuetext; the
+    // default is the percentage, rounded ("40%"). Use package i18n for a
+    // locale's formatting.
+    FormatValue func(float64) string
+    // AriaLabel names the bar; else it is named by the element with
+    // LabelProps, or by AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the bar, when it is not
+    // the one with LabelProps.
+    AriaLabelledBy tela.ElementRef
+}
+```
+
+ProgressBarOptions configures [`UseProgressBar`](#func-useprogressbar).
+
+### type ProgressBarResult
+
+```go
+type ProgressBarResult struct {
+    // Props go to the bar's element: its role ("progressbar" or "meter"),
+    // aria-valuenow, aria-valuemin, aria-valuemax, aria-valuetext and its
+    // name.
+    Props tela.Prop
+    // LabelProps go to the element that labels the bar.
+    LabelProps tela.Prop
+    // Percent is the value as a percentage of the range, from 0 to 100
+    // (React Aria's percentage is a fraction from 0 to 1): the width of the
+    // fill, as Class(fmt.Sprintf("w-[%g%%]", p.Percent)) or a tela.WidthFn
+    // of the bar's size. It is 0 for an indeterminate bar.
+    Percent float64
+    // ValueText is the value as people read it (aria-valuetext); empty
+    // for an indeterminate bar.
+    ValueText string
+}
+```
+
+ProgressBarResult is what [`UseProgressBar`](#func-useprogressbar) and [`UseMeter`](#func-usemeter) return.
+
+#### func UseMeter
+
+```go
+func UseMeter(o MeterOptions) ProgressBarResult
+```
+
+UseMeter returns the props of a meter (React Aria's useMeter): the "meter" role with its value, range and text, and its name.
+
+```go
+m := aria.UseMeter(aria.MeterOptions{Value: used, Max: 512, AriaLabel: "Disk usage"})
+return Div(m.Props, Class("h-2 w-64 rounded-full bg-muted"),
+    Div(Class("h-full bg-primary"), Class(fmt.Sprintf("w-[%g%%]", m.Percent))))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    m := aria.UseMeter(aria.MeterOptions{Value: 128, Max: 512, AriaLabel: "Disk usage"})
+    return Div(m.Props, Class("h-2 w-64 rounded-full bg-muted"),
+        Div(Class("h-full bg-primary"), Class(fmt.Sprintf("w-[%g%%]", m.Percent))))
+}
+app := telatest.MountFunc(t, page)
+fmt.Println(app.AriaSnapshot())
+// Output: - meter "Disk usage"
+```
+
+#### func UseProgressBar
+
+```go
+func UseProgressBar(o ProgressBarOptions) ProgressBarResult
+```
+
+UseProgressBar returns the props of a progress bar (React Aria's useProgressBar): the "progressbar" role with its value, range and text, and its name. A bar with Indeterminate has no value. The caller renders the bar and its fill:
+
+```go
+p := aria.UseProgressBar(aria.ProgressBarOptions{Value: done, AriaLabel: "Upload"})
+return Div(p.Props, Class("h-2 w-64 overflow-hidden rounded-full bg-muted"),
+    Div(Class("h-full bg-primary transition-all"), Class(fmt.Sprintf("w-[%g%%]", p.Percent))))
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    p := aria.UseProgressBar(aria.ProgressBarOptions{Value: 40, AriaLabel: "Upload"})
+    return Div(p.Props, Class("h-2 w-64 overflow-hidden rounded-full bg-muted"),
+        Div(Class("h-full bg-primary"), Class(fmt.Sprintf("w-[%g%%]", p.Percent))))
+}
+app := telatest.MountFunc(t, page)
+fmt.Println(app.AriaSnapshot())
+// Output: - progressbar "Upload"
+```
+
+### type RadioGroupOptions
+
+```go
+type RadioGroupOptions[K comparable] struct {
+    // Keys are the keys of the radios, in the order they are shown. The
+    // list must be given on every build.
+    Keys []K
+    // DisabledKeys are the radios that can not be focused or checked.
+    // They are skipped by the arrow keys, and get Disabled and
+    // AriaDisabled.
+    DisabledKeys []K
+    // Value points to the checked key of a controlled group; nil leaves
+    // the value to the hook.
+    Value *K
+    // DefaultValue is the checked key of an uncontrolled group at the
+    // start; nil checks nothing.
+    DefaultValue *K
+    // OnValueChange is called with the next key when the user checks a
+    // radio: for a controlled group it is how the change is asked for, for
+    // an uncontrolled one a notification. It is not called for the radio
+    // that already is checked.
+    OnValueChange func(K)
+    // Disabled disables every radio.
+    Disabled bool
+    // ReadOnly keeps the radios focusable but not changeable
+    // (aria-readonly on the group).
+    ReadOnly bool
+    // Required marks the group as one the user must answer
+    // (aria-required).
+    Required bool
+    // Orientation is "vertical" (the default, as React Aria's) or
+    // "horizontal". It is aria-orientation, and decides whether a
+    // right-to-left Direction swaps ArrowLeft and ArrowRight: all four
+    // arrows move the focus in either orientation.
+    Orientation string
+    // Direction is "ltr" (the default) or "rtl".
+    Direction string
+    // AriaLabel names the group; else it is named by the element with
+    // LabelProps, or by AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the group, when it is not
+    // the one with LabelProps.
+    AriaLabelledBy tela.ElementRef
+    // Ref is the group element's ref, for a hook that is used together
+    // with others on one element; the zero value makes the hook create
+    // its own.
+    Ref tela.ElementRef
+}
+```
+
+RadioGroupOptions configures [`UseRadioGroup`](#func-useradiogroup). K is the type of the radios' keys: a string, an int, an enum; any comparable value.
+
+The value is uncontrolled when Value is nil (the hook keeps it, starting at DefaultValue, or with nothing checked) and controlled when Value points to the caller's state: the group shows it and only asks OnValueChange for the next one, so a change the caller does not store is refused. OnValueChange is also called for an uncontrolled group. A value that is not one of Keys (a controlled "" for none) checks no radio.
+
+```go
+// Uncontrolled, starting at "pro".
+aria.RadioGroupOptions[string]{Keys: plans, DefaultValue: new("pro")}
+// Controlled.
+plan, setPlan := tela.UseState("pro")
+aria.RadioGroupOptions[string]{Keys: plans, Value: &plan, OnValueChange: setPlan.Set}
+```
+
+### type RadioGroupResult
+
+```go
+type RadioGroupResult[K comparable] struct {
+    // Props go to the group's element: the "radiogroup" role,
+    // aria-orientation, its name, the required, read-only and disabled
+    // states and the ref.
+    Props tela.Prop
+    // LabelProps go to the element that labels the group (a span or a
+    // Label): its text names the group, unless AriaLabel is set.
+    LabelProps tela.Prop
+    // Value is the checked key, valid when HasValue is true. It can be a
+    // key that is not one of Keys when a controlled group says so.
+    Value K
+    // HasValue is whether the group has a value.
+    HasValue bool
+    // Ref is the ref attached to the group by Props.
+    Ref tela.ElementRef
+    // contains filtered or unexported fields
+}
+```
+
+RadioGroupResult is what [`UseRadioGroup`](#func-useradiogroup) returns.
+
+#### func UseRadioGroup
+
+```go
+func UseRadioGroup[K comparable](o RadioGroupOptions[K]) RadioGroupResult[K]
+```
+
+UseRadioGroup holds the state of a radio group and returns the props of the group and its radios (React Aria's useRadioGroup and useRadio with react-stately's useRadioGroupState). At most one radio is checked; the caller renders one element per key.
+
+```go
+plan := aria.UseRadioGroup(aria.RadioGroupOptions[string]{Keys: plans, DefaultValue: new("free"), AriaLabel: "Plan"})
+return Div(plan.Props, Class("grid gap-2"),
+    h.Range(len(plans), func(i int) tela.Node {
+        k := plans[i]
+        return Div(Key(k), Class("flex items-center gap-2"),
+            Button(plan.RadioProps(k), Class("size-4 rounded-full border checked:bg-primary")),
+            Label(For(plan.RadioID(k)), Text(k)))
+    }))
+```
+
+The arrow keys (all four, in either orientation) move the focus to the next enabled radio, going around the ends, and check it; Space checks the focused radio; Tab enters the group at the checked radio. A press checks a radio. Right-to-left Direction swaps the horizontal arrows.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+plans := []string{"free", "pro", "team"}
+page := func() tela.Node {
+    g := aria.UseRadioGroup(aria.RadioGroupOptions[string]{Keys: plans, DefaultValue: new("free"), AriaLabel: "Plan"})
+    return Div(g.Props, Class("flex flex-col gap-1"),
+        Range(len(plans), func(i int) tela.Node {
+            k := plans[i]
+            return Div(Key(k), Class("flex items-center gap-2"),
+                Button(g.RadioProps(k), Class("size-4 rounded-full border checked:bg-primary")),
+                Label(For(g.RadioID(k)), Text(k)))
+        }))
+}
+app := telatest.MountFunc(t, page)
+app.Focus(telatest.ByRole("radio", "free"))
+app.Press("ArrowDown") // moves the focus and checks
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - radiogroup "Plan":
+//   - radio "free"
+//   - text: free
+//   - radio "pro" [checked]
+//   - text: pro
+//   - radio "team"
+//   - text: team
+```
+
+#### func (RadioGroupResult[K]) IsSelected
+
+```go
+func (r RadioGroupResult[K]) IsSelected(k K) bool
+```
+
+IsSelected reports whether the radio with key k is the checked one.
+
+#### func (RadioGroupResult[K]) RadioID
+
+```go
+func (r RadioGroupResult[K]) RadioID(k K) string
+```
+
+RadioID returns the id that RadioProps(k) gives the radio, for a Label's For.
+
+#### func (RadioGroupResult[K]) RadioProps
+
+```go
+func (r RadioGroupResult[K]) RadioProps(k K) tela.Prop
+```
+
+RadioProps returns the props of the radio with key k (React Aria's useRadio): the "radio" role, aria-checked, an ID for a Label, the ref, a tab stop on the checked radio (the first enabled one while none is checked; the arrow keys move between the others), the disabled state and the handlers: a click, tap or Space checks it, and the arrow keys move the focus to the next radio and check it.
+
+Render the radio with a Button: a Label(For(RadioID(k))) then names it and checks it when it is clicked. A Div works too, but a Label only names it. The `checked:` variant (and `aria-checked:`) match the checked radio.
+
+#### func (RadioGroupResult[K]) RadioRef
+
+```go
+func (r RadioGroupResult[K]) RadioRef(k K) tela.ElementRef
+```
+
+RadioRef returns the ref that RadioProps(k) attaches to the radio, to share with another hook on its element.
+
 ### type Rects
 
 ```go
@@ -3123,6 +3460,196 @@ type SizeOptions struct {
 
 SizeOptions are the options of [`Size`](#func-size).
 
+### type SliderOptions
+
+```go
+type SliderOptions struct {
+    // Values points to the values of a controlled slider, one per thumb;
+    // nil leaves them to the hook.
+    Values *[]float64
+    // DefaultValues are the values of an uncontrolled slider at the start.
+    DefaultValues []float64
+    // OnValuesChange is called with all the values (a copy) every time the
+    // user moves a thumb to a new value: while dragging, and on each key.
+    OnValuesChange func([]float64)
+    // OnChangeEnd is called with the values (a copy) when the user stops
+    // changing them: the pointer is released, or a key changed a value.
+    OnChangeEnd func([]float64)
+    // Min and Max are the ends of the track. Min is 0 by default and Max
+    // 100 when both are 0.
+    Min, Max float64
+    // Step is the distance between the values the thumbs can take, from
+    // Min; 1 by default. Values are rounded to it.
+    Step float64
+    // MinStepsBetweenThumbs is the least number of Steps between two
+    // thumbs; 0 lets them touch.
+    MinStepsBetweenThumbs int
+    // Orientation is "horizontal" (the default; Min is at the left, or at
+    // the right with a "rtl" Direction) or "vertical" (Min at the bottom).
+    Orientation string
+    // Direction is "ltr" (the default) or "rtl", which mirrors a
+    // horizontal slider and its arrow keys.
+    Direction string
+    // Disabled makes the thumbs inert and disabled, and the track ignores
+    // presses.
+    Disabled bool
+    // FormatValue returns a value as people read it, for aria-valuetext
+    // and [SliderResult.ValueText]; the default is the number as it is
+    // written (3, 0.25). Use package i18n for a locale's digits and
+    // units.
+    FormatValue func(float64) string
+    // AriaLabel names the slider; else it is named by the element with
+    // LabelProps, or by AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the slider, when it is not
+    // the one with LabelProps.
+    AriaLabelledBy tela.ElementRef
+    // ThumbLabels name each thumb (aria-label), for a range slider whose
+    // thumbs are "Minimum price" and "Maximum price"; a thumb without one
+    // takes the slider's name.
+    ThumbLabels []string
+}
+```
+
+SliderOptions configures [`UseSlider`](#func-useslider): one thumb, or several (a range slider has two) on a track from Min to Max.
+
+The values are uncontrolled when Values is nil (the hook keeps them, starting at DefaultValues) and controlled when Values points to the caller's state: the slider shows it and only asks OnValuesChange for the next one, so a change the caller does not store is refused. OnValuesChange is also called for an uncontrolled slider. The number of thumbs is the length of the values (one at Min when DefaultValues is empty), and the values are sorted by the thumbs: a thumb stops at its neighbor.
+
+```go
+// A range slider that keeps its values.
+aria.SliderOptions{DefaultValues: []float64{20, 80}, Max: 100, Step: 5}
+// A controlled single slider.
+vol, setVol := tela.UseState([]float64{30})
+aria.SliderOptions{Values: &vol, OnValuesChange: setVol.Set}
+```
+
+A slider with one thumb is a slice of one value, as in Radix and shadcn/ui; [`SliderResult.Values`](#type-sliderresult) has it at index 0.
+
+### type SliderResult
+
+```go
+type SliderResult struct {
+    // Props go to the slider's root element: the "group" role and its
+    // name.
+    Props tela.Prop
+    // TrackProps go to the track: a press on it moves the nearest thumb to
+    // the point and starts dragging it, with a mouse, a finger or a pen.
+    TrackProps tela.Prop
+    // LabelProps go to the element that labels the slider (a span or a
+    // Label): its text names the slider and its thumbs, unless AriaLabel
+    // or ThumbLabels do.
+    LabelProps tela.Prop
+    // Values are the values of the thumbs as of this build. While a thumb
+    // is dragged in an uncontrolled slider they are brought up to date at
+    // the end of the drag; read ThumbPercent and ValueText for the live
+    // ones.
+    Values []float64
+    // Dragging is whether a thumb is being dragged, as of this build.
+    Dragging bool
+    // TrackRef is the ref that TrackProps attaches to the track.
+    TrackRef tela.ElementRef
+    // contains filtered or unexported fields
+}
+```
+
+SliderResult is what [`UseSlider`](#func-useslider) returns. It is the result of one build: call its methods in the build or in handlers; ThumbPercent is also made to be called in the paint-phase closures of the thumbs.
+
+#### func UseSlider
+
+```go
+func UseSlider(o SliderOptions) SliderResult
+```
+
+UseSlider holds the state of a slider and returns the props of its root, track and thumbs (React Aria's useSlider, useSliderThumb and react-stately's useSliderState). The caller renders the track, the thumbs and the fill between them with whatever markup and classes it wants:
+
+```go
+s := aria.UseSlider(aria.SliderOptions{DefaultValues: []float64{40}, AriaLabel: "Volume"})
+track := tela.UseSize(s.TrackRef)
+return Div(s.Props, Class("flex h-5 w-64 items-center"),
+    Div(s.TrackProps, Class("relative h-2 flex-1 rounded-full bg-muted"),
+        Div(s.ThumbProps(0), Class("absolute -top-1.5 -ml-2.5 size-5 rounded-full bg-primary"),
+            Style(tela.TranslateFn(func() (x, y float32) {
+                return float32(s.ThumbPercent(0)) / 100 * track.Get().Width, 0
+            })))))
+```
+
+Dragging moves a thumb by repainting only: the thumb's position is read from ThumbPercent in a paint-phase closure, and an uncontrolled slider builds when the drag starts and ends, not on every move (a controlled one builds as often as the caller's state changes). A press on the track moves the nearest thumb to the point and goes on dragging it. A thumb never passes its neighbor (nor comes closer than MinStepsBetweenThumbs).
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+page := func() tela.Node {
+    s := aria.UseSlider(aria.SliderOptions{DefaultValues: []float64{40}, AriaLabel: "Volume"})
+    track := tela.UseSize(s.TrackRef)
+    return Div(s.Props, Class("w-64 p-4"),
+        Div(s.TrackProps, Class("relative h-2 w-full rounded-full bg-muted"),
+            Div(s.ThumbProps(0), Class("absolute -top-1.5 -ml-2.5 size-5 rounded-full bg-primary"),
+                Style(tela.TranslateFn(func() (x, y float32) {
+                    return float32(s.ThumbPercent(0)) / 100 * track.Get().Width, 0
+                })))))
+}
+app := telatest.MountFunc(t, page)
+vol := telatest.ByRole("slider", "Volume")
+app.Focus(vol)
+app.Press("PageUp") // a tenth of the range
+app.Press("ArrowLeft")
+fmt.Println(app.AriaSnapshot())
+app.Expect(vol, telatest.HasValue("49"))
+// Output:
+// - group "Volume":
+//   - slider "Volume"
+```
+
+#### func (SliderResult) IsThumbDragging
+
+```go
+func (r SliderResult) IsThumbDragging(i int) bool
+```
+
+IsThumbDragging reports whether thumb i is being dragged now.
+
+#### func (SliderResult) ThumbPercent
+
+```go
+func (r SliderResult) ThumbPercent(i int) float64
+```
+
+ThumbPercent returns the position of thumb i along the track, from 0 (Min) to 100 (Max), as it is now. It subscribes what reads it: read it in a paint-phase closure (tela.TranslateFn, tela.WidthFn) to place the thumb while it is dragged without building the component, as
+
+```go
+Style(tela.TranslateFn(func() (x, y float32) {
+    return float32(s.ThumbPercent(i)) / 100 * track.Get().Width, 0
+}))
+```
+
+where track is tela.UseSize(s.TrackRef). Read in the component's body it makes the component build on every move.
+
+#### func (SliderResult) ThumbProps
+
+```go
+func (r SliderResult) ThumbProps(i int) tela.Prop
+```
+
+ThumbProps returns the props of thumb i (React Aria's useSliderThumb): the "slider" role, aria-valuenow, aria-valuemin and aria-valuemax (the limits of the thumb: its neighbors), aria-valuetext, aria-orientation, its name, the ref, a tab stop, and the handlers: a press on the thumb drags it (the pointer keeps it while it is down, wherever it goes), the arrow keys move it by one Step (by a page with Shift), PageUp and PageDown by a page (a tenth of the range, rounded to Step), Home and End to its limits. Right-to-left Direction mirrors the horizontal arrows.
+
+#### func (SliderResult) ThumbRef
+
+```go
+func (r SliderResult) ThumbRef(i int) tela.ElementRef
+```
+
+ThumbRef returns the ref that ThumbProps(i) attaches to thumb i.
+
+#### func (SliderResult) ValueText
+
+```go
+func (r SliderResult) ValueText(i int) string
+```
+
+ValueText returns the value of thumb i as people read it: FormatValue of the live value.
+
 ### type TabsOptions
 
 ```go
@@ -3237,6 +3764,148 @@ func (r TabsResult[K]) TabProps(k K) tela.Prop
 ```
 
 TabProps returns the props of the tab with key k: the "tab" role, aria-selected, aria-controls (the panel, while selected), the ref, a tab stop on the selected tab (the arrows move between the others) and the handlers. It is [`Collection.ItemProps`](#func-collectionk-itemprops).
+
+### type ToggleGroupOptions
+
+```go
+type ToggleGroupOptions[K comparable] struct {
+    // Keys are the keys of the items, in the order they are shown. The
+    // list must be given on every build.
+    Keys []K
+    // DisabledKeys are the items that can not be focused or toggled.
+    DisabledKeys []K
+    // Disabled disables every item.
+    Disabled bool
+    // SelectionMode is "single" (the default: at most one item is on, and
+    // the group is a radio group of toggle buttons) or "multiple" (any
+    // number is on, and the group is a toolbar).
+    SelectionMode string
+    // Selected is the selection of a controlled group; the zero Selection
+    // leaves it to the hook. In "single" mode its first key is the one that
+    // is on.
+    Selected Selection[K]
+    // DefaultSelected is the selection of an uncontrolled group at the
+    // start.
+    DefaultSelected Selection[K]
+    // OnSelectionChange is called with the next selection when the user
+    // toggles an item. An equal selection is not reported.
+    OnSelectionChange func(Selection[K])
+    // DisallowEmptySelection keeps one item on: toggling the only item that
+    // is on does nothing.
+    DisallowEmptySelection bool
+    // Orientation is "horizontal" (the default; ArrowLeft and ArrowRight
+    // move the focus) or "vertical" (ArrowUp and ArrowDown).
+    Orientation string
+    // Direction is "ltr" (the default) or "rtl", which swaps the
+    // horizontal arrows.
+    Direction string
+    // ShouldFocusWrap makes the arrow keys go around the ends of the group.
+    ShouldFocusWrap bool
+    // AriaLabel names the group; else it is named by AriaLabelledBy.
+    AriaLabel string
+    // AriaLabelledBy is the element that names the group.
+    AriaLabelledBy tela.ElementRef
+    // Ref is the group element's ref, for a hook that is used together
+    // with others on one element; the zero value makes the hook create
+    // its own.
+    Ref tela.ElementRef
+}
+```
+
+ToggleGroupOptions configures [`UseToggleGroup`](#func-usetogglegroup): a row of toggle buttons with one value, such as a segmented control or a formatting toolbar. The items are keyed like those of a list box: see [`ListBoxOptions`](#type-listboxoptions) for Keys and DisabledKeys.
+
+The selection is a [`Selection`](#type-selection), uncontrolled when Selected is the zero Selection (the hook keeps it, starting at DefaultSelected) and controlled when Selected is given: the group shows it and only asks OnSelectionChange for the next one. OnSelectionChange is also called for an uncontrolled group.
+
+### type ToggleGroupResult
+
+```go
+type ToggleGroupResult[K comparable] struct {
+    // Props go to the group's element: the role ("radiogroup" for a single
+    // selection, "toolbar" for multiple), aria-orientation, its name and
+    // the ref.
+    Props tela.Prop
+    // Selected is the current selection, controlled or not.
+    Selected Selection[K]
+    // Ref is the ref attached to the group by Props.
+    Ref tela.ElementRef
+    // contains filtered or unexported fields
+}
+```
+
+ToggleGroupResult is what [`UseToggleGroup`](#func-usetogglegroup) returns.
+
+#### func UseToggleGroup
+
+```go
+func UseToggleGroup[K comparable](o ToggleGroupOptions[K]) ToggleGroupResult[K]
+```
+
+UseToggleGroup holds the state of a group of toggle buttons and returns the props of the group and its items (React Aria's useToggleButtonGroup and useToggleButtonGroupItem). It is the segmented control of a kit:
+
+```go
+view := aria.UseToggleGroup(aria.ToggleGroupOptions[string]{
+    Keys: []string{"list", "grid"}, DefaultSelected: aria.SelectionOf("list"),
+    DisallowEmptySelection: true, AriaLabel: "View",
+})
+return Div(view.Props, Class("inline-flex rounded-md border"),
+    h.Range(len(modes), func(i int) tela.Node {
+        k := modes[i]
+        return Button(view.ItemProps(k), Key(k), Class("px-3 py-1 aria-checked:bg-accent"), Text(k))
+    }))
+```
+
+The group is a single tab stop, and the arrows move the focus between its items without toggling them, skipping the disabled ones; Home and End jump. With SelectionMode "single" pressing the item that is on turns it off, unless DisallowEmptySelection.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+modes := []string{"list", "grid"}
+page := func() tela.Node {
+    g := aria.UseToggleGroup(aria.ToggleGroupOptions[string]{
+        Keys: modes, DefaultSelected: aria.SelectionOf("list"),
+        DisallowEmptySelection: true, AriaLabel: "View",
+    })
+    return Div(g.Props, Class("inline-flex rounded-md border"),
+        Range(len(modes), func(i int) tela.Node {
+            return Button(g.ItemProps(modes[i]), Key(modes[i]), Class("px-3 py-1 aria-checked:bg-accent"), Text(modes[i]))
+        }))
+}
+app := telatest.MountFunc(t, page)
+app.Click(telatest.ByRole("radio", "grid"))
+fmt.Println(app.AriaSnapshot())
+// Output:
+// - radiogroup "View":
+//   - radio "list"
+//   - radio "grid" [checked]
+```
+
+#### func (ToggleGroupResult[K]) IsSelected
+
+```go
+func (r ToggleGroupResult[K]) IsSelected(k K) bool
+```
+
+IsSelected reports whether the item with key k is on.
+
+#### func (ToggleGroupResult[K]) ItemProps
+
+```go
+func (r ToggleGroupResult[K]) ItemProps(k K) tela.Prop
+```
+
+ItemProps returns the props of the item with key k (React Aria's useToggleButtonGroupItem): in a single-selection group the "radio" role with aria-checked, in a multiple-selection one the "button" role with aria-pressed (so the `aria-pressed:` or `checked:` variants style the items that are on); the ref, the disabled state, a tab stop on the item that had the focus last (else the first one that is on, else the first enabled one), and the handlers: a click, a tap, Enter or Space toggles the item, and the arrow keys of the group's orientation move the focus without toggling.
+
+Render the item with a Button, or with any element that should behave as one.
+
+#### func (ToggleGroupResult[K]) ItemRef
+
+```go
+func (r ToggleGroupResult[K]) ItemRef(k K) tela.ElementRef
+```
+
+ItemRef returns the ref that ItemProps(k) attaches to the item, to share with another hook on its element.
 
 ### type ToggleOptions
 

@@ -85,7 +85,11 @@
 // focus, and a [FocusManager] that moves it). Controls: [UseButton]
 // (which can submit or reset its Form), [UseToggleButton], [UseCheckbox]
 // and [UseSwitch], which add the role, the aria state, the tab stop and
-// the toggle state to a press. Positioning: [UseFloating].
+// the toggle state to a press. Choices and ranges: [UseRadioGroup] (one
+// checked radio, which the arrow keys move and check), [UseToggleGroup] (a
+// segmented control or a toolbar of toggle buttons), [UseSlider] (one or
+// more thumbs on a track, dragged by repainting), [UseProgressBar] and
+// [UseMeter]. Positioning: [UseFloating].
 //
 // Overlays: [UseOverlay] (Escape and a press outside close the top
 // overlay; a modal one makes the rest of the window inert), [UseDialog]
@@ -164,6 +168,33 @@
 //
 //	sel := aria.UseSelect(aria.SelectOptions[string]{Keys: fruit, Placeholder: "Pick one"})
 //	cb := aria.UseCombobox(aria.ComboboxOptions[string]{Items: fruit, AriaLabel: "Fruit"})
+//
+// # Radio groups, toggle groups and sliders
+//
+// A radio group keeps one checked key, uncontrolled by default and
+// controlled when Value points to the caller's state; the caller renders a
+// Button per key with RadioProps(key), and a Label(For(RadioID(key))) names
+// and checks it:
+//
+//	g := aria.UseRadioGroup(aria.RadioGroupOptions[string]{Keys: plans, AriaLabel: "Plan"})
+//	return Div(g.Props, Range(len(plans), func(i int) tela.Node {
+//	    return Button(g.RadioProps(plans[i]), Key(plans[i]), Class("checked:bg-primary"), Text(plans[i]))
+//	}))
+//
+// A toggle group is the same with a [Selection]: SelectionMode "single" (a
+// radio group of toggle buttons) or "multiple" (a toolbar of aria-pressed
+// buttons). A slider has one thumb per value; its ThumbPercent is read in a
+// paint-phase closure, so that dragging repaints and does not build:
+//
+//	s := aria.UseSlider(aria.SliderOptions{DefaultValues: []float64{20, 80}, AriaLabel: "Price"})
+//	track := tela.UseSize(s.TrackRef)
+//	return Div(s.Props, Div(s.TrackProps, Class("relative h-2 w-64 bg-muted"),
+//	    Range(2, func(i int) tela.Node {
+//	        return Div(s.ThumbProps(i), Key(i), Class("absolute size-5 -ml-2.5 rounded-full bg-primary"),
+//	            Style(tela.TranslateFn(func() (x, y float32) {
+//	                return float32(s.ThumbPercent(i)) / 100 * track.Get().Width, 0
+//	            })))
+//	    })))
 //
 // # Testing and agents
 //
