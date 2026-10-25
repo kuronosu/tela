@@ -28,6 +28,9 @@ func inputCell(name string, i kit.Input) cell {
 	if i.Disabled {
 		attrs += " disabled"
 	}
+	if i.Invalid {
+		attrs += ` aria-invalid="true"`
+	}
 	if i.ReadOnly {
 		attrs += " readonly"
 	}
@@ -44,6 +47,7 @@ func inputSheet() *sheet {
 		inputCell("disabled", kit.Input{Disabled: true, Placeholder: "Disabled"}),
 		inputCell("disabled-value", kit.Input{Disabled: true, DefaultValue: "Locked value"}),
 		inputCell("readonly", kit.Input{ReadOnly: true, DefaultValue: "Read only"}),
+		inputCell("invalid", kit.Input{Invalid: true, DefaultValue: "not an email", Type: "email"}),
 		inputCell("class", kit.Input{Placeholder: "Search", Class: "h-10 rounded-full px-4"}),
 	}}
 }

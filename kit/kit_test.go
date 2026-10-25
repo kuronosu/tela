@@ -160,6 +160,8 @@ func TestFieldWiresLabelErrorAndDescription(t *testing.T) {
 	app.Expect(telatest.ByRole("textbox", "Email"), telatest.HasName("Email"))
 	app.Click(telatest.ByText("Email", telatest.Exact()))
 	app.Expect(telatest.ByRole("textbox", "Email"), telatest.Focused(true))
+	app.Expect(telatest.ByRole("textbox", "Password"), telatest.Invalid(true))
+	app.Expect(telatest.ByRole("textbox", "Email"), telatest.Invalid(false))
 	app.ExpectCount(telatest.ByRole("alert", ""), 1)
 	app.ExpectText("Too short.")
 	app.ExpectText("We never share it.")

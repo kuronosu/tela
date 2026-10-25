@@ -19,6 +19,9 @@ func textareaCell(name string, t kit.Textarea) cell {
 	if t.Placeholder != "" {
 		attrs += fmt.Sprintf(` placeholder=%q`, html.EscapeString(t.Placeholder))
 	}
+	if t.Invalid {
+		attrs += ` aria-invalid="true"`
+	}
 	if t.Disabled {
 		attrs += " disabled"
 	}
@@ -33,6 +36,7 @@ func textareaSheet() *sheet {
 		textareaCell("placeholder", kit.Textarea{Placeholder: "Type your message here."}),
 		textareaCell("value", kit.Textarea{DefaultValue: "One line of text."}),
 		textareaCell("lines", kit.Textarea{DefaultValue: "The first line.\nThe second line.\nThe third line, and the field grows."}),
+		textareaCell("invalid", kit.Textarea{Invalid: true, DefaultValue: "Too short"}),
 		textareaCell("disabled", kit.Textarea{Disabled: true, Placeholder: "Disabled"}),
 		textareaCell("class", kit.Textarea{Placeholder: "A taller one", Class: "min-h-32"}),
 	}}

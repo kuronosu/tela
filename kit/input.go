@@ -15,7 +15,8 @@ func init() {
 		Root: "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none " +
 			"selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground " +
 			"disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30 " +
-			"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+			"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
+			"aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
 	}
 }
 
@@ -48,9 +49,13 @@ type Input struct {
 	Name string
 	// ID is the field's id, for a [Label]'s For. Inside a [Field] it
 	// defaults to the field's.
-	ID        string
-	Disabled  bool
-	ReadOnly  bool
+	ID       string
+	Disabled bool
+	ReadOnly bool
+	// Invalid marks the value as wrong: assistive technologies announce it
+	// and the recipe's aria-invalid: classes (a red border and ring) apply.
+	// A [Field] with an Error sets it on its control.
+	Invalid   bool
 	AutoFocus bool
 	// MaxLength limits what the user can type, in UTF-16 code units; 0 is
 	// no limit.
@@ -71,7 +76,7 @@ func (i Input) Build() tela.Node {
 	kids = append(kids, useTextField(textFieldProps{
 		value: i.Value, defaultValue: i.DefaultValue, onChange: i.OnValueChange,
 		placeholder: i.Placeholder, name: i.Name, id: i.ID,
-		disabled: i.Disabled, readOnly: i.ReadOnly, autoFocus: i.AutoFocus, maxLength: i.MaxLength,
+		disabled: i.Disabled, readOnly: i.ReadOnly, invalid: i.Invalid, autoFocus: i.AutoFocus, maxLength: i.MaxLength,
 	})...)
 	return h.Input(kids...)
 }

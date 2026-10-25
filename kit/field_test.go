@@ -32,7 +32,10 @@ func fieldCell(name string, f kit.Field, in kit.Input) cell {
 	if horizontal {
 		root, orientation = shadcnFieldHorizontal, "horizontal"
 	}
-	attrs := ""
+	attrs, rootAttrs := "", ""
+	if f.Error != "" || f.Invalid {
+		attrs, rootAttrs = ` aria-invalid="true"`, ` data-invalid="true"`
+	}
 	if in.Placeholder != "" {
 		attrs += fmt.Sprintf(` placeholder=%q`, in.Placeholder)
 	}
@@ -62,8 +65,8 @@ func fieldCell(name string, f kit.Field, in kit.Input) cell {
 	}
 	return cell{
 		name: name, width: 320, probes: []string{name + "-field", name + "-input"}, tela: f,
-		html: fmt.Sprintf(`<div role="group" data-slot="field" data-orientation="%s" data-probe="%s-field" class="%s">%s</div>`,
-			orientation, name, cn(root), body),
+		html: fmt.Sprintf(`<div role="group" data-slot="field"%s data-orientation="%s" data-probe="%s-field" class="%s">%s</div>`,
+			rootAttrs, orientation, name, cn(root), body),
 	}
 }
 

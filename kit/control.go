@@ -9,10 +9,11 @@ import (
 // gives its control, and the props the text fields have in common.
 
 // fieldInfo is what a [Field] tells its control: the id its label points
-// to and the element that describes it.
+// to, the element that describes it and whether the field is invalid.
 type fieldInfo struct {
 	id          string
 	describedBy tela.ElementRef
+	invalid     bool
 }
 
 // fieldCtx carries the enclosing Field's wiring to the control below it.
@@ -29,6 +30,7 @@ type textFieldProps struct {
 	name, id     string
 	disabled     bool
 	readOnly     bool
+	invalid      bool
 	autoFocus    bool
 	maxLength    int
 }
@@ -64,6 +66,9 @@ func useTextField(p textFieldProps) []tela.Child {
 	}
 	if fc.describedBy != (tela.ElementRef{}) {
 		kids = append(kids, h.AriaDescribedBy(fc.describedBy))
+	}
+	if p.invalid || fc.invalid {
+		kids = append(kids, h.AriaInvalid(true))
 	}
 	if p.disabled {
 		kids = append(kids, h.Disabled(true))

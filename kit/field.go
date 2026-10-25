@@ -28,12 +28,16 @@ type FieldStyle struct {
 	// DescriptionWithError is added to Description when the field shows an
 	// error below it (shadcn's nth-last-2:).
 	DescriptionWithError string
-	Error                string
+	// Invalid is added to Root when the field is invalid (shadcn's
+	// data-[invalid=true]:): the label and the text turn red.
+	Invalid string
+	Error   string
 }
 
 func init() {
 	defaultStyle.Field = FieldStyle{
-		Root: "flex w-full gap-3",
+		Root:    "flex w-full gap-3",
+		Invalid: "text-destructive",
 		Orientations: map[Orientation]string{
 			Vertical:   "flex-col",
 			Horizontal: "flex-row items-center",
@@ -63,11 +67,16 @@ func init() {
 //	    Children:    kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set},
 //	}
 //
-// The error shows as an alert below the control. shadcn's invalid styling
-// (a red ring on the control) arrives with h.AriaInvalid and aria-invalid:.
+// The error shows as an alert below the control, and the field is invalid
+// while it shows one: the control is marked h.AriaInvalid (a red border and
+// ring from the recipe's aria-invalid: classes) and the label turns red.
 type Field struct {
 	// Label, Description and Error are plain text; empty draws nothing.
 	Label, Description, Error string
+	// Invalid makes the field invalid with no error message, such as when
+	// the message is shown elsewhere. A field with an Error is invalid
+	// already.
+	Invalid bool
 	// Orientation is Vertical (the zero value) or Horizontal.
 	Orientation Orientation
 	// Children is the control.
@@ -98,6 +107,7 @@ func (f Field) Build() tela.Node {
 		describedBy = descRef
 	}
 	vertical := f.Orientation != Horizontal
+	invalid := f.Invalid || f.Error != ""
 
 	hasContent := !vertical && (f.Description != "" || f.Error != "")
 	var label, desc, errNode tela.Child
@@ -124,7 +134,7 @@ func (f Field) Build() tela.Node {
 		}
 	}
 	return h.Div(h.Class(s.Root, pick("Field", "Orientation", s.Orientations, orientationOr(f.Orientation, Vertical)),
-		when(hasContent, s.HorizontalWithContent), f.Class),
+		when(hasContent, s.HorizontalWithContent), when(invalid, s.Invalid), f.Class),
 		h.Role("group"), f.Props,
-		fieldCtx.Provider(fieldInfo{id: id, describedBy: describedBy}, body...))
+		fieldCtx.Provider(fieldInfo{id: id, describedBy: describedBy, invalid: invalid}, body...))
 }
