@@ -339,3 +339,34 @@ their original copyright notice. Add one section per source project.
 - **License:** MIT (shadcn/ui); ISC (Lucide), Copyright (c) 2026 Lucide Icons and Contributors
 - **Used in:** `kit/select.go`, `kit/tabs.go`, `kit/toast.go` (the class strings of the recipes) and their tests
 - **Notes:** `kit/select.go` draws chevron-down and check, and `kit/toast.go` circle-check, info, triangle-alert, octagon-x, loader-circle and x, as unexported `tela.Icon` literals copied unaltered from the files `icons/lucide` holds (ADR-129, K7); each is replaceable by a field of the component. The ISC notice is in `icons/lucide/LICENSE`.
+
+## shadcn/ui Calendar and date picker; react-day-picker (test oracle); Lucide icons in `kit`
+
+- **Source:** shadcn/ui `calendar.tsx` and the date picker examples (`date-picker-demo.tsx`) at the commit of the shadcn/ui section above; react-day-picker 9.14.0 (https://github.com/gpbl/react-day-picker), whose markup `calendar.tsx` renders; Lucide (`lucide-static` 1.61.0, see the Lucide section)
+- **License:** MIT (shadcn/ui); MIT, Copyright (c) 2014-2025 Giampaolo Bellavite and contributors (react-day-picker); ISC (Lucide), Copyright (c) 2026 Lucide Icons and Contributors
+- **Used in:** `kit/calendar.go` and `kit/datepicker.go` (the class strings of the recipes, ported from `calendar.tsx`'s `classNames` and the date picker demo), their tests, and `kit/testdata/daypicker/` (`capture.jsx`, the React page that renders shadcn's unmodified Calendar with react-day-picker to static markup, `build.sh` and its two shims, and the markup it produced, one file per scenario, as the Chromium conformance pages of `kit/calendar_test.go`)
+- **Notes:** react-day-picker's code is not included or ported: only the markup it renders is test data (MIT; its license text is the one in the package). `kit/calendar.go` draws chevron-left, chevron-right and calendar as unexported `tela.Icon` literals copied unaltered from the files `icons/lucide` holds, each replaceable by a field of the component (ADR-129, K7). The ISC notice is in `icons/lucide/LICENSE`. The calendar's behavior is package `aria`'s (React Aria, see its section).
+
+  ```
+  The MIT License (MIT)
+
+  Copyright (c) 2014-2025 Giampaolo Bellavite <io@gpbl.dev> and contributors
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```

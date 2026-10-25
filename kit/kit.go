@@ -110,11 +110,13 @@ type Style struct {
 	Avatar       AvatarStyle
 	Badge        BadgeStyle
 	Button       ButtonStyle
+	Calendar     CalendarStyle
 	Card         CardStyle
 	Checkbox     CheckboxStyle
 	ColorInput   ColorInputStyle
 	ColorPicker  ColorPickerStyle
 	ContextMenu  MenuStyle
+	DatePicker   DatePickerStyle
 	Dialog       DialogStyle
 	DropdownMenu MenuStyle
 	Field        FieldStyle

@@ -728,6 +728,7 @@ var mergeGroupPatterns = []struct {
 	{"h", regexp.MustCompile(`^h-`)},
 	{"w", regexp.MustCompile(`^w-`)},
 	{"max-w", regexp.MustCompile(`^max-w-`)},
+	{"justify", regexp.MustCompile(`^justify-`)},
 	{"size", regexp.MustCompile(`^size-`)},
 	{"rounded", regexp.MustCompile(`^rounded(-|$)`)},
 	{"text-align", regexp.MustCompile(`^text-(left|center|right)$`)},

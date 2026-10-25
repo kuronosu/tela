@@ -96,7 +96,8 @@
 // Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and
 // the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
-// Progress. A [ColorPicker] chooses a [tela.Color] with an area for the
+// Progress; and the dates: Calendar, RangeCalendar, DatePicker and
+// DateRangePicker. A [ColorPicker] chooses a [tela.Color] with an area for the
 // saturation and brightness, a hue slider, an optional alpha slider, a hex
 // field and optional swatches; a [ColorInput] is the same behind a button
 // that shows the color (the look of both is the kit's own, shadcn/ui has
@@ -116,6 +117,17 @@
 //	            Sort: func(a, b Invoice) int { return strings.Compare(a.ID, b.ID) }},
 //	        {Header: "Amount", Align: kit.AlignRight, Cell: showAmount, Sort: byAmount},
 //	    }}
+//
+// A [Calendar] chooses a date and a [RangeCalendar] a span (the aria.Date and
+// aria.DateRange of package aria, comparable days with no time or zone; the
+// zero value is none), with limits (Min, Max, IsDateUnavailable), several
+// months and the names, digits, first weekday and direction of the locale. A
+// [DatePicker] and a [DateRangePicker] are shadcn's date picker: an outline
+// button showing the date that opens a popover with the calendar and closes
+// when the date, or the range, is chosen:
+//
+//	day, setDay := tela.UseState(aria.Date{})
+//	kit.DatePicker{Value: &day, OnValueChange: setDay.Set, Min: aria.Today()}
 //
 // A [Field] is the usual way to put a label, a control, help text
 // and an error together: it ties them with an id, so the label names the
