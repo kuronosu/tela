@@ -6,7 +6,7 @@
 
 ## Current status
 
-- **Phase in progress:** none; phase 9 (dev loop, `tela dev`) is done: `v0.9.0` and `v0.9.1` (Windows fixes) tagged 2026-10-22, not pushed. On Windows `tela dev` reloads `examples/dashboard` in ~1.0–1.1 s with Microsoft Defender excluding `%TEMP%` and the Go build cache (~2.2 s without: every new build is scanned on its first run, ~690 ms); `tela dev` prints how to exclude them when a reload's build is slow to start (ADR-125, ADR-126).
+- **Phase 9:** (dev loop, `tela dev`) is done: `v0.9.0` and `v0.9.1` (Windows fixes) tagged 2026-10-22, not pushed. On Windows `tela dev` reloads `examples/dashboard` in ~1.0–1.1 s with Microsoft Defender excluding `%TEMP%` and the Go build cache (~2.2 s without: every new build is scanned on its first run, ~690 ms); `tela dev` prints how to exclude them when a reload's build is slow to start (ADR-125, ADR-126).
 - **Phase 9 delivered (2026-10-22):** `internal/platform/remote`, a platform backend over IPC with shared-memory frames, input freeze/promote and an overlay hook (ADR-112); hook and engine state captured and restored in `core` with React Fast Refresh's rule, compiled only under the `teladev` tag (ADR-113); the child runtime and `App.DevState` (ADR-114); the `tela dev` supervisor with native watchers, background builds and swap (ADR-115); faster dev builds and concurrent font parsing (ADR-116); the error overlay (ADR-117); text fields reveal their caret after layout (ADR-118, ADR-122); review fixes (ADR-119 to ADR-124).
 - **Phase 9 verified:** `examples/dashboard` reloads live on Wayland and X11 (Xwayland) in 433–678 ms from save to the new frame (headless median 588–621 ms; was 855 ms before T6), the same window (Hyprland address and supervisor PID) throughout, scroll, focus, caret and typed text kept, a component that gains a hook resets alone; a build error docks an overlay over the running app and the next good save clears it in the same present; capture bursts show one transition, no flash. Release build of `examples/dashboard` (`-trimpath`) is 25,634,957 bytes vs 25,622,954 at `v0.8.2` (+12 KB, every changed symbol from the phase's non-dev fixes or `App.DevState`), no dev-loop symbol, `encoding/gob` absent (`TestReleaseBuildHasNoDevLoop`).
 - **Phase 9 known limitations:** Windows not run on a real machine yet (kit ready: remote, watcher and supervisor test binaries; live `tela dev` there needs Go on the VM); macOS has a polling watcher and an untested shared-memory path; MinSize/FixedSize are not re-applied on a swap; Win32 live resize lags (WM_SIZE cannot wait for the child); a hidden window starves the pending child (15 s timeout); an IME composition is lost across a swap; i18n's runtime locale wins over a `SetLocale` added in code; `aria.Selection` and other values with unexported fields reset silently; a renamed component resets; a VirtualList's measured sizes are not kept; `OnScroll` fires once for a restored offset; dev builds cannot be debugged (no DWARF); a focus that restyles a field still reveals its caret one frame late (IME caret area stale for a frame); a `UseLayoutEffect` that narrows a field and focuses it in the same frame reveals with the old width; `ElementRef.SetSelectionRange` from a handler, posted function or effect applies queued updates at once (`flushDiscrete`); `tela dev`'s output detach cannot unblock a copy stuck on a terminal paused with Ctrl+S; `wtype` types wrong keys into Xwayland windows (Hyprland gives Xwayland a `pc+us` keymap; not Tela).
@@ -37,7 +37,8 @@
 - **Phase-5 plan:** T0 VM job runner · T1 win32 base · T2 Wayland clipboard · T3 `internal/text/edit` · T4 inline decorations and atomic inline-blocks · T5 win32 keyboard, clipboard, settings · T6 IME contract + Wayland `text-input-v3` · T7 `Input`/`Textarea`/`Form`/`Label` · T8 IMM32 IME · T9 phase-4 API gaps (all eight) · T10 CI (Wine, `windows-latest`) · T11 forms example and Windows validation. Waves: A (T1–T4), B (T5, T6), C (T7, T9), D (T8, T10, T11).
 - **Phase-6 plan** (approved 2026-10-18; owner's API decisions taken up front, transforms stay 2D, component-API proposals deferred to before phase 7): T1 grid (tela-hard, ADR-073) · T2 raster blend modes, mask layers, focal gradient (ADR-074) · T3 Wayland fractional scaling (ADR-075) · T4 `internal/anim`, CSS transitions, `animate-*`, `motion-reduce` (ADR-076) · T5 fast large-σ blur (ADR-078) · T6 core `mix-blend-mode`, `[clip-path:…]`, background images via `tela.Assets`/`tela.BgImage`, `bg-clip-text` (ADR-079) · T7 `UseSpring`/`UseTween`/`Animate`, `Presence` with `starting:` and `Exit`, `UsePresence` · T8 `fixed`, `sticky`, `h.Portal`, `UseColorScheme`/`SetColorScheme`/`UseReducedMotion` (ADR-077) · T9 `AnimateLayout`, `LayoutID` · T10 dashboard example, 60 fps at 1080p, live and Windows checks. No limit on parallel agents (owner, 2026-10-18).
 - **Roadmap revision (2026-10-20):** a gap analysis against JavaFX, the Microsoft stack, Wails, Tauri and Electron, and a review of `examples/` for public-API problems, produced the plan below. Phase 7 is new (public API polish, before `aria` and `kit`, with theme tokens inside it); the old phases 7–8 and the desktop-integration, distribution and media phases were split by size (phases 5 and 6 had 10–11 tasks); desktop integration comes before macOS; "Road to v1.0" says when the API freezes. Phases 8 onwards are unplanned; order and scope are confirmed when each phase is planned. `tela add` is deferred. Phase numbers moved: "phase 8" in older text (macOS, X11 IME) is now phase 13.
-- **Next step:** plan phase 10 (`kit`). `tela new` (ADR-128) shipped in `v0.9.2` (tagged 2026-10-25, not pushed).
+- **Phase in progress (2026-10-25):** phase 10 (`kit`) planned: the owner decided K1–K17 (ADR-129); waves A (T1–T3), B (T4, T5), C (T6–T9), D (D1–D6).
+- **Next step:** wave A (T1 foundation, T2 engine, T3 aria hooks). `tela new` (ADR-128) shipped in `v0.9.2` (tagged 2026-10-25, not pushed).
 
 ## Phases
 
@@ -252,12 +253,25 @@ Moved before `kit` by the owner (2026-10-21): iterating on components with their
 Shipped as a package of the core module. `tela add` is deferred (see "Deferred"),
 so each component is written as one self-contained file with no imports from
 `internal/` and tokens instead of hard-coded colors; that keeps a later move to
-copied-source distribution cheap.
+copied-source distribution cheap. Design decided by the owner on 2026-10-25 (K1–K17, ADR-129):
+struct components with slots, shadcn/ui `new-york-v4` as the look checked against Chromium,
+recipes (`kit.DefaultStyle`, `kit.StyleProvider`) for customization, the app-screen examples
+migrated.
 
-- [ ] `kit` on the theme tokens: Button, Input, Checkbox, Switch, Radio, Select, Slider, Progress, Dialog, Popover, Tooltip, Tabs, Table (simple: sort, fixed columns), Toast, Card, Badge, Avatar, menu bar, context menu, date picker, color picker
+- [ ] T1 foundation: shared types, recipes, `kit.Theme()`, Chromium harness, golden sheets; Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field
+- [ ] T2 engine: `h.AriaInvalid` + `aria-invalid:`, `h.AriaSort`, `i18n.FirstDayOfWeek`
+- [ ] T3 aria: `UseRadioGroup`/`UseRadio`, `UseToggleGroup`, `UseSlider`, `UseProgressBar`/`UseMeter`
+- [ ] T4 Checkbox, Switch, RadioGroup, ToggleGroup, Slider, Progress
+- [ ] T5 Dialog, AlertDialog, Popover, Tooltip, Toaster/`UseToast`, Select, Tabs
+- [ ] T6 aria `UseMenuBar`, `UseContextMenuTrigger`; DropdownMenu, Menubar, ContextMenu
+- [ ] T7 Table (sort, sticky header and leading columns)
+- [ ] T8 aria `UseCalendar`/`UseRangeCalendar`; Calendar, DatePicker
+- [ ] T9 aria `UseColorArea`/`UseColorSlider`; ColorPicker
+- [ ] D1–D5 examples on kit: dashboard (glass style); settings + pricing; signup + i18n; board + player; native (three styles)
+- [ ] D6 `examples/kit` gallery (a `Previews` entry per component), wiki Kit page, README
 - [ ] Light and dark previews of every component as goldens
 
-**Done when:** an example is built only on `kit`, with no hand-made segmented control, switch, confirm row or icon code.
+**Done when:** `examples/dashboard` (a glass style) and `examples/native` (Win11, Adwaita, Breeze styles) are built only on `kit`, `examples/settings` uses the default style, no migrated example has a hand-made control (segmented control, switch, radio, confirm row, toast, menu) or hand-drawn icon, and hello, counter, shapes, text, layout, motion, virtuallist and aria keep bit-identical goldens.
 
 ### Phase 11: CLI tooling, LLM docs, full screens (`v0.11.0`)
 
@@ -441,3 +455,4 @@ One line per session: date, what was done, what is pending.
 - **2026-10-22:** `v0.9.1`: Windows fixes of `tela dev` (named mappings kept until the host maps them, the Windows watcher knows its directories and 8.3 names, a private build directory, the Defender hint for slow reload starts), with a review of them (ADR-125, ADR-126); verified locally and on the Windows VM (remote and watcher suites twice, 45 supervisor tests; live reloads 1.0–1.1 s). A heavy VM job (two 89 MB tree copies) blocked the owner's Windows session once; later jobs use prebuilt test binaries only. The host's disk filled up (71 GB Go build cache); the owner cleared it.
 - **2026-10-22:** a console window opens next to a Tela app started from Explorer on Windows (Go builds console programs by default). Documented `-ldflags=-H=windowsgui` (Getting Started "Ship it", README); `tela build` will set it with a log file (phase 17). The owner rejected hiding the console at run time: the flash would make Tela apps look like malware (ADR-127).
 - **2026-10-25:** `tela new <dir>` (the owner's request, ADR-128): templates embedded in `cmd/tela/templates/app`, `-module`, `-skip-deps`, `go get` + `go mod tidy` at the binary's release version. Verified: unit tests, an offline test that vets and tests a generated app against this checkout and runs `tela inspect` on it, and a real `tela new` + `go test` against the published v0.9.1; `staticcheck` is not installed on this host (not run).
+- **2026-10-25:** phase 10 planned with the owner: struct components with slots, shadcn `new-york-v4` checked against Chromium, recipes for customization (the dashboard keeps a glass look on kit), app-screen examples migrated and the layer examples kept (K1–K17, ADR-129). Nothing implemented.
