@@ -1,0 +1,74 @@
+- banner:
+  - text: Tela kit 34 components Style
+  - radiogroup "Style":
+    - radio "Default" [checked]
+    - radio "Rounded"
+  - switch "Dark mode"
+- tablist "Components":
+  - tab "Alert Dialog"
+  - tab "Avatar"
+  - tab "Badge"
+  - tab "Button" [selected]
+  - tab "Calendar"
+  - tab "Card"
+  - tab "Checkbox"
+  - tab "Color Input"
+  - tab "Color Picker"
+  - tab "Context Menu"
+  - tab "Date Picker"
+  - tab "Date Range Picker"
+  - tab "Dialog"
+  - tab "Dropdown Menu"
+  - tab "Field"
+  - tab "Input"
+  - tab "Label"
+  - tab "Menubar"
+  - tab "Popover"
+  - tab "Progress"
+  - tab "Radio Group"
+  - tab "Range Calendar"
+  - tab "Select"
+  - tab "Separator"
+  - tab "Skeleton"
+  - tab "Slider"
+  - tab "Switch"
+  - tab "Table"
+  - tab "Tabs"
+  - tab "Textarea"
+  - tab "Toast"
+  - tab "Toggle"
+  - tab "Toggle Group"
+  - tab "Tooltip"
+- tabpanel "Button":
+  - heading "Button" [level=1]
+  - paragraph: A button in six variants and eight sizes, with icon slots. It is the trigger of every overlay.
+  - text: kit.Button
+  - heading "Variants" [level=3]
+  - paragraph: Default, Secondary, Outline, Ghost, Destructive and Link.
+  - button "Button"
+  - button "Secondary"
+  - button "Outline"
+  - button "Ghost"
+  - button "Destructive"
+  - button "Link"
+  - heading "Sizes" [level=3]
+  - paragraph: Xs, Sm, the default and Lg.
+  - button "Extra small"
+  - button "Small"
+  - button "Default"
+  - button "Large"
+  - heading "Icons" [level=3]
+  - paragraph: An icon before or after the label, and icon-only buttons in four sizes (AriaLabel names them).
+  - button "Login with email"
+  - button "Continue"
+  - button "Add, extra small"
+  - button "Add, small"
+  - button "Add"
+  - button "Add, large"
+  - heading "States" [level=3]
+  - paragraph: Disabled, loading (the label is any content) and a button that counts.
+  - button "Disabled" [disabled]
+  - button "Disabled" [disabled]
+  - button "Save changes"
+  - button "Clicked 0 times"
+- region "Notifications"

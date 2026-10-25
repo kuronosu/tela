@@ -14,6 +14,7 @@
 - [Internationalization](Internationalization)
 - [Icons](Icons)
 - [Aria](Aria)
+- [Kit](Kit)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)
@@ -24,6 +25,7 @@
 - [package h](API-Reference-h)
 - [package aria](API-Reference-aria)
 - [package telatest](API-Reference-telatest)
+- [package kit](API-Reference-kit)
 
 **Links**
 

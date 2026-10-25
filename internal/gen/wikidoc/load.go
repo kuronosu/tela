@@ -29,6 +29,7 @@ func defaultSpecs(modPath string) []pkgSpec {
 		{Dir: "h", ImportPath: modPath + "/h", Out: "docs/wiki/API-Reference-h.md", Page: "API-Reference-h"},
 		{Dir: "aria", ImportPath: modPath + "/aria", Out: "docs/wiki/API-Reference-aria.md", Page: "API-Reference-aria"},
 		{Dir: "telatest", ImportPath: modPath + "/telatest", Out: "docs/wiki/API-Reference-telatest.md", Page: "API-Reference-telatest"},
+		{Dir: "kit", ImportPath: modPath + "/kit", Out: "docs/wiki/API-Reference-kit.md", Page: "API-Reference-kit"},
 	}
 }
 

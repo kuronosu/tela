@@ -222,6 +222,21 @@ dialog with the keyboard alone.
   <img src="docs/images/aria-dark.png" alt="aria example, dark, with a dialog open" width="49%">
 </p>
 
+### Component gallery (`kit`)
+
+**[kit](examples/kit)**: the gallery of package `kit`, shadcn/ui's look as
+Go components: a sidebar with 34 components and a page for each with its
+variants, sizes and states in a small realistic composition, a light/dark switch
+and a Style picker that restyles the whole window with a second recipe made of a
+few edits of `kit.DefaultStyle()`. Everything on screen is a kit component. Every
+page is also a preview (`tela dev --preview Calendar ./examples/kit`), and its
+tests drive the sidebar with the keyboard alone.
+
+<p align="center">
+  <img src="docs/images/kit.png" alt="kit gallery, light, the Button page" width="49%">
+  <img src="docs/images/kit-dark.png" alt="kit gallery, dark, in the Rounded style" width="49%">
+</p>
+
 ### Native look
 
 **[native](examples/native)**: one file-explorer tree that looks native on
@@ -301,6 +316,15 @@ VirtualList(100_000, func(int) float32 { return 65 }, func(i int) tela.Component
   `UseMenu`, `UseTabs`, `UseSelect`, `UseCombobox`) and `UseFloating`, a port
   of Floating UI's positioning. Each returns a `Props` value to spread on any
   element, so you style it with plain classes.
+- **`kit`**: 34 ready-made components in the look of shadcn/ui (button, card,
+  input, field, select, tabs, table, dialog, popover, tooltip, toasts, menus,
+  checkbox, switch, radio group, slider, calendar, date picker, color picker...),
+  built on `aria` and the theme tokens. Struct components with slots, one value
+  rule (`Value *T`, `DefaultValue`, `OnValueChange`), and a look that is data:
+  edit `kit.DefaultStyle()` and apply it to a subtree with `kit.StyleProvider`.
+  The [`examples/kit`](examples/kit) gallery shows them all; the guide is
+  [Kit](https://github.com/kuronosu/tela/wiki/Kit) on the wiki. (Phase 10, on
+  main and not yet in a tagged release.)
 - **Icons and images**: `h.Icon` draws SVG as vectors, colored by the text
   color; `Img` takes files, `embed.FS`, bytes and SVG, with `h.Tint`. The
   separate module `github.com/kuronosu/tela/icons/lucide` has Lucide's whole
@@ -392,9 +416,10 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
 
 - **No macOS window** yet (phase 14); it cross-compiles. No IME on X11 yet
   (XIM, phase 14).
-- **No ready-made checkbox, radio, select or slider** yet; `kit` brings them
-  in phase 10. Meanwhile the `aria` hooks (`UseCheckbox`, `UseSwitch`,
-  `UseSelect`) give the behavior and you provide the look.
+- **No ready-made checkbox, radio, select or slider in the tagged release**
+  (v0.9.1); `kit` (phase 10) has them on main. In v0.9.1 the `aria` hooks
+  (`UseCheckbox`, `UseSwitch`, `UseSelect`) give the behavior and you provide
+  the look.
 - **Glass pages at 2x are not 60 fps while scrolling** on CPU (the dashboard's
   p95 is 36–48 ms per frame at 2880×1800 and 4K; it is 14.6 ms at 1080p).
 - Transforms are 2D only; SVG has no text, filters or patterns; no
@@ -416,7 +441,7 @@ The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
   without a window).
 - **Guides on the [wiki](https://github.com/kuronosu/tela/wiki)**: getting
   started, styling, theming, hooks, animation, events, forms, scrolling,
-  `aria`, icons, internationalization, accessibility, testing and the CLI,
+  `aria`, `kit`, icons, internationalization, accessibility, testing and the CLI,
   with a working example each. Its sources are versioned in
   [`docs/wiki`](docs/wiki); the API reference pages there are generated from
   the doc comments with `go generate`.

@@ -1,0 +1,10 @@
+- tabpanel "Dropdown Menu"
+- menu "Open":
+  - text: My account
+  - separator
+  - menuitem "Profile"
+  - menuitem "Billing"
+  - menuitem "Settings"
+  - menuitem "Keyboard shortcuts" [disabled]
+  - separator
+  - menuitem "Log out"
