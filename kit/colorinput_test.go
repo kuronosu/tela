@@ -2,6 +2,7 @@ package kit_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela"
@@ -154,6 +155,87 @@ func TestColorInputCodeFollowsTheDrag(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The hex field follows a drag in the area, in a picker and in the panel of a
+// ColorInput, uncontrolled and controlled: its text is a bound Value that the
+// color state updates when the color moves, so a move builds nothing (the
+// controlled picker builds as often as its state does, ADR-132: the same two
+// builds as before the field followed the drag).
+func TestColorHexFieldFollowsTheDrag(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		page       func(onChange func(tela.Color)) func() tela.Node
+		open       bool
+		maxBuilds  int
+		maxLayouts int
+	}{
+		{"picker", func(on func(tela.Color)) func() tela.Node {
+			return colorPage(kit.ColorPicker{DefaultValue: new(indigo), Alpha: true, OnValueChange: on})
+		}, false, 0, 0},
+		{"input", func(on func(tela.Color)) func() tela.Node {
+			return colorInputPage(kit.ColorInput{DefaultValue: new(indigo), Alpha: true, OnValueChange: on, Props: h.TestID("color-trigger")})
+		}, true, 0, 1}, // the layout is the button's code
+		{"controlled", func(on func(tela.Color)) func() tela.Node {
+			return func() tela.Node {
+				c, setC := tela.UseState(indigo)
+				return h.Div(h.Class("p-4"), kit.ColorPicker{Value: &c, Alpha: true, OnValueChange: func(n tela.Color) { on(n); setC.Set(n) }})
+			}
+		}, false, 2, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var changed colorLog
+			app := telatest.MountFunc(t, tc.page(changed.add), telatest.Theme(kit.Theme()), telatest.NoSettle())
+			if tc.open {
+				app.Click(colorTriggerID)
+			}
+			// The snapshot is read at once: Expect would let time pass, and the
+			// build of a resting pointer would hide a field that lags.
+			hexShows := func(code string) bool {
+				return strings.Contains(app.AriaSnapshot(), `textbox "Hex": "`+code+`"`)
+			}
+			area := app.Bounds(areaGroup)
+			app.MouseMove(at(area, 0.5, 0.5))
+			app.MouseDown()
+			for i := 1; i <= 8; i++ {
+				st := app.Measure(func() { app.MouseMove(at(area, 0.5-float32(i)*0.05, 0.5+float32(i)*0.05)) })
+				if code := hexOf(changed.last(), true); !hexShows(code) {
+					t.Fatalf("move %d: the hex field does not show %s; the window:\n%s", i, code, app.AriaSnapshot())
+				}
+				if st.Builds > tc.maxBuilds || st.Layouts > tc.maxLayouts {
+					t.Errorf("move %d: %d builds and %d layouts, want at most %d and %d", i, st.Builds, st.Layouts, tc.maxBuilds, tc.maxLayouts)
+				}
+			}
+			app.MouseUp()
+			if code := hexOf(changed.last(), true); !hexShows(code) {
+				t.Errorf("after the drag the hex field does not show %s", code)
+			}
+		})
+	}
+}
+
+// The field is not overwritten while the user types in it: a color that
+// changes from outside (here a controlled value) is shown when the text is
+// committed or reverted, and the field follows it again afterwards.
+func TestColorHexFieldKeepsTheDraft(t *testing.T) {
+	var setC tela.Setter[tela.Color]
+	app := telatest.MountFunc(t, func() tela.Node {
+		c, s := tela.UseState(indigo)
+		setC = s
+		return h.Div(h.Class("p-4"), kit.ColorPicker{Value: &c, OnValueChange: s.Set})
+	}, telatest.Theme(kit.Theme()))
+	app.Focus(hexField)
+	app.Press("Control+a")
+	app.Type("12")
+	setC.Set(tela.Hex("#ff0000"))
+	app.Expect(areaThumb, telatest.HasValue("Saturation 100%, Brightness 100%"))
+	app.Expect(hexField, telatest.HasValue("12"))
+	// "12" is not a code: Enter takes the color back.
+	app.Press("Enter")
+	app.Expect(hexField, telatest.HasValue("#ff0000"))
+	// Focused but not typing, the field follows the color.
+	setC.Set(tela.Hex("#00ff00"))
+	app.Expect(hexField, telatest.HasValue("#00ff00"))
 }
 
 // The button keeps its width while the color changes: Inter is proportional,

@@ -79,10 +79,17 @@ func UseColorField(o ColorFieldOptions) ColorFieldResult {
 	f := tela.UseOnce(func() *colorFieldState { return &colorFieldState{} })
 	f.bump, f.st, f.o = bump, o.State, o
 
-	text := FormatHexColor(f.st.Color(), o.Alpha)
-	if f.editing {
-		text = f.draft
-	}
+	// The text lives in a Value the input is bound to, so a drag elsewhere
+	// changes it without a build: the state tells the field when its color
+	// moves (follow), and the field shows it unless the user is editing it.
+	f.text = tela.UseValue(FormatHexColor(f.st.Color(), o.Alpha))
+	text := f.shownText()
+	core.PublishValue(f.text, text)
+	tela.UseEffect(func() func() {
+		st := f.st
+		st.watch(f)
+		return func() { st.unwatch(f) }
+	}, f.st)
 	name := h.AriaLabelledBy(label)
 	switch {
 	case o.AriaLabel != "":
@@ -91,7 +98,7 @@ func UseColorField(o ColorFieldOptions) ColorFieldResult {
 		name = h.AriaLabelledBy(o.AriaLabelledBy)
 	}
 	ps := []tela.Prop{
-		h.Ref(ref), h.Value(text), name,
+		h.Ref(ref), h.BindValue(f.text), name,
 		h.OnBeforeInput(f.onBeforeInput), h.OnChange(f.onChange), h.OnKeyDown(f.onKeyDown), h.OnBlur(f.commit),
 	}
 	if o.Disabled {
@@ -120,6 +127,26 @@ type colorFieldState struct {
 	o       ColorFieldOptions
 	draft   string
 	editing bool
+	// text is the value the input is bound to: the draft while the user
+	// edits it, else the color's code as it is now.
+	text *tela.Value[string]
+}
+
+// shownText is the text the field shows as of this build.
+func (f *colorFieldState) shownText() string {
+	if f.editing {
+		return f.draft
+	}
+	return FormatHexColor(f.st.Color(), f.o.Alpha)
+}
+
+// follow shows the color as it is now, between builds, unless the user is
+// editing the text. The color state calls it when the color moves.
+func (f *colorFieldState) follow() {
+	if f.editing || f.text == nil {
+		return
+	}
+	core.PublishValue(f.text, FormatHexColor(f.st.shown.Color(), f.o.Alpha))
 }
 
 func (f *colorFieldState) invalidate() {
@@ -161,7 +188,7 @@ func (f *colorFieldState) onChange(e tela.ChangeEvent) {
 		return
 	}
 	if !e.IsComposing && !acceptable(strings.TrimSpace(e.Value)) {
-		f.invalidate() // the field shows the draft again
+		core.PublishValue(f.text, f.shownText()) // the field shows what it showed
 		return
 	}
 	f.draft, f.editing = e.Value, true
@@ -178,18 +205,23 @@ func (f *colorFieldState) commit() {
 	defer f.invalidate()
 	c, err := ParseHexColor(f.draft)
 	if err != nil {
+		f.follow() // back to the color's code
 		return
 	}
-	f.setRGB(c, len(strings.TrimPrefix(strings.TrimSpace(f.draft), "#")))
+	c = f.setRGB(c, len(strings.TrimPrefix(strings.TrimSpace(f.draft), "#")))
+	// The code the color has now, also when the change is up to the caller
+	// (a build brings the color it stored, or the one it kept).
+	core.PublishValue(f.text, FormatHexColor(c, f.o.Alpha))
 }
 
-// setRGB sets the color from a code of n digits: the code's opacity is
-// taken only when the field has the alpha and the code has it.
-func (f *colorFieldState) setRGB(c tela.Color, digits int) {
+// setRGB sets the color from a code of n digits, and returns it: the code's
+// opacity is taken only when the field has the alpha and the code has it.
+func (f *colorFieldState) setRGB(c tela.Color, digits int) tela.Color {
 	if !(f.o.Alpha && (digits == 4 || digits == 8)) {
 		c.A = f.st.latest.Color().A
 	}
 	f.st.Set(c)
+	return c
 }
 
 func (f *colorFieldState) onKeyDown(e tela.KeyboardEvent) {

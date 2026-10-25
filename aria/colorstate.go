@@ -126,7 +126,19 @@ type ColorState struct {
 	// hslS is the saturation of the HSL model, which a lightness of 0 or
 	// 100 hides.
 	hslS float64
+	// fields are the hex fields that show the color between builds.
+	fields map[*colorFieldState]struct{}
 }
+
+// watch and unwatch add and remove a hex field that follows the color.
+func (s *ColorState) watch(f *colorFieldState) {
+	if s.fields == nil {
+		s.fields = map[*colorFieldState]struct{}{}
+	}
+	s.fields[f] = struct{}{}
+}
+
+func (s *ColorState) unwatch(f *colorFieldState) { delete(s.fields, f) }
 
 // UseColorState holds the color of a picker and returns the state that
 // [UseColorArea], [UseColorSlider] and [UseColorField] share.
@@ -149,6 +161,9 @@ func (s *ColorState) invalidate() {
 func (s *ColorState) repaint() {
 	s.ver++
 	core.PublishValue(s.version, s.ver)
+	for f := range s.fields {
+		f.follow()
+	}
 }
 
 // sync takes the options of a build.

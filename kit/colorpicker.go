@@ -128,8 +128,9 @@ func init() {
 // announced with its value. The hue is kept when the color goes through
 // a gray or black, so dragging to the left edge of the area does not lose it.
 //
-// Dragging only repaints: the thumbs, the area, the preview and the alpha
-// track follow the pointer without the picker being built on every move.
+// Dragging only repaints: the thumbs, the area, the preview, the hex field
+// (unless it is being typed in) and the alpha track follow the pointer
+// without the picker being built on every move.
 // OnValueChange is called on every change, so a controlled picker builds as
 // often as the state it is given does; OnValueCommit is called once when
 // the user stops (a drag ends, a key, a swatch or a hex code changed the
