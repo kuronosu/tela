@@ -22,10 +22,11 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.9.1).** Phases 1–9 are done and tagged: Linux
+> **Status: pre-1.0 (v0.10.0).** Phases 1–10 are done and tagged: Linux
 > (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
-> `aria` behavior hooks and `tela dev`, a reload that keeps your state. macOS
+> `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
+> `kit`, ready-made components you can restyle. macOS
 > is not there yet. The public API (`tela`, `h`) may still break between minor
 > versions. See [Project status](#project-status).
 
@@ -173,12 +174,14 @@ and tests. They are the best way to see what the framework does today.
 
 ### Dashboard
 
-A glassmorphism analytics dashboard, the showcase of phase 6: CSS grid,
+A glassmorphism analytics dashboard built on `kit` with a glass recipe
+(`kit.DefaultStyle()` edited and applied with `kit.StyleProvider`): CSS grid,
 `sticky` and `fixed`, translucent panels with `backdrop-blur` over an image,
-springs, layout animations (`AnimateLayout`, `LayoutID`), `h.Presence`
-dialogs and toasts in an `h.Portal`, and a light/dark switch. It runs at 60 fps
-at 1080p on CPU rendering (p95 of 14.6 ms per frame on 4 cores; the benchmark
-and the "glass budget" are in its README).
+springs, layout animations (`AnimateLayout`, `LayoutID`), a `kit.Dialog`,
+`kit.Toaster` toasts, `kit.Tabs`, `kit.ToggleGroup` and a light/dark switch. Its hand-made phase-6 version
+ran at 60 fps at 1080p on CPU rendering (p95 of 14.6 ms per frame on 4 cores of
+a Core Ultra 5); the kit version measured a 15% higher p95 than the old one on
+the same machine (the benchmark and the "glass budget" are in its README).
 
 <p align="center">
   <img src="docs/images/dashboard.png" alt="dashboard example, light" width="49%">
@@ -190,11 +193,11 @@ tokens, a single class (`bg-background`); render it with `tela snapshot --dark`.
 
 ### Signup form
 
-A "Create your account" screen with every text field Tela has: `h.Input`
-with `Type("email")`, `invalid:` and `peer-invalid:` styling, a password with
-a show/hide toggle, an auto-growing `h.Textarea` with a live counter
-(`BindValue` + `TextFn`), `h.Label`, implicit submission with Enter, and a
-submit button that stays disabled until the form is valid.
+A "Create your account" screen on `kit`: `kit.Field` around `kit.Input` and
+`kit.Textarea` with descriptions and errors (`aria-invalid`), a password with a
+show/hide toggle and a strength `kit.Progress`, a live counter (`BindValue` +
+`TextFn`), a `kit.Checkbox`, implicit submission with Enter, and a submit
+button that stays disabled until the form is valid.
 
 <p align="center">
   <img src="docs/images/signup.png" alt="signup example, with an invalid e-mail" width="70%">
@@ -204,8 +207,8 @@ submit button that stays disabled until the form is valid.
 
 | | |
 |---|---|
-| **[pricing](examples/pricing)**: a monthly/yearly switch, a highlighted gradient plan, `absolute` badges. <br><img src="docs/images/pricing.png" alt="pricing example"> | **[settings](examples/settings)**: a whole form as one comparable value, switches, a theme picker, a dirty flag. <br><img src="docs/images/settings.png" alt="settings example"> |
-| **[player](examples/player)**: a progress bar that advances ten times a second without building anything (`UseValue` + `WidthFn`). <br><img src="docs/images/player.png" alt="player example"> | **[board](examples/board)**: a kanban board with drag and drop between columns, using `OnDrag` and `TranslateFn`. <br><img src="docs/images/board.png" alt="board example"> |
+| **[pricing](examples/pricing)**: plans as `kit.Card`s, a monthly/yearly `kit.ToggleGroup`, `kit.Badge`s. <br><img src="docs/images/pricing.png" alt="pricing example"> | **[settings](examples/settings)**: a whole form as one comparable value, `kit.Switch` rows, a `kit.RadioGroup` of theme cards, a Reset `kit.AlertDialog` and a toast on Save. <br><img src="docs/images/settings.png" alt="settings example"> |
+| **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> | **[board](examples/board)**: a kanban board with drag and drop between columns (`OnDrag`, `TranslateFn`), `kit.Card`s with a `kit.DropdownMenu` and a `kit.ContextMenu`, edit and delete dialogs. <br><img src="docs/images/board.png" alt="board example"> |
 | **[shapes](examples/shapes)**: rounded cards, gradients, analytic shadows, blur and glass. <br><img src="docs/images/shapes.png" alt="shapes example"> | **[text](examples/text)**: mixed-script paragraphs (Latin, Arabic, CJK, emoji), selection and carets. <br><img src="docs/images/text.png" alt="text example"> |
 
 ### Command center (`aria`)
@@ -323,8 +326,7 @@ VirtualList(100_000, func(int) float32 { return 65 }, func(i int) tela.Component
   rule (`Value *T`, `DefaultValue`, `OnValueChange`), and a look that is data:
   edit `kit.DefaultStyle()` and apply it to a subtree with `kit.StyleProvider`.
   The [`examples/kit`](examples/kit) gallery shows them all; the guide is
-  [Kit](https://github.com/kuronosu/tela/wiki/Kit) on the wiki. (Phase 10, on
-  main and not yet in a tagged release.)
+  [Kit](https://github.com/kuronosu/tela/wiki/Kit) on the wiki. (Phase 10.)
 - **Icons and images**: `h.Icon` draws SVG as vectors, colored by the text
   color; `Img` takes files, `embed.FS`, bytes and SVG, with `h.Tint`. The
   separate module `github.com/kuronosu/tela/icons/lucide` has Lucide's whole
@@ -369,7 +371,7 @@ about half a second, keeping its state: hooks, text fields, scroll and focus
 
 ## Project status
 
-**Current version: [v0.9.1](CHANGELOG.md)**, tagged 2026-10-22. Phases 1–9
+**Current version: [v0.10.0](CHANGELOG.md)**, tagged 2026-10-25. Phases 1–10
 are done.
 
 | Phase | Name | State |
@@ -383,8 +385,8 @@ are done.
 | 7 | Public API polish: struct components, theme tokens, `tela/i18n`, right-to-left, dev mode by default | ✅ v0.7.0 |
 | 8 | Icons, SVG and `aria`: `h.Icon`, Lucide, `tela icons gen`, behavior hooks, `UseFloating` | ✅ v0.8.0 |
 | 9 | Dev loop: `tela dev`, a reload that keeps state | ✅ v0.9.0 |
-| 10 | `kit`: ready-made components on the theme tokens | next |
-| 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | planned |
+| 10 | `kit`: ready-made components on the theme tokens, restyled with recipes | ✅ v0.10.0 |
+| 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | next |
 | 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | planned |
 | 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | planned |
 | 14 | macOS and IME on X11 | planned |
@@ -416,12 +418,8 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
 
 - **No macOS window** yet (phase 14); it cross-compiles. No IME on X11 yet
   (XIM, phase 14).
-- **No ready-made checkbox, radio, select or slider in the tagged release**
-  (v0.9.1); `kit` (phase 10) has them on main. In v0.9.1 the `aria` hooks
-  (`UseCheckbox`, `UseSwitch`, `UseSelect`) give the behavior and you provide
-  the look.
-- **Glass pages at 2x are not 60 fps while scrolling** on CPU (the dashboard's
-  p95 is 36–48 ms per frame at 2880×1800 and 4K; it is 14.6 ms at 1080p).
+- **Glass pages at 2x are not 60 fps while scrolling** on CPU (the phase-6
+  dashboard's p95 was 36–48 ms per frame at 2880×1800 and 4K, 14.6 ms at 1080p).
 - Transforms are 2D only; SVG has no text, filters or patterns; no
   `grid-template-areas` from classes; menus have no submenus yet.
 - `tela dev` has not been run on macOS; an IME composition is lost across a
