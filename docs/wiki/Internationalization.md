@@ -144,9 +144,14 @@ f.MonthName(time.October, i18n.NameWide)        // "October", "octubre", "окт
 f.MonthName(time.October, i18n.NameAbbreviated) // "Oct"
 f.WeekdayName(time.Monday, i18n.NameShort)      // "Mo", "LU" (es), "月" (ja)
 f.WeekdayName(time.Monday, i18n.NameNarrow)     // "M"
+f.MonthYear(t)                                  // "October 2026", "octubre de 2026", "2026年10月", "2026. október"
 f.FirstDayOfWeek()                              // time.Sunday for en-US, time.Monday for de or es-ES
 i18n.FirstDayOfWeek("ar-EG")                    // time.Saturday
 ```
+
+`MonthYear` is the heading of a calendar (CLDR's `yMMMM` format): the month
+on its own and the year, in the locale's order and with its words
+("октябрь 2026 г." in Russian, where a date says "5 октября").
 
 The first day goes by region: the tag's own, else its language's most likely
 one (`en` is the United States, `ar` Egypt), Monday when CLDR has no data;

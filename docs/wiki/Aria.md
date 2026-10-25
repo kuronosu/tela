@@ -20,6 +20,7 @@ import "github.com/kuronosu/tela/aria"
 | A segmented control, or a toolbar of toggle buttons | [`aria.UseToggleGroup`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseToggleGroup) |
 | A slider, or a range slider | [`aria.UseSlider`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseSlider) |
 | A progress bar or a meter | [`aria.UseProgressBar`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseProgressBar), [`aria.UseMeter`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMeter) |
+| A calendar that selects a date, or a range of dates | [`aria.UseCalendar`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseCalendar), [`aria.UseRangeCalendar`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseRangeCalendar) |
 | A color picker: the color, an area, sliders and a hex field | [`aria.UseColorState`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorState), [`aria.UseColorArea`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorArea), [`aria.UseColorSlider`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorSlider), [`aria.UseColorField`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorField) |
 | To know that a mouse or a pen is over an element | [`aria.UseHover`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseHover) |
 | A focus ring that shows after the keyboard, not after a click | [`aria.UseFocusRing`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusRing) |
@@ -502,6 +503,125 @@ Everything above runs in `telatest`: `app.Click`, `app.Press("Enter")`,
 `app.Press("Space")`, `app.Focus`, `app.Hover`, `app.Expect(loc,
 telatest.Checked(true))`, `app.AriaSnapshot()`. Touch and pen have no
 `telatest` action yet; the package's own tests inject them as platform events.
+
+## Calendars: `UseCalendar`, `UseRangeCalendar`
+
+A month grid that selects a date, or a range of dates: React Aria's
+`useCalendar`, `useRangeCalendar`, `useCalendarGrid` and `useCalendarCell`
+with `useCalendarState`. It is the behavior under a date picker (a button, a
+popover and a calendar): the keys, the focus, the selection, the names and
+the headings. The calendar is Gregorian; the names, the headings and the
+first day of the week come from [`i18n`](Internationalization).
+
+```go
+cal := aria.UseCalendar(aria.CalendarOptions{AriaLabel: "Appointment", Min: aria.Today()})
+return Div(cal.Props, Class("w-64 p-3"),
+	Div(Class("flex items-center justify-between"),
+		Button(cal.PrevProps(), Text("<")),
+		H2(cal.HeadingProps(0), Text(cal.Heading(0))),
+		Button(cal.NextProps(), Text(">"))),
+	Div(cal.GridProps(0), Key(cal.Month(0).String()),
+		Div(cal.RowProps(), Class("flex"),
+			MapIndex(cal.WeekdayNames(i18n.NameShort), func(i int, name string) tela.Node {
+				return Div(cal.ColumnHeaderProps(i), Key(name), Class("w-8 text-xs"), Text(name))
+			})),
+		Map(cal.Weeks(0), func(week []aria.Date) tela.Node {
+			return Div(cal.RowProps(), Key(week[0].String()), Class("flex"),
+				Map(week, func(day aria.Date) tela.Node {
+					return Button(cal.CellProps(0, day), Key(day.String()),
+						Class("size-8 rounded-md aria-selected:bg-primary aria-disabled:opacity-40"),
+						If(cal.IsOutsideMonth(0, day), Class("text-muted-foreground")),
+						Text(cal.DayText(day)))
+				}))
+		})))
+```
+
+```yaml
+- application "Appointment, February 2026":
+  - button "Previous" [disabled]: <
+  - heading "February 2026" [level=2]
+  - button "Next": ">"
+  - grid "February 2026":
+    - row "Sunday Monday Tuesday Wednesday Thursday Friday Saturday":
+      - columnheader "Sunday": Su
+      - ...
+    - row "Sunday, February 8, 2026 Monday, February 9, 2026 ...":
+      - gridcell "Tuesday, February 10, 2026" [selected]: "10"
+      - gridcell "Thursday, February 12, 2026" [disabled]: "12"
+```
+
+A date is an [`aria.Date`](https://pkg.go.dev/github.com/kuronosu/tela/aria#Date),
+`Date{Year: 2026, Month: time.October, Day: 5}`: a day without a time or a
+zone, comparable with `==`, usable as a map key and as the state of
+`tela.UseState`, with `AddDays`, `AddMonths` and `AddYears` (the day is
+clamped to the shorter month: January 31 plus a month is February 28),
+`Compare`, `Weekday` and `String` ("2026-10-05", the key of a cell).
+`aria.DateOf(t)` and `d.Time(loc)` convert from and to a `time.Time`; the zero
+`Date` is "no date". A `time.Time` is not comparable by `==` and carries a
+zone and daylight saving time that a calendar day does not have, which is why
+the hooks do not use it.
+
+**State** follows the rule of the other controls. The selected date is
+uncontrolled when `Value` is nil (`DefaultValue: new(aria.Today())` starts
+it) and controlled when `Value` points to the app's state, which may refuse
+a change; `OnValueChange` is called for both. The focused date, the one with
+the tab stop, which decides the month on display, works the same with
+`FocusedDate`, `DefaultFocusedDate` and `OnFocusChange` (it starts at the
+selected date, else today). `Min` and `Max` bound what can be focused or
+selected; `IsDateUnavailable` marks dates that are shown but not selectable
+(booked days); `Disabled` and `ReadOnly` are the states of the whole calendar.
+`VisibleMonths` shows one to twelve months (`Weeks(i)` and `CellProps(i, day)`
+take the month's index), and the month buttons move by that many.
+`FirstDayOfWeek` overrides the locale's, `FixedWeeks` always shows six weeks,
+`Locale` and `Direction` override the component's, and `Today` fixes what
+`IsToday` calls today (the default is the wall clock; give a fixed date in
+tests).
+
+**Keys**, on a cell: the arrows move a day or a week (left and right are
+swapped in a right-to-left calendar), PageUp and PageDown a month, Shift with
+them a year (the day of the month is kept, or the last one), Home and End the
+first and last day of the week, Enter and Space select. The month on display
+follows the focus; dates outside `Min` and `Max` cannot be reached (the focus
+stops at the limit); unavailable dates can be focused, as in React Aria, and
+have `aria-disabled`.
+
+**Ranges.** `UseRangeCalendar` takes a `Value *aria.DateRange` and selects in
+two steps: a press or Enter anchors the range, the pointer over a date (or the
+focus on it) previews the range up to it (`IsInRange`, `IsRangeStart`,
+`IsRangeEnd`), and a second press completes it, whichever end comes first;
+Escape cancels. While a range is anchored, the dates beyond the nearest
+unavailable one are not selectable unless `AllowsNonContiguousRanges`.
+
+**Parts.** `Props` is the `application` (named by `AriaLabel` and the visible
+range, "Appointment, October 2026"), `GridProps(i)` a `grid` named by its
+heading (`HeadingProps(i)`), `RowProps()` a `row`, `ColumnHeaderProps(i)` a
+`columnheader` named by the full weekday, and `CellProps(i, day)` a
+`gridcell` with the full localized date as its name ("Monday, October 5,
+2026"), `aria-selected`, `aria-disabled` and the tab stop. A cell is one
+element, a focusable gridcell, which the ARIA grid pattern allows: render it
+with a `Button`, key it by its date and the grid by its month. Dates outside
+the month fill the first and last week (`IsOutsideMonth(i, day)`); pressing
+one selects it and shows its month. Style with the `aria-selected:`,
+`aria-disabled:`, `disabled:` and `focus-visible:` variants and the queries
+`IsToday`, `IsUnavailable` and `IsFocused`. `WeekdayNames(width)` are the
+names in the locale at an `i18n.NameWidth`, ordered from the first day, and
+`DayText(day)` the number in the locale's digits.
+
+### How it differs from React Aria
+
+- A date is an `aria.Date`, not a `CalendarDate` of `@internationalized/date`;
+  the calendar is Gregorian only, and there are no time zones or era.
+- A cell is one `gridcell` element instead of a `td` and an inner `div`
+  `role="button"`; its `aria-label` is the full date, without React Aria's
+  "Today" and "Selected" prefixes (the state is in `aria-selected`, and
+  `IsToday` is for the look).
+- Home and End go to the start and end of the week (the APG's keys); the
+  calendar has no live region that announces a month change.
+- The labels of the month buttons are English ("Previous", "Next") unless
+  `PreviousLabel` and `NextLabel` say otherwise.
+- Outside dates are cells too, and pressing one moves to its month, where
+  React Aria's grid hides them.
+- A range is not dragged with the pointer; it is two presses.
 
 ## Floating elements: `UseFloating`
 

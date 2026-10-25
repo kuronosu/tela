@@ -89,7 +89,8 @@
 // checked radio, which the arrow keys move and check), [UseToggleGroup] (a
 // segmented control or a toolbar of toggle buttons), [UseSlider] (one or
 // more thumbs on a track, dragged by repainting), [UseProgressBar] and
-// [UseMeter]. Colors: [UseColorState] (the color that a picker shares, as an
+// [UseMeter]. Dates: [UseCalendar] and [UseRangeCalendar], with the [Date]
+// type. Colors: [UseColorState] (the color that a picker shares, as an
 // [HSB] that keeps the hue), [UseColorArea], [UseColorSlider] and
 // [UseColorField], with the [HSB] and [HSL] types, [ToHSB], [ToHSL],
 // [ParseHexColor] and [FormatHexColor]. Positioning: [UseFloating].
@@ -198,6 +199,32 @@
 //	                return float32(s.ThumbPercent(i)) / 100 * track.Get().Width, 0
 //	            })))
 //	    })))
+//
+// # Calendars
+//
+// A calendar selects a date (or, with [UseRangeCalendar], a range of
+// dates) in a month grid, with React Aria's keys and rules, in the
+// Gregorian calendar and the locale of package i18n (month names, weekday
+// names, the first day of the week). A day is a [Date], a comparable value
+// with no time zone; the zero Date is none. The caller renders the parts
+// from the methods of the result: the heading and month buttons, the
+// weekday headers, and one grid of Weeks per visible month with a
+// CellProps per day, keyed by its date, and the grid keyed by its month:
+//
+//	cal := aria.UseCalendar(aria.CalendarOptions{AriaLabel: "Birthday", Min: aria.Today()})
+//	return Div(cal.Props,
+//	    Button(cal.PrevProps(), Text("<")), H2(cal.HeadingProps(0), Text(cal.Heading(0))), Button(cal.NextProps(), Text(">")),
+//	    Div(cal.GridProps(0), Key(cal.Month(0).String()),
+//	        Map(cal.Weeks(0), func(week []aria.Date) tela.Node {
+//	            return Div(cal.RowProps(), Key(week[0].String()), Class("flex"),
+//	                Map(week, func(day aria.Date) tela.Node {
+//	                    return Button(cal.CellProps(0, day), Key(day.String()), Text(cal.DayText(day)))
+//	                }))
+//	        })))
+//
+// The selected date is uncontrolled by default and controlled when Value
+// points to the caller's state, as everywhere in this package; so is the
+// focused date, which decides the month on display.
 //
 // # Colors
 //

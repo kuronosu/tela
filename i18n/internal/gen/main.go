@@ -145,6 +145,15 @@ func pick(src map[string]any, keys ...string) map[string]any {
 	return dst
 }
 
+// dateTimeFormatsOf keeps the four glue patterns of CLDR's dateTimeFormats
+// and, of its availableFormats, the yMMMM skeleton (a month and a year,
+// ADR-134).
+func dateTimeFormatsOf(src map[string]any) map[string]any {
+	out := pick(src, "full", "long", "medium", "short")
+	out["availableFormats"] = pick(mustDig(src, "availableFormats"), "yMMMM")
+	return out
+}
+
 func fetchJSON(version, pkg, loc, file string) (map[string]any, error) {
 	b, err := get(fmt.Sprintf(rawBase, version, pkg, loc, file))
 	if err != nil {
@@ -191,7 +200,7 @@ func fetchAll(dir, version string) error {
 			},
 			"dateFormats":            pick(mustDig(greg, "dateFormats"), "full", "long", "medium", "short"),
 			"timeFormats":            pick(mustDig(greg, "timeFormats"), "full", "long", "medium", "short"),
-			"dateTimeFormats":        pick(mustDig(greg, "dateTimeFormats"), "full", "long", "medium", "short"),
+			"dateTimeFormats":        dateTimeFormatsOf(mustDig(greg, "dateTimeFormats")),
 			"dateTimeFormats-atTime": mustDig(greg, "dateTimeFormats-atTime"),
 		}
 		lp, err := fetchJSON(version, "cldr-misc-full", loc, "listPatterns.json")
@@ -262,6 +271,34 @@ type names struct {
 	Wide        strMap `json:"wide"`
 }
 
+// dateTimeFormats are the glue patterns of a date and a time, and the
+// available formats the generator reads.
+type dateTimeFormats struct {
+	Full, Long, Medium, Short string
+	Available                 strMap
+}
+
+func (d *dateTimeFormats) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		Full      string `json:"full"`
+		Long      string `json:"long"`
+		Medium    string `json:"medium"`
+		Short     string `json:"short"`
+		Available strMap `json:"availableFormats"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	*d = dateTimeFormats{raw.Full, raw.Long, raw.Medium, raw.Short, raw.Available}
+	return nil
+}
+
+// glue returns the pattern of each length ("full", "long", "medium",
+// "short").
+func (d dateTimeFormats) glue() strMap {
+	return strMap{"full": d.Full, "long": d.Long, "medium": d.Medium, "short": d.Short}
+}
+
 type gregorian struct {
 	Months struct {
 		Format     names `json:"format"`
@@ -281,9 +318,9 @@ type gregorian struct {
 		Abbr  strMap `json:"eraAbbr"`
 		Names strMap `json:"eraNames"`
 	} `json:"eras"`
-	DateFormats strMap `json:"dateFormats"`
-	TimeFormats strMap `json:"timeFormats"`
-	DateTime    strMap `json:"dateTimeFormats"`
+	DateFormats strMap          `json:"dateFormats"`
+	TimeFormats strMap          `json:"timeFormats"`
+	DateTime    dateTimeFormats `json:"dateTimeFormats"`
 	AtTime      struct {
 		Standard strMap `json:"standard"`
 	} `json:"dateTimeFormats-atTime"`
@@ -329,7 +366,9 @@ const (
 	fDaysStandWide     = 103 // 7
 	fDaysStandShort    = 110 // 7
 	fDaysStandNarrow   = 117 // 7
-	numFields          = 124
+	// The pattern of a month and a year ("MMMM y"), CLDR's yMMMM.
+	fMonthYear = 124
+	numFields  = 125
 )
 
 var dayKeys = []string{"sun", "mon", "tue", "wed", "thu", "fri", "sat"}
@@ -370,6 +409,7 @@ func record(loc string, f localeFile) ([numFields]string, error) {
 		set(fDaysStandShort+i, g.Days.StandAlone.Short, k, "stand-alone short day")
 		set(fDaysStandNarrow+i, g.Days.StandAlone.Narrow, k, "stand-alone narrow day")
 	}
+	set(fMonthYear, g.DateTime.Available, "yMMMM", "month-year format")
 	set(fAM, g.DayPeriods.Format.Abbreviated, "am", "AM marker")
 	set(fPM, g.DayPeriods.Format.Abbreviated, "pm", "PM marker")
 	for i, k := range []string{"0", "1"} {
@@ -385,7 +425,7 @@ func record(loc string, f localeFile) ([numFields]string, error) {
 		if v := g.AtTime.Standard[k]; v != "" {
 			set(fDateTime+i, strMap{k: v}, k, "date-time format")
 		} else {
-			set(fDateTime+i, g.DateTime, k, "date-time format")
+			set(fDateTime+i, g.DateTime.glue(), k, "date-time format")
 		}
 	}
 	lp := d.ListPatterns.Standard
@@ -397,7 +437,8 @@ func record(loc string, f localeFile) ([numFields]string, error) {
 		return r, err
 	}
 	// Patterns must only use letters the formatter implements.
-	for _, p := range r[fDate:fListStart] {
+	patterns := append(append([]string(nil), r[fDate:fListStart]...), r[fMonthYear])
+	for _, p := range patterns {
 		if bad := unsupportedLetter(p); bad != "" {
 			return r, fmt.Errorf("%s: pattern %q uses %q, which the formatter does not implement", loc, p, bad)
 		}
@@ -552,7 +593,7 @@ func generate(dir string) ([]byte, error) {
 		{"dfListTwo", fListTwo}, {"dfMonthsStandAbbr", fMonthsStandAbbr}, {"dfMonthsStandWide", fMonthsStandWide},
 		{"dfMonthsStandNarrow", fMonthsStandNarrow}, {"dfDaysStandAbbr", fDaysStandAbbr},
 		{"dfDaysStandWide", fDaysStandWide}, {"dfDaysStandShort", fDaysStandShort},
-		{"dfDaysStandNarrow", fDaysStandNarrow}, {"dfNumFields", numFields},
+		{"dfDaysStandNarrow", fDaysStandNarrow}, {"dfMonthYear", fMonthYear}, {"dfNumFields", numFields},
 	} {
 		w("\t%s = %d\n", c.n, c.v)
 	}

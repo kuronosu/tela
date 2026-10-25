@@ -1,0 +1,46 @@
+- application "Appointment, February 2026":
+  - button "Previous" [disabled]: <
+  - text: February 2026
+  - button "Next": ">"
+  - heading "February 2026" [level=2]
+  - grid "February 2026":
+    - row "Sunday Monday Tuesday Wednesday Thursday Friday Saturday":
+      - columnheader "Sunday": Su
+      - columnheader "Monday": Mo
+      - columnheader "Tuesday": Tu
+      - columnheader "Wednesday": We
+      - columnheader "Thursday": Th
+      - columnheader "Friday": Fr
+      - columnheader "Saturday": Sa
+    - row "Sunday, February 1, 2026 Monday, February 2, 2026 Tuesday, February 3, 2026 Wednesday, February 4, 2026 Thursday, February 5, 2026 Friday, February 6, 2026 Saturday, February 7, 2026":
+      - gridcell "Sunday, February 1, 2026" [disabled]: "1"
+      - gridcell "Monday, February 2, 2026" [disabled]: "2"
+      - gridcell "Tuesday, February 3, 2026": "3"
+      - gridcell "Wednesday, February 4, 2026": "4"
+      - gridcell "Thursday, February 5, 2026": "5"
+      - gridcell "Friday, February 6, 2026": "6"
+      - gridcell "Saturday, February 7, 2026": "7"
+    - row "Sunday, February 8, 2026 Monday, February 9, 2026 Tuesday, February 10, 2026 Wednesday, February 11, 2026 Thursday, February 12, 2026 Friday, February 13, 2026 Saturday, February 14, 2026":
+      - gridcell "Sunday, February 8, 2026": "8"
+      - gridcell "Monday, February 9, 2026": "9"
+      - gridcell "Tuesday, February 10, 2026" [selected]: "10"
+      - gridcell "Wednesday, February 11, 2026": "11"
+      - gridcell "Thursday, February 12, 2026" [disabled]: "12"
+      - gridcell "Friday, February 13, 2026": "13"
+      - gridcell "Saturday, February 14, 2026": "14"
+    - row "Sunday, February 15, 2026 Monday, February 16, 2026 Tuesday, February 17, 2026 Wednesday, February 18, 2026 Thursday, February 19, 2026 Friday, February 20, 2026 Saturday, February 21, 2026":
+      - gridcell "Sunday, February 15, 2026": "15"
+      - gridcell "Monday, February 16, 2026": "16"
+      - gridcell "Tuesday, February 17, 2026": "17"
+      - gridcell "Wednesday, February 18, 2026": "18"
+      - gridcell "Thursday, February 19, 2026": "19"
+      - gridcell "Friday, February 20, 2026": "20"
+      - gridcell "Saturday, February 21, 2026": "21"
+    - row "Sunday, February 22, 2026 Monday, February 23, 2026 Tuesday, February 24, 2026 Wednesday, February 25, 2026 Thursday, February 26, 2026 Friday, February 27, 2026 Saturday, February 28, 2026":
+      - gridcell "Sunday, February 22, 2026": "22"
+      - gridcell "Monday, February 23, 2026": "23"
+      - gridcell "Tuesday, February 24, 2026": "24"
+      - gridcell "Wednesday, February 25, 2026": "25"
+      - gridcell "Thursday, February 26, 2026": "26"
+      - gridcell "Friday, February 27, 2026": "27"
+      - gridcell "Saturday, February 28, 2026": "28"

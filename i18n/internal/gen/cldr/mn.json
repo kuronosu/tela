@@ -11,6 +11,9 @@
        "short": "y.MM.dd"
       },
       "dateTimeFormats": {
+       "availableFormats": {
+        "yMMMM": "y 'оны' MMMM"
+       },
        "full": "{1} {0}",
        "long": "{1} {0}",
        "medium": "{1} {0}",

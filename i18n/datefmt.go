@@ -144,6 +144,15 @@ func (f Formatter) Time(t time.Time, style DateStyle) string {
 	return d.interpret(d.dateData().str(dfTime+style.tableIndex()), t, "", "")
 }
 
+// MonthYear formats the month and year of t the way the locale writes
+// them as a heading, with the month on its own: "October 2026", "octubre
+// de 2026", "2026年10月", "2026. október", "октябрь 2026 г.". It is CLDR's
+// yMMMM format, the title of a calendar.
+func (f Formatter) MonthYear(t time.Time) string {
+	d := f.loc()
+	return d.interpret(d.dateData().str(dfMonthYear), t, "", "")
+}
+
 // DateTime formats a date and a time together, joined the way the locale
 // does ("Jan 5, 2026, 3:04 PM").
 func (f Formatter) DateTime(t time.Time, dateStyle, timeStyle DateStyle) string {
@@ -259,29 +268,44 @@ func (d *locData) field(dl dateLocale, letter byte, n int, t time.Time) string {
 		}
 		return d.num(y, n)
 	case 'M', 'L':
+		// L is the stand-alone form ("октябрь"), M the one in a date
+		// ("5 октября").
 		m := int(t.Month())
+		abbr, wide, narrow := dfMonthsAbbr, dfMonthsWide, dfMonthsAbbr
+		if letter == 'L' {
+			abbr, wide, narrow = dfMonthsStandAbbr, dfMonthsStandWide, dfMonthsStandNarrow
+		}
 		switch {
 		case n <= 2:
 			return d.num(m, n)
 		case n == 3:
-			return dl.str(dfMonthsAbbr + m - 1)
+			return dl.str(abbr + m - 1)
 		case n == 4:
-			return dl.str(dfMonthsWide + m - 1)
+			return dl.str(wide + m - 1)
+		case letter == 'L':
+			return dl.str(narrow + m - 1)
 		}
-		return firstRune(dl.str(dfMonthsAbbr + m - 1))
+		return firstRune(dl.str(abbr + m - 1))
 	case 'd':
 		return d.num(t.Day(), n)
 	case 'E', 'c', 'e':
+		// c is the stand-alone form of the weekday.
 		wd := int(t.Weekday())
+		abbr, wide, narrow := dfDaysAbbr, dfDaysWide, dfDaysAbbr
+		if letter == 'c' {
+			abbr, wide, narrow = dfDaysStandAbbr, dfDaysStandWide, dfDaysStandNarrow
+		}
 		switch {
 		case (letter == 'c' || letter == 'e') && n <= 2:
 			return d.num(wd+1, n)
 		case n <= 3 || n == 6:
-			return dl.str(dfDaysAbbr + wd)
+			return dl.str(abbr + wd)
 		case n == 4:
-			return dl.str(dfDaysWide + wd)
+			return dl.str(wide + wd)
+		case letter == 'c':
+			return dl.str(narrow + wd)
 		}
-		return firstRune(dl.str(dfDaysAbbr + wd))
+		return firstRune(dl.str(abbr + wd))
 	case 'a', 'b', 'B':
 		if t.Hour() < 12 {
 			return dl.str(dfAM)
