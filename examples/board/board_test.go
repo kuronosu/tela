@@ -13,7 +13,7 @@ const windowW, windowH = 1280, 800
 func mount(t *testing.T, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
 	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
-	return telatest.Mount(t, Kanban(), opts...)
+	return telatest.MountApp(t, App, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {
@@ -72,7 +72,7 @@ func laneLoc(i int) telatest.Locator {
 
 // cardLoc locates the card with this title.
 func cardLoc(title string) telatest.Locator {
-	return telatest.ByClass("rounded-xl", "select-none").Filter(telatest.HasText(title))
+	return telatest.ByTestID("card").Filter(telatest.HasText(title))
 }
 
 // center returns the center of the element.
@@ -243,7 +243,7 @@ func TestCardFollowsThePointer(t *testing.T) {
 	a.MouseMove(cx+10, cy+30)
 	a.MouseMove(cx+20, cy+60)
 	a.ExpectCount(telatest.ByClass("relative", "z-50", "rotate-2"), 1)
-	a.ExpectCount(telatest.ByClass("h-[3px]", "bg-indigo-500"), 1)
+	a.ExpectCount(telatest.ByClass("h-[3px]", "bg-primary"), 1)
 	before := a.Stats()
 	// Inside one card and one lane, so the drop target stays the same.
 	for i := 1; i <= 10; i++ {
@@ -284,11 +284,11 @@ func TestDropTargetFeedback(t *testing.T) {
 	a.MouseDown()
 	a.MouseMove(cx+20, cy+20)
 	a.MouseMove(dx+dw/2, dy+dh-100)
-	ring := telatest.ByClass("ring-indigo-400/70", "rounded-2xl")
+	ring := telatest.ByClass("ring-primary/50", "rounded-2xl")
 	a.ExpectCount(ring, 1)
 	if r := a.Bounds(ring); r.X != dx || r.Y != dy || r.Width != dw || r.Height != dh {
 		t.Fatalf("the highlighted lane is (%v, %v, %v, %v) while hovering Done, want (%v, %v, %v, %v)", r.X, r.Y, r.Width, r.Height, dx, dy, dw, dh)
 	}
 	a.MouseUp()
-	a.ExpectCount(telatest.ByClass("ring-indigo-400/70"), 0)
+	a.ExpectCount(telatest.ByClass("ring-primary/50"), 0)
 }
