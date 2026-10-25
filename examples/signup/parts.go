@@ -4,43 +4,13 @@ import (
 	"fmt"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/examples/signup/icons"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
 
-// fieldShell is what Input and Textarea share: shadcn's field. The ring of
-// focus: is the focus indicator; text fields match focus-visible: on every
-// focus, so focus: and focus-visible: look alike here. A Prop can be shared
-// by every element that needs it.
-var fieldShell = Class(
-	"block w-full rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-xs outline-none",
-	"transition-colors placeholder:text-zinc-400 selection:bg-indigo-200",
-	"focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/25",
-	"dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:placeholder:text-zinc-500 dark:selection:bg-indigo-800",
-	"dark:focus:border-indigo-400 dark:focus:ring-indigo-400/25")
-
-// invalidField paints a field red while its value is invalid (for an e-mail
-// field: not an address by HTML's syntax). Without the focus: twins, the
-// indigo focus classes above would win on a focused field.
-var invalidField = Class(
-	"invalid:border-red-500 invalid:ring-[3px] invalid:ring-red-500/20",
-	"focus:invalid:border-red-500 focus:invalid:ring-red-500/25",
-	"dark:invalid:border-red-400 dark:focus:invalid:border-red-400")
-
-// FieldLabel is a Label tied to its field by id. hint is the faded
-// remainder, such as "(optional)".
-func FieldLabel(id, text, hint string) tela.Node {
-	return Label(For(id), Class("block text-sm leading-none font-medium"),
-		Text(text),
-		If(hint != "", Span(Class("font-normal text-zinc-500 dark:text-zinc-400"), Text(" "+hint))),
-	)
-}
-
-// Hint is the small gray text under a field.
-func Hint(text, extra string) tela.Node {
-	return P(Class("text-xs text-zinc-500 dark:text-zinc-400", extra), Text(text))
-}
-
-// Brand is the left panel: a gradient with a tagline, hidden below md:.
+// Brand is the left panel: a gradient with a tagline, hidden below md:. It
+// is decoration, so it keeps its own colors in both schemes.
 func Brand() tela.Node {
 	return Div(Class("relative hidden w-[400px] shrink-0 flex-col justify-between overflow-hidden",
 		"bg-linear-to-br from-indigo-600 via-violet-600 to-fuchsia-700 p-10 text-white md:flex"),
@@ -62,159 +32,197 @@ func Brand() tela.Node {
 func Header() tela.Node {
 	return Div(Class("flex flex-col gap-1.5 pb-1"),
 		H1(Class("text-2xl font-semibold tracking-tight"), Text("Create your account")),
-		P(Class("text-sm text-zinc-500 dark:text-zinc-400"),
+		P(Class("text-sm text-muted-foreground"),
 			Text("Start building in minutes. No credit card needed.")),
 	)
 }
 
-// Banner confirms the submission. It is a status region, so a screen reader
-// announces it.
+// Banner confirms the submission: a kit.Card (the kit has no Alert) that is
+// a status region, so a screen reader announces it.
 type Banner struct {
 	Name, Email string
 }
 
 func (b Banner) Build() tela.Node {
-	return Div(Role("status"),
-		Class("flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-950 shadow-xs",
-			"dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-50"),
-		Div(Class("mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600"),
-			Div(Class("-mt-px h-2 w-1 rotate-45 border-r-2 border-b-2 border-white"))),
-		Div(Class("flex flex-col gap-0.5"),
-			Strong(Class("font-semibold"), Textf("Welcome, %s!", b.Name)),
-			Span(Class("text-emerald-900/80 dark:text-emerald-100/70"),
-				Textf("We sent a confirmation link to %s.", b.Email)),
-		),
-	)
+	return Fragment(kit.Card{
+		Props: Role("status"),
+		Class: "gap-1 py-4",
+		Title: Div(Class("flex items-center gap-2"),
+			Icon(icons.CircleCheck, Class("size-4 text-emerald-600 dark:text-emerald-400")),
+			Textf("Welcome, %s!", b.Name)),
+		Description: Textf("We sent a confirmation link to %s.", b.Email),
+		HeaderClass: "px-4",
+	})
 }
 
-// NameField is a plain controlled field. Its label says "any language" on
-// purpose: Input takes input-method text (Japanese, Chinese, Korean)
-// like any browser field.
-func NameField(name string, set tela.Setter[string]) tela.Node {
-	return Div(Class("flex flex-col gap-2"),
-		FieldLabel("name", "Display name", "(any language)"),
-		Input(ID("name"), Name("name"), AutoComplete("name"), AutoFocus(true),
-			Placeholder("Ana García"),
-			Bind(name, set),
-			Class("h-9"), fieldShell),
-	)
+// NameField is a plain controlled field. Its description says "any
+// language" on purpose: Input takes input-method text (Japanese, Chinese,
+// Korean) like any browser field.
+type NameField struct {
+	Name string
+	Set  tela.Setter[string]
 }
 
-// EmailField shows two ways to react to an invalid value. The border comes
-// from the invalid: variant, which h.Type("email") drives; the message
-// comes from peer-invalid:, shown only while the field is invalid. Both
-// wait until the user left the field once (touched), so nobody is told off
-// for the first letter.
-func EmailField(email string, set tela.Setter[string], touched bool, setTouched tela.Setter[bool]) tela.Node {
-	hint := ""
-	if touched {
-		hint = "peer-invalid:hidden"
+func (p NameField) Build() tela.Node {
+	name := p.Name
+	return Fragment(kit.Field{
+		Label:       "Display name",
+		Description: "Any language works, input methods included.",
+		Children: kit.Input{
+			Name: "name", Placeholder: "Ana García", AutoFocus: true,
+			Value: &name, OnValueChange: p.Set.Set,
+			Props: AutoComplete("name"),
+		},
+	})
+}
+
+// EmailField shows two ways to tell the user a value is wrong: the Field's
+// Error, which marks the input invalid (a red border and ring from the
+// recipe's aria-invalid: classes, and [invalid] for assistive technologies)
+// and shows the message below it in place of the help text. It waits until
+// the user left the field once (Touched), so nobody is told off for the
+// first letter.
+type EmailField struct {
+	Email      string
+	Set        tela.Setter[string]
+	Touched    bool
+	SetTouched tela.Setter[bool]
+}
+
+func (p EmailField) Build() tela.Node {
+	email := p.Email
+	f := kit.Field{
+		Label: "E-mail",
+		Children: kit.Input{
+			Name: "email", Type: "email", Placeholder: "you@example.com",
+			Value: &email, OnValueChange: p.Set.Set,
+			Props: OnBlur(func() { p.SetTouched.Set(true) }),
+		},
 	}
-	return Div(Class("flex flex-col gap-2"),
-		FieldLabel("email", "E-mail", ""),
-		Input(ID("email"), Name("email"), Type("email"), AutoComplete("email"),
-			Placeholder("you@example.com"),
-			Bind(email, set),
-			OnBlur(func() { setTouched.Set(true) }),
-			Class("peer h-9"), fieldShell, If(touched, invalidField)),
-		Hint("We only use it to confirm your account.", hint),
-		If(touched, P(Class("hidden text-xs font-medium text-red-600 peer-invalid:block dark:text-red-400"),
-			Text("Enter a valid e-mail address, like you@example.com."))),
-	)
-}
-
-// PasswordField has a show/hide toggle: a button over the end of the field
-// with AriaPressed, and a strength meter. Type is just a prop, so toggling
-// it swaps the dots for the text without remounting the field.
-func PasswordField(password string, set tela.Setter[string], show bool, setShow tela.Setter[bool]) tela.Node {
-	typ := "password"
-	if show {
-		typ = "text"
+	if p.Touched && email != "" && !ValidEmail(email) {
+		f.Error = "Enter a valid e-mail address, like you@example.com."
+	} else {
+		f.Description = "We only use it to confirm your account."
 	}
-	return Div(Class("flex flex-col gap-2"),
-		FieldLabel("password", "Password", ""),
-		Div(Class("relative"),
-			Input(ID("password"), Name("password"), Type(typ), AutoComplete("new-password"),
-				Placeholder("At least 8 characters"),
-				Bind(password, set),
-				Class("h-9 pr-14"), fieldShell),
-			Button(Type("button"), AriaPressed(show), AriaLabel("Show password"),
-				Class("absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-xs font-medium text-zinc-500",
-					"transition-colors hover:text-zinc-950 focus-visible:text-indigo-600 dark:text-zinc-400 dark:hover:text-zinc-50"),
-				OnClick(tela.Toggle(setShow)),
-				Text(map[bool]string{false: "Show", true: "Hide"}[show])),
-		),
-		StrengthMeter{Password: password},
-	)
+	return Fragment(f)
 }
 
-// StrengthMeter is four bars and a word, with the rule under them.
+// PasswordField has a show/hide button over the end of the field, a
+// kit.Button with an icon and a tooltip and AriaPressed, and a strength
+// meter. Type is just a prop, so toggling it swaps the dots for the text
+// without remounting the field.
+type PasswordField struct {
+	Password string
+	Set      tela.Setter[string]
+	Show     bool
+	SetShow  tela.Setter[bool]
+}
+
+func (p PasswordField) Build() tela.Node {
+	password := p.Password
+	typ, icon, tip := "password", icons.Eye, "Show password"
+	if p.Show {
+		typ, icon, tip = "text", icons.EyeOff, "Hide password"
+	}
+	return Fragment(kit.Field{
+		Label:       "Password",
+		Description: "Use letters, numbers and symbols.",
+		Children: Div(Class("flex flex-col gap-3"),
+			Div(Class("relative"),
+				kit.Input{
+					Name: "password", Type: typ, Placeholder: "At least 8 characters",
+					Value: &password, OnValueChange: p.Set.Set,
+					Class: "pr-10", Props: AutoComplete("new-password"),
+				},
+				kit.Tooltip{
+					Trigger: kit.Button{
+						Type: "button", Variant: kit.Ghost, Size: kit.IconSm, Icon: icon,
+						AriaLabel: "Show password", Class: "absolute top-0.5 right-0.5 text-muted-foreground",
+						Props:   AriaPressed(p.Show),
+						OnClick: tela.Toggle(p.SetShow),
+					},
+					Content: Text(tip),
+				},
+			),
+			StrengthMeter{Password: password},
+		),
+	})
+}
+
+// StrengthMeter is a kit.Progress from 0 to 4 and a word, colored by the
+// score.
 type StrengthMeter struct {
 	Password string
 }
 
+var (
+	strengthWords  = []string{"Empty", "Weak", "Fair", "Good", "Strong"}
+	strengthColors = []string{"", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-emerald-500"}
+)
+
 func (m StrengthMeter) Build() tela.Node {
 	score := Strength(m.Password)
-	words := []string{"", "Weak", "Fair", "Good", "Strong"}
-	colors := []string{"", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-emerald-500"}
-	bar := func(i int) tela.Node {
-		color := "bg-zinc-200 dark:bg-zinc-800"
-		if i <= score {
-			color = colors[score]
-		}
-		return Div(Key(i), Class("h-1 flex-1 rounded-full transition-colors", color))
+	word := strengthWords[score]
+	if score == 0 {
+		word = ""
 	}
-	return Div(Class("flex flex-col gap-2"),
-		Div(Class("flex items-center gap-3"),
-			Div(Class("flex flex-1 gap-1"), bar(1), bar(2), bar(3), bar(4)),
-			Span(Class("w-11 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400"), Text(words[score])),
-		),
-		Hint("Use 8 or more characters with letters, numbers and symbols.", ""),
+	return Div(Class("flex items-center gap-3"),
+		kit.Progress{
+			Value: float64(score), Max: 4, AriaLabel: "Password strength",
+			FormatValue:    func(v float64) string { return strengthWords[int(v)] },
+			Class:          "h-1.5 flex-1 bg-muted",
+			IndicatorClass: strengthColors[score],
+		},
+		Span(Class("w-11 text-right text-xs font-medium text-muted-foreground"), Text(word)),
 	)
 }
 
 // BioField is a Textarea that grows with its text between a minimum and a
-// maximum height (field-sizing-content with min-h and max-h; past the
-// maximum it scrolls). It is bound to a tela.Value with BindValue, and its
-// counter is a TextFn that reads that Value: a keystroke repaints the
-// counter and nothing builds.
-func BioField(bio *tela.Value[string]) tela.Node {
-	return Div(Class("flex flex-col gap-2"),
-		FieldLabel("bio", "Short bio", "(optional)"),
-		Textarea(ID("bio"), Name("bio"), Rows(3), MaxLength(bioLimit), SpellCheck(false),
-			Placeholder("Tell us what you build…"),
-			BindValue(bio),
-			Class("field-sizing-content max-h-40 min-h-[4.5rem] py-2 leading-5"), fieldShell),
-		Div(Class("flex justify-between gap-4"),
-			Hint("Shown on your public profile.", ""),
-			Span(Class("text-xs text-zinc-500 tabular-nums dark:text-zinc-400"),
+// maximum height (the recipe's field-sizing-content with min-h and max-h;
+// past the maximum it scrolls). It is bound to a tela.Value with BindValue,
+// and its counter is a TextFn that reads that Value: a keystroke repaints
+// the counter and nothing builds. The counter sits on the field's last line,
+// across from the help text.
+type BioField struct {
+	Bio *tela.Value[string]
+}
+
+func (p BioField) Build() tela.Node {
+	bio := p.Bio
+	return Fragment(kit.Field{
+		Label:            "Short bio (optional)",
+		Description:      "Shown on your public profile.",
+		Class:            "relative",
+		DescriptionClass: "pr-16",
+		Children: Fragment(
+			kit.Textarea{
+				Name: "bio", Rows: 3, MaxLength: bioLimit, Placeholder: "Tell us what you build…",
+				Class: "max-h-40 min-h-[4.5rem] leading-5",
+				Props: BindValue(bio),
+			},
+			Span(Class("absolute right-0 bottom-0 text-xs text-muted-foreground tabular-nums"),
 				TextFn(func() string { return fmt.Sprintf("%d/%d", units(bio.Get()), bioLimit) })),
 		),
-	)
+	})
 }
 
 // termsLabel is the accessible name of the terms checkbox: the text of its
 // Label.
-const termsLabel = "I agree to the Terms of Service and Privacy Policy."
+const termsLabel = "Accept terms and conditions"
 
-// TermsField is a checkbox built from a button, since a native checkbox is
-// not a Tela element yet. The Label's For makes a click on the text click
-// the button and gives the button its accessible name.
-func TermsField(on bool, toggle func()) tela.Node {
-	box := "border-zinc-300 bg-white hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900"
-	if on {
-		box = "border-indigo-600 bg-indigo-600 hover:bg-indigo-700 dark:border-indigo-500 dark:bg-indigo-500"
-	}
-	link := "font-medium text-zinc-950 underline underline-offset-4 dark:text-zinc-50"
-	return Div(Class("flex items-start gap-3"),
-		Button(ID("terms"), Type("button"), Role("checkbox"), AriaChecked(on),
-			OnClick(toggle),
-			Class("mt-px flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs transition-colors",
-				"focus-visible:ring-[3px] focus-visible:ring-indigo-500/40", box),
-			If(on, Div(Class("-mt-0.5 h-2 w-1 rotate-45 border-r-[1.5px] border-b-[1.5px] border-white"))),
-		),
-		Label(For("terms"), Class("cursor-pointer text-sm leading-snug text-zinc-600 dark:text-zinc-400"),
-			Text("I agree to the "), Span(Class(link), Text("Terms of Service")),
-			Text(" and "), Span(Class(link), Text("Privacy Policy")), Text(".")),
-	)
+// TermsField is a horizontal Field with a kit.Checkbox: the label and its
+// description sit after the box, and clicking either toggles it.
+type TermsField struct {
+	On  bool
+	Set func(bool)
+}
+
+func (p TermsField) Build() tela.Node {
+	on := p.On
+	return Fragment(kit.Field{
+		Orientation: kit.Horizontal,
+		Label:       termsLabel,
+		Description: "You agree to our Terms of Service and Privacy Policy.",
+		Children:    kit.Checkbox{Checked: &on, OnCheckedChange: p.Set, Class: "mt-px"},
+	})
 }

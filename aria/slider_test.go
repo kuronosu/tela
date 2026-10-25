@@ -337,6 +337,31 @@ func TestSliderControlledRefuses(t *testing.T) {
 	}
 }
 
+// LiveValues gives a controlled slider the values the caller has now, which
+// moved since the last build with no build to tell it: a key or a press
+// starts from them, not from the values of the last build.
+func TestSliderLiveValues(t *testing.T) {
+	live := []float64{30}
+	var asked events
+	built := []float64{30} // what the one build saw
+	o := aria.SliderOptions{Values: &built, AriaLabel: "Volume",
+		LiveValues:     func() []float64 { return live },
+		OnValuesChange: func(n []float64) { asked.add(fmt.Sprint(n)); live = n }}
+	app := telatest.MountFunc(t, sliderPage(o), telatest.Size(300, 100))
+	vol := slider("Volume")
+	live = []float64{80} // a clock moved it; nothing was built
+	app.Focus(vol)
+	app.Press("ArrowRight")
+	if got := asked.take(); got != "[81]" {
+		t.Errorf("after a key, OnValuesChange got %q, want [81] (from the live 80, not the built 30)", got)
+	}
+	live = []float64{10}
+	app.ClickAt(16+0.1*trackLen+4, 20) // a press close to the live value of 10
+	if got := asked.take(); got != "[12]" {
+		t.Errorf("after a press, OnValuesChange got %q, want [12]", got)
+	}
+}
+
 func TestSliderDisabled(t *testing.T) {
 	var changes int
 	o := aria.SliderOptions{DefaultValues: []float64{30}, Disabled: true, AriaLabel: "Volume", OnValuesChange: func([]float64) { changes++ }}

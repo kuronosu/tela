@@ -4,7 +4,29 @@ import (
 	"fmt"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/examples/player/icons"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
+)
+
+// playerStyle is kit's default style with two button sizes for the
+// transport: "transport" (previous, next) and "play". Their icons are
+// filled (Lucide draws outlines; fill-current makes the triangle and the
+// bars solid, as players do). A recipe edit, not a component of its own:
+// kit.StyleProvider applies it to the player.
+var playerStyle = func() *kit.Style {
+	s := kit.DefaultStyle()
+	s.Button.Sizes["transport"] = "size-12 rounded-full"
+	s.Button.IconSizes["transport"] = "size-5"
+	s.Button.Sizes["play"] = "size-16 rounded-full"
+	s.Button.IconSizes["play"] = "size-7"
+	s.Button.Icon += " fill-current"
+	return &s
+}()
+
+const (
+	transport kit.Size = "transport"
+	play      kit.Size = "play"
 )
 
 // NowPlaying is the player card: cover, title, progress and controls. It
@@ -17,16 +39,20 @@ type NowPlaying struct{ Tr *Transport }
 func (p NowPlaying) Build() tela.Node {
 	tr := p.Tr
 	track := tr.Current()
-	return Div(Class("flex w-[380px] shrink-0 flex-col gap-5 rounded-3xl border border-white/10 bg-zinc-900/80 p-6 shadow-2xl"),
-		Cover{Track: track, Class: "mx-auto size-[clamp(96px,calc(100vh-310px),332px)] rounded-2xl shadow-lg"},
-		Div(Class("flex flex-col gap-1"),
-			Div(Class("text-xs font-medium tracking-widest text-violet-300 uppercase"), Text("Now playing")),
-			H2(Class("truncate text-2xl font-semibold tracking-tight"), Text(track.Title)),
-			P(Class("truncate text-sm text-zinc-400"), Text(track.Artist)),
+	return Fragment(kit.Card{
+		Class: "w-[380px] shrink-0 gap-5 rounded-3xl bg-card/80 py-6 shadow-2xl",
+		Children: Div(Class("flex flex-col gap-5"),
+			Cover{Track: track, Class: "mx-auto size-[clamp(96px,calc(100vh-356px),332px)] rounded-2xl shadow-lg"},
+			Div(Class("flex flex-col gap-1"),
+				Div(Class("text-xs font-medium tracking-widest text-violet-300 uppercase"), Text("Now playing")),
+				H2(Class("truncate text-2xl font-semibold tracking-tight"), Text(track.Title)),
+				P(Class("truncate text-sm text-muted-foreground"), Text(track.Artist)),
+			),
+			SeekBar{Tr: tr},
+			Controls{Tr: tr},
+			VolumeRow{},
 		),
-		Progress{Tr: tr},
-		Controls{Tr: tr},
-	)
+	})
 }
 
 // Cover is the cover art: a gradient with a few shapes (only two in the
@@ -53,43 +79,34 @@ func (c Cover) Build() tela.Node {
 	)
 }
 
-// Progress is the seek bar with the elapsed and total time. The bar is as
-// wide as its card lets it be: nothing writes the width down. The seek
-// handlers read it from the element (ElementRef.Bounds) and the fill and
-// the thumb from a Value that follows it (tela.UseBounds). The fill and the
-// thumb follow Elapsed through WidthFn and TranslateFn, so a tick lays out
-// the fill and repaints the thumb, and the elapsed time is a TextFn of
-// Secs, which lays out its paragraph once per second. Nothing in this
-// component builds while the music plays.
-type Progress struct{ Tr *Transport }
+// SeekBar is the seek bar with the elapsed and total time: a kit.Slider
+// whose ValueSource is the transport's Elapsed. The knob and the range read
+// it in paint-phase closures, so a tick of the clock repaints them and
+// nothing builds, nor lays out; dragging stores each position in Elapsed
+// through OnValueChange, which costs a repaint too. The elapsed time is a
+// TextFn of Secs, which lays out its paragraph once per second.
+//
+// The component builds when the track changes (the slider's maximum) and
+// once a second, on Beat, so that aria-valuenow follows the music; a drag
+// does not move Beat.
+type SeekBar struct{ Tr *Transport }
 
-func (p Progress) Build() tela.Node {
+func (p SeekBar) Build() tela.Node {
 	tr := p.Tr
+	tr.Beat.Get() // subscribe: see the type's comment
 	total := float64(tr.Current().Seconds)
-	bar := tela.UseElementRef()
-	size := tela.UseBounds(bar)
-	// x is the pointer's position along the bar.
-	seek := func(x float32) {
-		if w := bar.Bounds().Width; w > 0 {
-			tr.Seek(float64(x / w))
-		}
-	}
-	frac := func() float32 { return float32(tr.Elapsed.Get() / total) }
 
 	return Div(Class("flex flex-col gap-2"),
-		// The bar is taller than it looks, so it is easy to hit.
-		Div(Ref(bar), Class("group flex h-4 w-full cursor-pointer items-center"),
-			OnClick(func(e tela.MouseEvent) { seek(e.LocalX) }),
-			OnDragStart(func(e tela.DragEvent) { seek(e.LocalX) }),
-			OnDrag(func(e tela.DragEvent) { seek(e.LocalX) }),
-			Div(Class("relative h-1.5 w-full rounded-full bg-white/15 group-hover:h-2"),
-				Div(Class("h-full rounded-full bg-white group-hover:bg-violet-300"),
-					Style(tela.WidthFn(func() float32 { return frac() * size.Get().Width }))),
-				Div(Class("absolute top-1/2 left-0 -mt-[7px] size-3.5 rounded-full bg-white opacity-0 shadow-md group-hover:opacity-100"),
-					Style(tela.TranslateFn(func() (x, y float32) { return frac()*size.Get().Width - 7, 0 }))),
-			),
-		),
-		Div(Class("flex justify-between text-xs text-zinc-400 tabular-nums"),
+		kit.Slider{
+			AriaLabel: "Seek", ValueSource: tr.Elapsed, Max: total, Step: 1,
+			OnValueChange: tr.SeekTo,
+			FormatValue:   func(v float64) string { return clock(int(v)) },
+			// The root is the target of the press: taller than the 6 px
+			// track, so it is easy to hit.
+			Class: "h-4 cursor-pointer",
+			Props: TestID("seek"),
+		},
+		Div(Class("flex justify-between text-xs text-muted-foreground tabular-nums"),
 			Span(TextFn(func() string { return clock(tr.Secs.Get()) })),
 			Span(Text(clock(int(total)))),
 		),
@@ -99,75 +116,80 @@ func (p Progress) Build() tela.Node {
 // clock formats seconds as m:ss.
 func clock(s int) string { return fmt.Sprintf("%d:%02d", s/60, s%60) }
 
-// Controls are the previous, play/pause and next buttons. It reads
-// Playing, so a toggle rebuilds only the controls.
+// Controls are the previous, play/pause and next buttons, each a
+// kit.Button with an icon and a tooltip. It reads Playing, so a toggle
+// rebuilds only the controls.
 type Controls struct{ Tr *Transport }
 
 func (p Controls) Build() tela.Node {
 	tr := p.Tr
 	playing := tr.Playing.Get()
-	toggle := "Pause"
+	toggle, toggleIcon := "Pause", icons.Pause
 	if !playing {
-		toggle = "Play"
+		toggle, toggleIcon = "Play", icons.Play
 	}
 	return Div(Class("flex items-center justify-center gap-6"),
-		Button(Class("flex size-12 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 hover:text-white active:bg-white/20"),
-			AriaLabel("Previous track"),
-			OnClick(tr.Prev),
-			Div(Class("flex items-center gap-px"), Div(Class("h-4 w-[3px] rounded-full bg-current")), triangle(16, true)),
-		),
-		Button(Class("flex size-16 items-center justify-center rounded-full bg-white text-zinc-900 shadow-lg hover:scale-105 hover:bg-zinc-100 active:scale-95"),
-			AriaLabel(toggle),
-			OnClick(tr.Toggle),
-			If(playing, Div(Class("flex gap-1.5"),
-				Div(Class("h-5 w-1.5 rounded-sm bg-current")),
-				Div(Class("h-5 w-1.5 rounded-sm bg-current")))),
-			If(!playing, Div(Class("ml-1"), triangle(22, false))),
-		),
-		Button(Class("flex size-12 items-center justify-center rounded-full text-zinc-300 hover:bg-white/10 hover:text-white active:bg-white/20"),
-			AriaLabel("Next track"),
-			OnClick(tr.Next),
-			Div(Class("flex items-center gap-px"), triangle(16, false), Div(Class("h-4 w-[3px] rounded-full bg-current"))),
-		),
+		kit.Tooltip{
+			Trigger: kit.Button{Variant: kit.Ghost, Size: transport, Icon: icons.SkipBack, AriaLabel: "Previous track",
+				OnClick: tr.Prev, Class: "text-muted-foreground hover:text-foreground"},
+			Content: Text("Previous"),
+		},
+		kit.Tooltip{
+			Trigger: kit.Button{Size: play, Icon: toggleIcon, AriaLabel: toggle, OnClick: tr.Toggle,
+				Class: "shadow-lg hover:scale-105 active:scale-95"},
+			Content: Text(toggle),
+		},
+		kit.Tooltip{
+			Trigger: kit.Button{Variant: kit.Ghost, Size: transport, Icon: icons.SkipForward, AriaLabel: "Next track",
+				OnClick: tr.Next, Class: "text-muted-foreground hover:text-foreground"},
+			Content: Text("Next"),
+		},
 	)
 }
 
-// triangle is a play triangle of height h pointing right, or left: half of
-// a square rotated by 45 degrees, centered on one edge of a box that clips
-// the other half, which keeps the tip slightly rounded. (A zero-size box
-// with colored side borders would draw a sharp triangle.)
-func triangle(h float32, left bool) tela.Node {
-	d := h / 2          // width of the clip box and half of the diagonal
-	s := d * 1.41421356 // side of the square
-	// The square sticks out of the box by half of its side, on the side of
-	// the tip's opposite. The sizes are arbitrary values rounded to
-	// hundredths of a pixel, which is why they are classes and not
-	// tela.WH(d, h).
-	pos := fmt.Sprintf("-left-[%.2fpx]", s/2)
-	if left {
-		pos = fmt.Sprintf("-right-[%.2fpx]", s/2)
+// VolumeRow is a mute kit.Toggle and a volume kit.Slider. The player makes
+// no sound, so the volume is local state of this row.
+type VolumeRow struct{}
+
+func (VolumeRow) Build() tela.Node {
+	volume, setVolume := tela.UseState(70.0)
+	muted, setMuted := tela.UseState(false)
+	ic := icons.Volume2
+	if muted {
+		ic = icons.VolumeX
 	}
-	return Div(Class("relative shrink-0 overflow-hidden", fmt.Sprintf("h-[%gpx] w-[%gpx]", h, d)),
-		Div(Class("absolute rotate-45 rounded-[2px] bg-current", fmt.Sprintf("top-[%.2fpx] size-[%.2fpx]", d-s/2, s), pos)),
+	return Div(Class("flex items-center gap-3"),
+		kit.Toggle{
+			AriaLabel: "Mute", Icon: ic, Pressed: &muted, OnPressedChange: setMuted.Set,
+			Class: "shrink-0 text-muted-foreground",
+		},
+		kit.Slider{
+			AriaLabel: "Volume", Value: &volume, OnValueChange: setVolume.Set, Step: 5, Disabled: muted,
+			FormatValue: func(v float64) string { return fmt.Sprintf("%.0f%%", v) },
+			Class:       "h-4",
+		},
 	)
 }
 
-// Queue is the list of tracks. It reads Track and Playing in its body to
-// mark the current row.
+// Queue is the list of tracks, a kit.Card with a header. It reads Track and
+// Playing in its body to mark the current row.
 type Queue struct{ Tr *Transport }
 
 func (p Queue) Build() tela.Node {
 	current, playing := p.Tr.Track.Get(), p.Tr.Playing.Get()
-	return Div(Class("hidden w-[420px] shrink-0 flex-col gap-1 rounded-3xl border border-white/10 bg-zinc-900/60 p-3 lg:flex"),
-		Div(Class("flex items-baseline justify-between px-3 pt-2 pb-3"),
-			H2(Class("text-lg font-semibold tracking-tight"), Text("Up next")),
-			Span(Class("text-xs text-zinc-500"), Textf("%d tracks", len(tracks))),
+	return Fragment(kit.Card{
+		Class:        "hidden w-[420px] shrink-0 gap-2 rounded-3xl bg-card/60 py-4 lg:flex",
+		Title:        H2(Class("text-lg tracking-tight"), Text("Up next")),
+		Action:       Span(Class("text-xs text-muted-foreground"), Textf("%d tracks", len(tracks))),
+		HeaderClass:  "items-baseline px-6 pb-1",
+		ContentClass: "flex flex-col gap-1 px-3",
+		Children: Fragment(
+			MapKeyed(tracks, func(t Track) string { return t.Title }, func(t Track) tela.Component {
+				i := indexOf(t)
+				return QueueRow{Tr: p.Tr, Index: i, Current: i == current, Playing: playing && i == current}
+			}),
 		),
-		MapKeyed(tracks, func(t Track) string { return t.Title }, func(t Track) tela.Component {
-			i := indexOf(t)
-			return QueueRow{Tr: p.Tr, Index: i, Current: i == current, Playing: playing && i == current}
-		}),
-	)
+	})
 }
 
 func indexOf(t Track) int {
@@ -179,8 +201,9 @@ func indexOf(t Track) int {
 	return -1
 }
 
-// QueueRow is one track: a small cover, title, artist and length. The
-// current row is highlighted; clicking a row plays it.
+// QueueRow is one track: a small cover, title, artist and length, in a
+// ghost kit.Button. The current row is highlighted; clicking a row plays
+// it.
 type QueueRow struct {
 	Tr               *Transport
 	Index            int
@@ -189,30 +212,25 @@ type QueueRow struct {
 
 func (p QueueRow) Build() tela.Node {
 	t := tracks[p.Index]
-	cls := "hover:bg-white/5 active:bg-white/10"
+	cls := ""
 	if p.Current {
-		cls = "bg-white/10"
+		cls = "bg-accent"
 	}
-	return Button(Class("flex items-center gap-3 rounded-2xl p-2 pr-4 text-left transition-colors", cls),
-		OnClick(func() { p.Tr.Select(p.Index) }),
-		Div(Class("flex w-5 shrink-0 justify-center text-sm text-zinc-500 tabular-nums"),
-			If(!p.Playing, Textf("%d", p.Index+1)),
-			If(p.Playing, equalizer()),
+	return Fragment(kit.Button{
+		Variant: kit.Ghost,
+		Class:   "h-auto w-full justify-start gap-3 rounded-2xl p-2 pr-4 text-left font-normal " + cls,
+		OnClick: func() { p.Tr.Select(p.Index) },
+		Children: Fragment(
+			Div(Class("flex w-5 shrink-0 justify-center text-sm text-muted-foreground tabular-nums"),
+				If(!p.Playing, Textf("%d", p.Index+1)),
+				If(p.Playing, Icon(icons.AudioLines, Class("size-4 text-violet-400"))),
+			),
+			Cover{Track: t, Small: true, Class: "size-11 rounded-xl"},
+			Div(Class("flex min-w-0 flex-1 flex-col"),
+				Span(Class("truncate text-sm font-medium"), Text(t.Title)),
+				Span(Class("truncate text-sm text-muted-foreground"), Text(t.Artist)),
+			),
+			Span(Class("text-sm text-muted-foreground tabular-nums"), Text(clock(t.Seconds))),
 		),
-		Cover{Track: t, Small: true, Class: "size-11 rounded-xl"},
-		Div(Class("flex min-w-0 flex-1 flex-col"),
-			Span(Class("truncate text-sm font-medium"), Text(t.Title)),
-			Span(Class("truncate text-sm text-zinc-400"), Text(t.Artist)),
-		),
-		Span(Class("text-sm text-zinc-500 tabular-nums"), Text(clock(t.Seconds))),
-	)
-}
-
-// equalizer is three bars of different heights, the "playing" marker.
-func equalizer() tela.Node {
-	return Div(Class("flex h-4 items-end gap-[2px] text-violet-400"),
-		Div(Class("h-2 w-[3px] rounded-full bg-current")),
-		Div(Class("h-4 w-[3px] rounded-full bg-current")),
-		Div(Class("h-3 w-[3px] rounded-full bg-current")),
-	)
+	})
 }

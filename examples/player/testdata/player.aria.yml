@@ -1,0 +1,20 @@
+- text: Now playing
+- heading "Midnight Drive" [level=2]
+- paragraph: Neon Harbor
+- group "Seek":
+  - slider "Seek"
+- text: 1:24 3:42
+- button "Previous track"
+- button "Pause"
+- button "Next track"
+- button "Mute"
+- group "Volume":
+  - slider "Volume"
+- heading "Up next" [level=2]
+- text: 6 tracks
+- button "Midnight Drive Neon Harbor 3:42"
+- button "2 Paper Planes The Lanterns 3:08"
+- button "3 Slow Tide Marlowe 4:15"
+- button "4 Golden Hour Aster & Pine 2:57"
+- button "5 Static Bloom Okabe 3:31"
+- button "6 Low Orbit Neon Harbor 5:02"

@@ -3,25 +3,31 @@
 - paragraph: Mei Tanaka, desktop engineer
 - heading "Create your account" [level=1]
 - paragraph: Start building in minutes. No credit card needed.
-- status:
-  - strong: Welcome, Mei Tanaka!
-  - text: We sent a confirmation link to taro@example.com.
-- text: Display name (any language)
-- textbox "Display name (any language)": Mei Tanaka
-- text: E-mail
-- textbox "E-mail": taro@example.com
-- paragraph: We only use it to confirm your account.
-- text: Password
-- textbox "Password": ••••••••••••••••
-- button "Show password": Show
-- text: Strong
-- paragraph: Use 8 or more characters with letters, numbers and symbols.
-- text: Short bio (optional)
-- textbox "Short bio (optional)": Building small desktop tools in Go. Coffee, ramen and tidy layouts.
-- paragraph: Shown on your public profile.
-- text: 67/160
-- checkbox "I agree to the Terms of Service and Privacy Policy." [checked]
-- text: I agree to the Terms of Service and Privacy Policy.
+- status: Welcome, Mei Tanaka! We sent a confirmation link to taro@example.com.
+- group:
+  - text: Display name
+  - textbox "Display name": Mei Tanaka
+  - paragraph: Any language works, input methods included.
+- group:
+  - text: E-mail
+  - textbox "E-mail": taro@example.com
+  - paragraph: We only use it to confirm your account.
+- group:
+  - text: Password
+  - textbox "Password": ••••••••••••••••
+  - button "Show password"
+  - progressbar "Password strength"
+  - text: Strong
+  - paragraph: Use letters, numbers and symbols.
+- group:
+  - text: Short bio (optional)
+  - textbox "Short bio (optional)": Building small desktop tools in Go. Coffee, ramen and tidy layouts.
+  - text: 67/160
+  - paragraph: Shown on your public profile.
+- group:
+  - checkbox "Accept terms and conditions" [checked]
+  - text: Accept terms and conditions
+  - paragraph: You agree to our Terms of Service and Privacy Policy.
 - button "Create account" [disabled]
 - paragraph:
   - text: Already have an account?

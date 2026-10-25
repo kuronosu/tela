@@ -14,17 +14,23 @@ import (
 const windowW, windowH = 1280, 800
 
 // barW is the width of the seek bar the layout gives: the card's content
-// width: 380 less the padding (2 * 24) and the border (2 * 1). The old
-// hard-coded 332 overflowed the card by 2 px. Only the tests know it.
+// width: 380 less the padding (2 * 24) and the border (2 * 1). Only the
+// tests know it.
 const barW = 330
 
-// mount opens the screen; dev mode is on, so any dev message fails the
-// test. The clock goroutine runs in real time, so the waits are generous
-// for slow machines.
+// knobW is the width of the slider's knob, which stays inside the bar: its
+// center runs from half of it to barW minus half.
+const knobW = 16
+
+// mount opens the screen in the window of main (kit's theme, always dark);
+// dev mode is on, so any dev message fails the test. The clock goroutine
+// runs in real time, so the waits are generous for slow machines.
 func mount(t *testing.T, w, h float32, root tela.Component, opts ...telatest.Option) *telatest.App {
 	t.Helper()
+	app := App
+	app.Root = root
 	opts = append([]telatest.Option{telatest.Size(w, h), telatest.Timeout(30 * time.Second)}, opts...)
-	return telatest.Mount(t, root, opts...)
+	return telatest.MountApp(t, app, opts...)
 }
 
 // fast makes the progress clock run scale times faster than real time and
@@ -57,18 +63,17 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// The icon buttons have no accessible names, so the tests find them by
-// their classes.
 var (
-	progressFill = telatest.ByClass("h-full", "rounded-full", "bg-white")
-	pauseBars    = telatest.ByClass("h-5", "w-1.5")
-	seekBar      = telatest.ByClass("group", "h-4", "cursor-pointer")
+	seekBar  = telatest.ByTestID("seek")
+	seekKnob = telatest.ByRole("slider", "Seek")
 )
 
-// fillWidth returns the width of the progress fill.
+// fillWidth returns how far along the bar the progress is, in pixels of the
+// bar: the knob's center, from the bar's left edge, without the half knob
+// the bar keeps inside.
 func fillWidth(a *telatest.App) float32 {
-	w := a.Bounds(progressFill).Width
-	return w
+	k, bar := a.Bounds(seekKnob), a.Bounds(seekBar)
+	return (k.X + k.Width/2 - bar.X - knobW/2) * barW / (barW - knobW)
 }
 
 // titleIs waits for the current track's title (an h2 in the player card).
@@ -103,18 +108,46 @@ func TestProgressAdvancesWithoutBuilding(t *testing.T) {
 	if w := fillWidth(a); w < want*0.95 || w > want*1.3 {
 		t.Errorf("the bar is %v px wide at 0:03, want about %v", w, want)
 	}
-	// Three label changes (a TextFn) and the bar: nothing builds.
-	if builds != 0 {
-		t.Errorf("%d builds for 3 seconds of music over %d frames, want none", builds, frames)
+	// The knob and the range are repainted by a Value: no build for them.
+	// The seek bar builds once a second (Beat, for aria-valuenow): three
+	// times here, each of the bar's few components.
+	if builds > 3*8 {
+		t.Errorf("%d builds for 3 seconds of music over %d frames, want about one build of the seek bar per second", builds, frames)
 	}
 	if frames < 25 {
-		t.Errorf("only %d frames for 30 ticks: the bar should be laid out on (nearly) every tick", frames)
+		t.Errorf("only %d frames for 30 ticks: the bar should be painted on (nearly) every tick", frames)
 	}
-	if got := after.Layouts - before.Layouts; got < frames/2 {
-		t.Errorf("%d layouts in %d frames: a WidthFn change should lay out each time", got, frames)
+	// Only the label's paragraph is laid out, once a second: moving the
+	// knob and the range is a paint.
+	if got := after.Layouts - before.Layouts; got > frames/2 {
+		t.Errorf("%d layouts in %d frames: the knob and the range move by paint, want a layout only once a second", got, frames)
 	}
 	if got := after.Styles - before.Styles; got > 10 {
 		t.Errorf("%d style computations: ticks should not restyle", got)
+	}
+}
+
+// TestSecondsOnlyBuild checks that the clock builds nothing between the
+// whole seconds: nine ticks of a tenth of a second move the knob, and
+// nothing builds until the second boundary.
+func TestSecondsOnlyBuild(t *testing.T) {
+	slow(t)
+	var tr *Transport
+	a := mount(t, windowW, windowH, tela.C(func() tela.Node {
+		tr = useTransport(0.05)
+		return page(tr)
+	}))
+	st := a.Measure(func() {
+		for range 9 { // 0.05 to 0.95: still the first second
+			tela.Post(func() { tr.advance(0.1) })
+			a.Advance(16 * time.Millisecond)
+		}
+	})
+	if st.Builds != 0 {
+		t.Errorf("%d builds inside one second of music, want none", st.Builds)
+	}
+	if w := fillWidth(a); w <= 0 {
+		t.Errorf("the knob did not move: %v px", w)
 	}
 }
 
@@ -122,10 +155,10 @@ func TestPauseStopsTheClock(t *testing.T) {
 	fast(t, 5*time.Millisecond, 10)
 	a := mount(t, windowW, windowH, Player{})
 	a.WaitFor("the bar to start moving", func() bool { return fillWidth(a) > 3 })
-	a.ExpectCount(pauseBars, 2) // the pause icon while playing
+	a.ExpectCount(telatest.ByRole("button", "Pause"), 1) // the pause button while playing
 
 	a.Click(telatest.ByRole("button", "Pause"))
-	a.ExpectCount(pauseBars, 0) // the play triangle
+	a.ExpectCount(telatest.ByRole("button", "Pause"), 0) // the play button now
 	a.MouseMove(5, 5)
 	w, frames := fillWidth(a), a.Stats().Frames
 	time.Sleep(100 * time.Millisecond)
@@ -160,8 +193,10 @@ func TestNextPrevAndQueue(t *testing.T) {
 	a.Click(telatest.ByRole("button", "").Filter(telatest.HasText("Slow Tide")))
 	titleIs(a, "Slow Tide")
 	a.ExpectText("4:15")
-	// One equalizer, on the current row.
-	a.ExpectCount(telatest.ByClass("h-4", "text-violet-400", "items-end"), 1)
+	// The current row shows the equalizer icon in place of its number, so
+	// its name has no number; the others keep theirs.
+	a.ExpectRole("button", "Slow Tide Marlowe 4:15")
+	a.ExpectRole("button", "1 Midnight Drive Neon Harbor 3:42")
 }
 
 // clickAt clicks at a position of the window, like a user.
@@ -196,21 +231,100 @@ func TestSeek(t *testing.T) {
 
 	clickAt(a, bx+barW/2, y)
 	a.ExpectText("1:51") // half of 3:42
-	if w := fillWidth(a); w < barW/2-1 || w > barW/2+1 {
+	if w := fillWidth(a); w < barW/2-2 || w > barW/2+2 {
 		t.Errorf("fill is %v px after seeking to the middle", w)
 	}
+	a.Expect(seekKnob, telatest.HasValue("1:51"))
 
-	// Dragging: press at a quarter, release at three quarters.
-	dragBetween(a, bx+barW/4, y, bx+barW*3/4, y, 8)
-	a.ExpectText("2:46") // three quarters of 222 s
+	// Dragging: press at a quarter, release at four fifths. The slider
+	// rounds to a whole second.
+	dragBetween(a, bx+barW/4, y, bx+barW*4/5, y, 8)
+	a.ExpectText("2:58") // four fifths of 222 s, 177.6 rounded
 	// Dragging beyond the ends clamps.
 	dragBetween(a, bx+100, y, bx-200, y, 6)
 	a.ExpectText("0:00")
-	// The thumb is hidden until hover (opacity), the pointer cursor shows.
+	dragBetween(a, bx+100, y, bx+barW+200, y, 6)
+	a.ExpectText("3:41") // a seek never lands on the end of the track
+	// The pointer cursor shows over the bar.
 	a.MouseMove(bx+10, y)
 	if got := a.Cursor(); got == "default" {
 		t.Errorf("cursor over the bar is %v", got)
 	}
+}
+
+// TestSeekWithTheKeyboard checks the knob as a slider: its value is the
+// elapsed seconds, the arrows move it by one second and Home goes to the
+// start.
+func TestSeekWithTheKeyboard(t *testing.T) {
+	slow(t)
+	a := mount(t, windowW, windowH, Preview())
+	a.Expect(seekKnob, telatest.HasValue("1:24"))
+	a.Focus(seekKnob)
+	a.Press("ArrowRight")
+	a.ExpectText("1:25")
+	a.Press("Home")
+	a.ExpectText("0:00")
+	a.Expect(seekKnob, telatest.HasValue("0:00"))
+}
+
+// TestSeekDoesNotBuild measures a drag of the seek bar: moving the pointer
+// builds nothing, as the slider's knob and the range follow Elapsed by
+// paint and the time label is a TextFn.
+func TestSeekDoesNotBuild(t *testing.T) {
+	slow(t)
+	a := mount(t, windowW, windowH, Player{})
+	bar := a.Bounds(seekBar)
+	y := bar.Y + bar.Height/2
+	a.MouseMove(bar.X+20, y)
+	a.MouseDown() // builds once: the slider's Dragging state
+	st := a.Measure(func() {
+		for i := 1; i <= 20; i++ {
+			a.MouseMove(bar.X+20+float32(i)*10, y)
+		}
+	})
+	a.MouseUp()
+	t.Logf("20 moves of a seek drag: %d builds, %d layouts, %d paints (%d frames)", st.Builds, st.Layouts, st.Paints, st.Frames)
+	if st.Builds != 0 {
+		t.Errorf("%d builds while dragging the seek bar, want none", st.Builds)
+	}
+	// The label's text changes with each second: a layout of its paragraph
+	// at most per move.
+	if st.Layouts > 20 {
+		t.Errorf("%d layouts for 20 moves", st.Layouts)
+	}
+}
+
+// TestVolume checks the mute toggle and the volume slider.
+func TestVolume(t *testing.T) {
+	slow(t)
+	a := mount(t, windowW, windowH, Player{})
+	vol, mute := telatest.ByRole("slider", "Volume"), telatest.ByRole("button", "Mute")
+	a.Expect(vol, telatest.HasValue("70%"))
+	a.Focus(vol)
+	a.Press("ArrowRight")
+	a.Expect(vol, telatest.HasValue("75%"))
+
+	a.Expect(mute, telatest.Pressed(false))
+	a.Click(mute)
+	a.Expect(mute, telatest.Pressed(true))
+	a.Expect(vol, telatest.Disabled(true))
+	a.Click(mute)
+	a.Expect(vol, telatest.Disabled(false))
+}
+
+// TestButtonTooltips checks that a transport button says what it does.
+func TestButtonTooltips(t *testing.T) {
+	slow(t)
+	a := mount(t, windowW, windowH, Player{})
+	a.Hover(telatest.ByRole("button", "Next track"))
+	a.ExpectText("Next")
+}
+
+// TestAriaSnapshot pins what `tela inspect --aria` prints for the preview:
+// the buttons by name, the seek bar and the volume as sliders.
+func TestAriaSnapshot(t *testing.T) {
+	slow(t)
+	mount(t, windowW, windowH, Preview()).AriaGolden("player.aria.yml")
 }
 
 func TestTrackEndsAndPlaysNext(t *testing.T) {

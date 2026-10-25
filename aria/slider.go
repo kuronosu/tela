@@ -43,6 +43,16 @@ type SliderOptions struct {
 	// Values points to the values of a controlled slider, one per thumb;
 	// nil leaves them to the hook.
 	Values *[]float64
+	// LiveValues, for a controlled slider whose values change between
+	// builds without building it (a seek bar a clock moves), returns the
+	// values as they are now. The slider reads it at the start of a press
+	// on the track or on a thumb and of a key, in place of the Values of
+	// its last build, so a change it asks for is compared with what the
+	// caller really has. It is called on the UI thread, in handlers, and
+	// not from paint-phase closures: they place the thumbs from what the
+	// caller reads itself (see [SliderResult.ThumbPercent]). Nil reads
+	// only the Values of each build.
+	LiveValues func() []float64
 	// DefaultValues are the values of an uncontrolled slider at the start.
 	DefaultValues []float64
 	// OnValuesChange is called with all the values (a copy) every time the
@@ -240,6 +250,7 @@ type sliderState struct {
 	controlled          bool
 	started             bool
 	onChange, onEnd     func([]float64)
+	live                func() []float64
 	format              func(float64) string
 	labels              []string
 	name                tela.Prop
@@ -279,6 +290,7 @@ func (s *sliderState) sync(o SliderOptions, vertical, rtl bool) {
 	s.page = o.PageSize
 	s.vertical, s.rtl, s.disabled = vertical, rtl, o.Disabled
 	s.onChange, s.onEnd, s.labels = o.OnValuesChange, o.OnChangeEnd, o.ThumbLabels
+	s.live = o.LiveValues
 	s.format = o.FormatValue
 	if s.format == nil {
 		s.format = formatNumber
@@ -410,6 +422,23 @@ func (s *sliderState) setThumb(i int, v float64) bool {
 	return true
 }
 
+// refresh takes the values the caller has now (LiveValues), when it gave a
+// function for them and the number of thumbs agrees.
+func (s *sliderState) refresh() {
+	if s.live == nil || !s.controlled {
+		return
+	}
+	v := s.live()
+	if len(v) != len(s.values) {
+		return
+	}
+	v = slices.Clone(v)
+	for i := range v {
+		v[i] = min(max(v[i], s.min), s.max)
+	}
+	s.values, s.latest = v, slices.Clone(v)
+}
+
 func (s *sliderState) changeEnd() {
 	if s.onEnd != nil {
 		s.onEnd(slices.Clone(s.latest))
@@ -523,6 +552,7 @@ func (s *sliderState) onThumbDown(i int, e tela.PointerEvent) {
 	if e.Button != tela.MouseButtonLeft || s.disabled || s.drag.active {
 		return
 	}
+	s.refresh()
 	f, ok := s.fraction(e)
 	if !ok || i >= len(s.latest) {
 		return
@@ -535,6 +565,7 @@ func (s *sliderState) onTrackDown(e tela.PointerEvent) {
 	if e.Button != tela.MouseButtonLeft || s.disabled || s.drag.active || len(s.latest) == 0 {
 		return
 	}
+	s.refresh()
 	f, ok := s.fraction(e)
 	if !ok {
 		return
@@ -596,6 +627,7 @@ func (s *sliderState) onKeyDown(i int, e tela.KeyboardEvent) {
 	if s.disabled || i >= len(s.latest) {
 		return
 	}
+	s.refresh()
 	cur := s.latest[i]
 	var next float64
 	switch e.Key {

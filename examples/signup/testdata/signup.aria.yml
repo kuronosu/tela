@@ -3,21 +3,29 @@
 - paragraph: Mei Tanaka, desktop engineer
 - heading "Create your account" [level=1]
 - paragraph: Start building in minutes. No credit card needed.
-- text: Display name (any language)
-- textbox "Display name (any language)"
-- text: E-mail
-- textbox "E-mail"
-- paragraph: We only use it to confirm your account.
-- text: Password
-- textbox "Password"
-- button "Show password": Show
-- paragraph: Use 8 or more characters with letters, numbers and symbols.
-- text: Short bio (optional)
-- textbox "Short bio (optional)"
-- paragraph: Shown on your public profile.
-- text: 0/160
-- checkbox "I agree to the Terms of Service and Privacy Policy."
-- text: I agree to the Terms of Service and Privacy Policy.
+- group:
+  - text: Display name
+  - textbox "Display name"
+  - paragraph: Any language works, input methods included.
+- group:
+  - text: E-mail
+  - textbox "E-mail"
+  - paragraph: We only use it to confirm your account.
+- group:
+  - text: Password
+  - textbox "Password"
+  - button "Show password"
+  - progressbar "Password strength"
+  - paragraph: Use letters, numbers and symbols.
+- group:
+  - text: Short bio (optional)
+  - textbox "Short bio (optional)"
+  - text: 0/160
+  - paragraph: Shown on your public profile.
+- group:
+  - checkbox "Accept terms and conditions"
+  - text: Accept terms and conditions
+  - paragraph: You agree to our Terms of Service and Privacy Policy.
 - button "Create account" [disabled]
 - paragraph: Fill in your name, e-mail and password, and accept the terms.
 - paragraph:

@@ -1,16 +1,19 @@
 // Command signup is a "Create your account" screen: a brand panel on the
-// left and, on the right, a form with every kind of text field Tela has.
+// left and, on the right, a form built on package kit in its default style,
+// with every kind of text field Tela has.
 //
-// A display name (any language), an e-mail with a helper message, a
-// password with a show/hide toggle and a strength meter, a bio that grows
-// with its text and counts its characters, a terms checkbox and a submit
-// button that stays disabled until the form is valid. Submitting it, with
-// the button or with Enter in a field, shows a confirmation banner.
+// A display name (any language), an e-mail with a helper message and an
+// error, a password with a show/hide button and a strength meter, a bio that
+// grows with its text and counts its characters, a terms checkbox and a
+// submit button that stays disabled until the form is valid. Submitting it,
+// with the button or with Enter in a field, shows a confirmation card.
 //
-// The name, e-mail and password are controlled with h.Bind, which is what
-// the validation and the strength meter read. The bio uses h.BindValue, so
-// typing in it never rebuilds the form: only its counter, an h.TextFn that
-// reads the same tela.Value, repaints.
+// Each field is a kit.Field around a kit.Input or kit.Textarea, so the label
+// names the field and the error or the help text describes it. The name,
+// e-mail and password are controlled (the validation and the strength meter
+// read them). The bio uses h.BindValue, so typing in it never rebuilds the
+// form: only its counter, an h.TextFn that reads the same tela.Value,
+// repaints.
 //
 // `tela snapshot ./examples/signup` renders it without a window; pick a
 // state with --preview ("1 Empty", "2 Filled", "3 Invalid", "4 Created")
@@ -20,6 +23,7 @@ package main
 import (
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
 )
 
 // Page is the whole screen, with its state. Its fields seed that state, so
@@ -31,7 +35,7 @@ type Page struct {
 	ShowPassword bool
 	// Touched means the e-mail field was left once, so its errors show.
 	Touched bool
-	// Created shows the confirmation banner.
+	// Created shows the confirmation card.
 	Created bool
 }
 
@@ -50,15 +54,16 @@ func (p Page) Build() tela.Node {
 	values := Values{Name: name, Email: email, Password: password, Terms: terms}
 	valid := values.Valid()
 
-	// Editing anything after a submit takes the banner away. OnChange bubbles,
-	// so one handler on the Form sees every field.
+	// Editing anything after a submit takes the confirmation away.
+	// OnChange bubbles, so one handler on the Form sees every field; the
+	// terms checkbox is not a text field, so it calls dismiss itself.
 	dismiss := func() {
 		if created {
 			setCreated.Set(false)
 		}
 	}
 
-	return Div(Class("flex min-h-screen bg-white text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50"),
+	return Div(Class("flex min-h-screen"),
 		Brand(),
 		Div(Class("flex flex-1 items-center justify-center px-6 py-8 md:px-10"),
 			Form(Class("flex w-full max-w-sm flex-col gap-5"),
@@ -76,28 +81,47 @@ func (p Page) Build() tela.Node {
 				Header(),
 				If(created, Banner{Name: values.Name, Email: values.Email}),
 
-				NameField(name, setName),
-				EmailField(email, setEmail, touched, setTouched),
-				PasswordField(password, setPassword, show, setShow),
-				BioField(bio),
-				TermsField(terms, func() { setTerms.Update(func(on bool) bool { return !on }); dismiss() }),
+				NameField{Name: name, Set: setName},
+				EmailField{Email: email, Set: setEmail, Touched: touched, SetTouched: setTouched},
+				PasswordField{Password: password, Set: setPassword, Show: show, SetShow: setShow},
+				BioField{Bio: bio},
+				TermsField{On: terms, Set: func(on bool) { setTerms.Set(on); dismiss() }},
 
 				Div(Class("flex flex-col gap-3"),
-					Button(Type("submit"), Disabled(!valid || created),
-						Class("flex h-9 w-full items-center justify-center rounded-md bg-indigo-600 text-sm font-medium text-white shadow-xs transition-colors",
-							"hover:bg-indigo-700 active:bg-indigo-800 focus-visible:ring-[3px] focus-visible:ring-indigo-500/40",
-							"disabled:cursor-not-allowed disabled:opacity-50"),
-						Text("Create account")),
-					If(!valid && !created, P(Class("text-center text-xs text-zinc-500 dark:text-zinc-400"),
+					kit.Button{Type: "submit", Disabled: !valid || created, Class: "w-full", Children: Text("Create account")},
+					If(!valid && !created, P(Class("text-center text-xs text-muted-foreground"),
 						Text("Fill in your name, e-mail and password, and accept the terms."))),
 				),
-				P(Class("text-center text-sm text-zinc-500 dark:text-zinc-400"),
+				P(Class("text-center text-sm text-muted-foreground"),
 					Text("Already have an account? "),
-					Button(Type("button"), Class("font-medium text-zinc-950 underline underline-offset-4 hover:text-indigo-600 dark:text-zinc-50 dark:hover:text-indigo-400"),
-						Text("Sign in"))),
+					kit.Button{Type: "button", Variant: kit.Link, Class: "h-auto p-0 text-foreground", Children: Text("Sign in")}),
 			),
 		),
 	)
+}
+
+var theme = signupTheme()
+
+// signupTheme is kit's theme with the brand's indigo as the primary color
+// (buttons, the checkbox, selections) and as the focus ring.
+func signupTheme() tela.Theme {
+	t := kit.Theme()
+	t.Colors["primary"] = tela.SchemeColor{Light: tela.Hex("#4f46e5"), Dark: tela.Hex("#6366f1")}
+	t.Colors["primary-foreground"] = tela.SchemeColor{Light: tela.Hex("#ffffff"), Dark: tela.Hex("#ffffff")}
+	t.Colors["ring"] = tela.SchemeColor{Light: tela.Hex("#6366f1"), Dark: tela.Hex("#818cf8")}
+	return t
+}
+
+// App is the window. `tela snapshot` applies its theme and root class to
+// the Previews below, and the tests mount the same.
+var App = tela.App{
+	Title:     "Tela — create your account",
+	AppID:     "dev.telaui.signup",
+	Width:     1100,
+	Height:    860,
+	Theme:     &theme,
+	RootClass: "bg-background text-foreground",
+	Root:      Page{},
 }
 
 // Previews are the states the README and the goldens show.
@@ -119,12 +143,4 @@ var filled = Values{
 	Terms:    true,
 }
 
-func main() {
-	tela.Main(tela.App{
-		Title:  "Tela — create your account",
-		AppID:  "dev.telaui.signup",
-		Width:  1100,
-		Height: 860,
-		Root:   Page{},
-	})
-}
+func main() { tela.Main(App) }

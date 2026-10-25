@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
@@ -295,6 +296,67 @@ func TestSliderDragRepaintsOnly(t *testing.T) {
 	t.Logf("a range slider: %d builds, %d layouts, %d paints (%d frames)", st.Builds, st.Layouts, st.Paints, st.Frames)
 	if st.Builds > 0 {
 		t.Errorf("%d builds while dragging a range slider, want none", st.Builds)
+	}
+}
+
+// TestSliderValueSource checks a slider moved by a tela.Value: a change of
+// the Value moves the knob with no build, and a drag stores its values in
+// it, also with no build.
+func TestSliderValueSource(t *testing.T) {
+	var pos *tela.Value[float64]
+	builds := 0
+	app := telatest.MountFunc(t, func() tela.Node {
+		pos = tela.UseValue(20.0)
+		return h.Div(h.Class("w-[300px] p-4"), tela.C(func() tela.Node {
+			builds++
+			return h.Fragment(kit.Slider{AriaLabel: "Seek", Props: h.TestID("s"), ValueSource: pos,
+				OnValueChange: func(v float64) { pos.Set(v) }})
+		}))
+	})
+	root := app.Bounds(telatest.ByTestID("s"))
+	knob := sliderRole("Seek")
+	center := func() float32 { b := app.Bounds(knob); return (b.X + b.Width/2 - root.X - 8) / (root.Width - 16) }
+	if c := center(); c < 0.199 || c > 0.201 {
+		t.Fatalf("the knob starts at %g of the track, want 0.2", c)
+	}
+
+	// The clock: the Value moves, nothing builds, the knob follows.
+	before := builds
+	st := app.Measure(func() {
+		tela.Post(func() { pos.Set(60) })
+		app.Advance(16 * time.Millisecond)
+	})
+	if c := center(); c < 0.599 || c > 0.601 {
+		t.Errorf("the knob is at %g of the track after the Value moved to 60, want 0.6", c)
+	}
+	if st.Builds > 0 || builds != before {
+		t.Errorf("%d builds (the slider's parent %d) for a change of the Value, want none", st.Builds, builds-before)
+	}
+
+	// A key starts from the Value's current value, not from the one the
+	// slider was built with (20).
+	app.Focus(knob)
+	app.Press("ArrowRight")
+	if got := pos.Latest(); got != 61 {
+		t.Errorf("after ArrowRight the Value is %g, want 61", got)
+	}
+	app.Expect(knob, telatest.HasValue("61")) // the semantics follow a key
+
+	// A drag stores each position in the Value and builds nothing.
+	y := root.Y + root.Height/2
+	app.MouseMove(root.X+root.Width*0.3, y)
+	app.MouseDown()
+	st = app.Measure(func() {
+		for i := 1; i <= 20; i++ {
+			app.MouseMove(root.X+root.Width*0.3+float32(i)*5, y)
+		}
+	})
+	app.MouseUp()
+	if st.Builds > 0 {
+		t.Errorf("%d builds while dragging a slider with a ValueSource, want none", st.Builds)
+	}
+	if got := pos.Latest(); got < 40 || got > 70 {
+		t.Errorf("after the drag the Value is %g, want the last position (about 62)", got)
 	}
 }
 

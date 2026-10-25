@@ -5095,6 +5095,16 @@ type SliderOptions struct {
     // Values points to the values of a controlled slider, one per thumb;
     // nil leaves them to the hook.
     Values *[]float64
+    // LiveValues, for a controlled slider whose values change between
+    // builds without building it (a seek bar a clock moves), returns the
+    // values as they are now. The slider reads it at the start of a press
+    // on the track or on a thumb and of a key, in place of the Values of
+    // its last build, so a change it asks for is compared with what the
+    // caller really has. It is called on the UI thread, in handlers, and
+    // not from paint-phase closures: they place the thumbs from what the
+    // caller reads itself (see [SliderResult.ThumbPercent]). Nil reads
+    // only the Values of each build.
+    LiveValues func() []float64
     // DefaultValues are the values of an uncontrolled slider at the start.
     DefaultValues []float64
     // OnValuesChange is called with all the values (a copy) every time the

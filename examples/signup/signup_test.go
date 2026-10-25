@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -13,7 +14,7 @@ const windowW, windowH = 1100, 860
 
 // The fields by their accessible names: the text of their Label.
 var (
-	nameBox     = telatest.ByRole("textbox", "Display name (any language)")
+	nameBox     = telatest.ByRole("textbox", "Display name")
 	emailBox    = telatest.ByRole("textbox", "E-mail")
 	passwordBox = telatest.ByRole("textbox", "Password")
 	bioBox      = telatest.ByRole("textbox", "Short bio (optional)")
@@ -22,11 +23,20 @@ var (
 	showButton  = telatest.ByRole("button", "Show password")
 )
 
-// mount opens the page; dev mode is on, so any dev message fails the test.
+// mount opens the page in the window of main (its theme and root class);
+// dev mode is on, so any dev message fails the test.
 func mount(t *testing.T, p Page, w, h float32, opts ...telatest.Option) *telatest.App {
 	t.Helper()
+	return mountRoot(t, p, w, h, opts...)
+}
+
+// mountRoot is mount for any root, such as a preview.
+func mountRoot(t *testing.T, root tela.Component, w, h float32, opts ...telatest.Option) *telatest.App {
+	t.Helper()
+	app := App
+	app.Root = root
 	opts = append([]telatest.Option{telatest.Size(w, h)}, opts...)
-	return telatest.Mount(t, p, opts...)
+	return telatest.MountApp(t, app, opts...)
 }
 
 func TestNoDevMessages(t *testing.T) {
@@ -41,7 +51,7 @@ func TestGolden(t *testing.T) {
 	for _, name := range Previews.Names() {
 		for _, scale := range []float64{1, 2} {
 			t.Run(fmt.Sprintf("%s/x%g", name, scale), func(t *testing.T) {
-				a := telatest.Mount(t, Previews[name], telatest.Size(windowW, windowH), telatest.Scale(scale))
+				a := mountRoot(t, Previews[name], windowW, windowH, telatest.Scale(scale))
 				a.Golden(fmt.Sprintf("signup_%s_x%g.png", strings.ReplaceAll(strings.ToLower(name[2:]), " ", "_"), scale))
 			})
 		}
@@ -49,7 +59,7 @@ func TestGolden(t *testing.T) {
 }
 
 func TestGoldenDark(t *testing.T) {
-	a := telatest.Mount(t, Previews["3 Invalid"], telatest.Size(windowW, windowH), telatest.Dark())
+	a := mountRoot(t, Previews["3 Invalid"], windowW, windowH, telatest.Dark())
 	a.Golden("signup_invalid_dark_x1.png")
 }
 
@@ -72,14 +82,11 @@ func TestSubmitFlow(t *testing.T) {
 	a.ExpectValue(nameBox, "Ana García")
 	a.ExpectValue(passwordBox, "correct-horse-battery")
 
-	// Without the terms the button is still disabled: a click is refused by
-	// the actionability checks, and a press does nothing.
-	a.Hover(submit)
-	if got := a.Cursor(); got != "not-allowed" {
-		t.Errorf("cursor over the disabled button is %q, want not-allowed", got)
-	}
-	a.MouseDown()
-	a.MouseUp()
+	// Without the terms the button is still disabled (the recipe's
+	// pointer-events-none lets the pointer through to the column below it),
+	// so a press on it does nothing.
+	a.Expect(submit, telatest.Disabled(true))
+	press(a, submit)
 	a.ExpectNoText("Welcome")
 
 	a.Click(termsBox)
@@ -90,14 +97,22 @@ func TestSubmitFlow(t *testing.T) {
 	a.ExpectCount(telatest.ByRole("status", ""), 1)
 
 	// A second submit is refused, and editing a field clears the banner.
-	a.Hover(submit)
-	a.MouseDown()
-	a.MouseUp()
+	a.Expect(submit, telatest.Disabled(true))
+	press(a, submit)
 	a.ExpectCount(telatest.ByRole("status", ""), 1)
 	a.Click(nameBox)
 	a.Type("!")
 	a.ExpectNoText("Welcome")
 	a.ExpectValue(nameBox, "Ana García!")
+}
+
+// press presses the pointer over the center of l, like a user, whether or not
+// the element takes it.
+func press(a *telatest.App, l telatest.Locator) {
+	r := a.Bounds(l)
+	a.MouseMove(r.X+r.Width/2, r.Y+r.Height/2)
+	a.MouseDown()
+	a.MouseUp()
 }
 
 // TestImplicitSubmission types the form key by key, then presses Enter in the
@@ -123,22 +138,24 @@ func TestImplicitSubmission(t *testing.T) {
 	a.ExpectText("Welcome, Ana!")
 }
 
-// TestEmailInvalid checks the two things Type("email") gives: the invalid:
-// border and the peer-invalid: message, which wait for the first blur.
+// TestEmailInvalid checks what the Field's Error gives: the red border (the
+// recipe's aria-invalid: classes) and the message in place of the help
+// text, which wait for the first blur.
 func TestEmailInvalid(t *testing.T) {
 	a := mount(t, Page{}, windowW, windowH)
 	a.Click(emailBox)
 	a.Type("ana@")
 	a.ExpectNoText("Enter a valid e-mail address")
-	if c := borderPixel(a, emailBox); c.R > 100 && c.G < 100 {
-		t.Errorf("the border is red (%v) before the field was left", c)
+	if borderIsRed(a, emailBox) {
+		t.Error("the border is red before the field was left")
 	}
 
 	a.Press("Tab") // leave the field: touched
 	a.ExpectText("Enter a valid e-mail address, like you@example.com.")
 	a.ExpectNoText("We only use it to confirm")
-	if c := borderPixel(a, emailBox); c.R < 200 || c.G > 100 || c.B > 100 {
-		t.Errorf("the border of an invalid address is %v, want red", c)
+	a.Expect(emailBox, telatest.Invalid(true))
+	if !borderIsRed(a, emailBox) {
+		t.Error("the border of an invalid address is not red")
 	}
 
 	a.Click(emailBox)
@@ -146,16 +163,23 @@ func TestEmailInvalid(t *testing.T) {
 	a.Type("example.com")
 	a.ExpectNoText("Enter a valid e-mail address")
 	a.ExpectText("We only use it to confirm")
-	if c := borderPixel(a, emailBox); c.R > 100 && c.G < 100 {
-		t.Errorf("the border of a valid address is %v, want not red", c)
+	a.Expect(emailBox, telatest.Invalid(false))
+	if borderIsRed(a, emailBox) {
+		t.Error("the border of a valid address is red")
 	}
 }
 
-// borderPixel samples the middle of the top border of a field, in the
-// middle of its width.
-func borderPixel(a *telatest.App, l telatest.Locator) color.RGBA {
+// borderIsRed looks for the destructive color on the top border of a field,
+// in the middle of its width (the box edge may fall between two pixel rows).
+func borderIsRed(a *telatest.App, l telatest.Locator) bool {
 	r := a.Bounds(l)
-	return a.Screenshot().RGBAAt(int(r.X+r.Width/2), int(r.Y))
+	img := a.Screenshot()
+	for y := int(r.Y) - 1; y <= int(r.Y)+1; y++ {
+		if c := img.RGBAAt(int(r.X+r.Width/2), y); c.R > 200 && c.G < 100 && c.B < 100 {
+			return true
+		}
+	}
+	return false
 }
 
 // TestPasswordToggle checks the show/hide button: AriaPressed, and the
@@ -167,16 +191,31 @@ func TestPasswordToggle(t *testing.T) {
 		t.Errorf("the password is not masked:\n%s", snap)
 	}
 	a.ExpectRole("button", "Show password")
+	a.Expect(showButton, telatest.Pressed(false))
 	a.Click(showButton)
-	a.ExpectText("Hide")
 	if snap := a.AriaSnapshot(); !strings.Contains(snap, `textbox "Password": s3cret!!`) {
 		t.Errorf("the password is not shown:\n%s", snap)
 	}
 	a.Expect(showButton, telatest.Pressed(true))
 	a.ExpectValue(passwordBox, "s3cret!!") // the edit state survived the type change
 	a.Click(showButton)
-	a.ExpectText("Show")
 	a.Expect(showButton, telatest.Pressed(false))
+	if snap := a.AriaSnapshot(); !strings.Contains(snap, `textbox "Password": ••••••••`) {
+		t.Errorf("the password is not masked again:\n%s", snap)
+	}
+}
+
+// TestPasswordTooltip checks that the show/hide button says what it does
+// when the pointer rests on it, and the wording follows its state.
+func TestPasswordTooltip(t *testing.T) {
+	a := mount(t, Page{}, windowW, windowH)
+	a.Hover(showButton)
+	a.ExpectText("Show password")
+	a.Click(showButton) // a press closes the tooltip
+	a.MouseMove(5, 5)
+	a.ExpectNoText("Show password")
+	a.Hover(showButton)
+	a.ExpectText("Hide password")
 }
 
 func TestPasswordStrength(t *testing.T) {
@@ -239,7 +278,7 @@ func TestLabels(t *testing.T) {
 	a.Click(telatest.ByText("Short bio"))
 	a.ExpectFocused(bioBox)
 
-	a.Click(telatest.ByText("I agree to the"))
+	a.Click(telatest.ByText(termsLabel, telatest.Exact()))
 	a.Expect(termsBox, telatest.Checked(true))
 }
 

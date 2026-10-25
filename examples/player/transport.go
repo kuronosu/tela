@@ -37,12 +37,17 @@ var (
 // plays, and the progress. They are [tela.Value]s, not UseState, because a
 // goroutine and several components need them:
 //
-//   - Elapsed (seconds, fractional) is read only inside WidthFn and
-//     TranslateFn: when it changes, the progress bar is laid out again and
-//     nothing is built.
-//   - Secs (whole seconds) changes once per second and is the only thing
-//     the time label reads, in a TextFn, so its paragraph is laid out once
-//     per second instead of once per tick.
+//   - Elapsed (seconds, fractional) is the ValueSource of the seek bar (a
+//     kit.Slider): its knob and range read it in paint-phase closures, so
+//     when it changes the bar is repainted and nothing is built or laid
+//     out.
+//   - Secs (whole seconds) changes once per second, and on a seek, and is
+//     the only thing the time label reads, in a TextFn, so its paragraph is
+//     laid out once per second instead of once per tick.
+//   - Beat counts the seconds the clock has played. The seek bar builds on
+//     it, once a second, so that the value assistive technologies read
+//     (aria-valuenow) is never more than a second old. A seek does not
+//     move it, so dragging the bar builds nothing.
 //   - Track and Playing are read in component bodies: a change rebuilds
 //     the components that show them.
 //
@@ -57,6 +62,7 @@ type Transport struct {
 	Playing *tela.Value[bool]
 	Elapsed *tela.Value[float64]
 	Secs    *tela.Value[int]
+	Beat    *tela.Value[int]
 }
 
 // useTransport is a custom hook: it calls hooks, so it must run in a
@@ -70,6 +76,7 @@ func useTransport(startAt float64) *Transport {
 	tr.Playing = tela.UseValue(true)
 	tr.Elapsed = tela.UseValue(startAt)
 	tr.Secs = tela.UseValue(int(startAt))
+	tr.Beat = tela.UseValue(0)
 
 	// The clock: one goroutine for the life of the player, cancelled (ctx)
 	// when it unmounts.
@@ -114,6 +121,7 @@ func (tr *Transport) advance(dt float64) {
 	tr.Elapsed.Set(e)
 	if s := int(e); s != tr.Secs.Latest() {
 		tr.Secs.Set(s)
+		tr.Beat.Update(func(n int) int { return n + 1 })
 	}
 }
 
@@ -140,10 +148,13 @@ func (tr *Transport) Prev() {
 // Toggle plays or pauses.
 func (tr *Transport) Toggle() { tr.Playing.Update(func(p bool) bool { return !p }) }
 
-// Seek moves the progress to a fraction (0 to 1) of the current track.
-func (tr *Transport) Seek(frac float64) {
-	frac = min(max(frac, 0), 0.999)
-	e := frac * float64(tr.current().Seconds)
+// SeekTo moves the progress to a number of seconds of the current track,
+// never to its very end.
+func (tr *Transport) SeekTo(seconds float64) {
+	e := min(max(seconds, 0), 0.999*float64(tr.current().Seconds))
 	tr.Elapsed.Set(e)
 	tr.Secs.Set(int(e))
 }
+
+// Seek moves the progress to a fraction (0 to 1) of the current track.
+func (tr *Transport) Seek(frac float64) { tr.SeekTo(frac * float64(tr.current().Seconds)) }

@@ -81,6 +81,16 @@ type Slider struct {
 	Value         *float64
 	DefaultValue  float64
 	OnValueChange func(float64)
+	// ValueSource is Value for a slider whose value is moved by something
+	// other than the user, many times a second, such as a seek bar a clock
+	// advances: it points to a tela.Value that holds the value, and the
+	// knob and the range follow it by repainting, with no build of the
+	// slider or its parent on each change. The slider is controlled by it:
+	// OnValueChange must store the value the user asks for in it. It is read
+	// when the slider builds (aria-valuenow), so a parent that builds from
+	// time to time, say once a second, keeps the semantics current. It
+	// takes the place of Value and DefaultValue; use it with one knob.
+	ValueSource *tela.Value[float64]
 	// Values, DefaultValues and OnValuesChange do the same for any number of
 	// knobs (one per value, in ascending order): they take the place of
 	// the three fields above when given.
@@ -120,6 +130,7 @@ type Slider struct {
 // Build returns the slider element.
 func (s Slider) Build() tela.Node {
 	r := &UseStyle().Slider
+	_, bump := tela.UseState(0)
 	o := orientationOr(s.Orientation, Horizontal)
 	vertical := o == Vertical
 	// An Orientation the recipe does not define is reported here, before the
@@ -132,7 +143,11 @@ func (s Slider) Build() tela.Node {
 		Orientation: string(o), Disabled: s.Disabled, FormatValue: s.FormatValue,
 		AriaLabel: s.AriaLabel, ThumbLabels: s.ThumbLabels,
 	}
+	src := s.ValueSource
 	switch {
+	case src != nil:
+		so.Values = &[]float64{src.Latest()}
+		so.LiveValues = func() []float64 { return []float64{src.Latest()} }
 	case s.Values != nil:
 		so.Values = s.Values
 	case s.Value != nil:
@@ -143,17 +158,43 @@ func (s Slider) Build() tela.Node {
 	if on := s.OnValueChange; on != nil && s.OnValuesChange == nil {
 		so.OnValuesChange = func(v []float64) { on(v[0]) }
 	}
+	var dragging *bool
+	if src != nil {
+		// The slider is not built when the Value changes, so a change the
+		// user makes with a key (or a press) builds it once, for
+		// aria-valuenow; the moves of a drag do not (the drag's own builds
+		// at its start and end bring the semantics up to date).
+		ask := so.OnValuesChange
+		so.OnValuesChange = func(v []float64) {
+			if ask != nil {
+				ask(v)
+			}
+			if !*dragging {
+				bump.Update(func(n int) int { return n + 1 })
+			}
+		}
+	}
 	sl := aria.UseSlider(so)
+	dragging = &sl.Dragging
 	track := tela.UseSize(sl.TrackRef)
 
 	n := len(sl.Values)
+	// pct is where a knob is, read in the paint-phase closures.
+	pct := sl.ThumbPercent
+	if src != nil {
+		lo, hi := so.Min, so.Max
+		if lo == 0 && hi == 0 {
+			hi = 100
+		}
+		pct = func(int) float64 { return (min(max(src.Get(), lo), hi) - lo) / (hi - lo) * 100 }
+	}
 	kids := []tela.Child{cls(r.Root, rootClass, when(s.Disabled, r.Disabled), s.Class),
 		sl.Props, sl.TrackProps, s.Props}
 	kids = append(kids, h.Div(cls(r.Track, trackClass, s.TrackClass),
-		sliderRange{res: sl, n: n, track: track, vertical: vertical,
+		sliderRange{pct: pct, n: n, track: track, vertical: vertical,
 			class: joinClass(r.Range, rangeClass, s.RangeClass)}))
 	for i := range n {
-		kids = append(kids, sliderThumb{res: sl, i: i, track: track, vertical: vertical, class: joinClass(r.Thumb, s.ThumbClass)})
+		kids = append(kids, sliderThumb{res: sl, pct: pct, i: i, track: track, vertical: vertical, class: joinClass(r.Thumb, s.ThumbClass)})
 	}
 	return h.Div(kids...)
 }
@@ -162,7 +203,7 @@ func (s Slider) Build() tela.Node {
 // as the track and moved by the knob; with several it spans the first and
 // the last, which takes a layout per move, and a single knob only a paint.
 type sliderRange struct {
-	res      aria.SliderResult
+	pct      func(int) float64
 	n        int
 	track    *tela.Value[tela.Size]
 	vertical bool
@@ -170,13 +211,13 @@ type sliderRange struct {
 }
 
 func (r sliderRange) Build() tela.Node {
-	res, track := r.res, r.track
+	pct, track := r.pct, r.track
 	if r.n == 1 {
 		// The track clips what sticks out: the bar is slid back by the part
 		// that is not filled.
 		return h.Div(cls(r.class, "size-full", "top-0 left-0"),
 			h.Style(tela.TranslateFn(func() (x, y float32) {
-				rest := float32(1 - res.ThumbPercent(0)/100)
+				rest := float32(1 - pct(0)/100)
 				if r.vertical {
 					return 0, rest * track.Get().Height
 				}
@@ -184,9 +225,9 @@ func (r sliderRange) Build() tela.Node {
 			})))
 	}
 	extent := func() (lo, hi float64) {
-		lo, hi = res.ThumbPercent(0), res.ThumbPercent(0)
+		lo, hi = pct(0), pct(0)
 		for i := 1; i < r.n; i++ {
-			p := res.ThumbPercent(i)
+			p := pct(i)
 			lo, hi = min(lo, p), max(hi, p)
 		}
 		return lo / 100, hi / 100
@@ -216,6 +257,7 @@ func (r sliderRange) Build() tela.Node {
 // half its size to the track's length minus half).
 type sliderThumb struct {
 	res      aria.SliderResult
+	pct      func(int) float64
 	i        int
 	track    *tela.Value[tela.Size]
 	vertical bool
@@ -231,7 +273,7 @@ func (t sliderThumb) Build() tela.Node {
 	}
 	return h.Div(cls("absolute", pos, t.class), res.ThumbProps(i),
 		h.Style(tela.TranslateFn(func() (x, y float32) {
-			p := float32(res.ThumbPercent(i)) / 100
+			p := float32(t.pct(i)) / 100
 			if t.vertical {
 				return 0, -p * (track.Get().Height - self.Get().Height)
 			}
