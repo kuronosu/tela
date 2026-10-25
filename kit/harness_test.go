@@ -733,6 +733,7 @@ var mergeGroupPatterns = []struct {
 	{"font-weight", regexp.MustCompile(`^font-(thin|light|normal|medium|semibold|bold)$`)},
 	{"leading", regexp.MustCompile(`^leading-`)},
 	{"min-h", regexp.MustCompile(`^min-h-`)},
+	{"min-w", regexp.MustCompile(`^min-w-`)},
 	{"bg", regexp.MustCompile(`^bg-`)},
 	{"border-color", regexp.MustCompile(`^border-(transparent|current|white|black|border|input|ring|background|foreground|primary|secondary|destructive|muted|accent|card|popover|[a-z]+-\d{2,3})(/\d+)?$`)},
 	{"text-color", regexp.MustCompile(`^text-(white|black|current|foreground|background|primary|secondary|destructive|muted|accent|card|popover|[a-z]+-\d{2,3})(-foreground)?(/\d+)?$`)},

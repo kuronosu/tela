@@ -106,16 +106,23 @@ func Theme() tela.Theme {
 // Part names are public API; the strings are defaults and may change with
 // the look.
 type Style struct {
-	Avatar    AvatarStyle
-	Badge     BadgeStyle
-	Button    ButtonStyle
-	Card      CardStyle
-	Field     FieldStyle
-	Input     InputStyle
-	Label     LabelStyle
-	Separator SeparatorStyle
-	Skeleton  SkeletonStyle
-	Textarea  TextareaStyle
+	Avatar      AvatarStyle
+	Badge       BadgeStyle
+	Button      ButtonStyle
+	Card        CardStyle
+	Checkbox    CheckboxStyle
+	Field       FieldStyle
+	Input       InputStyle
+	Label       LabelStyle
+	Progress    ProgressStyle
+	RadioGroup  RadioGroupStyle
+	Separator   SeparatorStyle
+	Skeleton    SkeletonStyle
+	Slider      SliderStyle
+	Switch      SwitchStyle
+	Textarea    TextareaStyle
+	Toggle      ToggleStyle
+	ToggleGroup ToggleGroupStyle
 }
 
 // defaultStyle is the kit's look. Each component file fills in its own

@@ -91,7 +91,8 @@
 // # What is there
 //
 // Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton
-// and Field. A [Field] is the usual way to put a label, a control, help text
+// and Field; and the controls that choose: Checkbox, Switch, RadioGroup,
+// Toggle, ToggleGroup (the segmented control), Slider and Progress. A [Field] is the usual way to put a label, a control, help text
 // and an error together: it ties them with an id, so the label names the
 // control and clicking it focuses the control, and the control is described
 // by the error or the help text.
