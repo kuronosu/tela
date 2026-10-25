@@ -93,7 +93,8 @@
 //
 // Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton,
 // Field, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog,
-// Popover and Tooltip; and the controls that choose: Checkbox, Switch,
+// Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and
+// the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
 // Progress. A [ColorPicker] chooses a [tela.Color] with an area for the
 // saturation and brightness, a hue slider, an optional alpha slider, a hex
@@ -186,6 +187,36 @@
 //	toast := kit.UseToast()
 //	id := toast.Loading("Uploading…")
 //	go func() { upload(); toast.Success("Uploaded", kit.ToastReplace(id)) }()
+//
+// # Menus
+//
+// A [DropdownMenu] (opens from a button), a [Menubar] (a row of menus) and
+// a [ContextMenu] (opens on a right click inside an area) are built on the
+// same model of items, [MenuItem], and draw the same panel. A menu is a
+// slice of items of a kind: a plain item (a label, an icon, a shortcut that
+// is only shown, a destructive variant, OnSelect), a checkbox item, a radio
+// group, a label, a separator or a group; every item that can be chosen has
+// a Key, and the menu's OnSelect reports the key of a plain item:
+//
+//	kit.DropdownMenu[string]{
+//	    Trigger: kit.Button{Variant: kit.Outline, Children: h.Text("Account")},
+//	    Align:   "start",
+//	    Items: []kit.MenuItem[string]{
+//	        {Kind: kit.MenuLabel, Label: "My account"},
+//	        {Key: "profile", Label: "Profile", Shortcut: "⇧⌘P"},
+//	        {Kind: kit.MenuCheckbox, Key: "bars", Label: "Status bar", DefaultChecked: true},
+//	        {Kind: kit.MenuSeparator},
+//	        {Key: "logout", Label: "Log out", Variant: kit.Destructive},
+//	    },
+//	    OnSelect: func(key string) { run(key) },
+//	}
+//
+// The checkbox items and radio groups follow the value rule (Checked and
+// OnCheckedChange, Value and OnValueChange, or a default), and an
+// uncontrolled state is kept by the component, so it outlives the menu
+// closing. Choosing an item closes the menu, as Radix's does, unless the
+// item has KeepOpen. There are no submenus yet: a menu is one level
+// (ADR-141).
 //
 // # The look and its tests
 //
