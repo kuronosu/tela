@@ -29,9 +29,10 @@
 //   - Behavior fields are named after the HTML or React prop they stand for:
 //     Disabled, OnClick, Type, Placeholder, Name, ID, ReadOnly, AutoFocus,
 //     MaxLength. Variant and Size choose among the looks of the recipe.
-//   - Icons are never built in: every icon a component draws is a
-//     tela.Icon field (Button.Icon and IconEnd, Badge.Icon), so an app uses
-//     the icon set it likes, such as icons/lucide.
+//   - Icons are slots: every icon a component draws is a tela.Icon field
+//     (Button.Icon and IconEnd, Badge.Icon), so an app uses the icon set it
+//     likes, such as icons/lucide. Where shadcn draws an icon itself, the
+//     field has Lucide's as its default (the X of Dialog.CloseIcon).
 //
 // Because a struct component compares its fields to skip a build, a
 // component given a func (OnClick) or a slice builds on every parent build;
@@ -91,7 +92,8 @@
 // # What is there
 //
 // Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton,
-// Field and Table; and the controls that choose: Checkbox, Switch,
+// Field and Table; the overlays Dialog, AlertDialog, Popover and Tooltip;
+// and the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
 // Progress. A [Table] shows rows of any type through columns, sorts
 // by a header (aria-sort, Enter and Space) and keeps its header and leading
@@ -111,6 +113,49 @@
 //
 //	kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 //	    Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
+//
+// # Overlays and triggers
+//
+// A [Dialog], [AlertDialog], [Popover] and [Tooltip] draw in a Portal over
+// the window, exist only while they are open (so what is inside them starts
+// afresh each time) and enter and leave with a transition. Each has a
+// Trigger slot, the element that opens it, and the Open (*bool),
+// DefaultOpen and OnOpenChange of the controlled and uncontrolled rule.
+//
+//	kit.Dialog{
+//	    Trigger:     kit.Button{Variant: kit.Outline, Children: h.Text("Edit profile")},
+//	    Title:       h.Text("Edit profile"),
+//	    Description: h.Text("Make changes to your profile here."),
+//	    Children:    form,
+//	    Footer:      kit.Button{Children: h.Text("Save changes")},
+//	    ShowClose:   true,
+//	}
+//
+// One rule makes every trigger slot of the kit work, Radix's asChild: the
+// overlay needs to put props on the element that opens it (the press, the
+// aria-expanded and aria-controls, the ref it is placed against, the hover
+// of a tooltip), and it does not wrap the trigger in an element of its own.
+// A trigger slot is a [Trigger], a component with one method,
+// WithTriggerProps(tela.Prop) tela.Component, that merges the props into its
+// root element. [Button] is a Trigger, as are the kit components that say
+// so; a component of your own becomes one by adding the method; and any
+// other element is made one with [TriggerFunc], which hands you the props to
+// put where you like:
+//
+//	kit.Tooltip{
+//	    Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node {
+//	        return h.Button(p, h.Class("rounded-full"), h.Text("Docs"))
+//	    }),
+//	    Content: h.Text("Open the manual"),
+//	}
+//
+// A dialog is modal: the page is inert, Tab stays inside, Escape and a press
+// on the scrim close it, and the focus returns to the trigger. An alert
+// dialog is the same for a question that needs an answer, and is not
+// closed by a press outside. A popover is not modal and closes when the
+// focus or a press goes elsewhere. A tooltip opens on hover or keyboard
+// focus and describes its trigger; the tooltips of a window are a group,
+// so after one opened the next opens at once.
 //
 // # The look and its tests
 //

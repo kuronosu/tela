@@ -103,6 +103,17 @@ type Button struct {
 	// Props are more props for the button element: a Key, a TestID, a
 	// handler.
 	Props tela.Child
+
+	// trigger holds the props an overlay gives a button used as its
+	// trigger (WithTriggerProps).
+	trigger tela.Prop
+}
+
+// WithTriggerProps makes Button a [Trigger]: the overlay that has it as its
+// Trigger slot puts its props on the button element, after the button's own.
+func (b Button) WithTriggerProps(p tela.Prop) tela.Component {
+	b.trigger = p
+	return b
 }
 
 // Build returns the button element.
@@ -127,6 +138,6 @@ func (b Button) Build() tela.Node {
 	if b.AriaLabel != "" {
 		kids = append(kids, h.AriaLabel(b.AriaLabel))
 	}
-	kids = append(kids, b.Props, icon(b.Icon, s.Icon, iconSize), b.Children, icon(b.IconEnd, s.Icon, iconSize))
+	kids = append(kids, b.Props, b.trigger, icon(b.Icon, s.Icon, iconSize), b.Children, icon(b.IconEnd, s.Icon, iconSize))
 	return h.Button(kids...)
 }
