@@ -16,6 +16,10 @@ import "github.com/kuronosu/tela/aria"
 | A button, on any element | [`aria.UseButton`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseButton) |
 | A button that is on or off | [`aria.UseToggleButton`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseToggleButton) |
 | A checkbox or a switch | [`aria.UseCheckbox`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseCheckbox), [`aria.UseSwitch`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseSwitch) |
+| One choice among radios | [`aria.UseRadioGroup`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseRadioGroup) |
+| A segmented control, or a toolbar of toggle buttons | [`aria.UseToggleGroup`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseToggleGroup) |
+| A slider, or a range slider | [`aria.UseSlider`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseSlider) |
+| A progress bar or a meter | [`aria.UseProgressBar`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseProgressBar), [`aria.UseMeter`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMeter) |
 | To know that a mouse or a pen is over an element | [`aria.UseHover`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseHover) |
 | A focus ring that shows after the keyboard, not after a click | [`aria.UseFocusRing`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusRing) |
 | A dialog that keeps the focus, or a toolbar with arrow keys | [`aria.UseFocusScope`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusScope) |
@@ -246,6 +250,159 @@ return Div(scope.Props, Role("toolbar"), OnKeyDown(func(e tela.KeyboardEvent) {
 `aria.FocusOptions`: `Wrap` goes around at the ends, `Tabbable` leaves out the
 elements that only a script can focus (`TabIndex(-1)`), `From` starts at
 another element of the scope.
+
+## Radio groups, toggle groups and sliders
+
+### Radio groups: `UseRadioGroup`
+
+```go
+plans := []string{"free", "pro", "team"}
+plan, setPlan := tela.UseState("pro")
+g := aria.UseRadioGroup(aria.RadioGroupOptions[string]{
+	Keys: plans, Value: &plan, OnValueChange: setPlan.Set, AriaLabel: "Plan",
+})
+return Div(g.Props, Class("flex flex-col gap-2"),
+	Range(len(plans), func(i int) tela.Node {
+		k := plans[i]
+		return Div(Key(k), Class("flex items-center gap-2"),
+			Button(g.RadioProps(k), Class("size-4 rounded-full border checked:bg-primary")),
+			Label(For(g.RadioID(k)), Text(k)))
+	}))
+```
+
+```yaml
+- radiogroup "Plan":
+  - radio "free"
+  - text: free
+  - radio "pro" [checked]
+  - text: pro
+```
+
+`UseRadioGroup` is React Aria's `useRadioGroup` and `useRadio` with
+`useRadioGroupState`. At most one radio is checked. The value follows the
+rule of the other controls: `Value *K` makes it controlled (a value the app
+does not store is refused; a value that is not one of `Keys`, such as `""`,
+checks nothing), `DefaultValue *K` starts an uncontrolled group
+(`DefaultValue: new("pro")`), and `OnValueChange` is called for both. With no
+value nothing is checked. `Disabled`, `DisabledKeys`, `ReadOnly` and
+`Required` are the states of the group and its radios.
+
+- The arrow keys (all four, in either `Orientation`) move the focus to the
+  next enabled radio, wrapping, and check it; `Direction: "rtl"` swaps left
+  and right of a horizontal group. Space checks the focused radio and Enter
+  does nothing. A press (a click, a tap, a `Label`) checks a radio.
+- Tab enters the group at the checked radio, or at the first enabled one
+  when none is checked: the group is one tab stop.
+- Render a radio with a `Button`: a `Label(For(g.RadioID(k)))` then names it
+  and checks it when clicked, and Enter in a text field of a `Form` still
+  submits the form (a radio is never its default button). A `Div` works too,
+  but a `Label` only names it.
+- The group is named by `AriaLabel`, `AriaLabelledBy` or the element with
+  `LabelProps`. `checked:` and `aria-checked:` match the checked radio.
+
+### Toggle groups: `UseToggleGroup`
+
+A segmented control, or a toolbar of toggle buttons: React Aria's
+`useToggleButtonGroup` and `useToggleButtonGroupItem`. The selection is an
+[`aria.Selection`](#the-selection-ariaselection), controlled with `Selected`
+and uncontrolled with `DefaultSelected`.
+
+```go
+modes := []string{"list", "grid"}
+view := aria.UseToggleGroup(aria.ToggleGroupOptions[string]{
+	Keys: modes, DefaultSelected: aria.SelectionOf("list"),
+	DisallowEmptySelection: true, AriaLabel: "View",
+})
+return Div(view.Props, Class("inline-flex rounded-md border"),
+	Range(len(modes), func(i int) tela.Node {
+		return Button(view.ItemProps(modes[i]), Key(modes[i]),
+			Class("px-3 py-1 aria-checked:bg-accent"), Text(modes[i]))
+	}))
+```
+
+| `SelectionMode` | Group | Items |
+|---|---|---|
+| `"single"` (the default) | `radiogroup` | `radio`, `aria-checked` |
+| `"multiple"` | `toolbar` | `button`, `aria-pressed` |
+
+The arrows of the orientation move the focus without toggling (Home and End
+jump; `ShouldFocusWrap` goes around the ends); Enter, Space and a press
+toggle. The group is one tab stop: Tab enters at the item that had the focus
+last, else the first one that is on. Pressing the item that is on turns it off
+unless `DisallowEmptySelection`.
+
+### Sliders: `UseSlider`
+
+React Aria's `useSlider` and `useSliderThumb` with `useSliderState`. A slider
+has one thumb per value, so a range slider is two:
+
+```go
+s := aria.UseSlider(aria.SliderOptions{
+	DefaultValues: []float64{20, 80}, Min: 0, Max: 100, Step: 5,
+	AriaLabel: "Price", ThumbLabels: []string{"Minimum price", "Maximum price"},
+})
+track := tela.UseSize(s.TrackRef)
+return Div(s.Props, Class("w-64 p-4"),
+	Div(s.TrackProps, Class("relative h-2 rounded-full bg-muted"),
+		Range(len(s.Values), func(i int) tela.Node {
+			return Div(s.ThumbProps(i), Key(i), Class("absolute -top-1.5 -ml-2.5 size-5 rounded-full bg-primary"),
+				Style(tela.TranslateFn(func() (x, y float32) {
+					return float32(s.ThumbPercent(i)) / 100 * track.Get().Width, 0
+				})))
+		})))
+```
+
+```yaml
+- group "Price":
+  - slider "Minimum price"
+  - slider "Maximum price"
+```
+
+- `Values *[]float64` controls the values, `DefaultValues` starts them,
+  `OnValuesChange` is called with all the values on every change and
+  `OnChangeEnd` when the user stops (the pointer is released, or a key changed
+  a value). A single slider is a slice of one value, as in Radix and shadcn/ui.
+- A press on the track moves the nearest thumb to the point and keeps dragging
+  it; a press on a thumb drags it without a jump. Mouse, touch and pen drag the
+  same way, and the thumb keeps the pointer wherever it goes. Thumbs never
+  cross (nor come nearer than `MinStepsBetweenThumbs` steps), and values round
+  to `Step` from `Min`.
+- Keys on a thumb: the arrows move it by one `Step` (by a page with Shift),
+  PageUp and PageDown by a page (a tenth of the range, rounded to a step), Home
+  and End to its limits. `Direction: "rtl"` mirrors a horizontal slider and its
+  left and right arrows; a `"vertical"` slider has `Min` at the bottom.
+- `ThumbPercent(i)` (0 to 100, where React Aria's fractions go from 0 to 1) is
+  made to be read in the paint-phase closure of the thumb, as above: dragging
+  moves the thumb by repainting, and an uncontrolled slider builds when the drag
+  starts and ends (and when the pointer rests for a moment, so that
+  `aria-valuenow` follows), not on every move. A controlled slider builds as
+  often as the app's state changes.
+- `aria-valuetext` is `FormatValue(v)`, by default the number as it is written;
+  `ValueText(i)` is the same text to show.
+
+### Progress bars and meters: `UseProgressBar`, `UseMeter`
+
+```go
+p := aria.UseProgressBar(aria.ProgressBarOptions{Value: done, AriaLabel: "Upload"})
+return Div(p.Props, Class("h-2 w-64 overflow-hidden rounded-full bg-muted"),
+	Div(Class("h-full bg-primary"), Class(fmt.Sprintf("w-[%g%%]", p.Percent))))
+```
+
+A `progressbar` or a `meter` role with `aria-valuenow`, `-valuemin`, `-valuemax`
+and `-valuetext` (the rounded percentage, "40%", unless `FormatValue`). A
+progress bar with `Indeterminate` has no value. `Percent` goes from 0 to 100.
+
+### How it differs from React Aria
+
+- Options structs and `Props`, with the integrated state of ADR-101 (`Value *K`,
+  `Values *[]float64`, `Selected Selection[K]`), instead of the stately layer.
+- A radio is checked on its click, not on a native input's change; Space checks
+  on the key down. There is no hidden input and no form value.
+- A radio group's arrows work in both orientations as React Aria's, and
+  `aria-orientation` defaults to `"vertical"`.
+- A toggle group adds Home and End and `ShouldFocusWrap`.
+- A slider has no hidden `input type="range"`; the thumb is the `slider` and
+  takes the keys. Its percentages go from 0 to 100.
 
 ## Testing
 
