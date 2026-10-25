@@ -20,6 +20,7 @@ import "github.com/kuronosu/tela/aria"
 | A segmented control, or a toolbar of toggle buttons | [`aria.UseToggleGroup`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseToggleGroup) |
 | A slider, or a range slider | [`aria.UseSlider`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseSlider) |
 | A progress bar or a meter | [`aria.UseProgressBar`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseProgressBar), [`aria.UseMeter`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseMeter) |
+| A color picker: the color, an area, sliders and a hex field | [`aria.UseColorState`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorState), [`aria.UseColorArea`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorArea), [`aria.UseColorSlider`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorSlider), [`aria.UseColorField`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseColorField) |
 | To know that a mouse or a pen is over an element | [`aria.UseHover`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseHover) |
 | A focus ring that shows after the keyboard, not after a click | [`aria.UseFocusRing`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusRing) |
 | A dialog that keeps the focus, or a toolbar with arrow keys | [`aria.UseFocusScope`](https://pkg.go.dev/github.com/kuronosu/tela/aria#UseFocusScope) |
@@ -405,6 +406,95 @@ progress bar with `Indeterminate` has no value. `Percent` goes from 0 to 100.
 - A toggle group adds Home and End and `ShouldFocusWrap`.
 - A slider has no hidden `input type="range"`; the thumb is the `slider` and
   takes the keys. Its percentages go from 0 to 100.
+
+## Colors
+
+A color picker is a shared color and the parts that change it. `UseColorState`
+holds the color; `UseColorArea`, `UseColorSlider` and `UseColorField` (React
+Aria's `useColorArea`, `useColorSlider` and `useColorField`, with
+`useColorPickerState`) take it as `State` and return props. They must be
+called in the component that made the state.
+
+```go
+st := aria.UseColorState(aria.ColorStateOptions{DefaultValue: tela.Hex("#6366f1")})
+area := aria.UseColorArea(aria.ColorAreaOptions{State: st, AriaLabel: "Color"})
+hue := aria.UseColorSlider(aria.ColorSliderOptions{State: st, Channel: aria.ColorHue})
+hex := aria.UseColorField(aria.ColorFieldOptions{State: st, AriaLabel: "Hex"})
+size := tela.UseSize(area.AreaRef)
+track := tela.UseSize(hue.TrackRef)
+return Div(Class("flex w-64 flex-col gap-4 p-4"),
+	Div(area.AreaProps, Class("relative h-48 rounded-md"),
+		Style(tela.BgFn(func() tela.Color { return aria.HSB{H: st.LiveHSB().H, S: 100, B: 100, A: 1}.Color() })),
+		Div(area.ThumbProps, Class("absolute left-0 top-0 -ml-2.5 -mt-2.5 size-5 rounded-full border-2 border-white"),
+			Style(tela.TranslateFn(func() (x, y float32) {
+				px, py := area.ThumbPercent()
+				return float32(px) / 100 * size.Get().Width, float32(py) / 100 * size.Get().Height
+			})))),
+	Div(hue.Props, Div(hue.TrackProps, Class("relative h-3 rounded-full"),
+		Div(hue.ThumbProps, Class("absolute -top-1 -ml-2.5 size-5 rounded-full border-2 border-white"),
+			Style(tela.TranslateFn(func() (x, y float32) {
+				return float32(hue.ThumbPercent()) / 100 * track.Get().Width, 0
+			}))))),
+	Input(hex.InputProps, Class("w-28 rounded-md border px-2 font-mono")))
+```
+
+```yaml
+- group "Color":
+  - slider "Color"
+- group "Hue":
+  - slider "Hue"
+- textbox "Hex": "#6366f1"
+```
+
+(The thumbs' `aria-valuetext` is "Saturation 58%, Brightness 94%" and "Hue 239°".
+The area's background is the kit's job: the hue's color with a white gradient
+across and a black gradient down. `TrackColors()` of a slider gives the stops
+of its gradient.)
+
+- **The color.** `ColorStateOptions.Value *tela.Color` controls it,
+  `DefaultValue` starts it and `OnChange` is called with every change, as
+  ADR-101's rule says. The state keeps the color as an `aria.HSB` (hue 0 to
+  360, saturation and brightness 0 to 100, opacity 0 to 1) and reports a
+  `tela.Color`, so that dragging to a gray or to black does not lose the hue:
+  `ToHSB` of a gray has no hue, the state does. A color the caller passes back
+  is recognized as the one it reported, and a gray of the caller's own keeps
+  the hue it was shown with. `st.Set(c)` asks for a color (a swatch).
+  `Color()` and `HSB()` are those of the last build; `LiveColor()` and
+  `LiveHSB()` are made to be read in paint-phase closures (`tela.BgFn`).
+- **The area** drags with a mouse, a finger or a pen: a press places the thumb
+  and goes on dragging it; a press on the thumb drags it without a jump. Its
+  channels are `XChannel` (saturation) and `YChannel` (brightness) by default,
+  any two of hue, saturation and brightness; the third is the state's.
+  `ThumbPercent()` returns the position in percent from the left and the top,
+  to be read in the thumb's paint-phase closure: dragging repaints and does not
+  build, as the slider does (the color builds when the drag starts and ends,
+  and when the pointer rests for a moment).
+- **Keys on the area's thumb:** the arrows move it by one step (by a page with
+  Shift), PageUp and PageDown change the Y channel by a page and Home and End
+  the X channel, as React Aria's area does. `Direction: "rtl"` mirrors the X
+  axis and the left and right arrows. The thumb is one `slider` whose
+  `aria-valuetext` has both channels ("Saturation 58%, Brightness 94%").
+- **A color slider** is built on `UseSlider` for one `Channel`: hue (0 to 360,
+  a page of 15), alpha (0 to 1), saturation and brightness, or, with
+  `Space: "hsl"`, the HSL saturation and `ColorLightness`. `aria-valuetext` is
+  the channel and its value ("Hue 180°"; `FormatValue` for another language);
+  `TrackColors()` returns the colors at the stops of the gradient behind it.
+- **The hex field** commits on blur and Enter: a code that parses (`#rgb`,
+  `#rgba`, `#rrggbb`, `#rrggbbaa`, with or without the `#`) sets the color and
+  anything else reverts to the color's code. Characters that cannot be part of
+  a code are not typed; ArrowUp and ArrowDown add or subtract one (PageUp and
+  PageDown sixteen) from the color as a number. `Alpha` shows and accepts the
+  opacity.
+- **Conversions:** `ToHSB`, `ToHSL`, `HSB.Color`, `HSL.Color`, `ParseHexColor`
+  (an error that says what is wrong) and `FormatHexColor`. They are plain
+  functions on `tela.Color`, deterministic, and clamp to the sRGB gamut.
+
+**How it differs from React Aria:** the area has one thumb with one `slider`
+role and a value text for both channels, where React Aria has two hidden range
+inputs, since the semantics tree has no two-dimensional slider; a color is a
+`tela.Color` with the state holding the hue, where React Aria has `Color`
+objects of a color space; there is no `ColorWheel`, `ColorSwatchPicker` or
+color name; and there are no localized channel names, only `FormatValue`.
 
 ## Testing
 
