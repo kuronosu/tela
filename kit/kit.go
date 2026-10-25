@@ -115,6 +115,7 @@ type Style struct {
 	Label     LabelStyle
 	Separator SeparatorStyle
 	Skeleton  SkeletonStyle
+	Table     TableStyle
 	Textarea  TextareaStyle
 }
 
