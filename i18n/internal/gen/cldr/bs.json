@@ -11,6 +11,9 @@
        "short": "d. M. y."
       },
       "dateTimeFormats": {
+       "availableFormats": {
+        "yMMMM": "LLLL y."
+       },
        "full": "{1}, {0}",
        "long": "{1}, {0}",
        "medium": "{1} {0}",

@@ -11,6 +11,9 @@
        "short": "d/MM/yy"
       },
       "dateTimeFormats": {
+       "availableFormats": {
+        "yMMMM": "MMMM 'de' y"
+       },
        "full": "{1}, {0}",
        "long": "{1}, {0}",
        "medium": "{1}, {0}",

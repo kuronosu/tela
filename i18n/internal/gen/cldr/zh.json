@@ -11,6 +11,9 @@
        "short": "y/M/d"
       },
       "dateTimeFormats": {
+       "availableFormats": {
+        "yMMMM": "y年M月"
+       },
        "full": "{1} {0}",
        "long": "{1} {0}",
        "medium": "{1} {0}",

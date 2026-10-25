@@ -12,13 +12,15 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`FormatHexColor`](#func-formathexcolor) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`ParseHexColor`](#func-parsehexcolor) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`ToHSB`](#func-tohsb) · [`ToHSL`](#func-tohsl) · [`UseButton`](#func-usebutton) · [`UseCheckbox`](#func-usecheckbox) · [`UseColorArea`](#func-usecolorarea) · [`UseColorField`](#func-usecolorfield) · [`UseColorSlider`](#func-usecolorslider) · [`UseColorState`](#func-usecolorstate) · [`UseCombobox`](#func-usecombobox) · [`UseContextMenuTrigger`](#func-usecontextmenutrigger) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuBar`](#func-usemenubar) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
+- [Functions](#functions): [`All`](#func-all) · [`AnchorRect`](#func-anchorrect) · [`Arrow`](#func-arrow) · [`AutoPlacement`](#func-autoplacement) · [`Contains`](#func-contains) · [`DateOf`](#func-dateof) · [`EndsWith`](#func-endswith) · [`Flip`](#func-flip) · [`FormatHexColor`](#func-formathexcolor) · [`Hide`](#func-hide) · [`LimitShift`](#func-limitshift) · [`Offset`](#func-offset) · [`ParseHexColor`](#func-parsehexcolor) · [`Placement`](#func-placement) · [`SelectionOf`](#func-selectionof) · [`Shift`](#func-shift) · [`Size`](#func-size) · [`StartsWith`](#func-startswith) · [`ToHSB`](#func-tohsb) · [`ToHSL`](#func-tohsl) · [`Today`](#func-today) · [`UseButton`](#func-usebutton) · [`UseCalendar`](#func-usecalendar) · [`UseCheckbox`](#func-usecheckbox) · [`UseColorArea`](#func-usecolorarea) · [`UseColorField`](#func-usecolorfield) · [`UseColorSlider`](#func-usecolorslider) · [`UseColorState`](#func-usecolorstate) · [`UseCombobox`](#func-usecombobox) · [`UseContextMenuTrigger`](#func-usecontextmenutrigger) · [`UseDialog`](#func-usedialog) · [`UseFloating`](#func-usefloating) · [`UseFocusRing`](#func-usefocusring) · [`UseFocusScope`](#func-usefocusscope) · [`UseHover`](#func-usehover) · [`UseListBox`](#func-uselistbox) · [`UseMenu`](#func-usemenu) · [`UseMenuBar`](#func-usemenubar) · [`UseMenuTrigger`](#func-usemenutrigger) · [`UseMeter`](#func-usemeter) · [`UseOverlay`](#func-useoverlay) · [`UseOverlayTrigger`](#func-useoverlaytrigger) · [`UsePopover`](#func-usepopover) · [`UsePress`](#func-usepress) · [`UseProgressBar`](#func-useprogressbar) · [`UseRadioGroup`](#func-useradiogroup) · [`UseRangeCalendar`](#func-userangecalendar) · [`UseSelect`](#func-useselect) · [`UseSlider`](#func-useslider) · [`UseSwitch`](#func-useswitch) · [`UseTabs`](#func-usetabs) · [`UseToggleButton`](#func-usetogglebutton) · [`UseToggleGroup`](#func-usetogglegroup) · [`UseTooltipTrigger`](#func-usetooltiptrigger)
 - [Types](#types)
   - [`type ArrowOptions`](#type-arrowoptions)
   - [`type AutoPlacementOptions`](#type-autoplacementoptions)
   - [`type Available`](#type-available): [`MaxHeight`](#func-available-maxheight) · [`MaxWidth`](#func-available-maxwidth)
   - [`type ButtonOptions`](#type-buttonoptions)
   - [`type ButtonResult`](#type-buttonresult): [`UseButton`](#func-usebutton)
+  - [`type CalendarOptions`](#type-calendaroptions)
+  - [`type CalendarResult`](#type-calendarresult): [`UseCalendar`](#func-usecalendar) · [`UseRangeCalendar`](#func-userangecalendar) · [`Anchor`](#func-calendarresult-anchor) · [`CellProps`](#func-calendarresult-cellprops) · [`ColumnHeaderProps`](#func-calendarresult-columnheaderprops) · [`DayText`](#func-calendarresult-daytext) · [`FirstDayOfWeek`](#func-calendarresult-firstdayofweek) · [`GridProps`](#func-calendarresult-gridprops) · [`Heading`](#func-calendarresult-heading) · [`HeadingProps`](#func-calendarresult-headingprops) · [`IsDisabled`](#func-calendarresult-isdisabled) · [`IsFocused`](#func-calendarresult-isfocused) · [`IsInRange`](#func-calendarresult-isinrange) · [`IsOutsideMonth`](#func-calendarresult-isoutsidemonth) · [`IsRangeEnd`](#func-calendarresult-israngeend) · [`IsRangeStart`](#func-calendarresult-israngestart) · [`IsSelected`](#func-calendarresult-isselected) · [`IsToday`](#func-calendarresult-istoday) · [`IsUnavailable`](#func-calendarresult-isunavailable) · [`Month`](#func-calendarresult-month) · [`Months`](#func-calendarresult-months) · [`NextDisabled`](#func-calendarresult-nextdisabled) · [`NextProps`](#func-calendarresult-nextprops) · [`PrevDisabled`](#func-calendarresult-prevdisabled) · [`PrevProps`](#func-calendarresult-prevprops) · [`RowProps`](#func-calendarresult-rowprops) · [`WeekdayNames`](#func-calendarresult-weekdaynames) · [`Weeks`](#func-calendarresult-weeks)
   - [`type Collection`](#type-collection): [`ActiveDescendant`](#func-collectionk-activedescendant) · [`ClearFocus`](#func-collectionk-clearfocus) · [`Focus`](#func-collectionk-focus) · [`FocusKey`](#func-collectionk-focuskey) · [`Focused`](#func-collectionk-focused) · [`HandleKeyDown`](#func-collectionk-handlekeydown) · [`IsDisabled`](#func-collectionk-isdisabled) · [`IsFocusVisible`](#func-collectionk-isfocusvisible) · [`IsFocused`](#func-collectionk-isfocused) · [`IsSelected`](#func-collectionk-isselected) · [`ItemProps`](#func-collectionk-itemprops) · [`ItemRef`](#func-collectionk-itemref) · [`Section`](#func-collectionk-section)
   - [`type ColorAreaOptions`](#type-colorareaoptions)
   - [`type ColorAreaResult`](#type-colorarearesult): [`UseColorArea`](#func-usecolorarea) · [`ThumbPercent`](#func-colorarearesult-thumbpercent) · [`ValueText`](#func-colorarearesult-valuetext)
@@ -33,6 +35,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ComboboxResult`](#type-comboboxresult): [`UseCombobox`](#func-usecombobox)
   - [`type ContextMenuTriggerOptions`](#type-contextmenutriggeroptions)
   - [`type ContextMenuTriggerResult`](#type-contextmenutriggerresult): [`UseContextMenuTrigger`](#func-usecontextmenutrigger) · [`PopoverOptions`](#func-contextmenutriggerresult-popoveroptions)
+  - [`type Date`](#type-date): [`DateOf`](#func-dateof) · [`Today`](#func-today) · [`AddDays`](#func-date-adddays) · [`AddMonths`](#func-date-addmonths) · [`AddYears`](#func-date-addyears) · [`After`](#func-date-after) · [`Before`](#func-date-before) · [`Compare`](#func-date-compare) · [`IsValid`](#func-date-isvalid) · [`IsZero`](#func-date-iszero) · [`String`](#func-date-string) · [`Time`](#func-date-time) · [`Weekday`](#func-date-weekday)
+  - [`type DateRange`](#type-daterange): [`Contains`](#func-daterange-contains) · [`IsZero`](#func-daterange-iszero)
   - [`type DialogOptions`](#type-dialogoptions)
   - [`type DialogResult`](#type-dialogresult): [`UseDialog`](#func-usedialog)
   - [`type Filter`](#type-filter)
@@ -76,6 +80,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ProgressBarResult`](#type-progressbarresult): [`UseMeter`](#func-usemeter) · [`UseProgressBar`](#func-useprogressbar)
   - [`type RadioGroupOptions`](#type-radiogroupoptions)
   - [`type RadioGroupResult`](#type-radiogroupresult): [`UseRadioGroup`](#func-useradiogroup) · [`IsSelected`](#func-radiogroupresultk-isselected) · [`RadioID`](#func-radiogroupresultk-radioid) · [`RadioProps`](#func-radiogroupresultk-radioprops) · [`RadioRef`](#func-radiogroupresultk-radioref)
+  - [`type RangeCalendarOptions`](#type-rangecalendaroptions)
   - [`type Rects`](#type-rects)
   - [`type SectionResult`](#type-sectionresult)
   - [`type SelectOptions`](#type-selectoptions)
@@ -158,7 +163,7 @@ A controlled control shows what the caller passes: a change that the caller does
 
 ### Hooks
 
-Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton) (which can submit or reset its Form), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press. Choices and ranges: [`UseRadioGroup`](#func-useradiogroup) (one checked radio, which the arrow keys move and check), [`UseToggleGroup`](#func-usetogglegroup) (a segmented control or a toolbar of toggle buttons), [`UseSlider`](#func-useslider) (one or more thumbs on a track, dragged by repainting), [`UseProgressBar`](#func-useprogressbar) and [`UseMeter`](#func-usemeter). Colors: [`UseColorState`](#func-usecolorstate) (the color that a picker shares, as an [`HSB`](#type-hsb) that keeps the hue), [`UseColorArea`](#func-usecolorarea), [`UseColorSlider`](#func-usecolorslider) and [`UseColorField`](#func-usecolorfield), with the [`HSB`](#type-hsb) and [`HSL`](#type-hsl) types, [`ToHSB`](#func-tohsb), [`ToHSL`](#func-tohsl), [`ParseHexColor`](#func-parsehexcolor) and [`FormatHexColor`](#func-formathexcolor). Positioning: [`UseFloating`](#func-usefloating).
+Interactions: [`UsePress`](#func-usepress) (mouse, touch, pen and keyboard as one press), [`UseHover`](#func-usehover) (mouse and pen) and [`UseFocusRing`](#func-usefocusring) (the focus, and whether to show it). Focus: [`UseFocusScope`](#func-usefocusscope) (contain, restore and auto-focus the focus, and a [`FocusManager`](#type-focusmanager) that moves it). Controls: [`UseButton`](#func-usebutton) (which can submit or reset its Form), [`UseToggleButton`](#func-usetogglebutton), [`UseCheckbox`](#func-usecheckbox) and [`UseSwitch`](#func-useswitch), which add the role, the aria state, the tab stop and the toggle state to a press. Choices and ranges: [`UseRadioGroup`](#func-useradiogroup) (one checked radio, which the arrow keys move and check), [`UseToggleGroup`](#func-usetogglegroup) (a segmented control or a toolbar of toggle buttons), [`UseSlider`](#func-useslider) (one or more thumbs on a track, dragged by repainting), [`UseProgressBar`](#func-useprogressbar) and [`UseMeter`](#func-usemeter). Dates: [`UseCalendar`](#func-usecalendar) and [`UseRangeCalendar`](#func-userangecalendar), with the [`Date`](#type-date) type. Colors: [`UseColorState`](#func-usecolorstate) (the color that a picker shares, as an [`HSB`](#type-hsb) that keeps the hue), [`UseColorArea`](#func-usecolorarea), [`UseColorSlider`](#func-usecolorslider) and [`UseColorField`](#func-usecolorfield), with the [`HSB`](#type-hsb) and [`HSL`](#type-hsl) types, [`ToHSB`](#func-tohsb), [`ToHSL`](#func-tohsl), [`ParseHexColor`](#func-parsehexcolor) and [`FormatHexColor`](#func-formathexcolor). Positioning: [`UseFloating`](#func-usefloating).
 
 Overlays: [`UseOverlay`](#func-useoverlay) (Escape and a press outside close the top overlay; a modal one makes the rest of the window inert), [`UseDialog`](#func-usedialog) (role, name and focus), [`UsePopover`](#func-usepopover) (a floating overlay next to its trigger), [`UseOverlayTrigger`](#func-useoverlaytrigger) (the open state and the trigger's props), [`UseMenuTrigger`](#func-usemenutrigger) (a trigger that opens with press, long press or keys) and [`UseTooltipTrigger`](#func-usetooltiptrigger) (hover and focus with React Aria's delays and warm-up).
 
@@ -239,6 +244,25 @@ return Div(s.Props, Div(s.TrackProps, Class("relative h-2 w-64 bg-muted"),
             })))
     })))
 ```
+
+### Calendars
+
+A calendar selects a date (or, with [`UseRangeCalendar`](#func-userangecalendar), a range of dates) in a month grid, with React Aria's keys and rules, in the Gregorian calendar and the locale of package i18n (month names, weekday names, the first day of the week). A day is a [`Date`](#type-date), a comparable value with no time zone; the zero Date is none. The caller renders the parts from the methods of the result: the heading and month buttons, the weekday headers, and one grid of Weeks per visible month with a CellProps per day, keyed by its date, and the grid keyed by its month:
+
+```go
+cal := aria.UseCalendar(aria.CalendarOptions{AriaLabel: "Birthday", Min: aria.Today()})
+return Div(cal.Props,
+    Button(cal.PrevProps(), Text("<")), H2(cal.HeadingProps(0), Text(cal.Heading(0))), Button(cal.NextProps(), Text(">")),
+    Div(cal.GridProps(0), Key(cal.Month(0).String()),
+        Map(cal.Weeks(0), func(week []aria.Date) tela.Node {
+            return Div(cal.RowProps(), Key(week[0].String()), Class("flex"),
+                Map(week, func(day aria.Date) tela.Node {
+                    return Button(cal.CellProps(0, day), Key(day.String()), Text(cal.DayText(day)))
+                }))
+        })))
+```
+
+The selected date is uncontrolled by default and controlled when Value points to the caller's state, as everywhere in this package; so is the focused date, which decides the month on display.
 
 ### Colors
 
@@ -562,6 +586,455 @@ app.ExpectText("Sent 2 times")
 fmt.Println("submitted twice: mouse and Enter")
 // Output: submitted twice: mouse and Enter
 ```
+
+### type CalendarOptions
+
+```go
+type CalendarOptions struct {
+    // Value points to the selected date of a controlled calendar; nil
+    // leaves it to the hook.
+    Value *Date
+    // DefaultValue is the selected date of an uncontrolled calendar at the
+    // start; nil selects nothing.
+    DefaultValue *Date
+    // OnValueChange is called with the date the user selects: how a
+    // controlled calendar asks for the change, a notification for an
+    // uncontrolled one. It is not called for the date that already is
+    // selected.
+    OnValueChange func(Date)
+    // Min and Max bound the dates that can be focused or selected (both
+    // included); the zero Date is no limit. Dates outside them are shown
+    // disabled, and the buttons of PrevProps and NextProps are disabled
+    // when no month is left in that direction. Min after Max panics in
+    // dev mode.
+    Min, Max Date
+    // IsDateUnavailable marks dates that are shown but can not be
+    // selected (booked days, holidays). As in React Aria they can still
+    // be focused: the keys move over them and they have aria-disabled.
+    IsDateUnavailable func(Date) bool
+    // Disabled disables every date: none can be focused or selected.
+    Disabled bool
+    // ReadOnly keeps the dates focusable but not selectable (aria-readonly
+    // on the grid).
+    ReadOnly bool
+    // FocusedDate points to the focused date of a controlled calendar,
+    // the one with the tab stop; the month that shows it is on display.
+    // nil leaves it to the hook.
+    FocusedDate *Date
+    // DefaultFocusedDate is the focused date of an uncontrolled calendar at
+    // the start: else the selected date, else Today. It is limited to Min
+    // and Max.
+    DefaultFocusedDate Date
+    // OnFocusChange is called with the date that becomes the focused one:
+    // by keys, by focus, by a month button, by a pointer that previews a
+    // range. For a controlled calendar it is how the change is asked for.
+    OnFocusChange func(Date)
+    // VisibleMonths is the number of months shown at once: 1 (the
+    // default) to 12. The month buttons move by that many.
+    VisibleMonths int
+    // FirstDayOfWeek is the first column of the grid; nil takes the
+    // locale's (i18n.FirstDayOfWeek: Sunday for en-US, Monday for de,
+    // Saturday for ar-EG).
+    FirstDayOfWeek *time.Weekday
+    // FixedWeeks always shows six weeks per month, so the grid keeps its
+    // height from month to month; else a month has the weeks it needs.
+    FixedWeeks bool
+    // Today is the date [CalendarResult.IsToday] reports; the zero Date is
+    // the current day (aria.Today). Set it to make a test deterministic.
+    Today Date
+    // Locale is the BCP 47 tag of the names, the headings and the first
+    // weekday; empty is the component's locale (i18n.UseFormatter).
+    Locale string
+    // Direction is "ltr" or "rtl": it swaps ArrowLeft and ArrowRight. Empty
+    // is the locale's.
+    Direction string
+    // AriaLabel names the calendar ("Appointment date"); the visible range
+    // ("October 2026") is appended, as React Aria does. Else AriaLabelledBy
+    // names it.
+    AriaLabel      string
+    AriaLabelledBy tela.ElementRef
+    // PreviousLabel and NextLabel are the accessible names of the month
+    // buttons, "Previous" and "Next" by default. They are English unless
+    // the caller translates them (with i18n.T).
+    PreviousLabel, NextLabel string
+    // Ref is the calendar element's ref, for a hook that is used together
+    // with others on one element; the zero value makes the hook create
+    // its own.
+    Ref tela.ElementRef
+}
+```
+
+CalendarOptions configures [`UseCalendar`](#func-usecalendar). Dates are [`Date`](#type-date) values, the zero Date meaning none.
+
+The selected date is uncontrolled when Value is nil (the hook keeps it, starting at DefaultValue, or with nothing selected) and controlled when Value points to the caller's state: the calendar shows it and only asks OnValueChange for the next one, so a change the caller does not store is refused. OnValueChange is also called for an uncontrolled calendar. The focused date, which decides the month on show and the tab stop, follows the same rule with FocusedDate, DefaultFocusedDate and OnFocusChange.
+
+```go
+// Uncontrolled.
+aria.CalendarOptions{AriaLabel: "Appointment date"}
+// Controlled.
+day, setDay := tela.UseState(aria.Date{})
+aria.CalendarOptions{Value: &day, OnValueChange: setDay.Set, Min: aria.Today()}
+```
+
+### type CalendarResult
+
+```go
+type CalendarResult struct {
+    // Props go to the calendar's element: the "application" role, its name
+    // and the ref (React Aria's calendarProps).
+    Props tela.Prop
+    // Title is the heading of the whole visible range, month and year in
+    // the locale's order ("October 2026", "October 2026 – November 2026"
+    // with two months): what an app shows above a single grid, or announces.
+    Title string
+    // Value is the selected date of a single-date calendar, the zero Date
+    // for none. Range is the selected range of a range calendar (while the
+    // first date of a new one is chosen it is still the previous range).
+    Value Date
+    Range DateRange
+    // FocusedDate is the date with the tab stop.
+    FocusedDate Date
+    // Ref is the ref attached to the calendar by Props.
+    Ref tela.ElementRef
+    // contains filtered or unexported fields
+}
+```
+
+CalendarResult is what [`UseCalendar`](#func-usecalendar) and [`UseRangeCalendar`](#func-userangecalendar) return. Its methods give the props and the data of each part of the calendar: the heading and the month buttons, the weekday headers, and one grid of weeks of cells per visible month (see [`UseCalendar`](#func-usecalendar) for how they fit together).
+
+#### func UseCalendar
+
+```go
+func UseCalendar(o CalendarOptions) CalendarResult
+```
+
+UseCalendar holds the state of a calendar that selects one date and returns the props and data of its parts (React Aria's useCalendar, useCalendarGrid and useCalendarCell with react-stately's useCalendarState). The calendar is the Gregorian one; a date is a [`Date`](#type-date), and the names, the headings and the first day of the week come from package i18n.
+
+The caller renders the calendar. Each part takes its props from the result. The cells are keyed by their date and each grid by its month, so that a month on display is a new grid whose cell for the focused date takes the focus as it mounts (a calendar without those keys still works: the hook focuses the cell after the build):
+
+```go
+cal := aria.UseCalendar(aria.CalendarOptions{AriaLabel: "Birthday"})
+return Div(cal.Props, Class("w-64 p-3"),
+    Div(Class("flex items-center justify-between"),
+        Button(cal.PrevProps(), Text("<")),
+        H2(cal.HeadingProps(0), Text(cal.Heading(0))),
+        Button(cal.NextProps(), Text(">"))),
+    Div(cal.GridProps(0), Key(cal.Month(0).String()),
+        Div(cal.RowProps(), Class("grid grid-cols-7"),
+            MapIndex(cal.WeekdayNames(i18n.NameShort), func(i int, name string) tela.Node {
+                return Div(cal.ColumnHeaderProps(i), Key(name), Text(name))
+            })),
+        Map(cal.Weeks(0), func(week []aria.Date) tela.Node {
+            return Div(cal.RowProps(), Key(week[0].String()), Class("grid grid-cols-7"),
+                Map(week, func(day aria.Date) tela.Node {
+                    return Button(cal.CellProps(0, day), Key(day.String()),
+                        Class("aria-selected:bg-primary aria-selected:text-primary-foreground"),
+                        If(cal.IsOutsideMonth(0, day), Class("opacity-50")),
+                        Text(cal.DayText(day)))
+                }))
+        })))
+```
+
+A cell is one element, a focusable gridcell (the ARIA grid pattern): use a Button, which gives it a focus ring, and style the states from the `aria-selected:`, `aria-disabled:` and `focus-visible:` variants or from the queries of the result ([`CalendarResult.IsToday`](#func-calendarresult-istoday), [`CalendarResult.IsUnavailable`](#func-calendarresult-isunavailable)).
+
+Keys, on a cell: ArrowLeft and ArrowRight move the focus a day (swapped by a right-to-left Direction), ArrowUp and ArrowDown a week, PageUp and PageDown a month and with Shift a year (the day of the month is kept, or the last one), Home and End the first and last day of the week, Enter and Space select the date. The month on display follows the focus. Dates outside Min and Max can not be reached (the focus stops at the limit); unavailable dates can, and are not selectable.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var picked aria.Date
+page := func() tela.Node {
+    cal := aria.UseCalendar(aria.CalendarOptions{
+        AriaLabel: "Appointment", Locale: "en-US",
+        Today:         aria.Date{Year: 2026, Month: time.October, Day: 25},
+        OnValueChange: func(day aria.Date) { picked = day },
+    })
+    return Div(cal.Props, Class("w-64 p-3"),
+        Div(Class("flex items-center justify-between"),
+            Button(cal.PrevProps(), Text("<")),
+            H2(cal.HeadingProps(0), Text(cal.Heading(0))),
+            Button(cal.NextProps(), Text(">"))),
+        Div(cal.GridProps(0),
+            Div(cal.RowProps(), Class("flex"),
+                MapIndex(cal.WeekdayNames(i18n.NameShort), func(i int, name string) tela.Node {
+                    return Div(cal.ColumnHeaderProps(i), Key(name), Class("w-8"), Text(name))
+                })),
+            Map(cal.Weeks(0), func(week []aria.Date) tela.Node {
+                return Div(cal.RowProps(), Key(week[0].String()), Class("flex"),
+                    Map(week, func(day aria.Date) tela.Node {
+                        return Button(cal.CellProps(0, day), Key(day.String()),
+                            Class("size-8 aria-selected:bg-primary aria-disabled:opacity-40"),
+                            If(cal.IsOutsideMonth(0, day), Class("text-muted-foreground")),
+                            Text(cal.DayText(day)))
+                    }))
+            })))
+}
+app := telatest.MountFunc(t, page, telatest.Size(300, 300))
+// Tab reaches the grid at today's cell; the arrows move over the months,
+// PageDown a month, Enter selects.
+app.Focus(telatest.ByRole("button", "Next"))
+app.Press("Tab")
+app.Press("ArrowRight")
+app.Press("PageDown")
+app.Press("Enter")
+title, _, _ := strings.Cut(app.AriaSnapshot(), "\n")
+fmt.Println(picked, title)
+// Output:
+// 2026-11-26 - application "Appointment, November 2026":
+```
+
+#### func UseRangeCalendar
+
+```go
+func UseRangeCalendar(o RangeCalendarOptions) CalendarResult
+```
+
+UseRangeCalendar is [`UseCalendar`](#func-usecalendar) for a range of dates (React Aria's useRangeCalendar with useRangeCalendarState). Selecting works in two steps: a press or Enter on a date anchors the range, and while it is anchored the pointer over a date, or the focus on it, previews the range between the anchor and that date (see [`CalendarResult.IsInRange`](#func-calendarresult-isinrange)); a second press completes the range, whichever end comes first, and calls OnValueChange. Escape cancels an anchored range. While anchored, dates beyond the nearest unavailable one are not selectable, unless AllowsNonContiguousRanges. The result is the same as a single calendar's; its Range is the selected range, and [`CalendarResult.Anchor`](#func-calendarresult-anchor) the first date of a range being chosen.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+var stay aria.DateRange
+page := func() tela.Node {
+    cal := aria.UseRangeCalendar(aria.RangeCalendarOptions{
+        AriaLabel: "Stay", Locale: "en-US",
+        Today:         aria.Date{Year: 2026, Month: time.October, Day: 25},
+        OnValueChange: func(r aria.DateRange) { stay = r },
+    })
+    return Div(cal.Props,
+        Div(cal.GridProps(0),
+            Map(cal.Weeks(0), func(week []aria.Date) tela.Node {
+                return Div(cal.RowProps(), Key(week[0].String()), Class("flex"),
+                    Map(week, func(day aria.Date) tela.Node {
+                        return Button(cal.CellProps(0, day), Key(day.String()),
+                            Class("size-8 aria-selected:bg-primary"), Text(cal.DayText(day)))
+                    }))
+            })))
+}
+app := telatest.MountFunc(t, page, telatest.Size(300, 300))
+// The first press anchors, moving the focus previews, the second press
+// completes the range.
+app.Focus(telatest.ByRole("gridcell", "Sunday, October 25, 2026"))
+app.Press("Enter")
+app.Press("ArrowDown")
+app.Press("ArrowRight")
+app.Press("Enter")
+fmt.Println(stay.Start, stay.End)
+// Output:
+// 2026-10-25 2026-11-02
+```
+
+#### func (CalendarResult) Anchor
+
+```go
+func (r CalendarResult) Anchor() (Date, bool)
+```
+
+Anchor returns the first date of a range being chosen, and whether there is one.
+
+#### func (CalendarResult) CellProps
+
+```go
+func (r CalendarResult) CellProps(i int, d Date) tela.Prop
+```
+
+CellProps returns the props of the cell of date d in the grid of month i (React Aria's useCalendarCell): the "gridcell" role, a name that is the full localized date ("Monday, October 5, 2026"), aria-selected, the disabled state, the ref, the tab stop (the focused date's cell in its own month only) and the handlers: a click or tap selects, the keys of [`UseCalendar`](#func-usecalendar) move the focus, and a pointer over a cell previews the range being chosen. A date outside Min and Max or a disabled calendar has the Disabled prop (it can not be focused); an unavailable one, aria-disabled only. Render the cell with a Button and give it Key(d.String()): the cell of the focused date is a new element when the month changes and takes the focus when it mounts.
+
+#### func (CalendarResult) ColumnHeaderProps
+
+```go
+func (r CalendarResult) ColumnHeaderProps(i int) tela.Prop
+```
+
+ColumnHeaderProps returns the props of the header of column i (0 to 6): the "columnheader" role, named by the full weekday ("Monday") whatever the short text it shows.
+
+#### func (CalendarResult) DayText
+
+```go
+func (r CalendarResult) DayText(d Date) string
+```
+
+DayText returns the day of the month of d as the locale writes numbers ("5", "٥").
+
+#### func (CalendarResult) FirstDayOfWeek
+
+```go
+func (r CalendarResult) FirstDayOfWeek() time.Weekday
+```
+
+FirstDayOfWeek returns the first column's weekday.
+
+#### func (CalendarResult) GridProps
+
+```go
+func (r CalendarResult) GridProps(i int) tela.Prop
+```
+
+GridProps returns the props of the grid of month i: the "grid" role, named by its heading, aria-readonly and, for a range calendar, aria-multiselectable.
+
+#### func (CalendarResult) Heading
+
+```go
+func (r CalendarResult) Heading(i int) string
+```
+
+Heading returns the title of month i, month and year in the locale's order and form ("October 2026", "octubre de 2026", "2026年10月").
+
+#### func (CalendarResult) HeadingProps
+
+```go
+func (r CalendarResult) HeadingProps(i int) tela.Prop
+```
+
+HeadingProps go to the element that shows [`CalendarResult.Heading`](#func-calendarresult-heading) of month i (an H2): the grid of that month is named by it.
+
+#### func (CalendarResult) IsDisabled
+
+```go
+func (r CalendarResult) IsDisabled(d Date) bool
+```
+
+IsDisabled reports whether d can not be focused: the calendar is Disabled, or d is before Min or after Max.
+
+#### func (CalendarResult) IsFocused
+
+```go
+func (r CalendarResult) IsFocused(d Date) bool
+```
+
+IsFocused reports whether d is the focused date and the focus is inside the calendar.
+
+#### func (CalendarResult) IsInRange
+
+```go
+func (r CalendarResult) IsInRange(d Date) bool
+```
+
+IsInRange is [`CalendarResult.IsSelected`](#func-calendarresult-isselected) for a range calendar: whether d is in the range, its ends included; it is false for a single-date calendar. Style the ends with IsRangeStart and IsRangeEnd.
+
+#### func (CalendarResult) IsOutsideMonth
+
+```go
+func (r CalendarResult) IsOutsideMonth(i int, d Date) bool
+```
+
+IsOutsideMonth reports whether d is not a day of month i on display: a date of the neighbouring months that fills the first or last week.
+
+#### func (CalendarResult) IsRangeEnd
+
+```go
+func (r CalendarResult) IsRangeEnd(d Date) bool
+```
+
+IsRangeEnd reports whether d is the last date of the range.
+
+#### func (CalendarResult) IsRangeStart
+
+```go
+func (r CalendarResult) IsRangeStart(d Date) bool
+```
+
+IsRangeStart reports whether d is the first date of the range.
+
+#### func (CalendarResult) IsSelected
+
+```go
+func (r CalendarResult) IsSelected(d Date) bool
+```
+
+IsSelected reports whether d is selected: the selected date, or a date of the selected range (while a range is being chosen, of the range between its anchor and the focused date).
+
+#### func (CalendarResult) IsToday
+
+```go
+func (r CalendarResult) IsToday(d Date) bool
+```
+
+IsToday reports whether d is today (the Today option, else the current day).
+
+#### func (CalendarResult) IsUnavailable
+
+```go
+func (r CalendarResult) IsUnavailable(d Date) bool
+```
+
+IsUnavailable reports whether d can not be selected: the caller's IsDateUnavailable, or, while a range is being chosen, a date beyond the nearest unavailable one.
+
+#### func (CalendarResult) Month
+
+```go
+func (r CalendarResult) Month(i int) Date
+```
+
+Month returns the first day of month i (0 to Months()-1) on display.
+
+#### func (CalendarResult) Months
+
+```go
+func (r CalendarResult) Months() int
+```
+
+Months returns the number of months on display.
+
+#### func (CalendarResult) NextDisabled
+
+```go
+func (r CalendarResult) NextDisabled() bool
+```
+
+NextDisabled reports whether the next button is disabled.
+
+#### func (CalendarResult) NextProps
+
+```go
+func (r CalendarResult) NextProps() tela.Prop
+```
+
+NextProps is [`CalendarResult.PrevProps`](#func-calendarresult-prevprops) for the next month, disabled at Max (aria-label "Next").
+
+#### func (CalendarResult) PrevDisabled
+
+```go
+func (r CalendarResult) PrevDisabled() bool
+```
+
+PrevDisabled reports whether the previous button is disabled.
+
+#### func (CalendarResult) PrevProps
+
+```go
+func (r CalendarResult) PrevProps() tela.Prop
+```
+
+PrevProps returns the props of the button that shows the previous month, or the previous VisibleMonths months (aria-label "Previous"): a click moves the months and the focused date back. It is disabled at Min. Give it to a Button.
+
+#### func (CalendarResult) RowProps
+
+```go
+func (r CalendarResult) RowProps() tela.Prop
+```
+
+RowProps returns the props of a row of the grid: the weekday headers and each week.
+
+#### func (CalendarResult) WeekdayNames
+
+```go
+func (r CalendarResult) WeekdayNames(width i18n.NameWidth) []string
+```
+
+WeekdayNames returns the names of the seven weekdays in the locale at the given width (i18n.NameShort: "Mo", i18n.NameNarrow: "M"), in the order of the columns: the first day of the week first.
+
+#### func (CalendarResult) Weeks
+
+```go
+func (r CalendarResult) Weeks(i int) [][]Date
+```
+
+Weeks returns the weeks of month i: rows of seven dates starting on the first day of the week, as many rows as the month needs (four to six), or six with FixedWeeks. The first and last rows hold dates of the neighbouring months, which [`CalendarResult.IsOutsideMonth`](#func-calendarresult-isoutsidemonth) reports.
 
 ### type Collection
 
@@ -1584,6 +2057,168 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions
 ```
 
 PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the menu: anchored at the point the menu was opened with ("bottom-start", flipped and shifted to stay in the window). The popover is not modal, so that a right click on the area while the menu is open reaches it and moves the menu to the new point; a primary press outside the menu closes it. Change what you need in the value returned (Offset, Floating).
+
+### type Date
+
+```go
+type Date struct {
+    Year  int
+    Month time.Month
+    Day   int
+}
+```
+
+Date is a day of the Gregorian calendar, without a time of day or a time zone: what a calendar selects ("the 5th of October 2026"), the same wherever it is read. The zero Date means "no date".
+
+It is a comparable value, unlike a time.Time (whose == also compares the zone pointer and the monotonic clock), so it can be a map key, the state of tela.UseState, a prop that skips a build when it is equal, and it has no daylight saving time to trip date arithmetic on: AddDays(1) is always the next day. Convert with [`DateOf`](#func-dateof) and [`Date.Time`](#func-date-time).
+
+```go
+d := aria.Date{Year: 2026, Month: time.October, Day: 5}
+d.AddMonths(1)            // 2026-11-05
+d.AddDays(-5)             // 2026-09-30
+aria.Date{2026, 1, 31}.AddMonths(1) // 2026-02-28: the day is clamped
+```
+
+**Example**
+
+```go
+oct := aria.Date{Year: 2026, Month: time.October, Day: 31}
+fmt.Println(oct.AddMonths(1), oct.AddDays(1), oct.Weekday())
+fmt.Println(aria.DateOf(time.Date(2026, 1, 31, 23, 0, 0, 0, time.UTC)).AddMonths(1))
+// Output:
+// 2026-11-30 2026-11-01 Saturday
+// 2026-02-28
+```
+
+#### func DateOf
+
+```go
+func DateOf(t time.Time) Date
+```
+
+DateOf returns the calendar day of t in t's own time zone.
+
+#### func Today
+
+```go
+func Today() Date
+```
+
+Today returns the current day in the local time zone. Calendars take their notion of today from an option (CalendarOptions.Today), so tests can fix it; this is the default.
+
+#### func (Date) AddDays
+
+```go
+func (d Date) AddDays(n int) Date
+```
+
+AddDays returns the day n days after d (before it when n is negative).
+
+#### func (Date) AddMonths
+
+```go
+func (d Date) AddMonths(n int) Date
+```
+
+AddMonths returns the same day of the month n months after d; when that month is shorter the day is the last one of it (January 31 plus one month is February 28 or 29).
+
+#### func (Date) AddYears
+
+```go
+func (d Date) AddYears(n int) Date
+```
+
+AddYears returns the same day n years after d, with the day clamped like [`Date.AddMonths`](#func-date-addmonths) (February 29 plus one year is February 28).
+
+#### func (Date) After
+
+```go
+func (d Date) After(o Date) bool
+```
+
+After reports whether d is a day after o.
+
+#### func (Date) Before
+
+```go
+func (d Date) Before(o Date) bool
+```
+
+Before reports whether d is a day before o.
+
+#### func (Date) Compare
+
+```go
+func (d Date) Compare(o Date) int
+```
+
+Compare returns -1, 0 or 1 when d is before, the same as or after o.
+
+#### func (Date) IsValid
+
+```go
+func (d Date) IsValid() bool
+```
+
+IsValid reports whether d is a day that exists: January 1 of year 1 to December 31 of year 9999, with the right number of days in its month.
+
+#### func (Date) IsZero
+
+```go
+func (d Date) IsZero() bool
+```
+
+IsZero reports whether d is the zero Date, no date at all.
+
+#### func (Date) String
+
+```go
+func (d Date) String() string
+```
+
+String returns d as ISO 8601, "2026-10-05" (and "none" for the zero Date). Unlike a localized date it is unique per day, so it is the key of a calendar cell: Key(day.String()).
+
+#### func (Date) Time
+
+```go
+func (d Date) Time(loc *time.Location) time.Time
+```
+
+Time returns midnight of d in loc (UTC when loc is nil).
+
+#### func (Date) Weekday
+
+```go
+func (d Date) Weekday() time.Weekday
+```
+
+Weekday returns the day of the week of d.
+
+### type DateRange
+
+```go
+type DateRange struct {
+    Start, End Date
+}
+```
+
+DateRange is a span of days, both ends included: the value of a range calendar. It is the zero value when nothing is selected; Start is never after End in a range a calendar makes.
+
+#### func (DateRange) Contains
+
+```go
+func (r DateRange) Contains(d Date) bool
+```
+
+Contains reports whether d is in r, its ends included.
+
+#### func (DateRange) IsZero
+
+```go
+func (r DateRange) IsZero() bool
+```
+
+IsZero reports whether r is the empty selection.
 
 ### type DialogOptions
 
@@ -3946,6 +4581,47 @@ func (r RadioGroupResult[K]) RadioRef(k K) tela.ElementRef
 ```
 
 RadioRef returns the ref that RadioProps(k) attaches to the radio, to share with another hook on its element.
+
+### type RangeCalendarOptions
+
+```go
+type RangeCalendarOptions struct {
+    // Value points to the selected range of a controlled calendar; nil
+    // leaves it to the hook. DefaultValue starts an uncontrolled one,
+    // and OnValueChange is called with the range the user completes (the
+    // earlier date first).
+    Value         *DateRange
+    DefaultValue  *DateRange
+    OnValueChange func(DateRange)
+    // AllowsNonContiguousRanges lets a range cross unavailable dates.
+    // Without it, once the first date is chosen the dates beyond the
+    // nearest unavailable one on each side are unavailable too, so a
+    // range never contains one (React Aria's rule). The nearest one is
+    // searched three years either way.
+    AllowsNonContiguousRanges bool
+
+    Min, Max           Date
+    IsDateUnavailable  func(Date) bool
+    Disabled           bool
+    ReadOnly           bool
+    FocusedDate        *Date
+    DefaultFocusedDate Date
+    OnFocusChange      func(Date)
+    VisibleMonths      int
+    FirstDayOfWeek     *time.Weekday
+    FixedWeeks         bool
+    Today              Date
+    Locale             string
+    Direction          string
+    AriaLabel          string
+    AriaLabelledBy     tela.ElementRef
+    PreviousLabel      string
+    NextLabel          string
+    Ref                tela.ElementRef
+}
+```
+
+RangeCalendarOptions configures [`UseRangeCalendar`](#func-userangecalendar). The fields shared with [`CalendarOptions`](#type-calendaroptions) mean the same; the value is a [`DateRange`](#type-daterange).
 
 ### type Rects
 
