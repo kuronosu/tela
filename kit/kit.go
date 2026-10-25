@@ -112,6 +112,8 @@ type Style struct {
 	Button      ButtonStyle
 	Card        CardStyle
 	Checkbox    CheckboxStyle
+	ColorInput  ColorInputStyle
+	ColorPicker ColorPickerStyle
 	Dialog      DialogStyle
 	Field       FieldStyle
 	Input       InputStyle

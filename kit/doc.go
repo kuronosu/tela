@@ -95,7 +95,17 @@
 // Field, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog,
 // Popover and Tooltip; and the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
-// Progress. A [Table] shows rows of any type through columns, sorts
+// Progress. A [ColorPicker] chooses a [tela.Color] with an area for the
+// saturation and brightness, a hue slider, an optional alpha slider, a hex
+// field and optional swatches; a [ColorInput] is the same behind a button
+// that shows the color (the look of both is the kit's own, shadcn/ui has
+// no color picker):
+//
+//	kit.ColorPicker{Value: &color, OnValueChange: setColor.Set, Alpha: true,
+//	    Swatches: []tela.Color{tela.Hex("#ef4444"), tela.Hex("#22c55e")}}
+//	kit.ColorInput{DefaultValue: tela.Hex("#6366f1"), OnValueCommit: save}
+//
+// A [Table] shows rows of any type through columns, sorts
 // by a header (aria-sort, Enter and Space) and keeps its header and leading
 // columns in place when it scrolls:
 //
@@ -188,5 +198,7 @@
 // scales 1 and 2 in testdata, and a page in testdata/chromium written with
 // shadcn's markup, rendered by Chromium with Tailwind 4.3.3, which the
 // tests compare with Tela's rendering: boxes to a few hundredths of a pixel
-// and the pixels to the anti-aliasing of text.
+// and the pixels to the anti-aliasing of text. The color picker has no
+// shadcn original: its gradients are compared with Chromium's CSS gradients
+// of the same colors, and the rest is checked by goldens and behavior tests.
 package kit
