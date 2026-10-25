@@ -4,7 +4,7 @@
 // goldens (ARCHITECTURE section 17).
 //
 //	func TestCounter(t *testing.T) {
-//	    app := telatest.Mount(t, tela.C(Counter), telatest.Size(400, 300))
+//	    app := telatest.Mount(t, Counter(), telatest.Size(400, 300))
 //	    app.Click(telatest.ByRole("button", "Increment"))
 //	    app.ExpectText("Count: 1")
 //	    app.Golden("counter.png") // testdata/counter.png; TELA_UPDATE=1 regenerates

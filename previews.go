@@ -10,7 +10,7 @@ import (
 // [Previews]: the component to show, and optionally a wrapper that
 // supplies what the screen reads from context.
 //
-// Root is a [Component]: a node such as tela.C(Settings), or a struct
+// Root is a [Component]: a node such as Settings(), a function that returns tela.C(settings), or a struct
 // component value. The local state of a preview is seeded through the fields
 // of a struct component, with no global:
 //
@@ -66,7 +66,7 @@ func (p Preview) Build() Node {
 // variable called Previews:
 //
 //	var Previews = tela.Previews{
-//	    "Login":    {Root: tela.C(LoginScreen)},
+//	    "Login":    {Root: LoginScreen()},
 //	    "Settings": {Root: Settings{InitialTab: "account"}},
 //	}
 //

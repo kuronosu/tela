@@ -213,7 +213,7 @@ process-wide locale:
 
 ```go
 func TestSettingsInSpanish(t *testing.T) {
-	app := telatest.Mount(t, i18n.Provider("es", tela.C(Settings)))
+	app := telatest.Mount(t, i18n.Provider("es", Settings()))
 	app.ExpectText("Ajustes")
 }
 ```

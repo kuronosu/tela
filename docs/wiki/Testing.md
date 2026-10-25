@@ -17,7 +17,9 @@ import (
 	"github.com/kuronosu/tela/telatest"
 )
 
-func Counter() tela.Node {
+func Counter() tela.Node { return tela.C(counter) }
+
+func counter() tela.Node {
 	count, setCount := tela.UseState(0)
 	return Div(Class("flex flex-col items-start gap-4 p-6"),
 		H1(Class("text-3xl font-bold"), Textf("Count: %d", count)),
@@ -28,7 +30,7 @@ func Counter() tela.Node {
 }
 
 func TestCounter(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Counter), telatest.Size(400, 300))
+	app := telatest.Mount(t, Counter(), telatest.Size(400, 300))
 
 	app.Click(telatest.ByRole("button", "Increment"))
 
@@ -61,8 +63,10 @@ running the cleanups of its effects. Options configure it:
 | [`telatest.Debug`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Debug), [`telatest.DebugClock`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#DebugClock) | Debug overlays drawn into screenshots; see [CLI](CLI#debug-overlays) |
 | [`telatest.CheckDamage`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#CheckDamage) | Compares every frame with a full rendering (for tests of rendering) |
 
-[`telatest.MountFunc`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountFunc)(t, Counter) is `Mount(t, tela.C(Counter))`, for a test
-that mounts one component.
+[`telatest.MountFunc`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountFunc)(t, fn) is `Mount(t, tela.C(fn))`, for a test
+that mounts a function (a closure written in the test, or the private
+function of a component). To mount a component with a public wrapper, as
+above, pass the wrapper's result: `Mount(t, Counter())`.
 
 An `App` is used from the goroutine of its test. State setters and `tela.Post`
 may be called from any goroutine; do not mount apps that use `Post` from
@@ -90,7 +94,7 @@ snapshot and the closest names:
 
 ```go
 func TestLocators(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Counter))
+	app := telatest.Mount(t, Counter())
 
 	app.Click(telatest.ByRole("button", "Increment"))
 	app.Click(telatest.ByText("increment"))                   // case-insensitive
@@ -159,7 +163,7 @@ skipped builds and layout and paint passes, to assert how narrow an update was).
 
 ```go
 func TestSignup(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Signup), telatest.Size(400, 300), telatest.Dev())
+	app := telatest.Mount(t, Signup(), telatest.Size(400, 300), telatest.Dev())
 
 	email := telatest.ByRole("textbox", "Email")
 	app.Fill(email, "ana@example.com")
@@ -171,7 +175,9 @@ func TestSignup(t *testing.T) {
 ```
 
 ```go
-func Signup() tela.Node {
+func Signup() tela.Node { return tela.C(signup) }
+
+func signup() tela.Node {
 	email, setEmail := tela.UseState("")
 	welcome, setWelcome := tela.UseState("")
 	return Form(OnSubmit(func(tela.SubmitEvent) { setWelcome.Set("Welcome, " + email) }),
@@ -192,7 +198,7 @@ it:
 
 ```go
 func TestLongPress(t *testing.T) {
-	app := telatest.Mount(t, tela.C(LongPress))
+	app := telatest.Mount(t, LongPress())
 
 	app.Hover(telatest.ByRole("button", ""))
 	app.MouseDown()
@@ -204,7 +210,9 @@ func TestLongPress(t *testing.T) {
 ```
 
 ```go
-func LongPress() tela.Node {
+func LongPress() tela.Node { return tela.C(longPress) }
+
+func longPress() tela.Node {
 	held, setHeld := tela.UseState(false)
 	return Button(OnLongPress(func(tela.PointerEvent) { setHeld.Set(true) }),
 		IfElse(held, Text("Held"), Text("Press and hold")))
@@ -225,7 +233,7 @@ with `Advance`.
 
 ```go
 func TestDialogEntrance(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Dialog), telatest.NoSettle())
+	app := telatest.Mount(t, Dialog(), telatest.NoSettle())
 	app.Click(telatest.ByRole("button", "Open"))
 	app.Advance(100 * time.Millisecond)
 	app.Golden("dialog_100ms.png") // 100 ms into the entrance
@@ -272,7 +280,7 @@ built on them, and so can your own tools be.
 
 ```go
 func Thumbnail() (*image.RGBA, error) {
-	return telatest.Render(tela.C(Counter), telatest.Size(400, 300), telatest.Scale(2))
+	return telatest.Render(Counter(), telatest.Size(400, 300), telatest.Scale(2))
 }
 ```
 
@@ -285,7 +293,7 @@ scrollbar and scroll settings and `Dev`. It is the same `App` that
 test, the PNG and the window agree; options after it override the app:
 
 ```go
-var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: tela.C(Notes)}
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes()}
 
 func TestNotes(t *testing.T) {
 	app := telatest.MountApp(t, App)

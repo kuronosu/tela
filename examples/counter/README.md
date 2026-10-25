@@ -5,7 +5,7 @@ The Counter of ARCHITECTURE section 1, verbatim: a card with a gradient, a headi
 **It is interactive** (since phase 4): a click increments the count (`UseState` and a `tela.Setter`), and `hover:bg-white/25` and `active:scale-95` restyle the button under the pointer. `transition` animates the changes (150 ms) on the frame clock. `h/events_test.go` drives this component through a headless window and checks the hover, press and click.
 
 - Run it in a window: `CGO_ENABLED=0 go run ./examples/counter` (800x600).
-- Render it without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 800x600 [--scale 2] -o counter.png ./examples/counter` (`Preview()` builds `Counter` as a component, so its `UseState` works).
+- Render it without a window: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 800x600 [--scale 2] -o counter.png ./examples/counter` (`Preview()` returns `Counter()`, which wraps `counter` in `tela.C`, so its `UseState` works).
 - Print its aria snapshot (`testdata/counter.aria.yml`): `CGO_ENABLED=0 go run ./cmd/tela inspect --size 800x600 ./examples/counter`; add `--layout` for its layout tree as JSON.
 - The goldens (`testdata/counter_x1.png`, `counter_x2.png`) are regenerated with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestCounterGolden ./examples/counter`.
 

@@ -22,10 +22,12 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.6.0).** Phases 1–6 are done and tagged: Linux
+> **Status: pre-1.0 (v0.9.1).** Phases 1–9 are done and tagged: Linux
 > (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
-> transitions and animations, glass effects. macOS is not there yet. The public API (`tela`, `h`) may
-> still break between minor versions. See [Project status](#project-status).
+> transitions and animations, glass effects, theme tokens, i18n, SVG icons,
+> `aria` behavior hooks and `tela dev`, a reload that keeps your state. macOS
+> is not there yet. The public API (`tela`, `h`) may still break between minor
+> versions. See [Project status](#project-status).
 
 ## Contents
 
@@ -35,6 +37,7 @@ error.
 - [Examples](#examples)
 - [Styling](#styling)
 - [State and hooks](#state-and-hooks)
+- [Components, icons and i18n](#components-icons-and-i18n)
 - [Testing without a window](#testing-without-a-window)
 - [Tooling for agents](#tooling-for-agents)
 - [Project status](#project-status)
@@ -55,7 +58,8 @@ error.
 - **Real CSS semantics.** Block and flex layout checked against 828 Taffy
   fixtures and Chromium; box painting, gradients, shadows and blur compared to
   Chromium's pixels; text shaped with HarfBuzz (bidi, Arabic, CJK, color
-  emoji).
+  emoji). SVG icons are compared to Chromium too (Lucide's set, mean under
+  one level per channel).
 - **Deterministic.** Embedded fonts and an own rasterizer: same tree, same
   pixels on every platform and architecture. Goldens are bit-exact on amd64
   and arm64.
@@ -66,6 +70,9 @@ error.
 - **Observable.** Everything renders headlessly and can be inspected as an
   aria snapshot or a layout tree. Errors teach:
   `unknown class "rounded-xxl"; did you mean "rounded-2xl"?`.
+- **Fast to iterate.** `tela dev` rebuilds in the background and swaps the new
+  build into the same window in about half a second, with your hook state,
+  text, scroll and focus kept.
 
 ## A first look
 
@@ -77,7 +84,10 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-func Counter() tela.Node {
+// Counter is the public name; tela.C gives counter its own state and hooks.
+func Counter() tela.Node { return tela.C(counter) }
+
+func counter() tela.Node {
 	count, setCount := tela.UseState(0)
 
 	return Div(Class("flex flex-col items-center gap-6 p-10 rounded-3xl",
@@ -93,7 +103,7 @@ func Counter() tela.Node {
 }
 
 func main() {
-	tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
+	tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter()})
 }
 ```
 
@@ -123,6 +133,9 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot --size 480x200 --scale 2 \
 
 # Print the screen as text (an aria snapshot, in YAML)
 CGO_ENABLED=0 go run ./cmd/tela inspect --size 800x600 ./examples/counter
+
+# Edit and save: the open window reloads with its state kept
+CGO_ENABLED=0 go run ./cmd/tela dev ./examples/dashboard
 ```
 
 The `inspect` output for the counter is what a screen reader, a test or an
@@ -133,8 +146,12 @@ agent sees:
 - button "Increment"
 ```
 
-> The `tela` command runs a package's own code, so it needs the `go` command
-> and a package in a module that requires Tela (see [`cmd/tela`](cmd/tela)).
+> In your own project, install the command once instead of typing `go run
+> github.com/kuronosu/tela/cmd/tela` every time:
+> `CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest`, then
+> `tela snapshot`, `tela inspect` and `tela dev`. It runs a package's own code,
+> so it needs the `go` command and a package in a module that requires Tela
+> (see [`cmd/tela`](cmd/tela) and the [CLI](docs/wiki/CLI.md) page).
 
 > **Shipping on Windows:** build with
 > `go build -trimpath -ldflags="-H=windowsgui"` so that double-clicking the
@@ -167,8 +184,8 @@ and the "glass budget" are in its README).
   <img src="docs/images/dashboard-dark.png" alt="dashboard example, dark" width="49%">
 </p>
 
-Dark mode is a class pair (`bg-white/55 dark:bg-white/5`); render it with
-`tela snapshot --dark`.
+Dark mode is a class pair (`bg-white/55 dark:bg-white/5`) or, with the theme
+tokens, a single class (`bg-background`); render it with `tela snapshot --dark`.
 
 ### Signup form
 
@@ -190,6 +207,20 @@ submit button that stays disabled until the form is valid.
 | **[player](examples/player)**: a progress bar that advances ten times a second without building anything (`UseValue` + `WidthFn`). <br><img src="docs/images/player.png" alt="player example"> | **[board](examples/board)**: a kanban board with drag and drop between columns, using `OnDrag` and `TranslateFn`. <br><img src="docs/images/board.png" alt="board example"> |
 | **[shapes](examples/shapes)**: rounded cards, gradients, analytic shadows, blur and glass. <br><img src="docs/images/shapes.png" alt="shapes example"> | **[text](examples/text)**: mixed-script paragraphs (Latin, Arabic, CJK, emoji), selection and carets. <br><img src="docs/images/text.png" alt="text example"> |
 
+### Command center (`aria`)
+
+**[aria](examples/aria)**: a shadcn/ui-style screen built only from the
+behavior hooks of package `aria`, `h` elements and theme-token classes, with
+no hand-written key handling: a project combobox, a tooltip, two menus, a
+modal dialog with a form, tabs and a multiple-selection list box, with
+entrance and exit animations. Its tests drive the menu, the combobox and the
+dialog with the keyboard alone.
+
+<p align="center">
+  <img src="docs/images/aria.png" alt="aria example, light, with a menu open" width="49%">
+  <img src="docs/images/aria-dark.png" alt="aria example, dark, with a dialog open" width="49%">
+</p>
+
 ### Native look
 
 **[native](examples/native)**: one file-explorer tree that looks native on
@@ -208,8 +239,10 @@ Also there: [`hello`](examples/hello), the screen at the top of this page;
 [`virtuallist`](examples/virtuallist), 100,000 people in one
 `h.VirtualList` with variable row heights and `ScrollToIndex`;
 [`motion`](examples/motion), a dialog, a toast and a draggable card with
-springs; and [`layout`](examples/layout), a reorderable list, an expanding
-card and a sliding tab underline with layout animations.
+springs; [`layout`](examples/layout), a reorderable list, an expanding
+card and a sliding tab underline with layout animations; and
+[`i18n`](examples/i18n), an order summary in English, Spanish and Arabic that
+switches language while running and mirrors to right to left.
 
 ## Styling
 
@@ -222,8 +255,13 @@ registered with `tela.Assets`), `bg-clip-text`, transitions (`transition`,
 `duration-*`, `ease-*`, `delay-*`), `animate-*`, arbitrary values
 (`w-[calc(50%-8px)]`) and variants (`hover:`, `active:`, `focus:`,
 `focus-visible:`, `disabled:`, `group-*`, `peer-*`, `dark:`, `motion-reduce:`,
-`starting:`, `md:`/`lg:`). Typed helpers cover what a class cannot, such as
-values that change every frame.
+`starting:`, `aria-*`, `rtl:`, `md:`/`max-md:`/`min-[600px]:`), CSS masks
+(`mask-[url(…)]`, gradient masks), SVG paints (`fill-*`, `stroke-*`) and
+logical utilities for right-to-left layout (`ms-`, `pe-`, `border-s`).
+shadcn/ui's theme tokens (`bg-primary`, `text-muted-foreground`,
+`border-border`) follow the light/dark scheme without `dark:` pairs and are
+set with `App.Theme`. Typed helpers cover what a class cannot, such as values
+that change every frame.
 
 ## State and hooks
 
@@ -253,6 +291,25 @@ VirtualList(100_000, func(int) float32 { return 65 }, func(i int) tela.Component
 })
 ```
 
+## Components, icons and i18n
+
+- **`aria`**: behavior hooks in React Aria's model, with no look of their own:
+  `UsePress`, `UseHover`, `UseFocusRing`, `UseFocusScope`, `UseButton`,
+  `UseCheckbox`, `UseSwitch`, overlays (`UseOverlay`, `UseDialog`,
+  `UsePopover`, tooltips, menu triggers), collections (`UseListBox`,
+  `UseMenu`, `UseTabs`, `UseSelect`, `UseCombobox`) and `UseFloating`, a port
+  of Floating UI's positioning. Each returns a `Props` value to spread on any
+  element, so you style it with plain classes.
+- **Icons and images**: `h.Icon` draws SVG as vectors, colored by the text
+  color; `Img` takes files, `embed.FS`, bytes and SVG, with `h.Tint`. The
+  separate module `github.com/kuronosu/tela/icons/lucide` has Lucide's whole
+  set (`h.Icon(lucide.Check, Class("size-4"))`), and `tela icons gen` makes
+  the same kind of package from your own SVG files; the linker drops the icons
+  a program does not use.
+- **`tela/i18n`**: JSON catalogs with ICU MessageFormat (plurals, select),
+  locale-aware numbers, dates and lists, runtime switching, and right-to-left
+  layout with `h.Dir`.
+
 ## Testing without a window
 
 `telatest` mounts a component with no window, simulates input and compares
@@ -260,7 +317,7 @@ pixels or semantics. It finds elements the way an assistive technology does:
 
 ```go
 func TestIncrement(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Counter), telatest.Size(800, 600))
+	app := telatest.Mount(t, Counter(), telatest.Size(800, 600))
 
 	app.Click(telatest.ByRole("button", "Increment"))
 
@@ -281,12 +338,13 @@ Because the whole pipeline is headless, a loop of *write → `tela snapshot` →
 look at the PNG → `tela inspect` → fix* needs no window and no human. Unknown
 classes come with suggestions, and `tela inspect --layout` prints boxes as
 JSON. For people, `tela dev ./yourapp` reloads the open window on every save in
-about half a second, keeping its state (see the [CLI](docs/wiki/CLI.md#tela-dev)
-page). Planned: `tela lint`, `tela mcp` and a `docs/llms.txt` (phase 11).
+about half a second, keeping its state: hooks, text fields, scroll and focus
+(see the [CLI](docs/wiki/CLI.md#tela-dev) page). Planned: `tela lint`,
+`tela mcp` and a `docs/llms.txt` (phase 11).
 
 ## Project status
 
-**Current version: [v0.6.0](CHANGELOG.md)**, tagged 2026-10-19. Phases 1–6
+**Current version: [v0.9.1](CHANGELOG.md)**, tagged 2026-10-22. Phases 1–9
 are done.
 
 | Phase | Name | State |
@@ -297,8 +355,15 @@ are done.
 | 4 | Interaction and state: hooks, pointer and keyboard, focus, scrolling, `VirtualList`, `telatest` | ✅ v0.4.0 |
 | 5 | Windows and text editing: `win32`, `Input`/`Textarea`, IME, inline decorations | ✅ v0.5.0 |
 | 6 | Advanced CSS and animation: grid, `fixed`/`sticky`, transitions, springs, layout animations, blend modes, clip-path, background images, fractional scaling | ✅ v0.6.0 |
-| 7 | `aria` hooks, `kit` components, `tela add/lint/dev/mcp`, `llms.txt` | planned |
-| 8 | macOS, optional GPU backend, accessibility, IME on X11 and macOS | planned |
+| 7 | Public API polish: struct components, theme tokens, `tela/i18n`, right-to-left, dev mode by default | ✅ v0.7.0 |
+| 8 | Icons, SVG and `aria`: `h.Icon`, Lucide, `tela icons gen`, behavior hooks, `UseFloating` | ✅ v0.8.0 |
+| 9 | Dev loop: `tela dev`, a reload that keeps state | ✅ v0.9.0 |
+| 10 | `kit`: ready-made components on the theme tokens | next |
+| 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | planned |
+| 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | planned |
+| 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | planned |
+| 14 | macOS and IME on X11 | planned |
+| 15–20 | Accessibility backends, GPU backend, packaging and auto-update, DevTools, canvas and PDF, audio and video | planned |
 
 ### What works today
 
@@ -314,23 +379,27 @@ sticky positioning; Tailwind classes and variants; shaped text with fallback;
 gradients, shadows, blur and backdrop blur, blend modes, clip paths,
 background images, transforms and opacity layers; CSS transitions and
 `animate-*`; springs, tweens, enter/exit and layout animations; portals;
-light/dark switching; fractional scaling on Wayland; hooks; pointer events with a gesture arena (tap, drag,
+light/dark switching and theme tokens; right-to-left layout; i18n; fractional
+scaling on Wayland; hooks; pointer events with a gesture arena (tap, drag,
 long-press); focus and Tab order; scrolling with kinetic touchpad support;
 `VirtualList`; text fields (`Input`, `Textarea`) with selection, undo,
 clipboard and IME, `Form` and `Label`; inline decorations in paragraphs; a
-semantics tree; debug overlays; the `tela` CLI (`snapshot`, `inspect`).
+semantics tree; SVG icons, images and masks; the `aria` behavior hooks; debug
+overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
 
 ### Not yet, or known limits
 
 - **No macOS window** yet (phase 14); it cross-compiles. No IME on X11 yet
   (XIM, phase 14).
-- **No checkbox, radio, select or slider elements** yet; `kit` brings them
-  in phase 10 (a `Button` with `Role("checkbox")` works meanwhile).
+- **No ready-made checkbox, radio, select or slider** yet; `kit` brings them
+  in phase 10. Meanwhile the `aria` hooks (`UseCheckbox`, `UseSwitch`,
+  `UseSelect`) give the behavior and you provide the look.
 - **Glass pages at 2x are not 60 fps while scrolling** on CPU (the dashboard's
   p95 is 36–48 ms per frame at 2880×1800 and 4K; it is 14.6 ms at 1080p).
-- Transforms are 2D only; `Img` takes a decoded `image.Image` (no SVG or file
-  paths; background images do read files); no `grid-template-areas` from
-  classes.
+- Transforms are 2D only; SVG has no text, filters or patterns; no
+  `grid-template-areas` from classes; menus have no submenus yet.
+- `tela dev` has not been run on macOS; an IME composition is lost across a
+  reload, and a renamed component starts fresh.
 - No accessibility backend (AT-SPI, UIA, NSAccessibility) yet.
 
 The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
@@ -345,8 +414,9 @@ The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
   [`telatest`](https://pkg.go.dev/github.com/kuronosu/tela/telatest) (tests
   without a window).
 - **Guides on the [wiki](https://github.com/kuronosu/tela/wiki)**: getting
-  started, styling, hooks, animation, events, forms, scrolling, accessibility,
-  testing and the CLI, with a working example each. Its sources are versioned in
+  started, styling, theming, hooks, animation, events, forms, scrolling,
+  `aria`, icons, internationalization, accessibility, testing and the CLI,
+  with a working example each. Its sources are versioned in
   [`docs/wiki`](docs/wiki); the API reference pages there are generated from
   the doc comments with `go generate`.
 

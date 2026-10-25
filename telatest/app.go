@@ -70,9 +70,10 @@ type App struct {
 // window starts focused, so key events reach the focused element; it is
 // unmounted when the test ends, running the cleanups of its effects. root
 // is a node or a component: a struct component value, or a function
-// component wrapped in tela.C or tela.CP (or use [MountFunc]).
+// component through its public wrapper, a function that returns its
+// tela.C or tela.CP node (or use [MountFunc]).
 //
-//	app := telatest.Mount(t, tela.C(Counter), telatest.Size(400, 300))
+//	app := telatest.Mount(t, Counter(), telatest.Size(400, 300))
 //	app := telatest.Mount(t, Card{Title: "Inbox"})
 //
 // Mount makes the app receive the functions given to tela.Post, which are

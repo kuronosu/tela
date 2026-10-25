@@ -10,8 +10,8 @@ sections below follow the order you usually need them.
 Hooks follow React's rules: call them at the top level of a component's
 `Build` method or function, in the same order on every build, never inside
 conditions or loops. A hook called outside a component build panics with an
-explanation (a component called where a node is expected,
-`telatest.Mount(t, Counter())`, is told to write `tela.C(Counter)`, and
+explanation (a function component called where a node is expected,
+`telatest.Mount(t, counter())`, is told to write `tela.C(counter)`, and
 `Card{}.Build()` to pass `Card{}` itself). In dev mode, on in every
 development build and test (see [Getting Started](Getting-Started#dev-mode)), a change of the hook
 order panics with both call sites, and so does a hook called from a function
@@ -71,19 +71,26 @@ func Screen() tela.Node {
 - [`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) takes a struct component directly, `If(loading, Spinner{})`, and
   renders nothing when the condition is false. It returns a `tela.Child`, not
   a `tela.Node`: a function component returns `Fragment(If(...))`.
-- A function returning a node is a component when you wrap it:
+- A function returning a node is a component when you wrap it. Write the
+  wrap once, where the component is defined: the function that does the work
+  is private, and the public one returns its `tela.C` or `tela.CP` node, so
+  nobody who uses the component writes `tela.C`:
 
 ```go
-func Header() tela.Node { return H1(Text("Inbox")) }
+func Header() tela.Node { return tela.C(header) }
+
+func header() tela.Node { return H1(Text("Inbox")) }
 
 type BadgeProps struct{ Count int }
 
-func Badge(p BadgeProps) tela.Node {
+func Badge(p BadgeProps) tela.Node { return tela.CP(badge, p) }
+
+func badge(p BadgeProps) tela.Node {
 	return Span(Class("rounded-full bg-indigo-500 px-2 text-white"), Textf("%d", p.Count))
 }
 
 func Toolbar() tela.Node {
-	return Div(tela.C(Header), tela.CP(Badge, BadgeProps{Count: 3}))
+	return Div(Header(), Badge(BadgeProps{Count: 3}))
 }
 ```
 
@@ -96,15 +103,17 @@ func Toolbar() tela.Node {
 - [`tela.Memo`](https://pkg.go.dev/github.com/kuronosu/tela#Memo) is [`tela.CP`](https://pkg.go.dev/github.com/kuronosu/tela#CP) for props that are not comparable: you give the
   comparison function.
 - `C`, `CP` and `Memo` take an optional last argument, the key `Key(id)`, for
-  the items of a list: `tela.CP(Row, p, Key(p.ID))` is `tela.WithKey(tela.CP(Row, p), p.ID)`.
-  Anything else but `Key` panics.
-- Calling a component function directly, `Header()`, runs it inside the
+  the items of a list: `tela.CP(badge, p, Key(p.ID))` is `tela.WithKey(tela.CP(badge, p), p.ID)`.
+  Anything else but `Key` panics. A public wrapper like `Badge` does not
+  take a key: key where you use it, `tela.WithKey(Badge(p), p.ID)` (or
+  [`MapKeyed`](https://pkg.go.dev/github.com/kuronosu/tela/h#MapKeyed)).
+- Calling the private function directly, `header()`, runs it inside the
   caller. That is fine for a function without hooks (a wrapper that styles
   its children and passes them on with [`Fragment`](https://pkg.go.dev/github.com/kuronosu/tela/h#Fragment)), but the hooks of
   a function called this way would take the caller's slots: dev mode panics
-  and says to wrap it in `tela.C` or `tela.CP`. The same goes for
-  `Card{}.Build()`: pass `Card{}` as a child instead (or `Fragment(Card{})`
-  where a `tela.Node` is expected).
+  and says to wrap it in `tela.C` or `tela.CP`, which the public function
+  already does. The same goes for `Card{}.Build()`: pass `Card{}` as a child
+  instead (or `Fragment(Card{})` where a `tela.Node` is expected).
 - A **custom hook** is a function named `UseXxx` or `useXxx` that calls hooks
   for the component that calls it. A struct of [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) pointers is a good
   return value: stable, comparable, and each reader redoes only what it read.
@@ -340,7 +349,9 @@ type ToolbarProps struct {
 	OnSave tela.Callback[func(tela.MouseEvent)]
 }
 
-func Toolbar(p ToolbarProps) tela.Node {
+func Toolbar(p ToolbarProps) tela.Node { return tela.CP(toolbar, p) }
+
+func toolbar(p ToolbarProps) tela.Node {
 	return Button(OnClick(p.OnSave.Fn()), Text("Save"))
 }
 
@@ -349,7 +360,7 @@ func Editor() tela.Node {
 	onSave := tela.UseCallback(func(tela.MouseEvent) { save(draft) })
 	return Div(
 		Input(Bind(draft, setDraft)),
-		tela.CP(Toolbar, ToolbarProps{OnSave: onSave}), // does not rebuild while typing
+		Toolbar(ToolbarProps{OnSave: onSave}), // does not rebuild while typing
 	)
 }
 
@@ -382,12 +393,14 @@ var Theme = tela.CreateContext("light")
 func App() tela.Node {
 	theme, setTheme := tela.UseState("dark")
 	return Theme.Provider(theme,
-		tela.C(Page),
+		Page(),
 		Button(OnClick(func(tela.MouseEvent) { setTheme.Set("light") }), Text("Light")),
 	)
 }
 
-func Page() tela.Node {
+func Page() tela.Node { return tela.C(page) }
+
+func page() tela.Node {
 	theme := tela.UseContext(Theme)
 	return P(Textf("The theme is %s", theme))
 }

@@ -31,7 +31,7 @@ Package telatest tests Tela UIs without a window: it mounts a tree in a headless
 
 ```go
 func TestCounter(t *testing.T) {
-    app := telatest.Mount(t, tela.C(Counter), telatest.Size(400, 300))
+    app := telatest.Mount(t, Counter(), telatest.Size(400, 300))
     app.Click(telatest.ByRole("button", "Increment"))
     app.ExpectText("Count: 1")
     app.Golden("counter.png") // testdata/counter.png; TELA_UPDATE=1 regenerates
@@ -157,10 +157,10 @@ An App must be used from the goroutine of its test; the state setters and tela.P
 func Mount(tb testing.TB, root tela.Component, opts ...Option) *App
 ```
 
-Mount shows root in a headless window and returns the running app. The window starts focused, so key events reach the focused element; it is unmounted when the test ends, running the cleanups of its effects. root is a node or a component: a struct component value, or a function component wrapped in tela.C or tela.CP (or use [`MountFunc`](#func-mountfunc)).
+Mount shows root in a headless window and returns the running app. The window starts focused, so key events reach the focused element; it is unmounted when the test ends, running the cleanups of its effects. root is a node or a component: a struct component value, or a function component through its public wrapper, a function that returns its tela.C or tela.CP node (or use [`MountFunc`](#func-mountfunc)).
 
 ```go
-app := telatest.Mount(t, tela.C(Counter), telatest.Size(400, 300))
+app := telatest.Mount(t, Counter(), telatest.Size(400, 300))
 app := telatest.Mount(t, Card{Title: "Inbox"})
 ```
 
@@ -189,7 +189,7 @@ func MountApp(tb testing.TB, app tela.App, opts ...Option) *App
 MountApp shows app.Root in a headless window configured like the app, the way [`tela.Main`](API-Reference-tela#func-main) shows it in a real one, and returns the running app. The size, root class, color scheme, theme, class aliases, scrollbar and scroll settings and Dev of the app apply (see [`FromApp`](#func-fromapp)); the options override them. It fails the test when app.Root is nil.
 
 ```go
-var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: tela.C(Notes)}
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes()}
 
 func main() { tela.Main(App) }
 
@@ -1111,9 +1111,9 @@ func FromApp(app tela.App) Option
 FromApp applies the settings of a [`tela.App`](API-Reference-tela#type-app) that shape what is drawn, so a test, `tela snapshot` and the window see the same app: the size when both Width and Height are set, RootClass, ColorScheme, Theme, ClassAliases, ClassicScrollbars, InstantScroll and Dev. It sets only what the app sets, so it never undoes an earlier option, and the options after it override it:
 
 ```go
-var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: tela.C(Notes)}
+var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes()}
 
-app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
+app := telatest.Mount(t, Notes(), telatest.FromApp(App))
 app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
 ```
 
@@ -1172,7 +1172,7 @@ func NoSettle() Option
 NoSettle makes the app keep its animations where they are for [`App.Screenshot`](#func-app-screenshot) and [`App.Golden`](#func-app-golden), so a test can capture the frames of a transition, a [`tela.UseSpring`](API-Reference-tela#func-usespring) or the enter and exit of an h.Presence:
 
 ```go
-app := telatest.Mount(t, tela.C(Dialog), telatest.NoSettle())
+app := telatest.Mount(t, Dialog(), telatest.NoSettle())
 app.Click(telatest.ByRole("button", "Open"))
 app.Advance(100 * time.Millisecond)
 app.Golden("dialog_100ms.png") // 100 ms into the entrance

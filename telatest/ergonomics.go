@@ -30,7 +30,7 @@ func MountFunc(tb testing.TB, fn func() tela.Node, opts ...Option) *App {
 // and scroll settings and Dev of the app apply (see [FromApp]); the
 // options override them. It fails the test when app.Root is nil.
 //
-//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: tela.C(Notes)}
+//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes()}
 //
 //	func main() { tela.Main(App) }
 //

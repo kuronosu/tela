@@ -98,7 +98,7 @@ func (c config) coreConfig() core.Config {
 // [App.Screenshot] and [App.Golden], so a test can capture the frames of a
 // transition, a [tela.UseSpring] or the enter and exit of an h.Presence:
 //
-//	app := telatest.Mount(t, tela.C(Dialog), telatest.NoSettle())
+//	app := telatest.Mount(t, Dialog(), telatest.NoSettle())
 //	app.Click(telatest.ByRole("button", "Open"))
 //	app.Advance(100 * time.Millisecond)
 //	app.Golden("dialog_100ms.png") // 100 ms into the entrance
@@ -261,9 +261,9 @@ func ClassAliases(aliases map[string]string) Option {
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
 //
-//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: tela.C(Notes)}
+//	var App = tela.App{Title: "Notes", Width: 900, Height: 600, RootClass: "bg-background", Root: Notes()}
 //
-//	app := telatest.Mount(t, tela.C(Notes), telatest.FromApp(App))
+//	app := telatest.Mount(t, Notes(), telatest.FromApp(App))
 //	app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
 //
 // Title, AppID, Root and DevState say nothing about how the app looks, so

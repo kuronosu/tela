@@ -319,12 +319,11 @@ package main
 import (
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
 func TestPanelDark(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Panel), telatest.Size(200, 100), telatest.Dark())
+	app := telatest.Mount(t, Panel(), telatest.Size(200, 100), telatest.Dark())
 
 	img := app.Screenshot()
 

@@ -79,7 +79,9 @@ import (
     . "github.com/kuronosu/tela/h"
 )
 
-func Counter() tela.Node {
+func Counter() tela.Node { return tela.C(counter) }
+
+func counter() tela.Node {
     count, setCount := tela.UseState(0)
     return Div(Class("flex flex-col items-center gap-6 p-10"),
         H1(Class("text-5xl font-bold"), Textf("Count: %d", count)),
@@ -90,7 +92,7 @@ func Counter() tela.Node {
 }
 
 func main() {
-    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
+    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter()})
 }
 ```
 
@@ -133,10 +135,14 @@ Div(Card{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))})
 
 Build has a value receiver. The identity of a component among its siblings is its type and its key ([`WithKey`](#func-withkey)), and the comparison that skips its build never panics: see [`Component`](#type-component).
 
-A function returning a [`Node`](#type-node) is a component too when it is wrapped in [`C`](#func-c) (no props) or [`CP`](#func-cp) (comparable props); [`CP`](#func-cp) skips like a struct component, and [`Memo`](#func-memo) does the same with a comparison function.
+A function returning a [`Node`](#type-node) is a component too when it is wrapped in [`C`](#func-c) (no props) or [`CP`](#func-cp) (comparable props); [`CP`](#func-cp) skips like a struct component, and [`Memo`](#func-memo) does the same with a comparison function. Write the wrap where the component is defined, in a public function over a private one, so that nobody who uses it writes [`C`](#func-c) or [`CP`](#func-cp):
 
 ```go
-Div(tela.C(Header), tela.CP(Badge, BadgeProps{Count: 3}))
+func Header() tela.Node { return tela.C(header) }
+
+func Badge(p BadgeProps) tela.Node { return tela.CP(badge, p) }
+
+Div(Header(), Badge(BadgeProps{Count: 3}))
 ```
 
 Calling Build, or a component function, directly runs it inside the caller, whose hook slots its hooks would take: in dev mode a hook called from a function that is neither the component being built (its Build, its function, or a function literal inside them) nor a custom hook panics with the fix. A custom hook is a function named UseXxx or useXxx that calls hooks for the component that calls it; a struct of [`Value`](#type-value) pointers is a good thing for one to return, since it is stable and comparable:
@@ -403,11 +409,11 @@ Main runs app with [`Run`](#func-run) and, when Run returns an error (no display
 
 ```go
 func main() {
-    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
+    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter()})
 }
 ```
 
-Main returns when the window is closed. Like Run, it must be called from the main goroutine, and it panics when app.Root is nil.
+where Counter is a function that returns tela.C(counter). Main returns when the window is closed. Like Run, it must be called from the main goroutine, and it panics when app.Root is nil.
 
 **Example**
 
@@ -1283,7 +1289,8 @@ type App struct {
     // the window from scrolling; CSS's overflow propagation).
     RootClass string
     // Root is the root component: a struct component value (Root: Notes{})
-    // or a function component made with [C] (Root: tela.C(Notes)). It is a
+    // or a function component made with [C] (Root: Notes(), where Notes
+    // returns tela.C(notes)). It is a
     // component of its own, so it may use hooks. A [Node] works too, but a
     // root that uses hooks must be a component.
     Root Component
@@ -1341,7 +1348,7 @@ type App struct {
     // TELA_DEV=1 or TELA_DEV=0 overrides both Dev and the default.
     //
     //	off := false
-    //	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Dev: &off})
+    //	tela.Main(tela.App{Title: "Notes", Root: Notes(), Dev: &off})
     Dev *bool
     // DevState keeps state that lives outside the component tree across
     // the reloads of tela dev: package variables, controllers, the
@@ -1357,7 +1364,7 @@ App describes an application window for [`Run`](#func-run).
 ```go
 tela.Run(tela.App{
     Title:             "Files",
-    Root:              Files{},          // a struct component; tela.C(Files) for a function
+    Root:              Files{},          // a struct component; Files() for a function
     ClassicScrollbars: true, // always-visible classic bars (a Windows look)
     InstantScroll:     true, // no scroll animation, no inertia
 })
@@ -1395,7 +1402,7 @@ UseCallback stores fn as the latest function of this hook slot and returns the s
 
 ```go
 onSave := tela.UseCallback(func(e tela.MouseEvent) { save(draft) })
-return tela.CP(Toolbar, ToolbarProps{OnSave: onSave}) // skips while draft changes
+return Toolbar(ToolbarProps{OnSave: onSave}) // skips while draft changes
 
 // in Toolbar:
 Button(OnClick(p.OnSave.Fn()), Text("Save"))
@@ -1875,7 +1882,7 @@ var Theme = tela.CreateContext("light")
 
 func App() tela.Node {
     theme, _ := tela.UseState("dark")
-    return Theme.Provider(theme, tela.C(Page))
+    return Theme.Provider(theme, Page())
 }
 ```
 
@@ -3213,11 +3220,17 @@ func C(fn func() Node, key ...Child) Node
 
 C returns a node that builds fn as a component with its own state: a component boundary (ARCHITECTURE section 7). Calling fn() directly instead runs it inside the caller's build, so its hooks would take the caller's slots: dev mode panics when a hook is called from a function that is neither the component being built (or a function literal inside it) nor a custom hook named UseXxx or useXxx, and says to wrap it.
 
+Call C where the component is defined, in a public function over a private one, so that its users write Header() and not tela.C(header):
+
 ```go
-Div(tela.C(Header), tela.C(Body))
+func Header() tela.Node { return tela.C(header) }
+
+func header() tela.Node { ... }
+
+Div(Header(), Body())
 ```
 
-The optional last argument is the component's key, h.Key(id), for a component in a list: tela.C(Row, Key(id)) is tela.WithKey(tela.C(Row), id). Anything else but Key panics.
+The optional last argument is the component's key, h.Key(id), for a component in a list: tela.C(row, Key(id)) is tela.WithKey(tela.C(row), id). Anything else but Key panics.
 
 A C component builds whenever its parent builds, since fn may capture values that changed; use [`CP`](#func-cp) for automatic skipping. Only the very same node (one kept in a variable or a [`UseMemo`](#func-usememo)) is not built again.
 
@@ -3235,14 +3248,16 @@ type CardProps struct {
     OnOpen tela.Callback[func(tela.MouseEvent)]
 }
 
-func Card(p CardProps) tela.Node { ... }
+func Card(p CardProps) tela.Node { return tela.CP(card, p) }
 
-tela.CP(Card, CardProps{Title: "Inbox", OnOpen: onOpen})
+func card(p CardProps) tela.Node { ... }
+
+Card(CardProps{Title: "Inbox", OnOpen: onOpen})
 ```
 
-Give CP a named function and pass everything it uses in its props: variables captured by a closure are not compared, so dev mode reports anonymous functions once per call site. Keep props comparable by passing [`Callback`](#type-callback) values instead of funcs, and IDs instead of slices or maps; a props value whose == panics counts as changed.
+Call CP where the component is defined, as above, so that its users never write it. Give CP a named function and pass everything it uses in its props: variables captured by a closure are not compared, so dev mode reports anonymous functions once per call site. Keep props comparable by passing [`Callback`](#type-callback) values instead of funcs, and IDs instead of slices or maps; a props value whose == panics counts as changed.
 
-The optional last argument is the component's key, h.Key(id), for the items of a list: tela.CP(Row, RowProps{...}, Key(row.ID)) is tela.WithKey(tela.CP(Row, RowProps{...}), row.ID). Anything else but Key panics; the key is not a prop of the component and is not compared with the props.
+The optional last argument is the component's key, h.Key(id), for the items of a list: tela.CP(row, RowProps{...}, Key(row.ID)) is tela.WithKey(tela.CP(row, RowProps{...}), row.ID). Anything else but Key panics; the key is not a prop of the component and is not compared with the props.
 
 **Example (key)**
 
@@ -3278,9 +3293,11 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child
 Memo is [`CP`](#func-cp) for props that are not comparable, or that compare in another way: the build is skipped when equal(old, new) reports them equal. equal must be pure.
 
 ```go
-tela.Memo(Chart, ChartProps{Points: pts}, func(a, b ChartProps) bool {
-    return slices.Equal(a.Points, b.Points)
-})
+func Chart(p ChartProps) tela.Node {
+    return tela.Memo(chart, p, func(a, b ChartProps) bool {
+        return slices.Equal(a.Points, b.Points)
+    })
+}
 ```
 
 Like [`CP`](#func-cp), it takes an optional last argument, the key h.Key(id).
@@ -3477,7 +3494,7 @@ type Preview struct {
 
 Preview is one screen of a package for `tela snapshot`, `tela inspect` and [`Previews`](#type-previews): the component to show, and optionally a wrapper that supplies what the screen reads from context.
 
-Root is a [`Component`](#type-component): a node such as tela.C(Settings), or a struct component value. The local state of a preview is seeded through the fields of a struct component, with no global:
+Root is a [`Component`](#type-component): a node such as Settings(), a function that returns tela.C(settings), or a struct component value. The local state of a preview is seeded through the fields of a struct component, with no global:
 
 ```go
 type Main struct{ InitialTab string }
@@ -3537,7 +3554,7 @@ Previews are the named screens of a package, for `tela snapshot` and `tela inspe
 
 ```go
 var Previews = tela.Previews{
-    "Login":    {Root: tela.C(LoginScreen)},
+    "Login":    {Root: LoginScreen()},
     "Settings": {Root: Settings{InitialTab: "account"}},
 }
 ```
@@ -4476,7 +4493,7 @@ theme := tela.DefaultTheme()
 theme.Colors["primary"] = tela.SchemeColor{Light: tela.OKLCH(0.55, 0.2, 264), Dark: tela.OKLCH(0.7, 0.16, 264)}
 theme.Colors["brand"] = tela.SchemeColor{Light: tela.Hex("#7c3aed"), Dark: tela.Hex("#a78bfa")} // bg-brand
 theme.Radius = 10 // shadcn/ui's 0.625rem
-tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Theme: &theme, RootClass: "bg-background text-foreground"})
+tela.Main(tela.App{Title: "Notes", Root: Notes(), Theme: &theme, RootClass: "bg-background text-foreground"})
 ```
 
 A token missing from Colors keeps its value in DefaultTheme, so the shadcn/ui tokens always resolve. A token name is lowercase letters, digits and dashes, and cannot be a palette color ("red-500", "white") or transparent, current or inherit; [`Run`](#func-run) panics otherwise. Tokens cannot be used inside arbitrary values (bg-\[linear-gradient(...)\]): use the utilities (from-primary, shadow-primary).
@@ -4624,7 +4641,9 @@ The options are those of [`UseTween`](#func-usetween): [`Duration`](#func-durati
 A toast that slides up and fades in, and out again before it unmounts:
 
 ```go
-func Toast() tela.Node {
+func Toast() tela.Node { return tela.C(toast) }
+
+func toast() tela.Node {
     shown := tela.UsePresenceTween(tela.Duration(250*time.Millisecond), tela.Ease(tela.EaseOut))
     return Div(Class("fixed bottom-8 rounded-xl bg-slate-900 px-5 py-3 text-white"),
         Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
@@ -4632,7 +4651,7 @@ func Toast() tela.Node {
         Text("Saved"))
 }
 
-Presence(If(saved, tela.C(Toast)))
+Presence(If(saved, Toast()))
 ```
 
 **Example**

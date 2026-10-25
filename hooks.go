@@ -400,7 +400,7 @@ func UseMemo[T any](compute func() T, deps ...any) T { return core.UseMemo(compu
 // function type; UseCallback panics otherwise, and for a nil fn.
 //
 //	onSave := tela.UseCallback(func(e tela.MouseEvent) { save(draft) })
-//	return tela.CP(Toolbar, ToolbarProps{OnSave: onSave}) // skips while draft changes
+//	return Toolbar(ToolbarProps{OnSave: onSave}) // skips while draft changes
 //
 //	// in Toolbar:
 //	Button(OnClick(p.OnSave.Fn()), Text("Save"))
@@ -462,7 +462,7 @@ func UseScroll(ref ElementRef) (x, y *Value[float32]) { return core.UseScroll(re
 //
 //	func App() tela.Node {
 //	    theme, _ := tela.UseState("dark")
-//	    return Theme.Provider(theme, tela.C(Page))
+//	    return Theme.Provider(theme, Page())
 //	}
 //
 // ctx.Provider(value, children...) returns a node without a box that
@@ -584,10 +584,17 @@ var Once = core.Once
 // that is neither the component being built (or a function literal inside
 // it) nor a custom hook named UseXxx or useXxx, and says to wrap it.
 //
-//	Div(tela.C(Header), tela.C(Body))
+// Call C where the component is defined, in a public function over a
+// private one, so that its users write Header() and not tela.C(header):
+//
+//	func Header() tela.Node { return tela.C(header) }
+//
+//	func header() tela.Node { ... }
+//
+//	Div(Header(), Body())
 //
 // The optional last argument is the component's key, h.Key(id), for a
-// component in a list: tela.C(Row, Key(id)) is tela.WithKey(tela.C(Row),
+// component in a list: tela.C(row, Key(id)) is tela.WithKey(tela.C(row),
 // id). Anything else but Key panics.
 //
 // A C component builds whenever its parent builds, since fn may capture
@@ -605,19 +612,22 @@ func C(fn func() Node, key ...Child) Node { return core.Component(fn, key...) }
 //	    OnOpen tela.Callback[func(tela.MouseEvent)]
 //	}
 //
-//	func Card(p CardProps) tela.Node { ... }
+//	func Card(p CardProps) tela.Node { return tela.CP(card, p) }
 //
-//	tela.CP(Card, CardProps{Title: "Inbox", OnOpen: onOpen})
+//	func card(p CardProps) tela.Node { ... }
 //
-// Give CP a named function and pass everything it uses in its props:
+//	Card(CardProps{Title: "Inbox", OnOpen: onOpen})
+//
+// Call CP where the component is defined, as above, so that its users never
+// write it. Give CP a named function and pass everything it uses in its props:
 // variables captured by a closure are not compared, so dev mode reports
 // anonymous functions once per call site. Keep props
 // comparable by passing [Callback] values instead of funcs, and IDs instead
 // of slices or maps; a props value whose == panics counts as changed.
 //
 // The optional last argument is the component's key, h.Key(id), for the
-// items of a list: tela.CP(Row, RowProps{...}, Key(row.ID)) is
-// tela.WithKey(tela.CP(Row, RowProps{...}), row.ID). Anything else but Key
+// items of a list: tela.CP(row, RowProps{...}, Key(row.ID)) is
+// tela.WithKey(tela.CP(row, RowProps{...}), row.ID). Anything else but Key
 // panics; the key is not a prop of the component and is not compared with
 // the props.
 func CP[P comparable](fn func(P) Node, props P, key ...Child) Node {
@@ -628,9 +638,11 @@ func CP[P comparable](fn func(P) Node, props P, key ...Child) Node {
 // another way: the build is skipped when equal(old, new) reports them
 // equal. equal must be pure.
 //
-//	tela.Memo(Chart, ChartProps{Points: pts}, func(a, b ChartProps) bool {
-//	    return slices.Equal(a.Points, b.Points)
-//	})
+//	func Chart(p ChartProps) tela.Node {
+//	    return tela.Memo(chart, p, func(a, b ChartProps) bool {
+//	        return slices.Equal(a.Points, b.Points)
+//	    })
+//	}
 //
 // Like [CP], it takes an optional last argument, the key h.Key(id).
 func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child) Node {

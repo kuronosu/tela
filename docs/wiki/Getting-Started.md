@@ -35,8 +35,12 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-// Counter shows a count and a button that adds one.
-func Counter() tela.Node {
+// Counter shows a count and a button that adds one. It is the public name:
+// tela.C gives the function below a component boundary of its own, so
+// whoever uses Counter() never writes tela.C.
+func Counter() tela.Node { return tela.C(counter) }
+
+func counter() tela.Node {
 	count, setCount := tela.UseState(0)
 
 	return Div(Class("flex flex-col items-center gap-6 p-10 rounded-3xl "+
@@ -51,10 +55,8 @@ func Counter() tela.Node {
 	)
 }
 
-// Preview lets `tela snapshot` and `tela inspect` render the screen. It
-// returns what is mounted, and Counter has state, so it is wrapped in tela.C,
-// as in App.Root (a struct component needs no wrapper).
-func Preview() tela.Node { return tela.C(Counter) }
+// Preview lets `tela snapshot` and `tela inspect` render the screen.
+func Preview() tela.Node { return Counter() }
 
 func main() {
 	tela.Main(tela.App{
@@ -62,7 +64,7 @@ func main() {
 		Width:     480,
 		Height:    320,
 		RootClass: "bg-slate-100",
-		Root:      tela.C(Counter),
+		Root:      Counter(),
 	})
 }
 ```
@@ -80,9 +82,12 @@ The pieces:
   until it is closed. When no display is available it prints the error and
   exits with status 1 ([`tela.Run`](https://pkg.go.dev/github.com/kuronosu/tela#Run) returns the error instead). Both panic when
   `Root` is nil.
-- `Preview` returns `tela.C(Counter)`, not `Counter()`: calling a component
-  with hooks directly would run its hooks inside `Preview`, and dev mode
-  stops you with the fix.
+- `Counter` is a function component. Its hooks live in the private `counter`,
+  and the public `Counter()` returns `tela.C(counter)`: the component
+  boundary is written once, where the component is defined, so `Preview`,
+  `Root` and the tests just call `Counter()`. Calling `counter()` directly
+  would run its hooks inside the caller, and dev mode stops you with the fix.
+  A struct component needs no wrapper.
 
 ## Components with props
 
@@ -131,12 +136,19 @@ CGO_ENABLED=0 go run .
 Because the whole pipeline is headless, Tela can draw a screen to a PNG and
 print what it contains as text. That is the loop an agent (or you, in a
 terminal) uses to check a UI: write, snapshot, look, inspect, fix. The
-`tela` command comes with the module:
+`tela` command is in the module; install it once and use it from any
+project:
 
 ```bash
-go run github.com/kuronosu/tela/cmd/tela snapshot --size 480x320 -o counter.png .
-go run github.com/kuronosu/tela/cmd/tela inspect --size 480x320 .
+CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest
+
+tela snapshot --size 480x320 -o counter.png .
+tela inspect --size 480x320 .
 ```
+
+(`go run github.com/kuronosu/tela/cmd/tela snapshot ...` does the same without
+installing anything.) While you edit, `tela dev .` keeps the window open and
+reloads it on every save, with its state.
 
 ```yaml
 - 'heading "Count: 0" [level=1]'
@@ -158,12 +170,11 @@ package main
 import (
 	"testing"
 
-	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/telatest"
 )
 
 func TestIncrement(t *testing.T) {
-	app := telatest.Mount(t, tela.C(Counter), telatest.Size(480, 320))
+	app := telatest.Mount(t, Counter(), telatest.Size(480, 320))
 
 	app.Click(telatest.ByRole("button", "Increment"))
 
@@ -185,7 +196,7 @@ checkout) and in every `telatest` test, and off in release builds (built with
 - An unknown class is printed with the closest one (`unknown class
   "rounded-xxl"; did you mean "rounded-2xl"?`); in a test it fails the test.
 - An unknown role, input type or easing, a change in the order of hooks, a
-  hook called outside its component (`Counter()` where `tela.C(Counter)`
+  hook called outside its component (`counter()` where `Counter()`
   belongs, `Stat{}.Build()` where `Stat{}` belongs), a pointer given as a
   component (`&Stat{}`), a prop in a field of type `tela.Component` and a nil
   dependency list (`UseEffect(f, nil)`: use `tela.Once` or `UseMount`) panic

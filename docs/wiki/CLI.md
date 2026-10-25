@@ -5,15 +5,30 @@ agent) can look at a UI in a terminal: write the UI, `tela snapshot` it, look
 at the PNG, `tela inspect` it if something is off, fix it. It works in any
 module that requires Tela; it needs the `go` command in `PATH`.
 
-```bash
-# From a clone of the repository
-CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
+Install it once and use it from any module:
 
+```bash
+CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest
+
+tela inspect .
+tela snapshot -o screen.png .
+tela dev .
+```
+
+`go install` puts `tela` in `$(go env GOPATH)/bin` (or `GOBIN`); make sure that
+directory is in your `PATH`. Run it again to update, and check what you have
+with `tela version`. Keep the installed command and the `tela` module your
+app requires at the same version.
+
+Without installing it, `go run` does the same each time, which is slower to
+type and to start:
+
+```bash
 # From your own module (the tela module is already a dependency)
 go run github.com/kuronosu/tela/cmd/tela inspect .
 
-# Or install it
-go install github.com/kuronosu/tela/cmd/tela@latest
+# From a clone of the repository
+CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 ```
 
 | Command | Does |
@@ -42,15 +57,18 @@ import (
 )
 
 // Preview is a single screen.
-func Preview() tela.Node { return tela.C(Login) }
+func Preview() tela.Node { return Login() }
 
 // or Previews, several named screens.
 var Previews = tela.Previews{
-	"Login":    {Root: tela.C(Login)},
+	"Login":    {Root: Login()},
 	"Settings": {Root: Settings{InitialTab: "account"}},
 }
 
-func Login() tela.Node {
+// Login is a function component: the public name carries its tela.C.
+func Login() tela.Node { return tela.C(login) }
+
+func login() tela.Node {
 	return Div(Class("flex min-h-screen items-center justify-center bg-slate-100"),
 		Div(Class("rounded-xl bg-white p-8 shadow-lg"), H1(Class("text-2xl font-bold"), Text("Log in"))))
 }
@@ -65,13 +83,14 @@ func (s Settings) Build() tela.Node {
 ```
 
 [`tela.Previews`](https://pkg.go.dev/github.com/kuronosu/tela#Previews) maps names to [`tela.Preview`](https://pkg.go.dev/github.com/kuronosu/tela#Preview) values. A
-`Root` is a component: a node such as `tela.C(Login)`, or a struct component
+`Root` is a component: a node such as `Login()`, or a struct component
 value, so it may use hooks. `--preview NAME` selects one; without it the CLI
 renders the first name in byte order ([`Previews.Names`](https://pkg.go.dev/github.com/kuronosu/tela#Previews.Names)), so a name such
 as `"1 Login"` can pick the default. When a package defines both, `Previews`
 wins. `Preview()` may return a `tela.Node` or a `tela.Component`. What a
-preview gives is mounted as is: a function component needs `tela.C`, as in
-`App.Root` (`Root: tela.C(Notes)`, or `Root: Notes{}` for a struct component).
+preview gives is mounted as is: a function component goes through its public
+wrapper, which returns its `tela.C` node, as in `App.Root` (`Root: Notes()`,
+or `Root: Notes{}` for a struct component).
 
 The screen is drawn on a white canvas: give it its own background, or the
 `App` a `RootClass`.
@@ -101,7 +120,7 @@ A `tela.Preview` is itself a component, so a test mounts one the way the CLI
 does: `telatest.Mount(t, Previews["mocked"])`.
 
 Before `v0.7.0` the entries were functions (`"Login": Login`); write
-`"Login": {Root: tela.C(Login)}` now.
+`"Login": {Root: Login()}` now.
 
 ### One `App` for the window, `tela snapshot` and tests
 
@@ -118,7 +137,7 @@ var App = tela.App{
 	RootClass:   "bg-background text-foreground",
 	ColorScheme: tela.Dark,
 	Theme:       &theme,
-	Root:        tela.C(Notes),
+	Root:        Notes(),
 }
 
 func main() { tela.Main(App) }
@@ -233,7 +252,7 @@ the tree (package variables, controllers) is kept with
 // main.go
 var devState tela.DevState // assigned only in dev builds
 
-func main() { tela.Main(tela.App{Root: tela.C(Notes), DevState: devState}) }
+func main() { tela.Main(tela.App{Root: Notes(), DevState: devState}) }
 
 // devstate.go
 //go:build teladev

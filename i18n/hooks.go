@@ -18,7 +18,7 @@ var localeContext = tela.CreateContext("")
 // not touch the process-wide locale, so parallel tests cannot see each
 // other's, and an app can show a preview in another language:
 //
-//	app := telatest.Mount(t, i18n.Provider("es", tela.C(Settings)))
+//	app := telatest.Mount(t, i18n.Provider("es", Settings()))
 //
 // Provider("") has no effect: its children follow the current locale. It
 // panics if tag is not a valid BCP 47 tag.

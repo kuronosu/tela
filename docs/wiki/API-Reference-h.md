@@ -1187,7 +1187,7 @@ MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Component {
 })
 ```
 
-A render that wants a function component returns tela.CP(TodoRow, t). The key of a node that render keys itself, with Key, is replaced by key(item).
+A render that wants a function component returns TodoRow(t), a function that returns tela.CP(todoRow, t). The key of a node that render keys itself, with Key, is replaced by key(item).
 
 **Example**
 

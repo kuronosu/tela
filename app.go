@@ -12,7 +12,7 @@ import (
 //
 //	tela.Run(tela.App{
 //	    Title:             "Files",
-//	    Root:              Files{},          // a struct component; tela.C(Files) for a function
+//	    Root:              Files{},          // a struct component; Files() for a function
 //	    ClassicScrollbars: true, // always-visible classic bars (a Windows look)
 //	    InstantScroll:     true, // no scroll animation, no inertia
 //	})
@@ -34,7 +34,8 @@ type App struct {
 	// the window from scrolling; CSS's overflow propagation).
 	RootClass string
 	// Root is the root component: a struct component value (Root: Notes{})
-	// or a function component made with [C] (Root: tela.C(Notes)). It is a
+	// or a function component made with [C] (Root: Notes(), where Notes
+	// returns tela.C(notes)). It is a
 	// component of its own, so it may use hooks. A [Node] works too, but a
 	// root that uses hooks must be a component.
 	Root Component
@@ -92,7 +93,7 @@ type App struct {
 	// TELA_DEV=1 or TELA_DEV=0 overrides both Dev and the default.
 	//
 	//	off := false
-	//	tela.Main(tela.App{Title: "Notes", Root: tela.C(Notes), Dev: &off})
+	//	tela.Main(tela.App{Title: "Notes", Root: Notes(), Dev: &off})
 	Dev *bool
 	// DevState keeps state that lives outside the component tree across
 	// the reloads of tela dev: package variables, controllers, the
@@ -172,10 +173,10 @@ func Run(app App) error {
 // is the usual body of main:
 //
 //	func main() {
-//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
+//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter()})
 //	}
 //
-// Main returns when the window is closed. Like Run, it must be called
+// where Counter is a function that returns tela.C(counter). Main returns when the window is closed. Like Run, it must be called
 // from the main goroutine, and it panics when app.Root is nil.
 func Main(app App) {
 	if err := mainRun(app); err != nil {

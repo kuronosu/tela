@@ -302,7 +302,9 @@ func UsePresence() (present bool, done func()) { return core.UsePresence() }
 //
 // A toast that slides up and fades in, and out again before it unmounts:
 //
-//	func Toast() tela.Node {
+//	func Toast() tela.Node { return tela.C(toast) }
+//
+//	func toast() tela.Node {
 //	    shown := tela.UsePresenceTween(tela.Duration(250*time.Millisecond), tela.Ease(tela.EaseOut))
 //	    return Div(Class("fixed bottom-8 rounded-xl bg-slate-900 px-5 py-3 text-white"),
 //	        Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
@@ -310,7 +312,7 @@ func UsePresence() (present bool, done func()) { return core.UsePresence() }
 //	        Text("Saved"))
 //	}
 //
-//	Presence(If(saved, tela.C(Toast)))
+//	Presence(If(saved, Toast()))
 func UsePresenceTween(opts ...AnimationOption) *Value[float32] {
 	return core.UsePresenceTween(opts...)
 }

@@ -94,7 +94,9 @@ child waits until every such component calls `done` (and for the `Exit`
 transitions, if any):
 
 ```go
-func Toast() tela.Node {
+func Toast() tela.Node { return tela.C(toast) }
+
+func toast() tela.Node {
 	present, done := tela.UsePresence()
 	target := float32(1)
 	if !present {
@@ -107,7 +109,7 @@ func Toast() tela.Node {
 		Style(tela.OpacityFn(shown.Get)), Text("Saved"))
 }
 
-// Presence(If(saved, tela.C(Toast)))
+// Presence(If(saved, Toast()))
 ```
 
 The toast never builds during its tweens: `OpacityFn` reads the value, and
@@ -120,7 +122,9 @@ and calls `done` when the exit arrives. It takes the options of `UseTween`
 options (`Stiffness`, `Damping`, `Bounce`, `Spring`) it is a spring:
 
 ```go
-func Toast() tela.Node {
+func Toast() tela.Node { return tela.C(toast) }
+
+func toast() tela.Node {
 	shown := tela.UsePresenceTween(tela.Duration(250*time.Millisecond), tela.Ease(tela.EaseOut))
 	return Div(Role("status"), Class("rounded-xl bg-slate-900 px-5 py-3 text-white"),
 		Style(tela.TranslateFn(func() (float32, float32) { return 0, 24 * (1 - shown.Get()) }),
@@ -290,7 +294,7 @@ action shows the end state. Mount with [`telatest.NoSettle`](https://pkg.go.dev/
 frames in between with `Advance`:
 
 ```go
-app := telatest.Mount(t, tela.C(Dialog), telatest.NoSettle())
+app := telatest.Mount(t, Dialog(), telatest.NoSettle())
 app.Click(telatest.ByRole("button", "Open"))
 app.Advance(100 * time.Millisecond)
 app.Golden("dialog_100ms.png")

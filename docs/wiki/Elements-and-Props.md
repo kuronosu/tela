@@ -162,12 +162,14 @@ Map(cards, func(c CardData) tela.Node { return tela.WithKey(Card{Title: c.Title}
 ```
 
 A component built with `tela.C`, `tela.CP` or `tela.Memo` takes the key as its
-last argument: `tela.CP(Row, RowProps{...}, Key(row.ID))`. And for a list of
-components [`MapKeyed`](https://pkg.go.dev/github.com/kuronosu/tela/h#MapKeyed) does the keying:
+last argument: `tela.CP(row, RowProps{...}, Key(row.ID))`. The public wrapper
+of a function component (`func Row(p RowProps) tela.Node { return tela.CP(row, p) }`)
+takes none; key where you use it with `tela.WithKey(Row(p), row.ID)`. And for a
+list of components [`MapKeyed`](https://pkg.go.dev/github.com/kuronosu/tela/h#MapKeyed) does the keying:
 
 ```go
 MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Component {
-	return TodoRow{Todo: t} // a struct component, or tela.CP(TodoRow, t)
+	return TodoRow{Todo: t} // a struct component, or the wrapper of a function component
 })
 ```
 

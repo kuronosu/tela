@@ -1969,7 +1969,7 @@ pop := aria.UsePopover(aria.PopoverOptions{
 })
 return Fragment(
     Button(mt.TriggerProps, Text("Actions")),
-    Portal(If(mt.Open, tela.C(actionMenu, mt, pop))))
+    Portal(If(mt.Open, actionMenu{mt, pop})))
 
 type actionMenu struct{ mt aria.MenuTriggerResult; pop aria.PopoverResult }
 

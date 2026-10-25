@@ -98,7 +98,8 @@ func MapIndex[T any](items []T, f func(i int, item T) tela.Node) tela.Node {
 //	    return TodoRow{Todo: t}
 //	})
 //
-// A render that wants a function component returns tela.CP(TodoRow, t).
+// A render that wants a function component returns TodoRow(t), a function
+// that returns tela.CP(todoRow, t).
 // The key of a node that render keys itself, with Key, is replaced by
 // key(item).
 func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela.Component) tela.Node {

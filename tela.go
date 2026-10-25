@@ -19,7 +19,9 @@
 //	    . "github.com/kuronosu/tela/h"
 //	)
 //
-//	func Counter() tela.Node {
+//	func Counter() tela.Node { return tela.C(counter) }
+//
+//	func counter() tela.Node {
 //	    count, setCount := tela.UseState(0)
 //	    return Div(Class("flex flex-col items-center gap-6 p-10"),
 //	        H1(Class("text-5xl font-bold"), Textf("Count: %d", count)),
@@ -30,7 +32,7 @@
 //	}
 //
 //	func main() {
-//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: tela.C(Counter)})
+//	    tela.Main(tela.App{Title: "Demo", Width: 800, Height: 600, Root: Counter()})
 //	}
 //
 // [Main] runs the app and, if no window can be opened, prints the error
@@ -87,9 +89,15 @@
 //
 // A function returning a [Node] is a component too when it is wrapped in
 // [C] (no props) or [CP] (comparable props); [CP] skips like a struct
-// component, and [Memo] does the same with a comparison function.
+// component, and [Memo] does the same with a comparison function. Write the
+// wrap where the component is defined, in a public function over a private
+// one, so that nobody who uses it writes [C] or [CP]:
 //
-//	Div(tela.C(Header), tela.CP(Badge, BadgeProps{Count: 3}))
+//	func Header() tela.Node { return tela.C(header) }
+//
+//	func Badge(p BadgeProps) tela.Node { return tela.CP(badge, p) }
+//
+//	Div(Header(), Badge(BadgeProps{Count: 3}))
 //
 // Calling Build, or a component function, directly runs it inside the
 // caller, whose hook slots its hooks would take: in dev mode a hook called
