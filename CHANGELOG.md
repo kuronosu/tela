@@ -12,6 +12,19 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Package `kit`: styled components on the theme tokens, in the look of shadcn/ui v4 (`new-york-v4`) and checked against it in Chromium. Every component is a struct with its props as fields, `Class` and `Props` for the root element and slots for its parts: Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field, Checkbox, Switch, RadioGroup, Toggle, ToggleGroup (a segmented control), Slider, Progress, Dialog, AlertDialog, Popover, Tooltip, Select, Tabs, Table (sortable, with a sticky header and leading columns) and a Toaster with `kit.UseToast` (ADR-129, ADR-130, ADR-136 to ADR-140).
+- Customizing `kit`: the whole look is data. `kit.DefaultStyle()` returns the recipes (classes per part, variant, size and state), an app edits them, adds variants, and applies them to a subtree with `kit.StyleProvider`; `kit.Theme()` is shadcn's neutral theme. Trigger slots take any `kit.Trigger` (`kit.Button`, a component with `WithTriggerProps`, or `kit.TriggerFunc`) (ADR-129, ADR-137).
+- `aria`: `UseRadioGroup`, `UseToggleGroup`, `UseSlider`, `UseProgressBar`, `UseMeter` (ADR-132), `UseMenuBar`, `UseContextMenuTrigger` (ADR-133), `UseCalendar`, `UseRangeCalendar` and the `aria.Date` type (ADR-134), `UseColorState`, `UseColorArea`, `UseColorSlider`, `UseColorField`, HSB/HSL and hex helpers (ADR-135).
+- `h.AriaInvalid` with the `aria-invalid:` variant, `h.AriaSort` with `aria-[sort=ascending]:` and `aria-[sort=descending]:`, and `telatest.Invalid`, `telatest.Sort`; the aria snapshot prints `[invalid]` as Playwright 1.61 does (ADR-131).
+- `i18n`: `FirstDayOfWeek`, `Formatter.FirstDayOfWeek`, `Formatter.MonthName`, `Formatter.WeekdayName` (stand-alone names in four widths) and `Formatter.MonthYear` ("October 2026", "2026年10月") (ADR-131, ADR-134).
+
+### Changed
+
+- `i18n`: the LDML pattern letters `L` and `c` use CLDR's stand-alone month and weekday names, as ICU does (a Finnish full date now says "maanantai") (ADR-134).
+- `aria` imports `i18n` (for calendar names), which adds about 0.35 MB to an app that uses `aria` without `i18n` (ADR-134).
+
 ## [0.9.2] - 2026-10-25
 
 ### Added
