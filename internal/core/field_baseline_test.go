@@ -44,7 +44,7 @@ var inputBaselineCases = []struct {
 	{14, "leading-[30px]", "h-[38px]", 4, [3]int{24, 35, 47}, [3]float32{38, 38, 38}},
 	{14, "leading-[30px]", "h-1/2", 4, [3]int{17, 25, 34}, [3]float32{25, 25, 25}},
 	{14, "leading-[30px]", "h-[calc(100%-2px)]", 4, [3]int{29, 43, 57}, [3]float32{48, 48, 48}},
-	{14, "leading-none", "", 4, [3]int{17, 25, 34}, [3]float32{25, 24.6667, 25}},     // font size >= line height
+	{14, "leading-none", "", 4, [3]int{17, 25, 34}, [3]float32{25, 24.6667, 25}},       // font size >= line height
 	{14, "leading-[14.5px]", "", 4, [3]int{17, 25, 31}, [3]float32{25, 24.6667, 22.5}}, // 14.5 px: 14 at x1, 21.75 at x1.5, but 29 at x2
 	{14, "leading-[15px]", "", 4, [3]int{16, 23, 32}, [3]float32{23, 23, 23}},
 	{16, "leading-[16px]", "", 4, [3]int{19, 28, 38}, [3]float32{28, 27.3333, 27.5}},

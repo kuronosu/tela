@@ -2435,7 +2435,9 @@ type Gradient struct {
     // box, from its top-left corner. The default is 50% 50%.
     CenterX, CenterY LP
 
-    // Interp is the color space of the interpolation, Oklab by default.
+    // Interp is the color space of the interpolation. The zero value is
+    // Oklab, the default of Tailwind's named gradient utilities; gradients
+    // written as CSS functions default to sRGB, as in CSS (ADR-158).
     Interp gfx.ColorSpace
 
     Stops []ColorStop

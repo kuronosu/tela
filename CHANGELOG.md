@@ -12,6 +12,13 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Flex layout matches Chromium in three more cases: a zero percentage (`flex-1`, whose basis is `0%`, `basis-[0%]`, `h-[0%]`, `top-[0%]`, a `0%` grid track) is no longer taken for `0px`, so a `flex-1` scroller in an auto-height column gets its content height instead of collapsing to its padding; a flex item with `aspect-ratio` and a percentage size (`w-full aspect-square`) shrinks to fit its line; a `w-fit` (or `w-min`, `w-max`) item in a stretching column is laid out at its own width, so a `kit.Calendar` there is 291 px tall instead of 685. A percentage `min-h-*` of a flex item with an indefinite basis resolves as in Chromium. `kit.Calendar`'s day cells get shadcn's `aspect-square` back (ADR-157).
+- Gradients written as CSS (`bg-[linear-gradient(…)]`, `bg-linear-[…]`, `bg-radial-[…]`, `bg-conic-[…]`, gradient masks) interpolate in sRGB, as in CSS and Tailwind; the named utilities (`bg-linear-to-r`, `bg-radial`, `bg-conic`) keep Tailwind's Oklab. `in srgb` and `in oklab` are understood in the gradient's prelude; other color spaces are reported (ADR-158).
+- Text lines are placed on the device pixel grid as in Chromium: ascent, descent and half-leading round in device pixels, so text at scale 2 (and fractional scales) sits on Chromium's rows instead of up to one device pixel off; an `Input` with a fixed height centers its text with the font's normal line height, as Chromium's inner editor does. Text in snapshots at scales other than 1, and in fixed-height inputs, moves by one device pixel (ADR-159).
+- A modal dialog keeps the focus inside: a press on its scrim or on anything that cannot take the focus leaves it where it was (an alert dialog no longer loses it), and focusing an element outside the dialog from a handler or script brings it back to the last focused element inside (ADR-160).
+
 ## [0.10.0] - 2026-10-25
 
 ### Added
