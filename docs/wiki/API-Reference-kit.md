@@ -40,6 +40,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DateRangePicker`](#type-daterangepicker): [`Build`](#func-daterangepicker-build)
   - [`type Dialog`](#type-dialog): [`Build`](#func-dialog-build)
   - [`type DialogStyle`](#type-dialogstyle)
+  - [`type DirectionProvider`](#type-directionprovider): [`Build`](#func-directionprovider-build)
   - [`type DropdownMenu`](#type-dropdownmenu): [`Build`](#func-dropdownmenuk-build)
   - [`type Field`](#type-field): [`Build`](#func-field-build)
   - [`type FieldStyle`](#type-fieldstyle)
@@ -199,6 +200,16 @@ A [`Field`](#type-field) is the usual way to put a label, a control, help text a
 ```go
 kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
     Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
+```
+
+### Right to left
+
+The recipes of the kit are written with logical utilities (ps-\*, pe-\*, start-\*, end-\*, ms-\*, me-\*, rounded-s-\*, rounded-e-\*, text-start, text-end) and the rtl: variant, which are the physical ones in left-to-right and mirror under h.Dir("rtl"), so a kit page needs nothing but the direction to be mirrored: menu check marks and shortcuts, a select's items, a dialog's close button, a switch's thumb, a table's sticky columns, a progress bar's fill. What stays physical is a position that names a side (a Toaster's ToastBottomRight, a Popover's Placement "right"), as sonner's and Floating UI's do; an Align of "start" follows the direction.
+
+A component cannot read its direction while it builds, and the ones whose arrow keys or drag follow it need it: Slider, Tabs, ToggleGroup, RadioGroup, Menubar, ColorPicker and the calendars. Give it with a [`DirectionProvider`](#type-directionprovider) around the app (it sets h.Dir too) or a Direction field on the component:
+
+```go
+kit.DirectionProvider{Direction: i18n.UseFormatter().Dir().String(), Children: App{}}
 ```
 
 ### Overlays and triggers
@@ -1021,6 +1032,12 @@ type ColorInput struct {
     // picker" by default).
     AreaLabel, HueLabel, AlphaLabel, HexLabel string
     AriaLabel                                 string
+    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+    // right without one). Under "rtl" the saturation grows toward the left
+    // of the area, the hue and the opacity toward the left of their sliders,
+    // and ArrowLeft increases them; a Direction given here also sets the
+    // direction of the panel's layout, not the button's.
+    Direction string
 
     // Class is added to the default button's classes; PanelClass to the
     // picker's root; PopoverClass to the popover's panel.
@@ -1106,6 +1123,12 @@ type ColorPicker struct {
     // default); set them for another language. The value texts ("Hue
     // 180°") are aria's English ones.
     AreaLabel, HueLabel, AlphaLabel, HexLabel string
+    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+    // right without one). Under "rtl" the saturation grows toward the left
+    // of the area, the hue and the opacity toward the left of their sliders,
+    // and ArrowLeft increases them; a Direction given here also sets the
+    // direction of the panel's layout.
+    Direction string
     // Class is added after the recipe's Root classes. Props are more props
     // for the root element.
     Class string
@@ -1235,7 +1258,8 @@ type Column[T any] struct {
     // Width is the column's grid track: "200px", "1fr", "auto", "minmax(120px, 1fr)",
     // "min-content"... The default is "auto".
     Width string
-    // Align is AlignLeft (the default), AlignCenter or AlignRight.
+    // Align is AlignLeft (the default), AlignCenter or AlignRight; the first
+    // and the last are the start and the end of the line (see ColumnAlign).
     Align ColumnAlign
     // Sticky keeps the column in place when the table scrolls
     // horizontally. Sticky columns come first, and every sticky column
@@ -1267,7 +1291,7 @@ Column describes a column of a [`Table`](#type-table) of rows of type T.
 type ColumnAlign string
 ```
 
-ColumnAlign is the horizontal alignment of a [`Column`](#type-column)'s header, cells and footer. The zero value is left, as shadcn's `text-left`.
+ColumnAlign is the horizontal alignment of a [`Column`](#type-column)'s header, cells and footer. The zero value is left, as shadcn's `text-left`. Left and right are the start and the end of the line: under a right-to-left direction (h.Dir("rtl")) the table mirrors and AlignRight is at the left, where numbers belong, as in shadcn's right-to-left registry (text-start and text-end).
 
 ```go
 const (
@@ -1753,6 +1777,34 @@ DialogStyle is the recipe of [`Dialog`](#type-dialog) (shadcn/ui's DialogOverlay
 
 Root is the dialog element, the panel with the role. shadcn centers it with fixed top-\[50%\] left-\[50%\] and a translation; here the Positioner, a fixed layer over the window, centers it with flex, which gives the same box and lets the panel keep its own transform for the entrance.
 
+### type DirectionProvider
+
+```go
+type DirectionProvider struct {
+    // Direction is "ltr" or "rtl".
+    Direction string
+    // Children is the subtree.
+    Children tela.Component
+}
+```
+
+DirectionProvider sets the writing direction of a subtree for the layout and for the components whose keys and drags depend on it, as Radix's DirectionProvider does: Direction is "rtl" or "ltr" (any case, so i18n.UseFormatter().Dir().String() works).
+
+```go
+f := i18n.UseFormatter()
+return kit.DirectionProvider{Direction: f.Dir().String(), Children: App{}}
+```
+
+It lays its children out with h.Dir (it has no box of its own: the children are laid out as if they were its parent's), so the layout mirrors and the logical utilities of the kit's recipes (ps-\*, pe-\*, start-\*, end-\*, rounded-s-\*, the rtl: variants) follow. The components that move with the arrow keys or with a drag along a line (Slider, Tabs, ToggleGroup, RadioGroup, Menubar, ColorPicker, and the calendars) read it as well: in a right-to-left subtree ArrowLeft goes to the next item and a slider's minimum is at the right. A bare h.Dir("rtl") above them mirrors the layout and the recipes but not those keys, because a component cannot read its direction while it builds; use the provider, or the component's Direction field, for them.
+
+#### func (DirectionProvider) Build
+
+```go
+func (p DirectionProvider) Build() tela.Node
+```
+
+Build lays the children out in the direction and provides it.
+
 ### type DropdownMenu
 
 ```go
@@ -2234,6 +2286,10 @@ type Menubar[K comparable] struct {
     OnSelect func(menu, item K)
     // AriaLabel names the bar.
     AriaLabel string
+    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+    // right without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
+    // sets the direction of the layout.
+    Direction string
     // CheckIcon and RadioIcon replace the check of a checkbox item and the
     // dot of a radio item.
     CheckIcon, RadioIcon tela.Icon
@@ -2560,6 +2616,10 @@ type RadioGroup[K comparable] struct {
     // Orientation is Vertical (the default) or Horizontal; it is the
     // group's aria-orientation and the arrangement of the options.
     Orientation Orientation
+    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+    // right without one). Under "rtl" ArrowLeft goes to the next option and ArrowRight to the previous one; a Direction given here also
+    // sets the direction of the layout.
+    Direction string
     // Disabled disables every option.
     Disabled bool
     // ReadOnly keeps the options focusable but not changeable.
@@ -3127,6 +3187,12 @@ type Slider struct {
     MinStepsBetweenThumbs int
     // Orientation is Horizontal (the default) or Vertical.
     Orientation Orientation
+    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s
+    // (left to right without one). Under "rtl" a horizontal slider has its
+    // Min at the right, ArrowLeft increases the value and a drag follows
+    // the pointer; a Direction given here also sets the direction of the
+    // slider's layout.
+    Direction string
     // Disabled dims the slider and makes it ignore the user.
     Disabled bool
     // FormatValue returns a value as people read it (aria-valuetext).
@@ -3456,7 +3522,9 @@ type SwitchStyle struct {
     // Sizes are the track's dimensions: the default and Sm.
     Sizes map[Size]string
     // Thumb is the knob: its colors and its move from the off position to
-    // the on one (shadcn's data-[state=checked]:translate-x-[calc(100%-2px)]).
+    // the on one (shadcn's data-[state=checked]:translate-x-[calc(100%-2px)],
+    // which goes the other way under a right-to-left direction, as in
+    // shadcn's right-to-left registry).
     Thumb string
     // ThumbSizes are the knob's size per switch size.
     ThumbSizes map[Size]string
@@ -3727,6 +3795,10 @@ type Tabs[K comparable] struct {
     Orientation Orientation
     // Variant is Default (the muted pill) or TabsLine.
     Variant Variant
+    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+    // right without one). Under "rtl" ArrowLeft goes to the next tab and ArrowRight to the previous one; a Direction given here also
+    // sets the direction of the layout.
+    Direction string
     // ManualActivation makes the arrow keys only move the focus; Enter or
     // Space selects the focused tab. By default the focused tab is selected.
     ManualActivation bool
@@ -4072,7 +4144,7 @@ ToastReplace makes the toast replace the one with this id, in the same place and
 type ToastPosition string
 ```
 
-ToastPosition is the corner or edge of the window a [`Toaster`](#type-toaster) puts its toasts at. The zero value is ToastBottomRight.
+ToastPosition is the corner or edge of the window a [`Toaster`](#type-toaster) puts its toasts at. The zero value is ToastBottomRight. Left and right are the window's, whatever the direction, as sonner's positions are (the toast's own layout, its icon, action and close button, follows the direction).
 
 ```go
 const (
@@ -4305,6 +4377,10 @@ type ToggleGroup[K comparable] struct {
     // keys follow; the items are laid out in a row either way (use Class
     // "flex-col" for a column).
     Orientation Orientation
+    // Direction is "ltr" or "rtl"; empty is the [DirectionProvider]'s (left to
+    // right without one). Under "rtl" ArrowLeft goes to the next item and ArrowRight to the previous one; a Direction given here also
+    // sets the direction of the layout.
+    Direction string
     // Disabled disables every item.
     Disabled bool
     // AriaLabel names the group.

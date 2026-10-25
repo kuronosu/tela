@@ -74,7 +74,7 @@ func roundedStyle() *kit.Style {
 	s.Toggle.On = "aria-pressed:bg-violet-100 aria-pressed:text-violet-700 checked:bg-violet-100 checked:text-violet-700 " +
 		"dark:aria-pressed:bg-violet-500/25 dark:aria-pressed:text-violet-200 dark:checked:bg-violet-500/25 dark:checked:text-violet-200"
 	swap(&s.ToggleGroup.Root, "rounded-md", "rounded-full")
-	swap(&s.ToggleGroup.ItemWithoutSpacing, "first:rounded-l-md last:rounded-r-md", "first:rounded-l-full last:rounded-r-full")
+	swap(&s.ToggleGroup.ItemWithoutSpacing, "first:rounded-s-md last:rounded-e-md", "first:rounded-s-full last:rounded-e-full")
 	swap(&s.Tabs.List, "rounded-lg", "rounded-full")
 	swap(&s.Tabs.Trigger, "rounded-md", "rounded-full")
 
