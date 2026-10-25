@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-25
+
 ### Fixed
 
 - Flex layout matches Chromium in three more cases: a zero percentage (`flex-1`, whose basis is `0%`, `basis-[0%]`, `h-[0%]`, `top-[0%]`, a `0%` grid track) is no longer taken for `0px`, so a `flex-1` scroller in an auto-height column gets its content height instead of collapsing to its padding; a flex item with `aspect-ratio` and a percentage size (`w-full aspect-square`) shrinks to fit its line; a `w-fit` (or `w-min`, `w-max`) item in a stretching column is laid out at its own width, so a `kit.Calendar` there is 291 px tall instead of 685. A percentage `min-h-*` of a flex item with an indefinite basis resolves as in Chromium. `kit.Calendar`'s day cells get shadcn's `aspect-square` back (ADR-157).
@@ -556,7 +558,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/kuronosu/tela/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/kuronosu/tela/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/kuronosu/tela/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/kuronosu/tela/compare/v0.9.0...v0.9.1
