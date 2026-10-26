@@ -157,10 +157,10 @@ func (s *seat) listen() {
 		after()
 	})
 	p.SetAxisDiscreteHandler(func(e protocols.WlPointerAxisDiscreteEvent) {
-		s.ptr.axisDiscrete(e.Axis, e.Discrete)
+		s.ptr.axisDiscrete(e.Axis, e.Discrete, b.Now())
 	})
 	p.SetAxisValue120Handler(func(e protocols.WlPointerAxisValue120Event) {
-		s.ptr.axisValue120(e.Axis, e.Value120)
+		s.ptr.axisValue120(e.Axis, e.Value120, b.Now())
 	})
 	p.SetAxisSourceHandler(func(e protocols.WlPointerAxisSourceEvent) {
 		s.ptr.axisSource(e.AxisSource)
@@ -261,11 +261,13 @@ type pointerState struct {
 	hasDelta bool
 	hasV120  bool
 	hasDiscr bool
-	// axisTime is the time of the frame's first axis or axis_stop event,
-	// the only axis events with a time: axis_value120 and axis_discrete
-	// come before the axis event they belong to (seat version 8 sends
-	// value120 first), so they must not decide it.
+	// axisTime is the time of the frame's first axis or axis_stop event
+	// (hasTime), the only axis events with a time. axis_value120 and
+	// axis_discrete come before the axis event they belong to (seat
+	// version 8 sends value120 first), so they only give their arrival
+	// time, used when the frame has no timed event.
 	axisTime  time.Duration
+	hasTime   bool
 	axisFocus *Window
 	// source is the frame's wl_pointer.axis_source (hasSource), stop
 	// reports a wl_pointer.axis_stop in the frame, and finger a touchpad
@@ -334,27 +336,43 @@ func (p *pointerState) axis(a protocols.WlPointerAxis, v float64, t time.Duratio
 	if a > 1 || p.focus == nil {
 		return
 	}
-	if !p.hasDelta && !p.stop { // the frame's first event with a time
-		p.axisTime = t
-	}
+	p.timeAxis(t)
 	p.delta[a] += v
 	p.hasDelta = true
 	p.axisFocus = p.focus
 }
 
-func (p *pointerState) axisDiscrete(a protocols.WlPointerAxis, n int32) {
+// timeAxis records t, the time of an axis or axis_stop event, as the
+// frame's time if it is the frame's first timed event.
+func (p *pointerState) timeAxis(t time.Duration) {
+	if !p.hasTime {
+		p.axisTime, p.hasTime = t, true
+	}
+}
+
+// arriveAxis records now, the arrival of an untimed axis event, as the
+// frame's time until a timed event gives the real one.
+func (p *pointerState) arriveAxis(now time.Duration) {
+	if !p.hasTime && !p.hasDelta && !p.hasV120 && !p.hasDiscr && !p.stop {
+		p.axisTime = now
+	}
+}
+
+func (p *pointerState) axisDiscrete(a protocols.WlPointerAxis, n int32, now time.Duration) {
 	if a > 1 || p.focus == nil {
 		return
 	}
+	p.arriveAxis(now)
 	p.discrete[a] += n
 	p.hasDiscr = true
 	p.axisFocus = p.focus
 }
 
-func (p *pointerState) axisValue120(a protocols.WlPointerAxis, v int32) {
+func (p *pointerState) axisValue120(a protocols.WlPointerAxis, v int32, now time.Duration) {
 	if a > 1 || p.focus == nil {
 		return
 	}
+	p.arriveAxis(now)
 	p.value120[a] += v
 	p.hasV120 = true
 	p.axisFocus = p.focus
@@ -372,9 +390,7 @@ func (p *pointerState) axisStop(a protocols.WlPointerAxis, t time.Duration) {
 	if a > 1 || p.focus == nil {
 		return
 	}
-	if !p.hasDelta && !p.stop {
-		p.axisTime = t
-	}
+	p.timeAxis(t)
 	p.stop = true
 	p.axisFocus = p.focus
 }
@@ -445,7 +461,7 @@ func (p *pointerState) frame() []windowEvent {
 	}
 	p.delta, p.value120, p.discrete = [2]float64{}, [2]int32{}, [2]int32{}
 	p.hasDelta, p.hasV120, p.hasDiscr = false, false, false
-	p.hasSource, p.stop = false, false
+	p.hasSource, p.stop, p.hasTime = false, false, false
 	p.axisFocus = nil
 	return out
 }

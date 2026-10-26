@@ -234,7 +234,7 @@ func TestPointerFrameGrouping(t *testing.T) {
 	// and wheel events have no phase.
 	p.axisSource(protocols.WlPointerAxisSourceWheel)
 	p.axis(protocols.WlPointerAxisVerticalScroll, 15, 24*ms)
-	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120)
+	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120, 0)
 	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Phase != platform.ScrollPhaseNone {
 		t.Errorf("wheel = %+v, want no phase", se)
 	}
@@ -245,15 +245,23 @@ func TestPointerFrameGrouping(t *testing.T) {
 	// Seat version 8 sends axis_value120 before the axis event, which
 	// carries the time: the scroll event still has it.
 	p.axisSource(protocols.WlPointerAxisSourceWheel)
-	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120)
+	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120, 0)
 	p.axis(protocols.WlPointerAxisVerticalScroll, 15, 26*ms)
 	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Time != 26*ms || se.Steps.Y != 1 || se.Delta.Y != 15 {
 		t.Errorf("value120 then axis = %+v, want the axis time 26ms, one step", se)
 	}
+	// A frame with steps and no timed event (not sent by known
+	// compositors) takes the arrival of its first axis event, not the
+	// time of an earlier frame.
+	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120, 40*ms)
+	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120, 41*ms)
+	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Time != 40*ms || se.Steps.Y != 2 {
+		t.Errorf("value120 alone = %+v, want its arrival time 40ms, two steps", se)
+	}
 
 	// Legacy discrete steps (seat versions 5-7).
 	p.axis(protocols.WlPointerAxisVerticalScroll, -10, 12*ms)
-	p.axisDiscrete(protocols.WlPointerAxisVerticalScroll, -1)
+	p.axisDiscrete(protocols.WlPointerAxisVerticalScroll, -1, 0)
 	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Steps != (platform.Point{Y: -1}) || se.Delta.Y != -10 {
 		t.Errorf("discrete scroll = %+v", se)
 	}
