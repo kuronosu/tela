@@ -335,13 +335,26 @@ type scrollState struct {
 	// newly attached element.
 	refs []*elemRef
 	// reveal is the element focused by keyboard or script, to scroll
-	// into view; intoView the elements of ScrollIntoView calls made while
-	// the layout was not current.
+	// into view; requests the programmatic scrolls made while the extents
+	// were not current (extentsCurrent), in call order.
 	reveal   *Element
-	intoView []*Element
+	requests []scrollReq
+	// stale reports a layout of this frame whose extents the scroll phase
+	// has not read yet (the layout effects run in between).
+	stale bool
 	// moved reports a paint that moved scrolled content: the pointer's
 	// target is hit-tested again after the frame.
 	moved bool
+}
+
+// scrollReq is a programmatic scroll waiting for the extents: el's
+// ScrollIntoView, or a ScrollTo of s to p (flipped offsets) or, with by,
+// a ScrollBy of s by p (a flipped delta).
+type scrollReq struct {
+	el *Element
+	s  *scroller
+	p  gfx.Point
+	by bool
 }
 
 // wheelLatch is the container a wheel or touchpad gesture scrolls.
@@ -890,6 +903,14 @@ func (t *Tree) setScroll(s *scroller, p gfx.Point) bool {
 // work that could change it), so offsets can be clamped now.
 func (t *Tree) layoutCurrent() bool { return t.inFrame || !t.changed }
 
+// extentsCurrent reports whether the extents of the scroll containers
+// match the tree, so an ElementRef's programmatic scroll can be applied
+// now: the layout is current and, in a frame, the scroll phase read the
+// extents of its last layout. Between the two run the layout effects,
+// whose scrolls wait for the scroll phase, so that one made on mount or
+// after content grew lands where that frame's layout puts it (ADR-176).
+func (t *Tree) extentsCurrent() bool { return t.layoutCurrent() && !t.scr.stale }
+
 // scrollUser moves s by d as user scrolling: animated (retargeting a
 // running animation) when the container's settings allow, else at once.
 func (t *Tree) scrollUser(s *scroller, d gfx.Point) {
@@ -981,13 +1002,30 @@ func (s *scroller) contains(d gfx.Point) bool {
 }
 
 // chainBox returns the box a scroll chain starts from for el: its own
-// box, or its paragraph's, or its nearest ancestor's.
+// box, or its paragraph's, or its nearest ancestor's (geomBox). Unlike
+// geomBox it takes a box that was laid out but not painted yet, so that
+// a layout effect can scroll an element mounted in its frame into view
+// (ADR-176).
 func (t *Tree) chainBox(el *Element) *Box {
-	bx := t.geomBox(el)
-	if bx == nil || !t.inTree(bx) {
-		return nil
+	for e := el; e != nil; e = e.styleParent() {
+		if e.kind != elemPrimitive {
+			continue
+		}
+		b := e.box
+		if p := b.inPara; p != nil {
+			if p.owner == nil || !p.owner.mounted || p.parent == nil && p != t.rootBox {
+				continue
+			}
+			b = p
+		} else if b.parent == nil && b != t.rootBox {
+			continue // display: contents, or out of the box tree
+		}
+		if !t.inTree(b) {
+			return nil
+		}
+		return b
 	}
-	return bx
+	return nil
 }
 
 // pickScroller returns the container that scrolls along d for an event
@@ -1019,19 +1057,22 @@ func fixedToWindow(bx, cb *Box) bool {
 }
 
 // containingBlockOf is containingBlock with the computed style for boxes
-// not painted yet.
+// not painted yet (paintStyle), bx's own and its ancestors'.
 func containingBlockOf(bx *Box) *Box {
-	if bx.pcs == nil {
-		if bx.cs == nil {
-			return bx.parent
-		}
-		save := bx.pcs
-		bx.pcs = bx.cs
-		cb := containingBlock(bx)
-		bx.pcs = save
-		return cb
+	cs := paintStyle(bx)
+	if cs == nil || cs.Position != style.PositionAbsolute && cs.Position != style.PositionFixed {
+		return bx.parent
 	}
-	return containingBlock(bx)
+	a := bx.parent
+	for a != nil && a.parent != nil && !containsPositioned(a) {
+		if cs.Position == style.PositionAbsolute {
+			if acs := paintStyle(a); acs != nil && acs.Position != style.PositionStatic {
+				break
+			}
+		}
+		a = a.parent
+	}
+	return a
 }
 
 // ---------------------------------------------------------------------
@@ -1463,7 +1504,8 @@ const maxGutterPasses = 3
 // visit the thousands of overflow-hidden boxes of a long list). It reports
 // whether the frame was laid out, before or here.
 func (t *Tree) scrollPhase(laidOut bool) bool {
-	if len(t.scr.list) == 0 && t.scr.reveal == nil && len(t.scr.intoView) == 0 && len(t.virt.lists) == 0 {
+	if len(t.scr.list) == 0 && t.scr.reveal == nil && len(t.scr.requests) == 0 && len(t.virt.lists) == 0 {
+		t.scr.stale = false
 		return laidOut
 	}
 	if laidOut || len(t.virt.lists) > 0 {
@@ -1477,15 +1519,14 @@ func (t *Tree) scrollPhase(laidOut bool) bool {
 			revealed = true
 		}
 	}
-	for len(t.scr.intoView) > 0 {
-		el := t.scr.intoView[0]
-		t.scr.intoView = t.scr.intoView[1:]
-		if el.mounted {
-			t.scrollIntoView(el)
+	for len(t.scr.requests) > 0 {
+		q := t.scr.requests[0]
+		t.scr.requests = t.scr.requests[1:]
+		if t.runRequest(q) {
 			revealed = true
 		}
 	}
-	t.scr.intoView = nil
+	t.scr.requests = nil
 	if revealed && len(t.virt.lists) > 0 {
 		laidOut = t.settleScroll(1, laidOut) || laidOut
 	}
@@ -1510,6 +1551,7 @@ func (t *Tree) settleScroll(firstPass int, laidOut bool) bool {
 					t.extents(s)
 				}
 			}
+			t.scr.stale = false
 			gutters = pass < maxGutterPasses && t.updateGutters(pass)
 		}
 		virt := false
@@ -1600,7 +1642,9 @@ func (t *Tree) scrollAfterFrame() {
 			t.scr.remove(setEvent, s)
 		}
 	}
-	if pending || t.scrollAnimating() || t.fieldAutoscrolling() {
+	// Requests the layout effects of a late pass made (a virtual list's
+	// items mounted after the scroll phase ran them) run in the next frame.
+	if pending || len(t.scr.requests) > 0 || t.scrollAnimating() || t.fieldAutoscrolling() {
 		t.requestRepaint()
 	}
 }
@@ -1724,10 +1768,12 @@ func (t *Tree) clientRect(bx *Box) gfx.Rect {
 // scroll-smooth. It does nothing for an element that is not a scroll
 // container (overflow auto, scroll or hidden) or not mounted. In a
 // right-to-left container x is 0 at the right and negative toward the
-// left, like the DOM's scrollLeft.
+// left, like the DOM's scrollLeft. Called from a layout effect, it
+// applies in the same frame with the extents of that frame's layout,
+// before paint.
 func (r ElementRef) ScrollTo(x, y float32) {
 	if s := scrollerOf(r.element()); s != nil {
-		s.box.tree.scrollScripted(s, s.flip(gfx.Point{X: x, Y: y}))
+		s.box.tree.scriptedRequest(scrollReq{s: s, p: s.flip(gfx.Point{X: x, Y: y})})
 	}
 }
 
@@ -1735,8 +1781,42 @@ func (r ElementRef) ScrollTo(x, y float32) {
 // ScrollTo).
 func (r ElementRef) ScrollBy(dx, dy float32) {
 	if s := scrollerOf(r.element()); s != nil {
-		s.box.tree.scrollScripted(s, s.pos.Add(s.flip(gfx.Point{X: dx, Y: dy})))
+		s.box.tree.scriptedRequest(scrollReq{s: s, p: s.flip(gfx.Point{X: dx, Y: dy}), by: true})
 	}
+}
+
+// scriptedRequest runs a ScrollTo or ScrollBy, or queues it for the
+// scroll phase while the frame's extents are stale (the layout effects).
+// Outside a frame a stale layout does not queue: the offset is set now,
+// clamped to the start only, and the next frame clamps it (setScroll).
+func (t *Tree) scriptedRequest(q scrollReq) {
+	if t.scr.stale && t.inFrame {
+		t.scr.requests = append(t.scr.requests, q)
+		return
+	}
+	t.runRequest(q)
+}
+
+// runRequest runs a programmatic scroll. It reports whether it ran (its
+// element or container is still mounted).
+func (t *Tree) runRequest(q scrollReq) bool {
+	if q.el != nil {
+		if !q.el.mounted {
+			return false
+		}
+		t.scrollIntoView(q.el)
+		return true
+	}
+	s := q.s
+	if el := s.box.el; el == nil || !el.mounted || s.box.scr != s {
+		return false
+	}
+	p := q.p
+	if q.by {
+		p = s.pos.Add(p)
+	}
+	t.scrollScripted(s, p)
+	return true
 }
 
 // ScrollOffset returns the element's scroll offsets (the DOM's
@@ -1756,19 +1836,24 @@ func (r ElementRef) ScrollOffset() (x, y float32) {
 // that it is visible, moving each as little as possible (CSSOM View's
 // scrollIntoView with block and inline "nearest"); each container jumps
 // or animates as its scroll-behavior says. It does nothing when the
-// element is not mounted or not displayed.
+// element is not mounted or not displayed. Called from a layout effect,
+// it scrolls with the layout and extents of that frame, before paint.
 func (r ElementRef) ScrollIntoView() {
 	el := r.element()
 	if el == nil {
 		return
 	}
-	t := el.tree
-	if t.inFrame || !t.changed {
+	el.tree.intoView(el)
+}
+
+// intoView scrolls el into view now when the extents are current, else
+// after the next layout's (the scroll phase).
+func (t *Tree) intoView(el *Element) {
+	if t.extentsCurrent() {
 		t.scrollIntoView(el)
 		return
 	}
-	// The layout is stale: after the next layout.
-	t.scr.intoView = append(t.scr.intoView, el)
+	t.scr.requests = append(t.scr.requests, scrollReq{el: el})
 	t.requestRepaint()
 }
 

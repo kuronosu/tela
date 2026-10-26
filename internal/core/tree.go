@@ -624,6 +624,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 // outside it (scroll.go's scrollAfterFrame).
 func (t *Tree) afterFrame() {
 	t.inFrame = false
+	t.scr.stale = false
 	t.frev.hold = false
 	if t.dirRebuild {
 		// UseDirection readers marked by a late style phase: the next
@@ -682,6 +683,9 @@ func (t *Tree) layoutPhase() {
 	t.remapPhase()
 	t.stats.Layouts++
 	t.engine.Compute(t.rootBox, layout.DefiniteSpace(t.viewport.W), layout.DefiniteSpace(t.viewport.H))
+	// The extents follow in the scroll phase (or floatRelayout): the
+	// programmatic scrolls of the layout effects wait for them (scroll.go).
+	t.scr.stale = true
 }
 
 // CanvasColor returns the color of the window background: the root box's

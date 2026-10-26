@@ -393,12 +393,16 @@ func UseGo(f func(ctx context.Context), deps ...any) { core.UseGo(f, deps...) }
 
 // UseLayoutEffect is [UseEffect], but the effect runs in the frame after
 // layout and before paint, with the same dependencies and cleanups. Its
-// state updates are applied in the next frame.
+// state updates are applied in the next frame. The scrolls it asks for
+// ([ElementRef]'s ScrollTo, ScrollBy, ScrollIntoView and ScrollToIndex)
+// use the layout of its frame, which is painted scrolled: on mount, and
+// when the content just grew.
 //
+//	last := tela.UseElementRef() // on the newest message
 //	tela.UseLayoutEffect(func() func() {
-//	    list.ScrollIntoView() // before the frame with the new item is painted
+//	    last.ScrollIntoView() // the frame that shows a new message shows it in view
 //	    return nil
-//	}, len(items))
+//	}, len(messages))
 func UseLayoutEffect(effect func() func(), deps ...any) { core.UseLayoutEffect(effect, deps...) }
 
 // UseMemo returns compute(), computed on the first build and again only

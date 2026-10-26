@@ -1004,12 +1004,7 @@ func (t *Tree) ScrollNodeIntoView(id semantics.NodeID) error {
 	if err != nil {
 		return err
 	}
-	if t.layoutCurrent() {
-		t.scrollIntoView(el)
-		return nil
-	}
-	t.scr.intoView = append(t.scr.intoView, el)
-	t.requestRepaint()
+	t.intoView(el)
 	return nil
 }
 

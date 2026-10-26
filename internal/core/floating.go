@@ -434,6 +434,7 @@ func (t *Tree) floatRelayout() {
 				t.extents(s)
 			}
 		}
+		t.scr.stale = false
 		if pass >= maxGutterPasses || !t.updateGutters(pass) {
 			break
 		}
