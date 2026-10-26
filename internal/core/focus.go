@@ -471,7 +471,7 @@ func (t *Tree) mouseFocus(target *Element) {
 			return
 		}
 	}
-	if t.holdsFocus() || t.foc.lost != nil {
+	if t.holdsFocus() || t.lostPending() {
 		// Nothing focusable under the press, and the active containing
 		// scope holds the focus, or is about to take it back (the focused
 		// element just unmounted, lostWork): it stays, as after a
@@ -707,6 +707,18 @@ func (t *Tree) noteLost(el *Element) {
 // scrolling either into view. It waits while an AutoFocus of the commit
 // or the scope's root has no style yet (mounted by a discrete event's
 // build), so the frame decides.
+// lostPending reports whether a recovery of the focus (focusLost) is
+// pending for a scope that can still take it: mounted, still its element's
+// scope, and inside the active containing scope.
+func (t *Tree) lostPending() bool {
+	s := t.foc.lost
+	if s == nil || t.foc.el != nil || !s.el.mounted || s.el.fscope != s {
+		return false
+	}
+	a := t.activeScope()
+	return a != nil && isInside(a.el, s.el)
+}
+
 func (t *Tree) focusLost() {
 	f := &t.foc
 	s := f.lost
