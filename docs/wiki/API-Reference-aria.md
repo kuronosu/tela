@@ -1973,12 +1973,17 @@ type ContextMenuTriggerResult struct {
     Open bool
     // FocusStrategy is where the focus goes when the menu opens:
     // [FocusFirst] for a key or a long press, "" for the menu itself
-    // (opened with a mouse). Pass it to [MenuOptions].FocusStrategy.
+    // (opened with a mouse); a move of the open menu keeps it. Pass it to
+    // [MenuOptions].FocusStrategy.
     FocusStrategy string
     // Anchor returns the virtual rectangle the menu is placed at, in window
     // coordinates: a point where the pointer was or the area's top-left
     // corner. It is [AnchorRect]'s argument, for a menu placed with
-    // [UseFloating] instead of [UsePopover].
+    // [UseFloating] instead of [UsePopover]. Each build's Anchor belongs to
+    // the opening that build saw: it follows the menu while it is moved
+    // (a long press or OpenAt while it is open) and keeps its point once
+    // the menu closes, so that a menu exiting in a Presence stays where it
+    // was when the next one opens elsewhere.
     Anchor func() tela.Rect
     // OpenAt opens the menu at a point of the window (a click handler of
     // your own, a "More" button). Close closes it, and a menu closes itself
@@ -2005,7 +2010,7 @@ UseContextMenuTrigger holds the open state of a context menu and returns the pro
 - a touch or a pen that stays down for 500 ms, at the finger, with the first item focused (Radix's rule; a mouse button held down is not a long press here, so it clicks what it is on as usual),
 - Shift+F10 and the ContextMenu key, with the first item focused, at the top-left corner of the area.
 
-The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A right click in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, without taking the focus: give it a new key each time it opens (count the opens in OnOpenChange), as kit's ContextMenu does.
+The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A touch or a pen that stays down elsewhere on the area while the menu is open moves the open menu there, and its release does not close it (Radix); a quick tap there closes it, as any press outside does. A right click or a long press in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, at the new point and without taking the focus: give it a new key each time it opens (count the opens in OnOpenChange), as kit's ContextMenu does, and the exiting one fades out at its own point while a new one opens and takes the focus.
 
 ```go
 cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
@@ -2056,7 +2061,7 @@ fmt.Println(ev.take())
 func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions
 ```
 
-PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the menu: anchored at the point the menu was opened with ("bottom-start", flipped and shifted to stay in the window). The popover is not modal, so that a right click on the area while the menu is open reaches it: the press closes the menu, as any press outside it does (a right click too), and the right click opens it again at the new point. Change what you need in the value returned (Offset, Floating).
+PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the menu: anchored at the point the menu was opened with ("bottom-start", flipped and shifted to stay in the window), through [`ContextMenuTriggerResult.Anchor`](#type-contextmenutriggerresult), so a menu exiting in a Presence stays at its own point. The popover is not modal, so that a right click on the area while the menu is open reaches it: the press closes the menu, as any press outside it does (a right click too), and the right click opens it again at the new point. Change what you need in the value returned (Offset; append to Floating, whose first option is the anchor).
 
 ### type Date
 
