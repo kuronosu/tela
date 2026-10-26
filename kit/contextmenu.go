@@ -94,8 +94,10 @@ func (c ContextMenu[K]) Build() tela.Node {
 	// opens counts the openings: the panel is keyed by it, so a right
 	// click that closes the menu and opens it again at another point (in
 	// the same event) mounts a new panel, which takes the focus as any
-	// opening does, while the old one fades out where it was. Without the
-	// key the Presence would bring the exiting panel back as it was.
+	// opening does, while the old one fades out where it was (the anchor
+	// of its last build is its opening's: aria's Anchor). Without the key
+	// the Presence would bring the exiting panel back as it was. A long
+	// press while the menu is open is not an opening: it moves the panel.
 	opens, setOpens := tela.UseState(0)
 	onOpenChange := c.OnOpenChange
 	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{
@@ -110,10 +112,7 @@ func (c ContextMenu[K]) Build() tela.Node {
 		},
 	})
 	pop := cm.PopoverOptions()
-	// The point of this opening, read now, so that an exiting panel stays
-	// at its own point.
-	at := cm.Anchor()
-	pop.Floating = append([]aria.FloatingOption{aria.AnchorRect(func() tela.Rect { return at })}, menuFloating()...)
+	pop.Floating = append(pop.Floating, menuFloating()...)
 	panel := menuPanel[K]{
 		component: "ContextMenu", style: st, items: c.Items, store: store, onSelect: c.OnSelect,
 		popover: pop, menuProps: cm.MenuProps, ref: cm.MenuRef, strategy: cm.FocusStrategy, close: cm.Close,

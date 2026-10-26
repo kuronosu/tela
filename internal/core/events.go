@@ -85,6 +85,9 @@ func (k PointerKind) String() string {
 // event passed to its handlers.
 type eventState struct {
 	stopped, prevented bool
+	// press is the pointer whose long press is being dispatched
+	// (Tree.longPress), for KeepOutsidePress; nil for other events.
+	press *pointerState
 }
 
 func (s *eventState) stop() {

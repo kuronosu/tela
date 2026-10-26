@@ -31,7 +31,9 @@ import (
 // pointerup the release of the last one (chorded buttons, input.go); the
 // contextmenu event of a right click comes after that pointerup, so a
 // right click that closes a context menu can open it again at the new
-// point (package aria's UseContextMenuTrigger). They run
+// point (package aria's UseContextMenuTrigger); a context menu's long
+// press, which comes before the release, takes its menu out of the press
+// with KeepOutsidePress instead. They run
 // before the target's handlers, like listeners in the capture phase of
 // the document, with the event of the dispatch: StopPropagation there
 // keeps the pointerdown (pointerup) from reaching the target's handlers,
@@ -363,6 +365,28 @@ func (t *Tree) outsideUp(ps *pointerState, target *Element, e PointerEvent, st *
 			d.overlay.OnInteractOutside(e)
 		}
 	}
+}
+
+// KeepOutsidePress takes the element r is attached to (and its subtree,
+// and the element holding it) out of the interact-outside press that the
+// long press e belongs to: at the release of that press, its OnEnd and
+// OnInteractOutside do not run. The other listeners the press started
+// outside of still get its release. Reserved for package aria: a context
+// menu's long press that opens or moves the menu while it is open
+// (UseContextMenuTrigger), whose pointerdown was outside the menu, so
+// that its release does not close the menu it has just placed (Radix
+// keeps it open at the new point; a right click does not need this, as
+// its contextmenu event comes after the release). It does nothing for
+// another event than a long press, or when r is not attached.
+func KeepOutsidePress(e PointerEvent, r ElementRef) {
+	keep := r.element()
+	if e.st == nil || e.st.press == nil || keep == nil {
+		return
+	}
+	ps := e.st.press
+	ps.outside = slices.DeleteFunc(ps.outside, func(op outsidePress) bool {
+		return isInside(op.el, keep) || isInside(keep, op.el)
+	})
 }
 
 // escapeOverlay runs the Escape default action: the top overlay's

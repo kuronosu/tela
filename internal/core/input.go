@@ -517,7 +517,8 @@ func (t *Tree) longPress(ps *pointerState, el *Element, ge gesture.Event) {
 	}
 	e := t.pointerEvent(ps, platform.ButtonPrimary)
 	e.X, e.Y = ge.Pos.X, ge.Pos.Y
-	fire(t, evLongPress, el, e, false)
+	// The press rides along, for KeepOutsidePress (overlay.go).
+	dispatchWith(t, evLongPress, el, e, false, true, &eventState{press: ps})
 	t.flushDiscrete()
 }
 

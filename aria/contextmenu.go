@@ -52,12 +52,17 @@ type ContextMenuTriggerResult struct {
 	Open bool
 	// FocusStrategy is where the focus goes when the menu opens:
 	// [FocusFirst] for a key or a long press, "" for the menu itself
-	// (opened with a mouse). Pass it to [MenuOptions].FocusStrategy.
+	// (opened with a mouse); a move of the open menu keeps it. Pass it to
+	// [MenuOptions].FocusStrategy.
 	FocusStrategy string
 	// Anchor returns the virtual rectangle the menu is placed at, in window
 	// coordinates: a point where the pointer was or the area's top-left
 	// corner. It is [AnchorRect]'s argument, for a menu placed with
-	// [UseFloating] instead of [UsePopover].
+	// [UseFloating] instead of [UsePopover]. Each build's Anchor belongs to
+	// the opening that build saw: it follows the menu while it is moved
+	// (a long press or OpenAt while it is open) and keeps its point once
+	// the menu closes, so that a menu exiting in a Presence stays where it
+	// was when the next one opens elsewhere.
 	Anchor func() tela.Rect
 	// OpenAt opens the menu at a point of the window (a click handler of
 	// your own, a "More" button). Close closes it, and a menu closes itself
@@ -71,11 +76,13 @@ type ContextMenuTriggerResult struct {
 
 // PopoverOptions returns the options of [UsePopover] for the menu: anchored
 // at the point the menu was opened with ("bottom-start", flipped and
-// shifted to stay in the window). The popover is not modal, so that a
-// right click on the area while the menu is open reaches it: the press
-// closes the menu, as any press outside it does (a right click too), and
-// the right click opens it again at the new point. Change what you need
-// in the value returned (Offset, Floating).
+// shifted to stay in the window), through [ContextMenuTriggerResult.Anchor],
+// so a menu exiting in a Presence stays at its own point. The popover is
+// not modal, so that a right click on the area while the menu is open
+// reaches it: the press closes the menu, as any press outside it does (a
+// right click too), and the right click opens it again at the new point.
+// Change what you need in the value returned (Offset; append to Floating,
+// whose first option is the anchor).
 func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 	return PopoverOptions{
 		Ref:       r.MenuRef,
@@ -107,13 +114,17 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 // where it was. A right click elsewhere on the area while the menu is
 // open closes it and opens it again at the new point, as a new menu: it
 // takes the focus as when it opens (the right click's contextmenu event
-// comes after the release that closes the menu). A right click in another
-// area with a context menu closes this one and opens that one, and a
-// right click outside every area just closes it. A menu rendered in a
-// Presence (to fade out) comes back as the same element when it opens
-// again while it exits, without taking the focus: give it a new key each
-// time it opens (count the opens in OnOpenChange), as kit's ContextMenu
-// does.
+// comes after the release that closes the menu). A touch or a pen that
+// stays down elsewhere on the area while the menu is open moves the open
+// menu there, and its release does not close it (Radix); a quick tap
+// there closes it, as any press outside does. A right click or a long
+// press in another area with a context menu closes this one and opens
+// that one, and a right click outside every area just closes it. A menu
+// rendered in a Presence (to fade out) comes back as the same element
+// when it opens again while it exits, at the new point and without taking
+// the focus: give it a new key each time it opens (count the opens in
+// OnOpenChange), as kit's ContextMenu does, and the exiting one fades out
+// at its own point while a new one opens and takes the focus.
 //
 //	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
 //	return Fragment(
@@ -138,7 +149,10 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult {
 	open, st := useBoolState(o.Open, false, o.OnOpenChange)
 	strategy, setStrategy := tela.UseState("")
-	pos := tela.UseValue(tela.Rect{})
+	// pos is the point of the menu and the opening it belongs to: a Value,
+	// so that the float pass places the menu in the frame that shows it
+	// and a move while it is open re-places it without a build.
+	pos := tela.UseValue(ctxPoint{})
 	ownArea, ownMenu := tela.UseElementRef(), tela.UseElementRef()
 	ref, menuRef := o.Ref, o.MenuRef
 	if ref == (tela.ElementRef{}) {
@@ -151,8 +165,17 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 		if o.Disabled {
 			return
 		}
-		setStrategy.Set(s)
-		pos.Set(tela.Rect{X: x, Y: y})
+		p := pos.Latest()
+		if !st.cur {
+			// A new opening (a right click elsewhere closed the menu at its
+			// release, before its contextmenu event): an exiting menu keeps
+			// the point of its own. A move of the open menu (a long press
+			// or OpenAt while it is open) keeps the opening and its focus.
+			p.gen++
+			setStrategy.Set(s)
+		}
+		p.at = tela.Rect{X: x, Y: y}
+		pos.Set(p)
 		st.request(true)
 	}
 	ps := []tela.Prop{
@@ -188,8 +211,16 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 		ps = append(ps, core.OnTouchLongPress(func(e tela.PointerEvent) {
 			e.StopPropagation()
 			openAt(e.X, e.Y, FocusFirst)
+			// With the menu open, the pointerdown of this press was outside
+			// it, so its release would close the menu just moved here: the
+			// press is not an interact-outside one for the menu (Radix
+			// keeps it open at the new point). The other overlays it
+			// started outside of, another area's menu among them, still
+			// close at the release.
+			core.KeepOutsidePress(e, menuRef)
 		}))
 	}
+	anchor := openingAnchor(pos)
 	return ContextMenuTriggerResult{
 		TriggerProps: core.MergeProps(ps...),
 		MenuProps: core.MergeProps(h.Ref(menuRef),
@@ -201,11 +232,41 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 			})),
 		Open:          open,
 		FocusStrategy: strategy,
-		Anchor:        pos.Get,
+		Anchor:        anchor,
 		OpenAt:        func(x, y float32) { openAt(x, y, "") },
 		SetOpen:       func(v bool) { st.request(v) },
 		Close:         func() { st.request(false) },
 		Ref:           ref,
 		MenuRef:       menuRef,
+	}
+}
+
+// ctxPoint is the point a context menu is placed at, and the number of
+// the opening it was set by.
+type ctxPoint struct {
+	gen uint64
+	at  tela.Rect
+}
+
+// openingAnchor returns the Anchor of a build of UseContextMenuTrigger:
+// the point of the opening the build saw, which follows the menu while
+// that opening lasts (moved by a long press or OpenAt) and then keeps its
+// last value. A menu in a Presence keyed per opening (kit's ContextMenu)
+// keeps the props of its last build while it exits, and so this Anchor:
+// it fades out where it was, while the next opening's menu is placed at
+// the new point. The read in it is a Get, so the float pass that calls it
+// is redone when the point moves, with no build. Call it on the UI
+// thread.
+func openingAnchor(pos *tela.Value[ctxPoint]) func() tela.Rect {
+	// Latest, not Get: reading the point in the build would build the
+	// component that holds the area (its children are the area) every
+	// time the menu moves.
+	cur := pos.Latest()
+	gen, at := cur.gen, cur.at
+	return func() tela.Rect {
+		if p := pos.Get(); p.gen == gen {
+			at = p.at
+		}
+		return at
 	}
 }
