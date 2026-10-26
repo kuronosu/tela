@@ -973,9 +973,13 @@ func (c *collState[K]) onItemHover(k K, e tela.PointerEvent) {
 // item (for the gap between items, a separator, a disabled item or the
 // outside of the menu) nothing is highlighted, and the focus stays on the
 // menu itself, so the keys still work: ArrowDown goes to the first item,
-// ArrowUp to the last, as on a menu that opened under the mouse.
+// ArrowUp to the last, as on a menu that opened under the mouse. Only the
+// mouse's own movement counts: the leave that a new hit test fires when
+// the menu scrolls under a resting pointer (the keys moved the highlight
+// out of view) is not one, or ArrowDown would start over from the first
+// item; in Radix scrolling fires no pointer events either.
 func (c *collState[K]) onItemLeave(e tela.PointerEvent) {
-	if e.Kind == tela.PointerTouch || !c.within {
+	if e.Kind == tela.PointerTouch || !c.within || core.Rehovered(e) {
 		return
 	}
 	c.clearFocus()

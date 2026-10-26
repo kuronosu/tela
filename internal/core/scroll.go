@@ -1607,8 +1607,8 @@ func (t *Tree) scrollAfterFrame() {
 
 // rehover hit-tests the hovering pointers again after scrolled content
 // moved under them (Chromium's fake mouse move): their hover states and
-// enter and leave events follow the new target. Pressed and captured
-// pointers keep their target.
+// enter and leave events follow the new target, marked as such
+// (Rehovered). Pressed and captured pointers keep their target.
 func (t *Tree) rehover() {
 	for _, ps := range t.in.ptrs {
 		if !ps.inside || ps.key.kind == platform.PointerTouch || ps.buttons != 0 || ps.capture != nil {
@@ -1618,7 +1618,9 @@ func (t *Tree) rehover() {
 		if target != ps.target {
 			ps.target = target
 			t.updateOver(ps, target)
+			t.in.rehover = true
 			t.fireBoundary(ps)
+			t.in.rehover = false
 		}
 		t.hoverBars(ps)
 	}

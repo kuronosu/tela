@@ -169,6 +169,8 @@ type inputState struct {
 	bar barHit
 	// fdrag is the selection dragged in a text field (fieldkeys.go).
 	fdrag *fieldDrag
+	// rehover is set while rehover fires boundary events (Rehovered).
+	rehover bool
 }
 
 // HandlePointer dispatches a platform pointer event (see the comment at
@@ -854,7 +856,7 @@ func (t *Tree) pointerEvent(ps *pointerState, button platform.PointerButton) Poi
 		X: ps.pos.X, Y: ps.pos.Y,
 		Button: MouseButton(button), Buttons: MouseButtons(ps.buttons),
 		Kind: PointerKind(ps.key.kind), PointerID: publicPointerID(ps.key),
-		IsPrimary: ps.primary,
+		IsPrimary: ps.primary, rehover: t.in.rehover,
 	}
 	if ps.buttons != 0 {
 		e.Pressure = 0.5

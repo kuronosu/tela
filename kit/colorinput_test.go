@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
@@ -238,6 +239,135 @@ func TestColorHexFieldKeepsTheDraft(t *testing.T) {
 	// Focused but not typing, the field follows the color.
 	setC.Set(tela.Hex("#00ff00"))
 	app.Expect(hexField, telatest.HasValue("#00ff00"))
+}
+
+// A controlled color is shown everywhere in the frame whose build takes it:
+// the hex field (a bound Value published by the build) and the code on a
+// ColorInput's button (a text of the color) do not wait for another frame.
+// A drag move of a controlled picker builds inside a frame, unlike a click
+// or a key (discrete events build before the frame), so it is the case that
+// lagged: one frame per move showed the old code in the field and on the
+// button.
+func TestColorControlledCodeInTheFrameOfTheChange(t *testing.T) {
+	hexShows := func(app *telatest.App, code string) bool {
+		return strings.Contains(app.AriaSnapshot(), `textbox "Hex": "`+code+`"`)
+	}
+	for _, input := range []bool{false, true} {
+		t.Run(fmt.Sprintf("input=%v", input), func(t *testing.T) {
+			var changed colorLog
+			app := telatest.MountFunc(t, func() tela.Node {
+				c, setC := tela.UseState(indigo)
+				on := func(n tela.Color) { changed.add(n); setC.Set(n) }
+				if input {
+					return h.Div(h.Class("p-4"), kit.ColorInput{Value: &c, OnValueChange: on, Swatches: presets, Props: h.TestID("color-trigger")})
+				}
+				return h.Div(h.Class("p-4"), kit.ColorPicker{Value: &c, OnValueChange: on, Swatches: presets})
+			}, telatest.Theme(kit.Theme()), telatest.NoSettle())
+			if input {
+				app.Click(colorTriggerID)
+			}
+			check := func(what string, st telatest.Stats) {
+				t.Helper()
+				code := hexOf(changed.last(), false)
+				if !hexShows(app, code) {
+					t.Errorf("%s: the hex field does not show %s; the window:\n%s", what, code, app.AriaSnapshot())
+				}
+				if input && app.Count(telatest.ByText(code, telatest.Exact())) != 1 {
+					t.Errorf("%s: the button does not show %s", what, code)
+				}
+				if st.Frames != 1 {
+					t.Errorf("%s: %d frames, want 1: something showed the color a frame late", what, st.Frames)
+				}
+			}
+			app.Hover(telatest.ByRole("button", "#ef4444"))
+			app.MouseDown()
+			check("swatch", app.Measure(func() { app.MouseUp() }))
+			area := app.Bounds(areaGroup)
+			app.MouseMove(at(area, 0.5, 0.5))
+			app.MouseDown()
+			for i := 1; i <= 4; i++ {
+				check(fmt.Sprintf("move %d", i), app.Measure(func() { app.MouseMove(at(area, 0.5-float32(i)*0.05, 0.5+float32(i)*0.05)) }))
+			}
+			app.MouseUp()
+		})
+	}
+}
+
+// A build of the picker while a drag goes on (the build of a resting
+// pointer) keeps the code the field shows: the field writes the color shown
+// now, never an older one.
+func TestColorHexFieldBuildDuringADragKeepsTheCode(t *testing.T) {
+	var changed colorLog
+	app := telatest.MountFunc(t, colorPage(kit.ColorPicker{DefaultValue: new(indigo), OnValueChange: changed.add}),
+		telatest.Theme(kit.Theme()), telatest.NoSettle())
+	hexShows := func(code string) bool {
+		return strings.Contains(app.AriaSnapshot(), `textbox "Hex": "`+code+`"`)
+	}
+	area := app.Bounds(areaGroup)
+	app.MouseMove(at(area, 0.5, 0.5))
+	app.MouseDown()
+	for i := 1; i <= 3; i++ {
+		app.MouseMove(at(area, 0.5-float32(i)*0.05, 0.5+float32(i)*0.05))
+	}
+	st := app.Measure(func() { app.Advance(200 * time.Millisecond) }) // the pointer rests: the picker builds
+	if st.Builds == 0 {
+		t.Fatalf("the resting pointer built nothing")
+	}
+	if code := hexOf(changed.last(), false); !hexShows(code) {
+		t.Errorf("after the build the hex field does not show %s; the window:\n%s", code, app.AriaSnapshot())
+	}
+	app.MouseMove(at(area, 0.1, 0.1))
+	if code := hexOf(changed.last(), false); !hexShows(code) {
+		t.Errorf("after the next move the hex field does not show %s", code)
+	}
+	app.MouseUp()
+}
+
+// The button's accessible name has the code of the last build: an
+// uncontrolled drag does not build per move, so the name keeps the color of
+// the press until the drag ends (or the pointer rests), as the thumbs'
+// aria-valuetext does, and assistive technology is not told every move. The
+// drag's end builds, so the name is current at once; a controlled input
+// builds on every move, so its name is current after each one.
+func TestColorInputTriggerNameAfterTheDrag(t *testing.T) {
+	for _, controlled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("controlled=%v", controlled), func(t *testing.T) {
+			var changed colorLog
+			app := telatest.MountFunc(t, func() tela.Node {
+				c, setC := tela.UseState(indigo)
+				ci := kit.ColorInput{DefaultValue: new(indigo), AriaLabel: "Brand", OnValueChange: changed.add, Props: h.TestID("color-trigger")}
+				if controlled {
+					ci.Value = &c
+					ci.OnValueChange = func(n tela.Color) { changed.add(n); setC.Set(n) }
+				}
+				return h.Div(h.Class("p-4"), ci)
+			}, telatest.Theme(kit.Theme()), telatest.NoSettle())
+			// The snapshot is read at once: Expect would let time pass, and the
+			// build of a resting pointer would hide a name that lags.
+			named := func(code string) bool {
+				return strings.Contains(app.AriaSnapshot(), `button "Brand, `+code+`"`)
+			}
+			app.Click(colorTriggerID)
+			area := app.Bounds(areaGroup)
+			app.MouseMove(at(area, 0.5, 0.5))
+			app.MouseDown()
+			pressed := hexOf(changed.last(), false)
+			for i := 1; i <= 4; i++ {
+				app.MouseMove(at(area, 0.5-float32(i)*0.05, 0.5+float32(i)*0.05))
+				want := pressed
+				if controlled {
+					want = hexOf(changed.last(), false)
+				}
+				if !named(want) {
+					t.Errorf("move %d: the button is not named %q; the window:\n%s", i, "Brand, "+want, app.AriaSnapshot())
+				}
+			}
+			app.MouseUp()
+			if code := hexOf(changed.last(), false); !named(code) {
+				t.Errorf("after the drag the button is not named %q; the window:\n%s", "Brand, "+code, app.AriaSnapshot())
+			}
+		})
+	}
 }
 
 // The button keeps its width while the color changes: Inter is proportional,

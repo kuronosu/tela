@@ -156,8 +156,10 @@ func (s *ColorState) invalidate() {
 	s.bump.Update(func(n int) int { return n + 1 })
 }
 
-// repaint tells the paint-phase readers (the Live methods) that the color
-// changed.
+// repaint tells the readers of the Live methods and the hex fields that
+// the color changed. From an event they follow before the next frame; from
+// a build (sync: a controlled color moved) in the frame of that build,
+// since PublishValue is the direct store in a build.
 func (s *ColorState) repaint() {
 	s.ver++
 	core.PublishValue(s.version, s.ver)

@@ -82,6 +82,9 @@ func UseColorField(o ColorFieldOptions) ColorFieldResult {
 	// The text lives in a Value the input is bound to, so a drag elsewhere
 	// changes it without a build: the state tells the field when its color
 	// moves (follow), and the field shows it unless the user is editing it.
+	// Published in a build, the text is the field's in the frame of this
+	// build (PublishValue is then the direct store), so a controlled color
+	// changed inside a frame (a drag move the caller stores) shows at once.
 	f.text = tela.UseValue(FormatHexColor(f.st.Color(), o.Alpha))
 	text := f.shownText()
 	core.PublishValue(f.text, text)
@@ -132,12 +135,18 @@ type colorFieldState struct {
 	text *tela.Value[string]
 }
 
-// shownText is the text the field shows as of this build.
+// shownText is the text the field shows: the draft while the user edits
+// it, else the code of the color shown now. That is the live color, as in
+// follow, and not the color of the last build (ColorState.Color): in a
+// build the two are the same (the state's build has just synced it), but
+// an event between builds (a paste the field puts back while a second
+// pointer drags the area) must not bring back the color the drag started
+// from.
 func (f *colorFieldState) shownText() string {
 	if f.editing {
 		return f.draft
 	}
-	return FormatHexColor(f.st.Color(), f.o.Alpha)
+	return FormatHexColor(f.st.shown.Color(), f.o.Alpha)
 }
 
 // follow shows the color as it is now, between builds, unless the user is
@@ -146,7 +155,7 @@ func (f *colorFieldState) follow() {
 	if f.editing || f.text == nil {
 		return
 	}
-	core.PublishValue(f.text, FormatHexColor(f.st.shown.Color(), f.o.Alpha))
+	core.PublishValue(f.text, f.shownText())
 }
 
 func (f *colorFieldState) invalidate() {

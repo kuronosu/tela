@@ -309,6 +309,36 @@ func TestMenuMouseLeavingAnItemClearsTheHighlight(t *testing.T) {
 	app.ExpectFocused(menuitem("Delete"))
 }
 
+// TestMenuKeysScrollUnderARestingMouse: the keys scroll a long menu under
+// a mouse that does not move. The leave that the new hit test fires for
+// the item that scrolled away is not the mouse leaving: the highlight
+// stays on the item the keys reached and ArrowDown goes on from it. A real
+// move out of the menu still clears it.
+func TestMenuKeysScrollUnderARestingMouse(t *testing.T) {
+	keys := make([]string, 20)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("Item %02d", i)
+	}
+	app := telatest.MountFunc(t, func() tela.Node {
+		menu := aria.UseMenu(aria.MenuOptions[string]{Keys: keys, TextValue: func(s string) string { return s }, AriaLabel: "Long"})
+		return Div(Class("p-4"),
+			Div(menu.Props, Class("h-40 w-40 overflow-y-auto"),
+				Range(len(keys), func(i int) tela.Node {
+					return Div(menu.ItemProps(keys[i]), Key(keys[i]), Class("h-8 px-2"), Text(keys[i]))
+				})))
+	}, telatest.Size(300, 300))
+	app.Hover(menuitem("Item 02"))
+	app.ExpectFocused(menuitem("Item 02"))
+	for i := 3; i < 12; i++ { // the menu shows five items: from Item 05 on, every key scrolls
+		app.Press("ArrowDown")
+		app.ExpectFocused(menuitem(keys[i]))
+	}
+	app.MouseMove(250, 250)
+	app.ExpectFocused(telatest.ByRole("menu", "Long"))
+	app.Press("ArrowDown")
+	app.ExpectFocused(menuitem("Item 00"))
+}
+
 // TestMenuReopensWithTheRightItem: opened with the mouse nothing is
 // highlighted, whatever the last use of the menu was; opened with the
 // keyboard (Enter, Space or ArrowDown on the trigger) the first item is.

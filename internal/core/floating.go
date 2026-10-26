@@ -708,8 +708,12 @@ func minDim(d layout.Dim, v, basis float32) layout.Dim {
 // before anything is painted; what a Place function publishes is read by
 // builds, layout-phase readers and texts in the same frame (the frame runs
 // again before it is shown), the Values published by other code in the
-// next frame. Outside a frame it is the UI thread's direct store (all
-// readers follow in the next frame). Queued
+// next frame. Outside a frame, and in a component build (in a frame or
+// not), it is the UI thread's direct store: every reader is invalidated at
+// once, so the phases still to come read the value (in a frame's build,
+// the rest of the build phase, the styles, layout, texts, the text fields
+// bound to v and paint; a controlled color picker's hex field and code
+// change in the frame whose build changed the color, ADR-162). Queued
 // Set and Update calls of v still apply after it; a comparable value
 // == to the current one changes nothing. Call it on the UI thread only.
 func PublishValue[T any](v *Value[T], x T) {
@@ -720,7 +724,7 @@ func PublishValue[T any](v *Value[T], x T) {
 	}
 	p := new(T)
 	*p = x
-	if !t.inFrame {
+	if !t.inFrame || (current != nil && current.tree == t) {
 		v.store(p)
 		return
 	}

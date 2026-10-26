@@ -169,7 +169,17 @@ type PointerEvent struct {
 	IsPrimary bool
 
 	st *eventState
+	// rehover marks the enter and leave events of a new hit test after
+	// scrolled content moved under a pointer that did not move (rehover).
+	rehover bool
 }
+
+// Rehovered reports whether e is an enter or leave event that a new hit
+// test fired because scrolled content moved under a resting pointer
+// (Chromium's fake mouse move, ADR-057), not because the pointer moved.
+// Package aria uses it so that a menu scrolled by the keyboard under the
+// mouse keeps its highlight (ADR-164).
+func Rehovered(e PointerEvent) bool { return e.rehover }
 
 // StopPropagation stops the event from bubbling (see MouseEvent).
 func (e PointerEvent) StopPropagation() { e.st.stop() }
