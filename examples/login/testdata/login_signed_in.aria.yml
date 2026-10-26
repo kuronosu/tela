@@ -1,0 +1,9 @@
+- text: Tela
+- status:
+  - heading "You're signed in" [level=1]
+  - paragraph: Welcome back, mei@example.com.
+  - button "Sign out"
+- text: Pure Go. One binary.
+- heading "Desktop apps, woven from one codebase." [level=2]
+- paragraph: “We replaced three desktop codebases with one Go program, and it looks better than the web app did.”
+- text: PR Priya Raman Staff engineer, Northwind

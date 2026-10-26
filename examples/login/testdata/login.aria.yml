@@ -1,0 +1,26 @@
+- text: Tela
+- heading "Welcome back" [level=1]
+- paragraph: Sign in to your account to continue.
+- group:
+  - text: E-mail
+  - textbox "E-mail"
+- group:
+  - text: Password
+  - textbox "Password"
+  - button "Show password"
+- group:
+  - checkbox "Remember me"
+  - text: Remember me
+- button "Forgot password?"
+- button "Sign in"
+- text: Or continue with
+- button "Passkey"
+- button "Magic link"
+- button "SSO"
+- paragraph:
+  - text: Don't have an account?
+  - button "Sign up"
+- text: Pure Go. One binary.
+- heading "Desktop apps, woven from one codebase." [level=2]
+- paragraph: “We replaced three desktop codebases with one Go program, and it looks better than the web app did.”
+- text: PR Priya Raman Staff engineer, Northwind
