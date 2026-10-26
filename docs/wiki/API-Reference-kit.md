@@ -42,11 +42,14 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type DialogStyle`](#type-dialogstyle)
   - [`type DropdownMenu`](#type-dropdownmenu): [`Build`](#func-dropdownmenuk-build)
   - [`type Field`](#type-field): [`Build`](#func-field-build)
+  - [`type FieldSet`](#type-fieldset): [`Build`](#func-fieldset-build)
+  - [`type FieldSetStyle`](#type-fieldsetstyle)
   - [`type FieldStyle`](#type-fieldstyle)
   - [`type Input`](#type-input): [`Build`](#func-input-build)
   - [`type InputStyle`](#type-inputstyle)
   - [`type Label`](#type-label): [`Build`](#func-label-build)
   - [`type LabelStyle`](#type-labelstyle)
+  - [`type LegendVariant`](#type-legendvariant)
   - [`type MenuItem`](#type-menuitem)
   - [`type MenuKind`](#type-menukind)
   - [`type MenuStyle`](#type-menustyle)
@@ -170,7 +173,7 @@ kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", TitleLevel: 2, 
 
 ### What is there
 
-Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog, Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and the controls that choose: Checkbox, Switch, RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and Progress; and the dates: Calendar, RangeCalendar, DatePicker and DateRangePicker. A [`ColorPicker`](#type-colorpicker) chooses a [`tela.Color`](API-Reference-tela#type-color) with an area for the saturation and brightness, a hue slider, an optional alpha slider, a hex field and optional swatches; a [`ColorInput`](#type-colorinput) is the same behind a button that shows the color (the look of both is the kit's own, shadcn/ui has no color picker):
+Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog, Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and the controls that choose: Checkbox, Switch, RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and Progress; and the dates: Calendar, RangeCalendar, DatePicker and DateRangePicker. A [`ColorPicker`](#type-colorpicker) chooses a [`tela.Color`](API-Reference-tela#type-color) with an area for the saturation and brightness, a hue slider, an optional alpha slider, a hex field and optional swatches; a [`ColorInput`](#type-colorinput) is the same behind a button that shows the color (the look of both is the kit's own, shadcn/ui has no color picker):
 
 ```go
 kit.ColorPicker{Value: &color, OnValueChange: setColor.Set, Alpha: true,
@@ -201,6 +204,12 @@ A [`Field`](#type-field) is the usual way to put a label, a control, help text a
 ```go
 kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
     Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
+```
+
+A horizontal Field puts the control first; ControlAfter puts it after the text, as in a row of switches. A [`FieldSet`](#type-fieldset) captions a group of controls with a legend and names a RadioGroup or ToggleGroup inside it:
+
+```go
+kit.FieldSet{Legend: "Theme", Children: kit.RadioGroup[string]{Items: themes}}
 ```
 
 ### Right to left
@@ -1943,6 +1952,14 @@ type Field struct {
     Invalid bool
     // Orientation is Vertical (the zero value) or Horizontal.
     Orientation Orientation
+    // ControlAfter puts the control after the label and the description, as
+    // in shadcn's switch rows (FieldContent first, then the Switch). It only
+    // affects a Horizontal field: a Vertical one is always the label, the
+    // control, the description and the error. The DOM order, and so the
+    // reading order of a screen reader, is the visual one; the label still
+    // points to the control, and the error and the invalid state still reach
+    // it.
+    ControlAfter bool
     // Children is the control.
     Children tela.Component
 
@@ -1971,6 +1988,21 @@ kit.Field{
 
 The error shows as an alert below the control, and the field is invalid while it shows one: the control is marked h.AriaInvalid (a red border and ring from the recipe's aria-invalid: classes) and the label turns red.
 
+A Horizontal field puts the control before its text, as shadcn does for a checkbox or a radio. A switch row has the text first: set ControlAfter.
+
+```go
+kit.Field{
+    Orientation:  kit.Horizontal,
+    ControlAfter: true,
+    Label:        "Marketing emails",
+    Description:  "News about new features and offers.",
+    Class:        "items-center gap-6",
+    Children:     kit.Switch{Checked: &on, OnCheckedChange: setOn.Set},
+}
+```
+
+To name a group of controls (a [`RadioGroup`](#type-radiogroup), a [`ToggleGroup`](#type-togglegroup)) use a [`FieldSet`](#type-fieldset) and its legend: a Field's label points to one control.
+
 **Example**
 
 ```go
@@ -1991,6 +2023,111 @@ func (f Field) Build() tela.Node
 
 Build returns the field element: a group holding the label, the control, the description and the error.
 
+### type FieldSet
+
+```go
+type FieldSet struct {
+    // Legend is the caption of the group, plain text; empty draws none.
+    Legend string
+    // LegendVariant is [LegendVariantLegend] (the zero value, a title) or
+    // [LegendVariantLabel] (a caption the size of a field's label).
+    LegendVariant LegendVariant
+    // Description is help text under the legend; empty draws none.
+    Description string
+    // Children are the controls, laid out in a column.
+    Children tela.Component
+
+    // Class is added after the recipe's Root classes. The other Class
+    // fields do the same for their part; ContentClass is for the column of
+    // the description and the children (set its gap here).
+    Class            string
+    LegendClass      string
+    DescriptionClass string
+    ContentClass     string
+    // Props are more props for the root element.
+    Props tela.Child
+}
+```
+
+FieldSet is a group of controls with a caption, shadcn/ui's FieldSet with its FieldLegend and FieldDescription. It is a group (role "group") named by the legend and described by the description. A [`RadioGroup`](#type-radiogroup) or a [`ToggleGroup`](#type-togglegroup) inside it takes its name from the legend, so it needs no AriaLabel and no [`Label`](#type-label) that points at nothing; a group of its own AriaLabel keeps it.
+
+```go
+kit.FieldSet{
+    Legend:        "Theme",
+    LegendVariant: kit.LegendVariantLabel,
+    Description:   "Pick how the app looks.", // optional
+    Children: kit.RadioGroup[string]{Items: themes, Value: &theme, OnValueChange: setTheme.Set},
+}
+```
+
+The children are laid out in a column with a gap of 24 px (12 px for a RadioGroup given directly as Children, as in shadcn). Give several as h.Fragment, such as a few \[Field\]s:
+
+```go
+kit.FieldSet{Legend: "Address", Description: "Where we send the invoice.",
+    Children: h.Fragment(
+        kit.Field{Label: "Street", Children: kit.Input{}},
+        kit.Field{Label: "City", Children: kit.Input{}})}
+```
+
+shadcn's FieldGroup, the column that stacks fields with a 28 px gap, has no component: a FieldSet is already a column, and for any other place h.Div(h.Class("flex w-full flex-col gap-7"), ...) is the same.
+
+The legend is a block above the children whose margin (mb-3) separates it from them; the description is pulled up under a legend of the default variant (-mt-1.5). shadcn's nth-last-2:-mt-1, which pulls a description that has exactly one item after it, is not applied to the label variant: add -mt-1 to DescriptionClass for it.
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+plan := "free"
+page := func() tela.Node {
+    return h.Div(h.Class("p-6"),
+        kit.FieldSet{Legend: "Plan", LegendVariant: kit.LegendVariantLabel,
+            Children: kit.RadioGroup[string]{Items: plans, Value: &plan, OnValueChange: func(k string) { plan = k }}})
+}
+app := telatest.MountFunc(t, page)
+app.Click(telatest.ByRole("radio", "Pro"))
+fmt.Println("plan", plan)
+// Output: plan pro
+```
+
+#### func (FieldSet) Build
+
+```go
+func (f FieldSet) Build() tela.Node
+```
+
+Build returns the group element: the legend, then the description and the children in a column.
+
+### type FieldSetStyle
+
+```go
+type FieldSetStyle struct {
+    // Root is the group: the legend and, under it, the column of parts. A
+    // fieldset is a block, and its legend is not one of the column's items,
+    // so the legend's margin alone separates the two (as in a browser).
+    Root string
+    // Content is the column that holds the description and the children
+    // (shadcn's fieldset: flex flex-col gap-6).
+    Content string
+    // ContentWithRadioGroup is added to Content when the children are a
+    // [RadioGroup] (shadcn's has-[>[data-slot=radio-group]]:gap-3).
+    ContentWithRadioGroup string
+    // Legend is the legend's classes. It has w-fit because a browser's
+    // legend is as wide as its text.
+    Legend string
+    // LegendVariants are the sizes of the legend.
+    LegendVariants map[LegendVariant]string
+    // Description is the help text under the legend.
+    Description string
+    // DescriptionAfterLegend is added to Description for each legend
+    // variant that pulls the description up under it (shadcn's
+    // [[data-variant=legend]+&]:-mt-1.5, which only the legend variant has).
+    DescriptionAfterLegend map[LegendVariant]string
+}
+```
+
+FieldSetStyle is the recipe of [`FieldSet`](#type-fieldset) (shadcn/ui's FieldSet, FieldLegend and FieldDescription).
+
 ### type FieldStyle
 
 ```go
@@ -1998,7 +2135,7 @@ type FieldStyle struct {
     Root string
     // Orientations are the arrangement of the control and its text:
     // Vertical (the label above the control) and Horizontal (the control
-    // first, then the text).
+    // first, then the text; the text first with Field.ControlAfter).
     Orientations map[Orientation]string
     // HorizontalWithContent is added to Root when a Horizontal field has a
     // Content part (shadcn's has-[>[data-slot=field-content]]:).
@@ -2143,6 +2280,25 @@ type LabelStyle struct {
 ```
 
 LabelStyle is the recipe of [`Label`](#type-label) (shadcn/ui's Label).
+
+### type LegendVariant
+
+```go
+type LegendVariant string
+```
+
+LegendVariant is the look of a [`FieldSet`](#type-fieldset)'s legend (shadcn's FieldLegend variant): the size of its text. Like [`Variant`](#type-variant) it is open: an app adds a variant by naming it in the recipe's LegendVariants map.
+
+```go
+const (
+    // LegendVariantLegend is the default: a title, text-base. The zero
+    // value is the same variant.
+    LegendVariantLegend LegendVariant = "legend"
+    // LegendVariantLabel is a caption for a group of controls, text-sm, as
+    // a [Field]'s label is.
+    LegendVariantLabel LegendVariant = "label"
+)
+```
 
 ### type MenuItem
 
@@ -2656,7 +2812,7 @@ type RadioGroup[K comparable] struct {
     // Invalid marks the group wrong: the circles take the invalid look. A
     // [Field] with an Error sets it.
     Invalid bool
-    // AriaLabel names the group.
+    // AriaLabel names the group; without it a [FieldSet]'s legend does.
     AriaLabel string
     // Render draws one option in place of the default (circle, label and
     // description); see [RadioState]. It runs while the group builds.
@@ -2697,7 +2853,7 @@ kit.RadioGroup[string]{AriaLabel: "Theme", DefaultValue: new("light"), Orientati
     }}
 ```
 
-Inside a [`Field`](#type-field) the group takes the field's description and invalid state; name it with AriaLabel.
+Inside a [`Field`](#type-field) the group takes the field's description and invalid state. Name it with AriaLabel, or put it in a [`FieldSet`](#type-fieldset) whose Legend names it.
 
 **Example**
 
@@ -3360,6 +3516,7 @@ type Style struct {
     Dialog       DialogStyle
     DropdownMenu MenuStyle
     Field        FieldStyle
+    FieldSet     FieldSetStyle
     Input        InputStyle
     Label        LabelStyle
     Menubar      MenubarStyle
@@ -4432,7 +4589,7 @@ type ToggleGroup[K comparable] struct {
     Direction string
     // Disabled disables every item.
     Disabled bool
-    // AriaLabel names the group.
+    // AriaLabel names the group; without it a [FieldSet]'s legend does.
     AriaLabel string
     // Class is added after the recipe's classes; ItemClass is added to every
     // item.

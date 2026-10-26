@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -163,7 +163,7 @@ Hooks keep state and run code across builds, with React's names and semantics:
 
 - [`UseState`](#func-usestate) (and [`UseStateSet`](#func-usestateset), [`UseStateUpdate`](#func-usestateupdate)) and [`UseReducer`](#func-usereducer) hold state; their [`Setter`](#type-setter) and [`Dispatcher`](#type-dispatcher) are comparable, stable and safe from any goroutine.
 - [`UseEffect`](#func-useeffect) runs code after the frame is presented and [`UseLayoutEffect`](#func-uselayouteffect) after layout, with cleanups, when their dependencies change; [`UseMount`](#func-usemount) runs once, on mount (with its cleanup on unmount), [`UseEffectDo`](#func-useeffectdo) has no cleanup and [`UseUpdateEffect`](#func-useupdateeffect) skips the first build.
-- [`UseInterval`](#func-useinterval) calls a function every period on the UI thread, and [`UseGo`](#func-usego) runs a function on its own goroutine with a context that is cancelled when its dependencies change or the component unmounts.
+- [`UseInterval`](#func-useinterval) calls a function every period on the UI thread, [`UseTimeout`](#func-usetimeout) once after a delay, and [`UseGo`](#func-usego) runs a function on its own goroutine with a context that is cancelled when its dependencies change or the component unmounts.
 - [`UseMemo`](#func-usememo) caches a computation and [`UseOnce`](#func-useonce) computes a value once; [`UseCallback`](#func-usecallback) gives a stable [`Callback`](#type-callback) that always calls the latest function; [`UseRef`](#func-useref) keeps a mutable box.
 - [`CreateContext`](#func-createcontext) and [`UseContext`](#func-usecontext) pass values down the tree.
 - [`UseID`](#func-useid) gives a stable unique ID.
@@ -995,6 +995,43 @@ UseStateUpdate is [`UseState`](#func-usestate) for those who only update from th
 ```go
 count, update := tela.UseStateUpdate(0)
 update(func(n int) int { return n + 1 })
+```
+
+### func UseTimeout
+
+```go
+func UseTimeout(d time.Duration, f func(), deps ...any)
+```
+
+UseTimeout calls f once on the UI thread, d after the frame that first shows the component: the one-shot sibling of [`UseInterval`](#func-useinterval), on the same frame clock with no goroutine (telatest's App.Advance moves it, and a headless Render never runs it). An idle timeout costs one timer, and none once it has fired.
+
+d \<= 0 cancels it. A change of d or of the dependencies (compared like [`UseEffect`](#func-useeffect)'s) restarts it from the frame that shows the change, even after it fired; with the same d and no dependencies it fires once per mount. f is always the latest build's function, so it sees the latest state without being a dependency. Unmounting cancels it.
+
+Hide a notice 3 s after it appears, restarting when the message changes:
+
+```go
+tela.UseTimeout(3*time.Second, func() { setVisible.Set(false) }, message)
+```
+
+**Example**
+
+```go
+t := &exampleT{}
+defer t.close()
+banner := func() tela.Node {
+    visible, setVisible := tela.UseState(true)
+    // Hide the notice 3 s after it appears.
+    tela.UseTimeout(3*time.Second, func() { setVisible.Set(false) })
+    return Div(If(visible, P(Text("Saved"))), P(Text("Done")))
+}
+app := telatest.Mount(t, tela.C(banner))
+app.Advance(2 * time.Second)
+fmt.Println(app.Count(telatest.ByText("Saved")))
+app.Advance(2 * time.Second) // the timeout runs on the app's clock
+fmt.Println(app.Count(telatest.ByText("Saved")))
+// Output:
+// 1
+// 0
 ```
 
 ### func UseUpdateEffect

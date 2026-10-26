@@ -78,11 +78,11 @@ func fieldPage() tela.Node {
 						{Value: "design", Label: "Design"}, {Value: "eng", Label: "Engineering"}, {Value: "ops", Label: "Operations"}}}},
 				kit.Field{Label: "Bio", Children: kit.Textarea{Placeholder: "Tell us a little about yourself", Rows: 3}},
 			)),
-		demo("Horizontal", "Orientation Horizontal puts the label beside a checkbox; flex-row-reverse puts the control after the text.", col,
+		demo("Horizontal", "Orientation Horizontal puts the label beside a checkbox; ControlAfter puts the control after the text.", col,
 			Div(Class("flex w-full max-w-sm flex-col gap-5"),
 				kit.Field{Orientation: kit.Horizontal, Label: "Remember me", Description: "Stay signed in on this device.",
 					Children: kit.Checkbox{DefaultChecked: true}},
-				kit.Field{Orientation: kit.Horizontal, Class: "flex-row-reverse items-center justify-between", Label: "Marketing emails",
+				kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Class: "items-center", Label: "Marketing emails",
 					Description: "News about the product, once a month.", Children: kit.Switch{}},
 			)),
 		demo("Invalid with no message", "Invalid marks the control and the label when the message is shown somewhere else.", col,
@@ -90,5 +90,29 @@ func fieldPage() tela.Node {
 				Children: kit.Input{DefaultValue: "mei tanaka"}},
 			kit.Field{Class: "max-w-sm", Label: "Password", Error: "Use at least 8 characters.",
 				Children: kit.Input{Type: "password", DefaultValue: "short"}}),
+	)
+}
+
+func fieldSetPage() tela.Node {
+	plan, setPlan := tela.UseState("pro")
+	return grid(
+		demo("Fields under a legend", "A FieldSet groups fields under a legend and a description; the group is named by the legend.", col,
+			kit.FieldSet{Class: "max-w-sm", Legend: "Address", Description: "Where we send your invoices.",
+				Children: Fragment(
+					kit.Field{Label: "Street", Children: kit.Input{Placeholder: "123 Main St"}},
+					kit.Field{Label: "City", Children: kit.Input{Placeholder: "Springfield"}},
+				)}),
+		demo("A radio group", "A RadioGroup or ToggleGroup in a FieldSet takes its name from the legend: no AriaLabel needed.", col,
+			kit.FieldSet{Class: "max-w-sm", Legend: "Plan", Description: "Choose how you are billed.",
+				Children: kit.RadioGroup[string]{Value: &plan, OnValueChange: setPlan.Set, Items: []kit.RadioItem[string]{
+					{Value: "free", Label: "Free"}, {Value: "pro", Label: "Pro"}, {Value: "team", Label: "Team"}}}}),
+		demo("Label variant", "LegendVariantLabel draws the legend the size of a field's label, for a group of settings rows.", col,
+			kit.FieldSet{Class: "max-w-sm", Legend: "Notifications", LegendVariant: kit.LegendVariantLabel,
+				Children: Fragment(
+					kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Class: "items-center", Label: "Push notifications",
+						Children: kit.Switch{DefaultChecked: true}},
+					kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Class: "items-center", Label: "Email digest",
+						Description: "Once a week.", Children: kit.Switch{}},
+				)}),
 	)
 }

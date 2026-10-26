@@ -206,6 +206,8 @@ func TestExportedNames(t *testing.T) {
 		"AriaDescribedBy",
 		// ADR-131: aria-invalid and aria-sort.
 		"AriaInvalid", "AriaSort",
+		// ADR-171: aria-current.
+		"AriaCurrent",
 	}
 	fset := token.NewFileSet()
 	var got []string

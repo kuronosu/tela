@@ -12,6 +12,13 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- `telatest`: `Right()` makes `Click` and `ClickAt` use the secondary button (Playwright's `button: 'right'`), so a test opens a context menu with `app.Click(area, telatest.Right())`; `app.Tap(loc)` taps with a touch pointer and `app.LongPress(loc)` holds a touch past the long-press threshold (ADR-170).
+- `tela.UseTimeout(d, f, deps...)` calls `f` once, `d` after the frame that shows the component, on the frame clock like `UseInterval`; a new `d` or new dependencies restart it, `d <= 0` cancels it (ADR-171).
+- `h.AriaCurrent("page")` (`page`, `step`, `location`, `date`, `time`, `true`), the `aria-[current=page]:` class variant and `telatest.Current(value)` for `Expect`; like Playwright, the aria snapshot does not print it (ADR-171).
+- `kit.Field.ControlAfter` puts the control after the label and description of a horizontal field, as shadcn's switch rows do, and `kit.FieldSet` (shadcn's FieldSet and FieldLegend, with `LegendVariant` `legend` or `label`) groups fields under a legend that names a `RadioGroup` or `ToggleGroup` inside it. `examples/settings` uses both; its pixels are unchanged (ADR-172).
+
 ## [0.10.4] - 2026-10-26
 
 ### Changed

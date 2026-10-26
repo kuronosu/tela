@@ -87,7 +87,7 @@ func switchPage() tela.Node {
 				kit.Switch{ID: "wifi", Checked: &wifi, OnCheckedChange: setWifi.Set},
 				kit.Label{For: "wifi", Children: Text("Wi-Fi")}),
 			readout(map[bool]string{true: "Connected to Home-5G", false: "Not connected"}[wifi])),
-		demo("Settings rows", "A Field with flex-row-reverse puts the switch at the end of the row.", col,
+		demo("Settings rows", "A horizontal Field with ControlAfter puts the switch at the end of the row.", col,
 			kit.Card{Class: "w-full max-w-md", TitleLevel: 2, Title: Text("Notifications"), Description: Text("Choose what you want to be told about."),
 				Children: Div(Class("flex flex-col gap-5"),
 					switchRow("Comments", "When someone replies to you.", true),
@@ -98,7 +98,7 @@ func switchPage() tela.Node {
 
 func switchRow(title, hint string, on bool) tela.Node {
 	return Fragment(kit.Field{Props: Key(title), Orientation: kit.Horizontal, Label: title, Description: hint,
-		Class: "flex-row-reverse items-center justify-between", Children: kit.Switch{DefaultChecked: on}})
+		ControlAfter: true, Class: "items-center", Children: kit.Switch{DefaultChecked: on}})
 }
 
 func radioGroupPage() tela.Node {

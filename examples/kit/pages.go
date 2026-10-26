@@ -20,6 +20,7 @@ var pages = []page{
 	{"Dialog", "Dialog", "kit.Dialog", "A modal window over the page: a trigger, a title, a description, content and a footer.", tela.C(dialogPage)},
 	{"DropdownMenu", "Dropdown Menu", "kit.DropdownMenu[K]", "A menu of actions that opens from a button.", tela.C(dropdownMenuPage)},
 	{"Field", "Field", "kit.Field", "A control with its label, help text and error, tied together so the label names the control.", tela.C(fieldPage)},
+	{"FieldSet", "Field Set", "kit.FieldSet", "A group of fields under a legend, which names the group and a radio or toggle group inside it.", tela.C(fieldSetPage)},
 	{"Input", "Input", "kit.Input", "A single-line text field, controlled or not.", tela.C(inputPage)},
 	{"Label", "Label", "kit.Label", "The caption of a form control. Clicking it focuses the control it names.", tela.C(labelPage)},
 	{"Menubar", "Menubar", "kit.Menubar[K]", "A row of menus, such as the File, Edit and View of an application.", tela.C(menubarPage)},

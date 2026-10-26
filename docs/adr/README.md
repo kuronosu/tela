@@ -174,3 +174,6 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [167](167-any-mouse-button-dismisses-an-overlay.md) | 2026-10-25 | Any mouse button dismisses an overlay; a context menu's long press is touch and pen only |  |
 | [168](168-focus-after-the-focused-element-of-a-containing-scope-unmounts.md) | 2026-10-25 | Focus after the focused element of a containing scope unmounts |  |
 | [169](169-invalid-skips-fields-barred-from-constraint-validation.md) | 2026-10-25 | `invalid:` skips fields barred from constraint validation |  |
+| [170](170-telatest-right-click-tap-and-long-press.md) | 2026-10-26 | `telatest` right click, tap and long press |  |
+| [171](171-tela-usetimeout-and-h-ariacurrent.md) | 2026-10-26 | `tela.UseTimeout` and `h.AriaCurrent` |  |
+| [172](172-kit-field-control-after-and-fieldset.md) | 2026-10-26 | `kit.Field` ControlAfter and `kit.FieldSet` |  |

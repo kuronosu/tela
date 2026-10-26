@@ -12,16 +12,16 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`FromApp`](#func-fromapp) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`FromApp`](#func-fromapp) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
-  - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`LongPress`](#func-app-longpress) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
+  - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`Right`](#func-right)
   - [`type DragOption`](#type-dragoption): [`Steps`](#func-steps)
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
   - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FromApp`](#func-fromapp) · [`InstantScroll`](#func-instantscroll) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout)
-  - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
+  - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
 
@@ -44,7 +44,7 @@ func TestCounter(t *testing.T) {
 
 ### Actions and auto-wait
 
-[`App.Click`](#func-app-click), [`App.DoubleClick`](#func-app-doubleclick), [`App.Hover`](#func-app-hover), [`App.Focus`](#func-app-focus), [`App.Scroll`](#func-app-scroll), [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby), [`App.Press`](#func-app-press), [`App.Type`](#func-app-type) and [`App.Fill`](#func-app-fill) act like a user. The pointer actions move the pointer to the element's center and send pointer events through hit-testing and the gesture arena (hover and :active states, focus on press, click counts, drags). The keyboard actions send key events to the focused element (typing into a focused text field; Fill replaces a field's value like Playwright's fill).
+[`App.Click`](#func-app-click) (with [`Right`](#func-right) for the secondary button and [`Delay`](#func-delay) for a held one), [`App.DoubleClick`](#func-app-doubleclick), [`App.Tap`](#func-app-tap), [`App.LongPress`](#func-app-longpress), [`App.Hover`](#func-app-hover), [`App.Focus`](#func-app-focus), [`App.Scroll`](#func-app-scroll), [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby), [`App.Press`](#func-app-press), [`App.Type`](#func-app-type) and [`App.Fill`](#func-app-fill) act like a user. The pointer actions move the pointer to the element's center and send pointer events through hit-testing and the gesture arena (hover and :active states, focus on press, click counts, drags); Tap and LongPress use a touch pointer. The keyboard actions send key events to the focused element (typing into a focused text field; Fill replaces a field's value like Playwright's fill).
 
 Before acting, an action waits until the element is visible, enabled, in view and not covered by another element. Before and after, the app is settled: pending state updates are applied and frames run, advancing the app's clock to each one, until nothing is dirty and no animation or scroll fling is running: transitions (hover:, focus:, dark: changes with transition classes) and finite animations run to their end, so a screenshot after an action shows the settled state. Infinite animations (animate-spin, animate-pulse) are never waited for, and use [`App.Advance`](#func-app-advance) to step them. An app that never goes quiet otherwise (a goroutine that updates state all the time) is not waited for either: the first time it is logged, and actions then run only a few frames. Both are decided in app time ([`Timeout`](#func-timeout) of it), so a slow machine never cuts a finite animation short.
 
@@ -315,7 +315,7 @@ if r.Width < 80 { t.Errorf("the button is %gpx wide", r.Width) }
 func (a *App) Click(l Locator, opts ...ClickOption)
 ```
 
-Click moves the pointer to the center of the element l locates, presses the primary button and releases it: real pointer events (hover, :active, focus on press, the gesture arena and the click), not a call to the handler. Each Click is a first click (ClickCount 1) even right after another, as in Playwright; use [`App.DoubleClick`](#func-app-doubleclick) for two. It waits for the element to be visible, enabled, in view and not covered by another element, and fails the test when l matches none or several.
+Click moves the pointer to the center of the element l locates, presses the primary button and releases it: real pointer events (hover, :active, focus on press, the gesture arena and the click), not a call to the handler. Each Click is a first click (ClickCount 1) even right after another, as in Playwright; use [`App.DoubleClick`](#func-app-doubleclick) for two. It waits for the element to be visible, enabled, in view and not covered by another element, and fails the test when l matches none or several. With [`Right`](#func-right) it presses the secondary button instead (the element's OnContextMenu runs, not its OnClick); [`App.Tap`](#func-app-tap) and [`App.LongPress`](#func-app-longpress) are the touch counterparts.
 
 #### func (*App) ClickAt
 
@@ -323,11 +323,12 @@ Click moves the pointer to the center of the element l locates, presses the prim
 func (a *App) ClickAt(x, y float32, opts ...ClickOption)
 ```
 
-ClickAt clicks at the point (x, y) of the window, in logical pixels from its top-left corner, with the same real pointer events as [`App.Click`](#func-app-click) (hover, :active, focus on press, the gesture arena and the click) but without looking for an element: whatever is under the point receives them, like a user clicking there. It is for what a locator cannot name (a canvas, a chart, a drop zone found with [`App.Bounds`](#func-app-bounds)) and fails the test when the point is outside the window.
+ClickAt clicks at the point (x, y) of the window, in logical pixels from its top-left corner, with the same real pointer events as [`App.Click`](#func-app-click) (hover, :active, focus on press, the gesture arena and the click) but without looking for an element: whatever is under the point receives them, like a user clicking there. It is for what a locator cannot name (a canvas, a chart, a drop zone found with [`App.Bounds`](#func-app-bounds)) and fails the test when the point is outside the window. [`Right`](#func-right) clicks with the secondary button, to open a context menu at a point.
 
 ```go
 r := app.Bounds(telatest.ByTestID("chart"))
 app.ClickAt(r.X+r.Width/2, r.Y+10)
+app.ClickAt(r.X+20, r.Y+20, telatest.Right())
 ```
 
 **Example**
@@ -621,6 +622,19 @@ func (a *App) Hover(l Locator)
 
 Hover moves the pointer to the center of the element l locates, so its hover: and group-hover: states apply. It waits for the element to be visible, in view and not covered.
 
+#### func (*App) LongPress
+
+```go
+func (a *App) LongPress(l Locator)
+```
+
+LongPress presses the element l locates with a finger at its center, holds it past the long-press threshold (500 ms of app time: the clock moves, so the timers run) and lifts it. The element's OnLongPress runs while the finger is down and the press then ends without a click. A touch long press also opens the menu of a kit.ContextMenu or aria.UseContextMenuTrigger (a long press of the mouse does not; see [`App.Click`](#func-app-click) with [`Delay`](#func-delay)). It waits for the element to be visible, enabled, in view and not covered.
+
+```go
+app.LongPress(telatest.ByTestID("photo"))
+app.ExpectCount(telatest.ByRole("menu", "Actions"), 1)
+```
+
 #### func (*App) Measure
 
 ```go
@@ -768,6 +782,18 @@ func (a *App) Stats() Stats
 
 Stats returns the work counters of the app's tree, after settling it (under [`NoSettle`](#func-nosettle), handling only the work due).
 
+#### func (*App) Tap
+
+```go
+func (a *App) Tap(l Locator)
+```
+
+Tap taps the element l locates with a finger: it puts a touch pointer down at the element's center and lifts it, with real touch pointer events (no hover; :active, the gesture arena and the click as for a finger), like Playwright's tap. The element's OnClick runs, with a touch pointer in its event. It waits for the element to be visible, enabled, in view and not covered, and fails the test when l matches none or several.
+
+```go
+app.Tap(telatest.ByRole("button", "Save"))
+```
+
 #### func (*App) Type
 
 ```go
@@ -798,7 +824,20 @@ ClickOption configures [`App.Click`](#func-app-click) and [`App.ClickAt`](#func-
 func Delay(d time.Duration) ClickOption
 ```
 
-Delay holds the button down for d of app time between the press and the release, like Playwright's click delay. It is how a test makes a long press (the arena recognizes one after 500 ms): the handler runs while the button is held and the release then ends the press without a click.
+Delay holds the button down for d of app time between the press and the release, like Playwright's click delay. It is how a test makes a long press of the mouse (the arena recognizes one after 500 ms): the handler runs while the button is held and the release then ends the press without a click. For a touch long press, which opens a context menu, use [`App.LongPress`](#func-app-longpress).
+
+#### func Right
+
+```go
+func Right() ClickOption
+```
+
+Right makes [`App.Click`](#func-app-click) and [`App.ClickAt`](#func-app-clickat) press and release the secondary (right) mouse button, like Playwright's click({button: 'right'}): real pointer events with the secondary button, so the element's OnContextMenu runs once the button is released (a kit.ContextMenu opens) and its OnClick does not. The element must be as actionable as for a primary click: visible, enabled, in view and not covered. It combines with [`Delay`](#func-delay).
+
+```go
+app.Click(telatest.ByTestID("area"), telatest.Right())
+app.ClickAt(120, 80, telatest.Right())
+```
 
 ### type DragOption
 
@@ -1292,6 +1331,19 @@ Controls expects the element's aria-controls to point to the element that loc lo
 
 ```go
 app.Expect(telatest.ByRole("combobox", "Project"), telatest.Controls(telatest.ByRole("listbox", "Project")))
+```
+
+#### func Current
+
+```go
+func Current(current string) State
+```
+
+Current expects the element's aria-current to be current: "page", "step", "location", "date", "time" or "true", or "false", which is also what an element without h.AriaCurrent has (the ARIA default). The aria snapshot does not print it (Playwright's does not either).
+
+```go
+app.Click(telatest.ByRole("link", "Docs"))
+app.Expect(telatest.ByRole("link", "Docs"), telatest.Current("page"))
 ```
 
 #### func Disabled
