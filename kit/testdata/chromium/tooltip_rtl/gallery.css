@@ -342,6 +342,9 @@
   .bottom-0 {
     bottom: 0px;
   }
+  .bottom-4 {
+    bottom: calc(var(--spacing) * 4);
+  }
   .bottom-6 {
     bottom: calc(var(--spacing) * 6);
   }
@@ -368,6 +371,9 @@
   }
   .left-6 {
     left: calc(var(--spacing) * 6);
+  }
+  .left-20 {
+    left: calc(var(--spacing) * 20);
   }
   .left-\[50\%\] {
     left: 50%;
@@ -915,6 +921,12 @@
   .min-w-48 {
     min-width: calc(var(--spacing) * 48);
   }
+  .min-w-\[4\.53em\] {
+    min-width: 4.53em;
+  }
+  .min-w-\[5\.83em\] {
+    min-width: 5.83em;
+  }
   .min-w-\[8rem\] {
     min-width: 8rem;
   }
@@ -1240,6 +1252,10 @@
   .border-2 {
     border-style: var(--tw-border-style);
     border-width: 2px;
+  }
+  .border-4 {
+    border-style: var(--tw-border-style);
+    border-width: 4px;
   }
   .border-s-0 {
     border-inline-start-style: var(--tw-border-style);
@@ -1639,9 +1655,6 @@
   }
   .text-balance {
     text-wrap: balance;
-  }
-  .text-wrap {
-    text-wrap: wrap;
   }
   .whitespace-nowrap {
     white-space: nowrap;
@@ -2129,6 +2142,10 @@
   .group-data-\[orientation\=vertical\]\/tabs\:after\:inset-y-0:is(:where(.group\/tabs)[data-orientation="vertical"] *)::after {
     content: var(--tw-content);
     inset-block: 0px;
+  }
+  .group-data-\[orientation\=vertical\]\/tabs\:after\:-end-1:is(:where(.group\/tabs)[data-orientation="vertical"] *)::after {
+    content: var(--tw-content);
+    inset-inline-end: calc(var(--spacing) * -1);
   }
   .group-data-\[orientation\=vertical\]\/tabs\:after\:-right-1:is(:where(.group\/tabs)[data-orientation="vertical"] *)::after {
     content: var(--tw-content);
@@ -2766,6 +2783,9 @@
     }
     .sm\:group-data-\[size\=default\]\/alert-dialog-content\:text-left:is(:where(.group\/alert-dialog-content)[data-size="default"] *) {
       text-align: left;
+    }
+    .sm\:group-data-\[size\=default\]\/alert-dialog-content\:text-start:is(:where(.group\/alert-dialog-content)[data-size="default"] *) {
+      text-align: start;
     }
     .sm\:group-data-\[size\=default\]\/alert-dialog-content\:group-has-data-\[slot\=alert-dialog-media\]\/alert-dialog-content\:col-start-2:is(:where(.group\/alert-dialog-content)[data-size="default"] *):is(:where(.group\/alert-dialog-content):has([data-slot="alert-dialog-media"]) *) {
       grid-column-start: 2;
