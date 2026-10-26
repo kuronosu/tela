@@ -769,6 +769,20 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 		p.rescale(t, b)
 		return !p.empty
 	}
+	if p != nil && p.text == s && p.pstyle == pstyle && sameTextShape(&p.def, &def) &&
+		sameSpansBy(p.spans, spans, sameTextShape) && slices.Equal(p.boxes, a.boxes) && sameInlinesBy(p.inlines, a.inlines, sameTextShape) {
+		// Only paints changed (a text color: a state class, a selected
+		// date): the shaping, the lines and the box's layout hold, so the
+		// layout takes the new paints and nothing is laid out again
+		// (ADR-161).
+		p.recolor(&def, spans, a.inlines)
+		a.setTargets(p)
+		a.setSources(b)
+		p.setElements(a)
+		p.rescale(t, b)
+		t.dirty()
+		return !p.empty
+	}
 	if p == nil {
 		p = new(paragraph)
 		b.para = p
@@ -808,19 +822,47 @@ func inlineEdged(ins []text.Inline) bool {
 	return false
 }
 
-// sameInlines reports whether two inline lists lay out the same.
-func sameInlines(a, b []text.Inline) bool {
+// sameInlines reports whether two inline lists lay out and paint the
+// same.
+func sameInlines(a, b []text.Inline) bool { return sameInlinesBy(a, b, sameTextStyle) }
+
+// sameInlinesBy reports whether two inline lists are the same, comparing
+// their text styles with same.
+func sameInlinesBy(a, b []text.Inline, same func(a, b *text.TextStyle) bool) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
 		x, y := &a[i], &b[i]
 		if x.ID != y.ID || x.Start != y.Start || x.End != y.End || x.BoxStart != y.BoxStart || x.BoxEnd != y.BoxEnd ||
-			x.Depth != y.Depth || x.Left != y.Left || x.Right != y.Right || !sameTextStyle(&x.Style, &y.Style) {
+			x.Depth != y.Depth || x.Left != y.Left || x.Right != y.Right || !same(&x.Style, &y.Style) {
 			return false
 		}
 	}
 	return true
+}
+
+// recolor gives paragraph p the paints of def, spans and inlines, which
+// are its styles but for their paints (sameTextShape): its layout takes
+// them without shaping or breaking its lines again (text.Layout.SetPaint),
+// since a NewLayout of the new styles would lay the text out the same.
+func (p *paragraph) recolor(def *text.TextStyle, spans []text.Span, inlines []text.Inline) {
+	set := func(i int, cur, next *text.TextStyle) {
+		if samePaint(cur.Paint, next.Paint) && samePaint(cur.Decoration.Paint, next.Decoration.Paint) {
+			return
+		}
+		cur.Paint, cur.Decoration.Paint = next.Paint, next.Decoration.Paint
+		if p.lay != nil {
+			p.lay.SetPaint(i, next.Paint, next.Decoration.Paint)
+		}
+	}
+	set(0, &p.def, def)
+	for i := range spans {
+		set(1+i, &p.spans[i].Style, &spans[i].Style)
+	}
+	for j := range inlines {
+		set(1+len(spans)+j, &p.inlines[j].Style, &inlines[j].Style)
+	}
 }
 
 // setElements records the elements of the assembled inlines and atoms.
@@ -849,12 +891,16 @@ func collapsesAway(s string, ws text.WhiteSpace) bool {
 	return s == ""
 }
 
-func sameSpans(a, b []text.Span) bool {
+func sameSpans(a, b []text.Span) bool { return sameSpansBy(a, b, sameTextStyle) }
+
+// sameSpansBy reports whether two span lists are the same, comparing their
+// text styles with same.
+func sameSpansBy(a, b []text.Span, same func(a, b *text.TextStyle) bool) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i].Start != b[i].Start || a[i].End != b[i].End || !sameTextStyle(&a[i].Style, &b[i].Style) {
+		if a[i].Start != b[i].Start || a[i].End != b[i].End || !same(&a[i].Style, &b[i].Style) {
 			return false
 		}
 	}
@@ -864,12 +910,18 @@ func sameSpans(a, b []text.Span) bool {
 // sameTextStyle reports whether two text styles certainly lay out and
 // paint the same. Paints other than solid colors compare as different.
 func sameTextStyle(a, b *text.TextStyle) bool {
+	return sameTextShape(a, b) && samePaint(a.Paint, b.Paint) && samePaint(a.Decoration.Paint, b.Decoration.Paint)
+}
+
+// sameTextShape reports whether two text styles certainly lay out the
+// same: they are equal but for their paints (the text's and the
+// decorations'), which a text layout only paints with.
+func sameTextShape(a, b *text.TextStyle) bool {
 	return slices.Equal(a.Families, b.Families) && a.Size == b.Size && a.Weight == b.Weight &&
 		a.Style == b.Style && a.Stretch == b.Stretch && a.LetterSpacing == b.LetterSpacing &&
-		a.WordSpacing == b.WordSpacing && a.LineHeight == b.LineHeight && samePaint(a.Paint, b.Paint) &&
+		a.WordSpacing == b.WordSpacing && a.LineHeight == b.LineHeight &&
 		a.Decoration.Lines == b.Decoration.Lines && a.Decoration.Thickness == b.Decoration.Thickness &&
-		samePaint(a.Decoration.Paint, b.Decoration.Paint) && a.Transform == b.Transform &&
-		slices.Equal(a.Features, b.Features) && a.Numeric == b.Numeric && a.Language == b.Language
+		a.Transform == b.Transform && slices.Equal(a.Features, b.Features) && a.Numeric == b.Numeric && a.Language == b.Language
 }
 
 func samePaint(a, b gfx.Paint) bool {

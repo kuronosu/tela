@@ -342,11 +342,21 @@ type calendarLook struct {
 
 // useCalendarView draws a calendar from the hook's result; it is the part
 // Calendar and RangeCalendar have in common. It is a hook (it reads the
-// style and keeps the first-build flag), called from their Build.
+// style, keeps the first-build flag, the classes and the result the cells
+// read), called from their Build.
+//
+// Each date is a calendarCell, a struct component whose fields are
+// comparable: a build of the calendar (a pointer that moves the end of a
+// range, a press, a page that builds again) builds again only the cells
+// whose state changed, and the others are skipped (ADR-161).
 func useCalendarView(o calendarLook, res aria.CalendarResult, rng bool) tela.Node {
 	st := UseStyle()
 	s, btn := &st.Calendar, &st.Button
 	first := useFirstBuild() && o.autoFocus
+	cur := tela.UseRef(aria.CalendarResult{})
+	cur.Current = res
+	classes := tela.UseRef(calendarClasses{})
+	cc := classes.Current.update(s, btn, o, rng)
 
 	f := i18n.UseFormatter()
 	if o.locale != "" {
@@ -359,16 +369,14 @@ func useCalendarView(o calendarLook, res aria.CalendarResult, rng bool) tela.Nod
 
 	prevIcon, nextIcon := iconOr(o.prev, calendarChevronLeft), iconOr(o.next, calendarChevronRight)
 	navButton := func(props tela.Prop, class string, ic tela.Icon) tela.Node {
-		return h.Button(props, cls(btn.Root, pick("Button", "Variant", btn.Variants, Ghost),
-			pick("Button", "Size", btn.Sizes, Size("")), btn.HasIcon[""], class),
-			icon(ic, s.Chevron))
+		return h.Button(props, h.Class(class), icon(ic, s.Chevron))
 	}
 
 	months := res.Months()
 	monthNodes := make([]tela.Child, 0, months+1)
-	monthNodes = append(monthNodes, h.Div(cls(s.Nav, o.nav),
-		navButton(res.PrevProps(), s.ButtonPrevious, prevIcon),
-		navButton(res.NextProps(), s.ButtonNext, nextIcon)))
+	monthNodes = append(monthNodes, h.Div(h.Class(cc.nav),
+		navButton(res.PrevProps(), cc.prev, prevIcon),
+		navButton(res.NextProps(), cc.next, nextIcon)))
 	width := i18n.NameShort
 	if o.narrowWeekdays {
 		width = i18n.NameNarrow
@@ -381,31 +389,93 @@ func useCalendarView(o calendarLook, res aria.CalendarResult, rng bool) tela.Nod
 		for _, week := range weeks {
 			cells := make([]tela.Child, 0, 7)
 			for _, day := range week {
-				cells = append(cells, calendarDay(s, btn, o, res, m, day, rng, first))
+				cells = append(cells, tela.WithKey(calendarDay(cur, cc, o, res, f, m, month, day, rng, first), day))
 			}
-			rows = append(rows, h.Div(res.RowProps(), h.Key(week[0].String()), cls(s.Week), h.Fragment(cells...)))
+			rows = append(rows, h.Div(res.RowProps(), h.Key(week[0].String()), h.Class(cc.week), h.Fragment(cells...)))
 		}
 		head := make([]tela.Child, 0, 7)
 		for i, name := range weekdays {
-			head = append(head, h.Div(res.ColumnHeaderProps(i), h.Key(i), cls(s.Weekday, o.weekday), h.Text(name)))
+			head = append(head, h.Div(res.ColumnHeaderProps(i), h.Key(i), h.Class(cc.weekday), h.Text(name)))
 		}
-		monthNodes = append(monthNodes, h.Div(h.Key(month.String()), cls(s.Month, o.month),
-			h.Div(cls(s.MonthCaption, o.caption),
-				h.H2(res.HeadingProps(m), cls(s.CaptionLabel), h.Text(res.Heading(m)))),
-			h.Div(append([]tela.Child{res.GridProps(m), cls(s.MonthGrid),
-				h.Div(res.RowProps(), cls(s.Weekdays), h.Fragment(head...))}, rows...)...)))
+		monthNodes = append(monthNodes, h.Div(h.Key(month.String()), h.Class(cc.month),
+			h.Div(h.Class(cc.caption),
+				h.H2(res.HeadingProps(m), h.Class(cc.captionLabel), h.Text(res.Heading(m)))),
+			h.Div(append([]tela.Child{res.GridProps(m), h.Class(cc.grid),
+				h.Div(res.RowProps(), h.Class(cc.weekdays), h.Fragment(head...))}, rows...)...)))
 	}
 
-	kids := []tela.Child{res.Props, cls(s.Root, o.class)}
+	kids := []tela.Child{res.Props, h.Class(cc.root)}
 	if dir != "" {
 		kids = append(kids, h.Dir(dir))
 	}
-	kids = append(kids, o.props, h.Div(append([]tela.Child{cls(s.Months, o.months)}, monthNodes...)...))
+	kids = append(kids, o.props, h.Div(append([]tela.Child{h.Class(cc.months)}, monthNodes...)...))
 	return h.Div(kids...)
 }
 
-// calendarDay draws the cell of date d in the grid of month m.
-func calendarDay(s *CalendarStyle, btn *ButtonStyle, o calendarLook, res aria.CalendarResult, m int, d aria.Date, rng, first bool) tela.Node {
+// dayState is what a calendar's cell shows of its date: the state its
+// classes and the aria props of its button depend on.
+type dayState uint16
+
+const (
+	dayOutside     dayState = 1 << iota // a date of a neighbouring month
+	dayHidden                           // an outside date that is not drawn
+	daySelected                         // selected, or in the range on show
+	dayRangeStart                       // the first date of the range
+	dayRangeEnd                         // its last date
+	dayRangeMiddle                      // a date between the two
+	dayToday                            // today
+	dayDisabled                         // can not be focused (IsDisabled)
+	dayUnavailable                      // can not be selected (IsUnavailable)
+	dayTabStop                          // the focused date, in its own month
+	dayAutoFocus                        // takes the focus as the calendar mounts
+
+	// dayClassBits are the states that choose the classes.
+	dayClassBits = dayOutside | daySelected | dayRangeStart | dayRangeEnd | dayRangeMiddle | dayToday | dayDisabled | dayUnavailable
+)
+
+// calendarCell draws the cell of one date, react-day-picker's td and its
+// button. It is a struct component whose fields are all comparable and
+// hold everything the cell depends on, so the calendar's builds skip it
+// while they stay the same (ARCHITECTURE section 7): the date, its grid,
+// its state, the formatter of its label and digits, and its classes. The
+// props aria.CalendarResult.CellProps gives the date are a function of
+// those: the ref, the handlers and the hook state they act on stay the same
+// for the life of the cell, which mounts again with its month's grid. The
+// hook's AutoFocus for a date whose month just came into view only matters
+// as the cell mounts, and a cell that mounts always builds.
+type calendarCell struct {
+	// res holds the calendar's latest result, which the cell's build asks
+	// for the props; the pointer is the calendar's for its whole life.
+	res   *tela.Ref[aria.CalendarResult]
+	m     int
+	month aria.Date
+	d     aria.Date
+	f     i18n.Formatter
+	state dayState
+	// day and button are the classes of the cell and of its button.
+	day, button string
+}
+
+// Build returns the cell.
+func (c calendarCell) Build() tela.Node {
+	if c.state&dayHidden != 0 {
+		// An empty cell as big as a day button, so the grid keeps its shape.
+		return h.Div(h.Class(c.day), h.AriaHidden(true), h.Div(h.Class(c.button)))
+	}
+	res := c.res.Current
+	kids := []tela.Child{res.CellProps(c.m, c.d), h.Class(c.button)}
+	if c.state&dayAutoFocus != 0 {
+		kids = append(kids, h.AutoFocus(true))
+	}
+	kids = append(kids, h.Text(res.DayText(c.d)))
+	return h.Div(h.Class(c.day), h.Button(kids...))
+}
+
+// calendarDay returns the cell of date d in the grid of month m, whose
+// first day is month.
+func calendarDay(cur *tela.Ref[aria.CalendarResult], cc *calendarClasses, o calendarLook, res aria.CalendarResult, f i18n.Formatter,
+	m int, month, d aria.Date, rng, first bool) calendarCell {
+	cell := calendarCell{res: cur, m: m, month: month, d: d, f: f}
 	outside := res.IsOutsideMonth(m, d)
 	if outside {
 		hidden := o.hideOutside
@@ -422,50 +492,146 @@ func calendarDay(s *CalendarStyle, btn *ButtonStyle, o calendarLook, res aria.Ca
 			hidden = true
 		}
 		if hidden {
-			// An empty cell as big as a day button, so the grid keeps its shape.
-			return h.Div(h.Key(d.String()), cls(s.Day, s.Hidden, o.day), h.AriaHidden(true), h.Div(cls(s.DayButton)))
+			cell.state = dayOutside | dayHidden
+			cell.day, cell.button = cc.hiddenDay, cc.hiddenButton
+			return cell
 		}
 	}
-	selected := res.IsSelected(d)
+	var st dayState
+	if outside {
+		st |= dayOutside
+	}
+	if res.IsSelected(d) {
+		st |= daySelected
+	}
 	start, end := rng && res.IsRangeStart(d), rng && res.IsRangeEnd(d)
-	middle := rng && res.IsInRange(d) && !start && !end
-	today := res.IsToday(d)
+	if start {
+		st |= dayRangeStart
+	}
+	if end {
+		st |= dayRangeEnd
+	}
+	if rng && res.IsInRange(d) && !start && !end {
+		st |= dayRangeMiddle
+	}
+	if res.IsToday(d) {
+		st |= dayToday
+	}
+	if res.IsDisabled(d) {
+		st |= dayDisabled
+	}
+	if res.IsUnavailable(d) {
+		st |= dayUnavailable
+	}
+	if !outside && d == res.FocusedDate {
+		st |= dayTabStop
+		if first {
+			st |= dayAutoFocus
+		}
+	}
+	cell.state = st
+	cell.day, cell.button = cc.day(st)
+	return cell
+}
 
-	day := []string{s.Day}
+// calendarClasses are the classes of a calendar's parts, joined once for
+// the recipe and the Class fields in use rather than on every build: a
+// range calendar builds again for every date the pointer previews.
+type calendarClasses struct {
+	key calendarClassKey
+
+	root, months, month, nav, prev, next string
+	caption, captionLabel, grid          string
+	weekdays, weekday, week              string
+	hiddenDay, hiddenButton              string
+	// cells holds the classes of the cell and of its button for each
+	// combination of the states that choose them (dayClassBits).
+	cells map[dayState][2]string
+}
+
+// calendarClassKey is everything the classes are joined from.
+type calendarClassKey struct {
+	s                                   CalendarStyle
+	btnRoot, ghost, size, icon, hasIcon string
+	class, months, month, nav, caption  string
+	weekday, day, dayButton             string
+	rng                                 bool
+}
+
+// update returns the classes for this build, joined again when the recipe
+// or a Class field changed.
+func (cc *calendarClasses) update(s *CalendarStyle, btn *ButtonStyle, o calendarLook, rng bool) *calendarClasses {
+	k := calendarClassKey{
+		s: *s, btnRoot: btn.Root, ghost: pick("Button", "Variant", btn.Variants, Ghost),
+		size: pick("Button", "Size", btn.Sizes, Size("")), icon: pick("Button", "Size", btn.Sizes, Icon), hasIcon: btn.HasIcon[""],
+		class: o.class, months: o.months, month: o.month, nav: o.nav, caption: o.caption,
+		weekday: o.weekday, day: o.day, dayButton: o.dayButton, rng: rng,
+	}
+	if cc.cells != nil && cc.key == k {
+		return cc
+	}
+	*cc = calendarClasses{
+		key:          k,
+		root:         joinClass(s.Root, o.class),
+		months:       joinClass(s.Months, o.months),
+		month:        joinClass(s.Month, o.month),
+		nav:          joinClass(s.Nav, o.nav),
+		prev:         joinClass(btn.Root, k.ghost, k.size, k.hasIcon, s.ButtonPrevious),
+		next:         joinClass(btn.Root, k.ghost, k.size, k.hasIcon, s.ButtonNext),
+		caption:      joinClass(s.MonthCaption, o.caption),
+		captionLabel: joinClass(s.CaptionLabel),
+		grid:         joinClass(s.MonthGrid),
+		weekdays:     joinClass(s.Weekdays),
+		weekday:      joinClass(s.Weekday, o.weekday),
+		week:         joinClass(s.Week),
+		hiddenDay:    joinClass(s.Day, s.Hidden, o.day),
+		hiddenButton: joinClass(s.DayButton),
+		cells:        map[dayState][2]string{},
+	}
+	return cc
+}
+
+// day returns the classes of a cell in state st and of its button.
+func (cc *calendarClasses) day(st dayState) (day, button string) {
+	st &= dayClassBits
+	if c, ok := cc.cells[st]; ok {
+		return c[0], c[1]
+	}
+	k := &cc.key
+	s := &k.s
+	selected, today := st&daySelected != 0, st&dayToday != 0
+	start, end, middle := st&dayRangeStart != 0, st&dayRangeEnd != 0, st&dayRangeMiddle != 0
+	parts := []string{s.Day}
 	switch {
 	case start && end:
 		// A one-day range is both ends: the button is the primary one and
 		// the cell has no band.
 	case start:
-		day = append(day, s.RangeStart)
+		parts = append(parts, s.RangeStart)
 	case middle:
-		day = append(day, s.RangeMiddle)
+		parts = append(parts, s.RangeMiddle)
 	case end:
-		day = append(day, s.RangeEnd)
+		parts = append(parts, s.RangeEnd)
 	}
 	if today {
-		day = append(day, s.Today, when(selected, s.TodayWithSelected))
+		parts = append(parts, s.Today, when(selected, s.TodayWithSelected))
 	}
-	day = append(day, when(outside, s.Outside), when(res.IsDisabled(d) || res.IsUnavailable(d), s.Disabled), o.day)
+	parts = append(parts, when(st&dayOutside != 0, s.Outside), when(st&(dayDisabled|dayUnavailable) != 0, s.Disabled), k.day)
 
-	var button []string
+	var b []string
 	switch {
-	case !rng && selected:
-		button = append(button, s.DayButtonWithSelected)
+	case !k.rng && selected:
+		b = append(b, s.DayButtonWithSelected)
 	case start:
-		button = append(button, s.DayButtonWithRangeStart)
+		b = append(b, s.DayButtonWithRangeStart)
 	case end:
-		button = append(button, s.DayButtonWithRangeEnd)
+		b = append(b, s.DayButtonWithRangeEnd)
 	case middle:
-		button = append(button, s.DayButtonWithRangeMiddle)
+		b = append(b, s.DayButtonWithRangeMiddle)
 	}
-	kids := []tela.Child{res.CellProps(m, d), cls(btn.Root, pick("Button", "Variant", btn.Variants, Ghost),
-		pick("Button", "Size", btn.Sizes, Icon), s.DayButton, joinClass(button...), o.dayButton)}
-	if first && !outside && d == res.FocusedDate {
-		kids = append(kids, h.AutoFocus(true))
-	}
-	kids = append(kids, h.Text(res.DayText(d)))
-	return h.Div(h.Key(d.String()), cls(day...), h.Button(kids...))
+	c := [2]string{joinClass(parts...), joinClass(k.btnRoot, k.ghost, k.icon, s.DayButton, joinClass(b...), k.dayButton)}
+	cc.cells[st] = c
+	return c[0], c[1]
 }
 
 // monthIndex numbers the months of the calendar, to compare them.

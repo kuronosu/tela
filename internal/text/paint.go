@@ -120,6 +120,26 @@ func (l *Layout) PaintLineRecolored(b *gfx.Builder, origin gfx.Point, i int, sca
 	l.paintDecorations(b, origin, i, DecorationLineThrough, scale, o)
 }
 
+// SetPaint replaces the paint of style s and that of its decorations (nil:
+// the text's, currentColor), the styles numbered as in
+// PaintLineRecolored: 0 is Paragraph.Default, 1 to n its Spans, then its
+// Inlines. Paints only color what is painted: the shaping, the lines and
+// every geometry stay as they are, exactly as NewLayout lays out the
+// paragraph with the new paints. An s out of range does nothing.
+func (l *Layout) SetPaint(s int, paint, decoration gfx.Paint) {
+	if s < 0 || s >= len(l.styles) {
+		return
+	}
+	st := &l.styles[s]
+	st.Paint, st.Decoration.Paint = paint, decoration
+	si := &l.sinfo[s]
+	si.paint = st.paint()
+	si.decoPaint = decoration
+	if si.decoPaint == nil {
+		si.decoPaint = si.paint
+	}
+}
+
 // snappedUnderline returns the top (relative to the baseline at y, in
 // absolute logical px) and the thickness of an underline of style s for a
 // display scale, as Blink computes them in device pixels: the thickness

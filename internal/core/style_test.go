@@ -50,17 +50,21 @@ func TestRestylePropagation(t *testing.T) {
 	tr.Frame()
 	s0 := tr.Stats()
 
-	// An inherited change restyles the children and reshapes the
-	// paragraph that inherits it; the one with its own color keeps its
-	// layout.
+	// An inherited change restyles the children; the paragraph that
+	// inherits it only takes the new color (its layout is recolored, not
+	// shaped or broken again: ADR-161), and the one with its own color
+	// keeps its layout.
 	setColor("text-blue-500")
 	tr.Frame()
 	s1 := tr.Stats()
 	if got := s1.Styles - s0.Styles; got != 3 {
 		t.Errorf("%d style computations, want 3 (parent and two children)", got)
 	}
-	if got := s1.Shapes - s0.Shapes; got != 1 {
-		t.Errorf("%d paragraphs shaped, want 1", got)
+	if got := s1.Shapes - s0.Shapes; got != 0 {
+		t.Errorf("%d paragraphs shaped for a color change, want 0", got)
+	}
+	if got := s1.Breaks - s0.Breaks; got != 0 {
+		t.Errorf("%d line breakings for a color change, want 0", got)
 	}
 	if c := mustFind(t, tr, "a").Style.Color; c != "#2b7fff" {
 		t.Errorf("a: color %s after the parent changed", c)

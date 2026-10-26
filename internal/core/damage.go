@@ -70,6 +70,12 @@ import (
 // than integer translations (the rasterizer maps their pixels back through
 // a float inverse). Shifts of different scroll containers never overlap.
 //
+// The later runs of the same space under the same pushes (the hoisted
+// boxes of the container: positioned day cells, painted after its content
+// and scrollbars) form a group with the unit and shift with it; what is
+// painted between two runs of a group that touches R is damaged like what
+// is painted after the group, at both positions (ADR-161).
+//
 // # Fallbacks
 //
 // A full rasterization when the damage covers most of the frame, or when
@@ -112,6 +118,10 @@ type damager struct {
 	// the enclosing filters' reach in device pixels.
 	unitA, unitB   []int32
 	reachA, reachB []int
+	// Per push and pop of each frame: the first valid unit inside its
+	// block (-1: none), so that the pushes around the chunks of hoisted
+	// boxes, all equal, match those around the same box (blockUnits).
+	blockA, blockB []int32
 	// The valid units: old and new runs.
 	ua, ub []unit
 	rects  []image.Rectangle
@@ -140,6 +150,7 @@ func (d *damager) run() Damage {
 	A, B := d.a.dl, d.b.dl
 	d.reachA, d.reachB = d.reaches(A), d.reaches(B)
 	d.findUnits()
+	d.blockA, d.blockB = blockUnits(A, d.unitA), blockUnits(B, d.unitB)
 	// The sequences to match: without the attachments of the units'
 	// top-level chunks, which the shift accounts for.
 	seqA, seqB := d.sequence(d.a, d.unitA, d.ua), d.sequence(d.b, d.unitB, d.ub)
@@ -283,9 +294,10 @@ func (d *damager) findUnits() {
 	}
 	runsA, runsB := d.runs(d.a, cand), d.runs(d.b, cand)
 	// Pair the runs of each space in order. A run that follows a shifted
-	// run of its space with only pushes and pops between them, under the
-	// same pushes, shifts with it (a group: the hoisted boxes painted
-	// after a container's content, under its clip pushed again).
+	// run of its space under the same pushes shifts with it (a group: the
+	// hoisted boxes painted after a container's content and scrollbars,
+	// under its clip pushed again); what is painted between them is
+	// damaged where it meets the shift (continues, unitDamage).
 	var used []image.Rectangle
 	for _, s := range order {
 		// Runs pair by the box that leads them (the chunks of hoisted
@@ -341,10 +353,14 @@ func (d *damager) findUnits() {
 	}
 }
 
-// continues reports whether run u follows run p in dl with only pushes
-// and pops between them, under equal pushes.
+// continues reports whether run u follows run p in dl under equal pushes.
+// What is painted between them (the scrollbars of the container, drawn
+// after its content and before its hoisted boxes) does not end the group:
+// unitDamage damages it where it paints in the shifted rectangle, at its
+// old position moved by the shift and at its new one, as it does for what
+// is painted after the group (ADR-161).
 func (d *damager) continues(p, u *unit, dl *gfx.DisplayList) bool {
-	return p.end <= u.start && onlyPushPops(dl, p.end, u.start) && sameEnclosing(dl, p.start, u.start)
+	return p.end <= u.start && sameEnclosing(dl, p.start, u.start)
 }
 
 // runs returns the runs of commands of f in the chunks of candidate
@@ -382,20 +398,6 @@ func (d *damager) runs(f *frame, cand map[*scroller]bool) []unit {
 		i = j
 	}
 	return out
-}
-
-// onlyPushPops reports whether the commands of dl in [i, j) are pushes
-// and pops.
-func onlyPushPops(dl *gfx.DisplayList, i, j int) bool {
-	for ; i < j; i++ {
-		switch dl.At(i).(type) {
-		case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushTransform, gfx.PushLayer,
-			gfx.PopClip, gfx.PopTransform, gfx.PopLayer:
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 // sameEnclosing reports whether the pushes open at i and at j are equal.
@@ -733,8 +735,15 @@ func (d *damager) eq(i, j int) bool {
 	if ui < 0 {
 		// The bounds of a push or a pop are those of its block, which
 		// follow its content: the content's own matching accounts for
-		// them.
-		return (isPushPop(ca) || A.BoundsAt(i) == B.BoundsAt(j)) && (same || gfx.Equal(ca, cb))
+		// them. A block that holds a shifted unit matches only the block
+		// that holds the same unit: the equal clips pushed around each
+		// hoisted box's chunk would otherwise pair with those of another
+		// box once one scrolls out of view, and every box after it would
+		// be damaged (ADR-161).
+		if isPushPop(ca) {
+			return d.blockA[i] == d.blockB[j] && (same || gfx.Equal(ca, cb))
+		}
+		return A.BoundsAt(i) == B.BoundsAt(j) && (same || gfx.Equal(ca, cb))
 	}
 	// Inside a shifted unit: bounds in their own lists.
 	if !d.shiftExact(ca) || !d.shiftExact(cb) {
@@ -863,10 +872,15 @@ func (d *damager) unitDamage(k int) []Shift {
 	}
 	r := d.ub[k].r
 	delta := image.Pt(d.ub[k].dx, d.ub[k].dy)
-	// The units' pixels outside R, in both frames.
+	// The units' pixels outside R, in both frames, and what is painted
+	// between two units of the group and touches R.
 	for u := k; u <= last; u++ {
 		d.outside(d.a.dl, &d.ua[u], d.devA, r)
 		d.outside(d.b.dl, &d.ub[u], d.devB, r)
+		if u > k {
+			d.between(d.b.dl, d.ub[u-1].end, d.ub[u].start, r, d.devB, image.Point{})
+			d.between(d.a.dl, d.ua[u-1].end, d.ua[u].start, r, d.devA, delta)
+		}
 	}
 	// The exposed strips.
 	moved := r.Add(delta).Intersect(r)
@@ -931,6 +945,30 @@ func (d *damager) after(dl *gfx.DisplayList, from int, enc []int, r image.Rectan
 	for k := range dl.NumBackdrops() {
 		i, read, _, _ := dl.Backdrop(k)
 		if i >= from && d.devRect(read).Overlaps(rl) {
+			d.add(dev(i).Add(off))
+		}
+	}
+}
+
+// between damages the commands of dl in [from, to), painted between two
+// units of a group, that can paint in r, moved by off: their pixels in r
+// (and, for backdrop filters that read r, their whole output). Pushes and
+// pops paint nothing themselves; the commands inside them are tested one
+// by one with their bounds (no shape refinement, unlike after: the
+// translations of the blocks they are in are not followed here).
+func (d *damager) between(dl *gfx.DisplayList, from, to int, r image.Rectangle, dev func(int) image.Rectangle, off image.Point) {
+	rl := r.Sub(off) // r where the frame painted it
+	for i := from; i < to; i++ {
+		if isPushPop(dl.At(i)) {
+			continue
+		}
+		if b := dev(i); b.Overlaps(rl) {
+			d.add(b.Add(off).Intersect(r))
+		}
+	}
+	for k := range dl.NumBackdrops() {
+		i, read, _, _ := dl.Backdrop(k)
+		if i >= from && i < to && d.devRect(read).Overlaps(rl) {
 			d.add(dev(i).Add(off))
 		}
 	}
@@ -1157,12 +1195,22 @@ func (d *damager) finish(shifts []Shift) Damage {
 // than they do, then the pairs that waste the least until there are at
 // most maxDamageRects. Rectangles may overlap: rasterizing a pixel twice
 // gives it the same value.
+//
+// Both steps compare pairs, and a merge starts the search again, so their
+// cost grows with the cube of the number of rectangles: more than
+// mergeGridAbove (the glyphs of hundreds of scattered cells, damaged at two
+// positions by a scroll) are first gathered into the unions of a coarse
+// grid (clusterRects), which keeps a frame's damage pass to a fraction of
+// a millisecond where it took hundreds (ADR-161).
 func mergeRects(in []image.Rectangle) []image.Rectangle {
 	rs := make([]image.Rectangle, 0, len(in))
 	for _, r := range in {
 		if !r.Empty() {
 			rs = append(rs, r)
 		}
+	}
+	if len(rs) > mergeGridAbove {
+		rs = clusterRects(rs)
 	}
 	area := func(r image.Rectangle) int { return r.Dx() * r.Dy() }
 	// waste is how many pixels the bounding box of a and b adds.
@@ -1198,6 +1246,67 @@ func mergeRects(in []image.Rectangle) []image.Rectangle {
 		rs[bi] = rs[bi].Union(rs[bj])
 		rs = slices.Delete(rs, bj, bj+1)
 	}
+}
+
+// mergeGridAbove is how many damaged rectangles mergeRects merges pair by
+// pair; above it they are gathered by clusterRects first, into at most
+// mergeGrid × mergeGrid rectangles.
+const (
+	mergeGridAbove = 128
+	mergeGrid      = 10
+)
+
+// clusterRects returns the unions of the rectangles of rs whose centers
+// fall in the same cell of a mergeGrid × mergeGrid grid laid over their
+// bounding box: every pixel of rs is in the result, which has at most
+// mergeGrid² rectangles, in the order of their cells.
+func clusterRects(rs []image.Rectangle) []image.Rectangle {
+	var box image.Rectangle
+	for _, r := range rs {
+		box = box.Union(r)
+	}
+	w, h := max(box.Dx(), 1), max(box.Dy(), 1)
+	var cells [mergeGrid * mergeGrid]image.Rectangle
+	for _, r := range rs {
+		cx, cy := (r.Min.X+r.Max.X)/2-box.Min.X, (r.Min.Y+r.Max.Y)/2-box.Min.Y
+		gx, gy := min(cx*mergeGrid/w, mergeGrid-1), min(cy*mergeGrid/h, mergeGrid-1)
+		c := &cells[gy*mergeGrid+gx]
+		*c = c.Union(r)
+	}
+	out := rs[:0]
+	for _, c := range cells {
+		if !c.Empty() {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// blockUnits returns, for every push and pop of dl, the first valid unit
+// (unitOf) of a command inside its block, or -1 when there is none; -1
+// for the other commands.
+func blockUnits(dl *gfx.DisplayList, unitOf []int32) []int32 {
+	out := make([]int32, dl.Len())
+	var open []int // the pushes whose blocks are open
+	for i := range dl.Len() {
+		out[i] = -1
+		switch c := dl.At(i); {
+		case isPop(c):
+			if n := len(open); n > 0 {
+				out[i] = out[open[n-1]]
+				open = open[:n-1]
+			}
+		case isPushPop(c):
+			open = append(open, i)
+		case unitOf[i] >= 0:
+			// The innermost open blocks without a unit yet get this one;
+			// those around them already have one or get it now.
+			for k := len(open) - 1; k >= 0 && out[open[k]] < 0; k-- {
+				out[open[k]] = unitOf[i]
+			}
+		}
+	}
+	return out
 }
 
 // isPushPop reports whether c opens or closes a block.

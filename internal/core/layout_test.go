@@ -359,17 +359,25 @@ func TestParagraphReshapeVersusRebreak(t *testing.T) {
 		t.Errorf("a background change: shapes %d -> %d, breaks %d -> %d", s1.Shapes, s2.Shapes, s1.Breaks, s2.Breaks)
 	}
 
-	// New text, or a new text style, shapes once.
+	// New text, or a text style that lays out differently, shapes once.
 	setText("Short.")
 	tr.Frame()
 	s3 := tr.Stats()
 	if s3.Shapes != s2.Shapes+1 {
 		t.Errorf("a text change: %d shapes, want 1", s3.Shapes-s2.Shapes)
 	}
-	setCls("text-red-500")
+	setCls("text-slate-900 text-lg")
 	tr.Frame()
-	if s := tr.Stats(); s.Shapes != s3.Shapes+1 {
-		t.Errorf("a color change: %d shapes, want 1", s.Shapes-s3.Shapes)
+	s4 := tr.Stats()
+	if s4.Shapes != s3.Shapes+1 {
+		t.Errorf("a font size change: %d shapes, want 1", s4.Shapes-s3.Shapes)
+	}
+	// A color change recolors the layout: it neither shapes nor breaks
+	// (ADR-161).
+	setCls("text-red-500 text-lg")
+	tr.Frame()
+	if s := tr.Stats(); s.Shapes != s4.Shapes || s.Breaks != s4.Breaks {
+		t.Errorf("a color change: %d shapes, %d breaks, want 0 and 0", s.Shapes-s4.Shapes, s.Breaks-s4.Breaks)
 	}
 }
 
