@@ -9,7 +9,11 @@
 
 - **Done:** phases 1–10. Latest version `v0.10.3` (2026-10-25: engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`). Tags up to `v0.10.2` are on the remote; `v0.10.3` and the commits after `v0.10.2` are not pushed.
 - **Phase in progress:** none.
-- **Next step:** plan phase 11 (below), choosing which open items it takes.
+- **Next step (before phase 11, agreed with the owner on 2026-10-25):**
+  1. Live validation of `v0.10.1`–`v0.10.3`, which were verified headless only: Wayland at scales 2 and 1.5 and X11 windows pixel-identical to `tela snapshot`; scrolling the `examples/kit` gallery (Calendar, RangeCalendar, Table) identical to full redraws; the Windows VM (when the owner starts it) with the `kit`, `examples/kit` and `internal/core` test binaries and the gallery; the dashboard p95 measured again (23.1 → 26.7 ms in phase 10).
+  2. `v0.10.4`, engine fixes without API change: `OnInteractOutside` for right clicks, `h.OnLongPress` mouse-only filter, `invalid:` on read-only and disabled fields, the focus after the focused element in a modal dialog unmounts, `text-balance`, xkb's `TestParseSpeed` bound.
+  3. Housekeeping: the owner pushes `v0.10.3`; copy `docs/wiki` to `tela.wiki.git`; decide on `KIT_PROPOSAL.md`.
+  4. Then plan phase 11, starting with the API gaps (submenus, `telatest` right click and long press, `tela.UseTimeout`, `h.AriaCurrent`, `h.AriaKeyShortcuts`, `Disabled` on triggers, `h.AriaLabelFn`) so `llms.txt` documents the final API.
 - **Machine and process notes:** no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
