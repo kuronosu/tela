@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-10-25
+
 ### Fixed
 
 - An overlay that flips to its other side in the frame it opens is restyled completely in that frame: classes of the new side that change inherited text styles or `display` reach its children and fields, a text color function is counted once, and an overlay holding a `VirtualList` restarts its entrance from the right side; a placement published again in the frame it was already published in is applied in that frame (ADR-164).
@@ -578,7 +580,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.10.3...HEAD
+[0.10.3]: https://github.com/kuronosu/tela/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/kuronosu/tela/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/kuronosu/tela/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/kuronosu/tela/compare/v0.9.2...v0.10.0
