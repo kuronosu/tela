@@ -1,0 +1,12 @@
+# ADR-123: Third phase-9 review of `tela dev`
+
+- **Date:** 2026-10-22
+- **Status:** Accepted
+
+## Decision
+
+Third phase-9 review of `tela dev` (amends ADR-121). **A promotion's result after an exit.** If the promotion fails after the new child's exit, the problem says what happened: "the new build showed its first frame, then exited with status N before it could take over; the previous build stays" (or "…, then panicked before it could take over: …"), not "before its first frame". If it succeeds, the swap completes as before (the old child is stopped, the new one is `active`, the next build starts fresh), but no reload line or `-v` timing is printed for it: only the crash ("the app exited/panicked …; save a change or press r to start it again"). **A quit ends the swap in progress.** `quit` drops the swap: its child is stopped with the others, and an exit it held is classified at once as a stopped child's. A promotion's result that the host's loop still delivers then finds no swap and is ignored, so it never makes the stopped child active or prints a reload line after the quit. **GOFLAGS, read once when it can be.** The `go env` in the current directory reads `GOFLAGS`, `GOMOD` and `GOWORK` (`-json`). When `GOMOD`'s directory is the target's module root and `GOWORK` is empty, `off`, or in that root or above it, the module root finds the same `go.work` or `go.mod`, so the same toolchain and `go.env`, and that `GOFLAGS` is reused. `go env` runs again in the module root only otherwise (another module, another module of a workspace, a `go.work` below the root). **Known limit:** detaching a child's output (ADR-121) cannot unblock a copy goroutine stuck writing to a terminal whose output is paused (Ctrl+S); the copy ends when the terminal resumes
+
+## Rationale
+
+Review findings of phase 9. A build that sent a frame and then died is not one that never started, and a reload line right before the crash of the same build reads as a successful reload. After a quit, nothing completes: the host's loop may still run a posted promotion while the supervisor stops everything. `GOFLAGS` depends on the directory only through the files that select the toolchain, which are found by walking up; from inside the target's module that walk ends like the module root's, so the second `go env` (tens of milliseconds at every start) is only needed in another module or below a nested `go.work`

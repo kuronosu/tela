@@ -1,0 +1,12 @@
+# ADR-075: Fractional scaling
+
+- **Date:** 2026-10-18
+- **Status:** Accepted
+
+## Decision
+
+Fractional scaling (phase 6, T3; implements §15's HiDPI line). **Wayland:** with both `wp_fractional_scale_manager_v1` and `wp_viewporter` (version 1), each window gets a `wp_fractional_scale_v1` and a `wp_viewport` before its initial commit, and every scale, integer or not, goes through them: buffer `PhysicalSize(logical, n/120)`, `set_buffer_scale` left at 1, viewport destination = the logical size, set in the commit of the first buffer of each size. The scale order is fractional `preferred_scale` > `preferred_buffer_scale` > entered outputs > initial guess (largest output scale); once a fractional scale arrived the integer ones are ignored. Scale changes need no ack; damage stays `damage_buffer` (pre-v4 `damage` maps through the logical/buffer size ratio); input and IME rectangles stay surface-local (logical). Without either global, integer scales as before. **Rendering at fractional scales:** `raster` places a pure translation pushed while the current transform is an axis-aligned scale plus whole-pixel translation on whole device pixels when its device displacement is within `GridTolerance` (1/1024 px, growing with \|v\|/2^20, at most 1/8 px) of them (`raster.GridMul`); core's damage derives a scroll shift from the device origins the rasterizer gives the scrolled chunks (composed with `GridMul`) instead of offset × scale, so scroll frames shift pixels at 1.25/1.5/1.75 as at 2 and stay bit-identical to full frames. Text selection highlights and scrollbar tracks/thumbs snap to device pixels like border boxes (ADR-045), as in Blink. The damage property test runs at 1, 1.25, 1.5, 1.75 and 2
+
+## Rationale
+
+At 1.5 a scroll offset of 80 device px is the float32 53.333332, which composes to 79.999998 device px, so the exact-integer shift test never passed: every scroll frame at a fractional scale was a full rasterization. Translations within float error of the grid move a vertex by far less than the 1/256 px fixed-point grid of the coverage: the grid rule changed no golden. Selection rects and thumbs crossed mid-pixel (a light seam between selected lines at 1.5, soft thumb edges); snapping selection rects also changed their 1x and 2x goldens, now matching the Chromium screenshots of the field gallery pixel for pixel at the edges that changed. The viewport path for every scale is winit's; ignoring integer scales after a fractional one avoids rendering at the rounded-up scale

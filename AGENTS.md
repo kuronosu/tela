@@ -4,17 +4,16 @@ Tela is a pure-Go desktop UI framework: no cgo, no webview, React-like API, Tail
 
 ## At the start of every session
 
-1. Read `docs/ARCHITECTURE.md` in full. It is the source of truth for the design.
-2. Read `docs/ROADMAP.md` to see the current phase and next step.
-3. Before starting a task, read its references in ARCHITECTURE §20.
+1. Read `docs/ARCHITECTURE.md` in full (§1–§20, about 14k tokens). It is the source of truth for the design.
+2. Read `docs/ROADMAP.md` to see the current status, open limitations and next step.
+3. Before starting a task, read its references in ARCHITECTURE §20, the ADR index `docs/adr/README.md`, and only the ADRs the task touches (`docs/adr/NNN-*.md`). Do not read the whole `docs/adr/` folder or `docs/HISTORY.md` (ADR-165).
 
 ## At the end of every session
 
-Update `docs/ROADMAP.md`:
-- Check off completed tasks.
+- In `docs/ROADMAP.md`: check off completed tasks; keep "Current status" to a few lines and "Open known limitations" to what is still true (remove what was fixed, add what was found); update "Next step".
 - Add user-visible changes to the `Unreleased` section of `CHANGELOG.md`.
-- Update "Current status" and "Next step".
-- Add a line to the session log.
+- Append one line to the session log at the end of `docs/HISTORY.md`.
+- When a phase is done, move its section from the roadmap to HISTORY.md.
 
 ## At the end of a phase
 
@@ -29,7 +28,7 @@ Fixes after a phase closes get a patch version (`v0.N.1`) the same way. See ADR-
 - **Never use cgo.** Run everything with `CGO_ENABLED=0`; a dependency that needs cgo is not acceptable. The one exception is the race detector, which needs cgo: `CGO_ENABLED=1 go test -race` is allowed as a verification tool only (the main session runs it on packages with concurrency, such as `internal/core`, `tela` and `internal/platform/...`); nothing is ever built or shipped with cgo.
 - **Approved dependencies only.** See ARCHITECTURE §2; a new one needs an ADR.
 - **Ported code** keeps its original copyright notice and is listed in `THIRD_PARTY.md`.
-- **Do not rewrite `ARCHITECTURE.md`.** To change a decision, append an ADR in §21 and minimally adjust the affected section. Small fixes (typos, clarifications) are fine.
+- **Do not rewrite `ARCHITECTURE.md`.** To change a decision, add an ADR file `docs/adr/NNN-title.md` with the next number, add its row to `docs/adr/README.md`, and minimally adjust the affected section. ADRs are short (decision, why, what it changes; about 1 KB): details go to doc comments and tests. Small fixes (typos, clarifications) are fine.
 - **Respect layer dependency rules** (ARCHITECTURE §5). Nothing in `internal/` becomes public without an ADR.
 - **Everything in English:** code, comments, commits and docs.
 - **Visual work is tested with headless goldens.** When you change rendering, generate a snapshot and look at it.

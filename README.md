@@ -446,8 +446,10 @@ The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 | Document | What it is |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The design: layers, trees, pipeline, layout, text, input, platform layer, and the decision log (ADRs) |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phases, current status, next step and session log |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The design: layers, trees, pipeline, layout, text, input, platform layer |
+| [`docs/adr/`](docs/adr/README.md) | The decision log: one file per ADR, with an index |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Current status, open limitations, next step and the phases left |
+| [`docs/HISTORY.md`](docs/HISTORY.md) | Finished phases, past status notes and the session log |
 | [`CHANGELOG.md`](CHANGELOG.md) | User-visible changes per version |
 | [`THIRD_PARTY.md`](THIRD_PARTY.md) | Ported code and third-party licenses |
 | `examples/*/README.md` | What each example demonstrates |

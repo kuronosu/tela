@@ -1,0 +1,12 @@
+# ADR-071: Win32 IME through IMM32
+
+- **Date:** 2026-10-13
+- **Status:** Accepted
+
+## Decision
+
+Win32 IME through IMM32 (phase 5; implements ADR-068 on Windows). A new window has no input context; a non-nil, non-password `TextInputState` associates the thread's default one (`ImmAssociateContextEx` `IACE_DEFAULT`), nil and the password purpose remove it, so the session (`IMESessionEvent`) is focus and an associated context, and is never active in a password field; other purposes and `Multiline` leave the IME alone (no forced open status or conversion mode). `SetTextInput`/`ResetTextInput` are recorded and applied once at the end of the delivery pass. Ending a session during a composition marks it over first and then completes it in the IME (`ImmNotifyIME` `CPS_COMPLETE`, Chromium on blur), so the result is not delivered and the shared default context keeps no composition; `ResetTextInput` forgets the composition and then cancels it (`CPS_CANCEL`). `WM_IME_SETCONTEXT` clears `ISC_SHOWUICOMPOSITIONWINDOW`; `WM_IME_STARTCOMPOSITION` and `WM_IME_COMPOSITION` never reach `DefWindowProc` and `WM_IME_CHAR` is dropped, so results are never typed again as `WM_CHAR`. One `WM_IME_COMPOSITION` is one `IMEEvent` (result → `Commit`, composition string → `Preedit`); the preedit cursor is the target clause of `GCS_COMPATTR` as a highlighted range (winit, Chromium), else `GCS_CURSORPOS`, else hidden; `WM_IME_ENDCOMPOSITION` with a preedit shown cancels it (a Korean result after it is a plain `Commit`). `VK_PROCESSKEY` presses never carry `Text`. The cursor area becomes, in physical client pixels, the composition window (`CFS_POINT`), the candidate window (`CFS_CANDIDATEPOS` plus `CFS_EXCLUDE`, none for Chinese IMEs, Korean one pixel lower) and a hidden system caret for Chinese and Japanese IMEs, re-sent on area, scale and input-language changes and at each composition start (Chromium's `MoveImeWindow`); `IMR_QUERYCHARPOSITION` answers the cursor area, `IMR_DOCUMENTFEED` 256 characters each side with the preedit, `IMR_RECONVERTSTRING` the selection when there is one and no composition (Chromium)
+
+## Rationale
+
+Modern IMEs are TSF services that Windows bridges to IMM32 (CUAS), so IMM32 reaches all of them with a fraction of TSF's COM surface; completing a composition the app already kept is the only order that neither types it twice nor leaves it in the shared context; the GCS → event logic is pure (`ime.go`) and tested on every OS, the OS half is checked live on Windows 11 with Microsoft IME (Japanese)

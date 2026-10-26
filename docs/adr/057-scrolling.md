@@ -1,0 +1,12 @@
+# ADR-057: Scrolling
+
+- **Date:** 2026-10-12
+- **Status:** Accepted
+
+## Decision
+
+Scrolling (amends ADR-043 and §15). Scroll containers follow CSSOM View: `auto`/`scroll` axes scroll by the user, `hidden` by code only, `clip` never; offsets live on the box, are clamped after every layout and move painted positions along the containing-block chain (absolute boxes whose containing block is outside do not scroll). The root box is the CSS viewport: its overflow is `auto` on both axes unless `RootClass` sets one (CSS overflow propagation), so content larger than the window scrolls like a page; `h-screen` and `h-full` on its child resolve against the window height; fixed boxes do not move with it; a clip covering the whole window is not emitted, so pages that fit paint as before. Wheel events are DOM `wheel` (bubbling, `PreventDefault` cancels); the default scrolls the nearest container on the containing-block chain that can move, with `overscroll-contain`/`none` ending the chain and Chromium-style latching (a gesture, or a 500 ms wheel transaction). Notches are 53 px (Chromium on Linux) and, like keys (40 px lines, 87.5 % pages) and track pages, animate 150 ms on Chromium's ease-in-out with initial velocity; touchpad and touch follow the fingers and fling with GTK 4's e^(−4t) deceleration after a gesture end. `App.InstantScroll`, `scroll-instant` and reduced motion jump and never fling; `scroll-smooth` animates programmatic scrolls (CSS) and re-enables user animation. `platform.ScrollEvent` gains `Phase` (none/update/end): Wayland derives it from `axis_source` finger + `axis_stop`, X11 cannot (no fling there). Tela draws the scrollbars: overlay bars (no layout space, fade after 1 s) by default; classic bars (`App.ClassicScrollbars`, `scrollbar-classic`) reserve a 15 px gutter, always for `overflow: scroll` and for `auto` only while that axis overflows, so with overlay bars neither `auto` nor `scroll` reserves space (amends ADR-043). `OnScroll` fires once per frame before build; `UseScroll` values follow the offsets on the UI thread. A scroll repaints the whole tree until layers (T7b)
+
+## Rationale
+
+Owner's API decisions (OnScroll/OnWheel, ElementRef + UseScroll, overlay bars by default with a classic option, animated by default with an instant option at app and element level); browser semantics are what users and LLMs expect, and a page taller than the window must scroll like a web page
