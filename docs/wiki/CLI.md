@@ -391,8 +391,10 @@ Div(Class("rounded-xxl"))
 ```
 
 A `//tela:ignore rule` comment on the line of a finding, or alone on the line
-above it, silences it. Several rules are separated by commas (`class,role`),
-text after them is a reason, and a bare `//tela:ignore` covers every rule.
+above it, silences it. Several rules are separated by commas, with or without
+spaces (`class,role` or `class, role`); text after the list is a reason (by
+convention after `--`), and a `//tela:ignore` without rules (bare, or with
+only a reason: `//tela:ignore -- generated`) covers every rule.
 
 | Flag | Does |
 |---|---|

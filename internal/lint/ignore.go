@@ -5,13 +5,18 @@ import (
 	"strings"
 )
 
-// Suppression: a comment `//tela:ignore rule[,rule...]` on the line of a
-// finding, or alone on the line above it, silences the findings of those
-// rules there. Text after the rules is a reason and is ignored; the name
-// "all", or no name, covers every rule.
+// Suppression: a comment `//tela:ignore rule[, rule...] [-- reason]` on the
+// line of a finding, or alone on the line above it, silences the findings
+// of those rules there. The rule names are a list separated by commas, with
+// or without spaces around them; the list ends at the first name that no
+// comma follows, and the rest of the comment (by convention after "--") is
+// a reason, which is ignored. The name "all", or no name (nothing, or only
+// a reason after "--"), covers every rule.
 //
 //	//tela:ignore class -- the test checks that this typo is reported
 //	Div(Class("rounded-xxl"))
+//	//tela:ignore class, key -- legacy screen
+//	//tela:ignore -- generated code
 const ignoreDirective = "tela:ignore"
 
 // ignoreSet holds the rules ignored on each line of a file.
@@ -81,15 +86,20 @@ func parseIgnore(text string) ([]string, bool) {
 	if !ok || (text != "" && text[0] != ' ' && text[0] != '\t') {
 		return nil, false
 	}
-	fields := strings.Fields(text)
-	if len(fields) == 0 {
-		return []string{"all"}, true
-	}
 	var rules []string
-	for _, rule := range strings.Split(fields[0], ",") {
-		if rule = strings.TrimSpace(rule); rule != "" {
-			rules = append(rules, rule)
+	for rest := strings.TrimLeft(text, " \t"); !strings.HasPrefix(rest, "--"); {
+		end := strings.IndexAny(rest, " \t,")
+		if end < 0 {
+			end = len(rest)
 		}
+		if end > 0 {
+			rules = append(rules, rest[:end])
+		}
+		rest = strings.TrimLeft(rest[end:], " \t")
+		if !strings.HasPrefix(rest, ",") {
+			break // the list ends; the rest is a reason
+		}
+		rest = strings.TrimLeft(rest[1:], " \t")
 	}
 	if len(rules) == 0 {
 		return []string{"all"}, true

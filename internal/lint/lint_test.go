@@ -244,9 +244,16 @@ func TestIgnoreDirective(t *testing.T) {
 		{"//tela:ignore class", []string{"class"}, true},
 		{"// tela:ignore class", []string{"class"}, true},
 		{"//tela:ignore class,role", []string{"class", "role"}, true},
-		{"//tela:ignore class, role", []string{"class"}, true}, // the rest is a reason
+		{"//tela:ignore class, role", []string{"class", "role"}, true},
+		{"//tela:ignore class , role -- why", []string{"class", "role"}, true},
+		{"//tela:ignore class, key -- legacy", []string{"class", "key"}, true},
+		{"//tela:ignore class,role,", []string{"class", "role"}, true},
 		{"//tela:ignore class -- why", []string{"class"}, true},
+		{"//tela:ignore class why, not role", []string{"class"}, true}, // the rest is a reason
 		{"//tela:ignore", []string{"all"}, true},
+		{"//tela:ignore   ", []string{"all"}, true},
+		{"//tela:ignore -- generated code", []string{"all"}, true},
+		{"//tela:ignore --", []string{"all"}, true},
 		{"//tela:ignored class", nil, false},
 		{"// something else", nil, false},
 		{"/* tela:ignore class */", nil, false},

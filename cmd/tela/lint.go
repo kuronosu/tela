@@ -48,8 +48,8 @@ reported, 1 when something is, 2 on a usage error or when a package cannot be
 loaded (a package that does not type-check is reported and skipped).
 
 A comment //tela:ignore rule on the line of a finding, or alone on the line
-above, silences it; several rules are separated by commas, and a reason may
-follow:
+above, silences it; several rules are separated by commas (spaces allowed),
+a reason may follow after --, and without rules it covers every rule:
 
 	//tela:ignore class -- tests the dev-mode error
 	Div(Class("rounded-xxl"))
