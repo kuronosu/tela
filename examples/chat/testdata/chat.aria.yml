@@ -1,0 +1,36 @@
+- heading "Messages" [level=1]
+- text: 3 unread
+- searchbox "Search conversations"
+- navigation "Conversations":
+  - button "Dev Patel, 2 unread": Dev Patel 2:21 PM I'll ship it at 4 if nobody objects. 2
+  - button "Maya Chen": Maya Chen 1:58 PM I can walk you through the changes if that helps.
+  - button "Sofia Rossi, 1 unread": Sofia Rossi 12:32 PM Sent you the final exports 📦 1
+  - button "Jonas Weber": "Jonas Weber Yesterday You: Let me check with the team and get back to you."
+  - button "Amara Okafor": "Amara Okafor Sat You: Perfect, thank you!"
+  - button "Liam O'Brien": Liam O'Brien Fri Invoice approved, thanks for the reminder!
+  - button "Yuki Tanaka": Yuki Tanaka Oct 18 Dashboard numbers look right now.
+- heading "Maya Chen" [level=2]
+- text: online
+- button "Voice call"
+- button "Video call"
+- button "More actions"
+- log "Conversation with Maya Chen":
+  - text: Yesterday
+  - article "Maya Chen, 7:32 AM": Hey! Did you get a chance to look at the onboarding flow?
+  - article "Maya Chen, 7:33 AM": I moved the progress dots to the top, it feels less crowded. 7:33 AM
+  - article "You, 8:32 AM": Just did. The new layout is much cleaner 👏
+  - article "You, 8:34 AM":
+    - text: "One question: should the skip link stay visible on the last step? 8:34 AM"
+    - img "Read"
+  - article "Maya Chen, 9:32 AM": Good catch, I'll hide it there. 9:32 AM
+  - text: Today
+  - article "Maya Chen, 11:12 AM": Pushed the updated frames to Figma, take a look when you can. 11:12 AM
+  - article "You, 11:32 AM":
+    - text: Looks great. The empty state illustration is lovely. 11:32 AM
+    - img "Read"
+  - article "Maya Chen, 11:34 AM": Thanks! Sofia drew it. She says hi 🙂 11:34 AM
+  - article "Maya Chen, 1:57 PM": Are we still on for the design review at 3?
+  - article "Maya Chen, 1:58 PM": I can walk you through the changes if that helps. 1:58 PM
+- button "Attach a file"
+- textbox "Message"
+- button "Send message" [disabled]
