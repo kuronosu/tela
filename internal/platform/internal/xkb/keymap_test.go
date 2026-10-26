@@ -156,15 +156,21 @@ func TestKeymapsAgainstLibxkbcommon(t *testing.T) {
 	}
 }
 
-// TestParseSpeed checks that parsing a real keymap takes well under the
-// 10 ms budget (it runs once per keymap event, on the UI thread).
+// TestParseSpeed checks that parsing a real keymap stays under the 10 ms
+// budget (it runs once per keymap event, on the UI thread). The best of 20
+// runs is checked, so that the load of the rest of a full test run (other
+// packages' test binaries in parallel) does not make it fail; the race
+// detector's instrumentation is skipped altogether.
 func TestParseSpeed(t *testing.T) {
+	if raceEnabled {
+		t.Skip("timing check; the race detector slows parsing down")
+	}
 	text := readGzip(t, "testdata/keymaps/us-ru-grp.xkb.gz")
 	if _, err := ParseKeymap(text); err != nil { // warm the keysym tables
 		t.Fatal(err)
 	}
 	best := time.Hour
-	for range 5 {
+	for range 20 {
 		start := time.Now()
 		if _, err := ParseKeymap(text); err != nil {
 			t.Fatal(err)
