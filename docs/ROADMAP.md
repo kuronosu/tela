@@ -10,7 +10,7 @@
 - **Done:** phases 1–10. Latest version `v0.10.3` (2026-10-25: engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`); `v0.10.4` (step 2 below) is in `Unreleased`, verified, waiting for the owner's tag approval. Tags up to `v0.10.2` are on the remote; `v0.10.3` and the commits after `v0.10.2` are not pushed.
 - **Phase in progress:** none.
 - **Next step (before phase 11, agreed with the owner on 2026-10-25):**
-  1. Live validation of `v0.10.1`–`v0.10.3`: done on Linux (2026-10-25: Wayland x2 and x1.5 and X11 windows pixel-identical to `tela snapshot`; keyboard, wheel and touchpad scrolling of the `examples/kit` gallery identical to full redraws; dashboard p95 measured). **Left:** the Windows VM (when the owner starts it) with the `kit`, `examples/kit` and `internal/core` test binaries and the gallery.
+  1. Live validation of `v0.10.1`–`v0.10.4`: done (2026-10-25/26: Wayland x2 and x1.5, X11 and Windows windows pixel-identical to `tela snapshot`; keyboard, wheel and touchpad scrolling of the `examples/kit` gallery identical to full redraws; all 57 Windows test binaries pass on the VM; dashboard p95 measured).
   2. `v0.10.4`: done (ADRs 166–169 and a Wayland scroll-time fix); propose the tag.
   3. Housekeeping: the owner pushes `v0.10.3`; copy `docs/wiki` to `tela.wiki.git`; decide on `KIT_PROPOSAL.md`.
   4. Then plan phase 11, starting with the API gaps (submenus, `telatest` right click and long press, `tela.UseTimeout`, `h.AriaCurrent`, `h.AriaKeyShortcuts`, `Disabled` on triggers, `h.AriaLabelFn`) so `llms.txt` documents the final API.
@@ -26,7 +26,7 @@ Still true as of `v0.10.4` (in `Unreleased`); the per-phase lists in HISTORY.md 
 - **Input and focus:** a box shown again that flips in the same frame does not restart its entrance; X11 has no IME and no touchpad fling.
 - **API gaps:** no submenus; `telatest` has no right click or long press; `tela snapshot` does not show toasts set by effects; no `tela.UseTimeout`, `h.AriaCurrent`, `h.AriaKeyShortcuts` or deferred accessible name (`h.AriaLabelFn`); `Disabled` missing on Tooltip, menu and Select triggers; `kit.ContextMenu` areas are not focusable by default (Radix's model; the demo shows `TabIndex(0)`); SVG has no text, filters, images, patterns or markers.
 - **Dev loop:** kit components keep aria hook state in refs that `tela dev` cannot keep (silent resets); a renamed component resets; dev builds cannot be debugged (no DWARF); an IME composition is lost across a swap.
-- **Platforms:** Windows only verified through a VM job runner (phase 9 and 10 changes not run there); macOS is phase 14; `wtype` cannot type into Xwayland windows (Hyprland, not Tela).
+- **Platforms:** Windows verified on a VM at scale 1 only (test binaries and live gallery, 2026-10-26); X11 live only at scale 1 (no `Xft.dpi`); macOS is phase 14; `wtype` cannot type into Xwayland windows (Hyprland, not Tela).
 
 ## Phases
 
