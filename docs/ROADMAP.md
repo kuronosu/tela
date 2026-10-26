@@ -7,18 +7,18 @@
 
 ## Current status
 
-- **Done:** phases 1–10. Latest version `v0.10.3` (2026-10-25: engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`); `v0.10.4` (step 2 below) is in `Unreleased`, verified, waiting for the owner's tag approval. Tags up to `v0.10.2` are on the remote; `v0.10.3` and the commits after `v0.10.2` are not pushed.
+- **Done:** phases 1–10. Latest version `v0.10.4` (2026-10-26; engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`, live-validation and kit-review fixes `v0.10.4`). Tags up to `v0.10.2` are on the remote; `v0.10.3`, `v0.10.4` and the commits after `v0.10.2` are not pushed.
 - **Phase in progress:** none.
 - **Next step (before phase 11, agreed with the owner on 2026-10-25):**
   1. Live validation of `v0.10.1`–`v0.10.4`: done (2026-10-25/26: Wayland x2 and x1.5, X11 and Windows windows pixel-identical to `tela snapshot`; keyboard, wheel and touchpad scrolling of the `examples/kit` gallery identical to full redraws; all 57 Windows test binaries pass on the VM; dashboard p95 measured).
-  2. `v0.10.4`: done (ADRs 166–169 and a Wayland scroll-time fix); propose the tag.
-  3. Housekeeping: the owner pushes `v0.10.3`; copy `docs/wiki` to `tela.wiki.git`; decide on `KIT_PROPOSAL.md`.
+  2. `v0.10.4`: done and tagged (ADRs 166–169, a Wayland scroll-time fix, and a `/code-review high` with 8 findings fixed).
+  3. Housekeeping: the owner pushes `v0.10.3` and `v0.10.4`; copy `docs/wiki` to `tela.wiki.git`; decide on `KIT_PROPOSAL.md`.
   4. Then plan phase 11, starting with the API gaps (submenus, `telatest` right click and long press, `tela.UseTimeout`, `h.AriaCurrent`, `h.AriaKeyShortcuts`, `Disabled` on triggers, `h.AriaLabelFn`) so `llms.txt` documents the final API.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
 
-Still true as of `v0.10.4` (in `Unreleased`); the per-phase lists in HISTORY.md include items fixed since.
+Still true as of `v0.10.4`; the per-phase lists in HISTORY.md include items fixed since.
 
 - **Layout:** two `w-full aspect-square max-h-[20px]` flex items are clamped by the transferred max (Chromium 140×20, Tela 20×20); a ratio item with an auto or keyword width in a column of indefinite width is 5×5 where Chromium gives 30×30; grid items' percentage min sizes keep the old rule; no margin collapsing, floats or tables (by design, ARCHITECTURE §10); `grid-template-areas` is unreachable from classes.
 - **Text:** at x1.5 a baseline on an exact half device pixel can be drawn one row higher; no hyphenation, skip-ink or synthetic bold/italic; CJK glyph forms ignore the language; `examples/text` and debug-overlay labels lay text out at scale 1; interned font faces are never evicted.
