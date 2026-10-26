@@ -101,8 +101,10 @@ func TestColorInputDragRepaintsOnly(t *testing.T) {
 		}
 	})
 	t.Logf("20 moves of a drag in the popover: %d builds, %d layouts, %d paints", st.Builds, st.Layouts, st.Paints)
-	if st.Builds > 0 || st.Layouts > 0 {
-		t.Errorf("%d builds and %d layouts while dragging in a ColorInput's panel, want none", st.Builds, st.Layouts)
+	// The button's code follows the drag (ADR-162): one layout per move for
+	// its text, and no build.
+	if st.Builds > 0 || st.Layouts > 20 {
+		t.Errorf("%d builds and %d layouts while dragging in a ColorInput's panel, want none and at most one per move", st.Builds, st.Layouts)
 	}
 	app.MouseUp()
 }

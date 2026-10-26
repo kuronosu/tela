@@ -12,6 +12,18 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- `kit.ColorInputStyle` gains the recipe parts `Code` and `CodeAlpha`, the classes of the color code on a `ColorInput`'s button (ADR-162).
+
+### Fixed
+
+- Calendar pages are fast: scrolling a page of `kit.Calendar`s or `kit.RangeCalendar`s took 90–190 ms per frame (up to 530 ms) and takes 2–8 ms, because scrolled content painted in many chunks (every `relative` box) is shifted instead of damaged box by box, and many damage rectangles are merged in linear time; tables scroll faster too. A text whose only change is its color is repainted without shaping it again or laying out the page. A calendar rebuilds only the day cells whose state changed (ADR-161).
+- `kit.ColorInput`: the code on the button and the hex field of the picker follow a drag live, controlled or not, without rebuilding the picker; a value being typed in the field is not overwritten. The button keeps one width whatever the color (ADR-162).
+- Menus (`kit.ContextMenu`, `DropdownMenu`, `Menubar`) and `kit.Select` no longer scroll or cut their content when they fit within 10 px of the window edge: they open on the side where they fit, flipping if needed, and scroll only when the window has no room for them (ADR-163).
+- A popover, menu, select or tooltip that flips to the other side is styled for that side (transform origin, entrance slide) from its first frame, instead of starting its entrance from the wrong side and jumping two frames later. A menu clears its highlighted item when the mouse leaves the item or moves over a disabled one, as Radix does (ADR-164).
+- `examples/kit`: the custom radio options no longer move when checked, the row-actions menu button sits at the end of its row, and the context menu demo box can be focused so Shift+F10 opens it; `kit.ContextMenu`'s doc says how the keyboard reaches an area.
+
 ## [0.10.1] - 2026-10-25
 
 ### Fixed

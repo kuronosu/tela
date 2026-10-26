@@ -2377,8 +2377,9 @@ type Floating struct {
     // Placement is the placement the floating element is in, after flip or
     // autoPlacement chose it: one of Floating UI's 12 placements. It is the
     // placement given to [Placement] (default "bottom") until the first
-    // position is computed, and follows the engine by one frame: use it to
-    // style, and read ArrowX and the like where the same frame matters.
+    // position is computed, and is the engine's in the frame that shows the
+    // element (the build that read the first one runs again before the frame
+    // is painted): use it to style.
     Placement string
     // Side and Align split Placement: Side is "top", "right", "bottom" or
     // "left", the side of the anchor the element is on; Align is "start",
@@ -2408,7 +2409,7 @@ type Floating struct {
 
 Floating is what [`UseFloating`](#func-usefloating) returns: the props of the floating element and of its arrow, and what the position computed.
 
-Everything the position decides is known in the frame that shows the element: Props and ArrowProps move it and the arrow while the frame is painted, so no frame ever shows them in the wrong place. A component builds again, to style itself by Placement, in the frame after.
+Everything the position decides is known in the frame that shows the element: Props and ArrowProps move it and the arrow while the frame is painted, so no frame ever shows them in the wrong place. A component that styles itself by Placement builds again in that same frame, before anything is shown, when the placement differs from the one it built with (a flip), and what mounted in the frame starts its transitions again from its starting style: a menu that flips above its trigger enters from the top side's classes in its first frame (ADR-164).
 
 #### func UseFloating
 
@@ -4084,8 +4085,8 @@ type PopoverResult struct {
     // the trigger.
     ArrowProps tela.Prop
     // Placement is the placement the popover is in, after flipping; Side
-    // and Align split it. They follow the engine by one frame: see
-    // [Floating].
+    // and Align split it. They are the engine's in the frame that shows
+    // the popover: see [Floating].
     Placement, Side, Align string
     // Ref is the ref attached to the popover's element by Props.
     Ref tela.ElementRef

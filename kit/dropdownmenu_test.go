@@ -187,11 +187,13 @@ func TestDropdownMenuDisabledItemsAreMarked(t *testing.T) {
 	app.Expect(ddItem("Export"), telatest.Disabled(true))
 	app.Expect(ddItem("Open"), telatest.Disabled(false))
 	// The recipe takes it out of the pointer's reach (pointer-events-none),
-	// so hovering it does not move the focus to it.
+	// so hovering it does not move the focus to it: the pointer has left
+	// "Open", which gives the focus back to the menu, as in Radix (ADR-164).
 	app.Hover(ddItem("Open"))
+	app.ExpectFocused(ddItem("Open"))
 	ex := app.Bounds(ddItem("Export"))
 	app.MouseMove(ex.X+ex.Width/2, ex.Y+ex.Height/2)
-	app.ExpectFocused(ddItem("Open"))
+	app.ExpectFocused(ddMenu)
 }
 
 func TestDropdownMenuShortcutIsShownNotNamed(t *testing.T) {

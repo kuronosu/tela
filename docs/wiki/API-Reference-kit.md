@@ -1114,6 +1114,16 @@ type ColorInputStyle struct {
     Trigger string
     // Swatch is the small square of the color inside the trigger.
     Swatch string
+    // Code is the hex code inside the trigger. Inter is proportional, so
+    // its digits are tabular (tabular-nums) and its minimum width is that
+    // of the widest code, "#" and six digits (the digits are wider than the
+    // letters a to f, which the code is written with), so the button does
+    // not change size while the color does. CodeAlpha is added to Code
+    // while the input has Alpha, with the width of "#" and eight digits.
+    // The widths are in em, for Inter at any size; another font needs its
+    // own.
+    Code      string
+    CodeAlpha string
 }
 ```
 
@@ -1180,7 +1190,7 @@ kit.ColorPicker{Value: &c, OnValueChange: setC.Set, Alpha: true,
 
 It is built on the color hooks of package aria (aria.UseColorState, the area, the sliders and the field), so the area and the sliders are dragged with a mouse, a finger or a pen, the arrow keys move a thumb by one step (Shift or Page Up and Page Down by more) and each control is announced with its value. The hue is kept when the color goes through a gray or black, so dragging to the left edge of the area does not lose it.
 
-Dragging only repaints: the thumbs, the area, the preview and the alpha track follow the pointer without the picker being built on every move. OnValueChange is called on every change, so a controlled picker builds as often as the state it is given does; OnValueCommit is called once when the user stops (a drag ends, a key, a swatch or a hex code changed the color), which is the moment to save it.
+Dragging only repaints: the thumbs, the area, the preview, the hex field (unless it is being typed in) and the alpha track follow the pointer without the picker being built on every move. OnValueChange is called on every change, so a controlled picker builds as often as the state it is given does; OnValueCommit is called once when the user stops (a drag ends, a key, a swatch or a hex code changed the color), which is the moment to save it.
 
 The hex field accepts "#rgb", "#rrggbb" (and with Alpha the forms with four or eight digits) with or without the "#", commits on Enter and when it loses the focus, and goes back to the color when the text is not a code. Use [`ColorInput`](#type-colorinput) for a picker that opens from a button.
 
@@ -1375,7 +1385,7 @@ type ContextMenu[K comparable] struct {
 }
 ```
 
-ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click opens it at the pointer, a touch that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, at the area's top-left corner. The menu closes with Escape, a press outside it or choosing an item, and the focus returns to where it was. A right click inside the area while the menu is open moves it; in nested areas the innermost wins.
+ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click opens it at the pointer, a touch that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, at the area's top-left corner. The keys reach the area from the element that has the focus inside it, as in the browser: an area with nothing focusable inside opens from the keyboard only when it can take the focus itself (Props: h.TabIndex(0), with a focus-visible: ring in Class). The menu closes with Escape, a press outside it or choosing an item, and the focus returns to where it was. A right click inside the area while the menu is open moves it; in nested areas the innermost wins.
 
 ```go
 kit.ContextMenu[string]{
