@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/kit"
+	"github.com/kuronosu/tela/telatest"
 )
 
 var touchAndPen = []platform.PointerKind{platform.PointerTouch, platform.PointerPen}
@@ -125,15 +126,13 @@ func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
 // its Children are the same node).
 func TestContextMenuReopenKeepsChildren(t *testing.T) {
 	children := 0
-	app := mountMenuRaw(t, countingPage(&children), 480, 320)
-	app.rightClick(100, 80)
+	app := mountContext(t, countingPage(&children), 480, 320)
+	app.ClickAt(100, 80, telatest.Right())
 	before := children
-	app.rightClick(40, 140)
-	if n := countMenus(app.tree.Semantics(), "Actions"); n != 1 {
-		t.Fatalf("%d menus:\n%s", n, app.snapshot())
-	}
-	if n := app.find("menu", "Actions"); n.Bounds.X0 != 40 || n.Bounds.Y0 != 140 {
-		t.Errorf("menu at (%v, %v), want (40, 140)", n.Bounds.X0, n.Bounds.Y0)
+	app.ClickAt(40, 140, telatest.Right())
+	app.ExpectCount(cmMenu, 1)
+	if m := app.Bounds(cmMenu); m.X != 40 || m.Y != 140 {
+		t.Errorf("menu at (%v, %v), want (40, 140)", m.X, m.Y)
 	}
 	if children != before {
 		t.Errorf("the area's children built %d times", children-before)

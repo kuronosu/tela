@@ -307,15 +307,6 @@ func (a *menuRaw) rightClick(x, y float32) {
 	a.advance(300 * time.Millisecond)
 }
 
-func (a *menuRaw) leftClick(x, y float32) {
-	a.t.Helper()
-	a.move(x, y)
-	a.event(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonPrimary, Buttons: platform.ButtonPrimary.Mask()})
-	a.event(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonPrimary})
-}
-
 // snapshot is the aria snapshot of the window.
 func (a *menuRaw) snapshot() string { return a.tree.AriaSnapshot() }
 

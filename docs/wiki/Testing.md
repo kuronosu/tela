@@ -115,12 +115,13 @@ ones send key events to the focused element.
 
 | Action | Does |
 |---|---|
-| [`App.Click`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Click), [`App.DoubleClick`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DoubleClick) | Press and release the primary button; `Click(l, telatest.Delay(d))` holds it for `d` of app time (a long press) |
+| [`App.Click`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Click), [`App.DoubleClick`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DoubleClick) | Press and release the primary button; `Click(l, telatest.Delay(d))` holds it for `d` of app time (a long press of the mouse); `Click(l, telatest.Right())` presses the secondary button instead, so `h.OnContextMenu` runs and a `kit.ContextMenu` opens (Playwright's `click({button: 'right'})`) |
+| [`App.Tap`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Tap), [`App.LongPress`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.LongPress) | A finger on the element: `Tap` is a touch press and release (a click from a touch pointer); `LongPress` holds the touch past the long-press threshold (500 ms of app time), so `h.OnLongPress` runs and a context menu opens, as it does for touch and pen only |
 | [`App.Hover`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Hover) | Moves the pointer onto the element so `hover:` and `group-hover:` apply |
 | [`App.Focus`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Focus) | Focuses the element, like `focus()` |
 | [`App.Scroll`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Scroll) | Scrolls the wheel over the element by `(dx, dy)` pixels, like a touchpad |
 | [`App.Drag`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Drag), [`App.DragBy`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DragBy) | Press, move in steps ([`telatest.Steps`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Steps)) and release: a real drag |
-| [`App.ClickAt`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ClickAt)(x, y), [`App.DragFromTo`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DragFromTo)(from, to) | The same without locators, at window coordinates in logical pixels: for a canvas, a chart or a slider track (find the box with `App.Bounds`) |
+| [`App.ClickAt`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ClickAt)(x, y), [`App.DragFromTo`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.DragFromTo)(from, to) | The same without locators, at window coordinates in logical pixels: for a canvas, a chart or a slider track (find the box with `App.Bounds`); `ClickAt` takes the same options as `Click`, so `app.ClickAt(x, y, telatest.Right())` opens a context menu at a point |
 | [`App.MouseMove`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.MouseMove), [`App.MouseDown`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.MouseDown), [`App.MouseUp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.MouseUp) | The pointer by hand |
 | [`App.Press`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Press) | A key or combination, Playwright's syntax: `"Enter"`, `"Shift+Tab"`, `"Control+s"`, `"ArrowDown"`, `"a"` |
 | [`App.Type`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Type) | Characters one key at a time (an upper case letter has no Shift, like Playwright's `keyboard.type`) |
@@ -218,6 +219,10 @@ func longPress() tela.Node {
 		IfElse(held, Text("Held"), Text("Press and hold")))
 }
 ```
+
+For a touch long press there is no need to hold by hand:
+`app.LongPress(telatest.ByRole("button", "Press and hold"))` presses a finger,
+moves the clock past the threshold and lifts it.
 
 [`App.Now`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Now) returns the clock.
 

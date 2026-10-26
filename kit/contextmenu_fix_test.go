@@ -7,9 +7,9 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
-	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/kit"
+	"github.com/kuronosu/tela/telatest"
 )
 
 func countMenus(n *semantics.Node, name string) int {
@@ -26,14 +26,12 @@ func countMenus(n *semantics.Node, name string) int {
 // A right click outside the open menu (and outside the area) closes it,
 // as a primary press does: Radix's DismissableLayer counts any button.
 func TestContextMenuRightClickOutsideCloses(t *testing.T) {
-	app := mountMenuRaw(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
-	app.rightClick(100, 80)
-	if app.find("menu", "Actions") == nil {
-		t.Fatalf("no menu:\n%s", app.snapshot())
-	}
-	app.rightClick(400, 280)
-	if strings.Contains(app.snapshot(), "menu") {
-		t.Errorf("a right click outside left the menu open:\n%s", app.snapshot())
+	app := mountContext(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
+	app.ClickAt(100, 80, telatest.Right())
+	app.ExpectCount(cmMenu, 1)
+	app.ClickAt(400, 280, telatest.Right())
+	if strings.Contains(app.AriaSnapshot(), "menu") {
+		t.Errorf("a right click outside left the menu open:\n%s", app.AriaSnapshot())
 	}
 }
 
@@ -41,19 +39,14 @@ func TestContextMenuRightClickOutsideCloses(t *testing.T) {
 // at the new point (the panel is keyed by the opening, so the Presence
 // does not bring the exiting one back): one menu, which has the focus.
 func TestContextMenuRightClickElsewhereReopens(t *testing.T) {
-	app := mountMenuRaw(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
-	app.rightClick(100, 80)
-	app.rightClick(40, 140) // in the area, below its button, outside the menu
-	if n := countMenus(app.tree.Semantics(), "Actions"); n != 1 {
-		t.Fatalf("%d menus:\n%s", n, app.snapshot())
+	app := mountContext(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
+	app.ClickAt(100, 80, telatest.Right())
+	app.ClickAt(40, 140, telatest.Right()) // in the area, below its button, outside the menu
+	app.ExpectCount(cmMenu, 1)
+	if m := app.Bounds(cmMenu); m.X != 40 || m.Y != 140 {
+		t.Errorf("menu at (%v, %v), want (40, 140)", m.X, m.Y)
 	}
-	n := app.find("menu", "Actions")
-	if n.Bounds.X0 != 40 || n.Bounds.Y0 != 140 {
-		t.Errorf("menu at (%v, %v), want (40, 140)", n.Bounds.X0, n.Bounds.Y0)
-	}
-	if n.States&semantics.StateFocused == 0 {
-		t.Errorf("the reopened menu does not have the focus:\n%s", app.snapshot())
-	}
+	app.Expect(cmMenu, telatest.Focused(true))
 }
 
 // A mouse button held on a button inside the area for longer than a long
@@ -66,17 +59,12 @@ func TestContextMenuSlowMouseClick(t *testing.T) {
 				Items:    []kit.MenuItem[string]{{Key: "copy", Label: "Copy"}},
 				Children: h.Button(h.Class("m-4 h-8 w-20"), h.OnClick(func() { clicks++ }), h.Text("Inner"))})
 	}
-	app := mountMenuRaw(t, page, 480, 320)
-	app.move(50, 50)
-	app.event(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: 50, Y: 50}, Button: platform.ButtonPrimary, Buttons: platform.ButtonPrimary.Mask()})
-	app.advance(800 * time.Millisecond)
-	app.event(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: 50, Y: 50}, Button: platform.ButtonPrimary})
+	app := mountContext(t, page, 480, 320)
+	app.Click(telatest.ByRole("button", "Inner"), telatest.Delay(800*time.Millisecond))
 	if clicks != 1 {
 		t.Errorf("a slow click on the button clicked %d times, want 1", clicks)
 	}
-	if strings.Contains(app.snapshot(), "menu") {
-		t.Errorf("a held mouse button opened the menu:\n%s", app.snapshot())
+	if strings.Contains(app.AriaSnapshot(), "menu") {
+		t.Errorf("a held mouse button opened the menu:\n%s", app.AriaSnapshot())
 	}
 }

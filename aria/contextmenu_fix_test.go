@@ -9,6 +9,7 @@ import (
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/telatest"
 )
 
 // countNodes counts the nodes of the semantics tree with the role and name.
@@ -69,30 +70,21 @@ func TestContextMenuRightClickOutsideCloses(t *testing.T) {
 // opened with the mouse does (the menu itself, no item).
 func TestContextMenuRightClickElsewhereReopens(t *testing.T) {
 	var ev events
-	app := mountRaw(t, tela.C(ctxPage(aria.ContextMenuTriggerOptions{}, &ev)), 400, 300)
-	app.rightClick(90, 60)
+	app := telatest.MountFunc(t, ctxPage(aria.ContextMenuTriggerOptions{}, &ev), telatest.Size(400, 300))
+	app.ClickAt(90, 60, telatest.Right())
 	// Move the focus to an item, as the keyboard would.
-	app.key(platform.KeyPress, platform.KeyArrowDown, platform.CodeArrowDown, false)
-	app.key(platform.KeyRelease, platform.KeyArrowDown, platform.CodeArrowDown, false)
-	if f := focusedNode(app.tree.Semantics()); f == nil || f.Role != "menuitem" {
-		t.Fatalf("ArrowDown did not focus an item:\n%s", app.tree.AriaSnapshot())
+	app.Press("ArrowDown")
+	app.Expect(telatest.ByRole("menuitem", "Copy"), telatest.Focused(true))
+	// On the area, below its button, outside the menu.
+	app.ClickAt(40, 130, telatest.Right())
+	app.ExpectCount(ctxMenuLoc, 1)
+	if m := app.Bounds(ctxMenuLoc); m.X != 40 || m.Y != 130 {
+		t.Errorf("menu at (%v, %v), want (40, 130)", m.X, m.Y)
 	}
-	app.rightClick(40, 130) // on the area, below its button, outside the menu
-	if n := countNodes(app.tree.Semantics(), "menu", "Actions"); n != 1 {
-		t.Fatalf("%d menus after the second right click:\n%s", n, app.tree.AriaSnapshot())
-	}
-	if x, y, _, _ := menuBounds(t, app); x != 40 || y != 130 {
-		t.Errorf("menu at (%v, %v), want (40, 130)", x, y)
-	}
-	if f := focusedNode(app.tree.Semantics()); f == nil || f.Role != "menu" {
-		t.Errorf("the reopened menu does not have the focus itself:\n%s", app.tree.AriaSnapshot())
-	}
+	app.Expect(ctxMenuLoc, telatest.Focused(true)) // the reopened menu has the focus itself
 	// The keys work in the new menu.
-	app.key(platform.KeyPress, platform.KeyArrowDown, platform.CodeArrowDown, false)
-	app.key(platform.KeyRelease, platform.KeyArrowDown, platform.CodeArrowDown, false)
-	if n := findNode(app.tree.Semantics(), "menuitem", "Copy"); n == nil || n.States&semantics.StateFocused == 0 {
-		t.Errorf("ArrowDown in the reopened menu:\n%s", app.tree.AriaSnapshot())
-	}
+	app.Press("ArrowDown")
+	app.Expect(telatest.ByRole("menuitem", "Copy"), telatest.Focused(true))
 	if got := ev.take(); got != "" {
 		t.Errorf("events %q", got)
 	}
@@ -117,22 +109,17 @@ func twoAreas() tela.Node {
 // A right click in another area closes the open menu and opens that
 // area's menu: exactly one menu, at the new point, with the focus.
 func TestContextMenuRightClickInAnotherArea(t *testing.T) {
-	app := mountRaw(t, tela.C(twoAreas), 500, 300)
-	app.rightClick(50, 50)
-	if findNode(app.tree.Semantics(), "menu", "Left") == nil {
-		t.Fatalf("no left menu:\n%s", app.tree.AriaSnapshot())
+	app := telatest.Mount(t, tela.C(twoAreas), telatest.Size(500, 300))
+	left, right := telatest.ByRole("menu", "Left"), telatest.ByRole("menu", "Right")
+	app.ClickAt(50, 50, telatest.Right())
+	app.ExpectCount(left, 1)
+	app.ClickAt(250, 60, telatest.Right())
+	if app.Count(left) != 0 || app.Count(right) != 1 {
+		t.Fatalf("after a right click in the other area:\n%s", app.AriaSnapshot())
 	}
-	app.rightClick(250, 60)
-	s := app.tree.Semantics()
-	if findNode(s, "menu", "Left") != nil || findNode(s, "menu", "Right") == nil {
-		t.Fatalf("after a right click in the other area:\n%s", app.tree.AriaSnapshot())
-	}
-	if f := focusedNode(s); f == nil || f.Name != "Right" {
-		t.Errorf("the right menu does not have the focus:\n%s", app.tree.AriaSnapshot())
-	}
-	n := findNode(s, "menu", "Right")
-	if n.Bounds.X0 != 250 || n.Bounds.Y0 != 60 {
-		t.Errorf("right menu at (%v, %v), want (250, 60)", n.Bounds.X0, n.Bounds.Y0)
+	app.Expect(right, telatest.Focused(true))
+	if m := app.Bounds(right); m.X != 250 || m.Y != 60 {
+		t.Errorf("right menu at (%v, %v), want (250, 60)", m.X, m.Y)
 	}
 }
 

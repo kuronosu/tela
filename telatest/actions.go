@@ -7,6 +7,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/gesture"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
@@ -186,34 +187,94 @@ func (a *App) moveTo(p platform.Point) {
 	a.pointer(platform.PointerMove, p, platform.ButtonNone, a.held)
 }
 
-func (a *App) down() {
+func (a *App) down() { a.tb.Helper(); a.press(platform.ButtonPrimary) }
+func (a *App) up()   { a.tb.Helper(); a.release(platform.ButtonPrimary) }
+
+// press presses button of the mouse at its position.
+func (a *App) press(button platform.PointerButton) {
 	a.tb.Helper()
 	if a.held != 0 {
-		a.fatalf("the primary button is already pressed; release it with MouseUp first")
+		if button == platform.ButtonPrimary && a.held.Has(button) {
+			a.fatalf("the primary button is already pressed; release it with MouseUp first")
+		}
+		a.fatalf("cannot press the %s button: another button is already pressed; release it with MouseUp first", buttonName(button))
 	}
-	a.held = platform.ButtonPrimary.Mask()
-	a.pointer(platform.PointerDown, a.pos, platform.ButtonPrimary, a.held)
+	a.held = button.Mask()
+	a.pointer(platform.PointerDown, a.pos, button, a.held)
 }
 
-func (a *App) up() {
+// release releases button of the mouse at its position.
+func (a *App) release(button platform.PointerButton) {
 	a.tb.Helper()
-	if a.held == 0 {
-		a.fatalf("the primary button is not pressed; press it with MouseDown first")
+	if !a.held.Has(button) {
+		a.fatalf("the %s button is not pressed; press it with MouseDown first", buttonName(button))
 	}
-	a.held = 0
-	a.pointer(platform.PointerUp, a.pos, platform.ButtonPrimary, 0)
+	a.held &^= button.Mask()
+	a.pointer(platform.PointerUp, a.pos, button, a.held)
+}
+
+func buttonName(b platform.PointerButton) string {
+	if b == platform.ButtonSecondary {
+		return "secondary"
+	}
+	return "primary"
+}
+
+// touchID is the id of the contact [App.Tap] and [App.LongPress] use.
+const touchID platform.PointerID = 1
+
+// touchDown puts a finger down at p: a touch pointer with its primary
+// contact, which no hover precedes.
+func (a *App) touchDown(p platform.Point) {
+	a.tb.Helper()
+	a.win.Inject(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerTouch, ID: touchID,
+		Pos: p, Button: platform.ButtonPrimary, Buttons: platform.ButtonPrimary.Mask()})
+	a.settleAfter()
+}
+
+// touchUp lifts the finger at p; a touch pointer leaves the window with it.
+func (a *App) touchUp(p platform.Point) {
+	a.tb.Helper()
+	a.win.Inject(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerTouch, ID: touchID,
+		Pos: p, Button: platform.ButtonPrimary})
+	a.win.Inject(platform.PointerEvent{Action: platform.PointerLeave, Kind: platform.PointerTouch, ID: touchID, Pos: p})
+	a.settleAfter()
 }
 
 // ClickOption configures [App.Click] and [App.ClickAt].
 type ClickOption func(*clickConfig)
 
-type clickConfig struct{ delay time.Duration }
+type clickConfig struct {
+	delay  time.Duration
+	button platform.PointerButton
+}
 
 // Delay holds the button down for d of app time between the press and the
 // release, like Playwright's click delay. It is how a test makes a long
-// press (the arena recognizes one after 500 ms): the handler runs while the
-// button is held and the release then ends the press without a click.
+// press of the mouse (the arena recognizes one after 500 ms): the handler
+// runs while the button is held and the release then ends the press without
+// a click. For a touch long press, which opens a context menu, use
+// [App.LongPress].
 func Delay(d time.Duration) ClickOption { return func(c *clickConfig) { c.delay = d } }
+
+// Right makes [App.Click] and [App.ClickAt] press and release the secondary
+// (right) mouse button, like Playwright's click({button: 'right'}): real
+// pointer events with the secondary button, so the element's OnContextMenu
+// runs once the button is released (a kit.ContextMenu opens) and its OnClick
+// does not. The element must be as actionable as for a primary click:
+// visible, enabled, in view and not covered. It combines with [Delay].
+//
+//	app.Click(telatest.ByTestID("area"), telatest.Right())
+//	app.ClickAt(120, 80, telatest.Right())
+func Right() ClickOption { return func(c *clickConfig) { c.button = platform.ButtonSecondary } }
+
+func clickConfigOf(opts []ClickOption) clickConfig {
+	cfg := clickConfig{button: platform.ButtonPrimary}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	return cfg
+}
 
 // Click moves the pointer to the center of the element l locates, presses
 // the primary button and releases it: real pointer events (hover, :active,
@@ -221,28 +282,72 @@ func Delay(d time.Duration) ClickOption { return func(c *clickConfig) { c.delay 
 // handler. Each Click is a first click (ClickCount 1) even right after
 // another, as in Playwright; use [App.DoubleClick] for two. It waits for the element to be visible, enabled, in view and not
 // covered by another element, and fails the test when l matches none or
-// several.
+// several. With [Right] it presses the secondary button instead (the
+// element's OnContextMenu runs, not its OnClick); [App.Tap] and
+// [App.LongPress] are the touch counterparts.
 func (a *App) Click(l Locator, opts ...ClickOption) {
 	a.tb.Helper()
-	var cfg clickConfig
-	for _, o := range opts {
-		o(&cfg)
+	cfg := clickConfigOf(opts)
+	verb := "click"
+	if cfg.button == platform.ButtonSecondary {
+		verb = "right-click"
 	}
-	_, p := a.target(l, "click", true)
+	_, p := a.target(l, verb, true)
 	a.clickPoint(p, cfg)
 }
 
-// clickPoint presses and releases the primary button at p.
+// clickPoint presses and releases the configured button at p.
 func (a *App) clickPoint(p platform.Point, cfg clickConfig) {
 	a.tb.Helper()
 	a.moveTo(p)
 	a.tree.BreakClickSequence()
-	a.down()
+	a.press(cfg.button)
 	if cfg.delay > 0 {
 		a.advance(cfg.delay)
 		a.settleAfter()
 	}
-	a.up()
+	a.release(cfg.button)
+}
+
+// Tap taps the element l locates with a finger: it puts a touch pointer
+// down at the element's center and lifts it, with real touch pointer events
+// (no hover; :active, the gesture arena and the click as for a finger), like
+// Playwright's tap. The element's OnClick runs, with a touch pointer in its
+// event. It waits for the element to be visible, enabled, in view and not
+// covered, and fails the test when l matches none or several.
+//
+//	app.Tap(telatest.ByRole("button", "Save"))
+func (a *App) Tap(l Locator) {
+	a.tb.Helper()
+	_, p := a.target(l, "tap", true)
+	a.tree.BreakClickSequence()
+	a.touchDown(p)
+	a.touchUp(p)
+}
+
+// longPressHold is how long [App.LongPress] keeps the finger down: the
+// engine's long-press threshold and a margin past it.
+const longPressHold = gesture.LongPressTimeout + 100*time.Millisecond
+
+// LongPress presses the element l locates with a finger at its center,
+// holds it past the long-press threshold (500 ms of app time: the clock
+// moves, so the timers run) and lifts it. The element's OnLongPress runs
+// while the finger is down and the press then ends without a click. A touch
+// long press also opens the menu of a kit.ContextMenu or
+// aria.UseContextMenuTrigger (a long press of the mouse does not; see
+// [App.Click] with [Delay]). It waits for the element to be visible,
+// enabled, in view and not covered.
+//
+//	app.LongPress(telatest.ByTestID("photo"))
+//	app.ExpectCount(telatest.ByRole("menu", "Actions"), 1)
+func (a *App) LongPress(l Locator) {
+	a.tb.Helper()
+	_, p := a.target(l, "long-press", true)
+	a.tree.BreakClickSequence()
+	a.touchDown(p)
+	a.advance(longPressHold)
+	a.settleAfter()
+	a.touchUp(p)
 }
 
 // ClickAt clicks at the point (x, y) of the window, in logical pixels from
@@ -251,17 +356,15 @@ func (a *App) clickPoint(p platform.Point, cfg clickConfig) {
 // without looking for an element: whatever is under the point receives
 // them, like a user clicking there. It is for what a locator cannot name
 // (a canvas, a chart, a drop zone found with [App.Bounds]) and fails the
-// test when the point is outside the window.
+// test when the point is outside the window. [Right] clicks with the
+// secondary button, to open a context menu at a point.
 //
 //	r := app.Bounds(telatest.ByTestID("chart"))
 //	app.ClickAt(r.X+r.Width/2, r.Y+10)
+//	app.ClickAt(r.X+20, r.Y+20, telatest.Right())
 func (a *App) ClickAt(x, y float32, opts ...ClickOption) {
 	a.tb.Helper()
-	var cfg clickConfig
-	for _, o := range opts {
-		o(&cfg)
-	}
-	a.clickPoint(a.windowPoint("ClickAt", x, y), cfg)
+	a.clickPoint(a.windowPoint("ClickAt", x, y), clickConfigOf(opts))
 }
 
 // windowPoint checks that (x, y) is inside the window and returns it as a

@@ -8,7 +8,6 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
-	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -50,19 +49,18 @@ func TestListBoxResultBooleans(t *testing.T) {
 func TestListBoxTouchTapToggles(t *testing.T) {
 	// A touch has no modifier keys, so in "replace" behavior it toggles.
 	o := aria.ListBoxOptions[string]{SelectionMode: "multiple", SelectionBehavior: "replace"}
-	app := mountRaw(t, tela.C(selPage(o, nil)), 300, 400)
-	tap := func(i int) { app.tap(platform.PointerTouch, 20, float32(i)*32+16) }
+	app := telatest.MountFunc(t, selPage(o, nil), telatest.Size(300, 400))
 	want := func(sel string) {
 		t.Helper()
-		if s := app.tree.AriaSnapshot(); !strings.Contains(s, "selected: "+sel) {
+		if s := app.AriaSnapshot(); !strings.Contains(s, "selected: "+sel) {
 			t.Errorf("want %q:\n%s", sel, s)
 		}
 	}
-	tap(0)
+	app.Tap(option("Apple"))
 	want("apple")
-	tap(2)
+	app.Tap(option("Blueberry"))
 	want("apple,blueberry")
-	tap(0)
+	app.Tap(option("Apple"))
 	want("blueberry")
 }
 

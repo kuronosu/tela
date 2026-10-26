@@ -70,16 +70,23 @@ func contextPage(m kit.ContextMenu[string]) func() tela.Node {
 	}
 }
 
+// mountContext mounts the page in a window of the given size with the kit
+// theme.
+func mountContext(t *testing.T, page func() tela.Node, w, hgt float32) *telatest.App {
+	t.Helper()
+	return telatest.MountFunc(t, page, telatest.Size(w, hgt), telatest.Theme(kit.Theme()))
+}
+
 func TestContextMenuRightClick(t *testing.T) {
 	var log []string
-	app := mountMenuRaw(t, contextPage(kit.ContextMenu[string]{
+	app := mountContext(t, contextPage(kit.ContextMenu[string]{
 		OnSelect: func(k string) { log = append(log, k) },
 	}), 480, 320)
-	if strings.Contains(app.snapshot(), "menu") {
-		t.Fatalf("the menu is open at the start:\n%s", app.snapshot())
+	if strings.Contains(app.AriaSnapshot(), "menu") {
+		t.Fatalf("the menu is open at the start:\n%s", app.AriaSnapshot())
 	}
-	app.rightClick(100, 80)
-	snap := app.snapshot()
+	app.ClickAt(100, 80, telatest.Right())
+	snap := app.AriaSnapshot()
 	for _, want := range []string{`menu "Actions"`, `menuitem "Copy"`, `menuitem "Paste" [disabled]`, `menuitem "Delete"`} {
 		if !strings.Contains(snap, want) {
 			t.Errorf("the snapshot lacks %q:\n%s", want, snap)
@@ -87,20 +94,20 @@ func TestContextMenuRightClick(t *testing.T) {
 	}
 	// A second right click on the area moves the menu; a press on an item
 	// chooses it, closes the menu and calls OnSelect.
-	app.rightClick(60, 50)
-	app.leftClick(70, 60) // on the first item: the menu is at (60, 50) with 4 px of padding
+	app.ClickAt(60, 50, telatest.Right())
+	app.Click(cmItem("Copy"))
 	if got := fmt.Sprint(log); got != "[copy]" {
 		t.Errorf("chosen %s, want [copy]", got)
 	}
-	if strings.Contains(app.snapshot(), "menu") {
-		t.Errorf("the menu is still open after choosing an item:\n%s", app.snapshot())
+	if strings.Contains(app.AriaSnapshot(), "menu") {
+		t.Errorf("the menu is still open after choosing an item:\n%s", app.AriaSnapshot())
 	}
 
 	// A press outside closes it without choosing.
-	app.rightClick(100, 80)
-	app.leftClick(400, 280)
-	if strings.Contains(app.snapshot(), "menu") {
-		t.Errorf("the menu is still open after a press outside:\n%s", app.snapshot())
+	app.ClickAt(100, 80, telatest.Right())
+	app.ClickAt(400, 280)
+	if strings.Contains(app.AriaSnapshot(), "menu") {
+		t.Errorf("the menu is still open after a press outside:\n%s", app.AriaSnapshot())
 	}
 	if len(log) != 1 {
 		t.Errorf("a press outside chose: %v", log)
@@ -108,26 +115,22 @@ func TestContextMenuRightClick(t *testing.T) {
 }
 
 func TestContextMenuOpensAtThePointer(t *testing.T) {
-	app := mountMenuRaw(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
-	app.rightClick(100, 80)
-	n := app.find("menu", "Actions")
-	if n == nil {
-		t.Fatalf("no menu:\n%s", app.snapshot())
-	}
-	if n.Bounds.X0 != 100 || n.Bounds.Y0 != 80 {
-		t.Errorf("menu at (%v, %v), want the pointer's (100, 80)", n.Bounds.X0, n.Bounds.Y0)
+	app := mountContext(t, contextPage(kit.ContextMenu[string]{}), 480, 320)
+	app.ClickAt(100, 80, telatest.Right())
+	app.ExpectCount(cmMenu, 1)
+	if m := app.Bounds(cmMenu); m.X != 100 || m.Y != 80 {
+		t.Errorf("menu at (%v, %v), want the pointer's (100, 80)", m.X, m.Y)
 	}
 	// Right clicking elsewhere on the area moves it.
-	app.rightClick(40, 40)
-	if n = app.find("menu", "Actions"); n == nil || n.Bounds.X0 != 40 || n.Bounds.Y0 != 40 {
-		t.Errorf("after a second right click the menu is %+v, want it at (40, 40)", n)
+	app.ClickAt(40, 40, telatest.Right())
+	if m := app.Bounds(cmMenu); m.X != 40 || m.Y != 40 {
+		t.Errorf("after a second right click the menu is at (%v, %v), want it at (40, 40)", m.X, m.Y)
 	}
 	// Near the window's edge it flips and shifts to stay in the window.
-	app.leftClick(400, 300)
-	app.rightClick(230, 170)
-	n = app.find("menu", "Actions")
-	if n == nil || n.Bounds.X1 > 480 || n.Bounds.Y1 > 320 {
-		t.Errorf("menu %+v is out of the 480x320 window", n)
+	app.ClickAt(400, 300)
+	app.ClickAt(230, 170, telatest.Right())
+	if m := app.Bounds(cmMenu); m.X+m.Width > 480 || m.Y+m.Height > 320 {
+		t.Errorf("menu %v is out of the 480x320 window", m)
 	}
 }
 
@@ -204,19 +207,19 @@ func TestContextMenuItemKinds(t *testing.T) {
 }
 
 func TestContextMenuDisabled(t *testing.T) {
-	app := mountMenuRaw(t, contextPage(kit.ContextMenu[string]{Disabled: true}), 480, 320)
-	app.rightClick(100, 80)
-	if strings.Contains(app.snapshot(), `menu "Actions"`) {
-		t.Errorf("a disabled area opened its menu:\n%s", app.snapshot())
+	app := mountContext(t, contextPage(kit.ContextMenu[string]{Disabled: true}), 480, 320)
+	app.ClickAt(100, 80, telatest.Right())
+	if strings.Contains(app.AriaSnapshot(), `menu "Actions"`) {
+		t.Errorf("a disabled area opened its menu:\n%s", app.AriaSnapshot())
 	}
 }
 
 func TestContextMenuControlledOpen(t *testing.T) {
 	var log []bool
 	open := false
-	app := mountMenuRaw(t, contextPage(kit.ContextMenu[string]{Open: &open, OnOpenChange: func(o bool) { log = append(log, o) }}), 480, 320)
-	app.rightClick(100, 80)
-	if strings.Contains(app.snapshot(), `menu "Actions"`) {
+	app := mountContext(t, contextPage(kit.ContextMenu[string]{Open: &open, OnOpenChange: func(o bool) { log = append(log, o) }}), 480, 320)
+	app.ClickAt(100, 80, telatest.Right())
+	if strings.Contains(app.AriaSnapshot(), `menu "Actions"`) {
 		t.Errorf("the parent did not open it, but it is open")
 	}
 	if fmt.Sprint(log) != "[true]" {
@@ -234,9 +237,9 @@ func TestContextMenuInnermostWins(t *testing.T) {
 		AriaLabel: "Outer actions", Class: "absolute top-5 left-5 h-40 w-60 border", Children: inner,
 		Items: []kit.MenuItem[string]{{Key: "outer", Label: "Outer item"}},
 	}
-	app := mountMenuRaw(t, func() tela.Node { return h.Div(h.Class("relative h-full w-full"), outer) }, 480, 320)
-	app.rightClick(60, 60) // inside the inner area
-	snap := app.snapshot()
+	app := mountContext(t, func() tela.Node { return h.Div(h.Class("relative h-full w-full"), outer) }, 480, 320)
+	app.ClickAt(60, 60, telatest.Right()) // inside the inner area
+	snap := app.AriaSnapshot()
 	if !strings.Contains(snap, `menu "Inner actions"`) || strings.Contains(snap, "Outer actions") {
 		t.Errorf("a right click in the inner area must open its menu only:\n%s", snap)
 	}

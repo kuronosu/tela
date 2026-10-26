@@ -23,11 +23,13 @@
 //
 // # Actions and auto-wait
 //
-// [App.Click], [App.DoubleClick], [App.Hover], [App.Focus], [App.Scroll],
-// [App.Drag], [App.DragBy], [App.Press], [App.Type] and [App.Fill] act like
-// a user. The pointer actions move the pointer to the element's center and
-// send pointer events through hit-testing and the gesture arena (hover and
-// :active states, focus on press, click counts, drags). The keyboard
+// [App.Click] (with [Right] for the secondary button and [Delay] for a held
+// one), [App.DoubleClick], [App.Tap], [App.LongPress], [App.Hover],
+// [App.Focus], [App.Scroll], [App.Drag], [App.DragBy], [App.Press],
+// [App.Type] and [App.Fill] act like a user. The pointer actions move the
+// pointer to the element's center and send pointer events through
+// hit-testing and the gesture arena (hover and :active states, focus on
+// press, click counts, drags); Tap and LongPress use a touch pointer. The keyboard
 // actions send key events to the focused element (typing into a focused
 // text field; Fill replaces a field's value like Playwright's fill).
 //
