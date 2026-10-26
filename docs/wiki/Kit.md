@@ -1,7 +1,7 @@
 # Kit: ready-made components
 
 Package [`kit`](https://pkg.go.dev/github.com/kuronosu/tela/kit) is the layer an
-app is written with: 34 styled components in the look of
+app is written with: 35 styled components in the look of
 [shadcn/ui](https://ui.shadcn.com) (style "new-york-v4", at one pinned registry
 commit), built on the behavior hooks of [`aria`](Aria) and the classes of
 [`h`](Elements-and-Props). A button, a card, a select, a dialog, a calendar, a

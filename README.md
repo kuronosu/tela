@@ -229,7 +229,7 @@ dialog with the keyboard alone.
 ### Component gallery (`kit`)
 
 **[kit](examples/kit)**: the gallery of package `kit`, shadcn/ui's look as
-Go components: a sidebar with 34 components and a page for each with its
+Go components: a sidebar with 35 components and a page for each with its
 variants, sizes and states in a small realistic composition, a light/dark switch
 and a Style picker that restyles the whole window with a second recipe made of a
 few edits of `kit.DefaultStyle()`. Everything on screen is a kit component. Every

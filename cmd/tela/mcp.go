@@ -146,6 +146,16 @@ func runMCP(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "tela mcp: the go command was not found in PATH; install Go (https://go.dev/dl) and try again")
 		return 1
 	}
+	// An MCP client starts the server in a directory of its own (Claude
+	// Desktop: /), where go cannot resolve a path to the app's module: a
+	// directory argument becomes the working directory.
+	if fi, err := os.Stat(opts.Pkg); err == nil && fi.IsDir() && opts.Pkg != "." {
+		if err := os.Chdir(opts.Pkg); err != nil {
+			fmt.Fprintf(stderr, "tela mcp: %v\n", err)
+			return 1
+		}
+		opts.Pkg = "."
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := serveMCP(ctx, goBin, opts, os.Stdin, stdout, stderr); err != nil {
