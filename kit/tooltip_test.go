@@ -26,17 +26,12 @@ const (
 const radixArrow = `<span style="position:absolute;left:calc(50% - 5px);bottom:0;transform:translateY(100%)">` +
 	`<svg class="` + shadcnTooltipArrow + `" width="10" height="5" viewBox="0 0 30 10" preserveAspectRatio="none" style="display:block"><polygon points="0,0 30,0 15,10"/></svg></span>`
 
-// tooltipCell is a tooltip on both sides. A text of one line is the whole
-// of shadcn's markup; a text that wraps has its text-balance left out of the
-// markup, because Tela wraps greedily (text-wrap: balance parses as wrap, a
-// gap of the engine) and Chromium would break the lines elsewhere.
-func tooltipCell(name string, t kit.Tooltip, text string, width int, wraps bool) cell {
+// tooltipCell is a tooltip on both sides, with the whole of shadcn's
+// markup: a text that wraps is balanced (text-balance) on both.
+func tooltipCell(name string, t kit.Tooltip, text string, width int) cell {
 	t.Props = h.TestID(name + "-tip")
 	t.Content = h.Text(text)
 	classes := strings.NewReplacer("animate-in ", "", "fade-in-0 ", "", "zoom-in-95 ", "").Replace(shadcnTooltipContent)
-	if wraps {
-		classes = strings.Replace(classes, "text-balance ", "", 1)
-	}
 	return cell{
 		name: name, width: width, probes: []string{name + "-tip"}, tela: kit.StaticTooltip(t),
 		html: fmt.Sprintf(`<div role="tooltip" data-probe="%s-tip" data-slot="tooltip-content" class="relative %s">%s%s</div>`,
@@ -47,10 +42,10 @@ func tooltipCell(name string, t kit.Tooltip, text string, width int, wraps bool)
 func tooltipSheet() *sheet {
 	// Three lines of light text on a dark box: the anti-aliasing of text weighs more here.
 	return &sheet{name: "tooltip", slot: 260, mean: [2]float64{4.5, 3.5}, cells: []cell{
-		tooltipCell("short", kit.Tooltip{}, "Add to library", 0, false),
-		tooltipCell("sentence", kit.Tooltip{}, "Save your changes before you leave this page", 0, true),
-		tooltipCell("wrapped", kit.Tooltip{}, "A longer explanation that does not fit on a single line of the tooltip and has to wrap", 200, true),
-		tooltipCell("class", kit.Tooltip{Class: "px-2 py-1"}, "Compact", 0, false),
+		tooltipCell("short", kit.Tooltip{}, "Add to library", 0),
+		tooltipCell("sentence", kit.Tooltip{}, "Save your changes before you leave this page", 0),
+		tooltipCell("wrapped", kit.Tooltip{}, "A longer explanation that does not fit on a single line of the tooltip and has to wrap", 200),
+		tooltipCell("class", kit.Tooltip{Class: "px-2 py-1"}, "Compact", 0),
 	}}
 }
 

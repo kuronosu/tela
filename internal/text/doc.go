@@ -238,7 +238,14 @@
 //     overflows. Trailing spaces hang (pre-wrap; only when they do not fit
 //     before a forced break or the end) or are removed (collapsing modes),
 //     and do not count for fitting or alignment. Tabs advance to multiples
-//     of tab-size spaces of the block's font.
+//     of tab-size spaces of the block's font. text-wrap: balance and
+//     pretty (ParagraphStyle.WrapStyle, wrapstyle.go) then move the
+//     greedy breaks as Blink does: balance by its score line breaker
+//     (squared free space of every line) or by bisecting the width, up to
+//     6 lines before the first forced break; pretty on the last 4 lines
+//     when the last one is a short word; the number of lines, the
+//     alignment width and the intrinsic widths stay those of greedy
+//     breaking.
 //  8. Lines (lines.go): items in visual order; line boxes per CSS 2.1
 //     section 10.8: the strut (Default style), the span box of every style
 //     on the line and, with line-height normal, the boxes of fallback fonts
@@ -286,6 +293,12 @@
 // nesting, wrapping, empty inlines, bidi splits, right-to-left
 // paragraphs, struts, truncation) and compares their fragments too:
 // every fragment and cluster edge is within 0.06 px.
+// TestChromiumWrapStyle compares 33 balanced and pretty paragraphs (1 to 7
+// lines, alignments, justification, right-to-left and bidi text, spans,
+// inline boxes, CJK, tabs, pre-wrap, forced breaks, overflow,
+// overflow-wrap, line-clamp): every line starts where Chromium's does, and
+// its edges are within 0.04 px; Chromium's breaks are the same at device
+// scales 1.5 and 2.
 // TestChromiumBaselines compares one line of Inter in 13 sizes and 18 line
 // heights at scales 1, 1.25, 1.5, 2 and 3: the baseline and the content
 // area match to the device pixel and the line box within 1/64 device px,

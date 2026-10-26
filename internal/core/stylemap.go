@@ -287,7 +287,7 @@ func sameInherited(a, b *style.ComputedStyle) bool {
 		ta.LineHeight == tb.LineHeight && ta.LetterSpacing == tb.LetterSpacing &&
 		ta.WordSpacing == tb.WordSpacing && ta.TextAlign == tb.TextAlign &&
 		ta.TextTransform == tb.TextTransform && ta.Decoration == tb.Decoration &&
-		ta.WhiteSpace == tb.WhiteSpace && ta.WordBreak == tb.WordBreak &&
+		ta.WhiteSpace == tb.WhiteSpace && ta.WrapStyle == tb.WrapStyle && ta.WordBreak == tb.WordBreak &&
 		ta.OverflowWrap == tb.OverflowWrap && ta.TabSize == tb.TabSize &&
 		ta.Numeric == tb.Numeric && slices.Equal(ta.Shadow, tb.Shadow) &&
 		ta.Direction == tb.Direction &&

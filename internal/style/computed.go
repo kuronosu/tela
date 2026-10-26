@@ -347,8 +347,12 @@ type TextProps struct {
 	TextTransform text.TextTransform
 	Decoration    Decoration
 	WhiteSpace    text.WhiteSpace
-	WordBreak     text.WordBreak
-	OverflowWrap  text.OverflowWrap
+	// WrapStyle is CSS text-wrap-style (text-balance, text-pretty); the
+	// white-space shorthand leaves it alone, text-wrap and text-nowrap
+	// reset it.
+	WrapStyle    text.TextWrapStyle
+	WordBreak    text.WordBreak
+	OverflowWrap text.OverflowWrap
 	// TabSize is a multiple of a space's advance.
 	TabSize float32
 	// Numeric is font-variant-numeric (tabular-nums and friends).

@@ -59,8 +59,12 @@ func registerTypography(r *registry) {
 		v := aligns[k]
 		keys[k] = op(func(e *env) { e.s.Text.TextAlign = v })
 	}
-	setWrap := func(wrap bool) Op {
+	// text-wrap is the shorthand of text-wrap-mode (folded into
+	// white-space here) and text-wrap-style, which each of these classes
+	// sets: text-wrap and text-nowrap reset it to auto.
+	setWrap := func(wrap bool, style text.TextWrapStyle) Op {
 		return op(func(e *env) {
+			e.s.Text.WrapStyle = style
 			ws := &e.s.Text.WhiteSpace
 			switch {
 			case wrap && *ws == text.WhiteSpaceNowrap:
@@ -74,8 +78,8 @@ func registerTypography(r *registry) {
 			}
 		})
 	}
-	keys["wrap"], keys["balance"], keys["pretty"] = setWrap(true), setWrap(true), setWrap(true)
-	keys["nowrap"] = setWrap(false)
+	keys["wrap"], keys["nowrap"] = setWrap(true, text.TextWrapAuto), setWrap(false, text.TextWrapAuto)
+	keys["balance"], keys["pretty"] = setWrap(true, text.TextWrapBalance), setWrap(true, text.TextWrapPretty)
 	keys["ellipsis"] = op(func(e *env) { e.s.TextOverflow = text.TextOverflowEllipsis })
 	keys["clip"] = op(func(e *env) { e.s.TextOverflow = text.TextOverflowClip })
 	r.enum("text", false, keys)

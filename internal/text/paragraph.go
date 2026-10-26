@@ -78,6 +78,31 @@ func (w WhiteSpace) collapses() bool {
 
 func (w WhiteSpace) wraps() bool { return w != WhiteSpaceNowrap && w != WhiteSpacePre }
 
+// TextWrapStyle is the CSS text-wrap-style property (CSS Text 4): how the
+// lines of a paragraph that wraps are chosen. It has no
+// effect when WhiteSpace does not wrap. Balancing and prettifying follow
+// Blink (wrapstyle.go): they move line breaks only, so the lines keep being
+// aligned in the full width the paragraph is broken at, and they do not
+// change the min- and max-content widths.
+type TextWrapStyle uint8
+
+const (
+	// TextWrapAuto breaks lines greedily: each line takes as much content
+	// as fits. It is the zero value, like CSS's initial value.
+	TextWrapAuto TextWrapStyle = iota
+	// TextWrapBalance makes the lines about equally long (Tailwind
+	// text-balance), as Chromium does: up to 6 lines up to the first
+	// forced break (or up to LineClamp lines), with the same number of
+	// lines as greedy breaking; longer paragraphs wrap greedily.
+	TextWrapBalance
+	// TextWrapPretty avoids a last line of a single short word (Tailwind
+	// text-pretty), as Chromium does: when the last line of a paragraph
+	// (or of a part ended by a forced break) holds one word and less than
+	// a third of the width, the breaks of its last 4 lines are chosen
+	// again, with the same number of lines.
+	TextWrapPretty
+)
+
 // WordBreak is the CSS word-break property.
 type WordBreak uint8
 
@@ -129,6 +154,8 @@ type ParagraphStyle struct {
 	WhiteSpace   WhiteSpace
 	WordBreak    WordBreak
 	OverflowWrap OverflowWrap
+	// WrapStyle is text-wrap-style: greedy, balanced or pretty lines.
+	WrapStyle TextWrapStyle
 	// TabSize is the CSS tab-size in multiples of the advance of a space
 	// (letter- and word-spacing included). Zero means 8; negative values
 	// are treated as zero (tabs then take no space).

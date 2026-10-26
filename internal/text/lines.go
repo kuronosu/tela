@@ -8,9 +8,10 @@ import (
 
 // BreakLines breaks the paragraph into lines that fit maxWidth (logical
 // px; +Inf for no wrapping, NaN is treated as +Inf and negative values as
-// 0), applies line-clamp and text-overflow, computes the line boxes and
-// aligns the lines in a box of width maxWidth, or of the widest line when
-// maxWidth is infinite (see AlignTo). It never shapes again.
+// 0), balanced or prettified as ParagraphStyle.WrapStyle asks, applies
+// line-clamp and text-overflow, computes the line boxes and aligns the
+// lines in a box of width maxWidth, or of the widest line when maxWidth is
+// infinite (see AlignTo). It never shapes again.
 func (l *Layout) BreakLines(maxWidth float32) {
 	switch {
 	case maxWidth != maxWidth:
@@ -32,6 +33,9 @@ func (l *Layout) BreakLines(maxWidth float32) {
 	l.breakLines(maxWidth, false, boxOwn, tabs, func(c0, c1 int32, reason BreakReason) {
 		l.lines = append(l.lines, lineData{c0: c0, c1: c1, reason: reason, ellipsis: -1})
 	})
+	if l.para.WrapStyle != TextWrapAuto {
+		l.applyWrapStyle(maxWidth, tabs) // text-wrap: balance, pretty (wrapstyle.go)
+	}
 	for i := range l.clusters {
 		if l.clusters[i].flags&cfTab != 0 {
 			l.clusters[i].adv = tabs[i]

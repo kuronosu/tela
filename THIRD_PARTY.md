@@ -135,6 +135,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/core/decorate.go`, `internal/core/paint.go`, `internal/gfx/raster/backdrop.go`
 - **Notes:** No code is copied. The dash-gap fitting of dashed and dotted borders re-expresses the formula of Blink's `SelectBestDashGap`; pixel snapping, the 1px shadow clip inset, background bleed avoidance and backdrop-filter edge mirroring reproduce Chromium's observable output (ADR-045).
 
+## Chromium / Blink (ported code: text-wrap balance and pretty)
+
+- **Source:** https://chromium.googlesource.com/chromium/src (`third_party/blink/renderer/core/layout/inline/score_line_breaker.cc`, `paragraph_line_breaker.cc`, `line_break_candidate.cc`, `inline_layout_algorithm.cc` (`LineBreakStrategy`), `score_line_break_context.h`, at `main` commit `41d3eb7`; checked against Chromium 154)
+- **License:** BSD-3-Clause, Copyright 2023 The Chromium Authors
+- **Used in:** `internal/text/wrapstyle.go`
+- **Notes:** Ported: the score line breaker's candidates, scores and break points (`ComputeScores`, `ComputeBreakPoints`, Minikin's penalties, the orphan penalty, the 6- and 4-line limits) and the bisection of the available width (`AttemptParagraphBalancing`, `EstimateNumLines`, `BisectAvailableWidth`), with the conditions under which Blink uses each. Rewritten on Tela's clusters and greedy breaker, at zoom 1 and in logical px; line widths come from Tela's line breaking (inline edges count at line ends, and line ends are not reshaped). The file keeps the Chromium copyright header. Blink's `ScoreLineBreaker` is itself based on Android's Minikin `OptimalLineBreaker` (Apache-2.0); only its parameters reach Tela through Blink.
+
 
 ## winit (design reference)
 

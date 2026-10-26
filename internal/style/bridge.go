@@ -31,13 +31,15 @@ func (s *ComputedStyle) TextStyle() text.TextStyle {
 }
 
 // ParagraphStyle returns the properties that apply to a whole paragraph in
-// this element: base direction, alignment, white-space, breaking, truncation and clamping.
+// this element: base direction, alignment, white-space, wrap style,
+// breaking, truncation and clamping.
 func (s *ComputedStyle) ParagraphStyle() text.ParagraphStyle {
 	t := &s.Text
 	return text.ParagraphStyle{
 		Direction:    t.Direction,
 		Align:        t.TextAlign,
 		WhiteSpace:   t.WhiteSpace,
+		WrapStyle:    t.WrapStyle,
 		WordBreak:    t.WordBreak,
 		OverflowWrap: t.OverflowWrap,
 		TabSize:      t.TabSize,

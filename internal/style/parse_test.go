@@ -968,6 +968,31 @@ func TestTypographyClasses(t *testing.T) {
 		{"text-nowrap", func(t *testing.T, s *ComputedStyle) { eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpaceNowrap) }},
 		{"whitespace-nowrap text-wrap", func(t *testing.T, s *ComputedStyle) { eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpaceNormal) }},
 		{"whitespace-pre text-balance", func(t *testing.T, s *ComputedStyle) { eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpacePreWrap) }},
+		// text-wrap is the shorthand of the wrap mode and text-wrap-style;
+		// white-space leaves the style alone.
+		{"text-balance", func(t *testing.T, s *ComputedStyle) {
+			eq(t, "Wrap", s.Text.WrapStyle, text.TextWrapBalance)
+			eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpaceNormal)
+			eq(t, "Para", s.ParagraphStyle().WrapStyle, text.TextWrapBalance)
+		}},
+		{"text-pretty", func(t *testing.T, s *ComputedStyle) { eq(t, "Wrap", s.Text.WrapStyle, text.TextWrapPretty) }},
+		{"text-balance text-wrap", func(t *testing.T, s *ComputedStyle) { eq(t, "Wrap", s.Text.WrapStyle, text.TextWrapAuto) }},
+		{"text-balance text-nowrap", func(t *testing.T, s *ComputedStyle) {
+			eq(t, "Wrap", s.Text.WrapStyle, text.TextWrapAuto)
+			eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpaceNowrap)
+		}},
+		{"whitespace-nowrap text-balance", func(t *testing.T, s *ComputedStyle) {
+			eq(t, "Wrap", s.Text.WrapStyle, text.TextWrapBalance)
+			eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpaceNormal)
+		}},
+		{"text-balance whitespace-pre-line", func(t *testing.T, s *ComputedStyle) {
+			eq(t, "Wrap", s.Text.WrapStyle, text.TextWrapBalance)
+			eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpacePreLine)
+		}},
+		{"text-pretty truncate", func(t *testing.T, s *ComputedStyle) {
+			eq(t, "Wrap", s.Text.WrapStyle, text.TextWrapPretty) // no effect: nowrap
+			eq(t, "WS", s.Text.WhiteSpace, text.WhiteSpaceNowrap)
+		}},
 		{"break-words", func(t *testing.T, s *ComputedStyle) { eq(t, "OW", s.Text.OverflowWrap, text.OverflowWrapBreakWord) }},
 		{"break-all", func(t *testing.T, s *ComputedStyle) { eq(t, "WB", s.Text.WordBreak, text.WordBreakBreakAll) }},
 		{"break-keep", func(t *testing.T, s *ComputedStyle) { eq(t, "WB", s.Text.WordBreak, text.WordBreakKeepAll) }},
