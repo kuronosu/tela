@@ -2282,7 +2282,7 @@ return Portal(If(open,
         Button(OnClick(close), Text("Cancel")))))
 ```
 
-An "alertdialog" is not dismissed by a press outside it: leave Dismissable off. The dialog element takes the focus when it has nothing tabbable (it is focusable with a script, not in the Tab order).
+An "alertdialog" is not dismissed by a press outside it: leave Dismissable off. The dialog element takes the focus when it has nothing tabbable (it is focusable with a script, not in the Tab order), and, in a modal dialog, when the focused element inside it unmounts (Radix's FocusScope), so the keys still reach the dialog and Tab goes on inside.
 
 **Example**
 
@@ -2815,7 +2815,10 @@ type FocusScopeOptions struct {
     // around its focusable elements instead of leaving, a press on
     // something that is not focusable (a scrim) leaves the focus where it
     // is, and a press or a script that would focus an element outside
-    // keeps it inside instead (React Aria's contain). The content of
+    // keeps it inside instead (React Aria's contain). When the focused
+    // element inside unmounts, the focus goes to the scope's element if it
+    // is focusable (h.TabIndex(-1), as Radix's FocusScope focuses its
+    // container), else to its first tabbable element. The content of
     // portals and overlays opened from inside the scope is inside it. The
     // most recently mounted containing scope wins.
     Contain bool

@@ -64,7 +64,9 @@ type DialogResult struct {
 //
 // An "alertdialog" is not dismissed by a press outside it: leave
 // Dismissable off. The dialog element takes the focus when it has nothing
-// tabbable (it is focusable with a script, not in the Tab order).
+// tabbable (it is focusable with a script, not in the Tab order), and, in a
+// modal dialog, when the focused element inside it unmounts (Radix's
+// FocusScope), so the keys still reach the dialog and Tab goes on inside.
 func UseDialog(o DialogOptions) DialogResult {
 	role := o.Role
 	switch role {

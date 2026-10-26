@@ -225,8 +225,11 @@ element a focus scope and returns `Props` and a `Manager`:
 - `Contain` keeps the focus inside the scope (a dialog): Tab and Shift+Tab wrap
   around inside it, a press on something that is not focusable (the scrim of an
   alert dialog) leaves the focus where it is, and a press or a script that would
-  focus an element outside keeps it inside. Popovers and selects opened from
-  inside the scope count as inside.
+  focus an element outside keeps it inside. When the focused element inside
+  unmounts (a button that removes its own row), the focus goes to the scope's
+  element if it is focusable (`TabIndex(-1)`, as `UseDialog` gives it), else
+  to its first tabbable element. Popovers and selects opened from inside the
+  scope count as inside.
 - `Restore` gives the focus back, when the scope unmounts, to the element that
   had it when the scope mounted (the button that opened the dialog).
 - `AutoFocus` focuses the first tabbable element after the frame that mounts

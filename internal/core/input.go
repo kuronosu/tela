@@ -430,7 +430,7 @@ func (t *Tree) endPress(ps *pointerState) {
 func (t *Tree) flushDiscrete() {
 	t.ApplyUpdates()
 	t.buildPhase()
-	if t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0 {
+	if t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0 || t.foc.lost != nil {
 		t.focusWork()
 	}
 }

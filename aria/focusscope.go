@@ -17,7 +17,10 @@ type FocusScopeOptions struct {
 	// around its focusable elements instead of leaving, a press on
 	// something that is not focusable (a scrim) leaves the focus where it
 	// is, and a press or a script that would focus an element outside
-	// keeps it inside instead (React Aria's contain). The content of
+	// keeps it inside instead (React Aria's contain). When the focused
+	// element inside unmounts, the focus goes to the scope's element if it
+	// is focusable (h.TabIndex(-1), as Radix's FocusScope focuses its
+	// container), else to its first tabbable element. The content of
 	// portals and overlays opened from inside the scope is inside it. The
 	// most recently mounted containing scope wins.
 	Contain bool
