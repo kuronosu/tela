@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"sync"
@@ -19,7 +20,11 @@ import (
 //
 // Requests other than tools/call are answered at once on the reading
 // goroutine; tool calls run one at a time, in order, on a goroutine of
-// their own, so a ping is answered while a build runs. Notifications get
+// their own, so a ping is answered while a build runs. Reading never waits
+// for them: a tool call that finds mcpCallQueue calls waiting is answered
+// at once with a "server busy" error. A JSON-RPC batch (protocol
+// 2025-03-26, the one revision that has them) is answered with one array,
+// written when the last of its tool calls is answered. Notifications get
 // no response, and neither do responses (the server sends no requests).
 // Nothing else is ever written to the output.
 
@@ -35,7 +40,13 @@ const (
 	rpcMethodNotFound = -32601
 	rpcInvalidParams  = -32602
 	rpcInternalError  = -32603
+	// rpcServerBusy is an implementation-defined server error: too many
+	// tool calls are waiting.
+	rpcServerBusy = -32000
 )
+
+// mcpCallQueue is how many tool calls may wait for the one in progress.
+const mcpCallQueue = 64
 
 // rpcError is a JSON-RPC error object.
 type rpcError struct {
@@ -113,16 +124,25 @@ type rpcServer struct {
 
 // toolCall is a tools/call waiting for the worker.
 type toolCall struct {
-	id   json.RawMessage
-	name string
-	args json.RawMessage
+	id    json.RawMessage
+	name  string
+	args  json.RawMessage
+	batch *batchReply // the batch the call came in, or nil
+}
+
+// batchReply collects the responses of a batch with tool calls; they go out
+// as one array once the last tool call is answered.
+type batchReply struct {
+	mu      sync.Mutex
+	out     []rpcResponse
+	pending int // tool calls not answered yet
 }
 
 // serve reads messages from in until it ends or ctx is done, and returns
 // once the tool call in progress, if any, has been answered (or abandoned
 // with ctx).
 func (s *rpcServer) serve(ctx context.Context, in io.Reader) error {
-	calls := make(chan toolCall, 64)
+	calls := make(chan toolCall, mcpCallQueue)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -131,15 +151,7 @@ func (s *rpcServer) serve(ctx context.Context, in io.Reader) error {
 			if ctx.Err() != nil {
 				continue
 			}
-			res, ok := s.tools.call(ctx, c.name, c.args)
-			if !ok {
-				s.write(rpcResponse{ID: c.id, Error: &rpcError{Code: rpcInvalidParams, Message: "unknown tool " + quoteJSON(c.name) + "; tools/list lists the tools"}})
-				continue
-			}
-			if res.Content == nil {
-				res.Content = []mcpContent{}
-			}
-			s.write(rpcResponse{ID: c.id, Result: res})
+			s.answer(c, s.runCall(ctx, c))
 		}
 	}()
 	defer func() {
@@ -183,13 +195,55 @@ func (s *rpcServer) serve(ctx context.Context, in io.Reader) error {
 	}
 }
 
+// runCall runs a tool call and returns its response.
+func (s *rpcServer) runCall(ctx context.Context, c toolCall) rpcResponse {
+	res, ok := s.tools.call(ctx, c.name, c.args)
+	if !ok {
+		return rpcResponse{ID: c.id, Error: &rpcError{Code: rpcInvalidParams, Message: "unknown tool " + quoteJSON(c.name) + "; tools/list lists the tools"}}
+	}
+	if res.Content == nil {
+		res.Content = []mcpContent{}
+	}
+	return rpcResponse{ID: c.id, Result: res}
+}
+
+// answer sends the response of a tool call: alone, or with the rest of its
+// batch once the batch's last tool call is answered.
+func (s *rpcServer) answer(c toolCall, r rpcResponse) {
+	b := c.batch
+	if b == nil {
+		s.write(r)
+		return
+	}
+	b.mu.Lock()
+	b.out = append(b.out, r)
+	b.pending--
+	done := b.pending == 0
+	b.mu.Unlock()
+	if done {
+		s.write(b.out)
+	}
+}
+
+// enqueue hands a tool call to the worker without waiting: when the queue
+// is full the call is answered with an error at once, so that reading (a
+// ping, the end of the input) never waits for the tools.
+func (s *rpcServer) enqueue(calls chan<- toolCall, c toolCall) {
+	select {
+	case calls <- c:
+	default:
+		s.answer(c, rpcResponse{ID: c.id, Error: &rpcError{Code: rpcServerBusy,
+			Message: fmt.Sprintf("server busy: %d tool calls are waiting; send the next one when a result arrives", cap(calls))}})
+	}
+}
+
 // handleLine handles one line: a message or a batch of them.
 func (s *rpcServer) handleLine(line []byte, calls chan<- toolCall) {
 	line = bytes.TrimSpace(line)
 	if line[0] == '[' {
-		// A JSON-RPC batch (protocol 2025-03-26 allows them): the
-		// responses of its requests other than tool calls go out as an
-		// array; tool calls answer on their own.
+		// A JSON-RPC batch (protocol 2025-03-26 allows them): its
+		// responses go out as one array, after its tool calls (if any)
+		// are answered.
 		var items []json.RawMessage
 		if err := json.Unmarshal(line, &items); err != nil {
 			s.write(rpcResponse{ID: nullID, Error: &rpcError{Code: rpcParseError, Message: "parse error: " + err.Error()}})
@@ -199,37 +253,53 @@ func (s *rpcServer) handleLine(line []byte, calls chan<- toolCall) {
 			s.write(rpcResponse{ID: nullID, Error: &rpcError{Code: rpcInvalidRequest, Message: "invalid request: empty batch"}})
 			return
 		}
-		var out []rpcResponse
+		b := &batchReply{}
+		var queued []toolCall
 		for _, it := range items {
-			if r := s.handleMessage(it, calls); r != nil {
-				out = append(out, *r)
+			switch r, c := s.handleMessage(it); {
+			case c != nil:
+				c.batch = b
+				queued = append(queued, *c)
+			case r != nil:
+				b.out = append(b.out, *r)
 			}
 		}
-		if len(out) > 0 {
-			s.write(out)
+		if len(queued) == 0 {
+			if len(b.out) > 0 {
+				s.write(b.out)
+			}
+			return
+		}
+		b.pending = len(queued)
+		for _, c := range queued {
+			s.enqueue(calls, c)
 		}
 		return
 	}
-	if r := s.handleMessage(line, calls); r != nil {
+	switch r, c := s.handleMessage(line); {
+	case c != nil:
+		s.enqueue(calls, *c)
+	case r != nil:
 		s.write(*r)
 	}
 }
 
 var nullID = json.RawMessage("null")
 
-// handleMessage handles one message and returns its response, or nil for
-// a notification, a response, or a tool call (answered by the worker).
-func (s *rpcServer) handleMessage(raw []byte, calls chan<- toolCall) *rpcResponse {
+// handleMessage handles one message and returns its response, or the tool
+// call to queue (answered by the worker), or neither for a notification or
+// a response.
+func (s *rpcServer) handleMessage(raw []byte) (*rpcResponse, *toolCall) {
 	if !json.Valid(raw) {
-		return &rpcResponse{ID: nullID, Error: &rpcError{Code: rpcParseError, Message: "parse error: the message is not valid JSON"}}
+		return &rpcResponse{ID: nullID, Error: &rpcError{Code: rpcParseError, Message: "parse error: the message is not valid JSON"}}, nil
 	}
 	var msg map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &msg); err != nil {
-		return &rpcResponse{ID: nullID, Error: &rpcError{Code: rpcInvalidRequest, Message: "invalid request: a message is a JSON object"}}
+		return &rpcResponse{ID: nullID, Error: &rpcError{Code: rpcInvalidRequest, Message: "invalid request: a message is a JSON object"}}, nil
 	}
 	id, hasID := msg["id"]
 	if hasID && !validID(id) {
-		return &rpcResponse{ID: nullID, Error: &rpcError{Code: rpcInvalidRequest, Message: "invalid request: the id must be a string or a number"}}
+		return &rpcResponse{ID: nullID, Error: &rpcError{Code: rpcInvalidRequest, Message: "invalid request: the id must be a string or a number"}}, nil
 	}
 	if !hasID {
 		id = nullID
@@ -237,39 +307,39 @@ func (s *rpcServer) handleMessage(raw []byte, calls chan<- toolCall) *rpcRespons
 	var version string
 	if v, ok := msg["jsonrpc"]; !ok || json.Unmarshal(v, &version) != nil || version != "2.0" {
 		if !hasID {
-			return nil // a notification gets no response, not even an error
+			return nil, nil // a notification gets no response, not even an error
 		}
-		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidRequest, Message: `invalid request: "jsonrpc" must be "2.0"`}}
+		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidRequest, Message: `invalid request: "jsonrpc" must be "2.0"`}}, nil
 	}
 	rawMethod, hasMethod := msg["method"]
 	if !hasMethod {
 		if _, isResult := msg["result"]; isResult {
-			return nil // a response: the server sends no requests
+			return nil, nil // a response: the server sends no requests
 		}
 		if _, isError := msg["error"]; isError {
-			return nil
+			return nil, nil
 		}
-		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidRequest, Message: `invalid request: no "method"`}}
+		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidRequest, Message: `invalid request: no "method"`}}, nil
 	}
 	var method string
 	if err := json.Unmarshal(rawMethod, &method); err != nil {
 		if !hasID {
-			return nil
+			return nil, nil
 		}
-		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidRequest, Message: `invalid request: "method" must be a string`}}
+		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidRequest, Message: `invalid request: "method" must be a string`}}, nil
 	}
 	params := msg["params"]
 	if len(params) > 0 && params[0] != '{' && !bytes.Equal(params, nullID) {
 		if !hasID {
-			return nil
+			return nil, nil
 		}
-		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: "invalid params: params must be an object"}}
+		return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: "invalid params: params must be an object"}}, nil
 	}
 	if !hasID {
 		// notifications/initialized, notifications/cancelled (a call in
 		// progress finishes; its response is then ignored), and the rest.
 		s.logf("notification %s", method)
-		return nil
+		return nil, nil
 	}
 	s.logf("request %s", method)
 	switch method {
@@ -283,7 +353,7 @@ func (s *rpcServer) handleMessage(raw []byte, calls chan<- toolCall) *rpcRespons
 		}
 		if len(params) > 0 && !bytes.Equal(params, nullID) {
 			if err := json.Unmarshal(params, &p); err != nil {
-				return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: "invalid params: " + err.Error()}}
+				return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: "invalid params: " + err.Error()}}, nil
 			}
 		}
 		version := mcpProtocolVersions[0]
@@ -296,23 +366,22 @@ func (s *rpcServer) handleMessage(raw []byte, calls chan<- toolCall) *rpcRespons
 			"capabilities":    map[string]any{"tools": map[string]any{"listChanged": false}},
 			"serverInfo":      map[string]any{"name": s.name, "version": s.version},
 			"instructions":    s.tools.instructions(),
-		}}
+		}}, nil
 	case "ping":
-		return &rpcResponse{ID: id, Result: struct{}{}}
+		return &rpcResponse{ID: id, Result: struct{}{}}, nil
 	case "tools/list":
-		return &rpcResponse{ID: id, Result: map[string]any{"tools": s.tools.list()}}
+		return &rpcResponse{ID: id, Result: map[string]any{"tools": s.tools.list()}}, nil
 	case "tools/call":
 		var p struct {
 			Name      *string         `json:"name"`
 			Arguments json.RawMessage `json:"arguments"`
 		}
 		if err := json.Unmarshal(params, &p); err != nil || p.Name == nil {
-			return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: `invalid params: tools/call needs {"name": "<tool>", "arguments": {...}}`}}
+			return &rpcResponse{ID: id, Error: &rpcError{Code: rpcInvalidParams, Message: `invalid params: tools/call needs {"name": "<tool>", "arguments": {...}}`}}, nil
 		}
-		calls <- toolCall{id: id, name: *p.Name, args: p.Arguments}
-		return nil
+		return nil, &toolCall{id: id, name: *p.Name, args: p.Arguments}
 	}
-	return &rpcResponse{ID: id, Error: &rpcError{Code: rpcMethodNotFound, Message: "method not found: " + method}}
+	return &rpcResponse{ID: id, Error: &rpcError{Code: rpcMethodNotFound, Message: "method not found: " + method}}, nil
 }
 
 // validID reports whether a JSON-RPC id is a string or a number (MCP

@@ -244,8 +244,10 @@ type mcpSession struct {
 	contract contract // of the last build
 	lintNote string   // lint findings of the last build, for the next result
 
-	namesMu sync.Mutex
-	names   []string // the previews, for the description of open
+	namesMu  sync.Mutex
+	names    []string     // the previews, for the description of open
+	defsFor  []string     // the names toolDefs were built with
+	toolDefs []mcpToolDef // the tools, built again when names change
 }
 
 func newMCPSession(goBin string, opts mcpOptions, tmp string, logf func(string, ...any), errOut io.Writer) *mcpSession {
@@ -329,7 +331,8 @@ Write it, then call snapshot again.`, pkg, pkg)
 
 // rebuild builds the sources with fingerprint fp and mounts the new
 // instance in place of the old one. A failure sets s.broken and keeps the
-// old instance.
+// old instance, and with it the package, contract and preview names the
+// session describes: they change only with the instance that serves them.
 func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 	start := time.Now()
 	first := !s.built
@@ -340,7 +343,15 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 		s.broken = err.Error()
 		return nil
 	}
+	// The build and the new instance need the new package; a failure puts
+	// the old one back.
+	oldPkg, committed := t.pkg, false
 	t.pkg = pkg
+	defer func() {
+		if !committed {
+			t.pkg = oldPkg
+		}
+	}()
 	det, err := scanPackage(pkg.Dir, pkg.GoFiles)
 	if err != nil {
 		// A syntax error: the compiler would say the same.
@@ -359,16 +370,12 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 		s.broken = fmt.Sprintf("package %s (%s) only defines Scene, a display list without elements: tela mcp needs func Preview() tela.Node, a Previews variable or an App", pkg.Name, t.pkgArg)
 		return nil
 	}
-	s.contract = det.contract
 	if s.mount.Preview != "" && det.contract != contractPreviews {
 		s.broken = fmt.Sprintf("--preview %q: %s", s.mount.Preview, singleScreen(pkg.Name, det.contract))
 		return nil
 	}
-	if names := scanPreviewNames(pkg.Dir, pkg.GoFiles); names != nil || det.contract != contractPreviews {
-		s.namesMu.Lock()
-		s.names = names
-		s.namesMu.Unlock()
-	}
+	names := scanPreviewNames(pkg.Dir, pkg.GoFiles)
+	setNames := names != nil || det.contract != contractPreviews
 
 	lintDone := make(chan string, 1)
 	go func() { lintDone <- s.lintText() }()
@@ -413,6 +420,13 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 		}
 	}
 	s.child = child
+	committed = true
+	s.contract = det.contract
+	if setNames {
+		s.namesMu.Lock()
+		s.names = names
+		s.namesMu.Unlock()
+	}
 	s.refs.remount()
 	s.carry = rep
 	s.lintNote = lintNote
@@ -883,11 +897,14 @@ The package defines its screen as func Preview() tela.Node, var Previews = tela.
 }
 
 // defs returns the tools; the description of open lists the previews.
+// They are built once, and again only when the previews change.
 func (s *mcpSession) defs() []mcpToolDef {
 	s.namesMu.Lock()
-	names := s.names
-	s.namesMu.Unlock()
-	return mcpToolDefs(names)
+	defer s.namesMu.Unlock()
+	if s.toolDefs == nil || !slices.Equal(s.defsFor, s.names) {
+		s.toolDefs, s.defsFor = mcpToolDefs(s.names), s.names
+	}
+	return s.toolDefs
 }
 
 // Schemas.

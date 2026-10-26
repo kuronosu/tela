@@ -20,8 +20,10 @@ func form() tela.Node {
 	name, setName := tela.UseState("")
 	greeting, setGreeting := tela.UseState("")
 	count, setCount := tela.UseState(0)
+	doubled, setDoubled := tela.UseState(false)
 	return Div(Class("flex min-h-screen flex-col gap-3 bg-white p-6"),
-		H1(Class("text-2xl font-bold"), Text(title)),
+		H1(Class("text-2xl font-bold"), OnDoubleClick(func() { setDoubled.Set(true) }), Text(title)),
+		If(doubled, P(Text("The title was double-clicked"))),
 		Form(Class("flex gap-2"),
 			OnSubmit(func() { setGreeting.Set("Hello, " + name + "!") }),
 			Input(AriaLabel("Name"), Class("rounded border px-2 py-1"), Value(name),

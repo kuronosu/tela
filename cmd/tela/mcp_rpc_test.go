@@ -5,9 +5,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 // fakeTools is an mcpTools with one tool, echo, that answers its
@@ -215,6 +219,123 @@ func TestMCPBatch(t *testing.T) {
 	if len(batch) != 2 || batch[0]["id"] != 1.0 || errorCode(batch[1]) != rpcMethodNotFound {
 		t.Errorf("batch response = %v", msgs[0])
 	}
+
+	// The tool calls of a batch are answered inside its array (JSON-RPC
+	// 2.0), which waits for them.
+	msgs = rpcExchange(t, `[{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo","arguments":{"a":1}}},{"jsonrpc":"2.0","id":2,"method":"ping"},{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"b":2}}}]`)
+	if len(msgs) != 1 {
+		t.Fatalf("%d messages for a batch with tool calls, want one array: %v", len(msgs), msgs)
+	}
+	batch, _ = msgs[0]["batch"].([]map[string]any)
+	if len(batch) != 3 {
+		t.Fatalf("batch response = %v, want the ping and both tool calls", msgs[0])
+	}
+	if byID(t, batch, 2)["result"] == nil {
+		t.Errorf("ping in a batch: %v", byID(t, batch, 2))
+	}
+	for id, want := range map[float64]string{1: `{"a":1}`, 3: `{"b":2}`} {
+		res, _ := byID(t, batch, id)["result"].(map[string]any)
+		if res == nil || res["content"].([]any)[0].(map[string]any)["text"] != want {
+			t.Errorf("tool call %v in a batch: %v", id, byID(t, batch, id))
+		}
+	}
+}
+
+// blockingTools is a fakeTools whose calls wait for release; each call
+// sends on started when it begins.
+type blockingTools struct {
+	fakeTools
+	started chan struct{}
+	release chan struct{}
+}
+
+func (b blockingTools) call(ctx context.Context, name string, args json.RawMessage) (mcpResult, bool) {
+	b.started <- struct{}{}
+	<-b.release
+	return b.fakeTools.call(ctx, name, args)
+}
+
+// TestMCPReadingNeverWaitsForTools fills the queue of tool calls behind a
+// call that does not end: the next call is answered "server busy" at once
+// and a ping is still answered; once the tools go on, every queued call is.
+func TestMCPReadingNeverWaitsForTools(t *testing.T) {
+	tools := blockingTools{started: make(chan struct{}, 2*mcpCallQueue), release: make(chan struct{})}
+	release := sync.OnceFunc(func() { close(tools.release) })
+	defer release()
+	inR, inW := io.Pipe()
+	defer inW.Close()
+	outR, outW := io.Pipe()
+	s := &rpcServer{tools: tools, name: "tela", version: "v0.0.0-test", logf: func(string, ...any) {}, out: outW}
+	served := make(chan error, 1)
+	go func() {
+		served <- s.serve(context.Background(), inR)
+		outW.Close()
+	}()
+	resps := make(chan map[string]any, 4*mcpCallQueue)
+	go func() {
+		defer close(resps)
+		sc := bufio.NewScanner(outR)
+		for sc.Scan() {
+			var m map[string]any
+			if json.Unmarshal(sc.Bytes(), &m) == nil {
+				resps <- m
+			}
+		}
+	}()
+	call := func(id int) string {
+		return fmt.Sprintf(`{"jsonrpc":"2.0","id":%d,"method":"tools/call","params":{"name":"echo","arguments":{}}}`+"\n", id)
+	}
+	last := mcpCallQueue + 2 // 1 runs, 2..last-1 fill the queue, last finds it full
+	go func() {
+		io.WriteString(inW, call(1))
+		<-tools.started
+		for id := 2; id <= last; id++ {
+			io.WriteString(inW, call(id))
+		}
+		io.WriteString(inW, `{"jsonrpc":"2.0","id":"ping","method":"ping"}`+"\n")
+	}()
+
+	var busy, pinged bool
+	timeout := time.After(10 * time.Second)
+	for !busy || !pinged {
+		select {
+		case m := <-resps:
+			switch m["id"] {
+			case float64(last):
+				if errorCode(m) != rpcServerBusy {
+					t.Fatalf("the call that found the queue full: %v, want a server-busy error", m)
+				}
+				busy = true
+			case "ping":
+				pinged = true
+			default:
+				t.Fatalf("a response before the tools went on: %v", m)
+			}
+		case <-timeout:
+			t.Fatalf("with %d tool calls waiting: busy answered %v, ping answered %v (the reading loop waits for the tools)", mcpCallQueue, busy, pinged)
+		}
+	}
+
+	release()
+	inW.Close()
+	select {
+	case err := <-served:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("serve did not return after its input ended")
+	}
+	answered := 0
+	for m := range resps {
+		if m["result"] == nil {
+			t.Errorf("a queued call failed: %v", m)
+		}
+		answered++
+	}
+	if answered != last-1 {
+		t.Errorf("%d queued calls answered, want %d", answered, last-1)
+	}
 }
 
 // TestMCPToolSchemas checks that every tool of tela mcp has a description
@@ -267,6 +388,32 @@ func TestMCPToolSchemas(t *testing.T) {
 		if d.tool.Name == "open" && !strings.Contains(d.tool.Description, "Login, Settings") {
 			t.Errorf("open does not list the previews: %q", d.tool.Description)
 		}
+	}
+}
+
+// TestMCPToolDefsAreCached checks that tools/list and tools/call do not
+// build the tools (and marshal their schemas) again while the previews are
+// the same, and that a change of the previews reaches open's description.
+func TestMCPToolDefsAreCached(t *testing.T) {
+	s := newMCPSession("go", mcpOptions{}, t.TempDir(), func(string, ...any) {}, nil)
+	a, b := s.defs(), s.defs()
+	if len(a) == 0 || &a[0] != &b[0] {
+		t.Error("defs built the tools again although the previews did not change")
+	}
+	s.namesMu.Lock()
+	s.names = []string{"Login", "Settings"}
+	s.namesMu.Unlock()
+	c := s.defs()
+	if &c[0] == &a[0] {
+		t.Fatal("defs kept the tools after the previews changed")
+	}
+	for _, d := range c {
+		if d.tool.Name == "open" && !strings.Contains(d.tool.Description, "Previews: Login, Settings") {
+			t.Errorf("open does not list the new previews: %q", d.tool.Description)
+		}
+	}
+	if d := s.defs(); &d[0] != &c[0] {
+		t.Error("defs built the tools again after the previews changed once")
 	}
 }
 

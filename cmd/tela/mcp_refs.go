@@ -163,8 +163,12 @@ type refEntry struct {
 
 // refTable numbers the elements of the snapshots of one server.
 type refTable struct {
-	next    int
+	next int
+	// byKey maps the latest key of each ref to it; keyOf is the inverse. A
+	// ref whose element changed its name leaves its old key, so the old
+	// name cannot bring it back to another element.
 	byKey   map[refKey]string
+	keyOf   map[string]refKey
 	byPos   map[refPos]string   // the refs of the latest snapshot by position
 	current map[string]refEntry // the refs of the latest snapshot
 	issued  map[string]bool     // every ref ever given out
@@ -181,7 +185,7 @@ type refPos struct {
 }
 
 func newRefTable() *refTable {
-	return &refTable{byKey: map[refKey]string{}, byPos: map[refPos]string{}, current: map[string]refEntry{}, issued: map[string]bool{}}
+	return &refTable{byKey: map[refKey]string{}, keyOf: map[string]refKey{}, byPos: map[refPos]string{}, current: map[string]refEntry{}, issued: map[string]bool{}}
 }
 
 // remount records that the screen was mounted afresh: the refs of the
@@ -298,7 +302,10 @@ func (t *refTable) assign(lines []string, cands []snapCandidate, want, got []int
 			t.next++
 			ref = "e" + strconv.Itoa(t.next)
 		}
-		t.byKey[c.key] = ref
+		if old, had := t.keyOf[ref]; had && old != c.key && t.byKey[old] == ref {
+			delete(t.byKey, old)
+		}
+		t.byKey[c.key], t.keyOf[ref] = ref, c.key
 		t.byPos[c.pos] = ref
 		loc := c.loc
 		if want[c.group] == 1 {

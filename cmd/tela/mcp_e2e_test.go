@@ -260,6 +260,13 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Fatalf("click %s:\n%s", count, r.text)
 	}
 
+	// A double click at a point is one double click: OnDoubleClick of the
+	// title (a block across the window, below its 24 px padding) runs.
+	r = c.tool("click", map[string]any{"x": 100, "y": 40, "double": true})
+	if r.isError || !strings.Contains(r.text, "Double-clicked at (100, 40).") || !strings.Contains(r.text, "The title was double-clicked") {
+		t.Fatalf("double click at a point:\n%s", r.text)
+	}
+
 	// fill, then press Enter submits the form.
 	r = c.tool("fill", map[string]any{"ref": name, "text": "Ana"})
 	if r.isError || !strings.Contains(r.text, `textbox "Name" [ref=`+name+`]: Ana`) {
@@ -336,6 +343,22 @@ func TestMCPEndToEnd(t *testing.T) {
 	if r.isError || !strings.Contains(r.text, `heading "Version three"`) || !strings.Contains(r.text, `"Count: 0"`) {
 		t.Fatalf("after the fix:\n%s", r.text)
 	}
+
+	// A build that compiles but whose screen cannot be mounted keeps the
+	// last good one, and the session still describes that one: its
+	// previews can be opened.
+	const previewsDecl = `var Previews = tela.Previews{`
+	const unmountable = "func Preview() tela.Node { panic(\"no screen yet\") }\n\nvar previews = tela.Previews{"
+	edit(previewsDecl, unmountable)
+	r = c.tool("snapshot", nil)
+	if !r.isError || !strings.Contains(r.text, "cannot be mounted") || !strings.Contains(r.text, "last good build") {
+		t.Fatalf("a build whose screen cannot be mounted:\n%s", r.text)
+	}
+	r = c.tool("open", map[string]any{"preview": "Other"})
+	if r.isError || !strings.Contains(r.text, `heading "Other screen"`) {
+		t.Errorf("open a preview of the running build after a failed mount:\n%s", r.text)
+	}
+	edit(unmountable, previewsDecl)
 
 	// open lists the previews and mounts another.
 	r = c.tool("open", nil)

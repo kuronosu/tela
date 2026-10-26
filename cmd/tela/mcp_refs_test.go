@@ -128,6 +128,31 @@ func TestRefsAreStable(t *testing.T) {
 	}
 }
 
+// TestRefsForgetOldNames checks that a ref that followed its element to a
+// new name no longer answers to the old one: neither a new element with the
+// old name in the same mount nor the old name after a remount takes it.
+func TestRefsForgetOldNames(t *testing.T) {
+	tab := newRefTable()
+	refsFor(tab, `- button "Save"`)  // e1
+	refsFor(tab, `- button "Saved"`) // e1, by position
+	got := refsFor(tab, `- button "Save"
+- button "Saved"`)
+	want := `- button "Save" [ref=e2]
+- button "Saved" [ref=e1]`
+	if got != want {
+		t.Errorf("a new element with the old name:\n%s\nwant\n%s", got, want)
+	}
+
+	tab = newRefTable()
+	refsFor(tab, `- 'button "Count: 0"'`) // e1
+	refsFor(tab, `- 'button "Count: 1"'`) // e1, by position
+	tab.remount()
+	got = refsFor(tab, `- 'button "Count: 0"'`)
+	if want := `- 'button "Count: 0" [ref=e2]'`; got != want {
+		t.Errorf("the old name after a remount:\n%s\nwant\n%s", got, want)
+	}
+}
+
 func TestRefsNeedMatchingCounts(t *testing.T) {
 	tab := newRefTable()
 	lines, cands, groups, want := prepareRefs(`- button "A"

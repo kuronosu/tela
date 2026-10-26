@@ -535,7 +535,12 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		case req.At != nil:
 			app.ClickAt(float32(req.At.X), float32(req.At.Y), opts...)
 			if req.Double {
-				app.ClickAt(float32(req.At.X), float32(req.At.Y), opts...)
+				// A second ClickAt would break the click sequence before its
+				// press (each click is a first click), so OnDoubleClick would
+				// never run: the second press continues the sequence ClickAt
+				// began, at the same point, as DoubleClick does.
+				app.MouseDown()
+				app.MouseUp()
 			}
 		default:
 			panic(telaMCPFail{"click needs an element or x and y"})
