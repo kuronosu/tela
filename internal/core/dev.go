@@ -319,11 +319,15 @@ const (
 	hookGo            // UseGo (effects.go)
 	hookTheme         // UseTheme (theme.go)
 	hookSize          // UseSize (bounds.go)
-	hookTimeout       // UseTimeout (interval.go)
+	hookTimeout       // core.UseTimeout, the Timeout of package aria (interval.go)
 	hookDirection     // UseDirection (direction.go)
 	hookTimeoutAfter  // tela.UseTimeout(d, f, deps...) (interval.go)
 )
 
+// hookNames name the kinds in dev messages and in the hook signatures of
+// dev-loop state (ADR-113), so each name is distinct: hookTimeout is not
+// "UseTimeout", which is tela.UseTimeout (hookTimeoutAfter); users only
+// meet it inside aria's hooks (tooltips, collections, sliders, color pickers).
 var hookNames = [...]string{
 	hookState:         "UseState",
 	hookReducer:       "UseReducer",
@@ -352,7 +356,7 @@ var hookNames = [...]string{
 	hookGo:            "UseGo",
 	hookTheme:         "UseTheme",
 	hookSize:          "UseSize",
-	hookTimeout:       "UseTimeout",
+	hookTimeout:       "aria's Timeout",
 	hookDirection:     "UseDirection",
 	hookTimeoutAfter:  "UseTimeout",
 }
@@ -442,13 +446,13 @@ func slotName(s any) string {
 	if e, ok := s.(*effectSlot); ok {
 		return e.kind.String()
 	}
-	if is, ok := s.(*intervalSlot); ok && is.byEffect {
-		return "UseTimeout"
+	if is, ok := s.(*intervalSlot); ok {
+		return is.kind().String()
 	}
 	name := strings.TrimPrefix(fmt.Sprintf("%T", s), "*core.")
 	for _, r := range [...][2]string{
 		{"stateSlot", "UseState"}, {"reducerSlot", "UseReducer"}, {"memoSlot", "UseMemo"},
-		{"onceSlot", "UseOnce"}, {"intervalSlot", "UseInterval"},
+		{"onceSlot", "UseOnce"},
 		{"cbSlot", "UseCallback"}, {"Ref", "UseRef"}, {"ctxSlot", "UseContext"}, {"idSlot", "UseID"},
 		{"Value", "UseValue"}, {"elemRef", "UseElementRef"}, {"vlist", "VirtualList"}, {"boundsFollow", "UseBounds"},
 	} {

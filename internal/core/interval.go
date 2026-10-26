@@ -31,6 +31,19 @@ type intervalSlot struct {
 	on   bool
 }
 
+// kind returns the hook that made the slot: UseInterval, UseTimeoutAfter
+// (tela.UseTimeout) or UseTimeout (aria's Timeout). Only a call of the
+// same hook takes the slot in a later build.
+func (s *intervalSlot) kind() hookKind {
+	switch {
+	case s.byEffect:
+		return hookTimeoutAfter
+	case s.once:
+		return hookTimeout
+	}
+	return hookInterval
+}
+
 func (s *intervalSlot) unmount(t *Tree) {
 	s.stop()
 	s.eff.unmount(t)
@@ -72,8 +85,8 @@ func UseInterval(d time.Duration, f func()) {
 	var s *intervalSlot
 	if i < len(el.hooks) {
 		var ok bool
-		if s, ok = el.hooks[i].(*intervalSlot); !ok {
-			el.tree.slotMismatch(el, i, "UseInterval")
+		if s, ok = el.hooks[i].(*intervalSlot); !ok || s.kind() != hookInterval {
+			el.tree.slotMismatch(el, i, hookInterval.String())
 		}
 		s.f = f
 		s.eff.update(i, s.effect(d), []any{d})
@@ -143,8 +156,8 @@ func UseTimeoutAfter(d time.Duration, f func(), deps ...any) {
 	all := append(slices.Clone(deps), d)
 	if i < len(el.hooks) {
 		s, ok := el.hooks[i].(*intervalSlot)
-		if !ok || !s.byEffect {
-			el.tree.slotMismatch(el, i, "UseTimeout")
+		if !ok || s.kind() != hookTimeoutAfter {
+			el.tree.slotMismatch(el, i, hookTimeoutAfter.String())
 		}
 		s.f = f
 		s.eff.update(i, s.effect(d), all)
@@ -171,8 +184,8 @@ func UseTimeout() Timeout {
 	el, i := nextSlot(hookTimeout)
 	if i < len(el.hooks) {
 		s, ok := el.hooks[i].(*intervalSlot)
-		if !ok || !s.once || s.byEffect {
-			el.tree.slotMismatch(el, i, "UseTimeout")
+		if !ok || s.kind() != hookTimeout {
+			el.tree.slotMismatch(el, i, hookTimeout.String())
 		}
 		return Timeout{s}
 	}

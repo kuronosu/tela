@@ -262,3 +262,69 @@ func TestUseTimeoutAfterNilAndSlotMismatch(t *testing.T) {
 		t.Errorf("panic %q, want the hook order message", msg)
 	}
 }
+
+// The three hooks on an intervalSlot (UseInterval, UseTimeoutAfter and
+// aria's UseTimeout) take only their own slots, and every message names
+// them apart: tela.UseTimeout and the Timeout of package aria had the
+// same name, so a mix-up read "was UseTimeout ... is UseTimeout now".
+func TestIntervalSlotHooksNamedApart(t *testing.T) {
+	const (
+		interval = iota
+		after
+		timeout
+	)
+	swap := func(dev bool, from, to int) string {
+		mode := from
+		comp := func() Node {
+			switch mode {
+			case interval:
+				UseInterval(time.Second, func() {})
+			case after:
+				UseTimeoutAfter(time.Second, func() {})
+			default:
+				UseTimeout()
+			}
+			return Text("x")
+		}
+		tr := NewTree(Config{Fonts: testFonts, Dev: dev, Log: func(string) {}})
+		tr.Mount(Component(comp))
+		frameAndFlush(tr)
+		mode = to
+		return panicMessage(func() { tr.Mount(Component(comp)); frameAndFlush(tr) })
+	}
+	names := [...]string{interval: "UseInterval", after: "UseTimeout", timeout: "aria's Timeout"}
+	for from := range names {
+		for to := range names {
+			if from == to {
+				continue
+			}
+			// Without dev mode, the slot type check.
+			want := "was " + names[from] + " in the previous build and is " + names[to] + " now"
+			if msg := swap(false, from, to); !strings.Contains(msg, want) {
+				t.Errorf("%s then %s: panic %q, want %q", names[from], names[to], msg, want)
+			}
+			// In dev mode, the hook order check.
+			msg := swap(true, from, to)
+			if !strings.Contains(msg, "hook 1 is "+names[to]+" at ") || !strings.Contains(msg, "but it was "+names[from]+" at ") {
+				t.Errorf("dev, %s then %s: panic %q", names[from], names[to], msg)
+			}
+		}
+	}
+}
+
+// Every hook kind has its own name: the dev messages and the hook
+// signatures of tela dev's state keeping (ADR-113) tell kinds apart by it.
+func TestHookNamesDistinct(t *testing.T) {
+	seen := map[string]hookKind{}
+	for k := hookKind(1); int(k) < len(hookNames); k++ {
+		name := k.String()
+		if name == "" {
+			t.Errorf("hook kind %d has no name", k)
+			continue
+		}
+		if o, ok := seen[name]; ok {
+			t.Errorf("hook kinds %d and %d are both named %q", o, k, name)
+		}
+		seen[name] = k
+	}
+}
