@@ -26,11 +26,11 @@ type ContextMenuTriggerOptions struct {
 	// browser's (here, the platform's) own, and an outer context menu's,
 	// take over.
 	Disabled bool
-	// NoLongPress keeps a touch that stays down from opening the menu. The
-	// long press is recognized for every pointer of the area, so a mouse
-	// button held for 500 ms on the area, or on a child that is not itself
-	// a long-press target, does not click; turn it off for an area whose
-	// content is used that way.
+	// NoLongPress keeps a touch or a pen that stays down from opening the
+	// menu. The long press is recognized for touch contacts and pens only
+	// (a mouse button held on the area, or on a child, clicks as usual),
+	// and it wins over the click of that touch: turn it off for an area
+	// whose content is held down with a finger for something else.
 	NoLongPress bool
 	// Ref is the area's ref and MenuRef the menu's, for hooks used together
 	// with others on the same element; the zero value makes the hook
@@ -72,9 +72,10 @@ type ContextMenuTriggerResult struct {
 // PopoverOptions returns the options of [UsePopover] for the menu: anchored
 // at the point the menu was opened with ("bottom-start", flipped and
 // shifted to stay in the window). The popover is not modal, so that a
-// right click on the area while the menu is open reaches it and moves the
-// menu to the new point; a primary press outside the menu closes it.
-// Change what you need in the value returned (Offset, Floating).
+// right click on the area while the menu is open reaches it: the press
+// closes the menu, as any press outside it does (a right click too), and
+// the right click opens it again at the new point. Change what you need
+// in the value returned (Offset, Floating).
 func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 	return PopoverOptions{
 		Ref:       r.MenuRef,
@@ -91,8 +92,9 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 //
 //   - a right click, at the pointer (the focus stays where it was, and the
 //     menu itself takes it),
-//   - a touch that stays down for 500 ms (h.OnLongPress), at the finger,
-//     with the first item focused,
+//   - a touch or a pen that stays down for 500 ms, at the finger, with the
+//     first item focused (Radix's rule; a mouse button held down is not a
+//     long press here, so it clicks what it is on as usual),
 //   - Shift+F10 and the ContextMenu key, with the first item focused, at
 //     the top-left corner of the area.
 //
@@ -100,10 +102,18 @@ func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions {
 // innermost area with a context menu wins. The menu is rendered by the
 // caller, in a Portal, and [UsePopover] places it at the point with
 // [AnchorRect], flipped and shifted to stay in the window; Escape, a
-// primary press outside, the focus leaving and choosing an item close it,
-// and the focus goes back to where it was. A right click on the area while
-// the menu is open moves it to the new point; one outside the area does
-// nothing (the overlay stack only dismisses for primary presses).
+// press outside it with any mouse button (Radix's DismissableLayer), the
+// focus leaving and choosing an item close it, and the focus goes back to
+// where it was. A right click elsewhere on the area while the menu is
+// open closes it and opens it again at the new point, as a new menu: it
+// takes the focus as when it opens (the right click's contextmenu event
+// comes after the release that closes the menu). A right click in another
+// area with a context menu closes this one and opens that one, and a
+// right click outside every area just closes it. A menu rendered in a
+// Presence (to fade out) comes back as the same element when it opens
+// again while it exits, without taking the focus: give it a new key each
+// time it opens (count the opens in OnOpenChange), as kit's ContextMenu
+// does.
 //
 //	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
 //	return Fragment(
@@ -172,10 +182,10 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 		}),
 	}
 	if !o.NoLongPress && !o.Disabled {
-		ps = append(ps, h.OnLongPress(func(e tela.PointerEvent) {
-			if e.Kind != tela.PointerTouch {
-				return
-			}
+		// Touch and pen only, and a mouse press does not even take part in
+		// the gesture arena, so a held mouse button still clicks
+		// (h.OnLongPress would recognize the mouse too).
+		ps = append(ps, core.OnTouchLongPress(func(e tela.PointerEvent) {
 			e.StopPropagation()
 			openAt(e.X, e.Y, FocusFirst)
 		}))

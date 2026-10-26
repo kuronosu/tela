@@ -30,8 +30,11 @@ type OverlayOptions struct {
 	// Dismissable closes the overlay with a press outside it: at the
 	// pointer down, the press is kept from the elements under it, and at
 	// the release OnClose is called and the click the press would make is
-	// cancelled (React Aria's isDismissable). An alert dialog is not
-	// dismissable.
+	// cancelled (React Aria's isDismissable). Any mouse button counts, the
+	// secondary and middle ones too, as in Radix's DismissableLayer (React
+	// Aria counts the primary one only); a right click's contextmenu event
+	// still reaches the element under the pointer after the release. An
+	// alert dialog is not dismissable.
 	Dismissable bool
 	// KeyboardDismissDisabled keeps Escape from closing the overlay. The
 	// overlay still takes the key while it is the top one: Escape does not

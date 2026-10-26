@@ -3,6 +3,7 @@ package core
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
@@ -79,12 +80,48 @@ func TestInteractOutside(t *testing.T) {
 	if g := r.String(); g != "start pointerdown:btn" {
 		t.Errorf("drag from outside to inside: %q", g)
 	}
-	// The secondary button is not a press (React Aria's rule).
+	// The secondary and middle buttons are presses too (Radix's
+	// DismissableLayer); back and forward are not.
+	for _, b := range []platform.PointerButton{platform.ButtonSecondary, platform.ButtonMiddle} {
+		r.reset()
+		x.send(move(10, 10), ptr(platform.PointerDown, 10, 10, b, b.Mask()), ptr(platform.PointerUp, 10, 10, b, 0))
+		if g := r.String(); g != "start pointerdown:btn end" {
+			t.Errorf("button %v: %q", b, g)
+		}
+	}
 	r.reset()
-	x.send(move(10, 10), ptr(platform.PointerDown, 10, 10, platform.ButtonSecondary, platform.ButtonSecondary.Mask()),
-		ptr(platform.PointerUp, 10, 10, platform.ButtonSecondary, 0))
+	x.send(move(10, 10), ptr(platform.PointerDown, 10, 10, platform.ButtonBack, platform.ButtonBack.Mask()),
+		ptr(platform.PointerUp, 10, 10, platform.ButtonBack, 0))
 	if g := r.String(); g != "pointerdown:btn" {
-		t.Errorf("secondary button: %q", g)
+		t.Errorf("back button: %q", g)
+	}
+	// A pen's barrel button is not a press; its tip is.
+	pen := func(a platform.PointerAction, b platform.PointerButton, held platform.Buttons) platform.PointerEvent {
+		return platform.PointerEvent{Action: a, Kind: platform.PointerPen, ID: 1, Pos: platform.Point{X: 10, Y: 10}, Button: b, Buttons: held}
+	}
+	r.reset()
+	x.send(pen(platform.PointerDown, platform.ButtonSecondary, platform.ButtonSecondary.Mask()), pen(platform.PointerUp, platform.ButtonSecondary, 0))
+	if g := r.String(); g != "pointerdown:btn" {
+		t.Errorf("pen barrel button: %q", g)
+	}
+	r.reset()
+	x.b.Advance(time.Second)
+	x.send(pen(platform.PointerDown, platform.ButtonPrimary, platform.ButtonPrimary.Mask()), pen(platform.PointerUp, platform.ButtonPrimary, 0))
+	if g := r.String(); !strings.HasPrefix(g, "start pointerdown:btn end") {
+		t.Errorf("pen tip: %q", g)
+	}
+	x.send(pen(platform.PointerLeave, platform.ButtonNone, 0))
+	// A primary button pressed while the secondary one is held is not a
+	// new press (chorded buttons): the press started at the first button.
+	r.reset()
+	x.b.Advance(time.Second)
+	x.send(move(10, 10),
+		ptr(platform.PointerDown, 10, 10, platform.ButtonSecondary, platform.ButtonSecondary.Mask()),
+		ptr(platform.PointerDown, 10, 10, platform.ButtonPrimary, platform.ButtonSecondary.Mask()|platform.ButtonPrimary.Mask()),
+		ptr(platform.PointerUp, 10, 10, platform.ButtonPrimary, platform.ButtonSecondary.Mask()),
+		ptr(platform.PointerUp, 10, 10, platform.ButtonSecondary, 0))
+	if g := r.String(); !strings.HasPrefix(g, "start pointerdown:btn") || strings.Count(g, "start") != 1 || !strings.HasSuffix(g, "end") {
+		t.Errorf("chorded buttons: %q", g)
 	}
 	// Touch presses count.
 	r.reset()

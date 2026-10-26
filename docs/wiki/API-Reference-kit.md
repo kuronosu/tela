@@ -1364,9 +1364,9 @@ type ContextMenu[K comparable] struct {
     // Disabled leaves the area's right click to the platform and to an
     // outer context menu.
     Disabled bool
-    // NoLongPress keeps a touch that stays down from opening the menu (a
-    // mouse button held for half a second on the area otherwise does not
-    // click either: see aria.ContextMenuTriggerOptions).
+    // NoLongPress keeps a touch or a pen that stays down from opening the
+    // menu, so that it clicks what it is on (a held mouse button always
+    // does: see aria.ContextMenuTriggerOptions).
     NoLongPress bool
     // AriaLabel names the menu, which has no name of its own: the area is
     // not a label.
@@ -1390,7 +1390,7 @@ type ContextMenu[K comparable] struct {
 }
 ```
 
-ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click opens it at the pointer, a touch that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, at the area's top-left corner. The keys reach the area from the element that has the focus inside it, as in the browser: an area with nothing focusable inside opens from the keyboard only when it can take the focus itself (Props: h.TabIndex(0), with a focus-visible: ring in Class). The menu closes with Escape, a press outside it or choosing an item, and the focus returns to where it was. A right click inside the area while the menu is open moves it; in nested areas the innermost wins.
+ContextMenu is a menu that opens where the user right-clicks inside an area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a right click opens it at the pointer, a touch or a pen that stays down opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its first item, at the area's top-left corner. The keys reach the area from the element that has the focus inside it, as in the browser: an area with nothing focusable inside opens from the keyboard only when it can take the focus itself (Props: h.TabIndex(0), with a focus-visible: ring in Class). The menu closes with Escape, a press outside it with any mouse button or choosing an item, and the focus returns to where it was. A right click elsewhere in the area while the menu is open closes it and opens a new one at the new point (Radix), a right click in another area opens that area's menu instead, and in nested areas the innermost wins.
 
 ```go
 kit.ContextMenu[string]{

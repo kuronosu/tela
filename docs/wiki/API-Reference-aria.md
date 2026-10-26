@@ -1942,11 +1942,11 @@ type ContextMenuTriggerOptions struct {
     // browser's (here, the platform's) own, and an outer context menu's,
     // take over.
     Disabled bool
-    // NoLongPress keeps a touch that stays down from opening the menu. The
-    // long press is recognized for every pointer of the area, so a mouse
-    // button held for 500 ms on the area, or on a child that is not itself
-    // a long-press target, does not click; turn it off for an area whose
-    // content is used that way.
+    // NoLongPress keeps a touch or a pen that stays down from opening the
+    // menu. The long press is recognized for touch contacts and pens only
+    // (a mouse button held on the area, or on a child, clicks as usual),
+    // and it wins over the click of that touch: turn it off for an area
+    // whose content is held down with a finger for something else.
     NoLongPress bool
     // Ref is the area's ref and MenuRef the menu's, for hooks used together
     // with others on the same element; the zero value makes the hook
@@ -2002,10 +2002,10 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 UseContextMenuTrigger holds the open state of a context menu and returns the props of its area, which opens the menu at the pointer (the contextmenu event of the platform, Radix UI's ContextMenu):
 
 - a right click, at the pointer (the focus stays where it was, and the menu itself takes it),
-- a touch that stays down for 500 ms (h.OnLongPress), at the finger, with the first item focused,
+- a touch or a pen that stays down for 500 ms, at the finger, with the first item focused (Radix's rule; a mouse button held down is not a long press here, so it clicks what it is on as usual),
 - Shift+F10 and the ContextMenu key, with the first item focused, at the top-left corner of the area.
 
-The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a primary press outside, the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click on the area while the menu is open moves it to the new point; one outside the area does nothing (the overlay stack only dismisses for primary presses).
+The event's default is prevented and its propagation stopped, so the innermost area with a context menu wins. The menu is rendered by the caller, in a Portal, and [`UsePopover`](#func-usepopover) places it at the point with [`AnchorRect`](#func-anchorrect), flipped and shifted to stay in the window; Escape, a press outside it with any mouse button (Radix's DismissableLayer), the focus leaving and choosing an item close it, and the focus goes back to where it was. A right click elsewhere on the area while the menu is open closes it and opens it again at the new point, as a new menu: it takes the focus as when it opens (the right click's contextmenu event comes after the release that closes the menu). A right click in another area with a context menu closes this one and opens that one, and a right click outside every area just closes it. A menu rendered in a Presence (to fade out) comes back as the same element when it opens again while it exits, without taking the focus: give it a new key each time it opens (count the opens in OnOpenChange), as kit's ContextMenu does.
 
 ```go
 cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{})
@@ -2056,7 +2056,7 @@ fmt.Println(ev.take())
 func (r ContextMenuTriggerResult) PopoverOptions() PopoverOptions
 ```
 
-PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the menu: anchored at the point the menu was opened with ("bottom-start", flipped and shifted to stay in the window). The popover is not modal, so that a right click on the area while the menu is open reaches it and moves the menu to the new point; a primary press outside the menu closes it. Change what you need in the value returned (Offset, Floating).
+PopoverOptions returns the options of [`UsePopover`](#func-usepopover) for the menu: anchored at the point the menu was opened with ("bottom-start", flipped and shifted to stay in the window). The popover is not modal, so that a right click on the area while the menu is open reaches it: the press closes the menu, as any press outside it does (a right click too), and the right click opens it again at the new point. Change what you need in the value returned (Offset, Floating).
 
 ### type Date
 
@@ -3816,8 +3816,11 @@ type OverlayOptions struct {
     // Dismissable closes the overlay with a press outside it: at the
     // pointer down, the press is kept from the elements under it, and at
     // the release OnClose is called and the click the press would make is
-    // cancelled (React Aria's isDismissable). An alert dialog is not
-    // dismissable.
+    // cancelled (React Aria's isDismissable). Any mouse button counts, the
+    // secondary and middle ones too, as in Radix's DismissableLayer (React
+    // Aria counts the primary one only); a right click's contextmenu event
+    // still reaches the element under the pointer after the release. An
+    // alert dialog is not dismissable.
     Dismissable bool
     // KeyboardDismissDisabled keeps Escape from closing the overlay. The
     // overlay still takes the key while it is the top one: Escape does not

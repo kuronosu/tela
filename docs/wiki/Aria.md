@@ -1276,13 +1276,16 @@ func (m NoteMenu) Build() tela.Node {
 ```
 
 The menu is the one of a dropdown menu: `UseMenu` takes the same results, so a
-component that renders a menu can serve both. Escape, a primary press outside and
-choosing an item close it, and the focus returns to where it was. The popover is
-not modal: a second right click on the area moves the menu to the new point. Two
-limits come from the engine: the long press is recognized for every pointer of
-the area, so a mouse button held 500 ms on it does not click (`NoLongPress` turns
-the touch gesture off), and the keyboard menu opens at the area's corner because
-a key event does not say which element has the focus.
+component that renders a menu can serve both. Escape, a press outside with any
+mouse button (a right click too, as in Radix) and choosing an item close it, and
+the focus returns to where it was. The popover is not modal: a second right click
+on the area closes the menu and opens a new one at the new point, and a right
+click in another area opens that area's menu instead. A menu rendered in a
+`Presence` must get a new key at each opening (count them in `OnOpenChange`), or
+the exiting menu comes back without the focus. The long press opens the menu for
+a touch or a pen only, and a held mouse button clicks as usual (`NoLongPress`
+turns the gesture off). The keyboard menu opens at the area's corner because a
+key event does not say which element has the focus.
 
 ### Tabs: `UseTabs`
 

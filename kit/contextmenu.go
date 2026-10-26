@@ -20,15 +20,17 @@ func init() {
 
 // ContextMenu is a menu that opens where the user right-clicks inside an
 // area, shadcn/ui's ContextMenu, built on aria.UseContextMenuTrigger: a
-// right click opens it at the pointer, a touch that stays down opens it
-// under the finger, and Shift+F10 or the ContextMenu key opens it, on its
+// right click opens it at the pointer, a touch or a pen that stays down
+// opens it under the finger, and Shift+F10 or the ContextMenu key opens it, on its
 // first item, at the area's top-left corner. The keys reach the area from
 // the element that has the focus inside it, as in the browser: an area with
 // nothing focusable inside opens from the keyboard only when it can take the
 // focus itself (Props: h.TabIndex(0), with a focus-visible: ring in Class).
 // The menu closes with Escape,
-// a press outside it or choosing an item, and the focus returns to where
-// it was. A right click inside the area while the menu is open moves it; in
+// a press outside it with any mouse button or choosing an item, and the
+// focus returns to where it was. A right click elsewhere in the area while
+// the menu is open closes it and opens a new one at the new point (Radix),
+// a right click in another area opens that area's menu instead, and in
 // nested areas the innermost wins.
 //
 //	kit.ContextMenu[string]{
@@ -60,9 +62,9 @@ type ContextMenu[K comparable] struct {
 	// Disabled leaves the area's right click to the platform and to an
 	// outer context menu.
 	Disabled bool
-	// NoLongPress keeps a touch that stays down from opening the menu (a
-	// mouse button held for half a second on the area otherwise does not
-	// click either: see aria.ContextMenuTriggerOptions).
+	// NoLongPress keeps a touch or a pen that stays down from opening the
+	// menu, so that it clicks what it is on (a held mouse button always
+	// does: see aria.ContextMenuTriggerOptions).
 	NoLongPress bool
 	// AriaLabel names the menu, which has no name of its own: the area is
 	// not a label.
@@ -89,11 +91,29 @@ type ContextMenu[K comparable] struct {
 func (c ContextMenu[K]) Build() tela.Node {
 	st := &UseStyle().ContextMenu
 	store := useMenuStore[K]()
+	// opens counts the openings: the panel is keyed by it, so a right
+	// click that closes the menu and opens it again at another point (in
+	// the same event) mounts a new panel, which takes the focus as any
+	// opening does, while the old one fades out where it was. Without the
+	// key the Presence would bring the exiting panel back as it was.
+	opens, setOpens := tela.UseState(0)
+	onOpenChange := c.OnOpenChange
 	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{
-		Open: c.Open, OnOpenChange: c.OnOpenChange, Disabled: c.Disabled, NoLongPress: c.NoLongPress,
+		Open: c.Open, Disabled: c.Disabled, NoLongPress: c.NoLongPress,
+		OnOpenChange: func(open bool) {
+			if open {
+				setOpens.Update(func(n int) int { return n + 1 })
+			}
+			if onOpenChange != nil {
+				onOpenChange(open)
+			}
+		},
 	})
 	pop := cm.PopoverOptions()
-	pop.Floating = append(pop.Floating, menuFloating()...)
+	// The point of this opening, read now, so that an exiting panel stays
+	// at its own point.
+	at := cm.Anchor()
+	pop.Floating = append([]aria.FloatingOption{aria.AnchorRect(func() tela.Rect { return at })}, menuFloating()...)
 	panel := menuPanel[K]{
 		component: "ContextMenu", style: st, items: c.Items, store: store, onSelect: c.OnSelect,
 		popover: pop, menuProps: cm.MenuProps, ref: cm.MenuRef, strategy: cm.FocusStrategy, close: cm.Close,
@@ -101,6 +121,6 @@ func (c ContextMenu[K]) Build() tela.Node {
 	}
 	return h.Fragment(
 		h.Div(cm.TriggerProps, cls(c.Class), c.Props, c.Children),
-		h.Portal(h.Presence(h.If(cm.Open, panel))),
+		h.Portal(h.Presence(h.If(cm.Open, tela.WithKey(panel, opens)))),
 	)
 }

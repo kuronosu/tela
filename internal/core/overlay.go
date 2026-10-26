@@ -1,6 +1,10 @@
 package core
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/kuronosu/tela/internal/platform"
+)
 
 // Overlays, interacting outside and modality (ADR-096): the engine under
 // package aria's UseOverlay, UseDialog, UsePopover, UseMenu and
@@ -16,10 +20,18 @@ import "slices"
 // # Interacting outside
 //
 // InteractOutside(OutsideOptions) on a primitive reports pointer presses
-// outside it: OnStart at the pointerdown of a primary press (the left
-// button, a touch contact or a pen tip: React Aria's rule, which ignores
-// the other buttons) whose target is outside it, and OnEnd at the
-// pointerup of that press when its target is outside it too. They run
+// outside it: OnStart at the pointerdown of a press (the mouse's primary,
+// secondary or middle button, a touch contact or a pen tip; a pen's
+// barrel buttons and the mouse's back and forward buttons do not count)
+// whose target is outside it, and OnEnd at the pointerup of that press
+// when its target is outside it too. React Aria counts the primary button
+// only; Radix's DismissableLayer, which shadcn/ui's overlays use, counts
+// a pointerdown with any button, so a right click outside an open menu
+// closes it. The pointerdown is the press of the first button and the
+// pointerup the release of the last one (chorded buttons, input.go); the
+// contextmenu event of a right click comes after that pointerup, so a
+// right click that closes a context menu can open it again at the new
+// point (package aria's UseContextMenuTrigger). They run
 // before the target's handlers, like listeners in the capture phase of
 // the document, with the event of the dispatch: StopPropagation there
 // keeps the pointerdown (pointerup) from reaching the target's handlers,
@@ -96,8 +108,9 @@ func inheritOutside(p *Element) uint8 {
 
 // OutsideOptions configures InteractOutside.
 type OutsideOptions struct {
-	// OnStart runs at the pointerdown of a primary press whose target is
-	// outside the element, before the target's handlers.
+	// OnStart runs at the pointerdown of a press (the mouse's primary,
+	// secondary or middle button, a touch contact, a pen tip) whose target
+	// is outside the element, before the target's handlers.
 	OnStart func(PointerEvent)
 	// OnEnd runs at the pointerup of a press that started outside, when
 	// its target is outside too, before the target's handlers;
@@ -120,8 +133,9 @@ type OverlayOptions struct {
 	// element is the top overlay. Nil: the overlay is not dismissed with
 	// the keyboard (and Escape does nothing).
 	OnEscape func(KeyboardEvent)
-	// OnInteractOutsideStart runs at the pointerdown of a primary press
-	// outside the element while it is the top overlay; OnInteractOutside
+	// OnInteractOutsideStart runs at the pointerdown of a press outside
+	// the element (any press InteractOutside counts, a right click too)
+	// while it is the top overlay; OnInteractOutside
 	// at the pointerup of that press, when its target is outside too (see
 	// InteractOutside for StopPropagation and PreventDefault).
 	OnInteractOutsideStart func(PointerEvent)
@@ -272,9 +286,23 @@ func (t *Tree) focusMoved(old, now *Element) {
 	}
 }
 
-// outsideDown runs the interact-outside listeners of a primary press at
-// target, at its pointerdown, before the dispatch that shares st, and
-// records in ps those it started for outsideUp.
+// outsideButton reports whether a pointerdown of ps with button b is a
+// press for the interact-outside listeners: the mouse's primary, secondary
+// and middle buttons (Radix's DismissableLayer), a touch contact and a pen
+// tip.
+func outsideButton(ps *pointerState, b platform.PointerButton) bool {
+	switch b {
+	case platform.ButtonPrimary:
+		return true
+	case platform.ButtonSecondary, platform.ButtonMiddle:
+		return ps.key.kind == platform.PointerMouse
+	}
+	return false
+}
+
+// outsideDown runs the interact-outside listeners of a press at target
+// (outsideButton), at its pointerdown, before the dispatch that shares st,
+// and records in ps those it started for outsideUp.
 func (t *Tree) outsideDown(ps *pointerState, target *Element, e PointerEvent, st *eventState) {
 	clear(ps.outside)
 	ps.outside = ps.outside[:0]

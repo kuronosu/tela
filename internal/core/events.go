@@ -575,6 +575,44 @@ type EventProp struct {
 	Handler any
 
 	kind eventKind
+	// noMouse marks a long-press handler that is not for the mouse
+	// (OnTouchLongPress): it does not make a mouse press join the arena.
+	noMouse bool
+}
+
+// OnTouchLongPress adds a long-press handler for touch contacts and pens
+// only: unlike On("longpress") (h.OnLongPress), which recognizes a long
+// press of every pointer, it does not make a mouse press take part in the
+// gesture arena, so a mouse button held on the element or on a child for
+// longer than the long-press time still clicks (a context menu's area,
+// where only a touch or a pen that stays down opens the menu: Radix's
+// ContextMenu). The handler never runs for a mouse, even when another
+// handler of the element makes the mouse's press a long press. Reserved
+// for package aria (UseContextMenuTrigger); it is not exposed by tela or h.
+func OnTouchLongPress(handler func(PointerEvent)) Prop {
+	if handler == nil {
+		panic("core: OnTouchLongPress with a nil handler")
+	}
+	h := func(e PointerEvent) {
+		if e.Kind != PointerMouse {
+			handler(e)
+		}
+	}
+	return Prop{name: "OnTouchLongPress", apply: func(d *desc) {
+		d.events = append(d.events, EventProp{Name: "longpress", Handler: h, kind: evLongPress, noMouse: true})
+		d.evMask |= evLongPress.mask()
+	}}
+}
+
+// mouseLongPress reports whether a long-press handler of d is for the
+// mouse too (any but OnTouchLongPress's).
+func (d *desc) mouseLongPress() bool {
+	for i := range d.events {
+		if ep := &d.events[i]; ep.kind == evLongPress && !ep.noMouse {
+			return true
+		}
+	}
+	return false
 }
 
 // On adds an event handler prop. The public API wraps it (OnClick...).

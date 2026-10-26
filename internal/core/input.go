@@ -52,7 +52,9 @@ import (
 // A press with the primary button starts a gesture arena with a tap
 // recognizer (when the press's path has click or double-click handlers),
 // a drag recognizer per element with drag handlers and a long-press
-// recognizer per element with OnLongPress, innermost first. The click
+// recognizer per element with OnLongPress (for a mouse press, not the
+// elements whose only long-press handlers are OnTouchLongPress's),
+// innermost first. The click
 // fires on release, on the nearest common ancestor of the press and
 // release targets (DOM), however far the pointer moved, unless a drag or
 // long press won the arena. ClickCount is the DOM's detail
@@ -295,9 +297,9 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		pe := t.pointerEvent(ps, e.Button)
 		st := &eventState{}
 		ps.noClick = false
-		if e.Button == platform.ButtonPrimary {
+		if outsideButton(ps, e.Button) {
 			// The listeners of presses outside, as in the capture phase
-			// of the document (overlay.go).
+			// of the document (overlay.go): a right or middle click too.
 			t.outsideDown(ps, target, pe, st)
 		}
 		if !st.stopped {
@@ -466,7 +468,9 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 			rs = append(rs, t.panRecognizer(s, ps))
 		}
 		m := el.node.d.evMask
-		if m&evLongPress.mask() != 0 {
+		if m&evLongPress.mask() != 0 && (ps.key.kind != platform.PointerMouse || el.node.d.mouseLongPress()) {
+			// A touch-only long press (OnTouchLongPress) leaves a mouse
+			// press to the click.
 			rs = append(rs, &gesture.LongPress{OnLongPress: func(ge gesture.Event) { t.longPress(ps, el, ge) }})
 		}
 		if m&dragMask != 0 {
