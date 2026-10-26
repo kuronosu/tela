@@ -6,6 +6,7 @@
 //	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
 //	tela lint     [-json] [-tests] [packages]
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
+//	tela mcp      [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
 //	tela new      [-module path] [-skip-deps] <dir>
 //	tela version
@@ -47,12 +48,21 @@
 // (ADR-111, ADR-115). Like snapshot, a package that is not a package main
 // runs its Preview, Previews or App.
 //
+// mcp is a Model Context Protocol server on standard input and output
+// (ADR-174): an agent drives the package's screen, mounted headlessly with
+// telatest in a process that stays up between calls, through the tools
+// snapshot (the aria snapshot with [ref=eN] marks), screenshot, click,
+// hover, fill, press, scroll, drag, resize, open, wait, inspect and lint.
+// Before each call it rebuilds and remounts when the sources changed, and a
+// compile error is that call's result while the last good build keeps
+// answering.
+//
 // new creates an app in a new directory: a go.mod that requires Tela, a
 // counter in main.go, a telatest test, a README and a .gitignore (ADR-128).
 // It runs go get and go mod tidy unless -skip-deps is given.
 //
-// More commands (add, mcp) arrive in later phases; see
-// docs/ARCHITECTURE.md section 17.
+// More commands (add) arrive in later phases; see docs/ARCHITECTURE.md
+// section 17.
 package main
 
 import (
@@ -73,6 +83,7 @@ Commands:
 	inspect     print a package's aria snapshot (YAML) or layout tree (JSON)
 	lint        check the source for the mistakes dev mode reports at run time
 	dev         run an app, rebuilding and reloading it as its sources change
+	mcp         serve a package's screen to agents (Model Context Protocol)
 	new         create a new Tela app in a directory
 	icons       generate a Go package of tela.Icon variables from SVG files
 	version     print the tela version
@@ -103,6 +114,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runLint(args[1:], stdout, stderr)
 	case "dev":
 		return runDev(args[1:], stdout, stderr)
+	case "mcp":
+		return runMCP(args[1:], stdout, stderr)
 	case "new":
 		return runNew(args[1:], stdout, stderr)
 	case "version":
@@ -118,6 +131,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 				return 0
 			case "dev":
 				fmt.Fprint(stdout, devUsage)
+				return 0
+			case "mcp":
+				fmt.Fprint(stdout, mcpUsage)
 				return 0
 			case "lint":
 				fmt.Fprint(stdout, lintUsage)
