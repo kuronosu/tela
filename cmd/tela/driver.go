@@ -497,78 +497,7 @@ var (
 	_ = telastrings.Join
 )
 {{end}}
-{{if .HasApp -}}
-// The App of the package: its size, root class, color scheme, theme and
-// class aliases apply to the run, as they do to its window. A variable App
-// of another type (the package's server, say) is left alone: the type
-// assertion compiles for any type.
-var telaApp, telaHasApp = telaAppOf(App)
-
-func telaAppOf(v any) (telatela.App, bool) {
-	switch a := v.(type) {
-	case telatela.App:
-		return a, true
-	case *telatela.App:
-		if a != nil {
-			return *a, true
-		}
-	}
-	return telatela.App{}, false
-}
-
-{{end -}}
-{{if eq .Kind "Preview" -}}
-// The contract: func Preview() tela.Node or tela.Component. The run
-// mounts what it returns, as is.
-func telaBuild(want string) (telatela.Component, string, []string, error) {
-	var root telatela.Component = Preview()
-	if root == nil {
-		return nil, "", nil, telafmt.Errorf("Preview() returned nil; return the screen, such as tela.C(Screen) or a struct component")
-	}
-	return root, "", nil, nil
-}
-{{else if eq .Kind "Previews" -}}
-// The contract: var Previews = tela.Previews{...}.
-var telaPreviews telatela.Previews = Previews
-
-func telaBuild(want string) (telatela.Component, string, []string, error) {
-	names := make([]string, 0, len(telaPreviews))
-	for name := range telaPreviews {
-		names = append(names, name)
-	}
-	telasort.Strings(names)
-	if len(names) == 0 {
-		return nil, "", nil, telafmt.Errorf("Previews is empty; add at least one screen: tela.Previews{\"Name\": {Root: tela.C(Screen)}}")
-	}
-	name := want
-	if name == "" {
-		name = names[0]
-	}
-	p, ok := telaPreviews[name]
-	if !ok {
-		return nil, "", names, telafmt.Errorf("unknown preview %q; the package defines: %s", name, telastrings.Join(names, ", "))
-	}
-	if p.Root == nil {
-		return nil, "", names, telafmt.Errorf("preview %q has no Root; give it one: {Root: tela.C(Screen)} or a struct component such as {Root: Screen{}}", name)
-	}
-	return p, name, names, nil
-}
-{{else if eq .Kind "App" -}}
-// The contract: var App = tela.App{Root: ...}; its Root is the screen.
-func telaBuild(want string) (telatela.Component, string, []string, error) {
-	if !telaHasApp {
-		return nil, "", nil, telafmt.Errorf("App is a %T, not a tela.App; define func Preview() tela.Node, or var App = tela.App{Root: tela.C(Screen)}", App)
-	}
-	if telaApp.Root == nil {
-		return nil, "", nil, telafmt.Errorf("App has no Root; set it to the root component, such as tela.App{Root: tela.C(Screen)} or a struct component, tela.App{Root: Screen{}}, or define func Preview() tela.Node")
-	}
-	return telaApp.Root, "", nil, nil
-}
-{{else -}}
-// The phase-1 contract: func Scene(w, h float32) *gfx.DisplayList.
-var telaScene func(w, h float32) *telagfx.DisplayList = Scene
-{{end}}
-
+{{template "contract" .}}
 func TestTelaRun(t *telatesting.T) {
 	getenv := func(name string) string { return telaos.Getenv(name) }
 	// What the run prints on standard error (dev warnings, class errors)
@@ -679,4 +608,82 @@ func TestTelaRun(t *telatesting.T) {
 type telaBuffer struct{ b []byte }
 
 func (w *telaBuffer) Write(p []byte) (int, error) { w.b = append(w.b, p...); return len(p), nil }
-`))
+` + contractTemplate))
+
+// contractTemplate defines "contract", the declarations shared by the
+// generated files of tela snapshot/inspect and tela mcp: telaApp (when the
+// package has an App) and telaBuild, which returns the screen to mount for
+// a preview name, the name and all the names (Previews), or an error for
+// the user. Its data needs Kind and HasApp.
+const contractTemplate = `{{define "contract"}}{{if .HasApp -}}
+// The App of the package: its size, root class, color scheme, theme and
+// class aliases apply to the run, as they do to its window. A variable App
+// of another type (the package's server, say) is left alone: the type
+// assertion compiles for any type.
+var telaApp, telaHasApp = telaAppOf(App)
+
+func telaAppOf(v any) (telatela.App, bool) {
+	switch a := v.(type) {
+	case telatela.App:
+		return a, true
+	case *telatela.App:
+		if a != nil {
+			return *a, true
+		}
+	}
+	return telatela.App{}, false
+}
+
+{{end -}}
+{{if eq .Kind "Preview" -}}
+// The contract: func Preview() tela.Node or tela.Component. The run
+// mounts what it returns, as is.
+func telaBuild(want string) (telatela.Component, string, []string, error) {
+	var root telatela.Component = Preview()
+	if root == nil {
+		return nil, "", nil, telafmt.Errorf("Preview() returned nil; return the screen, such as tela.C(Screen) or a struct component")
+	}
+	return root, "", nil, nil
+}
+{{else if eq .Kind "Previews" -}}
+// The contract: var Previews = tela.Previews{...}.
+var telaPreviews telatela.Previews = Previews
+
+func telaBuild(want string) (telatela.Component, string, []string, error) {
+	names := make([]string, 0, len(telaPreviews))
+	for name := range telaPreviews {
+		names = append(names, name)
+	}
+	telasort.Strings(names)
+	if len(names) == 0 {
+		return nil, "", nil, telafmt.Errorf("Previews is empty; add at least one screen: tela.Previews{\"Name\": {Root: tela.C(Screen)}}")
+	}
+	name := want
+	if name == "" {
+		name = names[0]
+	}
+	p, ok := telaPreviews[name]
+	if !ok {
+		return nil, "", names, telafmt.Errorf("unknown preview %q; the package defines: %s", name, telastrings.Join(names, ", "))
+	}
+	if p.Root == nil {
+		return nil, "", names, telafmt.Errorf("preview %q has no Root; give it one: {Root: tela.C(Screen)} or a struct component such as {Root: Screen{}}", name)
+	}
+	return p, name, names, nil
+}
+{{else if eq .Kind "App" -}}
+// The contract: var App = tela.App{Root: ...}; its Root is the screen.
+func telaBuild(want string) (telatela.Component, string, []string, error) {
+	if !telaHasApp {
+		return nil, "", nil, telafmt.Errorf("App is a %T, not a tela.App; define func Preview() tela.Node, or var App = tela.App{Root: tela.C(Screen)}", App)
+	}
+	if telaApp.Root == nil {
+		return nil, "", nil, telafmt.Errorf("App has no Root; set it to the root component, such as tela.App{Root: tela.C(Screen)} or a struct component, tela.App{Root: Screen{}}, or define func Preview() tela.Node")
+	}
+	return telaApp.Root, "", nil, nil
+}
+{{else -}}
+// The phase-1 contract: func Scene(w, h float32) *gfx.DisplayList.
+var telaScene func(w, h float32) *telagfx.DisplayList = Scene
+{{end}}
+{{end}}`

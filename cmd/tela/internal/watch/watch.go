@@ -332,19 +332,25 @@ func (w *Watcher) skip(path string) bool {
 // not skipped (root included) before its entries are read, and file, if
 // not nil, for every other entry. Errors of vanished entries are ignored.
 func (w *Watcher) walk(root string, dir func(path string) error, file func(path string, d fs.DirEntry)) {
+	walkTree(root, w.skip, w.error, dir, file)
+}
+
+// walkTree is walk with the skipped directories (skip, never called for
+// root) and the error report given.
+func walkTree(root string, skip func(path string) bool, report func(error), dir func(path string) error, file func(path string, d fs.DirEntry)) {
 	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if path == root || errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
-			w.error(err)
+			report(err)
 			if d != nil && d.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		if d.IsDir() {
-			if path != root && w.skip(path) {
+			if path != root && skip(path) {
 				return filepath.SkipDir
 			}
 			if dir != nil {
