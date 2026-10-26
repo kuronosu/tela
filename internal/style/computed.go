@@ -17,7 +17,8 @@ const (
 	DisplayFlex
 	DisplayGrid
 	// DisplayInline is the display of Span and Text: they only exist in a
-	// text context (ARCHITECTURE section 9).
+	// text context (ARCHITECTURE section 9). Compute blockifies the inline
+	// displays of absolutely positioned and fixed boxes (ADR-176).
 	DisplayInline
 	// DisplayInlineBlock is the display of Button: in a block container
 	// the box is an atomic inline of its paragraph, with its fit-content

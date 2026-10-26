@@ -143,6 +143,34 @@ func TestEmUnits(t *testing.T) {
 	eq(t, "vh", v.MaxHeight, DimPx(30))
 }
 
+// TestOutOfFlowBlockified: an absolutely positioned or fixed box has its
+// display blockified (CSS 2.1 section 9.7, CSS Display 3; ADR-176).
+func TestOutOfFlowBlockified(t *testing.T) {
+	for _, c := range []struct {
+		kind    Kind
+		classes string
+		want    Display
+	}{
+		{KindSpan, "absolute", DisplayBlock},
+		{KindA, "fixed", DisplayBlock},
+		{KindStrong, "absolute", DisplayBlock},
+		{KindButton, "absolute", DisplayBlock},
+		{KindDiv, "absolute inline-block", DisplayBlock},
+		{KindSpan, "absolute inline-flex", DisplayFlex},
+		{KindDiv, "fixed inline-grid", DisplayGrid},
+		{KindDiv, "absolute flex", DisplayFlex},
+		{KindSpan, "absolute hidden", DisplayNone},
+		{KindSpan, "absolute contents", DisplayContents},
+		{KindSpan, "relative", DisplayInline},
+		{KindSpan, "sticky", DisplayInline},
+		{KindDiv, "relative inline-flex", DisplayInlineFlex},
+		{KindSpan, "absolute md:static", DisplayInline},
+	} {
+		s := styleIn(t, testCx, c.kind, nil, c.classes)
+		eq(t, c.kind.String()+" "+c.classes, s.Display, c.want)
+	}
+}
+
 func TestElementDefaults(t *testing.T) {
 	parent := style(t, "text-red-500 text-xl font-bold")
 	of := func(k Kind) *ComputedStyle { return Compute(testCx, Input{Kind: k, Parent: parent}) }

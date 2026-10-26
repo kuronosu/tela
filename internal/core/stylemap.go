@@ -130,7 +130,7 @@ func (t *Tree) restyle(el *Element) {
 		return // a new element: reconciliation marked its structure
 	}
 	inherited := !sameInherited(old, cs)
-	if displayClass(old) != displayClass(cs) || atomicStyle(old) != atomicStyle(cs) {
+	if displayClass(old) != displayClass(cs) || atomicStyle(old) != atomicStyle(cs) || outOfFlowStyle(old) != outOfFlowStyle(cs) {
 		t.markBoxes(el)
 		t.markBoxes(sp)
 	}
@@ -458,9 +458,10 @@ func applySpace(ls *layout.Style, pcs *style.ComputedStyle) {
 //
 //   - in flow, inline-block, inline-flex and inline-grid boxes are the
 //     atomic inlines of a paragraph (ADR-066), with a fit-content width;
-//     the other inline-level boxes that a block lays out (absolutely
-//     positioned ones) are fit-content too, and the text-align of the
-//     parent is emulated with auto margins when theirs are zero.
+//     the other inline-level boxes that a block lays out are fit-content
+//     too, and the text-align of the parent is emulated with auto margins
+//     when theirs are zero (absolutely positioned and fixed boxes are
+//     never inline-level: the style blockifies them, ADR-176).
 func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	cs := b.cs
 	if b.deferLayout {

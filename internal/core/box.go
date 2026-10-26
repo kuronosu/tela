@@ -55,6 +55,9 @@ type Box struct {
 
 	cs       *style.ComputedStyle
 	anonFrom *style.ComputedStyle // anonymous boxes: the owner's style cs inherits from
+	// anonLines: an anonymous paragraph box that holds all the in-flow
+	// content of its owner takes the owner's text-overflow and line-clamp.
+	anonLines bool
 	// deferLayout and deferPaint report phase-deferred props of the
 	// layout and paint phases in cs (ARCHITECTURE section 7), resolved
 	// when the layout style is mapped and when the box is painted. The
@@ -163,6 +166,9 @@ type Box struct {
 	// Per-frame scratch state (valid when the frame matches).
 	inlineFrame uint64
 	inlineVal   bool
+	// inlineOOF: an inline element whose content has out-of-flow
+	// elements (inlineLevel), hoisted out of its paragraph.
+	inlineOOF   bool
 	sibFrame    uint64
 	sibIndex    int32
 	sibCount    int32
@@ -628,6 +634,10 @@ type paraAssembler struct {
 	open    int
 	// spanEls are the elements whose styles the spans have.
 	spanEls []*Element
+	// oof are the out-of-flow elements of the content, in tree order:
+	// boxes of the block that holds the paragraph, not part of its text
+	// (structure.go).
+	oof []*Element
 }
 
 func (a *paraAssembler) reset() {
@@ -637,6 +647,8 @@ func (a *paraAssembler) reset() {
 	clear(a.atoms)
 	clear(a.spanEls)
 	a.spanEls = a.spanEls[:0]
+	clear(a.oof)
+	a.oof = a.oof[:0]
 	a.parts, a.boxes, a.spans, a.n = a.parts[:0], a.boxes[:0], a.spans[:0], 0
 	a.inlines, a.inl, a.atoms, a.atomBox, a.open = a.inlines[:0], a.inl[:0], a.atoms[:0], a.atomBox[:0], 0
 }

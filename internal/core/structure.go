@@ -25,6 +25,12 @@ import (
 //     inline-level content in an anonymous paragraph box (CSS anonymous
 //     block boxes), with the run's atomic inlines as its children; runs
 //     that are only collapsible white space are dropped.
+//   - Absolutely positioned and fixed primitives (blockified by the style)
+//     are out of flow: they split no run of inline content, theirs or
+//     that of the inline elements they are in. They are children of the
+//     block container, which then wraps the inline content in anonymous
+//     paragraph boxes: those before any content of a run come before its
+//     paragraph box, the others after it (ADR-176).
 //   - A flex container wraps each run of consecutive texts in an
 //     anonymous paragraph box (anonymous flex item); every primitive child
 //     is a flex item (blockified), inline ones included.
@@ -108,8 +114,8 @@ func (t *Tree) buildBoxes(el *Element) {
 				for j < len(items) && items[j].kind == elemText {
 					j++
 				}
-				a := t.anonBox(bx, nAnon)
-				if t.setParagraph(a, items[i:j], el) {
+				a := t.anonBox(bx, nAnon, false)
+				if t.setParagraph(a, items[i:j], el, nil) {
 					nAnon++
 					kids = append(kids, a)
 				}
@@ -122,40 +128,60 @@ func (t *Tree) buildBoxes(el *Element) {
 		}
 	default:
 		// A root with portal layers is a container: they are its last
-		// children.
+		// children. Out-of-flow content makes it a container too.
 		inline := len(items) > 0 && (el != t.root || len(t.portals) == 0)
+		flow, oof := false, false
 		for _, it := range items {
+			if outOfFlow(it) {
+				oof = true
+				continue
+			}
 			if !t.inlineLevel(it) {
 				inline = false
 				break
 			}
+			flow = true
+			oof = oof || it.kind == elemPrimitive && it.box.inlineOOF
 		}
-		if inline {
+		if inline && flow && !oof {
 			bx.mode = modeParagraph
-			t.setParagraph(bx, items, el)
+			t.setParagraph(bx, items, el, nil)
 			kids = append(kids, bx.para.atoms...)
 			break
 		}
 		bx.mode = modeContainer
 		bx.para = nil
+		var hoisted []*Element // allocated when a run has some
 		for i := 0; i < len(items); {
-			if t.inlineLevel(items[i]) {
-				j := i + 1
-				for j < len(items) && t.inlineLevel(items[j]) {
-					j++
-				}
-				a := t.anonBox(bx, nAnon)
-				if t.setParagraph(a, items[i:j], el) {
-					nAnon++
-					kids = append(kids, a)
-					t.setAtomKids(a)
-				}
-				i = j
+			if !outOfFlow(items[i]) && !t.inlineLevel(items[i]) {
+				t.ensureBuilt(items[i])
+				kids = append(kids, items[i].box)
+				i++
 				continue
 			}
-			t.ensureBuilt(items[i])
-			kids = append(kids, items[i].box)
-			i++
+			j := i + 1
+			for j < len(items) && (outOfFlow(items[j]) || t.inlineLevel(items[j])) {
+				j++
+			}
+			for ; i < j && outOfFlow(items[i]); i++ {
+				t.ensureBuilt(items[i])
+				kids = append(kids, items[i].box)
+			}
+			if i == j {
+				continue
+			}
+			a := t.anonBox(bx, nAnon, inline && flow)
+			hoisted = hoisted[:0]
+			if t.setParagraph(a, items[i:j], el, &hoisted) {
+				nAnon++
+				kids = append(kids, a)
+				t.setAtomKids(a)
+			}
+			for _, h := range hoisted {
+				t.ensureBuilt(h)
+				kids = append(kids, h.box)
+			}
+			i = j
 		}
 	}
 	if el == t.root && len(t.portals) > 0 {
@@ -230,9 +256,9 @@ func (t *Tree) collect(out []*Element, el *Element) []*Element {
 
 // inlineLevel reports whether content item el is inline-level content: a
 // text, an atomic inline (atomicInline), or an inline primitive (display:
-// inline) whose own content is inline-level. An inline primitive with
-// block-level content is laid out as a block (CSS would split it around
-// the blocks).
+// inline) whose own content is inline-level, out-of-flow elements aside
+// (recorded in inlineOOF). An inline primitive with block-level content is
+// laid out as a block (CSS would split it around the blocks).
 func (t *Tree) inlineLevel(el *Element) bool {
 	if el.kind == elemText {
 		return true
@@ -241,7 +267,7 @@ func (t *Tree) inlineLevel(el *Element) bool {
 	if bx.inlineFrame == t.frame {
 		return bx.inlineVal
 	}
-	v := false
+	v, oof := false, false
 	switch {
 	case atomicInline(bx):
 		v = true
@@ -249,15 +275,33 @@ func (t *Tree) inlineLevel(el *Element) bool {
 		v = true
 		items := t.collect(t.getItems(), el)
 		for _, c := range items {
+			if outOfFlow(c) {
+				oof = true
+				continue
+			}
 			if !t.inlineLevel(c) {
 				v = false
 				break
 			}
+			oof = oof || c.kind == elemPrimitive && c.box.inlineOOF
 		}
 		t.putItems(items)
 	}
-	bx.inlineFrame, bx.inlineVal = t.frame, v
+	bx.inlineFrame, bx.inlineVal, bx.inlineOOF = t.frame, v, v && oof
 	return v
+}
+
+// outOfFlow reports whether content item el is an absolutely positioned
+// or fixed primitive (its display blockified by the style): it takes no
+// place in the flow, so it splits no inline content around it (ADR-176).
+func outOfFlow(el *Element) bool {
+	return el.kind == elemPrimitive && el.box.cs != nil && outOfFlowStyle(el.box.cs)
+}
+
+// outOfFlowStyle reports whether a box with style cs is absolutely
+// positioned or fixed.
+func outOfFlowStyle(cs *style.ComputedStyle) bool {
+	return cs.Position == style.PositionAbsolute || cs.Position == style.PositionFixed
 }
 
 // atomicInline reports whether bx is an atomic inline-level box (CSS 2.1
@@ -299,8 +343,12 @@ func (t *Tree) setAtomKids(a *Box) {
 }
 
 // anonBox returns anonymous box i of owner's structure, creating it if
-// needed, with its style inherited from owner.
-func (t *Tree) anonBox(owner *Box, i int) *Box {
+// needed, with its style inherited from owner. lines reports that it holds
+// all of owner's in-flow content (its out-of-flow boxes aside): then it
+// takes owner's text-overflow and line-clamp, so that the lines are those
+// owner would have as the paragraph (Chromium truncates the lines of an
+// anonymous block with its parent's text-overflow).
+func (t *Tree) anonBox(owner *Box, i int, lines bool) *Box {
 	var a *Box
 	if i < len(owner.anon) {
 		a = owner.anon[i]
@@ -308,11 +356,14 @@ func (t *Tree) anonBox(owner *Box, i int) *Box {
 		a = &Box{tree: t, owner: owner.el, kind: style.KindDiv, ls: layout0}
 		owner.anon = append(owner.anon, a)
 	}
-	if a.anonFrom != owner.cs {
+	if a.anonFrom != owner.cs || a.anonLines != lines {
 		// An anonymous box inherits the owner's inherited properties and
 		// has the initial values of the others (CSS 2.1 section 9.2.1.1).
 		a.cs = style.Compute(&t.cx, style.Input{Kind: style.KindDiv, Parent: owner.cs})
-		a.anonFrom = owner.cs
+		if lines {
+			a.cs.TextOverflow, a.cs.LineClamp = owner.cs.TextOverflow, owner.cs.LineClamp
+		}
+		a.anonFrom, a.anonLines = owner.cs, lines
 	}
 	a.built = true
 	a.mode = modeParagraph
@@ -321,8 +372,10 @@ func (t *Tree) anonBox(owner *Box, i int) *Box {
 
 // setParagraph assembles the inline content items into the paragraph of
 // box b, which belongs to the structure of primitive owner. It reports
-// whether the paragraph has content.
-func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element) bool {
+// whether the paragraph has content. The out-of-flow elements of the
+// content, its own and those of its inline elements, are appended to oof
+// in tree order (nil when the content has none).
+func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element, oof *[]*Element) bool {
 	a := t.getAsm()
 	defer t.putAsm(a)
 	a.reset()
@@ -346,11 +399,19 @@ func (t *Tree) setParagraph(b *Box, items []*Element, owner *Element) bool {
 			a.addText(t.textOf(it), t.textStyle(it, b, owner), it.styleParent(), it)
 			continue
 		}
-		t.addInlineLevel(a, it, b, owner)
 		seen++
+		if outOfFlow(it) {
+			// Its margin from space-x takes no place on the line.
+			a.oof = append(a.oof, it)
+			continue
+		}
+		t.addInlineLevel(a, it, b, owner)
 		if gap > 0 && seen < elems {
 			a.addSpace(gap)
 		}
+	}
+	if oof != nil {
+		*oof = append(*oof, a.oof...)
 	}
 	return t.commitParagraph(b, a)
 }
@@ -380,9 +441,12 @@ func (t *Tree) addInline(a *paraAssembler, el *Element, para *Box, owner *Elemen
 	k := a.openInline(el)
 	items := t.collect(t.getItems(), el)
 	for _, c := range items {
-		if c.kind == elemText {
+		switch {
+		case c.kind == elemText:
 			a.addText(t.textOf(c), t.textStyle(c, para, owner), c.styleParent(), c)
-		} else {
+		case outOfFlow(c):
+			a.oof = append(a.oof, c)
+		default:
 			t.addInlineLevel(a, c, para, owner)
 		}
 	}

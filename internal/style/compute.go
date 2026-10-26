@@ -245,6 +245,7 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		}
 	}
 	e.finalize()
+	s.Display = blockified(s.Display, s.Position)
 	if pseudo&PseudoPlaceholder != 0 {
 		if ps := computePseudo(cx, th, s, in.Classes, vc, PseudoPlaceholder); ps != nil {
 			t := ps.Text
@@ -267,6 +268,26 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		}
 	}
 	return s
+}
+
+// blockified returns the display of a box with display d and position p:
+// an absolutely positioned or fixed box is out of the inline flow, so its
+// display is blockified (CSS 2.1 section 9.7, CSS Display 3 section 2.7):
+// inline and inline-block become block, inline-flex flex and inline-grid
+// grid (ADR-176). An absolute Span is then laid out like an absolute Div.
+func blockified(d Display, p Position) Display {
+	if p != PositionAbsolute && p != PositionFixed {
+		return d
+	}
+	switch d {
+	case DisplayInline, DisplayInlineBlock:
+		return DisplayBlock
+	case DisplayInlineFlex:
+		return DisplayFlex
+	case DisplayInlineGrid:
+		return DisplayGrid
+	}
+	return d
 }
 
 // pseudoStyle is the style of a pseudo-element computed by computePseudo,
