@@ -366,8 +366,10 @@ look at the PNG → `tela inspect` → fix* needs no window and no human. Unknow
 classes come with suggestions, and `tela inspect --layout` prints boxes as
 JSON. For people, `tela dev ./yourapp` reloads the open window on every save in
 about half a second, keeping its state: hooks, text fields, scroll and focus
-(see the [CLI](docs/wiki/CLI.md#tela-dev) page). Planned: `tela lint`,
-`tela mcp` and a `docs/llms.txt` (phase 11).
+(see the [CLI](docs/wiki/CLI.md#tela-dev) page). `tela lint ./...` reports
+unknown classes, roles and ARIA values, duplicate keys and misused hooks in the
+source, with the same suggestions, so they fail in CI. Planned: `tela mcp` and
+a `docs/llms.txt` (phase 11).
 
 ## Project status
 
@@ -386,7 +388,7 @@ are done.
 | 8 | Icons, SVG and `aria`: `h.Icon`, Lucide, `tela icons gen`, behavior hooks, `UseFloating` | ✅ v0.8.0 |
 | 9 | Dev loop: `tela dev`, a reload that keeps state | ✅ v0.9.0 |
 | 10 | `kit`: ready-made components on the theme tokens, restyled with recipes | ✅ v0.10.0 |
-| 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | next |
+| 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | in progress |
 | 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | planned |
 | 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | planned |
 | 14 | macOS and IME on X11 | planned |

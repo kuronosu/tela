@@ -9,7 +9,7 @@
 
 - **Done:** phases 1–10. Latest version `v0.10.4` (2026-10-26; engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`, live-validation and kit-review fixes `v0.10.4`). Everything is pushed (tags up to `v0.10.4`, `main`, and the wiki from `docs/wiki` at `v0.10.4`).
 - **Phase in progress:** 11. Pre-releases done (live validation of `v0.10.1`–`v0.10.4`, tag `v0.10.4`, housekeeping; see HISTORY.md).
-- **Next step:** `tela lint` (ADR first: what it checks statically — class literals, roles, keys — and how it finds them), then `tela mcp`, the `login` and `chat` examples, and `llms.txt` last. Batch A (API gaps) is done: ADRs 170–172.
+- **Next step:** `tela mcp` (ADR first: transport, tools and how it drives a headless or windowed instance of the package), then the `login` and `chat` examples, and `llms.txt` last. Done: API gaps (ADRs 170–172) and `tela lint` (ADR-173).
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
@@ -31,7 +31,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 ### Phase 11: CLI tooling, LLM docs, full screens (`v0.11.0`)
 
 - [x] API gaps before `llms.txt`: `telatest` right click, tap and long press; `tela.UseTimeout`; `h.AriaCurrent`; `kit.Field` control after the text and `kit.FieldSet`
-- [ ] `tela lint`: static check of class strings, roles and keys, so typos fail in CI even with dev mode off
+- [x] `tela lint`: static check of class strings, roles and keys, so typos fail in CI even with dev mode off
 - [ ] `tela mcp`: MCP server over `snapshot`, `inspect` and `telatest` queries
 - [ ] `docs/llms.txt` matching the final API
 - [ ] `examples/` with full screens (dashboard, login, settings, chat)
