@@ -7,27 +7,26 @@
 
 ## Current status
 
-- **Done:** phases 1–10. Latest version `v0.10.3` (2026-10-25: engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`). Tags up to `v0.10.2` are on the remote; `v0.10.3` and the commits after `v0.10.2` are not pushed.
+- **Done:** phases 1–10. Latest version `v0.10.3` (2026-10-25: engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`); `v0.10.4` (step 2 below) is in `Unreleased`, verified, waiting for the owner's tag approval. Tags up to `v0.10.2` are on the remote; `v0.10.3` and the commits after `v0.10.2` are not pushed.
 - **Phase in progress:** none.
 - **Next step (before phase 11, agreed with the owner on 2026-10-25):**
-  1. Live validation of `v0.10.1`–`v0.10.3`, which were verified headless only: Wayland at scales 2 and 1.5 and X11 windows pixel-identical to `tela snapshot`; scrolling the `examples/kit` gallery (Calendar, RangeCalendar, Table) identical to full redraws; the Windows VM (when the owner starts it) with the `kit`, `examples/kit` and `internal/core` test binaries and the gallery; the dashboard p95 measured again (23.1 → 26.7 ms in phase 10).
-  2. `v0.10.4`, engine fixes without API change: `OnInteractOutside` for right clicks, `h.OnLongPress` mouse-only filter, `invalid:` on read-only and disabled fields, the focus after the focused element in a modal dialog unmounts, `text-balance`, xkb's `TestParseSpeed` bound.
+  1. Live validation of `v0.10.1`–`v0.10.3`: done on Linux (2026-10-25: Wayland x2 and x1.5 and X11 windows pixel-identical to `tela snapshot`; keyboard, wheel and touchpad scrolling of the `examples/kit` gallery identical to full redraws; dashboard p95 measured). **Left:** the Windows VM (when the owner starts it) with the `kit`, `examples/kit` and `internal/core` test binaries and the gallery.
+  2. `v0.10.4`: done (ADRs 166–169 and a Wayland scroll-time fix); propose the tag.
   3. Housekeeping: the owner pushes `v0.10.3`; copy `docs/wiki` to `tela.wiki.git`; decide on `KIT_PROPOSAL.md`.
   4. Then plan phase 11, starting with the API gaps (submenus, `telatest` right click and long press, `tela.UseTimeout`, `h.AriaCurrent`, `h.AriaKeyShortcuts`, `Disabled` on triggers, `h.AriaLabelFn`) so `llms.txt` documents the final API.
-- **Machine and process notes:** no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
+- **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
 
-Still true as of `v0.10.3`; the per-phase lists in HISTORY.md include items fixed since.
+Still true as of `v0.10.4` (in `Unreleased`); the per-phase lists in HISTORY.md include items fixed since.
 
 - **Layout:** two `w-full aspect-square max-h-[20px]` flex items are clamped by the transferred max (Chromium 140×20, Tela 20×20); a ratio item with an auto or keyword width in a column of indefinite width is 5×5 where Chromium gives 30×30; grid items' percentage min sizes keep the old rule; no margin collapsing, floats or tables (by design, ARCHITECTURE §10); `grid-template-areas` is unreachable from classes.
-- **Text:** at x1.5 a baseline on an exact half device pixel can be drawn one row higher; `text-balance` wraps normally; no hyphenation, skip-ink or synthetic bold/italic; CJK glyph forms ignore the language; `examples/text` and debug-overlay labels lay text out at scale 1; interned font faces are never evicted.
-- **Paint and performance:** Chromium snaps border widths to device pixels at x1.5 and Tela does not; a frame that builds or restyles re-records every layer (one per hoisted box: 357 on the Calendar page); mounting the Calendar page takes 20–28 ms; no paint culling of rows hidden by a scroll container (large tables); scale 2 does not reach 60 fps on glass pages (dashboard p95 26.7 ms at x1 on this machine); 3D transforms are out of scope.
-- **Input and focus:** `OnInteractOutside` is primary-press only (a right click outside a context menu leaves it open); `h.OnLongPress` also fires for the mouse; when the focused element inside a modal dialog unmounts, the focus goes nowhere until the next Tab; a box shown again that flips in the same frame does not restart its entrance; `invalid:` matches read-only and disabled fields; X11 has no IME and no touchpad fling.
+- **Text:** at x1.5 a baseline on an exact half device pixel can be drawn one row higher; no hyphenation, skip-ink or synthetic bold/italic; CJK glyph forms ignore the language; `examples/text` and debug-overlay labels lay text out at scale 1; interned font faces are never evicted.
+- **Paint and performance:** Chromium snaps border widths to device pixels at x1.5 and Tela does not; a frame that builds or restyles re-records every layer (one per hoisted box: 357 on the Calendar page); mounting the Calendar page takes 20–28 ms; no paint culling of rows hidden by a scroll container (large tables); the dashboard misses 16 ms even at x1 (p95 on the desktop, 1080p: 27 ms with 4 raster workers, 21 ms with 12; ~66 ms at x2; v0.9.2 was 24/20 ms); 3D transforms are out of scope.
+- **Input and focus:** a box shown again that flips in the same frame does not restart its entrance; X11 has no IME and no touchpad fling.
 - **API gaps:** no submenus; `telatest` has no right click or long press; `tela snapshot` does not show toasts set by effects; no `tela.UseTimeout`, `h.AriaCurrent`, `h.AriaKeyShortcuts` or deferred accessible name (`h.AriaLabelFn`); `Disabled` missing on Tooltip, menu and Select triggers; `kit.ContextMenu` areas are not focusable by default (Radix's model; the demo shows `TabIndex(0)`); SVG has no text, filters, images, patterns or markers.
 - **Dev loop:** kit components keep aria hook state in refs that `tela dev` cannot keep (silent resets); a renamed component resets; dev builds cannot be debugged (no DWARF); an IME composition is lost across a swap.
 - **Platforms:** Windows only verified through a VM job runner (phase 9 and 10 changes not run there); macOS is phase 14; `wtype` cannot type into Xwayland windows (Hyprland, not Tela).
-- **Tests:** xkb's `TestParseSpeed` misses its 10 ms bound by under 0.1 ms under the full suite's load (passes alone).
 
 ## Phases
 

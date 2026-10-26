@@ -170,3 +170,7 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [163](163-a-menu-scrolls-only-when-the-window-has-no-room.md) | 2026-10-25 | A menu scrolls only when the window has no room for it |  |
 | [164](164-what-a-floating-element-s-place-publishes-is-rea.md) | 2026-10-25 | What a floating element's Place publishes is read in the same frame, and a menu clears… |  |
 | [165](165-adrs-in-their-own-files-a-short-roadmap.md) | 2026-10-25 | ADRs in their own files, a short roadmap, reading on demand |  |
+| [166](166-text-wrap-balance-and-pretty-follow-blink.md) | 2026-10-25 | `text-wrap: balance` and `pretty` follow Blink |  |
+| [167](167-any-mouse-button-dismisses-an-overlay.md) | 2026-10-25 | Any mouse button dismisses an overlay; a context menu's long press is touch and pen only |  |
+| [168](168-focus-after-the-focused-element-of-a-containing-scope-unmounts.md) | 2026-10-25 | Focus after the focused element of a containing scope unmounts |  |
+| [169](169-invalid-skips-fields-barred-from-constraint-validation.md) | 2026-10-25 | `invalid:` skips fields barred from constraint validation |  |

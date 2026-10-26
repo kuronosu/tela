@@ -12,6 +12,18 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Changed
+
+- A press outside an overlay with the secondary or middle mouse button dismisses it, as a primary press does (Radix's rule): a right click outside an open context menu, dropdown, popover or dismissable dialog closes it. A right click elsewhere on a context-menu area closes the menu and opens it again at the new point, focused; one in another area opens that area's menu (ADR-167).
+- `text-balance` and `text-pretty` break lines as Chromium does; they wrapped greedily. The signup quote and wrapped tooltips are balanced (ADR-166).
+
+### Fixed
+
+- A slow mouse click (held over 500 ms) on a button inside a `kit.ContextMenu` area no longer loses its click to the area's long press, which is now recognized for touch and pens only; a pen held down opens the menu (ADR-167).
+- When the focused element inside a modal dialog (any scope that contains the focus) unmounts, the focus moves to the dialog instead of nowhere, so Escape, shortcuts and Tab keep working (ADR-168).
+- `invalid:` no longer matches read-only or disabled fields, as CSS `:invalid`; disabling an ancestor updates `read-only:` and `invalid:` of the fields inside it (ADR-169).
+- Wayland: scroll events from seat version 8 compositors carry the time of their frame. It was 0 or stale, so the wheel latch never timed out: a wheel notch long after the last one kept scrolling the container scrolled before until the pointer moved.
+
 ## [0.10.3] - 2026-10-25
 
 ### Fixed

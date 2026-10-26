@@ -353,7 +353,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - **Fallback:** a per-script family list, embedded fonts last.
 - **Paragraphs:** a text node contains styled runs (`Text`, `Span`, `Strong`, `Em`, `Code`, `A`) and atomic inline-level boxes (`inline-block`, `inline-flex`, buttons, inline images: laid out like any box and placed on the line by `vertical-align`). Inline elements are CSS inline boxes: their horizontal margins, borders and padding take space on the line, and their backgrounds, borders and radii are painted per line fragment (ADR-066).
 - **Line boxes:** CSS 2.1 §10.8, quantized like Blink's in device pixels at the display scale: font ascent, descent and line gap rounded to whole device pixels, half-leadings rounded down to whole device pixels; layout results stay in logical px, so they depend on the scale as Chromium's do (ADR-159).
-- **Properties:** `font-family`, `font-size`, `font-weight` (incl. variable fonts), `font-style`, `line-height`, `letter-spacing`, `text-align`, `text-transform`, `text-decoration`, `white-space`, `text-overflow: ellipsis`, `line-clamp-*`, `tabular-nums`.
+- **Properties:** `font-family`, `font-size`, `font-weight` (incl. variable fonts), `font-style`, `line-height`, `letter-spacing`, `text-align`, `text-transform`, `text-decoration`, `white-space`, `text-wrap` (`text-balance` and `text-pretty` break lines as Blink does, ADR-166), `text-overflow: ellipsis`, `line-clamp-*`, `tabular-nums`.
 - **Glyph raster:**
   - Same path machinery as the rasterizer.
   - Glyph cache keyed by (font, size, quantized subpixel offset), respecting display scale. Under scale/translate transforms the pen x snaps to 1/4 device pixel and the baseline y to whole device pixels; other transforms and large glyphs fill the outline directly (ADR-029).
@@ -426,7 +426,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - Events bubble from target to root, with `e.StopPropagation()` and `e.PreventDefault()`.
   - No capture phase (can be added by ADR if needed).
 - **Gestures:** a Flutter-style **gesture arena**: tap, double-tap, long-press, drag and pan recognizers compete for a pointer sequence; one wins. High-level handlers (`OnClick`, `OnDrag`…) are built on it.
-- **Focus:** a focus tree with tab order following tree order plus `TabIndex`; focus traps for modals (a containing focus scope keeps the focus inside against Tab, presses and scripts; ADR-160); `focus-visible` only activates on keyboard navigation (text fields match it on mouse focus too, as in Chromium; ADR-069). A modal overlay makes everything outside it inert, and `h.Inert` (HTML's `inert`) a subtree: not hit, not focusable, hidden from the semantics tree (ADR-096).
+- **Focus:** a focus tree with tab order following tree order plus `TabIndex`; focus traps for modals (a containing focus scope keeps the focus inside against Tab, presses and scripts, and takes it back when the focused element unmounts; ADR-160, ADR-168); `focus-visible` only activates on keyboard navigation (text fields match it on mouse focus too, as in Chromium; ADR-069). A modal overlay makes everything outside it inert, and `h.Inert` (HTML's `inert`) a subtree: not hit, not focusable, hidden from the semantics tree (ADR-096).
 - **Cursors:** declared by style (`cursor-*`), resolved by the backend.
 
 ### Behavior hooks (`aria` package, React Aria model)
