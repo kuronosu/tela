@@ -156,11 +156,14 @@ arrives.
 Inspection helpers that do not wait: [`App.Count`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Count), [`App.Bounds`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Bounds)
 (a `tela.Rect` in window coordinates, like `ElementRef.Bounds`),
 [`App.PixelAt`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.PixelAt)(x, y) (the color of the frame at a logical point; at scale 2 it reads the device pixel `(2x, 2y)`),
-[`App.AriaSnapshot`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.AriaSnapshot), [`App.Screenshot`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Screenshot), [`App.Cursor`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Cursor) (the
+[`App.AriaSnapshot`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.AriaSnapshot), [`App.LayoutJSON`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.LayoutJSON) (the layout tree of `tela inspect --layout`, for the app as it is now), [`App.Screenshot`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Screenshot), [`App.Cursor`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Cursor) (the
 CSS name of the mouse cursor) and [`App.Stats`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Stats) (counters of builds,
 skipped builds and layout and paint passes, to assert how narrow an update was).
 [`App.Measure`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Measure)(f) runs `f`, settles, and returns the difference of the counters:
 `st := app.Measure(func() { app.Click(inc) })`, then `st.Builds`.
+[`App.Resize`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Resize)(w, h) and [`App.SetScale`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.SetScale)(s) change the window's
+logical size or display scale and keep the state, as a user resizing the window or moving it to
+another monitor: breakpoint variants and layout follow.
 
 ```go
 func TestSignup(t *testing.T) {
