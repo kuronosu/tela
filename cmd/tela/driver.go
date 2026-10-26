@@ -636,9 +636,14 @@ func telaAppOf(v any) (telatela.App, bool) {
 
 {{end -}}
 {{if eq .Kind "Preview" -}}
-// The contract: func Preview() tela.Node or tela.Component. The run
-// mounts what it returns, as is.
+// The contract: func Preview() tela.Node or tela.Component. A
+// func() tela.Node is mounted as tela.C(Preview), a component of its own,
+// so that it may use hooks (ADR-175); a Preview that returns a Component
+// is called and what it returns is mounted, as is.
 func telaBuild(want string) (telatela.Component, string, []string, error) {
+	if p, ok := any(Preview).(func() telatela.Node); ok {
+		return telatela.C(p), "", nil, nil
+	}
 	var root telatela.Component = Preview()
 	if root == nil {
 		return nil, "", nil, telafmt.Errorf("Preview() returned nil; return the screen, such as tela.C(Screen) or a struct component")

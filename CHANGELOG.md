@@ -12,12 +12,18 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Changed
+
+- A `func Preview() tela.Node` is mounted as `tela.C(Preview)` by `tela snapshot`, `inspect`, `dev` and `mcp`, so it may use hooks itself; it panicked with "called outside a component build". `tela inspect --layout` names `Preview` as the root's component (ADR-175).
+
 ### Added
 
 - `telatest`: `Right()` makes `Click` and `ClickAt` use the secondary button (Playwright's `button: 'right'`), so a test opens a context menu with `app.Click(area, telatest.Right())`; `app.Tap(loc)` taps with a touch pointer and `app.LongPress(loc)` holds a touch past the long-press threshold (ADR-170).
 - `tela.UseTimeout(d, f, deps...)` calls `f` once, `d` after the frame that shows the component, on the frame clock like `UseInterval`; a new `d` or new dependencies restart it, `d <= 0` cancels it (ADR-171).
 - `h.AriaCurrent("page")` (`page`, `step`, `location`, `date`, `time`, `true`), the `aria-[current=page]:` class variant and `telatest.Current(value)` for `Expect`; like Playwright, the aria snapshot does not print it (ADR-171).
 - `tela lint [-json] [-tests] [packages]` checks the source statically with the runtime's own rules and suggestions: unknown classes (in `h.Class`, kit `Class` fields and recipes, `ClassAliases`), roles, ARIA tokens, `h.Dir`/`h.Type`/`tela.Ease` values, duplicate keys, lists without keys, and React's rules of hooks; only constant values are checked; `//tela:ignore <rule>` silences a line. CI runs it on the repository (ADR-173).
+- `tela mcp [pkg]`: a Model Context Protocol server over stdio that keeps the package's screen mounted headlessly for an agent, with Playwright MCP's model: `snapshot` (the aria snapshot with `[ref=eN]`), `screenshot`, `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open` (another preview, dark, size), `wait`, `inspect` and `lint`. It rebuilds when the sources change, returns compile errors and lint findings without losing the last good screen, and reports the dev-mode warnings of each call (ADR-174). For Claude Code: `claude mcp add tela -- tela mcp ./myapp`.
+- `telatest`: `App.Resize`, `App.SetScale` and `App.LayoutJSON` (ADR-174).
 - `kit.Field.ControlAfter` puts the control after the label and description of a horizontal field, as shadcn's switch rows do, and `kit.FieldSet` (shadcn's FieldSet and FieldLegend, with `LegendVariant` `legend` or `label`) groups fields under a legend that names a `RadioGroup` or `ToggleGroup` inside it. `examples/settings` uses both; its pixels are unchanged (ADR-172).
 
 ## [0.10.4] - 2026-10-26

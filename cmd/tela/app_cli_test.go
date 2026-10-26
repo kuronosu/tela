@@ -91,6 +91,20 @@ func TestPreviewComponent(t *testing.T) {
 	}
 }
 
+// A func() tela.Node preview that uses hooks: it is mounted as
+// tela.C(Preview), a component of its own (ADR-175).
+func TestPreviewWithHooks(t *testing.T) {
+	skipShort(t)
+	out, _ := inspectRun(t, 0, "./testdata/previewhooks")
+	if out != "- heading \"Hooks 7\" [level=1]\n" {
+		t.Errorf("inspect: %q", out)
+	}
+	img, _, _ := snap(t, "--size", "60x40", "./testdata/previewhooks")
+	if got := pixel(img, 58, 38); got != [3]uint8{0xcb, 0xfb, 0xf1} {
+		t.Errorf("background %v, want teal-100", got)
+	}
+}
+
 // A package with only an App: its Root is the screen.
 func TestAppOnly(t *testing.T) {
 	skipShort(t)

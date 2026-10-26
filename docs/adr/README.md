@@ -178,3 +178,5 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [171](171-tela-usetimeout-and-h-ariacurrent.md) | 2026-10-26 | `tela.UseTimeout` and `h.AriaCurrent` |  |
 | [172](172-kit-field-control-after-and-fieldset.md) | 2026-10-26 | `kit.Field` ControlAfter and `kit.FieldSet` |  |
 | [173](173-tela-lint.md) | 2026-10-26 | `tela lint` |  |
+| [174](174-tela-mcp.md) | 2026-10-26 | `tela mcp` |  |
+| [175](175-a-func-preview-is-a-component.md) | 2026-10-26 | A `func() tela.Node` Preview is a component |  |

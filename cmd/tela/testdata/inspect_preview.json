@@ -15,6 +15,7 @@
   "children": [
     {
       "kind": "div",
+      "component": "github.com/kuronosu/tela/cmd/tela/testdata/preview.Preview",
       "rect": {
         "x": 0,
         "y": 0,

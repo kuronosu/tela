@@ -531,7 +531,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 
 ### Contract for `snapshot`, `inspect`, `mcp`
 
-The package exposes `func Preview() tela.Node` (or `tela.Component`), or a `tela.Previews` variable with several named screens (`tela.Preview{Root, Wrap}`: ADR-092). A package-level `var App = tela.App{...}` gives the window of the render (size, root class, color scheme, theme, class aliases; ADR-092), and alone its `Root` (a `tela.Component`: `tela.C(Screen)` or a struct component, ADR-094) is the screen. The CLI generates a temporary `main` that mounts it on the chosen backend.
+The package exposes `func Preview() tela.Node` (mounted as `tela.C(Preview)`, so it may use hooks: ADR-175) or `func Preview() tela.Component`, or a `tela.Previews` variable with several named screens (`tela.Preview{Root, Wrap}`: ADR-092). A package-level `var App = tela.App{...}` gives the window of the render (size, root class, color scheme, theme, class aliases; ADR-092), and alone its `Root` (a `tela.Component`: `tela.C(Screen)` or a struct component, ADR-094) is the screen. The CLI generates a temporary `main` that mounts it on the chosen backend.
 
 ### `telatest`
 

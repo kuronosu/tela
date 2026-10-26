@@ -67,7 +67,8 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-// Preview is a single screen.
+// Preview is a single screen. A func() tela.Node Preview is mounted as
+// tela.C(Preview), so it may use hooks itself.
 func Preview() tela.Node { return Login() }
 
 // or Previews, several named screens.

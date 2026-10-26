@@ -14,7 +14,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Constants](#constants)
 - [Functions](#functions): [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`FromApp`](#func-fromapp) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`LongPress`](#func-app-longpress) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`LayoutJSON`](#func-app-layoutjson) · [`LongPress`](#func-app-longpress) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Resize`](#func-app-resize) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetScale`](#func-app-setscale) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`Right`](#func-right)
   - [`type DragOption`](#type-dragoption): [`Steps`](#func-steps)
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
@@ -622,6 +622,14 @@ func (a *App) Hover(l Locator)
 
 Hover moves the pointer to the center of the element l locates, so its hover: and group-hover: states apply. It waits for the element to be visible, in view and not covered.
 
+#### func (*App) LayoutJSON
+
+```go
+func (a *App) LayoutJSON() []byte
+```
+
+LayoutJSON returns the layout tree of the running app as indented JSON, ending with a newline, after settling it (under [`NoSettle`](#func-nosettle), handling only the work due): the output of `tela inspect --layout` and of the function [`LayoutJSON`](#func-layoutjson), for the app as it is now, with the state its actions built up.
+
 #### func (*App) LongPress
 
 ```go
@@ -758,6 +766,19 @@ fmt.Println("ok")
 // Output: ok
 ```
 
+#### func (*App) Resize
+
+```go
+func (a *App) Resize(width, height float32)
+```
+
+Resize changes the logical size of the window, in pixels, as a user resizing it: the app keeps its state, the breakpoint variants (md:, max-lg:) and the layout follow the new size, and the app is settled afterwards (with [`NoSettle`](#func-nosettle), only the work due is handled). The display scale is kept; [`App.SetScale`](#func-app-setscale) changes it. It fails the test for a size that is not positive. tela mcp's resize tool is built on it (ADR-174).
+
+```go
+app.Resize(390, 844) // a phone-sized window
+app.ExpectCount(telatest.ByRole("button", "Open menu"), 1)
+```
+
 #### func (*App) Screenshot
 
 ```go
@@ -773,6 +794,18 @@ func (a *App) Scroll(l Locator, dx, dy float32)
 ```
 
 Scroll moves the pointer to the center of the element l locates and scrolls the wheel there by (dx, dy) logical pixels, positive to the right and down, as a touchpad does: the nearest scroll container under the pointer that can move scrolls at once, with no animation. Use Press("PageDown") or Press("End") for the animated key scrolling.
+
+#### func (*App) SetScale
+
+```go
+func (a *App) SetScale(scale float64)
+```
+
+SetScale moves the window to a display with another scale (device pixels per logical pixel), as a user dragging it between monitors: the logical size and the state are kept and screenshots become width\*scale x height\*scale pixels. The app is settled afterwards (with [`NoSettle`](#func-nosettle), only the work due is handled). It fails the test for a scale that is not positive. [`App.GoldenScales`](#func-app-goldenscales) compares goldens at several scales without keeping the change.
+
+```go
+app.SetScale(2)
+```
 
 #### func (*App) Stats
 
