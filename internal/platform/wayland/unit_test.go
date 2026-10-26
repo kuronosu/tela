@@ -242,6 +242,14 @@ func TestPointerFrameGrouping(t *testing.T) {
 	if got := p.frame(); len(got) != 0 {
 		t.Errorf("stop of a wheel = %+v, want nothing", got)
 	}
+	// Seat version 8 sends axis_value120 before the axis event, which
+	// carries the time: the scroll event still has it.
+	p.axisSource(protocols.WlPointerAxisSourceWheel)
+	p.axisValue120(protocols.WlPointerAxisVerticalScroll, 120)
+	p.axis(protocols.WlPointerAxisVerticalScroll, 15, 26*ms)
+	if se := p.frame()[0].ev.(platform.ScrollEvent); se.Time != 26*ms || se.Steps.Y != 1 || se.Delta.Y != 15 {
+		t.Errorf("value120 then axis = %+v, want the axis time 26ms, one step", se)
+	}
 
 	// Legacy discrete steps (seat versions 5-7).
 	p.axis(protocols.WlPointerAxisVerticalScroll, -10, 12*ms)

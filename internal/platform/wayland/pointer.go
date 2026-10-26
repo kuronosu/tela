@@ -255,12 +255,16 @@ type pointerState struct {
 
 	// Scroll accumulated in the current frame. Index 0 is the vertical
 	// axis, 1 the horizontal one (the wl_pointer.axis enum values).
-	delta     [2]float64
-	value120  [2]int32
-	discrete  [2]int32
-	hasDelta  bool
-	hasV120   bool
-	hasDiscr  bool
+	delta    [2]float64
+	value120 [2]int32
+	discrete [2]int32
+	hasDelta bool
+	hasV120  bool
+	hasDiscr bool
+	// axisTime is the time of the frame's first axis or axis_stop event,
+	// the only axis events with a time: axis_value120 and axis_discrete
+	// come before the axis event they belong to (seat version 8 sends
+	// value120 first), so they must not decide it.
 	axisTime  time.Duration
 	axisFocus *Window
 	// source is the frame's wl_pointer.axis_source (hasSource), stop
@@ -330,7 +334,7 @@ func (p *pointerState) axis(a protocols.WlPointerAxis, v float64, t time.Duratio
 	if a > 1 || p.focus == nil {
 		return
 	}
-	if !p.hasDelta && !p.hasV120 && !p.hasDiscr {
+	if !p.hasDelta && !p.stop { // the frame's first event with a time
 		p.axisTime = t
 	}
 	p.delta[a] += v
@@ -368,7 +372,7 @@ func (p *pointerState) axisStop(a protocols.WlPointerAxis, t time.Duration) {
 	if a > 1 || p.focus == nil {
 		return
 	}
-	if !p.hasDelta && !p.hasV120 && !p.hasDiscr && !p.stop {
+	if !p.hasDelta && !p.stop {
 		p.axisTime = t
 	}
 	p.stop = true
