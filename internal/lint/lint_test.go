@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -108,22 +109,27 @@ func compare(t *testing.T, got []Diagnostic, wanted []want) {
 }
 
 func TestClasses(t *testing.T) {
+	needGo(t)
 	checkFixtures(t, "classes")
 }
 
 func TestClassesThroughImports(t *testing.T) {
+	needGo(t)
 	checkFixtures(t, "dotimport", "renamed")
 }
 
 func TestAliasesAndThemeColors(t *testing.T) {
+	needGo(t)
 	checkFixtures(t, "aliases")
 }
 
 func TestPropsRolesAria(t *testing.T) {
+	needGo(t)
 	checkFixtures(t, "props")
 }
 
 func TestKeys(t *testing.T) {
+	needGo(t)
 	res := checkFixtures(t, "keys")
 	for _, d := range res.Diagnostics {
 		if d.Severity != SeverityWarning {
@@ -133,6 +139,7 @@ func TestKeys(t *testing.T) {
 }
 
 func TestHooks(t *testing.T) {
+	needGo(t)
 	res := checkFixtures(t, "hooks")
 	for _, d := range res.Diagnostics {
 		if d.Severity != SeverityError {
@@ -144,6 +151,7 @@ func TestHooks(t *testing.T) {
 // Test files are linted only when asked for: the in-package ones and the
 // external ones.
 func TestTestFiles(t *testing.T) {
+	needGo(t)
 	if res := lintDirs(t, false, "withtests"); len(res.Diagnostics) != 0 {
 		t.Errorf("without Tests: %v", res.Diagnostics)
 	}
@@ -153,6 +161,7 @@ func TestTestFiles(t *testing.T) {
 
 // Functions with the names of Tela's, from other packages, are not Tela's.
 func TestLookalikesAreNotReported(t *testing.T) {
+	needGo(t)
 	res := lintDirs(t, false, "lookalike")
 	for _, d := range res.Diagnostics {
 		t.Errorf("unexpected finding %s", d)
@@ -161,6 +170,7 @@ func TestLookalikesAreNotReported(t *testing.T) {
 
 // A class error points at the class inside the literal.
 func TestClassPosition(t *testing.T) {
+	needGo(t)
 	const file = "testdata/classes/classes.go"
 	data, err := os.ReadFile(file)
 	if err != nil {
@@ -192,6 +202,7 @@ func TestClassPosition(t *testing.T) {
 }
 
 func TestOutputOrderAndFormat(t *testing.T) {
+	needGo(t)
 	res := lintDirs(t, false, "classes", "props")
 	sorted := sort.SliceIsSorted(res.Diagnostics, func(i, j int) bool {
 		a, b := res.Diagnostics[i], res.Diagnostics[j]
@@ -267,6 +278,7 @@ func TestIgnoreDirective(t *testing.T) {
 
 // A package that does not type-check is reported and skipped.
 func TestBrokenPackageIsSkipped(t *testing.T) {
+	needGo(t)
 	dir := t.TempDir()
 	write := func(name, src string) {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
@@ -289,6 +301,7 @@ func TestBrokenPackageIsSkipped(t *testing.T) {
 
 // A pattern that matches no package is a load error.
 func TestNoPackages(t *testing.T) {
+	needGo(t)
 	dir := writeModule(t, map[string]string{})
 	res, err := Run(Options{Dir: dir, Patterns: []string{"./nothing"}})
 	if err != nil {
@@ -317,6 +330,7 @@ func writeModule(t *testing.T, files map[string]string) string {
 
 // An import cycle is a load error, not a deadlock.
 func TestImportCycle(t *testing.T) {
+	needGo(t)
 	dir := writeModule(t, map[string]string{
 		"a/a.go":  "package a\n\nimport _ \"example.com/m/b\"\n",
 		"b/b.go":  "package b\n\nimport _ \"example.com/m/a\"\n",
@@ -333,6 +347,7 @@ func TestImportCycle(t *testing.T) {
 
 // A directory with only test files is nothing to lint, not an error.
 func TestPackageWithOnlyTests(t *testing.T) {
+	needGo(t)
 	dir := writeModule(t, map[string]string{
 		"x_test.go": "package m\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) {}\n",
 	})
@@ -346,6 +361,7 @@ func TestPackageWithOnlyTests(t *testing.T) {
 
 // The repository follows its own rules (CI runs tela lint ./...).
 func TestRepositoryLintsClean(t *testing.T) {
+	needGo(t)
 	res, err := Run(Options{Dir: "../..", Patterns: []string{"./..."}})
 	if err != nil {
 		t.Fatal(err)
@@ -358,5 +374,14 @@ func TestRepositoryLintsClean(t *testing.T) {
 	}
 	if res.Packages < 50 {
 		t.Errorf("only %d packages were linted", res.Packages)
+	}
+}
+
+// needGo skips a test that runs the go command when there is none: under
+// Wine, and on a Windows machine without Go, the test binary runs alone.
+func needGo(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("the go command is not in PATH")
 	}
 }

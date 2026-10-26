@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -20,6 +21,7 @@ func lintRun(t *testing.T, args ...string) (code int, stdout, stderr string) {
 }
 
 func TestLintClean(t *testing.T) {
+	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/clean")
 	if code != 0 || stdout != "" || stderr != "" {
 		t.Errorf("exit %d, stdout %q, stderr %q; want a silent success", code, stdout, stderr)
@@ -27,6 +29,7 @@ func TestLintClean(t *testing.T) {
 }
 
 func TestLintReportsAndExitsOne(t *testing.T) {
+	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/dirty")
 	if code != 1 {
 		t.Fatalf("exit %d, want 1; stderr %q", code, stderr)
@@ -52,6 +55,7 @@ func TestLintReportsAndExitsOne(t *testing.T) {
 }
 
 func TestLintJSON(t *testing.T) {
+	needGo(t)
 	code, stdout, _ := lintRun(t, "-json", "./testdata/lint/dirty")
 	if code != 1 {
 		t.Fatalf("exit %d, want 1", code)
@@ -88,6 +92,7 @@ func TestLintJSON(t *testing.T) {
 }
 
 func TestLintPatternsAndFlagsInAnyOrder(t *testing.T) {
+	needGo(t)
 	code, stdout, _ := lintRun(t, "./testdata/lint/clean", "-json", "./testdata/lint/dirty")
 	if code != 1 || !strings.HasPrefix(stdout, "[") || !strings.Contains(stdout, "dirty.go") {
 		t.Errorf("exit %d, stdout %q", code, stdout)
@@ -95,6 +100,7 @@ func TestLintPatternsAndFlagsInAnyOrder(t *testing.T) {
 }
 
 func TestLintBrokenPackageExitsTwo(t *testing.T) {
+	needGo(t)
 	code, stdout, stderr := lintRun(t, "./testdata/lint/broken", "./testdata/lint/dirty")
 	if code != 2 {
 		t.Errorf("exit %d, want 2", code)
@@ -129,5 +135,14 @@ func TestLintTestsFlag(t *testing.T) {
 	opts, err := parseLintArgs([]string{"-tests", "-json", "./a", "./b"})
 	if err != nil || !opts.Tests || !opts.JSON || len(opts.Patterns) != 2 {
 		t.Errorf("got %+v, %v", opts, err)
+	}
+}
+
+// needGo skips a test that runs the go command when there is none: under
+// Wine, and on a Windows machine without Go, the test binary runs alone.
+func needGo(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("the go command is not in PATH")
 	}
 }

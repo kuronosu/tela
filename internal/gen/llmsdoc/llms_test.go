@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -185,6 +186,7 @@ var snippetRef = regexp.MustCompile(`(?:[^\s:]*/)?s(\d+)/snippet\.go:(\d+)(:\d+)
 // TestSnippets type-checks every Go block and lints it as `tela lint`
 // does. A finding names the line of llms.txt.
 func TestSnippets(t *testing.T) {
+	needGo(t)
 	if testing.Short() {
 		t.Skip("type-checks the module's packages from source")
 	}
@@ -392,5 +394,14 @@ func TestKitCatalog(t *testing.T) {
 func TestSize(t *testing.T) {
 	if n := len(readDoc(t)); n > maxBytes {
 		t.Errorf("docs/llms.txt is %d bytes, more than %d (about 25k tokens): make it shorter", n, maxBytes)
+	}
+}
+
+// needGo skips a test that runs the go command when there is none: under
+// Wine, and on a Windows machine without Go, the test binary runs alone.
+func needGo(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("the go command is not in PATH")
 	}
 }
