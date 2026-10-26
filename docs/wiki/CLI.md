@@ -46,14 +46,14 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
+| `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
 | `tela help [command]` | Shows the help |
 
 Exit codes: 0 on success, 1 on failure (the message says what and how to fix
 it), 2 on a usage error. `tela lint` exits 1 when it reports something, and 2 when
-a package cannot be loaded. `tela add` and `tela mcp` are planned, not available
-yet.
+a package cannot be loaded. `tela add` is planned, not available yet.
 
 ## What a package must define
 
@@ -411,6 +411,90 @@ Run it in CI after `go vet`:
 CGO_ENABLED=0 go run github.com/kuronosu/tela/cmd/tela@latest lint ./...
 ```
 
+## tela mcp
+
+```text
+tela mcp [--size WxH] [--scale N] [--dark] [--preview NAME] [-v] [pkg]
+```
+
+A [Model Context Protocol](https://modelcontextprotocol.io) server over
+standard input and output (ADR-174): an agent drives the package's screen, the
+one `tela snapshot` renders, through tools, the way Playwright MCP drives a
+browser. The screen is mounted headlessly with `telatest` in a process that
+stays up between calls, so a call answers in milliseconds. `<pkg>` defaults to
+`.` and may not exist yet when the server starts: the agent can write it and
+call `snapshot`.
+
+Add it to your client with the command line that starts it. For Claude Code:
+
+```bash
+claude mcp add tela -- tela mcp ./myapp
+```
+
+or in a client's JSON configuration (`.mcp.json`, Claude Desktop, Cursor...):
+
+```json
+{
+  "mcpServers": {
+    "tela": { "command": "tela", "args": ["mcp", "./myapp"] }
+  }
+}
+```
+
+Before each call the server checks the package's sources (the files `tela dev`
+watches, plus the package's own `_test.go` files). When they changed, it
+rebuilds and mounts the screen afresh, so the state is reset, and the result
+says so. A compile error is the result of that call, with the findings of
+`tela lint`; the last good build keeps answering the other tools until the
+source compiles again. A rebuild also reports the lint findings of the new
+source, and every result carries the dev errors and warnings the screen logged
+(an unknown class at run time with its "did you mean", a list without keys).
+
+| Tool | Does |
+|---|---|
+| `snapshot` | The aria snapshot (the YAML of `tela inspect`), each element that can be acted on marked `[ref=eN]` |
+| `screenshot` | A PNG of the window, or of one element (`ref`) with an 8 px margin |
+| `click` | Clicks an element, or a point (`x`, `y`); `button: "right"`, `double: true` |
+| `hover` | Moves the pointer over an element |
+| `fill` | Replaces the text of a field; `submit: true` presses Enter after |
+| `press` | Presses a key or combo in Playwright's syntax (`Enter`, `Shift+Tab`, `Control+a`), on the focused element or on one it focuses first |
+| `scroll` | Scrolls the wheel over an element by `dx`, `dy` |
+| `drag` | Drags `from` an element or point `to` another, or by `dx`, `dy` |
+| `resize` | Changes the window's `width` and `height` or `scale`, keeping the state |
+| `open` | Mounts another `preview`, `dark` mode, size or scale afresh; without arguments, lists the previews |
+| `wait` | Advances the app's clock by `ms` (timers, animations), or waits for a `text` to appear or `textGone` to go |
+| `inspect` | The layout tree of `tela inspect --layout`, whole or of one element |
+| `lint` | `tela lint -json` on the package |
+
+An element is named by the `ref` of the latest snapshot, or by `role` and
+`name`, `text` or `testId` (`telatest`'s locators; `nth` picks one of several).
+Every tool that acts answers with the new snapshot. A ref stays with its element
+across actions and rebuilds while the element keeps its role and name (and,
+until the next remount, its position when only the name changed, as a
+counter's label does), so `screenshot {"ref": "e5"}` right after an edit shows
+the same element rebuilt; a ref whose element is gone is an error that asks
+for a new snapshot. A failed action (an element
+not found, a disabled button, a panic in a handler) is an error result of that
+call: the instance keeps running, and after a panic it mounts the screen afresh.
+
+```text
+→ snapshot {}
+Built and mounted in 1.1s.
+- heading "Settings" [level=1] [ref=e1]
+- switch "Weekly digest" [ref=e12]
+- button "Save changes" [disabled] [ref=e32]
+→ click {"ref": "e12"}
+Clicked switch "Weekly digest" [ref=e12].
+- switch "Weekly digest" [checked] [ref=e12]
+- button "Save changes" [ref=e32]
+```
+
+With `-v` the server logs the protocol, the builds and the instance's output on
+standard error; standard output carries only protocol messages. The instance is
+a test binary built with `go test -c` from a generated `_test.go` file in an
+overlay (nothing is written into the package), so the server works in any
+module that requires Tela.
+
 ## tela icons gen
 
 ```text
@@ -463,7 +547,8 @@ fading ones. The CLI does not draw overlays.
 ## For agents
 
 The loop is *write, `tela snapshot`, look at the PNG, `tela inspect` when
-something is off, fix*. Unknown classes arrive with suggestions, `inspect
+something is off, fix*, or the same loop through the tools of
+[`tela mcp`](#tela-mcp), on a screen that stays up between edits. Unknown classes arrive with suggestions, `inspect
 --layout` shows why a box is where it is, and `inspect` shows what a screen
 reader would announce. The same data is available from Go with
 [`telatest.Render`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#Render), [`telatest.AriaSnapshot`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#AriaSnapshot) and [`telatest.LayoutJSON`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#LayoutJSON); see

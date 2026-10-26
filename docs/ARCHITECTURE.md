@@ -527,7 +527,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 | `tela new [-module path] [-skip-deps] <dir>` | Create an app: `go.mod` (tela at this binary's release version, or the latest), a counter in `main.go` with `var App`, a `telatest` test, README and `.gitignore`, from templates embedded in the binary; runs `go get` and `go mod tidy` (ADR-128) |
 | `tela icons gen -pkg <name> [-o dir] <dir>` | Generate a Go file with one `tela.Icon` variable per SVG file: validated, minified, deterministic (ADR-102) |
 | `tela add <component>...` | Copy `kit` component source into the user's project (shadcn model), rewriting the package name |
-| `tela mcp <pkg>` | MCP server exposing `snapshot` (aria YAML), `screenshot` (PNG), `click`, `type`, `press`, `scroll`, `resize` over a running headless or windowed instance |
+| `tela mcp [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [-v]` | MCP server over stdio driving a headless instance of the screen that stays up between calls: `snapshot` (aria YAML with `[ref=eN]`), `screenshot` (PNG), `click`, `hover`, `fill`, `press`, `scroll`, `drag`, `resize`, `open`, `wait`, `inspect`, `lint`; rebuilds and remounts when the sources change (ADR-174) |
 
 ### Contract for `snapshot`, `inspect`, `mcp`
 
