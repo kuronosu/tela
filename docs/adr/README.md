@@ -180,3 +180,4 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [173](173-tela-lint.md) | 2026-10-26 | `tela lint` |  |
 | [174](174-tela-mcp.md) | 2026-10-26 | `tela mcp` |  |
 | [175](175-a-func-preview-is-a-component.md) | 2026-10-26 | A `func() tela.Node` Preview is a component |  |
+| [176](176-layout-effect-scrolls-and-absolute-inline-boxes.md) | 2026-10-26 | Layout-effect scrolls and absolute inline boxes |  |

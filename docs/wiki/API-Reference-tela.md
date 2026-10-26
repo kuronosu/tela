@@ -795,13 +795,14 @@ fmt.Println("ok")
 func UseLayoutEffect(effect func() func(), deps ...any)
 ```
 
-UseLayoutEffect is [`UseEffect`](#func-useeffect), but the effect runs in the frame after layout and before paint, with the same dependencies and cleanups. Its state updates are applied in the next frame.
+UseLayoutEffect is [`UseEffect`](#func-useeffect), but the effect runs in the frame after layout and before paint, with the same dependencies and cleanups. Its state updates are applied in the next frame. The scrolls it asks for ([`ElementRef`](#type-elementref)'s ScrollTo, ScrollBy, ScrollIntoView and ScrollToIndex) use the layout of its frame, which is painted scrolled: on mount, and when the content just grew.
 
 ```go
+last := tela.UseElementRef() // on the newest message
 tela.UseLayoutEffect(func() func() {
-    list.ScrollIntoView() // before the frame with the new item is painted
+    last.ScrollIntoView() // the frame that shows a new message shows it in view
     return nil
-}, len(items))
+}, len(messages))
 ```
 
 ### func UseMemo
@@ -2338,7 +2339,7 @@ ScrollBy scrolls the element by (dx, dy) from its current offsets (see ScrollTo)
 func (r ElementRef) ScrollIntoView()
 ```
 
-ScrollIntoView scrolls every scroll container around the element so that it is visible, moving each as little as possible (CSSOM View's scrollIntoView with block and inline "nearest"); each container jumps or animates as its scroll-behavior says. It does nothing when the element is not mounted or not displayed.
+ScrollIntoView scrolls every scroll container around the element so that it is visible, moving each as little as possible (CSSOM View's scrollIntoView with block and inline "nearest"); each container jumps or animates as its scroll-behavior says. It does nothing when the element is not mounted or not displayed. Called from a layout effect, it scrolls with the layout and extents of that frame, before paint.
 
 #### func (ElementRef) ScrollOffset
 
@@ -2354,7 +2355,7 @@ ScrollOffset returns the element's scroll offsets (the DOM's scrollLeft and scro
 func (r ElementRef) ScrollTo(x, y float32)
 ```
 
-ScrollTo scrolls the element to offsets (x, y), clamped to its extents (CSSOM View's scrollTo): at once, or animated when it has scroll-smooth. It does nothing for an element that is not a scroll container (overflow auto, scroll or hidden) or not mounted. In a right-to-left container x is 0 at the right and negative toward the left, like the DOM's scrollLeft.
+ScrollTo scrolls the element to offsets (x, y), clamped to its extents (CSSOM View's scrollTo): at once, or animated when it has scroll-smooth. It does nothing for an element that is not a scroll container (overflow auto, scroll or hidden) or not mounted. In a right-to-left container x is 0 at the right and negative toward the left, like the DOM's scrollLeft. Called from a layout effect, it applies in the same frame with the extents of that frame's layout, before paint.
 
 #### func (ElementRef) ScrollToIndex
 

@@ -27,6 +27,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - Examples `login` (a sign-in card with a brand panel, `kit.Field` errors, a show/hide password button, a spinner on `tela.UseTimeout`, a wrong-password alert) and `chat` (a messaging app: one reducer, `h.AriaCurrent` on the open conversation, a virtualized message list scrolled to its end, a growing composer, a typing indicator and a reply on `tela.UseTimeout`), with goldens and behavior tests.
 - `kit.Field.ControlAfter` puts the control after the label and description of a horizontal field, as shadcn's switch rows do, and `kit.FieldSet` (shadcn's FieldSet and FieldLegend, with `LegendVariant` `legend` or `label`) groups fields under a legend that names a `RadioGroup` or `ToggleGroup` inside it. `examples/settings` uses both; its pixels are unchanged (ADR-172).
 
+### Fixed
+
+- `ScrollTo`, `ScrollBy` and `ScrollIntoView` called from a `tela.UseLayoutEffect` use the layout of that frame: on mount they did nothing, and after content grew they landed one item short, though `UseLayoutEffect`'s documentation shows that idiom. `ScrollIntoView` and a focus reveal reach an element mounted in the same frame (ADR-176).
+- An `absolute` or `fixed` inline element (`Span`, `A`, `Strong`…) is blockified as in CSS (an `inline-flex` one is a flex box), so a status dot made with a `Span` draws like a `Div`; an absolutely positioned box among a paragraph's text no longer splits its lines, and `truncate` and `line-clamp` keep working beside it (ADR-176).
+
 ## [0.10.4] - 2026-10-26
 
 ### Changed
