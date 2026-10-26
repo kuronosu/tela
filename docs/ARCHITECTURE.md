@@ -147,7 +147,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 - `platform` does not know `gfx`; it receives an `*image.RGBA` framebuffer and damage rects.
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
 - **Public API:** `tela`, `h`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
-- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and is used only by `cmd/tela`. `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
+- `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style`, `internal/semantics` and `internal/core` for their validation functions, type-checks with the standard library, and is used only by `cmd/tela`. `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
 - **Everything else lives in `internal/`** until its API stabilizes. Making a package public needs an ADR. The clearest candidate is `gfx`, for custom painting.
 
 ### Repository layout
@@ -522,7 +522,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 |---|---|
 | `tela snapshot <pkg> [--size WxH] [--scale 2] [--dark] -o out.png` | Headless render to PNG |
 | `tela inspect <pkg> [--aria\|--layout]` | Aria snapshot (YAML, default) or layout tree as JSON (geometry and computed style) |
-| `tela lint <paths>` | Unknown classes in literals, hook misuse |
+| `tela lint [-json] [-tests] [packages]` | Static form of the dev-mode checks on constant strings: unknown classes (aliases and theme colors of the linted packages known), roles, aria tokens, duplicate or missing keys, hook misuse; `file:line:col: rule: message`, exit 1 when anything is reported, `//tela:ignore rule` (ADR-173) |
 | `tela dev [pkg] [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v]` | Watch, rebuild in the background, swap the app process under a window that never closes, keeping hook and engine state; errors as an overlay over the last good frame. Go can't swap code in a process, so the restart is made invisible (ADR-111); state outside the tree: `App.DevState` (ADR-114) |
 | `tela new [-module path] [-skip-deps] <dir>` | Create an app: `go.mod` (tela at this binary's release version, or the latest), a counter in `main.go` with `var App`, a `telatest` test, README and `.gitignore`, from templates embedded in the binary; runs `go get` and `go mod tidy` (ADR-128) |
 | `tela icons gen -pkg <name> [-o dir] <dir>` | Generate a Go file with one `tela.Icon` variable per SVG file: validated, minified, deterministic (ADR-102) |

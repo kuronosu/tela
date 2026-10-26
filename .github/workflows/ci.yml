@@ -55,6 +55,12 @@ jobs:
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}
           staticcheck ./...
+      - name: tela lint
+        # The static form of the dev-mode checks (ADR-173): classes, roles,
+        # aria tokens, keys and hooks in the repository's own source.
+        env:
+          CGO_ENABLED: "0"
+        run: go run ./cmd/tela lint ./...
 
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}

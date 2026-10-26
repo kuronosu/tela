@@ -44,14 +44,16 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela new` | Creates an app in a new directory (see [tela new](#tela-new)) |
 | `tela snapshot` | Renders a screen to a PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
+| `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
 | `tela help [command]` | Shows the help |
 
 Exit codes: 0 on success, 1 on failure (the message says what and how to fix
-it), 2 on a usage error. `tela lint`, `tela add` and `tela mcp`
-are planned, not available yet.
+it), 2 on a usage error. `tela lint` exits 1 when it reports something, and 2 when
+a package cannot be loaded. `tela add` and `tela mcp` are planned, not available
+yet.
 
 ## What a package must define
 
@@ -343,6 +345,71 @@ Add-MpPreference -ExclusionPath "$env:TEMP\tela-dev", "$(go env GOCACHE)"
 
 `tela dev` never changes these settings itself; whether to exclude them is
 your call.
+
+## tela lint
+
+```text
+tela lint [-json] [-tests] [packages]
+```
+
+Dev mode finds a typo in a class only on a screen that renders it. `tela lint`
+finds it in the source, so it fails in CI with dev mode off (ADR-173). It
+checks the packages (default `./...`, written as for `go build`; it needs the
+`go` command in `PATH`) and calls the runtime's own checks, so the messages and
+the "did you mean" are the ones of dev mode.
+
+```text
+$ tela lint ./...
+ui/home.go:42:31: class: unknown class "rounded-xxl"; did you mean "rounded-2xl"?
+ui/home.go:57:12: role: Role("buton"): unknown ARIA role "buton"; did you mean "button"?
+ui/list.go:23:3: hooks: hook tela.UseState is called conditionally (inside an if); ...
+```
+
+Only **constant** strings are checked: a literal, a `const`, a concatenation of
+constants (also through dot imports, renamed imports and `const` names).
+Anything computed (`"p-" + strconv.Itoa(n)`) is skipped, never guessed.
+
+| Rule | Checks |
+|---|---|
+| `class` | The classes of `h.Class` and `h.Exit`; the `Class` and `...Class` fields of the `kit` components, the string fields of the `kit` recipes (`kit.Style` and the `...Style` structs, also when assigned: `s.Button.Root = "..."`), `tela.App.RootClass`, `telatest.RootClass`; the values of `ClassAliases`. Unknown, unsupported and invalid classes are reported at the class inside the string. The class aliases (`tela.App.ClassAliases`, `telatest.ClassAliases`) and the theme colors (map literals of `tela.SchemeColor`, such as `Theme.Colors` and `theme.Colors["brand"] = ...`) declared in the linted packages are known: lint `./...` when you use them, and write the color names as constants (a name built at run time cannot be known) |
+| `role` | `h.Role` with a role that is not a WAI-ARIA 1.2 role |
+| `aria` | `h.AriaCurrent`, `h.AriaSort`, `h.AriaHasPopup`, `h.AriaOrientation` and `h.AriaAutoComplete` with a value outside their tokens |
+| `prop` | `h.Dir`, `h.Type` (against the types of the `h.Input` or `h.Button` it is given to) and the `Type` of `kit.Button` and `kit.Input`, and `tela.Ease`, with a value they do not take |
+| `key` | Two siblings with the same constant `h.Key` (or `tela.WithKey`, or the key of `tela.C`, `tela.CP`, `tela.Memo`), and an `h.Map` or `h.MapIndex` whose function returns elements without a `Key`. Dev mode only warns about these, so their severity is `warning` |
+| `hooks` | A hook (`Use...` of `tela`, `aria`, `kit`, `i18n`, or a custom hook of your code) called conditionally, in a loop, after an early return, from a function that is neither a component nor a custom hook, or in a function literal that is not a component; and a component (a function or `Build` method that uses hooks) called directly instead of through `tela.C`, `tela.CP` or an element. A function with the shape `func() tela.Node` or `func(P) tela.Node` is given the benefit of the doubt. A function is a custom hook when it is named `UseXxx` or `useXxx` and calls a hook |
+
+Each finding is `file:line:col: rule: message`, sorted by position, with paths
+relative to the current directory. The exit status is 0 when nothing is
+reported, 1 when something is, and 2 on a usage error or when a package cannot
+be loaded (a package that does not type-check is reported on standard error and
+skipped).
+
+```text
+//tela:ignore class -- tests the dev-mode error
+Div(Class("rounded-xxl"))
+```
+
+A `//tela:ignore rule` comment on the line of a finding, or alone on the line
+above it, silences it. Several rules are separated by commas (`class,role`),
+text after them is a reason, and a bare `//tela:ignore` covers every rule.
+
+| Flag | Does |
+|---|---|
+| `-json` | Prints the findings as a JSON array of `{file, line, col, rule, severity, message, suggestion}` (`suggestion` only when the message proposes a replacement; `severity` is `error` or `warning`; `[]` when there is nothing) |
+| `-tests` | Lints the `_test.go` files too (by default they are skipped: tests often use a wrong class on purpose) |
+
+Limits: only the files that the current platform and build tags select are read;
+aliases and theme colors come from the linted packages, so lint `./...` when you
+use them; a theme color whose name is built at run time is unknown, so a class
+that uses it is reported (write the names as constants, or silence it with
+`//tela:ignore class`); the `Type` of the `aria` options and the `Variant` and
+`Size` of the `kit` components are not checked.
+
+Run it in CI after `go vet`:
+
+```bash
+CGO_ENABLED=0 go run github.com/kuronosu/tela/cmd/tela@latest lint ./...
+```
 
 ## tela icons gen
 

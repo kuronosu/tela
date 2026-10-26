@@ -51,10 +51,18 @@ func makeTheme(radius float32, font string, colors map[string]tela.SchemeColor) 
 	// Every look defines the same tokens, so that the classes of any recipe
 	// resolve under any theme (a preview rendered by the tools has one theme
 	// for all looks): the ones a look does not need follow its surfaces.
-	for name, from := range map[string]string{"toolbar": "background", "sidebar": "background", "field": "card", "edge": "border"} {
-		if _, ok := colors[name]; !ok {
-			t.Colors[name] = t.Colors[from]
-		}
+	// Written out, not in a loop over the names, so that tela lint sees them.
+	if _, ok := colors["toolbar"]; !ok {
+		t.Colors["toolbar"] = t.Colors["background"]
+	}
+	if _, ok := colors["sidebar"]; !ok {
+		t.Colors["sidebar"] = t.Colors["background"]
+	}
+	if _, ok := colors["field"]; !ok {
+		t.Colors["field"] = t.Colors["card"]
+	}
+	if _, ok := colors["edge"]; !ok {
+		t.Colors["edge"] = t.Colors["border"]
 	}
 	return t
 }

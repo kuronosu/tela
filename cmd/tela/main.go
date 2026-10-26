@@ -4,6 +4,7 @@
 //
 //	tela snapshot [--size WxH] [--scale N] [--dark] [--preview NAME] [-o out.png] <pkg>
 //	tela inspect  [--aria | --layout] [--size WxH] [--dark] [--preview NAME] <pkg>
+//	tela lint     [-json] [-tests] [packages]
 //	tela dev      [--size WxH] [--scale N] [--dark] [--preview NAME] [--no-state] [-v] [pkg]
 //	tela icons gen -pkg <name> [-o outdir] [flags] <dir>
 //	tela new      [-module path] [-skip-deps] <dir>
@@ -33,6 +34,13 @@
 // tela.Icon variable per file (ADR-102); it does not run the package's code
 // and needs neither the go command nor a module.
 //
+// lint checks the Go source of the packages (default ./...) for the mistakes
+// that dev mode reports at run time: unknown classes, roles and aria tokens,
+// duplicate or missing keys, misused hooks. It type-checks the source with
+// the standard library and reuses the runtime's own checks (ADR-173); it
+// does not run the code, and needs the go command in PATH. It prints
+// file:line:col: rule: message and exits 1 when it reports something.
+//
 // dev runs a package's app as a child process under a window it owns,
 // rebuilds it with -tags teladev when its sources change and swaps the
 // running process for the new build, keeping the state of its components
@@ -43,7 +51,7 @@
 // counter in main.go, a telatest test, a README and a .gitignore (ADR-128).
 // It runs go get and go mod tidy unless -skip-deps is given.
 //
-// More commands (lint, add, mcp) arrive in later phases; see
+// More commands (add, mcp) arrive in later phases; see
 // docs/ARCHITECTURE.md section 17.
 package main
 
@@ -63,6 +71,7 @@ Commands:
 
 	snapshot    render a package's screen headlessly to a PNG
 	inspect     print a package's aria snapshot (YAML) or layout tree (JSON)
+	lint        check the source for the mistakes dev mode reports at run time
 	dev         run an app, rebuilding and reloading it as its sources change
 	new         create a new Tela app in a directory
 	icons       generate a Go package of tela.Icon variables from SVG files
@@ -90,6 +99,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runInspect(args[1:], stdout, stderr)
 	case "icons":
 		return runIcons(args[1:], stdout, stderr)
+	case "lint":
+		return runLint(args[1:], stdout, stderr)
 	case "dev":
 		return runDev(args[1:], stdout, stderr)
 	case "new":
@@ -107,6 +118,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 				return 0
 			case "dev":
 				fmt.Fprint(stdout, devUsage)
+				return 0
+			case "lint":
+				fmt.Fprint(stdout, lintUsage)
 				return 0
 			case "icons":
 				if len(args) > 2 && args[2] == "gen" {
