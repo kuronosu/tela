@@ -1,0 +1,889 @@
+# Tela
+
+> Tela is a desktop UI framework in pure Go (no cgo, no webview): React-style components and hooks, styled with Tailwind CSS v4 classes, drawn by its own renderer on Linux and Windows, and rendered headlessly to PNGs and aria snapshots so an agent can see what it built. This file is the whole guide an LLM needs to build good-looking Tela screens: the API, the `kit` components (shadcn/ui's look), the agent loop with `tela mcp`, a complete settings screen and the mistakes to avoid. Every Go block in it compiles against the current API.
+
+Contents: 1 Start · 2 The agent loop · 3 Elements and props · 4 Components and hooks · 5 Styling · 6 kit · 7 A complete settings screen · 8 Pitfalls and limits · 9 Testing · More
+
+## 1. Start
+
+- Tela draws every pixel (like Flutter or a browser). There is no HTML, DOM, CSS file or JavaScript: a tree of Go values describes the UI.
+- Elements and props come from package `h` (dot-imported, so markup reads like JSX); the app, hooks, events and colors from `tela`; ready-made styled components from `kit`.
+- Components are struct values with a `Build() tela.Node` method, or functions wrapped in `tela.C`/`tela.CP`. Hooks (`tela.UseState`...) follow React's rules.
+- Styling is `Class("...")` with Tailwind v4 class names, verbatim. Theme tokens (`bg-primary`, `text-muted-foreground`) follow light and dark.
+- Go 1.27+, always `CGO_ENABLED=0`. Lucide icons are a separate module.
+
+```sh
+mkdir myapp && cd myapp && go mod init example.com/myapp
+go get github.com/kuronosu/tela@latest github.com/kuronosu/tela/icons/lucide@latest
+CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest   # the CLI: tela mcp, snapshot, inspect, lint, dev
+# or: tela new myapp  (a counter app with a test, go.mod ready)
+```
+
+The imports of a screen:
+
+```go
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
+
+	"github.com/kuronosu/tela/icons/lucide" // lucide.Check, lucide.Settings, ... (Lucide's file names in CamelCase)
+)
+```
+
+The smallest complete app. `var App` is the window that `main` opens and the screen that `tela snapshot` and `tela mcp` render:
+
+```go
+package main
+
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
+)
+
+// Counter is the public name; tela.C gives counter its own hook state.
+func Counter() tela.Node { return tela.C(counter) }
+
+func counter() tela.Node {
+	count, setCount := tela.UseState(0)
+	return Div(Class("flex min-h-screen items-center justify-center"),
+		kit.Card{
+			Class:       "w-72",
+			Title:       Text("Counter"),
+			Description: Textf("Clicked %d times", count),
+			Footer: kit.Button{Class: "w-full", Children: Text("Add one"),
+				OnClick: func() { setCount.Update(func(n int) int { return n + 1 }) }},
+		})
+}
+
+var theme = kit.Theme() // shadcn/ui's neutral colors and 10 px radius: use it with kit
+
+var App = tela.App{
+	Title: "Counter", Width: 480, Height: 320,
+	Theme: &theme, RootClass: "bg-background text-foreground",
+	Root: Counter(),
+}
+
+func main() { tela.Main(App) }
+```
+
+**What the CLI and `tela mcp` mount** (the package may be `main` or any package):
+
+- `var Previews = tela.Previews{...}`: several named screens; `--preview NAME` (or the `open` tool) picks one, else the first name in byte order. Wins over the others.
+- `func Preview() tela.Node`: one screen, mounted as `tela.C(Preview)`, so it may call hooks itself. (`func Preview() tela.Component` is called and its result mounted.)
+- Otherwise `var App = tela.App{...}`: its `Root` is the screen.
+- In every case `var App` (a `tela.App` or `*tela.App`) gives the window: `Width`/`Height` (default 960x640), `RootClass`, `Theme`, `ColorScheme`, `ClassAliases`. Without `RootClass` the window is white with black text.
+
+```go
+// One screen; it may use hooks because it is mounted as tela.C(Preview).
+func Preview() tela.Node {
+	open, setOpen := tela.UseState(true)
+	return Div(Class("p-8"), kit.Switch{Checked: &open, OnCheckedChange: setOpen.Set, AriaLabel: "Open"})
+}
+
+// Several screens, each started in the state its fields give it.
+var Previews = tela.Previews{
+	"1 Empty": {Root: Inbox{}},
+	"2 Full":  {Root: Inbox{Unread: 12}},
+}
+
+type Inbox struct{ Unread int }
+
+func (in Inbox) Build() tela.Node {
+	return Div(Class("p-8 text-sm"), Textf("%d unread", in.Unread))
+}
+```
+
+`tela.App` fields: `Title`, `AppID`, `Width`, `Height`, `RootClass`, `Root` (a `tela.Component`: `Settings()`, `Settings{}`, `kit.Toaster{Children: ...}`), `ColorScheme` (`tela.System`, the zero value, follows the OS; `tela.Light`, `tela.Dark`), `Theme *tela.Theme`, `ClassAliases`, `ClassicScrollbars`, `InstantScroll`, `Dev *bool`. `tela.Main(app)` opens the window and runs until it closes; `tela.Run(app)` returns the error instead.
+
+## 2. The agent loop
+
+Write the package, look at it, fix, repeat. `tela mcp` keeps a headless instance of the screen running and rebuilds it when the source changes.
+
+```sh
+claude mcp add tela -- tela mcp ./myapp          # Claude Code; other clients: {"command": "tela", "args": ["mcp", "./myapp"]}
+tela mcp [--size WxH] [--scale N] [--dark] [--preview NAME] [pkg]
+```
+
+| Tool | Does |
+|---|---|
+| `snapshot {}` | Aria snapshot (Playwright YAML) with `[ref=eN]` on what you can act on. Cheap: call it after every edit |
+| `screenshot {}` / `{"ref": "e5"}` | PNG of the window or one element. Judge the look here: spacing, alignment, contrast, dark mode |
+| `click {"ref": "e5"}` | Real pointer click; `"button": "right"`, `"double": true`, or `"x"`, `"y"` |
+| `fill {"ref": "e7", "text": "ana@example.com"}` | Replace a text field's value; `"submit": true` presses Enter |
+| `press {"key": "Tab"}` | Key or combo in Playwright syntax (`Enter`, `Shift+Tab`, `Control+a`, `ArrowDown`), optionally on a `ref` |
+| `hover`, `scroll {"ref", "dy": 400}`, `drag {"from", "to" or "dx"/"dy"}` | Pointer moves, wheel, drags |
+| `resize {"width": 390, "height": 844}` / `{"scale": 2}` | Keeps the state; breakpoints follow |
+| `open {"dark": true}` / `{"preview": "2 Full"}` | Mount afresh (state reset) in dark mode, another preview, size or scale; `{}` lists the previews |
+| `wait {"ms": 500}` / `{"text": "Saved"}` | Advance the app clock (timers, `UseTimeout`, animations, toasts) or wait for a text |
+| `inspect {"ref": "e5"}` | Layout JSON: rects, margin/border/padding, classes, class errors, computed style. Use it when something is misplaced |
+| `lint {}` | `tela lint -json` on the package |
+
+Elements are named by `ref` (from the latest snapshot), or `role` + `name`, `text`, `testId`, with `nth`. Every acting tool returns the new snapshot.
+
+**Reading a result.** The text has sections: `### Snapshot` (YAML), `### Dev errors` (unknown classes with "did you mean": fix these first), `### Dev warnings` (missing keys, nil dependencies), `### Lint`, `### Output of the app`. A dev-mode panic (an unknown role, a misused hook) is the error of the call, with the fix in its message, and the screen is mounted afresh. A first line "The source changed: rebuilt ... and mounted afresh (state reset)" means your edit is live. "The package does not compile:" is followed by the compiler's errors, and the previous build keeps answering. "The new build compiles, but its screen cannot be mounted" is a panic while mounting (often a hook misuse; the message names the fix).
+
+**A good loop.** 1) Write the screen with `var App` (or `Preview`). 2) `snapshot`: fix every dev error and lint finding. 3) `screenshot`: fix the look. 4) `open {"dark": true}` + `screenshot`. 5) `click`/`fill` the main interactions and `screenshot` the states (open dialogs, toasts after `wait`). 6) `resize` to a narrow window if it must be responsive.
+
+**CLI equivalents** (same rendering, deterministic, embedded fonts):
+
+```sh
+tela snapshot --size 1040x800 --scale 2 --dark -o out.png ./myapp   # PNG (W*scale x H*scale)
+tela inspect ./myapp            # aria snapshot YAML; --layout for the layout JSON
+tela lint ./...                 # unknown classes, roles, aria tokens, keys, hook misuse; file:line:col: rule: message
+tela dev ./myapp                # a real window that reloads on save, keeping state
+```
+
+`tela snapshot` renders one frame: state set by effects, timers or toasts does not show in it; use `tela mcp` (`wait`) or a test for those.
+
+## 3. Elements and props (`h`)
+
+An element takes props and children in one list, in any order: `Div(Class("p-4"), H2(Text("Title")), OnClick(f))`. A string is not a child: `Div("x")` does not compile; write `Div(Text("x"))` or `Textf("%d items", n)`.
+
+**Elements:** `Div` (block box; the general container), `Span` (inline in text; a flex item inside `flex`), `P`, `H1`..`H6` (unstyled, like Tailwind's Preflight: size them with classes; they give heading roles), `Button` (no look of its own, focusable, Enter/Space click), `A` (`Href`; does not navigate: handle `OnClick`), `Strong`, `Em`, `Code`, `Img` (`SrcPath`, `SrcFS`, `SrcBytes`, `Src(image.Image)`, `Alt`; PNG, JPEG, GIF, WebP, SVG), `Icon(icon, props...)` (an SVG `tela.Icon`, 1em, colored by the text color), `Input`, `Textarea`, `Form` (`OnSubmit`; Enter submits), `Label` (`For`), `Text`, `Textf`, `TextFn(func() string)`, `Fragment(children...)` (no box), `Portal(children...)` (a layer above the window: overlays), `Presence(children...)` (keeps exiting children mounted), `VirtualList`. There is no `Ul`, `Li`, `Nav`, `Section`, `Header`, `Table` or `Select` element: use `Div` with `Role("list")`, `Role("navigation")`... and `kit` components.
+
+**Props:** `Class(classes...)`, `Style(tela.Width(w), tela.Bg(c), ...)` (typed values computed in code; they win over classes), `Key(id)`, `ID`, `For`, `Disabled(bool)`, `TabIndex`, `AutoFocus`, `Ref(elementRef)`, `TestID`, `Dir("rtl")`, `Scheme(tela.Dark)` (a subtree in another color scheme), `Inert`, `Href`, `Alt`, `Tint(color)`; text fields: `Value`, `DefaultValue`, `Bind(text, setText)`, `BindValue(*tela.Value[string])`, `Placeholder`, `Type("email")`, `Rows`, `ReadOnly`, `MaxLength`, `Name`; accessibility: `Role("navigation")`, `AriaLabel`, `AriaLabelledBy(refs...)`, `AriaDescribedBy(ref)`, `AriaCurrent("page")` (`""` is none), `AriaChecked`, `AriaPressed`, `AriaExpanded`, `AriaSelected`, `AriaDisabled`, `AriaInvalid`, `AriaHidden`, `AriaSort`, `AriaHasPopup`, `AriaControls`, `AriaValueNow`, `AriaValueMin`, `AriaValueMax`, `AriaValueText` (live regions are `Role("status")` and `Role("alert")`); animation: `AnimateLayout()`, `LayoutID(id)`, `Exit(classes)`.
+
+**Events:** `OnClick`, `OnDoubleClick`, `OnContextMenu`, `OnMouseDown/Up/Move/Enter/Leave`, `OnPointer...`, `OnLongPress`, `OnDrag`/`OnDragStart`/`OnDragEnd`, `OnWheel`, `OnScroll`, `OnKeyDown`/`OnKeyUp`, `OnFocus`/`OnBlur`, `OnChange` (every edit), `OnBeforeInput`, `OnSubmit`, `OnSelect`. Each takes a `func()` or a `func(e)` of its event type (`tela.MouseEvent`, `tela.KeyboardEvent`, `tela.ChangeEvent`...). Events bubble; `e.StopPropagation()`, `e.PreventDefault()`, or wrap a `func()` in `tela.StopPropagation(f)`.
+
+**Helpers:** `If(cond, child)` and `IfElse(cond, a, b)` take and return a `tela.Child` (a node, a component or a prop); `Map(items, func(T) tela.Node)` and `MapIndex` (give each node a `Key`); `MapKeyed(items, keyFn, func(T) tela.Component)` keys components for you; `Range(n, render)` for static repeats (keyed by index); `Nodes([]tela.Node)` passes a slice built in a loop. Every argument of `If` is evaluated: `If(u != nil, Text(u.Name))` panics on nil `u`; use a Go `if`.
+
+```go
+type Todo struct {
+	ID   int
+	Text string
+	Done bool
+}
+
+func TodoList(todos []Todo, remove func(id int)) tela.Node {
+	return Div(Role("list"), AriaLabel("Todos"), Class("flex flex-col gap-2"),
+		If(len(todos) == 0, P(Class("text-sm text-muted-foreground"), Text("Nothing to do."))),
+		Map(todos, func(t Todo) tela.Node {
+			return Div(Key(t.ID), Role("listitem"),
+				Class("flex items-center justify-between rounded-md border border-border px-3 py-2"),
+				Span(Class("text-sm"), If(t.Done, Class("text-muted-foreground line-through")), Text(t.Text)),
+				Button(Class("text-sm text-destructive hover:underline"), AriaLabel("Remove "+t.Text),
+					OnClick(func() { remove(t.ID) }), Text("Remove")))
+		}))
+}
+
+func Shortcuts(save func()) tela.Node {
+	return Div(TabIndex(0), Class("rounded-md p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"),
+		OnKeyDown(func(e tela.KeyboardEvent) {
+			if e.Ctrl && e.Key == "s" {
+				e.PreventDefault()
+				save()
+			}
+		}),
+		Text("Press Ctrl+S to save"))
+}
+```
+
+**Raw text fields** (prefer `kit.Input` and `kit.Field`, which are styled and wired):
+
+```go
+func Search() tela.Node {
+	q, setQ := tela.UseState("")
+	return Form(OnSubmit(func() { fmt.Println("search", q) }),
+		Input(Type("search"), Placeholder("Search"), AriaLabel("Search"), Bind(q, setQ),
+			Class("h-9 w-64 rounded-md border border-input bg-transparent px-3 text-sm placeholder:text-muted-foreground",
+				"focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50")))
+}
+```
+
+**Long lists:** `VirtualList(count, estimateSize, renderItem, props...)` builds only the visible rows; it is the scroll container (style it like a `Div`). `renderItem` returns a node or a component and must not call hooks (return a struct component for rows with state). `ItemKey(func(i int) K)` keys rows by identity.
+
+```go
+type Row struct{ Name string }
+
+func (r Row) Build() tela.Node {
+	return Div(Class("flex h-12 items-center border-b border-border px-4 text-sm"), Text(r.Name))
+}
+
+func People(names []string) tela.Node {
+	return VirtualList(len(names), func(int) float32 { return 48 },
+		func(i int) tela.Component { return Row{Name: names[i]} },
+		ItemKey(func(i int) string { return names[i] }),
+		Class("h-96 rounded-lg border border-border"))
+}
+```
+
+## 4. Components and hooks
+
+**Struct components** are the default: the fields are the props, `Build` has a value receiver, children are a field of type `tela.Component` (several via `Fragment(...)`). A struct value used as a child is its own component, with its own state, and its build is skipped while its fields are `==` to the previous ones (func or slice fields make it rebuild every time; that is fine).
+
+```go
+type Stat struct {
+	Label, Value, Trend string
+}
+
+func (s Stat) Build() tela.Node {
+	return Div(Class("flex flex-col gap-1 rounded-xl border border-border bg-card p-5 shadow-xs"),
+		P(Class("text-sm text-muted-foreground"), Text(s.Label)),
+		P(Class("text-2xl font-semibold tracking-tight tabular-nums"), Text(s.Value)),
+		P(Class("text-xs font-medium text-emerald-600 dark:text-emerald-400"), Text(s.Trend)))
+}
+
+type Section struct {
+	Title    string
+	Children tela.Component
+}
+
+func (s Section) Build() tela.Node {
+	open, setOpen := tela.UseState(true)
+	return Div(Class("flex flex-col gap-3"),
+		Button(Class("text-left text-sm font-semibold"), OnClick(tela.Toggle(setOpen)), AriaExpanded(open), Text(s.Title)),
+		If(open, s.Children))
+}
+
+// A struct component is a tela.Component, not a tela.Node: Fragment makes it one.
+// Never call Section{...}.Build(): its hooks would run in the caller.
+func Overview() tela.Node {
+	return Fragment(Section{Title: "This week", Children: Div(Class("grid grid-cols-3 gap-4"),
+		Stat{Label: "Revenue", Value: "$12,480", Trend: "+8.1%"},
+		Stat{Label: "Orders", Value: "342", Trend: "+3.4%"},
+		Stat{Label: "Refunds", Value: "4", Trend: "-1.2%"})})
+}
+```
+
+**Function components** use `tela.C(fn)` (no props) or `tela.CP(fn, props)` (comparable props, skipped while `==`). Write the wrap once in a public function, so callers never call the private one:
+
+```go
+func Clock() tela.Node { return tela.C(clock) }
+
+func clock() tela.Node {
+	now, setNow := tela.UseState(time.Now())
+	tela.UseInterval(time.Second, func() { setNow.Set(time.Now()) })
+	return Span(Class("tabular-nums"), Text(now.Format("15:04:05")))
+}
+
+type BadgeProps struct{ Count int }
+
+func Unread(p BadgeProps) tela.Node { return tela.CP(unread, p) }
+
+func unread(p BadgeProps) tela.Node {
+	return Span(Class("rounded-full bg-primary px-2 text-xs font-medium text-primary-foreground"), Textf("%d", p.Count))
+}
+```
+
+Keys: an element takes `Key(id)`; a component or fragment is keyed with `tela.WithKey(Card{...}, id)` (which also turns it into a `tela.Node`), or `tela.C(fn, Key(id))`, `tela.CP(fn, p, Key(id))`, or `MapKeyed`.
+
+**Hooks** (call them at the top of a component, same order every build, never in `if`/`for`/after an early `return`/inside callbacks or `Map` functions):
+
+| Hook | Does |
+|---|---|
+| `v, set := tela.UseState(init)` | State; `set.Set(v)`, `set.Update(func(T) T)` (use `Update` when the new value depends on the old). `set` is a comparable `tela.Setter[T]`, safe from any goroutine; `tela.Toggle(set)` flips a bool |
+| `s, d := tela.UseReducer(reduce, init)` | `d.Dispatch(action)`; reducer `func(S, A) S` |
+| `tela.UseEffect(f, deps...)` | After the frame is presented; `f` returns a cleanup or nil. No deps: every build; `tela.Once`: mount only. `UseEffect(f, nil)` panics in dev mode |
+| `tela.UseMount(f)`, `tela.UseEffectDo(f, deps...)`, `tela.UseUpdateEffect(f, deps...)` | Mount/unmount; an effect without cleanup; skip the first build |
+| `tela.UseLayoutEffect(f, deps...)` | After layout, before paint: measure, scroll into view (the frame is painted scrolled) |
+| `tela.UseMemo(compute, deps...)`, `tela.UseOnce(init)` | Cached value; computed once |
+| `tela.UseCallback(fn)` | A stable comparable `tela.Callback[F]`; call `cb.Fn()`. Keeps props comparable |
+| `r := tela.UseRef(init)` | `r.Current` persists, no rebuild |
+| `el := tela.UseElementRef()` + `Ref(el)` | `el.Focus()`, `Blur`, `Click`, `Bounds()`, `ScrollTo/ScrollBy`, `ScrollIntoView()`, `ScrollToIndex(i, tela.AlignEnd)`, `Value()`, `Select()` |
+| `tela.UseID()` | A stable unique id (label `For` + input `ID`) |
+| `ctx := tela.CreateContext(def)` (package level), `ctx.Provider(v, children...)`, `tela.UseContext(ctx)` | Context; only readers rebuild |
+| `v := tela.UseValue(init)` | Observable value: `v.Get()` in build rebuilds; read in a `...Fn` style prop (`tela.WidthFn`, `HeightFn`, `TranslateFn`, `OpacityFn`, `BgFn`, `TextColorFn`) or `TextFn` it only relayouts/repaints. `v.Set` from any goroutine |
+| `tela.UseInterval(d, f)`, `tela.UseTimeout(d, f, deps...)` | On the frame clock, no goroutine. `d <= 0` pauses/cancels; a new `d` or deps restarts the timeout |
+| `tela.UseGo(func(ctx context.Context), deps...)` | Background goroutine, cancelled when deps change or on unmount; update the UI through setters |
+| `tela.UseSpring(target, opts...)`, `tela.UseTween(target, opts...)` | A `*tela.Value[T]` that animates toward `target` (float32, Color, Point, Size, Rect); feed it to a `...Fn` prop |
+| `tela.UsePresence()`, `tela.UsePresenceTween()` | A component's own exit animation inside `h.Presence` |
+| `tela.UseColorScheme()`, `tela.UseTheme()`, `tela.UseDirection()`, `tela.UseReducedMotion()` | Environment; `tela.SetColorScheme(tela.Dark)` switches the app |
+| `kit.UseToast()`, `kit.UseStyle()` | Toast handle (under a `kit.Toaster`); the active kit recipe |
+
+A custom hook is a function named `UseXxx`/`useXxx` that calls hooks. `tela.Post(f)` runs `f` on the UI thread from any goroutine.
+
+```go
+type action struct {
+	kind string
+	text string
+}
+
+func reduce(items []string, a action) []string {
+	switch a.kind {
+	case "add":
+		return append(append([]string(nil), items...), a.text)
+	case "clear":
+		return nil
+	}
+	return items
+}
+
+var Mode = tela.CreateContext("light")
+
+func DarkNotes() tela.Node { return Mode.Provider("dark", Notes()) }
+
+func Notes() tela.Node { return tela.C(notes) }
+
+func notes() tela.Node {
+	items, dispatch := tela.UseReducer(reduce, []string{"Buy milk"})
+	draft, setDraft := tela.UseState("")
+	last := tela.UseElementRef()
+	tela.UseLayoutEffect(func() func() {
+		last.ScrollIntoView() // the frame that shows a new note shows it in view
+		return nil
+	}, len(items))
+	mode := tela.UseContext(Mode)
+	return Div(Class("flex h-80 flex-col gap-3 p-4"),
+		P(Class("text-xs text-muted-foreground"), Textf("Mode: %s", mode)),
+		Div(Class("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto"),
+			MapIndex(items, func(i int, s string) tela.Node {
+				return P(Key(i), If(i == len(items)-1, Ref(last)), Class("text-sm"), Text(s))
+			})),
+		kit.Input{Placeholder: "New note", AriaLabel: "New note", Value: &draft, OnValueChange: setDraft.Set},
+		kit.Button{Disabled: draft == "", Children: Text("Add"), OnClick: func() {
+			dispatch.Dispatch(action{kind: "add", text: draft})
+			setDraft.Set("")
+		}})
+}
+```
+
+Smooth values without rebuilds:
+
+```go
+func Drawer(open bool) tela.Node {
+	target := float32(-320)
+	if open {
+		target = 0
+	}
+	x := tela.UseSpring(target) // starts at the target, then springs to new targets
+	return Div(Class("fixed inset-y-0 left-0 w-80 border-r border-border bg-background p-6 shadow-xl"),
+		Style(tela.TranslateFn(func() (float32, float32) { return x.Get(), 0 })), // repaints only
+		Text("Menu"))
+}
+
+func Download() tela.Node {
+	progress := tela.UseValue(float32(0))
+	tela.UseGo(func(ctx context.Context) {
+		for i := 1; i <= 10 && ctx.Err() == nil; i++ {
+			time.Sleep(100 * time.Millisecond)
+			progress.Set(float32(i) / 10)
+		}
+	}, tela.Once)
+	return Div(Class("h-2 w-64 overflow-hidden rounded-full bg-muted"),
+		Div(Class("h-full bg-primary"), Style(tela.WidthFn(func() float32 { return 256 * progress.Get() }))))
+}
+```
+
+## 5. Styling
+
+Classes are Tailwind CSS v4's, verbatim, parsed into typed styles. If you would write it in React + Tailwind v4, write the same here. Order: element defaults, then classes in order (a later class wins over an earlier one that sets the same property; `Class` may repeat and takes several strings), then `Style(...)` props. No cascade, no selectors, no stylesheet. Everything is `border-box`. `Div` is `display: block`, like HTML.
+
+**Supported:** spacing (`p-4`, `px-6`, `m-auto`, `gap-3`, `space-y-4`), sizing (`w-64`, `w-full`, `max-w-3xl`, `min-h-screen`, `size-8`, `h-[72px]`, `aspect-video`), flex (`flex`, `flex-col`, `items-center`, `justify-between`, `flex-1`, `shrink-0`, `grow`, `basis-1/3`, `flex-wrap`, `order-*`), grid (`grid grid-cols-3`, `grid-cols-[200px_1fr]`, `col-span-2`, `auto-rows-*`, `place-items-center`), positioning (`relative`, `absolute`, `fixed`, `sticky top-0`, `inset-0`, `z-10`), overflow and scrolling (`overflow-y-auto`, `overscroll-contain`, `scroll-smooth`), colors with opacity (`bg-white/15`, `text-zinc-500`, `bg-[#1e1e2e]`), borders (`border`, `border-b`, `border-border`, `rounded-xl`, `rounded-t-lg`), `ring-*`, `outline-*`, shadows (`shadow-sm`...`shadow-2xl`, `shadow-xs`, `inset-shadow-*`), gradients (`bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500`, `bg-radial`, `bg-conic`), typography (`text-sm`, `font-semibold`, `tracking-tight`, `leading-6`, `truncate`, `line-clamp-2`, `text-balance`, `tabular-nums`, `uppercase`, `font-mono`), effects (`opacity-50`, `blur-sm`, `backdrop-blur`, `drop-shadow-*`, `mix-blend-*`, masks), transforms (`translate-x-2`, `scale-95`, `rotate-45`, `origin-*`; 2D only), transitions (`transition`, `transition-colors`, `duration-200`, `ease-out`, `delay-*`), `animate-spin`/`pulse`/`ping`/`bounce` (also `animate-[bounce_1s_150ms_infinite]`), `cursor-pointer`, `pointer-events-none`, `select-none`, `sr-only`, `field-sizing-content`, background images (`bg-[url(img/hero.jpg)] bg-cover`, files registered with `tela.Assets(fsys)`), `[clip-path:circle(50%)]`, arbitrary values (`w-[calc(50%-8px)]`, `top-[3px]`, `grid-cols-[repeat(auto-fill,minmax(200px,1fr))]`). Units: `px`, `rem`, `em`, `%`, `vw`, `vh`, `fr`, `ch`. `calc()` only as `min()`, `max()`, `clamp()` and `a ± b`.
+
+**Variants** (stack them: `dark:md:hover:bg-zinc-800`):
+- State: `hover:` `active:` `focus:` `focus-visible:` `focus-within:` `disabled:` `enabled:` `checked:`, text fields `placeholder:` `invalid:` `read-only:` `placeholder-shown:` `selection:`.
+- ARIA: `aria-checked:` `aria-selected:` `aria-expanded:` `aria-pressed:` `aria-invalid:` `aria-disabled:` `aria-busy:` `aria-hidden:` `aria-required:` `aria-readonly:` (they match the element's own `h.Aria...(true)` prop), `aria-[current=page]:` (also `step`, `location`, `date`, `time`, `true`; there is no bare `aria-current:`), `aria-[sort=ascending]:`/`descending`.
+- Structure: `first:` `last:` `only:` `odd:` `even:`; `group` + `group-hover:`/`group-focus-within:`/`group-aria-*:` on descendants; `peer` + `peer-checked:`/`peer-invalid:`... on following siblings (no named groups).
+- Environment: `dark:`, `sm:` `md:` `lg:` `xl:` `2xl:` (window at least 640/768/1024/1280/1536 px), `max-md:` ..., `min-[600px]:`, `max-[40rem]:`, `motion-reduce:`, `motion-safe:`, `rtl:`/`ltr:`, `starting:` (entrance: the style a newly shown element transitions from, CSS `@starting-style`).
+
+```go
+func NavLink(label string, current bool, onClick func()) tela.Node {
+	page := ""
+	if current {
+		page = "page"
+	}
+	return Button(AriaCurrent(page), OnClick(onClick),
+		Class("group flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm text-muted-foreground transition-colors",
+			"hover:bg-accent hover:text-accent-foreground",
+			"aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-foreground"),
+		Icon(lucide.Bell, Class("size-4 group-hover:text-foreground")), Text(label))
+}
+
+func Toast(message string) tela.Node {
+	// Fades and slides in when it appears; under Presence, Exit classes run when it is removed.
+	return Div(Class("rounded-lg border border-border bg-popover px-4 py-3 text-sm shadow-lg transition duration-300",
+		"starting:translate-y-2 starting:opacity-0"), Exit("translate-y-2 opacity-0"), Role("status"), Text(message))
+}
+
+func Responsive() tela.Node {
+	return Div(Class("grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3"),
+		Div(Class("h-24 rounded-xl bg-linear-to-br from-sky-400 to-indigo-600 shadow-lg dark:from-sky-600 dark:to-indigo-900")),
+		Div(Class("h-24 rounded-xl bg-white/60 ring-1 ring-black/5 backdrop-blur dark:bg-white/5 dark:ring-white/10")))
+}
+```
+
+**Theme tokens** (shadcn/ui names) work in every color utility (`bg-`, `text-`, `border-`, `ring-`, `from-`, `fill-`, `stroke-`, `shadow-`...), with opacity (`bg-primary/90`, `ring-ring/50`) and variants, and follow the color scheme by themselves: no `dark:` pairs needed. Tokens: `background`, `foreground`, `card`, `card-foreground`, `popover`, `popover-foreground`, `primary`, `primary-foreground`, `secondary`, `secondary-foreground`, `muted`, `muted-foreground`, `accent`, `accent-foreground`, `destructive`, `border`, `input`, `ring`, `chart-1`..`chart-5`. Give the window `RootClass: "bg-background text-foreground"`. Palette colors (`bg-zinc-900`) do not follow the scheme: pair them with `dark:`.
+
+`kit.Theme()` is shadcn's neutral theme with its 10 px radius (`rounded-lg` = 10 px, `rounded-md` 8, `rounded-xl` 14); `tela.DefaultTheme()` has the same colors with Tailwind's radius scale. Change colors, add your own tokens, alias class combinations:
+
+```go
+var brandTheme = func() tela.Theme {
+	t := kit.Theme()
+	t.Colors["primary"] = tela.SchemeColor{Light: tela.Hex("#4f46e5"), Dark: tela.Hex("#818cf8")}
+	t.Colors["primary-foreground"] = tela.SchemeColor{Light: tela.Hex("#ffffff"), Dark: tela.Hex("#1e1b4b")}
+	t.Colors["brand"] = tela.SchemeColor{Light: tela.Hex("#7c3aed"), Dark: tela.Hex("#a78bfa")} // bg-brand, text-brand...
+	t.FontSans = "Geist"                                                                         // a system font; Inter is the fallback
+	return t
+}()
+
+var BrandApp = tela.App{
+	Title: "Notes", Theme: &brandTheme, RootClass: "bg-background text-foreground",
+	ClassAliases: map[string]string{
+		"text-muted": "text-sm text-muted-foreground",
+		"eyebrow":    "text-xs font-semibold tracking-wide text-brand uppercase",
+	},
+	Root: P(Class("eyebrow"), Text("Notes")),
+}
+```
+
+Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.OKLCH(l, c, h)`, `tela.UseTheme().Color("primary")`. `h.Scheme(tela.Dark)` gives a subtree its own scheme (a dark sidebar in a light app).
+
+**Icons:** `Icon(lucide.Settings, Class("size-4"))`. An icon is 1em square (follows `text-*` size) unless sized, colored by the text color (`text-muted-foreground`), `stroke-[1.5]` thins it; decorative unless it has an `AriaLabel`. Lucide names are the file names in CamelCase (`arrow-up-right` is `lucide.ArrowUpRight`). Your own SVGs: `tela.Icon{SVG: "<svg ...>"}`, `tela.MustSVG(data)`, or `tela icons gen -pkg icons -o ./icons ./svg` for a whole directory.
+
+**Not implemented** (you get a dev error that says what to use): floats and `clear` (use flex/grid); margin collapsing (use `gap`/`space-y-*`); `display: table` and `border-collapse` (use `kit.Table` or grid); `divide-*` (borders on the children, `border-t first:border-t-0`); `space-*-reverse`; `columns-*`; pseudo-elements `before:` `after:` `marker:` `file:` (use nodes); `data-*:`, `has-*:`, `not-*:`, `nth-*:`, `*:`, `[&...]:`, `@container`/`@md:`, `print:`, `supports-*:`; `var()`/CSS variables (use tokens); arbitrary properties other than `[clip-path:...]`; 3D transforms; `scroll-snap`, `scroll-m-*`; `text-indent`; `hyphens`; `accent-*`; `resize`; `bg-fixed`; `vertical-align` on spans; custom `@keyframes` (use the `animate-*` classes, springs or `tela.Animate`); `content-box`.
+
+## 6. kit: components in shadcn/ui's look
+
+`kit` has 36 components with shadcn/ui's ("new-york-v4") look, built on the `aria` behavior hooks: keyboard, focus and roles are done. Use them for every control; build layout and decoration with `h` elements and classes around them.
+
+**Rules that hold for every component:**
+- Each is a struct; its fields are its props. `Class` adds classes to the root after the component's own (last wins: `Class: "w-full"` overrides); parts have `...Class` fields (`HeaderClass`, `ContentClass`, `ItemClass`...). `Props` takes one more `h` prop for the root (`Props: TestID("save")`; several: `tela.MergeProps(TestID("x"), AutoComplete("email"))`).
+- Content is `Children tela.Component`; multi-part components have slots (`kit.Card{Title, Description, Action, Children, Footer}`). Text-only slots for assistive technologies are strings (`kit.Field{Label, Description, Error}`).
+- A kit component is a `tela.Component`, not a `tela.Node`: return it from a function as `Fragment(kit.Button{...})`.
+- Values: controlled `Value *T` + `OnValueChange func(T)` (`Checked *bool` + `OnCheckedChange`, `Open *bool` + `OnOpenChange`, `Pressed`), or uncontrolled `DefaultValue`/`DefaultChecked`/`DefaultOpen`. Choices among keys are generic: `kit.Select[string]`, `Value *K`, `DefaultValue *K` (write `new("pro")`; Go 1.26+ allows `new(value)`).
+- `Variant`: `kit.Default` (zero), `kit.Secondary`, `kit.Outline`, `kit.Ghost`, `kit.Destructive`, `kit.Link` (and `kit.TabsLine` for Tabs). `Size`: empty is the default size, then `kit.Xs`, `kit.Sm`, `kit.Lg`, and for icon-only buttons `kit.Icon`, `kit.IconXs`, `kit.IconSm`, `kit.IconLg`. `Orientation`: `kit.Horizontal`, `kit.Vertical`. An undefined variant or size panics in dev mode with the valid ones.
+- Overlays (`Dialog`, `AlertDialog`, `Popover`, `Tooltip`, menus, pickers) take a `Trigger`: a `kit.Button{...}`, or any element through `kit.TriggerFunc(func(p tela.Prop) tela.Node { return Button(p, ...) })`. Put `Disabled` on the overlay, not on its trigger. A trigger takes one overlay.
+- Icons are `tela.Icon` fields (`Button.Icon`, `IconEnd`), defaulting to Lucide's where shadcn draws one.
+- Customize: theme tokens first; then recipes: `s := kit.DefaultStyle()`, edit class strings (`s.Card.Root += " shadow-lg"`, `s.Button.Variants["glass"] = "bg-white/10 text-white hover:bg-white/20"`), apply with `kit.StyleProvider{Style: &s, Children: ...}`; then per instance `Class`.
+
+**Catalog** (key fields; nearly every component also has `Class` and `Props`):
+
+- `kit.Button{Variant, Size, Icon, IconEnd, Type, Disabled, OnClick, AriaLabel, Children}`: `Type: "submit"` in a `Form`; icon-only buttons need `Size: kit.Icon` and `AriaLabel`.
+- `kit.Badge{Variant, Icon, Children}`: a small label.
+- `kit.Card{Title, Description, Action, Children, Footer, TitleLevel, HeaderClass, ContentClass, FooterClass}`: the surface; `TitleLevel: 2` makes the title an `h2`; `Action` sits at the header's end.
+- `kit.Avatar{Src, Alt, Fallback, Size, FallbackClass}`: `Src: SrcPath("img/ada.png")`; `Fallback` initials.
+- `kit.Separator{Orientation, Semantic}`: a 1 px line (`Semantic` puts it in the accessibility tree).
+- `kit.Skeleton{Class}`: a pulsing placeholder (`Class: "h-4 w-40 rounded-md"`).
+- `kit.Label{For, Disabled, Children}`: a styled label for a control with an `ID`.
+- `kit.Input{Value, DefaultValue, OnValueChange, Type, Placeholder, Name, ID, AriaLabel, Disabled, ReadOnly, Invalid, AutoFocus, MaxLength}`.
+- `kit.Textarea{Value, DefaultValue, OnValueChange, Placeholder, Rows, MaxLength, AriaLabel, Invalid}`.
+- `kit.Field{Label, Description, Error, Invalid, Orientation, ControlAfter, Children, LabelClass, ContentClass}`: label, control, help and error wired together (`Error` marks the control invalid). One kit control per field.
+- `kit.FieldSet{Legend, LegendVariant, Description, Children, LegendClass, ContentClass}`: a named group; names a `RadioGroup`/`ToggleGroup` inside. `LegendVariant: kit.LegendVariantLabel` is label-sized, the default `kit.LegendVariantLegend` a title.
+- `kit.Checkbox{Checked, DefaultChecked, OnCheckedChange, Disabled, Required, Invalid, ID, AriaLabel}`.
+- `kit.Switch{Checked, DefaultChecked, OnCheckedChange, Size, Disabled, ID, AriaLabel, ThumbClass}`.
+- `kit.RadioGroup[K]{Items, Value, DefaultValue, OnValueChange, Orientation, Disabled, AriaLabel, Render, OptionClass}`: options are `kit.RadioItem[K]{Value, Label, Description, Disabled}`; `Render func(kit.RadioItem[K], kit.RadioState) tela.Node` draws an option yourself (cards).
+- `kit.RadioState{Checked, Disabled, Invalid, ID, Props, Indicator}`: what `Render` gets: put `Props` on the one element that is the radio; `Indicator` is the default circle.
+- `kit.Toggle{Pressed, DefaultPressed, OnPressedChange, Variant, Size, Icon, AriaLabel, Children}`: a button that stays pressed.
+- `kit.ToggleGroup[K]{Items, Value, DefaultValue, OnValueChange, Multiple, Selected, OnSelectionChange, DisallowEmptySelection, Variant, Size, Spacing, AriaLabel, ItemClass}`: segmented control; items `kit.ToggleGroupItem[K]{Value, Label, Icon, AriaLabel, Disabled}`.
+- `kit.Slider{Value, DefaultValue, OnValueChange, Values, OnValuesChange, Min, Max, Step, Orientation, Disabled, AriaLabel, FormatValue}`: `Value *float64`; `DefaultValue: new(50.0)`.
+- `kit.Progress{Value, Max, Indeterminate, AriaLabel}`: `Value` is a plain number (0 to `Max`, 100 by default).
+- `kit.Select[K]{Items, Value, DefaultValue, OnValueChange, Placeholder, Size, Disabled, Invalid, AriaLabel, ID}`: items `kit.SelectItem[K]{Value, Label, Icon, Disabled, Group}`; its trigger is a `button` named "chosen label + field label".
+- `kit.Tabs[K]{Tabs, Value, DefaultValue, OnValueChange, Orientation, Variant, AriaLabel, ListClass, TriggerClass, ContentClass}`: `kit.Tab[K]{Value, Label, Icon, Disabled, Content}`; only the selected panel is built.
+- `kit.Table[T]{Rows, RowKey, Columns, Sort, DefaultSort, OnSortChange, Selected, RowProps, Caption, AriaLabel, Empty}`: columns `kit.Column[T]{Header, Cell, Sort, Width, Align, Sticky, Footer}`; `Align: kit.AlignRight`; a `Sort` func makes a header sortable.
+- `kit.Dialog{Trigger, Title, Description, Children, Footer, Open, DefaultOpen, OnOpenChange, HideClose, AriaLabel}`: modal; Escape and the scrim close it.
+- `kit.AlertDialog{Trigger, Title, Description, Cancel, Action, Destructive, OnAction, OnCancel, Open, OnOpenChange, Disabled}`: a confirmation; `Cancel`/`Action` are labels (default "Cancel"/"Continue").
+- `kit.Popover{Trigger, Children, Placement, Align, Offset, Modal, AriaLabel, Open, OnOpenChange}`: non-modal panel; `Placement: "top"`, `Align: "start"`.
+- `kit.Tooltip{Trigger, Content, Placement, Delay, Disabled}`: on hover or keyboard focus; describes its trigger.
+- `kit.DropdownMenu[K]{Trigger, Items, OnSelect, Placement, Align, AriaLabel, Open, OnOpenChange}`: items `kit.MenuItem[K]{Kind, Key, Label, Icon, Shortcut, Variant, Disabled, OnSelect, Checked, DefaultChecked, OnCheckedChange, Items}`; `Kind`: `kit.MenuPlain` (zero), `kit.MenuCheckbox`, `kit.MenuRadioGroup`, `kit.MenuLabel`, `kit.MenuSeparator`, `kit.MenuGroup`. No submenus.
+- `kit.ContextMenu[K]{Children, Items, OnSelect, AriaLabel, Disabled}`: right click (or long press) on `Children`.
+- `kit.Menubar[K]{Menus, OnSelect, AriaLabel}`: menus `kit.MenubarMenu[K]{Key, Label, Items, Disabled}`.
+- `kit.Toaster{Children, Position, Duration, VisibleToasts, CloseButton}`: put once around the app; any component below calls `toast := kit.UseToast()` then `toast.Success(title, opts...)`, `Error`, `Info`, `Warning`, `Loading`, `Show`, `Dismiss(id)`; options `kit.ToastDescription(text)`, `kit.ToastAction(label, fn)`, `kit.ToastDuration(d)`, `kit.ToastReplace(id)`. Safe from any goroutine.
+- `kit.Calendar{Value, DefaultValue, OnValueChange, Min, Max, IsDateUnavailable, VisibleMonths}`: one `aria.Date` (comparable day, zero = none; `aria.Today()`).
+- `kit.RangeCalendar{Value, DefaultValue, OnValueChange, VisibleMonths}`: an `aria.DateRange`.
+- `kit.DatePicker{Value, DefaultValue, OnValueChange, Placeholder, Min, Max}`: an outline button that opens a calendar.
+- `kit.DateRangePicker{Value, DefaultValue, OnValueChange, Placeholder}`: the same for a range.
+- `kit.ColorPicker{Value, DefaultValue, OnValueChange, OnValueCommit, Alpha, Swatches}`: a `tela.Color` (`DefaultValue: new(tela.Hex("#6366f1"))`).
+- `kit.ColorInput{Value, DefaultValue, OnValueChange, Swatches}`: the picker behind a button.
+- `kit.StyleProvider{Style, Children}`: applies an edited `kit.DefaultStyle()` to a subtree.
+
+**Patterns.** A form card with fields, errors and a submit:
+
+```go
+func Profile() tela.Node { return tela.C(profile) }
+
+func profile() tela.Node {
+	name, setName := tela.UseState("Ada Lovelace")
+	email, setEmail := tela.UseState("ada@example")
+	bio, setBio := tela.UseState("")
+	emailError := ""
+	if !strings.Contains(email, ".") {
+		emailError = "Enter a valid e-mail address."
+	}
+	return Fragment(kit.Card{
+		Class: "w-full max-w-md", TitleLevel: 2,
+		Title:       Text("Profile"),
+		Description: Text("This is how others see you."),
+		Action:      kit.Badge{Variant: kit.Secondary, Children: Text("Public")},
+		Children: Div(Class("flex flex-col gap-5"),
+			kit.Field{Label: "Name", Children: kit.Input{Value: &name, OnValueChange: setName.Set}},
+			kit.Field{Label: "E-mail", Description: "We never share it.", Error: emailError,
+				Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}},
+			kit.Field{Label: "Bio", Children: kit.Textarea{Rows: 3, Placeholder: "A few words", Value: &bio, OnValueChange: setBio.Set}}),
+		FooterClass: "justify-end gap-2",
+		Footer: Fragment(
+			kit.Button{Variant: kit.Outline, Children: Text("Cancel")},
+			kit.Button{Disabled: emailError != "", Children: Text("Save")}),
+	})
+}
+```
+
+Switch rows, a radio group named by a legend, radio cards, a select, a segmented control:
+
+```go
+func Preferences() tela.Node { return tela.C(preferences) }
+
+func preferences() tela.Node {
+	digest, setDigest := tela.UseState(true)
+	plan, setPlan := tela.UseState("pro")
+	size, setSize := tela.UseState("md")
+	view, setView := tela.UseState("list")
+	plans := []kit.RadioItem[string]{
+		{Value: "free", Label: "Free", Description: "Up to 3 projects."},
+		{Value: "pro", Label: "Pro", Description: "Unlimited projects."},
+	}
+	return Div(Class("flex max-w-lg flex-col gap-6"),
+		// A switch row: text first, the switch at the end.
+		kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Class: "items-center gap-6",
+			Label: "Weekly digest", Description: "A summary every Monday.",
+			Children: kit.Switch{Checked: &digest, OnCheckedChange: setDigest.Set}},
+		// The legend names the group: no AriaLabel needed.
+		kit.FieldSet{Legend: "Plan", LegendVariant: kit.LegendVariantLabel,
+			Children: kit.RadioGroup[string]{Items: plans, Value: &plan, OnValueChange: setPlan.Set}},
+		kit.Field{Label: "Text size", Children: kit.Select[string]{Class: "w-40", Value: &size, OnValueChange: setSize.Set,
+			Items: []kit.SelectItem[string]{{Value: "sm", Label: "Small"}, {Value: "md", Label: "Medium"}, {Value: "lg", Label: "Large"}}}},
+		kit.FieldSet{Legend: "View", LegendVariant: kit.LegendVariantLabel,
+			Children: kit.ToggleGroup[string]{Variant: kit.Outline, DisallowEmptySelection: true, Value: &view, OnValueChange: setView.Set,
+				Items: []kit.ToggleGroupItem[string]{{Value: "list", Label: "List"}, {Value: "grid", Label: "Grid"}}}},
+		// Radio cards: Render draws each option; st.Props makes the button the radio.
+		kit.RadioGroup[string]{AriaLabel: "Plan cards", Items: plans, Value: &plan, OnValueChange: setPlan.Set, Class: "grid-cols-2",
+			Render: func(o kit.RadioItem[string], st kit.RadioState) tela.Node {
+				return Button(Key(o.Value), st.Props,
+					Class("flex flex-col items-start gap-1 rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent",
+						"aria-checked:border-primary aria-checked:ring-1 aria-checked:ring-primary"),
+					Div(Class("flex items-center gap-2 text-sm font-medium"), st.Indicator, Text(o.Label)),
+					P(Class("text-sm text-muted-foreground"), Text(o.Description)))
+			}},
+	)
+}
+```
+
+Tabs, buttons, an alert dialog, a toast, a tooltip, a dropdown menu, an avatar:
+
+```go
+func Account() tela.Component { return kit.Toaster{Children: tela.C(account)} }
+
+func account() tela.Node {
+	toast := kit.UseToast()
+	menu := []kit.MenuItem[string]{
+		{Kind: kit.MenuLabel, Label: "My account"},
+		{Key: "edit", Label: "Edit", Icon: lucide.Pencil, Shortcut: "Ctrl+E"},
+		{Kind: kit.MenuSeparator},
+		{Key: "logout", Label: "Log out", Icon: lucide.LogOut, Variant: kit.Destructive},
+	}
+	return Div(Class("flex flex-col gap-6 p-8"),
+		Div(Class("flex items-center gap-3"),
+			kit.Avatar{Fallback: "AL", Size: kit.Lg},
+			Div(Class("flex flex-1 flex-col"), Span(Class("font-medium"), Text("Ada Lovelace")),
+				Span(Class("text-sm text-muted-foreground"), Text("ada@example.com"))),
+			kit.Tooltip{Content: Text("Invite a teammate"),
+				Trigger: kit.Button{Variant: kit.Outline, Size: kit.Icon, Icon: lucide.Plus, AriaLabel: "Invite"}},
+			kit.DropdownMenu[string]{Align: "end", Items: menu, OnSelect: func(k string) { toast.Info("Chose " + k) },
+				Trigger: kit.Button{Variant: kit.Ghost, Size: kit.Icon, Icon: lucide.Ellipsis, AriaLabel: "More"}}),
+		kit.Separator{},
+		kit.Tabs[string]{DefaultValue: new("general"), Tabs: []kit.Tab[string]{
+			{Value: "general", Label: "General", Content: Div(Class("flex gap-2 pt-2"),
+				kit.Button{Icon: lucide.Check, Children: Text("Save"),
+					OnClick: func() { toast.Success("Saved", kit.ToastDescription("Your changes are live.")) }},
+				kit.Button{Variant: kit.Secondary, Children: Text("Preview")},
+				kit.Button{Variant: kit.Link, Children: Text("Learn more")})},
+			{Value: "danger", Label: "Danger zone", Content: Div(Class("pt-2"),
+				kit.AlertDialog{
+					Trigger:     kit.Button{Variant: kit.Destructive, Icon: lucide.Trash2, Children: Text("Delete account")},
+					Title:       Text("Delete your account?"),
+					Description: Text("This cannot be undone."),
+					Action:      Text("Delete"), Destructive: true,
+					OnAction: func() { toast.Error("Account deleted") },
+				})},
+		}})
+}
+```
+
+A table and a dialog with a form:
+
+```go
+type Invoice struct {
+	ID, Status string
+	Amount     float64
+}
+
+func Invoices(rows []Invoice) tela.Node {
+	return Fragment(kit.Table[Invoice]{
+		Rows: rows, RowKey: func(i Invoice) any { return i.ID }, Caption: "Recent invoices",
+		Columns: []kit.Column[Invoice]{
+			{Header: "Invoice", Cell: func(i Invoice) tela.Node { return Span(Class("font-medium"), Text(i.ID)) },
+				Sort: func(a, b Invoice) int { return strings.Compare(a.ID, b.ID) }},
+			{Header: "Status", Cell: func(i Invoice) tela.Node { return Fragment(kit.Badge{Variant: kit.Outline, Children: Text(i.Status)}) }},
+			{Header: "Amount", Align: kit.AlignRight, Cell: func(i Invoice) tela.Node { return Textf("$%.2f", i.Amount) },
+				Sort: func(a, b Invoice) int { return cmp.Compare(a.Amount, b.Amount) }},
+		},
+	})
+}
+
+func Rename() tela.Node { return tela.C(rename) }
+
+func rename() tela.Node {
+	open, setOpen := tela.UseState(false)
+	name, setName := tela.UseState("Roadmap")
+	return Fragment(kit.Dialog{
+		Open: &open, OnOpenChange: setOpen.Set,
+		Trigger:     kit.Button{Variant: kit.Outline, Icon: lucide.Pencil, Children: Text("Rename")},
+		Title:       Text("Rename project"),
+		Description: Text("Pick a short, memorable name."),
+		Children:    kit.Field{Label: "Name", Children: kit.Input{Value: &name, OnValueChange: setName.Set, AutoFocus: true}},
+		Footer:      kit.Button{Disabled: name == "", OnClick: func() { setOpen.Set(false) }, Children: Text("Save")},
+	})
+}
+```
+
+An alert (there is no `kit.Alert`): a `Div` with `Role("alert")`:
+
+```go
+func ErrorAlert(title, detail string) tela.Node {
+	return Div(Role("alert"),
+		Class("flex flex-col gap-0.5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"),
+		Div(Class("font-medium"), Text(title)),
+		Div(Class("text-destructive/80"), Text(detail)))
+}
+```
+
+## 7. A complete settings screen
+
+This is `examples/llms/settings/main.go` (its tests and goldens are next to it): an app shell with a sidebar whose current item has `AriaCurrent("page")`, a header with Save, a card of switch rows, a card with a `FieldSet` of radio cards and a horizontal `Field` with a `Select`; Save applies the theme with `tela.SetColorScheme` and shows a toast. It uses tokens only, so dark mode needs no `dark:` class. Copy its structure: `max-w-3xl` centered content, `gap-6` between cards, `text-2xl font-semibold tracking-tight` title with a `text-sm text-muted-foreground` subtitle, rows separated by `border-t first:border-t-0`.
+
+```go
+// Command settings is the worked example of docs/llms.txt, which shows this
+// file verbatim: an app shell with a sidebar and a settings page on kit.
+package main
+
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
+
+	"github.com/kuronosu/tela/icons/lucide"
+)
+
+// Prefs is the whole form: comparable, so prefs != saved means "unsaved".
+type Prefs struct {
+	Email, Push, Digest bool
+	Theme, Language     string
+}
+
+var defaults = Prefs{Email: true, Push: true, Theme: "system", Language: "en"}
+
+type navItem struct {
+	Label string
+	Icon  tela.Icon
+}
+
+var nav = []navItem{
+	{"Dashboard", lucide.LayoutDashboard}, {"Projects", lucide.FolderKanban},
+	{"Team", lucide.Users}, {"Settings", lucide.Settings},
+}
+
+var themes = []kit.RadioItem[string]{
+	{Value: "light", Label: "Light"}, {Value: "dark", Label: "Dark"}, {Value: "system", Label: "System"},
+}
+
+var themeIcons = map[string]tela.Icon{"light": lucide.Sun, "dark": lucide.Moon, "system": lucide.Monitor}
+
+var schemes = map[string]tela.ColorScheme{"light": tela.Light, "dark": tela.Dark, "system": tela.System}
+
+var languages = []kit.SelectItem[string]{
+	{Value: "en", Label: "English"}, {Value: "es", Label: "Español"},
+	{Value: "fr", Label: "Français"}, {Value: "de", Label: "Deutsch"},
+}
+
+// Settings is the screen; tela.C gives settings its own hook state.
+func Settings() tela.Node { return tela.C(settings) }
+
+func settings() tela.Node {
+	page, setPage := tela.UseState("Settings")
+	prefs, setPrefs := tela.UseState(defaults)
+	saved, setSaved := tela.UseState(defaults)
+	toast := kit.UseToast()
+
+	edit := func(f func(p *Prefs)) { setPrefs.Update(func(p Prefs) Prefs { f(&p); return p }) }
+	save := func() {
+		setSaved.Set(prefs)
+		tela.SetColorScheme(schemes[prefs.Theme])
+		toast.Success("Settings saved", kit.ToastDescription("Your preferences were updated."))
+	}
+	row := func(label, hint string, on bool, set func(p *Prefs, on bool)) tela.Node {
+		return Fragment(kit.Field{
+			Orientation: kit.Horizontal, ControlAfter: true, Label: label, Description: hint,
+			Class:    "items-center gap-6 border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0",
+			Children: kit.Switch{Checked: &on, OnCheckedChange: func(v bool) { edit(func(p *Prefs) { set(p, v) }) }},
+		})
+	}
+
+	sidebar := Div(Role("navigation"), AriaLabel("Main"),
+		Class("flex w-60 shrink-0 flex-col gap-1 border-r border-border bg-muted/40 p-3"),
+		Div(Class("flex items-center gap-2.5 px-2 pt-1 pb-5"),
+			Div(Class("flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"),
+				Icon(lucide.Layers, Class("size-4"))),
+			Span(Class("font-semibold tracking-tight"), Text("Acme"))),
+		Map(nav, func(n navItem) tela.Node {
+			current := ""
+			if n.Label == page {
+				current = "page"
+			}
+			return Button(Key(n.Label), AriaCurrent(current), OnClick(func() { setPage.Set(n.Label) }),
+				Class("flex h-9 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground transition-colors",
+					"hover:bg-accent hover:text-accent-foreground",
+					"aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-foreground"),
+				Icon(n.Icon, Class("size-4")), Text(n.Label))
+		}),
+		Div(Class("mt-auto flex items-center gap-3 border-t border-border px-2 pt-4"),
+			kit.Avatar{Fallback: "AL"},
+			Div(Class("flex min-w-0 flex-col text-sm"),
+				Span(Class("font-medium"), Text("Ada Lovelace")),
+				Span(Class("truncate text-xs text-muted-foreground"), Text("ada@example.com")))),
+	)
+
+	content := Div(Class("mx-auto flex max-w-3xl flex-col gap-6 px-8 py-8"),
+		Div(Class("flex items-end justify-between gap-4"),
+			Div(Class("flex flex-col gap-1"),
+				H1(Class("text-2xl font-semibold tracking-tight"), Text("Settings")),
+				P(Class("text-sm text-muted-foreground"), Text("Manage your notifications and how Acme looks."))),
+			kit.Button{Icon: lucide.Check, Disabled: prefs == saved, OnClick: save, Children: Text("Save changes")}),
+		kit.Card{TitleLevel: 2, Title: Text("Notifications"), Description: Text("Choose what we tell you about."),
+			Children: Div(Class("flex flex-col"),
+				row("Email notifications", "A summary of activity in your workspace.", prefs.Email, func(p *Prefs, v bool) { p.Email = v }),
+				row("Push notifications", "Mentions and replies, on your devices.", prefs.Push, func(p *Prefs, v bool) { p.Push = v }),
+				row("Weekly digest", "A Monday recap of what your team shipped.", prefs.Digest, func(p *Prefs, v bool) { p.Digest = v }))},
+		kit.Card{TitleLevel: 2, Title: Text("Appearance"), Description: Text("Applied when you save."),
+			ContentClass: "flex flex-col gap-6",
+			Children: Fragment(
+				kit.FieldSet{Legend: "Theme", LegendVariant: kit.LegendVariantLabel,
+					Children: kit.RadioGroup[string]{Items: themes, Render: themeCard, Class: "grid-cols-3",
+						Value: &prefs.Theme, OnValueChange: func(v string) { edit(func(p *Prefs) { p.Theme = v }) }}},
+				kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Class: "items-center gap-6",
+					Label: "Language", Description: "Used for dates, numbers and messages.",
+					Children: kit.Select[string]{Items: languages, Class: "w-44",
+						Value: &prefs.Language, OnValueChange: func(v string) { edit(func(p *Prefs) { p.Language = v }) }}})},
+	)
+
+	return Div(Class("flex h-screen"), sidebar,
+		Div(Class("min-w-0 flex-1 overflow-y-auto"),
+			IfElse(page == "Settings", content, Div(Class("flex h-full items-center justify-center text-sm text-muted-foreground"),
+				Textf("%s is empty in this example.", page)))))
+}
+
+// themeCard draws one theme option; st.Props makes the button the radio.
+func themeCard(o kit.RadioItem[string], st kit.RadioState) tela.Node {
+	return Button(Key(o.Value), st.Props,
+		Class("flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium shadow-xs transition-colors",
+			"hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50",
+			"aria-checked:border-primary aria-checked:bg-accent aria-checked:ring-1 aria-checked:ring-primary"),
+		Icon(themeIcons[o.Value], Class("size-4")), Text(o.Label))
+}
+
+var theme = kit.Theme()
+
+// App is the window; tela snapshot, tela mcp and the tests mount it too.
+var App = tela.App{
+	Title: "Settings", Width: 1040, Height: 800,
+	Theme: &theme, RootClass: "bg-background text-foreground",
+	Root: kit.Toaster{Children: Settings()},
+}
+
+func main() { tela.Main(App) }
+```
+
+Its aria snapshot (`tela inspect`, or the `snapshot` tool, which adds refs):
+
+```yaml
+- navigation "Main":
+  - text: Acme
+  - button "Dashboard"
+  - button "Projects"
+  - button "Team"
+  - button "Settings"
+  - text: AL Ada Lovelace ada@example.com
+- heading "Settings" [level=1]
+- paragraph: Manage your notifications and how Acme looks.
+- button "Save changes" [disabled]
+- heading "Notifications" [level=2]
+- text: Choose what we tell you about.
+- group:
+  - text: Email notifications
+  - paragraph: A summary of activity in your workspace.
+  - switch "Email notifications" [checked]
+...
+- group "Theme":
+  - text: Theme
+  - radiogroup "Theme":
+    - radio "Light"
+    - radio "Dark"
+    - radio "System" [checked]
+- group:
+  - text: Language
+  - paragraph: Used for dates, numbers and messages.
+  - button "English Language": English
+- region "Notifications"
+```
+
+(`aria-current` is not printed in snapshots, as in Playwright; `region "Notifications"` is the Toaster's.)
+
+## 8. Pitfalls and limits
+
+| Mistake | Fix |
+|---|---|
+| `Div("Hello")` does not compile | `Div(Text("Hello"))`; formatted: `Textf("%d", n)` |
+| Calling a function component that uses hooks: `counter()`, `telatest.Mount(t, counter())`, `Card{}.Build()` (dev mode panics: "hook called outside its component") | `tela.C(counter)` (write a public `Counter()` that returns it once), `tela.CP(fn, props)`, or pass the struct value itself: `Card{}` / `Fragment(Card{})` |
+| A hook inside `if`, a loop, a `Map`/`VirtualList` callback, an event handler, or after an early `return` | Call every hook at the top of the component; move per-row state into a row component (`MapKeyed(items, key, func(T) tela.Component { return Row{...} })`) |
+| Returning a kit component (or `If(...)`) where a `tela.Node` is expected: `cannot use kit.Button{...} as tela.Node` | `Fragment(kit.Button{...})`, `Fragment(If(...))` |
+| A list from `Map` without keys (dev warning "list without keys"), or index keys on a list that reorders | `Key(item.ID)` on each element; `tela.WithKey(comp, id)` for components; `MapKeyed` |
+| Declaring a name that `h` exports in your package (`Button`, `Label`, `Input`, `Text`, `Icon`, `Form`, `Value`, `Name`, `Type`, `Key`, `Map`, `Range`, `Scale`, `Style`, `Rows`, `ID`, `P`, `A`, `Code`...): "already declared through dot-import" | Name it `SaveButton`, `FieldLabel`, `themes`... |
+| `&Card{}` as a child, or a prop in a `tela.Component` field (`Children: Class("p-4")`): dev panic | Pass `Card{}`; put props in `Class`/`Props` |
+| `setCount.Set(count + 1)` twice in one frame loses one | `setCount.Update(func(n int) int { return n + 1 })`; `tela.Toggle(setOpen)` for bools |
+| `UseEffect(f, nil)` (dev panic) | `tela.UseEffect(f, tela.Once)` or `tela.UseMount(f)` |
+| Unknown or misspelled class (`rounded-xxl`, `bg-primry`) | Dev error with "did you mean"; `tela lint ./...` finds them statically. Unsupported classes say what to use |
+| A `kit.Tooltip` and a `kit.DropdownMenu` on the same `kit.Button`: a trigger takes one overlay | Tooltip on a wrapper: `kit.Tooltip{Content: Text("More"), Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node { return Span(p, Class("flex"), kit.DropdownMenu[string]{...}) })}` |
+| A trigger that is not a `kit.Button` (an `h.Button`, an avatar) | `kit.TriggerFunc(func(p tela.Prop) tela.Node { return Button(p, ...) })`: put `p` on the element. `Disabled` goes on the overlay |
+| `kit.Field` around `h.Input`, or around two controls: the label names nothing or the wrong one | One kit control per `Field` (`kit.Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `DatePicker`, `ColorInput`); `RadioGroup`/`ToggleGroup` go in a `kit.FieldSet` (legend names them) or take `AriaLabel`; `Slider` and `Progress` take `AriaLabel` |
+| An absolutely positioned icon over an input swallows clicks | `pointer-events-none` on the decoration: `Icon(lucide.Search, Class("pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"))` with `kit.Input{Class: "pl-9"}` |
+| Scrolling to the newest item flickers or lands short | `UseLayoutEffect` + `ref.ScrollIntoView()` (or `ScrollToIndex(i, tela.AlignEnd)` on a `VirtualList`), deps = the item count |
+| A flex child does not scroll or overflows | Give the scroll container a definite height (`h-screen`, `flex-1 min-h-0` in a `flex-col`, `h-96`) and `overflow-y-auto`; `min-w-0` on flex children that hold truncated text |
+| Wanting `kit.Alert`, `kit.Sheet`, `kit.Accordion`, `kit.Breadcrumb`, `kit.Sidebar`, `kit.Combobox` | Not in kit: compose `Div`s with tokens (`Role("alert")` for an alert, a `Div` sidebar with `AriaCurrent`), or use `kit.Dialog`/`kit.Popover`; `aria` has `UseCombobox` for a hand-built one |
+| `Variant: "primary"` on a `kit.Button` | The default variant is the zero value; variants are `Secondary`, `Outline`, `Ghost`, `Destructive`, `Link` |
+| A kit page that looks off (square corners, wrong colors) | `Theme: &theme` with `theme := kit.Theme()` and `RootClass: "bg-background text-foreground"` on the `App` |
+| Palette colors that ignore dark mode (`bg-white`, `text-zinc-900`) | Tokens (`bg-card`, `text-foreground`), or add `dark:` pairs |
+| The snapshot does not show a toast or effect result | `tela snapshot` renders one frame; in `tela mcp`, act then `wait {"ms": 300}` and `screenshot` |
+| `h.A` link does nothing | Tela does not navigate: handle `OnClick` |
+| `Div(Class("flex"), children...)` with a `[]tela.Node` slice: Go cannot spread it | `Div(Class("flex"), Nodes(children))` |
+
+**Limits.** Linux (Wayland, X11) and Windows windows; macOS cross-compiles but has no window yet. No submenus in menus; `Checkbox` has no indeterminate state; `Select` has no search (build a combobox with `aria.UseCombobox`); `Table` has no virtualization, resizing or row selection UI; no date-time input; no `tela add` yet. No margin collapsing, floats or CSS tables; 2D transforms only; SVG icons have no text, filters or patterns; no `grid-template-areas` from classes; `vertical-align` only on inline-blocks.
+
+## 9. Testing
+
+`telatest` mounts a component in a headless window, drives it with real events, finds elements like Playwright and compares goldens (`testdata/<name>.png`; `TELA_UPDATE=1 go test ./...` writes them). Dev errors fail the test.
+
+```go
+func TestSettingsLike(t *testing.T) {
+	app := telatest.MountFunc(t, func() tela.Node {
+		on, setOn := tela.UseState(false)
+		return Div(Class("p-6"),
+			kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Label: "Weekly digest",
+				Children: kit.Switch{Checked: &on, OnCheckedChange: setOn.Set}},
+			If(on, P(Text("Subscribed"))))
+	}, telatest.Size(480, 200), telatest.Theme(kit.Theme()))
+
+	digest := telatest.ByRole("switch", "Weekly digest")
+	app.Expect(digest, telatest.Checked(false))
+	app.Click(digest) // also: Fill(loc, text), Press("Shift+Tab"), Hover, Click(loc, telatest.Right()), Tap, LongPress
+	app.Expect(digest, telatest.Checked(true), telatest.Disabled(false))
+	app.ExpectText("Subscribed")
+	app.Advance(500 * time.Millisecond) // the clock is manual: timers, UseTimeout, animations
+	app.Golden("digest_on.png")         // telatest.Dark(), telatest.Scale(2) for other renders
+}
+```
+
+`telatest.Mount(t, comp, opts...)` mounts any component (`Settings()`, `Page{}`, `Previews["x"]`); `telatest.MountApp(t, App, opts...)` mounts a `tela.App` as its window would. Locators: `ByRole(role, name)`, `ByText(text)`, `ByTestID(id)`, `ByClass(...)`, then `.Nth(i)`, `.Filter(telatest.HasText("x"))`. Expectations wait and retry: `Expect(loc, Checked/Pressed/Selected/Expanded/Disabled/Focused/Invalid(bool), Current("page"), HasName, HasValue)`, `ExpectText`, `ExpectNoText`, `ExpectRole`, `ExpectCount`, `ExpectValue`, `ExpectAria(yaml)`. `AriaSnapshot()`, `Screenshot()`, `Bounds(loc)`, `Resize(w, h)` inspect without waiting.
+
+## More
+
+Guides (wiki): https://github.com/kuronosu/tela/wiki — Getting-Started, Styling, Theming, Hooks, Events, Elements-and-Props, Forms-and-Text-Input, Scrolling-and-VirtualList, Animation, Kit, Aria, Icons, Internationalization, Testing, CLI. API reference: https://pkg.go.dev/github.com/kuronosu/tela (also `/h`, `/kit`, `/aria`, `/telatest`, `/i18n`). Full screens to imitate: https://github.com/kuronosu/tela/tree/main/examples (settings, login, chat, dashboard, kit gallery).

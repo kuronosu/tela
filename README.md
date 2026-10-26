@@ -369,8 +369,14 @@ JSON. For people, `tela dev ./yourapp` reloads the open window on every save in
 about half a second, keeping its state: hooks, text fields, scroll and focus
 (see the [CLI](docs/wiki/CLI.md#tela-dev) page). `tela lint ./...` reports
 unknown classes, roles and ARIA values, duplicate keys and misused hooks in the
-source, with the same suggestions, so they fail in CI. Planned: `tela mcp` and
-a `docs/llms.txt` (phase 11).
+source, with the same suggestions, so they fail in CI. `tela mcp ./yourapp`
+serves the same loop to agents over the Model Context Protocol (snapshot,
+screenshot, click, fill... on a headless instance that rebuilds on every
+edit; see the [CLI](docs/wiki/CLI.md#tela-mcp) page), and
+[`docs/llms.txt`](docs/llms.txt) is the one file an LLM reads to build with
+Tela: the API, the `kit` components, the agent loop, a complete settings
+screen ([`examples/llms/settings`](examples/llms/settings)) and the common
+mistakes, with every code block checked against the current API by a test.
 
 ## Project status
 

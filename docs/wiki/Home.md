@@ -65,6 +65,10 @@ the aliases for those).
 | `telatest` | `github.com/kuronosu/tela/telatest` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/telatest) | [API-Reference-telatest](API-Reference-telatest) |
 | `kit` | `github.com/kuronosu/tela/kit` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/kit) | [API-Reference-kit](API-Reference-kit) |
 
+For LLM agents, [`docs/llms.txt`](https://github.com/kuronosu/tela/blob/main/docs/llms.txt)
+is the whole guide in one file (the API, the kit, the `tela mcp` loop and a
+complete settings screen), with every code block checked against the API.
+
 The design is in
 [`docs/ARCHITECTURE.md`](https://github.com/kuronosu/tela/blob/main/docs/ARCHITECTURE.md);
 full screens to imitate are in
