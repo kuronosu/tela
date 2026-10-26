@@ -80,7 +80,7 @@ func Filter() tela.Node {
 
 | Prop | Does |
 |---|---|
-| [`Type`](https://pkg.go.dev/github.com/kuronosu/tela/h#Type) | `"text"` (default), `"password"` (dots; cannot be copied), `"email"`, `"search"`, `"url"`, `"tel"`, `"number"` (hints for input methods; the value stays text). Invalid `email` and `url` values match `invalid:`. On a `Button`: `"submit"` (the default in a form), `"button"`, `"reset"` |
+| [`Type`](https://pkg.go.dev/github.com/kuronosu/tela/h#Type) | `"text"` (default), `"password"` (dots; cannot be copied), `"email"`, `"search"`, `"url"`, `"tel"`, `"number"` (hints for input methods; the value stays text). Invalid `email` and `url` values match `invalid:` (not in a `ReadOnly` or disabled field, which HTML bars from validation). On a `Button`: `"submit"` (the default in a form), `"button"`, `"reset"` |
 | [`Rows`](https://pkg.go.dev/github.com/kuronosu/tela/h#Rows) | How many lines tall a `Textarea` is (2 by default) |
 | [`Placeholder`](https://pkg.go.dev/github.com/kuronosu/tela/h#Placeholder) | Text shown while the field is empty; style it with `placeholder:` classes |
 | [`ReadOnly`](https://pkg.go.dev/github.com/kuronosu/tela/h#ReadOnly) | Focusable, selectable and copyable, but not editable; matches `read-only:` |

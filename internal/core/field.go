@@ -660,18 +660,34 @@ func (f *field) markPaint() {
 }
 
 // fieldStates sets the read-only:, placeholder-shown: and invalid: states
-// of f.
+// of f. A read-only or disabled field (ReadOnly, Disabled on it or an
+// ancestor) is barred from constraint validation (HTML), so it never
+// matches invalid:, whatever its value, as in Chromium; its value is
+// checked again once it is editable.
 func (t *Tree) fieldStates(f *field) {
 	el := f.el
 	fp := f.props()
 	ro := f.readOnly()
 	raw := f.ed.RawValue()
 	shown := fp.placeholder != "" && raw == ""
-	invalid := f.typeMismatch(raw) ||
-		f.edited && fp.maxLength > 0 && edit.UTF16Len(f.ed.Value()) > fp.maxLength
+	invalid := !ro && (f.typeMismatch(raw) ||
+		f.edited && fp.maxLength > 0 && edit.UTF16Len(f.ed.Value()) > fp.maxLength)
 	t.setState(el, style.StateReadOnly, ro)
 	t.setState(el, style.StatePlaceholderShown, shown)
 	t.setState(el, style.StateInvalid, invalid)
+}
+
+// disabledChanged updates the field states of the text fields below el,
+// whose Disabled changed: a field inside a disabled element is disabled
+// too (read-only:, and barred from invalid:), and its own node, which
+// may be unchanged, does not tell it.
+func (t *Tree) disabledChanged(el *Element) {
+	for _, c := range el.children {
+		if c.kind == elemPrimitive && c.box.fld != nil {
+			t.fieldStates(c.box.fld)
+		}
+		t.disabledChanged(c)
+	}
 }
 
 // typeMismatch reports HTML's type mismatch of an email or url value

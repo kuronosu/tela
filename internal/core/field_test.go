@@ -322,6 +322,61 @@ func TestFieldMaxLengthAndInvalid(t *testing.T) {
 	}
 }
 
+// TestFieldInvalidBarredFromValidation checks that a read-only or
+// disabled field never matches invalid: (HTML bars it from constraint
+// validation; Chromium's :invalid agrees), whether the field itself is
+// ReadOnly or Disabled or an ancestor is Disabled, and that it matches
+// again once it is editable. The ancestor case keeps the field's node
+// unchanged, so only the ancestor's update can tell it.
+func TestFieldInvalidBarredFromValidation(t *testing.T) {
+	var set Setter[int]
+	inner := input(Key("inner"), AriaLabel("inner"), FieldType("email"), DefaultValue("bad"))
+	app := func() Node {
+		n, s := UseState(0)
+		set = s
+		return div(
+			input(Key("ro"), AriaLabel("ro"), FieldType("email"), DefaultValue("bad"), ReadOnly(n == 1)),
+			input(Key("dis"), AriaLabel("dis"), FieldType("url"), DefaultValue("nope"), Disabled(n == 1)),
+			div(Key("set"), Disabled(n == 1), inner),
+		)
+	}
+	x := newKeys(t, Component(app), 400, 300)
+	x.frame()
+	tr := x.tree()
+	invalid := func(k string) bool { return keyed(tr, k).istate&style.StateInvalid != 0 }
+	keys := []string{"ro", "dis", "inner"}
+	for _, k := range keys {
+		if !invalid(k) {
+			t.Errorf("%s: an editable field with a bad value is not invalid", k)
+		}
+	}
+	set.Set(1)
+	x.frame()
+	for _, k := range keys {
+		if invalid(k) {
+			t.Errorf("%s: a read-only or disabled field matches invalid:", k)
+		}
+	}
+	if keyed(tr, "inner").istate&style.StateReadOnly == 0 {
+		t.Error("a field inside a disabled element does not match read-only:")
+	}
+	for _, k := range keys {
+		if mustNode(t, tr, "textbox", k).Has(semantics.StateInvalid) {
+			t.Errorf("%s: the semantics node is invalid", k)
+		}
+	}
+	set.Set(0)
+	x.frame()
+	for _, k := range keys {
+		if !invalid(k) {
+			t.Errorf("%s: invalid: does not match again once the field is editable", k)
+		}
+	}
+	if keyed(tr, "inner").istate&style.StateReadOnly != 0 {
+		t.Error("a field no longer inside a disabled element still matches read-only:")
+	}
+}
+
 func TestFieldPasswordAndClipboard(t *testing.T) {
 	root := div(input(Key("pw"), FieldType("password"), DefaultValue("secret")), input(Key("txt"), DefaultValue("copy me")))
 	x := newKeys(t, root, 400, 200)

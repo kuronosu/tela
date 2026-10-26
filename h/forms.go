@@ -111,7 +111,8 @@ func BindValue(v *tela.Value[string]) tela.Prop { return core.BindValue(v) }
 // value shows as dots and cannot be copied), "email", "search", "url",
 // "tel" or "number" (a hint for input methods; the value stays text, with
 // no spinner). "email" and "url" values that are not valid match
-// invalid:. On a Button it sets "submit" (the default inside a Form),
+// invalid:, unless the Input is ReadOnly or disabled (HTML bars those
+// from validation). On a Button it sets "submit" (the default inside a Form),
 // "button" or "reset". An unknown type panics in dev mode.
 func Type(t string) tela.Prop { return core.FieldType(t) }
 

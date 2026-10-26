@@ -95,7 +95,7 @@ const (
 	// accessibility tree computes it: AriaInvalid when it is set (true or
 	// false), else a text field's own validity (the invalid: variant: a
 	// type mismatch of an email or url value, a maxlength exceeded by an
-	// edit). Node.Invalid holds the prop alone, which is what aria
+	// edit; never for a read-only or disabled field). Node.Invalid holds the prop alone, which is what aria
 	// snapshots print.
 	StateInvalid
 )

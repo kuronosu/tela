@@ -2160,7 +2160,7 @@ fmt.Println(app.PixelAt(16, 16))
 func Type(t string) tela.Prop
 ```
 
-Type sets the type of an Input: "text" (the default), "password" (the value shows as dots and cannot be copied), "email", "search", "url", "tel" or "number" (a hint for input methods; the value stays text, with no spinner). "email" and "url" values that are not valid match invalid:. On a Button it sets "submit" (the default inside a Form), "button" or "reset". An unknown type panics in dev mode.
+Type sets the type of an Input: "text" (the default), "password" (the value shows as dots and cannot be copied), "email", "search", "url", "tel" or "number" (a hint for input methods; the value stays text, with no spinner). "email" and "url" values that are not valid match invalid:, unless the Input is ReadOnly or disabled (HTML bars those from validation). On a Button it sets "submit" (the default inside a Form), "button" or "reset". An unknown type panics in dev mode.
 
 ### func Value
 

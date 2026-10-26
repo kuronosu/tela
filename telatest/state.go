@@ -93,7 +93,8 @@ func Focused(focused bool) State { return flagState("focused", semantics.StateFo
 // Invalid expects the element's value to be invalid (true) or valid
 // (false) for assistive technologies: h.AriaInvalid when it is set, else a
 // text field's own validity (an email or url Input whose value does not
-// parse), as Chromium tells them.
+// parse; a ReadOnly or disabled field is never invalid by its value), as
+// Chromium tells them.
 //
 //	app.Fill(telatest.ByRole("textbox", "Email"), "ada@")
 //	app.Expect(telatest.ByRole("textbox", "Email"), telatest.Invalid(true))

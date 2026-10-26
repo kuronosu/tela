@@ -36,7 +36,8 @@ const (
 	// (:placeholder-shown).
 	StatePlaceholderShown
 	// StateInvalid: a text field that fails constraint validation
-	// (:invalid).
+	// (:invalid); a read-only or disabled one is barred from it and never
+	// has the state.
 	StateInvalid
 	// StateEnabled is the absence of StateDisabled; the caller does not
 	// set it, enabled: tests that StateDisabled is clear.

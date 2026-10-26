@@ -309,7 +309,9 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	// ADR-131): the AriaInvalid prop when it is set, true or false, else a
 	// text field's own validity (the invalid: variant's state: a type
 	// mismatch, a maxlength exceeded by an edit), except for a read-only or
-	// disabled field, which HTML bars from constraint validation.
+	// disabled field, which HTML bars from constraint validation (the
+	// state is never set on one, fieldStates; the test here also covers a
+	// disabled semantics ancestor).
 	if a != nil && a.invalid != semantics.ToggleUnset {
 		if a.invalid == semantics.ToggleTrue {
 			n.States |= semantics.StateInvalid

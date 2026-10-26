@@ -1352,7 +1352,7 @@ HasValue expects the element's value to be exactly value: the text of a text fie
 func Invalid(invalid bool) State
 ```
 
-Invalid expects the element's value to be invalid (true) or valid (false) for assistive technologies: h.AriaInvalid when it is set, else a text field's own validity (an email or url Input whose value does not parse), as Chromium tells them.
+Invalid expects the element's value to be invalid (true) or valid (false) for assistive technologies: h.AriaInvalid when it is set, else a text field's own validity (an email or url Input whose value does not parse; a ReadOnly or disabled field is never invalid by its value), as Chromium tells them.
 
 ```go
 app.Fill(telatest.ByRole("textbox", "Email"), "ada@")
