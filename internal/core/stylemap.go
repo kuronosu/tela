@@ -80,25 +80,31 @@ func (t *Tree) restyle(el *Element) {
 		portalStyle(cs) // a portal layer (portal.go)
 	}
 	old := bx.cs
+	// before is the style the animations start from (beforeChange); old
+	// is what the rest compares with: the structure, the children's
+	// inherited values, a field's text and the TextColorFn count follow
+	// the style the box had, also in a rerun.
+	before := old
 	if old == nil {
 		bx.styledFrame = t.frame
-	} else if t.rerun && bx.styledFrame == t.frame {
+	} else if t.rerun && bx.styledFrame >= t.frameStart {
 		// The frame builds again before painting (the float pass
 		// published a placement): a box that mounted in it has not been
 		// seen yet, so it starts its transitions and animations again
 		// from its starting style, with the classes of the final side.
+		// (>=: the passes of the frame advance t.frame; Tree.frameStart.)
 		if ba := bx.anim; ba != nil {
 			t.anim.tk.Remove(ba)
 			ba.dormant = false
 			ba.trans, ba.kf = nil, nil
 			ba.release()
 		}
-		old = nil
+		before = nil
 	}
 	// Transitions and keyframe animations: cs is the target; the style the
 	// box uses now may differ from it (anim.go). A box that starts being
 	// rendered transitions from its starting style, or not at all.
-	cs = t.animRestyle(el, bx, t.beforeChange(bx, old, cs, in), cs)
+	cs = t.animRestyle(el, bx, t.beforeChange(bx, before, cs, in), cs)
 	t.countTextColorFn(old, cs)
 	bx.cs = cs
 	if bx.fld != nil {

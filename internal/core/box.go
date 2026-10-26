@@ -92,8 +92,9 @@ type Box struct {
 	// startingUse reports starting: rules: a box that starts being
 	// rendered transitions from its starting style (anim.go).
 	startingUse bool
-	// styledFrame is the frame that styled the box for the first time
-	// (a rerun frame starts its animations again: Tree.restyle).
+	// styledFrame is Tree.frame when the box was styled for the first
+	// time; one at or after Tree.frameStart was styled in the current
+	// Frame, whose rerun starts its animations again (Tree.restyle).
 	styledFrame uint64
 
 	// built reports that the box's own structure (kids or paragraph) is

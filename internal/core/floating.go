@@ -273,8 +273,12 @@ type floatTree struct {
 	again bool
 	run   int
 	// published are the Values that the Place functions of the frame
-	// published (pubs[n:] of each call), for rebuildPublished.
+	// published, for rebuildPublished: PublishValue records each one while
+	// placing (a Place function runs) counts above zero, also a Value
+	// already published earlier in the frame (a layout effect), which is
+	// in Tree.pubs once. It may repeat a Value.
 	published []*valueCore
+	placing   int
 }
 
 // updateFloat gives the box of primitive el the Floating prop of its node
@@ -536,8 +540,9 @@ func (t *Tree) floatOne(p *painter, bx *Box, relayout bool) (laid bool) {
 // Values it reads (a change places bx again).
 func (t *Tree) callPlace(bx *Box, f *floatState, in FloatInput) FloatResult {
 	mark := t.beginTrack()
-	pubs := len(t.pubs)
-	defer func() { t.flt.published = append(t.flt.published, t.pubs[min(pubs, len(t.pubs)):]...) }()
+	// What it publishes is recorded by PublishValue (placePublished).
+	t.flt.placing++
+	defer func() { t.flt.placing-- }()
 	var res FloatResult
 	func() {
 		done := false
@@ -561,8 +566,9 @@ func (t *Tree) callPlace(bx *Box, f *floatState, in FloatInput) FloatResult {
 // Frame builds, styles and lays out again before it presents anything. The
 // first paint of the frame is then never shown: a menu that flips above its
 // trigger is styled for the top side from its first frame, not one frame
-// later (ADR-164). Values published by anything but a Place function wait
-// for the end of the frame as ever.
+// later (ADR-164). A Value is applied here when a Place function published
+// it, also if other code had published it earlier in the frame; Values
+// published only by other code wait for the end of the frame as ever.
 func (t *Tree) rebuildPublished() bool {
 	F := &t.flt
 	pubs := F.published
@@ -715,11 +721,16 @@ func minDim(d layout.Dim, v, basis float32) layout.Dim {
 // bound to v and paint; a controlled color picker's hex field and code
 // change in the frame whose build changed the color, ADR-162). Queued
 // Set and Update calls of v still apply after it; a comparable value
-// == to the current one changes nothing. Call it on the UI thread only.
+// == to the current one changes nothing (but a Place function publishing
+// the value that other code published earlier in the frame still has its
+// readers follow in this frame). Call it on the UI thread only.
 func PublishValue[T any](v *Value[T], x T) {
 	cur := v.load("PublishValue")
 	t := v.el.tree
 	if v.comparable && safeEqual(any(*cur), any(x)) {
+		if v.pub {
+			t.placePublished(&v.valueCore) // pending since earlier in the frame
+		}
 		return
 	}
 	p := new(T)
@@ -734,7 +745,8 @@ func PublishValue[T any](v *Value[T], x T) {
 
 // publishChanged marks the paint-phase readers of v, changed inside a
 // frame, for painting, and queues its other readers for the end of the
-// frame (publishAfterFrame).
+// frame (publishAfterFrame), or for rebuildPublished when a Place
+// function published it.
 func (t *Tree) publishChanged(v *valueCore) {
 	for _, s := range v.subs {
 		if o := s.obs; o.kind == obsPaint && (o.box.parent != nil || o.box.inPara != nil || contentsBox(o.box)) {
@@ -744,6 +756,18 @@ func (t *Tree) publishChanged(v *valueCore) {
 	if !v.pub {
 		v.pub = true
 		t.pubs = append(t.pubs, v)
+	}
+	t.placePublished(v)
+}
+
+// placePublished records published Value v for rebuildPublished when a
+// Place function is running (callPlace). v is recorded whether or not this
+// publish queued it: a Value that a layout effect published earlier in the
+// frame is in t.pubs already, and what Place publishes to it must still be
+// read in this frame (ADR-164).
+func (t *Tree) placePublished(v *valueCore) {
+	if t.flt.placing > 0 {
+		t.flt.published = append(t.flt.published, v)
 	}
 }
 

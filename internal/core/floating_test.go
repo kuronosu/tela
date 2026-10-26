@@ -3,6 +3,7 @@ package core
 import (
 	"image/color"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/semantics"
@@ -446,6 +447,200 @@ func TestFloatingPublish(t *testing.T) {
 	tr.Frame()
 	if builds != b {
 		t.Errorf("a frame built the reader of the side again: %d builds", builds-b)
+	}
+}
+
+// flipPopover mounts a page whose popover, opened after the first frame,
+// flips: Place publishes the side "top" to a Value that starts at initial,
+// and the popover is rendered from it by pop (a build reader). It returns
+// the tree after the frame that opened the popover, and closePop, which
+// closes it and runs a frame. The animation clock drives the tree, so the
+// popover enters from its starting style.
+func flipPopover(t *testing.T, initial string, pop func(side string, place FloatOptions) Node) (tr *Tree, closePop func()) {
+	t.Helper()
+	var anchor ElementRef
+	var side *Value[string]
+	var open Setter[bool]
+	place := func(in FloatInput) FloatResult {
+		PublishValue(side, "top")
+		return FloatResult{X: in.Anchor.X, Y: in.Anchor.Y - in.Floating.Height}
+	}
+	content := func() Node { return pop(side.Get(), FloatOptions{Anchor: anchor, Place: place}) }
+	comp := func() Node {
+		anchor = UseElementRef()
+		side = UseValue(initial)
+		o, s := UseState(false)
+		open = s
+		return div(Class("pt-[250px] pl-[100px]"),
+			div(Key("anchor"), AttachRef(anchor), Class("h-8 w-20")),
+			If(o, Portal(Component(content))))
+	}
+	tr = newTestTree(t, 400, 300, Component(comp), nil)
+	tr.Animate(0)
+	tr.Frame()
+	open.Set(true)
+	tr.Animate(16 * time.Millisecond)
+	tr.Frame()
+	if side.Get() != "top" {
+		t.Fatalf("published side %q, want top", side.Get())
+	}
+	return tr, func() {
+		open.Set(false)
+		tr.Frame()
+	}
+}
+
+// TestFloatingRerunRestylesWhatTheSideChanges: the second pass of a frame
+// whose popover flipped (ADR-164) restyles the popover like any restyle:
+// the classes of the top side change inherited values (text color and
+// font size: the children and a text field inside follow) and the display
+// (block to flex: the box structure is built again), and only the entry
+// starts again, from the top side's starting style. The first frame shown
+// is the one of a popover mounted on the top side directly.
+func TestFloatingRerunRestylesWhatTheSideChanges(t *testing.T) {
+	pop := func(side string, o FloatOptions) Node {
+		cls := "fixed w-40 block text-[#ff0000] text-[10px] starting:translate-y-[-8px] transition-transform duration-200"
+		if side == "top" {
+			cls = "fixed w-40 flex text-[#0000ff] text-[20px] starting:translate-y-[8px] transition-transform duration-200"
+		}
+		return div(Key("pop"), Floating(o), Class(cls),
+			span(Key("child"), Text("Hi")), Text("there"),
+			input(Key("field"), Class("w-16"), DefaultValue("hello")))
+	}
+	type frame struct {
+		pop, child, field    gfx.Rect
+		color                gfx.Color
+		childSize, fieldSize float32
+		translate            style.LP
+	}
+	first := func(initial string) frame {
+		tr, _ := flipPopover(t, initial, pop)
+		return frame{
+			pop: popRect(tr, "pop"), child: popRect(tr, "child"), field: popRect(tr, "field"),
+			color:     keyed(tr, "child").box.cs.Text.Color,
+			childSize: keyed(tr, "child").box.cs.Text.FontSize,
+			fieldSize: keyed(tr, "field").box.cs.Text.FontSize,
+			translate: keyed(tr, "pop").box.cs.Transform.TranslateY,
+		}
+	}
+	got, want := first("bottom"), first("top")
+	blue := gfx.Color{B: 1, A: 1}
+	if got.color != blue || got.childSize != 20 {
+		t.Errorf("the child of the flipped popover has color %v and font size %g in the first frame, want the top side's %v and 20", got.color, got.childSize, blue)
+	}
+	if got.fieldSize != 20 {
+		t.Errorf("the field in the flipped popover has font size %g in the first frame, want 20", got.fieldSize)
+	}
+	if !rectNear(got.pop, want.pop) || !rectNear(got.child, want.child) || !rectNear(got.field, want.field) {
+		t.Errorf("first frame of the flipped popover: popover %v, child %v, field %v; mounted on the top side: %v, %v, %v",
+			got.pop, got.child, got.field, want.pop, want.child, want.field)
+	}
+	if got.translate != (style.LP{Px: 8}) || want.translate != (style.LP{Px: 8}) {
+		t.Errorf("the popover enters from translate-y %v (flipped) and %v (top side), want the top side's starting 8px", got.translate, want.translate)
+	}
+}
+
+// TestFloatingRerunCountsTextColorFns: a popover whose bottom side has a
+// TextColorFn and whose top side has one or none is counted once, as the
+// style it ends with in the frame says, and not at all once it is closed
+// (an extra count would make every later paint look for deferred text
+// colors).
+func TestFloatingRerunCountsTextColorFns(t *testing.T) {
+	red := func() gfx.Color { return gfx.Color{R: 1, A: 1} }
+	for _, top := range []bool{false, true} {
+		pop := func(side string, o FloatOptions) Node {
+			var ops []style.Op
+			if side != "top" || top {
+				ops = append(ops, style.TextColorFn(red))
+			}
+			return div(Key("pop"), Floating(o), Class("fixed h-10 w-40"), Style(ops...), Text("Hi"))
+		}
+		tr, closePop := flipPopover(t, "bottom", pop)
+		want := 0
+		if top {
+			want = 1
+		}
+		if tr.textColorFns != want {
+			t.Errorf("TextColorFn on the top side %v: %d boxes counted in the first frame, want %d", top, tr.textColorFns, want)
+		}
+		closePop()
+		if tr.textColorFns != 0 {
+			t.Errorf("TextColorFn on the top side %v: %d boxes counted after the popover closed, want 0", top, tr.textColorFns)
+		}
+	}
+}
+
+// TestFloatingRerunWithVirtualList: a popover with a VirtualList inside
+// (whose pass in the scroll phase starts a new structure pass) still
+// enters from the top side's starting style when it flips.
+func TestFloatingRerunWithVirtualList(t *testing.T) {
+	pop := func(side string, o FloatOptions) Node {
+		cls := "fixed w-40 h-32 starting:translate-y-[-8px] transition-transform duration-200"
+		if side == "top" {
+			cls = "fixed w-40 h-32 starting:translate-y-[8px] transition-transform duration-200"
+		}
+		return div(Key("pop"), Floating(o), Class(cls),
+			VirtualList(50, func(int) float32 { return 20 }, func(i int) Node {
+				return div(Class("h-5"), Textf("item %d", i))
+			}, Class("h-full")))
+	}
+	tr, _ := flipPopover(t, "bottom", pop)
+	if g := keyed(tr, "pop").box.cs.Transform.TranslateY; g != (style.LP{Px: 8}) {
+		t.Errorf("the flipped popover enters from translate-y %v, want the top side's starting 8px", g)
+	}
+}
+
+// TestFloatingPublishAfterEarlierPublish: a Value that a layout effect
+// published earlier in the frame (queued for the end of the frame) and that
+// Place then publishes again, a new value or the same one, is read by its
+// build readers in that frame. One that a build published (a direct store,
+// ADR-162) is read in the frame as well.
+func TestFloatingPublishAfterEarlierPublish(t *testing.T) {
+	for _, c := range []struct {
+		by    string // "effect" or "build"
+		early string
+	}{{"effect", "effect"}, {"effect", "top"}, {"build", "build"}, {"build", "top"}} {
+		var anchor ElementRef
+		var side *Value[string]
+		var seen []string
+		place := func(in FloatInput) FloatResult {
+			PublishValue(side, "top")
+			return FloatResult{X: in.Anchor.X, Y: in.Anchor.Y - in.Floating.Height}
+		}
+		label := func() Node {
+			s := side.Get()
+			seen = append(seen, s)
+			return span(Key("label"), Text(s))
+		}
+		builds := 0
+		pop := func() Node {
+			if c.by == "build" {
+				if builds++; builds == 1 {
+					PublishValue(side, c.early)
+				}
+			} else {
+				UseLayoutEffect(func() func() {
+					PublishValue(side, c.early)
+					return nil
+				}, Once)
+			}
+			return div(Key("pop"), Floating(FloatOptions{Anchor: anchor, Place: place}), Class("fixed h-10 w-40"), Component(label))
+		}
+		comp := func() Node {
+			anchor = UseElementRef()
+			side = UseValue("bottom")
+			return div(Class("pt-[200px] pl-[100px]"),
+				div(Key("anchor"), AttachRef(anchor), Class("h-8 w-20")),
+				Portal(Component(pop)))
+		}
+		tr := newTestTree(t, 400, 300, Component(comp), nil)
+		tr.Frame()
+		if len(seen) == 0 || seen[len(seen)-1] != "top" {
+			t.Errorf("%s publishes %q: the reader built %v in the first frame, want it to end with top", c.by, c.early, seen)
+		}
+		if tr.Dirty() {
+			t.Errorf("%s publishes %q: the first frame left work", c.by, c.early)
+		}
 	}
 }
 

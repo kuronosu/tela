@@ -156,6 +156,11 @@ type Tree struct {
 	restyled             []*Box
 	remapQ               []*Box
 	frame                uint64 // frame counter: the validity of per-frame scratch state
+	// frameStart is frame at the start of the current Frame: the passes
+	// inside it (a rerun, a virtual list's relayout) advance frame so that
+	// their structure is built again, and a box styled for the first time
+	// in any of them has styledFrame >= frameStart.
+	frameStart uint64
 
 	// changed reports work since the last Frame; onDirty requests a frame
 	// (once until the next Frame), except while a Frame runs.
@@ -534,6 +539,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		}
 	}
 	t.frame++
+	t.frameStart = t.frame
 	t.stats.Frames++
 	// A frame that builds, restyles or lays out records every layer; one
 	// that only repaints records only what changed (layer.go).
@@ -595,6 +601,11 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		}
 		t.rerun = true
 		full = true
+		// A new pass, as virtualRelayout's: the per-frame marks of the
+		// structure phase (boxFrame, inlineFrame, sibFrame) do not take
+		// what the first pass built for current, so a box whose display or
+		// children the second pass changed gets its structure again.
+		t.frame++
 	}
 	t.rerun = false
 	t.changed, t.repaint = false, false

@@ -44,6 +44,16 @@ var inputBaselineCases = []struct {
 	{14, "leading-[30px]", "h-[38px]", 4, [3]int{24, 35, 47}, [3]float32{38, 38, 38}},
 	{14, "leading-[30px]", "h-1/2", 4, [3]int{17, 25, 34}, [3]float32{25, 25, 25}},
 	{14, "leading-[30px]", "h-[calc(100%-2px)]", 4, [3]int{29, 43, 57}, [3]float32{48, 48, 48}},
+	// A percentage that resolves to zero is a percentage too (ADR-157's
+	// 0%): the line height is dropped. h-[0%] with py-[4px] is not here
+	// because Chromium clips the line to the 8 px box, hiding the baseline.
+	{14, "leading-[30px]", "h-[0%]", 20, [3]int{25, 37, 49}, [3]float32{40, 40, 40}},
+	{14, "leading-[30px]", "h-[0%]", 12, [3]int{17, 25, 33}, [3]float32{24, 24, 24}},
+	{14, "leading-[20px]", "h-[0%]", 20, [3]int{25, 37, 49}, [3]float32{40, 40, 40}},
+	{14, "leading-[30px]", "h-[calc(0%+40px)]", 4, [3]int{25, 37, 49}, [3]float32{40, 40, 40}},
+	{14, "leading-[30px]", "h-[calc(0%+20px)]", 0, [3]int{15, 22, 29}, [3]float32{20, 20, 20}}, // shorter than the line height: dropped anyway
+	{14, "leading-[30px]", "h-[calc(0%+30px)]", 0, [3]int{20, 29, 39}, [3]float32{30, 30, 30}}, // h-[30px] keeps it: 19 at x1
+	{16, "leading-[24px]", "h-[calc(0%+20px)]", 0, [3]int{15, 23, 31}, [3]float32{20, 20, 20}},
 	{14, "leading-none", "", 4, [3]int{17, 25, 34}, [3]float32{25, 24.6667, 25}},       // font size >= line height
 	{14, "leading-[14.5px]", "", 4, [3]int{17, 25, 31}, [3]float32{25, 24.6667, 22.5}}, // 14.5 px: 14 at x1, 21.75 at x1.5, but 29 at x2
 	{14, "leading-[15px]", "", 4, [3]int{16, 23, 32}, [3]float32{23, 23, 23}},
