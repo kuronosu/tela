@@ -304,13 +304,23 @@ func checkFormProps(kind style.Kind, d *desc) {
 			}
 		}
 		if devNow() {
-			msg := fmt.Sprintf("tela: Type(%q) on <%v>: unknown type; use one of %s", fp.typ, kind, strings.Join(names, ", "))
-			if s := closestName(fp.typ, names); s != "" {
-				msg = fmt.Sprintf("tela: Type(%q) on <%v>: unknown type; did you mean %q? (types: %s)", fp.typ, kind, s, strings.Join(names, ", "))
-			}
-			panic(msg)
+			panic(fieldTypeMessage(fp.typ, fmt.Sprintf("<%v>", kind), names))
 		}
 	}
+}
+
+// fieldTypeMessage is the dev-mode message of a Type that on (an element
+// such as "<input>", or "" when unknown) does not take (CheckFieldType).
+func fieldTypeMessage(typ, on string, names []string) string {
+	where := ""
+	if on != "" {
+		where = " on " + on
+	}
+	msg := fmt.Sprintf("tela: Type(%q)%s: unknown type; use one of %s", typ, where, strings.Join(names, ", "))
+	if s := closestName(typ, names); s != "" {
+		msg = fmt.Sprintf("tela: Type(%q)%s: unknown type; did you mean %q? (types: %s)", typ, where, s, strings.Join(names, ", "))
+	}
+	return msg
 }
 
 // fpWhere says which elements take a form prop.

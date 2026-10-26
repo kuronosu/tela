@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/kuronosu/tela/internal/semantics"
@@ -62,13 +61,7 @@ func ariaProp(name string, f func(a *ariaProps)) Prop {
 // presentational role conflict resolution).
 func Role(role string) Prop {
 	if devNow() {
-		if _, bad := semantics.ParseRole(role); bad != "" {
-			msg := fmt.Sprintf("tela: Role(%q): unknown ARIA role %q", role, bad)
-			if s := semantics.SuggestRole(bad); s != "" {
-				msg += fmt.Sprintf("; did you mean %q?", s)
-			} else {
-				msg += "; see the WAI-ARIA 1.2 roles (button, checkbox, dialog, heading, link, switch, tab...)"
-			}
+		if msg := CheckRole(role); msg != "" {
 			panic(msg)
 		}
 	}

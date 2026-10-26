@@ -44,20 +44,34 @@ func ariaWidgetProp(name string, f func(w *ariaWidget)) Prop {
 // unknown value panics with the closest valid one; otherwise ok is false
 // and the prop is ignored.
 func ariaToken(prop, value string, valid []string) (string, bool) {
+	if v, ok := lookupToken(value, valid); ok {
+		return v, true
+	}
+	if devNow() {
+		panic(ariaTokenMessage(prop, value, valid))
+	}
+	return "", false
+}
+
+// lookupToken returns value lowercased and trimmed when it is one of valid.
+func lookupToken(value string, valid []string) (string, bool) {
 	v := strings.ToLower(strings.TrimSpace(value))
 	for _, ok := range valid {
 		if v == ok {
 			return v, true
 		}
 	}
-	if devNow() {
-		msg := fmt.Sprintf("tela: %s(%q): unknown value", prop, value)
-		if best := closestName(v, valid); best != "" {
-			msg += fmt.Sprintf("; did you mean %q?", best)
-		}
-		panic(msg + "; it takes " + quoteList(valid))
-	}
 	return "", false
+}
+
+// ariaTokenMessage is the dev-mode message of a value that is not one of
+// valid (CheckAriaToken).
+func ariaTokenMessage(prop, value string, valid []string) string {
+	msg := fmt.Sprintf("tela: %s(%q): unknown value", prop, value)
+	if best := closestName(strings.ToLower(strings.TrimSpace(value)), valid); best != "" {
+		msg += fmt.Sprintf("; did you mean %q?", best)
+	}
+	return msg + "; it takes " + quoteList(valid)
 }
 
 func quoteList(vs []string) string {

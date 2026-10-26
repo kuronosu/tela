@@ -62,9 +62,14 @@ func parseDir(v string) (dirValue, bool) {
 func Dir(dir string) Prop {
 	v, ok := parseDir(dir)
 	if !ok && devNow() {
-		panic(fmt.Sprintf("tela: Dir(%q): the direction is \"rtl\", \"ltr\" or \"auto\"", dir))
+		panic(dirMessage(dir))
 	}
 	return Prop{name: "Dir", apply: func(d *desc) { d.dir = v }}
+}
+
+// dirMessage is the dev-mode message of an invalid Dir value (CheckDir).
+func dirMessage(dir string) string {
+	return fmt.Sprintf("tela: Dir(%q): the direction is \"rtl\", \"ltr\" or \"auto\"", dir)
 }
 
 // styleDir returns the direction el sets for its style computation,
