@@ -3,37 +3,40 @@
 - heading "Notifications" [level=2]
 - text: Choose what you want to be told about.
 - group:
-  - switch "Email notifications" [checked]
   - text: Email notifications
   - paragraph: Receive a summary of activity in your workspace.
+  - switch "Email notifications" [checked]
 - group:
-  - switch "Push notifications" [checked]
   - text: Push notifications
   - paragraph: Get notified about mentions and replies on your devices.
+  - switch "Push notifications" [checked]
 - group:
-  - switch "Weekly digest"
   - text: Weekly digest
   - paragraph: A Monday morning recap of what your team shipped.
+  - switch "Weekly digest"
 - group:
-  - switch "Product updates"
   - text: Product updates
   - paragraph: News about new features, tips and special offers.
+  - switch "Product updates"
 - group:
-  - switch "Security alerts" [checked] [disabled]
   - text: Security alerts
   - paragraph: "Always on: sign-ins from new devices."
+  - switch "Security alerts" [checked] [disabled]
 - heading "Appearance" [level=2]
-- text: Pick a theme and how much room the interface takes. Theme
-- radiogroup "Theme":
-  - radio "Light"
-  - radio "Dark"
-  - radio "System" [checked]
-- text: Density
-- radiogroup "Density":
-  - radio "Compact"
-  - radio "Comfortable" [checked]
-  - radio "Spacious"
-- paragraph: Balanced spacing. The default.
+- text: Pick a theme and how much room the interface takes.
+- group "Theme":
+  - text: Theme
+  - radiogroup "Theme":
+    - radio "Light"
+    - radio "Dark"
+    - radio "System" [checked]
+- group "Density":
+  - text: Density
+  - radiogroup "Density":
+    - radio "Compact"
+    - radio "Comfortable" [checked]
+    - radio "Spacious"
+  - paragraph: Balanced spacing. The default.
 - text: All changes saved
 - button "Reset" [disabled]
 - button "Save changes" [disabled]

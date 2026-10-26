@@ -132,7 +132,7 @@ type RadioState struct {
 //	    }}
 //
 // Inside a [Field] the group takes the field's description and invalid
-// state; name it with AriaLabel.
+// state. Name it with AriaLabel, or put it in a [FieldSet] whose Legend names it.
 type RadioGroup[K comparable] struct {
 	// Items are the options, in order.
 	Items []RadioItem[K]
@@ -160,7 +160,7 @@ type RadioGroup[K comparable] struct {
 	// Invalid marks the group wrong: the circles take the invalid look. A
 	// [Field] with an Error sets it.
 	Invalid bool
-	// AriaLabel names the group.
+	// AriaLabel names the group; without it a [FieldSet]'s legend does.
 	AriaLabel string
 	// Render draws one option in place of the default (circle, label and
 	// description); see [RadioState]. It runs while the group builds.
@@ -206,10 +206,11 @@ func (g RadioGroup[K]) Build() tela.Node {
 			disabled = append(disabled, it.Value)
 		}
 	}
+	legend := useGroupLabel(g.AriaLabel)
 	dir, rootDir := useDirection("RadioGroup", g.Direction)
 	grp := aria.UseRadioGroup(aria.RadioGroupOptions[K]{
 		Keys: keys, DisabledKeys: disabled, Value: g.Value, DefaultValue: g.DefaultValue, OnValueChange: g.OnValueChange,
-		Disabled: g.Disabled, ReadOnly: g.ReadOnly, Required: g.Required, Orientation: string(o), AriaLabel: g.AriaLabel, Direction: dir,
+		Disabled: g.Disabled, ReadOnly: g.ReadOnly, Required: g.Required, Orientation: string(o), AriaLabel: g.AriaLabel, AriaLabelledBy: legend, Direction: dir,
 	})
 	kids := []tela.Child{cls(s.Root, pick("RadioGroup", "Orientation", s.Orientations, o), g.Class), rootDir, grp.Props, g.Props}
 	kids = append(kids, field...)
@@ -246,3 +247,7 @@ func (g RadioGroup[K]) Build() tela.Node {
 	}
 	return h.Div(kids...)
 }
+
+// isRadioGroup marks a RadioGroup for [FieldSet], whose column is tighter
+// around one.
+func (RadioGroup[K]) isRadioGroup() {}

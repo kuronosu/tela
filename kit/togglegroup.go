@@ -128,7 +128,7 @@ type ToggleGroup[K comparable] struct {
 	Direction string
 	// Disabled disables every item.
 	Disabled bool
-	// AriaLabel names the group.
+	// AriaLabel names the group; without it a [FieldSet]'s legend does.
 	AriaLabel string
 	// Class is added after the recipe's classes; ItemClass is added to every
 	// item.
@@ -145,7 +145,7 @@ func (g ToggleGroup[K]) Build() tela.Node {
 	o := aria.ToggleGroupOptions[K]{
 		Disabled: g.Disabled, DisallowEmptySelection: g.DisallowEmptySelection,
 		Selected: g.Selected, DefaultSelected: g.DefaultSelected, OnSelectionChange: g.OnSelectionChange,
-		Orientation: string(orientationOr(g.Orientation, Horizontal)), ShouldFocusWrap: true, AriaLabel: g.AriaLabel,
+		Orientation: string(orientationOr(g.Orientation, Horizontal)), ShouldFocusWrap: true, AriaLabel: g.AriaLabel, AriaLabelledBy: useGroupLabel(g.AriaLabel),
 		Keys: make([]K, len(g.Items)),
 	}
 	if g.Multiple {

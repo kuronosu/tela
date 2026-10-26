@@ -214,8 +214,36 @@ kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 `Input`, `Textarea`, `Select`, `DatePicker`, `DateRangePicker`, `ColorInput`,
 `Checkbox` and `Switch` take the field's id (a `ColorPicker` gives it to its hex
 field and is named by the label); a `RadioGroup` takes its description and invalid
-state (name it with `AriaLabel`). `Orientation: kit.Horizontal` puts a checkbox
-or switch beside its label.
+state (name it with `AriaLabel`, or with a `FieldSet` legend, below).
+`Orientation: kit.Horizontal` puts a checkbox or switch beside its label, the
+control first; `ControlAfter: true` puts it after the label and the description,
+as in shadcn's switch rows (a Vertical field ignores it).
+
+```go
+kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Class: "items-center gap-6",
+	Label: "Marketing emails", Description: "News about new features.",
+	Children: kit.Switch{Checked: &on, OnCheckedChange: setOn.Set}}
+```
+
+### A group of controls: `FieldSet`
+
+A `Field`'s label points at one control. To caption a group, such as a
+`RadioGroup` or a `ToggleGroup`, use `kit.FieldSet` (shadcn's FieldSet,
+FieldLegend and FieldDescription). It is a `group` named by its legend and
+described by its description; a `RadioGroup` or `ToggleGroup` inside takes its
+name from the legend, so it needs no `AriaLabel`.
+
+```go
+kit.FieldSet{Legend: "Theme", LegendVariant: kit.LegendVariantLabel,
+	Description: "Pick how the app looks.", // optional
+	Children: kit.RadioGroup[string]{Items: themes, Value: &theme, OnValueChange: setTheme.Set}}
+```
+
+Give several children as `h.Fragment(...)`: they are a column with a 24 px gap
+(12 px for a `RadioGroup` given directly). `LegendVariantLegend`, the default,
+is a title; `LegendVariantLabel` has the size of a field's label. shadcn's
+`FieldGroup` has no component: a `FieldSet` is already a column of fields, and
+elsewhere `h.Div(h.Class("flex w-full flex-col gap-7"), ...)` is the same.
 
 ## Toasts
 
@@ -410,5 +438,4 @@ anti-aliasing of text.
 - **`Toaster`** has no swipe to dismiss, no promise helper (show a `Loading` toast and replace it), no rich colors.
 - **Dates**: no time of day and no typed date segments; `Calendar` has no year and month dropdowns, week numbers or multiple-date mode.
 - **`Table`**: no virtualization, column resizing, row selection or editing.
-- **`Field`** puts a control before its text only (`flex-row-reverse` in `Class` puts it after) and has no group caption (shadcn's FieldSet and FieldLegend).
 - **`tela add <component>`**, which copies a component's source into your project (shadcn's model), is not there yet; customization is by recipes.

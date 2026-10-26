@@ -101,7 +101,7 @@
 // # What is there
 //
 // Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton,
-// Field, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog,
+// Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog,
 // Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and
 // the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
@@ -147,6 +147,12 @@
 //
 //	kit.Field{Label: "Email", Description: "We never share it.", Error: errs.Email,
 //	    Children: kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set}}
+//
+// A horizontal Field puts the control first; ControlAfter puts it after the
+// text, as in a row of switches. A [FieldSet] captions a group of controls
+// with a legend and names a RadioGroup or ToggleGroup inside it:
+//
+//	kit.FieldSet{Legend: "Theme", Children: kit.RadioGroup[string]{Items: themes}}
 //
 // # Right to left
 //

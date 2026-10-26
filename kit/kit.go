@@ -125,6 +125,7 @@ type Style struct {
 	Dialog       DialogStyle
 	DropdownMenu MenuStyle
 	Field        FieldStyle
+	FieldSet     FieldSetStyle
 	Input        InputStyle
 	Label        LabelStyle
 	Menubar      MenubarStyle

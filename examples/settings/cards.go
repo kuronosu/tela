@@ -34,8 +34,8 @@ func (p NotificationsCard) Build() tela.Node {
 }
 
 // SettingRow is a label with a description and its switch: a horizontal
-// Field whose control comes after the text (flex-row-reverse). Rows after
-// the first have a top border (first:border-t-0).
+// Field whose control comes after the text (ControlAfter). Rows after the
+// first have a top border (first:border-t-0).
 type SettingRow struct {
 	Field       Field
 	Title, Hint string
@@ -46,23 +46,17 @@ type SettingRow struct {
 func (p SettingRow) Build() tela.Node {
 	on := p.On
 	return Fragment(kit.Field{
-		Orientation: kit.Horizontal,
-		Label:       p.Title,
-		Description: p.Hint,
-		Class:       "flex-1 flex-row-reverse items-center justify-between gap-6 border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0",
+		Orientation:  kit.Horizontal,
+		ControlAfter: true,
+		Label:        p.Title,
+		Description:  p.Hint,
+		Class:        "flex-1 items-center gap-6 border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0",
 		Children: kit.Switch{
 			Checked: &on, Disabled: p.Locked,
 			OnCheckedChange: func(bool) { p.Set.Update(func(x Prefs) Prefs { return x.Toggle(p.Field) }) },
 		},
 	})
 }
-
-// The caption of a group of controls (shadcn's FieldLegend, which kit does
-// not have) and the column that holds it and the group.
-const (
-	caption = "text-sm leading-none font-medium"
-	group   = "flex flex-col gap-3"
-)
 
 // AppearanceCard has a theme RadioGroup, whose options are cards with a
 // miniature of each theme, and a density ToggleGroup (a segmented control).
@@ -92,23 +86,28 @@ func (p AppearanceCard) Build() tela.Node {
 		Description:  Text("Pick a theme and how much room the interface takes."),
 		ContentClass: "flex flex-col gap-6",
 		Children: Fragment(
-			Div(Class(group), Span(Class(caption), Text("Theme")),
-				kit.RadioGroup[string]{
-					AriaLabel: "Theme", Items: items, Render: themeCard, Class: "grid-cols-3",
+			kit.FieldSet{
+				Legend: "Theme", LegendVariant: kit.LegendVariantLabel, LegendClass: "leading-none",
+				Children: kit.RadioGroup[string]{
+					Items: items, Render: themeCard, Class: "grid-cols-3",
 					Value: &theme, OnValueChange: func(v string) {
 						p.Set.Update(func(x Prefs) Prefs { return x.Choose(FieldTheme, v) })
 					},
-				}),
-			Div(Class(group), Span(Class(caption), Text("Density")),
-				kit.ToggleGroup[string]{
-					AriaLabel: "Density", Items: segments, Variant: kit.Outline, DisallowEmptySelection: true,
-					Class: "w-full", ItemClass: "flex-1",
-					Value: &density, OnValueChange: func(v string) {
-						p.Set.Update(func(x Prefs) Prefs { return x.Choose(FieldDensity, v) })
-					},
 				},
-				P(Class("text-sm text-muted-foreground"), Text(hint)),
-			),
+			},
+			kit.FieldSet{
+				Legend: "Density", LegendVariant: kit.LegendVariantLabel, LegendClass: "leading-none", ContentClass: "gap-3",
+				Children: Fragment(
+					kit.ToggleGroup[string]{
+						Items: segments, Variant: kit.Outline, DisallowEmptySelection: true,
+						Class: "w-full", ItemClass: "flex-1",
+						Value: &density, OnValueChange: func(v string) {
+							p.Set.Update(func(x Prefs) Prefs { return x.Choose(FieldDensity, v) })
+						},
+					},
+					P(Class("text-sm text-muted-foreground"), Text(hint)),
+				),
+			},
 		),
 	})
 }

@@ -16,7 +16,7 @@ type FieldStyle struct {
 	Root string
 	// Orientations are the arrangement of the control and its text:
 	// Vertical (the label above the control) and Horizontal (the control
-	// first, then the text).
+	// first, then the text; the text first with Field.ControlAfter).
 	Orientations map[Orientation]string
 	// HorizontalWithContent is added to Root when a Horizontal field has a
 	// Content part (shadcn's has-[>[data-slot=field-content]]:).
@@ -75,6 +75,21 @@ func init() {
 // The error shows as an alert below the control, and the field is invalid
 // while it shows one: the control is marked h.AriaInvalid (a red border and
 // ring from the recipe's aria-invalid: classes) and the label turns red.
+//
+// A Horizontal field puts the control before its text, as shadcn does for
+// a checkbox or a radio. A switch row has the text first: set ControlAfter.
+//
+//	kit.Field{
+//	    Orientation:  kit.Horizontal,
+//	    ControlAfter: true,
+//	    Label:        "Marketing emails",
+//	    Description:  "News about new features and offers.",
+//	    Class:        "items-center gap-6",
+//	    Children:     kit.Switch{Checked: &on, OnCheckedChange: setOn.Set},
+//	}
+//
+// To name a group of controls (a [RadioGroup], a [ToggleGroup]) use a
+// [FieldSet] and its legend: a Field's label points to one control.
 type Field struct {
 	// Label, Description and Error are plain text; empty draws nothing.
 	Label, Description, Error string
@@ -84,6 +99,14 @@ type Field struct {
 	Invalid bool
 	// Orientation is Vertical (the zero value) or Horizontal.
 	Orientation Orientation
+	// ControlAfter puts the control after the label and the description, as
+	// in shadcn's switch rows (FieldContent first, then the Switch). It only
+	// affects a Horizontal field: a Vertical one is always the label, the
+	// control, the description and the error. The DOM order, and so the
+	// reading order of a screen reader, is the visual one; the label still
+	// points to the control, and the error and the invalid state still reach
+	// it.
+	ControlAfter bool
 	// Children is the control.
 	Children tela.Component
 
@@ -132,14 +155,19 @@ func (f Field) Build() tela.Node {
 	if vertical {
 		body = []tela.Child{label, f.Children, desc, errNode}
 	} else {
+		text := label
 		if hasContent {
-			body = []tela.Child{f.Children, h.Div(cls(s.Content, f.ContentClass), label, desc, errNode)}
+			text = h.Div(cls(s.Content, f.ContentClass), label, desc, errNode)
+		}
+		if f.ControlAfter {
+			body = []tela.Child{text, f.Children}
 		} else {
-			body = []tela.Child{f.Children, label}
+			body = []tela.Child{f.Children, text}
 		}
 	}
 	return h.Div(cls(s.Root, pick("Field", "Orientation", s.Orientations, orientationOr(f.Orientation, Vertical)),
 		when(hasContent, s.HorizontalWithContent), when(invalid, s.Invalid), f.Class),
 		h.Role("group"), f.Props,
-		fieldCtx.Provider(fieldInfo{id: id, describedBy: describedBy, invalid: invalid, label: f.Label}, body...))
+		legendCtx.Provider(tela.ElementRef{},
+			fieldCtx.Provider(fieldInfo{id: id, describedBy: describedBy, invalid: invalid, label: f.Label}, body...)))
 }
