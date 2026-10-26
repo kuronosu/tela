@@ -798,7 +798,7 @@ func (f *field) textStyle(cs *style.ComputedStyle) text.TextStyle {
 	k := float64(f.t.scale)
 	dev := math.Trunc(lh * k) // Blink's int ComputedLineHeight, in device px
 	h := cs.Height
-	if float64(ts.Size)*k >= dev || (h.Kind == style.DimLength && (h.Pct != 0 || float64(h.Px)*k > dev)) {
+	if float64(ts.Size)*k >= dev || (h.Kind == style.DimLength && (h.HasPercent() || float64(h.Px)*k > dev)) {
 		ts.LineHeight = text.LineHeight{}
 	}
 	return ts
