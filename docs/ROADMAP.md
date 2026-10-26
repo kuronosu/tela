@@ -7,12 +7,12 @@
 
 ## Current status
 
-- **Done:** phases 1–10. Latest version `v0.10.4` (2026-10-26; engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`, live-validation and kit-review fixes `v0.10.4`). Tags up to `v0.10.2` are on the remote; `v0.10.3`, `v0.10.4` and the commits after `v0.10.2` are not pushed.
+- **Done:** phases 1–10. Latest version `v0.10.4` (2026-10-26; engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`, live-validation and kit-review fixes `v0.10.4`). Everything is pushed (tags up to `v0.10.4`, `main`, and the wiki from `docs/wiki` at `v0.10.4`).
 - **Phase in progress:** none.
 - **Next step (before phase 11, agreed with the owner on 2026-10-25):**
   1. Live validation of `v0.10.1`–`v0.10.4`: done (2026-10-25/26: Wayland x2 and x1.5, X11 and Windows windows pixel-identical to `tela snapshot`; keyboard, wheel and touchpad scrolling of the `examples/kit` gallery identical to full redraws; all 57 Windows test binaries pass on the VM; dashboard p95 measured).
   2. `v0.10.4`: done and tagged (ADRs 166–169, a Wayland scroll-time fix, and a `/code-review high` with 8 findings fixed).
-  3. Housekeeping: the owner pushes `v0.10.3` and `v0.10.4`; copy `docs/wiki` to `tela.wiki.git`; decide on `KIT_PROPOSAL.md`.
+  3. Housekeeping: done (2026-10-26: tags and `main` pushed, wiki synced from `docs/wiki` at `v0.10.4`, `KIT_PROPOSAL.md`'s open items moved to the API gaps below and the file deleted).
   4. Then plan phase 11, starting with the API gaps (submenus, `telatest` right click and long press, `tela.UseTimeout`, `h.AriaCurrent`, `h.AriaKeyShortcuts`, `Disabled` on triggers, `h.AriaLabelFn`) so `llms.txt` documents the final API.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
