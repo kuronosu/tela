@@ -796,7 +796,7 @@ func (t *Tree) semOrigin(bx *Box) gfx.Point {
 	}
 	for b := bx; ; {
 		o = o.Add(ownShift(b)) // a stuck box (sticky.go), a floating one (floating.go)
-		cb := containingBlockOf(b)
+		cb := containingBlock(b)
 		if cb == nil {
 			break
 		}

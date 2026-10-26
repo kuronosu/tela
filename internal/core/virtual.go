@@ -633,7 +633,7 @@ func (vl *vlist) view() (top, bot float32, kind viewKind) {
 	base := content.ld.Layout().Location.Y - l.Border.Top
 	portTop := t.liveOrigin(outer).Y + l.Border.Top
 	vt, vb := max(portTop, 0), min(portTop+clientH, t.viewport.H)
-	for cb := containingBlockOf(outer); cb != nil && vt < vb; cb = containingBlockOf(cb) {
+	for cb := containingBlock(outer); cb != nil && vt < vb; cb = containingBlock(cb) {
 		if s := cb.scr; s != nil {
 			cl := cb.ld.Layout()
 			ct := t.liveOrigin(cb).Y + cl.Border.Top // perf: O(depth) per ancestor
@@ -657,7 +657,7 @@ func (t *Tree) liveOrigin(bx *Box) gfx.Point {
 	for b := bx; b != nil; b = b.parent {
 		o = o.Add(b.ld.Layout().Location)
 	}
-	for b := containingBlockOf(bx); b != nil; b = containingBlockOf(b) {
+	for b := containingBlock(bx); b != nil; b = containingBlock(b) {
 		if b.scr != nil {
 			o = o.Sub(b.scr.flip(b.scr.pos))
 		}

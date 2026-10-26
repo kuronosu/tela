@@ -1033,7 +1033,7 @@ func (t *Tree) chainBox(el *Element) *Box {
 // chain that can move along d, or nil when none can. contained reports
 // that a container with overscroll containment ended the chain first.
 func (t *Tree) pickScroller(el *Element, d gfx.Point) (s *scroller, contained bool) {
-	for b := t.chainBox(el); b != nil; b = containingBlockOf(b) {
+	for b := t.chainBox(el); b != nil; b = containingBlock(b) {
 		s := b.scr
 		if s == nil || !s.userX && !s.userY {
 			continue
@@ -1054,25 +1054,6 @@ func (t *Tree) pickScroller(el *Element, d gfx.Point) (s *scroller, contained bo
 func fixedToWindow(bx, cb *Box) bool {
 	cs := paintStyle(bx)
 	return cs != nil && cs.Position == style.PositionFixed && cb == bx.tree.rootBox
-}
-
-// containingBlockOf is containingBlock with the computed style for boxes
-// not painted yet (paintStyle), bx's own and its ancestors'.
-func containingBlockOf(bx *Box) *Box {
-	cs := paintStyle(bx)
-	if cs == nil || cs.Position != style.PositionAbsolute && cs.Position != style.PositionFixed {
-		return bx.parent
-	}
-	a := bx.parent
-	for a != nil && a.parent != nil && !containsPositioned(a) {
-		if cs.Position == style.PositionAbsolute {
-			if acs := paintStyle(a); acs != nil && acs.Position != style.PositionStatic {
-				break
-			}
-		}
-		a = a.parent
-	}
-	return a
 }
 
 // ---------------------------------------------------------------------
@@ -1692,7 +1673,7 @@ func (t *Tree) scrollIntoView(el *Element) {
 	}
 	r := t.targetRect(bx)
 	for b := bx; ; {
-		cb := containingBlockOf(b)
+		cb := containingBlock(b)
 		if cb == nil || fixedToWindow(b, cb) {
 			return // no scroll container moves a box fixed to the window
 		}
@@ -1735,7 +1716,7 @@ func (t *Tree) targetRect(bx *Box) gfx.Rect {
 	// fixed to the window does not move with the root.
 	for b := bx; b != nil; {
 		o = o.Add(ownShift(b))
-		cb := containingBlockOf(b)
+		cb := containingBlock(b)
 		if fixedToWindow(b, cb) {
 			break
 		}

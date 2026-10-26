@@ -588,11 +588,22 @@ func (p *painter) paintHoisted(root, e *Box) {
 // (containsPositioned), or the root, for absolute boxes, the nearest
 // ancestor that contains positioned descendants (or the root) for fixed
 // boxes. It agrees with layout (layout.Style.ContainingBlock and Fixed).
+// It reads the paint style of bx and its ancestors (paintStyle), so paint
+// and hit-testing see what was painted, and the scroll chain, which also
+// takes boxes laid out but not painted yet (ADR-176), their computed
+// style.
 func containingBlock(bx *Box) *Box {
-	switch bx.pcs.Position {
+	cs := paintStyle(bx)
+	if cs == nil {
+		return bx.parent
+	}
+	switch cs.Position {
 	case style.PositionAbsolute:
 		a := bx.parent
-		for a != nil && a.parent != nil && a.pcs.Position == style.PositionStatic && !containsPositioned(a) {
+		for a != nil && a.parent != nil && !containsPositioned(a) {
+			if acs := paintStyle(a); acs != nil && acs.Position != style.PositionStatic {
+				break
+			}
 			a = a.parent
 		}
 		return a
