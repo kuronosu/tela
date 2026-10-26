@@ -1047,10 +1047,15 @@ type ColorInput struct {
     AreaLabel, HueLabel, AlphaLabel, HexLabel string
     // AriaLabel names the button, followed by its color ("Brand color,
     // #6366f1"), and the panel ("Color picker" when it is empty); inside a
-    // [Field] with a Label that label is used. ID is the button's id, for a
-    // [Label]'s For, and inside a Field defaults to the field's. With a
-    // Trigger of your own, these are for the panel only: name the button and
-    // give it its id yourself.
+    // [Field] with a Label that label is used. The color in the name is the
+    // one of the last build, while the code shown on the button follows a
+    // drag: an uncontrolled drag names the color it ends on when it ends
+    // (or when the pointer rests), as the picker's thumbs do with their
+    // aria-valuetext, so assistive technology is not told every move; a
+    // controlled ColorInput builds on every change. ID is the button's id,
+    // for a [Label]'s For, and inside a Field defaults to the field's. With
+    // a Trigger of your own, these are for the panel only: name the button
+    // and give it its id yourself.
     AriaLabel string
     ID        string
     // Direction is "ltr" or "rtl"; empty is the direction at the component's

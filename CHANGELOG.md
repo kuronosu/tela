@@ -12,6 +12,12 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- An overlay that flips to its other side in the frame it opens is restyled completely in that frame: classes of the new side that change inherited text styles or `display` reach its children and fields, a text color function is counted once, and an overlay holding a `VirtualList` restarts its entrance from the right side; a placement published again in the frame it was already published in is applied in that frame (ADR-164).
+- Keyboard navigation in a scrolling menu no longer jumps back to the first item when the mouse rests over the menu (the leave events that scrolling fires under a still pointer no longer clear the highlight); a controlled `ColorPicker` or `ColorInput` shows the new code in the frame of a drag move, not one frame later; a bad paste in the hex field during a drag restores the current code (ADR-162, ADR-164).
+- An `Input` with a zero-percentage height (`h-[0%]`, `h-[calc(0%+20px)]`) places its text as Chromium does (ADR-159).
+
 ## [0.10.2] - 2026-10-25
 
 ### Added
