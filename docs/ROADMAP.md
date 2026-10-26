@@ -7,9 +7,9 @@
 
 ## Current status
 
-- **Done:** phases 1–11. Latest version `v0.11.0` (2026-10-26, proposed tag: CLI tooling, LLM docs, full screens). `v0.10.4` and earlier are pushed; phase 11's commits are not.
+- **Done:** phases 1–11. Latest version `v0.11.0` (2026-10-26, tagged on b6b8179; CLI tooling, LLM docs, full screens). `v0.10.4` and earlier are pushed; `v0.11.0` and its commits are not.
 - **Phase in progress:** none; phase 11 is done (its done check passed on 2026-10-26: a fresh agent with only `llms.txt` and `tela mcp` built a code editor's settings screen with one round of visual fixes).
-- **Next step:** the owner tags `v0.11.0` and pushes; then plan phase 12 (desktop essentials).
+- **Next step:** the owner pushes `main` and `v0.11.0` (and syncs the wiki from `docs/wiki`); then plan phase 12 (desktop essentials).
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
