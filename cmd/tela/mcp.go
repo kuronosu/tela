@@ -598,11 +598,14 @@ func describeScreen(rep mcpReply) string {
 		}
 		b.WriteString("; ")
 	}
+	// The instance knows the scheme it was mounted in (the system's
+	// preference or App.ColorScheme), not one the app set since with
+	// tela.SetColorScheme: say so.
 	scheme := "light"
 	if rep.Dark {
 		scheme = "dark"
 	}
-	fmt.Fprintf(&b, "window %gx%g at scale %g, %s", rep.W, rep.H, rep.Scale, scheme)
+	fmt.Fprintf(&b, "window %gx%g at scale %g, mounted in %s mode", rep.W, rep.H, rep.Scale, scheme)
 	if rep.Note != "" {
 		b.WriteString("\nNote: " + rep.Note)
 	}

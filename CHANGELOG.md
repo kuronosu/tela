@@ -30,6 +30,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- `tela mcp` says in which color scheme the screen was mounted (`mounted in dark mode`); it said "light" after the app had switched itself to dark with `tela.SetColorScheme`.
 - `tela mcp /path/to/app` works when the client starts the server outside the app's module (Claude Desktop starts it in `/`): a directory argument becomes the working directory.
 - `ScrollTo`, `ScrollBy` and `ScrollIntoView` called from a `tela.UseLayoutEffect` use the layout of that frame: on mount they did nothing, and after content grew they landed one item short, though `UseLayoutEffect`'s documentation shows that idiom. `ScrollIntoView` and a focus reveal reach an element mounted in the same frame (ADR-176).
 - An `absolute` or `fixed` inline element (`Span`, `A`, `Strong`…) is blockified as in CSS (an `inline-flex` one is a flex box), so a status dot made with a `Span` draws like a `Div`; an absolutely positioned box among a paragraph's text no longer splits its lines, and `truncate` and `line-clamp` keep working beside it (ADR-176).
