@@ -21,7 +21,10 @@ var (
 	signIn      = telatest.ByRole("button", "Sign in")
 	signingIn   = telatest.ByRole("button", "Signing in…")
 	signOut     = telatest.ByRole("button", "Sign out")
-	spinner     = telatest.ByClass("animate-spin")
+	// spinner is the loading button: the spinner icon is part of the
+	// button's content, which has no nodes of its own in the semantics
+	// tree, so ByClass("animate-spin") would match nothing.
+	spinner = signingIn
 )
 
 // The messages the tests wait for.

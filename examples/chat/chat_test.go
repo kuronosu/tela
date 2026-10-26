@@ -289,8 +289,10 @@ func TestMessagesKept(t *testing.T) {
 	a.Press("Enter")
 	a.Click(dev)
 	a.Expect(maya, telatest.Current("false"))
-	if !atEnd(a, message("Dev Patel", "2:21 PM")) {
-		t.Errorf("Dev's conversation did not open at its end")
+	// Dev's conversation is shorter than the list: it does not scroll, and
+	// its last message is in view.
+	if l, m := a.Bounds(log), a.Bounds(message("Dev Patel", "2:21 PM")); m.Y < l.Y || m.Y+m.Height > l.Y+l.Height {
+		t.Errorf("Dev's last message %v is not in view in the list %v", m, l)
 	}
 	a.Click(telatest.ByRole("button", "Maya Chen"))
 	a.ExpectCount(message("You", "2:33 PM").Filter(telatest.HasText("Ping")), 1)
