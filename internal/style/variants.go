@@ -9,7 +9,7 @@ import (
 )
 
 // StateFlags is a set of element states that variants test.
-type StateFlags uint32
+type StateFlags uint64
 
 // The states the state and structural variants test.
 const (
@@ -61,12 +61,22 @@ const (
 	// aria-[sort=ascending]: and aria-[sort=descending]: test (ADR-131).
 	StateAriaSortAscending
 	StateAriaSortDescending
+	// StateAriaCurrentPage to StateAriaCurrentTrue: AriaCurrent set to that
+	// token, which aria-[current=page]: and its siblings test (ADR-171).
+	// AriaCurrent("true") is its own flag, as in an attribute selector.
+	StateAriaCurrentPage
+	StateAriaCurrentStep
+	StateAriaCurrentLocation
+	StateAriaCurrentDate
+	StateAriaCurrentTime
+	StateAriaCurrentTrue
 )
 
 // AriaStates is the set of the aria-* states.
 const AriaStates = StateAriaBusy | StateAriaChecked | StateAriaDisabled | StateAriaExpanded |
 	StateAriaHidden | StateAriaInvalid | StateAriaPressed | StateAriaReadOnly | StateAriaRequired | StateAriaSelected |
-	StateAriaSortAscending | StateAriaSortDescending
+	StateAriaSortAscending | StateAriaSortDescending |
+	StateAriaCurrentPage | StateAriaCurrentStep | StateAriaCurrentLocation | StateAriaCurrentDate | StateAriaCurrentTime | StateAriaCurrentTrue
 
 // Variant state names, in the order of the flags.
 var stateVariants = []struct {
@@ -260,6 +270,10 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 	if c, ok, err := parseAriaVariant(name); ok {
 		return c, err
 	}
+	if strings.TrimPrefix(strings.TrimPrefix(name, "group-"), "peer-") == "aria-current" {
+		return Condition{}, &UnsupportedClassError{Class: name,
+			Reason: "Tailwind has no bare aria-current: variant; name the token: " + strings.TrimSuffix(name, "aria-current") + "aria-[current=page]: (also step, location, date, time and true)"}
+	}
 	for _, prefix := range []string{"group-", "peer-"} {
 		rest, ok := strings.CutPrefix(name, prefix)
 		if !ok {
@@ -391,7 +405,7 @@ func parseWidthLength(th *Theme, s string) (float32, error) {
 }
 
 // ariaVariantHint lists the aria variants for messages.
-const ariaVariantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-invalid:, aria-pressed:, aria-readonly:, aria-required:, aria-selected:, and AriaSort with aria-[sort=ascending]: and aria-[sort=descending]: (also group-aria-checked: and peer-aria-[sort=ascending]:)"
+const ariaVariantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-invalid:, aria-pressed:, aria-readonly:, aria-required:, aria-selected:, AriaSort with aria-[sort=ascending]: and aria-[sort=descending]:, and AriaCurrent with aria-[current=page]:, aria-[current=step]:, aria-[current=location]:, aria-[current=date]:, aria-[current=time]: and aria-[current=true]: (also group-aria-checked: and peer-aria-[sort=ascending]:)"
 
 // ariaSortValues are the AriaSort values the arbitrary aria-[sort=…]:
 // variants test.
@@ -403,10 +417,25 @@ var ariaSortValues = []struct {
 	{"descending", StateAriaSortDescending},
 }
 
+// ariaCurrentValues are the AriaCurrent values the arbitrary
+// aria-[current=…]: variants test. Tailwind v4 has no bare aria-current:.
+var ariaCurrentValues = []struct {
+	value string
+	flag  StateFlags
+}{
+	{"page", StateAriaCurrentPage},
+	{"step", StateAriaCurrentStep},
+	{"location", StateAriaCurrentLocation},
+	{"date", StateAriaCurrentDate},
+	{"time", StateAriaCurrentTime},
+	{"true", StateAriaCurrentTrue},
+}
+
 // parseAriaVariant parses the arbitrary aria variants: aria-[checked=true]:
 // (the same as aria-checked:) for the aria states Tela has props for, and
-// aria-[sort=ascending]: and aria-[sort=descending]:, which test AriaSort.
-// The value may be quoted (aria-[sort="ascending"]:), as in a CSS
+// aria-[sort=ascending]: and aria-[sort=descending]:, which test AriaSort,
+// and aria-[current=page]: (also step, location, date, time and true),
+// which test AriaCurrent. The value may be quoted (aria-[sort="ascending"]:), as in a CSS
 // attribute selector. The named ones (aria-checked:) are in
 // stateVariants. ok is false when name is not an arbitrary aria variant.
 func parseAriaVariant(name string) (c Condition, ok bool, err error) {
@@ -426,13 +455,36 @@ func parseAriaVariant(name string) (c Condition, ok bool, err error) {
 			}
 		}
 	}
+	if hasValue && attr == "current" {
+		for _, cv := range ariaCurrentValues {
+			if value == cv.value {
+				return Condition{State: cv.flag}, true, nil
+			}
+		}
+	}
 	for _, sv := range stateVariants {
 		if sv.name == "aria-"+attr && sv.flag&AriaStates != 0 && hasValue && value == "true" {
 			return Condition{State: sv.flag}, true, nil
 		}
 	}
+	hint := ""
+	if hasValue && (attr == "current" || attr == "sort") {
+		var vocab []string
+		if attr == "current" {
+			for _, cv := range ariaCurrentValues {
+				vocab = append(vocab, cv.value)
+			}
+		} else {
+			for _, sv := range ariaSortValues {
+				vocab = append(vocab, sv.value)
+			}
+		}
+		if best := closest(value, vocab); best != "" {
+			hint = "did you mean aria-[" + attr + "=" + best + "]:? "
+		}
+	}
 	return Condition{}, true, &UnsupportedClassError{Class: name,
-		Reason: "Tela has no prop for the attribute selector [" + inner + "]; " + ariaVariantHint +
+		Reason: "Tela has no prop for the attribute selector [" + inner + "]; " + hint + ariaVariantHint +
 			" (aria-[checked=true]: is aria-checked:)"}
 }
 

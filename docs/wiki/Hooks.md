@@ -274,7 +274,7 @@ effects of a component whose build was skipped do not run.
 [`tela.UseLayoutEffect`](https://pkg.go.dev/github.com/kuronosu/tela#UseLayoutEffect) has the same shape but runs after layout and before
 paint, for code that needs the geometry.
 
-## Periodic and background work: UseInterval and UseGo
+## Periodic and background work: UseInterval, UseTimeout and UseGo
 
 [`tela.UseInterval`](https://pkg.go.dev/github.com/kuronosu/tela#UseInterval) calls a function on the UI thread every period, until the
 component unmounts; a period of 0 or less pauses it, and a new period restarts
@@ -287,6 +287,22 @@ func Clock() tela.Node {
 	now, setNow := tela.UseState(time.Now())
 	tela.UseInterval(time.Second, func() { setNow.Set(time.Now()) })
 	return Span(Class("tabular-nums"), Text(now.Format("15:04:05")))
+}
+```
+
+[`tela.UseTimeout`](https://pkg.go.dev/github.com/kuronosu/tela#UseTimeout) is the one-shot sibling: it calls a function once, a
+delay after the frame that first shows the component, on the same frame clock.
+A delay of 0 or less cancels it, and a change of the delay or of the
+dependencies (compared like `UseEffect`'s) restarts it, even after it fired;
+with the same delay and no dependencies it fires once per mount. The function
+is the latest build's, and unmounting cancels it:
+
+```go
+func Notice(message string) tela.Node {
+	visible, setVisible := tela.UseState(true)
+	// Hide the notice 3 s after it appears, again when the message changes.
+	tela.UseTimeout(3*time.Second, func() { setVisible.Set(false) }, message)
+	return If(visible, P(Text(message)))
 }
 ```
 

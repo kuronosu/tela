@@ -131,7 +131,8 @@
 //     dependencies change; [UseMount] runs once, on mount (with its
 //     cleanup on unmount), [UseEffectDo] has no cleanup and
 //     [UseUpdateEffect] skips the first build.
-//   - [UseInterval] calls a function every period on the UI thread, and
+//   - [UseInterval] calls a function every period on the UI thread,
+//     [UseTimeout] once after a delay, and
 //     [UseGo] runs a function on its own goroutine with a context that
 //     is cancelled when its dependencies change or the component
 //     unmounts.

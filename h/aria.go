@@ -18,7 +18,9 @@ import (
 // AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected
 // (with the group-aria-* and peer-aria-* forms), as Tailwind's
 // [aria-x="true"]; AriaSort("ascending") and AriaSort("descending") match
-// aria-[sort=ascending]: and aria-[sort=descending]:.
+// aria-[sort=ascending]: and aria-[sort=descending]:, and AriaCurrent("page")
+// (or step, location, date, time, true) matches aria-[current=page]: and
+// its siblings.
 
 // Role sets the ARIA role of an element (WAI-ARIA 1.2), for components
 // built from divs: Role("switch"), Role("dialog"), Role("tab"). An unknown
@@ -190,3 +192,18 @@ func AriaInvalid(invalid bool) tela.Prop { return core.AriaInvalid(invalid) }
 //	Div(Role("columnheader"), AriaSort(order), OnClick(toggleOrder), Class("group flex gap-1"),
 //	    Text("Name"), Icon(arrowUp, Class("size-4 group-aria-[sort=descending]:rotate-180")))
 func AriaSort(sort string) tela.Prop { return core.AriaSort(sort) }
+
+// AriaCurrent marks the current item of a set (aria-current): "page" for
+// the link of the page being shown, "step", "location", "date" or "time"
+// for the current item of a process, a trail, a calendar or a timeline, and
+// "true" for any other. "false" and "" mean none (the default). Unknown
+// tokens panic in dev mode with the closest valid one. The
+// aria-[current=page]: variant (and step, location, date, time, true, with
+// their group- and peer- forms) styles it; Tailwind has no bare
+// aria-current:. The semantics node carries it for assistive technologies;
+// the aria snapshot does not print it, as Playwright's does not.
+//
+//	A(Href("/docs"), AriaCurrent(current), // "page" on the active link, "" elsewhere
+//	    Class("text-muted-foreground aria-[current=page]:text-foreground aria-[current=page]:font-medium"),
+//	    Text("Docs"))
+func AriaCurrent(current string) tela.Prop { return core.AriaCurrent(current) }

@@ -321,6 +321,7 @@ const (
 	hookSize          // UseSize (bounds.go)
 	hookTimeout       // UseTimeout (interval.go)
 	hookDirection     // UseDirection (direction.go)
+	hookTimeoutAfter  // tela.UseTimeout(d, f, deps...) (interval.go)
 )
 
 var hookNames = [...]string{
@@ -353,6 +354,7 @@ var hookNames = [...]string{
 	hookSize:          "UseSize",
 	hookTimeout:       "UseTimeout",
 	hookDirection:     "UseDirection",
+	hookTimeoutAfter:  "UseTimeout",
 }
 
 func (k hookKind) String() string { return hookNames[k] }
@@ -439,6 +441,9 @@ func (t *Tree) slotMismatch(el *Element, i int, want string) {
 func slotName(s any) string {
 	if e, ok := s.(*effectSlot); ok {
 		return e.kind.String()
+	}
+	if is, ok := s.(*intervalSlot); ok && is.byEffect {
+		return "UseTimeout"
 	}
 	name := strings.TrimPrefix(fmt.Sprintf("%T", s), "*core.")
 	for _, r := range [...][2]string{

@@ -46,6 +46,7 @@ The props follow React's `aria-*` attributes:
 | [`AriaBusy`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaBusy) | An element that is being updated (a list that loads) |
 | [`AriaInvalid`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaInvalid) | A field whose value failed validation; it wins over an `Input`'s own validity (an email field with a malformed address is already invalid) |
 | [`AriaSort`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaSort) | How a table is sorted by a column header: `"ascending"`, `"descending"`, `"other"` or `"none"` |
+| [`AriaCurrent`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaCurrent) | The current item of a set: `"page"` (the link of the page being shown), `"step"`, `"location"`, `"date"`, `"time"` or `"true"`; `"false"` and `""` mean none |
 | [`AriaLevel`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaLevel) | Level of a custom heading, list item, row or tree item |
 | [`AriaValueNow`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueNow), [`AriaValueMin`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMin), [`AriaValueMax`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueMax), [`AriaValueText`](https://pkg.go.dev/github.com/kuronosu/tela/h#AriaValueText) | The value of a range widget (`slider`, `progressbar`, `spinbutton`, `meter`) |
 
@@ -55,10 +56,12 @@ These props also drive the `aria-*` class variants: `aria-checked:`, `aria-expan
 when the element's prop is `true`, so the look follows the semantics:
 `Button(AriaExpanded(open), Class("aria-expanded:bg-slate-100"))`;
 `aria-[sort=ascending]:` and `aria-[sort=descending]:` match the `AriaSort` of a
-header (`group-aria-[sort=descending]:rotate-180` turns its arrow). The aria
-snapshot prints `[invalid]` (from `AriaInvalid(true)` only, on the roles that
-support it) but not `required`, `readonly`, `busy` or the sort, as Playwright's
-does.
+header (`group-aria-[sort=descending]:rotate-180` turns its arrow), and
+`aria-[current=page]:` (also `step`, `location`, `date`, `time` and `true`)
+match the `AriaCurrent` of a link or step (Tailwind has no bare `aria-current:`).
+The aria snapshot prints `[invalid]` (from `AriaInvalid(true)` only, on the
+roles that support it) but not `required`, `readonly`, `busy`, the sort or the
+current item, as Playwright's does not.
 
 ```go
 func WifiSwitch() tela.Node {

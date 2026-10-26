@@ -32,6 +32,7 @@ type ariaProps struct {
 	busy        semantics.Toggle
 	invalid     semantics.Toggle
 	sort        string // "ascending", "descending", "other"; "" unset or none
+	current     string // AriaCurrent: "page", "step", "location", "date", "time", "true"; "" unset or false
 	level       int32
 	rng         semantics.Range
 	valueText   string

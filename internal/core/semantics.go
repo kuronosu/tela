@@ -261,7 +261,7 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 			n.States |= semantics.StateBusy
 		}
 		n.Checked, n.Pressed, n.Selected, n.Expanded = a.checked, a.pressed, a.selected, a.expanded
-		n.Invalid, n.Sort = a.invalid, a.sort
+		n.Invalid, n.Sort, n.Current = a.invalid, a.sort, a.current
 		n.Description = a.desc
 		if n.Description == "" && a.describedBy != nil {
 			if r := a.describedBy.el; r != nil && r.mounted && r.kind == elemPrimitive {

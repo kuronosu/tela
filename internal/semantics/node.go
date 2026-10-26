@@ -166,7 +166,11 @@ type Node struct {
 	// Sort is the AriaSort of a column or row header: "ascending",
 	// "descending" or "other"; "" when unset or "none". Aria snapshots do
 	// not print it.
-	Sort    string
+	Sort string
+	// Current is the AriaCurrent of the current item of a set: "page",
+	// "step", "location", "date", "time" or "true"; "" when unset or
+	// "false". Aria snapshots do not print it (Playwright's does not).
+	Current string
 	States  State
 	Actions Action
 

@@ -153,6 +153,38 @@ func Sort(sort string) State {
 	}
 }
 
+// currentValues are the values Current accepts.
+var currentValues = []string{"page", "step", "location", "date", "time", "true", "false"}
+
+// Current expects the element's aria-current to be current: "page",
+// "step", "location", "date", "time" or "true", or "false", which is also
+// what an element without h.AriaCurrent has (the ARIA default). The aria
+// snapshot does not print it (Playwright's does not either).
+//
+//	app.Click(telatest.ByRole("link", "Docs"))
+//	app.Expect(telatest.ByRole("link", "Docs"), telatest.Current("page"))
+func Current(current string) State {
+	if !slices.Contains(currentValues, current) {
+		panic(fmt.Sprintf("telatest: Current(%q): not an aria-current value; use \"page\", \"step\", \"location\", \"date\", \"time\", \"true\" or \"false\"", current))
+	}
+	want := current
+	if want == "false" {
+		want = ""
+	}
+	return State{
+		want: "current=" + strconv.Quote(current),
+		check: func(_ *App, n *semantics.Node) (bool, string) {
+			if n.Current == want {
+				return true, ""
+			}
+			if n.Current == "" {
+				return false, `current="false" (h.AriaCurrent sets it)`
+			}
+			return false, "current=" + strconv.Quote(n.Current)
+		},
+	}
+}
+
 // HasName expects the element's accessible name to be exactly name (white
 // space normalized, case sensitive): what [ByRole] matches by.
 func HasName(name string) State {
@@ -391,6 +423,9 @@ func describeStates(n *semantics.Node) string {
 	}
 	if n.Sort != "" {
 		s = append(s, "sort="+strconv.Quote(n.Sort))
+	}
+	if n.Current != "" {
+		s = append(s, "current="+strconv.Quote(n.Current))
 	}
 	if n.Name != "" {
 		s = append(s, "name="+strconv.Quote(n.Name))

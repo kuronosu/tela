@@ -20,8 +20,11 @@ type intervalSlot struct {
 	eff effectSlot
 	// once makes the slot of a Timeout: it runs f once, d after Start.
 	once bool
-	f    func() // the latest build's
-	d    time.Duration
+	// byEffect marks the once slot of UseTimeoutAfter, whose eff starts it
+	// (a Timeout's slot has no effect: its handlers start it).
+	byEffect bool
+	f        func() // the latest build's
+	d        time.Duration
 	// next is when f runs next (tree clock); on whether the interval
 	// runs (in the tree's list).
 	next time.Duration
@@ -125,6 +128,35 @@ func (t *Tree) tickIntervals(now time.Duration) {
 	}
 }
 
+// UseTimeoutAfter (the engine of tela.UseTimeout, ADR-171) calls f once on
+// the UI thread, d after the frame that shows the component, on the same
+// frame clock as UseInterval. d <= 0 cancels it; a change of d or of deps
+// (compared like UseEffect's) restarts it from the frame that shows the
+// change, even if it already fired; f is always the latest build's. It is a
+// different hook from UseTimeout, whose Timeout the caller starts itself.
+func UseTimeoutAfter(d time.Duration, f func(), deps ...any) {
+	if f == nil {
+		panic("tela: UseTimeout(d, nil): pass the function to call once, d after the component shows")
+	}
+	el, i := nextSlot(hookTimeoutAfter)
+	// d goes last so that dev warnings number the caller's dependencies.
+	all := append(slices.Clone(deps), d)
+	if i < len(el.hooks) {
+		s, ok := el.hooks[i].(*intervalSlot)
+		if !ok || !s.byEffect {
+			el.tree.slotMismatch(el, i, "UseTimeout")
+		}
+		s.f = f
+		s.eff.update(i, s.effect(d), all)
+		return
+	}
+	el.tree.checkDeps(el, i, all)
+	s := &intervalSlot{f: f, once: true, byEffect: true}
+	s.eff = effectSlot{el: el, kind: hookTimeoutAfter, effect: s.effect(d), deps: all, pending: true}
+	el.fx = append(el.fx, &s.eff)
+	el.hooks = append(el.hooks, s)
+}
+
 // Timeout is a one-shot timer on the frame clock of the tree, made by
 // UseTimeout: Start arms it, and its function runs once on the UI thread
 // when the time comes, from TickGestures like UseInterval's. Starting it
@@ -139,7 +171,7 @@ func UseTimeout() Timeout {
 	el, i := nextSlot(hookTimeout)
 	if i < len(el.hooks) {
 		s, ok := el.hooks[i].(*intervalSlot)
-		if !ok || !s.once {
+		if !ok || !s.once || s.byEffect {
 			el.tree.slotMismatch(el, i, "UseTimeout")
 		}
 		return Timeout{s}

@@ -292,6 +292,9 @@ func devSlotKind(el *Element, j int) hookKind {
 	case *effectSlot:
 		return h.kind
 	case *intervalSlot:
+		if h.byEffect {
+			return hookTimeoutAfter
+		}
 		if h.once {
 			return hookTimeout
 		}

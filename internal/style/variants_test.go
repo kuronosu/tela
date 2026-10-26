@@ -111,7 +111,7 @@ func TestVariantErrors(t *testing.T) {
 	if _, err := parseVariant(th, "hoverr"); err == nil || err.Error() != `unknown variant "hoverr"; did you mean "hover"?` {
 		t.Errorf("message = %v", err)
 	}
-	for _, v := range []string{"before", "after", "marker", "print", "group-hover/item", "data-open", "has-checked", "@lg", "aria-[sort=other]", "aria-[checked=false]", "aria-[checked]", "group-aria-[sort=none]", "aria-[current=page]"} {
+	for _, v := range []string{"before", "after", "marker", "print", "group-hover/item", "data-open", "has-checked", "@lg", "aria-[sort=other]", "aria-[checked=false]", "aria-[checked]", "group-aria-[sort=none]", "aria-[current=foo]", "aria-[current=false]", "aria-[current]"} {
 		_, err := parseVariant(th, v)
 		var u *UnsupportedClassError
 		if !errors.As(err, &u) {
@@ -328,6 +328,15 @@ func TestAriaVariantParsing(t *testing.T) {
 		"aria-[sort='descending']":    {State: StateAriaSortDescending},
 		"group-aria-[sort=ascending]": {Group: StateAriaSortAscending},
 		"peer-aria-[sort=descending]": {Peer: StateAriaSortDescending},
+		"aria-[current=page]":         {State: StateAriaCurrentPage},
+		"aria-[current=step]":         {State: StateAriaCurrentStep},
+		"aria-[current=location]":     {State: StateAriaCurrentLocation},
+		"aria-[current=date]":         {State: StateAriaCurrentDate},
+		"aria-[current=time]":         {State: StateAriaCurrentTime},
+		"aria-[current=true]":         {State: StateAriaCurrentTrue},
+		`aria-[current="page"]`:       {State: StateAriaCurrentPage},
+		"group-aria-[current=page]":   {Group: StateAriaCurrentPage},
+		"peer-aria-[current=true]":    {Peer: StateAriaCurrentTrue},
 		`aria-[invalid="true"]`:       {State: StateAriaInvalid},
 	} {
 		got, err := parseVariant(th, variant)
@@ -342,14 +351,20 @@ func TestAriaVariantParsing(t *testing.T) {
 func TestAriaVariantErrors(t *testing.T) {
 	th := DefaultTheme()
 	for variant, want := range map[string]string{
-		"aria-chekced":             `unknown variant "aria-chekced"; did you mean "aria-checked"?`,
-		"aria-invald":              `unknown variant "aria-invald"; did you mean "aria-invalid"?`,
-		"group-aria-expandd":       `unknown variant "group-aria-expandd"; did you mean "group-aria-expanded"?`,
-		"aria-[sort=other]":        `Tela has no prop for the attribute selector [sort=other]`,
-		"aria-[sort=none]":         `Tela has no prop for the attribute selector [sort=none]`,
-		"aria-[sort]":              `Tela has no prop for the attribute selector [sort]`,
-		"aria-[checked=false]":     `Tela has no prop for the attribute selector [checked=false]`,
-		"peer-aria-[current=page]": `Tela has no prop for the attribute selector [current=page]`,
+		"aria-chekced":            `unknown variant "aria-chekced"; did you mean "aria-checked"?`,
+		"aria-invald":             `unknown variant "aria-invald"; did you mean "aria-invalid"?`,
+		"group-aria-expandd":      `unknown variant "group-aria-expandd"; did you mean "group-aria-expanded"?`,
+		"aria-[sort=other]":       `Tela has no prop for the attribute selector [sort=other]`,
+		"aria-[sort=none]":        `Tela has no prop for the attribute selector [sort=none]`,
+		"aria-[sort]":             `Tela has no prop for the attribute selector [sort]`,
+		"aria-[checked=false]":    `Tela has no prop for the attribute selector [checked=false]`,
+		"peer-aria-[current=foo]": `Tela has no prop for the attribute selector [current=foo]`,
+		"aria-[current=false]":    `Tela has no prop for the attribute selector [current=false]`,
+		"aria-[current=pge]":      `did you mean aria-[current=page]:?`,
+		"aria-[sort=ascendng]":    `did you mean aria-[sort=ascending]:?`,
+		"aria-current":            `Tailwind has no bare aria-current: variant; name the token: aria-[current=page]:`,
+		"group-aria-current":      `name the token: group-aria-[current=page]:`,
+		"peer-aria-current":       `name the token: peer-aria-[current=page]:`,
 	} {
 		_, err := parseVariant(th, variant)
 		if err == nil || !strings.Contains(err.Error(), want) {
@@ -361,7 +376,7 @@ func TestAriaVariantErrors(t *testing.T) {
 	if !errors.As(err, &u) {
 		t.Fatalf("err = %v, want an unsupported variant", err)
 	}
-	for _, s := range []string{"AriaRequired", "aria-checked:", "aria-invalid:", "AriaSort", "aria-[sort=ascending]:", "aria-[sort=descending]:"} {
+	for _, s := range []string{"AriaRequired", "aria-checked:", "aria-invalid:", "AriaSort", "aria-[sort=ascending]:", "aria-[sort=descending]:", "AriaCurrent", "aria-[current=page]:", "aria-[current=true]:"} {
 		if !strings.Contains(u.Reason, s) {
 			t.Errorf("the error does not list %s: %s", s, u.Reason)
 		}
@@ -384,5 +399,23 @@ func TestAriaVariantEvaluationInCompute(t *testing.T) {
 	}
 	if run(Input{Peer: StateAriaSelected}).Text.FontStyle == run(Input{}).Text.FontStyle {
 		t.Error("peer-aria-selected: must test the peer sibling")
+	}
+}
+
+// aria-[current=…]: tests AriaCurrent's token, each with its own flag (ADR-171).
+func TestAriaCurrentVariantEvaluationInCompute(t *testing.T) {
+	cl := mustCompile(t, "opacity-100 aria-[current=page]:opacity-50 aria-[current=step]:p-4 aria-[current=true]:m-2 group-aria-[current=page]:font-bold")
+	run := func(in Input) *ComputedStyle {
+		in.Classes = []*Classes{cl}
+		return Compute(&Context{Viewport: gfx.Size{W: 500, H: 800}}, in)
+	}
+	eq(t, "none", run(Input{}).Opacity, float32(1))
+	eq(t, "page", run(Input{State: StateAriaCurrentPage}).Opacity, float32(0.5))
+	eq(t, "step is not page", run(Input{State: StateAriaCurrentStep}).Opacity, float32(1))
+	eq(t, "step", run(Input{State: StateAriaCurrentStep}).Padding.Top, PxLP(16))
+	eq(t, "true", run(Input{State: StateAriaCurrentTrue}).Margin.Top, DimPx(8))
+	eq(t, "true is not page", run(Input{State: StateAriaCurrentTrue}).Opacity, float32(1))
+	if run(Input{Group: StateAriaCurrentPage}).Text.FontWeight == run(Input{State: StateAriaCurrentPage}).Text.FontWeight {
+		t.Error("group-aria-[current=page]: must test the group ancestor, not the element")
 	}
 }

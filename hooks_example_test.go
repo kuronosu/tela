@@ -193,3 +193,22 @@ func ExampleCallback_IsZero() {
 	fmt.Println(app.Count(telatest.ByRole("button", "Close")))
 	// Output: 0
 }
+
+func ExampleUseTimeout() {
+	t := &exampleT{}
+	defer t.close()
+	banner := func() tela.Node {
+		visible, setVisible := tela.UseState(true)
+		// Hide the notice 3 s after it appears.
+		tela.UseTimeout(3*time.Second, func() { setVisible.Set(false) })
+		return Div(If(visible, P(Text("Saved"))), P(Text("Done")))
+	}
+	app := telatest.Mount(t, tela.C(banner))
+	app.Advance(2 * time.Second)
+	fmt.Println(app.Count(telatest.ByText("Saved")))
+	app.Advance(2 * time.Second) // the timeout runs on the app's clock
+	fmt.Println(app.Count(telatest.ByText("Saved")))
+	// Output:
+	// 1
+	// 0
+}

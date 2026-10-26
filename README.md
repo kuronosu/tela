@@ -286,7 +286,7 @@ that change every frame.
 
 `UseState`, `UseReducer`, `UseEffect`, `UseLayoutEffect`, `UseMemo`,
 `UseCallback`, `UseRef`, `UseContext`, `UseID`, `UseMount`, `UseOnce`,
-`UseInterval`, `UseGo`, plus `tela.UseValue` for
+`UseInterval`, `UseTimeout`, `UseGo`, plus `tela.UseValue` for
 values that should repaint or relayout one element without rebuilding the
 component that owns them. Component boundaries `tela.C`, `tela.CP` and
 `tela.Memo` skip work when props are comparable and equal.

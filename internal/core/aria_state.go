@@ -1,6 +1,8 @@
 package core
 
 import (
+	"strings"
+
 	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/style"
 )
@@ -58,10 +60,38 @@ func AriaSort(sort string) Prop {
 	})
 }
 
+var currentValues = []string{"page", "step", "location", "date", "time", "true", "false"}
+
+// AriaCurrent marks the element that is the current item of a set
+// (aria-current): "page" (the link of the page being shown), "step",
+// "location", "date", "time", or "true" for any other. "false" and ""
+// mean none (the default). Tokens are ASCII case-insensitive; unknown ones
+// panic in dev mode with the closest valid one and are ignored otherwise.
+// It sets the node's Current, and each token matches its own
+// aria-[current=page]: variant (also step, location, date, time and true,
+// with the group- and peer- forms); Tailwind has no bare aria-current:.
+// Playwright's aria snapshot does not print it.
+func AriaCurrent(current string) Prop {
+	v := ""
+	ok := true
+	if strings.TrimSpace(current) != "" {
+		v, ok = ariaToken("AriaCurrent", current, currentValues)
+	}
+	if v == "false" {
+		v = ""
+	}
+	return ariaProp("AriaCurrent", func(a *ariaProps) {
+		if ok {
+			a.current = v
+		}
+	})
+}
+
 // ariaStates returns the states that a's props set to true: what the
 // aria-busy:, aria-checked:... variants (and their group- and peer-
 // forms) test, as Tailwind's [aria-x="true"] selectors do (and
-// aria-[sort=ascending]: and aria-[sort=descending]:), and what
+// aria-[sort=ascending]:, aria-[sort=descending]: and aria-[current=page]:
+// with its siblings), and what
 // checked: tests (an element whose AriaChecked is true: Tela has no
 // native checkbox, ADR-100). A mixed checkbox or pressed button is not
 // "true".
@@ -86,6 +116,12 @@ func ariaStates(a *ariaProps) style.StateFlags {
 		{a.selected == semantics.ToggleTrue, style.StateAriaSelected},
 		{a.sort == "ascending", style.StateAriaSortAscending},
 		{a.sort == "descending", style.StateAriaSortDescending},
+		{a.current == "page", style.StateAriaCurrentPage},
+		{a.current == "step", style.StateAriaCurrentStep},
+		{a.current == "location", style.StateAriaCurrentLocation},
+		{a.current == "date", style.StateAriaCurrentDate},
+		{a.current == "time", style.StateAriaCurrentTime},
+		{a.current == "true", style.StateAriaCurrentTrue},
 	} {
 		if f.on {
 			s |= f.flag

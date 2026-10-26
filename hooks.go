@@ -357,6 +357,23 @@ func UseUpdateEffect(effect func() func(), deps ...any) { core.UseUpdateEffect(e
 //	tela.UseInterval(time.Second, func() { setNow.Set(time.Now()) })
 func UseInterval(d time.Duration, f func()) { core.UseInterval(d, f) }
 
+// UseTimeout calls f once on the UI thread, d after the frame that first
+// shows the component: the one-shot sibling of [UseInterval], on the same
+// frame clock with no goroutine (telatest's App.Advance moves it, and a
+// headless Render never runs it). An idle timeout costs one timer, and
+// none once it has fired.
+//
+// d <= 0 cancels it. A change of d or of the dependencies (compared like
+// [UseEffect]'s) restarts it from the frame that shows the change, even
+// after it fired; with the same d and no dependencies it fires once per
+// mount. f is always the latest build's function, so it sees the latest
+// state without being a dependency. Unmounting cancels it.
+//
+// Hide a notice 3 s after it appears, restarting when the message changes:
+//
+//	tela.UseTimeout(3*time.Second, func() { setVisible.Set(false) }, message)
+func UseTimeout(d time.Duration, f func(), deps ...any) { core.UseTimeoutAfter(d, f, deps...) }
+
 // UseGo runs f on a goroutine of its own after the frame is presented,
 // when its dependencies changed, like [UseEffect]; ctx is cancelled at
 // cleanup, when the dependencies change again or the component unmounts,
