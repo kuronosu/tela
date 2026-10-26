@@ -430,6 +430,8 @@ type field struct {
 	paintDirty       bool    // its layer must be recorded again
 	revealQueued     bool    // in Tree.frev.q: its caret reveal waits for a layout
 	selStart, selEnd int     // the selection of the last select check
+	// stAt is the Tree's stGen when fieldStates last ran on it.
+	stAt uint64
 }
 
 // textField returns the field of el, or nil.
@@ -665,6 +667,8 @@ func (f *field) markPaint() {
 // matches invalid:, whatever its value, as in Chromium; its value is
 // checked again once it is editable.
 func (t *Tree) fieldStates(f *field) {
+	t.stGen++
+	f.stAt = t.stGen
 	el := f.el
 	fp := f.props()
 	ro := f.readOnly()
@@ -678,15 +682,25 @@ func (t *Tree) fieldStates(f *field) {
 }
 
 // disabledChanged updates the field states of the text fields below el,
-// whose Disabled changed: a field inside a disabled element is disabled
-// too (read-only:, and barred from invalid:), and its own node, which
-// may be unchanged, does not tell it.
-func (t *Tree) disabledChanged(el *Element) {
+// whose Disabled changed (its update calls it after reconciling its
+// children, with since the Tree's stGen at the change): a field inside a
+// disabled element is disabled too (read-only:, and barred from
+// invalid:), and its own node, which may be unchanged, does not tell it.
+// It skips the subtrees of descendants that are disabled themselves
+// (their fields' state does not change) and the fields whose states were
+// updated since the change (by their own update, or their mount, in the
+// reconciliation: those saw el's new state).
+func (t *Tree) disabledChanged(el *Element, since uint64) {
 	for _, c := range el.children {
-		if c.kind == elemPrimitive && c.box.fld != nil {
-			t.fieldStates(c.box.fld)
+		if c.kind == elemPrimitive {
+			if c.istate&style.StateDisabled != 0 {
+				continue
+			}
+			if f := c.box.fld; f != nil && f.stAt <= since {
+				t.fieldStates(f)
+			}
 		}
-		t.disabledChanged(c)
+		t.disabledChanged(c, since)
 	}
 }
 

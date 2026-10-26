@@ -152,6 +152,14 @@ func (t *Tree) HandleKey(e platform.KeyEvent) {
 		return
 	}
 	t.fixFocus()
+	if e.Action == platform.KeyPress {
+		// A focus lost inside a containing scope by a commit whose frame
+		// has not run yet comes back first, so the key reaches the scope
+		// (Escape closes the dialog). Not before a keyup: the keydown that
+		// unmounted the element (Enter on it) leaves its layout effects
+		// the chance to focus in the frame.
+		t.lostWork()
+	}
 	ke := KeyboardEvent{
 		Key: KeyValue(e.Key), Code: CodeValue(e.Code.String()),
 		Location: KeyLocation(e.Location), Repeat: e.Repeat,

@@ -235,6 +235,9 @@ type Tree struct {
 	frev   revealState
 	ids    map[string][]*Element
 	labels map[string][]*Element
+	// stGen counts the field-state updates (fieldStates), so that
+	// disabledChanged skips the fields the reconciliation updated already.
+	stGen uint64
 
 	// lay holds the layers and the composed frames (layer.go).
 	lay layerState
@@ -531,6 +534,7 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 		// now: a paint pass, or the whole frame, whose layout the reveals
 		// then wait for.
 		t.commitLayout()
+		t.lostWork() // after the layout effects (focus.go)
 		if !t.changed {
 			t.runReveals()
 			if !t.repaint {
@@ -573,9 +577,13 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 			t.layoutPhase()
 		}
 		t.commitLayout()
+		// A focus lost inside a containing scope comes back once the layout
+		// effects had their chance to focus (focus.go), before paint.
+		t.lostWork()
 		if len(t.styleQ) > 0 || len(t.boxQ) > 0 {
-			// A layout effect moved the focus (ElementRef.Focus): style and
-			// lay out again before painting.
+			// A layout effect moved the focus (ElementRef.Focus), or the
+			// lost focus came back: style and lay out again before
+			// painting.
 			t.stylePhase()
 			t.fixFocus()
 			t.stylePhase()

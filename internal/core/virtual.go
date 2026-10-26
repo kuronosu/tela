@@ -920,8 +920,9 @@ func (t *Tree) virtualRelayout() {
 	t.boxPhase()
 	t.layoutPhase()
 	t.commitLayout()
+	t.lostWork() // after the layout effects (focus.go)
 	if len(t.styleQ) > 0 || len(t.boxQ) > 0 {
-		// A layout effect moved the focus.
+		// A layout effect moved the focus, or the lost focus came back.
 		t.stylePhase()
 		t.fixFocus()
 		t.stylePhase()

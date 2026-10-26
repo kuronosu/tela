@@ -128,16 +128,28 @@ import (
 // FocusScope (trapped) does with its container (aria.UseDialog gives the
 // dialog element TabIndex(-1)), else to the first tabbable element of the
 // scope, else to the first focusable one (React Aria's contain, which
-// focuses the first tabbable element), else nowhere. It happens in the
-// focus work after the commit (focusWork), after AutoFocus and the
-// restoration of the scopes that ended, so a scope that ends in the same
-// commit (a dialog that closes) restores the focus as before, and an
-// AutoFocus element mounted by the commit wins. It is a script focus: no
-// OnBlur (the element is gone), OnFocus on the element, and focus-visible
-// from the last interaction, so after a pointer press nothing shows a
-// ring. The root is not scrolled into view (Radix focuses it with
-// preventScroll). A scope without Contain keeps the browser's outcome:
-// nothing focused.
+// focuses the first tabbable element), else nowhere. It happens once
+// nothing else of the commit can focus (lostWork; Radix moves the focus
+// from a MutationObserver, after React's layout effects): after AutoFocus
+// and the restoration of the scopes that ended, so a scope that ends in
+// the same commit (a dialog that closes) restores the focus as before and
+// an AutoFocus element mounted by the commit wins, and after the layout
+// effects of the commit, so a layout effect that focuses (the next step
+// of a wizard focusing its input) makes the only focus change. That is at
+// once after a discrete event whose commit has no layout effect pending,
+// else in the frame, after its layout effects and before paint (the
+// states it changes are styled in that frame); a key pressed before that
+// frame resolves it first, so Escape and shortcuts reach the scope.
+// Passive effects run after paint and are not waited for. Any focus
+// change meanwhile cancels it, so a later blur (the fix-up of an element
+// focused since) leaves nothing focused; a press on nothing focusable
+// meanwhile does not, since the scope holds the focus against it as it
+// does once the focus is back (Containment, above). It is a script
+// focus: no OnBlur (the element is gone), OnFocus on the element, and
+// focus-visible from the last interaction, so after a pointer press
+// nothing shows a ring. Neither the root nor the fallback element is
+// scrolled into view (Radix focuses with preventScroll). A scope without
+// Contain keeps the browser's outcome: nothing focused.
 
 // focusType is how the focus moved.
 type focusType uint8
@@ -149,7 +161,7 @@ const (
 	focusScript                    // ElementRef.Focus, AutoFocus, scopes, fix-up
 	// focusQuiet is a script focus that does not scroll the element into
 	// view: a containing scope taking back the focus of an element that
-	// unmounted (focusLost).
+	// unmounted (focusLost), for its root or the fallback element.
 	focusQuiet
 )
 
@@ -186,7 +198,8 @@ type focusState struct {
 	restores  []*Element
 	scopeAuto []*focusScope
 	// lost is the containing scope that held the focused element when it
-	// unmounted, for focusWork to give the focus back inside (focusLost).
+	// unmounted, for lostWork to give the focus back inside (focusLost);
+	// any focus change clears it.
 	lost *focusScope
 	// space is the Button whose Space press waits for its release.
 	space *Element
@@ -319,6 +332,9 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	if el == f.el {
 		return
 	}
+	// A focus change, or a blur, after the unmount of the focused element
+	// replaces the containing scope's recovery (lostWork).
+	f.lost = nil
 	if typ != focusScript && typ != focusQuiet {
 		f.lastType = typ
 	}
@@ -455,11 +471,13 @@ func (t *Tree) mouseFocus(target *Element) {
 			return
 		}
 	}
-	if t.holdsFocus() {
+	if t.holdsFocus() || t.foc.lost != nil {
 		// Nothing focusable under the press, and the active containing
-		// scope holds the focus: it stays, as after a prevented
-		// pointerdown (no lastType change, so focus-visible keeps what
-		// noteMouse left).
+		// scope holds the focus, or is about to take it back (the focused
+		// element just unmounted, lostWork): it stays, as after a
+		// prevented pointerdown (no lastType change, so focus-visible
+		// keeps what noteMouse left), and the recovery goes on, as when
+		// it ran before the press.
 		return
 	}
 	t.setFocus(nil, focusMouse)
@@ -620,12 +638,14 @@ func (t *Tree) moveFocus(backward bool) {
 }
 
 // ---------------------------------------------------------------------
-// Focus work of a commit: fix-up, AutoFocus, scope restoration.
+// Focus work of a commit: fix-up, AutoFocus, scope restoration, and the
+// recovery of a lost focus (lostWork).
 
 // focusWork does the focus work queued by the builds: it blurs a focused
 // element that stopped being focusable, focuses the AutoFocus element of
 // the commit once it has a style, and restores the focus of unmounted
-// scopes.
+// scopes. The recovery of a focus lost inside a containing scope waits
+// for the layout effects (lostWork).
 func (t *Tree) focusWork() {
 	f := &t.foc
 	t.fixFocus()
@@ -654,7 +674,16 @@ func (t *Tree) focusWork() {
 		}
 	}
 	f.restores = nil
-	if f.lost != nil {
+}
+
+// lostWork gives the focus back inside the containing scope whose focused
+// element unmounted (focusLost), when one did. Its callers run it once
+// nothing else of the commit can focus: after focusWork and the layout
+// effects (Frame, virtualRelayout), after a discrete event's build when
+// no layout effect is pending (flushDiscrete), and before a keydown is
+// dispatched (HandleKey), so that the key reaches the scope.
+func (t *Tree) lostWork() {
+	if t.foc.lost != nil {
 		t.focusLost()
 	}
 }
@@ -662,7 +691,7 @@ func (t *Tree) focusWork() {
 // noteLost records that el, the focused element, loses the focus by an
 // unmount (or the start of an exit) while it is inside the active
 // containing scope (scopes ending with it are already gone), so that
-// focusWork gives the focus back inside that scope.
+// lostWork gives the focus back inside that scope.
 func (t *Tree) noteLost(el *Element) {
 	if s := t.activeScope(); s != nil && isInside(el, s.el) {
 		t.foc.lost = s
@@ -671,12 +700,13 @@ func (t *Tree) noteLost(el *Element) {
 
 // focusLost gives the focus back inside the scope that held the focused
 // element when it unmounted, unless something has the focus by now (an
-// AutoFocus, a restoration) or that scope has ended: to the active
-// containing scope's root element when it is focusable (Radix's
-// container), else its first tabbable element, else its first focusable
-// one (see Containment at the top of focus.go). It waits while an
-// AutoFocus of the commit or the scope's root has no style yet (mounted
-// by a discrete event's build), so the frame decides.
+// AutoFocus, a restoration, a layout effect) or that scope has ended: to
+// the active containing scope's root element when it is focusable
+// (Radix's container), else its first tabbable element, else its first
+// focusable one (see Containment at the top of focus.go), without
+// scrolling either into view. It waits while an AutoFocus of the commit
+// or the scope's root has no style yet (mounted by a discrete event's
+// build), so the frame decides.
 func (t *Tree) focusLost() {
 	f := &t.foc
 	s := f.lost
@@ -697,8 +727,16 @@ func (t *Tree) focusLost() {
 		t.setFocus(a.el, focusQuiet)
 		return
 	}
-	if !t.focusFirstIn(a.el, true) {
-		t.focusFirstIn(a.el, false)
+	// The first tabbable element, else the first focusable one, not
+	// scrolled into view either (focusFirstIn would reveal it): a scrolled
+	// list whose focused row is deleted stays where it is. They are inside
+	// a, the active scope, so containment has nothing to check.
+	cands, _, _ := t.focusCands(a.el, true, nil)
+	if len(cands) == 0 {
+		cands, _, _ = t.focusCands(a.el, false, nil)
+	}
+	if len(cands) > 0 {
+		t.setFocus(cands[0].el, focusQuiet)
 	}
 }
 
@@ -727,8 +765,7 @@ func (t *Tree) scopeAutoFocus() {
 
 // focusPending reports whether focusWork has anything to do.
 func (t *Tree) focusPending() bool {
-	return t.foc.el != nil || t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0 ||
-		t.foc.lost != nil
+	return t.foc.el != nil || t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0
 }
 
 // mountFocus records the focus props of a primitive being mounted.

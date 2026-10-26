@@ -432,8 +432,14 @@ func (t *Tree) endPress(ps *pointerState) {
 func (t *Tree) flushDiscrete() {
 	t.ApplyUpdates()
 	t.buildPhase()
-	if t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0 || t.foc.lost != nil {
+	if t.foc.auto != nil || len(t.foc.restores) > 0 || len(t.foc.scopeAuto) > 0 {
 		t.focusWork()
+	}
+	if len(t.layoutFx) == 0 && len(t.layoutGone) == 0 {
+		// A focus lost inside a containing scope comes back now, unless a
+		// layout effect of the commit (which runs in the frame, after
+		// layout) may focus first: then the frame does it (lostWork).
+		t.lostWork()
 	}
 }
 

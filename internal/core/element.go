@@ -487,9 +487,9 @@ func (t *Tree) update(el *Element, n Node) {
 		}
 		el.node = n
 		bx := el.box
-		if old.disabled != d.disabled {
+		disabled, since := old.disabled != d.disabled, t.stGen
+		if disabled {
 			t.setState(el, style.StateDisabled, d.disabled)
-			t.disabledChanged(el) // field.go
 		}
 		if old.aria != d.aria {
 			t.setAriaStates(el, ariaStates(old.aria), ariaStates(d.aria))
@@ -546,6 +546,11 @@ func (t *Tree) update(el *Element, n Node) {
 		}
 		t.reconcile(el, d.children)
 		el.dirtyKids = false
+		if disabled {
+			// The field states below follow, once the reconciliation
+			// updated those whose nodes changed (field.go).
+			t.disabledChanged(el, since)
+		}
 	case elemComponent:
 		if d.comp.ctx != nil {
 			t.updateProvider(el, n)

@@ -377,6 +377,69 @@ func TestFieldInvalidBarredFromValidation(t *testing.T) {
 	}
 }
 
+// TestFieldDisabledNestedAncestor checks the field states below an
+// element whose Disabled changes: a field under an inner ancestor that is
+// disabled itself keeps its states, and is not updated, when an outer
+// one toggles; it follows the outer one once the inner one is enabled;
+// and a field whose node changes in the same commit as its ancestor's
+// Disabled is updated once, by its own update.
+func TestFieldDisabledNestedAncestor(t *testing.T) {
+	var setOuter, setInner Setter[bool]
+	leaf := input(Key("leaf"), AriaLabel("leaf"), FieldType("email"), DefaultValue("bad"))
+	app := func() Node {
+		outer, so := UseState(false)
+		inner, si := UseState(true)
+		setOuter, setInner = so, si
+		return div(
+			div(Key("outer"), Disabled(outer),
+				div(Key("inner"), Disabled(inner), leaf),
+				// A new node on every build: its own update refreshes it.
+				input(Key("own"), AriaLabel("own "+fmt.Sprint(outer)), FieldType("email"), DefaultValue("bad"))),
+		)
+	}
+	x := newKeys(t, Component(app), 400, 300)
+	x.frame()
+	tr := x.tree()
+	has := func(k string, s style.StateFlags) bool { return keyed(tr, k).istate&s != 0 }
+	check := func(step string, leafEditable, ownEditable bool) {
+		t.Helper()
+		for _, c := range []struct {
+			k        string
+			editable bool
+		}{{"leaf", leafEditable}, {"own", ownEditable}} {
+			if g := has(c.k, style.StateInvalid); g != c.editable {
+				t.Errorf("%s: %s invalid: %v, want %v", step, c.k, g, c.editable)
+			}
+			if g := has(c.k, style.StateReadOnly); g == c.editable {
+				t.Errorf("%s: %s read-only: %v, want %v", step, c.k, g, !c.editable)
+			}
+		}
+	}
+	check("inner disabled", false, true)
+
+	leafAt := fieldOf(t, tr, "leaf").stAt
+	gen := tr.stGen
+	setOuter.Set(true)
+	x.frame()
+	check("outer and inner disabled", false, false)
+	if fieldOf(t, tr, "leaf").stAt != leafAt {
+		t.Error("outer disabled: the field under the disabled inner element was updated")
+	}
+	if d := tr.stGen - gen; d != 1 {
+		t.Errorf("outer disabled: %d field-state updates, want 1 (own, by its own update)", d)
+	}
+
+	setInner.Set(false)
+	x.frame()
+	check("outer disabled, inner enabled", false, false)
+	setOuter.Set(false)
+	x.frame()
+	check("both enabled", true, true)
+	setInner.Set(true)
+	x.frame()
+	check("inner disabled again", false, true)
+}
+
 func TestFieldPasswordAndClipboard(t *testing.T) {
 	root := div(input(Key("pw"), FieldType("password"), DefaultValue("secret")), input(Key("txt"), DefaultValue("copy me")))
 	x := newKeys(t, root, 400, 200)
