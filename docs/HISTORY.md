@@ -284,6 +284,18 @@ migrated.
 
 **Done when:** `examples/dashboard` (a glass style) and `examples/native` (Win11, Adwaita, Breeze styles) are built only on `kit`, `examples/settings` uses the default style, no migrated example has a hand-made control (segmented control, switch, radio, confirm row, toast, menu) or hand-drawn icon, and hello, counter, shapes, text, layout, motion, virtuallist and aria keep bit-identical goldens.
 
+### Phase 11: CLI tooling, LLM docs, full screens (`v0.11.0`)
+
+- [x] API gaps before `llms.txt`: `telatest` right click, tap and long press; `tela.UseTimeout`; `h.AriaCurrent`; `kit.Field` control after the text and `kit.FieldSet`
+- [x] `tela lint`: static check of class strings, roles and keys, so typos fail in CI even with dev mode off
+- [x] `tela mcp`: MCP server over `snapshot`, `inspect` and `telatest` queries
+- [x] `docs/llms.txt` matching the final API
+- [x] `examples/` with full screens (dashboard, login, settings, chat)
+
+**Done when:** an agent with no prior context, given only `llms.txt` and `tela mcp`, builds a beautiful settings screen in under 3 snapshot iterations.
+
+Delivered (2026-10-26, ADRs 170–177): the API gaps the owner chose first (`telatest.Right`/`Tap`/`LongPress`, `tela.UseTimeout`, `h.AriaCurrent`, `kit.Field.ControlAfter` and `kit.FieldSet`); `tela lint` (constants checked with the runtime's own rules, CI runs it); `tela mcp` (headless instance, Playwright-style refs, rebuild on the next call; a hooks-using `func Preview()` became a component, ADR-175); the `login` and `chat` examples, whose work fixed layout-effect scrolls and absolute inline boxes (ADR-176); `docs/llms.txt`, type-checked and linted against the API (ADR-177). Done check: a fresh agent with only `llms.txt` and `tela mcp` built a five-section code editor settings screen with one round of visual fixes and no compile, lint or dev error. A `/code-review high` of `v0.10.4..HEAD` reported 10 findings: 9 confirmed and fixed, 1 rejected.
+
 ## Session log
 
 One line per session: date, what was done, what is pending. Append new sessions at the end.
@@ -351,3 +363,4 @@ One line per session: date, what was done, what is pending.
 - **2026-10-26:** ADR-176 (one `tela-core` agent): scrolls asked for by layout effects are queued and run after the frame's extents (and reach boxes not yet painted); absolute and fixed inline boxes are blockified and out-of-flow boxes no longer split a paragraph. 61 of 63 example snapshots bit-identical (chat's differ only in wall-clock labels). Whole suite and the race detector (internal/core sharded in 23 processes, the root package, platform, h) pass.
 - **2026-10-26:** `docs/llms.txt` (one `tela-core` agent; ADR-177): 60 KB, nine sections, every Go block type-checked and linted by `internal/gen/llmsdoc`, the settings screen in it is `examples/llms/settings` (goldens generated and reviewed by the main session); the main session made `tela mcp <dir>` work from outside the module (an MCP client's working directory) and amended §5. Whole suite passes.
 - **2026-10-26:** phase-11 done check passed: a fresh `general-purpose` agent with only `llms.txt` and `tela mcp` (driven through a shell client) built a code editor's settings screen (five sections, 445 lines) with one round of visual fixes (two screenshots of the main screen), no compile, lint or dev errors; its feedback filled `llms.txt` (fonts, `SetTheme`, `FormatValue`, `Column.Width`, Field spacing, `go mod tidy`) and fixed the scheme line of `tela mcp`.
+- **2026-10-26:** phase 11 closed: `/code-review high` of `v0.10.4..HEAD` (10 findings; two `tela-core` agents in worktrees confirmed 9 and fixed them with tests, rejected 1: the headless window has no minimum size); whole suite, `teladev` tags, lint, staticcheck, cross-builds and the race detector (internal/core in 23 shards, root, platform, cmd/tela) pass; `CHANGELOG.md` has `v0.11.0`; the phase moved here; tag `v0.11.0` proposed to the owner.

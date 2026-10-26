@@ -14,3 +14,5 @@
 ## Rationale
 
 Notices and toasts need a delay without a goroutine or a periodic timer to cancel, and navigation links, steppers and calendars style their current item with `aria-current`, which Tailwind users write as `aria-[current=page]:`.
+
+_Note (phase-11 review): in dev messages the internal timer hook of `aria` is named "aria's Timeout", so a swap with `tela.UseTimeout` names two hooks._

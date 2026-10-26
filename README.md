@@ -395,8 +395,8 @@ are done.
 | 8 | Icons, SVG and `aria`: `h.Icon`, Lucide, `tela icons gen`, behavior hooks, `UseFloating` | ✅ v0.8.0 |
 | 9 | Dev loop: `tela dev`, a reload that keeps state | ✅ v0.9.0 |
 | 10 | `kit`: ready-made components on the theme tokens, restyled with recipes | ✅ v0.10.0 |
-| 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | in progress |
-| 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | planned |
+| 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | ✅ v0.11.0 |
+| 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | next |
 | 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | planned |
 | 14 | macOS and IME on X11 | planned |
 | 15–20 | Accessibility backends, GPU backend, packaging and auto-update, DevTools, canvas and PDF, audio and video | planned |

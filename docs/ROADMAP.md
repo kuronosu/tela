@@ -7,9 +7,9 @@
 
 ## Current status
 
-- **Done:** phases 1–10. Latest version `v0.10.4` (2026-10-26; engine fixes `v0.10.1`, kit gallery fixes `v0.10.2`, code-review fixes `v0.10.3`, live-validation and kit-review fixes `v0.10.4`). Everything is pushed (tags up to `v0.10.4`, `main`, and the wiki from `docs/wiki` at `v0.10.4`).
-- **Phase in progress:** 11. Pre-releases done (live validation of `v0.10.1`–`v0.10.4`, tag `v0.10.4`, housekeeping; see HISTORY.md).
-- **Next step:** the phase's done check: a fresh agent with only `llms.txt` and `tela mcp` builds a settings screen in under 3 snapshot iterations (llms.txt holds a complete settings screen, so the check asks for one with different content). Done: API gaps (ADRs 170–172), `tela lint` (173), `tela mcp` (174–175), the `login` and `chat` examples, two engine fixes (176), `llms.txt` (177).
+- **Done:** phases 1–11. Latest version `v0.11.0` (2026-10-26, proposed tag: CLI tooling, LLM docs, full screens). `v0.10.4` and earlier are pushed; phase 11's commits are not.
+- **Phase in progress:** none; phase 11 is done (its done check passed on 2026-10-26: a fresh agent with only `llms.txt` and `tela mcp` built a code editor's settings screen with one round of visual fixes).
+- **Next step:** the owner tags `v0.11.0` and pushes; then plan phase 12 (desktop essentials).
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
@@ -28,17 +28,7 @@ Still true as of `v0.10.4`; the per-phase lists in HISTORY.md include items fixe
 
 ## Phases
 
-Each phase ends with verifiable criteria. A phase is not done unless its criteria pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). Phases 1–10 are done (HISTORY.md).
-
-### Phase 11: CLI tooling, LLM docs, full screens (`v0.11.0`)
-
-- [x] API gaps before `llms.txt`: `telatest` right click, tap and long press; `tela.UseTimeout`; `h.AriaCurrent`; `kit.Field` control after the text and `kit.FieldSet`
-- [x] `tela lint`: static check of class strings, roles and keys, so typos fail in CI even with dev mode off
-- [x] `tela mcp`: MCP server over `snapshot`, `inspect` and `telatest` queries
-- [x] `docs/llms.txt` matching the final API
-- [x] `examples/` with full screens (dashboard, login, settings, chat)
-
-**Done when:** an agent with no prior context, given only `llms.txt` and `tela mcp`, builds a beautiful settings screen in under 3 snapshot iterations.
+Each phase ends with verifiable criteria. A phase is not done unless its criteria pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). Phases 1–11 are done (HISTORY.md).
 
 ### Phase 12: Desktop essentials (`v0.12.0`)
 

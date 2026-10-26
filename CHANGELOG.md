@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-26
+
 ### Changed
 
 - A `func Preview() tela.Node` is mounted as `tela.C(Preview)` by `tela snapshot`, `inspect`, `dev` and `mcp`, so it may use hooks itself; it panicked with "called outside a component build". `tela inspect --layout` names `Preview` as the root's component (ADR-175).
@@ -30,6 +32,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- `//tela:ignore class, key -- reason` ignores both rules, and `//tela:ignore -- reason` every rule; only the first name was read (ADR-173).
+- The `tela mcp` `click` tool with `x`, `y` and `double` double-clicks (it sent two single clicks); a ref no longer passes to an element that has a ref's old name; after a rebuild that fails to mount, the session keeps describing the running screen; JSON-RPC batches are answered in one array, and the server answers pings while tool calls wait.
+- A dev-mode hook-order message that swapped `tela.UseTimeout` and an aria component's timer named the same hook twice; outside dev mode such a swap with `UseInterval` reused the slot silently.
 - `tela mcp` says in which color scheme the screen was mounted (`mounted in dark mode`); it said "light" after the app had switched itself to dark with `tela.SetColorScheme`.
 - `tela mcp /path/to/app` works when the client starts the server outside the app's module (Claude Desktop starts it in `/`): a directory argument becomes the working directory.
 - `ScrollTo`, `ScrollBy` and `ScrollIntoView` called from a `tela.UseLayoutEffect` use the layout of that frame: on mount they did nothing, and after content grew they landed one item short, though `UseLayoutEffect`'s documentation shows that idiom. `ScrollIntoView` and a focus reveal reach an element mounted in the same frame (ADR-176).
@@ -617,7 +622,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/kuronosu/tela/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/kuronosu/tela/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/kuronosu/tela/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/kuronosu/tela/compare/v0.10.1...v0.10.2
