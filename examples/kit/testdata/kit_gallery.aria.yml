@@ -1,5 +1,5 @@
 - banner:
-  - text: Tela kit 35 components Style
+  - text: Tela kit 36 components Style
   - radiogroup "Style":
     - radio "Default" [checked]
     - radio "Rounded"
@@ -36,6 +36,7 @@
   - tab "Table"
   - tab "Tabs"
   - tab "Textarea"
+  - tab "Title Bar"
   - tab "Toast"
   - tab "Toggle"
   - tab "Toggle Group"

@@ -106,7 +106,8 @@
 // the controls that choose: Checkbox, Switch,
 // RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and
 // Progress; and the dates: Calendar, RangeCalendar, DatePicker and
-// DateRangePicker. A [ColorPicker] chooses a [tela.Color] with an area for the
+// DateRangePicker; and the [TitleBar] and [WindowControls] of a frameless
+// window (below). A [ColorPicker] chooses a [tela.Color] with an area for the
 // saturation and brightness, a hue slider, an optional alpha slider, a hex
 // field and optional swatches; a [ColorInput] is the same behind a button
 // that shows the color (the look of both is the kit's own, shadcn/ui has
@@ -153,6 +154,24 @@
 // with a legend and names a RadioGroup or ToggleGroup inside it:
 //
 //	kit.FieldSet{Legend: "Theme", Children: kit.RadioGroup[string]{Items: themes}}
+//
+// # Title bars
+//
+// A window that draws its own title bar (tela.Window and tela.App with
+// Frameless, or a Wayland desktop without server-side decorations) uses a
+// [TitleBar]: a drag area with a title, slots at the start, in the middle
+// and at the end, and the [WindowControls] (minimize, maximize or restore,
+// close) at the side of the platform, in the look of Windows, GNOME or
+// macOS (a [Variant]: Windows, GNOME, MacOS; the platform's by default). The
+// OS handles drag and double click; buttons and fields in the slots stay
+// clickable. The bar dims while the window is not focused and drops its
+// outline while it is maximized.
+//
+//	kit.TitleBar{
+//	    Title:    h.Text("Notes"),
+//	    Leading:  kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Menu, AriaLabel: "Menu"},
+//	    Trailing: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Settings, AriaLabel: "Settings"},
+//	}
 //
 // # Right to left
 //

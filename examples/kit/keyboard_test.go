@@ -121,7 +121,7 @@ func TestHeaderKeyboard(t *testing.T) {
 }
 
 // TestSidebarSnapshot pins what a screen reader reads on the shell: the
-// banner with its two controls, the 34 tabs and the selected page.
+// banner with its two controls, the 36 tabs and the selected page.
 func TestSidebarSnapshot(t *testing.T) {
 	mount(t, Gallery{}).AriaGolden("kit_gallery.aria.yml")
 	a := mount(t, Gallery{Page: "DropdownMenu"})

@@ -36,6 +36,7 @@ var pages = []page{
 	{"Table", "Table", "kit.Table[T]", "Rows of any type through columns, with sorting by a header and a sticky header and columns.", tela.C(tablePage)},
 	{"Tabs", "Tabs", "kit.Tabs[K]", "A tab list with its panels, in the default pill or underlined, horizontal or vertical.", tela.C(tabsPage)},
 	{"Textarea", "Textarea", "kit.Textarea", "A multi-line text field that grows with its text.", tela.C(textareaPage)},
+	{"TitleBar", "Title Bar", "kit.TitleBar, kit.WindowControls", "The title bar of a window that draws its own: a drag area with a title, slots and the minimize, maximize and close buttons, in the look of Windows, GNOME or macOS.", tela.C(titleBarPage)},
 	{"Toast", "Toast", "kit.Toaster, kit.UseToast", "Toasts that stack at a corner of the window, shown from any component or goroutine.", tela.C(toastPage)},
 	{"Toggle", "Toggle", "kit.Toggle", "A button that stays pressed.", tela.C(togglePage)},
 	{"ToggleGroup", "Toggle Group", "kit.ToggleGroup[K]", "A row of toggle buttons that share a choice: the segmented control and the formatting toolbar.", tela.C(toggleGroupPage)},

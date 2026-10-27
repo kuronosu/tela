@@ -89,6 +89,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type TabsStyle`](#type-tabsstyle)
   - [`type Textarea`](#type-textarea): [`Build`](#func-textarea-build)
   - [`type TextareaStyle`](#type-textareastyle)
+  - [`type TitleBar`](#type-titlebar): [`Build`](#func-titlebar-build)
+  - [`type TitleBarStyle`](#type-titlebarstyle)
   - [`type ToastHandle`](#type-toasthandle): [`UseToast`](#func-usetoast) · [`Dismiss`](#func-toasthandle-dismiss) · [`DismissAll`](#func-toasthandle-dismissall) · [`Error`](#func-toasthandle-error) · [`Info`](#func-toasthandle-info) · [`Loading`](#func-toasthandle-loading) · [`Show`](#func-toasthandle-show) · [`Success`](#func-toasthandle-success) · [`Warning`](#func-toasthandle-warning)
   - [`type ToastID`](#type-toastid)
   - [`type ToastIcons`](#type-toasticons)
@@ -106,6 +108,8 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Trigger`](#type-trigger)
   - [`type TriggerFunc`](#type-triggerfunc): [`WithTriggerProps`](#func-triggerfunc-withtriggerprops)
   - [`type Variant`](#type-variant)
+  - [`type WindowControls`](#type-windowcontrols): [`Build`](#func-windowcontrols-build)
+  - [`type WindowControlsStyle`](#type-windowcontrolsstyle)
 
 ## Overview
 
@@ -173,7 +177,7 @@ kit.Card{Class: "w-full max-w-sm", HeaderClass: "pb-6 border-b", TitleLevel: 2, 
 
 ### What is there
 
-Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog, Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and the controls that choose: Checkbox, Switch, RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and Progress; and the dates: Calendar, RangeCalendar, DatePicker and DateRangePicker. A [`ColorPicker`](#type-colorpicker) chooses a [`tela.Color`](API-Reference-tela#type-color) with an area for the saturation and brightness, a hue slider, an optional alpha slider, a hex field and optional swatches; a [`ColorInput`](#type-colorinput) is the same behind a button that shows the color (the look of both is the kit's own, shadcn/ui has no color picker):
+Button, Badge, Card, Avatar, Label, Input, Textarea, Separator, Skeleton, Field, FieldSet, Select, Tabs, Table and Toaster; the overlays Dialog, AlertDialog, Popover and Tooltip; the menus DropdownMenu, Menubar and ContextMenu; and the controls that choose: Checkbox, Switch, RadioGroup, Toggle, ToggleGroup (the segmented control), Slider and Progress; and the dates: Calendar, RangeCalendar, DatePicker and DateRangePicker; and the [`TitleBar`](#type-titlebar) and [`WindowControls`](#type-windowcontrols) of a frameless window (below). A [`ColorPicker`](#type-colorpicker) chooses a [`tela.Color`](API-Reference-tela#type-color) with an area for the saturation and brightness, a hue slider, an optional alpha slider, a hex field and optional swatches; a [`ColorInput`](#type-colorinput) is the same behind a button that shows the color (the look of both is the kit's own, shadcn/ui has no color picker):
 
 ```go
 kit.ColorPicker{Value: &color, OnValueChange: setColor.Set, Alpha: true,
@@ -210,6 +214,18 @@ A horizontal Field puts the control first; ControlAfter puts it after the text, 
 
 ```go
 kit.FieldSet{Legend: "Theme", Children: kit.RadioGroup[string]{Items: themes}}
+```
+
+### Title bars
+
+A window that draws its own title bar (tela.Window and tela.App with Frameless, or a Wayland desktop without server-side decorations) uses a [`TitleBar`](#type-titlebar): a drag area with a title, slots at the start, in the middle and at the end, and the [`WindowControls`](#type-windowcontrols) (minimize, maximize or restore, close) at the side of the platform, in the look of Windows, GNOME or macOS (a [`Variant`](#type-variant): Windows, GNOME, MacOS; the platform's by default). The OS handles drag and double click; buttons and fields in the slots stay clickable. The bar dims while the window is not focused and drops its outline while it is maximized.
+
+```go
+kit.TitleBar{
+    Title:    h.Text("Notes"),
+    Leading:  kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Menu, AriaLabel: "Menu"},
+    Trailing: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Settings, AriaLabel: "Settings"},
+}
 ```
 
 ### Right to left
@@ -3502,39 +3518,41 @@ SortState is how a [`Table`](#type-table) is sorted: by the column with the ID C
 
 ```go
 type Style struct {
-    AlertDialog  AlertDialogStyle
-    Avatar       AvatarStyle
-    Badge        BadgeStyle
-    Button       ButtonStyle
-    Calendar     CalendarStyle
-    Card         CardStyle
-    Checkbox     CheckboxStyle
-    ColorInput   ColorInputStyle
-    ColorPicker  ColorPickerStyle
-    ContextMenu  MenuStyle
-    DatePicker   DatePickerStyle
-    Dialog       DialogStyle
-    DropdownMenu MenuStyle
-    Field        FieldStyle
-    FieldSet     FieldSetStyle
-    Input        InputStyle
-    Label        LabelStyle
-    Menubar      MenubarStyle
-    Popover      PopoverStyle
-    Progress     ProgressStyle
-    RadioGroup   RadioGroupStyle
-    Select       SelectStyle
-    Separator    SeparatorStyle
-    Skeleton     SkeletonStyle
-    Slider       SliderStyle
-    Switch       SwitchStyle
-    Table        TableStyle
-    Tabs         TabsStyle
-    Textarea     TextareaStyle
-    Toast        ToastStyle
-    Toggle       ToggleStyle
-    ToggleGroup  ToggleGroupStyle
-    Tooltip      TooltipStyle
+    AlertDialog    AlertDialogStyle
+    Avatar         AvatarStyle
+    Badge          BadgeStyle
+    Button         ButtonStyle
+    Calendar       CalendarStyle
+    Card           CardStyle
+    Checkbox       CheckboxStyle
+    ColorInput     ColorInputStyle
+    ColorPicker    ColorPickerStyle
+    ContextMenu    MenuStyle
+    DatePicker     DatePickerStyle
+    Dialog         DialogStyle
+    DropdownMenu   MenuStyle
+    Field          FieldStyle
+    FieldSet       FieldSetStyle
+    Input          InputStyle
+    Label          LabelStyle
+    Menubar        MenubarStyle
+    Popover        PopoverStyle
+    Progress       ProgressStyle
+    RadioGroup     RadioGroupStyle
+    Select         SelectStyle
+    Separator      SeparatorStyle
+    Skeleton       SkeletonStyle
+    Slider         SliderStyle
+    Switch         SwitchStyle
+    Table          TableStyle
+    Tabs           TabsStyle
+    Textarea       TextareaStyle
+    TitleBar       TitleBarStyle
+    Toast          ToastStyle
+    Toggle         ToggleStyle
+    ToggleGroup    ToggleGroupStyle
+    Tooltip        TooltipStyle
+    WindowControls WindowControlsStyle
 }
 ```
 
@@ -4166,6 +4184,105 @@ type TextareaStyle struct {
 ```
 
 TextareaStyle is the recipe of [`Textarea`](#type-textarea) (shadcn/ui's Textarea).
+
+### type TitleBar
+
+```go
+type TitleBar struct {
+    // Variant is the look: Default (the platform's), Windows, GNOME or
+    // MacOS, or one the active [Style] adds.
+    Variant Variant
+    // Title is the window's name, truncated when there is no room.
+    Title tela.Component
+    // Leading is drawn at the start, before the title: a menu button, the
+    // app's icon, a back button. On MacOS it follows the window controls.
+    Leading tela.Component
+    // Children is the content beside the title that takes the room
+    // left: a search field, tabs, a menu bar. On Windows it is centered
+    // in that room.
+    Children tela.Component
+    // Trailing is drawn at the end, before the window controls: actions
+    // such as share or settings.
+    Trailing tela.Component
+    // ControlsSide is "start" or "end": the side of the bar that has the
+    // window controls. Empty is the look's own (the end, except MacOS).
+    ControlsSide string
+    // HideMinimize and HideMaximize leave those buttons out (see
+    // [WindowControls]).
+    HideMinimize, HideMaximize bool
+    // State, when set, is the window state to draw in place of the
+    // window's own: Maximized, Fullscreen and Focused. It is for previews
+    // and tests; leave it nil in an app.
+    State *tela.WindowState
+    // TitleClass, LeadingClass, ContentClass and TrailingClass are added
+    // to the part after the recipe's classes.
+    TitleClass, LeadingClass, ContentClass, TrailingClass string
+    // Class is added to the bar after the recipe's classes ("bg-card").
+    Class string
+    // Props are more props for the bar element.
+    Props tela.Child
+}
+```
+
+TitleBar is the title bar of a window that draws its own: a [`tela.Window`](API-Reference-tela#type-window) or [`tela.App`](API-Reference-tela#type-app) with Frameless, or a window on a Wayland desktop whose compositor draws no title bars (the window's State().ClientSideDecorations). It is a drag area (h.WindowDrag): the OS moves the window when it is dragged, maximizes or restores it on a double click and opens the window menu on a right click, so the bar does nothing for those, and every interactive thing inside it (a button, a search field, tabs) stays clickable, because the buttons, fields and anything with a handler are holes in the drag area by themselves.
+
+```go
+func Notes() tela.Node {
+    return h.Div(h.Class("flex h-screen flex-col"),
+        kit.TitleBar{
+            Leading:  kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Menu, AriaLabel: "Menu"},
+            Title:    h.Text("Notes"),
+            Trailing: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Settings, AriaLabel: "Settings"},
+        },
+        h.Div(h.Class("min-h-0 grow"), content),
+    )
+}
+```
+
+The bar draws [`WindowControls`](#type-windowcontrols) at the side the platform keeps them (the end, in the reading direction, and the start on macOS; ControlsSide overrides it), so under h.Dir("rtl") the whole bar mirrors. Its look is the platform's by default (Windows, GNOME or MacOS: the title at the start on Windows, centered on the others; Variant picks another), it dims while the window is not focused, and loses its outline while the window is maximized or fullscreen.
+
+To show the bar only where the window has no title bar of its own, read the window state and leave it out otherwise:
+
+```go
+if tela.UseWindow().State().ClientSideDecorations { ... kit.TitleBar{...} ... }
+```
+
+A fullscreen window usually has no bar either: leave it out on State().Fullscreen. In tela snapshot there is no window: the bar is drawn focused and not maximized, and its buttons do nothing.
+
+#### func (TitleBar) Build
+
+```go
+func (t TitleBar) Build() tela.Node
+```
+
+Build returns the bar.
+
+### type TitleBarStyle
+
+```go
+type TitleBarStyle struct {
+    // Root is what every look has: the width, no text selection.
+    Root string
+    // Variants are the looks of the bar: Windows, GNOME and MacOS. Their
+    // heights are 32, 47 and 40 px, the ones of the OS's own bars.
+    Variants map[Variant]string
+    // Windowed and Maximized are added to the bar while the window is
+    // neither maximized nor fullscreen, and while it is: the outline a
+    // floating window has and a maximized one does not.
+    Windowed, Maximized map[Variant]string
+    // Inactive is added while the window is not focused.
+    Inactive map[Variant]string
+    // Leading, Middle and End are the three regions of the bar: the start
+    // (with the window controls on a look that puts them there), the title
+    // and content, and the end (the trailing slot and the controls).
+    Leading, Middle, End map[Variant]string
+    // Title, Content and Trailing are the parts inside them: the title's
+    // text, the content slot's box and the trailing slot's box.
+    Title, Content, Trailing map[Variant]string
+}
+```
+
+TitleBarStyle is the recipe of [`TitleBar`](#type-titlebar). Every field but Root and Variants is a map from a look (Windows, GNOME, MacOS, or one the recipe adds) to the classes of one part, so a look is one entry in each.
 
 ### type ToastHandle
 
@@ -4918,7 +5035,103 @@ const (
 The variants shadcn/ui's components share. Default is the zero value, so leaving Variant out gives the default look.
 
 ```go
+const (
+    // Windows is Windows 11's: rectangular 46 px buttons that fill the
+    // title bar's height, thin glyphs, and a close button that turns red.
+    Windows Variant = "windows"
+    // GNOME is Adwaita's: round icon buttons in a tall header bar, with
+    // the title centered.
+    GNOME Variant = "gnome"
+    // MacOS is Aqua's: the red, yellow and green dots at the start of the
+    // bar, whose glyphs show when the pointer is over them.
+    MacOS Variant = "macos"
+)
+```
+
+The looks of the window controls and the title bar (ADR-182). They are \[Variant\]s, like the looks of every other component: the recipes of [`WindowControlsStyle`](#type-windowcontrolsstyle) and [`TitleBarStyle`](#type-titlebarstyle) define them, and an app adds a look by adding a name to their maps. Default, the zero value, is the look of the platform the app runs on: Windows on Windows, MacOS on macOS, GNOME everywhere else.
+
+```go
 const TabsLine Variant = "line"
 ```
 
 TabsLine is the Variant of a [`Tabs`](#type-tabs) list that draws no background and underlines the selected tab (shadcn's tabsListVariants "line"). The other variant, Default, is the muted pill.
+
+### type WindowControls
+
+```go
+type WindowControls struct {
+    // Variant is the look: Default (the platform's), Windows, GNOME or
+    // MacOS, or one the active [Style] adds.
+    Variant Variant
+    // HideMinimize and HideMaximize leave a button out, for a window that
+    // cannot be minimized or maximized (a dialog, a fixed-size window).
+    // Close is always there.
+    HideMinimize, HideMaximize bool
+    // State, when set, is the state to draw in place of the window's:
+    // Maximized changes the maximize button, Focused false dims the
+    // group. It is for previews and tests; leave it nil in an app.
+    State *tela.WindowState
+    // MinimizeIcon, MaximizeIcon, RestoreIcon and CloseIcon replace the
+    // glyphs of the look.
+    MinimizeIcon, MaximizeIcon, RestoreIcon, CloseIcon tela.Icon
+    // MinimizeLabel, MaximizeLabel, RestoreLabel and CloseLabel are the
+    // buttons' accessible names ("Minimize", "Maximize", "Restore",
+    // "Close"); set them to translate.
+    MinimizeLabel, MaximizeLabel, RestoreLabel, CloseLabel string
+    // AriaLabel names the group ("Window controls").
+    AriaLabel string
+    // Class is added after the recipe's classes.
+    Class string
+    // Props are more props for the group element.
+    Props tela.Child
+}
+```
+
+WindowControls are the minimize, maximize (restore while the window is maximized) and close buttons of a custom title bar: the ones of Windows 11, of GNOME's Adwaita or of macOS, by the platform the app runs on or by Variant. [`TitleBar`](#type-titlebar) draws them at the side of its platform; use WindowControls alone to place them yourself.
+
+```go
+kit.WindowControls{}                         // the platform's look
+kit.WindowControls{Variant: kit.Windows, HideMinimize: true}
+```
+
+Each button is a real button with the window-control prop of h.WindowControl, so a click does what its name says without any handler, the OS knows what the button is (Windows 11 shows its snap layouts over the maximize button), and the keyboard works. The maximize button's name and glyph follow the window's state: "Maximize" and "Restore". The group takes no space of its own beyond its buttons, and is not a drag area: put it inside a bar that has h.WindowDrag (the buttons are holes in it by themselves).
+
+Without a window, as in tela snapshot, the buttons draw and do nothing.
+
+The glyphs, the names and the look are all slots and recipes: the icon and label fields replace one, and [`WindowControlsStyle`](#type-windowcontrolsstyle) restyles a look or adds one.
+
+#### func (WindowControls) Build
+
+```go
+func (w WindowControls) Build() tela.Node
+```
+
+Build returns the group of buttons.
+
+### type WindowControlsStyle
+
+```go
+type WindowControlsStyle struct {
+    // Root is the group the buttons are in.
+    Root string
+    // Variants are the looks of the group: Windows, GNOME and MacOS.
+    Variants map[Variant]string
+    // Button is what every button has: layout, transition and focus ring.
+    Button string
+    // ButtonVariants are the looks of a button: its size, shape, color and
+    // hover.
+    ButtonVariants map[Variant]string
+    // MinimizeVariants, MaximizeVariants and CloseVariants are added to
+    // the button of that control, per look: the dot colors of MacOS, the
+    // red hover of Windows' close button.
+    MinimizeVariants, MaximizeVariants, CloseVariants map[Variant]string
+    // Inactive is added to every button while the window is not focused.
+    Inactive map[Variant]string
+    // Icon is what the icons have, before IconVariants.
+    Icon string
+    // IconVariants are the icon's size and color, per look.
+    IconVariants map[Variant]string
+}
+```
+
+WindowControlsStyle is the recipe of [`WindowControls`](#type-windowcontrols).

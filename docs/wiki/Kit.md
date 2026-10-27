@@ -1,7 +1,7 @@
 # Kit: ready-made components
 
 Package [`kit`](https://pkg.go.dev/github.com/kuronosu/tela/kit) is the layer an
-app is written with: 35 styled components in the look of
+app is written with: 37 styled components in the look of
 [shadcn/ui](https://ui.shadcn.com) (style "new-york-v4", at one pinned registry
 commit), built on the behavior hooks of [`aria`](Aria) and the classes of
 [`h`](Elements-and-Props). A button, a card, a select, a dialog, a calendar, a
@@ -343,6 +343,48 @@ kit.DropdownMenu[string]{Trigger: kit.Button{Variant: kit.Outline, Children: Tex
 kit.Menubar[string]{AriaLabel: "Application", Menus: []kit.MenubarMenu[string]{{Key: "file", Label: "File", Items: fileItems}}}
 kit.ContextMenu[string]{AriaLabel: "Page", Class: "h-40 w-72", Children: Text("Right click here"), Items: items}
 ```
+
+### Title bars
+
+`TitleBar` and `WindowControls` are for a window that draws its own title bar: a
+`Frameless` window (`tela.App` or `tela.Window`), or one on a Wayland desktop
+whose compositor draws none (`tela.UseWindow().State().ClientSideDecorations`).
+The bar is a drag area (`h.WindowDrag`): the OS moves the window when it is
+dragged, maximizes it on a double click and opens the window menu on a right
+click, so the bar does nothing for those, and the buttons and fields you put in
+its `Leading`, `Children` and `Trailing` slots stay clickable. The window
+controls (minimize, maximize or restore, close) are real buttons with
+`h.WindowControl`, so they act on click with no handler, named "Minimize",
+"Maximize" (or "Restore" while the window is maximized) and "Close"; set the
+`...Label` fields to translate them.
+
+```go
+func Notes() tela.Node {
+	return Div(Class("flex h-screen flex-col"),
+		kit.TitleBar{
+			Title:    Text("Notes"),
+			Leading:  kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Menu, AriaLabel: "Menu"},
+			Trailing: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: lucide.Settings, AriaLabel: "Settings"},
+		},
+		Div(Class("min-h-0 grow"), content),
+	)
+}
+
+// main: a frameless window.
+tela.Main(tela.App{Title: "Notes", Frameless: true, Root: tela.C(Notes)})
+```
+
+The look is the platform's (`kit.Windows`: 32 px, the title at the start, flat
+46 px buttons and a close button that turns red; `kit.GNOME`: a 47 px header bar
+with the title centered and round buttons; `kit.MacOS`: the three dots at the
+start), chosen by `runtime.GOOS`; `Variant` picks another, and the looks are
+recipes (`Style.TitleBar`, `Style.WindowControls`) you can edit or add to. The bar
+dims while the window is not focused and drops its outline while it is maximized
+or fullscreen; under `h.Dir("rtl")` it mirrors. It does not hide itself: to show
+it only where the OS draws no title bar, wrap it in
+`If(tela.UseWindow().State().ClientSideDecorations, ...)`. `State` overrides the
+window's state, for previews and tests (`tela snapshot` has no window: the bar is
+focused and not maximized).
 
 ### Data
 

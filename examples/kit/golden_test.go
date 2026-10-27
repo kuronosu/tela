@@ -15,7 +15,7 @@ import (
 // indeterminate bar would pulse), and between them they cover the kit's text
 // fields, choices, dates, color, tables and tabs.
 func TestGolden(t *testing.T) {
-	for _, name := range []string{"Gallery", "Gallery Rounded", "Button", "Card", "Field", "Calendar", "Table", "Tabs", "ColorPicker", "Select", "ToggleGroup"} {
+	for _, name := range []string{"Gallery", "Gallery Rounded", "Button", "Card", "Field", "Calendar", "Table", "Tabs", "ColorPicker", "Select", "ToggleGroup", "TitleBar"} {
 		for _, s := range schemes {
 			t.Run(fmt.Sprintf("%s/%s", name, s.name), func(t *testing.T) {
 				a := mount(t, Previews[name], s.opts...)
@@ -76,6 +76,18 @@ func TestGoldenOpen(t *testing.T) {
 		a.ExpectFocused(tabFor("Card"))
 		a.GoldenScales("kit_sidebar_focus_light", 1)
 	})
+}
+
+// TestGoldenTitleBarFull is the whole Title Bar page (the bars are drawn with
+// explicit looks and window states, so the pictures are the same on every
+// platform): the golden above shows its first screen only.
+func TestGoldenTitleBarFull(t *testing.T) {
+	for _, s := range schemes {
+		t.Run(s.name, func(t *testing.T) {
+			a := mount(t, Previews["TitleBar"], append([]telatest.Option{telatest.Size(1280, 2200)}, s.opts...)...)
+			a.GoldenScales("kit_titlebar_full_"+s.name, 1)
+		})
+	}
 }
 
 // slug turns a preview name such as "Gallery Rounded" into "gallery_rounded".

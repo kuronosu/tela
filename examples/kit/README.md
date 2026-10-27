@@ -15,7 +15,7 @@ The gallery of package [`kit`](../../kit): a sidebar with every component and, f
 
 ## The pages
 
-One per exported component, 34 in all, alphabetical, in `basic.go` (Avatar, Badge, Button, Card, Label, Separator, Skeleton), `forms.go` (Input, Textarea, Field), `choice.go` (Checkbox, Switch, RadioGroup, Toggle, ToggleGroup), `controls.go` (Select, Slider, Progress, Tabs, Table), `overlays.go` (Dialog, AlertDialog, Popover, Tooltip, Toast), `menus.go` (DropdownMenu, Menubar, ContextMenu), `dates.go` (Calendar, RangeCalendar, DatePicker, DateRangePicker) and `color.go` (ColorPicker, ColorInput). `pages.go` lists them; a test reads the sources of package `kit` and fails when a component has no page.
+One per exported component (the Title Bar page has `TitleBar` and `WindowControls`), 36 in all, alphabetical, in `basic.go` (Avatar, Badge, Button, Card, Label, Separator, Skeleton), `forms.go` (Input, Textarea, Field), `choice.go` (Checkbox, Switch, RadioGroup, Toggle, ToggleGroup), `controls.go` (Select, Slider, Progress, Tabs, Table), `overlays.go` (Dialog, AlertDialog, Popover, Tooltip, Toast), `menus.go` (DropdownMenu, Menubar, ContextMenu), `dates.go` (Calendar, RangeCalendar, DatePicker, DateRangePicker) and `color.go` (ColorPicker, ColorInput) and `window.go` (TitleBar, WindowControls). `pages.go` lists them; a test reads the sources of package `kit` and fails when a component has no page.
 
 The calendars and date pickers pin "today" to 25 October 2026 (`today` in `dates.go`) so that screenshots are the same every day; an app leaves `Today` unset.
 
@@ -44,7 +44,7 @@ A preview is as tall as the window; add `--size 1280x1500` to see a long page wh
 | File | Asserts |
 |---|---|
 | `kit_test.go` | every preview renders in both schemes with dev mode on (no unknown class, hook misuse or undefined variant), every page in both styles, `Previews` and `pages` agree, and every component of package `kit` has a page |
-| `golden_test.go` | goldens, light and dark at scale 1, bit by bit: the gallery, the Rounded gallery and nine pages, and overlays open (dialog, dropdown menu, date picker, select, toast, the sidebar's focus ring). Regenerate with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGolden ./examples/kit` and look at them |
+| `golden_test.go` | goldens, light and dark at scale 1, bit by bit: the gallery, the Rounded gallery, ten pages and the whole Title Bar page, and overlays open (dialog, dropdown menu, date picker, select, toast, the sidebar's focus ring). Regenerate with `TELA_UPDATE=1 CGO_ENABLED=0 go test -run TestGolden ./examples/kit` and look at them |
 | `keyboard_test.go` | the sidebar with the keyboard alone (one tab stop, arrows select, Home and End, wrapping, Tab into the page and back), the header's controls, the aria snapshot of the shell (`testdata/kit_gallery.aria.yml`) and of a menu open, focus returning to the trigger |
 | `behavior_test.go` | the demos work: a page starts afresh when you come back, the style and dark switches reach every component, select-all, a field's error following the value, toasts, the edit-profile dialog, the alert dialog, choosing a date and a range, sorting a table, sliders with keys, radios, the hex field, tooltips |
 | `idle_test.go` | every page, and every overlay open, asks for no frames when nobody touches the window (except the skeleton and the indeterminate bar, which pulse on purpose), and every frame of a tour of the gallery (pages, both switches, a dialog, a menu, a toast) equals a full rendering |
