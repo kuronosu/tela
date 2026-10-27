@@ -143,16 +143,9 @@ var (
 	procAppendMenuW                 = user32.NewProc("AppendMenuW")
 	procDestroyMenu                 = user32.NewProc("DestroyMenu")
 	procTrackPopupMenuEx            = user32.NewProc("TrackPopupMenuEx")
-	procSetForegroundWindow         = user32.NewProc("SetForegroundWindow")
 	procRegisterWindowMessageW      = user32.NewProc("RegisterWindowMessageW")
 	procChangeWindowMessageFilterEx = user32.NewProc("ChangeWindowMessageFilterEx") // Windows 7
-	procCreateIconIndirect          = user32.NewProc("CreateIconIndirect")
-	procDestroyIcon                 = user32.NewProc("DestroyIcon")
 	procLoadIconW                   = user32.NewProc("LoadIconW")
-	procGetSystemMetricsForDpi      = user32.NewProc("GetSystemMetricsForDpi") // Windows 10 1607
-	procCreateBitmap                = gdi32.NewProc("CreateBitmap")
-	procCreateDIBSection            = gdi32.NewProc("CreateDIBSection")
-	procDeleteObject                = gdi32.NewProc("DeleteObject")
 )
 
 // available reports whether an optional procedure exists on this system.
