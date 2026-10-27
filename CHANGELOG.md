@@ -12,6 +12,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Multiple windows, declaratively: `tela.Window{Title, Width, Height, MinWidth…, FixedSize, Frameless, AlwaysOnTop, Modal, Hidden, Icon, RootClass, Placement, OnClose, Root}` opens a window while it is mounted and closes it when it unmounts; state and context flow into it, and a `Modal` window blocks input to the window it is declared in (ADR-178, ADR-180).
+- `tela.UseWindow()` returns a handle of the component's window: `Minimize`, `Maximize`, `Unmaximize`, `ToggleMaximize`, `SetFullscreen`, `Hide`, `Show`, `Focus`, `Close`, a reactive `State()` and `Placement()` (ADR-180).
+- `tela.App` gains `MinWidth`, `MinHeight`, `MaxWidth`, `MaxHeight`, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `Placement` and `OnClose func(tela.WindowHandle)`; with `OnClose: func(w tela.WindowHandle) { w.Hide() }` the app keeps running with its window hidden (close to tray). A nil `OnClose` quits as before (ADR-180).
+- `tela.Quit()`, safe from any goroutine; `tela.OpenURL(url)` and `tela.OpenPath(path)` open the default application (ADR-180).
+- Custom title bars: `h.WindowDrag()` marks a drag region (its buttons, fields and other interactive descendants stay clickable; `h.WindowNoDrag()` opts out), `h.WindowControl(tela.WindowMinimize|WindowMaximize|WindowClose)` makes a button a window control. Windows answers them natively (Aero Snap, snap layouts on the maximize button), Wayland and X11 through the compositor and window manager (ADR-180).
+- Platform: window state (minimize, maximize, fullscreen, hide, always on top, size limits, position where the OS allows it, icons), frameless windows with resize edges, parent and modal windows, Wayland session restore (`xdg-session-management-v1`), and the desktop services the coming `desktop` package uses: file and folder dialogs (XDG portal, common item dialogs), message boxes (Windows), notifications (`org.freedesktop.Notifications`, balloons) and tray icons (StatusNotifierItem, `Shell_NotifyIconW`) (ADR-179). New dependency: `github.com/godbus/dbus/v5` (Linux).
+
 ## [0.11.0] - 2026-10-26
 
 ### Changed
