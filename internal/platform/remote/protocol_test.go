@@ -36,6 +36,10 @@ var eventSamples = []platform.Event{
 		Repeat: true, Synthetic: true, Mods: platform.ModSuper, Time: 3 * time.Second},
 	platform.IMEEvent{DeleteBefore: 3, DeleteAfter: 4, Commit: "日本", Preedit: "ご", CursorStart: 0, CursorEnd: 3},
 	platform.IMESessionEvent{Active: true},
+	platform.WindowStateEvent{State: platform.WindowState{Maximized: true, Fullscreen: true, Minimized: true,
+		ClientSideDecorations: true, HasPosition: true, Position: image.Point{X: -1920, Y: 37}}},
+	platform.NotificationEvent{ID: 9, Kind: platform.NotificationActionInvoked, Action: "reply"},
+	platform.TrayEvent{Tray: 2, Kind: platform.TrayMenuItem, Item: 41},
 }
 
 // TestEveryEventHasAnEncoding fails when package platform gains an event

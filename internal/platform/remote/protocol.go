@@ -22,7 +22,7 @@ import (
 
 // ProtocolVersion is the version of the wire format. A host refuses a
 // child of another version (the child gets an error from Dial).
-const ProtocolVersion = 1
+const ProtocolVersion = 2 // 2: the window state, notification and tray events (phase 12)
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -258,6 +258,9 @@ const (
 	evKey
 	evIME
 	evIMESession
+	evWindowState
+	evNotification
+	evTray
 )
 
 // event encodes ev. It panics on an event type it does not know, which
@@ -322,6 +325,26 @@ func (e *enc) event(ev platform.Event) {
 	case platform.IMESessionEvent:
 		e.u8(evIMESession)
 		e.boolean(ev.Active)
+	case platform.WindowStateEvent:
+		e.u8(evWindowState)
+		st := ev.State
+		e.boolean(st.Maximized)
+		e.boolean(st.Fullscreen)
+		e.boolean(st.Minimized)
+		e.boolean(st.ClientSideDecorations)
+		e.boolean(st.HasPosition)
+		e.i64(int64(st.Position.X))
+		e.i64(int64(st.Position.Y))
+	case platform.NotificationEvent:
+		e.u8(evNotification)
+		e.u32(uint32(ev.ID))
+		e.u8(uint8(ev.Kind))
+		e.str(ev.Action)
+	case platform.TrayEvent:
+		e.u8(evTray)
+		e.u32(uint32(ev.Tray))
+		e.u8(uint8(ev.Kind))
+		e.u32(uint32(ev.Item))
 	default:
 		panic(fmt.Sprintf("remote: no wire encoding for event %T; add one to protocol.go", ev))
 	}
@@ -386,6 +409,27 @@ func (d *dec) event() platform.Event {
 		}
 	case evIMESession:
 		return platform.IMESessionEvent{Active: d.boolean()}
+	case evWindowState:
+		return platform.WindowStateEvent{State: platform.WindowState{
+			Maximized:             d.boolean(),
+			Fullscreen:            d.boolean(),
+			Minimized:             d.boolean(),
+			ClientSideDecorations: d.boolean(),
+			HasPosition:           d.boolean(),
+			Position:              image.Point{X: int(d.i64()), Y: int(d.i64())},
+		}}
+	case evNotification:
+		return platform.NotificationEvent{
+			ID:     platform.NotificationID(d.u32()),
+			Kind:   platform.NotificationEventKind(d.u8()),
+			Action: d.str(),
+		}
+	case evTray:
+		return platform.TrayEvent{
+			Tray: platform.TrayID(d.u32()),
+			Kind: platform.TrayEventKind(d.u8()),
+			Item: platform.MenuItemID(d.u32()),
+		}
 	default:
 		if d.err == nil {
 			d.err = fmt.Errorf("remote: unknown event tag %d", tag)

@@ -42,12 +42,37 @@
 // active while the window has focus and a state, and IMEEvents injected
 // into it are checked against the platform text input contract.
 //
+// # Window control and desktop services
+//
+// The headless "window manager" grants every window control request at
+// once and deterministically: maximized and fullscreen windows take the
+// size of a simulated screen (Options.Screen), and return to their earlier
+// size; minimized and hidden windows get no frames and lose the focus;
+// Activate un-minimizes and moves the focus; positions are known once the
+// app sets one. SetState simulates the window manager or the user changing
+// the state, and the inspection methods (OSState, Visible, SizeLimits,
+// Icon, HitRegions, Activations, CaptionDrags, WindowMenus, Children,
+// Blocked) report what a real backend would have sent to the OS. Pointer
+// presses injected into caption hit regions are handled as the OS would
+// (not delivered; a double click toggles maximize). Parents and modality
+// are recorded (Parent, Children, Blocked) but input to a blocked parent
+// is still delivered, so tests can check that core refuses it. Closing a
+// window closes its children first.
+//
+// Backend.Desktop records every request (Dialogs, Opened, Notifications,
+// Trays). Dialogs and message boxes are answered by a responder
+// (SetDialogResponder) or one by one (AnswerDialog), through the loop like
+// a real backend; notification and tray events are injected with
+// InjectApp; SetUnsupported makes services return platform.ErrUnsupported
+// as on a backend without them.
+//
 // # Concurrency
 //
 // All state is guarded by one mutex, and the handler is never called with it
 // held. The injection API (Window.Inject, Resize, SetScale, RequestClose,
-// SetFocused, Backend.SetSettings, Advance) and the inspection API (Frame,
-// Damage, Presents, Title, ...) are safe from any goroutine, so a tool can
+// SetFocused, SetState, Backend.SetSettings, Backend.InjectApp,
+// Backend.AnswerDialog, Advance) and the inspection API (Frame, Damage,
+// Presents, Title, OSState, Dialogs, ...) are safe from any goroutine, so a tool can
 // drive a Run loop from another goroutine. The platform.Window and
 // platform.Backend methods follow the platform contract (UI thread), but
 // are also internally synchronized.
@@ -87,6 +112,9 @@ type Options struct {
 	// RealTime makes the clock follow the monotonic wall clock instead of
 	// the manual clock.
 	RealTime bool
+	// Screen is the logical size of the simulated screen: the size of
+	// maximized and fullscreen windows. Zero means DefaultScreen.
+	Screen platform.Size
 }
 
 // Backend is the headless backend. Create it with New.
@@ -109,6 +137,8 @@ type Backend struct {
 	clipboard string
 	ran       bool // Run was called
 	active    bool // a Run, Step or Drain is executing
+	created   int  // windows created, for restore tokens
+	desktop   desktopState
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -122,6 +152,10 @@ func New(opts Options) *Backend {
 	platform.CheckSize("headless.Options.Size", opts.Size)
 	if opts.Size == (platform.Size{}) {
 		opts.Size = platform.DefaultWindowSize
+	}
+	platform.CheckSize("headless.Options.Screen", opts.Screen)
+	if opts.Screen.Empty() {
+		opts.Screen = DefaultScreen
 	}
 	if opts.FrameInterval < 0 {
 		panic(fmt.Sprintf("headless: negative Options.FrameInterval %v", opts.FrameInterval))
@@ -184,21 +218,26 @@ func (b *Backend) Advance(d time.Duration) {
 // FrameInterval returns the simulated refresh interval.
 func (b *Backend) FrameInterval() time.Duration { return b.opts.FrameInterval }
 
-// NewWindow creates a window. Its ConfigureEvent is queued immediately.
+// NewWindow creates a window. Its ConfigureEvent is queued immediately,
+// followed by a WindowStateEvent when its initial state is not the zero
+// one (maximized, fullscreen, frameless or placed). A Parent must be an
+// open window of this backend.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
 	if opts.Size == (platform.Size{}) {
 		opts.Size = b.opts.Size
 	}
 	opts = opts.Resolve()
-	w := &Window{
-		b:     b,
-		opts:  opts,
-		title: opts.Title,
-		os:    platform.Metrics{Size: opts.Size, Scale: b.opts.Scale},
-	}
+	w := &Window{b: b, opts: opts, title: opts.Title}
+	b.mu.Lock()
+	b.created++
+	n := b.created
+	b.mu.Unlock()
+	size := w.initCtl(opts, b.opts.Screen, n)
+	w.os = platform.Metrics{Size: size, Scale: b.opts.Scale}
 	b.mu.Lock()
 	b.loop.Add(w)
 	b.loop.Enqueue(w, platform.ConfigureEvent{Metrics: w.os})
+	b.loop.UpdateState(w, w.ctl.osState)
 	b.mu.Unlock()
 	b.signal()
 	return w, nil
@@ -269,6 +308,7 @@ func (b *Backend) Run(h platform.Handler) error {
 	defer func() {
 		b.mu.Lock()
 		b.active = false
+		b.desktop.trays = nil // trays are removed when Run returns
 		b.mu.Unlock()
 	}()
 

@@ -29,6 +29,7 @@ type Window struct {
 	frame    *image.RGBA
 	damage   []image.Rectangle
 	presents int
+	ctl      windowCtl // window control state (windowctl.go)
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -110,21 +111,43 @@ func (w *Window) SetCursor(c platform.Cursor) {
 }
 
 // SetSize resizes the window. The headless "window manager" grants every
-// request, clamped to MinSize; a ConfigureEvent follows if the size changed.
+// request, clamped to the size limits; a ConfigureEvent follows if the size
+// changed. While the window is maximized or fullscreen, the size is the one
+// it returns to (like GTK's default size).
 func (w *Window) SetSize(size platform.Size) {
 	platform.CheckSize("SetSize size", size)
-	w.reconfigure(func(m *platform.Metrics) { m.Size = w.opts.ClampSize(size) })
+	b := w.b
+	b.mu.Lock()
+	big := w.ctl.big()
+	if big && !w.WindowState.Closed() {
+		w.ctl.restore = w.ctl.clamp(size)
+	}
+	b.mu.Unlock()
+	if !big {
+		w.reconfigure(func(m *platform.Metrics) { m.Size = w.ctl.resized(size) })
+	}
 }
 
-// Close closes the window. Queued events for it are dropped.
+// Close closes the window, after its child windows (in creation order).
+// Queued events for them are dropped.
 func (w *Window) Close() {
 	b := w.b
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	w.closeLocked()
+}
+
+// closeLocked closes w and its children; b.mu must be held.
+func (w *Window) closeLocked() {
 	if w.WindowState.Closed() {
 		return
 	}
-	b.loop.Remove(w)
+	for _, c := range slices.Clone(w.b.loop.Windows()) {
+		if c.ctl.parent == w {
+			c.closeLocked()
+		}
+	}
+	w.b.loop.Remove(w)
 }
 
 // --- injection (user / window manager actions) ---
@@ -133,9 +156,17 @@ func (w *Window) Close() {
 // produced it. Accepted: PointerEvent, ScrollEvent, KeyEvent, IMEEvent,
 // FocusEvent, CloseRequestedEvent. A zero Time in pointer, scroll and key
 // events is set to the current clock. Other events have dedicated APIs
-// (Resize, SetScale, RequestFrame, Backend.Wake, Backend.SetSettings,
-// SetTextInput for IMESessionEvent) and panic here. Events injected into a
-// closed window are dropped.
+// (Resize, SetScale, SetState for WindowStateEvent, RequestFrame,
+// Backend.Wake, Backend.SetSettings, Backend.InjectApp, SetTextInput for
+// IMESessionEvent) and panic here. Events injected into a closed window are
+// dropped.
+//
+// Pointer presses in a caption hit region (SetHitRegions) are the "OS's",
+// as on a real backend: the press and every pointer event until its
+// release are not delivered; a primary press starts a move (counted by
+// CaptionDrags), two primary presses within the double-click interval
+// toggle maximize, and a secondary press opens the window menu (counted by
+// WindowMenus).
 //
 // Key events follow the platform keyboard contract, and Inject enforces it
 // so that tests describe sequences a real backend can produce: the window
@@ -161,6 +192,9 @@ func (w *Window) Inject(e platform.Event) {
 		if ev.Time == 0 {
 			ev.Time = w.b.Now()
 		}
+		if w.captionPointer(ev) {
+			return
+		}
 		e = ev
 	case platform.ScrollEvent:
 		if ev.Time == 0 {
@@ -180,7 +214,7 @@ func (w *Window) Inject(e platform.Event) {
 	case nil:
 		panic("headless: Inject called with a nil event")
 	default:
-		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent, SetFocused and SetTextInput for IMESessionEvent", e))
+		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, SetState for WindowStateEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent, Backend.InjectApp for NotificationEvent and TrayEvent, SetFocused and SetTextInput for IMESessionEvent", e))
 	}
 	w.b.mu.Lock()
 	if w.WindowState.Closed() {
@@ -242,27 +276,34 @@ func (w *Window) injectFocus(e platform.FocusEvent) {
 		b.mu.Unlock()
 		return
 	}
-	w.focused = e.Focused
-	if !e.Focused {
+	w.queueFocus(e.Focused)
+	b.mu.Unlock()
+	b.signal()
+}
+
+// queueFocus records the focus state and queues its FocusEvent (see
+// injectFocus); b.mu must be held and the window open.
+func (w *Window) queueFocus(focused bool) {
+	b := w.b
+	w.focused = focused
+	if !focused {
 		for _, r := range w.held.ReleaseAll(b.now()) {
 			b.loop.Enqueue(w, r)
 		}
 		w.setSession(false)
 	}
-	b.loop.Enqueue(w, e)
-	if e.Focused {
+	b.loop.Enqueue(w, platform.FocusEvent{Focused: focused})
+	if focused {
 		w.setSession(w.ime.state != nil)
 	}
-	b.mu.Unlock()
-	b.signal()
 }
 
 // Resize simulates the user or window manager resizing the window to size
-// (logical pixels), clamped to MinSize. A ConfigureEvent is queued if the
-// size changed.
+// (logical pixels), clamped to the size limits. A ConfigureEvent is queued
+// if the size changed.
 func (w *Window) Resize(size platform.Size) {
 	platform.CheckSize("Resize size", size)
-	w.reconfigure(func(m *platform.Metrics) { m.Size = w.opts.ClampSize(size) })
+	w.reconfigure(func(m *platform.Metrics) { m.Size = w.ctl.resized(size) })
 }
 
 // SetScale simulates moving the window to a display with another scale. The
@@ -352,7 +393,8 @@ func (w *Window) Cursor() platform.Cursor {
 	return w.cursor
 }
 
-// Options returns the resolved options the window was created with.
+// Options returns the resolved options the window was created with (the
+// current size limits are MinSize and MaxSize).
 func (w *Window) Options() platform.WindowOptions { return w.opts }
 
 // Closed reports whether Close was called.

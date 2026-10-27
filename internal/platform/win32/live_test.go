@@ -102,6 +102,10 @@ func mouseLParam(x, y int) uintptr { return uintptr(uint16(int16(x))) | uintptr(
 func TestConformance(t *testing.T) {
 	platformtest.Run(t, platformtest.Config{
 		New: func(t *testing.T) platform.Backend { return liveBackend(t) },
+		// Hiding windows and closing children with their parent come with
+		// the phase 12 window control task (ADR-178); until then the
+		// backend's stubs cannot pass these.
+		Skip: []string{"HideShow", "ParentAndModal"},
 	})
 }
 

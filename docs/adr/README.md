@@ -182,3 +182,5 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [175](175-a-func-preview-is-a-component.md) | 2026-10-26 | A `func() tela.Node` Preview is a component |  |
 | [176](176-layout-effect-scrolls-and-absolute-inline-boxes.md) | 2026-10-26 | Layout-effect scrolls and absolute inline boxes |  |
 | [177](177-llms-txt.md) | 2026-10-26 | `docs/llms.txt` and how it is kept true |  |
+| [178](178-desktop-essentials-design.md) | 2026-10-27 | Desktop essentials design (phase 12): declarative windows, package `desktop`, D-Bus via godbus |  |
+| [179](179-platform-contract-v2.md) | 2026-10-27 | Platform contract v2: window control, hit regions, restore tokens, desktop services |  |

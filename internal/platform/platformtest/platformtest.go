@@ -9,8 +9,12 @@
 //
 // The suite only uses what every backend can do without a user: create
 // windows, wait for configure and frame events, present, request frames,
-// wake from other goroutines, close and quit. Input injection is
-// backend-specific and tested by each backend.
+// wake from other goroutines, close and quit; and, for the window control
+// and desktop contract (phase 12), call every window control method, hide
+// and show windows, open child and modal windows, and check that invalid
+// desktop service requests panic (no dialog, notification or tray icon is
+// ever shown). Input injection is backend-specific and tested by each
+// backend.
 //
 // Windowed backends need a display (they should skip when their constructor
 // returns platform.ErrUnavailable). Backends that must run on the OS main
@@ -18,9 +22,11 @@
 package platformtest
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -65,6 +71,10 @@ var subtests = []subtest{
 	{"Clipboard", testClipboard},
 	{"TextInput", testTextInput},
 	{"Misc", testMisc},
+	{"WindowControl", testWindowControl},
+	{"HideShow", testHideShow},
+	{"ParentAndModal", testParentAndModal},
+	{"Desktop", testDesktop},
 }
 
 // Run runs the conformance suite as subtests of t.
@@ -91,7 +101,9 @@ func Run(t *testing.T, cfg Config) {
 
 // session runs one backend's event loop under a timeout and checks the
 // invariants that hold for every event: no re-entrant handler calls, no
-// events for closed windows, ConfigureEvent first.
+// events for closed windows, ConfigureEvent first, Window.State matching
+// the WindowStateEvent being delivered, only app-scoped events with a nil
+// window.
 type session struct {
 	t   *testing.T
 	cfg Config
@@ -138,9 +150,12 @@ func (s *session) run(setup func(), h func(w platform.Window, e platform.Event))
 				} else if !s.configured[w] {
 					s.t.Errorf("first event of a window is %T, want ConfigureEvent", e)
 				}
+				if se, ok := e.(platform.WindowStateEvent); ok && w.State() != se.State {
+					s.t.Errorf("State() = %v during WindowStateEvent %v", w.State(), se.State)
+				}
 			} else {
 				switch e.(type) {
-				case platform.WakeEvent, platform.SettingsEvent:
+				case platform.WakeEvent, platform.SettingsEvent, platform.NotificationEvent, platform.TrayEvent:
 				default:
 					s.t.Errorf("window-scoped event %T delivered with a nil window", e)
 				}
@@ -459,6 +474,19 @@ func testClose(s *session) {
 				a.SetSize(platform.Size{W: 10, H: 10})
 				a.SetTextInput(&platform.TextInputState{})
 				a.ResetTextInput()
+				a.Minimize()
+				a.SetMaximized(true)
+				a.SetFullscreen(true)
+				a.SetVisible(false)
+				a.SetAlwaysOnTop(true)
+				a.SetMinSize(platform.Size{W: 10, H: 10})
+				a.SetMaxSize(platform.Size{W: 20, H: 20})
+				a.SetPosition(image.Pt(1, 2))
+				a.Activate()
+				a.SetIcon([]image.Image{image.NewRGBA(image.Rect(0, 0, 16, 16))})
+				a.SetHitRegions([]platform.HitRegion{{Kind: platform.HitCaption, Rect: platform.Rect{W: 10, H: 10}}})
+				_ = a.State()
+				_ = a.RestoreToken()
 				if err := a.Present(image.NewRGBA(image.Rect(0, 0, 1, 1)), nil); err != nil {
 					s.t.Errorf("Present on a closed window: %v", err)
 				}
@@ -663,5 +691,252 @@ func testMisc(s *session) {
 		w.SetTitle(fmt.Sprintf("misc %s", s.b.Name()))
 		s.present(w, opaqueBlue)
 		s.b.Quit()
+	})
+}
+
+// expectPanic fails the test if f does not panic.
+func (s *session) expectPanic(what string, f func()) {
+	s.t.Helper()
+	defer func() {
+		if recover() == nil {
+			s.t.Errorf("%s did not panic", what)
+		}
+	}()
+	f()
+}
+
+// testWindowControl calls every window control method with valid and
+// invalid arguments. It checks the general invariants (no re-entrant
+// handler calls when the OS answers synchronously, as Win32 does to
+// ShowWindow; State consistent with WindowStateEvents) and that invalid
+// arguments panic; it does not require the OS to grant anything (tiling
+// window managers refuse to maximize, Wayland has no positions).
+func testWindowControl(s *session) {
+	var w, f platform.Window
+	called := false
+	s.run(func() {
+		w = s.newWindow(platform.WindowOptions{Title: "control", Size: platform.Size{W: 320, H: 240},
+			MinSize: platform.Size{W: 100, H: 80}, MaxSize: platform.Size{W: 2000, H: 1500}})
+		f = s.newWindow(platform.WindowOptions{Title: "frameless", Size: platform.Size{W: 200, H: 120}, Frameless: true,
+			HasPosition: true, Position: image.Pt(60, 70)})
+		// Before the first frame, from setup: allowed (UI thread).
+		w.SetIcon([]image.Image{image.NewRGBA(image.Rect(0, 0, 16, 16)), image.NewNRGBA(image.Rect(0, 0, 32, 32))})
+		_ = w.State()
+	}, func(ew platform.Window, e platform.Event) {
+		switch e.(type) {
+		case platform.FrameEvent:
+			s.present(ew, opaqueBlue)
+			if ew != w || called {
+				return
+			}
+			called = true
+			_ = w.RestoreToken()
+			_ = f.RestoreToken()
+			regions := []platform.HitRegion{
+				{Kind: platform.HitCaption, Rect: platform.Rect{W: 320, H: 32}},
+				{Kind: platform.HitClient, Rect: platform.Rect{X: 100, Y: 4, W: 80, H: 24}},
+				{Kind: platform.HitMinimize, Rect: platform.Rect{X: 224, W: 32, H: 32}},
+				{Kind: platform.HitMaximize, Rect: platform.Rect{X: 256, W: 32, H: 32}},
+				{Kind: platform.HitClose, Rect: platform.Rect{X: 288, W: 32, H: 32}},
+			}
+			f.SetHitRegions(regions)
+			f.SetHitRegions(slices.Clone(regions)) // equal: free
+			w.SetHitRegions(regions[:1])
+			w.SetHitRegions(nil)
+			w.SetMinSize(platform.Size{W: 120, H: 90})
+			w.SetMaxSize(platform.Size{W: 1800, H: 1200})
+			w.SetMaxSize(platform.Size{})
+			w.SetMinSize(platform.Size{})
+			w.SetAlwaysOnTop(true)
+			w.SetAlwaysOnTop(false)
+			w.SetPosition(image.Pt(40, 50))
+			w.SetMaximized(true)
+			w.SetMaximized(false)
+			w.SetFullscreen(true)
+			w.SetFullscreen(false)
+			w.SetIcon(nil)
+			w.Activate()
+			s.expectPanic("SetIcon with a nil image", func() { w.SetIcon([]image.Image{nil}) })
+			s.expectPanic("SetIcon with an empty image", func() { w.SetIcon([]image.Image{image.NewRGBA(image.Rect(0, 0, 0, 16))}) })
+			s.expectPanic("SetHitRegions with an invalid kind", func() {
+				w.SetHitRegions([]platform.HitRegion{{Kind: platform.HitKind(200), Rect: platform.Rect{W: 1, H: 1}}})
+			})
+			s.expectPanic("SetHitRegions with a negative size", func() {
+				w.SetHitRegions([]platform.HitRegion{{Kind: platform.HitCaption, Rect: platform.Rect{W: -1, H: 1}}})
+			})
+			s.expectPanic("SetMinSize with a negative size", func() { w.SetMinSize(platform.Size{W: -1}) })
+			nan := float32(math.NaN())
+			s.expectPanic("SetMaxSize with NaN", func() { w.SetMaxSize(platform.Size{W: nan, H: 1}) })
+			s.wakeAfter(3 * quietPeriod)
+		case platform.WakeEvent:
+			s.b.Quit()
+		}
+	})
+	if !called {
+		s.t.Errorf("no FrameEvent")
+	}
+}
+
+// testHideShow checks that hidden windows get no FrameEvents and that the
+// requests made while hidden are delivered once shown, for a window hidden
+// after its first frame and for one created hidden (which still gets its
+// ConfigureEvent).
+func testHideShow(s *session) {
+	var w, h platform.Window
+	phase := 0 // 0: before w's first frame; 1: w hidden; 2: both shown
+	gotW, gotH, configuredH := false, false, false
+	s.run(func() {
+		w = s.newWindow(platform.WindowOptions{Title: "hide"})
+		h = s.newWindow(platform.WindowOptions{Title: "created hidden", Size: platform.Size{W: 200, H: 100}, Hidden: true})
+	}, func(ew platform.Window, e platform.Event) {
+		switch e.(type) {
+		case platform.ConfigureEvent:
+			if ew == h {
+				configuredH = true
+			}
+		case platform.FrameEvent:
+			switch {
+			case ew == h && phase < 2:
+				s.t.Errorf("a window created hidden got a FrameEvent before SetVisible(true)")
+			case ew == w && phase == 1:
+				s.t.Errorf("a hidden window got a FrameEvent")
+			}
+			s.present(ew, opaqueBlue)
+			switch {
+			case ew == w && phase == 0:
+				phase = 1
+				w.SetVisible(false)
+				w.RequestFrame()
+				h.RequestFrame()
+				s.wakeAfter(quietPeriod)
+			case phase == 2 && ew == w:
+				gotW = true
+			case phase == 2 && ew == h:
+				gotH = true
+			}
+			if gotW && gotH {
+				s.b.Quit()
+			}
+		case platform.WakeEvent:
+			if phase == 1 {
+				phase = 2
+				w.SetVisible(true)
+				h.SetVisible(true)
+			}
+		}
+	})
+	if !configuredH {
+		s.t.Errorf("a window created hidden got no ConfigureEvent")
+	}
+	if !gotW {
+		s.t.Errorf("the frame requested while hidden was not delivered after SetVisible(true)")
+	}
+	if !gotH {
+		s.t.Errorf("a window created hidden got no FrameEvent after SetVisible(true)")
+	}
+}
+
+// testParentAndModal opens a modal and a non-modal child window and checks
+// that closing the parent closes both (no more events for them, and their
+// methods are no-ops).
+func testParentAndModal(s *session) {
+	var p, modal, child platform.Window
+	framed := map[platform.Window]bool{}
+	closed := false
+	s.run(func() {
+		s.expectPanic("NewWindow with Modal and no Parent", func() { _, _ = s.b.NewWindow(platform.WindowOptions{Modal: true}) })
+		p = s.newWindow(platform.WindowOptions{Title: "parent"})
+		modal = s.newWindow(platform.WindowOptions{Title: "modal child", Size: platform.Size{W: 200, H: 150}, Parent: p, Modal: true})
+		child = s.newWindow(platform.WindowOptions{Title: "child", Size: platform.Size{W: 180, H: 120}, Parent: p})
+	}, func(ew platform.Window, e platform.Event) {
+		switch e.(type) {
+		case platform.FrameEvent:
+			s.present(ew, opaqueBlue)
+			framed[ew] = true
+			if closed || !framed[p] || !framed[modal] || !framed[child] {
+				return
+			}
+			closed = true
+			s.close(p)
+			// The children closed with their parent.
+			s.closed[modal], s.closed[child] = true, true
+			for _, c := range []platform.Window{modal, child} {
+				c.RequestFrame()
+				c.SetTitle("closed")
+				c.SetVisible(true)
+				if err := c.Present(image.NewRGBA(image.Rect(0, 0, 1, 1)), nil); err != nil {
+					s.t.Errorf("Present on a child closed with its parent: %v", err)
+				}
+				c.Close()
+			}
+			s.wakeAfter(quietPeriod)
+		case platform.WakeEvent:
+			s.b.Quit()
+		}
+	})
+	if !closed {
+		s.t.Errorf("the parent and its children did not all get a FrameEvent")
+	}
+}
+
+// testDesktop checks the desktop services without showing anything: the
+// service set exists, and invalid requests panic (or, for URIs, fail) on
+// every backend, whether it supports the service or not.
+func testDesktop(s *session) {
+	icon := []image.Image{image.NewRGBA(image.Rect(0, 0, 16, 16))}
+	files := func([]string, error) { s.t.Errorf("a file dialog callback was called after an invalid request") }
+	file := func(string, error) { s.t.Errorf("a file dialog callback was called after an invalid request") }
+	answer := func(platform.MessageAnswer, error) {
+		s.t.Errorf("a message box callback was called after an invalid request")
+	}
+	s.run(func() {
+		s.newWindow(platform.WindowOptions{})
+		d := s.b.Desktop()
+		if d == nil {
+			s.t.Errorf("Desktop() is nil; return platform.UnsupportedDesktop{} for a backend without services")
+			return
+		}
+		s.expectPanic("OpenFiles with a nil callback", func() { _ = d.OpenFiles(platform.FileDialogOptions{}, nil) })
+		s.expectPanic("SaveFile with a nil callback", func() { _ = d.SaveFile(platform.FileDialogOptions{}, nil) })
+		s.expectPanic("PickFolder with a nil callback", func() { _ = d.PickFolder(platform.FileDialogOptions{}, nil) })
+		s.expectPanic("MessageBox with a nil callback", func() { _ = d.MessageBox(platform.MessageBoxOptions{}, nil) })
+		s.expectPanic("OpenFiles with a filter without patterns", func() {
+			_ = d.OpenFiles(platform.FileDialogOptions{Filters: []platform.FileFilter{{Name: "Images"}}}, files)
+		})
+		s.expectPanic("SaveFile with a pattern containing ';'", func() {
+			_ = d.SaveFile(platform.FileDialogOptions{Filters: []platform.FileFilter{{Name: "x", Patterns: []string{"*.a;*.b"}}}}, file)
+		})
+		s.expectPanic("MessageBox with an invalid kind", func() { _ = d.MessageBox(platform.MessageBoxOptions{Kind: 99}, answer) })
+		s.expectPanic("MessageBox with invalid buttons", func() { _ = d.MessageBox(platform.MessageBoxOptions{Buttons: 99}, answer) })
+		s.expectPanic("Notify with a nil icon image", func() { _, _ = d.Notify(platform.Notification{Icon: []image.Image{nil}}) })
+		s.expectPanic("Notify with the action ID \"default\"", func() {
+			_, _ = d.Notify(platform.Notification{Actions: []platform.NotificationAction{{ID: "default", Label: "Open"}}})
+		})
+		s.expectPanic("NewTray without an icon", func() { _, _ = d.NewTray(platform.TrayOptions{Tooltip: "x"}) })
+		s.expectPanic("NewTray with an item without ID", func() {
+			_, _ = d.NewTray(platform.TrayOptions{Icon: icon, Menu: []platform.MenuItem{{Label: "Open"}}})
+		})
+		s.expectPanic("NewTray with a duplicate item ID", func() {
+			_, _ = d.NewTray(platform.TrayOptions{Icon: icon, Menu: []platform.MenuItem{{ID: 1, Label: "a"},
+				{Label: "more", Submenu: []platform.MenuItem{{ID: 1, Label: "b"}}}}})
+		})
+		s.expectPanic("UpdateTray without an icon", func() { _ = d.UpdateTray(1, platform.TrayOptions{}) })
+		for _, uri := range []string{"no scheme", "file:///etc/hosts", "%zz"} {
+			if err := d.OpenURI(nil, uri); err == nil {
+				s.t.Errorf("OpenURI(%q) = nil, want an error", uri)
+			}
+		}
+		// Unknown IDs: nothing to do (nil, or ErrUnsupported).
+		if err := d.CloseNotification(0); err != nil && !errors.Is(err, platform.ErrUnsupported) {
+			s.t.Errorf("CloseNotification(0) = %v", err)
+		}
+		if err := d.RemoveTray(0); err != nil && !errors.Is(err, platform.ErrUnsupported) {
+			s.t.Errorf("RemoveTray(0) = %v", err)
+		}
+	}, func(w platform.Window, e platform.Event) {
+		if _, ok := e.(platform.FrameEvent); ok {
+			s.present(w, opaqueBlue)
+			s.b.Quit()
+		}
 	})
 }

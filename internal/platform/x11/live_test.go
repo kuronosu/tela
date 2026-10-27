@@ -46,7 +46,9 @@ func TestLiveConformance(t *testing.T) {
 		New: func(t *testing.T) platform.Backend { return liveBackend(t) },
 		// X11 selections are not implemented yet; the clipboard reports
 		// ErrClipboardUnsupported (tested by TestClipboardIsAsyncAndUnsupported).
-		Skip: []string{"Clipboard"},
+		// Hiding windows and closing children with their parent come with
+		// the phase 12 window control task (ADR-178).
+		Skip: []string{"Clipboard", "HideShow", "ParentAndModal"},
 	})
 }
 

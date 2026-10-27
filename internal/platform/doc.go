@@ -42,7 +42,8 @@
 //
 // The event set: ConfigureEvent, FrameEvent, CloseRequestedEvent,
 // FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent,
-// KeyEvent, IMEEvent and IMESessionEvent.
+// KeyEvent, IMEEvent, IMESessionEvent, WindowStateEvent, and the app-scoped
+// NotificationEvent and TrayEvent.
 //
 // # Threading
 //
@@ -50,8 +51,9 @@
 //     thread (tela.Run does runtime.LockOSThread from an init function).
 //     Cocoa requires the main thread; Win32 requires the thread that created
 //     the windows. Linux backends do not need it but follow the same rule.
-//   - All Backend, Window and Clipboard methods must be called on the UI
-//     thread, before Run (on the same goroutine) or from inside the handler.
+//   - All Backend, Window, Clipboard and Desktop methods must be called on
+//     the UI thread, before Run (on the same goroutine) or from inside the
+//     handler.
 //     Exceptions, safe from any goroutine: [Backend.Wake], [Backend.Quit],
 //     [Backend.Now].
 //   - The handler is never called re-entrantly. If a method the handler calls
@@ -259,6 +261,213 @@
 //   - Headless records the latest state per window and lets tests inject
 //     IMEEvents, checked against these rules like keys.
 //
+// # Window control
+//
+// Phase 12 (ADR-178, ADR-179) gives windows OS state. The Window methods
+// Minimize, SetMaximized, SetFullscreen, SetVisible, SetAlwaysOnTop,
+// SetMinSize, SetMaxSize, SetPosition, Activate and SetIcon, and the
+// WindowOptions fields of the same names (plus Hidden, Frameless, Parent,
+// Modal, RestoreToken), are requests. The OS may refuse or alter them
+// (tiling window managers do not maximize, Wayland has no positions,
+// focus stealing prevention refuses activation), so the app never assumes
+// one was granted: the outcome arrives as a [WindowStateEvent] (state) and
+// a [ConfigureEvent] (size), and [Window.State] is the state delivered
+// last. Requests equal to the state the backend already asked for are
+// free. Every rule of the loop applies: an OS that answers synchronously
+// (Win32 ShowWindow sends WM_SIZE) gets its events queued and delivered
+// after the handler returns. Backends report state changes with
+// internal/loop's UpdateState, which coalesces them; a change of state and
+// size from one OS notification queues the state first.
+//
+//   - Minimize: xdg_toplevel.set_minimized (Wayland cannot report or undo
+//     it: State.Minimized stays false and Activate is the way back),
+//     WM_CHANGE_STATE IconicState on X11, ShowWindow(SW_MINIMIZE) on Win32
+//     (which keeps reporting the empty ConfigureEvent of a minimized
+//     window). Minimized windows get no FrameEvents and usually lose the
+//     focus.
+//   - Maximize and fullscreen: xdg_toplevel.set_maximized and
+//     set_fullscreen (the configure's states report them),
+//     _NET_WM_STATE_MAXIMIZED_VERT/HORZ and _NET_WM_STATE_FULLSCREEN client
+//     messages, ShowWindow(SW_MAXIMIZE/SW_RESTORE) and, for fullscreen, a
+//     borderless window covering its monitor with the old style and
+//     placement saved (winit's borderless fullscreen). Size is the size the
+//     window returns to.
+//   - SetVisible(false) hides a window without destroying anything; the
+//     loop gets no FrameEvents for it (internal/loop SetHidden), requests
+//     wait, and the focus goes as the OS reports. Showing it again shows
+//     the last presented frame (Wayland: a new initial commit, then the
+//     retained buffer), or nothing until the first Present for a window
+//     never presented. Wayland unmaps by committing a null buffer, X11
+//     unmaps (withdraws) and maps, Win32 uses SW_HIDE/SW_SHOW.
+//     WindowOptions.Hidden windows still get their first ConfigureEvent
+//     (Wayland: from the initial commit, which maps nothing).
+//   - SetAlwaysOnTop: _NET_WM_STATE_ABOVE, HWND_TOPMOST; Wayland has no
+//     protocol (no-op).
+//   - Size limits: xdg_toplevel.set_min_size/set_max_size, WM_NORMAL_HINTS,
+//     WM_GETMINMAXINFO. The minimum wins where the maximum is below it
+//     ([ClampSize]).
+//   - Positions are the top-left of the content area in physical pixels
+//     of the desktop (Win32 virtual screen via ClientToScreen and
+//     AdjustWindowRectExForDpi; X11 root coordinates of the client
+//     window, set with StaticGravity in WM_NORMAL_HINTS or compensating
+//     _NET_FRAME_EXTENTS). They round-trip: a reported position given back
+//     puts the window in the same place. Wayland never reports one
+//     (HasPosition false) and ignores SetPosition.
+//   - Activate: xdg_activation_v1 with a token from the latest input
+//     serial (Wayland), a _NET_ACTIVE_WINDOW client message with the last
+//     user time (X11), SetForegroundWindow after restoring a minimized
+//     window (Win32; FlashWindowEx when Windows refuses). A granted
+//     activation is a FocusEvent.
+//   - SetIcon: the backend picks the sizes it needs with [PickIcon] and
+//     converts with [IconNRGBA]: xdg_toplevel_icon_v1 buffers (without it
+//     the compositor uses the .desktop file of the AppID), _NET_WM_ICON
+//     with every size, WM_SETICON ICON_SMALL and ICON_BIG at the window's
+//     DPI (CreateIconIndirect). It is kept across DPI changes.
+//   - Frameless windows have no OS title bar or borders and report
+//     State.ClientSideDecorations: xdg-decoration in client-side mode,
+//     _MOTIF_WM_HINTS without decorations, WM_NCCALCSIZE returning the
+//     whole window as client area while WS_THICKFRAME and WS_CAPTION stay
+//     (snap, minimize animations) and DwmExtendFrameIntoClientArea keeps
+//     the shadow. A Wayland window also has client-side decorations when
+//     the compositor has no server-side ones (no xdg-decoration, or it
+//     chose client-side); then the app draws its title bar too.
+//   - Resize edges of a window with client-side decorations (not
+//     maximized or fullscreen, not FixedSize) are the backend's: in a
+//     band a few logical pixels wide along the content edges (Win32: the
+//     DPI's resize frame width, answered from WM_NCHITTEST), presses start
+//     an OS resize (xdg_toplevel.resize, _NET_WM_MOVERESIZE with the edge)
+//     and are not delivered, and the backend shows the resize cursor there
+//     over the app's SetCursor. The band takes precedence over hit regions.
+//
+// # Custom title bars
+//
+// A window whose app draws the title bar declares it with
+// [Window.SetHitRegions]: [HitRegion] rectangles in logical window
+// coordinates, later ones on top ([HitTest]), sent again after every frame
+// that changes them (the backend keeps a copy and ignores equal lists).
+// They apply to every window, decorated or not (a drag area in a toolbar).
+//
+//   - A press of any button in a HitCaption region is the OS's: it is not
+//     delivered as a PointerDown, and neither is the rest of that pointer
+//     sequence up to the release (the OS move loop or the compositor's
+//     grab owns it). A primary press starts an interactive move
+//     (xdg_toplevel.move with the press serial; _NET_WM_MOVERESIZE_MOVE
+//     after ungrabbing the pointer; HTCAPTION from WM_NCHITTEST). A primary
+//     double click toggles maximize where that is the platform convention
+//     (DefWindowProc does it on Win32; the Wayland and X11 backends detect
+//     it with SystemSettings.DoubleClickInterval and toggle maximize
+//     themselves). A secondary click opens the window menu where one
+//     exists (xdg_toplevel.show_window_menu; the system menu of
+//     DefWindowProc on Win32; nothing on X11). Pointer motion without a
+//     button over a caption region is delivered (hover effects work): on
+//     Win32 the backend turns WM_NCMOUSEMOVE into PointerMove and reports
+//     no leave when the pointer crosses between client and caption areas.
+//   - Pointer events over HitMinimize, HitMaximize and HitClose regions are
+//     delivered to the app as usual (presses, releases, moves): the app's
+//     buttons perform the action. The regions only give the OS their
+//     meaning: Win32 answers WM_NCHITTEST with HTMINBUTTON, HTMAXBUTTON
+//     and HTCLOSE (Windows 11 shows snap layouts over the maximize
+//     button), turns the WM_NC… mouse messages over them into pointer
+//     events and does not pass the presses to DefWindowProc, which would
+//     run its own button tracking. Other backends treat them as content.
+//   - HitClient regions are content again, punched into earlier regions
+//     (a search field inside the caption).
+//
+// # Parent windows and modality
+//
+// WindowOptions.Parent makes a window the child of another open window of
+// the same backend (xdg_toplevel.set_parent, WM_TRANSIENT_FOR, the owner
+// window of CreateWindowExW): it stays above its parent, follows it when
+// minimized, and is placed over it by the OS. Close closes a window's
+// children first, in creation order (Win32 destroys owned windows with
+// their owner; every backend does the same), and no event is delivered for
+// them afterwards.
+//
+// WindowOptions.Modal makes a child modal: while it is visible, its parent
+// receives no input. Backends make the OS enforce it where they can:
+// xdg_wm_dialog_v1.set_modal (xdg-dialog-v1) on Wayland, _NET_WM_STATE_MODAL
+// with _NET_WM_WINDOW_TYPE_DIALOG on X11, EnableWindow(parent, FALSE) on
+// Win32 (re-enabled before the modal child is hidden or destroyed, or
+// Windows activates another application). Core also drops the input of a
+// window with a visible modal child, so a backend that cannot enforce it
+// (or a compositor without xdg-dialog-v1) is still correct; the headless
+// backend records modality but delivers injected input anyway, so tests can
+// check core.
+//
+// # Session restore
+//
+// The layer above saves each window's geometry under the app's own window
+// key (size, maximized, fullscreen, and the position where
+// State.HasPosition) and gives it back in WindowOptions at the next start.
+// X11 and Win32 restore the position from that. Wayland clients cannot
+// place windows; xdg-session-management-v1 lets the compositor restore
+// them instead, which is what [Window.RestoreToken] carries: an opaque
+// token saved with the geometry and passed back as
+// WindowOptions.RestoreToken for the same window key. Rules:
+//
+//   - A backend that needs no token returns "" (X11, Win32, Wayland
+//     without the protocol). A token may be "" until the OS answered
+//     (Wayland's session id arrives with xdg_session_v1.created), so the
+//     layer above reads it when it saves (state changes, close, quit).
+//   - Backends ignore tokens they did not produce (another backend, a
+//     changed protocol); they never fail NewWindow because of a token.
+//   - Wayland: the token holds the session id and the toplevel's name in
+//     it. The backend keeps one session per process, opened with the id of
+//     the first token it is given (or a new one), calls restore_toplevel
+//     for a window whose token belongs to that session before its initial
+//     commit, and add_toplevel with a fresh unique name otherwise. When the
+//     compositor restores a window, its ConfigureEvent carries the
+//     restored size.
+//
+// # Desktop services
+//
+// [Backend.Desktop] returns the OS services ([Desktop]): opening URIs and
+// paths in their default application, open-file, save-file and folder
+// dialogs, message boxes, notifications and tray icons. Rules for every
+// backend:
+//
+//   - UI thread only. Arguments are checked with the shared helpers
+//     ([CheckFileDialogOptions], [CheckMessageBoxOptions],
+//     [CheckNotification], [CheckTrayOptions], [CheckURI]) before anything
+//     else, so programmer errors panic on every platform, including where
+//     the service is missing ([UnsupportedDesktop] checks too).
+//   - A service the backend or the session lacks returns [ErrUnsupported]
+//     (errors.Is(err, errors.ErrUnsupported) holds), synchronously. The
+//     layers above handle it: core draws its own message box, desktop
+//     reports a tray as unavailable.
+//   - Dialogs and message boxes are asynchronous: done runs exactly once,
+//     later, on the UI thread through the loop (internal/loop Post, like
+//     Clipboard.ReadText), never from inside the call, unless the call
+//     returned an error (then never) or Run returned first. Cancel is not
+//     an error: nil paths (or "") and a nil error. The loop keeps
+//     delivering events while a dialog is open (Win32: the dialog's modal
+//     loop runs WndProc, which runs the shared delivery pass; the dialog is
+//     never started from inside the handler, where that pass is blocked).
+//   - Notifications and tray icons are identified by IDs the backend
+//     allocates (from 1); the user's interactions arrive as app-scoped
+//     [NotificationEvent] and [TrayEvent]. Tray icons go away when Run
+//     returns. The backend never toggles a checkable menu item: the app
+//     updates the menu.
+//
+// Linux (Wayland and X11 alike) uses D-Bus through
+// internal/platform/internal/freedesktop (github.com/godbus/dbus/v5):
+// org.freedesktop.portal.OpenURI (OpenURI; OpenFile with a file
+// descriptor and OpenDirectory for OpenPath),
+// org.freedesktop.portal.FileChooser (OpenFile, SaveFile, OpenFile with
+// directory for folders; the Request's Response signal answers: 0 chosen,
+// 1 canceled, other codes errors), with the parent window identifier
+// "wayland:<handle>" (xdg-foreign-v2 export) or "x11:<hex XID>"; no message box
+// (ErrUnsupported); org.freedesktop.Notifications (the image-data hint
+// for icons; ActionInvoked with "default" is NotificationActivated);
+// StatusNotifierItem registered with org.kde.StatusNotifierWatcher and a
+// com.canonical.dbusmenu menu (ErrUnsupported without a watcher). Win32
+// uses ShellExecuteW, the common item dialogs over COM (IFileOpenDialog,
+// IFileSaveDialog, FOS_PICKFOLDERS), MessageBoxW, and Shell_NotifyIconW
+// for trays (menus with TrackPopupMenuEx after SetForegroundWindow, the
+// documented quirk) and for notifications (NIF_INFO balloons, shown as
+// toasts: no actions; a click is NotificationActivated, a timeout or
+// dismissal NotificationClosed).
+//
 // # Coordinates, scale and framebuffer size
 //
 // Everything above this layer works in logical pixels (float32). A window's
@@ -299,7 +508,8 @@
 //
 // A window is not shown until its first Present, which avoids a flash of
 // unpainted content (Wayland maps a surface only when a buffer is attached;
-// the other backends delay ShowWindow / XMapWindow / orderFront until then).
+// the other backends delay ShowWindow / XMapWindow / orderFront until then),
+// nor while it is hidden (see "Window control").
 // Windows are opaque in phase 1; backends may ignore alpha.
 //
 // # Errors
@@ -372,5 +582,8 @@
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
 // clock and an input injection API, used by tests, telatest and the CLI. It
-// implements the same contract and also offers synchronous stepping.
+// implements the same contract and also offers synchronous stepping. Its
+// window manager grants every window control request deterministically,
+// and its desktop services are answered by programmable responders and
+// recorded for inspection (see the headless package).
 package platform

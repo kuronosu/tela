@@ -8,8 +8,8 @@
 ## Current status
 
 - **Done:** phases 1–11. Latest version `v0.11.0` (2026-10-26, tagged on b6b8179; CLI tooling, LLM docs, full screens). Everything is pushed (`main`, tags up to `v0.11.0`, and the wiki from `docs/wiki` at `v0.11.0`).
-- **Phase in progress:** none; phase 11 is done (its done check passed on 2026-10-26: a fresh agent with only `llms.txt` and `tela mcp` built a code editor's settings screen with one round of visual fixes).
-- **Next step:** plan phase 12 (desktop essentials).
+- **Phase in progress:** 12 (desktop essentials). Design approved by the owner on 2026-10-27 (ADR-178): declarative `tela.Window`, public package `desktop`, Linux services over godbus, `xdg-session-management` tried for window position on Wayland.
+- **Next step:** step A, the platform contract v2 (running); then in parallel Wayland, X11 and Win32 window control, Linux D-Bus services, Windows services and core multi-window; then `desktop`, the kit title bar, `telatest` and the remote backend; then the `notes` example and the done check on Linux and the Windows VM.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations

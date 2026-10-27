@@ -55,6 +55,12 @@ func describe(e platform.Event) string {
 		return "wake"
 	case platform.SettingsEvent:
 		return fmt.Sprintf("settings(dark=%v)", e.Settings.DarkMode)
+	case platform.WindowStateEvent:
+		return "state" + e.State.String()
+	case platform.NotificationEvent:
+		return fmt.Sprintf("notification(%d %v %s)", e.ID, e.Kind, e.Action)
+	case platform.TrayEvent:
+		return fmt.Sprintf("tray(%d %v %d)", e.Tray, e.Kind, e.Item)
 	}
 	return fmt.Sprintf("%T", e)
 }

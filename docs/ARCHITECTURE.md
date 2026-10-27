@@ -53,7 +53,7 @@ Contributions that break these are rejected.
 1. **`CGO_ENABLED=0` always**, for every build, test and CI job.
 2. **OS access only through:**
    - **Linux:** Wayland and X11 protocols directly over Unix sockets, plus syscalls.
-   - **Windows:** system DLLs (`user32`, `gdi32`, `imm32`, `dwmapi`, `shcore`, `kernel32`) via `golang.org/x/sys/windows` / `syscall`.
+   - **Windows:** system DLLs (`user32`, `gdi32`, `imm32`, `dwmapi`, `shcore`, `kernel32`; `shell32`, `ole32`, `comdlg32` for desktop services, ADR-178) via `golang.org/x/sys/windows` / `syscall`.
    - **macOS:** Objective-C runtime and system frameworks (AppKit, QuartzCore, CoreGraphics) via `github.com/ebitengine/purego`.
 3. **Dependencies:** pure Go only, permissive licenses (MIT, BSD, Apache-2.0, OFL for fonts). Approved list below; new ones need an ADR.
 4. **No webview, no Chromium, no external layout engines.**
@@ -67,7 +67,7 @@ Contributions that break these are rejected.
 | `github.com/go-text/typesetting` | Shaping (HarfBuzz port), bidi, segmentation, font discovery |
 | `golang.org/x/text` | `i18n`: language tags and matching, CLDR plural rules, number formatting (ADR-087) |
 | `github.com/ebitengine/purego` | macOS backend only (and a future GPU backend) |
-| `github.com/godbus/dbus/v5` | Linux accessibility (AT-SPI), when that phase arrives |
+| `github.com/godbus/dbus/v5` | Linux D-Bus: desktop services (portal, notifications, tray; ADR-178) and accessibility (AT-SPI) |
 | `github.com/jezek/xgb` | X11 client (chosen in phase 1); from phase 4 a patched copy of its core, `xproto` and `bigreq` is vendored under `internal/` (ADR-025). XInput2 and XKB are hand-written on its connection |
 
 The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an ADR, as long as it is pure Go.
@@ -114,7 +114,10 @@ The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an
 │ aria            Unstyled behavior hooks (React Aria model) +  │
 │                 floating positioning (Floating UI model)      │
 ├───────────────────────────────────────────────────────────────┤
-│ tela   +   h    Public API: Run, App, Node, hooks │ elements  │
+│ desktop         Dialogs, tray, notifications, app paths,      │
+│                 settings store (ADR-178)                      │
+├───────────────────────────────────────────────────────────────┤
+│ tela   +   h    Public API: Run, App, Window, hooks │ elements│
 ├───────────────────────────────────────────────────────────────┤
 │ internal/core   Element tree, reconciler, hooks, scheduler,   │
 │                 Box tree, event dispatch, focus               │
@@ -141,12 +144,12 @@ The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an
 A package may only import lower layers. Order, bottom to top:
 
 ```
-platform → gfx → svg → text → style → layout → {anim, gesture, semantics} → core → tela/h → i18n → aria → kit → telatest → cmd/tela
+platform → gfx → svg → text → style → layout → {anim, gesture, semantics} → core → tela/h → desktop → i18n → aria → kit → telatest → cmd/tela
 ```
 
 - `platform` does not know `gfx`; it receives an `*image.RGBA` framebuffer and damage rects.
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
-- **Public API:** `tela`, `h`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
+- **Public API:** `tela`, `h`, `desktop`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
 - `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style`, `internal/semantics` and `internal/core` for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.
 - **Everything else lives in `internal/`** until its API stabilizes. Making a package public needs an ADR. The clearest candidate is `gfx`, for custom painting.
 
@@ -156,6 +159,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 tela/
 ├── tela.go, app.go, hooks.go, node.go, events.go   # package tela
 ├── h/                    # elements and props (designed for dot-import)
+├── desktop/              # OS services: dialogs, tray, notifications, paths, settings store (ADR-178)
 ├── i18n/                 # message catalogs, plurals, locale formatting (ADR-087)
 │   └── internal/gen/     # go:generate: date and list patterns, week data from vendored CLDR JSON
 ├── aria/                 # behavior hooks, floating positioning
@@ -477,10 +481,11 @@ type Window interface {
 type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entrantly
 ```
 
-- **Events** (sealed set): `ConfigureEvent` (size and/or scale; implies a frame), `FrameEvent`, `CloseRequestedEvent`, `FocusEvent`, `WakeEvent`, `SettingsEvent`, `PointerEvent` (DOM-style `Action`: move, enter, leave, down, up, cancel), `ScrollEvent` (precise `Delta`, discrete `Steps`, gesture `Phase`; ADR-057), `KeyEvent` (ADR-050), `IMEEvent` and `IMESessionEvent` (ADR-068).
+- **Events** (sealed set): `ConfigureEvent` (size and/or scale; implies a frame), `FrameEvent`, `CloseRequestedEvent`, `FocusEvent`, `WakeEvent`, `SettingsEvent`, `PointerEvent` (DOM-style `Action`: move, enter, leave, down, up, cancel), `ScrollEvent` (precise `Delta`, discrete `Steps`, gesture `Phase`; ADR-057), `KeyEvent` (ADR-050), `IMEEvent` and `IMESessionEvent` (ADR-068), `WindowStateEvent`, and the app-scoped `NotificationEvent` and `TrayEvent` (ADR-179).
 - **Sizing rule:** `PhysicalSize(logical, scale)` rounds logical × scale half away from zero (the `wp_fractional_scale_v1` rule). Every backend sizes framebuffers with it.
 - `Run` does not return when the last window closes; quitting is app policy (`core`/`tela`).
 - Backends share the OS-independent half of the loop (`internal/platform/internal/loop`: queue, wake/quit, frame pacing; ADR-050) and keep only their OS I/O.
+- **Desktop (phase 12, ADR-178):** windows also take state (minimize, maximize, fullscreen, visibility, always-on-top, min/max size, position where the OS allows it), a parent and modality, and hit regions for custom title bars; backends expose OS services (open URI, file dialogs, message boxes, notifications, tray icons). The Linux services are shared by Wayland and X11 over D-Bus. `Backend.Desktop()` returns them; window control methods are requests whose outcome arrives as `WindowStateEvent`/`ConfigureEvent` (ADR-179). The exact contract is in `doc.go`.
 - The IME is driven by `Window.SetTextInput` (cursor area, purpose, surrounding text; nil = no text field) and `ResetTextInput` (ADR-068).
 
 ### Backends

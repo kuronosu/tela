@@ -124,11 +124,21 @@ func TestWindowOptionsResolve(t *testing.T) {
 	if got := (WindowOptions{MinSize: Size{10, 10}}).ClampSize(Size{5, 50}); got != (Size{10, 50}) {
 		t.Errorf("ClampSize = %v", got)
 	}
+	// MaxSize clamps, per axis, and MinSize wins over it.
+	got = WindowOptions{Size: Size{900, 500}, MaxSize: Size{800, 0}}.Resolve()
+	if got.Size != (Size{800, 500}) {
+		t.Errorf("Size not clamped to MaxSize: %v", got.Size)
+	}
+	if got := ClampSize(Size{50, 50}, Size{100, 0}, Size{80, 40}); got != (Size{100, 40}) {
+		t.Errorf("ClampSize with min above max = %v", got)
+	}
 	for _, bad := range []WindowOptions{
 		{Size: Size{-1, 10}},
 		{Size: Size{10, 0}},
 		{Size: Size{float32(math.NaN()), 10}},
 		{MinSize: Size{float32(math.Inf(1)), 0}},
+		{MaxSize: Size{-5, 0}},
+		{Modal: true},
 	} {
 		func() {
 			defer func() {

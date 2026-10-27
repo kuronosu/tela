@@ -7,12 +7,14 @@
 // # What the Loop owns
 //
 //   - The FIFO queue of window events, app events (nil window) and deferred
-//     callbacks (asynchronous clipboard replies), plus coalesced
-//     ConfigureEvents whose metrics are taken when they are delivered.
+//     callbacks (asynchronous clipboard and desktop service replies), plus
+//     coalesced ConfigureEvents and WindowStateEvents whose metrics and
+//     state are taken when they are delivered.
 //   - Wake and Quit: atomic flags plus the backend's Notify hook that
 //     unblocks the OS wait. Many Wake calls yield one WakeEvent per pass.
 //   - Per-window state ([WindowState], embedded in the backend's window):
-//     the metrics of the latest delivered ConfigureEvent, closed, frame
+//     the metrics of the latest delivered ConfigureEvent, the state of the
+//     latest delivered WindowStateEvent, closed, frame
 //     requests, the last frame time, "the next Present is full", and an
 //     optional display signal (vsync) gate.
 //   - The delivery pass ([Loop.Deliver]): a WakeEvent, the queued items in
@@ -115,13 +117,15 @@ type Options[W Window] struct {
 }
 
 // item is a queued unit of work: a window event (w non-zero), an app event
-// (w zero), a deferred callback (fn non-nil), or a coalesced ConfigureEvent
-// (configure; the metrics are in the window's state).
+// (w zero), a deferred callback (fn non-nil), a coalesced ConfigureEvent
+// (configure; the metrics are in the window's state) or a coalesced
+// WindowStateEvent (restate; the state is in the window's state).
 type item[W Window] struct {
 	w         W
 	ev        platform.Event
 	fn        func()
 	configure bool
+	restate   bool
 }
 
 // Loop is the shared event delivery and frame pacing state of one backend.
@@ -254,6 +258,36 @@ func (l *Loop[W]) Reconfigure(w W, m platform.Metrics) {
 	l.queue = append(l.queue, item[W]{w: w, configure: true})
 }
 
+// UpdateState queues a coalesced WindowStateEvent for w with state st,
+// like Reconfigure: until it is delivered, later calls only update st, so
+// a burst of OS notifications (a window being dragged) becomes one event
+// with the latest state at the position of the first; it is dropped if st
+// equals the state already delivered. The backend must have queued the
+// window's first ConfigureEvent before (platform contract).
+func (l *Loop[W]) UpdateState(w W, st platform.WindowState) {
+	s := w.LoopState()
+	if s.closed || (!s.stateQueued && st == s.state) {
+		return
+	}
+	s.nextState = st
+	if s.stateQueued {
+		return
+	}
+	s.stateQueued = true
+	l.queue = append(l.queue, item[W]{w: w, restate: true})
+}
+
+// PendingState returns the state of w as last given to UpdateState, or
+// the delivered state when nothing is queued: what the window's state is
+// about to be.
+func (l *Loop[W]) PendingState(w W) platform.WindowState {
+	s := w.LoopState()
+	if s.stateQueued {
+		return s.nextState
+	}
+	return s.state
+}
+
 // Post queues fn to run on the UI thread during a later pass, in queue
 // order (asynchronous replies such as Clipboard.ReadText).
 func (l *Loop[W]) Post(fn func()) {
@@ -305,7 +339,7 @@ func (l *Loop[W]) Deliver(h platform.Handler) int {
 			h.HandleEvent(nil, it.ev)
 		default:
 			l.lock()
-			ev, ok := it.w.LoopState().prepare(it.ev, it.configure)
+			ev, ok := it.w.LoopState().prepare(it.ev, it.configure, it.restate)
 			l.unlock()
 			if !ok {
 				continue

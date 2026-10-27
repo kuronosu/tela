@@ -26,6 +26,10 @@ type WindowState struct {
 
 	configureQueued bool             // a coalesced ConfigureEvent is queued
 	configure       platform.Metrics // its metrics (see Loop.Reconfigure)
+
+	state       platform.WindowState // delivered by the latest WindowStateEvent
+	stateQueued bool                 // a coalesced WindowStateEvent is queued
+	nextState   platform.WindowState // its state (see Loop.UpdateState)
 }
 
 // LoopState returns s; it lets the Loop reach the state embedded in a
@@ -35,6 +39,10 @@ func (s *WindowState) LoopState() *WindowState { return s }
 // Metrics returns the metrics of the latest delivered ConfigureEvent (the
 // zero Metrics before the first one), as platform.Window requires.
 func (s *WindowState) Metrics() platform.Metrics { return s.metrics }
+
+// State returns the state of the latest delivered WindowStateEvent (the
+// zero WindowState before the first one), as platform.Window requires.
+func (s *WindowState) State() platform.WindowState { return s.state }
 
 // RequestFrame asks for a FrameEvent; requests coalesce until the next
 // FrameEvent. No-op once the window is closed.
@@ -62,8 +70,14 @@ func (s *WindowState) NeedsFull() bool { return s.needsFull }
 func (s *WindowState) ClearNeedsFull() { s.needsFull = false }
 
 // SetHidden pauses (true) or resumes frame delivery for a window the OS
-// does not show (X11: iconified). Requests made while hidden stay pending.
+// does not show (X11: iconified; any backend: hidden by
+// platform.Window.SetVisible). Requests made while hidden stay pending. A
+// backend with several reasons passes their union (hidden by the app or
+// iconified).
 func (s *WindowState) SetHidden(hidden bool) { s.hidden = hidden }
+
+// Hidden reports the value of the latest SetHidden.
+func (s *WindowState) Hidden() bool { return s.hidden }
 
 // VsyncRequested records that the backend requested a display signal (a
 // Wayland frame callback): requested frames wait for it.
@@ -117,24 +131,35 @@ func (s *WindowState) framed(now time.Duration) {
 }
 
 // prepare is called for a queued window item right before delivery. It
-// applies a ConfigureEvent (metrics, full Present, forced frame) and
-// returns the event to deliver; ok is false if the item must be skipped
-// (closed window, or a coalesced configure whose metrics did not change).
-func (s *WindowState) prepare(ev platform.Event, coalesced bool) (platform.Event, bool) {
+// applies a ConfigureEvent (metrics, full Present, forced frame) or a
+// WindowStateEvent (state) and returns the event to deliver; ok is false
+// if the item must be skipped (closed window, or a coalesced configure or
+// state that did not change).
+func (s *WindowState) prepare(ev platform.Event, configure, restate bool) (platform.Event, bool) {
 	if s.closed {
 		return nil, false
 	}
-	if coalesced {
+	if configure {
 		s.configureQueued = false
 		if s.configure == s.metrics {
 			return nil, false
 		}
 		ev = platform.ConfigureEvent{Metrics: s.configure}
 	}
-	if ce, ok := ev.(platform.ConfigureEvent); ok {
-		s.metrics = ce.Metrics
+	if restate {
+		s.stateQueued = false
+		if s.nextState == s.state {
+			return nil, false
+		}
+		ev = platform.WindowStateEvent{State: s.nextState}
+	}
+	switch e := ev.(type) {
+	case platform.ConfigureEvent:
+		s.metrics = e.Metrics
 		s.needsFull = true
 		s.forced = true
+	case platform.WindowStateEvent:
+		s.state = e.State
 	}
 	return ev, true
 }

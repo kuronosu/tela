@@ -21,5 +21,9 @@ func TestConformance(t *testing.T) {
 			t.Cleanup(func() { b.Close() })
 			return b
 		},
+		// Window control is not forwarded to the host yet (phase 12,
+		// ADR-178): hiding and closing children with their parent are
+		// stubs.
+		Skip: []string{"HideShow", "ParentAndModal"},
 	})
 }

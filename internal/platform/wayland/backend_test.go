@@ -716,6 +716,10 @@ func TestDisconnectEndsRun(t *testing.T) {
 // display. TestLiveConformance runs it against the real compositor.
 func TestConformance(t *testing.T) {
 	platformtest.Run(t, platformtest.Config{
+		// Hiding windows and closing children with their parent come with
+		// the phase 12 window control task (ADR-178); until then the
+		// backend's stubs cannot pass these.
+		Skip: []string{"HideShow", "ParentAndModal"},
 		New: func(t *testing.T) platform.Backend {
 			fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 			if err != nil {

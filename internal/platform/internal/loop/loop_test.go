@@ -24,6 +24,18 @@ func (w *win) SetSize(platform.Size)                        {}
 func (w *win) SetTextInput(*platform.TextInputState)        {}
 func (w *win) ResetTextInput()                              {}
 func (w *win) Close()                                       {}
+func (w *win) Minimize()                                    {}
+func (w *win) SetMaximized(bool)                            {}
+func (w *win) SetFullscreen(bool)                           {}
+func (w *win) SetVisible(bool)                              {}
+func (w *win) SetAlwaysOnTop(bool)                          {}
+func (w *win) SetMinSize(platform.Size)                     {}
+func (w *win) SetMaxSize(platform.Size)                     {}
+func (w *win) SetPosition(image.Point)                      {}
+func (w *win) Activate()                                    {}
+func (w *win) SetIcon([]image.Image)                        {}
+func (w *win) SetHitRegions([]platform.HitRegion)           {}
+func (w *win) RestoreToken() string                         { return "" }
 
 // rig is a Loop with a manual clock and a recording handler.
 type rig struct {
@@ -68,6 +80,11 @@ func (r *rig) HandleEvent(w platform.Window, e platform.Event) {
 		}
 	case platform.FrameEvent:
 		s = fmt.Sprintf("%s frame %v", name, e.Time)
+	case platform.WindowStateEvent:
+		s = fmt.Sprintf("%s state %v", name, e.State)
+		if w.State() != e.State {
+			r.t.Errorf("State() = %v during WindowStateEvent %v", w.State(), e.State)
+		}
 	default:
 		s = fmt.Sprintf("%s %T", name, e)
 	}
@@ -151,6 +168,46 @@ func TestReconfigureCoalesces(t *testing.T) {
 	if a.FramePending() {
 		t.Errorf("an unchanged coalesced configure forced a frame")
 	}
+}
+
+func TestUpdateStateCoalesces(t *testing.T) {
+	r := newRig(t, nil)
+	a := r.window("a")
+	r.l.Enqueue(a, platform.ConfigureEvent{Metrics: metrics})
+	r.expect("a configure 10x10; a frame 0s")
+	maxed := platform.WindowState{Maximized: true}
+	moved := platform.WindowState{Maximized: true, HasPosition: true, Position: image.Pt(3, 4)}
+	r.l.UpdateState(a, maxed)
+	r.l.Enqueue(a, platform.FocusEvent{})
+	r.l.UpdateState(a, moved)
+	if got := r.l.PendingState(a); got != moved {
+		t.Errorf("PendingState = %v, want %v", got, moved)
+	}
+	// One WindowStateEvent, at the position of the first, with the latest
+	// state; no frame is forced.
+	r.expect("a state {maximized at 3,4}; a platform.FocusEvent")
+	if a.State() != moved {
+		t.Errorf("State() = %v after delivery, want %v", a.State(), moved)
+	}
+	// Back and forth before delivery: nothing delivered.
+	r.l.UpdateState(a, platform.WindowState{})
+	r.l.UpdateState(a, moved)
+	r.expect("")
+	// Equal to the delivered state: nothing queued.
+	r.l.UpdateState(a, moved)
+	if r.l.Ready() {
+		t.Errorf("an unchanged state was queued")
+	}
+	// A direct WindowStateEvent also updates State.
+	r.l.Enqueue(a, platform.WindowStateEvent{})
+	r.expect("a state {}")
+	if a.State() != (platform.WindowState{}) {
+		t.Errorf("State() = %v after a direct event", a.State())
+	}
+	// Closed windows queue nothing.
+	r.l.Remove(a)
+	r.l.UpdateState(a, maxed)
+	r.expect("")
 }
 
 func TestFramePacing(t *testing.T) {

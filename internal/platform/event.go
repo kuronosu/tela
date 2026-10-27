@@ -8,8 +8,8 @@ import "time"
 // never changes the Backend or Window interfaces.
 //
 // The window-scoped events are delivered with the Window they belong to.
-// App-scoped events ([WakeEvent], [SettingsEvent]) are delivered with a nil
-// Window.
+// App-scoped events ([WakeEvent], [SettingsEvent], [NotificationEvent],
+// [TrayEvent]) are delivered with a nil Window.
 type Event interface {
 	isEvent()
 }
@@ -260,7 +260,92 @@ func (p ScrollPhase) String() string {
 	return "ScrollPhase(invalid)"
 }
 
+// WindowStateEvent reports a change of the window's [WindowState]:
+// maximized, fullscreen, minimized (where the OS tells), client-side
+// decorations, position (where the OS tells). [Window.State] changes only
+// when one is delivered, like Metrics with ConfigureEvent.
+//
+// It is never delivered before the window's first ConfigureEvent. A window
+// whose initial state is not the zero WindowState (created maximized or
+// frameless, or at a known position) gets one right after its first
+// ConfigureEvent. When one OS notification changes both the state and the
+// size (maximizing), the WindowStateEvent is queued before the
+// ConfigureEvent, so the FrameEvent that follows sees both. Bursts
+// coalesce (a window dragged across the screen yields position updates at
+// the loop's pace, not per OS message), and a change back to the delivered
+// state before delivery yields nothing. ConfigureEvent semantics are
+// unchanged: size and scale arrive only there.
+type WindowStateEvent struct {
+	State WindowState
+}
+
+// NotificationEventKind is what happened to a notification.
+type NotificationEventKind uint8
+
+const (
+	// NotificationActivated: the user clicked the notification itself.
+	NotificationActivated NotificationEventKind = iota
+	// NotificationActionInvoked: the user clicked one of its actions
+	// (NotificationEvent.Action).
+	NotificationActionInvoked
+	// NotificationClosed: the notification went away (dismissed by the
+	// user, expired, or replaced) as reported by the OS. Not delivered
+	// for CloseNotification, nor where the OS does not report it.
+	NotificationClosed
+)
+
+var notificationEventNames = [...]string{"activated", "action", "closed"}
+
+func (k NotificationEventKind) String() string {
+	if int(k) < len(notificationEventNames) {
+		return notificationEventNames[k]
+	}
+	return "NotificationEventKind(invalid)"
+}
+
+// NotificationEvent is delivered, with a nil Window, when the user
+// interacts with a notification shown by [Desktop.Notify].
+type NotificationEvent struct {
+	ID   NotificationID
+	Kind NotificationEventKind
+	// Action is the NotificationAction.ID for NotificationActionInvoked.
+	Action string
+}
+
+// TrayEventKind is what happened to a tray icon.
+type TrayEventKind uint8
+
+const (
+	// TrayActivated: the primary activation of the icon (a primary click;
+	// some Linux hosts open the menu instead and never send it).
+	TrayActivated TrayEventKind = iota
+	// TrayMenuItem: the user chose the menu item TrayEvent.Item.
+	TrayMenuItem
+)
+
+var trayEventNames = [...]string{"activated", "menu-item"}
+
+func (k TrayEventKind) String() string {
+	if int(k) < len(trayEventNames) {
+		return trayEventNames[k]
+	}
+	return "TrayEventKind(invalid)"
+}
+
+// TrayEvent is delivered, with a nil Window, when the user activates a tray
+// icon added with [Desktop.NewTray] or one of its menu items.
+type TrayEvent struct {
+	Tray TrayID
+	Kind TrayEventKind
+	// Item is the activated MenuItem's ID for TrayMenuItem. Only enabled
+	// items without a submenu are reported.
+	Item MenuItemID
+}
+
 func (ConfigureEvent) isEvent()      {}
+func (WindowStateEvent) isEvent()    {}
+func (NotificationEvent) isEvent()   {}
+func (TrayEvent) isEvent()           {}
 func (FrameEvent) isEvent()          {}
 func (CloseRequestedEvent) isEvent() {}
 func (FocusEvent) isEvent()          {}
