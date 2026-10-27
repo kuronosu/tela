@@ -27,8 +27,14 @@ func MountFunc(tb testing.TB, fn func() tela.Node, opts ...Option) *App {
 // MountApp shows app.Root in a headless window configured like the app,
 // the way [tela.Main] shows it in a real one, and returns the running app.
 // The size, root class, color scheme, theme, class aliases, scrollbar
-// and scroll settings and Dev of the app apply (see [FromApp]); the
-// options override them. It fails the test when app.Root is nil.
+// and scroll settings and Dev of the app apply (see [FromApp]), and so do
+// the fields of the OS window: Title, AppID, the size limits, FixedSize,
+// Frameless, AlwaysOnTop, Hidden, Icon, Placement and OnClose (see
+// [Title], [MinSize], [Frameless], [StartHidden], [Placement] and
+// [OnClose], the options that set them by hand). A Hidden app starts with
+// its window hidden, and without an OnClose the app quits when its main
+// window is asked to close ([App.RequestClose], [App.ExpectQuit]). The
+// options override all of them. It fails the test when app.Root is nil.
 //
 //	var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes()}
 //
@@ -46,7 +52,7 @@ func MountApp(tb testing.TB, app tela.App, opts ...Option) *App {
 	if app.Root == nil {
 		tb.Fatalf("telatest: MountApp needs app.Root, the root component; for example telatest.MountApp(t, tela.App{Root: tela.C(Counter)}) where Counter is a func() tela.Node, or Root: Counter{} for a struct component")
 	}
-	return Mount(tb, app.Root, append([]Option{FromApp(app)}, opts...)...)
+	return Mount(tb, app.Root, append([]Option{FromApp(app), windowFromApp(app)}, opts...)...)
 }
 
 // GoldenScales compares the window with one golden per display scale:
@@ -74,7 +80,7 @@ func (a *App) GoldenScales(name string, scales ...float64) {
 	base := strings.TrimSuffix(name, ".png")
 	orig := a.win.Metrics().Scale
 	defer func() {
-		if !a.closed && a.win.Metrics().Scale != orig {
+		if !a.sh.closed && !a.win.Closed() && a.win.Metrics().Scale != orig {
 			a.win.SetScale(orig)
 			a.settleAfter()
 		}
@@ -102,9 +108,10 @@ func (a *App) PixelAt(x, y float32) color.RGBA {
 	a.tb.Helper()
 	a.mustBeOpen()
 	a.settleAfter()
+	a.mustBeOpen()
 	img := a.win.Frame()
 	if img == nil {
-		a.fatalf("the window has not presented a frame yet (is the window zero-sized?)")
+		a.fatalf("%s", a.noFrameMessage())
 	}
 	scale := a.win.Metrics().Scale
 	px, py := int(math.Floor(float64(x)*scale)), int(math.Floor(float64(y)*scale))

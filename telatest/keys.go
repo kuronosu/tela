@@ -273,6 +273,10 @@ func (a *App) pressKeyDef(name string) {
 // the rebuilt tree.
 func (a *App) sendKey(e platform.KeyEvent) {
 	a.tb.Helper()
+	a.activate()
+	if !a.focused() {
+		a.fatalf("cannot send keys to the window %q: it is hidden, so it cannot have the keyboard focus; show it first", a.win.Title())
+	}
 	a.win.Inject(e)
 	a.settleAfter()
 }

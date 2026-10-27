@@ -105,34 +105,44 @@ func TestMountAppNeedsRoot(t *testing.T) {
 }
 
 // What `tela snapshot` renders and a window shows must not drift: every
-// field of tela.App is either applied by FromApp or knowingly ignored.
-// Adding a field to App makes this test fail until it is classified.
+// field of tela.App is applied by FromApp (how the content looks), applied
+// by MountApp alone (the OS window: tools that render the screen want it
+// visible and quit-able), or knowingly ignored. Adding a field to App makes
+// this test fail until it is classified.
 func TestAppFieldsAreClassified(t *testing.T) {
 	applied := map[string]bool{
 		"Width": true, "Height": true, "RootClass": true, "ColorScheme": true, "Theme": true,
 		"ClassAliases": true, "ClassicScrollbars": true, "InstantScroll": true, "Dev": true,
 	}
+	// The option that sets each OS-window field by hand.
+	mountApp := map[string]string{
+		"Title": "Title", "AppID": "AppID",
+		"MinWidth": "MinSize", "MinHeight": "MinSize",
+		"MaxWidth": "MaxSize", "MaxHeight": "MaxSize",
+		"FixedSize": "FixedSize", "Frameless": "Frameless",
+		"AlwaysOnTop": "AlwaysOnTop", "Hidden": "StartHidden",
+		"Icon": "Icon", "Placement": "Placement", "OnClose": "OnClose",
+	}
 	ignored := map[string]string{
-		"Title": "the window title", "AppID": "the desktop identity",
 		"Root":     "mounted by MountApp, not a setting",
 		"DevState": "state outside the tree that only tela dev keeps across reloads",
-		"MinWidth": "OS window behavior", "MinHeight": "OS window behavior",
-		"MaxWidth": "OS window behavior", "MaxHeight": "OS window behavior",
-		"FixedSize": "OS window behavior", "Frameless": "the OS title bar, not the content",
-		"AlwaysOnTop": "OS window behavior", "Hidden": "OS window behavior",
-		"Icon":      "the OS window icon",
-		"Placement": "where a previous run left the window",
-		"OnClose":   "what closing the window does",
 	}
 	typ := reflect.TypeFor[tela.App]()
 	for i := range typ.NumField() {
 		name := typ.Field(i).Name
+		_, isMount := mountApp[name]
 		_, isIgnored := ignored[name]
-		if !applied[name] && !isIgnored {
-			t.Errorf("tela.App.%s is neither applied by telatest.FromApp nor listed as ignored; handle it in FromApp (and in the CLI's docs) or add it to this test", name)
+		n := 0
+		for _, b := range []bool{applied[name], isMount, isIgnored} {
+			if b {
+				n++
+			}
 		}
-		if applied[name] && isIgnored {
-			t.Errorf("tela.App.%s is both applied and ignored", name)
+		switch {
+		case n == 0:
+			t.Errorf("tela.App.%s is not classified: apply it in telatest.FromApp (how the content looks) or in MountApp (the OS window, with an option of its own), or list it as ignored in this test", name)
+		case n > 1:
+			t.Errorf("tela.App.%s is classified more than once", name)
 		}
 	}
 }

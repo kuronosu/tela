@@ -173,6 +173,9 @@ func (a *App) Count(l Locator) int {
 // pointer injects a pointer event and settles the app.
 func (a *App) pointer(act platform.PointerAction, p platform.Point, button platform.PointerButton, buttons platform.Buttons) {
 	a.tb.Helper()
+	if act == platform.PointerDown {
+		a.activate()
+	}
 	a.win.Inject(platform.PointerEvent{Action: act, Pos: p, Button: button, Buttons: buttons})
 	a.settleAfter()
 }
@@ -227,6 +230,7 @@ const touchID platform.PointerID = 1
 // contact, which no hover precedes.
 func (a *App) touchDown(p platform.Point) {
 	a.tb.Helper()
+	a.activate()
 	a.win.Inject(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerTouch, ID: touchID,
 		Pos: p, Button: platform.ButtonPrimary, Buttons: platform.ButtonPrimary.Mask()})
 	a.settleAfter()

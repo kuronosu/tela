@@ -559,10 +559,12 @@ func (h *Host) frame(v *winView, now time.Duration) {
 }
 
 // NeedsFrame reports that a frame must still render: a ConfigureEvent
-// arrived whose frame did not run yet, in any window.
+// arrived whose frame did not run yet, in any window that gets frames (the
+// platform paces neither hidden nor minimized windows: their frame waits
+// until they are shown).
 func (h *Host) NeedsFrame() bool {
 	for _, v := range h.views {
-		if v.configured {
+		if v.configured && !v.hidden && !v.os.Minimized {
 			return true
 		}
 	}

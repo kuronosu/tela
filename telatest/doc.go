@@ -70,9 +70,66 @@
 // [App.PixelAt] reads the frame, [App.Measure] returns the work the tree
 // did during some actions, and [MountFunc] is Mount for one component.
 // [MountApp] mounts a tela.App's Root in the app's own window (its size,
-// root class, color scheme, theme and class aliases), the App that
-// tela.Main runs and `tela snapshot` reads from the package; [FromApp]
-// gives those settings to Mount, Render and the other entry points.
+// root class, color scheme, theme and class aliases, and the fields of the
+// OS window: Title, size limits, Frameless, Hidden, Placement, OnClose...),
+// the App that tela.Main runs and `tela snapshot` reads from the package;
+// [FromApp] gives the settings that shape what is drawn to Mount, Render and
+// the other entry points.
+//
+// # Windows
+//
+// An app has one window per tela.Window that is mounted, besides its main
+// window. The headless backend plays a fake window manager (ADR-179): it
+// grants every request at once, gives hidden and minimized windows no
+// frames, and records parents, modality, hit regions and caption presses.
+//
+// An [App] is scoped to one window. Mount returns the one of the main
+// window; [App.Windows] lists the open windows (in the order they opened,
+// the main window first), [App.Window] selects one by title, [App.WindowAt]
+// by index and [App.LastWindow] is the newest, and [App.WaitForWindow] runs
+// a step and returns the window it opened, like Playwright's
+// context.pages() and page.waitForEvent('popup'). Each returns an App with
+// the same queries, actions, expectations, goldens and pixels as the main
+// one, working on that window: it is always the same App for the same
+// window.
+//
+//	settings := app.WaitForWindow(func() {
+//	    app.Click(telatest.ByRole("button", "Settings"))
+//	})
+//	settings.ExpectText("Preferences")
+//	settings.Golden("settings.png")
+//
+// Selecting a window waits for it to open, like a locator waits for its
+// element; the clock, settling and the end of the app belong to the whole
+// app, so an action in one window waits for the work it causes in the
+// others. A pointer press or a key in a window that is not the active one
+// activates it first, as the user clicking or typing there does.
+//
+// The window itself: [App.Title], [App.WindowState] (tela.WindowState, as
+// UseWindow sees it), [App.WindowSize], [App.Placement], [App.Modal],
+// [App.Parent], [App.Blocks], [App.BlockedBy] and [App.Closed]; the
+// expectations [App.ExpectTitle], [App.ExpectWindowState] (with [Maximized],
+// [Fullscreen], [Minimized], [Hidden], [Active] and [ClientDecorations]),
+// [App.ExpectClosed], [App.ExpectWindowCount] and [App.ExpectNoWindow]. What
+// the user does with the window manager: [App.RequestClose] (the close
+// button), [App.Minimize], [App.Maximize], [App.Unmaximize],
+// [App.SetFullscreen], [App.Restore], [App.Move], [App.Resize] and
+// [App.BringToFront]. A window blocked by a modal one drops input.
+//
+// Custom title bars: [App.HitRegions] and [App.HitAt] read the regions
+// h.WindowDrag and h.WindowControl send to the OS, a click on the drag area
+// ([App.Click], [App.ClickAt], [App.DoubleClick]) is the OS's press
+// ([App.CaptionDrags], [App.WindowMenus], a double click maximizes), and the
+// controls are buttons that act on click.
+//
+// Quitting: [App.ExpectQuit] waits for tela.Quit or a close request of the
+// main window without an OnClose; the app is then over, as when tela.Main
+// returns: every window unmounted, the cleanups of the effects run, and
+// further use fails the test. [App.HasQuit] and [App.ExpectRunning] check
+// that it did or did not. The window options ([Title], [MinSize],
+// [MaxSize], [FixedSize], [Frameless], [AlwaysOnTop], [StartHidden],
+// [Icon], [Placement], [OnClose], [Screen]) set the main window's fields
+// for Mount.
 //
 // # The clock
 //

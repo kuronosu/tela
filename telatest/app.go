@@ -43,16 +43,17 @@ type App struct {
 	tb      testing.TB
 	cfg     config
 	backend *headless.Backend
-	win     *headless.Window
 	host    *core.Host
-	tree    *core.Tree
-	stop    func() // ends the delivery of tela.Post
-	closed  bool
-	// busy: the last settle gave up waiting for the app to go quiet.
-	busy bool
+	// win and tree are the window this App is scoped to and its tree: the
+	// main window's for the App Mount returns, another window's for the
+	// ones [App.Windows] returns (window.go).
+	win  *headless.Window
+	tree *core.Tree
+	// sh is the state shared by the App of every window of the app.
+	sh *appShared
 
-	// The pointer: its last position, whether it ever entered the window,
-	// and the buttons held.
+	// The pointer of this window: its last position, whether it ever
+	// entered the window, and the buttons held.
 	pos    platform.Point
 	hasPos bool
 	held   platform.Buttons
@@ -60,6 +61,20 @@ type App struct {
 	// dev is whether the tree runs in dev mode (the options and
 	// TELA_DEV).
 	dev bool
+}
+
+// appShared is what the windows of one app share: the end of the app, the
+// settling state and the dev messages.
+type appShared struct {
+	stop func() // ends the delivery of tela.Post
+	// closed: the app ended (App.Close, or quit); quit: it ended because
+	// the app quit (tela.Quit, or the main window's close policy).
+	closed, quit bool
+	// busy: the last settle gave up waiting for the app to go quiet.
+	busy bool
+	// views are the App of each window, so that a window is always the
+	// same *App (and keeps its pointer state).
+	views map[*headless.Window]*App
 
 	mu    sync.Mutex // guards logs and warns (dev messages may come from any goroutine)
 	logs  []string   // dev errors
@@ -80,9 +95,11 @@ type App struct {
 // delivered to one tree per process: do not mount apps that use Post from
 // parallel tests.
 //
-// The windows a tela.Window opens are opened in the headless backend too
-// (their components build and their effects run), but the queries,
-// actions, snapshots and goldens see the main window only.
+// The windows a tela.Window opens are opened in the headless backend too,
+// by a fake window manager. The returned App is scoped to the main window;
+// [App.Windows], [App.Window] and [App.WaitForWindow] give an App scoped
+// to each of the others, with the same queries, actions, snapshots and
+// goldens (see "Windows" in the package documentation).
 func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	tb.Helper()
 	cfg := newConfig(opts)
@@ -93,24 +110,27 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	if err != nil {
 		tb.Fatalf("telatest: Mount: %v", err)
 	}
-	a := &App{tb: tb, cfg: cfg, dev: cfg.devMode()}
+	a := &App{tb: tb, cfg: cfg, dev: cfg.devMode(), sh: &appShared{views: map[*headless.Window]*App{}}}
 	size := platform.Size{W: cfg.width, H: cfg.height}
 	a.backend = headless.New(headless.Options{
 		Size:     size,
 		Scale:    cfg.scale,
+		Screen:   cfg.screen,
 		Settings: platform.SystemSettings{DarkMode: cfg.dark, ReducedMotion: cfg.reducedMotion},
 	})
 	cc := cfg.coreConfig()
 	cc.IDPrefix = idPrefix
 	cc.Log = a.log
 	cc.Warn = a.warn
-	host, err := core.NewHost(a.backend, core.Options{
-		Config: cc,
-		Title:  "telatest",
-		Width:  cfg.width, Height: cfg.height,
-		Root:     rootNode,
-		ErrorLog: testWriter{tb},
-	})
+	copts := cfg.win.coreOptions()
+	copts.Config = cc
+	copts.Width, copts.Height = cfg.width, cfg.height
+	copts.Root = rootNode
+	copts.ErrorLog = testWriter{tb}
+	if copts.Title == "" {
+		copts.Title = "telatest"
+	}
+	host, err := core.NewHost(a.backend, copts)
 	if err != nil {
 		tb.Fatalf("telatest: cannot create the headless window: %v", err)
 	}
@@ -119,8 +139,11 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	if cfg.checkDamage {
 		host.AfterFrame = a.checkDamage
 	}
-	a.win.SetFocused(true)
-	a.stop = a.tree.ReceivePosts()
+	a.sh.views[a.win] = a
+	if !cfg.win.hidden {
+		a.win.SetFocused(true) // a hidden window is not the active one; Show activates it
+	}
+	a.sh.stop = a.tree.ReceivePosts()
 	tb.Cleanup(a.Close)
 	a.settleAfter()
 	return a
@@ -164,33 +187,58 @@ func (w testWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// Close unmounts the app now, running the cleanups of its effects. The
-// test does it when it ends; call it to test unmounting. Using the app
-// afterwards fails the test.
+// Close unmounts the whole app now (every window, not only the one this App
+// is scoped to), running the cleanups of its effects. The test does it when
+// it ends; call it to test unmounting. Using the app afterwards fails the
+// test. To test what the user closing a window does, use
+// [App.RequestClose].
 func (a *App) Close() {
-	if a.closed {
+	if a.sh.closed {
 		return
 	}
-	a.closed = true
-	a.stop()
-	a.tree.Unmount()
-	a.win.Close()
+	a.end()
+}
+
+// end unmounts the app: what Close does, and what Run does when the app
+// quits (the cleanups of every window's effects run, children first).
+func (a *App) end() {
+	sh := a.sh
+	sh.closed = true
+	sh.stop()
+	a.host.Tree().Unmount()
+	a.host.Window().Close()
 	a.backend.Quit()
 	a.flushDev()
 }
 
+// endIfQuitting ends the app, like Run returning, once it asked to quit
+// (tela.Quit, or closing the main window without an OnClose), and reports
+// whether the app is over.
+func (a *App) endIfQuitting() bool {
+	sh := a.sh
+	if sh.closed {
+		return true
+	}
+	if !a.backend.Quitting() {
+		return false
+	}
+	sh.quit = true
+	a.end()
+	return true
+}
+
 // log collects a dev error.
 func (a *App) log(msg string) {
-	a.mu.Lock()
-	a.logs = append(a.logs, msg)
-	a.mu.Unlock()
+	a.sh.mu.Lock()
+	a.sh.logs = append(a.sh.logs, msg)
+	a.sh.mu.Unlock()
 }
 
 // warn collects a dev warning.
 func (a *App) warn(msg string) {
-	a.mu.Lock()
-	a.warns = append(a.warns, msg)
-	a.mu.Unlock()
+	a.sh.mu.Lock()
+	a.sh.warns = append(a.sh.warns, msg)
+	a.sh.mu.Unlock()
 }
 
 // flushDev reports the dev messages logged since the last call: errors
@@ -198,10 +246,10 @@ func (a *App) warn(msg string) {
 // otherwise; warnings are test logs.
 func (a *App) flushDev() {
 	a.tb.Helper()
-	a.mu.Lock()
-	logs, warns := a.logs, a.warns
-	a.logs, a.warns = nil, nil
-	a.mu.Unlock()
+	a.sh.mu.Lock()
+	logs, warns := a.sh.logs, a.sh.warns
+	a.sh.logs, a.sh.warns = nil, nil
+	a.sh.mu.Unlock()
 	for _, m := range logs {
 		if a.dev && !a.devAllowed(m) {
 			a.tb.Errorf("telatest: dev message: %s\n(telatest.AllowDev(%q) lets a test accept it)", m, firstLine(m))
@@ -240,7 +288,7 @@ func (a *App) fatalf(format string, args ...any) {
 
 // snapshotSuffix returns the aria snapshot, indented, for error messages.
 func (a *App) snapshotSuffix() string {
-	if a.closed {
+	if a.sh.closed || a.win.Closed() {
 		return ""
 	}
 	snap := semantics.Snapshot(a.tree.Semantics())
@@ -257,30 +305,87 @@ func (a *App) snapshotSuffix() string {
 	return "\n\naria snapshot:\n  " + strings.Join(lines, "\n  ") + more
 }
 
+// mustRun fails the test when the app is over (it was closed or it quit).
+func (a *App) mustRun() {
+	a.tb.Helper()
+	if a.sh.quit {
+		a.tb.Fatalf("telatest: the app quit (tela.Quit, or closing the main window), which unmounted it; mount it again")
+	}
+	if a.sh.closed {
+		a.tb.Fatalf("telatest: the app was closed (App.Close or the end of the test); mount it again")
+	}
+}
+
+// mustBeOpen fails the test when the app is over or this App's window was
+// closed.
 func (a *App) mustBeOpen() {
 	a.tb.Helper()
-	if a.closed {
-		a.tb.Fatalf("telatest: the app was closed (App.Close or the end of the test); mount it again")
+	a.mustRun()
+	if a.win.Closed() {
+		a.tb.Fatalf("telatest: the window %q was closed; get another one with App.Windows, App.Window(title) or App.WaitForWindow", a.win.Title())
 	}
 }
 
 // ---------------------------------------------------------------------
 // The clock and settling.
 
-// deliver handles everything the backend has ready at the current time.
-func (a *App) deliver() { a.backend.Drain(a.host) }
+// deliver handles everything the backend has ready at the current time,
+// and ends the app when that made it quit (a.sh.closed is then set).
+func (a *App) deliver() {
+	a.backend.Drain(a.host)
+	a.endIfQuitting()
+}
+
+// drawn reports whether window w gets frames: the fake window manager
+// paces neither hidden nor minimized windows, so a tree that changed in
+// one waits until the window is shown.
+func drawn(w *headless.Window) bool { return w.Visible() && !w.OSState().Minimized }
+
+// workDue reports whether the app has work to do now: queued events, a
+// frame owed, or a dirty tree in a window that is drawn.
+func (a *App) workDue() bool {
+	if a.backend.Pending() || a.host.NeedsFrame() {
+		return true
+	}
+	for _, w := range a.host.Windows() {
+		if hw := w.(*headless.Window); drawn(hw) && a.host.TreeOf(w).Dirty() {
+			return true
+		}
+	}
+	return false
+}
 
 // pendingWork reports whether the app has work: queued events, a frame
 // requested, or a dirty tree.
 func (a *App) pendingWork() bool {
-	if a.backend.Pending() || a.tree.Dirty() || a.host.NeedsFrame() {
+	if a.workDue() {
 		return true
 	}
 	// A frame requested for the debug overlays alone (a fading flash, the
 	// fps meter), or for infinite animations alone (a spinner, a pulse),
 	// is not work the app must finish. Finite transitions and animations
 	// are: settle advances the clock until they end.
-	return a.win.FrameRequested() && !a.tree.DebugWantsFrame() && !a.tree.OnlyEndlessAnimations()
+	for _, w := range a.host.Windows() {
+		hw := w.(*headless.Window)
+		if !drawn(hw) || !hw.FrameRequested() {
+			continue
+		}
+		if t := a.host.TreeOf(w); !t.DebugWantsFrame() && !t.OnlyEndlessAnimations() {
+			return true
+		}
+	}
+	return false
+}
+
+// nextDeadline returns the earliest deadline (a long press, a fade) of
+// the trees of the app's windows.
+func (a *App) nextDeadline() (at time.Duration, ok bool) {
+	for _, w := range a.host.Windows() {
+		if d, has := a.host.TreeOf(w).NextDeadline(); has && (!ok || d < at) {
+			at, ok = d, true
+		}
+	}
+	return at, ok
 }
 
 // busyFrames is how many frames settle runs once the app has shown that it
@@ -303,19 +408,22 @@ const busyFrames = 3
 // call finds the app quiet again.
 func (a *App) settle() {
 	a.tb.Helper()
-	a.mustBeOpen()
+	a.mustRun()
 	a.backend.Wake() // posted functions and state set from other goroutines
 	start := a.backend.Now()
 	quietLimit := min(a.cfg.timeout, DefaultTimeout)
 	limit := quietLimit
-	if a.busy {
+	if a.sh.busy {
 		limit = busyFrames * a.backend.FrameInterval()
 	}
 	var st stall
 	for {
 		a.deliver()
+		if a.sh.closed {
+			return // the app quit
+		}
 		if !a.pendingWork() {
-			a.busy = false
+			a.sh.busy = false
 			break
 		}
 		now := a.backend.Now()
@@ -327,11 +435,11 @@ func (a *App) settle() {
 			// Dirty or pending without a frame to wait for: another
 			// round delivers it, without moving the clock.
 			if st.tooLong(a, quietLimit) {
-				if !a.busy {
+				if !a.sh.busy {
 					a.tb.Logf("telatest: the app kept handling work for %v of real time without a frame to run: a goroutine that "+
 						"posts functions or sets state all the time. Actions will not wait for it to go quiet; use App.Advance(d) to run a fixed time", quietLimit)
 				}
-				a.busy = true
+				a.sh.busy = true
 				break
 			}
 			a.backend.Wake()
@@ -339,11 +447,11 @@ func (a *App) settle() {
 		}
 		st = stall{}
 		if now+step-start > limit {
-			if !a.busy {
+			if !a.sh.busy {
 				a.tb.Logf("telatest: the app was still requesting frames after %v of app time: an endless animation, or a goroutine that "+
 					"updates state all the time. Actions will not wait for it to go quiet; use App.Advance(d) to run a fixed time", quietLimit)
 			}
-			a.busy = true
+			a.sh.busy = true
 			break
 		}
 		a.backend.Advance(step)
@@ -393,14 +501,17 @@ func (a *App) settleAfter() {
 // the frames of running animations (NoSettle).
 func (a *App) flush() {
 	a.tb.Helper()
-	a.mustBeOpen()
+	a.mustRun()
 	a.backend.Wake()
 	start := a.backend.Now()
 	limit := min(a.cfg.timeout, DefaultTimeout)
 	var st stall
 	for {
 		a.deliver()
-		if !a.backend.Pending() && !a.tree.Dirty() && !a.host.NeedsFrame() {
+		if a.sh.closed {
+			return // the app quit
+		}
+		if !a.workDue() {
 			break
 		}
 		now := a.backend.Now()
@@ -429,10 +540,16 @@ func (a *App) flush() {
 // deadline (a long press, scrollbars starting to fade) on the way.
 func (a *App) advance(d time.Duration) {
 	a.tb.Helper()
+	if a.sh.closed {
+		return
+	}
 	target := a.backend.Now() + d
 	a.backend.Wake() // let the deadlines that are already due fire
 	for {
 		a.deliver()
+		if a.sh.closed {
+			return // the app quit
+		}
 		now := a.backend.Now()
 		if now >= target {
 			break
@@ -441,7 +558,7 @@ func (a *App) advance(d time.Duration) {
 		if t, ok := a.backend.NextFrameTime(); ok && t > now && t < next {
 			next = t
 		}
-		if t, ok := a.tree.NextDeadline(); ok && t > now && t < next {
+		if t, ok := a.nextDeadline(); ok && t > now && t < next {
 			next = t
 		}
 		a.backend.Advance(next - now)
@@ -457,7 +574,7 @@ func (a *App) advance(d time.Duration) {
 // the next action, expectation or Advance.
 func (a *App) Advance(d time.Duration) {
 	a.tb.Helper()
-	a.mustBeOpen()
+	a.mustRun()
 	if d < 0 {
 		a.tb.Fatalf("telatest: Advance(%v): the clock cannot go backwards; pass a positive duration such as 300*time.Millisecond", d)
 	}
@@ -508,9 +625,21 @@ func (a *App) waitSettled(check func() (done bool, why string)) {
 // waiting fails the test itself.
 func (a *App) wait(settle func(), check func() (done bool, why string)) {
 	a.tb.Helper()
+	a.waitIn(true, settle, check)
+}
+
+// waitIn is wait; with live, the app and this App's window must stay open
+// while waiting (a wait for the end of the window or the app is not live).
+func (a *App) waitIn(live bool, settle func(), check func() (done bool, why string)) {
+	a.tb.Helper()
 	deadline := time.Now().Add(a.cfg.timeout)
 	for round := 0; ; round++ {
-		settle()
+		if live || !a.sh.closed {
+			settle()
+		}
+		if live {
+			a.mustBeOpen()
+		}
 		done, why := check()
 		if done {
 			return
@@ -551,12 +680,25 @@ func (a *App) WaitFor(what string, cond func() bool) {
 // they are.
 func (a *App) Screenshot() *image.RGBA {
 	a.tb.Helper()
+	a.mustBeOpen()
 	a.settleAfter()
+	a.mustBeOpen() // the settle may have quit the app or closed the window
 	img := a.win.Frame()
 	if img == nil {
-		a.fatalf("the window has not presented a frame yet (is the window zero-sized?)")
+		a.fatalf("%s", a.noFrameMessage())
 	}
 	return img
+}
+
+// noFrameMessage explains why the window has no frame.
+func (a *App) noFrameMessage() string {
+	switch {
+	case !a.win.Visible():
+		return "the window has not presented a frame: it is hidden, and the fake window manager gives hidden windows no frames; show it first (a Show request of the app, or the app's own Hidden state)"
+	case a.win.OSState().Minimized:
+		return "the window has not presented a frame: it is minimized, and the fake window manager gives minimized windows no frames; restore it first with App.Restore or App.BringToFront"
+	}
+	return "the window has not presented a frame yet (is the window zero-sized?)"
 }
 
 // AriaSnapshot returns the app's semantics tree as a Playwright aria
@@ -569,7 +711,9 @@ func (a *App) Screenshot() *image.RGBA {
 //	// - button "Increment"
 func (a *App) AriaSnapshot() string {
 	a.tb.Helper()
+	a.mustBeOpen()
 	a.settleQuery()
+	a.mustBeOpen()
 	return semantics.Snapshot(a.tree.Semantics())
 }
 
@@ -577,6 +721,7 @@ func (a *App) AriaSnapshot() string {
 // (under [NoSettle], handling only the work due).
 func (a *App) Stats() Stats {
 	a.tb.Helper()
+	a.mustBeOpen()
 	a.settleQuery()
 	return a.tree.Stats()
 }
@@ -586,6 +731,7 @@ func (a *App) Stats() Stats {
 // handling only the work due).
 func (a *App) Cursor() string {
 	a.tb.Helper()
+	a.mustBeOpen()
 	a.settleQuery()
 	return a.win.Cursor().String()
 }

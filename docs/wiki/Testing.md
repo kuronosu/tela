@@ -313,6 +313,72 @@ func TestNotes(t *testing.T) {
 something else (a struct component, a [`tela.Preview`](https://pkg.go.dev/github.com/kuronosu/tela#Preview)) in the app's window:
 `telatest.Mount(t, Previews["mocked"], telatest.FromApp(App))`.
 
+`MountApp` also applies the fields of the OS window: `Title`, the size
+limits, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `Placement`
+and `OnClose` (`FromApp` does not, so tools that only render the screen see it
+visible). The options `telatest.Title`, `MinSize`, `MaxSize`, `FixedSize`,
+`Frameless`, `AlwaysOnTop`, `StartHidden`, `Icon`, `Placement`, `OnClose` and
+`Screen` (the size of the fake screen that maximized windows fill) set them by
+hand for `Mount`.
+
+## Several windows
+
+An app has one window per mounted `tela.Window`, besides its main window. The
+headless backend plays a fake window manager: it grants every request at once,
+gives hidden and minimized windows no frames, and records parents, modality,
+hit regions and caption presses. `Mount` returns the `*telatest.App` of the
+main window; `app.Windows()`, `app.Window(title)`, `app.WindowAt(i)`,
+`app.LastWindow()` and `app.WaitForWindow(f)` (Playwright's
+`waitForEvent('popup')`) return one scoped to another window, with the same
+queries, actions, expectations, goldens and pixels, and always the same value
+for a window. Selecting waits for the window to open; a click or a key in a
+window that is not the active one activates it first.
+
+```go
+func TestSettingsWindow(t *testing.T) {
+	app := telatest.MountApp(t, App)
+	settings := app.WaitForWindow(func() {
+		app.Click(telatest.ByRole("button", "Settings"))
+	})
+	settings.ExpectText("Preferences")
+	settings.Golden("settings.png")
+	if !app.Blocked() { // Settings is Modal: the main window takes no input
+		t.Error("the main window is not blocked")
+	}
+
+	settings.RequestClose() // the close button; the window's OnClose decides
+	settings.ExpectClosed()
+	app.ExpectWindowCount(1)
+}
+```
+
+What the user does with the window manager: `RequestClose`, `Minimize`,
+`Maximize`, `Unmaximize`, `SetFullscreen`, `Restore`, `Move`, `Resize` and
+`BringToFront`. The window itself: `Title`, `WindowState`, `WindowSize`,
+`Placement`, `Modal`, `Parent`, `Blocks` and `BlockedBy`, with the
+expectations `ExpectTitle`, `ExpectWindowState(telatest.Maximized(true),
+telatest.Active(false))`, `ExpectClosed`, `ExpectWindowCount` and
+`ExpectNoWindow`.
+
+For a custom title bar (`h.WindowDrag`, `h.WindowControl`), `HitRegions` and
+`HitAt` read what the window sent to the OS; a click on the drag area is the
+OS's press (`CaptionDrags`, and a double click maximizes), and the control
+buttons act on click:
+
+```go
+app.ClickAt(20, 18)                 // a press on the drag area starts a move
+app.DoubleClick(telatest.ByTestID("titlebar"))
+app.ExpectWindowState(telatest.Maximized(true))
+app.Click(telatest.ByRole("button", "Close"))
+app.ExpectQuit()
+```
+
+`ExpectQuit` waits for `tela.Quit`, or for the main window to be closed when
+the app has no `OnClose`. The app is then over, as when `tela.Main` returns:
+every window is unmounted, the cleanups of the effects have run, and using the
+app fails the test; `HasQuit` and `ExpectRunning` check that it quit or did not
+(an `OnClose` that hides the window keeps it running).
+
 ## Testing a package of screens
 
 Write one test per behavior, and use `telatest.Dev()` so mistakes the

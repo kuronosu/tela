@@ -9,6 +9,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/platform"
 )
 
 // DefaultTimeout is how long actions and expectations wait for their
@@ -37,6 +38,10 @@ type config struct {
 	noSettle      bool
 	theme         *tela.Theme
 	aliases       map[string]string
+	// win is the OS window of the main window (winoptions.go), screen the
+	// size of the fake screen maximized and fullscreen windows fill.
+	win    windowConfig
+	screen platform.Size
 }
 
 func newConfig(opts []Option) config {
@@ -62,7 +67,7 @@ func (c config) validate() error {
 	if _, err := core.ParseDebug(strings.Join(c.debug, ",")); err != nil {
 		return fmt.Errorf("telatest.Debug: %v", err)
 	}
-	return nil
+	return c.win.validate(c.screen)
 }
 
 // coreConfig returns the tree configuration (without Log and IDPrefix).
@@ -269,8 +274,12 @@ func ClassAliases(aliases map[string]string) Option {
 // Title, AppID, Root, DevState and the fields of the OS window (size
 // limits, FixedSize, Frameless, AlwaysOnTop, Hidden, Icon, Placement,
 // OnClose) say nothing about how the content looks, so FromApp ignores
-// them; [MountApp] also mounts Root. The scale is not an App
-// setting (it comes from the display): use [Scale].
+// them: tools that only render the app (`tela snapshot`, `tela mcp`) want
+// it visible and quit-able whatever the app does with its window.
+// [MountApp] mounts Root and applies those fields too, as the options
+// [Title], [MinSize], [Frameless], [StartHidden], [Placement], [OnClose]
+// and the others do by hand. The scale is not an App setting (it comes
+// from the display): use [Scale].
 func FromApp(app tela.App) Option {
 	if app.ColorScheme > tela.Dark {
 		panic("telatest.FromApp: App.ColorScheme must be tela.Light, tela.Dark or tela.System")

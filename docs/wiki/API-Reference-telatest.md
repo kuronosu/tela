@@ -12,18 +12,21 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`FromApp`](#func-fromapp) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Bounds`](#func-app-bounds) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectRole`](#func-app-expectrole) · [`ExpectText`](#func-app-expecttext) · [`ExpectValue`](#func-app-expectvalue) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`Hover`](#func-app-hover) · [`LayoutJSON`](#func-app-layoutjson) · [`LongPress`](#func-app-longpress) · [`Measure`](#func-app-measure) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Now`](#func-app-now) · [`PixelAt`](#func-app-pixelat) · [`Press`](#func-app-press) · [`Resize`](#func-app-resize) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetScale`](#func-app-setscale) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Type`](#func-app-type) · [`WaitFor`](#func-app-waitfor)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CaptionDrags`](#func-app-captiondrags) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`Hover`](#func-app-hover) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`Press`](#func-app-press) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetScale`](#func-app-setscale) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`Right`](#func-right)
   - [`type DragOption`](#type-dragoption): [`Steps`](#func-steps)
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
+  - [`type HitKind`](#type-hitkind): [`String`](#func-hitkind-string)
+  - [`type HitRegion`](#type-hitregion): [`String`](#func-hitregion-string)
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
-  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FromApp`](#func-fromapp) · [`InstantScroll`](#func-instantscroll) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Size`](#func-size) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout)
+  - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title)
   - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
+  - [`type WindowCond`](#type-windowcond): [`Active`](#func-active) · [`ClientDecorations`](#func-clientdecorations) · [`Fullscreen`](#func-fullscreen) · [`Hidden`](#func-hidden) · [`Maximized`](#func-maximized) · [`Minimized`](#func-minimized)
 
 ## Overview
 
@@ -52,7 +55,29 @@ Before acting, an action waits until the element is visible, enabled, in view an
 
 The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`](#func-app-expectnotext), [`App.ExpectRole`](#func-app-expectrole), [`App.ExpectCount`](#func-app-expectcount), [`App.ExpectFocused`](#func-app-expectfocused), [`App.ExpectValue`](#func-app-expectvalue), [`App.ExpectAria`](#func-app-expectaria) and [`App.Expect`](#func-app-expect)) retry until they hold or the [`Timeout`](#func-timeout) expires, letting a frame of app time and a moment of real time pass between tries, so state set by a goroutine arrives (under [`NoSettle`](#func-nosettle) the first try does not move the clock: it handles only the work due). [`App.Expect`](#func-app-expect) checks the states of an element ([`Checked`](#func-checked), [`Disabled`](#func-disabled), [`Expanded`](#func-expanded), [`Selected`](#func-selected), [`Pressed`](#func-pressed), [`Focused`](#func-focused), [`HasName`](#func-hasname), [`HasValue`](#func-hasvalue)) without matching strings of the aria snapshot.
 
-[`App.ClickAt`](#func-app-clickat) and [`App.DragFromTo`](#func-app-dragfromto) act at window coordinates, for what a locator cannot name; [`App.Bounds`](#func-app-bounds) returns an element's box as a tela.Rect. [`App.PixelAt`](#func-app-pixelat) reads the frame, [`App.Measure`](#func-app-measure) returns the work the tree did during some actions, and [`MountFunc`](#func-mountfunc) is Mount for one component. [`MountApp`](#func-mountapp) mounts a tela.App's Root in the app's own window (its size, root class, color scheme, theme and class aliases), the App that tela.Main runs and `tela snapshot` reads from the package; [`FromApp`](#func-fromapp) gives those settings to Mount, Render and the other entry points.
+[`App.ClickAt`](#func-app-clickat) and [`App.DragFromTo`](#func-app-dragfromto) act at window coordinates, for what a locator cannot name; [`App.Bounds`](#func-app-bounds) returns an element's box as a tela.Rect. [`App.PixelAt`](#func-app-pixelat) reads the frame, [`App.Measure`](#func-app-measure) returns the work the tree did during some actions, and [`MountFunc`](#func-mountfunc) is Mount for one component. [`MountApp`](#func-mountapp) mounts a tela.App's Root in the app's own window (its size, root class, color scheme, theme and class aliases, and the fields of the OS window: Title, size limits, Frameless, Hidden, Placement, OnClose...), the App that tela.Main runs and `tela snapshot` reads from the package; [`FromApp`](#func-fromapp) gives the settings that shape what is drawn to Mount, Render and the other entry points.
+
+### Windows
+
+An app has one window per tela.Window that is mounted, besides its main window. The headless backend plays a fake window manager (ADR-179): it grants every request at once, gives hidden and minimized windows no frames, and records parents, modality, hit regions and caption presses.
+
+An [`App`](#type-app) is scoped to one window. Mount returns the one of the main window; [`App.Windows`](#func-app-windows) lists the open windows (in the order they opened, the main window first), [`App.Window`](#func-app-window) selects one by title, [`App.WindowAt`](#func-app-windowat) by index and [`App.LastWindow`](#func-app-lastwindow) is the newest, and [`App.WaitForWindow`](#func-app-waitforwindow) runs a step and returns the window it opened, like Playwright's context.pages() and page.waitForEvent('popup'). Each returns an App with the same queries, actions, expectations, goldens and pixels as the main one, working on that window: it is always the same App for the same window.
+
+```go
+settings := app.WaitForWindow(func() {
+    app.Click(telatest.ByRole("button", "Settings"))
+})
+settings.ExpectText("Preferences")
+settings.Golden("settings.png")
+```
+
+Selecting a window waits for it to open, like a locator waits for its element; the clock, settling and the end of the app belong to the whole app, so an action in one window waits for the work it causes in the others. A pointer press or a key in a window that is not the active one activates it first, as the user clicking or typing there does.
+
+The window itself: [`App.Title`](#func-app-title), [`App.WindowState`](#func-app-windowstate) (tela.WindowState, as UseWindow sees it), [`App.WindowSize`](#func-app-windowsize), [`App.Placement`](#func-app-placement), [`App.Modal`](#func-app-modal), [`App.Parent`](#func-app-parent), [`App.Blocks`](#func-app-blocks), [`App.BlockedBy`](#func-app-blockedby) and [`App.Closed`](#func-app-closed); the expectations [`App.ExpectTitle`](#func-app-expecttitle), [`App.ExpectWindowState`](#func-app-expectwindowstate) (with [`Maximized`](#func-maximized), [`Fullscreen`](#func-fullscreen), [`Minimized`](#func-minimized), [`Hidden`](#func-hidden), [`Active`](#func-active) and [`ClientDecorations`](#func-clientdecorations)), [`App.ExpectClosed`](#func-app-expectclosed), [`App.ExpectWindowCount`](#func-app-expectwindowcount) and [`App.ExpectNoWindow`](#func-app-expectnowindow). What the user does with the window manager: [`App.RequestClose`](#func-app-requestclose) (the close button), [`App.Minimize`](#func-app-minimize), [`App.Maximize`](#func-app-maximize), [`App.Unmaximize`](#func-app-unmaximize), [`App.SetFullscreen`](#func-app-setfullscreen), [`App.Restore`](#func-app-restore), [`App.Move`](#func-app-move), [`App.Resize`](#func-app-resize) and [`App.BringToFront`](#func-app-bringtofront). A window blocked by a modal one drops input.
+
+Custom title bars: [`App.HitRegions`](#func-app-hitregions) and [`App.HitAt`](#func-app-hitat) read the regions h.WindowDrag and h.WindowControl send to the OS, a click on the drag area ([`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat), [`App.DoubleClick`](#func-app-doubleclick)) is the OS's press ([`App.CaptionDrags`](#func-app-captiondrags), [`App.WindowMenus`](#func-app-windowmenus), a double click maximizes), and the controls are buttons that act on click.
+
+Quitting: [`App.ExpectQuit`](#func-app-expectquit) waits for tela.Quit or a close request of the main window without an OnClose; the app is then over, as when tela.Main returns: every window unmounted, the cleanups of the effects run, and further use fails the test. [`App.HasQuit`](#func-app-hasquit) and [`App.ExpectRunning`](#func-app-expectrunning) check that it did or did not. The window options ([`Title`](#func-title), [`MinSize`](#func-minsize), [`MaxSize`](#func-maxsize), [`FixedSize`](#func-fixedsize), [`Frameless`](#func-frameless), [`AlwaysOnTop`](#func-alwaysontop), [`StartHidden`](#func-starthidden), [`Icon`](#func-icon), [`Placement`](#func-placement), [`OnClose`](#func-onclose), [`Screen`](#func-screen)) set the main window's fields for Mount.
 
 ### The clock
 
@@ -71,6 +96,22 @@ The window's clock is manual: it starts at zero and moves only when the app wait
 [`Render`](#func-render), [`AriaSnapshot`](#func-ariasnapshot) and [`LayoutJSON`](#func-layoutjson) mount a tree, run one frame and return the image, the aria snapshot or the layout JSON, for tools. `tela snapshot` and `tela inspect` are built on them.
 
 ## Constants
+
+```go
+const (
+    // HitClient is ordinary content: what lies outside every region, and
+    // what a hole in a drag region is.
+    HitClient = platform.HitClient
+    // HitCaption is a drag area (h.WindowDrag): the OS handles presses in
+    // it (move, double click to maximize, window menu).
+    HitCaption = platform.HitCaption
+    // HitMinimize, HitMaximize and HitClose are the window-control buttons
+    // (h.WindowControl): events over them reach the app as usual.
+    HitMinimize = platform.HitMinimize
+    HitMaximize = platform.HitMaximize
+    HitClose    = platform.HitClose
+)
+```
 
 ```go
 const DefaultTimeout = 5 * time.Second
@@ -166,7 +207,7 @@ app := telatest.Mount(t, Card{Title: "Inbox"})
 
 Mount makes the app receive the functions given to tela.Post, which are delivered to one tree per process: do not mount apps that use Post from parallel tests.
 
-The windows a tela.Window opens are opened in the headless backend too (their components build and their effects run), but the queries, actions, snapshots and goldens see the main window only.
+The windows a tela.Window opens are opened in the headless backend too, by a fake window manager. The returned App is scoped to the main window; [`App.Windows`](#func-app-windows), [`App.Window`](#func-app-window) and [`App.WaitForWindow`](#func-app-waitforwindow) give an App scoped to each of the others, with the same queries, actions, snapshots and goldens (see "Windows" in the package documentation).
 
 **Example**
 
@@ -188,7 +229,7 @@ fmt.Println(app.AriaSnapshot())
 func MountApp(tb testing.TB, app tela.App, opts ...Option) *App
 ```
 
-MountApp shows app.Root in a headless window configured like the app, the way [`tela.Main`](API-Reference-tela#func-main) shows it in a real one, and returns the running app. The size, root class, color scheme, theme, class aliases, scrollbar and scroll settings and Dev of the app apply (see [`FromApp`](#func-fromapp)); the options override them. It fails the test when app.Root is nil.
+MountApp shows app.Root in a headless window configured like the app, the way [`tela.Main`](API-Reference-tela#func-main) shows it in a real one, and returns the running app. The size, root class, color scheme, theme, class aliases, scrollbar and scroll settings and Dev of the app apply (see [`FromApp`](#func-fromapp)), and so do the fields of the OS window: Title, AppID, the size limits, FixedSize, Frameless, AlwaysOnTop, Hidden, Icon, Placement and OnClose (see [`Title`](#func-title), [`MinSize`](#func-minsize), [`Frameless`](#func-frameless), [`StartHidden`](#func-starthidden), [`Placement`](#func-placement) and [`OnClose`](#func-onclose), the options that set them by hand). A Hidden app starts with its window hidden, and without an OnClose the app quits when its main window is asked to close ([`App.RequestClose`](#func-app-requestclose), [`App.ExpectQuit`](#func-app-expectquit)). The options override all of them. It fails the test when app.Root is nil.
 
 ```go
 var App = tela.App{Title: "Notes", Width: 900, Height: 600, Root: Notes()}
@@ -298,6 +339,30 @@ snap := app.AriaSnapshot()
 // - button "Increment"
 ```
 
+#### func (*App) Blocked
+
+```go
+func (a *App) Blocked() bool
+```
+
+Blocked reports whether a visible modal window blocks this one; see [`App.BlockedBy`](#func-app-blockedby).
+
+#### func (*App) BlockedBy
+
+```go
+func (a *App) BlockedBy() *App
+```
+
+BlockedBy returns the visible modal window that blocks this one, or nil. A blocked window takes no input: core drops it (after cancelling the pointers) and a press in it activates the modal window, and a request to close it is refused.
+
+#### func (*App) Blocks
+
+```go
+func (a *App) Blocks() *App
+```
+
+Blocks returns the window a modal window blocks while it is visible: its parent. It is nil for a window that is not modal, or hidden.
+
 #### func (*App) Bounds
 
 ```go
@@ -310,6 +375,22 @@ Bounds returns the border box of the element l locates, in logical pixels from t
 r := app.Bounds(telatest.ByRole("button", "Save"))
 if r.Width < 80 { t.Errorf("the button is %gpx wide", r.Width) }
 ```
+
+#### func (*App) BringToFront
+
+```go
+func (a *App) BringToFront()
+```
+
+BringToFront activates the window as the user does by clicking its task bar entry: it comes back from minimized and, when it is visible, takes the keyboard focus from the other windows. The pointer and key actions do it by themselves, as clicking or typing in a window does. Playwright's page.bringToFront().
+
+#### func (*App) CaptionDrags
+
+```go
+func (a *App) CaptionDrags() int
+```
+
+CaptionDrags returns how many presses in a caption region started a move of the window by the fake window manager: a primary press that is not the second of a double click. A press in a caption region is the OS's: the app does not see it or the rest of its pointer sequence. Drive one with [`App.Click`](#func-app-click) on an element inside an h.WindowDrag region, or [`App.ClickAt`](#func-app-clickat).
 
 #### func (*App) Click
 
@@ -351,7 +432,15 @@ fmt.Println("clicked")
 func (a *App) Close()
 ```
 
-Close unmounts the app now, running the cleanups of its effects. The test does it when it ends; call it to test unmounting. Using the app afterwards fails the test.
+Close unmounts the whole app now (every window, not only the one this App is scoped to), running the cleanups of its effects. The test does it when it ends; call it to test unmounting. Using the app afterwards fails the test. To test what the user closing a window does, use [`App.RequestClose`](#func-app-requestclose).
+
+#### func (*App) Closed
+
+```go
+func (a *App) Closed() bool
+```
+
+Closed reports whether the window is closed: it unmounted (its tela.Window left the tree, or the user's close request was granted) or the app ended.
 
 #### func (*App) Count
 
@@ -479,6 +568,14 @@ fmt.Println("matches")
 // Output: matches
 ```
 
+#### func (*App) ExpectClosed
+
+```go
+func (a *App) ExpectClosed()
+```
+
+ExpectClosed waits until the window is closed (see [`App.Closed`](#func-app-closed)) and fails the test at the timeout. A close request the app refuses (a tela.Window whose OnClose does not update the state that renders it) leaves the window open.
+
 #### func (*App) ExpectCount
 
 ```go
@@ -503,6 +600,28 @@ func (a *App) ExpectNoText(text string)
 
 ExpectNoText waits until the window does not show text (see [`App.ExpectText`](#func-app-expecttext)).
 
+#### func (*App) ExpectNoWindow
+
+```go
+func (a *App) ExpectNoWindow(title string)
+```
+
+ExpectNoWindow waits until no open window has the title, and fails the test at the timeout.
+
+#### func (*App) ExpectQuit
+
+```go
+func (a *App) ExpectQuit()
+```
+
+ExpectQuit waits until the app quits (see [`App.HasQuit`](#func-app-hasquit)) and fails the test at the timeout. Once the app quit, its windows are unmounted and the cleanups of their effects have run, so the test can assert them.
+
+```go
+app.Click(telatest.ByRole("button", "Quit"))   // OnClick(tela.Quit)
+app.ExpectQuit()
+if !cleaned { t.Error("the effect did not clean up") }
+```
+
 #### func (*App) ExpectRole
 
 ```go
@@ -514,6 +633,14 @@ ExpectRole waits until an element with the role and accessible name is visible (
 ```go
 app.ExpectRole("heading", "Settings")
 ```
+
+#### func (*App) ExpectRunning
+
+```go
+func (a *App) ExpectRunning()
+```
+
+ExpectRunning fails the test when the app quit (see [`App.HasQuit`](#func-app-hasquit)): the check of an OnClose that hides the window to keep the app in the tray.
 
 #### func (*App) ExpectText
 
@@ -527,6 +654,14 @@ ExpectText waits until the window shows text: it is contained in the window's te
 app.ExpectText("Count: 1")
 ```
 
+#### func (*App) ExpectTitle
+
+```go
+func (a *App) ExpectTitle(title string)
+```
+
+ExpectTitle waits until the window's title is title.
+
 #### func (*App) ExpectValue
 
 ```go
@@ -538,6 +673,27 @@ ExpectValue waits until the text field l locates holds value (Playwright's toHav
 ```go
 app.Type("hello")
 app.ExpectValue(telatest.ByRole("textbox", "Message"), "hello")
+```
+
+#### func (*App) ExpectWindowCount
+
+```go
+func (a *App) ExpectWindowCount(n int)
+```
+
+ExpectWindowCount waits until the app has n open windows (the main window counts), and fails the test at the timeout.
+
+#### func (*App) ExpectWindowState
+
+```go
+func (a *App) ExpectWindowState(conds ...WindowCond)
+```
+
+ExpectWindowState waits until the window's state meets every condition, and fails the test at the timeout, showing the unmet conditions and the state it has.
+
+```go
+win.Maximize()
+win.ExpectWindowState(telatest.Maximized(true), telatest.Minimized(false))
 ```
 
 #### func (*App) Fill
@@ -616,6 +772,30 @@ app := telatest.MountFunc(t, Counter, telatest.Size(400, 300))
 app.GoldenScales("counter", 1, 2)
 ```
 
+#### func (*App) HasQuit
+
+```go
+func (a *App) HasQuit() bool
+```
+
+HasQuit reports whether the app quit: tela.Quit ran, or the main window was asked to close without a tela.App.OnClose. A quit app is over, as when tela.Main returns: every window was unmounted, so the cleanups of the effects ran, and using the app fails the test. The app is settled first.
+
+#### func (*App) HitAt
+
+```go
+func (a *App) HitAt(x, y float32) HitKind
+```
+
+HitAt returns what the OS would find at the point (x, y), in logical pixels from the window's top-left corner: the kind of the last hit region that contains it, or [`HitClient`](#constants).
+
+#### func (*App) HitRegions
+
+```go
+func (a *App) HitRegions() []HitRegion
+```
+
+HitRegions returns the hit regions the window sent to the OS, in order (later regions are on top): the drag areas, the holes in them and the window-control buttons that h.WindowDrag, h.WindowNoDrag and h.WindowControl mark. It is nil for a window without them.
+
 #### func (*App) Hover
 
 ```go
@@ -623,6 +803,14 @@ func (a *App) Hover(l Locator)
 ```
 
 Hover moves the pointer to the center of the element l locates, so its hover: and group-hover: states apply. It waits for the element to be visible, in view and not covered.
+
+#### func (*App) LastWindow
+
+```go
+func (a *App) LastWindow() *App
+```
+
+LastWindow returns the newest open window: the one opened last, or the main window when it is the only one.
 
 #### func (*App) LayoutJSON
 
@@ -644,6 +832,22 @@ LongPress presses the element l locates with a finger at its center, holds it pa
 app.LongPress(telatest.ByTestID("photo"))
 app.ExpectCount(telatest.ByRole("menu", "Actions"), 1)
 ```
+
+#### func (*App) MainWindow
+
+```go
+func (a *App) MainWindow() *App
+```
+
+MainWindow returns the App scoped to the app's main window, the one [`Mount`](#func-mount) returned.
+
+#### func (*App) Maximize
+
+```go
+func (a *App) Maximize()
+```
+
+Maximize maximizes the window to the fake screen ([`Screen`](#func-screen)) as the user does with the OS; it also brings it back from minimized.
 
 #### func (*App) Measure
 
@@ -670,6 +874,22 @@ fmt.Println("builds:", st.Builds, "frames:", st.Frames > 0)
 // Output: builds: 1 frames: true
 ```
 
+#### func (*App) Minimize
+
+```go
+func (a *App) Minimize()
+```
+
+Minimize minimizes the window, as the user does with the OS: it loses the focus and gets no frames until it is restored or activated.
+
+#### func (*App) Modal
+
+```go
+func (a *App) Modal() bool
+```
+
+Modal reports whether the window is modal to the window it was declared in (tela.Window.Modal).
+
 #### func (*App) MouseDown
 
 ```go
@@ -694,6 +914,14 @@ func (a *App) MouseUp()
 
 MouseUp releases the primary button.
 
+#### func (*App) Move
+
+```go
+func (a *App) Move(x, y int)
+```
+
+Move moves the window so that its content area's top-left corner is at (x, y) physical pixels of the fake desktop, as the user dragging it. The position shows in [`App.Placement`](#func-app-placement) from then on.
+
 #### func (*App) Now
 
 ```go
@@ -701,6 +929,14 @@ func (a *App) Now() time.Duration
 ```
 
 Now returns the app's clock: the time since the window was created, as moved by waits and [`App.Advance`](#func-app-advance).
+
+#### func (*App) Parent
+
+```go
+func (a *App) Parent() *App
+```
+
+Parent returns the window this one was declared in (the App of the window whose component rendered the tela.Window), or nil for the main window.
 
 #### func (*App) PixelAt
 
@@ -728,6 +964,14 @@ app := telatest.MountFunc(t, swatch, telatest.Size(32, 32), telatest.Scale(2))
 fmt.Println(app.PixelAt(8, 8), app.PixelAt(20, 20))
 // Output: {255 0 0 255} {255 255 255 255}
 ```
+
+#### func (*App) Placement
+
+```go
+func (a *App) Placement() tela.WindowPlacement
+```
+
+Placement returns where the window is (tela.WindowHandle.Placement): its size outside maximized and fullscreen, its position once the app or [`App.Move`](#func-app-move) set one, the state to open in. It still answers after the window closed.
 
 #### func (*App) Press
 
@@ -768,6 +1012,14 @@ fmt.Println("ok")
 // Output: ok
 ```
 
+#### func (*App) RequestClose
+
+```go
+func (a *App) RequestClose()
+```
+
+RequestClose asks to close the window as the user does with the close button of its title bar or Alt+F4: the window's OnClose runs (for the main window tela.App.OnClose, or the app quits). Whether the window closes is up to the app: use [`App.ExpectClosed`](#func-app-expectclosed), [`App.ExpectQuit`](#func-app-expectquit) or [`App.ExpectWindowCount`](#func-app-expectwindowcount) to assert it. A blocked window refuses the request and the modal window above it is activated. To press the close button of a custom title bar, click it ([`App.Click`](#func-app-click)).
+
 #### func (*App) Resize
 
 ```go
@@ -780,6 +1032,14 @@ Resize changes the logical size of the window, in pixels, as a user resizing it:
 app.Resize(390, 844) // a phone-sized window
 app.ExpectCount(telatest.ByRole("button", "Open menu"), 1)
 ```
+
+#### func (*App) Restore
+
+```go
+func (a *App) Restore()
+```
+
+Restore brings the window back to its normal state: not minimized, not maximized and not fullscreen.
 
 #### func (*App) Screenshot
 
@@ -796,6 +1056,14 @@ func (a *App) Scroll(l Locator, dx, dy float32)
 ```
 
 Scroll moves the pointer to the center of the element l locates and scrolls the wheel there by (dx, dy) logical pixels, positive to the right and down, as a touchpad does: the nearest scroll container under the pointer that can move scrolls at once, with no animation. Use Press("PageDown") or Press("End") for the animated key scrolling.
+
+#### func (*App) SetFullscreen
+
+```go
+func (a *App) SetFullscreen(on bool)
+```
+
+SetFullscreen makes the window fullscreen on the fake screen, or leaves fullscreen; entering also brings it back from minimized.
 
 #### func (*App) SetScale
 
@@ -829,6 +1097,14 @@ Tap taps the element l locates with a finger: it puts a touch pointer down at th
 app.Tap(telatest.ByRole("button", "Save"))
 ```
 
+#### func (*App) Title
+
+```go
+func (a *App) Title() string
+```
+
+Title returns the window's title, as the OS shows it: tela.App.Title or tela.Window.Title, as of the latest build.
+
 #### func (*App) Type
 
 ```go
@@ -837,6 +1113,14 @@ func (a *App) Type(text string)
 
 Type types text one character at a time, as key presses and releases sent to the focused element: each has the character's physical Code (US layout, when it has one), Key and Text, and no modifiers (an upper case letter is not typed with Shift, as in Playwright's keyboard.type). A newline types Enter and a tab Tab. In a focused text field each key inserts its text through the real key path (OnKeyDown, then OnBeforeInput and OnChange), as a user typing; [`App.Fill`](#func-app-fill) replaces the value at once.
 
+#### func (*App) Unmaximize
+
+```go
+func (a *App) Unmaximize()
+```
+
+Unmaximize restores a maximized window to its size.
+
 #### func (*App) WaitFor
 
 ```go
@@ -844,6 +1128,97 @@ func (a *App) WaitFor(what string, cond func() bool)
 ```
 
 WaitFor waits until cond reports true, settling the app and letting a frame of app time and a moment of real time pass between tries, until the timeout (see [`Timeout`](#func-timeout)); under [`NoSettle`](#func-nosettle) the first try handles only the work due, and the clock moves only between failed tries. It is for conditions the locators cannot see: a value computed from [`App.Bounds`](#func-app-bounds), or Go state that a goroutine sets. what names the condition in the failure message ("the progress bar reached 3 s"). cond runs on the test goroutine.
+
+#### func (*App) WaitForWindow
+
+```go
+func (a *App) WaitForWindow(open func()) *App
+```
+
+WaitForWindow runs open, which should make the app open a window (a click, a key press, a goroutine started by one), and returns the App of the window that opened as a result, waiting for it: Playwright's page.waitForEvent('popup'). When several windows opened it returns the first of them. It fails the test at the timeout.
+
+```go
+settings := app.WaitForWindow(func() {
+    app.Click(telatest.ByRole("button", "Settings"))
+})
+settings.ExpectText("Preferences")
+```
+
+**Example**
+
+```go
+var clicks int
+var cleaned []string
+app := mountNotes(t, &clicks, &cleaned)
+
+settings := app.WaitForWindow(func() {
+    app.Click(telatest.ByRole("button", "Settings"))
+})
+settings.ExpectText("Preferences")
+settings.Click(telatest.ByRole("button", "Applied 0"))
+settings.ExpectText("Applied 1")
+fmt.Println(settings.Title(), settings.Modal(), app.Blocked(), len(app.Windows()))
+// Output: Settings true true 2
+```
+
+#### func (*App) Window
+
+```go
+func (a *App) Window(title string) *App
+```
+
+Window returns the open window whose title is title (exactly), waiting until there is one, as Playwright waits for a locator. It fails the test at the timeout, listing the titles of the open windows, and at once when several windows have the title (select one with [`App.WindowAt`](#func-app-windowat)).
+
+```go
+settings := app.Window("Settings")
+settings.Click(telatest.ByRole("button", "Close"))
+```
+
+#### func (*App) WindowAt
+
+```go
+func (a *App) WindowAt(i int) *App
+```
+
+WindowAt returns the open window at index i in the order the windows opened (0 is the main window), waiting until there are that many.
+
+#### func (*App) WindowMenus
+
+```go
+func (a *App) WindowMenus() int
+```
+
+WindowMenus returns how many secondary presses in a caption region opened the window menu of the fake window manager.
+
+#### func (*App) WindowSize
+
+```go
+func (a *App) WindowSize() (width, height float32)
+```
+
+WindowSize returns the size of the window's content area in logical pixels, as the app was told (a maximized window has the fake screen's size, see [`Screen`](#func-screen)).
+
+#### func (*App) WindowState
+
+```go
+func (a *App) WindowState() tela.WindowState
+```
+
+WindowState returns the window's state as the app sees it (tela.WindowHandle.State): maximized, fullscreen and minimized as the fake window manager reported them, whether the window is the active one, whether the app hid it, and whether the app draws its title bar.
+
+#### func (*App) Windows
+
+```go
+func (a *App) Windows() []*App
+```
+
+Windows returns the app's open windows in the order they opened, the main window first: an [`App`](#type-app) scoped to each, with the same queries, actions, expectations and goldens as the one Mount returns. A window that is hidden (the app's Hidden, a hidden Window) or minimized is still open and listed. The app is settled first, so a window a handler just asked for is listed; use [`App.WaitForWindow`](#func-app-waitforwindow) or [`App.ExpectWindowCount`](#func-app-expectwindowcount) for one that opens later (a goroutine, a timer). Like Playwright's context.pages().
+
+```go
+for _, w := range app.Windows() {
+    t.Logf("%q is %v", w.Title(), w.WindowState())
+}
+```
 
 ### type ClickOption
 
@@ -931,6 +1306,69 @@ func Tolerance(maxDelta uint8, maxPixels int) GoldenOption
 ```
 
 Tolerance lets a golden comparison accept small differences: pixels whose channels differ by at most maxDelta (0 to 255, on premultiplied values) count as equal, and up to maxPixels pixels may differ by more. Without it a golden must match bit by bit: Tela's pixels are the same on every platform (ADR-027), so only a deliberate change should alter one.
+
+### type HitKind
+
+```go
+type HitKind = platform.HitKind
+```
+
+HitKind is what a region of a window's custom title bar is to the OS.
+
+`HitKind` is an alias of `platform.HitKind`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type HitKind uint8
+```
+
+```go
+const ( // HitClient is ordinary content. It is what lies outside every
+
+    // region, and a HitClient region punches a hole into the regions
+
+    // listed before it (a search field or a tab strip inside a caption
+
+    // area).
+    HitClient HitKind = iota // HitCaption is a drag area of the title bar: the OS handles presses
+
+    // in it (move, double-click, window menu).
+    HitCaption
+
+    // HitMinimize, HitMaximize and HitClose are the window buttons drawn
+
+    // by the app. Pointer events over them reach the app as usual (its
+    // buttons perform the action); the region tells the OS what they are
+
+    // (Windows 11 snap layouts open from the maximize button).
+
+    HitMinimize
+    HitMaximize
+    HitClose
+)
+```
+
+#### func (HitKind) String
+
+```go
+func (k HitKind) String() string
+```
+
+### type HitRegion
+
+```go
+type HitRegion struct {
+    Kind HitKind
+    Rect tela.Rect
+}
+```
+
+HitRegion is one rectangle of a window's custom title bar, in logical pixels from the window's top-left corner.
+
+#### func (HitRegion) String
+
+```go
+func (r HitRegion) String() string
+```
 
 ### type Locator
 
@@ -1100,6 +1538,22 @@ func AllowDev(substrings ...string) Option
 
 AllowDev lists dev errors that do not fail a test: those containing any of the substrings, which are logged instead. Dev warnings never fail a test, and AllowDev does nothing under [`NoDev`](#func-nodev).
 
+#### func AlwaysOnTop
+
+```go
+func AlwaysOnTop() Option
+```
+
+AlwaysOnTop keeps the main window above the others (tela.App.AlwaysOnTop).
+
+#### func AppID
+
+```go
+func AppID(id string) Option
+```
+
+AppID sets the application identity the window reports to the desktop (tela.App.AppID).
+
 #### func CheckDamage
 
 ```go
@@ -1176,6 +1630,22 @@ func Dev() Option
 
 Dev turns dev mode on. It is the default since dev mode became the default (see [`NoDev`](#func-nodev)), so Dev changes nothing; it is kept for the tests written before, and undoes a [`NoDev`](#func-nodev) given earlier in the options.
 
+#### func FixedSize
+
+```go
+func FixedSize() Option
+```
+
+FixedSize keeps the user from resizing the main window (tela.App.FixedSize).
+
+#### func Frameless
+
+```go
+func Frameless() Option
+```
+
+Frameless gives the main window no OS title bar (tela.App.Frameless): its [`tela.WindowState`](API-Reference-tela#type-windowstate) reports ClientSideDecorations, and the content draws its own title bar with h.WindowDrag and h.WindowControl.
+
 #### func FromApp
 
 ```go
@@ -1191,7 +1661,7 @@ app := telatest.Mount(t, Notes(), telatest.FromApp(App))
 app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
 ```
 
-Title, AppID, Root, DevState and the fields of the OS window (size limits, FixedSize, Frameless, AlwaysOnTop, Hidden, Icon, Placement, OnClose) say nothing about how the content looks, so FromApp ignores them; [`MountApp`](#func-mountapp) also mounts Root. The scale is not an App setting (it comes from the display): use [`Scale`](#func-scale).
+Title, AppID, Root, DevState and the fields of the OS window (size limits, FixedSize, Frameless, AlwaysOnTop, Hidden, Icon, Placement, OnClose) say nothing about how the content looks, so FromApp ignores them: tools that only render the app (`tela snapshot`, `tela mcp`) want it visible and quit-able whatever the app does with its window. [`MountApp`](#func-mountapp) mounts Root and applies those fields too, as the options [`Title`](#func-title), [`MinSize`](#func-minsize), [`Frameless`](#func-frameless), [`StartHidden`](#func-starthidden), [`Placement`](#func-placement), [`OnClose`](#func-onclose) and the others do by hand. The scale is not an App setting (it comes from the display): use [`Scale`](#func-scale).
 
 **Example**
 
@@ -1204,6 +1674,14 @@ fmt.Println(app.Screenshot().Bounds().Size())
 // Output: (800,600)
 ```
 
+#### func Icon
+
+```go
+func Icon(images ...image.Image) Option
+```
+
+Icon sets the icon of the main window (tela.App.Icon): the same picture at several sizes.
+
 #### func InstantScroll
 
 ```go
@@ -1211,6 +1689,22 @@ func InstantScroll() Option
 ```
 
 InstantScroll makes user scrolling jump, without animation or flings (tela.App.InstantScroll).
+
+#### func MaxSize
+
+```go
+func MaxSize(width, height float32) Option
+```
+
+MaxSize limits the size of the main window from above; see [`MinSize`](#func-minsize).
+
+#### func MinSize
+
+```go
+func MinSize(width, height float32) Option
+```
+
+MinSize and MaxSize limit the size the user can give the main window (tela.App.MinWidth and MinHeight, MaxWidth and MaxHeight); zero is no limit on that side. The fake window manager clamps [`App.Resize`](#func-app-resize), maximizing and fullscreen to them.
 
 #### func NoDev
 
@@ -1277,6 +1771,22 @@ fmt.Println(app.Screenshot().RGBAAt(5, 40))
 // {0 0 0 255}
 ```
 
+#### func OnClose
+
+```go
+func OnClose(f func(tela.WindowHandle)) Option
+```
+
+OnClose sets what closing the main window does (tela.App.OnClose): f runs when the user asks to close it ([`App.RequestClose`](#func-app-requestclose), a WindowClose control, WindowHandle.Close). Without it the app quits.
+
+#### func Placement
+
+```go
+func Placement(p tela.WindowPlacement) Option
+```
+
+Placement opens the main window where a previous run left it (tela.App.Placement): a [`tela.WindowPlacement`](API-Reference-tela#type-windowplacement) saved from tela.WindowHandle.Placement or [`App.Placement`](#func-app-placement). Its size, when set, wins over [`Size`](#func-size).
+
 #### func ReducedMotion
 
 ```go
@@ -1301,6 +1811,14 @@ func Scale(scale float64) Option
 
 Scale sets the display scale: device pixels per logical pixel (default 1). Screenshots and goldens are (width\*scale) x (height\*scale) pixels.
 
+#### func Screen
+
+```go
+func Screen(width, height float32) Option
+```
+
+Screen sets the logical size of the fake screen: what maximized and fullscreen windows grow to (default 1920 by 1080).
+
 #### func Size
 
 ```go
@@ -1308,6 +1826,14 @@ func Size(width, height float32) Option
 ```
 
 Size sets the logical size of the window in pixels (default 800x600).
+
+#### func StartHidden
+
+```go
+func StartHidden() Option
+```
+
+StartHidden opens the main window hidden (tela.App.Hidden): an app that starts in the tray. The fake window manager gives a hidden window no frames, so it draws nothing (no screenshot, no goldens, no actions that need a layout) until the app shows it.
 
 #### func Theme
 
@@ -1324,6 +1850,14 @@ func Timeout(d time.Duration) Option
 ```
 
 Timeout sets how long actions and expectations wait for their condition before they fail the test (default [`DefaultTimeout`](#constants)). It is wall-clock time, as in Playwright, while the app's clock moves one frame at a time during the wait. It also bounds, in app time (up to [`DefaultTimeout`](#constants)), how long a single action lets the app run before it stops waiting for it to go quiet (an animation that never ends is logged, not waited for); a finite animation runs to its end however slow the machine is.
+
+#### func Title
+
+```go
+func Title(title string) Option
+```
+
+Title sets the title of the main window (tela.App.Title), which [`App.Title`](#func-app-title) and [`App.Window`](#func-app-window) read. The default is "telatest".
 
 ### type State
 
@@ -1524,3 +2058,61 @@ func Exact() TextOption
 ```
 
 Exact makes [`ByText`](#func-bytext) match the whole text, case sensitive, instead of a case-insensitive substring.
+
+### type WindowCond
+
+```go
+type WindowCond struct {
+    // contains filtered or unexported fields
+}
+```
+
+WindowCond is a condition on a window's state for [`App.ExpectWindowState`](#func-app-expectwindowstate).
+
+#### func Active
+
+```go
+func Active(on bool) WindowCond
+```
+
+Active is met when the window is the active one, the one with the keyboard focus (WindowState.Focused), or is not.
+
+#### func ClientDecorations
+
+```go
+func ClientDecorations(on bool) WindowCond
+```
+
+ClientDecorations is met when the app draws the window's title bar (WindowState.ClientSideDecorations: a Frameless window), or does not.
+
+#### func Fullscreen
+
+```go
+func Fullscreen(on bool) WindowCond
+```
+
+Fullscreen is met when the window is (or is not) fullscreen.
+
+#### func Hidden
+
+```go
+func Hidden(on bool) WindowCond
+```
+
+Hidden is met when the app has hidden the window (tela.Window.Hidden, WindowHandle.Hide), or has not.
+
+#### func Maximized
+
+```go
+func Maximized(on bool) WindowCond
+```
+
+Maximized is met when the window is (or is not) maximized.
+
+#### func Minimized
+
+```go
+func Minimized(on bool) WindowCond
+```
+
+Minimized is met when the window is (or is not) minimized.

@@ -887,7 +887,7 @@ func TestSettingsLike(t *testing.T) {
 }
 ```
 
-`telatest.Mount(t, comp, opts...)` mounts any component (`Settings()`, `Page{}`, `Previews["x"]`); `telatest.MountApp(t, App, opts...)` mounts a `tela.App` as its window would. Locators: `ByRole(role, name)`, `ByText(text)`, `ByTestID(id)`, `ByClass(...)`, then `.Nth(i)`, `.Filter(telatest.HasText("x"))`. Expectations wait and retry: `Expect(loc, Checked/Pressed/Selected/Expanded/Disabled/Focused/Invalid(bool), Current("page"), HasName, HasValue)`, `ExpectText`, `ExpectNoText`, `ExpectRole`, `ExpectCount`, `ExpectValue`, `ExpectAria(yaml)`. `AriaSnapshot()`, `Screenshot()`, `Bounds(loc)`, `Resize(w, h)` inspect without waiting.
+`telatest.Mount(t, comp, opts...)` mounts any component (`Settings()`, `Page{}`, `Previews["x"]`); `telatest.MountApp(t, App, opts...)` mounts a `tela.App` as its window would. Locators: `ByRole(role, name)`, `ByText(text)`, `ByTestID(id)`, `ByClass(...)`, then `.Nth(i)`, `.Filter(telatest.HasText("x"))`. Expectations wait and retry: `Expect(loc, Checked/Pressed/Selected/Expanded/Disabled/Focused/Invalid(bool), Current("page"), HasName, HasValue)`, `ExpectText`, `ExpectNoText`, `ExpectRole`, `ExpectCount`, `ExpectValue`, `ExpectAria(yaml)`. `AriaSnapshot()`, `Screenshot()`, `Bounds(loc)`, `Resize(w, h)` inspect without waiting. Several windows: `app.Windows()`, `app.Window("Settings")` and `app.WaitForWindow(func() { app.Click(open) })` give an `*App` scoped to that window, with the whole API above; also `RequestClose()`, `Maximize()`, `ExpectWindowState(telatest.Maximized(true))`, `ExpectClosed()` and `ExpectQuit()`.
 
 ## More
 

@@ -53,6 +53,7 @@ func (a *App) SetScale(scale float64) {
 // actions built up.
 func (a *App) LayoutJSON() []byte {
 	a.tb.Helper()
+	a.mustBeOpen()
 	a.settleQuery()
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
