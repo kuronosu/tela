@@ -199,6 +199,8 @@ func TestExportedNames(t *testing.T) {
 		"Ref", "Role", "Rows", "Scale", "Scheme", "Span", "SpellCheck", "Src", "SrcBytes", "SrcFS", "SrcPath", "Strong", "Style", "TabIndex", "TestID", "Text", "TextFn",
 		"Textarea", "Textf", "Tint", "Type", "Value",
 		"VirtualList",
+		// ADR-180: custom title bars.
+		"WindowControl", "WindowDrag", "WindowNoDrag",
 		// ADR-096: the widget ARIA props and Inert.
 		"AriaActiveDescendant", "AriaAutoComplete", "AriaControls", "AriaHasPopup", "AriaModal", "AriaMultiSelectable",
 		"AriaOrientation", "Inert",
