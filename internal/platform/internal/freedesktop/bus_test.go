@@ -222,7 +222,10 @@ func startPortal(t *testing.T, addr string, chooserVersion uint32) *fakePortal {
 		return func(sender dbus.Sender, parent, title string, options map[string]dbus.Variant) (dbus.ObjectPath, *dbus.Error) {
 			token, _ := options["handle_token"].Value().(string)
 			handle := requestPath(string(sender), token)
-			if p.oldHandles {
+			p.mu.Lock()
+			old := p.oldHandles
+			p.mu.Unlock()
+			if old {
 				handle = dbus.ObjectPath(fmt.Sprintf("/org/freedesktop/portal/desktop/request/old%d", time.Now().UnixNano()))
 			}
 			c := portalCall{Method: method, Parent: parent, Title: title, Options: options, Handle: handle}

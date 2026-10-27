@@ -264,7 +264,9 @@ func TestFileDialogs(t *testing.T) {
 func TestFileDialogOldHandles(t *testing.T) {
 	addr := privateBus(t)
 	p := startPortal(t, addr, 4)
+	p.mu.Lock()
 	p.oldHandles = true
+	p.mu.Unlock()
 	p.setResponder(false, func(portalCall) (uint32, []string) { return 0, []string{pathURI("/x/y")} })
 	h := newHarness(t, addr)
 	var got string
