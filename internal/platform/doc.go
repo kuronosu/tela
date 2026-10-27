@@ -453,7 +453,7 @@
 // Linux (Wayland and X11 alike) uses D-Bus through
 // internal/platform/internal/freedesktop (github.com/godbus/dbus/v5):
 // org.freedesktop.portal.OpenURI (OpenURI; OpenFile with a file
-// descriptor and OpenDirectory for OpenPath),
+// descriptor for OpenPath, folders included; xdg-open without a portal),
 // org.freedesktop.portal.FileChooser (OpenFile, SaveFile, OpenFile with
 // directory for folders; the Request's Response signal answers: 0 chosen,
 // 1 canceled, other codes errors), with the parent window identifier
