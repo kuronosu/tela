@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/freedesktop"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 	"github.com/kuronosu/tela/internal/platform/internal/xkb"
 	"github.com/kuronosu/tela/internal/platform/wayland/protocols"
@@ -104,6 +105,10 @@ type Backend struct {
 	composeLoaded bool
 	composeLoader func() *xkb.ComposeTable
 	keyboardErr   error
+
+	// desktop is the D-Bus desktop services (services.go), created by the
+	// first Desktop call.
+	desktop *freedesktop.Desktop
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -350,6 +355,7 @@ func (b *Backend) Run(h platform.Handler) error {
 		now := b.Now()
 		b.keyRepeats(now)
 		b.expireTransfers(now)
+		b.dispatchDesktop()
 		b.loop.Deliver(h)
 		if b.loop.Quitting() {
 			return nil
@@ -501,6 +507,7 @@ func (b *Backend) release() {
 		b.conn.Flush()
 	}
 	b.closeTransfers()
+	b.closeDesktop()
 	b.loop.Discard()
 	b.conn.Close()
 	b.efdMu.Lock()

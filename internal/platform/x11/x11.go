@@ -19,6 +19,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/freedesktop"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
 
@@ -86,6 +87,10 @@ type Backend struct {
 	timer    *time.Timer
 	ran      bool
 	closed   bool
+
+	// desktop is the D-Bus desktop services (services.go), created by the
+	// first Desktop call.
+	desktop *freedesktop.Desktop
 }
 
 // xevent is an event or an X error received by the pump.
@@ -397,6 +402,7 @@ func (b *Backend) shutdown() {
 	for _, w := range slices.Clone(b.loop.Windows()) {
 		w.Close()
 	}
+	b.closeDesktop()
 	b.loop.Discard()
 	close(b.done)
 	b.conn.Close()
@@ -416,7 +422,10 @@ func (b *Backend) nextDeadline() (time.Duration, bool) { return b.loop.Pace() }
 // wait for the next iteration; frame requests are evaluated after the
 // items, so an input event that requests a frame gets it in the same
 // iteration if pacing allows.
-func (b *Backend) dispatch(h platform.Handler) { b.loop.Deliver(h) }
+func (b *Backend) dispatch(h platform.Handler) {
+	b.dispatchDesktop()
+	b.loop.Deliver(h)
+}
 
 // enqueue appends an event for w (nil for app events).
 func (b *Backend) enqueue(w *Window, e platform.Event) { b.loop.Enqueue(w, e) }
