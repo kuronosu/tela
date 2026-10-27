@@ -34,11 +34,10 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	}
 	w.dib.update(fb, rects)
 
-	if !w.shown {
+	if !w.shown && w.visible {
 		// Not before: the window would flash unpainted. WM_PAINT, which
 		// ShowWindow brings, is answered from the copy.
-		w.shown = true
-		procShowWindow.Call(w.hwnd, swShow)
+		w.show()
 	}
 	hdc, _, e := procGetDC.Call(w.hwnd)
 	if hdc == 0 {

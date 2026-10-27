@@ -23,10 +23,8 @@ import (
 // DPI and resize handling deterministic.
 
 var (
-	procSendMessageW     = user32.NewProc("SendMessageW")
 	procGetWindowTextW   = user32.NewProc("GetWindowTextW")
 	procGetCursor        = user32.NewProc("GetCursor")
-	procGetWindowLongW   = user32.NewProc("GetWindowLongW")
 	procGetPixel         = gdi32.NewProc("GetPixel")
 	procOpenInputDesktop = user32.NewProc("OpenInputDesktop")
 	procCloseDesktop     = user32.NewProc("CloseDesktop")
@@ -102,10 +100,6 @@ func mouseLParam(x, y int) uintptr { return uintptr(uint16(int16(x))) | uintptr(
 func TestConformance(t *testing.T) {
 	platformtest.Run(t, platformtest.Config{
 		New: func(t *testing.T) platform.Backend { return liveBackend(t) },
-		// Hiding windows and closing children with their parent come with
-		// the phase 12 window control task (ADR-178); until then the
-		// backend's stubs cannot pass these.
-		Skip: []string{"HideShow", "ParentAndModal"},
 	})
 }
 
@@ -133,6 +127,11 @@ func TestStructLayout(t *testing.T) {
 		"compositionForm":  {unsafe.Sizeof(compositionForm{}), 28},
 		"candidateForm":    {unsafe.Sizeof(candidateForm{}), 32},
 		"imeCharPosition":  {unsafe.Sizeof(imeCharPosition{}), 36},
+		"windowPlacement":  {unsafe.Sizeof(windowPlacement{}), 44},
+		"monitorInfo":      {unsafe.Sizeof(monitorInfo{}), 40},
+		"margins":          {unsafe.Sizeof(margins{}), 16},
+		"flashWInfo":       {unsafe.Sizeof(flashWInfo{}), pick(32, 20)},
+		"iconInfo":         {unsafe.Sizeof(iconInfo{}), pick(32, 20)},
 	} {
 		if tc.got != tc.want {
 			t.Errorf("sizeof(%s) = %d, want %d", name, tc.got, tc.want)

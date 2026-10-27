@@ -76,6 +76,23 @@ var (
 	procCreateCaret                = user32.NewProc("CreateCaret")
 	procDestroyCaret               = user32.NewProc("DestroyCaret")
 	procSetCaretPos                = user32.NewProc("SetCaretPos")
+	procSendMessageW               = user32.NewProc("SendMessageW")
+	procGetWindowLongW             = user32.NewProc("GetWindowLongW")
+	procSetWindowLongW             = user32.NewProc("SetWindowLongW")
+	procGetWindowRect              = user32.NewProc("GetWindowRect")
+	procGetWindowPlacement         = user32.NewProc("GetWindowPlacement")
+	procSetWindowPlacement         = user32.NewProc("SetWindowPlacement")
+	procIsWindowVisible            = user32.NewProc("IsWindowVisible")
+	procMonitorFromRect            = user32.NewProc("MonitorFromRect")
+	procGetMonitorInfoW            = user32.NewProc("GetMonitorInfoW")
+	procEnableWindow               = user32.NewProc("EnableWindow")
+	procSetForegroundWindow        = user32.NewProc("SetForegroundWindow")
+	procFlashWindowEx              = user32.NewProc("FlashWindowEx")
+	procGetCursorPos               = user32.NewProc("GetCursorPos")
+	procWindowFromPoint            = user32.NewProc("WindowFromPoint")
+	procGetSystemMetrics           = user32.NewProc("GetSystemMetrics")
+	procCreateIconIndirect         = user32.NewProc("CreateIconIndirect")
+	procDestroyIcon                = user32.NewProc("DestroyIcon")
 
 	procImmGetContext            = imm32.NewProc("ImmGetContext")
 	procImmReleaseContext        = imm32.NewProc("ImmReleaseContext")
@@ -89,15 +106,20 @@ var (
 	procSetProcessDpiAwarenessContext = user32.NewProc("SetProcessDpiAwarenessContext")
 	procGetDpiForWindow               = user32.NewProc("GetDpiForWindow")
 	procAdjustWindowRectExForDpi      = user32.NewProc("AdjustWindowRectExForDpi")
+	procGetSystemMetricsForDpi        = user32.NewProc("GetSystemMetricsForDpi")
 	procSetProcessDPIAware            = user32.NewProc("SetProcessDPIAware")
 	procSetProcessDpiAwareness        = shcore.NewProc("SetProcessDpiAwareness")
 	procGetDpiForMonitor              = shcore.NewProc("GetDpiForMonitor")
 
 	procSetDIBitsToDevice = gdi32.NewProc("SetDIBitsToDevice")
 	procGetDeviceCaps     = gdi32.NewProc("GetDeviceCaps")
+	procCreateDIBSection  = gdi32.NewProc("CreateDIBSection")
+	procCreateBitmap      = gdi32.NewProc("CreateBitmap")
+	procDeleteObject      = gdi32.NewProc("DeleteObject")
 
-	procDwmFlush              = dwmapi.NewProc("DwmFlush")
-	procDwmSetWindowAttribute = dwmapi.NewProc("DwmSetWindowAttribute") // Windows 10 1809 (19) and 1903 (20)
+	procDwmFlush                     = dwmapi.NewProc("DwmFlush")
+	procDwmExtendFrameIntoClientArea = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
+	procDwmSetWindowAttribute        = dwmapi.NewProc("DwmSetWindowAttribute") // Windows 10 1809 (19) and 1903 (20)
 
 	procGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")
@@ -157,13 +179,47 @@ const (
 	wmCaptureChanged  = 0x0215
 	wmMouseLeave      = 0x02A3
 	wmDPIChanged      = 0x02E0
+	wmMove            = 0x0003
+	wmShowWindow      = 0x0018
+	wmSetIcon         = 0x0080
+	wmNCCalcSize      = 0x0083
+	wmNCHitTest       = 0x0084
 	wmTelaNotify      = 0x8000 + 1 // WM_APP + 1: a Wake or Quit is waiting
 	wmTelaVsync       = 0x8000 + 2 // WM_APP + 2: the display signalled a vsync
-	htClient          = 1
 	pmRemove          = 0x0001
 	pmNoRemove        = 0x0000
 	hwndMessage       = ^uintptr(2) // HWND_MESSAGE, (HWND)-3
+	swHide            = 0
+	swShowMaximized   = 3
+	swShowNoActivate  = 4
 	swShow            = 5
+	swMinimize        = 6
+	swShowMinNoActive = 7
+	swShowNA          = 8
+	swRestore         = 9
+	swParentClosing   = 1 // WM_SHOWWINDOW lParam: the owner is being minimized
+	swParentOpening   = 3 // WM_SHOWWINDOW lParam: the owner is being restored
+	swpNoSize         = 0x0001
+	swpFrameChanged   = 0x0020
+	swpNoOwnerZOrder  = 0x0200
+	hwndTopmost       = ^uintptr(0)  // HWND_TOPMOST, (HWND)-1
+	hwndNoTopmost     = ^uintptr(1)  // HWND_NOTOPMOST, (HWND)-2
+	gwlStyle          = ^uintptr(15) // GWL_STYLE, -16
+	gwlExStyle        = ^uintptr(19) // GWL_EXSTYLE, -20
+	wsMaximize        = 0x01000000
+	wsExTopmost       = 0x00000008
+	// WS_EX_DLGMODALFRAME, WS_EX_WINDOWEDGE, WS_EX_CLIENTEDGE and
+	// WS_EX_STATICEDGE: the edges a fullscreen window drops.
+	wsExFrameEdges    = 0x00000001 | 0x00000100 | 0x00000200 | 0x00020000
+	iconSmall         = 0
+	iconBig           = 1
+	smCxIcon          = 11
+	smCxSizeFrame     = 32
+	smCxSmIcon        = 49
+	smCxPaddedBorder  = 92
+	flashwTray        = 0x00000002
+	flashwTimerNoFG   = 0x0000000C
+	tmeNonClient      = 0x00000010
 	swpNoMove         = 0x0002
 	swpNoZOrder       = 0x0004
 	swpNoActivate     = 0x0010
@@ -237,6 +293,43 @@ type (
 		flags     uint32
 		hwndTrack uintptr
 		hoverTime uint32
+	}
+
+	// windowPlacement is WINDOWPLACEMENT. rcNormalPosition is in workspace
+	// coordinates (see workspaceOffset).
+	windowPlacement struct {
+		length           uint32
+		flags            uint32
+		showCmd          uint32
+		ptMinPosition    point
+		ptMaxPosition    point
+		rcNormalPosition rect
+	}
+
+	monitorInfo struct {
+		size    uint32
+		monitor rect
+		work    rect
+		flags   uint32
+	}
+
+	// margins is DWM's MARGINS.
+	margins struct{ left, right, top, bottom int32 }
+
+	flashWInfo struct {
+		size    uint32
+		hwnd    uintptr
+		flags   uint32
+		count   uint32
+		timeout uint32
+	}
+
+	iconInfo struct {
+		icon     int32 // TRUE: an icon, not a cursor
+		xHotspot uint32
+		yHotspot uint32
+		mask     uintptr
+		color    uintptr
 	}
 
 	minMaxInfo struct {

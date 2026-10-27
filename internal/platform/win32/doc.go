@@ -6,11 +6,11 @@
 //
 // The code that touches the OS is built only on Windows. The files without a
 // build constraint (dib.go, dpi.go, msg.go, pointer.go, cursor.go,
-// keyboard.go, scancode.go, vkey.go, text.go, systemsettings.go, ime.go) hold
-// the pure logic behind it (pixel conversion, DPI and size math, message
-// decoding, the pointer state machine, the cursor table, the keyboard
-// translation, line endings, the settings values, the IME events and
-// window placement), so it is tested on every
+// keyboard.go, scancode.go, vkey.go, text.go, systemsettings.go, ime.go,
+// frame.go) hold the pure logic behind it (pixel conversion, DPI and size
+// math, message decoding, the pointer state machine, the cursor table, the
+// keyboard translation, line endings, the settings values, the IME events,
+// window placement, hit-testing and icon pixels), so it is tested on every
 // OS; the Windows files are exercised by the shared platformtest
 // conformance suite under Wine (and on a real Windows machine, where the
 // live_*_test.go files type on the real keyboard path with SendInput).
@@ -181,6 +181,97 @@
 //     what Notepad and Chromium do with the WM_CHAR (Chromium types it as
 //     a char event with no keydown); a press with Alt and no WM_SYSCHAR
 //     has no Text in general, since Windows typed nothing for it.
+//
+// # Window control
+//
+// windowctl.go and frame.go (ADR-178, ADR-179). The state is reported with
+// the loop's UpdateState at every WM_SIZE (before its ConfigureEvent) and
+// WM_MOVE, and after the requests that change it without them: Minimized
+// is IsIconic, Maximized IsZoomed (in fullscreen, the state the window
+// returns to), ClientSideDecorations WindowOptions.Frameless. Position is
+// always known: the content origin (ClientToScreen) of the normal
+// placement, recorded while the window is normal; a minimized, maximized or
+// fullscreen window reports where its content goes when it is normal again,
+// and SetPosition and SetSize on such a window change rcNormalPosition
+// (SetWindowPlacement; its workspace coordinates are offset by the work
+// area of the monitor, as Chromium converts them) instead of moving it.
+//
+//   - Requests on a window that is not shown (before its first Present, or
+//     hidden) cannot use ShowWindow, which would show it unpainted: Minimize
+//     and SetMaximized are remembered and become the show command of the
+//     next show. WindowOptions.Maximized creates the window with
+//     WS_MAXIMIZE, so its first ConfigureEvent has the maximized size. The
+//     first show activates the window (SW_SHOW), later ones (SetVisible)
+//     do not (SW_SHOWNA), except for a modal window.
+//   - Fullscreen is borderless (winit, Chromium, Raymond Chen's recipe):
+//     the styles and GetWindowPlacement are saved, WS_OVERLAPPEDWINDOW,
+//     WS_MAXIMIZE and the WS_EX edges are removed (clearing WS_MAXIMIZE
+//     through the style avoids a restore animation), and the window covers
+//     the monitor's rectangle; leaving puts back the removed bits only (the
+//     topmost and disabled states may have changed) and the placement, with
+//     SW_SHOWMAXIMIZED if it returns to maximized. Size limits do not apply
+//     in fullscreen, and a DPI change keeps the monitor rectangle.
+//   - Size limits answer WM_GETMINMAXINFO as outer track sizes at the
+//     current DPI (Windows clamps the maximized size to them too).
+//     SetPosition computes the frame offset with AdjustWindowRectExForDpi;
+//     when the move changes the DPI (WM_DPICHANGED resizes the frame), it
+//     moves once more so the content lands where it was asked.
+//   - Activate restores a minimized window and calls SetForegroundWindow,
+//     which Windows refuses unless the process may take the foreground (it
+//     is the foreground process, got the last input event, or was allowed
+//     by AllowSetForegroundWindow); then the task bar button flashes
+//     (FlashWindowEx FLASHW_TRAY|FLASHW_TIMERNOFG) until the user comes.
+//   - Icons: ICON_SMALL and ICON_BIG at the window's DPI
+//     (GetSystemMetricsForDpi SM_CXSMICON, SM_CXICON), picked with
+//     platform.PickIcon, scaled to the exact size (Catmull-Rom on
+//     premultiplied pixels) and made with CreateIconIndirect from a 32-bit
+//     DIB section and an empty mask, as GLFW does; rebuilt at WM_DPICHANGED.
+//
+// Frameless windows keep WS_OVERLAPPEDWINDOW (snap, the minimize
+// animation, the system menu, Windows 11's rounded corners), and
+// WM_NCCALCSIZE returns the whole window as the client area, also during
+// CreateWindowExW: NewWindow registers the window for the thread before the
+// call, and WndProc adopts it at its first message. DwmExtendFrameIntoClientArea
+// with a one-pixel top margin keeps the DWM shadow. A maximized frameless
+// window would cover its resize borders, which Windows puts outside the
+// work area (onto the next monitor, under the task bar), so its client
+// area is clipped to the work area of its monitor (Chromium's approach;
+// Windows Terminal insets by the frame size instead).
+//
+// WM_NCHITTEST asks DefWindowProc first (the OS frame of decorated windows);
+// inside the client area, the resize band of a frameless, resizable, normal
+// window (SM_CXSIZEFRAME plus SM_CXPADDEDBORDER at the DPI, corners twice as
+// long, Windows Terminal's width) comes before the hit regions, which answer
+// HTCAPTION, HTMINBUTTON, HTMAXBUTTON (the Windows 11 snap layouts flyout),
+// HTCLOSE or HTCLIENT. In fullscreen a caption region is HTCLIENT, so the
+// window cannot be dragged or maximized from it (Chromium). Caption presses
+// go to DefWindowProc: its move loop, double-click maximize, the system menu
+// on a right click (WM_CONTEXTMENU). Over the app's own regions the
+// non-client messages become client pointer events: WM_NCMOUSEMOVE is a
+// move (and still reaches DefWindowProc, which drives the snap layouts
+// flyout), the button messages over HTMINBUTTON, HTMAXBUTTON and HTCLOSE are
+// presses and releases (double clicks are presses) that never reach
+// DefWindowProc, which would track and draw classic buttons; the press
+// captures the mouse, so the release is a client message. The window tracks
+// the leave of the client area or, over its title bar regions, of the
+// non-client area (TME_NONCLIENT), one at a time; a WM_MOUSELEAVE or
+// WM_NCMOUSELEAVE of a window with hit regions is a leave only when the
+// cursor is no longer over the window's client area or regions
+// (WindowFromPoint and the hit test), so crossing between them is not.
+// WM_SETCURSOR shows the app's cursor over its regions too, and Windows'
+// resize cursors over the band.
+//
+// Parents and modality: WindowOptions.Parent is the owner window of
+// CreateWindowExW, so Windows keeps the child above it, minimizes it with
+// it (WM_SHOWWINDOW SW_PARENTCLOSING pauses its frames) and destroys it
+// with it. A child without a position is centered over its parent, inside
+// the parent monitor's work area, as dialog boxes are, and is created at
+// the parent's DPI. Close closes the children first, in creation order. A
+// modal child disables its parent (EnableWindow FALSE; Windows then
+// activates the child, with a beep, when the parent is clicked) from just
+// before it is shown until just before it is hidden or destroyed, the order
+// DialogBox and EndDialog use, so that Windows activates the parent and not
+// another application; the parent counts its visible modal children.
 //
 // # Clipboard
 //

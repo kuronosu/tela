@@ -6,6 +6,8 @@ import (
 	"sync"
 	"syscall"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/kuronosu/tela/internal/platform"
 )
 
@@ -16,15 +18,41 @@ var registry = struct {
 	mu       sync.RWMutex
 	windows  map[uintptr]*Window
 	backends map[uintptr]*Backend // message-only windows
+	creating map[uint32]*Window   // per thread: the window inside CreateWindowExW
 }{
 	windows:  map[uintptr]*Window{},
 	backends: map[uintptr]*Backend{},
+	creating: map[uint32]*Window{},
 }
 
 func lookup(hwnd uintptr) (w *Window, b *Backend) {
 	registry.mu.RLock()
-	defer registry.mu.RUnlock()
-	return registry.windows[hwnd], registry.backends[hwnd]
+	w, b = registry.windows[hwnd], registry.backends[hwnd]
+	creating := w == nil && b == nil && len(registry.creating) > 0
+	registry.mu.RUnlock()
+	if creating {
+		w = adopt(hwnd)
+	}
+	return w, b
+}
+
+// adopt registers a window that NewWindow is creating, at the first message
+// CreateWindowExW sends it (WM_GETMINMAXINFO), so that the sizing messages
+// sent during creation are answered for it (a frameless window's
+// WM_NCCALCSIZE, the size limits). Only Tela windows use this window
+// procedure, and a thread creates one at a time.
+func adopt(hwnd uintptr) *Window {
+	tid := windows.GetCurrentThreadId()
+	registry.mu.Lock()
+	defer registry.mu.Unlock()
+	w := registry.creating[tid]
+	if w == nil {
+		return nil
+	}
+	delete(registry.creating, tid)
+	w.hwnd = hwnd
+	registry.windows[hwnd] = w
+	return w
 }
 
 var (
@@ -82,6 +110,20 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		t, _, _ := procGetMessageTime.Call()
 		keyTrace("msg %#x wparam %#x lparam %#x time %d", msg, wparam, lparam, int32(t))
 	}
+	if w.creating {
+		// Inside CreateWindowExW: the window is not in the loop yet.
+		switch msg {
+		case wmGetMinMaxInfo:
+			w.onGetMinMaxInfo(lparam)
+			return 0
+		case wmNCCalcSize:
+			if w.opts.Frameless {
+				w.onNCCalcSize(lparam)
+				return 0
+			}
+		}
+		return defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
+	}
 	switch msg {
 	case wmClose:
 		// The app decides: it answers with Window.Close.
@@ -92,8 +134,40 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.destroyed()
 
 	case wmSize:
-		w.b.reconfigure(w, w.osMetrics())
+		// The state first (a WindowStateEvent before the ConfigureEvent of
+		// the same change).
+		m := w.osMetrics()
+		w.updateState()
+		w.b.reconfigure(w, m)
 		return 0
+	case wmMove:
+		w.updateState()
+		return 0
+	case wmShowWindow:
+		w.onShowWindow(lparam)
+
+	case wmNCCalcSize:
+		if w.opts.Frameless {
+			w.onNCCalcSize(lparam)
+			return 0
+		}
+	case wmNCHitTest:
+		return w.onNCHitTest(lparam)
+	case wmNCMouseMove:
+		w.onNCMouseMove(wparam, lparam)
+		// DefWindowProc too: Windows 11 opens the snap layouts flyout from
+		// the hover of an HTMAXBUTTON.
+	case wmNCMouseLeave:
+		w.onMouseLeave(true)
+	case wmNCLButtonDown, wmNCLButtonUp, wmNCLButtonDblClk, wmNCRButtonDown, wmNCRButtonUp, wmNCRButtonDblClk,
+		wmNCMButtonDown, wmNCMButtonUp, wmNCMButtonDblClk:
+		if w.onNCButton(msg, wparam, lparam) {
+			return 0
+		}
+	case wmNCXButtonDown, wmNCXButtonUp, wmNCXButtonDblClk:
+		if w.onNCButton(msg, wparam, lparam) {
+			return 1 // TRUE, as WM_NCXBUTTON* requires
+		}
 
 	case wmDPIChanged:
 		w.onDPIChanged(wparam, lparam)
@@ -166,7 +240,9 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.b.settingsChanged()
 
 	case wmSetCursor:
-		if loword(lparam) == htClient {
+		// The app's cursor over its content, including its own title bar
+		// regions; Windows' cursors over the frame (resize arrows).
+		if code := uintptr(loword(lparam)); code == htClient || (len(w.regions) > 0 && isAppHit(code) && w.cursorOverAppRegion()) {
 			w.applyCursor()
 			return 1
 		}
@@ -175,7 +251,7 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.onMouseMove(lparam)
 		return 0
 	case wmMouseLeave:
-		w.onMouseLeave()
+		w.onMouseLeave(false)
 		return 0
 	case wmLButtonDown, wmLButtonUp, wmRButtonDown, wmRButtonUp, wmMButtonDown, wmMButtonUp:
 		w.onButton(msg, wparam, lparam)

@@ -33,19 +33,41 @@ func (w *Window) scale() float64 { return scaleFromDPI(w.dpi) }
 func (w *Window) onMouseMove(lparam uintptr) {
 	x, y := pointFromLParam(lparam)
 	w.mods = w.modifiers()
-	inClient := x >= 0 && y >= 0 && x < w.client.X && y < w.client.Y
-	if w.ptr.move(logicalPoint(x, y, w.scale()), inClient, w.emitFn) && !w.tracking {
-		// Ask for WM_MOUSELEAVE once; Windows disarms it when it sends the
-		// message. Only inside: arming it while the pointer is outside (a
-		// captured drag) would make Windows send the leave at once.
-		ev := trackMouseEvent{size: uint32(unsafe.Sizeof(trackMouseEvent{})), flags: tmeLeave, hwndTrack: w.hwnd}
-		procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&ev)))
-		w.tracking = true
+	if w.ptr.move(logicalPoint(x, y, w.scale()), w.inClient(x, y), w.emitFn) {
+		// Only inside: arming the leave while the pointer is outside (a
+		// captured drag) would make Windows send it at once.
+		w.track(false)
 	}
 }
 
-func (w *Window) onMouseLeave() {
-	w.tracking = false
+// track asks for the leave of the client area (WM_MOUSELEAVE) or of the
+// non-client area (WM_NCMOUSELEAVE, over the app's title bar regions), once:
+// Windows disarms it when it sends the message. A window tracks one of the
+// two at a time; arming one replaces the other.
+func (w *Window) track(nonClient bool) {
+	if (nonClient && w.ncTracking) || (!nonClient && w.tracking) {
+		return
+	}
+	ev := trackMouseEvent{size: uint32(unsafe.Sizeof(trackMouseEvent{})), flags: tmeLeave, hwndTrack: w.hwnd}
+	if nonClient {
+		ev.flags |= tmeNonClient
+	}
+	procTrackMouseEvent.Call(uintptr(unsafe.Pointer(&ev)))
+	w.tracking, w.ncTracking = !nonClient, nonClient
+}
+
+// onMouseLeave handles WM_MOUSELEAVE and WM_NCMOUSELEAVE. With hit regions
+// the pointer may only have crossed between the client area and the app's
+// title bar, which is no leave for the app (see pointerOverApp).
+func (w *Window) onMouseLeave(nonClient bool) {
+	if nonClient {
+		w.ncTracking = false
+	} else {
+		w.tracking = false
+	}
+	if len(w.regions) > 0 && w.pointerOverApp() {
+		return
+	}
 	w.mods = w.modifiers()
 	w.ptr.leaveMessage(w.emitFn)
 }
@@ -56,6 +78,13 @@ func (w *Window) onButton(msg uint32, wparam, lparam uintptr) {
 		return
 	}
 	x, y := pointFromLParam(lparam)
+	w.button(btn, down, x, y)
+}
+
+// button handles a press or release at client position x, y (physical
+// pixels), from a client mouse message or a non-client one over the app's
+// window buttons.
+func (w *Window) button(btn platform.PointerButton, down bool, x, y int) {
 	w.mods = w.modifiers()
 	switch w.ptr.button(btn, down, logicalPoint(x, y, w.scale()), w.emitFn) {
 	case captureSet:

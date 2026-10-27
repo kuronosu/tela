@@ -25,14 +25,12 @@ var (
 	procImmGetOpenStatus        = imm32.NewProc("ImmGetOpenStatus")
 	procImmGetConversionStatus  = imm32.NewProc("ImmGetConversionStatus")
 	procGetClassNameW           = user32.NewProc("GetClassNameW")
-	procGetWindowRect           = user32.NewProc("GetWindowRect")
 	procGetCaretPos             = user32.NewProc("GetCaretPos")
 )
 
 const gaRoot = 2
 
 var (
-	procWindowFromPoint     = user32.NewProc("WindowFromPoint")
 	procGetAncestor         = user32.NewProc("GetAncestor")
 	procImmIsIME            = imm32.NewProc("ImmIsIME")
 	procImmGetDefaultIMEWnd = imm32.NewProc("ImmGetDefaultIMEWnd")

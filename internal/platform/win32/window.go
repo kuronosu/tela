@@ -5,7 +5,10 @@ package win32
 import (
 	"fmt"
 	"image"
+	"slices"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
@@ -47,53 +50,102 @@ type Window struct {
 
 	// IME state (ime_windows.go).
 	ime imeWindow
+
+	// Window control state (windowctl.go).
+	creating    bool // inside CreateWindowExW: only the sizing messages are handled
+	ready       bool // the first ConfigureEvent is queued: the state can be reported
+	visible     bool // the app wants the window shown (not Hidden, SetVisible)
+	everShown   bool
+	ownerHidden bool        // Windows hid it with its minimized owner
+	pending     showRequest // a state request made while it was not shown
+	parent      *Window
+	blockers    int             // visible modal children: disabled while > 0
+	blocking    bool            // this modal window disables its parent
+	fs          *fullscreenSave // non-nil while fullscreen
+	pos         image.Point     // content origin of the normal placement
+	onTop       bool
+	regions     []platform.HitRegion
+	icon        []image.Image // SetIcon's images, kept for DPI changes
+	icons       [2]uintptr    // ICON_SMALL and ICON_BIG
+	ncTracking  bool          // TrackMouseEvent(TME_LEAVE|TME_NONCLIENT) is armed
 }
 
 var _ platform.Window = (*Window)(nil)
 
-// NewWindow creates a hidden window; it is shown at its first Present. Its
-// first event is a ConfigureEvent with the client size Windows granted.
+// NewWindow creates a hidden window; it is shown at its first Present (or,
+// for WindowOptions.Hidden, at the first Present after SetVisible(true)).
+// Its first event is a ConfigureEvent with the client size Windows granted,
+// followed by a WindowStateEvent.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
 	opts = opts.Resolve()
 	if b.closed {
 		return nil, errClosed
 	}
-	// The window is created on the primary monitor with the default
-	// position; its DPI is re-read once it exists.
-	dpi := primaryDPI()
-	client := clampPhysical(platform.PhysicalSize(opts.Size, scaleFromDPI(dpi)))
-	style := uint32(wsOverlappedWindow | wsClipSiblings | wsClipChildren)
+	w := &Window{b: b, opts: opts, parent: b.parentOf(opts.Parent), visible: !opts.Hidden}
+	w.style = uint32(wsOverlappedWindow | wsClipSiblings | wsClipChildren)
 	if opts.FixedSize {
-		style &^= wsThickFrame | wsMaximizeBox
+		w.style &^= wsThickFrame | wsMaximizeBox
 	}
-	const exStyle = 0
-	outer := adjustWindowRect(rect{right: int32(client.X), bottom: int32(client.Y)}, style, exStyle, dpi)
+	if opts.Maximized {
+		// Created maximized (and hidden): the first ConfigureEvent has
+		// the maximized size, and the normal placement keeps opts.Size.
+		w.style |= wsMaximize
+	}
+	if opts.AlwaysOnTop {
+		w.exStyle |= wsExTopmost
+	}
+	x, y := w.initialPlacement()
+	outer := w.outerSize(clampPhysical(platform.PhysicalSize(opts.Size, w.scale())))
+	var owner uintptr
+	if w.parent != nil {
+		owner = w.parent.hwnd
+	}
 
-	hwnd, _, e := procCreateWindowExW.Call(exStyle, uintptr(unsafe.Pointer(classNamePtr)), uintptr(unsafe.Pointer(utf16(opts.Title))),
-		uintptr(style), cwUseDefault, cwUseDefault, uintptr(outer.width()), uintptr(outer.height()), 0, 0, b.hinst, 0)
+	// The messages sent during CreateWindowExW (WM_GETMINMAXINFO,
+	// WM_NCCALCSIZE) already need the window: wndProc adopts it at its
+	// first message.
+	tid := windows.GetCurrentThreadId()
+	registry.mu.Lock()
+	registry.creating[tid] = w
+	registry.mu.Unlock()
+	w.creating = true
+	hwnd, _, e := procCreateWindowExW.Call(uintptr(w.exStyle), uintptr(unsafe.Pointer(classNamePtr)), uintptr(unsafe.Pointer(utf16(opts.Title))),
+		uintptr(w.style), x, y, uintptr(outer.width()), uintptr(outer.height()), owner, 0, b.hinst, 0)
+	w.creating = false
+	registry.mu.Lock()
+	delete(registry.creating, tid)
 	if hwnd == 0 {
+		if w.hwnd != 0 {
+			delete(registry.windows, w.hwnd)
+		}
+		registry.mu.Unlock()
 		return nil, winError("CreateWindowExW", e)
 	}
-	w := &Window{b: b, hwnd: hwnd, opts: opts, style: style, exStyle: exStyle, dpi: dpi}
+	w.hwnd = hwnd
+	registry.windows[hwnd] = w
+	registry.mu.Unlock()
+
 	w.emitFn = w.pointerEvent
 	w.kenv = osKeyEnv{w}
 	w.kbd = newKeyTranslator(w.keyEvent)
-	registry.mu.Lock()
-	registry.windows[hwnd] = w
-	registry.mu.Unlock()
 	b.loop.Add(w)
 	w.applyTheme(b.settings.DarkMode)
 	// Windows give a new window the thread's default input context; the IME
 	// stays off until the app reports a text field (SetTextInput).
 	procImmAssociateContextEx.Call(hwnd, 0, 0)
 
-	if d := windowDPI(hwnd); d != dpi {
+	if d := windowDPI(hwnd); d != w.dpi {
 		// Windows put the window on a monitor with another DPI: keep the
 		// logical size the app asked for.
 		w.dpi = d
-		w.resizeClient(clampPhysical(platform.PhysicalSize(opts.Size, scaleFromDPI(d))))
+		if !isZoomed(hwnd) {
+			w.resizeClient(clampPhysical(platform.PhysicalSize(opts.Size, scaleFromDPI(d))))
+		}
 	}
+	w.initControl()
 	b.reconfigure(w, w.osMetrics())
+	w.ready = true
+	w.updateState()
 	return w, nil
 }
 
@@ -109,9 +161,14 @@ func (w *Window) osMetrics() platform.Metrics {
 	return metricsFor(w.client, w.dpi)
 }
 
-// outerSize returns the outer window size for a physical client size.
+// outerSize returns the outer window size for a physical client size: the
+// same size for a frameless window, whose whole window is client area.
 func (w *Window) outerSize(client image.Point) rect {
-	return adjustWindowRect(rect{right: int32(client.X), bottom: int32(client.Y)}, w.style, w.exStyle, w.dpi)
+	r := rect{right: int32(client.X), bottom: int32(client.Y)}
+	if w.opts.Frameless {
+		return r
+	}
+	return adjustWindowRect(r, w.style, w.exStyle, w.dpi)
 }
 
 // resizeClient resizes the window so that its client area is client physical
@@ -149,31 +206,55 @@ func (w *Window) applyCursor() {
 }
 
 // SetSize asks Windows to resize the client area to size (logical pixels,
-// raised to MinSize). A maximized or minimized window keeps its state and
-// size. The outcome arrives as a ConfigureEvent.
+// clamped to the size limits). A maximized, minimized or fullscreen window
+// keeps its state and size; size becomes the size it returns to. The
+// outcome arrives as a ConfigureEvent.
 func (w *Window) SetSize(size platform.Size) {
 	platform.CheckSize("SetSize size", size)
 	if w.Closed() {
 		return
 	}
 	w.opts.Size = w.opts.ClampSize(size)
-	if isIconic(w.hwnd) || isZoomed(w.hwnd) {
+	client := clampPhysical(platform.PhysicalSize(w.opts.Size, scaleFromDPI(w.dpi)))
+	if w.fs == nil && !isIconic(w.hwnd) && !isZoomed(w.hwnd) {
+		w.resizeClient(client)
 		return
 	}
-	w.resizeClient(clampPhysical(platform.PhysicalSize(w.opts.Size, scaleFromDPI(w.dpi))))
+	style, exStyle := w.style, w.exStyle
+	if w.fs != nil {
+		style, exStyle = w.fs.style, w.fs.exStyle
+	}
+	r := rect{right: int32(client.X), bottom: int32(client.Y)}
+	if !w.opts.Frameless {
+		r = adjustWindowRect(r, style, exStyle, w.dpi)
+	}
+	w.setNormalRect(func(n image.Rectangle) image.Rectangle {
+		return image.Rectangle{Min: n.Min, Max: n.Min.Add(image.Pt(int(r.width()), int(r.height())))}
+	})
 }
 
-// Close destroys the window. Queued events for it are dropped.
+// Close destroys the window. Queued events for it are dropped. Its child
+// windows are closed first, in creation order (Windows would destroy them
+// with their owner anyway), and a modal window re-enables its parent
+// before it goes, so that Windows activates the parent.
 func (w *Window) Close() {
 	if w.Closed() {
 		return
 	}
+	for _, c := range slices.Clone(w.b.loop.Windows()) {
+		if c.parent == w {
+			c.Close()
+		}
+	}
+	w.setBlocking(false)
 	w.closeIME()
 	w.b.loop.Remove(w) // marks it closed and drops its queued events
 	w.releaseCapture()
 	w.unregister()
 	procDestroyWindow.Call(w.hwnd)
 	w.dib.release()
+	destroyIcons(w.icons)
+	w.icons = [2]uintptr{}
 }
 
 // destroyed handles WM_NCDESTROY for a window that Windows destroyed on its
@@ -182,10 +263,13 @@ func (w *Window) destroyed() {
 	if w.Closed() {
 		return
 	}
+	w.setBlocking(false)
 	w.b.loop.Remove(w)
 	w.ime = imeWindow{}
 	w.unregister()
 	w.dib.release()
+	destroyIcons(w.icons)
+	w.icons = [2]uintptr{}
 }
 
 func (w *Window) unregister() {
@@ -222,7 +306,8 @@ func (w *Window) setFocused(focused bool) {
 // metrics.
 func (w *Window) onDPIChanged(wparam, lparam uintptr) {
 	w.dpi = uint32(loword(wparam))
-	if r := (*rect)(ptrFromUintptr(lparam)); r != nil {
+	// A fullscreen window keeps covering its monitor.
+	if r := (*rect)(ptrFromUintptr(lparam)); r != nil && w.fs == nil {
 		setWindowPos(w.hwnd, r.left, r.top, r.width(), r.height(), swpNoZOrder|swpNoActivate)
 	}
 	// A suggested rectangle of the same pixel size sends no WM_SIZE, but
@@ -230,15 +315,34 @@ func (w *Window) onDPIChanged(wparam, lparam uintptr) {
 	w.b.reconfigure(w, w.osMetrics())
 	// The caret's physical position changed with the scale.
 	w.ime.dirty = true
+	// The icons have other sizes at the new DPI.
+	if len(w.icon) > 0 {
+		w.applyIcon()
+	}
 }
 
-// onGetMinMaxInfo applies WindowOptions.MinSize, a logical size that follows
-// the current DPI.
+// onGetMinMaxInfo applies WindowOptions.MinSize and MaxSize (logical sizes
+// that follow the current DPI) as the outer track sizes; the minimum wins
+// where the maximum is below it. Windows clamps the maximized size to the
+// maximum track size too. A fullscreen window ignores the limits.
 func (w *Window) onGetMinMaxInfo(lparam uintptr) {
-	if w.opts.MinSize == (platform.Size{}) {
+	minSize, maxSize := w.opts.MinSize, w.opts.MaxSize
+	if w.fs != nil || (minSize == (platform.Size{}) && maxSize == (platform.Size{})) {
 		return
 	}
 	mm := (*minMaxInfo)(ptrFromUintptr(lparam))
-	outer := w.outerSize(clampPhysical(platform.PhysicalSize(w.opts.MinSize, scaleFromDPI(w.dpi))))
-	mm.minTrackSize = point{outer.width(), outer.height()}
+	scale := w.scale()
+	if minSize != (platform.Size{}) {
+		outer := w.outerSize(clampPhysical(platform.PhysicalSize(minSize, scale)))
+		mm.minTrackSize = point{outer.width(), outer.height()}
+	}
+	if maxSize.W > 0 || maxSize.H > 0 {
+		outer := w.outerSize(clampPhysical(platform.PhysicalSize(maxSize, scale)))
+		if maxSize.W > 0 {
+			mm.maxTrackSize.x = max(outer.width(), mm.minTrackSize.x)
+		}
+		if maxSize.H > 0 {
+			mm.maxTrackSize.y = max(outer.height(), mm.minTrackSize.y)
+		}
+	}
 }
