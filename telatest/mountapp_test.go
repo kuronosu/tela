@@ -116,6 +116,13 @@ func TestAppFieldsAreClassified(t *testing.T) {
 		"Title": "the window title", "AppID": "the desktop identity",
 		"Root":     "mounted by MountApp, not a setting",
 		"DevState": "state outside the tree that only tela dev keeps across reloads",
+		"MinWidth": "OS window behavior", "MinHeight": "OS window behavior",
+		"MaxWidth": "OS window behavior", "MaxHeight": "OS window behavior",
+		"FixedSize": "OS window behavior", "Frameless": "the OS title bar, not the content",
+		"AlwaysOnTop": "OS window behavior", "Hidden": "OS window behavior",
+		"Icon":      "the OS window icon",
+		"Placement": "where a previous run left the window",
+		"OnClose":   "what closing the window does",
 	}
 	typ := reflect.TypeFor[tela.App]()
 	for i := range typ.NumField() {

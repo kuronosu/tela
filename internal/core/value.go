@@ -36,8 +36,10 @@ import (
 // evaluation of the same Tree is therefore recorded as a read of that
 // evaluation: one extra rebuild, relayout or repaint when the Value
 // changes, until the observer's next evaluation drops it. Reads are never
-// missed. Reads of a Value made by another Tree are not tracked (each
-// Tree tracks the reads of its own Values).
+// missed. The Trees of one app's windows track together (Tree.trk, the
+// main window's Tree): a component of a child window that reads a Value
+// of the main window's tree builds again when it changes. Reads of a Value
+// made by an unrelated Tree are not tracked.
 
 // obsKind is what a Value change redoes for an observer.
 type obsKind uint8
@@ -166,8 +168,9 @@ func (o valueOp[T]) apply(cur T) T {
 // call site, with Latest as the fix (ADR-085).
 func (v *Value[T]) Get() T {
 	p := v.load("Get")
-	if t := v.el.tree; t.trackDepth.Load() > 0 {
-		t.recordRead(&v.valueCore)
+	t := v.el.tree
+	if tk := t.trk; tk.trackDepth.Load() > 0 {
+		tk.recordRead(&v.valueCore)
 	} else if t.dev {
 		v.checkPending(t)
 	}
@@ -361,24 +364,28 @@ func UseValue[T any](initial T) *Value[T] {
 
 // beginTrack starts tracking the reads of an evaluation on the UI thread.
 // Evaluations nest: the returned mark separates the reads of this one.
+// The Trees of one app's windows share the tracking state of the main
+// window's Tree (trk), so a Value read across windows is recorded.
 func (t *Tree) beginTrack() int {
-	t.trackMu.Lock()
-	mark := len(t.reads)
-	t.trackDepth.Add(1)
-	t.trackMu.Unlock()
+	tk := t.trk
+	tk.trackMu.Lock()
+	mark := len(tk.reads)
+	tk.trackDepth.Add(1)
+	tk.trackMu.Unlock()
 	return mark
 }
 
 // endTrack ends the evaluation begun at mark and returns the Values it
 // read, in a scratch slice valid until the next endTrack.
 func (t *Tree) endTrack(mark int) []*valueCore {
-	t.trackMu.Lock()
-	t.trackDepth.Add(-1)
-	got := append(t.readsTmp[:0], t.reads[mark:]...)
-	clear(t.reads[mark:])
-	t.reads = t.reads[:mark]
-	t.trackMu.Unlock()
-	t.readsTmp = got
+	tk := t.trk
+	tk.trackMu.Lock()
+	tk.trackDepth.Add(-1)
+	got := append(tk.readsTmp[:0], tk.reads[mark:]...)
+	clear(tk.reads[mark:])
+	tk.reads = tk.reads[:mark]
+	tk.trackMu.Unlock()
+	tk.readsTmp = got
 	return got
 }
 
@@ -475,7 +482,9 @@ func (t *Tree) valueChanged(v *valueCore) bool { return t.valueChangedSkip(v, ob
 // obsNone is no observer kind (valueChangedSkip skips nothing).
 const obsNone obsKind = 255
 
-// valueChangedSkip is valueChanged without the readers of kind skip.
+// valueChangedSkip is valueChanged without the readers of kind skip. Each
+// reader is marked in its own Tree: a reader in another window of the app
+// (the shared tracking of beginTrack) requests a frame of that window.
 func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 	hit := false
 	for _, s := range v.subs {
@@ -486,14 +495,14 @@ func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 		switch o.kind {
 		case obsBuild:
 			if o.el.mounted {
-				t.markBuild(o.el)
+				o.el.tree.markBuild(o.el)
 				hit = true
 			}
 		case obsLayout:
 			// A box out of the box tree (display: none, inline content)
 			// is mapped again when it comes back.
 			if o.box.parent != nil {
-				t.markRelayout(o.box)
+				o.box.tree.markRelayout(o.box)
 				hit = true
 			}
 		case obsPaint:
@@ -501,18 +510,19 @@ func (t *Tree) valueChangedSkip(v *valueCore, skip obsKind) bool {
 			// a display: contents one's TextColorFn colors its children's
 			// text (colorfn.go).
 			if o.box.parent != nil || o.box.inPara != nil || contentsBox(o.box) {
-				t.markPaint(o.box)
+				o.box.tree.markPaint(o.box)
 				hit = true
 			}
 		case obsText:
 			if o.el.mounted {
+				rt := o.el.tree
 				o.el.textStale = true
-				t.markBoxes(o.el.primitive())
-				t.markAutoDir(o.el.parent)
+				rt.markBoxes(o.el.primitive())
+				rt.markAutoDir(o.el.parent)
 				hit = true
 			}
 		case obsField:
-			t.bindChanged(o.box)
+			o.box.tree.bindChanged(o.box)
 			hit = true
 		}
 	}

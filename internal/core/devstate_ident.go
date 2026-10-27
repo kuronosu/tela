@@ -311,6 +311,10 @@ func devSlotKind(el *Element, j int) hookKind {
 		return hookColorScheme
 	case *dirSlot:
 		return hookDirection
+	case *windowUse:
+		return hookWindow
+	case *windowSlot:
+		return hookWindowSpec
 	case nil:
 		return hookReducedMotion
 	}

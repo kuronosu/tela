@@ -107,11 +107,22 @@ func (t *Tree) SetEnvironment(dark, reducedMotion bool) {
 // the UI thread.
 func (t *Tree) SetColorScheme(s ColorScheme) {
 	checkScheme(s)
-	t.env.scheme = s
 	if devStateEnabled {
 		t.devNoteScheme(s)
 	}
+	t.setScheme(s)
+}
+
+// setScheme applies the app's color scheme s to the tree and to the trees
+// of its child windows (window.go): every window follows the app's.
+func (t *Tree) setScheme(s ColorScheme) {
+	t.env.scheme = s
 	t.applyEnv()
+	for _, w := range t.wins {
+		if v := w.view; v != nil {
+			v.tree.setScheme(s)
+		}
+	}
 }
 
 // ColorScheme returns the effective color scheme: ColorSchemeLight or

@@ -112,13 +112,19 @@ func (t *Tree) SetTheme(th Theme) {
 	}
 }
 
-// setParser makes p the tree's parser.
+// setParser makes p the tree's parser, and that of its child windows'
+// trees (window.go): the theme and the class aliases are the app's.
 func (t *Tree) setParser(p *style.Parser) {
 	t.parser = p
 	t.cx.Theme = p.Theme()
 	t.classReported = map[string]bool{} // report the class errors of the new theme
 	if t.env.theme != nil {
 		t.env.theme.storeUI(p.Theme())
+	}
+	for _, w := range t.wins {
+		if v := w.view; v != nil {
+			v.tree.setParser(p)
+		}
 	}
 	if t.root == nil {
 		return

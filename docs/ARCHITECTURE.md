@@ -197,6 +197,7 @@ tela/
 - **Reconciliation:** a new child with the same type and key as the old one at that position reuses the Element (and its state); otherwise unmount and mount anew. Lists match by key, falling back to position. Dev mode warns on multi-child lists without keys.
 - **Primitives vs components:** primitives (`Div`, `Text`, `Img`…) create a Box; components (struct values with a `Build` method, or functions) only produce other Nodes. A struct component's type is its type for reconciliation (ADR-088).
 - **Ownership:** an Element owns its Box. The Box tree may contain anonymous Boxes with no Element (scroll layers, portals).
+- **Windows:** each window (the main one, and each mounted `tela.Window`) has its own `core.Tree`: box tree, pipeline, input, focus, overlays and semantics. The Trees of an app form one element tree: a child window's root hangs below its `Window` element for context, and Value reads are tracked app-wide (ADR-180).
 
 ## 7. Component and state model
 

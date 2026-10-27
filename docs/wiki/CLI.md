@@ -162,6 +162,7 @@ func main() { tela.Main(App) }
 | `ClassicScrollbars`, `InstantScroll`, `Dev` | Applied (`Dev` false silences the dev messages) |
 | `Root` | The screen when the package has no `Preview` or `Previews`; otherwise ignored |
 | `Title`, `AppID`, `DevState` | Ignored (`DevState` is for `tela dev`) |
+| `MinWidth`, `MinHeight`, `MaxWidth`, `MaxHeight`, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `Placement`, `OnClose` | Ignored: they shape the OS window, not its content. The windows a `tela.Window` opens are not rendered (the main window only) |
 
 [`telatest.MountApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountApp)(t, App) mounts the same `App` in a test, and
 [`telatest.FromApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#FromApp)(App) gives the options of an `App` to

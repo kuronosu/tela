@@ -69,6 +69,10 @@ type Element struct {
 	// group-* variants, so that a state change of a group finds them
 	// without walking unrelated subtrees (never cleared).
 	groupKids bool
+	// winKids marks the ancestors of an element with a custom title bar
+	// prop (winregion.go), so that the hit regions are found without
+	// walking unrelated subtrees (never cleared).
+	winKids bool
 	// fscope is the focus scope of a primitive with FocusScope (focus.go).
 	fscope *focusScope
 
@@ -509,6 +513,9 @@ func (t *Tree) update(el *Element, n Node) {
 		if old.inert != d.inert {
 			t.refreshInert(el)
 		}
+		if old.winRegion != d.winRegion {
+			t.regionChanged(el, old.winRegion, d.winRegion)
+		}
 		if old.id != d.id {
 			t.setID(el, old.id)
 		}
@@ -619,6 +626,9 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.inert {
 			el.inert = true // its children inherit it (overlay.go)
 		}
+		if d.winRegion != regionNone {
+			t.regionChanged(el, regionNone, d.winRegion)
+		}
 		if d.float != nil {
 			t.updateFloat(el, nil)
 		}
@@ -697,6 +707,9 @@ func (t *Tree) unmount(el *Element) {
 		}
 		if d := el.node.d; d.overlay != nil || d.outside != nil {
 			t.removeListener(el)
+		}
+		if r := el.node.d.winRegion; r != regionNone {
+			t.regionChanged(el, r, regionNone)
 		}
 	}
 	for _, h := range el.hooks {

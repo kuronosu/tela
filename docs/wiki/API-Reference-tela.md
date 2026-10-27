@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -66,6 +66,11 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type ThemeValues`](#type-themevalues): [`UseTheme`](#func-usetheme) · [`Color`](#func-themevalues-color) · [`FontMono`](#func-themevalues-fontmono) · [`FontSans`](#func-themevalues-fontsans) · [`Lookup`](#func-themevalues-lookup) · [`Radius`](#func-themevalues-radius) · [`Scheme`](#func-themevalues-scheme) · [`Tokens`](#func-themevalues-tokens)
   - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UsePresenceTween`](#func-usepresencetween) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
+  - [`type Window`](#type-window): [`Build`](#func-window-build)
+  - [`type WindowControl`](#type-windowcontrol): [`String`](#func-windowcontrol-string)
+  - [`type WindowHandle`](#type-windowhandle): [`UseWindow`](#func-usewindow) · [`Close`](#func-windowhandle-close) · [`Focus`](#func-windowhandle-focus) · [`Hide`](#func-windowhandle-hide) · [`IsZero`](#func-windowhandle-iszero) · [`Maximize`](#func-windowhandle-maximize) · [`Minimize`](#func-windowhandle-minimize) · [`Placement`](#func-windowhandle-placement) · [`SetFullscreen`](#func-windowhandle-setfullscreen) · [`Show`](#func-windowhandle-show) · [`State`](#func-windowhandle-state) · [`ToggleMaximize`](#func-windowhandle-togglemaximize) · [`Unmaximize`](#func-windowhandle-unmaximize)
+  - [`type WindowPlacement`](#type-windowplacement)
+  - [`type WindowState`](#type-windowstate)
 
 ## Overview
 
@@ -286,6 +291,18 @@ const (
 
 The alignments of [`ElementRef`](#type-elementref).ScrollToIndex. The first and last items include the list's padding: AlignStart on item 0 scrolls to the very top, AlignEnd on the last item to the very bottom.
 
+```go
+const (
+    // WindowMinimize minimizes the window.
+    WindowMinimize = core.WindowMinimize
+    // WindowMaximize maximizes the window, or restores it when it is
+    // maximized.
+    WindowMaximize = core.WindowMaximize
+    // WindowClose asks to close the window, as its close button does.
+    WindowClose = core.WindowClose
+)
+```
+
 ## Variables
 
 ```go
@@ -473,6 +490,22 @@ fmt.Println(app.Bounds(telatest.ByTestID("panel")).Height)
 // 156
 ```
 
+### func OpenPath
+
+```go
+func OpenPath(path string) error
+```
+
+OpenPath opens a local file in its default application, or a folder in the file manager. Call it on the UI thread (a handler, an effect); from another goroutine, wrap it in [`Post`](#func-post).
+
+### func OpenURL
+
+```go
+func OpenURL(url string) error
+```
+
+OpenURL opens url in the user's default application for its scheme: a web page in the browser, a mailto: address in the mail client. The URL must have a scheme ("<https://example.com>"); open local files and folders with [`OpenPath`](#func-openpath). The error reports a URL that cannot be opened or a desktop without the service (headless). Call it on the UI thread (a handler, an effect); from another goroutine, wrap it in [`Post`](#func-post).
+
 ### func Post
 
 ```go
@@ -490,13 +523,21 @@ go func() {
 
 Functions posted before [`Run`](#func-run) starts run once its window is up. Headless trees (tests, snapshots) do not run posted functions unless they receive them (telatest.Mount does); until then they wait, in order.
 
+### func Quit
+
+```go
+func Quit()
+```
+
+Quit quits the app: Run returns (and Main with it) after unmounting every window, which runs the cleanups of their effects. It is safe from any goroutine and is applied in order with the state updates queued before it.
+
 ### func Run
 
 ```go
 func Run(app App) error
 ```
 
-Run opens a window, shows app.Root and runs the event loop until the window is closed. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux, Win32 and Cocoa elsewhere.
+Run opens a window, shows app.Root and runs the event loop until the app quits: the main window is closed (unless App.OnClose says otherwise) or [`Quit`](#func-quit) is called. The windows unmount before Run returns, running the cleanups of their effects. It must be called from the main goroutine, normally from main. The window is drawn by Tela's own renderer on the native backend: Wayland or X11 on Linux, Win32 and Cocoa elsewhere; [`Window`](#type-window) components open more windows.
 
 Run returns an error when the platform cannot open a window (for example, no display is available). It panics when app.Root is nil. [`Main`](#func-main) runs it and handles the error.
 
@@ -1367,8 +1408,39 @@ type App struct {
     // "com.example.notes". Empty lets the platform pick one.
     AppID string
     // Width and Height are the requested size of the window in logical
-    // pixels. Zero means the platform's default size.
+    // pixels. Zero means the platform's default size; set both or
+    // neither.
     Width, Height float32
+    // MinWidth, MinHeight, MaxWidth and MaxHeight limit the size the user
+    // can give the window; zero is no limit on that side.
+    MinWidth, MinHeight, MaxWidth, MaxHeight float32
+    // FixedSize keeps the user from resizing the window.
+    FixedSize bool
+    // Frameless removes the OS title bar and borders: the app draws its
+    // own title bar, marked with h.WindowDrag and h.WindowControl. The
+    // window stays resizable at its edges (unless FixedSize).
+    Frameless bool
+    // AlwaysOnTop keeps the window above other windows (not on Wayland).
+    AlwaysOnTop bool
+    // Hidden starts the window hidden (an app that starts in the tray):
+    // [WindowHandle].Show shows it.
+    Hidden bool
+    // Icon is the window's icon (title bar, task bar, alt-tab), the same
+    // picture at several sizes (16 to 256 pixels; the OS picks). Empty is
+    // the default icon (on Linux, the one of the .desktop file of AppID).
+    Icon []image.Image
+    // Placement is where the window opens: a WindowPlacement saved from
+    // [WindowHandle].Placement in an earlier run, so the window comes back
+    // where the user left it. Its size, when set, wins over Width and
+    // Height. The zero value lets the OS place the window.
+    Placement WindowPlacement
+    // OnClose runs when the user asks to close the main window (its close
+    // button, Alt+F4, a WindowClose control, [WindowHandle].Close). Nil,
+    // the default, quits the app. To keep running in the tray, hide the
+    // window instead; [Quit] ends the app later:
+    //
+    //	OnClose: func(w tela.WindowHandle) { w.Hide() },
+    OnClose func(WindowHandle)
     // RootClass are Tailwind classes for the root, which fills the
     // window. Use it to give the window a background ("bg-slate-900") or
     // a text style; without it the window is white and the text black.
@@ -5136,3 +5208,321 @@ func (e WheelEvent) StopPropagation()
 ```
 
 StopPropagation stops the event from bubbling (see MouseEvent).
+
+### type Window
+
+```go
+type Window struct {
+    // Title is the window title.
+    Title string
+    // Width and Height are the size of the content area in logical
+    // pixels. Zero means the platform's default size (800×600); set both
+    // or neither.
+    Width, Height float32
+    // MinWidth, MinHeight, MaxWidth and MaxHeight limit the size the
+    // user can give the window; zero is no limit on that side.
+    MinWidth, MinHeight, MaxWidth, MaxHeight float32
+    // FixedSize keeps the user from resizing the window.
+    FixedSize bool
+    // Frameless removes the OS title bar and borders: the content draws
+    // its own title bar, marked with h.WindowDrag and h.WindowControl.
+    // The window stays resizable at its edges (unless FixedSize).
+    Frameless bool
+    // AlwaysOnTop keeps the window above other windows (not on Wayland,
+    // which has no way to ask for it).
+    AlwaysOnTop bool
+    // Modal makes the window modal to the window it is declared in: that
+    // window takes no input while this one is visible (a press there
+    // brings this one forward).
+    Modal bool
+    // Hidden hides the window: it stays open, with its state, until
+    // Hidden is false again.
+    Hidden bool
+    // Icon is the window's icon (title bar, task bar, alt-tab), the same
+    // picture at several sizes (16 to 256 pixels; the OS picks). Empty is
+    // the app's default icon.
+    Icon []image.Image
+    // RootClass are Tailwind classes for the window's root, which fills
+    // the window, as App.RootClass for the main window ("bg-background").
+    RootClass string
+    // Placement is where the window opens: a WindowPlacement saved from
+    // [WindowHandle].Placement, so the window comes back where the user
+    // left it. Its size, when set, wins over Width and Height. The zero
+    // value lets the OS place the window.
+    Placement WindowPlacement
+    // OnClose runs when the user asks to close the window. Update the
+    // state that renders this Window there.
+    OnClose func()
+    // Root is the content of the window: a struct component value
+    // (Root: Settings{}) or a function component made with C.
+    Root Component
+}
+```
+
+Window is a component that opens a window while it is mounted and closes it when it unmounts: whether a window is open is state, like whether a dialog is shown. It renders nothing where it is declared; its Root is the content of the new window.
+
+```go
+func Notes() tela.Node {
+    settingsOpen, setSettingsOpen := tela.UseState(false)
+    return Div(
+        Button(OnClick(func() { setSettingsOpen.Set(true) }), Text("Settings")),
+        If(settingsOpen, tela.Component(tela.Window{
+            Title:   "Settings",
+            Width:   480, Height: 360,
+            Modal:   true,
+            OnClose: func() { setSettingsOpen.Set(false) },
+            Root:    SettingsPanel{},
+        })),
+    )
+}
+```
+
+The window belongs to the window it is declared in: it stays above it, and with Modal that window takes no input while this one is visible. The app has one tree of components across its windows: Root is built by the component that declares the Window, so it sees that component's state and props, and the contexts above it reach the new window (UseContext); a Value read in the new window rebuilds it when it changes. Each window has its own layout, focus, hover, overlays (h.Portal), cursor and scale; the theme, the class aliases and the color scheme are the app's.
+
+When the user asks to close the window (its close button, Alt+F4, a WindowClose control, [`WindowHandle`](#type-windowhandle).Close), OnClose runs: it should update the state that renders the Window, which unmounts it and closes the window. Without OnClose the request does nothing and the window stays open (dev mode warns once). To keep the window and its state while it is out of sight, set Hidden instead of unmounting it.
+
+The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon or RootClass update the open window. FixedSize, Frameless, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
+
+tela snapshot, tela inspect and telatest's queries show the main window only. Under tela dev the other windows are plain windows (without a parent, modality or window control yet), and their state is not kept across reloads.
+
+#### func (Window) Build
+
+```go
+func (w Window) Build() Node
+```
+
+Build opens the window while the component is mounted (see [`Window`](#type-window)).
+
+### type WindowControl
+
+```go
+type WindowControl = core.WindowControl
+```
+
+WindowControl is what a window-control button of a custom title bar does, given to h.WindowControl.
+
+`WindowControl` is an alias of `core.WindowControl`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type WindowControl uint8
+```
+
+```go
+const (
+    WindowMinimize WindowControl = iota + 1
+    WindowMaximize
+    WindowClose
+)// WindowMinimize minimizes the window.
+// WindowClose asks to close the window, as the OS's close button
+// does: the window's OnClose runs (for the main window, App.OnClose,
+// or the app quits).
+```
+
+#### func (WindowControl) String
+
+```go
+func (c WindowControl) String() string
+```
+
+### type WindowHandle
+
+```go
+type WindowHandle = core.WindowHandle
+```
+
+WindowHandle is a window of the app: the one a component renders in ([`UseWindow`](#func-usewindow)), or the main window given to App.OnClose. It is a small comparable value, the same for the window's whole life, with these methods:
+
+- Minimize, Maximize, Unmaximize, ToggleMaximize, SetFullscreen(bool): ask the OS to change the window's state.
+- Hide and Show: hide the window (it stays open, with its state) and show it again (activated). The app keeps running while its windows are hidden: App.OnClose can hide the main window to keep the app in the tray.
+- Focus: raise the window and give it the keyboard focus, bringing it back from minimized.
+- Close: ask to close the window as its close button does (its OnClose runs; for the main window App.OnClose, or the app quits).
+- State() WindowState: maximized, fullscreen, minimized, focused, hidden and whether the app draws the title bar (ClientSideDecorations). Read in a component's body, it rebuilds the component when the state changes.
+- Placement() WindowPlacement: where the window is, to save and give back as App.Placement or Window.Placement next time.
+- IsZero() bool: the zero handle (no window).
+
+The requests are safe from any goroutine: they are made on the UI thread, in order with the state updates. The OS may refuse one (a tiling window manager does not maximize); State says what happened. The handle of a closed window, or one in tela snapshot (no window), does nothing.
+
+`WindowHandle` is an alias of `core.WindowHandle`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type WindowHandle struct {
+    // contains filtered or unexported fields
+}
+```
+
+#### func UseWindow
+
+```go
+func UseWindow() WindowHandle
+```
+
+UseWindow returns the handle of the window the component renders in: the main window, or the [`Window`](#type-window) it is inside of.
+
+```go
+func titleBar() tela.Node {
+    win := tela.UseWindow()
+    maximize := "Maximize"
+    if win.State().Maximized { // the component rebuilds when it changes
+        maximize = "Restore"
+    }
+    return Div(Class("flex h-9 items-center"), WindowDrag(),
+        Span(Class("grow px-3 text-sm"), Text("Notes")),
+        Button(WindowControl(tela.WindowMinimize), AriaLabel("Minimize"), Text("–")),
+        Button(WindowControl(tela.WindowMaximize), AriaLabel(maximize), Text("□")),
+        Button(WindowControl(tela.WindowClose), AriaLabel("Close"), Text("×")),
+    )
+}
+```
+
+#### func (WindowHandle) Close
+
+```go
+func (w WindowHandle) Close()
+```
+
+Close asks to close the window, as the user does with the title bar's close button: the window's OnClose runs (it removes the Window from the state that renders it); for the main window App.OnClose runs, or the app quits.
+
+#### func (WindowHandle) Focus
+
+```go
+func (w WindowHandle) Focus()
+```
+
+Focus asks the OS to raise the window and give it the keyboard focus, restoring it if it is minimized. The OS may refuse (focus stealing prevention) and flash the window instead.
+
+#### func (WindowHandle) Hide
+
+```go
+func (w WindowHandle) Hide()
+```
+
+Hide hides the window. It stays open (mounted, with its state and effects) until it is shown again or closed; the app keeps running while its windows are hidden ("close to tray").
+
+#### func (WindowHandle) IsZero
+
+```go
+func (w WindowHandle) IsZero() bool
+```
+
+IsZero reports whether w is the zero WindowHandle (no window).
+
+#### func (WindowHandle) Maximize
+
+```go
+func (w WindowHandle) Maximize()
+```
+
+Maximize asks the OS to maximize the window.
+
+#### func (WindowHandle) Minimize
+
+```go
+func (w WindowHandle) Minimize()
+```
+
+Minimize asks the OS to minimize the window; Focus brings it back.
+
+#### func (WindowHandle) Placement
+
+```go
+func (w WindowHandle) Placement() WindowPlacement
+```
+
+Placement returns where the window is (WindowPlacement): what an app saves to open the window there next time. It is kept after the window closes. Safe from any goroutine.
+
+#### func (WindowHandle) SetFullscreen
+
+```go
+func (w WindowHandle) SetFullscreen(fullscreen bool)
+```
+
+SetFullscreen asks the OS to make the window fullscreen or to leave fullscreen.
+
+#### func (WindowHandle) Show
+
+```go
+func (w WindowHandle) Show()
+```
+
+Show shows a hidden window and activates it.
+
+#### func (WindowHandle) State
+
+```go
+func (w WindowHandle) State() WindowState
+```
+
+State returns the window's state. Read in a component's build, it subscribes the component: it builds again when the state changes. Elsewhere (handlers, effects, goroutines) it only reads it.
+
+#### func (WindowHandle) ToggleMaximize
+
+```go
+func (w WindowHandle) ToggleMaximize()
+```
+
+ToggleMaximize maximizes the window, or restores it when it is maximized (what a title bar's maximize button does).
+
+#### func (WindowHandle) Unmaximize
+
+```go
+func (w WindowHandle) Unmaximize()
+```
+
+Unmaximize asks the OS to restore a maximized window to its size.
+
+### type WindowPlacement
+
+```go
+type WindowPlacement = core.WindowPlacement
+```
+
+WindowPlacement is where a window is: Width and Height (its logical size outside maximized and fullscreen), X and Y (the position in physical pixels of the desktop, when HasPosition: never on Wayland), Maximized, Fullscreen and RestoreToken (the OS's session restore token; on Wayland it lets the compositor put the window back where supported). Save it ([`WindowHandle`](#type-windowhandle).Placement) and give it back as App.Placement or Window.Placement: the window opens where the user left it. The zero value means nothing is known.
+
+`WindowPlacement` is an alias of `core.WindowPlacement`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type WindowPlacement struct {
+    // Width and Height are the logical size of the content area outside
+    // maximized and fullscreen (the size it returns to); zero is
+    // unknown.
+    Width, Height float32
+    // X and Y are the top-left of the content area in physical pixels of
+    // the OS's desktop, when HasPosition is set (never on Wayland, which
+    // does not let apps place windows; RestoreToken does it there where
+    // the compositor supports it).
+    X, Y        int
+    HasPosition bool
+    // Maximized and Fullscreen are the state to open in.
+    Maximized, Fullscreen bool
+    // RestoreToken is an opaque token the OS uses to put the window back
+    // ("" where none is needed).
+    RestoreToken string
+}
+```
+
+### type WindowState
+
+```go
+type WindowState = core.WindowState
+```
+
+WindowState is the state of a window ([`WindowHandle`](#type-windowhandle).State): Maximized, Fullscreen and Minimized as the OS reports them (Wayland cannot report minimized windows), Focused (the active window), Hidden (the app hid it) and ClientSideDecorations (the OS draws no title bar: the app draws one, as a frameless window does, and so on a Wayland desktop without server-side decorations).
+
+`WindowState` is an alias of `core.WindowState`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type WindowState struct {
+    // Maximized, Fullscreen and Minimized are the window's OS state as
+    // the OS reported it (Wayland cannot report minimized windows).
+    Maximized, Fullscreen, Minimized bool
+    // Focused: the window has the keyboard focus (it is the active
+    // window).
+    Focused bool
+    // Hidden: the app hid the window (Hide, or Hidden).
+    Hidden bool
+    // ClientSideDecorations: the OS draws no title bar or borders for the
+    // window (a Frameless window, or a Wayland compositor without
+    // server-side decorations), so the app draws its own title bar.
+    ClientSideDecorations bool
+}
+```

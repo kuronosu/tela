@@ -477,7 +477,16 @@
 // it has none.
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
-// the native backend and quits when it is closed. Render does everything
+// the native backend and quits when it is closed (unless
+// Options.OnClose says otherwise) or Quit is called.
+//
+// Windows (window.go, whose top comment is the reference; ADR-180): a
+// Window component (UseWindowSpec, tela.Window) opens a child window with
+// a Tree of its own while it is mounted; the Host routes each window's
+// events to its Tree. The Trees of an app form one element tree (contexts
+// and Value reads cross them), modal windows block their parent's input,
+// UseWindow gives a WindowHandle with the window's state and requests, and
+// the custom title bar props (winregion.go) give the OS its hit regions. Render does everything
 // without a window and returns the display list and the image (a full
 // rasterization, the reference); Inspect returns the laid-out box tree as
 // plain data.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"strings"
 	"testing"
@@ -24,6 +25,29 @@ func TestAppOptions(t *testing.T) {
 	if o.Title != "T" || o.AppID != "a.b" || o.Width != 3 || o.Height != 4 || o.RootClass != "bg-white" ||
 		!o.ClassicScrollbars || !o.InstantScroll || o.Root == (Node{}) {
 		t.Errorf("options %+v", o)
+	}
+}
+
+// TestAppWindowOptions checks that the window fields of App (ADR-180)
+// reach the core options.
+func TestAppWindowOptions(t *testing.T) {
+	closed := 0
+	place := WindowPlacement{Width: 500, Height: 400, X: 3, Y: 4, HasPosition: true, Maximized: true, RestoreToken: "t"}
+	app := App{
+		MinWidth: 1, MinHeight: 2, MaxWidth: 3, MaxHeight: 4,
+		FixedSize: true, Frameless: true, AlwaysOnTop: true, Hidden: true,
+		Icon: []image.Image{image.NewRGBA(image.Rect(0, 0, 16, 16))}, Placement: place,
+		OnClose: func(WindowHandle) { closed++ },
+		Root:    C(func() Node { return Node{} }),
+	}
+	o := app.options()
+	if o.MinWidth != 1 || o.MinHeight != 2 || o.MaxWidth != 3 || o.MaxHeight != 4 || !o.FixedSize || !o.Frameless ||
+		!o.AlwaysOnTop || !o.Hidden || len(o.Icon) != 1 || o.Placement != place || o.OnClose == nil {
+		t.Errorf("options %+v", o)
+	}
+	o.OnClose(WindowHandle{})
+	if closed != 1 {
+		t.Error("OnClose does not reach the core options")
 	}
 }
 

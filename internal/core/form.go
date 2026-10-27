@@ -309,6 +309,16 @@ func (t *Tree) dispatchClick(target *Element, me MouseEvent) {
 	if st.defaultPrevented() {
 		return
 	}
+	if t.reg.n > 0 {
+		// A window-control button minimizes, maximizes or closes the
+		// window by itself (winregion.go).
+		if r := windowControlAt(target); r != regionNone {
+			if outermostDisabled(target) == nil {
+				t.windowControl(r)
+			}
+			return
+		}
+	}
 	t.activate(target, me)
 }
 

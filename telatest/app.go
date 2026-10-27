@@ -79,6 +79,10 @@ type App struct {
 // Mount makes the app receive the functions given to tela.Post, which are
 // delivered to one tree per process: do not mount apps that use Post from
 // parallel tests.
+//
+// The windows a tela.Window opens are opened in the headless backend too
+// (their components build and their effects run), but the queries,
+// actions, snapshots and goldens see the main window only.
 func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	tb.Helper()
 	cfg := newConfig(opts)

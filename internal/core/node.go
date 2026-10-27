@@ -49,6 +49,9 @@ type desc struct {
 	evMask  uint32 // the eventKinds of events (bit per kind)
 	// disabled is the Disabled prop (input.go).
 	disabled bool
+	// winRegion is the custom title bar prop (WindowDrag, WindowNoDrag,
+	// WindowControlProp; winregion.go), regionNone for none.
+	winRegion uint8
 	// Focus props (focus.go): TabIndex (hasTab false: the kind's
 	// default), AutoFocus, an ElementRef and a focus scope.
 	tabIndex  int32

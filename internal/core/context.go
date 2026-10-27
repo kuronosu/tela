@@ -76,13 +76,21 @@ func (s *ctxSub) unsubscribe() {
 }
 
 // findProvider returns the nearest Provider of context key above el, or
-// nil. Elements never move to another parent, so the result is the same
-// for el's whole life.
+// nil. Above the root of a child window's tree the search goes on from
+// the Window element that opened it (Tree.outer, window.go): one element
+// tree, one tree of boxes per window. Elements never move to another
+// parent, and a window's tree never to another Window element, so the
+// result is the same for el's whole life.
 func (el *Element) findProvider(key any) *Element {
-	for p := el.parent; p != nil; p = p.parent {
+	for p := el.parent; p != nil; {
 		if p.prov != nil && p.comp.ctx == key {
 			return p
 		}
+		if p.parent == nil {
+			p = p.tree.outer
+			continue
+		}
+		p = p.parent
 	}
 	return nil
 }
@@ -156,7 +164,8 @@ func (t *Tree) updateProvider(el *Element, n Node) {
 	if !safeEqual(el.prov.value, d.comp.value) {
 		el.prov.value = d.comp.value
 		for _, s := range el.prov.subs {
-			t.markBuild(s.el)
+			// A consumer in a child window builds in its window's tree.
+			s.el.tree.markBuild(s.el)
 		}
 	}
 	t.reconcile(el, d.children)

@@ -2,6 +2,7 @@ package tela
 
 import (
 	"fmt"
+	"image"
 	"io"
 	"os"
 
@@ -24,8 +25,39 @@ type App struct {
 	// "com.example.notes". Empty lets the platform pick one.
 	AppID string
 	// Width and Height are the requested size of the window in logical
-	// pixels. Zero means the platform's default size.
+	// pixels. Zero means the platform's default size; set both or
+	// neither.
 	Width, Height float32
+	// MinWidth, MinHeight, MaxWidth and MaxHeight limit the size the user
+	// can give the window; zero is no limit on that side.
+	MinWidth, MinHeight, MaxWidth, MaxHeight float32
+	// FixedSize keeps the user from resizing the window.
+	FixedSize bool
+	// Frameless removes the OS title bar and borders: the app draws its
+	// own title bar, marked with h.WindowDrag and h.WindowControl. The
+	// window stays resizable at its edges (unless FixedSize).
+	Frameless bool
+	// AlwaysOnTop keeps the window above other windows (not on Wayland).
+	AlwaysOnTop bool
+	// Hidden starts the window hidden (an app that starts in the tray):
+	// [WindowHandle].Show shows it.
+	Hidden bool
+	// Icon is the window's icon (title bar, task bar, alt-tab), the same
+	// picture at several sizes (16 to 256 pixels; the OS picks). Empty is
+	// the default icon (on Linux, the one of the .desktop file of AppID).
+	Icon []image.Image
+	// Placement is where the window opens: a WindowPlacement saved from
+	// [WindowHandle].Placement in an earlier run, so the window comes back
+	// where the user left it. Its size, when set, wins over Width and
+	// Height. The zero value lets the OS place the window.
+	Placement WindowPlacement
+	// OnClose runs when the user asks to close the main window (its close
+	// button, Alt+F4, a WindowClose control, [WindowHandle].Close). Nil,
+	// the default, quits the app. To keep running in the tray, hide the
+	// window instead; [Quit] ends the app later:
+	//
+	//	OnClose: func(w tela.WindowHandle) { w.Hide() },
+	OnClose func(WindowHandle)
 	// RootClass are Tailwind classes for the root, which fills the
 	// window. Use it to give the window a background ("bg-slate-900") or
 	// a text style; without it the window is white and the text black.
@@ -153,10 +185,13 @@ type DevState struct {
 	Restore func([]byte) error
 }
 
-// Run opens a window, shows app.Root and runs the event loop until the
-// window is closed. It must be called from the main goroutine, normally
-// from main. The window is drawn by Tela's own renderer on the native
-// backend: Wayland or X11 on Linux, Win32 and Cocoa elsewhere.
+// Run opens a window, shows app.Root and runs the event loop until the app
+// quits: the main window is closed (unless App.OnClose says otherwise) or
+// [Quit] is called. The windows unmount before Run returns, running the
+// cleanups of their effects. It must be called from the main goroutine,
+// normally from main. The window is drawn by Tela's own renderer on the
+// native backend: Wayland or X11 on Linux, Win32 and Cocoa elsewhere;
+// [Window] components open more windows.
 //
 // Run returns an error when the platform cannot open a window (for
 // example, no display is available). It panics when app.Root is nil.
@@ -204,12 +239,23 @@ func (app App) options() core.Options {
 			ClassAliases:      app.ClassAliases,
 			Dev:               core.ResolveDev(app.Dev),
 		},
-		Title:      app.Title,
-		AppID:      app.AppID,
-		Width:      app.Width,
-		Height:     app.Height,
-		Root:       core.NodeOf(app.Root),
-		DevSave:    app.DevState.Save,
-		DevRestore: app.DevState.Restore,
+		Title:       app.Title,
+		AppID:       app.AppID,
+		Width:       app.Width,
+		Height:      app.Height,
+		MinWidth:    app.MinWidth,
+		MinHeight:   app.MinHeight,
+		MaxWidth:    app.MaxWidth,
+		MaxHeight:   app.MaxHeight,
+		FixedSize:   app.FixedSize,
+		Frameless:   app.Frameless,
+		AlwaysOnTop: app.AlwaysOnTop,
+		Hidden:      app.Hidden,
+		Icon:        app.Icon,
+		Placement:   app.Placement,
+		OnClose:     app.OnClose,
+		Root:        core.NodeOf(app.Root),
+		DevSave:     app.DevState.Save,
+		DevRestore:  app.DevState.Restore,
 	}
 }

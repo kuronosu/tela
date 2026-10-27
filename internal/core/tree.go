@@ -198,7 +198,11 @@ type Tree struct {
 
 	// Value reads (value.go). trackDepth is the depth of the evaluations
 	// whose reads are tracked (builds, deferred props); Get reads it from
-	// any goroutine and appends to reads under trackMu.
+	// any goroutine and appends to reads under trackMu. trk is the Tree
+	// whose tracking fields are used: the Tree itself, or for the Tree of
+	// a child window the main window's (window.go), so the windows of an
+	// app track their reads together.
+	trk        *Tree
 	trackDepth atomic.Int32
 	trackMu    sync.Mutex
 	reads      []*valueCore
@@ -272,6 +276,22 @@ type Tree struct {
 	// dbg is the state of the debug overlays (debug.go).
 	dbg debugState
 
+	// Windows (window.go). wv is the window the tree is shown in (nil
+	// for a tree without one: Render, tela snapshot); outer is, for the
+	// tree of a child window, the Window element that opened it, where
+	// context lookups go on above the root. wins are the Window
+	// components mounted in this tree and winQ those whose window must be
+	// opened, updated or closed once the build lock is released; wstate
+	// is the Value UseWindow's State reads (owned by the root).
+	wv     *winView
+	outer  *Element
+	wins   []*windowSlot
+	winQ   []*windowSlot
+	wstate *Value[WindowState]
+	// reg counts the mounted elements with custom title bar props
+	// (winregion.go).
+	reg regionState
+
 	lastDL *gfx.DisplayList
 	stats  Stats
 }
@@ -292,6 +312,7 @@ func NewTree(cfg Config) *Tree {
 		viewport:      gfx.Size{W: 800, H: 600},
 		scale:         1,
 	}
+	t.trk = t
 	t.foc.window = true
 	t.dbg.flags = cfg.Debug & DebugAll
 	t.dbg.clock = cfg.DebugClock
@@ -377,6 +398,14 @@ func (t *Tree) Stats() Stats { return t.stats }
 // effects of a previous frame that were not flushed run first.
 func (t *Tree) Mount(root Node) {
 	t.FlushEffects()
+	t.mountLocked(root)
+	if len(t.winQ) > 0 {
+		t.flushWindows() // window.go: after the build lock is released
+	}
+}
+
+// mountLocked is Mount under the build lock.
+func (t *Tree) mountLocked(root Node) {
 	t.lockBuild()
 	defer unlockBuild()
 	n := Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses, children: []Node{root}}}
@@ -409,6 +438,9 @@ func (t *Tree) Unmount() {
 		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
 		unlockBuild()
 		t.syncModal()
+		if len(t.winQ) > 0 {
+			t.flushWindows() // the child windows close (window.go)
+		}
 	}
 	t.resetFocus()
 	t.dropEffects()
@@ -655,6 +687,16 @@ func (t *Tree) buildPhase() {
 	if len(t.buildQ) == 0 {
 		return
 	}
+	t.buildLocked()
+	if len(t.winQ) > 0 {
+		// Windows open, change and close once the build lock is
+		// released: a child window's tree builds under it (window.go).
+		t.flushWindows()
+	}
+}
+
+// buildLocked is the build phase under the build lock.
+func (t *Tree) buildLocked() {
 	t.lockBuild()
 	defer unlockBuild()
 	// The builds may mount, unmount or exit overlays (overlay.go).

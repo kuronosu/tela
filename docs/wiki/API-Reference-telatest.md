@@ -166,6 +166,8 @@ app := telatest.Mount(t, Card{Title: "Inbox"})
 
 Mount makes the app receive the functions given to tela.Post, which are delivered to one tree per process: do not mount apps that use Post from parallel tests.
 
+The windows a tela.Window opens are opened in the headless backend too (their components build and their effects run), but the queries, actions, snapshots and goldens see the main window only.
+
 **Example**
 
 ```go
@@ -1189,7 +1191,7 @@ app := telatest.Mount(t, Notes(), telatest.FromApp(App))
 app := telatest.Mount(t, Notes{}, telatest.FromApp(App), telatest.Size(400, 300))
 ```
 
-Title, AppID, Root and DevState say nothing about how the app looks, so FromApp ignores them; [`MountApp`](#func-mountapp) also mounts Root. The scale is not an App setting (it comes from the display): use [`Scale`](#func-scale).
+Title, AppID, Root, DevState and the fields of the OS window (size limits, FixedSize, Frameless, AlwaysOnTop, Hidden, Icon, Placement, OnClose) say nothing about how the content looks, so FromApp ignores them; [`MountApp`](#func-mountapp) also mounts Root. The scale is not an App setting (it comes from the display): use [`Scale`](#func-scale).
 
 **Example**
 

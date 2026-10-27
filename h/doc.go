@@ -20,7 +20,8 @@
 // TabIndex, AutoFocus and Ref, the semantics props Role and Aria..., the
 // field props Value, DefaultValue, Bind, BindValue, Type, Rows,
 // Placeholder, ReadOnly, MaxLength, AutoComplete, SpellCheck, Name and
-// For, and the event handlers OnClick, OnDoubleClick, OnContextMenu,
+// For, the custom title bar props WindowDrag, WindowNoDrag and
+// WindowControl, and the event handlers OnClick, OnDoubleClick, OnContextMenu,
 // OnMouse..., OnPointer..., OnDrag..., OnLongPress, OnKey..., OnFocus,
 // OnBlur, OnWheel, OnScroll, OnChange, OnBeforeInput, OnComposition...,
 // OnSelect and OnSubmit), the helpers If, IfElse (for nodes and props

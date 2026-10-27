@@ -322,6 +322,8 @@ const (
 	hookTimeout       // core.UseTimeout, the Timeout of package aria (interval.go)
 	hookDirection     // UseDirection (direction.go)
 	hookTimeoutAfter  // tela.UseTimeout(d, f, deps...) (interval.go)
+	hookWindow        // UseWindow (window.go)
+	hookWindowSpec    // the slot of a tela.Window component (window.go)
 )
 
 // hookNames name the kinds in dev messages and in the hook signatures of
@@ -359,6 +361,8 @@ var hookNames = [...]string{
 	hookTimeout:       "aria's Timeout",
 	hookDirection:     "UseDirection",
 	hookTimeoutAfter:  "UseTimeout",
+	hookWindow:        "UseWindow",
+	hookWindowSpec:    "tela.Window",
 }
 
 func (k hookKind) String() string { return hookNames[k] }
