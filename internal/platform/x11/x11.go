@@ -91,6 +91,14 @@ type Backend struct {
 	// desktop is the D-Bus desktop services (services.go), created by the
 	// first Desktop call.
 	desktop *freedesktop.Desktop
+
+	// Window control (windowctl.go): the server side of the requests
+	// (the connection; a recorder in unit tests), the EWMH hints the
+	// window manager supports, and the X server time of the latest key
+	// or button press (for _NET_ACTIVE_WINDOW).
+	srv       wmServer
+	supported map[xproto.Atom]bool
+	userTime  uint32
 }
 
 // xevent is an event or an X error received by the pump.
@@ -172,17 +180,20 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 	}
 	b.initLoop()
 	b.kbd.fetch = b.coreMapping
+	b.srv = connServer{b}
 	var err error
 	if b.atoms, err = internAtoms(conn); err != nil {
 		return nil, fmt.Errorf("x11: interning atoms: %w", err)
 	}
+	b.readSupported()
 	b.maxRequest = maxRequestBytes(conn, setup)
 	b.bigRequests = b.maxRequest > int(setup.MaximumRequestLength)*4
 	b.scale = b.readScale()
 
 	// PropertyChange on the root window reports RESOURCE_MANAGER changes
-	// (Xft.dpi). Other root properties change too (_NET_ACTIVE_WINDOW on
-	// every focus change) and are filtered in translate.
+	// (Xft.dpi) and _NET_SUPPORTED (a new window manager). Other root
+	// properties change too (_NET_ACTIVE_WINDOW on every focus change)
+	// and are filtered in translate.
 	xproto.ChangeWindowAttributes(conn, b.root, xproto.CwEventMask, []uint32{xproto.EventMaskPropertyChange})
 
 	b.initXKB()
@@ -375,8 +386,10 @@ func (b *Backend) pump() {
 
 // pollEvents translates the events already received, without blocking. It
 // returns false if the connection was lost. A key event still waiting for
-// its StateNotify is queued at the end: nothing more arrived.
+// its StateNotify is queued at the end: nothing more arrived; so are the
+// positions of the windows that moved (endBatch).
 func (b *Backend) pollEvents() bool {
+	defer b.endBatch()
 	defer b.kbd.flushAll()
 	for range eventBatch {
 		select {

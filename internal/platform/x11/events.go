@@ -44,12 +44,12 @@ func (b *Backend) translate(e xevent) {
 		}
 
 	case xproto.ConfigureNotifyEvent:
-		// Only the size matters. Note that real ConfigureNotify events
-		// carry a position relative to the parent (the window manager's
-		// frame) while synthetic ones sent by the window manager carry
-		// root coordinates (ICCCM 4.1.5); winit tracks both to report
-		// moves, which Tela does not need.
+		// The size, and the position (windowctl.go: real events carry
+		// a position relative to the parent, which is the window
+		// manager's frame once reparented, synthetic ones root
+		// coordinates; ICCCM 4.1.5).
 		if w := b.windows[ev.Window]; w != nil && ev.Event == ev.Window {
+			w.configured(ev)
 			size := image.Pt(int(ev.Width), int(ev.Height))
 			if size != w.osSize {
 				w.osSize = size
@@ -57,42 +57,57 @@ func (b *Backend) translate(e xevent) {
 			}
 		}
 
+	case xproto.ReparentNotifyEvent:
+		// A reparenting window manager put the window into its frame
+		// (or back to the root when it withdraws it).
+		if w := b.windows[ev.Window]; w != nil && ev.Event == ev.Window {
+			w.parentWin = ev.Parent
+			w.posDirty = true
+		}
+
 	case xproto.MapNotifyEvent:
 		if w := b.windows[ev.Window]; w != nil && ev.Event == ev.Window {
-			w.SetHidden(false)
+			w.osUnmapped = false
+			w.updateHidden()
+			w.posDirty = true
+			w.refreshState()
 		}
 
 	case xproto.UnmapNotifyEvent:
 		// The window manager unmaps the client window when it is
-		// iconified (ICCCM 4.1.4). Frames pause until it is mapped again.
-		if w := b.windows[ev.Window]; w != nil && ev.Event == ev.Window && w.mapped {
-			w.SetHidden(true)
+		// iconified (ICCCM 4.1.4); the backend unmaps it to hide it.
+		// Frames pause until it is mapped again.
+		if w := b.windows[ev.Window]; w != nil && ev.Event == ev.Window {
+			w.osUnmapped = true
+			w.updateHidden()
 		}
 
 	// Core pointer events: only without XInput2 (windows then select
 	// XI2 events instead).
 	case xproto.ButtonPressEvent:
+		b.userTime = uint32(ev.Time)
 		if w := b.windows[ev.Event]; w != nil {
-			b.ptrButton(b.corePtr(w, ev.State, ev.EventX, ev.EventY), uint32(ev.Detail), true)
+			b.ptrButton(b.corePtr(w, ev.State, ev.EventX, ev.EventY, ev.RootX, ev.RootY), uint32(ev.Detail), true)
 		}
 	case xproto.ButtonReleaseEvent:
 		if w := b.windows[ev.Event]; w != nil {
-			b.ptrButton(b.corePtr(w, ev.State, ev.EventX, ev.EventY), uint32(ev.Detail), false)
+			b.ptrButton(b.corePtr(w, ev.State, ev.EventX, ev.EventY, ev.RootX, ev.RootY), uint32(ev.Detail), false)
 		}
 	case xproto.MotionNotifyEvent:
 		if w := b.windows[ev.Event]; w != nil {
-			b.ptrMotion(b.corePtr(w, ev.State, ev.EventX, ev.EventY))
+			b.ptrMotion(b.corePtr(w, ev.State, ev.EventX, ev.EventY, ev.RootX, ev.RootY))
 		}
 	case xproto.EnterNotifyEvent:
 		if w := b.windows[ev.Event]; w != nil {
-			b.ptrEnter(b.corePtr(w, ev.State, ev.EventX, ev.EventY), ev.Mode, ev.Detail)
+			b.ptrEnter(b.corePtr(w, ev.State, ev.EventX, ev.EventY, ev.RootX, ev.RootY), ev.Mode, ev.Detail)
 		}
 	case xproto.LeaveNotifyEvent:
 		if w := b.windows[ev.Event]; w != nil {
-			b.ptrLeave(b.corePtr(w, ev.State, ev.EventX, ev.EventY), ev.Mode, ev.Detail)
+			b.ptrLeave(b.corePtr(w, ev.State, ev.EventX, ev.EventY, ev.RootX, ev.RootY), ev.Mode, ev.Detail)
 		}
 
 	case xproto.KeyPressEvent:
+		b.userTime = uint32(ev.Time)
 		b.kbd.keyPress(ev)
 	case xproto.KeyReleaseEvent:
 		b.kbd.keyRelease(ev)
@@ -143,8 +158,15 @@ func (b *Backend) translate(e xevent) {
 		}
 
 	case xproto.PropertyNotifyEvent:
-		if ev.Window == b.root && ev.Atom == xproto.AtomResourceManager {
+		switch {
+		case ev.Window == b.root && ev.Atom == xproto.AtomResourceManager:
 			b.updateScale()
+		case ev.Window == b.root && ev.Atom == b.atoms.netSupported:
+			b.readSupported() // another window manager
+		case ev.Atom == b.atoms.netWMState || ev.Atom == b.atoms.wmState:
+			if w := b.windows[ev.Window]; w != nil {
+				w.refreshState()
+			}
 		}
 	}
 }
@@ -163,19 +185,24 @@ func realFocusChange(mode, detail byte) bool {
 
 // ptr is a pointer event decoded from the core protocol or from XInput2.
 type ptr struct {
-	w    *Window
-	x, y float64          // physical pixels, relative to the window
-	held platform.Buttons // buttons held before the event
-	mods platform.Modifiers
+	w            *Window
+	x, y         float64          // physical pixels, relative to the window
+	rootX, rootY float64          // physical pixels, root coordinates
+	held         platform.Buttons // buttons held before the event
+	mods         platform.Modifiers
 	// extra are the bits of held that come from w.extra (core events).
 	extra platform.Buttons
+	// device is the XInput2 master pointer of the event, 0 for core
+	// events.
+	device uint16
 }
 
 // corePtr decodes the common fields of a core pointer event. The core
 // state has no bits for the back and forward buttons, which the window
 // tracks (w.extra).
-func (b *Backend) corePtr(w *Window, state uint16, x, y int16) ptr {
-	return ptr{w: w, x: float64(x), y: float64(y), held: buttonsFromState(state) | w.extra, mods: b.kbd.mods(uint32(state)), extra: w.extra}
+func (b *Backend) corePtr(w *Window, state uint16, x, y, rootX, rootY int16) ptr {
+	return ptr{w: w, x: float64(x), y: float64(y), rootX: float64(rootX), rootY: float64(rootY),
+		held: buttonsFromState(state) | w.extra, mods: b.kbd.mods(uint32(state)), extra: w.extra}
 }
 
 // posf converts event coordinates (physical pixels) to logical pixels.
@@ -200,10 +227,16 @@ func (b *Backend) pointer(w *Window, pe platform.PointerEvent) {
 	})
 }
 
-// ptrMotion translates a pointer motion.
+// ptrMotion translates a pointer motion. Motion of a sequence the OS owns
+// (a press on a caption or a resize edge) is not delivered; otherwise the
+// resize cursor follows the band of a frameless window.
 func (b *Backend) ptrMotion(p ptr) {
 	w := p.w
 	w.lastPos = w.posf(p.x, p.y)
+	if w.osPointer(p, platform.ButtonNone) {
+		return
+	}
+	w.hoverEdge(w.lastPos)
 	b.pointer(w, platform.PointerEvent{
 		Action:  platform.PointerMove,
 		Pos:     w.lastPos,
@@ -233,9 +266,13 @@ func (b *Backend) ptrEnter(p ptr, mode, detail byte) {
 		b.leave(w, 0, p.mods)
 		p.held &^= p.extra // cancelPress forgot them
 	}
+	if w.osPointer(p, platform.ButtonNone) {
+		p.held &^= w.osHeld // the app never saw those presses
+	}
 	if !w.inside {
 		w.inside = true
 		w.lastPos = w.posf(p.x, p.y)
+		w.hoverEdge(w.lastPos)
 		b.pointer(w, platform.PointerEvent{
 			Action:  platform.PointerEnter,
 			Pos:     w.lastPos,
@@ -252,6 +289,23 @@ func (b *Backend) ptrEnter(p ptr, mode, detail byte) {
 func (b *Backend) ptrLeave(p ptr, mode, detail byte) {
 	w := p.w
 	if detail == xproto.NotifyDetailInferior || !w.inside {
+		return
+	}
+	if w.edge != edgeNone {
+		w.edge = edgeNone
+		w.applyCursor()
+	}
+	if w.osPointer(p, platform.ButtonNone) {
+		// The pointer left during a sequence the OS owns: usually the
+		// window manager grabbed it for a move, a resize or its menu
+		// (NotifyGrab), and the release goes to the window manager.
+		// The app saw no press, so it gets a plain leave now.
+		held := p.held &^ w.osHeld
+		if mode == xproto.NotifyModeGrab {
+			w.osHeld = 0
+		}
+		w.lastPos = w.posf(p.x, p.y)
+		b.leave(w, held, p.mods)
 		return
 	}
 	if p.held != 0 && mode == xproto.NotifyModeNormal {
@@ -300,6 +354,16 @@ func (b *Backend) ptrButton(p ptr, detail uint32, press bool) {
 		}
 		return
 	}
+	if btn == platform.ButtonBack || btn == platform.ButtonForward {
+		if press {
+			w.extra |= btn.Mask()
+		} else {
+			w.extra &^= btn.Mask()
+		}
+	}
+	if press && b.osPress(p, btn, pos) || !press && w.osPointer(p, btn) {
+		return // a caption or resize edge sequence: the OS's
+	}
 	// The held set is the state before the event, so the pressed or
 	// released button is applied on top of it.
 	held := p.held
@@ -309,13 +373,6 @@ func (b *Backend) ptrButton(p ptr, detail uint32, press bool) {
 	} else {
 		held &^= btn.Mask()
 		action = platform.PointerUp
-	}
-	if btn == platform.ButtonBack || btn == platform.ButtonForward {
-		if press {
-			w.extra |= btn.Mask()
-		} else {
-			w.extra &^= btn.Mask()
-		}
 	}
 	b.pointer(w, platform.PointerEvent{
 		Action:  action,

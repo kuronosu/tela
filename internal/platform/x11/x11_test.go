@@ -295,15 +295,16 @@ func TestRealFocusChange(t *testing.T) {
 
 func TestProperties(t *testing.T) {
 	le := binary.LittleEndian
-	h := sizeHints(image.Pt(800, 600), image.Pt(200, 100), false)
-	if len(h) != 18*4 || le.Uint32(h) != hintPMinSize || le.Uint32(h[20:]) != 200 || le.Uint32(h[24:]) != 100 || le.Uint32(h[28:]) != 0 {
+	const always = hintPWinGravity // StaticGravity in every hint
+	h := sizeHints(normalHints{size: image.Pt(800, 600), min: image.Pt(200, 100)})
+	if len(h) != 18*4 || le.Uint32(h) != always|hintPMinSize || le.Uint32(h[20:]) != 200 || le.Uint32(h[24:]) != 100 || le.Uint32(h[28:]) != 0 || le.Uint32(h[68:]) != gravityStatic {
 		t.Errorf("min-size hints = % x", h)
 	}
-	h = sizeHints(image.Pt(800, 600), image.Point{}, true)
-	if le.Uint32(h) != hintPMinSize|hintPMaxSize || le.Uint32(h[20:]) != 800 || le.Uint32(h[28:]) != 800 || le.Uint32(h[32:]) != 600 {
+	h = sizeHints(normalHints{size: image.Pt(800, 600), fixed: true})
+	if le.Uint32(h) != always|hintPMinSize|hintPMaxSize || le.Uint32(h[20:]) != 800 || le.Uint32(h[28:]) != 800 || le.Uint32(h[32:]) != 600 {
 		t.Errorf("fixed-size hints = % x", h)
 	}
-	if h = sizeHints(image.Pt(800, 600), image.Point{}, false); le.Uint32(h) != 0 {
+	if h = sizeHints(normalHints{size: image.Pt(800, 600)}); le.Uint32(h) != always {
 		t.Errorf("no-constraint hints have flags %#x", le.Uint32(h))
 	}
 
@@ -323,19 +324,29 @@ func TestProperties(t *testing.T) {
 
 // fakeBackend returns a backend without a connection, enough to test event
 // translation and dispatch (which send no requests for input events).
+//
+// Window control requests go to a fakeServer (windowctl_test.go), which
+// records them and answers property and position queries.
 func fakeBackend(scale float64) (*Backend, *Window) {
+	b := fakeEmpty(scale)
+	w := fakeWindow(b, 7, image.Pt(300, 200), platform.WindowOptions{})
+	b.srv.(*fakeServer).take()
+	return b, w
+}
+
+// fakeEmpty returns a fake backend without windows.
+func fakeEmpty(scale float64) *Backend {
 	b := &Backend{
 		start:   time.Now(),
 		scale:   scale,
 		notify:  make(chan struct{}, 1),
 		windows: map[xproto.Window]*Window{},
+		root:    1,
 	}
 	b.initLoop()
-	w := &Window{b: b, id: 7, osSize: image.Pt(300, 200)}
-	b.windows[w.id] = w
-	b.loop.Add(w)
-	b.queueConfigure(w)
-	return b, w
+	b.srv = newFakeServer(b)
+	b.readSupported()
+	return b
 }
 
 type recorder struct{ events []string }
@@ -378,6 +389,8 @@ func (r *recorder) HandleEvent(_ platform.Window, e platform.Event) {
 		s = "close"
 	case platform.WakeEvent:
 		s = "wake"
+	case platform.WindowStateEvent:
+		s = "state " + e.State.String()
 	default:
 		s = fmt.Sprintf("%T", e)
 	}

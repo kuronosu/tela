@@ -7,6 +7,7 @@ import (
 	"image"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
@@ -20,8 +21,10 @@ const maxWindowSide = 32767
 
 // windowEvents is the core event mask of every window. KeymapState makes
 // the server send KeymapNotify (the keys down) after every FocusIn.
+// PropertyChange reports _NET_WM_STATE and WM_STATE changes (windowctl.go).
 const windowEvents = xproto.EventMaskExposure |
 	xproto.EventMaskStructureNotify |
+	xproto.EventMaskPropertyChange |
 	xproto.EventMaskFocusChange |
 	xproto.EventMaskKeyPress |
 	xproto.EventMaskKeyRelease |
@@ -48,7 +51,13 @@ type Window struct {
 	gc   xproto.Gcontext
 	opts platform.WindowOptions
 
-	mapped bool // MapWindow was sent (at the first Present)
+	// mapped: MapWindow was sent (at the first Present, or when shown
+	// again) and not undone by hiding: the window manager manages the
+	// window. osUnmapped: the server reports it unmapped (iconified by
+	// the window manager, or hidden).
+	mapped     bool
+	osUnmapped bool
+	visible    bool // not hidden by SetVisible or WindowOptions.Hidden
 
 	osSize image.Point // latest physical size from the server
 
@@ -64,20 +73,42 @@ type Window struct {
 	focused      bool
 	extra        platform.Buttons // held buttons the core state mask lacks (back, forward)
 	lastPos      platform.Point
-	cursor       platform.Cursor
+	cursor       platform.Cursor // the app's (SetCursor)
+	shown        platform.Cursor // the server's: the app's, or a resize cursor
+
+	// Window control (windowctl.go).
+	parent      *Window       // WindowOptions.Parent
+	modal       bool          // WindowOptions.Modal
+	parentWin   xproto.Window // the server's parent: the root, or a frame
+	osState     platform.WindowState
+	req         wantState
+	startIconic bool // minimized while withdrawn: map it iconified
+	iconicHint  bool // WM_HINTS says Iconic
+	posDirty    bool // read the root position at the end of the batch
+	regions     []platform.HitRegion
+	edge        int              // resize band under the pointer, or edgeNone
+	osHeld      platform.Buttons // buttons of a press sequence the OS owns
+	// The last primary caption press, for double clicks.
+	lastCaption    time.Duration
+	lastCaptionPos platform.Point
+	hasLastCaption bool
 }
 
 var _ platform.Window = (*Window)(nil)
 
-// NewWindow creates an unmapped window; it is mapped at its first Present.
+// NewWindow creates an unmapped window; it is mapped at its first Present
+// (or, for a Hidden window, at its first Present after SetVisible(true)).
 // Its first event is a ConfigureEvent with the requested size (an unmapped
 // window has the size it was created with); the window manager's decision
-// arrives as a later ConfigureEvent once the window is mapped.
+// arrives as a later ConfigureEvent once the window is mapped. A frameless
+// window then gets a WindowStateEvent with ClientSideDecorations. A
+// Parent must be an open window of this backend.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
 	opts = opts.Resolve()
 	if b.closed {
 		return nil, errClosed
 	}
+	parent := b.parentOf(opts)
 	size := clampPhysical(platform.PhysicalSize(opts.Size, b.scale))
 
 	id, err := xproto.NewWindowId(b.conn)
@@ -98,7 +129,13 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		events |= corePointerEvents
 	}
 	values := []uint32{xproto.BackPixmapNone, xproto.GravityNorthWest, events, uint32(b.cursorFor(platform.CursorDefault))}
-	err = xproto.CreateWindowChecked(b.conn, b.depth, id, b.root, 0, 0, uint16(size.X), uint16(size.Y), 0,
+	var x, y int16
+	if opts.HasPosition {
+		// With StaticGravity (WM_NORMAL_HINTS) this is the content
+		// area's position, which window managers read at map.
+		x, y = int16(opts.Position.X), int16(opts.Position.Y)
+	}
+	err = xproto.CreateWindowChecked(b.conn, b.depth, id, b.root, x, y, uint16(size.X), uint16(size.Y), 0,
 		xproto.WindowClassInputOutput, b.visual, mask, values).Check()
 	if err != nil {
 		return nil, fmt.Errorf("x11: CreateWindow: %w", err)
@@ -110,12 +147,12 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		b.sendRequest(xiSelectEventsRequest(b.xi.opcode, id, xiAllMasterDevices, xiWindowEvents))
 	}
 
-	w := &Window{b: b, id: id, gc: gc, opts: opts, osSize: size}
+	w := &Window{b: b, id: id, gc: gc, opts: opts, osSize: size, parent: parent}
 	a := b.atoms
 	b.setProperty(id, a.wmProtocols, xproto.AtomAtom, 32, card32s(uint32(a.wmDeleteWindow), uint32(a.netWMPing)))
 	b.setProperty(id, xproto.AtomWmClass, xproto.AtomString, 8, wmClass(opts.AppID, platform.DefaultAppID()))
-	b.setProperty(id, xproto.AtomWmHints, xproto.AtomWmHints, 32, wmHints())
-	b.setProperty(id, a.netWMWindowType, xproto.AtomAtom, 32, card32s(uint32(a.netWMTypeNormal)))
+	b.setProperty(id, xproto.AtomWmHints, xproto.AtomWmHints, 32, wmHints(false))
+	w.initCtl(opts)
 	// _NET_WM_PING requires _NET_WM_PID and WM_CLIENT_MACHINE (EWMH).
 	b.setProperty(id, a.netWMPID, xproto.AtomCardinal, 32, card32s(uint32(os.Getpid())))
 	if host, err := os.Hostname(); err == nil {
@@ -127,6 +164,8 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	b.windows[id] = w
 	b.loop.Add(w)
 	b.queueConfigure(w)
+	b.loop.UpdateState(w, w.osState) // frameless: client-side decorations
+	w.updateHidden()
 	return w, nil
 }
 
@@ -160,20 +199,22 @@ func (w *Window) setTitle(title string) {
 	w.b.setProperty(w.id, xproto.AtomWmName, xproto.AtomString, 8, latin1(title))
 }
 
-// SetCursor sets the cursor shown over the window.
+// SetCursor sets the cursor shown over the window (except over the resize
+// band of a frameless window, where the resize cursor shows).
 func (w *Window) SetCursor(c platform.Cursor) {
 	if !c.Valid() {
 		panic(fmt.Sprintf("x11: SetCursor(%d): invalid cursor; use one of the platform.Cursor constants", c))
 	}
-	if w.Closed() || c == w.cursor {
+	if w.Closed() {
 		return
 	}
 	w.cursor = c
-	xproto.ChangeWindowAttributes(w.b.conn, w.id, xproto.CwCursor, []uint32{uint32(w.b.cursorFor(c))})
+	w.applyCursor()
 }
 
 // SetSize asks the window manager to resize the window to size (logical
-// pixels, clamped to MinSize). The outcome arrives as a ConfigureEvent.
+// pixels, clamped to the size limits). The outcome arrives as a
+// ConfigureEvent.
 func (w *Window) SetSize(size platform.Size) {
 	platform.CheckSize("SetSize size", size)
 	if w.Closed() {
@@ -186,25 +227,38 @@ func (w *Window) SetSize(size platform.Size) {
 		// window manager rejects it.
 		w.updateNormalHints()
 	}
-	xproto.ConfigureWindow(w.b.conn, w.id, xproto.ConfigWindowWidth|xproto.ConfigWindowHeight, []uint32{uint32(p.X), uint32(p.Y)})
+	w.b.srv.configure(w.id, xproto.ConfigWindowWidth|xproto.ConfigWindowHeight, []uint32{uint32(p.X), uint32(p.Y)})
 }
 
-// updateNormalHints writes WM_NORMAL_HINTS from the options at the current
-// scale.
+// updateNormalHints writes WM_NORMAL_HINTS from the options (size limits)
+// and the wanted position at the current scale.
 func (w *Window) updateNormalHints() {
-	size := clampPhysical(platform.PhysicalSize(w.opts.Size, w.b.scale))
-	var minSize image.Point
-	if w.opts.MinSize != (platform.Size{}) {
-		minSize = platform.PhysicalSize(w.opts.MinSize, w.b.scale)
+	s := w.b.scale
+	h := normalHints{
+		size:   clampPhysical(platform.PhysicalSize(w.opts.Size, s)),
+		min:    platform.PhysicalSize(w.opts.MinSize, s),
+		max:    platform.PhysicalSize(w.opts.MaxSize, s),
+		fixed:  w.opts.FixedSize,
+		pos:    w.req.pos,
+		hasPos: w.req.hasPos,
 	}
-	w.b.setProperty(w.id, xproto.AtomWmNormalHints, xproto.AtomWmSizeHints, 32, sizeHints(size, minSize, w.opts.FixedSize))
+	// The minimum wins where the maximum is below it (platform.ClampSize).
+	if h.max.X > 0 {
+		h.max.X = min(max(h.max.X, h.min.X), maxWindowSide)
+	}
+	if h.max.Y > 0 {
+		h.max.Y = min(max(h.max.Y, h.min.Y), maxWindowSide)
+	}
+	w.b.setProperty(w.id, xproto.AtomWmNormalHints, xproto.AtomWmSizeHints, 32, sizeHints(h))
 }
 
-// Close destroys the window. Queued events for it are dropped.
+// Close destroys the window, after its child windows (in creation order).
+// Queued events for them are dropped.
 func (w *Window) Close() {
 	if w.Closed() {
 		return
 	}
+	w.closeChildren()
 	b := w.b
 	b.loop.Remove(w) // marks it closed and drops its queued events
 	b.kbd.dropWindow(w)
@@ -215,8 +269,7 @@ func (w *Window) Close() {
 // destroy frees the window's server resources.
 func (w *Window) destroy() {
 	w.pix = nil
-	xproto.FreeGC(w.b.conn, w.gc)
-	xproto.DestroyWindow(w.b.conn, w.id)
+	w.b.srv.destroy(w.id, w.gc)
 }
 
 // Present stores the damaged pixels of fb in the retained copy and sends
@@ -252,8 +305,10 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	if !w.mapped {
 		// An unmapped window has no contents, so drawing now would be
 		// lost. The Expose that follows the map paints the retained copy.
-		w.mapped = true
-		xproto.MapWindow(w.b.conn, w.id)
+		// A hidden window keeps the frame for when it is shown.
+		if w.visible {
+			w.mapWindow()
+		}
 		return nil
 	}
 	for _, r := range rects {

@@ -358,7 +358,8 @@
 //     it with SystemSettings.DoubleClickInterval and toggle maximize
 //     themselves). A secondary click opens the window menu where one
 //     exists (xdg_toplevel.show_window_menu; the system menu of
-//     DefWindowProc on Win32; nothing on X11). Pointer motion without a
+//     DefWindowProc on Win32; _GTK_SHOW_WINDOW_MENU on X11 when the window
+//     manager lists it in _NET_SUPPORTED). Pointer motion without a
 //     button over a caption region is delivered (hover effects work): on
 //     Win32 the backend turns WM_NCMOUSEMOVE into PointerMove and reports
 //     no leave when the pointer crosses between client and caption areas.

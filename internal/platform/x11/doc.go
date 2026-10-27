@@ -28,6 +28,68 @@
 // Mods come from the real modifier mapping (Alt and Super are where their
 // keys are bound; AltGr is never Alt).
 //
+// # Window control
+//
+// windowctl.go implements the phase 12 requests (ADR-178, ADR-179) with
+// ICCCM and EWMH:
+//
+//   - A withdrawn window (not mapped yet, or hidden with SetVisible) is
+//     not managed, so requests only update the wanted state, which is
+//     written right before every MapWindow: _NET_WM_STATE (maximized,
+//     fullscreen, above, modal), WM_HINTS initial state (Iconic after a
+//     Minimize), the position (WM_NORMAL_HINTS USPosition and the
+//     window's own x, y). The window manager removes _NET_WM_STATE when it
+//     withdraws a window, so hide/show keeps the state this way, as GTK
+//     does. Hiding is UnmapWindow plus the synthetic UnmapNotify of ICCCM
+//     4.1.4.
+//   - A managed window gets client messages to the root window:
+//     _NET_WM_STATE add/remove (source indication 1), WM_CHANGE_STATE
+//     IconicState for Minimize, _NET_ACTIVE_WINDOW with the X time of the
+//     latest key or button press and the app's focused window. An
+//     iconified window comes back by MapWindow (ICCCM), which Activate,
+//     SetMaximized and SetFullscreen do. Requests equal to the wanted
+//     state, which follows what the window manager reports, are free.
+//   - State is read back at every PropertyNotify of _NET_WM_STATE (only
+//     when _NET_SUPPORTED lists it: maximized needs both MAXIMIZED_VERT
+//     and _HORZ, as in GTK; fullscreen; HIDDEN is minimized) and WM_STATE
+//     (Iconic is minimized), and queued with internal/loop UpdateState.
+//     Minimized or unmapped windows get no frames.
+//   - Positions are the content area's root coordinates. WM_NORMAL_HINTS
+//     always has StaticGravity, so positions given to the window manager
+//     are the client window's. They are reported from ConfigureNotify
+//     while the parent is the root, and with one TranslateCoordinates per
+//     batch once a reparenting window manager put the window in a frame
+//     (xgb drops the SendEvent bit, so synthetic events cannot be told
+//     apart; GTK translates the same way).
+//   - Size limits are PMinSize/PMaxSize in WM_NORMAL_HINTS (a zero
+//     component is 1 or 32767); the icon is _NET_WM_ICON with every
+//     size, sent as one BIG-REQUESTS ChangeProperty (or Replace plus
+//     Appends) because xgb's request has a 16-bit length.
+//   - Frameless windows set _MOTIF_WM_HINTS without decorations and report
+//     ClientSideDecorations. Unless maximized, fullscreen or FixedSize, a
+//     band of 6 logical pixels along their edges (16 along each edge from
+//     a corner resizes diagonally) shows the resize cursor and a press
+//     there starts _NET_WM_MOVERESIZE with the edge.
+//   - Hit regions: a press of any button in a HitCaption region, when the
+//     app holds no button, is the OS's: primary starts _NET_WM_MOVERESIZE
+//     move (a second one within 400 ms, GTK's default double-click time,
+//     and 4 logical pixels toggles maximize), secondary sends
+//     _GTK_SHOW_WINDOW_MENU (mutter, KWin, Xfwm4, Openbox) when
+//     _NET_SUPPORTED lists it. Before a move or menu request the implicit
+//     grab is released with UngrabPointer and XIUngrabDevice (an XI2
+//     press holds an XI2 grab, which the core request does not release).
+//     The rest of the sequence is not delivered; the window manager's
+//     grab yields a plain PointerLeave (no cancel: the app saw no press),
+//     and buttons the server no longer reports held end the sequence.
+//     Without _NET_WM_MOVERESIZE nothing moves, but the press is still
+//     not delivered.
+//   - Parents are WM_TRANSIENT_FOR; modal children also have
+//     _NET_WM_WINDOW_TYPE_DIALOG and _NET_WM_STATE_MODAL. Close closes the
+//     children first. RestoreToken is "": X11 restores by position.
+//
+// The requests and the two queries go through a small interface
+// (wmServer), so unit tests check them without a server.
+//
 // # Loop
 //
 // xgb runs its own reader goroutine and only exposes events through a

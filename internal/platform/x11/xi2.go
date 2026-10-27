@@ -309,15 +309,18 @@ func parseXIClasses(data []byte, n int) (axes []*scrollAxis, size int, ok bool) 
 
 // xiDeviceEvent is a decoded XI_Motion, XI_ButtonPress or XI_ButtonRelease.
 type xiDeviceEvent struct {
-	evtype    uint16
-	sourceid  uint16
-	detail    uint32
-	window    xproto.Window
-	x, y      float64 // physical pixels, relative to window
-	flags     uint32
-	held      platform.Buttons // buttons held before the event
-	mods      uint32           // base | latched real modifiers
-	valuators []xiValuator
+	evtype       uint16
+	deviceid     uint16 // the master pointer
+	sourceid     uint16
+	time         uint32 // X server time
+	detail       uint32
+	window       xproto.Window
+	x, y         float64 // physical pixels, relative to window
+	rootX, rootY float64 // physical pixels, root coordinates
+	flags        uint32
+	held         platform.Buttons // buttons held before the event
+	mods         uint32           // base | latched real modifiers
+	valuators    []xiValuator
 }
 
 type xiValuator struct {
@@ -352,8 +355,12 @@ func parseXIDeviceEvent(raw []byte) (xiDeviceEvent, bool) {
 	}
 	ev := xiDeviceEvent{
 		evtype:   le.Uint16(raw[8:]),
+		deviceid: le.Uint16(raw[10:]),
+		time:     le.Uint32(raw[12:]),
 		detail:   le.Uint32(raw[16:]),
 		window:   xproto.Window(le.Uint32(raw[24:])),
+		rootX:    fp1616(raw[32:]),
+		rootY:    fp1616(raw[36:]),
 		x:        fp1616(raw[40:]),
 		y:        fp1616(raw[44:]),
 		sourceid: le.Uint16(raw[52:]),
@@ -391,7 +398,11 @@ func (b *Backend) xiEvent(raw []byte) {
 		if !ok || w == nil {
 			return
 		}
-		p := ptr{w: w, x: ev.x, y: ev.y, held: ev.held, mods: b.kbd.mods(ev.mods)}
+		p := ptr{w: w, x: ev.x, y: ev.y, rootX: ev.rootX, rootY: ev.rootY, held: ev.held,
+			mods: b.kbd.mods(ev.mods), device: ev.deviceid}
+		if evtype == xiButtonPress {
+			b.userTime = ev.time
+		}
 		switch {
 		case evtype == xiMotion:
 			b.xiMotion(p, ev)
@@ -413,11 +424,14 @@ func (b *Backend) xiEvent(raw []byte) {
 			return
 		}
 		p := ptr{
-			w:    w,
-			x:    fp1616(raw[40:]),
-			y:    fp1616(raw[44:]),
-			held: xiButtons(raw[72 : 72+blen]),
-			mods: b.kbd.mods(le.Uint32(raw[52:]) | le.Uint32(raw[56:])),
+			w:      w,
+			x:      fp1616(raw[40:]),
+			y:      fp1616(raw[44:]),
+			rootX:  fp1616(raw[32:]),
+			rootY:  fp1616(raw[36:]),
+			device: le.Uint16(raw[10:]),
+			held:   xiButtons(raw[72 : 72+blen]),
+			mods:   b.kbd.mods(le.Uint32(raw[52:]) | le.Uint32(raw[56:])),
 		}
 		mode, detail := raw[18], raw[19]
 		if evtype == xiEnter {
