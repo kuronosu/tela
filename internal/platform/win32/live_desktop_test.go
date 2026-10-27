@@ -67,6 +67,16 @@ func TestNotifyIconDataLayout(t *testing.T) {
 	}
 }
 
+// openWindow returns a runLive setup that opens a window: its first
+// FrameEvent starts each test.
+func openWindow(t *testing.T, b *Backend) func() {
+	return func() {
+		if _, err := b.NewWindow(platform.WindowOptions{Title: "tela live desktop", Size: platform.Size{W: 320, H: 200}}); err != nil {
+			t.Fatalf("NewWindow: %v", err)
+		}
+	}
+}
+
 func requireShell(t *testing.T) {
 	t.Helper()
 	requireInteractiveDesktop(t)
@@ -153,7 +163,7 @@ func TestLiveDialogs(t *testing.T) {
 		}
 		postMessage(box, wmCommand, idYes, 0)
 	}
-	runLive(t, b, nil, func(w platform.Window, e platform.Event) {
+	runLive(t, b, openWindow(t, b), func(w platform.Window, e platform.Event) {
 		switch e.(type) {
 		case platform.FrameEvent:
 			presentSolid(t, w, color.RGBA{B: 255, A: 255})
@@ -219,7 +229,7 @@ func TestLiveQuitClosesDialogs(t *testing.T) {
 			title := fmt.Sprintf("tela live quit %s %d", kind, os.Getpid())
 			var started, called atomic.Bool
 			var stuck atomic.Value
-			runLive(t, b, nil, func(w platform.Window, e platform.Event) {
+			runLive(t, b, openWindow(t, b), func(w platform.Window, e platform.Event) {
 				if _, ok := e.(platform.FrameEvent); !ok {
 					return
 				}
@@ -290,6 +300,7 @@ func TestLiveTray(t *testing.T) {
 		postMessage(b.desk.hwnd, wmTelaTray, mouseLParam(x, y), uintptr(uid)<<16|uintptr(event))
 	}
 	runLive(t, b, func() {
+		openWindow(t, b)()
 		var err error
 		tray, err = d.NewTray(platform.TrayOptions{Icon: testIcon(), Tooltip: "Tela live tray", Menu: menu})
 		if err != nil {
@@ -365,7 +376,7 @@ func TestLiveNotification(t *testing.T) {
 		events  []platform.NotificationEvent
 		skip    string
 	)
-	runLive(t, b, nil, func(w platform.Window, e platform.Event) {
+	runLive(t, b, openWindow(t, b), func(w platform.Window, e platform.Event) {
 		switch e := e.(type) {
 		case platform.FrameEvent:
 			presentSolid(t, w, color.RGBA{R: 255, G: 255, A: 255})
