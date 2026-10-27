@@ -33,7 +33,6 @@ var (
 	procUnloadKeyboardLayout   = user32.NewProc("UnloadKeyboardLayout")
 	procActivateKeyboardLayout = user32.NewProc("ActivateKeyboardLayout")
 	procGetKeyboardLayoutList  = user32.NewProc("GetKeyboardLayoutList")
-	procSetForegroundWindow    = user32.NewProc("SetForegroundWindow")
 	procGetForegroundWindow    = user32.NewProc("GetForegroundWindow")
 	procSetFocus               = user32.NewProc("SetFocus")
 	procBringWindowToTop       = user32.NewProc("BringWindowToTop")

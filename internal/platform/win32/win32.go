@@ -49,6 +49,8 @@ type Backend struct {
 	msg     msg
 	// settings are the system settings as last read (see settings.go).
 	settings platform.SystemSettings
+	// desk is the state of the desktop services (services.go).
+	desk desktopState
 
 	iterations atomic.Int64 // GetMessageW returns, for idle tests
 }
@@ -175,6 +177,7 @@ func (b *Backend) shutdown() {
 	for _, w := range slices.Clone(b.loop.Windows()) {
 		w.Close()
 	}
+	b.desktopShutdown()
 	b.loop.Discard()
 	b.stopped.Store(true)
 	registry.mu.Lock()
@@ -218,6 +221,7 @@ func (b *Backend) pump() {
 			}
 		}
 	}()
+	b.desktopPassEnded()
 	if b.loop.Quitting() {
 		postQuitMessage()
 		return
@@ -256,7 +260,8 @@ func (b *Backend) reconfigure(w *Window, m platform.Metrics) {
 	b.loop.Reconfigure(w, m)
 }
 
-// message handles the messages of the message-only window.
+// message handles the messages of the message-only window and of the tray
+// window (services.go).
 func (b *Backend) message(hwnd uintptr, msg uint32, wparam, lparam uintptr) uintptr {
 	switch msg {
 	case wmTelaNotify:
@@ -273,6 +278,9 @@ func (b *Backend) message(hwnd uintptr, msg uint32, wparam, lparam uintptr) uint
 		}
 		b.pump()
 		return 0
+	}
+	if r, ok := b.desktopMessage(hwnd, msg, wparam, lparam); ok {
+		return r
 	}
 	return defWindowProc(hwnd, uintptr(msg), wparam, lparam)
 }

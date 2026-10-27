@@ -1,5 +1,6 @@
 // Package win32 is the Windows platform backend. It talks to the system DLLs
-// (user32, gdi32, imm32, dwmapi, shcore, kernel32) through golang.org/x/sys/windows
+// (user32, gdi32, imm32, dwmapi, shcore, kernel32; shell32 and ole32 for the
+// desktop services) through golang.org/x/sys/windows
 // and syscall.NewCallback, with no cgo, and implements the platform contract
 // documented in package platform ("Mapping onto each OS: Win32").
 //
@@ -264,4 +265,34 @@
 //     a selection and no composition (Chromium's answers); the IME's
 //     reconversion then starts a composition whose first preedit replaces
 //     the selection.
+//
+// # Desktop services
+//
+// Backend.Desktop (services.go; the pure halves in dialog.go, shell.go and
+// tray.go are tested on every OS):
+//
+//   - OpenURI and OpenPath: ShellExecuteW with the "open" verb, after
+//     joining COM's single-threaded apartment as its documentation asks.
+//     Its error codes are mapped (a missing file wraps fs.ErrNotExist).
+//     A URI whose scheme is one letter is refused: ShellExecuteW would
+//     take it for a drive path and run the program it names.
+//   - File dialogs: IFileOpenDialog and IFileSaveDialog over COM, called
+//     through their vtables (com_windows.go), FOS_PICKFOLDERS for folders,
+//     FOS_FORCEFILESYSTEM so that every result has a path. Cancel
+//     (HRESULT_FROM_WIN32(ERROR_CANCELLED)) is nil and "" with no error.
+//     A save dialog appends the selected type's extension to a name typed
+//     without one.
+//   - Message boxes: MessageBoxW, owned by the parent window (modal to
+//     it); without a parent it comes to the foreground.
+//   - Dialogs and message boxes start outside the delivery pass that asked
+//     for them, one at a time; their modal loops dispatch the backend's
+//     messages, so delivery goes on while they are open, and their answers
+//     come through the loop. Quit closes them.
+//   - Tray icons and notifications: Shell_NotifyIconW on a hidden window
+//     of the backend (tray_windows.go has the details): version 4
+//     callbacks, menus with TrackPopupMenuEx, balloons (shown as toasts on
+//     Windows 10 and 11) on an icon of each notification's own, which
+//     makes its callbacks unambiguous; balloons have no actions. Icons are
+//     created at the small-icon size of the primary monitor's DPI and
+//     added again when Explorer restarts (TaskbarCreated).
 package win32

@@ -22,6 +22,8 @@ var (
 	shcore   = windows.NewLazySystemDLL("shcore.dll")
 	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
 	imm32    = windows.NewLazySystemDLL("imm32.dll")
+	shell32  = windows.NewLazySystemDLL("shell32.dll") // desktop services (ADR-178)
+	ole32    = windows.NewLazySystemDLL("ole32.dll")   // desktop services (ADR-178)
 
 	procRegisterClassExW           = user32.NewProc("RegisterClassExW")
 	procCreateWindowExW            = user32.NewProc("CreateWindowExW")
@@ -103,6 +105,32 @@ var (
 	procGlobalLock       = kernel32.NewProc("GlobalLock")
 	procGlobalUnlock     = kernel32.NewProc("GlobalUnlock")
 	procGlobalSize       = kernel32.NewProc("GlobalSize")
+
+	// Desktop services (services.go, dialog_windows.go, shell_windows.go,
+	// tray_windows.go).
+	procShellExecuteW               = shell32.NewProc("ShellExecuteW")
+	procShellNotifyIconW            = shell32.NewProc("Shell_NotifyIconW")
+	procSHCreateItemFromParsingName = shell32.NewProc("SHCreateItemFromParsingName")
+	procExtractIconExW              = shell32.NewProc("ExtractIconExW")
+	procCoInitializeEx              = ole32.NewProc("CoInitializeEx")
+	procCoUninitialize              = ole32.NewProc("CoUninitialize")
+	procCoCreateInstance            = ole32.NewProc("CoCreateInstance")
+	procCoTaskMemFree               = ole32.NewProc("CoTaskMemFree")
+	procMessageBoxW                 = user32.NewProc("MessageBoxW")
+	procCreatePopupMenu             = user32.NewProc("CreatePopupMenu")
+	procAppendMenuW                 = user32.NewProc("AppendMenuW")
+	procDestroyMenu                 = user32.NewProc("DestroyMenu")
+	procTrackPopupMenuEx            = user32.NewProc("TrackPopupMenuEx")
+	procSetForegroundWindow         = user32.NewProc("SetForegroundWindow")
+	procRegisterWindowMessageW      = user32.NewProc("RegisterWindowMessageW")
+	procChangeWindowMessageFilterEx = user32.NewProc("ChangeWindowMessageFilterEx") // Windows 7
+	procCreateIconIndirect          = user32.NewProc("CreateIconIndirect")
+	procDestroyIcon                 = user32.NewProc("DestroyIcon")
+	procLoadIconW                   = user32.NewProc("LoadIconW")
+	procGetSystemMetricsForDpi      = user32.NewProc("GetSystemMetricsForDpi") // Windows 10 1607
+	procCreateBitmap                = gdi32.NewProc("CreateBitmap")
+	procCreateDIBSection            = gdi32.NewProc("CreateDIBSection")
+	procDeleteObject                = gdi32.NewProc("DeleteObject")
 )
 
 // available reports whether an optional procedure exists on this system.
