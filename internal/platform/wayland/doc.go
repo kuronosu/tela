@@ -20,13 +20,19 @@
 //   - wp_cursor_shape_manager_v1 (optional): cursors. Without it the cursor
 //     is left to the compositor; loading an xcursor theme is a later task.
 //   - zxdg_decoration_manager_v1 (optional): server-side decorations are
-//     requested when present. Client-side decorations are not drawn yet.
+//     requested for decorated windows, client-side ones for frameless
+//     windows. Without it, or when the compositor picks client-side,
+//     the window reports ClientSideDecorations (see Window control).
 //   - wl_data_device_manager (optional, version up to 3): the clipboard
 //     (clipboard.go). Without it Clipboard reports an error.
 //   - zwp_text_input_manager_v3 (optional, version 1): the IME
 //     (textinput.go). Without it SetTextInput only records the state and
 //     no IME events arrive (an IME is then reachable only through the
 //     keys it forwards).
+//   - Window control, all optional (windowctl.go, see Window control):
+//     xdg_activation_v1 (Activate), xdg_wm_dialog_v1 (modal windows),
+//     xdg_toplevel_icon_manager_v1 (SetIcon) and xdg_session_manager_v1
+//     (RestoreToken), version 1, from wayland-protocols 1.49 (staging).
 //
 // # Loop
 //
@@ -167,6 +173,92 @@
 // applied like a current one (the protocol's rule; see textinput.go for
 // why the state is never held back). Surrounding text longer than the
 // protocol's 4000 bytes is cut to a window around the selection.
+//
+// # Window control
+//
+// Requests are fire-and-forget; the compositor's xdg_toplevel.configure
+// states are the outcome. The configure that ends a sequence reports
+// maximized, fullscreen and client-side decorations with the loop's
+// UpdateState: after the first ConfigureEvent, and before the
+// ConfigureEvent of the same configure afterwards (maximizing changes
+// both). A request equal to the last one asked (or to the latest
+// configure) sends nothing.
+//
+//   - Minimize is set_minimized; Wayland cannot report or undo it
+//     (State.Minimized stays false; Activate brings the window back).
+//     SetAlwaysOnTop and SetPosition do nothing: there is no protocol.
+//   - SetMaximized and SetFullscreen (no output: the compositor picks)
+//     map to set_/unset_maximized and set_/unset_fullscreen; Maximized and
+//     Fullscreen options are asked before the initial commit.
+//   - Size limits are set_min_size/set_max_size, committed at once when
+//     the window is shown (they are double-buffered); a maximum below the
+//     minimum is sent as the minimum (xdg_toplevel rejects the opposite).
+//     A floating window outside new limits picks the clamped size, like
+//     SetSize; imposed (maximized, fullscreen, tiled) sizes are kept.
+//   - SetVisible(false) commits a null buffer, which unmaps the toplevel
+//     and discards its attributes (xdg-shell). SetVisible(true) sends
+//     them again (title, app id, size limits, parent, maximized and
+//     fullscreen requests, decoration mode, modality, icon) with a new
+//     initial commit; at its configure, a window of the size it had is
+//     mapped with its retained buffer (the swapchain's newest), otherwise
+//     the app's ConfigureEvent and next Present map it. Present while
+//     hidden, or before that configure, draws nothing. A window that was
+//     never mapped (Hidden, or hidden before its first Present) only
+//     resumes frames. Frame callbacks pending at the unmap are not waited
+//     for. Unmapping clears the activated state (no configure follows).
+//   - Activate asks xdg_activation_v1 for a token with the latest input
+//     serial and its seat (none before any input, like winit), the
+//     focused window of ours as the requesting surface (else the window)
+//     and the app id, then activates with it. Focus stealing prevention
+//     may turn it into an attention request (sway marks the window
+//     urgent). Hidden windows are not activated.
+//   - SetIcon sends every image as a square ARGB8888 wl_shm buffer at
+//     scale 1 (non-square images centered), then destroys the icon and
+//     its buffers right after set_icon, which the protocol allows.
+//   - Parent is set_parent, sent only while the parent is mapped (an
+//     unmapped parent counts as none, and unmapping drops the relation):
+//     at creation, when the parent maps (again), and when the child is
+//     shown again. Modal windows get an xdg_dialog_v1 with set_modal.
+//     Close closes the children first, in creation order.
+//
+// Client-side decorations. A frameless window, or any window when the
+// compositor has no xdg-decoration or configured the client-side mode,
+// has resize edges while mapped and neither maximized, fullscreen nor
+// FixedSize: a band of 5 logical pixels inside each edge, with corners
+// reaching 16 pixels along the edges (Chromium's Linux frame sizes), left
+// out along the edges the window is tiled against (GTK). The pointer
+// shows the matching resize cursor there (over the app's SetCursor), and a
+// press there starts xdg_toplevel.resize (primary button) and is not
+// delivered. The whole surface is the window (no shadow is drawn outside
+// it), so the default window geometry is exact and set_window_geometry is
+// not sent.
+//
+// Hit regions. A press in a HitCaption region (with no app button held)
+// is the compositor's, as is the rest of its sequence up to the release of
+// the last button (motion included; a pointer leave ends it silently).
+// Primary: a double click (the DoubleClickInterval setting, 400 ms
+// without one, within 4 logical pixels) toggles maximize; otherwise
+// xdg_toplevel.move starts with the press serial once the pointer has
+// moved 8 logical pixels, GTK's drag threshold (GtkWindowHandle does the
+// same), so a click that does not move never starts a compositor grab.
+// Secondary: show_window_menu at the pointer. Other regions, the window
+// button regions included, are the app's.
+//
+// Session restore. With xdg_session_manager_v1 the backend opens one
+// xdg_session_v1 per process at the first NewWindow (reason launch; the
+// session id of that window's restore token, or a new session), and adds
+// every window before its initial commit: restore_toplevel for a token of
+// this session (the compositor then restores the window and its first
+// configure carries the size), add_toplevel with a random 128-bit name
+// otherwise. A name is given to one toplevel per process at most (a window
+// reopened in the same run gets a new name): name_in_use is a protocol
+// error, and whether a closed toplevel's name still counts is not
+// specified. RestoreToken is "wayland-session-v1:" + the session id in
+// unpadded base64url + ":" + the name, "" until created or restored
+// arrives and after replaced (the session is destroyed then). Tokens of
+// any other form, or with an id the compositor would reject, are ignored.
+// At exit the session is destroyed, not removed, so the next run can
+// restore from it.
 //
 // Every file but this one is only built on Linux.
 package wayland

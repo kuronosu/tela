@@ -296,8 +296,10 @@ func (fc *fakeComp) handle(id uint32, op uint16, body []byte) {
 // autoState drives a fake that needs no script: it configures each
 // toplevel (0x0, activated) at its initial commit, releases the previous
 // buffer when a new one is committed, and fires frame callbacks 8 ms after
-// the commit that requested them, like a 120 Hz display. Only the fake's
-// goroutine uses it (timers only send).
+// the commit that requested them, like a 120 Hz display. A commit of a
+// null buffer unmaps the toplevel: its next commit is an initial commit
+// again (xdg-shell). Only the fake's goroutine uses it (timers only
+// send).
 type autoState struct {
 	xdgOf      map[uint32]uint32 // wl_surface -> xdg_surface
 	topOf      map[uint32]uint32 // xdg_surface -> xdg_toplevel
@@ -342,6 +344,9 @@ func (a *autoState) handle(fc *fakeComp, r freq) {
 				fc.send(prev, 0) // wl_buffer.release
 			}
 			a.current[s] = buf
+			if buf == 0 {
+				a.configured[s] = false // unmapped
+			}
 		}
 		for _, cb := range a.callbacks[s] {
 			time.AfterFunc(8*time.Millisecond, func() {

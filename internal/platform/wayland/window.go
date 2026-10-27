@@ -40,6 +40,11 @@ type Window struct {
 	decoration *protocols.ZxdgToplevelDecorationV1
 
 	cursor platform.Cursor
+	title  string // the latest title, sent again when a hidden window is shown
+
+	// ctl is the window control state (windowctl.go): requests,
+	// visibility, decorations, hit regions, icon, parent, session.
+	ctl windowCtl
 
 	// Configure state. xdg_toplevel.configure is latched in pendingW/H and
 	// pendingStates and applied by the xdg_surface.configure that ends
@@ -116,14 +121,19 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	if err := b.conn.Err(); err != nil {
 		return nil, err
 	}
-	w := &Window{b: b, opts: opts, bufferScale: 1}
+	parent := b.checkParent(opts.Parent)
+	w := &Window{b: b, opts: opts, bufferScale: 1, title: opts.Title}
 	size := logicalPoint(opts.Size)
 	w.sizes = sizeChoice{
 		current:   size,
 		stateless: size,
 		min:       ceilPoint(opts.MinSize),
+		max:       floorPoint(opts.MaxSize),
 		fixed:     opts.FixedSize,
 	}
+	w.ctl.parent = parent
+	w.ctl.hidden = opts.Hidden
+	w.ctl.wantMax, w.ctl.wantFull = opts.Maximized, opts.Fullscreen
 	w.scale = 1
 	if b.canScale() {
 		w.scale = float64(b.maxOutputScale())
@@ -167,38 +177,48 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		}
 	})
 
-	if opts.Title != "" {
-		w.toplevel.SetTitle(opts.Title)
-	}
-	appID := opts.AppID
-	if appID == "" {
-		appID = b.appID
-	}
-	w.toplevel.SetAppId(appID)
-	w.applySizeHints()
 	if b.decoration != nil {
-		// Ask for server-side decorations. The compositor may still pick
-		// client-side; drawing them is a later task, so the window is
-		// then undecorated (the configure event is ignored).
+		// Server-side decorations, or client-side ones for a frameless
+		// window (winit's set_decorations(false)): without the request a
+		// tiling compositor such as sway keeps drawing its title bar. The
+		// compositor may choose otherwise; its configure reports the mode
+		// (windowctl.go).
 		w.decoration = b.decoration.GetToplevelDecoration(w.toplevel)
-		w.decoration.SetMode(protocols.ZxdgToplevelDecorationV1ModeServerSide)
+		w.decoration.SetConfigureHandler(func(e protocols.ZxdgToplevelDecorationV1ConfigureEvent) {
+			w.ctl.pendingDeco = e.Mode
+		})
 	}
+	if opts.Modal && b.dialogManager != nil {
+		w.ctl.dialog = b.dialogManager.GetXdgDialog(w.toplevel)
+	}
+	// The toplevel's attributes; sent again when a hidden window is shown
+	// (unmapping discards them).
+	w.sendToplevelState()
+	// Session restore must be asked before the initial commit.
+	w.joinSession(opts.RestoreToken)
 	// The initial commit, without a buffer, asks for the first configure.
+	// A Hidden window makes it too: it gets its ConfigureEvent, and is
+	// mapped by its first Present after SetVisible(true).
 	w.surface.Commit()
 
 	b.loop.Add(w)
 	b.surfaces[w.surface] = w
+	w.SetHidden(opts.Hidden)
 	return w, nil
+}
+
+// appID is the window's xdg_toplevel app_id.
+func (w *Window) appID() string {
+	if w.opts.AppID != "" {
+		return w.opts.AppID
+	}
+	return w.b.appID
 }
 
 // applySizeHints sends min/max size (double-buffered: applied by the next
 // commit). FixedSize pins both to the current size.
 func (w *Window) applySizeHints() {
-	min := w.sizes.min
-	var max image.Point
-	if w.opts.FixedSize {
-		min, max = w.sizes.stateless, w.sizes.stateless
-	}
+	min, max := w.sizes.hints()
 	w.toplevel.SetMinSize(int32(min.X), int32(min.Y))
 	w.toplevel.SetMaxSize(int32(max.X), int32(max.Y))
 }
@@ -210,12 +230,26 @@ func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
 		return
 	}
 	st := w.pendingStates
+	if w.ctl.pendingDeco != 0 {
+		w.ctl.decoMode = w.ctl.pendingDeco
+	}
 	size := w.sizes.choose(w.pendingW, w.pendingH, st)
 	w.states = st
+	w.ctl.wantMax, w.ctl.wantFull = st.maximized, st.fullscreen
 	first := !w.configured
 	w.configured = true
+	if w.ctl.awaitConfigure {
+		// The configure of a window shown again: frames resume.
+		w.ctl.awaitConfigure = false
+		w.SetHidden(w.ctl.hidden)
+	}
 
 	target := platform.Metrics{Size: sizeOf(size), Scale: w.scale}
+	// The state goes before the size it comes with (maximizing), except
+	// for the first configure: nothing precedes the first ConfigureEvent.
+	if !first {
+		w.b.loop.UpdateState(w, w.osState())
+	}
 	switch {
 	case first || target != w.announced:
 		w.announce(target)
@@ -225,14 +259,21 @@ func (w *Window) onConfigure(e protocols.XdgSurfaceConfigureEvent) {
 		// asks for the same size: the frame acks the newer serial, which
 		// supersedes the older one.
 		w.ackSerial = e.Serial
+	case !w.mapped:
+		// Nothing for the app to redraw, but nothing shown either (the
+		// configure of a hidden window shown again): the retained frame
+		// maps it now, or else the app's next Present.
+		w.ackPending, w.ackSerial, w.ackSize = true, e.Serial, size
+		w.mapRetained()
 	default:
 		// Nothing for the app to redraw (activation, a no-op resize):
 		// ack and commit now, so the compositor applies the new state
 		// without waiting for the next frame.
 		w.xdgSurface.AckConfigure(e.Serial)
-		if w.mapped {
-			w.surface.Commit()
-		}
+		w.surface.Commit()
+	}
+	if first {
+		w.b.loop.UpdateState(w, w.osState())
 	}
 	w.activated = st.activated
 	w.updateFocus()
@@ -371,6 +412,12 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	if err := b.conn.Err(); err != nil {
 		return err
 	}
+	if !w.showable() {
+		// Hidden, or shown again and waiting for the configure of its new
+		// initial commit (a buffer before it is a protocol error): the
+		// frame is dropped, and the next Present is still full.
+		return nil
+	}
 	size := fb.Rect.Max
 	full := w.NeedsFull() || w.chain.prev == nil || w.chain.size != size
 	rects := platform.ClipDamage(damage, fb.Rect, full)
@@ -425,7 +472,10 @@ func (w *Window) Present(fb *image.RGBA, damage []image.Rectangle) error {
 	w.requestCallback()
 	w.surface.Commit()
 	w.chain.submitted(buf, rects)
-	w.mapped = true
+	if !w.mapped {
+		w.mapped = true
+		w.onMapped()
+	}
 	return nil
 }
 
@@ -475,7 +525,10 @@ func (w *Window) SetTitle(title string) {
 	if w.Closed() {
 		return
 	}
-	w.toplevel.SetTitle(title)
+	w.title = title
+	if !w.ctl.unmapped {
+		w.toplevel.SetTitle(title)
+	}
 }
 
 // SetCursor sets the cursor shown over the window. It takes effect at once
@@ -489,23 +542,24 @@ func (w *Window) SetCursor(c platform.Cursor) {
 	}
 	w.cursor = c
 	for _, s := range w.b.seats {
-		if s.ptr.focus == w {
+		if s.ptr.focus == w && s.ptr.edge == 0 {
+			// Over a resize edge the edge's cursor stays (windowctl.go).
 			s.applyCursor(c)
 		}
 	}
 }
 
 // SetSize asks for a new logical size. Wayland has no request for it: a
-// floating window simply picks its size, so the backend adopts it (raised
-// to MinSize) and reports it with a ConfigureEvent. A maximized, fullscreen
-// or tiled window keeps the size the compositor imposed, and the request is
-// ignored (like winit's request_surface_size).
+// floating window simply picks its size, so the backend adopts it (within
+// the size limits) and reports it with a ConfigureEvent. A maximized,
+// fullscreen or tiled window keeps the size the compositor imposed, and the
+// request is ignored (like winit's request_surface_size).
 func (w *Window) SetSize(size platform.Size) {
 	platform.CheckSize("SetSize size", size)
 	if w.Closed() {
 		return
 	}
-	p := raise(logicalPoint(size), w.sizes.min)
+	p := w.sizes.limit(logicalPoint(size))
 	if p.X == 0 || p.Y == 0 {
 		return
 	}
@@ -513,9 +567,16 @@ func (w *Window) SetSize(size platform.Size) {
 		return
 	}
 	w.sizes.stateless = p
-	if w.opts.FixedSize {
+	if w.opts.FixedSize && !w.ctl.unmapped {
 		w.applySizeHints() // committed with the next buffer
 	}
+	w.adoptSize(p)
+}
+
+// adoptSize makes p, a size the window picked while floating, its current
+// size: it is reported with a ConfigureEvent, and a configure waiting for
+// its frame is acked by the frame of that size.
+func (w *Window) adoptSize(p image.Point) {
 	if !w.configured {
 		// Not configured yet: the size answers a 0x0 initial configure.
 		w.sizes.current = p
@@ -532,12 +593,14 @@ func (w *Window) SetSize(size platform.Size) {
 	}
 }
 
-// Close destroys the window. Queued events for it are dropped.
+// Close destroys the window, after its child windows (in creation order).
+// Queued events for it are dropped.
 func (w *Window) Close() {
 	if w.Closed() {
 		return
 	}
 	b := w.b
+	w.closeChildren()
 	b.loop.Remove(w) // marks it closed and drops its queued events
 	for _, s := range b.seats {
 		if s.ptr.focus == w {
@@ -558,6 +621,7 @@ func (w *Window) Close() {
 	if w.decoration != nil {
 		w.decoration.Destroy()
 	}
+	w.releaseCtl() // dialog and session objects, before their toplevel
 	w.toplevel.Destroy()
 	w.xdgSurface.Destroy()
 	// The scale objects before their surface: requests on them after it

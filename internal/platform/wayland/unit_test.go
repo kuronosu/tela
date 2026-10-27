@@ -14,7 +14,7 @@ import (
 
 func TestSizeChoice(t *testing.T) {
 	floating := toplevelStates{activated: true}
-	tiled := toplevelStates{tiled: true}
+	tiled := toplevelStates{tiled: protocols.XdgToplevelResizeEdgeLeft}
 	maximized := toplevelStates{maximized: true}
 	pt := func(x, y int) image.Point { return image.Point{X: x, Y: y} }
 
@@ -55,7 +55,7 @@ func TestDecodeStates(t *testing.T) {
 		raw = ne.AppendUint32(raw, uint32(s))
 	}
 	st := decodeStates(raw)
-	if !st.activated || !st.tiled || st.maximized || !st.constrained() {
+	if !st.activated || st.tiled != protocols.XdgToplevelResizeEdgeLeft || st.maximized || !st.constrained() {
 		t.Errorf("decodeStates = %+v", st)
 	}
 }

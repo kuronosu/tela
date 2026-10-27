@@ -32,6 +32,11 @@ const (
 	decorationVersion  = 1
 	fractionalVersion  = 1 // wp_fractional_scale_manager_v1
 	viewporterVersion  = 1
+	// The window control protocols (windowctl.go), all optional.
+	activationVersion = 1 // xdg_activation_v1
+	dialogVersion     = 1 // xdg_wm_dialog_v1
+	iconVersion       = 1 // xdg_toplevel_icon_manager_v1
+	sessionVersion    = 1 // xdg_session_manager_v1
 	// wl_data_device_manager: dataDeviceManagerVersion in clipboard.go.
 	// zwp_text_input_manager_v3: textInputVersion in textinput.go.
 )
@@ -60,6 +65,16 @@ type Backend struct {
 	// textInputManager is nil without zwp_text_input_manager_v3: then
 	// SetTextInput only records the state (textinput.go).
 	textInputManager *protocols.ZwpTextInputManagerV3
+	// Window control (windowctl.go); each is nil when the compositor
+	// lacks it: Activate does nothing without xdg_activation_v1, modal
+	// windows are only enforced by core without xdg_wm_dialog_v1, SetIcon
+	// only records the icon without xdg_toplevel_icon_manager_v1, and
+	// RestoreToken is "" without xdg_session_manager_v1.
+	activation     *protocols.XdgActivationV1
+	dialogManager  *protocols.XdgWmDialogV1
+	iconManager    *protocols.XdgToplevelIconManagerV1
+	sessionManager *protocols.XdgSessionManagerV1
+	session        session
 
 	shmFormats map[protocols.WlShmFormat]bool
 	format     protocols.WlShmFormat // pixel format of every buffer
@@ -87,10 +102,12 @@ type Backend struct {
 	released bool
 	// iterations counts loop iterations (UI thread), for pacing tests.
 	iterations int
-	// lastSerial is the serial of the latest input event of any seat, for
-	// requests that need one (move, popups; the clipboard uses the serial
-	// of its own seat, seat.serial).
+	// lastSerial is the serial of the latest input event of any seat, and
+	// lastSeat that seat, for requests that need one (activation tokens;
+	// the clipboard uses the serial of its own seat, seat.serial, and
+	// move and resize the serial of their press).
 	lastSerial uint32
+	lastSeat   *seat
 
 	// Clipboard transfers in progress (clipboard.go), polled with the
 	// display socket, and the time a transfer may go without progress.
@@ -239,6 +256,24 @@ func (b *Backend) onGlobal(e protocols.WlRegistryGlobalEvent) {
 		if b.viewporter == nil {
 			b.viewporter = protocols.WlRegistryBind[protocols.WpViewporter](b.registry, e.Name, min(e.Version, viewporterVersion))
 		}
+	case protocols.XdgActivationV1InterfaceName:
+		if b.activation == nil {
+			b.activation = protocols.WlRegistryBind[protocols.XdgActivationV1](b.registry, e.Name, min(e.Version, activationVersion))
+		}
+	case protocols.XdgWmDialogV1InterfaceName:
+		if b.dialogManager == nil {
+			b.dialogManager = protocols.WlRegistryBind[protocols.XdgWmDialogV1](b.registry, e.Name, min(e.Version, dialogVersion))
+		}
+	case protocols.XdgToplevelIconManagerV1InterfaceName:
+		if b.iconManager == nil {
+			// icon_size preferences are not needed: SetIcon sends every
+			// size the app gave, as the protocol recommends.
+			b.iconManager = protocols.WlRegistryBind[protocols.XdgToplevelIconManagerV1](b.registry, e.Name, min(e.Version, iconVersion))
+		}
+	case protocols.XdgSessionManagerV1InterfaceName:
+		if b.sessionManager == nil {
+			b.sessionManager = protocols.WlRegistryBind[protocols.XdgSessionManagerV1](b.registry, e.Name, min(e.Version, sessionVersion))
+		}
 	case protocols.WlDataDeviceManagerInterfaceName:
 		b.bindDataDeviceManager(e.Name, e.Version)
 	case protocols.ZwpTextInputManagerV3InterfaceName:
@@ -255,6 +290,9 @@ func (b *Backend) onGlobalRemove(e protocols.WlRegistryGlobalRemoveEvent) {
 		if s.name == e.Name {
 			s.destroy()
 			b.seats = append(b.seats[:i], b.seats[i+1:]...)
+			if b.lastSeat == s {
+				b.lastSeat = nil
+			}
 			return
 		}
 	}
@@ -501,6 +539,7 @@ func (b *Backend) release() {
 		if b.textInputManager != nil {
 			b.textInputManager.Destroy()
 		}
+		b.releaseCtl()
 		b.wm.Destroy()
 		// Best effort: the compositor frees everything when the socket
 		// closes anyway.

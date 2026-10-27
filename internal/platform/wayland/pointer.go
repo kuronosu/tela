@@ -44,7 +44,7 @@ func (b *Backend) addSeat(name, version uint32) {
 
 // inputSerial records the serial of an input event of the seat.
 func (s *seat) inputSerial(serial uint32) {
-	s.b.lastSerial = serial
+	s.b.lastSerial, s.b.lastSeat = serial, s
 	s.serial = serial
 }
 
@@ -134,8 +134,10 @@ func (s *seat) listen() {
 			return // not ours (or already destroyed)
 		}
 		s.ptr.enter(w, e.SurfaceX, e.SurfaceY, b.Now())
-		// The cursor image is undefined on enter: set it now.
-		s.applyCursor(w.cursor)
+		// The cursor image is undefined on enter: set it now (the resize
+		// cursor if the pointer entered on a resize edge).
+		s.ptr.edge = w.resizeEdgeAt(s.ptr.pos)
+		s.applyCursor(s.cursorFor(w))
 		after()
 	})
 	p.SetLeaveHandler(func(e protocols.WlPointerLeaveEvent) {
@@ -145,11 +147,18 @@ func (s *seat) listen() {
 	})
 	p.SetMotionHandler(func(e protocols.WlPointerMotionEvent) {
 		s.ptr.motion(e.SurfaceX, e.SurfaceY, b.eventTime(e.Time))
+		s.pointerMoved()
 		after()
 	})
 	p.SetButtonHandler(func(e protocols.WlPointerButtonEvent) {
 		s.inputSerial(e.Serial)
-		s.ptr.button(e.Button, e.State == protocols.WlPointerButtonStatePressed, b.eventTime(e.Time))
+		pressed := e.State == protocols.WlPointerButtonStatePressed
+		t := b.eventTime(e.Time)
+		// Presses on a resize edge or in a caption region, and the rest
+		// of their sequence, are the compositor's (windowctl.go).
+		if !s.osButton(pointerButton(e.Button), pressed, e.Serial, t) {
+			s.ptr.button(e.Button, pressed, t)
+		}
 		after()
 	})
 	p.SetAxisHandler(func(e protocols.WlPointerAxisEvent) {
@@ -250,6 +259,19 @@ type pointerState struct {
 	// pointer and scroll event (kbd.updatePointerMods keeps it current).
 	mods platform.Modifiers
 
+	// The pointer sequence owned by the compositor (windowctl.go): the
+	// buttons pressed on a resize edge or in a caption region and not
+	// released yet, whose events (motion included) are not delivered; a
+	// primary caption press that becomes an interactive move once the
+	// pointer leaves the drag threshold (captionPending, with the press
+	// serial and position); and the resize edge under the pointer, whose
+	// cursor replaces the window's.
+	osHeld         platform.Buttons
+	captionPending bool
+	captionSerial  uint32
+	captionPos     platform.Point
+	edge           protocols.XdgToplevelResizeEdge
+
 	// Events of the current frame, in order.
 	out []windowEvent
 
@@ -293,6 +315,9 @@ func (p *pointerState) leave(now time.Duration) {
 	if p.focus == nil {
 		return
 	}
+	// A sequence owned by the compositor ends silently: the app never saw
+	// its press.
+	p.osHeld, p.captionPending, p.edge = 0, false, 0
 	if p.buttons != 0 {
 		p.buttons = 0
 		p.emit(platform.PointerCancel, platform.ButtonNone, now)
@@ -308,6 +333,9 @@ func (p *pointerState) motion(x, y float64, t time.Duration) {
 		return
 	}
 	p.pos = platform.Point{X: float32(x), Y: float32(y)}
+	if p.osHeld != 0 {
+		return // the compositor's sequence: not delivered
+	}
 	p.emit(platform.PointerMove, platform.ButtonNone, t)
 }
 

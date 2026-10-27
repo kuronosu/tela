@@ -17,7 +17,7 @@ their original copyright notice. Add one section per source project.
 - **Source:** https://gitlab.freedesktop.org/wayland/wayland (wayland 1.26.0, `protocol/wayland.xml`) and https://gitlab.freedesktop.org/wayland/wayland-protocols (wayland-protocols 1.49)
 - **License:** MIT (X11-style; each file carries its own `<copyright>` block)
 - **Used in:** `internal/platform/wayland/protocols/xml/` (vendored unchanged), and the Go bindings generated from them in `internal/platform/wayland/protocols/*.go`
-- **Notes:** Files: `wayland.xml`, `xdg-shell.xml`, `viewporter.xml`, `fractional-scale-v1.xml`, `xdg-decoration-unstable-v1.xml`, `cursor-shape-v1.xml`, `tablet-v2.xml` (needed by cursor-shape) and `text-input-unstable-v3.xml`. Every generated Go file reproduces its protocol's copyright text in its header, as `wayland-scanner` does.
+- **Notes:** Files: `wayland.xml`, `xdg-shell.xml`, `viewporter.xml`, `fractional-scale-v1.xml`, `xdg-decoration-unstable-v1.xml`, `cursor-shape-v1.xml`, `tablet-v2.xml` (needed by cursor-shape), `text-input-unstable-v3.xml`, and the staging `xdg-activation-v1.xml`, `xdg-dialog-v1.xml`, `xdg-toplevel-icon-v1.xml` and `xdg-session-management-v1.xml`. Every generated Go file reproduces its protocol's copyright text in its header, as `wayland-scanner` does.
 
 ## go-wayland
 
