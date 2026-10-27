@@ -555,6 +555,7 @@ func TestCounter(t *testing.T) {
 - **Auto-wait (from Playwright):** actions and expectations wait for pending frames and running animations to settle (with a timeout) before acting or asserting; under `NoSettle` an expectation's first try handles only the work due and the clock moves only between failed tries.
 - `app.AriaSnapshot()` returns the same YAML as `tela inspect` for assertion.
 - State assertions without strings (ADR-086): `app.Expect(loc, telatest.Checked(true), telatest.Disabled(false))` (also `Pressed`, `Selected`, `Expanded`, `Focused`, `Invalid`, `Sort`, `Current`, `HasName`, `HasValue`); `ByTestID` finds elements by `h.TestID`; `Bounds` returns a `tela.Rect`; `ClickAt`, `DragFromTo`, `PixelAt`, `Measure`, `GoldenScales` and `MountFunc` shorten the rest.
+- Several windows (ADR-183): `app.Windows()`, `app.Window(title)` and `app.WaitForWindow(f)` return an `*App` scoped to one window; `ExpectWindowState`, `RequestClose`, `HitRegions` and `ExpectQuit` cover window-level behavior through the headless window manager.
 
 ### Debug overlays (from Chrome DevTools / Flutter DevTools)
 
