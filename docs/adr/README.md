@@ -187,3 +187,4 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [180](180-multi-window-core-and-api.md) | 2026-10-27 | Multiple windows in core (a Tree per window, one element tree) and the public API: `tela.Window`, `UseWindow`, `Quit`, `OpenURL`, title bar props |  |
 | [182](182-kit-titlebar-and-windowcontrols.md) | 2026-10-27 | `kit.TitleBar` and `kit.WindowControls`: custom title bar and window buttons in Windows, GNOME and macOS looks |  |
 | [183](183-telatest-for-several-windows.md) | 2026-10-27 | `telatest` for several windows: an `*App` per window, window actions and assertions, quit, `MountApp` window fields |  |
+| [184](184-tela-dev-windows-and-services.md) | 2026-10-27 | `tela dev` with phase-12 windows and services: remote protocol 3, child windows kept by element path, close to tray, tray and notification claims across reloads |  |

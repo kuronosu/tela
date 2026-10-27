@@ -161,12 +161,130 @@ func TestTextInputAndOptionsRoundTrip(t *testing.T) {
 			t.Errorf("text input %+v: got %+v (%v)", s, got, err)
 		}
 	}
-	o := platform.WindowOptions{Title: "t", AppID: "com.example", Size: platform.Size{W: 3, H: 4}, MinSize: platform.Size{W: 1, H: 2}, FixedSize: true}
+	o := platform.WindowOptions{Title: "t", AppID: "com.example", Size: platform.Size{W: 3, H: 4}, MinSize: platform.Size{W: 1, H: 2},
+		MaxSize: platform.Size{W: 30, H: 40}, FixedSize: true, Position: image.Pt(-1920, 37), HasPosition: true,
+		Maximized: true, Fullscreen: true, Hidden: true, AlwaysOnTop: true, Frameless: true, Modal: true, RestoreToken: "wayland:abc"}
 	e := newMsg(msgNewWindow)
-	e.windowOptions(o)
+	e.windowOptions(o, 7)
 	d := &dec{b: e.bytes()[5:]}
-	if got := d.windowOptions(); d.end() != nil || got != o {
-		t.Errorf("window options: got %+v, want %+v", got, o)
+	if got, parent := d.windowOptions(); d.end() != nil || got != o || parent != 7 {
+		t.Errorf("window options: got %+v (parent %d), want %+v (parent 7)", got, parent, o)
+	}
+}
+
+// TestWindowOptionsEncodeEveryField fails when platform.WindowOptions
+// gains a field that the wire encoding does not carry: random options
+// (Parent aside, which travels as an ID) must round-trip.
+func TestWindowOptionsEncodeEveryField(t *testing.T) {
+	r := rand.New(rand.NewSource(2))
+	typ := reflect.TypeFor[platform.WindowOptions]()
+	for range 200 {
+		var o platform.WindowOptions
+		v := reflect.ValueOf(&o).Elem()
+		for i := range typ.NumField() {
+			f := v.Field(i)
+			if typ.Field(i).Name == "Parent" {
+				continue
+			}
+			rv, ok := quick.Value(f.Type(), r)
+			if !ok {
+				t.Fatalf("cannot generate %s", typ.Field(i).Name)
+			}
+			f.Set(rv)
+		}
+		e := newMsg(msgNewWindow)
+		e.windowOptions(o, 3)
+		d := &dec{b: e.bytes()[5:]}
+		got, parent := d.windowOptions()
+		if err := d.end(); err != nil || !reflect.DeepEqual(got, o) || parent != 3 {
+			t.Fatalf("window options round trip: got %+v (%v), want %+v", got, err, o)
+		}
+	}
+}
+
+// TestDesktopEncodings round-trips the payloads of window control and
+// desktop services: icons, hit regions, file dialogs, message boxes,
+// notifications and tray menus.
+func TestDesktopEncodings(t *testing.T) {
+	icon := image.NewNRGBA(image.Rect(0, 0, 3, 2))
+	for i := range icon.Pix {
+		icon.Pix[i] = byte(i * 7)
+	}
+	small := image.NewNRGBA(image.Rect(0, 0, 1, 1))
+	small.Pix = []byte{1, 2, 3, 4}
+	e := &enc{}
+	e.images([]image.Image{icon, small})
+	regions := []platform.HitRegion{{Kind: platform.HitCaption, Rect: platform.Rect{W: 300, H: 32}},
+		{Kind: platform.HitClose, Rect: platform.Rect{X: 268, W: 32, H: 32}}}
+	e.regions(regions)
+	fd := platform.FileDialogOptions{Title: "Open", Directory: "/tmp", Name: "a.txt", Multiple: true,
+		Filters: []platform.FileFilter{{Name: "Text", Patterns: []string{"*.txt", "*.md"}}, {Name: "All", Patterns: []string{"*"}}}}
+	e.fileDialog(fd, 4)
+	mb := platform.MessageBoxOptions{Kind: platform.MessageQuestion, Title: "Quit?", Text: "Unsaved", Buttons: platform.ButtonsYesNoCancel}
+	e.messageBox(mb, 2)
+	n := platform.Notification{Title: "Saved", Body: "notes.txt", Icon: []image.Image{small},
+		Actions: []platform.NotificationAction{{ID: "open", Label: "Open"}}}
+	e.notification(n)
+	tray := platform.TrayOptions{Icon: []image.Image{icon}, Tooltip: "Notes", Menu: []platform.MenuItem{
+		{ID: 1, Label: "Show"}, {Separator: true},
+		{Label: "More", Submenu: []platform.MenuItem{{ID: 2, Label: "Pin", Checkable: true, Checked: true}, {ID: 3, Label: "Off", Disabled: true}}},
+	}}
+	e.tray(tray)
+	e.strs([]string{"/a", "/b c"})
+
+	d := &dec{b: e.b}
+	if got := d.images(); len(got) != 2 || !equalIcons(got, []image.Image{icon, small}) {
+		t.Errorf("images: got %v", got)
+	}
+	if got := d.regions(); !platform.EqualHitRegions(got, regions) {
+		t.Errorf("regions: got %v", got)
+	}
+	if got, p := d.fileDialog(); !reflect.DeepEqual(got, fd) || p != 4 {
+		t.Errorf("file dialog: got %+v parent %d", got, p)
+	}
+	if got, p := d.messageBox(); got != mb || p != 2 {
+		t.Errorf("message box: got %+v parent %d", got, p)
+	}
+	if got := d.notification(); got.Title != n.Title || got.Body != n.Body || !reflect.DeepEqual(got.Actions, n.Actions) || !equalIcons(got.Icon, n.Icon) {
+		t.Errorf("notification: got %+v", got)
+	}
+	if got := d.tray(); !equalTray(got, tray) {
+		t.Errorf("tray: got %+v", got)
+	}
+	if got := d.strs(); !slices.Equal(got, []string{"/a", "/b c"}) {
+		t.Errorf("strings: got %v", got)
+	}
+	if err := d.end(); err != nil {
+		t.Errorf("end: %v", err)
+	}
+
+	// Corrupt counts and sizes fail instead of allocating.
+	bad := &enc{}
+	bad.u32(1)
+	bad.u32(5000)
+	bad.u32(1)
+	d = &dec{b: bad.b}
+	d.images()
+	if d.end() == nil {
+		t.Errorf("an icon wider than MaxIconSide decoded")
+	}
+	bad = &enc{}
+	bad.u32(1 << 30)
+	d = &dec{b: bad.b}
+	d.regions()
+	if d.end() == nil {
+		t.Errorf("a huge region count decoded")
+	}
+	deep := []platform.MenuItem{{ID: 1, Label: "x"}}
+	for range maxDepth + 1 {
+		deep = []platform.MenuItem{{Label: "sub", Submenu: deep}}
+	}
+	bad = &enc{}
+	bad.menu(deep)
+	d = &dec{b: bad.b}
+	d.menu(0)
+	if d.end() == nil {
+		t.Errorf("a menu nested deeper than maxDepth decoded")
 	}
 }
 

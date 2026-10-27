@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"slices"
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -61,7 +62,24 @@ type Window struct {
 	// the host, so the loop never paces it.
 	loop.WindowState
 	frameAsked bool                     // a RequestFrame was sent and no FrameEvent received since
+	frameOwed  bool                     // a FrameEvent arrived while hidden and was dropped
 	textInput  *platform.TextInputState // latest state sent
+
+	// Window control (windowctl.go): the parent, and the latest values of
+	// the requests that are state rather than actions, so equal requests
+	// are not resent.
+	parent   *Window
+	key      string
+	visible  bool
+	onTop    bool
+	min, max platform.Size
+	regions  []platform.HitRegion
+	// From the host's msgWindowInfo: the real window's restore token and
+	// whether it was hidden when this window was mapped onto it.
+	token      string
+	hostHidden bool
+	info       chan struct{} // closed at the first msgWindowInfo
+	gotInfo    bool
 
 	seg      *segment
 	gen      uint32
@@ -79,15 +97,37 @@ type retiredSegment struct {
 
 var _ platform.Window = (*Window)(nil)
 
-// NewWindow asks the host for a window: on a swap, the host's existing
-// window with the same ID (IDs count from 1 in creation order); otherwise a
-// new window of the host's backend. Its first event is a ConfigureEvent
-// with the host window's metrics. An empty AppID is replaced by this
-// executable's DefaultAppID, so the host's window is named after the app.
+// NewWindow asks the host for a window: on a swap, the real window the
+// previous child had at the same place (see NewKeyedWindow; without a key,
+// the window with the same ID: IDs count from 1 in creation order);
+// otherwise a new window of the host's backend. Its first event is a
+// ConfigureEvent with the host window's metrics. An empty AppID is
+// replaced by this executable's DefaultAppID, so the host's window is
+// named after the app. Every option is sent; a reused real window keeps
+// its size, position and maximized or fullscreen state, and takes the
+// rest from this window when this child becomes the active one. A Parent
+// must be an open window of this Backend.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
+	return b.NewKeyedWindow(opts, "")
+}
+
+// NewKeyedWindow is NewWindow with a key: a string that names the window
+// across the children of a host, so that the next build's window with the
+// same key reuses the real window instead of closing it and opening a new
+// one (tela dev keys a tela.Window by its path in the element tree,
+// ADR-184). An empty key matches by window ID, as NewWindow does.
+func (b *Backend) NewKeyedWindow(opts platform.WindowOptions, key string) (platform.Window, error) {
 	opts = opts.Resolve()
 	if opts.AppID == "" {
 		opts.AppID = platform.DefaultAppID()
+	}
+	var parent *Window
+	if opts.Parent != nil {
+		p, ok := opts.Parent.(*Window)
+		if !ok || p.b != b {
+			panic(fmt.Sprintf("remote: WindowOptions.Parent is a %T of another backend; the parent must be an open window of the same backend", opts.Parent))
+		}
+		parent = p
 	}
 	b.mu.Lock()
 	if b.lost != nil {
@@ -95,16 +135,29 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		b.mu.Unlock()
 		return nil, err
 	}
+	if parent != nil && parent.WindowState.Closed() {
+		b.mu.Unlock()
+		panic("remote: WindowOptions.Parent is closed; the parent must be an open window")
+	}
 	b.nextWin++
-	w := &Window{b: b, id: b.nextWin, released: make(chan struct{}, 1)}
+	w := &Window{b: b, id: b.nextWin, released: make(chan struct{}, 1), parent: parent, key: key,
+		visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: opts.MinSize, max: opts.MaxSize,
+		info: make(chan struct{})}
 	b.windows[w.id] = w
+	b.order = append(b.order, w)
 	b.mu.Unlock()
+	var pid uint32
+	if parent != nil {
+		pid = parent.id
+	}
 	e := newMsg(msgNewWindow)
 	e.u32(w.id)
-	e.windowOptions(opts)
+	e.windowOptions(opts, pid)
+	e.str(key)
 	if err := b.c.send(e.bytes()); err != nil {
 		b.mu.Lock()
 		delete(b.windows, w.id)
+		b.order = slices.DeleteFunc(b.order, func(x *Window) bool { return x == w })
 		b.mu.Unlock()
 		return nil, err
 	}
@@ -204,8 +257,9 @@ func (w *Window) ResetTextInput() {
 	}
 }
 
-// Close closes the window; the host closes its window if this process's
-// windows are the active ones.
+// Close closes the window and, first, its child windows (in creation
+// order, as on every backend); the host closes its real windows if this
+// process's windows are the active ones.
 func (w *Window) Close() {
 	b := w.b
 	b.mu.Lock()
@@ -213,8 +267,25 @@ func (w *Window) Close() {
 		b.mu.Unlock()
 		return
 	}
+	closed := w.closeLocked(nil)
+	b.mu.Unlock()
+	for _, c := range closed {
+		c.send(newMsg(msgCloseWindow))
+	}
+}
+
+// closeLocked closes w's open children, then w, and returns them in that
+// order; b.mu must be held.
+func (w *Window) closeLocked(out []*Window) []*Window {
+	b := w.b
+	for _, c := range slices.Clone(b.order) {
+		if c.parent == w && !c.WindowState.Closed() {
+			out = c.closeLocked(out)
+		}
+	}
 	b.loop.Remove(w)
 	delete(b.windows, w.id)
+	b.order = slices.DeleteFunc(b.order, func(x *Window) bool { return x == w })
 	if w.seg != nil && w.ackedGen < w.gen {
 		// The host may not have mapped the latest segment yet (on
 		// Windows it opens it by name, which needs it alive): keep it
@@ -223,8 +294,7 @@ func (w *Window) Close() {
 	} else {
 		w.releaseBuffers()
 	}
-	b.mu.Unlock()
-	w.send(newMsg(msgCloseWindow))
+	return append(out, w)
 }
 
 // releaseBuffers unmaps every segment; b.mu must be held.

@@ -9,7 +9,9 @@ import (
 )
 
 // TestConformance runs the backend-agnostic platform suite on a child
-// Backend whose host is a real-time headless backend.
+// Backend whose host is a real-time headless backend: every subtest,
+// window control, hiding, parent and modal windows and the desktop
+// services included (ADR-184).
 func TestConformance(t *testing.T) {
 	platformtest.Run(t, platformtest.Config{
 		New: func(t *testing.T) platform.Backend {
@@ -21,9 +23,5 @@ func TestConformance(t *testing.T) {
 			t.Cleanup(func() { b.Close() })
 			return b
 		},
-		// Window control is not forwarded to the host yet (phase 12,
-		// ADR-178): hiding and closing children with their parent are
-		// stubs.
-		Skip: []string{"HideShow", "ParentAndModal"},
 	})
 }

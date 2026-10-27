@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,10 +34,12 @@ type HostOptions struct {
 	Scale float64
 	// WindowOptions, when set, rewrites the options a child asked for
 	// before the host creates a real window with them (tela dev --size
-	// overrides the size). id is the window ID. It is not called when a
-	// child maps onto an existing real window, which keeps its size. The
-	// result is resolved (platform.WindowOptions.Resolve) and must be
-	// valid; an invalid one fails the window like a backend error.
+	// overrides the size). id is the window ID; Parent is already the
+	// host's real parent window (nil for a top-level window). It is not
+	// called when a child maps onto an existing real window, which keeps
+	// its size. The result is resolved (platform.WindowOptions.Resolve)
+	// and must be valid; an invalid one fails the window like a backend
+	// error.
 	WindowOptions func(id uint32, opts platform.WindowOptions) platform.WindowOptions
 	// Settings, when set, rewrites the real backend's system settings
 	// before children see them, in their welcome and in every
@@ -46,7 +49,9 @@ type HostOptions struct {
 	// OnConnect is called when a child connected (it is pending or, if no
 	// child was active and input is not frozen, active).
 	OnConnect func(c *Child)
-	// OnFirstFrame is called after a child's first Present.
+	// OnFirstFrame is called after a child's first Present, or once its
+	// event loop runs with every window it opened hidden (see
+	// Child.FirstFrame).
 	OnFirstFrame func(c *Child)
 	// OnDisconnect is called when a child's connection ended: err is nil
 	// when the child closed it (it quit, or its process exited or
@@ -105,12 +110,17 @@ type Host struct {
 	active   *Child
 	frozen   bool
 	queue    []queuedEvent // input held while frozen
-	byID     map[uint32]*realWin
 	byWin    map[platform.Window]*realWin
 	order    []*realWin // real windows in creation order
 	overlay  func(w platform.Window, fb *image.RGBA)
+
+	// Desktop services held for the children (services.go).
+	trays map[platform.TrayID]*hostTray
+	notes map[platform.NotificationID]*hostNote
 }
 
+// queuedEvent is input held while frozen; rw is nil for an app-scoped
+// event (a notification or tray event).
 type queuedEvent struct {
 	rw *realWin
 	e  platform.Event
@@ -145,8 +155,9 @@ func NewHost(b platform.Backend, opts HostOptions) (*Host, error) {
 		settings: opts.filterSettings(b.Settings()),
 		handlers: map[string]func(*Child, []byte) ([]byte, error){},
 		all:      map[*Child]struct{}{},
-		byID:     map[uint32]*realWin{},
 		byWin:    map[platform.Window]*realWin{},
+		trays:    map[platform.TrayID]*hostTray{},
+		notes:    map[platform.NotificationID]*hostNote{},
 	}
 	go h.accept()
 	return h, nil
@@ -252,17 +263,24 @@ func (h *Host) Unfreeze() {
 	q := h.queue
 	h.queue = nil
 	for _, it := range q {
-		h.route(it.rw, it.e)
+		if it.rw == nil {
+			h.routeApp(it.e)
+		} else {
+			h.route(it.rw, it.e)
+		}
 	}
 }
 
 // Promote makes c the active child: its windows take over their real
-// windows (title, cursor and text input state are applied, the IME session
+// windows (title, cursor, text input state, visibility, always-on-top,
+// size limits, icon and hit regions are applied, the IME session
 // restarts), its latest frame is presented in full, and it receives input,
 // starting with the input queued since Freeze (Promote implies Unfreeze).
 // The previously active child is detached: it receives nothing more, and
 // the caller stops it. If c has windows, real windows it does not use are
-// closed. Promoting the active child only unfreezes.
+// closed. Its tray icons replace the old child's (services.go): icons
+// both have stay, with c's options. Promoting the active child only
+// unfreezes.
 func (h *Host) Promote(c *Child) error {
 	if c.h != h {
 		panic("remote: Promote called with a child of another host")
@@ -299,14 +317,17 @@ func (h *Host) Promote(c *Child) error {
 	for rw := range used {
 		h.flush(rw)
 	}
+	h.promoteServices(c)
 	h.Unfreeze()
 	return nil
 }
 
 // Detach stops routing anything to c: it is no longer active or pending,
 // and its windows keep their last frame on screen (a detached child's
-// frame is what an error overlay is drawn over). It does not close the
-// connection (control requests still work); use Child.Close for that.
+// frame is what an error overlay is drawn over). Its tray icons go away
+// unless another child holds them, and real windows only it had opened
+// while pending are closed. It does not close the connection (control
+// requests still work); use Child.Close for that.
 func (h *Host) Detach(c *Child) { h.detach(c) }
 
 func (h *Host) detach(c *Child) {
@@ -327,6 +348,19 @@ func (h *Host) detach(c *Child) {
 			h.setTextInput(rw, nil)
 		}
 		rw.pending = slices.DeleteFunc(rw.pending, func(x *childWin) bool { return x == cw })
+	}
+	h.dropServices(c)
+	h.prune()
+}
+
+// prune closes the real windows that no child uses and that no active
+// child ever had: those a pending child opened before it was detached or
+// lost (a window an active child had stays for the error overlay).
+func (h *Host) prune() {
+	for _, rw := range slices.Clone(h.order) {
+		if !rw.closed && rw.active == nil && len(rw.pending) == 0 && !rw.wasActive {
+			h.closeReal(rw)
+		}
 	}
 }
 
@@ -396,6 +430,9 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 			}
 		}
 		return
+	case platform.NotificationEvent, platform.TrayEvent:
+		h.appEvent(e)
+		return
 	}
 	if rw := h.byWin[w]; rw != nil {
 		h.windowEvent(rw, e)
@@ -430,14 +467,24 @@ func (h *Host) postError(err error) { h.post(func() { h.reportError(err) }) }
 func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 	switch ev := e.(type) {
 	case platform.ConfigureEvent:
+		h.syncToken(rw)
 		rw.metrics = ev.Metrics
 		rw.full = true
 		for _, cw := range rw.attached() {
 			h.configure(rw, cw)
 		}
+	case platform.WindowStateEvent:
+		// State, like metrics, goes to every child mapped onto the window
+		// (pending ones too), and is kept for the children that map onto
+		// it later.
+		h.syncToken(rw)
+		rw.state = ev.State
+		for _, cw := range rw.attached() {
+			h.syncState(rw, cw)
+		}
 	case platform.FrameEvent:
 		for _, cw := range rw.attached() {
-			if cw.wantFrame {
+			if cw.wantFrame && cw.visible {
 				cw.wantFrame = false
 				h.deliver(cw, ev)
 			}
@@ -520,6 +567,63 @@ func (h *Host) route(rw *realWin, e platform.Event) {
 	}
 }
 
+// appEvent routes an app-scoped event of the host's desktop (a
+// notification or tray event): it is input, so it is held while input is
+// frozen and goes to the active child.
+func (h *Host) appEvent(e platform.Event) {
+	if ne, ok := e.(platform.NotificationEvent); ok && ne.Kind == platform.NotificationClosed {
+		h.noteClosed(ne.ID)
+	}
+	if h.frozen {
+		h.queue = append(h.queue, queuedEvent{nil, e})
+		return
+	}
+	h.routeApp(e)
+}
+
+func (h *Host) routeApp(e platform.Event) {
+	if c := h.active; c != nil {
+		c.sendEvent(0, e)
+	} else if fn := h.opts.OnUnhandled; fn != nil {
+		fn(nil, e)
+	}
+}
+
+// syncState sends cw the real window's state if it has not seen it. A
+// child is told nothing before its ConfigureEvent, and nothing while the
+// state is the zero one it starts with.
+func (h *Host) syncState(rw *realWin, cw *childWin) {
+	if cw.closed || cw.c.state == stateDetached || cw.sent.Scale == 0 || cw.state == rw.state {
+		return
+	}
+	cw.state = rw.state
+	cw.c.sendEvent(cw.id, platform.WindowStateEvent{State: rw.state})
+}
+
+// syncToken sends the children of rw the real window's restore token when
+// it changed (Wayland's arrives after the window opened), before the
+// configure or state event that makes the app read it.
+func (h *Host) syncToken(rw *realWin) {
+	if t := rw.w.RestoreToken(); t != rw.token {
+		rw.token = t
+		for _, cw := range rw.attached() {
+			h.sendInfo(rw, cw)
+		}
+	}
+}
+
+// sendInfo tells cw the real window's restore token and visibility.
+func (h *Host) sendInfo(rw *realWin, cw *childWin) {
+	if cw.closed || cw.c.state == stateDetached {
+		return
+	}
+	e := newMsg(msgWindowInfo)
+	e.u32(cw.id)
+	e.boolean(!rw.visible)
+	e.str(rw.token)
+	cw.c.c.send(e.bytes())
+}
+
 // childMetrics returns the metrics children are told for rw.
 func (h *Host) childMetrics(rw *realWin) platform.Metrics {
 	m := rw.metrics
@@ -542,6 +646,25 @@ func (h *Host) configure(rw *realWin, cw *childWin) {
 	cw.c.sendEvent(cw.id, platform.ConfigureEvent{Metrics: m})
 	cw.wantFrame = true
 	rw.w.RequestFrame()
+	h.offscreenFrame(rw, cw)
+}
+
+// offscreenFrame gives a pending child the frame it asked for when its
+// window is visible in its own view but the real window delivers no frames
+// (the previous build hid or minimized it): a swap waits for the new
+// build's first frame. Only until that first frame: once promoted, the
+// real window is shown (or stays minimized) and paces the child.
+func (h *Host) offscreenFrame(rw *realWin, cw *childWin) {
+	if (rw.visible && !rw.state.Minimized) || !cw.visible || !cw.wantFrame || cw.c.state != statePending || cw.sent.Scale == 0 {
+		return
+	}
+	select {
+	case <-cw.c.firstFrame:
+		return
+	default:
+	}
+	cw.wantFrame = false
+	h.deliver(cw, platform.FrameEvent{Time: h.b.Now()})
 }
 
 // deliver sends e to cw through cw's view of the window, which keeps every
@@ -707,16 +830,25 @@ func (h *Host) lost(c *Child, err error) {
 	}
 }
 
-// attach maps a new child window onto the real window with its ID,
-// creating that window if needed.
+// attach maps a new child window onto a real window: the one with the
+// same key that another child has (a swap; see findReal), or a new one.
 func (h *Host) attach(cw *childWin) {
 	c := cw.c
 	if c.state == stateDetached || cw.closed {
 		return
 	}
-	rw := h.byID[cw.id]
+	var parent *realWin
+	if cw.parent != nil {
+		parent = cw.parent.rw
+	}
+	rw := h.findReal(cw, parent)
 	if rw == nil {
 		opts := cw.opts
+		if parent != nil {
+			opts.Parent = parent.w
+		} else {
+			opts.Modal = false // the parent failed or closed: a top-level window
+		}
 		var err error
 		if fn := h.opts.WindowOptions; fn != nil {
 			err = try(func() { opts = fn(cw.id, opts).Resolve() })
@@ -730,13 +862,18 @@ func (h *Host) attach(cw *childWin) {
 			c.Close()
 			return
 		}
-		rw = &realWin{id: cw.id, w: w}
-		h.byID[cw.id] = rw
+		// The limits count as the child's: an override that changed them
+		// (tela dev --size drops a minimum above its size) stays until the
+		// app asks for other ones.
+		rw = &realWin{id: cw.id, key: cw.key, w: w, opts: opts, parent: parent,
+			visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: cw.min, max: cw.max}
+		rw.token = w.RestoreToken()
 		h.byWin[w] = rw
 		h.order = append(h.order, rw)
 	}
 	cw.rw = rw
 	c.windows = append(c.windows, cw)
+	h.sendInfo(rw, cw)
 	if c.state == stateActive {
 		h.activate(rw, cw)
 	} else {
@@ -744,6 +881,7 @@ func (h *Host) attach(cw *childWin) {
 	}
 	if rw.metrics.Scale > 0 {
 		h.configure(rw, cw)
+		h.syncState(rw, cw)
 		if rw.focused {
 			h.deliver(cw, platform.FocusEvent{Focused: true})
 		}
@@ -751,10 +889,33 @@ func (h *Host) attach(cw *childWin) {
 	}
 }
 
+// findReal returns the real window cw takes over: an open one with cw's
+// key that no window of cw's child has yet, opened with the same options
+// that only apply at creation (frameless, fixed size, modal) under the
+// same real parent. A window whose creation-only options changed in the
+// new build is opened anew (the old one closes at the promotion).
+func (h *Host) findReal(cw *childWin, parent *realWin) *realWin {
+	for _, rw := range h.order {
+		if rw.closed || rw.key != cw.key || rw.parent != parent {
+			continue
+		}
+		o := cw.opts
+		if rw.opts.Frameless != o.Frameless || rw.opts.FixedSize != o.FixedSize || rw.opts.Modal != (o.Modal && parent != nil) {
+			continue
+		}
+		if (rw.active != nil && rw.active.c == cw.c) || slices.ContainsFunc(rw.pending, func(x *childWin) bool { return x.c == cw.c }) {
+			continue
+		}
+		return rw
+	}
+	return nil
+}
+
 // activate makes cw the active window of rw and applies its state.
 func (h *Host) activate(rw *realWin, cw *childWin) {
 	rw.active = cw
 	rw.src = cw
+	rw.wasActive = true
 	rw.full = true
 	rw.w.SetTitle(cw.title)
 	rw.w.SetCursor(cw.cursor)
@@ -763,6 +924,10 @@ func (h *Host) activate(rw *realWin, cw *childWin) {
 		h.setTextInput(rw, nil)
 	}
 	h.setTextInput(rw, cw.textInput)
+	h.applyWindow(rw, cw)
+	if cw.wantFrame && cw.visible {
+		rw.w.RequestFrame()
+	}
 	h.enter(rw, cw)
 }
 
@@ -786,14 +951,19 @@ func (h *Host) setTextInput(rw *realWin, st *platform.TextInputState) {
 	rw.textInput = st.Clone()
 }
 
-// closeReal closes a real window.
+// closeReal closes a real window. Its child windows close first, as the
+// backend closes them with it.
 func (h *Host) closeReal(rw *realWin) {
 	if rw.closed {
 		return
 	}
+	for _, x := range slices.Clone(h.order) {
+		if x.parent == rw {
+			h.closeReal(x)
+		}
+	}
 	rw.closed = true
 	rw.w.Close()
-	delete(h.byID, rw.id)
 	delete(h.byWin, rw.w)
 	h.order = slices.DeleteFunc(h.order, func(x *realWin) bool { return x == rw })
 	for _, cw := range rw.pending {
@@ -828,6 +998,7 @@ func (h *Host) closeWindow(cw *childWin) {
 		return
 	}
 	rw.pending = slices.DeleteFunc(rw.pending, func(x *childWin) bool { return x == cw })
+	h.prune()
 }
 
 func (h *Host) presented(cw *childWin) {
@@ -899,6 +1070,11 @@ type Child struct {
 	// UI thread.
 	state   childState
 	windows []*childWin // attached windows, in creation order
+	running bool        // its event loop started (msgRunning)
+	// Desktop services (services.go): the tray icons and notifications
+	// it holds, in the order it got them.
+	trays []platform.TrayID
+	notes []platform.NotificationID
 
 	mu   sync.Mutex
 	wins map[uint32]*childWin // the reader goroutine's open windows
@@ -923,8 +1099,10 @@ func (c *Child) Active() bool { return c.state == stateActive }
 // it renders offscreen, its frames are kept and not shown.
 func (c *Child) Pending() bool { return c.state == statePending }
 
-// FirstFrame is closed when the child presented its first frame. Safe from
-// any goroutine.
+// FirstFrame is closed when the child presented its first frame, or when
+// its event loop runs (Backend.Run) with every window it opened hidden: an
+// app hidden to the tray presents nothing and is ready all the same. Safe
+// from any goroutine.
 func (c *Child) FirstFrame() <-chan struct{} { return c.firstFrame }
 
 // Done is closed when the connection ended (after OnDisconnect's child is
@@ -1007,27 +1185,56 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 	switch t {
 	case msgNewWindow:
 		id := d.u32()
-		opts := d.windowOptions()
+		opts, parentID := d.windowOptions()
+		key := d.str()
 		if err := d.end(); err != nil {
 			return err
 		}
 		if id == 0 {
 			return errors.New("remote: window ID 0")
 		}
+		if opts.Modal && parentID == 0 {
+			return errors.New("remote: a modal window without a parent")
+		}
+		modal := opts.Modal
+		opts.Modal = false // Resolve needs a Parent for it; the host sets the real one
 		if err := try(func() { opts = opts.Resolve() }); err != nil {
 			return err
 		}
-		cw := &childWin{c: c, id: id, opts: opts, title: opts.Title}
+		opts.Modal = modal
+		if key == "" {
+			key = "#" + strconv.FormatUint(uint64(id), 10)
+		}
+		cw := &childWin{c: c, id: id, key: key, opts: opts, title: opts.Title,
+			visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: opts.MinSize, max: opts.MaxSize}
 		c.mu.Lock()
 		dup := c.wins[id] != nil
-		if !dup {
+		var parent *childWin
+		if parentID != 0 {
+			parent = c.wins[parentID]
+		}
+		if !dup && (parentID == 0 || parent != nil) {
 			c.wins[id] = cw
 		}
 		c.mu.Unlock()
 		if dup {
 			return fmt.Errorf("remote: window %d created twice", id)
 		}
+		if parentID != 0 && parent == nil {
+			return fmt.Errorf("remote: window %d has the unknown or closed parent %d", id, parentID)
+		}
+		cw.parent = parent
 		h.post(func() { h.attach(cw) })
+	case msgWindowCtl:
+		return c.windowCtl(d)
+	case msgRunning:
+		if err := d.end(); err != nil {
+			return err
+		}
+		h.post(func() {
+			c.running = true
+			h.checkHidden(c)
+		})
 	case msgCloseWindow:
 		id := d.u32()
 		if err := d.end(); err != nil {
@@ -1098,6 +1305,7 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 		return c.op(d, id, func(cw *childWin, rw *realWin, active bool) {
 			cw.wantFrame = true
 			rw.w.RequestFrame()
+			h.offscreenFrame(rw, cw)
 		})
 	case msgBuffers:
 		return c.buffers(d)
@@ -1125,6 +1333,10 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 		}
 		if err != nil {
 			return err
+		}
+		if in.kind == kindDesktop && in.id != 0 {
+			h.post(func() { h.desktopRequest(c, in) })
+			return nil
 		}
 		h.post(func() { h.runHandler(c, in) })
 	case msgCtlReply:
@@ -1254,16 +1466,38 @@ func (c *Child) present(d *dec) error {
 	cw.presents++
 	cw.mu.Unlock()
 	release()
+	c.markFirstFrame()
+	if !cw.notified.Swap(true) {
+		c.h.post(func() { c.h.presented(cw) })
+	}
+	return nil
+}
+
+// markFirstFrame closes FirstFrame and reports OnFirstFrame, once. Safe
+// from any goroutine.
+func (c *Child) markFirstFrame() {
 	c.firstOnce.Do(func() {
 		close(c.firstFrame)
 		if fn := c.h.opts.OnFirstFrame; fn != nil {
 			c.h.post(func() { fn(c) })
 		}
 	})
-	if !cw.notified.Swap(true) {
-		c.h.post(func() { c.h.presented(cw) })
+}
+
+// checkHidden marks c ready (FirstFrame) when it runs its event loop and
+// every window it opened is hidden: an app hidden to the tray presents
+// nothing, and a swap must not wait for a frame that never comes. UI
+// thread.
+func (h *Host) checkHidden(c *Child) {
+	if !c.running || len(c.windows) == 0 {
+		return
 	}
-	return nil
+	for _, cw := range c.windows {
+		if cw.visible || cw.rw == nil {
+			return
+		}
+	}
+	c.markFirstFrame()
 }
 
 // addDamage accumulates damage, collapsing long lists into their bounds.
@@ -1281,9 +1515,11 @@ func addDamage(acc, rects []image.Rectangle) []image.Rectangle {
 
 // childWin is a child's window on the host.
 type childWin struct {
-	c    *Child
-	id   uint32
-	opts platform.WindowOptions
+	c      *Child
+	id     uint32
+	key    string // what matches it to a real window ("#id" without one)
+	opts   platform.WindowOptions
+	parent *childWin
 
 	// UI thread.
 	rw        *realWin
@@ -1297,6 +1533,15 @@ type childWin struct {
 	title     string
 	cursor    platform.Cursor
 	textInput *platform.TextInputState
+	state     platform.WindowState // the latest WindowStateEvent sent
+
+	// The child's view of the window's state requests (windowctl.go),
+	// applied to the real window while it is the active one.
+	visible  bool
+	onTop    bool
+	min, max platform.Size
+	icon     []image.Image
+	regions  []platform.HitRegion
 
 	notified atomic.Bool // a presented() call is queued
 

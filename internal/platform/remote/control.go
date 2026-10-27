@@ -103,6 +103,15 @@ func (k *ctl) notify(kind string, payload []byte) error {
 	return k.c.sendWait(e.bytes())
 }
 
+// post sends a notification without waiting for the socket (the host's UI
+// thread, which never blocks on a child).
+func (k *ctl) post(kind string, payload []byte) {
+	e := newMsg(msgCtlNotify)
+	e.str(kind)
+	e.blob(payload)
+	k.c.send(e.bytes())
+}
+
 // reply sends the reply to request id.
 func (k *ctl) reply(id uint64, payload []byte, err error) {
 	e := newMsg(msgCtlReply)

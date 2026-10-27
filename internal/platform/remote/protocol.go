@@ -22,7 +22,11 @@ import (
 
 // ProtocolVersion is the version of the wire format. A host refuses a
 // child of another version (the child gets an error from Dial).
-const ProtocolVersion = 2 // 2: the window state, notification and tray events (phase 12)
+//
+//   - 2: the window state, notification and tray events (phase 12).
+//   - 3: every WindowOptions field, window keys, window control
+//     requests, window info and desktop services (phase 12, ADR-184).
+const ProtocolVersion = 3
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -45,7 +49,7 @@ const (
 	msgReject                     // host→child: reason
 
 	// Window operations, child→host. Every one starts with the window ID.
-	msgNewWindow      // id, title, app ID, size, min size, fixed
+	msgNewWindow      // id, options, parent ID (0: none), key
 	msgCloseWindow    // id
 	msgSetTitle       // id, title
 	msgSetCursor      // id, cursor
@@ -70,9 +74,55 @@ const (
 	msgCtlRequest // request ID, kind, payload
 	msgCtlReply   // request ID, error text, payload
 	msgCtlNotify  // kind, payload
+
+	// Window control (version 3, ADR-184).
+	msgWindowCtl  // child→host: id, op (ctl…), arguments
+	msgWindowInfo // host→child: id, hidden, restore token of the real window
+	msgRunning    // child→host: Run started (the windows of its setup are sent)
+)
+
+// Window control operations of msgWindowCtl.
+const (
+	ctlMinimize   uint8 = iota + 1
+	ctlMaximized        // bool
+	ctlFullscreen       // bool
+	ctlVisible          // bool
+	ctlOnTop            // bool
+	ctlMinSize          // size
+	ctlMaxSize          // size
+	ctlPosition         // i64 x, i64 y
+	ctlActivate         //
+	ctlIcon             // images
+	ctlHitRegions       // regions
+)
+
+// Limits of decoded lists: a corrupt count fails the message instead of
+// allocating without bound.
+const (
+	maxImages  = 32
+	maxRegions = 4096
+	maxItems   = 4096 // menu items, filters, patterns, actions, paths
+	maxDepth   = 16   // submenu nesting
 )
 
 var errShort = errors.New("remote: truncated message")
+
+// fail records err as the decoding error unless one is already set.
+func (d *dec) fail(err error) {
+	if d.err == nil {
+		d.err = err
+	}
+}
+
+// count reads a list length and fails when it is above limit.
+func (d *dec) count(limit int, what string) int {
+	n := d.u32()
+	if int64(n) > int64(limit) {
+		d.fail(fmt.Errorf("remote: %d %s, at most %d", n, what, limit))
+		return 0
+	}
+	return int(n)
+}
 
 // enc builds one frame.
 type enc struct{ b []byte }
@@ -466,15 +516,236 @@ func (d *dec) textInput() *platform.TextInputState {
 	return s
 }
 
-// windowOptions encodes the options of a new window.
-func (e *enc) windowOptions(o platform.WindowOptions) {
+// windowOptions encodes the options of a new window; parent is the ID of
+// opts.Parent (0: none), which the caller resolved.
+func (e *enc) windowOptions(o platform.WindowOptions, parent uint32) {
 	e.str(o.Title)
 	e.str(o.AppID)
 	e.size(o.Size)
 	e.size(o.MinSize)
+	e.size(o.MaxSize)
 	e.boolean(o.FixedSize)
+	e.i64(int64(o.Position.X))
+	e.i64(int64(o.Position.Y))
+	e.boolean(o.HasPosition)
+	e.boolean(o.Maximized)
+	e.boolean(o.Fullscreen)
+	e.boolean(o.Hidden)
+	e.boolean(o.AlwaysOnTop)
+	e.boolean(o.Frameless)
+	e.u32(parent)
+	e.boolean(o.Modal)
+	e.str(o.RestoreToken)
 }
 
-func (d *dec) windowOptions() platform.WindowOptions {
-	return platform.WindowOptions{Title: d.str(), AppID: d.str(), Size: d.size(), MinSize: d.size(), FixedSize: d.boolean()}
+// windowOptions decodes the options of a new window. Parent is left nil:
+// the host resolves the parent ID to its own window.
+func (d *dec) windowOptions() (platform.WindowOptions, uint32) {
+	o := platform.WindowOptions{
+		Title:       d.str(),
+		AppID:       d.str(),
+		Size:        d.size(),
+		MinSize:     d.size(),
+		MaxSize:     d.size(),
+		FixedSize:   d.boolean(),
+		Position:    image.Point{X: int(d.i64()), Y: int(d.i64())},
+		HasPosition: d.boolean(),
+		Maximized:   d.boolean(),
+		Fullscreen:  d.boolean(),
+		Hidden:      d.boolean(),
+		AlwaysOnTop: d.boolean(),
+		Frameless:   d.boolean(),
+	}
+	parent := d.u32()
+	o.Modal = d.boolean()
+	o.RestoreToken = d.str()
+	return o, parent
+}
+
+// images encodes an icon (images at several sizes) as non-premultiplied
+// RGBA pixels.
+func (e *enc) images(imgs []image.Image) {
+	e.u32(uint32(len(imgs)))
+	for _, img := range imgs {
+		n := platform.IconNRGBA(img)
+		e.u32(uint32(n.Rect.Dx()))
+		e.u32(uint32(n.Rect.Dy()))
+		e.b = append(e.b, n.Pix...)
+	}
+}
+
+func (d *dec) images() []image.Image {
+	n := d.count(maxImages, "icon images")
+	if n == 0 || d.err != nil {
+		return nil
+	}
+	out := make([]image.Image, 0, n)
+	for range n {
+		w, h := int(d.u32()), int(d.u32())
+		if d.err != nil {
+			return nil
+		}
+		if w <= 0 || h <= 0 || w > platform.MaxIconSide || h > platform.MaxIconSide {
+			d.fail(fmt.Errorf("remote: icon image of %dx%d", w, h))
+			return nil
+		}
+		p := d.take(4 * w * h)
+		if p == nil {
+			return nil
+		}
+		img := image.NewNRGBA(image.Rect(0, 0, w, h))
+		copy(img.Pix, p)
+		out = append(out, img)
+	}
+	return out
+}
+
+// regions encodes hit regions.
+func (e *enc) regions(rs []platform.HitRegion) {
+	e.u32(uint32(len(rs)))
+	for _, r := range rs {
+		e.u8(uint8(r.Kind))
+		e.rect(r.Rect)
+	}
+}
+
+func (d *dec) regions() []platform.HitRegion {
+	n := d.count(maxRegions, "hit regions")
+	if n == 0 || d.err != nil {
+		return nil
+	}
+	out := make([]platform.HitRegion, n)
+	for i := range out {
+		out[i] = platform.HitRegion{Kind: platform.HitKind(d.u8()), Rect: d.rect()}
+	}
+	return out
+}
+
+// strs encodes a list of strings.
+func (e *enc) strs(ss []string) {
+	e.u32(uint32(len(ss)))
+	for _, s := range ss {
+		e.str(s)
+	}
+}
+
+func (d *dec) strs() []string {
+	n := d.count(maxItems, "strings")
+	if n == 0 || d.err != nil {
+		return nil
+	}
+	out := make([]string, n)
+	for i := range out {
+		out[i] = d.str()
+	}
+	return out
+}
+
+// fileDialog encodes the options of a file dialog; parent is the ID of
+// opts.Parent (0: none).
+func (e *enc) fileDialog(o platform.FileDialogOptions, parent uint32) {
+	e.u32(parent)
+	e.str(o.Title)
+	e.str(o.Directory)
+	e.str(o.Name)
+	e.u32(uint32(len(o.Filters)))
+	for _, f := range o.Filters {
+		e.str(f.Name)
+		e.strs(f.Patterns)
+	}
+	e.boolean(o.Multiple)
+}
+
+func (d *dec) fileDialog() (platform.FileDialogOptions, uint32) {
+	parent := d.u32()
+	o := platform.FileDialogOptions{Title: d.str(), Directory: d.str(), Name: d.str()}
+	n := d.count(maxItems, "file filters")
+	for range n {
+		o.Filters = append(o.Filters, platform.FileFilter{Name: d.str(), Patterns: d.strs()})
+	}
+	o.Multiple = d.boolean()
+	return o, parent
+}
+
+// messageBox encodes the options of a message box; parent is the ID of
+// opts.Parent (0: none).
+func (e *enc) messageBox(o platform.MessageBoxOptions, parent uint32) {
+	e.u32(parent)
+	e.u8(uint8(o.Kind))
+	e.str(o.Title)
+	e.str(o.Text)
+	e.u8(uint8(o.Buttons))
+}
+
+func (d *dec) messageBox() (platform.MessageBoxOptions, uint32) {
+	parent := d.u32()
+	o := platform.MessageBoxOptions{Kind: platform.MessageKind(d.u8()), Title: d.str(), Text: d.str(), Buttons: platform.MessageButtons(d.u8())}
+	return o, parent
+}
+
+// notification encodes a notification.
+func (e *enc) notification(n platform.Notification) {
+	e.str(n.Title)
+	e.str(n.Body)
+	e.images(n.Icon)
+	e.u32(uint32(len(n.Actions)))
+	for _, a := range n.Actions {
+		e.str(a.ID)
+		e.str(a.Label)
+	}
+}
+
+func (d *dec) notification() platform.Notification {
+	n := platform.Notification{Title: d.str(), Body: d.str(), Icon: d.images()}
+	c := d.count(maxItems, "notification actions")
+	for range c {
+		n.Actions = append(n.Actions, platform.NotificationAction{ID: d.str(), Label: d.str()})
+	}
+	return n
+}
+
+// tray encodes the options of a tray icon.
+func (e *enc) tray(o platform.TrayOptions) {
+	e.images(o.Icon)
+	e.str(o.Tooltip)
+	e.menu(o.Menu)
+}
+
+func (d *dec) tray() platform.TrayOptions {
+	return platform.TrayOptions{Icon: d.images(), Tooltip: d.str(), Menu: d.menu(0)}
+}
+
+func (e *enc) menu(items []platform.MenuItem) {
+	e.u32(uint32(len(items)))
+	for _, it := range items {
+		e.u32(uint32(it.ID))
+		e.str(it.Label)
+		e.boolean(it.Separator)
+		e.boolean(it.Checkable)
+		e.boolean(it.Checked)
+		e.boolean(it.Disabled)
+		e.menu(it.Submenu)
+	}
+}
+
+func (d *dec) menu(depth int) []platform.MenuItem {
+	n := d.count(maxItems, "menu items")
+	if n == 0 || d.err != nil {
+		return nil
+	}
+	if depth >= maxDepth {
+		d.fail(fmt.Errorf("remote: menu nested deeper than %d", maxDepth))
+		return nil
+	}
+	out := make([]platform.MenuItem, 0, n)
+	for range n {
+		it := platform.MenuItem{ID: platform.MenuItemID(d.u32()), Label: d.str(), Separator: d.boolean(),
+			Checkable: d.boolean(), Checked: d.boolean(), Disabled: d.boolean()}
+		it.Submenu = d.menu(depth + 1)
+		if d.err != nil {
+			return nil
+		}
+		out = append(out, it)
+	}
+	return out
 }

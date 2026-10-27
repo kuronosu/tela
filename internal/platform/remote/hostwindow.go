@@ -13,10 +13,26 @@ import (
 // realWin is a window of the host's backend and the child windows mapped
 // onto it (one per child, all with the same window ID). UI thread only.
 type realWin struct {
-	id      uint32
+	id      uint32 // the window ID in the child that opened it
+	key     string // what a child window must have to take it over
 	w       platform.Window
+	opts    platform.WindowOptions // it was created with (after HostOptions.WindowOptions)
+	parent  *realWin
 	closed  bool
-	metrics platform.Metrics // of the latest delivered ConfigureEvent
+	metrics platform.Metrics     // of the latest delivered ConfigureEvent
+	state   platform.WindowState // of the latest delivered WindowStateEvent
+	token   string               // the latest RestoreToken sent to children
+	// wasActive: an active child had it (it shows that child's last frame
+	// and is kept for the error overlay when no child uses it).
+	wasActive bool
+
+	// What the host last asked of w on behalf of the active child (window
+	// control requests that are state; see applyWindow).
+	visible  bool
+	onTop    bool
+	min, max platform.Size
+	icon     []image.Image
+	regions  []platform.HitRegion
 
 	active  *childWin   // shown, receives input
 	pending []*childWin // render offscreen

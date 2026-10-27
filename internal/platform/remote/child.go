@@ -51,13 +51,18 @@ type Backend struct {
 	loop     *loop.Loop[*Window]
 	settings platform.SystemSettings
 	windows  map[uint32]*Window
+	order    []*Window          // open windows in creation order
 	closing  map[uint32]*Window // closed, with buffers the host has not acknowledged
 	nextWin  uint32
 	clip     map[uint32]func(string, error)
 	nextClip uint32
-	handlers map[string]func([]byte) ([]byte, error)
-	ran      bool
-	lost     error // why the connection ended; Run returns it
+	// dialogs are the desktop dialogs waiting for the host's answer
+	// (services.go), by token.
+	dialogs    map[uint32]func(*dec, error)
+	nextDialog uint32
+	handlers   map[string]func([]byte) ([]byte, error)
+	ran        bool
+	lost       error // why the connection ended; Run returns it
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -142,6 +147,7 @@ func Dial(addr string, opts DialOptions) (*Backend, error) {
 		windows:  map[uint32]*Window{},
 		closing:  map[uint32]*Window{},
 		clip:     map[uint32]func(string, error){},
+		dialogs:  map[uint32]func(*dec, error){},
 		handlers: map[string]func([]byte) ([]byte, error){},
 	}
 	b.c = newConn(t, r)
@@ -207,6 +213,10 @@ func (b *Backend) Run(h platform.Handler) error {
 	b.ran = true
 	b.mu.Unlock()
 	defer b.Close()
+	// The host learns that what the app set up before its loop (windows,
+	// their visibility) is all sent: a child whose windows are all hidden
+	// is then ready to take over without a frame.
+	b.c.send(newMsg(msgRunning).bytes())
 	for {
 		if b.loop.Quitting() {
 			return nil
@@ -379,6 +389,8 @@ func (b *Backend) dispatch(t msgType, d *dec) error {
 		}
 		b.mu.Unlock()
 		b.signal()
+	case msgWindowInfo:
+		return b.windowInfo(d)
 	case msgCtlRequest, msgCtlNotify:
 		var in incoming
 		var err error
@@ -391,6 +403,14 @@ func (b *Backend) dispatch(t msgType, d *dec) error {
 			return err
 		}
 		b.mu.Lock()
+		if in.kind == kindDesktopDone && in.id == 0 {
+			// A dialog's answer (services.go): done runs on the UI
+			// thread through the loop.
+			b.loop.Post(func() { b.desktopDone(in.payload) })
+			b.mu.Unlock()
+			b.signal()
+			return nil
+		}
 		b.loop.Post(func() {
 			b.mu.Lock()
 			fn := b.handlers[in.kind]
@@ -414,11 +434,21 @@ func (b *Backend) event(id uint32, ev platform.Event) error {
 	}
 	b.mu.Lock()
 	if id == 0 {
-		b.settings = ev.(platform.SettingsEvent).Settings
+		if s, ok := ev.(platform.SettingsEvent); ok {
+			b.settings = s.Settings
+		}
 		b.loop.Enqueue(nil, ev)
 	} else if w := b.windows[id]; w != nil {
 		if _, ok := ev.(platform.FrameEvent); ok {
 			w.frameAsked = false
+			if !w.visible {
+				// The host sent it before it saw SetVisible(false): a
+				// hidden window gets no FrameEvents; it is asked for again
+				// when the window is shown.
+				w.frameOwed = true
+				b.mu.Unlock()
+				return nil
+			}
 		}
 		b.loop.Enqueue(w, ev)
 	}
@@ -427,13 +457,32 @@ func (b *Backend) event(id uint32, ev platform.Event) error {
 	return nil
 }
 
+// windowInfo handles the host's msgWindowInfo: the real window's restore
+// token and visibility.
+func (b *Backend) windowInfo(d *dec) error {
+	id, hidden, token := d.u32(), d.boolean(), d.str()
+	if err := d.end(); err != nil {
+		return err
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if w := b.windows[id]; w != nil {
+		w.token = token
+		if !w.gotInfo {
+			w.gotInfo, w.hostHidden = true, hidden
+			close(w.info)
+		}
+	}
+	return nil
+}
+
 // checkHostEvent rejects events the host never sends (a corrupt stream
 // must not crash the child in Metrics.Physical).
 func checkHostEvent(id uint32, ev platform.Event) error {
 	switch e := ev.(type) {
-	case platform.SettingsEvent:
+	case platform.SettingsEvent, platform.NotificationEvent, platform.TrayEvent:
 		if id != 0 {
-			return fmt.Errorf("remote: SettingsEvent for window %d", id)
+			return fmt.Errorf("remote: app-scoped %T for window %d", ev, id)
 		}
 		return nil
 	case platform.WakeEvent:

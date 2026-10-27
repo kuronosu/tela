@@ -38,21 +38,31 @@
 // implements the platform contract (package platform's documentation) on
 // top of the host's backend:
 //
-//   - NewWindow asks the host for the window with the next ID (1, 2, ...);
-//     on a swap the host reuses its real window with that ID. Its title,
-//     app ID, size, minimum size and fixed flag are sent; a reused window
-//     keeps its size and constraints (platform.Window cannot change them).
+//   - NewWindow asks the host for a window with the next ID (1, 2, ...)
+//     and every option (the parent as its ID); [Backend.NewKeyedWindow]
+//     adds a key. On a swap the host gives the new child's window the
+//     real window the old child had under the same key (by ID without
+//     one), if it was opened with the same creation-only options
+//     (frameless, fixed size, modal, parent); it keeps its size, position
+//     and maximized or fullscreen state. Real windows the new child does
+//     not take over close at the promotion (ADR-184).
 //   - Events of the sealed set are forwarded by the host: ConfigureEvent,
-//     FrameEvent (the real window's, paced by its display), focus, close
-//     requests, pointer, scroll, key, IME and IME session events, and
-//     SettingsEvent. WakeEvent, Wake and Quit are local. Event times and
-//     FrameEvent.Time are the host's clock, and [Backend.Now] equals it:
-//     the handshake measures the offset between the two processes'
-//     monotonic clocks (to within half a round trip).
+//     WindowStateEvent, FrameEvent (the real window's, paced by its
+//     display), focus, close requests, pointer, scroll, key, IME and IME
+//     session events, SettingsEvent, and the app-scoped NotificationEvent
+//     and TrayEvent (to the active child). WakeEvent, Wake and Quit are
+//     local. Event times and FrameEvent.Time are the host's clock, and
+//     [Backend.Now] equals it: the handshake measures the offset between
+//     the two processes' monotonic clocks (to within half a round trip).
 //   - RequestFrame, SetTitle, SetCursor, SetSize, SetTextInput,
-//     ResetTextInput and Close are forwarded; Clipboard reads are an
-//     asynchronous round trip (done runs on the child's UI thread),
-//     writes are forwarded.
+//     ResetTextInput, Close (children first) and every window control
+//     request (windowctl.go) are forwarded; RestoreToken is the real
+//     window's, which the host sends. Clipboard reads are an asynchronous
+//     round trip (done runs on the child's UI thread), writes are
+//     forwarded. Desktop services are the host's (services.go): calls are
+//     round trips on the control channel, dialogs answer later on the UI
+//     thread, and tray icons and notifications are held by the host for
+//     its children so a swap neither duplicates nor drops them.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,
@@ -79,11 +89,18 @@
 //  2. [Child.Request] to the active child, for its state (the kinds and
 //     payloads belong to the layers above).
 //  3. Start the next child; it connects as pending and renders; wait for
-//     [Child.FirstFrame].
+//     [Child.FirstFrame] (or for its loop to run with every window
+//     hidden).
 //  4. [Host.Promote]: the new child's latest frame is presented in full,
-//     its title, cursor and text input state are applied, it gets the
-//     queued input in order, and the old child is detached (the caller
-//     stops it). [Host.Unfreeze] instead resumes the old child.
+//     its title, cursor, text input state and window state requests are
+//     applied, its tray icons replace the old child's, it gets the queued
+//     input in order, and the old child is detached (the caller stops
+//     it). [Host.Unfreeze] instead resumes the old child.
+//
+// A pending child's actions on the windows (minimize, maximize,
+// fullscreen, position, activate) are dropped, so a starting build never
+// moves the window under the shown one; the real window's state reaches
+// it as WindowStateEvents, the latest one right after its ConfigureEvent.
 //
 // Each child window has a view of the real window (focus, held keys, IME
 // session) through which every event passes, so a child that missed
@@ -113,6 +130,7 @@
 // payload, one reply) and notifications ([Child.Notify],
 // [Backend.Notify]) and register handlers ([Host.Handle],
 // [Backend.Handle]) that run on their UI thread. This package gives the
-// kinds no meaning: saving and restoring state, panic reports and asset
+// kinds no meaning, except the "tela.remote." kinds it reserves for the
+// desktop services: saving and restoring state, panic reports and asset
 // roots are defined by the layers above.
 package remote

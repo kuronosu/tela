@@ -284,6 +284,9 @@ func (s *supervisor) hostOptions() remote.HostOptions {
 	if s.opts.SizeSet {
 		size := platform.Size{W: float32(s.opts.W), H: float32(s.opts.H)}
 		o.WindowOptions = func(id uint32, wo platform.WindowOptions) platform.WindowOptions {
+			if wo.Parent != nil {
+				return wo // a tela.Window keeps its own size; --size is the main window's
+			}
 			wo.Size = size
 			if wo.MinSize.W > size.W || wo.MinSize.H > size.H {
 				wo.MinSize = platform.Size{} // --size wins over the app's minimum

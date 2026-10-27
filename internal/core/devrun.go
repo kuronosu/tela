@@ -139,8 +139,54 @@ func devRun(b platform.Backend, h *Host) error {
 			data, _, err := h.tree.CaptureDevState()
 			return data, err
 		})
+		devAdoptHidden(h)
 	}
 	return rb.Run(h)
+}
+
+// devNewWindow opens the window of a tela.Window. Under tela dev it is
+// keyed by the Window element's path (ADR-113's identity), so the next
+// build's window at the same place in the tree takes over the real window
+// instead of closing it and opening another (ADR-184).
+func devNewWindow(b platform.Backend, wo platform.WindowOptions, el *Element) (platform.Window, error) {
+	if rb, ok := b.(*remote.Backend); ok && devActive() {
+		return rb.NewKeyedWindow(wo, devWindowKey(el))
+	}
+	return b.NewWindow(wo)
+}
+
+// devWindowKey returns the key of the window that the Window element el
+// opens: its path, after the key of the window its tree is shown in (a
+// child window's tree starts at its own root).
+func devWindowKey(el *Element) string {
+	k := "w:" + devPath(el)
+	if o := el.tree.outer; o != nil {
+		return devWindowKey(o) + ">" + k
+	}
+	return k
+}
+
+// devAdoptHidden hides the windows whose real window the previous build
+// had hidden (closed to the tray): the reload keeps them hidden, as the
+// app left them, and the view of each tree matches the window, so a later
+// Show shows it. Only when the state is kept: a fresh start (R) shows the
+// windows as the app declares them.
+func devAdoptHidden(h *Host) {
+	devRT.mu.Lock()
+	seeded := devRT.expect
+	devRT.mu.Unlock()
+	if !seeded {
+		return
+	}
+	for _, v := range slices.Clone(h.views) {
+		rw, ok := v.win.(*remote.Window)
+		if !ok || v.hidden {
+			continue
+		}
+		if hidden, ok := rw.HostHidden(time.Second); ok && hidden {
+			v.setHidden(true)
+		}
+	}
 }
 
 // devAfterFrame sends the state report once the seed of the tree is over,

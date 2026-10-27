@@ -515,7 +515,13 @@ func (t *Tree) openWindow(s *windowSlot) {
 	h := pv.host
 	spec := s.spec
 	wo := spec.options(h.appID, pv.win)
-	win, err := h.backend.NewWindow(wo)
+	var win platform.Window
+	var err error
+	if devStateEnabled {
+		win, err = devNewWindow(h.backend, wo, s.el) // tela dev: keyed by its element path (ADR-184)
+	} else {
+		win, err = h.backend.NewWindow(wo)
+	}
 	if err != nil {
 		fmt.Fprintf(h.log, "tela: cannot open the window %q: %v\n", spec.Title, err)
 		return
