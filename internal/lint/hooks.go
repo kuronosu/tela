@@ -55,7 +55,7 @@ func isTelaHook(fn *types.Func) bool {
 		return false
 	}
 	switch fn.Pkg().Path() {
-	case relPkg(""), relPkg("aria"), relPkg("kit"), relPkg("i18n"):
+	case relPkg(""), relPkg("aria"), relPkg("kit"), relPkg("i18n"), relPkg("desktop"):
 	default:
 		return false
 	}

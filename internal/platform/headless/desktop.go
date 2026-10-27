@@ -105,7 +105,7 @@ type desktopState struct {
 // Trays), dialogs are answered by the dialog responder or AnswerDialog,
 // and notification and tray events are injected with InjectApp. Services
 // marked with SetUnsupported return platform.ErrUnsupported, which is how
-// tests reach the fallbacks of the layers above (core's drawn message
+// tests reach the fallbacks of the layers above (package desktop's drawn message
 // box). Arguments are checked like on every backend.
 func (b *Backend) Desktop() platform.Desktop { return desktop{b} }
 

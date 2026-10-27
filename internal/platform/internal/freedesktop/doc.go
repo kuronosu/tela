@@ -17,7 +17,7 @@
 //     current_name/current_folder). The answer is the Response signal of
 //     the portal's Request object, subscribed to before the call at the
 //     predictable handle path, as the portal documentation requires.
-//   - MessageBox: unsupported (the portal has none; core draws one).
+//   - MessageBox: unsupported (the portal has none; package desktop draws one).
 //   - Notify, CloseNotification: org.freedesktop.Notifications (actions,
 //     the "default" action for a click on the notification, the icon as the
 //     image-data hint). ActionInvoked and NotificationClosed become

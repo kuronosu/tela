@@ -209,6 +209,8 @@ type winView struct {
 
 	mu    sync.Mutex
 	place WindowPlacement
+	// watch holds the placement listeners (WatchPlacement, desktop.go).
+	watch *placeWatch
 }
 
 // newView returns the view of window win, opened with options wo (the
@@ -437,6 +439,9 @@ type windowSlot struct {
 	// queued: in Tree.winQ; tried: opening was tried (it failed, or the
 	// tree has no window); gone: the component unmounted.
 	queued, tried, gone bool
+	// detached: opened by code (OpenWindow, desktop.go), not by a Window
+	// component; el is then the parent tree's root.
+	detached bool
 }
 
 func (s *windowSlot) unmount(t *Tree) {

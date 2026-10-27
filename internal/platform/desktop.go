@@ -12,7 +12,7 @@ import (
 // provide (a message box on Linux, a tray icon without a
 // StatusNotifierWatcher, every service of a backend that has none yet).
 // errors.Is(err, errors.ErrUnsupported) also holds. The layers above handle
-// it: core draws its own message box, desktop reports the tray as
+// it: package desktop draws its own message box and reports the tray as
 // unavailable.
 var ErrUnsupported = fmt.Errorf("platform: %w", errors.ErrUnsupported)
 
@@ -55,7 +55,7 @@ type Desktop interface {
 
 	// MessageBox shows a native message box, modal to opts.Parent when
 	// set. done receives the button the user chose. Linux backends return
-	// ErrUnsupported (the portal has no message box; core draws one).
+	// ErrUnsupported (the portal has no message box; package desktop draws one).
 	MessageBox(opts MessageBoxOptions, done func(answer MessageAnswer, err error)) error
 
 	// Notify shows a desktop notification and returns its ID, which

@@ -185,6 +185,7 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [178](178-desktop-essentials-design.md) | 2026-10-27 | Desktop essentials design (phase 12): declarative windows, package `desktop`, D-Bus via godbus |  |
 | [179](179-platform-contract-v2.md) | 2026-10-27 | Platform contract v2: window control, hit regions, restore tokens, desktop services |  |
 | [180](180-multi-window-core-and-api.md) | 2026-10-27 | Multiple windows in core (a Tree per window, one element tree) and the public API: `tela.Window`, `UseWindow`, `Quit`, `OpenURL`, title bar props |  |
+| [181](181-package-desktop.md) | 2026-10-27 | Package `desktop`: dialogs, drawn message box, notifications, `Tray`, app folders, settings store and `UseSetting`, persisted window placement; core hooks for it |  |
 | [182](182-kit-titlebar-and-windowcontrols.md) | 2026-10-27 | `kit.TitleBar` and `kit.WindowControls`: custom title bar and window buttons in Windows, GNOME and macOS looks |  |
 | [183](183-telatest-for-several-windows.md) | 2026-10-27 | `telatest` for several windows: an `*App` per window, window actions and assertions, quit, `MountApp` window fields |  |
 | [184](184-tela-dev-windows-and-services.md) | 2026-10-27 | `tela dev` with phase-12 windows and services: remote protocol 3, child windows kept by element path, close to tray, tray and notification claims across reloads |  |

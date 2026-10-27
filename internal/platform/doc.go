@@ -434,7 +434,7 @@
 //     the service is missing ([UnsupportedDesktop] checks too).
 //   - A service the backend or the session lacks returns [ErrUnsupported]
 //     (errors.Is(err, errors.ErrUnsupported) holds), synchronously. The
-//     layers above handle it: core draws its own message box, desktop
+//     layers above handle it: package desktop draws its own message box and
 //     reports a tray as unavailable.
 //   - Dialogs and message boxes are asynchronous: done runs exactly once,
 //     later, on the UI thread through the loop (internal/loop Post, like

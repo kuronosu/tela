@@ -383,7 +383,7 @@ func unsupported(format string, args ...any) error {
 }
 
 // MessageBox checks its arguments and returns ErrUnsupported: the portal
-// has no message box, so core draws one.
+// has no message box, so package desktop draws one.
 func (d *Desktop) MessageBox(opts platform.MessageBoxOptions, done func(platform.MessageAnswer, error)) error {
 	return platform.UnsupportedDesktop{}.MessageBox(opts, done)
 }

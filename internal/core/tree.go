@@ -438,6 +438,7 @@ func (t *Tree) Unmount() {
 		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
 		unlockBuild()
 		t.syncModal()
+		t.closeDetached() // the windows opened by code close too (desktop.go)
 		if len(t.winQ) > 0 {
 			t.flushWindows() // the child windows close (window.go)
 		}

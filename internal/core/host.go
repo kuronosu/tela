@@ -126,6 +126,7 @@ func Run(opts Options) error {
 	stop()
 	h.stopTimer()
 	h.end()
+	runEndHooks() // desktop.go: package desktop writes what it holds
 	return err
 }
 
@@ -179,6 +180,8 @@ type Host struct {
 	// later is work deferred to the next WakeEvent (a window that must not
 	// close under its own tree's dispatch, window.go).
 	later []func()
+	// desk is package desktop's state (desktop.go), nil until used.
+	desk *hostDesktop
 
 	// FullFrames rasterizes every frame fully, as before damage tracking
 	// (benchmarks and debugging).
@@ -279,11 +282,14 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 			h.views[i].tree.SetEnvironment(e.Settings.DarkMode, e.Settings.ReducedMotion)
 		}
 		return
+	case platform.NotificationEvent, platform.TrayEvent:
+		h.appEvent(e) // package desktop's listeners (desktop.go)
+		return
 	}
 	v := h.main
 	if w != v.win {
 		if v = h.viewOf(w); v == nil {
-			return // a closed window, or an app-scoped event (the desktop package's)
+			return // a closed window
 		}
 	}
 	t := v.tree
@@ -294,9 +300,11 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		t.SetViewport(gfx.Size{W: e.Metrics.Size.W, H: e.Metrics.Size.H})
 		t.SetScale(float32(e.Metrics.Scale))
 		v.notePlacement(e.Metrics.Size)
+		v.placementMoved()
 	case platform.WindowStateEvent:
 		v.os, v.opening = e.State, false
 		v.notePlacement(platform.Size{})
+		v.placementMoved()
 		v.syncState()
 	case platform.FrameEvent:
 		// The state of a new window comes before its first frame, if
