@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"slices"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -71,7 +72,7 @@ func TestFramelessHitTest(t *testing.T) {
 				{0, 150, htLeft},
 				{200, 0, htTop},
 				{399.5, 299.5, htBottomRight},
-				{200, 16, htCaption},
+				{250, 16, htCaption}, // right of the search field (x 100 to 220)
 				{150, 16, htClient},
 				{290, 16, htMinButton},
 				{330, 16, htMaxButton},
@@ -87,7 +88,11 @@ func TestFramelessHitTest(t *testing.T) {
 			sendMessage(w.hwnd, wmNCMouseMove, htClose, screenLParam(p))
 			sendMessage(w.hwnd, wmNCLButtonDown, htClose, screenLParam(p))
 			sendMessage(w.hwnd, wmLButtonUp, 0, mouseLParam(p.Sub(clientOrigin(w.hwnd)).X, p.Sub(clientOrigin(w.hwnd)).Y))
-			b.Wake()
+			// The pointer events these messages queued are delivered in
+			// the pass after this one. A Wake pending at that pass would
+			// come first (the loop delivers it before the queued items)
+			// and its Quit would drop them, so it comes later.
+			time.AfterFunc(300*time.Millisecond, b.Wake)
 		case platform.WakeEvent:
 			b.Quit()
 		}

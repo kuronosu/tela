@@ -90,8 +90,8 @@ func TestClientHitResizeBand(t *testing.T) {
 		{15, 0, htTopLeft}, // corners reach twice the band along the edges
 		{0, 15, htTopLeft},
 		{16, 0, htTop},
-		{200, 7, htTop}, // the band takes precedence over the caption
-		{200, 8, htCaption},
+		{200, 7, htTop},      // the band takes precedence over the caption
+		{250, 8, htCaption},  // right of the search field (x 100 to 220)
 		{399, 0, htTopRight}, // and over the close button
 		{392, 20, htRight},
 		{391, 20, htClose},
