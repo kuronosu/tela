@@ -144,7 +144,7 @@ func TestTitleBarSides(t *testing.T) {
 			for _, name := range []string{"Menu", "Share"} {
 				a.ExpectRole("button", name)
 			}
-			a.ExpectRole("textbox", "Search")
+			a.ExpectRole("searchbox", "Search")
 			closeX := a.Bounds(btnClose).X
 			titleX := a.Bounds(telatest.ByRole("button", "Menu")).X
 			atStart := l.v == kit.MacOS

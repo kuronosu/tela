@@ -12,20 +12,27 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CaptionDrags`](#func-app-captiondrags) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`Hover`](#func-app-hover) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`Press`](#func-app-press) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetScale`](#func-app-setscale) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CaptionDrags`](#func-app-captiondrags) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`Hover`](#func-app-hover) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`Press`](#func-app-press) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetScale`](#func-app-setscale) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`Right`](#func-right)
+  - [`type DesktopService`](#type-desktopservice)
   - [`type DragOption`](#type-dragoption): [`Steps`](#func-steps)
+  - [`type FileDialog`](#type-filedialog)
+  - [`type FileDialogKind`](#type-filedialogkind)
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
   - [`type GoldenOption`](#type-goldenoption): [`Tolerance`](#func-tolerance)
   - [`type HitKind`](#type-hitkind): [`String`](#func-hitkind-string)
   - [`type HitRegion`](#type-hitregion): [`String`](#func-hitregion-string)
   - [`type Locator`](#type-locator): [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Filter`](#func-locator-filter) · [`Nth`](#func-locator-nth) · [`String`](#func-locator-string)
+  - [`type MessageBox`](#type-messagebox)
+  - [`type Notification`](#type-notification)
   - [`type Option`](#type-option): [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`NoDev`](#func-nodev) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title)
   - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
   - [`type Stats`](#type-stats)
   - [`type TextOption`](#type-textoption): [`Exact`](#func-exact)
+  - [`type TrayIcon`](#type-trayicon)
+  - [`type TrayItem`](#type-trayitem)
   - [`type WindowCond`](#type-windowcond): [`Active`](#func-active) · [`ClientDecorations`](#func-clientdecorations) · [`Fullscreen`](#func-fullscreen) · [`Hidden`](#func-hidden) · [`Maximized`](#func-maximized) · [`Minimized`](#func-minimized)
 
 ## Overview
@@ -176,6 +183,14 @@ fmt.Println(img.Bounds().Dx(), img.Bounds().Dy(), img.RGBAAt(2, 2))
 // Output: 32 32 {0 0 0 255}
 ```
 
+### func TempDesktopDirs
+
+```go
+func TempDesktopDirs(tb testing.TB) string
+```
+
+TempDesktopDirs points package desktop's folders (ConfigDir, the settings store, saved window placements...) at a new temporary directory for the rest of the test, through the desktop.DirEnv variable, and returns it. Call it before the app reads a setting. Like t.Setenv, it cannot be used in parallel tests.
+
 ## Types
 
 ### type App
@@ -317,6 +332,33 @@ fmt.Println(app.AriaSnapshot())
 // Output: - button "Held"
 ```
 
+#### func (*App) AnswerFileDialog
+
+```go
+func (a *App) AnswerFileDialog(paths ...string)
+```
+
+AnswerFileDialog answers the oldest open file dialog as the user would: with the given paths, or, without paths, by canceling it. The app's callback runs and the app settles. It fails the test when no file dialog is open, or when a dialog that takes one path gets several.
+
+```go
+app.Click(telatest.ByRole("button", "Open…"))
+app.AnswerFileDialog("/home/ana/notes/groceries.md")
+app.ExpectText("groceries.md")
+```
+
+#### func (*App) AnswerMessage
+
+```go
+func (a *App) AnswerMessage(answer desktop.Answer)
+```
+
+AnswerMessage answers the oldest open message box with the button answer, as the user would (a drawn box gets a real click on its button); the app's callback runs and the app settles. It fails the test when no box is open or the box has no such button.
+
+```go
+app.Click(telatest.ByRole("button", "Close"))
+app.AnswerMessage(desktop.AnswerNo) // "Save the changes?" — No
+```
+
 #### func (*App) AriaGolden
 
 ```go
@@ -426,6 +468,45 @@ fmt.Println("clicked")
 // Output: clicked
 ```
 
+#### func (*App) ClickNotification
+
+```go
+func (a *App) ClickNotification(title string)
+```
+
+ClickNotification clicks the open notification with the given title (the newest, if several): its OnClick runs and it closes.
+
+#### func (*App) ClickNotificationAction
+
+```go
+func (a *App) ClickNotificationAction(title, action string)
+```
+
+ClickNotificationAction clicks the button labeled action of the open notification with the given title: the action's OnClick runs and the notification closes.
+
+#### func (*App) ClickTray
+
+```go
+func (a *App) ClickTray()
+```
+
+ClickTray clicks the app's tray icon (its OnClick runs). It fails the test unless the app shows exactly one.
+
+#### func (*App) ClickTrayItem
+
+```go
+func (a *App) ClickTrayItem(path ...string)
+```
+
+ClickTrayItem chooses an item of the tray icon's menu (its OnSelect runs), named by its label, and for an item in a submenu by the labels of the submenus first:
+
+```go
+app.ClickTrayItem("Quit")
+app.ClickTrayItem("Theme", "Dark")
+```
+
+It fails the test when the app does not show exactly one tray icon, or the item is missing, disabled, or opens a submenu.
+
 #### func (*App) Close
 
 ```go
@@ -457,6 +538,14 @@ func (a *App) Cursor() string
 ```
 
 Cursor returns the CSS name of the mouse cursor the window shows ("default", "pointer", "not-allowed"...), after settling the app (under [`NoSettle`](#func-nosettle), handling only the work due).
+
+#### func (*App) DismissNotification
+
+```go
+func (a *App) DismissNotification(title string)
+```
+
+DismissNotification closes the open notification with the given title as the user does with its close button (or as it expires): its OnClose runs.
 
 #### func (*App) DoubleClick
 
@@ -696,6 +785,14 @@ win.Maximize()
 win.ExpectWindowState(telatest.Maximized(true), telatest.Minimized(false))
 ```
 
+#### func (*App) FileDialogs
+
+```go
+func (a *App) FileDialogs() []FileDialog
+```
+
+FileDialogs returns the file dialogs open now, oldest first, after settling the app.
+
 #### func (*App) Fill
 
 ```go
@@ -874,6 +971,14 @@ fmt.Println("builds:", st.Builds, "frames:", st.Frames > 0)
 // Output: builds: 1 frames: true
 ```
 
+#### func (*App) MessageBoxes
+
+```go
+func (a *App) MessageBoxes() []MessageBox
+```
+
+MessageBoxes returns the message boxes open now, oldest first (native ones before drawn ones), after settling the app.
+
 #### func (*App) Minimize
 
 ```go
@@ -921,6 +1026,14 @@ func (a *App) Move(x, y int)
 ```
 
 Move moves the window so that its content area's top-left corner is at (x, y) physical pixels of the fake desktop, as the user dragging it. The position shows in [`App.Placement`](#func-app-placement) from then on.
+
+#### func (*App) Notifications
+
+```go
+func (a *App) Notifications() []Notification
+```
+
+Notifications returns the notifications the app showed, oldest first, closed ones included, after settling the app.
 
 #### func (*App) Now
 
@@ -1105,6 +1218,22 @@ func (a *App) Title() string
 
 Title returns the window's title, as the OS shows it: tela.App.Title or tela.Window.Title, as of the latest build.
 
+#### func (*App) Tray
+
+```go
+func (a *App) Tray() TrayIcon
+```
+
+Tray returns the app's tray icon; it fails the test unless the app shows exactly one.
+
+#### func (*App) Trays
+
+```go
+func (a *App) Trays() []TrayIcon
+```
+
+Trays returns the tray icons the app shows now, in the order they were added, after settling the app.
+
 #### func (*App) Type
 
 ```go
@@ -1120,6 +1249,21 @@ func (a *App) Unmaximize()
 ```
 
 Unmaximize restores a maximized window to its size.
+
+#### func (*App) Unsupported
+
+```go
+func (a *App) Unsupported(services ...DesktopService)
+```
+
+Unsupported makes the headless desktop lack the given services from now on, as a desktop without them does (Linux without a portal, GNOME without a tray): the calls return errors wrapping desktop.ErrUnsupported, and ShowMessage draws its box. Called with nothing, every service is supported again.
+
+```go
+app := telatest.Mount(t, Editor{})
+app.Unsupported(telatest.FileDialogs)
+app.Click(telatest.ByRole("button", "Open…"))
+app.ExpectText("Type the path of the file")
+```
 
 #### func (*App) WaitFor
 
@@ -1249,6 +1393,30 @@ app.Click(telatest.ByTestID("area"), telatest.Right())
 app.ClickAt(120, 80, telatest.Right())
 ```
 
+### type DesktopService
+
+```go
+type DesktopService uint8
+```
+
+DesktopService is a group of desktop services, for [`App.Unsupported`](#func-app-unsupported).
+
+```go
+const (
+    // FileDialogs: desktop.OpenFile, OpenFiles, SaveFile, PickFolder.
+    FileDialogs DesktopService = iota + 1
+    // MessageBoxes: the native message box of desktop.ShowMessage; without
+    // it the box is drawn in a window, as on Linux.
+    MessageBoxes
+    // Notifications: desktop.Notify.
+    Notifications
+    // TrayIcons: desktop.Tray.
+    TrayIcons
+    // OpenURLs: tela.OpenURL and tela.OpenPath.
+    OpenURLs
+)
+```
+
 ### type DragOption
 
 ```go
@@ -1264,6 +1432,38 @@ func Steps(n int) DragOption
 ```
 
 Steps sets how many pointer moves the drag is made of (default 12): the pointer moves in equal steps between the start and the end, and each move runs a frame, as a window would.
+
+### type FileDialog
+
+```go
+type FileDialog struct {
+    Kind FileDialogKind
+    // Title, Directory and DefaultName are the options the app gave
+    // (desktop.Title, Directory, DefaultName).
+    Title, Directory, DefaultName string
+    // Filters are the desktop.Filter entries.
+    Filters []desktop.FileFilter
+}
+```
+
+FileDialog is a file dialog the app opened and the test has not answered.
+
+### type FileDialogKind
+
+```go
+type FileDialogKind string
+```
+
+FileDialogKind is the kind of a [`FileDialog`](#type-filedialog).
+
+```go
+const (
+    OpenFileDialog   FileDialogKind = "OpenFile"   // desktop.OpenFile
+    OpenFilesDialog  FileDialogKind = "OpenFiles"  // desktop.OpenFiles (several files)
+    SaveFileDialog   FileDialogKind = "SaveFile"   // desktop.SaveFile
+    PickFolderDialog FileDialogKind = "PickFolder" // desktop.PickFolder
+)
+```
 
 ### type FilterOption
 
@@ -1325,7 +1525,6 @@ type HitKind uint8
 const ( // HitClient is ordinary content. It is what lies outside every
 
     // region, and a HitClient region punches a hole into the regions
-
     // listed before it (a search field or a tab strip inside a caption
 
     // area).
@@ -1333,12 +1532,9 @@ const ( // HitClient is ordinary content. It is what lies outside every
 
     // in it (move, double-click, window menu).
     HitCaption
-
     // HitMinimize, HitMaximize and HitClose are the window buttons drawn
-
     // by the app. Pointer events over them reach the app as usual (its
     // buttons perform the action); the region tells the OS what they are
-
     // (Windows 11 snap layouts open from the maximize button).
 
     HitMinimize
@@ -1521,6 +1717,36 @@ func (l Locator) String() string
 ```
 
 String describes the locator the way Playwright does.
+
+### type MessageBox
+
+```go
+type MessageBox struct {
+    Kind    desktop.MessageKind
+    Title   string
+    Text    string
+    Buttons desktop.Buttons
+    // Drawn: Tela draws the box in a window (the desktop has no native
+    // message box, as on Linux; see [App.Unsupported]).
+    Drawn bool
+}
+```
+
+MessageBox is a message box the app shows (desktop.ShowMessage) and the test has not answered.
+
+### type Notification
+
+```go
+type Notification struct {
+    Title, Body string
+    // Actions are the labels of its buttons.
+    Actions []string
+    // Closed: the app closed it, or the user clicked or dismissed it.
+    Closed bool
+}
+```
+
+Notification is a notification the app showed (desktop.Notify).
 
 ### type Option
 
@@ -2058,6 +2284,32 @@ func Exact() TextOption
 ```
 
 Exact makes [`ByText`](#func-bytext) match the whole text, case sensitive, instead of a case-insensitive substring.
+
+### type TrayIcon
+
+```go
+type TrayIcon struct {
+    Tooltip string
+    Menu    []TrayItem
+    // Updates counts the changes of the icon since it was added.
+    Updates int
+}
+```
+
+TrayIcon is a tray icon the app shows (a mounted desktop.Tray).
+
+### type TrayItem
+
+```go
+type TrayItem struct {
+    Label                        string
+    Separator, Checkbox, Checked bool
+    Disabled                     bool
+    Submenu                      []TrayItem
+}
+```
+
+TrayItem is an item of a tray icon's menu.
 
 ### type WindowCond
 
