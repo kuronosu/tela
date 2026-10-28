@@ -178,10 +178,10 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		return 0
 
 	case wmNCPaint, wmNCUAHDrawCaption, wmNCUAHDrawFrame:
-		// A frameless window has no non-client area to paint, and
-		// DefWindowProc would draw a classic caption and frame over the
-		// client area when DWM is not composing (see redraw.go).
-		if w.opts.Frameless {
+		// Without composition DefWindowProc would draw a classic caption
+		// and frame over the client area of a frameless window; with it,
+		// answering these messages is what makes it draw them (redraw.go).
+		if w.opts.Frameless && !compositionEnabled() {
 			return 0
 		}
 	case wmNCActivate:

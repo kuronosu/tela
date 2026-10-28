@@ -46,15 +46,17 @@ func pixelAt(w *Window, p image.Point) uint32 {
 func TestRepaintAfterSurfaceLoss(t *testing.T) {
 	const want = 0x906030 // COLORREF of (0x30, 0x60, 0x90)
 	msgs := []struct {
-		name string
-		msg  uint32
-		full bool
+		name   string
+		msg    uint32
+		wparam uintptr
+		full   bool
 	}{
-		{"WM_DWMCOMPOSITIONCHANGED", wmDwmCompositionChanged, true},
-		{"WM_THEMECHANGED", wmThemeChanged, true},
-		{"WM_DISPLAYCHANGE", wmDisplayChange, true},
-		{"WM_SETTINGCHANGE", wmSettingChange, false},
-		{"WM_NCACTIVATE", wmNCActivate, false},
+		{"WM_DWMCOMPOSITIONCHANGED", wmDwmCompositionChanged, 0, true},
+		{"WM_THEMECHANGED", wmThemeChanged, 0, true},
+		{"WM_DISPLAYCHANGE", wmDisplayChange, 0, true},
+		{"WM_SETTINGCHANGE", wmSettingChange, 0, false},
+		{"WM_NCACTIVATE (activated)", wmNCActivate, 1, false},
+		{"WM_NCACTIVATE (deactivated)", wmNCActivate, 0, false},
 	}
 	for _, frameless := range []bool{true, false} {
 		b := liveBackend(t)
@@ -86,11 +88,7 @@ func TestRepaintAfterSurfaceLoss(t *testing.T) {
 					t.Skipf("the window cannot be wiped through its DC (pixel %#x)", got)
 				}
 				w.ClearNeedsFull()
-				wparam := uintptr(0)
-				if m.msg == wmNCActivate {
-					wparam = 1
-				}
-				sendMessage(w.hwnd, m.msg, wparam, 0)
+				sendMessage(w.hwnd, m.msg, m.wparam, 0)
 				procUpdateWindow.Call(w.hwnd) // answer the WM_PAINT now
 				for _, p := range []image.Point{probe, {0, 0}, {3, 3}, {119, 89}, {0, 45}} {
 					if got := pixelAt(w, p); got != want {
@@ -105,9 +103,9 @@ func TestRepaintAfterSurfaceLoss(t *testing.T) {
 	}
 }
 
-// TestFramelessKeepsCaptionUnpainted: a frameless window answers the
-// messages that make DefWindowProc paint a caption, and WM_SETTEXT and
-// WM_SETICON leave it visible, whether or not DWM composes.
+// TestFramelessKeepsCaptionUnpainted: without composition a frameless window
+// answers the messages that make DefWindowProc paint a caption; WM_SETTEXT
+// and WM_SETICON leave it visible, whether or not DWM composes.
 func TestFramelessKeepsCaptionUnpainted(t *testing.T) {
 	old := compositionEnabled
 	defer func() { compositionEnabled = old }()
@@ -130,7 +128,9 @@ func TestFramelessKeepsCaptionUnpainted(t *testing.T) {
 			defer b.Quit()
 			presentSolid(t, ew, color.RGBA{0x30, 0x60, 0x90, 0xff})
 			for _, m := range []uint32{wmNCPaint, wmNCUAHDrawCaption, wmNCUAHDrawFrame} {
-				if r := sendMessage(w.hwnd, m, 1, 0); r != 0 {
+				// With composition the messages are DefWindowProc's (see
+				// redraw.go); without it the window answers them itself.
+				if r := sendMessage(w.hwnd, m, 1, 0); r != 0 && !composing {
 					t.Errorf("composing=%v: message %#x returned %d, want 0 (handled)", composing, m, r)
 				}
 			}

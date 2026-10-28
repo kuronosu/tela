@@ -238,12 +238,15 @@
 // area is clipped to the work area of its monitor (Chromium's approach;
 // Windows Terminal insets by the frame size instead).
 //
-// A frameless window never lets DefWindowProc paint its caption, which
-// would land on the client area when DWM is not composing: it answers
+// When DWM does not compose, a frameless window never lets DefWindowProc
+// paint its caption, which would land on the client area: it answers
 // WM_NCPAINT and the undocumented WM_NCUAHDRAWCAPTION and
 // WM_NCUAHDRAWFRAME itself, passes lParam -1 to DefWindowProc for
 // WM_NCACTIVATE, and runs WM_SETTEXT and WM_SETICON with the window
-// temporarily not visible (redraw.go). What the OS lost of a window (a
+// temporarily not visible. With composition these go to DefWindowProc
+// unchanged (answering WM_NCPAINT makes it paint a classic caption when a
+// modal dialog deactivates the window), and every activation change
+// repaints the client area from the retained copy (redraw.go). What the OS lost of a window (a
 // reconnected remote session, a display, theme or composition change,
 // resume from sleep: WM_DISPLAYCHANGE, WM_THEMECHANGED,
 // WM_DWMCOMPOSITIONCHANGED, WM_POWERBROADCAST, WM_SETTINGCHANGE,
