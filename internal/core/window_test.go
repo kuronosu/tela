@@ -2,6 +2,8 @@ package core
 
 import (
 	"image"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -262,6 +264,87 @@ func TestModalWindowBlocksParent(t *testing.T) {
 	}
 }
 
+// A handler of a child window that drives its parent synchronously (an
+// ElementRef.Click on the parent's element), whose build changes the
+// Window, does not rebuild the child window's tree under the child's own
+// dispatch: the click finishes with the handlers it started with, and the
+// window and its content are updated after it (as closing waits,
+// closeWindow).
+func TestWindowUpdateWaitsForChildDispatch(t *testing.T) {
+	var parentBtn ElementRef
+	var calls []string
+	root := Component(func() Node {
+		n, setN := UseState(0)
+		parentBtn = UseElementRef()
+		child := []Child{Class("block w-40 h-10"), On("click", func(MouseEvent) {
+			calls = append(calls, "first")
+			parentBtn.Click()
+		})}
+		if n == 0 {
+			child = append(child, On("click", func(MouseEvent) { calls = append(calls, "second") }))
+		}
+		child = append(child, Text("child "+strconv.Itoa(n)))
+		return div(
+			button(AttachRef(parentBtn), Class("block w-40 h-10"), On("click", func(MouseEvent) {
+				calls = append(calls, "parent")
+				setN.Set(n + 1)
+			}), Text("parent")),
+			win(WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100, OnClose: func() {}, Root: button(child...)}),
+		)
+	})
+	x := newWinHarness(t, Options{Root: root})
+	c := x.child(0)
+	x.click(c, 20, 20)
+	if got := strings.Join(calls, " "); got != "first parent second" {
+		t.Errorf("handlers ran %q, want %q", got, "first parent second")
+	}
+	if c.Title() != "Child 1" || !strings.Contains(x.snapshot(c), "child 1") {
+		t.Errorf("child window after the click: title %q, content %q", c.Title(), x.snapshot(c))
+	}
+	calls = nil
+	x.click(c, 20, 20)
+	if got := strings.Join(calls, " "); got != "first parent" {
+		t.Errorf("second click ran %q, want %q", got, "first parent")
+	}
+	if c.Title() != "Child 2" || !strings.Contains(x.snapshot(c), "child 2") {
+		t.Errorf("child window after the second click: title %q, content %q", c.Title(), x.snapshot(c))
+	}
+}
+
+// The same when the child window's frame drives the parent (a layout
+// effect of the child clicks the parent's element): the child's tree is
+// not rebuilt in the middle of its own frame.
+func TestWindowUpdateWaitsForChildFrame(t *testing.T) {
+	var parentBtn ElementRef
+	builds, during := map[int]int{}, -1
+	content := func(n int) Node {
+		builds[n]++
+		UseLayoutEffect(func() func() {
+			before := builds[1]
+			parentBtn.Click()
+			during = builds[1] - before
+			return nil
+		}, Once)
+		return div(Text("child " + strconv.Itoa(n)))
+	}
+	root := Component(func() Node {
+		n, setN := UseState(0)
+		parentBtn = UseElementRef()
+		return div(
+			button(AttachRef(parentBtn), Class("block w-40 h-10"), On("click", func(MouseEvent) { setN.Set(n + 1) }), Text("parent")),
+			win(WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100, OnClose: func() {}, Root: ComponentProps(content, n)}),
+		)
+	})
+	x := newWinHarness(t, Options{Root: root})
+	c := x.child(0)
+	if during != 0 {
+		t.Errorf("the child window's content built %d times inside its own frame, want 0", during)
+	}
+	if c.Title() != "Child 1" || !strings.Contains(x.snapshot(c), "child 1") || builds[1] != 1 {
+		t.Errorf("child window after its frame: title %q, content %q, builds %v", c.Title(), x.snapshot(c), builds)
+	}
+}
+
 // A hidden modal window blocks nothing.
 func TestHiddenModalWindowDoesNotBlock(t *testing.T) {
 	clicks := 0
@@ -397,6 +480,31 @@ func TestWindowPlacementMaximized(t *testing.T) {
 	}
 	if got := x.h.Handle(main).Placement(); got.Width != 500 || got.Height != 350 || !got.Maximized {
 		t.Errorf("Placement() = %+v, want 500x350 maximized", got)
+	}
+}
+
+// Minimizing a maximized window keeps its placement maximized: a
+// minimized window reports the state it returns to (platform.WindowState;
+// Win32 reads WPF_RESTORETOMAXIMIZED, since IsZoomed is false while it is
+// iconic), so an app that quits while minimized reopens maximized.
+func TestWindowPlacementMinimizedMaximized(t *testing.T) {
+	x := newWinHarness(t, Options{Root: div(Text("x"))})
+	main := x.windows()[0]
+	w := x.h.Handle(main)
+	w.Maximize()
+	x.drain()
+	w.Minimize()
+	x.drain()
+	if st := w.State(); !st.Minimized || !st.Maximized {
+		t.Fatalf("state of the minimized maximized window %+v", st)
+	}
+	if p := w.Placement(); !p.Maximized || p.Width != 400 || p.Height != 300 {
+		t.Errorf("Placement() of the minimized maximized window = %+v, want 400x300 maximized", p)
+	}
+	w.Focus()
+	x.drain()
+	if p := w.Placement(); !p.Maximized || p.Width != 400 || p.Height != 300 {
+		t.Errorf("Placement() after restoring = %+v, want 400x300 maximized", p)
 	}
 }
 
@@ -680,5 +788,71 @@ func TestWindowSpecChecks(t *testing.T) {
 	msg = panicMessage(func() { tr.Mount(win(WindowSpec{Title: "W", MinWidth: -1, Root: div()})) })
 	if !strings.Contains(msg, `tela.Window "W" has MinWidth -1`) {
 		t.Errorf("panic %q", msg)
+	}
+}
+
+// Options carries every WindowSpec field of the main window, and mainSpec
+// passes each on: a field added to WindowSpec and left out of Options or
+// mainSpec (or of tela.App, tela.Window; TestWindowFieldsReachCore in
+// package tela) would be dropped for the main window without a word.
+// Modal is a child window's; RootClass, Root and OnClose are Options' in
+// another form (Config.RootClass, Options.Root, OnClose with the handle).
+func TestOptionsCarryEveryWindowField(t *testing.T) {
+	skip := map[string]bool{"Modal": true, "RootClass": true, "Root": true, "OnClose": true}
+	st, ot := reflect.TypeFor[WindowSpec](), reflect.TypeFor[Options]()
+	var o Options
+	ov := reflect.ValueOf(&o).Elem()
+	for i := range st.NumField() {
+		f := st.Field(i)
+		if skip[f.Name] {
+			continue
+		}
+		of, ok := ot.FieldByName(f.Name)
+		if !ok || len(of.Index) != 1 || of.Type != f.Type {
+			t.Errorf("Options has no field %s %v for the main window's WindowSpec", f.Name, f.Type)
+			continue
+		}
+		fillNonZero(ov.Field(of.Index[0]))
+	}
+	sv := reflect.ValueOf(o.mainSpec())
+	for i := range st.NumField() {
+		f := st.Field(i)
+		if skip[f.Name] {
+			continue
+		}
+		if got, want := sv.Field(i), ov.FieldByName(f.Name); want.IsValid() && !reflect.DeepEqual(got.Interface(), want.Interface()) {
+			t.Errorf("mainSpec drops Options.%s: %v, want %v", f.Name, got, want)
+		}
+	}
+}
+
+// fillNonZero sets v (settable) to a value other than its zero value,
+// field by field for a struct.
+func fillNonZero(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.String:
+		v.SetString("x")
+	case reflect.Bool:
+		v.SetBool(true)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(3)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(3)
+	case reflect.Float32, reflect.Float64:
+		v.SetFloat(7)
+	case reflect.Slice:
+		s := reflect.MakeSlice(v.Type(), 1, 1)
+		fillNonZero(s.Index(0))
+		v.Set(s)
+	case reflect.Interface:
+		if img := reflect.ValueOf(image.NewRGBA(image.Rect(0, 0, 1, 1))); img.Type().Implements(v.Type()) {
+			v.Set(img)
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() {
+				fillNonZero(v.Field(i))
+			}
+		}
 	}
 }

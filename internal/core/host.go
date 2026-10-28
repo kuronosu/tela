@@ -62,7 +62,11 @@ type Options struct {
 	ErrorLog io.Writer
 }
 
-// mainSpec returns the WindowSpec of the main window.
+// mainSpec returns the WindowSpec of the main window. Options repeats the
+// WindowSpec fields so that its literals stay flat; a field added to
+// WindowSpec goes here, in Options, tela.App and tela.Window too
+// (TestOptionsCarryEveryWindowField and tela's TestWindowFieldsReachCore
+// fail until it does).
 func (o *Options) mainSpec() WindowSpec {
 	return WindowSpec{
 		Title: o.Title, Width: o.Width, Height: o.Height,

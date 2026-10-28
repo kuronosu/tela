@@ -205,8 +205,9 @@ const (
 	swShowMinNoActive       = 7
 	swShowNA                = 8
 	swRestore               = 9
-	swParentClosing         = 1 // WM_SHOWWINDOW lParam: the owner is being minimized
-	swParentOpening         = 3 // WM_SHOWWINDOW lParam: the owner is being restored
+	swParentClosing         = 1      // WM_SHOWWINDOW lParam: the owner is being minimized
+	swParentOpening         = 3      // WM_SHOWWINDOW lParam: the owner is being restored
+	wpfRestoreToMaximized   = 0x0002 // WINDOWPLACEMENT.flags: a minimized window restores to maximized
 	swpNoSize               = 0x0001
 	swpFrameChanged         = 0x0020
 	swpNoOwnerZOrder        = 0x0200

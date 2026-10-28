@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -128,5 +129,114 @@ func TestAppRoot(t *testing.T) {
 			}()
 			f()
 		}()
+	}
+}
+
+// TestWindowFieldsReachCore checks that every field of core.WindowSpec has
+// its twin on Window, which Build passes on, and on App (except Modal, a
+// child window's), which options passes on: a field added to WindowSpec
+// and left out of one of these lists (or of core.Options; see
+// TestOptionsCarryEveryWindowField in internal/core) fails here instead of
+// being dropped without a word.
+func TestWindowFieldsReachCore(t *testing.T) {
+	st := reflect.TypeFor[core.WindowSpec]()
+	root := C(func() Node { return Node{} })
+
+	var w Window
+	wv := reflect.ValueOf(&w).Elem()
+	for i := range st.NumField() {
+		f := st.Field(i)
+		if f.Name == "Root" {
+			continue // a Component here, a core.Node there
+		}
+		wf, ok := reflect.TypeFor[Window]().FieldByName(f.Name)
+		if !ok || wf.Type != f.Type {
+			t.Errorf("Window has no field %s %v of core.WindowSpec", f.Name, f.Type)
+			continue
+		}
+		fillNonZero(wv.FieldByIndex(wf.Index))
+	}
+	w.Root = root
+	checkPassedOn(t, "Window.spec", reflect.ValueOf(w), reflect.ValueOf(w.spec()), nil)
+
+	var app App
+	av := reflect.ValueOf(&app).Elem()
+	skip := map[string]bool{"Modal": true, "Root": true, "OnClose": true} // App.OnClose takes the WindowHandle
+	for i := range st.NumField() {
+		f := st.Field(i)
+		if skip[f.Name] {
+			continue
+		}
+		af, ok := reflect.TypeFor[App]().FieldByName(f.Name)
+		if !ok || af.Type != f.Type {
+			t.Errorf("App has no field %s %v of core.WindowSpec", f.Name, f.Type)
+			continue
+		}
+		fillNonZero(av.FieldByIndex(af.Index))
+	}
+	app.Root = root
+	app.OnClose = func(WindowHandle) {}
+	checkPassedOn(t, "App.options", reflect.ValueOf(app), reflect.ValueOf(app.options()), skip)
+	if o := app.options(); o.OnClose == nil || o.Root == (Node{}) {
+		t.Errorf("App.options drops OnClose or Root: %+v", o)
+	}
+}
+
+// checkPassedOn reports the fields of core.WindowSpec, other than Root and
+// those in skip, whose value in to (found by name) is not the one in from.
+func checkPassedOn(t *testing.T, what string, from, to reflect.Value, skip map[string]bool) {
+	t.Helper()
+	st := reflect.TypeFor[core.WindowSpec]()
+	for i := range st.NumField() {
+		name := st.Field(i).Name
+		if name == "Root" || skip[name] {
+			continue
+		}
+		a, b := from.FieldByName(name), to.FieldByName(name)
+		if !a.IsValid() || !b.IsValid() {
+			continue // reported above
+		}
+		if a.Kind() == reflect.Func {
+			if a.IsNil() != b.IsNil() {
+				t.Errorf("%s drops %s", what, name)
+			}
+			continue
+		}
+		if !reflect.DeepEqual(a.Interface(), b.Interface()) {
+			t.Errorf("%s drops %s: %v, want %v", what, name, b, a)
+		}
+	}
+}
+
+// fillNonZero sets v (settable) to a value other than its zero value,
+// field by field for a struct; a func does nothing.
+func fillNonZero(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.String:
+		v.SetString("x")
+	case reflect.Bool:
+		v.SetBool(true)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(3)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(3)
+	case reflect.Float32, reflect.Float64:
+		v.SetFloat(7)
+	case reflect.Slice:
+		s := reflect.MakeSlice(v.Type(), 1, 1)
+		fillNonZero(s.Index(0))
+		v.Set(s)
+	case reflect.Interface:
+		if img := reflect.ValueOf(image.NewRGBA(image.Rect(0, 0, 1, 1))); img.Type().Implements(v.Type()) {
+			v.Set(img)
+		}
+	case reflect.Func:
+		v.Set(reflect.MakeFunc(v.Type(), func([]reflect.Value) []reflect.Value { return nil }))
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() {
+				fillNonZero(v.Field(i))
+			}
+		}
 	}
 }

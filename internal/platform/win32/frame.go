@@ -188,10 +188,15 @@ func ncButtonFromMessage(msg uint32, wparam uintptr) (btn platform.PointerButton
 }
 
 // reportedState is the WindowState the backend reports. Maximized is
-// IsZoomed, except in fullscreen, where it is the state the window returns
-// to. pos is the content origin of the normal placement (see
-// Window.updateState).
-func reportedState(iconic, zoomed, fullscreen, fsMaximized, frameless bool, pos image.Point) platform.WindowState {
+// IsZoomed, except where the window is not showing that state: minimized
+// (IsZoomed is false while a window is iconic), it is restoreMax, the
+// WPF_RESTORETOMAXIMIZED flag of its placement; in fullscreen it is
+// fsMaximized. Both are the state the window returns to, which the
+// platform contract reports (X11 keeps _NET_WM_STATE_MAXIMIZED on an
+// iconified window), so minimizing a maximized window does not lose its
+// maximized placement. pos is the content origin of the normal placement
+// (see Window.updateState).
+func reportedState(iconic, zoomed, restoreMax, fullscreen, fsMaximized, frameless bool, pos image.Point) platform.WindowState {
 	st := platform.WindowState{
 		Minimized:             iconic,
 		Maximized:             zoomed,
@@ -200,8 +205,11 @@ func reportedState(iconic, zoomed, fullscreen, fsMaximized, frameless bool, pos 
 		HasPosition:           true,
 		Position:              pos,
 	}
-	if fullscreen {
+	switch {
+	case fullscreen:
 		st.Maximized = fsMaximized
+	case iconic:
+		st.Maximized = restoreMax
 	}
 	return st
 }

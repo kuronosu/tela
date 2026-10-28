@@ -226,6 +226,23 @@ func TestWindowStateRequests(t *testing.T) {
 		if st := state(); st.Minimized {
 			t.Errorf("state after Activate = %v, want restored", st)
 		}
+
+		// A maximized window that is minimized still reports Maximized
+		// (the state it returns to), although IsZoomed is false while it
+		// is iconic: a placement saved then reopens it maximized.
+		w.SetMaximized(true)
+		w.Minimize()
+		if st := state(); !st.Minimized || !st.Maximized || isZoomed(w.hwnd) {
+			t.Errorf("state of a maximized window after Minimize = %v (zoomed %v), want minimized and maximized", st, isZoomed(w.hwnd))
+		}
+		w.Activate()
+		if st := state(); st.Minimized || !st.Maximized || !isZoomed(w.hwnd) {
+			t.Errorf("state after Activate = %v, want restored to maximized", st)
+		}
+		w.SetMaximized(false)
+		if st := state(); st.Maximized || st.Minimized {
+			t.Errorf("state after SetMaximized(false) = %v, want normal", st)
+		}
 		b.Wake()
 	})
 	if !done {

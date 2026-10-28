@@ -450,8 +450,10 @@ type windowSlot struct {
 	spec, applied WindowSpec
 	view          *winView
 	// queued: in Tree.winQ; tried: opening was tried (it failed, or the
-	// tree has no window); gone: the component unmounted.
-	queued, tried, gone bool
+	// tree has no window); gone: the component unmounted; deferred: an
+	// update waits in Host.later for the window's tree to leave its
+	// dispatch or frame (updateWindow).
+	queued, tried, gone, deferred bool
 	// detached: opened by code (OpenWindow, desktop.go), not by a Window
 	// component; el is then the parent tree's root.
 	detached bool
@@ -592,6 +594,29 @@ func (t *Tree) childConfig(rootClass string, n int) Config {
 // again (Tree.Mount reconciles it).
 func (t *Tree) updateWindow(s *windowSlot) {
 	v := s.view
+	if ct := v.tree; ct.handlerDepth > 0 || ct.inFrame {
+		// The window's own tree is running a handler or a frame (code of
+		// the child window built the parent synchronously, such as an
+		// ElementRef.Click on the parent's element): Mount would rebuild
+		// the elements its dispatch or pipeline is walking, so the window
+		// is updated at the next wake, with the latest spec, as
+		// closeWindow closes it.
+		if !s.deferred {
+			s.deferred = true
+			h := v.host
+			h.later = append(h.later, func() {
+				if s.deferred {
+					s.deferred = false
+					if s.view != nil && !s.gone {
+						t.updateWindow(s)
+					}
+				}
+			})
+			h.backend.Wake()
+		}
+		return
+	}
+	s.deferred = false
 	old, spec := s.applied, s.spec
 	s.applied = spec
 	if v.alive() {

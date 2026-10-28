@@ -270,11 +270,14 @@ func (p ScrollPhase) String() string {
 // frameless, or at a known position) gets one right after its first
 // ConfigureEvent. When one OS notification changes both the state and the
 // size (maximizing), the WindowStateEvent is queued before the
-// ConfigureEvent, so the FrameEvent that follows sees both. Bursts
-// coalesce (a window dragged across the screen yields position updates at
-// the loop's pace, not per OS message), and a change back to the delivered
-// state before delivery yields nothing. ConfigureEvent semantics are
-// unchanged: size and scale arrive only there.
+// ConfigureEvent, so the FrameEvent that follows sees both; after the
+// window's first ConfigureEvent, a coalesced state is delivered before a
+// coalesced ConfigureEvent even if the size was queued first, so a size
+// never arrives ahead of the state it belongs to. Bursts coalesce (a
+// window dragged across the screen yields position updates at the loop's
+// pace, not per OS message), and a change back to the delivered state
+// before delivery yields nothing. ConfigureEvent semantics are unchanged:
+// size and scale arrive only there.
 type WindowStateEvent struct {
 	State WindowState
 }

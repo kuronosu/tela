@@ -158,19 +158,28 @@ func TestNCButtonFromMessage(t *testing.T) {
 func TestReportedState(t *testing.T) {
 	pos := image.Pt(-1200, 40)
 	for _, tc := range []struct {
-		iconic, zoomed, fs, fsMax, frameless bool
-		want                                 platform.WindowState
+		iconic, zoomed, restoreMax, fs, fsMax, frameless bool
+		want                                             platform.WindowState
 	}{
 		{want: platform.WindowState{HasPosition: true, Position: pos}},
 		{iconic: true, frameless: true, want: platform.WindowState{Minimized: true, ClientSideDecorations: true, HasPosition: true, Position: pos}},
 		{zoomed: true, want: platform.WindowState{Maximized: true, HasPosition: true, Position: pos}},
+		// A minimized window is not zoomed (IsZoomed is false while it is
+		// iconic): Maximized is the state it returns to,
+		// WPF_RESTORETOMAXIMIZED, so minimizing a maximized window keeps
+		// its saved maximized placement (as on X11 and headless).
+		{iconic: true, restoreMax: true, want: platform.WindowState{Minimized: true, Maximized: true, HasPosition: true, Position: pos}},
+		// The flag means nothing outside the minimized state.
+		{restoreMax: true, want: platform.WindowState{HasPosition: true, Position: pos}},
 		{fs: true, want: platform.WindowState{Fullscreen: true, HasPosition: true, Position: pos}},
 		{fs: true, fsMax: true, want: platform.WindowState{Fullscreen: true, Maximized: true, HasPosition: true, Position: pos}},
 		// In fullscreen Maximized is the state to return to, whatever
 		// the style says.
 		{fs: true, zoomed: true, want: platform.WindowState{Fullscreen: true, HasPosition: true, Position: pos}},
+		{fs: true, iconic: true, restoreMax: true, want: platform.WindowState{Fullscreen: true, Minimized: true, HasPosition: true, Position: pos}},
+		{fs: true, fsMax: true, iconic: true, want: platform.WindowState{Fullscreen: true, Maximized: true, Minimized: true, HasPosition: true, Position: pos}},
 	} {
-		if got := reportedState(tc.iconic, tc.zoomed, tc.fs, tc.fsMax, tc.frameless, pos); got != tc.want {
+		if got := reportedState(tc.iconic, tc.zoomed, tc.restoreMax, tc.fs, tc.fsMax, tc.frameless, pos); got != tc.want {
 			t.Errorf("reportedState(%+v) = %v, want %v", tc, got, tc.want)
 		}
 	}

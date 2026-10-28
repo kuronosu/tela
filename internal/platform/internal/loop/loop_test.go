@@ -212,6 +212,54 @@ func TestUpdateStateCoalesces(t *testing.T) {
 	r.expect("")
 }
 
+// The state goes before the size it comes with even when a ConfigureEvent
+// of the window was queued before the state changed (a resize, then a
+// maximize in the same pass): the coalesced configure carries the
+// maximized size, so the state saying maximized is delivered first, at
+// the configure's position. Core records the size outside maximized from
+// a ConfigureEvent delivered while the state is normal; the maximized
+// size must not be taken for it.
+func TestStateGoesBeforeCoalescedConfigure(t *testing.T) {
+	r := newRig(t, nil)
+	a := r.window("a")
+	r.l.Reconfigure(a, metrics)
+	r.expect("a configure 10x10; a frame 0s")
+	normal := platform.Metrics{Size: platform.Size{W: 20, H: 20}, Scale: 1}
+	big := platform.Metrics{Size: platform.Size{W: 100, H: 80}, Scale: 1}
+	maxed := platform.WindowState{Maximized: true}
+
+	r.l.Reconfigure(a, normal) // a resize: the state did not change
+	r.l.Enqueue(a, platform.FocusEvent{})
+	r.l.UpdateState(a, maxed) // maximizing: the state, then its size
+	r.l.Reconfigure(a, big)
+	r.expect("a state {maximized}; a configure 100x80; a platform.FocusEvent; a frame 0s")
+	if r.l.Ready() {
+		t.Error("the state delivered with the configure is delivered again")
+	}
+
+	// The same when the OS answers inside the handler (Win32's ShowWindow
+	// sends WM_SIZE synchronously) while the configure waits in the pass.
+	r.clock += 10 * time.Millisecond
+	r.l.Enqueue(a, platform.FocusEvent{Focused: true})
+	r.l.Reconfigure(a, normal)
+	r.on = func(w platform.Window, e platform.Event) {
+		if _, ok := e.(platform.FocusEvent); ok {
+			r.l.UpdateState(a, platform.WindowState{})
+			r.l.Reconfigure(a, metrics)
+		}
+	}
+	r.expect("a platform.FocusEvent; a state {}; a configure 10x10; a frame 10ms")
+	r.on = nil
+	r.expect("")
+
+	// Nothing precedes a window's first ConfigureEvent, not even a state
+	// queued with it.
+	b := r.window("b")
+	r.l.Reconfigure(b, metrics)
+	r.l.UpdateState(b, maxed)
+	r.expect("b configure 10x10; b state {maximized}; b frame 10ms")
+}
+
 func TestFramePacing(t *testing.T) {
 	r := newRig(t, nil)
 	a := r.window("a")

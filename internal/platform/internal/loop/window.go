@@ -12,14 +12,15 @@ import (
 // LoopState. With Options.Lock set, every method must be called with the
 // lock held.
 type WindowState struct {
-	metrics   platform.Metrics // delivered by the latest ConfigureEvent
-	closed    bool
-	hidden    bool // the backend vetoes frames (X11: iconified)
-	requested bool // RequestFrame since the last FrameEvent
-	forced    bool // a ConfigureEvent was delivered since the last FrameEvent
-	hasFramed bool // a FrameEvent was delivered
-	last      time.Duration
-	needsFull bool // the next Present is full (after a ConfigureEvent)
+	metrics    platform.Metrics // delivered by the latest ConfigureEvent
+	configured bool             // a ConfigureEvent was delivered
+	closed     bool
+	hidden     bool // the backend vetoes frames (X11: iconified)
+	requested  bool // RequestFrame since the last FrameEvent
+	forced     bool // a ConfigureEvent was delivered since the last FrameEvent
+	hasFramed  bool // a FrameEvent was delivered
+	last       time.Duration
+	needsFull  bool // the next Present is full (after a ConfigureEvent)
 
 	vsyncPending bool // a display signal (frame callback) is outstanding
 	vsyncDone    bool // a display signal arrived since the last FrameEvent
@@ -164,8 +165,27 @@ func (s *WindowState) prepare(ev platform.Event, configure, restate bool) (platf
 		s.metrics = e.Metrics
 		s.needsFull = true
 		s.forced = true
+		s.configured = true
 	case platform.WindowStateEvent:
 		s.state = e.State
 	}
 	return ev, true
+}
+
+// prepareStateFirst is called before a coalesced ConfigureEvent item is
+// prepared: when that configure will be delivered and a coalesced
+// WindowStateEvent of the window is queued too, it applies the state and
+// returns its event, to be delivered first. Both carry the window's latest
+// values, and a backend reports a state before the size it comes with
+// (platform.WindowStateEvent), but coalescing keeps each event at the
+// position of its first report: a configure queued before the state
+// changed (a resize, then maximizing in the same pass) would otherwise
+// deliver the maximized size under the old state. The state item, when
+// reached, finds nothing new. Nothing precedes the window's first
+// ConfigureEvent.
+func (s *WindowState) prepareStateFirst() (platform.Event, bool) {
+	if s.closed || !s.configured || !s.stateQueued || !s.configureQueued || s.configure == s.metrics {
+		return nil, false
+	}
+	return s.prepare(nil, false, true)
 }
