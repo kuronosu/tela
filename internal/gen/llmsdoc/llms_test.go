@@ -207,7 +207,7 @@ func TestSnippets(t *testing.T) {
 	}
 
 	offsets := map[int]int{} // block index -> llms.txt line of the file's line 1
-	pkgs := map[string]int{}  // package name -> the block whose directory holds it
+	pkgs := map[string]int{} // package name -> the block whose directory holds it
 	var patterns []string
 	for i, b := range blocks {
 		src, pre, err := source(b)
