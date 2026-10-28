@@ -166,9 +166,6 @@ func (w *Window) osMetrics() platform.Metrics {
 func (w *Window) outerSize(client image.Point) rect {
 	r := rect{right: int32(client.X), bottom: int32(client.Y)}
 	if w.opts.Frameless {
-		if snapHas("ncstrip") {
-			r.bottom++
-		}
 		return r
 	}
 	return adjustWindowRect(r, w.style, w.exStyle, w.dpi)

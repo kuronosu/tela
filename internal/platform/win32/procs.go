@@ -118,10 +118,9 @@ var (
 	procCreateBitmap      = gdi32.NewProc("CreateBitmap")
 	procDeleteObject      = gdi32.NewProc("DeleteObject")
 
-	procDwmFlush                     = dwmapi.NewProc("DwmFlush")
-	procDwmExtendFrameIntoClientArea = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
-	procDwmIsCompositionEnabled      = dwmapi.NewProc("DwmIsCompositionEnabled")
-	procDwmSetWindowAttribute        = dwmapi.NewProc("DwmSetWindowAttribute") // Windows 10 1809 (19) and 1903 (20)
+	procDwmFlush                = dwmapi.NewProc("DwmFlush")
+	procDwmIsCompositionEnabled = dwmapi.NewProc("DwmIsCompositionEnabled")
+	procDwmSetWindowAttribute   = dwmapi.NewProc("DwmSetWindowAttribute") // Windows 10 1809 (19) and 1903 (20)
 
 	procGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")
@@ -319,9 +318,6 @@ type (
 		work    rect
 		flags   uint32
 	}
-
-	// margins is DWM's MARGINS.
-	margins struct{ left, right, top, bottom int32 }
 
 	flashWInfo struct {
 		size    uint32

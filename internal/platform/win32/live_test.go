@@ -129,7 +129,6 @@ func TestStructLayout(t *testing.T) {
 		"imeCharPosition":  {unsafe.Sizeof(imeCharPosition{}), 36},
 		"windowPlacement":  {unsafe.Sizeof(windowPlacement{}), 44},
 		"monitorInfo":      {unsafe.Sizeof(monitorInfo{}), 40},
-		"margins":          {unsafe.Sizeof(margins{}), 16},
 		"flashWInfo":       {unsafe.Sizeof(flashWInfo{}), pick(32, 20)},
 		"iconInfo":         {unsafe.Sizeof(iconInfo{}), pick(32, 20)},
 	} {

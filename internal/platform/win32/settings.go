@@ -20,6 +20,10 @@ const (
 	// 11), 19 on 1809 and 1903.
 	dwmwaUseImmersiveDarkMode       = 20
 	dwmwaUseImmersiveDarkModeBefore = 19
+
+	// DWMWA_WINDOW_CORNER_PREFERENCE and DWMWCP_ROUND (Windows 11).
+	dwmwaWindowCornerPreference = 33
+	dwmwcpRound                 = 2
 )
 
 // readSettings reads the system settings: the app color mode, whether the

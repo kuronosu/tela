@@ -86,7 +86,7 @@ func (w *Window) initialPlacement() (x, y uintptr) {
 func (w *Window) initControl() {
 	w.onTop = w.opts.AlwaysOnTop
 	if w.opts.Frameless {
-		w.extendFrame()
+		w.roundCorners()
 		// The window got its first WM_NCCALCSIZE during CreateWindowExW;
 		// this makes DWM and the frame agree with it.
 		setWindowPos(w.hwnd, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoZOrder|swpNoActivate|swpFrameChanged)
@@ -102,22 +102,21 @@ func (w *Window) initControl() {
 	}
 }
 
-// extendFrame keeps the DWM shadow (and the rounded corners of Windows 11)
-// of a frameless window, which has no non-client area for DWM to draw
-// them around: a one-pixel top margin of the frame extended into the
-// client area, which the app's opaque pixels cover.
-func (w *Window) extendFrame() {
-	if !available(procDwmExtendFrameIntoClientArea) {
+// roundCorners asks Windows 11 to round the corners of a frameless window
+// (DWMWA_WINDOW_CORNER_PREFERENCE), which it does not do on its own for a
+// window without a non-client area. Windows 10 has no such attribute, and
+// Windows 11 draws square corners without hardware acceleration (a VM).
+//
+// The frame is not extended into the client area
+// (DwmExtendFrameIntoClientArea): with a one-pixel top margin, Windows 11
+// showed the snap layouts flyout over the app's maximize button only
+// while the window was maximized.
+func (w *Window) roundCorners() {
+	if !available(procDwmSetWindowAttribute) {
 		return
 	}
-	if snapHas("noextend") {
-		return
-	}
-	m := margins{top: 1}
-	if snapHas("ncstrip") {
-		m.bottom = 1
-	}
-	procDwmExtendFrameIntoClientArea.Call(w.hwnd, uintptr(unsafe.Pointer(&m)))
+	v := int32(dwmwcpRound)
+	procDwmSetWindowAttribute.Call(w.hwnd, dwmwaWindowCornerPreference, uintptr(unsafe.Pointer(&v)), unsafe.Sizeof(v))
 }
 
 // --- reported state ---
@@ -570,9 +569,6 @@ func (w *Window) onNCCalcSize(lparam uintptr) {
 		return
 	}
 	if !isZoomed(w.hwnd) {
-		if snapHas("ncstrip") && !isIconic(w.hwnd) {
-			r.bottom--
-		}
 		return
 	}
 	mi := monitorInfoOf(monitorFromRect(*r))

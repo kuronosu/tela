@@ -67,14 +67,14 @@ func dwmComposing() bool {
 }
 
 // frameChanged redoes what a frameless window asked DWM for when the
-// composition or the theme changed: DWM forgets the extended frame when it
-// is switched off, and the frame is laid out again.
+// composition or the theme changed (its corner preference), and the frame
+// is laid out again.
 func (w *Window) frameChanged() {
 	if w.Closed() || w.creating {
 		return
 	}
 	if w.opts.Frameless {
-		w.extendFrame()
+		w.roundCorners()
 		setWindowPos(w.hwnd, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoZOrder|swpNoActivate|swpFrameChanged)
 	}
 	w.repaint(true)

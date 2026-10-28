@@ -28,10 +28,9 @@ const biRGB = 0
 //
 // The X byte is always 0xFF. The platform's windows are opaque, but DWM
 // reads the alpha of the pixels that GDI draws into the part of a window
-// that is "glass" (the margin of DwmExtendFrameIntoClientArea that a
-// frameless window has, and the whole client area while a frame extension
-// or a composition change is being redone): a zero byte there shows the
-// desktop through the window.
+// that is "glass" (the whole client area while a composition change is
+// being redone, and any margin of DwmExtendFrameIntoClientArea): a zero
+// byte there shows the desktop through the window.
 type dib struct {
 	pix  []byte
 	size image.Point

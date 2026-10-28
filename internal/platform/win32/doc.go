@@ -231,8 +231,10 @@
 // animation, the system menu, Windows 11's rounded corners), and
 // WM_NCCALCSIZE returns the whole window as the client area, also during
 // CreateWindowExW: NewWindow registers the window for the thread before the
-// call, and WndProc adopts it at its first message. DwmExtendFrameIntoClientArea
-// with a one-pixel top margin keeps the DWM shadow. A maximized frameless
+// call, and WndProc adopts it at its first message. The frame is not
+// extended into the client area (a one-pixel top margin hid Windows 11's
+// snap layouts flyout from the maximize button of a window in its normal
+// state); DWMWA_WINDOW_CORNER_PREFERENCE asks for rounded corners. A maximized frameless
 // window would cover its resize borders, which Windows puts outside the
 // work area (onto the next monitor, under the task bar), so its client
 // area is clipped to the work area of its monitor (Chromium's approach;
@@ -251,7 +253,7 @@
 // resume from sleep: WM_DISPLAYCHANGE, WM_THEMECHANGED,
 // WM_DWMCOMPOSITIONCHANGED, WM_POWERBROADCAST, WM_SETTINGCHANGE,
 // activation) is painted again from the retained copy and the next Present
-// is a full one; the extended frame is set again. The retained copy is
+// is a full one; the corner preference is set again. The retained copy is
 // always opaque (alpha 0xFF), so no pixel can be transparent to DWM.
 //
 // WM_NCHITTEST asks DefWindowProc first (the OS frame of decorated windows);
