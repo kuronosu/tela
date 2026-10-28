@@ -2,6 +2,7 @@ package core
 
 import (
 	"image"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -787,5 +788,71 @@ func TestWindowSpecChecks(t *testing.T) {
 	msg = panicMessage(func() { tr.Mount(win(WindowSpec{Title: "W", MinWidth: -1, Root: div()})) })
 	if !strings.Contains(msg, `tela.Window "W" has MinWidth -1`) {
 		t.Errorf("panic %q", msg)
+	}
+}
+
+// Options carries every WindowSpec field of the main window, and mainSpec
+// passes each on: a field added to WindowSpec and left out of Options or
+// mainSpec (or of tela.App, tela.Window; TestWindowFieldsReachCore in
+// package tela) would be dropped for the main window without a word.
+// Modal is a child window's; RootClass, Root and OnClose are Options' in
+// another form (Config.RootClass, Options.Root, OnClose with the handle).
+func TestOptionsCarryEveryWindowField(t *testing.T) {
+	skip := map[string]bool{"Modal": true, "RootClass": true, "Root": true, "OnClose": true}
+	st, ot := reflect.TypeFor[WindowSpec](), reflect.TypeFor[Options]()
+	var o Options
+	ov := reflect.ValueOf(&o).Elem()
+	for i := range st.NumField() {
+		f := st.Field(i)
+		if skip[f.Name] {
+			continue
+		}
+		of, ok := ot.FieldByName(f.Name)
+		if !ok || len(of.Index) != 1 || of.Type != f.Type {
+			t.Errorf("Options has no field %s %v for the main window's WindowSpec", f.Name, f.Type)
+			continue
+		}
+		fillNonZero(ov.Field(of.Index[0]))
+	}
+	sv := reflect.ValueOf(o.mainSpec())
+	for i := range st.NumField() {
+		f := st.Field(i)
+		if skip[f.Name] {
+			continue
+		}
+		if got, want := sv.Field(i), ov.FieldByName(f.Name); want.IsValid() && !reflect.DeepEqual(got.Interface(), want.Interface()) {
+			t.Errorf("mainSpec drops Options.%s: %v, want %v", f.Name, got, want)
+		}
+	}
+}
+
+// fillNonZero sets v (settable) to a value other than its zero value,
+// field by field for a struct.
+func fillNonZero(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.String:
+		v.SetString("x")
+	case reflect.Bool:
+		v.SetBool(true)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(3)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(3)
+	case reflect.Float32, reflect.Float64:
+		v.SetFloat(7)
+	case reflect.Slice:
+		s := reflect.MakeSlice(v.Type(), 1, 1)
+		fillNonZero(s.Index(0))
+		v.Set(s)
+	case reflect.Interface:
+		if img := reflect.ValueOf(image.NewRGBA(image.Rect(0, 0, 1, 1))); img.Type().Implements(v.Type()) {
+			v.Set(img)
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() {
+				fillNonZero(v.Field(i))
+			}
+		}
 	}
 }

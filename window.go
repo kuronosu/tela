@@ -108,7 +108,14 @@ type Window struct {
 
 // Build opens the window while the component is mounted (see [Window]).
 func (w Window) Build() Node {
-	core.UseWindowSpec(core.WindowSpec{
+	core.UseWindowSpec(w.spec())
+	return Node{}
+}
+
+// spec returns the core description of the window: every field of
+// core.WindowSpec (TestWindowFieldsReachCore checks none is left out).
+func (w Window) spec() core.WindowSpec {
+	return core.WindowSpec{
 		Title: w.Title, Width: w.Width, Height: w.Height,
 		MinWidth: w.MinWidth, MinHeight: w.MinHeight, MaxWidth: w.MaxWidth, MaxHeight: w.MaxHeight,
 		FixedSize: w.FixedSize, Frameless: w.Frameless, AlwaysOnTop: w.AlwaysOnTop,
@@ -116,8 +123,7 @@ func (w Window) Build() Node {
 		TitleBar: w.TitleBar, Backdrop: w.Backdrop,
 		Placement: w.Placement, OnClose: w.OnClose,
 		Root: core.NodeOf(w.Root),
-	})
-	return Node{}
+	}
 }
 
 // WindowHandle is a window of the app: the one a component renders in
