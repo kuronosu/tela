@@ -195,23 +195,33 @@
 //     minimum is sent as the minimum (xdg_toplevel rejects the opposite).
 //     A floating window outside new limits picks the clamped size, like
 //     SetSize; imposed (maximized, fullscreen, tiled) sizes are kept.
-//   - SetVisible(false) commits a null buffer, which unmaps the toplevel
-//     and discards its attributes (xdg-shell). SetVisible(true) sends
-//     them again (title, app id, size limits, parent, maximized and
-//     fullscreen requests, decoration mode, modality, icon) with a new
-//     initial commit; at its configure, a window of the size it had is
-//     mapped with its retained buffer (the swapchain's newest), otherwise
-//     the app's ConfigureEvent and next Present map it. Present while
-//     hidden, or before that configure, draws nothing. A window that was
-//     never mapped (Hidden, or hidden before its first Present) only
-//     resumes frames. Frame callbacks pending at the unmap are not waited
-//     for. Unmapping clears the activated state (no configure follows).
+//   - SetVisible(false) commits a null buffer, which unmaps the toplevel,
+//     then destroys the role objects (decoration, dialog, toplevel
+//     session, xdg_toplevel, xdg_surface), as GTK 4 and Qt do; the
+//     wl_surface and its viewport and fractional scale stay. A new
+//     initial commit on a kept toplevel is legal, but Hyprland never
+//     answers it with a configure. SetVisible(true) creates new role
+//     objects on the surface with the window's attributes (title, app id,
+//     size limits, parent, maximized and fullscreen requests, decoration
+//     mode, modality, icon), adds the toplevel to the session under a
+//     fresh name (the old one is removed; the restore token changes), and
+//     makes the initial commit; at its configure, a window of the size
+//     it had is mapped with its retained buffer (the swapchain's newest),
+//     otherwise the app's ConfigureEvent and next Present map it, and its
+//     children are re-parented to the new toplevel. Present while hidden,
+//     or before that configure, draws nothing; requests while hidden are
+//     recorded and sent at the show. A window that was never mapped
+//     (Hidden, or hidden before its first Present or before the configure
+//     of a show) keeps its role objects and only resumes frames. Frame
+//     callbacks pending at the unmap are not waited for. Unmapping clears
+//     the activated state (no configure follows).
 //   - Activate asks xdg_activation_v1 for a token with the latest input
 //     serial and its seat (none before any input, like winit), the
 //     focused window of ours as the requesting surface (else the window)
 //     and the app id, then activates with it. Focus stealing prevention
 //     may turn it into an attention request (sway marks the window
-//     urgent). Hidden windows are not activated.
+//     urgent). Hidden windows are not activated; a window shown but not
+//     mapped yet is activated when it maps.
 //   - SetIcon sends every image as a square ARGB8888 wl_shm buffer at
 //     scale 1 (non-square images centered), then destroys the icon and
 //     its buffers right after set_icon, which the protocol allows.
