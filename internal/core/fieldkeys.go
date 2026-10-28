@@ -542,7 +542,18 @@ func (t *Tree) fieldAutoscrolling() bool {
 	}
 	top := s.soff.Y - l.Padding.Top
 	bottom := top + s.client.H
-	return pt.Y < top && s.pos.Y > 0 || pt.Y > bottom && s.pos.Y < s.max.Y
+	if pt.Y < top && s.pos.Y > 0 || pt.Y > bottom && s.pos.Y < s.max.Y {
+		return true
+	}
+	// Horizontally (lines that do not wrap), in physical offsets: from 0
+	// to the extent, or from minus it to 0 in a right-to-left field.
+	left := s.soff.X - l.Padding.Left
+	right := left + s.client.W
+	px, lo, hi := s.flip(s.pos).X, float32(0), s.max.X
+	if s.rtl {
+		lo, hi = -s.max.X, 0
+	}
+	return pt.X < left && px > lo || pt.X > right && px < hi
 }
 
 // scrollXRange returns the smallest and largest horizontal scroll of an

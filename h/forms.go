@@ -29,7 +29,9 @@ func Input(children ...tela.Child) tela.Node { return core.Primitive(style.KindI
 
 // Textarea returns a multi-line text field: like Input, but Enter
 // inserts a line break, its text wraps, and it scrolls vertically (overflow
-// auto) when the text is taller than it. It is Rows lines tall (2 by
+// auto) when the text is taller than it. With text-nowrap (or
+// whitespace-pre) its lines do not wrap, and it also scrolls horizontally
+// when a line is wider than it. It is Rows lines tall (2 by
 // default) and about 20 characters wide unless classes size it;
 // field-sizing-content makes it grow with its text (between min-h-* and
 // max-h-*). It takes no children: give its text with Value, DefaultValue

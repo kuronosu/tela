@@ -89,8 +89,9 @@ func Filter() tela.Node {
 | [`AutoComplete`](https://pkg.go.dev/github.com/kuronosu/tela/h#AutoComplete), [`SpellCheck`](https://pkg.go.dev/github.com/kuronosu/tela/h#SpellCheck) | Accepted for familiarity; Tela has no autofill or spell checker |
 
 A `Textarea` also wraps its text, scrolls when the text is taller than it, and
-Enter inserts a line break. With `field-sizing-content` it grows with its text
-between `min-h-*` and `max-h-*`:
+Enter inserts a line break; with `text-nowrap` (or `whitespace-pre`) its lines
+do not wrap and it scrolls horizontally too. With `field-sizing-content` it
+grows with its text between `min-h-*` and `max-h-*`:
 
 ```go
 func Message() tela.Node {

@@ -44,7 +44,11 @@ import (
 // scroll container (overflow auto, scroll.go) whose extents come from its
 // text, so typing never lays the tree out: a keystroke shapes the field's
 // own text and repaints its layer (field.go's layerField, layer.go), and
-// only field-sizing-content fields are laid out again.
+// only field-sizing-content fields are laid out again, and, with classic
+// scrollbars, a Textarea whose edit makes an axis start or stop
+// overflowing (its gutter, updateGutters). A Textarea whose lines do not
+// wrap (text-nowrap, whitespace-pre) scrolls horizontally as well
+// (fieldExtents), and its caret is revealed on both axes.
 //
 // # Values
 //
@@ -659,6 +663,14 @@ func (t *Tree) fieldResized(f *field) {
 	}
 	if s := f.bx.scr; s != nil && f.multi && t.layoutCurrent() {
 		t.extents(s)
+		if t.guttersStale(s) {
+			// With classic scrollbars an overflow: auto axis reserves its
+			// gutter only while it overflows (updateGutters): the edit
+			// that makes a line overflow (or stop overflowing) for the
+			// first time lays the field out again, once.
+			t.engine.MarkDirty(f.bx)
+			t.dirty()
+		}
 	}
 }
 
@@ -1246,27 +1258,65 @@ func (f *field) revealNow() {
 	}
 	l := f.bx.ld.Layout()
 	top := l.Padding.Top + c.Top
-	d := nearest(top, top+c.Height, s.pos.Y, s.pos.Y+s.client.H)
-	if d != 0 {
-		f.t.scrollDirect(s, s.clamp(s.pos.Add(gfx.Point{Y: d})))
+	p := s.pos
+	p.Y += nearest(top, top+c.Height, s.pos.Y, s.pos.Y+s.client.H)
+	if s.max.X > 0 || s.pos.X != 0 {
+		// A Textarea whose lines do not wrap scrolls horizontally too
+		// (fieldExtents), in physical offsets (scroller.flip: negative
+		// toward the left in a right-to-left field). The caret is kept
+		// with the padding on its sides, inside the content box as far as
+		// the extents allow, so Home and the start of a line scroll all
+		// the way back.
+		x := l.Padding.Left + c.X
+		px := s.flip(s.pos).X
+		px += nearest(c.X, x+caretWidth+l.Padding.Right, px, px+s.client.W)
+		p.X = s.flip(gfx.Point{X: px}).X
+	}
+	if p != s.pos {
+		f.t.scrollDirect(s, s.clamp(p))
 	}
 }
 
 // fieldExtents returns the largest scroll offsets of a Textarea's scroll
 // container from its text (extents, scroll.go), without a layout of the
 // tree.
+//
+// Horizontally a Textarea scrolls only when its lines do not wrap
+// (text-nowrap, whitespace-pre, whitespace-nowrap; newlines still break
+// them): then its widest line (or its placeholder's, while the value is
+// empty) overflows the content box past the end padding. Lines that
+// overflow are start-aligned (text.Layout.AlignTo), so a left-to-right
+// field overflows to the right and a right-to-left one to the left, where
+// its scroll origin is (scroller.rtl). Like Blink, which gives a scroll
+// container that is a root editable element an end padding of 1 px when
+// it has none (LayoutBlockFlow::AddOverflowFromInlineChildren), a
+// left-to-right field keeps room after the longest line for the caret
+// there. Wrapping lines never scroll horizontally (they fit, but for a
+// word longer than the field without overflow-wrap).
 func (f *field) fieldExtents() (maxX, maxY float32) {
 	lay := f.layout()
 	if lay == nil {
 		return 0, 0
 	}
+	cs := f.bx.cs
 	l := f.bx.ld.Layout()
-	h := max(lay.Height(), f.lineHeight(f.bx.cs))
-	if ph := f.placeholder(f.bx.cs, f.textWidth()); ph != nil && f.ed.RawValue() == "" {
+	w := f.textWidth()
+	h := max(lay.Height(), f.lineHeight(cs))
+	wide := lay.Width()
+	if ph := f.placeholder(cs, w); ph != nil && f.ed.RawValue() == "" {
 		h = max(h, ph.Height())
+		wide = max(wide, ph.Width())
 	}
 	clientH := l.Size.H - l.Border.Top - l.Border.Bottom - l.ScrollbarSize.H
-	return 0, max(h+l.Padding.Top+l.Padding.Bottom-clientH, 0)
+	maxY = max(h+l.Padding.Top+l.Padding.Bottom-clientH, 0)
+	if f.paraStyle(cs).WhiteSpace.Wraps() {
+		return 0, maxY
+	}
+	room := float32(0)
+	if cs.Text.Direction != text.DirectionRTL {
+		room = max(caretWidth-l.Padding.Right, 0)
+	}
+	return max(wide+room-w, 0), maxY
 }
 
 func nan32() float32 { return float32(math.NaN()) }

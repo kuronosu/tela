@@ -78,6 +78,10 @@ func (w WhiteSpace) collapses() bool {
 
 func (w WhiteSpace) wraps() bool { return w != WhiteSpaceNowrap && w != WhiteSpacePre }
 
+// Wraps reports whether lines may wrap at soft wrap opportunities (every
+// value but nowrap and pre).
+func (w WhiteSpace) Wraps() bool { return w.wraps() }
+
 // TextWrapStyle is the CSS text-wrap-style property (CSS Text 4): how the
 // lines of a paragraph that wraps are chosen. It has no
 // effect when WhiteSpace does not wrap. Balancing and prettifying follow

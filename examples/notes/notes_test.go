@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"image"
+	"image/draw"
 	"os"
 	"path/filepath"
 	"slices"
@@ -659,4 +662,71 @@ func TestTrayQuit(t *testing.T) {
 	typeNote(a, "draft")
 	a.ClickTrayItem("Quit")
 	a.ExpectQuit()
+}
+
+// With word wrap off the editor does not wrap its lines, and a line longer
+// than the editor scrolls horizontally: typing keeps the caret in view,
+// Home goes back to the start of the line, and the wheel (here a
+// touchpad's horizontal delta) scrolls it.
+func TestNoWordWrapScrollsHorizontally(t *testing.T) {
+	sandbox(t)
+	setSetting(t, keyWordWrap, false)
+	a := mount(t)
+	a.ExpectCount(editor.Filter(telatest.HasClass("text-nowrap")), 1)
+	long := strings.Repeat("a line that goes on without wrapping ", 6)
+	typeNote(a, long)
+	a.ExpectValue(editor, long)
+
+	// The first line of the editor, away from its scrollbars.
+	b := a.Bounds(editor)
+	firstLine := func() *image.RGBA {
+		shot := a.Screenshot()
+		r := image.Rect(int(b.X), int(b.Y), int(b.Right()), int(b.Y)+60)
+		out := image.NewRGBA(r)
+		draw.Draw(out, r, shot, r.Min, draw.Src)
+		return out
+	}
+	differ := func(p, q *image.RGBA) int {
+		n := 0
+		for i := 0; i+3 < len(p.Pix); i += 4 {
+			if !bytes.Equal(p.Pix[i:i+4], q.Pix[i:i+4]) {
+				n++
+			}
+		}
+		return n
+	}
+	end := firstLine()
+	a.Press("Home")
+	start := firstLine()
+	// More than the caret moved: the text did.
+	if n := differ(end, start); n < 500 {
+		t.Fatalf("Home changed %d pixels of the first line: the line did not scroll", n)
+	}
+	a.Press("End")
+	if n := differ(end, firstLine()); n != 0 {
+		t.Errorf("End: %d pixels differ from the end of the line after typing", n)
+	}
+	// Scrolling back to the start shows what Home showed, but for the
+	// caret, which stays at the end of the line.
+	a.Scroll(editor, -2000, 0)
+	if n := differ(start, firstLine()); n > 60 {
+		t.Errorf("scrolled to the start: %d pixels differ from the start after Home", n)
+	}
+
+	// With word wrap on, the line wraps and there is nothing to scroll.
+	sandbox(t)
+	w := mount(t)
+	typeNote(w, long)
+	before := w.Screenshot()
+	b = w.Bounds(editor)
+	w.Scroll(editor, 300, 0)
+	after := w.Screenshot()
+	r := image.Rect(int(b.X), int(b.Y), int(b.Right()), int(b.Y)+60)
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			if before.RGBAAt(x, y) != after.RGBAAt(x, y) {
+				t.Fatalf("a wrapping editor moved at (%d, %d) on a horizontal scroll", x, y)
+			}
+		}
+	}
 }
