@@ -147,6 +147,17 @@ func (d *Desktop) UpdateTray(id platform.TrayID, opts platform.TrayOptions) erro
 	}
 	if menuChanged {
 		t.conn.Emit(menuPath, menuIface+".LayoutUpdated", s.revision, int32(0))
+		if old != nil {
+			if updated, removed := propChanges(old.nodes, s.nodes); len(updated)+len(removed) > 0 {
+				if updated == nil {
+					updated = []itemProps{}
+				}
+				if removed == nil {
+					removed = []itemPropNames{}
+				}
+				t.conn.Emit(menuPath, menuIface+".ItemsPropertiesUpdated", updated, removed)
+			}
+		}
 	}
 	return nil
 }

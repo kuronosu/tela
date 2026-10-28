@@ -520,12 +520,25 @@ func TestTray(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	deadline := time.After(5 * time.Second)
-	for !seen[menuIface+".LayoutUpdated"] || !seen[itemIface+".NewToolTip"] {
+	for !seen[menuIface+".LayoutUpdated"] || !seen[itemIface+".NewToolTip"] || !seen[menuIface+".ItemsPropertiesUpdated"] {
 		select {
 		case s := <-sigs:
 			seen[s.Name] = true
 			if s.Name == menuIface+".LayoutUpdated" && s.Body[0] != uint32(2) {
 				t.Errorf("LayoutUpdated revision %v, want 2", s.Body[0])
+			}
+			// The item that kept its id is told its new toggle state
+			// (GNOME's AppIndicator extension reads properties only
+			// from this signal).
+			if s.Name == menuIface+".ItemsPropertiesUpdated" {
+				var updated []itemProps
+				var removed []itemPropNames
+				if err := dbus.Store(s.Body, &updated, &removed); err != nil {
+					t.Fatal(err)
+				}
+				if len(updated) != 1 || len(updated[0].Props) != 1 || updated[0].Props["toggle-state"].Value() != int32(0) || len(removed) != 0 {
+					t.Errorf("ItemsPropertiesUpdated %+v, removed %+v", updated, removed)
+				}
 			}
 		case <-deadline:
 			t.Fatalf("signals after UpdateTray: %v", seen)

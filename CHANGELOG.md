@@ -18,6 +18,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- Linux tray menus: a changed label or check state of an item that keeps its place (a "Show"/"Hide" item following the window) is sent with `ItemsPropertiesUpdated`; GNOME's AppIndicator extension rereads only the menu's structure on `LayoutUpdated` and kept showing the old label.
 - `examples/notes`: the Preferences window had no title bar on GNOME (Wayland draws none there), so it could not be moved or closed; it now draws a `kit.TitleBar` when the window reports `ClientSideDecorations`.
 
 ## [0.12.0] - 2026-10-28

@@ -3,6 +3,7 @@
 package freedesktop
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 
@@ -137,4 +138,50 @@ func equalMenus(a, b []platform.MenuItem) bool {
 		return x.ID == y.ID && x.Label == y.Label && x.Checkable == y.Checkable &&
 			x.Checked == y.Checked && x.Disabled == y.Disabled && equalMenus(x.Submenu, y.Submenu)
 	})
+}
+
+// itemPropNames is the D-Bus form (ias) of an item's removed properties in
+// ItemsPropertiesUpdated.
+type itemPropNames struct {
+	ID    int32
+	Names []string
+}
+
+// propChanges returns what changed in the properties of the items that are
+// in both layouts (same id): the arguments of ItemsPropertiesUpdated, by
+// id. A host is told about new structure with LayoutUpdated, but GNOME's
+// AppIndicator extension then reads only each item's type again, so a new
+// label of an item that keeps its id (a "Show"/"Hide" item following the
+// window) reaches it only through this signal.
+func propChanges(old, cur map[int32]*menuNode) (updated []itemProps, removed []itemPropNames) {
+	ids := make([]int32, 0, len(cur))
+	for id := range cur {
+		if _, ok := old[id]; ok && id != 0 {
+			ids = append(ids, id)
+		}
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		o, n := old[id].props, cur[id].props
+		changed := map[string]dbus.Variant{}
+		for k, v := range n {
+			if ov, ok := o[k]; !ok || !reflect.DeepEqual(ov.Value(), v.Value()) {
+				changed[k] = v
+			}
+		}
+		var gone []string
+		for k := range o {
+			if _, ok := n[k]; !ok {
+				gone = append(gone, k)
+			}
+		}
+		if len(changed) > 0 {
+			updated = append(updated, itemProps{ID: id, Props: changed})
+		}
+		if len(gone) > 0 {
+			slices.Sort(gone)
+			removed = append(removed, itemPropNames{ID: id, Names: gone})
+		}
+	}
+	return updated, removed
 }
