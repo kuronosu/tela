@@ -1539,19 +1539,17 @@ type HitKind uint8
 
 ```go
 const ( // HitClient is ordinary content. It is what lies outside every
-
     // region, and a HitClient region punches a hole into the regions
 
     // listed before it (a search field or a tab strip inside a caption
+
     // area).
     HitClient HitKind = iota // HitCaption is a drag area of the title bar: the OS handles presses
     // in it (move, double-click, window menu).
-
     HitCaption // HitMinimize, HitMaximize and HitClose are the window buttons drawn
-
     // by the app. Pointer events over them reach the app as usual (its
-    // buttons perform the action); the region tells the OS what they are
 
+    // buttons perform the action); the region tells the OS what they are
     // (Windows 11 snap layouts open from the maximize button).
     HitMinimize
     HitMaximize
