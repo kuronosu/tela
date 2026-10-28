@@ -170,14 +170,21 @@ func (t *Tree) caretShown(f *field) bool {
 // Focus.
 
 // fieldFocused is called when f gains the focus: Tab selects its whole
-// value (Chromium), and the caret starts blinking.
+// value (Chromium), the caret is revealed and starts blinking. A press on
+// the field (mouseFocus) does not reveal the caret it had: the press puts
+// the caret under the pointer, hit-tested in the text as it is shown, and
+// reveals that one (fieldPress); revealing the old caret first scrolled a
+// scrolled Textarea back to its start under the pointer. A label's press
+// reveals its control's caret (form.go).
 func (t *Tree) fieldFocused(f *field, typ focusType) {
 	if typ == focusKeyboard {
 		r := f.ed.Do(edit.Command{Kind: edit.SelectAll}, nil)
 		t.fieldChanged(f, r)
 		f.selStart, f.selEnd, _ = f.ed.SelectionRange()
 	}
-	f.reveal()
+	if typ != focusMouse {
+		f.reveal()
+	}
 	t.caretReset(f)
 }
 

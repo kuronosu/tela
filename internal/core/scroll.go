@@ -1568,12 +1568,7 @@ func (t *Tree) updateGutters(pass int) bool {
 			continue
 		}
 		bx := s.box
-		wantV, wantH := false, false
-		if t.classicBars(bx.cs) {
-			x, y := overflowAxes(bx.cs)
-			wantV = y == style.OverflowAuto && (s.max.Y > 0 || s.gutterV && pass > 0)
-			wantH = x == style.OverflowAuto && (s.max.X > 0 || s.gutterH && pass > 0)
-		}
+		wantV, wantH := t.wantGutters(s, pass)
 		if wantV == s.gutterV && wantH == s.gutterH {
 			continue
 		}
@@ -1587,6 +1582,28 @@ func (t *Tree) updateGutters(pass int) bool {
 		changed = changed || bx.ls != old
 	}
 	return changed
+}
+
+// wantGutters returns whether s should reserve its classic vertical and
+// horizontal gutters with its current extents, in pass pass of
+// updateGutters.
+func (t *Tree) wantGutters(s *scroller, pass int) (v, h bool) {
+	cs := s.box.cs
+	if !t.classicBars(cs) {
+		return false, false
+	}
+	x, y := overflowAxes(cs)
+	v = y == style.OverflowAuto && (s.max.Y > 0 || s.gutterV && pass > 0)
+	h = x == style.OverflowAuto && (s.max.X > 0 || s.gutterH && pass > 0)
+	return v, h
+}
+
+// guttersStale reports whether the classic gutters of s no longer match
+// its extents, which changed without a layout (a Textarea's text,
+// fieldResized): the first pass of updateGutters would change them.
+func (t *Tree) guttersStale(s *scroller) bool {
+	v, h := t.wantGutters(s, 0)
+	return v != s.gutterV || h != s.gutterH
 }
 
 // scrollAfterFrame runs after Frame (outside it, so the work it marks
