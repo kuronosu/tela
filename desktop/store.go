@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -37,8 +38,10 @@ type Store struct {
 	vals     map[string]json.RawMessage
 	dirty    bool
 	timer    *time.Timer
-	corrupt  bool  // the file did not parse: moved aside at the first write
-	err      error // the last load or write error
+	corrupt  bool            // the file did not parse: moved aside at the first write
+	unread   bool            // the file exists but could not be read: not overwritten
+	touched  map[string]bool // keys changed while unread (they win over the file's)
+	err      error           // the last load or write error
 	watchers []*storeWatcher
 
 	wmu sync.Mutex // serializes the writes of the file
@@ -72,7 +75,11 @@ func init() {
 // read or parsed gives an error, but the store is still returned and
 // usable: it starts empty, and a file that did not parse is renamed to
 // path + ".corrupt" before the first write replaces it, so nothing the
-// user had is lost.
+// user had is lost. A file that exists but cannot be read (permissions, a
+// sharing violation, an I/O error) is never overwritten: the store works
+// in memory, each write tries to read the file again (and merges it with
+// the changes made meanwhile once it can), and [Store.Flush] returns the
+// error until then.
 func OpenStore(path string) (*Store, error) {
 	if path == "" {
 		panic("desktop.OpenStore(\"\"): give the path of the JSON file, such as filepath.Join(dir, \"recent.json\") with dir from desktop.StateDir()")
@@ -109,23 +116,64 @@ func (s *Store) load() {
 	case errors.Is(err, fs.ErrNotExist):
 		return
 	case err != nil:
-		s.err = fmt.Errorf("desktop: cannot read the store %s: %w", s.path, err)
+		s.unread = true
+		s.err = fmt.Errorf("desktop: cannot read the store %s: %w; it starts empty and the file is not overwritten until it can be read", s.path, err)
 		return
 	}
-	if len(bytes.TrimSpace(data)) == 0 {
-		return
-	}
-	var vals map[string]json.RawMessage
-	if err := json.Unmarshal(data, &vals); err != nil {
+	vals, err := parseStore(data)
+	if err != nil {
 		s.corrupt = true
 		s.err = fmt.Errorf("desktop: the store %s is not a JSON object (%v); it starts empty and the file is kept as %s.corrupt", s.path, err, filepath.Base(s.path))
 		return
 	}
+	maps.Copy(s.vals, vals)
+}
+
+// parseStore decodes the content of a store file. The values are compacted,
+// so that they compare equal to what Set encodes (the file is indented).
+func parseStore(data []byte) (map[string]json.RawMessage, error) {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return nil, nil
+	}
+	var vals map[string]json.RawMessage
+	if err := json.Unmarshal(data, &vals); err != nil {
+		return nil, err
+	}
 	for k, v := range vals {
-		if v != nil {
-			s.vals[k] = v
+		if v == nil {
+			delete(vals, k)
+			continue
+		}
+		var b bytes.Buffer
+		if json.Compact(&b, v) == nil {
+			vals[k] = b.Bytes()
 		}
 	}
+	return vals, nil
+}
+
+// retryLoad reads again a file that could not be read. It returns nil when
+// the file can be written now: it was read (its keys that were not changed
+// since are merged in), or it is gone, or it does not parse (then it is
+// kept as .corrupt at the write). Called with s.mu held.
+func (s *Store) retryLoad() error {
+	data, err := os.ReadFile(s.path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("desktop: cannot write the store %s: the file exists but cannot be read (%w), so it is not overwritten", s.path, err)
+	}
+	if err == nil {
+		vals, perr := parseStore(data)
+		if perr != nil {
+			s.corrupt = true
+		}
+		for k, v := range vals {
+			if !s.touched[k] {
+				s.vals[k] = v
+			}
+		}
+	}
+	s.unread, s.touched = false, nil
+	return nil
 }
 
 // Settings returns the app's settings store, the file settings.json in
@@ -182,6 +230,12 @@ func (s *Store) Err() error {
 //
 //	size := 14 // the default
 //	desktop.Settings().Get("fontSize", &size)
+//
+// The stored value is decoded over a copy of *ptr: a struct field the
+// stored value does not have keeps the one *ptr had, and map entries it
+// does not have stay, while a slice is replaced whole. *ptr (a default's
+// slice or map included) is never modified in place, and is assigned
+// only when the call returns true.
 func (s *Store) Get(key string, ptr any) bool {
 	rv := reflect.ValueOf(ptr)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
@@ -193,13 +247,86 @@ func (s *Store) Get(key string, ptr any) bool {
 	if !ok {
 		return false
 	}
-	// Decode into a new value, so a failed decode leaves *ptr untouched.
+	// Decode into a deep copy, so a failed decode leaves *ptr untouched and
+	// a successful one never writes into memory the caller's value shares.
 	v := reflect.New(rv.Elem().Type())
+	deepCopy(v.Elem(), rv.Elem(), map[ptrKey]reflect.Value{})
 	if err := json.Unmarshal(raw, v.Interface()); err != nil {
 		return false
 	}
 	rv.Elem().Set(v.Elem())
 	return true
+}
+
+type ptrKey struct {
+	p uintptr
+	t reflect.Type
+}
+
+// deepCopy sets dst (settable) to a copy of src that shares no slice, map
+// or pointer target with it. Unexported fields are copied shallowly:
+// encoding/json does not touch them.
+func deepCopy(dst, src reflect.Value, seen map[ptrKey]reflect.Value) {
+	switch src.Kind() {
+	case reflect.Pointer:
+		if src.IsNil() {
+			dst.Set(src)
+			return
+		}
+		k := ptrKey{src.Pointer(), src.Type()}
+		if c, ok := seen[k]; ok {
+			dst.Set(c)
+			return
+		}
+		c := reflect.New(src.Type().Elem())
+		seen[k] = c
+		deepCopy(c.Elem(), src.Elem(), seen)
+		dst.Set(c)
+	case reflect.Interface:
+		if src.IsNil() {
+			dst.Set(src)
+			return
+		}
+		c := reflect.New(src.Elem().Type()).Elem()
+		deepCopy(c, src.Elem(), seen)
+		dst.Set(c)
+	case reflect.Slice:
+		if src.IsNil() {
+			dst.Set(src)
+			return
+		}
+		c := reflect.MakeSlice(src.Type(), src.Len(), src.Cap())
+		for i := range src.Len() {
+			deepCopy(c.Index(i), src.Index(i), seen)
+		}
+		dst.Set(c)
+	case reflect.Array:
+		dst.Set(src)
+		for i := range src.Len() {
+			deepCopy(dst.Index(i), src.Index(i), seen)
+		}
+	case reflect.Map:
+		if src.IsNil() {
+			dst.Set(src)
+			return
+		}
+		c := reflect.MakeMapWithSize(src.Type(), src.Len())
+		for it := src.MapRange(); it.Next(); {
+			e := reflect.New(src.Type().Elem()).Elem()
+			deepCopy(e, it.Value(), seen)
+			c.SetMapIndex(it.Key(), e)
+		}
+		dst.Set(c)
+	case reflect.Struct:
+		dst.Set(src) // unexported fields
+		for i := range src.NumField() {
+			if f := dst.Field(i); f.CanSet() {
+				deepCopy(f, src.Field(i), seen)
+			}
+		}
+	default:
+		dst.Set(src)
+	}
 }
 
 // Has reports whether key has a value.
@@ -251,6 +378,12 @@ func (s *Store) change(key string, raw json.RawMessage) {
 		delete(s.vals, key)
 	} else {
 		s.vals[key] = raw
+	}
+	if s.unread {
+		if s.touched == nil {
+			s.touched = map[string]bool{}
+		}
+		s.touched[key] = true
 	}
 	s.dirty = true
 	if s.timer == nil && s.path != "" {
@@ -306,6 +439,13 @@ func (s *Store) Flush() error {
 	if !s.dirty || s.path == "" {
 		s.mu.Unlock()
 		return nil
+	}
+	if s.unread {
+		if err := s.retryLoad(); err != nil {
+			s.err = err
+			s.mu.Unlock()
+			return err // dirty stays: written by the next change or Flush
+		}
 	}
 	data, err := json.MarshalIndent(s.vals, "", "  ")
 	corrupt := s.corrupt

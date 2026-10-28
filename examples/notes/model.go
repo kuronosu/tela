@@ -89,9 +89,10 @@ func clip(s string, n int) string {
 	return strings.TrimSpace(string(r[:n-1])) + "…"
 }
 
-// welcomeNotes is the library of the first run. It returns a new slice
-// every time, because desktop.UseStoreSetting decodes the stored value into
-// the default it is given: a shared slice would be overwritten.
+// welcomeNotes is the library of the first run. It is a function so that
+// there is no package-level slice for the code to modify by mistake;
+// desktop.UseStoreSetting itself decodes the stored library over a copy of
+// the default, so the default is never changed.
 func welcomeNotes() []Note { return []Note{{ID: 1, Text: welcomeText, Saved: welcomeText}} }
 
 const welcomeText = `Welcome to Notes

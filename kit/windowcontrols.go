@@ -214,21 +214,9 @@ func (w WindowControls) Build() tela.Node {
 		glyphs = controlGlyphs[GNOME]
 	}
 
-	maxIcon, maxLabel := w.MaximizeIcon, w.MaximizeLabel
-	if maxIcon == (tela.Icon{}) {
-		maxIcon = glyphs.maximize
-	}
-	if maxLabel == "" {
-		maxLabel = "Maximize"
-	}
+	maxIcon, maxLabel := orIcon(w.MaximizeIcon, glyphs.maximize), orLabel(w.MaximizeLabel, "Maximize")
 	if st.Maximized {
-		maxIcon, maxLabel = w.RestoreIcon, w.RestoreLabel
-		if maxIcon == (tela.Icon{}) {
-			maxIcon = glyphs.restore
-		}
-		if maxLabel == "" {
-			maxLabel = "Restore"
-		}
+		maxIcon, maxLabel = orIcon(w.RestoreIcon, glyphs.restore), orLabel(w.RestoreLabel, "Restore")
 	}
 	minIcon, minLabel := orIcon(w.MinimizeIcon, glyphs.minimize), orLabel(w.MinimizeLabel, "Minimize")
 	closeIcon, closeLabel := orIcon(w.CloseIcon, glyphs.close), orLabel(w.CloseLabel, "Close")

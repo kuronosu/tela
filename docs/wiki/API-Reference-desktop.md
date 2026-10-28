@@ -419,7 +419,7 @@ func (Editor) Build() tela.Node {
 }
 ```
 
-T must encode as JSON. A stored value that does not decode into T (the setting changed type between versions of the app) reads as def. key must stay the same for the life of the component (give it another tela key to read another setting).
+T must encode as JSON. A stored value that does not decode into T (the setting changed type between versions of the app) reads as def. A field missing from the stored value keeps the default's, so a field added in a new version of the app has its default; see [`Store.Get`](#func-store-get) for maps and slices. def itself is never modified. key must stay the same for the life of the component (give it another tela key to read another setting).
 
 **Example**
 
@@ -438,7 +438,7 @@ _ = tela.C(func() tela.Node {
 func UseStoreSetting[T any](s *Store, key string, def T) (T, tela.Setter[T])
 ```
 
-UseStoreSetting is [`UseSetting`](#func-usesetting) for a key of store s instead of the app's settings.
+UseStoreSetting is [`UseSetting`](#func-usesetting) for a key of store s instead of the app's settings: a field missing from the stored value keeps the default's.
 
 ## Types
 
@@ -834,7 +834,7 @@ The file is read once, when the store opens; changes made to it by other program
 func OpenStore(path string) (*Store, error)
 ```
 
-OpenStore opens the store kept in the JSON file at path (created at the first write, with its folder). Opening the same path again returns the same Store. A missing file is an empty store. A file that cannot be read or parsed gives an error, but the store is still returned and usable: it starts empty, and a file that did not parse is renamed to path + ".corrupt" before the first write replaces it, so nothing the user had is lost.
+OpenStore opens the store kept in the JSON file at path (created at the first write, with its folder). Opening the same path again returns the same Store. A missing file is an empty store. A file that cannot be read or parsed gives an error, but the store is still returned and usable: it starts empty, and a file that did not parse is renamed to path + ".corrupt" before the first write replaces it, so nothing the user had is lost. A file that exists but cannot be read (permissions, a sharing violation, an I/O error) is never overwritten: the store works in memory, each write tries to read the file again (and merges it with the changes made meanwhile once it can), and [`Store.Flush`](#func-store-flush) returns the error until then.
 
 **Example**
 
@@ -908,6 +908,8 @@ Get decodes the value of key into ptr, a non-nil pointer (as json.Unmarshal does
 size := 14 // the default
 desktop.Settings().Get("fontSize", &size)
 ```
+
+The stored value is decoded over a copy of \*ptr: a struct field the stored value does not have keeps the one \*ptr had, and map entries it does not have stay, while a slice is replaced whole. \*ptr (a default's slice or map included) is never modified in place, and is assigned only when the call returns true.
 
 #### func (*Store) Has
 

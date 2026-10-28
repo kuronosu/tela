@@ -42,11 +42,16 @@ func LoadPlacement(key string) tela.WindowPlacement {
 // SavePlacement saves p under key ([UseSavePlacement] does it by itself).
 // The zero placement deletes the saved one.
 func SavePlacement(key string, p tela.WindowPlacement) error {
+	return savePlacement(placements(), key, p)
+}
+
+// savePlacement is SavePlacement on a store already resolved.
+func savePlacement(s *Store, key string, p tela.WindowPlacement) error {
 	if p == (tela.WindowPlacement{}) {
-		placements().Delete(key)
+		s.Delete(key)
 		return nil
 	}
-	return placements().Set(key, p)
+	return s.Set(key, p)
 }
 
 // UseSavePlacement saves the placement of the window the calling
@@ -74,9 +79,11 @@ func UseSavePlacement(key string) {
 		if _, ok := core.DesktopOf(w); !ok {
 			return nil
 		}
+		// Resolved once: a drag reports a placement for every event.
+		st := placements()
 		save := func(p tela.WindowPlacement) {
 			if p != (tela.WindowPlacement{}) {
-				_ = SavePlacement(key, p)
+				_ = savePlacement(st, key, p)
 			}
 		}
 		save(w.Placement())

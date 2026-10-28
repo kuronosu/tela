@@ -24,7 +24,10 @@ import (
 //	}
 //
 // T must encode as JSON. A stored value that does not decode into T (the
-// setting changed type between versions of the app) reads as def. key
+// setting changed type between versions of the app) reads as def. A field
+// missing from the stored value keeps the default's, so a field added in a
+// new version of the app has its default; see [Store.Get] for maps and
+// slices. def itself is never modified. key
 // must stay the same for the life of the component (give it another
 // tela key to read another setting).
 func UseSetting[T any](key string, def T) (T, tela.Setter[T]) {
@@ -33,7 +36,8 @@ func UseSetting[T any](key string, def T) (T, tela.Setter[T]) {
 }
 
 // UseStoreSetting is [UseSetting] for a key of store s instead of the
-// app's settings.
+// app's settings: a field missing from the stored value keeps the
+// default's.
 func UseStoreSetting[T any](s *Store, key string, def T) (T, tela.Setter[T]) {
 	if s == nil {
 		panic("desktop.UseStoreSetting: the store is nil; open it with desktop.OpenStore(path), or use desktop.UseSetting for the app's settings")
