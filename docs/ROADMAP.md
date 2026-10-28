@@ -7,9 +7,9 @@
 
 ## Current status
 
-- **Done:** phases 1–12. Latest version `v0.12.0` (2026-10-28, desktop essentials; tag proposed to the owner, not yet created). Pushed up to `v0.11.0` (`main`, tags and the wiki from `docs/wiki`).
+- **Done:** phases 1–12. Latest version `v0.12.0` (2026-10-28, tagged on 67d4825; desktop essentials). Pushed up to `v0.11.0` (`main`, tags and the wiki from `docs/wiki`).
 - **Phase in progress:** none; phase 13 (desktop integration, the rest) is next.
-- **Next step:** the owner approves the `v0.12.0` tag (on the closing commit) and pushes `main`, the tag and the wiki; then plan phase 13 (drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends `examples/notes`.
+- **Next step:** the owner pushes `main`, the `v0.12.0` tag and the wiki; then plan phase 13 (drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends `examples/notes`.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
