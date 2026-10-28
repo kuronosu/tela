@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -232,8 +234,9 @@ func (s *Store) Err() error {
 //	desktop.Settings().Get("fontSize", &size)
 //
 // The stored value is decoded over a copy of *ptr: a struct field the
-// stored value does not have keeps the one *ptr had, and map entries it
-// does not have stay, while a slice is replaced whole. *ptr (a default's
+// stored value does not have keeps the one *ptr had, while slices and
+// maps the stored value has are replaced whole (a key removed from a
+// stored map does not come back from the default). *ptr (a default's
 // slice or map included) is never modified in place, and is assigned
 // only when the call returns true.
 func (s *Store) Get(key string, ptr any) bool {
@@ -251,11 +254,89 @@ func (s *Store) Get(key string, ptr any) bool {
 	// a successful one never writes into memory the caller's value shares.
 	v := reflect.New(rv.Elem().Type())
 	deepCopy(v.Elem(), rv.Elem(), map[ptrKey]reflect.Value{})
+	dropMaps(v.Elem(), raw)
 	if err := json.Unmarshal(raw, v.Interface()); err != nil {
 		return false
 	}
 	rv.Elem().Set(v.Elem())
 	return true
+}
+
+var (
+	jsonUnmarshaler = reflect.TypeFor[json.Unmarshaler]()
+	textUnmarshaler = reflect.TypeFor[encoding.TextUnmarshaler]()
+)
+
+// dropMaps empties the maps of v (a copy of the default) that raw, the JSON
+// about to be decoded over v, provides, so that decoding replaces them
+// instead of adding entries to the default's. Struct fields raw does not
+// have are left alone.
+func dropMaps(v reflect.Value, raw json.RawMessage) {
+	if v.CanAddr() {
+		if pt := v.Addr().Type(); pt.Implements(jsonUnmarshaler) || pt.Implements(textUnmarshaler) {
+			return // decodes itself
+		}
+	}
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || string(raw) == "null" {
+		return
+	}
+	switch v.Kind() {
+	case reflect.Map:
+		if raw[0] == '{' {
+			v.SetZero()
+		}
+	case reflect.Pointer:
+		if !v.IsNil() {
+			dropMaps(v.Elem(), raw)
+		}
+	case reflect.Array:
+		var items []json.RawMessage
+		if json.Unmarshal(raw, &items) == nil {
+			for i := 0; i < v.Len() && i < len(items); i++ {
+				dropMaps(v.Index(i), items[i])
+			}
+		}
+	case reflect.Struct:
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(raw, &fields) != nil {
+			return
+		}
+		t := v.Type()
+		for i := range t.NumField() {
+			sf := t.Field(i)
+			tag, hasTag := sf.Tag.Lookup("json")
+			name, _, _ := strings.Cut(tag, ",")
+			if tag == "-" {
+				continue
+			}
+			if sf.Anonymous && name == "" {
+				// An embedded struct's fields are in the same object.
+				if sf.IsExported() || sf.Type.Kind() == reflect.Struct || sf.Type.Kind() == reflect.Pointer {
+					dropMaps(v.Field(i), raw)
+				}
+				continue
+			}
+			if !sf.IsExported() {
+				continue
+			}
+			if !hasTag || name == "" {
+				name = sf.Name
+			}
+			fr, ok := fields[name]
+			if !ok {
+				for k, x := range fields {
+					if strings.EqualFold(k, name) {
+						fr, ok = x, true
+						break
+					}
+				}
+			}
+			if ok {
+				dropMaps(v.Field(i), fr)
+			}
+		}
+	}
 }
 
 type ptrKey struct {

@@ -419,7 +419,7 @@ func (Editor) Build() tela.Node {
 }
 ```
 
-T must encode as JSON. A stored value that does not decode into T (the setting changed type between versions of the app) reads as def. A field missing from the stored value keeps the default's, so a field added in a new version of the app has its default; see [`Store.Get`](#func-store-get) for maps and slices. def itself is never modified. key must stay the same for the life of the component (give it another tela key to read another setting).
+T must encode as JSON. A stored value that does not decode into T (the setting changed type between versions of the app) reads as def. A field missing from the stored value keeps the default's, so a field added in a new version of the app has its default; slices and maps are replaced whole. def itself is never modified. key must stay the same for the life of the component (give it another tela key to read another setting).
 
 **Example**
 
@@ -438,7 +438,7 @@ _ = tela.C(func() tela.Node {
 func UseStoreSetting[T any](s *Store, key string, def T) (T, tela.Setter[T])
 ```
 
-UseStoreSetting is [`UseSetting`](#func-usesetting) for a key of store s instead of the app's settings: a field missing from the stored value keeps the default's.
+UseStoreSetting is [`UseSetting`](#func-usesetting) for a key of store s instead of the app's settings: a field missing from the stored value keeps the default's; slices and maps are replaced whole.
 
 ## Types
 
@@ -909,7 +909,7 @@ size := 14 // the default
 desktop.Settings().Get("fontSize", &size)
 ```
 
-The stored value is decoded over a copy of \*ptr: a struct field the stored value does not have keeps the one \*ptr had, and map entries it does not have stay, while a slice is replaced whole. \*ptr (a default's slice or map included) is never modified in place, and is assigned only when the call returns true.
+The stored value is decoded over a copy of \*ptr: a struct field the stored value does not have keeps the one \*ptr had, while slices and maps the stored value has are replaced whole (a key removed from a stored map does not come back from the default). \*ptr (a default's slice or map included) is never modified in place, and is assigned only when the call returns true.
 
 #### func (*Store) Has
 

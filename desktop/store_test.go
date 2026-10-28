@@ -255,14 +255,36 @@ func TestStoreGetKeepsDefaults(t *testing.T) {
 		if len(got.Tags) != 1 || got.Tags[0] != "x" {
 			t.Errorf("Tags = %v, want the stored slice", got.Tags)
 		}
-		if got.Extra["k"] != 2 || got.Extra["d"] != 1 {
-			t.Errorf("Extra = %v, want the stored and the default entries", got.Extra)
+		if len(got.Extra) != 1 || got.Extra["k"] != 2 {
+			t.Errorf("Extra = %v, want only the stored map", got.Extra)
 		}
 		got.Extra["z"] = 1 // the result is the caller's too
 		*got.Ptr = 7
 	}
-	if strings.Join(def.Tags, ",") != "a,b,c" || def.Tags[:cap(def.Tags)][0] != "a" || len(def.Extra) != 1 || *def.Ptr != 1 {
+	if strings.Join(def.Tags, ",") != "a,b,c" || def.Tags[:cap(def.Tags)][0] != "a" || len(def.Extra) != 1 || def.Extra["d"] != 1 || *def.Ptr != 1 {
 		t.Errorf("the default was modified: %+v", def)
+	}
+	// A map the stored value has is replaced whole (a deleted key stays
+	// deleted); a map field it lacks keeps the default's, nested too.
+	_ = s.Set("topmap", map[string]int{"a": 1})
+	_ = s.Set("nested", map[string]any{"Inner": map[string]int{"x": 1}})
+	_ = s.Set("nomap", map[string]any{"Name": "n"})
+	tm := map[string]int{"a": 0, "b": 0}
+	if !s.Get("topmap", &tm) || len(tm) != 1 || tm["a"] != 1 {
+		t.Errorf("top-level map = %v, want {a:1}", tm)
+	}
+	type cfg struct {
+		Name  string
+		Inner map[string]int
+		Other map[string]int
+	}
+	nested := cfg{Inner: map[string]int{"x": 0, "y": 0}, Other: map[string]int{"o": 1}}
+	if !s.Get("nested", &nested) || len(nested.Inner) != 1 || nested.Inner["x"] != 1 || nested.Other["o"] != 1 {
+		t.Errorf("nested = %+v, want Inner {x:1} and Other kept", nested)
+	}
+	nm := cfg{Name: "d", Inner: map[string]int{"k": 1}}
+	if !s.Get("nomap", &nm) || nm.Name != "n" || nm.Inner["k"] != 1 {
+		t.Errorf("nomap = %+v, want Inner kept", nm)
 	}
 	n := editor{FontSize: 3}
 	if s.Get("wrong", &n) || n.FontSize != 3 {
