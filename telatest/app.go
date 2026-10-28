@@ -117,6 +117,8 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 		Scale:    cfg.scale,
 		Screen:   cfg.screen,
 		Settings: platform.SystemSettings{DarkMode: cfg.dark, ReducedMotion: cfg.reducedMotion},
+
+		NoServerDecorations: cfg.noServerDeco,
 	})
 	cc := cfg.coreConfig()
 	cc.IDPrefix = idPrefix

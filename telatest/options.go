@@ -42,6 +42,8 @@ type config struct {
 	// size of the fake screen maximized and fullscreen windows fill.
 	win    windowConfig
 	screen platform.Size
+	// noServerDeco: NoServerDecorations.
+	noServerDeco bool
 }
 
 func newConfig(opts []Option) config {

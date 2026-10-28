@@ -12,6 +12,14 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- `telatest.NoServerDecorations()` (and `headless.Options.NoServerDecorations`): a fake window manager that draws no title bars, as GNOME on Wayland, so every window reports `ClientSideDecorations` and a test can check the app draws its own.
+
+### Fixed
+
+- `examples/notes`: the Preferences window had no title bar on GNOME (Wayland draws none there), so it could not be moved or closed; it now draws a `kit.TitleBar` when the window reports `ClientSideDecorations`.
+
 ## [0.12.0] - 2026-10-28
 
 ### Added

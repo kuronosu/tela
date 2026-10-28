@@ -115,6 +115,10 @@ type Options struct {
 	// Screen is the logical size of the simulated screen: the size of
 	// maximized and fullscreen windows. Zero means DefaultScreen.
 	Screen platform.Size
+	// NoServerDecorations makes the fake window manager draw no title bars,
+	// as GNOME on Wayland: every window reports ClientSideDecorations, and
+	// the app draws its own bar.
+	NoServerDecorations bool
 }
 
 // Backend is the headless backend. Create it with New.
@@ -233,6 +237,9 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	n := b.created
 	b.mu.Unlock()
 	size := w.initCtl(opts, b.opts.Screen, n)
+	if b.opts.NoServerDecorations {
+		w.ctl.osState.ClientSideDecorations = true
+	}
 	w.os = platform.Metrics{Size: size, Scale: b.opts.Scale}
 	b.mu.Lock()
 	b.loop.Add(w)

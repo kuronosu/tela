@@ -64,27 +64,34 @@ func (Preferences) Build() tela.Node {
 	tray, setTray := desktop.UseSetting(keyKeepInTray, false)
 	notify, setNotify := desktop.UseSetting(keyNotifyOnSave, true)
 
-	return Div(Class("flex h-screen flex-col gap-6 overflow-y-auto p-6"),
-		Div(Class("flex flex-col gap-1"),
-			H1(Class("text-xl font-semibold tracking-tight"), Text("Preferences")),
-			P(Class("text-sm text-muted-foreground"), Text("Saved on this computer and shared by every window.")),
-		),
-		kit.FieldSet{
-			Legend: "Font size", LegendVariant: kit.LegendVariantLabel,
-			Children: kit.RadioGroup[string]{
-				Orientation: kit.Horizontal,
-				Items: []kit.RadioItem[string]{
-					{Value: "small", Label: "Small"},
-					{Value: "medium", Label: "Medium"},
-					{Value: "large", Label: "Large"},
+	// GNOME on Wayland draws no title bars: without one the window could
+	// not be moved or closed, so draw the kit's there.
+	csd := tela.UseWindow().State().ClientSideDecorations
+
+	return Div(Class("flex h-screen flex-col"),
+		If(csd, kit.TitleBar{Title: Text("Preferences"), HideMinimize: true, HideMaximize: true}),
+		Div(Class("flex min-h-0 grow flex-col gap-6 overflow-y-auto p-6"),
+			Div(Class("flex flex-col gap-1"),
+				H1(Class("text-xl font-semibold tracking-tight"), Text("Preferences")),
+				P(Class("text-sm text-muted-foreground"), Text("Saved on this computer and shared by every window.")),
+			),
+			kit.FieldSet{
+				Legend: "Font size", LegendVariant: kit.LegendVariantLabel,
+				Children: kit.RadioGroup[string]{
+					Orientation: kit.Horizontal,
+					Items: []kit.RadioItem[string]{
+						{Value: "small", Label: "Small"},
+						{Value: "medium", Label: "Medium"},
+						{Value: "large", Label: "Large"},
+					},
+					Value: &size, OnValueChange: setSize.Set,
 				},
-				Value: &size, OnValueChange: setSize.Set,
 			},
-		},
-		Div(Class("flex flex-col"),
-			row("Word wrap", "Break long lines at the edge of the editor.", &wrap, setWrap.Set),
-			row("Keep running in the tray when the window is closed", "Closing the window hides it. Quit from the tray menu.", &tray, setTray.Set),
-			row("Notify when a file is saved", "Show a desktop notification after Save.", &notify, setNotify.Set),
+			Div(Class("flex flex-col"),
+				row("Word wrap", "Break long lines at the edge of the editor.", &wrap, setWrap.Set),
+				row("Keep running in the tray when the window is closed", "Closing the window hides it. Quit from the tray menu.", &tray, setTray.Set),
+				row("Notify when a file is saved", "Show a desktop notification after Save.", &notify, setNotify.Set),
+			),
 		),
 	)
 }

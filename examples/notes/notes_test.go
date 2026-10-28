@@ -257,6 +257,29 @@ func TestNoFileDialogs(t *testing.T) {
 	a.ExpectNoText("Could not show")
 }
 
+// On a desktop that draws no title bars (GNOME on Wayland), Preferences
+// draws its own, and its close button closes the window; where the OS
+// draws one, it has none.
+func TestPreferencesTitleBar(t *testing.T) {
+	sandbox(t)
+	closeBtn := telatest.ByRole("button", "Close")
+
+	a := mount(t)
+	prefs := openPreferences(a)
+	prefs.ExpectWindowState(telatest.ClientDecorations(false))
+	prefs.ExpectCount(closeBtn, 0)
+
+	g := mount(t, telatest.NoServerDecorations())
+	prefs = openPreferences(g)
+	prefs.ExpectWindowState(telatest.ClientDecorations(true))
+	prefs.ExpectRole("group", "Window controls")
+	prefs.ExpectCount(telatest.ByRole("button", "Minimize"), 0)
+	prefs.Click(closeBtn)
+	prefs.ExpectClosed()
+	g.ExpectWindowCount(1)
+	g.ExpectRunning()
+}
+
 func TestSaveNewNote(t *testing.T) {
 	sandbox(t)
 	a := mount(t)

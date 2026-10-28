@@ -135,6 +135,12 @@ func Placement(p tela.WindowPlacement) Option { return func(c *config) { c.win.p
 // WindowHandle.Close). Without it the app quits.
 func OnClose(f func(tela.WindowHandle)) Option { return func(c *config) { c.win.onClose = f } }
 
+// NoServerDecorations makes the fake window manager draw no title bars, as
+// GNOME on Wayland does: every window, framed or not, reports
+// ClientSideDecorations, so a test can check that the app draws its own
+// bar (kit.TitleBar) there.
+func NoServerDecorations() Option { return func(c *config) { c.noServerDeco = true } }
+
 // Screen sets the logical size of the fake screen: what maximized and
 // fullscreen windows grow to (default 1920 by 1080).
 func Screen(width, height float32) Option {
