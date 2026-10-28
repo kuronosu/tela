@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-28
+
 ### Added
 
 - Multiple windows, declaratively: `tela.Window{Title, Width, Height, MinWidth…, FixedSize, Frameless, AlwaysOnTop, Modal, Hidden, Icon, RootClass, Placement, OnClose, Root}` opens a window while it is mounted and closes it when it unmounts; state and context flow into it, and a `Modal` window blocks input to the window it is declared in (ADR-178, ADR-180).
@@ -33,6 +35,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Fixed
 
 - Wayland: a hidden window shown again stayed invisible on Hyprland, which sends no configure to a surface that commits again after an unmap; hiding now destroys the window's `xdg_toplevel` and `xdg_surface` and showing creates them again, as GTK and Qt do (ADR-186).
+- Windows: a window is painted again from its retained copy when the OS discards what it shows (a reconnected remote session, a display, theme or DWM composition change, resume from sleep); the retained copy is always opaque.
 
 ## [0.11.0] - 2026-10-26
 
@@ -644,7 +647,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/kuronosu/tela/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/kuronosu/tela/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/kuronosu/tela/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/kuronosu/tela/compare/v0.10.2...v0.10.3
