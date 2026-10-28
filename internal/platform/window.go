@@ -14,7 +14,9 @@ type WindowState struct {
 	Maximized bool
 	// Fullscreen: the window covers its whole output without decorations.
 	// A window can be both maximized and fullscreen (it returns to
-	// maximized when it leaves fullscreen).
+	// maximized when it leaves fullscreen). A minimized window keeps
+	// reporting the Maximized and Fullscreen state it returns to when it
+	// is restored (what an app saves as its placement).
 	Fullscreen bool
 	// Minimized: the window is iconified. Known on Win32 (which also
 	// reports an empty ConfigureEvent), X11 (WM_STATE Iconic or

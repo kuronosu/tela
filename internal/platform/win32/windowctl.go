@@ -138,8 +138,18 @@ func (w *Window) updateState() {
 		w.pos = clientOrigin(w.hwnd)
 	}
 	fsMax := w.fs != nil && w.fs.maximized
+	restoreMax := iconic && w.fs == nil && w.restoresToMaximized()
 	w.b.dirty = true
-	w.b.loop.UpdateState(w, reportedState(iconic, zoomed, w.fs != nil, fsMax, w.opts.Frameless, w.pos))
+	w.b.loop.UpdateState(w, reportedState(iconic, zoomed, restoreMax, w.fs != nil, fsMax, w.opts.Frameless, w.pos))
+}
+
+// restoresToMaximized reports whether a minimized window returns to
+// maximized when it is restored (WPF_RESTORETOMAXIMIZED, which Windows sets
+// when it minimizes a maximized window, before WM_SIZE).
+func (w *Window) restoresToMaximized() bool {
+	wp := windowPlacement{length: uint32(unsafe.Sizeof(windowPlacement{}))}
+	procGetWindowPlacement.Call(w.hwnd, uintptr(unsafe.Pointer(&wp)))
+	return wp.flags&wpfRestoreToMaximized != 0
 }
 
 // syncHidden pauses the window's frames while it is hidden by the app or by

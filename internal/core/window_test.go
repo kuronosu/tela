@@ -400,6 +400,31 @@ func TestWindowPlacementMaximized(t *testing.T) {
 	}
 }
 
+// Minimizing a maximized window keeps its placement maximized: a
+// minimized window reports the state it returns to (platform.WindowState;
+// Win32 reads WPF_RESTORETOMAXIMIZED, since IsZoomed is false while it is
+// iconic), so an app that quits while minimized reopens maximized.
+func TestWindowPlacementMinimizedMaximized(t *testing.T) {
+	x := newWinHarness(t, Options{Root: div(Text("x"))})
+	main := x.windows()[0]
+	w := x.h.Handle(main)
+	w.Maximize()
+	x.drain()
+	w.Minimize()
+	x.drain()
+	if st := w.State(); !st.Minimized || !st.Maximized {
+		t.Fatalf("state of the minimized maximized window %+v", st)
+	}
+	if p := w.Placement(); !p.Maximized || p.Width != 400 || p.Height != 300 {
+		t.Errorf("Placement() of the minimized maximized window = %+v, want 400x300 maximized", p)
+	}
+	w.Focus()
+	x.drain()
+	if p := w.Placement(); !p.Maximized || p.Width != 400 || p.Height != 300 {
+		t.Errorf("Placement() after restoring = %+v, want 400x300 maximized", p)
+	}
+}
+
 // Without Options.OnClose, closing the main window quits; with it, the
 // app decides (here: close to tray) and keeps running.
 func TestMainWindowClosePolicy(t *testing.T) {

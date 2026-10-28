@@ -188,13 +188,15 @@
 // the loop's UpdateState at every WM_SIZE (before its ConfigureEvent) and
 // WM_MOVE, and after the requests that change it without them: Minimized
 // is IsIconic, Maximized IsZoomed (in fullscreen, the state the window
-// returns to), ClientSideDecorations WindowOptions.Frameless. Position is
-// always known: the content origin (ClientToScreen) of the normal
-// placement, recorded while the window is normal; a minimized, maximized or
-// fullscreen window reports where its content goes when it is normal again,
-// and SetPosition and SetSize on such a window change rcNormalPosition
-// (SetWindowPlacement; its workspace coordinates are offset by the work
-// area of the monitor, as Chromium converts them) instead of moving it.
+// returns to; minimized, where IsZoomed is false, the placement's
+// WPF_RESTORETOMAXIMIZED), ClientSideDecorations WindowOptions.Frameless.
+// Position is always known: the content origin (ClientToScreen) of the
+// normal placement, recorded while the window is normal; a minimized,
+// maximized or fullscreen window reports where its content goes when it
+// is normal again, and SetPosition and SetSize on such a window change
+// rcNormalPosition (SetWindowPlacement; its workspace coordinates are
+// offset by the work area of the monitor, as Chromium converts them)
+// instead of moving it.
 //
 //   - Requests on a window that is not shown (before its first Present, or
 //     hidden) cannot use ShowWindow, which would show it unpainted: Minimize
