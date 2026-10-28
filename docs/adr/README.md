@@ -190,3 +190,4 @@ Decisions that shape Tela, one file per ADR (`NNN-title.md`). `docs/ARCHITECTURE
 | [183](183-telatest-for-several-windows.md) | 2026-10-27 | `telatest` for several windows: an `*App` per window, window actions and assertions, quit, `MountApp` window fields |  |
 | [184](184-tela-dev-windows-and-services.md) | 2026-10-27 | `tela dev` with phase-12 windows and services: remote protocol 3, child windows kept by element path, close to tray, tray and notification claims across reloads |  |
 | [185](185-windows-without-frames-commit.md) | 2026-10-27 | Hidden and minimized windows still build and run their effects: the Host commits their trees without raster or present, paced like frames |  |
+| [186](186-wayland-hide-destroys-the-role.md) | 2026-10-27 | Wayland hides a window by destroying its xdg_toplevel and xdg_surface and shows it with new ones (Hyprland never configures a re-initial commit) |  |

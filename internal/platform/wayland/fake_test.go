@@ -81,6 +81,115 @@ type fakeComp struct {
 	// automatic, if non-nil, makes the fake behave like a compositor on
 	// its own: see autoState.
 	automatic *autoState
+
+	// proto checks the xdg-shell object rules on every request (only the
+	// fake's goroutine uses it).
+	proto protoCheck
+}
+
+// protoCheck enforces, like a compositor would with a protocol error, the
+// rules about role objects that hiding and showing windows must follow:
+//
+//   - get_xdg_surface on a wl_surface that has a live xdg_surface or a
+//     buffer attached or committed (xdg_surface: "Creating an xdg_surface
+//     from a wl_surface which has a buffer attached or committed is a
+//     client error");
+//   - get_toplevel_decoration for a toplevel whose surface has a buffer
+//     committed;
+//   - a buffer committed before the xdg_surface's first ack_configure
+//     (unconfigured_buffer);
+//   - xdg_toplevel.destroy before its decoration (orphaned) or its dialog
+//     object (the backend's own rule: the dialog goes first);
+//   - xdg_surface.destroy before its toplevel (defunct_role_object);
+//   - wl_surface.destroy before its xdg_surface.
+//
+// Requests on destroyed objects are caught by handle (unknown object).
+type protoCheck struct {
+	xsSurface map[uint32]uint32 // xdg_surface -> wl_surface
+	surfaceXs map[uint32]uint32 // wl_surface -> its live xdg_surface
+	xsTop     map[uint32]uint32 // xdg_surface -> its live xdg_toplevel
+	topXs     map[uint32]uint32 // xdg_toplevel -> xdg_surface
+	topDeco   map[uint32]uint32 // xdg_toplevel -> its live decoration
+	decoTop   map[uint32]uint32
+	topDialog map[uint32]uint32 // xdg_toplevel -> its live xdg_dialog_v1
+	dialogTop map[uint32]uint32
+	attached  map[uint32]uint32 // wl_surface -> buffer attached, not committed
+	committed map[uint32]bool   // wl_surface -> a non-null buffer is committed
+	acked     map[uint32]bool   // xdg_surface -> ack_configure was sent
+}
+
+func (p *protoCheck) check(t *testing.T, r freq) {
+	if p.xsSurface == nil {
+		*p = protoCheck{
+			xsSurface: map[uint32]uint32{}, surfaceXs: map[uint32]uint32{}, xsTop: map[uint32]uint32{},
+			topXs: map[uint32]uint32{}, topDeco: map[uint32]uint32{}, decoTop: map[uint32]uint32{},
+			topDialog: map[uint32]uint32{}, dialogTop: map[uint32]uint32{}, attached: map[uint32]uint32{},
+			committed: map[uint32]bool{}, acked: map[uint32]bool{},
+		}
+	}
+	switch {
+	case r.is("xdg_wm_base.get_xdg_surface"):
+		xs, s := r.u(0), r.u(1)
+		if old, ok := p.surfaceXs[s]; ok {
+			t.Errorf("fake: get_xdg_surface on wl_surface#%d, which has xdg_surface#%d (already_constructed)", s, old)
+		}
+		if b, ok := p.attached[s]; p.committed[s] || (ok && b != 0) {
+			t.Errorf("fake: get_xdg_surface on wl_surface#%d, which has a buffer attached or committed", s)
+		}
+		p.xsSurface[xs], p.surfaceXs[s] = s, xs
+	case r.is("xdg_surface.get_toplevel"):
+		p.xsTop[r.id], p.topXs[r.u(0)] = r.u(0), r.id
+	case r.is("zxdg_decoration_manager_v1.get_toplevel_decoration"):
+		top := r.u(1)
+		if p.committed[p.xsSurface[p.topXs[top]]] {
+			t.Errorf("fake: get_toplevel_decoration for xdg_toplevel#%d, whose surface has a buffer committed", top)
+		}
+		p.topDeco[top], p.decoTop[r.u(0)] = r.u(0), top
+	case r.is("xdg_wm_dialog_v1.get_xdg_dialog"):
+		p.topDialog[r.u(1)], p.dialogTop[r.u(0)] = r.u(0), r.u(1)
+	case r.is("zxdg_toplevel_decoration_v1.destroy"):
+		delete(p.topDeco, p.decoTop[r.id])
+		delete(p.decoTop, r.id)
+	case r.is("xdg_dialog_v1.destroy"):
+		delete(p.topDialog, p.dialogTop[r.id])
+		delete(p.dialogTop, r.id)
+	case r.is("xdg_toplevel.destroy"):
+		if d, ok := p.topDeco[r.id]; ok {
+			t.Errorf("fake: xdg_toplevel#%d destroyed before its decoration #%d (orphaned)", r.id, d)
+		}
+		if d, ok := p.topDialog[r.id]; ok {
+			t.Errorf("fake: xdg_toplevel#%d destroyed before its xdg_dialog_v1#%d", r.id, d)
+		}
+		delete(p.xsTop, p.topXs[r.id])
+		delete(p.topXs, r.id)
+	case r.is("xdg_surface.destroy"):
+		if top, ok := p.xsTop[r.id]; ok {
+			t.Errorf("fake: xdg_surface#%d destroyed before its xdg_toplevel#%d (defunct_role_object)", r.id, top)
+		}
+		delete(p.surfaceXs, p.xsSurface[r.id])
+		delete(p.xsSurface, r.id)
+		delete(p.acked, r.id)
+	case r.is("xdg_surface.ack_configure"):
+		p.acked[r.id] = true
+	case r.is("wl_surface.attach"):
+		p.attached[r.id] = r.u(0)
+	case r.is("wl_surface.commit"):
+		b, ok := p.attached[r.id]
+		if !ok {
+			break
+		}
+		delete(p.attached, r.id)
+		if xs, has := p.surfaceXs[r.id]; has && b != 0 && !p.acked[xs] {
+			t.Errorf("fake: buffer committed to wl_surface#%d before xdg_surface#%d was configured (unconfigured_buffer)", r.id, xs)
+		}
+		p.committed[r.id] = b != 0
+	case r.is("wl_surface.destroy"):
+		if xs, ok := p.surfaceXs[r.id]; ok {
+			t.Errorf("fake: wl_surface#%d destroyed before its xdg_surface#%d", r.id, xs)
+		}
+		delete(p.attached, r.id)
+		delete(p.committed, r.id)
+	}
 }
 
 func newFakeComp(t *testing.T, fd int, globals []fakeGlobal) *fakeComp {
@@ -271,6 +380,7 @@ func (fc *fakeComp) handle(id uint32, op uint16, body []byte) {
 			r.args = append(r.args, fdArg(fd))
 		}
 	}
+	fc.proto.check(fc.t, r)
 	fc.auto(r)
 	if fc.automatic != nil {
 		fc.automatic.handle(fc, r)
@@ -298,12 +408,15 @@ func (fc *fakeComp) handle(id uint32, op uint16, body []byte) {
 // buffer when a new one is committed, and fires frame callbacks 8 ms after
 // the commit that requested them, like a 120 Hz display. A commit of a
 // null buffer unmaps the toplevel: its next commit is an initial commit
-// again (xdg-shell). Only the fake's goroutine uses it (timers only
-// send).
+// again (xdg-shell), answered with a configure like sway does, unless
+// hyprland is set: then, like Hyprland 0.56, only a new xdg_surface gets
+// a configure, and a kept one never again. Only the fake's goroutine uses
+// it (timers only send).
 type autoState struct {
+	hyprland   bool
 	xdgOf      map[uint32]uint32 // wl_surface -> xdg_surface
 	topOf      map[uint32]uint32 // xdg_surface -> xdg_toplevel
-	configured map[uint32]bool
+	configured map[uint32]bool   // xdg_surface -> its initial commit was configured
 	attached   map[uint32]uint32 // wl_surface -> buffer attached, not committed
 	current    map[uint32]uint32 // wl_surface -> buffer shown
 	callbacks  map[uint32][]uint32
@@ -327,13 +440,26 @@ func (a *autoState) handle(fc *fakeComp, r freq) {
 		a.callbacks[r.id] = append(a.callbacks[r.id], r.u(0))
 	case r.is("wl_surface.attach"):
 		a.attached[r.id] = r.u(0)
+	case r.is("xdg_toplevel.destroy"):
+		for xs, top := range a.topOf {
+			if top == r.id {
+				delete(a.topOf, xs)
+			}
+		}
+	case r.is("xdg_surface.destroy"):
+		delete(a.configured, r.id)
+		for s, xs := range a.xdgOf {
+			if xs == r.id {
+				delete(a.xdgOf, s)
+			}
+		}
 	case r.is("wl_surface.destroy"):
 		delete(a.xdgOf, r.id)
 	case r.is("wl_surface.commit"):
 		s := r.id
 		xs := a.xdgOf[s]
-		if top := a.topOf[xs]; top != 0 && !a.configured[s] {
-			a.configured[s] = true
+		if top := a.topOf[xs]; top != 0 && !a.configured[xs] {
+			a.configured[xs] = true
 			a.serial++
 			fc.send(top, 0, int32(0), int32(0), ne.AppendUint32(nil, uint32(protocols.XdgToplevelStateActivated)))
 			fc.send(xs, 0, a.serial)
@@ -344,8 +470,8 @@ func (a *autoState) handle(fc *fakeComp, r freq) {
 				fc.send(prev, 0) // wl_buffer.release
 			}
 			a.current[s] = buf
-			if buf == 0 {
-				a.configured[s] = false // unmapped
+			if buf == 0 && !a.hyprland {
+				a.configured[xs] = false // unmapped
 			}
 		}
 		for _, cb := range a.callbacks[s] {
@@ -507,6 +633,14 @@ type harness struct {
 
 func newHarness(t *testing.T, globals []fakeGlobal) *harness {
 	t.Helper()
+	return newHarnessWith(t, globals, nil)
+}
+
+// newHarnessWith is newHarness with a fake in automatic mode if auto is
+// not nil. Its requests can still be read (next, until) as long as the test
+// keeps up: the fake drops them when 4096 are waiting.
+func newHarnessWith(t *testing.T, globals []fakeGlobal, auto *autoState) *harness {
+	t.Helper()
 	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -515,7 +649,7 @@ func newHarness(t *testing.T, globals []fakeGlobal) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fc := newFakeComp(t, fds[1], globals)
+	fc := startFake(t, fds[1], globals, auto)
 	b, err := newBackend(conn)
 	if err != nil {
 		t.Fatalf("newBackend: %v", err)

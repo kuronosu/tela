@@ -57,20 +57,29 @@ type windowCtl struct {
 	wantMax, wantFull bool
 
 	// Visibility. hidden is the app's choice (SetVisible,
-	// WindowOptions.Hidden). unmapped: a null buffer was committed, so
-	// the toplevel is back to its initial state (xdg_toplevel discards
-	// its attributes on unmap) and showing it takes a new initial commit;
-	// awaitConfigure: that commit was sent and its configure has not
-	// arrived (no buffer may be attached before it).
+	// WindowOptions.Hidden). unmapped: the mapped window was hidden, so a
+	// null buffer was committed and the role objects destroyed (unmap);
+	// showing it takes new ones and a new initial commit. awaitConfigure:
+	// that commit was sent and its configure has not arrived (no buffer may
+	// be attached before it).
 	hidden         bool
 	unmapped       bool
 	awaitConfigure bool
+
+	// activationToken is an xdg_activation_v1 token that arrived while
+	// the window was not mapped (Activate right after SetVisible(true)):
+	// it is used when the window maps, since compositors ignore the
+	// activation of a surface they do not show (sway).
+	activationToken string
 
 	// Decorations: the zxdg_toplevel_decoration_v1 mode latched by its
 	// configure event (pendingDeco) and applied with the xdg_surface
 	// configure that ends the sequence (decoMode); 0 until the compositor
 	// reports one.
 	pendingDeco, decoMode protocols.ZxdgToplevelDecorationV1Mode
+	// decorated: the latest role objects include a
+	// zxdg_toplevel_decoration_v1 (the compositor has xdg-decoration).
+	decorated bool
 
 	regions []platform.HitRegion // custom title bar (SetHitRegions)
 	icon    []image.Image        // copies (SetIcon), sent again when shown
@@ -107,10 +116,9 @@ func (b *Backend) checkParent(parent platform.Window) *Window {
 }
 
 // sendToplevelState sends the toplevel's attributes before an initial
-// commit: at creation, and again when a hidden window is shown, since
-// unmapping returns the xdg_toplevel to "the state it had right after
-// xdg_surface.get_toplevel" (xdg-shell) and the decoration, dialog and
-// icon hints may be gone with it.
+// commit (createRole): at creation, and to the new toplevel of a hidden
+// window shown again. Requests made while the window was hidden only
+// recorded their values, which are sent here.
 func (w *Window) sendToplevelState() {
 	if w.title != "" {
 		w.toplevel.SetTitle(w.title)
@@ -139,8 +147,9 @@ func (w *Window) sendToplevelState() {
 
 // sendParent sends set_parent for a child window whose parent is mapped.
 // xdg-shell treats an unmapped parent as none and drops the relation when
-// the parent unmaps, so it is sent again whenever the parent maps
-// (onMapped) and whenever the child is shown again.
+// the parent unmaps (a hidden parent's toplevel is even destroyed), so it
+// is sent again whenever the parent maps (onMapped, with the parent's
+// current toplevel) and whenever the child is shown again.
 func (w *Window) sendParent() {
 	if p := w.ctl.parent; p != nil && p.mapped && !p.Closed() {
 		w.toplevel.SetParent(p.toplevel)
@@ -148,11 +157,19 @@ func (w *Window) sendParent() {
 }
 
 // onMapped runs when the window's first buffer is committed (at creation
-// or after being hidden): its children get their parent now.
+// or after being hidden): its children with a toplevel get their parent
+// now (hidden ones get it when shown), and an activation that waited for
+// the map is sent.
 func (w *Window) onMapped() {
 	for _, c := range w.b.loop.Windows() {
-		if c.ctl.parent == w && !c.ctl.unmapped {
+		if c.ctl.parent == w && c.toplevel != nil {
 			c.toplevel.SetParent(w.toplevel)
+		}
+	}
+	if tok := w.ctl.activationToken; tok != "" {
+		w.ctl.activationToken = ""
+		if w.b.activation != nil {
+			w.b.activation.Activate(tok, w.surface)
 		}
 	}
 }
@@ -218,7 +235,9 @@ func (w *Window) osState() platform.WindowState {
 // frameless, and when the compositor has no xdg-decoration or configured
 // the client-side mode (then the app draws its title bar too).
 func (w *Window) csd() bool {
-	return w.opts.Frameless || w.decoration == nil || w.ctl.decoMode == protocols.ZxdgToplevelDecorationV1ModeClientSide
+	// decorated, not w.decoration: a hidden window has no decoration
+	// object but keeps its mode.
+	return w.opts.Frameless || !w.ctl.decorated || w.ctl.decoMode == protocols.ZxdgToplevelDecorationV1ModeClientSide
 }
 
 // showable reports whether a buffer may be committed to the surface now:
@@ -227,16 +246,29 @@ func (w *Window) showable() bool {
 	return !w.ctl.hidden && !w.ctl.unmapped && !w.ctl.awaitConfigure
 }
 
-// unmap hides a mapped window: a null buffer, committed, unmaps the
-// surface (xdg-shell), which is then shown again by a new initial commit
-// (SetVisible). The swapchain is kept, so its newest buffer can map the
-// window again without the app (mapRetained).
+// unmap hides a mapped window the way GTK 4 and Qt do: a null buffer,
+// committed, unmaps the surface (xdg-shell), then the role objects are
+// destroyed (destroyRole). SetVisible(true) gives the surface new ones and
+// makes a new initial commit.
+//
+// Keeping the toplevel and making the new initial commit on it, which
+// xdg-shell allows ("the client must perform the initial commit again"),
+// does not work everywhere: Hyprland (0.56) never answers that commit with
+// a configure, so the window would never map again. A new xdg_surface is a
+// new window to every compositor. The null buffer goes first, while the
+// toplevel exists: it is the plain unmap every compositor handles, and it
+// leaves no buffer committed, which get_xdg_surface and
+// get_toplevel_decoration require of the surface at show.
+//
+// The swapchain is kept, so its newest buffer can map the window again
+// without the app (mapRetained).
 func (w *Window) unmap() {
 	w.surface.Attach(nil, 0, 0)
 	w.surface.Commit()
+	w.destroyRole()
 	w.mapped = false
 	w.ctl.unmapped = true
-	w.ackPending = false
+	w.ackPending = false // its serial belonged to the destroyed xdg_surface
 	// The frame callback of an unmapped surface may never fire; nothing
 	// may wait for it after the window is shown again.
 	if w.VsyncPending() {
@@ -327,15 +359,17 @@ func (w *Window) SetFullscreen(fullscreen bool) {
 
 // SetVisible hides or shows the window.
 //
-// Hiding a mapped window commits a null buffer, which unmaps it; frames
-// stop (internal/loop SetHidden) and the focus goes as the compositor
-// reports. Showing it again sends the toplevel's attributes again (title,
-// app id, size limits, parent, maximized and fullscreen requests,
-// decoration mode, modality, icon: unmapping discarded them) and a new
-// initial commit; at its configure, a window of the same size is mapped
-// with its last presented frame, and frames resume. A window that was never
-// mapped (WindowOptions.Hidden, or hidden before its first Present) only
-// resumes frames: its next Present maps it.
+// Hiding a mapped window commits a null buffer, which unmaps it, and
+// destroys its xdg_toplevel and xdg_surface (see unmap); frames stop
+// (internal/loop SetHidden) and the focus goes as the compositor reports.
+// Showing it again creates new ones on the same wl_surface with the
+// toplevel's attributes (title, app id, size limits, parent, maximized and
+// fullscreen requests, decoration mode, modality, icon), adds it to the
+// session again, and makes the initial commit; at its configure, a window
+// of the same size is mapped with its last presented frame, and frames
+// resume. A window that was never mapped (WindowOptions.Hidden, or hidden
+// before its first Present or before the configure of a show) keeps its
+// role objects and only resumes frames: its next Present maps it.
 func (w *Window) SetVisible(visible bool) {
 	if w.Closed() || visible == !w.ctl.hidden {
 		return
@@ -343,6 +377,7 @@ func (w *Window) SetVisible(visible bool) {
 	w.ctl.hidden = !visible
 	if !visible {
 		w.SetHidden(true)
+		w.ctl.activationToken = "" // an activation waiting for the map is void
 		if w.mapped {
 			w.unmap()
 		}
@@ -351,8 +386,9 @@ func (w *Window) SetVisible(visible bool) {
 	switch {
 	case w.ctl.unmapped:
 		w.ctl.unmapped = false
-		w.sendToplevelState()
-		w.surface.Commit() // the new initial commit
+		w.createRole()
+		w.rejoinSession()
+		w.surface.Commit() // the initial commit of the new role objects
 		w.ctl.awaitConfigure = true
 		// Frames resume at its configure (onConfigure).
 	case w.ctl.awaitConfigure:
@@ -425,7 +461,9 @@ func (w *Window) SetPosition(image.Point) {}
 // client, and otherwise usually mark the window as demanding attention.
 // Without a serial (no input yet) the token is still asked, without one,
 // as winit does. A granted activation arrives as a FocusEvent. Without the
-// protocol, or for a hidden window, nothing happens.
+// protocol, or for a hidden window, nothing happens. A window shown but not
+// mapped yet is activated when it maps (the activation of an unmapped
+// surface is ignored).
 func (w *Window) Activate() {
 	b := w.b
 	if w.Closed() || b.activation == nil || w.ctl.hidden {
@@ -446,9 +484,16 @@ func (w *Window) Activate() {
 	tok.SetAppId(w.appID())
 	tok.SetDoneHandler(func(e protocols.XdgActivationTokenV1DoneEvent) {
 		tok.Destroy()
-		if !w.Closed() && !w.ctl.hidden && b.activation != nil {
-			b.activation.Activate(e.Token, w.surface)
+		if w.Closed() || w.ctl.hidden || b.activation == nil {
+			return
 		}
+		if !w.mapped {
+			// Shown, not mapped yet (SetVisible(true) then Activate):
+			// activated when it maps (onMapped).
+			w.ctl.activationToken = e.Token
+			return
+		}
+		b.activation.Activate(e.Token, w.surface)
 	})
 	tok.Commit()
 }
@@ -648,7 +693,11 @@ func (s *seat) pointerMoved() {
 			if dx*dx+dy*dy >= captionDragThreshold*captionDragThreshold {
 				p.captionPending = false
 				w.ctl.hasLastCaption = false // a drag is not half of a double click
-				w.toplevel.Move(s.wl, p.captionSerial)
+
+				// No toplevel: hidden meanwhile, nothing to move.
+				if w.toplevel != nil {
+					w.toplevel.Move(s.wl, p.captionSerial)
+				}
 			}
 		}
 		return
@@ -691,7 +740,9 @@ func (s *seat) osButton(btn platform.PointerButton, pressed bool, serial uint32,
 		}
 		return true
 	}
-	if !pressed || p.buttons != 0 {
+	if !pressed || p.buttons != 0 || !w.mapped {
+		// Not mapped: a press still in flight when the window was hidden
+		// (its toplevel is gone) is the app's, like any.
 		return false
 	}
 	if e := w.resizeEdgeAt(p.pos); e != 0 {
@@ -800,6 +851,27 @@ func (w *Window) joinSession(token string) {
 	}
 	s.used[name] = true
 	w.ctl.sessionName = name
+}
+
+// rejoinSession adds the new toplevel of a window shown again to the
+// session, before its initial commit. Its old toplevel's session object was
+// destroyed with it (the session keeps that state). The new toplevel gets a
+// fresh name with add_toplevel, as a window reopened in the same run does
+// (see session.used: restore_toplevel with the old name could be a
+// name_in_use error), so the restore token changes; the old name is
+// removed (remove_toplevel), or every hide would leave an entry in the
+// compositor's persistent storage. While hidden, the window's token still
+// names the old entry, which the compositor keeps: an app that quits from
+// a tray with the window hidden restores it next time.
+func (w *Window) rejoinSession() {
+	b := w.b
+	s := &b.session
+	old := w.ctl.sessionName
+	if b.sessionManager == nil || s.gone || s.obj == nil || old == "" {
+		return
+	}
+	w.joinSession("")
+	s.obj.RemoveToplevel(old)
 }
 
 // loseSession handles xdg_session_v1.replaced: the session and its

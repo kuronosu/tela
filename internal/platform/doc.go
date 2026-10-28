@@ -292,13 +292,14 @@
 //     borderless window covering its monitor with the old style and
 //     placement saved (winit's borderless fullscreen). Size is the size the
 //     window returns to.
-//   - SetVisible(false) hides a window without destroying anything; the
-//     loop gets no FrameEvents for it (internal/loop SetHidden), requests
-//     wait, and the focus goes as the OS reports. Showing it again shows
-//     the last presented frame (Wayland: a new initial commit, then the
-//     retained buffer), or nothing until the first Present for a window
-//     never presented. Wayland unmaps by committing a null buffer, X11
-//     unmaps (withdraws) and maps, Win32 uses SW_HIDE/SW_SHOW.
+//   - SetVisible(false) hides a window without closing it; the loop gets
+//     no FrameEvents for it (internal/loop SetHidden), requests wait, and
+//     the focus goes as the OS reports. Showing it again shows the last
+//     presented frame (Wayland: a new initial commit, then the retained
+//     buffer), or nothing until the first Present for a window never
+//     presented. Wayland unmaps by committing a null buffer and destroying
+//     the xdg_toplevel and xdg_surface, made anew to show it (ADR-186),
+//     X11 unmaps (withdraws) and maps, Win32 uses SW_HIDE/SW_SHOW.
 //     WindowOptions.Hidden windows still get their first ConfigureEvent
 //     (Wayland: from the initial commit, which maps nothing).
 //   - SetAlwaysOnTop: _NET_WM_STATE_ABOVE, HWND_TOPMOST; Wayland has no

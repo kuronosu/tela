@@ -34,13 +34,17 @@ type Window struct {
 	b    *Backend
 	opts platform.WindowOptions
 
+	// The wl_surface lives as long as the window; the role objects
+	// (xdg_surface, xdg_toplevel and the decoration) are nil while the
+	// window is hidden (ctl.unmapped) and new ones are made to show it
+	// again (createRole, destroyRole).
 	surface    *protocols.WlSurface
 	xdgSurface *protocols.XdgSurface
 	toplevel   *protocols.XdgToplevel
 	decoration *protocols.ZxdgToplevelDecorationV1
 
 	cursor platform.Cursor
-	title  string // the latest title, sent again when a hidden window is shown
+	title  string // the latest title, sent to the new toplevel when a hidden window is shown
 
 	// ctl is the window control state (windowctl.go): requests,
 	// visibility, decorations, hit regions, icon, parent, session.
@@ -162,6 +166,33 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 			w.updateScale()
 		})
 	}
+	// The role objects and the toplevel's attributes, then session
+	// restore, which must be asked before the initial commit.
+	w.createRole()
+	w.joinSession(opts.RestoreToken)
+	// The initial commit, without a buffer, asks for the first configure.
+	// A Hidden window makes it too: it gets its ConfigureEvent, and is
+	// mapped by its first Present after SetVisible(true).
+	w.surface.Commit()
+
+	b.loop.Add(w)
+	b.surfaces[w.surface] = w
+	w.SetHidden(opts.Hidden)
+	return w, nil
+}
+
+// createRole gives the wl_surface the xdg_toplevel role: a new xdg_surface
+// and xdg_toplevel, the objects that hang off the toplevel (decoration,
+// dialog), and the toplevel's attributes (sendToplevelState). It runs at
+// creation and when a hidden window is shown again (hiding destroyed the
+// previous objects, see unmap); the caller adds the toplevel to the
+// session and makes the initial commit. Events still in flight for
+// destroyed objects are dropped by the wire layer, so the handlers bound
+// here see only the new objects' events.
+func (w *Window) createRole() {
+	b := w.b
+	w.pendingW, w.pendingH, w.pendingStates = 0, 0, toplevelStates{}
+	w.ctl.pendingDeco = 0
 	w.xdgSurface = b.wm.GetXdgSurface(w.surface)
 	w.xdgSurface.SetConfigureHandler(w.onConfigure)
 	w.toplevel = w.xdgSurface.GetToplevel()
@@ -177,34 +208,46 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		}
 	})
 
+	w.ctl.decorated = b.decoration != nil
 	if b.decoration != nil {
 		// Server-side decorations, or client-side ones for a frameless
 		// window (winit's set_decorations(false)): without the request a
 		// tiling compositor such as sway keeps drawing its title bar. The
 		// compositor may choose otherwise; its configure reports the mode
-		// (windowctl.go).
+		// (windowctl.go). The surface has no buffer committed here, as the
+		// protocol requires (hiding committed a null one).
 		w.decoration = b.decoration.GetToplevelDecoration(w.toplevel)
 		w.decoration.SetConfigureHandler(func(e protocols.ZxdgToplevelDecorationV1ConfigureEvent) {
 			w.ctl.pendingDeco = e.Mode
 		})
 	}
-	if opts.Modal && b.dialogManager != nil {
+	if w.opts.Modal && b.dialogManager != nil {
 		w.ctl.dialog = b.dialogManager.GetXdgDialog(w.toplevel)
 	}
-	// The toplevel's attributes; sent again when a hidden window is shown
-	// (unmapping discards them).
 	w.sendToplevelState()
-	// Session restore must be asked before the initial commit.
-	w.joinSession(opts.RestoreToken)
-	// The initial commit, without a buffer, asks for the first configure.
-	// A Hidden window makes it too: it gets its ConfigureEvent, and is
-	// mapped by its first Present after SetVisible(true).
-	w.surface.Commit()
+}
 
-	b.loop.Add(w)
-	b.surfaces[w.surface] = w
-	w.SetHidden(opts.Hidden)
-	return w, nil
+// destroyRole destroys the role objects in the order the protocols
+// require: the decoration before its toplevel
+// (zxdg_toplevel_decoration_v1.orphaned), the dialog and session objects
+// (releaseCtl), the toplevel before its xdg_surface
+// (xdg_surface.defunct_role_object). The wl_surface keeps its role
+// (wl_surface: a role is permanent, and giving it again is allowed) and
+// its own state: viewport, fractional scale, buffer scale, text input.
+// Nothing happens if the objects are already gone (a hidden window).
+func (w *Window) destroyRole() {
+	if w.toplevel == nil {
+		return
+	}
+	if w.decoration != nil {
+		w.decoration.Destroy()
+		w.decoration = nil
+	}
+	w.releaseCtl()
+	w.toplevel.Destroy()
+	w.toplevel = nil
+	w.xdgSurface.Destroy()
+	w.xdgSurface = nil
 }
 
 // appID is the window's xdg_toplevel app_id.
@@ -613,17 +656,12 @@ func (w *Window) Close() {
 	w.closeTextInput()
 	delete(b.surfaces, w.surface)
 
-	// Destruction order matters: the decoration before its toplevel
-	// (zxdg_toplevel_decoration_v1.orphaned), the toplevel before its
-	// xdg_surface, the xdg_surface before its wl_surface. Buffers last:
-	// destroying a wl_buffer the compositor still holds is allowed once
-	// nothing shows it.
-	if w.decoration != nil {
-		w.decoration.Destroy()
-	}
-	w.releaseCtl() // dialog and session objects, before their toplevel
-	w.toplevel.Destroy()
-	w.xdgSurface.Destroy()
+	// Destruction order matters: the role objects first (destroyRole; a
+	// hidden window has none left), the xdg_surface before its wl_surface.
+	// Buffers last: destroying a wl_buffer the compositor still holds is
+	// allowed once nothing shows it.
+	w.ctl.activationToken = ""
+	w.destroyRole()
 	// The scale objects before their surface: requests on them after it
 	// is gone would be a protocol error (wp_viewport.no_surface).
 	if w.fractional != nil {
