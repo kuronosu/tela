@@ -66,7 +66,7 @@ The expectations ([`App.ExpectText`](#func-app-expecttext), [`App.ExpectNoText`]
 
 ### Windows
 
-An app has one window per tela.Window that is mounted, besides its main window. The headless backend plays a fake window manager (ADR-179): it grants every request at once, gives hidden and minimized windows no frames, and records parents, modality, hit regions and caption presses.
+An app has one window per tela.Window that is mounted, besides its main window. The headless backend plays a fake window manager (ADR-179): it grants every request at once, gives hidden and minimized windows no frames, and records parents, modality, hit regions and caption presses. The app still builds and runs the effects of a hidden or minimized window, as on a desktop (ADR-185): a tray item clicked while the main window is hidden updates its state, its tray menu and the windows it opens; settling waits for that work, and the window draws it when shown.
 
 An [`App`](#type-app) is scoped to one window. Mount returns the one of the main window; [`App.Windows`](#func-app-windows) lists the open windows (in the order they opened, the main window first), [`App.Window`](#func-app-window) selects one by title, [`App.WindowAt`](#func-app-windowat) by index and [`App.LastWindow`](#func-app-lastwindow) is the newest, and [`App.WaitForWindow`](#func-app-waitforwindow) runs a step and returns the window it opened, like Playwright's context.pages() and page.waitForEvent('popup'). Each returns an App with the same queries, actions, expectations, goldens and pixels as the main one, working on that window: it is always the same App for the same window.
 
@@ -1526,17 +1526,17 @@ const ( // HitClient is ordinary content. It is what lies outside every
 
     // region, and a HitClient region punches a hole into the regions
     // listed before it (a search field or a tab strip inside a caption
-
     // area).
     HitClient HitKind = iota // HitCaption is a drag area of the title bar: the OS handles presses
 
     // in it (move, double-click, window menu).
     HitCaption
     // HitMinimize, HitMaximize and HitClose are the window buttons drawn
+
     // by the app. Pointer events over them reach the app as usual (its
     // buttons perform the action); the region tells the OS what they are
-    // (Windows 11 snap layouts open from the maximize button).
 
+    // (Windows 11 snap layouts open from the maximize button).
     HitMinimize
     HitMaximize
     HitClose
@@ -2059,7 +2059,7 @@ Size sets the logical size of the window in pixels (default 800x600).
 func StartHidden() Option
 ```
 
-StartHidden opens the main window hidden (tela.App.Hidden): an app that starts in the tray. The fake window manager gives a hidden window no frames, so it draws nothing (no screenshot, no goldens, no actions that need a layout) until the app shows it.
+StartHidden opens the main window hidden (tela.App.Hidden): an app that starts in the tray. The fake window manager gives a hidden window no frames, so it draws nothing (no screenshot, no goldens, no actions that need a layout) until the app shows it; its components still build and its effects run (its tray icon shows, ADR-185).
 
 #### func Theme
 

@@ -101,7 +101,8 @@ func AlwaysOnTop() Option { return func(c *config) { c.win.onTop = true } }
 // StartHidden opens the main window hidden (tela.App.Hidden): an app that
 // starts in the tray. The fake window manager gives a hidden window no
 // frames, so it draws nothing (no screenshot, no goldens, no actions that
-// need a layout) until the app shows it.
+// need a layout) until the app shows it; its components still build and
+// its effects run (its tray icon shows, ADR-185).
 func StartHidden() Option { return func(c *config) { c.win.hidden = true } }
 
 // Icon sets the icon of the main window (tela.App.Icon): the same picture

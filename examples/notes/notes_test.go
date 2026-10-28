@@ -107,8 +107,8 @@ func TestFramelessTitleBar(t *testing.T) {
 	a := mount(t)
 	a.ExpectWindowState(telatest.ClientDecorations(true))
 	a.ExpectRole("group", "Window controls")
-	if n := a.CaptionDrags(); n == 0 {
-		t.Errorf("the title bar has no drag region")
+	if !slices.ContainsFunc(a.HitRegions(), func(r telatest.HitRegion) bool { return r.Kind == telatest.HitCaption }) {
+		t.Errorf("the title bar has no drag region: %v", a.HitRegions())
 	}
 	// The close button of the title bar asks to close the window like the
 	// OS's own: the app is not quit by the click itself.
@@ -489,7 +489,7 @@ func TestTrayMenu(t *testing.T) {
 			labels = append(labels, it.Label)
 		}
 	}
-	if want := []string{"New note", "Show Notes", "Preferences…", "-", "Quit"}; !slices.Equal(labels, want) {
+	if want := []string{"New note", "Hide Notes", "Preferences…", "-", "Quit"}; !slices.Equal(labels, want) {
 		t.Errorf("tray menu = %q, want %q", labels, want)
 	}
 
@@ -514,17 +514,36 @@ func TestCloseKeepsRunningInTheTray(t *testing.T) {
 		t.Fatalf("hiding to the tray asked a question: %+v", d)
 	}
 
+	// The hidden window still builds: its tray menu follows it.
+	if label := a.Tray().Menu[1].Label; label != "Show Notes" {
+		t.Errorf("tray item of the hidden window = %q, want Show Notes", label)
+	}
 	a.ClickTrayItem("Show Notes")
 	a.ExpectWindowState(telatest.Hidden(false))
 	a.ExpectValue(editor, "Still here")
+	if label := a.Tray().Menu[1].Label; label != "Hide Notes" {
+		t.Errorf("tray item of the shown window = %q, want Hide Notes", label)
+	}
 
-	// A click on the icon toggles the window.
+	// A click on the icon toggles the window, and so does the menu item.
 	a.ClickTray()
 	a.ExpectWindowState(telatest.Hidden(true))
 	a.ClickTray()
 	a.ExpectWindowState(telatest.Hidden(false))
+	a.ClickTrayItem("Hide Notes")
+	a.ExpectWindowState(telatest.Hidden(true))
+	a.ClickTrayItem("Show Notes")
+	a.ExpectWindowState(telatest.Hidden(false))
 
-	// The tray menu works on a hidden window too.
+	// The tray menu works on a hidden window too: Preferences… shows it
+	// and opens Preferences, New note shows it with the new note.
+	a.RequestClose()
+	a.ExpectWindowState(telatest.Hidden(true))
+	prefs := a.WaitForWindow(func() { a.ClickTrayItem("Preferences…") })
+	prefs.ExpectTitle("Preferences")
+	a.ExpectWindowState(telatest.Hidden(false))
+	prefs.RequestClose()
+	prefs.ExpectClosed()
 	a.RequestClose()
 	a.ExpectWindowState(telatest.Hidden(true))
 	a.ClickTrayItem("New note")

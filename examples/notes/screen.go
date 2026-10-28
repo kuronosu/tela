@@ -167,12 +167,11 @@ func (s screen) Build() tela.Node {
 
 	// --- Windows ---------------------------------------------------
 	//
-	// A hidden window gets no frames, so this component does not build
-	// while the window is hidden: what runs then is what was captured
-	// before (the tray's handlers). That is why toggleMain reads the
-	// window's state when it runs (win.State() outside a build only
-	// reads), instead of using what the last build saw, and why the tray
-	// has one fixed "Show Notes" item.
+	// A hidden window still builds and runs its effects (it only draws
+	// nothing), so the tray's handlers set state as usual and its menu
+	// follows the window (notesTray). toggleMain reads the window's state
+	// when it runs (win.State() outside a build only reads), so two quick
+	// clicks act on what the window is, not on what the last build saw.
 
 	showMain := func() {
 		win.Show()
@@ -252,17 +251,11 @@ func (s screen) Build() tela.Node {
 	})
 
 	return Div(Class("flex h-screen flex-col"), shortcuts,
-		desktop.Tray{
-			Icon: appIcon(), Tooltip: "Notes",
-			OnClick: toggleMain,
-			OnError: func(error) { setTrayOK.Set(false) }, // no tray: closing quits
-			Menu: []desktop.MenuItem{
-				{Label: "New note", OnSelect: func() { showMain(); newNote() }},
-				{Label: "Show Notes", OnSelect: showMain},
-				{Label: "Preferences…", OnSelect: showPrefs},
-				{Separator: true},
-				{Label: "Quit", OnSelect: tela.Quit},
-			},
+		notesTray{
+			Toggle: toggleMain,
+			New:    func() { showMain(); newNote() },
+			Prefs:  showPrefs,
+			Failed: func() { setTrayOK.Set(false) }, // no tray: closing quits
 		},
 		If(prefsOpen, tela.Component(desktop.SavedWindow{
 			Key: "preferences",
@@ -294,6 +287,38 @@ func (s screen) Build() tela.Node {
 			If(!hasCur, Div(Class("flex flex-1 items-center justify-center text-sm text-muted-foreground"), Text("No notes yet."))),
 		),
 	)
+}
+
+// notesTray is the tray icon. A click toggles the main window, and the
+// menu's second item follows it: "Show Notes" while the window is hidden
+// or minimized, "Hide Notes" while it is shown. It is a component of its
+// own so that only it builds again when the window's state changes (the
+// state includes the focus, which changes often).
+type notesTray struct {
+	// Toggle shows the main window, or hides it; New makes a note and
+	// Prefs opens Preferences, both showing the window; Failed runs when
+	// the desktop has no tray.
+	Toggle, New, Prefs, Failed func()
+}
+
+func (t notesTray) Build() tela.Node {
+	st := tela.UseWindow().State()
+	toggle := "Hide Notes"
+	if st.Hidden || st.Minimized {
+		toggle = "Show Notes"
+	}
+	return Fragment(desktop.Tray{
+		Icon: appIcon(), Tooltip: "Notes",
+		OnClick: t.Toggle,
+		OnError: func(error) { t.Failed() },
+		Menu: []desktop.MenuItem{
+			{Label: "New note", OnSelect: t.New},
+			{Label: toggle, OnSelect: t.Toggle},
+			{Label: "Preferences…", OnSelect: t.Prefs},
+			{Separator: true},
+			{Label: "Quit", OnSelect: tela.Quit},
+		},
+	})
 }
 
 // saveAll saves the notes one after the other (each may ask for a file

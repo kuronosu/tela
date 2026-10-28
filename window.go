@@ -75,7 +75,8 @@ type Window struct {
 	// brings this one forward).
 	Modal bool
 	// Hidden hides the window: it stays open, with its state, until
-	// Hidden is false again.
+	// Hidden is false again. A hidden window draws nothing, but its
+	// components build and its effects run as in a shown one.
 	Hidden bool
 	// Icon is the window's icon (title bar, task bar, alt-tab), the same
 	// picture at several sizes (16 to 256 pixels; the OS picks). Empty is
@@ -120,7 +121,10 @@ func (w Window) Build() Node {
 //   - Hide and Show: hide the window (it stays open, with its state) and
 //     show it again (activated). The app keeps running while its windows
 //     are hidden: App.OnClose can hide the main window to keep the app in
-//     the tray.
+//     the tray. A hidden or minimized window draws nothing, but its
+//     components build, its effects run and its Windows open as usual (a
+//     tray menu declared in it follows its state); it draws the current
+//     state when it shows.
 //   - Focus: raise the window and give it the keyboard focus, bringing it
 //     back from minimized.
 //   - Close: ask to close the window as its close button does (its

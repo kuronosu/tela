@@ -5236,7 +5236,8 @@ type Window struct {
     // brings this one forward).
     Modal bool
     // Hidden hides the window: it stays open, with its state, until
-    // Hidden is false again.
+    // Hidden is false again. A hidden window draws nothing, but its
+    // components build and its effects run as in a shown one.
     Hidden bool
     // Icon is the window's icon (title bar, task bar, alt-tab), the same
     // picture at several sizes (16 to 256 pixels; the OS picks). Empty is
@@ -5283,7 +5284,7 @@ When the user asks to close the window (its close button, Alt+F4, a WindowClose 
 
 The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon or RootClass update the open window. FixedSize, Frameless, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
 
-tela snapshot, tela inspect and telatest's queries show the main window only. Under tela dev the other windows are plain windows (without a parent, modality or window control yet), and their state is not kept across reloads.
+tela snapshot, tela inspect and tela mcp show the main window only; in tests, telatest's App.Windows and App.Window reach the others. Under tela dev the other windows keep their parent, modality and window control, and an open window survives a reload (it is keyed by its place in the tree).
 
 #### func (Window) Build
 
@@ -5333,7 +5334,7 @@ type WindowHandle = core.WindowHandle
 WindowHandle is a window of the app: the one a component renders in ([`UseWindow`](#func-usewindow)), or the main window given to App.OnClose. It is a small comparable value, the same for the window's whole life, with these methods:
 
 - Minimize, Maximize, Unmaximize, ToggleMaximize, SetFullscreen(bool): ask the OS to change the window's state.
-- Hide and Show: hide the window (it stays open, with its state) and show it again (activated). The app keeps running while its windows are hidden: App.OnClose can hide the main window to keep the app in the tray.
+- Hide and Show: hide the window (it stays open, with its state) and show it again (activated). The app keeps running while its windows are hidden: App.OnClose can hide the main window to keep the app in the tray. A hidden or minimized window draws nothing, but its components build, its effects run and its Windows open as usual (a tray menu declared in it follows its state); it draws the current state when it shows.
 - Focus: raise the window and give it the keyboard focus, bringing it back from minimized.
 - Close: ask to close the window as its close button does (its OnClose runs; for the main window App.OnClose, or the app quits).
 - State() WindowState: maximized, fullscreen, minimized, focused, hidden and whether the app draws the title bar (ClientSideDecorations). Read in a component's body, it rebuilds the component when the state changes.
@@ -5396,7 +5397,7 @@ Focus asks the OS to raise the window and give it the keyboard focus, restoring 
 func (w WindowHandle) Hide()
 ```
 
-Hide hides the window. It stays open (mounted, with its state and effects) until it is shown again or closed; the app keeps running while its windows are hidden ("close to tray").
+Hide hides the window. It stays open (mounted, with its state and effects) until it is shown again or closed; the app keeps running while its windows are hidden ("close to tray"). A hidden window draws nothing, but its components still build and its effects run; it draws the current state when it is shown.
 
 #### func (WindowHandle) IsZero
 
