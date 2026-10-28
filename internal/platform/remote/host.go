@@ -866,7 +866,8 @@ func (h *Host) attach(cw *childWin) {
 		// (tela dev --size drops a minimum above its size) stays until the
 		// app asks for other ones.
 		rw = &realWin{id: cw.id, key: cw.key, w: w, opts: opts, parent: parent,
-			visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: cw.min, max: cw.max}
+			visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: cw.min, max: cw.max,
+			titleBar: opts.TitleBar, backdrop: opts.Backdrop}
 		rw.token = w.RestoreToken()
 		h.byWin[w] = rw
 		h.order = append(h.order, rw)
@@ -1206,7 +1207,8 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 			key = "#" + strconv.FormatUint(uint64(id), 10)
 		}
 		cw := &childWin{c: c, id: id, key: key, opts: opts, title: opts.Title,
-			visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: opts.MinSize, max: opts.MaxSize}
+			visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: opts.MinSize, max: opts.MaxSize,
+			titleBar: opts.TitleBar, backdrop: opts.Backdrop}
 		c.mu.Lock()
 		dup := c.wins[id] != nil
 		var parent *childWin
@@ -1542,6 +1544,8 @@ type childWin struct {
 	min, max platform.Size
 	icon     []image.Image
 	regions  []platform.HitRegion
+	titleBar platform.TitleBarColors
+	backdrop platform.Backdrop
 
 	notified atomic.Bool // a presented() call is queued
 

@@ -200,6 +200,18 @@ type Window interface {
 	// ([CheckIcon]).
 	SetIcon(images []image.Image)
 
+	// SetTitleBarColors sets the colors of the OS-drawn title bar and
+	// border (Windows 11); colors that are not Set restore the system's.
+	// Other backends ignore it. See "Window styling" in the package
+	// documentation.
+	SetTitleBarColors(colors TitleBarColors)
+
+	// SetBackdrop sets the system material behind the window (Mica,
+	// Acrylic: Windows 11 22H2); the window shows it in its title bar and
+	// where it presents transparent pixels. Other backends ignore it.
+	// An invalid Backdrop panics ([CheckBackdrop]).
+	SetBackdrop(backdrop Backdrop)
+
 	// SetHitRegions tells the OS which parts of the content area are a
 	// custom title bar: caption (drag) areas and window buttons, in
 	// logical pixels, window coordinates, later regions over earlier
@@ -289,6 +301,11 @@ type WindowOptions struct {
 	// documentation.
 	Frameless bool
 
+	// TitleBar and Backdrop: see Window.SetTitleBarColors and
+	// Window.SetBackdrop. Backends apply them when they create the window.
+	TitleBar TitleBarColors
+	Backdrop Backdrop
+
 	// Parent makes the window a child (transient, owned) window of
 	// another open window of the same backend: it stays above its parent,
 	// is minimized and closed with it, and is centered on it by the OS
@@ -317,6 +334,7 @@ func (opts WindowOptions) Resolve() WindowOptions {
 	CheckSize("WindowOptions.Size", opts.Size)
 	CheckSize("WindowOptions.MinSize", opts.MinSize)
 	CheckSize("WindowOptions.MaxSize", opts.MaxSize)
+	CheckBackdrop("WindowOptions.Backdrop", opts.Backdrop)
 	if opts.Size == (Size{}) {
 		opts.Size = DefaultWindowSize
 	}

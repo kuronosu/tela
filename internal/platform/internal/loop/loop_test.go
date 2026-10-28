@@ -34,6 +34,8 @@ func (w *win) SetMaxSize(platform.Size)                     {}
 func (w *win) SetPosition(image.Point)                      {}
 func (w *win) Activate()                                    {}
 func (w *win) SetIcon([]image.Image)                        {}
+func (w *win) SetTitleBarColors(platform.TitleBarColors)    {}
+func (w *win) SetBackdrop(platform.Backdrop)                {}
 func (w *win) SetHitRegions([]platform.HitRegion)           {}
 func (w *win) RestoreToken() string                         { return "" }
 

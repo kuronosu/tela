@@ -515,20 +515,20 @@ func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damag
 	var d Damage
 	switch {
 	case full || L.ras == nil || L.ras.scale != f.scale || L.rasRect != fb.Rect:
-		raster.Clear(fb, image.Rectangle{}, t.CanvasColor())
+		raster.Clear(fb, image.Rectangle{}, t.clearColor())
 		r.Render(fb, f.dl, raster.Options{Scale: f.scale})
 		d.Full = true
 	case L.ras != f:
 		d = frameDamage(L.ras, f, fb.Rect, &L.dmg)
 		if d.Full {
-			raster.Clear(fb, image.Rectangle{}, t.CanvasColor())
+			raster.Clear(fb, image.Rectangle{}, t.clearColor())
 			r.Render(fb, f.dl, raster.Options{Scale: f.scale})
 			break
 		}
 		for _, s := range d.Shifts {
 			shiftPixels(fb, s)
 		}
-		canvas := t.CanvasColor()
+		canvas := t.clearColor()
 		for _, rc := range d.Rects {
 			raster.Clear(fb, rc, canvas)
 			r.Render(fb, f.dl, raster.Options{Scale: f.scale, Region: rc})

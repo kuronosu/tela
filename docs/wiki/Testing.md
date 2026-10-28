@@ -314,11 +314,11 @@ something else (a struct component, a [`tela.Preview`](https://pkg.go.dev/github
 `telatest.Mount(t, Previews["mocked"], telatest.FromApp(App))`.
 
 `MountApp` also applies the fields of the OS window: `Title`, the size
-limits, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `Placement`
-and `OnClose` (`FromApp` does not, so tools that only render the screen see it
+limits, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `TitleBar`,
+`Backdrop`, `Placement` and `OnClose` (`FromApp` does not, so tools that only render the screen see it
 visible). The options `telatest.Title`, `MinSize`, `MaxSize`, `FixedSize`,
-`Frameless`, `AlwaysOnTop`, `StartHidden`, `Icon`, `Placement`, `OnClose` and
-`Screen` (the size of the fake screen that maximized windows fill) set them by
+`Frameless`, `AlwaysOnTop`, `StartHidden`, `Icon`, `TitleBar`, `Backdrop`,
+`Placement`, `OnClose` and `Screen` (the size of the fake screen that maximized windows fill) set them by
 hand for `Mount`.
 
 ## Several windows

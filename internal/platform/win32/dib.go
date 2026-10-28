@@ -26,14 +26,20 @@ const biRGB = 0
 // the byte order B, G, R, X that a BI_RGB DIB has. It answers WM_PAINT
 // without involving the app, and is the bits argument of SetDIBitsToDevice.
 //
-// The X byte is always 0xFF. The platform's windows are opaque, but DWM
-// reads the alpha of the pixels that GDI draws into the part of a window
-// that is "glass" (the whole client area while a composition change is
-// being redone, and any margin of DwmExtendFrameIntoClientArea): a zero
-// byte there shows the desktop through the window.
+// The X byte is 0xFF, except for a window that shows a system backdrop in
+// its client area (alpha, ADR-187). The platform's windows are opaque, but
+// DWM reads the alpha of the pixels that GDI draws into the part of a
+// window that is "glass" (the whole client area while a composition change
+// is being redone, and any margin of DwmExtendFrameIntoClientArea): a zero
+// byte there shows the desktop through the window. A backdrop window keeps
+// the premultiplied alpha of what the app renders, so the glass shows
+// where the app draws nothing.
 type dib struct {
 	pix  []byte
 	size image.Point
+	// alpha keeps the alpha of the app's pixels instead of making them
+	// opaque.
+	alpha bool
 }
 
 // stride returns the bytes per row.
@@ -41,29 +47,54 @@ func (d *dib) stride() int { return 4 * d.size.X }
 
 // resize makes the copy size px, discarding the content when the size
 // changes (the first Present after a ConfigureEvent is a full frame, which
-// fills it again), except for the alpha bytes, which stay opaque. It reports
-// whether the size changed.
+// fills it again), except for the alpha bytes, which stay opaque (or
+// transparent for an alpha copy). It reports whether the size changed.
 func (d *dib) resize(size image.Point) bool {
 	if d.size == size && d.pix != nil {
 		return false
 	}
 	d.size = size
 	d.pix = make([]byte, 4*size.X*size.Y)
-	for i := 3; i < len(d.pix); i += 4 {
-		d.pix[i] = 0xFF
+	if !d.alpha {
+		d.opaque()
 	}
 	return true
 }
 
-// release frees the pixels.
-func (d *dib) release() { *d = dib{} }
+// opaque sets every alpha byte to 0xFF.
+func (d *dib) opaque() {
+	for i := 3; i < len(d.pix); i += 4 {
+		d.pix[i] = 0xFF
+	}
+}
+
+// setAlpha chooses whether the copy keeps the alpha of the pixels it is
+// given. It reports whether that changed; the next Present must then be a
+// full one. Leaving alpha mode makes the copy opaque at once.
+func (d *dib) setAlpha(on bool) bool {
+	if d.alpha == on {
+		return false
+	}
+	d.alpha = on
+	if !on {
+		d.opaque()
+	}
+	return true
+}
+
+// release frees the pixels (the alpha mode stays).
+func (d *dib) release() { *d = dib{alpha: d.alpha} }
 
 // update copies the rectangles r of fb, which must lie inside both fb and the
-// copy, converting premultiplied RGBA to BGRA and making every pixel opaque.
+// copy, converting premultiplied RGBA to BGRA and making every pixel opaque
+// (unless the copy keeps alpha, which stays premultiplied).
 func (d *dib) update(fb *image.RGBA, rects []image.Rectangle) {
 	stride := d.stride()
 	for _, r := range rects {
 		platform.CopyRGBAToBGRA(d.pix, stride, fb, r)
+		if d.alpha {
+			continue
+		}
 		for y := r.Min.Y; y < r.Max.Y; y++ {
 			row := d.pix[y*stride+4*r.Min.X : y*stride+4*r.Max.X]
 			for i := 3; i < len(row); i += 4 {

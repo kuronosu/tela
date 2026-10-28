@@ -20,6 +20,8 @@ type windowConfig struct {
 	fixed, frameless, onTop bool
 	hidden                  bool
 	icon                    []image.Image
+	titleBar                tela.TitleBarColors
+	backdrop                tela.Backdrop
 	placement               tela.WindowPlacement
 	onClose                 func(tela.WindowHandle)
 }
@@ -31,7 +33,7 @@ func (w windowConfig) coreOptions() core.Options {
 		Title: w.title, AppID: w.appID,
 		MinWidth: w.minW, MinHeight: w.minH, MaxWidth: w.maxW, MaxHeight: w.maxH,
 		FixedSize: w.fixed, Frameless: w.frameless, AlwaysOnTop: w.onTop, Hidden: w.hidden,
-		Icon: w.icon, Placement: w.placement, OnClose: w.onClose,
+		Icon: w.icon, TitleBar: w.titleBar, Backdrop: w.backdrop, Placement: w.placement, OnClose: w.onClose,
 	}
 }
 
@@ -60,7 +62,7 @@ func windowFromApp(app tela.App) Option {
 			title: app.Title, appID: app.AppID,
 			minW: app.MinWidth, minH: app.MinHeight, maxW: app.MaxWidth, maxH: app.MaxHeight,
 			fixed: app.FixedSize, frameless: app.Frameless, onTop: app.AlwaysOnTop, hidden: app.Hidden,
-			icon: icon, placement: app.Placement, onClose: app.OnClose,
+			icon: icon, titleBar: app.TitleBar, backdrop: app.Backdrop, placement: app.Placement, onClose: app.OnClose,
 		}
 	}
 }
@@ -111,6 +113,16 @@ func Icon(images ...image.Image) Option {
 	images = append([]image.Image(nil), images...)
 	return func(c *config) { c.win.icon = images }
 }
+
+// TitleBar sets the title bar colors of the main window (tela.App.TitleBar).
+// The fake window manager only records them: [App.TitleBar] reads them back.
+func TitleBar(colors tela.TitleBarColors) Option {
+	return func(c *config) { c.win.titleBar = colors }
+}
+
+// Backdrop sets the system backdrop of the main window (tela.App.Backdrop).
+// The fake window manager only records it: [App.Backdrop] reads it back.
+func Backdrop(b tela.Backdrop) Option { return func(c *config) { c.win.backdrop = b } }
 
 // Placement opens the main window where a previous run left it
 // (tela.App.Placement): a [tela.WindowPlacement] saved from

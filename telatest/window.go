@@ -262,6 +262,34 @@ func (a *App) WindowState() tela.WindowState {
 	return a.host.Handle(a.win).State()
 }
 
+// TitleBar returns the title bar colors the window has asked the OS for
+// (tela.App.TitleBar, tela.Window.TitleBar), at the 8-bit precision the OS
+// takes; a color that is the system's is the zero Color.
+func (a *App) TitleBar() tela.TitleBarColors {
+	a.tb.Helper()
+	a.mustBeOpen()
+	a.settleQuery()
+	a.mustBeOpen()
+	c := a.win.TitleBar()
+	col := func(w platform.WindowColor) tela.Color {
+		if !w.Set {
+			return tela.Color{}
+		}
+		return tela.RGB(w.R, w.G, w.B)
+	}
+	return tela.TitleBarColors{Background: col(c.Background), Text: col(c.Text), Border: col(c.Border)}
+}
+
+// Backdrop returns the system backdrop the window has asked the OS for
+// (tela.App.Backdrop, tela.Window.Backdrop).
+func (a *App) Backdrop() tela.Backdrop {
+	a.tb.Helper()
+	a.mustBeOpen()
+	a.settleQuery()
+	a.mustBeOpen()
+	return a.win.Backdrop()
+}
+
 // WindowSize returns the size of the window's content area in logical
 // pixels, as the app was told (a maximized window has the fake screen's
 // size, see [Screen]).

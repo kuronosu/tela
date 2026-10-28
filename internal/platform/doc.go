@@ -340,6 +340,29 @@
 //     and are not delivered, and the backend shows the resize cursor there
 //     over the app's SetCursor. The band takes precedence over hit regions.
 //
+// # Window styling
+//
+// ADR-187 adds two requests for the look of the window's chrome, with
+// WindowOptions fields of the same names ([WindowOptions].TitleBar and
+// Backdrop): [Window.SetTitleBarColors] with [TitleBarColors], and
+// [Window.SetBackdrop] with [Backdrop]. They are hints about decoration the
+// OS draws, so they never produce events, and a backend that has no such
+// thing ignores them (Wayland, X11, headless apart from recording them).
+//
+//   - Win32 on Windows 11: DwmSetWindowAttribute with DWMWA_CAPTION_COLOR,
+//     DWMWA_TEXT_COLOR and DWMWA_BORDER_COLOR (build 22000; the border
+//     also applies to frameless windows), DWMWA_SYSTEMBACKDROP_TYPE
+//     (build 22621). Failures (older Windows) are ignored. The dark or
+//     light title bar follows the color scheme, as before.
+//   - A backdrop of Mica, MicaAlt or Acrylic also shows through the client
+//     area where the app presents transparent pixels: the window extends
+//     its frame into the client area (DwmExtendFrameIntoClientArea) and
+//     presents the framebuffer with its alpha. Present's pixels are
+//     premultiplied RGBA, so a transparent pixel is {0,0,0,0}. Without such
+//     a backdrop the backend presents opaque pixels as always. A frameless
+//     window may pay for the extended frame: Windows 11 may stop showing the
+//     snap layouts flyout over its maximize button.
+//
 // # Custom title bars
 //
 // A window whose app draws the title bar declares it with

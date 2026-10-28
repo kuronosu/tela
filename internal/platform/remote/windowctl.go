@@ -135,6 +135,33 @@ func (w *Window) SetIcon(images []image.Image) {
 	w.ctl(ctlIcon, func(e *enc) { e.images(images) })
 }
 
+// SetTitleBarColors asks the host to color its window's title bar and
+// border (Windows 11); equal requests are not resent.
+func (w *Window) SetTitleBarColors(colors platform.TitleBarColors) {
+	b := w.b
+	b.mu.Lock()
+	skip := w.WindowState.Closed() || w.titleBar == colors
+	w.titleBar = colors
+	b.mu.Unlock()
+	if !skip {
+		w.ctl(ctlTitleBar, func(e *enc) { e.titleBar(colors) })
+	}
+}
+
+// SetBackdrop asks the host to give its window a system backdrop. An
+// invalid Backdrop panics.
+func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
+	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+	b := w.b
+	b.mu.Lock()
+	skip := w.WindowState.Closed() || w.backdrop == backdrop
+	w.backdrop = backdrop
+	b.mu.Unlock()
+	if !skip {
+		w.ctl(ctlBackdrop, func(e *enc) { e.u8(uint8(backdrop)) })
+	}
+}
+
 // SetHitRegions declares the custom title bar's regions; equal lists are
 // not resent. Invalid regions panic.
 func (w *Window) SetHitRegions(regions []platform.HitRegion) {
@@ -193,6 +220,8 @@ func (c *Child) windowCtl(d *dec) error {
 		pos     image.Point
 		icon    []image.Image
 		regions []platform.HitRegion
+		colors  platform.TitleBarColors
+		backdrp platform.Backdrop
 	)
 	switch op {
 	case ctlMinimize, ctlActivate:
@@ -209,6 +238,10 @@ func (c *Child) windowCtl(d *dec) error {
 		pos = image.Point{X: int(d.i64()), Y: int(d.i64())}
 	case ctlIcon:
 		icon = d.images()
+	case ctlTitleBar:
+		colors = d.titleBar()
+	case ctlBackdrop:
+		backdrp = d.backdrop()
 	case ctlHitRegions:
 		regions = d.regions()
 		if d.err == nil {
@@ -273,6 +306,16 @@ func (c *Child) windowCtl(d *dec) error {
 			if active {
 				h.applyWindow(rw, cw)
 			}
+		case ctlTitleBar:
+			cw.titleBar = colors
+			if active {
+				h.applyWindow(rw, cw)
+			}
+		case ctlBackdrop:
+			cw.backdrop = backdrp
+			if active {
+				h.applyWindow(rw, cw)
+			}
 		case ctlHitRegions:
 			cw.regions = regions
 			if active {
@@ -313,6 +356,14 @@ func (h *Host) applyWindow(rw *realWin, cw *childWin) {
 	if rw.max != cw.max {
 		rw.max = cw.max
 		rw.w.SetMaxSize(cw.max)
+	}
+	if rw.titleBar != cw.titleBar {
+		rw.titleBar = cw.titleBar
+		rw.w.SetTitleBarColors(cw.titleBar)
+	}
+	if rw.backdrop != cw.backdrop {
+		rw.backdrop = cw.backdrop
+		rw.w.SetBackdrop(cw.backdrop)
 	}
 	if !equalIcons(rw.icon, cw.icon) { // none set: the default icon
 		rw.icon = cw.icon

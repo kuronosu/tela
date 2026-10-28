@@ -261,8 +261,13 @@ func (s screen) Build() tela.Node {
 			Key: "preferences",
 			Window: tela.Window{
 				Title: "Preferences", Width: 460, Height: 420, MinWidth: 380, MinHeight: 320,
-				Icon:      appIcon(),
-				RootClass: "bg-background text-foreground",
+				Icon: appIcon(),
+				// On Windows 11 the window is Mica: the root keeps 60% of
+				// its background so the material shows through (a root
+				// with no background would leave a white window where
+				// Mica is missing: Windows 10, Linux).
+				Backdrop:  tela.BackdropMica,
+				RootClass: "bg-background/60 text-foreground",
 				OnClose:   func() { setPrefsOpen.Set(false) },
 				Root:      Preferences{},
 			},

@@ -46,6 +46,14 @@ type App struct {
 	// picture at several sizes (16 to 256 pixels; the OS picks). Empty is
 	// the default icon (on Linux, the one of the .desktop file of AppID).
 	Icon []image.Image
+	// TitleBar sets the colors of the native title bar and border on
+	// Windows 11; see [TitleBarColors]. The zero value keeps the
+	// system's. Other platforms ignore it.
+	TitleBar TitleBarColors
+	// Backdrop is the system material behind the window (Mica, Mica Alt,
+	// Acrylic) on Windows 11 22H2; see [Backdrop]. The zero value is the
+	// system's choice. Other platforms ignore it.
+	Backdrop Backdrop
 	// Placement is where the window opens: a WindowPlacement saved from
 	// [WindowHandle].Placement in an earlier run, so the window comes back
 	// where the user left it. Its size, when set, wins over Width and
@@ -252,6 +260,8 @@ func (app App) options() core.Options {
 		AlwaysOnTop: app.AlwaysOnTop,
 		Hidden:      app.Hidden,
 		Icon:        app.Icon,
+		TitleBar:    app.TitleBar,
+		Backdrop:    app.Backdrop,
 		Placement:   app.Placement,
 		OnClose:     app.OnClose,
 		Root:        core.NodeOf(app.Root),

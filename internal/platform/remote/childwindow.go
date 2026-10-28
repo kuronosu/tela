@@ -74,6 +74,8 @@ type Window struct {
 	onTop    bool
 	min, max platform.Size
 	regions  []platform.HitRegion
+	titleBar platform.TitleBarColors
+	backdrop platform.Backdrop
 	// From the host's msgWindowInfo: the real window's restore token and
 	// whether it was hidden when this window was mapped onto it.
 	token      string
@@ -142,7 +144,7 @@ func (b *Backend) NewKeyedWindow(opts platform.WindowOptions, key string) (platf
 	b.nextWin++
 	w := &Window{b: b, id: b.nextWin, released: make(chan struct{}, 1), parent: parent, key: key,
 		visible: !opts.Hidden, onTop: opts.AlwaysOnTop, min: opts.MinSize, max: opts.MaxSize,
-		info: make(chan struct{})}
+		titleBar: opts.TitleBar, backdrop: opts.Backdrop, info: make(chan struct{})}
 	b.windows[w.id] = w
 	b.order = append(b.order, w)
 	b.mu.Unlock()

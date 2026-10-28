@@ -403,6 +403,14 @@ func (w *Window) SetVisible(visible bool) {
 // compositor decides the stacking).
 func (w *Window) SetAlwaysOnTop(bool) {}
 
+// SetTitleBarColors does nothing: only Windows 11 draws colored title bars.
+func (w *Window) SetTitleBarColors(platform.TitleBarColors) {}
+
+// SetBackdrop does nothing: system backdrops are a Windows 11 material.
+func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
+	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+}
+
 // SetMinSize changes the minimum size (xdg_toplevel.set_min_size, applied
 // at once if the window is shown); a floating window below it is resized.
 func (w *Window) SetMinSize(size platform.Size) {

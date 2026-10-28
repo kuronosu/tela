@@ -33,6 +33,8 @@ type realWin struct {
 	min, max platform.Size
 	icon     []image.Image
 	regions  []platform.HitRegion
+	titleBar platform.TitleBarColors
+	backdrop platform.Backdrop
 
 	active  *childWin   // shown, receives input
 	pending []*childWin // render offscreen
