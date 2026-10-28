@@ -24,6 +24,13 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `telatest` for several windows: `app.Windows()`, `Window(title)`, `WaitForWindow(f)` return an `*App` scoped to one window; window state and actions through the fake window manager, modality, title-bar hit regions, `ExpectQuit`; `MountApp` applies the window fields of `tela.App`; `telatest/desktop.go` answers dialogs and message boxes and clicks notifications and tray items (ADR-183, ADR-181).
 - `tela dev` forwards the new window options, window control, hit regions and desktop services; child windows, trays and notifications survive reloads, and a window closed to the tray stays hidden (ADR-184).
 - Platform: window state (minimize, maximize, fullscreen, hide, always on top, size limits, position where the OS allows it, icons), frameless windows with resize edges, parent and modal windows, Wayland session restore (`xdg-session-management-v1`), and the desktop services the coming `desktop` package uses: file and folder dialogs (XDG portal, common item dialogs), message boxes (Windows), notifications (`org.freedesktop.Notifications`, balloons) and tray icons (StatusNotifierItem, `Shell_NotifyIconW`) (ADR-179). New dependency: `github.com/godbus/dbus/v5` (Linux).
+- Example `notes`: a frameless plain-text notes app with `kit.TitleBar`, native open and save dialogs, a Preferences window whose settings both windows share (`desktop.UseSetting`), a library in the app's data folder, a tray icon whose menu follows the window, close to tray, a question before quitting with unsaved files, a notification on save and remembered placement of both windows; goldens and behavior tests.
+- `docs/llms.txt` has a section on windows and desktop services, and the wiki a "Windows and Desktop" guide and a `desktop` API page; Go blocks of one package in `llms.txt` compile together.
+- A hidden or minimized window keeps building and running its effects without drawing, so a tray menu follows a hidden main window, a window opens from it, and timers and setting changes reach it; it is drawn in full when shown (ADR-185).
+
+### Fixed
+
+- Wayland: a hidden window shown again stayed invisible on Hyprland, which sends no configure to a surface that commits again after an unmap; hiding now destroys the window's `xdg_toplevel` and `xdg_surface` and showing creates them again, as GTK and Qt do (ADR-186).
 
 ## [0.11.0] - 2026-10-26
 
