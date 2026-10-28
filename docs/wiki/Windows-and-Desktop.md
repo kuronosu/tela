@@ -435,7 +435,7 @@ freedesktop D-Bus services; macOS comes in a later phase):
 
 | | Linux | Windows |
 |---|---|---|
-| File dialogs | Portal `FileChooser`; `ErrUnsupported` without a portal. On Wayland the dialog is not parented to the window (no exported handle yet) | Common item dialogs |
+| File dialogs | Portal `FileChooser` (the `xdg-desktop-portal` service with a backend such as `xdg-desktop-portal-gtk`, `-kde`, `-gnome` or `-wlr`; minimal sessions and containers often lack it); `ErrUnsupported` without a portal, and there is no fallback dialog. On Wayland the dialog is not parented to the window (no exported handle yet) | Common item dialogs |
 | Message boxes | Drawn by Tela (modal window) | The OS's (`MessageBoxW`) |
 | Notifications | `org.freedesktop.Notifications`, with actions | Balloons: no action buttons; each one adds a notification-area icon while it lives |
 | Tray | StatusNotifierItem; `ErrUnsupported` on GNOME without the AppIndicator extension | `Shell_NotifyIconW`; icons are not redrawn on DPI changes |

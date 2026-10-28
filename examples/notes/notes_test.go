@@ -245,6 +245,18 @@ func TestOpenFileCanceledOrUnreadable(t *testing.T) {
 	a.ExpectValue(editor, welcomeText)
 }
 
+// A desktop without file dialogs (Linux without the XDG Desktop Portal)
+// says what to install.
+func TestNoFileDialogs(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	a.Unsupported(telatest.FileDialogs)
+	a.Click(openBtn)
+	a.ExpectText("This desktop has no file dialogs")
+	a.ExpectText("Install xdg-desktop-portal")
+	a.ExpectNoText("Could not show")
+}
+
 func TestSaveNewNote(t *testing.T) {
 	sandbox(t)
 	a := mount(t)

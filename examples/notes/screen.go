@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -113,7 +114,7 @@ func (s screen) Build() tela.Node {
 			setSelected.Set(id)
 		}, desktop.Title("Open a note"), desktop.Filter("Text", "*.txt", "*.md"), desktop.Parent(win))
 		if err != nil {
-			toast.Error("Could not show the open dialog", kit.ToastDescription(err.Error()))
+			dialogError(toast, "open", err)
 		}
 	}
 
@@ -155,7 +156,7 @@ func (s screen) Build() tela.Node {
 			}
 		}, desktop.Title("Save the note"), desktop.DefaultName(n.FileName()), desktop.Filter("Text", "*.txt", "*.md"), desktop.Parent(win))
 		if err != nil {
-			toast.Error("Could not show the save dialog", kit.ToastDescription(err.Error()))
+			dialogError(toast, "save", err)
 			done(false)
 		}
 	}
@@ -348,4 +349,16 @@ func tool(label string, icon tela.Icon, onClick func()) tela.Node {
 		Trigger: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: icon, AriaLabel: label, OnClick: onClick},
 		Content: Text(label), Placement: "bottom",
 	})
+}
+
+// dialogError tells why a file dialog did not open. A Linux desktop without
+// the XDG Desktop Portal (a minimal session, a container) has no file
+// dialogs at all: say what to install instead of the error.
+func dialogError(toast kit.ToastHandle, what string, err error) {
+	if errors.Is(err, desktop.ErrUnsupported) {
+		toast.Error("This desktop has no file dialogs", kit.ToastDescription(
+			"Install xdg-desktop-portal and a backend such as xdg-desktop-portal-gtk, then start Notes again."))
+		return
+	}
+	toast.Error("Could not show the "+what+" dialog", kit.ToastDescription(err.Error()))
 }
