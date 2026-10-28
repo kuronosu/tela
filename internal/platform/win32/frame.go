@@ -103,10 +103,26 @@ type hitInput struct {
 }
 
 // clientHit answers WM_NCHITTEST for a point inside the client area: the
-// resize band of a frameless window first (it takes precedence over hit
-// regions), then the app's hit regions. Corners take twice the band along
+// app's window buttons (except at the outermost pixel), the resize band of a
+// frameless window (it takes precedence over the other hit regions), then
+// the app's hit regions. Corners take twice the band along
 // each edge, so they are easier to grab, as Windows' own frames do.
 func clientHit(in hitInput) uintptr {
+	// A window button of the app takes the band, like the caption buttons
+	// of a native frame, which leave only the outermost pixel of the window
+	// to the resize edges: the hover over the maximize button of Windows 11
+	// (the snap layouts flyout) starts from the hit test at the pointer, and
+	// the pointer reaches a button across the band.
+	if in.border > 0 && len(in.regions) > 0 {
+		thin := max(1, int(in.scale+0.5))
+		x, y, w, h := in.pt.X, in.pt.Y, in.client.X, in.client.Y
+		if x >= thin && y >= thin && x < w-thin && y < h-thin {
+			code := hitCodeOf(platform.HitTest(in.regions, logicalPoint(x, y, in.scale)), in.fullscreen)
+			if isAppButton(code) {
+				return code
+			}
+		}
+	}
 	if b := in.border; b > 0 {
 		x, y, w, h := in.pt.X, in.pt.Y, in.client.X, in.client.Y
 		left, right := x < b, x >= w-b

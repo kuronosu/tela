@@ -66,6 +66,12 @@ func (s *WindowState) LastFrame() time.Duration { return s.last }
 // frame: a ConfigureEvent was delivered since the last full Present.
 func (s *WindowState) NeedsFull() bool { return s.needsFull }
 
+// RequestFull makes the next Present a full one without a ConfigureEvent: the
+// backend lost what the OS shows of the window (a Win32 session reconnect or
+// a DWM restart) and the next Present must draw everything. It requests no
+// frame.
+func (s *WindowState) RequestFull() { s.needsFull = true }
+
 // ClearNeedsFull records that a full frame was presented.
 func (s *WindowState) ClearNeedsFull() { s.needsFull = false }
 

@@ -92,9 +92,12 @@ func TestClientHitResizeBand(t *testing.T) {
 		{16, 0, htTop},
 		{200, 7, htTop},      // the band takes precedence over the caption
 		{250, 8, htCaption},  // right of the search field (x 100 to 220)
-		{399, 0, htTopRight}, // and over the close button
-		{392, 20, htRight},
-		{391, 20, htClose},
+		{399, 0, htTopRight}, // and over the close button's outermost pixel
+		{399, 20, htRight},
+		{392, 20, htClose}, // the window buttons take the rest of the band
+		{340, 3, htMaxButton},
+		{340, 0, htTop},
+		{300, 5, htMinButton},
 		{0, 150, htLeft},
 		{399, 150, htRight},
 		{200, 299, htBottom},

@@ -23,9 +23,15 @@ type bitmapInfoHeader struct {
 const biRGB = 0
 
 // dib is the retained copy of a window's content: top-down 32-bit pixels in
-// the byte order B, G, R, X that a BI_RGB DIB has (alpha is ignored; the
-// platform's windows are opaque). It answers WM_PAINT without involving the
-// app, and is the bits argument of SetDIBitsToDevice.
+// the byte order B, G, R, X that a BI_RGB DIB has. It answers WM_PAINT
+// without involving the app, and is the bits argument of SetDIBitsToDevice.
+//
+// The X byte is always 0xFF. The platform's windows are opaque, but DWM
+// reads the alpha of the pixels that GDI draws into the part of a window
+// that is "glass" (the margin of DwmExtendFrameIntoClientArea that a
+// frameless window has, and the whole client area while a frame extension
+// or a composition change is being redone): a zero byte there shows the
+// desktop through the window.
 type dib struct {
 	pix  []byte
 	size image.Point
@@ -36,13 +42,17 @@ func (d *dib) stride() int { return 4 * d.size.X }
 
 // resize makes the copy size px, discarding the content when the size
 // changes (the first Present after a ConfigureEvent is a full frame, which
-// fills it again). It reports whether the size changed.
+// fills it again), except for the alpha bytes, which stay opaque. It reports
+// whether the size changed.
 func (d *dib) resize(size image.Point) bool {
 	if d.size == size && d.pix != nil {
 		return false
 	}
 	d.size = size
 	d.pix = make([]byte, 4*size.X*size.Y)
+	for i := 3; i < len(d.pix); i += 4 {
+		d.pix[i] = 0xFF
+	}
 	return true
 }
 
@@ -50,11 +60,17 @@ func (d *dib) resize(size image.Point) bool {
 func (d *dib) release() { *d = dib{} }
 
 // update copies the rectangles r of fb, which must lie inside both fb and the
-// copy, converting premultiplied RGBA to BGRA.
+// copy, converting premultiplied RGBA to BGRA and making every pixel opaque.
 func (d *dib) update(fb *image.RGBA, rects []image.Rectangle) {
 	stride := d.stride()
 	for _, r := range rects {
 		platform.CopyRGBAToBGRA(d.pix, stride, fb, r)
+		for y := r.Min.Y; y < r.Max.Y; y++ {
+			row := d.pix[y*stride+4*r.Min.X : y*stride+4*r.Max.X]
+			for i := 3; i < len(row); i += 4 {
+				row[i] = 0xFF
+			}
+		}
 	}
 }
 

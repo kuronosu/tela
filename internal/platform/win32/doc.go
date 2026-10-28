@@ -238,10 +238,24 @@
 // area is clipped to the work area of its monitor (Chromium's approach;
 // Windows Terminal insets by the frame size instead).
 //
+// A frameless window never lets DefWindowProc paint its caption, which
+// would land on the client area when DWM is not composing: it answers
+// WM_NCPAINT and the undocumented WM_NCUAHDRAWCAPTION and
+// WM_NCUAHDRAWFRAME itself, passes lParam -1 to DefWindowProc for
+// WM_NCACTIVATE, and runs WM_SETTEXT and WM_SETICON with the window
+// temporarily not visible (redraw.go). What the OS lost of a window (a
+// reconnected remote session, a display, theme or composition change,
+// resume from sleep: WM_DISPLAYCHANGE, WM_THEMECHANGED,
+// WM_DWMCOMPOSITIONCHANGED, WM_POWERBROADCAST, WM_SETTINGCHANGE,
+// activation) is painted again from the retained copy and the next Present
+// is a full one; the extended frame is set again. The retained copy is
+// always opaque (alpha 0xFF), so no pixel can be transparent to DWM.
+//
 // WM_NCHITTEST asks DefWindowProc first (the OS frame of decorated windows);
-// inside the client area, the resize band of a frameless, resizable, normal
+// inside the client area, the app's window buttons (not at the outermost
+// pixel), then the resize band of a frameless, resizable, normal
 // window (SM_CXSIZEFRAME plus SM_CXPADDEDBORDER at the DPI, corners twice as
-// long, Windows Terminal's width) comes before the hit regions, which answer
+// long, Windows Terminal's width) come before the other hit regions, which answer
 // HTCAPTION, HTMINBUTTON, HTMAXBUTTON (the Windows 11 snap layouts flyout),
 // HTCLOSE or HTCLIENT. In fullscreen a caption region is HTCLIENT, so the
 // window cannot be dragged or maximized from it (Chromium). Caption presses

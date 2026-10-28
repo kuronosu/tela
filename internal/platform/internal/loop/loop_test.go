@@ -440,3 +440,18 @@ func TestLockIsReleasedAroundHandler(t *testing.T) {
 		t.Errorf("Deliver = %d, want 3 (configure, callback, frame)", n)
 	}
 }
+
+func TestRequestFull(t *testing.T) {
+	r := newRig(t, nil)
+	a := r.window("a")
+	r.l.Enqueue(a, platform.ConfigureEvent{Metrics: platform.Metrics{Scale: 1}})
+	r.expect("a configure 0x0")
+	a.ClearNeedsFull()
+	if a.NeedsFull() {
+		t.Fatal("NeedsFull after ClearNeedsFull")
+	}
+	a.RequestFull()
+	if !a.NeedsFull() {
+		t.Error("RequestFull did not make the next Present full")
+	}
+}

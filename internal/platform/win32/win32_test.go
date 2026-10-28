@@ -248,7 +248,7 @@ func TestDIBUpdateConvertsAndKeepsUndamagedPixels(t *testing.T) {
 				src = second
 			}
 			i := src.PixOffset(x, y)
-			want := [4]byte{src.Pix[i+2], src.Pix[i+1], src.Pix[i], src.Pix[i+3]} // B, G, R, A
+			want := [4]byte{src.Pix[i+2], src.Pix[i+1], src.Pix[i], 0xFF} // B, G, R, opaque (windows are opaque)
 			j := y*d.stride() + 4*x
 			if got := [4]byte(d.pix[j : j+4]); got != want {
 				t.Fatalf("pixel (%d,%d) = %v, want %v (damaged: %v)", x, y, got, want, image.Pt(x, y).In(damage))
@@ -263,6 +263,11 @@ func TestDIBResizeDiscardsContent(t *testing.T) {
 	d.pix[0] = 9
 	if !d.resize(image.Pt(5, 4)) || d.pix[0] != 0 || len(d.pix) != 4*5*4 {
 		t.Errorf("resize to a new size kept stale content: changed, pix[0]=%d, len %d", d.pix[0], len(d.pix))
+	}
+	for i := 3; i < len(d.pix); i += 4 {
+		if d.pix[i] != 0xFF {
+			t.Fatalf("a fresh copy has alpha %#x at byte %d, want opaque: a partial blit before the first full Present would expose transparent pixels", d.pix[i], i)
+		}
 	}
 	d.release()
 	if d.pix != nil || d.size != (image.Point{}) {

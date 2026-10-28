@@ -177,6 +177,29 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		w.onGetMinMaxInfo(lparam)
 		return 0
 
+	case wmNCPaint, wmNCUAHDrawCaption, wmNCUAHDrawFrame:
+		// A frameless window has no non-client area to paint, and
+		// DefWindowProc would draw a classic caption and frame over the
+		// client area when DWM is not composing (see redraw.go).
+		if w.opts.Frameless {
+			return 0
+		}
+	case wmNCActivate:
+		return w.onNCActivate(wparam, lparam)
+	case wmSetText, wmSetIcon:
+		return w.defNoFramePaint(msg, wparam, lparam)
+
+	case wmDwmCompositionChanged, wmThemeChanged:
+		// DWM switched composition, or the session reloaded its theme (a
+		// reconnect does): extend the frame again and repaint.
+		r := defWindowProc(w.hwnd, uintptr(msg), wparam, lparam)
+		w.frameChanged()
+		return r
+	case wmDisplayChange:
+		w.repaint(true)
+	case wmPowerBroadcast:
+		w.onPowerBroadcast(wparam)
+
 	case wmEraseBkgnd:
 		// Present covers the whole client area; erasing would flash.
 		return 1
@@ -238,6 +261,7 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		}
 	case wmSettingChange:
 		w.b.settingsChanged()
+		w.repaint(false)
 
 	case wmSetCursor:
 		// The app's cursor over its content, including its own title bar

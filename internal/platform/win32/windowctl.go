@@ -110,7 +110,13 @@ func (w *Window) extendFrame() {
 	if !available(procDwmExtendFrameIntoClientArea) {
 		return
 	}
+	if snapHas("noextend") {
+		return
+	}
 	m := margins{top: 1}
+	if snapHas("ncstrip") {
+		m.bottom = 1
+	}
 	procDwmExtendFrameIntoClientArea.Call(w.hwnd, uintptr(unsafe.Pointer(&m)))
 }
 
@@ -560,7 +566,13 @@ func (w *Window) RestoreToken() string { return "" }
 // the proposed window rectangle.
 func (w *Window) onNCCalcSize(lparam uintptr) {
 	r := (*rect)(ptrFromUintptr(lparam))
-	if r == nil || w.fs != nil || !isZoomed(w.hwnd) {
+	if r == nil || w.fs != nil {
+		return
+	}
+	if !isZoomed(w.hwnd) {
+		if snapHas("ncstrip") && !isIconic(w.hwnd) {
+			r.bottom--
+		}
 		return
 	}
 	mi := monitorInfoOf(monitorFromRect(*r))
