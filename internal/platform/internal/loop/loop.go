@@ -9,7 +9,9 @@
 //   - The FIFO queue of window events, app events (nil window) and deferred
 //     callbacks (asynchronous clipboard and desktop service replies), plus
 //     coalesced ConfigureEvents and WindowStateEvents whose metrics and
-//     state are taken when they are delivered.
+//     state are taken when they are delivered. A window's queued state
+//     goes before its coalesced ConfigureEvent, even when the state was
+//     queued after it: the state goes before the size it comes with.
 //   - Wake and Quit: atomic flags plus the backend's Notify hook that
 //     unblocks the OS wait. Many Wake calls yield one WakeEvent per pass.
 //   - Per-window state ([WindowState], embedded in the backend's window):
@@ -263,7 +265,10 @@ func (l *Loop[W]) Reconfigure(w W, m platform.Metrics) {
 // a burst of OS notifications (a window being dragged) becomes one event
 // with the latest state at the position of the first; it is dropped if st
 // equals the state already delivered. The backend must have queued the
-// window's first ConfigureEvent before (platform contract).
+// window's first ConfigureEvent before (platform contract). After the
+// first, a coalesced ConfigureEvent queued before this state is delivered
+// after it (Deliver), so its metrics never precede the state they come
+// with.
 func (l *Loop[W]) UpdateState(w W, st platform.WindowState) {
 	s := w.LoopState()
 	if s.closed || (!s.stateQueued && st == s.state) {
@@ -338,6 +343,22 @@ func (l *Loop[W]) Deliver(h platform.Handler) int {
 		case it.w == zero:
 			h.HandleEvent(nil, it.ev)
 		default:
+			if it.configure {
+				// The state goes before the size it comes with: a
+				// state queued after this configure (or while the pass
+				// runs) is the window's latest, as these metrics are,
+				// so it is delivered first, here.
+				l.lock()
+				ev, ok := it.w.LoopState().prepareStateFirst()
+				l.unlock()
+				if ok {
+					h.HandleEvent(it.w, ev)
+					n++
+					if l.quit.Load() {
+						return n
+					}
+				}
+			}
 			l.lock()
 			ev, ok := it.w.LoopState().prepare(it.ev, it.configure, it.restate)
 			l.unlock()

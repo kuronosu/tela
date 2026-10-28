@@ -551,7 +551,9 @@ func TestPositions(t *testing.T) {
 	g.f.pos[7] = image.Pt(15, 45)
 	g.expect("reparented", "state {at 15,45}", "", xproto.ReparentNotifyEvent{Event: 7, Window: 7, Parent: 500, X: 0, Y: 30})
 	g.f.pos[7] = image.Pt(100, 200)
-	g.expect("moved and resized in its frame", "configure 320x200@1x (320x200 px); state {at 100,200}; frame", "",
+	// The position is read once the batch is handled, after the size was
+	// queued; the loop still delivers the state before the size.
+	g.expect("moved and resized in its frame", "state {at 100,200}; configure 320x200@1x (320x200 px); frame", "",
 		xproto.ConfigureNotifyEvent{Event: 7, Window: 7, X: 0, Y: 30, Width: 320, Height: 200},
 		xproto.ConfigureNotifyEvent{Event: 7, Window: 7, X: 0, Y: 30, Width: 320, Height: 200})
 	g.f.pos[7] = image.Pt(0, 30)
