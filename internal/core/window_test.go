@@ -45,11 +45,15 @@ func newWinHarness(t *testing.T, opts Options) *winHarness {
 
 // drain delivers what is due, then a few refreshes of the clock, so the
 // frames requested meanwhile (paced one refresh after the previous one)
-// run too.
+// run too, and so do the host's timer deadlines (a paced commit of a
+// hidden window, paused.go), which wake the loop as the timer would.
 func (x *winHarness) drain() {
 	x.b.Drain(x.h)
 	for range 4 {
 		x.b.Advance(x.b.FrameInterval())
+		if at, ok := x.h.TimerArmed(); ok && at <= x.b.Now() {
+			x.b.Wake()
+		}
 		x.b.Drain(x.h)
 	}
 }

@@ -257,8 +257,15 @@ func (h *Host) Window() platform.Window { return h.win }
 // Presents returns the number of frames presented in the main window.
 func (h *Host) Presents() int { return h.main.presents }
 
-// HandleEvent implements platform.Handler.
+// HandleEvent implements platform.Handler. After each event, the windows
+// that get no frames commit the work it left them (paused.go).
 func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
+	h.handle(w, e)
+	h.commitPaused()
+}
+
+// handle handles one event of the backend.
+func (h *Host) handle(w platform.Window, e platform.Event) {
 	switch e := e.(type) {
 	case platform.WakeEvent:
 		// State setters or the gesture timer woke the loop: apply the
@@ -296,8 +303,13 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 	switch e := e.(type) {
 	case platform.ConfigureEvent:
 		// A FrameEvent follows every ConfigureEvent.
-		v.configured = true
-		t.SetViewport(gfx.Size{W: e.Metrics.Size.W, H: e.Metrics.Size.H})
+		v.configured, v.sized = true, true
+		if s := e.Metrics.Size; s.W > 0 && s.H > 0 {
+			// An empty size is a window the OS does not show (Win32 reports
+			// a minimized window's client area as 0x0): the tree keeps the
+			// last size, which its commits without frames lay out at.
+			t.SetViewport(gfx.Size{W: s.W, H: s.H})
+		}
 		t.SetScale(float32(e.Metrics.Scale))
 		v.notePlacement(e.Metrics.Size)
 		v.placementMoved()
@@ -389,17 +401,24 @@ func (h *Host) tick(now time.Duration) {
 	h.armTimer()
 }
 
-// nextDeadline returns the earliest deadline of the windows' trees.
+// nextDeadline returns the earliest deadline of the windows' trees, and
+// of the commits that windows without frames wait for (paused.go).
 func (h *Host) nextDeadline() (at time.Duration, ok bool) {
 	for _, v := range h.views {
 		if d, has := v.tree.NextDeadline(); has && (!ok || d < at) {
 			at, ok = d, true
 		}
 	}
+	// A commit due now runs after the event being handled (commitPaused):
+	// only a later one needs the timer.
+	if d, has := h.PausedWork(); has && d > h.backend.Now() && (!ok || d < at) {
+		at, ok = d, true
+	}
 	return at, ok
 }
 
-// armTimer arms one wake-up for the gesture arenas' next deadline, or
+// armTimer arms one wake-up for the gesture arenas' next deadline (or the
+// next paced commit of a window without frames), or
 // stops the timer when nothing waits (an idle app has no timer). The
 // platform layer has no timer API: a goroutine timer calls Wake, and the
 // WakeEvent compares the deadline with the backend clock, so a timer that
@@ -435,8 +454,8 @@ func (h *Host) stopTimer() {
 	}
 }
 
-// TimerArmed reports whether the host waits for a gesture deadline, and
-// when (backend clock).
+// TimerArmed reports whether the host waits for a gesture deadline or a
+// paced commit of a window without frames, and when (backend clock).
 func (h *Host) TimerArmed() (at time.Duration, ok bool) {
 	h.timerMu.Lock()
 	defer h.timerMu.Unlock()
@@ -533,6 +552,12 @@ func (h *Host) frame(v *winView, now time.Duration) {
 		v.scale = m.Scale
 		changed, full = true, true
 	}
+	if v.stale {
+		// The tree committed without frames (paused.go) since fb was
+		// rasterized: fb is brought to the current frame whole.
+		v.stale = false
+		changed, full = true, true
+	}
 	if !changed && !v.configured && !t.DebugPending() {
 		return // nothing new to show
 	}
@@ -569,7 +594,7 @@ func (h *Host) frame(v *winView, now time.Duration) {
 // NeedsFrame reports that a frame must still render: a ConfigureEvent
 // arrived whose frame did not run yet, in any window that gets frames (the
 // platform paces neither hidden nor minimized windows: their frame waits
-// until they are shown).
+// until they are shown; their builds and effects do not, see PausedWork).
 func (h *Host) NeedsFrame() bool {
 	for _, v := range h.views {
 		if v.configured && !v.hidden && !v.os.Minimized {

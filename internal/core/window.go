@@ -181,6 +181,12 @@ type winView struct {
 	scale      float64
 	configured bool // a ConfigureEvent arrived since the last Present
 	presents   int
+	// Commits without frames (paused.go): sized, a ConfigureEvent arrived
+	// (the tree has the window's size); stale, the tree painted since fb
+	// was last rasterized, so the next frame rasterizes fully; commitAt,
+	// the backend time before which no other such commit runs.
+	sized, stale bool
+	commitAt     time.Duration
 	// cursor is the cursor last set on the window; imeField the text
 	// field whose state the window's text input has (Tree.TextInput).
 	cursor   platform.Cursor
@@ -403,7 +409,9 @@ func (w WindowHandle) SetFullscreen(fullscreen bool) {
 
 // Hide hides the window. It stays open (mounted, with its state and
 // effects) until it is shown again or closed; the app keeps running while
-// its windows are hidden ("close to tray").
+// its windows are hidden ("close to tray"). A hidden window draws nothing,
+// but its components still build and its effects run; it draws the
+// current state when it is shown.
 func (w WindowHandle) Hide() { w.request(func(v *winView) { v.setHidden(true) }) }
 
 // Show shows a hidden window and activates it.

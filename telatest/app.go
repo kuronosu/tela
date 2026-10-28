@@ -337,14 +337,19 @@ func (a *App) deliver() {
 }
 
 // drawn reports whether window w gets frames: the fake window manager
-// paces neither hidden nor minimized windows, so a tree that changed in
-// one waits until the window is shown.
+// paces neither hidden nor minimized windows. The host commits the builds
+// and effects of their trees without frames (core.Host.PausedWork); their
+// drawing waits until the window is shown.
 func drawn(w *headless.Window) bool { return w.Visible() && !w.OSState().Minimized }
 
 // workDue reports whether the app has work to do now: queued events, a
-// frame owed, or a dirty tree in a window that is drawn.
+// frame owed, a commit owed to a window without frames, or a dirty tree in
+// a window that is drawn.
 func (a *App) workDue() bool {
 	if a.backend.Pending() || a.host.NeedsFrame() {
+		return true
+	}
+	if _, ok := a.host.PausedWork(); ok {
 		return true
 	}
 	for _, w := range a.host.Windows() {
@@ -388,6 +393,30 @@ func (a *App) nextDeadline() (at time.Duration, ok bool) {
 	return at, ok
 }
 
+// nextStep returns how far settling moves the clock for the work the app
+// waits for: to the next paced frame, or to the next paced commit of a
+// window without frames (core.Host.PausedWork). It is 0 when some of that
+// work is due now, or none waits: another round delivers it without moving
+// the clock.
+func (a *App) nextStep(now time.Duration) time.Duration {
+	var step time.Duration
+	if next, ok := a.backend.NextFrameTime(); ok {
+		if next <= now {
+			return 0
+		}
+		step = next - now
+	}
+	if at, ok := a.host.PausedWork(); ok {
+		if at <= now {
+			return 0
+		}
+		if step == 0 || at-now < step {
+			step = at - now
+		}
+	}
+	return step
+}
+
 // busyFrames is how many frames settle runs once the app has shown that it
 // never goes quiet.
 const busyFrames = 3
@@ -427,10 +456,7 @@ func (a *App) settle() {
 			break
 		}
 		now := a.backend.Now()
-		var step time.Duration
-		if next, ok := a.backend.NextFrameTime(); ok && next > now {
-			step = next - now
-		}
+		step := a.nextStep(now)
 		if step == 0 {
 			// Dirty or pending without a frame to wait for: another
 			// round delivers it, without moving the clock.
@@ -515,10 +541,7 @@ func (a *App) flush() {
 			break
 		}
 		now := a.backend.Now()
-		var step time.Duration
-		if next, ok := a.backend.NextFrameTime(); ok && next > now {
-			step = next - now
-		}
+		step := a.nextStep(now)
 		if step == 0 {
 			if st.tooLong(a, limit) {
 				break // a goroutine that posts slow functions all the time
@@ -560,6 +583,9 @@ func (a *App) advance(d time.Duration) {
 		}
 		if t, ok := a.nextDeadline(); ok && t > now && t < next {
 			next = t
+		}
+		if t, ok := a.host.PausedWork(); ok && t > now && t < next {
+			next = t // a paced commit of a window without frames
 		}
 		a.backend.Advance(next - now)
 		a.backend.Wake()

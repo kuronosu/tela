@@ -247,7 +247,7 @@ func (a *App) settleWindows() {
 		a.settleAfter()
 		waiting := false
 		for _, w := range a.backend.Windows() {
-			if w != a.win && !w.Closed() && w.FrameRequested() {
+			if w != a.win && !w.Closed() && drawn(w) && w.FrameRequested() {
 				waiting = true
 			}
 		}

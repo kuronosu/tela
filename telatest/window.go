@@ -14,7 +14,9 @@ import (
 // besides its main window, and the headless backend is a deterministic fake
 // window manager (ADR-179): it grants every request at once, gives hidden
 // and minimized windows no frames, and records the hit regions, the caption
-// presses, the parents and the modality of the windows.
+// presses, the parents and the modality of the windows. The host commits
+// the builds and effects of a window without frames itself (ADR-185), and
+// settling waits for them (core.Host.PausedWork).
 //
 // An *App is scoped to one window: the one Mount returns to the main window,
 // and App.Windows and the other selectors return one per window, the same

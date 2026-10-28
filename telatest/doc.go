@@ -82,6 +82,10 @@
 // window. The headless backend plays a fake window manager (ADR-179): it
 // grants every request at once, gives hidden and minimized windows no
 // frames, and records parents, modality, hit regions and caption presses.
+// The app still builds and runs the effects of a hidden or minimized
+// window, as on a desktop (ADR-185): a tray item clicked while the main
+// window is hidden updates its state, its tray menu and the windows it
+// opens; settling waits for that work, and the window draws it when shown.
 //
 // An [App] is scoped to one window. Mount returns the one of the main
 // window; [App.Windows] lists the open windows (in the order they opened,

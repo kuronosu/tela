@@ -2,6 +2,7 @@ package desktop_test
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -243,6 +244,72 @@ func TestTray(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Hide tray"))
 	if ts := app.Trays(); len(ts) != 0 {
 		t.Errorf("trays after unmount: %+v", ts)
+	}
+}
+
+// A hidden window still builds and runs its effects (ADR-185): the main
+// window hidden with UseWindow().Hide() from its tray, an item clicked
+// there sets its state, the tray's menu and tooltip follow it, a window
+// declared in it opens, and shown again the window draws that state.
+func TestTrayWhileHidden(t *testing.T) {
+	app := telatest.MountFunc(t, func() tela.Node {
+		win := tela.UseWindow()
+		hidden := win.State().Hidden
+		notes, setNotes := tela.UseState(0)
+		prefs, setPrefs := tela.UseState(false)
+		toggle := desktop.MenuItem{Label: "Hide Notes", OnSelect: win.Hide}
+		if hidden {
+			toggle = desktop.MenuItem{Label: "Show Notes", OnSelect: win.Show}
+		}
+		bg := "bg-red-500"
+		if notes%2 == 1 {
+			bg = "bg-blue-500"
+		}
+		return Div(Class("h-full"),
+			Div(Class("h-10 w-full "+bg), Textf("notes: %d", notes)),
+			tela.Component(desktop.Tray{
+				Icon:    trayIcon,
+				Tooltip: fmt.Sprintf("%d notes", notes),
+				Menu: []desktop.MenuItem{
+					toggle,
+					{Label: "New note", OnSelect: func() { setNotes.Update(func(n int) int { return n + 1 }) }},
+					{Label: "Preferences", OnSelect: func() { setPrefs.Set(true) }},
+				},
+			}),
+			If(prefs, tela.Component(tela.Window{
+				Title: "Preferences", Width: 200, Height: 100,
+				OnClose: func() { setPrefs.Set(false) },
+				Root:    tela.C(func() tela.Node { return Div(Text("preferences")) }),
+			})),
+		)
+	}, telatest.Size(200, 100), telatest.CheckDamage())
+	red := app.PixelAt(5, 5)
+
+	app.ClickTrayItem("Hide Notes")
+	app.ExpectWindowState(telatest.Hidden(true))
+	if tr := app.Tray(); tr.Menu[0].Label != "Show Notes" || tr.Tooltip != "0 notes" {
+		t.Fatalf("tray of the hidden window: %q, %q; want Show Notes and 0 notes", tr.Menu[0].Label, tr.Tooltip)
+	}
+	app.ClickTrayItem("New note")
+	if tr := app.Tray(); tr.Tooltip != "1 notes" {
+		t.Errorf("tooltip %q after New note in the hidden window, want 1 notes", tr.Tooltip)
+	}
+	app.ExpectText("notes: 1")
+
+	prefs := app.WaitForWindow(func() { app.ClickTrayItem("Preferences") })
+	prefs.ExpectText("preferences")
+	prefs.RequestClose()
+	prefs.ExpectClosed()
+	app.ExpectWindowState(telatest.Hidden(true))
+
+	app.ClickTrayItem("Show Notes")
+	app.ExpectWindowState(telatest.Hidden(false))
+	if tr := app.Tray(); tr.Menu[0].Label != "Hide Notes" {
+		t.Errorf("tray of the shown window: %q, want Hide Notes", tr.Menu[0].Label)
+	}
+	app.ExpectText("notes: 1")
+	if c := app.PixelAt(5, 5); c == red || c.B < 0x80 || c.R > 0x80 {
+		t.Errorf("the shown window draws %v at the notes bar, want the blue of 1 note (red was %v)", c, red)
 	}
 }
 
