@@ -239,6 +239,7 @@ event/vsync
 - **Scheduler:**
   - Nothing dirty and no active animations → no vsync request (0% idle CPU).
   - Frames align to the backend's vsync/frame callback: `wl_surface.frame`, `DwmFlush` or a timer on Windows, `CVDisplayLink` on macOS.
+  - A window without frames (hidden, minimized) still commits: phases 1–7 and its effects run without raster or present, paced like frames; it rasterizes in full when shown (ADR-185).
 - **Threads:**
   - **UI thread:** the OS main thread, locked with `runtime.LockOSThread` in `tela.Run`. It runs the platform event loop, phases 1–7 and present, since Win32 and AppKit require thread affinity.
   - **Raster workers:** a goroutine pool (≈ `GOMAXPROCS`) for phase 8, working from immutable DisplayLists with no shared mutable state.
