@@ -2,7 +2,7 @@
 
 > Tela is a desktop UI framework in pure Go (no cgo, no webview): React-style components and hooks, styled with Tailwind CSS v4 classes, drawn by its own renderer on Linux and Windows, and rendered headlessly to PNGs and aria snapshots so an agent can see what it built. This file is the whole guide an LLM needs to build good-looking Tela screens: the API, the `kit` components (shadcn/ui's look), the agent loop with `tela mcp`, a complete settings screen and the mistakes to avoid. Every Go block in it compiles against the current API.
 
-Contents: 1 Start · 2 The agent loop · 3 Elements and props · 4 Components and hooks · 5 Styling · 6 kit · 7 A complete settings screen · 8 Pitfalls and limits · 9 Testing · More
+Contents: 1 Start · 2 The agent loop · 3 Elements and props · 4 Components and hooks · 5 Styling · 6 kit · 7 A complete settings screen · 8 Windows and desktop services · 9 Pitfalls and limits · 10 Testing · More
 
 ## 1. Start
 
@@ -833,7 +833,133 @@ Its aria snapshot (`tela inspect`, or the `snapshot` tool, which adds refs):
 
 (`aria-current` is not printed in snapshots, as in Playwright; `region "Notifications"` is the Toaster's.)
 
-## 8. Pitfalls and limits
+## 8. Windows and desktop services
+
+A window is state, like a dialog: a `tela.Window{...}` in the tree opens a window while it is mounted and closes it when it unmounts. All windows share one component tree, so a child window sees the state and contexts of the component that declares it (its `Root` is built by that component). Each window has its own layout, focus, hover and overlays. OS services (file dialogs, message boxes, notifications, tray, app folders, settings) are in package `github.com/kuronosu/tela/desktop`.
+
+- `tela.Window{Title, Width, Height, MinWidth..MaxHeight, FixedSize, Frameless, AlwaysOnTop, Modal, Hidden, Icon, RootClass, Placement, OnClose, Root}`. Keep "is it open" in `UseState` and render `If(open, tela.Window{...})`. `OnClose` runs when the user asks to close (close button, Alt+F4, `Close()`): set the state to false there. **A nil `OnClose` ignores the request**: the window cannot be closed (dev mode warns). `FixedSize`, `Frameless`, `Modal` and `Placement` are read when the window opens; `Hidden` keeps it open, with its state.
+- `tela.App` has the same fields for the main window, plus `AppID` and `OnClose func(tela.WindowHandle)`: nil quits when the main window closes; `func(w tela.WindowHandle) { w.Hide() }` keeps the app running (with a `desktop.Tray` as the way back). `tela.Quit()` ends the app from any goroutine; `tela.OpenURL(url)` and `tela.OpenPath(path)` open the default application.
+- `tela.UseWindow()` returns the `tela.WindowHandle` of the window the component renders in: `Minimize`, `Maximize`, `Unmaximize`, `ToggleMaximize`, `SetFullscreen(bool)`, `Hide`, `Show`, `Focus`, `Close`, `State()` (`Maximized`, `Fullscreen`, `Minimized`, `Focused`, `Hidden`, `ClientSideDecorations`; reading it rebuilds the component when it changes) and `Placement()`. Requests are safe from any goroutine; the OS may refuse one (a tiling window manager does not maximize). In `tela snapshot` there is no window and the handle does nothing.
+- **Custom title bar:** `Frameless: true`, and `kit.TitleBar{Title: Text("Notes"), Leading, Children, Trailing}` at the top of a flex column: it is the drag area and draws minimize, maximize and close (`kit.WindowControls`) in the OS's look; buttons and fields in its slots stay clickable. Without `kit`, mark the bar `h.WindowDrag()`, a plain area inside it that must not drag `h.WindowNoDrag()`, and real buttons `h.WindowControl(tela.WindowMinimize|WindowMaximize|WindowClose)` (with an `AriaLabel`); the OS does the move, the double click and the window menu. A Wayland desktop without server-side decorations reports `State().ClientSideDecorations`: draw the bar then.
+
+```go
+package notes
+
+import (
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/desktop"
+	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
+)
+
+var theme = kit.Theme()
+
+// App: PersistApp reopens the main window where the user left it.
+var App = desktop.PersistApp(tela.App{
+	AppID: "com.example.notes", Title: "Notes", Width: 900, Height: 640,
+	Frameless: true, Theme: &theme, RootClass: "bg-background text-foreground",
+	Root: Notes{},
+})
+
+type Notes struct{}
+
+func (Notes) Build() tela.Node {
+	prefs, setPrefs := tela.UseState(false)
+	return Div(Class("flex h-screen flex-col"),
+		kit.TitleBar{Title: Text("Notes")},
+		Div(Class("min-h-0 grow p-4"),
+			kit.Button{Variant: kit.Outline, Children: Text("Preferences"),
+				OnClick: func() { setPrefs.Set(true) }},
+			If(prefs, tela.Window{
+				Title: "Preferences", Width: 420, Height: 240, Modal: true,
+				OnClose: func() { setPrefs.Set(false) },
+				Root:    Preferences{},
+			}),
+		))
+}
+
+// Preferences is the content of the second window.
+type Preferences struct{}
+
+func (Preferences) Build() tela.Node {
+	win := tela.UseWindow()
+	dark, setDark := desktop.UseSetting("dark", false) // kept in the app's settings file
+	return Div(Class("flex flex-col gap-4 p-6"),
+		kit.Field{Orientation: kit.Horizontal, ControlAfter: true, Label: "Dark mode",
+			Children: kit.Switch{Checked: &dark, OnCheckedChange: setDark.Set}},
+		kit.Button{Children: Text("Done"), OnClick: win.Close})
+}
+```
+
+**Desktop services** (`desktop`). Dialogs and notifications are asynchronous like a browser's: the call returns at once and the callback runs later **on the UI thread**, so it may set state. Call them from handlers and effects (from a goroutine, wrap the call in `tela.Post`; dev mode panics otherwise). Each returns an error when nothing was shown; it wraps `desktop.ErrUnsupported` when the desktop lacks the service (no XDG portal, no notification daemon, no tray host), and the app should fall back. In `tela snapshot` (no running app) they return an error.
+
+- File dialogs: `desktop.OpenFile`, `OpenFiles`, `SaveFile`, `PickFolder(done, opts...)` with options `Title`, `Directory`, `DefaultName`, `Filter("Notes", "*.md", "*.txt")`, `Parent(win)`. `done(path, err)` gets `""` and a nil error when the user cancels. The dialog is modal to the window the call comes from.
+- `desktop.ShowMessage(desktop.Message{Kind, Title, Text, Buttons, Parent}, func(desktop.Answer))`: kinds `MessageInfo/Warning/Error/Question`, buttons `ButtonsOK/OKCancel/YesNo/YesNoCancel`, answers `AnswerOK/Cancel/Yes/No`. Native on Windows; on Linux Tela draws it as a modal window. Escape or the close button answers Cancel (No for Yes/No).
+- `desktop.Notify(desktop.Notification{Title, Body, Icon, Actions, OnClick, OnClose})` returns the shown notification (`Close()`). Windows shows no action buttons: keep every action reachable in the app. `Title` is required.
+- `desktop.Tray{Icon, Tooltip, Menu, OnClick, OnError}` is a component: the icon is in the tray while it is mounted (`Icon` is one picture at several sizes, 16, 24 and 32 px; `Menu` is `[]desktop.MenuItem{Label, Separator, Checkbox, Checked, Disabled, Submenu, OnSelect}`; a checkbox item does not toggle itself). On GNOME without the AppIndicator extension `OnError` gets an `ErrUnsupported`: then do not hide the window on close.
+- `desktop.UseSetting(key, def)` is `UseState` whose value lives in the app's JSON settings file (`desktop.Settings()` is the `*desktop.Store`: `Get`, `Set`, `Watch`). Values must encode as JSON; a stored value that no longer decodes reads as `def`.
+- `desktop.PersistApp(app)` and `desktop.SavedWindow{Key, Window}` save and restore a window's size, maximized and fullscreen state and position. Wayland cannot place windows: only the size and state come back, and the position where the compositor restores sessions.
+- Folders: `desktop.ConfigDir()`, `DataDir()`, `CacheDir()`, `StateDir()`, `LogDir()` (created on demand, named by `App.AppID` or `desktop.SetAppID("com.example.notes")`, called before the first read).
+
+```go
+package notes
+
+import (
+	"errors"
+	"image"
+
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/desktop"
+	. "github.com/kuronosu/tela/h"
+)
+
+var trayIcon []image.Image // the app's icon at 16, 24 and 32 px
+
+// Editor opens a file, asks before closing and lives in the tray.
+func Editor() tela.Component {
+	return tela.C(func() tela.Node {
+		win := tela.UseWindow()
+		path, setPath := tela.UseState("")
+		typing, setTyping := tela.UseState(false) // fallback: a field for the path
+		open := func() {
+			err := desktop.OpenFile(func(p string, err error) {
+				if err == nil && p != "" { // "" is cancel
+					setPath.Set(p)
+				}
+			}, desktop.Title("Open a note"), desktop.Filter("Notes", "*.md", "*.txt"))
+			if errors.Is(err, desktop.ErrUnsupported) {
+				setTyping.Set(true) // no portal in this session
+			}
+		}
+		closeWindow := func() {
+			desktop.ShowMessage(desktop.Message{
+				Kind: desktop.MessageQuestion, Title: "Unsaved changes",
+				Text: "Save the changes before closing?", Buttons: desktop.ButtonsYesNoCancel,
+			}, func(a desktop.Answer) {
+				if a != desktop.AnswerCancel {
+					win.Hide() // the tray brings it back
+				}
+			})
+		}
+		return Div(
+			desktop.Tray{
+				Icon: trayIcon, Tooltip: "Notes", OnClick: win.Show,
+				Menu: []desktop.MenuItem{
+					{Label: "Show Notes", OnSelect: win.Show},
+					{Separator: true},
+					{Label: "Quit", OnSelect: tela.Quit},
+				},
+			},
+			Button(OnClick(open), Text("Open…")),
+			Button(OnClick(closeWindow), Text("Close")),
+			If(typing, Input(Bind(path, setPath))),
+			Text(path),
+		)
+	})
+}
+```
+
+## 9. Pitfalls and limits
 
 | Mistake | Fix |
 |---|---|
@@ -860,10 +986,15 @@ Its aria snapshot (`tela inspect`, or the `snapshot` tool, which adds refs):
 | The snapshot does not show a toast or effect result | `tela snapshot` renders one frame; in `tela mcp`, act then `wait {"ms": 300}` and `screenshot` |
 | `h.A` link does nothing | Tela does not navigate: handle `OnClick` |
 | `Div(Class("flex"), children...)` with a `[]tela.Node` slice: Go cannot spread it | `Div(Class("flex"), Nodes(children))` |
+| A `tela.Window` without `OnClose`: its close button does nothing | `OnClose: func() { setOpen.Set(false) }`: state owns whether a window exists |
+| `desktop.OpenFile`, `ShowMessage` or `Notify` from a goroutine (dev panic), or state set in the callback of a goroutine | Call them from handlers and effects, or inside `tela.Post(func() { ... })`; their callbacks run on the UI thread |
+| `App.OnClose` hides the window but nothing can show it again (no tray, or the tray is unsupported) | Pair it with a `desktop.Tray` whose `OnError` turns the hiding off; `tela.Quit` from the menu |
+| `kit.TitleBar` in a window that keeps the OS's title bar: two bars | `Frameless: true`, or draw it only when `tela.UseWindow().State().ClientSideDecorations` |
+| A test reads or writes the real settings and window placements | `telatest.TempDesktopDirs(t)` at its start |
 
-**Limits.** Linux (Wayland, X11) and Windows windows; macOS cross-compiles but has no window yet. No submenus in menus; `Checkbox` has no indeterminate state; `Select` has no search (build a combobox with `aria.UseCombobox`); `Table` has no virtualization, resizing or row selection UI; no date-time input; no `tela add` yet. No margin collapsing, floats or CSS tables; 2D transforms only; SVG icons have no text, filters or patterns; no `grid-template-areas` from classes; `vertical-align` only on inline-blocks.
+**Limits.** Linux (Wayland, X11) and Windows windows; macOS cross-compiles but has no window yet. Wayland cannot place windows or keep them on top, and Windows notifications have no action buttons; a tray needs a host on Linux (GNOME needs an extension). No submenus in menus; `Checkbox` has no indeterminate state; `Select` has no search (build a combobox with `aria.UseCombobox`); `Table` has no virtualization, resizing or row selection UI; no date-time input; no `tela add` yet. No margin collapsing, floats or CSS tables; 2D transforms only; SVG icons have no text, filters or patterns; no `grid-template-areas` from classes; `vertical-align` only on inline-blocks.
 
-## 9. Testing
+## 10. Testing
 
 `telatest` mounts a component in a headless window, drives it with real events, finds elements like Playwright and compares goldens (`testdata/<name>.png`; `TELA_UPDATE=1 go test ./...` writes them). Dev errors fail the test.
 
@@ -887,8 +1018,44 @@ func TestSettingsLike(t *testing.T) {
 }
 ```
 
-`telatest.Mount(t, comp, opts...)` mounts any component (`Settings()`, `Page{}`, `Previews["x"]`); `telatest.MountApp(t, App, opts...)` mounts a `tela.App` as its window would. Locators: `ByRole(role, name)`, `ByText(text)`, `ByTestID(id)`, `ByClass(...)`, then `.Nth(i)`, `.Filter(telatest.HasText("x"))`. Expectations wait and retry: `Expect(loc, Checked/Pressed/Selected/Expanded/Disabled/Focused/Invalid(bool), Current("page"), HasName, HasValue)`, `ExpectText`, `ExpectNoText`, `ExpectRole`, `ExpectCount`, `ExpectValue`, `ExpectAria(yaml)`. `AriaSnapshot()`, `Screenshot()`, `Bounds(loc)`, `Resize(w, h)` inspect without waiting. Several windows: `app.Windows()`, `app.Window("Settings")` and `app.WaitForWindow(func() { app.Click(open) })` give an `*App` scoped to that window, with the whole API above; also `RequestClose()`, `Maximize()`, `ExpectWindowState(telatest.Maximized(true))`, `ExpectClosed()` and `ExpectQuit()`.
+`telatest.Mount(t, comp, opts...)` mounts any component (`Settings()`, `Page{}`, `Previews["x"]`); `telatest.MountApp(t, App, opts...)` mounts a `tela.App` as its window would. Locators: `ByRole(role, name)`, `ByText(text)`, `ByTestID(id)`, `ByClass(...)`, then `.Nth(i)`, `.Filter(telatest.HasText("x"))`. Expectations wait and retry: `Expect(loc, Checked/Pressed/Selected/Expanded/Disabled/Focused/Invalid(bool), Current("page"), HasName, HasValue)`, `ExpectText`, `ExpectNoText`, `ExpectRole`, `ExpectCount`, `ExpectValue`, `ExpectAria(yaml)`. `AriaSnapshot()`, `Screenshot()`, `Bounds(loc)`, `Resize(w, h)` inspect without waiting. Several windows: `app.Windows()`, `app.Window("Settings")` and `app.WaitForWindow(func() { app.Click(open) })` give an `*App` scoped to that window, with the whole API above; also `RequestClose()` (the close button), `Maximize()`, `Minimize()`, `ExpectWindowState(telatest.Maximized(true))` (`Fullscreen`, `Minimized`, `Hidden`, `Active`, `ClientDecorations`), `ExpectTitle`, `ExpectWindowCount(n)`, `ExpectClosed()`, `ExpectQuit()` and `ExpectRunning()` (an `OnClose` that hides the window). `MountApp` applies the window fields of the `tela.App` (`Frameless`, `OnClose`, size limits...); for a custom title bar, `HitRegions()`, `HitAt(x, y)` and `CaptionDrags()` show what the OS would do.
+
+**Desktop services in tests.** The headless desktop shows nothing: it records dialogs, notifications and tray icons, and the test answers them, as the user would. Call `telatest.TempDesktopDirs(t)` first in a test whose app uses `desktop.UseSetting`, `PersistApp` or the app folders, or it reads and writes the real ones. Nothing answers by itself.
+
+```go
+package notes
+
+import (
+	"testing"
+
+	"github.com/kuronosu/tela/desktop"
+	"github.com/kuronosu/tela/telatest"
+)
+
+func TestEditorServices(t *testing.T) {
+	telatest.TempDesktopDirs(t) // settings and window placements go to a temporary folder
+	app := telatest.Mount(t, Editor())
+
+	app.Click(telatest.ByRole("button", "Open…"))
+	app.AnswerFileDialog("/home/ana/ideas.md") // no paths: the user cancels
+	app.ExpectText("/home/ana/ideas.md")
+
+	app.Click(telatest.ByRole("button", "Close"))
+	app.AnswerMessage(desktop.AnswerYes) // native or drawn box: the same call
+	app.ExpectWindowState(telatest.Hidden(true))
+	app.ExpectRunning()
+
+	app.ClickTrayItem("Show Notes") // also ClickTray(), Tray(), Trays()
+	app.ExpectWindowState(telatest.Hidden(false))
+
+	app.Unsupported(telatest.FileDialogs) // from now on OpenFile returns ErrUnsupported
+	app.Click(telatest.ByRole("button", "Open…"))
+	app.ExpectRole("textbox", "") // the fallback path field
+}
+```
+
+Also `app.Notifications()`, `ClickNotification(title)`, `ClickNotificationAction(title, label)`, `DismissNotification(title)` and `MessageBoxes()` / `FileDialogs()` to check what was asked. `Unsupported` takes `telatest.FileDialogs`, `MessageBoxes` (the box is drawn then), `Notifications`, `TrayIcons` and `OpenURLs`; with no arguments everything is supported again.
 
 ## More
 
-Guides (wiki): https://github.com/kuronosu/tela/wiki — Getting-Started, Styling, Theming, Hooks, Events, Elements-and-Props, Forms-and-Text-Input, Scrolling-and-VirtualList, Animation, Kit, Aria, Icons, Internationalization, Testing, CLI. API reference: https://pkg.go.dev/github.com/kuronosu/tela (also `/h`, `/kit`, `/aria`, `/telatest`, `/i18n`). Full screens to imitate: https://github.com/kuronosu/tela/tree/main/examples (settings, login, chat, dashboard, kit gallery).
+Guides (wiki): https://github.com/kuronosu/tela/wiki — Getting-Started, Styling, Theming, Hooks, Events, Elements-and-Props, Forms-and-Text-Input, Scrolling-and-VirtualList, Animation, Kit, Aria, Icons, Internationalization, Windows-and-Desktop, Testing, CLI. API reference: https://pkg.go.dev/github.com/kuronosu/tela (also `/h`, `/kit`, `/aria`, `/desktop`, `/telatest`, `/i18n`). Full screens to imitate: https://github.com/kuronosu/tela/tree/main/examples (settings, login, chat, dashboard, kit gallery).

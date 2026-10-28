@@ -379,6 +379,49 @@ every window is unmounted, the cleanups of the effects have run, and using the
 app fails the test; `HasQuit` and `ExpectRunning` check that it quit or did not
 (an `OnClose` that hides the window keeps it running).
 
+## Desktop services
+
+The headless backend is also a fake desktop for package `desktop` (see
+[Windows and Desktop](Windows-and-Desktop)). It shows nothing: it records the
+file dialogs, message boxes, notifications and tray icons the app asks for, and
+the test answers and clicks them as the user would. **Nothing answers by
+itself**: a dialog stays open until the test answers it, and the callback of the
+app runs then, on the UI thread, as in a real run.
+
+```go
+func TestOpenAndClose(t *testing.T) {
+	telatest.TempDesktopDirs(t) // settings and window placements go to a temporary folder
+	app := telatest.MountApp(t, App)
+
+	app.Click(telatest.ByRole("button", "Open…"))
+	app.AnswerFileDialog("/home/ana/ideas.md") // no paths: the user cancels
+	app.ExpectText("ideas.md")
+
+	app.Click(telatest.ByRole("button", "Close"))
+	app.AnswerMessage(desktop.AnswerYes) // "Save the changes?" — Yes
+	app.ExpectWindowState(telatest.Hidden(true))
+
+	app.ClickTrayItem("Show Notes") // a submenu: ClickTrayItem("Theme", "Dark")
+	app.ExpectWindowState(telatest.Hidden(false))
+}
+```
+
+| Call | Does |
+|---|---|
+| `telatest.TempDesktopDirs(t)` | Points `ConfigDir`, `DataDir`, the settings store and saved window placements at a new temporary directory for the test (through `TELA_DESKTOP_DIR`), and flushes the stores before it is removed. Call it before the app reads a setting; like `t.Setenv`, not in parallel tests |
+| `app.FileDialogs()` | The open dialogs: `Kind`, `Title`, `Directory`, `DefaultName`, `Filters` |
+| `app.AnswerFileDialog(paths...)` | Answers the oldest one; no paths cancels. Fails when none is open |
+| `app.MessageBoxes()` | The open message boxes: `Kind`, `Title`, `Text`, `Buttons`, and `Drawn` |
+| `app.AnswerMessage(desktop.AnswerNo)` | Answers the oldest one. A box drawn by Tela gets a real click on its button; fails when the box has no such button |
+| `app.Notifications()` | Every notification shown, oldest first, closed ones included: `Title`, `Body`, `Actions` (labels), `Closed` |
+| `app.ClickNotification(title)`, `ClickNotificationAction(title, label)`, `DismissNotification(title)` | The user clicks it, one of its buttons, or closes it (its `OnClose` runs) |
+| `app.Tray()`, `app.Trays()` | The icon: `Tooltip`, `Menu` (`TrayItem`s) and how many times it changed |
+| `app.ClickTray()`, `app.ClickTrayItem(path...)` | A click on the icon; a choice in its menu, named by label (labels of the submenus first). Fail unless the app shows exactly one icon |
+| `app.Unsupported(telatest.FileDialogs, ...)` | From now on the desktop lacks those services (`FileDialogs`, `MessageBoxes`, `Notifications`, `TrayIcons`, `OpenURLs`): the calls return errors wrapping `desktop.ErrUnsupported`, and a message box is drawn. Without arguments, everything is supported again |
+
+`Unsupported` is how you test the fallbacks: `app.Unsupported(telatest.FileDialogs)`
+and the app must show its path field instead.
+
 ## Testing a package of screens
 
 Write one test per behavior, and use `telatest.Dev()` so mistakes the
