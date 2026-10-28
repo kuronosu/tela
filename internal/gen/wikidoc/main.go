@@ -26,8 +26,8 @@
 //	-import path  with -dir: the import path of the package
 //	-out file     with -dir: the file to write (default: standard output)
 //
-// Without -dir it writes the pages of tela, tela/h, tela/aria, tela/telatest
-// and tela/kit into docs/wiki.
+// Without -dir it writes the pages of tela, tela/h, tela/aria, tela/telatest,
+// tela/desktop and tela/kit into docs/wiki.
 package main
 
 import (

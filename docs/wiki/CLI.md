@@ -162,7 +162,7 @@ func main() { tela.Main(App) }
 | `ClassicScrollbars`, `InstantScroll`, `Dev` | Applied (`Dev` false silences the dev messages) |
 | `Root` | The screen when the package has no `Preview` or `Previews`; otherwise ignored |
 | `Title`, `AppID`, `DevState` | Ignored (`DevState` is for `tela dev`) |
-| `MinWidth`, `MinHeight`, `MaxWidth`, `MaxHeight`, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `Placement`, `OnClose` | Ignored: they shape the OS window, not its content. The windows a `tela.Window` opens are not rendered (the main window only) |
+| `MinWidth`, `MinHeight`, `MaxWidth`, `MaxHeight`, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`, `Icon`, `Placement`, `OnClose` | Ignored: they shape the OS window, not its content. The windows a `tela.Window` opens are not rendered (the main window only), and the `desktop` calls return an error (no running app) |
 
 [`telatest.MountApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#MountApp)(t, App) mounts the same `App` in a test, and
 [`telatest.FromApp`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#FromApp)(App) gives the options of an `App` to
@@ -333,6 +333,20 @@ Keys, when standard input is a terminal: `r` reloads keeping state, `R`
 reloads with fresh state, `q` quits (as does closing the window or Ctrl+C).
 Linux (Wayland, X11) and Windows; macOS comes with its backend.
 
+**Windows and desktop services under `tela dev`** (ADR-184): the window is the
+host's and the app runs in a child process, and everything about windows and
+services is forwarded: the window options (`Frameless`, size limits, icons...),
+window controls and the hit regions of a custom title bar, file dialogs,
+message boxes, notifications and the tray. The windows a
+[`tela.Window`](Windows-and-Desktop#several-windows) opens are real windows too,
+matched across a reload by their place in the tree, so a preferences window stays
+where it was while you edit its content (it opens anew if its `Frameless`,
+`FixedSize`, `Modal` or parent changed). A window that was hidden to the tray stays
+hidden, and trays and notifications are not duplicated by the effects that run
+again on the new build. Known limits: a window that a new build opens only later
+(from an effect) closes and reopens on reload, and a dialog opened at startup
+shows again on every reload.
+
 **Windows and Microsoft Defender:** Defender scans every new executable on its
 first run, and every reload is a new build: on a Windows 11 machine that made a
 reload of `examples/dashboard` take 2.2 s instead of 1.1 s. When the build of a
@@ -453,6 +467,9 @@ says so. A compile error is the result of that call, with the findings of
 source compiles again. A rebuild also reports the lint findings of the new
 source, and every result carries the dev errors and warnings the screen logged
 (an unknown class at run time with its "did you mean", a list without keys).
+
+The screen is the main window's: the windows a `tela.Window` opens and the `desktop`
+services are not reachable through the tools yet.
 
 | Tool | Does |
 |---|---|

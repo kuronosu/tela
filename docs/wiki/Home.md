@@ -46,6 +46,7 @@ func Counter() tela.Node {
 | [Icons](Icons) | `h.Icon`, the Lucide set, generating an icon set from SVG files with `tela icons gen`, what icons cost in a binary |
 | [Kit](Kit) | Ready-made components in the look of shadcn/ui: the shape of a component, controlled and uncontrolled values, trigger slots, customizing with theme tokens, recipes and classes, and every component with an example |
 | [Aria](Aria) | Behavior hooks: press, hover, focus, buttons, checkboxes and switches, and `UseFloating` for popovers, tooltips and menus |
+| [Windows and Desktop](Windows-and-Desktop) | Several windows with `tela.Window`, `UseWindow`, custom title bars, file dialogs, message boxes, notifications, the tray, settings, remembered window placement, app folders, what each platform lacks |
 | [Accessibility](Accessibility) | Roles, ARIA props, aria snapshots |
 | [Testing](Testing) | `telatest`: mount, click, expect, goldens, without a window |
 | [CLI](CLI) | `tela snapshot`, `tela inspect`, `tela icons gen`, debug overlays, environment variables |
@@ -62,6 +63,7 @@ the aliases for those).
 | `tela` | `github.com/kuronosu/tela` | [docs](https://pkg.go.dev/github.com/kuronosu/tela) | [API-Reference-tela](API-Reference-tela) |
 | `h` | `github.com/kuronosu/tela/h` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/h) | [API-Reference-h](API-Reference-h) |
 | `aria` | `github.com/kuronosu/tela/aria` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/aria) | [API-Reference-aria](API-Reference-aria) |
+| `desktop` | `github.com/kuronosu/tela/desktop` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/desktop) | [API-Reference-desktop](API-Reference-desktop) |
 | `telatest` | `github.com/kuronosu/tela/telatest` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/telatest) | [API-Reference-telatest](API-Reference-telatest) |
 | `kit` | `github.com/kuronosu/tela/kit` | [docs](https://pkg.go.dev/github.com/kuronosu/tela/kit) | [API-Reference-kit](API-Reference-kit) |
 

@@ -384,7 +384,9 @@ or fullscreen; under `h.Dir("rtl")` it mirrors. It does not hide itself: to show
 it only where the OS draws no title bar, wrap it in
 `If(tela.UseWindow().State().ClientSideDecorations, ...)`. `State` overrides the
 window's state, for previews and tests (`tela snapshot` has no window: the bar is
-focused and not maximized).
+focused and not maximized). The windows, the `h.WindowDrag` and `h.WindowControl`
+props these components are made of, and what each platform does are in
+[Windows and Desktop](Windows-and-Desktop#custom-title-bars).
 
 ### Data
 

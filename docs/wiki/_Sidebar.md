@@ -15,6 +15,7 @@
 - [Icons](Icons)
 - [Aria](Aria)
 - [Kit](Kit)
+- [Windows and Desktop](Windows-and-Desktop)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)
@@ -24,6 +25,7 @@
 - [package tela](API-Reference-tela)
 - [package h](API-Reference-h)
 - [package aria](API-Reference-aria)
+- [package desktop](API-Reference-desktop)
 - [package telatest](API-Reference-telatest)
 - [package kit](API-Reference-kit)
 
