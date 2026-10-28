@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- A `Textarea` whose lines do not wrap (`text-nowrap`, `whitespace-pre`, `whitespace-nowrap`) scrolls horizontally, as in Chromium: long lines were clipped at the right edge (`examples/notes` with word wrap off). The wheel with Shift and a touchpad scroll it, the caret stays in view while typing and with Home, End and the arrow keys, a selection drag autoscrolls sideways, and with classic scrollbars the horizontal bar takes its gutter. Clicking into a scrolled, unfocused field no longer scrolls it back to the start first (ADR-188).
+
 ## [0.12.1] - 2026-10-28
 
 ### Added
@@ -22,7 +26,6 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 - Linux tray menus: a changed label or check state of an item that keeps its place (a "Show"/"Hide" item following the window) is sent with `ItemsPropertiesUpdated`; GNOME's AppIndicator extension rereads only the menu's structure on `LayoutUpdated` and kept showing the old label.
 - `examples/notes`: the Preferences window had no title bar on GNOME (Wayland draws none there), so it could not be moved or closed; it now draws a `kit.TitleBar` when the window reports `ClientSideDecorations`.
-- A `Textarea` whose lines do not wrap (`text-nowrap`, `whitespace-pre`, `whitespace-nowrap`) scrolls horizontally, as in Chromium: long lines were clipped at the right edge (`examples/notes` with word wrap off). The wheel with Shift and a touchpad scroll it, the caret stays in view while typing and with Home, End and the arrow keys, a selection drag autoscrolls sideways, and with classic scrollbars the horizontal bar takes its gutter. Clicking into a scrolled, unfocused field no longer scrolls it back to the start first (ADR-188).
 
 ## [0.12.0] - 2026-10-28
 
