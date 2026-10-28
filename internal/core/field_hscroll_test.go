@@ -5,10 +5,10 @@ import (
 	"image"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
-	"github.com/kuronosu/tela/internal/platform/headless"
 )
 
 // A Textarea whose lines do not wrap (text-nowrap, whitespace-pre,
@@ -21,19 +21,11 @@ import (
 
 const hscrollLong = "The quick brown fox jumps over the lazy dog and keeps on running far away"
 
-// newKeysConfig is newKeys with a configuration (the fonts are the
-// tests').
-func newKeysConfig(t *testing.T, root Node, w, h float32, cfg Config) *inputHarness {
+// newScrollKeys is newKeys with a configuration (newScrollHost, the
+// scroll sets checked at the end).
+func newScrollKeys(t *testing.T, root Node, w, h float32, cfg Config) *inputHarness {
 	t.Helper()
-	b := headless.New(headless.Options{Size: platform.Size{W: w, H: h}})
-	cfg.Fonts = testFonts
-	host, err := NewHost(b, Options{Config: cfg, Root: root})
-	if err != nil {
-		t.Fatal(err)
-	}
-	b.Drain(host)
-	x := &inputHarness{t: t, b: b, h: host, w: host.Window().(*headless.Window)}
-	t.Cleanup(host.stopTimer)
+	x := newScrollHost(t, root, w, h, cfg)
 	x.w.SetFocused(true)
 	x.b.Drain(x.h)
 	return x
@@ -226,7 +218,7 @@ func TestTextareaNowrapRTL(t *testing.T) {
 
 func TestTextareaNowrapPaintAndHitTest(t *testing.T) {
 	root := div(Class("bg-white p-2"), textarea(Key("ta"), Class("h-16 w-40 text-nowrap bg-white text-black"), DefaultValue(hscrollLong)))
-	x := newKeysConfig(t, root, 400, 200, Config{InstantScroll: true})
+	x := newScrollKeys(t, root, 400, 200, Config{InstantScroll: true})
 	x.frame()
 	tr := x.tree()
 	f := fieldOf(t, tr, "ta")
@@ -336,7 +328,7 @@ func TestTextareaNowrapClassicGutter(t *testing.T) {
 
 	// Typing: the keystroke that makes the line overflow lays the field
 	// out once to add the gutter; the others lay nothing out.
-	x := newKeysConfig(t, div(Class("p-2"), textarea(Key("ta"), Class("h-24 w-40 text-nowrap"))), 400, 200, Config{ClassicScrollbars: true})
+	x := newScrollKeys(t, div(Class("p-2"), textarea(Key("ta"), Class("h-24 w-40 text-nowrap"))), 400, 200, Config{ClassicScrollbars: true})
 	x.tab()
 	x.settle()
 	g := fieldOf(t, x.tree(), "ta")
@@ -431,5 +423,195 @@ func TestTextareaNowrapDamage(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A selection drag past the right edge level with a line shorter than the
+// longest scrolls the field toward the pointer, as Blink's selection
+// autoscroll does (it scrolls the point under the pointer into view, then
+// extends the selection there), and stops requesting frames at the
+// extent. Before, the autoscroll only revealed the caret, which stayed at
+// the end of the short line, already visible: nothing scrolled, and a
+// frame was requested every refresh until the release.
+func TestTextareaNowrapAutoscrollShortLine(t *testing.T) {
+	root := div(Class("p-4"), textarea(Key("ta"), Class("h-16 w-40 text-nowrap"), DefaultValue(hscrollLong+"\nab")))
+	x := newKeys(t, root, 400, 200)
+	x.frame()
+	f := fieldOf(t, x.tree(), "ta")
+	s := f.bx.scr
+	r := windowRect(f.bx)
+	l := f.bx.ld.Layout()
+	lay := f.layout()
+	cy := r.Y0 + l.Border.Top + l.Padding.Top + lay.Caret(textCursor(len(hscrollLong)+1)).Top + 2 // the "ab" row
+	x.send(move(r.X0+1, cy), down(r.X0+1, cy), moveHeld(r.X1+40, cy))
+	for i := 0; i < 100 && x.w.FrameRequested(); i++ {
+		x.frame()
+	}
+	if s.pos.X != s.max.X {
+		t.Errorf("dragging right of a short line: offset %v, want the extent %v", s.pos.X, s.max.X)
+	}
+	if s0, e := x.selection("ta"); s0 != len(hscrollLong)+1 || e != len(hscrollLong)+3 {
+		t.Errorf("selection %d..%d, want %d..%d", s0, e, len(hscrollLong)+1, len(hscrollLong)+3)
+	}
+	if x.tree().fieldAutoscrolling() {
+		t.Error("still autoscrolling at the extent")
+	}
+	x.settle() // the overlay bar's fade only, while the button is held
+	// Back past the left edge: the move changes no selection (the text
+	// under the pointer is past the end of "ab" still) and starts the
+	// frames itself; the field scrolls back to 0.
+	x.send(moveHeld(r.X0-12, cy))
+	for i := 0; i < 100 && x.w.FrameRequested(); i++ {
+		x.frame()
+	}
+	if s.pos.X != 0 {
+		t.Errorf("dragging left of the field: offset %v, want 0", s.pos.X)
+	}
+	x.send(up(r.X0-12, cy))
+	x.settle()
+}
+
+// The vertical autoscroll reaches the extent of a padded Textarea: past
+// the bottom, the last line is visible before the bottom padding is.
+func TestTextareaAutoscrollReachesPadding(t *testing.T) {
+	lines := make([]string, 12)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("line %d", i)
+	}
+	root := div(Class("p-4"), textarea(Key("ta"), Class("h-16 w-40 py-3"), DefaultValue(strings.Join(lines, "\n"))))
+	x := newKeys(t, root, 400, 300)
+	x.frame()
+	tr := x.tree()
+	f := fieldOf(t, tr, "ta")
+	s := f.bx.scr
+	l := f.bx.ld.Layout()
+	if s.max.Y <= l.Padding.Bottom {
+		t.Fatalf("extent %v", s.max)
+	}
+	// The last line ends at the client's bottom edge.
+	tr.scrollDirect(s, gfx.Point{Y: s.max.Y - l.Padding.Bottom})
+	x.settle()
+	r := windowRect(f.bx)
+	cx := r.Center().X
+	x.send(move(cx, r.Center().Y), down(cx, r.Center().Y), moveHeld(cx, r.Y1+30))
+	for i := 0; i < 100 && x.w.FrameRequested(); i++ {
+		x.frame()
+	}
+	if s.pos.Y != s.max.Y {
+		t.Errorf("dragging below: offset %v, want the extent %v", s.pos.Y, s.max.Y)
+	}
+	if tr.fieldAutoscrolling() {
+		t.Error("still autoscrolling at the extent")
+	}
+	x.send(up(cx, r.Y1+30))
+	x.settle()
+}
+
+// A click in a horizontally scrolled, padded Textarea leaves the text
+// under the pointer where it is: the caret it places is under the
+// pointer. Before, the reveal counted the padding on both sides of the
+// caret, so a click near the left edge scrolled by up to the padding.
+// Home and End still show the padding at the ends of the overflow
+// (TestTextareaNowrapRevealsCaret).
+func TestTextareaNowrapClickKeepsScroll(t *testing.T) {
+	root := div(Class("p-2"), textarea(Key("ta"), Class("h-16 w-40 px-3 text-nowrap"), DefaultValue(hscrollLong)))
+	x := newScrollKeys(t, root, 400, 200, Config{InstantScroll: true})
+	x.frame()
+	tr := x.tree()
+	f := fieldOf(t, tr, "ta")
+	s := f.bx.scr
+	r := windowRect(f.bx)
+	l := f.bx.ld.Layout()
+	lay := f.layout()
+	cy := r.Center().Y
+	for _, c := range []struct {
+		name   string
+		scroll float32
+		min    float32 // the caret at least this far into the client area
+		last   bool    // the last caret in view, not the first
+	}{
+		{"near the left edge", 100, 2, false},
+		{"the first glyph", 5, 0, false},
+		{"near the right edge", 100, 0, true},
+	} {
+		tr.scrollDirect(s, gfx.Point{X: c.scroll})
+		x.settle()
+		off, at := -1, float32(0)
+		for i := 0; i <= len(hscrollLong); i++ {
+			cx := l.Padding.Left + lay.Caret(textCursor(i)).X - c.scroll
+			if cx < c.min || cx+caretWidth > s.client.W {
+				continue
+			}
+			if off < 0 || c.last {
+				off, at = i, cx
+			}
+		}
+		if off < 0 {
+			t.Fatalf("%s: no caret in view", c.name)
+		}
+		px := r.X0 + l.Border.Left + at + 1
+		if c.last {
+			px = r.X0 + l.Border.Left + at - 1 // the right half of the glyph before
+		}
+		x.b.Advance(time.Second) // not a double click
+		x.click(px, cy)
+		x.settle()
+		if s0, e := x.selection("ta"); s0 != off || e != off {
+			t.Errorf("%s: caret %d..%d, want %d", c.name, s0, e, off)
+		}
+		if s.pos.X != c.scroll {
+			t.Errorf("%s: the click scrolled from %v to %v", c.name, c.scroll, s.pos.X)
+		}
+	}
+}
+
+// A focus by a pointer that does not place the caret (here set directly;
+// a label's press is the other) reveals the caret the field has; only the
+// press on the field itself, which puts the caret under the pointer, does
+// not reveal the old one.
+func TestTextareaNowrapMouseFocusReveals(t *testing.T) {
+	root := div(Class("p-2"),
+		label(Key("lb"), Class("block"), For("ta"), Text("Notes")),
+		textarea(Key("ta"), ID("ta"), Class("h-16 w-40 text-nowrap"), DefaultValue(hscrollLong)),
+		input(Key("other")))
+	x := newKeys(t, root, 400, 200)
+	x.tab()
+	x.key(platform.KeyEnd, 0)
+	x.settle()
+	tr := x.tree()
+	f := fieldOf(t, tr, "ta")
+	s := f.bx.scr
+	if s.pos.X != s.max.X || s.max.X <= 0 {
+		t.Fatalf("End: offset %v, extent %v", s.pos.X, s.max.X)
+	}
+	away := func() {
+		t.Helper()
+		x.tab() // to "other"
+		tr.scrollDirect(s, gfx.Point{})
+		x.settle()
+		if tr.foc.el == f.el || s.pos.X != 0 {
+			t.Fatalf("focus %v, offset %v", tr.foc.el == f.el, s.pos.X)
+		}
+	}
+	away()
+	tr.setFocus(f.el, focusMouse)
+	x.settle()
+	if s.pos.X != s.max.X {
+		t.Errorf("a pointer focus without a press on the field: offset %v, want the caret's %v", s.pos.X, s.max.X)
+	}
+	away()
+	x.click(x.center("lb"))
+	x.settle()
+	if tr.foc.el != f.el || s.pos.X != s.max.X {
+		t.Errorf("a label's press: focused %v, offset %v, want %v", tr.foc.el == f.el, s.pos.X, s.max.X)
+	}
+	away()
+	// A press on the field puts the caret under the pointer, at the
+	// start: the view stays.
+	r := windowRect(f.bx)
+	x.click(r.X0+3, r.Center().Y)
+	x.settle()
+	if tr.foc.el != f.el || s.pos.X != 0 {
+		t.Errorf("a press on the field: focused %v, offset %v, want 0", tr.foc.el == f.el, s.pos.X)
 	}
 }

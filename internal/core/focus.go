@@ -187,6 +187,11 @@ type focusState struct {
 	// start is the sequential navigation starting point while nothing is
 	// focused.
 	start *Element
+	// pressCaret is the text field a primary press being handled targets,
+	// whose caret the press puts under the pointer (fieldPress), during
+	// its focus change: focusing it does not reveal the caret it had
+	// (fieldFocused).
+	pressCaret *Element
 	// auto is the AutoFocus element of the pending commit, mounted when gen
 	// was autoGen.
 	auto    *Element

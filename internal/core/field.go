@@ -443,6 +443,7 @@ type field struct {
 	scrollX          float32 // an Input's horizontal scroll
 	paintDirty       bool    // its layer must be recorded again
 	revealQueued     bool    // in Tree.frev.q: its caret reveal waits for a layout
+	revealPad        bool    // the queued reveal counts the padding (revealNowBy)
 	selStart, selEnd int     // the selection of the last select check
 	// stAt is the Tree's stGen when fieldStates last ran on it.
 	stAt uint64
@@ -638,7 +639,12 @@ func (t *Tree) restoreControlled(f *field) {
 // fieldChanged updates what depends on the editor after an operation:
 // the layout, the size of a field sized to its content, a Textarea's
 // extents, the caret in view, the states and the painting.
-func (t *Tree) fieldChanged(f *field, r edit.Result) {
+func (t *Tree) fieldChanged(f *field, r edit.Result) { t.fieldChangedBy(f, r, true) }
+
+// fieldChangedBy is fieldChanged; pad false reveals the caret without the
+// padding at the ends of a Textarea's horizontal overflow (revealNowBy):
+// a caret the pointer placed, which is under it.
+func (t *Tree) fieldChangedBy(f *field, r edit.Result, pad bool) {
 	if !r.ValueChanged && !r.SelectionChanged && !r.DisplayChanged {
 		return
 	}
@@ -649,7 +655,7 @@ func (t *Tree) fieldChanged(f *field, r edit.Result) {
 	if r.ValueChanged {
 		t.autoDirChanged(f.el) // Dir("auto") follows the value
 	}
-	f.reveal()
+	f.revealBy(pad)
 	f.markPaint()
 }
 
@@ -1161,12 +1167,18 @@ type revealState struct {
 // stale. A field is queued once; only a reveal that waits for a frame's
 // work outside a frame requests that frame (whoever holds runs the
 // reveals itself).
-func (f *field) reveal() {
+func (f *field) reveal() { f.revealBy(true) }
+
+// revealBy is reveal; pad false leaves out the padding at the ends of a
+// Textarea's horizontal overflow (revealNowBy). A queued reveal counts it
+// when any of the reveals it stands for did.
+func (f *field) revealBy(pad bool) {
 	t := f.t
 	if !t.frev.hold && t.revealReady() {
-		f.revealNow()
+		f.revealNowBy(pad)
 		return
 	}
+	f.revealPad = f.revealPad || pad
 	if f.revealQueued {
 		return
 	}
@@ -1219,9 +1231,10 @@ func (t *Tree) runReveals() {
 		return
 	}
 	for _, f := range q {
-		f.revealQueued = false
+		pad := f.revealPad
+		f.revealQueued, f.revealPad = false, false
 		if f.alive() {
-			f.revealNow() // never queues: the layout is current
+			f.revealNowBy(pad) // never queues: the layout is current
 		}
 	}
 	clear(q)
@@ -1229,7 +1242,11 @@ func (t *Tree) runReveals() {
 }
 
 // revealNow is reveal with the field's current layout.
-func (f *field) revealNow() {
+func (f *field) revealNow() { f.revealNowBy(true) }
+
+// revealNowBy is revealNow; pad false leaves out the padding at the ends
+// of a Textarea's horizontal overflow.
+func (f *field) revealNowBy(pad bool) {
 	lay := f.layout()
 	if lay == nil || f.bx.cs == nil {
 		return
@@ -1263,13 +1280,31 @@ func (f *field) revealNow() {
 	if s.max.X > 0 || s.pos.X != 0 {
 		// A Textarea whose lines do not wrap scrolls horizontally too
 		// (fieldExtents), in physical offsets (scroller.flip: negative
-		// toward the left in a right-to-left field). The caret is kept
-		// with the padding on its sides, inside the content box as far as
-		// the extents allow, so Home and the start of a line scroll all
-		// the way back.
+		// toward the left in a right-to-left field), from lo to hi. Like
+		// Blink, the caret's rect is what is revealed, as vertically, so
+		// a click near the edge of a scrolled, padded field leaves the
+		// text under the pointer where it is. A caret at an end of the
+		// overflow (the start of a line at its start edge, the end of the
+		// longest line) brings the padding there too (pad), so Home
+		// scrolls back to the start and End on the longest line to the
+		// extent; a caret placed by the pointer (pad false) does not.
 		x := l.Padding.Left + c.X
 		px := s.flip(s.pos).X
-		px += nearest(c.X, x+caretWidth+l.Padding.Right, px, px+s.client.W)
+		lo, hi := float32(0), s.max.X
+		if s.rtl {
+			lo, hi = -s.max.X, 0
+		}
+		a, b := x, x+caretWidth
+		if pad {
+			const near = 0.5 // a caret this close to an end is at it
+			if c.X <= lo+near {
+				a = lo // the start padding: c.X is x without it
+			}
+			if b+l.Padding.Right >= hi+s.client.W-near {
+				b = hi + s.client.W
+			}
+		}
+		px += nearest(a, b, px, px+s.client.W)
 		p.X = s.flip(gfx.Point{X: px}).X
 	}
 	if p != s.pos {
@@ -1303,13 +1338,15 @@ func (f *field) fieldExtents() (maxX, maxY float32) {
 	w := f.textWidth()
 	h := max(lay.Height(), f.lineHeight(cs))
 	wide := lay.Width()
-	if ph := f.placeholder(cs, w); ph != nil && f.ed.RawValue() == "" {
-		h = max(h, ph.Height())
-		wide = max(wide, ph.Width())
+	if f.ed.RawValue() == "" {
+		if ph := f.placeholder(cs, w); ph != nil {
+			h = max(h, ph.Height())
+			wide = max(wide, ph.Width())
+		}
 	}
 	clientH := l.Size.H - l.Border.Top - l.Border.Bottom - l.ScrollbarSize.H
 	maxY = max(h+l.Padding.Top+l.Padding.Bottom-clientH, 0)
-	if f.paraStyle(cs).WhiteSpace.Wraps() {
+	if f.ps.WhiteSpace.Wraps() { // f.ps is lay's paragraph style (layoutAt)
 		return 0, maxY
 	}
 	room := float32(0)

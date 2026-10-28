@@ -354,10 +354,7 @@ func (t *Tree) activate(target *Element, me MouseEvent) {
 				if s := t.trapping(ctl); s != nil {
 					t.keepInScope(s) // a control outside the active containing scope
 				} else {
-					t.setFocus(ctl, focusMouse)
-					if f := textField(ctl); f != nil && t.foc.el == ctl {
-						f.reveal() // not under the pointer (fieldFocused)
-					}
+					t.setFocus(ctl, focusMouse) // reveals a text field's caret (fieldFocused)
 				}
 			}
 			if ctl.mounted {

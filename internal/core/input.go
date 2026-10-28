@@ -323,8 +323,13 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		// (focus.go); cancelling pointerdown or mousedown prevents it. A
 		// press on a scrollbar does not move it.
 		if prev == 0 && e.Button == platform.ButtonPrimary && !prevented && bar.s == nil {
+			// A press in a text field puts its caret (fieldkeys.go), so
+			// focusing it reveals nothing (fieldFocused).
+			if textField(target) != nil {
+				t.foc.pressCaret = target
+			}
 			t.mouseFocus(target)
-			// A press in a text field puts its caret (fieldkeys.go).
+			t.foc.pressCaret = nil
 			t.fieldPress(ps, target)
 		}
 	}

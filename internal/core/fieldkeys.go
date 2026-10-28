@@ -40,11 +40,13 @@ import (
 // a word on the second click and a paragraph (a whole Input) on the
 // third; while the button is held with a mouse or a pen the selection
 // follows the pointer, by the unit of the press, and the field scrolls
-// when the pointer is past its edges (autoscroll: every frame the caret
-// moves to the text under the pointer and is revealed, so the field
-// scrolls by the distance past the edge per frame, as Blink's selection
-// autoscroll does). A press finishes an IME composition first and resets
-// the IME.
+// when the pointer is past its edges (autoscroll: every frame it scrolls
+// by the distance past the edge, as Blink's selection autoscroll does: an
+// Input's caret moves to the text under the pointer and is revealed, a
+// Textarea scrolls toward the pointer and the selection follows,
+// animateFields). A caret the pointer placed is revealed without the
+// padding (revealNowBy). A press finishes an IME composition first and
+// resets the IME.
 
 // fieldAction is what a key does in a text field.
 type fieldAction uint8
@@ -475,7 +477,7 @@ func (t *Tree) fieldPress(ps *pointerState, target *Element) {
 	}
 	r := f.ed.Do(cmd, lay)
 	t.caretReset(f)
-	t.fieldChanged(f, r)
+	t.fieldChangedBy(f, r, false) // the caret is under the pointer
 	t.fieldSelect(f, true)
 	if ps.key.kind != platform.PointerTouch {
 		t.in.fdrag = &fieldDrag{f: f, ps: ps}
@@ -489,20 +491,30 @@ func (t *Tree) fieldDragTo(d *fieldDrag) {
 		t.in.fdrag = nil
 		return
 	}
+	t.fieldDragAt(f, t.fieldPoint(f, d.ps.pos))
+}
+
+// fieldDragAt extends the selection of f to pt, in the coordinates of its
+// text layout. The caret it moves is under the pointer (or at the edge an
+// autoscroll step brought the pointer's text to): it is revealed without
+// the padding (fieldChangedBy).
+func (t *Tree) fieldDragAt(f *field, pt gfx.Point) {
 	lay := f.layout()
 	if lay == nil {
 		return
 	}
-	pt := t.fieldPoint(f, d.ps.pos)
 	r := f.ed.Do(edit.Command{Kind: edit.DragTo, X: pt.X, Y: pt.Y}, lay)
 	if r.SelectionChanged {
 		t.caretReset(f)
-		t.fieldChanged(f, r)
+		t.fieldChangedBy(f, r, false)
 		t.fieldSelect(f, true)
 	}
 }
 
-// fieldPointerMove follows a pointer move: the drag of a selection.
+// fieldPointerMove follows a pointer move: the drag of a selection. A
+// move past the edges starts the autoscroll's frames, which a move that
+// changes nothing (past the end of a line shorter than the longest) would
+// not request.
 func (t *Tree) fieldPointerMove(ps *pointerState) {
 	if d := t.in.fdrag; d != nil && d.ps == ps {
 		if !ps.pressing {
@@ -510,6 +522,9 @@ func (t *Tree) fieldPointerMove(ps *pointerState) {
 			return
 		}
 		t.fieldDragTo(d)
+		if t.fieldAutoscrolling() {
+			t.requestRepaint()
+		}
 	}
 }
 
@@ -521,7 +536,8 @@ func (t *Tree) fieldPointerUp(ps *pointerState) {
 }
 
 // fieldAutoscrolling reports whether a selection drag is past the edges
-// of its field, so frames must go on (autoscroll).
+// of its field, so frames must go on (autoscroll). Every step of a
+// Textarea's moves it (textareaAutoscroll), so frames stop at the extents.
 func (t *Tree) fieldAutoscrolling() bool {
 	d := t.in.fdrag
 	if d == nil || !d.f.alive() || !d.ps.pressing {
@@ -529,31 +545,48 @@ func (t *Tree) fieldAutoscrolling() bool {
 	}
 	f := d.f
 	pt := t.fieldPoint(f, d.ps.pos)
-	l := f.bx.ld.Layout()
 	if !f.multi {
 		left := f.scrollX
 		right := left + f.textWidth()
 		lo, hi := f.scrollXRange()
 		return pt.X < left && f.scrollX > lo || pt.X > right && f.scrollX < hi
 	}
+	_, ok := t.textareaAutoscroll(f, pt)
+	return ok
+}
+
+// textareaAutoscroll returns the offset one autoscroll step of a
+// selection drag at pt (in the coordinates of the text layout) scrolls
+// the Textarea f to, and whether it moves: as Blink's selection
+// autoscroll (LayoutBox::Autoscroll), the point under the pointer is
+// scrolled into view, so each step moves by the distance past the edge,
+// on both axes, within the extents. It scrolls toward the pointer however
+// far the text there goes: dragging right of a line shorter than the
+// longest scrolls on to the extent, where revealing the caret, which
+// stays at the end of the short line, did not.
+func (t *Tree) textareaAutoscroll(f *field, pt gfx.Point) (gfx.Point, bool) {
 	s := f.bx.scr
 	if s == nil {
-		return false
+		return gfx.Point{}, false
 	}
-	top := s.soff.Y - l.Padding.Top
-	bottom := top + s.client.H
-	if pt.Y < top && s.pos.Y > 0 || pt.Y > bottom && s.pos.Y < s.max.Y {
-		return true
+	l := f.bx.ld.Layout()
+	// The client area as painted (soff, physical: negative toward the
+	// left in a right-to-left field), in the coordinates of the text.
+	left, top := s.soff.X-l.Padding.Left, s.soff.Y-l.Padding.Top
+	past := func(v, lo, hi float32) float32 {
+		switch {
+		case v < lo:
+			return v - lo
+		case v > hi:
+			return v - hi
+		}
+		return 0
 	}
-	// Horizontally (lines that do not wrap), in physical offsets: from 0
-	// to the extent, or from minus it to 0 in a right-to-left field.
-	left := s.soff.X - l.Padding.Left
-	right := left + s.client.W
-	px, lo, hi := s.flip(s.pos).X, float32(0), s.max.X
-	if s.rtl {
-		lo, hi = -s.max.X, 0
-	}
-	return pt.X < left && px > lo || pt.X > right && px < hi
+	p := s.flip(s.pos)
+	p.X += past(pt.X, left, left+s.client.W)
+	p.Y += past(pt.Y, top, top+s.client.H)
+	p = s.clamp(s.flip(p))
+	return p, p != s.pos
 }
 
 // scrollXRange returns the smallest and largest horizontal scroll of an
@@ -572,11 +605,25 @@ func (f *field) scrollXRange() (lo, hi float32) {
 }
 
 // animateFields runs one autoscroll step of a selection drag past the
-// edges of its field (Animate).
+// edges of its field (Animate): an Input's caret moves to the text under
+// the pointer and is revealed; a Textarea scrolls toward the pointer
+// (textareaAutoscroll) and the selection extends to the text the step
+// brought to the edge, where the pointer's was before it.
 func (t *Tree) animateFields() {
-	if t.fieldAutoscrolling() {
-		t.fieldDragTo(t.in.fdrag)
+	if !t.fieldAutoscrolling() {
+		return
 	}
+	d := t.in.fdrag
+	f := d.f
+	if !f.multi || t.foc.el != f.el {
+		t.fieldDragTo(d)
+		return
+	}
+	pt := t.fieldPoint(f, d.ps.pos)
+	if p, ok := t.textareaAutoscroll(f, pt); ok {
+		t.scrollDirect(f.bx.scr, p)
+	}
+	t.fieldDragAt(f, pt)
 }
 
 // isTextFieldEl reports whether el is a text field.
