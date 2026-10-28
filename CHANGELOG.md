@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-10-28
+
 ### Fixed
 
 - A `Textarea` whose lines do not wrap (`text-nowrap`, `whitespace-pre`, `whitespace-nowrap`) scrolls horizontally, as in Chromium: long lines were clipped at the right edge (`examples/notes` with word wrap off). The wheel with Shift and a touchpad scroll it, the caret stays in view while typing and with Home, End and the arrow keys, a selection drag autoscrolls sideways, and with classic scrollbars the horizontal bar takes its gutter. Clicking into a scrolled, unfocused field no longer scrolls it back to the start first (ADR-188).
@@ -662,7 +664,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/kuronosu/tela/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/kuronosu/tela/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/kuronosu/tela/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/kuronosu/tela/compare/v0.10.4...v0.11.0
