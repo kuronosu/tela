@@ -77,6 +77,7 @@ func (w *Window) frameChanged() {
 		w.roundCorners()
 		setWindowPos(w.hwnd, 0, 0, 0, 0, swpNoMove|swpNoSize|swpNoZOrder|swpNoActivate|swpFrameChanged)
 	}
+	w.restyle()
 	w.repaint(true)
 }
 

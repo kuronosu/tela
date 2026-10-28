@@ -67,12 +67,49 @@ there rebuilds it. Each window has its own layout, focus, hover, overlays
   in: that one takes no input while this one is visible, a press on it brings
   the modal window forward, and its close button is refused.
 - **Applied on change:** `Title`, `Width` and `Height`, the size limits,
-  `AlwaysOnTop`, `Hidden`, `Icon` and `RootClass`. **Read when the window
+  `AlwaysOnTop`, `Hidden`, `Icon`, `TitleBar`, `Backdrop` and `RootClass`. **Read when the window
   opens:** `FixedSize`, `Frameless`, `Modal` and `Placement`; give the `Window`
   a new key to open it again with others.
 - **The main window** is the `tela.App`'s. It has the same window fields
   (`MinWidth`...`MaxHeight`, `FixedSize`, `Frameless`, `AlwaysOnTop`, `Hidden`,
-  `Icon`, `Placement`, `AppID`) and an `OnClose func(tela.WindowHandle)`.
+  `Icon`, `TitleBar`, `Backdrop`, `Placement`, `AppID`) and an
+  `OnClose func(tela.WindowHandle)`.
+
+## Windows 11 look
+
+On Windows 11 a window can take the colors of the system's own chrome. Both
+fields exist on `tela.App` and on `tela.Window`, and Windows 10, Linux and the
+headless backend ignore them.
+
+- `TitleBar: tela.TitleBarColors{Background, Text, Border}` colors the native
+  title bar and the window border (Windows 11, build 22000 and later). A zero
+  `Color` keeps the system's. The dark or light title bar already follows the
+  app's color scheme; these colors go on top of it. The border also applies to
+  a `Frameless` window.
+- `Backdrop` is `BackdropMica`, `BackdropMicaAlt`, `BackdropAcrylic`,
+  `BackdropNone` or the zero `BackdropDefault` (Windows 11 22H2, build 22621).
+  The material always shows in the native title bar. It shows in the content
+  only where the app draws nothing: leave the root without a background
+  (`RootClass: "text-foreground"`, not `bg-background`) or give it some
+  transparency (`bg-background/60`), and the surfaces you draw over it cover it.
+  Where the backdrop is missing (Windows 10, Linux) a transparent root is a
+  white window, so keep a fallback background such as `bg-background/60`.
+
+```go
+tela.Run(tela.App{
+    Title:     "Notes",
+    TitleBar:  tela.TitleBarColors{Background: tela.Hex("#1e1b4b"), Text: tela.Hex("#e0e7ff")},
+    Backdrop:  tela.BackdropMica,
+    RootClass: "bg-background/60 text-foreground",
+    Root:      Notes{},
+})
+```
+
+A `Frameless` window with a client-area backdrop extends the window frame over
+its content, and Windows 11 may then stop showing the snap layouts flyout over
+the app's maximize button. Keep a frameless window without a backdrop if you
+need the flyout. Under `tela dev` the title
+bar colors and the backdrop of the title bar apply, but the content is opaque.
 
 ## The window handle and its state
 

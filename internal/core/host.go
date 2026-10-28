@@ -42,6 +42,10 @@ type Options struct {
 	FixedSize, Frameless, AlwaysOnTop, Hidden bool
 	Icon                                      []image.Image
 	Placement                                 WindowPlacement
+	// TitleBar are the colors of the OS title bar and border, Backdrop the
+	// system material behind the window (Windows 11; ADR-187).
+	TitleBar TitleBarColors
+	Backdrop Backdrop
 	// OnClose runs when the user asks to close the main window (the OS's
 	// close button, a WindowClose control, WindowHandle.Close). Nil quits
 	// the app.
@@ -64,7 +68,7 @@ func (o *Options) mainSpec() WindowSpec {
 		Title: o.Title, Width: o.Width, Height: o.Height,
 		MinWidth: o.MinWidth, MinHeight: o.MinHeight, MaxWidth: o.MaxWidth, MaxHeight: o.MaxHeight,
 		FixedSize: o.FixedSize, Frameless: o.Frameless, AlwaysOnTop: o.AlwaysOnTop, Hidden: o.Hidden,
-		Icon: o.Icon, Placement: o.Placement,
+		Icon: o.Icon, Placement: o.Placement, TitleBar: o.TitleBar, Backdrop: o.Backdrop,
 	}
 }
 

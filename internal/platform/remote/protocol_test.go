@@ -163,7 +163,9 @@ func TestTextInputAndOptionsRoundTrip(t *testing.T) {
 	}
 	o := platform.WindowOptions{Title: "t", AppID: "com.example", Size: platform.Size{W: 3, H: 4}, MinSize: platform.Size{W: 1, H: 2},
 		MaxSize: platform.Size{W: 30, H: 40}, FixedSize: true, Position: image.Pt(-1920, 37), HasPosition: true,
-		Maximized: true, Fullscreen: true, Hidden: true, AlwaysOnTop: true, Frameless: true, Modal: true, RestoreToken: "wayland:abc"}
+		Maximized: true, Fullscreen: true, Hidden: true, AlwaysOnTop: true, Frameless: true, Modal: true, RestoreToken: "wayland:abc",
+		TitleBar: platform.TitleBarColors{Background: platform.WindowColor{R: 1, G: 2, B: 3, Set: true}, Border: platform.WindowColor{R: 255, Set: true}},
+		Backdrop: platform.BackdropMicaAlt}
 	e := newMsg(msgNewWindow)
 	e.windowOptions(o, 7)
 	d := &dec{b: e.bytes()[5:]}
@@ -191,6 +193,9 @@ func TestWindowOptionsEncodeEveryField(t *testing.T) {
 				t.Fatalf("cannot generate %s", typ.Field(i).Name)
 			}
 			f.Set(rv)
+			if typ.Field(i).Name == "Backdrop" {
+				f.Set(reflect.ValueOf(platform.Backdrop(r.Intn(len(platform.BackdropNames())))))
+			}
 		}
 		e := newMsg(msgNewWindow)
 		e.windowOptions(o, 3)

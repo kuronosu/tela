@@ -68,6 +68,13 @@ type Window struct {
 	icon        []image.Image // SetIcon's images, kept for DPI changes
 	icons       [2]uintptr    // ICON_SMALL and ICON_BIG
 	ncTracking  bool          // TrackMouseEvent(TME_LEAVE|TME_NONCLIENT) is armed
+
+	// Window styling (windowstyle.go).
+	titleBar    platform.TitleBarColors
+	backdrop    platform.Backdrop
+	titleBarSet bool // colors were set once: the system's are set back explicitly
+	backdropSet bool // the backdrop type was set once
+	glass       bool // client-area backdrop: frame extended, alpha presented
 }
 
 var _ platform.Window = (*Window)(nil)

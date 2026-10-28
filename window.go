@@ -42,8 +42,8 @@ import (
 // while it is out of sight, set Hidden instead of unmounting it.
 //
 // The fields are applied when they change: a new Title, Width and Height,
-// size limits, AlwaysOnTop, Hidden, Icon or RootClass update the open
-// window. FixedSize, Frameless, Modal and Placement are read when it opens
+// size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass
+// update the open window. FixedSize, Frameless, Modal and Placement are read when it opens
 // (give the Window a new key to open it again with others).
 //
 // tela snapshot, tela inspect and tela mcp show the main window only;
@@ -82,6 +82,14 @@ type Window struct {
 	// picture at several sizes (16 to 256 pixels; the OS picks). Empty is
 	// the app's default icon.
 	Icon []image.Image
+	// TitleBar sets the colors of the native title bar and border on
+	// Windows 11; see [TitleBarColors]. The zero value keeps the
+	// system's. Other platforms ignore it.
+	TitleBar TitleBarColors
+	// Backdrop is the system material behind the window (Mica, Mica Alt,
+	// Acrylic) on Windows 11 22H2; see [Backdrop]. The zero value is the
+	// system's choice. Other platforms ignore it.
+	Backdrop Backdrop
 	// RootClass are Tailwind classes for the window's root, which fills
 	// the window, as App.RootClass for the main window ("bg-background").
 	RootClass string
@@ -105,6 +113,7 @@ func (w Window) Build() Node {
 		MinWidth: w.MinWidth, MinHeight: w.MinHeight, MaxWidth: w.MaxWidth, MaxHeight: w.MaxHeight,
 		FixedSize: w.FixedSize, Frameless: w.Frameless, AlwaysOnTop: w.AlwaysOnTop,
 		Modal: w.Modal, Hidden: w.Hidden, Icon: w.Icon, RootClass: w.RootClass,
+		TitleBar: w.TitleBar, Backdrop: w.Backdrop,
 		Placement: w.Placement, OnClose: w.OnClose,
 		Root: core.NodeOf(w.Root),
 	})

@@ -122,6 +122,8 @@ var (
 	procDwmIsCompositionEnabled = dwmapi.NewProc("DwmIsCompositionEnabled")
 	procDwmSetWindowAttribute   = dwmapi.NewProc("DwmSetWindowAttribute") // Windows 10 1809 (19) and 1903 (20)
 
+	procDwmExtendFrameIntoClientArea = dwmapi.NewProc("DwmExtendFrameIntoClientArea")
+
 	procGetModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 	procGlobalAlloc      = kernel32.NewProc("GlobalAlloc")
 	procGlobalFree       = kernel32.NewProc("GlobalFree")

@@ -756,6 +756,14 @@ func testWindowControl(s *session) {
 			w.SetFullscreen(false)
 			w.SetIcon(nil)
 			w.Activate()
+			// Window styling (ADR-187): a request every backend accepts,
+			// whatever it does with it; the zero values undo it.
+			w.SetTitleBarColors(platform.TitleBarColors{Background: platform.WindowColor{R: 30, G: 27, B: 75, Set: true}})
+			w.SetBackdrop(platform.BackdropMica)
+			w.SetBackdrop(platform.BackdropNone)
+			w.SetBackdrop(platform.BackdropDefault)
+			w.SetTitleBarColors(platform.TitleBarColors{})
+			s.expectPanic("SetBackdrop with an unknown backdrop", func() { w.SetBackdrop(platform.Backdrop(99)) })
 			s.expectPanic("SetIcon with a nil image", func() { w.SetIcon([]image.Image{nil}) })
 			s.expectPanic("SetIcon with an empty image", func() { w.SetIcon([]image.Image{image.NewRGBA(image.Rect(0, 0, 0, 16))}) })
 			s.expectPanic("SetHitRegions with an invalid kind", func() {

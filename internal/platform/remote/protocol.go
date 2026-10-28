@@ -26,7 +26,9 @@ import (
 //   - 2: the window state, notification and tray events (phase 12).
 //   - 3: every WindowOptions field, window keys, window control
 //     requests, window info and desktop services (phase 12, ADR-184).
-const ProtocolVersion = 3
+//   - 4: WindowOptions.TitleBar and Backdrop, and their window control
+//     requests (ADR-187).
+const ProtocolVersion = 4
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -94,6 +96,8 @@ const (
 	ctlActivate         //
 	ctlIcon             // images
 	ctlHitRegions       // regions
+	ctlTitleBar         // three colors (version 4, ADR-187)
+	ctlBackdrop         // u8
 )
 
 // Limits of decoded lists: a corrupt count fails the message instead of
@@ -536,6 +540,8 @@ func (e *enc) windowOptions(o platform.WindowOptions, parent uint32) {
 	e.u32(parent)
 	e.boolean(o.Modal)
 	e.str(o.RestoreToken)
+	e.titleBar(o.TitleBar)
+	e.u8(uint8(o.Backdrop))
 }
 
 // windowOptions decodes the options of a new window. Parent is left nil:
@@ -559,7 +565,38 @@ func (d *dec) windowOptions() (platform.WindowOptions, uint32) {
 	parent := d.u32()
 	o.Modal = d.boolean()
 	o.RestoreToken = d.str()
+	o.TitleBar = d.titleBar()
+	o.Backdrop = d.backdrop()
 	return o, parent
+}
+
+// titleBar encodes the colors of a window's title bar.
+func (e *enc) titleBar(c platform.TitleBarColors) {
+	for _, w := range [...]platform.WindowColor{c.Background, c.Text, c.Border} {
+		e.boolean(w.Set)
+		e.u8(w.R)
+		e.u8(w.G)
+		e.u8(w.B)
+	}
+}
+
+func (d *dec) titleBar() platform.TitleBarColors {
+	var c platform.TitleBarColors
+	for _, w := range [...]*platform.WindowColor{&c.Background, &c.Text, &c.Border} {
+		w.Set = d.boolean()
+		w.R, w.G, w.B = d.u8(), d.u8(), d.u8()
+	}
+	return c
+}
+
+// backdrop decodes a Backdrop; an invalid value fails the message.
+func (d *dec) backdrop() platform.Backdrop {
+	b := platform.Backdrop(d.u8())
+	if !b.Valid() {
+		d.fail(fmt.Errorf("remote: invalid backdrop %d", uint8(b)))
+		return platform.BackdropDefault
+	}
+	return b
 }
 
 // images encodes an icon (images at several sizes) as non-premultiplied

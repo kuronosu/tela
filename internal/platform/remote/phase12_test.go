@@ -76,7 +76,8 @@ func TestWindowOptionsForwarded(t *testing.T) {
 	a := p.dial("a").start()
 	want := platform.WindowOptions{Title: "opts", AppID: "com.example.opts", Size: platform.Size{W: 200, H: 100},
 		MinSize: platform.Size{W: 50, H: 40}, MaxSize: platform.Size{W: 900, H: 800}, Position: image.Pt(30, 40), HasPosition: true,
-		AlwaysOnTop: true, Frameless: true, RestoreToken: "headless:9"}
+		AlwaysOnTop: true, Frameless: true, RestoreToken: "headless:9",
+		TitleBar: platform.TitleBarColors{Text: platform.WindowColor{R: 9, G: 8, B: 7, Set: true}}, Backdrop: platform.BackdropMica}
 	a.newWindow(want)
 	hw := p.hostWindow("opts")
 	if got := hw.Options(); got != want {
@@ -145,6 +146,13 @@ func TestWindowControlForwarded(t *testing.T) {
 	if got := hw.Icon()[0].(*image.NRGBA); got.Pix[3] != 255 || got.Rect != icon.Rect {
 		t.Errorf("icon not forwarded intact")
 	}
+
+	bar := platform.TitleBarColors{Background: platform.WindowColor{R: 30, G: 27, B: 75, Set: true}}
+	a.ui(func() {
+		w.SetTitleBarColors(bar)
+		w.SetBackdrop(platform.BackdropAcrylic)
+	})
+	waitFor(t, "style requests", func() bool { return hw.TitleBar() == bar && hw.Backdrop() == platform.BackdropAcrylic })
 
 	a.ui(func() { w.SetVisible(false) })
 	waitFor(t, "hidden", func() bool { return !hw.Visible() })

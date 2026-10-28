@@ -28,6 +28,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `docs/llms.txt` has a section on windows and desktop services, and the wiki a "Windows and Desktop" guide and a `desktop` API page; Go blocks of one package in `llms.txt` compile together.
 - A hidden or minimized window keeps building and running its effects without drawing, so a tray menu follows a hidden main window, a window opens from it, and timers and setting changes reach it; it is drawn in full when shown (ADR-185).
 
+- Windows 11 look: `TitleBar: tela.TitleBarColors{Background, Text, Border}` colors a window's native title bar and border, and `Backdrop: tela.BackdropMica` (`BackdropMicaAlt`, `BackdropAcrylic`, `BackdropNone`) gives it the system material, in the title bar and, where the root has no background, in the content. Fields of `tela.App` and `tela.Window`, applied on change; Windows 10, Linux and headless ignore them; `tela dev` forwards them (protocol 4); `telatest` records them (`app.TitleBar()`, `app.Backdrop()`). A frameless window with a backdrop may lose the snap layouts flyout. The `notes` Preferences window is Mica (ADR-187).
+
 ### Fixed
 
 - Wayland: a hidden window shown again stayed invisible on Hyprland, which sends no configure to a surface that commits again after an unmap; hiding now destroys the window's `xdg_toplevel` and `xdg_surface` and showing creates them again, as GTK and Qt do (ADR-186).

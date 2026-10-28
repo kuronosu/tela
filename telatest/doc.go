@@ -131,7 +131,7 @@
 // returns: every window unmounted, the cleanups of the effects run, and
 // further use fails the test. [App.HasQuit] and [App.ExpectRunning] check
 // that it did or did not. The window options ([Title], [MinSize],
-// [MaxSize], [FixedSize], [Frameless], [AlwaysOnTop], [StartHidden],
+// [MaxSize], [FixedSize], [Frameless], [AlwaysOnTop], [TitleBar], [Backdrop], [StartHidden],
 // [Icon], [Placement], [OnClose], [Screen]) set the main window's fields
 // for Mount.
 //

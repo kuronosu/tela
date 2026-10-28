@@ -85,6 +85,7 @@ func (w *Window) initialPlacement() (x, y uintptr) {
 // fullscreen. The window is not shown yet.
 func (w *Window) initControl() {
 	w.onTop = w.opts.AlwaysOnTop
+	w.initStyle()
 	if w.opts.Frameless {
 		w.roundCorners()
 		// The window got its first WM_NCCALCSIZE during CreateWindowExW;

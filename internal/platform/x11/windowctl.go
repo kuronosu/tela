@@ -584,6 +584,14 @@ func (w *Window) SetVisible(visible bool) {
 	w.updateHidden()
 }
 
+// SetTitleBarColors does nothing: only Windows 11 draws colored title bars.
+func (w *Window) SetTitleBarColors(platform.TitleBarColors) {}
+
+// SetBackdrop does nothing: system backdrops are a Windows 11 material.
+func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
+	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+}
+
 // SetAlwaysOnTop adds or removes _NET_WM_STATE_ABOVE.
 func (w *Window) SetAlwaysOnTop(onTop bool) {
 	if w.Closed() || w.req.above == onTop {

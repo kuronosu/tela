@@ -78,6 +78,10 @@ type WindowSpec struct {
 	FixedSize, Frameless, AlwaysOnTop, Modal, Hidden bool
 	// Icon is the window icon at several sizes; empty is the default.
 	Icon []image.Image
+	// TitleBar are the colors of the OS title bar and border, Backdrop the
+	// system material behind the window (Windows 11; ADR-187).
+	TitleBar TitleBarColors
+	Backdrop Backdrop
 	// RootClass are the classes of the window's root (a child window's;
 	// the main window's are Config.RootClass).
 	RootClass string
@@ -232,6 +236,7 @@ func (h *Host) newView(win platform.Window, t *Tree, slot *windowSlot, spec *Win
 		RestoreToken: win.RestoreToken(),
 	}
 	t.wv = v
+	v.syncCanvas()
 	return v
 }
 
@@ -612,6 +617,13 @@ func (t *Tree) updateWindow(s *windowSlot) {
 		if !sameIcon(spec.Icon, old.Icon) {
 			win.SetIcon(spec.Icon)
 		}
+		if spec.TitleBar != old.TitleBar {
+			win.SetTitleBarColors(spec.TitleBar.platform())
+		}
+		if spec.Backdrop != old.Backdrop {
+			win.SetBackdrop(spec.Backdrop)
+			v.syncCanvas()
+		}
 	}
 	if t.dev && (spec.FixedSize != old.FixedSize || spec.Frameless != old.Frameless || spec.Modal != old.Modal) {
 		t.warnOnce("window-fixed:"+spec.Title, func() string {
@@ -684,6 +696,8 @@ func (s *WindowSpec) options(appID string, parent platform.Window) platform.Wind
 		AlwaysOnTop: s.AlwaysOnTop,
 		Frameless:   s.Frameless,
 		Hidden:      s.Hidden,
+		TitleBar:    s.TitleBar.platform(),
+		Backdrop:    s.Backdrop,
 		Parent:      parent,
 		Modal:       s.Modal && parent != nil,
 	}
@@ -718,6 +732,9 @@ func checkWindowSpec(kind, title string, s *WindowSpec) {
 		if !validSize(f.v) {
 			panic(fmt.Sprintf("tela: %s has %s %v; sizes are logical pixels, finite and not negative (0 means the default, or no limit)", what(), f.name, f.v))
 		}
+	}
+	if !s.Backdrop.Valid() {
+		panic(fmt.Sprintf("tela: %s has Backdrop %v; the valid backdrops are %s", what(), s.Backdrop, backdropList()))
 	}
 	if (s.Width == 0) != (s.Height == 0) {
 		panic(fmt.Sprintf("tela: %s sets only one of Width and Height (%vx%v); set both, or neither for the default %vx%v", what(), s.Width, s.Height, platform.DefaultWindowSize.W, platform.DefaultWindowSize.H))

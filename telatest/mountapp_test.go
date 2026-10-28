@@ -122,6 +122,7 @@ func TestAppFieldsAreClassified(t *testing.T) {
 		"FixedSize": "FixedSize", "Frameless": "Frameless",
 		"AlwaysOnTop": "AlwaysOnTop", "Hidden": "StartHidden",
 		"Icon": "Icon", "Placement": "Placement", "OnClose": "OnClose",
+		"TitleBar": "TitleBar", "Backdrop": "Backdrop",
 	}
 	ignored := map[string]string{
 		"Root":     "mounted by MountApp, not a setting",

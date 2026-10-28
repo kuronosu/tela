@@ -142,6 +142,9 @@ type Tree struct {
 	root     *Element
 	rootBox  *Box
 	viewport gfx.Size
+	// transCanvas: the window background keeps its alpha instead of being
+	// composed over white (SetTransparentCanvas, ADR-187).
+	transCanvas bool
 	// scale is the display scale the paint phase snaps box edges for
 	// (device pixels per logical pixel).
 	scale float32
@@ -732,14 +735,18 @@ func (t *Tree) layoutPhase() {
 }
 
 // CanvasColor returns the color of the window background: the root box's
-// background over white.
+// background over white (over nothing for a transparent canvas, which may
+// have alpha).
 func (t *Tree) CanvasColor() gfx.Color {
 	c := gfx.White
+	if t.transCanvas {
+		c = gfx.Transparent
+	}
 	if t.rootBox == nil || t.rootBox.cs == nil {
 		return c
 	}
 	bg := t.rootBox.cs.BackgroundColor.Clamp()
-	if bg.A >= 1 {
+	if bg.A >= 1 || t.transCanvas {
 		return bg
 	}
 	k := 1 - bg.A

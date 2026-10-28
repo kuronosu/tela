@@ -18,6 +18,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
   - [`type App`](#type-app)
+  - [`type Backdrop`](#type-backdrop)
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
   - [`type Child`](#type-child)
@@ -64,6 +65,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type SubmitEvent`](#type-submitevent): [`DefaultPrevented`](#func-submitevent-defaultprevented) · [`PreventDefault`](#func-submitevent-preventdefault) · [`StopPropagation`](#func-submitevent-stoppropagation)
   - [`type Theme`](#type-theme): [`DefaultTheme`](#func-defaulttheme)
   - [`type ThemeValues`](#type-themevalues): [`UseTheme`](#func-usetheme) · [`Color`](#func-themevalues-color) · [`FontMono`](#func-themevalues-fontmono) · [`FontSans`](#func-themevalues-fontsans) · [`Lookup`](#func-themevalues-lookup) · [`Radius`](#func-themevalues-radius) · [`Scheme`](#func-themevalues-scheme) · [`Tokens`](#func-themevalues-tokens)
+  - [`type TitleBarColors`](#type-titlebarcolors)
   - [`type Value`](#type-value): [`UseBounds`](#func-usebounds) · [`UsePresenceTween`](#func-usepresencetween) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseTween`](#func-usetween) · [`UseValue`](#func-usevalue) · [`Get`](#func-value-get) · [`Latest`](#func-value-latest) · [`Set`](#func-value-set) · [`Update`](#func-value-update)
   - [`type WheelEvent`](#type-wheelevent): [`DefaultPrevented`](#func-wheelevent-defaultprevented) · [`PreventDefault`](#func-wheelevent-preventdefault) · [`StopPropagation`](#func-wheelevent-stoppropagation)
   - [`type Window`](#type-window): [`Build`](#func-window-build)
@@ -300,6 +302,25 @@ const (
     WindowMaximize = core.WindowMaximize
     // WindowClose asks to close the window, as its close button does.
     WindowClose = core.WindowClose
+)
+```
+
+```go
+const (
+    // BackdropDefault leaves the choice to the system: no material for a
+    // plain window.
+    BackdropDefault = core.BackdropDefault
+    // BackdropNone turns the system material off.
+    BackdropNone = core.BackdropNone
+    // BackdropMica is Mica, the opaque material tinted with the desktop
+    // wallpaper, for the main windows of an app.
+    BackdropMica = core.BackdropMica
+    // BackdropMicaAlt is Mica Alt, a stronger tint, for windows with tabs
+    // in their title bar.
+    BackdropMicaAlt = core.BackdropMicaAlt
+    // BackdropAcrylic is Acrylic, the translucent blurred material of
+    // transient surfaces such as flyouts.
+    BackdropAcrylic = core.BackdropAcrylic
 )
 ```
 
@@ -1429,6 +1450,14 @@ type App struct {
     // picture at several sizes (16 to 256 pixels; the OS picks). Empty is
     // the default icon (on Linux, the one of the .desktop file of AppID).
     Icon []image.Image
+    // TitleBar sets the colors of the native title bar and border on
+    // Windows 11; see [TitleBarColors]. The zero value keeps the
+    // system's. Other platforms ignore it.
+    TitleBar TitleBarColors
+    // Backdrop is the system material behind the window (Mica, Mica Alt,
+    // Acrylic) on Windows 11 22H2; see [Backdrop]. The zero value is the
+    // system's choice. Other platforms ignore it.
+    Backdrop Backdrop
     // Placement is where the window opens: a WindowPlacement saved from
     // [WindowHandle].Placement in an earlier run, so the window comes back
     // where the user left it. Its size, when set, wins over Width and
@@ -1528,6 +1557,34 @@ tela.Run(tela.App{
     ClassicScrollbars: true, // always-visible classic bars (a Windows look)
     InstantScroll:     true, // no scroll animation, no inertia
 })
+```
+
+### type Backdrop
+
+```go
+type Backdrop = core.Backdrop
+```
+
+Backdrop is the system material behind a window ([`App`](#type-app).Backdrop, [`Window`](#type-window).Backdrop): Mica, Mica Alt or Acrylic on Windows 11.
+
+The zero value, [`BackdropDefault`](#constants), leaves the choice to the system. On Windows 11 22H2 (build 22621 and later) the other values apply the material to the native title bar of a decorated window, always; and, for [`BackdropMica`](#constants), [`BackdropMicaAlt`](#constants) and [`BackdropAcrylic`](#constants), to the content of the window where the app leaves it transparent. The root has no background by default (see RootClass), so a root without a background class shows the material, a root with a translucent one tints it, and the surfaces the app draws over it (a sidebar with bg-white/60, a card with bg-card) cover it. A root with bg-background hides it:
+
+```go
+tela.App{
+    Backdrop:  tela.BackdropMica,
+    RootClass: "bg-background/60", // Mica shows through; elsewhere a plain background
+    Root:      Notes{},
+}
+```
+
+The material follows the dark or light title bar, which follows the app's color scheme. A \[Frameless\] window with a client-area backdrop extends the window frame over its content (DwmExtendFrameIntoClientArea), which Windows 11 may answer by no longer showing the snap layouts flyout over the app's maximize button; keep a frameless window without a backdrop if that matters.
+
+Windows 10, Linux and headless ignore Backdrop, and so does Windows 11 before 22H2: the window stays as without it, so an app that leaves its root transparent should still give it a background color for them (a dark: class pair, or a background only where the backdrop is missing). Changing the field of an open [`Window`](#type-window) updates the window.
+
+`Backdrop` is an alias of `core.Backdrop`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Backdrop = platform.Backdrop
 ```
 
 ### type Callback
@@ -4790,6 +4847,34 @@ func (t ThemeValues) Tokens() []string
 
 Tokens returns the names of the theme's color tokens, sorted.
 
+### type TitleBarColors
+
+```go
+type TitleBarColors = core.TitleBarColors
+```
+
+TitleBarColors are the colors of the title bar and border the OS draws for a window ([`App`](#type-app).TitleBar, [`Window`](#type-window).TitleBar). A zero Color, or one with zero alpha, keeps the system's color; the alpha of any other is ignored (the color is used opaque).
+
+```go
+tela.App{
+    TitleBar: tela.TitleBarColors{
+        Background: tela.Hex("#1e1b4b"),
+        Text:       tela.Hex("#e0e7ff"),
+    },
+    ...
+}
+```
+
+Windows 11 (build 22000 and later) applies them to the native title bar of a decorated window (Background, Text: the title and the glyphs of the caption buttons) and to its border (Border, also the thin border Windows 11 draws around a Frameless window). Windows 10, Linux (Wayland and X11) and headless ignore them, as does a decorated window on Wayland whose compositor draws no title bar for it. The dark or light title bar already follows the app's color scheme ([`App`](#type-app).ColorScheme); these colors are on top of it. Changing the field of an open [`Window`](#type-window) updates the window.
+
+`TitleBarColors` is an alias of `core.TitleBarColors`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type TitleBarColors struct {
+    Background, Text, Border gfx.Color
+}
+```
+
 ### type Value
 
 ```go
@@ -5243,6 +5328,14 @@ type Window struct {
     // picture at several sizes (16 to 256 pixels; the OS picks). Empty is
     // the app's default icon.
     Icon []image.Image
+    // TitleBar sets the colors of the native title bar and border on
+    // Windows 11; see [TitleBarColors]. The zero value keeps the
+    // system's. Other platforms ignore it.
+    TitleBar TitleBarColors
+    // Backdrop is the system material behind the window (Mica, Mica Alt,
+    // Acrylic) on Windows 11 22H2; see [Backdrop]. The zero value is the
+    // system's choice. Other platforms ignore it.
+    Backdrop Backdrop
     // RootClass are Tailwind classes for the window's root, which fills
     // the window, as App.RootClass for the main window ("bg-background").
     RootClass string
@@ -5282,7 +5375,7 @@ The window belongs to the window it is declared in: it stays above it, and with 
 
 When the user asks to close the window (its close button, Alt+F4, a WindowClose control, [`WindowHandle`](#type-windowhandle).Close), OnClose runs: it should update the state that renders the Window, which unmounts it and closes the window. Without OnClose the request does nothing and the window stays open (dev mode warns once). To keep the window and its state while it is out of sight, set Hidden instead of unmounting it.
 
-The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon or RootClass update the open window. FixedSize, Frameless, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
+The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass update the open window. FixedSize, Frameless, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
 
 tela snapshot, tela inspect and tela mcp show the main window only; in tests, telatest's App.Windows and App.Window reach the others. Under tela dev the other windows keep their parent, modality and window control, and an open window survives a reload (it is keyed by its place in the tree).
 

@@ -36,6 +36,10 @@ type windowCtl struct {
 	token    string
 	parent   *Window
 
+	titleBar     platform.TitleBarColors
+	backdrop     platform.Backdrop
+	styleChanges int // SetTitleBarColors and SetBackdrop calls
+
 	regionChanges int
 	activations   int
 	captionDrags  int
@@ -89,6 +93,7 @@ func (w *Window) initCtl(opts platform.WindowOptions, screen platform.Size, n in
 	c.restore = opts.Size
 	c.visible = !opts.Hidden
 	c.onTop = opts.AlwaysOnTop
+	c.titleBar, c.backdrop = opts.TitleBar, opts.Backdrop
 	c.osState = platform.WindowState{
 		Maximized:             opts.Maximized,
 		Fullscreen:            opts.Fullscreen,
@@ -267,6 +272,51 @@ func (w *Window) SetIcon(images []image.Image) {
 	if !w.WindowState.Closed() {
 		w.ctl.icon = icon
 	}
+}
+
+// SetTitleBarColors records the colors (TitleBar). The headless window
+// draws no chrome, so they have no other effect.
+func (w *Window) SetTitleBarColors(colors platform.TitleBarColors) {
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	if !w.WindowState.Closed() {
+		w.ctl.titleBar = colors
+		w.ctl.styleChanges++
+	}
+}
+
+// SetBackdrop records the backdrop (Backdrop); it has no other effect.
+func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
+	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	if !w.WindowState.Closed() {
+		w.ctl.backdrop = backdrop
+		w.ctl.styleChanges++
+	}
+}
+
+// TitleBar returns the latest SetTitleBarColors (or the option).
+func (w *Window) TitleBar() platform.TitleBarColors {
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	return w.ctl.titleBar
+}
+
+// Backdrop returns the latest SetBackdrop (or the option).
+func (w *Window) Backdrop() platform.Backdrop {
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	return w.ctl.backdrop
+}
+
+// StyleChanges returns how many times SetTitleBarColors and SetBackdrop
+// changed the window after it opened, for tests that check a request is
+// made only when a field changes.
+func (w *Window) StyleChanges() int {
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	return w.ctl.styleChanges
 }
 
 // SetHitRegions records the regions (HitRegions, HitRegionChanges); Inject
