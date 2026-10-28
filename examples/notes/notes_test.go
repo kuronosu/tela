@@ -107,8 +107,12 @@ func TestFramelessTitleBar(t *testing.T) {
 	a := mount(t)
 	a.ExpectWindowState(telatest.ClientDecorations(true))
 	a.ExpectRole("group", "Window controls")
-	if n := a.CaptionDrags(); n == 0 {
-		t.Errorf("the title bar has no drag region")
+	caption := false
+	for _, r := range a.HitRegions() {
+		caption = caption || r.Kind == telatest.HitCaption
+	}
+	if !caption {
+		t.Errorf("the title bar has no drag region: %v", a.HitRegions())
 	}
 	// The close button of the title bar asks to close the window like the
 	// OS's own: the app is not quit by the click itself.

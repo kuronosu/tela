@@ -1,0 +1,14 @@
+- text: Notes — Welcome to Notes
+- button "Open"
+- button "Save"
+- button "Preferences"
+- group "Window controls":
+  - button "Minimize"
+  - button "Maximize"
+  - button "Close"
+- button "New note"
+- navigation "Notes":
+  - button "Welcome to Notes": Welcome to Notes Everything you type is kept in your library, even if you cl…
+- textbox "Note text": "Welcome to Notes Everything you type is kept in your library, even if you close the app without saving. Use Open to read a text file into a new note, and Save to write a note to a file. Preferences has the font size, word wrap, and what closing the window does: it can keep Notes running in the tray."
+- text: Not saved to a file 60 words · 301 characters
+- region "Notifications"
