@@ -5283,7 +5283,7 @@ When the user asks to close the window (its close button, Alt+F4, a WindowClose 
 
 The fields are applied when they change: a new Title, Width and Height, size limits, AlwaysOnTop, Hidden, Icon or RootClass update the open window. FixedSize, Frameless, Modal and Placement are read when it opens (give the Window a new key to open it again with others).
 
-tela snapshot, tela inspect and telatest's queries show the main window only. Under tela dev the other windows are plain windows (without a parent, modality or window control yet), and their state is not kept across reloads.
+tela snapshot, tela inspect and tela mcp show the main window only; in tests, telatest's App.Windows and App.Window reach the others. Under tela dev the other windows keep their parent, modality and window control, and an open window survives a reload (it is keyed by its place in the tree).
 
 #### func (Window) Build
 

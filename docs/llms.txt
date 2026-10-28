@@ -913,7 +913,7 @@ import (
 	. "github.com/kuronosu/tela/h"
 )
 
-var trayIcon []image.Image // the app's icon at 16, 24 and 32 px
+var trayIcon = []image.Image{image.NewRGBA(image.Rect(0, 0, 32, 32))} // the app's icon at 16, 24 and 32 px (decode embedded PNGs)
 
 // Editor opens a file, asks before closing and lives in the tray.
 func Editor() tela.Component {

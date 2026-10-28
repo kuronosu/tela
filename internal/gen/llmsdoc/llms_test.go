@@ -181,10 +181,12 @@ func sortedKeys(m map[string]string) []string {
 	return out
 }
 
-var snippetRef = regexp.MustCompile(`(?:[^\s:]*/)?s(\d+)/snippet\.go:(\d+)(:\d+)?`)
+var snippetRef = regexp.MustCompile(`(?:[^\s:]*/)?s\d+/snippet(\d+)\.go:(\d+)(:\d+)?`)
 
 // TestSnippets type-checks every Go block and lints it as `tela lint`
-// does. A finding names the line of llms.txt.
+// does. A finding names the line of llms.txt. The files of one package
+// other than main (package notes) are one package, so a block can use
+// what an earlier block of that package declares.
 func TestSnippets(t *testing.T) {
 	needGo(t)
 	if testing.Short() {
@@ -205,6 +207,7 @@ func TestSnippets(t *testing.T) {
 	}
 
 	offsets := map[int]int{} // block index -> llms.txt line of the file's line 1
+	pkgs := map[string]int{}  // package name -> the block whose directory holds it
 	var patterns []string
 	for i, b := range blocks {
 		src, pre, err := source(b)
@@ -212,15 +215,27 @@ func TestSnippets(t *testing.T) {
 			t.Errorf("docs/llms.txt:%d: %v", b.line, err)
 			continue
 		}
-		pkg := filepath.Join(abs, fmt.Sprintf("s%02d", i))
+		at := i
+		if f, err := parser.ParseFile(token.NewFileSet(), "", src, parser.PackageClauseOnly); err == nil {
+			if name := f.Name.Name; name != "main" && name != "snippet" {
+				if j, ok := pkgs[name]; ok {
+					at = j
+				} else {
+					pkgs[name] = i
+				}
+			}
+		}
+		pkg := filepath.Join(abs, fmt.Sprintf("s%02d", at))
 		if err := os.MkdirAll(pkg, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(pkg, "snippet.go"), []byte(src), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(pkg, fmt.Sprintf("snippet%02d.go", i)), []byte(src), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		offsets[i] = b.line - pre
-		patterns = append(patterns, pkg)
+		if at == i {
+			patterns = append(patterns, pkg)
+		}
 	}
 	modRoot, err := filepath.Abs(root)
 	if err != nil {
