@@ -2,6 +2,7 @@ package core
 
 import (
 	"image"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -259,6 +260,87 @@ func TestModalWindowBlocksParent(t *testing.T) {
 	x.click(main, 20, 20)
 	if clicks != 1 {
 		t.Errorf("%d clicks after the modal window closed, want 1", clicks)
+	}
+}
+
+// A handler of a child window that drives its parent synchronously (an
+// ElementRef.Click on the parent's element), whose build changes the
+// Window, does not rebuild the child window's tree under the child's own
+// dispatch: the click finishes with the handlers it started with, and the
+// window and its content are updated after it (as closing waits,
+// closeWindow).
+func TestWindowUpdateWaitsForChildDispatch(t *testing.T) {
+	var parentBtn ElementRef
+	var calls []string
+	root := Component(func() Node {
+		n, setN := UseState(0)
+		parentBtn = UseElementRef()
+		child := []Child{Class("block w-40 h-10"), On("click", func(MouseEvent) {
+			calls = append(calls, "first")
+			parentBtn.Click()
+		})}
+		if n == 0 {
+			child = append(child, On("click", func(MouseEvent) { calls = append(calls, "second") }))
+		}
+		child = append(child, Text("child "+strconv.Itoa(n)))
+		return div(
+			button(AttachRef(parentBtn), Class("block w-40 h-10"), On("click", func(MouseEvent) {
+				calls = append(calls, "parent")
+				setN.Set(n + 1)
+			}), Text("parent")),
+			win(WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100, OnClose: func() {}, Root: button(child...)}),
+		)
+	})
+	x := newWinHarness(t, Options{Root: root})
+	c := x.child(0)
+	x.click(c, 20, 20)
+	if got := strings.Join(calls, " "); got != "first parent second" {
+		t.Errorf("handlers ran %q, want %q", got, "first parent second")
+	}
+	if c.Title() != "Child 1" || !strings.Contains(x.snapshot(c), "child 1") {
+		t.Errorf("child window after the click: title %q, content %q", c.Title(), x.snapshot(c))
+	}
+	calls = nil
+	x.click(c, 20, 20)
+	if got := strings.Join(calls, " "); got != "first parent" {
+		t.Errorf("second click ran %q, want %q", got, "first parent")
+	}
+	if c.Title() != "Child 2" || !strings.Contains(x.snapshot(c), "child 2") {
+		t.Errorf("child window after the second click: title %q, content %q", c.Title(), x.snapshot(c))
+	}
+}
+
+// The same when the child window's frame drives the parent (a layout
+// effect of the child clicks the parent's element): the child's tree is
+// not rebuilt in the middle of its own frame.
+func TestWindowUpdateWaitsForChildFrame(t *testing.T) {
+	var parentBtn ElementRef
+	builds, during := map[int]int{}, -1
+	content := func(n int) Node {
+		builds[n]++
+		UseLayoutEffect(func() func() {
+			before := builds[1]
+			parentBtn.Click()
+			during = builds[1] - before
+			return nil
+		}, Once)
+		return div(Text("child " + strconv.Itoa(n)))
+	}
+	root := Component(func() Node {
+		n, setN := UseState(0)
+		parentBtn = UseElementRef()
+		return div(
+			button(AttachRef(parentBtn), Class("block w-40 h-10"), On("click", func(MouseEvent) { setN.Set(n + 1) }), Text("parent")),
+			win(WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100, OnClose: func() {}, Root: ComponentProps(content, n)}),
+		)
+	})
+	x := newWinHarness(t, Options{Root: root})
+	c := x.child(0)
+	if during != 0 {
+		t.Errorf("the child window's content built %d times inside its own frame, want 0", during)
+	}
+	if c.Title() != "Child 1" || !strings.Contains(x.snapshot(c), "child 1") || builds[1] != 1 {
+		t.Errorf("child window after its frame: title %q, content %q, builds %v", c.Title(), x.snapshot(c), builds)
 	}
 }
 
