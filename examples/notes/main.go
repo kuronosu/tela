@@ -26,8 +26,9 @@
 //   - A tray icon (desktop.Tray) with a menu that follows the window (Show
 //     Notes or Hide Notes: a hidden window still builds). With "Keep
 //     running in the tray" on, closing the window hides it (App.OnClose)
-//     and the tray brings it back; Quit is in the tray menu. With it off, closing asks
-//     before it throws unsaved changes away (desktop.ShowMessage) and quits.
+//     and the tray brings it back; Quit is in the tray menu. With it off,
+//     closing asks before it throws unsaved changes away
+//     (desktop.ShowMessage) and quits.
 //   - A notification (desktop.Notify) when a file is saved, if the setting
 //     is on.
 //   - The main window opens where it was closed: desktop.PersistApp.
