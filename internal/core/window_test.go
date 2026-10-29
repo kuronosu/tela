@@ -105,7 +105,10 @@ func TestWindowOpensWhileMounted(t *testing.T) {
 	root := Component(func() Node {
 		open, set := UseState(true)
 		setOpen = set
-		return div(Text("main content"), If(open, win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Child", Width: 200, Height: 100}, OnClose: func() {}, Root: content})))
+		return div(Text("main content"), If(open, win(ChildWindowSpec{
+			WindowSpec: WindowSpec{Title: "Child", Width: 200, Height: 100},
+			OnClose:    func() {}, Root: content,
+		})))
 	})
 	x := newWinHarness(t, Options{Window: WindowSpec{Title: "Main"}, Root: root})
 	ws := x.windows()
@@ -286,7 +289,10 @@ func TestWindowUpdateWaitsForChildDispatch(t *testing.T) {
 				calls = append(calls, "parent")
 				setN.Set(n + 1)
 			}), Text("parent")),
-			win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100}, OnClose: func() {}, Root: button(child...)}),
+			win(ChildWindowSpec{
+				WindowSpec: WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100},
+				OnClose:    func() {}, Root: button(child...),
+			}),
 		)
 	})
 	x := newWinHarness(t, Options{Root: root})
@@ -329,7 +335,10 @@ func TestWindowUpdateWaitsForChildFrame(t *testing.T) {
 		parentBtn = UseElementRef()
 		return div(
 			button(AttachRef(parentBtn), Class("block w-40 h-10"), On("click", func(MouseEvent) { setN.Set(n + 1) }), Text("parent")),
-			win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100}, OnClose: func() {}, Root: ComponentProps(content, n)}),
+			win(ChildWindowSpec{
+				WindowSpec: WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100},
+				OnClose:    func() {}, Root: ComponentProps(content, n),
+			}),
 		)
 	})
 	x := newWinHarness(t, Options{Root: root})

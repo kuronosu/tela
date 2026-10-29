@@ -18,7 +18,10 @@ func TestWindowStyleReachesPlatform(t *testing.T) {
 	root := Component(func() Node {
 		step, set := UseState(0)
 		setStep = set
-		spec := ChildWindowSpec{WindowSpec: WindowSpec{Title: "S", TitleBar: TitleBarColors{Background: navy}, Backdrop: BackdropMica}, OnClose: func() {}, Root: div(Text("x"))}
+		spec := ChildWindowSpec{
+			WindowSpec: WindowSpec{Title: "S", TitleBar: TitleBarColors{Background: navy}, Backdrop: BackdropMica},
+			OnClose:    func() {}, Root: div(Text("x")),
+		}
 		if step == 1 {
 			spec.TitleBar = TitleBarColors{Background: navy, Text: gfx.White}
 			spec.Backdrop = BackdropAcrylic
@@ -106,7 +109,10 @@ func TestTransparentCanvas(t *testing.T) {
 
 // The main window gets them from the options.
 func TestMainWindowStyle(t *testing.T) {
-	x := newWinHarness(t, Options{Window: WindowSpec{TitleBar: TitleBarColors{Border: gfx.RGB8(1, 2, 3)}, Backdrop: BackdropMicaAlt}, Root: div(Text("x"))})
+	x := newWinHarness(t, Options{
+		Window: WindowSpec{TitleBar: TitleBarColors{Border: gfx.RGB8(1, 2, 3)}, Backdrop: BackdropMicaAlt},
+		Root:   div(Text("x")),
+	})
 	w := x.windows()[0]
 	if got := w.TitleBar().Border; got != (platform.WindowColor{R: 1, G: 2, B: 3, Set: true}) || w.Backdrop() != platform.BackdropMicaAlt {
 		t.Errorf("main window: border %+v, backdrop %v", got, w.Backdrop())

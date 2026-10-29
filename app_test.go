@@ -42,8 +42,9 @@ func TestAppWindowOptions(t *testing.T) {
 		Root:    C(func() Node { return Node{} }),
 	}
 	o := app.options()
-	if o.Window.MinWidth != 1 || o.Window.MinHeight != 2 || o.Window.MaxWidth != 3 || o.Window.MaxHeight != 4 || !o.Window.FixedSize || !o.Window.Frameless ||
-		!o.Window.AlwaysOnTop || !o.Window.Hidden || len(o.Window.Icon) != 1 || o.Window.Placement != place || o.OnClose == nil {
+	w := o.Window
+	if w.MinWidth != 1 || w.MinHeight != 2 || w.MaxWidth != 3 || w.MaxHeight != 4 || !w.FixedSize || !w.Frameless ||
+		!w.AlwaysOnTop || !w.Hidden || len(w.Icon) != 1 || w.Placement != place || o.OnClose == nil {
 		t.Errorf("options %+v", o)
 	}
 	o.OnClose(WindowHandle{})

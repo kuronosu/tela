@@ -115,7 +115,10 @@ func TestOpenWindowByCode(t *testing.T) {
 	if closes != 1 || c.Closed() {
 		t.Errorf("after a close request: %d OnClose runs, closed %v; want 1 and open", closes, c.Closed())
 	}
-	cw.Update(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Box 2", Width: 300, Height: 160}, Modal: true, OnClose: func() {}, Root: div(Text("new content"))})
+	cw.Update(ChildWindowSpec{
+		WindowSpec: WindowSpec{Title: "Box 2", Width: 300, Height: 160},
+		Modal:      true, OnClose: func() {}, Root: div(Text("new content")),
+	})
 	x.drain()
 	if c.Title() != "Box 2" || !strings.Contains(x.snapshot(c), "new content") {
 		t.Errorf("after Update: title %q, content %q", c.Title(), x.snapshot(c))
@@ -145,7 +148,10 @@ func TestOpenWindowByCodeIsModal(t *testing.T) {
 	clicks := 0
 	x := newWinHarness(t, Options{Root: div(button(Class("block w-40 h-10"), On("click", func(MouseEvent) { clicks++ }), Text("press")))})
 	main := x.windows()[0]
-	cw, err := OpenWindow(x.h.Handle(main), ChildWindowSpec{WindowSpec: WindowSpec{Title: "Box", Width: 200, Height: 100}, Modal: true, OnClose: func() {}, Root: div(Text("box"))})
+	cw, err := OpenWindow(x.h.Handle(main), ChildWindowSpec{
+		WindowSpec: WindowSpec{Title: "Box", Width: 200, Height: 100},
+		Modal:      true, OnClose: func() {}, Root: div(Text("box")),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
