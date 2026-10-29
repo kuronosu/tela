@@ -357,8 +357,8 @@ func TestSnapshotPreviewInTestFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c, err := detectContract(pkg.Dir, pkg.GoFiles); err != nil || c != contractPreview {
-		t.Fatalf("detectContract(%v) = %v, %v; want Preview", pkg.GoFiles, c, err)
+	if d, err := scanPackage(pkg.Dir, pkg.GoFiles); err != nil || d.contract != contractPreview {
+		t.Fatalf("scanPackage(%v).contract = %v, %v; want Preview", pkg.GoFiles, d.contract, err)
 	}
 	img, _, _ := snap(t, "--size", "40x30", "./testdata/testpreview")
 	if got := pixel(img, 20, 15); got != [3]uint8{0x00, 0xbc, 0x7d} {

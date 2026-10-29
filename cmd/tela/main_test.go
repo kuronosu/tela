@@ -256,8 +256,8 @@ func TestDetectContract(t *testing.T) {
 			write(name, src)
 			files = append(files, name)
 		}
-		got, err := detectContract(dir, files)
-		if err != nil || got != tc.want {
+		d, err := scanPackage(dir, files)
+		if got := d.contract; err != nil || got != tc.want {
 			t.Errorf("%s: got %v, %v; want %v", tc.name, got, err, tc.want)
 		}
 		for name := range tc.files {
@@ -265,7 +265,7 @@ func TestDetectContract(t *testing.T) {
 		}
 	}
 	write("bad.go", "package a\nfunc {")
-	if _, err := detectContract(dir, []string{"bad.go"}); err == nil || !strings.Contains(err.Error(), "bad.go") {
+	if _, err := scanPackage(dir, []string{"bad.go"}); err == nil || !strings.Contains(err.Error(), "bad.go") {
 		t.Errorf("syntax error: %v", err)
 	}
 }

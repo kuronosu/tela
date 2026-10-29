@@ -138,16 +138,6 @@ func listPackage(goBin, pkg string) (goPackage, error) {
 	return goPackage{Dir: parts[0], Name: parts[1], GoFiles: files}, nil
 }
 
-// detectContract reports which contract the package's source implements. It
-// parses the declarations only, so it works before anything compiles. When
-// several are defined, Previews wins over Preview, which wins over Scene,
-// which wins over App (a package that defines App next to another contract
-// still renders in that App; see scanPackage).
-func detectContract(dir string, files []string) (contract, error) {
-	d, err := scanPackage(dir, files)
-	return d.contract, err
-}
-
 // detected is what the source of a package declares.
 type detected struct {
 	contract contract
@@ -227,7 +217,11 @@ func previewKeys(spec *ast.ValueSpec, i int) []string {
 	return keys
 }
 
-// scanPackage parses the declarations of the package files.
+// scanPackage parses the declarations of the package files and reports which
+// contract the package's source implements. It parses the declarations only,
+// so it works before anything compiles. When several are defined, Previews
+// wins over Preview, which wins over Scene, which wins over App (a package
+// that defines App next to another contract still renders in that App).
 func scanPackage(dir string, files []string) (detected, error) {
 	var hasPreview, hasPreviews, hasScene, hasApp bool
 	var previews []string
