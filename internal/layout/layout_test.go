@@ -399,49 +399,6 @@ func TestHoistedAbsoluteInsideBoundary(t *testing.T) {
 	checkIncremental(t, root)
 }
 
-// TestRound checks the rounding pass: rounded edges stay adjacent and the
-// rounded sizes add up.
-func TestRound(t *testing.T) {
-	var items []*testNode
-	for i := 0; i < 3; i++ {
-		items = append(items, box(styleOf(func(s *Style) {
-			s.FlexGrow = 1
-			s.Height = Px(10.4)
-		})))
-	}
-	row := box(styleOf(func(s *Style) {
-		s.Display = DisplayFlex
-		s.Width = Px(100)
-		s.Margin.Left = Px(0.3)
-		s.Padding.Left = Px(0.4)
-	}), items...)
-	root := box(DefaultStyle(), row)
-	var e Engine
-	compute(&e, root, 800, 600)
-	Round(root)
-
-	// The row is at x = 0.3 with 0.4 of padding; its items are 99.6/3 =
-	// 33.2 wide, so their cumulative edges are 0.7, 33.9, 67.1 and 100.3,
-	// rounded 1, 34, 67 and 100: widths 33, 33 and 33 that touch, and the
-	// last one ends where the row (0.3 to 100.3, rounded 0 to 100) ends.
-	rl := row.data.RoundedLayout()
-	if rl.Location.X != 0 || rl.Size.W != 100 || rl.Padding.Left != 1 {
-		t.Errorf("row: x=%g w=%g padding-left=%g, want 0, 100, 1", rl.Location.X, rl.Size.W, rl.Padding.Left)
-	}
-	wantX := []float32{1, 34, 67}
-	wantW := []float32{33, 33, 33}
-	for i, it := range items {
-		r := it.data.RoundedLayout()
-		if r.Location.X != wantX[i] || r.Size.W != wantW[i] || r.Size.H != 10 {
-			t.Errorf("item %d: x=%g w=%g h=%g, want x=%g w=%g h=10", i, r.Location.X, r.Size.W, r.Size.H, wantX[i], wantW[i])
-		}
-	}
-	// The unrounded layout is kept.
-	if u := row.data.Layout(); u.Location.X != 0.3 || math.Abs(float64(items[0].data.Layout().Size.W)-33.2) > 1e-4 {
-		t.Errorf("the unrounded layout changed: %+v", *u)
-	}
-}
-
 // checkIncremental lays out a copy of the tree from scratch and compares
 // every layout with the incremental result.
 func checkIncremental(t *testing.T, root *testNode) {

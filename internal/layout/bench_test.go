@@ -94,14 +94,3 @@ func BenchmarkLayoutClean(b *testing.B) {
 		e.Compute(root, DefiniteSpace(1200), DefiniteSpace(800))
 	}
 }
-
-// BenchmarkRound rounds a 10,000-node tree.
-func BenchmarkRound(b *testing.B) {
-	root, _ := benchTree(10000)
-	var e Engine
-	e.Compute(root, DefiniteSpace(1200), DefiniteSpace(800))
-	b.ReportAllocs()
-	for b.Loop() {
-		Round(root)
-	}
-}

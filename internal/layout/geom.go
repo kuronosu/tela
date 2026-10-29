@@ -29,9 +29,6 @@ func fmin(a, b float32) float32 {
 	return b
 }
 
-// round rounds half away from zero (Rust's f32::round).
-func round(v float32) float32 { return float32(math.Round(float64(v))) }
-
 // isNormal reports whether v is neither zero, subnormal, infinite nor NaN
 // (Rust's f32::is_normal).
 func isNormal(v float32) bool {

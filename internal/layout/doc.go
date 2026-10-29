@@ -64,9 +64,8 @@
 //
 // Engine.Compute(root, width, height) lays out a tree into the given space
 // (a window passes its size as definite space). Results are read from each
-// node's Data: Layout returns the unrounded layout (location, size,
-// border, padding, margin, scrollbar size, scrollable overflow, first
-// baseline); RoundedLayout returns it snapped to pixels after Round.
+// node's Data: Layout returns the layout (location, size, border, padding,
+// margin, scrollbar size, scrollable overflow, first baseline).
 //
 // # Incremental layout
 //
@@ -110,13 +109,11 @@
 //
 // # Rounding
 //
-// Layout computes in float32 without rounding. Round snaps a tree to whole
-// logical pixels like Taffy and Yoga: edges are rounded at their
-// cumulative position from the root and sizes are differences of rounded
-// edges, so adjacent boxes stay adjacent. Chromium computes in LayoutUnits
-// (1/64 px fixed point, so most of its sizes are multiples of 1/64) and
-// snaps boxes to device pixels the same way when painting. core may paint
-// either.
+// Layout computes in float32 and does not round: Taffy's round_layout pass
+// is not ported. Chromium computes in LayoutUnits (1/64 px fixed point, so
+// most of its sizes are multiples of 1/64) and snaps boxes to device pixels
+// when painting; core's paint does the same, at the window's scale
+// (ADR-045).
 //
 // # Determinism
 //
@@ -167,8 +164,8 @@
 //     the whole containing block as available space, has a flex variant
 //     whose auto margins ignore the insets, and treats an auto height as
 //     definite.
-//   - Rounded locations are differences of rounded cumulative positions
-//     (Taffy rounds each location relative to its parent).
+//   - There is no rounding pass (Taffy's round_layout); paint snaps boxes to
+//     device pixels.
 //   - order is supported; flex-wrap: balance is not.
 //
 // Grid (grid*.go, ADR-073), where it differs from Taffy:

@@ -112,13 +112,12 @@ func (l *Layout) ScrollHeight() float32 {
 func insets(r rect) Insets { return Insets{Top: r.t, Right: r.r, Bottom: r.b, Left: r.l} }
 
 // Data is the layout state that layout keeps on each node: the computed
-// layout, the pixel-rounded layout and the caches. core embeds one in each
+// layout and the caches. core embeds one in each
 // Box and returns it from LayoutData. The zero Data is ready to use.
 type Data struct {
 	parent Node // the parent that last laid this node out
 
 	unrounded Layout
-	rounded   Layout
 
 	cache cache
 
@@ -135,11 +134,9 @@ type Data struct {
 	static staticPos
 }
 
-// Layout returns the node's computed layout (unrounded).
+// Layout returns the node's computed layout. It is not rounded: paint snaps
+// boxes to device pixels itself.
 func (d *Data) Layout() *Layout { return &d.unrounded }
-
-// RoundedLayout returns the node's layout snapped to whole pixels by Round.
-func (d *Data) RoundedLayout() *Layout { return &d.rounded }
 
 // setLayout records the unrounded layout of a node.
 func (d *Data) setLayout(loc point, sz size, border, padding, margin rect, scrollbar point, overflow rect, baseline opt) {

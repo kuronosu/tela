@@ -8,10 +8,9 @@ package layout
 // containing block of absolutely positioned boxes without a positioned
 // ancestor.
 //
-// Results are read from each node's Data (Layout; RoundedLayout after
-// Round). Compute reuses the results of nodes that were not marked dirty
-// since the previous run, so a second run with nothing dirty and the same
-// available space does no work.
+// Results are read from each node's Data (Layout). Compute reuses the
+// results of nodes that were not marked dirty since the previous run, so a
+// second run with nothing dirty and the same available space does no work.
 func (e *Engine) Compute(root Node, width, height AvailableSpace) {
 	avail := availSize{width, height}
 	for {

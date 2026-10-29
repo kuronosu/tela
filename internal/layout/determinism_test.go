@@ -18,9 +18,12 @@ import (
 // random trees, each with a flex item that has an aspect ratio, a
 // min-content or fit-content cross size, or an auto cross margin in a
 // column; every Taffy fixture and earlier case hashes as before.
-const wantLayoutDigest uint64 = 0xc59edaaf69e4bdb2
+//
+// Recorded again when the rounded layout was removed, which dropped the
+// second half of every node's hash.
+const wantLayoutDigest uint64 = 0xf161b70513533bad
 
-// layoutDigest hashes the unrounded and rounded layouts of the Taffy
+// layoutDigest hashes the layouts of the Taffy
 // fixtures, Tela's cases and random trees with fractional sizes.
 func layoutDigest(t *testing.T) uint64 {
 	h := fnv.New64a()
@@ -32,11 +35,10 @@ func layoutDigest(t *testing.T) uint64 {
 	}
 	var hashTree func(n *testNode)
 	hashTree = func(n *testNode) {
-		for _, l := range []*Layout{n.data.Layout(), n.data.RoundedLayout()} {
-			put(l.Location.X, l.Location.Y, l.Size.W, l.Size.H, l.FirstBaseline,
-				l.ScrollableOverflow.X0, l.ScrollableOverflow.Y0, l.ScrollableOverflow.X1, l.ScrollableOverflow.Y1,
-				l.Margin.Left, l.Margin.Right, l.Margin.Top, l.Margin.Bottom, l.Padding.Left, l.Padding.Top)
-		}
+		l := n.data.Layout()
+		put(l.Location.X, l.Location.Y, l.Size.W, l.Size.H, l.FirstBaseline,
+			l.ScrollableOverflow.X0, l.ScrollableOverflow.Y0, l.ScrollableOverflow.X1, l.ScrollableOverflow.Y1,
+			l.Margin.Left, l.Margin.Right, l.Margin.Top, l.Margin.Bottom, l.Padding.Left, l.Padding.Top)
 		for _, c := range n.children {
 			hashTree(c)
 		}
@@ -49,7 +51,6 @@ func layoutDigest(t *testing.T) uint64 {
 			}
 			var e Engine
 			e.Compute(ft.viewport, DefiniteSpace(800), DefiniteSpace(513))
-			Round(ft.viewport)
 			hashTree(ft.viewport)
 		}
 	}
@@ -60,7 +61,6 @@ func layoutDigest(t *testing.T) uint64 {
 		var e Engine
 		w := float32(100 + rng.Float64()*500)
 		e.Compute(root, DefiniteSpace(w), DefiniteSpace(w*0.7))
-		Round(root)
 		hashTree(root)
 	}
 	return h.Sum64()
