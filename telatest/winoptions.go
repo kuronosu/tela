@@ -30,10 +30,13 @@ type windowConfig struct {
 // the size and the tree configuration).
 func (w windowConfig) coreOptions() core.Options {
 	return core.Options{
-		Title: w.title, AppID: w.appID,
-		MinWidth: w.minW, MinHeight: w.minH, MaxWidth: w.maxW, MaxHeight: w.maxH,
-		FixedSize: w.fixed, Frameless: w.frameless, AlwaysOnTop: w.onTop, Hidden: w.hidden,
-		Icon: w.icon, TitleBar: w.titleBar, Backdrop: w.backdrop, Placement: w.placement, OnClose: w.onClose,
+		Window: core.WindowSpec{
+			Title:    w.title,
+			MinWidth: w.minW, MinHeight: w.minH, MaxWidth: w.maxW, MaxHeight: w.maxH,
+			FixedSize: w.fixed, Frameless: w.frameless, AlwaysOnTop: w.onTop, Hidden: w.hidden,
+			Icon: w.icon, TitleBar: w.titleBar, Backdrop: w.backdrop, Placement: w.placement,
+		},
+		AppID: w.appID, OnClose: w.onClose,
 	}
 }
 

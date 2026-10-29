@@ -63,7 +63,7 @@ func (c *counterApp) root() Node {
 // current state in full.
 func TestHiddenWindowCommits(t *testing.T) {
 	var c counterApp
-	x := newWinHarness(t, Options{Title: "Main", Root: c.root()})
+	x := newWinHarness(t, Options{Window: WindowSpec{Title: "Main"}, Root: c.root()})
 	main := x.windows()[0]
 	c.w.Hide()
 	x.drain()
@@ -114,7 +114,7 @@ func TestHiddenWindowCommits(t *testing.T) {
 // the current state.
 func TestMinimizedWindowCommits(t *testing.T) {
 	var c counterApp
-	x := newWinHarness(t, Options{Title: "Main", Root: c.root()})
+	x := newWinHarness(t, Options{Window: WindowSpec{Title: "Main"}, Root: c.root()})
 	main := x.windows()[0]
 	c.w.Minimize()
 	x.drain()
@@ -144,7 +144,7 @@ func TestChildOfMinimizedWindowIsPaused(t *testing.T) {
 	var w WindowHandle
 	root := Component(func() Node {
 		w = UseWindow()
-		return div(win(WindowSpec{Title: "C", OnClose: func() {}, Root: div(Text("child"))}))
+		return div(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() {}, Root: div(Text("child"))}))
 	})
 	x := newWinHarness(t, Options{Root: root})
 	cv := x.h.viewOf(x.child(0))
@@ -180,11 +180,12 @@ func TestHiddenWindowOpensChildWindow(t *testing.T) {
 		w = UseWindow()
 		open, set := UseState(false)
 		setOpen = set
-		return div(Text("main"), If(open, win(WindowSpec{
-			Title: "Prefs", Width: 200, Height: 100, OnClose: func() { set.Set(false) }, Root: content,
+		return div(Text("main"), If(open, win(ChildWindowSpec{
+			WindowSpec: WindowSpec{Title: "Prefs", Width: 200, Height: 100},
+			OnClose:    func() { set.Set(false) }, Root: content,
 		})))
 	})
-	x := newWinHarness(t, Options{Title: "Main", Root: root})
+	x := newWinHarness(t, Options{Window: WindowSpec{Title: "Main"}, Root: root})
 	main := x.windows()[0]
 	w.Hide()
 	x.drain()
@@ -238,8 +239,9 @@ func TestHiddenChildWindowFollowsParent(t *testing.T) {
 		hid, setH := UseState("hidden")
 		setHidden = setH
 		val = UseValue(1)
-		return ctx.Provider(th, div(win(WindowSpec{
-			Title: "C", Width: 200, Height: 100, Hidden: hid == "hidden", OnClose: func() {}, Root: content,
+		return ctx.Provider(th, div(win(ChildWindowSpec{
+			WindowSpec: WindowSpec{Title: "C", Width: 200, Height: 100, Hidden: hid == "hidden"},
+			OnClose:    func() {}, Root: content,
 		})))
 	})
 	x := newWinHarness(t, Options{Root: root})
@@ -282,7 +284,7 @@ func TestHiddenAtStartRunsEffects(t *testing.T) {
 		})
 		return div(Text("x"))
 	})
-	x := newWinHarness(t, Options{Hidden: true, Root: root})
+	x := newWinHarness(t, Options{Window: WindowSpec{Hidden: true}, Root: root})
 	main := x.windows()[0]
 	if main.Visible() || main.Presents() != 0 {
 		t.Fatalf("hidden at start: visible %v, %d presents", main.Visible(), main.Presents())

@@ -235,7 +235,9 @@ var (
 	mainStderr io.Writer = os.Stderr
 )
 
-// options returns the core options of the app.
+// options returns the core options of the app: its window fields become
+// Options.Window, a core.WindowSpec (TestWindowFieldsReachCore checks that
+// none is left out).
 func (app App) options() core.Options {
 	return core.Options{
 		Config: core.Config{
@@ -247,25 +249,27 @@ func (app App) options() core.Options {
 			ClassAliases:      app.ClassAliases,
 			Dev:               core.ResolveDev(app.Dev),
 		},
-		Title:       app.Title,
-		AppID:       app.AppID,
-		Width:       app.Width,
-		Height:      app.Height,
-		MinWidth:    app.MinWidth,
-		MinHeight:   app.MinHeight,
-		MaxWidth:    app.MaxWidth,
-		MaxHeight:   app.MaxHeight,
-		FixedSize:   app.FixedSize,
-		Frameless:   app.Frameless,
-		AlwaysOnTop: app.AlwaysOnTop,
-		Hidden:      app.Hidden,
-		Icon:        app.Icon,
-		TitleBar:    app.TitleBar,
-		Backdrop:    app.Backdrop,
-		Placement:   app.Placement,
-		OnClose:     app.OnClose,
-		Root:        core.NodeOf(app.Root),
-		DevSave:     app.DevState.Save,
-		DevRestore:  app.DevState.Restore,
+		Window: core.WindowSpec{
+			Title:       app.Title,
+			Width:       app.Width,
+			Height:      app.Height,
+			MinWidth:    app.MinWidth,
+			MinHeight:   app.MinHeight,
+			MaxWidth:    app.MaxWidth,
+			MaxHeight:   app.MaxHeight,
+			FixedSize:   app.FixedSize,
+			Frameless:   app.Frameless,
+			AlwaysOnTop: app.AlwaysOnTop,
+			Hidden:      app.Hidden,
+			Icon:        app.Icon,
+			TitleBar:    app.TitleBar,
+			Backdrop:    app.Backdrop,
+			Placement:   app.Placement,
+		},
+		AppID:      app.AppID,
+		OnClose:    app.OnClose,
+		Root:       core.NodeOf(app.Root),
+		DevSave:    app.DevState.Save,
+		DevRestore: app.DevState.Restore,
 	}
 }

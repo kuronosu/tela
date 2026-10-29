@@ -2,7 +2,6 @@ package core
 
 import (
 	"image"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,7 +11,7 @@ import (
 )
 
 // win is a Window component (tela.Window's build) for these tests.
-func win(spec WindowSpec) Node {
+func win(spec ChildWindowSpec) Node {
 	return Component(func() Node {
 		UseWindowSpec(spec)
 		return Node{}
@@ -106,11 +105,9 @@ func TestWindowOpensWhileMounted(t *testing.T) {
 	root := Component(func() Node {
 		open, set := UseState(true)
 		setOpen = set
-		return div(Text("main content"), If(open, win(WindowSpec{
-			Title: "Child", Width: 200, Height: 100, OnClose: func() {}, Root: content,
-		})))
+		return div(Text("main content"), If(open, win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Child", Width: 200, Height: 100}, OnClose: func() {}, Root: content})))
 	})
-	x := newWinHarness(t, Options{Title: "Main", Root: root})
+	x := newWinHarness(t, Options{Window: WindowSpec{Title: "Main"}, Root: root})
 	ws := x.windows()
 	if len(ws) != 2 || len(x.h.Windows()) != 2 {
 		t.Fatalf("%d headless windows, %d host windows; want 2 and 2", len(ws), len(x.h.Windows()))
@@ -162,7 +159,7 @@ func TestWindowContextAndValues(t *testing.T) {
 		th, set := UseState("light")
 		setTheme = set
 		val = UseValue(1)
-		return ctx.Provider(th, div(win(WindowSpec{Title: "C", OnClose: func() {}, Root: content})))
+		return ctx.Provider(th, div(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() {}, Root: content})))
 	})
 	x := newWinHarness(t, Options{Root: root})
 	c := x.child(0)
@@ -188,7 +185,7 @@ func TestWindowUpdatesOptions(t *testing.T) {
 	root := Component(func() Node {
 		step, set := UseState(0)
 		setStep = set
-		spec := WindowSpec{Title: "A", Width: 300, Height: 200, OnClose: func() {}, Root: div(Text("x"))}
+		spec := ChildWindowSpec{WindowSpec: WindowSpec{Title: "A", Width: 300, Height: 200}, OnClose: func() {}, Root: div(Text("x"))}
 		if step == 1 {
 			spec.Title = "B"
 			spec.Width, spec.Height = 320, 240
@@ -231,7 +228,7 @@ func TestModalWindowBlocksParent(t *testing.T) {
 		setModal = set
 		return div(
 			button(Class("block w-40 h-10"), On("click", func(MouseEvent) { clicks++ }), Text("press")),
-			If(modal, win(WindowSpec{Title: "M", Modal: true, OnClose: func() {}, Root: div(Text("modal"))})),
+			If(modal, win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "M"}, Modal: true, OnClose: func() {}, Root: div(Text("modal"))})),
 		)
 	})
 	x := newWinHarness(t, Options{Root: root})
@@ -289,7 +286,7 @@ func TestWindowUpdateWaitsForChildDispatch(t *testing.T) {
 				calls = append(calls, "parent")
 				setN.Set(n + 1)
 			}), Text("parent")),
-			win(WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100, OnClose: func() {}, Root: button(child...)}),
+			win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100}, OnClose: func() {}, Root: button(child...)}),
 		)
 	})
 	x := newWinHarness(t, Options{Root: root})
@@ -332,7 +329,7 @@ func TestWindowUpdateWaitsForChildFrame(t *testing.T) {
 		parentBtn = UseElementRef()
 		return div(
 			button(AttachRef(parentBtn), Class("block w-40 h-10"), On("click", func(MouseEvent) { setN.Set(n + 1) }), Text("parent")),
-			win(WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100, OnClose: func() {}, Root: ComponentProps(content, n)}),
+			win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Child " + strconv.Itoa(n), Width: 200, Height: 100}, OnClose: func() {}, Root: ComponentProps(content, n)}),
 		)
 	})
 	x := newWinHarness(t, Options{Root: root})
@@ -350,7 +347,7 @@ func TestHiddenModalWindowDoesNotBlock(t *testing.T) {
 	clicks := 0
 	root := div(
 		button(Class("block w-40 h-10"), On("click", func(MouseEvent) { clicks++ }), Text("press")),
-		win(WindowSpec{Title: "M", Modal: true, Hidden: true, OnClose: func() {}, Root: div(Text("modal"))}),
+		win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "M", Hidden: true}, Modal: true, OnClose: func() {}, Root: div(Text("modal"))}),
 	)
 	x := newWinHarness(t, Options{Root: root})
 	x.click(x.windows()[0], 20, 20)
@@ -368,7 +365,7 @@ func TestWindowFocusPerWindow(t *testing.T) {
 	})
 	root := Component(func() Node {
 		mainH = UseWindow()
-		return div(win(WindowSpec{Title: "C", OnClose: func() {}, Root: content}))
+		return div(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() {}, Root: content}))
 	})
 	x := newWinHarness(t, Options{Root: root})
 	main, c := x.windows()[0], x.child(0)
@@ -451,7 +448,7 @@ func TestUseWindowState(t *testing.T) {
 // reports it back.
 func TestWindowPlacement(t *testing.T) {
 	place := WindowPlacement{Width: 500, Height: 350, X: 10, Y: 20, HasPosition: true, RestoreToken: "headless:7"}
-	x := newWinHarness(t, Options{Width: 640, Height: 480, Root: div(Text("x")), Placement: place})
+	x := newWinHarness(t, Options{Window: WindowSpec{Width: 640, Height: 480, Placement: place}, Root: div(Text("x"))})
 	main := x.windows()[0]
 	o := main.Options()
 	if o.Size != (platform.Size{W: 500, H: 350}) || !o.HasPosition || o.Position != (image.Point{X: 10, Y: 20}) || o.RestoreToken != "headless:7" {
@@ -473,7 +470,7 @@ func TestWindowPlacement(t *testing.T) {
 // placement, although its first configure has the maximized size.
 func TestWindowPlacementMaximized(t *testing.T) {
 	place := WindowPlacement{Width: 500, Height: 350, Maximized: true}
-	x := newWinHarness(t, Options{Root: div(Text("x")), Placement: place})
+	x := newWinHarness(t, Options{Window: WindowSpec{Placement: place}, Root: div(Text("x"))})
 	main := x.windows()[0]
 	if !main.OSState().Maximized || main.Metrics().Size == (platform.Size{W: 500, H: 350}) {
 		t.Fatalf("window not opened maximized: %v %v", main.OSState(), main.Metrics().Size)
@@ -538,7 +535,7 @@ func TestMainWindowClosePolicy(t *testing.T) {
 func TestChildWindowCloseRequest(t *testing.T) {
 	root := Component(func() Node {
 		open, setOpen := UseState(true)
-		return div(If(open, win(WindowSpec{Title: "C", OnClose: func() { setOpen.Set(false) }, Root: div(Text("c"))})))
+		return div(If(open, win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() { setOpen.Set(false) }, Root: div(Text("c"))})))
 	})
 	x := newWinHarness(t, Options{Root: root})
 	c := x.child(0)
@@ -555,7 +552,7 @@ func TestWindowWithoutOnClose(t *testing.T) {
 	var warns []string
 	x := newWinHarness(t, Options{
 		Config: Config{Dev: true, Warn: func(m string) { warns = append(warns, m) }},
-		Root:   div(win(WindowSpec{Title: "Stuck", Root: div(Text("c"))})),
+		Root:   div(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Stuck"}, Root: div(Text("c"))})),
 	})
 	c := x.child(0)
 	c.RequestClose()
@@ -577,7 +574,7 @@ func TestWindowWithoutOnClose(t *testing.T) {
 // A nil Root panics in dev mode with the fix.
 func TestWindowNeedsRoot(t *testing.T) {
 	tr := NewTree(Config{Fonts: testFonts, Dev: true})
-	msg := panicMessage(func() { tr.Mount(div(win(WindowSpec{Title: "Empty"}))) })
+	msg := panicMessage(func() { tr.Mount(div(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Empty"}}))) })
 	if !strings.Contains(msg, `"Empty" has no Root`) {
 		t.Errorf("panic %q", msg)
 	}
@@ -605,11 +602,11 @@ func TestQuit(t *testing.T) {
 // Windows are children of the window they are declared in.
 func TestNestedWindows(t *testing.T) {
 	var setOpen Setter[bool]
-	inner := win(WindowSpec{Title: "Inner", OnClose: func() {}, Root: div(Text("inner"))})
+	inner := win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Inner"}, OnClose: func() {}, Root: div(Text("inner"))})
 	root := Component(func() Node {
 		open, set := UseState(true)
 		setOpen = set
-		return div(If(open, win(WindowSpec{Title: "Outer", OnClose: func() {}, Root: div(Text("outer"), inner)})))
+		return div(If(open, win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Outer"}, OnClose: func() {}, Root: div(Text("outer"), inner)})))
 	})
 	x := newWinHarness(t, Options{Root: root})
 	ws := x.windows()
@@ -626,7 +623,7 @@ func TestNestedWindows(t *testing.T) {
 // The color scheme and the theme are the app's; the scale is each
 // window's.
 func TestWindowSchemeThemeAndScale(t *testing.T) {
-	x := newWinHarness(t, Options{Root: div(win(WindowSpec{Title: "C", OnClose: func() {}, Root: div(Text("c"))}))})
+	x := newWinHarness(t, Options{Root: div(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() {}, Root: div(Text("c"))}))})
 	c := x.child(0)
 	ct := x.h.TreeOf(c)
 	if ct.parser != x.h.Tree().parser {
@@ -655,7 +652,7 @@ func TestWindowWithoutHost(t *testing.T) {
 	root := Component(func() Node {
 		w = UseWindow()
 		st = w.State()
-		return div(Text("main"), win(WindowSpec{Title: "C", OnClose: func() {}, Root: div(Text("c"))}))
+		return div(Text("main"), win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() {}, Root: div(Text("c"))}))
 	})
 	Render(root, RenderOptions{Config: Config{Fonts: testFonts}, Width: 200, Height: 100})
 	if !st.Focused || w.IsZero() {
@@ -679,7 +676,7 @@ func TestWindowHitRegions(t *testing.T) {
 		button(Class("w-10 h-10"), WindowControlProp(WindowMaximize), Text("o")),
 		button(Class("w-10 h-10"), WindowControlProp(WindowClose), Text("x")),
 	)
-	x := newWinHarness(t, Options{Frameless: true, Root: bar, OnClose: func(WindowHandle) { closes++ }})
+	x := newWinHarness(t, Options{Window: WindowSpec{Frameless: true}, Root: bar, OnClose: func(WindowHandle) { closes++ }})
 	main := x.windows()[0]
 	want := []platform.HitRegion{
 		{Kind: platform.HitCaption, Rect: platform.Rect{X: 0, Y: 0, W: 400, H: 40}},
@@ -780,79 +777,13 @@ func TestOpenURLAndPath(t *testing.T) {
 // The window sizes are checked with tela's names.
 func TestWindowSpecChecks(t *testing.T) {
 	b := headless.New(headless.Options{})
-	msg := panicMessage(func() { NewHost(b, Options{Width: 300, Root: div()}) })
+	msg := panicMessage(func() { NewHost(b, Options{Window: WindowSpec{Width: 300}, Root: div()}) })
 	if !strings.Contains(msg, "tela.App sets only one of Width and Height") {
 		t.Errorf("panic %q", msg)
 	}
 	tr := NewTree(Config{Fonts: testFonts})
-	msg = panicMessage(func() { tr.Mount(win(WindowSpec{Title: "W", MinWidth: -1, Root: div()})) })
+	msg = panicMessage(func() { tr.Mount(win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "W", MinWidth: -1}, Root: div()})) })
 	if !strings.Contains(msg, `tela.Window "W" has MinWidth -1`) {
 		t.Errorf("panic %q", msg)
-	}
-}
-
-// Options carries every WindowSpec field of the main window, and mainSpec
-// passes each on: a field added to WindowSpec and left out of Options or
-// mainSpec (or of tela.App, tela.Window; TestWindowFieldsReachCore in
-// package tela) would be dropped for the main window without a word.
-// Modal is a child window's; RootClass, Root and OnClose are Options' in
-// another form (Config.RootClass, Options.Root, OnClose with the handle).
-func TestOptionsCarryEveryWindowField(t *testing.T) {
-	skip := map[string]bool{"Modal": true, "RootClass": true, "Root": true, "OnClose": true}
-	st, ot := reflect.TypeFor[WindowSpec](), reflect.TypeFor[Options]()
-	var o Options
-	ov := reflect.ValueOf(&o).Elem()
-	for i := range st.NumField() {
-		f := st.Field(i)
-		if skip[f.Name] {
-			continue
-		}
-		of, ok := ot.FieldByName(f.Name)
-		if !ok || len(of.Index) != 1 || of.Type != f.Type {
-			t.Errorf("Options has no field %s %v for the main window's WindowSpec", f.Name, f.Type)
-			continue
-		}
-		fillNonZero(ov.Field(of.Index[0]))
-	}
-	sv := reflect.ValueOf(o.mainSpec())
-	for i := range st.NumField() {
-		f := st.Field(i)
-		if skip[f.Name] {
-			continue
-		}
-		if got, want := sv.Field(i), ov.FieldByName(f.Name); want.IsValid() && !reflect.DeepEqual(got.Interface(), want.Interface()) {
-			t.Errorf("mainSpec drops Options.%s: %v, want %v", f.Name, got, want)
-		}
-	}
-}
-
-// fillNonZero sets v (settable) to a value other than its zero value,
-// field by field for a struct.
-func fillNonZero(v reflect.Value) {
-	switch v.Kind() {
-	case reflect.String:
-		v.SetString("x")
-	case reflect.Bool:
-		v.SetBool(true)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		v.SetInt(3)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		v.SetUint(3)
-	case reflect.Float32, reflect.Float64:
-		v.SetFloat(7)
-	case reflect.Slice:
-		s := reflect.MakeSlice(v.Type(), 1, 1)
-		fillNonZero(s.Index(0))
-		v.Set(s)
-	case reflect.Interface:
-		if img := reflect.ValueOf(image.NewRGBA(image.Rect(0, 0, 1, 1))); img.Type().Implements(v.Type()) {
-			v.Set(img)
-		}
-	case reflect.Struct:
-		for i := range v.NumField() {
-			if v.Type().Field(i).IsExported() {
-				fillNonZero(v.Field(i))
-			}
-		}
 	}
 }

@@ -287,7 +287,7 @@ type CodeWindow struct {
 // window. UI thread, outside builds (a handler, an effect, a posted
 // function). It fails for the zero handle, a tree without a platform
 // window (tela snapshot) or a window the backend could not open.
-func OpenWindow(parent WindowHandle, spec WindowSpec) (*CodeWindow, error) {
+func OpenWindow(parent WindowHandle, spec ChildWindowSpec) (*CodeWindow, error) {
 	t := parent.t
 	if t == nil || t.wv == nil || !t.wv.alive() || t.root == nil {
 		return nil, errors.New("tela: no open window to open a window from")
@@ -295,7 +295,7 @@ func OpenWindow(parent WindowHandle, spec WindowSpec) (*CodeWindow, error) {
 	if spec.Root.d == nil {
 		panic("core: OpenWindow: spec.Root is nil")
 	}
-	checkWindowSpec("tela.Window", spec.Title, &spec)
+	checkWindowSpec("tela.Window", spec.Title, &spec.WindowSpec)
 	s := &windowSlot{el: t.root, spec: spec, detached: true}
 	t.wins = append(t.wins, s)
 	t.openWindow(s)
@@ -320,13 +320,13 @@ func (c *CodeWindow) Handle() WindowHandle {
 // Frameless and Modal stay). It is applied with the parent tree's
 // updates, never inside the window's own frame or handlers. Safe from any
 // goroutine.
-func (c *CodeWindow) Update(spec WindowSpec) {
+func (c *CodeWindow) Update(spec ChildWindowSpec) {
 	t, s := c.t, c.s
 	t.enqueue(update{post: func() {
 		if s.gone || s.view == nil {
 			return
 		}
-		checkWindowSpec("tela.Window", spec.Title, &spec)
+		checkWindowSpec("tela.Window", spec.Title, &spec.WindowSpec)
 		s.spec = spec
 		t.queueWindow(s)
 		t.flushWindows()

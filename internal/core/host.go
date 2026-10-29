@@ -25,27 +25,14 @@ func init() {
 // Options configures Run and NewHost.
 type Options struct {
 	Config
-	// Title is the window title.
-	Title string
 	// AppID identifies the application to the desktop (see
 	// platform.WindowOptions.AppID).
 	AppID string
-	// Width and Height are the requested logical size of the window; zero
-	// means platform.DefaultWindowSize.
-	Width, Height float32
-	// MinWidth, MinHeight, MaxWidth and MaxHeight limit the window's size
-	// (zero: no limit on that side); FixedSize, Frameless, AlwaysOnTop
-	// and Hidden are those of WindowSpec; Icon is the window icon at
-	// several sizes; Placement is where the window opens (a saved
-	// WindowPlacement, or zero).
-	MinWidth, MinHeight, MaxWidth, MaxHeight  float32
-	FixedSize, Frameless, AlwaysOnTop, Hidden bool
-	Icon                                      []image.Image
-	Placement                                 WindowPlacement
-	// TitleBar are the colors of the OS title bar and border, Backdrop the
-	// system material behind the window (Windows 11; ADR-187).
-	TitleBar TitleBarColors
-	Backdrop Backdrop
+	// Window describes the main window: title, size, limits, state, icon,
+	// placement, title bar and backdrop. The rest of what a window has is
+	// elsewhere: its classes are Config.RootClass, its content Root and
+	// what its close request does OnClose.
+	Window WindowSpec
 	// OnClose runs when the user asks to close the main window (the OS's
 	// close button, a WindowClose control, WindowHandle.Close). Nil quits
 	// the app.
@@ -60,20 +47,6 @@ type Options struct {
 	// ErrorLog receives platform errors (a failed Present). Nil means
 	// stderr.
 	ErrorLog io.Writer
-}
-
-// mainSpec returns the WindowSpec of the main window. Options repeats the
-// WindowSpec fields so that its literals stay flat; a field added to
-// WindowSpec goes here, in Options, tela.App and tela.Window too
-// (TestOptionsCarryEveryWindowField and tela's TestWindowFieldsReachCore
-// fail until it does).
-func (o *Options) mainSpec() WindowSpec {
-	return WindowSpec{
-		Title: o.Title, Width: o.Width, Height: o.Height,
-		MinWidth: o.MinWidth, MinHeight: o.MinHeight, MaxWidth: o.MaxWidth, MaxHeight: o.MaxHeight,
-		FixedSize: o.FixedSize, Frameless: o.Frameless, AlwaysOnTop: o.AlwaysOnTop, Hidden: o.Hidden,
-		Icon: o.Icon, Placement: o.Placement, TitleBar: o.TitleBar, Backdrop: o.Backdrop,
-	}
 }
 
 // Run opens a window on the platform's native backend (platform/auto),
@@ -209,7 +182,7 @@ type Host struct {
 // NewHost creates the main window on backend b and mounts opts.Root in a
 // new Tree. Pass the Host to b.Run.
 func NewHost(b platform.Backend, opts Options) (*Host, error) {
-	spec := opts.mainSpec()
+	spec := opts.Window
 	checkWindowSpec("tela.App", "", &spec)
 	wo := spec.options(opts.AppID, nil)
 	win, err := b.NewWindow(wo)

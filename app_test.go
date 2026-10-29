@@ -23,7 +23,7 @@ func TestAppOptions(t *testing.T) {
 	app := App{Title: "T", AppID: "a.b", Width: 3, Height: 4, RootClass: "bg-white",
 		ClassicScrollbars: true, InstantScroll: true, Root: C(func() Node { return Node{} })}
 	o := app.options()
-	if o.Title != "T" || o.AppID != "a.b" || o.Width != 3 || o.Height != 4 || o.RootClass != "bg-white" ||
+	if o.Window.Title != "T" || o.AppID != "a.b" || o.Window.Width != 3 || o.Window.Height != 4 || o.RootClass != "bg-white" ||
 		!o.ClassicScrollbars || !o.InstantScroll || o.Root == (Node{}) {
 		t.Errorf("options %+v", o)
 	}
@@ -42,8 +42,8 @@ func TestAppWindowOptions(t *testing.T) {
 		Root:    C(func() Node { return Node{} }),
 	}
 	o := app.options()
-	if o.MinWidth != 1 || o.MinHeight != 2 || o.MaxWidth != 3 || o.MaxHeight != 4 || !o.FixedSize || !o.Frameless ||
-		!o.AlwaysOnTop || !o.Hidden || len(o.Icon) != 1 || o.Placement != place || o.OnClose == nil {
+	if o.Window.MinWidth != 1 || o.Window.MinHeight != 2 || o.Window.MaxWidth != 3 || o.Window.MaxHeight != 4 || !o.Window.FixedSize || !o.Window.Frameless ||
+		!o.Window.AlwaysOnTop || !o.Window.Hidden || len(o.Window.Icon) != 1 || o.Window.Placement != place || o.OnClose == nil {
 		t.Errorf("options %+v", o)
 	}
 	o.OnClose(WindowHandle{})
@@ -132,41 +132,34 @@ func TestAppRoot(t *testing.T) {
 	}
 }
 
-// TestWindowFieldsReachCore checks that every field of core.WindowSpec has
-// its twin on Window, which Build passes on, and on App (except Modal, a
-// child window's), which options passes on: a field added to WindowSpec
-// and left out of one of these lists (or of core.Options; see
-// TestOptionsCarryEveryWindowField in internal/core) fails here instead of
-// being dropped without a word.
+// TestWindowFieldsReachCore checks that every field of
+// core.ChildWindowSpec has its twin on Window, which Build passes on
+// (Window → spec), and every field of core.WindowSpec its twin on App,
+// which options passes on (App → options().Window): a field added to one
+// of them and left out of Window, App or the conversion fails here
+// instead of being dropped without a word.
 func TestWindowFieldsReachCore(t *testing.T) {
-	st := reflect.TypeFor[core.WindowSpec]()
 	root := C(func() Node { return Node{} })
 
 	var w Window
 	wv := reflect.ValueOf(&w).Elem()
-	for i := range st.NumField() {
-		f := st.Field(i)
+	for _, f := range specFields(reflect.TypeFor[core.ChildWindowSpec]()) {
 		if f.Name == "Root" {
 			continue // a Component here, a core.Node there
 		}
 		wf, ok := reflect.TypeFor[Window]().FieldByName(f.Name)
 		if !ok || wf.Type != f.Type {
-			t.Errorf("Window has no field %s %v of core.WindowSpec", f.Name, f.Type)
+			t.Errorf("Window has no field %s %v of core.ChildWindowSpec", f.Name, f.Type)
 			continue
 		}
 		fillNonZero(wv.FieldByIndex(wf.Index))
 	}
 	w.Root = root
-	checkPassedOn(t, "Window.spec", reflect.ValueOf(w), reflect.ValueOf(w.spec()), nil)
+	checkPassedOn(t, "Window.spec", reflect.TypeFor[core.ChildWindowSpec](), reflect.ValueOf(w), reflect.ValueOf(w.spec()))
 
 	var app App
 	av := reflect.ValueOf(&app).Elem()
-	skip := map[string]bool{"Modal": true, "Root": true, "OnClose": true} // App.OnClose takes the WindowHandle
-	for i := range st.NumField() {
-		f := st.Field(i)
-		if skip[f.Name] {
-			continue
-		}
+	for _, f := range specFields(reflect.TypeFor[core.WindowSpec]()) {
 		af, ok := reflect.TypeFor[App]().FieldByName(f.Name)
 		if !ok || af.Type != f.Type {
 			t.Errorf("App has no field %s %v of core.WindowSpec", f.Name, f.Type)
@@ -176,20 +169,32 @@ func TestWindowFieldsReachCore(t *testing.T) {
 	}
 	app.Root = root
 	app.OnClose = func(WindowHandle) {}
-	checkPassedOn(t, "App.options", reflect.ValueOf(app), reflect.ValueOf(app.options()), skip)
-	if o := app.options(); o.OnClose == nil || o.Root == (Node{}) {
+	o := app.options()
+	checkPassedOn(t, "App.options", reflect.TypeFor[core.WindowSpec](), reflect.ValueOf(app), reflect.ValueOf(o.Window))
+	if o.OnClose == nil || o.Root == (Node{}) {
 		t.Errorf("App.options drops OnClose or Root: %+v", o)
 	}
 }
 
-// checkPassedOn reports the fields of core.WindowSpec, other than Root and
-// those in skip, whose value in to (found by name) is not the one in from.
-func checkPassedOn(t *testing.T, what string, from, to reflect.Value, skip map[string]bool) {
+// specFields returns the fields of a window spec type, those of an
+// embedded WindowSpec included and the embedding field itself left out.
+func specFields(st reflect.Type) []reflect.StructField {
+	var fs []reflect.StructField
+	for _, f := range reflect.VisibleFields(st) {
+		if !f.Anonymous {
+			fs = append(fs, f)
+		}
+	}
+	return fs
+}
+
+// checkPassedOn reports the fields of the window spec type st, other than
+// Root, whose value in to (found by name) is not the one in from.
+func checkPassedOn(t *testing.T, what string, st reflect.Type, from, to reflect.Value) {
 	t.Helper()
-	st := reflect.TypeFor[core.WindowSpec]()
-	for i := range st.NumField() {
-		name := st.Field(i).Name
-		if name == "Root" || skip[name] {
+	for _, f := range specFields(st) {
+		name := f.Name
+		if name == "Root" {
 			continue
 		}
 		a, b := from.FieldByName(name), to.FieldByName(name)

@@ -482,7 +482,9 @@
 //
 // Windows (window.go, whose top comment is the reference; ADR-180): a
 // Window component (UseWindowSpec, tela.Window) opens a child window with
-// a Tree of its own while it is mounted; the Host routes each window's
+// a Tree of its own while it is mounted; the main window is Options.Window,
+// a WindowSpec, and a child's is a ChildWindowSpec (a WindowSpec plus
+// Modal, RootClass, Root and OnClose); the Host routes each window's
 // events to its Tree. The Trees of an app form one element tree (contexts
 // and Value reads cross them), modal windows block their parent's input,
 // UseWindow gives a WindowHandle with the window's state and requests, and

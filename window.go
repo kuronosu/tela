@@ -113,15 +113,19 @@ func (w Window) Build() Node {
 }
 
 // spec returns the core description of the window: every field of
-// core.WindowSpec (TestWindowFieldsReachCore checks none is left out).
-func (w Window) spec() core.WindowSpec {
-	return core.WindowSpec{
-		Title: w.Title, Width: w.Width, Height: w.Height,
-		MinWidth: w.MinWidth, MinHeight: w.MinHeight, MaxWidth: w.MaxWidth, MaxHeight: w.MaxHeight,
-		FixedSize: w.FixedSize, Frameless: w.Frameless, AlwaysOnTop: w.AlwaysOnTop,
-		Modal: w.Modal, Hidden: w.Hidden, Icon: w.Icon, RootClass: w.RootClass,
-		TitleBar: w.TitleBar, Backdrop: w.Backdrop,
-		Placement: w.Placement, OnClose: w.OnClose,
+// core.ChildWindowSpec (TestWindowFieldsReachCore checks none is left
+// out).
+func (w Window) spec() core.ChildWindowSpec {
+	return core.ChildWindowSpec{
+		WindowSpec: core.WindowSpec{
+			Title: w.Title, Width: w.Width, Height: w.Height,
+			MinWidth: w.MinWidth, MinHeight: w.MinHeight, MaxWidth: w.MaxWidth, MaxHeight: w.MaxHeight,
+			FixedSize: w.FixedSize, Frameless: w.Frameless, AlwaysOnTop: w.AlwaysOnTop,
+			Hidden: w.Hidden, Icon: w.Icon,
+			TitleBar: w.TitleBar, Backdrop: w.Backdrop,
+			Placement: w.Placement,
+		},
+		Modal: w.Modal, RootClass: w.RootClass, OnClose: w.OnClose,
 		Root: core.NodeOf(w.Root),
 	}
 }

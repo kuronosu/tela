@@ -177,9 +177,11 @@ func ShowMessage(m Message, done func(Answer)) error {
 func drawMessage(d core.Desktop, parent tela.WindowHandle, m Message, done func(Answer)) error {
 	box := &drawnBox{msg: m, done: done}
 	w, h := m.estimateSize()
-	cw, err := core.OpenWindow(parent, core.WindowSpec{
-		Title: m.title(), Width: w, Height: h,
-		MinWidth: w, MinHeight: h, MaxWidth: w, MaxHeight: h,
+	cw, err := core.OpenWindow(parent, core.ChildWindowSpec{
+		WindowSpec: core.WindowSpec{
+			Title: m.title(), Width: w, Height: h,
+			MinWidth: w, MinHeight: h, MaxWidth: w, MaxHeight: h,
+		},
 		Modal:     true,
 		RootClass: "bg-background text-foreground",
 		OnClose:   func() { box.answer(m.Buttons.DismissAnswer()) },
@@ -250,9 +252,11 @@ func (b *drawnBox) resize(h float32) {
 	}
 	b.height = h
 	w, _ := b.msg.estimateSize()
-	b.win.Update(core.WindowSpec{
-		Title: b.msg.title(), Width: w, Height: h,
-		MinWidth: w, MinHeight: h, MaxWidth: w, MaxHeight: h,
+	b.win.Update(core.ChildWindowSpec{
+		WindowSpec: core.WindowSpec{
+			Title: b.msg.title(), Width: w, Height: h,
+			MinWidth: w, MinHeight: h, MaxWidth: w, MaxHeight: h,
+		},
 		Modal:     true,
 		RootClass: "bg-background text-foreground",
 		OnClose:   func() { b.answer(b.msg.Buttons.DismissAnswer()) },

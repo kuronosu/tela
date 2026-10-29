@@ -251,8 +251,8 @@ func TestTitleBarHitRegions(t *testing.T) {
 	b := headless.New(headless.Options{Size: platform.Size{W: 600, H: 200}})
 	theme := kit.Theme()
 	host, err := core.NewHost(b, core.Options{
-		Frameless: true,
-		Config:    core.Config{Dev: true, IDPrefix: "tt-", Theme: (*core.Theme)(&theme)},
+		Window: core.WindowSpec{Frameless: true},
+		Config: core.Config{Dev: true, IDPrefix: "tt-", Theme: (*core.Theme)(&theme)},
 		Root: core.NodeOf(tela.C(func() tela.Node {
 			return h.Div(h.Class("w-full bg-background text-foreground"),
 				kit.TitleBar{Variant: kit.Windows, Title: h.Text("Notes"),

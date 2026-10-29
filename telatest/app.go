@@ -126,11 +126,11 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 	cc.Warn = a.warn
 	copts := cfg.win.coreOptions()
 	copts.Config = cc
-	copts.Width, copts.Height = cfg.width, cfg.height
+	copts.Window.Width, copts.Window.Height = cfg.width, cfg.height
 	copts.Root = rootNode
 	copts.ErrorLog = testWriter{tb}
-	if copts.Title == "" {
-		copts.Title = "telatest"
+	if copts.Window.Title == "" {
+		copts.Window.Title = "telatest"
 	}
 	host, err := core.NewHost(a.backend, copts)
 	if err != nil {

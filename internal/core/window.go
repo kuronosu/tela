@@ -60,8 +60,9 @@ import (
 // after cancelling the pointers it held; a press there activates the
 // modal window, and a close request there is refused.
 
-// WindowSpec describes a window: the main window (Options, from tela.App)
-// or one opened by a Window component (tela.Window).
+// WindowSpec describes what every window has: the main window
+// (Options.Window, from tela.App) and the windows opened by a Window
+// component (tela.Window), which add ChildWindowSpec's fields.
 type WindowSpec struct {
 	// Title is the window title.
 	Title string
@@ -73,26 +74,34 @@ type WindowSpec struct {
 	MinWidth, MinHeight, MaxWidth, MaxHeight float32
 	// FixedSize keeps the user from resizing the window; Frameless removes
 	// the OS title bar and borders; AlwaysOnTop keeps it above other
-	// windows; Modal blocks the parent window while it is visible; Hidden
-	// keeps it hidden.
-	FixedSize, Frameless, AlwaysOnTop, Modal, Hidden bool
+	// windows; Hidden keeps it hidden.
+	FixedSize, Frameless, AlwaysOnTop, Hidden bool
 	// Icon is the window icon at several sizes; empty is the default.
 	Icon []image.Image
 	// TitleBar are the colors of the OS title bar and border, Backdrop the
 	// system material behind the window (Windows 11; ADR-187).
 	TitleBar TitleBarColors
 	Backdrop Backdrop
-	// RootClass are the classes of the window's root (a child window's;
-	// the main window's are Config.RootClass).
-	RootClass string
-	// Root is the content (a child window's; the main window's is
-	// Options.Root).
-	Root Node
-	// OnClose runs when the user asks to close the window (a child
-	// window's; the main window's is Options.OnClose).
-	OnClose func()
 	// Placement is where the window opens: a saved placement, or zero.
 	Placement WindowPlacement
+}
+
+// ChildWindowSpec describes a child window, the one a Window component
+// (tela.Window, UseWindowSpec) or OpenWindow opens: a WindowSpec plus
+// what only a child window has. The main window has the same things
+// elsewhere: Config.RootClass, Options.Root and Options.OnClose; it is
+// never modal.
+type ChildWindowSpec struct {
+	WindowSpec
+	// Modal blocks the parent window while the child is visible; it is
+	// fixed when the window opens.
+	Modal bool
+	// RootClass are the classes of the window's root.
+	RootClass string
+	// Root is the content of the window.
+	Root Node
+	// OnClose runs when the user asks to close the window.
+	OnClose func()
 }
 
 // WindowState is the state of a window that a component can react to:
@@ -445,7 +454,7 @@ type windowSlot struct {
 	el *Element
 	// spec is the latest build's, applied the spec last applied to the
 	// window.
-	spec, applied WindowSpec
+	spec, applied ChildWindowSpec
 	view          *winView
 	// queued: in Tree.winQ; tried: opening was tried (it failed, or the
 	// tree has no window); gone: the component unmounted; deferred: an
@@ -468,7 +477,7 @@ func (s *windowSlot) unmount(t *Tree) {
 // UseWindowSpec opens the window spec describes while the calling
 // component is mounted, keeps it up to date with the spec of every build
 // and closes it when the component unmounts: the build of tela.Window.
-func UseWindowSpec(spec WindowSpec) {
+func UseWindowSpec(spec ChildWindowSpec) {
 	el, i := nextSlot(hookWindowSpec)
 	t := el.tree
 	s, ok := existingSlot[*windowSlot](el, i, "tela.Window")
@@ -480,7 +489,7 @@ func UseWindowSpec(spec WindowSpec) {
 	if spec.Root.d == nil && t.dev {
 		panic(fmt.Sprintf("tela: tela.Window %q has no Root: give it the content of the window, such as tela.Window{Title: %q, Root: Settings{}} for a struct component or Root: tela.C(settings) for a function", spec.Title, spec.Title))
 	}
-	checkWindowSpec("tela.Window", spec.Title, &spec)
+	checkWindowSpec("tela.Window", spec.Title, &spec.WindowSpec)
 	s.spec = spec
 	t.queueWindow(s)
 }
@@ -544,7 +553,7 @@ func (t *Tree) openWindow(s *windowSlot) {
 	ct.trk = t.trk
 	ct.outer = s.el
 	ct.anim.driven = true
-	v := h.newView(win, ct, s, &spec, wo)
+	v := h.newView(win, ct, s, &spec.WindowSpec, wo)
 	v.parent, v.modal = pv, wo.Modal
 	s.view, s.applied = v, spec
 	h.views = append(h.views, v)
@@ -701,8 +710,16 @@ func sameIcon(a, b []image.Image) bool {
 	return true
 }
 
+// options returns the platform options of the child window spec
+// describes, a child of parent (nil for a top-level window).
+func (s *ChildWindowSpec) options(appID string, parent platform.Window) platform.WindowOptions {
+	o := s.WindowSpec.options(appID, parent)
+	o.Modal = s.Modal && parent != nil
+	return o
+}
+
 // options returns the platform options of the window spec describes, a
-// child of parent (nil for a top-level window).
+// child of parent (nil for a top-level window); never modal.
 func (s *WindowSpec) options(appID string, parent platform.Window) platform.WindowOptions {
 	o := platform.WindowOptions{
 		Title:       s.Title,
@@ -717,7 +734,6 @@ func (s *WindowSpec) options(appID string, parent platform.Window) platform.Wind
 		TitleBar:    s.TitleBar.platform(),
 		Backdrop:    s.Backdrop,
 		Parent:      parent,
-		Modal:       s.Modal && parent != nil,
 	}
 	p := s.Placement
 	if validSize(p.Width) && validSize(p.Height) && p.Width > 0 && p.Height > 0 {

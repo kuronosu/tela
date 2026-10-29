@@ -58,11 +58,11 @@ func TestDevSeedCounts(t *testing.T) {
 // parent window's.
 func TestDevWindowKeys(t *testing.T) {
 	keys := func() map[string]string {
-		inner := win(WindowSpec{Title: "Inner", OnClose: func() {}, Root: div(Text("inner"))})
+		inner := win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Inner"}, OnClose: func() {}, Root: div(Text("inner"))})
 		root := Component(func() Node {
 			return div(
-				win(WindowSpec{Title: "Outer", OnClose: func() {}, Root: div(Text("outer"), inner)}),
-				win(WindowSpec{Title: "Other", OnClose: func() {}, Root: div(Text("other"))}),
+				win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Outer"}, OnClose: func() {}, Root: div(Text("outer"), inner)}),
+				win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "Other"}, OnClose: func() {}, Root: div(Text("other"))}),
 			)
 		})
 		x := newWinHarness(t, Options{Root: root})
