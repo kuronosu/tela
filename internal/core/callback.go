@@ -3,7 +3,6 @@ package core
 import (
 	"reflect"
 	"strconv"
-	"sync"
 )
 
 // ---------------------------------------------------------------------
@@ -68,20 +67,9 @@ func checkFunc[F any](fn F) {
 	}
 }
 
-// forwarders holds the forwarder makers registered by other packages, by
-// function type.
-var forwarders sync.Map // reflect.Type → func(latest any) any
-
-// RegisterForwarder registers how to build the UseCallback forwarder of
-// function type F without reflection: mk returns a function of type F
-// that calls *latest. Package tela registers its event handler types.
-func RegisterForwarder[F any](mk func(latest *F) F) {
-	forwarders.Store(reflect.TypeFor[F](), func(l any) any { return mk(l.(*F)) })
-}
-
 // forwarder returns a function of type F that calls *latest: direct
-// closures for common shapes and registered types, reflect.MakeFunc for
-// the rest.
+// closures for the common shapes and the event handler types,
+// reflect.MakeFunc (which allocates on every call) for the rest.
 func forwarder[F any](latest *F) F {
 	var f F
 	switch p := any(&f).(type) {
@@ -109,11 +97,44 @@ func forwarder[F any](latest *F) F {
 	case *func() error:
 		l := any(latest).(*func() error)
 		*p = func() error { return (*l)() }
+	case *func(MouseEvent):
+		l := any(latest).(*func(MouseEvent))
+		*p = func(e MouseEvent) { (*l)(e) }
+	case *func(PointerEvent):
+		l := any(latest).(*func(PointerEvent))
+		*p = func(e PointerEvent) { (*l)(e) }
+	case *func(DragEvent):
+		l := any(latest).(*func(DragEvent))
+		*p = func(e DragEvent) { (*l)(e) }
+	case *func(KeyboardEvent):
+		l := any(latest).(*func(KeyboardEvent))
+		*p = func(e KeyboardEvent) { (*l)(e) }
+	case *func(FocusEvent):
+		l := any(latest).(*func(FocusEvent))
+		*p = func(e FocusEvent) { (*l)(e) }
+	case *func(WheelEvent):
+		l := any(latest).(*func(WheelEvent))
+		*p = func(e WheelEvent) { (*l)(e) }
+	case *func(ScrollEvent):
+		l := any(latest).(*func(ScrollEvent))
+		*p = func(e ScrollEvent) { (*l)(e) }
+	case *func(InputEvent):
+		l := any(latest).(*func(InputEvent))
+		*p = func(e InputEvent) { (*l)(e) }
+	case *func(ChangeEvent):
+		l := any(latest).(*func(ChangeEvent))
+		*p = func(e ChangeEvent) { (*l)(e) }
+	case *func(CompositionEvent):
+		l := any(latest).(*func(CompositionEvent))
+		*p = func(e CompositionEvent) { (*l)(e) }
+	case *func(SelectEvent):
+		l := any(latest).(*func(SelectEvent))
+		*p = func(e SelectEvent) { (*l)(e) }
+	case *func(SubmitEvent):
+		l := any(latest).(*func(SubmitEvent))
+		*p = func(e SubmitEvent) { (*l)(e) }
 	default:
 		ty := reflect.TypeFor[F]()
-		if mk, ok := forwarders.Load(ty); ok {
-			return mk.(func(any) any)(latest).(F)
-		}
 		lv := reflect.ValueOf(latest).Elem()
 		variadic := ty.IsVariadic()
 		return reflect.MakeFunc(ty, func(args []reflect.Value) []reflect.Value {

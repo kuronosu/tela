@@ -113,41 +113,59 @@ func TestPublicMemoRefIdCallback(t *testing.T) {
 }
 
 // TestEventCallbacksDoNotAllocate checks that the UseCallback forwarders
-// of the event handler types are registered closures, not
-// reflect.MakeFunc (which allocates on every call).
+// of the event handler types are plain closures, not reflect.MakeFunc
+// (which allocates on every call).
 func TestEventCallbacksDoNotAllocate(t *testing.T) {
-	var m tela.Callback[func(tela.MouseEvent)]
-	var p tela.Callback[func(tela.PointerEvent)]
-	var d tela.Callback[func(tela.DragEvent)]
-	var k tela.Callback[func(tela.KeyboardEvent)]
-	var f tela.Callback[func(tela.FocusEvent)]
-	sum := float32(0)
+	var mouse tela.Callback[func(tela.MouseEvent)]
+	var pointer tela.Callback[func(tela.PointerEvent)]
+	var drag tela.Callback[func(tela.DragEvent)]
+	var key tela.Callback[func(tela.KeyboardEvent)]
+	var focus tela.Callback[func(tela.FocusEvent)]
+	var wheel tela.Callback[func(tela.WheelEvent)]
+	var scroll tela.Callback[func(tela.ScrollEvent)]
+	var input tela.Callback[func(tela.InputEvent)]
+	var change tela.Callback[func(tela.ChangeEvent)]
+	var composition tela.Callback[func(tela.CompositionEvent)]
+	var sel tela.Callback[func(tela.SelectEvent)]
+	var submit tela.Callback[func(tela.SubmitEvent)]
+	calls := 0
 	comp := func() tela.Node {
-		m = tela.UseCallback(func(e tela.MouseEvent) { sum += e.X })
-		p = tela.UseCallback(func(e tela.PointerEvent) { sum += e.X })
-		d = tela.UseCallback(func(e tela.DragEvent) { sum += e.DeltaX })
-		k = tela.UseCallback(func(e tela.KeyboardEvent) {
-			if e.Key == tela.KeyEnter {
-				sum++
-			}
-		})
-		f = tela.UseCallback(func(tela.FocusEvent) { sum++ })
+		mouse = tela.UseCallback(func(tela.MouseEvent) { calls++ })
+		pointer = tela.UseCallback(func(tela.PointerEvent) { calls++ })
+		drag = tela.UseCallback(func(tela.DragEvent) { calls++ })
+		key = tela.UseCallback(func(tela.KeyboardEvent) { calls++ })
+		focus = tela.UseCallback(func(tela.FocusEvent) { calls++ })
+		wheel = tela.UseCallback(func(tela.WheelEvent) { calls++ })
+		scroll = tela.UseCallback(func(tela.ScrollEvent) { calls++ })
+		input = tela.UseCallback(func(tela.InputEvent) { calls++ })
+		change = tela.UseCallback(func(tela.ChangeEvent) { calls++ })
+		composition = tela.UseCallback(func(tela.CompositionEvent) { calls++ })
+		sel = tela.UseCallback(func(tela.SelectEvent) { calls++ })
+		submit = tela.UseCallback(func(tela.SubmitEvent) { calls++ })
 		return div()
 	}
 	mount(t, tela.C(comp), nil)
-	fm, fp, fd, fk, ff := m.Fn(), p.Fn(), d.Fn(), k.Fn(), f.Fn()
+	fm, fp, fd, fk, ff, fw := mouse.Fn(), pointer.Fn(), drag.Fn(), key.Fn(), focus.Fn(), wheel.Fn()
+	fs, fi, fc, fco, fse, fsu := scroll.Fn(), input.Fn(), change.Fn(), composition.Fn(), sel.Fn(), submit.Fn()
 	allocs := testing.AllocsPerRun(100, func() {
 		fm(tela.MouseEvent{X: 1})
 		fp(tela.PointerEvent{X: 1})
 		fd(tela.DragEvent{DeltaX: 1})
 		fk(tela.KeyboardEvent{Key: "Enter"})
 		ff(tela.FocusEvent{})
+		fw(tela.WheelEvent{})
+		fs(tela.ScrollEvent{})
+		fi(tela.InputEvent{Data: "a"})
+		fc(tela.ChangeEvent{Value: "a"})
+		fco(tela.CompositionEvent{Data: "a"})
+		fse(tela.SelectEvent{})
+		fsu(tela.SubmitEvent{})
 	})
 	if allocs != 0 {
-		t.Errorf("%v allocations per call of the forwarders", allocs)
+		t.Errorf("%v allocations per call of the 12 forwarders", allocs)
 	}
-	if sum == 0 {
-		t.Error("the forwarders did not call the functions")
+	if calls == 0 || calls%12 != 0 {
+		t.Errorf("the forwarders made %d calls, want a multiple of 12", calls)
 	}
 }
 

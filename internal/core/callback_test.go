@@ -82,11 +82,6 @@ func TestUseCallbackShapes(t *testing.T) {
 	var named Callback[namedHandler]
 	var errFn Callback[func() error]
 	var custom Callback[func(pressEvent)]
-	made := 0
-	RegisterForwarder(func(l *func(pressEvent)) func(pressEvent) {
-		made++
-		return func(e pressEvent) { (*l)(e) }
-	})
 	comp := func() Node {
 		variadic = UseCallback(func(prefix string, xs ...int) string { return prefix + fmt.Sprint(xs) })
 		multi = UseCallback(func(n int, s string) (string, error) {
@@ -112,8 +107,8 @@ func TestUseCallbackShapes(t *testing.T) {
 		t.Errorf("func() error: %v", err)
 	}
 	custom.Fn()(pressEvent{X: 2})
-	if strings.Join(calls, " ") != "abc 2" || made != 1 {
-		t.Errorf("calls %q, registered forwarder made %d times (want once)", calls, made)
+	if strings.Join(calls, " ") != "abc 2" {
+		t.Errorf("calls %q, want %q", calls, "abc 2")
 	}
 }
 

@@ -7,32 +7,6 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 )
 
-func init() {
-	// UseCallback builds the forwarders of the event handler types
-	// without reflection.
-	core.RegisterForwarder(func(l *func(MouseEvent)) func(MouseEvent) {
-		return func(e MouseEvent) { (*l)(e) }
-	})
-	core.RegisterForwarder(func(l *func(PointerEvent)) func(PointerEvent) {
-		return func(e PointerEvent) { (*l)(e) }
-	})
-	core.RegisterForwarder(func(l *func(DragEvent)) func(DragEvent) {
-		return func(e DragEvent) { (*l)(e) }
-	})
-	core.RegisterForwarder(func(l *func(KeyboardEvent)) func(KeyboardEvent) {
-		return func(e KeyboardEvent) { (*l)(e) }
-	})
-	core.RegisterForwarder(func(l *func(FocusEvent)) func(FocusEvent) {
-		return func(e FocusEvent) { (*l)(e) }
-	})
-	core.RegisterForwarder(func(l *func(WheelEvent)) func(WheelEvent) {
-		return func(e WheelEvent) { (*l)(e) }
-	})
-	core.RegisterForwarder(func(l *func(ScrollEvent)) func(ScrollEvent) {
-		return func(e ScrollEvent) { (*l)(e) }
-	})
-}
-
 // Setter sets the state of one [UseState] slot. It is a small comparable
 // value, the same on every build of the slot, so it can be stored, passed
 // to goroutines and put in props compared by [CP]. Its methods are safe

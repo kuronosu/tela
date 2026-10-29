@@ -1,7 +1,7 @@
 # ADR-051: Phase-4 hooks
 
 - **Date:** 2026-10-12
-- **Status:** Accepted
+- **Status:** Accepted; the forwarder registry (core.RegisterForwarder) is superseded by ADR-190
 
 ## Decision
 
