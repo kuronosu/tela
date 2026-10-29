@@ -43,6 +43,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 
 ### Phase 14: macOS (and X11 IME) (`v0.14.0`)
 
+- [ ] First: one host-platform flavor (Linux, Windows, Mac) read by `core`'s key bindings and word rules, `aria`'s `ctrlKey` and `telatest`'s `ControlOrMeta`, overridable in tests so Mac behavior runs off-Mac (codebase review 2026-10-29, C11; a public "primary modifier" query needs an ADR)
 - [ ] `cocoa` backend via purego, with CI on `macos-latest`: window, event loop, present, HiDPI, keyboard, pointer, clipboard, settings
 - [ ] IME on macOS (`NSTextInputClient`) and on X11 (XIM)
 - [ ] macOS parity for every phase-12 and phase-13 item
