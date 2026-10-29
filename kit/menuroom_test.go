@@ -7,6 +7,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/kit"
 )
 
@@ -47,7 +48,7 @@ func roomPage() tela.Node {
 // is none.
 func (a *menuRaw) menuNode() *semantics.Node {
 	a.t.Helper()
-	n := a.find("menu", "Actions")
+	n := rawwin.FindNode(a.tree.Semantics(), "menu", "Actions")
 	if n == nil {
 		a.t.Fatalf("no menu is open:\n%s", a.snapshot())
 	}

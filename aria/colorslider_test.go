@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -99,7 +100,7 @@ func TestColorSliderTouch(t *testing.T) {
 		t.Run(fmt.Sprint(kind), func(t *testing.T) {
 			p := picker{state: aria.ColorStateOptions{DefaultValue: new(aria.HSB{H: 90, S: 100, B: 100, A: 1}.Color())}, parts: "h"}
 			a := mountRaw(t, tela.C(p.page()), 232, 400)
-			value := func() string { return findNode(a.tree.Semantics(), "slider", "Hue").Value }
+			value := func() string { return rawwin.FindNode(a.tree.Semantics(), "slider", "Hue").Value }
 			x := float32(16 + 0.25*areaLen) // hue 90
 			a.down(kind, x, hueY)
 			a.move(kind, x+50, hueY+30)

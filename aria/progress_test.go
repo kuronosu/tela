@@ -8,6 +8,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -63,7 +64,7 @@ func TestProgressBarIndeterminate(t *testing.T) {
 	}
 	// No aria-valuenow, but the range is there.
 	a := mountRaw(t, tela.C(page), 100, 100)
-	n := findNode(a.tree.Semantics(), "progressbar", "Loading")
+	n := rawwin.FindNode(a.tree.Semantics(), "progressbar", "Loading")
 	if n == nil || n.Range.HasNow || !n.Range.HasMin || !n.Range.HasMax {
 		t.Errorf("range of an indeterminate bar: %+v", n)
 	}
@@ -73,7 +74,7 @@ func TestProgressBarDeterminateRange(t *testing.T) {
 	a := mountRaw(t, tela.C(func() tela.Node {
 		return Div(aria.UseProgressBar(aria.ProgressBarOptions{Value: 30, Min: 20, Max: 70, AriaLabel: "Download"}).Props)
 	}), 100, 100)
-	n := findNode(a.tree.Semantics(), "progressbar", "Download")
+	n := rawwin.FindNode(a.tree.Semantics(), "progressbar", "Download")
 	if n == nil || !n.Range.HasNow || n.Range.Now != 30 || n.Range.Min != 20 || n.Range.Max != 70 {
 		t.Errorf("range of a bar: %+v", n)
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -126,13 +127,8 @@ func TestListBoxReplaceBehavior(t *testing.T) {
 func (a *rawApp) clickWith(x, y float32, mods platform.Modifiers) {
 	a.t.Helper()
 	for _, act := range []platform.PointerAction{platform.PointerMove, platform.PointerDown, platform.PointerUp} {
-		e := platform.PointerEvent{Action: act, Kind: platform.PointerMouse, ID: 1, Pos: platform.Point{X: x, Y: y}, Mods: mods}
-		switch act {
-		case platform.PointerDown:
-			e.Button, e.Buttons = platform.ButtonPrimary, platform.ButtonPrimary.Mask()
-		case platform.PointerUp:
-			e.Button = platform.ButtonPrimary
-		}
+		e := rawwin.PointerEvent(platform.PointerMouse, act, x, y, platform.ButtonPrimary, false)
+		e.Mods = mods
 		a.win.Inject(e)
 		a.settle()
 	}

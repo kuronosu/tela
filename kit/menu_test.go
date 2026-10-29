@@ -11,7 +11,6 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
-	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/kit"
 )
@@ -231,8 +230,9 @@ func iconItems() []kit.MenuItem[string] {
 	}
 }
 
-// menuRaw is a headless window for what telatest has no action for yet: a
-// right click, which makes the contextmenu event.
+// menuRaw is a headless window for what telatest has no action for yet:
+// the touch and pen pointers of a long press, and the frame-by-frame reads
+// of the menu's entrance.
 type menuRaw struct {
 	t    *testing.T
 	b    *headless.Backend
@@ -266,44 +266,28 @@ func (a *menuRaw) advance(d time.Duration) {
 	rawwin.Frames(a.b, a.host, d)
 }
 
-func (a *menuRaw) event(e platform.PointerEvent) {
+// pointer injects a pointer event (see [rawwin.Pointer]) and settles.
+func (a *menuRaw) pointer(kind platform.PointerKind, act platform.PointerAction, x, y float32, button platform.PointerButton, held bool) {
 	a.t.Helper()
-	a.win.Inject(e)
+	rawwin.Pointer(a.win, kind, act, x, y, button, held)
 	a.settle()
 }
 
 func (a *menuRaw) move(x, y float32) {
 	a.t.Helper()
-	a.event(platform.PointerEvent{Action: platform.PointerMove, Kind: platform.PointerMouse, ID: 1, Pos: platform.Point{X: x, Y: y}})
+	a.pointer(platform.PointerMouse, platform.PointerMove, x, y, platform.ButtonNone, false)
 }
 
+// rightClick presses and releases the secondary button of a mouse, which
+// makes the contextmenu event, and lets the menu's entrance run. A test
+// that needs none of the raw window uses telatest's ClickAt with Right.
 func (a *menuRaw) rightClick(x, y float32) {
 	a.t.Helper()
 	a.move(x, y)
-	a.event(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonSecondary, Buttons: platform.ButtonSecondary.Mask()})
-	a.event(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonSecondary})
+	a.pointer(platform.PointerMouse, platform.PointerDown, x, y, platform.ButtonSecondary, true)
+	a.pointer(platform.PointerMouse, platform.PointerUp, x, y, platform.ButtonSecondary, false)
 	a.advance(300 * time.Millisecond)
 }
 
 // snapshot is the aria snapshot of the window.
 func (a *menuRaw) snapshot() string { return a.tree.AriaSnapshot() }
-
-// find returns the node of the window's semantics tree with the role and
-// name, or nil.
-func (a *menuRaw) find(role, name string) *semantics.Node {
-	var walk func(n *semantics.Node) *semantics.Node
-	walk = func(n *semantics.Node) *semantics.Node {
-		if n.Role == role && n.Name == name {
-			return n
-		}
-		for _, c := range n.Children {
-			if f := walk(c); f != nil {
-				return f
-			}
-		}
-		return nil
-	}
-	return walk(a.tree.Semantics())
-}

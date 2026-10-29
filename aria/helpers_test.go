@@ -9,7 +9,6 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
-	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/testutil/rawwin"
 )
 
@@ -57,17 +56,7 @@ func (a *rawApp) advance(d time.Duration) {
 
 func (a *rawApp) pointer(kind platform.PointerKind, act platform.PointerAction, x, y float32, held bool) {
 	a.t.Helper()
-	e := platform.PointerEvent{Action: act, Kind: kind, ID: 1, Pos: platform.Point{X: x, Y: y}}
-	switch act {
-	case platform.PointerDown:
-		e.Button, e.Buttons = platform.ButtonPrimary, platform.ButtonPrimary.Mask()
-	case platform.PointerUp:
-		e.Button = platform.ButtonPrimary
-	}
-	if held && act != platform.PointerDown {
-		e.Buttons = platform.ButtonPrimary.Mask()
-	}
-	a.win.Inject(e)
+	rawwin.Pointer(a.win, kind, act, x, y, platform.ButtonPrimary, held)
 	a.settle()
 }
 
@@ -101,11 +90,9 @@ func (a *rawApp) tap(kind platform.PointerKind, x, y float32) {
 func (a *rawApp) rightClick(x, y float32) {
 	a.t.Helper()
 	a.pointer(platform.PointerMouse, platform.PointerMove, x, y, false)
-	a.win.Inject(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonSecondary, Buttons: platform.ButtonSecondary.Mask()})
+	rawwin.Pointer(a.win, platform.PointerMouse, platform.PointerDown, x, y, platform.ButtonSecondary, true)
 	a.settle()
-	a.win.Inject(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonSecondary})
+	rawwin.Pointer(a.win, platform.PointerMouse, platform.PointerUp, x, y, platform.ButtonSecondary, false)
 	a.settle()
 }
 
@@ -124,19 +111,7 @@ const keySpace = platform.Key(" ")
 // clickNode is the semantics click of an agent (no pointer, no key).
 func (a *rawApp) clickNode(role, name string) {
 	a.t.Helper()
-	var find func(n *semantics.Node) *semantics.Node
-	find = func(n *semantics.Node) *semantics.Node {
-		if n.Role == role && n.Name == name {
-			return n
-		}
-		for _, c := range n.Children {
-			if f := find(c); f != nil {
-				return f
-			}
-		}
-		return nil
-	}
-	n := find(a.tree.Semantics())
+	n := rawwin.FindNode(a.tree.Semantics(), role, name)
 	if n == nil {
 		a.t.Fatalf("no %s %q in the semantics tree:\n%s", role, name, a.tree.AriaSnapshot())
 	}
@@ -144,18 +119,4 @@ func (a *rawApp) clickNode(role, name string) {
 		a.t.Fatal(err)
 	}
 	a.settle()
-}
-
-// findNode returns the first node of the semantics tree with the role and
-// name, or nil.
-func findNode(n *semantics.Node, role, name string) *semantics.Node {
-	if n.Role == role && n.Name == name {
-		return n
-	}
-	for _, c := range n.Children {
-		if f := findNode(c, role, name); f != nil {
-			return f
-		}
-	}
-	return nil
 }

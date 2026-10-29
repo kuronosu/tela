@@ -1,9 +1,13 @@
 // Package rawwin is the headless window that the tests of aria and kit
 // drive with platform events when telatest has no action for what they
-// test yet (touch and pen pointers, the secondary button, key repeats). It
-// holds what those tests' own harnesses have in common: mounting, settling
-// and moving the clock. Each test package keeps its own type around the
-// backend, host and window with the actions it needs.
+// test yet (touch and pen pointers, a pen hover, key repeats, the
+// semantics click of an agent) or when they read the tree's internals; a
+// click with the secondary button, a tap and a long press have telatest
+// actions (ClickAt with Right, Tap, LongPress). It holds what those tests'
+// own harnesses have in common: mounting, settling, moving the clock,
+// building a pointer event and searching the semantics tree. Each test
+// package keeps its own type around the backend, host and window with the
+// actions it needs.
 package rawwin
 
 import (
@@ -14,6 +18,7 @@ import (
 	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
+	"github.com/kuronosu/tela/internal/semantics"
 )
 
 // TouchAndPen are the pointer kinds that have no telatest action.
@@ -97,4 +102,42 @@ func Frames(b *headless.Backend, host *core.Host, d time.Duration) {
 		b.Drain(host)
 	}
 	Settle(b, host)
+}
+
+// PointerEvent is the event of a pointer (pointer 1) of kind at (x, y).
+// For a press or a release, button is the button that changes; for a move
+// or a cancel it is the button held while held is true. A press always
+// holds its button, and a release holds it only when held is true (another
+// button of a chord is not modelled).
+func PointerEvent(kind platform.PointerKind, act platform.PointerAction, x, y float32, button platform.PointerButton, held bool) platform.PointerEvent {
+	e := platform.PointerEvent{Action: act, Kind: kind, ID: 1, Pos: platform.Point{X: x, Y: y}}
+	switch act {
+	case platform.PointerDown:
+		e.Button, e.Buttons = button, button.Mask()
+	case platform.PointerUp:
+		e.Button = button
+	}
+	if held && act != platform.PointerDown {
+		e.Buttons = button.Mask()
+	}
+	return e
+}
+
+// Pointer injects the [PointerEvent] into win. It does not settle.
+func Pointer(win *headless.Window, kind platform.PointerKind, act platform.PointerAction, x, y float32, button platform.PointerButton, held bool) {
+	win.Inject(PointerEvent(kind, act, x, y, button, held))
+}
+
+// FindNode returns the first node of the semantics tree n, in document
+// order, with the role and name, or nil.
+func FindNode(n *semantics.Node, role, name string) *semantics.Node {
+	if n.Role == role && n.Name == name {
+		return n
+	}
+	for _, c := range n.Children {
+		if f := FindNode(c, role, name); f != nil {
+			return f
+		}
+	}
+	return nil
 }

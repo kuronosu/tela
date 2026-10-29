@@ -32,17 +32,7 @@ func mountTouch(t *testing.T, root tela.Component, w, h float32) *touchApp {
 func (a *touchApp) settle() { rawwin.Settle(a.b, a.host) }
 
 func (a *touchApp) inject(kind platform.PointerKind, act platform.PointerAction, x, y float32, held bool) {
-	e := platform.PointerEvent{Action: act, Kind: kind, ID: 1, Pos: platform.Point{X: x, Y: y}}
-	switch act {
-	case platform.PointerDown:
-		e.Button, e.Buttons = platform.ButtonPrimary, platform.ButtonPrimary.Mask()
-	case platform.PointerUp:
-		e.Button = platform.ButtonPrimary
-	}
-	if held && act != platform.PointerDown {
-		e.Buttons = platform.ButtonPrimary.Mask()
-	}
-	a.win.Inject(e)
+	rawwin.Pointer(a.win, kind, act, x, y, platform.ButtonPrimary, held)
 	a.settle()
 }
 
@@ -57,21 +47,9 @@ func (a *touchApp) down(kind platform.PointerKind, x, y float32) {
 	a.inject(kind, platform.PointerDown, x, y, true)
 }
 
-func (a *touchApp) find(n *semantics.Node, role, name string) *semantics.Node {
-	if n.Role == role && n.Name == name {
-		return n
-	}
-	for _, c := range n.Children {
-		if f := a.find(c, role, name); f != nil {
-			return f
-		}
-	}
-	return nil
-}
-
 // node returns the semantics node of a role and name.
 func (a *touchApp) node(role, name string) *semantics.Node {
-	n := a.find(a.tree.Semantics(), role, name)
+	n := rawwin.FindNode(a.tree.Semantics(), role, name)
 	if n == nil {
 		a.t.Fatalf("no %s %q on screen", role, name)
 	}

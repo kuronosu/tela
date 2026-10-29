@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -308,7 +309,7 @@ func TestRadioGroupTouchAndVirtualPress(t *testing.T) {
 	o := aria.RadioGroupOptions[string]{OnValueChange: func(k string) { ev.add(k) }}
 	a := mountRaw(t, tela.C(radioPage(o)), 300, 200)
 	b := a.tree.Semantics()
-	node := findNode(b, "radio", "Team")
+	node := rawwin.FindNode(b, "radio", "Team")
 	if node == nil {
 		t.Fatalf("no Team radio:\n%s", a.tree.AriaSnapshot())
 	}

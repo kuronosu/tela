@@ -91,17 +91,17 @@ func TestContextMenuLongPressInAnotherArea(t *testing.T) {
 		t.Run(rawwin.KindName(kind), func(t *testing.T) {
 			app := mountRaw(t, tela.C(twoAreas), 500, 300)
 			app.rightClick(50, 50)
-			if findNode(app.tree.Semantics(), "menu", "Left") == nil {
+			if rawwin.FindNode(app.tree.Semantics(), "menu", "Left") == nil {
 				t.Fatalf("no left menu:\n%s", app.tree.AriaSnapshot())
 			}
 			app.down(kind, 250, 100)
 			app.advance(600 * time.Millisecond)
 			app.up(kind, 250, 100)
 			s := app.tree.Semantics()
-			if findNode(s, "menu", "Left") != nil || findNode(s, "menu", "Right") == nil {
+			if rawwin.FindNode(s, "menu", "Left") != nil || rawwin.FindNode(s, "menu", "Right") == nil {
 				t.Fatalf("after a long press in the other area:\n%s", app.tree.AriaSnapshot())
 			}
-			n := findNode(s, "menu", "Right")
+			n := rawwin.FindNode(s, "menu", "Right")
 			if n.Bounds.X0 != 250 || n.Bounds.Y0 != 100 {
 				t.Errorf("right menu at (%v, %v), want (250, 100)", n.Bounds.X0, n.Bounds.Y0)
 			}

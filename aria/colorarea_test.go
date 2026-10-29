@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -318,7 +319,7 @@ func TestColorAreaTouchAndPen(t *testing.T) {
 				parts: "a",
 			}
 			a := mountRaw(t, tela.C(p.page()), 232, 400)
-			value := func() string { return findNode(a.tree.Semantics(), "slider", "Color").Value }
+			value := func() string { return rawwin.FindNode(a.tree.Semantics(), "slider", "Color").Value }
 			cx, cy := areaPoint(50, 50)
 			a.down(kind, cx, cy)
 			a.move(kind, cx+20, cy-20)

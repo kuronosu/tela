@@ -10,6 +10,7 @@ import (
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -50,14 +51,14 @@ func ctxPage(o aria.ContextMenuTriggerOptions, ev *events) func() tela.Node {
 
 func menuBounds(t *testing.T, a *rawApp) (x, y, w, h float32) {
 	t.Helper()
-	n := findNode(a.tree.Semantics(), "menu", "Actions")
+	n := rawwin.FindNode(a.tree.Semantics(), "menu", "Actions")
 	if n == nil {
 		t.Fatalf("no menu:\n%s", a.tree.AriaSnapshot())
 	}
 	return n.Bounds.X0, n.Bounds.Y0, n.Bounds.X1 - n.Bounds.X0, n.Bounds.Y1 - n.Bounds.Y0
 }
 
-func hasMenu(a *rawApp) bool { return findNode(a.tree.Semantics(), "menu", "Actions") != nil }
+func hasMenu(a *rawApp) bool { return rawwin.FindNode(a.tree.Semantics(), "menu", "Actions") != nil }
 
 var ctxMenuLoc = telatest.ByRole("menu", "Actions")
 
@@ -121,7 +122,7 @@ func TestContextMenuLongPressOnTouch(t *testing.T) {
 		t.Errorf("menu at (%v, %v), want (50, 50)", x, y)
 	}
 	// The first item has the focus.
-	if n := findNode(app.tree.Semantics(), "menuitem", "Copy"); n == nil || n.States&semantics.StateFocused == 0 {
+	if n := rawwin.FindNode(app.tree.Semantics(), "menuitem", "Copy"); n == nil || n.States&semantics.StateFocused == 0 {
 		t.Errorf("the first item does not have the focus:\n%s", app.tree.AriaSnapshot())
 	}
 	app.up(platform.PointerTouch, 50, 50)

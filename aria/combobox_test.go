@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -608,25 +609,25 @@ func TestComboboxActiveDescendant(t *testing.T) {
 	a := mountRaw(t, root, 400, 300)
 	a.tap(platform.PointerMouse, 50, 40)
 	pressKey(a, platform.KeyArrowDown, platform.CodeArrowDown)
-	input := findNode(a.tree.Semantics(), "combobox", "Fruit")
+	input := rawwin.FindNode(a.tree.Semantics(), "combobox", "Fruit")
 	if input == nil || input.Controls == 0 || input.ActiveDescendant == 0 {
 		t.Fatalf("combobox %+v", input)
 	}
-	opt := findNode(a.tree.Semantics(), "option", "Apple")
+	opt := rawwin.FindNode(a.tree.Semantics(), "option", "Apple")
 	if opt == nil || input.ActiveDescendant != opt.ID {
 		t.Errorf("active descendant %v, want Apple %v", input.ActiveDescendant, opt)
 	}
-	list := findNode(a.tree.Semantics(), "listbox", "Fruit")
+	list := rawwin.FindNode(a.tree.Semantics(), "listbox", "Fruit")
 	if list == nil || input.Controls != list.ID {
 		t.Errorf("controls %v, want the listbox %v", input.Controls, list)
 	}
 	pressKey(a, platform.KeyArrowDown, platform.CodeArrowDown)
-	opt = findNode(a.tree.Semantics(), "option", "Banana")
-	if input = findNode(a.tree.Semantics(), "combobox", "Fruit"); input.ActiveDescendant != opt.ID {
+	opt = rawwin.FindNode(a.tree.Semantics(), "option", "Banana")
+	if input = rawwin.FindNode(a.tree.Semantics(), "combobox", "Fruit"); input.ActiveDescendant != opt.ID {
 		t.Errorf("active descendant %v, want Banana %v", input.ActiveDescendant, opt.ID)
 	}
 	pressKey(a, platform.KeyEscape, platform.CodeEscape)
-	if input = findNode(a.tree.Semantics(), "combobox", "Fruit"); input.ActiveDescendant != 0 || input.Controls != 0 {
+	if input = rawwin.FindNode(a.tree.Semantics(), "combobox", "Fruit"); input.ActiveDescendant != 0 || input.Controls != 0 {
 		t.Errorf("closed: %+v", input)
 	}
 }

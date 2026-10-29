@@ -10,6 +10,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -256,7 +257,7 @@ func TestMenuBarTouch(t *testing.T) {
 	var ev events
 	app := mountRaw(t, tela.C(barPage(aria.MenuBarOptions[string]{}, &ev)), 400, 300)
 	center := func(name string) (float32, float32) {
-		n := findNode(app.tree.Semantics(), "menuitem", name)
+		n := rawwin.FindNode(app.tree.Semantics(), "menuitem", name)
 		if n == nil {
 			t.Fatalf("no trigger %q", name)
 		}
@@ -264,20 +265,20 @@ func TestMenuBarTouch(t *testing.T) {
 	}
 	x, y := center("File")
 	app.down(platform.PointerTouch, x, y)
-	if findNode(app.tree.Semantics(), "menu", "File") != nil {
+	if rawwin.FindNode(app.tree.Semantics(), "menu", "File") != nil {
 		t.Errorf("the menu opened on the touch down")
 	}
 	app.up(platform.PointerTouch, x, y)
-	if findNode(app.tree.Semantics(), "menu", "File") == nil {
+	if rawwin.FindNode(app.tree.Semantics(), "menu", "File") == nil {
 		t.Errorf("a tap did not open the menu:\n%s", app.tree.AriaSnapshot())
 	}
 	x, y = center("View")
 	app.tap(platform.PointerTouch, x, y)
-	if findNode(app.tree.Semantics(), "menu", "View") == nil || findNode(app.tree.Semantics(), "menu", "File") != nil {
+	if rawwin.FindNode(app.tree.Semantics(), "menu", "View") == nil || rawwin.FindNode(app.tree.Semantics(), "menu", "File") != nil {
 		t.Errorf("a tap on another trigger did not move to its menu:\n%s", app.tree.AriaSnapshot())
 	}
 	app.tap(platform.PointerTouch, x, y) // and a tap on the open one closes it
-	if findNode(app.tree.Semantics(), "menu", "View") != nil {
+	if rawwin.FindNode(app.tree.Semantics(), "menu", "View") != nil {
 		t.Errorf("a tap on the open trigger did not close it:\n%s", app.tree.AriaSnapshot())
 	}
 }

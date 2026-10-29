@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/kit"
 )
 
@@ -42,10 +43,9 @@ func (a *menuRaw) findRole(role string) *semantics.Node {
 // frames (the zero rectangle while there is none), and where it ends.
 func (a *menuRaw) pressFrames(button platform.PointerButton, x, y float32, role string, n int) (frames []gfx.Rect, final gfx.Rect) {
 	a.t.Helper()
-	p := platform.Point{X: x, Y: y}
 	a.move(x, y)
-	a.event(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerMouse, ID: 1, Pos: p, Button: button, Buttons: button.Mask()})
-	a.win.Inject(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerMouse, ID: 1, Pos: p, Button: button})
+	a.pointer(platform.PointerMouse, platform.PointerDown, x, y, button, true)
+	rawwin.Pointer(a.win, platform.PointerMouse, platform.PointerUp, x, y, button, false)
 	for range n {
 		a.b.Drain(a.host)
 		var r gfx.Rect

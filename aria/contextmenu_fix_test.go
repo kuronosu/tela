@@ -9,6 +9,7 @@ import (
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -54,11 +55,9 @@ func TestContextMenuRightClickOutsideCloses(t *testing.T) {
 	}
 	// So does a middle click, which reaches nothing under it.
 	app.rightClick(90, 60)
-	app.win.Inject(platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: 340, Y: 30}, Button: platform.ButtonMiddle, Buttons: platform.ButtonMiddle.Mask()})
+	rawwin.Pointer(app.win, platform.PointerMouse, platform.PointerDown, 340, 30, platform.ButtonMiddle, true)
 	app.settle()
-	app.win.Inject(platform.PointerEvent{Action: platform.PointerUp, Kind: platform.PointerMouse, ID: 1,
-		Pos: platform.Point{X: 340, Y: 30}, Button: platform.ButtonMiddle})
+	rawwin.Pointer(app.win, platform.PointerMouse, platform.PointerUp, 340, 30, platform.ButtonMiddle, false)
 	app.settle()
 	if hasMenu(app) {
 		t.Errorf("a middle click outside left the menu open")
@@ -153,7 +152,7 @@ func TestContextMenuLongPressPen(t *testing.T) {
 	if x, y, _, _ := menuBounds(t, app); x != 50 || y != 50 {
 		t.Errorf("menu at (%v, %v), want (50, 50)", x, y)
 	}
-	if n := findNode(app.tree.Semantics(), "menuitem", "Copy"); n == nil || n.States&semantics.StateFocused == 0 {
+	if n := rawwin.FindNode(app.tree.Semantics(), "menuitem", "Copy"); n == nil || n.States&semantics.StateFocused == 0 {
 		t.Errorf("the first item does not have the focus:\n%s", app.tree.AriaSnapshot())
 	}
 	app.up(platform.PointerPen, 50, 50)

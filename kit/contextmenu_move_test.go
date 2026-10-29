@@ -17,15 +17,13 @@ import (
 // there first).
 func (a *menuRaw) press(kind platform.PointerKind, x, y float32) {
 	a.t.Helper()
-	a.event(platform.PointerEvent{Action: platform.PointerMove, Kind: kind, ID: 1, Pos: platform.Point{X: x, Y: y}})
-	a.event(platform.PointerEvent{Action: platform.PointerDown, Kind: kind, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonPrimary, Buttons: platform.ButtonPrimary.Mask()})
+	a.pointer(kind, platform.PointerMove, x, y, platform.ButtonNone, false)
+	a.pointer(kind, platform.PointerDown, x, y, platform.ButtonPrimary, true)
 }
 
 func (a *menuRaw) release(kind platform.PointerKind, x, y float32) {
 	a.t.Helper()
-	a.event(platform.PointerEvent{Action: platform.PointerUp, Kind: kind, ID: 1,
-		Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonPrimary})
+	a.pointer(kind, platform.PointerUp, x, y, platform.ButtonPrimary, false)
 }
 
 // hold moves the clock forward by d, stopping at the frames and at the
@@ -65,7 +63,7 @@ func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
 			children := 0
 			app := mountMenuRaw(t, countingPage(&children), 480, 320)
 			app.rightClick(100, 80)
-			if app.find("menu", "Actions") == nil {
+			if rawwin.FindNode(app.tree.Semantics(), "menu", "Actions") == nil {
 				t.Fatalf("no menu:\n%s", app.snapshot())
 			}
 			// On the area (20..260 x 20..180), below its button and left of
@@ -80,7 +78,7 @@ func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
 			if n := countMenus(app.tree.Semantics(), "Actions"); n != 1 {
 				t.Fatalf("%d menus after the release of the long press:\n%s", n, app.snapshot())
 			}
-			n := app.find("menu", "Actions")
+			n := rawwin.FindNode(app.tree.Semantics(), "menu", "Actions")
 			if n.Bounds.X0 != 40 || n.Bounds.Y0 != 150 {
 				t.Errorf("menu at (%v, %v), want (40, 150)", n.Bounds.X0, n.Bounds.Y0)
 			}

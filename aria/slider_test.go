@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -407,7 +408,7 @@ func TestSliderTouchDrag(t *testing.T) {
 			var ends events
 			o := aria.SliderOptions{DefaultValues: []float64{50}, AriaLabel: "Volume", OnChangeEnd: func(v []float64) { ends.add(fmt.Sprint(v)) }}
 			a := mountRaw(t, tela.C(sliderPage(o)), 300, 100)
-			value := func() string { return findNode(a.tree.Semantics(), "slider", "Volume").Value }
+			value := func() string { return rawwin.FindNode(a.tree.Semantics(), "slider", "Volume").Value }
 			// The thumb is at x 116, y 20.
 			a.down(kind, 116, 20)
 			a.move(kind, 136, 40)
