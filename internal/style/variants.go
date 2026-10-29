@@ -72,17 +72,18 @@ const (
 	StateAriaCurrentTrue
 )
 
-// AriaStates is the set of the aria-* states.
-const AriaStates = StateAriaBusy | StateAriaChecked | StateAriaDisabled | StateAriaExpanded |
-	StateAriaHidden | StateAriaInvalid | StateAriaPressed | StateAriaReadOnly | StateAriaRequired | StateAriaSelected |
-	StateAriaSortAscending | StateAriaSortDescending |
-	StateAriaCurrentPage | StateAriaCurrentStep | StateAriaCurrentLocation | StateAriaCurrentDate | StateAriaCurrentTime | StateAriaCurrentTrue
-
 // Variant state names, in the order of the flags.
-var stateVariants = []struct {
+var stateVariants = append(baseStateVariants, ariaNamedVariants()...)
+
+// stateVariant is a variant name and the state it tests.
+type stateVariant struct {
 	name string
 	flag StateFlags
-}{
+}
+
+// baseStateVariants are the variants that are not aria-*; the aria ones
+// come from the aria table.
+var baseStateVariants = []stateVariant{
 	{"hover", StateHover},
 	{"active", StateActive},
 	{"focus", StateFocus},
@@ -98,16 +99,6 @@ var stateVariants = []struct {
 	{"read-only", StateReadOnly},
 	{"placeholder-shown", StatePlaceholderShown},
 	{"invalid", StateInvalid},
-	{"aria-busy", StateAriaBusy},
-	{"aria-checked", StateAriaChecked},
-	{"aria-disabled", StateAriaDisabled},
-	{"aria-expanded", StateAriaExpanded},
-	{"aria-hidden", StateAriaHidden},
-	{"aria-invalid", StateAriaInvalid},
-	{"aria-pressed", StateAriaPressed},
-	{"aria-readonly", StateAriaReadOnly},
-	{"aria-required", StateAriaRequired},
-	{"aria-selected", StateAriaSelected},
 }
 
 // groupable lists the states usable after group- and peer-.
@@ -404,33 +395,6 @@ func parseWidthLength(th *Theme, s string) (float32, error) {
 	return float32(v) * unit, nil
 }
 
-// ariaVariantHint lists the aria variants for messages.
-const ariaVariantHint = "the aria variants test the props AriaBusy, AriaChecked, AriaDisabled, AriaExpanded, AriaHidden, AriaInvalid, AriaPressed, AriaReadOnly, AriaRequired and AriaSelected when they are true: aria-busy:, aria-checked:, aria-disabled:, aria-expanded:, aria-hidden:, aria-invalid:, aria-pressed:, aria-readonly:, aria-required:, aria-selected:, AriaSort with aria-[sort=ascending]: and aria-[sort=descending]:, and AriaCurrent with aria-[current=page]:, aria-[current=step]:, aria-[current=location]:, aria-[current=date]:, aria-[current=time]: and aria-[current=true]: (also group-aria-checked: and peer-aria-[sort=ascending]:)"
-
-// ariaSortValues are the AriaSort values the arbitrary aria-[sort=…]:
-// variants test.
-var ariaSortValues = []struct {
-	value string
-	flag  StateFlags
-}{
-	{"ascending", StateAriaSortAscending},
-	{"descending", StateAriaSortDescending},
-}
-
-// ariaCurrentValues are the AriaCurrent values the arbitrary
-// aria-[current=…]: variants test. Tailwind v4 has no bare aria-current:.
-var ariaCurrentValues = []struct {
-	value string
-	flag  StateFlags
-}{
-	{"page", StateAriaCurrentPage},
-	{"step", StateAriaCurrentStep},
-	{"location", StateAriaCurrentLocation},
-	{"date", StateAriaCurrentDate},
-	{"time", StateAriaCurrentTime},
-	{"true", StateAriaCurrentTrue},
-}
-
 // parseAriaVariant parses the arbitrary aria variants: aria-[checked=true]:
 // (the same as aria-checked:) for the aria states Tela has props for, and
 // aria-[sort=ascending]: and aria-[sort=descending]:, which test AriaSort,
@@ -448,18 +412,9 @@ func parseAriaVariant(name string) (c Condition, ok bool, err error) {
 	if len(value) >= 2 && (value[0] == '"' || value[0] == '\'') && value[len(value)-1] == value[0] {
 		value = value[1 : len(value)-1]
 	}
-	if hasValue && attr == "sort" {
-		for _, sv := range ariaSortValues {
-			if value == sv.value {
-				return Condition{State: sv.flag}, true, nil
-			}
-		}
-	}
-	if hasValue && attr == "current" {
-		for _, cv := range ariaCurrentValues {
-			if value == cv.value {
-				return Condition{State: cv.flag}, true, nil
-			}
+	if hasValue {
+		if st := AriaTokenState(attr, value); st != 0 {
+			return Condition{State: st}, true, nil
 		}
 	}
 	for _, sv := range stateVariants {
@@ -468,18 +423,8 @@ func parseAriaVariant(name string) (c Condition, ok bool, err error) {
 		}
 	}
 	hint := ""
-	if hasValue && (attr == "current" || attr == "sort") {
-		var vocab []string
-		if attr == "current" {
-			for _, cv := range ariaCurrentValues {
-				vocab = append(vocab, cv.value)
-			}
-		} else {
-			for _, sv := range ariaSortValues {
-				vocab = append(vocab, sv.value)
-			}
-		}
-		if best := closest(value, vocab); best != "" {
+	if hasValue {
+		if best := closest(value, AriaTokens(attr)); best != "" {
 			hint = "did you mean aria-[" + attr + "=" + best + "]:? "
 		}
 	}

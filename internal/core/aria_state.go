@@ -39,7 +39,8 @@ func AriaInvalid(invalid bool) Prop {
 	return ariaProp("AriaInvalid", func(a *ariaProps) { a.invalid = semantics.Of(invalid) })
 }
 
-var sortValues = []string{"ascending", "descending", "other", "none"}
+// sortValues and currentValues are the tokens of the aria table.
+var sortValues = style.AriaTokens("sort")
 
 // AriaSort sets how the rows of a table or grid are sorted by a column or
 // row header (aria-sort): "ascending", "descending", "other" or "none"
@@ -50,7 +51,7 @@ var sortValues = []string{"ascending", "descending", "other", "none"}
 // it (Playwright's does not either).
 func AriaSort(sort string) Prop {
 	v, ok := ariaToken("AriaSort", sort, sortValues)
-	if v == "none" {
+	if style.AriaTokenUnset("sort", v) {
 		v = ""
 	}
 	return ariaProp("AriaSort", func(a *ariaProps) {
@@ -60,7 +61,7 @@ func AriaSort(sort string) Prop {
 	})
 }
 
-var currentValues = []string{"page", "step", "location", "date", "time", "true", "false"}
+var currentValues = style.AriaTokens("current")
 
 // AriaCurrent marks the element that is the current item of a set
 // (aria-current): "page" (the link of the page being shown), "step",
@@ -77,7 +78,7 @@ func AriaCurrent(current string) Prop {
 	if strings.TrimSpace(current) != "" {
 		v, ok = ariaToken("AriaCurrent", current, currentValues)
 	}
-	if v == "false" {
+	if style.AriaTokenUnset("current", v) {
 		v = ""
 	}
 	return ariaProp("AriaCurrent", func(a *ariaProps) {
@@ -114,20 +115,13 @@ func ariaStates(a *ariaProps) style.StateFlags {
 		{a.readOnly == semantics.ToggleTrue, style.StateAriaReadOnly},
 		{a.required == semantics.ToggleTrue, style.StateAriaRequired},
 		{a.selected == semantics.ToggleTrue, style.StateAriaSelected},
-		{a.sort == "ascending", style.StateAriaSortAscending},
-		{a.sort == "descending", style.StateAriaSortDescending},
-		{a.current == "page", style.StateAriaCurrentPage},
-		{a.current == "step", style.StateAriaCurrentStep},
-		{a.current == "location", style.StateAriaCurrentLocation},
-		{a.current == "date", style.StateAriaCurrentDate},
-		{a.current == "time", style.StateAriaCurrentTime},
-		{a.current == "true", style.StateAriaCurrentTrue},
 	} {
 		if f.on {
 			s |= f.flag
 		}
 	}
-	return s
+	// The token states come from the aria table.
+	return s | style.AriaTokenState("sort", a.sort) | style.AriaTokenState("current", a.current)
 }
 
 // setAriaStates moves the aria states of primitive el from old to new,

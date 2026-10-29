@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/style"
 )
 
 // State is one condition on an element that [App.Expect] checks: a
@@ -121,7 +122,19 @@ func Invalid(invalid bool) State {
 }
 
 // sortValues are the values Sort accepts.
-var sortValues = []string{"ascending", "descending", "other", "none"}
+var sortValues = style.AriaTokens("sort")
+
+// quotedOr formats tokens as "a", "b" or "c".
+func quotedOr(tokens []string) string {
+	q := make([]string, len(tokens))
+	for i, t := range tokens {
+		q[i] = strconv.Quote(t)
+	}
+	if len(q) < 2 {
+		return strings.Join(q, "")
+	}
+	return strings.Join(q[:len(q)-1], ", ") + " or " + q[len(q)-1]
+}
 
 // Sort expects the element's aria-sort to be sort: "ascending",
 // "descending", "other" or "none", which is also what a header without
@@ -132,10 +145,10 @@ var sortValues = []string{"ascending", "descending", "other", "none"}
 //	app.Expect(telatest.ByRole("columnheader", "Name"), telatest.Sort("descending"))
 func Sort(sort string) State {
 	if !slices.Contains(sortValues, sort) {
-		panic(fmt.Sprintf("telatest: Sort(%q): not an aria-sort value; use \"ascending\", \"descending\", \"other\" or \"none\"", sort))
+		panic(fmt.Sprintf("telatest: Sort(%q): not an aria-sort value; use %s", sort, quotedOr(sortValues)))
 	}
 	want := sort
-	if want == "none" {
+	if style.AriaTokenUnset("sort", want) {
 		want = ""
 	}
 	return State{
@@ -154,7 +167,7 @@ func Sort(sort string) State {
 }
 
 // currentValues are the values Current accepts.
-var currentValues = []string{"page", "step", "location", "date", "time", "true", "false"}
+var currentValues = style.AriaTokens("current")
 
 // Current expects the element's aria-current to be current: "page",
 // "step", "location", "date", "time" or "true", or "false", which is also
@@ -165,10 +178,10 @@ var currentValues = []string{"page", "step", "location", "date", "time", "true",
 //	app.Expect(telatest.ByRole("link", "Docs"), telatest.Current("page"))
 func Current(current string) State {
 	if !slices.Contains(currentValues, current) {
-		panic(fmt.Sprintf("telatest: Current(%q): not an aria-current value; use \"page\", \"step\", \"location\", \"date\", \"time\", \"true\" or \"false\"", current))
+		panic(fmt.Sprintf("telatest: Current(%q): not an aria-current value; use %s", current, quotedOr(currentValues)))
 	}
 	want := current
-	if want == "false" {
+	if style.AriaTokenUnset("current", want) {
 		want = ""
 	}
 	return State{
