@@ -2,9 +2,11 @@ package remote
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"image"
 	"image/color"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -31,6 +33,8 @@ type pair struct {
 	disconnected map[*Child]error
 	unhandled    []platform.Event
 	errors       []error
+
+	marks int // settings barriers sent (settled), test goroutine only
 }
 
 func newPair(t *testing.T, opts HostOptions, hopts headless.Options) *pair {
@@ -99,6 +103,56 @@ func (p *pair) ui(fn func()) {
 	case <-ch:
 	case <-time.After(waitTimeout):
 		p.t.Fatalf("host UI thread did not run a posted function")
+	}
+}
+
+// settled waits until the host has handled every event injected into its
+// windows before the call and child app a has received every event the
+// host sent it by then, and returns (and forgets) the events a recorded
+// before that point. Unlike an input sentinel (input_test.go's settle),
+// it works while input is frozen: a settings change goes through the
+// host's event queue after the injected events and is forwarded at once
+// to every child that is not detached, on the connection that carries
+// everything else the host sends. Each barrier is a SystemSettings with a
+// DoubleClickInterval of its own.
+func (p *pair) settled(a *app) []appEvent {
+	p.t.Helper()
+	p.marks++
+	s := platform.SystemSettings{DoubleClickInterval: time.Duration(p.marks) * time.Millisecond}
+	p.hb.SetSettings(s)
+	var before []appEvent
+	waitFor(p.t, "the settings barrier", func() bool {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		for i, e := range a.events {
+			if se, ok := e.e.(platform.SettingsEvent); ok && se.Settings == s {
+				before = slices.Clone(a.events[:i])
+				a.events = slices.Clone(a.events[i+1:])
+				return true
+			}
+		}
+		return false
+	})
+	return before
+}
+
+// roundTrip waits until the host's UI thread has handled every message
+// child app a sent before the call (a request of a, which the host's
+// reader posts to its UI thread after them), and a has handled every event
+// the host sent it by then (a request of the host, which a answers on its
+// UI thread after the events queued before it). It works for a detached
+// child, which neither input nor settings reach.
+func (p *pair) roundTrip(a *app, c *Child) {
+	p.t.Helper()
+	p.host.Handle("sync", func(*Child, []byte) ([]byte, error) { return nil, nil })
+	a.b.Handle("sync", func([]byte) ([]byte, error) { return nil, nil })
+	ctx, cancel := context.WithTimeout(context.Background(), waitTimeout)
+	defer cancel()
+	if _, err := a.b.Request(ctx, "sync", nil); err != nil {
+		p.t.Fatalf("the child's sync request: %v", err)
+	}
+	if _, err := c.Request(ctx, "sync", nil); err != nil {
+		p.t.Fatalf("the host's sync request: %v", err)
 	}
 }
 

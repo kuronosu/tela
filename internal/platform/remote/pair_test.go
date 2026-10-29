@@ -436,8 +436,7 @@ func TestSwap(t *testing.T) {
 	for _, e := range queued {
 		hw.Inject(e)
 	}
-	time.Sleep(50 * time.Millisecond)
-	for _, e := range a.take() {
+	for _, e := range p.settled(a) {
 		switch e.e.(type) {
 		case platform.PointerEvent, platform.KeyEvent, platform.ScrollEvent:
 			t.Errorf("A got %T while input was frozen", e.e)
@@ -496,7 +495,7 @@ func TestSwap(t *testing.T) {
 	hw.Inject(platform.PointerEvent{Action: platform.PointerMove, Pos: platform.Point{X: 1, Y: 1}, Time: 9})
 	b.waitEvent("input after promotion", isType[platform.PointerEvent])
 	a.presentNow(wa, 3, nil)
-	time.Sleep(30 * time.Millisecond)
+	p.roundTrip(a, ca)
 	for _, e := range a.take() {
 		if isType[platform.PointerEvent](e.e) {
 			t.Errorf("the detached child got input")
@@ -519,8 +518,7 @@ func TestUnfreezeResumesActive(t *testing.T) {
 	p.ui(p.host.Freeze)
 	hw.Inject(platform.PointerEvent{Action: platform.PointerMove, Time: 1})
 	hw.Inject(platform.PointerEvent{Action: platform.PointerMove, Time: 2})
-	time.Sleep(30 * time.Millisecond)
-	for _, e := range a.take() {
+	for _, e := range p.settled(a) {
 		if isType[platform.PointerEvent](e.e) {
 			t.Fatalf("input delivered while frozen")
 		}
