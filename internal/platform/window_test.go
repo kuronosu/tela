@@ -66,6 +66,7 @@ func TestHitTest(t *testing.T) {
 func TestCaptionClicks(t *testing.T) {
 	const ms = time.Millisecond
 	var c CaptionClicks
+	set := func(d time.Duration) SystemSettings { return SystemSettings{DoubleClickInterval: d} }
 	steps := []struct {
 		t        time.Duration
 		pos      Point
@@ -73,22 +74,34 @@ func TestCaptionClicks(t *testing.T) {
 		want     bool
 	}{
 		{0, Point{}, 0, false},
-		{500 * ms, Point{X: 4}, 0, true},           // the default, at the slop
-		{600 * ms, Point{X: 4}, 0, false},          // a double click is not recorded
-		{1200 * ms, Point{X: 4}, 0, false},         // too late: starts over
-		{1300 * ms, Point{X: 8.1}, 0, false},       // too far
-		{1400 * ms, Point{X: 8.1}, 50 * ms, false}, // the setting wins
-		{1450 * ms, Point{X: 8.1}, -1, true},       // negative is unknown too
+		{500 * ms, Point{X: 3, Y: 4}, 0, true},           // the default, at the slop
+		{600 * ms, Point{X: 3, Y: 4}, 0, false},          // a double click is not recorded
+		{1101 * ms, Point{X: 3, Y: 4}, 0, false},         // too late: starts over
+		{1200 * ms, Point{X: 8.1, Y: 4}, 0, false},       // too far
+		{1300 * ms, Point{X: 8.1, Y: 4}, 50 * ms, false}, // the setting wins
+		{1350 * ms, Point{X: 8.1, Y: 4}, -1, true},       // negative is unknown too
+		{1400 * ms, Point{}, 0, false},
+		{1300 * ms, Point{}, 0, false}, // the clock going back is not a double click
 	}
 	for i, s := range steps {
-		if got := c.Press(s.t, s.pos, s.interval, 500*ms); got != s.want {
+		if got := c.Press(s.t, s.pos, set(s.interval)); got != s.want {
 			t.Errorf("press %d: double click %v, want %v", i, got, s.want)
 		}
 	}
-	c.Press(2*time.Second, Point{}, 0, 500*ms)
+	c.Press(2*time.Second, Point{}, SystemSettings{})
 	c.Reset()
-	if c.Press(2*time.Second+ms, Point{}, 0, 500*ms) {
+	if c.Press(2*time.Second+ms, Point{}, SystemSettings{}) {
 		t.Error("a press after Reset completes a double click")
+	}
+}
+
+func TestDoubleClickTime(t *testing.T) {
+	for _, c := range []struct{ in, want time.Duration }{
+		{0, DefaultDoubleClickInterval}, {-1, DefaultDoubleClickInterval}, {300 * time.Millisecond, 300 * time.Millisecond},
+	} {
+		if got := (SystemSettings{DoubleClickInterval: c.in}).DoubleClickTime(); got != c.want {
+			t.Errorf("DoubleClickTime with %v = %v, want %v", c.in, got, c.want)
+		}
 	}
 }
 

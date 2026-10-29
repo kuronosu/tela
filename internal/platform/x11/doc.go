@@ -72,8 +72,9 @@
 //     there starts _NET_WM_MOVERESIZE with the edge.
 //   - Hit regions: a press of any button in a HitCaption region, when the
 //     app holds no button, is the OS's: primary starts _NET_WM_MOVERESIZE
-//     move (a second one within 400 ms, GTK's default double-click time,
-//     and 4 logical pixels toggles maximize), secondary sends
+//     move (a second one within content's double-click rule,
+//     platform.CaptionClicks: 500 ms, as the backend does not read
+//     XSETTINGS yet, and 5 logical pixels, toggles maximize), secondary sends
 //     _GTK_SHOW_WINDOW_MENU (mutter, KWin, Xfwm4, Openbox) when
 //     _NET_SUPPORTED lists it. Before a move or menu request the implicit
 //     grab is released with UngrabPointer and XIUngrabDevice (an XI2

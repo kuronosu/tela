@@ -392,8 +392,35 @@ type SystemSettings struct {
 	// prefers-reduced-motion: reduce).
 	ReducedMotion bool
 	// DoubleClickInterval is the maximum time between the clicks of a
-	// double click. Zero means unknown.
+	// double click. Zero means unknown: DefaultDoubleClickInterval
+	// applies (DoubleClickTime).
 	DoubleClickInterval time.Duration
+}
+
+// The double-click rule (ADR-192), shared by content clicks (core's click
+// count for mice and pens) and the title bars that backends draw
+// themselves (CaptionClicks): two presses count as a double click when the
+// second comes at most the double-click time after the first and at most
+// DoubleClickSlop logical pixels away from it. Touch has its own, larger
+// limits in the gesture layer.
+const (
+	// DefaultDoubleClickInterval is the double-click time when the OS
+	// does not report one: the default of Windows (GetDoubleClickTime)
+	// and macOS. GTK's default is 400 ms.
+	DefaultDoubleClickInterval = 500 * time.Millisecond
+	// DoubleClickSlop is the farthest, in logical pixels, the second
+	// press of a double click may be from the first (GTK's
+	// gtk-double-click-distance; Windows uses a 4x4 rectangle).
+	DoubleClickSlop = 5
+)
+
+// DoubleClickTime returns the double-click time of s: DoubleClickInterval,
+// or DefaultDoubleClickInterval when it is unknown (not positive).
+func (s SystemSettings) DoubleClickTime() time.Duration {
+	if s.DoubleClickInterval > 0 {
+		return s.DoubleClickInterval
+	}
+	return DefaultDoubleClickInterval
 }
 
 // Clipboard is the system clipboard (on X11, the CLIPBOARD selection).

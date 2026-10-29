@@ -246,8 +246,9 @@
 // Hit regions. A press in a HitCaption region (with no app button held)
 // is the compositor's, as is the rest of its sequence up to the release of
 // the last button (motion included; a pointer leave ends it silently).
-// Primary: a double click (the DoubleClickInterval setting, 400 ms
-// without one, within 4 logical pixels) toggles maximize; otherwise
+// Primary: a double click (platform.CaptionClicks: content's double-click
+// rule, the DoubleClickInterval setting or 500 ms, within 5 logical
+// pixels) toggles maximize; otherwise
 // xdg_toplevel.move starts with the press serial once the pointer has
 // moved 8 logical pixels, GTK's drag threshold (GtkWindowHandle does the
 // same), so a click that does not move never starts a compositor grab.

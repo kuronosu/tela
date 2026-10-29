@@ -58,9 +58,11 @@ import (
 // fires on release, on the nearest common ancestor of the press and
 // release targets (DOM), however far the pointer moved, unless a drag or
 // long press won the arena. ClickCount is the DOM's detail
-// (gesture.ClickCounter: 500 ms and 5 px for mice and pens, 300 ms and
-// 100 px for touch); a double click fires after the click whose count is
-// 2. OnContextMenu fires on the release of the secondary button.
+// (gesture.ClickCounter: for mice and pens the system's double-click time,
+// Config.DoubleClickInterval and SetDoubleClickInterval, or 500 ms when it
+// is unknown, and 5 px, the rule title bars drawn by the backends share,
+// ADR-192; 300 ms and 100 px for touch); a double click fires after the
+// click whose count is 2. OnContextMenu fires on the release of the secondary button.
 //
 // Drags (OnDragStart, OnDrag, OnDragEnd) and long presses go to the
 // element whose recognizer won, without bubbling.

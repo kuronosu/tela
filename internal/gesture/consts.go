@@ -1,10 +1,17 @@
 package gesture
 
-import "time"
+import (
+	"time"
+
+	"github.com/kuronosu/tela/internal/platform"
+)
 
 // Slops and timeouts. Touch values are Flutter's (kTouchSlop,
 // kLongPressTimeout, kDoubleTapTimeout, kDoubleTapSlop), which follow
 // Android's ViewConfiguration; mouse values are the desktop conventions.
+// The double-click limits of mice and pens are the platform's
+// (platform.DefaultDoubleClickInterval, platform.DoubleClickSlop; ADR-192),
+// shared with the title bars that backends draw themselves.
 const (
 	// TouchSlop is how far a finger or a pen may move, in logical pixels,
 	// before a press becomes a drag (Flutter's kTouchSlop; Flutter uses
@@ -20,16 +27,9 @@ const (
 	// be a long press (Flutter's kLongPressTimeout, Android's default).
 	LongPressTimeout = 500 * time.Millisecond
 
-	// DoubleClickTime is the longest time between two presses of a mouse
-	// or pen that count as one more click: the default of Windows
-	// (GetDoubleClickTime) and macOS. GTK's default is 400 ms.
-	DoubleClickTime = 500 * time.Millisecond
-	// DoubleClickDistance is the farthest, in logical pixels, a press may
-	// be from the previous one to count as one more click (GTK's
-	// gtk-double-click-distance; Windows uses a 4x4 rectangle).
-	DoubleClickDistance = 5
-	// DoubleTapTime and DoubleTapSlop are the same limits for touch
-	// (Flutter's kDoubleTapTimeout and kDoubleTapSlop).
+	// DoubleTapTime and DoubleTapSlop are the double-click limits of
+	// touch (Flutter's kDoubleTapTimeout and kDoubleTapSlop), whatever
+	// the OS's double-click time for mice.
 	DoubleTapTime = 300 * time.Millisecond
 	DoubleTapSlop = 100
 )
@@ -43,10 +43,12 @@ func DragSlop(k Kind) float32 {
 	return TouchSlop
 }
 
-// clickLimits returns the double-click time and distance of kind k.
-func clickLimits(k Kind) (time.Duration, float32) {
+// clickLimits returns the double-click time and distance of kind k, where
+// interval is the double-click time of mice and pens (not positive: the
+// platform default).
+func clickLimits(k Kind, interval time.Duration) (time.Duration, float32) {
 	if k == Touch {
 		return DoubleTapTime, DoubleTapSlop
 	}
-	return DoubleClickTime, DoubleClickDistance
+	return platform.SystemSettings{DoubleClickInterval: interval}.DoubleClickTime(), platform.DoubleClickSlop
 }

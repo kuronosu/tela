@@ -7,7 +7,6 @@ import (
 	"image"
 	"math"
 	"slices"
-	"time"
 
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
@@ -91,11 +90,6 @@ const (
 	// resizes diagonally: corners are easier to hit than the band is
 	// wide (GTK's corner handles work the same way).
 	edgeCorner = 16
-
-	// defaultDoubleClick is the caption double-click interval when the
-	// system settings give none (the X11 backend does not read
-	// XSETTINGS yet): GTK's default gtk-double-click-time.
-	defaultDoubleClick = 400 * time.Millisecond
 
 	// corePointerDevice is the XInput2 id of the virtual core pointer,
 	// sent in _GTK_SHOW_WINDOW_MENU for presses that arrived as core
@@ -751,7 +745,7 @@ func (b *Backend) osPress(p ptr, btn platform.PointerButton, pos platform.Point)
 	w.osHeld = btn.Mask()
 	switch btn {
 	case platform.ButtonPrimary:
-		if w.captions.Press(b.Now(), pos, b.Settings().DoubleClickInterval, defaultDoubleClick) {
+		if w.captions.Press(b.Now(), pos, b.Settings()) {
 			// The window manager handles double clicks on its own
 			// title bar only; on ours the backend toggles maximize
 			// (GTK does the same for its client-side title bars).

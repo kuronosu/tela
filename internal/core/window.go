@@ -584,7 +584,7 @@ func (t *Tree) childConfig(rootClass string, n int) Config {
 	return Config{
 		Fonts: t.fonts, Parser: t.parser, RootClass: rootClass,
 		Dark: t.env.sysDark, ReducedMotion: t.env.sysReduced, ColorScheme: t.env.scheme,
-		Dev: t.dev, Log: t.log, Warn: t.warn,
+		Dev: t.dev, Log: t.log, Warn: t.warn, DoubleClickInterval: t.in.clicks.Interval,
 		IDPrefix:          t.idPrefix + "w" + strconv.Itoa(n) + "-",
 		ClassicScrollbars: t.scr.classic, InstantScroll: t.scr.instant,
 		Debug: debug, DebugClock: t.dbg.clock,

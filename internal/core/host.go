@@ -192,6 +192,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	s := b.Settings()
 	cfg := opts.Config
 	cfg.Dark, cfg.ReducedMotion = s.DarkMode, s.ReducedMotion
+	cfg.DoubleClickInterval = s.DoubleClickInterval
 	if cfg.Debug == 0 {
 		// TELA_DEBUG selects overlays unless the options say otherwise
 		// (DebugOff). A malformed value is reported once and its valid
@@ -268,6 +269,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 	case platform.SettingsEvent:
 		for i := 0; i < len(h.views); i++ {
 			h.views[i].tree.SetEnvironment(e.Settings.DarkMode, e.Settings.ReducedMotion)
+			h.views[i].tree.SetDoubleClickInterval(e.Settings.DoubleClickInterval)
 		}
 		return
 	case platform.NotificationEvent, platform.TrayEvent:

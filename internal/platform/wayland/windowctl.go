@@ -40,9 +40,6 @@ const (
 	// compositor grab, so double clicks are seen whole (GtkWindowHandle
 	// does the same).
 	captionDragThreshold = 8
-	// defaultDoubleClick is the caption double-click interval when the
-	// system settings do not give one (GTK's gtk-double-click-time).
-	defaultDoubleClick = 400 * time.Millisecond
 )
 
 // windowCtl is the window control state of a Window.
@@ -761,7 +758,7 @@ func (s *seat) osButton(btn platform.PointerButton, pressed bool, serial uint32,
 	p.osHeld = btn.Mask()
 	switch btn {
 	case platform.ButtonPrimary:
-		if w.ctl.captions.Press(t, p.pos, w.b.Settings().DoubleClickInterval, defaultDoubleClick) {
+		if w.ctl.captions.Press(t, p.pos, w.b.Settings()) {
 			w.SetMaximized(!w.states.maximized)
 			break
 		}

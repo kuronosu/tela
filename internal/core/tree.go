@@ -45,6 +45,11 @@ type Config struct {
 	// Host takes them from the platform): the dark: variants, unless
 	// ColorScheme overrides the scheme, and motion-reduce: (env.go).
 	Dark, ReducedMotion bool
+	// DoubleClickInterval is the system's double-click time for mice and
+	// pens (a Host takes it from the platform's settings, then
+	// SetDoubleClickInterval on every change); zero is
+	// platform.DefaultDoubleClickInterval (ADR-192).
+	DoubleClickInterval time.Duration
 	// ColorScheme is the app's color scheme; the zero value follows the
 	// system (Dark).
 	ColorScheme ColorScheme
@@ -321,6 +326,7 @@ func NewTree(cfg Config) *Tree {
 	t.dbg.flags = cfg.Debug & DebugAll
 	t.dbg.clock = cfg.DebugClock
 	t.scr.classic, t.scr.instant = cfg.ClassicScrollbars, cfg.InstantScroll
+	t.in.clicks.Interval = cfg.DoubleClickInterval
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()
 	}

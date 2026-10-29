@@ -349,18 +349,36 @@ func TestClickCounter(t *testing.T) {
 	if n := at(3, 1000*ms); n != 1 {
 		t.Errorf("after the window %d", n)
 	}
-	if n := at(20, 1100*ms); n != 1 {
+	if n := at(3, 1500*ms); n != 2 {
+		t.Errorf("at the default interval %d", n)
+	}
+	if n := at(3, 2001*ms); n != 1 {
+		t.Errorf("past the default interval %d", n)
+	}
+	if n := at(20, 2100*ms); n != 1 {
 		t.Errorf("too far %d", n)
 	}
-	if n := c.Press(Mouse, 2, Point{20, 0}, 1200*ms); n != 1 {
+	if n := c.Press(Mouse, 2, Point{20, 0}, 2200*ms); n != 1 {
 		t.Errorf("other button %d", n)
 	}
 	c.Reset()
-	if n := c.Press(Mouse, 2, Point{20, 0}, 1300*ms); n != 1 {
+	if n := c.Press(Mouse, 2, Point{20, 0}, 2300*ms); n != 1 {
 		t.Errorf("after reset %d", n)
 	}
-	// Touch: 300 ms, 100 px.
-	var tc ClickCounter
+	// The OS's interval applies to mice and pens.
+	c = ClickCounter{Interval: 200 * ms}
+	c.Press(Pen, 1, Point{}, 0)
+	if n := c.Press(Pen, 1, Point{}, 250*ms); n != 1 {
+		t.Errorf("pen past the OS interval %d", n)
+	}
+	if n := c.Press(Pen, 1, Point{}, 450*ms); n != 2 {
+		t.Errorf("pen within the OS interval %d", n)
+	}
+	if n := c.Press(Pen, 1, Point{3, 4}, 500*ms); n != 3 {
+		t.Errorf("pen at the slop %d", n)
+	}
+	// Touch: 300 ms, 100 px, whatever the OS's interval.
+	tc := ClickCounter{Interval: 100 * ms}
 	tc.Press(Touch, 1, Point{0, 0}, 0)
 	if n := tc.Press(Touch, 1, Point{60, 0}, 250*ms); n != 2 {
 		t.Errorf("touch double tap %d", n)

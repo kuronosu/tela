@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
 )
@@ -14,10 +13,6 @@ import (
 // DefaultScreen is the logical size of the simulated screen when
 // Options.Screen is zero: what maximized and fullscreen windows get.
 var DefaultScreen = platform.Size{W: 1920, H: 1080}
-
-// defaultDoubleClick is the caption double-click interval when the system
-// settings do not give one.
-const defaultDoubleClick = 500 * time.Millisecond
 
 // tokenPrefix starts the restore tokens the headless backend produces.
 const tokenPrefix = "headless:"
@@ -367,7 +362,7 @@ func (w *Window) captionPointer(e platform.PointerEvent) bool {
 	c.captionHeld = e.Button.Mask()
 	switch e.Button {
 	case platform.ButtonPrimary:
-		if c.captions.Press(e.Time, e.Pos, b.settings.DoubleClickInterval, defaultDoubleClick) {
+		if c.captions.Press(e.Time, e.Pos, b.settings) {
 			st := c.osState
 			st.Maximized = !st.Maximized
 			w.setOSState(st)

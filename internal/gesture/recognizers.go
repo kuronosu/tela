@@ -343,14 +343,19 @@ func (r *LongPress) RejectGesture(PointerID) {
 // ClickCounter counts consecutive presses as the DOM's click count
 // (MouseEvent.detail): a press of the same button and kind within the
 // double-click time of the previous press and within its distance counts
-// one more; anything else starts again at 1. The limits are
-// DoubleClickTime and DoubleClickDistance for mice and pens, DoubleTapTime
-// and DoubleTapSlop for touch.
+// one more; anything else starts again at 1. The limits are Interval and
+// platform.DoubleClickSlop for mice and pens (the double-click rule of
+// ADR-192), DoubleTapTime and DoubleTapSlop for touch.
 //
 // It is the double-tap recognizer of the arena model without its delay: a
 // double click is the second click of a sequence, so single clicks are
 // reported immediately, as in browsers.
 type ClickCounter struct {
+	// Interval is the double-click time of mice and pens: the OS's
+	// (platform.SystemSettings.DoubleClickInterval). Not positive means
+	// platform.DefaultDoubleClickInterval.
+	Interval time.Duration
+
 	count  int
 	button uint8
 	kind   Kind
@@ -360,7 +365,7 @@ type ClickCounter struct {
 
 // Press records a press and returns its click count.
 func (c *ClickCounter) Press(kind Kind, button uint8, pos Point, at time.Duration) int {
-	limit, dist := clickLimits(kind)
+	limit, dist := clickLimits(kind, c.Interval)
 	if c.count > 0 && button == c.button && kind == c.kind && at-c.at <= limit && at >= c.at && !beyond(pos, c.pos, dist) {
 		c.count++
 	} else {

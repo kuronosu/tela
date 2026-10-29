@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/kuronosu/tela/internal/style"
 )
@@ -101,6 +102,12 @@ func (t *Tree) SetEnvironment(dark, reducedMotion bool) {
 	t.env.sysDark, t.env.sysReduced = dark, reducedMotion
 	t.applyEnv()
 }
+
+// SetDoubleClickInterval sets the system's double-click time for mice and
+// pens (zero: platform.DefaultDoubleClickInterval), the limit of
+// MouseEvent.ClickCount and OnDoubleClick (ADR-192). A Host calls it with
+// the platform's settings. Touch keeps its own limits.
+func (t *Tree) SetDoubleClickInterval(d time.Duration) { t.in.clicks.Interval = d }
 
 // SetColorScheme overrides the system's color scheme (ColorSchemeLight or
 // ColorSchemeDark), or follows it again (ColorSchemeSystem). Call it on

@@ -309,7 +309,9 @@
 // DarkMode is AppsUseLightTheme = 0 under
 // HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize (light
 // when the value is missing), ReducedMotion is SPI_GETCLIENTAREAANIMATION
-// being off, DoubleClickInterval is GetDoubleClickTime. They are read at
+// being off, DoubleClickInterval is GetDoubleClickTime (the double-click
+// time of the content, ADR-192; caption double clicks are DefWindowProc's,
+// with the same setting). They are read at
 // creation and again at every WM_SETTINGCHANGE (broadcast to top-level
 // windows only, so each window handles it and the first finds the change); a
 // difference queues a SettingsEvent. The title bars follow dark mode with

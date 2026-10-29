@@ -379,8 +379,9 @@
 //     after ungrabbing the pointer; HTCAPTION from WM_NCHITTEST). A primary
 //     double click toggles maximize where that is the platform convention
 //     (DefWindowProc does it on Win32; the Wayland and X11 backends detect
-//     it with SystemSettings.DoubleClickInterval and toggle maximize
-//     themselves). A secondary click opens the window menu where one
+//     it with CaptionClicks, the double-click rule of content clicks:
+//     SystemSettings.DoubleClickTime and DoubleClickSlop, ADR-192, and
+//     toggle maximize themselves). A secondary click opens the window menu where one
 //     exists (xdg_toplevel.show_window_menu; the system menu of
 //     DefWindowProc on Win32; _GTK_SHOW_WINDOW_MENU on X11 when the window
 //     manager lists it in _NET_SUPPORTED). Pointer motion without a
