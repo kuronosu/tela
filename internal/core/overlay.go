@@ -298,7 +298,8 @@ func (t *Tree) outsideUp(ps *pointerState, target *Element, e PointerEvent, st *
 // press e belongs to: at the release of that press, the OnInteractOutside
 // of the overlay the press started outside of does not run when that
 // overlay is among them; an overlay elsewhere (another area's menu) still
-// gets the release. Reserved for package aria: a context menu's long press that opens or moves the menu while it is open
+// gets the release. Reserved for package aria: a context menu's long
+// press that opens or moves the menu while it is open
 // (UseContextMenuTrigger), whose pointerdown was outside the menu, so
 // that its release does not close the menu it has just placed (Radix
 // keeps it open at the new point; a right click does not need this, as
