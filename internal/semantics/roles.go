@@ -26,9 +26,6 @@ var roles = []string{
 	"treeitem",
 }
 
-// Roles returns the ARIA roles an author may give, sorted.
-func Roles() []string { return slices.Clone(roles) }
-
 // ValidRole reports whether role is an ARIA role an author may give
 // (lowercase, as ARIA requires).
 func ValidRole(role string) bool {
@@ -128,6 +125,3 @@ func LabelProhibited(role string) bool { return slices.Contains(labelProhibited,
 
 // RangeRole reports whether role is a range widget.
 func RangeRole(role string) bool { return slices.Contains(rangeRoles, role) }
-
-// SupportsLevel reports whether role has a level (aria-level).
-func SupportsLevel(role string) bool { return slices.Contains(levelRoles, role) }
