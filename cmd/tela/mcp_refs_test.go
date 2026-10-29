@@ -8,53 +8,6 @@ import (
 	"testing"
 )
 
-func TestParseSnapLine(t *testing.T) {
-	for _, tc := range []struct {
-		line         string
-		ok           bool
-		role, name   string
-		hasName, dis bool
-		withRef      string
-	}{
-		{line: `- heading "Settings" [level=1]`, ok: true, role: "heading", name: "Settings", hasName: true,
-			withRef: `- heading "Settings" [level=1] [ref=e1]`},
-		{line: `  - button "Save" [disabled]`, ok: true, role: "button", name: "Save", hasName: true, dis: true,
-			withRef: `  - button "Save" [disabled] [ref=e1]`},
-		{line: `- textbox "Email": ana@example.com`, ok: true, role: "textbox", name: "Email", hasName: true,
-			withRef: `- textbox "Email" [ref=e1]: ana@example.com`},
-		{line: `- group "Theme":`, ok: true, role: "group", name: "Theme", hasName: true,
-			withRef: `- group "Theme" [ref=e1]:`},
-		{line: `- 'button "Count: 0"'`, ok: true, role: "button", name: "Count: 0", hasName: true,
-			withRef: `- 'button "Count: 0" [ref=e1]'`},
-		{line: `- 'button "it''s \"here\""': x`, ok: true, role: "button", name: `it's "here"`, hasName: true,
-			withRef: `- 'button "it''s \"here\"" [ref=e1]': x`},
-		{line: `- paragraph: Some text`, ok: true, role: "paragraph",
-			withRef: `- paragraph [ref=e1]: Some text`},
-		{line: `- switch "Wifi" [checked] [disabled]`, ok: true, role: "switch", name: "Wifi", hasName: true, dis: true,
-			withRef: `- switch "Wifi" [checked] [disabled] [ref=e1]`},
-		{line: `- button /a+b/ [pressed]`, ok: true, role: "button", name: "/a+b/", hasName: true,
-			withRef: `- button /a+b/ [pressed] [ref=e1]`},
-		{line: `- text: Hello`},
-		{line: `  - /url: https://example.com`},
-		{line: `- "quoted value"`},
-	} {
-		l, ok := parseSnapLine(tc.line)
-		if ok != tc.ok {
-			t.Errorf("%q: ok = %v, want %v", tc.line, ok, tc.ok)
-			continue
-		}
-		if !ok {
-			continue
-		}
-		if l.role != tc.role || l.name != tc.name || l.hasName != tc.hasName || l.disabled != tc.dis {
-			t.Errorf("%q: role %q name %q (has %v) disabled %v", tc.line, l.role, l.name, l.hasName, l.disabled)
-		}
-		if got := l.withRef("e1"); got != tc.withRef {
-			t.Errorf("%q with a ref:\n got %s\nwant %s", tc.line, got, tc.withRef)
-		}
-	}
-}
-
 // refsFor gives refs to a snapshot whose counts all match.
 func refsFor(tab *refTable, yaml string) string {
 	lines, cands, _, want := prepareRefs(yaml)

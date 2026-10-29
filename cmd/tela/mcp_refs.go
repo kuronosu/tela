@@ -1,11 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/kuronosu/tela/internal/semantics"
 )
 
 // Refs (ADR-174), Playwright MCP's model: each line of the aria snapshot
@@ -27,124 +27,6 @@ import (
 // a remount the refs are checked against a new snapshot before one is
 // used, and numbering only goes on, so a ref never moves to an element of
 // another role or name.
-
-// snapLine is a parsed line of an aria snapshot.
-type snapLine struct {
-	indent string // leading spaces
-	quoted bool   // the key was single-quoted
-	key    string // the key, unquoted: role "name" [states]
-	rest   string // what follows the key: "", ":", ": value"
-
-	role     string
-	name     string
-	hasName  bool
-	states   string // " [checked] [disabled]"...
-	disabled bool
-}
-
-// snapRoleRe matches an ARIA role at the start of a key.
-var snapRoleRe = regexp.MustCompile(`^[a-z]+`)
-
-// snapStatesRe matches the states after the name.
-var snapStatesRe = regexp.MustCompile(`^(?: \[[a-z]+(?:=[a-z0-9]+)?\])*$`)
-
-// parseSnapLine parses one line of the YAML of semantics.Snapshot. ok is
-// false for lines that are not an element with a role (text, /url).
-func parseSnapLine(line string) (l snapLine, ok bool) {
-	trimmed := strings.TrimLeft(line, " ")
-	l.indent = line[:len(line)-len(trimmed)]
-	if !strings.HasPrefix(trimmed, "- ") {
-		return l, false
-	}
-	body := trimmed[2:]
-	if strings.HasPrefix(body, "'") {
-		// A single-quoted key: '' stands for '.
-		var b strings.Builder
-		i := 1
-		for ; i < len(body); i++ {
-			if body[i] == '\'' {
-				if i+1 < len(body) && body[i+1] == '\'' {
-					b.WriteByte('\'')
-					i++
-					continue
-				}
-				break
-			}
-			b.WriteByte(body[i])
-		}
-		if i >= len(body) {
-			return l, false
-		}
-		l.quoted, l.key, l.rest = true, b.String(), body[i+1:]
-	} else {
-		// A plain key cannot contain ": " nor end with ':' (it would be
-		// quoted).
-		switch i := strings.Index(body, ": "); {
-		case i >= 0:
-			l.key, l.rest = body[:i], body[i:]
-		case strings.HasSuffix(body, ":"):
-			l.key, l.rest = body[:len(body)-1], ":"
-		default:
-			l.key = body
-		}
-	}
-	l.role = snapRoleRe.FindString(l.key)
-	if l.role == "" || l.key == "text" {
-		return l, false // "- text: ..." or "- /url: ..."
-	}
-	after := l.key[len(l.role):]
-	switch {
-	case after == "":
-	case strings.HasPrefix(after, ` "`):
-		dec := json.NewDecoder(strings.NewReader(after[1:]))
-		var name string
-		if err := dec.Decode(&name); err != nil {
-			return l, false
-		}
-		l.name, l.hasName = name, true
-		after = after[1+int(dec.InputOffset()):]
-	case strings.HasPrefix(after, " /"):
-		// A name that looks like a regular expression is printed as is;
-		// the states follow its closing slash.
-		i := -1
-		for j := 3; j <= len(after); j++ {
-			if after[j-1] == '/' && snapStatesRe.MatchString(after[j:]) {
-				i = j
-				break
-			}
-		}
-		if i < 0 {
-			return l, false
-		}
-		l.name, l.hasName = after[1:i], true
-		after = after[i:]
-	}
-	if !snapStatesRe.MatchString(after) {
-		return l, false
-	}
-	l.states = after
-	l.disabled = strings.Contains(after, " [disabled]")
-	return l, true
-}
-
-// withRef returns the line with [ref=…] after the states. A key that did
-// not need quotes does not need them with the ref, which adds no ": ",
-// " #" or leading character.
-func (l snapLine) withRef(ref string) string {
-	key := l.key + " [ref=" + ref + "]"
-	if l.quoted {
-		key = "'" + strings.ReplaceAll(key, "'", "''") + "'"
-	}
-	return l.indent + "- " + key + l.rest
-}
-
-// describe names the element of the line: `button "Save"`.
-func (l snapLine) describe() string {
-	if l.hasName {
-		return l.role + " " + strconv.Quote(l.name)
-	}
-	return l.role
-}
 
 // refKey identifies an element across snapshots of one mount: its role, its
 // name and its position among the elements with both.
@@ -200,7 +82,7 @@ func (t *refTable) remount() {
 // snapCandidate is a line of a snapshot that may get a ref.
 type snapCandidate struct {
 	index int // line number
-	line  snapLine
+	line  semantics.SnapshotLine
 	key   refKey
 	pos   refPos
 	loc   mcpLoc
@@ -224,27 +106,27 @@ func prepareRefs(yaml string) (lines []string, cands []snapCandidate, groups []m
 	byRole := map[string]int{} // elements of a role so far
 	byName := map[gk]int{}     // elements of a role and name so far
 	for i, s := range lines {
-		l, ok := parseSnapLine(s)
+		l, ok := semantics.ParseSnapshotLine(s)
 		if !ok {
 			continue
 		}
-		roleNth := byRole[l.role]
-		byRole[l.role]++
-		k := gk{l.role, l.name, l.hasName}
+		roleNth := byRole[l.Role]
+		byRole[l.Role]++
+		k := gk{l.Role, l.Name, l.HasName}
 		var c snapCandidate
-		c.index, c.line, c.pos = i, l, refPos{l.role, roleNth}
-		if l.hasName {
+		c.index, c.line, c.pos = i, l, refPos{l.Role, roleNth}
+		if l.HasName {
 			nth := byName[k]
 			byName[k]++
-			c.key = refKey{l.role, l.name, true, nth}
-			c.loc = mcpLoc{Role: l.role, Name: l.name}
+			c.key = refKey{l.Role, l.Name, true, nth}
+			c.loc = mcpLoc{Role: l.Role, Name: l.Name}
 			c.loc.Nth = &nth
 		} else {
 			// Without a printed name (none, or longer than the snapshot
 			// prints) ByRole(role, "") matches every name of the role.
-			k = gk{l.role, "", false}
-			c.key = refKey{l.role, "", false, roleNth}
-			c.loc = mcpLoc{Role: l.role}
+			k = gk{l.Role, "", false}
+			c.key = refKey{l.Role, "", false, roleNth}
+			c.loc = mcpLoc{Role: l.Role}
 			c.loc.Nth = &roleNth
 		}
 		g, ok := groupOf[k]
@@ -311,9 +193,9 @@ func (t *refTable) assign(lines []string, cands []snapCandidate, want, got []int
 		if want[c.group] == 1 {
 			loc.Nth = nil
 		}
-		t.current[ref] = refEntry{loc: loc, desc: c.line.describe(), disabled: c.line.disabled}
+		t.current[ref] = refEntry{loc: loc, desc: c.line.Describe(), disabled: c.line.Disabled}
 		t.issued[ref] = true
-		lines[c.index] = c.line.withRef(ref)
+		lines[c.index] = c.line.WithSuffix(" [ref=" + ref + "]")
 	}
 	return strings.Join(lines, "\n")
 }
