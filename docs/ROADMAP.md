@@ -9,7 +9,7 @@
 
 - **Done:** phases 1–12. Latest version `v0.12.2` (2026-10-28; a Textarea that does not wrap scrolls horizontally, ADR-188), tagged, not pushed; pushed up to `v0.12.1` (`main`, tags and the wiki from `docs/wiki` at `v0.12.1`).
 - **Phase in progress:** none; phase 13 (desktop integration, the rest) is next.
-- **Uncommitted:** a codebase-wide `/simplify` cleanup (2026-10-28, HISTORY.md) and the fixes of its `/code-review` (ADR-189), verified, for the owner to review and commit (a `v0.12.3` patch if released).
+- **Unreleased on `main`:** a codebase-wide `/simplify` cleanup with the fixes of its `/code-review` (ADR-189) and a wiki generator fix (2026-10-28, HISTORY.md), committed and not pushed; a `v0.12.3` patch if released.
 - **Next step:** the owner tries `examples/notes` with word wrap off in the GNOME container (`/home/ubuntu/notes-v3`) and pushes `main`, `v0.12.2` and the wiki; then plan phase 13 (drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends `examples/notes`.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
