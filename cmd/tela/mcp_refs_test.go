@@ -134,29 +134,6 @@ func TestRefsNeedMatchingCounts(t *testing.T) {
 	}
 }
 
-func TestLayoutSubtree(t *testing.T) {
-	js := []byte(`{"kind":"root","rect":{"x":0,"y":0,"width":100,"height":100},"children":[
-	 {"kind":"div","rect":{"x":10,"y":10,"width":50,"height":20},"children":[
-	   {"kind":"button","rect":{"x":10,"y":10,"width":50,"height":20},"text":"Go"}]},
-	 {"kind":"div","rect":{"x":0,"y":50,"width":100,"height":50},"bounds":{"x":5,"y":60,"width":40,"height":10}}]}`)
-	sub, err := layoutSubtree(js, [4]float64{10, 10, 50, 20}, "button")
-	if err != nil || !strings.HasPrefix(string(sub), "{\n  \"kind\": \"button\"") {
-		t.Errorf("button: %s, %v", sub, err)
-	}
-	sub, err = layoutSubtree(js, [4]float64{10, 10, 50, 20}, "group")
-	if err != nil || !strings.HasPrefix(string(sub), "{\n  \"kind\": \"div\"") || !strings.Contains(string(sub), `"button"`) {
-		t.Errorf("an element without an implicit role is the outermost box: %s, %v", sub, err)
-	}
-	sub, err = layoutSubtree(js, [4]float64{5, 60, 40, 10}, "img")
-	if err != nil || !strings.Contains(string(sub), `"bounds"`) {
-		t.Errorf("a transformed box is found by its bounds: %s, %v", sub, err)
-	}
-	sub, err = layoutSubtree(js, [4]float64{12, 12, 5, 5}, "link")
-	if err != nil || !strings.Contains(string(sub), `"button"`) {
-		t.Errorf("without an exact box, the innermost that contains it: %s, %v", sub, err)
-	}
-}
-
 func TestScanPackagePreviews(t *testing.T) {
 	dir := t.TempDir()
 	src := `package p

@@ -105,11 +105,16 @@ type mcpReply struct {
 	// Output is what the process printed since the previous reply.
 	Output string `json:"output,omitempty"`
 
-	YAML   *string     `json:"yaml,omitempty"`
-	PNG    []byte      `json:"png,omitempty"`
-	Layout string      `json:"layout,omitempty"`
-	Bounds *[4]float64 `json:"bounds,omitempty"` // x, y, width, height
-	Counts []int       `json:"counts,omitempty"`
+	YAML   *string `json:"yaml,omitempty"`
+	PNG    []byte  `json:"png,omitempty"`
+	Layout string  `json:"layout,omitempty"`
+	// Subtree says Layout is the subtree of the located element
+	// (LayoutJSONOf); without it Layout is the whole window's and, for a
+	// located element, Bounds says where it is (an instance built against a
+	// tela that predates LayoutJSONOf, ADR-194).
+	Subtree bool        `json:"subtree,omitempty"`
+	Bounds  *[4]float64 `json:"bounds,omitempty"` // x, y, width, height
+	Counts  []int       `json:"counts,omitempty"`
 
 	// The mounted screen: its preview and all the names (Previews), the
 	// window's logical size and scale, and whether it is dark.
@@ -320,6 +325,7 @@ type telaMCPReply struct {
 	YAML       *string     ` + "`json:\"yaml,omitempty\"`" + `
 	PNG        []byte      ` + "`json:\"png,omitempty\"`" + `
 	Layout     string      ` + "`json:\"layout,omitempty\"`" + `
+	Subtree    bool        ` + "`json:\"subtree,omitempty\"`" + `
 	Bounds     *[4]float64 ` + "`json:\"bounds,omitempty\"`" + `
 	Counts     []int       ` + "`json:\"counts,omitempty\"`" + `
 	Preview    string      ` + "`json:\"preview,omitempty\"`" + `
@@ -517,10 +523,21 @@ func (s *telaMCPSession) do(req telaMCPReq, rep *telaMCPReply) {
 		}
 		rep.PNG = buf.b
 	case "layout":
-		rep.Layout = string(app.LayoutJSON())
-		if req.Loc != nil {
+		// LayoutJSONOf is asked through an interface: the package's own
+		// module may require a tela that predates it (ADR-194); then the
+		// whole layout comes back with the element's bounds.
+		type layoutOf interface {
+			LayoutJSONOf(telatest.Locator) []byte
+		}
+		switch of, ok := any(app).(layoutOf); {
+		case req.Loc != nil && ok:
+			rep.Layout, rep.Subtree = string(of.LayoutJSONOf(req.Loc.locator())), true
+		case req.Loc != nil:
+			rep.Layout = string(app.LayoutJSON())
 			r := app.Bounds(req.Loc.locator())
 			rep.Bounds = &[4]float64{float64(r.X), float64(r.Y), float64(r.Width), float64(r.Height)}
+		default:
+			rep.Layout = string(app.LayoutJSON())
 		}
 	case "click":
 		var opts []telatest.ClickOption

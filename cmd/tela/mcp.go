@@ -1533,13 +1533,13 @@ func (s *mcpSession) toolInspect(ctx context.Context, args json.RawMessage) mcpR
 	}
 	js := rep.Layout
 	o.head = "Layout tree of " + desc + " (rect: border box in logical pixels from the window's top-left corner)."
-	if rep.Bounds != nil && req.Loc != nil {
-		sub, err := layoutSubtree([]byte(js), *rep.Bounds, req.Loc.Role)
-		if err != nil {
-			o.fail(fmt.Sprintf("cannot find the box of %s in the layout tree: %v", desc, err))
-			return o.result()
+	if req.Loc != nil && !rep.Subtree {
+		// The package's tela module predates (*telatest.App).LayoutJSONOf
+		// (ADR-194): the whole tree, with where the element is in it.
+		o.head = "Layout tree of the whole window (rect: border box in logical pixels from the window's top-left corner)."
+		if b := rep.Bounds; b != nil {
+			o.head += fmt.Sprintf(" The tela module of this package predates telatest's LayoutJSONOf, so the box of %s cannot be cut out: it is at x=%g y=%g width=%g height=%g. Update it with go get github.com/kuronosu/tela@latest.", desc, b[0], b[1], b[2], b[3])
 		}
-		js = string(sub)
 	}
 	o.sections = append(o.sections, "```json\n"+strings.TrimRight(js, "\n")+"\n```")
 	return o.result()

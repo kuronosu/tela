@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 
+	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/internal/platform"
 )
 
@@ -55,12 +56,40 @@ func (a *App) LayoutJSON() []byte {
 	a.tb.Helper()
 	a.mustBeOpen()
 	a.settleQuery()
+	return a.layoutJSON("LayoutJSON", a.tree.Inspect())
+}
+
+// LayoutJSONOf returns the layout subtree of the element l locates, in the
+// same JSON as [App.LayoutJSON] (indented, ending with a newline, rects in
+// window coordinates before scroll offsets and transforms, with the
+// painted "bounds" where they differ): the box of the element with
+// everything inside it, as `tela inspect --layout` shows it at that place.
+// An inline element, a text or a display: contents element gives the box
+// of its nearest ancestor that has one. Like the other locator queries it
+// settles the app first (under [NoSettle], handling only the work due), and
+// fails the test when l matches no element or several. tela mcp's inspect
+// tool is built on it (ADR-194).
+//
+//	js := app.LayoutJSONOf(telatest.ByRole("button", "Save"))
+func (a *App) LayoutJSONOf(l Locator) []byte {
+	a.tb.Helper()
+	n := a.oneQuery(l)
+	box, err := a.tree.InspectElement(n.ID)
+	if err != nil {
+		a.fatalf("LayoutJSONOf: %v", err)
+	}
+	return a.layoutJSON("LayoutJSONOf", box)
+}
+
+// layoutJSON encodes a layout node the way LayoutJSON does.
+func (a *App) layoutJSON(what string, n core.InspectNode) []byte {
+	a.tb.Helper()
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(a.tree.Inspect()); err != nil {
-		a.fatalf("LayoutJSON: %v", err)
+	if err := enc.Encode(n); err != nil {
+		a.fatalf("%s: %v", what, err)
 	}
 	return buf.Bytes()
 }

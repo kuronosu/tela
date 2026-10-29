@@ -8,6 +8,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
+	"github.com/kuronosu/tela/internal/semantics"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/text"
 )
@@ -175,6 +176,31 @@ func (t *Tree) Inspect() InspectNode {
 		return InspectNode{Kind: "root"}
 	}
 	return t.inspect(t.rootBox, gfx.Point{})
+}
+
+// InspectElement returns the box of the element of semantics node id with
+// its subtree, as [Tree.Inspect] gives it: the same fields and the same
+// absolute rects, so the node is the one the whole tree has at that place.
+// An element with no box of its own (the inline content of a paragraph, a
+// display: contents element, a text) gives the box of its nearest ancestor
+// that has one. ErrNodeGone reports a node that is not in the last
+// semantics tree or is no longer mounted; call Semantics first when the
+// tree changed. Call it on the UI thread, after the last Frame.
+func (t *Tree) InspectElement(id semantics.NodeID) (InspectNode, error) {
+	el := t.sem.byID[id]
+	for el != nil && !(el.mounted && el.kind == elemPrimitive && t.ownBox(el, false) && t.inTree(el.box)) {
+		el = el.styleParent()
+	}
+	if el == nil || t.rootBox == nil || t.rootBox.cs == nil {
+		return InspectNode{}, fmt.Errorf("%w: %d", ErrNodeGone, id)
+	}
+	// The box's origin is its parent's absolute one: the layout locations
+	// of the ancestors, which Inspect adds going down.
+	var origin gfx.Point
+	for p := el.box.parent; p != nil; p = p.parent {
+		origin = origin.Add(p.ld.Layout().Location)
+	}
+	return t.inspect(el.box, origin), nil
 }
 
 func (t *Tree) inspect(b *Box, origin gfx.Point) InspectNode {

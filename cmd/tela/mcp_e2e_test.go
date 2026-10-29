@@ -290,6 +290,18 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Errorf("screenshot %v, want 480x320", b)
 	}
 
+	// inspect gives the layout of the window, or of one element: the box
+	// that telatest's LayoutJSONOf cuts out (ADR-194), not the whole tree.
+	r = c.tool("inspect", nil)
+	if r.isError || !strings.Contains(r.text, `"kind": "root"`) || !strings.Contains(r.text, "Version 1") {
+		t.Fatalf("inspect:\n%s", r.text)
+	}
+	r = c.tool("inspect", map[string]any{"ref": count})
+	if r.isError || !strings.Contains(r.text, `"kind": "button"`) || !strings.Contains(r.text, "Count: 1") ||
+		strings.Contains(r.text, `"kind": "root"`) || strings.Contains(r.text, "Version 1") || strings.Contains(r.text, "predates") {
+		t.Fatalf("inspect %s:\n%s", count, r.text)
+	}
+
 	// Failed actions are errors of their call; the instance stays.
 	r = c.tool("click", map[string]any{"ref": "e999"})
 	if !r.isError || !strings.Contains(r.text, "unknown ref") {
