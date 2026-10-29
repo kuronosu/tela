@@ -68,6 +68,21 @@ func (c contract) String() string {
 	return "none"
 }
 
+// singleScreen explains, for pkg, that a package without Previews has one
+// screen and how to get several. Each command keeps its own rule for when to
+// say it; this is only the wording. It is for the contracts that have a
+// single screen (Preview, App, Scene).
+func (c contract) singleScreen(pkg string) string {
+	what := "Preview(), a single screen"
+	switch c {
+	case contractApp:
+		what = "App, whose Root is a single screen"
+	case contractScene:
+		what = "Scene, a single scene"
+	}
+	return fmt.Sprintf("package %s defines %s; to choose among several, define var Previews = tela.Previews{\"Name\": {Root: tela.C(Screen)}}", pkg, what)
+}
+
 // contractHelp explains the contracts, for errors.
 const contractHelp = `it must define one of
 
@@ -398,12 +413,8 @@ func checkContract(m mode, c contract, opts renderOptions, pkg goPackage) error 
 		return fmt.Errorf("package %s (%s) cannot be rendered: %s", pkg.Name, opts.Pkg, contractHelp)
 	case c == contractScene && m != modeSnapshot:
 		return fmt.Errorf("package %s (%s) only defines Scene, a display list without a layout tree: tela inspect needs func Preview() tela.Node, a Previews variable or an App", pkg.Name, opts.Pkg)
-	case opts.Preview != "" && c == contractPreview:
-		return fmt.Errorf("--preview %q: package %s defines Preview(), a single screen; to choose among several, define var Previews = tela.Previews{...}", opts.Preview, pkg.Name)
-	case opts.Preview != "" && c == contractApp:
-		return fmt.Errorf("--preview %q: package %s defines App, whose Root is a single screen; to choose among several, define var Previews = tela.Previews{...}", opts.Preview, pkg.Name)
-	case opts.Preview != "" && c == contractScene:
-		return fmt.Errorf("--preview %q: package %s defines Scene, a single scene; to choose among several screens, define var Previews = tela.Previews{...}", opts.Preview, pkg.Name)
+	case opts.Preview != "" && (c == contractPreview || c == contractApp || c == contractScene):
+		return fmt.Errorf("--preview %q: %s", opts.Preview, c.singleScreen(pkg.Name))
 	}
 	return nil
 }

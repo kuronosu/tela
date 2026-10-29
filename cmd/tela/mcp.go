@@ -361,7 +361,7 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 		return nil
 	}
 	if s.mount.Preview != "" && det.contract != contractPreviews {
-		s.broken = fmt.Sprintf("--preview %q: %s", s.mount.Preview, singleScreen(pkg.Name, det.contract))
+		s.broken = fmt.Sprintf("--preview %q: %s", s.mount.Preview, det.contract.singleScreen(pkg.Name))
 		return nil
 	}
 	names := det.previews
@@ -429,15 +429,6 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 		notes = append(notes, fmt.Sprintf("The source changed: rebuilt in %.1fs and mounted afresh (state reset).", time.Since(start).Seconds()))
 	}
 	return notes
-}
-
-// singleScreen explains that a package without Previews has one screen.
-func singleScreen(pkg string, c contract) string {
-	what := "Preview(), a single screen"
-	if c == contractApp {
-		what = "App, whose Root is a single screen"
-	}
-	return fmt.Sprintf("package %s defines %s; to have several, define var Previews = tela.Previews{\"Name\": {Root: tela.C(Screen)}}", pkg, what)
 }
 
 // startInstance starts exe and mounts the screen.
@@ -1431,7 +1422,7 @@ func (s *mcpSession) toolOpen(ctx context.Context, args json.RawMessage) mcpResu
 	m := s.mount
 	if a.Preview != nil {
 		if *a.Preview != "" && s.contract != contractPreviews {
-			o.fail(fmt.Sprintf("preview %q: %s", *a.Preview, singleScreen(s.target.pkg.Name, s.contract)))
+			o.fail(fmt.Sprintf("preview %q: %s", *a.Preview, s.contract.singleScreen(s.target.pkg.Name)))
 			return o.result()
 		}
 		m.Preview = *a.Preview

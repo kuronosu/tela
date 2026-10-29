@@ -170,11 +170,7 @@ func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
 		return nil, fmt.Errorf("package %s (%s) only defines Scene, a display list: tela dev runs an app; define func Preview() tela.Node, a Previews variable or an App", p.Name, opts.Pkg)
 	}
 	if opts.Preview != "" && t.contract != contractPreviews {
-		what := "Preview(), a single screen"
-		if t.contract == contractApp {
-			what = "App, whose Root is a single screen"
-		}
-		return nil, fmt.Errorf("--preview %q: package %s defines %s; to choose among several, define var Previews = tela.Previews{...}", opts.Preview, p.Name, what)
+		return nil, fmt.Errorf("--preview %q: %s", opts.Preview, t.contract.singleScreen(p.Name))
 	}
 	src, err := generateDevRunner(devRunner{
 		Main:       p.Name == "main",
