@@ -1,7 +1,6 @@
 package svg
 
 import (
-	"math"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -17,7 +16,8 @@ type colorVal struct {
 // transparent, currentColor, #rgb, #rgba, #rrggbb, #rrggbbaa, rgb(),
 // rgba(), hsl() and hsla() (legacy comma syntax and modern space syntax
 // with an optional "/ alpha"). Keywords and function names are
-// case-insensitive.
+// case-insensitive. The color functions are gfx.ParseRGBFunc and
+// gfx.ParseHSLFunc (ADR-193).
 func parseColor(s string) (colorVal, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -35,11 +35,11 @@ func parseColor(s string) (colorVal, bool) {
 		args := s[p+1 : len(s)-1]
 		switch name {
 		case "rgb", "rgba":
-			c, ok := parseRGB(args)
-			return colorVal{c: c}, ok
+			c, err := gfx.ParseRGBFunc(args)
+			return colorVal{c: c}, err == nil
 		case "hsl", "hsla":
-			c, ok := parseHSL(args)
-			return colorVal{c: c}, ok
+			c, err := gfx.ParseHSLFunc(args)
+			return colorVal{c: c}, err == nil
 		}
 		return colorVal{}, false
 	}
@@ -54,175 +54,6 @@ func parseColor(s string) (colorVal, bool) {
 		return colorVal{c: gfx.RGB8(uint8(v>>16), uint8(v>>8), uint8(v))}, true
 	}
 	return colorVal{}, false
-}
-
-// colorArgs splits the arguments of a color function into its components
-// and the optional alpha. legacy reports the comma syntax.
-func colorArgs(s string) (comps []string, alpha string, legacy, ok bool) {
-	if strings.Contains(s, ",") {
-		parts := strings.Split(s, ",")
-		for i := range parts {
-			parts[i] = strings.TrimSpace(parts[i])
-			if parts[i] == "" {
-				return nil, "", false, false
-			}
-		}
-		switch len(parts) {
-		case 3:
-			return parts, "", true, true
-		case 4:
-			return parts[:3], parts[3], true, true
-		}
-		return nil, "", false, false
-	}
-	main, a, slash := strings.Cut(s, "/")
-	comps = strings.Fields(main)
-	if len(comps) != 3 {
-		return nil, "", false, false
-	}
-	if slash {
-		a = strings.TrimSpace(a)
-		if a == "" || strings.ContainsAny(a, " \t\n") {
-			return nil, "", false, false
-		}
-	}
-	return comps, a, false, true
-}
-
-// component parses a number or percentage; pct reports which. "none" (the
-// modern syntax only) is 0.
-func component(s string, legacy bool) (v float64, pct, ok bool) {
-	if !legacy && strings.EqualFold(s, "none") {
-		return 0, false, true
-	}
-	if strings.HasSuffix(s, "%") {
-		v, ok = parseNumber(s[:len(s)-1])
-		return v, true, ok
-	}
-	v, ok = parseNumber(s)
-	return v, false, ok
-}
-
-func parseAlphaArg(s string, legacy bool) (float32, bool) {
-	if s == "" {
-		return 1, true
-	}
-	if !legacy && strings.EqualFold(s, "none") {
-		return 0, true
-	}
-	return parseAlpha(s)
-}
-
-func parseRGB(s string) (gfx.Color, bool) {
-	comps, a, legacy, ok := colorArgs(s)
-	if !ok {
-		return gfx.Color{}, false
-	}
-	var ch [3]float32
-	var pcts int
-	for i, c := range comps {
-		v, pct, ok := component(c, legacy)
-		if !ok {
-			return gfx.Color{}, false
-		}
-		if pct {
-			pcts++
-			v = v * 255 / 100
-		}
-		ch[i] = float32(min(max(v, 0), 255) / 255)
-	}
-	if legacy && pcts != 0 && pcts != 3 { // legacy rgb() cannot mix
-		return gfx.Color{}, false
-	}
-	alpha, ok := parseAlphaArg(a, legacy)
-	if !ok {
-		return gfx.Color{}, false
-	}
-	return gfx.Color{R: ch[0], G: ch[1], B: ch[2], A: alpha}, true
-}
-
-func parseHSL(s string) (gfx.Color, bool) {
-	comps, a, legacy, ok := colorArgs(s)
-	if !ok {
-		return gfx.Color{}, false
-	}
-	h, ok := parseHue(comps[0], legacy)
-	if !ok {
-		return gfx.Color{}, false
-	}
-	var sl [2]float64
-	for i, c := range comps[1:] {
-		v, pct, ok := component(c, legacy)
-		if !ok || (legacy && !pct) {
-			return gfx.Color{}, false
-		}
-		sl[i] = min(max(v, 0), 100) / 100
-	}
-	alpha, ok := parseAlphaArg(a, legacy)
-	if !ok {
-		return gfx.Color{}, false
-	}
-	r, g, b := hslToRGB(h, sl[0], sl[1])
-	return gfx.Color{R: float32(r), G: float32(g), B: float32(b), A: alpha}, true
-}
-
-// parseHue parses a hue in degrees (unitless) or with deg, grad, rad or
-// turn, and returns it in sextants of the color wheel, in [0, 6).
-func parseHue(s string, legacy bool) (float64, bool) {
-	if !legacy && strings.EqualFold(s, "none") {
-		return 0, true
-	}
-	ls := strings.ToLower(s)
-	scale := 1.0
-	for _, u := range []struct {
-		suffix string
-		deg    float64
-	}{{"deg", 1}, {"grad", 0.9}, {"rad", 180 / math.Pi}, {"turn", 360}} {
-		if strings.HasSuffix(ls, u.suffix) {
-			ls, scale = ls[:len(ls)-len(u.suffix)], u.deg
-			break
-		}
-	}
-	v, ok := parseNumber(ls)
-	if !ok {
-		return 0, false
-	}
-	deg := math.Mod(float64(v*scale), 360)
-	if deg < 0 {
-		deg += 360
-	}
-	return deg / 60, true
-}
-
-// hslToRGB converts HSL (hue in sextants, saturation and lightness in
-// [0, 1]) to sRGB with the algorithm of CSS Color 4, fusion-safe.
-func hslToRGB(h, s, l float64) (r, g, b float64) {
-	var t2 float64
-	if l <= 0.5 {
-		t2 = float64(l * (s + 1))
-	} else {
-		t2 = l + s - float64(l*s)
-	}
-	t1 := float64(l*2) - t2
-	return hueToRGB(t1, t2, h+2), hueToRGB(t1, t2, h), hueToRGB(t1, t2, h-2)
-}
-
-func hueToRGB(t1, t2, h float64) float64 {
-	if h < 0 {
-		h += 6
-	}
-	if h >= 6 {
-		h -= 6
-	}
-	switch {
-	case h < 1:
-		return float64((t2-t1)*h) + t1
-	case h < 3:
-		return t2
-	case h < 4:
-		return float64((t2-t1)*(4-h)) + t1
-	}
-	return t1
 }
 
 // namedColors holds the 148 CSS named colors (CSS Color 4, section 6.1)

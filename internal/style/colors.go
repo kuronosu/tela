@@ -3,7 +3,6 @@ package style
 import (
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -103,16 +102,24 @@ func parseColor(s string) (colorSpec, error) {
 		return colorSpec{}, errNotColor
 	}
 	fn := strings.TrimSpace(low[:open])
-	args := splitColorArgs(s[open+1 : len(s)-1])
+	inner := s[open+1 : len(s)-1]
 	switch fn {
 	case "rgb", "rgba":
-		return parseRGBFunc(args)
+		c, err := gfx.ParseRGBFunc(inner)
+		if err != nil {
+			return colorSpec{}, colorFuncError(err)
+		}
+		return solidSpec(c), nil
 	case "hsl", "hsla":
-		return parseHSLFunc(args)
+		c, err := gfx.ParseHSLFunc(inner)
+		if err != nil {
+			return colorSpec{}, colorFuncError(err)
+		}
+		return solidSpec(c), nil
 	case "oklch":
-		return parseOklchFunc(args, true)
+		return parseOklchFunc(splitColorArgs(inner), true)
 	case "oklab":
-		return parseOklchFunc(args, false)
+		return parseOklchFunc(splitColorArgs(inner), false)
 	case "var":
 		return colorSpec{}, errors.New("CSS variables are not supported; use a theme token or a literal color")
 	case "color-mix", "color", "lab", "lch", "hwb", "light-dark":
@@ -189,79 +196,32 @@ func colorAlpha(args []string) (float32, error) {
 
 func clampf(v, lo, hi float32) float32 { return max(lo, min(v, hi)) }
 
-func parseRGBFunc(args []string) (colorSpec, error) {
-	if len(args) < 3 || len(args) > 4 {
-		return colorSpec{}, errors.New("rgb() takes three components and an optional alpha: rgb(30 30 46 / 0.5)")
+// colorFuncError words the error of gfx.ParseRGBFunc and gfx.ParseHSLFunc
+// (CSS Color 4 syntax, ADR-193) for a class.
+func colorFuncError(err error) error {
+	var ce *gfx.ColorFuncError
+	if !errors.As(err, &ce) {
+		return err
 	}
-	var v [3]float32
-	for i := 0; i < 3; i++ {
-		x, err := colorNum(args[i], 255)
-		if err != nil {
-			return colorSpec{}, err
+	switch ce.Problem {
+	case gfx.ColorFuncArity:
+		if ce.Func == "hsl" {
+			return errors.New("hsl() takes hue, saturation, lightness and an optional alpha: hsl(220 60% 50%)")
 		}
-		v[i] = clampf(x/255, 0, 1)
+		return errors.New("rgb() takes three components and an optional alpha: rgb(30 30 46 / 0.5)")
+	case gfx.ColorFuncSyntax:
+		return fmt.Errorf("%s() separates its arguments with commas (%s(30, 30, 46, 0.5)) or with spaces and a \"/\" before the alpha (%s(30 30 46 / 0.5)), not both", ce.Func, ce.Func, ce.Func)
+	case gfx.ColorFuncHue:
+		return fmt.Errorf("invalid hue %q", ce.Arg)
+	case gfx.ColorFuncComponent, gfx.ColorFuncAlpha:
+		return fmt.Errorf("invalid color component %q", ce.Arg)
+	case gfx.ColorFuncPercent:
+		if ce.Func == "hsl" {
+			return errors.New("hsl() with commas takes percentages for the saturation and lightness: hsl(120, 100%, 25%); without commas plain numbers also work: hsl(120 100 25)")
+		}
+		return errors.New("rgb() with commas takes three numbers or three percentages, not a mix: rgb(255, 128, 0) or rgb(100%, 50%, 0%)")
 	}
-	a, err := colorAlpha(args[3:])
-	if err != nil {
-		return colorSpec{}, err
-	}
-	return solidSpec(gfx.Color{R: v[0], G: v[1], B: v[2], A: a}), nil
-}
-
-func parseHSLFunc(args []string) (colorSpec, error) {
-	if len(args) < 3 || len(args) > 4 {
-		return colorSpec{}, errors.New("hsl() takes hue, saturation, lightness and an optional alpha: hsl(220 60% 50%)")
-	}
-	h, ok := parseAngle(args[0])
-	if !ok {
-		var hv float32
-		hv, ok = parseFloat(args[0])
-		h = hv
-	}
-	if !ok {
-		return colorSpec{}, fmt.Errorf("invalid hue %q", args[0])
-	}
-	s, err := colorNum(args[1], 100)
-	if err != nil {
-		return colorSpec{}, err
-	}
-	l, err := colorNum(args[2], 100)
-	if err != nil {
-		return colorSpec{}, err
-	}
-	a, err := colorAlpha(args[3:])
-	if err != nil {
-		return colorSpec{}, err
-	}
-	r, g, b := hslToRGB(h, clampf(s/100, 0, 1), clampf(l/100, 0, 1))
-	return solidSpec(gfx.Color{R: r, G: g, B: b, A: a}), nil
-}
-
-func hslToRGB(h, s, l float32) (r, g, b float32) {
-	h = float32(math.Mod(float64(h), 360))
-	if h < 0 {
-		h += 360
-	}
-	c := float32((1 - float32(math.Abs(float64(2*l-1)))) * s)
-	hp := h / 60
-	x := float32(c * (1 - float32(math.Abs(math.Mod(float64(hp), 2)-1))))
-	var r1, g1, b1 float32
-	switch {
-	case hp < 1:
-		r1, g1, b1 = c, x, 0
-	case hp < 2:
-		r1, g1, b1 = x, c, 0
-	case hp < 3:
-		r1, g1, b1 = 0, c, x
-	case hp < 4:
-		r1, g1, b1 = 0, x, c
-	case hp < 5:
-		r1, g1, b1 = x, 0, c
-	default:
-		r1, g1, b1 = c, 0, x
-	}
-	m := l - c/2
-	return r1 + m, g1 + m, b1 + m
+	return err
 }
 
 func parseOklchFunc(args []string, lch bool) (colorSpec, error) {

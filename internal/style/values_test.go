@@ -1,6 +1,7 @@
 package style
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -129,6 +130,31 @@ func equalFold(a, b string) bool {
 	return true
 }
 
+// TestParseColorIsStrict: rgb() and hsl() follow CSS Color 4 (ADR-193), so
+// the lax forms the class parser once took are errors with an actionable
+// message.
+func TestParseColorIsStrict(t *testing.T) {
+	for _, tt := range []struct{ in, want string }{
+		{"hsl(120,100,25)", "with commas takes percentages"},
+		{"hsl(120, 100%, 25)", "with commas takes percentages"},
+		{"rgb(1, 2 3)", "not both"},
+		{"rgb(1 2 3, 0.5)", "not both"},
+		{"rgba(1,2,3 / 0.5)", "not both"},
+		{"rgb(1, 2%, 3)", "not a mix"},
+		{"rgb(1 2)", "rgb() takes three components"},
+		{"hsl(1)", "hsl() takes hue"},
+		{"hsl(x 1% 1%)", `invalid hue "x"`},
+		{"rgb(1 2 z)", `invalid color component "z"`},
+		{"rgb(1 2 3 / z)", `invalid color component "z"`},
+		{"rgb(none, 0, 0)", `invalid color component "none"`},
+	} {
+		_, err := parseColor(tt.in)
+		if err == nil || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("parseColor(%q) error = %v, want one with %q", tt.in, err, tt.want)
+		}
+	}
+}
+
 func TestParseColor(t *testing.T) {
 	near3 := func(got, want gfx.Color) bool { return colorNear(got, want, 1e-4) }
 	tests := []struct {
@@ -143,6 +169,9 @@ func TestParseColor(t *testing.T) {
 		{"rgb(255 0 0 / 50%)", gfx.Color{R: 1, A: 0.5}},
 		{"rgb(100% 0% 0%)", gfx.Color{R: 1, A: 1}},
 		{"hsl(120 100% 50%)", gfx.Color{G: 1, A: 1}},
+		{"hsl(120 100 50)", gfx.Color{G: 1, A: 1}},
+		{"hsl(none 100% 50%)", gfx.Color{R: 1, A: 1}},
+		{"rgb(none 0 0 / none)", gfx.Color{}},
 		{"hsl(240deg, 100%, 50%)", gfx.Color{B: 1, A: 1}},
 		{"hsla(0, 100%, 50%, 0.25)", gfx.Color{R: 1, A: 0.25}},
 		{"oklch(0.637 0.237 25.331)", gfx.OKLCH(0.637, 0.237, 25.331, 1)},
