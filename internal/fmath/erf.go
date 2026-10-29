@@ -28,18 +28,16 @@ import "math"
 const (
 	erx = 8.45062911510467529297e-01 // 0x3FEB0AC160000000
 	// Coefficients for approximation to  erf in [0, 0.84375]
-	efx  = 1.28379167095512586316e-01  // 0x3FC06EBA8214DB69
-	efx8 = 1.02703333676410069053e+00  // 0x3FF06EBA8214DB69
-	pp0  = 1.28379167095512558561e-01  // 0x3FC06EBA8214DB68
-	pp1  = -3.25042107247001499370e-01 // 0xBFD4CD7D691CB913
-	pp2  = -2.84817495755985104766e-02 // 0xBF9D2A51DBD7194F
-	pp3  = -5.77027029648944159157e-03 // 0xBF77A291236668E4
-	pp4  = -2.37630166566501626084e-05 // 0xBEF8EAD6120016AC
-	qq1  = 3.97917223959155352819e-01  // 0x3FD97779CDDADC09
-	qq2  = 6.50222499887672944485e-02  // 0x3FB0A54C5536CEBA
-	qq3  = 5.08130628187576562776e-03  // 0x3F74D022C4D36B0F
-	qq4  = 1.32494738004321644526e-04  // 0x3F215DC9221C1A10
-	qq5  = -3.96022827877536812320e-06 // 0xBED09C4342A26120
+	pp0 = 1.28379167095512558561e-01  // 0x3FC06EBA8214DB68
+	pp1 = -3.25042107247001499370e-01 // 0xBFD4CD7D691CB913
+	pp2 = -2.84817495755985104766e-02 // 0xBF9D2A51DBD7194F
+	pp3 = -5.77027029648944159157e-03 // 0xBF77A291236668E4
+	pp4 = -2.37630166566501626084e-05 // 0xBEF8EAD6120016AC
+	qq1 = 3.97917223959155352819e-01  // 0x3FD97779CDDADC09
+	qq2 = 6.50222499887672944485e-02  // 0x3FB0A54C5536CEBA
+	qq3 = 5.08130628187576562776e-03  // 0x3F74D022C4D36B0F
+	qq4 = 1.32494738004321644526e-04  // 0x3F215DC9221C1A10
+	qq5 = -3.96022827877536812320e-06 // 0xBED09C4342A26120
 	// Coefficients for approximation to  erf  in [0.84375, 1.25]
 	pa0 = -2.36211856075265944077e-03 // 0xBF6359B8BEF77538
 	pa1 = 4.14856118683748331666e-01  // 0x3FDA8D00AD92B34D
@@ -118,43 +116,6 @@ func erfcTail(x float64) float64 {
 	z := math.Float64frombits(math.Float64bits(x) & 0xffffffff00000000) // pseudo-single (20-bit) precision x
 	r := Exp(-float64(z*z)-0.5625) * Exp(float64((z-x)*(z+x))+R/S)
 	return r / x
-}
-
-// Erf returns the error function of x. NaN gives NaN; infinities give ±1.
-func Erf(x float64) float64 {
-	const (
-		VeryTiny = 2.848094538889218e-306 // 0x0080000000000000
-		Small    = 1.0 / (1 << 28)        // 2**-28
-	)
-	if x != x {
-		return x
-	}
-	sign := false
-	if x < 0 {
-		x = -x
-		sign = true
-	}
-	var v float64
-	switch {
-	case x < Small:
-		if x < VeryTiny {
-			v = 0.125 * (8.0*x + float64(efx8*x)) // 8*x is exact
-		} else {
-			v = x + float64(efx*x)
-		}
-	case x < 0.84375:
-		v = x + float64(x*erfSmall(x))
-	case x < 1.25:
-		v = erx + erfMid(x)
-	case x >= 6:
-		v = 1
-	default:
-		v = 1 - erfcTail(x)
-	}
-	if sign {
-		return -v
-	}
-	return v
 }
 
 // Erfc returns the complementary error function 1 - erf(x), accurate in

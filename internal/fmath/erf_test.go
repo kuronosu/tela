@@ -8,10 +8,7 @@ import (
 
 func TestErfAccuracy(t *testing.T) {
 	check := func(x float64) {
-		if d := ulps(Erf(x), math.Erf(x)); d > 2 { // math.Exp is assembly on amd64
-			t.Errorf("Erf(%v) = %v, math.Erf = %v (%d ulps)", x, Erf(x), math.Erf(x), d)
-		}
-		if d := ulps(Erfc(x), math.Erfc(x)); d > 4 {
+		if d := ulps(Erfc(x), math.Erfc(x)); d > 4 { // math.Exp is assembly on amd64
 			t.Errorf("Erfc(%v) = %v, math.Erfc = %v (%d ulps)", x, Erfc(x), math.Erfc(x), d)
 		}
 	}
@@ -26,12 +23,12 @@ func TestErfAccuracy(t *testing.T) {
 		check(x)
 		check(-x)
 	}
-	if !math.IsNaN(Erf(math.NaN())) || !math.IsNaN(Erfc(math.NaN())) {
+	if !math.IsNaN(Erfc(math.NaN())) {
 		t.Error("NaN")
 	}
 }
 
-// erfDigest hashes the bits of Erf and Erfc on a fixed set of arguments.
+// erfDigest hashes the bits of Erfc on a fixed set of arguments.
 func erfDigest() uint64 {
 	h := fnv.New64a()
 	var buf [8]byte
@@ -43,7 +40,6 @@ func erfDigest() uint64 {
 		h.Write(buf[:])
 	}
 	for x := -30.0; x <= 30; x += 0.00731 {
-		put(Erf(x))
 		put(Erfc(x))
 	}
 	return h.Sum64()
@@ -53,7 +49,7 @@ func erfDigest() uint64 {
 // architecture must reproduce it; check with
 //
 //	GOARCH=arm64 go test -exec qemu-aarch64-static ./internal/fmath
-const wantErfDigest uint64 = 0x927fb98d2dbf2db1
+const wantErfDigest uint64 = 0x5a5f3442bbd96261
 
 func TestErfDeterministic(t *testing.T) {
 	if got := erfDigest(); got != wantErfDigest {
