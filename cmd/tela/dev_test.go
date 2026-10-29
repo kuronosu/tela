@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kuronosu/tela/cmd/tela/internal/watch"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/platform/remote"
@@ -807,55 +808,129 @@ func TestDevStateNotSaved(t *testing.T) {
 	h.logged("state not kept (the app does not save state", 1)
 }
 
+// The supervisor's build rules need no host and no child process: these
+// tests call handle directly on a supervisor with a fake builder, the way
+// run does, so they are deterministic and run under -short. What is not
+// started (a swap, which would freeze the host and spawn a process) is
+// replaced by the state a swap leaves behind, set by hand.
+
+// directSupervisor is a supervisor with a fake builder, no host and no
+// children.
+func directSupervisor(t *testing.T) (*supervisor, *fakeBuilder, *recordView, *syncBuffer) {
+	t.Helper()
+	fb := &fakeBuilder{modes: map[int]string{}, fail: map[int]string{}, block: map[int]chan struct{}{}}
+	out := &syncBuffer{}
+	view := &recordView{}
+	s := newSupervisor(supervisorConfig{opts: devOptions{Pkg: "./fake"}, builder: fb, log: out, stdout: out, stderr: out, view: view})
+	view.term = terminalView{s.log}
+	return s, fb, view, out
+}
+
+// runningApp makes s believe build gen is alive and shown. Its exited
+// channel is open: closing it is the app's exit.
+func runningApp(s *supervisor, gen int) *proc {
+	p := &proc{gen: gen, exited: make(chan struct{})}
+	s.procs[gen] = p
+	s.active = p
+	s.gen = gen
+	return p
+}
+
+// next pops the supervisor's next queued event, failing the test when none
+// comes.
+func next(t *testing.T, s *supervisor) any {
+	t.Helper()
+	ch := make(chan any, 1)
+	go func() { ch <- s.q.pop() }()
+	select {
+	case e := <-ch:
+		return e
+	case <-time.After(devWait):
+		t.Fatal("no event in the supervisor's queue")
+		return nil
+	}
+}
+
 func TestDevBuildFailure(t *testing.T) {
-	h := newDevHarness(t, devOptions{}, nil)
-	h.expect("first start", 1, 0, 0)
-	h.fb.mu.Lock()
-	h.fb.fail[2] = "./main.go:3:1: syntax error: unexpected }"
-	h.fb.mu.Unlock()
-	h.s.push(evKey{'r'})
-	h.logged("build failed:\n./main.go:3:1: syntax error", 1)
-	// The app keeps running.
-	h.click()
-	h.expect("the app after a failed build", 1, 1, 1)
-	h.s.push(evKey{'r'})
-	h.expect("the next good build", 3, 1, 0)
-	got := h.view.entries()
+	s, fb, view, out := directSupervisor(t)
+	app := runningApp(s, 1)
+	fb.fail[2] = "./main.go:3:1: syntax error: unexpected }"
+
+	s.handle(evKey{'r'})
+	built, ok := next(t, s).(evBuilt)
+	if !ok || built.res.gen != 2 || built.res.err == nil {
+		t.Fatalf("the build event is %+v, want a failed build 2", built)
+	}
+	s.handle(built)
+	if got := out.String(); !strings.Contains(got, "build failed:\n./main.go:3:1: syntax error") {
+		t.Errorf("log %q does not show the compiler output", got)
+	}
+	// The problem is shown over a live app, which no swap touches: a swap
+	// would freeze the host, and there is none.
+	if p := view.lastProblem(); p.kind != problemBuild || p.gen != 2 || !p.live || !strings.Contains(p.text, "syntax error") {
+		t.Errorf("problem %+v, want the build error over a live app", p)
+	}
+	if !s.problem || s.swap != nil || s.ready != nil || s.building != nil || s.inflight != 0 {
+		t.Errorf("after the failure: problem %v swap %v ready %v building %v inflight %d", s.problem, s.swap, s.ready, s.building != nil, s.inflight)
+	}
+	if s.active != app || s.alive() != app {
+		t.Errorf("the running app changed: active %v, alive %v", s.active, s.alive())
+	}
+
+	// The next good build is shown on promotion, which clears the problem.
+	// The swap that brought it that far is set by hand; the old app stops.
+	close(app.exited)
+	next3 := &proc{gen: 3, exited: make(chan struct{})}
+	s.procs[3] = next3
+	s.gen = 3
+	s.swap = &swapState{res: buildResult{gen: 3}, proc: next3, state: "reset", promoting: true, timer: time.NewTimer(time.Hour)}
+	s.handle(evPromoted{gen: 3})
+	if s.problem || s.swap != nil || s.active != next3 {
+		t.Errorf("after the promotion: problem %v swap %v active %v", s.problem, s.swap, s.active)
+	}
+	got := view.entries()
 	if len(got) != 2 || got[0] != fmt.Sprintf("show %d: build failed", problemBuild) || got[1] != "clear" {
 		t.Errorf("problems %v", got)
 	}
 }
 
 func TestDevNewerSaveCancelsBuild(t *testing.T) {
-	h := newDevHarness(t, devOptions{}, nil)
-	h.expect("first start", 1, 0, 0)
-	block := make(chan struct{})
-	h.fb.mu.Lock()
-	h.fb.block[2] = block
-	h.fb.mu.Unlock()
-	h.s.push(evKey{'r'})
-	deadline := time.Now().Add(devWait)
-	for {
-		h.fb.mu.Lock()
-		n := h.fb.builds
-		h.fb.mu.Unlock()
-		if n == 2 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("build 2 never started")
-		}
-		time.Sleep(time.Millisecond)
+	s, fb, _, _ := directSupervisor(t)
+	// A swap is in progress, so a finished build waits in s.ready instead
+	// of starting one (which needs a host).
+	runningApp(s, 1)
+	s.swap = &swapState{res: buildResult{gen: 1}}
+	fb.block[2] = make(chan struct{}) // never released: only cancelling ends it
+
+	s.handle(evKey{'r'})
+	if s.gen != 2 || s.building == nil {
+		t.Fatalf("gen %d building %v, want build 2 running", s.gen, s.building != nil)
 	}
-	h.s.push(evBatch{})
-	h.expect("the newer build", 3, 0, 0)
-	h.fb.mu.Lock()
-	cancelled := append([]int(nil), h.fb.cancelled...)
-	h.fb.mu.Unlock()
-	if len(cancelled) != 1 || cancelled[0] != 2 {
-		t.Errorf("cancelled builds %v, want [2]", cancelled)
+	first := s.trig.at
+	s.handle(evBatch{b: watch.Batch{First: first.Add(-time.Second)}})
+	if s.gen != 3 || s.inflight != 2 {
+		t.Fatalf("gen %d inflight %d, want build 3 started with build 2 still to report", s.gen, s.inflight)
 	}
-	close(block)
+	// Both results arrive, in either order: the cancelled build 2 is
+	// ignored and build 3 is the one that waits for the swap.
+	for range 2 {
+		s.handle(next(t, s))
+	}
+	if s.inflight != 0 || s.building != nil {
+		t.Errorf("inflight %d building %v after both results", s.inflight, s.building != nil)
+	}
+	if s.ready == nil || s.ready.res.gen != 3 {
+		t.Fatalf("ready %+v, want build 3", s.ready)
+	}
+	if !s.ready.trig.at.Equal(first.Add(-time.Second)) {
+		t.Errorf("trigger time %v, want the oldest save's %v", s.ready.trig.at, first.Add(-time.Second))
+	}
+	fb.mu.Lock()
+	cancelled, builds := append([]int(nil), fb.cancelled...), fb.builds
+	fb.mu.Unlock()
+	if len(cancelled) != 1 || cancelled[0] != 2 || builds != 2 {
+		t.Errorf("cancelled builds %v of %d, want [2] of 2", cancelled, builds)
+	}
 }
 
 func TestDevQuitPaths(t *testing.T) {
