@@ -46,6 +46,9 @@ type Event = base.Event
 // Box is a generic alias.
 type Box[T any] = base.Box[T]
 
+// Phase is an alias whose constants are declared in the internal package.
+type Phase = base.Phase
+
 // Mode says how fast to draw.
 type Mode int
 

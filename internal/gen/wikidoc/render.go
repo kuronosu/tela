@@ -113,13 +113,13 @@ func (w *pageWriter) page() {
 	if len(d.Consts) > 0 {
 		w.heading(levelSection, "Constants")
 		for _, v := range d.Consts {
-			w.value(v)
+			w.value(v, w.p.fset)
 		}
 	}
 	if len(d.Vars) > 0 {
 		w.heading(levelSection, "Variables")
 		for _, v := range d.Vars {
-			w.value(v)
+			w.value(v, w.p.fset)
 		}
 	}
 	if len(d.Funcs) > 0 {
@@ -225,9 +225,10 @@ func (w *pageWriter) methods(t *doc.Type) []*doc.Func {
 	return ms
 }
 
-// value writes a group of constants or variables.
-func (w *pageWriter) value(v *doc.Value) {
-	w.code(w.printNode(w.p.fset, v.Decl))
+// value writes a group of constants or variables declared in the files of
+// fset: the page's package, or the internal package of an alias.
+func (w *pageWriter) value(v *doc.Value, fset *token.FileSet) {
+	w.code(w.printNode(fset, v.Decl))
 	w.docText(v.Doc, levelDocSym)
 }
 
@@ -255,14 +256,14 @@ func (w *pageWriter) typ(t *doc.Type) {
 			"pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:", t.Name, a.target))
 		w.code(w.printNode(a.pkg.fset, a.typ.Decl))
 		for _, v := range append(append([]*doc.Value(nil), a.typ.Consts...), a.typ.Vars...) {
-			w.value(v)
+			w.value(v, a.pkg.fset)
 		}
 	}
 	for _, v := range t.Consts {
-		w.value(v)
+		w.value(v, w.p.fset)
 	}
 	for _, v := range t.Vars {
-		w.value(v)
+		w.value(v, w.p.fset)
 	}
 	w.examples(t.Examples, levelMember)
 	for _, f := range t.Funcs {

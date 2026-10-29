@@ -1881,12 +1881,14 @@ type ColorScheme uint8
 
 ```go
 const (
+    // ColorSchemeSystem follows the system's preference (the zero
+    // value).
     ColorSchemeSystem ColorScheme = iota
+    // ColorSchemeLight is the light scheme: dark: variants do not apply.
     ColorSchemeLight
+    // ColorSchemeDark is the dark scheme: dark: variants apply.
     ColorSchemeDark
-)// ColorSchemeSystem follows the system's preference (the zero
-// value).
-// ColorSchemeDark is the dark scheme: dark: variants apply.
+)
 ```
 
 ```go
@@ -2997,12 +2999,15 @@ type KeyLocation uint8
 
 ```go
 const (
+    // KeyLocationStandard is every key not listed below.
     KeyLocationStandard KeyLocation = iota
+    // KeyLocationLeft is the left Shift, Control, Alt or Meta key.
     KeyLocationLeft
+    // KeyLocationRight is the right Shift, Control, Alt (AltGr) or Meta key.
     KeyLocationRight
+    // KeyLocationNumpad is a key of the numeric keypad.
     KeyLocationNumpad
-)// KeyLocationStandard is every key not listed below.
-// KeyLocationNumpad is a key of the numeric keypad.
+)
 ```
 
 The key locations, with the DOM's values.
@@ -3311,14 +3316,20 @@ type MouseButton uint8
 
 ```go
 const (
+    // MouseButtonNone is no button, as in a move or enter event.
     MouseButtonNone MouseButton = iota
+    // MouseButtonLeft is the primary button: the left button (the right
+    // one on a left-handed setup), a touch contact or a pen tip.
     MouseButtonLeft
+    // MouseButtonRight is the secondary button (or a pen barrel button).
     MouseButtonRight
+    // MouseButtonMiddle is the wheel button.
     MouseButtonMiddle
+    // MouseButtonBack is the "back" side button.
     MouseButtonBack
+    // MouseButtonForward is the "forward" side button.
     MouseButtonForward
-)// MouseButtonNone is no button, as in a move or enter event.
-// MouseButtonForward is the "forward" side button.
+)
 ```
 
 The mouse buttons.
@@ -3680,11 +3691,10 @@ type PointerKind uint8
 
 ```go
 const (
-    PointerMouse PointerKind = iota
-    PointerTouch
-    PointerPen
-)// a mouse or touchpad cursor
-// a stylus
+    PointerMouse PointerKind = iota // a mouse or touchpad cursor
+    PointerTouch                    // a finger on a touchscreen
+    PointerPen                      // a stylus
+)
 ```
 
 The pointer kinds.
@@ -3968,14 +3978,17 @@ type ScrollAlign uint8
 
 ```go
 const (
+    // AlignAuto scrolls as little as possible: nothing when the item is
+    // fully visible, else to align its end (when it reaches past the
+    // bottom) or its start.
     AlignAuto ScrollAlign = iota
+    // AlignStart puts the item's top at the top of the scrollport.
     AlignStart
+    // AlignCenter centers the item in the scrollport.
     AlignCenter
+    // AlignEnd puts the item's bottom at the bottom of the scrollport.
     AlignEnd
-)// AlignAuto scrolls as little as possible: nothing when the item is
-// fully visible, else to align its end (when it reaches past the
-// bottom) or its start.
-// AlignEnd puts the item's bottom at the bottom of the scrollport.
+)
 ```
 
 #### func (ScrollAlign) String
@@ -5403,13 +5416,15 @@ type WindowControl uint8
 
 ```go
 const (
+    // WindowMinimize minimizes the window.
     WindowMinimize WindowControl = iota + 1
+    // WindowMaximize maximizes the window, or restores a maximized one.
     WindowMaximize
+    // WindowClose asks to close the window, as the OS's close button
+    // does: the window's OnClose runs (for the main window, App.OnClose,
+    // or the app quits).
     WindowClose
-)// WindowMinimize minimizes the window.
-// WindowClose asks to close the window, as the OS's close button
-// does: the window's OnClose runs (for the main window, App.OnClose,
-// or the app quits).
+)
 ```
 
 #### func (WindowControl) String

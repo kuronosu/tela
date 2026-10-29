@@ -22,3 +22,15 @@ type Box[T any] struct{ v T }
 
 // Get returns the value in the box.
 func (b Box[T]) Get() T { return b.v }
+
+// Phase is a step of an event. Its constants are documented one by one,
+// below the type: an alias page prints them from this file.
+type Phase uint8
+
+const (
+	// PhaseCapture goes from the root down to the target.
+	PhaseCapture Phase = iota
+	// PhaseBubble goes from the target back up
+	// to the root.
+	PhaseBubble
+)

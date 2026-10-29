@@ -19,6 +19,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Drawer`](#type-drawer)
   - [`type Event`](#type-event): [`Stop`](#func-event-stop) · [`Stopped`](#func-event-stopped)
   - [`type Mode`](#type-mode)
+  - [`type Phase`](#type-phase)
   - [`type Widget`](#type-widget): [`Make`](#func-make) · [`NewWidget`](#func-newwidget) · [`Draw`](#func-widget-draw) · [`Reset`](#func-widget-reset)
 
 ## Overview
@@ -183,6 +184,30 @@ const (
 ```
 
 The modes. [`Widget.Draw`](#func-widget-draw) honors them.
+
+### type Phase
+
+```go
+type Phase = base.Phase
+```
+
+Phase is an alias whose constants are declared in the internal package.
+
+`Phase` is an alias of `base.Phase`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type Phase uint8
+```
+
+```go
+const (
+    // PhaseCapture goes from the root down to the target.
+    PhaseCapture Phase = iota
+    // PhaseBubble goes from the target back up
+    // to the root.
+    PhaseBubble
+)
+```
 
 ### type Widget
 
