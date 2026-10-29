@@ -8,7 +8,9 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/remote"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 	"github.com/kuronosu/tela/telatest"
 )
@@ -193,4 +195,162 @@ func TestCompositeOver(t *testing.T) {
 	if got := dst.Pix[4:]; got[0] < 98 || got[0] > 102 || got[1] < 48 || got[1] > 52 || got[3] != 255 {
 		t.Errorf("half black over (200,100,0): %v", got)
 	}
+}
+
+// overlayWindow is a platform.Window that only knows its metrics; the
+// embedded nil interface panics on anything else, which keeps the routing
+// honest about what it touches.
+type overlayWindow struct {
+	platform.Window
+	m platform.Metrics
+}
+
+func (w overlayWindow) Metrics() platform.Metrics { return w.m }
+
+// TestOverlayRouting drives overlayView.handleInput on a docked panel: which
+// events the overlay takes, which go on to the app, and the state of the
+// pointer sequence it tracks (ADR-117).
+func TestOverlayRouting(t *testing.T) {
+	size := platform.Size{W: 800, H: 520}
+	win := overlayWindow{m: platform.Metrics{Size: size, Scale: 1}}
+	p := problem{kind: problemBuild, summary: "build failed", text: compilerOutput, live: true}
+	g := newOverlayModel(p).geometry(size)
+	if !g.docked {
+		t.Fatalf("geometry %+v: want a docked panel", g)
+	}
+	mid := func(r gfx.Rect) platform.Point { return platform.Point{X: (r.X0 + r.X1) / 2, Y: (r.Y0 + r.Y1) / 2} }
+	closeBtn := mid(g.close)
+	body := platform.Point{X: g.panel.X0 + 12, Y: g.panel.Y1 - 6} // in the panel, off the button
+	if g.close.Contains(gfx.Point(body)) {
+		t.Fatalf("body point %v is on the close button %+v", body, g.close)
+	}
+	above := platform.Point{X: size.W / 2, Y: g.panel.Y0 / 2} // the app's part of the window
+	held := platform.ButtonPrimary.Mask()
+	other := platform.ButtonSecondary.Mask()
+	down := func(pos platform.Point) platform.Event {
+		return platform.PointerEvent{Action: platform.PointerDown, Button: platform.ButtonPrimary, Buttons: held, Pos: pos}
+	}
+	up := func(pos platform.Point, buttons platform.Buttons) platform.Event {
+		return platform.PointerEvent{Action: platform.PointerUp, Button: platform.ButtonPrimary, Buttons: buttons, Pos: pos}
+	}
+	move := func(pos platform.Point, buttons platform.Buttons) platform.Event {
+		return platform.PointerEvent{Action: platform.PointerMove, Buttons: buttons, Pos: pos}
+	}
+	cancel := platform.PointerEvent{Action: platform.PointerCancel, Pos: body}
+	key := func(k platform.Key, a platform.KeyAction) platform.Event {
+		return platform.KeyEvent{Key: k, Action: a}
+	}
+	scroll := func(pos platform.Point) platform.Event { return platform.ScrollEvent{Pos: pos} }
+
+	// step is one event and what the overlay does with it: whether it took
+	// the event, whether a press is captured afterwards and whether the
+	// panel is gone afterwards.
+	type step struct {
+		name      string
+		ev        platform.Event
+		handled   bool
+		captured  bool
+		dismissed bool
+	}
+	cases := []struct {
+		name  string
+		steps []step
+	}{
+		{"app press and drag", []step{
+			{"press above", down(above), false, false, false},
+			{"drag into the panel", move(body, held), false, false, false},
+			{"release inside the panel", up(body, 0), false, false, false},
+		}},
+		{"hover", []step{
+			{"move over the panel", move(body, 0), true, false, false},
+			{"move over the app", move(above, 0), false, false, false},
+		}},
+		{"panel press and drag out", []step{
+			{"press on the panel", down(body), true, true, false},
+			{"drag out to the app", move(above, held), true, true, false},
+			{"release over the app", up(above, 0), true, false, false},
+			{"the next move is the app's", move(above, 0), false, false, false},
+		}},
+		{"close button", []step{
+			{"press on the button", down(closeBtn), true, true, false},
+			{"release on the button", up(closeBtn, 0), true, false, true},
+			{"later events go to the app", down(body), false, false, true},
+		}},
+		{"press on x, release off x", []step{
+			{"press on the button", down(closeBtn), true, true, false},
+			{"release on the panel body", up(body, 0), true, false, false},
+		}},
+		{"press on x, release outside the panel", []step{
+			{"press on the button", down(closeBtn), true, true, false},
+			{"release over the app", up(above, 0), true, false, false},
+		}},
+		{"press off x, release on x", []step{
+			{"press on the body", down(body), true, true, false},
+			{"release on the button", up(closeBtn, 0), true, false, false},
+		}},
+		{"release with a button still held", []step{
+			{"press on the panel", down(body), true, true, false},
+			{"release of one of two buttons", up(body, other), true, true, false},
+			{"drag stays on the panel", move(above, other), true, true, false},
+			{"release of the last button", up(above, 0), true, false, false},
+		}},
+		{"release on x with another button held", []step{
+			{"press on the button", down(closeBtn), true, true, false},
+			{"release of one of two buttons", up(closeBtn, other), true, false, true},
+		}},
+		{"release without a press", []step{
+			{"release over the panel", up(body, 0), false, false, false},
+		}},
+		{"cancel of a panel press", []step{
+			{"press on the panel", down(body), true, true, false},
+			{"cancel", cancel, true, false, false},
+			{"the next move is the app's", move(above, 0), false, false, false},
+		}},
+		{"cancel of an app press", []step{
+			{"press above", down(above), false, false, false},
+			{"cancel", cancel, false, false, false},
+		}},
+		{"escape", []step{
+			{"another key", key(platform.KeyEnter, platform.KeyPress), false, false, false},
+			{"escape release", key(platform.KeyEscape, platform.KeyRelease), false, false, false},
+			{"escape press", key(platform.KeyEscape, platform.KeyPress), true, false, true},
+			{"escape again", key(platform.KeyEscape, platform.KeyPress), false, false, true},
+		}},
+		{"escape during a press", []step{
+			{"press on the panel", down(body), true, true, false},
+			{"escape press", key(platform.KeyEscape, platform.KeyPress), true, false, true},
+		}},
+		{"scroll", []step{
+			{"over the panel", scroll(body), true, false, false},
+			{"over the app", scroll(above), false, false, false},
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			v := newOverlayView(nil)
+			v.attach(&remote.Host{})
+			v.model = newOverlayModel(p)
+			for _, s := range c.steps {
+				if got := v.handleInput(win, s.ev); got != s.handled {
+					t.Fatalf("%s: handled = %v, want %v", s.name, got, s.handled)
+				}
+				if got := v.press.captured; got != s.captured {
+					t.Fatalf("%s: captured = %v, want %v", s.name, got, s.captured)
+				}
+				if got := !v.active(); got != s.dismissed {
+					t.Fatalf("%s: dismissed = %v, want %v", s.name, got, s.dismissed)
+				}
+			}
+		})
+	}
+
+	t.Run("no problem", func(t *testing.T) {
+		v := newOverlayView(nil)
+		v.attach(&remote.Host{})
+		for _, ev := range []platform.Event{down(body), scroll(body), key(platform.KeyEscape, platform.KeyPress)} {
+			if v.handleInput(win, ev) {
+				t.Errorf("%T taken with no problem on view", ev)
+			}
+		}
+	})
 }
