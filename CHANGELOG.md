@@ -12,6 +12,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.12.3] - 2026-10-28
+
 ### Changed
 
 - Less work per frame (a codebase-wide cleanup, no change in output): a `Textarea` repaints only its visible lines, and with a selection only the selected lines (selecting all of a long text repainted the whole text once per selected line); events no handler listens to (pointer moves with no handlers) no longer allocate; animated boxes no longer copy their whole style every frame; the damage tracker and the window framebuffer (during an interactive resize) reuse their buffers; shaping reuses the paragraph's grapheme segmentation and font candidates for each run.
@@ -672,7 +674,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.3...HEAD
+[0.12.3]: https://github.com/kuronosu/tela/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/kuronosu/tela/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/kuronosu/tela/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/kuronosu/tela/compare/v0.11.0...v0.12.0
