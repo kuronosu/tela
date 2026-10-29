@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kuronosu/tela/internal/editdist"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/raster"
 	"github.com/kuronosu/tela/internal/text"
@@ -167,7 +168,7 @@ func ParseDebug(s string) (DebugFlags, error) {
 func suggestDebug(name string) string {
 	best, bestD := "", 1<<30
 	for _, n := range debugNames {
-		d := editDistance(name, n.name)
+		d := editdist.Distance(name, n.name)
 		if strings.Contains(n.name, name) || strings.HasPrefix(n.name, name) {
 			d = min(d, 1)
 		}
@@ -179,27 +180,6 @@ func suggestDebug(name string) string {
 		return best
 	}
 	return ""
-}
-
-// editDistance is the Levenshtein distance between a and b.
-func editDistance(a, b string) int {
-	prev := make([]int, len(b)+1)
-	cur := make([]int, len(b)+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= len(a); i++ {
-		cur[0] = i
-		for j := 1; j <= len(b); j++ {
-			cost := 1
-			if a[i-1] == b[j-1] {
-				cost = 0
-			}
-			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
-		}
-		prev, cur = cur, prev
-	}
-	return prev[len(b)]
 }
 
 // DebugFromEnv reads TELA_DEBUG. A malformed value gives the flags that

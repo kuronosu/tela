@@ -18,14 +18,7 @@ func (w *Window) pointerEvent(pe platform.PointerEvent) {
 	pe.Kind = platform.PointerMouse
 	pe.Mods = w.mods
 	pe.Time = w.b.Now()
-	if pe.Action != platform.PointerMove {
-		w.b.enqueue(w, pe)
-		return
-	}
-	w.b.coalesce(w, pe, func(e platform.Event) bool {
-		prev, ok := e.(platform.PointerEvent)
-		return ok && prev.Action == platform.PointerMove && prev.Buttons == pe.Buttons && prev.Mods == pe.Mods
-	})
+	w.b.queuePointer(w, pe)
 }
 
 func (w *Window) scale() float64 { return scaleFromDPI(w.dpi) }

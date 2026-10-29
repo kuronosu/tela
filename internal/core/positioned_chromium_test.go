@@ -3,17 +3,16 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"html"
 	"image"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/testutil/chromium"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
@@ -127,70 +126,28 @@ func (s *posScene) regenerate(t *testing.T) {
 	if err := os.WriteFile(htmlPath, []byte(s.html()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	tw := os.Getenv("TELA_TAILWIND")
-	if tw == "" {
-		t.Fatal("the Tailwind CLI is needed: set TELA_TAILWIND to node_modules/.bin/tailwindcss")
-	}
-	bin, err := filepath.EvalSymlinks(tw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modules := bin
-	for filepath.Base(modules) != "node_modules" {
-		next := filepath.Dir(modules)
-		if next == modules {
-			t.Fatalf("%s is not inside a node_modules directory", tw)
-		}
-		modules = next
-	}
-	input := filepath.Join(t.TempDir(), "input.css")
 	fonts := strings.ReplaceAll(cssGalleryFonts, "../../../../", "../../../../../")
 	sans := `"Inter"`
 	if s.arabic {
 		fonts += `@font-face { font-family: "Noto Sans Arabic"; src: url("../../../../../assets/fonts/notosansarabic/NotoSansArabic-wdth-wght.ttf"); font-weight: 100 900; font-stretch: 62.5% 100%; }` + "\n"
 		sans = `"Inter", "Noto Sans Arabic"`
 	}
-	css := fmt.Sprintf("@import %q;\n@source %q;\n@theme { --font-sans: %s; }\n%s",
-		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, sans, fonts)
-	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := exec.Command(tw, "-i", input, "-o", filepath.Join(dir, "gallery.css")).CombinedOutput(); err != nil {
-		t.Fatalf("tailwindcss: %v\n%s", err, out)
-	}
+	chromium.Tailwind(t, htmlPath, filepath.Join(dir, "gallery.css"),
+		fmt.Sprintf("@theme { --font-sans: %s; }\n%s", sans, fonts))
 	geom := posGeometry{}
 	for _, scale := range []int{1, 2} {
 		key := fmt.Sprintf("x%d", scale)
 		for k := range s.steps {
 			url := fmt.Sprintf("file://%s#%d", htmlPath, k)
-			cmd := exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
-				"--virtual-time-budget=10000", fmt.Sprintf("--force-device-scale-factor=%d", scale),
-				fmt.Sprintf("--window-size=%d,%d", s.w, s.h+chromiumDecorations), "--dump-dom", url)
-			outb, err := cmd.Output()
-			if err != nil {
-				t.Fatalf("chromium: %v", err)
-			}
-			o := string(outb)
-			i, j := strings.Index(o, "BEGIN"), strings.Index(o, "END</pre>")
-			if i < 0 || j < 0 {
-				t.Fatalf("chromium output has no result:\n%s", o[:min(len(o), 2000)])
-			}
 			var rects [][4]float64
-			if err := json.Unmarshal([]byte(html.UnescapeString(o[i+5:j])), &rects); err != nil {
-				t.Fatal(err)
-			}
+			chromium.DumpJSON(t, url, s.w, s.h+chromiumDecorations, scale, &rects)
 			geom[key] = append(geom[key], rects)
 			shot, err := filepath.Abs(filepath.Join(dir, fmt.Sprintf("x%d_s%d.png", scale, k)))
 			if err != nil {
 				t.Fatal(err)
 			}
-			cmd = exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
-				"--virtual-time-budget=10000", "--force-color-profile=srgb", fmt.Sprintf("--force-device-scale-factor=%d", scale),
-				fmt.Sprintf("--window-size=%d,%d", s.w, s.h), "--screenshot="+shot, url)
-			if out, err := cmd.CombinedOutput(); err != nil {
-				t.Fatalf("chromium: %v\n%s", err, out)
-			}
-			writeBestPNG(t, shot, readRGBA(t, shot))
+			chromium.Screenshot(t, url, shot, s.w, s.h, scale, "--allow-file-access-from-files", "--virtual-time-budget=10000")
+			golden.WriteBestPNG(t, shot, golden.ReadRGBA(t, shot))
 		}
 	}
 	data, err := json.Marshal(geom)
@@ -286,7 +243,7 @@ func (s *posScene) compare(t *testing.T) {
 		}
 		for k := range s.steps {
 			if dump != "" {
-				writePNG(t, filepath.Join(dump, fmt.Sprintf("%s_x%d_s%d_tela.png", s.name, scale, k)), imgs[k])
+				golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("%s_x%d_s%d_tela.png", s.name, scale, k)), imgs[k])
 			}
 			worst, worstAt, worstX := 0.0, "", 0.0
 			skip := map[int]bool{}
@@ -315,7 +272,7 @@ func (s *posScene) compare(t *testing.T) {
 						got[0], got[1], got[2], got[3], w[0], w[1], w[2], w[3])
 				}
 			}
-			shot := readRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d_s%d.png", scale, k)))
+			shot := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d_s%d.png", scale, k)))
 			if shot.Rect != imgs[k].Rect {
 				t.Fatalf("x%d step %d: render %v, Chromium %v", scale, k, imgs[k].Rect, shot.Rect)
 			}

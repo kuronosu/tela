@@ -27,9 +27,15 @@ func (l *Layout) PaintScaled(b *gfx.Builder, origin gfx.Point, scale float32) {
 // selected text of a text field, drawn again in the selection's color
 // under a clip. Color glyphs (emoji) keep their own colors.
 func (l *Layout) PaintWith(b *gfx.Builder, origin gfx.Point, scale float32, paint gfx.Paint) {
+	l.PaintLinesWith(b, origin, 0, len(l.lines), scale, paint)
+}
+
+// PaintLinesWith is PaintWith for lines i0 to i1 (exclusive), clamped to
+// the layout's: the lines of a text field that its visible area can meet.
+func (l *Layout) PaintLinesWith(b *gfx.Builder, origin gfx.Point, i0, i1 int, scale float32, paint gfx.Paint) {
 	var gs []gfx.Glyph
 	o := paintOver{all: paint}
-	for li := range l.lines {
+	for li := max(i0, 0); li < min(i1, len(l.lines)); li++ {
 		l.paintDecorations(b, origin, li, DecorationUnderline|DecorationOverline, scale, o)
 		gs = l.paintGlyphs(b, origin, li, gs, o)
 		l.paintDecorations(b, origin, li, DecorationLineThrough, scale, o)

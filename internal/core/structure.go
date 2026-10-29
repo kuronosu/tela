@@ -92,8 +92,8 @@ func (t *Tree) buildBoxes(el *Element) {
 	bx.inPara = nil
 	t.stats.Structures++
 
-	items := t.collect(t.getItems(), el)
-	kids := t.getBoxes()
+	items := t.collect(t.itemFree.get(), el)
+	kids := t.boxFree.get()
 	oldMode := bx.mode
 	nAnon := 0
 	switch {
@@ -209,8 +209,8 @@ func (t *Tree) buildBoxes(el *Element) {
 		bx.queueRemap()
 		t.dirty()
 	}
-	t.putBoxes(kids)
-	t.putItems(items)
+	t.boxFree.put(kids)
+	t.itemFree.put(items)
 }
 
 // ensureBuilt builds the structure of a block-level child that has none
@@ -273,7 +273,7 @@ func (t *Tree) inlineLevel(el *Element) bool {
 		v = true
 	case bx.cs.Display == style.DisplayInline && !bx.kind.IsReplaced():
 		v = true
-		items := t.collect(t.getItems(), el)
+		items := t.collect(t.itemFree.get(), el)
 		for _, c := range items {
 			if outOfFlow(c) {
 				oof = true
@@ -285,7 +285,7 @@ func (t *Tree) inlineLevel(el *Element) bool {
 			}
 			oof = oof || c.kind == elemPrimitive && c.box.inlineOOF
 		}
-		t.putItems(items)
+		t.itemFree.put(items)
 	}
 	bx.inlineFrame, bx.inlineVal, bx.inlineOOF = t.frame, v, v && oof
 	return v
@@ -439,7 +439,7 @@ func (t *Tree) addInline(a *paraAssembler, el *Element, para *Box, owner *Elemen
 	}
 	bx.anon = nil
 	k := a.openInline(el)
-	items := t.collect(t.getItems(), el)
+	items := t.collect(t.itemFree.get(), el)
 	for _, c := range items {
 		switch {
 		case c.kind == elemText:
@@ -450,7 +450,7 @@ func (t *Tree) addInline(a *paraAssembler, el *Element, para *Box, owner *Elemen
 			t.addInlineLevel(a, c, para, owner)
 		}
 	}
-	t.putItems(items)
+	t.itemFree.put(items)
 	a.closeInline(k)
 }
 
@@ -488,20 +488,25 @@ func sortByDepth(q []*Element) {
 	slices.SortStableFunc(q, func(a, b *Element) int { return int(a.depth - b.depth) })
 }
 
-// Scratch buffers (the box phase recurses, so each level takes its own).
+// Scratch buffers (the box phase and reconcile recurse, so each level
+// takes its own).
 
-func (t *Tree) getItems() []*Element {
-	if n := len(t.itemFree); n > 0 {
-		b := t.itemFree[n-1]
-		t.itemFree = t.itemFree[:n-1]
+// freeList holds the scratch slices of one element type: get pops one or
+// makes it, put clears it (dropping its references) and pushes it back.
+type freeList[E any] [][]E
+
+func (l *freeList[E]) get() []E {
+	if n := len(*l); n > 0 {
+		b := (*l)[n-1]
+		*l = (*l)[:n-1]
 		return b
 	}
-	return make([]*Element, 0, 8)
+	return make([]E, 0, 8)
 }
 
-func (t *Tree) putItems(b []*Element) {
+func (l *freeList[E]) put(b []E) {
 	clear(b)
-	t.itemFree = append(t.itemFree, b[:0])
+	*l = append(*l, b[:0])
 }
 
 func (t *Tree) getAsm() *paraAssembler {
@@ -516,18 +521,4 @@ func (t *Tree) getAsm() *paraAssembler {
 func (t *Tree) putAsm(a *paraAssembler) {
 	a.reset()
 	t.asm = append(t.asm, a)
-}
-
-func (t *Tree) getBoxes() []*Box {
-	if n := len(t.boxFree); n > 0 {
-		b := t.boxFree[n-1]
-		t.boxFree = t.boxFree[:n-1]
-		return b
-	}
-	return make([]*Box, 0, 8)
-}
-
-func (t *Tree) putBoxes(b []*Box) {
-	clear(b)
-	t.boxFree = append(t.boxFree, b[:0])
 }

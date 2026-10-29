@@ -167,8 +167,6 @@ type inputState struct {
 	chain   []*Box
 	leaves  []*Element
 	enters  []*Element
-	// bar is the scrollbar part the last hit test found (scrollbar.go).
-	bar barHit
 	// fdrag is the selection dragged in a text field (fieldkeys.go).
 	fdrag *fieldDrag
 	// rehover is set while rehover fires boundary events (Rehovered).
@@ -223,23 +221,24 @@ func (t *Tree) HandlePointer(e platform.PointerEvent) {
 }
 
 // pointerTarget returns the element pointer events of ps target: the
-// capture target, else the element under the pointer.
-func (t *Tree) pointerTarget(ps *pointerState) *Element {
+// capture target, else the element under the pointer, and the scrollbar
+// part under it when it hit tested.
+func (t *Tree) pointerTarget(ps *pointerState) (*Element, barHit) {
 	if c := ps.capture; c != nil {
 		if c.mounted {
-			return c
+			return c, barHit{}
 		}
 		ps.capture = nil // removed: the capture is lost (DOM)
 	}
 	if !ps.inside && ps.key.kind != platform.PointerTouch {
-		return nil
+		return nil, barHit{}
 	}
 	return t.hitTest(ps.pos)
 }
 
 func (t *Tree) pointerMove(ps *pointerState, e platform.PointerEvent) {
 	ps.inside = true
-	target := t.pointerTarget(ps)
+	target, _ := t.pointerTarget(ps)
 	ps.target = target
 	if !ps.panned {
 		// A panned touch left its chain at the pointercancel
@@ -279,11 +278,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		t.clearActive(ps)
 	}
 	ps.inside = true
-	target := t.pointerTarget(ps)
-	bar := t.in.bar
-	if ps.capture != nil {
-		bar = barHit{}
-	}
+	target, bar := t.pointerTarget(ps)
 	ps.target = target
 	t.updateOver(ps, target)
 	t.fireBoundary(ps)
@@ -323,13 +318,9 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		// (focus.go); cancelling pointerdown or mousedown prevents it. A
 		// press on a scrollbar does not move it.
 		if prev == 0 && e.Button == platform.ButtonPrimary && !prevented && bar.s == nil {
-			// A press in a text field puts its caret (fieldkeys.go), so
-			// focusing it reveals nothing (fieldFocused).
-			if textField(target) != nil {
-				t.foc.pressCaret = target
-			}
 			t.mouseFocus(target)
-			t.foc.pressCaret = nil
+			// A press in a text field puts its caret (fieldkeys.go), so
+			// focusing it revealed nothing (fieldFocused).
 			t.fieldPress(ps, target)
 		}
 	}
@@ -350,7 +341,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 }
 
 func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
-	target := t.pointerTarget(ps)
+	target, _ := t.pointerTarget(ps)
 	ps.target = target
 	switch {
 	case ps.panned:
@@ -391,7 +382,7 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 }
 
 func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
-	target := t.pointerTarget(ps)
+	target, _ := t.pointerTarget(ps)
 	ps.target = target
 	ps.buttons = 0
 	if !ps.panned { // a pan cancelled it already
@@ -424,7 +415,7 @@ func (t *Tree) endPress(ps *pointerState) {
 		ps.target = nil
 		delete(t.in.ptrs, ps.key)
 	case captured && ps.inside:
-		target := t.hitTest(ps.pos)
+		target, _ := t.hitTest(ps.pos)
 		ps.target = target
 		t.updateOver(ps, target)
 		t.fireBoundary(ps)
@@ -590,7 +581,6 @@ func (t *Tree) resetInput() {
 	t.in.arena = gesture.Manager{}
 	clear(t.in.ptrs)
 	t.in.clicks.Reset()
-	t.in.bar = barHit{}
 	t.in.fdrag = nil
 	t.scr.wheel = wheelLatch{}
 }
@@ -939,7 +929,9 @@ func (e *SubmitEvent) prepare(_ *Tree, st *eventState, _ *Element) { e.st = st }
 // fire runs the handlers of kind k for an event at target: bubbling from
 // target to the root until a handler stops it, or on target alone.
 // Disabled elements and their descendants are skipped. It returns the
-// dispatch state (whether a handler prevented the default).
+// dispatch state (whether a handler prevented the default), nil when no
+// handler ran: the methods of eventState read nil as neither stopped nor
+// prevented.
 func fire[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bubbles bool) *eventState {
 	return dispatch[E, P](t, k, target, e, bubbles, true)
 }
@@ -947,13 +939,14 @@ func fire[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bu
 // dispatch is fire; skipInert false also runs the handlers of disabled
 // elements (the blur of an element that became disabled).
 func dispatch[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bubbles, skipInert bool) *eventState {
-	return dispatchWith[E, P](t, k, target, e, bubbles, skipInert, &eventState{})
+	return dispatchWith[E, P](t, k, target, e, bubbles, skipInert, nil)
 }
 
 // dispatchWith is dispatch with the state st of a dispatch begun by the
-// listeners of the capture phase (overlay.go). Every handler of an
-// element runs, in the order its props were given: several props may
-// handle the same event (package aria merges its props with the user's).
+// listeners of the capture phase (overlay.go); a nil st is made by the
+// first element that handles k. Every handler of an element runs, in the
+// order its props were given: several props may handle the same event
+// (package aria merges its props with the user's).
 func dispatchWith[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element, e E, bubbles, skipInert bool, st *eventState) *eventState {
 	if target == nil {
 		return st
@@ -964,16 +957,27 @@ func dispatchWith[E event, P eventPtr[E]](t *Tree, k eventKind, target *Element,
 	if skipInert {
 		inert = outermostDisabled(target)
 	}
+	// pe is the event the handlers get, copied to the heap at the first
+	// element that handles k: e itself stays on the stack, so a dispatch
+	// that reaches no handler (most pointer moves) allocates nothing.
+	var pe P
 	for cur := target; cur != nil; cur = cur.styleParent() {
 		if inert != nil {
 			if cur == inert {
 				inert = nil
 			}
 		} else if cur.mounted && cur.node.d.evMask&k.mask() != 0 {
-			P(&e).prepare(t, st, cur)
+			if pe == nil {
+				pe = P(new(E))
+				*pe = e
+				if st == nil {
+					st = &eventState{}
+				}
+			}
+			pe.prepare(t, st, cur)
 			for i := range cur.node.d.events {
 				if ep := &cur.node.d.events[i]; ep.kind == k {
-					ep.Handler.(func(E))(e)
+					ep.Handler.(func(E))(*pe)
 				}
 			}
 			if st.stopped {

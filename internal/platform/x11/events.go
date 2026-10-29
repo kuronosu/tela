@@ -217,14 +217,7 @@ func (w *Window) posf(x, y float64) platform.Point {
 func (b *Backend) pointer(w *Window, pe platform.PointerEvent) {
 	pe.Kind = platform.PointerMouse
 	pe.Time = b.Now()
-	if pe.Action != platform.PointerMove {
-		b.enqueue(w, pe)
-		return
-	}
-	b.loop.Coalesce(w, pe, func(e platform.Event) bool {
-		prev, ok := e.(platform.PointerEvent)
-		return ok && prev.Action == platform.PointerMove && prev.Buttons == pe.Buttons && prev.Mods == pe.Mods
-	})
+	b.loop.QueuePointer(w, pe)
 }
 
 // ptrMotion translates a pointer motion. Motion of a sequence the OS owns

@@ -1,9 +1,11 @@
-// Package utf16x converts text offsets between UTF-16 code units and UTF-8
-// bytes for the backends whose OS text APIs count UTF-16 (Win32 IMM32 and
-// macOS NSTextInputClient). The platform contract uses UTF-8 byte offsets
-// everywhere (see "Text input and IME" in package platform); these helpers
-// are where a backend converts. They match internal/text/edit's
-// UTF16ToByte and ByteToUTF16, which platform cannot import.
+// Package utf16x measures text and converts text offsets between UTF-16
+// code units and UTF-8 bytes. UTF-16 is the unit of the Win32 IMM32 and
+// macOS NSTextInputClient text APIs (the platform contract uses UTF-8 byte
+// offsets everywhere, see "Text input and IME" in package platform, and
+// these helpers are where a backend converts), of HTML's maxlength
+// (internal/text/edit) and of JavaScript string lengths
+// (internal/semantics). It imports nothing from Tela, so every layer,
+// platform included, may use it.
 package utf16x
 
 import "unicode/utf8"

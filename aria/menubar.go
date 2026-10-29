@@ -360,7 +360,7 @@ func (b *menuBar[K]) tabStop(k K) bool {
 	if b.r.hasFocused && b.r.enabled(b.r.focused) {
 		return b.r.focused == k
 	}
-	first, ok := b.r.first()
+	first, ok := b.r.firstKey()
 	return ok && first == k
 }
 
@@ -461,10 +461,10 @@ func (b *menuBar[K]) onTriggerKey(k K, e tela.KeyboardEvent) {
 	switch e.Key {
 	case tela.KeyHome:
 		e.PreventDefault()
-		moveTo(b.r.first())
+		moveTo(b.r.firstKey())
 	case tela.KeyEnd:
 		e.PreventDefault()
-		moveTo(b.r.last())
+		moveTo(b.r.lastKey())
 	case tela.KeyEnter, " ", tela.KeyArrowDown:
 		e.PreventDefault()
 		e.StopPropagation()

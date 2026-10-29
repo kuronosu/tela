@@ -154,7 +154,7 @@
 // CommitComposition (when there is a commit string), then SetPreedit (when
 // there is a new preedit), or CancelComposition when the composition
 // ended without a commit. Windows (IMM32) and macOS (NSTextInputClient)
-// count in UTF-16 code units: UTF16ToByte and ByteToUTF16 convert.
+// count in UTF-16 code units: their backends convert with internal/utf16x.
 // Replacement ranges (reconversion) are not supported.
 //
 // # Not here

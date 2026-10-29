@@ -23,8 +23,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"unicode/utf16"
 	"unicode/utf8"
+
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // ariaNode is a node of Playwright's aria tree: a role node with its
@@ -179,7 +180,7 @@ func normalizeGenerics(an *ariaNode) {
 func key(an *ariaNode) string {
 	var b strings.Builder
 	b.WriteString(an.role)
-	if an.name != "" && utf16Len(an.name) <= 900 {
+	if an.name != "" && utf16x.Len(an.name) <= 900 {
 		b.WriteByte(' ')
 		if strings.HasPrefix(an.name, "/") && strings.HasSuffix(an.name, "/") {
 			b.WriteString(an.name)
@@ -288,15 +289,6 @@ func NormalizeWhiteSpace(s string) string {
 
 // TrimSpace trims JavaScript white space (String.prototype.trim).
 func TrimSpace(s string) string { return strings.TrimFunc(s, jsSpace) }
-
-// utf16Len is the length of s in UTF-16 code units (JavaScript's length).
-func utf16Len(s string) int {
-	n := 0
-	for _, r := range s {
-		n += utf16.RuneLen(r)
-	}
-	return n
-}
 
 // jsonString quotes s like JavaScript's JSON.stringify.
 func jsonString(s string) string {

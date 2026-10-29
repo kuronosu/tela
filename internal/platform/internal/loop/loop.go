@@ -53,7 +53,7 @@
 //
 // # Reuse by future backends
 //
-// Win32: WndProc translates messages into Enqueue, Coalesce and Reconfigure
+// Win32: WndProc translates messages into Enqueue, QueuePointer and Reconfigure
 // calls; Notify posts a private message to a message-only window; the
 // GetMessageW loop (and WndProc itself inside modal move/resize loops)
 // calls Deliver after dispatching, then Pace to arm a SetTimer for the
@@ -228,13 +228,14 @@ func (l *Loop[W]) Enqueue(w W, e platform.Event) {
 	l.queue = append(l.queue, item[W]{w: w, ev: e})
 }
 
-// Coalesce queues e for w, unless the last queued item is an event for the
-// same window for which replace(prev) reports true: then e replaces it in
-// place (consecutive pointer motion becomes one move).
-func (l *Loop[W]) Coalesce(w W, e platform.Event, replace func(prev platform.Event) bool) {
-	if n := len(l.queue); n > 0 {
+// QueuePointer queues e for w like Enqueue, coalescing consecutive motion:
+// a PointerMove that directly follows a queued PointerMove of the same
+// window with the same buttons and modifiers replaces it in place.
+func (l *Loop[W]) QueuePointer(w W, e platform.PointerEvent) {
+	if n := len(l.queue); n > 0 && e.Action == platform.PointerMove {
 		last := &l.queue[n-1]
-		if last.w == w && last.ev != nil && last.fn == nil && !last.configure && replace(last.ev) {
+		if prev, ok := last.ev.(platform.PointerEvent); ok && last.w == w && last.fn == nil && !last.configure &&
+			prev.Action == platform.PointerMove && prev.Buttons == e.Buttons && prev.Mods == e.Mods {
 			last.ev = e
 			return
 		}

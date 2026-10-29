@@ -7,10 +7,7 @@
 package aria
 
 import (
-	"slices"
-
 	"github.com/kuronosu/tela"
-	"github.com/kuronosu/tela/internal/core"
 )
 
 // rover is the roving focus of a group of keyed items that are not a
@@ -23,11 +20,7 @@ import (
 type rover[K comparable] struct {
 	bump tela.Setter[int]
 
-	keys     []K
-	index    map[K]int
-	disabled map[K]struct{}
-	all      bool // the whole group is disabled
-	refs     map[K]tela.ElementRef
+	keyList[K] // the keys and refs; all set means the whole group is disabled
 
 	// focused is the item that has the focus, or had it last: the tab stop
 	// of a group that remembers it.
@@ -39,7 +32,7 @@ type rover[K comparable] struct {
 // of this build.
 func useRover[K comparable](keys, disabled []K, all bool) *rover[K] {
 	_, bump := tela.UseState(0)
-	r := tela.UseOnce(func() *rover[K] { return &rover[K]{refs: map[K]tela.ElementRef{}} })
+	r := tela.UseOnce(func() *rover[K] { return &rover[K]{keyList: keyList[K]{refs: map[K]tela.ElementRef{}}} })
 	r.bump = bump
 	r.sync(keys, disabled, all)
 	return r
@@ -51,26 +44,9 @@ func (r *rover[K]) invalidate() {
 
 func (r *rover[K]) sync(keys, disabled []K, all bool) {
 	r.all = all
-	if len(disabled) == 0 {
-		r.disabled = nil
-	} else {
-		r.disabled = make(map[K]struct{}, len(disabled))
-		for _, k := range disabled {
-			r.disabled[k] = struct{}{}
-		}
-	}
-	if r.index != nil && slices.Equal(r.keys, keys) {
+	r.setDisabled(disabled)
+	if _, changed := r.setKeys(keys); !changed {
 		return
-	}
-	r.keys = slices.Clone(keys)
-	r.index = make(map[K]int, len(keys))
-	for i, k := range keys {
-		r.index[k] = i
-	}
-	for k := range r.refs {
-		if _, ok := r.index[k]; !ok {
-			delete(r.refs, k)
-		}
 	}
 	if r.hasFocused {
 		if _, ok := r.index[r.focused]; !ok {
@@ -79,52 +55,8 @@ func (r *rover[K]) sync(keys, disabled []K, all bool) {
 	}
 }
 
-func (r *rover[K]) has(k K) bool {
-	_, ok := r.index[k]
-	return ok
-}
-
-// isDisabled reports whether the item is disabled, by its key or by the
-// group.
-func (r *rover[K]) isDisabled(k K) bool {
-	if r.all {
-		return true
-	}
-	_, d := r.disabled[k]
-	return d
-}
-
 // enabled reports whether k is an item that can be focused and acted on.
 func (r *rover[K]) enabled(k K) bool { return r.has(k) && !r.isDisabled(k) }
-
-func (r *rover[K]) refFor(k K) tela.ElementRef {
-	ref, ok := r.refs[k]
-	if !ok {
-		ref = core.NewElementRef()
-		r.refs[k] = ref
-	}
-	return ref
-}
-
-func (r *rover[K]) first() (K, bool) {
-	for _, k := range r.keys {
-		if !r.isDisabled(k) {
-			return k, true
-		}
-	}
-	var zero K
-	return zero, false
-}
-
-func (r *rover[K]) last() (K, bool) {
-	for i := len(r.keys) - 1; i >= 0; i-- {
-		if !r.isDisabled(r.keys[i]) {
-			return r.keys[i], true
-		}
-	}
-	var zero K
-	return zero, false
-}
 
 // next returns the enabled item after from (before it when forward is
 // false), going around the ends when wrap is set. It reports false when
@@ -134,9 +66,9 @@ func (r *rover[K]) next(from K, forward, wrap bool) (K, bool) {
 	i, ok := r.index[from]
 	if !ok {
 		if forward {
-			return r.first()
+			return r.firstKey()
 		}
-		return r.last()
+		return r.lastKey()
 	}
 	n := len(r.keys)
 	for step := 1; step < n; step++ {

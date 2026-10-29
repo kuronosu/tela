@@ -103,7 +103,6 @@ func toNumber(v any) (numVal, bool) {
 // evaluator formats one message.
 type evaluator struct {
 	f    Formatter
-	key  string
 	args []any
 	b    strings.Builder
 	// pound is the plural a # refers to.
@@ -117,7 +116,7 @@ type poundVal struct {
 }
 
 func evaluate(d *locData, key string, m []node, args []any) string {
-	e := &evaluator{f: Formatter{d}, key: key, args: args}
+	e := &evaluator{f: Formatter{d}, args: args}
 	if len(args)%2 != 0 && devMode() {
 		devWarn(fmt.Sprintf("tela: i18n: T(%q, ...): odd number of arguments; pass name/value pairs, as in T(%q, \"name\", value)", key, key))
 	}

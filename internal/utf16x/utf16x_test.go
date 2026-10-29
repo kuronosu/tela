@@ -20,4 +20,19 @@ func TestOffsets(t *testing.T) {
 			t.Errorf("FromByte(%d) = %d, want %d", tc.b, got, tc.u)
 		}
 	}
+	// A surrogate pair first, and a three-byte character last.
+	s = "a😀é日"
+	if n := Len(s); n != 5 {
+		t.Errorf("Len = %d, want 5", n)
+	}
+	for _, tc := range []struct{ u, b int }{{0, 0}, {1, 1}, {2, 1}, {3, 5}, {4, 7}, {5, 10}, {9, 10}} {
+		if got := ToByte(s, tc.u); got != tc.b {
+			t.Errorf("ToByte(%q, %d) = %d, want %d", s, tc.u, got, tc.b)
+		}
+	}
+	for _, tc := range []struct{ b, u int }{{0, 0}, {1, 1}, {3, 1}, {5, 3}, {7, 4}, {10, 5}} {
+		if got := FromByte(s, tc.b); got != tc.u {
+			t.Errorf("FromByte(%q, %d) = %d, want %d", s, tc.b, got, tc.u)
+		}
+	}
 }

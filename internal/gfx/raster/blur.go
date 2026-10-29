@@ -296,7 +296,6 @@ type blurScratch struct {
 	b, c    []uint16 // column strips of the vertical passes
 	pad     []uint16 // a zero-padded line
 	acc     []uint32
-	acc64   []uint64
 	zeroRow []uint16
 	// Downsampled blurs: the block plane, its row accumulator, the
 	// interpolation indices and weights of the output columns and two
@@ -719,7 +718,7 @@ func (s *blurScratch) passes(a []uint16, w, h, nch int, kx, ky *gaussKernel, cx0
 	s.par.run(s, strips, 1, func(ws *blurScratch, lo, hi int) {
 		b, c := grow16(&ws.b, sw*h), grow16(&ws.c, sw*h)
 		if cap(ws.acc) < sw {
-			ws.acc, ws.acc64 = make([]uint32, sw), make([]uint64, sw)
+			ws.acc = make([]uint32, sw)
 		}
 		ws.zeroRow = grow16(&ws.zeroRow, sw)
 		clear(ws.zeroRow)

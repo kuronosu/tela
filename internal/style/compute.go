@@ -70,7 +70,6 @@ type Input struct {
 type env struct {
 	s        *ComputedStyle
 	sc       *scratch
-	parent   *ComputedStyle
 	theme    *Theme
 	viewport gfx.Size
 	// fontSize is the element's own font size; it is final once the
@@ -157,7 +156,6 @@ type scratch struct {
 	bgSize     BackgroundSize
 	bgPosX     LP
 	bgPosY     LP
-	bgPosSet   bool
 	bgRepeat   BackgroundRepeat
 	bgOrigin   BackgroundBox
 	bgOriginOK bool
@@ -199,7 +197,7 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 	}
 	dark := s.IsDark(cx)
 	var sc scratch
-	e := env{s: s, sc: &sc, parent: in.Parent, theme: th, viewport: cx.Viewport, dark: dark}
+	e := env{s: s, sc: &sc, theme: th, viewport: cx.Viewport, dark: dark}
 	e.parentFontSize = s.Text.FontSize
 	e.fontSize = s.Text.FontSize
 
@@ -307,7 +305,7 @@ func computePseudo(cx *Context, th *Theme, s *ComputedStyle, classes []*Classes,
 	ps := new(ComputedStyle)
 	initStyle(ps, s, th)
 	var sc scratch
-	e := env{s: ps, sc: &sc, parent: s, theme: th, viewport: cx.Viewport, dark: vc.Dark}
+	e := env{s: ps, sc: &sc, theme: th, viewport: cx.Viewport, dark: vc.Dark}
 	e.parentFontSize = ps.Text.FontSize
 	e.fontSize = ps.Text.FontSize
 	matched := false

@@ -504,7 +504,7 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		// (field.go): for layout its overflow is visible.
 		ls.OverflowX, ls.OverflowY = layout.OverflowVisible, layout.OverflowVisible
 	}
-	if b.tree.classicBars(cs) && isScrollContainer(cs) && b.kind != style.KindInput {
+	if b.tree.classicBars(cs) && isScrollContainer(b.kind, cs) {
 		// Classic scrollbars take space (scrollbar.go): overflow: scroll
 		// always, overflow: auto while its content overflows.
 		ls.ScrollbarWidth = classicGutter

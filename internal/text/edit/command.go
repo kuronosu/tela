@@ -2,6 +2,7 @@ package edit
 
 import (
 	"github.com/kuronosu/tela/internal/text"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // InputType names an edit as the W3C Input Events Level 2 inputType does,
@@ -321,7 +322,7 @@ func (e *Editor) planInsert(p *Plan, s string, it InputType, kind groupKind) {
 	s = sanitizeInput(s, e.opts.Multiline)
 	start, end := e.valueSel().ordered()
 	if m := e.opts.MaxLength; m > 0 {
-		avail := m - (UTF16Len(e.value) - UTF16Len(e.value[start:end]))
+		avail := m - (utf16x.Len(e.value) - utf16x.Len(e.value[start:end]))
 		s = truncateUTF16(s, avail)
 	}
 	if s == "" {

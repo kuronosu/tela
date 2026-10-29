@@ -12,6 +12,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/kit"
 )
 
@@ -248,42 +249,21 @@ func mountMenuRaw(t *testing.T, page func() tela.Node, w, hgt float32) *menuRaw 
 // mountMenuRawScale is mountMenuRaw on a display with the given scale.
 func mountMenuRawScale(t *testing.T, page func() tela.Node, w, hgt float32, scale float64) *menuRaw {
 	t.Helper()
-	b := headless.New(headless.Options{Size: platform.Size{W: w, H: hgt}, Scale: scale})
 	theme := kit.Theme()
-	host, err := core.NewHost(b, core.Options{
-		Config: core.Config{Dev: true, IDPrefix: "tt-", Theme: (*core.Theme)(&theme)},
-		Root:   core.NodeOf(tela.C(page)),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := &menuRaw{t: t, b: b, host: host, win: host.Window().(*headless.Window), tree: host.Tree()}
-	a.win.SetFocused(true)
-	a.settle()
-	return a
+	b, host, win := rawwin.Mount(t, tela.C(page), w, hgt, scale, core.Config{Theme: (*core.Theme)(&theme)})
+	return &menuRaw{t: t, b: b, host: host, win: win, tree: host.Tree()}
 }
 
 func (a *menuRaw) settle() {
 	a.t.Helper()
-	for range 50 {
-		a.b.Drain(a.host)
-		if !a.b.Pending() && !a.tree.Dirty() && !a.host.NeedsFrame() {
-			return
-		}
-		a.b.Advance(a.b.FrameInterval())
-	}
+	rawwin.Settle(a.b, a.host)
 }
 
 // advance moves the clock forward by d, a frame at a time: the menu's
 // entrance is a transition.
 func (a *menuRaw) advance(d time.Duration) {
 	a.t.Helper()
-	for end := a.b.Now() + d; a.b.Now() < end; {
-		a.b.Advance(a.b.FrameInterval())
-		a.b.Wake()
-		a.b.Drain(a.host)
-	}
-	a.settle()
+	rawwin.Frames(a.b, a.host, d)
 }
 
 func (a *menuRaw) event(e platform.PointerEvent) {

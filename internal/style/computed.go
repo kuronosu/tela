@@ -584,7 +584,7 @@ const (
 )
 
 // Deferred is a closure-carrying prop evaluated in a later phase; see
-// ComputedStyle.Resolved.
+// ComputedStyle.Resolved. One with a nil Apply only marks its phase.
 type Deferred struct {
 	Phase Phase
 	Apply func(*ComputedStyle)
@@ -774,11 +774,13 @@ type ComputedStyle struct {
 }
 
 // Resolved returns the style with the deferred props of phase applied. It
-// returns s itself when there is nothing to apply, otherwise a copy.
+// returns s itself when there is nothing to apply, otherwise a copy. An
+// entry without Apply only marks its phase (core's animated layers) and
+// applies nothing.
 func (s *ComputedStyle) Resolved(phase Phase) *ComputedStyle {
 	has := false
 	for i := range s.Deferred {
-		if s.Deferred[i].Phase == phase {
+		if d := &s.Deferred[i]; d.Phase == phase && d.Apply != nil {
 			has = true
 			break
 		}
@@ -788,7 +790,7 @@ func (s *ComputedStyle) Resolved(phase Phase) *ComputedStyle {
 	}
 	c := *s
 	for _, d := range s.Deferred {
-		if d.Phase == phase {
+		if d.Phase == phase && d.Apply != nil {
 			d.Apply(&c)
 		}
 	}

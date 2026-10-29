@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"strings"
 	"testing"
+	"time"
 )
 
 func expectPanic(t *testing.T, contains string, f func()) {
@@ -59,6 +60,35 @@ func TestHitTest(t *testing.T) {
 	expectPanic(t, "finite", func() { CheckHitRegions([]HitRegion{{Rect: Rect{X: 1e9}}}) })
 	if HitMaximize.String() != "maximize" || HitKind(77).String() != "HitKind(77)" {
 		t.Errorf("HitKind names")
+	}
+}
+
+func TestCaptionClicks(t *testing.T) {
+	const ms = time.Millisecond
+	var c CaptionClicks
+	steps := []struct {
+		t        time.Duration
+		pos      Point
+		interval time.Duration
+		want     bool
+	}{
+		{0, Point{}, 0, false},
+		{500 * ms, Point{X: 4}, 0, true},           // the default, at the slop
+		{600 * ms, Point{X: 4}, 0, false},          // a double click is not recorded
+		{1200 * ms, Point{X: 4}, 0, false},         // too late: starts over
+		{1300 * ms, Point{X: 8.1}, 0, false},       // too far
+		{1400 * ms, Point{X: 8.1}, 50 * ms, false}, // the setting wins
+		{1450 * ms, Point{X: 8.1}, -1, true},       // negative is unknown too
+	}
+	for i, s := range steps {
+		if got := c.Press(s.t, s.pos, s.interval, 500*ms); got != s.want {
+			t.Errorf("press %d: double click %v, want %v", i, got, s.want)
+		}
+	}
+	c.Press(2*time.Second, Point{}, 0, 500*ms)
+	c.Reset()
+	if c.Press(2*time.Second+ms, Point{}, 0, 500*ms) {
+		t.Error("a press after Reset completes a double click")
 	}
 }
 

@@ -112,13 +112,8 @@ func UseContext[T any](c *Context[T]) T {
 		panic("tela: UseContext(nil): pass a context made with tela.CreateContext")
 	}
 	el, i := nextSlot(hookContext)
-	var s *ctxSlot[T]
-	if i < len(el.hooks) {
-		var ok bool
-		s, ok = el.hooks[i].(*ctxSlot[T])
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseContext["+typeName[T]()+"]")
-		}
+	s, ok := existingSlotOf[*ctxSlot[T], T](el, i, "UseContext")
+	if ok {
 		if s.ctx != c {
 			s.sub.unsubscribe()
 			s.ctx = c

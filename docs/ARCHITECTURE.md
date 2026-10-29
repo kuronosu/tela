@@ -148,6 +148,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 ```
 
 - `platform` does not know `gfx`; it receives an `*image.RGBA` framebuffer and damage rects.
+- Leaf packages that import nothing from Tela (`internal/fmath`, `internal/utf16x`, `internal/editdist`) may be imported by every layer, `platform` included (ADR-189).
 - `layout` does not know `core`; it works on a layout-node interface that `core` implements.
 - **Public API:** `tela`, `h`, `desktop`, `i18n`, `aria`, `kit`, `telatest`, `cmd/tela`.
 - `internal/icongen` (the engine of `tela icons gen`) imports only `internal/svg` and is used only by `cmd/tela`. `internal/lint` (the engine of `tela lint`, ADR-173) imports `internal/style`, `internal/semantics` and `internal/core` for their validation functions, type-checks with the standard library, and is used only by `cmd/tela` and by the test that checks `docs/llms.txt` (`internal/gen/llmsdoc`, ADR-177). `icons/lucide` is a separate module (ADR-102): outside this list, it may import only the public packages (`tela`, `h`, `telatest`), and nothing in the core module imports it.

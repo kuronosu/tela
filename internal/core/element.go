@@ -295,15 +295,15 @@ func listOf(list, d *desc) *desc {
 // none) and type as an old one reuses it, with its state; the others are
 // mounted, and the old children left over are unmounted.
 func (t *Tree) reconcile(parent *Element, children []Node) {
-	buf := t.getFlat()
+	buf := t.flatFree.get()
 	entries := flatten(buf[:0], children)
 	t.reconcileEntries(parent, entries)
-	t.putFlat(entries)
+	t.flatFree.put(entries)
 }
 
 // reconcileOne reconciles the single result of a component build.
 func (t *Tree) reconcileOne(parent *Element, n Node) {
-	buf := t.getFlat()
+	buf := t.flatFree.get()
 	var entries []flatEntry
 	switch d := n.d; {
 	case d == nil:
@@ -319,7 +319,7 @@ func (t *Tree) reconcileOne(parent *Element, n Node) {
 		entries = append(buf[:0], flatEntry{n: n, scope: -1, key: d.key, keyed: d.keyed})
 	}
 	t.reconcileEntries(parent, entries)
-	t.putFlat(entries)
+	t.flatFree.put(entries)
 }
 
 func (t *Tree) reconcileEntries(parent *Element, entries []flatEntry) {
@@ -783,24 +783,6 @@ func (t *Tree) markStructural(p *Element) {
 		}
 	}
 	walk(p)
-}
-
-// ---------------------------------------------------------------------
-// Scratch buffers for flattening (reconcile recurses, so each level takes
-// its own).
-
-func (t *Tree) getFlat() []flatEntry {
-	if n := len(t.flatFree); n > 0 {
-		b := t.flatFree[n-1]
-		t.flatFree = t.flatFree[:n-1]
-		return b
-	}
-	return make([]flatEntry, 0, 8)
-}
-
-func (t *Tree) putFlat(b []flatEntry) {
-	clear(b) // drop references to nodes
-	t.flatFree = append(t.flatFree, b[:0])
 }
 
 // safeEqual compares two values with ==, reporting false instead of

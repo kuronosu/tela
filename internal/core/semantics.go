@@ -451,7 +451,7 @@ func globalAria(a *ariaProps, role string) bool {
 // TabIndex.
 func ariaFocusable(el *Element) bool {
 	d := el.node.d
-	return d.hasTab || (el.box.kind == style.KindButton || el.box.kind.IsTextField()) && el.istate&style.StateDisabled == 0
+	return d.hasTab || nativeFocusable(el.box.kind) && el.istate&style.StateDisabled == 0
 }
 
 // headingLevel returns the level of an H1 to H6 kind, 0 for the others.
@@ -848,33 +848,14 @@ func (t *Tree) transformUp(bx *Box, r gfx.Rect) gfx.Rect {
 // that a box around it may have a transform.
 func (t *Tree) textBounds(el *Element, transformed bool) gfx.Rect {
 	p := el.paraBox
-	if p == nil || p.owner == nil || !p.owner.mounted || p.para == nil || p.para.lay == nil {
+	if !semLaidOut(p) {
 		return gfx.Rect{}
 	}
 	off, end := int(el.paraOff), int(el.paraOff)+len(el.text)
 	if end > len(p.para.text) || p.para.text[off:end] != el.text {
 		return gfx.Rect{} // a stale location: the text moved
 	}
-	rects := p.para.lay.SelectionRects(text.NewSelection(text.Cursor{Offset: off}, text.Cursor{Offset: end}), t.sem.rects[:0])
-	var u gfx.Rect
-	for _, r := range rects {
-		u = u.Union(r)
-	}
-	clear(rects)
-	t.sem.rects = rects[:0]
-	if u.Empty() {
-		return gfx.Rect{}
-	}
-	l := p.ld.Layout()
-	o := t.semOrigin(p).Add(gfx.Point{X: l.Border.Left + l.Padding.Left, Y: l.Border.Top + l.Padding.Top})
-	if p.scr != nil {
-		o = o.Sub(p.scr.soff) // a paragraph that scrolls its own text
-	}
-	u = u.Translate(o.X, o.Y)
-	if transformed {
-		u = t.transformUp(p, u)
-	}
-	return u
+	return t.paraBounds(p, p.para.lay.SelectionRects(text.NewSelection(text.Cursor{Offset: off}, text.Cursor{Offset: end}), t.sem.rects[:0]), transformed)
 }
 
 // elemBounds returns the bounds of el as the semantics tree gives them.
@@ -905,10 +886,23 @@ func (t *Tree) elemBounds(el *Element) gfx.Rect {
 // none; transformed reports that a box around it may have a transform.
 func (t *Tree) inlineBounds(el *Element, transformed bool) gfx.Rect {
 	p := el.box.inPara
-	if p == nil || p.owner == nil || !p.owner.mounted || p.para == nil || p.para.lay == nil {
+	if !semLaidOut(p) {
 		return gfx.Rect{}
 	}
-	rects := p.para.inlineRects(el, t.sem.rects[:0])
+	return t.paraBounds(p, p.para.inlineRects(el, t.sem.rects[:0]), transformed)
+}
+
+// semLaidOut reports whether paragraph box p (nil for none) is laid out
+// for the semantics tree: its owner is mounted and its text has a layout.
+func semLaidOut(p *Box) bool {
+	return p != nil && p.owner != nil && p.owner.mounted && p.para != nil && p.para.lay != nil
+}
+
+// paraBounds returns the union of rects (in the content box of paragraph
+// box p, in t.sem.rects, which it gets back emptied for reuse) in window
+// coordinates, zero when it is empty; transformed reports that a box
+// around p may have a transform.
+func (t *Tree) paraBounds(p *Box, rects []gfx.Rect, transformed bool) gfx.Rect {
 	var u gfx.Rect
 	for _, r := range rects {
 		u = u.Union(r)

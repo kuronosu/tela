@@ -44,7 +44,9 @@ import (
 //     the fades and the hover states);
 //   - the content of a text field (fieldpaint.go), recorded again on a
 //     frame that only repaints when the field asked for it (its caret
-//     blinked or moved, its selection or its value changed).
+//     blinked or moved, its selection or its value changed). Its lines
+//     are culled by the interest rect of the list that holds its marker,
+//     kept for those recordings.
 //
 // The set is small on purpose: every layer costs a list and a marker.
 //
@@ -111,6 +113,10 @@ type layer struct {
 	lead *Box
 	// paint numbers the paint that recorded it (layerState.paints).
 	paint uint64
+	// interest is, for a text field's layer, the interest rect of the
+	// list that holds its marker (unbounded where nothing is culled),
+	// kept until the next full recording for recordFields.
+	interest gfx.Rect
 }
 
 // target is a list being recorded: its builder, its scroll space and
@@ -289,14 +295,21 @@ func (t *Tree) recordBars(p *painter) {
 		if l.kind != layerBars || l.box.scr == nil || l.box.pcs == nil {
 			continue
 		}
-		p.b, p.layer = L.builder(), l
-		p.drawBars(l.box)
-		l.dl = p.b.Finish()
-		L.free = append(L.free, p.b)
-		l.paint = L.paints
-		L.recorded++
+		p.rerecord(l, func() { p.drawBars(l.box) })
 	}
 	p.b, p.layer = nil, nil
+}
+
+// rerecord records layer l again with draw, on a frame that records some
+// layers only (recordBars, recordFields).
+func (p *painter) rerecord(l *layer, draw func()) {
+	L := &p.t.lay
+	p.b, p.layer = L.builder(), l
+	draw()
+	l.dl = p.b.Finish()
+	L.free = append(L.free, p.b)
+	l.paint = L.paints
+	L.recorded++
 }
 
 // openLayer starts recording a child layer of the list being recorded: a

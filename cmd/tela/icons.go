@@ -118,19 +118,9 @@ func parseIconsGenArgs(args []string) (iconsGenOptions, error) {
 	fs.StringVar(&opts.LicenseFile, "license-file", "", "")
 	fs.StringVar(&opts.DeprecatedFile, "deprecated", "", "")
 
-	var dirs []string
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return opts, err
-			}
-			return opts, fmt.Errorf("%v (see \"tela help icons gen\")", err)
-		}
-		args = fs.Args()
-		if len(args) > 0 {
-			dirs = append(dirs, args[0])
-			args = args[1:]
-		}
+	dirs, err := parsePositionals("icons gen", fs, args)
+	if err != nil {
+		return opts, err
 	}
 	switch len(dirs) {
 	case 0:

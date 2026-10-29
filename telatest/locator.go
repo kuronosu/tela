@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kuronosu/tela/internal/editdist"
 	"github.com/kuronosu/tela/internal/semantics"
 )
 
@@ -610,7 +611,7 @@ func closest(want string, cands []string) []string {
 		}
 		seen[c] = true
 		lc := strings.ToLower(c)
-		d := editDistance(lw, lc)
+		d := editdist.RuneDistance(lw, lc)
 		limit := max(2, len(lw)/3)
 		switch {
 		case lw == "":
@@ -631,26 +632,4 @@ func closest(want string, cands []string) []string {
 		out = append(out, s.s)
 	}
 	return out
-}
-
-// editDistance is the Levenshtein distance of a and b over their runes.
-func editDistance(a, b string) int {
-	ra, rb := []rune(a), []rune(b)
-	prev := make([]int, len(rb)+1)
-	cur := make([]int, len(rb)+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= len(ra); i++ {
-		cur[0] = i
-		for j := 1; j <= len(rb); j++ {
-			cost := 1
-			if ra[i-1] == rb[j-1] {
-				cost = 0
-			}
-			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
-		}
-		prev, cur = cur, prev
-	}
-	return prev[len(rb)]
 }

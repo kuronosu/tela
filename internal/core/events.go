@@ -491,73 +491,39 @@ const (
 	dragMask  = 1<<evDragStart | 1<<evDrag | 1<<evDragEnd
 )
 
-// handlerType names the handler type of an event kind, for messages.
-func (k eventKind) handlerType() string {
+// handlerType returns the handler type of an event kind, named for
+// messages, and the check that a handler is a non-nil one of that type.
+func (k eventKind) handlerType() (name string, is func(h any) bool) {
 	switch {
 	case k >= evClick && k <= evMouseLeave:
-		return "func(tela.MouseEvent)"
+		return "func(tela.MouseEvent)", isHandler[MouseEvent]
 	case k >= evDragStart && k <= evDragEnd:
-		return "func(tela.DragEvent)"
+		return "func(tela.DragEvent)", isHandler[DragEvent]
 	case k == evKeyDown || k == evKeyUp:
-		return "func(tela.KeyboardEvent)"
+		return "func(tela.KeyboardEvent)", isHandler[KeyboardEvent]
 	case k == evFocus || k == evBlur:
-		return "func(tela.FocusEvent)"
+		return "func(tela.FocusEvent)", isHandler[FocusEvent]
 	case k == evWheel:
-		return "func(tela.WheelEvent)"
+		return "func(tela.WheelEvent)", isHandler[WheelEvent]
 	case k == evScroll:
-		return "func(tela.ScrollEvent)"
+		return "func(tela.ScrollEvent)", isHandler[ScrollEvent]
 	case k == evBeforeInput:
-		return "func(tela.InputEvent)"
+		return "func(tela.InputEvent)", isHandler[InputEvent]
 	case k == evChange:
-		return "func(tela.ChangeEvent)"
+		return "func(tela.ChangeEvent)", isHandler[ChangeEvent]
 	case k >= evCompositionStart && k <= evCompositionEnd:
-		return "func(tela.CompositionEvent)"
+		return "func(tela.CompositionEvent)", isHandler[CompositionEvent]
 	case k == evSelect:
-		return "func(tela.SelectEvent)"
+		return "func(tela.SelectEvent)", isHandler[SelectEvent]
 	case k == evSubmit:
-		return "func(tela.SubmitEvent)"
+		return "func(tela.SubmitEvent)", isHandler[SubmitEvent]
 	}
-	return "func(tela.PointerEvent)"
+	return "func(tela.PointerEvent)", isHandler[PointerEvent]
 }
 
-// checkHandler reports whether h has the handler type of k.
-func (k eventKind) checkHandler(h any) bool {
-	switch k.handlerType() {
-	case "func(tela.MouseEvent)":
-		f, ok := h.(func(MouseEvent))
-		return ok && f != nil
-	case "func(tela.DragEvent)":
-		f, ok := h.(func(DragEvent))
-		return ok && f != nil
-	case "func(tela.KeyboardEvent)":
-		f, ok := h.(func(KeyboardEvent))
-		return ok && f != nil
-	case "func(tela.FocusEvent)":
-		f, ok := h.(func(FocusEvent))
-		return ok && f != nil
-	case "func(tela.WheelEvent)":
-		f, ok := h.(func(WheelEvent))
-		return ok && f != nil
-	case "func(tela.ScrollEvent)":
-		f, ok := h.(func(ScrollEvent))
-		return ok && f != nil
-	case "func(tela.InputEvent)":
-		f, ok := h.(func(InputEvent))
-		return ok && f != nil
-	case "func(tela.ChangeEvent)":
-		f, ok := h.(func(ChangeEvent))
-		return ok && f != nil
-	case "func(tela.CompositionEvent)":
-		f, ok := h.(func(CompositionEvent))
-		return ok && f != nil
-	case "func(tela.SelectEvent)":
-		f, ok := h.(func(SelectEvent))
-		return ok && f != nil
-	case "func(tela.SubmitEvent)":
-		f, ok := h.(func(SubmitEvent))
-		return ok && f != nil
-	}
-	f, ok := h.(func(PointerEvent))
+// isHandler reports whether h is a non-nil func(E).
+func isHandler[E event](h any) bool {
+	f, ok := h.(func(E))
 	return ok && f != nil
 }
 
@@ -636,8 +602,8 @@ func On(event string, handler any) Prop {
 	if k == 0 {
 		panic(fmt.Sprintf("core: On(%q): unknown event", event))
 	}
-	if !k.checkHandler(handler) {
-		panic(fmt.Sprintf("core: On(%q) with a %T handler; pass a non-nil %s", event, handler, k.handlerType()))
+	if name, is := k.handlerType(); !is(handler) {
+		panic(fmt.Sprintf("core: On(%q) with a %T handler; pass a non-nil %s", event, handler, name))
 	}
 	return Prop{name: "On", apply: func(d *desc) {
 		d.events = append(d.events, EventProp{Name: event, Handler: handler, kind: k})

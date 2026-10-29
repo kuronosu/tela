@@ -13,6 +13,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -152,6 +154,12 @@ type detected struct {
 	// hasApp: the package declares a `var App` that may be a tela.App,
 	// whose settings the run applies.
 	hasApp bool
+	// previews are the constant string keys of the literal assigned to the
+	// package-level var Previews, sorted; nil when there is none or its keys
+	// are not constants (the names are then known once the instance mounts).
+	// They go into the description of the open tool of tela mcp, which a
+	// client reads before any call.
+	previews []string
 }
 
 // mayBeTelaApp reports whether the i-th name of a var spec can be a
@@ -194,9 +202,35 @@ func mayBeTelaApp(spec *ast.ValueSpec, i int) bool {
 	return true
 }
 
+// previewKeys returns the constant string keys of the composite literal that
+// the i-th name of a var Previews spec is initialized with.
+func previewKeys(spec *ast.ValueSpec, i int) []string {
+	if i >= len(spec.Values) {
+		return nil
+	}
+	lit, ok := spec.Values[i].(*ast.CompositeLit)
+	if !ok {
+		return nil
+	}
+	var keys []string
+	for _, e := range lit.Elts {
+		kv, ok := e.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		if b, ok := kv.Key.(*ast.BasicLit); ok && b.Kind == token.STRING {
+			if s, err := strconv.Unquote(b.Value); err == nil {
+				keys = append(keys, s)
+			}
+		}
+	}
+	return keys
+}
+
 // scanPackage parses the declarations of the package files.
 func scanPackage(dir string, files []string) (detected, error) {
 	var hasPreview, hasPreviews, hasScene, hasApp bool
+	var previews []string
 	fset := token.NewFileSet()
 	for _, name := range files {
 		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.SkipObjectResolution)
@@ -225,6 +259,11 @@ func scanPackage(dir string, files []string) (detected, error) {
 						switch n.Name {
 						case "Previews":
 							hasPreviews = true
+							for _, k := range previewKeys(spec, i) {
+								if !slices.Contains(previews, k) {
+									previews = append(previews, k)
+								}
+							}
 						case "App":
 							hasApp = hasApp || mayBeTelaApp(spec, i)
 						}
@@ -233,7 +272,8 @@ func scanPackage(dir string, files []string) (detected, error) {
 			}
 		}
 	}
-	d := detected{hasApp: hasApp}
+	sort.Strings(previews)
+	d := detected{hasApp: hasApp, previews: previews}
 	switch {
 	case hasPreviews:
 		d.contract = contractPreviews

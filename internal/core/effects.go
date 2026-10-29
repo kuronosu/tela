@@ -299,11 +299,7 @@ func UseMemo[T any](compute func() T, deps ...any) T {
 		panic("tela: UseMemo(nil, ...): pass the function that computes the value")
 	}
 	el, i := nextSlot(hookMemo)
-	if i < len(el.hooks) {
-		s, ok := el.hooks[i].(*memoSlot[T])
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseMemo["+typeName[T]()+"]")
-		}
+	if s, ok := existingSlotOf[*memoSlot[T], T](el, i, "UseMemo"); ok {
 		if el.tree.depsChanged(el, i, s.deps, deps) {
 			s.deps = append(s.deps[:0], deps...)
 			s.value = compute()
@@ -330,11 +326,7 @@ func UseOnce[T any](init func() T) T {
 		panic("tela: UseOnce(nil): pass the function that creates the value")
 	}
 	el, i := nextSlot(hookOnce)
-	if i < len(el.hooks) {
-		s, ok := el.hooks[i].(*onceSlot[T])
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseOnce["+typeName[T]()+"]")
-		}
+	if s, ok := existingSlotOf[*onceSlot[T], T](el, i, "UseOnce"); ok {
 		return s.value
 	}
 	s := &onceSlot[T]{}

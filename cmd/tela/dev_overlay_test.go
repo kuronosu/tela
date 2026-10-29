@@ -76,8 +76,8 @@ func drawOverlay(t testing.TB, p problem, frame *image.RGBA, size platform.Size,
 	out := image.NewRGBA(frame.Rect)
 	copy(out.Pix, frame.Pix)
 	compositeOver(out, pic, image.Rect(
-		int(g.paint.x0*float32(scale)), int(g.paint.y0*float32(scale)),
-		int(g.paint.x1*float32(scale)+0.999), int(g.paint.y1*float32(scale)+0.999)))
+		int(g.paint.X0*float32(scale)), int(g.paint.Y0*float32(scale)),
+		int(g.paint.X1*float32(scale)+0.999), int(g.paint.Y1*float32(scale)+0.999)))
 	return out, g
 }
 
@@ -111,30 +111,30 @@ func TestOverlayGeometry(t *testing.T) {
 	if !g.docked {
 		t.Fatal("a build error with a live app is docked")
 	}
-	if want := float32(208); g.panel.h() != 220 || g.panel.y1 != 520 || g.panel.y0 != 520-220 {
+	if want := float32(208); g.panel.Height() != 220 || g.panel.Y1 != 520 || g.panel.Y0 != 520-220 {
 		t.Errorf("docked panel %+v, want the bottom 220 (40%% of 520 is %v, below the minimum)", g.panel, want)
 	}
 	if g.hidden == 0 || g.visible+g.hidden != 100 {
 		t.Errorf("visible %d hidden %d, want them to add up to 100 lines", g.visible, g.hidden)
 	}
-	if !(g.close.x0 > g.panel.x1-60 && g.close.y0 >= g.panel.y0 && g.close.y1 <= g.panel.y0+60) {
+	if !(g.close.X0 > g.panel.X1-60 && g.close.Y0 >= g.panel.Y0 && g.close.Y1 <= g.panel.Y0+60) {
 		t.Errorf("close button %+v is not at the top right of %+v", g.close, g.panel)
 	}
 	tall := platform.Size{W: 1000, H: 1000}
-	if g := newOverlayModel(long).geometry(tall); g.panel.h() != 400 {
-		t.Errorf("docked height %v in a window 1000 tall, want 400", g.panel.h())
+	if g := newOverlayModel(long).geometry(tall); g.panel.Height() != 400 {
+		t.Errorf("docked height %v in a window 1000 tall, want 400", g.panel.Height())
 	}
 
 	few := problem{kind: problemExit, summary: "the app exited"}
 	g = newOverlayModel(few).geometry(size)
-	if g.docked || g.paint.w() != size.W || g.paint.h() != size.H {
+	if g.docked || g.paint.Width() != size.W || g.paint.Height() != size.H {
 		t.Errorf("an exit covers the whole window: %+v", g)
 	}
-	if g.panel.h() >= size.H-2*ovMargin {
+	if g.panel.Height() >= size.H-2*ovMargin {
 		t.Errorf("a panel with no text should not fill the window: %+v", g.panel)
 	}
-	if g.panel.w() > ovMaxWidth {
-		t.Errorf("panel %v wide, want at most %d", g.panel.w(), ovMaxWidth)
+	if g.panel.Width() > ovMaxWidth {
+		t.Errorf("panel %v wide, want at most %d", g.panel.Width(), ovMaxWidth)
 	}
 }
 

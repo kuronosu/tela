@@ -7,7 +7,6 @@ import (
 	"image"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
 
@@ -89,9 +88,7 @@ type Window struct {
 	edge        int              // resize band under the pointer, or edgeNone
 	osHeld      platform.Buttons // buttons of a press sequence the OS owns
 	// The last primary caption press, for double clicks.
-	lastCaption    time.Duration
-	lastCaptionPos platform.Point
-	hasLastCaption bool
+	captions platform.CaptionClicks
 }
 
 var _ platform.Window = (*Window)(nil)

@@ -92,9 +92,7 @@ type collState[K comparable] struct {
 	started bool // the first build ran
 	mounted bool // the mount effect ran
 
-	keys     []K
-	index    map[K]int
-	disabled map[K]struct{}
+	keyList[K]
 
 	// Focus: the focused key is the item the keyboard acts on; with a
 	// roving focus the element of that item has the focus of the window.
@@ -120,7 +118,6 @@ type collState[K comparable] struct {
 	hasDown               bool
 	downKind              PointerType
 	search                string
-	refs                  map[K]tela.ElementRef
 	sections              map[string]*sectionRefs
 	panels                map[K]tela.ElementRef
 }
@@ -134,7 +131,7 @@ func useCollection[K comparable](cfg collConfig[K]) *collState[K] {
 	own := tela.UseElementRef()
 	timeout := core.UseTimeout()
 	c := tela.UseOnce(func() *collState[K] {
-		return &collState[K]{refs: map[K]tela.ElementRef{}, sections: map[string]*sectionRefs{}, panels: map[K]tela.ElementRef{}}
+		return &collState[K]{keyList: keyList[K]{refs: map[K]tela.ElementRef{}}, sections: map[string]*sectionRefs{}, panels: map[K]tela.ElementRef{}}
 	})
 	c.bump, c.t = bump, timeout
 	c.ref = cfg.ref
@@ -195,27 +192,9 @@ func (c *collState[K]) sync(cfg collConfig[K]) {
 	}
 	// Disabled keys: usually few. They come first: when the keys change,
 	// the focus is repaired with this build's disabled set.
-	if len(cfg.disabled) == 0 {
-		c.disabled = nil
-	} else {
-		c.disabled = make(map[K]struct{}, len(cfg.disabled))
-		for _, k := range cfg.disabled {
-			c.disabled[k] = struct{}{}
-		}
-	}
+	c.setDisabled(cfg.disabled)
 	// Keys: the index is rebuilt only when they change.
-	if first || !slices.Equal(c.keys, cfg.keys) {
-		old := c.keys
-		c.keys = slices.Clone(cfg.keys)
-		c.index = make(map[K]int, len(c.keys))
-		for i, k := range c.keys {
-			c.index[k] = i
-		}
-		for k := range c.refs {
-			if _, ok := c.index[k]; !ok {
-				delete(c.refs, k)
-			}
-		}
+	if old, changed := c.setKeys(cfg.keys); changed {
 		for k := range c.panels {
 			if _, ok := c.index[k]; !ok {
 				delete(c.panels, k)
@@ -327,16 +306,6 @@ func (c *collState[K]) firstSelected() (K, bool) {
 // ---------------------------------------------------------------------
 // Items.
 
-func (c *collState[K]) isDisabled(k K) bool {
-	_, d := c.disabled[k]
-	return d
-}
-
-func (c *collState[K]) has(k K) bool {
-	_, ok := c.index[k]
-	return ok
-}
-
 // canSelect is React Aria's canSelectItem: not disabled, and the
 // collection selects.
 func (c *collState[K]) canSelect(k K) bool {
@@ -359,37 +328,8 @@ func (c *collState[K]) isSelected(k K) bool {
 	return c.sel.Has(k)
 }
 
-func (c *collState[K]) refFor(k K) tela.ElementRef {
-	r, ok := c.refs[k]
-	if !ok {
-		r = core.NewElementRef()
-		c.refs[k] = r
-	}
-	return r
-}
-
 // ---------------------------------------------------------------------
 // Keyboard delegate (React Aria's ListKeyboardDelegate).
-
-func (c *collState[K]) firstKey() (K, bool) {
-	for _, k := range c.keys {
-		if !c.isDisabled(k) {
-			return k, true
-		}
-	}
-	var zero K
-	return zero, false
-}
-
-func (c *collState[K]) lastKey() (K, bool) {
-	for i := len(c.keys) - 1; i >= 0; i-- {
-		if !c.isDisabled(c.keys[i]) {
-			return c.keys[i], true
-		}
-	}
-	var zero K
-	return zero, false
-}
 
 // keyBelow returns the next enabled key after k in the list.
 func (c *collState[K]) keyBelow(k K) (K, bool) {

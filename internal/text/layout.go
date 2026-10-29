@@ -67,6 +67,8 @@ type Layout struct {
 	height     float32
 	hiddenFrom int32 // first cluster dropped by LineClamp, or len(clusters)
 
+	levels []uint8 // scratch of buildItems: the levels of one line's items
+
 	minContent, maxContent float32 // NaN until computed
 }
 

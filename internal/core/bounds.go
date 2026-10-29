@@ -94,11 +94,7 @@ func UseBounds(r ElementRef) *Value[Rect] {
 		panic("tela: UseBounds(zero ElementRef): pass the ElementRef returned by tela.UseElementRef and attach it with h.Ref to the element")
 	}
 	el, i := nextSlot(hookBounds)
-	if i < len(el.hooks) {
-		f, ok := el.hooks[i].(*boundsFollow)
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseBounds")
-		}
+	if f, ok := existingSlot[*boundsFollow](el, i, "UseBounds"); ok {
 		if f.ref != r.r {
 			f.ref = r.r
 			el.tree.bnd.frames = -1 // check at the end of this frame
@@ -163,11 +159,7 @@ func UseSize(r ElementRef) *Value[Size] {
 		panic("tela: UseSize(zero ElementRef): pass the ElementRef returned by tela.UseElementRef and attach it with h.Ref to the element")
 	}
 	el, i := nextSlot(hookSize)
-	if i < len(el.hooks) {
-		f, ok := el.hooks[i].(*sizeFollow)
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseSize")
-		}
+	if f, ok := existingSlot[*sizeFollow](el, i, "UseSize"); ok {
 		f.ref = r.r // a build: the frame lays out and checks it
 		return f.v
 	}

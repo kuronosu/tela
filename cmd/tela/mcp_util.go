@@ -4,62 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"math"
-	"path/filepath"
 	"slices"
-	"sort"
-	"strconv"
 )
-
-// scanPreviewNames returns the constant string keys of the composite
-// literal assigned to the package-level var Previews, sorted, or nil when
-// there is none (the names are then known once the instance mounts). They
-// go into the description of the open tool, which a client reads before
-// any call.
-func scanPreviewNames(dir string, files []string) []string {
-	fset := token.NewFileSet()
-	var names []string
-	for _, name := range files {
-		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.SkipObjectResolution)
-		if err != nil {
-			continue
-		}
-		for _, d := range f.Decls {
-			g, ok := d.(*ast.GenDecl)
-			if !ok || g.Tok != token.VAR {
-				continue
-			}
-			for _, sp := range g.Specs {
-				vs := sp.(*ast.ValueSpec)
-				for i, n := range vs.Names {
-					if n.Name != "Previews" || i >= len(vs.Values) {
-						continue
-					}
-					lit, ok := vs.Values[i].(*ast.CompositeLit)
-					if !ok {
-						continue
-					}
-					for _, e := range lit.Elts {
-						kv, ok := e.(*ast.KeyValueExpr)
-						if !ok {
-							continue
-						}
-						if b, ok := kv.Key.(*ast.BasicLit); ok && b.Kind == token.STRING {
-							if s, err := strconv.Unquote(b.Value); err == nil && !slices.Contains(names, s) {
-								names = append(names, s)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	sort.Strings(names)
-	return names
-}
 
 // layoutBox is what layoutSubtree reads of a node of the layout JSON.
 type layoutBox struct {

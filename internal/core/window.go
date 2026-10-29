@@ -317,10 +317,8 @@ type windowUse struct{}
 // above it.
 func UseWindow() WindowHandle {
 	el, i := nextSlot(hookWindow)
-	if i == len(el.hooks) {
+	if _, ok := existingSlot[*windowUse](el, i, "UseWindow"); !ok {
 		el.hooks = append(el.hooks, &windowUse{})
-	} else if _, ok := el.hooks[i].(*windowUse); !ok {
-		el.tree.slotMismatch(el, i, "UseWindow")
 	}
 	el.tree.windowStateValue()
 	return WindowHandle{el.tree}
@@ -473,13 +471,8 @@ func (s *windowSlot) unmount(t *Tree) {
 func UseWindowSpec(spec WindowSpec) {
 	el, i := nextSlot(hookWindowSpec)
 	t := el.tree
-	var s *windowSlot
-	if i < len(el.hooks) {
-		var ok bool
-		if s, ok = el.hooks[i].(*windowSlot); !ok {
-			t.slotMismatch(el, i, "tela.Window")
-		}
-	} else {
+	s, ok := existingSlot[*windowSlot](el, i, "tela.Window")
+	if !ok {
 		s = &windowSlot{el: el}
 		el.hooks = append(el.hooks, s)
 		t.wins = append(t.wins, s)

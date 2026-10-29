@@ -334,7 +334,7 @@ func TestFieldRevealAtFrameStart(t *testing.T) {
 			}
 			got := f.scrollX
 			f.scrollX = 0
-			f.revealNow() // the reveal of a focus after the layout
+			f.revealNowBy(true) // the reveal of a focus after the layout
 			if f.scrollX <= 0 {
 				t.Fatalf("reference: scrollX %v, want the end revealed", f.scrollX)
 			}
@@ -405,7 +405,7 @@ func wantRevealed(t *testing.T, what string, f *field) {
 	t.Helper()
 	got := f.scrollX
 	f.scrollX = 0
-	f.revealNow()
+	f.revealNowBy(true)
 	if f.scrollX <= 0 {
 		t.Fatalf("%s: reference scrollX %v, want the end revealed", what, f.scrollX)
 	}

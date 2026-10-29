@@ -3,6 +3,8 @@ package edit
 import (
 	"strings"
 	"unicode/utf8"
+
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // This file holds the text rules: how inserted and programmatic text is
@@ -73,45 +75,6 @@ func isControl(r rune) bool {
 	return (r < 0x20 && r != '\t') || (r >= 0x7F && r <= 0x9F)
 }
 
-// UTF16Len returns the length of s in UTF-16 code units, the unit of
-// HTML's maxlength and of the Windows and macOS text APIs.
-func UTF16Len(s string) int {
-	n := 0
-	for _, r := range s {
-		n += utf16Units(r)
-	}
-	return n
-}
-
-func utf16Units(r rune) int {
-	if r >= 0x10000 {
-		return 2
-	}
-	return 1
-}
-
-// UTF16ToByte returns the byte offset in s of the UTF-16 offset u (in code
-// units). An offset inside a surrogate pair maps to the start of its
-// character; offsets past the end map to len(s).
-func UTF16ToByte(s string, u int) int {
-	n := 0
-	for i, r := range s {
-		w := utf16Units(r)
-		if n+w > u {
-			return i
-		}
-		n += w
-	}
-	return len(s)
-}
-
-// ByteToUTF16 returns the UTF-16 offset (in code units) of the byte offset
-// b in s. An offset inside a UTF-8 sequence counts the characters before
-// it.
-func ByteToUTF16(s string, b int) int {
-	return UTF16Len(s[:clampRuneStart(s, b)])
-}
-
 // clampRuneStart clamps b to s and moves it back to the start of a UTF-8
 // sequence.
 func clampRuneStart(s string, b int) int {
@@ -140,14 +103,14 @@ func truncateUTF16(s string, limit int) string {
 	if limit <= 0 {
 		return ""
 	}
-	if len(s) <= limit || UTF16Len(s) <= limit {
+	if len(s) <= limit || utf16x.Len(s) <= limit {
 		return s
 	}
 	cut := 0
 	n := 0
 	prev := 0
 	for _, b := range graphemeBounds(s) {
-		n += UTF16Len(s[prev:b])
+		n += utf16x.Len(s[prev:b])
 		if n > limit {
 			break
 		}

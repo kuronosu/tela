@@ -80,12 +80,10 @@ func goList(dir string, patterns []string) ([]*listPackage, error) {
 
 // checked is a package after type-checking.
 type checked struct {
-	path   string
-	pkg    *types.Package
-	files  []*ast.File // target: GoFiles
-	info   *types.Info // target only
-	errs   []error     // target only: type errors
-	target bool
+	pkg   *types.Package
+	files []*ast.File // target: GoFiles
+	info  *types.Info // target only
+	errs  []error     // target only: type errors
 }
 
 // loader parses and type-checks packages on demand, each one once, so
@@ -291,7 +289,7 @@ func newInfo() *types.Info {
 func (l *loader) check(path string) *checked {
 	lp := l.pkgs[path]
 	target := l.targets[path]
-	c := &checked{path: path, target: target}
+	c := &checked{}
 	if lp == nil {
 		return c
 	}

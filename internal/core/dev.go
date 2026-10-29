@@ -190,6 +190,7 @@ func apiFrame(fn string) bool {
 		return strings.HasPrefix(rest, "Use") || strings.HasPrefix(rest, "use") ||
 			strings.HasPrefix(rest, "ComponentProps") || strings.HasPrefix(rest, "Memo") ||
 			strings.HasPrefix(rest, "noteAnon") || strings.HasPrefix(rest, "nextSlot") ||
+			strings.HasPrefix(rest, "existingSlot") ||
 			strings.HasPrefix(rest, "List") || strings.HasPrefix(rest, "Map") ||
 			strings.HasPrefix(rest, "(*Value[") || strings.HasPrefix(rest, "(*Tree).checkHook")
 	}

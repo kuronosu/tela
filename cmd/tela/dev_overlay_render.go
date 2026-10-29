@@ -36,16 +36,6 @@ const (
 	ovShadowPad  = 48  // how far the docked panel's shadow reaches above it
 )
 
-// ovRect is a rectangle in logical pixels.
-type ovRect struct{ x0, y0, x1, y1 float32 }
-
-func (r ovRect) contains(p platform.Point) bool {
-	return p.X >= r.x0 && p.X < r.x1 && p.Y >= r.y0 && p.Y < r.y1
-}
-
-func (r ovRect) w() float32 { return r.x1 - r.x0 }
-func (r ovRect) h() float32 { return r.y1 - r.y0 }
-
 // ovSeg is a run of text of one line, in the Tailwind classes that color it.
 type ovSeg struct{ text, class string }
 
@@ -67,14 +57,14 @@ type overlayModel struct {
 // ovGeom is where the model's panel goes for a window size.
 type ovGeom struct {
 	docked bool
-	panel  ovRect
-	close  ovRect
+	panel  gfx.Rect
+	close  gfx.Rect
 	// visible is how many lines are drawn, and hidden how many are left
 	// out ("… N more lines").
 	visible, hidden int
 	// paint is the area of the window the picture covers (the panel and
 	// its shadow when docked, the whole window otherwise).
-	paint ovRect
+	paint gfx.Rect
 }
 
 func newOverlayModel(p problem) *overlayModel {
@@ -117,8 +107,8 @@ func (m *overlayModel) geometry(size platform.Size) ovGeom {
 	if g.docked {
 		// Up to 40% of the window, less when the text is short.
 		ph := min(max(H*ovDockedPct/100, ovMinDocked), H, want)
-		g.panel = ovRect{0, H - ph, W, H}
-		g.paint = ovRect{0, max(H-ph-ovShadowPad, 0), W, H}
+		g.panel = gfx.Rect{Y0: H - ph, X1: W, Y1: H}
+		g.paint = gfx.Rect{Y0: max(H-ph-ovShadowPad, 0), X1: W, Y1: H}
 	} else {
 		mg := float32(ovMargin)
 		if W < 480 {
@@ -128,14 +118,14 @@ func (m *overlayModel) geometry(size platform.Size) ovGeom {
 		maxH := H - 2*mg
 		ph := min(maxH, want)
 		x0, y0 := (W-pw)/2, (H-ph)/2
-		g.panel = ovRect{x0, y0, x0 + pw, y0 + ph}
-		g.paint = ovRect{0, 0, W, H}
+		g.panel = gfx.Rect{X0: x0, Y0: y0, X1: x0 + pw, Y1: y0 + ph}
+		g.paint = gfx.Rect{X1: W, Y1: H}
 	}
-	g.close = ovRect{
-		g.panel.x1 - ovCloseInset - ovCloseSize, g.panel.y0 + ovBorderTop + ovCloseInset - 4,
-		g.panel.x1 - ovCloseInset, g.panel.y0 + ovBorderTop + ovCloseInset - 4 + ovCloseSize,
+	g.close = gfx.Rect{
+		X0: g.panel.X1 - ovCloseInset - ovCloseSize, Y0: g.panel.Y0 + ovBorderTop + ovCloseInset - 4,
+		X1: g.panel.X1 - ovCloseInset, Y1: g.panel.Y0 + ovBorderTop + ovCloseInset - 4 + ovCloseSize,
 	}
-	fit := int((g.panel.h() - chrome) / ovLineH)
+	fit := int((g.panel.Height() - chrome) / ovLineH)
 	if fit < 0 {
 		fit = 0
 	}
@@ -259,7 +249,7 @@ func (m *overlayModel) view(size platform.Size, g ovGeom) tela.Node {
 	px := func(v float32) string { return fmt.Sprintf("[%gpx]", v) }
 	panel := []string{
 		"absolute flex flex-col overflow-hidden bg-zinc-950 border-t-2", m.accent,
-		"left-" + px(g.panel.x0), "top-" + px(g.panel.y0), "w-" + px(g.panel.w()), "h-" + px(g.panel.h()),
+		"left-" + px(g.panel.X0), "top-" + px(g.panel.Y0), "w-" + px(g.panel.Width()), "h-" + px(g.panel.Height()),
 	}
 	if g.docked {
 		panel = append(panel, "rounded-t-xl shadow-[0_-10px_30px_rgba(0,0,0,0.45)]")
@@ -295,7 +285,7 @@ func (m *overlayModel) view(size platform.Size, g ovGeom) tela.Node {
 		h.Div(h.Class("shrink-0 flex items-center px-5 text-xs text-zinc-500 border-t border-zinc-800 h-"+px(ovFooterH)),
 			h.Text("Save a change to rebuild  \u00b7  r reload (in the terminal)  \u00b7  Esc dismiss")),
 		h.Div(h.Class("absolute flex items-center justify-center rounded-lg bg-white/10 text-zinc-200 text-lg leading-none",
-			"left-"+px(g.close.x0-g.panel.x0), "top-"+px(g.close.y0-g.panel.y0), "w-"+px(ovCloseSize), "h-"+px(ovCloseSize)),
+			"left-"+px(g.close.X0-g.panel.X0), "top-"+px(g.close.Y0-g.panel.Y0), "w-"+px(ovCloseSize), "h-"+px(ovCloseSize)),
 			h.Text("\u00d7")),
 	)
 	root := []tela.Child{h.Class("relative w-full h-full overflow-hidden")}

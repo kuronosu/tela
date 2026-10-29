@@ -681,14 +681,8 @@ func UseTween[T Animatable](target T, opts ...AnimOption) *Value[T] {
 
 func useMotion[T Animatable](kind hookKind, mode animMode, target T, opts []AnimOption) *Value[T] {
 	el, i := nextSlot(kind)
-	var s *motionSlot[T]
-	if i < len(el.hooks) {
-		var ok bool
-		s, ok = el.hooks[i].(*motionSlot[T])
-		if !ok {
-			el.tree.slotMismatch(el, i, kind.String()+"["+typeName[T]()+"]")
-		}
-	} else {
+	s, ok := existingSlotOf[*motionSlot[T], T](el, i, kind.String())
+	if !ok {
 		initial := target
 		if v, ok := initialOf[T](opts); ok {
 			initial = v

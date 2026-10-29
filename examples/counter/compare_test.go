@@ -295,7 +295,7 @@ func TestCounterPixelsChromium(t *testing.T) {
 	sb.WriteString("difference from Chromium in channel levels (0-255)\n")
 	fmt.Fprintf(&sb, "%-10s %2s %9s %6s %7s %7s\n", "region", "", "pixels", "max", "mean", ">16")
 	for _, scale := range []int{1, 2} {
-		want := readRGBA(t, filepath.Join(chromiumDir, fmt.Sprintf("counter_x%d.png", scale)))
+		want := golden.ReadRGBA(t, filepath.Join(chromiumDir, fmt.Sprintf("counter_x%d.png", scale)))
 		l := renderCounter(float32(scale))
 		got := l.img
 		if got.Rect != want.Rect {
@@ -349,8 +349,8 @@ func dumpDiff(t *testing.T, scale int, got, want *image.RGBA) {
 		v := uint8(min(255, 8*m))
 		d.Pix[i], d.Pix[i+1], d.Pix[i+2], d.Pix[i+3] = v, v, v, 255
 	}
-	writePNG(t, fmt.Sprintf("testdata/chromium_x%d_actual.png", scale), got)
-	writePNG(t, fmt.Sprintf("testdata/chromium_x%d_diff.png", scale), d)
+	golden.WritePNG(t, fmt.Sprintf("testdata/chromium_x%d_actual.png", scale), got)
+	golden.WritePNG(t, fmt.Sprintf("testdata/chromium_x%d_diff.png", scale), d)
 	t.Logf("x%d: wrote testdata/chromium_x%d_actual.png and testdata/chromium_x%d_diff.png", scale, scale, scale)
 }
 

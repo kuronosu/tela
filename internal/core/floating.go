@@ -657,16 +657,7 @@ func (t *Tree) clipOf(bx *Box, view gfx.Rect) gfx.Rect {
 // gutters, in window coordinates as painted (its scroll space's offsets,
 // the transforms of bx and its ancestors as a bounding box).
 func (t *Tree) clientWindowRect(bx *Box) gfx.Rect {
-	r := windowRect(bx)
-	l := bx.ld.Layout()
-	c := gfx.Rect{
-		X0: r.X0 + l.Border.Left, Y0: r.Y0 + l.Border.Top,
-		X1: r.X1 - l.Border.Right - l.ScrollbarSize.W, Y1: r.Y1 - l.Border.Bottom - l.ScrollbarSize.H,
-	}
-	if s := bx.scr; s != nil && s.rtl {
-		c.X0, c.X1 = c.X0+l.ScrollbarSize.W, c.X1+l.ScrollbarSize.W
-	}
-	return t.transformUp(bx, c)
+	return t.transformUp(bx, clientArea(bx, windowRect(bx)))
 }
 
 // limitLayout applies the size limits of floating box b to its layout

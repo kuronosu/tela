@@ -136,7 +136,16 @@ type kfRun struct {
 	finished bool
 }
 
-var animLayerDeferred = style.Deferred{Phase: style.PhasePaint, Apply: func(*style.ComputedStyle) {}}
+// animLayerDeferred marks the style of a box whose opacity or transform
+// animates as having paint-phase deferred props (hasPhase), which makes
+// the box a deferred layer (layer.go) that the animation only composites
+// again; it applies nothing (style.ComputedStyle.Resolved skips it).
+// animLayerOnly is the Deferred of such a style without props of its own
+// (read-only, shared).
+var (
+	animLayerDeferred = style.Deferred{Phase: style.PhasePaint}
+	animLayerOnly     = []style.Deferred{animLayerDeferred}
+)
 
 // animCurve converts a style's cubic-bezier to an anim curve.
 func animCurve(c style.CubicBezier) anim.Curve {
@@ -415,10 +424,16 @@ func (t *Tree) animSpec(raw string) specEntry {
 // animStyle returns the style of the box at now: a copy of target with the
 // running animations applied, or target when none applies. Finished
 // transitions and keyframe animations are marked or removed from ba, and
-// ba.layer is updated.
+// ba.layer is updated. The copy is made once something applies.
 func (t *Tree) animStyle(ba *boxAnim, target *style.ComputedStyle, now time.Duration) *style.ComputedStyle {
-	u := *target
-	over, layer := false, false
+	var u *style.ComputedStyle
+	own := func() {
+		if u == nil {
+			u = new(style.ComputedStyle)
+			*u = *target
+		}
+	}
+	layer := false
 	for i := 0; i < len(ba.trans); {
 		tr := &ba.trans[i]
 		eased, done := tr.Progress(now)
@@ -426,8 +441,8 @@ func (t *Tree) animStyle(ba *boxAnim, target *style.ComputedStyle, now time.Dura
 			ba.remove(i)
 			continue
 		}
-		anim.Blend(tr.Prop, &u, tr.from, target, eased)
-		over = true
+		own()
+		anim.Blend(tr.Prop, u, tr.from, target, eased)
 		layer = layer || tr.Prop.Class() == anim.ClassLayer
 		i++
 	}
@@ -440,6 +455,7 @@ func (t *Tree) animStyle(ba *boxAnim, target *style.ComputedStyle, now time.Dura
 			}
 			layer = layer || !k.finished
 			if applies {
+				own()
 				v := k.kfs.At(p, k.spec.Curve, u.Opacity)
 				if v.HasOpacity {
 					u.Opacity = v.Opacity
@@ -447,19 +463,22 @@ func (t *Tree) animStyle(ba *boxAnim, target *style.ComputedStyle, now time.Dura
 				if v.HasTransform {
 					u.Transform = anim.ComposeTransform(u.Transform, v.Transform)
 				}
-				over = true
 			}
 		}
 	}
 	ba.layer = layer
 	if layer {
-		u.Deferred = append(slices.Clip(target.Deferred), animLayerDeferred)
-		over = true
+		own()
+		if len(target.Deferred) == 0 {
+			u.Deferred = animLayerOnly
+		} else {
+			u.Deferred = append(slices.Clip(target.Deferred), animLayerDeferred)
+		}
 	}
-	if !over {
+	if u == nil {
 		return target
 	}
-	return &u
+	return u
 }
 
 // Advance implements anim.Animator: it moves the box's animations to now

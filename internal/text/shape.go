@@ -117,6 +117,9 @@ func (l *Layout) shape() {
 	}
 
 	var fruns []Run
+	// The font candidates of each style index, resolved by its first item:
+	// a text of many lines has many items of one style.
+	cands := make([]*candidates, len(l.styles))
 	for i := 0; i < n; {
 		r := pt.runes[i]
 		si := &l.sinfo[pt.style[i]]
@@ -147,8 +150,12 @@ func (l *Layout) shape() {
 			(pt.style[j] == pt.style[i] || l.styles[pt.style[j]].shapesLike(&l.styles[pt.style[i]])) {
 			j++
 		}
-		st := &l.styles[pt.style[i]]
-		fruns = l.coll.Itemize(pt.runes, i, j, st.query(), si.size, scripts[i], fruns[:0])
+		cs := cands[pt.style[i]]
+		if cs == nil {
+			cs = l.coll.candidates(l.styles[pt.style[i]].query(), si.size)
+			cands[pt.style[i]] = cs
+		}
+		fruns = cs.itemize(pt.runes, i, j, segs, scripts[i], fruns[:0])
 		for _, fr := range fruns {
 			l.shapeRun(fr.Face, int32(fr.Start), int32(fr.End), levels[i], scripts[i], si, segs)
 		}

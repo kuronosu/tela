@@ -730,9 +730,13 @@ func overflowAxes(cs *style.ComputedStyle) (x, y style.Overflow) {
 	return x, y
 }
 
-// isScrollContainer reports whether a box with style cs is a scroll
-// container.
-func isScrollContainer(cs *style.ComputedStyle) bool {
+// isScrollContainer reports whether a box of kind k with style cs is a
+// scroll container: its style makes it one, and it is not an Input, which
+// scrolls its own line (field.go).
+func isScrollContainer(k style.Kind, cs *style.ComputedStyle) bool {
+	if k == style.KindInput {
+		return false
+	}
 	x, y := overflowAxes(cs)
 	return x != style.OverflowVisible && x != style.OverflowClip || y != style.OverflowVisible && y != style.OverflowClip
 }
@@ -793,8 +797,7 @@ func (t *Tree) smoothScripted(cs *style.ComputedStyle) bool {
 // browsers). Called by the style phase.
 func (t *Tree) updateScroller(bx *Box) {
 	cs := bx.cs
-	if !isScrollContainer(cs) || bx.kind == style.KindInput {
-		// An Input scrolls its own line (field.go).
+	if !isScrollContainer(bx.kind, cs) {
 		if bx.scr != nil {
 			t.dropScroller(bx)
 		}
@@ -1080,7 +1083,7 @@ func (t *Tree) HandleScroll(e platform.ScrollEvent) {
 	g := &t.scr.wheel
 	if d != (gfx.Point{}) {
 		pos := gfx.Point{X: e.Pos.X, Y: e.Pos.Y}
-		target := t.hitTest(pos)
+		target, _ := t.hitTest(pos)
 		if target == nil {
 			return
 		}
@@ -1656,7 +1659,7 @@ func (t *Tree) rehover() {
 		if !ps.inside || ps.key.kind == platform.PointerTouch || ps.buttons != 0 || ps.capture != nil {
 			continue
 		}
-		target := t.hitTest(ps.pos)
+		target, _ := t.hitTest(ps.pos)
 		if target != ps.target {
 			ps.target = target
 			t.updateOver(ps, target)
@@ -1748,7 +1751,12 @@ func (t *Tree) targetRect(bx *Box) gfx.Rect {
 // clientRect returns the client area of scroll container bx (its padding
 // box without the gutters) in the coordinates of targetRect.
 func (t *Tree) clientRect(bx *Box) gfx.Rect {
-	r := t.targetRect(bx)
+	return clientArea(bx, t.targetRect(bx))
+}
+
+// clientArea returns the client area of bx placed with its border box at
+// r: its padding box without the scrollbar gutters.
+func clientArea(bx *Box, r gfx.Rect) gfx.Rect {
 	l := bx.ld.Layout()
 	c := gfx.Rect{
 		X0: r.X0 + l.Border.Left, Y0: r.Y0 + l.Border.Top,
@@ -1894,11 +1902,7 @@ func UseScroll(r ElementRef) (x, y *Value[float32]) {
 		panic("tela: UseScroll(zero ElementRef): pass the ElementRef returned by tela.UseElementRef and attach it with h.Ref to the scroll container")
 	}
 	el, i := nextSlot(hookScroll)
-	if i < len(el.hooks) {
-		f, ok := el.hooks[i].(*scrollFollow)
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseScroll")
-		}
+	if f, ok := existingSlot[*scrollFollow](el, i, "UseScroll"); ok {
 		if f.ref != r.r {
 			f.detach()
 			f.ref = r.r

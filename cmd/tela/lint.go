@@ -83,20 +83,9 @@ func parseLintArgs(args []string) (lintOptions, error) {
 	fs.SetOutput(io.Discard)
 	fs.BoolVar(&opts.JSON, "json", false, "")
 	fs.BoolVar(&opts.Tests, "tests", false, "")
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return opts, err
-			}
-			return opts, fmt.Errorf("%v (see \"tela help lint\")", err)
-		}
-		args = fs.Args()
-		if len(args) > 0 {
-			opts.Patterns = append(opts.Patterns, args[0])
-			args = args[1:]
-		}
-	}
-	return opts, nil
+	pats, err := parsePositionals("lint", fs, args)
+	opts.Patterns = pats
+	return opts, err
 }
 
 // runLint implements `tela lint`.

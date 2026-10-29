@@ -204,7 +204,7 @@ func TestLayoutSubtree(t *testing.T) {
 	}
 }
 
-func TestScanPreviewNames(t *testing.T) {
+func TestScanPackagePreviews(t *testing.T) {
 	dir := t.TempDir()
 	src := `package p
 
@@ -218,8 +218,12 @@ var Previews = tela.Previews{
 	if err := os.WriteFile(filepath.Join(dir, "p.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got := scanPreviewNames(dir, []string{"p.go"}); !slices.Equal(got, []string{"Login", "Settings"}) {
-		t.Errorf("names %v", got)
+	det, err := scanPackage(dir, []string{"p.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(det.previews, []string{"Login", "Settings"}) {
+		t.Errorf("names %v", det.previews)
 	}
 }
 

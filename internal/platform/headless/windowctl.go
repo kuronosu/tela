@@ -49,9 +49,7 @@ type windowCtl struct {
 	// released (their pointer stream belongs to the "OS"), and the last
 	// primary caption press for double clicks.
 	captionHeld platform.Buttons
-	lastCaption time.Duration
-	lastPos     platform.Point
-	hasLast     bool
+	captions    platform.CaptionClicks
 }
 
 // big reports whether the window is maximized or fullscreen (its size is
@@ -369,20 +367,13 @@ func (w *Window) captionPointer(e platform.PointerEvent) bool {
 	c.captionHeld = e.Button.Mask()
 	switch e.Button {
 	case platform.ButtonPrimary:
-		interval := b.settings.DoubleClickInterval
-		if interval == 0 {
-			interval = defaultDoubleClick
-		}
-		dx, dy := e.Pos.X-c.lastPos.X, e.Pos.Y-c.lastPos.Y
-		if c.hasLast && e.Time-c.lastCaption <= interval && dx*dx+dy*dy <= 16 {
-			c.hasLast = false
+		if c.captions.Press(e.Time, e.Pos, b.settings.DoubleClickInterval, defaultDoubleClick) {
 			st := c.osState
 			st.Maximized = !st.Maximized
 			w.setOSState(st)
 			return true
 		}
 		c.captionDrags++
-		c.hasLast, c.lastCaption, c.lastPos = true, e.Time, e.Pos
 	case platform.ButtonSecondary:
 		c.windowMenus++
 	}

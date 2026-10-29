@@ -96,10 +96,6 @@ const (
 	// system settings give none (the X11 backend does not read
 	// XSETTINGS yet): GTK's default gtk-double-click-time.
 	defaultDoubleClick = 400 * time.Millisecond
-	// doubleClickSlop is how far, in logical pixels, the second press of
-	// a caption double click may be from the first (the headless
-	// backend's rule).
-	doubleClickSlop = 4
 
 	// corePointerDevice is the XInput2 id of the virtual core pointer,
 	// sent in _GTK_SHOW_WINDOW_MENU for presses that arrived as core
@@ -755,21 +751,13 @@ func (b *Backend) osPress(p ptr, btn platform.PointerButton, pos platform.Point)
 	w.osHeld = btn.Mask()
 	switch btn {
 	case platform.ButtonPrimary:
-		now := b.Now()
-		interval := b.Settings().DoubleClickInterval
-		if interval == 0 {
-			interval = defaultDoubleClick
-		}
-		dx, dy := pos.X-w.lastCaptionPos.X, pos.Y-w.lastCaptionPos.Y
-		if w.hasLastCaption && now-w.lastCaption <= interval && dx*dx+dy*dy <= doubleClickSlop*doubleClickSlop {
+		if w.captions.Press(b.Now(), pos, b.Settings().DoubleClickInterval, defaultDoubleClick) {
 			// The window manager handles double clicks on its own
 			// title bar only; on ours the backend toggles maximize
 			// (GTK does the same for its client-side title bars).
-			w.hasLastCaption = false
 			w.SetMaximized(!w.osState.Maximized)
 			return true
 		}
-		w.hasLastCaption, w.lastCaption, w.lastCaptionPos = true, now, pos
 		b.moveResize(p, moveResizeMove)
 	case platform.ButtonSecondary:
 		b.showWindowMenu(p)

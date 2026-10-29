@@ -264,7 +264,7 @@ func TestChromiumEffects(t *testing.T) {
 	for si, scale := range []int{1, 2} {
 		img, rects := g.render(t, float32(scale))
 		if dump != "" {
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("effects_x%d_tela.png", scale)), img)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("effects_x%d_tela.png", scale)), img)
 		}
 		want := geom[fmt.Sprintf("x%d", scale)]
 		if len(want) != len(rects) {
@@ -283,7 +283,7 @@ func TestChromiumEffects(t *testing.T) {
 				t.Errorf("x%d element %d: %v, Chromium %v", scale, k, r, w)
 			}
 		}
-		shot := readRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
+		shot := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
 		if shot.Rect != img.Rect {
 			t.Fatalf("x%d: render %v, Chromium %v", scale, img.Rect, shot.Rect)
 		}

@@ -130,7 +130,7 @@ func TestOverlayBuildErrorDocksAndAppStaysInteractive(t *testing.T) {
 	h.waitFrame("the docked panel", h.withOverlay(child(1, 0, 0), p))
 	size := h.window().Metrics().Size
 	g := newOverlayModel(p).geometry(size)
-	if !g.docked || g.panel.y0 < size.H/3 {
+	if !g.docked || g.panel.Y0 < size.H/3 {
 		t.Fatalf("panel %+v in a window %v: want it docked at the bottom", g.panel, size)
 	}
 
@@ -138,15 +138,15 @@ func TestOverlayBuildErrorDocksAndAppStaysInteractive(t *testing.T) {
 	h.clickAt(10, 10)
 	h.waitFrame("a click above the panel reaches the app", h.withOverlay(child(1, 1, 1), p))
 	// A click inside the panel does not.
-	h.clickAt(size.W/2, g.panel.y0+g.panel.h()/2)
-	h.clickAt(size.W/2, g.panel.y1-5)
+	h.clickAt(size.W/2, g.panel.Y0+g.panel.Height()/2)
+	h.clickAt(size.W/2, g.panel.Y1-5)
 	time.Sleep(100 * time.Millisecond)
 	h.waitFrame("a click on the panel stays out of the app", h.withOverlay(child(1, 1, 1), p))
 
 	// Escape dismisses the overlay; the problem stays on the terminal.
 	h.press("Escape", platform.CodeEscape)
 	h.waitFrame("Escape dismisses", h.plain(child(1, 1, 1)))
-	h.clickAt(size.W/2, g.panel.y1-5)
+	h.clickAt(size.W/2, g.panel.Y1-5)
 	h.waitFrame("the app gets the whole window again", h.plain(child(1, 2, 2)))
 	if got := h.view.entries(); len(got) != 1 {
 		t.Errorf("problems %v, want only the one shown", got)
@@ -177,7 +177,7 @@ func TestOverlayCloseButtonAndClear(t *testing.T) {
 
 	// The press and the release on the close button belong to the
 	// overlay.
-	cx, cy := (g.close.x0+g.close.x1)/2, (g.close.y0+g.close.y1)/2
+	cx, cy := (g.close.X0+g.close.X1)/2, (g.close.Y0+g.close.Y1)/2
 	h.clickAt(cx, cy)
 	h.waitFrame("the close button dismisses", h.plain(child(1, 0, 0)))
 	time.Sleep(50 * time.Millisecond)
@@ -214,7 +214,7 @@ func TestOverlayPanicCoversTheWindow(t *testing.T) {
 	want := h.withOverlay(child(1, 1, 1), p)
 	h.waitFrame("the full overlay over the last frame", want)
 	size := h.window().Metrics().Size
-	if g := newOverlayModel(p).geometry(size); g.docked || g.paint.w() != size.W || g.paint.h() != size.H {
+	if g := newOverlayModel(p).geometry(size); g.docked || g.paint.Width() != size.W || g.paint.Height() != size.H {
 		t.Errorf("geometry %+v: a panic covers the whole window", g)
 	}
 	// The window never closes, and a click on the dimmed frame outside

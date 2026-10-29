@@ -196,7 +196,7 @@ func (g *toggleGroup[K]) tabStop(k K) bool {
 			return key == k
 		}
 	}
-	first, ok := g.r.first()
+	first, ok := g.r.firstKey()
 	return ok && first == k
 }
 
@@ -239,9 +239,9 @@ func (g *toggleGroup[K]) onKeyDown(k K, e tela.KeyboardEvent) {
 	switch e.Key {
 	case tela.KeyHome, tela.KeyEnd:
 		e.PreventDefault()
-		nk, ok := g.r.first()
+		nk, ok := g.r.firstKey()
 		if e.Key == tela.KeyEnd {
-			nk, ok = g.r.last()
+			nk, ok = g.r.lastKey()
 		}
 		if ok && nk != k {
 			g.r.refFor(nk).Focus()

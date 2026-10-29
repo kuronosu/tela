@@ -134,6 +134,28 @@ type damager struct {
 type damageScratch struct {
 	// seen is origin's set of chunk instances already looked at.
 	seen map[uint32]bool
+	// The per-command buffers of the damager (reaches, findUnits,
+	// blockUnits, sequence, run's matched commands), resliced to each
+	// frame's length; open is the stack of reaches and blockUnits.
+	reachA, reachB               []int
+	unitA, unitB, blockA, blockB []int32
+	seqA, seqB, open             []int
+	matchedA, matchedB           []bool
+	// findUnits' scroll spaces: those of each frame's chunks with their
+	// offsets, the candidates (the spaces that moved) and their order.
+	// They are emptied after each use, so they keep no scroller alive.
+	spacesA, spacesB map[*scroller]gfx.Point
+	cand             map[*scroller]bool
+	order            []*scroller
+}
+
+// resized returns buf with length n, reallocated when it is too short;
+// its elements are unspecified.
+func resized[T any](buf []T, n int) []T {
+	if cap(buf) < n {
+		return make([]T, n)
+	}
+	return buf[:n]
 }
 
 // frameDamage returns how to bring the pixels of frame a to frame b in a
@@ -148,13 +170,21 @@ func frameDamage(a, b *frame, bounds image.Rectangle, s *damageScratch) Damage {
 
 func (d *damager) run() Damage {
 	A, B := d.a.dl, d.b.dl
-	d.reachA, d.reachB = d.reaches(A), d.reaches(B)
+	s := d.scratch
+	s.reachA, s.reachB = d.reaches(A, s.reachA), d.reaches(B, s.reachB)
+	d.reachA, d.reachB = s.reachA, s.reachB
 	d.findUnits()
-	d.blockA, d.blockB = blockUnits(A, d.unitA), blockUnits(B, d.unitB)
+	s.blockA, s.open = blockUnits(A, d.unitA, s.blockA, s.open)
+	s.blockB, s.open = blockUnits(B, d.unitB, s.blockB, s.open)
+	d.blockA, d.blockB = s.blockA, s.blockB
 	// The sequences to match: without the attachments of the units'
 	// top-level chunks, which the shift accounts for.
-	seqA, seqB := d.sequence(d.a, d.unitA, d.ua), d.sequence(d.b, d.unitB, d.ub)
-	matchedA, matchedB := make([]bool, len(seqA)), make([]bool, len(seqB))
+	s.seqA, s.seqB = d.sequence(d.a, d.unitA, d.ua, s.seqA), d.sequence(d.b, d.unitB, d.ub, s.seqB)
+	seqA, seqB := s.seqA, s.seqB
+	s.matchedA, s.matchedB = resized(s.matchedA, len(seqA)), resized(s.matchedB, len(seqB))
+	matchedA, matchedB := s.matchedA, s.matchedB
+	clear(matchedA)
+	clear(matchedB)
 	ok := d.match(seqA, seqB, matchedA, matchedB)
 	if !ok {
 		return Damage{Full: true}
@@ -222,10 +252,10 @@ func (d *damager) add(r image.Rectangle) {
 
 // reaches returns, for every command of dl, the device reach of the
 // filters of the layers around it (pushes and pops count as inside their
-// own layer).
-func (d *damager) reaches(dl *gfx.DisplayList) []int {
-	out := make([]int, dl.Len())
-	var stack []int
+// own layer), in out resliced.
+func (d *damager) reaches(dl *gfx.DisplayList, out []int) []int {
+	out = resized(out, dl.Len())
+	stack := d.scratch.open[:0]
 	cur := 0
 	for i := range dl.Len() {
 		c := dl.At(i)
@@ -244,45 +274,72 @@ func (d *damager) reaches(dl *gfx.DisplayList) []int {
 			out[i] = cur
 		}
 	}
+	d.scratch.open = stack
 	return out
 }
 
 // ---------------------------------------------------------------------
 // Scroll units.
 
-// chunkSpaces returns the scroll spaces of the chunks of f with their
-// offsets.
-func chunkSpaces(f *frame) map[*scroller]gfx.Point {
-	m := map[*scroller]gfx.Point{}
-	for _, in := range f.inst {
-		if in.layer.kind == layerChunk && in.layer.space != nil {
+// chunkSpaces adds the scroll spaces of the chunks of f with their
+// offsets to m (a new map when nil) and returns it.
+func chunkSpaces(f *frame, m map[*scroller]gfx.Point) map[*scroller]gfx.Point {
+	if m == nil {
+		m = map[*scroller]gfx.Point{}
+	}
+	for k := range f.inst {
+		if in := &f.inst[k]; in.layer.kind == layerChunk && in.layer.space != nil {
 			m[in.layer.space] = in.soff
 		}
 	}
 	return m
 }
 
+// shiftable reports whether layer l is a chunk of a scroll space whose
+// pixels may be shifted. A sticky or floating space's offset is not how
+// far its pixels move on screen (its container moves them too): it is
+// matched command by command, never shifted.
+func shiftable(l *layer) bool {
+	return l.kind == layerChunk && l.space != nil && !l.space.own()
+}
+
 // findUnits finds the scroll units of both frames and validates them.
 func (d *damager) findUnits() {
 	A, B := d.a.dl, d.b.dl
-	d.unitA, d.unitB = make([]int32, A.Len()), make([]int32, B.Len())
+	sc := d.scratch
+	sc.unitA, sc.unitB = resized(sc.unitA, A.Len()), resized(sc.unitB, B.Len())
+	d.unitA, d.unitB = sc.unitA, sc.unitB
 	for i := range d.unitA {
 		d.unitA[i] = -1
 	}
 	for i := range d.unitB {
 		d.unitB[i] = -1
 	}
-	sa, sb := chunkSpaces(d.a), chunkSpaces(d.b)
-	// The spaces that moved, in the order of the new frame.
-	cand := map[*scroller]bool{}
-	var order []*scroller
-	for _, in := range d.b.inst {
-		s := in.layer.space
-		if in.layer.kind != layerChunk || s == nil || cand[s] || s.own() {
-			// A sticky or floating space's offset is not how far its
-			// pixels move on screen (its container moves them too): it is
-			// matched command by command, never shifted.
+	if sc.cand == nil {
+		sc.cand = map[*scroller]bool{}
+	}
+	// The spaces that moved, in the order of the new frame. The offsets of
+	// the spaces are collected at the first one that can have moved.
+	var sa, sb map[*scroller]gfx.Point
+	cand, order := sc.cand, sc.order[:0]
+	defer func() {
+		if sa != nil {
+			clear(sa)
+			clear(sb)
+			sc.spacesA, sc.spacesB = sa, sb
+		}
+		clear(cand)
+		clear(order)
+		sc.order = order[:0]
+	}()
+	for k := range d.b.inst {
+		l := d.b.inst[k].layer
+		s := l.space
+		if !shiftable(l) || cand[s] {
 			continue
+		}
+		if sa == nil {
+			sa, sb = chunkSpaces(d.a, sc.spacesA), chunkSpaces(d.b, sc.spacesB)
 		}
 		if oa, ok := sa[s]; ok && oa != sb[s] {
 			cand[s] = true
@@ -689,10 +746,11 @@ func (d *damager) backdrop(dl *gfx.DisplayList, at int, enc []int, r image.Recta
 	return fills, true
 }
 
-// sequence returns the indices of f's commands to match: all but the
-// attachments (translations) of the top-level chunks of its valid units.
-func (d *damager) sequence(f *frame, unitOf []int32, units []unit) []int {
-	out := make([]int, 0, f.dl.Len())
+// sequence returns the indices of f's commands to match, in out resliced:
+// all but the attachments (translations) of the top-level chunks of its
+// valid units.
+func (d *damager) sequence(f *frame, unitOf []int32, units []unit, out []int) []int {
+	out = out[:0]
 	for i := range f.dl.Len() {
 		if unitOf[i] >= 0 && f.dl.Source(i) < 0 {
 			switch f.dl.At(i).(type) {
@@ -1151,22 +1209,10 @@ func (d *damager) backdropClosure() {
 				o = d.devB(i)
 				break
 			}
-			o = union(o, raster.BackdropOutputRegion(B, scale, k, r))
+			o = o.Union(raster.BackdropOutputRegion(B, scale, k, r))
 		}
 		d.add(o)
 	}
-}
-
-// union returns the smallest rectangle containing a and b (either may be
-// empty).
-func union(a, b image.Rectangle) image.Rectangle {
-	switch {
-	case a.Empty():
-		return b
-	case b.Empty():
-		return a
-	}
-	return a.Union(b)
 }
 
 // finish merges the damage into a few rectangles, or turns it into a full
@@ -1284,10 +1330,11 @@ func clusterRects(rs []image.Rectangle) []image.Rectangle {
 
 // blockUnits returns, for every push and pop of dl, the first valid unit
 // (unitOf) of a command inside its block, or -1 when there is none; -1
-// for the other commands.
-func blockUnits(dl *gfx.DisplayList, unitOf []int32) []int32 {
-	out := make([]int32, dl.Len())
-	var open []int // the pushes whose blocks are open
+// for the other commands. It fills out resliced, with open (returned for
+// reuse) holding the pushes whose blocks are open.
+func blockUnits(dl *gfx.DisplayList, unitOf, out []int32, open []int) ([]int32, []int) {
+	out = resized(out, dl.Len())
+	open = open[:0]
 	for i := range dl.Len() {
 		out[i] = -1
 		switch c := dl.At(i); {
@@ -1306,7 +1353,7 @@ func blockUnits(dl *gfx.DisplayList, unitOf []int32) []int32 {
 			}
 		}
 	}
-	return out
+	return out, open
 }
 
 // isPushPop reports whether c opens or closes a block.

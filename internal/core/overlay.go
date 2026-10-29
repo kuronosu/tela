@@ -391,13 +391,17 @@ func KeepOutsidePress(e PointerEvent, r ElementRef) {
 
 // escapeOverlay runs the Escape default action: the top overlay's
 // OnEscape. It reports whether there is a top overlay (which takes the
-// key whether or not it has OnEscape).
+// key whether or not it has OnEscape). st is the keydown's state, nil
+// when no keydown handler ran.
 func (t *Tree) escapeOverlay(ke KeyboardEvent, st *eventState) bool {
 	top := t.topEscapeOverlay()
 	if top == nil {
 		return false
 	}
 	if f := top.node.d.overlay.OnEscape; f != nil {
+		if st == nil {
+			st = &eventState{}
+		}
 		(&ke).prepare(t, st, top)
 		t.handlerDepth++ // it runs as a handler (flushNested)
 		func() {

@@ -455,7 +455,7 @@ func (t *Tree) devFocus(el *Element, typ focusType, hadKey bool) {
 	f.lastType, f.hadKey = typ, hadKey
 	f.gen++
 	f.el, f.start, f.auto = el, nil, nil
-	f.visible = f.lastType != focusMouse || f.hadKey || isTextFieldEl(el)
+	f.visible = f.visibleFor(el)
 	t.syncFocus()
 	if fld := textField(el); fld != nil {
 		t.caretReset(fld)

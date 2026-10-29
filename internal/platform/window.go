@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"time"
 )
 
 // WindowState is the OS state of a window, reported by [WindowStateEvent]
@@ -120,6 +121,42 @@ func HitTest(regions []HitRegion, p Point) HitKind {
 	}
 	return HitClient
 }
+
+// captionClickSlop is how far, in logical pixels, the second press of a
+// caption double click may be from the first.
+const captionClickSlop = 4
+
+// CaptionClicks detects the double clicks of primary presses in a
+// HitCaption region, for the backends that toggle maximize themselves
+// (Wayland, X11, headless). The zero value has no previous press.
+type CaptionClicks struct {
+	last time.Duration
+	pos  Point
+	has  bool
+}
+
+// Press records a primary caption press at time t and position pos and
+// reports whether it completes a double click: the previous press was at
+// most interval earlier (def when interval is not positive, the "unknown"
+// of SystemSettings.DoubleClickInterval) and at most captionClickSlop
+// away. A press that completes a double click is not recorded, so a third
+// press starts over.
+func (c *CaptionClicks) Press(t time.Duration, pos Point, interval, def time.Duration) bool {
+	if interval <= 0 {
+		interval = def
+	}
+	dx, dy := pos.X-c.pos.X, pos.Y-c.pos.Y
+	if c.has && t-c.last <= interval && dx*dx+dy*dy <= captionClickSlop*captionClickSlop {
+		c.has = false
+		return true
+	}
+	c.has, c.last, c.pos = true, t, pos
+	return false
+}
+
+// Reset forgets the last press (one that became a drag is not half of a
+// double click).
+func (c *CaptionClicks) Reset() { c.has = false }
 
 // CheckHitRegions panics with an actionable message if a region has an
 // invalid kind or a rectangle with a negative, NaN or infinite component.

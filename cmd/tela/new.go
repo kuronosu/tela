@@ -78,21 +78,14 @@ func runNew(args []string, stdout, stderr io.Writer) int {
 	skipDeps := fs.Bool("skip-deps", false, "")
 
 	// Flags and the directory may come in any order, as in the other commands.
-	var dirs []string
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				fmt.Fprint(stdout, newUsage)
-				return 0
-			}
-			fmt.Fprintf(stderr, "tela new: %v (see \"tela help new\")\n", err)
-			return 2
-		}
-		args = fs.Args()
-		if len(args) > 0 {
-			dirs = append(dirs, args[0])
-			args = args[1:]
-		}
+	dirs, err := parsePositionals("new", fs, args)
+	if errors.Is(err, flag.ErrHelp) {
+		fmt.Fprint(stdout, newUsage)
+		return 0
+	}
+	if err != nil {
+		fmt.Fprintf(stderr, "tela new: %v\n", err)
+		return 2
 	}
 	if len(dirs) != 1 {
 		if len(dirs) == 0 {

@@ -8,6 +8,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/editdist"
 )
 
 // Floating is what [UseFloating] returns: the props of the floating
@@ -208,31 +209,11 @@ func checkPlacement(fn, p string) bool {
 func closest(s string, list []string) string {
 	best, bestD := "", max(2, len(s)/3)+1
 	for _, c := range list {
-		if d := editDistance(strings.ToLower(s), c); d < bestD {
+		if d := editdist.Distance(strings.ToLower(s), c); d < bestD {
 			best, bestD = c, d
 		}
 	}
 	return best
-}
-
-func editDistance(a, b string) int {
-	prev := make([]int, len(b)+1)
-	cur := make([]int, len(b)+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= len(a); i++ {
-		cur[0] = i
-		for j := 1; j <= len(b); j++ {
-			cost := 1
-			if a[i-1] == b[j-1] {
-				cost = 0
-			}
-			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
-		}
-		prev, cur = cur, prev
-	}
-	return prev[len(b)]
 }
 
 // one returns the only options struct of a variadic parameter.

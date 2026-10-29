@@ -42,19 +42,9 @@ func parseFlags(command string, args []string, setup func(fs *flag.FlagSet)) (pk
 	fs.SetOutput(io.Discard)
 	setup(fs)
 
-	var pkgs []string
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return "", err
-			}
-			return "", fmt.Errorf("%v (see \"tela help %s\")", err, command)
-		}
-		args = fs.Args()
-		if len(args) > 0 {
-			pkgs = append(pkgs, args[0])
-			args = args[1:]
-		}
+	pkgs, err := parsePositionals(command, fs, args)
+	if err != nil {
+		return "", err
 	}
 	switch len(pkgs) {
 	case 0:
@@ -63,6 +53,28 @@ func parseFlags(command string, args []string, setup func(fs *flag.FlagSet)) (pk
 		return pkgs[0], nil
 	}
 	return "", fmt.Errorf("expected one <pkg>, got %d (%s)", len(pkgs), strings.Join(pkgs, ", "))
+}
+
+// parsePositionals parses args with fs and returns the positional arguments,
+// which may come in any order with the flags. flag.ErrHelp is returned as is;
+// any other flag error is decorated with a pointer to the help of command
+// (the words after "tela", such as "icons gen").
+func parsePositionals(command string, fs *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for len(args) > 0 {
+		if err := fs.Parse(args); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return nil, err
+			}
+			return nil, fmt.Errorf("%v (see \"tela help %s\")", err, command)
+		}
+		args = fs.Args()
+		if len(args) > 0 {
+			pos = append(pos, args[0])
+			args = args[1:]
+		}
+	}
+	return pos, nil
 }
 
 // renderFlags registers the flags of renderOptions on fs. size is where the

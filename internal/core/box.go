@@ -375,12 +375,11 @@ type paragraph struct {
 	// spanEls are the elements whose styles the spans have (span i is
 	// style i+1 of the layout), for TextColorFn (paint.go).
 	spanEls []*Element
-	// final holds the atoms' sizes of the last full layout and finalW
-	// the width it broke the lines at; sized reports that the layout's
-	// boxes have them (a size query since may have changed them).
-	final  []layout.AtomSize
-	finalW float32
-	sized  bool
+	// final holds the atoms' sizes of the last full layout; sized reports
+	// that the layout's boxes have them (a size query since may have
+	// changed them).
+	final []layout.AtomSize
+	sized bool
 	// frags caches the inline fragments for the lines of fragAt.
 	frags  []text.InlineFragment
 	fragAt [2]float32
@@ -574,7 +573,6 @@ func (p *paragraph) measureInline(t *Tree, in layout.MeasureInput, a *layout.Ato
 		p.breakAt(t, w)
 	}
 	if full {
-		p.finalW = w
 		l.AlignTo(w)
 		p.alignedAt = w
 		for i, bi := range p.atomBox {

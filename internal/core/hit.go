@@ -43,16 +43,17 @@ import (
 // scroll space of each box it is compared with (toSpace: the offsets of
 // the scroll containers whose content layers hold it), so a scroll moves
 // what is hit without placing the boxes again. A visible scrollbar takes
-// the hit before
-// what is painted under it, the scroll container's positioned
-// descendants with a z-index of 0 or more included when the container is
-// a stacking context (scrollbar.go); the press then targets the
-// container and records the bar (inputState.bar).
+// the hit before what is painted under it, the scroll container's
+// positioned descendants with a z-index of 0 or more included when the
+// container is a stacking context (scrollbar.go); the press then targets
+// the container, and hitTest returns the bar with it.
 
 // hitter is the state of a hit test. It reuses the painter for the
 // snapped geometry and the collection of stacking participants.
 type hitter struct {
 	painter
+	// bar is the scrollbar part the hit test found (scrollbar).
+	bar barHit
 }
 
 // HitTest returns the element under the point (x, y) of the window, in
@@ -60,21 +61,25 @@ type hitter struct {
 // the root for a point on nothing else, and nil outside the window or
 // before the first frame.
 func (t *Tree) HitTest(x, y float32) *Element {
-	return t.hitTest(gfx.Point{X: x, Y: y})
+	el, _ := t.hitTest(gfx.Point{X: x, Y: y})
+	return el
 }
 
-func (t *Tree) hitTest(pt gfx.Point) *Element {
+// hitTest returns the element under pt and the scrollbar part there, if
+// pt is on a visible scrollbar.
+func (t *Tree) hitTest(pt gfx.Point) (*Element, barHit) {
 	rb := t.rootBox
 	if rb == nil || rb.pcs == nil || !(gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}).Contains(pt) {
-		return nil
+		return nil, barHit{}
 	}
 	h := &t.in.hit
 	h.t, h.scale = t, float64(t.scale)
-	t.in.bar = barHit{}
 	el := h.stacked(rb, pt)
+	bar := h.bar
+	h.bar = barHit{}
 	clear(h.items)
 	h.items = h.items[:0]
-	return el
+	return el, bar
 }
 
 // alive reports whether bx was painted and its element still exists and
@@ -264,7 +269,7 @@ func (h *hitter) scrollbar(bx *Box, p gfx.Point) *Element {
 	if part == barNone {
 		return nil
 	}
-	h.t.in.bar = barHit{s: bx.scr, axis: i, part: part, at: p}
+	h.bar = barHit{s: bx.scr, axis: i, part: part, at: p}
 	return hitTarget(bx)
 }
 

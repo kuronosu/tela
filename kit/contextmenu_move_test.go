@@ -8,18 +8,10 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/kit"
 	"github.com/kuronosu/tela/telatest"
 )
-
-var touchAndPen = []platform.PointerKind{platform.PointerTouch, platform.PointerPen}
-
-func kindName(k platform.PointerKind) string {
-	if k == platform.PointerTouch {
-		return "touch"
-	}
-	return "pen"
-}
 
 // press puts a touch contact or a pen tip down at a point (a pen hovers
 // there first).
@@ -40,25 +32,7 @@ func (a *menuRaw) release(kind platform.PointerKind, x, y float32) {
 // gesture deadlines (the long press) on the way.
 func (a *menuRaw) hold(d time.Duration) {
 	a.t.Helper()
-	target := a.b.Now() + d
-	a.b.Wake()
-	for {
-		a.b.Drain(a.host)
-		now := a.b.Now()
-		if now >= target {
-			break
-		}
-		next := target
-		if t, ok := a.b.NextFrameTime(); ok && t > now && t < next {
-			next = t
-		}
-		if t, ok := a.tree.NextDeadline(); ok && t > now && t < next {
-			next = t
-		}
-		a.b.Advance(next - now)
-		a.b.Wake()
-	}
-	a.settle()
+	rawwin.Hold(a.b, a.host, d)
 }
 
 // countingPage is contextPage with Children that count their builds.
@@ -86,8 +60,8 @@ func countingPage(builds *int) func() tela.Node {
 // point is a deferred read of the float pass); a quick tap elsewhere on
 // the area still closes it.
 func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
-	for _, kind := range touchAndPen {
-		t.Run(kindName(kind), func(t *testing.T) {
+	for _, kind := range rawwin.TouchAndPen {
+		t.Run(rawwin.KindName(kind), func(t *testing.T) {
 			children := 0
 			app := mountMenuRaw(t, countingPage(&children), 480, 320)
 			app.rightClick(100, 80)

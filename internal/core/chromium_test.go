@@ -3,12 +3,13 @@ package core
 import (
 	"fmt"
 	"image"
-	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kuronosu/tela/internal/testutil/chromium"
+	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
 // The box gallery (gallery_test.go) is compared with Chromium's rendering
@@ -40,58 +41,17 @@ func regenerateGallery(t *testing.T, dir string) {
 	if err := os.WriteFile(htmlPath, []byte(galleryHTML()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	tw := os.Getenv("TELA_TAILWIND")
-	if tw == "" {
-		if tw, err = exec.LookPath("tailwindcss"); err != nil {
-			t.Fatal("the Tailwind CLI is needed: set TELA_TAILWIND to node_modules/.bin/tailwindcss")
-		}
-	}
-	// @import "tailwindcss" resolves from the input file's directory; name
-	// the package's entry point in the CLI's node_modules instead.
-	bin, err := filepath.EvalSymlinks(tw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modules := bin
-	for filepath.Base(modules) != "node_modules" {
-		if next := filepath.Dir(modules); next != modules {
-			modules = next
-			continue
-		}
-		t.Fatalf("%s is not inside a node_modules directory", tw)
-	}
-	tmp := t.TempDir()
-	input := filepath.Join(tmp, "input.css")
-	css := fmt.Sprintf("@import %q;\n@source %q;\n@theme { --font-sans: \"Inter\"; }\n%s",
-		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, chromiumFonts)
-	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := exec.Command(tw, "-i", input, "-o", filepath.Join(dir, "gallery.css")).CombinedOutput(); err != nil {
-		t.Fatalf("tailwindcss: %v\n%s", err, out)
-	}
+	chromium.Tailwind(t, htmlPath, filepath.Join(dir, "gallery.css"),
+		"@theme { --font-sans: \"Inter\"; }\n"+chromiumFonts)
 	w, h := gallerySize()
 	for _, scale := range []int{1, 2} {
 		shot, err := filepath.Abs(filepath.Join(dir, fmt.Sprintf("gallery_x%d.png", scale)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		cmd := exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars",
-			"--force-color-profile=srgb", fmt.Sprintf("--force-device-scale-factor=%d", scale),
-			fmt.Sprintf("--window-size=%d,%d", int(w), int(h)), "--screenshot="+shot, "file://"+htmlPath)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("chromium: %v\n%s", err, out)
-		}
+		chromium.Screenshot(t, "file://"+htmlPath, shot, int(w), int(h), scale)
 		// Chromium compresses fast; keep the committed file smaller.
-		img := readRGBA(t, shot)
-		f, err := os.Create(shot)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := (&png.Encoder{CompressionLevel: png.BestCompression}).Encode(f, img); err != nil {
-			t.Fatal(err)
-		}
-		f.Close()
+		golden.WriteBestPNG(t, shot, golden.ReadRGBA(t, shot))
 	}
 }
 
@@ -163,41 +123,6 @@ var chromiumBounds = map[string]chromiumBound{
 		"Blink quantizes line metrics in device pixels, so baselines move by one device pixel"},
 }
 
-func readRGBA(t *testing.T, path string) *image.RGBA {
-	t.Helper()
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatalf("%v (regenerate with TELA_CHROMIUM=1)", err)
-	}
-	defer f.Close()
-	img, err := png.Decode(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r, ok := img.(*image.RGBA); ok {
-		return r
-	}
-	out := image.NewRGBA(img.Bounds())
-	for y := out.Rect.Min.Y; y < out.Rect.Max.Y; y++ {
-		for x := out.Rect.Min.X; x < out.Rect.Max.X; x++ {
-			out.Set(x, y, img.At(x, y))
-		}
-	}
-	return out
-}
-
-func writePNG(t *testing.T, path string, img image.Image) {
-	t.Helper()
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err := png.Encode(f, img); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestChromiumGallery(t *testing.T) {
 	dir := filepath.Join("testdata", "chromium")
 	if os.Getenv("TELA_CHROMIUM") == "1" {
@@ -211,7 +136,7 @@ func TestChromiumGallery(t *testing.T) {
 	dump := os.Getenv("TELA_CHROMIUM_DUMP")
 	diffs := make([][2]boxDiff, len(names))
 	for si, scale := range []int{1, 2} {
-		want := readRGBA(t, filepath.Join(dir, fmt.Sprintf("gallery_x%d.png", scale)))
+		want := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("gallery_x%d.png", scale)))
 		_, got := Render(galleryRoot().node(), RenderOptions{
 			Config: Config{Fonts: testFonts, RootClass: "bg-white"},
 			Width:  w, Height: h, Scale: float32(scale),
@@ -220,7 +145,7 @@ func TestChromiumGallery(t *testing.T) {
 			t.Fatalf("x%d: render %v, Chromium %v", scale, got.Rect, want.Rect)
 		}
 		if dump != "" {
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("gallery_x%d_tela.png", scale)), got)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("gallery_x%d_tela.png", scale)), got)
 			d := image.NewRGBA(got.Rect)
 			for i := 0; i < len(d.Pix); i += 4 {
 				m := 0
@@ -231,7 +156,7 @@ func TestChromiumGallery(t *testing.T) {
 				v := uint8(min(255, 8*m))
 				d.Pix[i], d.Pix[i+1], d.Pix[i+2], d.Pix[i+3] = v, v, v, 255
 			}
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("gallery_x%d_diff.png", scale)), d)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("gallery_x%d_diff.png", scale)), d)
 		}
 		for i := range names {
 			r := rects[i]

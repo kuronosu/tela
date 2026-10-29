@@ -166,7 +166,7 @@ func (t *Tree) byID(id string) *Element {
 
 // labelable reports whether el can be labeled by a Label.
 func labelable(el *Element) bool {
-	return el != nil && el.kind == elemPrimitive && (el.box.kind.IsTextField() || el.box.kind == style.KindButton)
+	return el != nil && el.kind == elemPrimitive && nativeFocusable(el.box.kind)
 }
 
 // labelControl returns the control of Label label, or nil.
@@ -354,7 +354,11 @@ func (t *Tree) activate(target *Element, me MouseEvent) {
 				if s := t.trapping(ctl); s != nil {
 					t.keepInScope(s) // a control outside the active containing scope
 				} else {
-					t.setFocus(ctl, focusMouse) // reveals a text field's caret (fieldFocused)
+					was := t.foc.el == ctl
+					t.setFocus(ctl, focusMouse)
+					if f := textField(ctl); f != nil && !was && t.foc.el == ctl {
+						f.reveal() // a pointer focus does not (fieldFocused)
+					}
 				}
 			}
 			if ctl.mounted {

@@ -185,9 +185,10 @@ type Tree struct {
 	// (UI thread); a new theme clears it (setParser).
 	classReported map[string]bool
 
-	flatFree [][]flatEntry
-	itemFree [][]*Element
-	boxFree  [][]*Box
+	// Scratch slices: of reconcile's flattening, and of the box phase.
+	flatFree freeList[flatEntry]
+	itemFree freeList[*Element]
+	boxFree  freeList[*Box]
 
 	// Effects (UI thread): queued by builds for the layout commit
 	// (layoutFx, passiveFx, with the cleanups of unmounted components),

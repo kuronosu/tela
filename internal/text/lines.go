@@ -134,11 +134,23 @@ func (l *Layout) buildItems(li int, c0, c1 int32) {
 	}
 	ln.i0, ln.i1 = i0, int32(len(l.items))
 	items := l.items[i0:]
-	levels := make([]uint8, len(items))
+	// reorder reverses nothing on a line without an odd level, as most
+	// lines are (left to right throughout).
+	odd := false
 	for i := range items {
-		levels[i] = items[i].level
+		if items[i].level%2 == 1 {
+			odd = true
+			break
+		}
 	}
-	reorder(levels, items)
+	if !odd {
+		return
+	}
+	l.levels = l.levels[:0]
+	for i := range items {
+		l.levels = append(l.levels, items[i].level)
+	}
+	reorder(l.levels, items)
 }
 
 // truncate hides content at the end edge of line li (the right edge in a

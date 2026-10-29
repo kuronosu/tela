@@ -393,22 +393,30 @@ func TestRemoveDropsEvents(t *testing.T) {
 	r.expect("b platform.CloseRequestedEvent")
 }
 
-func TestCoalesce(t *testing.T) {
+func TestQueuePointer(t *testing.T) {
 	r := newRig(t, nil)
 	a, b := r.window("a"), r.window("b")
 	move := func(x float32) platform.PointerEvent {
 		return platform.PointerEvent{Action: platform.PointerMove, Pos: platform.Point{X: x}}
 	}
-	isMove := func(e platform.Event) bool {
-		p, ok := e.(platform.PointerEvent)
-		return ok && p.Action == platform.PointerMove
-	}
-	r.l.Coalesce(a, move(1), isMove)
-	r.l.Coalesce(a, move(2), isMove) // replaces 1
-	r.l.Coalesce(b, move(3), isMove) // another window: appended
-	r.l.Coalesce(b, move(4), isMove) // replaces 3
+	r.l.QueuePointer(a, move(1))
+	r.l.QueuePointer(a, move(2)) // replaces 1
+	r.l.QueuePointer(b, move(3)) // another window: appended
+	r.l.QueuePointer(b, move(4)) // replaces 3
 	r.l.Post(func() {})
-	r.l.Coalesce(b, move(5), isMove) // after a callback: appended
+	r.l.QueuePointer(b, move(5)) // after a callback: appended
+	held := move(6)
+	held.Buttons = platform.ButtonPrimary.Mask()
+	r.l.QueuePointer(b, held) // other buttons: appended
+	shift := move(7)
+	shift.Buttons, shift.Mods = held.Buttons, platform.ModShift
+	r.l.QueuePointer(b, shift) // other modifiers: appended
+	up := func(x float32) platform.PointerEvent {
+		return platform.PointerEvent{Action: platform.PointerUp, Pos: platform.Point{X: x}}
+	}
+	r.l.QueuePointer(b, up(8))
+	r.l.QueuePointer(b, up(9))    // not a move: appended
+	r.l.QueuePointer(b, move(10)) // after a release: appended
 	var got []float32
 	r.on = func(_ platform.Window, e platform.Event) {
 		if p, ok := e.(platform.PointerEvent); ok {
@@ -416,8 +424,8 @@ func TestCoalesce(t *testing.T) {
 		}
 	}
 	r.pass()
-	if fmt.Sprint(got) != "[2 4 5]" {
-		t.Errorf("coalesced moves = %v, want [2 4 5]", got)
+	if want := "[2 4 5 6 7 8 9 10]"; fmt.Sprint(got) != want {
+		t.Errorf("queued pointer events = %v, want %s", got, want)
 	}
 }
 

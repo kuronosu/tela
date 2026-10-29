@@ -189,8 +189,7 @@ func (p *Parser) Suggest(class string) string {
 
 // pctx is the context of parsing one class.
 type pctx struct {
-	th    *Theme
-	class string // the whole token, for error messages
+	th *Theme
 }
 
 // parse compiles a whole class string.
@@ -328,7 +327,7 @@ func withVariantPrefix(err error, tok string) error {
 // resolveUtility finds the utility of a class without variants and builds
 // its op.
 func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
-	c := &pctx{th: p.th, class: tok}
+	c := &pctx{th: p.th}
 	if strings.HasPrefix(util, "[") && strings.HasSuffix(util, "]") {
 		// Arbitrary properties: only [clip-path:...], which has no
 		// utility in Tailwind (ADR-079).

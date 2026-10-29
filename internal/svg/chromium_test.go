@@ -3,7 +3,6 @@ package svg
 import (
 	"fmt"
 	"image"
-	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/gfx/raster"
+	"github.com/kuronosu/tela/internal/testutil/chromium"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
@@ -255,36 +255,6 @@ func isEdge(img *image.RGBA, x, y int, r image.Rectangle) bool {
 	return false
 }
 
-func readPNG(t testing.TB, path string) *image.RGBA {
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	img, err := png.Decode(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := image.NewRGBA(img.Bounds())
-	for y := img.Bounds().Min.Y; y < img.Bounds().Max.Y; y++ {
-		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
-			out.Set(x, y, img.At(x, y))
-		}
-	}
-	return out
-}
-
-func writePNG(t testing.TB, path string, img image.Image) {
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err := png.Encode(f, img); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // regenerate writes the page and takes the Chromium screenshots.
 func regenerate(t *testing.T, gallery string, cells []galleryCell) {
 	dir, err := filepath.Abs(filepath.Join("testdata", gallery))
@@ -295,10 +265,7 @@ func regenerate(t *testing.T, gallery string, cells []galleryCell) {
 	if err := os.WriteFile(page, []byte(galleryHTML(cells)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	bin := os.Getenv("TELA_CHROMIUM_BIN")
-	if bin == "" {
-		bin = "chromium"
-	}
+	bin := chromium.Bin()
 	w, h := gallerySize(len(cells))
 	for _, scale := range []int{1, 2} {
 		out := filepath.Join(dir, fmt.Sprintf("x%d.png", scale))
@@ -332,12 +299,12 @@ func testChromiumGallery(t *testing.T, gallery string) {
 	stats := make([][2]cellStats, len(cells))
 	for si, scale := range []int{1, 2} {
 		got := renderGallery(t, cells, float32(scale))
-		ref := readPNG(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
+		ref := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
 		if ref.Rect != got.Rect {
 			t.Fatalf("x%d: render %v, Chromium %v", scale, got.Rect, ref.Rect)
 		}
 		if dump != "" {
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("svg_%s_x%d_tela.png", gallery, scale)), got)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("svg_%s_x%d_tela.png", gallery, scale)), got)
 		}
 		for i := range cells {
 			x, y := cellOrigin(i)

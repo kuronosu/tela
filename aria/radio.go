@@ -222,7 +222,7 @@ func (g *radioGroup[K]) tabStop(k K) bool {
 	if cur, has := g.val.value(); has && g.r.enabled(cur) {
 		return cur == k
 	}
-	first, ok := g.r.first()
+	first, ok := g.r.firstKey()
 	return ok && first == k
 }
 

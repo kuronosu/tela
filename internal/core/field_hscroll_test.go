@@ -565,10 +565,9 @@ func TestTextareaNowrapClickKeepsScroll(t *testing.T) {
 	}
 }
 
-// A focus by a pointer that does not place the caret (here set directly;
-// a label's press is the other) reveals the caret the field has; only the
-// press on the field itself, which puts the caret under the pointer, does
-// not reveal the old one.
+// A label's press, a pointer focus that does not place the caret, reveals
+// the caret the field has; the press on the field itself, which puts the
+// caret under the pointer, does not reveal the old one (fieldFocused).
 func TestTextareaNowrapMouseFocusReveals(t *testing.T) {
 	root := div(Class("p-2"),
 		label(Key("lb"), Class("block"), For("ta"), Text("Notes")),
@@ -594,16 +593,20 @@ func TestTextareaNowrapMouseFocusReveals(t *testing.T) {
 		}
 	}
 	away()
-	tr.setFocus(f.el, focusMouse)
-	x.settle()
-	if s.pos.X != s.max.X {
-		t.Errorf("a pointer focus without a press on the field: offset %v, want the caret's %v", s.pos.X, s.max.X)
-	}
-	away()
 	x.click(x.center("lb"))
 	x.settle()
 	if tr.foc.el != f.el || s.pos.X != s.max.X {
 		t.Errorf("a label's press: focused %v, offset %v, want %v", tr.foc.el == f.el, s.pos.X, s.max.X)
+	}
+	// A click on the label while the field keeps the focus (a press on the
+	// label blurs it first, unless pointerdown is prevented): as focus()
+	// in browsers, focusing the focused field does not scroll it.
+	tr.scrollDirect(s, gfx.Point{})
+	x.settle()
+	tr.dispatchClick(keyed(tr, "lb"), MouseEvent{})
+	x.settle()
+	if tr.foc.el != f.el || s.pos.X != 0 {
+		t.Errorf("a click on the label of the focused field: focused %v, offset %v, want 0", tr.foc.el == f.el, s.pos.X)
 	}
 	away()
 	// A press on the field puts the caret under the pointer, at the

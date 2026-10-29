@@ -187,11 +187,6 @@ type focusState struct {
 	// start is the sequential navigation starting point while nothing is
 	// focused.
 	start *Element
-	// pressCaret is the text field a primary press being handled targets,
-	// whose caret the press puts under the pointer (fieldPress), during
-	// its focus change: focusing it does not reveal the caret it had
-	// (fieldFocused).
-	pressCaret *Element
 	// auto is the AutoFocus element of the pending commit, mounted when gen
 	// was autoGen.
 	auto    *Element
@@ -271,8 +266,12 @@ func (t *Tree) afterFocusEvent() { t.flushNested() }
 // focusTarget reports whether el takes the focus at all: a Button or an
 // element with a TabIndex.
 func focusTarget(el *Element) bool {
-	return el.kind == elemPrimitive && (el.node.d.hasTab || el.box.kind == style.KindButton || el.box.kind.IsTextField())
+	return el.kind == elemPrimitive && (el.node.d.hasTab || nativeFocusable(el.box.kind))
 }
+
+// nativeFocusable reports whether elements of kind k take the focus
+// without a TabIndex: Buttons and text fields.
+func nativeFocusable(k style.Kind) bool { return k == style.KindButton || k.IsTextField() }
 
 // tabRank returns the position group of el in the sequential focus order
 // (a positive tab index, or MaxInt32 for 0) and whether it is in it.
@@ -281,7 +280,7 @@ func tabRank(el *Element) (int32, bool) {
 	ti := int32(0)
 	if d.hasTab {
 		ti = d.tabIndex
-	} else if el.box.kind != style.KindButton && !el.box.kind.IsTextField() {
+	} else if !nativeFocusable(el.box.kind) {
 		return 0, false
 	}
 	switch {
@@ -343,7 +342,7 @@ func (t *Tree) setFocus(el *Element, typ focusType) {
 	if typ != focusScript && typ != focusQuiet {
 		f.lastType = typ
 	}
-	f.visible = f.lastType != focusMouse || f.hadKey || isTextFieldEl(el)
+	f.visible = f.visibleFor(el)
 	t.cancelSpace()
 	old := f.el
 	g := f.gen
@@ -403,12 +402,17 @@ func (t *Tree) revealFocused(el *Element, typ focusType) {
 // updateVisible recomputes focus-visible: after a key or a pointer press.
 func (t *Tree) updateVisible() {
 	f := &t.foc
-	// Text fields match focus-visible however they were focused
-	// (Chromium).
-	if v := f.lastType != focusMouse || f.hadKey || isTextFieldEl(f.el); v != f.visible {
+	if v := f.visibleFor(f.el); v != f.visible {
 		f.visible = v
 		t.syncFocus()
 	}
+}
+
+// visibleFor reports whether focus on el matches focus-visible: unless a
+// pointer press focused it and no key came since. Text fields match it
+// however they were focused (Chromium).
+func (f *focusState) visibleFor(el *Element) bool {
+	return f.lastType != focusMouse || f.hadKey || isTextFieldEl(el)
 }
 
 // noteMouse records a pointer press for the focus-visible heuristic.
@@ -1098,11 +1102,7 @@ func (r ElementRef) Focused() bool {
 // every build. Attach it to a primitive with AttachRef.
 func UseElementRef() ElementRef {
 	el, i := nextSlot(hookElementRef)
-	if i < len(el.hooks) {
-		r, ok := el.hooks[i].(*elemRef)
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseElementRef")
-		}
+	if r, ok := existingSlot[*elemRef](el, i, "UseElementRef"); ok {
 		return ElementRef{r}
 	}
 	r := &elemRef{}

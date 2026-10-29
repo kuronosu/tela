@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"html"
 	"image"
-	"image/png"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -16,22 +14,9 @@ import (
 
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/style"
+	"github.com/kuronosu/tela/internal/testutil/chromium"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
-
-// writeBestPNG writes img to path with the best compression (Chromium's
-// screenshots are compressed fast).
-func writeBestPNG(t *testing.T, path string, img image.Image) {
-	t.Helper()
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err := (&png.Encoder{CompressionLevel: png.BestCompression}).Encode(f, img); err != nil {
-		t.Fatal(err)
-	}
-}
 
 // The inline gallery: paragraphs with decorated inline elements (code
 // chips, links, wrapped and nested spans, bidi text, truncation) and
@@ -269,64 +254,20 @@ func regenerateInlineGallery(t *testing.T, dir string) {
 	if err := os.WriteFile(htmlPath, []byte(inlineGalleryHTML()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	tw := os.Getenv("TELA_TAILWIND")
-	if tw == "" {
-		if tw, err = exec.LookPath("tailwindcss"); err != nil {
-			t.Fatal("the Tailwind CLI is needed: set TELA_TAILWIND to node_modules/.bin/tailwindcss")
-		}
-	}
-	bin, err := filepath.EvalSymlinks(tw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modules := bin
-	for filepath.Base(modules) != "node_modules" {
-		if next := filepath.Dir(modules); next != modules {
-			modules = next
-			continue
-		}
-		t.Fatalf("%s is not inside a node_modules directory", tw)
-	}
-	tmp := t.TempDir()
-	input := filepath.Join(tmp, "input.css")
-	css := fmt.Sprintf("@import %q;\n@source %q;\n@theme { --font-sans: \"Inter\", \"Noto Sans Arabic\"; --font-mono: \"JetBrains Mono\"; }\n%s",
-		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, inlineGalleryFonts)
-	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := exec.Command(tw, "-i", input, "-o", filepath.Join(dir, "gallery.css")).CombinedOutput(); err != nil {
-		t.Fatalf("tailwindcss: %v\n%s", err, out)
-	}
+	chromium.Tailwind(t, htmlPath, filepath.Join(dir, "gallery.css"),
+		"@theme { --font-sans: \"Inter\", \"Noto Sans Arabic\"; --font-mono: \"JetBrains Mono\"; }\n"+inlineGalleryFonts)
 	w, h := inlineGallerySize()
 	geom := inlineGeometry{}
 	for _, scale := range []int{1, 2} {
-		cmd := exec.Command("chromium", "--headless", "--disable-gpu", "--allow-file-access-from-files", "--virtual-time-budget=10000",
-			fmt.Sprintf("--force-device-scale-factor=%d", scale), fmt.Sprintf("--window-size=%d,%d", int(w), int(h)), "--dump-dom", "file://"+htmlPath)
-		outb, err := cmd.Output()
-		if err != nil {
-			t.Fatalf("chromium: %v", err)
-		}
-		s := string(outb)
-		i, j := strings.Index(s, "BEGIN"), strings.Index(s, "END</pre>")
-		if i < 0 || j < 0 {
-			t.Fatalf("chromium output has no result:\n%s", s[:min(len(s), 2000)])
-		}
 		var rects [][][4]float64
-		if err := json.Unmarshal([]byte(html.UnescapeString(s[i+5:j])), &rects); err != nil {
-			t.Fatal(err)
-		}
+		chromium.DumpJSON(t, "file://"+htmlPath, int(w), int(h), scale, &rects)
 		geom[fmt.Sprintf("x%d", scale)] = rects
 		shot, err := filepath.Abs(filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		cmd = exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
-			"--force-color-profile=srgb", fmt.Sprintf("--force-device-scale-factor=%d", scale),
-			fmt.Sprintf("--window-size=%d,%d", int(w), int(h)), "--screenshot="+shot, "file://"+htmlPath)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("chromium: %v\n%s", err, out)
-		}
-		writeBestPNG(t, shot, readRGBA(t, shot))
+		chromium.Screenshot(t, "file://"+htmlPath, shot, int(w), int(h), scale, "--allow-file-access-from-files")
+		golden.WriteBestPNG(t, shot, golden.ReadRGBA(t, shot))
 	}
 	var sb strings.Builder
 	sb.WriteString("{\n")
@@ -445,7 +386,7 @@ func TestChromiumInlineGallery(t *testing.T) {
 	for _, scale := range []int{1, 2} {
 		img, rects := renderInlineGallery(t, float32(scale))
 		if dump != "" {
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("inline_x%d_tela.png", scale)), img)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("inline_x%d_tela.png", scale)), img)
 		}
 		want := geom[fmt.Sprintf("x%d", scale)]
 		if len(want) != len(rects) {
@@ -488,7 +429,7 @@ func TestChromiumInlineGallery(t *testing.T) {
 			}
 		}
 		fmt.Fprintf(&report, "x%d: largest edge difference %.3f px (%s); horizontal edges %.3f px\n", scale, worst, worstAt, worstX)
-		shot := readRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
+		shot := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
 		if shot.Rect != img.Rect {
 			t.Fatalf("x%d: render %v, Chromium %v", scale, img.Rect, shot.Rect)
 		}

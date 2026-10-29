@@ -159,36 +159,29 @@ const (
 	vertical
 )
 
-func (d FlexDirection) mainAxis() axis {
-	if d.isRow() {
-		return horizontal
+// byDir returns row when dir is a row direction and col otherwise. It is
+// the one place that decides which axis is main for every pair and edge type
+// below: a main accessor is byDir(dir, x, y), a cross one byDir(dir, y, x),
+// and a setter through a pointer receiver writes *byDir(dir, &x, &y).
+// (Taffy writes these once on its generic Size<T> and Rect<T>; Go cannot add
+// methods to one instantiation of a generic type, so size, rect and the rest
+// stay separate types that keep their own arithmetic as methods.) Every call
+// inlines: no call, no dictionary, no boxing.
+func byDir[T any](dir FlexDirection, row, col T) T {
+	if dir.isRow() {
+		return row
 	}
-	return vertical
+	return col
 }
 
-func (d FlexDirection) crossAxis() axis {
-	if d.isRow() {
-		return vertical
-	}
-	return horizontal
-}
+func (d FlexDirection) mainAxis() axis  { return byDir(d, horizontal, vertical) }
+func (d FlexDirection) crossAxis() axis { return byDir(d, vertical, horizontal) }
 
 // point is a 2D point or vector.
 type point struct{ x, y float32 }
 
-func (p point) main(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return p.x
-	}
-	return p.y
-}
-
-func (p point) cross(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return p.y
-	}
-	return p.x
-}
+func (p point) main(dir FlexDirection) float32  { return byDir(dir, p.x, p.y) }
+func (p point) cross(dir FlexDirection) float32 { return byDir(dir, p.y, p.x) }
 
 // size is a width and a height.
 type size struct{ w, h float32 }
@@ -200,35 +193,10 @@ func (s size) get(a axis) float32 {
 	return s.h
 }
 
-func (s size) main(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return s.w
-	}
-	return s.h
-}
-
-func (s size) cross(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return s.h
-	}
-	return s.w
-}
-
-func (s *size) setMain(dir FlexDirection, v float32) {
-	if dir.isRow() {
-		s.w = v
-	} else {
-		s.h = v
-	}
-}
-
-func (s *size) setCross(dir FlexDirection, v float32) {
-	if dir.isRow() {
-		s.h = v
-	} else {
-		s.w = v
-	}
-}
+func (s size) main(dir FlexDirection) float32         { return byDir(dir, s.w, s.h) }
+func (s size) cross(dir FlexDirection) float32        { return byDir(dir, s.h, s.w) }
+func (s *size) setMain(dir FlexDirection, v float32)  { *byDir(dir, &s.w, &s.h) = v }
+func (s *size) setCross(dir FlexDirection, v float32) { *byDir(dir, &s.h, &s.w) = v }
 
 func (s size) add(b size) size { return size{s.w + b.w, s.h + b.h} }
 func (s size) sub(b size) size { return size{s.w - b.w, s.h - b.h} }
@@ -245,35 +213,10 @@ func (s size) maybeMax(b optSize) size { return size{fmaxOpt(s.w, b.w), fmaxOpt(
 // optSize is a pair of optional floats.
 type optSize struct{ w, h opt }
 
-func (s optSize) main(dir FlexDirection) opt {
-	if dir.isRow() {
-		return s.w
-	}
-	return s.h
-}
-
-func (s optSize) cross(dir FlexDirection) opt {
-	if dir.isRow() {
-		return s.h
-	}
-	return s.w
-}
-
-func (s *optSize) setMain(dir FlexDirection, v opt) {
-	if dir.isRow() {
-		s.w = v
-	} else {
-		s.h = v
-	}
-}
-
-func (s *optSize) setCross(dir FlexDirection, v opt) {
-	if dir.isRow() {
-		s.h = v
-	} else {
-		s.w = v
-	}
-}
+func (s optSize) main(dir FlexDirection) opt         { return byDir(dir, s.w, s.h) }
+func (s optSize) cross(dir FlexDirection) opt        { return byDir(dir, s.h, s.w) }
+func (s *optSize) setMain(dir FlexDirection, v opt)  { *byDir(dir, &s.w, &s.h) = v }
+func (s *optSize) setCross(dir FlexDirection, v opt) { *byDir(dir, &s.h, &s.w) = v }
 
 func (s optSize) or(b optSize) optSize     { return optSize{s.w.or(b.w), s.h.or(b.h)} }
 func (s optSize) maybeSubF(b size) optSize { return optSize{s.w.subF(b.w), s.h.subF(b.h)} }
@@ -313,47 +256,12 @@ func (r rect) sum() size { return size{r.l + r.r, r.t + r.b} }
 func (r rect) hsum() float32 { return r.l + r.r }
 func (r rect) vsum() float32 { return r.t + r.b }
 
-func (r rect) mainStart(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return r.l
-	}
-	return r.t
-}
-
-func (r rect) mainEnd(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return r.r
-	}
-	return r.b
-}
-
-func (r rect) crossStart(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return r.t
-	}
-	return r.l
-}
-
-func (r rect) crossEnd(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return r.b
-	}
-	return r.r
-}
-
-func (r rect) mainSum(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return r.l + r.r
-	}
-	return r.t + r.b
-}
-
-func (r rect) crossSum(dir FlexDirection) float32 {
-	if dir.isRow() {
-		return r.t + r.b
-	}
-	return r.l + r.r
-}
+func (r rect) mainStart(dir FlexDirection) float32  { return byDir(dir, r.l, r.t) }
+func (r rect) mainEnd(dir FlexDirection) float32    { return byDir(dir, r.r, r.b) }
+func (r rect) crossStart(dir FlexDirection) float32 { return byDir(dir, r.t, r.l) }
+func (r rect) crossEnd(dir FlexDirection) float32   { return byDir(dir, r.b, r.r) }
+func (r rect) mainSum(dir FlexDirection) float32    { return byDir(dir, r.hsum(), r.vsum()) }
+func (r rect) crossSum(dir FlexDirection) float32   { return byDir(dir, r.vsum(), r.hsum()) }
 
 // union returns the smallest rectangle containing r and o (Taffy's
 // Rect::union). The zero rect is not a neutral element in general, but
@@ -367,64 +275,18 @@ type optRect struct{ l, r, t, b opt }
 
 func (r optRect) or0() rect { return rect{r.l.or0(), r.r.or0(), r.t.or0(), r.b.or0()} }
 
-func (r optRect) mainStart(dir FlexDirection) opt {
-	if dir.isRow() {
-		return r.l
-	}
-	return r.t
-}
-
-func (r optRect) mainEnd(dir FlexDirection) opt {
-	if dir.isRow() {
-		return r.r
-	}
-	return r.b
-}
-
-func (r optRect) crossStart(dir FlexDirection) opt {
-	if dir.isRow() {
-		return r.t
-	}
-	return r.l
-}
-
-func (r optRect) crossEnd(dir FlexDirection) opt {
-	if dir.isRow() {
-		return r.b
-	}
-	return r.r
-}
+func (r optRect) mainStart(dir FlexDirection) opt  { return byDir(dir, r.l, r.t) }
+func (r optRect) mainEnd(dir FlexDirection) opt    { return byDir(dir, r.r, r.b) }
+func (r optRect) crossStart(dir FlexDirection) opt { return byDir(dir, r.t, r.l) }
+func (r optRect) crossEnd(dir FlexDirection) opt   { return byDir(dir, r.b, r.r) }
 
 // boolRect holds four flags, one per edge.
 type boolRect struct{ l, r, t, b bool }
 
-func (r boolRect) mainStart(dir FlexDirection) bool {
-	if dir.isRow() {
-		return r.l
-	}
-	return r.t
-}
-
-func (r boolRect) mainEnd(dir FlexDirection) bool {
-	if dir.isRow() {
-		return r.r
-	}
-	return r.b
-}
-
-func (r boolRect) crossStart(dir FlexDirection) bool {
-	if dir.isRow() {
-		return r.t
-	}
-	return r.l
-}
-
-func (r boolRect) crossEnd(dir FlexDirection) bool {
-	if dir.isRow() {
-		return r.b
-	}
-	return r.r
-}
+func (r boolRect) mainStart(dir FlexDirection) bool  { return byDir(dir, r.l, r.t) }
+func (r boolRect) mainEnd(dir FlexDirection) bool    { return byDir(dir, r.r, r.b) }
+func (r boolRect) crossStart(dir FlexDirection) bool { return byDir(dir, r.t, r.l) }
+func (r boolRect) crossEnd(dir FlexDirection) bool   { return byDir(dir, r.b, r.r) }
 
 // SpaceKind is the kind of an AvailableSpace.
 type SpaceKind uint8
@@ -503,19 +365,12 @@ func (a AvailableSpace) maxF(v float32) AvailableSpace {
 // availSize is available space in both axes.
 type availSize struct{ w, h AvailableSpace }
 
-func (s availSize) main(dir FlexDirection) AvailableSpace {
-	if dir.isRow() {
-		return s.w
-	}
-	return s.h
-}
+func (s availSize) main(dir FlexDirection) AvailableSpace  { return byDir(dir, s.w, s.h) }
+func (s availSize) cross(dir FlexDirection) AvailableSpace { return byDir(dir, s.h, s.w) }
 
-func (s availSize) cross(dir FlexDirection) AvailableSpace {
-	if dir.isRow() {
-		return s.h
-	}
-	return s.w
-}
+// withMain and withCross branch themselves: writing through
+// byDir(dir, &s.w, &s.h) would take the address of the receiver copy and
+// keep it in memory instead of registers.
 
 func (s availSize) withMain(dir FlexDirection, v AvailableSpace) availSize {
 	if dir.isRow() {

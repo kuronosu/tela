@@ -244,15 +244,15 @@ func (b *Backend) fail(r any) {
 	postQuitMessage()
 }
 
-// enqueue, coalesce and reconfigure queue work for the next pass.
+// enqueue, queuePointer and reconfigure queue work for the next pass.
 func (b *Backend) enqueue(w *Window, e platform.Event) {
 	b.dirty = true
 	b.loop.Enqueue(w, e)
 }
 
-func (b *Backend) coalesce(w *Window, e platform.Event, replace func(prev platform.Event) bool) {
+func (b *Backend) queuePointer(w *Window, e platform.PointerEvent) {
 	b.dirty = true
-	b.loop.Coalesce(w, e, replace)
+	b.loop.QueuePointer(w, e)
 }
 
 func (b *Backend) reconfigure(w *Window, m platform.Metrics) {

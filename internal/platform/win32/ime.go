@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/kuronosu/tela/internal/platform"
-	"github.com/kuronosu/tela/internal/platform/internal/utf16x"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // The IME through IMM32 (ADR-071). This file is the OS-independent half:

@@ -72,6 +72,16 @@ func (p *painter) fillRRect(rr gfx.RRect, paint gfx.Paint) {
 	p.b.FillRRect(rr, paint)
 }
 
+// pushClipRRect clips to rr, as a rectangle when its corners are square,
+// until the matching PopClip.
+func (p *painter) pushClipRRect(rr gfx.RRect) {
+	if rr.IsRect() {
+		p.b.PushClipRect(rr.Rect)
+		return
+	}
+	p.b.PushClipRRect(rr)
+}
+
 // ---------------------------------------------------------------------
 // Backgrounds.
 
@@ -140,7 +150,7 @@ func (p *painter) paintBackground(cs *style.ComputedStyle, g *boxGeom, pad layou
 		if blend {
 			p.b.PushLayer(1, cs.BackgroundBlend)
 		}
-		p.paintBgLayer(l, p.bgBox(g, pad, l.Origin).Rect, clip)
+		p.paintBgLayer(l, p.bgBox(g, pad, l.Origin).Rect, clip, "background")
 		if blend {
 			p.b.PopLayer()
 		}
@@ -181,8 +191,10 @@ type bgAxis struct {
 // ignored when two or more fit), and the tiles repeat over the painting
 // area. Image tiles that repeat are snapped to device pixels so that they
 // meet without seams; an image drawn much smaller than its pixels is
-// drawn from a prefiltered mip level (gfx.Image.Level).
-func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx.RRect) {
+// drawn from a prefiltered mip level (gfx.Image.Level). what names the
+// property in the report of an image that does not load ("background"
+// or "mask").
+func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx.RRect, what string) {
 	var img *gfx.Image
 	var doc *svg.Doc
 	switch {
@@ -192,10 +204,6 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 	case l.URL != "":
 		a, err := loadAsset(l.URL)
 		if err != nil {
-			what := "background"
-			if p.inMask {
-				what = "mask"
-			}
 			p.t.reportOnce(what+"-url:"+l.URL, "tela: "+what+" "+err.Error())
 			return
 		}
@@ -217,32 +225,7 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 		return
 	}
 	cb := clip.Rect
-	rx, ry := l.Repeat, l.Repeat
-	switch l.Repeat {
-	case style.RepeatX:
-		rx, ry = style.RepeatBoth, style.RepeatNone
-	case style.RepeatY:
-		rx, ry = style.RepeatNone, style.RepeatBoth
-	}
-	if rx == style.RepeatRound {
-		tw = aw / float32(max(1, math.Round(float64(aw/tw))))
-	}
-	if ry == style.RepeatRound {
-		th = ah / float32(max(1, math.Round(float64(ah/th))))
-	}
-	if img != nil {
-		// Like Blink, an image tile has whole device pixels, and it is
-		// positioned with that size (a centered image whose size is not
-		// whole is placed by its rounded size).
-		if rx != style.RepeatRound {
-			tw = p.snapSize(tw)
-		}
-		if ry != style.RepeatRound {
-			th = p.snapSize(th)
-		}
-	}
-	ax := bgTiling(rx, tw, area.X0, aw, l.PosX, cb.X0, cb.X1)
-	ay := bgTiling(ry, th, area.Y0, ah, l.PosY, cb.Y0, cb.Y1)
+	ax, ay := p.bgAxes(l, area, cb, tw, th, img != nil)
 	if (ax.to-ax.from)*(ay.to-ay.from) > maxBgTiles {
 		if p.t.dev {
 			p.t.warnOnce("bg-tiles", func() string {
@@ -254,23 +237,68 @@ func (p *painter) paintBgLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx
 		p.paintImageTiles(img, ax, ay, clip)
 		return
 	}
+	p.eachTile(ax, ay, cb, false, func(tile gfx.Rect) {
+		paint := l.Gradient.Paint(tile)
+		if tile.ContainsRect(cb) {
+			p.fillRRect(clip, paint)
+			return
+		}
+		p.b.PushClipRect(tile)
+		p.fillRRect(clip, paint)
+		p.b.PopClip()
+	})
+}
+
+// bgAxes returns the tilings along x and y of a layer whose tiles are
+// tw × th, in positioning area area and over painting area cb: repeat-x
+// and repeat-y repeat along one axis, round rescales a tile to a whole
+// number of tiles in the area, and snap rounds the size of the other
+// tiles to whole device pixels (image and document tiles).
+func (p *painter) bgAxes(l *style.BackgroundLayer, area, cb gfx.Rect, tw, th float32, snap bool) (ax, ay bgAxis) {
+	aw, ah := area.Width(), area.Height()
+	rx, ry := l.Repeat, l.Repeat
+	switch l.Repeat {
+	case style.RepeatX:
+		rx, ry = style.RepeatBoth, style.RepeatNone
+	case style.RepeatY:
+		rx, ry = style.RepeatNone, style.RepeatBoth
+	}
+	// Like Blink, an image tile has whole device pixels, and it is
+	// positioned with that size (a centered image whose size is not whole
+	// is placed by its rounded size).
+	if rx == style.RepeatRound {
+		tw = aw / float32(max(1, math.Round(float64(aw/tw))))
+	} else if snap {
+		tw = p.snapSize(tw)
+	}
+	if ry == style.RepeatRound {
+		th = ah / float32(max(1, math.Round(float64(ah/th))))
+	} else if snap {
+		th = p.snapSize(th)
+	}
+	return bgTiling(rx, tw, area.X0, aw, l.PosX, cb.X0, cb.X1), bgTiling(ry, th, area.Y0, ah, l.PosY, cb.Y0, cb.Y1)
+}
+
+// eachTile calls draw with the tiles of tilings ax × ay that meet cb, row
+// by row, the first maxBgTiles of them. snapped snaps the edges of every
+// tile to device pixels (skipping those left empty).
+func (p *painter) eachTile(ax, ay bgAxis, cb gfx.Rect, snapped bool, draw func(tile gfx.Rect)) {
 	tiles := 0
 	for j := ay.from; j < ay.to; j++ {
 		for i := ax.from; i < ax.to && tiles < maxBgTiles; i++ {
 			tx, ty := ax.start+float32(float32(i)*ax.period), ay.start+float32(float32(j)*ay.period)
 			tile := gfx.Rect{X0: tx, Y0: ty, X1: tx + ax.size, Y1: ty + ay.size}
+			if snapped {
+				tile = gfx.Rect{X0: p.snap(tx), Y0: p.snap(ty), X1: p.snap(tile.X1), Y1: p.snap(tile.Y1)}
+				if tile.Empty() {
+					continue
+				}
+			}
 			if !tile.Intersects(cb) {
 				continue
 			}
 			tiles++
-			paint := l.Gradient.Paint(tile)
-			if tile.ContainsRect(cb) {
-				p.fillRRect(clip, paint)
-				continue
-			}
-			p.b.PushClipRect(tile)
-			p.fillRRect(clip, paint)
-			p.b.PopClip()
+			draw(tile)
 		}
 	}
 }
@@ -290,43 +318,10 @@ func (p *painter) paintBgDoc(l *style.BackgroundLayer, doc *svg.Doc, area gfx.Re
 		return
 	}
 	cb := clip.Rect
-	rx, ry := l.Repeat, l.Repeat
-	switch l.Repeat {
-	case style.RepeatX:
-		rx, ry = style.RepeatBoth, style.RepeatNone
-	case style.RepeatY:
-		rx, ry = style.RepeatNone, style.RepeatBoth
-	}
-	if rx == style.RepeatRound {
-		tw = aw / float32(max(1, math.Round(float64(aw/tw))))
-	} else {
-		tw = p.snapSize(tw)
-	}
-	if ry == style.RepeatRound {
-		th = ah / float32(max(1, math.Round(float64(ah/th))))
-	} else {
-		th = p.snapSize(th)
-	}
-	ax := bgTiling(rx, tw, area.X0, aw, l.PosX, cb.X0, cb.X1)
-	ay := bgTiling(ry, th, area.Y0, ah, l.PosY, cb.Y0, cb.Y1)
-	if clip.IsRect() {
-		p.b.PushClipRect(cb)
-	} else {
-		p.b.PushClipRRect(clip)
-	}
+	ax, ay := p.bgAxes(l, area, cb, tw, th, true)
+	p.pushClipRRect(clip)
 	list := doc.Record(svg.Options{CurrentColor: gfx.Black})
-	tiles := 0
-	for j := ay.from; j < ay.to; j++ {
-		for i := ax.from; i < ax.to && tiles < maxBgTiles; i++ {
-			tx, ty := ax.start+float32(float32(i)*ax.period), ay.start+float32(float32(j)*ay.period)
-			tile := gfx.Rect{X0: p.snap(tx), Y0: p.snap(ty), X1: p.snap(tx + ax.size), Y1: p.snap(ty + ay.size)}
-			if tile.Empty() || !tile.Intersects(cb) {
-				continue
-			}
-			tiles++
-			doc.DrawRecorded(p.b, tile, list)
-		}
-	}
+	p.eachTile(ax, ay, cb, true, func(tile gfx.Rect) { doc.DrawRecorded(p.b, tile, list) })
 	p.b.PopClip()
 }
 
@@ -416,24 +411,8 @@ func (p *painter) paintImageTiles(img *gfx.Image, ax, ay bgAxis, clip gfx.RRect)
 			src = img.Level(n)
 		}
 	}
-	cb := clip.Rect
-	if clip.IsRect() {
-		p.b.PushClipRect(cb)
-	} else {
-		p.b.PushClipRRect(clip)
-	}
-	tiles := 0
-	for j := ay.from; j < ay.to; j++ {
-		for i := ax.from; i < ax.to && tiles < maxBgTiles; i++ {
-			tx, ty := ax.start+float32(float32(i)*ax.period), ay.start+float32(float32(j)*ay.period)
-			tile := gfx.Rect{X0: p.snap(tx), Y0: p.snap(ty), X1: p.snap(tx + ax.size), Y1: p.snap(ty + ay.size)}
-			if tile.Empty() || !tile.Intersects(cb) {
-				continue
-			}
-			tiles++
-			p.b.DrawImage(src, gfx.Rect{}, tile, gfx.SampleLinear)
-		}
-	}
+	p.pushClipRRect(clip)
+	p.eachTile(ax, ay, clip.Rect, true, func(tile gfx.Rect) { p.b.DrawImage(src, gfx.Rect{}, tile, gfx.SampleLinear) })
 	p.b.PopClip()
 }
 

@@ -59,27 +59,57 @@ func (c *Collection) Itemize(text []rune, start, end int, q Query, size float32,
 	if start >= end {
 		return out
 	}
-	cands := c.candidates(q, size)
-	var seg segmenter.Segmenter
-	seg.Init(text[start:end])
-	it := seg.GraphemeIterator()
+	return c.candidates(q, size).itemize(text, start, end, nil, script, out)
+}
+
+// itemize is Itemize for 0 <= start < end <= len(text) with the query's
+// candidates already resolved. segs, when not nil, holds the seg* flags of
+// the whole text (segmentText), whose grapheme boundaries are reused
+// instead of segmenting text[start:end] again: Layout.shape itemizes every
+// item of one text, and a forced break ends an item, so a text of many
+// lines has at least one item per line.
+//
+// The clusters are the same either way when start is a grapheme boundary
+// of the whole text: UAX #29 then decides each boundary inside the item
+// from the characters from start up to the one after the boundary (the
+// context that GB9c, GB11 and GB12/13 carry never runs through a
+// boundary). An item that starts inside a cluster of the whole text (a
+// style change between a character and its mark, say) is segmented on its
+// own, as Itemize does.
+func (cs *candidates) itemize(text []rune, start, end int, segs []uint8, script language.Script, out []Run) []Run {
 	var cur *Face
 	runStart := start
-	for it.Next() {
-		g := it.Grapheme()
-		cs := start + g.Offset
-		cluster := g.Text
+	add := func(c0, c1 int) {
+		cluster := text[c0:c1]
 		var f *Face
 		if cur != nil && keepsFace(cluster) {
 			f = cur
 		} else {
-			f = cands.resolve(cluster, script)
+			f = cs.resolve(cluster, script)
 		}
 		if f != cur {
 			if cur != nil {
-				out = append(out, Run{runStart, cs, cur})
+				out = append(out, Run{runStart, c0, cur})
 			}
-			cur, runStart = f, cs
+			cur, runStart = f, c0
+		}
+	}
+	if segs != nil && segs[start]&segGrapheme != 0 {
+		c0 := start
+		for c1 := start + 1; c1 <= end; c1++ {
+			if c1 == end || segs[c1]&segGrapheme != 0 {
+				add(c0, c1)
+				c0 = c1
+			}
+		}
+	} else {
+		var seg segmenter.Segmenter
+		seg.Init(text[start:end])
+		it := seg.GraphemeIterator()
+		for it.Next() {
+			g := it.Grapheme()
+			c0 := start + g.Offset
+			add(c0, c0+len(g.Text))
 		}
 	}
 	if cur != nil {

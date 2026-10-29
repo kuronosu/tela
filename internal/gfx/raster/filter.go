@@ -127,18 +127,6 @@ func growXY(rect image.Rectangle, dx, dy int) image.Rectangle {
 	return image.Rect(rect.Min.X-dx, rect.Min.Y-dy, rect.Max.X+dx, rect.Max.Y+dy).Intersect(lim)
 }
 
-// bbox returns the smallest rectangle containing a and b (either may be
-// empty).
-func bbox(a, b image.Rectangle) image.Rectangle {
-	switch {
-	case a.Empty():
-		return b
-	case b.Empty():
-		return a
-	}
-	return a.Union(b)
-}
-
 // pushFilterLayer starts a layer with filters; see the comment at the top of
 // this file. The state has been saved; op is the layer's 8-bit opacity.
 func (r *Renderer) pushFilterLayer(i int, c gfx.PushLayer, op uint8) {

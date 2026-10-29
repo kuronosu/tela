@@ -130,14 +130,12 @@ type supervisor struct {
 type trigger struct {
 	at    time.Time
 	keep  bool // keep state (false after R)
-	why   string
 	first bool
 }
 
 // proc is a child process.
 type proc struct {
 	gen     int
-	tag     string
 	cmd     *exec.Cmd
 	exe     string
 	owned   bool // exe is a build of tela dev: delete it when done
@@ -411,13 +409,13 @@ func (s *supervisor) handle(e any) {
 		}
 		why := describeChange(e.b)
 		s.log.verbosef("changed: %s", why)
-		s.startBuild(trigger{at: e.b.First, keep: true, why: why})
+		s.startBuild(trigger{at: e.b.First, keep: true})
 	case evKey:
 		switch e.r {
 		case 'r':
-			s.startBuild(trigger{at: time.Now(), keep: true, why: "r"})
+			s.startBuild(trigger{at: time.Now(), keep: true})
 		case 'R':
-			s.startBuild(trigger{at: time.Now(), keep: false, why: "R"})
+			s.startBuild(trigger{at: time.Now(), keep: false})
 		default:
 			s.quit(0, "")
 		}
@@ -749,7 +747,7 @@ func (s *supervisor) startChild(sw *swapState, state []byte) {
 		return
 	}
 	out.start(s.goSafe)
-	p := &proc{gen: res.gen, tag: tag, cmd: cmd, exe: res.exe, owned: res.owned, tail: tail, exited: make(chan struct{})}
+	p := &proc{gen: res.gen, cmd: cmd, exe: res.exe, owned: res.owned, tail: tail, exited: make(chan struct{})}
 	s.procs[p.gen] = p
 	sw.proc = p
 	s.goSafe(func() {

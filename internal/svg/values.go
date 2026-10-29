@@ -296,10 +296,9 @@ func parseViewBox(s string) (gfx.Rect, bool) {
 
 // aspect is a parsed preserveAspectRatio.
 type aspect struct {
-	none     bool  // align none: stretch
-	ax, ay   uint8 // 0 min, 1 mid, 2 max
-	slice    bool
-	explicit bool
+	none   bool  // align none: stretch
+	ax, ay uint8 // 0 min, 1 mid, 2 max
+	slice  bool
 }
 
 var defaultAspect = aspect{ax: 1, ay: 1}
@@ -312,7 +311,7 @@ func parseAspect(s string) (aspect, bool) {
 	if len(f) == 0 || len(f) > 2 {
 		return aspect{}, false
 	}
-	a := aspect{explicit: true}
+	var a aspect
 	if f[0] == "none" {
 		a.none = true
 	} else {

@@ -2,6 +2,7 @@ package edit
 
 import (
 	"github.com/kuronosu/tela/internal/text"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // This file holds IME composition (preedit). The preedit is not part of
@@ -114,7 +115,7 @@ func (e *Editor) CommitComposition(s string) Result {
 	}
 	s = sanitizeInput(s, e.opts.Multiline)
 	if m := e.opts.MaxLength; m > 0 {
-		s = truncateUTF16(s, m-UTF16Len(e.value))
+		s = truncateUTF16(s, m-utf16x.Len(e.value))
 	}
 	oldValue, oldSel := e.value, e.sel
 	at := e.compAt

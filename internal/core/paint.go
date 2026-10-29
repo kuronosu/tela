@@ -136,8 +136,6 @@ type painter struct {
 	clips []*Box // scratch for hoisted boxes' ancestor clips
 	// full: place prepares a full recording (layer.go).
 	full bool
-	// inMask: background layers are painted as mask layers (cssfx.go).
-	inMask bool
 	// The list being recorded (layer.go): the scroll space it is painted
 	// in, its interest rect, whether boxes outside the interest rect are
 	// skipped, its layer, and the lists of the enclosing layers.

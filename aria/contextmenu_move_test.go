@@ -8,16 +8,8 @@ import (
 	"github.com/kuronosu/tela/aria"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 )
-
-var touchAndPen = []platform.PointerKind{platform.PointerTouch, platform.PointerPen}
-
-func kindName(k platform.PointerKind) string {
-	if k == platform.PointerTouch {
-		return "touch"
-	}
-	return "pen"
-}
 
 // A touch or a pen that stays down elsewhere on the area while the menu
 // is open moves the open menu there, and its release does not close it
@@ -25,8 +17,8 @@ func kindName(k platform.PointerKind) string {
 // the menu out of that press. A quick tap elsewhere on the area still
 // closes it.
 func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
-	for _, kind := range touchAndPen {
-		t.Run(kindName(kind), func(t *testing.T) {
+	for _, kind := range rawwin.TouchAndPen {
+		t.Run(rawwin.KindName(kind), func(t *testing.T) {
 			var ev events
 			app := mountRaw(t, tela.C(ctxPage(aria.ContextMenuTriggerOptions{}, &ev)), 400, 300)
 			app.rightClick(90, 60)
@@ -65,8 +57,8 @@ func TestContextMenuLongPressWhileOpenMoves(t *testing.T) {
 // The same with the menu opened by a long press: a second long press
 // moves it and leaves it open.
 func TestContextMenuSecondLongPressMoves(t *testing.T) {
-	for _, kind := range touchAndPen {
-		t.Run(kindName(kind), func(t *testing.T) {
+	for _, kind := range rawwin.TouchAndPen {
+		t.Run(rawwin.KindName(kind), func(t *testing.T) {
 			var ev events
 			app := mountRaw(t, tela.C(ctxPage(aria.ContextMenuTriggerOptions{}, &ev)), 400, 300)
 			app.down(kind, 130, 40) // on the area, right of its button
@@ -95,8 +87,8 @@ func TestContextMenuSecondLongPressMoves(t *testing.T) {
 // the release and opens the other area's: only the long-pressed area's
 // own menu is kept out of the press.
 func TestContextMenuLongPressInAnotherArea(t *testing.T) {
-	for _, kind := range touchAndPen {
-		t.Run(kindName(kind), func(t *testing.T) {
+	for _, kind := range rawwin.TouchAndPen {
+		t.Run(rawwin.KindName(kind), func(t *testing.T) {
 			app := mountRaw(t, tela.C(twoAreas), 500, 300)
 			app.rightClick(50, 50)
 			if findNode(app.tree.Semantics(), "menu", "Left") == nil {

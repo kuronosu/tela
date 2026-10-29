@@ -412,14 +412,8 @@ func Overscan(n int) Prop {
 // virtualList is the component of VirtualList nodes.
 func virtualList(p *vprops) Node {
 	el, i := nextSlot(hookVirtual)
-	var vl *vlist
-	if i < len(el.hooks) {
-		v, ok := el.hooks[i].(*vlist)
-		if !ok {
-			el.tree.slotMismatch(el, i, "VirtualList")
-		}
-		vl = v
-	} else {
+	vl, ok := existingSlot[*vlist](el, i, "VirtualList")
+	if !ok {
 		vl = &vlist{tree: el.tree, el: el, hi: -1, nodes: map[int]Node{}}
 		vl.listMark = &virtNode{vl: vl, role: virtList}
 		vl.contentMark = &virtNode{vl: vl, role: virtContent}

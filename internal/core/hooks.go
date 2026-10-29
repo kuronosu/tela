@@ -84,6 +84,37 @@ func nextSlot(kind hookKind) (*Element, int) {
 	return el, i
 }
 
+// existingSlot returns hook slot i of el (from nextSlot) as S, and false
+// when the slot is new: the hook then appends the slot it makes. A slot
+// of another type panics (slotMismatch), want naming the hook called
+// now. apiFrame skips the frames of existingSlot and existingSlotOf, so
+// the panic names the component's call site.
+func existingSlot[S any](el *Element, i int, want string) (S, bool) {
+	if i >= len(el.hooks) {
+		var none S
+		return none, false
+	}
+	s, ok := el.hooks[i].(S)
+	if !ok {
+		el.tree.slotMismatch(el, i, want)
+	}
+	return s, true
+}
+
+// existingSlotOf is existingSlot for a hook generic in T: the mismatch
+// names it hook[T] ("UseState[int]"), a name built only to panic.
+func existingSlotOf[S, T any](el *Element, i int, hook string) (S, bool) {
+	if i >= len(el.hooks) {
+		var none S
+		return none, false
+	}
+	s, ok := el.hooks[i].(S)
+	if !ok {
+		el.tree.slotMismatch(el, i, hook+"["+typeName[T]()+"]")
+	}
+	return s, true
+}
+
 // typeName names T for messages.
 func typeName[T any]() string { return reflect.TypeFor[T]().String() }
 
@@ -157,11 +188,7 @@ func (st Setter[T]) slot(method string) *stateSlot[T] {
 // useStateSlot returns the state slot of the current hook call.
 func useStateSlot[T any](initial T) *stateSlot[T] {
 	el, i := nextSlot(hookState)
-	if i < len(el.hooks) {
-		s, ok := el.hooks[i].(*stateSlot[T])
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseState["+typeName[T]()+"]")
-		}
+	if s, ok := existingSlotOf[*stateSlot[T], T](el, i, "UseState"); ok {
 		return s
 	}
 	s := &stateSlot[T]{value: initial, el: el, comparable: reflect.TypeFor[T]().Comparable()}
@@ -244,6 +271,7 @@ func UseReducer[S, A any](reducer func(S, A) S, initial S) (S, Dispatcher[A]) {
 	}
 	el, i := nextSlot(hookReducer)
 	if i < len(el.hooks) {
+		// Not existingSlotOf: the name has two type arguments.
 		s, ok := el.hooks[i].(*reducerSlot[S, A])
 		if !ok {
 			el.tree.slotMismatch(el, i, "UseReducer["+typeName[S]()+", "+typeName[A]()+"]")

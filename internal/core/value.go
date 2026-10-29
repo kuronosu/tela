@@ -344,11 +344,7 @@ func newValue[T any](el *Element, initial T) *Value[T] {
 // is returned on every build.
 func UseValue[T any](initial T) *Value[T] {
 	el, i := nextSlot(hookValue)
-	if i < len(el.hooks) {
-		v, ok := el.hooks[i].(*Value[T])
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseValue["+typeName[T]()+"]")
-		}
+	if v, ok := existingSlotOf[*Value[T], T](el, i, "UseValue"); ok {
 		return v
 	}
 	v := newValue(el, initial)

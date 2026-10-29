@@ -3,17 +3,16 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"html"
 	"image"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/testutil/chromium"
 	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
@@ -122,68 +121,23 @@ func (g *cssGallery) regenerate(t *testing.T) {
 	if err := os.WriteFile(htmlPath, []byte(g.html()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	tw := os.Getenv("TELA_TAILWIND")
-	if tw == "" {
-		if tw, err = exec.LookPath("tailwindcss"); err != nil {
-			t.Fatal("the Tailwind CLI is needed: set TELA_TAILWIND to node_modules/.bin/tailwindcss")
-		}
-	}
-	bin, err := filepath.EvalSymlinks(tw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modules := bin
-	for filepath.Base(modules) != "node_modules" {
-		if next := filepath.Dir(modules); next != modules {
-			modules = next
-			continue
-		}
-		t.Fatalf("%s is not inside a node_modules directory", tw)
-	}
-	input := filepath.Join(t.TempDir(), "input.css")
 	fonts := g.fontCSS
 	if fonts == "" {
 		fonts = "@theme { --font-sans: \"Inter\"; }\n" + cssGalleryFonts
 	}
-	css := fmt.Sprintf("@import %q;\n@source %q;\n%s",
-		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, fonts)
-	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := exec.Command(tw, "-i", input, "-o", filepath.Join(dir, "gallery.css")).CombinedOutput(); err != nil {
-		t.Fatalf("tailwindcss: %v\n%s", err, out)
-	}
+	chromium.Tailwind(t, htmlPath, filepath.Join(dir, "gallery.css"), fonts)
 	w, h := g.size()
 	geom := inlineGeometry{}
 	for _, scale := range []int{1, 2} {
-		cmd := exec.Command("chromium", "--headless", "--disable-gpu", "--allow-file-access-from-files", "--virtual-time-budget=10000",
-			fmt.Sprintf("--force-device-scale-factor=%d", scale), fmt.Sprintf("--window-size=%d,%d", int(w), int(h)), "--dump-dom", "file://"+htmlPath)
-		outb, err := cmd.Output()
-		if err != nil {
-			t.Fatalf("chromium: %v", err)
-		}
-		s := string(outb)
-		i, j := strings.Index(s, "BEGIN"), strings.Index(s, "END</pre>")
-		if i < 0 || j < 0 {
-			t.Fatalf("chromium output has no result:\n%s", s[:min(len(s), 2000)])
-		}
 		var rects [][][4]float64
-		if err := json.Unmarshal([]byte(html.UnescapeString(s[i+5:j])), &rects); err != nil {
-			t.Fatal(err)
-		}
+		chromium.DumpJSON(t, "file://"+htmlPath, int(w), int(h), scale, &rects)
 		geom[fmt.Sprintf("x%d", scale)] = rects
 		shot, err := filepath.Abs(filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		cmd = exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
-			"--virtual-time-budget=10000", // fonts and background images loaded
-			"--force-color-profile=srgb", fmt.Sprintf("--force-device-scale-factor=%d", scale),
-			fmt.Sprintf("--window-size=%d,%d", int(w), int(h)), "--screenshot="+shot, "file://"+htmlPath)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("chromium: %v\n%s", err, out)
-		}
-		writeBestPNG(t, shot, readRGBA(t, shot))
+		chromium.Screenshot(t, "file://"+htmlPath, shot, int(w), int(h), scale, "--allow-file-access-from-files", "--virtual-time-budget=10000")
+		golden.WriteBestPNG(t, shot, golden.ReadRGBA(t, shot))
 	}
 	var sb strings.Builder
 	sb.WriteString("{\n")
@@ -308,7 +262,7 @@ func (g *cssGallery) compare(t *testing.T) {
 	for si, scale := range []int{1, 2} {
 		img, rects := g.render(t, float32(scale))
 		if dump != "" {
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("%s_x%d_tela.png", g.name, scale)), img)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("%s_x%d_tela.png", g.name, scale)), img)
 		}
 		want := geom[fmt.Sprintf("x%d", scale)]
 		if len(want) != len(rects) {
@@ -345,7 +299,7 @@ func (g *cssGallery) compare(t *testing.T) {
 			}
 		}
 		fmt.Fprintf(&report, "x%d: largest edge difference %.3f px (%s)\n", scale, worst, worstAt)
-		shot := readRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
+		shot := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
 		if shot.Rect != img.Rect {
 			t.Fatalf("x%d: render %v, Chromium %v", scale, img.Rect, shot.Rect)
 		}

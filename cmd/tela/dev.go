@@ -112,19 +112,9 @@ func parseDevArgs(args []string) (devOptions, error) {
 	fs.BoolVar(&o.NoState, "no-state", false, "")
 	fs.BoolVar(&o.Verbose, "v", false, "")
 	fs.BoolVar(&o.Verbose, "verbose", false, "")
-	var pkgs []string
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return o, err
-			}
-			return o, fmt.Errorf("%v (see \"tela help dev\")", err)
-		}
-		args = fs.Args()
-		if len(args) > 0 {
-			pkgs = append(pkgs, args[0])
-			args = args[1:]
-		}
+	pkgs, err := parsePositionals("dev", fs, args)
+	if err != nil {
+		return o, err
 	}
 	switch len(pkgs) {
 	case 0:

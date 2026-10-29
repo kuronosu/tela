@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Changed
+
+- Less work per frame (a codebase-wide cleanup, no change in output): a `Textarea` repaints only its visible lines, and with a selection only the selected lines (selecting all of a long text repainted the whole text once per selected line); events no handler listens to (pointer moves with no handlers) no longer allocate; animated boxes no longer copy their whole style every frame; the damage tracker and the window framebuffer (during an interactive resize) reuse their buffers; shaping reuses the paragraph's grapheme segmentation and font candidates for each run.
+
 ## [0.12.2] - 2026-10-28
 
 ### Fixed

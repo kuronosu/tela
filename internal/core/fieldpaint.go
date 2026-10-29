@@ -1,6 +1,8 @@
 package core
 
 import (
+	"sort"
+
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/text"
@@ -38,9 +40,15 @@ var (
 )
 
 // paintField records the content of text field bx in its layer.
+// The layer keeps the interest rect of the list it is in (unbounded where
+// that list culls nothing), by which recordFields culls its lines too.
 func (p *painter) paintField(bx *Box) {
-	p.openLayer(layerField, bx, p.space)
-	p.drawField(bx)
+	interest := unbounded
+	if p.cull {
+		interest = p.interest
+	}
+	p.openLayer(layerField, bx, p.space).interest = interest
+	p.drawField(bx, interest)
 	p.closeLayer()
 }
 
@@ -65,8 +73,13 @@ func (t *Tree) selectionColors(cs *style.ComputedStyle) (bg gfx.Color, fg gfx.Pa
 }
 
 // drawField draws the content of text field bx (see the comment at the top
-// of fieldpaint.go). Both callers check that bx has a field.
-func (p *painter) drawField(bx *Box) {
+// of fieldpaint.go). Both callers check that bx has a field. Only the
+// lines whose ink can meet interest (the interest rect of the field's
+// layer: what can be visible until it is recorded in full again, layer.go)
+// are painted, so that a caret blink or a keystroke in a long Textarea
+// paints a few screens of it, and the selected text only the lines whose
+// ink can meet each selection rectangle.
+func (p *painter) drawField(bx *Box, interest gfx.Rect) {
 	f := bx.fld
 	f.paintDirty = false
 	t := p.t
@@ -97,27 +110,39 @@ func (p *painter) drawField(bx *Box) {
 	if focused && !sel.IsCollapsed() && !f.ed.Composing() {
 		var bg gfx.Color
 		bg, fg = t.selectionColors(cs)
-		rects = lay.SelectionRects(sel, nil)
-		for i, r := range rects {
+		all := lay.SelectionRects(sel, nil)
+		rects = all[:0]
+		for _, r := range all {
 			// Snapped like box edges (Blink snaps selection rects too):
 			// the rectangles of consecutive lines share an edge, which at
 			// a fractional scale falls inside a device pixel, and two
 			// anti-aliased halves there would leave a light seam.
-			rects[i] = p.snapRect(r.Translate(origin.X, origin.Y))
-			p.b.FillRect(rects[i], bg)
+			if r = p.snapRect(r.Translate(origin.X, origin.Y)); r.Intersects(interest) {
+				p.b.FillRect(r, bg)
+				rects = append(rects, r)
+			}
 		}
 	}
+	// Glyphs overhang their line boxes (ascenders, accents, emoji): a line
+	// is painted where its box grown by twice the font size can meet the
+	// area, as paragraph.inkRect bounds the ink of a paragraph.
+	m := 2*f.ts.Size + 1
 	if f.ed.RawValue() == "" {
 		if ph := f.placeholder(cs, f.textWidth()); ph != nil {
 			ph.PaintScaled(p.b, origin, scale)
 		}
 	} else {
-		lay.PaintScaled(p.b, origin, scale)
+		i0, i1 := linesIn(lay, origin.Y, interest.Y0, interest.Y1, m)
+		lay.PaintLinesWith(p.b, origin, i0, i1, scale, nil)
 	}
 	if fg != nil {
 		for _, r := range rects {
+			i0, i1 := linesIn(lay, origin.Y, max(r.Y0, interest.Y0), min(r.Y1, interest.Y1), m)
+			if i0 == i1 {
+				continue
+			}
 			p.b.PushClipRect(r)
-			lay.PaintWith(p.b, origin, scale, fg)
+			lay.PaintLinesWith(p.b, origin, i0, i1, scale, fg)
 			p.b.PopClip()
 		}
 	}
@@ -162,6 +187,22 @@ func (p *painter) drawComposition(lay *text.Layout, origin gfx.Point, cs *style.
 	}
 }
 
+// linesIn returns the lines [i0, i1) of lay, painted with its top at y
+// oy, whose boxes grown vertically by m meet the band [y0, y1) (none when
+// it is empty). The lines of a layout go from top to bottom.
+func linesIn(lay *text.Layout, oy, y0, y1, m float32) (i0, i1 int) {
+	if y1 <= y0 {
+		return 0, 0
+	}
+	n := lay.NumLines()
+	i0 = sort.Search(n, func(i int) bool {
+		ln := lay.Line(i)
+		return oy+ln.Top+ln.Height+m > y0
+	})
+	i1 = i0 + sort.Search(n-i0, func(k int) bool { return oy+lay.Line(i0+k).Top-m >= y1 })
+	return i0, i1
+}
+
 // lineAtTop returns the line of lay whose top is y (the line of a
 // selection rectangle).
 func lineAtTop(lay *text.Layout, y float32) int {
@@ -190,12 +231,7 @@ func (t *Tree) recordFields(p *painter) {
 		if l.kind != layerField || l.box.fld == nil || !l.box.fld.paintDirty || l.box.pcs == nil {
 			continue
 		}
-		p.b, p.layer = L.builder(), l
-		p.drawField(l.box)
-		l.dl = p.b.Finish()
-		L.free = append(L.free, p.b)
-		l.paint = L.paints
-		L.recorded++
+		p.rerecord(l, func() { p.drawField(l.box, l.interest) })
 	}
 	p.b, p.layer = nil, nil
 }

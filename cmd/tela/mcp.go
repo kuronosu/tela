@@ -100,19 +100,9 @@ func parseMCPArgs(args []string) (mcpOptions, error) {
 	fs.StringVar(&o.Preview, "preview", "", "")
 	fs.BoolVar(&o.Verbose, "v", false, "")
 	fs.BoolVar(&o.Verbose, "verbose", false, "")
-	var pkgs []string
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return o, err
-			}
-			return o, fmt.Errorf("%v (see \"tela help mcp\")", err)
-		}
-		args = fs.Args()
-		if len(args) > 0 {
-			pkgs = append(pkgs, args[0])
-			args = args[1:]
-		}
+	pkgs, err := parsePositionals("mcp", fs, args)
+	if err != nil {
+		return o, err
 	}
 	switch len(pkgs) {
 	case 0:
@@ -374,7 +364,7 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 		s.broken = fmt.Sprintf("--preview %q: %s", s.mount.Preview, singleScreen(pkg.Name, det.contract))
 		return nil
 	}
-	names := scanPreviewNames(pkg.Dir, pkg.GoFiles)
+	names := det.previews
 	setNames := names != nil || det.contract != contractPreviews
 
 	lintDone := make(chan string, 1)

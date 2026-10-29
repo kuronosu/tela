@@ -286,7 +286,7 @@ func (r *Renderer) glyphSprite(cl *gfx.DisplayList, sx, sy float32, ox float64) 
 			}
 		}
 		if x0 >= 0 {
-			tight = bbox(tight, image.Rect(rect.Min.X+x0, y, rect.Min.X+x1, y+1))
+			tight = tight.Union(image.Rect(rect.Min.X+x0, y, rect.Min.X+x1, y+1))
 		}
 	}
 	if tight.Empty() {

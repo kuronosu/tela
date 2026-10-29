@@ -41,11 +41,8 @@ const (
 	// does the same).
 	captionDragThreshold = 8
 	// defaultDoubleClick is the caption double-click interval when the
-	// system settings do not give one (GTK's gtk-double-click-time), and
-	// doubleClickSlop how far apart (logical pixels) its two presses may
-	// be (the headless backend's rule).
+	// system settings do not give one (GTK's gtk-double-click-time).
 	defaultDoubleClick = 400 * time.Millisecond
-	doubleClickSlop    = 4
 )
 
 // windowCtl is the window control state of a Window.
@@ -86,9 +83,7 @@ type windowCtl struct {
 
 	// Caption double clicks: the last primary caption press that did not
 	// become a move.
-	lastCaption    time.Duration
-	lastCaptionPos platform.Point
-	hasLastCaption bool
+	captions platform.CaptionClicks
 
 	parent *Window                // WindowOptions.Parent
 	dialog *protocols.XdgDialogV1 // modal windows with xdg_wm_dialog_v1
@@ -700,7 +695,7 @@ func (s *seat) pointerMoved() {
 			dx, dy := p.pos.X-p.captionPos.X, p.pos.Y-p.captionPos.Y
 			if dx*dx+dy*dy >= captionDragThreshold*captionDragThreshold {
 				p.captionPending = false
-				w.ctl.hasLastCaption = false // a drag is not half of a double click
+				w.ctl.captions.Reset() // a drag is not half of a double click
 
 				// No toplevel: hidden meanwhile, nothing to move.
 				if w.toplevel != nil {
@@ -766,7 +761,7 @@ func (s *seat) osButton(btn platform.PointerButton, pressed bool, serial uint32,
 	p.osHeld = btn.Mask()
 	switch btn {
 	case platform.ButtonPrimary:
-		if w.captionDoubleClick(t, p.pos) {
+		if w.ctl.captions.Press(t, p.pos, w.b.Settings().DoubleClickInterval, defaultDoubleClick) {
 			w.SetMaximized(!w.states.maximized)
 			break
 		}
@@ -775,24 +770,6 @@ func (s *seat) osButton(btn platform.PointerButton, pressed bool, serial uint32,
 		w.toplevel.ShowWindowMenu(s.wl, serial, int32(p.pos.X), int32(p.pos.Y))
 	}
 	return true
-}
-
-// captionDoubleClick records a primary caption press at t and pos and
-// reports whether it completes a double click (the interval of the system
-// settings, defaultDoubleClick without one).
-func (w *Window) captionDoubleClick(t time.Duration, pos platform.Point) bool {
-	interval := w.b.Settings().DoubleClickInterval
-	if interval <= 0 {
-		interval = defaultDoubleClick
-	}
-	c := &w.ctl
-	dx, dy := pos.X-c.lastCaptionPos.X, pos.Y-c.lastCaptionPos.Y
-	if c.hasLastCaption && t-c.lastCaption <= interval && dx*dx+dy*dy <= doubleClickSlop*doubleClickSlop {
-		c.hasLastCaption = false
-		return true
-	}
-	c.hasLastCaption, c.lastCaption, c.lastCaptionPos = true, t, pos
-	return false
 }
 
 // --- session restore (xdg-session-management-v1) ---

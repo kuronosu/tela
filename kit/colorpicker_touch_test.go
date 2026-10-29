@@ -9,6 +9,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 	"github.com/kuronosu/tela/kit"
 )
 
@@ -24,26 +25,11 @@ type touchApp struct {
 
 func mountTouch(t *testing.T, root tela.Component, w, h float32) *touchApp {
 	t.Helper()
-	b := headless.New(headless.Options{Size: platform.Size{W: w, H: h}})
-	host, err := core.NewHost(b, core.Options{Config: core.Config{Dev: true, IDPrefix: "tt-"}, Root: core.NodeOf(root)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := &touchApp{t: t, b: b, host: host, win: host.Window().(*headless.Window), tree: host.Tree()}
-	a.win.SetFocused(true)
-	a.settle()
-	return a
+	b, host, win := rawwin.Mount(t, root, w, h, 0, core.Config{})
+	return &touchApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
 }
 
-func (a *touchApp) settle() {
-	for range 50 {
-		a.b.Drain(a.host)
-		if !a.b.Pending() && !a.tree.Dirty() && !a.host.NeedsFrame() {
-			return
-		}
-		a.b.Advance(a.b.FrameInterval())
-	}
-}
+func (a *touchApp) settle() { rawwin.Settle(a.b, a.host) }
 
 func (a *touchApp) inject(kind platform.PointerKind, act platform.PointerAction, x, y float32, held bool) {
 	e := platform.PointerEvent{Action: act, Kind: kind, ID: 1, Pos: platform.Point{X: x, Y: y}}

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
+	"github.com/kuronosu/tela/internal/testutil/chromium"
+	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
 // Transitions and keyframe animations are compared with Chromium's. The
@@ -203,13 +204,7 @@ func regenerateAnimOracle(t *testing.T, dir string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		cmd := exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars",
-			"--force-color-profile=srgb", "--force-device-scale-factor=1",
-			fmt.Sprintf("--window-size=%d,%d", w, h), "--screenshot="+shot,
-			fmt.Sprintf("file://%s?t=%d", htmlPath, at.Milliseconds()))
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("chromium: %v\n%s", err, out)
-		}
+		chromium.Screenshot(t, fmt.Sprintf("file://%s?t=%d", htmlPath, at.Milliseconds()), shot, w, h, 1)
 	}
 }
 
@@ -285,13 +280,13 @@ func TestChromiumAnimations(t *testing.T) {
 	var report strings.Builder
 	report.WriteString("case          time   max   mean  >16\n")
 	for _, at := range animOracleTimes {
-		want := readRGBA(t, filepath.Join(dir, fmt.Sprintf("t%d.png", at.Milliseconds())))
+		want := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("t%d.png", at.Milliseconds())))
 		got := renderAnimOracle(t, at)
 		if got.Rect != want.Rect {
 			t.Fatalf("t=%v: render %v, Chromium %v", at, got.Rect, want.Rect)
 		}
 		if dump != "" {
-			writePNG(t, filepath.Join(dump, fmt.Sprintf("anim_t%d_tela.png", at.Milliseconds())), got)
+			golden.WritePNG(t, filepath.Join(dump, fmt.Sprintf("anim_t%d_tela.png", at.Milliseconds())), got)
 		}
 		for i, c := range animCells {
 			col, row := i%animGridColumns, i/animGridColumns

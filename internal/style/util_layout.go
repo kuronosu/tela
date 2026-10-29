@@ -55,33 +55,19 @@ func (e *env) sides(m sideMask) sideMask {
 	return out
 }
 
-func setSidesDim(s *Sides[Dim], m sideMask, d Dim) {
+// setSides sets the sides of s that m selects to v.
+func setSides[T any](s *Sides[T], m sideMask, v T) {
 	if m&sTop != 0 {
-		s.Top = d
+		s.Top = v
 	}
 	if m&sRight != 0 {
-		s.Right = d
+		s.Right = v
 	}
 	if m&sBottom != 0 {
-		s.Bottom = d
+		s.Bottom = v
 	}
 	if m&sLeft != 0 {
-		s.Left = d
-	}
-}
-
-func setSidesLP(s *Sides[LP], m sideMask, l LP) {
-	if m&sTop != 0 {
-		s.Top = l
-	}
-	if m&sRight != 0 {
-		s.Right = l
-	}
-	if m&sBottom != 0 {
-		s.Bottom = l
-	}
-	if m&sLeft != 0 {
-		s.Left = l
+		s.Left = v
 	}
 }
 
@@ -139,7 +125,7 @@ func registerLayout(r *registry) {
 		{"inset-bs", sTop}, {"inset-be", sBottom},
 	} {
 		mask := p.mask
-		r.dimUtil(p.root, insetOpts, axisX, func(e *env, d Dim) { setSidesDim(&e.s.Inset, e.sides(mask), d) })
+		r.dimUtil(p.root, insetOpts, axisX, func(e *env, d Dim) { setSides(&e.s.Inset, e.sides(mask), d) })
 	}
 
 	// z-index.
@@ -263,11 +249,11 @@ func registerLayout(r *registry) {
 	// Padding and margin.
 	for _, p := range sideRoots("p", "") {
 		mask := p.mask
-		r.dimUtil(p.root, dimSpacing, axisX, func(e *env, d Dim) { setSidesLP(&e.s.Padding, e.sides(mask), d.LP) })
+		r.dimUtil(p.root, dimSpacing, axisX, func(e *env, d Dim) { setSides(&e.s.Padding, e.sides(mask), d.LP) })
 	}
 	for _, p := range sideRoots("m", "") {
 		mask := p.mask
-		r.dimUtil(p.root, dimAuto|dimSpacing|dimNeg, axisX, func(e *env, d Dim) { setSidesDim(&e.s.Margin, e.sides(mask), d) })
+		r.dimUtil(p.root, dimAuto|dimSpacing|dimNeg, axisX, func(e *env, d Dim) { setSides(&e.s.Margin, e.sides(mask), d) })
 	}
 
 	// Gap.

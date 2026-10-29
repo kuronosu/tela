@@ -46,11 +46,7 @@ func (c Callback[F]) zeroHandle() bool { return c.s == nil }
 // changes, and what it calls is always the latest build's fn.
 func UseCallback[F any](fn F) Callback[F] {
 	el, i := nextSlot(hookCallback)
-	if i < len(el.hooks) {
-		s, ok := el.hooks[i].(*cbSlot[F])
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseCallback["+typeName[F]()+"]")
-		}
+	if s, ok := existingSlotOf[*cbSlot[F], F](el, i, "UseCallback"); ok {
 		checkFunc(fn)
 		s.latest = fn
 		return Callback[F]{s}
@@ -143,11 +139,7 @@ type Ref[T any] struct {
 // Current to initial.
 func UseRef[T any](initial T) *Ref[T] {
 	el, i := nextSlot(hookRef)
-	if i < len(el.hooks) {
-		r, ok := el.hooks[i].(*Ref[T])
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseRef["+typeName[T]()+"]")
-		}
+	if r, ok := existingSlotOf[*Ref[T], T](el, i, "UseRef"); ok {
 		return r
 	}
 	r := &Ref[T]{Current: initial}
@@ -171,11 +163,7 @@ type idSlot struct{ id string }
 // order gives the same IDs.
 func UseID() string {
 	el, i := nextSlot(hookID)
-	if i < len(el.hooks) {
-		s, ok := el.hooks[i].(*idSlot)
-		if !ok {
-			el.tree.slotMismatch(el, i, "UseID")
-		}
+	if s, ok := existingSlot[*idSlot](el, i, "UseID"); ok {
 		return s.id
 	}
 	t := el.tree

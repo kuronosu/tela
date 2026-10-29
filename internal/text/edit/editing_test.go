@@ -201,21 +201,3 @@ func TestCopyCut(t *testing.T) {
 		t.Errorf("copy of a caret: %+v", p)
 	}
 }
-
-// TestUTF16 checks the UTF-16 helpers.
-func TestUTF16(t *testing.T) {
-	s := "a😀é日"
-	if n := UTF16Len(s); n != 5 {
-		t.Errorf("UTF16Len = %d, want 5", n)
-	}
-	for _, tc := range []struct{ u, b int }{{0, 0}, {1, 1}, {2, 1}, {3, 5}, {4, 7}, {5, 10}, {9, 10}} {
-		if got := UTF16ToByte(s, tc.u); got != tc.b {
-			t.Errorf("UTF16ToByte(%d) = %d, want %d", tc.u, got, tc.b)
-		}
-	}
-	for _, tc := range []struct{ b, u int }{{0, 0}, {1, 1}, {3, 1}, {5, 3}, {7, 4}, {10, 5}} {
-		if got := ByteToUTF16(s, tc.b); got != tc.u {
-			t.Errorf("ByteToUTF16(%d) = %d, want %d", tc.b, got, tc.u)
-		}
-	}
-}

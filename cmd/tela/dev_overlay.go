@@ -3,6 +3,7 @@ package main
 import (
 	"image"
 
+	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/remote"
 )
@@ -120,8 +121,8 @@ func (v *overlayView) draw(w platform.Window, fb *image.RGBA) {
 	}
 	g := v.pic.geom
 	r := image.Rect(
-		int(g.paint.x0*float32(m.Scale)), int(g.paint.y0*float32(m.Scale)),
-		int(g.paint.x1*float32(m.Scale)+0.999), int(g.paint.y1*float32(m.Scale)+0.999),
+		int(g.paint.X0*float32(m.Scale)), int(g.paint.Y0*float32(m.Scale)),
+		int(g.paint.X1*float32(m.Scale)+0.999), int(g.paint.Y1*float32(m.Scale)+0.999),
 	)
 	compositeOver(fb, v.pic.img, r)
 }
@@ -148,7 +149,7 @@ func (v *overlayView) handleInput(w platform.Window, e platform.Event) bool {
 	case platform.PointerEvent:
 		return v.pointer(w, e)
 	case platform.ScrollEvent:
-		return v.geometry(w).panel.contains(e.Pos)
+		return v.geometry(w).panel.Contains(gfx.Point(e.Pos))
 	}
 	return false
 }
@@ -164,19 +165,19 @@ func (v *overlayView) geometry(w platform.Window) ovGeom {
 
 func (v *overlayView) pointer(w platform.Window, e platform.PointerEvent) bool {
 	g := v.geometry(w)
-	in := g.panel.contains(e.Pos)
+	in := g.panel.Contains(gfx.Point(e.Pos))
 	switch e.Action {
 	case platform.PointerDown:
 		if !in {
 			return false
 		}
-		v.press = pressState{captured: true, onClose: g.close.contains(e.Pos)}
+		v.press = pressState{captured: true, onClose: g.close.Contains(gfx.Point(e.Pos))}
 		return true
 	case platform.PointerUp:
 		if !v.press.captured {
 			return false
 		}
-		closing := v.press.onClose && g.close.contains(e.Pos)
+		closing := v.press.onClose && g.close.Contains(gfx.Point(e.Pos))
 		if e.Buttons == 0 {
 			v.press = pressState{}
 		}

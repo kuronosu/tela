@@ -141,13 +141,13 @@ func (t *Tree) updatePresence(el *Element, n Node) {
 // left begin their exit and stay, at their old index (Motion's merge),
 // and exiting children that are back cancel it.
 func (t *Tree) reconcilePresence(p *Element, children []Node) {
-	buf := t.getFlat()
+	buf := t.flatFree.get()
 	entries := flatten(buf[:0], children)
 	if len(p.children) > 0 {
 		entries = t.presenceEntries(p, entries)
 	}
 	t.reconcileEntries(p, entries)
-	t.putFlat(entries)
+	t.flatFree.put(entries)
 }
 
 // presenceEntries returns entries with the exiting children of p inserted
@@ -474,14 +474,8 @@ func presenceRoot(el *Element) *Element {
 // present. Outside any Presence the component is always present.
 func UsePresence() (present bool, done func()) {
 	el, i := nextSlot(hookPresence)
-	var s *presenceSlot
-	if i < len(el.hooks) {
-		var ok bool
-		s, ok = el.hooks[i].(*presenceSlot)
-		if !ok {
-			el.tree.slotMismatch(el, i, "UsePresence")
-		}
-	} else {
+	s, ok := existingSlot[*presenceSlot](el, i, "UsePresence")
+	if !ok {
 		s = &presenceSlot{el: el, root: presenceRoot(el)}
 		t := el.tree
 		s.doneFn = func() {

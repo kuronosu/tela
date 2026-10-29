@@ -71,10 +71,9 @@ type textInput struct {
 	sent    *platform.TextInputState
 	// commits counts commit requests: the serial a current done carries.
 	commits uint32
-	// lastDone is the serial of the latest done; stale counts the dones
-	// whose serial was not our commit count (for tests and debugging).
-	lastDone uint32
-	stale    int
+	// stale counts the dones whose serial was not our commit count (for
+	// tests and debugging).
+	stale int
 
 	// Latched events, applied at done.
 	pendPreedit           string
@@ -179,7 +178,6 @@ func (ti *textInput) onDeleteSurrounding(e protocols.ZwpTextInputV3DeleteSurroun
 // onDone applies the latched events as one IMEEvent, whatever the serial
 // (see the notes at the top of this file).
 func (ti *textInput) onDone(e protocols.ZwpTextInputV3DoneEvent) {
-	ti.lastDone = e.Serial
 	if e.Serial != ti.commits {
 		ti.stale++
 	}

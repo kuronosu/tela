@@ -16,7 +16,6 @@ import (
 // unit is what the passes run on: the type-checked files of one package (or
 // of its test files).
 type unit struct {
-	path  string
 	pkg   *types.Package
 	info  *types.Info
 	files []*ast.File
@@ -128,7 +127,7 @@ func (r *run) run(patterns []string) (*Result, error) {
 			res.LoadErrors = append(res.LoadErrors, strings.ReplaceAll(msg, r.cwd+string(filepath.Separator), ""))
 			continue
 		}
-		r.units = append(r.units, &unit{path: p.ImportPath, pkg: c.pkg, info: c.info, files: c.files})
+		r.units = append(r.units, &unit{pkg: c.pkg, info: c.info, files: c.files})
 		if r.opts.Tests {
 			r.addTestUnits(p, c)
 		}
@@ -196,14 +195,14 @@ func (r *run) addTestUnits(p *listPackage, c *checked) {
 		all := append(append([]*ast.File(nil), c.files...), tests...)
 		pkg, info := r.l.checkTests(p, all, p.ImportPath)
 		if pkg != nil {
-			r.units = append(r.units, &unit{path: p.ImportPath + " [tests]", pkg: pkg, info: info, files: tests})
+			r.units = append(r.units, &unit{pkg: pkg, info: info, files: tests})
 		}
 	}
 	if len(p.XTestGoFiles) > 0 {
 		xtests, _ := r.l.files(p, p.XTestGoFiles, true)
 		pkg, info := r.l.checkTests(p, xtests, p.ImportPath+"_test")
 		if pkg != nil {
-			r.units = append(r.units, &unit{path: p.ImportPath + "_test", pkg: pkg, info: info, files: xtests})
+			r.units = append(r.units, &unit{pkg: pkg, info: info, files: xtests})
 		}
 	}
 }

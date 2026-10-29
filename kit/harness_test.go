@@ -3,12 +3,9 @@ package kit_test
 import (
 	"encoding/json"
 	"fmt"
-	"html"
 	"image"
-	"image/png"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -17,6 +14,8 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/testutil/chromium"
+	"github.com/kuronosu/tela/internal/testutil/golden"
 	"github.com/kuronosu/tela/kit"
 	"github.com/kuronosu/tela/telatest"
 )
@@ -407,13 +406,6 @@ const fontCSS = `@theme { --font-sans: "Inter"; }
 @font-face { font-family: "Inter"; src: url("../../../../internal/assets/fonts/inter/InterVariable-Italic.ttf"); font-weight: 100 900; font-style: italic; }
 `
 
-func chromiumBin() string {
-	if b := os.Getenv("TELA_CHROMIUM_BIN"); b != "" {
-		return b
-	}
-	return "chromium"
-}
-
 // regenerate writes the page and takes Chromium's geometry and screenshots.
 func (s *sheet) regenerate(t *testing.T) {
 	t.Helper()
@@ -428,50 +420,13 @@ func (s *sheet) regenerate(t *testing.T) {
 	if err := os.WriteFile(page, []byte(s.html()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	tw := os.Getenv("TELA_TAILWIND")
-	if tw == "" {
-		if tw, err = exec.LookPath("tailwindcss"); err != nil {
-			t.Fatal("the Tailwind CLI 4.3.3 is needed: set TELA_TAILWIND to node_modules/.bin/tailwindcss")
-		}
-	}
-	bin, err := filepath.EvalSymlinks(tw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modules := bin
-	for filepath.Base(modules) != "node_modules" {
-		next := filepath.Dir(modules)
-		if next == modules {
-			t.Fatalf("%s is not inside a node_modules directory", tw)
-		}
-		modules = next
-	}
-	input := filepath.Join(t.TempDir(), "input.css")
-	css := fmt.Sprintf("@import %q;\n@source %q;\n%s%s", filepath.Join(modules, "tailwindcss", "index.css"), page, fontCSS, shadcnCSS)
-	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := exec.Command(tw, "-i", input, "-o", filepath.Join(dir, "gallery.css")).CombinedOutput(); err != nil {
-		t.Fatalf("tailwindcss: %v\n%s", err, out)
-	}
+	chromium.Tailwind(t, page, filepath.Join(dir, "gallery.css"), fontCSS+shadcnCSS)
 	light, dark := s.heights(t)
 	w, hgt := s.pageWidth(), light+dark
 	geo := geometry{}
 	for _, scale := range []int{1, 2} {
-		dom, err := exec.Command(chromiumBin(), "--headless", "--disable-gpu", "--allow-file-access-from-files", "--virtual-time-budget=10000",
-			fmt.Sprintf("--force-device-scale-factor=%d", scale), fmt.Sprintf("--window-size=%d,%d", w, hgt), "--dump-dom", "file://"+page).Output()
-		if err != nil {
-			t.Fatalf("%s: %v", chromiumBin(), err)
-		}
-		str := string(dom)
-		i, j := strings.Index(str, "BEGIN"), strings.Index(str, "END</pre>")
-		if i < 0 || j < 0 {
-			t.Fatalf("chromium output has no result:\n%s", str[:min(len(str), 2000)])
-		}
 		var rows [][]any
-		if err := json.Unmarshal([]byte(html.UnescapeString(str[i+5:j])), &rows); err != nil {
-			t.Fatal(err)
-		}
+		chromium.DumpJSON(t, "file://"+page, w, hgt, scale, &rows)
 		g := map[string][][4]float64{}
 		for _, r := range rows {
 			g[r[0].(string)] = append(g[r[0].(string)], [4]float64{r[1].(float64), r[2].(float64), r[3].(float64), r[4].(float64)})
@@ -482,12 +437,8 @@ func (s *sheet) regenerate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if out, err := exec.Command(chromiumBin(), "--headless", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
-			"--virtual-time-budget=10000", "--force-color-profile=srgb", fmt.Sprintf("--force-device-scale-factor=%d", scale),
-			fmt.Sprintf("--window-size=%d,%d", w, hgt), "--screenshot="+abs, "file://"+page).CombinedOutput(); err != nil {
-			t.Fatalf("%s: %v\n%s", chromiumBin(), err, out)
-		}
-		writeBestPNG(t, shot, readPNG(t, shot))
+		chromium.Screenshot(t, "file://"+page, abs, w, hgt, scale, "--allow-file-access-from-files", "--virtual-time-budget=10000")
+		golden.WriteBestPNG(t, shot, golden.ReadRGBA(t, shot))
 	}
 	// One probe per line, so that the diff of a regeneration is readable.
 	var sb strings.Builder
@@ -547,10 +498,10 @@ func (s *sheet) chromium(t *testing.T) {
 		}, telatest.Size(float32(w), float32(hgt)), telatest.Scale(float64(scale)), telatest.Theme(s.themeOf()))
 		img := app.Screenshot()
 		if dump != "" {
-			writeBestPNG(t, filepath.Join(dump, fmt.Sprintf("kit_%s_x%d_tela.png", s.name, scale)), img)
+			golden.WriteBestPNG(t, filepath.Join(dump, fmt.Sprintf("kit_%s_x%d_tela.png", s.name, scale)), img)
 		}
 		want := geo[fmt.Sprintf("x%d", scale)]
-		shot := readPNG(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
+		shot := golden.ReadRGBA(t, filepath.Join(dir, fmt.Sprintf("x%d.png", scale)))
 		if shot.Rect != img.Rect {
 			t.Fatalf("x%d: Tela's render is %v, Chromium's %v", scale, img.Rect, shot.Rect)
 		}
@@ -634,41 +585,6 @@ func diffRegion(a, b *image.RGBA, r image.Rectangle) regionDiff {
 		d.mean = float64(sum) / float64(n)
 	}
 	return d
-}
-
-func readPNG(t testing.TB, path string) *image.RGBA {
-	t.Helper()
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatalf("%v (regenerate with TELA_CHROMIUM=1)", err)
-	}
-	defer f.Close()
-	img, err := png.Decode(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := img.Bounds()
-	out := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
-	for y := range b.Dy() {
-		for x := range b.Dx() {
-			out.Set(x, y, img.At(b.Min.X+x, b.Min.Y+y))
-		}
-	}
-	return out
-}
-
-// writeBestPNG writes img with the best compression: the screenshots are
-// committed.
-func writeBestPNG(t testing.TB, path string, img image.Image) {
-	t.Helper()
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err := (&png.Encoder{CompressionLevel: png.BestCompression}).Encode(f, img); err != nil {
-		t.Fatal(err)
-	}
 }
 
 // cn is shadcn's cn(): the classes joined and merged by tailwind-merge, so

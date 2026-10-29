@@ -48,7 +48,7 @@ func registerColors(r *registry) {
 	for _, k := range sortedMapKeys(backgroundPositions) {
 		p := backgroundPositions[k]
 		bgKeys[k] = op(func(e *env) {
-			e.sc.bgPosX, e.sc.bgPosY, e.sc.bgPosSet = PctLP(p[0]), PctLP(p[1]), true
+			e.sc.bgPosX, e.sc.bgPosY = PctLP(p[0]), PctLP(p[1])
 		})
 	}
 	r.enum("bg", false, bgKeys)
@@ -63,7 +63,7 @@ func registerColors(r *registry) {
 	r.add("bg-position", false, func(c *pctx, a *arg) (Op, error) {
 		if !a.arb || a.hasMod {
 			if p, ok := backgroundPositions[a.value]; ok && !a.hasMod {
-				return op(func(e *env) { e.sc.bgPosX, e.sc.bgPosY, e.sc.bgPosSet = PctLP(p[0]), PctLP(p[1]), true }), nil
+				return op(func(e *env) { e.sc.bgPosX, e.sc.bgPosY = PctLP(p[0]), PctLP(p[1]) }), nil
 			}
 			return Op{}, errNoMatch
 		}
@@ -383,5 +383,5 @@ func bgPositionOp(in string) (Op, error) {
 	if err != nil {
 		return Op{}, err
 	}
-	return op(func(e *env) { e.sc.bgPosX, e.sc.bgPosY, e.sc.bgPosSet = x, y, true }), nil
+	return op(func(e *env) { e.sc.bgPosX, e.sc.bgPosY = x, y }), nil
 }

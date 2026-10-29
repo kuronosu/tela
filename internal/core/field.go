@@ -8,11 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kuronosu/tela/internal/editdist"
 	"github.com/kuronosu/tela/internal/gfx"
 	"github.com/kuronosu/tela/internal/layout"
 	"github.com/kuronosu/tela/internal/style"
 	"github.com/kuronosu/tela/internal/text"
 	"github.com/kuronosu/tela/internal/text/edit"
+	"github.com/kuronosu/tela/internal/utf16x"
 )
 
 // Text fields (ARCHITECTURE sections 11 and 14, ADR-069): Input (one
@@ -101,21 +103,17 @@ var buttonTypeNames = [...]string{"submit", "button", "reset"}
 // formProps are the props of the form elements (Input, Textarea, the Type
 // of a Button, the For of a Label), nil on a desc without any.
 type formProps struct {
-	typ          string
-	hasType      bool
-	value        string
-	hasValue     bool
-	bind         *Value[string]
-	defValue     string
-	placeholder  string
-	readOnly     bool
-	maxLength    int
-	autoComplete string
-	spellCheck   bool
-	hasSpell     bool
-	name         string
-	rows         int
-	forID        string
+	typ         string
+	hasType     bool
+	value       string
+	hasValue    bool
+	bind        *Value[string]
+	defValue    string
+	placeholder string
+	readOnly    bool
+	maxLength   int
+	rows        int
+	forID       string
 	// set records which props were given, for the checks of Primitive.
 	set uint32
 }
@@ -145,13 +143,16 @@ var fpNames = map[uint32]string{
 	fpName: "Name", fpRows: "Rows", fpFor: "For",
 }
 
+// f may be nil for a prop that is accepted and ignored.
 func formProp(name string, bit uint32, f func(fp *formProps)) Prop {
 	return Prop{name: name, apply: func(d *desc) {
 		if d.fp == nil {
 			d.fp = &formProps{}
 		}
 		d.fp.set |= bit
-		f(d.fp)
+		if f != nil {
+			f(d.fp)
+		}
 	}}
 }
 
@@ -243,18 +244,18 @@ func MaxLength(n int) Prop {
 // AutoComplete is HTML's autocomplete hint. It is accepted for
 // familiarity; Tela has no autofill.
 func AutoComplete(s string) Prop {
-	return formProp("AutoComplete", fpAutoComplete, func(fp *formProps) { fp.autoComplete = s })
+	return formProp("AutoComplete", fpAutoComplete, nil)
 }
 
 // SpellCheck is HTML's spellcheck hint. It is accepted and ignored: Tela
 // has no spell checker.
 func SpellCheck(on bool) Prop {
-	return formProp("SpellCheck", fpSpellCheck, func(fp *formProps) { fp.spellCheck, fp.hasSpell = on, true })
+	return formProp("SpellCheck", fpSpellCheck, nil)
 }
 
 // Name names a text field or a button in its form (HTML's name).
 func Name(s string) Prop {
-	return formProp("Name", fpName, func(fp *formProps) { fp.name = s })
+	return formProp("Name", fpName, nil)
 }
 
 // For makes a Label label the element whose ID is id.
@@ -346,7 +347,7 @@ func fpWhere(bit uint32) string {
 func closestName(s string, names []string) string {
 	best, bestD := "", 1<<30
 	for _, n := range names {
-		if d := editDistance(strings.ToLower(s), n); d < bestD {
+		if d := editdist.Distance(strings.ToLower(s), n); d < bestD {
 			best, bestD = n, d
 		}
 	}
@@ -703,7 +704,7 @@ func (t *Tree) fieldStates(f *field) {
 	raw := f.ed.RawValue()
 	shown := fp.placeholder != "" && raw == ""
 	invalid := !ro && (f.typeMismatch(raw) ||
-		f.edited && fp.maxLength > 0 && edit.UTF16Len(f.ed.Value()) > fp.maxLength)
+		f.edited && fp.maxLength > 0 && utf16x.Len(f.ed.Value()) > fp.maxLength)
 	t.setState(el, style.StateReadOnly, ro)
 	t.setState(el, style.StatePlaceholderShown, shown)
 	t.setState(el, style.StateInvalid, invalid)
@@ -1241,11 +1242,8 @@ func (t *Tree) runReveals() {
 	t.frev.q = q[:0]
 }
 
-// revealNow is reveal with the field's current layout.
-func (f *field) revealNow() { f.revealNowBy(true) }
-
-// revealNowBy is revealNow; pad false leaves out the padding at the ends
-// of a Textarea's horizontal overflow.
+// revealNowBy is revealBy with the field's current layout; pad false
+// leaves out the padding at the ends of a Textarea's horizontal overflow.
 func (f *field) revealNowBy(pad bool) {
 	lay := f.layout()
 	if lay == nil || f.bx.cs == nil {

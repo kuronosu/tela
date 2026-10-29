@@ -10,6 +10,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/semantics"
+	"github.com/kuronosu/tela/internal/testutil/rawwin"
 )
 
 // events records what the callbacks of a test saw, in order.
@@ -37,55 +38,21 @@ type rawApp struct {
 
 func mountRaw(t *testing.T, root tela.Component, w, h float32) *rawApp {
 	t.Helper()
-	b := headless.New(headless.Options{Size: platform.Size{W: w, H: h}})
-	host, err := core.NewHost(b, core.Options{
-		Config: core.Config{Dev: true, IDPrefix: "tt-"},
-		Root:   core.NodeOf(root),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := &rawApp{t: t, b: b, host: host, win: host.Window().(*headless.Window), tree: host.Tree()}
-	a.win.SetFocused(true)
-	a.settle()
-	return a
+	b, host, win := rawwin.Mount(t, root, w, h, 0, core.Config{})
+	return &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
 }
 
 // settle runs the frames the app asks for.
 func (a *rawApp) settle() {
 	a.t.Helper()
-	for range 50 {
-		a.b.Drain(a.host)
-		if !a.b.Pending() && !a.tree.Dirty() && !a.host.NeedsFrame() {
-			return
-		}
-		a.b.Advance(a.b.FrameInterval())
-	}
+	rawwin.Settle(a.b, a.host)
 }
 
 // advance moves the clock forward by d, stopping at the frames and the
 // gesture deadlines (a long press) on the way.
 func (a *rawApp) advance(d time.Duration) {
 	a.t.Helper()
-	target := a.b.Now() + d
-	a.b.Wake()
-	for {
-		a.b.Drain(a.host)
-		now := a.b.Now()
-		if now >= target {
-			break
-		}
-		next := target
-		if t, ok := a.b.NextFrameTime(); ok && t > now && t < next {
-			next = t
-		}
-		if t, ok := a.tree.NextDeadline(); ok && t > now && t < next {
-			next = t
-		}
-		a.b.Advance(next - now)
-		a.b.Wake()
-	}
-	a.settle()
+	rawwin.Hold(a.b, a.host, d)
 }
 
 func (a *rawApp) pointer(kind platform.PointerKind, act platform.PointerAction, x, y float32, held bool) {

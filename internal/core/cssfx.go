@@ -235,9 +235,7 @@ func opaqueLayer(l *style.BackgroundLayer) bool {
 func (p *painter) maskLayer(l *style.BackgroundLayer, area gfx.Rect, clip gfx.RRect, mode style.MaskMode) *gfx.DisplayList {
 	saved := p.b
 	p.b = p.t.lay.builder()
-	p.inMask = true
-	p.paintBgLayer(l, area, clip)
-	p.inMask = false
+	p.paintBgLayer(l, area, clip, "mask")
 	list := p.finishMask(p.b)
 	p.b = saved
 	if mode != style.MaskModeLuminance || list == nil {

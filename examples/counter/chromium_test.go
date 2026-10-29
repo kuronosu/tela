@@ -3,14 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"html"
-	"image"
-	"image/png"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kuronosu/tela/internal/testutil/chromium"
+	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
 // The Counter is compared with Chromium's rendering of the same markup in
@@ -142,71 +141,16 @@ func TestRegenerateChromium(t *testing.T) {
 		}
 	}
 
-	tw := os.Getenv("TELA_TAILWIND")
-	if tw == "" {
-		if tw, err = exec.LookPath("tailwindcss"); err != nil {
-			t.Fatal("the Tailwind CLI is needed: set TELA_TAILWIND to node_modules/.bin/tailwindcss")
-		}
-	}
-	// @import "tailwindcss" resolves from the input file's directory; name
-	// the package's entry point in the CLI's node_modules instead.
-	bin, err := filepath.EvalSymlinks(tw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modules := bin
-	for filepath.Base(modules) != "node_modules" {
-		next := filepath.Dir(modules)
-		if next == modules {
-			t.Fatalf("%s is not inside a node_modules directory", tw)
-		}
-		modules = next
-	}
-	input := filepath.Join(t.TempDir(), "input.css")
-	css := fmt.Sprintf("@import %q;\n@source %q;\n@theme { --font-sans: \"Inter\"; }\n%s",
-		filepath.Join(modules, "tailwindcss", "index.css"), htmlPath, chromiumFonts)
-	if err := os.WriteFile(input, []byte(css), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := exec.Command(tw, "-i", input, "-o", filepath.Join(dir, "counter.css")).CombinedOutput(); err != nil {
-		t.Fatalf("tailwindcss: %v\n%s", err, out)
-	}
+	chromium.Tailwind(t, htmlPath, filepath.Join(dir, "counter.css"),
+		"@theme { --font-sans: \"Inter\"; }\n"+chromiumFonts)
 
 	var layouts [2]chromiumLayout
 	for i, scale := range []int{1, 2} {
 		shot := filepath.Join(dir, fmt.Sprintf("counter_x%d.png", scale))
-		size := fmt.Sprintf("--window-size=%d,%d", counterW, counterH)
-		dsf := fmt.Sprintf("--force-device-scale-factor=%d", scale)
-		cmd := exec.Command("chromium", "--headless", "--disable-gpu", "--hide-scrollbars",
-			"--force-color-profile=srgb", dsf, size, "--screenshot="+shot, "file://"+htmlPath)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("chromium: %v\n%s", err, out)
-		}
+		chromium.Screenshot(t, "file://"+htmlPath, shot, counterW, counterH, scale)
 		// Chromium compresses fast; keep the committed file smaller.
-		img := readRGBA(t, shot)
-		f, err := os.Create(shot)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := (&png.Encoder{CompressionLevel: png.BestCompression}).Encode(f, img); err != nil {
-			t.Fatal(err)
-		}
-		f.Close()
-
-		cmd = exec.Command("chromium", "--headless", "--disable-gpu", dsf, size,
-			"--allow-file-access-from-files", "--virtual-time-budget=10000", "--dump-dom", "file://"+layoutPath)
-		outb, err := cmd.Output()
-		if err != nil {
-			t.Fatalf("chromium --dump-dom: %v", err)
-		}
-		s := string(outb)
-		a, b := strings.Index(s, "BEGIN"), strings.Index(s, "END</pre>")
-		if a < 0 || b < 0 {
-			t.Fatalf("chromium output has no result:\n%s", s[:min(len(s), 2000)])
-		}
-		if err := json.Unmarshal([]byte(html.UnescapeString(s[a+5:b])), &layouts[i]); err != nil {
-			t.Fatal(err)
-		}
+		golden.WriteBestPNG(t, shot, golden.ReadRGBA(t, shot))
+		chromium.DumpJSON(t, "file://"+layoutPath, counterW, counterH, scale, &layouts[i])
 	}
 	// One scale per line: compact, but diffs show which one changed.
 	var out strings.Builder
@@ -224,43 +168,6 @@ func TestRegenerateChromium(t *testing.T) {
 	}
 	out.WriteString("}\n")
 	if err := os.WriteFile(filepath.Join(dir, "layout.json"), []byte(out.String()), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// readRGBA reads a PNG as an *image.RGBA.
-func readRGBA(t testing.TB, path string) *image.RGBA {
-	t.Helper()
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatalf("%v (regenerate with TELA_CHROMIUM=1, see chromium_test.go)", err)
-	}
-	defer f.Close()
-	img, err := png.Decode(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r, ok := img.(*image.RGBA); ok {
-		return r
-	}
-	out := image.NewRGBA(img.Bounds())
-	for y := out.Rect.Min.Y; y < out.Rect.Max.Y; y++ {
-		for x := out.Rect.Min.X; x < out.Rect.Max.X; x++ {
-			out.Set(x, y, img.At(x, y))
-		}
-	}
-	return out
-}
-
-// writePNG writes img to path.
-func writePNG(t testing.TB, path string, img image.Image) {
-	t.Helper()
-	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if err := png.Encode(f, img); err != nil {
 		t.Fatal(err)
 	}
 }
