@@ -258,15 +258,14 @@ func (d *damager) reaches(dl *gfx.DisplayList, out []int) []int {
 	stack := d.scratch.open[:0]
 	cur := 0
 	for i := range dl.Len() {
-		c := dl.At(i)
-		switch c.(type) {
-		case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushTransform, gfx.PushLayer:
+		switch m := dl.Match(i); {
+		case m > i: // a push
 			stack = append(stack, cur)
 			if r := dl.LayerReach(i); r > 0 {
 				cur += int(math.Ceil(float64(r)*d.scale)) + 1
 			}
 			out[i] = cur
-		case gfx.PopClip, gfx.PopTransform, gfx.PopLayer:
+		case m >= 0: // a pop
 			out[i] = cur
 			cur = stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
@@ -580,10 +579,8 @@ func (d *damager) origin(f *frame, u *unit, enc []int) (o gfx.Point, ok bool) {
 // first.
 func enclosingAll(dl *gfx.DisplayList, at int) (enc []int, ok bool) {
 	for i := 0; i < at; i++ {
-		c := dl.At(i)
-		switch c.(type) {
-		case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushTransform, gfx.PushLayer:
-			if m := dl.Match(i); m < at {
+		if m := dl.Match(i); m > i {
+			if m < at {
 				i = m // closed before at
 				continue
 			}
@@ -694,11 +691,10 @@ func (d *damager) backdrop(dl *gfx.DisplayList, at int, enc []int, r image.Recta
 			}
 			continue
 		}
-		switch c := c.(type) {
-		case gfx.PopClip, gfx.PopTransform, gfx.PopLayer:
+		switch m := dl.Match(i); {
+		case 0 <= m && m < i: // a pop
 			continue
-		case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushTransform, gfx.PushLayer:
-			m := dl.Match(i)
+		case m > i: // a push
 			if !d.devRect(dl.BoundsAt(i)).Overlaps(r) {
 				i = m
 				continue
@@ -798,7 +794,7 @@ func (d *damager) eq(i, j int) bool {
 		// hoisted box's chunk would otherwise pair with those of another
 		// box once one scrolls out of view, and every box after it would
 		// be damaged (ADR-161).
-		if isPushPop(ca) {
+		if A.Match(i) >= 0 { // a push or a pop
 			return d.blockA[i] == d.blockB[j] && (same || gfx.Equal(ca, cb))
 		}
 		return A.BoundsAt(i) == B.BoundsAt(j) && (same || gfx.Equal(ca, cb))
@@ -985,18 +981,18 @@ func (d *damager) after(dl *gfx.DisplayList, from int, enc []int, r image.Rectan
 	depth := len(enc)
 	rl := r.Sub(off) // r where the frame painted it
 	for i := from; i < dl.Len(); i++ {
-		c := dl.At(i)
-		if isPop(c) {
-			if depth > 0 && dl.Match(i) == enc[depth-1] {
+		m := dl.Match(i)
+		if 0 <= m && m < i { // a pop
+			if depth > 0 && m == enc[depth-1] {
 				depth--
 			}
 			continue
 		}
 		b := dev(i)
-		if d.paintsIn(c, b, rl, ts[depth]) {
+		if d.paintsIn(dl.At(i), b, rl, ts[depth]) {
 			d.add(b.Add(off).Intersect(r))
 		}
-		if m := dl.Match(i); m > i {
+		if m > i {
 			i = m // the push's bounds hold its block
 		}
 	}
@@ -1017,7 +1013,7 @@ func (d *damager) after(dl *gfx.DisplayList, from int, enc []int, r image.Rectan
 func (d *damager) between(dl *gfx.DisplayList, from, to int, r image.Rectangle, dev func(int) image.Rectangle, off image.Point) {
 	rl := r.Sub(off) // r where the frame painted it
 	for i := from; i < to; i++ {
-		if isPushPop(dl.At(i)) {
+		if dl.Match(i) >= 0 { // a push or a pop
 			continue
 		}
 		if b := dev(i); b.Overlaps(rl) {
@@ -1030,15 +1026,6 @@ func (d *damager) between(dl *gfx.DisplayList, from, to int, r image.Rectangle, 
 			d.add(dev(i).Add(off))
 		}
 	}
-}
-
-// isPop reports whether c closes a block.
-func isPop(c gfx.Command) bool {
-	switch c.(type) {
-	case gfx.PopClip, gfx.PopTransform, gfx.PopLayer:
-		return true
-	}
-	return false
 }
 
 // paintsIn reports whether command c, with device bounds b and drawn
@@ -1337,13 +1324,13 @@ func blockUnits(dl *gfx.DisplayList, unitOf, out []int32, open []int) ([]int32, 
 	open = open[:0]
 	for i := range dl.Len() {
 		out[i] = -1
-		switch c := dl.At(i); {
-		case isPop(c):
+		switch m := dl.Match(i); {
+		case 0 <= m && m < i: // a pop
 			if n := len(open); n > 0 {
 				out[i] = out[open[n-1]]
 				open = open[:n-1]
 			}
-		case isPushPop(c):
+		case m > i: // a push
 			open = append(open, i)
 		case unitOf[i] >= 0:
 			// The innermost open blocks without a unit yet get this one;
@@ -1354,14 +1341,4 @@ func blockUnits(dl *gfx.DisplayList, unitOf, out []int32, open []int) ([]int32, 
 		}
 	}
 	return out, open
-}
-
-// isPushPop reports whether c opens or closes a block.
-func isPushPop(c gfx.Command) bool {
-	switch c.(type) {
-	case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushTransform, gfx.PushLayer,
-		gfx.PopClip, gfx.PopTransform, gfx.PopLayer:
-		return true
-	}
-	return false
 }
