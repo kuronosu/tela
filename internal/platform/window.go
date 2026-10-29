@@ -122,6 +122,119 @@ func HitTest(regions []HitRegion, p Point) HitKind {
 	return HitClient
 }
 
+// Edge is a set of window edges: the side or corner (two bits) of a
+// window's resize band (ResizeEdge). The zero value is no edge.
+type Edge uint8
+
+const (
+	EdgeTop Edge = 1 << iota
+	EdgeBottom
+	EdgeLeft
+	EdgeRight
+)
+
+func (e Edge) String() string {
+	if e == 0 {
+		return "none"
+	}
+	if e >= 1<<4 {
+		return fmt.Sprintf("Edge(%d)", uint8(e))
+	}
+	var s string
+	for i, n := range [...]string{"top", "bottom", "left", "right"} {
+		if e&(1<<i) != 0 {
+			if s != "" {
+				s += "-"
+			}
+			s += n
+		}
+	}
+	return s
+}
+
+// Cursor returns the resize cursor of edge e (CursorDefault for no edge).
+func (e Edge) Cursor() Cursor {
+	switch e {
+	case EdgeTop:
+		return CursorNResize
+	case EdgeBottom:
+		return CursorSResize
+	case EdgeLeft:
+		return CursorWResize
+	case EdgeRight:
+		return CursorEResize
+	case EdgeTop | EdgeLeft:
+		return CursorNWResize
+	case EdgeTop | EdgeRight:
+		return CursorNEResize
+	case EdgeBottom | EdgeLeft:
+		return CursorSWResize
+	case EdgeBottom | EdgeRight:
+		return CursorSEResize
+	}
+	return CursorDefault
+}
+
+const (
+	// resizeBand is the width, in logical pixels, of the resize band of
+	// a window with client-side decorations on the backends that draw it
+	// themselves (Wayland, X11): inside the content, as Tela draws no
+	// shadow outside the window to put it in (unlike GTK), like the 4-8
+	// px borders window managers draw. resizeCorner is how far along an
+	// edge from a corner the band resizes diagonally, so corners are
+	// easier to hit than the band is wide. Chromium's Linux frame uses
+	// the same 5 and 16.
+	resizeBand   = 5
+	resizeCorner = 16
+)
+
+// ResizeEdge returns the edge whose resize band contains p, in a window
+// of the given logical size with client-side decorations, or 0: within 5
+// logical pixels of a side, and a corner where that is within 16 of the
+// neighbouring side. In a window too small for both bands of an axis, the
+// nearer side wins. Wayland and X11 map it to their resize requests and
+// show Edge.Cursor over it; Win32 answers WM_NCHITTEST with the OS's own
+// frame width instead.
+func ResizeEdge(p Point, size Size) Edge {
+	w, h := size.W, size.H
+	if p.X < 0 || p.Y < 0 || p.X >= w || p.Y >= h {
+		return 0
+	}
+	top, bottom := p.Y < resizeBand, p.Y >= h-resizeBand
+	left, right := p.X < resizeBand, p.X >= w-resizeBand
+	if !top && !bottom && !left && !right {
+		return 0
+	}
+	if top || bottom {
+		left = left || p.X < resizeCorner
+		right = right || p.X >= w-resizeCorner
+	}
+	if left || right {
+		top = top || p.Y < resizeCorner
+		bottom = bottom || p.Y >= h-resizeCorner
+	}
+	if top && bottom {
+		top, bottom = p.Y < h/2, p.Y >= h/2
+	}
+	if left && right {
+		left, right = p.X < w/2, p.X >= w/2
+	}
+	var e Edge
+	if top {
+		e |= EdgeTop
+	}
+	if bottom {
+		e |= EdgeBottom
+	}
+	if left {
+		e |= EdgeLeft
+	}
+	if right {
+		e |= EdgeRight
+	}
+	return e
+}
+
 // CaptionClicks detects the double clicks of primary presses in a
 // HitCaption region, for the backends that toggle maximize themselves
 // (Wayland, X11, headless), with the double-click rule of content clicks

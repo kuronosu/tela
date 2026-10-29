@@ -66,10 +66,12 @@
 //     size, sent as one BIG-REQUESTS ChangeProperty (or Replace plus
 //     Appends) because xgb's request has a 16-bit length.
 //   - Frameless windows set _MOTIF_WM_HINTS without decorations and report
-//     ClientSideDecorations. Unless maximized, fullscreen or FixedSize, a
-//     band of 6 logical pixels along their edges (16 along each edge from
-//     a corner resizes diagonally) shows the resize cursor and a press
-//     there starts _NET_WM_MOVERESIZE with the edge.
+//     ClientSideDecorations. Unless maximized, fullscreen or FixedSize, the
+//     band of platform.ResizeEdge, shared with Wayland (5 logical pixels
+//     along their edges, inside the content as there is no shadow margin
+//     to put it in; 16 along each edge from a corner resizes diagonally),
+//     shows the resize cursor and a press there starts _NET_WM_MOVERESIZE
+//     with the edge.
 //   - Hit regions: a press of any button in a HitCaption region, when the
 //     app holds no button, is the OS's: primary starts _NET_WM_MOVERESIZE
 //     move (a second one within content's double-click rule,

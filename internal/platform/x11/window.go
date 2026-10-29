@@ -85,7 +85,7 @@ type Window struct {
 	iconicHint  bool // WM_HINTS says Iconic
 	posDirty    bool // read the root position at the end of the batch
 	regions     []platform.HitRegion
-	edge        int              // resize band under the pointer, or edgeNone
+	edge        platform.Edge    // resize band under the pointer, or 0
 	osHeld      platform.Buttons // buttons of a press sequence the OS owns
 	// The last primary caption press, for double clicks.
 	captions platform.CaptionClicks

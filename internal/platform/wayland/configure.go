@@ -17,7 +17,7 @@ type toplevelStates struct {
 	// tiled holds the edges the window is tiled against (tiled_left,
 	// tiled_right, tiled_top, tiled_bottom), as the bits of the matching
 	// resize edges: GTK neither resizes from nor shadows a tiled edge.
-	tiled protocols.XdgToplevelResizeEdge
+	tiled platform.Edge
 }
 
 func decodeStates(raw []byte) toplevelStates {
@@ -33,13 +33,13 @@ func decodeStates(raw []byte) toplevelStates {
 		case protocols.XdgToplevelStateActivated:
 			s.activated = true
 		case protocols.XdgToplevelStateTiledLeft:
-			s.tiled |= protocols.XdgToplevelResizeEdgeLeft
+			s.tiled |= platform.EdgeLeft
 		case protocols.XdgToplevelStateTiledRight:
-			s.tiled |= protocols.XdgToplevelResizeEdgeRight
+			s.tiled |= platform.EdgeRight
 		case protocols.XdgToplevelStateTiledTop:
-			s.tiled |= protocols.XdgToplevelResizeEdgeTop
+			s.tiled |= platform.EdgeTop
 		case protocols.XdgToplevelStateTiledBottom:
-			s.tiled |= protocols.XdgToplevelResizeEdgeBottom
+			s.tiled |= platform.EdgeBottom
 		case protocols.XdgToplevelStateSuspended:
 			s.suspended = true
 		}

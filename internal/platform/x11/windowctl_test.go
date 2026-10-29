@@ -255,31 +255,20 @@ func (g *rig) present(w *Window) {
 	}
 }
 
-func TestResizeEdge(t *testing.T) {
-	size := platform.Size{W: 400, H: 300}
-	for _, tc := range []struct {
-		x, y float32
-		want int
-	}{
-		{200, 150, edgeNone},
-		{50, 150, edgeNone},
-		{2, 150, moveResizeLeft},
-		{397, 150, moveResizeRight},
-		{200, 2, moveResizeTop},
-		{20, 3, moveResizeTop}, // beyond the corner length
-		{200, 297, moveResizeBottom},
-		{2, 2, moveResizeTopLeft},
-		{10, 3, moveResizeTopLeft},
-		{3, 10, moveResizeTopLeft},
-		{390, 2, moveResizeTopRight},
-		{2, 290, moveResizeBottomLeft},
-		{395, 295, moveResizeBottomRight},
-		{-1, 5, edgeNone},
-		{400, 5, edgeNone},
-		{5, 300, edgeNone},
+// The band geometry is platform.ResizeEdge's (tested there); the backend
+// maps its edges to _NET_WM_MOVERESIZE directions.
+func TestMoveResizeDir(t *testing.T) {
+	const (
+		top, bottom = platform.EdgeTop, platform.EdgeBottom
+		left, right = platform.EdgeLeft, platform.EdgeRight
+	)
+	for e, want := range map[platform.Edge]int{
+		top | left: moveResizeTopLeft, top: moveResizeTop, top | right: moveResizeTopRight,
+		right: moveResizeRight, bottom | right: moveResizeBottomRight, bottom: moveResizeBottom,
+		bottom | left: moveResizeBottomLeft, left: moveResizeLeft,
 	} {
-		if got := resizeEdge(platform.Point{X: tc.x, Y: tc.y}, size); got != tc.want {
-			t.Errorf("resizeEdge(%v,%v) = %d, want %d", tc.x, tc.y, got, tc.want)
+		if got := moveResizeDir(e); got != want {
+			t.Errorf("moveResizeDir(%v) = %d, want %d", e, got, want)
 		}
 	}
 }

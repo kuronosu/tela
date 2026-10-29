@@ -63,70 +63,32 @@ const (
 	moveResizeBottomLeft  = 6
 	moveResizeLeft        = 7
 	moveResizeMove        = 8
-
-	edgeNone = -1
 )
 
-// edgeCursors are the cursors shown over the resize edges, by direction.
-var edgeCursors = [...]platform.Cursor{
-	moveResizeTopLeft:     platform.CursorNWResize,
-	moveResizeTop:         platform.CursorNResize,
-	moveResizeTopRight:    platform.CursorNEResize,
-	moveResizeRight:       platform.CursorEResize,
-	moveResizeBottomRight: platform.CursorSEResize,
-	moveResizeBottom:      platform.CursorSResize,
-	moveResizeBottomLeft:  platform.CursorSWResize,
-	moveResizeLeft:        platform.CursorWResize,
-}
+// corePointerDevice is the XInput2 id of the virtual core pointer, sent in
+// _GTK_SHOW_WINDOW_MENU for presses that arrived as core events.
+const corePointerDevice = 2
 
-const (
-	// edgeBand is the width of the resize band along the edges of a
-	// frameless window, in logical pixels. X11 frameless windows have no
-	// invisible shadow margin to put it in (GTK 3 and Chromium draw the
-	// shadow inside the window and resize from there), so the band is
-	// inside the content, like the 4–8 px borders window managers draw.
-	edgeBand = 6
-	// edgeCorner is how far from a corner, along either edge, the band
-	// resizes diagonally: corners are easier to hit than the band is
-	// wide (GTK's corner handles work the same way).
-	edgeCorner = 16
-
-	// corePointerDevice is the XInput2 id of the virtual core pointer,
-	// sent in _GTK_SHOW_WINDOW_MENU for presses that arrived as core
-	// events.
-	corePointerDevice = 2
-)
-
-// resizeEdge returns the _NET_WM_MOVERESIZE direction of the resize band
-// at p in a window of the given logical size, or edgeNone.
-func resizeEdge(p platform.Point, size platform.Size) int {
-	if p.X < 0 || p.Y < 0 || p.X >= size.W || p.Y >= size.H {
-		return edgeNone
-	}
-	left, right := p.X < edgeBand, p.X >= size.W-edgeBand
-	top, bottom := p.Y < edgeBand, p.Y >= size.H-edgeBand
-	if !left && !right && !top && !bottom {
-		return edgeNone
-	}
-	nearL, nearR := p.X < edgeCorner, p.X >= size.W-edgeCorner
-	nearT, nearB := p.Y < edgeCorner, p.Y >= size.H-edgeCorner
-	switch {
-	case nearT && nearL:
+// moveResizeDir returns the _NET_WM_MOVERESIZE direction of resize edge e
+// (platform.ResizeEdge: one side, or a corner of two).
+func moveResizeDir(e platform.Edge) int {
+	switch e {
+	case platform.EdgeTop | platform.EdgeLeft:
 		return moveResizeTopLeft
-	case nearT && nearR:
-		return moveResizeTopRight
-	case nearB && nearL:
-		return moveResizeBottomLeft
-	case nearB && nearR:
-		return moveResizeBottomRight
-	case top:
+	case platform.EdgeTop:
 		return moveResizeTop
-	case bottom:
+	case platform.EdgeTop | platform.EdgeRight:
+		return moveResizeTopRight
+	case platform.EdgeRight:
+		return moveResizeRight
+	case platform.EdgeBottom | platform.EdgeRight:
+		return moveResizeBottomRight
+	case platform.EdgeBottom:
 		return moveResizeBottom
-	case left:
-		return moveResizeLeft
+	case platform.EdgeBottom | platform.EdgeLeft:
+		return moveResizeBottomLeft
 	}
-	return moveResizeRight
+	return moveResizeLeft
 }
 
 // --- the server side, replaceable in tests ---
@@ -288,7 +250,7 @@ func (b *Backend) readSupported() {
 func (w *Window) initCtl(opts platform.WindowOptions) {
 	b, a := w.b, w.b.atoms
 	w.visible = !opts.Hidden
-	w.edge = edgeNone
+	w.edge = 0
 	w.req = wantState{maximized: opts.Maximized, fullscreen: opts.Fullscreen, above: opts.AlwaysOnTop,
 		pos: opts.Position, hasPos: opts.HasPosition}
 	w.osState.ClientSideDecorations = opts.Frameless
@@ -392,8 +354,8 @@ func (w *Window) setOSState(st platform.WindowState) {
 	w.osState = st
 	w.b.loop.UpdateState(w, st)
 	w.updateHidden()
-	if w.edge != edgeNone && (st.Maximized || st.Fullscreen) {
-		w.edge = edgeNone
+	if w.edge != 0 && (st.Maximized || st.Fullscreen) {
+		w.edge = 0
 		w.applyCursor()
 	}
 }
@@ -688,14 +650,14 @@ func (w *Window) RestoreToken() string { return "" }
 
 // --- pointer: resize edges and caption regions ---
 
-// edgeAt returns the resize band under p (logical window coordinates):
-// only frameless windows that can be resized, outside maximized and
-// fullscreen, have one.
-func (w *Window) edgeAt(p platform.Point) int {
+// edgeAt returns the resize edge under p (logical window coordinates;
+// platform.ResizeEdge, shared with Wayland), or 0: only frameless windows
+// that can be resized, outside maximized and fullscreen, have one.
+func (w *Window) edgeAt(p platform.Point) platform.Edge {
 	if !w.osState.ClientSideDecorations || w.opts.FixedSize || w.osState.Maximized || w.osState.Fullscreen {
-		return edgeNone
+		return 0
 	}
-	return resizeEdge(p, w.osMetrics().Size)
+	return platform.ResizeEdge(p, w.osMetrics().Size)
 }
 
 // hoverEdge shows the resize cursor while the pointer is over the band.
@@ -709,8 +671,8 @@ func (w *Window) hoverEdge(p platform.Point) {
 // applyCursor shows the app's cursor, or the resize cursor over the band.
 func (w *Window) applyCursor() {
 	c := w.cursor
-	if w.edge != edgeNone {
-		c = edgeCursors[w.edge]
+	if w.edge != 0 {
+		c = w.edge.Cursor()
 	}
 	if c != w.shown {
 		w.shown = c
@@ -732,10 +694,10 @@ func (b *Backend) osPress(p ptr, btn platform.PointerButton, pos platform.Point)
 	if p.held != 0 {
 		return false // a press of the app's sequence
 	}
-	if dir := w.edgeAt(pos); dir != edgeNone {
+	if e := w.edgeAt(pos); e != 0 {
 		w.osHeld = btn.Mask()
 		if btn == platform.ButtonPrimary {
-			b.moveResize(p, dir)
+			b.moveResize(p, moveResizeDir(e))
 		}
 		return true
 	}

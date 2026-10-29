@@ -234,9 +234,10 @@
 // Client-side decorations. A frameless window, or any window when the
 // compositor has no xdg-decoration or configured the client-side mode,
 // has resize edges while mapped and neither maximized, fullscreen nor
-// FixedSize: a band of 5 logical pixels inside each edge, with corners
-// reaching 16 pixels along the edges (Chromium's Linux frame sizes), left
-// out along the edges the window is tiled against (GTK). The pointer
+// FixedSize: platform.ResizeEdge, shared with X11 (a band of 5 logical
+// pixels inside each edge, with corners reaching 16 pixels along the
+// edges, Chromium's Linux frame sizes), left out along the edges the
+// window is tiled against (GTK). The pointer
 // shows the matching resize cursor there (over the app's SetCursor), and a
 // press there starts xdg_toplevel.resize (primary button) and is not
 // delivered. The whole surface is the window (no shadow is drawn outside

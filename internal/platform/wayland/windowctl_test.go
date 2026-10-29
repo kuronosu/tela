@@ -86,45 +86,45 @@ func expectState(t *testing.T, h *harness, want platform.WindowState) {
 	}
 }
 
+// The band geometry is platform.ResizeEdge's (tested there); the backend
+// leaves out tiled edges and maps the rest to xdg_toplevel's edges.
 func TestResizeEdge(t *testing.T) {
 	size := image.Pt(300, 200)
 	const (
-		top    = protocols.XdgToplevelResizeEdgeTop
-		bottom = protocols.XdgToplevelResizeEdgeBottom
-		left   = protocols.XdgToplevelResizeEdgeLeft
-		right  = protocols.XdgToplevelResizeEdgeRight
+		top    = platform.EdgeTop
+		bottom = platform.EdgeBottom
+		left   = platform.EdgeLeft
+		right  = platform.EdgeRight
 	)
 	for _, c := range []struct {
 		x, y  float32
-		tiled protocols.XdgToplevelResizeEdge
-		want  protocols.XdgToplevelResizeEdge
+		tiled platform.Edge
+		want  platform.Edge
 	}{
 		{150, 100, 0, 0},              // middle
-		{150, 4.9, 0, top},            // top band
-		{150, 5, 0, 0},                // just below it
-		{150, 195, 0, bottom},         // bottom band starts at h-5
-		{0, 100, 0, left},             // left
-		{299.5, 100, 0, right},        // right
 		{2, 2, 0, top | left},         // corner
-		{10, 2, 0, top | left},        // corner along the top edge
-		{2, 10, 0, top | left},        // corner along the left edge
-		{20, 2, 0, top},               // past the corner
 		{298, 190, 0, bottom | right}, // bottom-right
 		{2, 2, left, top},             // tiled left: no left edge
 		{2, 100, left | top, 0},       // tiled: nothing
-		{-1, 100, 0, 0},               // outside
-		{300, 100, 0, 0},              // outside (exclusive)
 	} {
 		if got := resizeEdge(platform.Point{X: c.x, Y: c.y}, size, c.tiled); got != c.want {
 			t.Errorf("resizeEdge(%v,%v, tiled %v) = %v, want %v", c.x, c.y, c.tiled, got, c.want)
 		}
 	}
-	// A window narrower than two bands: the nearer side wins.
-	if got := resizeEdge(platform.Point{X: 2, Y: 50}, image.Pt(6, 100), 0); got != left {
-		t.Errorf("narrow window, left half = %v, want left", got)
-	}
-	if got := resizeEdge(platform.Point{X: 4, Y: 50}, image.Pt(6, 100), 0); got != right {
-		t.Errorf("narrow window, right half = %v, want right", got)
+	for e, want := range map[platform.Edge]protocols.XdgToplevelResizeEdge{
+		0:              protocols.XdgToplevelResizeEdgeNone,
+		top:            protocols.XdgToplevelResizeEdgeTop,
+		bottom:         protocols.XdgToplevelResizeEdgeBottom,
+		left:           protocols.XdgToplevelResizeEdgeLeft,
+		right:          protocols.XdgToplevelResizeEdgeRight,
+		top | left:     protocols.XdgToplevelResizeEdgeTopLeft,
+		top | right:    protocols.XdgToplevelResizeEdgeTopRight,
+		bottom | left:  protocols.XdgToplevelResizeEdgeBottomLeft,
+		bottom | right: protocols.XdgToplevelResizeEdgeBottomRight,
+	} {
+		if got := xdgEdge(e); got != want {
+			t.Errorf("xdgEdge(%v) = %v, want %v", e, got, want)
+		}
 	}
 }
 

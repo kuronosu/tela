@@ -26,21 +26,11 @@ import (
 // xdg_toplevel.configure states, which onConfigure (window.go) reports
 // with the loop's UpdateState.
 
-const (
-	// resizeBand is the width of the resize edges of a window with
-	// client-side decorations, in logical pixels, inside the content
-	// (Tela draws no shadow to put them in, unlike GTK), and resizeCorner
-	// how far along an edge its corners reach. Chromium's Linux frame uses
-	// the same 5 and 16.
-	resizeBand   = 5
-	resizeCorner = 16
-	// captionDragThreshold is how far (logical pixels) a primary press in
-	// a caption region must move before it becomes an interactive move,
-	// GTK's drag threshold: a click that does not move never starts a
-	// compositor grab, so double clicks are seen whole (GtkWindowHandle
-	// does the same).
-	captionDragThreshold = 8
-)
+// captionDragThreshold is how far (logical pixels) a primary press in a
+// caption region must move before it becomes an interactive move, GTK's
+// drag threshold: a click that does not move never starts a compositor
+// grab, so double clicks are seen whole (GtkWindowHandle does the same).
+const captionDragThreshold = 8
 
 // windowCtl is the window control state of a Window.
 type windowCtl struct {
@@ -594,7 +584,7 @@ func (w *Window) RestoreToken() string {
 // pixels), or 0: windows with client-side decorations that are mapped,
 // neither maximized, fullscreen nor FixedSize have resize edges, except
 // along the edges they are tiled against (GTK's rule).
-func (w *Window) resizeEdgeAt(p platform.Point) protocols.XdgToplevelResizeEdge {
+func (w *Window) resizeEdgeAt(p platform.Point) platform.Edge {
 	if !w.mapped || !w.csd() || w.states.maximized || w.states.fullscreen || w.opts.FixedSize {
 		return 0
 	}
@@ -602,77 +592,34 @@ func (w *Window) resizeEdgeAt(p platform.Point) protocols.XdgToplevelResizeEdge 
 }
 
 // resizeEdge returns the edge of a window of the given logical size whose
-// resize band contains p: within resizeBand of a side, and a corner within
-// resizeCorner of the neighbouring side. Tiled edges are left out.
-func resizeEdge(p platform.Point, size image.Point, tiled protocols.XdgToplevelResizeEdge) protocols.XdgToplevelResizeEdge {
-	w, h := float32(size.X), float32(size.Y)
-	if p.X < 0 || p.Y < 0 || p.X >= w || p.Y >= h {
-		return 0
-	}
-	top, bottom := p.Y < resizeBand, p.Y >= h-resizeBand
-	left, right := p.X < resizeBand, p.X >= w-resizeBand
-	if !top && !bottom && !left && !right {
-		return 0
-	}
-	if top || bottom {
-		left = left || p.X < resizeCorner
-		right = right || p.X >= w-resizeCorner
-	}
-	if left || right {
-		top = top || p.Y < resizeCorner
-		bottom = bottom || p.Y >= h-resizeCorner
-	}
-	// A window too small for both bands: the nearer side wins.
-	if top && bottom {
-		top, bottom = p.Y < h/2, p.Y >= h/2
-	}
-	if left && right {
-		left, right = p.X < w/2, p.X >= w/2
-	}
-	var e protocols.XdgToplevelResizeEdge
-	if top {
-		e |= protocols.XdgToplevelResizeEdgeTop
-	}
-	if bottom {
-		e |= protocols.XdgToplevelResizeEdgeBottom
-	}
-	if left {
-		e |= protocols.XdgToplevelResizeEdgeLeft
-	}
-	if right {
-		e |= protocols.XdgToplevelResizeEdgeRight
-	}
-	return e &^ tiled
+// resize band contains p (platform.ResizeEdge), without the tiled edges.
+func resizeEdge(p platform.Point, size image.Point, tiled platform.Edge) platform.Edge {
+	return platform.ResizeEdge(p, platform.Size{W: float32(size.X), H: float32(size.Y)}) &^ tiled
 }
 
-// edgeCursor is the cursor shown over a resize edge.
-func edgeCursor(e protocols.XdgToplevelResizeEdge) platform.Cursor {
-	switch e {
-	case protocols.XdgToplevelResizeEdgeTop:
-		return platform.CursorNResize
-	case protocols.XdgToplevelResizeEdgeBottom:
-		return platform.CursorSResize
-	case protocols.XdgToplevelResizeEdgeLeft:
-		return platform.CursorWResize
-	case protocols.XdgToplevelResizeEdgeRight:
-		return platform.CursorEResize
-	case protocols.XdgToplevelResizeEdgeTopLeft:
-		return platform.CursorNWResize
-	case protocols.XdgToplevelResizeEdgeTopRight:
-		return platform.CursorNEResize
-	case protocols.XdgToplevelResizeEdgeBottomLeft:
-		return platform.CursorSWResize
-	case protocols.XdgToplevelResizeEdgeBottomRight:
-		return platform.CursorSEResize
+// xdgEdge returns the xdg_toplevel resize edge of e.
+func xdgEdge(e platform.Edge) protocols.XdgToplevelResizeEdge {
+	var x protocols.XdgToplevelResizeEdge
+	if e&platform.EdgeTop != 0 {
+		x |= protocols.XdgToplevelResizeEdgeTop
 	}
-	return platform.CursorDefault
+	if e&platform.EdgeBottom != 0 {
+		x |= protocols.XdgToplevelResizeEdgeBottom
+	}
+	if e&platform.EdgeLeft != 0 {
+		x |= protocols.XdgToplevelResizeEdgeLeft
+	}
+	if e&platform.EdgeRight != 0 {
+		x |= protocols.XdgToplevelResizeEdgeRight
+	}
+	return x
 }
 
 // cursorFor is the cursor the seat shows over w: the resize cursor on a
 // resize edge, else the window's.
 func (s *seat) cursorFor(w *Window) platform.Cursor {
 	if s.ptr.edge != 0 {
-		return edgeCursor(s.ptr.edge)
+		return s.ptr.edge.Cursor()
 	}
 	return w.cursor
 }
@@ -748,7 +695,7 @@ func (s *seat) osButton(btn platform.PointerButton, pressed bool, serial uint32,
 	if e := w.resizeEdgeAt(p.pos); e != 0 {
 		p.osHeld = btn.Mask()
 		if btn == platform.ButtonPrimary {
-			w.toplevel.Resize(s.wl, serial, e)
+			w.toplevel.Resize(s.wl, serial, xdgEdge(e))
 		}
 		return true
 	}

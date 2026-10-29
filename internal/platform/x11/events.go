@@ -284,8 +284,8 @@ func (b *Backend) ptrLeave(p ptr, mode, detail byte) {
 	if detail == xproto.NotifyDetailInferior || !w.inside {
 		return
 	}
-	if w.edge != edgeNone {
-		w.edge = edgeNone
+	if w.edge != 0 {
+		w.edge = 0
 		w.applyCursor()
 	}
 	if w.osPointer(p, platform.ButtonNone) {

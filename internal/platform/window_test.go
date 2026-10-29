@@ -95,6 +95,60 @@ func TestCaptionClicks(t *testing.T) {
 	}
 }
 
+func TestResizeEdge(t *testing.T) {
+	const (
+		top, bottom = EdgeTop, EdgeBottom
+		left, right = EdgeLeft, EdgeRight
+	)
+	for _, c := range []struct {
+		x, y float32
+		size Size
+		want Edge
+	}{
+		{150, 100, Size{W: 300, H: 200}, 0},              // middle
+		{50, 100, Size{W: 300, H: 200}, 0},               // inside, off the band
+		{150, 4.9, Size{W: 300, H: 200}, top},            // top band
+		{150, 5, Size{W: 300, H: 200}, 0},                // just below it
+		{150, 195, Size{W: 300, H: 200}, bottom},         // bottom band starts at h-5
+		{150, 194.9, Size{W: 300, H: 200}, 0},            // just above it
+		{0, 100, Size{W: 300, H: 200}, left},             // left
+		{299.5, 100, Size{W: 300, H: 200}, right},        // right
+		{2, 2, Size{W: 300, H: 200}, top | left},         // corner
+		{10, 2, Size{W: 300, H: 200}, top | left},        // corner along the top edge
+		{2, 10, Size{W: 300, H: 200}, top | left},        // corner along the left edge
+		{15.9, 2, Size{W: 300, H: 200}, top | left},      // the corner's end
+		{16, 2, Size{W: 300, H: 200}, top},               // past the corner
+		{290, 2, Size{W: 300, H: 200}, top | right},      // top-right
+		{2, 190, Size{W: 300, H: 200}, bottom | left},    // bottom-left
+		{298, 190, Size{W: 300, H: 200}, bottom | right}, // bottom-right
+		{-1, 100, Size{W: 300, H: 200}, 0},               // outside
+		{300, 100, Size{W: 300, H: 200}, 0},              // outside (exclusive)
+		{100, 200, Size{W: 300, H: 200}, 0},              // outside (exclusive)
+		{2, 50, Size{W: 6, H: 100}, left},                // narrower than two bands: nearer side
+		{4, 50, Size{W: 6, H: 100}, right},               //
+		{50, 3.9, Size{W: 100, H: 8}, top},               // shorter than two bands: the top half...
+		{50, 4, Size{W: 100, H: 8}, bottom},              // ...and the bottom half
+		{1, 1, Size{W: 4, H: 4}, top | left},             // tiny: quadrants
+		{3, 3, Size{W: 4, H: 4}, bottom | right},         //
+		{0, 0, Size{}, 0},                                // empty
+	} {
+		if got := ResizeEdge(Point{X: c.x, Y: c.y}, c.size); got != c.want {
+			t.Errorf("ResizeEdge(%v,%v in %v) = %v, want %v", c.x, c.y, c.size, got, c.want)
+		}
+	}
+	for e, want := range map[Edge]Cursor{
+		0: CursorDefault, top: CursorNResize, bottom: CursorSResize, left: CursorWResize, right: CursorEResize,
+		top | left: CursorNWResize, top | right: CursorNEResize, bottom | left: CursorSWResize, bottom | right: CursorSEResize,
+	} {
+		if got := e.Cursor(); got != want {
+			t.Errorf("%v.Cursor() = %v, want %v", e, got, want)
+		}
+	}
+	if s := (top | left).String() + " " + Edge(0).String() + " " + Edge(16).String(); s != "top-left none Edge(16)" {
+		t.Errorf("Edge names: %q", s)
+	}
+}
+
 func TestDoubleClickTime(t *testing.T) {
 	for _, c := range []struct{ in, want time.Duration }{
 		{0, DefaultDoubleClickInterval}, {-1, DefaultDoubleClickInterval}, {300 * time.Millisecond, 300 * time.Millisecond},

@@ -270,7 +270,7 @@ type pointerState struct {
 	captionPending bool
 	captionSerial  uint32
 	captionPos     platform.Point
-	edge           protocols.XdgToplevelResizeEdge
+	edge           platform.Edge
 
 	// Events of the current frame, in order.
 	out []windowEvent

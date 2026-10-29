@@ -334,11 +334,18 @@
 //     chose client-side); then the app draws its title bar too.
 //   - Resize edges of a window with client-side decorations (not
 //     maximized or fullscreen, not FixedSize) are the backend's: in a
-//     band a few logical pixels wide along the content edges (Win32: the
-//     DPI's resize frame width, answered from WM_NCHITTEST), presses start
-//     an OS resize (xdg_toplevel.resize, _NET_WM_MOVERESIZE with the edge)
-//     and are not delivered, and the backend shows the resize cursor there
-//     over the app's SetCursor. The band takes precedence over hit regions.
+//     band along the content edges ([ResizeEdge] on Wayland and X11: 5
+//     logical pixels, corners 16 along each edge; Win32: the DPI's resize
+//     frame width, answered from WM_NCHITTEST), presses start an OS resize
+//     (xdg_toplevel.resize, _NET_WM_MOVERESIZE with the edge) and are not
+//     delivered, and the backend shows the resize cursor there
+//     ([Edge.Cursor]) over the app's SetCursor. The band takes precedence
+//     over hit regions, with one exception the OS forces on Win32:
+//     HitMinimize, HitMaximize and HitClose regions take the band except
+//     the window's outermost pixel (one logical pixel, rounded to device
+//     pixels), as the caption buttons of a native frame do, because
+//     Windows 11 shows the snap layouts flyout from the hit test at the
+//     pointer over the maximize button.
 //
 // # Window styling
 //
