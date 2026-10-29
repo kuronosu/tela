@@ -35,10 +35,6 @@ func (o *nestedProbe) app() Node {
 			Component(counter),
 			button(Key("other"), Class("block h-10 w-20"), o.r.pointer("pointerdown", "other"), Text("other")),
 			Portal(div(Key("pop"), Class("fixed top-[100px] left-[200px] size-20"),
-				InteractOutside(OutsideOptions{
-					OnStart: func(PointerEvent) { clickIn("start") },
-					OnEnd:   func(PointerEvent) { clickIn("end") },
-				}),
 				Overlay(OverlayOptions{
 					OnInteractOutsideStart: func(PointerEvent) { clickIn("overlay-start") },
 					OnInteractOutside:      func(PointerEvent) { clickIn("overlay-outside") },
@@ -60,12 +56,12 @@ func TestOverlayCallbacksDeferNestedFlush(t *testing.T) {
 	x := newKeys(t, o.app(), 400, 300)
 	// A press outside the popover, on "other" (y 40..80).
 	x.send(move(10, 50), down(10, 50))
-	if g, want := o.r.String(), "click after:start click after:overlay-start pointerdown:other build"; g != want {
+	if g, want := o.r.String(), "click after:overlay-start pointerdown:other build"; g != want {
 		t.Errorf("pointerdown outside:\n got %q\nwant %q", g, want)
 	}
 	o.r.reset()
 	x.send(up(10, 50))
-	if g, want := o.r.String(), "click after:end click after:overlay-outside build"; g != want {
+	if g, want := o.r.String(), "click after:overlay-outside build"; g != want {
 		t.Errorf("pointerup outside:\n got %q\nwant %q", g, want)
 	}
 	o.r.reset()

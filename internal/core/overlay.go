@@ -6,9 +6,9 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 )
 
-// Overlays, interacting outside and modality (ADR-096): the engine under
-// package aria's UseOverlay, UseDialog, UsePopover, UseMenu and
-// UseTooltip, after React Aria's useInteractOutside, useOverlay and
+// Overlays, interacting outside and modality (ADR-096, ADR-191): the
+// engine under package aria's UseOverlay, UseDialog, UsePopover, UseMenu
+// and UseTooltip, after React Aria's useInteractOutside, useOverlay and
 // ariaHideOutside and HTML's inert attribute.
 //
 // # Inside and outside
@@ -17,54 +17,59 @@ import (
 // React: the content of a Portal rendered from inside it, and an overlay
 // opened from inside it, are inside it wherever they are painted.
 //
-// # Interacting outside
-//
-// InteractOutside(OutsideOptions) on a primitive reports pointer presses
-// outside it: OnStart at the pointerdown of a press (the mouse's primary,
-// secondary or middle button, a touch contact or a pen tip; a pen's
-// barrel buttons and the mouse's back and forward buttons do not count)
-// whose target is outside it, and OnEnd at the pointerup of that press
-// when its target is outside it too. React Aria counts the primary button
-// only; Radix's DismissableLayer, which shadcn/ui's overlays use, counts
-// a pointerdown with any button, so a right click outside an open menu
-// closes it. The pointerdown is the press of the first button and the
-// pointerup the release of the last one (chorded buttons, input.go); the
-// contextmenu event of a right click comes after that pointerup, so a
-// right click that closes a context menu can open it again at the new
-// point (package aria's UseContextMenuTrigger); a context menu's long
-// press, which comes before the release, takes its menu out of the press
-// with KeepOutsidePress instead. They run
-// before the target's handlers, like listeners in the capture phase of
-// the document, with the event of the dispatch: StopPropagation there
-// keeps the pointerdown (pointerup) from reaching the target's handlers,
-// PreventDefault on the pointerdown cancels its default (the mouse
-// events of the press and the focus change, input.go), and on the
-// pointerup it cancels the click of the press (React Aria stops that
-// click). Inert listeners are skipped. These callbacks, and OnEscape and
-// OnFocusOutside below, run as handlers do (Tree.handlerDepth): the
-// updates of a click they make (ElementRef.Click, a button hook's
-// activation) are applied and built by the event that is running, after
-// its dispatch, not in the middle of it.
-//
 // # The overlay stack
 //
 // Overlay(OverlayOptions) on a primitive puts it on the overlay stack
 // while it is mounted, in mount order: the last one mounted that is not
 // inert (an overlay whose Presence child exits is closing) is the top
 // overlay (React Aria's isTopLayer). Only the top overlay is told about
-// presses outside it (OnInteractOutsideStart at the pointerdown, and
-// OnInteractOutside at the pointerup when it was the top at the
-// pointerdown, both with the semantics of InteractOutside) and about
-// Escape: an Escape keydown (not a repeat) that no handler prevented has
-// the default action of calling the top overlay's OnEscape (HTML's close
+// presses outside it and about Escape. An EscapeOnly overlay (a tooltip)
+// takes Escape like the others, topmost first, but is not told of
+// presses and does not hide them from the overlay below, which stays the
+// top overlay for them.
+//
+// # Pressing outside
+//
+// OnInteractOutsideStart runs at the pointerdown of a press whose target
+// is outside the top overlay, and OnInteractOutside at the pointerup of
+// that press when its target is outside it too and the overlay was the
+// top at the pointerdown (React Aria's useInteractOutside). A press is
+// the mouse's primary, secondary or middle button, a touch contact or a
+// pen tip; a pen's barrel buttons and the mouse's back and forward
+// buttons do not count. React Aria counts the primary button only;
+// Radix's DismissableLayer, which shadcn/ui's overlays use, counts a
+// pointerdown with any button, so a right click outside an open menu
+// closes it (ADR-167). The pointerdown is the press of the first button
+// and the pointerup the release of the last one (chorded buttons count
+// as one press, input.go); a press that starts outside and ends inside
+// ends nothing. The contextmenu event of a right click comes after that
+// pointerup, so a right click that closes a context menu can open it
+// again at the new point (package aria's UseContextMenuTrigger); a
+// context menu's long press, which comes before the release, takes its
+// menu out of the press with KeepOutsidePress instead. Both callbacks run
+// before the target's handlers, like listeners in the capture phase of
+// the document, with the event of the dispatch: StopPropagation there
+// keeps the pointerdown (pointerup) from reaching the target's handlers,
+// PreventDefault on the pointerdown cancels its default (the mouse
+// events of the press and the focus change, input.go), and on the
+// pointerup it cancels the click of the press (React Aria stops that
+// click).
+//
+// # Escape and the focus
+//
+// An Escape keydown (not a repeat) that no handler prevented has the
+// default action of calling the top overlay's OnEscape (HTML's close
 // requests, which also close the topmost dialog or popover only); while
 // there is a top overlay, Escape does nothing else, even when it has no
 // OnEscape (it cannot be dismissed with the keyboard). An element inside
 // an overlay that handles Escape itself (a combobox closing its list)
-// prevents the keydown. An EscapeOnly overlay (a tooltip) takes Escape
-// like the others, topmost first, but is not told of presses and does not
-// hide them from the overlay below; OnFocusOutside tells an overlay that
-// the focus moved from inside it to another element.
+// prevents the keydown. OnFocusOutside tells an overlay that the focus
+// moved from inside it to another element.
+//
+// The callbacks of an overlay run as handlers do (Tree.handlerDepth):
+// the updates of a click they make (ElementRef.Click, a button hook's
+// activation) are applied and built by the event that is running, after
+// its dispatch, not in the middle of it.
 //
 // # Modality
 //
@@ -108,27 +113,6 @@ func inheritOutside(p *Element) uint8 {
 	return outsideYes
 }
 
-// OutsideOptions configures InteractOutside.
-type OutsideOptions struct {
-	// OnStart runs at the pointerdown of a press (the mouse's primary,
-	// secondary or middle button, a touch contact, a pen tip) whose target
-	// is outside the element, before the target's handlers.
-	OnStart func(PointerEvent)
-	// OnEnd runs at the pointerup of a press that started outside, when
-	// its target is outside too, before the target's handlers;
-	// PreventDefault there cancels the click of the press.
-	OnEnd func(PointerEvent)
-}
-
-// InteractOutside returns a prop that reports pointer presses outside a
-// primitive's subtree (see the comment at the top of overlay.go): React
-// Aria's useInteractOutside, for package aria; it is not exposed by tela
-// or h.
-func InteractOutside(o OutsideOptions) Prop {
-	opts := &o
-	return Prop{name: "InteractOutside", apply: func(d *desc) { d.outside = opts }}
-}
-
 // OverlayOptions configures Overlay.
 type OverlayOptions struct {
 	// OnEscape runs as the default action of an Escape keydown while the
@@ -136,10 +120,11 @@ type OverlayOptions struct {
 	// the keyboard (and Escape does nothing).
 	OnEscape func(KeyboardEvent)
 	// OnInteractOutsideStart runs at the pointerdown of a press outside
-	// the element (any press InteractOutside counts, a right click too)
-	// while it is the top overlay; OnInteractOutside
-	// at the pointerup of that press, when its target is outside too (see
-	// InteractOutside for StopPropagation and PreventDefault).
+	// the element (a right click too) while it is the top overlay;
+	// OnInteractOutside at the pointerup of that press, when its target
+	// is outside too. Both run before the target's handlers (see "Pressing
+	// outside" at the top of overlay.go for what counts as a press and
+	// for StopPropagation and PreventDefault).
 	OnInteractOutsideStart func(PointerEvent)
 	OnInteractOutside      func(PointerEvent)
 	// Modal makes everything outside the overlay, and outside the
@@ -153,7 +138,7 @@ type OverlayOptions struct {
 	// the topmost one on the stack (closing it first, as React Aria's
 	// tooltips stop the key before the overlays below), but it is not
 	// told of presses outside it and does not hide them from the overlay
-	// below, which stays the top overlay for them (IsTopOverlay).
+	// below, which stays the top overlay for them.
 	EscapeOnly bool
 }
 
@@ -174,21 +159,10 @@ func Inert(on bool) Prop {
 	return Prop{name: "Inert", apply: func(d *desc) { d.inert = on }}
 }
 
-// IsTopOverlay reports whether the element r is attached to is the top
-// overlay: the last mounted primitive with an Overlay prop that is not
-// inert. Call it on the UI thread.
-func IsTopOverlay(r ElementRef) bool {
-	el := r.element()
-	return el != nil && el.tree.topOverlay() == el
-}
-
-// overlayState is the overlays and interact-outside listeners of a Tree
-// (UI thread).
+// overlayState is the overlays of a Tree (UI thread).
 type overlayState struct {
-	// listeners are the primitives with an InteractOutside or an Overlay
-	// prop, stack those with an Overlay, both in mount order.
-	listeners []*Element
-	stack     []*Element
+	// stack are the primitives with an Overlay prop, in mount order.
+	stack []*Element
 	// alive are the subtrees left alive by the active modal (the topmost
 	// modal overlay and the overlays above it), nil without one; dirty
 	// asks syncModal to compute them again.
@@ -196,27 +170,11 @@ type overlayState struct {
 	dirty bool
 }
 
-// outsidePress is a listener that a press started outside of: plain for
-// its InteractOutside prop, top for its Overlay prop (it was the top
-// overlay).
-type outsidePress struct {
-	el         *Element
-	plain, top bool
-}
-
-// updateListener records the InteractOutside and Overlay props of
-// primitive el, whose node was old (nil at mount).
-func (t *Tree) updateListener(el *Element, old *desc) {
+// updateOverlay records the Overlay prop of primitive el, whose node was
+// old (nil at mount).
+func (t *Tree) updateOverlay(el *Element, old *desc) {
 	O := &t.ovl
 	d := el.node.d
-	was := old != nil && (old.overlay != nil || old.outside != nil)
-	is := d.overlay != nil || d.outside != nil
-	switch {
-	case is && !was:
-		O.listeners = append(O.listeners, el)
-	case was && !is:
-		O.listeners = removeElement(O.listeners, el)
-	}
 	wasO, isO := old != nil && old.overlay != nil, d.overlay != nil
 	switch {
 	case isO && !wasO:
@@ -230,14 +188,11 @@ func (t *Tree) updateListener(el *Element, old *desc) {
 	}
 }
 
-// removeListener forgets primitive el, unmounted.
-func (t *Tree) removeListener(el *Element) {
+// removeOverlay forgets primitive el, an overlay unmounted.
+func (t *Tree) removeOverlay(el *Element) {
 	O := &t.ovl
-	O.listeners = removeElement(O.listeners, el)
-	if el.node.d.overlay != nil {
-		O.stack = removeElement(O.stack, el)
-		O.dirty = true
-	}
+	O.stack = removeElement(O.stack, el)
+	O.dirty = true
 }
 
 func removeElement(s []*Element, el *Element) []*Element {
@@ -289,9 +244,9 @@ func (t *Tree) focusMoved(old, now *Element) {
 }
 
 // outsideButton reports whether a pointerdown of ps with button b is a
-// press for the interact-outside listeners: the mouse's primary, secondary
-// and middle buttons (Radix's DismissableLayer), a touch contact and a pen
-// tip.
+// press for the top overlay's outside callbacks: the mouse's primary,
+// secondary and middle buttons (Radix's DismissableLayer), a touch
+// contact and a pen tip.
 func outsideButton(ps *pointerState, b platform.PointerButton) bool {
 	switch b {
 	case platform.ButtonPrimary:
@@ -302,77 +257,48 @@ func outsideButton(ps *pointerState, b platform.PointerButton) bool {
 	return false
 }
 
-// outsideDown runs the interact-outside listeners of a press at target
-// (outsideButton), at its pointerdown, before the dispatch that shares st,
-// and records in ps those it started for outsideUp.
+// outsideDown runs the top overlay's OnInteractOutsideStart for a press
+// at target (outsideButton) outside it, at its pointerdown, before the
+// dispatch that shares st, and records the overlay in ps for outsideUp.
 func (t *Tree) outsideDown(ps *pointerState, target *Element, e PointerEvent, st *eventState) {
-	clear(ps.outside)
-	ps.outside = ps.outside[:0]
-	O := &t.ovl
-	if len(O.listeners) == 0 {
+	ps.outside = nil
+	top := t.topOverlay()
+	if top == nil || target != nil && isInside(target, top) {
 		return
 	}
-	top := t.topOverlay()
-	t.handlerDepth++ // the listeners run as handlers (flushNested)
-	defer func() { t.handlerDepth-- }()
-	// A copy: the handlers may mount and unmount listeners (in later
-	// builds; discrete events build after the dispatch).
-	for _, el := range slices.Clone(O.listeners) {
-		if !el.mounted || el.inert || target != nil && isInside(target, el) {
-			continue
-		}
-		d := el.node.d
-		op := outsidePress{el: el, plain: d.outside != nil, top: d.overlay != nil && el == top}
-		if !op.plain && !op.top {
-			continue
-		}
-		ps.outside = append(ps.outside, op)
-		if op.plain && d.outside.OnStart != nil {
-			(&e).prepare(t, st, el)
-			d.outside.OnStart(e)
-		}
-		if op.top && d.overlay.OnInteractOutsideStart != nil {
-			(&e).prepare(t, st, el)
-			d.overlay.OnInteractOutsideStart(e)
-		}
+	ps.outside = top
+	if f := top.node.d.overlay.OnInteractOutsideStart; f != nil {
+		t.handlerDepth++ // it runs as a handler (flushNested)
+		defer func() { t.handlerDepth-- }()
+		(&e).prepare(t, st, top)
+		f(e)
 	}
 }
 
-// outsideUp runs the listeners a press started outside of at its
-// pointerup at target, before the dispatch that shares st (PreventDefault
-// there cancels the click of the press: pointerUp).
+// outsideUp runs OnInteractOutside of the overlay a press started outside
+// of, at its pointerup at target, before the dispatch that shares st
+// (PreventDefault there cancels the click of the press: pointerUp).
 func (t *Tree) outsideUp(ps *pointerState, target *Element, e PointerEvent, st *eventState) {
-	if len(ps.outside) == 0 {
+	el := ps.outside
+	ps.outside = nil
+	if el == nil || !el.mounted || el.inert || target != nil && isInside(target, el) {
 		return
 	}
-	presses := slices.Clone(ps.outside)
-	clear(ps.outside)
-	ps.outside = ps.outside[:0]
-	t.handlerDepth++ // the listeners run as handlers (flushNested)
-	defer func() { t.handlerDepth-- }()
-	for _, op := range presses {
-		el := op.el
-		if !el.mounted || el.inert || target != nil && isInside(target, el) {
-			continue
-		}
-		d := el.node.d
-		if op.plain && d.outside != nil && d.outside.OnEnd != nil {
-			(&e).prepare(t, st, el)
-			d.outside.OnEnd(e)
-		}
-		if op.top && d.overlay != nil && d.overlay.OnInteractOutside != nil {
-			(&e).prepare(t, st, el)
-			d.overlay.OnInteractOutside(e)
-		}
+	// The element may have lost its Overlay prop since the pointerdown.
+	if o := el.node.d.overlay; o != nil && o.OnInteractOutside != nil {
+		t.handlerDepth++ // it runs as a handler (flushNested)
+		defer func() { t.handlerDepth-- }()
+		(&e).prepare(t, st, el)
+		o.OnInteractOutside(e)
 	}
 }
 
 // KeepOutsidePress takes the element r is attached to (and its subtree,
-// and the element holding it) out of the interact-outside press that the
-// long press e belongs to: at the release of that press, its OnEnd and
-// OnInteractOutside do not run. The other listeners the press started
-// outside of still get its release. Reserved for package aria: a context
-// menu's long press that opens or moves the menu while it is open
+// and the element holding it) out of the outside press that the long
+// press e belongs to: at the release of that press, the OnInteractOutside
+// of the overlay the press started outside of does not run when that
+// overlay is among them; an overlay elsewhere (another area's menu) still
+// gets the release. Reserved for package aria: a context menu's long press that opens or moves the menu while it is open
 // (UseContextMenuTrigger), whose pointerdown was outside the menu, so
 // that its release does not close the menu it has just placed (Radix
 // keeps it open at the new point; a right click does not need this, as
@@ -384,9 +310,9 @@ func KeepOutsidePress(e PointerEvent, r ElementRef) {
 		return
 	}
 	ps := e.st.press
-	ps.outside = slices.DeleteFunc(ps.outside, func(op outsidePress) bool {
-		return isInside(op.el, keep) || isInside(keep, op.el)
-	})
+	if el := ps.outside; el != nil && (isInside(el, keep) || isInside(keep, el)) {
+		ps.outside = nil
+	}
 }
 
 // escapeOverlay runs the Escape default action: the top overlay's

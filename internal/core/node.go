@@ -80,11 +80,9 @@ type desc struct {
 	// portal marks a Portal node (portal.go).
 	portal bool
 	// The engine props of package aria (ADR-096): a floating element
-	// (floating.go), an overlay and an interact-outside listener
-	// (overlay.go), and the Inert prop.
+	// (floating.go), an overlay (overlay.go) and the Inert prop.
 	float   *FloatOptions
 	overlay *OverlayOptions
-	outside *OutsideOptions
 	inert   bool
 	// animLayout is the AnimateLayout prop and layoutID the LayoutID
 	// prop (layoutanim.go).

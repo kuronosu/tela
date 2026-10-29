@@ -1291,12 +1291,11 @@ func (t *Tree) outermostScroller(d gfx.Point) *scroller {
 // pointercancel in the Pointer Events spec. Nothing else of the pointer is
 // dispatched until it is released (pointerState.panned): no moves, no
 // enter or leave of the elements it passes over, no pointerup or
-// mouseup, and the interact-outside listeners the press started outside
-// of are forgotten, so an overlay is not dismissed by a touch that
-// scrolled. The press did not click: the click sequence starts again, so
-// a quick tap after the scroll is a single click (pointerCancel does the
-// same; the tap recognizer's OnReject only covers a path with click
-// handlers).
+// mouseup, and the overlay the press started outside of is forgotten,
+// so it is not dismissed by a touch that scrolled. The press did not
+// click: the click sequence starts again, so a quick tap after the
+// scroll is a single click (pointerCancel does the same; the tap
+// recognizer's OnReject only covers a path with click handlers).
 func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 	ax := gesture.AxisFree
 	switch {
@@ -1312,8 +1311,7 @@ func (t *Tree) panRecognizer(s *scroller, ps *pointerState) *gesture.Drag {
 			t.breakLatch()
 			ps.panned = true
 			t.in.clicks.Reset()
-			clear(ps.outside)
-			ps.outside = ps.outside[:0]
+			ps.outside = nil
 			// The press is over: active: ends when the scroll starts,
 			// as in Chromium (the tap is cancelled), not at the release.
 			t.clearActive(ps)

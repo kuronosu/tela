@@ -47,7 +47,7 @@ func Portal(children ...Child) Node {
 	case len(d.events) > 0 || d.ref != nil || d.hasTab || d.autoFocus || d.scope != nil || d.disabled ||
 		d.aria != nil || d.fp != nil || d.id != "" || d.virt != nil || d.src != nil || d.img != nil || d.media != nil || d.href != "" ||
 		d.animLayout || d.layoutID != "" || d.testID != "" || d.scheme != ColorSchemeSystem || d.dir != dirNone ||
-		d.float != nil || d.overlay != nil || d.outside != nil || d.inert || d.winRegion != regionNone:
+		d.float != nil || d.overlay != nil || d.inert || d.winRegion != regionNone:
 		panic("h: Portal takes children and a Key only; put handlers, refs and other props on its content (events from it bubble to the Portal's ancestors)")
 	}
 	return Node{d}

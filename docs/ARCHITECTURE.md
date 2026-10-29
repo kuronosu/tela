@@ -452,7 +452,7 @@ Component *behavior* is separate from *styling*. `aria` provides unstyled hooks 
 - Colors: `UseColorState` (the color a picker shares), `UseColorArea`, `UseColorSlider`, `UseColorField`, with the `HSB` and `HSL` types and hex parsing (ADR-135).
 - `UseOverlay` (dismiss on outside press or Esc, modality), `UseDialog`, `UsePopover`, `UseOverlayTrigger`, `UseMenuTrigger`, `UseTooltipTrigger` (ADR-101).
 - **Floating positioning (port of Floating UI, ADR-099):** `UseFloating(anchor, opts...)` with `Placement`, `AnchorRect` (virtual anchors), `Offset`, `Flip`, `Shift`, `Size`, `Arrow`, `Hide` and `AutoPlacement` as functional options applied in the order given, and a result with `Props`, `ArrowProps` and the final `Placement`. Every popover, tooltip, menu and select uses it.
-- **Engine (ADR-096):** `aria` imports `internal/core` for what hooks cannot do alone: anchored positioning in the same frame (a float pass in the paint phase runs the ported `computePosition` on the painted rectangles; autoUpdate without frames of its own), `UseSize`, interact-outside, the overlay stack (Escape and outside presses reach the top overlay only), modality, focus scopes with auto-focus and the focus manager.
+- **Engine (ADR-096):** `aria` imports `internal/core` for what hooks cannot do alone: anchored positioning in the same frame (a float pass in the paint phase runs the ported `computePosition` on the painted rectangles; autoUpdate without frames of its own), `UseSize`, the overlay stack (Escape and outside presses reach the top overlay only; ADR-191), modality, focus scopes with auto-focus and the focus manager.
 
 ## 15. Platform layer
 

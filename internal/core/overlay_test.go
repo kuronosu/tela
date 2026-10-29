@@ -27,28 +27,30 @@ func TestSeveralHandlersRun(t *testing.T) {
 	}
 }
 
-// outsideApp is a page with a button, and a popover in a Portal that
-// listens to presses outside it; a submenu rendered from inside the
-// popover, in a Portal of its own, is inside it.
-func outsideApp(r *recorder, opts func() OutsideOptions) Node {
+// outsideApp is a page with a button, and a popover in a Portal, the
+// top overlay, that is told of presses outside it; a submenu rendered
+// from inside the popover, in a Portal of its own, is inside it.
+func outsideApp(r *recorder, opts func() OverlayOptions) Node {
 	return div(Key("page"), Class("h-full"),
 		button(Key("btn"), Class("block h-10 w-20"), r.mouse("click", "btn"), r.pointer("pointerdown", "btn"), Text("b")),
-		Portal(div(Key("pop"), InteractOutside(opts()), Class("fixed top-[100px] left-[200px] size-20"),
+		Portal(div(Key("pop"), Overlay(opts()), Class("fixed top-[100px] left-[200px] size-20"),
 			Portal(div(Key("sub"), Class("fixed top-[100px] left-[300px] size-10"))))))
 }
 
-func TestInteractOutside(t *testing.T) {
+// TestOverlayPressOutside: the press rules of the top overlay's
+// OnInteractOutsideStart ("start") and OnInteractOutside ("end").
+func TestOverlayPressOutside(t *testing.T) {
 	var r recorder
 	stop, prevent := false, false
-	opts := func() OutsideOptions {
-		return OutsideOptions{
-			OnStart: func(e PointerEvent) {
+	opts := func() OverlayOptions {
+		return OverlayOptions{
+			OnInteractOutsideStart: func(e PointerEvent) {
 				r.add("start")
 				if stop {
 					e.StopPropagation()
 				}
 			},
-			OnEnd: func(e PointerEvent) {
+			OnInteractOutside: func(e PointerEvent) {
 				r.add("end")
 				if prevent {
 					e.PreventDefault()
@@ -57,6 +59,9 @@ func TestInteractOutside(t *testing.T) {
 		}
 	}
 	x := newInput(t, outsideApp(&r, opts), 400, 300)
+	if top, pop := x.tree().topOverlay(), keyed(x.tree(), "pop"); top == nil || top != pop {
+		t.Fatal("the popover is not the top overlay")
+	}
 	press := func(px, py float32) string {
 		r.reset()
 		x.click(px, py)
@@ -174,17 +179,24 @@ func (o *overlayProbe) app() Node {
 	return Component(comp)
 }
 
+// isTopOverlay reports whether the element r is attached to is the top
+// overlay.
+func isTopOverlay(r ElementRef) bool {
+	el := r.element()
+	return el != nil && el.tree.topOverlay() == el
+}
+
 func TestOverlayStack(t *testing.T) {
 	o := &overlayProbe{}
 	x := newKeys(t, o.app(), 600, 400)
 	tr := x.tree()
-	if !IsTopOverlay(o.dialog) {
+	if !isTopOverlay(o.dialog) {
 		t.Fatal("the dialog is not the top overlay")
 	}
 	x.click(110, 110) // d1 opens the popover
 	x.frame()
-	if !IsTopOverlay(o.pop) || IsTopOverlay(o.dialog) {
-		t.Fatalf("top: dialog %v, popover %v", IsTopOverlay(o.dialog), IsTopOverlay(o.pop))
+	if !isTopOverlay(o.pop) || isTopOverlay(o.dialog) {
+		t.Fatalf("top: dialog %v, popover %v", isTopOverlay(o.dialog), isTopOverlay(o.pop))
 	}
 	// Escape reaches only the top overlay.
 	o.r.reset()

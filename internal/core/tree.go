@@ -254,9 +254,9 @@ type Tree struct {
 	stickies []*Box
 	// portals are the mounted Portal elements, in mount order (portal.go).
 	portals []*Element
-	// flt is the float pass state (floating.go), ovl the overlays, the
-	// interact-outside listeners and the modality (overlay.go), and pubs
-	// the Values published in the frame (PublishValue).
+	// flt is the float pass state (floating.go), ovl the overlays and the
+	// modality (overlay.go), and pubs the Values published in the frame
+	// (PublishValue).
 	flt floatTree
 	// rerun is set while a frame builds again after its float pass
 	// published what builds read (Frame).

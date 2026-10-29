@@ -507,8 +507,8 @@ func (t *Tree) update(el *Element, n Node) {
 			// the same code may capture other options (ADR-107).
 			t.updateFloat(el, old)
 		}
-		if old.overlay != d.overlay || old.outside != d.outside {
-			t.updateListener(el, old)
+		if old.overlay != d.overlay {
+			t.updateOverlay(el, old)
 		}
 		if old.inert != d.inert {
 			t.refreshInert(el)
@@ -632,8 +632,8 @@ func (t *Tree) mount(parent *Element, e *flatEntry) *Element {
 		if d.float != nil {
 			t.updateFloat(el, nil)
 		}
-		if d.overlay != nil || d.outside != nil {
-			t.updateListener(el, nil)
+		if d.overlay != nil {
+			t.updateOverlay(el, nil)
 		}
 		if d.ref != nil || d.autoFocus || d.scope != nil {
 			t.mountFocus(el)
@@ -705,8 +705,8 @@ func (t *Tree) unmount(el *Element) {
 		if el.box.portal {
 			t.unmountPortal(el)
 		}
-		if d := el.node.d; d.overlay != nil || d.outside != nil {
-			t.removeListener(el)
+		if el.node.d.overlay != nil {
+			t.removeOverlay(el)
 		}
 		if r := el.node.d.winRegion; r != regionNone {
 			t.regionChanged(el, r, regionNone)

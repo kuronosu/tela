@@ -69,8 +69,8 @@ import (
 // recognizer of each scroll container on the path that can scroll, which
 // competes like a drag (the inner elements' drags first); when it wins,
 // the pressed element gets pointercancel and nothing more of that touch is
-// dispatched (no moves, pointerup, mouseup or end of an interact-outside
-// press) until it is released, as in a browser; a primary press
+// dispatched (no moves, pointerup, mouseup or end of a press outside
+// the top overlay) until it is released, as in a browser; a primary press
 // on a visible scrollbar takes no part in the arena of the content: the
 // thumb's eager drag or a page of the track, without click or focus
 // change. A press stops the flings, and pointer movement ends the latched
@@ -142,10 +142,10 @@ type pointerState struct {
 	// noMouse: pointerdown was cancelled, so the mouse events wait for
 	// all buttons to be up.
 	noMouse bool
-	// outside are the interact-outside listeners the press started
-	// outside of, and noClick reports that one cancelled its click
+	// outside is the top overlay the press started outside of, and
+	// noClick reports that its OnInteractOutside cancelled the click
 	// (overlay.go).
-	outside []outsidePress
+	outside *Element
 	noClick bool
 	// panned: a touch pan took the press over and cancelled the pointer
 	// (scroll.go's panRecognizer), and the pointer left its boundary
@@ -293,7 +293,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 		st := &eventState{}
 		ps.noClick = false
 		if outsideButton(ps, e.Button) {
-			// The listeners of presses outside, as in the capture phase
+			// The top overlay's press outside, as in the capture phase
 			// of the document (overlay.go): a right or middle click too.
 			t.outsideDown(ps, target, pe, st)
 		}
@@ -388,8 +388,7 @@ func (t *Tree) pointerCancel(ps *pointerState, e platform.PointerEvent) {
 	if !ps.panned { // a pan cancelled it already
 		fire(t, evPointerCancel, target, t.pointerEvent(ps, platform.ButtonNone), true)
 	}
-	clear(ps.outside)
-	ps.outside = ps.outside[:0]
+	ps.outside = nil
 	if ps.pressing {
 		ps.pressing = false
 		t.fieldPointerUp(ps)
@@ -502,7 +501,7 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 func (t *Tree) click(ps *pointerState) {
 	ct := commonAncestor(ps.down, ps.target)
 	if ct == nil || ps.noClick {
-		return // or an interact-outside listener cancelled it (overlay.go)
+		return // or the top overlay's OnInteractOutside cancelled it (overlay.go)
 	}
 	n := ps.clickCount
 	t.dispatchClick(ct, t.mouseEvent(ps, platform.ButtonPrimary, n))

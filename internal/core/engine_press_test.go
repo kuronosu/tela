@@ -78,10 +78,6 @@ func TestTouchPanEndsThePress(t *testing.T) {
 	root := div(Key("page"),
 		div(Key("list"), Class("h-[200px] w-[200px] overflow-y-auto"), div(row...), div(Class("h-[1000px]"))),
 		Portal(div(Key("pop"), Class("fixed top-[250px] left-[250px] size-10"),
-			InteractOutside(OutsideOptions{
-				OnStart: func(PointerEvent) { r.add("start") },
-				OnEnd:   func(PointerEvent) { r.add("end") },
-			}),
 			Overlay(OverlayOptions{
 				OnInteractOutsideStart: func(PointerEvent) { r.add("overlay-start") },
 				OnInteractOutside:      func(PointerEvent) { r.add("overlay-outside") },
@@ -100,7 +96,7 @@ func TestTouchPanEndsThePress(t *testing.T) {
 		}
 		return e
 	}
-	const tap = "start overlay-start pointerdown:row end overlay-outside pointerup:row mouseup:row"
+	const tap = "overlay-start pointerdown:row overlay-outside pointerup:row mouseup:row"
 	x.send(touch(platform.PointerDown, 30), touch(platform.PointerUp, 30))
 	if got := r.String(); got != tap {
 		t.Errorf("a tap: %q", got)
@@ -115,7 +111,7 @@ func TestTouchPanEndsThePress(t *testing.T) {
 	}
 	x.send(touch(platform.PointerUp, y))
 	got := r.String()
-	if !strings.HasPrefix(got, "start overlay-start pointerdown:row pointermove:row") || !strings.HasSuffix(got, "pointermove:row pointercancel:row") {
+	if !strings.HasPrefix(got, "overlay-start pointerdown:row pointermove:row") || !strings.HasSuffix(got, "pointermove:row pointercancel:row") {
 		t.Errorf("a pan from the row, released: %q", got)
 	}
 	r.reset()
