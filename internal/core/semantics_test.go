@@ -710,3 +710,30 @@ func TestComboboxFieldValue(t *testing.T) {
 		t.Errorf("snapshot\n%s\nwant\n%s", got, want)
 	}
 }
+
+// A text unmounted since the last Semantics keeps its parent: an action on
+// its node is ErrNodeGone, not an action on the parent that is still
+// mounted.
+func TestSemanticsActionOnUnmountedText(t *testing.T) {
+	clicks := 0
+	tr, _ := snapshotOf(t, div(button(Key("go"), On("click", func(MouseEvent) { clicks++ }), Text("Go"))))
+	var text semantics.NodeID
+	var walk func(n *semantics.Node)
+	walk = func(n *semantics.Node) {
+		if n.Kind == semantics.KindText && n.Text == "Go" {
+			text = n.ID
+		}
+		for _, c := range n.Children {
+			walk(c)
+		}
+	}
+	walk(tr.Semantics())
+	if text == 0 {
+		t.Fatal("no text Go in the semantics tree")
+	}
+	tr.Mount(div(button(Key("go"), On("click", func(MouseEvent) { clicks++ }))))
+	tr.Frame()
+	if err := tr.ClickNode(text); !errors.Is(err, ErrNodeGone) || clicks != 0 {
+		t.Errorf("ClickNode(unmounted text) = %v with %d clicks; want ErrNodeGone and none", err, clicks)
+	}
+}

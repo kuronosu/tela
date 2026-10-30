@@ -29,8 +29,8 @@ func (t *Tree) HitNode(x, y float32) semantics.NodeID {
 // semantics tree. It is nil for a text, a node that is gone and an
 // element without classes.
 func (t *Tree) NodeClasses(id semantics.NodeID) []string {
-	el := t.sem.byID[id]
-	if el == nil || !el.mounted || el.kind != elemPrimitive {
+	el := t.liveElement(id)
+	if el == nil || el.kind != elemPrimitive {
 		return nil
 	}
 	var out []string
@@ -52,8 +52,8 @@ func TestID(id string) Prop {
 // semantics tree. It is empty for a text, a node that is gone and an
 // element without one.
 func (t *Tree) NodeTestID(id semantics.NodeID) string {
-	el := t.sem.byID[id]
-	if el == nil || !el.mounted || el.kind != elemPrimitive {
+	el := t.liveElement(id)
+	if el == nil || el.kind != elemPrimitive {
 		return ""
 	}
 	return el.node.d.testID

@@ -938,10 +938,21 @@ var (
 	ErrNotFocusable = errors.New("core: the element is not focusable")
 )
 
+// liveElement returns the element of node id in the last semantics tree,
+// or nil when the node is unknown or its element was unmounted since: an
+// unmounted element keeps its parent, so a lookup must check this before
+// climbing from it.
+func (t *Tree) liveElement(id semantics.NodeID) *Element {
+	if el := t.sem.byID[id]; el != nil && el.mounted {
+		return el
+	}
+	return nil
+}
+
 // actionElement returns the primitive that acts for node id: its element,
 // or a text's parent element.
 func (t *Tree) actionElement(id semantics.NodeID) (*Element, error) {
-	el := t.sem.byID[id]
+	el := t.liveElement(id)
 	if el != nil && el.kind == elemText {
 		el = el.styleParent()
 	}
