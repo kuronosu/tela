@@ -32,10 +32,12 @@ const (
 	ColorFuncPercent
 )
 
-// ColorFuncError is the error of [ParseRGBFunc] and [ParseHSLFunc]. It is
-// structured so that a caller can word its own message.
+// ColorFuncError is the error of [ParseRGBFunc], [ParseHSLFunc],
+// [ParseOKLCHFunc] and [ParseOklabFunc]. It is structured so that a caller
+// can word its own message.
 type ColorFuncError struct {
-	// Func is "rgb" or "hsl" (rgba() and hsla() are the same functions).
+	// Func is "rgb", "hsl", "oklch" or "oklab" (rgba() and hsla() are the
+	// same functions as rgb() and hsl()).
 	Func string
 	// Problem is what is wrong.
 	Problem ColorFuncProblem
@@ -49,6 +51,9 @@ func (e *ColorFuncError) Error() string {
 	case ColorFuncArity:
 		return fmt.Sprintf("gfx: %s() takes three components and an optional alpha", e.Func)
 	case ColorFuncSyntax:
+		if e.Func == "oklch" || e.Func == "oklab" {
+			return fmt.Sprintf("gfx: %s() separates its arguments with spaces and a \"/\" before the alpha, not commas", e.Func)
+		}
 		return fmt.Sprintf("gfx: %s() separates its arguments with commas or with spaces and a \"/\" before the alpha, not both", e.Func)
 	case ColorFuncComponent:
 		return fmt.Sprintf("gfx: %s(): invalid color component %q; it takes a number or a percentage", e.Func, e.Arg)
@@ -135,11 +140,88 @@ func ParseHSLFunc(args string) (Color, error) {
 	return Color{R: float32(r), G: float32(g), B: float32(b), A: a}, nil
 }
 
+// ParseOKLCHFunc parses the arguments of oklch(), the text between the
+// parentheses, with the grammar of CSS Color 4: "l c h" or "l c h / a",
+// separated by spaces (oklch() has no comma form). The lightness is a
+// number in [0, 1] or a percentage (100% is 1), the chroma a number or a
+// percentage (100% is 0.4), the hue a number of degrees or has a deg,
+// grad, rad or turn unit, and any of them may be none. The alpha is
+// clamped to [0, 1].
+func ParseOKLCHFunc(args string) (Color, error) {
+	comps, alpha, _, err := splitColorFuncArgs("oklch", args)
+	if err != nil {
+		return Color{}, err
+	}
+	l, err := oklabComponent("oklch", comps[0], 1)
+	if err != nil {
+		return Color{}, err
+	}
+	c, err := oklabComponent("oklch", comps[1], 0.4)
+	if err != nil {
+		return Color{}, err
+	}
+	h, ok := colorFuncDegrees(comps[2], false)
+	if !ok {
+		return Color{}, &ColorFuncError{Func: "oklch", Problem: ColorFuncHue, Arg: comps[2]}
+	}
+	a, err := colorFuncAlpha("oklch", alpha, false)
+	if err != nil {
+		return Color{}, err
+	}
+	return OKLCH(l, c, float32(h), a), nil
+}
+
+// ParseOklabFunc parses the arguments of oklab(), the text between the
+// parentheses, with the grammar of CSS Color 4: "l a b" or "l a b / a",
+// separated by spaces (oklab() has no comma form). The lightness is a
+// number in [0, 1] or a percentage (100% is 1), the other two components
+// numbers or percentages (100% is 0.4), and any of them may be none. The
+// alpha is clamped to [0, 1].
+func ParseOklabFunc(args string) (Color, error) {
+	comps, alpha, _, err := splitColorFuncArgs("oklab", args)
+	if err != nil {
+		return Color{}, err
+	}
+	l, err := oklabComponent("oklab", comps[0], 1)
+	if err != nil {
+		return Color{}, err
+	}
+	a, err := oklabComponent("oklab", comps[1], 0.4)
+	if err != nil {
+		return Color{}, err
+	}
+	b, err := oklabComponent("oklab", comps[2], 0.4)
+	if err != nil {
+		return Color{}, err
+	}
+	alp, err := colorFuncAlpha("oklab", alpha, false)
+	if err != nil {
+		return Color{}, err
+	}
+	return Oklab(l, a, b, alp), nil
+}
+
+// oklabComponent parses a number or a percentage of an oklch() or oklab()
+// component; pct is the value of 100%.
+func oklabComponent(fn, s string, pct float64) (float32, error) {
+	v, isPct, ok := colorFuncComponent(s, false)
+	if !ok {
+		return 0, &ColorFuncError{Func: fn, Problem: ColorFuncComponent, Arg: s}
+	}
+	if isPct {
+		v = float64(v*pct) / 100
+	}
+	return float32(v), nil
+}
+
 // splitColorFuncArgs splits the arguments of a color function into its
 // three components and the optional alpha. legacy reports the comma
 // syntax.
 func splitColorFuncArgs(fn, s string) (comps []string, alpha string, legacy bool, err error) {
 	if strings.Contains(s, ",") {
+		if fn == "oklch" || fn == "oklab" {
+			return nil, "", false, &ColorFuncError{Func: fn, Problem: ColorFuncSyntax}
+		}
 		parts := strings.Split(s, ",")
 		for i := range parts {
 			parts[i] = strings.TrimSpace(parts[i])
@@ -203,6 +285,21 @@ func colorFuncAlpha(fn, s string, legacy bool) (float32, error) {
 // colorFuncHue parses a hue in degrees (unitless) or with deg, grad, rad
 // or turn, and returns it in sextants of the color wheel, in [0, 6).
 func colorFuncHue(s string, legacy bool) (float64, bool) {
+	deg, ok := colorFuncDegrees(s, legacy)
+	if !ok {
+		return 0, false
+	}
+	deg = math.Mod(deg, 360)
+	if deg < 0 {
+		deg += 360
+	}
+	return deg / 60, true
+}
+
+// colorFuncDegrees parses a hue in degrees (unitless) or with deg, grad,
+// rad or turn, and returns it in degrees, not normalized. "none" (the
+// space-separated syntax only) is 0.
+func colorFuncDegrees(s string, legacy bool) (float64, bool) {
 	if !legacy && strings.EqualFold(s, "none") {
 		return 0, true
 	}
@@ -221,11 +318,7 @@ func colorFuncHue(s string, legacy bool) (float64, bool) {
 	if !ok {
 		return 0, false
 	}
-	deg := math.Mod(float64(v*scale), 360)
-	if deg < 0 {
-		deg += 360
-	}
-	return deg / 60, true
+	return float64(v * scale), true
 }
 
 // cssNumber parses a CSS <number>: an optional sign, digits with an

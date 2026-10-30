@@ -117,9 +117,17 @@ func parseColor(s string) (colorSpec, error) {
 		}
 		return solidSpec(c), nil
 	case "oklch":
-		return parseOklchFunc(splitColorArgs(inner), true)
+		c, err := gfx.ParseOKLCHFunc(inner)
+		if err != nil {
+			return colorSpec{}, colorFuncError(err)
+		}
+		return solidSpec(c), nil
 	case "oklab":
-		return parseOklchFunc(splitColorArgs(inner), false)
+		c, err := gfx.ParseOklabFunc(inner)
+		if err != nil {
+			return colorSpec{}, colorFuncError(err)
+		}
+		return solidSpec(c), nil
 	case "var":
 		return colorSpec{}, errors.New("CSS variables are not supported; use a theme token or a literal color")
 	case "color-mix", "color", "lab", "lch", "hwb", "light-dark":
@@ -161,43 +169,11 @@ func looksLikeColor(s string) bool {
 	return false
 }
 
-// splitColorArgs splits "0 0 0 / 50%" or "0, 0, 0, 0.5" into components.
-func splitColorArgs(s string) []string {
-	f := strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' || r == '/' || r == '\t' })
-	return f
-}
-
-// colorNum parses a number or a percentage; pct is the value of 100%.
-func colorNum(s string, pct float32) (float32, error) {
-	if strings.HasSuffix(s, "%") {
-		v, ok := parseFloat(s[:len(s)-1])
-		if !ok {
-			return 0, fmt.Errorf("invalid color component %q", s)
-		}
-		return float32(v * pct / 100), nil
-	}
-	v, ok := parseFloat(s)
-	if !ok {
-		return 0, fmt.Errorf("invalid color component %q", s)
-	}
-	return v, nil
-}
-
-func colorAlpha(args []string) (float32, error) {
-	if len(args) == 0 {
-		return 1, nil
-	}
-	a, err := colorNum(args[0], 1)
-	if err != nil {
-		return 0, err
-	}
-	return clampf(a, 0, 1), nil
-}
-
 func clampf(v, lo, hi float32) float32 { return max(lo, min(v, hi)) }
 
-// colorFuncError words the error of gfx.ParseRGBFunc and gfx.ParseHSLFunc
-// (CSS Color 4 syntax, ADR-193) for a class.
+// colorFuncError words the error of gfx's color function parsers (CSS
+// Color 4 syntax, ADR-193) for a class. Every function a message quotes is
+// a valid color.
 func colorFuncError(err error) error {
 	var ce *gfx.ColorFuncError
 	if !errors.As(err, &ce) {
@@ -205,12 +181,21 @@ func colorFuncError(err error) error {
 	}
 	switch ce.Problem {
 	case gfx.ColorFuncArity:
-		if ce.Func == "hsl" {
+		switch ce.Func {
+		case "hsl":
 			return errors.New("hsl() takes hue, saturation, lightness and an optional alpha: hsl(220 60% 50%)")
+		case "oklch", "oklab":
+			return fmt.Errorf("%s() takes three components and an optional alpha, for example %s(0.7 0.15 250 / 0.5)", ce.Func, ce.Func)
 		}
 		return errors.New("rgb() takes three components and an optional alpha: rgb(30 30 46 / 0.5)")
 	case gfx.ColorFuncSyntax:
-		return fmt.Errorf("%s() separates its arguments with commas (%s(30, 30, 46, 0.5)) or with spaces and a \"/\" before the alpha (%s(30 30 46 / 0.5)), not both", ce.Func, ce.Func, ce.Func)
+		switch ce.Func {
+		case "hsl":
+			return errors.New("hsl() separates its arguments with commas (hsl(30, 30%, 46%, 0.5)) or with spaces and a \"/\" before the alpha (hsl(30 30% 46% / 0.5)), not both")
+		case "oklch", "oklab":
+			return fmt.Errorf("%s() separates its arguments with spaces and a \"/\" before the alpha (%s(0.7 0.15 250 / 0.5)), not with commas", ce.Func, ce.Func)
+		}
+		return errors.New("rgb() separates its arguments with commas (rgb(30, 30, 46, 0.5)) or with spaces and a \"/\" before the alpha (rgb(30 30 46 / 0.5)), not both")
 	case gfx.ColorFuncHue:
 		return fmt.Errorf("invalid hue %q", ce.Arg)
 	case gfx.ColorFuncComponent, gfx.ColorFuncAlpha:
@@ -222,45 +207,4 @@ func colorFuncError(err error) error {
 		return errors.New("rgb() with commas takes three numbers or three percentages, not a mix: rgb(255, 128, 0) or rgb(100%, 50%, 0%)")
 	}
 	return err
-}
-
-func parseOklchFunc(args []string, lch bool) (colorSpec, error) {
-	name := "oklab"
-	if lch {
-		name = "oklch"
-	}
-	if len(args) < 3 || len(args) > 4 {
-		return colorSpec{}, fmt.Errorf("%s() takes three components and an optional alpha, for example %s(0.7 0.15 250 / 0.5)", name, name)
-	}
-	l, err := colorNum(args[0], 1)
-	if err != nil {
-		return colorSpec{}, err
-	}
-	a, err := colorAlpha(args[3:])
-	if err != nil {
-		return colorSpec{}, err
-	}
-	if lch {
-		c, err := colorNum(args[1], 0.4)
-		if err != nil {
-			return colorSpec{}, err
-		}
-		h, ok := parseAngle(args[2])
-		if !ok {
-			h, ok = parseFloat(args[2])
-		}
-		if !ok {
-			return colorSpec{}, fmt.Errorf("invalid hue %q", args[2])
-		}
-		return solidSpec(gfx.OKLCH(l, c, h, a)), nil
-	}
-	x, err := colorNum(args[1], 0.4)
-	if err != nil {
-		return colorSpec{}, err
-	}
-	y, err := colorNum(args[2], 0.4)
-	if err != nil {
-		return colorSpec{}, err
-	}
-	return solidSpec(gfx.Oklab(l, x, y, a)), nil
 }
