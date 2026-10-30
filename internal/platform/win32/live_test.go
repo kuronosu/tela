@@ -424,6 +424,7 @@ func TestDPIChanged(t *testing.T) {
 	var w *Window
 	var last platform.Metrics
 	var client image.Point
+	wantWidth := 0 // the client width of the suggested rectangle
 	changed := false
 	frames := 0
 	runLive(t, b, func() {
@@ -442,8 +443,11 @@ func TestDPIChanged(t *testing.T) {
 			if !changed {
 				changed = true
 				base := ew.Metrics()
-				// Same logical size at 150%: the rectangle Windows would
-				// suggest when the window enters a 144 dpi monitor.
+				// 1.5 times the physical size, at 144 dpi: the rectangle
+				// Windows would suggest when a window on a 96 dpi monitor
+				// enters a 144 dpi one (the monitor may be at another scale:
+				// the check below follows the base size).
+				wantWidth = base.Physical().X * 3 / 2
 				outer := adjustWindowRect(rect{right: int32(base.Physical().X * 3 / 2), bottom: int32(base.Physical().Y * 3 / 2)}, w.style, w.exStyle, 144)
 				suggested := &rect{left: 50, top: 60, right: 50 + outer.width(), bottom: 60 + outer.height()}
 				go func() {
@@ -465,8 +469,8 @@ func TestDPIChanged(t *testing.T) {
 	if last.Physical() != client || last.Size != platform.LogicalSize(client, 1.5) {
 		t.Errorf("after WM_DPICHANGED: %v (%v), want the logical size of the %v client area", last, last.Physical(), client)
 	}
-	if client.X < 440 || client.X > 460 {
-		t.Errorf("the suggested rectangle was not applied: client area %v", client)
+	if client.X < wantWidth-10 || client.X > wantWidth+10 {
+		t.Errorf("the suggested rectangle was not applied: client area %v, want a width of about %d", client, wantWidth)
 	}
 	if frames < 2 {
 		t.Errorf("got %d frames, want one after the DPI change", frames)
