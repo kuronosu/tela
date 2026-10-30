@@ -33,6 +33,7 @@ func TestLiveKeyboard(t *testing.T) {
 		t.Skip("wtype is not installed (or set TELA_LIVE_TYPE=manual to type by hand)")
 	}
 	b := liveBackend(t)
+	skipUnlessSeatKeyboard(t, b)
 	win, err := b.NewWindow(platform.WindowOptions{Title: "tela live keyboard", AppID: "dev.telaui.livetest", Size: platform.Size{W: 320, H: 200}})
 	if err != nil {
 		t.Fatal(err)

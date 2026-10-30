@@ -31,6 +31,7 @@ func TestLiveClipboard(t *testing.T) {
 	const ours = "copied from Tela ✓ ñ"
 	const theirs = "pasted into Tela ✓ €"
 	b := liveBackend(t)
+	skipUnlessSeatKeyboard(t, b)
 	if _, err := b.NewWindow(platform.WindowOptions{Title: "tela live clipboard", Size: platform.Size{W: 240, H: 160}}); err != nil {
 		t.Fatal(err)
 	}

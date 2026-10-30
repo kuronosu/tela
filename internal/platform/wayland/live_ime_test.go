@@ -43,6 +43,7 @@ func TestLiveIME(t *testing.T) {
 	if b.textInputManager == nil {
 		t.Skip("the compositor has no zwp_text_input_manager_v3")
 	}
+	skipUnlessSeatKeyboard(t, b)
 	win, err := b.NewWindow(platform.WindowOptions{Title: "tela live IME", AppID: "dev.telaui.livetest", Size: platform.Size{W: 360, H: 160}})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +80,7 @@ func TestLiveIME(t *testing.T) {
 		select {
 		case <-active:
 		case <-time.After(5 * time.Second):
-			t.Error("no IMESessionEvent: the text input never entered the window")
+			t.Error("no IMESessionEvent: the text input never entered the window (is fcitx5 running on this compositor?)")
 			return
 		}
 		time.Sleep(200 * time.Millisecond)

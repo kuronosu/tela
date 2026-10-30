@@ -53,7 +53,8 @@ func TestLiveConformance(t *testing.T) {
 	})
 }
 
-// hyprClient is the part of `hyprctl clients -j` the tests read.
+// hyprClient is a window's logical geometry on screen: the part of
+// `hyprctl clients -j` the tests read, or the same from sway's tree.
 type hyprClient struct {
 	At    [2]int `json:"at"`
 	Size  [2]int `json:"size"`
@@ -61,9 +62,37 @@ type hyprClient struct {
 	Title string `json:"title"`
 }
 
-// findWindow returns our window's logical geometry from Hyprland (read
-// only; the tests never change Hyprland's state).
+// skipUnlessSeatKeyboard skips a test that needs keyboard focus when no
+// seat has a keyboard (a headless compositor): wtype's virtual keyboard
+// only appears when it starts typing, so its first key is lost, and
+// without keyboard focus the compositor refuses a selection and never
+// enters a text input.
+func skipUnlessSeatKeyboard(t *testing.T, b *Backend) {
+	t.Helper()
+	for _, s := range b.seats {
+		if s.kbd != nil {
+			return
+		}
+	}
+	t.Skip("no seat has a keyboard (give a headless compositor one first, e.g. a long-lived wtype)")
+}
+
+// skipUnlessWindowLocator skips a test that captures its window with grim
+// when the compositor is neither Hyprland nor sway: findWindow cannot ask
+// another one where the window is.
+func skipUnlessWindowLocator(t *testing.T) {
+	t.Helper()
+	if os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") == "" && os.Getenv("SWAYSOCK") == "" {
+		t.Skip("finding the window on screen needs Hyprland (hyprctl) or sway (swaymsg)")
+	}
+}
+
+// findWindow returns our window's logical geometry from Hyprland or sway
+// (read only; the tests never change the compositor's state).
 func findWindow(title string) (hyprClient, error) {
+	if os.Getenv("HYPRLAND_INSTANCE_SIGNATURE") == "" && os.Getenv("SWAYSOCK") != "" {
+		return findSwayWindow(title)
+	}
 	out, err := exec.Command("hyprctl", "clients", "-j").Output()
 	if err != nil {
 		return hyprClient{}, fmt.Errorf("hyprctl clients: %w", err)
@@ -78,6 +107,55 @@ func findWindow(title string) (hyprClient, error) {
 		}
 	}
 	return hyprClient{}, fmt.Errorf("window %q of pid %d not found in hyprctl clients", title, os.Getpid())
+}
+
+// swayNode is the part of a `swaymsg -t get_tree` node the tests read: a
+// view's content is window_rect, relative to its container's rect.
+type swayNode struct {
+	Name          string     `json:"name"`
+	Pid           int        `json:"pid"`
+	Rect          swayRect   `json:"rect"`
+	WindowRect    swayRect   `json:"window_rect"`
+	Nodes         []swayNode `json:"nodes"`
+	FloatingNodes []swayNode `json:"floating_nodes"`
+}
+
+type swayRect struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+func findSwayWindow(title string) (hyprClient, error) {
+	out, err := exec.Command("swaymsg", "-t", "get_tree", "-r").Output()
+	if err != nil {
+		return hyprClient{}, fmt.Errorf("swaymsg -t get_tree: %w", err)
+	}
+	var root swayNode
+	if err := json.Unmarshal(out, &root); err != nil {
+		return hyprClient{}, err
+	}
+	var find func(n swayNode) (hyprClient, bool)
+	find = func(n swayNode) (hyprClient, bool) {
+		if n.Pid == os.Getpid() && n.Name == title {
+			return hyprClient{
+				At:   [2]int{n.Rect.X + n.WindowRect.X, n.Rect.Y + n.WindowRect.Y},
+				Size: [2]int{n.WindowRect.Width, n.WindowRect.Height},
+				Pid:  n.Pid, Title: n.Name,
+			}, true
+		}
+		for _, c := range append(n.Nodes, n.FloatingNodes...) {
+			if r, ok := find(c); ok {
+				return r, true
+			}
+		}
+		return hyprClient{}, false
+	}
+	if c, ok := find(root); ok {
+		return c, nil
+	}
+	return hyprClient{}, fmt.Errorf("window %q of pid %d not found in sway's tree", title, os.Getpid())
 }
 
 // screenshot captures a logical rectangle of the screen with grim.
@@ -129,6 +207,8 @@ func quadrants(fb *image.RGBA) {
 }
 
 func TestLivePixels(t *testing.T) {
+	skipUnlessLive(t)
+	skipUnlessWindowLocator(t)
 	for _, format := range []string{"xbgr8888", "xrgb8888"} {
 		t.Run(format, func(t *testing.T) {
 			t.Setenv("TELA_WAYLAND_SHM_FORMAT", format)
