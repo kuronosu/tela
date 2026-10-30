@@ -258,9 +258,33 @@ func (c Column[T]) sortable() bool { return c.Sort != nil || c.Sortable }
 // The look is the pinned shadcn commit's table, with the deviations in
 // [TableStyle]. A table has no row selection or editing; Selected only
 // styles the rows it names, with aria-selected.
+//
+// # Long tables
+//
+// Every row is built, laid out and painted, however far it is from the
+// visible ones, so a table of thousands of rows (or one rebuilt by a parent
+// that animates) pays for all of them in each frame that is not a scroll.
+// RowHeight makes the table virtual: only the rows in view, and a few more
+// on each side, exist (h.VirtualList), at a cost that does not depend on
+// the number of rows. The rows are all RowHeight tall, and the table needs a
+// height of its own (Class: "h-96", "max-h-96" or "flex-1" in a column).
+// Because a row is no longer a part of one grid, the columns must not depend
+// on their content: give them px, fr or minmax() Widths (an "auto" column
+// takes the same share as "1fr"), and there are no Sticky columns. The
+// header stays above the rows, the table scrolls sideways when the columns
+// are wider than it, and the table has aria-rowcount and its rows
+// aria-rowindex, since most of them are not in the tree. Sorting, Selected,
+// RowProps, RowKey (state follows the row), the footer and Empty work as in
+// a plain table.
+//
+//	kit.Table[Order]{Rows: orders, RowHeight: 37, Class: "h-96", ...}
 type Table[T any] struct {
 	// Rows are the data, in the order to show them when unsorted.
 	Rows []T
+	// RowHeight, in logical pixels, makes the table virtual (see Long
+	// tables): every row is that tall, 37 with the default look (a line of
+	// text-sm, p-2 and the 1 px border). 0, the default, builds every row.
+	RowHeight float32
 	// RowKey returns a comparable key that is unique among Rows (an ID);
 	// nil keys rows by position.
 	RowKey func(row T) any
@@ -328,29 +352,36 @@ func (t Table[T]) Build() tela.Node {
 	}
 	offsets := t.checkColumns()
 
-	// The tracks.
+	// The tracks. In a virtual table every row is a grid of its own, so a
+	// track must not depend on the content of its row: auto and fr tracks
+	// get a minimum of 0.
+	virtual := t.RowHeight > 0
 	tracks := make([]string, len(cols))
 	for i, c := range cols {
 		w := strings.TrimSpace(c.Width)
 		if w == "" {
 			w = "auto"
 		}
+		if virtual {
+			w = virtualTrack(w)
+		}
 		tracks[i] = strings.ReplaceAll(w, " ", "_")
 	}
 	gridCols := "grid-cols-[" + strings.Join(tracks, "_") + "]"
 
-	// The order.
-	order := make([]int, len(t.Rows))
-	for i := range order {
-		order[i] = i
-	}
+	// The order: nil while the rows are unsorted.
 	sortedBy := -1
 	for i, c := range cols {
 		if cur.Direction != "" && c.id() == cur.Column && c.sortable() {
 			sortedBy = i
 		}
 	}
+	var order []int
 	if sortedBy >= 0 && cols[sortedBy].Sort != nil {
+		order = make([]int, len(t.Rows))
+		for i := range order {
+			order[i] = i
+		}
 		cmpf, desc := cols[sortedBy].Sort, cur.Direction == Descending
 		slices.SortStableFunc(order, func(a, b int) int {
 			r := cmpf(t.Rows[a], t.Rows[b])
@@ -359,6 +390,12 @@ func (t Table[T]) Build() tela.Node {
 			}
 			return r
 		})
+	}
+	rowAt := func(n int) T {
+		if order != nil {
+			return t.Rows[order[n]]
+		}
+		return t.Rows[n]
 	}
 
 	// The header.
@@ -373,55 +410,67 @@ func (t Table[T]) Build() tela.Node {
 			}
 		})
 	}
+	// In a virtual table a row is a grid of its own, with the same tracks as
+	// the header and the others.
+	rowGrid := ""
+	if virtual {
+		rowGrid = "grid w-full " + gridCols
+	}
 	header := h.Div(cls(s.Header), h.Role("rowgroup"),
-		h.Div(cls(s.Row), h.Role("row"), h.Fragment(headCells...)))
+		h.Div(cls(s.Row, rowGrid), h.Role("row"), when2(virtual, func() tela.Child { return h.AriaRowIndex(1) }), h.Fragment(headCells...)))
 
 	// The body.
-	rows := make([]tela.Child, len(order))
-	for n, i := range order {
-		row := t.Rows[i]
-		var key any = n
+	nrows := len(t.Rows)
+	var body tela.Child
+	switch {
+	case nrows == 0 && t.Empty != nil:
+		nrows = 1
+		body = h.Div(cls(s.Body), h.Role("rowgroup"),
+			h.Div(cls(s.Row, rowGrid), h.Role("row"), when2(virtual, func() tela.Child { return h.AriaRowIndex(2) }),
+				h.Div(cls(joinClass(s.Cell, t.CellClass, s.Empty)), h.Role("cell"), t.Empty)))
+	case virtual && nrows > 0:
+		props := []tela.Prop{h.Role("rowgroup"), h.ItemHeight(t.RowHeight), h.Class("min-h-0 flex-1")}
 		if t.RowKey != nil {
-			key = t.RowKey(row)
+			props = append(props, h.ItemKey(func(n int) any { return t.RowKey(rowAt(n)) }))
 		}
-		cells := make([]tela.Child, len(cols))
-		for j, c := range cols {
-			classes := joinClass(s.Cell, s.Aligns[c.Align], t.CellClass, when(c.Sticky, t.stickyClass(s, offsets[j], false)),
-				c.Class, when(n == len(order)-1, s.CellWithLastRow))
-			var props tela.Child
-			if c.CellProps != nil {
-				props = c.CellProps(row)
+		body = h.VirtualList(nrows, nil, func(n int) tela.Node {
+			row := rowAt(n)
+			return h.Div(t.rowKids([]tela.Child{cls(s.Row, rowGrid), h.Role("row"), h.AriaRowIndex(n + 2)}, s, offsets, row, n == nrows-1)...)
+		}, props...)
+	default:
+		rows := make([]tela.Child, nrows)
+		for n := range rows {
+			row := rowAt(n)
+			var key any = n
+			if t.RowKey != nil {
+				key = t.RowKey(row)
 			}
-			cells[j] = h.Div(cls(classes), h.Role("cell"), props, c.Cell(row))
+			rows[n] = h.Div(t.rowKids([]tela.Child{h.Key(key), cls(s.Row), h.Role("row")}, s, offsets, row, n == nrows-1)...)
 		}
-		kids := []tela.Child{h.Key(key), cls(s.Row), h.Role("row")}
-		if t.Selected != nil {
-			kids = append(kids, h.AriaSelected(t.Selected(row)))
-		}
-		if t.RowProps != nil {
-			kids = append(kids, t.RowProps(row))
-		}
-		kids = append(kids, h.Fragment(cells...))
-		rows[n] = h.Div(kids...)
+		body = h.Div(cls(s.Body), h.Role("rowgroup"), h.Fragment(rows...))
 	}
-	if len(rows) == 0 && t.Empty != nil {
-		rows = append(rows, h.Div(cls(s.Row), h.Role("row"),
-			h.Div(cls(joinClass(s.Cell, t.CellClass, s.Empty)), h.Role("cell"), t.Empty)))
-	}
-	body := h.Div(cls(s.Body), h.Role("rowgroup"), h.Fragment(rows...))
 
+	footer := t.footer(s, offsets, rowGrid, nrows+2)
 	parts := []tela.Child{cls(s.Table, gridCols, t.TableClass), h.Role("table")}
-	footer := t.footer(s, offsets)
+	if virtual {
+		// The header and the rows are in a column, not in a grid; the
+		// header row and the footer row count.
+		count := 1 + nrows
+		if footer != nil {
+			count++
+		}
+		parts = []tela.Child{cls(s.Table, "flex min-h-0 flex-1 flex-col", t.TableClass), h.Role("table"), h.AriaRowCount(count)}
+	}
 	switch {
 	case t.Caption != "":
 		// The caption comes first in the tree, as an HTML table's does,
 		// and sits in the grid's last row (caption-side: bottom).
-		last := 2 + len(rows)
+		last := 2 + nrows
 		if footer != nil {
 			last++
 		}
 		parts = append(parts, h.AriaLabelledBy(captionRef),
-			h.Div(cls(s.Caption, "row-start-"+strconv.Itoa(last), t.CaptionClass), h.Role("caption"), h.Ref(captionRef), h.Text(t.Caption)))
+			h.Div(cls(s.Caption, when(!virtual, "row-start-"+strconv.Itoa(last)), when(virtual, "order-last"), t.CaptionClass), h.Role("caption"), h.Ref(captionRef), h.Text(t.Caption)))
 	case t.AriaLabel != "":
 		parts = append(parts, h.AriaLabel(t.AriaLabel))
 	}
@@ -429,7 +478,57 @@ func (t Table[T]) Build() tela.Node {
 	if footer != nil {
 		parts = append(parts, footer)
 	}
-	return h.Div(cls(s.Root, t.Class), t.Props, h.Div(parts...))
+	root := cls(s.Root, t.Class)
+	if virtual {
+		// Only the rows scroll vertically; the table scrolls sideways.
+		root = cls(s.Root, "flex flex-col overflow-x-auto overflow-y-hidden", t.Class)
+	}
+	return h.Div(root, t.Props, h.Div(parts...))
+}
+
+// virtualTrack returns the grid track for a column of a virtual table: the
+// same size in every row whatever its content. "auto" and "Nfr" would grow
+// with the content of a cell, so they get a minimum of 0.
+func virtualTrack(w string) string {
+	if w == "auto" {
+		return "minmax(0,1fr)"
+	}
+	if n, ok := strings.CutSuffix(w, "fr"); ok {
+		if _, err := strconv.ParseFloat(n, 32); err == nil {
+			return "minmax(0," + w + ")"
+		}
+	}
+	return w
+}
+
+// rowCells returns the cells of a body row. The cells of a virtual table clip their content and have no sticky
+// column.
+func (t Table[T]) rowCells(s *TableStyle, offsets []float32, row T, last bool) []tela.Child {
+	virtual := t.RowHeight > 0
+	cells := make([]tela.Child, len(t.Columns))
+	for j, c := range t.Columns {
+		classes := joinClass(s.Cell, s.Aligns[c.Align], t.CellClass, when(virtual, "min-w-0 overflow-hidden"),
+			when(c.Sticky && !virtual, t.stickyClass(s, offsets[j], false)), c.Class, when(last, s.CellWithLastRow))
+		var props tela.Child
+		if c.CellProps != nil {
+			props = c.CellProps(row)
+		}
+		cells[j] = h.Div(cls(classes), h.Role("cell"), props, c.Cell(row))
+	}
+	return cells
+}
+
+// rowKids returns the props and children of a body row: base, then what
+// Selected and RowProps give, then the cells. last tells that it is the
+// last row.
+func (t Table[T]) rowKids(base []tela.Child, s *TableStyle, offsets []float32, row T, last bool) []tela.Child {
+	if t.Selected != nil {
+		base = append(base, h.AriaSelected(t.Selected(row)))
+	}
+	if t.RowProps != nil {
+		base = append(base, t.RowProps(row))
+	}
+	return append(base, h.Fragment(t.rowCells(s, offsets, row, last)...))
 }
 
 // stickyClass is the classes of a cell of a sticky column that starts left
@@ -444,7 +543,9 @@ func (t Table[T]) stickyClass(s *TableStyle, left float32, footer bool) string {
 }
 
 // footer returns the footer row group, or nil when no column has a footer.
-func (t Table[T]) footer(s *TableStyle, offsets []float32) tela.Child {
+// rowGrid is added to the classes of its row (a virtual table's, whose rows
+// are grids) and index is the row's aria-rowindex in that table.
+func (t Table[T]) footer(s *TableStyle, offsets []float32, rowGrid string, index int) tela.Child {
 	has := false
 	for _, c := range t.Columns {
 		has = has || c.Footer != nil
@@ -458,17 +559,18 @@ func (t Table[T]) footer(s *TableStyle, offsets []float32) tela.Child {
 		span := max(c.FooterSpan, 1)
 		span = min(span, len(t.Columns)-i)
 		classes := joinClass(s.Cell, s.Aligns[c.Align], t.CellClass, s.FooterCell, when(span > 1, "col-span-"+strconv.Itoa(span)),
-			when(c.Sticky, t.stickyClass(s, offsets[i], true)), c.FooterClass, "border-b-0")
+			when(c.Sticky && t.RowHeight <= 0, t.stickyClass(s, offsets[i], true)), c.FooterClass, "border-b-0")
 		cells = append(cells, h.Div(cls(classes), h.Role("cell"), c.FooterProps, c.Footer))
 		i += span - 1
 	}
-	return h.Div(cls(s.Footer), h.Role("rowgroup"), h.Div(cls(s.Row), h.Role("row"), h.Fragment(cells...)))
+	return h.Div(cls(s.Footer), h.Role("rowgroup"),
+		h.Div(cls(s.Row, rowGrid), h.Role("row"), when2(t.RowHeight > 0, func() tela.Child { return h.AriaRowIndex(index) }), h.Fragment(cells...)))
 }
 
 // headCell returns the header cell of column c (the i-th).
 func (t Table[T]) headCell(s *TableStyle, c Column[T], i int, sorted bool, cur SortState, left float32, set func(SortState)) tela.Child {
 	classes := joinClass(s.Head, s.Aligns[c.Align], s.HeadSticky, t.HeadClass,
-		when(c.Sticky, joinClass(s.HeadStickyColumn, stickyLeft(left))), when(c.sortable(), "group"), c.HeaderClass)
+		when(c.Sticky && t.RowHeight <= 0, joinClass(s.HeadStickyColumn, stickyLeft(left))), when(c.sortable(), "group"), c.HeaderClass)
 	kids := []tela.Child{cls(classes), h.Role("columnheader"), c.HeaderProps}
 	var content tela.Component = h.Text(c.Header)
 	if c.HeaderContent != nil {
@@ -531,8 +633,14 @@ func (t Table[T]) checkColumns() []float32 {
 	var left float32
 	sticky := true
 	dev := devMode()
+	if dev && t.RowHeight < 0 {
+		panic(fmt.Sprintf("kit: Table RowHeight is %v; it is the height of every row in px (37 for the default look), or 0 to build every row", t.RowHeight))
+	}
 	for i, c := range t.Columns {
 		if dev {
+			if c.Sticky && t.RowHeight > 0 {
+				panic(fmt.Sprintf("kit: Table column %q is Sticky, which a virtual table (RowHeight %v) does not support: its rows are separate grids; drop Sticky or RowHeight", c.Header, t.RowHeight))
+			}
 			if c.Cell == nil {
 				panic(fmt.Sprintf("kit: Table column %d (%q) has no Cell; set Cell: func(row T) tela.Node { return h.Text(...) }", i, c.Header))
 			}

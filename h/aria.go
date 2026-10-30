@@ -111,6 +111,20 @@ func AriaDisabled(disabled bool) tela.Prop { return core.AriaDisabled(disabled) 
 //	Div(Role("heading"), AriaLevel(2), Text("Billing"))
 func AriaLevel(level int) tela.Prop { return core.AriaLevel(level) }
 
+// AriaRowCount sets the total number of rows of a Role("table"), "grid" or
+// "treegrid" that has only some of them in the tree, such as a virtualized
+// one: the rows that exist, header and footer included, or -1 when the total
+// is unknown. Pair it with AriaRowIndex on the rows that are built.
+//
+//	Div(Role("table"), AriaRowCount(10_001), header, VirtualList(...))
+func AriaRowCount(n int) tela.Prop { return core.AriaRowCount(n) }
+
+// AriaRowIndex sets the position, from 1, of a Role("row") among the rows of
+// its table, for a table that has only some of its rows in the tree.
+//
+//	Div(Role("row"), AriaRowIndex(i+2), cells) // the header is row 1
+func AriaRowIndex(i int) tela.Prop { return core.AriaRowIndex(i) }
+
 // AriaValueNow sets the current value of a range widget (Role("slider"),
 // "progressbar", "spinbutton", "meter").
 //

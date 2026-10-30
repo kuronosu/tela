@@ -3768,6 +3768,10 @@ Tab is one tab of a [`Tabs`](#type-tabs): its key, its label in the list and the
 type Table[T any] struct {
     // Rows are the data, in the order to show them when unsorted.
     Rows []T
+    // RowHeight, in logical pixels, makes the table virtual (see Long
+    // tables): every row is that tall, 37 with the default look (a line of
+    // text-sm, p-2 and the 1 px border). 0, the default, builds every row.
+    RowHeight float32
     // RowKey returns a comparable key that is unique among Rows (an ID);
     // nil keys rows by position.
     RowKey func(row T) any
@@ -3854,6 +3858,14 @@ The table is a CSS grid, one track per column from its Width. A column of Width 
 Rows are keyed by RowKey, so the state of the components in a row's cells follows the row when the order changes. Without RowKey a row's key is its position in the sorted rows.
 
 The look is the pinned shadcn commit's table, with the deviations in [`TableStyle`](#type-tablestyle). A table has no row selection or editing; Selected only styles the rows it names, with aria-selected.
+
+##### Long tables
+
+Every row is built, laid out and painted, however far it is from the visible ones, so a table of thousands of rows (or one rebuilt by a parent that animates) pays for all of them in each frame that is not a scroll. RowHeight makes the table virtual: only the rows in view, and a few more on each side, exist (h.VirtualList), at a cost that does not depend on the number of rows. The rows are all RowHeight tall, and the table needs a height of its own (Class: "h-96", "max-h-96" or "flex-1" in a column). Because a row is no longer a part of one grid, the columns must not depend on their content: give them px, fr or minmax() Widths (an "auto" column takes the same share as "1fr"), and there are no Sticky columns. The header stays above the rows, the table scrolls sideways when the columns are wider than it, and the table has aria-rowcount and its rows aria-rowindex, since most of them are not in the tree. Sorting, Selected, RowProps, RowKey (state follows the row), the footer and Empty work as in a plain table.
+
+```go
+kit.Table[Order]{Rows: orders, RowHeight: 37, Class: "h-96", ...}
+```
 
 **Example**
 

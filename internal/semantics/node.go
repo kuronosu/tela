@@ -155,6 +155,10 @@ type Node struct {
 	// Level is the heading level (H1 to H6, or AriaLevel), or AriaLevel
 	// for other roles; 0 when there is none.
 	Level int
+	// RowCount and RowIndex are the AriaRowCount of a table, grid or
+	// treegrid (-1: unknown) and the AriaRowIndex of a row (from 1); 0 when
+	// unset. Aria snapshots do not print them.
+	RowCount, RowIndex int
 	// Checked, Pressed, Selected and Expanded are the ARIA states set by
 	// the props of the same names.
 	Checked, Pressed, Selected, Expanded Toggle

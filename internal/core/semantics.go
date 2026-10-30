@@ -274,6 +274,9 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	if n.Level = headingLevel(bx.kind); n.Level == 0 && a != nil && a.level >= 1 {
 		n.Level = int(a.level)
 	}
+	if a != nil {
+		n.RowCount, n.RowIndex = int(a.rowCount), int(a.rowIndex)
+	}
 	if bx.kind == style.KindA {
 		n.URL = d.href
 	}

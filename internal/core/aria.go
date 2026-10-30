@@ -33,6 +33,8 @@ type ariaProps struct {
 	sort        string // "ascending", "descending", "other"; "" unset or none
 	current     string // AriaCurrent: "page", "step", "location", "date", "time", "true"; "" unset or false
 	level       int32
+	rowCount    int32 // AriaRowCount; 0 unset
+	rowIndex    int32 // AriaRowIndex; 0 unset
 	rng         semantics.Range
 	valueText   string
 	hasText     bool
@@ -147,6 +149,23 @@ func AriaDisabled(disabled bool) Prop {
 func AriaLevel(level int) Prop {
 	l := int32(max(min(level, math.MaxInt32), 0))
 	return ariaProp("AriaLevel", func(a *ariaProps) { a.level = l })
+}
+
+// AriaRowCount sets the total number of rows of a table, grid or treegrid
+// (aria-rowcount), for one that has only some of its rows in the tree, such
+// as a virtualized table (header and footer rows count); -1 says the total is
+// unknown. 0 is ignored.
+func AriaRowCount(n int) Prop {
+	c := int32(max(min(n, math.MaxInt32), -1))
+	return ariaProp("AriaRowCount", func(a *ariaProps) { a.rowCount = c })
+}
+
+// AriaRowIndex sets the position of a row in its table (aria-rowindex), counting
+// from 1, for a table that has only some of its rows in the tree. Indices
+// below 1 are ignored.
+func AriaRowIndex(i int) Prop {
+	c := int32(max(min(i, math.MaxInt32), 0))
+	return ariaProp("AriaRowIndex", func(a *ariaProps) { a.rowIndex = c })
 }
 
 // AriaValueNow sets the current value of a range widget (aria-valuenow).

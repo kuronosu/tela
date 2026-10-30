@@ -14,6 +14,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Added
 
+- `kit.Table.RowHeight` makes a table virtual (ADR-199): only the rows in view are built, on an `h.VirtualList`, so a frame that rebuilds the page costs the same with 240 or 100,000 rows (about 1.2 ms where a plain 2000-row table took 59 ms). New `h.AriaRowCount` and `h.AriaRowIndex`, which a virtual table sets. Sticky columns are not supported in a virtual table yet.
+
 - `aria.ComboboxOptions.AutoFocusFirst`: while the list is open and nothing is highlighted, the first item is, on opening and after each change of the text, so Enter chooses it (ADR-198).
 
 - New module `github.com/kuronosu/tela/looks` (ADR-197), separate from the core like `icons/lucide`: the looks of Windows 11, GNOME and KDE for `kit`, each in light and dark. A `looks.Look` is a `tela.Theme`, a `kit.Style` and the classes of the window regions kit has no component for (`Regions`: toolbar, location bar, sidebar, content, details pane, status bar); `win11.Look()`, `adwaita.Look()` and `breeze.Look()` return one, and `detect.Look()` picks the running desktop's. `looks/gallery` shows kit's controls in each look and switches between them at run time.
