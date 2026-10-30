@@ -16,9 +16,10 @@ import (
 )
 
 // Notes is the whole app: the main window's content and, declared inside
-// it, the tray icon and the Preferences window. TitleBar is the look of
-// the title bar; the zero value is the platform's (Windows, GNOME or
-// macOS), and the tests name one so the goldens match on every OS. Overview
+// it, the tray icon and the Preferences window. TitleBar is the look whose
+// arrangement the (plain) title bar follows; the zero value is the
+// platform's (Windows, GNOME or macOS), and the tests name one so the
+// goldens match on every OS. Overview
 // starts with no note open (a library that has never been used starts with
 // the welcome note open).
 type Notes struct {
@@ -411,8 +412,9 @@ func (s screen) Build() tela.Node {
 			},
 		})),
 		kit.TitleBar{
-			Variant: s.TitleBar,
-			Class:   "border-0 bg-sidebar",
+			Variant: kit.Plain,
+			Look:    s.TitleBar,
+			Class:   "bg-sidebar",
 			Leading: Span(Class("flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground"),
 				Icon(icons.NotebookPen, Class("size-3.5"))),
 			Title: Span(Class("font-semibold tracking-tight"), Text("Notes")),

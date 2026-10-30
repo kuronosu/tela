@@ -24,7 +24,18 @@ const (
 	// MacOS is Aqua's: the red, yellow and green dots at the start of the
 	// bar, whose glyphs show when the pointer is over them.
 	MacOS Variant = "macos"
+	// Plain is the platform's arrangement and glyphs drawn quietly (ADR-201):
+	// ghost buttons that follow the app's theme tokens, for an app with a
+	// design of its own. On a [TitleBar] it also draws no background, no
+	// border and no outline. The platform decides what Plain arranges
+	// (Look picks another), so the controls are at the end on Windows and
+	// GNOME and at the start, as dots, on macOS.
+	Plain Variant = "plain"
 )
+
+// plainKey is the key of a recipe map that holds the quiet buttons of the
+// platform look lk: "plain-windows", "plain-gnome" or "plain-macos".
+func plainKey(lk Variant) Variant { return Plain + "-" + lk }
 
 // platformLook returns the look of an operating system, as runtime.GOOS
 // names it.
@@ -47,6 +58,19 @@ func resolveLook(v Variant) Variant {
 	return v
 }
 
+// resolvePlain returns the look whose arrangement and glyphs a component
+// draws and whether it draws them quietly (Plain). For Plain, look is the
+// Look field (the platform's when empty); otherwise it is the Variant.
+func resolvePlain(v, look Variant) (lk Variant, plain bool) {
+	if v != Plain {
+		return resolveLook(v), false
+	}
+	if look == Plain {
+		look = Default
+	}
+	return resolveLook(look), true
+}
+
 // useWindowState returns the state a window component draws: the override it
 // was given (for previews and tests), else the window's own. It is a hook
 // (it reads the window state, so the component builds again when that
@@ -64,7 +88,10 @@ func useWindowState(override *tela.WindowState) tela.WindowState {
 type WindowControlsStyle struct {
 	// Root is the group the buttons are in.
 	Root string
-	// Variants are the looks of the group: Windows, GNOME and MacOS.
+	// Variants are the looks of the group: Windows, GNOME and MacOS, and
+	// the quiet ones of Plain under "plain-windows", "plain-gnome" and
+	// "plain-macos". Button, close, inactive and icon recipes follow the
+	// same keys (the icons use the platform's).
 	Variants map[Variant]string
 	// Button is what every button has: layout, transition and focus ring.
 	Button string
@@ -90,12 +117,20 @@ func init() {
 			Windows: "items-start",
 			GNOME:   "gap-2 px-2",
 			MacOS:   "group gap-2 px-3",
+
+			plainKey(Windows): "items-start",
+			plainKey(GNOME):   "gap-1 px-2",
+			plainKey(MacOS):   "group gap-2 px-3",
 		},
 		Button: "inline-flex shrink-0 items-center justify-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60",
 		ButtonVariants: map[Variant]string{
 			Windows: "h-8 w-[46px] text-foreground hover:bg-foreground/8 active:bg-foreground/5 focus-visible:ring-inset",
 			GNOME:   "size-6 rounded-full bg-foreground/7 text-foreground hover:bg-foreground/12 active:bg-foreground/18",
 			MacOS:   "size-3 rounded-full border border-black/10 text-black/60 dark:border-white/10",
+
+			plainKey(Windows): "h-8 w-[46px] text-muted-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent/70 focus-visible:ring-inset",
+			plainKey(GNOME):   "size-6 rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent/70",
+			plainKey(MacOS):   "size-3 rounded-full bg-foreground/15 text-foreground/70 hover:bg-foreground/30 active:bg-foreground/40",
 		},
 		MinimizeVariants: map[Variant]string{MacOS: "bg-[#febc2e]"},
 		MaximizeVariants: map[Variant]string{MacOS: "bg-[#28c840]"},
@@ -103,11 +138,19 @@ func init() {
 			Windows: "hover:bg-[#c42b1c] hover:text-white active:bg-[#c42b1c]/90 active:text-white/80",
 			GNOME:   "hover:bg-destructive/15 hover:text-destructive active:bg-destructive/25",
 			MacOS:   "bg-[#ff5f57]",
+
+			plainKey(Windows): "hover:bg-destructive/15 hover:text-destructive active:bg-destructive/25",
+			plainKey(GNOME):   "hover:bg-destructive/15 hover:text-destructive active:bg-destructive/25",
+			plainKey(MacOS):   "hover:bg-destructive hover:text-white active:bg-destructive/80",
 		},
 		Inactive: map[Variant]string{
 			Windows: "text-muted-foreground",
 			GNOME:   "bg-foreground/4 text-muted-foreground",
 			MacOS:   "border-foreground/10 bg-foreground/15",
+
+			plainKey(Windows): "text-muted-foreground/50",
+			plainKey(GNOME):   "text-muted-foreground/50",
+			plainKey(MacOS):   "bg-foreground/8",
 		},
 		Icon: "pointer-events-none shrink-0",
 		IconVariants: map[Variant]string{
@@ -173,13 +216,22 @@ func svgIcon(size int, shapes string) tela.Icon {
 //
 // Without a window, as in tela snapshot, the buttons draw and do nothing.
 //
+// Variant Plain draws the same arrangement and glyphs as the platform's
+// look in ghost buttons: the glyphs in the muted foreground, a hover in the
+// accent color and a destructive hover on close (on macOS, small neutral
+// dots that turn destructive on close). Look picks another arrangement.
+//
 // The glyphs, the names and the look are all slots and recipes: the icon
 // and label fields replace one, and [WindowControlsStyle] restyles a look
 // or adds one.
 type WindowControls struct {
-	// Variant is the look: Default (the platform's), Windows, GNOME or
-	// MacOS, or one the active [Style] adds.
+	// Variant is the look: Default (the platform's), Windows, GNOME,
+	// MacOS or Plain, or one the active [Style] adds.
 	Variant Variant
+	// Look is the look whose arrangement and glyphs Plain follows:
+	// Windows, GNOME or MacOS. Empty is the platform's. It is read only
+	// with Variant Plain.
+	Look Variant
 	// HideMinimize and HideMaximize leave a button out, for a window that
 	// cannot be minimized or maximized (a dialog, a fixed-size window).
 	// Close is always there.
@@ -207,8 +259,12 @@ type WindowControls struct {
 func (w WindowControls) Build() tela.Node {
 	st := useWindowState(w.State)
 	s := &UseStyle().WindowControls
-	lk := resolveLook(w.Variant)
-	root := pick("WindowControls", "Variant", s.Variants, lk)
+	lk, plain := resolvePlain(w.Variant, w.Look)
+	key := lk // the key of the recipes that differ in Plain
+	if plain {
+		key = plainKey(lk)
+	}
+	root := pick("WindowControls", "Variant", s.Variants, key)
 	glyphs, ok := controlGlyphs[lk]
 	if !ok {
 		glyphs = controlGlyphs[GNOME]
@@ -223,7 +279,7 @@ func (w WindowControls) Build() tela.Node {
 
 	button := func(c tela.WindowControl, label string, ic tela.Icon, extra map[Variant]string) tela.Child {
 		return h.Button(
-			cls(s.Button, s.ButtonVariants[lk], extra[lk], when(!st.Focused, s.Inactive[lk])),
+			cls(s.Button, s.ButtonVariants[key], extra[key], when(!st.Focused, s.Inactive[key])),
 			h.Type("button"), h.WindowControl(c), h.AriaLabel(label),
 			icon(ic, s.Icon, s.IconVariants[lk]))
 	}

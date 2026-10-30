@@ -4,7 +4,7 @@ A small plain-text notes app, and the acceptance test of phase 12 ("desktop esse
 
 Its look is "Graphite, Tela light with amber": stone in the light scheme (the palette of `examples/hello`), graphite in the dark one, and one amber accent in both that Preferences can change. The theme (`theme.go`) is `kit.Theme()` with two tokens of its own, `sidebar` and `gold`, and a radius of 10.
 
-The main window is frameless and draws its own title bar (`kit.TitleBar`, in the look of the platform, in the `sidebar` color) with the app's badge and the Open and Save buttons. Under it are three panes:
+The main window is frameless and draws its own title bar (`kit.TitleBar` with `kit.Plain`, the platform's arrangement in the `sidebar` color) with the app's badge and the Open and Save buttons. Under it are three panes:
 
 - **The rail**: New note, the views (All notes, Pinned, Unsaved), the folders and the #tags of the library, each with its count, and Preferences at the bottom.
 - **The list and the editor**, when a note is open: the search field and the cards of the notes of the chosen filter, and the note: a header with its folder menu, its tags, an Unsaved mark and the pin, a title field, the text, and a status line (the file's path or "In your library", words, characters).

@@ -14,7 +14,9 @@ type TitleBarStyle struct {
 	// Root is what every look has: the width, no text selection.
 	Root string
 	// Variants are the looks of the bar: Windows, GNOME and MacOS. Their
-	// heights are 32, 47 and 40 px, the ones of the OS's own bars.
+	// heights are 32, 47 and 40 px, the ones of the OS's own bars. Plain
+	// is added to the platform's look, after it, and takes away its
+	// background and borders.
 	Variants map[Variant]string
 	// Windowed and Maximized are added to the bar while the window is
 	// neither maximized nor fullscreen, and while it is: the outline a
@@ -45,6 +47,7 @@ func init() {
 			Windows: "flex h-8 items-center bg-background text-xs",
 			GNOME:   "grid h-[47px] grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-muted text-sm font-semibold",
 			MacOS:   "grid h-10 grid-cols-[1fr_auto_1fr] items-center border-b border-border bg-muted text-[13px] font-semibold",
+			Plain:   "border-0 bg-transparent",
 		},
 		Windowed: map[Variant]string{
 			Windows: "border-t border-border",
@@ -56,6 +59,7 @@ func init() {
 			Windows: "text-muted-foreground",
 			GNOME:   "bg-background text-muted-foreground",
 			MacOS:   "bg-background text-muted-foreground",
+			Plain:   "text-muted-foreground",
 		},
 		Leading: map[Variant]string{
 			Windows: "flex shrink-0 items-center gap-2 ps-3",
@@ -119,6 +123,14 @@ func init() {
 // dims while the window is not focused, and loses its outline while the
 // window is maximized or fullscreen.
 //
+// Variant Plain is the bar of an app with a design of its own: the
+// platform's arrangement (heights, the title at the start or centered, the
+// controls at the end or, as dots, at the start), and nothing else. It has
+// no background, border or outline, so the surface under it shows (give the
+// bar one with Class: "bg-sidebar"), and its window controls are ghost
+// buttons in the app's theme colors. Look picks another platform's
+// arrangement.
+//
 // To show the bar only where the window has no title bar of its own, read
 // the window state and leave it out otherwise:
 //
@@ -128,9 +140,14 @@ func init() {
 // State().Fullscreen. In tela snapshot there is no window: the bar is
 // drawn focused and not maximized, and its buttons do nothing.
 type TitleBar struct {
-	// Variant is the look: Default (the platform's), Windows, GNOME or
-	// MacOS, or one the active [Style] adds.
+	// Variant is the look: Default (the platform's), Windows, GNOME,
+	// MacOS or Plain, or one the active [Style] adds. Plain is the
+	// platform's arrangement with no background, border or outline of its
+	// own, and quiet window controls: for an app whose own surface shows.
 	Variant Variant
+	// Look is the look whose arrangement Plain follows: Windows, GNOME or
+	// MacOS. Empty is the platform's. It is read only with Variant Plain.
+	Look Variant
 	// Title is the window's name, truncated when there is no room.
 	Title tela.Component
 	// Leading is drawn at the start, before the title: a menu button, the
@@ -190,18 +207,24 @@ func checkSide(side string) {
 func (t TitleBar) Build() tela.Node {
 	st := useWindowState(t.State)
 	s := &UseStyle().TitleBar
-	lk := resolveLook(t.Variant)
+	lk, plain := resolvePlain(t.Variant, t.Look)
 	root := pick("TitleBar", "Variant", s.Variants, lk)
 	checkSide(t.ControlsSide)
 	atStart := controlsAtStart(lk, t.ControlsSide)
 
-	state := s.Windowed[lk]
+	// The outline and the dimmed background are the platform's own; Plain
+	// leaves them out and only dims the text.
+	state, inactive, quiet := s.Windowed[lk], s.Inactive[lk], ""
 	if st.Maximized || st.Fullscreen {
 		state = s.Maximized[lk]
 	}
 	controls := WindowControls{Variant: lk, HideMinimize: t.HideMinimize, HideMaximize: t.HideMaximize, State: t.State}
+	if plain {
+		state, inactive, quiet = "", s.Inactive[Plain], s.Variants[Plain]
+		controls.Variant, controls.Look = Plain, lk
+	}
 
-	kids := []tela.Child{cls(s.Root, root, state, when(!st.Focused, s.Inactive[lk]), t.Class), h.WindowDrag(), t.Props}
+	kids := []tela.Child{cls(s.Root, root, quiet, state, when(!st.Focused, inactive), t.Class), h.WindowDrag(), t.Props}
 	if atStart || t.Leading != nil {
 		lead := []tela.Child{cls(s.Leading[lk], t.LeadingClass)}
 		if atStart {

@@ -8,8 +8,8 @@
 //
 // What it shows:
 //
-//   - A frameless window with a kit.TitleBar (the look of the platform:
-//     Windows, GNOME or macOS) that holds the app's badge and the Open and
+//   - A frameless window with a kit.TitleBar (kit.Plain, in the arrangement of
+//     the platform: Windows, GNOME or macOS) that holds the app's badge and the Open and
 //     Save buttons. App.Frameless, h.WindowDrag and h.WindowControl are
 //     inside the kit components; the OS moves, resizes and snaps the
 //     window.

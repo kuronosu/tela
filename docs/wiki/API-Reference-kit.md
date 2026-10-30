@@ -4201,9 +4201,14 @@ TextareaStyle is the recipe of [`Textarea`](#type-textarea) (shadcn/ui's Textare
 
 ```go
 type TitleBar struct {
-    // Variant is the look: Default (the platform's), Windows, GNOME or
-    // MacOS, or one the active [Style] adds.
+    // Variant is the look: Default (the platform's), Windows, GNOME,
+    // MacOS or Plain, or one the active [Style] adds. Plain is the
+    // platform's arrangement with no background, border or outline of its
+    // own, and quiet window controls: for an app whose own surface shows.
     Variant Variant
+    // Look is the look whose arrangement Plain follows: Windows, GNOME or
+    // MacOS. Empty is the platform's. It is read only with Variant Plain.
+    Look Variant
     // Title is the window's name, truncated when there is no room.
     Title tela.Component
     // Leading is drawn at the start, before the title: a menu button, the
@@ -4253,6 +4258,8 @@ func Notes() tela.Node {
 
 The bar draws [`WindowControls`](#type-windowcontrols) at the side the platform keeps them (the end, in the reading direction, and the start on macOS; ControlsSide overrides it), so under h.Dir("rtl") the whole bar mirrors. Its look is the platform's by default (Windows, GNOME or MacOS: the title at the start on Windows, centered on the others; Variant picks another), it dims while the window is not focused, and loses its outline while the window is maximized or fullscreen.
 
+Variant Plain is the bar of an app with a design of its own: the platform's arrangement (heights, the title at the start or centered, the controls at the end or, as dots, at the start), and nothing else. It has no background, border or outline, so the surface under it shows (give the bar one with Class: "bg-sidebar"), and its window controls are ghost buttons in the app's theme colors. Look picks another platform's arrangement.
+
 To show the bar only where the window has no title bar of its own, read the window state and leave it out otherwise:
 
 ```go
@@ -4276,7 +4283,9 @@ type TitleBarStyle struct {
     // Root is what every look has: the width, no text selection.
     Root string
     // Variants are the looks of the bar: Windows, GNOME and MacOS. Their
-    // heights are 32, 47 and 40 px, the ones of the OS's own bars.
+    // heights are 32, 47 and 40 px, the ones of the OS's own bars. Plain
+    // is added to the platform's look, after it, and takes away its
+    // background and borders.
     Variants map[Variant]string
     // Windowed and Maximized are added to the bar while the window is
     // neither maximized nor fullscreen, and while it is: the outline a
@@ -5057,6 +5066,13 @@ const (
     // MacOS is Aqua's: the red, yellow and green dots at the start of the
     // bar, whose glyphs show when the pointer is over them.
     MacOS Variant = "macos"
+    // Plain is the platform's arrangement and glyphs drawn quietly (ADR-201):
+    // ghost buttons that follow the app's theme tokens, for an app with a
+    // design of its own. On a [TitleBar] it also draws no background, no
+    // border and no outline. The platform decides what Plain arranges
+    // (Look picks another), so the controls are at the end on Windows and
+    // GNOME and at the start, as dots, on macOS.
+    Plain Variant = "plain"
 )
 ```
 
@@ -5072,9 +5088,13 @@ TabsLine is the Variant of a [`Tabs`](#type-tabs) list that draws no background 
 
 ```go
 type WindowControls struct {
-    // Variant is the look: Default (the platform's), Windows, GNOME or
-    // MacOS, or one the active [Style] adds.
+    // Variant is the look: Default (the platform's), Windows, GNOME,
+    // MacOS or Plain, or one the active [Style] adds.
     Variant Variant
+    // Look is the look whose arrangement and glyphs Plain follows:
+    // Windows, GNOME or MacOS. Empty is the platform's. It is read only
+    // with Variant Plain.
+    Look Variant
     // HideMinimize and HideMaximize leave a button out, for a window that
     // cannot be minimized or maximized (a dialog, a fixed-size window).
     // Close is always there.
@@ -5110,6 +5130,8 @@ Each button is a real button with the window-control prop of h.WindowControl, so
 
 Without a window, as in tela snapshot, the buttons draw and do nothing.
 
+Variant Plain draws the same arrangement and glyphs as the platform's look in ghost buttons: the glyphs in the muted foreground, a hover in the accent color and a destructive hover on close (on macOS, small neutral dots that turn destructive on close). Look picks another arrangement.
+
 The glyphs, the names and the look are all slots and recipes: the icon and label fields replace one, and [`WindowControlsStyle`](#type-windowcontrolsstyle) restyles a look or adds one.
 
 #### func (WindowControls) Build
@@ -5126,7 +5148,10 @@ Build returns the group of buttons.
 type WindowControlsStyle struct {
     // Root is the group the buttons are in.
     Root string
-    // Variants are the looks of the group: Windows, GNOME and MacOS.
+    // Variants are the looks of the group: Windows, GNOME and MacOS, and
+    // the quiet ones of Plain under "plain-windows", "plain-gnome" and
+    // "plain-macos". Button, close, inactive and icon recipes follow the
+    // same keys (the icons use the platform's).
     Variants map[Variant]string
     // Button is what every button has: layout, transition and focus ring.
     Button string

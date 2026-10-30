@@ -14,6 +14,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Added
 
+- `kit.Plain`, a variant of `kit.TitleBar` and `kit.WindowControls` for apps with a design of their own (ADR-201): the platform's arrangement and glyphs (Windows, GNOME or macOS, chosen by the new `Look` field or the running platform) with no background, border or outline of its own, and quiet ghost window buttons in the theme's colors. `examples/notes` uses it, and the kit gallery's Title Bar page shows it.
+
 - `kit.Table.RowHeight` makes a table virtual (ADR-199): only the rows in view are built, on an `h.VirtualList`, so a frame that rebuilds the page costs the same with 240 or 100,000 rows (about 1.2 ms where a plain 2000-row table took 59 ms). New `h.AriaRowCount` and `h.AriaRowIndex`, which a virtual table sets. Sticky columns are not supported in a virtual table yet.
 
 - `aria.ComboboxOptions.AutoFocusFirst`: while the list is open and nothing is highlighted, the first item is, on opening and after each change of the text, so Enter chooses it (ADR-198).

@@ -382,7 +382,12 @@ with the title centered and round buttons; `kit.MacOS`: the three dots at the
 start), chosen by `runtime.GOOS`; `Variant` picks another, and the looks are
 recipes (`Style.TitleBar`, `Style.WindowControls`) you can edit or add to. The bar
 dims while the window is not focused and drops its outline while it is maximized
-or fullscreen; under `h.Dir("rtl")` it mirrors. It does not hide itself: to show
+or fullscreen; under `h.Dir("rtl")` it mirrors. `Variant: kit.Plain`
+is for an app with a design of its own: the platform's arrangement (`Look` picks
+another) with no background, border or outline, so the surface under the bar
+shows (give it one with `Class: "bg-sidebar"`), and ghost window controls that
+follow the theme tokens (muted glyphs, an accent hover, a destructive hover on
+close; small neutral dots on macOS). It does not hide itself: to show
 it only where the OS draws no title bar, wrap it in
 `If(tela.UseWindow().State().ClientSideDecorations, ...)`. `State` overrides the
 window's state, for previews and tests (`tela snapshot` has no window: the bar is
