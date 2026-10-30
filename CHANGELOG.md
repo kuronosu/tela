@@ -32,6 +32,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 - `examples/dashboard` has a new design, "Frosted graphite" (ADR-195): three fixed glass panes (rail, main, Pulse) over a calm dune wallpaper with one amber accent, in light and dark. Overview (a headline figure with metric tabs and 48 spring bars, four figures with sparklines, latest orders, a goal ring, traffic and activity), Tasks (a sortable table and a board with drag and drop, card menus, edit, new and delete dialogs, a sprint strip) and Orders; a command palette (Ctrl+K) and tooltips built directly on `aria` hooks; Ctrl+1/2/3 switch views. `docs/images/dashboard.png`, `dashboard-dark.png` and `dashboard-palette.png` show it. Its frame times are in the README; it is heavier on the CPU than the page it replaces, as phase 16 expects.
 
+### Fixed
+
+- `desktop.UseSetting`, `UseStoreSetting` and `Store.Get`: the elements of a stored slice, array or map start from zero values instead of inheriting, by position, the fields of the default's elements that the stored JSON leaves out (an `omitempty` field cleared by the user came back after a resync). Struct fields missing from the stored value still keep the default's.
+- `tela lint` learns the custom theme tokens set through a helper function (`set("gold", ...)` where the helper assigns `t.Colors[name]`), not only constant-key assignments.
+
 ### Removed
 
 - The examples `board` and `aria` are gone, merged into `dashboard` (ADR-195): the board's model, drag, menu, dialog, bench and damage tests are the dashboard's board tests, and the behaviors `examples/aria` tested that the `aria` package did not are tests of a hooks-only screen in `aria/screen_test.go` (tab order, menus, combobox, dialog, pointer, damage, idle, aria snapshot). `docs/images/aria*.png` and `board.png` are removed.
