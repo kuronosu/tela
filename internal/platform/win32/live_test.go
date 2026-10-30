@@ -28,7 +28,43 @@ var (
 	procGetPixel         = gdi32.NewProc("GetPixel")
 	procOpenInputDesktop = user32.NewProc("OpenInputDesktop")
 	procCloseDesktop     = user32.NewProc("CloseDesktop")
+	procSetCursorPos     = user32.NewProc("SetCursorPos")
 )
+
+// parkCursor moves the real mouse cursor to the bottom-right corner of the
+// primary screen until the test ends. The tests that post synthetic mouse
+// messages compare the whole sequence of pointer events; a real cursor over
+// the test window (a runner's cursor sits wherever the last session left
+// it, often the screen center, where windows open) adds real enter, move
+// and leave events to it. Call it before creating the window, then
+// requireCursorOutside once the window exists.
+func parkCursor(t *testing.T) {
+	t.Helper()
+	var old point
+	ok, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&old)))
+	cx, _, _ := procGetSystemMetrics.Call(0) // SM_CXSCREEN
+	cy, _, _ := procGetSystemMetrics.Call(1) // SM_CYSCREEN
+	procSetCursorPos.Call(cx-1, cy-1)
+	t.Cleanup(func() {
+		if ok != 0 {
+			procSetCursorPos.Call(uintptr(int(old.x)), uintptr(int(old.y)))
+		}
+	})
+}
+
+// requireCursorOutside skips the test when the real cursor (parked by
+// parkCursor) is over the window anyway, a screen too small for the window
+// to leave the corner free.
+func requireCursorOutside(t *testing.T, hwnd uintptr) {
+	t.Helper()
+	var p point
+	if ok, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&p))); ok == 0 {
+		return
+	}
+	if r := getWindowRect(hwnd); p.x >= r.left && p.x < r.right && p.y >= r.top && p.y < r.bottom {
+		t.Skipf("the real cursor (%d,%d) is over the test window %v: its events would mix with the synthetic ones", p.x, p.y, r)
+	}
+}
 
 // requireInteractiveDesktop skips the test when this process has no
 // interactive input desktop, which is the case in a service or session 0
@@ -172,12 +208,14 @@ func TestPointerMessages(t *testing.T) {
 	var w *Window
 	var got []platform.Event
 	posted := false
+	parkCursor(t)
 	runLive(t, b, func() {
 		pw, err := b.NewWindow(platform.WindowOptions{Title: "pointer", Size: platform.Size{W: 400, H: 300}})
 		if err != nil {
 			t.Fatal(err)
 		}
 		w = pw.(*Window)
+		requireCursorOutside(t, w.hwnd)
 	}, func(ew platform.Window, e platform.Event) {
 		switch e := e.(type) {
 		case platform.FrameEvent:

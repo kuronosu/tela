@@ -41,12 +41,14 @@ func TestFramelessHitTest(t *testing.T) {
 	var w *Window
 	var events []platform.PointerEvent
 	done := false
+	parkCursor(t)
 	runLive(t, b, func() {
 		pw, err := b.NewWindow(platform.WindowOptions{Size: platform.Size{W: 400, H: 300}, Frameless: true})
 		if err != nil {
 			t.Fatal(err)
 		}
 		w = pw.(*Window)
+		requireCursorOutside(t, w.hwnd)
 		w.SetHitRegions(titleBar)
 	}, func(ew platform.Window, e platform.Event) {
 		switch e := e.(type) {
