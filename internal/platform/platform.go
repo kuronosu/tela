@@ -417,8 +417,15 @@ const (
 // DoubleClickTime returns the double-click time of s: DoubleClickInterval,
 // or DefaultDoubleClickInterval when it is unknown (not positive).
 func (s SystemSettings) DoubleClickTime() time.Duration {
-	if s.DoubleClickInterval > 0 {
-		return s.DoubleClickInterval
+	return DoubleClickTime(s.DoubleClickInterval)
+}
+
+// DoubleClickTime returns interval, or DefaultDoubleClickInterval when it
+// is unknown (not positive): the one rule for title bars and content
+// (ADR-192).
+func DoubleClickTime(interval time.Duration) time.Duration {
+	if interval > 0 {
+		return interval
 	}
 	return DefaultDoubleClickInterval
 }
