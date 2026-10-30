@@ -234,11 +234,12 @@ func (s *Store) Err() error {
 //	desktop.Settings().Get("fontSize", &size)
 //
 // The stored value is decoded over a copy of *ptr: a struct field the
-// stored value does not have keeps the one *ptr had, while slices and
-// maps the stored value has are replaced whole (a key removed from a
-// stored map does not come back from the default). *ptr (a default's
-// slice or map included) is never modified in place, and is assigned
-// only when the call returns true.
+// stored value does not have keeps the one *ptr had, while slices, arrays
+// and maps the stored value has are replaced whole, and their elements
+// start empty (a key removed from a stored map does not come back from the
+// default, nor does a field an element omits through "omitempty").
+// *ptr (a default's slice or map included) is never modified in place, and
+// is assigned only when the call returns true.
 func (s *Store) Get(key string, ptr any) bool {
 	rv := reflect.ValueOf(ptr)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
@@ -254,7 +255,7 @@ func (s *Store) Get(key string, ptr any) bool {
 	// a successful one never writes into memory the caller's value shares.
 	v := reflect.New(rv.Elem().Type())
 	deepCopy(v.Elem(), rv.Elem(), map[ptrKey]reflect.Value{})
-	dropMaps(v.Elem(), raw)
+	dropCollections(v.Elem(), raw)
 	if err := json.Unmarshal(raw, v.Interface()); err != nil {
 		return false
 	}
@@ -267,11 +268,14 @@ var (
 	textUnmarshaler = reflect.TypeFor[encoding.TextUnmarshaler]()
 )
 
-// dropMaps empties the maps of v (a copy of the default) that raw, the JSON
-// about to be decoded over v, provides, so that decoding replaces them
-// instead of adding entries to the default's. Struct fields raw does not
-// have are left alone.
-func dropMaps(v reflect.Value, raw json.RawMessage) {
+// dropCollections empties the maps, slices and arrays of v (a copy of the
+// default) that raw, the JSON about to be decoded over v, provides, so that
+// decoding replaces them: encoding/json would otherwise add entries to a
+// map and decode each slice or array element over the default's element at
+// the same index, so a field the stored element omits (omitempty) would
+// come back from the default. Struct fields raw does not have are left
+// alone.
+func dropCollections(v reflect.Value, raw json.RawMessage) {
 	if v.CanAddr() {
 		if pt := v.Addr().Type(); pt.Implements(jsonUnmarshaler) || pt.Implements(textUnmarshaler) {
 			return // decodes itself
@@ -288,14 +292,11 @@ func dropMaps(v reflect.Value, raw json.RawMessage) {
 		}
 	case reflect.Pointer:
 		if !v.IsNil() {
-			dropMaps(v.Elem(), raw)
+			dropCollections(v.Elem(), raw)
 		}
-	case reflect.Array:
-		var items []json.RawMessage
-		if json.Unmarshal(raw, &items) == nil {
-			for i := 0; i < v.Len() && i < len(items); i++ {
-				dropMaps(v.Index(i), items[i])
-			}
+	case reflect.Slice, reflect.Array:
+		if raw[0] == '[' {
+			v.SetZero()
 		}
 	case reflect.Struct:
 		var fields map[string]json.RawMessage
@@ -313,7 +314,7 @@ func dropMaps(v reflect.Value, raw json.RawMessage) {
 			if sf.Anonymous && name == "" {
 				// An embedded struct's fields are in the same object.
 				if sf.IsExported() || sf.Type.Kind() == reflect.Struct || sf.Type.Kind() == reflect.Pointer {
-					dropMaps(v.Field(i), raw)
+					dropCollections(v.Field(i), raw)
 				}
 				continue
 			}
@@ -333,7 +334,7 @@ func dropMaps(v reflect.Value, raw json.RawMessage) {
 				}
 			}
 			if ok {
-				dropMaps(v.Field(i), fr)
+				dropCollections(v.Field(i), fr)
 			}
 		}
 	}

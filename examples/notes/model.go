@@ -24,10 +24,7 @@ var now = time.Now
 //
 // notes.json files of earlier versions have no title, folder, pin or date:
 // those fields read as empty, and the note still looks right (its heading
-// is its first line, it has no folder and no date). No field is omitted
-// when it is empty: the store decodes a library over the default's notes
-// when it has none of its own, and an omitted field would keep the
-// default's value instead of being empty (see screen.go).
+// is its first line, it has no folder and no date).
 type Note struct {
 	ID int `json:"id"`
 	// Title is the text of the editor's title field. It is separate from
@@ -318,9 +315,7 @@ func folderNamed(ns []Note, name string) string {
 
 // welcomeNotes is the library of the first run: a few short notes that
 // show the folders, the tags and the pin. It is a function so that there is
-// no package-level slice for the code to modify by mistake;
-// desktop.UseStoreSetting itself decodes the stored library over a copy of
-// the default, so the default is never changed. at is the date of the
+// no package-level slice for the code to modify by mistake. at is the date of the
 // first note, and the others go back in time from there.
 func welcomeNotes(at time.Time) []Note {
 	note := func(id int, title, folder string, ago time.Duration, text string) Note {

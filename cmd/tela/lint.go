@@ -28,8 +28,10 @@ Rules, each with the message and the "did you mean" of dev mode:
 	        ClassAliases: unknown, unsupported or invalid classes. The
 	        aliases (tela.App.ClassAliases, telatest.ClassAliases) and the
 	        theme colors (the constant keys of map[string]tela.SchemeColor
-	        literals and assignments, such as tela.Theme.Colors) declared in
-	        the linted packages are known
+	        literals and assignments, such as tela.Theme.Colors, and the
+	        constant arguments of calls to a function that stores a color
+	        under a name parameter, set("gold", ...)) declared in the linted
+	        packages are known
 	role    h.Role with an unknown ARIA role
 	aria    h.AriaCurrent, h.AriaSort, h.AriaHasPopup, h.AriaOrientation and
 	        h.AriaAutoComplete with a value outside their tokens

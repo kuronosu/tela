@@ -26,6 +26,28 @@ func theme() tela.Theme {
 	return t
 }
 
+// A helper that stores a color under the name it is given: the constant
+// names of its calls are tokens, whether the helper is a function literal,
+// a declared function, or passes the name on to one.
+func helperTheme() tela.Theme {
+	t := tela.DefaultTheme()
+	set := func(name string, c tela.SchemeColor) { t.Colors[name] = c }
+	set("gold", tela.SchemeColor{})
+	set("Bad Helper", tela.SchemeColor{}) // want class `"Bad Helper" is not a valid token name`
+	add(&t, "plum")
+	pair(&t, "olive", "hint")
+	return t
+}
+
+func add(t *tela.Theme, name string) { t.Colors[name] = tela.SchemeColor{} }
+
+// pair registers its first string under add, through a second function; the
+// second string is not a token.
+func pair(t *tela.Theme, name, note string) {
+	add(t, name)
+	_ = note
+}
+
 func extraTheme() tela.Theme {
 	return tela.Theme{Colors: map[string]tela.SchemeColor{"brand-dark": {}}}
 }
@@ -38,6 +60,8 @@ func App() tela.App {
 func View() tela.Node {
 	return h.Div(h.Class("text-muted card-title nested hover:card-title"),
 		h.Div(h.Class("swatch bg-brand/50 text-brand-dark")),
+		h.Div(h.Class("bg-gold text-plum border-olive/50")),
+		h.Div(h.Class("bg-hint")),          // want class `unknown class "bg-hint"`
 		h.Div(h.Class("text-mutedd")),      // want class `unknown class "text-mutedd"; did you mean "text-muted"?`
 		h.Div(h.Class("bg-brandd")),        // want class `unknown class "bg-brandd"`
 		h.Div(h.Class("hover:card-titel")), // want class `unknown class "hover:card-titel"`

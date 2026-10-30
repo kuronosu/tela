@@ -23,21 +23,25 @@ import (
 //	    )
 //	}
 //
-// T must encode as JSON. A stored value that does not decode into T (the
-// setting changed type between versions of the app) reads as def. A field
-// missing from the stored value keeps the default's, so a field added in a
-// new version of the app has its default; slices and maps are replaced
-// whole. def itself is never modified. key
-// must stay the same for the life of the component (give it another
-// tela key to read another setting).
+// T must encode as JSON. def is the value only while key has none: a
+// stored value that does not decode into T (the setting changed type
+// between versions of the app) reads as def too. A stored value replaces
+// def, with one exception: a struct field the stored value does not have
+// keeps def's, so a field added in a new version of the app has its
+// default. Slices, arrays and maps the stored value has are replaced
+// whole and their elements start empty, never from def's element at the
+// same index: a field an element omits ("omitempty") is the zero value,
+// not def's. def itself is never modified, and the value shares no memory
+// with it. key must stay the same for the life of the component (give it
+// another tela key to read another setting).
 func UseSetting[T any](key string, def T) (T, tela.Setter[T]) {
 	s := tela.UseOnce(Settings)
 	return useStoreSetting("UseSetting", s, key, def)
 }
 
 // UseStoreSetting is [UseSetting] for a key of store s instead of the
-// app's settings: a field missing from the stored value keeps the
-// default's; slices and maps are replaced whole.
+// app's settings; the default and the stored value combine as UseSetting
+// describes.
 func UseStoreSetting[T any](s *Store, key string, def T) (T, tela.Setter[T]) {
 	if s == nil {
 		panic("desktop.UseStoreSetting: the store is nil; open it with desktop.OpenStore(path), or use desktop.UseSetting for the app's settings")

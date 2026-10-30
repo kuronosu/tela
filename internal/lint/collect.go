@@ -31,7 +31,10 @@ type colorEntry struct {
 
 // collect makes the first pass over every linted package: the
 // declarations, the custom hooks, and the class aliases and theme colors
-// that the class parser must know.
+// that the class parser must know. A theme color is a constant key of a
+// map literal or assignment (t.Colors["brand"] = ...), or a constant
+// argument of a call to a function that stores a color under a parameter
+// (see collectTokenFuncs).
 func (r *run) collect() {
 	r.decls = map[*types.Func]*funcDecl{}
 	r.varInit = map[types.Object]ast.Expr{}
@@ -75,6 +78,7 @@ func (r *run) collect() {
 	}
 
 	r.findHooks()
+	tokenFuncs := r.collectTokenFuncs()
 
 	for _, u := range r.units {
 		p := &pass{r: r, u: u, info: u.info}
@@ -112,6 +116,8 @@ func (r *run) collect() {
 					if fn := p.callee(n); fn != nil && p.isFunc(fn, "telatest", "ClassAliases") && len(n.Args) == 1 {
 						aliases = append(aliases, p.aliasEntries(n.Args[0])...)
 					}
+					// set("gold", ...) where set stores a color under its name
+					colors = append(colors, p.tokenCallEntries(n, tokenFuncs)...)
 				}
 				return true
 			})

@@ -70,16 +70,9 @@ func (s screen) Build() tela.Node {
 	win := tela.UseWindow()
 	toast := kit.UseToast()
 	lib := tela.UseOnce(func() library { return openLibrary(win.IsZero()) })
-	// The first run has the welcome notes. They are the default of the
-	// store only then: desktop.UseStoreSetting decodes what is stored over
-	// the default, note by note, so a library of an earlier version (whose
-	// notes have no title or folder) would take them from the welcome notes.
-	first := tela.UseOnce(func() []Note {
-		if lib.store.Has("notes") {
-			return nil
-		}
-		return welcomeNotes(now())
-	})
+	// The first run has the welcome notes: they are the default of the
+	// setting, used only while the store has no "notes" key.
+	first := tela.UseOnce(func() []Note { return welcomeNotes(now()) })
 	start := welcomeID
 	if s.Overview {
 		start = 0

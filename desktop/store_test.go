@@ -325,3 +325,47 @@ func TestStoreSetEqualAfterReload(t *testing.T) {
 		t.Errorf("a real change counted %d times", changes)
 	}
 }
+
+// Elements of a slice, array or map the stored value has start empty: a
+// field one omits is the zero value, not the default element's.
+func TestStoreGetElementsStartEmpty(t *testing.T) {
+	type item struct {
+		Name string `json:"name"`
+		On   bool   `json:"on,omitempty"`
+	}
+	type cfg struct {
+		Items []item
+		Pair  [2]item
+		ByKey map[string]item
+		Kept  item
+	}
+	s, _ := OpenStore(filepath.Join(t.TempDir(), "e.json"))
+	_ = s.Set("cfg", map[string]any{
+		"Items": []item{{Name: "a"}},
+		"Pair":  []item{{Name: "p"}},
+		"ByKey": map[string]item{"k": {Name: "v"}},
+		"Kept":  map[string]any{"name": "n"},
+	})
+	def := cfg{
+		Items: []item{{"x", true}, {"y", true}},
+		Pair:  [2]item{{"x", true}, {"y", true}},
+		ByKey: map[string]item{"k": {"d", true}},
+		Kept:  item{"d", true},
+	}
+	got := def
+	if !s.Get("cfg", &got) {
+		t.Fatal("Get = false")
+	}
+	if len(got.Items) != 1 || got.Items[0] != (item{Name: "a"}) {
+		t.Errorf("Items = %+v", got.Items)
+	}
+	if got.Pair != [2]item{{Name: "p"}, {}} {
+		t.Errorf("Pair = %+v", got.Pair)
+	}
+	if got.ByKey["k"] != (item{Name: "v"}) {
+		t.Errorf("ByKey = %+v", got.ByKey)
+	}
+	if got.Kept != (item{Name: "n", On: true}) { // a struct field keeps the default's
+		t.Errorf("Kept = %+v", got.Kept)
+	}
+}

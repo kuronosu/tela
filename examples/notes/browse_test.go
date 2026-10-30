@@ -314,7 +314,7 @@ func TestPinNote(t *testing.T) {
 	a.ExpectCount(railItem("Pinned").Filter(telatest.HasText("1")), 1)
 
 	// What is not pinned any more is not pinned at the next start either
-	// (the library is decoded over the welcome notes' defaults).
+	// (the stored library, not the welcome notes' defaults, is what is read).
 	a.Click(railItem("All notes"))
 	a.Click(card("Welcome to Notes"))
 	a.Click(pinNote)
