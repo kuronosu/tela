@@ -1,39 +1,35 @@
-// Command dashboard is an analytics dashboard in the glassmorphism style:
-// frosted panels over a colorful backdrop, in light and dark. It is built
-// only on package kit (buttons, cards, tabs, a segmented control, switches,
-// a table, a dialog, toasts, avatars, badges), and its glass look is a kit
-// recipe: glass.go is a theme (tokens) and a kit.Style (recipes) that
-// kit.StyleProvider applies to the page. The charts are its own drawing.
-// It shows what Tela's phase-6 vocabulary does together on one screen, and
-// doubles as the 60 fps target of that phase (bench_test.go drives it at
-// 1920x1080).
+// Command dashboard is an analytics dashboard in the "Frosted graphite"
+// style: dark first, a calm dune wallpaper and three fixed panes of real
+// glass over it (the rail, the main pane and the Pulse pane), with one
+// amber accent. Only the content inside a pane scrolls, so what each blur
+// samples never moves. It is the target of phase 16 (the GPU backend draws
+// it at 60 fps at scale 2; the CPU rasterizer does not), and its
+// benchmarks (bench_test.go) measure the CPU path.
 //
-//   - Layout: CSS grid for the page (a sidebar column and the content) and
-//     for the card rows, a sticky sidebar and header, a fixed button.
-//   - Glass: translucent panels over an image registered with tela.Assets,
-//     backdrop-blur where there is detail to frost (the header, the dialog,
-//     the toasts, the donut's disc), a bg-clip-text gradient headline, a
-//     conic-gradient donut and a mix-blend-overlay highlight. backdrop.go
-//     explains what a blur costs and where it is spent.
-//   - Motion: transitions on hover, a spinner while the page syncs, springs
-//     for the numbers and the bars (UseSpring with HeightFn, WidthFn and
-//     BgFn, so nothing builds while they move), AnimateLayout for the
-//     sortable table and the expanding card, LayoutID for the sliding nav,
-//     range, tab and format highlights.
-//   - Overlays: kit.Dialog and kit.Toaster, entering with starting: and
-//     leaving with h.Exit.
-//   - Environment: dark: classes and theme tokens, a theme switch with
-//     tela.SetColorScheme and tela.UseColorScheme (the backdrop picks its
-//     image).
+//   - Overview: a headline with metric tabs, a number and a spectrum of 48
+//     bars, four figures with sparklines (all of them springs read by
+//     deferred props, tela.UseSpring with h.TextFn and tela.HeightFn), the
+//     latest orders, and the Pulse pane (the monthly goal, traffic,
+//     activity and the weekly report).
+//   - Tasks: one model shown as a sortable table (a finished task sinks,
+//     with AnimateLayout) or as a board whose cards are dragged between
+//     columns, with menus, a context menu and edit, new and delete dialogs.
+//   - Orders: 240 orders in a table filtered by status.
+//   - A command palette (Ctrl+K) and the tooltips, built directly on aria
+//     hooks; everything else is package kit in a recipe of its own
+//     (style.go). LayoutID pills slide in the segmented controls, the rail
+//     and the tabs; the theme button switches the color scheme.
 //
 // `tela snapshot ./examples/dashboard` renders it without a window; add
-// --dark for the dark theme and --preview to pick another state.
+// --dark for the dark scheme and --preview to pick another state.
 package main
 
 import (
 	"embed"
+	"fmt"
 
 	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/examples/dashboard/icons"
 	. "github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/kit"
 )
@@ -43,85 +39,142 @@ var images embed.FS
 
 func init() { tela.Assets(images) }
 
-// rootClass styles the box that fills the window: the canvas under Backdrop.
-// bg-background and text-foreground are tokens of the glass theme (glass.go).
+// rootClass styles the box that fills the window, under the wallpaper.
 const rootClass = "bg-background text-foreground"
 
-// AppState is what the whole page shares through AppCtx: the selected
-// period and the setter that the far corners of the page need. It is
-// comparable, so a component that reads the context only rebuilds when the
-// period changes.
-type AppState struct {
-	Range    int
-	SetRange tela.Setter[int]
-}
-
-// AppCtx carries the AppState.
-var AppCtx = tela.CreateContext(AppState{})
-
 // Page is the page with its state. Its fields start it in any state: the
-// Previews use them to show the dialog and the toast, and the real app
-// starts from Dashboard.
+// previews use them, and the app starts from Dashboard.
 type Page struct {
-	Range  int    // index into periods
-	Dialog bool   // the new-report dialog is open
-	Toast  string // the toast's message, empty for none
-	Pinned bool   // the toast stays until dismissed (a snapshot has no clock to count down)
-	Sort   string // the task order: "priority" (default), "due" or "name"
+	View    string // "overview", "tasks" or "orders"
+	Mode    string // the tasks' layout: "table" or "board"
+	Range   int    // index into periods
+	Status  string // the orders' filter
+	Palette bool   // the command palette is open
+	Query   string // the palette's text
+	Report  string // the report dialog is open: "new" or "weekly"
+	Toast   string // the page starts with this toast, pinned
+	TipOpen bool   // the peak bar's tooltip is open
 }
 
 // Dashboard is the root of the app: the page as the user opens it.
-func Dashboard() tela.Node { return Fragment(Page{Range: 1}) }
+func Dashboard() tela.Node {
+	return Fragment(Page{View: "overview", Mode: "table", Range: 1, Status: "All"})
+}
 
-// Build puts the page under the glass style and the toaster; the page
-// itself is pageBody.
+// Build puts the page under the style and the toaster.
 func (p Page) Build() tela.Node {
-	return Fragment(kit.StyleProvider{Style: &glass, Children: kit.Toaster{
-		Position: kit.ToastBottomCenter, CloseButton: true, Children: pageBody{p},
+	return Fragment(kit.StyleProvider{Style: &style, Children: kit.Toaster{
+		Position: kit.ToastBottomCenter, Children: body{p},
 	}})
 }
 
-type pageBody struct{ Page }
+type body struct{ Page }
 
-func (p pageBody) Build() tela.Node {
+func (p body) Build() tela.Node {
+	toast := kit.UseToast()
+	view, setView := tela.UseState(p.View)
+	mode, setMode := tela.UseState(p.Mode)
 	rng, setRange := tela.UseState(p.Range)
+	status, setStatus := tela.UseState(p.Status)
+	palette, setPalette := tela.UseState(p.Palette)
+	report, setReport := tela.UseState(p.Report)
+	weekly, setWeekly := tela.UseState(true)
+	board, setBoard := tela.UseState(initialBoard)
+	tasks, setTasks := tela.UseState(initialTasks)
+	compose, setCompose := tela.UseState(-1) // the column of a new task, -1 while closed
+	dark := tela.UseColorScheme() == tela.Dark
 
-	app := AppState{Range: rng, SetRange: setRange}
-	return AppCtx.Provider(app,
-		Div(Class("relative isolate min-h-screen"),
-			Backdrop(),
-			Div(Class("grid min-h-screen grid-cols-1 lg:grid-cols-[16rem_1fr]"),
-				Sidebar(),
-				Div(Class("flex min-w-0 flex-col"),
-					Header(),
-					Div(Class("flex flex-col gap-6 px-6 pt-8 pb-24 md:px-8"),
-						Hero{Dialog: p.Dialog},
-						Div(Class("grid grid-cols-2 gap-4 xl:grid-cols-4"),
-							MapKeyed(upto(len(kpis)), func(i int) int { return i }, func(i int) tela.Component {
-								return StatCard{Index: i, Range: rng}
-							}),
-						),
-						Div(Class("grid grid-cols-1 gap-4 xl:grid-cols-3"),
-							Div(Class("flex xl:col-span-2"), RevenueCard{Range: rng}),
-							TrafficCard(),
-						),
-						Div(Class("grid grid-cols-1 items-start gap-4 xl:grid-cols-3"),
-							TasksCard{Sort: p.Sort},
-							InsightCard(),
-							ActivityCard(),
-						),
-					),
-				),
-			),
-			HelpButton(),
-			If(p.Toast != "", ShowToast{Message: p.Toast, Pinned: p.Pinned}),
-		),
+	open := board.Count() - board[done].Len()
+	theme := "Dark"
+	if dark {
+		theme = "Light"
+	}
+	commands := []Command{
+		{"go-overview", "Go to Overview", "Navigate", icons.LayoutDashboard, "", "Ctrl 1"},
+		{"go-tasks", "Go to Tasks", "Navigate", icons.ListChecks, fmt.Sprintf("%d open", open), "Ctrl 2"},
+		{"go-orders", "Go to Orders", "Navigate", icons.Receipt, "", "Ctrl 3"},
+		{"new-report", "New report", "Actions", icons.FileText, "", ""},
+		{"new-task", "New task", "Actions", icons.Plus, "", ""},
+		{"export", "Export orders as CSV", "Actions", icons.Download, "", ""},
+		{"theme", "Switch theme", "Actions", icons.Palette, theme, ""},
+	}
+	run := func(key string) {
+		setPalette.Set(false)
+		switch key {
+		case "go-overview":
+			setView.Set("overview")
+		case "go-tasks":
+			setView.Set("tasks")
+		case "go-orders":
+			setView.Set("orders")
+		case "new-report":
+			setReport.Set("new")
+		case "new-task":
+			setView.Set("tasks")
+			setCompose.Set(todo)
+		case "export":
+			toast.Success("Export started", kit.ToastDescription(fmt.Sprintf("orders.csv, %d rows", len(orders))))
+		case "theme":
+			toggleTheme(dark)()
+		}
+	}
+	keys := func(e tela.KeyboardEvent) {
+		if !(e.Ctrl || e.Meta) || e.Alt || e.Shift {
+			return
+		}
+		switch e.Key {
+		case "k":
+			setPalette.Set(true)
+		case "1", "2", "3":
+			setView.Set(views[e.Key[0]-'1'].ID)
+		default:
+			return
+		}
+		e.PreventDefault()
+	}
+
+	// The orders table scrolls itself; the other views scroll as a whole.
+	scroll := "overflow-y-auto"
+	var title, sub string
+	var right tela.Component
+	var content tela.Child
+	switch view {
+	case "tasks":
+		title, sub = "Tasks", fmt.Sprintf("%d tasks", board.Count())
+		right = Modes{Mode: mode, Set: setMode}
+		content = TasksView{Mode: mode, Board: board, Tasks: tasks, Set: setBoard, SetTasks: setTasks, Compose: setCompose}
+	case "orders":
+		title, sub = "Orders", fmt.Sprintf("%d orders", len(ordersWith(status)))
+		right = Statuses{Status: status, Set: setStatus}
+		content = OrdersTable{Status: status, Fill: true}
+		scroll = "overflow-hidden"
+	default:
+		title, sub = "Overview", "Acme workspace"
+		right = Periods{Range: rng, Set: setRange}
+		content = Fragment(
+			Hero{Range: rng, TipOpen: p.TipOpen},
+			Div(Class("grid grid-cols-4"),
+				MapKeyed(upto(len(stats)), func(i int) int { return i }, func(i int) tela.Component { return StatCell{Index: i, Range: rng} })),
+			LatestOrders{SetView: setView},
+		)
+	}
+	return Div(Class("relative isolate flex h-screen gap-3 overflow-hidden p-3"), OnKeyDown(keys),
+		Wallpaper(),
+		Rail{View: view, SetView: setView},
+		Div(Role("main"), Class("flex min-w-0 flex-1 flex-col overflow-hidden", pane),
+			TopBar{Title: title, Sub: sub, Right: right, OpenSearch: setPalette},
+			Div(Key(view), TestID("content"), Class("flex min-h-0 flex-1 flex-col gap-6 px-6 py-6", scroll), content)),
+		If(view == "overview", Pulse{Weekly: weekly, OpenReport: setReport}),
+		Portal(If(palette, Palette{Commands: commands, Query: p.Query, Close: func() { setPalette.Set(false) }, Run: run})),
+		ReportDialog{Mode: report, SetMode: setReport, Weekly: weekly, SetWeekly: setWeekly},
+		NewTask{Col: compose, Close: setCompose, Tasks: tasks, SetBoard: setBoard, SetTasks: setTasks},
+		If(p.Toast != "", ShowToast{Message: p.Toast, Pinned: true}),
 	)
 }
 
 // App is the window: main runs it, the tests mount it (telatest.MountApp)
 // and `tela snapshot` renders it at the same size and with the same root
-// class.
+// class and theme.
 var App = tela.App{
 	Title:     "Tela - dashboard",
 	AppID:     "dev.telaui.dashboard",
@@ -135,11 +188,13 @@ var App = tela.App{
 // Previews are the states the README and the goldens show, each in App's
 // window.
 var Previews = tela.Previews{
-	"1 Overview": {Root: Page{Range: 1}},
-	"2 Dialog":   {Root: Page{Range: 1, Dialog: true}},
-	"3 Toast": {Root: Page{
-		Range: 2, Sort: "due", Toast: "Report queued: Q3 revenue summary", Pinned: true,
-	}},
+	"1 Overview":        {Root: Page{View: "overview", Mode: "table", Range: 1, Status: "All", TipOpen: true}},
+	"2 Board":           {Root: Page{View: "tasks", Mode: "board", Range: 1, Status: "All"}},
+	"3 Tasks":           {Root: Page{View: "tasks", Mode: "table", Range: 1, Status: "All"}},
+	"4 Command palette": {Root: Page{View: "overview", Mode: "table", Range: 1, Status: "All", Palette: true}},
+	"5 Report dialog":   {Root: Page{View: "overview", Mode: "table", Range: 1, Status: "All", Report: "new"}},
+	"6 Toast":           {Root: Page{View: "overview", Mode: "table", Range: 2, Status: "All", Toast: "Report queued: Q3 revenue summary"}},
+	"7 Orders":          {Root: Page{View: "orders", Mode: "table", Range: 1, Status: "All"}},
 }
 
 func main() { tela.Main(App) }

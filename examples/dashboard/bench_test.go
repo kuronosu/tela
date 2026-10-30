@@ -18,14 +18,15 @@ import (
 	"github.com/kuronosu/tela/internal/semantics"
 )
 
-// This file measures the phase-6 done criterion: the dashboard runs at 60
-// fps at 1080p on CPU rendering. It drives the page headlessly through a
-// scripted session of about 800 ticks of a 60 Hz clock: hover sweeps (card,
-// nav and bar transitions), a period change (springs, a layout-animated
-// pill, the sync spinner), a tab switch, a reordered list, scrolling and a
-// fling under the sticky glass header, the dialog opening and closing, a
-// toast with its countdown, an expanding card and the theme switch (every
-// color in the page transitions at once).
+// This file measures the CPU path of the dashboard, the screen of the
+// phase-16 criterion (the GPU backend draws it at 60 fps at scale 2; the
+// CPU rasterizer does not). It drives the page headlessly through a
+// scripted session of about 1100 ticks of a 60 Hz clock: hover sweeps
+// (rail, spectrum and row transitions, tooltips), a period change (springs
+// and a sliding pill), a metric tab, scrolling and a fling inside the main
+// pane, the report dialog and its toast, the command palette, finishing
+// and sorting a task, dragging a card across the board, and the theme
+// switch.
 //
 // A frame is timed the way a Host runs it (core/host.go): the input of the
 // tick, Animate, the pipeline (build, style, layout, paint: Tree.Frame),
@@ -263,17 +264,17 @@ type scene struct {
 // scene's on is called with i == 0 first), so they follow the layout.
 func session() []scene {
 	var sweep []platform.Point
-	var content platform.Point
+	var from, to platform.Point
 	return []scene{
 		{"hover sweep", 100, func(r *rig, i int) []func() {
 			if i == 0 {
-				nav := center(r.find("button", "Overview"))
-				last := center(r.find("button", "Settings"))
-				rev := center(r.find("heading", "Revenue"))
-				goal := center(r.find("heading", "Monthly goal"))
-				perf := center(r.find("heading", "Performance"))
-				sweep = []platform.Point{nav, last, {X: rev.X, Y: rev.Y + 40}, {X: goal.X, Y: goal.Y + 40},
-					{X: perf.X + 60, Y: perf.Y + 200}, {X: perf.X + 600, Y: perf.Y + 200}, {X: perf.X + 700, Y: perf.Y + 260}}
+				tab := center(r.find("tab", "Revenue"))
+				subs := center(r.find("heading", "Subscribers"))
+				avg := center(r.find("heading", "Avg. order"))
+				latest := center(r.find("heading", "Latest orders"))
+				sweep = []platform.Point{center(r.find("button", "Overview")), center(r.find("button", "Orders")),
+					{X: tab.X, Y: tab.Y + 230}, {X: tab.X + 900, Y: tab.Y + 230}, {X: subs.X, Y: subs.Y + 30},
+					{X: avg.X, Y: avg.Y + 30}, {X: latest.X + 200, Y: latest.Y + 90}, {X: latest.X + 700, Y: latest.Y + 140}}
 			}
 			return []func(){r.move(path(sweep, 36, i))}
 		}},
@@ -289,19 +290,10 @@ func session() []scene {
 			}
 			return nil
 		}},
-		{"reorder tasks", 60, func(r *rig, i int) []func() {
-			switch i {
-			case 0:
-				return r.click("radio", "Due")
-			case 30:
-				return r.click("checkbox", "Fix the failed invoice retries")
-			}
-			return nil
-		}},
 		{"scroll and fling", 150, func(r *rig, i int) []func() {
-			if i == 0 {
-				content = platform.Point{X: r.w * 0.55, Y: r.h * 0.5}
-				return []func(){r.move(content)}
+			if i == 0 { // over the latest orders, a table that scrolls in the pane
+				t := r.find("table", "Orders").Bounds
+				return []func(){r.move(platform.Point{X: t.Center().X, Y: t.Y0 + 120})}
 			}
 			switch {
 			case i < 30: // a touchpad drag down
@@ -315,48 +307,95 @@ func session() []scene {
 			}
 			return nil
 		}},
-		{"dialog", 120, func(r *rig, i int) []func() {
+		{"dialog and toast", 160, func(r *rig, i int) []func() {
 			switch i {
 			case 0:
-				return r.click("button", "New report")
+				return r.click("button", "Edit the weekly report")
 			case 30:
 				return r.click("radio", "CSV")
 			case 50:
 				return r.click("switch", "Send every Monday")
 			case 70:
-				return r.click("button", "Cancel")
+				return r.click("button", "Save")
 			}
 			return nil
 		}},
-		{"toast and expand", 130, func(r *rig, i int) []func() {
+		{"palette", 90, func(r *rig, i int) []func() {
 			switch i {
 			case 0:
-				return r.click("button", "Export")
-			case 10: // the card is below the fold in a short window
-				return []func(){r.wheel(480, platform.ScrollPhaseNone)}
+				return r.click("button", "Search")
 			case 30:
-				return r.click("button", "Show details")
-			case 80:
-				return r.click("button", "Hide details")
+				return []func(){r.move(center(r.find("option", "Go to Orders")))}
+			case 45:
+				return r.click("option", "Go to Tasks 8 open")
+			}
+			return nil
+		}},
+		{"finish and sort", 90, func(r *rig, i int) []func() {
+			switch i {
+			case 0:
+				return r.click("checkbox", "Fix failed invoice retries")
+			case 40:
+				return r.click("button", "Task")
+			}
+			return nil
+		}},
+		{"board drag", 130, func(r *rig, i int) []func() {
+			switch {
+			case i == 0:
+				return r.click("radio", "Board")
+			case i == 20:
+				from = center(r.find("heading", "Ship the CSV export"))
+				lane := r.find("group", "Done").Bounds
+				to = platform.Point{X: lane.Center().X, Y: lane.Y1 - 40}
+				return []func(){r.move(from), r.press(from)}
+			case i > 20 && i <= 80:
+				f := float32(i-20) / 60
+				return []func(){r.drag(platform.Point{X: from.X + (to.X-from.X)*f, Y: from.Y + (to.Y-from.Y)*f})}
+			case i == 81:
+				return []func(){r.release(to)}
 			}
 			return nil
 		}},
 		{"theme switch", 100, func(r *rig, i int) []func() {
 			switch i {
 			case 0, 50:
-				return r.click("switch", "Dark mode")
+				return r.click("button", "Switch theme")
 			}
 			return nil
 		}},
 		{"hover sweep 2", 80, func(r *rig, i int) []func() {
 			if i == 0 {
-				rev := center(r.find("heading", "Revenue"))
-				perf := center(r.find("heading", "Performance"))
-				sweep = []platform.Point{{X: rev.X, Y: rev.Y + 40}, {X: perf.X + 700, Y: perf.Y + 260}, {X: perf.X + 60, Y: perf.Y + 260}, center(r.find("button", "Overview"))}
+				sweep = []platform.Point{center(r.find("heading", "Review the onboarding emails")), center(r.find("heading", "Audit color contrast")),
+					center(r.find("heading", "Webhook signature checks")), center(r.find("button", "Overview"))}
 			}
 			return []func(){r.move(path(sweep, 40, i))}
 		}},
 		{"settle", 60, nil},
+	}
+}
+
+// press presses the primary button at p.
+func (r *rig) press(p platform.Point) func() {
+	return func() {
+		r.pointer = p
+		r.tree.HandlePointer(platform.PointerEvent{Action: platform.PointerDown, Pos: p, Button: platform.ButtonPrimary, Buttons: primary, Time: r.now})
+	}
+}
+
+// drag moves the pointer to p with the primary button held.
+func (r *rig) drag(p platform.Point) func() {
+	return func() {
+		r.pointer = p
+		r.tree.HandlePointer(platform.PointerEvent{Action: platform.PointerMove, Pos: p, Buttons: primary, Time: r.now})
+	}
+}
+
+// release lets the primary button go at p.
+func (r *rig) release(p platform.Point) func() {
+	return func() {
+		r.pointer = p
+		r.tree.HandlePointer(platform.PointerEvent{Action: platform.PointerUp, Pos: p, Button: platform.ButtonPrimary, Time: r.now})
 	}
 }
 
@@ -587,15 +626,19 @@ func BenchmarkFullFrame(b *testing.B) {
 	}
 }
 
-// BenchmarkScrollFrame is one frame of scrolling the page by 12 px back and
-// forth with the pointer over the content: every card moves over the fixed
-// backdrop, so it is close to a full rasterization.
+// BenchmarkScrollFrame is one frame of scrolling the orders view by 12 px
+// back and forth: the table fills the main pane, so its rows move over the
+// pane's glass, whose blur of the fixed wallpaper is computed again for
+// every pixel the rows repaint.
 func BenchmarkScrollFrame(b *testing.B) {
 	for _, c := range configs {
 		b.Run(c.name, func(b *testing.B) {
 			r := newRig(b, c.w, c.h, c.scale, false)
 			r.settle(600)
-			p := platform.Point{X: c.w * 0.55, Y: c.h * 0.5}
+			r.tick(nil, r.click("button", "Orders")...)
+			r.settle(600)
+			t := r.find("table", "Orders").Bounds
+			p := platform.Point{X: t.Center().X, Y: t.Y0 + 200}
 			r.tick(nil, r.move(p))
 			dy := float32(12)
 			b.ResetTimer()

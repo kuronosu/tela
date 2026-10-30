@@ -2,7 +2,6 @@
 /bin/
 *.exe
 /tela
-/board
 /counter
 /dashboard
 /hello

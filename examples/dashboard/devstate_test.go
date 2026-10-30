@@ -12,14 +12,14 @@ import (
 )
 
 // The cost of the dev state of `tela dev` (ADR-113) on this page, after a
-// few interactions (period, tab, task order), at 1280 x 800:
+// few interactions (period, metric tab, the tasks view), at 1280 x 800:
 //
 //	go test -tags teladev -run DevState -v ./examples/dashboard
 
 func TestDevStateDashboard(t *testing.T) {
 	r := newRig(t, 1280, 800, 1, false)
 	r.settle(600)
-	for _, c := range [][]func(){r.click("radio", "90D"), r.click("tab", "Orders"), r.click("radio", "Due")} {
+	for _, c := range [][]func(){r.click("radio", "90D"), r.click("tab", "Orders"), r.click("button", "Tasks")} {
 		r.tick(nil, c...)
 		r.settle(600)
 	}

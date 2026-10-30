@@ -224,7 +224,7 @@ func DraggableCard() tela.Node {
 }
 ```
 
-The `examples/board` kanban board uses this to move cards between columns.
+The board view of `examples/dashboard` uses this to move cards between columns.
 
 ## Long press
 

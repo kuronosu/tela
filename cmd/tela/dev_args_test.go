@@ -88,12 +88,12 @@ func TestResolveDevTarget(t *testing.T) {
 	}
 
 	// A package main with --preview gets an init file in the package.
-	tg, err = resolve("examples/dashboard", "2 Dialog")
+	tg, err = resolve("examples/dashboard", "5 Report dialog")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if src := tg.overlay[filepath.Join(root, "examples", "dashboard", devInitFile)]; !bytes.Contains(src, []byte("func init() {")) ||
-		!bytes.Contains(src, []byte(`name := "2 Dialog"`)) || !bytes.Contains(src, []byte("telaDevAppOf(App)")) || tg.arg != "./examples/dashboard" {
+		!bytes.Contains(src, []byte(`name := "5 Report dialog"`)) || !bytes.Contains(src, []byte("telaDevAppOf(App)")) || tg.arg != "./examples/dashboard" {
 		t.Errorf("dashboard --preview: arg %q, overlay %v", tg.arg, tg.overlay)
 	}
 

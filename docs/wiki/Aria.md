@@ -1522,13 +1522,22 @@ focuses the input; without one, give `AriaLabel`.
 
 ## A complete screen
 
-[`examples/aria`](https://github.com/kuronosu/tela/tree/main/examples/aria) is a
-"Command center" screen in the style of shadcn/ui built only from the hooks on
-this page, the elements of `h` and classes with the theme tokens: a project
-combobox, a tooltip, two menus (one of checkbox items), a modal dialog with a form
-(an `Input`, a select, a switch, a submit button), tabs and a multiple-selection
-list box, with entrances and exits, light and dark. Its tests drive the menu, the
-combobox and the dialog **with the keyboard alone** and assert their aria
-snapshots and where the focus is; its README lists which hook does what.
+[`examples/dashboard`](https://github.com/kuronosu/tela/tree/main/examples/dashboard)
+builds two of its controls directly on these hooks, with no `kit` component:
+the command palette (Ctrl+K) is an overlay (`UseOverlay`, modal) holding a
+dialog (`UseDialog`) around a combobox (`UseCombobox`) whose list is always
+open and filters the commands while the input keeps the focus, and every icon
+button of its rail and top bar has a tooltip (`UseTooltipTrigger` with
+`UseFloating`). Its `palette.go` is the code and `palette_test.go` drives both
+with the keyboard and the pointer; the rest of the screen is `kit`, whose
+components are built on the same hooks.
 
-![The Actions menu of the example](https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/aria.png)
+The package's own tests include a whole screen made only of these hooks, the
+elements of `h` and Tailwind classes (`aria/screen_test.go`): a combobox, a
+tooltip with an arrow, a menu with sections and a menu of checkbox items, a
+modal dialog with a form (an `Input`, a select, a switch, a submit button),
+tabs and a multiple-selection list box. Its tests walk it **with the keyboard
+alone** and with the pointer, and assert the aria snapshots and where the
+focus is.
+
+![The command palette of the dashboard](https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/dashboard-palette.png)

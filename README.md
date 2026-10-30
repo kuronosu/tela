@@ -176,14 +176,19 @@ and tests. They are the best way to see what the framework does today.
 
 ### Dashboard
 
-A glassmorphism analytics dashboard built on `kit` with a glass recipe
-(`kit.DefaultStyle()` edited and applied with `kit.StyleProvider`): CSS grid,
-`sticky` and `fixed`, translucent panels with `backdrop-blur` over an image,
-springs, layout animations (`AnimateLayout`, `LayoutID`), a `kit.Dialog`,
-`kit.Toaster` toasts, `kit.Tabs`, `kit.ToggleGroup` and a light/dark switch. Its hand-made phase-6 version
-ran at 60 fps at 1080p on CPU rendering (p95 of 14.6 ms per frame on 4 cores of
-a Core Ultra 5); the kit version measured a 15% higher p95 than the old one on
-the same machine (the benchmark and the "glass budget" are in its README).
+"Frosted graphite": an analytics dashboard, dark first, with three fixed
+panes of real glass (`backdrop-blur-2xl`) over a dune wallpaper and one amber
+accent. An overview with metric tabs, a spectrum of 48 bars and figures that
+follow springs without building (`UseSpring` with `TextFn` and `HeightFn`);
+tasks as a sortable `kit.Table` (a finished task slides to the end with
+`AnimateLayout`) or as a board whose cards are dragged between columns
+(`OnDrag`, `TranslateFn`) and moved, edited or deleted from a
+`kit.DropdownMenu`, a `kit.ContextMenu` and dialogs; 240 orders in a filtered
+table; a command palette (Ctrl+K) and tooltips built directly on `aria` hooks
+(`UseOverlay`, `UseDialog`, `UseCombobox`, `UseTooltipTrigger`,
+`UseFloating`); `LayoutID` pills, toasts and a theme switch. It is the screen
+of the GPU backend's criterion (phase 16): the CPU rasterizer does not draw it
+at 60 fps at scale 2. Its benchmarks and its "glass budget" are in its README.
 
 <p align="center">
   <img src="docs/images/dashboard.png" alt="dashboard example, light" width="49%">
@@ -198,22 +203,8 @@ tokens, a single class (`bg-background`); render it with `tela snapshot --dark`.
 | | |
 |---|---|
 | **[settings](examples/settings)**: Darkroom's Preferences, a photo editor's window with five sections, built by an LLM from `llms.txt` and a prompt: a whole form as one comparable value, validation that blocks Save, confirmations, and a theme and accent applied on Save. <br><img src="docs/images/settings.png" alt="settings example"> | **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> |
-| **[board](examples/board)**: a kanban board with drag and drop between columns (`OnDrag`, `TranslateFn`), `kit.Card`s with a `kit.DropdownMenu` and a `kit.ContextMenu`, edit and delete dialogs. <br><img src="docs/images/board.png" alt="board example"> | **[login](examples/login)**: a card with a brand panel that hides below `md:` and two modes, Sign in and Create account: `kit.Field` around every control with errors (`aria-invalid`), a show/hide password button, a strength `kit.Progress`, a bio with a live counter (`BindValue` + `TextFn`), a spinner while a fake request runs on `tela.UseTimeout`, an alert for a wrong password. <br><img src="docs/images/login.png" alt="login example"> |
-| **[chat](examples/chat)**: a messaging app on `kit`: one reducer for the whole state, `tela.UseTimeout` for the typing indicator and the reply, `h.AriaCurrent` on the open conversation, a virtualized message list that scrolls to its end, a growing `kit.Textarea` composer. <br><img src="docs/images/chat.png" alt="chat example"> | **[notes](examples/notes)**: the desktop services of package `desktop` in a small notes app: native open and save dialogs, a tray icon with a menu, a second window (Preferences) with settings stored by `desktop.UseSetting`, a remembered window position, a message box before quitting, a notification after saving, and a frameless window with a `kit.TitleBar`. <br><img src="docs/images/notes.png" alt="notes example"> |
-
-### Command center (`aria`)
-
-**[aria](examples/aria)**: a shadcn/ui-style screen built only from the
-behavior hooks of package `aria`, `h` elements and theme-token classes, with
-no hand-written key handling: a project combobox, a tooltip, two menus, a
-modal dialog with a form, tabs and a multiple-selection list box, with
-entrance and exit animations. Its tests drive the menu, the combobox and the
-dialog with the keyboard alone.
-
-<p align="center">
-  <img src="docs/images/aria.png" alt="aria example, light, with a menu open" width="49%">
-  <img src="docs/images/aria-dark.png" alt="aria example, dark, with a dialog open" width="49%">
-</p>
+| **[login](examples/login)**: a card with a brand panel that hides below `md:` and two modes, Sign in and Create account: `kit.Field` around every control with errors (`aria-invalid`), a show/hide password button, a strength `kit.Progress`, a bio with a live counter (`BindValue` + `TextFn`), a spinner while a fake request runs on `tela.UseTimeout`, an alert for a wrong password. <br><img src="docs/images/login.png" alt="login example"> | **[chat](examples/chat)**: a messaging app on `kit`: one reducer for the whole state, `tela.UseTimeout` for the typing indicator and the reply, `h.AriaCurrent` on the open conversation, a virtualized message list that scrolls to its end, a growing `kit.Textarea` composer. <br><img src="docs/images/chat.png" alt="chat example"> |
+| **[notes](examples/notes)**: the desktop services of package `desktop` in a small notes app: native open and save dialogs, a tray icon with a menu, a second window (Preferences) with settings stored by `desktop.UseSetting`, a remembered window position, a message box before quitting, a notification after saving, and a frameless window with a `kit.TitleBar`. <br><img src="docs/images/notes.png" alt="notes example"> | |
 
 ### Component gallery (`kit`)
 

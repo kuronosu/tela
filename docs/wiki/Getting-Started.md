@@ -244,5 +244,5 @@ Windows targets and writes panics to a log file (ADR-127).
 - [Events](Events) and [Forms and Text Input](Forms-and-Text-Input) for
   interaction.
 - The [`examples/`](https://github.com/kuronosu/tela/tree/main/examples)
-  directory has complete screens (dashboard, login and sign-up forms, kanban board, music
+  directory has complete screens (a dashboard with a kanban board, login and sign-up forms, music
   player), each with its tests.

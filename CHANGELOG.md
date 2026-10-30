@@ -30,7 +30,11 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `examples/notes` has a new design, "Graphite" (ADR-195): a rail with All notes, Pinned and Unsaved, the folders and the `#tags` found in the text; a column of note cards with search; and the editor with a title of its own, a folder menu, a pin, a delete button and a status line. With no note open the pane is a grid of cards. The light scheme is hello's stone and the dark one graphite, with an amber accent the Preferences window can change, along with the theme, line spacing and list previews. Notes gain a title, a folder, a pin and a modification date (libraries of the previous version still load); a deleted note can be restored from the toast. The app icon is the new amber badge, and `docs/images/notes.png` shows the new screen.
 
 
+- `examples/dashboard` has a new design, "Frosted graphite" (ADR-195): three fixed glass panes (rail, main, Pulse) over a calm dune wallpaper with one amber accent, in light and dark. Overview (a headline figure with metric tabs and 48 spring bars, four figures with sparklines, latest orders, a goal ring, traffic and activity), Tasks (a sortable table and a board with drag and drop, card menus, edit, new and delete dialogs, a sprint strip) and Orders; a command palette (Ctrl+K) and tooltips built directly on `aria` hooks; Ctrl+1/2/3 switch views. `docs/images/dashboard.png`, `dashboard-dark.png` and `dashboard-palette.png` show it. Its frame times are in the README; it is heavier on the CPU than the page it replaces, as phase 16 expects.
+
 ### Removed
+
+- The examples `board` and `aria` are gone, merged into `dashboard` (ADR-195): the board's model, drag, menu, dialog, bench and damage tests are the dashboard's board tests, and the behaviors `examples/aria` tested that the `aria` package did not are tests of a hooks-only screen in `aria/screen_test.go` (tab order, menus, combobox, dialog, pointer, damage, idle, aria snapshot). `docs/images/aria*.png` and `board.png` are removed.
 
 - The example `native` is gone (ADR-195, ADR-197): its three looks are the `looks` module, and its file explorer is replaced by the `looks` gallery; `docs/images/native-*.png` are replaced by `docs/images/looks-*.png`.
 
