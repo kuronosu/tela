@@ -12,6 +12,29 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.12.4] - 2026-10-29
+
+Fixes from the codebase review of 2026-10-29 (`docs/reviews/2026-10-29.md`).
+
+### Added
+
+- `telatest.App.LayoutJSONOf(locator)`: the layout tree of one element's box, in the shape of `LayoutJSON` (ADR-194). The `inspect` tool of `tela mcp` uses it for a `ref`, so it returns that element's box instead of guessing it from its bounds and role (with a module on an older Tela it returns the whole layout and the element's bounds).
+
+### Changed
+
+- `rgb()`, `rgba()`, `hsl()`, `hsla()`, `oklch()` and `oklab()` in arbitrary values follow CSS Color 4, the grammar SVG colors already used (ADR-193): mixed separators (`rgb(1, 2 3)`, `rgb(1,2,3 / 0.5)`), empty arguments, mixed numbers and percentages in the comma form, `hsl()` with commas but without `%`, and commas or an alpha without `/` in `oklch()`/`oklab()` are errors, and `none` is accepted in the space form. An HSL channel that falls exactly between two 8-bit levels can round one level differently.
+- The hint for a package without `Previews` ends the same way in `tela snapshot`, `tela dev` and `tela mcp`.
+- One double-click rule for content and for title bars the app draws (ADR-192): on Windows, `OnDoubleClick` and word selection follow the user's double-click time (they were fixed at 500 ms); on Wayland and X11 a double click on a drawn title bar uses the content's 500 ms and 5 px (it used 400 ms and 4 px). Touch keeps 300 ms and 100 px.
+- X11: the resize band of a frameless window is 5 logical pixels, as on Wayland (it was 6), and in a window too small for both bands the nearer side wins.
+
+### Fixed
+
+- Handlers of `InputEvent`, `ChangeEvent`, `CompositionEvent`, `SelectEvent` and `SubmitEvent` passed to `UseCallback` no longer allocate on each call (they went through reflection; ADR-190).
+- `tela mcp` gives a ref to an element whose name is `/`.
+- `tela mcp` actions on a ref to a text that has since been removed report the node as gone instead of acting on its parent element.
+- Errors of color functions in arbitrary values name the real problem (an empty or doubled alpha after `/`, commas in `oklch()`) and their examples parse (the `hsl()` one did not).
+- An unknown `aria-[sort=…]:` or `aria-[current=…]:` variant no longer suggests itself or another token that has no variant (`aria-[current=false]:` was offered as the fix for `aria-[current=false]:`).
+
 ## [0.12.3] - 2026-10-28
 
 ### Changed
@@ -674,7 +697,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.3...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.4...HEAD
+[0.12.4]: https://github.com/kuronosu/tela/compare/v0.12.3...v0.12.4
 [0.12.3]: https://github.com/kuronosu/tela/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/kuronosu/tela/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/kuronosu/tela/compare/v0.12.0...v0.12.1
