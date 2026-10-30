@@ -50,5 +50,8 @@ func clickLimits(k Kind, interval time.Duration) (time.Duration, float32) {
 	if k == Touch {
 		return DoubleTapTime, DoubleTapSlop
 	}
-	return platform.SystemSettings{DoubleClickInterval: interval}.DoubleClickTime(), platform.DoubleClickSlop
+	if interval <= 0 {
+		interval = platform.DefaultDoubleClickInterval
+	}
+	return interval, platform.DoubleClickSlop
 }
