@@ -39,7 +39,12 @@ type Backend struct {
 	ctl    *ctl
 	start  time.Time
 	offset time.Duration // host clock = time.Since(start) + offset
-	host   string        // the host backend's name
+	// offsetErr bounds the error of offset: half the round trip of the
+	// handshake (the host read its clock somewhere between the send and
+	// the receive). Tens of µs on an idle machine, milliseconds when the
+	// machine is loaded; the tests use it as the tolerance of Now.
+	offsetErr time.Duration
+	host      string // the host backend's name
 
 	// notify wakes a blocked Run. Buffer 1, non-blocking sends.
 	notify chan struct{}
@@ -139,16 +144,17 @@ func Dial(addr string, opts DialOptions) (*Backend, error) {
 		// midpoint bounds the error by half the round trip (tens of µs
 		// on one machine). Both sides read the same monotonic clock, so
 		// the offset does not drift.
-		offset:   hostNow - (sent+got)/2,
-		host:     name,
-		notify:   make(chan struct{}, 1),
-		ackedCh:  make(chan struct{}, 1),
-		settings: settings,
-		windows:  map[uint32]*Window{},
-		closing:  map[uint32]*Window{},
-		clip:     map[uint32]func(string, error){},
-		dialogs:  map[uint32]func(*dec, error){},
-		handlers: map[string]func([]byte) ([]byte, error){},
+		offset:    hostNow - (sent+got)/2,
+		offsetErr: (got - sent) / 2,
+		host:      name,
+		notify:    make(chan struct{}, 1),
+		ackedCh:   make(chan struct{}, 1),
+		settings:  settings,
+		windows:   map[uint32]*Window{},
+		closing:   map[uint32]*Window{},
+		clip:      map[uint32]func(string, error){},
+		dialogs:   map[uint32]func(*dec, error){},
+		handlers:  map[string]func([]byte) ([]byte, error){},
 	}
 	b.c = newConn(t, r)
 	b.ctl = newCtl(b.c)

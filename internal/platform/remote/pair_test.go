@@ -354,7 +354,12 @@ func TestClockMatchesHost(t *testing.T) {
 	p := newPair(t, HostOptions{}, headless.Options{})
 	a := p.dial("a")
 	defer a.b.Close()
-	const tolerance = 2 * time.Millisecond
+	// The child's offset is exact only up to half the handshake's round
+	// trip (child.go): that bound is milliseconds on a loaded CI machine,
+	// where a fixed one failed. The 2 ms on top is the jitter of reading
+	// the two clocks.
+	tolerance := a.b.offsetErr + 2*time.Millisecond
+	t.Logf("handshake clock error bound %v", a.b.offsetErr)
 	for range 20 {
 		h1 := p.hb.Now()
 		c := a.b.Now()
