@@ -342,33 +342,56 @@ func TestTrackEndsAndPlaysNext(t *testing.T) {
 }
 
 // TestClockStopsOnUnmount checks that the goroutine ends with the player.
-// It looks for the clock goroutine by its function in a stack dump rather
-// than counting all goroutines, which other tests' goroutines disturb.
+// It follows the clock goroutine by its ID, found by its function in a stack
+// dump: counting goroutines is not enough, because the clock of an earlier
+// test (cancelled by its unmount, but possibly not yet returned) is in the
+// count before the mount and leaves it during the test, which hides ours.
 func TestClockStopsOnUnmount(t *testing.T) {
 	fast(t, 5*time.Millisecond, 1)
 	before := clocks()
-	a := mount(t, windowW, windowH, Player{}) // mounting runs the passive effects
-	// The goroutine is spawned by the effect and may not be scheduled yet
-	// on a loaded runner, so wait for it as for its exit below.
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && clocks() <= before {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if clocks() <= before {
-		t.Fatal("the clock goroutine did not start")
-	}
+	a := mount(t, windowW, windowH, Player{})
+	// Mounting runs the passive effects, but the goroutine they spawn may
+	// not be scheduled yet: wait until the player has one that was not
+	// there before, running the frames meanwhile.
+	var ours []int
+	waitFor(t, "the clock goroutine to start", func() bool {
+		a.Advance(16 * time.Millisecond)
+		ours = ours[:0]
+		for id := range clocks() {
+			if !before[id] {
+				ours = append(ours, id)
+			}
+		}
+		return len(ours) > 0
+	})
 	a.Close()
-	deadline = time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && clocks() > before {
+	waitFor(t, "the clock goroutine to end after the unmount", func() bool {
+		now := clocks()
+		for _, id := range ours {
+			if now[id] {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// waitFor polls cond until it holds, failing the test after a generous
+// deadline (a loaded runner, not a timing the test relies on).
+func waitFor(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
 		time.Sleep(5 * time.Millisecond)
-	}
-	if got := clocks(); got > before {
-		t.Errorf("%d clock goroutines after unmount, was %d before the player", got, before)
 	}
 }
 
-// clocks counts the running clock goroutines started by useTransport.
-func clocks() int {
+// clocks returns the IDs of the running clock goroutines started by
+// useTransport.
+func clocks() map[int]bool {
 	buf := make([]byte, 1<<20)
 	for {
 		n := runtime.Stack(buf, true)
@@ -378,11 +401,15 @@ func clocks() int {
 		}
 		buf = make([]byte, 2*len(buf))
 	}
-	n := 0
+	ids := map[int]bool{}
 	for _, g := range strings.Split(string(buf), "\n\n") {
-		if strings.Contains(g, "useTransport.func") {
-			n++
+		if !strings.Contains(g, "useTransport.func") {
+			continue
+		}
+		var id int
+		if _, err := fmt.Sscanf(g, "goroutine %d [", &id); err == nil {
+			ids[id] = true
 		}
 	}
-	return n
+	return ids
 }
