@@ -178,6 +178,7 @@ tela/
 │   └── assets/fonts/     # embedded fonts (go:embed)
 ├── cmd/tela/
 ├── icons/lucide/         # separate module (own go.mod): Lucide as tela.Icon variables (ADR-102)
+├── looks/               # separate module (own go.mod): platform looks for kit, Windows 11, GNOME, KDE (ADR-197)
 ├── examples/             # full screens: dashboard, login, settings, chat…
 └── docs/
 ```

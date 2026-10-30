@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Added
+
+- New module `github.com/kuronosu/tela/looks` (ADR-197), separate from the core like `icons/lucide`: the looks of Windows 11, GNOME and KDE for `kit`, each in light and dark. A `looks.Look` is a `tela.Theme`, a `kit.Style` and the classes of the window regions kit has no component for (`Regions`: toolbar, location bar, sidebar, content, details pane, status bar); `win11.Look()`, `adwaita.Look()` and `breeze.Look()` return one, and `detect.Look()` picks the running desktop's. `looks/gallery` shows kit's controls in each look and switches between them at run time.
+
 ### Changed
 
 - `examples/settings` is now **Darkroom**'s Preferences window (ADR-195): five sections (General, Develop, Export, Safelight, Account), a form that is one comparable value, validation that disables Save, Discard and sign-out confirmations, a theme and an accent applied on Save, and a dark-room voice, built by an LLM (Claude Sonnet) from `docs/llms.txt` and the prompt in its README in two render iterations. It replaces the previous `examples/settings` and `examples/llms/settings`; `docs/images/settings.png` shows it, with new goldens and behavior tests.
@@ -25,7 +29,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 - `examples/notes` has a new design, "Graphite" (ADR-195): a rail with All notes, Pinned and Unsaved, the folders and the `#tags` found in the text; a column of note cards with search; and the editor with a title of its own, a folder menu, a pin, a delete button and a status line. With no note open the pane is a grid of cards. The light scheme is hello's stone and the dark one graphite, with an amber accent the Preferences window can change, along with the theme, line spacing and list previews. Notes gain a title, a folder, a pin and a modification date (libraries of the previous version still load); a deleted note can be restored from the toast. The app icon is the new amber badge, and `docs/images/notes.png` shows the new screen.
 
+
 ### Removed
+
+- The example `native` is gone (ADR-195, ADR-197): its three looks are the `looks` module, and its file explorer is replaced by the `looks` gallery; `docs/images/native-*.png` are replaced by `docs/images/looks-*.png`.
 
 - The example `llms/settings` is gone (ADR-195): its screen stays in `docs/llms.txt` (section 7) and its Lucide subset is `examples/settings/lucide`.
 - The example `i18n` is gone, merged into the `kit` gallery (ADR-195): its catalogs are `examples/kit/locales`, and its framework checks (plural categories, formatter output, kit's defaults from the catalog, the calendar of each language, the window mirrored for Arabic, aria snapshots) are tests of the gallery's Internationalization page and Language menu.

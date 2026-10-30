@@ -234,18 +234,21 @@ a kit component. Every page is also a preview (`tela dev --preview Calendar
   <img src="docs/images/kit-dark.png" alt="kit gallery, dark, in the Rounded style" width="49%">
 </p>
 
-### Native look
+### Platform looks
 
-**[native](examples/native)**: one file-explorer tree that looks native on
-Windows 11, GNOME and KDE, each in light and dark. A theme is a set of class
-strings (`bg-[#cce8ff]`, `rounded-[8px]`), a column order and some number
-formats; `-theme=` and `-dark=` choose the look, and `-dark=auto` follows the
-system.
+**[looks](looks)** is a separate module, `github.com/kuronosu/tela/looks`
+(ADR-197), with the looks of Windows 11, GNOME and KDE, each in light and
+dark. A look is a `tela.Theme` (the tokens), a `kit.Style` (the recipes of the
+controls) and `Regions` (the classes of the toolbar, sidebar, content, details
+pane and status bar); `win11.Look()`, `adwaita.Look()`, `breeze.Look()` and
+`detect.Look()` (the look of the running desktop) return one. Its
+[gallery](looks/gallery) shows kit's controls in each look and switches between
+them while it runs (`cd looks && go run ./gallery -look=breeze -dark=true`).
 
 <p align="center">
-  <img src="docs/images/native-win11.png" alt="native example, Windows 11" width="32%">
-  <img src="docs/images/native-adwaita.png" alt="native example, GNOME" width="32%">
-  <img src="docs/images/native-breeze.png" alt="native example, KDE" width="32%">
+  <img src="docs/images/looks-win11.png" alt="looks gallery, Windows 11" width="32%">
+  <img src="docs/images/looks-adwaita.png" alt="looks gallery, GNOME" width="32%">
+  <img src="docs/images/looks-breeze.png" alt="looks gallery, KDE" width="32%">
 </p>
 
 Also there: [`hello`](examples/hello), the screen at the top of this page.

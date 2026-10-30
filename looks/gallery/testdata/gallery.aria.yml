@@ -1,0 +1,94 @@
+- button "Toggle sidebar"
+- button "Main menu"
+- button "Previous look"
+- button "Next look"
+- navigation "Location":
+  - button "Go to Looks": Looks
+  - button "Go to GNOME": GNOME
+  - button "Go to Controls": Controls
+- searchbox "Search controls"
+- radiogroup "Layout":
+  - radio "Two columns" [checked]
+  - radio "One column"
+- button "More options"
+- navigation "Looks":
+  - radiogroup "Look":
+    - radio "Windows 11"
+    - radio "GNOME" [checked]
+    - radio "KDE"
+  - radiogroup "Color scheme":
+    - radio "Light" [checked]
+    - radio "Dark"
+    - radio "System"
+- main "Controls":
+  - text: Buttons
+  - button "Default"
+  - button "Secondary"
+  - button "Outline"
+  - button "Ghost"
+  - button "Delete"
+  - button "Link"
+  - button "New"
+  - button "Notifications"
+  - button "Disabled" [disabled]
+  - text: Fields
+  - textbox "Name"
+  - button "Apple Fruit": Apple
+  - text: Choices
+  - checkbox "Notifications" [checked]
+  - text: Notifications
+  - checkbox "Sounds"
+  - text: Sounds
+  - switch "Autosave" [checked]
+  - text: Autosave
+  - radiogroup "Range":
+    - radio "Day" [checked]
+    - radio "Week"
+    - radio "Month"
+  - text: Range
+  - group "Volume":
+    - slider "Volume"
+  - progressbar "Volume level"
+  - text: Tabs
+  - tablist "Sections":
+    - tab "Overview" [selected]
+    - tab "Activity"
+    - tab "Settings"
+  - tabpanel "Overview": Everything at a glance.
+  - text: Table
+  - table "Files":
+    - rowgroup:
+      - row "Name Kind Size":
+        - columnheader "Name":
+          - button "Name"
+        - columnheader "Kind":
+          - button "Kind"
+        - columnheader "Size":
+          - button "Size"
+    - rowgroup:
+      - row "Budget":
+        - cell "Budget"
+        - cell "Sheet"
+        - cell "340 KB"
+      - row "Notes":
+        - cell "Notes"
+        - cell "Text"
+        - cell "12 KB"
+      - row "Photo" [selected]:
+        - cell "Photo"
+        - cell "Image"
+        - cell "860 KB"
+      - row "Report":
+        - cell "Report"
+        - cell "Document"
+        - cell "2.5 MB"
+  - text: Menus and dialogs
+  - button "Actions"
+  - button "Rename…"
+  - heading "Storage" [level=2]
+  - text: 62% of 10 GB used
+  - progressbar "Storage used"
+  - button "Upgrade"
+  - button "Manage"
+- complementary "Details": GNOME Font Adwaita Sans Radius 10 px Color scheme Light Tokens primary accent muted selection destructive
+- status: GNOME · Light Look 2 of 3

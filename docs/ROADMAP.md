@@ -40,7 +40,7 @@ Nine screens, one at a time, in this order (owner, 2026-10-30): the mechanical c
 - [x] `notes`: full redesign, before phase 13 extends it. Chosen (2026-10-30): option 3 "Graphite" from the proposals artifact (three panes: rail with views, folders and tags; a column of note cards; the editor), its dark scheme unchanged, hello's stone in light and the amber accent in both (variant 3a). The note model gains folders, tags and a separate title
 - [x] `settings`: Darkroom, built by Claude Sonnet from `llms.txt` and a prompt in two render iterations (prompt in its README), replaces both settings examples; `llms.txt` keeps its compact settings screen as a self-contained block, checked and rendered by `internal/gen/llmsdoc`, and gained the experiment's fixes
 - [ ] `dashboard`: cleaner glass redesign keeping the 60 fps goal; absorb `board` (a board view of the tasks) and part of `aria` (command palette, tooltip, menus built on `aria` hooks). Chosen (2026-10-30): option 2 "Frosted graphite" (three fixed glass panes over a calm backdrop, one amber accent); measure its blur cost before porting
-- [ ] `native`: ADR for the nested `looks/` module (win11, adwaita, breeze; aqua in phase 14), move the looks there, delete the explorer
+- [x] `native`: ADR for the nested `looks/` module (win11, adwaita, breeze; aqua in phase 14), move the looks there, delete the explorer (ADR-197)
 
 ## Phases
 
@@ -137,7 +137,7 @@ Optional, outside the core module. Until `tela add` exists (see "Deferred") they
 
 - **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (phase 19) or plain `Div`/SVG until then
 - **DataGrid / TreeView:** sortable, resizable, editable cells, row selection, grouping, tree expansion, on top of `VirtualList`; the simple `Table` in `kit` stays in core
-- **Looks (`looks/`, ADR-195):** a nested module of platform looks for `kit` (a `tela.Theme` and a `kit.Style` per look: Windows 11, GNOME, KDE, macOS in phase 14) taken from `examples/native`; needs its own ADR
+- **Looks (`looks/`, ADR-197):** done for Windows 11, GNOME and KDE (`win11`, `adwaita`, `breeze`, `detect`, and a gallery); phase 14 adds `looks/aqua` and its entry in `detect.For`
 
 ## Deferred (not discarded)
 
