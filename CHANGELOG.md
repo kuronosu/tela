@@ -12,9 +12,12 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.12.6] - 2026-10-29
+
 ### Fixed
 
 - `tela dev`: the app's clock (`Now`) no longer reads earlier than the time of the frame it is drawing when the machine is loaded (the remote backend estimates the host's clock; it now never goes behind the last frame time).
+- Tests: `TestDebounce` of the `tela dev` watcher retries a burst of writes that a loaded runner stalled (it then rightly saw two bursts).
 
 ## [0.12.5] - 2026-10-29
 
@@ -710,7 +713,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.5...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.6...HEAD
+[0.12.6]: https://github.com/kuronosu/tela/compare/v0.12.5...v0.12.6
 [0.12.5]: https://github.com/kuronosu/tela/compare/v0.12.4...v0.12.5
 [0.12.4]: https://github.com/kuronosu/tela/compare/v0.12.3...v0.12.4
 [0.12.3]: https://github.com/kuronosu/tela/compare/v0.12.2...v0.12.3
