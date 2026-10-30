@@ -686,6 +686,10 @@ type ComputedStyle struct {
 	Border  Sides[Border]
 	Radius  Corners[LP] // percentages refer to the border box
 	Outline Outline
+	// Divide is what the divide-* classes of the element draw between its
+	// children, nil without any. It is not inherited: each child that is
+	// not the last starts its border from it (Compute).
+	Divide *Divide
 
 	// Effects.
 	// BoxShadows are the box-shadow layers, first on top. Rings are

@@ -223,8 +223,8 @@ the element under it, as above.
 Not mirrored: `Dir` on an inline element inside a paragraph (`Span`,
 `Strong`, `A`) does not isolate its text from the paragraph's bidi
 ordering (write the Unicode isolates U+2067 RLI / U+2066 LRI ... U+2069 PDI
-in the text instead), and there is no `divide-x-*` (Tela has no
-`divide-*` classes).
+in the text instead). `divide-x-*` is direction-aware: the line is on the
+inline end of each child, so in an `rtl` row it is on the left.
 
 The [`examples/kit`](https://github.com/kuronosu/tela/tree/main/examples/kit)
 gallery shows all of this: its header has a Language menu (English, Spanish,

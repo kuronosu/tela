@@ -167,7 +167,8 @@ func TestTokenErrors(t *testing.T) {
 			t.Errorf("error %d = %v, want a suggestion of %q", i, errs[i], want)
 		}
 	}
-	// Tokens cannot go into arbitrary values (resolved at parse time).
+	// A bare token name cannot go into an arbitrary value; it is written as
+	// the variable var(--color-primary) (ADR-202).
 	for _, cls := range []string{"shadow-[0_0_4px_primary]", "bg-[linear-gradient(primary,red-500)]"} {
 		c := Compile(cls)
 		if c.Err == nil || !strings.Contains(c.Err.Error(), "token") {
@@ -176,9 +177,10 @@ func TestTokenErrors(t *testing.T) {
 	}
 	// Palette names still work there.
 	mustCompile(t, "shadow-[0_0_4px_red-500]")
-	// divide- and accent- stay unsupported with a token (fill- and stroke-
-	// take tokens since ADR-098).
-	for _, cls := range []string{"divide-border", "accent-primary"} {
+	// accent- stays unsupported with a token (fill- and stroke- take
+	// tokens since ADR-098, divide- since ADR-203).
+	mustCompile(t, "divide-border")
+	for _, cls := range []string{"accent-primary"} {
 		var un *UnsupportedClassError
 		if c := Compile(cls); !errors.As(c.Err, &un) {
 			t.Errorf("%s: err = %v, want unsupported", cls, c.Err)

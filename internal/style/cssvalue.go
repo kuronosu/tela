@@ -351,7 +351,7 @@ func (p *calcParser) factor() (calcVal, error) {
 		case "min", "max", "clamp":
 			return p.function(strings.ToLower(t.text))
 		case "var":
-			return calcVal{}, errors.New("CSS variables are not supported; use a theme token or a literal value")
+			return calcVal{}, errors.New("CSS variables are not supported except the theme's own: " + themeVarsHint)
 		}
 		return calcVal{}, fmt.Errorf("the function %s() is not supported; use calc(), min(), max() or clamp()", t.text)
 	}

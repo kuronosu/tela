@@ -79,7 +79,6 @@ func registerUnsupported(r *registry) {
 	r.unsupported["list-item"] = "list items are not supported; use regular nodes"
 	r.unsupported["list"] = "list styling is not supported; use regular nodes"
 	r.unsupported["box-content"] = "content-box is not supported: boxes are always border-box"
-	r.unsupported["divide"] = "divide-* is not supported; put a border on the children or use gap"
 	r.unsupported["space-x-reverse"] = "space-*-reverse is not supported; use flex-row-reverse or flex-col-reverse"
 	r.unsupported["space-y-reverse"] = r.unsupported["space-x-reverse"]
 	r.unsupported["columns"] = "multi-column layout is not supported; use grid"

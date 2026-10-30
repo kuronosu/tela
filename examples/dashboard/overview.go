@@ -211,9 +211,9 @@ func (p Pulse) Build() tela.Node {
 			H2(Class(eyebrow), Text("Monthly goal")),
 			Div(Class("mt-4 flex items-center gap-5"),
 				Div(Class("relative size-24 shrink-0"), Role("meter"), AriaLabel("Monthly goal"), AriaValueNow(72),
-					// The ring is a conic gradient with a fixed amber: a token
-					// cannot be used inside an arbitrary value.
-					Div(Class("absolute inset-0 rounded-full bg-[conic-gradient(#f6b94a_0%,#f6b94a_72%,rgb(128_128_128/0.25)_72%)]")),
+					// The ring is a conic gradient of the accent (the primary
+					// token, amber) over a faint track; the token follows the scheme.
+					Div(Class("absolute inset-0 rounded-full bg-[conic-gradient(var(--color-primary)_72%,rgb(128_128_128/0.25)_0)]")),
 					Div(Class("absolute inset-[7px] flex items-center justify-center rounded-full bg-background/80"),
 						Span(Class("text-2xl font-light tabular-nums"), TextFn(func() string { return fmt.Sprintf("%.0f%%", goal.Get()) })))),
 				Div(Class("text-sm leading-relaxed text-muted-foreground"),

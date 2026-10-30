@@ -128,8 +128,14 @@ func parseColor(s string) (colorSpec, error) {
 			return colorSpec{}, colorFuncError(err)
 		}
 		return solidSpec(c), nil
+	case rgbaFunc:
+		c, err := parseRGBAFunc(inner)
+		if err != nil {
+			return colorSpec{}, err
+		}
+		return solidSpec(c), nil
 	case "var":
-		return colorSpec{}, errors.New("CSS variables are not supported; use a theme token or a literal color")
+		return colorSpec{}, errors.New("CSS variables are not supported except the theme's own: " + themeVarsHint)
 	case "color-mix", "color", "lab", "lch", "hwb", "light-dark":
 		return colorSpec{}, fmt.Errorf("the color function %s() is not supported; use rgb(), hsl(), oklch(), oklab() or a hex value", fn)
 	}
@@ -157,7 +163,7 @@ func looksLikeColor(s string) bool {
 	if strings.HasPrefix(s, "#") {
 		return true
 	}
-	for _, p := range []string{"rgb(", "rgba(", "hsl(", "hsla(", "oklch(", "oklab(", "lab(", "lch(", "hwb(", "color(", "color-mix("} {
+	for _, p := range []string{"rgb(", "rgba(", rgbaFunc + "(", "hsl(", "hsla(", "oklch(", "oklab(", "lab(", "lch(", "hwb(", "color(", "color-mix("} {
 		if strings.HasPrefix(strings.ToLower(s), p) {
 			return true
 		}

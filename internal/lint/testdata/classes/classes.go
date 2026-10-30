@@ -34,6 +34,10 @@ func Sinks(dynamic string, n int) []tela.Node {
 		h.Div(h.Exit("opacity-0 scal-95")),               // want class `unknown class "scal-95"`
 		h.Div(h.Class("bg-[oops]")),                      // want class `bg-[oops]`
 		h.Div(h.Class("two-typos-a two-typos-b")),        // want class `unknown class "two-typos-a"` class `unknown class "two-typos-b"`
+		h.Div(h.Class("divide-y divide-x-2 divide-border divide-zinc-200/50 divide-dashed md:divide-y-reverse dark:divide-zinc-800")),
+		h.Div(h.Class("divide-y-reverss")), // want class `unknown class "divide-y-reverss"; did you mean "divide-y-reverse"?`
+		h.Div(h.Class("divide-x-2.5")),     // want class `unknown class "divide-x-2.5"`
+		h.Div(h.Class("divide-zinc-2000")), // want class `unknown class "divide-zinc-2000"`
 		h.Div(h.Class(dynamicList()...)),
 	}
 }

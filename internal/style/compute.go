@@ -166,6 +166,9 @@ type scratch struct {
 
 	// Masks (util_mask.go).
 	mask maskScratch
+
+	// Divide classes (util_divide.go).
+	divide Divide
 }
 
 type bgImage struct {
@@ -215,10 +218,19 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 	// everything else. Ops of different properties do not interact, so
 	// splitting by pass keeps "last wins" intact.
 	var pseudo Pseudo
+	// The divide of the parent draws the lines between its children: every
+	// child but the last (:not(:last-child)).
+	var divide *Divide
+	if in.Parent != nil && in.State&StateLast == 0 {
+		divide = in.Parent.Divide
+	}
 	for pass := 0; pass < 2; pass++ {
 		wantFont := pass == 0
 		for _, op := range kindDefaults(in.Kind) {
 			e.run(op, wantFont)
+		}
+		if divide != nil && !wantFont {
+			e.applyDivide(divide) // under the element's own classes (:where())
 		}
 		for _, cl := range in.Classes {
 			if cl == nil {
@@ -243,6 +255,7 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		}
 	}
 	e.finalize()
+	s.Divide = sc.divide.result()
 	s.Display = blockified(s.Display, s.Position)
 	if pseudo&PseudoPlaceholder != 0 {
 		if ps := computePseudo(cx, th, s, in.Classes, vc, PseudoPlaceholder); ps != nil {

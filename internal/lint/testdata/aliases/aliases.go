@@ -61,9 +61,14 @@ func View() tela.Node {
 	return h.Div(h.Class("text-muted card-title nested hover:card-title"),
 		h.Div(h.Class("swatch bg-brand/50 text-brand-dark")),
 		h.Div(h.Class("bg-gold text-plum border-olive/50")),
-		h.Div(h.Class("bg-hint")),          // want class `unknown class "bg-hint"`
-		h.Div(h.Class("text-mutedd")),      // want class `unknown class "text-mutedd"; did you mean "text-muted"?`
-		h.Div(h.Class("bg-brandd")),        // want class `unknown class "bg-brandd"`
-		h.Div(h.Class("hover:card-titel")), // want class `unknown class "hover:card-titel"`
+		h.Div(h.Class("bg-hint")), // want class `unknown class "bg-hint"`
+		// Theme variables in arbitrary values: the theme's own tokens pass, in any value.
+		h.Div(h.Class("bg-[var(--color-brand)] border-[var(--color-gold)]/50 w-[calc(var(--spacing)*4)] rounded-[var(--radius)]")),
+		h.Div(h.Class("bg-[conic-gradient(var(--color-plum)_72%,transparent_0)] shadow-[0_0_0_2px_var(--color-ring)]")),
+		h.Div(h.Class("bg-[var(--color-brandd)]")),                      // want class `unknown theme color "brandd" in var(--color-brandd); did you mean "bg-[var(--color-brand)]"?`
+		h.Div(h.Class("bg-[var(--color-nope,#fff)] p-[var(--my-gap)]")), // want class `CSS variables are not supported except the theme's own`
+		h.Div(h.Class("text-mutedd")),                                   // want class `unknown class "text-mutedd"; did you mean "text-muted"?`
+		h.Div(h.Class("bg-brandd")),                                     // want class `unknown class "bg-brandd"`
+		h.Div(h.Class("hover:card-titel")),                              // want class `unknown class "hover:card-titel"`
 	)
 }

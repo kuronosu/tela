@@ -52,6 +52,26 @@ if active {
 Div(Class("flex items-center gap-2 rounded-lg px-3 py-1", tone))
 ```
 
+### Lines between children: divide
+
+`divide-y` and `divide-x` draw a line between the children of an element, as
+in Tailwind v4: the line is the bottom (`divide-y`) or inline-end (`divide-x`)
+border of every child but the last, so it follows the children as they come
+and go and needs no `first:` or `last:` class. They take a width
+(`divide-y-2`, `divide-x-[3px]`), `-reverse` (the line moves to the top or the
+inline start, for `flex-row-reverse` and `flex-col-reverse`), a color
+(`divide-border`, `divide-zinc-200/50`, `dark:divide-zinc-800`) and a style
+(`divide-dashed`, `divide-dotted`, `divide-double`, `divide-none`), and work
+with variants (`md:divide-y`). A child's own border classes win over them
+(`border-b-0` removes a line), as in CSS where the divide rules have no
+specificity.
+
+```go
+Div(Class("divide-y divide-border rounded-lg border border-border"),
+	Row("Design review"), Row("Release notes"), Row("Budget"))
+Div(Class("flex divide-x divide-dashed divide-border"), Cell("Open"), Cell("Closed"))
+```
+
 ### Classes that depend on state
 
 [`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) takes props as well as nodes, so a class that depends on state is one
@@ -224,6 +244,24 @@ blend an element with what is painted under it in its stacking context; add
 `isolate` (or any other stacking context: `relative z-10`, opacity, a
 transform) to a parent to keep the blend inside it.
 
+**Theme variables in arbitrary values.** The theme's own CSS variables, as
+Tailwind v4 names them, work inside any arbitrary value:
+`var(--color-primary)` (a palette color or a token, also your custom ones such
+as `--color-gold`), `var(--radius)` (the `lg` radius), `var(--radius-xl)` and
+`var(--spacing)`. They resolve against the current theme and color scheme, so
+`bg-[var(--color-primary)]` changes with dark mode exactly like `bg-primary`:
+
+```go
+Div(Class("size-24 rounded-full bg-[conic-gradient(var(--color-primary)_72%,var(--color-muted)_0)]"))
+Div(Class("rounded-[var(--radius)] shadow-[0_0_0_2px_var(--color-ring)] w-[calc(var(--spacing)*40)]"))
+Div(Class("bg-(--color-primary)/50 from-[var(--color-primary)] to-[var(--color-accent,#f59e0b)]"))
+```
+
+An optional fallback (`var(--color-nope,#fff)`) is used when the theme does
+not have the name. An unknown theme name is reported with the closest one
+(`var(--color-primry)`: did you mean `--color-primary`?); any other variable
+(`var(--my-width)`) is an error, because Tela has no CSS variables of its own.
+
 **Clip paths.** Tailwind has no clip-path utility, so it is written as the
 arbitrary property, with underscores for spaces:
 `[clip-path:circle(50%)]`, `[clip-path:ellipse(50%_35%_at_50%_50%)]`,
@@ -244,7 +282,7 @@ Variants combine (`dark:md:hover:bg-slate-700`); every part must hold.
 |---|---|
 | State | `hover:` `active:` `focus:` `focus-visible:` `focus-within:` `disabled:` `enabled:` `checked:` (an element whose `AriaChecked` is true, such as a checkbox or switch made with the [`aria`](Aria) hooks; also `group-checked:` and `peer-checked:`) |
 | ARIA | `aria-busy:` `aria-checked:` `aria-disabled:` `aria-expanded:` `aria-hidden:` `aria-invalid:` `aria-pressed:` `aria-readonly:` `aria-required:` `aria-selected:`: they match when the element's `AriaBusy(true)`, `AriaChecked(true)`... prop is set (Tailwind's `[aria-x="true"]`), not an implicit state; `aria-[checked=true]:` is `aria-checked:`; `aria-[sort=ascending]:` and `aria-[sort=descending]:` match `AriaSort`; `aria-[current=page]:` (also `step`, `location`, `date`, `time`, `true`) matches `AriaCurrent`; other arbitrary selectors such as `aria-[sort=other]:` are not supported |
-| Structure | `first:` `last:` `only:` `odd:` `even:` |
+| Structure | `first:` `last:` `only:` `odd:` `even:`: the element's place among its own siblings, as in CSS. If you wrap each item in a `Div` only to give it a key, the item is the first and last child of its wrapper: key the item itself with `Key(...)` or `tela.WithKey` (which adds no element), or put the variant on the wrapper |
 | Text fields | `read-only:` `placeholder-shown:` `invalid:` `placeholder:` (style the placeholder text) `selection:` (style the selected text) |
 | Ancestors and siblings | `group-hover:` and the other state variants after `group-`, on a descendant of an element with the class `group`; `peer-*` for the following siblings of an element with the class `peer` (named groups and peers are not supported) |
 | Environment | `dark:` `motion-reduce:` `motion-safe:` and the breakpoints `sm:` `md:` `lg:` `xl:` `2xl:` (window width at least), `max-sm:` … `max-2xl:` (window width below the breakpoint), `min-[600px]:` and `max-[40rem]:` (px, rem or em); they stack: `md:max-xl:flex-row` applies from 768 to 1279 px |

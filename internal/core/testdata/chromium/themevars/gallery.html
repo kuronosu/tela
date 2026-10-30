@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body class="bg-white">
+<div id="e0" class="w-[360px]"><div id="e1" class="flex h-[240px] shrink-0 items-center px-4"><div id="e2" class="-mx-4 flex h-full w-[360px] shrink-0 flex-col justify-center gap-4 bg-background p-5 text-foreground"><div id="e3" class="flex items-center gap-4"><div id="e4" class="relative size-20 shrink-0"><div id="e5" class="absolute inset-0 rounded-full bg-[conic-gradient(var(--color-primary)_72%,var(--color-muted)_0)]"></div><div id="e6" class="absolute inset-[calc(var(--spacing)*2)] flex items-center justify-center rounded-full bg-background text-sm font-medium">72%</div></div><div id="e7" class="h-20 grow rounded-[var(--radius)] bg-[linear-gradient(to_right,var(--color-primary),var(--color-accent))]"></div></div><div id="e8" class="flex items-center gap-4"><div id="e9" class="flex h-16 grow items-center rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--color-card)] px-[calc(var(--spacing)*4)] text-sm shadow-[0_0_0_2px_var(--color-ring)]">Card with a ring</div><div id="e10" class="size-16 shrink-0 rounded-[var(--radius-md)] bg-[var(--color-primary)]/40"></div><div id="e11" class="size-16 shrink-0 rounded-[var(--radius-sm)] bg-[var(--color-gold)]"></div><div id="e12" class="size-16 shrink-0 rounded-[var(--radius-nope,3px)] bg-[var(--color-nope,#16a34a)]"></div></div></div></div><div id="e13" class="flex h-[240px] shrink-0 items-center px-4"><div id="e14" class="dark -mx-4 flex h-full w-[360px] shrink-0 flex-col justify-center gap-4 bg-background p-5 text-foreground"><div id="e15" class="flex items-center gap-4"><div id="e16" class="relative size-20 shrink-0"><div id="e17" class="absolute inset-0 rounded-full bg-[conic-gradient(var(--color-primary)_72%,var(--color-muted)_0)]"></div><div id="e18" class="absolute inset-[calc(var(--spacing)*2)] flex items-center justify-center rounded-full bg-background text-sm font-medium">72%</div></div><div id="e19" class="h-20 grow rounded-[var(--radius)] bg-[linear-gradient(to_right,var(--color-primary),var(--color-accent))]"></div></div><div id="e20" class="flex items-center gap-4"><div id="e21" class="flex h-16 grow items-center rounded-[var(--radius-xl)] border border-[var(--color-border)] bg-[var(--color-card)] px-[calc(var(--spacing)*4)] text-sm shadow-[0_0_0_2px_var(--color-ring)]">Card with a ring</div><div id="e22" class="size-16 shrink-0 rounded-[var(--radius-md)] bg-[var(--color-primary)]/40"></div><div id="e23" class="size-16 shrink-0 rounded-[var(--radius-sm)] bg-[var(--color-gold)]"></div><div id="e24" class="size-16 shrink-0 rounded-[var(--radius-nope,3px)] bg-[var(--color-nope,#16a34a)]"></div></div></div></div></div>
+<pre id="out" style="display: none"></pre>
+<script>
+document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
+  const out = [];
+  for (let i = 0; i < 25; i++) {
+    const e = document.getElementById("e" + i);
+    out.push([...e.getClientRects()].map(q => [q.left, q.top, q.width, q.height]));
+  }
+  document.getElementById("out").textContent = "BEGIN" + JSON.stringify(out) + "END";
+});
+</script>
+</body>
+</html>

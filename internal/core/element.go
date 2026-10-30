@@ -764,9 +764,10 @@ func (t *Tree) markBuild(el *Element) {
 }
 
 // markStructural restyles the children of p whose classes use structural
-// variants (first:, last:, odd:...), after p's children changed.
+// variants (first:, last:, odd:...), after p's children changed, and all of
+// them when p has divide-* classes (the last child has no line).
 func (t *Tree) markStructural(p *Element) {
-	if !p.box.structuralKids {
+	if !p.box.structuralKids && !p.box.divides {
 		return
 	}
 	var walk func(el *Element)
@@ -774,7 +775,7 @@ func (t *Tree) markStructural(p *Element) {
 		for _, c := range el.children {
 			switch c.kind {
 			case elemPrimitive:
-				if c.box.structural {
+				if c.box.structural || p.box.divides {
 					t.markStyle(c)
 				}
 			case elemComponent:

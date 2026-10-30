@@ -86,6 +86,7 @@ type Box struct {
 	classesDirty   bool
 	structural     bool // the classes use first:, last:, only:, odd: or even:
 	structuralKids bool // some child's classes do
+	divides        bool // the classes use divide-*: the children are styled by their position (ADR-203)
 	// The interaction states the classes test on the element itself
 	// (hover:, active:, disabled:, enabled: as disabled), on its group
 	// ancestors (group-*) and on its peer siblings (peer-*); isGroup and

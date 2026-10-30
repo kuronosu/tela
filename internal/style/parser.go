@@ -29,6 +29,9 @@ type Classes struct {
 	// the like test, or a peer for peer-checked: and the like. They have
 	// no style of their own.
 	Group, Peer bool
+	// Divide reports a divide-* class: the element styles the border of
+	// its children, which must be restyled when they change (ADR-203).
+	Divide bool
 	// Err holds an UnknownClassError, UnsupportedClassError or
 	// InvalidClassError (inside a ClassErrors) for every class that could
 	// not be compiled; the others are still in Rules.
@@ -190,6 +193,11 @@ func (p *Parser) Suggest(class string) string {
 // pctx is the context of parsing one class.
 type pctx struct {
 	th *Theme
+	// dark is the color scheme the theme variables of an arbitrary value
+	// resolve for (themevars.go); schemeVar reports that one of them
+	// differs between the schemes, so the class must be parsed for both.
+	dark      bool
+	schemeVar bool
 }
 
 // parse compiles a whole class string.
@@ -229,6 +237,9 @@ func (p *Parser) parseList(out *Classes, errs *ClassErrors, toks []string, prefi
 			continue
 		}
 		out.Rules = append(out.Rules, rule...)
+		if isDivideClass(full) {
+			out.Divide = true
+		}
 		switch full {
 		case "group":
 			out.Group = true
@@ -236,6 +247,13 @@ func (p *Parser) parseList(out *Classes, errs *ClassErrors, toks []string, prefi
 			out.Peer = true
 		}
 	}
+}
+
+// isDivideClass reports whether a class, with its variants, is one of the
+// divide utilities.
+func isDivideClass(tok string) bool {
+	parts := splitTop(tok, ':')
+	return strings.HasPrefix(parts[len(parts)-1], "divide-")
 }
 
 // alias reports whether class tok names an alias: the name, and the
@@ -332,8 +350,16 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 		// Arbitrary properties: only [clip-path:...], which has no
 		// utility in Tailwind (ADR-079).
 		if v, ok := strings.CutPrefix(util[1:len(util)-1], "clip-path:"); ok {
-			o, err := parseClipPath(arbitrarySpaces(v))
+			v, err := c.substituteVars(arbitrarySpaces(v))
+			var o Op
+			if err == nil {
+				o, err = parseClipPath(v)
+			}
 			if err != nil {
+				var ve *varError
+				if errors.As(err, &ve) {
+					return nil, varClassError(tok, ve)
+				}
 				var us unsupportedErr
 				if errors.As(err, &us) {
 					return nil, &UnsupportedClassError{Class: tok, Reason: string(us)}
@@ -353,11 +379,24 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 		neg, util = true, util[1:]
 	}
 	o, err := reg.resolve(c, util, neg)
+	if err == nil && c.schemeVar {
+		// A semantic token in an arbitrary value: the class resolves
+		// differently in the dark scheme (themevars.go).
+		dc := &pctx{th: p.th, dark: true}
+		var dark Op
+		if dark, err = reg.resolve(dc, util, neg); err == nil {
+			o = schemeOp(o, dark)
+		}
+	}
 	switch {
 	case err == nil:
 		return []Op{o}, nil
 	case errors.Is(err, errNoMatch):
 		return nil, p.unknown(tok, util, neg)
+	}
+	var ve *varError
+	if errors.As(err, &ve) {
+		return nil, varClassError(tok, ve)
 	}
 	var us unsupportedErr
 	if errors.As(err, &us) {
@@ -369,6 +408,16 @@ func (p *Parser) resolveUtility(tok, util string) ([]Op, error) {
 		return nil, err
 	}
 	return nil, &InvalidClassError{Class: tok, Reason: err.Error()}
+}
+
+// varClassError is the error of a class whose theme variable the theme
+// does not have, with the class written with the closest variable.
+func varClassError(tok string, ve *varError) error {
+	e := &InvalidClassError{Class: tok, Reason: strings.TrimSuffix(ve.msg, "; did you mean var("+ve.suggestion+")?")}
+	if ve.suggestion != "" {
+		e.Suggestion = strings.Replace(tok, ve.name, ve.suggestion, 1)
+	}
+	return e
 }
 
 // unknown builds the error of a class that matches nothing.
@@ -435,23 +484,36 @@ var typeHints = map[string]bool{
 	"bg-size": true, "shadow": true, "generic-name": true,
 }
 
-func newArg(root, raw string, neg bool) (*arg, error) {
+func newArg(c *pctx, root, raw string, neg bool) (*arg, error) {
 	a := &arg{root: root, raw: raw, value: raw, neg: neg}
 	if i := lastTopSlash(raw); i >= 0 {
 		a.value, a.mod, a.hasMod = raw[:i], raw[i+1:], true
 	}
-	if strings.HasPrefix(a.value, "(") && strings.HasSuffix(a.value, ")") {
-		return nil, unsupportedErr("CSS variables are not supported; use a theme token (bg-primary) or an arbitrary value")
-	}
-	if strings.HasPrefix(a.value, "[") && strings.HasSuffix(a.value, "]") {
+	switch {
+	case strings.HasPrefix(a.value, "(") && strings.HasSuffix(a.value, ")"):
+		// Tailwind's shorthand bg-(--color-primary) for bg-[var(--color-primary)],
+		// also bg-(color:--color-primary).
+		inner := a.value[1 : len(a.value)-1]
+		if i := strings.IndexByte(inner, ':'); i > 0 && typeHints[inner[:i]] {
+			a.hint, inner = inner[:i], inner[i+1:]
+		}
+		if !strings.HasPrefix(inner, "--") {
+			return nil, unsupportedErr("CSS variables are not supported except the theme's own: " + themeVarsHint + "; write a literal value or use a theme class")
+		}
+		a.arb = true
+		a.inner = "var(" + inner + ")"
+	case strings.HasPrefix(a.value, "[") && strings.HasSuffix(a.value, "]"):
 		a.arb = true
 		inner := a.value[1 : len(a.value)-1]
 		if i := strings.IndexByte(inner, ':'); i > 0 && typeHints[inner[:i]] {
 			a.hint, inner = inner[:i], inner[i+1:]
 		}
 		a.inner = arbitrarySpaces(inner)
-		if strings.Contains(a.inner, "var(") {
-			return nil, unsupportedErr("CSS variables are not supported; use a theme token or a literal value")
+	}
+	if a.arb {
+		var err error
+		if a.inner, err = c.substituteVars(a.inner); err != nil {
+			return nil, err
 		}
 	}
 	return a, nil
@@ -539,7 +601,7 @@ func (r *registry) resolve(c *pctx, util string, neg bool) (Op, error) {
 			if neg && !u.neg {
 				continue
 			}
-			a, err := newArg(root, raw, neg)
+			a, err := newArg(c, root, raw, neg)
 			if err != nil {
 				return Op{}, true, err
 			}
@@ -649,6 +711,7 @@ func newRegistry() *registry {
 	registerInteraction(r)
 	registerMedia(r)
 	registerMasks(r)
+	registerDivide(r)
 	registerUnsupported(r)
 	return r
 }

@@ -53,7 +53,8 @@ func (t *Tree) restyle(el *Element) {
 		parent = sp.box.cs
 	}
 	state := el.istate
-	if bx.structural {
+	if bx.structural || (parent != nil && parent.Divide != nil) {
+		// A parent with divide-* styles every child but the last.
 		state |= t.structuralState(el)
 	}
 	if !bx.kind.IsTextField() {
@@ -143,7 +144,7 @@ func (t *Tree) restyle(el *Element) {
 	if old.VerticalAlign != cs.VerticalAlign {
 		t.markBoxes(sp) // the inline box of an atomic inline
 	}
-	if inherited || old.Scheme != cs.Scheme {
+	if inherited || old.Scheme != cs.Scheme || !old.Divide.Equal(cs.Divide) {
 		// A new scheme override restyles the subtree (dark: variants and
 		// tokens), without laying out what only changes color.
 		t.restyleChildren(el)
@@ -177,6 +178,7 @@ func (t *Tree) compileClasses(el *Element) {
 	srcs := exitClasses(el)
 	bx.classes = make([]*style.Classes, len(srcs))
 	bx.structural = false
+	bx.divides = false
 	bx.startingUse = false
 	bx.stateUse, bx.groupUse, bx.peerUse = 0, 0, 0
 	bx.isGroup, bx.isPeer = false, false
@@ -186,6 +188,7 @@ func (t *Tree) compileClasses(el *Element) {
 		if c.Err != nil {
 			t.reportClasses(s, c.Err, el)
 		}
+		bx.divides = bx.divides || c.Divide
 		bx.isGroup = bx.isGroup || c.Group
 		bx.isPeer = bx.isPeer || c.Peer
 		for j := range c.Rules {

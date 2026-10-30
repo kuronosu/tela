@@ -97,7 +97,6 @@ func TestUnsupportedClasses(t *testing.T) {
 		{"clear-both", "flex or grid"},
 		{"table", "grid"},
 		{"table-cell", "grid"},
-		{"divide-x-2", "border"},
 		{"space-x-reverse", "flex-row-reverse"},
 		{"box-content", "border-box"},
 		{"[mask-type:luminance]", "arbitrary properties"},

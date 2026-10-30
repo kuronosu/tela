@@ -14,6 +14,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Added
 
+- The theme's own CSS variables work inside arbitrary values (ADR-202): `var(--color-<token>)` (custom tokens too, with the light or dark value of the element's scheme), `var(--radius)`, `var(--radius-*)`, `var(--spacing)` and `var(--x, fallback)`, in colors, opacity modifiers, gradients and their stops, shadows, lengths and `calc()`; also the `bg-(--color-primary)` shorthand. An unknown token is an error with a suggestion; an app's own variables are still not supported. The dashboard's goal ring now follows the theme's primary color.
+- `divide-x`, `divide-y`, their widths and `-reverse`, `divide-<color>` and `divide-solid|dashed|dotted|double|none`, following Tailwind v4 (every child but the last; a child's own border classes win) and compared with Chromium (ADR-203).
+
 - `kit.Plain`, a variant of `kit.TitleBar` and `kit.WindowControls` for apps with a design of their own (ADR-201): the platform's arrangement and glyphs (Windows, GNOME or macOS, chosen by the new `Look` field or the running platform) with no background, border or outline of its own, and quiet ghost window buttons in the theme's colors. `examples/notes` uses it, and the kit gallery's Title Bar page shows it.
 
 - `kit.Table.RowHeight` makes a table virtual (ADR-199): only the rows in view are built, on an `h.VirtualList`, so a frame that rebuilds the page costs the same with 240 or 100,000 rows (about 1.2 ms where a plain 2000-row table took 59 ms). New `h.AriaRowCount` and `h.AriaRowIndex`, which a virtual table sets. Sticky columns are not supported in a virtual table yet.

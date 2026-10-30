@@ -72,8 +72,12 @@ func main() {
 - **Colors.** A token missing from `Colors` keeps its default value, so the
   shadcn/ui names always resolve. A name is lowercase letters, digits and
   dashes and cannot be a palette color (`red-500`, `white`); `Run` panics
-  otherwise. Tokens cannot go inside arbitrary values
-  (`bg-[linear-gradient(...)]`): use the utilities (`from-primary`).
+  otherwise. Tokens can go inside
+  arbitrary values as Tailwind's theme variables
+  (`bg-[linear-gradient(to_right,var(--color-primary),transparent)]`,
+  `shadow-[0_0_0_2px_var(--color-ring)]`), where they follow the color scheme
+  like the utilities (`from-primary`) do; see
+  [Styling](Styling#theme-variables-in-arbitrary-values).
 - **Radius** is shadcn/ui's `--radius` in logical pixels: `rounded-lg` is
   `Radius`, `rounded-sm` 0.6×, `rounded-md` 0.8×, `rounded-xl` 1.4×,
   `rounded-2xl` 1.8×, `rounded-3xl` 2.2× and `rounded-4xl` 2.6×, as in

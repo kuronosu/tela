@@ -228,7 +228,7 @@ func parseClipPath(v string) (Op, error) {
 		return op(func(e *env) { e.s.ClipPath = ClipPath{} }), nil
 	}
 	if strings.Contains(v, "var(") {
-		return Op{}, unsupportedErr("CSS variables are not supported; write the shape with literal values")
+		return Op{}, unsupportedErr("CSS variables are not supported except the theme's own: " + themeVarsHint)
 	}
 	// An optional reference box before or after the shape: only the
 	// border box (the default) is supported.

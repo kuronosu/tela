@@ -329,6 +329,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Keyframes:** via the Go API, plus predefined classes (`animate-spin`, `animate-pulse`, `animate-ping`, `animate-bounce`).
 - **Inline:** rich text with decorated inline boxes and atomic inlines (§11); no `vertical-align` on spans.
 - **`z-index` / stacking contexts:** simplified model (§13).
+- **`divide-*`:** Tailwind v4's rule (every child but the last), applied before the child's own classes (ADR-203).
 
 **Not implemented (use instead):**
 
@@ -339,7 +340,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 | `display: table` | `kit` Table built on grid |
 | Cascade, specificity, selectors, `!important`, `@layer` | Explicit styles and variants |
 | `::before` / `::after` / `content` / counters | Regular nodes |
-| CSS variables / `var()` | Theme tokens and arbitrary values |
+| CSS variables / `var()` (an app's own) | Theme tokens and arbitrary values; the theme's own variables (`var(--color-*)`, `var(--radius)`, `var(--spacing)`) work in arbitrary values (ADR-202) |
 | `box-sizing: content-box` | Nothing: always `border-box` |
 | `@import`, `@supports`, vendor prefixes, quirks | Nothing |
 | `@media print`, `@page` | Nothing |
