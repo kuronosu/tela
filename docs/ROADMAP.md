@@ -9,7 +9,7 @@
 
 - **Done:** phases 1–12. Latest version `v0.12.6` (2026-10-29; `tela dev`'s clock never goes behind the frame time, found by CI), after `v0.12.5` (CI green again) and `v0.12.4` (the fixes adopted from the first codebase review, `docs/reviews/2026-10-29.md`, ADR-190–194); `main` is pushed and CI is green on it; tags pushed up to `v0.12.6`, whose CI run is green; the GitHub wiki is `docs/wiki` at `v0.12.6`.
 - **Phase in progress:** none; phase 13 (desktop integration, the rest) is next.
-- **Next step:** the owner tries `examples/notes` with word wrap off in the GNOME container (`/home/ubuntu/notes-v3`); then plan phase 13 (drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends `examples/notes`.
+- **Next step:** the owner tries `examples/notes` with word wrap off in the GNOME container (`/home/ubuntu/notes-v3`); then plan phase 13 (drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends `examples/notes`. The examples consolidation (ADR-195, "Examples" below) goes one example at a time; `counter` is done.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
@@ -26,6 +26,21 @@ Still true as of `v0.12.0`; the per-phase lists in HISTORY.md include items fixe
 - **Dev loop:** kit components keep aria hook state in refs that `tela dev` cannot keep (silent resets); a renamed component resets; dev builds cannot be debugged (no DWARF); an IME composition is lost across a swap.
 - **Desktop:** GNOME's AppIndicator extension applies a tray menu's changes only when the menu opens, so the old label shows for a moment (its design; GTK apps behave the same); a decorated window on a compositor without server-side decorations (GNOME on Wayland) has no title bar unless the app draws one when `State().ClientSideDecorations` says so (no automatic fallback bar yet; `examples/notes` draws `kit.TitleBar`); Linux file dialogs need the XDG Desktop Portal (`xdg-desktop-portal` with a backend) and have no fallback dialog (the owner's choice, 2026-10-27, after an Ubuntu XFCE container without it); Wayland file dialogs have no parent window (no `zxdg_exporter_v2` yet) and no activation tokens are passed to the portal; Wayland cannot place windows or keep them on top, and maximize, the window menu, icons, `xdg-dialog` and session restore are unverified live (sway lacks them; hide and show, notifications and the tray work on Hyprland 0.56, whose Omarchy window rules did not keep the restored size of `examples/notes`); a Wayland window shown again gets a new session restore token (ADR-186); work of a minimized Wayland window waits for the compositor's next frame callback (`xdg_toplevel.suspended` is not used yet); `App.OnClose` is outside the component tree (`examples/notes` bridges it with a package variable) and message boxes have fixed button labels; X11 window positions and interactive moves are unverified on a real EWMH window manager; Windows notifications have no actions (balloons; WinRT toasts later) and each one adds a notification-area icon while it lives; tray icons are not redrawn on DPI changes; the drawn message box's labels are English only (no i18n hook); a saved window position is not clamped to the monitors present at the next start; `desktop` stores do not see changes other programs make to their files; under `tela dev`, a window a new build opens only later (from an effect) closes and reopens on reload, a dialog opened at startup shows again on every reload, and a reload while a Wayland window is minimized can stall (as before); `tela mcp` sees only the main window; the tray and notification icons' alpha is not checked visually; `TestLiveIME` fails on the Windows VM at `v0.11.0` too (the VM's Japanese IME does not compose, an environment issue). Windows 11: rounded corners and Mica are unverified on real hardware (the VM has no GPU and draws square corners and a solid backdrop), and a frameless window with a client-area backdrop extends its DWM frame, which may hide the snap layouts flyout again (unverified); under `tela dev` the backdrop does not reach the client area. `cmd/tela`'s `TestOverlayCloseButtonAndClear` and `TestDevBuildFailure` each failed once under the load of the full suite (timing of the `tela dev` harness; both pass alone and with their package).
 - **Platforms:** Windows verified on a VM at scale 1 only (`v0.10.4` test binaries and live gallery; native `go test ./...` at phases 11 and 12, the last on 2026-10-28, and the win32 live tests); X11 live only at scale 1 (no `Xft.dpi`); macOS is phase 14; `wtype` cannot type into Xwayland windows (Hyprland, not Tela).
+
+## Examples (ADR-195)
+
+Nine screens, one at a time, in this order (owner, 2026-10-30): the mechanical cleanup, then the small merges, `notes` before phase 13, `settings` alongside it, `dashboard` before phase 16 and `looks/` before phase 14; the owner reviews each design. Before deleting an example, move its unique tests (damage, idle, keyboard, animation frames) to the package they test and update the README, wiki and `THIRD_PARTY.md`.
+
+- [x] `counter`: stone redesign (ARCHITECTURE §1, README, wiki, `tela new` template, Chromium reference)
+- [ ] `motion`, `layout`, `virtuallist`, `shapes`: frames and scenes become package tests and godoc `Example`s
+- [ ] `text`: its scene becomes an `internal/text` golden; drop the `Scene` contract of `tela snapshot` (ADR)
+- [ ] `pricing`: delete
+- [ ] `login`: absorb `signup` (Create account mode: its fields, `BindValue` bio, password strength, terms)
+- [ ] `kit`: an Introduction page (hello's hero in theme tokens); absorb `i18n` as a language and direction switch
+- [ ] `notes`: full redesign, before phase 13 extends it
+- [ ] `settings`: merge with `llms/settings`; write a rich prompt with personality and regenerate it with an LLM in at most three iterations; decide how much of it `llms.txt` shows
+- [ ] `dashboard`: cleaner glass redesign keeping the 60 fps goal; absorb `board` (a board view of the tasks) and part of `aria` (command palette, tooltip, menus built on `aria` hooks)
+- [ ] `native`: ADR for the nested `looks/` module (win11, adwaita, breeze; aqua in phase 14), move the looks there, delete the explorer
 
 ## Phases
 
@@ -59,7 +74,7 @@ Strictly after phase 14: the bridges for AT-SPI, UI Automation and NSAccessibili
 - [ ] NSAccessibility
 - [ ] The semantics tree covers `aria` and `kit` roles, states, actions and live regions
 
-**Done when:** a screen reader reads, navigates and operates the `signup` example on Linux, Windows and macOS.
+**Done when:** a screen reader reads, navigates and operates the `login` example (with `signup` merged in, ADR-195) on Linux, Windows and macOS.
 
 ### Phase 16: GPU backend (`v0.16.0`)
 
@@ -122,6 +137,7 @@ Optional, outside the core module. Until `tela add` exists (see "Deferred") they
 
 - **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (phase 19) or plain `Div`/SVG until then
 - **DataGrid / TreeView:** sortable, resizable, editable cells, row selection, grouping, tree expansion, on top of `VirtualList`; the simple `Table` in `kit` stays in core
+- **Looks (`looks/`, ADR-195):** a nested module of platform looks for `kit` (a `tela.Theme` and a `kit.Style` per look: Windows 11, GNOME, KDE, macOS in phase 14) taken from `examples/native`; needs its own ADR
 
 ## Deferred (not discarded)
 
