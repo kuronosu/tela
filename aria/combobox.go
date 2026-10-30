@@ -84,6 +84,12 @@ type ComboboxOptions[K comparable] struct {
 	// Disabled makes the input and the button inert and disabled; ReadOnly
 	// makes the input read-only and the list does not open.
 	Disabled, ReadOnly bool
+	// AutoFocusFirst highlights the first item whenever the list is open
+	// and nothing is highlighted: when it opens and after the text changes
+	// (React Aria's Autocomplete does it unless disableAutoFocusFirst). Enter
+	// then chooses it with no arrow pressed, as a command palette wants.
+	// Hovering or the arrows move the highlight as usual.
+	AutoFocusFirst bool
 	// ShouldFocusWrap makes ArrowDown on the last item highlight the first,
 	// and ArrowUp on the first the last.
 	ShouldFocusWrap bool
@@ -233,6 +239,11 @@ type comboState[K comparable] struct {
 // the highlighted item, which sets the text to its TextValue and closes the
 // list, Tab chooses it and moves on, and Escape closes the list and puts the
 // text back to that of the selected item (cleared when there is none).
+// Escape is consumed only when it did one of those things: with the list
+// closed and the text already settled, or with a list that cannot close
+// (a controlled Open with no OnOpenChange, such as the always-open list of
+// a command palette), it goes on to the enclosing dialog or overlay, which
+// closes.
 // When the input loses the focus the text is committed: reset to the
 // selected item's, or kept as a custom value with AllowsCustomValue. Home,
 // End, Space and the left and right arrows stay with the text field, and
@@ -324,6 +335,9 @@ func UseCombobox[K comparable](o ComboboxOptions[K]) ComboboxResult[K] {
 	was := &tela.UseRef(false).Current
 	switch {
 	case open && !*was:
+		if s.openStrategy == "" && o.AutoFocusFirst {
+			s.openStrategy = FocusFirst
+		}
 		if s.openStrategy != "" {
 			c.focusOnOpen(s.openStrategy)
 		}
@@ -685,6 +699,11 @@ func (s *comboState[K]) sync() {
 		s.lastValue = s.input
 	}
 	s.lastKey, s.lastHas = key, has
+	if o.AutoFocusFirst && s.isOpen() && !s.c.hasFocused {
+		if k, ok := s.c.firstKey(); ok {
+			s.c.setFocusedState(k)
+		}
+	}
 }
 
 // ---------------------------------------------------------------------
@@ -731,10 +750,15 @@ func (s *comboState[K]) onKeyDown(e tela.KeyboardEvent) {
 		}
 		s.commit()
 	case tela.KeyEscape:
-		// Escape reverts the text; it reaches an enclosing dialog only when
-		// there was nothing to revert (React Aria).
+		// Escape closes the list and reverts the text; it is consumed only
+		// when it did something, else an enclosing dialog hears it (React
+		// Aria stops it only when the list was open or the text was
+		// reverted). A list that cannot close, such as a controlled one
+		// with no OnOpenChange, does not count.
+		closes := s.isOpen() && s.ost.listens()
 		_, hasSel := s.selected()
-		if s.isOpen() || !(hasSel || s.input == "" || s.o.AllowsCustomValue) {
+		reverts := !(s.o.AllowsCustomValue && !hasSel) && s.input != s.selectedText()
+		if closes || reverts {
 			e.PreventDefault()
 		}
 		s.revert()

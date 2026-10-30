@@ -37,6 +37,11 @@ func (s *boolState) request(next bool) {
 	}
 }
 
+// listens is whether a request for a change has any effect: an
+// uncontrolled state takes it, a controlled one only when its owner
+// listens (onChange).
+func (s *boolState) listens() bool { return !s.controlled || s.onChange != nil }
+
 // useBoolState returns the current state and the state itself, whose
 // request method asks for a change (the same value on every build).
 func useBoolState(value *bool, def bool, onChange func(bool)) (bool, *boolState) {

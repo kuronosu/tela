@@ -1746,6 +1746,12 @@ type ComboboxOptions[K comparable] struct {
     // Disabled makes the input and the button inert and disabled; ReadOnly
     // makes the input read-only and the list does not open.
     Disabled, ReadOnly bool
+    // AutoFocusFirst highlights the first item whenever the list is open
+    // and nothing is highlighted: when it opens and after the text changes
+    // (React Aria's Autocomplete does it unless disableAutoFocusFirst). Enter
+    // then chooses it with no arrow pressed, as a command palette wants.
+    // Hovering or the arrows move the highlight as usual.
+    AutoFocusFirst bool
     // ShouldFocusWrap makes ArrowDown on the last item highlight the first,
     // and ArrowUp on the first the last.
     ShouldFocusWrap bool
@@ -1865,7 +1871,7 @@ return Fragment(
                 }))))))
 ```
 
-Typing filters the list and opens it (see MenuTrigger). The input keeps the focus: ArrowDown and ArrowUp highlight the next and previous item (the first and the last, opening the list when closed), Enter chooses the highlighted item, which sets the text to its TextValue and closes the list, Tab chooses it and moves on, and Escape closes the list and puts the text back to that of the selected item (cleared when there is none). When the input loses the focus the text is committed: reset to the selected item's, or kept as a custom value with AllowsCustomValue. Home, End, Space and the left and right arrows stay with the text field, and nothing moves while an IME composes text.
+Typing filters the list and opens it (see MenuTrigger). The input keeps the focus: ArrowDown and ArrowUp highlight the next and previous item (the first and the last, opening the list when closed), Enter chooses the highlighted item, which sets the text to its TextValue and closes the list, Tab chooses it and moves on, and Escape closes the list and puts the text back to that of the selected item (cleared when there is none). Escape is consumed only when it did one of those things: with the list closed and the text already settled, or with a list that cannot close (a controlled Open with no OnOpenChange, such as the always-open list of a command palette), it goes on to the enclosing dialog or overlay, which closes. When the input loses the focus the text is committed: reset to the selected item's, or kept as a custom value with AllowsCustomValue. Home, End, Space and the left and right arrows stay with the text field, and nothing moves while an IME composes text.
 
 Items are highlighted with [`Collection.IsFocused`](#func-collectionk-isfocused) (there is no DOM focus on them); the input carries aria-activedescendant. In the aria snapshot the input is `combobox "Fruit" [expanded]: b`, the button `button "Show suggestions"` and the list a listbox named by the label.
 

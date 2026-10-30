@@ -14,6 +14,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Added
 
+- `aria.ComboboxOptions.AutoFocusFirst`: while the list is open and nothing is highlighted, the first item is, on opening and after each change of the text, so Enter chooses it (ADR-198).
+
 - New module `github.com/kuronosu/tela/looks` (ADR-197), separate from the core like `icons/lucide`: the looks of Windows 11, GNOME and KDE for `kit`, each in light and dark. A `looks.Look` is a `tela.Theme`, a `kit.Style` and the classes of the window regions kit has no component for (`Regions`: toolbar, location bar, sidebar, content, details pane, status bar); `win11.Look()`, `adwaita.Look()` and `breeze.Look()` return one, and `detect.Look()` picks the running desktop's. `looks/gallery` shows kit's controls in each look and switches between them at run time.
 
 ### Changed
@@ -33,6 +35,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `examples/dashboard` has a new design, "Frosted graphite" (ADR-195): three fixed glass panes (rail, main, Pulse) over a calm dune wallpaper with one amber accent, in light and dark. Overview (a headline figure with metric tabs and 48 spring bars, four figures with sparklines, latest orders, a goal ring, traffic and activity), Tasks (a sortable table and a board with drag and drop, card menus, edit, new and delete dialogs, a sprint strip) and Orders; a command palette (Ctrl+K) and tooltips built directly on `aria` hooks; Ctrl+1/2/3 switch views. `docs/images/dashboard.png`, `dashboard-dark.png` and `dashboard-palette.png` show it. Its frame times are in the README; it is heavier on the CPU than the page it replaces, as phase 16 expects.
 
 ### Fixed
+
+- `aria.UseCombobox` consumes Escape only when it used it (closed a list that can close, or reverted the text): a command palette whose list is always open now closes from the keyboard, and reverting the text of a selected item no longer also closes the enclosing dialog (ADR-198).
 
 - `desktop.UseSetting`, `UseStoreSetting` and `Store.Get`: the elements of a stored slice, array or map start from zero values instead of inheriting, by position, the fields of the default's elements that the stored JSON leaves out (an `omitempty` field cleared by the user came back after a resync). Struct fields missing from the stored value still keep the default's.
 - `tela lint` learns the custom theme tokens set through a helper function (`set("gold", ...)` where the helper assigns `t.Colors[name]`), not only constant-key assignments.

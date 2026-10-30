@@ -678,3 +678,160 @@ func pressKey(a *rawApp, key platform.Key, code platform.KeyCode) {
 	a.key(platform.KeyPress, key, code, false)
 	a.key(platform.KeyRelease, key, code, false)
 }
+
+// alwaysOpenNode is a command palette's markup: the list is rendered
+// permanently (the open state is controlled and fixed to true) and a
+// dialog around it listens for Escape.
+func alwaysOpenNode(o aria.ComboboxOptions[string]) tela.Node {
+	return tela.C(func() tela.Node {
+		open := true
+		o.Open = &open
+		o.Items, o.TextValue, o.AriaLabel = fruits, capital, "Fruit"
+		cb := aria.UseCombobox(o)
+		return Div(Class("h-full w-full"),
+			Input(cb.InputProps, Class("h-8 w-48 border")),
+			Div(cb.ListBox.Props,
+				Range(len(cb.Keys), func(i int) tela.Node {
+					k := cb.Keys[i]
+					return Div(cb.ListBox.ItemProps(k), Key(k), Class("h-8 px-2"),
+						If(cb.ListBox.IsFocused(k), Class("bg-sky-200")), Text(capital(k)))
+				})))
+	})
+}
+
+// A combobox whose list is always open has nothing to close: Escape
+// reaches the dialog around it, the first time when no text was typed.
+func TestComboboxAlwaysOpenEscapeClosesDialog(t *testing.T) {
+	var closed int
+	page := func() tela.Node {
+		return tela.C(func() tela.Node {
+			ov := aria.UseOverlay(aria.OverlayOptions{Open: true, OnClose: func() { closed++ }, Modal: true})
+			return Div(ov.Props, Class("h-full"), alwaysOpenNode(aria.ComboboxOptions[string]{}))
+		})
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+	app.Focus(comboInput)
+	app.Press("Escape")
+	if closed != 1 {
+		t.Errorf("empty always-open combobox: dialog closed %d times after Escape, want 1", closed)
+	}
+	// With text typed, the first Escape clears it (the combobox used it)
+	// and the second one closes the dialog.
+	app.Type("ban")
+	app.Press("Escape")
+	app.ExpectValue(comboInput, "")
+	if closed != 1 {
+		t.Errorf("dialog closed %d times after an Escape that cleared the text, want 1", closed)
+	}
+	app.Press("Escape")
+	if closed != 2 {
+		t.Errorf("dialog closed %d times after the second Escape, want 2", closed)
+	}
+}
+
+// A popup combobox inside a dialog: the first Escape closes only the list,
+// the second one the dialog.
+func TestComboboxPopupEscapeInDialog(t *testing.T) {
+	var closed int
+	page := func() tela.Node {
+		return tela.C(func() tela.Node {
+			ov := aria.UseOverlay(aria.OverlayOptions{Open: true, OnClose: func() { closed++ }, Modal: true})
+			return Div(ov.Props, Class("h-full"), comboNode(aria.ComboboxOptions[string]{
+				Items: fruits, TextValue: capital, AllowsCustomValue: true}))
+		})
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+	app.Focus(comboInput)
+	app.Type("ban")
+	app.ExpectCount(telatest.ByRole("listbox", ""), 1)
+	app.Press("Escape")
+	app.ExpectCount(telatest.ByRole("listbox", ""), 0)
+	if closed != 0 {
+		t.Fatalf("dialog closed %d times after the Escape that closed the list, want 0", closed)
+	}
+	app.Press("Escape")
+	if closed != 1 {
+		t.Errorf("dialog closed %d times after the second Escape, want 1", closed)
+	}
+}
+
+// A controlled list whose owner listens (OnOpenChange) is closed by Escape,
+// which the dialog does not hear.
+func TestComboboxControlledEscapeInDialog(t *testing.T) {
+	var closed int
+	page := func() tela.Node {
+		return tela.C(func() tela.Node {
+			ov := aria.UseOverlay(aria.OverlayOptions{Open: true, OnClose: func() { closed++ }, Modal: true})
+			return Div(ov.Props, Class("h-full"), tela.C(func() tela.Node {
+				open, setOpen := tela.UseState(true)
+				return comboNode(aria.ComboboxOptions[string]{Items: fruits, TextValue: capital,
+					Open: &open, OnOpenChange: setOpen.Set})
+			}))
+		})
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+	app.Focus(comboInput)
+	app.ExpectCount(telatest.ByRole("listbox", ""), 1)
+	app.Press("Escape")
+	app.ExpectCount(telatest.ByRole("listbox", ""), 0)
+	if closed != 0 {
+		t.Fatalf("dialog closed %d times after the Escape that closed the list, want 0", closed)
+	}
+}
+
+// AutoFocusFirst highlights the first match when the list opens and when
+// the text changes, so Enter chooses it.
+func TestComboboxAutoFocusFirst(t *testing.T) {
+	var ev events
+	page := func() tela.Node {
+		return tela.C(func() tela.Node {
+			open := true
+			cb := aria.UseCombobox(aria.ComboboxOptions[string]{Items: fruits, TextValue: capital, AriaLabel: "Fruit",
+				Open: &open, AutoFocusFirst: true,
+				OnSelectionChange: func(s aria.Selection[string]) { k, _ := s.First(); ev.add("selected " + k) }})
+			return Div(Class("h-full w-full"),
+				Input(cb.InputProps, Class("h-8 w-48 border")),
+				Div(cb.ListBox.Props,
+					Range(len(cb.Keys), func(i int) tela.Node {
+						k := cb.Keys[i]
+						return Div(cb.ListBox.ItemProps(k), Key(k), Class("h-8 px-2"),
+							If(cb.ListBox.IsFocused(k), Class("bg-sky-200")), Text(capital(k)))
+					})))
+		})
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+	app.Focus(comboInput)
+	app.Expect(highlighted, telatest.HasName("Apple"))
+	app.Type("ch")
+	app.Expect(highlighted, telatest.HasName("Cherry"))
+	app.Press("Enter")
+	if got := ev.take(); got != "selected cherry" {
+		t.Errorf("events %q, want %q", got, "selected cherry")
+	}
+}
+
+// An Escape that puts a selected item's text back is consumed, even when
+// the list was already closed.
+func TestComboboxEscapeRevertIsConsumed(t *testing.T) {
+	var closed int
+	page := func() tela.Node {
+		return tela.C(func() tela.Node {
+			ov := aria.UseOverlay(aria.OverlayOptions{Open: true, OnClose: func() { closed++ }, Modal: true})
+			return Div(ov.Props, Class("h-full"), comboNode(aria.ComboboxOptions[string]{
+				Items: fruits, TextValue: capital, DefaultSelected: aria.SelectionOf("cherry")}))
+		})
+	}
+	app := telatest.MountFunc(t, page, telatest.Size(400, 300))
+	app.Focus(comboInput)
+	app.Type("x") // "Cherryx" matches nothing: the list is closed
+	app.ExpectCount(telatest.ByRole("listbox", ""), 0)
+	app.Press("Escape")
+	app.ExpectValue(comboInput, "Cherry")
+	if closed != 0 {
+		t.Fatalf("dialog closed %d times after an Escape that reverted the text, want 0", closed)
+	}
+	app.Press("Escape")
+	if closed != 1 {
+		t.Errorf("dialog closed %d times after the second Escape, want 1", closed)
+	}
+}

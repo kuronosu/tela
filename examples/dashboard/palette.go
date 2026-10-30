@@ -27,8 +27,10 @@ type Command struct {
 // outside close it; modal, so the page is inert) holding a dialog
 // (UseDialog: its name, the focus moved in and given back when it closes)
 // around a combobox (UseCombobox) whose list is always open and filters the
-// commands while typing. The input keeps the focus while the arrows move a
-// virtual focus through the list (aria-activedescendant). Render it only
+// commands while typing; Escape reaches the overlay because that list cannot
+// close, and Enter runs the first match (AutoFocusFirst). The input keeps
+// the focus while the arrows move a virtual focus through the list
+// (aria-activedescendant). Render it only
 // while it is open, so it starts empty each time.
 type Palette struct {
 	Commands []Command
@@ -60,27 +62,20 @@ func (p Palette) Build() tela.Node {
 		},
 		AllowsEmptyCollection: true,
 		AllowsCustomValue:     true,
+		AutoFocusFirst:        true,
 		AriaLabel:             "Search commands",
 	})
 
-	// The first match is the one Enter runs until an arrow moves the
-	// virtual focus (the combobox has no default focused key).
-	focused := ""
-	for _, k := range cb.Keys {
-		if cb.ListBox.IsFocused(k) {
-			focused = k
-		}
-	}
 	var rows []tela.Child
 	group := ""
-	for i, k := range cb.Keys {
+	for _, k := range cb.Keys {
 		c := byKey[k]
 		if c.Group != group {
 			group = c.Group
 			rows = append(rows, Div(Key("g-"+group), Role("presentation"),
 				Class("px-3 pt-3 pb-1", eyebrow), Text(group)))
 		}
-		active := k == focused || (focused == "" && i == 0)
+		active := cb.ListBox.IsFocused(k)
 		rows = append(rows, Div(cb.ListBox.ItemProps(k), Key(k),
 			Class("flex cursor-default items-center gap-3 rounded-lg px-3 py-2 text-[13px] outline-none"),
 			If(active, Class("bg-accent text-foreground")),
@@ -92,19 +87,6 @@ func (p Palette) Build() tela.Node {
 					return Span(Key(s), Class(kbd), If(active, Class("border-white/15 text-foreground")), Text(s))
 				}))),
 		))
-	}
-	// The combobox takes Escape for itself (it would close its list and
-	// put the text back); here the list is the palette, so Escape closes
-	// the palette at once, whatever was typed.
-	onKey := func(e tela.KeyboardEvent) {
-		switch {
-		case e.Key == "Escape":
-			e.PreventDefault()
-			p.Close()
-		case e.Key == "Enter" && focused == "" && len(cb.Keys) > 0:
-			e.PreventDefault()
-			p.Run(cb.Keys[0])
-		}
 	}
 	// The scrim is a plain translucent veil: a blur over the whole window
 	// would be recomputed for every pixel the palette repaints under it
@@ -118,7 +100,7 @@ func (p Palette) Build() tela.Node {
 					"transition duration-150 ease-out starting:scale-[0.97] starting:opacity-0"),
 				Div(Class("flex items-center gap-3 border-b border-border px-4"),
 					Icon(icons.Search, Class("size-[18px] text-muted-foreground")),
-					Input(cb.InputProps, OnKeyDown(onKey), AutoFocus(true), Placeholder("Type a command or search…"),
+					Input(cb.InputProps, AutoFocus(true), Placeholder("Type a command or search…"),
 						Class("h-14 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground")),
 					Span(Class(kbd), AriaHidden(true), Text("esc")),
 				),

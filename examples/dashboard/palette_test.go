@@ -32,8 +32,8 @@ func TestPaletteKeyboard(t *testing.T) {
 
 	a.Type("go")
 	a.ExpectCount(telatest.ByRole("option", ""), 3)
-	a.Expect(paletteBox, telatest.NoActiveDescendant())
-	a.Press("ArrowDown")
+	// The first match is highlighted (AutoFocusFirst); an arrow moves on.
+	a.Expect(paletteBox, telatest.ActiveDescendant(telatest.ByRole("option", "Go to Overview")))
 	a.Press("ArrowDown")
 	a.Expect(paletteBox, telatest.ActiveDescendant(telatest.ByRole("option", "Go to Tasks 8 open")))
 	a.ExpectFocused(paletteBox)
@@ -41,7 +41,7 @@ func TestPaletteKeyboard(t *testing.T) {
 	a.ExpectCount(palette, 0)
 	a.ExpectRole("heading", "Tasks")
 
-	// Enter with nothing highlighted runs the first match.
+	// Enter with no arrow pressed runs the first match.
 	a.Press("Control+k")
 	a.Type("theme")
 	a.ExpectCount(telatest.ByRole("option", ""), 1)
