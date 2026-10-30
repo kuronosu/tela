@@ -1,0 +1,29 @@
+- text: Tela
+- heading "Create your account" [level=1]
+- group:
+  - text: Display name
+  - textbox "Display name"
+- group:
+  - text: E-mail
+  - textbox "E-mail"
+- group:
+  - text: Password
+  - textbox "Password"
+  - button "Show password"
+  - progressbar "Password strength"
+- group:
+  - text: Short bio (optional)
+  - textbox "Short bio (optional)"
+  - text: 0/160
+- group:
+  - checkbox "Accept terms and conditions"
+  - text: Accept terms and conditions
+- button "Create account" [disabled]
+- paragraph: Fill in every field and accept the terms.
+- paragraph:
+  - text: Already have an account?
+  - button "Sign in to your account": Sign in
+- text: Pure Go. One binary.
+- heading "Start weaving in minutes, free." [level=2]
+- paragraph: “We replaced three desktop codebases with one Go program, and it looks better than the web app did.”
+- text: PR Priya Raman Staff engineer, Northwind

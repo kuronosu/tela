@@ -184,9 +184,11 @@ func Search() tela.Node {
 [`App.Type`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.Type) sends one key at a time through the real key path; and
 [`App.ExpectValue`](https://pkg.go.dev/github.com/kuronosu/tela/telatest#App.ExpectValue) waits for a value. See [Testing](Testing).
 
-The `examples/signup` screen puts all of this together: an e-mail with
-`invalid:` and `peer-invalid:` styling, a password with a show/hide toggle, an
-auto-growing textarea with a live counter, and a submit button that stays
-disabled until the form is valid.
+The `examples/login` screen puts all of this together in its Create account
+mode: `kit.Field` around every control with an `aria-invalid` e-mail, a
+password with a show/hide toggle and a strength meter, an auto-growing
+textarea with a live counter, and a submit button that stays disabled until
+the form is valid. Its Sign in mode shows the errors after the first try and a
+request in flight.
 
-![The signup example, with an invalid e-mail](https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/signup.png)
+![The login example in its Create account mode, with an invalid e-mail](https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/login-create-account.png)

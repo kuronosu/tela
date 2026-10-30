@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/examples/login/icons"
 	. "github.com/kuronosu/tela/h"
@@ -16,11 +18,16 @@ func Logo() tela.Node {
 	)
 }
 
-// Header is the title of the form.
-func Header() tela.Node {
+// Header is the title of the form, with a line under it when it has a
+// Description.
+type Header struct {
+	Title, Description string
+}
+
+func (p Header) Build() tela.Node {
 	return Div(Class("flex flex-col gap-1.5"),
-		H1(Class("text-2xl font-bold tracking-tight"), Text("Welcome back")),
-		P(Class("text-sm text-muted-foreground"), Text("Sign in to your account to continue.")),
+		H1(Class("text-2xl font-bold tracking-tight"), Text(p.Title)),
+		If(p.Description != "", P(Class("text-sm text-muted-foreground"), Text(p.Description))),
 	)
 }
 
@@ -41,61 +48,178 @@ func (a Alert) Build() tela.Node {
 	)
 }
 
-// EmailField is a Field around an e-mail Input. Its Error, set once the
-// user tried to sign in, marks the input invalid (a red border and ring
-// from the recipe) and shows the message below it.
+// EmailField is a Field around an e-mail Input. Its Error marks the input
+// invalid (a red border and ring from the recipe, `[invalid]` for assistive
+// technologies) and shows the message below it. Sign in sets it once the
+// user tried to send the form; Create account, whose button is disabled
+// until the form is valid and so cannot be tried, once the field was left
+// (SetTouched, from OnBlur).
 type EmailField struct {
 	Email string
 	Set   tela.Setter[string]
 	Error string
+	// AutoFocus takes the focus when the field mounts.
+	AutoFocus bool
+	// SetTouched, when set, is called when the field loses the focus.
+	SetTouched tela.Setter[bool]
 }
 
 func (p EmailField) Build() tela.Node {
 	email := p.Email
+	in := kit.Input{
+		Name: "email", Type: "email", Placeholder: "you@example.com", AutoFocus: p.AutoFocus,
+		Value: &email, OnValueChange: p.Set.Set,
+		Props: AutoComplete("email"),
+	}
+	if !p.SetTouched.IsZero() {
+		in.Props = OnBlur(func() { p.SetTouched.Set(true) })
+	}
+	return Fragment(kit.Field{Label: "E-mail", Error: p.Error, Children: in})
+}
+
+// NameField is a plain controlled field. Input takes input-method text
+// (Japanese, Chinese, Korean) like any browser field.
+type NameField struct {
+	Name string
+	Set  tela.Setter[string]
+}
+
+func (p NameField) Build() tela.Node {
+	name := p.Name
 	return Fragment(kit.Field{
-		Label: "E-mail",
-		Error: p.Error,
+		Label: "Display name",
 		Children: kit.Input{
-			Name: "email", Type: "email", Placeholder: "you@example.com", AutoFocus: true,
-			Value: &email, OnValueChange: p.Set.Set,
-			Props: AutoComplete("email"),
+			Name: "name", Placeholder: "Ana García", AutoFocus: true,
+			Value: &name, OnValueChange: p.Set.Set,
+			Props: AutoComplete("name"),
 		},
 	})
 }
 
 // PasswordField has a show/hide button over the end of the field: a ghost
-// icon kit.Button with AriaPressed. Type is just a prop, so toggling it
-// swaps the dots for the text without remounting the input.
+// icon kit.Button with AriaPressed and a kit.Tooltip that names what the
+// next press does. Type is just a prop, so toggling it swaps the dots for
+// the text without remounting the input. For a new account (New) it adds a
+// strength meter under the field.
 type PasswordField struct {
 	Password string
 	Set      tela.Setter[string]
 	Error    string
 	Show     bool
 	SetShow  tela.Setter[bool]
+	// New is the password of an account being created: the browser may
+	// suggest one, and the meter rates it.
+	New bool
 }
 
 func (p PasswordField) Build() tela.Node {
 	password := p.Password
-	typ, icon := "password", icons.Eye
+	typ, icon, tip := "password", icons.Eye, "Show password"
 	if p.Show {
-		typ, icon = "text", icons.EyeOff
+		typ, icon, tip = "text", icons.EyeOff, "Hide password"
 	}
-	return Fragment(kit.Field{
-		Label: "Password",
-		Error: p.Error,
-		Children: Div(Class("relative"),
-			kit.Input{
-				Name: "password", Type: typ, Placeholder: "Your password",
-				Value: &password, OnValueChange: p.Set.Set,
-				Class: "pr-10", Props: AutoComplete("current-password"),
-			},
-			kit.Button{
+	placeholder, complete := "Your password", "current-password"
+	if p.New {
+		placeholder, complete = "At least 8 characters", "new-password"
+	}
+	field := Div(Class("relative"),
+		kit.Input{
+			Name: "password", Type: typ, Placeholder: placeholder,
+			Value: &password, OnValueChange: p.Set.Set,
+			Class: "pr-10", Props: AutoComplete(complete),
+		},
+		kit.Tooltip{
+			Trigger: kit.Button{
 				Type: "button", Variant: kit.Ghost, Size: kit.IconSm, Icon: icon,
 				AriaLabel: "Show password", Class: "absolute top-0.5 right-0.5 text-muted-foreground",
 				Props:   AriaPressed(p.Show),
 				OnClick: tela.Toggle(p.SetShow),
 			},
+			Content: Text(tip),
+		},
+	)
+	if !p.New {
+		return Fragment(kit.Field{Label: "Password", Error: p.Error, Children: field})
+	}
+	return Fragment(kit.Field{
+		Label: "Password", Error: p.Error,
+		Children: Div(Class("flex flex-col gap-2.5"), field, StrengthMeter{Password: password}),
+	})
+}
+
+// StrengthMeter is a kit.Progress from 0 to 4 and a word, colored by the
+// score.
+type StrengthMeter struct {
+	Password string
+}
+
+var (
+	strengthWords  = []string{"Empty", "Weak", "Fair", "Good", "Strong"}
+	strengthColors = []string{"", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-emerald-500"}
+)
+
+func (m StrengthMeter) Build() tela.Node {
+	score := Strength(m.Password)
+	word := strengthWords[score]
+	if score == 0 {
+		word = ""
+	}
+	return Div(Class("flex items-center gap-3"),
+		kit.Progress{
+			Value: float64(score), Max: 4, AriaLabel: "Password strength",
+			FormatValue:    func(v float64) string { return strengthWords[int(v)] },
+			Class:          "h-1.5 flex-1 bg-muted",
+			IndicatorClass: strengthColors[score],
+		},
+		Span(Class("w-11 text-right text-xs font-medium text-muted-foreground"), Text(word)),
+	)
+}
+
+// BioField is a Textarea that grows with its text between a minimum and a
+// maximum height (the recipe's field-sizing-content with min-h and max-h;
+// past the maximum it scrolls). It is bound to a tela.Value with BindValue,
+// and its counter is a TextFn that reads that Value: a keystroke repaints
+// the counter and nothing builds. The counter sits on the label's line, at
+// the other end (a Field has no slot beside its label, so it is a Span placed
+// with absolute in the relative field).
+type BioField struct {
+	Bio *tela.Value[string]
+}
+
+func (p BioField) Build() tela.Node {
+	bio := p.Bio
+	return Fragment(kit.Field{
+		Label: "Short bio (optional)",
+		Class: "relative",
+		Children: Fragment(
+			kit.Textarea{
+				Name: "bio", Rows: 3, MaxLength: bioLimit, Placeholder: "Tell us what you build…",
+				Class: "max-h-40 min-h-16 leading-5",
+				Props: BindValue(bio),
+			},
+			Span(Class("absolute top-0 right-0 text-xs text-muted-foreground tabular-nums"),
+				TextFn(func() string { return fmt.Sprintf("%d/%d", units(bio.Get()), bioLimit) })),
 		),
+	})
+}
+
+// termsLabel is the accessible name of the terms checkbox: the text of its
+// Label.
+const termsLabel = "Accept terms and conditions"
+
+// TermsField is a horizontal Field with a kit.Checkbox: the label sits after
+// the box, and clicking it toggles the box.
+type TermsField struct {
+	On  bool
+	Set func(bool)
+}
+
+func (p TermsField) Build() tela.Node {
+	on := p.On
+	return Fragment(kit.Field{
+		Orientation: kit.Horizontal,
+		Label:       termsLabel,
+		Children:    kit.Checkbox{Checked: &on, OnCheckedChange: p.Set, Class: "mt-px"},
 	})
 }
 
@@ -123,15 +247,18 @@ func (p RememberRow) Build() tela.Node {
 // SubmitButton is the primary action. While the request is in flight it is
 // disabled and shows a spinner: an icon with animate-spin.
 type SubmitButton struct {
-	Loading bool
+	Label, LoadingLabel string
+	Loading             bool
+	// Disabled keeps it off until the form is valid (Create account).
+	Disabled bool
 }
 
 func (p SubmitButton) Build() tela.Node {
-	label := Fragment(Text("Sign in"))
+	label := Fragment(Text(p.Label))
 	if p.Loading {
-		label = Fragment(Icon(icons.LoaderCircle, Class("size-4 animate-spin")), Text("Signing in…"))
+		label = Fragment(Icon(icons.LoaderCircle, Class("size-4 animate-spin")), Text(p.LoadingLabel))
 	}
-	return Fragment(kit.Button{Type: "submit", Disabled: p.Loading, Class: "w-full", Children: label})
+	return Fragment(kit.Button{Type: "submit", Disabled: p.Loading || p.Disabled, Class: "w-full", Children: label})
 }
 
 // Alternatives are the other ways in, under a separator with a caption. The
@@ -156,11 +283,20 @@ func (p Alternatives) Build() tela.Node {
 	)
 }
 
-// SignUp is the footer of the form.
-func SignUp() tela.Node {
+// ModeSwitch is the footer of each form: the link button that switches the
+// card to the other mode. Its AriaLabel says where it goes ("Sign up for an
+// account") and contains the visible text, so it is clear out of the
+// sentence it sits in.
+type ModeSwitch struct {
+	Prompt, Label, AriaLabel string
+	OnClick                  func()
+}
+
+func (p ModeSwitch) Build() tela.Node {
 	return P(Class("text-center text-sm text-muted-foreground"),
-		Text("Don't have an account? "),
-		kit.Button{Type: "button", Variant: kit.Link, Class: "h-auto p-0 text-foreground", Children: Text("Sign up")})
+		Text(p.Prompt),
+		kit.Button{Type: "button", Variant: kit.Link, Class: "h-auto p-0 text-foreground",
+			AriaLabel: p.AriaLabel, OnClick: p.OnClick, Children: Text(p.Label)})
 }
 
 // Welcome replaces the form once the sign-in succeeded.
@@ -181,10 +317,37 @@ func (p Welcome) Build() tela.Node {
 	)
 }
 
+// AccountCreated replaces the Create account form once the request
+// succeeded; it is a status region, like Welcome.
+type AccountCreated struct {
+	Name, Email string
+	SignIn      func()
+}
+
+func (p AccountCreated) Build() tela.Node {
+	return Div(Role("status"), Class("flex flex-col items-center gap-5 py-6 text-center"),
+		Div(Class("flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"),
+			Icon(icons.CircleCheck, Class("size-7"))),
+		Div(Class("flex flex-col gap-1.5"),
+			H1(Class("text-2xl font-bold tracking-tight"), Text("Account created")),
+			P(Class("text-sm text-muted-foreground"), Textf("Welcome, %s. We sent a confirmation link to %s.", p.Name, p.Email)),
+		),
+		kit.Button{Variant: kit.Outline, OnClick: p.SignIn, Children: Text("Continue to sign in")},
+	)
+}
+
 // Panel is the brand side of the card, hidden below md:. It is decoration,
 // so it keeps its own colors in both schemes: a gradient with a soft grid,
-// two glows, and a glass card with a quote.
-func Panel() tela.Node {
+// two glows, and a glass card with a quote. Its headline follows the mode.
+type Panel struct {
+	Mode Mode
+}
+
+func (p Panel) Build() tela.Node {
+	headline := "Desktop apps, woven from one codebase."
+	if p.Mode == CreateAccount {
+		headline = "Start weaving in minutes, free."
+	}
 	return Div(Class("relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-teal-500 via-emerald-600 to-cyan-900 p-10 text-white md:flex"),
 		Div(Class("absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:32px_32px]")),
 		Div(Class("absolute -top-24 -right-24 size-80 rounded-full bg-white/20 blur-3xl")),
@@ -193,7 +356,7 @@ func Panel() tela.Node {
 			Div(Class("rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur"),
 				Text("Pure Go. One binary.")),
 			H2(Class("max-w-xs text-4xl leading-tight font-semibold tracking-tight text-balance"),
-				Text("Desktop apps, woven from one codebase.")),
+				Text(headline)),
 		),
 		Div(Class("relative flex flex-col gap-5 rounded-2xl border border-white/25 bg-white/10 p-6 shadow-xl backdrop-blur-md"),
 			P(Class("text-lg leading-snug font-medium tracking-tight text-balance"),

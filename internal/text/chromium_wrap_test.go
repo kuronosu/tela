@@ -126,7 +126,8 @@ var wrapCases = []wrapCase{
 	{name: "pretty-long", width: 260, para: ParagraphStyle{WrapStyle: TextWrapPretty}, base: ts(16, lh24), spans: one(wrapTypography, ts(16, lh24))},
 	{name: "pretty-two-words", width: 300, para: ParagraphStyle{WrapStyle: TextWrapPretty}, base: ts(16, lh24), spans: one(wrapHeadline+" in print", ts(16, lh24)), greedy: true},
 	{name: "pretty-forced-break", width: 320, para: ParagraphStyle{WrapStyle: TextWrapPretty, WhiteSpace: WhiteSpacePreLine}, base: ts(16, lh24), spans: one(wrapTypography+"\n"+wrapTypography, ts(16, lh24))},
-	// Real markup: examples/signup's quote (text-2xl leading-snug
+	// Real markup: the quote of the brand panel of the former examples/signup
+	// (merged into examples/login, ADR-195; text-2xl leading-snug
 	// font-medium tracking-tight text-balance in a 320 px column) and a
 	// wrapped kit.Tooltip (text-xs text-balance, 176 px of content).
 	{name: "signup-quote", width: 320, para: balanced(), base: ts(24, LineHeightMultiple(1.375), func(s *TextStyle) { s.Weight = 500; s.LetterSpacing = -0.6 }),

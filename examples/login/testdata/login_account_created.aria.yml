@@ -1,0 +1,9 @@
+- text: Tela
+- status:
+  - heading "Account created" [level=1]
+  - paragraph: Welcome, Mei Tanaka. We sent a confirmation link to taro@example.com.
+  - button "Continue to sign in"
+- text: Pure Go. One binary.
+- heading "Start weaving in minutes, free." [level=2]
+- paragraph: “We replaced three desktop codebases with one Go program, and it looks better than the web app did.”
+- text: PR Priya Raman Staff engineer, Northwind

@@ -193,24 +193,12 @@ the same machine (the benchmark and the "glass budget" are in its README).
 Dark mode is a class pair (`bg-white/55 dark:bg-white/5`) or, with the theme
 tokens, a single class (`bg-background`); render it with `tela snapshot --dark`.
 
-### Signup form
-
-A "Create your account" screen on `kit`: `kit.Field` around `kit.Input` and
-`kit.Textarea` with descriptions and errors (`aria-invalid`), a password with a
-show/hide toggle and a strength `kit.Progress`, a live counter (`BindValue` +
-`TextFn`), a `kit.Checkbox`, implicit submission with Enter, and a submit
-button that stays disabled until the form is valid.
-
-<p align="center">
-  <img src="docs/images/signup.png" alt="signup example, with an invalid e-mail" width="70%">
-</p>
-
 ### More screens
 
 | | |
 |---|---|
 | **[settings](examples/settings)**: a whole form as one comparable value, `kit.Switch` rows, a `kit.RadioGroup` of theme cards, a Reset `kit.AlertDialog` and a toast on Save. <br><img src="docs/images/settings.png" alt="settings example"> | **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> |
-| **[board](examples/board)**: a kanban board with drag and drop between columns (`OnDrag`, `TranslateFn`), `kit.Card`s with a `kit.DropdownMenu` and a `kit.ContextMenu`, edit and delete dialogs. <br><img src="docs/images/board.png" alt="board example"> | **[login](examples/login)**: a sign-in card with a brand panel that hides below `md:`, `kit.Field` errors, a show/hide password button, a spinner while a fake request runs on `tela.UseTimeout`, an alert for a wrong password. <br><img src="docs/images/login.png" alt="login example"> |
+| **[board](examples/board)**: a kanban board with drag and drop between columns (`OnDrag`, `TranslateFn`), `kit.Card`s with a `kit.DropdownMenu` and a `kit.ContextMenu`, edit and delete dialogs. <br><img src="docs/images/board.png" alt="board example"> | **[login](examples/login)**: a card with a brand panel that hides below `md:` and two modes, Sign in and Create account: `kit.Field` around every control with errors (`aria-invalid`), a show/hide password button, a strength `kit.Progress`, a bio with a live counter (`BindValue` + `TextFn`), a spinner while a fake request runs on `tela.UseTimeout`, an alert for a wrong password. <br><img src="docs/images/login.png" alt="login example"> |
 | **[chat](examples/chat)**: a messaging app on `kit`: one reducer for the whole state, `tela.UseTimeout` for the typing indicator and the reply, `h.AriaCurrent` on the open conversation, a virtualized message list that scrolls to its end, a growing `kit.Textarea` composer. <br><img src="docs/images/chat.png" alt="chat example"> | **[notes](examples/notes)**: the desktop services of package `desktop` in a small notes app: native open and save dialogs, a tray icon with a menu, a second window (Preferences) with settings stored by `desktop.UseSetting`, a remembered window position, a message box before quitting, a notification after saving, and a frameless window with a `kit.TitleBar`. <br><img src="docs/images/notes.png" alt="notes example"> |
 
 ### Command center (`aria`)

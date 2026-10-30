@@ -9,7 +9,6 @@
 /native
 /player
 /settings
-/signup
 
 # Golden test failures
 *_actual.png

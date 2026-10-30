@@ -19,7 +19,7 @@
 - button "SSO"
 - paragraph:
   - text: Don't have an account?
-  - button "Sign up"
+  - button "Sign up for an account": Sign up
 - text: Pure Go. One binary.
 - heading "Desktop apps, woven from one codebase." [level=2]
 - paragraph: “We replaced three desktop codebases with one Go program, and it looks better than the web app did.”
