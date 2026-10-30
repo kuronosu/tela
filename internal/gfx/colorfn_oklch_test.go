@@ -34,15 +34,15 @@ func TestParseOKLCHFunc(t *testing.T) {
 		in   string
 		want ColorFuncProblem
 	}{
-		{"0.5,0.1,200", ColorFuncSyntax},
-		{"0.5, 0.1, 200, 0.5", ColorFuncSyntax},
-		{"0.5 0.1, 200", ColorFuncSyntax},
-		{"0.5,0.1/200", ColorFuncSyntax},
+		{"0.5,0.1,200", ColorFuncCommas},
+		{"0.5, 0.1, 200, 0.5", ColorFuncCommas},
+		{"0.5 0.1, 200", ColorFuncCommas},
+		{"0.5,0.1/200", ColorFuncCommas},
 		{"0.5 0.1 200 0.5", ColorFuncArity},
 		{"0.5 0.1", ColorFuncArity},
 		{"", ColorFuncArity},
-		{"0.5 0.1 200 / ", ColorFuncSyntax},
-		{"0.5 0.1 200 / 1 2", ColorFuncSyntax},
+		{"0.5 0.1 200 / ", ColorFuncSlash},
+		{"0.5 0.1 200 / 1 2", ColorFuncSlash},
 		{"x 0.1 200", ColorFuncComponent},
 		{"0.5 0.1x 200", ColorFuncComponent},
 		{"0.5 0.1 red", ColorFuncHue},
@@ -83,11 +83,11 @@ func TestParseOklabFunc(t *testing.T) {
 		in   string
 		want ColorFuncProblem
 	}{
-		{"0.7,0.1,-0.1", ColorFuncSyntax},
-		{"0.7 0.1 -0.1, 0.5", ColorFuncSyntax},
+		{"0.7,0.1,-0.1", ColorFuncCommas},
+		{"0.7 0.1 -0.1, 0.5", ColorFuncCommas},
 		{"0.7 0.1 -0.1 0.5", ColorFuncArity},
 		{"0.7 0.1", ColorFuncArity},
-		{"0.7 0.1 -0.1 /", ColorFuncSyntax},
+		{"0.7 0.1 -0.1 /", ColorFuncSlash},
 		{"0.7 0.1 90deg", ColorFuncComponent},
 		{"0.7 x -0.1", ColorFuncComponent},
 		{"0.7 0.1 -0.1 / y", ColorFuncAlpha},
@@ -100,6 +100,33 @@ func TestParseOklabFunc(t *testing.T) {
 		}
 		if ce.Problem != tt.want || ce.Func != "oklab" || ce.Error() == "" {
 			t.Errorf("oklab(%s): %+v, want problem %d", tt.in, ce, tt.want)
+		}
+	}
+}
+
+// TestParseOKLCHFuncHugeHue: the hue wraps in float64, so a huge angle
+// keeps the fraction that float32 would lose.
+func TestParseOKLCHFuncHugeHue(t *testing.T) {
+	for _, tt := range []struct{ in, same string }{
+		{"0.6 0.2 1e9turn", "0.6 0.2 0"},
+		{"0.6 0.2 99999999.25turn", "0.6 0.2 90"},
+		{"0.6 0.2 -1e9turn", "0.6 0.2 0"},
+		{"0.6 0.2 -90", "0.6 0.2 270"},
+		{"0.6 0.2 -360", "0.6 0.2 0"},
+		{"0.6 0.2 450", "0.6 0.2 90"},
+		{"0.6 0.2 1e9", "0.6 0.2 280"},
+	} {
+		got, err := ParseOKLCHFunc(tt.in)
+		if err != nil {
+			t.Errorf("oklch(%s): %v", tt.in, err)
+			continue
+		}
+		want, err := ParseOKLCHFunc(tt.same)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !colorNear(got, want.R, want.G, want.B, want.A, 1.0/255) {
+			t.Errorf("oklch(%s) = %v, want oklch(%s) = %v", tt.in, got, tt.same, want)
 		}
 	}
 }

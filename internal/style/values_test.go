@@ -140,6 +140,8 @@ func TestParseColorIsStrict(t *testing.T) {
 		{"rgb(1, 2 3)", "not both"},
 		{"rgb(1 2 3, 0.5)", "not both"},
 		{"rgba(1,2,3 / 0.5)", "not both"},
+		{"rgb(1 2 3 /)", `rgb() takes exactly one alpha after the "/"`},
+		{"hsl(1 2% 3% / 1 2)", `hsl() takes exactly one alpha after the "/"`},
 		{"rgb(1, 2%, 3)", "not a mix"},
 		{"rgb(1 2)", "rgb() takes three components"},
 		{"hsl(1)", "hsl() takes hue"},

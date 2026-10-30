@@ -189,13 +189,21 @@ func colorFuncError(err error) error {
 		}
 		return errors.New("rgb() takes three components and an optional alpha: rgb(30 30 46 / 0.5)")
 	case gfx.ColorFuncSyntax:
-		switch ce.Func {
-		case "hsl":
+		if ce.Func == "hsl" {
 			return errors.New("hsl() separates its arguments with commas (hsl(30, 30%, 46%, 0.5)) or with spaces and a \"/\" before the alpha (hsl(30 30% 46% / 0.5)), not both")
-		case "oklch", "oklab":
-			return fmt.Errorf("%s() separates its arguments with spaces and a \"/\" before the alpha (%s(0.7 0.15 250 / 0.5)), not with commas", ce.Func, ce.Func)
 		}
 		return errors.New("rgb() separates its arguments with commas (rgb(30, 30, 46, 0.5)) or with spaces and a \"/\" before the alpha (rgb(30 30 46 / 0.5)), not both")
+	case gfx.ColorFuncCommas:
+		return fmt.Errorf("%s() separates its arguments with spaces and a \"/\" before the alpha (%s(0.7 0.15 250 / 0.5)), not with commas", ce.Func, ce.Func)
+	case gfx.ColorFuncSlash:
+		ex := ce.Func + "(0.7 0.15 250 / 0.5)"
+		switch ce.Func {
+		case "rgb":
+			ex = "rgb(30 30 46 / 0.5)"
+		case "hsl":
+			ex = "hsl(30 30% 46% / 0.5)"
+		}
+		return fmt.Errorf("%s() takes exactly one alpha after the \"/\": %s", ce.Func, ex)
 	case gfx.ColorFuncHue:
 		return fmt.Errorf("invalid hue %q", ce.Arg)
 	case gfx.ColorFuncComponent, gfx.ColorFuncAlpha:
