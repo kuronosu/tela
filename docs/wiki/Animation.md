@@ -284,8 +284,9 @@ MapIndex(tabs, func(i int, label string) tela.Node {
 IDs are global to the window. The old element is not moved: an exiting one
 runs its own `Exit` classes (fade it out with `opacity-0` while the new one
 grows from it). An element with a LayoutID also animates its own layout
-changes. `examples/layout` shows a reorderable list, the tab underline and an
-expanding card, with goldens of their frames.
+changes. The frames of a reordered list, a tab underline and an expanding card
+are goldens in
+[`h/layoutanim_frames_test.go`](https://github.com/kuronosu/tela/blob/main/h/layoutanim_frames_test.go).
 
 ## Testing animations
 
@@ -300,4 +301,7 @@ app.Advance(100 * time.Millisecond)
 app.Golden("dialog_100ms.png")
 ```
 
-`examples/motion` shows all of it on one screen, with goldens of its frames.
+The frames of a dialog's `starting:` and `Exit` transitions are goldens in
+[`telatest/presence_test.go`](https://github.com/kuronosu/tela/blob/main/telatest/presence_test.go),
+and those of a drag that springs back and a toast with `UsePresenceTween` in
+[`anim_frames_test.go`](https://github.com/kuronosu/tela/blob/main/anim_frames_test.go).

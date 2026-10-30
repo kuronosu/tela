@@ -181,9 +181,11 @@ func Jump() tela.Node {
 }
 ```
 
-The `examples/virtuallist` screen shows 100,000 people with variable row heights
-and `ScrollToIndex`. On the CPU rasterizer, scrolling it has a p95 of 2.3 ms per
-frame.
+On the CPU rasterizer, scrolling a list of 100,000 rows has a p95 of a few
+milliseconds per frame, rasterization included (`BenchmarkScrollP95Virtual100k`
+in `internal/core`). A list centered on row 50,000 and rows whose text wraps
+are tested end to end in
+[`h/virtual_golden_test.go`](https://github.com/kuronosu/tela/blob/main/h/virtual_golden_test.go).
 
 ## Testing scrolling
 

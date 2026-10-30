@@ -90,8 +90,9 @@ func BenchmarkGlassDamage1080p(b *testing.B) {
 }
 
 // glowScene is a 960x640 page with a 448 px disc (size-[28rem]) blurred by
-// blur-3xl (a standard deviation of 64 px), like the glows of
-// examples/shapes, half outside the page.
+// blur-3xl (a standard deviation of 64 px), like the glows of the paint
+// showcase page of package h (h/paint_showcase_test.go), half outside the
+// page.
 func glowScene() *gfx.DisplayList {
 	b := gfx.NewBuilder()
 	b.FillRect(gfx.Rect{X1: 960, Y1: 640}, twGray100)

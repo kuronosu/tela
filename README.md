@@ -209,9 +209,8 @@ button that stays disabled until the form is valid.
 
 | | |
 |---|---|
-| **[pricing](examples/pricing)**: plans as `kit.Card`s, a monthly/yearly `kit.ToggleGroup`, `kit.Badge`s. <br><img src="docs/images/pricing.png" alt="pricing example"> | **[settings](examples/settings)**: a whole form as one comparable value, `kit.Switch` rows, a `kit.RadioGroup` of theme cards, a Reset `kit.AlertDialog` and a toast on Save. <br><img src="docs/images/settings.png" alt="settings example"> |
-| **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> | **[board](examples/board)**: a kanban board with drag and drop between columns (`OnDrag`, `TranslateFn`), `kit.Card`s with a `kit.DropdownMenu` and a `kit.ContextMenu`, edit and delete dialogs. <br><img src="docs/images/board.png" alt="board example"> |
-| **[shapes](examples/shapes)**: rounded cards, gradients, analytic shadows, blur and glass. <br><img src="docs/images/shapes.png" alt="shapes example"> | **[text](examples/text)**: mixed-script paragraphs (Latin, Arabic, CJK, emoji), selection and carets. <br><img src="docs/images/text.png" alt="text example"> |
+| **[settings](examples/settings)**: a whole form as one comparable value, `kit.Switch` rows, a `kit.RadioGroup` of theme cards, a Reset `kit.AlertDialog` and a toast on Save. <br><img src="docs/images/settings.png" alt="settings example"> | **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> |
+| **[board](examples/board)**: a kanban board with drag and drop between columns (`OnDrag`, `TranslateFn`), `kit.Card`s with a `kit.DropdownMenu` and a `kit.ContextMenu`, edit and delete dialogs. <br><img src="docs/images/board.png" alt="board example"> | **[text](examples/text)**: mixed-script paragraphs (Latin, Arabic, CJK, emoji), selection and carets. <br><img src="docs/images/text.png" alt="text example"> |
 | **[login](examples/login)**: a sign-in card with a brand panel that hides below `md:`, `kit.Field` errors, a show/hide password button, a spinner while a fake request runs on `tela.UseTimeout`, an alert for a wrong password. <br><img src="docs/images/login.png" alt="login example"> | **[chat](examples/chat)**: a messaging app on `kit`: one reducer for the whole state, `tela.UseTimeout` for the typing indicator and the reply, `h.AriaCurrent` on the open conversation, a virtualized message list that scrolls to its end, a growing `kit.Textarea` composer. <br><img src="docs/images/chat.png" alt="chat example"> |
 | **[notes](examples/notes)**: the desktop services of package `desktop` in a small notes app: native open and save dialogs, a tray icon with a menu, a second window (Preferences) with settings stored by `desktop.UseSetting`, a remembered window position, a message box before quitting, a notification after saving, and a frameless window with a `kit.TitleBar`. <br><img src="docs/images/notes.png" alt="notes example"> | |
 
@@ -258,12 +257,7 @@ system.
   <img src="docs/images/native-breeze.png" alt="native example, KDE" width="32%">
 </p>
 
-Also there: [`hello`](examples/hello), the screen at the top of this page;
-[`virtuallist`](examples/virtuallist), 100,000 people in one
-`h.VirtualList` with variable row heights and `ScrollToIndex`;
-[`motion`](examples/motion), a dialog, a toast and a draggable card with
-springs; [`layout`](examples/layout), a reorderable list, an expanding
-card and a sliding tab underline with layout animations; and
+Also there: [`hello`](examples/hello), the screen at the top of this page; and
 [`i18n`](examples/i18n), an order summary in English, Spanish and Arabic that
 switches language while running and mirrors to right to left.
 

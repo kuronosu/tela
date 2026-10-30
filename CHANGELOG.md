@@ -16,6 +16,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 - The Counter example has a new design: a stone card with a "COUNT" label, a large number and a full-width dark button, in place of the gradient card. It applies to `examples/counter`, the README and wiki snippets and image, and the app that `tela new` creates (480x400 window, test clicks Increment).
 
+### Removed
+
+- The examples `pricing`, `motion`, `layout`, `virtuallist` and `shapes` are gone (ADR-195). What they tested is covered by package tests and godoc Examples: frames of `Presence`, drags with `Animate`/`Velocity` and `UsePresenceTween` in `anim_frames_test.go`, layout animation frames in `h/layoutanim_frames_test.go`, `VirtualList` goldens in `h/virtual_golden_test.go` with new `ExampleOverscan` and `ExampleElementRef_ScrollToIndex`, and the full-page paint golden in `h/paint_showcase_test.go`.
+
 ## [0.12.6] - 2026-10-29
 
 ### Fixed

@@ -7,10 +7,11 @@ import (
 )
 
 // Scene returns the phase-1 shapes showcase for a window of w x h logical
-// pixels. It was the first example (examples/shapes, before it became a
-// phase-3 app built with elements and classes) and is kept as a raster golden
-// test: it covers shadows, gradients, filters and strokes through the
-// DisplayList directly.
+// pixels. It was the first example, drawn straight into a display list
+// (before the elements and classes of phase 3; the same page lives on as the
+// paint showcase of package h, h/paint_showcase_test.go), and is kept as a
+// raster golden test: it covers shadows, gradients, filters and strokes
+// through the DisplayList directly.
 //
 // The scene is a centered 4x3 grid of cards (3x4 for portrait sizes) on a
 // gradient page. Every cell is drawn in a 202x170 design space that is scaled
