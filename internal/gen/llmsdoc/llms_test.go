@@ -18,15 +18,15 @@ import (
 )
 
 const (
-	root       = "../../.."
-	docPath    = root + "/docs/llms.txt"
-	examplePkg = root + "/examples/llms/settings"
+	root    = "../../.."
+	docPath = root + "/docs/llms.txt"
 
 	lucidePath      = "github.com/kuronosu/tela/icons/lucide"
-	localLucidePath = "github.com/kuronosu/tela/examples/llms/settings/lucide"
+	localLucidePath = "github.com/kuronosu/tela/examples/settings/lucide"
 
-	// settingsFirstLine starts the block that shows the example's main.go.
-	settingsFirstLine = "// Command settings is the worked example of docs/llms.txt, which shows this"
+	// settingsFirstLine starts the block of the compact settings screen
+	// (section 7), a whole package main.
+	settingsFirstLine = "// Command settings is a settings screen on kit:"
 
 	// maxBytes keeps the file short enough to be read whole (~25k tokens).
 	maxBytes = 100_000
@@ -265,14 +265,19 @@ func TestSnippets(t *testing.T) {
 	}
 }
 
-// TestSettingsExampleIsVerbatim: the settings screen of llms.txt is the
-// main.go of examples/llms/settings, which imports the subset of Lucide
-// where llms.txt imports the lucide module.
-func TestSettingsExampleIsVerbatim(t *testing.T) {
+// TestSettingsScreenRenders mounts the compact settings screen of section 7
+// headlessly, in dev mode, as `tela inspect` does: it must start and report
+// no dev message (unknown classes, missing keys, misused hooks) on standard
+// error.
+func TestSettingsScreenRenders(t *testing.T) {
+	needGo(t)
+	if testing.Short() {
+		t.Skip("builds and runs the tela command")
+	}
 	var shown *block
 	blocks := goBlocks(readDoc(t))
 	for i, b := range blocks {
-		if strings.HasPrefix(b.code, settingsFirstLine+"\n") {
+		if strings.HasPrefix(b.code, settingsFirstLine) {
 			if shown != nil {
 				t.Fatalf("two blocks start with %q", settingsFirstLine)
 			}
@@ -282,19 +287,45 @@ func TestSettingsExampleIsVerbatim(t *testing.T) {
 	if shown == nil {
 		t.Fatalf("no ```go block starts with %q", settingsFirstLine)
 	}
-	src, err := os.ReadFile(filepath.Join(examplePkg, "main.go"))
+	if !strings.Contains(shown.code, "\npackage main\n") || !strings.Contains(shown.code, "var App = tela.App{") {
+		t.Fatalf("docs/llms.txt:%d: the settings block must be a whole package main with var App", shown.line)
+	}
+	dir, err := os.MkdirTemp("testdata", "render-")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := strings.Replace(string(src), strconv.Quote(localLucidePath), strconv.Quote(lucidePath), 1)
-	if got := shown.code + "\n"; got != want {
-		gl, wl := strings.Split(got, "\n"), strings.Split(want, "\n")
-		for i := 0; i < len(gl) && i < len(wl); i++ {
-			if gl[i] != wl[i] {
-				t.Fatalf("docs/llms.txt:%d differs from examples/llms/settings/main.go:%d:\n got: %q\nwant: %q", shown.line+i, i+1, gl[i], wl[i])
-			}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	code := strings.ReplaceAll(shown.code, strconv.Quote(lucidePath), strconv.Quote(localLucidePath))
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(code+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	modRoot, err := filepath.Abs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel, err := filepath.Rel(modRoot, abs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("go", "run", "./cmd/tela", "inspect", "--size", "1040x800", "./"+filepath.ToSlash(rel))
+	cmd.Dir = modRoot
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	var stdout, stderr strings.Builder
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("tela inspect failed: %v\n%s", err, stderr.String())
+	}
+	if msg := strings.TrimSpace(stderr.String()); msg != "" {
+		t.Errorf("the settings screen of docs/llms.txt reports dev messages:\n%s", msg)
+	}
+	for _, want := range []string{`heading "Settings"`, `switch "Weekly digest"`, `radio "System"`} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("the aria snapshot of the settings screen lacks %s:\n%s", want, stdout.String())
 		}
-		t.Fatalf("docs/llms.txt:%d: the block has %d lines, main.go %d", shown.line, len(gl), len(wl))
 	}
 }
 

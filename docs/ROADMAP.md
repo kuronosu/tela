@@ -9,7 +9,7 @@
 
 - **Done:** phases 1–12. Latest version `v0.12.6` (2026-10-29; `tela dev`'s clock never goes behind the frame time, found by CI), after `v0.12.5` (CI green again) and `v0.12.4` (the fixes adopted from the first codebase review, `docs/reviews/2026-10-29.md`, ADR-190–194); `main` is pushed and CI is green on it; tags pushed up to `v0.12.6`, whose CI run is green; the GitHub wiki is `docs/wiki` at `v0.12.6`.
 - **Phase in progress:** none; phase 13 (desktop integration, the rest) is next.
-- **Next step:** the owner tries `examples/notes` with word wrap off in the GNOME container (`/home/ubuntu/notes-v3`); then plan phase 13 (drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends `examples/notes`. The examples consolidation (ADR-195, "Examples" below) goes one example at a time; `counter` is done.
+- **Next step:** the owner reviews the overnight batch (commits `5298cda`…, one per example) and picks the `notes` and `dashboard` redesigns from the proposals artifact (https://claude.ai/artifact/WsD5zTfvgRuPNq9LpribJr, with their source); then `notes` is ported before phase 13 (drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends it. The owner also still tries `examples/notes` with word wrap off in the GNOME container (`/home/ubuntu/notes-v3`).
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene).
 
 ## Open known limitations
@@ -38,7 +38,7 @@ Nine screens, one at a time, in this order (owner, 2026-10-30): the mechanical c
 - [x] `login`: absorb `signup` (Create account mode: its fields, `BindValue` bio, password strength, terms)
 - [x] `kit`: an Introduction page (hello's hero in theme tokens); absorb `i18n` as a language and direction switch
 - [ ] `notes`: full redesign, before phase 13 extends it
-- [ ] `settings`: merge with `llms/settings`; write a rich prompt with personality and regenerate it with an LLM in at most three iterations; decide how much of it `llms.txt` shows
+- [x] `settings`: Darkroom, built by Claude Sonnet from `llms.txt` and a prompt in two render iterations (prompt in its README), replaces both settings examples; `llms.txt` keeps its compact settings screen as a self-contained block, checked and rendered by `internal/gen/llmsdoc`, and gained the experiment's fixes
 - [ ] `dashboard`: cleaner glass redesign keeping the 60 fps goal; absorb `board` (a board view of the tasks) and part of `aria` (command palette, tooltip, menus built on `aria` hooks)
 - [ ] `native`: ADR for the nested `looks/` module (win11, adwaita, breeze; aqua in phase 14), move the looks there, delete the explorer
 

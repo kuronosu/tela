@@ -4,8 +4,9 @@
 //   - type-checks every ```go block against the current module, with the
 //     rules of `tela lint` (internal/lint): unknown classes, roles, aria
 //     tokens, keys and the rules of hooks fail the test like type errors;
-//   - checks that the settings screen it shows is examples/llms/settings's
-//     main.go, verbatim but for the import of the icons;
+//   - mounts the compact settings screen it shows (section 7, a whole
+//     package main) headlessly in dev mode, as `tela inspect` does, and
+//     fails on any dev message;
 //   - checks that every struct component of package kit is named, and that
 //     the fields listed in the kit catalog exist.
 //
@@ -22,8 +23,8 @@
 //     the block does not end with a return.
 //
 // The import "github.com/kuronosu/tela/icons/lucide" (a separate module) is
-// replaced by the example's subset, examples/llms/settings/lucide, so a
-// block may use the icons of that subset only. Code that is wrong on
+// replaced by a subset, examples/settings/lucide (the icons of the blocks and
+// of that example), so a block may use the icons of that subset only. Code that is wrong on
 // purpose (a pitfall) goes in a ```text block, which is not checked.
 //
 // The blocks are written as packages under testdata/snippets-*/ while the

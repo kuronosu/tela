@@ -1,43 +1,41 @@
-- heading "Settings" [level=1]
-- paragraph: Manage how Tela reaches you and how it looks on your screen.
-- heading "Notifications" [level=2]
-- text: Choose what you want to be told about.
+- navigation "Preferences sections":
+  - text: Darkroom Preferences
+  - button "General"
+  - button "Develop"
+  - button "Export"
+  - button "Safelight"
+  - button "Account"
+  - text: AR Ana Ruiz Fixer plan
+- text: The room
+- heading "General" [level=1]
+- paragraph: Where your negatives live and how they come in.
+- heading "Library" [level=2]
+- text: One folder holds every negative, print and sidecar.
 - group:
-  - text: Email notifications
-  - paragraph: Receive a summary of activity in your workspace.
-  - switch "Email notifications" [checked]
+  - text: Library folder
+  - textbox "Library folder path": /home/ana/Pictures/Darkroom Library
+  - button "Change…"
+  - paragraph: Read-only here. Changing it does not move existing files.
+- group "When photos are imported":
+  - text: When photos are imported
+  - radiogroup "When photos are imported":
+    - radio "Copy into the library" [checked]
+    - text: Copy into the library
+    - paragraph: Originals stay on the card; the library keeps its own.
+    - radio "Leave files where they are"
+    - text: Leave files where they are
+    - paragraph: Darkroom only points at them. Moving a folder breaks the link.
 - group:
-  - text: Push notifications
-  - paragraph: Get notified about mentions and replies on your devices.
-  - switch "Push notifications" [checked]
+  - text: Skip duplicates
+  - paragraph: Frames already in the library are left out of the import.
+  - switch "Skip duplicates" [checked]
+- heading "Language" [level=2]
+- text: Menus, dates and messages.
 - group:
-  - text: Weekly digest
-  - paragraph: A Monday morning recap of what your team shipped.
-  - switch "Weekly digest"
-- group:
-  - text: Product updates
-  - paragraph: News about new features, tips and special offers.
-  - switch "Product updates"
-- group:
-  - text: Security alerts
-  - paragraph: "Always on: sign-ins from new devices."
-  - switch "Security alerts" [checked] [disabled]
-- heading "Appearance" [level=2]
-- text: Pick a theme and how much room the interface takes.
-- group "Theme":
-  - text: Theme
-  - radiogroup "Theme":
-    - radio "Light"
-    - radio "Dark"
-    - radio "System" [checked]
-- group "Density":
-  - text: Density
-  - radiogroup "Density":
-    - radio "Compact"
-    - radio "Comfortable" [checked]
-    - radio "Spacious"
-  - paragraph: Balanced spacing. The default.
-- text: All changes saved
-- button "Reset" [disabled]
-- button "Save changes" [disabled]
+  - text: Interface language
+  - paragraph: Takes effect the next time Darkroom starts.
+  - button "English Interface language": English
+- status: All changes are fixed.
+- button "Discard" [disabled]
+- button "Save" [disabled]
 - region "Notifications"

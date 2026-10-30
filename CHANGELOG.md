@@ -14,6 +14,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- `examples/settings` is now **Darkroom**'s Preferences window (ADR-195): five sections (General, Develop, Export, Safelight, Account), a form that is one comparable value, validation that disables Save, Discard and sign-out confirmations, a theme and an accent applied on Save, and a dark-room voice, built by an LLM (Claude Sonnet) from `docs/llms.txt` and the prompt in its README in two render iterations. It replaces the previous `examples/settings` and `examples/llms/settings`; `docs/images/settings.png` shows it, with new goldens and behavior tests.
+- `docs/llms.txt`, from what that experiment found: `kit.AlertDialog`'s `Title`, `Description`, `Cancel` and `Action` are components, not strings; an explicit `App.ColorScheme` overrides `tela snapshot --dark`; the fields of `tela.Preview` and a recipe for state previews (and `--size` to see below the fold); `kit.UseToast()` returns a `kit.ToastHandle`; a `kit.Field` wraps one form control, not an overlay trigger, with the "label + button" row pattern; where to find Lucide names. Its compact settings screen (section 7) is now a block of its own, which `internal/gen/llmsdoc` type-checks, lints and mounts headlessly in dev mode instead of comparing it to an example.
+
 - The Counter example has a new design: a stone card with a "COUNT" label, a large number and a full-width dark button, in place of the gradient card. It applies to `examples/counter`, the README and wiki snippets and image, and the app that `tela new` creates (480x400 window, test clicks Increment).
 
 - The `login` example has a Create account mode (ADR-195): the "Sign up" link turns the card into the longer form (display name, e-mail, password with a strength meter, a bio bound with `BindValue` and a `TextFn` counter, terms, a submit button that waits until the form is valid, the same fake request and a confirmation), and "Sign in" turns it back. Its goldens, aria snapshots and tests include the new mode; the show/hide password button has a tooltip and the "Sign up" link an accessible name that says where it goes.
@@ -22,6 +25,7 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Removed
 
+- The example `llms/settings` is gone (ADR-195): its screen stays in `docs/llms.txt` (section 7) and its Lucide subset is `examples/settings/lucide`.
 - The example `i18n` is gone, merged into the `kit` gallery (ADR-195): its catalogs are `examples/kit/locales`, and its framework checks (plural categories, formatter output, kit's defaults from the catalog, the calendar of each language, the window mirrored for Arabic, aria snapshots) are tests of the gallery's Internationalization page and Language menu.
 - The example `signup` is gone, merged into `login` (ADR-195): its fields and tests live in the Create account mode of `examples/login`, and `docs/images/signup.png` is replaced by `docs/images/login-create-account.png`.
 - The examples `pricing`, `motion`, `layout`, `virtuallist` and `shapes` are gone (ADR-195). What they tested is covered by package tests and godoc Examples: frames of `Presence`, drags with `Animate`/`Velocity` and `UsePresenceTween` in `anim_frames_test.go`, layout animation frames in `h/layoutanim_frames_test.go`, `VirtualList` goldens in `h/virtual_golden_test.go` with new `ExampleOverscan` and `ExampleElementRef_ScrollToIndex`, and the full-page paint golden in `h/paint_showcase_test.go`.

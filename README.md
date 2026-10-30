@@ -197,7 +197,7 @@ tokens, a single class (`bg-background`); render it with `tela snapshot --dark`.
 
 | | |
 |---|---|
-| **[settings](examples/settings)**: a whole form as one comparable value, `kit.Switch` rows, a `kit.RadioGroup` of theme cards, a Reset `kit.AlertDialog` and a toast on Save. <br><img src="docs/images/settings.png" alt="settings example"> | **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> |
+| **[settings](examples/settings)**: Darkroom's Preferences, a photo editor's window with five sections, built by an LLM from `llms.txt` and a prompt: a whole form as one comparable value, validation that blocks Save, confirmations, and a theme and accent applied on Save. <br><img src="docs/images/settings.png" alt="settings example"> | **[player](examples/player)**: a `kit.Slider` seek bar that follows a playing clock and a drag without building anything (`Slider.ValueSource`), icon buttons with tooltips. <br><img src="docs/images/player.png" alt="player example"> |
 | **[board](examples/board)**: a kanban board with drag and drop between columns (`OnDrag`, `TranslateFn`), `kit.Card`s with a `kit.DropdownMenu` and a `kit.ContextMenu`, edit and delete dialogs. <br><img src="docs/images/board.png" alt="board example"> | **[login](examples/login)**: a card with a brand panel that hides below `md:` and two modes, Sign in and Create account: `kit.Field` around every control with errors (`aria-invalid`), a show/hide password button, a strength `kit.Progress`, a bio with a live counter (`BindValue` + `TextFn`), a spinner while a fake request runs on `tela.UseTimeout`, an alert for a wrong password. <br><img src="docs/images/login.png" alt="login example"> |
 | **[chat](examples/chat)**: a messaging app on `kit`: one reducer for the whole state, `tela.UseTimeout` for the typing indicator and the reply, `h.AriaCurrent` on the open conversation, a virtualized message list that scrolls to its end, a growing `kit.Textarea` composer. <br><img src="docs/images/chat.png" alt="chat example"> | **[notes](examples/notes)**: the desktop services of package `desktop` in a small notes app: native open and save dialogs, a tray icon with a menu, a second window (Preferences) with settings stored by `desktop.UseSetting`, a remembered window position, a message box before quitting, a notification after saving, and a frameless window with a `kit.TitleBar`. <br><img src="docs/images/notes.png" alt="notes example"> |
 
@@ -361,8 +361,8 @@ screenshot, click, fill... on a headless instance that rebuilds on every
 edit; see the [CLI](docs/wiki/CLI.md#tela-mcp) page), and
 [`docs/llms.txt`](docs/llms.txt) is the one file an LLM reads to build with
 Tela: the API, the `kit` components, the agent loop, a complete settings
-screen ([`examples/llms/settings`](examples/llms/settings)) and the common
-mistakes, with every code block checked against the current API by a test.
+screen (and [`examples/settings`](examples/settings), a larger one an LLM built
+from it) and the common mistakes, with every code block checked against the current API by a test.
 
 ## Project status
 

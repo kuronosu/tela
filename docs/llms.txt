@@ -75,6 +75,8 @@ func main() { tela.Main(App) }
 - `func Preview() tela.Node`: one screen, mounted as `tela.C(Preview)`, so it may call hooks itself. (`func Preview() tela.Component` is called and its result mounted.)
 - Otherwise `var App = tela.App{...}`: its `Root` is the screen.
 - In every case `var App` (a `tela.App` or `*tela.App`) gives the window: `Width`/`Height` (default 960x640), `RootClass`, `Theme`, `ColorScheme`, `ClassAliases`. Without `RootClass` the window is white with black text.
+- `tela.Preview{Root, Wrap}` is one named screen: `Root` is any `tela.Component`; `Wrap func(tela.Node) tela.Node` (optional, no hooks) puts it inside the providers of the contexts it reads. A preview has no size, scheme or state of its own: the size is `App` or `--size`, the scheme `--dark` (the CLI), and the **initial state** comes from fields of a struct component (below).
+- Leave `App.ColorScheme` as `tela.System` (the zero value): an explicit `tela.Light` or `tela.Dark` wins over the OS and over `--dark`, so every render would have that scheme.
 
 ```go
 // One screen; it may use hooks because it is mounted as tela.C(Preview).
@@ -87,14 +89,23 @@ func Preview() tela.Node {
 var Previews = tela.Previews{
 	"1 Empty": {Root: Inbox{}},
 	"2 Full":  {Root: Inbox{Unread: 12}},
+	"3 Open":  {Root: kit.Toaster{Children: Inbox{Unread: 3, Open: true}}},
 }
 
-type Inbox struct{ Unread int }
+// Unread and Open only choose the first state: the component owns it.
+type Inbox struct {
+	Unread int
+	Open   bool
+}
 
 func (in Inbox) Build() tela.Node {
-	return Div(Class("p-8 text-sm"), Textf("%d unread", in.Unread))
+	open, setOpen := tela.UseState(in.Open)
+	return Div(Class("p-8 text-sm"), Textf("%d unread", in.Unread),
+		kit.Switch{Checked: &open, OnCheckedChange: setOpen.Set, AriaLabel: "Open"})
 }
 ```
+
+**State previews.** `tela snapshot` renders one frame, so to see an edited form, an error or a dialog, make a preview whose struct component has a field that chooses the initial `UseState` (`Start string`, `Scenario string`: the initial form value, which section is open), and give each state its own name in `Previews`. Name the screens `"1 Sign in"`, `"2 Invalid"`... so the first sorts first. To see below the fold, render taller: `tela snapshot --size 1100x1700 --preview "2 Invalid"`.
 
 `tela.App` fields: `Title`, `AppID`, `Width`, `Height`, `RootClass`, `Root` (a `tela.Component`: `Settings()`, `Settings{}`, `kit.Toaster{Children: ...}`), `ColorScheme` (`tela.System`, the zero value, follows the OS; `tela.Light`, `tela.Dark`), `Theme *tela.Theme`, `ClassAliases`, `ClassicScrollbars`, `InstantScroll`, `Dev *bool`. `tela.Main(app)` opens the window and runs until it closes; `tela.Run(app)` returns the error instead.
 
@@ -291,7 +302,7 @@ Keys: an element takes `Key(id)`; a component or fragment is keyed with `tela.Wi
 | `tela.UseSpring(target, opts...)`, `tela.UseTween(target, opts...)` | A `*tela.Value[T]` that animates toward `target` (float32, Color, Point, Size, Rect); feed it to a `...Fn` prop |
 | `tela.UsePresence()`, `tela.UsePresenceTween()` | A component's own exit animation inside `h.Presence` |
 | `tela.UseColorScheme()`, `tela.UseTheme()`, `tela.UseDirection()`, `tela.UseReducedMotion()` | Environment; `tela.SetColorScheme(tela.Dark)` switches the app |
-| `kit.UseToast()`, `kit.UseStyle()` | Toast handle (under a `kit.Toaster`); the active kit recipe |
+| `kit.UseToast()`, `kit.UseStyle()` | `kit.ToastHandle` (under a `kit.Toaster`); the active kit recipe |
 
 A custom hook is a function named `UseXxx`/`useXxx` that calls hooks. `tela.Post(f)` runs `f` on the UI thread from any goroutine.
 
@@ -433,7 +444,7 @@ Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.
 
 **Fonts:** `font-sans` (Inter, the default), `font-mono` (JetBrains Mono, embedded), `font-serif`, or a named family `font-['Fira_Code',monospace]` (`_` for spaces). Named families come from the system when the app runs; `tela snapshot`, `tela mcp` and tests use only the embedded fonts, so there they fall back to Inter or JetBrains Mono. A theme's `FontSans`/`FontMono` rename the defaults.
 
-**Icons:** `Icon(lucide.Settings, Class("size-4"))`. An icon is 1em square (follows `text-*` size) unless sized, colored by the text color (`text-muted-foreground`), `stroke-[1.5]` thins it; decorative unless it has an `AriaLabel`. Lucide names are the file names in CamelCase (`arrow-up-right` is `lucide.ArrowUpRight`). Your own SVGs: `tela.Icon{SVG: "<svg ...>"}`, `tela.MustSVG(data)`, or `tela icons gen -pkg icons -o ./icons ./svg` for a whole directory.
+**Icons:** `Icon(lucide.Settings, Class("size-4"))`. An icon is 1em square (follows `text-*` size) unless sized, colored by the text color (`text-muted-foreground`), `stroke-[1.5]` thins it; decorative unless it has an `AriaLabel`. Lucide names are the file names of lucide.dev in PascalCase (`arrow-up-right` is `lucide.ArrowUpRight`, `circle-alert` is `lucide.CircleAlert`); to check one, `go doc github.com/kuronosu/tela/icons/lucide CircleAlert` (an old name such as `AlertCircle` compiles and its doc says what replaces it). Your own SVGs: `tela.Icon{SVG: "<svg ...>"}`, `tela.MustSVG(data)`, or `tela icons gen -pkg icons -o ./icons ./svg` for a whole directory.
 
 **Not implemented** (you get a dev error that says what to use): floats and `clear` (use flex/grid); margin collapsing (use `gap`/`space-y-*`); `display: table` and `border-collapse` (use `kit.Table` or grid); `divide-*` (borders on the children, `border-t first:border-t-0`); `space-*-reverse`; `columns-*`; pseudo-elements `before:` `after:` `marker:` `file:` (use nodes); `data-*:`, `has-*:`, `not-*:`, `nth-*:`, `*:`, `[&...]:`, `@container`/`@md:`, `print:`, `supports-*:`; `var()`/CSS variables (use tokens); arbitrary properties other than `[clip-path:...]`; 3D transforms; `scroll-snap`, `scroll-m-*`; `text-indent`; `hyphens`; `accent-*`; `resize`; `bg-fixed`; `vertical-align` on spans; custom `@keyframes` (use the `animate-*` classes, springs or `tela.Animate`); `content-box`.
 
@@ -462,7 +473,7 @@ Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.
 - `kit.Label{For, Disabled, Children}`: a styled label for a control with an `ID`.
 - `kit.Input{Value, DefaultValue, OnValueChange, Type, Placeholder, Name, ID, AriaLabel, Disabled, ReadOnly, Invalid, AutoFocus, MaxLength}`.
 - `kit.Textarea{Value, DefaultValue, OnValueChange, Placeholder, Rows, MaxLength, AriaLabel, Invalid}`.
-- `kit.Field{Label, Description, Error, Invalid, Orientation, ControlAfter, Children, LabelClass, ContentClass}`: label, control, help and error wired together (`Error` marks the control invalid). One kit control per field. Its spacing, to match it in rows you build by hand: `gap-3` between label, control and description; in a horizontal field the label and description are a column with `gap-1.5`; the description is `text-sm text-muted-foreground`.
+- `kit.Field{Label, Description, Error, Invalid, Orientation, ControlAfter, Children, LabelClass, ContentClass}`: label, control, help and error wired together (`Error` marks the control invalid). One kit control per field: not a trigger (`AlertDialog`, `Dialog`, `Popover`, `DropdownMenu`), which names nothing (lint says so); a "label + button" row is plain elements, see the pattern below. Its spacing, to match it in rows you build by hand: `gap-3` between label, control and description; in a horizontal field the label and description are a column with `gap-1.5`; the description is `text-sm text-muted-foreground`.
 - `kit.FieldSet{Legend, LegendVariant, Description, Children, LegendClass, ContentClass}`: a named group; names a `RadioGroup`/`ToggleGroup` inside. `LegendVariant: kit.LegendVariantLabel` is label-sized, the default `kit.LegendVariantLegend` a title.
 - `kit.Checkbox{Checked, DefaultChecked, OnCheckedChange, Disabled, Required, Invalid, ID, AriaLabel}`.
 - `kit.Switch{Checked, DefaultChecked, OnCheckedChange, Size, Disabled, ID, AriaLabel, ThumbClass}`.
@@ -476,7 +487,7 @@ Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.
 - `kit.Tabs[K]{Tabs, Value, DefaultValue, OnValueChange, Orientation, Variant, AriaLabel, ListClass, TriggerClass, ContentClass}`: `kit.Tab[K]{Value, Label, Icon, Disabled, Content}`; only the selected panel is built.
 - `kit.Table[T]{Rows, RowKey, Columns, Sort, DefaultSort, OnSortChange, Selected, RowProps, Caption, AriaLabel, Empty}`: columns `kit.Column[T]{Header, Cell, Sort, Width, Align, Sticky, Footer}`; `Width string` is the column's grid track (`"200px"`, `"1fr"`, `"auto"`, `"minmax(120px, 1fr)"`); `Align: kit.AlignRight`; a `Sort` func makes a header sortable.
 - `kit.Dialog{Trigger, Title, Description, Children, Footer, Open, DefaultOpen, OnOpenChange, HideClose, AriaLabel}`: modal; Escape and the scrim close it.
-- `kit.AlertDialog{Trigger, Title, Description, Cancel, Action, Destructive, OnAction, OnCancel, Open, OnOpenChange, Disabled}`: a confirmation; `Cancel`/`Action` are labels (default "Cancel"/"Continue").
+- `kit.AlertDialog{Trigger, Title, Description, Cancel, Action, Destructive, OnAction, OnCancel, Open, OnOpenChange, Disabled}`: a confirmation. `Title`, `Description`, `Cancel` and `Action` are `tela.Component`s, not strings: `Title: Text("Delete?")`, `Cancel: Text("Keep editing")`, `Action: Text("Delete")` (defaults "Cancel" and "Continue"). `Disabled` goes here, not on the trigger.
 - `kit.Popover{Trigger, Children, Placement, Align, Offset, Modal, AriaLabel, Open, OnOpenChange}`: non-modal panel; `Placement: "top"`, `Align: "start"`.
 - `kit.TitleBar{Variant, Title, Leading, Children, Trailing, ControlsSide, HideMinimize, HideMaximize, State, TitleClass}`: the title bar of a `Frameless` window (or one with `tela.UseWindow().State().ClientSideDecorations`): a drag area (`h.WindowDrag`) with a title, slots and the window controls at the platform's side; buttons and fields in the slots stay clickable. Looks `kit.Windows`, `kit.GNOME`, `kit.MacOS` (default by OS); it dims when the window is unfocused and drops its outline when maximized. Put it at the top of a flex column.
 - `kit.WindowControls{Variant, HideMinimize, HideMaximize, State, MinimizeLabel, MaximizeLabel, RestoreLabel, CloseLabel}`: minimize, maximize/restore and close as real buttons (named "Minimize", "Maximize"/"Restore", "Close") that act on click; `TitleBar` draws them, so use this alone only to place them yourself.
@@ -484,7 +495,7 @@ Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.
 - `kit.DropdownMenu[K]{Trigger, Items, OnSelect, Placement, Align, AriaLabel, Open, OnOpenChange}`: items `kit.MenuItem[K]{Kind, Key, Label, Icon, Shortcut, Variant, Disabled, OnSelect, Checked, DefaultChecked, OnCheckedChange, Items}`; `Kind`: `kit.MenuPlain` (zero), `kit.MenuCheckbox`, `kit.MenuRadioGroup`, `kit.MenuLabel`, `kit.MenuSeparator`, `kit.MenuGroup`. No submenus.
 - `kit.ContextMenu[K]{Children, Items, OnSelect, AriaLabel, Disabled}`: right click (or long press) on `Children`.
 - `kit.Menubar[K]{Menus, OnSelect, AriaLabel}`: menus `kit.MenubarMenu[K]{Key, Label, Items, Disabled}`.
-- `kit.Toaster{Children, Position, Duration, VisibleToasts, CloseButton}`: put once around the app; any component below calls `toast := kit.UseToast()` then `toast.Success(title, opts...)`, `Error`, `Info`, `Warning`, `Loading`, `Show`, `Dismiss(id)`; options `kit.ToastDescription(text)`, `kit.ToastAction(label, fn)`, `kit.ToastDuration(d)`, `kit.ToastReplace(id)`. Safe from any goroutine.
+- `kit.Toaster{Children, Position, Duration, VisibleToasts, CloseButton}`: put once around the app; any component below calls `toast := kit.UseToast()` (a `kit.ToastHandle`: comparable, safe to keep in a struct field or pass to a helper) then `toast.Success(title, opts...)`, `Error`, `Info`, `Warning`, `Loading`, `Show`, `Dismiss(id)`; options `kit.ToastDescription(text)`, `kit.ToastAction(label, fn)`, `kit.ToastDuration(d)`, `kit.ToastReplace(id)`. Safe from any goroutine.
 - `kit.Calendar{Value, DefaultValue, OnValueChange, Min, Max, IsDateUnavailable, VisibleMonths}`: one `aria.Date` (comparable day, zero = none; `aria.Today()`).
 - `kit.RangeCalendar{Value, DefaultValue, OnValueChange, VisibleMonths}`: an `aria.DateRange`.
 - `kit.DatePicker{Value, DefaultValue, OnValueChange, Placeholder, Min, Max}`: an outline button that opens a calendar.
@@ -642,6 +653,23 @@ func rename() tela.Node {
 }
 ```
 
+A row with a label and a button that opens an overlay (not a `kit.Field`, whose label would name nothing):
+
+```go
+func SignOutRow(onConfirm func()) tela.Node {
+	return Div(Class("flex items-center justify-between gap-6"),
+		Div(Class("flex flex-col gap-1.5"),
+			Span(Class("text-sm leading-snug font-medium"), Text("Sign out everywhere")),
+			Span(Class("text-sm text-muted-foreground"), Text("Other devices will need to sign in again."))),
+		kit.AlertDialog{
+			Trigger:     kit.Button{Variant: kit.Outline, Icon: lucide.LogOut, Children: Text("Sign out")},
+			Title:       Text("Sign out of all devices?"),
+			Description: Text("You stay signed in here."),
+			Action:      Text("Sign out"), Destructive: true, OnAction: onConfirm,
+		})
+}
+```
+
 An alert (there is no `kit.Alert`): a `Div` with `Role("alert")`:
 
 ```go
@@ -655,11 +683,11 @@ func ErrorAlert(title, detail string) tela.Node {
 
 ## 7. A complete settings screen
 
-This is `examples/llms/settings/main.go` (its tests and goldens are next to it): an app shell with a sidebar whose current item has `AriaCurrent("page")`, a header with Save, a card of switch rows, a card with a `FieldSet` of radio cards and a horizontal `Field` with a `Select`; Save applies the theme with `tela.SetColorScheme` and shows a toast. It uses tokens only, so dark mode needs no `dark:` class. Copy its structure: `max-w-3xl` centered content, `gap-6` between cards, `text-2xl font-semibold tracking-tight` title with a `text-sm text-muted-foreground` subtitle, rows separated by `border-t first:border-t-0`.
+A compact, complete screen (one file, `package main`): an app shell with a sidebar whose current item has `AriaCurrent("page")`, a header with Save, a card of switch rows, a card with a `FieldSet` of radio cards and a horizontal `Field` with a `Select`; Save applies the theme with `tela.SetColorScheme` and shows a toast. It uses tokens only, so dark mode needs no `dark:` class. Copy its structure: `max-w-3xl` centered content, `gap-6` between cards, `text-2xl font-semibold tracking-tight` title with a `text-sm text-muted-foreground` subtitle, rows separated by `border-t first:border-t-0`. `examples/settings` is a larger screen built by an LLM from this guide and a prompt (in its README): five sections, validation, confirmations, an accent picked at run time.
 
 ```go
-// Command settings is the worked example of docs/llms.txt, which shows this
-// file verbatim: an app shell with a sidebar and a settings page on kit.
+// Command settings is a settings screen on kit: an app shell with a sidebar
+// and a page of switches, radio cards and a select.
 package main
 
 import (
@@ -975,12 +1003,13 @@ func Editor() tela.Component {
 | Unknown or misspelled class (`rounded-xxl`, `bg-primry`) | Dev error with "did you mean"; `tela lint ./...` finds them statically. Unsupported classes say what to use |
 | A `kit.Tooltip` and a `kit.DropdownMenu` on the same `kit.Button`: a trigger takes one overlay | Tooltip on a wrapper: `kit.Tooltip{Content: Text("More"), Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node { return Span(p, Class("flex"), kit.DropdownMenu[string]{...}) })}` |
 | A trigger that is not a `kit.Button` (an `h.Button`, an avatar) | `kit.TriggerFunc(func(p tela.Prop) tela.Node { return Button(p, ...) })`: put `p` on the element. `Disabled` goes on the overlay |
-| `kit.Field` around `h.Input`, or around two controls: the label names nothing or the wrong one | One kit control per `Field` (`kit.Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `DatePicker`, `ColorInput`); `RadioGroup`/`ToggleGroup` go in a `kit.FieldSet` (legend names them) or take `AriaLabel`; `Slider` and `Progress` take `AriaLabel` |
+| `kit.Field` around `h.Input`, around two controls, or around an overlay trigger (`AlertDialog`, `Dialog`, `Popover`): the label names nothing or the wrong one | One kit control per `Field` (`kit.Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `DatePicker`, `ColorInput`); a label + button row is a `Div` (`SignOutRow` above); `RadioGroup`/`ToggleGroup` go in a `kit.FieldSet` (legend names them) or take `AriaLabel`; `Slider` and `Progress` take `AriaLabel` |
 | An absolutely positioned icon over an input swallows clicks | `pointer-events-none` on the decoration: `Icon(lucide.Search, Class("pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground"))` with `kit.Input{Class: "pl-9"}` |
 | Scrolling to the newest item flickers or lands short | `UseLayoutEffect` + `ref.ScrollIntoView()` (or `ScrollToIndex(i, tela.AlignEnd)` on a `VirtualList`), deps = the item count |
 | A flex child does not scroll or overflows | Give the scroll container a definite height (`h-screen`, `flex-1 min-h-0` in a `flex-col`, `h-96`) and `overflow-y-auto`; `min-w-0` on flex children that hold truncated text |
 | Wanting `kit.Alert`, `kit.Sheet`, `kit.Accordion`, `kit.Breadcrumb`, `kit.Sidebar`, `kit.Combobox` | Not in kit: compose `Div`s with tokens (`Role("alert")` for an alert, a `Div` sidebar with `AriaCurrent`), or use `kit.Dialog`/`kit.Popover`; `aria` has `UseCombobox` for a hand-built one |
 | `Variant: "primary"` on a `kit.Button` | The default variant is the zero value; variants are `Secondary`, `Outline`, `Ghost`, `Destructive`, `Link` |
+| `tela snapshot --dark` still renders light (or the other way round), or every render has one scheme | `App.ColorScheme` is set to `tela.Light`/`tela.Dark` and overrides the flag: leave it `tela.System` |
 | A kit page that looks off (square corners, wrong colors) | `Theme: &theme` with `theme := kit.Theme()` and `RootClass: "bg-background text-foreground"` on the `App` |
 | Palette colors that ignore dark mode (`bg-white`, `text-zinc-900`) | Tokens (`bg-card`, `text-foreground`), or add `dark:` pairs |
 | The snapshot does not show a toast or effect result | `tela snapshot` renders one frame; in `tela mcp`, act then `wait {"ms": 300}` and `screenshot` |
