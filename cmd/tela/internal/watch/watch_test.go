@@ -192,7 +192,9 @@ func TestNewSubdirectories(t *testing.T) {
 
 func TestDirectoryMovedInAndOut(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		if !poll {
+		if poll {
+			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
+		} else {
 			wine.Skip(t, "ReadDirectoryChangesW does not report the files of a directory renamed within the watched tree")
 		}
 		h := newHarness(t, poll, Options{})
