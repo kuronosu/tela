@@ -114,8 +114,9 @@ func openMenu(x, y float32) {}
 ```
 
 `OnDoubleClick` runs on the second click of a double click (two clicks within
-500 ms and 5 px; 300 ms and 100 px for touch); the first click is not delayed,
-so `OnClick` runs for both.
+the OS's double-click time and 5 px: the Windows setting, 500 ms where the OS
+does not report one; 300 ms and 100 px for touch); the first click is not
+delayed, so `OnClick` runs for both.
 
 ## Keyboard
 

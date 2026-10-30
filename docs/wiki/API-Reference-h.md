@@ -1417,7 +1417,7 @@ Div(OnContextMenu(func(e tela.MouseEvent) { openMenu(e.X, e.Y) }))
 func OnDoubleClick[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
-OnDoubleClick calls handler on the second click of a double click: two clicks within 500 ms and 5 px (300 ms and 100 px for touch). The first click is not delayed: OnClick runs for both, with e.ClickCount 1 and 2.
+OnDoubleClick calls handler on the second click of a double click: two clicks within the OS's double-click time (the Windows setting; 500 ms where the OS does not report one) and 5 px, as for double clicks on a title bar Tela draws; 300 ms and 100 px for touch. The first click is not delayed: OnClick runs for both, with e.ClickCount 1 and 2.
 
 ```go
 Div(OnDoubleClick(func() { setEditing.Set(true) }), Text(title))
