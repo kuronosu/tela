@@ -55,10 +55,11 @@ import (
 //     painting (markPaint): no restyle, build or layout, only the
 //     compositor's effects change, and damage limits the raster to the
 //     box's old and new areas.
-//   - colors and the border radius (ClassPaint): the layers are recorded
-//     again without placing the boxes.
+//   - colors and the border radius (ClassPaint): the layers that painted
+//     the box are recorded again (record.go), without placing the boxes.
 //   - shadows and filters (ClassInk): the boxes are placed again too, since
-//     what the box paints extends beyond its border box.
+//     what the box paints extends beyond its border box (and the lists that
+//     culled it may paint it now).
 //   - inherited properties, sizes, spacing, insets and border widths
 //     (ClassLayout, and the colors that children inherit): the box is styled
 //     again every frame (stylePhase), which lays out and restyles the
@@ -544,17 +545,32 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 	}
 	L := &t.lay
 	switch {
-	case wasDeferred != bx.deferPaint, inkCh:
-		// The box starts or stops being a layer, or paints beyond its
-		// border box: place and record again.
+	case wasDeferred != bx.deferPaint:
+		// The box starts or stops being a layer: place and record
+		// everything again.
 		L.needFull, L.needPlace = true, true
 		t.repaint = true
+	case inkCh:
+		// It paints beyond its border box: the boxes are placed again,
+		// and the layers that read what changed are recorded again
+		// (record.go).
+		L.needPlace = true
+		t.repaint = true
 	case paintCh:
-		L.needFull = true
 		t.repaint = true
 	}
 	if bx.pcs != nil && !bx.deferPaint {
 		bx.pcs = u
+	}
+	switch same := wasDeferred == bx.deferPaint; {
+	case same && (paintCh || inkCh):
+		// What the box records changed: the layers that painted it.
+		t.noteInner(bx)
+	case same && (bx.deferPaint || !layerCh) && bx.lanim == nil && bx.rin.cs == old:
+		// Only the style's identity changed, or what the compositor
+		// applies (a deferred layer's opacity and transform): what the box
+		// records holds (record.go).
+		bx.rin.cs = u
 	}
 	if bx.deferPaint && (layerCh || paintCh || inkCh) {
 		t.markPaint(bx)

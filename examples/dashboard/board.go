@@ -215,7 +215,7 @@ func (p TaskCard) Build() tela.Node {
 			o := p.D.Offset.Get()
 			return o.X, o.Y
 		}))),
-		Div(Class("flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5", look),
+		Div(Class("flex flex-col gap-3 rounded-xl border border-border bg-card p-3.5 transition-colors", look),
 			Div(Class("flex items-center justify-between"),
 				Span(Class("flex items-center gap-2 font-mono text-[11px] text-muted-foreground"),
 					Icon(priorityIcon[t.Priority], AriaLabel(priorityNames[t.Priority]), Class("size-3.5", when(t.Priority == 1, "text-primary"))),

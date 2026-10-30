@@ -41,13 +41,18 @@ var (
 
 // paintField records the content of text field bx in its layer.
 // The layer keeps the interest rect of the list it is in (unbounded where
-// that list culls nothing), by which recordFields culls its lines too.
+// that list culls nothing), by which its recordings cull its lines too.
 func (p *painter) paintField(bx *Box) {
 	interest := unbounded
 	if p.cull {
 		interest = p.interest
 	}
-	p.openLayer(layerField, bx, p.space).interest = interest
+	l, kept := p.openLayer(layerField, bx, p.space, nil, nil)
+	if kept {
+		return
+	}
+	l.interest = interest
+	p.dep(bx)
 	p.drawField(bx, interest)
 	p.closeLayer()
 }
@@ -217,21 +222,4 @@ func lineAtTop(lay *text.Layout, y float32) int {
 		}
 	}
 	return best
-}
-
-// recordFields records again the layers of the fields marked for
-// painting (markPaint), on a frame that records nothing else.
-func (t *Tree) recordFields(p *painter) {
-	L := &t.lay
-	if !L.fieldDirty {
-		return
-	}
-	L.fieldDirty = false
-	for _, l := range L.layers {
-		if l.kind != layerField || l.box.fld == nil || !l.box.fld.paintDirty || l.box.pcs == nil {
-			continue
-		}
-		p.rerecord(l, func() { p.drawField(l.box, l.interest) })
-	}
-	p.b, p.layer = nil, nil
 }

@@ -129,6 +129,7 @@ func (p *painter) textMask(bx *Box) *gfx.DisplayList {
 // maskText paints the glyphs of bx and its in-flow descendants (inside
 // their overflow clips) into the mask being recorded.
 func (p *painter) maskText(bx *Box) {
+	p.dep(bx) // also where it is culled (record.go)
 	if bx.scr != nil && bx.scr.chunked {
 		return // in another scroll space
 	}
@@ -139,6 +140,9 @@ func (p *painter) maskText(bx *Box) {
 		bx.para.lay.PaintWith(p.b, c.Origin(), float32(p.scale), gfx.Black)
 	}
 	for _, k := range bx.kids {
+		if k.pcs != nil {
+			p.odep(k)
+		}
 		if k.ls.Display == layout.DisplayNone || k.hiddenAtom || k.pcs == nil || participant(k) {
 			continue
 		}

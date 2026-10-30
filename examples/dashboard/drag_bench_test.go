@@ -108,17 +108,20 @@ func benchDrag(b *testing.B, full bool) {
 	b.ReportMetric(float64(s1.Builds-s0.Builds)/float64(n), "builds/op")
 }
 
-// TestDragMoveRecordsNothing drags a card across the board: a move that
-// does not change the drop target (no build) rasterizes little and records
-// no layer but the scrollbars: at most a quarter of the window. The card
-// is painted above the main pane's glass, so its damage is not grown by
-// the backdrop-blur-2xl's reach (the blur reads only what is behind the
-// pane, which does not change).
-// A transition on the cards or the columns (a hover that fades, the drop
-// ring) would record every layer on each of its frames: they have none.
-func TestDragMoveRecordsNothing(t *testing.T) {
+// TestDragMoveRecordsLittle drags a card across the board: a move that
+// does not change the drop target (no build) rasterizes little, at most a
+// quarter of the window, and records besides the scrollbars only what
+// fades (ADR-204): the dragged card's own layer while it takes its lifted
+// look, the chunk of a card whose hover color fades (transition-colors);
+// never the page's root nor the board's content. The card is painted above
+// the main pane's glass, so its damage is not grown by the
+// backdrop-blur-2xl's reach (the blur reads only what is behind the pane,
+// which does not change). The columns have no transition: a fading drop
+// ring would rasterize a whole column on each of its frames.
+func TestDragMoveRecordsLittle(t *testing.T) {
 	d := newDragger(t)
 	tr := d.host.Tree()
+	quiet := 0
 	for i := range 40 {
 		s0 := tr.Stats()
 		d.move(7, float32(i%3)-1)
@@ -133,11 +136,25 @@ func TestDragMoveRecordsNothing(t *testing.T) {
 		if dm.Full || area > 2*1416*2*846/4 {
 			t.Errorf("move %d rasterized %+v", i, dm)
 		}
+		n := 0
 		for _, l := range tr.Layers() {
-			if l.Recorded && l.Kind != "scrollbars" {
-				t.Errorf("move %d recorded a %s layer", i, l.Kind)
+			if !l.Recorded || l.Kind == "scrollbars" {
+				continue
+			}
+			n++
+			if l.Kind == "root" || l.Commands > 40 {
+				t.Errorf("move %d recorded a %s layer of %d commands", i, l.Kind, l.Commands)
 			}
 		}
+		if n > 2 {
+			t.Errorf("move %d recorded %d layers besides the scrollbars", i, n)
+		}
+		if n == 0 {
+			quiet++
+		}
+	}
+	if quiet < 10 {
+		t.Errorf("%d of 40 moves recorded nothing: the fades do not end", quiet)
 	}
 }
 

@@ -588,8 +588,8 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 	t.frame++
 	t.frameStart = t.frame
 	t.stats.Frames++
-	// A frame that builds, restyles or lays out records every layer; one
-	// that only repaints records only what changed (layer.go).
+	// A frame that builds, restyles or lays out places every box; either
+	// kind records again only the layers that changed (layer.go, record.go).
 	full := t.changed || t.lastDL == nil
 	t.flt.published = nil
 	for again := false; ; again = true {

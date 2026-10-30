@@ -144,6 +144,14 @@ type Box struct {
 	// inkKey and selfInkRect cache painter.selfInk.
 	inkKey      inkKey
 	selfInkRect gfx.Rect
+	// rin and rout are what painting the box and placing it read at its
+	// last place, rinAt and routAt the epochs at which they last changed,
+	// rinN and routN how many lists read them (record.go).
+	rin           paintIn
+	rout          paintOut
+	rinAt, routAt uint64
+	rinN, routN   int32
+	sb            styleBits
 
 	// anim holds the running transitions and keyframe animation of the box
 	// (anim.go); nil when none.
@@ -384,6 +392,10 @@ type paragraph struct {
 	// frags caches the inline fragments for the lines of fragAt.
 	frags  []text.InlineFragment
 	fragAt [2]float32
+	// ver counts the changes of what painting the paragraph reads beyond
+	// its layout object and width: a commit, new paints, a new scale, a
+	// new style of an inline element (record.go).
+	ver uint64
 }
 
 // paraTarget is a run of paragraph text that belongs to one element.
@@ -417,6 +429,7 @@ func (p *paragraph) rescale(t *Tree, b *Box) {
 		return
 	}
 	p.lay.SetScale(t.scale)
+	p.ver++
 	p.inkAt, p.fragAt = [3]float32{}, [2]float32{}
 	p.brokeAt = float32(math.NaN())
 	t.engine.MarkDirty(b)
@@ -773,6 +786,9 @@ func (t *Tree) commitParagraph(b *Box, a *paraAssembler) bool {
 	// does not exist.
 	empty := len(a.boxes) == 0 && !inlineEdged(a.inlines) && collapsesAway(s, pstyle.WhiteSpace)
 	p := b.para
+	if p != nil {
+		p.ver++ // its elements, paints or text may change (record.go)
+	}
 	if p != nil && p.text == s && p.pstyle == pstyle && sameTextStyle(&p.def, &def) &&
 		sameSpans(p.spans, spans) && slices.Equal(p.boxes, a.boxes) && sameInlines(p.inlines, a.inlines) {
 		a.setTargets(p)

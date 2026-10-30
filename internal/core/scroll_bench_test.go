@@ -1,6 +1,7 @@
 package core
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"os"
@@ -13,9 +14,15 @@ import (
 )
 
 // TestMain prints the peak resident memory of the test binary with
-// TELA_PEAK_RSS=1 (the benchmarks' memory).
+// TELA_PEAK_RSS=1 (the benchmarks' memory). The tests check every partial
+// recording against a full one (TELA_CHECK_LAYERS, record.go); benchmarks
+// do not.
 func TestMain(m *testing.M) {
 	os.Unsetenv(EnvDebug) // tests choose their overlays (Config.Debug)
+	flag.Parse()
+	if f := flag.Lookup("test.bench"); f == nil || f.Value.String() == "" {
+		checkLayers = true
+	}
 	code := m.Run()
 	if os.Getenv("TELA_PEAK_RSS") == "1" {
 		if b, err := os.ReadFile("/proc/self/status"); err == nil {

@@ -198,6 +198,11 @@ func (p *painter) paintParagraph(bx *Box, origin gfx.Point, visible bool) {
 	l := para.lay
 	frags := para.fragments()
 	paints := p.textPaints(bx)
+	for _, k := range para.atoms {
+		// Their sizes place the text on the lines, also where they are
+		// culled (record.go).
+		p.dep(k)
+	}
 	fi := 0
 	for li := range l.NumLines() {
 		for ; fi < len(frags) && frags[fi].Line == li; fi++ {

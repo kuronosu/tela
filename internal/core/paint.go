@@ -134,8 +134,10 @@ type painter struct {
 	// painted; each stacking context uses the part it appended.
 	items []paintItem
 	clips []*Box // scratch for hoisted boxes' ancestor clips
-	// full: place prepares a full recording (layer.go).
-	full bool
+	// full: place places every box (layer.go). ref: a reference recording
+	// (Tree.ReferenceFrame, record.go's check), which leaves the boxes'
+	// noted inputs and the kept interest rects alone.
+	full, ref bool
 	// The list being recorded (layer.go): the scroll space it is painted
 	// in, its interest rect, whether boxes outside the interest rect are
 	// skipped, its layer, and the lists of the enclosing layers.
@@ -161,6 +163,7 @@ type paintItem struct {
 // parent, placed already (nil for the root).
 func (p *painter) place(bx *Box, parent *Box) {
 	if bx.ls.Display == layout.DisplayNone {
+		p.noteNone(bx)
 		return
 	}
 	t := p.t
@@ -258,6 +261,9 @@ func (p *painter) place(bx *Box, parent *Box) {
 			sub = sub.Union(pad)
 		}
 	}
+	if ink != bx.ink && !p.ref {
+		t.lay.recull = true // the lists check what they culled (record.go)
+	}
 	bx.ink, bx.hasPart, bx.blendDesc = ink, part, blend
 	if sub != unbounded {
 		// Grown by one pixel for the snapping of the painted edges.
@@ -265,6 +271,7 @@ func (p *painter) place(bx *Box, parent *Box) {
 	}
 	bx.hitSub = sub
 	bx.hitBounds = hitBounds(bx)
+	p.notePlaced(bx)
 }
 
 // unbounded is the hit bounds of a subtree that cannot be culled.
@@ -332,10 +339,16 @@ func (p *painter) update(marked []*Box) {
 			t.lay.needFull, t.lay.needPlace = true, true
 			return
 		}
-		if old.BackgroundColor != bx.pcs.BackgroundColor || old.Text.Color != bx.pcs.Text.Color {
-			// BgFn, TextColorFn: what the box records changes (not its
-			// bounds): record the layers again without placing.
+		if old.Text.Color != bx.pcs.Text.Color {
+			// TextColorFn: the text below it is recolored when it is
+			// painted (colorfn.go): record the layers again without
+			// placing.
 			t.lay.needFull = true
+		} else {
+			// BgFn, or a step of an animation of its style: the lists
+			// that read what changed are recorded again (record.go); the
+			// compositor applies the translation and the opacity.
+			p.notePlaced(bx)
 		}
 		// The new hit bounds, and those of the ancestors in the same
 		// space (they only grow: bounds that are too large cull less).
@@ -445,10 +458,23 @@ func stacking(bx *Box) bool {
 	if cs.ZIndex.Explicit && (cs.Position != style.PositionStatic || flexItem(bx)) {
 		return true
 	}
-	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky || bx.flt != nil ||
-		(bx.anim != nil && bx.anim.layer) || layoutActive(bx) || cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
+	return stacksByStyle(cs) || stacksByState(bx)
+}
+
+// stacksByStyle reports whether a box with paint style cs is a stacking
+// context whatever its z-index and state.
+func stacksByStyle(cs *style.ComputedStyle) bool {
+	return cs.Position == style.PositionFixed || cs.Position == style.PositionSticky ||
+		cs.Opacity < 1 || !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() ||
 		!cs.BackdropFilter.IsEmpty() || cs.MixBlendMode != gfx.SrcOver || cs.Isolate || !cs.ClipPath.IsNone() ||
 		!cs.Mask.IsNone()
+}
+
+// stacksByState reports whether bx is a stacking context by what it does:
+// it floats (floating.go), runs a transform or opacity animation (anim.go)
+// or a layout animation (layoutanim.go).
+func stacksByState(bx *Box) bool {
+	return bx.flt != nil || (bx.anim != nil && bx.anim.layer) || layoutActive(bx)
 }
 
 // participant reports whether bx is painted by its stacking context out of
@@ -463,6 +489,7 @@ func participant(bx *Box) bool {
 // skips subtrees without participants (hasPart).
 func (p *painter) collect(bx *Box) {
 	for _, k := range bx.kids {
+		p.odep(k)
 		if k.ls.Display == layout.DisplayNone || k.hiddenAtom {
 			continue
 		}
@@ -483,22 +510,35 @@ func (p *painter) collect(bx *Box) {
 // props is a layer (layer.go): its effects are pushed by the compositor,
 // so that a change of them only composites again.
 func (p *painter) paintStacked(bx *Box) {
-	cull := p.cull
-	deferred := bx.layerSC && bx.deferPaint && bx != p.t.rootBox
-	pops := 0
-	if deferred {
+	if deferredLayer(bx) {
 		// The layer moves without being recorded again: everything in
-		// it is recorded.
-		p.openLayer(layerDeferred, bx, p.space)
-		p.cull = false
-	} else {
-		pops = p.pushEffects(bx)
-		if cs := bx.pcs; bx != p.t.rootBox && (!cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() || !cs.BackdropFilter.IsEmpty()) {
-			// The interest rects are untransformed, and filters pull in
-			// what is around: no culling inside.
-			p.cull = false
+		// it is recorded (openLayer turns the culling off).
+		p.odep(bx)
+		if _, kept := p.openLayer(layerDeferred, bx, p.space, nil, nil); kept {
+			return
 		}
+		p.dep(bx)
+		p.stackBody(bx)
+		p.closeLayer()
+		return
 	}
+	p.dep(bx)
+	cull := p.cull
+	pops := p.pushEffects(bx)
+	if cs := bx.pcs; bx != p.t.rootBox && (!cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() || !cs.BackdropFilter.IsEmpty()) {
+		// The interest rects are untransformed, and filters pull in
+		// what is around: no culling inside.
+		p.cull = false
+	}
+	p.stackBody(bx)
+	p.popEffects(pops)
+	p.cull = cull
+}
+
+// stackBody paints stacking context bx inside its effects: its
+// decorations, its participants and in-flow content in stacking order,
+// its scrollbars and its outline.
+func (p *painter) stackBody(bx *Box) {
 	p.paintSelf(bx)
 	start := len(p.items)
 	p.collect(bx)
@@ -515,12 +555,6 @@ func (p *painter) paintStacked(bx *Box) {
 	p.items = p.items[:start]
 	p.paintScrollbars(bx)
 	p.paintOutline(bx)
-	if deferred {
-		p.closeLayer()
-	} else {
-		p.popEffects(pops)
-	}
-	p.cull = cull
 }
 
 // paintHoisted paints a participant e of the stacking context root, under
@@ -528,12 +562,27 @@ func (p *painter) paintStacked(bx *Box) {
 // clip is pushed in the scroll space of its box, and e is painted in its
 // own (layer.go: enter).
 func (p *painter) paintHoisted(root, e *Box) {
-	if p.cull && !stacking(e) && !e.ink.Intersects(p.interestOf(e.space)) {
+	p.odep(e)
+	if p.cull && !stacking(e) && !p.cdep(e, e.space) {
 		return // outside the recorded part of its layer
 	}
 	start := len(p.clips)
+	p.clipChain(root, e, true)
+	clips := p.clips[start:]
+	p.hoistChain(root, e, clips, len(clips)-1, false)
+	p.clips = p.clips[:start]
+}
+
+// clipChain appends to p.clips the ancestors of hoisted box e, below its
+// stacking context root, whose overflow clips e keeps, the innermost
+// first. note: the list being recorded reads how every ancestor on the way
+// is placed (its position decides the chain, record.go).
+func (p *painter) clipChain(root, e *Box, note bool) {
 	cb := containingBlock(e)
 	for a := e.parent; a != nil; a = a.parent {
+		if note {
+			p.odep(a)
+		}
 		if a == cb {
 			if clipsOverflow(a.pcs) {
 				p.clips = append(p.clips, a)
@@ -544,30 +593,47 @@ func (p *painter) paintHoisted(root, e *Box) {
 			break
 		}
 	}
-	clips := p.clips[start:]
+}
+
+// hoistChain paints hoisted box e of stacking context root under the clips
+// clips[i], clips[i-1], ..., clips[0] (the outermost first), each pushed in
+// the scroll space of its box, and e in its own. here: the list being
+// recorded is the chunk of clips[i] (record.go). A chunk kept clean
+// (enterKept) holds the rest: nothing more is painted.
+func (p *painter) hoistChain(root, e *Box, clips []*Box, i int, here bool) {
 	astart := len(p.acts)
-	for i := len(clips) - 1; i >= 0; i-- {
+	for ; i >= 0; i-- {
+		c := clips[i]
 		var act uint8
-		if p.enter(clips[i].space, clips[i]) {
-			act |= 1
+		if !here {
+			switch p.enter(c.space, c, e, root) {
+			case enterNew:
+				act |= 1
+			case enterKept:
+				p.unwind(astart)
+				return
+			}
 		}
-		if p.pushOverflowClip(clips[i]) {
+		here = false
+		p.odep(c)
+		if p.pushOverflowClip(c) {
 			act |= 2
 		}
 		p.acts = append(p.acts, act)
 	}
-	entered := p.enter(e.space, e)
-	if stacking(e) {
-		p.paintStacked(e)
-	} else {
-		p.paintSelf(e)
-		p.paintInner(e)
-		p.paintScrollbars(e)
-		p.paintOutline(e)
-	}
-	if entered {
+	switch p.enter(e.space, e, e, root) {
+	case enterSame:
+		p.hoistBody(e)
+	case enterNew:
+		p.hoistBody(e)
 		p.leave()
 	}
+	p.unwind(astart)
+}
+
+// unwind pops the clips and leaves the chunks of hoistChain from act
+// astart on.
+func (p *painter) unwind(astart int) {
 	for k := len(p.acts) - 1; k >= astart; k-- {
 		if p.acts[k]&2 != 0 {
 			p.b.PopClip()
@@ -577,7 +643,19 @@ func (p *painter) paintHoisted(root, e *Box) {
 		}
 	}
 	p.acts = p.acts[:astart]
-	p.clips = p.clips[:start]
+}
+
+// hoistBody paints hoisted box e in the list being recorded.
+func (p *painter) hoistBody(e *Box) {
+	if stacking(e) {
+		p.paintStacked(e)
+		return
+	}
+	p.dep(e)
+	p.paintSelf(e)
+	p.paintInner(e)
+	p.paintScrollbars(e)
+	p.paintOutline(e)
 }
 
 // containingBlock returns the box whose padding box contains bx's layout
@@ -636,18 +714,26 @@ func containsPositioned(bx *Box) bool {
 			return true
 		}
 	}
+	return containsByStyle(cs)
+}
+
+// containsByStyle reports whether a box with computed style cs contains
+// positioned descendants by its style alone.
+func containsByStyle(cs *style.ComputedStyle) bool {
 	return !cs.Transform.IsIdentity() || !cs.Filter.IsEmpty() || !cs.BackdropFilter.IsEmpty()
 }
 
 // paintFlow paints an in-flow box that is not a participant, atomically,
 // unless it is outside the interest rect of the list being recorded.
 func (p *painter) paintFlow(bx *Box) {
+	p.odep(bx)
 	if bx.ls.Display == layout.DisplayNone || participant(bx) || bx.hiddenAtom {
 		return
 	}
-	if p.cull && !bx.ink.Intersects(p.interest) {
+	if p.cull && !p.cdep(bx, p.space) {
 		return
 	}
+	p.dep(bx)
 	p.paintSelf(bx)
 	p.paintInner(bx)
 	p.paintScrollbars(bx)
@@ -660,10 +746,26 @@ func (p *painter) paintFlow(bx *Box) {
 // own, which the compositor moves by the scroll offset.
 func (p *painter) paintInner(bx *Box) {
 	clipped := clipsOverflow(bx.pcs) && p.pushOverflowClip(bx)
-	entered := false
+	st := enterSame
 	if s := bx.scr; s != nil && s.chunked {
-		entered = p.enter(s, bx)
+		st = p.enter(s, bx, nil, nil)
 	}
+	switch st {
+	case enterSame:
+		p.innerBody(bx)
+	case enterNew:
+		p.dep(bx)
+		p.innerBody(bx)
+		p.leave()
+	}
+	if clipped {
+		p.b.PopClip()
+	}
+}
+
+// innerBody paints the content and the in-flow children of bx in the list
+// being recorded.
+func (p *painter) innerBody(bx *Box) {
 	if bx.mode == modeParagraph && bx.para != nil && bx.para.lay != nil && bx.para.decorated() {
 		// Line by line, with the atomic inlines (its children) and the
 		// decorations of its inline elements (inline.go).
@@ -677,12 +779,6 @@ func (p *painter) paintInner(bx *Box) {
 		for _, k := range bx.kids {
 			p.paintFlow(k)
 		}
-	}
-	if entered {
-		p.leave()
-	}
-	if clipped {
-		p.b.PopClip()
 	}
 }
 

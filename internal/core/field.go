@@ -686,7 +686,6 @@ func (t *Tree) fieldResized(f *field) {
 func (f *field) markPaint() {
 	t := f.t
 	f.paintDirty = true
-	t.lay.fieldDirty = true
 	t.requestRepaint()
 }
 

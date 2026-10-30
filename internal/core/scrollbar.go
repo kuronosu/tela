@@ -441,7 +441,8 @@ func (p *painter) paintScrollbars(bx *Box) {
 		return
 	}
 	if s.chunked || p.t.classicBars(bx.pcs) {
-		p.openLayer(layerBars, bx, p.space)
+		p.openLayer(layerBars, bx, p.space, nil, nil) // never kept: recorded on every paint
+		p.dep(bx)
 		p.drawBars(bx)
 		p.closeLayer()
 		return

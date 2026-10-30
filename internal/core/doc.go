@@ -414,13 +414,15 @@
 // each scroll container that can move (with the hoisted boxes that move
 // with it), painted unscrolled and moved by the compositor; each stacking
 // context with paint-phase deferred props (TranslateFn, OpacityFn), whose
-// transform and opacity the compositor applies; and the scrollbars. A
-// frame that builds, restyles or lays out places every box again and
-// records every layer, each skipping the boxes outside its interest rect
-// (the visible part of a scroll container grown by a scrollport per
-// scrolling axis); a paint-only frame records only the scrollbars, unless
-// a layer became stale (content that leaves its interest rect, a box that
-// starts or stops being a layer). The compositor appends the layers into
+// transform and opacity the compositor applies; and the scrollbars. Each
+// layer skips the boxes outside its interest rect (the visible part of a
+// scroll container grown by a scrollport per scrolling axis). A frame that
+// builds, restyles or lays out places every box again; a paint records
+// again only the layers whose lists read a box that changed (record.go:
+// the boxes each list read, noted while it was recorded), and the
+// scrollbars, unless a layer became stale (a box that starts or stops
+// being a layer) or something no box notes changed (the scale, the
+// viewport, paint-phase text colors). The compositor appends the layers into
 // one display list for the frame (gfx.Builder.AppendList): CSS box
 // painting (shadows, backgrounds with gradients and images from the
 // registered assets, assets.go, borders, outlines), effects (transforms,

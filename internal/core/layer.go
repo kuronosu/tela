@@ -52,15 +52,20 @@ import (
 //
 // # Recording
 //
-// A frame that builds, restyles or lays out records every layer again (a
-// full recording). A frame that only repaints (scrolling, Values read by
-// paint-phase deferred props, scrollbar fades and hovers: Tree.markPaint,
-// whose marks stop at these layers) places the boxes again (their
-// on-screen geometry for hit-testing, the deferred props), records the
-// scrollbar layers only, and composites; it records everything again when
-// it finds stale layers: a box that starts or stops being a layer, a
-// scroll container whose content starts or stops moving, or one whose
-// visible content leaves its interest rect.
+// A paint records again only the layers whose lists can have changed
+// (record.go, ADR-204): a frame that builds, restyles or lays out places
+// every box and compares what each one's painting reads with its last
+// place; a frame that only repaints (scrolling, Values read by paint-phase
+// deferred props, scrollbar fades and hovers: Tree.markPaint, whose marks
+// stop at these layers; the steps of color transitions) places again the
+// boxes it marked (their on-screen geometry for hit-testing, the deferred
+// props). The scrollbar layers are recorded on every paint. Everything is
+// recorded again (a full recording) on the first paint, for a new scale,
+// viewport or canvas, while paint-phase text colors are mounted, and when
+// a frame that only repaints finds stale layers: a box that starts or stops
+// being a layer, a scroll container whose content starts or stops moving.
+// A scroll container whose visible content leaves its interest rect gets a
+// new one, and the chunks of its space are recorded again.
 //
 // The interest rect of a chunk (Chromium's) is its scrollport in content
 // coordinates grown by one scrollport along each axis that scrolls: a
@@ -115,8 +120,31 @@ type layer struct {
 	paint uint64
 	// interest is, for a text field's layer, the interest rect of the
 	// list that holds its marker (unbounded where nothing is culled),
-	// kept until the next full recording for recordFields.
+	// kept until it is recorded again.
 	interest gfx.Rect
+
+	// Partial recording (record.go). hoist is the hoisted box whose
+	// painting opened a chunk (paintHoisted: its own chunk, or that of a
+	// clipping ancestor), sc the stacking context that painted it; nil for
+	// other layers.
+	hoist, sc *Box
+	// kids are the layers whose markers its list holds, in order; pool
+	// holds the old kids while it is recorded, pi the next one to look at.
+	kids, pool []*layer
+	pi         int
+	// rint and cull are the interest rect and the culling of the list;
+	// in and out the boxes whose inputs and placement it read (dep,
+	// odep), cul those it culled-tested (cdep); rec the epoch of its
+	// recording; dirty marks it stale.
+	rint    gfx.Rect
+	cull    bool
+	in, out []*Box
+	cul     []cullDep
+	// oin and oout are in and out of the previous recording while one
+	// runs (record.go: dropOld).
+	oin, oout []*Box
+	rec     uint64
+	dirty   bool
 }
 
 // target is a list being recorded: its builder, its scroll space and
@@ -136,13 +164,26 @@ type layerState struct {
 	// gen numbers the full recordings, paints the paints.
 	gen, paints uint64
 	// needFull asks the next paint for a full recording, needPlace for
-	// placing the boxes first; fieldDirty reports text fields whose layer
-	// must be recorded again (field.markPaint).
-	needFull, needPlace, fieldDirty bool
+	// placing the boxes first.
+	needFull, needPlace bool
 	// noCull records every box (tests: the culling must not change the
 	// pixels).
 	noCull bool
 	free   []*gfx.Builder
+	// freeIDs are the ids of freed layers (record.go).
+	freeIDs []uint32
+	// epoch advances after every paint: the boxes stamp their changed
+	// inputs with it, and nchg counts the stamps since the last paint;
+	// recull reports a changed ink or interest rect since then, for which
+	// the culling of the lists is checked again (record.go). recScale,
+	// recView and recTrans are the scale, viewport and canvas
+	// transparency of the last recording.
+	epoch    uint64
+	nchg     int
+	recull   bool
+	recScale float32
+	recView  gfx.Size
+	recTrans bool
 
 	// The composition in progress: the builder, the frame and the
 	// current instance; marker is the method value of composeLayer.
@@ -195,16 +236,25 @@ func (L *layerState) builder() *gfx.Builder {
 	return gfx.NewBuilder()
 }
 
-// newLayer adds a layer to the recording.
+// newLayer adds a layer to the recording, with a free id when there is
+// one.
 func (L *layerState) newLayer(kind layerKind, box *Box, space, parent *scroller) *layer {
-	l := &layer{id: uint32(len(L.layers)), kind: kind, box: box, space: space, parent: parent, paint: L.paints}
+	l := &layer{kind: kind, box: box, space: space, parent: parent, paint: L.paints}
+	if n := len(L.freeIDs); n > 0 {
+		l.id = L.freeIDs[n-1]
+		L.freeIDs = L.freeIDs[:n-1]
+		L.layers[l.id] = l
+		return l
+	}
+	l.id = uint32(len(L.layers))
 	L.layers = append(L.layers, l)
 	return l
 }
 
 // paintPhase paints the tree (ARCHITECTURE section 8, phase 6): places
-// the boxes, records the layers that need it (all of them when full) and
-// composes the frame.
+// the boxes (all of them when full), records the layers that changed
+// (record.go; all of them when nothing was recorded yet or something the
+// boxes' inputs do not cover changed) and composes the frame.
 func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 	t.stats.Paints++
 	L := &t.lay
@@ -222,122 +272,131 @@ func (t *Tree) paintPhase(full bool) *gfx.DisplayList {
 		}
 		clear(t.paintQ)
 		t.paintQ = t.paintQ[:0]
+		// What changed until now is recorded: later changes are newer.
+		L.epoch++
+		L.nchg, L.recull = 0, false
 	}()
 	if t.rootBox == nil || t.rootBox.cs == nil {
-		L.root, L.layers = nil, L.layers[:0]
+		L.root, L.layers, L.freeIDs = nil, L.layers[:0], L.freeIDs[:0]
 		return t.composite()
 	}
 	place := full || L.root == nil || L.needPlace
-	full = place || L.needFull
+	all := L.root == nil || L.needFull
 	L.needFull, L.needPlace = false, false
-	p := painter{t: t, scale: float64(t.scale), full: full}
+	p := painter{t: t, scale: float64(t.scale), full: place}
 	if !place {
 		// The boxes marked for painting (deferred props, animations) are
 		// placed again, also when the layers are recorded again anyway.
 		p.update(marked)
-		place = L.needPlace // stale layers
-		full = full || L.needFull || place
+		place = L.needPlace // stale layers, or an interest rect moves
+		all = all || L.needFull
 		L.needFull, L.needPlace = false, false
 	}
-	p.full = full
+	p.full = place
 	if place {
 		t.la.places++
 		p.place(t.rootBox, nil)
 	}
 	// The floating elements follow their anchors (floating.go), before
 	// anything is recorded.
-	if t.floatPhase(&p) {
-		place = true
-	}
+	t.floatPhase(&p)
 	if L.needFull || L.needPlace {
 		// A Value published by the float pass changed what a box records.
-		full = true
+		all = true
 	}
 	L.needFull, L.needPlace = false, false
-	p.full = full || place
-	switch {
-	case place:
+	// What the inputs of the boxes do not cover: the scale (snapping), the
+	// viewport and the canvas, and text recolored by the paint-phase text
+	// colors of its ancestors (colorfn.go).
+	all = all || t.scale != L.recScale || t.viewport != L.recView || t.transCanvas != L.recTrans ||
+		t.textColorFns > 0 && L.nchg > 0
+	partial := !all && t.recordDirty(&p)
+	if !partial {
 		t.recordAll(&p)
-	case full:
-		// The geometry holds: new interest rects, and every layer again.
-		for _, s := range t.scr.list {
-			if s != nil && s.box.pcs != nil {
-				p.placeScroller(s.box, s)
-			}
-		}
-		t.recordAll(&p)
-	default:
-		t.recordBars(&p)
-		t.recordFields(&p)
 	}
-	return t.composite()
+	L.recScale, L.recView, L.recTrans = t.scale, t.viewport, t.transCanvas
+	dl := t.composite()
+	if partial && checkLayers {
+		t.checkPartial(L.cur)
+	}
+	return dl
 }
 
 // recordAll records every layer.
 func (t *Tree) recordAll(p *painter) {
 	L := &t.lay
 	L.gen++
-	L.fieldDirty = false
+	for _, l := range L.layers {
+		if l != nil {
+			l.drop()
+			l.kids, l.pool, l.in, l.out, l.oin, l.oout, l.cul = nil, nil, nil, nil, nil, nil, nil
+		}
+	}
 	clear(L.layers)
-	L.layers = L.layers[:0]
+	L.layers, L.freeIDs, L.recorded = L.layers[:0], L.freeIDs[:0], 0
 	root := L.newLayer(layerRoot, t.rootBox, nil, nil)
 	L.root = root
 	p.b, p.layer = L.builder(), root
 	p.space, p.cull = nil, !L.noCull
 	p.interest = p.interestOf(nil)
+	p.targets = p.targets[:0]
+	root.begin(L, p.interest, p.cull)
 	p.b.FillRect(gfx.Rect{X1: t.viewport.W, Y1: t.viewport.H}, t.CanvasColor())
 	p.paintStacked(t.rootBox)
-	root.dl = p.b.Finish()
-	L.free = append(L.free, p.b)
-	L.recorded = len(L.layers)
-}
-
-// recordBars records the scrollbar layers again.
-func (t *Tree) recordBars(p *painter) {
-	L := &t.lay
-	for _, l := range L.layers {
-		if l.kind != layerBars || l.box.scr == nil || l.box.pcs == nil {
-			continue
-		}
-		p.rerecord(l, func() { p.drawBars(l.box) })
-	}
+	p.endLayer(root)
 	p.b, p.layer = nil, nil
 }
 
-// rerecord records layer l again with draw, on a frame that records some
-// layers only (recordBars, recordFields).
-func (p *painter) rerecord(l *layer, draw func()) {
-	L := &p.t.lay
-	p.b, p.layer = L.builder(), l
-	draw()
-	l.dl = p.b.Finish()
-	L.free = append(L.free, p.b)
-	l.paint = L.paints
-	L.recorded++
-}
-
 // openLayer starts recording a child layer of the list being recorded: a
-// marker there, and a new list painted in scroll space space.
-func (p *painter) openLayer(kind layerKind, box *Box, space *scroller) *layer {
+// marker there, and a new list painted in scroll space space, opened by
+// the painting of lead (chunks) for hoisted box hoist (paintHoisted). When
+// the list being recorded had a clean child layer with that identity
+// (record.go), that layer is kept: its marker is written, nothing else, and
+// openLayer reports true (the caller paints none of its content and does
+// not close it).
+func (p *painter) openLayer(kind layerKind, box *Box, space *scroller, lead, hoist *Box) (*layer, bool) {
 	L := &p.t.lay
-	l := L.newLayer(kind, box, space, p.space)
+	up := p.layer
+	interest := p.interest
+	if space != p.space {
+		interest = p.interestOf(space)
+	}
+	cull := p.cull && kind != layerDeferred // everything in a deferred layer is recorded
+	var l *layer
+	if up != nil && len(up.pool) > 0 {
+		l = up.take(kind, box, space, lead, hoist)
+	}
+	if l != nil && !l.dirty && kind != layerBars && l.rint == interest && l.cull == cull &&
+		(kind != layerField || !box.fld.paintDirty) {
+		l.parent = p.space
+		up.kids = append(up.kids, l)
+		p.b.Marker(l.id)
+		return l, true
+	}
+	if l == nil {
+		l = L.newLayer(kind, box, space, p.space)
+	}
+	l.parent, l.lead, l.hoist = p.space, lead, hoist
+	if up != nil {
+		up.kids = append(up.kids, l)
+	}
 	p.b.Marker(l.id)
 	p.targets = append(p.targets, target{p.b, p.space, p.interest, p.cull, p.layer})
 	p.b, p.layer = L.builder(), l
 	if space != p.space {
-		p.space, p.interest = space, p.interestOf(space)
+		p.space, p.interest = space, interest
 		if space != nil {
 			space.recGen = L.gen
 		}
 	}
-	return l
+	p.cull = cull
+	l.begin(L, interest, cull)
+	return l, false
 }
 
 // closeLayer ends the layer started by the matching openLayer.
 func (p *painter) closeLayer() {
-	L := &p.t.lay
-	p.layer.dl = p.b.Finish()
-	L.free = append(L.free, p.b)
+	p.endLayer(p.layer)
 	n := len(p.targets) - 1
 	tg := p.targets[n]
 	p.targets[n] = target{}
@@ -345,19 +404,30 @@ func (p *painter) closeLayer() {
 	p.b, p.space, p.interest, p.cull, p.layer = tg.b, tg.space, tg.interest, tg.cull, tg.layer
 }
 
-// enter makes what follows, the painting of box lead, paint in scroll
-// space s: when it is not the space of the list being recorded, it opens a
-// chunk of s (and reports true; leave closes it).
-func (p *painter) enter(s *scroller, lead *Box) bool {
+// What enter did.
+const (
+	enterSame = iota // the list being recorded is in that space
+	enterNew         // a chunk is being recorded: leave closes it
+	enterKept        // a clean chunk was kept: nothing to paint
+)
+
+// enter makes what follows, the painting of box lead (for hoisted box
+// hoist of stacking context sc, or nil), paint in scroll space s: when it
+// is not the space of the list being recorded, it opens a chunk of s.
+func (p *painter) enter(s *scroller, lead, hoist, sc *Box) int {
 	if s == p.space {
-		return false
+		return enterSame
 	}
 	var box *Box
 	if s != nil {
 		box = s.box
 	}
-	p.openLayer(layerChunk, box, s).lead = lead
-	return true
+	l, kept := p.openLayer(layerChunk, box, s, lead, hoist)
+	l.sc = sc
+	if kept {
+		return enterKept
+	}
+	return enterNew
 }
 
 // leave closes the chunk opened by enter.
@@ -372,31 +442,47 @@ func (p *painter) interestOf(s *scroller) gfx.Rect {
 	return s.interest
 }
 
-// placeScroller records the interest rect of scroll container bx for a
-// full recording, and on a frame that only repaints finds a chunk that
+// placeScroller records the interest rect of scroll container bx when the
+// boxes are placed, and on a frame that only repaints finds a chunk that
 // must be recorded again.
 func (p *painter) placeScroller(bx *Box, s *scroller) {
 	vis := paddingRect(bx.u, bx.ld.Layout()).Translate(s.soff.X, s.soff.Y)
+	L := &p.t.lay
 	if p.full {
 		s.chunkedRec = s.chunked
-		if s.chunked {
-			var mx, my float32
-			if s.max.X > 0 {
-				mx = vis.Width()
-			}
-			if s.max.Y > 0 {
-				my = vis.Height()
-			}
-			s.interest = vis.InsetEdges(-mx, -my, -mx, -my)
+		// An interest rect that still holds the visible part is kept, so
+		// that the chunks of the space need not be recorded again
+		// (record.go); a reference recording takes the current one.
+		if s.chunked && (p.ref || s.recGen != L.gen || !s.interest.ContainsRect(vis)) {
+			p.newInterest(s, vis)
 		}
 		return
 	}
-	switch L := &p.t.lay; {
+	switch {
 	case s.chunked != s.chunkedRec:
 		L.needFull, L.needPlace = true, true
 	case s.chunked && s.recGen == L.gen && !vis.Empty() && !s.interest.ContainsRect(vis):
-		L.needFull = true
+		// The visible part left it: the chunks of the space are recorded
+		// again around the new one (record.go).
+		p.newInterest(s, vis)
 	}
+}
+
+// newInterest sets the interest rect of scroll space s for its visible
+// part vis: grown by one scrollport along each axis that scrolls.
+func (p *painter) newInterest(s *scroller, vis gfx.Rect) {
+	var mx, my float32
+	if s.max.X > 0 {
+		mx = vis.Width()
+	}
+	if s.max.Y > 0 {
+		my = vis.Height()
+	}
+	in := vis.InsetEdges(-mx, -my, -mx, -my)
+	if in != s.interest && !p.ref {
+		p.t.lay.recull = true // what the lists culled against it
+	}
+	s.interest = in
 }
 
 // shiftOf returns how far scroll space s moves its content: the offsets
@@ -436,7 +522,7 @@ func (t *Tree) composeLayer(m gfx.Marker) {
 		return
 	}
 	l := L.layers[m.ID]
-	if l.dl == nil {
+	if l == nil || l.dl == nil {
 		return
 	}
 	f := L.compF
@@ -614,7 +700,7 @@ func (t *Tree) ReferenceFrame(noCull bool) *gfx.DisplayList {
 	}
 	lay, paints, moved := t.lay, t.stats.Paints, t.scr.moved
 	t.lay = layerState{noCull: noCull, gen: lay.gen + 1}
-	p := painter{t: t, scale: float64(t.scale), full: true}
+	p := painter{t: t, scale: float64(t.scale), full: true, ref: true}
 	p.place(t.rootBox, nil)
 	t.recordAll(&p)
 	dl := t.composite()
@@ -643,12 +729,25 @@ type LayerInfo struct {
 	Bounds gfx.Rect
 }
 
-// Layers returns the layers of the last paint, in recording order (a
+// Layers returns the layers of the last paint, in painting order (a
 // layer before its children).
 func (t *Tree) Layers() []LayerInfo {
 	L := &t.lay
-	out := make([]LayerInfo, len(L.layers))
-	for i, l := range L.layers {
+	var order []*layer
+	var walk func(l *layer)
+	walk = func(l *layer) {
+		order = append(order, l)
+		for _, k := range l.kids {
+			walk(k)
+		}
+	}
+	if L.root != nil {
+		walk(L.root)
+	}
+	at := make(map[*layer]int, len(order))
+	out := make([]LayerInfo, len(order))
+	for i, l := range order {
+		at[l] = i
 		out[i].Kind = layerKindNames[l.kind]
 		if l.box != nil {
 			out[i].Element = l.box.el
@@ -663,8 +762,9 @@ func (t *Tree) Layers() []LayerInfo {
 			// The commands of an instance of layer l, or of a layer
 			// inside it.
 			for k := int32(f.dl.Tag(i)); k >= 0; k = f.inst[k].parent {
-				id := f.inst[k].layer.id
-				out[id].Bounds = out[id].Bounds.Union(f.dl.BoundsAt(i))
+				if j, ok := at[f.inst[k].layer]; ok {
+					out[j].Bounds = out[j].Bounds.Union(f.dl.BoundsAt(i))
+				}
 			}
 		}
 	}
