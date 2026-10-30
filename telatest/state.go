@@ -124,18 +124,6 @@ func Invalid(invalid bool) State {
 // sortValues are the values Sort accepts.
 var sortValues = style.AriaTokens("sort")
 
-// quotedOr formats tokens as "a", "b" or "c".
-func quotedOr(tokens []string) string {
-	q := make([]string, len(tokens))
-	for i, t := range tokens {
-		q[i] = strconv.Quote(t)
-	}
-	if len(q) < 2 {
-		return strings.Join(q, "")
-	}
-	return strings.Join(q[:len(q)-1], ", ") + " or " + q[len(q)-1]
-}
-
 // Sort expects the element's aria-sort to be sort: "ascending",
 // "descending", "other" or "none", which is also what a header without
 // h.AriaSort has (the ARIA default). The aria snapshot does not print it
@@ -145,7 +133,7 @@ func quotedOr(tokens []string) string {
 //	app.Expect(telatest.ByRole("columnheader", "Name"), telatest.Sort("descending"))
 func Sort(sort string) State {
 	if !slices.Contains(sortValues, sort) {
-		panic(fmt.Sprintf("telatest: Sort(%q): not an aria-sort value; use %s", sort, quotedOr(sortValues)))
+		panic(fmt.Sprintf("telatest: Sort(%q): not an aria-sort value; use %s", sort, style.JoinList(sortValues, "or", true)))
 	}
 	want := sort
 	if style.AriaTokenUnset("sort", want) {
@@ -178,7 +166,7 @@ var currentValues = style.AriaTokens("current")
 //	app.Expect(telatest.ByRole("link", "Docs"), telatest.Current("page"))
 func Current(current string) State {
 	if !slices.Contains(currentValues, current) {
-		panic(fmt.Sprintf("telatest: Current(%q): not an aria-current value; use %s", current, quotedOr(currentValues)))
+		panic(fmt.Sprintf("telatest: Current(%q): not an aria-current value; use %s", current, style.JoinList(currentValues, "or", true)))
 	}
 	want := current
 	if style.AriaTokenUnset("current", want) {

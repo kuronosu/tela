@@ -1,6 +1,9 @@
 package style
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // AriaRow is one row of the aria table: an ARIA attribute Tela has a prop
 // for, and either its true state (Token empty: the boolean attributes,
@@ -84,32 +87,49 @@ var ariaTokens = func() map[string][]string {
 	return m
 }()
 
+// AriaVariantTokens returns the value tokens of the token-valued attribute
+// attr that have a variant (a state flag) in table order: aria-[sort=...]:
+// and aria-[current=...]: accept these. It is nil for any other attribute.
+// The caller must not modify it.
+func AriaVariantTokens(attr string) []string {
+	return ariaVariantTokens[attr]
+}
+
+var ariaVariantTokens = func() map[string][]string {
+	m := map[string][]string{}
+	for _, r := range ariaTable {
+		if r.Token != "" && r.State != 0 {
+			m[r.Attr] = append(m[r.Attr], r.Token)
+		}
+	}
+	return m
+}()
+
+// ariaTokenKey is a key of ariaTokenRows.
+type ariaTokenKey struct{ attr, token string }
+
+// ariaTokenRows indexes the token rows of the table, for the lookups that
+// run on every build and every aria state sync.
+var ariaTokenRows = func() map[ariaTokenKey]AriaRow {
+	m := map[ariaTokenKey]AriaRow{}
+	for _, r := range ariaTable {
+		if r.Token != "" {
+			m[ariaTokenKey{r.Attr, r.Token}] = r
+		}
+	}
+	return m
+}()
+
 // AriaTokenState returns the flag the variants test for token of the
 // attribute attr, or 0 when none does (or the token is unknown).
 func AriaTokenState(attr, token string) StateFlags {
-	if token == "" {
-		return 0
-	}
-	for _, r := range ariaTable {
-		if r.Attr == attr && r.Token == token {
-			return r.State
-		}
-	}
-	return 0
+	return ariaTokenRows[ariaTokenKey{attr, token}].State
 }
 
 // AriaTokenUnset reports whether token of attr means the attribute is not
 // set: "none" for sort, "false" for current.
 func AriaTokenUnset(attr, token string) bool {
-	if token == "" {
-		return false
-	}
-	for _, r := range ariaTable {
-		if r.Attr == attr && r.Token == token {
-			return r.Unset
-		}
-	}
-	return false
+	return ariaTokenRows[ariaTokenKey{attr, token}].Unset
 }
 
 // AriaBoolState returns the flag of the boolean attribute attr ("busy",
@@ -156,10 +176,22 @@ var ariaVariantHint = func() string {
 		" (also group-aria-checked: and peer-aria-[sort=ascending]:)"
 }()
 
-// andList joins "a, b and c".
-func andList(items []string) string {
+// JoinList joins items as "a, b and c": all but the last with ", ", then
+// conj (and, or) and the last. quote wraps every item in Go quotes first
+// ("a", "b" or "c"). A list of fewer than two items has no conjunction.
+func JoinList(items []string, conj string, quote bool) string {
+	if quote {
+		q := make([]string, len(items))
+		for i, it := range items {
+			q[i] = strconv.Quote(it)
+		}
+		items = q
+	}
 	if len(items) < 2 {
 		return strings.Join(items, "")
 	}
-	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
+	return strings.Join(items[:len(items)-1], ", ") + " " + conj + " " + items[len(items)-1]
 }
+
+// andList joins "a, b and c".
+func andList(items []string) string { return JoinList(items, "and", false) }

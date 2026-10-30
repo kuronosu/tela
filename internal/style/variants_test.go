@@ -348,6 +348,42 @@ func TestAriaVariantParsing(t *testing.T) {
 	}
 }
 
+// TestAriaVariantNoInvalidSuggestion pins that did-you-mean only offers
+// the tokens that have a variant: never "other", "none" or "false", which
+// are valid values of the props but are not classes.
+func TestAriaVariantNoInvalidSuggestion(t *testing.T) {
+	th := DefaultTheme()
+	for _, v := range []string{"aria-[current=false]", "aria-[sort=none]", "aria-[sort=other]", "aria-[current=fals]", "aria-[sort=othr]", "aria-[sort=non]"} {
+		_, err := parseVariant(th, v)
+		if err == nil {
+			t.Errorf("%s: parsed", v)
+			continue
+		}
+		msg := err.Error()
+		if i := strings.Index(msg, "did you mean "); i >= 0 {
+			rest := msg[i+len("did you mean "):]
+			suggestion := rest[:strings.Index(rest, "? ")]
+			if parsed, perr := parseVariant(th, strings.TrimSuffix(suggestion, ":")); perr != nil || parsed == (Condition{}) {
+				t.Errorf("%s: suggests %q, which is not a variant: %v", v, suggestion, perr)
+			}
+		}
+		for _, bad := range []string{"=false]:?", "=none]:?", "=other]:?"} {
+			if strings.Contains(msg, "did you mean") && strings.Contains(msg, bad) {
+				t.Errorf("%s: suggests an invalid class: %v", v, err)
+			}
+		}
+	}
+	if got := AriaVariantTokens("sort"); len(got) != 2 || got[0] != "ascending" || got[1] != "descending" {
+		t.Errorf("AriaVariantTokens(sort) = %v", got)
+	}
+	if got := AriaVariantTokens("current"); len(got) != 6 || got[5] != "true" {
+		t.Errorf("AriaVariantTokens(current) = %v", got)
+	}
+	if AriaVariantTokens("busy") != nil {
+		t.Error("a boolean attribute has no tokens")
+	}
+}
+
 func TestAriaVariantErrors(t *testing.T) {
 	th := DefaultTheme()
 	for variant, want := range map[string]string{

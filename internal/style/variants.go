@@ -424,7 +424,7 @@ func parseAriaVariant(name string) (c Condition, ok bool, err error) {
 	}
 	hint := ""
 	if hasValue {
-		if best := closest(value, AriaTokens(attr)); best != "" {
+		if best := closest(value, AriaVariantTokens(attr)); best != "" {
 			hint = "did you mean aria-[" + attr + "=" + best + "]:? "
 		}
 	}
