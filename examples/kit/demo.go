@@ -32,7 +32,7 @@ func demo(title, note, class string, children ...tela.Child) tela.Node {
 		class = row
 	}
 	return Div(Class("flex min-w-0 flex-col gap-3"),
-		Div(Class("flex flex-col gap-1"),
+		Div(Dir("ltr"), Class("flex flex-col gap-1"),
 			H3(Class("text-sm leading-none font-medium"), Text(title)),
 			If(note != "", P(Class("text-sm text-muted-foreground"), Text(note))),
 		),

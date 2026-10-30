@@ -12,13 +12,16 @@ import (
 // reads (the aria snapshot).
 
 // toSidebar presses Tab until the focus is on the selected tab of the
-// sidebar: the Style group, the dark switch and then the sidebar.
+// sidebar: the Style group, the dark switch, the Language menu and then the
+// sidebar.
 func toSidebar(t *testing.T, a *telatest.App, selected string) {
 	t.Helper()
 	a.Press("Tab")
 	a.ExpectFocused(telatest.ByRole("radio", "Default"))
 	a.Press("Tab")
 	a.ExpectFocused(darkSwitch)
+	a.Press("Tab")
+	a.ExpectFocused(languageMenu)
 	a.Press("Tab")
 	a.ExpectFocused(tabFor(selected))
 }
@@ -53,14 +56,20 @@ func TestSidebarKeyboard(t *testing.T) {
 	a.ExpectFocused(tabFor("Tooltip"))
 	a.ExpectCount(heading("Tooltip"), 1)
 	a.Press("Home")
+	a.ExpectFocused(tabFor("Introduction"))
+	a.ExpectRole("heading", "Hello, kit.")
+	a.Press("ArrowDown")
+	a.ExpectFocused(tabFor("Internationalization"))
+	a.ExpectCount(heading("Internationalization"), 1)
+	a.Press("ArrowDown")
 	a.ExpectFocused(tabFor("Alert Dialog"))
-	a.ExpectCount(heading("Alert Dialog"), 1)
 
 	// The ends wrap.
+	a.Press("Home")
 	a.Press("ArrowUp")
 	a.ExpectFocused(tabFor("Tooltip"))
 	a.Press("ArrowDown")
-	a.ExpectFocused(tabFor("Alert Dialog"))
+	a.ExpectFocused(tabFor("Introduction"))
 }
 
 // TestSidebarTabOrder: the sidebar is a single tab stop whichever tab is
@@ -78,6 +87,8 @@ func TestSidebarTabOrder(t *testing.T) {
 	a.Press("Shift+Tab")
 	a.Press("Shift+Tab")
 	a.ExpectFocused(tabFor("Button"))
+	a.Press("Shift+Tab")
+	a.ExpectFocused(languageMenu)
 	a.Press("Shift+Tab")
 	a.ExpectFocused(darkSwitch)
 	a.Press("Shift+Tab")
@@ -121,7 +132,8 @@ func TestHeaderKeyboard(t *testing.T) {
 }
 
 // TestSidebarSnapshot pins what a screen reader reads on the shell: the
-// banner with its two controls, the 36 tabs and the selected page.
+// banner with its three controls, the 38 tabs and the selected page,
+// the Introduction.
 func TestSidebarSnapshot(t *testing.T) {
 	mount(t, Gallery{}).AriaGolden("kit_gallery.aria.yml")
 	a := mount(t, Gallery{Page: "DropdownMenu"})

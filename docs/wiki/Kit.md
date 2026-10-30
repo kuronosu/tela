@@ -13,12 +13,14 @@ scheme and your own recipes.
 import "github.com/kuronosu/tela/kit"
 ```
 
-![The kit gallery: the Button page](https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/kit.png)
+![The kit gallery: the Introduction](https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/kit.png)
 
 The whole kit is on show in
 [`examples/kit`](https://github.com/kuronosu/tela/tree/main/examples/kit), a
-gallery with a page per component, light and dark, in the default style and in a
-second one made of a few edits (see [Customization](#customization-in-three-levels)).
+gallery that opens on an Introduction and has a page per component, light and dark, in
+the default style and in a second one made of a few edits (see
+[Customization](#customization-in-three-levels)), and in English, Spanish and
+Arabic (the header's Language menu; Arabic lays the whole window out right to left).
 Run it with `go run ./examples/kit`, or render one page with
 `tela snapshot --preview Calendar ./examples/kit`.
 
@@ -447,6 +449,15 @@ return Div(Dir(f.Dir().String()),
 	kit.Slider{AriaLabel: "Volume", Direction: "ltr"},   // always left to right
 )
 ```
+
+What kit defaults to English (the date pickers' placeholder and month buttons, a
+dialog's close button, the alert dialog's Cancel and Continue) is a field of the
+component (`Placeholder`, `PreviousLabel`, `NextLabel`, `CloseLabel`, `Cancel`,
+`Action`): fill it from your catalog. The gallery's **Internationalization** page
+shows catalogs, plurals and formats next to the date picker with its labels from the
+catalog (`tela dev --preview Internationalization ./examples/kit`), and the Language
+menu in its header turns every other page into Spanish or right-to-left Arabic; see
+[Internationalization](Internationalization).
 
 ## Testing a screen made of kit components
 

@@ -1,0 +1,76 @@
+- banner:
+  - text: Tela kit 36 components Style
+  - radiogroup "Style":
+    - radio "Default" [checked]
+    - radio "Rounded"
+  - switch "Dark mode"
+  - button "العربية اللغة": العربية
+- tablist "Pages":
+  - tab "Introduction"
+  - tab "Internationalization" [selected]
+  - tab "Alert Dialog"
+  - tab "Avatar"
+  - tab "Badge"
+  - tab "Button"
+  - tab "Calendar"
+  - tab "Card"
+  - tab "Checkbox"
+  - tab "Color Input"
+  - tab "Color Picker"
+  - tab "Context Menu"
+  - tab "Date Picker"
+  - tab "Date Range Picker"
+  - tab "Dialog"
+  - tab "Dropdown Menu"
+  - tab "Field"
+  - tab "Field Set"
+  - tab "Input"
+  - tab "Label"
+  - tab "Menubar"
+  - tab "Popover"
+  - tab "Progress"
+  - tab "Radio Group"
+  - tab "Range Calendar"
+  - tab "Select"
+  - tab "Separator"
+  - tab "Skeleton"
+  - tab "Slider"
+  - tab "Switch"
+  - tab "Table"
+  - tab "Tabs"
+  - tab "Textarea"
+  - tab "Title Bar"
+  - tab "Toast"
+  - tab "Toggle"
+  - tab "Toggle Group"
+  - tab "Tooltip"
+- tabpanel "Internationalization":
+  - heading "Internationalization" [level=1]
+  - paragraph: Messages, plurals and formats in English, Spanish and Arabic. The Language menu in the header switches the whole window, and its direction.
+  - text: i18n
+  - heading "Messages" [level=3]
+  - paragraph: "Arguments in {braces}, numbers formatted for the language, and nested keys written with a dot: t(\"summary.updated\")."
+  - text: t("greeting", "name", "Ana") مرحبا يا Ana! t("step", "step", 3, "total", 4) الخطوة ٣ من ٤ t("summary.discount") الخصم t("summary.updated") آخر تحديث
+  - heading "Plurals" [level=3]
+  - paragraph: "The language's own rules choose the form: English has one and other, Arabic zero, one, two, few, many and other. Count to see them change."
+  - button "إزالة واحد"
+  - text: ٣
+  - button "إضافة واحد"
+  - radiogroup "Count":
+    - radio "٠"
+    - radio "١"
+    - radio "٢"
+    - radio "٣" [checked]
+    - radio "١١"
+    - radio "١٠٠"
+  - text: plural "messages" ٣ رسائل جديدة plural "items" ٣ عناصر في سلتك selectordinal "rank" ترتيبك ٣ في الطابور the plural category few
+  - heading "Formatting" [level=3]
+  - paragraph: i18n.UseFormatter gives numbers, percentages, dates, times and lists the way the language writes them, digits included.
+  - text: f.Number(1234.5, MinFractionDigits(2)) ١٬٢٣٤٫٥٠ f.Number(0.15, Percent()) ١٥٪؜ f.Date(t, Full) السبت، ١٤ مارس ٢٠٢٦ f.Time(t, Short) ٣:٣٠ م f.List(items) تفاح وكمثرى وتين
+  - heading "kit follows the language" [level=3]
+  - paragraph: A DatePicker writes the date, names the months and weekdays, starts the week and lays the calendar out the way the language does. What kit defaults to English comes from the catalog (kit.* keys); Arabic's short weekday names do not fit a cell, so it asks for the narrow ones.
+  - group:
+    - text: تاريخ التوصيل
+    - button "تاريخ التوصيل": اختر تاريخًا
+    - paragraph: لا نوصل أيام الأحد.
+- region "Notifications"

@@ -36,6 +36,9 @@ var schemes = []struct {
 var (
 	rounded    = telatest.ByRole("radio", "Rounded")
 	darkSwitch = telatest.ByRole("switch", "Dark mode")
+	// languageMenu is the header's Select, the trigger's name is the current
+	// language, then the catalog's word for "Language".
+	languageMenu = telatest.ByTestID("language")
 )
 
 func tabFor(label string) telatest.Locator { return telatest.ByRole("tab", label) }
@@ -59,26 +62,50 @@ func TestPreviewsRenderClean(t *testing.T) {
 
 // TestEveryPageInBothStyles opens the whole gallery on each page in each
 // style and scheme: the second style must define every variant and size
-// the pages use.
+// the pages use. The Introduction draws its own heading, a headline.
 func TestEveryPageInBothStyles(t *testing.T) {
-	for _, p := range pages {
+	for _, p := range sidebar() {
 		for _, style := range []string{"default", "rounded"} {
 			t.Run(p.Name+"/"+style, func(t *testing.T) {
 				a := mount(t, Gallery{Page: p.Name, Style: style}, telatest.Dark())
 				a.Expect(tabFor(p.Label), telatest.Selected(true))
-				a.Expect(heading(p.Label), telatest.HasName(p.Label))
+				if p.Bare {
+					a.ExpectRole("heading", "Hello, kit.")
+				} else {
+					a.Expect(heading(p.Label), telatest.HasName(p.Label))
+				}
 			})
 		}
 	}
 }
 
-// TestPreviewsMatchPages checks that Previews has one entry per page and the
-// gallery's two, and that the sidebar is alphabetical.
-func TestPreviewsMatchPages(t *testing.T) {
-	if got, want := len(Previews), len(pages)+2; got != want {
-		t.Errorf("Previews has %d entries, want %d (one per page, Gallery and Gallery Rounded)", got, want)
+// TestEveryPageInEveryLanguage opens every page in Spanish and in Arabic
+// (right to left) with dev mode on: nothing breaks when the language or the
+// direction changes, whatever the page.
+func TestEveryPageInEveryLanguage(t *testing.T) {
+	for _, p := range sidebar() {
+		for _, tag := range languages[1:] {
+			t.Run(p.Name+"/"+tag, func(t *testing.T) {
+				a := mount(t, Gallery{Page: p.Name, Locale: tag})
+				a.Expect(tabFor(p.Label), telatest.Selected(true))
+			})
+		}
 	}
-	for _, p := range pages {
+}
+
+// TestPreviewsMatchPages checks that Previews has one entry per page, the
+// gallery's three and the Internationalization page in the other languages,
+// that the home page is the first of the sidebar, and that the components are
+// alphabetical.
+func TestPreviewsMatchPages(t *testing.T) {
+	want := len(sidebar()) + 3 + len(languages) - 1
+	if got := len(Previews); got != want {
+		t.Errorf("Previews has %d entries, want %d (one per page, Gallery, Gallery Rounded, Gallery Arabic and Internationalization in each other language)", got, want)
+	}
+	if sidebar()[0].Name != home {
+		t.Errorf("the sidebar starts with %q, want the home page %q", sidebar()[0].Name, home)
+	}
+	for _, p := range sidebar() {
 		if _, ok := Previews[p.Name]; !ok {
 			t.Errorf("no preview named %q", p.Name)
 		}

@@ -4,11 +4,14 @@
     - radio "Default" [checked]
     - radio "Rounded"
   - switch "Dark mode"
-- tablist "Components":
+  - button "English Language": English
+- tablist "Pages":
+  - tab "Introduction" [selected]
+  - tab "Internationalization"
   - tab "Alert Dialog"
   - tab "Avatar"
   - tab "Badge"
-  - tab "Button" [selected]
+  - tab "Button"
   - tab "Calendar"
   - tab "Card"
   - tab "Checkbox"
@@ -41,36 +44,52 @@
   - tab "Toggle"
   - tab "Toggle Group"
   - tab "Tooltip"
-- tabpanel "Button":
-  - heading "Button" [level=1]
-  - paragraph: A button in six variants and eight sizes, with icon slots. It is the trigger of every overlay.
-  - text: kit.Button
-  - heading "Variants" [level=3]
-  - paragraph: Default, Secondary, Outline, Ghost, Destructive and Link.
+- tabpanel "Introduction":
+  - text: TELA / KIT
+  - heading "Hello, kit." [level=1]
+  - text: Components, woven with Go. 36 components. Light and dark. Every one restyled with a class string.
+  - heading "What it is" [level=2]
+  - paragraph: "kit is shadcn/ui for Go: buttons, dialogs, menus, date pickers and the rest, with the same look. Each component is built on the behavior hooks of package aria, which handle the keyboard, the focus and what a screen reader reads, and is styled by a recipe, a plain set of class strings, and by the theme's color tokens, so light and dark need no extra classes."
+  - paragraph: "Change a recipe and every component of that kind changes: the Rounded style in the header is kit.DefaultStyle() with about forty edited class strings. Switch the language in the header to see the same pages in Spanish and, mirrored, in Arabic."
+  - heading "Use it" [level=2]
+  - paragraph: Give the app kit.Theme(), then write components as structs or h elements.
+  - text: "var theme = kit.Theme() func Hello() tela.Node { return tela.C(hello) } func hello() tela.Node { name, setName := tela.UseState(\"\") return Div(Class(\"flex max-w-sm flex-col gap-3 p-6\"), kit.Input{Placeholder: \"Your name\", Value: &name, OnValueChange: setName.Set}, kit.Button{Children: Textf(\"Hello, %s\", name)}) } func main() { tela.Main(tela.App{Title: \"Hello\", Theme: &theme, RootClass: \"bg-background text-foreground\", Root: Hello()}) }"
+  - heading "Components" [level=2]
+  - paragraph: 36 pages, each with its variants, sizes and states. Choose one.
+  - button "Alert Dialog"
+  - button "Avatar"
+  - button "Badge"
   - button "Button"
-  - button "Secondary"
-  - button "Outline"
-  - button "Ghost"
-  - button "Destructive"
-  - button "Link"
-  - heading "Sizes" [level=3]
-  - paragraph: Xs, Sm, the default and Lg.
-  - button "Extra small"
-  - button "Small"
-  - button "Default"
-  - button "Large"
-  - heading "Icons" [level=3]
-  - paragraph: An icon before or after the label, and icon-only buttons in four sizes (AriaLabel names them).
-  - button "Login with email"
-  - button "Continue"
-  - button "Add, extra small"
-  - button "Add, small"
-  - button "Add"
-  - button "Add, large"
-  - heading "States" [level=3]
-  - paragraph: Disabled, loading (the label is any content) and a button that counts.
-  - button "Disabled" [disabled]
-  - button "Disabled" [disabled]
-  - button "Save changes"
-  - button "Clicked 0 times"
+  - button "Calendar"
+  - button "Card"
+  - button "Checkbox"
+  - button "Color Input"
+  - button "Color Picker"
+  - button "Context Menu"
+  - button "Date Picker"
+  - button "Date Range Picker"
+  - button "Dialog"
+  - button "Dropdown Menu"
+  - button "Field"
+  - button "Field Set"
+  - button "Input"
+  - button "Label"
+  - button "Menubar"
+  - button "Popover"
+  - button "Progress"
+  - button "Radio Group"
+  - button "Range Calendar"
+  - button "Select"
+  - button "Separator"
+  - button "Skeleton"
+  - button "Slider"
+  - button "Switch"
+  - button "Table"
+  - button "Tabs"
+  - button "Textarea"
+  - button "Title Bar"
+  - button "Toast"
+  - button "Toggle"
+  - button "Toggle Group"
+  - button "Tooltip"
 - region "Notifications"

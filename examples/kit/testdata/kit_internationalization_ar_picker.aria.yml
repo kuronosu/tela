@@ -1,0 +1,86 @@
+- heading "Internationalization" [level=1]
+- paragraph: Messages, plurals and formats in English, Spanish and Arabic. The Language menu in the header switches the whole window, and its direction.
+- text: i18n
+- heading "Messages" [level=3]
+- paragraph: "Arguments in {braces}, numbers formatted for the language, and nested keys written with a dot: t(\"summary.updated\")."
+- text: t("greeting", "name", "Ana") مرحبا يا Ana! t("step", "step", 3, "total", 4) الخطوة ٣ من ٤ t("summary.discount") الخصم t("summary.updated") آخر تحديث
+- heading "Plurals" [level=3]
+- paragraph: "The language's own rules choose the form: English has one and other, Arabic zero, one, two, few, many and other. Count to see them change."
+- button "إزالة واحد"
+- text: ٣
+- button "إضافة واحد"
+- radiogroup "Count":
+  - radio "٠"
+  - radio "١"
+  - radio "٢"
+  - radio "٣" [checked]
+  - radio "١١"
+  - radio "١٠٠"
+- text: plural "messages" ٣ رسائل جديدة plural "items" ٣ عناصر في سلتك selectordinal "rank" ترتيبك ٣ في الطابور the plural category few
+- heading "Formatting" [level=3]
+- paragraph: i18n.UseFormatter gives numbers, percentages, dates, times and lists the way the language writes them, digits included.
+- text: f.Number(1234.5, MinFractionDigits(2)) ١٬٢٣٤٫٥٠ f.Number(0.15, Percent()) ١٥٪؜ f.Date(t, Full) السبت، ١٤ مارس ٢٠٢٦ f.Time(t, Short) ٣:٣٠ م f.List(items) تفاح وكمثرى وتين
+- heading "kit follows the language" [level=3]
+- paragraph: A DatePicker writes the date, names the months and weekdays, starts the week and lays the calendar out the way the language does. What kit defaults to English comes from the catalog (kit.* keys); Arabic's short weekday names do not fit a cell, so it asks for the narrow ones.
+- group:
+  - text: تاريخ التوصيل
+  - button "تاريخ التوصيل" [expanded]: اختر تاريخًا
+  - paragraph: لا نوصل أيام الأحد.
+- dialog "تاريخ التوصيل":
+  - application "تاريخ التوصيل, أكتوبر ٢٠٢٦":
+    - button "السابق" [disabled]
+    - button "التالي"
+    - heading "أكتوبر ٢٠٢٦" [level=2]
+    - grid "أكتوبر ٢٠٢٦":
+      - row "السبت الأحد الاثنين الثلاثاء الأربعاء الخميس الجمعة":
+        - columnheader "السبت": س
+        - columnheader "الأحد": ح
+        - columnheader "الاثنين": ن
+        - columnheader "الثلاثاء": ث
+        - columnheader "الأربعاء": ر
+        - columnheader "الخميس": خ
+        - columnheader "الجمعة": ج
+      - row "الخميس، ١ أكتوبر ٢٠٢٦ الجمعة، ٢ أكتوبر ٢٠٢٦":
+        - gridcell "الخميس، ١ أكتوبر ٢٠٢٦" [disabled]: ١
+        - gridcell "الجمعة، ٢ أكتوبر ٢٠٢٦" [disabled]: ٢
+      - row "السبت، ٣ أكتوبر ٢٠٢٦ الأحد، ٤ أكتوبر ٢٠٢٦ الاثنين، ٥ أكتوبر ٢٠٢٦ الثلاثاء، ٦ أكتوبر ٢٠٢٦ الأربعاء، ٧ أكتوبر ٢٠٢٦ الخميس، ٨ أكتوبر ٢٠٢٦ الجمعة، ٩ أكتوبر ٢٠٢٦":
+        - gridcell "السبت، ٣ أكتوبر ٢٠٢٦" [disabled]: ٣
+        - gridcell "الأحد، ٤ أكتوبر ٢٠٢٦" [disabled]: ٤
+        - gridcell "الاثنين، ٥ أكتوبر ٢٠٢٦" [disabled]: ٥
+        - gridcell "الثلاثاء، ٦ أكتوبر ٢٠٢٦" [disabled]: ٦
+        - gridcell "الأربعاء، ٧ أكتوبر ٢٠٢٦" [disabled]: ٧
+        - gridcell "الخميس، ٨ أكتوبر ٢٠٢٦" [disabled]: ٨
+        - gridcell "الجمعة، ٩ أكتوبر ٢٠٢٦" [disabled]: ٩
+      - row "السبت، ١٠ أكتوبر ٢٠٢٦ الأحد، ١١ أكتوبر ٢٠٢٦ الاثنين، ١٢ أكتوبر ٢٠٢٦ الثلاثاء، ١٣ أكتوبر ٢٠٢٦ الأربعاء، ١٤ أكتوبر ٢٠٢٦ الخميس، ١٥ أكتوبر ٢٠٢٦ الجمعة، ١٦ أكتوبر ٢٠٢٦":
+        - gridcell "السبت، ١٠ أكتوبر ٢٠٢٦" [disabled]: ١٠
+        - gridcell "الأحد، ١١ أكتوبر ٢٠٢٦" [disabled]: ١١
+        - gridcell "الاثنين، ١٢ أكتوبر ٢٠٢٦" [disabled]: ١٢
+        - gridcell "الثلاثاء، ١٣ أكتوبر ٢٠٢٦" [disabled]: ١٣
+        - gridcell "الأربعاء، ١٤ أكتوبر ٢٠٢٦" [disabled]: ١٤
+        - gridcell "الخميس، ١٥ أكتوبر ٢٠٢٦" [disabled]: ١٥
+        - gridcell "الجمعة، ١٦ أكتوبر ٢٠٢٦" [disabled]: ١٦
+      - row "السبت، ١٧ أكتوبر ٢٠٢٦ الأحد، ١٨ أكتوبر ٢٠٢٦ الاثنين، ١٩ أكتوبر ٢٠٢٦ الثلاثاء، ٢٠ أكتوبر ٢٠٢٦ الأربعاء، ٢١ أكتوبر ٢٠٢٦ الخميس، ٢٢ أكتوبر ٢٠٢٦ الجمعة، ٢٣ أكتوبر ٢٠٢٦":
+        - gridcell "السبت، ١٧ أكتوبر ٢٠٢٦" [disabled]: ١٧
+        - gridcell "الأحد، ١٨ أكتوبر ٢٠٢٦" [disabled]: ١٨
+        - gridcell "الاثنين، ١٩ أكتوبر ٢٠٢٦" [disabled]: ١٩
+        - gridcell "الثلاثاء، ٢٠ أكتوبر ٢٠٢٦" [disabled]: ٢٠
+        - gridcell "الأربعاء، ٢١ أكتوبر ٢٠٢٦" [disabled]: ٢١
+        - gridcell "الخميس، ٢٢ أكتوبر ٢٠٢٦" [disabled]: ٢٢
+        - gridcell "الجمعة، ٢٣ أكتوبر ٢٠٢٦" [disabled]: ٢٣
+      - row "السبت، ٢٤ أكتوبر ٢٠٢٦ الأحد، ٢٥ أكتوبر ٢٠٢٦ الاثنين، ٢٦ أكتوبر ٢٠٢٦ الثلاثاء، ٢٧ أكتوبر ٢٠٢٦ الأربعاء، ٢٨ أكتوبر ٢٠٢٦ الخميس، ٢٩ أكتوبر ٢٠٢٦ الجمعة، ٣٠ أكتوبر ٢٠٢٦":
+        - gridcell "السبت، ٢٤ أكتوبر ٢٠٢٦" [disabled]: ٢٤
+        - gridcell "الأحد، ٢٥ أكتوبر ٢٠٢٦" [disabled]: ٢٥
+        - gridcell "الاثنين، ٢٦ أكتوبر ٢٠٢٦": ٢٦
+        - gridcell "الثلاثاء، ٢٧ أكتوبر ٢٠٢٦": ٢٧
+        - gridcell "الأربعاء، ٢٨ أكتوبر ٢٠٢٦": ٢٨
+        - gridcell "الخميس، ٢٩ أكتوبر ٢٠٢٦": ٢٩
+        - gridcell "الجمعة، ٣٠ أكتوبر ٢٠٢٦": ٣٠
+      - row "السبت، ٣١ أكتوبر ٢٠٢٦ الأحد، ١ نوفمبر ٢٠٢٦ الاثنين، ٢ نوفمبر ٢٠٢٦ الثلاثاء، ٣ نوفمبر ٢٠٢٦ الأربعاء، ٤ نوفمبر ٢٠٢٦ الخميس، ٥ نوفمبر ٢٠٢٦ الجمعة، ٦ نوفمبر ٢٠٢٦":
+        - gridcell "السبت، ٣١ أكتوبر ٢٠٢٦": ٣١
+        - gridcell "الأحد، ١ نوفمبر ٢٠٢٦" [disabled]: ١
+        - gridcell "الاثنين، ٢ نوفمبر ٢٠٢٦": ٢
+        - gridcell "الثلاثاء، ٣ نوفمبر ٢٠٢٦": ٣
+        - gridcell "الأربعاء، ٤ نوفمبر ٢٠٢٦": ٤
+        - gridcell "الخميس، ٥ نوفمبر ٢٠٢٦": ٥
+        - gridcell "الجمعة، ٦ نوفمبر ٢٠٢٦": ٦
+- region "Notifications"

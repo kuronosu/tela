@@ -19,9 +19,11 @@ func dialogPage() tela.Node {
 	external, setExternal := tela.UseState(false)
 	saved, setSaved := tela.UseState("")
 	toast := kit.UseToast()
+	k := useKitText()
 	return grid(
 		demo("Edit profile", "A modal dialog: the page is inert, Tab stays inside, Escape and a press on the scrim close it, and the focus returns to the trigger.", colStart,
 			kit.Dialog{
+				CloseLabel:  k.Close,
 				Trigger:     kit.Button{Variant: kit.Outline, Children: Text("Edit profile")},
 				Title:       Text("Edit profile"),
 				Description: Text("Make changes to your profile here. Click save when you're done."),
@@ -42,6 +44,7 @@ func dialogPage() tela.Node {
 			readout(map[bool]string{true: "No changes yet.", false: saved}[saved == ""])),
 		demo("Share link", "A dialog with a read-only field and a button, and the close button, which shows by default.", "",
 			kit.Dialog{
+				CloseLabel:  k.Close,
 				Trigger:     kit.Button{Variant: kit.Outline, Icon: icons.Share2, Children: Text("Share")},
 				Title:       Text("Share link"),
 				Description: Text("Anyone who has this link will be able to view this."),
@@ -52,6 +55,7 @@ func dialogPage() tela.Node {
 			}),
 		demo("Scrolling content", "The content slot scrolls inside the panel with a max-h class.", "",
 			kit.Dialog{
+				CloseLabel:  k.Close,
 				Trigger:     kit.Button{Variant: kit.Outline, Children: Text("Terms of service")},
 				Title:       Text("Terms of service"),
 				Description: Text("Please read them before you continue."),
@@ -65,7 +69,7 @@ func dialogPage() tela.Node {
 			}),
 		demo("Opened by your state", "With no Trigger the dialog is opened by Open, which is your state; the button here is not its trigger.", "",
 			kit.Button{Variant: kit.Secondary, OnClick: func() { setExternal.Set(true) }, Children: Text("Show the welcome dialog")},
-			kit.Dialog{Open: &external, OnOpenChange: setExternal.Set,
+			kit.Dialog{CloseLabel: k.Close, Open: &external, OnOpenChange: setExternal.Set,
 				Title: Text("Welcome to Tela"), Description: Text("This dialog has no trigger: its state is yours."),
 				Footer: kit.Button{OnClick: func() { setExternal.Set(false) }, Children: Text("Get started")}}),
 	)
@@ -73,13 +77,14 @@ func dialogPage() tela.Node {
 
 func alertDialogPage() tela.Node {
 	result, setResult := tela.UseState("")
+	k := useKitText()
 	return grid(
 		demo("Destructive confirmation", "Focus starts on Cancel, so Enter never confirms by accident. A press on the scrim does not close it; Escape does.", colStart,
 			kit.AlertDialog{
 				Trigger:     kit.Button{Variant: kit.Outline, Children: Text("Delete project")},
 				Title:       Text("Are you absolutely sure?"),
 				Description: Text("This action cannot be undone. The project and its deployments are deleted from our servers."),
-				Action:      Text("Delete"), Destructive: true,
+				Cancel:      Text(k.Cancel), Action: Text("Delete"), Destructive: true,
 				OnAction: func() { setResult.Set("Deleted the project.") },
 				OnCancel: func() { setResult.Set("Cancelled.") },
 			},
@@ -92,8 +97,9 @@ func alertDialogPage() tela.Node {
 				Description: Text("You will lose access to its projects."),
 				Cancel:      Text("Stay"), Action: Text("Leave"),
 			}),
-		demo("Default labels", "Cancel and Continue are the labels when the slots are nil.", "",
+		demo("Default labels", "Cancel and Continue are the labels when the slots are nil; here they come from the language's catalog.", "",
 			kit.AlertDialog{
+				Cancel: Text(k.Cancel), Action: Text(k.Continue),
 				Trigger:     kit.Button{Children: Text("Publish")},
 				Title:       Text("Publish this page?"),
 				Description: Text("It will be visible to everyone with the link."),

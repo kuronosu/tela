@@ -218,15 +218,19 @@ dialog with the keyboard alone.
 ### Component gallery (`kit`)
 
 **[kit](examples/kit)**: the gallery of package `kit`, shadcn/ui's look as
-Go components: a sidebar with a page for each of its 37 components, each with its
-variants, sizes and states in a small realistic composition, a light/dark switch
-and a Style picker that restyles the whole window with a second recipe made of a
-few edits of `kit.DefaultStyle()`. Everything on screen is a kit component. Every
-page is also a preview (`tela dev --preview Calendar ./examples/kit`), and its
-tests drive the sidebar with the keyboard alone.
+Go components: it opens on an Introduction, with a sidebar and a page for each of
+its 37 components, each with its variants, sizes and states in a small realistic
+composition, a light/dark switch and a Style picker that restyles the whole window
+with a second recipe made of a few edits of `kit.DefaultStyle()`. A Language menu
+(English, Spanish, Arabic) sets the language and the direction of the whole window,
+so every page can be seen right to left, and an Internationalization page shows
+the catalogs, plurals and formats behind it
+(`tela dev --preview Internationalization ./examples/kit`). Everything on screen is
+a kit component. Every page is also a preview (`tela dev --preview Calendar
+./examples/kit`), and its tests drive the sidebar with the keyboard alone.
 
 <p align="center">
-  <img src="docs/images/kit.png" alt="kit gallery, light, the Button page" width="49%">
+  <img src="docs/images/kit.png" alt="kit gallery, light, the Introduction" width="49%">
   <img src="docs/images/kit-dark.png" alt="kit gallery, dark, in the Rounded style" width="49%">
 </p>
 
@@ -244,9 +248,7 @@ system.
   <img src="docs/images/native-breeze.png" alt="native example, KDE" width="32%">
 </p>
 
-Also there: [`hello`](examples/hello), the screen at the top of this page; and
-[`i18n`](examples/i18n), an order summary in English, Spanish and Arabic that
-switches language while running and mirrors to right to left.
+Also there: [`hello`](examples/hello), the screen at the top of this page.
 
 ## Styling
 

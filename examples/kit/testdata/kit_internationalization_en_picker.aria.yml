@@ -1,0 +1,79 @@
+- heading "Internationalization" [level=1]
+- paragraph: Messages, plurals and formats in English, Spanish and Arabic. The Language menu in the header switches the whole window, and its direction.
+- text: i18n
+- heading "Messages" [level=3]
+- paragraph: "Arguments in {braces}, numbers formatted for the language, and nested keys written with a dot: t(\"summary.updated\")."
+- text: t("greeting", "name", "Ana") Hello, Ana! t("step", "step", 3, "total", 4) Step 3 of 4 t("summary.discount") Discount t("summary.updated") Updated
+- heading "Plurals" [level=3]
+- paragraph: "The language's own rules choose the form: English has one and other, Arabic zero, one, two, few, many and other. Count to see them change."
+- button "Remove one"
+- text: "3"
+- button "Add one"
+- radiogroup "Count":
+  - radio "0"
+  - radio "1"
+  - radio "2"
+  - radio "3" [checked]
+  - radio "11"
+  - radio "100"
+- text: plural "messages" 3 new messages plural "items" 3 items in your cart selectordinal "rank" You are 3rd in line the plural category other
+- heading "Formatting" [level=3]
+- paragraph: i18n.UseFormatter gives numbers, percentages, dates, times and lists the way the language writes them, digits included.
+- text: f.Number(1234.5, MinFractionDigits(2)) 1,234.50 f.Number(0.15, Percent()) 15% f.Date(t, Full) Saturday, March 14, 2026 f.Time(t, Short) 3:30 PM f.List(items) apples, pears, and figs
+- heading "kit follows the language" [level=3]
+- paragraph: A DatePicker writes the date, names the months and weekdays, starts the week and lays the calendar out the way the language does. What kit defaults to English comes from the catalog (kit.* keys); Arabic's short weekday names do not fit a cell, so it asks for the narrow ones.
+- group:
+  - text: Delivery date
+  - button "Delivery date" [expanded]: Pick a date
+  - paragraph: We do not deliver on Sundays.
+- dialog "Delivery date":
+  - application "Delivery date, October 2026":
+    - button "Previous" [disabled]
+    - button "Next"
+    - heading "October 2026" [level=2]
+    - grid "October 2026":
+      - row "Sunday Monday Tuesday Wednesday Thursday Friday Saturday":
+        - columnheader "Sunday": Su
+        - columnheader "Monday": Mo
+        - columnheader "Tuesday": Tu
+        - columnheader "Wednesday": We
+        - columnheader "Thursday": Th
+        - columnheader "Friday": Fr
+        - columnheader "Saturday": Sa
+      - row "Thursday, October 1, 2026 Friday, October 2, 2026 Saturday, October 3, 2026":
+        - gridcell "Thursday, October 1, 2026" [disabled]: "1"
+        - gridcell "Friday, October 2, 2026" [disabled]: "2"
+        - gridcell "Saturday, October 3, 2026" [disabled]: "3"
+      - row "Sunday, October 4, 2026 Monday, October 5, 2026 Tuesday, October 6, 2026 Wednesday, October 7, 2026 Thursday, October 8, 2026 Friday, October 9, 2026 Saturday, October 10, 2026":
+        - gridcell "Sunday, October 4, 2026" [disabled]: "4"
+        - gridcell "Monday, October 5, 2026" [disabled]: "5"
+        - gridcell "Tuesday, October 6, 2026" [disabled]: "6"
+        - gridcell "Wednesday, October 7, 2026" [disabled]: "7"
+        - gridcell "Thursday, October 8, 2026" [disabled]: "8"
+        - gridcell "Friday, October 9, 2026" [disabled]: "9"
+        - gridcell "Saturday, October 10, 2026" [disabled]: "10"
+      - row "Sunday, October 11, 2026 Monday, October 12, 2026 Tuesday, October 13, 2026 Wednesday, October 14, 2026 Thursday, October 15, 2026 Friday, October 16, 2026 Saturday, October 17, 2026":
+        - gridcell "Sunday, October 11, 2026" [disabled]: "11"
+        - gridcell "Monday, October 12, 2026" [disabled]: "12"
+        - gridcell "Tuesday, October 13, 2026" [disabled]: "13"
+        - gridcell "Wednesday, October 14, 2026" [disabled]: "14"
+        - gridcell "Thursday, October 15, 2026" [disabled]: "15"
+        - gridcell "Friday, October 16, 2026" [disabled]: "16"
+        - gridcell "Saturday, October 17, 2026" [disabled]: "17"
+      - row "Sunday, October 18, 2026 Monday, October 19, 2026 Tuesday, October 20, 2026 Wednesday, October 21, 2026 Thursday, October 22, 2026 Friday, October 23, 2026 Saturday, October 24, 2026":
+        - gridcell "Sunday, October 18, 2026" [disabled]: "18"
+        - gridcell "Monday, October 19, 2026" [disabled]: "19"
+        - gridcell "Tuesday, October 20, 2026" [disabled]: "20"
+        - gridcell "Wednesday, October 21, 2026" [disabled]: "21"
+        - gridcell "Thursday, October 22, 2026" [disabled]: "22"
+        - gridcell "Friday, October 23, 2026" [disabled]: "23"
+        - gridcell "Saturday, October 24, 2026" [disabled]: "24"
+      - row "Sunday, October 25, 2026 Monday, October 26, 2026 Tuesday, October 27, 2026 Wednesday, October 28, 2026 Thursday, October 29, 2026 Friday, October 30, 2026 Saturday, October 31, 2026":
+        - gridcell "Sunday, October 25, 2026" [disabled]: "25"
+        - gridcell "Monday, October 26, 2026": "26"
+        - gridcell "Tuesday, October 27, 2026": "27"
+        - gridcell "Wednesday, October 28, 2026": "28"
+        - gridcell "Thursday, October 29, 2026": "29"
+        - gridcell "Friday, October 30, 2026": "30"
+        - gridcell "Saturday, October 31, 2026": "31"
+- region "Notifications"

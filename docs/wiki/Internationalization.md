@@ -226,9 +226,15 @@ ordering (write the Unicode isolates U+2067 RLI / U+2066 LRI ... U+2069 PDI
 in the text instead), and there is no `divide-x-*` (Tela has no
 `divide-*` classes).
 
-[`examples/i18n`](https://github.com/kuronosu/tela/tree/main/examples/i18n)
-is an order summary in English, Spanish and Arabic with a language switcher
-that mirrors the screen.
+The [`examples/kit`](https://github.com/kuronosu/tela/tree/main/examples/kit)
+gallery shows all of this: its header has a Language menu (English, Spanish,
+Arabic) that sets the locale and the direction of the whole window, kit's
+English defaults come from its catalogs (`locales/*.json`), and an
+Internationalization page lists arguments, plurals (with a counter to walk
+Arabic's six categories), the ordinal, a nested key and the formatter's
+numbers, percentages, dates, times and lists. Try it with
+`tela dev --preview Internationalization ./examples/kit`, or
+`tela snapshot --preview "Internationalization ar" ./examples/kit`.
 
 ## Testing
 

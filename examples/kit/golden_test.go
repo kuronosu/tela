@@ -15,7 +15,7 @@ import (
 // indeterminate bar would pulse), and between them they cover the kit's text
 // fields, choices, dates, color, tables and tabs.
 func TestGolden(t *testing.T) {
-	for _, name := range []string{"Gallery", "Gallery Rounded", "Button", "Card", "Field", "Calendar", "Table", "Tabs", "ColorPicker", "Select", "ToggleGroup", "TitleBar"} {
+	for _, name := range []string{"Gallery", "Gallery Rounded", "Introduction", "Button", "Card", "Field", "Calendar", "Table", "Tabs", "ColorPicker", "Select", "ToggleGroup", "TitleBar"} {
 		for _, s := range schemes {
 			t.Run(fmt.Sprintf("%s/%s", name, s.name), func(t *testing.T) {
 				a := mount(t, Previews[name], s.opts...)
@@ -68,8 +68,17 @@ func TestGoldenOpen(t *testing.T) {
 		a.ExpectRole("dialog", "Edit profile")
 		a.GoldenScales("kit_dialog_open_rounded_light", 1)
 	})
+	t.Run("rounded introduction", func(t *testing.T) {
+		a := mount(t, Gallery{Page: "Introduction", Style: "rounded"})
+		a.GoldenScales("kit_introduction_rounded_light", 1)
+	})
+	t.Run("rounded introduction dark", func(t *testing.T) {
+		a := mount(t, Gallery{Page: "Introduction", Style: "rounded"}, telatest.Dark())
+		a.GoldenScales("kit_introduction_rounded_dark", 1)
+	})
 	t.Run("sidebar focus", func(t *testing.T) {
 		a := mount(t, Gallery{Page: "Card"})
+		a.Press("Tab")
 		a.Press("Tab")
 		a.Press("Tab")
 		a.Press("Tab")
@@ -88,6 +97,60 @@ func TestGoldenTitleBarFull(t *testing.T) {
 			a.GoldenScales("kit_titlebar_full_"+s.name, 1)
 		})
 	}
+}
+
+// TestGoldenIntroductionFull is the whole Introduction (a long page: the hero,
+// what kit is, the code and the list of components), light and dark.
+func TestGoldenIntroductionFull(t *testing.T) {
+	for _, s := range schemes {
+		t.Run(s.name, func(t *testing.T) {
+			a := mount(t, Previews["Introduction"], append([]telatest.Option{telatest.Size(1280, 1700)}, s.opts...)...)
+			a.GoldenScales("kit_introduction_full_"+s.name, 1)
+		})
+	}
+}
+
+// TestGoldenLanguages is the Internationalization page in each language, and
+// the gallery in Arabic: the window mirrored, with the date picker open.
+func TestGoldenLanguages(t *testing.T) {
+	for _, tag := range languages {
+		t.Run(tag, func(t *testing.T) {
+			name := "Internationalization"
+			if tag != "en" {
+				name += " " + tag
+			}
+			a := mount(t, Previews[name], telatest.Size(1280, 1000))
+			a.GoldenScales("kit_internationalization_"+tag, 1)
+		})
+	}
+	t.Run("ar dark", func(t *testing.T) {
+		a := mount(t, Previews["Internationalization ar"], telatest.Size(1280, 1000), telatest.Dark())
+		a.GoldenScales("kit_internationalization_ar_dark", 1)
+	})
+	t.Run("gallery ar", func(t *testing.T) {
+		a := mount(t, Previews["Gallery Arabic"])
+		a.GoldenScales("kit_gallery_ar_light", 1)
+	})
+	t.Run("gallery ar dark", func(t *testing.T) {
+		a := mount(t, Previews["Gallery Arabic"], telatest.Dark())
+		a.GoldenScales("kit_gallery_ar_dark", 1)
+	})
+	t.Run("gallery es", func(t *testing.T) {
+		a := mount(t, Gallery{Page: "Internationalization", Locale: "es"})
+		a.GoldenScales("kit_gallery_es_light", 1)
+	})
+	t.Run("datepicker open ar", func(t *testing.T) {
+		a := mount(t, Previews["Gallery Arabic"])
+		a.Click(telatest.ByRole("button", "Date"))
+		a.ExpectRole("grid", "أكتوبر ٢٠٢٦")
+		a.GoldenScales("kit_datepicker_open_ar_light", 1)
+	})
+	t.Run("language list", func(t *testing.T) {
+		a := mount(t, Gallery{Page: "Internationalization"})
+		a.Click(languageMenu)
+		a.ExpectCount(telatest.ByRole("option", ""), len(languages))
+		a.GoldenScales("kit_language_list_light", 1)
+	})
 }
 
 // slug turns a preview name such as "Gallery Rounded" into "gallery_rounded".
