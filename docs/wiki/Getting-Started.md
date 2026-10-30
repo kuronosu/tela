@@ -46,14 +46,16 @@ func Counter() tela.Node { return tela.C(counter) }
 func counter() tela.Node {
 	count, setCount := tela.UseState(0)
 
-	return Div(Class("flex flex-col items-center gap-6 p-10 rounded-3xl "+
-		"bg-linear-to-br from-indigo-500 to-fuchsia-600 shadow-2xl"),
-		H1(Class("text-5xl font-bold text-white tracking-tight"),
-			Textf("Count: %d", count)),
-		Button(Class("px-6 py-3 rounded-xl bg-white/15 text-white "+
-			"hover:bg-white/25 active:scale-95"),
-			OnClick(func(tela.MouseEvent) { setCount.Set(count + 1) }),
-			Text("Increment"),
+	return Div(Class("flex items-center justify-center h-full bg-stone-200"),
+		Div(Class("flex flex-col items-center gap-6 w-80 p-10 rounded-2xl",
+			"bg-stone-50 border border-stone-300 shadow-xl text-stone-800"),
+			Span(Class("text-sm font-medium tracking-widest text-stone-500"), Text("COUNT")),
+			H1(Class("text-8xl font-bold tracking-tight tabular-nums"), Textf("%d", count)),
+			Button(Class("w-full py-3 rounded-xl bg-stone-800 text-stone-100 font-medium",
+				"hover:bg-stone-700 active:scale-95 transition"),
+				OnClick(func() { setCount.Update(func(n int) int { return n + 1 }) }),
+				Text("Increment"),
+			),
 		),
 	)
 }
@@ -63,11 +65,10 @@ func Preview() tela.Node { return Counter() }
 
 func main() {
 	tela.Main(tela.App{
-		Title:     "Counter",
-		Width:     480,
-		Height:    320,
-		RootClass: "bg-slate-100",
-		Root:      Counter(),
+		Title:  "Counter",
+		Width:  480,
+		Height: 400,
+		Root:   Counter(),
 	})
 }
 ```
@@ -80,7 +81,7 @@ The pieces:
   previous state.
 - [`Class`](https://pkg.go.dev/github.com/kuronosu/tela/h#Class) takes [Tailwind v4](https://tailwindcss.com/docs) classes. Variants
   such as `hover:` and `active:` restyle the button under the pointer.
-- [`OnClick`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnClick) receives a [`tela.MouseEvent`](https://pkg.go.dev/github.com/kuronosu/tela#MouseEvent) by value.
+- [`OnClick`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnClick) takes a `func()`, or a `func(tela.MouseEvent)` when the handler reads the [event](https://pkg.go.dev/github.com/kuronosu/tela#MouseEvent).
 - [`tela.App`](https://pkg.go.dev/github.com/kuronosu/tela#App) describes the window and [`tela.Main`](https://pkg.go.dev/github.com/kuronosu/tela#Main) opens it and runs the event loop
   until it is closed. When no display is available it prints the error and
   exits with status 1 ([`tela.Run`](https://pkg.go.dev/github.com/kuronosu/tela#Run) returns the error instead). Both panic when
@@ -145,8 +146,8 @@ project:
 ```bash
 CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest
 
-tela snapshot --size 480x320 -o counter.png .
-tela inspect --size 480x320 .
+tela snapshot --size 480x400 -o counter.png .
+tela inspect --size 480x400 .
 ```
 
 (`go run github.com/kuronosu/tela/cmd/tela snapshot ...` does the same without
@@ -154,7 +155,8 @@ installing anything.) While you edit, `tela dev .` keeps the window open and
 reloads it on every save, with its state.
 
 ```yaml
-- 'heading "Count: 0" [level=1]'
+- text: COUNT
+- heading "0" [level=1]
 - button "Increment"
 ```
 
@@ -177,11 +179,11 @@ import (
 )
 
 func TestIncrement(t *testing.T) {
-	app := telatest.Mount(t, Counter(), telatest.Size(480, 320))
+	app := telatest.Mount(t, Counter(), telatest.Size(480, 400))
 
 	app.Click(telatest.ByRole("button", "Increment"))
 
-	app.ExpectText("Count: 1")
+	app.ExpectText("COUNT 1 Increment")
 }
 ```
 

@@ -13,13 +13,16 @@ interfaces without trial and error.
 func Counter() tela.Node {
 	count, setCount := tela.UseState(0)
 
-	return Div(Class("flex flex-col items-center gap-6 p-10 rounded-3xl "+
-		"bg-linear-to-br from-indigo-500 to-fuchsia-600 shadow-2xl"),
-		H1(Class("text-5xl font-bold text-white tracking-tight"),
-			Textf("Count: %d", count)),
-		Button(Class("px-6 py-3 rounded-xl bg-white/15 text-white hover:bg-white/25 active:scale-95"),
-			OnClick(func(tela.MouseEvent) { setCount.Set(count + 1) }),
-			Text("Increment"),
+	return Div(Class("flex items-center justify-center h-full bg-stone-200"),
+		Div(Class("flex flex-col items-center gap-6 w-80 p-10 rounded-2xl",
+			"bg-stone-50 border border-stone-300 shadow-xl text-stone-800"),
+			Span(Class("text-sm font-medium tracking-widest text-stone-500"), Text("COUNT")),
+			H1(Class("text-8xl font-bold tracking-tight tabular-nums"), Textf("%d", count)),
+			Button(Class("w-full py-3 rounded-xl bg-stone-800 text-stone-100 font-medium",
+				"hover:bg-stone-700 active:scale-95 transition"),
+				OnClick(func() { setCount.Update(func(n int) int { return n + 1 }) }),
+				Text("Increment"),
+			),
 		),
 	)
 }

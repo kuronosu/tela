@@ -8,7 +8,7 @@ import (
 
 func TestCounter(t *testing.T) {
 	app := telatest.MountApp(t, App)
-	app.ExpectText("Count: 0")
+	app.ExpectText("COUNT 0 Increment")
 	app.Click(telatest.ByRole("button", "Increment"))
-	app.ExpectText("Count: 1")
+	app.ExpectText("COUNT 1 Increment")
 }

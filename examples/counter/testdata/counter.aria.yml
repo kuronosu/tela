@@ -1,2 +1,3 @@
-- 'heading "Count: 0" [level=1]'
+- text: COUNT
+- heading "0" [level=1]
 - button "Increment"

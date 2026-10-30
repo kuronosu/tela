@@ -19,7 +19,8 @@ func TestClickByRole(t *testing.T) {
 	app := telatest.Mount(t, Counter(), telatest.Size(800, 600))
 	app.Click(telatest.ByRole("button", "Increment"))
 	app.ExpectAria(`
-		- 'heading "Count: 1" [level=1]'
+		- text: COUNT
+		- heading "1" [level=1]
 		- button "Increment"
 	`)
 }

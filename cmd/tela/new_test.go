@@ -100,7 +100,7 @@ func TestNewCreatesApp(t *testing.T) {
 	}
 	for file, wants := range map[string][]string{
 		"go.mod":       {"module my-notes\n", "go " + templateGoVersion + "\n"},
-		"main.go":      {"// Command my-notes is", `Title:     "My Notes"`, "func main() { tela.Main(App) }"},
+		"main.go":      {"// Command my-notes is", `Title:  "My Notes"`, "func main() { tela.Main(App) }"},
 		"main_test.go": {"telatest.MountApp(t, App)", `ByRole("button", "Increment")`},
 		"README.md":    {"# My Notes", "tela dev"},
 		".gitignore":   {"/my-notes\n", "/my-notes.exe\n"},
@@ -259,7 +259,7 @@ func TestNewAppBuildsAndPasses(t *testing.T) {
 	if code := run([]string{"inspect", "."}, &out, &errOut); code != 0 {
 		t.Fatalf("inspect: code %d\nstderr: %s", code, errOut.String())
 	}
-	if want := "- 'heading \"Count: 0\" [level=1]'\n- button \"Increment\"\n"; out.String() != want {
+	if want := "- text: COUNT\n- heading \"0\" [level=1]\n- button \"Increment\"\n"; out.String() != want {
 		t.Errorf("inspect printed\n%s\nwant\n%s", out.String(), want)
 	}
 }

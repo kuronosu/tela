@@ -11,7 +11,7 @@ import (
 // cursor shows over it.
 func TestCounterClicks(t *testing.T) {
 	app := telatest.Mount(t, Counter(), telatest.Size(800, 600))
-	app.ExpectText("Count: 0")
+	app.ExpectText("COUNT 0 Increment")
 	inc := telatest.ByRole("button", "Increment")
 	xBox := app.Bounds(inc)
 	x, y, w, h := xBox.X, xBox.Y, xBox.Width, xBox.Height
@@ -23,7 +23,7 @@ func TestCounterClicks(t *testing.T) {
 
 	app.Hover(inc)
 	if r, g, b := probe(); r == r0 && g == g0 && b == b0 {
-		t.Error("hover:bg-white/25 did not change the button")
+		t.Error("hover:bg-stone-700 did not change the button")
 	}
 	if got := app.Cursor(); got != "pointer" {
 		t.Errorf("cursor over the button is %v, want pointer", got)
@@ -32,5 +32,5 @@ func TestCounterClicks(t *testing.T) {
 	app.MouseUp()
 	app.Click(inc)
 	app.Click(inc)
-	app.ExpectText("Count: 3")
+	app.ExpectText("COUNT 3 Increment")
 }

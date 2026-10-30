@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Changed
+
+- The Counter example has a new design: a stone card with a "COUNT" label, a large number and a full-width dark button, in place of the gradient card. It applies to `examples/counter`, the README and wiki snippets and image, and the app that `tela new` creates (480x400 window, test clicks Increment).
+
 ## [0.12.6] - 2026-10-29
 
 ### Fixed

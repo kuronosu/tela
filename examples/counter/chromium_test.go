@@ -16,7 +16,8 @@ import (
 // HTML, styled by Tailwind's own compiled CSS (compare_test.go). The files
 // in testdata/chromium are:
 //
-//	counter.html            the markup (counterMarkup), directly in <body>
+//	counter.html            the markup (counterMarkup), in a <body> as tall
+//	                        as the viewport (what h-full needs)
 //	counter.css             compiled from it by the Tailwind CLI v4.3.3,
 //	                        with Inter as the sans font
 //	counter_x1.png,
@@ -40,8 +41,10 @@ const (
 	counterW, counterH = 800, 600
 
 	// counterMarkup is Counter's tree as HTML, with the same classes and
-	// text (count 0).
-	counterMarkup = `<div class="flex flex-col items-center gap-6 p-10 rounded-3xl bg-linear-to-br from-indigo-500 to-fuchsia-600 shadow-2xl"><h1 class="text-5xl font-bold text-white tracking-tight">Count: 0</h1><button class="px-6 py-3 rounded-xl bg-white/15 text-white backdrop-blur hover:bg-white/25 active:scale-95 transition">Increment</button></div>`
+	// text (count 0). The outer div has h-full: counterHTML makes html and
+	// body as tall as the viewport, which is what the root of a Tela window
+	// is.
+	counterMarkup = `<div class="flex items-center justify-center h-full bg-stone-200"><div class="flex flex-col items-center gap-6 w-80 p-10 rounded-2xl bg-stone-50 border border-stone-300 shadow-xl text-stone-800"><span class="text-sm font-medium tracking-widest text-stone-500">COUNT</span><h1 class="text-8xl font-bold tracking-tight tabular-nums">0</h1><button class="w-full py-3 rounded-xl bg-stone-800 text-stone-100 font-medium hover:bg-stone-700 active:scale-95 transition">Increment</button></div></div>`
 
 	// chromiumFonts loads the embedded Inter in the page, relative to
 	// testdata/chromium.
@@ -52,24 +55,37 @@ const (
 
 const chromiumDir = "testdata/chromium"
 
+// pageHead opens the page: html and body fill the viewport, so that the
+// outer div's h-full is the viewport's height.
+const pageHead = "<!doctype html>\n<html class=\"h-full\">\n<head>\n<meta charset=\"utf-8\">\n<link rel=\"stylesheet\" href=\"counter.css\">\n</head>\n<body class=\"h-full\">\n"
+
 // counterHTML is the page screenshotted by Chromium.
 func counterHTML() string {
-	return "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<link rel=\"stylesheet\" href=\"counter.css\">\n</head>\n<body>\n" +
+	return pageHead +
 		counterMarkup + "\n</body>\n</html>\n"
 }
 
 // layoutHTML is counter.html plus a script that writes the boxes into a
-// hidden element (after the card, so it does not move it): the card, the
-// heading, the button, the rectangles of the text of both, and the ascent
-// of their fonts as Blink quantizes it, to place the baselines.
+// hidden element (after the markup, so it does not move it): the outer div,
+// the card, the label, the heading and the button, the rectangles of the text
+// of the last three, and the ascent of their fonts as Blink quantizes it, to
+// place the baselines.
+//
+// Chromium's --dump-dom window is shorter than the one requested (513 CSS px
+// instead of 600: the height of a window, not of its viewport), so the page
+// pins html and body to the 600 px of the screenshots, or the card, centered
+// in h-full, would be measured elsewhere. It hides the overflow too: the
+// page is taller than that window, and a scrollbar would narrow it by 15 px.
 func layoutHTML() string {
-	return "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<link rel=\"stylesheet\" href=\"counter.css\">\n</head>\n<body>\n" +
+	return pageHead + fmt.Sprintf("<style>html { overflow: hidden; } html, body { height: %dpx; }</style>\n", counterH) +
 		counterMarkup + `
 <pre id="out" hidden></pre>
 <script>
 document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load()))).then(() => {
   const rect = r => [r.left, r.top, r.width, r.height];
-  const card = document.querySelector("div");
+  const outer = document.querySelector("div");
+  const card = outer.firstElementChild;
+  const span = document.querySelector("span");
   const h1 = document.querySelector("h1");
   const button = document.querySelector("button");
   // Blink quantizes the font metrics in device pixels: measure at the
@@ -84,10 +100,14 @@ document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load(
     const m = ctx.measureText(el.textContent);
     return {rect: rect(range.getBoundingClientRect()), ascent: m.fontBoundingBoxAscent / dpr};
   };
-  const text = textOf(h1), buttonText = textOf(button);
+  const label = textOf(span), text = textOf(h1), buttonText = textOf(button);
   document.getElementById("out").textContent = "BEGIN" + JSON.stringify({
     dpr: dpr,
+    outer: rect(outer.getBoundingClientRect()),
     card: rect(card.getBoundingClientRect()),
+    span: rect(span.getBoundingClientRect()),
+    spanText: label.rect,
+    spanAscent: label.ascent,
     h1: rect(h1.getBoundingClientRect()),
     text: text.rect,
     ascent: text.ascent,
@@ -103,13 +123,17 @@ document.fonts.ready.then(() => Promise.all([...document.fonts].map(f => f.load(
 }
 
 // chromiumLayout is what layoutHTML measures, in CSS pixels. Rectangles are
-// [left, top, width, height]. Text is the range of the heading's text and
-// ButtonText the button's; Ascent and ButtonAscent are the quantized font
-// ascents (canvas fontBoundingBoxAscent), so that the baseline of a text is
-// the top of its rectangle plus its ascent.
+// [left, top, width, height]. SpanText, Text and ButtonText are the ranges of
+// the text of the label, the heading and the button; SpanAscent, Ascent and
+// ButtonAscent are the quantized font ascents (canvas fontBoundingBoxAscent),
+// so that the baseline of a text is the top of its rectangle plus its ascent.
 type chromiumLayout struct {
 	DPR          float64    `json:"dpr"`
+	Outer        [4]float64 `json:"outer"`
 	Card         [4]float64 `json:"card"`
+	Span         [4]float64 `json:"span"`
+	SpanText     [4]float64 `json:"spanText"`
+	SpanAscent   float64    `json:"spanAscent"`
 	H1           [4]float64 `json:"h1"`
 	Text         [4]float64 `json:"text"`
 	Ascent       float64    `json:"ascent"`

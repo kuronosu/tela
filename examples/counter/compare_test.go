@@ -37,17 +37,28 @@ func renderCounter(scale float32) laidOut {
 	return laidOut{tree.Inspect(), dl, tree.Rasterize(dl, scale)}
 }
 
-// parts returns the card, the heading and the button of the layout tree.
-func (l laidOut) parts(t testing.TB) (card, h1, button core.InspectNode) {
+// parts is the layout tree of Counter: the outer div that fills the window,
+// the card in it and the label, the heading and the button in the card.
+type parts struct {
+	outer, card, label, h1, button core.InspectNode
+}
+
+func (l laidOut) parts(t testing.TB) parts {
 	t.Helper()
+	bad := func() { t.Helper(); t.Fatal("unexpected tree: want div > div > span, h1, button") }
 	if len(l.root.Children) != 1 {
-		t.Fatalf("root has %d children, want the card", len(l.root.Children))
+		bad()
 	}
-	card = l.root.Children[0]
-	if card.Kind != "div" || len(card.Children) != 2 || card.Children[0].Kind != "h1" || card.Children[1].Kind != "button" {
-		t.Fatalf("unexpected tree: card %q with %d children", card.Kind, len(card.Children))
+	outer := l.root.Children[0]
+	if outer.Kind != "div" || len(outer.Children) != 1 {
+		bad()
 	}
-	return card, card.Children[0], card.Children[1]
+	card := outer.Children[0]
+	if card.Kind != "div" || len(card.Children) != 3 || card.Children[0].Kind != "span" ||
+		card.Children[1].Kind != "h1" || card.Children[2].Kind != "button" {
+		bad()
+	}
+	return parts{outer, card, card.Children[0], card.Children[1], card.Children[2]}
 }
 
 // glyphRuns returns the baseline origin of every glyph run whose baseline is
@@ -74,9 +85,9 @@ func TestCounterHTML(t *testing.T) {
 	if err != nil || string(layout) != layoutHTML() {
 		t.Fatal("testdata/chromium/layout.html is out of date; regenerate with TELA_CHROMIUM=1 (see chromium_test.go)")
 	}
-	card, h1, button := renderCounter(1).parts(t)
+	p := renderCounter(1).parts(t)
 	var want []string
-	for _, n := range []core.InspectNode{card, h1, button} {
+	for _, n := range []core.InspectNode{p.outer, p.card, p.label, p.h1, p.button} {
 		want = append(want, n.Style.Classes)
 	}
 	var classes []string
@@ -86,7 +97,7 @@ func TestCounterHTML(t *testing.T) {
 	if strings.Join(classes, "|") != strings.Join(want, "|") {
 		t.Errorf("classes in the HTML %q, in Counter %q", classes, want)
 	}
-	for _, text := range []string{"Count: 0", "Increment"} {
+	for _, text := range []string{"COUNT", "0", "Increment"} {
 		if !strings.Contains(counterMarkup, ">"+text+"<") {
 			t.Errorf("the HTML has no %q", text)
 		}
@@ -95,12 +106,11 @@ func TestCounterHTML(t *testing.T) {
 
 // edgeTolerance is the largest difference, in CSS px, accepted between an
 // edge of Chromium's layout and Tela's, baselines included. Measured: at
-// most 0.008 (Chromium snaps to 1/64 px, LayoutUnit). At scale 2 both
+// most 0.0125 (Chromium snaps to 1/64 px, LayoutUnit). At scale 2 both
 // round the font's ascent and descent in device pixels (ADR-159; the
-// heading's ascent is 93 device px, 46.5 CSS px): the heading's baseline
-// is at 81.5 CSS px and the button's at 141.5 in both. Before ADR-159 Tela
-// quantized line metrics in logical pixels and both texts were one device
-// pixel off.
+// label's ascent is 13.5 CSS px, the heading's 93 and the button's 15.5):
+// the baselines agree in both. Before ADR-159 Tela quantized line metrics in
+// logical pixels and the texts were one device pixel off at scale 2.
 const edgeTolerance = 0.02
 
 // edges are the left, top, right and bottom of a box, or the left, baseline
@@ -135,31 +145,41 @@ func TestCounterLayoutChromium(t *testing.T) {
 	for i, c := range []chromiumLayout{ref.X1, ref.X2} {
 		scale := float32(i + 1)
 		l := renderCounter(scale)
-		card, h1, button := l.parts(t)
-		// The text range: its left edge is where the line starts and its
-		// right edge is the box's, whose width is the text's advance (both
-		// are flex items that shrink to their content, and the button's
-		// padding is left out). The baseline is the top of Chromium's range
+		p := l.parts(t)
+		// The text range: its left edge is where the line starts. The label
+		// and the heading are flex items that shrink to their content, so
+		// their right edge is their box's, whose width is the text's
+		// advance. The button is w-full and its text is centered, so its
+		// right edge is the mirror of the left one in the button (the
+		// padding is symmetric). The baseline is the top of Chromium's range
 		// plus the quantized font ascent, and the origin of Tela's glyph
 		// run.
-		textOf := func(n core.InspectNode, padLeft, padRight float64) (left, baseline, right float64) {
+		textOf := func(n core.InspectNode, centered bool) (left, baseline, right float64) {
 			runs := l.glyphRuns(n.Rect)
 			if len(runs) != 1 {
 				t.Fatalf("x%g: %d glyph runs in the %s, want 1", scale, len(runs), n.Kind)
 			}
-			return float64(runs[0].X), float64(runs[0].Y), float64(n.Rect.X1) - padRight
+			left, baseline, right = float64(runs[0].X), float64(runs[0].Y), float64(n.Rect.X1)
+			if centered {
+				right = float64(n.Rect.X0+n.Rect.X1) - left
+			}
+			return left, baseline, right
 		}
-		hl, hb, hr := textOf(h1, 0, 0)
-		bl, bb, br := textOf(button, 0, float64(button.Padding.Right))
+		ll, lb, lr := textOf(p.label, false)
+		hl, hb, hr := textOf(p.h1, false)
+		bl, bb, br := textOf(p.button, true)
 		type pair struct {
 			name, edges string
 			want, got   edges
 		}
 		pairs := []pair{
-			{"div", "left top right bottom", ltrb(c.Card), rectEdges(card.Rect)},
-			{"h1", "left top right bottom", ltrb(c.H1), rectEdges(h1.Rect)},
+			{"outer", "left top right bottom", ltrb(c.Outer), rectEdges(p.outer.Rect)},
+			{"card", "left top right bottom", ltrb(c.Card), rectEdges(p.card.Rect)},
+			{"label", "left top right bottom", ltrb(c.Span), rectEdges(p.label.Rect)},
+			{"lbl text", "left baseline right", edges{c.SpanText[0], c.SpanText[1] + c.SpanAscent, c.SpanText[0] + c.SpanText[2]}, edges{ll, lb, lr}},
+			{"h1", "left top right bottom", ltrb(c.H1), rectEdges(p.h1.Rect)},
 			{"h1 text", "left baseline right", edges{c.Text[0], c.Text[1] + c.Ascent, c.Text[0] + c.Text[2]}, edges{hl, hb, hr}},
-			{"button", "left top right bottom", ltrb(c.Button), rectEdges(button.Rect)},
+			{"button", "left top right bottom", ltrb(c.Button), rectEdges(p.button.Rect)},
 			{"btn text", "left baseline right", edges{c.ButtonText[0], c.ButtonText[1] + c.ButtonAscent, c.ButtonText[0] + c.ButtonText[2]}, edges{bl, bb, br}},
 		}
 		for _, p := range pairs {
@@ -185,19 +205,24 @@ type region struct {
 	in   func(x, y float64) bool // the center of a pixel, in logical px
 }
 
-// cardRadius is rounded-3xl (1.5rem).
-const cardRadius = 24
+// cardRadius is rounded-2xl (1rem).
+const cardRadius = 16
 
 // edgeBand is the half-width, in logical px, of the band around the card's
-// outline that counts as its edge.
+// outline that counts as its edge (the 1 px border is inside it).
 const edgeBand = 2
+
+// shadowReach is how far from the card's outline, in logical px, the region
+// of its shadow goes: shadow-xl reaches 20 + 25 - 5 = 40 px below the card.
+const shadowReach = 60
 
 // regionsOf returns the regions of the Counter's picture, disjoint and
 // covering the whole image, from Tela's layout: the card's edge band (where
-// the outline is anti-aliased), the heading and the button (text and its
-// surroundings in their boxes), the card's body (the gradient), the shadow
-// below the card and the plain canvas.
-func regionsOf(card, h1, button gfx.Rect) []region {
+// the outline and its border are anti-aliased), the label, the heading and
+// the button (text and its surroundings in their boxes), the card's body, the
+// shadow around the card and the plain canvas.
+func regionsOf(p parts) []region {
+	card := p.card.Rect
 	cx, cy := float64(card.X0+card.X1)/2, float64(card.Y0+card.Y1)/2
 	hx, hy := float64(card.X1-card.X0)/2, float64(card.Y1-card.Y0)/2
 	sd := func(x, y float64) float64 { // signed distance to the card's outline
@@ -209,16 +234,17 @@ func regionsOf(card, h1, button gfx.Rect) []region {
 			return x >= float64(r.X0)-grow && x < float64(r.X1)+grow && y >= float64(r.Y0)-grow && y < float64(r.Y1)+grow
 		}
 	}
-	inH1, inButton := inside(h1, 1), inside(button, 1)
+	inLabel, inH1, inButton := inside(p.label.Rect, 1), inside(p.h1.Rect, 1), inside(p.button.Rect, 1)
 	return []region{
+		{"label", func(x, y float64) bool { return inLabel(x, y) && sd(x, y) < -edgeBand }},
 		{"heading", func(x, y float64) bool { return inH1(x, y) && sd(x, y) < -edgeBand }},
 		{"button", func(x, y float64) bool { return inButton(x, y) && sd(x, y) < -edgeBand }},
 		{"card edge", func(x, y float64) bool { return math.Abs(sd(x, y)) <= edgeBand }},
 		{"card body", func(x, y float64) bool {
-			return sd(x, y) < -edgeBand && !inH1(x, y) && !inButton(x, y)
+			return sd(x, y) < -edgeBand && !inLabel(x, y) && !inH1(x, y) && !inButton(x, y)
 		}},
-		{"shadow", func(x, y float64) bool { return sd(x, y) > edgeBand && y < float64(card.Y1)+100 }},
-		{"canvas", func(x, y float64) bool { return sd(x, y) > edgeBand && y >= float64(card.Y1)+100 }},
+		{"shadow", func(x, y float64) bool { return sd(x, y) > edgeBand && sd(x, y) <= shadowReach }},
+		{"canvas", func(x, y float64) bool { return sd(x, y) > shadowReach }},
 	}
 }
 
@@ -268,24 +294,22 @@ type pixelBound struct {
 
 // pixelBounds are set from what TestCounterPixelsChromium measured
 // (Chromium 152, Tailwind 4.3.3), a little above it so that a regression
-// shows. Measured at x1 and x2: whole image max 182/186 mean 0.229/0.213;
-// heading 182/151, 2.888/1.050; button 59/148, 0.935/1.045; card edge 32/50,
-// 0.342/0.327; card body 2/2, 0.259/0.259; shadow 1/1, 0.500/0.415; canvas 0
-// (the whole image at x2 was measured before ADR-159, which put the texts'
-// baselines at x2 where Blink's are: heading 186, 1.887 and button 169, 2.235
-// before it).
+// shows. Measured at x1 and x2: whole image max 124/164 mean 0.086/0.052;
+// label 116/91, 5.052/2.084; heading 124/81, 2.245/0.514; button 78/164,
+// 0.628/0.726; card edge 10/8, 0.360/0.146; card body 0 (flat); shadow 2/2,
+// 0.146/0.120; canvas 0 (flat).
 var pixelBounds = map[string]pixelBound{
-	"whole": {200, 0.3, "the sum of the regions below"},
-	"heading": {200, 3.2, "text: Skia's glyph anti-aliasing differs from ours on glyph edges (the diff image shows a thin " +
-		"outline of every glyph)"},
-	"button": {170, 1.3, "text, as the heading"},
-	"card edge": {60, 0.45, "Skia's rounded-rectangle coverage is not the exact area coverage of our rasterizer " +
-		"(single anti-aliased pixels on the corner arcs)"},
-	"card body": {4, 0.35, "the gradient: stops are extended sRGB, interpolated and clipped per pixel like Chromium; " +
-		"under the backdrop-blurred translucent button too"},
-	"shadow": {3, 0.6, "shadow-2xl: the Gaussian blur of the two layers agrees within a few levels (the diff image shows " +
+	"whole": {180, 0.12, "the sum of the regions below"},
+	"label": {130, 5.6, "text: Skia's glyph anti-aliasing differs from ours on glyph edges (the diff image shows a thin " +
+		"outline of every glyph); small text with wide tracking, so the mean is the highest"},
+	"heading": {140, 2.5, "text, as the label"},
+	"button":  {180, 0.85, "text, as the label"},
+	"card edge": {16, 0.45, "Skia's rounded-rectangle coverage is not the exact area coverage of our rasterizer " +
+		"(single anti-aliased pixels on the corner arcs and the 1 px border)"},
+	"card body": {2, 0.05, "nothing is drawn there but the flat stone-50 fill"},
+	"shadow": {4, 0.3, "shadow-xl: the Gaussian blur of the two layers agrees within a few levels (the diff image shows " +
 		"banding from rounding)"},
-	"canvas": {0, 0, "nothing is drawn there: exactly white"},
+	"canvas": {0, 0, "nothing is drawn there: exactly stone-200"},
 }
 
 // TestCounterPixelsChromium compares Tela's render with Chromium's
@@ -301,14 +325,13 @@ func TestCounterPixelsChromium(t *testing.T) {
 		if got.Rect != want.Rect {
 			t.Fatalf("x%d: Tela's image is %v, Chromium's %v", scale, got.Rect, want.Rect)
 		}
-		card, h1, button := l.parts(t)
 		type row struct {
 			name string
 			d    pixelDiff
 		}
 		rows := []row{{"whole", diffImages(got, want, float64(scale), nil)}}
 		covered := 0
-		for _, r := range regionsOf(card.Rect, h1.Rect, button.Rect) {
+		for _, r := range regionsOf(l.parts(t)) {
 			d := diffImages(got, want, float64(scale), r.in)
 			covered += d.pixels
 			rows = append(rows, row{r.name, d})
