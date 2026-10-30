@@ -110,10 +110,10 @@ func benchDrag(b *testing.B, full bool) {
 
 // TestDragMoveRecordsNothing drags a card across the board: a move that
 // does not change the drop target (no build) rasterizes little and records
-// no layer but the scrollbars. The card is over the main pane's glass, and
-// the damage of a change under a backdrop-blur-2xl grows by the blur's
-// reach (about 120 px on each side), so "little" is a third of the window
-// here, where the board's own test (on an opaque page) allowed a quarter.
+// no layer but the scrollbars: at most a quarter of the window. The card
+// is painted above the main pane's glass, so its damage is not grown by
+// the backdrop-blur-2xl's reach (the blur reads only what is behind the
+// pane, which does not change).
 // A transition on the cards or the columns (a hover that fades, the drop
 // ring) would record every layer on each of its frames: they have none.
 func TestDragMoveRecordsNothing(t *testing.T) {
@@ -130,7 +130,7 @@ func TestDragMoveRecordsNothing(t *testing.T) {
 		for _, r := range dm.Rects {
 			area += r.Dx() * r.Dy()
 		}
-		if dm.Full || area > 2*1416*2*846/3 {
+		if dm.Full || area > 2*1416*2*846/4 {
 			t.Errorf("move %d rasterized %+v", i, dm)
 		}
 		for _, l := range tr.Layers() {

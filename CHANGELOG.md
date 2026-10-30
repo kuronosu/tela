@@ -22,6 +22,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- The CPU renderer keeps the output of a backdrop filter between frames while what lies behind it is unchanged (ADR-200), with the same pixels as before: the dashboard's median frame at 1080p goes from 15 to 4.7 ms at scale 1 and from 48 to 11 ms at scale 2.
+
 - `examples/settings` is now **Darkroom**'s Preferences window (ADR-195): five sections (General, Develop, Export, Safelight, Account), a form that is one comparable value, validation that disables Save, Discard and sign-out confirmations, a theme and an accent applied on Save, and a dark-room voice, built by an LLM (Claude Sonnet) from `docs/llms.txt` and the prompt in its README in two render iterations. It replaces the previous `examples/settings` and `examples/llms/settings`; `docs/images/settings.png` shows it, with new goldens and behavior tests.
 - `docs/llms.txt`, from what that experiment found: `kit.AlertDialog`'s `Title`, `Description`, `Cancel` and `Action` are components, not strings; an explicit `App.ColorScheme` overrides `tela snapshot --dark`; the fields of `tela.Preview` and a recipe for state previews (and `--size` to see below the fold); `kit.UseToast()` returns a `kit.ToastHandle`; a `kit.Field` wraps one form control, not an overlay trigger, with the "label + button" row pattern; where to find Lucide names. Its compact settings screen (section 7) is now a block of its own, which `internal/gen/llmsdoc` type-checks, lints and mounts headlessly in dev mode instead of comparing it to an example.
 
@@ -37,6 +39,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 - `examples/dashboard` has a new design, "Frosted graphite" (ADR-195): three fixed glass panes (rail, main, Pulse) over a calm dune wallpaper with one amber accent, in light and dark. Overview (a headline figure with metric tabs and 48 spring bars, four figures with sparklines, latest orders, a goal ring, traffic and activity), Tasks (a sortable table and a board with drag and drop, card menus, edit, new and delete dialogs, a sprint strip) and Orders; a command palette (Ctrl+K) and tooltips built directly on `aria` hooks; Ctrl+1/2/3 switch views. `docs/images/dashboard.png`, `dashboard-dark.png` and `dashboard-palette.png` show it. Its frame times are in the README; it is heavier on the CPU than the page it replaces, as phase 16 expects.
 
 ### Fixed
+
+- Damage under a `backdrop-blur` (or any backdrop filter that reaches beyond a pixel) no longer grows by the filter's reach when what changed is painted above the filter, such as content moving inside a glass pane: only a change behind the filter does (ADR-200). A card dragged in the dashboard's glass pane repaints its own area instead of about twice it.
 
 - `aria.UseCombobox` consumes Escape only when it used it (closed a list that can close, or reverted the text): a command palette whose list is always open now closes from the keyboard, and reverting the text of a selected item no longer also closes the enclosing dialog (ADR-198).
 

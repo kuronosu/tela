@@ -32,6 +32,13 @@ type Options struct {
 	// selects a cache shared by the whole package, of
 	// DefaultGlyphCacheBytes. The pixels do not depend on the cache.
 	GlyphCache *GlyphCache
+	// Backdrops, when not nil, keeps the filtered backdrops of the
+	// backdrop filters of the list between Renders into the same
+	// destination (see BackdropCache): a filter whose output is in it is
+	// drawn from there and does not grow the rendered region. The pixels
+	// do not depend on it, as long as its owner carries only the filters
+	// whose input did not change (BackdropCache.Retain).
+	Backdrops *BackdropCache
 }
 
 // Renderer renders display lists into RGBA images. It owns the scratch
@@ -108,6 +115,9 @@ type Renderer struct {
 	glyphDepth  int
 	spriteDepth int
 
+	// bdc is the cache of filtered backdrops of the current Render
+	// (Options.Backdrops) while it renders.
+	bdc     *BackdropCache
 	par     *parallel // worker Renderers and the job of a parallel Render
 	scratch []uint8   // the pixels of scratchImage
 	pool    *workPool // blurPool
@@ -219,7 +229,11 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		// those filters (phase.go); otherwise on this goroutine, with the
 		// stages of large blurs split among several (pool.go).
 		full := dst.Rect.Intersect(image.Rect(-coordLimit, -coordLimit, coordLimit, coordLimit))
-		grown := BackdropRegion(dl, s, clip, full)
+		bc := opts.Backdrops
+		if bc != nil {
+			bc.prepare(dl, s, full)
+		}
+		grown := backdropRegion(dl, s, clip, full, bc, bc != nil)
 		target := dst
 		if grown != clip {
 			target = r.scratchImage(grown)
@@ -228,13 +242,14 @@ func (r *Renderer) Render(dst *image.RGBA, dl *gfx.DisplayList, opts Options) {
 		rendered := false
 		if opts.Workers != 1 {
 			if bfs, ok := phaseBarriers(dl); ok {
-				rendered = r.renderPhased(target, dl, s, grown, opts.Workers, bfs)
+				rendered = r.renderPhased(target, dl, s, grown, opts.Workers, bfs, bc)
 			}
 		}
 		if !rendered {
 			r.blurS.par = r.blurPool(opts.Workers)
+			r.bdc = bc
 			r.render(target, dl, gfx.Scale(s, s), grown)
-			r.blurS.par = nil
+			r.blurS.par, r.bdc = nil, nil
 		}
 		if target != dst {
 			copyRect(dst, target, clip)
@@ -392,7 +407,7 @@ func (r *Renderer) visit(i int, c gfx.Command) {
 		}
 	case gfx.BackdropFilter:
 		if !r.skipping {
-			r.backdropFilter(c)
+			r.backdropFilter(i, c)
 		}
 	case gfx.Marker:
 		// A placeholder of a composed list: it paints nothing.

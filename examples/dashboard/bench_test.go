@@ -628,8 +628,9 @@ func BenchmarkFullFrame(b *testing.B) {
 
 // BenchmarkScrollFrame is one frame of scrolling the orders view by 12 px
 // back and forth: the table fills the main pane, so its rows move over the
-// pane's glass, whose blur of the fixed wallpaper is computed again for
-// every pixel the rows repaint.
+// pane's glass. The pane and the wallpaper do not move, so the blur of the
+// wallpaper comes from the framebuffer's cache of filtered backdrops
+// (ADR-200) and only the rows are rasterized.
 func BenchmarkScrollFrame(b *testing.B) {
 	for _, c := range configs {
 		b.Run(c.name, func(b *testing.B) {

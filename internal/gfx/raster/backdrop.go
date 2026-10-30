@@ -3,6 +3,7 @@ package raster
 import (
 	"image"
 	"math"
+	"slices"
 
 	"github.com/kuronosu/tela/internal/gfx"
 )
@@ -41,8 +42,9 @@ func (s *surfShader) shadeSpan(x, y int, dst []uint8) {
 
 func (s *surfShader) opaque() bool { return false }
 
-// backdropFilter executes a BackdropFilter command.
-func (r *Renderer) backdropFilter(c gfx.BackdropFilter) {
+// backdropFilter executes the BackdropFilter command c at index i of the
+// list.
+func (r *Renderer) backdropFilter(i int, c gfx.BackdropFilter) {
 	b := &r.blit
 	op := unit8(float64(c.Opacity))
 	in := r.backdropBounds(c.Shape.Rect).Intersect(r.surfBounds)
@@ -73,8 +75,22 @@ func (r *Renderer) backdropFilter(c gfx.BackdropFilter) {
 	if out.Empty() {
 		return
 	}
+	var e *bdEntry
+	var full image.Rectangle
+	if bc := r.bdc; bc != nil && r.dl == bc.dl {
+		e, _ = bc.entry(i)
+		full = r.backdropBounds(c.Shape.Rect).Intersect(bc.full)
+		if pix, rect, ok := e.lookup(c, r.dl.BoundsAt(i), r.ctm, full, out); ok {
+			bc.hits++
+			r.drawBackdrop(c.Shape, pix, rect, out, op)
+			return
+		}
+	}
 	buf, win, out := r.filterBackdrop(b, in, out, fs)
 	r.drawBackdrop(c.Shape, buf, win, out, op)
+	if e != nil {
+		r.bdc.store(e, i, c, r.ctm, full, out, buf, win)
+	}
 	r.putBuf(buf)
 }
 
@@ -216,7 +232,18 @@ func BackdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 	if scale == 0 {
 		scale = 1
 	}
+	return backdropRegion(dl, scale, region, bounds, nil, false)
+}
+
+// backdropRegion is BackdropRegion with the filters cached in c (nil:
+// none; otherwise the cache of dl at scale, see BackdropCache.Region).
+// With record, it sets c.exact for the render of the grown region.
+func backdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rectangle, c *BackdropCache, record bool) image.Rectangle {
 	region = region.Intersect(bounds)
+	if record {
+		c.exact = slices.Grow(c.exact[:0], len(c.idx))[:len(c.idx)]
+		clear(c.exact)
+	}
 	if dl == nil || dl.BackdropReach() <= 0 || region.Empty() {
 		return region
 	}
@@ -232,7 +259,24 @@ func BackdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 		if inFilter {
 			return bounds
 		}
-		if rd := BackdropReadRegion(dl, scale, k, region).Intersect(bounds); !rd.Empty() {
+		need := region
+		if c != nil && c.top[k] {
+			if c.hit(k, i, devRootRect(dl.BoundsAt(i), scale).Intersect(region)) {
+				continue // drawn from the cache: it reads nothing
+			}
+			if e := &c.ents[k]; e.ok && e.stable {
+				// Its input did not change since the previous frame:
+				// compute all of its output, which the cache keeps.
+				need = bounds
+			}
+			if record {
+				// Its output is exact inside need only: what earlier
+				// filters add to the region later is computed from
+				// pixels the render does not make exact.
+				c.exact[k] = need
+			}
+		}
+		if rd := BackdropReadRegion(dl, scale, k, need).Intersect(bounds); !rd.Empty() {
 			region = region.Union(rd)
 		}
 	}

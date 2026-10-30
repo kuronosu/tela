@@ -158,6 +158,10 @@ type layerState struct {
 	damage   Damage
 	// dmg holds the buffers frameDamage reuses.
 	dmg damageScratch
+	// bdc caches the filtered backdrops of ras in the framebuffer
+	// (ADR-200): frameDamage carries the filters whose input did not
+	// change to the next frame.
+	bdc raster.BackdropCache
 	// recorded counts the layers recorded by the last paint.
 	recorded int
 }
@@ -528,14 +532,17 @@ func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damag
 	var d Damage
 	switch {
 	case full || L.ras == nil || L.ras.scale != f.scale || L.rasRect != fb.Rect:
+		L.bdc.Reset()
 		raster.Clear(fb, image.Rectangle{}, t.clearColor())
-		r.Render(fb, f.dl, raster.Options{Scale: f.scale})
+		r.Render(fb, f.dl, raster.Options{Scale: f.scale, Backdrops: &L.bdc})
 		d.Full = true
 	case L.ras != f:
+		L.dmg.bdc = &L.bdc
 		d = frameDamage(L.ras, f, fb.Rect, &L.dmg)
+		L.dmg.bdc = nil
 		if d.Full {
 			raster.Clear(fb, image.Rectangle{}, t.clearColor())
-			r.Render(fb, f.dl, raster.Options{Scale: f.scale})
+			r.Render(fb, f.dl, raster.Options{Scale: f.scale, Backdrops: &L.bdc})
 			break
 		}
 		for _, s := range d.Shifts {
@@ -544,7 +551,7 @@ func (t *Tree) rasterizeApp(fb *image.RGBA, r *raster.Renderer, full bool) Damag
 		canvas := t.clearColor()
 		for _, rc := range d.Rects {
 			raster.Clear(fb, rc, canvas)
-			r.Render(fb, f.dl, raster.Options{Scale: f.scale, Region: rc})
+			r.Render(fb, f.dl, raster.Options{Scale: f.scale, Region: rc, Backdrops: &L.bdc})
 		}
 	}
 	L.ras, L.rasRect, L.damage = f, fb.Rect, d

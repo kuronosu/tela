@@ -239,7 +239,10 @@ func (p *parallel) fail(v any) {
 // of dst on up to workers goroutines (0 means GOMAXPROCS) in phases (see
 // phase.go): one band per goroutine. It reports false, having rendered
 // nothing, when a single band would do all the work.
-func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32, clip image.Rectangle, workers int, bfs []int) bool {
+//
+// bc is the cache of filtered backdrops (nil: none), which the barriers
+// read and write while every band waits.
+func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32, clip image.Rectangle, workers int, bfs []int, bc *BackdropCache) bool {
 	if workers == 0 {
 		workers = runtime.GOMAXPROCS(0)
 	}
@@ -277,6 +280,7 @@ func (r *Renderer) renderPhased(dst *image.RGBA, dl *gfx.DisplayList, s float32,
 	p.failed.Store(false)
 	p.pval, p.pset = nil, false
 	p.ph = newPhaser(bfs, workers, p.comp, p.pool, dst, area)
+	p.ph.dl, p.ph.bdc = dl, bc
 	p.wg.Add(workers - 1)
 	for k, w := range p.workers[:workers-1] {
 		w.band = k + 1

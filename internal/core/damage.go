@@ -31,12 +31,18 @@ import (
 //
 //   - inside a layer with filters, a command reaches as far as the
 //     filters' reach (gfx.DisplayList.LayerReach of every enclosing layer);
-//   - a backdrop filter reads the pixels under its whole shape: when they
-//     meet the damage, its output is damaged too (until nothing changes);
+//   - a backdrop filter reads the pixels under its whole shape painted
+//     before it: when they meet the damage of what is painted before it,
+//     its output within its reach is damaged too (until nothing changes);
+//     the damage of its element's content, painted after it, is not
+//     grown (ADR-200);
 //   - rasterizing a damage rectangle as a region renders, on a scratch
 //     image, the pixels that the backdrop filters reaching it read
 //     (raster.BackdropRegion), so that its pixels are those of a full
-//     rasterization; the cost of the fallback below counts them.
+//     rasterization, except for the filters whose output is in the
+//     framebuffer's cache of filtered backdrops (raster.BackdropCache,
+//     carried from frame to frame for the filters whose input did not
+//     change); the cost of the fallback below counts them.
 //
 // # Scrolling
 //
@@ -125,6 +131,18 @@ type damager struct {
 	// The valid units: old and new runs.
 	ua, ub []unit
 	rects  []image.Rectangle
+	// rpos is, for each rectangle of rects, where in the new frame's list
+	// the pixels it damages start to differ, in half steps: 2j for new
+	// command j, 2j-1 for an old command that lies between the new
+	// commands j-1 and j, and -1 for what may differ from the start (the
+	// damage of shifts). A backdrop filter at new command i reads pixels
+	// that differ only where the rectangles with rpos < 2i are: what is
+	// painted after it, its content above all, does not change what it
+	// reads. pos is the position add records.
+	rpos []int
+	pos  int
+	// gaveUp: the matching gave up, the frame is full.
+	gaveUp bool
 	// scratch holds the buffers reused between frames.
 	scratch *damageScratch
 }
@@ -147,6 +165,17 @@ type damageScratch struct {
 	spacesA, spacesB map[*scroller]gfx.Point
 	cand             map[*scroller]bool
 	order            []*scroller
+	// pairB is the old partner of each new command (run).
+	pairB []int
+	// carry is, for each backdrop filter of the new frame, the backdrop
+	// filter of the old frame (its index among the old frame's backdrop
+	// filters) whose input is the same pixels, or -1; nil when the
+	// matching gave up. bdc, when not nil, is the cache of filtered
+	// backdrops of the framebuffer this damage is rasterized into: it is
+	// carried to the new frame (raster.BackdropCache.Retain), and its hits
+	// count in the cost of the damage.
+	carry, carryBuf []int
+	bdc             *raster.BackdropCache
 }
 
 // resized returns buf with length n, reallocated when it is too short;
@@ -165,6 +194,7 @@ func frameDamage(a, b *frame, bounds image.Rectangle, s *damageScratch) Damage {
 		s = new(damageScratch)
 	}
 	d := damager{a: a, b: b, scale: float64(b.scale), bounds: bounds, scratch: s}
+	s.carry = nil
 	return d.run()
 }
 
@@ -185,18 +215,41 @@ func (d *damager) run() Damage {
 	matchedA, matchedB := s.matchedA, s.matchedB
 	clear(matchedA)
 	clear(matchedB)
-	ok := d.match(seqA, seqB, matchedA, matchedB)
-	if !ok {
-		return Damage{Full: true}
+	// When the matching gives up, the frame is rasterized fully, but the
+	// pairs it found still tell which backdrop filters kept their input
+	// (the rest of the middle is unmatched), so that the full frame draws
+	// them from the cache: a scroll that moves most of the frame under a
+	// fixed glass pane.
+	d.gaveUp = !d.match(seqA, seqB, matchedA, matchedB)
+	// The matched pairs are in order: the k-th matched command of seqA
+	// pairs with the k-th of seqB. pairB is the old partner of each new
+	// command (-1: unmatched or not in seqB).
+	s.pairB = resized(s.pairB, B.Len())
+	pairB := s.pairB
+	for i := range pairB {
+		pairB[i] = -1
 	}
 	for k, j := range seqB {
 		if !matchedB[k] {
+			d.pos = 2 * j
 			d.add(d.devB(j))
 		}
 	}
+	kb := 0 // the next matched command of seqB
 	for k, i := range seqA {
+		for kb < len(seqB) && !matchedB[kb] {
+			kb++
+		}
 		if matchedA[k] {
+			pairB[seqB[kb]] = i
+			kb++
 			continue
+		}
+		// An old command lies before every new command whose partner
+		// follows it: before the next matched command of seqB.
+		d.pos = 2*B.Len() - 1
+		if kb < len(seqB) {
+			d.pos = 2*seqB[kb] - 1
 		}
 		if u := d.unitA[i]; u >= 0 {
 			un := &d.ua[u]
@@ -205,13 +258,16 @@ func (d *damager) run() Damage {
 			d.add(d.devA(i))
 		}
 	}
+	// The damage of shifted units counts as painted before everything.
+	d.pos = -1
 	var shifts []Shift
 	for k := range d.ub {
 		if d.ub[k].group == k {
 			shifts = append(shifts, d.unitDamage(k)...)
 		}
 	}
-	d.backdropClosure()
+	d.backdropClosure(shifts)
+	s.bdc.Retain(B, d.b.scale, s.carry)
 	return d.finish(shifts)
 }
 
@@ -243,10 +299,11 @@ func grow(r image.Rectangle, n int) image.Rectangle {
 	return image.Rect(r.Min.X-n, r.Min.Y-n, r.Max.X+n, r.Max.Y+n)
 }
 
-// add adds a damaged rectangle.
+// add adds a damaged rectangle, at the list position d.pos.
 func (d *damager) add(r image.Rectangle) {
 	if r = r.Intersect(d.bounds); !r.Empty() {
 		d.rects = append(d.rects, r)
+		d.rpos = append(d.rpos, d.pos)
 	}
 }
 
@@ -857,7 +914,8 @@ func (d *damager) shiftExact(c gfx.Command) bool {
 }
 
 // match marks the matched elements of the two sequences. It reports
-// false when it gives up (damage everything).
+// false when it gives up: the rest of the middle stays unmatched and the
+// frame is rasterized fully.
 func (d *damager) match(sa, sb []int, ma, mb []bool) bool {
 	n, m := len(sa), len(sb)
 	p := 0
@@ -1177,28 +1235,62 @@ func subtract(a, b image.Rectangle) []image.Rectangle {
 // backdropClosure damages the output of every backdrop filter of the new
 // frame that reads damaged pixels: the part of its output within its reach
 // of the damaged pixels it reads (raster.BackdropOutputRegion), or its
-// whole output inside a layer with filters, which spreads it further. A
-// filter's output is read only by the filters after it, so one pass in
-// list order suffices (the damage of other commands counts whatever their
-// place in the list).
-func (d *damager) backdropClosure() {
-	B := d.b.dl
+// whole output inside a layer with filters, which spreads it further. Only
+// the damage of what is painted before the filter counts (rpos): a filter
+// reads the pixels painted before it, so a change of its element's
+// content, painted after it, changes no pixel it reads and its damage is
+// not grown by the filter's reach. A filter's output is read only by the
+// filters after it, so one pass in list order suffices.
+//
+// It also records, in the scratch's carry, the backdrop filters whose
+// input is the same pixels in both frames: matched with an old filter
+// (an equal command with equal bounds, under equal pushes, since an
+// unmatched push damages its whole block before the filter), outside the
+// shifted units, and reading no damaged or shifted pixel painted before
+// it. Their filtered backdrop is the old one (raster.BackdropCache).
+func (d *damager) backdropClosure(shifts []Shift) {
+	A, B := d.a.dl, d.b.dl
 	scale := float32(d.scale)
-	for k := range B.NumBackdrops() {
+	s := d.scratch
+	n := B.NumBackdrops()
+	s.carryBuf = resized(s.carryBuf, n)
+	s.carry = s.carryBuf
+	ka, na := 0, A.NumBackdrops() // the old filters, in list order
+	for k := range n {
 		i, read, _, inFilter := B.Backdrop(k)
 		rd := d.devRect(read)
 		var o image.Rectangle
-		for _, r := range d.rects {
-			if !r.Overlaps(rd) {
+		changed := false
+		for m, r := range d.rects {
+			if d.rpos[m] >= 2*i || !r.Overlaps(rd) {
 				continue
 			}
+			changed = true
 			if inFilter {
 				o = d.devB(i)
 				break
 			}
 			o = o.Union(raster.BackdropOutputRegion(B, scale, k, r))
 		}
+		for _, sh := range shifts {
+			if sh.Rect.Overlaps(rd) || sh.Rect.Sub(image.Pt(sh.DX, sh.DY)).Overlaps(rd) {
+				changed = true
+			}
+		}
+		d.pos = 2 * i
 		d.add(o)
+		s.carry[k] = -1
+		if p := s.pairB[i]; p >= 0 && !changed && d.unitB[i] < 0 {
+			for ka < na {
+				if j, _, _, _ := A.Backdrop(ka); j >= p {
+					if j == p {
+						s.carry[k] = ka
+					}
+					break
+				}
+				ka++
+			}
+		}
 	}
 }
 
@@ -1206,13 +1298,16 @@ func (d *damager) backdropClosure() {
 // rasterization when rasterizing them (with what their backdrop filters
 // read) costs most of a full one.
 func (d *damager) finish(shifts []Shift) Damage {
+	if d.gaveUp {
+		return Damage{Full: true}
+	}
 	rects := mergeRects(d.rects)
 	area := 0
 	for _, r := range rects {
 		// Rasterizing r renders the pixels its backdrop filters read too
 		// (raster.BackdropRegion). Overlaps count twice: they are
 		// rasterized twice.
-		g := raster.BackdropRegion(d.b.dl, d.b.scale, r, d.bounds)
+		g := d.scratch.bdc.Region(d.b.dl, d.b.scale, r, d.bounds)
 		area += g.Dx() * g.Dy()
 	}
 	for _, s := range shifts {

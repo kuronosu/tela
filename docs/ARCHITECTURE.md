@@ -406,7 +406,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Parallelism:** tiles rasterized by parallel goroutines.
 - **Shadows:**
   - Rounded-rect shadows (the common case, all Tailwind `shadow-*`) use **Evan Wallace's closed-form analytic Gaussian** (erf-based): no blur pass, nearly free.
-  - Arbitrary-shape shadows (`drop-shadow`), `filter: blur` and `backdrop-blur` use a separable Gaussian approximation (three box-blur passes; an exact kernel for small radii; large radii blurred at a reduced resolution, and backdrop filters computing only the pixels they draw, in parallel bands, ADR-078). Results are not cached yet; layer caching (below) will cover them (ADR-028).
+  - Arbitrary-shape shadows (`drop-shadow`), `filter: blur` and `backdrop-blur` use a separable Gaussian approximation (three box-blur passes; an exact kernel for small radii; large radii blurred at a reduced resolution, and backdrop filters computing only the pixels they draw, in parallel bands, ADR-078). A backdrop filter's output is cached between frames while its input is unchanged (ADR-200); other blur results are not cached yet, and layer caching (below) will cover them (ADR-028).
 - **Layers and caching:**
   - A Box is a repaint boundary if it has animated `transform`/`opacity`, is a scroll container, is explicitly marked, or a dev heuristic suggests it (frequent repaints).
   - Each layer keeps its raster; unchanged layers are only composited. Refined by ADR-061: layers are cached display lists and the persistent framebuffer is the only raster cache, so incremental frames stay bit-identical to full ones.

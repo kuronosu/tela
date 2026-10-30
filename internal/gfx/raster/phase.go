@@ -49,6 +49,10 @@ type phaser struct {
 	pool *workPool
 	dst  *image.RGBA
 	area image.Rectangle
+	// dl is the list and bdc its cache of filtered backdrops (nil: none),
+	// read and written by the computation only.
+	dl  *gfx.DisplayList
+	bdc *BackdropCache
 }
 
 // phaseResult is a barrier filter: the state a band recorded when it
@@ -62,6 +66,7 @@ type phaseResult struct {
 
 	buf      []uint8
 	win, out image.Rectangle
+	cached   bool // buf belongs to the cache
 }
 
 // errPhaseAborted is the panic value of a band waiting at a barrier when
@@ -171,7 +176,7 @@ func (ph *phaser) wait(r *Renderer, j int, bf *gfx.BackdropFilter) bool {
 			ph.mu.Unlock()
 		}()
 		if res.seen {
-			ph.compute(res)
+			ph.compute(ph.bfs[j], res)
 		}
 		ok = true
 		return res.buf != nil
@@ -195,9 +200,10 @@ func (ph *phaser) abort() {
 	ph.mu.Unlock()
 }
 
-// compute computes the output of a barrier filter over the render area,
-// as backdropFilter does for a band.
-func (ph *phaser) compute(res *phaseResult) {
+// compute computes the output of the barrier filter at command index i
+// over the render area, as backdropFilter does for a band: from the cache
+// when it holds it, and into the cache otherwise.
+func (ph *phaser) compute(i int, res *phaseResult) {
 	r := ph.comp
 	r.ctm = res.ctm
 	r.dfs, r.kw = r.dfs[:0], r.kw[:0]
@@ -212,16 +218,30 @@ func (ph *phaser) compute(res *phaseResult) {
 	if out.Empty() || unit8(float64(res.cmd.Opacity)) == 0 {
 		return // nothing to draw (a list built without the Builder may hold opacity 0)
 	}
+	var e *bdEntry
+	var full image.Rectangle
+	if bc := ph.bdc; bc != nil && bc.dl == ph.dl {
+		e, _ = bc.entry(i)
+		full = r.backdropBounds(res.cmd.Shape.Rect).Intersect(bc.full)
+		if pix, rect, ok := e.lookup(res.cmd, ph.dl.BoundsAt(i), res.ctm, full, out); ok {
+			res.buf, res.win, res.out, res.cached = pix, rect, out, true
+			bc.hits++
+			return
+		}
+	}
 	r.blurS.par = ph.pool
 	defer func() { r.blurS.par = nil }()
 	b := blitter{pix: ph.dst.Pix, stride: ph.dst.Stride, origin: ph.dst.Rect.Min}
 	res.buf, res.win, res.out = r.filterBackdrop(&b, in, out, fs)
+	if e != nil {
+		ph.bdc.store(e, i, res.cmd, res.ctm, full, res.out, res.buf, res.win)
+	}
 }
 
 // release returns the buffers of the results to comp.
 func (ph *phaser) release() {
 	for k := range ph.res {
-		if ph.res[k].buf != nil {
+		if ph.res[k].buf != nil && !ph.res[k].cached {
 			ph.comp.putBuf(ph.res[k].buf)
 		}
 		ph.res[k] = phaseResult{}

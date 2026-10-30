@@ -326,7 +326,9 @@
 //   - In a phased render (phase.go) the barriers are under a mutex; a
 //     barrier filter's output is written by one goroutine while every
 //     other waits at the barrier (no band reads or writes dst then), and is
-//     read-only afterwards. The goroutines of a workPool write disjoint
+//     read-only afterwards; the cache of filtered backdrops
+//     (Options.Backdrops) is read and written there too, by that
+//     goroutine only. The goroutines of a workPool write disjoint
 //     rows, strips or block rows of buffers that no other goroutine uses
 //     during the stage. A band that panics releases the bands waiting at a
 //     barrier.
@@ -367,6 +369,12 @@
 // glass panels. A backdrop filter inside a layer with filters reads that
 // layer's surface, whose extent depends on the region: when one can reach
 // the region, the whole destination is rendered (on a copy).
+//
+// A BackdropCache (Options.Backdrops, backdropcache.go) keeps the output
+// of the filters outside layers between Renders: a filter whose output
+// inside the region it holds draws it from there and does not grow the
+// region; its owner carries the filters whose input did not change from
+// one frame to the next (ADR-200).
 //
 // # Markers
 //
