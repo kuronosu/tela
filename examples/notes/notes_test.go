@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
@@ -26,6 +27,19 @@ func sandbox(t *testing.T) {
 	t.Helper()
 	telatest.TempDesktopDirs(t)
 	desktop.SetAppID(App.AppID)
+	setClock(t, fixedNow)
+}
+
+// fixedNow is the time of the tests: a Friday morning, so that the welcome
+// notes read "Today, 09:41", "Yesterday, 22:03" and "Mon".
+var fixedNow = time.Date(2026, time.October, 30, 9, 41, 0, 0, time.UTC)
+
+// setClock makes the app's clock say at for the rest of the test.
+func setClock(t *testing.T, at time.Time) {
+	t.Helper()
+	was := now
+	now = func() time.Time { return at }
+	t.Cleanup(func() { now = was })
 }
 
 // appFor is the app as main runs it, except for the look of the title bar,
@@ -34,7 +48,7 @@ func sandbox(t *testing.T) {
 func appFor() tela.App {
 	app := App
 	app.Root = Notes{TitleBar: kit.GNOME}
-	return desktop.PersistApp(app)
+	return withAppearance(desktop.PersistApp(app))
 }
 
 // mount opens the app in dev mode, where any dev message fails the test.
@@ -47,6 +61,7 @@ func mount(t *testing.T, opts ...telatest.Option) *telatest.App {
 // The parts of the main window.
 var (
 	editor   = telatest.ByRole("textbox", "Note text")
+	titleBox = telatest.ByRole("textbox", "Title")
 	newNote  = telatest.ByRole("button", "New note")
 	openBtn  = telatest.ByRole("button", "Open")
 	saveBtn  = telatest.ByRole("button", "Save")
@@ -82,9 +97,13 @@ func typeNote(a *telatest.App, text string) {
 }
 
 // openPreferences clicks the Preferences button and returns the window it
-// opens.
-func openPreferences(a *telatest.App) *telatest.App {
-	return a.WaitForWindow(func() { a.Click(prefsBtn) })
+// opens, on the section (Appearance when it is empty).
+func openPreferences(a *telatest.App, section ...string) *telatest.App {
+	w := a.WaitForWindow(func() { a.Click(prefsBtn) })
+	for _, s := range section {
+		w.Click(telatest.ByRole("button", s))
+	}
+	return w
 }
 
 // setSetting stores a setting before the app starts.
@@ -127,15 +146,15 @@ func TestNewNoteAndTyping(t *testing.T) {
 
 	a.Click(newNote)
 	a.ExpectRole("button", "Untitled note")
+	a.ExpectFocused(titleBox) // a new note has the cursor in its title
 	a.Click(editor)
 	a.Type("Groceries\nmilk and eggs")
 	a.ExpectValue(editor, "Groceries\nmilk and eggs")
 
-	// The note is named by its first line and is dirty: it has text that
-	// is not in a file.
+	// With no title, the note is named by its first line and is dirty: it
+	// has text that is not in a file.
 	a.ExpectRole("button", "Groceries, unsaved changes")
-	a.ExpectRole("img", "Unsaved changes") // the dot in the title bar
-	a.ExpectText("— Groceries")
+	a.ExpectRole("img", "Unsaved changes") // the dot in the editor's header
 	a.ExpectText("4 words")
 
 	// Selecting the welcome note shows its text; the new one is still there.
@@ -214,7 +233,8 @@ func TestOpenFile(t *testing.T) {
 
 	// A new note named by the file, with its text (line endings made "\n")
 	// and nothing unsaved.
-	a.ExpectRole("button", "todo.md")
+	a.ExpectRole("button", "todo")
+	a.ExpectValue(titleBox, "todo")
 	a.ExpectValue(editor, "Todo\n- ship it\n")
 	a.ExpectText(path)
 	a.ExpectCount(unsaved, 0)
@@ -224,7 +244,7 @@ func TestOpenFile(t *testing.T) {
 	a.Click(openBtn)
 	a.AnswerFileDialog(path)
 	a.ExpectValue(editor, "Todo\n- ship it\n")
-	a.ExpectCount(telatest.ByRole("button", "todo.md"), 1)
+	a.ExpectCount(telatest.ByRole("button", "todo"), 1)
 }
 
 func TestOpenFileCanceledOrUnreadable(t *testing.T) {
@@ -326,7 +346,7 @@ func TestSaveCanceled(t *testing.T) {
 	a.Click(saveBtn)
 	a.AnswerFileDialog() // canceled
 	a.ExpectRole("img", "Unsaved changes")
-	a.ExpectText("Not saved to a file")
+	a.ExpectText("In your library")
 	if n := a.Notifications(); len(n) != 0 {
 		t.Errorf("a canceled save notified: %+v", n)
 	}
@@ -409,7 +429,7 @@ func TestPreferencesWindow(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
 	a.ExpectWindowCount(1)
-	prefs := openPreferences(a)
+	prefs := openPreferences(a, "Editor")
 	a.ExpectWindowCount(2)
 	prefs.ExpectTitle("Preferences")
 	wrap := telatest.ByRole("switch", "Word wrap")
@@ -426,7 +446,9 @@ func TestPreferencesWindow(t *testing.T) {
 		t.Errorf("wordWrap in the settings store = %v, want false", stored)
 	}
 	prefs.Click(telatest.ByRole("radio", "Large"))
-	a.ExpectCount(editor.Filter(telatest.HasClass("text-lg")), 1)
+	a.ExpectCount(editor.Filter(telatest.HasClass("text-[18px]")), 1)
+	prefs.Click(telatest.ByRole("radio", "Loose"))
+	a.ExpectCount(editor.Filter(telatest.HasClass("leading-loose")), 1)
 
 	// Closing the window is the app's state: OnClose sets it to false.
 	prefs.RequestClose()
@@ -434,17 +456,19 @@ func TestPreferencesWindow(t *testing.T) {
 	a.ExpectWindowCount(1)
 
 	// The button opens it again, and what was set is still set.
-	prefs = openPreferences(a)
+	prefs = openPreferences(a, "Editor")
 	prefs.Expect(wrap, telatest.Checked(false))
 	prefs.Expect(telatest.ByRole("radio", "Large"), telatest.Checked(true))
+	prefs.Expect(telatest.ByRole("radio", "Loose"), telatest.Checked(true))
 }
 
 func TestSettingsSurviveARestart(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
-	prefs := openPreferences(a)
-	prefs.Click(telatest.ByRole("switch", "Keep running in the tray when the window is closed"))
+	prefs := openPreferences(a, "General")
+	prefs.Click(telatest.ByRole("switch", "Keep running in the tray"))
 	prefs.Click(telatest.ByRole("switch", "Notify when a file is saved"))
+	prefs.Click(telatest.ByRole("button", "Editor"))
 	prefs.Click(telatest.ByRole("radio", "Small"))
 	a.Close()
 	if err := desktop.FlushAll(); err != nil {
@@ -455,15 +479,16 @@ func TestSettingsSurviveARestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	if data := read(t, filepath.Join(dir, "settings.json")); !strings.Contains(data, `"keepInTray": true`) || !strings.Contains(data, `"fontSize": "small"`) {
-		t.Errorf("settings.json = %s, want the three settings", data)
+		t.Errorf("settings.json = %s, want the settings", data)
 	}
 
 	b := mount(t)
-	prefs = openPreferences(b)
-	prefs.Expect(telatest.ByRole("switch", "Keep running in the tray when the window is closed"), telatest.Checked(true))
+	prefs = openPreferences(b, "General")
+	prefs.Expect(telatest.ByRole("switch", "Keep running in the tray"), telatest.Checked(true))
 	prefs.Expect(telatest.ByRole("switch", "Notify when a file is saved"), telatest.Checked(false))
+	prefs.Click(telatest.ByRole("button", "Editor"))
 	prefs.Expect(telatest.ByRole("radio", "Small"), telatest.Checked(true))
-	b.ExpectCount(editor.Filter(telatest.HasClass("text-xs")), 1)
+	b.ExpectCount(editor.Filter(telatest.HasClass("text-[13px]")), 1)
 }
 
 // The Preferences window opens where it was closed.

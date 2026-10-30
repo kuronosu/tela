@@ -2,25 +2,43 @@
 // services of phase 12: package desktop (native open and save dialogs, a
 // message box, notifications, a tray icon, the app's folders, settings
 // and a remembered window position), two windows, and a custom title bar.
+// Its look is "Graphite, Tela light with amber": stone in the light scheme,
+// graphite in the dark one, and one amber accent (which Preferences can
+// change) in both.
 //
 // What it shows:
 //
 //   - A frameless window with a kit.TitleBar (the look of the platform:
-//     Windows, GNOME or macOS) that holds Open, Save and Preferences
-//     buttons. App.Frameless, h.WindowDrag and h.WindowControl are inside
-//     the kit components; the OS moves, resizes and snaps the window.
+//     Windows, GNOME or macOS) that holds the app's badge and the Open and
+//     Save buttons. App.Frameless, h.WindowDrag and h.WindowControl are
+//     inside the kit components; the OS moves, resizes and snaps the
+//     window.
+//   - Three panes under it. The rail has New note, the views (All notes,
+//     Pinned, Unsaved), the folders and the #tags of the library, with
+//     their counts, and Preferences. Choosing one shows the overview: a
+//     grid of cards of that filter, with a search field. A card opens the
+//     note: the list of the same filter and the editor (the folder menu,
+//     the tags, the pin, delete, a title and the text, and a status line).
+//     Cards have a context menu (pin, delete); deleting asks only when it
+//     would lose something, and has an Undo toast. Escape
+//     in the list, or choosing the rail's item again, goes back to the
+//     overview.
+//   - Tags are the #hashtags written in the text of a note, as in Bear: the
+//     rail lists them all and the cards show them. A note's folder is
+//     chosen from the editor's header (or "New folder...").
 //   - Native dialogs: desktop.OpenFile reads a .txt or .md file into a new
-//     note, desktop.SaveFile asks where a note without a file goes. Both
-//     are modal to the main window (desktop.Parent) and answer on the UI
-//     thread, so the callbacks set state directly. A canceled dialog does
-//     nothing; an error is a toast.
+//     note (titled with the file's name), desktop.SaveFile asks where a
+//     note without a file goes. Both are modal to the main window
+//     (desktop.Parent) and answer on the UI thread, so the callbacks set
+//     state directly. A canceled dialog does nothing; an error is a toast.
 //   - A second window: Preferences is a tela.Window that exists while the
 //     state says it is open (its OnClose sets that state to false). It
 //     shares the app's one component tree, and its position is remembered
-//     (desktop.SavedWindow).
+//     (desktop.SavedWindow). Its theme and accent are applied to the whole
+//     app with tela.SetColorScheme and tela.SetTheme.
 //   - Settings: desktop.UseSetting is a useState stored in settings.json.
-//     The Preferences window writes four settings and the main window,
-//     which reads the same keys, follows with no plumbing between them.
+//     The Preferences window writes them and the main window, which reads
+//     the same keys, follows with no plumbing between them.
 //   - The library: desktop.UseStoreSetting keeps the notes in notes.json
 //     under desktop.DataDir, written as you type.
 //   - A tray icon (desktop.Tray) with a menu that follows the window (Show
@@ -45,10 +63,9 @@ package main
 import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
-	"github.com/kuronosu/tela/kit"
 )
 
-var theme = kit.Theme()
+var theme = themeFor(accents[0].Name)
 
 // App is the main window; `tela snapshot` and the tests read it too. main
 // wraps it in desktop.PersistApp, which loads the saved placement from
@@ -58,8 +75,8 @@ var App = tela.App{
 	AppID:     "dev.telaui.notes",
 	Width:     960,
 	Height:    640,
-	MinWidth:  560,
-	MinHeight: 360,
+	MinWidth:  720,
+	MinHeight: 400,
 	Frameless: true,
 	Icon:      appIcon(),
 	Theme:     &theme,
@@ -70,11 +87,12 @@ var App = tela.App{
 	Root:    Notes{},
 }
 
-// Previews are the two windows, for `tela snapshot --preview "2 Preferences"
-// --size 460x420 ./examples/notes`.
+// Previews are the screens, for `tela snapshot --preview "3 Preferences"
+// --size 540x440 ./examples/notes`.
 var Previews = tela.Previews{
 	"1 Notes":       {Root: Notes{}},
-	"2 Preferences": {Root: Preferences{}},
+	"2 Overview":    {Root: Notes{Overview: true}},
+	"3 Preferences": {Root: Preferences{}},
 }
 
-func main() { tela.Main(desktop.PersistApp(App)) }
+func main() { tela.Main(withAppearance(desktop.PersistApp(App))) }

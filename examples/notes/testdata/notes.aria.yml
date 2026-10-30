@@ -1,14 +1,36 @@
-- text: Notes — Welcome to Notes
+- text: Notes
 - button "Open"
 - button "Save"
-- button "Preferences"
 - group "Window controls":
   - button "Minimize"
   - button "Maximize"
   - button "Close"
 - button "New note"
+- navigation "Library":
+  - button "All notes": All notes 4
+  - button "Pinned": Pinned 1
+  - button "Unsaved"
+  - text: Folders
+  - button "Getting started": Getting started 2
+  - button "Home": Home 1
+  - button "Ideas": Ideas 1
+  - text: Tags
+  - button "#errands"
+  - button "#ideas"
+  - button "#travel"
+  - button "#welcome"
+- button "Preferences"
+- searchbox "Search notes"
 - navigation "Notes":
-  - button "Welcome to Notes": Welcome to Notes Everything you type is kept in your library, even if you cl…
-- textbox "Note text": "Welcome to Notes Everything you type is kept in your library, even if you close the app without saving. Use Open to read a text file into a new note, and Save to write a note to a file. Preferences has the font size, word wrap, and what closing the window does: it can keep Notes running in the tray."
-- text: Not saved to a file 60 words · 301 characters
+  - button "Welcome to Notes": Welcome to Notes Everything you type is kept in your library, even if you close the app without saving. Use Open to read a text file into a new note, and Sa… Getting started Today, 09:41
+  - button "Keyboard shortcuts": Keyboard shortcuts Ctrl+N makes a note, Ctrl+O opens a file, Ctrl+S saves the note to its file and Ctrl+, opens Preferences. Press Escape in the list to go ba… Getting started Today, 08:15
+  - button "Groceries": "Groceries Coffee beans, oats, lemons, olive oil. Ask at the bakery if they still do the seeded rye. #errands Home Yesterday, 22:03"
+  - button "Weekend in the mountains": "Weekend in the mountains Leave on Friday after lunch, back on Sunday night. A cabin with a stove, a thermos, and no signal. #travel #ideas Ideas Mon"
+- 'button "Folder: Getting started"': Getting started
+- text: "#welcome"
+- button "Pin note" [pressed]
+- button "Delete note"
+- textbox "Title": Welcome to Notes
+- textbox "Note text": "Everything you type is kept in your library, even if you close the app without saving. Use Open to read a text file into a new note, and Save to write a note to a file. Folders and tags are in the rail: pick a folder at the top of a note, and tag it by writing a hash and a word anywhere in its text, like the one below. #welcome"
+- text: In your library 71 words · 331 characters
 - region "Notifications"

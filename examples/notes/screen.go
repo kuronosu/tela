@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kuronosu/tela"
@@ -17,8 +18,13 @@ import (
 // Notes is the whole app: the main window's content and, declared inside
 // it, the tray icon and the Preferences window. TitleBar is the look of
 // the title bar; the zero value is the platform's (Windows, GNOME or
-// macOS), and the tests name one so the goldens match on every OS.
-type Notes struct{ TitleBar kit.Variant }
+// macOS), and the tests name one so the goldens match on every OS. Overview
+// starts with no note open (a library that has never been used starts with
+// the welcome note open).
+type Notes struct {
+	TitleBar kit.Variant
+	Overview bool
+}
 
 func (n Notes) Build() tela.Node {
 	// The Toaster is the context of kit.UseToast, for the errors.
@@ -51,18 +57,43 @@ func openLibrary(preview bool) library {
 	return library{store, err}
 }
 
+// welcomeID is the welcome note, which a library of the first run opens.
+const welcomeID = 1
+
 // screen is the content of the main window.
-type screen struct{ TitleBar kit.Variant }
+type screen struct {
+	TitleBar kit.Variant
+	Overview bool
+}
 
 func (s screen) Build() tela.Node {
 	win := tela.UseWindow()
 	toast := kit.UseToast()
 	lib := tela.UseOnce(func() library { return openLibrary(win.IsZero()) })
-	notes, setNotes := desktop.UseStoreSetting(lib.store, "notes", welcomeNotes())
-	selected, setSelected := desktop.UseStoreSetting(lib.store, "selected", 0)
+	// The first run has the welcome notes. They are the default of the
+	// store only then: desktop.UseStoreSetting decodes what is stored over
+	// the default, note by note, so a library of an earlier version (whose
+	// notes have no title or folder) would take them from the welcome notes.
+	first := tela.UseOnce(func() []Note {
+		if lib.store.Has("notes") {
+			return nil
+		}
+		return welcomeNotes(now())
+	})
+	start := welcomeID
+	if s.Overview {
+		start = 0
+	}
+	notes, setNotes := desktop.UseStoreSetting(lib.store, "notes", first)
+	selected, setSelected := desktop.UseStoreSetting(lib.store, "selected", start)
+	flt, setFilter := tela.UseState(viewAll)
+	query, setQuery := tela.UseState("")
 	prefs := usePrefs()
+	useAppearance(prefs)
 	prefsOpen, setPrefsOpen := tela.UseState(false)
 	trayOK, setTrayOK := tela.UseState(true)
+	// confirming is the note the delete dialog asks about (0: none).
+	confirming, setConfirming := tela.UseState(0)
 
 	tela.UseMount(func() func() {
 		if lib.err != nil {
@@ -73,17 +104,92 @@ func (s screen) Build() tela.Node {
 	})
 
 	cur, hasCur := find(notes, selected)
+	shown := visible(notes, flt, query)
 
 	// --- Notes -----------------------------------------------------
 
-	newNote := func() {
-		id := nextID(notes)
-		setNotes.Update(func(ns []Note) []Note { return append(append([]Note(nil), ns...), Note{ID: id}) })
-		setSelected.Set(id)
+	// reveal opens a note, and when the list would not have it (a filter
+	// or a search that does not match it) goes back to all the notes.
+	reveal := func(n Note) {
+		if !flt.Match(n) || !matchesQuery(n, query) {
+			setFilter.Set(viewAll)
+			setQuery.Set("")
+		}
+		setSelected.Set(n.ID)
+	}
+	// blank is a note for the place the user is in: in the folder, or
+	// pinned, that the rail has chosen.
+	blank := func() Note {
+		n := Note{ID: nextID(notes), Modified: now()}
+		switch {
+		case flt.Kind == kindFolder:
+			n.Folder = flt.Name
+		case flt == viewPinned:
+			n.Pinned = true
+		}
+		return n
+	}
+	add := func(n Note) {
+		setNotes.Update(func(ns []Note) []Note { return append(append([]Note(nil), ns...), n) })
+		reveal(n)
+	}
+	newNote := func() { add(blank()) }
+	// choose shows the overview of a filter: no note is open.
+	choose := func(f filter) {
+		setFilter.Set(f)
+		setSelected.Set(0)
+	}
+	editTitle := func(title string) {
+		setNotes.Update(func(ns []Note) []Note { return editContent(ns, cur.ID, func(n *Note) { n.Title = title }) })
 	}
 	editText := func(text string) {
-		setNotes.Update(func(ns []Note) []Note { return edit(ns, cur.ID, func(n *Note) { n.Text = text }) })
+		setNotes.Update(func(ns []Note) []Note { return editContent(ns, cur.ID, func(n *Note) { n.Text = text }) })
 	}
+	moveToFolder := func(name string) {
+		setNotes.Update(func(ns []Note) []Note {
+			name := folderNamed(ns, name)
+			return edit(ns, cur.ID, func(n *Note) { n.Folder = name })
+		})
+	}
+	pinNote := func(id int) {
+		setNotes.Update(func(ns []Note) []Note { return edit(ns, id, func(n *Note) { n.Pinned = !n.Pinned }) })
+	}
+	togglePin := func() { pinNote(cur.ID) }
+
+	// deleteNote removes a note from the library, selects the next one of
+	// the list (or the one before it, or none: the overview) when it was
+	// the open one, and offers to undo it in a toast.
+	deleteNote := func(n Note) {
+		wasOpen := n.ID == selected
+		if next, ok := neighbor(shown, n.ID); wasOpen {
+			if ok {
+				setSelected.Set(next.ID)
+			} else {
+				setSelected.Set(0)
+			}
+		}
+		setNotes.Update(func(ns []Note) []Note { return without(ns, n.ID) })
+		toast.Show("Deleted "+n.Heading(), kit.ToastAction("Undo", func() {
+			setNotes.Update(func(ns []Note) []Note { return append(append([]Note(nil), ns...), n) })
+			if wasOpen {
+				setSelected.Set(n.ID)
+			}
+		}))
+	}
+	// askDelete deletes a note at once, unless it has changes that are not
+	// in a file or it is tied to one: then the dialog asks first.
+	askDelete := func(id int) {
+		n, ok := find(notes, id)
+		switch {
+		case !ok:
+		case n.Dirty() || n.Path != "":
+			setConfirming.Set(id)
+		default:
+			deleteNote(n)
+		}
+	}
+	deleteOpen := func() { askDelete(cur.ID) }
+	pending, _ := find(notes, confirming)
 
 	// --- Files -----------------------------------------------------
 
@@ -99,7 +205,7 @@ func (s screen) Build() tela.Node {
 				return // canceled
 			}
 			if n, ok := byPath(notes, path); ok {
-				setSelected.Set(n.ID)
+				reveal(n)
 				return
 			}
 			text, err := readTextFile(path)
@@ -107,11 +213,9 @@ func (s screen) Build() tela.Node {
 				toast.Error("Could not open "+filepath.Base(path), kit.ToastDescription(err.Error()))
 				return
 			}
-			id := nextID(notes)
-			setNotes.Update(func(ns []Note) []Note {
-				return append(append([]Note(nil), ns...), Note{ID: id, Text: text, Saved: text, Path: path})
-			})
-			setSelected.Set(id)
+			n := blank()
+			n.Title, n.Text, n.Saved, n.Path = fileTitle(path), text, text, path
+			add(n)
 		}, desktop.Title("Open a note"), desktop.Filter("Text", "*.txt", "*.md"), desktop.Parent(win))
 		if err != nil {
 			dialogError(toast, "open", err)
@@ -202,9 +306,9 @@ func (s screen) Build() tela.Node {
 			tela.Quit()
 			return
 		}
-		text := fmt.Sprintf("Save %q to a file before quitting?", unsaved[0].Title())
+		text := fmt.Sprintf("Save %q to a file before quitting?", unsaved[0].Heading())
 		if len(unsaved) > 1 {
-			text = fmt.Sprintf("Save %q and %d more notes to files before quitting?", unsaved[0].Title(), len(unsaved)-1)
+			text = fmt.Sprintf("Save %q and %d more notes to files before quitting?", unsaved[0].Heading(), len(unsaved)-1)
 		}
 		err := desktop.ShowMessage(desktop.Message{
 			Kind: desktop.MessageQuestion, Title: "Unsaved changes", Buttons: desktop.ButtonsYesNoCancel, Parent: w,
@@ -232,10 +336,24 @@ func (s screen) Build() tela.Node {
 	// --- The screen ------------------------------------------------
 
 	shortcuts := OnKeyDown(func(e tela.KeyboardEvent) {
-		if !(e.Ctrl || e.Meta) || e.Alt || e.Shift {
+		if !(e.Ctrl || e.Meta) || e.Alt {
 			return
 		}
-		switch e.Key {
+		key := string(e.Key)
+		if e.Shift {
+			if !strings.EqualFold(string(key), "d") {
+				return
+			}
+			key = "D"
+		}
+		switch key {
+		case "D":
+			// Ctrl+Shift+D deletes the open note. (Delete and Ctrl+Backspace
+			// edit the text of the field that has the focus.)
+			e.PreventDefault()
+			if hasCur {
+				askDelete(cur.ID)
+			}
 		case "s":
 			e.PreventDefault()
 			save()
@@ -251,6 +369,20 @@ func (s screen) Build() tela.Node {
 		}
 	})
 
+	var pane tela.Child
+	if hasCur {
+		pane = Fragment(
+			List{Notes: shown, Current: cur.ID, Query: query, Previews: prefs.ShowPreviews,
+				OnQuery: setQuery.Set, OnSelect: setSelected.Set, OnBack: func() { choose(flt) },
+				OnPin: pinNote, OnDelete: askDelete},
+			tela.WithKey(Editor{Note: cur, Prefs: prefs, Folders: folders(notes),
+				OnTitle: editTitle, OnText: editText, OnFolder: moveToFolder, OnPin: togglePin, OnDelete: deleteOpen}, cur.ID),
+		)
+	} else {
+		pane = Overview{Notes: shown, Filter: flt, Query: query, OnQuery: setQuery.Set, OnSelect: setSelected.Set,
+			OnPin: pinNote, OnDelete: askDelete}
+	}
+
 	return Div(Class("flex h-screen flex-col"), shortcuts,
 		notesTray{
 			Toggle: toggleMain,
@@ -258,41 +390,62 @@ func (s screen) Build() tela.Node {
 			Prefs:  showPrefs,
 			Failed: func() { setTrayOK.Set(false) }, // no tray: closing quits
 		},
+		kit.AlertDialog{
+			Open: new(confirming != 0), OnOpenChange: func(open bool) {
+				if !open {
+					setConfirming.Set(0)
+				}
+			},
+			Title:       Text(fmt.Sprintf("Delete %q?", pending.Heading())),
+			Description: Text(deleteWarning(pending)),
+			Cancel:      Text("Keep"), Action: Text("Delete"), Destructive: true,
+			OnAction: func() { deleteNote(pending) },
+		},
 		If(prefsOpen, tela.Component(desktop.SavedWindow{
 			Key: "preferences",
 			Window: tela.Window{
-				Title: "Preferences", Width: 460, Height: 420, MinWidth: 380, MinHeight: 320,
+				Title: "Preferences", Width: 540, Height: 440, MinWidth: 460, MinHeight: 340,
 				Icon: appIcon(),
 				// On Windows 11 the window is Mica: the root keeps 60% of
 				// its background so the material shows through (a root
 				// with no background would leave a white window where
-				// Mica is missing: Windows 10, Linux).
+				// Mica is missing: Windows 10). Elsewhere the backdrop is
+				// ignored and the root is opaque.
 				Backdrop:  tela.BackdropMica,
-				RootClass: "bg-background/60 text-foreground",
+				RootClass: glass("bg-background", "bg-background/60") + " text-foreground",
 				OnClose:   func() { setPrefsOpen.Set(false) },
 				Root:      Preferences{},
 			},
 		})),
 		kit.TitleBar{
 			Variant: s.TitleBar,
-			Leading: Icon(icons.FileText, Class("size-4 text-amber-500")),
-			Title: Span(Class("flex min-w-0 items-center gap-2"),
-				Span(Class("font-semibold"), Text("Notes")),
-				If(hasCur, Span(Class("truncate font-normal text-muted-foreground"), Text("— "+cur.Title()))),
-				If(hasCur && cur.Dirty(), Span(Role("img"), AriaLabel("Unsaved changes"), Class("size-2 shrink-0 rounded-full bg-amber-500"))),
-			),
+			Class:   "border-0 bg-sidebar",
+			Leading: Span(Class("flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground"),
+				Icon(icons.NotebookPen, Class("size-3.5"))),
+			Title: Span(Class("font-semibold tracking-tight"), Text("Notes")),
 			Trailing: Fragment(
 				tool("Open", icons.FolderOpen, openFile),
 				tool("Save", icons.Save, save),
-				tool("Preferences", icons.Settings, showPrefs),
 			),
 		},
 		Div(Class("flex min-h-0 flex-1"),
-			Sidebar{Notes: notes, Current: cur.ID, OnSelect: setSelected.Set, OnNew: newNote},
-			If(hasCur, Editor{Note: cur, Prefs: prefs, OnChange: editText}),
-			If(!hasCur, Div(Class("flex flex-1 items-center justify-center text-sm text-muted-foreground"), Text("No notes yet."))),
+			Rail{Notes: notes, Filter: flt, OnFilter: choose, OnNew: newNote, OnPrefs: showPrefs},
+			Div(Class("flex min-w-0 flex-1 rounded-ss-xl border-s border-t border-border bg-background"), pane),
 		),
 	)
+}
+
+// deleteWarning is what the delete dialog says about a note: its file stays
+// on disk, and its changes are lost.
+func deleteWarning(n Note) string {
+	var parts []string
+	if n.Path != "" {
+		parts = append(parts, "The file "+n.Path+" is not deleted: only the note leaves your library.")
+	}
+	if n.Dirty() {
+		parts = append(parts, "Its changes, which are not saved to a file, are lost.")
+	}
+	return strings.Join(parts, " ")
 }
 
 // notesTray is the tray icon. A click toggles the main window, and the

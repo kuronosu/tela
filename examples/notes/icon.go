@@ -16,8 +16,8 @@ var (
 	iconImages []image.Image
 )
 
-// appIcon is the icon of the window and of the tray: a yellow sticky note
-// with three lines of text, drawn here so the example needs no image file
+// appIcon is the icon of the window and of the tray: an amber rounded badge
+// with a dark notebook-pen glyph, drawn here so the example needs no image file
 // (an app ships a PNG with go:embed and image/png instead). The pictures
 // are made once.
 func appIcon() []image.Image {
@@ -56,28 +56,44 @@ func drawIcon(size int) *image.RGBA {
 	return img
 }
 
-// iconAt is the color (r, g, b, a in 0..1) of the icon at (x, y) in 0..1.
+// The notebook-pen glyph of Lucide (the one of the title bar), as the
+// polylines of its strokes in its 24 x 24 box: the notebook with its four
+// rings, and the pen. The outline of the pen is closed.
+var (
+	notebook = [][][2]float64{
+		{{13.4, 2}, {6, 2}, {4, 4}, {4, 20}, {6, 22}, {18, 22}, {20, 20}, {20, 12.6}},
+		{{2, 6}, {6, 6}}, {{2, 10}, {6, 10}}, {{2, 14}, {6, 14}}, {{2, 18}, {6, 18}},
+		{{21.38, 5.63}, {21.6, 4.1}, {20.9, 2.9}, {19.7, 2.4}, {18.4, 2.62}, {13.36, 7.63}, {12.86, 8.49},
+			{12.02, 11.36}, {12.64, 11.98}, {15.51, 11.14}, {16.37, 10.64}, {21.38, 5.63}},
+	}
+)
+
+// iconAt is the color (r, g, b, a in 0..1) of the icon at (x, y) in 0..1: an
+// amber rounded square, a little lighter at the top, with the dark
+// notebook-pen glyph in the middle.
 func iconAt(x, y float64) [4]float64 {
-	// The note: a rounded square with its bottom right corner folded.
-	if !inRoundRect(x, y, 0.07, 0.07, 0.93, 0.93, 0.18) {
+	if !inRoundRect(x, y, 0.04, 0.04, 0.96, 0.96, 0.24) {
 		return [4]float64{}
 	}
-	const fold = 0.26
-	if u, v := x-(0.93-fold), y-(0.93-fold); u > 0 && v > 0 {
-		if u+v > fold {
-			return [4]float64{} // the corner that was folded away
-		}
-		return [4]float64{0.85, 0.55, 0.05, 1} // the flap, a darker yellow
-	}
-	// Text lines.
-	for _, l := range [...]struct{ y, x1 float64 }{{0.34, 0.74}, {0.50, 0.74}, {0.66, 0.5}} {
-		if inRoundRect(x, y, 0.26, l.y-0.035, l.x1, l.y+0.035, 0.035) {
-			return [4]float64{0.47, 0.21, 0.06, 1}
+	// The glyph takes 58% of the square, centered; its strokes are 2.4
+	// units wide (Lucide's 2, a little bolder so that it holds at 16 px).
+	const scale, half = 0.58, 1.2
+	gx, gy := (x-0.5)/scale*24+12, (y-0.5)/scale*24+12
+	for _, line := range notebook {
+		for i := 1; i < len(line); i++ {
+			if distToSegment(gx, gy, line[i-1], line[i]) <= half {
+				return [4]float64{0.106, 0.078, 0.02, 1}
+			}
 		}
 	}
-	// Yellow, a little lighter at the top.
-	t := y
-	return [4]float64{lerp(0.99, 0.96, t), lerp(0.83, 0.68, t), lerp(0.30, 0.10, t), 1}
+	return [4]float64{lerp(0.98, 0.92, y), lerp(0.76, 0.63, y), lerp(0.30, 0.12, y), 1}
+}
+
+// distToSegment is the distance from (x, y) to the segment a-b.
+func distToSegment(x, y float64, a, b [2]float64) float64 {
+	dx, dy := b[0]-a[0], b[1]-a[1]
+	t := math.Max(0, math.Min(1, ((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy)))
+	return math.Hypot(x-(a[0]+t*dx), y-(a[1]+t*dy))
 }
 
 func lerp(a, b, t float64) float64 { return a + (b-a)*t }
