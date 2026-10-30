@@ -17,7 +17,7 @@
 Still true as of `v0.12.0`; the per-phase lists in HISTORY.md include items fixed since.
 
 - **Layout:** two `w-full aspect-square max-h-[20px]` flex items are clamped by the transferred max (Chromium 140×20, Tela 20×20); a ratio item with an auto or keyword width in a column of indefinite width is 5×5 where Chromium gives 30×30; grid items' percentage min sizes keep the old rule; no margin collapsing, floats or tables (by design, ARCHITECTURE §10); `grid-template-areas` is unreachable from classes.
-- **Text:** at x1.5 a baseline on an exact half device pixel can be drawn one row higher; no hyphenation, skip-ink or synthetic bold/italic; CJK glyph forms ignore the language; `examples/text` and debug-overlay labels lay text out at scale 1; interned font faces are never evicted; no test covers a style run that starts inside a grapheme cluster (the itemizer then segments the run alone).
+- **Text:** at x1.5 a baseline on an exact half device pixel can be drawn one row higher; no hyphenation, skip-ink or synthetic bold/italic; CJK glyph forms ignore the language; debug-overlay labels lay text out at scale 1; static text (`P`, `Span`) cannot be selected, only `Input` and `Textarea` text; interned font faces are never evicted; no test covers a style run that starts inside a grapheme cluster (the itemizer then segments the run alone).
 - **Paint and performance:** Chromium snaps border widths to device pixels at x1.5 and Tela does not; a frame that builds or restyles re-records every layer (one per hoisted box: 357 on the Calendar page); mounting the Calendar page takes 20–28 ms; no paint culling of rows hidden by a scroll container (large tables); the dashboard misses 16 ms even at x1 (p95 on the desktop, 1080p: 27 ms with 4 raster workers, 21 ms with 12; ~66 ms at x2; v0.9.2 was 24/20 ms); 3D transforms are out of scope.
 - **Engine:** a passive effect's state never reaches `tela snapshot`, which renders once; an out-of-flow box with auto insets inside a paragraph sits below the paragraph (Chromium: at its place on the line), and an absolute child of a `relative` inline span is placed against the nearest positioned block; `ScrollOffset` read in the layout effect that scrolled returns the old offset (ADR-176).
 - **Input and focus:** a box shown again that flips in the same frame does not restart its entrance; X11 has no IME and no touchpad fling.
@@ -32,9 +32,9 @@ Still true as of `v0.12.0`; the per-phase lists in HISTORY.md include items fixe
 Nine screens, one at a time, in this order (owner, 2026-10-30): the mechanical cleanup, then the small merges, `notes` before phase 13, `settings` alongside it, `dashboard` before phase 16 and `looks/` before phase 14; the owner reviews each design. Before deleting an example, move its unique tests (damage, idle, keyboard, animation frames) to the package they test and update the README, wiki and `THIRD_PARTY.md`.
 
 - [x] `counter`: stone redesign (ARCHITECTURE §1, README, wiki, `tela new` template, Chromium reference)
-- [ ] `motion`, `layout`, `virtuallist`, `shapes`: frames and scenes become package tests and godoc `Example`s
-- [ ] `text`: its scene becomes an `internal/text` golden; drop the `Scene` contract of `tela snapshot` (ADR)
-- [ ] `pricing`: delete
+- [x] `motion`, `layout`, `virtuallist`, `shapes`: frames and scenes become package tests and godoc `Example`s
+- [x] `text`: its page becomes an `h` golden (`text_showcase`) and an RTL field-selection golden in `internal/core`; the `Scene` contract of `tela snapshot` is gone (ADR-196)
+- [x] `pricing`: delete
 - [ ] `login`: absorb `signup` (Create account mode: its fields, `BindValue` bio, password strength, terms)
 - [ ] `kit`: an Introduction page (hello's hero in theme tokens); absorb `i18n` as a language and direction switch
 - [ ] `notes`: full redesign, before phase 13 extends it

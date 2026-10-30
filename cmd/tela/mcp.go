@@ -356,9 +356,6 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 	case contractNone:
 		s.broken = fmt.Sprintf("package %s (%s) has no screen to serve: %s", pkg.Name, t.pkgArg, contractHelp)
 		return nil
-	case contractScene:
-		s.broken = fmt.Sprintf("package %s (%s) only defines Scene, a display list without elements: tela mcp needs func Preview() tela.Node, a Previews variable or an App", pkg.Name, t.pkgArg)
-		return nil
 	}
 	if s.mount.Preview != "" && det.contract != contractPreviews {
 		s.broken = fmt.Sprintf("--preview %q: %s", s.mount.Preview, det.contract.singleScreen(pkg.Name))

@@ -109,7 +109,6 @@ func TestResolveDevTarget(t *testing.T) {
 
 	for _, c := range []struct{ pkg, preview, want string }{
 		{"cmd/tela/testdata/empty", "", "cannot be run: it is not a package main"},
-		{"cmd/tela/testdata/scene", "", "only defines Scene"},
 		{"cmd/tela/testdata/preview", "X", `--preview "X": package preview defines Preview(), a single screen`},
 		{"cmd/tela/testdata/apponly", "X", "defines App, whose Root is a single screen"},
 		{"examples/counter", "X", `defines Preview(), a single screen`},

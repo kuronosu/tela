@@ -128,7 +128,7 @@ func TestSnapshotPreviewFlagOnSingleScreen(t *testing.T) {
 func TestSnapshotContractErrors(t *testing.T) {
 	skipShort(t)
 	msg := snapFails(t, "./testdata/empty")
-	for _, want := range []string{"cannot be rendered", "func Preview() tela.Node", "tela.Previews", "Scene"} {
+	for _, want := range []string{"cannot be rendered", "func Preview() tela.Node", "tela.Previews"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("empty package: stderr lacks %q:\n%s", want, msg)
 		}
@@ -136,18 +136,6 @@ func TestSnapshotContractErrors(t *testing.T) {
 	msg = snapFails(t, "./testdata/wrongtype")
 	if !strings.Contains(msg, "its Preview has the wrong type") || !strings.Contains(msg, "func Preview() tela.Node") {
 		t.Errorf("mistyped Preview: stderr:\n%s", msg)
-	}
-}
-
-func TestSnapshotSceneIgnoresDarkWithWarning(t *testing.T) {
-	skipShort(t)
-	_, _, stderr := snap(t, "--size", "100x80", "--dark", "./testdata/scene")
-	if !strings.Contains(stderr, "--dark has no effect") {
-		t.Errorf("stderr %q lacks the --dark warning", stderr)
-	}
-	msg := snapFails(t, "--preview", "A", "./testdata/scene")
-	if !strings.Contains(msg, "single scene") {
-		t.Errorf("stderr:\n%s", msg)
 	}
 }
 
@@ -318,14 +306,6 @@ func TestInspectPreviews(t *testing.T) {
 	}
 	if msg := func() string { _, e := inspectRun(t, 1, "--preview", "x", "./testdata/previews"); return e }(); !strings.Contains(msg, "Alert, Counter") {
 		t.Errorf("unknown preview: stderr %q", msg)
-	}
-}
-
-func TestInspectSceneRejected(t *testing.T) {
-	skipShort(t)
-	_, stderr := inspectRun(t, 1, "./testdata/scene")
-	if !strings.Contains(stderr, "only defines Scene") {
-		t.Errorf("stderr %q", stderr)
 	}
 }
 

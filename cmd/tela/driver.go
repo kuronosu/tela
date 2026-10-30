@@ -23,7 +23,7 @@ import (
 // How the commands run a package. A package main cannot be imported, so
 // instead of building a separate main, `go test -overlay` adds a _test.go
 // file to the target package. The file is generated for the contract the
-// package implements (Previews, Preview or Scene), runs inside the package
+// package implements (Previews, Preview or App), runs inside the package
 // with access to its declarations, and writes its result to a file whose
 // path arrives in an environment variable. The overlay means nothing is
 // written into the package's directory.
@@ -31,8 +31,7 @@ import (
 // Screens are rendered through the public telatest package (Render,
 // AriaSnapshot, LayoutJSON), so the commands work on any module that
 // requires github.com/kuronosu/tela (ADR-059, which lifts the limitation
-// of ADR-047). Only the phase-1 Scene contract still imports tela's
-// internal packages, and so only works inside the tela module.
+// of ADR-047). The generated file imports only public packages.
 
 // mode is what the generated test does.
 type mode string
@@ -51,7 +50,6 @@ const (
 	contractPreview           // func Preview() tela.Node (or tela.Component)
 	contractPreviews          // var Previews = tela.Previews{...}
 	contractApp               // var App = tela.App{...}, whose Root is the screen
-	contractScene             // func Scene(w, h float32) *gfx.DisplayList (phase 1)
 )
 
 func (c contract) String() string {
@@ -62,8 +60,6 @@ func (c contract) String() string {
 		return "Previews"
 	case contractApp:
 		return "App"
-	case contractScene:
-		return "Scene"
 	}
 	return "none"
 }
@@ -71,14 +67,12 @@ func (c contract) String() string {
 // singleScreen explains, for pkg, that a package without Previews has one
 // screen and how to get several. Each command keeps its own rule for when to
 // say it; this is only the wording. It is for the contracts that have a
-// single screen (Preview, App, Scene).
+// single screen (Preview, App).
 func (c contract) singleScreen(pkg string) string {
 	what := "Preview(), a single screen"
 	switch c {
 	case contractApp:
 		what = "App, whose Root is a single screen"
-	case contractScene:
-		what = "Scene, a single scene"
 	}
 	return fmt.Sprintf("package %s defines %s; to choose among several, define var Previews = tela.Previews{\"Name\": {Root: tela.C(Screen)}}", pkg, what)
 }
@@ -91,8 +85,7 @@ const contractHelp = `it must define one of
 	var App = tela.App{Root: tela.C(Screen), ...}
 
 (a package that defines App renders in the size, class, color scheme, theme and
-aliases of that App; alone, its Root is the screen. The phase-1 contract,
-func Scene(w, h float32) *gfx.DisplayList, also works for "tela snapshot")`
+aliases of that App; alone, its Root is the screen)`
 
 // Names of the environment variables that carry the parameters to the
 // generated test (rather than test flags, which could clash with the
@@ -235,10 +228,10 @@ func previewKeys(spec *ast.ValueSpec, i int) []string {
 // scanPackage parses the declarations of the package files and reports which
 // contract the package's source implements. It parses the declarations only,
 // so it works before anything compiles. When several are defined, Previews
-// wins over Preview, which wins over Scene, which wins over App (a package
+// wins over Preview, which wins over App (a package
 // that defines App next to another contract still renders in that App).
 func scanPackage(dir string, files []string) (detected, error) {
-	var hasPreview, hasPreviews, hasScene, hasApp bool
+	var hasPreview, hasPreviews, hasApp bool
 	var previews []string
 	fset := token.NewFileSet()
 	for _, name := range files {
@@ -252,11 +245,8 @@ func scanPackage(dir string, files []string) (detected, error) {
 				if d.Recv != nil {
 					continue
 				}
-				switch d.Name.Name {
-				case "Preview":
+				if d.Name.Name == "Preview" {
 					hasPreview = true
-				case "Scene":
-					hasScene = true
 				}
 			case *ast.GenDecl:
 				if d.Tok != token.VAR {
@@ -288,8 +278,6 @@ func scanPackage(dir string, files []string) (detected, error) {
 		d.contract = contractPreviews
 	case hasPreview:
 		d.contract = contractPreview
-	case hasScene:
-		d.contract = contractScene
 	case hasApp:
 		d.contract = contractApp
 	}
@@ -299,7 +287,7 @@ func scanPackage(dir string, files []string) (detected, error) {
 // runInfo is what the generated test reports about the run.
 type runInfo struct {
 	// Preview is the name of the rendered preview ("" for a package that
-	// defines Preview or Scene) and Names all the names, sorted.
+	// defines Preview or App) and Names all the names, sorted.
 	Preview string   `json:"preview"`
 	Names   []string `json:"names"`
 }
@@ -333,9 +321,6 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	if err := checkContract(m, c, opts, pkg); err != nil {
 		return nil, err
 	}
-	if c == contractScene && opts.Dark {
-		fmt.Fprintf(stderr, "tela: warning: --dark has no effect on package %s: Scene builds a display list without styles\n", pkg.Name)
-	}
 
 	tmp, err := os.MkdirTemp("", "tela-run-")
 	if err != nil {
@@ -344,7 +329,7 @@ func runInPackage(m mode, opts renderOptions, ext string, stderr io.Writer) (*ru
 	defer os.RemoveAll(tmp)
 
 	src := filepath.Join(tmp, generatedFile)
-	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp && c != contractScene), 0o644); err != nil {
+	if err := os.WriteFile(src, generateSource(pkg.Name, c, det.hasApp), 0o644); err != nil {
 		return nil, err
 	}
 	overlay := filepath.Join(tmp, "overlay.json")
@@ -411,9 +396,7 @@ func checkContract(m mode, c contract, opts renderOptions, pkg goPackage) error 
 	switch {
 	case c == contractNone:
 		return fmt.Errorf("package %s (%s) cannot be rendered: %s", pkg.Name, opts.Pkg, contractHelp)
-	case c == contractScene && m != modeSnapshot:
-		return fmt.Errorf("package %s (%s) only defines Scene, a display list without a layout tree: tela inspect needs func Preview() tela.Node, a Previews variable or an App", pkg.Name, opts.Pkg)
-	case opts.Preview != "" && (c == contractPreview || c == contractApp || c == contractScene):
+	case opts.Preview != "" && (c == contractPreview || c == contractApp):
 		return fmt.Errorf("--preview %q: %s", opts.Preview, c.singleScreen(pkg.Name))
 	}
 	return nil
@@ -437,8 +420,6 @@ func explainFailure(pkg, name string, c contract, output string) error {
 				want = "var Previews = tela.Previews{\"Name\": {Root: tela.C(Screen)}}   (a map[string]tela.Preview)"
 			case contractApp:
 				want = "var App = tela.App{...}"
-			case contractScene:
-				want = "func Scene(w, h float32) *gfx.DisplayList"
 			}
 			if want != "" && (strings.Contains(output, "cannot use "+d.String()) || strings.Contains(output, "undefined: "+d.String())) {
 				return fmt.Errorf("package %s (%s) cannot be rendered: its %s has the wrong type; it must be\n\n\t%s\n\ngo reported:\n%s", name, pkg, d, want, output)
@@ -493,11 +474,10 @@ func generateSource(pkgName string, c contract, hasApp bool) []byte {
 	err := generatedTemplate.Execute(&buf, struct {
 		Package string
 		Kind    string
-		Scene   bool
 		HasApp  bool
 		Env     map[string]string
 	}{
-		Package: pkgName, Kind: c.String(), Scene: c == contractScene, HasApp: hasApp,
+		Package: pkgName, Kind: c.String(), HasApp: hasApp,
 		Env: map[string]string{
 			"Mode": envMode, "W": envW, "H": envH, "Scale": envScale, "Dark": envDark, "SizeSet": envSizeSet,
 			"Preview": envPreview, "Out": envOut, "Err": envErr, "Info": envInfo, "Log": envLog,
@@ -519,14 +499,6 @@ import (
 	telastrconv "strconv"
 	telatesting "testing"
 
-{{- if .Scene}}
-	telaimage "image"
-	telapng "image/png"
-
-	telagfx "github.com/kuronosu/tela/internal/gfx"
-	telaraster "github.com/kuronosu/tela/internal/gfx/raster"
-	telaplatform "github.com/kuronosu/tela/internal/platform"
-{{- else}}
 	telajson "encoding/json"
 	telapng "image/png"
 	telasort "sort"
@@ -534,14 +506,13 @@ import (
 
 	telatela "github.com/kuronosu/tela"
 	telatest "github.com/kuronosu/tela/telatest"
-{{- end}}
 )
-{{if not .Scene}}
+
 var (
 	_ = telasort.Strings
 	_ = telastrings.Join
 )
-{{end}}
+
 {{template "contract" .}}
 func TestTelaRun(t *telatesting.T) {
 	getenv := func(name string) string { return telaos.Getenv(name) }
@@ -576,21 +547,6 @@ func TestTelaRun(t *telatesting.T) {
 	dark := getenv({{printf "%q" .Env.Dark}}) == "true"
 	_ = dark
 
-{{if .Scene}}
-	size := telaplatform.Size{W: float32(w), H: float32(h)}
-	phys := telaplatform.PhysicalSize(size, scale)
-	if phys.X <= 0 || phys.Y <= 0 {
-		t.Fatalf("empty image: %vx%v at scale %v", w, h, scale)
-	}
-	img := telaimage.NewRGBA(telaimage.Rect(0, 0, phys.X, phys.Y))
-	telaraster.Clear(img, telaimage.Rectangle{}, telagfx.White)
-	telaraster.Render(img, telaScene(size.W, size.H), telaraster.Options{Scale: float32(scale)})
-	var buf telaBuffer
-	if err := telapng.Encode(&buf, img); err != nil {
-		t.Fatal(err)
-	}
-	write({{printf "%q" .Env.Out}}, buf.b)
-{{else}}
 	root, preview, names, err := telaBuild(getenv({{printf "%q" .Env.Preview}}))
 	if err != nil {
 		fail("%v", err)
@@ -646,7 +602,6 @@ func TestTelaRun(t *telatesting.T) {
 	default:
 		t.Fatalf("unknown mode %q", getenv({{printf "%q" .Env.Mode}}))
 	}
-{{end}}
 }
 
 // telaBuffer collects the output of an encoder.
@@ -732,8 +687,5 @@ func telaBuild(want string) (telatela.Component, string, []string, error) {
 	}
 	return telaApp.Root, "", nil, nil
 }
-{{else -}}
-// The phase-1 contract: func Scene(w, h float32) *gfx.DisplayList.
-var telaScene func(w, h float32) *telagfx.DisplayList = Scene
 {{end}}
 {{end}}`

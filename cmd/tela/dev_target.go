@@ -166,8 +166,6 @@ func resolveDevTarget(goBin string, opts devOptions) (*devTarget, error) {
 			return nil, fmt.Errorf("--preview %q: package main (%s) defines no Previews; %s", opts.Preview, opts.Pkg, contractHelp)
 		}
 		return nil, fmt.Errorf("package %s (%s) cannot be run: it is not a package main and %s", p.Name, opts.Pkg, contractHelp)
-	case contractScene:
-		return nil, fmt.Errorf("package %s (%s) only defines Scene, a display list: tela dev runs an app; define func Preview() tela.Node, a Previews variable or an App", p.Name, opts.Pkg)
 	}
 	if opts.Preview != "" && t.contract != contractPreviews {
 		return nil, fmt.Errorf("--preview %q: %s", opts.Preview, t.contract.singleScreen(p.Name))

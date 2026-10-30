@@ -10,7 +10,6 @@
 /player
 /settings
 /signup
-/text
 
 # Golden test failures
 *_actual.png

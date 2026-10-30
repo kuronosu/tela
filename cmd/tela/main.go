@@ -20,16 +20,13 @@
 // so the image matches the window; alone, its Root is the screen. The dev
 // warnings of the screen go to standard error. snapshot writes a PNG; inspect prints
 // the aria snapshot as YAML (--aria, the default) or the layout tree as
-// JSON (--layout). The phase-1
-// contract func Scene(w, h float32) *gfx.DisplayList still works for
-// snapshot.
+// JSON (--layout).
 //
 // The commands run the package's own code: they generate a test file that
 // the go command compiles into the package (through an overlay, so the
 // directory is not touched), which means they need the go command in PATH
 // and a package in a module that requires Tela (the generated code uses
-// the public telatest entry point, ADR-059; only the legacy Scene contract
-// needs the Tela module itself).
+// the public telatest entry point, ADR-059).
 //
 // icons gen turns a directory of SVG files into a Go package with one
 // tela.Icon variable per file (ADR-102); it does not run the package's code

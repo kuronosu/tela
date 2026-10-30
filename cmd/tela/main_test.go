@@ -13,8 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/kuronosu/tela/internal/testutil/golden"
 )
 
 func TestParseSnapshotArgsDefaults(t *testing.T) {
@@ -167,7 +165,7 @@ func TestInspectDispatch(t *testing.T) {
 }
 
 func TestGenerateSource(t *testing.T) {
-	for _, c := range []contract{contractPreview, contractPreviews, contractApp, contractScene} {
+	for _, c := range []contract{contractPreview, contractPreviews, contractApp} {
 		src := generateSource("main", c, c == contractApp)
 		f, err := parser.ParseFile(token.NewFileSet(), generatedFile, src, parser.AllErrors)
 		if err != nil {
@@ -176,7 +174,7 @@ func TestGenerateSource(t *testing.T) {
 		if f.Name.Name != "main" {
 			t.Errorf("%v: package = %q, want main", c, f.Name.Name)
 		}
-		if c != contractScene && !strings.Contains(string(src), `"TELA_RUN_MODE"`) {
+		if !strings.Contains(string(src), `"TELA_RUN_MODE"`) {
 			t.Errorf("%v: generated source does not read the mode", c)
 		}
 		for _, want := range []string{"func TestTelaRun(", `"TELA_RUN_W"`, `"TELA_RUN_OUT"`, `"TELA_RUN_ERR"`, `"TELA_RUN_LOG"`, c.String()} {
@@ -185,19 +183,12 @@ func TestGenerateSource(t *testing.T) {
 			}
 		}
 		// The screens go through telatest (ADR-059), which works for any
-		// module that requires tela; only the phase-1 Scene contract still
-		// needs the internal packages.
-		if c == contractScene {
-			if !strings.Contains(string(src), "PhysicalSize") || !strings.Contains(string(src), "tela/internal/") {
-				t.Errorf("%v: generated source lacks the internal rendering", c)
-			}
-		} else {
-			if strings.Contains(string(src), "tela/internal/") {
-				t.Errorf("%v: generated source imports an internal package, which breaks modules outside tela:\n%s", c, src)
-			}
-			if !strings.Contains(string(src), "telatest.Render(") || !strings.Contains(string(src), "telatest.AriaSnapshot(") || !strings.Contains(string(src), "telatest.LayoutJSON(") {
-				t.Errorf("%v: generated source does not use telatest", c)
-			}
+		// module that requires tela.
+		if strings.Contains(string(src), "tela/internal/") {
+			t.Errorf("%v: generated source imports an internal package, which breaks modules outside tela:\n%s", c, src)
+		}
+		if !strings.Contains(string(src), "telatest.Render(") || !strings.Contains(string(src), "telatest.AriaSnapshot(") || !strings.Contains(string(src), "telatest.LayoutJSON(") {
+			t.Errorf("%v: generated source does not use telatest", c)
 		}
 	}
 	if other := generateSource("widgets", contractPreview, false); !strings.Contains(string(other), "package widgets\n") {
@@ -235,9 +226,8 @@ func TestDetectContract(t *testing.T) {
 		{"preview", map[string]string{"a.go": "package a\nfunc Preview() int { return 1 }\n"}, contractPreview},
 		{"previews", map[string]string{"a.go": "package a\nvar Previews = map[string]func(){}\n"}, contractPreviews},
 		{"previews in a group", map[string]string{"a.go": "package a\nvar (\n\tx = 1\n\tPreviews = 2\n)\n"}, contractPreviews},
-		{"scene", map[string]string{"a.go": "package a\nfunc Scene(w, h float32) {}\n"}, contractScene},
-		{"previews wins", map[string]string{"a.go": "package a\nfunc Preview() {}\nfunc Scene() {}\n", "b.go": "package a\nvar Previews = 1\n"}, contractPreviews},
-		{"preview wins over scene", map[string]string{"a.go": "package a\nfunc Preview() {}\nfunc Scene() {}\n"}, contractPreview},
+		{"scene is not a screen", map[string]string{"a.go": "package a\nfunc Scene(w, h float32) {}\n"}, contractNone},
+		{"previews wins", map[string]string{"a.go": "package a\nfunc Preview() {}\n", "b.go": "package a\nvar Previews = 1\n"}, contractPreviews},
 		{"methods do not count", map[string]string{"a.go": "package a\ntype T int\nfunc (T) Preview() {}\n"}, contractNone},
 		{"app", map[string]string{"a.go": "package a\nvar App = tela.App{}\n"}, contractApp},
 		{"typed app", map[string]string{"a.go": "package a\nvar App tela.App\n"}, contractApp},
@@ -249,7 +239,7 @@ func TestDetectContract(t *testing.T) {
 		{"dot-imported app", map[string]string{"a.go": "package a\nvar App = App{}\n"}, contractApp},
 		{"pointer to another type", map[string]string{"a.go": "package a\nvar App = &other.Thing{}\n"}, contractNone},
 		{"preview wins over app", map[string]string{"a.go": "package a\nfunc Preview() {}\nvar App = tela.App{}\n"}, contractPreview},
-		{"scene wins over app", map[string]string{"a.go": "package a\nfunc Scene() {}\nvar App = tela.App{}\n"}, contractScene},
+		{"app next to scene", map[string]string{"a.go": "package a\nfunc Scene() {}\nvar App = tela.App{}\n"}, contractApp},
 	} {
 		var files []string
 		for name, src := range tc.files {
@@ -284,11 +274,7 @@ func TestCheckContract(t *testing.T) {
 		{modeSnapshot, contractApp, "A", "defines App"},
 		{modeSnapshot, contractPreview, "", ""},
 		{modeSnapshot, contractPreviews, "A", ""},
-		{modeSnapshot, contractScene, "", ""},
-		{modeInspect, contractScene, "", "only defines Scene"},
-		{modeAria, contractScene, "", "only defines Scene"},
 		{modeSnapshot, contractPreview, "A", "single screen"},
-		{modeSnapshot, contractScene, "A", "single scene"},
 	} {
 		err := checkContract(tc.m, tc.c, renderOptions{Pkg: "./x", Preview: tc.prev}, pkg)
 		switch {
@@ -302,10 +288,6 @@ func TestExplainFailure(t *testing.T) {
 	wrong := "# example.com/x [example.com/x.test]\n./" + generatedFile + ":19:92: cannot use Preview (value of type func() int) as func() core.Node value in variable declaration"
 	if err := explainFailure("./x", "x", contractPreview, wrong); !strings.Contains(err.Error(), "func Preview() tela.Node") || !strings.Contains(err.Error(), "wrong type") {
 		t.Errorf("friendly message missing for mistyped Preview: %v", err)
-	}
-	scene := "./" + generatedFile + ":19:92: cannot use Scene (value of type func() int) as func(w float32, h float32) *gfx.DisplayList value"
-	if err := explainFailure("./x", "x", contractScene, scene); !strings.Contains(err.Error(), "func Scene(w, h float32) *gfx.DisplayList") {
-		t.Errorf("friendly message missing for mistyped Scene: %v", err)
 	}
 	previews := "./" + generatedFile + ":19:92: cannot use Previews (variable of type int) as map[string]func() core.Node value"
 	if err := explainFailure("./x", "x", contractPreviews, previews); !strings.Contains(err.Error(), "tela.Previews") {
@@ -349,30 +331,6 @@ func readPNG(t *testing.T, path string) *image.NRGBA {
 
 // The integration tests run `go test` in a child process.
 
-// TestSnapshotScene renders the phase-1 Scene package of testdata/scene and
-// compares it with its goldens (one level of tolerance: the scene's own
-// float code may be fused differently on other architectures).
-func TestSnapshotScene(t *testing.T) {
-	skipShort(t)
-	for _, tc := range []struct {
-		scale  string
-		golden string
-	}{
-		{"1", "scene_x1"},
-		{"2", "scene_x2"},
-	} {
-		t.Run("scale"+tc.scale, func(t *testing.T) {
-			outPath := filepath.Join(t.TempDir(), "sub", "out.png")
-			var stdout, stderr bytes.Buffer
-			code := run([]string{"snapshot", "--size", "160x120", "--scale", tc.scale, "-o", outPath, "./testdata/scene"}, &stdout, &stderr)
-			if code != 0 {
-				t.Fatalf("exit code %d\nstdout: %s\nstderr: %s", code, stdout.String(), stderr.String())
-			}
-			golden.Image(t, tc.golden, readPNG(t, outPath), golden.MaxDelta(1))
-		})
-	}
-}
-
 func TestSnapshotSizeAndFractionalScale(t *testing.T) {
 	skipShort(t)
 	outPath := filepath.Join(t.TempDir(), "o.png")
@@ -385,7 +343,7 @@ func TestSnapshotSizeAndFractionalScale(t *testing.T) {
 	}
 }
 
-func TestSnapshotPackageWithoutScene(t *testing.T) {
+func TestSnapshotPackageWithoutScreen(t *testing.T) {
 	skipShort(t)
 	outPath := filepath.Join(t.TempDir(), "o.png")
 	var stdout, stderr bytes.Buffer

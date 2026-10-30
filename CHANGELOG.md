@@ -19,6 +19,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 ### Removed
 
 - The examples `pricing`, `motion`, `layout`, `virtuallist` and `shapes` are gone (ADR-195). What they tested is covered by package tests and godoc Examples: frames of `Presence`, drags with `Animate`/`Velocity` and `UsePresenceTween` in `anim_frames_test.go`, layout animation frames in `h/layoutanim_frames_test.go`, `VirtualList` goldens in `h/virtual_golden_test.go` with new `ExampleOverscan` and `ExampleElementRef_ScrollToIndex`, and the full-page paint golden in `h/paint_showcase_test.go`.
+- The example `text` is gone (ADR-195). Its content (mixed-script paragraphs, a monospace block with ligatures, truncate and line-clamp, decorations, an inline box, tabular figures) is a golden of `h` elements, and its selection of Arabic text a golden of a right-to-left field in `internal/core`; the rest is covered by the tests of `internal/text` and `internal/core`.
+- `tela snapshot` no longer renders a package that only defines `func Scene(w, h float32) *gfx.DisplayList`, the phase-1 contract, which could not be used outside the Tela module (ADR-196). Define `Preview`, `Previews` or `App`.
 
 ## [0.12.6] - 2026-10-29
 

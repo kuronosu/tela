@@ -55,13 +55,6 @@ ignored, and so is Root when the package has previews. The App's
 ColorScheme overrides --dark, as it overrides the system in a window.
 Dev warnings and class errors of the screen are printed on standard error.
 
-For the packages of phase 1 (such as examples/text) a package may
-instead define
-
-	func Scene(w, h float32) *gfx.DisplayList
-
-which builds a scene for a window of w x h logical pixels.
-
 Flags:
 
 	--size WxH       logical size of the window (default: the App's Width and
@@ -69,8 +62,7 @@ Flags:
 	--scale N        display scale; fractional scales such as 1.25 are allowed
 	                 (default 1). The PNG is (W*N)x(H*N) pixels, rounded like
 	                 the window backends do
-	--dark           render in dark mode: dark: variants apply (not available
-	                 for Scene packages)
+	--dark           render in dark mode: dark: variants apply
 	--preview NAME   the named screen of a Previews variable
 	-o file          output file (default snapshot.png)
 `
