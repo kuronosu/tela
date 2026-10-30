@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/kuronosu/tela/internal/testutil/wine"
 )
 
 func TestShortName(t *testing.T) {
@@ -88,6 +90,7 @@ func TestWalkStopsWhenClosed(t *testing.T) {
 // (when the volume makes them): whichever name the record carries, it is
 // reported as a possible directory.
 func TestShortNameRemoved(t *testing.T) {
+	wine.Skip(t, "GetShortPathName gives names such as LONG~TX4, not the NAME~N form of Windows")
 	h := newHarness(t, false, Options{})
 	long := h.path("longdirectoryname")
 	if err := os.MkdirAll(filepath.Join(long, "sub"), 0o755); err != nil {

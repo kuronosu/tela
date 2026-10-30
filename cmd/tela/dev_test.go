@@ -17,6 +17,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/platform/remote"
+	"github.com/kuronosu/tela/internal/testutil/wine"
 )
 
 // The supervisor's tests: a real remote host on the headless backend, the
@@ -104,6 +105,7 @@ func newDevHarnessHost(t *testing.T, opts devOptions, configure func(*supervisor
 	if testing.Short() {
 		t.Skip("starts processes")
 	}
+	wine.Skip(t, "no AF_UNIX sockets (WSAEAFNOSUPPORT), so the remote host cannot listen")
 	exe, err := os.Executable()
 	if err != nil {
 		t.Skip(err)
@@ -1017,6 +1019,7 @@ func TestDevForcedFlags(t *testing.T) {
 
 // TestDevChildEnv checks the environment of a child.
 func TestDevChildEnv(t *testing.T) {
+	wine.Skip(t, "no AF_UNIX sockets (WSAEAFNOSUPPORT), so the remote host cannot listen")
 	s := newSupervisor(supervisorConfig{
 		opts: devOptions{NoState: true},
 		log:  &syncBuffer{},

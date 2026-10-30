@@ -14,6 +14,7 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
 	"github.com/kuronosu/tela/internal/platform/remote"
+	"github.com/kuronosu/tela/internal/testutil/wine"
 )
 
 // e2eWait bounds each wait of the end-to-end test; the first build of an
@@ -65,6 +66,7 @@ func devAppModule(t *testing.T) string {
 func startE2E(t *testing.T) *e2e {
 	t.Helper()
 	skipShort(t)
+	wine.Skip(t, "no AF_UNIX sockets (WSAEAFNOSUPPORT), so the remote host cannot listen")
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("the go command is not in PATH")

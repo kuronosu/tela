@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kuronosu/tela/internal/testutil/wine"
 )
 
 // TestBuildDirPrivate: the shared temp\tela-dev is used, and reused, while
@@ -31,6 +33,9 @@ func TestBuildDirPrivate(t *testing.T) {
 		t.Errorf("second session %s, %s; want another session of %s", again, exclude2, exclude)
 	}
 
+	// The rest checks what Wine does not do: it accepts C:\windows as a
+	// private directory, and it creates no junctions.
+	wine.Skip(t, "checkPrivateDir accepts C:\\windows and Wine creates no junctions")
 	if err := checkPrivateDir(os.Getenv("SystemRoot")); err == nil {
 		t.Errorf("checkPrivateDir(%s) accepted a directory of the system", os.Getenv("SystemRoot"))
 	} else {

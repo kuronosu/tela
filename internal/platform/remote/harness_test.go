@@ -13,6 +13,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/headless"
+	"github.com/kuronosu/tela/internal/testutil/wine"
 )
 
 // The in-process pair: a Host on a real-time headless backend, run on its
@@ -39,6 +40,7 @@ type pair struct {
 
 func newPair(t *testing.T, opts HostOptions, hopts headless.Options) *pair {
 	t.Helper()
+	wine.Skip(t, "no AF_UNIX sockets (WSAEAFNOSUPPORT), so a host cannot listen")
 	hopts.RealTime = true
 	p := &pair{t: t, hb: headless.New(hopts), done: make(chan error, 1), disconnected: map[*Child]error{}}
 	user := opts

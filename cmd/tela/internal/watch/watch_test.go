@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kuronosu/tela/internal/testutil/wine"
 )
 
 const timeout = 5 * time.Second
@@ -190,6 +192,9 @@ func TestNewSubdirectories(t *testing.T) {
 
 func TestDirectoryMovedInAndOut(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
+		if !poll {
+			wine.Skip(t, "ReadDirectoryChangesW does not report the files of a directory renamed within the watched tree")
+		}
 		h := newHarness(t, poll, Options{})
 		outside := t.TempDir()
 		if err := os.MkdirAll(filepath.Join(outside, "pkg", "sub"), 0o755); err != nil {
@@ -227,6 +232,9 @@ func TestDirectoryMovedInAndOut(t *testing.T) {
 // which a removed name was; the watcher knows its tree's directories).
 func TestRemovedNames(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
+		if poll {
+			wine.Skip(t, "renaming a directory the poller scanned fails with a sharing violation")
+		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
@@ -260,6 +268,9 @@ func TestRemovedNames(t *testing.T) {
 // the walk that finds the tree's directories, which then missed it).
 func TestDirectoryGoneRightAfterStart(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
+		if poll {
+			wine.Skip(t, "moving away a directory the poller scanned does not complete (sharing violation, then a timeout)")
+		}
 		root, err := filepath.EvalSymlinks(t.TempDir())
 		if err != nil {
 			t.Fatal(err)

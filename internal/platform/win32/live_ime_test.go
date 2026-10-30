@@ -16,6 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/testutil/wine"
 )
 
 var (
@@ -63,7 +64,8 @@ func sendVK(vk uint16) {
 	procSendInput.Call(uintptr(len(ins)), uintptr(unsafe.Pointer(&ins[0])), unsafe.Sizeof(ins[0]))
 }
 
-func inWine() bool { return procWineVersion.Find() == nil }
+// inWine reports whether the tests run under Wine (internal/testutil/wine).
+func inWine() bool { return wine.Detected() }
 
 // imeContext returns the input context of hwnd and its release.
 func imeContext(hwnd uintptr) (uintptr, func()) {

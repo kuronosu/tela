@@ -12,8 +12,6 @@ import (
 	utf16pkg "unicode/utf16"
 	"unsafe"
 
-	"golang.org/x/sys/windows"
-
 	"github.com/kuronosu/tela/internal/platform"
 )
 
@@ -39,7 +37,6 @@ var (
 	procAttachThreadInput      = user32.NewProc("AttachThreadInput")
 	procGetWindowThreadProcID  = user32.NewProc("GetWindowThreadProcessId")
 	procGetCurrentThreadID     = kernel32.NewProc("GetCurrentThreadId")
-	procWineVersion            = windows.NewLazySystemDLL("ntdll.dll").NewProc("wine_get_version")
 )
 
 const (
@@ -211,7 +208,7 @@ var origLayout uintptr
 // the thread activated before).
 func layoutSession(t *testing.T, klid string) (hkl uintptr, restore func()) {
 	t.Helper()
-	if procWineVersion.Find() == nil {
+	if inWine() {
 		if klid == "00000409" {
 			return 0, func() {} // Wine's layout is US already
 		}
@@ -341,7 +338,7 @@ func runCases(t *testing.T, hkl uintptr, cases []kbdCase, setup func(t *testing.
 			return
 		}
 		got, trace = nil, nil
-		if why := cases[cur].notWine; why != "" && procWineVersion.Find() == nil {
+		if why := cases[cur].notWine; why != "" && inWine() {
 			t.Logf("%s: skipped under Wine, which %s", cases[cur].name, why)
 			cur++
 			next()
@@ -707,7 +704,7 @@ func TestKeyboardSpanish(t *testing.T) {
 // (so asking what a dead key types is harmless), but it does see a sequence
 // that is pending. German: ^ is a dead key.
 func TestToUnicodeDeadKeyState(t *testing.T) {
-	if procWineVersion.Find() == nil {
+	if inWine() {
 		t.Skip("Wine does not implement keyboard layouts")
 	}
 	hkl, restore := layoutSession(t, "00000407")
