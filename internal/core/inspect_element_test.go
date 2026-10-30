@@ -100,3 +100,19 @@ func TestInspectElement(t *testing.T) {
 		}
 	})
 }
+
+// An element unmounted since the last Semantics keeps its parent; it is
+// gone, not its mounted parent's box.
+func TestInspectElementUnmounted(t *testing.T) {
+	tr := newTestTree(t, 300, 200, div(Key("root"), Class("p-4"), button(Key("go"), Text("Go"))), nil)
+	tr.Frame()
+	n := semFind(tr.Semantics(), "button", "Go")
+	if n == nil {
+		t.Fatal("no button Go in the semantics tree")
+	}
+	tr.Mount(div(Key("root"), Class("p-4")))
+	tr.Frame()
+	if got, err := tr.InspectElement(n.ID); !errors.Is(err, ErrNodeGone) {
+		t.Errorf("InspectElement(unmounted button) = %s, %v; want ErrNodeGone", got.Kind, err)
+	}
+}

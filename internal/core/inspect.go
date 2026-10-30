@@ -188,6 +188,11 @@ func (t *Tree) Inspect() InspectNode {
 // tree changed. Call it on the UI thread, after the last Frame.
 func (t *Tree) InspectElement(id semantics.NodeID) (InspectNode, error) {
 	el := t.sem.byID[id]
+	if el == nil || !el.mounted {
+		// An unmounted element keeps its parent: climbing from it would
+		// give a mounted ancestor's box.
+		return InspectNode{}, fmt.Errorf("%w: %d", ErrNodeGone, id)
+	}
 	for el != nil && !(el.mounted && el.kind == elemPrimitive && t.ownBox(el, false) && t.inTree(el.box)) {
 		el = el.styleParent()
 	}
