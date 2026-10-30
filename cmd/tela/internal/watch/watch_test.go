@@ -305,16 +305,38 @@ func TestFilters(t *testing.T) {
 
 func TestDebounce(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		h := newHarness(t, poll, Options{Debounce: 150 * time.Millisecond})
-		start := time.Now()
-		var last time.Time
-		for i := range 5 {
-			if i > 0 {
-				time.Sleep(20 * time.Millisecond)
+		const debounce = 150 * time.Millisecond
+		// The burst is a burst only if no gap between its writes came
+		// near the debounce: a loaded runner can stall a sleep or a write
+		// for longer, and the watcher then rightly sees two bursts. Such
+		// an attempt proves nothing, so it is retried.
+		var (
+			h           *harness
+			start, last time.Time
+		)
+		for attempt := 1; ; attempt++ {
+			h = newHarness(t, poll, Options{Debounce: debounce})
+			start = time.Now()
+			last = start
+			var maxGap time.Duration
+			for i := range 5 {
+				if i > 0 {
+					time.Sleep(20 * time.Millisecond)
+				}
+				h.write("a.go", strings.Repeat("x", i+1))
+				h.write("b.go", strings.Repeat("y", i+1))
+				now := time.Now()
+				maxGap = max(maxGap, now.Sub(last))
+				last = now
 			}
-			h.write("a.go", strings.Repeat("x", i+1))
-			h.write("b.go", strings.Repeat("y", i+1))
-			last = time.Now()
+			if maxGap < debounce/2 {
+				break
+			}
+			if attempt == 3 {
+				t.Skipf("the runner stalled the burst three times (a gap of %v between writes)", maxGap)
+			}
+			t.Logf("attempt %d: a gap of %v between writes, not a burst; again", attempt, maxGap)
+			h.w.Close()
 		}
 		bs := h.expect("burst", []string{"a.go", "b.go"})
 		got := time.Now()
