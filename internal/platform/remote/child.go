@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kuronosu/tela/internal/platform"
@@ -44,6 +45,11 @@ type Backend struct {
 	// the receive). Tens of µs on an idle machine, milliseconds when the
 	// machine is loaded; the tests use it as the tolerance of Now.
 	offsetErr time.Duration
+	// frameTime is the latest FrameEvent.Time from the host: Now never
+	// returns less, since the estimate of offset may be up to offsetErr
+	// behind the host's clock that stamped it (the platform contract
+	// keeps Now at or after the last frame time).
+	frameTime atomic.Int64
 	host      string // the host backend's name
 
 	// notify wakes a blocked Run. Buffer 1, non-blocking sends.
@@ -176,7 +182,13 @@ func (b *Backend) HostBackend() string { return b.host }
 
 // Now returns the host backend's clock: the time base of every event the
 // host forwards. Safe from any goroutine.
-func (b *Backend) Now() time.Duration { return time.Since(b.start) + b.offset }
+func (b *Backend) Now() time.Duration {
+	now := time.Since(b.start) + b.offset
+	if f := time.Duration(b.frameTime.Load()); now < f {
+		return f
+	}
+	return now
+}
 
 // Wake makes the loop deliver a WakeEvent soon. Safe from any goroutine;
 // local to this process.
@@ -445,7 +457,10 @@ func (b *Backend) event(id uint32, ev platform.Event) error {
 		}
 		b.loop.Enqueue(nil, ev)
 	} else if w := b.windows[id]; w != nil {
-		if _, ok := ev.(platform.FrameEvent); ok {
+		if f, ok := ev.(platform.FrameEvent); ok {
+			if int64(f.Time) > b.frameTime.Load() {
+				b.frameTime.Store(int64(f.Time)) // writes are under b.mu
+			}
 			w.frameAsked = false
 			if !w.visible {
 				// The host sent it before it saw SetVisible(false): a

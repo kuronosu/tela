@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- `tela dev`: the app's clock (`Now`) no longer reads earlier than the time of the frame it is drawing when the machine is loaded (the remote backend estimates the host's clock; it now never goes behind the last frame time).
+
 ## [0.12.5] - 2026-10-29
 
 CI is green again (tests and module metadata only; no change to the framework's behavior).
