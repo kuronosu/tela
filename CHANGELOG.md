@@ -12,6 +12,15 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ## [Unreleased]
 
+## [0.12.5] - 2026-10-29
+
+CI is green again (tests and module metadata only; no change to the framework's behavior).
+
+### Fixed
+
+- `icons/lucide`: its `go.mod` and `go.sum` list `godbus/dbus`, which the Linux desktop services of Tela need, so the module builds and tests on its own.
+- Tests: the ones that need what Wine lacks (AF_UNIX sockets for `tela dev`'s remote host, Windows file-change and rename semantics) are skipped only under Wine; the Win32 pointer tests move the real cursor off their window; the Win32 tests that depend on the shell (common dialogs, notifications, the file-dialog modal check) run with `TELA_LIVE=1`, like the Linux live tests; the `examples/player` and remote-clock tests no longer depend on timing; the Wayland live tests find their window on sway as well as Hyprland and skip when no seat has a keyboard; `TestDPIChanged` works at any monitor scale.
+
 ## [0.12.4] - 2026-10-29
 
 Fixes from the codebase review of 2026-10-29 (`docs/reviews/2026-10-29.md`).
@@ -697,7 +706,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.4...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.5...HEAD
+[0.12.5]: https://github.com/kuronosu/tela/compare/v0.12.4...v0.12.5
 [0.12.4]: https://github.com/kuronosu/tela/compare/v0.12.3...v0.12.4
 [0.12.3]: https://github.com/kuronosu/tela/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/kuronosu/tela/compare/v0.12.1...v0.12.2
