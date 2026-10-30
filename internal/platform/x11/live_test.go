@@ -24,7 +24,9 @@ import (
 // They verify pixels with GetImage on the window itself, which reads the
 // X server's copy of the window and does not depend on the compositor
 // (under Xwayland, every toplevel has its own pixmap, so overlapping
-// windows and compositor scaling do not affect it).
+// windows and compositor scaling do not affect it). They do not overlap
+// with the live tests of other packages (platformtest.LockLive), whose
+// windows would take the keyboard focus.
 
 func liveBackend(t *testing.T) *Backend {
 	t.Helper()
@@ -34,6 +36,7 @@ func liveBackend(t *testing.T) *Backend {
 	if os.Getenv("DISPLAY") == "" {
 		t.Skip("DISPLAY is not set")
 	}
+	platformtest.LockLive(t)
 	b, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)

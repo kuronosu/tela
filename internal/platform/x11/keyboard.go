@@ -47,7 +47,9 @@ import (
 //     get their synthetic releases then.
 //   - Keys held when focus arrives produce no presses: KeymapNotify, which
 //     follows FocusIn, lists the keys already down, and their server
-//     repeats are dropped until they are released.
+//     repeats are dropped until they are released. A modifier held then
+//     still applies to the next keys: Key, Text and Mods come from each
+//     event's state field, which carries it.
 type kbd struct {
 	b *Backend
 

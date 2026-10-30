@@ -473,6 +473,49 @@ func TestKeyboardFocus(t *testing.T) {
 	}
 }
 
+// TestKeyboardShiftHeldAtFocus: Shift pressed while the window is not
+// focused yet (its press reaches the window before FocusIn, or another
+// window) and still down when focus arrives. Its press is not delivered,
+// but the next keys follow the server's state field: "H" with Shift,
+// then the release of Shift (dropped, its press never was) leaves no
+// stuck modifier. With and without XKB and detectable auto-repeat.
+func TestKeyboardShiftHeldAtFocus(t *testing.T) {
+	const kcH = 43
+	m := deMapping()
+	copy(m.Keysyms[(kcH-8)*m.KeysymsPerKeycode:], []xkb.Keysym{'h', 'H', 'h', 'H'})
+	for _, c := range []struct{ xkb, detectable bool }{{true, true}, {true, false}, {false, false}} {
+		_, feed := kbdBackend(t, m, c.xkb, c.detectable)
+		// state wraps an XKB StateNotify: only XKB clients get one.
+		state := func(base byte, kc byte) []xgb.Event {
+			if !c.xkb {
+				return nil
+			}
+			return []xgb.Event{stateNotify(base, 0, 0, kc)}
+		}
+		var evs []xgb.Event
+		add := func(e ...xgb.Event) { evs = append(evs, e...) }
+		add(focusOut(xproto.NotifyModeNormal))
+		add(press(kcShift, 0, 1))
+		add(state(stShift, kcShift)...)
+		add(focusIn(xproto.NotifyModeNormal), keymapNotify(kcShift))
+		add(press(kcH, stShift, 2), release(kcH, stShift, 3))
+		add(release(kcShift, stShift, 4))
+		add(state(0, kcShift)...)
+		add(press(kcH, 0, 5), release(kcH, 0, 6))
+		got := feed(evs...)
+		want := lines(
+			"focus false",
+			"focus true",
+			`key press KeyH "H" "H" mods=1`,
+			`key release KeyH "H" "" mods=1`,
+			`key press KeyH "h" "h" mods=0`,
+			`key release KeyH "h" "" mods=0`)
+		if got != want {
+			t.Errorf("xkb %v, detectable %v:\n got %s\nwant %s", c.xkb, c.detectable, got, want)
+		}
+	}
+}
+
 func TestKeyboardCloseDropsKeys(t *testing.T) {
 	b, feed := kbdBackend(t, deMapping(), true, true)
 	w := b.windows[7]

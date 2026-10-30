@@ -26,6 +26,8 @@ import (
 //	TELA_LIVE=1 CGO_ENABLED=0 go test -run TestLiveKeyboard -v ./internal/platform/x11/
 //
 // with nothing else grabbing the keyboard: the new window must get focus.
+// The live tests of other packages wait (platformtest.LockLive), and a
+// failing step says when the window's focus changed during it.
 // TELA_LIVE_TYPE=manual waits 15 s for the user to type instead and only
 // logs the events (for checking the real keyboard, AltGr, dead keys and
 // Compose).
@@ -55,13 +57,28 @@ func TestLiveKeyboard(t *testing.T) {
 		events  []platform.KeyEvent
 		focused = make(chan struct{})
 		once    sync.Once
+
+		// The focus changed since the last snapshot (moved), and during
+		// the step that snapshot ended (stepMoved).
+		gotFocus, moved, stepMoved bool
 	)
 	snapshot := func() []platform.KeyEvent {
 		mu.Lock()
 		defer mu.Unlock()
 		out := events
 		events = nil
+		stepMoved, moved = moved, false
 		return out
+	}
+	// focusNote explains a failing step during which the window lost the
+	// focus: its result is meaningless.
+	focusNote := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		if stepMoved {
+			return " (the window's keyboard focus changed during this step: another window took it)"
+		}
+		return ""
 	}
 	text := func(evs []platform.KeyEvent) string {
 		var s strings.Builder
@@ -126,7 +143,7 @@ func TestLiveKeyboard(t *testing.T) {
 		const typed = "Hello, wörld! 123 é"
 		typeText(typed)
 		if evs := snapshot(); text(evs) != typed {
-			t.Errorf("typed %q, got text %q", typed, text(evs))
+			t.Errorf("typed %q, got text %q%s", typed, text(evs), focusNote())
 			logEvents(evs)
 		}
 
@@ -139,7 +156,7 @@ func TestLiveKeyboard(t *testing.T) {
 			}
 		}
 		if !ok {
-			t.Error("Ctrl+A: no press with Key \"a\", Text \"a\" and Mods Ctrl")
+			t.Errorf("Ctrl+A: no press with Key \"a\", Text \"a\" and Mods Ctrl%s", focusNote())
 			logEvents(evs)
 		}
 
@@ -155,7 +172,7 @@ func TestLiveKeyboard(t *testing.T) {
 			}
 		}
 		if !ok {
-			t.Error("Shift+A: no press with Key \"A\" and Mods Shift")
+			t.Errorf("Shift+A: no press with Key \"A\" and Mods Shift%s", focusNote())
 			logEvents(evs)
 		}
 
@@ -180,10 +197,10 @@ func TestLiveKeyboard(t *testing.T) {
 		}
 		t.Logf("%d repeats while x was held for 1.5 s, %d releases", repeats, releases)
 		if repeats < 3 {
-			t.Errorf("only %d repeats while a key was held for 1.5 s", repeats)
+			t.Errorf("only %d repeats while a key was held for 1.5 s%s", repeats, focusNote())
 		}
 		if releases != 1 {
-			t.Errorf("%d releases of x, want 1 (repeats must not have releases in between)", releases)
+			t.Errorf("%d releases of x, want 1 (repeats must not have releases in between)%s", releases, focusNote())
 		}
 
 		// Idle: the server repeats, Tela arms nothing.
@@ -203,6 +220,10 @@ func TestLiveKeyboard(t *testing.T) {
 				t.Errorf("Present: %v", err)
 			}
 		case platform.FocusEvent:
+			mu.Lock()
+			moved = moved || gotFocus // any focus event after the first
+			gotFocus = gotFocus || e.Focused
+			mu.Unlock()
 			if e.Focused {
 				once.Do(func() { close(focused) })
 			}

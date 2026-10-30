@@ -37,6 +37,7 @@ func skipUnlessLive(t *testing.T) {
 func liveBackend(t *testing.T) *Backend {
 	t.Helper()
 	skipUnlessLive(t)
+	platformtest.LockLive(t) // no other package's windows take the focus
 	b, err := New()
 	if err != nil {
 		t.Fatalf("New: %v", err)
