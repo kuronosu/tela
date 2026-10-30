@@ -85,6 +85,21 @@ func requireShell(t *testing.T) {
 	}
 }
 
+// requireLiveShell is requireShell for the tests that depend on what the
+// real shell and compositor do with the app's dialogs, toasts and pixels:
+// they need an attended desktop, so they only run with TELA_LIVE=1 (as the
+// Linux live tests do). On the unattended windows-latest runner the same
+// code passed in one run and failed in the next (a dialog that never
+// opened, a toast closed by the shell before the click, probes that read
+// the dialog instead of the owner).
+func requireLiveShell(t *testing.T) {
+	t.Helper()
+	requireShell(t)
+	if os.Getenv("TELA_LIVE") != "1" {
+		t.Skip("set TELA_LIVE=1 to run against the real shell (dialogs, toasts and screen captures need an attended desktop)")
+	}
+}
+
 // waitWindow waits for a top-level window of the class whose title is
 // title ("" for any) and returns it, or 0 after the timeout.
 func waitWindow(class, title string) uintptr {
@@ -125,7 +140,7 @@ func testIcon() []image.Image {
 // are delivered while the dialog is open; Cancel is "" with no error; the
 // box answers the button pressed.
 func TestLiveDialogs(t *testing.T) {
-	requireShell(t)
+	requireLiveShell(t)
 	b := liveBackend(t)
 	d := b.Desktop()
 	saveTitle := fmt.Sprintf("tela live save %d", os.Getpid())
@@ -367,7 +382,7 @@ func TestLiveTray(t *testing.T) {
 // drives it with the callbacks of a click; CloseNotification withdraws one
 // without an event.
 func TestLiveNotification(t *testing.T) {
-	requireShell(t)
+	requireLiveShell(t)
 	b := liveBackend(t)
 	d := b.Desktop()
 	var (

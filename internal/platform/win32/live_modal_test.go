@@ -101,6 +101,10 @@ func TestLiveFramelessModalKeepsPixels(t *testing.T) {
 }
 
 func framelessModal(t *testing.T, mode string) {
+	if mode == "filedialog" {
+		// The real file dialog and the screen capture behind it.
+		requireLiveShell(t)
+	}
 	b := liveBackend(t)
 	want := color.RGBA{0x30, 0x60, 0x90, 0xff}
 	size := image.Pt(400, 300)
