@@ -32,7 +32,8 @@ import (
 //     wrap would remount a stateful node when the same place holds both
 //     forms at different times. That happens in a function that returns
 //     Fragment(A{}) on one path and Fragment(A{}, B{}) on another (or
-//     assigns them to one variable), or in IfElse(c, Fragment(A{}),
+//     keeps them in one variable, a variable that is returned being the
+//     same place as the results), or in IfElse(c, Fragment(A{}),
 //     Fragment(A{}, B{})): the single call is a variant of a group, and it
 //     is kept. Also kept: the first argument of tela.WithKey, unless it is
 //     a composite literal, because the key goes to the fragment (its
@@ -372,25 +373,13 @@ func (p *pass) enclosingSignature() *types.Signature {
 	return nil
 }
 
-// enclosingBody returns the body of the function the visited node is in.
-func (p *pass) enclosingBody() *ast.BlockStmt {
-	for i := len(p.stack) - 1; i >= 0; i-- {
-		switch f := p.stack[i].(type) {
-		case *ast.FuncLit:
-			return f.Body
-		case *ast.FuncDecl:
-			return f.Body
-		}
-	}
-	return nil
-}
-
 // variantOfGroup reports whether the single-argument Fragment call is one of
 // several forms that the same place takes at different times, and another
 // of them is a group: an IfElse with a fragment of another shape in the
-// other branch, or a function that returns, assigns or yields in the same
-// function fragments of other shapes. Removing the wrap from the single
-// form would give its child another identity (see the rule's comment).
+// other branch, or fragments of other shapes that the same function returns
+// or keeps in the same variable. Removing the wrap from the single form
+// would give its child another identity (see the rule's comment). When the
+// place is not known to be apart from a group, the call is a variant.
 func (p *pass) variantOfGroup(call *ast.CallExpr, parent ast.Node) bool {
 	switch par := parent.(type) {
 	case *ast.CallExpr:
@@ -401,54 +390,169 @@ func (p *pass) variantOfGroup(call *ast.CallExpr, parent ast.Node) bool {
 				}
 			}
 		}
-	case *ast.ReturnStmt, *ast.AssignStmt:
-		body := p.enclosingBody()
-		if body == nil {
-			return false
+	case *ast.ReturnStmt, *ast.AssignStmt, *ast.ValueSpec:
+		return p.variantInFunction(call)
+	}
+	return false
+}
+
+// A fragmentSource is an expression that goes to a place: the results of a
+// function (the key is the function), a variable (the key is its object) or
+// another operand (the key is its text).
+type fragmentSource struct {
+	expr ast.Expr
+	key  any
+}
+
+// variantInFunction reports whether a fragment of another shape goes to the
+// same place as call, which is a result or is assigned to a variable. The
+// place of a result is the results of its function; the place of a variable
+// is the variable. A variable that a function returns, or that is copied to
+// another, is the same place as it (and its function's other results), so a
+// group assigned to it in another branch, declared with it, or returned
+// next to it is found. The scan goes through the whole declaration that
+// holds call, closures included, so a variable that a closure sets is the
+// variable the function returns.
+func (p *pass) variantInFunction(call *ast.CallExpr) bool {
+	root, ok := p.outermostFunc()
+	if !ok {
+		return true // a package-level variable: any function may set it
+	}
+	var (
+		sources []fragmentSource
+		parents = map[any]any{} // union-find over the keys
+	)
+	var find func(k any) any
+	find = func(k any) any {
+		if par, ok := parents[k]; ok && par != k {
+			r := find(par)
+			parents[k] = r
+			return r
 		}
-		// The same place: the other returns of the function, or the other
-		// assignments to the same variable.
-		lhs := ""
-		if as, ok := parent.(*ast.AssignStmt); ok {
-			i := indexOfExpr(as.Rhs, call)
-			if i < 0 || i >= len(as.Lhs) {
-				return false
+		return k
+	}
+	union := func(a, b any) {
+		if a != nil && b != nil {
+			parents[find(a)] = find(b)
+		}
+	}
+	// keyOf returns the key of the variable or operand e is assigned to.
+	keyOf := func(e ast.Expr) any {
+		e = ast.Unparen(e)
+		if id, ok := e.(*ast.Ident); ok {
+			if id.Name == "_" {
+				return nil
 			}
-			lhs = types.ExprString(as.Lhs[i])
+			if obj := p.info.ObjectOf(id); obj != nil {
+				return obj
+			}
 		}
-		found := false
+		return types.ExprString(e)
+	}
+	// valueKey returns the key of the variable that the expression e
+	// copies, if it is one.
+	valueKey := func(e ast.Expr) any {
+		if id, ok := ast.Unparen(e).(*ast.Ident); ok {
+			if v, ok := p.info.ObjectOf(id).(*types.Var); ok {
+				return v
+			}
+		}
+		return nil
+	}
+	assign := func(lhs, rhs ast.Expr) {
+		k := keyOf(lhs)
+		if k == nil {
+			return
+		}
+		sources = append(sources, fragmentSource{rhs, k})
+		union(k, valueKey(rhs))
+	}
+	var walk func(body ast.Node, fn ast.Node)
+	walk = func(body ast.Node, fn ast.Node) {
 		ast.Inspect(body, func(n ast.Node) bool {
-			if found {
-				return false
-			}
-			if _, lit := n.(*ast.FuncLit); lit {
-				return false
-			}
-			var exprs []ast.Expr
 			switch n := n.(type) {
+			case *ast.FuncLit:
+				p.joinNamedResults(n, n.Type, union)
+				walk(n.Body, n)
+				return false
 			case *ast.ReturnStmt:
-				if lhs == "" {
-					exprs = n.Results
+				for _, r := range n.Results {
+					sources = append(sources, fragmentSource{r, fn})
+					union(fn, valueKey(r))
 				}
 			case *ast.AssignStmt:
-				if lhs != "" && len(n.Lhs) == len(n.Rhs) {
+				if len(n.Lhs) == len(n.Rhs) {
 					for i, l := range n.Lhs {
-						if types.ExprString(l) == lhs {
-							exprs = append(exprs, n.Rhs[i])
-						}
+						assign(l, n.Rhs[i])
 					}
 				}
-			}
-			for _, e := range exprs {
-				if c, ok := ast.Unparen(e).(*ast.CallExpr); ok && c != call && p.otherShapeFragment(c) {
-					found = true
+			case *ast.ValueSpec:
+				if len(n.Names) == len(n.Values) {
+					for i, name := range n.Names {
+						assign(name, n.Values[i])
+					}
 				}
 			}
 			return true
 		})
-		return found
+	}
+	switch root := root.(type) {
+	case *ast.FuncDecl:
+		p.joinNamedResults(root, root.Type, union)
+		walk(root.Body, root)
+	case *ast.FuncLit:
+		p.joinNamedResults(root, root.Type, union)
+		walk(root.Body, root)
+	}
+	var key any
+	for _, s := range sources {
+		if ast.Unparen(s.expr) == ast.Expr(call) {
+			key = s.key
+			break
+		}
+	}
+	if key == nil {
+		return false
+	}
+	// A variable of the package, set anywhere, is a place that this
+	// function does not show.
+	if v, ok := key.(*types.Var); ok && v.Pkg() != nil && v.Parent() == v.Pkg().Scope() {
+		return true
+	}
+	place := find(key)
+	for _, s := range sources {
+		if c, ok := ast.Unparen(s.expr).(*ast.CallExpr); ok && c != call && find(s.key) == place && p.otherShapeFragment(c) {
+			return true
+		}
 	}
 	return false
+}
+
+// joinNamedResults joins the named results of the function fn, whose type
+// is ft, with the function (a bare return returns them).
+func (p *pass) joinNamedResults(fn ast.Node, ft *ast.FuncType, union func(a, b any)) {
+	if ft.Results == nil {
+		return
+	}
+	for _, f := range ft.Results.List {
+		for _, name := range f.Names {
+			if obj := p.info.Defs[name]; obj != nil {
+				union(obj, fn)
+			}
+		}
+	}
+}
+
+// outermostFunc returns the function declaration that holds the visited
+// node or, in a package-level declaration, its outermost function literal.
+func (p *pass) outermostFunc() (ast.Node, bool) {
+	for _, n := range p.stack {
+		switch n.(type) {
+		case *ast.FuncDecl, *ast.FuncLit:
+			return n, true
+		}
+	}
+	return nil, false
 }
 
 // otherShapeFragment reports whether c is a call of h.Fragment that is not

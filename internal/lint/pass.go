@@ -88,33 +88,8 @@ func (p *pass) report(pos token.Pos, rule, severity, msg, suggestion string) {
 // callee returns the function a call calls, when it is a declared function
 // or method (not a function value).
 func (p *pass) callee(call *ast.CallExpr) *types.Func {
-	fun := ast.Unparen(call.Fun)
-	for {
-		switch f := fun.(type) {
-		case *ast.IndexExpr:
-			fun = ast.Unparen(f.X)
-			continue
-		case *ast.IndexListExpr:
-			fun = ast.Unparen(f.X)
-			continue
-		}
-		break
-	}
-	var id *ast.Ident
-	switch f := fun.(type) {
-	case *ast.Ident:
-		id = f
-	case *ast.SelectorExpr:
-		id = f.Sel
-	}
-	if id == nil {
-		return nil
-	}
-	fn, _ := p.info.Uses[id].(*types.Func)
-	if fn == nil {
-		return nil
-	}
-	return fn.Origin()
+	fn, _ := p.calleeObj(call).(*types.Func)
+	return fn
 }
 
 // relPkg returns the path of the package at rel ("" for the root) in the

@@ -158,3 +158,119 @@ func VariantInLiteral() tela.Node {
 	_ = func() tela.Node { return Fragment(Badge{"a"}, Badge{"b"}) }
 	return Fragment(Badge{"a"}) // want fragment `redundant Fragment`
 }
+
+// The place can be a variable that is declared, assigned and returned.
+func VariantDeclared(c bool) tela.Node {
+	var n tela.Node = Fragment(Badge{"a"}, Badge{"b"})
+	if c {
+		n = Fragment(Badge{"a"})
+	}
+	return n
+}
+
+func VariantDeclaredLast(on bool) tela.Node {
+	if on {
+		return Fragment(Badge{"a"}, Badge{"b"})
+	}
+	var n tela.Node = Fragment(Badge{"a"})
+	return n
+}
+
+func VariantDeclaredSingle(c bool) tela.Node {
+	var n tela.Node = Fragment(Badge{"a"})
+	if c {
+		n = Fragment(Badge{"a"}, Badge{"b"})
+	}
+	return n
+}
+
+func VariantDefined(c bool) tela.Node {
+	n := Fragment(Badge{"a"}, Badge{"b"})
+	if c {
+		n = Fragment(Badge{"a"})
+	}
+	return n
+}
+
+func VariantNested(a, b bool) tela.Node {
+	var n tela.Node
+	if a {
+		if b {
+			n = Fragment(Badge{"a"})
+		} else {
+			n = Fragment(Badge{"a"}, Badge{"b"})
+		}
+	}
+	return n
+}
+
+func VariantSwitch(k int) tela.Node {
+	var n tela.Node
+	switch k {
+	case 0:
+		n = Fragment(Badge{"a"})
+	case 1:
+		n = Fragment(Badge{"a"}, Badge{"b"})
+	}
+	return n
+}
+
+func VariantSwitchReturn(k int) tela.Node {
+	switch k {
+	case 0:
+		return Fragment(Badge{"a"})
+	case 1:
+		var n tela.Node = Fragment(Badge{"a"}, Badge{"b"})
+		return n
+	}
+	return nil
+}
+
+func VariantCopied(on bool) tela.Node {
+	var a, b tela.Node
+	if on {
+		a = Fragment(Badge{"a"})
+	}
+	b = Fragment(Badge{"a"}, Badge{"b"})
+	if on {
+		b = a
+	}
+	return b
+}
+
+func VariantNamed(on bool) (n tela.Node) {
+	if on {
+		n = Fragment(Badge{"a"})
+		return
+	}
+	return Fragment(Badge{"a"}, Badge{"b"})
+}
+
+func VariantCaptured(on bool) tela.Node {
+	var n tela.Node = Fragment(Badge{"a"}, Badge{"b"})
+	set := func() { n = Fragment(Badge{"a"}) }
+	if on {
+		set()
+	}
+	return n
+}
+
+var VariantGlobal tela.Node = Fragment(Badge{"a"})
+
+// A variable that never meets a group is not a variant.
+func LoneDeclared(on bool) tela.Node {
+	var n tela.Node = Fragment(Badge{"a"}) // want fragment `redundant Fragment`
+	if on {
+		n = Fragment(Badge{"b"}) // want fragment `redundant Fragment`
+	}
+	return n
+}
+
+// A group that is not returned, and not assigned to the variable, is
+// another place.
+func UnrelatedGroup() tela.Node {
+	var group tela.Node = Fragment(Badge{"a"}, Badge{"b"})
+	var n tela.Node = Fragment(Badge{"a"}) // want fragment `redundant Fragment`
+	_ = group
+	return n
+}

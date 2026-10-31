@@ -272,8 +272,15 @@ func (c Column[T]) sortable() bool { return c.Sort != nil || c.Sortable }
 // on their content: give them px, fr or minmax() Widths (an "auto" column
 // takes the same share as "1fr"), and there are no Sticky columns. The
 // header stays above the rows, the table scrolls sideways when the columns
-// are wider than it, and the table has aria-rowcount and its rows
-// aria-rowindex, since most of them are not in the tree. Sorting, Selected,
+// are wider than it, a classic scrollbar (tela.App.ClassicScrollbars, the
+// class scrollbar-classic) takes width from the rows but not from the
+// header and the footer, which are outside the list that scrolls: they end
+// where the rows end (the rows tell the table their width, and the header
+// and footer take the difference as padding at their end, in either text
+// direction, in the frame after the scrollbar appears or goes), so the
+// columns line up with overlay and classic bars. The table has
+// aria-rowcount and its rows aria-rowindex, since most of them are not in
+// the tree. Sorting, Selected,
 // RowProps, RowKey (state follows the row), the footer and Empty work as in
 // a plain table.
 //
@@ -342,6 +349,11 @@ func (t Table[T]) Build() tela.Node {
 	s := &UseStyle().Table
 	state, setState := tela.UseState(t.DefaultSort)
 	captionRef := tela.UseElementRef()
+	// A virtual table lines its header and footer up with its rows (see
+	// gutterClass): the header row's width, and the width the rows report.
+	headRef := tela.UseElementRef()
+	headWidth := tela.UseSize(headRef).Get().Width
+	rowWidth, setRowWidth := tela.UseState(float32(0))
 	cur := state
 	if t.Sort != nil {
 		cur = *t.Sort
@@ -416,8 +428,15 @@ func (t Table[T]) Build() tela.Node {
 	if virtual {
 		rowGrid = "grid w-full " + gridCols
 	}
+	// The header and the footer are outside the list that scrolls the rows,
+	// and a classic scrollbar takes width inside it, so their rows end where
+	// the rows' do. The list is built only when there are rows.
+	edgeGrid := rowGrid
+	if virtual && len(t.Rows) > 0 && rowWidth > 0 {
+		edgeGrid += gutterClass(headWidth - rowWidth)
+	}
 	header := h.Div(cls(s.Header), h.Role("rowgroup"),
-		h.Div(cls(s.Row, rowGrid), h.Role("row"), when2(virtual, func() tela.Child { return h.AriaRowIndex(1) }), h.Fragment(headCells...)))
+		h.Div(cls(s.Row, edgeGrid), h.Role("row"), h.Ref(headRef), when2(virtual, func() tela.Child { return h.AriaRowIndex(1) }), h.Fragment(headCells...)))
 
 	// The body.
 	nrows := len(t.Rows)
@@ -435,7 +454,7 @@ func (t Table[T]) Build() tela.Node {
 		}
 		body = h.VirtualList(nrows, nil, func(n int) tela.Node {
 			row := rowAt(n)
-			return h.Div(t.rowKids([]tela.Child{cls(s.Row, rowGrid), h.Role("row"), h.AriaRowIndex(n + 2)}, s, offsets, row, n == nrows-1)...)
+			return tableRow{Kids: t.rowKids([]tela.Child{cls(s.Row, rowGrid), h.Role("row"), h.AriaRowIndex(n + 2)}, s, offsets, row, n == nrows-1), Width: setRowWidth}
 		}, props...)
 	default:
 		rows := make([]tela.Child, nrows)
@@ -450,7 +469,7 @@ func (t Table[T]) Build() tela.Node {
 		body = h.Div(cls(s.Body), h.Role("rowgroup"), h.Fragment(rows...))
 	}
 
-	footer := t.footer(s, offsets, rowGrid, nrows+2)
+	footer := t.footer(s, offsets, edgeGrid, nrows+2)
 	parts := []tela.Child{cls(s.Table, gridCols, t.TableClass), h.Role("table")}
 	if virtual {
 		// The header and the rows are in a column, not in a grid; the
@@ -484,6 +503,37 @@ func (t Table[T]) Build() tela.Node {
 		root = cls(s.Root, "flex flex-col overflow-x-auto overflow-y-hidden", t.Class)
 	}
 	return h.Div(root, t.Props, h.Div(parts...))
+}
+
+// A tableRow is a row of a virtual table. It reports its width, the width of
+// the content box of the list that scrolls the rows, to the table, which
+// gives the header and the footer the same.
+type tableRow struct {
+	Kids  []tela.Child
+	Width tela.Setter[float32]
+}
+
+// Build returns the row.
+func (r tableRow) Build() tela.Node {
+	ref := tela.UseElementRef()
+	w := tela.UseSize(ref).Get().Width
+	tela.UseLayoutEffect(func() func() {
+		if w > 0 {
+			r.Width.Set(w)
+		}
+		return nil
+	}, w)
+	return h.Div(append(r.Kids[:len(r.Kids):len(r.Kids)], h.Ref(ref))...)
+}
+
+// gutterClass returns the class that ends a header or footer row of a
+// virtual table gutter px before its end edge, where the width of a classic
+// scrollbar is (a gap under 1 px is a rounding error).
+func gutterClass(gutter float32) string {
+	if gutter < 1 {
+		return ""
+	}
+	return " pe-[" + strconv.FormatFloat(float64(gutter), 'f', -1, 32) + "px]"
 }
 
 // virtualTrack returns the grid track for a column of a virtual table: the

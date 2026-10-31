@@ -294,3 +294,114 @@ func TestTableVirtualGolden(t *testing.T) {
 		app.GoldenScales("table_virtual_"+sc, 1, 2)
 	}
 }
+
+// A classic scrollbar takes layout width inside the list that scrolls the
+// rows. The header and the footer are outside it, but their tracks are the
+// rows': every column has the same position and width in all three, with
+// overlay and classic bars, in both directions, with rows that overflow the
+// table and with few that do not.
+func TestTableVirtualHeaderAlignsWithClassicScrollbars(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		classic bool
+		rtl     bool
+		rows    int
+	}{
+		{"overlay", false, false, 40},
+		{"classic", true, false, 40},
+		{"overlay rtl", false, true, 40},
+		{"classic rtl", true, true, 40},
+		{"classic few rows", true, false, 3},
+		{"classic few rows rtl", true, true, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var opts []telatest.Option
+			if tc.classic {
+				opts = append(opts, telatest.ClassicScrollbars())
+			}
+			tbl := vtable(tc.rows, func(tb *kit.Table[trow]) {
+				for c := range tb.Columns {
+					tb.Columns[c].FooterProps = h.TestID(fmt.Sprintf("v-foot%d", c))
+				}
+				tb.Columns[0].Footer = h.Text("Total")
+			})
+			app := mountV(t, tela.C(func() tela.Node {
+				var props []tela.Child
+				if tc.rtl {
+					props = append(props, h.Dir("rtl"))
+				}
+				return h.Div(append(props, tbl)...)
+			}), opts...)
+			for c := 0; c < 4; c++ {
+				head := app.Bounds(telatest.ByRole("columnheader", vcols()[c].Header))
+				cell := app.Bounds(telatest.ByTestID(fmt.Sprintf("v-r0c%d", c)))
+				if head.X != cell.X || head.Width != cell.Width {
+					t.Errorf("Col%d: the header is at x=%v w=%v, the cells at x=%v w=%v", c, head.X, head.Width, cell.X, cell.Width)
+				}
+				foot := app.Bounds(telatest.ByTestID(fmt.Sprintf("v-foot%d", c)))
+				if foot.X != cell.X || foot.Width != cell.Width {
+					t.Errorf("Col%d: the footer is at x=%v w=%v, the cells at x=%v w=%v", c, foot.X, foot.Width, cell.X, cell.Width)
+				}
+			}
+		})
+	}
+}
+
+// The scrollbar comes and goes with the number of rows (a filter), and the
+// header follows it.
+func TestTableVirtualHeaderFollowsTheScrollbar(t *testing.T) {
+	many := false
+	app := mountV(t, tela.C(func() tela.Node {
+		n, set := tela.UseState(3)
+		return h.Div(
+			h.Button(h.TestID("more"), h.OnClick(func() {
+				many = !many
+				set.Set(map[bool]int{false: 3, true: 200}[many])
+			}), h.Text("toggle")),
+			vtable(n, nil),
+		)
+	}), telatest.ClassicScrollbars(), telatest.Size(640, 400))
+	aligned := func(when string) {
+		t.Helper()
+		head, cell := app.Bounds(telatest.ByRole("columnheader", "Amount")), app.Bounds(telatest.ByTestID("v-r0c3"))
+		if head.X != cell.X || head.Width != cell.Width {
+			t.Errorf("%s: the Amount header is at x=%v w=%v, the cells at x=%v w=%v", when, head.X, head.Width, cell.X, cell.Width)
+		}
+	}
+	aligned("three rows")
+	x3 := app.Bounds(telatest.ByTestID("v-r0c3")).X
+	app.Click(telatest.ByTestID("more"))
+	aligned("200 rows")
+	if x := app.Bounds(telatest.ByTestID("v-r0c3")).X; x == x3 {
+		t.Errorf("the column did not move with the scrollbar's gutter (x=%v)", x)
+	}
+	app.Scroll(telatest.ByTestID("v-r0c0"), 0, 1000)
+	if head, cell := app.Bounds(telatest.ByRole("columnheader", "Amount")), app.Bounds(telatest.ByTestID("v-r30c3")); head.X != cell.X || head.Width != cell.Width {
+		t.Errorf("scrolled: the Amount header is at x=%v w=%v, the cells at x=%v w=%v", head.X, head.Width, cell.X, cell.Width)
+	}
+	app.Scroll(telatest.ByTestID("v-r30c0"), 0, -1e6)
+	app.Click(telatest.ByTestID("more"))
+	aligned("three rows again")
+	if x := app.Bounds(telatest.ByTestID("v-r0c3")).X; x != x3 {
+		t.Errorf("the column is at x=%v, was %v before the scrollbar", x, x3)
+	}
+}
+
+func TestTableVirtualClassicScrollbarsGolden(t *testing.T) {
+	for _, sc := range []string{"light", "dark"} {
+		opts := []telatest.Option{telatest.ClassicScrollbars()}
+		if sc == "dark" {
+			opts = append(opts, telatest.Dark())
+		}
+		app := mountV(t, vtable(5000, func(tb *kit.Table[trow]) {
+			tb.Selected = func(r trow) bool { return r.i == 1002 }
+			tb.Caption = "5,000 orders, scrolled to row 1000."
+			tb.Columns[0].Footer = h.Text("Total")
+			tb.Columns[3].Footer = h.Text("$12,500,000")
+		}), opts...)
+		app.Scroll(telatest.ByTestID("v-r0c0"), 0, 1000*37)
+		app.MouseMove(2, 2)
+		app.Advance(2 * time.Second)
+		app.GoldenScales("table_virtual_classic_"+sc, 1, 2)
+	}
+}
