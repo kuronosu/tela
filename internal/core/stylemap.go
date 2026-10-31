@@ -478,98 +478,13 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 		cs = b.tree.resolveDeferred(b, style.PhaseLayout)
 	}
 	ls := layout0
-	if cs.Text.Direction == text.DirectionRTL {
-		ls.Direction = layout.RTL
-	}
-
-	switch cs.Display {
-	case style.DisplayFlex, style.DisplayInlineFlex:
-		ls.Display = layout.DisplayFlex
-	case style.DisplayGrid, style.DisplayInlineGrid:
-		ls.Display = layout.DisplayGrid
-		ls.Grid = gridTemplate(cs)
-		ls.GridAutoFlow = layout.GridAutoFlow(cs.GridAutoFlow)
-		ls.JustifyItems = alignOf(cs.JustifyItems)
-	case style.DisplayNone:
-		ls.Display = layout.DisplayNone
-	default:
-		ls.Display = layout.DisplayBlock
-	}
-	switch cs.Position {
-	case style.PositionRelative, style.PositionSticky:
-		// Sticky is relative for layout; its insets move it when it is
-		// painted (sticky.go), not here.
-		ls.Position = layout.PositionRelative
-	case style.PositionAbsolute, style.PositionFixed:
-		ls.Position = layout.PositionAbsolute
-		ls.Fixed = cs.Position == style.PositionFixed
-	}
-	ls.ContainingBlock = containsPositioned(b)
-	ls.OverflowX, ls.OverflowY = overflowPair(cs.OverflowX, cs.OverflowY)
-	if b.kind == style.KindInput {
-		// An Input clips its line itself and keeps its text's baseline
-		// (field.go): for layout its overflow is visible.
-		ls.OverflowX, ls.OverflowY = layout.OverflowVisible, layout.OverflowVisible
-	}
-	if b.tree.classicBars(cs) && isScrollContainer(b.kind, cs) {
-		// Classic scrollbars take space (scrollbar.go): overflow: scroll
-		// always, overflow: auto while its content overflows.
-		ls.ScrollbarWidth = classicGutter
-		if s := b.scr; s != nil {
-			if ls.OverflowY == layout.OverflowAuto && s.gutterV {
-				ls.OverflowY = layout.OverflowScroll
-			}
-			if ls.OverflowX == layout.OverflowAuto && s.gutterH {
-				ls.OverflowX = layout.OverflowScroll
-			}
-		}
-	}
-
-	ls.Width, ls.Height = dimOf(cs.Width), dimOf(cs.Height)
-	ls.MinWidth, ls.MinHeight = zeroDimOf(cs.MinWidth), zeroDimOf(cs.MinHeight)
-	ls.MaxWidth, ls.MaxHeight = dimOf(cs.MaxWidth), dimOf(cs.MaxHeight)
-	if b.flt != nil {
-		b.flt.limitLayout(b, &ls) // the size limits of a floating element (floating.go)
-	}
-	ls.AspectRatio = cs.AspectRatio
-	if b.kind.IsReplaced() {
-		ls.Replaced = true
-		// The natural ratio sizes an auto axis from the other; with both
-		// sizes given the image is fitted (object-fit), not resized.
-		if ls.AspectRatio == 0 && (ls.Width.Unit == layout.UnitAuto || ls.Height.Unit == layout.UnitAuto) {
-			if _, _, r := b.imageSize(); r > 0 {
-				ls.AspectRatio = r
-			}
-		}
-		ls.NoNaturalSize = b.noNaturalSize()
-	}
-	if cs.Position != style.PositionSticky {
-		ls.Inset = edgesOf(cs.Inset)
-	}
-	ls.Margin = layout.Edges{Top: zeroDimOf(cs.Margin.Top), Right: zeroDimOf(cs.Margin.Right),
-		Bottom: zeroDimOf(cs.Margin.Bottom), Left: zeroDimOf(cs.Margin.Left)}
-	ls.Padding = layout.Edges{Top: lpDim(cs.Padding.Top), Right: lpDim(cs.Padding.Right),
-		Bottom: lpDim(cs.Padding.Bottom), Left: lpDim(cs.Padding.Left)}
-	ls.Border = layout.Edges{Top: layout.Px(cs.Border.Top.Width), Right: layout.Px(cs.Border.Right.Width),
-		Bottom: layout.Px(cs.Border.Bottom.Width), Left: layout.Px(cs.Border.Left.Width)}
-
-	ls.FlexDirection = flexDirection(cs.FlexDirection)
-	switch cs.FlexWrap {
-	case style.FlexWrapOn:
-		ls.FlexWrap = layout.Wrap
-	case style.FlexWrapReverse:
-		ls.FlexWrap = layout.WrapReverse
-	}
-	ls.RowGap, ls.ColumnGap = lpDim(cs.RowGap), lpDim(cs.ColumnGap)
-	ls.AlignItems = alignOf(cs.AlignItems)
-	ls.AlignContent = alignOf(cs.AlignContent)
-	ls.JustifyContent = alignOf(cs.JustifyContent)
-	ls.AlignSelf = alignOf(cs.AlignSelf)
-	ls.FlexGrow, ls.FlexShrink = cs.FlexGrow, cs.FlexShrink
-	ls.FlexBasis = dimOf(cs.FlexBasis)
-	ls.Order = cs.Order
-	ls.JustifySelf = alignOf(cs.JustifySelf)
-	ls.GridColumn, ls.GridRow = gridPlacement(cs.GridColumn), gridPlacement(cs.GridRow)
+	ls.Direction = directionOf(cs.Text.Direction)
+	mapDisplay(cs, &ls)
+	mapPosition(b, cs, &ls)
+	mapOverflow(b, cs, &ls)
+	mapSizing(b, cs, &ls)
+	mapEdges(cs, &ls)
+	mapFlexGrid(cs, &ls)
 	if v := b.virtMark(); v != nil {
 		v.layoutStyle(&ls) // the boxes of a VirtualList (virtual.go)
 	}
@@ -593,40 +508,172 @@ func mapLayoutStyle(b *Box, parent *Box, spaceAfter bool) layout.Style {
 	}
 	pcs := parent.cs
 	// Block flow.
+	mapInlineLevel(cs, pcs, &ls)
+	if spaceAfter {
+		applySpace(&ls, pcs)
+	}
+	return ls
+}
+
+// mapDisplay maps the display of cs onto ls, with the template, auto flow
+// and justify-items of a grid container.
+func mapDisplay(cs *style.ComputedStyle, ls *layout.Style) {
+	switch cs.Display {
+	case style.DisplayFlex, style.DisplayInlineFlex:
+		ls.Display = layout.DisplayFlex
+	case style.DisplayGrid, style.DisplayInlineGrid:
+		ls.Display = layout.DisplayGrid
+		ls.Grid = gridTemplate(cs)
+		ls.GridAutoFlow = layout.GridAutoFlow(cs.GridAutoFlow)
+		ls.JustifyItems = alignOf(cs.JustifyItems)
+	case style.DisplayNone:
+		ls.Display = layout.DisplayNone
+	default:
+		ls.Display = layout.DisplayBlock
+	}
+}
+
+// mapPosition maps the positioning of box b with style cs onto ls: its
+// position, whether it contains positioned boxes, and its insets.
+func mapPosition(b *Box, cs *style.ComputedStyle, ls *layout.Style) {
+	switch cs.Position {
+	case style.PositionRelative, style.PositionSticky:
+		// Sticky is relative for layout; its insets move it when it is
+		// painted (sticky.go), not here.
+		ls.Position = layout.PositionRelative
+	case style.PositionAbsolute, style.PositionFixed:
+		ls.Position = layout.PositionAbsolute
+		ls.Fixed = cs.Position == style.PositionFixed
+	}
+	ls.ContainingBlock = containsPositioned(b)
+	if cs.Position != style.PositionSticky {
+		ls.Inset = edgesOf(cs.Inset)
+	}
+}
+
+// mapOverflow maps the overflow of box b with style cs onto ls, with the
+// space its classic scrollbars take.
+func mapOverflow(b *Box, cs *style.ComputedStyle, ls *layout.Style) {
+	ls.OverflowX, ls.OverflowY = overflowPair(cs.OverflowX, cs.OverflowY)
+	if b.kind == style.KindInput {
+		// An Input clips its line itself and keeps its text's baseline
+		// (field.go): for layout its overflow is visible.
+		ls.OverflowX, ls.OverflowY = layout.OverflowVisible, layout.OverflowVisible
+	}
+	if !b.tree.classicBars(cs) || !isScrollContainer(b.kind, cs) {
+		return
+	}
+	// Classic scrollbars take space (scrollbar.go): overflow: scroll
+	// always, overflow: auto while its content overflows.
+	ls.ScrollbarWidth = classicGutter
+	if s := b.scr; s != nil {
+		if ls.OverflowY == layout.OverflowAuto && s.gutterV {
+			ls.OverflowY = layout.OverflowScroll
+		}
+		if ls.OverflowX == layout.OverflowAuto && s.gutterH {
+			ls.OverflowX = layout.OverflowScroll
+		}
+	}
+}
+
+// mapSizing maps the sizes of box b with style cs onto ls, with the limits
+// of a floating element and the aspect ratio, a replaced element's natural
+// one included.
+func mapSizing(b *Box, cs *style.ComputedStyle, ls *layout.Style) {
+	ls.Width, ls.Height = dimOf(cs.Width), dimOf(cs.Height)
+	ls.MinWidth, ls.MinHeight = zeroDimOf(cs.MinWidth), zeroDimOf(cs.MinHeight)
+	ls.MaxWidth, ls.MaxHeight = dimOf(cs.MaxWidth), dimOf(cs.MaxHeight)
+	if b.flt != nil {
+		b.flt.limitLayout(b, ls) // the size limits of a floating element (floating.go)
+	}
+	ls.AspectRatio = cs.AspectRatio
+	if b.kind.IsReplaced() {
+		ls.Replaced = true
+		// The natural ratio sizes an auto axis from the other; with both
+		// sizes given the image is fitted (object-fit), not resized.
+		if ls.AspectRatio == 0 && (ls.Width.Unit == layout.UnitAuto || ls.Height.Unit == layout.UnitAuto) {
+			if _, _, r := b.imageSize(); r > 0 {
+				ls.AspectRatio = r
+			}
+		}
+		ls.NoNaturalSize = b.noNaturalSize()
+	}
+}
+
+// mapEdges maps the margins, padding and borders of cs onto ls.
+func mapEdges(cs *style.ComputedStyle, ls *layout.Style) {
+	ls.Margin = layout.Edges{Top: zeroDimOf(cs.Margin.Top), Right: zeroDimOf(cs.Margin.Right),
+		Bottom: zeroDimOf(cs.Margin.Bottom), Left: zeroDimOf(cs.Margin.Left)}
+	ls.Padding = layout.Edges{Top: lpDim(cs.Padding.Top), Right: lpDim(cs.Padding.Right),
+		Bottom: lpDim(cs.Padding.Bottom), Left: lpDim(cs.Padding.Left)}
+	ls.Border = layout.Edges{Top: layout.Px(cs.Border.Top.Width), Right: layout.Px(cs.Border.Right.Width),
+		Bottom: layout.Px(cs.Border.Bottom.Width), Left: layout.Px(cs.Border.Left.Width)}
+}
+
+// mapFlexGrid maps what flex and grid containers and items read from cs
+// onto ls: direction, wrapping, gaps, alignment, flexibility, order and
+// grid placement.
+func mapFlexGrid(cs *style.ComputedStyle, ls *layout.Style) {
+	ls.FlexDirection = flexDirection(cs.FlexDirection)
+	switch cs.FlexWrap {
+	case style.FlexWrapOn:
+		ls.FlexWrap = layout.Wrap
+	case style.FlexWrapReverse:
+		ls.FlexWrap = layout.WrapReverse
+	}
+	ls.RowGap, ls.ColumnGap = lpDim(cs.RowGap), lpDim(cs.ColumnGap)
+	ls.AlignItems = alignOf(cs.AlignItems)
+	ls.AlignContent = alignOf(cs.AlignContent)
+	ls.JustifyContent = alignOf(cs.JustifyContent)
+	ls.AlignSelf = alignOf(cs.AlignSelf)
+	ls.FlexGrow, ls.FlexShrink = cs.FlexGrow, cs.FlexShrink
+	ls.FlexBasis = dimOf(cs.FlexBasis)
+	ls.Order = cs.Order
+	ls.JustifySelf = alignOf(cs.JustifySelf)
+	ls.GridColumn, ls.GridRow = gridPlacement(cs.GridColumn), gridPlacement(cs.GridRow)
+}
+
+// mapInlineLevel maps an inline-level box with style cs that a block whose
+// style is pcs lays out (mapLayoutStyle's approximations): an auto width
+// is fit-content, and the block's text-align is emulated with auto margins
+// when the box's are zero.
+func mapInlineLevel(cs, pcs *style.ComputedStyle, ls *layout.Style) {
 	switch cs.Display {
 	case style.DisplayInlineBlock, style.DisplayInlineFlex, style.DisplayInlineGrid:
 		if ls.Width.Unit == layout.UnitAuto {
 			ls.Width = layout.FitContent
 		}
 		if inFlow(cs) && isZeroPx(ls.Margin.Left) && isZeroPx(ls.Margin.Right) {
-			// The box sits at the inline start of the parent's content
-			// box (its direction's: the right in right to left); an auto
-			// margin on that side moves it to the other one.
-			rtl := pcs.Text.Direction == text.DirectionRTL
-			switch pcs.Text.TextAlign {
-			case text.AlignCenter:
-				ls.Margin.Left, ls.Margin.Right = layout.Auto, layout.Auto
-			case text.AlignRight:
-				if !rtl {
-					ls.Margin.Left = layout.Auto
-				}
-			case text.AlignLeft:
-				if rtl {
-					ls.Margin.Right = layout.Auto
-				}
-			case text.AlignEnd:
-				if rtl {
-					ls.Margin.Right = layout.Auto
-				} else {
-					ls.Margin.Left = layout.Auto
-				}
-			}
+			textAlignMargins(pcs, ls)
 		}
 	}
-	if spaceAfter {
-		applySpace(&ls, pcs)
+}
+
+// textAlignMargins gives ls the auto margins that place a box as the
+// text-align of a parent whose style is pcs would.
+func textAlignMargins(pcs *style.ComputedStyle, ls *layout.Style) {
+	// The box sits at the inline start of the parent's content
+	// box (its direction's: the right in right to left); an auto
+	// margin on that side moves it to the other one.
+	rtl := pcs.Text.Direction == text.DirectionRTL
+	switch pcs.Text.TextAlign {
+	case text.AlignCenter:
+		ls.Margin.Left, ls.Margin.Right = layout.Auto, layout.Auto
+	case text.AlignRight:
+		if !rtl {
+			ls.Margin.Left = layout.Auto
+		}
+	case text.AlignLeft:
+		if rtl {
+			ls.Margin.Right = layout.Auto
+		}
+	case text.AlignEnd:
+		if rtl {
+			ls.Margin.Right = layout.Auto
+		} else {
+			ls.Margin.Left = layout.Auto
+		}
 	}
-	return ls
 }
 
 // overflowPair applies CSS's computed-value rule: when one axis is
@@ -717,6 +764,15 @@ func edgesOf(s style.Sides[style.Dim]) layout.Edges {
 
 func isZeroPx(d layout.Dim) bool {
 	return d.Unit == layout.UnitInitial || d.Unit == layout.UnitPx && d.Value == 0
+}
+
+// directionOf maps a base direction: right to left, or left to right for
+// the others.
+func directionOf(d text.Direction) layout.Direction {
+	if d == text.DirectionRTL {
+		return layout.RTL
+	}
+	return layout.LTR
 }
 
 func flexDirection(d style.FlexDirection) layout.FlexDirection {
