@@ -471,121 +471,156 @@ func (t *Tree) describe(el *Element) string {
 
 // update brings el up to date with n, which has el's identity and type.
 func (t *Tree) update(el *Element, n node) {
-	old := el.node.d
-	d := n.d
 	switch el.kind {
 	case elemText:
-		el.node = n
-		if t.syncText(el, d) {
-			t.markBoxes(el.primitive())
-			t.markAutoDir(el.parent)
-		}
+		t.updateText(el, n)
 	case elemPrimitive:
-		if old == d {
-			// The same node: the subtree is unchanged, except for the
-			// components below marked for building.
-			if el.dirtyKids {
-				t.descend(el)
-			}
-			return
-		}
-		el.node = n
-		bx := el.box
-		disabled, since := old.disabled != d.disabled, t.stGen
-		if disabled {
-			t.setState(el, style.StateDisabled, d.disabled)
-		}
-		if old.aria != d.aria {
-			t.setAriaStates(el, ariaStates(old.aria), ariaStates(d.aria))
-		}
-		if old.ref != d.ref || old.scope != d.scope || el.fscope != nil {
-			t.updateFocus(el, old)
-		}
-		if old.float != d.float {
-			// A new prop (each build makes one) places the element again:
-			// its Place and AnchorRect closures cannot be compared, and
-			// the same code may capture other options (ADR-107).
-			t.updateFloat(el, old)
-		}
-		if old.overlay != d.overlay {
-			t.updateOverlay(el, old)
-		}
-		if old.inert != d.inert {
-			t.refreshInert(el)
-		}
-		if old.winRegion != d.winRegion {
-			t.regionChanged(el, old.winRegion, d.winRegion)
-		}
-		if old.id != d.id {
-			t.setID(el, old.id)
-		}
-		if old.fp != d.fp {
-			t.setLabelFor(el, forID(old))
-		}
-		if bx.fld != nil {
-			t.updateField(el, old)
-		}
-		if old.scheme != d.scheme {
-			t.markStyle(el)
-			t.markSchemeReaders(el) // theme.go
-		}
-		if old.dir != d.dir {
-			// Its subtree is skipped, or no longer, by a Dir("auto")
-			// above (direction.go).
-			if old.dir == dirAuto {
-				delete(t.autoDirs, el)
-			}
-			t.markAutoDir(el.parent)
-			t.dirChanged(el) // UseDirection readers (direction.go)
-		}
-		if !slices.Equal(old.classes, d.classes) {
-			bx.classesDirty = true
-			t.markStyle(el)
-		} else if len(old.props) > 0 || len(d.props) > 0 || old.dir != d.dir {
-			// Typed props hold closures and cannot be compared.
-			t.markStyle(el)
-		}
-		if d.elem.IsReplaced() {
-			t.updateImage(el)
-			if old.media.tintOf() != d.media.tintOf() {
-				t.markMediaPaint(bx)
-			}
-		}
-		t.reconcile(el, d.children)
-		el.dirtyKids = false
-		if disabled {
-			// The field states below follow, once the reconciliation
-			// updated those whose nodes changed (field.go).
-			t.disabledChanged(el, since)
-		}
+		t.updatePrimitive(el, n)
 	case elemComponent:
-		if d.comp.ctx != nil {
-			t.updateProvider(el, n)
-			return
-		}
-		if d.comp.presence {
-			t.updatePresence(el, n)
-			return
-		}
-		if t.dev && d.comp.ct != nil && old != d {
-			t.checkStructComp(d.comp)
-		}
-		if !el.needsBuild && (old == d || canSkip(el.comp, d.comp)) {
-			// Automatic skipping (ARCHITECTURE section 7): the same node,
-			// or equal props, and no state or context change. The new
-			// node is kept, so a later build of its own runs the newest
-			// closure.
-			el.node, el.comp = n, d.comp
-			t.stats.Skips++
-			if el.dirtyKids {
-				t.descend(el)
-			}
-			return
-		}
-		el.node = n
-		el.comp = d.comp
-		t.build(el)
+		t.updateComponent(el, n)
 	}
+}
+
+// updateText brings text element el up to date with n.
+func (t *Tree) updateText(el *Element, n node) {
+	el.node = n
+	if t.syncText(el, n.d) {
+		t.markBoxes(el.primitive())
+		t.markAutoDir(el.parent)
+	}
+}
+
+// updatePrimitive brings primitive el up to date with n: its states, its
+// other props, its style inputs, then its children.
+func (t *Tree) updatePrimitive(el *Element, n node) {
+	old := el.node.d
+	d := n.d
+	if old == d {
+		// The same node: the subtree is unchanged, except for the
+		// components below marked for building.
+		if el.dirtyKids {
+			t.descend(el)
+		}
+		return
+	}
+	el.node = n
+	disabled, since := old.disabled != d.disabled, t.stGen
+	if disabled {
+		t.setState(el, style.StateDisabled, d.disabled)
+	}
+	if old.aria != d.aria {
+		t.setAriaStates(el, ariaStates(old.aria), ariaStates(d.aria))
+	}
+	t.syncBehaviorProps(el, old, d)
+	t.syncStyleInputs(el, old, d)
+	t.reconcile(el, d.children)
+	el.dirtyKids = false
+	if disabled {
+		// The field states below follow, once the reconciliation
+		// updated those whose nodes changed (field.go).
+		t.disabledChanged(el, since)
+	}
+}
+
+// syncBehaviorProps applies the props of primitive el that are not style
+// inputs, from its old node to d: focus, floating, overlay, inert, window
+// region, ID, label target and text field.
+func (t *Tree) syncBehaviorProps(el *Element, old, d *desc) {
+	if old.ref != d.ref || old.scope != d.scope || el.fscope != nil {
+		t.updateFocus(el, old)
+	}
+	if old.float != d.float {
+		// A new prop (each build makes one) places the element again:
+		// its Place and AnchorRect closures cannot be compared, and
+		// the same code may capture other options (ADR-107).
+		t.updateFloat(el, old)
+	}
+	if old.overlay != d.overlay {
+		t.updateOverlay(el, old)
+	}
+	if old.inert != d.inert {
+		t.refreshInert(el)
+	}
+	if old.winRegion != d.winRegion {
+		t.regionChanged(el, old.winRegion, d.winRegion)
+	}
+	if old.id != d.id {
+		t.setID(el, old.id)
+	}
+	if old.fp != d.fp {
+		t.setLabelFor(el, forID(old))
+	}
+	if el.box.fld != nil {
+		t.updateField(el, old)
+	}
+}
+
+// syncStyleInputs marks primitive el for the style phase when its style
+// inputs changed from its old node to d (scheme, direction, classes,
+// typed props), with the readers of its scheme and direction, and updates
+// its replaced content.
+func (t *Tree) syncStyleInputs(el *Element, old, d *desc) {
+	bx := el.box
+	if old.scheme != d.scheme {
+		t.markStyle(el)
+		t.markSchemeReaders(el) // theme.go
+	}
+	if old.dir != d.dir {
+		// Its subtree is skipped, or no longer, by a Dir("auto")
+		// above (direction.go).
+		if old.dir == dirAuto {
+			delete(t.autoDirs, el)
+		}
+		t.markAutoDir(el.parent)
+		t.dirChanged(el) // UseDirection readers (direction.go)
+	}
+	if !slices.Equal(old.classes, d.classes) {
+		bx.classesDirty = true
+		t.markStyle(el)
+	} else if len(old.props) > 0 || len(d.props) > 0 || old.dir != d.dir {
+		// Typed props hold closures and cannot be compared.
+		t.markStyle(el)
+	}
+	if d.elem.IsReplaced() {
+		t.updateImage(el)
+		if old.media.tintOf() != d.media.tintOf() {
+			t.markMediaPaint(bx)
+		}
+	}
+}
+
+// updateComponent brings component el up to date with n: a Provider or a
+// Presence updates its own way, any other component builds unless it can
+// skip.
+func (t *Tree) updateComponent(el *Element, n node) {
+	old := el.node.d
+	d := n.d
+	if d.comp.ctx != nil {
+		t.updateProvider(el, n)
+		return
+	}
+	if d.comp.presence {
+		t.updatePresence(el, n)
+		return
+	}
+	if t.dev && d.comp.ct != nil && old != d {
+		t.checkStructComp(d.comp)
+	}
+	if !el.needsBuild && (old == d || canSkip(el.comp, d.comp)) {
+		// Automatic skipping (ARCHITECTURE section 7): the same node,
+		// or equal props, and no state or context change. The new
+		// node is kept, so a later build of its own runs the newest
+		// closure.
+		el.node, el.comp = n, d.comp
+		t.stats.Skips++
+		if el.dirtyKids {
+			t.descend(el)
+		}
+		return
+	}
+	el.node = n
+	el.comp = d.comp
+	t.build(el)
 }
 
 // descend builds the components below el marked for building, in tree
