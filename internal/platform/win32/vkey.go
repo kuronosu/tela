@@ -108,6 +108,91 @@ func numpadFallback(vk uint32) string {
 	return ""
 }
 
+// namedVK maps a virtual key to its logical key when the mapping does not
+// depend on the physical key or the layout. The empty Key marks a virtual key
+// without an entry here. The keys that do depend on them are in namedKey.
+var namedVK = [256]platform.Key{
+	vkShift:    platform.KeyShift,
+	vkLShift:   platform.KeyShift,
+	vkRShift:   platform.KeyShift,
+	vkControl:  platform.KeyControl,
+	vkLControl: platform.KeyControl,
+	vkRControl: platform.KeyControl,
+	vkMenu:     platform.KeyAlt,
+	vkLMenu:    platform.KeyAlt,
+	vkRMenu:    platform.KeyAlt,
+	vkLWin:     platform.KeyMeta,
+	vkRWin:     platform.KeyMeta,
+
+	vkBack:     platform.KeyBackspace,
+	vkTab:      platform.KeyTab,
+	vkClear:    platform.KeyClear,
+	vkOEMClear: platform.KeyClear,
+	vkReturn:   platform.KeyEnter,
+	vkPause:    platform.KeyPause,
+	vkCapital:  platform.KeyCapsLock,
+
+	vkJunja:      platform.KeyJunjaMode,
+	vkFinal:      platform.KeyFinalMode,
+	vkEscape:     platform.KeyEscape,
+	vkConvert:    platform.KeyConvert,
+	vkNonConvert: platform.KeyNonConvert,
+	vkAccept:     platform.KeyAccept,
+	vkModeChange: platform.KeyModeChange,
+
+	vkPrior:    platform.KeyPageUp,
+	vkNext:     platform.KeyPageDown,
+	vkEnd:      platform.KeyEnd,
+	vkHome:     platform.KeyHome,
+	vkLeft:     platform.KeyArrowLeft,
+	vkUp:       platform.KeyArrowUp,
+	vkRight:    platform.KeyArrowRight,
+	vkDown:     platform.KeyArrowDown,
+	vkSelect:   platform.KeySelect,
+	vkPrint:    platform.KeyPrint,
+	vkExecute:  platform.KeyExecute,
+	vkSnapshot: platform.KeyPrintScreen,
+	vkInsert:   platform.KeyInsert,
+	vkDelete:   platform.KeyDelete,
+	vkHelp:     platform.KeyHelp,
+	vkApps:     platform.KeyContextMenu,
+	vkSleep:    platform.KeyStandby,
+	vkNumLock:  platform.KeyNumLock,
+	vkScroll:   platform.KeyScrollLock,
+
+	vkProcessKey: platform.KeyProcess,
+	vkAttn:       platform.KeyAttn,
+	vkCrSel:      platform.KeyCrSel,
+	vkExSel:      platform.KeyExSel,
+	vkEraseEOF:   platform.KeyEraseEof,
+	vkPlay:       platform.KeyPlay,
+	0xF0:         platform.KeyAlphanumeric, // VK_OEM_ATTN: Eisu on Japanese keyboards
+	0xF1:         platform.KeyKatakana,     // VK_OEM_FINISH
+	0xF2:         platform.KeyHiragana,     // VK_OEM_COPY
+	0xF3:         platform.KeyHankaku,      // VK_OEM_AUTO
+	0xF4:         platform.KeyZenkaku,      // VK_OEM_ENLW
+	0xF5:         platform.KeyRomaji,       // VK_OEM_BACKTAB
+
+	0xA6:         platform.KeyBrowserBack,
+	0xA7:         platform.KeyBrowserForward,
+	0xA8:         platform.KeyBrowserRefresh,
+	0xA9:         platform.KeyBrowserStop,
+	0xAA:         platform.KeyBrowserSearch,
+	0xAB:         platform.KeyBrowserFavorites,
+	0xAC:         platform.KeyBrowserHome,
+	0xAD:         platform.KeyAudioVolumeMute,
+	0xAE:         platform.KeyAudioVolumeDown,
+	0xAF:         platform.KeyAudioVolumeUp,
+	0xB0:         platform.KeyMediaTrackNext,
+	0xB1:         platform.KeyMediaTrackPrevious,
+	0xB2:         platform.KeyMediaStop,
+	0xB3:         platform.KeyMediaPlayPause,
+	0xB4:         platform.KeyLaunchMail,
+	0xB5:         platform.KeyLaunchMediaPlayer,
+	0xB6:         platform.KeyLaunchApplication1,
+	vkLaunchApp2: platform.KeyLaunchApplication2,
+}
+
 // namedKey returns the logical key of a virtual key that has a name (not a
 // character): modifiers, navigation, editing, function and media keys. ok is
 // false for the keys that produce characters (letters, digits, OEM keys, the
@@ -119,9 +204,25 @@ func numpadFallback(vk uint32) string {
 // altGrLayout says whether the active layout has an AltGr key, which makes a
 // right Alt an AltGraph. lang is the primary language id of the layout.
 func namedKey(vk uint32, code platform.KeyCode, altGrLayout bool, lang uint16) (key platform.Key, ok bool) {
-	// Keys identified by position, not by virtual key. Windows swaps
-	// NumLock and Pause when Ctrl is held (Ctrl+NumLock is Pause); the
-	// physical key is what the user pressed.
+	if key, ok := positionKey(vk, code, altGrLayout); ok {
+		return key, true
+	}
+	if vk >= vkF1 && vk <= vkF24 {
+		return platform.Key("F" + strconv.Itoa(int(vk-vkF1)+1)), true
+	}
+	if key, ok := langKey(vk, lang); ok {
+		return key, true
+	}
+	if vk < uint32(len(namedVK)) && namedVK[vk] != "" {
+		return namedVK[vk], true
+	}
+	return "", false
+}
+
+// positionKey returns the logical key of the keys identified by position, not
+// by virtual key. Windows swaps NumLock and Pause when Ctrl is held
+// (Ctrl+NumLock is Pause); the physical key is what the user pressed.
+func positionKey(vk uint32, code platform.KeyCode, altGrLayout bool) (platform.Key, bool) {
 	switch code {
 	case platform.CodeNumLock:
 		return platform.KeyNumLock, true
@@ -135,156 +236,21 @@ func namedKey(vk uint32, code platform.KeyCode, altGrLayout bool, lang uint16) (
 			return platform.KeyAlt, true
 		}
 	}
-	if vk >= vkF1 && vk <= vkF24 {
-		return platform.Key("F" + strconv.Itoa(int(vk-vkF1)+1)), true
-	}
-	switch vk {
-	case vkShift, vkLShift, vkRShift:
-		return platform.KeyShift, true
-	case vkControl, vkLControl, vkRControl:
-		return platform.KeyControl, true
-	case vkMenu, vkLMenu, vkRMenu:
-		return platform.KeyAlt, true
-	case vkLWin, vkRWin:
-		return platform.KeyMeta, true
-	case vkBack:
-		return platform.KeyBackspace, true
-	case vkTab:
-		return platform.KeyTab, true
-	case vkClear, vkOEMClear:
-		return platform.KeyClear, true
-	case vkReturn:
-		return platform.KeyEnter, true
-	case vkPause:
-		return platform.KeyPause, true
-	case vkCapital:
-		return platform.KeyCapsLock, true
-	case vkKana: // VK_HANGUL
-		switch lang {
-		case langKorean:
-			return platform.KeyHangulMode, true
-		case langJapanese:
-			return platform.KeyKanaMode, true
-		}
-	case vkJunja:
-		return platform.KeyJunjaMode, true
-	case vkFinal:
-		return platform.KeyFinalMode, true
-	case vkKanji: // VK_HANJA
-		switch lang {
-		case langKorean:
-			return platform.KeyHanjaMode, true
-		case langJapanese:
-			return platform.KeyKanjiMode, true
-		}
-	case vkEscape:
-		return platform.KeyEscape, true
-	case vkConvert:
-		return platform.KeyConvert, true
-	case vkNonConvert:
-		return platform.KeyNonConvert, true
-	case vkAccept:
-		return platform.KeyAccept, true
-	case vkModeChange:
-		return platform.KeyModeChange, true
-	case vkPrior:
-		return platform.KeyPageUp, true
-	case vkNext:
-		return platform.KeyPageDown, true
-	case vkEnd:
-		return platform.KeyEnd, true
-	case vkHome:
-		return platform.KeyHome, true
-	case vkLeft:
-		return platform.KeyArrowLeft, true
-	case vkUp:
-		return platform.KeyArrowUp, true
-	case vkRight:
-		return platform.KeyArrowRight, true
-	case vkDown:
-		return platform.KeyArrowDown, true
-	case vkSelect:
-		return platform.KeySelect, true
-	case vkPrint:
-		return platform.KeyPrint, true
-	case vkExecute:
-		return platform.KeyExecute, true
-	case vkSnapshot:
-		return platform.KeyPrintScreen, true
-	case vkInsert:
-		return platform.KeyInsert, true
-	case vkDelete:
-		return platform.KeyDelete, true
-	case vkHelp:
-		return platform.KeyHelp, true
-	case vkApps:
-		return platform.KeyContextMenu, true
-	case vkSleep:
-		return platform.KeyStandby, true
-	case vkNumLock:
-		return platform.KeyNumLock, true
-	case vkScroll:
-		return platform.KeyScrollLock, true
-	case vkProcessKey:
-		return platform.KeyProcess, true
-	case vkAttn:
-		return platform.KeyAttn, true
-	case vkCrSel:
-		return platform.KeyCrSel, true
-	case vkExSel:
-		return platform.KeyExSel, true
-	case vkEraseEOF:
-		return platform.KeyEraseEof, true
-	case vkPlay:
-		return platform.KeyPlay, true
-	case 0xF0: // VK_OEM_ATTN: Eisu on Japanese keyboards
-		return platform.KeyAlphanumeric, true
-	case 0xF1: // VK_OEM_FINISH
-		return platform.KeyKatakana, true
-	case 0xF2: // VK_OEM_COPY
-		return platform.KeyHiragana, true
-	case 0xF3: // VK_OEM_AUTO
-		return platform.KeyHankaku, true
-	case 0xF4: // VK_OEM_ENLW
-		return platform.KeyZenkaku, true
-	case 0xF5: // VK_OEM_BACKTAB
-		return platform.KeyRomaji, true
-	case 0xA6:
-		return platform.KeyBrowserBack, true
-	case 0xA7:
-		return platform.KeyBrowserForward, true
-	case 0xA8:
-		return platform.KeyBrowserRefresh, true
-	case 0xA9:
-		return platform.KeyBrowserStop, true
-	case 0xAA:
-		return platform.KeyBrowserSearch, true
-	case 0xAB:
-		return platform.KeyBrowserFavorites, true
-	case 0xAC:
-		return platform.KeyBrowserHome, true
-	case 0xAD:
-		return platform.KeyAudioVolumeMute, true
-	case 0xAE:
-		return platform.KeyAudioVolumeDown, true
-	case 0xAF:
-		return platform.KeyAudioVolumeUp, true
-	case 0xB0:
-		return platform.KeyMediaTrackNext, true
-	case 0xB1:
-		return platform.KeyMediaTrackPrevious, true
-	case 0xB2:
-		return platform.KeyMediaStop, true
-	case 0xB3:
-		return platform.KeyMediaPlayPause, true
-	case 0xB4:
-		return platform.KeyLaunchMail, true
-	case 0xB5:
-		return platform.KeyLaunchMediaPlayer, true
-	case 0xB6:
-		return platform.KeyLaunchApplication1, true
-	case vkLaunchApp2:
-		return platform.KeyLaunchApplication2, true
+	return "", false
+}
+
+// langKey returns the logical key of a virtual key that depends on the
+// language of the layout, and false for any other language.
+func langKey(vk uint32, lang uint16) (platform.Key, bool) {
+	switch {
+	case vk == vkKana && lang == langKorean: // VK_HANGUL
+		return platform.KeyHangulMode, true
+	case vk == vkKana && lang == langJapanese:
+		return platform.KeyKanaMode, true
+	case vk == vkKanji && lang == langKorean: // VK_HANJA
+		return platform.KeyHanjaMode, true
+	case vk == vkKanji && lang == langJapanese:
+		return platform.KeyKanjiMode, true
 	}
 	return "", false
 }
