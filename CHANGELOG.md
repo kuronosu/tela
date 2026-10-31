@@ -27,6 +27,19 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- **Breaking:** `tela.Node` is now the interface every renderable implements, `interface{ Build() Node }` (ADR-205). A struct component such as `kit.Button{...}` is a `Node`, so a function, a `Build` method or a `Map`/`Cell` callback declared to return `tela.Node` can return it directly, with no `Fragment(...)` around it; `return If(...)` works too. Elements stay functions (`Div(...)`) and components stay structs; `tela.Component` stays as an alias of `Node` and `tela.Child` is unchanged. Core's benchmarks and allocations are unchanged. Migration:
+
+  | Before | After |
+  |---|---|
+  | `tela.Node{}` | `nil` |
+  | `n.IsZero()` | `n == nil` |
+  | `n.Key()`, `n.String()` | removed |
+  | `case tela.Node:` in a type switch | also matches struct components and props |
+  | a generic union `~func(int) tela.Node \| ~func(int) tela.Component` | `func(int) tela.Node` (`h.Range` and `h.VirtualList` take it) |
+  | `n1 == n2` on two Nodes | may panic for non-comparable struct components (`== nil` is safe) |
+  | a Prop returned where a Node is expected | compiles, and panics when used, naming the place |
+  | `func Preview() tela.Component` | `func Preview() tela.Node` (one form, always mounted as a component; a nil result renders nothing) |
+
 - A paint records again only the layers whose content changed (ADR-204), with the same pixels: a hover, a color transition step or a one-element change used to record every layer of the window (359 on the kit gallery's Calendar page, now about 2; a hover there goes from 1.45 to 0.41 ms). The dashboard's board cards fade their colors again. `TELA_CHECK_LAYERS=1` compares every partial frame with a full recording.
 
 - The CPU renderer keeps the output of a backdrop filter between frames while what lies behind it is unchanged (ADR-200), with the same pixels as before: the dashboard's median frame at 1080p goes from 15 to 4.7 ms at scale 1 and from 48 to 11 ms at scale 2.
