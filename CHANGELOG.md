@@ -14,6 +14,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Added
 
+- `tela lint -fix` applies the fixes a rule can make safely, and two rules come with ADR-205: `fragment` (a `Fragment(x)` around a single node or component that is no longer needed; it is reported only where removing it type-checks and keeps the child's state) and `prop-node` (a `Prop` where a `tela.Node` is expected, which compiles but panics when used). The repo's 92 redundant wraps were removed with it; `docs/llms.txt` and the wiki no longer tell you to wrap a component.
+
 - The theme's own CSS variables work inside arbitrary values (ADR-202): `var(--color-<token>)` (custom tokens too, with the light or dark value of the element's scheme), `var(--radius)`, `var(--radius-*)`, `var(--spacing)` and `var(--x, fallback)`, in colors, opacity modifiers, gradients and their stops, shadows, lengths and `calc()`; also the `bg-(--color-primary)` shorthand. An unknown token is an error with a suggestion; an app's own variables are still not supported. The dashboard's goal ring now follows the theme's primary color.
 - `divide-x`, `divide-y`, their widths and `-reverse`, `divide-<color>` and `divide-solid|dashed|dotted|double|none`, following Tailwind v4 (every child but the last; a child's own border classes win) and compared with Chromium (ADR-203).
 
