@@ -27,6 +27,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Changed
 
+- A paint records again only the layers whose content changed (ADR-204), with the same pixels: a hover, a color transition step or a one-element change used to record every layer of the window (359 on the kit gallery's Calendar page, now about 2; a hover there goes from 1.45 to 0.41 ms). The dashboard's board cards fade their colors again. `TELA_CHECK_LAYERS=1` compares every partial frame with a full recording.
+
 - The CPU renderer keeps the output of a backdrop filter between frames while what lies behind it is unchanged (ADR-200), with the same pixels as before: the dashboard's median frame at 1080p goes from 15 to 4.7 ms at scale 1 and from 48 to 11 ms at scale 2.
 
 - `examples/settings` is now **Darkroom**'s Preferences window (ADR-195): five sections (General, Develop, Export, Safelight, Account), a form that is one comparable value, validation that disables Save, Discard and sign-out confirmations, a theme and an accent applied on Save, and a dark-room voice, built by an LLM (Claude Sonnet) from `docs/llms.txt` and the prompt in its README in two render iterations. It replaces the previous `examples/settings` and `examples/llms/settings`; `docs/images/settings.png` shows it, with new goldens and behavior tests.
