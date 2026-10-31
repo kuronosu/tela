@@ -157,6 +157,19 @@ type cssToken struct {
 	text string
 }
 
+func isDigit(c byte) bool  { return c >= '0' && c <= '9' }
+func isLetter(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }
+func isSign(c byte) bool   { return c == '+' || c == '-' }
+
+// isNumberStart reports whether c can begin a number token.
+func isNumberStart(c byte) bool { return isDigit(c) || c == '.' || isSign(c) }
+
+// isCSSPunct reports whether c is a single-byte operator token other than
+// the signs.
+func isCSSPunct(c byte) bool {
+	return c == '(' || c == ')' || c == ',' || c == '*' || c == '/'
+}
+
 func lexCSS(s string) ([]cssToken, error) {
 	var toks []cssToken
 	for i := 0; i < len(s); {
@@ -164,57 +177,88 @@ func lexCSS(s string) ([]cssToken, error) {
 		switch {
 		case c == ' ' || c == '\t':
 			i++
-		case c == '(' || c == ')' || c == ',' || c == '*' || c == '/':
+		case isCSSPunct(c):
 			toks = append(toks, cssToken{kind: c})
 			i++
-		case c == '+' || c == '-':
-			// A sign when the previous token is not a value; otherwise a
-			// binary operator, even without surrounding spaces.
-			prevValue := len(toks) > 0 && (toks[len(toks)-1].kind == 'n' || toks[len(toks)-1].kind == ')' || toks[len(toks)-1].kind == 'i')
-			next := byte(0)
-			if i+1 < len(s) {
-				next = s[i+1]
+		case isSign(c) && !signStartsNumber(s, i, toks):
+			toks = append(toks, cssToken{kind: c})
+			i++
+		case isNumberStart(c):
+			tok, next, err := scanNumber(s, i)
+			if err != nil {
+				return nil, err
 			}
-			if prevValue || !(next >= '0' && next <= '9' || next == '.') {
-				toks = append(toks, cssToken{kind: c})
-				i++
-				continue
-			}
-			fallthrough
-		case c >= '0' && c <= '9' || c == '.':
-			j := i
-			if s[j] == '-' || s[j] == '+' {
-				j++
-			}
-			for j < len(s) && (s[j] >= '0' && s[j] <= '9' || s[j] == '.') {
-				j++
-			}
-			v, ok := parseFloat(s[i:j])
-			if !ok {
-				return nil, fmt.Errorf("invalid number %q", s[i:j])
-			}
-			k := j
-			if k < len(s) && s[k] == '%' {
-				k++
-			} else {
-				for k < len(s) && (s[k] >= 'a' && s[k] <= 'z' || s[k] >= 'A' && s[k] <= 'Z') {
-					k++
-				}
-			}
-			toks = append(toks, cssToken{kind: 'n', num: v, unit: s[j:k]})
-			i = k
-		case c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_':
-			j := i
-			for j < len(s) && (s[j] >= 'a' && s[j] <= 'z' || s[j] >= 'A' && s[j] <= 'Z' || s[j] >= '0' && s[j] <= '9' || s[j] == '-' || s[j] == '_') {
-				j++
-			}
-			toks = append(toks, cssToken{kind: 'i', text: s[i:j]})
-			i = j
+			toks = append(toks, tok)
+			i = next
+		case isLetter(c) || c == '_':
+			tok, next := scanIdent(s, i)
+			toks = append(toks, tok)
+			i = next
 		default:
 			return nil, fmt.Errorf("unexpected character %q", string(c))
 		}
 	}
 	return toks, nil
+}
+
+// endsWithValue reports whether the last token is a value (a number, an
+// identifier or a closing parenthesis).
+func endsWithValue(toks []cssToken) bool {
+	if len(toks) == 0 {
+		return false
+	}
+	switch toks[len(toks)-1].kind {
+	case 'n', ')', 'i':
+		return true
+	}
+	return false
+}
+
+// signStartsNumber reports whether the sign at s[i] is part of a number: the
+// previous token is not a value and a digit or a dot follows. Otherwise it
+// is a binary operator, even without surrounding spaces.
+func signStartsNumber(s string, i int, toks []cssToken) bool {
+	if endsWithValue(toks) || i+1 >= len(s) {
+		return false
+	}
+	return isDigit(s[i+1]) || s[i+1] == '.'
+}
+
+// scanWhile returns the index of the first byte at or after i that fails
+// keep.
+func scanWhile(s string, i int, keep func(byte) bool) int {
+	for i < len(s) && keep(s[i]) {
+		i++
+	}
+	return i
+}
+
+// scanNumber lexes the number, with its optional sign and unit, that starts
+// at s[i]. It returns the token and the index after it.
+func scanNumber(s string, i int) (cssToken, int, error) {
+	j := i
+	if isSign(s[j]) {
+		j++
+	}
+	j = scanWhile(s, j, func(c byte) bool { return isDigit(c) || c == '.' })
+	v, ok := parseFloat(s[i:j])
+	if !ok {
+		return cssToken{}, 0, fmt.Errorf("invalid number %q", s[i:j])
+	}
+	k := j
+	if k < len(s) && s[k] == '%' {
+		k++
+	} else {
+		k = scanWhile(s, k, isLetter)
+	}
+	return cssToken{kind: 'n', num: v, unit: s[j:k]}, k, nil
+}
+
+// scanIdent lexes the identifier that starts at s[i]. It returns the token
+// and the index after it.
+func scanIdent(s string, i int) (cssToken, int) {
+	j := scanWhile(s, i, isIdentByte)
+	return cssToken{kind: 'i', text: s[i:j]}, j
 }
 
 // calcVal is a value inside a calc() expression: a length or a plain number.
