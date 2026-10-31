@@ -9,6 +9,7 @@
 
 - **Done:** phases 1–12. Latest version `v0.12.6` (2026-10-29; `tela dev`'s clock never goes behind the frame time, found by CI), after `v0.12.5` (CI green again) and `v0.12.4` (the fixes adopted from the first codebase review, `docs/reviews/2026-10-29.md`, ADR-190–194); `main` is pushed and CI is green on it; tags pushed up to `v0.12.6`, whose CI run is green; the GitHub wiki is `docs/wiki` at `v0.12.6`.
 - **Phase in progress:** none; phase 13 (desktop integration, the rest) is next.
+- **Website:** `site/` (ADR-206) builds the site for `https://telaui.dev` from `docs/wiki`; it goes live after the owner pushes and sets the domain's DNS and the Pages settings (see "Website" below).
 - **Next step:** phase 13 (desktop integration, the rest: drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends the redesigned `notes`. The examples are the nine of ADR-195 and the looks are the `looks/` module (ADR-197); its CI job and the dashboard's new frame times are unverified on CI until the owner pushes. The owner also still tries `examples/notes` with word wrap off in the GNOME container (`/home/ubuntu/notes-v3`). The complexity refactors R1–R10 (2026-10-31) are on `main`, not pushed yet; R11–R13 of that review are not started: split `resolveMotion` into collecting and building, the text fields' key bindings as one table per flavor (with phase 14's first item), and explicit process states for `tela dev`'s supervisor.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` and the arm64 run of `internal/gfx/raster` pass the 10-minute default timeout in one process, so they run sharded (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`.
 
@@ -106,6 +107,13 @@ Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 - [ ] 3D (exploratory, ADR first; transforms stay 2D until then) lives here or in the backlog
 
 **Done when:** a "player" example plays an audio file and a video with synced controls.
+
+## Website (ADR-206)
+
+- [x] `site/`: Astro + Starlight built from `docs/wiki` by `site/scripts/sync-wiki.mjs`, links and anchors checked at build; `.github/workflows/site.yml` checks pull requests and deploys `main`'s site with the latest tag's docs (2026-10-31; not pushed yet)
+- [ ] Owner: DNS of `telaui.dev`, Pages source "GitHub Actions", custom domain and HTTPS; then check the first deploy live
+- [ ] Landing page design review (options rendered, the owner picks): the current one is a placeholder (hero, `hello.png`, four cards)
+- [ ] Decide when the GitHub wiki retires (until then both are published from `docs/wiki`); wikidoc's reference pages still say "start at the wiki home", and on the site the reference pages' contents list "Overview" twice (Starlight's page top and the package overview)
 
 ## Road to v1.0
 

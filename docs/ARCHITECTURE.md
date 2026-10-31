@@ -180,6 +180,7 @@ tela/
 ├── icons/lucide/         # separate module (own go.mod): Lucide as tela.Icon variables (ADR-102)
 ├── looks/               # separate module (own go.mod): platform looks for kit, Windows 11, GNOME, KDE (ADR-197)
 ├── examples/             # full screens: dashboard, login, settings, chat…
+├── site/                 # project website, telaui.dev: Astro + Starlight, own go.mod, built from docs/wiki (ADR-206)
 └── docs/
 ```
 
