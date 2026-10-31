@@ -62,6 +62,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- A deferred layer (a modal, a card with an opacity or transform animation) inside a scrolling area was recorded again on every scroll frame that moved the area's interest rect, although its list does not depend on it: a frame of such a scroll goes from 0.43 to 0.10 ms.
+- Animation steps are now seen by the partial recording of ADR-204 through the same comparison of every `ComputedStyle` field as any restyle, instead of a special case inside the animation code, so an animated property that painting reads can no longer leave a stale layer.
+
 - The backdrop-filter cache (ADR-200) could draw a wrong blur under stacked glass panes: a filter planned as a cache hit missed at draw time (its region was grown by an earlier filter, or it was under a mirroring transform) and was recomputed from pixels the incremental render had not made exact. The planning now checks the whole cache key and binds what is drawn from the cache.
 
 - A virtual `kit.Table` (`RowHeight`) keeps its header and footer aligned with the rows when the scrollbars take layout width (classic scrollbars, the Windows look), left to right and right to left.
