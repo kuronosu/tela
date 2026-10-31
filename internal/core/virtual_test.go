@@ -992,7 +992,7 @@ func TestVirtualKeyAndIdentity(t *testing.T) {
 	tr := newTestTree(t, 400, 600, root, nil)
 	settleTree(t, tr)
 	vl := onlyList(t, tr)
-	if k, ok := vl.el.node.Key(); !ok || k != "list" {
+	if k, ok := KeyOf(vl.el.node); !ok || k != "list" {
 		t.Fatalf("the list's node has key %v", k)
 	}
 	tr.setScroll(vl.scroller(), gfx.Point{Y: 800})

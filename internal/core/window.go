@@ -486,7 +486,7 @@ func UseWindowSpec(spec ChildWindowSpec) {
 		el.hooks = append(el.hooks, s)
 		t.wins = append(t.wins, s)
 	}
-	if spec.Root.d == nil && t.dev {
+	if spec.Root == nil && t.dev {
 		panic(fmt.Sprintf("tela: tela.Window %q has no Root: give it the content of the window, such as tela.Window{Title: %q, Root: Settings{}} for a struct component or Root: tela.C(settings) for a function", spec.Title, spec.Title))
 	}
 	checkWindowSpec("tela.Window", spec.Title, &spec.WindowSpec)
@@ -526,7 +526,7 @@ func (t *Tree) flushWindows() {
 // openWindow opens the window of Window component s, the child of the
 // tree's window, with a Tree of its own below the Window element.
 func (t *Tree) openWindow(s *windowSlot) {
-	if s.spec.Root.d == nil {
+	if s.spec.Root == nil {
 		return // nothing to show yet (a release build; dev mode panics)
 	}
 	s.tried = true

@@ -58,11 +58,11 @@ var presenceTyp = reflect.ValueOf(presenceMarker).Pointer()
 // Presence returns a node whose children are kept mounted while they exit
 // (tela.h.Presence). It has no box; only Key is accepted as a prop.
 func Presence(children ...Child) Node {
-	d := &desc{kind: nodeComponent, comp: &compDesc{typ: presenceTyp, presence: true}, children: make([]Node, 0, len(children))}
+	d := &desc{kind: nodeComponent, comp: &compDesc{typ: presenceTyp, presence: true}, children: make([]node, 0, len(children))}
 	for _, c := range children {
 		d.addGroupChild(c, "Presence", "it has no box (put the prop on its children)")
 	}
-	return Node{d}
+	return node{d}
 }
 
 // Exit adds classes that a primitive takes when the child of a Presence it
@@ -124,7 +124,7 @@ func (el *Element) exiting() bool { return el.pchild != nil && el.pchild.exit !=
 func (t *Tree) mountPresence(el *Element) { t.reconcilePresence(el, el.node.d.children) }
 
 // updatePresence brings Presence el up to date with n.
-func (t *Tree) updatePresence(el *Element, n Node) {
+func (t *Tree) updatePresence(el *Element, n node) {
 	d := n.d
 	if el.node.d == d {
 		if el.dirtyKids {
@@ -140,7 +140,7 @@ func (t *Tree) updatePresence(el *Element, n Node) {
 // reconcilePresence reconciles the children of Presence p: children that
 // left begin their exit and stay, at their old index (Motion's merge),
 // and exiting children that are back cancel it.
-func (t *Tree) reconcilePresence(p *Element, children []Node) {
+func (t *Tree) reconcilePresence(p *Element, children []node) {
 	buf := t.flatFree.get()
 	entries := flatten(buf[:0], children)
 	if len(p.children) > 0 {

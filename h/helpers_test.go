@@ -43,8 +43,8 @@ func TestIfWithNodes(t *testing.T) {
 		"component": If(false, spinner{}),
 		"nil":       If(false, nil),
 	} {
-		if n, ok := c.(tela.Node); !ok || !n.IsZero() {
-			t.Errorf("If(false, %s) = %#v, want the zero Node", name, c)
+		if c != nil {
+			t.Errorf("If(false, %s) = %#v, want nil", name, c)
 		}
 	}
 	if p, ok := If(false, Class("x")).(tela.Prop); !ok || !reflect.ValueOf(p).IsZero() {
@@ -171,7 +171,7 @@ func TestIfAbsentInEveryPosition(t *testing.T) {
 		"node":      {If(false, Div(Key("x")))},
 		"component": {If(false, spinner{})},
 		"prop":      {If(false, Class("x")), If(false, tela.Width(9)), If(false, Key("k"))},
-		"ifelse":    {IfElse(false, spinner{}, tela.Node{}), IfElse(false, Class("a"), If(false, Class("b")))},
+		"ifelse":    {IfElse(false, spinner{}, nil), IfElse(false, Class("a"), If(false, Class("b")))},
 		"nested":    {If(false, If(true, spinner{})), If(true, If(false, spinner{}))},
 	} {
 		for pos, build := range map[string]func(c ...tela.Child) tela.Node{
@@ -233,9 +233,10 @@ func TestIfElse(t *testing.T) {
 		t.Errorf("closed: panel %g\n%+v", got, off)
 	}
 	// Both branches are zero when they are: a hole.
-	if z := IfElse(true, tela.Node{}, Div()); z != (tela.Node{}) {
+	if z := IfElse(true, nil, Div()); z != nil {
 		t.Error("IfElse picked the wrong branch")
 	}
+
 }
 
 func TestMapIndex(t *testing.T) {

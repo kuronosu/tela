@@ -312,7 +312,7 @@ func (s *mcpSession) ensure(ctx context.Context) (notes []string, problem string
 func mcpCreateHelp(pkg string) string {
 	return fmt.Sprintf(`tela mcp serves the package %s, which must be in a module that requires github.com/kuronosu/tela (create one with "tela new %s", or "go mod init" and "go get github.com/kuronosu/tela"). The package defines the screen as one of
 
-	func Preview() tela.Node        (or tela.Component)
+	func Preview() tela.Node
 	var Previews = tela.Previews{"Name": {Root: tela.C(Screen)}}
 	var App = tela.App{Root: tela.C(Screen), ...}
 

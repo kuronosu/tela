@@ -28,7 +28,7 @@ func revealHarness(t *testing.T, root, then Node, w, h float32) *inputHarness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if then.d != nil {
+	if then != nil {
 		host.Tree().Mount(then)
 	}
 	b.Drain(host)
@@ -63,7 +63,7 @@ func TestFieldAutoFocusRevealAfterLayout(t *testing.T) {
 			field := func(auto bool) Node {
 				return div(Class("p-4"), input(Key("in"), Class("w-40"), AutoFocus(auto), DefaultValue(c.value)))
 			}
-			a := revealHarness(t, field(true), Node{}, 300, 100)
+			a := revealHarness(t, field(true), nil, 300, 100)
 			a.settle()
 			fa := fieldOf(t, a.tree(), "in")
 			if a.tree().foc.el != fa.el {
@@ -74,7 +74,7 @@ func TestFieldAutoFocusRevealAfterLayout(t *testing.T) {
 			}
 			// The same Input focused by a click at its left edge after its
 			// layout: the caret at the start, nothing scrolled.
-			b := revealHarness(t, field(false), Node{}, 300, 100)
+			b := revealHarness(t, field(false), nil, 300, 100)
 			b.settle()
 			fb := fieldOf(t, b.tree(), "in")
 			r := windowRect(fb.bx)

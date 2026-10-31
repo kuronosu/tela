@@ -25,7 +25,7 @@ func newCompProbe() *compProbe {
 type stateCard struct {
 	Title    string
 	P        *compProbe
-	Children Comp
+	Children Node
 }
 
 func (c stateCard) Build() Node {
@@ -59,11 +59,11 @@ func (c listCard) Build() Node {
 }
 
 // itemsCard holds a slice of Components.
-type itemsCard struct{ Items []Comp }
+type itemsCard struct{ Items []Node }
 
 func (c itemsCard) Build() Node { return div(Fragment(asChildren(c.Items)...)) }
 
-func asChildren(cs []Comp) []Child {
+func asChildren(cs []Node) []Child {
 	out := make([]Child, len(cs))
 	for i, c := range cs {
 		out[i] = c
@@ -203,9 +203,9 @@ func TestStructComponentIdentityIsTypeAndKey(t *testing.T) {
 func TestStructComponentSkipping(t *testing.T) {
 	p := newCompProbe()
 	title := "a"
-	var kids func() Comp
+	var kids func() Node
 	page := func() Node {
-		var children Comp
+		var children Node
 		if kids != nil {
 			children = kids()
 		}
@@ -235,14 +235,14 @@ func TestStructComponentSkipping(t *testing.T) {
 			t.Errorf("dev %v: changed title: builds %v", dev, p.builds)
 		}
 		// A fresh node in Children is a change; the same node is not.
-		kids = func() Comp { return Text("fresh") }
+		kids = func() Node { return Text("fresh") }
 		rebuild(tr)
 		rebuild(tr)
 		if p.builds["b"] != 3 {
 			t.Errorf("dev %v: fresh children: %d builds of b, want 3", dev, p.builds["b"])
 		}
 		kept := Text("kept")
-		kids = func() Comp { return kept }
+		kids = func() Node { return kept }
 		rebuild(tr)
 		rebuild(tr)
 		if p.builds["b"] != 4 {
@@ -250,7 +250,7 @@ func TestStructComponentSkipping(t *testing.T) {
 		}
 		// A child that cannot be compared (a component holding a slice)
 		// counts as changed, without panicking.
-		kids = func() Comp { return listCard{Items: []string{"i"}, P: p} }
+		kids = func() Node { return listCard{Items: []string{"i"}, P: p} }
 		rebuild(tr)
 		rebuild(tr)
 		if p.builds["b"] != 6 {
@@ -338,7 +338,7 @@ func TestStructComponentDevPanics(t *testing.T) {
 			"stateCard.Children holds a Prop (Class), not a component"},
 		{"prop node in a Component field", div(stateCard{Title: "a", P: p, Children: Key("k").Build()}),
 			"stateCard.Children holds a Prop (Key), not a component"},
-		{"prop in a slice of Components", div(itemsCard{Items: []Comp{Text("a"), Class("x")}}),
+		{"prop in a slice of Components", div(itemsCard{Items: []Node{Text("a"), Class("x")}}),
 			"itemsCard.Items[1] holds a Prop (Class)"},
 		{"pointer to a value-receiver component", div(&stateCard{Title: "a", P: p}),
 			"&stateCard{...} (a *stateCard) is given as a component; pass the value, stateCard{...}, without the &"},
@@ -353,7 +353,7 @@ func TestStructComponentDevPanics(t *testing.T) {
 	// The check runs on updates too.
 	bad := false
 	page := func() Node {
-		var kid Comp = Text("ok")
+		var kid Node = Text("ok")
 		if bad {
 			kid = Class("p-2")
 		}
@@ -454,22 +454,22 @@ func TestNodeAndPropAsComponents(t *testing.T) {
 		t.Error("Node.Build does not return the node")
 	}
 	// A Prop's node applies like the Prop where props go.
-	d := div(Class("p-4").Build(), Text("y"))
-	if len(d.d.classes) != 1 || d.d.classes[0] != "p-4" || len(d.d.children) != 1 {
-		t.Errorf("div of a prop node: classes %q, %d children", d.d.classes, len(d.d.children))
+	d := nd(div(Class("p-4").Build(), Text("y")))
+	if len(d.classes) != 1 || d.classes[0] != "p-4" || len(d.children) != 1 {
+		t.Errorf("div of a prop node: classes %q, %d children", d.classes, len(d.children))
 	}
-	if f := Fragment(Key("k").Build(), Text("z")); !f.d.keyed || f.d.key != "k" {
+	if f := nd(Fragment(Key("k").Build(), Text("z"))); !f.keyed || f.key != "k" {
 		t.Error("Fragment of a Key node: not keyed")
 	}
 	if msg := panicMessage(func() { Fragment(Class("x").Build()) }); !strings.Contains(msg, "Fragment does not take Class") {
 		t.Errorf("Fragment of a Class node: panic %q", msg)
 	}
-	// Rendered on its own, it panics.
-	if msg := panicMessage(func() { newTestTree(t, 100, 100, div(propReturner{}), nil) }); !strings.Contains(msg, "a Prop (Class) cannot be rendered on its own") {
+	// Returned by a build, it panics.
+	if msg := panicMessage(func() { newTestTree(t, 100, 100, div(propReturner{}), nil) }); !strings.Contains(msg, "propReturner.Build returned a Prop (Class), not a node or a component") {
 		t.Errorf("a component returning a prop node: panic %q", msg)
 	}
 	// NodeOf and WithKey.
-	if !NodeOf(nil).IsZero() || NodeOf(n) != n {
+	if NodeOf(nil) != nil || NodeOf(n) != n {
 		t.Error("NodeOf of nil or of a node")
 	}
 	if msg := panicMessage(func() { NodeOf(Class("x")) }); !strings.Contains(msg, "the root is a Prop (Class)") {
@@ -479,12 +479,13 @@ func TestNodeAndPropAsComponents(t *testing.T) {
 		t.Errorf("WithKey(Prop): panic %q", msg)
 	}
 	k := WithKey(stateCard{Title: "k"}, 7)
-	if key, ok := k.Key(); !ok || key != 7 || k.d.comp.ct == nil {
-		t.Errorf("WithKey of a struct component: key %v %v, struct %v", key, ok, k.d.comp.ct != nil)
+	if key, ok := KeyOf(k); !ok || key != 7 || nd(k).comp.ct == nil {
+		t.Errorf("WithKey of a struct component: key %v %v, struct %v", key, ok, nd(k).comp.ct != nil)
 	}
-	if !WithKey(nil, 1).IsZero() {
-		t.Error("WithKey(nil) is not the zero Node")
+	if WithKey(nil, 1) != nil {
+		t.Error("WithKey(nil) is not nil")
 	}
+
 	// A nil Component field is a hole.
 	p := newCompProbe()
 	tr := newTestTree(t, 100, 100, div(stateCard{Title: "h", P: p}), nil)
@@ -590,20 +591,20 @@ func TestInitialOption(t *testing.T) {
 // deepIfaceCard embeds it one level deeper, and wrapIfaceCard has no Build
 // of its own (its Build is promoted from the interface).
 type ifaceCard struct {
-	Comp
+	Node
 	Title string
 }
 
-func (c ifaceCard) Build() Node { return div(Text(c.Title), c.Comp) }
+func (c ifaceCard) Build() Node { return div(Text(c.Title), c.Node) }
 
-type ifaceInner struct{ Comp }
+type ifaceInner struct{ Node }
 
 type deepIfaceCard struct {
 	ifaceInner
 	Title string
 }
 
-func (c deepIfaceCard) Build() Node { return div(Text(c.Title), c.Comp) }
+func (c deepIfaceCard) Build() Node { return div(Text(c.Title), c.Node) }
 
 type childIfaceCard struct {
 	Child
@@ -612,7 +613,7 @@ type childIfaceCard struct {
 
 func (c childIfaceCard) Build() Node { return div(Text(c.Title), c.Child) }
 
-type wrapIfaceCard struct{ Comp }
+type wrapIfaceCard struct{ Node }
 
 // TestStructComponentEmbeddedInterface: an embedded interface with a
 // Build method (Component, Child) has no code reflect can name, which
@@ -630,7 +631,7 @@ func TestStructComponentEmbeddedInterface(t *testing.T) {
 			root Node
 			want string
 		}{
-			{"embedded Component", div(ifaceCard{Title: "t", Comp: Text("kid")}), "tkid"},
+			{"embedded Component", div(ifaceCard{Title: "t", Node: Text("kid")}), "tkid"},
 			{"embedded one level deeper", div(deepIfaceCard{Title: "d", ifaceInner: ifaceInner{Text("kid")}}), "dkid"},
 			{"embedded Child", div(childIfaceCard{Title: "c", Child: Text("kid")}), "ckid"},
 			{"Build promoted from the interface", div(wrapIfaceCard{Text("kid")}), "kid"},

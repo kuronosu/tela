@@ -261,7 +261,7 @@ func (t *Tree) devFirstBuild(el *Element, out Node, mark int) Node {
 	el.hookIdx = 0
 	t.endTrack(mark) // the discarded build's reads; build ends the tracking
 	t.beginTrack()   // begun again at mark
-	return el.comp.build()
+	return el.comp.run()
 }
 
 // sigDiff describes how the signature of el differs from n's.

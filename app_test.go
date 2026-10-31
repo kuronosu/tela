@@ -21,10 +21,10 @@ func (c rootCard) Build() Node { return core.Text(c.Title) }
 // TestAppOptions checks that every App field reaches the core options.
 func TestAppOptions(t *testing.T) {
 	app := App{Title: "T", AppID: "a.b", Width: 3, Height: 4, RootClass: "bg-white",
-		ClassicScrollbars: true, InstantScroll: true, Root: C(func() Node { return Node{} })}
+		ClassicScrollbars: true, InstantScroll: true, Root: C(func() Node { return nil })}
 	o := app.options()
 	if o.Window.Title != "T" || o.AppID != "a.b" || o.Window.Width != 3 || o.Window.Height != 4 || o.RootClass != "bg-white" ||
-		!o.ClassicScrollbars || !o.InstantScroll || o.Root == (Node{}) {
+		!o.ClassicScrollbars || !o.InstantScroll || o.Root == nil {
 		t.Errorf("options %+v", o)
 	}
 }
@@ -39,7 +39,7 @@ func TestAppWindowOptions(t *testing.T) {
 		FixedSize: true, Frameless: true, AlwaysOnTop: true, Hidden: true,
 		Icon: []image.Image{image.NewRGBA(image.Rect(0, 0, 16, 16))}, Placement: place,
 		OnClose: func(WindowHandle) { closed++ },
-		Root:    C(func() Node { return Node{} }),
+		Root:    C(func() Node { return nil }),
 	}
 	o := app.options()
 	w := o.Window
@@ -58,7 +58,7 @@ func TestAppWindowOptions(t *testing.T) {
 // it, and TELA_DEV overrides both.
 func TestAppDev(t *testing.T) {
 	on, off := true, false
-	root := C(func() Node { return Node{} })
+	root := C(func() Node { return nil })
 	for _, c := range []struct {
 		env  string
 		dev  *bool
@@ -87,7 +87,7 @@ func TestMainError(t *testing.T) {
 	mainExit = func(c int) { code = c }
 
 	mainRun = func(App) error { return errors.New("auto: no display server available") }
-	Main(App{Root: C(func() Node { return Node{} })})
+	Main(App{Root: C(func() Node { return nil })})
 	if code != 1 || stderr.String() != "tela: auto: no display server available\n" {
 		t.Errorf("on error: exit %d, stderr %q", code, stderr.String())
 	}
@@ -95,7 +95,7 @@ func TestMainError(t *testing.T) {
 	code = -1
 	stderr.Reset()
 	mainRun = func(App) error { return nil }
-	Main(App{Root: C(func() Node { return Node{} })})
+	Main(App{Root: C(func() Node { return nil })})
 	if code != -1 || stderr.Len() != 0 {
 		t.Errorf("without an error: exit %d, stderr %q", code, stderr.String())
 	}
@@ -113,7 +113,7 @@ func TestAppRoot(t *testing.T) {
 		"node":   core.Text("node"),
 	} {
 		o := App{Root: root}.options()
-		if o.Root.IsZero() {
+		if o.Root == nil {
 			t.Errorf("%s: the root node is zero", name)
 		}
 	}
@@ -140,7 +140,7 @@ func TestAppRoot(t *testing.T) {
 // of them and left out of Window, App or the conversion fails here
 // instead of being dropped without a word.
 func TestWindowFieldsReachCore(t *testing.T) {
-	root := C(func() Node { return Node{} })
+	root := C(func() Node { return nil })
 
 	var w Window
 	wv := reflect.ValueOf(&w).Elem()
@@ -172,7 +172,7 @@ func TestWindowFieldsReachCore(t *testing.T) {
 	app.OnClose = func(WindowHandle) {}
 	o := app.options()
 	checkPassedOn(t, "App.options", reflect.TypeFor[core.WindowSpec](), reflect.ValueOf(app), reflect.ValueOf(o.Window))
-	if o.OnClose == nil || o.Root == (Node{}) {
+	if o.OnClose == nil || o.Root == nil {
 		t.Errorf("App.options drops OnClose or Root: %+v", o)
 	}
 }

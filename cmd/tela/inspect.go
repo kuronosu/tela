@@ -49,7 +49,7 @@ inlines (inline-block, inline-flex, buttons in the text) are its children,
 marked inlineBox: true.
 
 <pkg> and the screen are chosen as in "tela snapshot": the package defines
-func Preview() tela.Node (or tela.Component), a Previews variable or an App,
+func Preview() tela.Node, a Previews variable or an App,
 and --preview picks a screen (without it, the first name in byte order). A
 package-level App also sets the size, root class, color scheme, theme and
 class aliases of the render, as for "tela snapshot"; dev warnings and class

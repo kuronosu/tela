@@ -70,7 +70,7 @@ func TestStopPropagationCompilesInEveryHandler(t *testing.T) {
 		OnDragStart(f), OnDrag(f), OnDragEnd(f), OnWheel(f), OnScroll(f),
 		OnKeyDown(f), OnKeyUp(f), OnFocus(f), OnBlur(f),
 		OnChange(f), OnBeforeInput(f), OnCompositionStart(f), OnCompositionUpdate(f), OnCompositionEnd(f), OnSelect(f), OnSubmit(f))
-	if n.IsZero() {
+	if n == nil {
 		t.Error("the node is zero")
 	}
 }

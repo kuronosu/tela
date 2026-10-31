@@ -1,8 +1,6 @@
 package h
 
 import (
-	"fmt"
-
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
 )
@@ -19,14 +17,12 @@ import (
 // and supports ScrollToIndex.
 //
 // estimateSize(i) estimates the height of item i in logical pixels, before
-// it is built; renderItem(i) returns it, as a tela.Node or as a
-// tela.Component (renderItem is a func(i int) tela.Node or a
-// func(i int) tela.Component, so a struct component row needs no wrapper).
-// Each item is measured once it is
-// laid out, and the measurement replaces the estimate (per index; a new
-// estimateSize function resets them), so items may have any height and the
-// scrollbar, OnScroll's ScrollHeight and the aria tree reflect the whole
-// list. When a measurement changes the size of an item above the top of
+// it is built; renderItem(i) returns it, any tela.Node (a struct
+// component row needs no wrapper; a prop panics). Each item is measured
+// once it is laid out, and the measurement replaces the estimate (per
+// index; a new estimateSize function resets them), so items may have any
+// height and the scrollbar, OnScroll's ScrollHeight and the aria tree
+// reflect the whole list. When a measurement changes the size of an item above the top of
 // the list's viewport, the scroll offset moves by the difference in the
 // same frame: the content on screen does not jump.
 //
@@ -58,32 +54,13 @@ import (
 //	        Text("Go to 5000")),
 //	    VirtualList(100_000,
 //	        func(int) float32 { return 40 },
-//	        func(i int) tela.Component { return Row{Index: i} },
+//	        func(i int) tela.Node { return Row{Index: i} },
 //	        Ref(list), Class("flex-1 rounded-lg border")),
 //	)
 //
 // Lists are vertical; horizontal lists and grids are not virtualized yet.
-func VirtualList[R ~func(int) tela.Node | ~func(int) tela.Component](count int, estimateSize func(i int) float32, renderItem R, props ...tela.Prop) tela.Node {
-	var render func(i int) tela.Node
-	switch f := any(renderItem).(type) {
-	case func(int) tela.Node:
-		render = f
-	default:
-		if each := componentFunc(renderItem); each != nil {
-			render = func(i int) tela.Node { return itemNode(each(i), i) }
-		}
-	}
-	return core.VirtualList(count, estimateSize, render, props...)
-}
-
-// itemNode returns the node of a component that renderItem returned for
-// item i; a Prop is not an item.
-func itemNode(c tela.Component, i int) tela.Node {
-	switch c.(type) {
-	case tela.Prop, tela.StyleProp:
-		panic(fmt.Sprintf("h: the renderItem function of a VirtualList returned a prop for item %d; it must return the item's node or component, such as func(i int) tela.Component { return Row{Index: i} }", i))
-	}
-	return core.NodeOf(c)
+func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i int) tela.Node, props ...tela.Prop) tela.Node {
+	return core.VirtualList(count, estimateSize, renderItem, props...)
 }
 
 // Overscan sets how many items a [VirtualList] builds beyond each side of

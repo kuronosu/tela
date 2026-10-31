@@ -109,7 +109,7 @@ type Window struct {
 // Build opens the window while the component is mounted (see [Window]).
 func (w Window) Build() Node {
 	core.UseWindowSpec(w.spec())
-	return Node{}
+	return nil
 }
 
 // spec returns the core description of the window: every field of

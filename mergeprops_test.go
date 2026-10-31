@@ -34,7 +34,7 @@ func ExampleMergeProps() {
 
 func TestMergePropsSkipsHolesAndAppliesInOrder(t *testing.T) {
 	page := func() tela.Node {
-		return Div(Button(Text("x"), tela.MergeProps(nil, tela.Prop{}, AriaLabel("first"), tela.Node{}, AriaLabel("second"))))
+		return Div(Button(Text("x"), tela.MergeProps(nil, tela.Prop{}, AriaLabel("first"), If(false, Div()), AriaLabel("second"))))
 	}
 	app := telatest.Mount(t, tela.C(page))
 	app.ExpectRole("button", "second")

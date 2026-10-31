@@ -8,10 +8,11 @@ import (
 	"sync"
 )
 
-// Struct components (ADR-088). A Component value other than a Node or a
-// Prop, given to an element, becomes a component node:
+// Struct components (ADR-088, ADR-205). A Node other than an internal node
+// or a Prop becomes a component node where it is consumed (nodeOf): given
+// to an element, returned by a build, as an item of a list or as a root:
 //
-//	type Card struct{ Title string; Children Component }
+//	type Card struct{ Title string; Children Node }
 //	func (c Card) Build() Node { ... }
 //
 //	div(Card{Title: "Inbox", Children: Text("a")})
@@ -26,8 +27,9 @@ import (
 // componentEqual, which never panics: a value that cannot be compared
 // counts as changed. In dev mode a pointer type panics (components are
 // values, and Build has a value receiver), and so does a Prop held by a
-// field of type Component, where it would silently apply to the element
-// the field is given to.
+// field of type Node (tela.Component), where it would silently apply to
+// the element the field is given to, and a Build that returns its own
+// receiver, which would build itself forever (buildResult).
 
 // compType is what is known about the dynamic type of struct components,
 // computed once per type (compTypes).
@@ -50,35 +52,37 @@ type compType struct {
 	elem         string
 	// eq is how two values of the type compare.
 	eq eqKind
-	// fields are the exported fields of type Component, or of slices or
-	// arrays of Components, checked for Props in dev mode.
+	// fields are the exported fields of type Node, or of slices or
+	// arrays of Nodes, checked for Props in dev mode.
 	fields []compField
 }
 
-// compField is a field of a struct component that holds Components.
+// compField is a field of a struct component that holds Nodes.
 type compField struct {
 	index []int
 	name  string
-	list  bool // a slice or an array of Components
+	list  bool // a slice or an array of Nodes
 }
 
 var (
-	compTypes     sync.Map // reflect.Type → *compType
-	componentType = reflect.TypeFor[Comp]()
+	compTypes sync.Map // reflect.Type → *compType
+	// componentType is Node, the type of the fields that hold what
+	// renders (tela.Component is an alias of tela.Node).
+	componentType = reflect.TypeFor[Node]()
 )
 
 // componentOf returns the component node of a struct component c (any
-// Component but a Node or a Prop).
+// Node but an internal node or a Prop).
 //
-// perf: every struct component given to an element allocates a desc, a
-// compDesc and the Build method value on each build of its parent, and
-// looks its type up in compTypes; a compDesc embedded in the desc (or
-// pooled per type) would halve that if profiles show it.
-func componentOf(c Comp) Node {
+// perf: every struct component consumed allocates a desc and a compDesc
+// on each build of its parent, and looks its type up in compTypes; a
+// compDesc embedded in the desc (or pooled per type) would halve that if
+// profiles show it.
+func componentOf(c Node) node {
 	rt := reflect.TypeOf(c)
 	ct := compTypeOf(rt)
-	return Node{&desc{kind: nodeComponent, comp: &compDesc{
-		typ: ct.pc, rtype: rt, ct: ct, build: c.Build, props: c, mode: compStruct,
+	return node{&desc{kind: nodeComponent, comp: &compDesc{
+		typ: ct.pc, rtype: rt, ct: ct, props: c, mode: compStruct,
 	}}}
 }
 
@@ -179,7 +183,7 @@ func appendBuildName(out []string, rt reflect.Type) []string {
 
 // componentFields returns the exported fields of struct type rt (promoted
 // ones included, through exported embedded fields only) whose type is
-// Component, or a slice or an array of Components.
+// Node (tela.Component), or a slice or an array of Nodes.
 func componentFields(rt reflect.Type) []compField {
 	var out []compField
 	for _, f := range reflect.VisibleFields(rt) {
@@ -212,7 +216,7 @@ func exportedPath(rt reflect.Type, index []int) bool {
 
 // checkStructComp is the dev-mode check of a struct component node c,
 // when it is mounted or updated: a pointer type panics, and so does a
-// Prop in a field of type Component (or in a slice of them).
+// Prop in a field of type Node (or in a slice of them).
 func (t *Tree) checkStructComp(c *compDesc) {
 	ct := c.ct
 	if ct.ptr {
@@ -241,12 +245,12 @@ func (t *Tree) checkStructComp(c *compDesc) {
 	}
 }
 
-// fieldProp returns the Prop held by fv, a Component value, if any.
+// fieldProp returns the Prop held by fv, a Node value, if any.
 func fieldProp(fv reflect.Value) (Prop, bool) {
 	if fv.IsNil() {
 		return Prop{}, false
 	}
-	c, ok := fv.Interface().(Comp)
+	c, ok := fv.Interface().(Node)
 	if !ok {
 		return Prop{}, false
 	}
@@ -264,8 +268,33 @@ func pointerComponentMessage(ct *compType) string {
 
 func propFieldMessage(ct *compType, field string, p Prop) string {
 	n := propName(p)
-	return fmt.Sprintf("tela: %s.%s holds a Prop (%s), not a component. A field of type tela.Component holds what renders: a node (Text, Div...), several with Fragment(...), or a component; put the prop on an element inside it (%s: Div(%s(...), ...)), or declare the field as tela.Child if it is meant to take props",
+	return fmt.Sprintf("tela: %s.%s holds a Prop (%s), not a component. A field of type tela.Node (or tela.Component) holds what renders: a node (Text, Div...), several with Fragment(...), or a component; put the prop on an element inside it (%s: Div(%s(...), ...)), or declare the field as tela.Child if it is meant to take props",
 		ct.short, field, n, field, n)
+}
+
+// selfBuildLimit is how many struct components of one type may build one
+// inside the other, each the whole result of the one above, before dev
+// mode says that a Build returns its own receiver (buildResult). Far
+// below the depth that overflows the stack, far above any real recursion
+// of a type that renders itself directly.
+const selfBuildLimit = 1000
+
+// checkSelfBuild is the dev-mode check of n, the component node that the
+// build of struct component el returned when it has el's type: a value
+// equal to el's (return c) would build itself forever, and so would one
+// that cannot be compared, which is caught after selfBuildLimit levels.
+func (t *Tree) checkSelfBuild(el *Element, n node) {
+	ct := el.comp.ct
+	if componentEqual(el.comp.props, n.d.comp.props) {
+		panic(fmt.Sprintf("tela: %s.Build returned its own receiver (a %s equal to the one being built), which would build itself forever; return what it renders, such as Div(...) or another component", ct.short, ct.short))
+	}
+	depth := 1
+	for p := el.parent; p != nil && p.kind == elemComponent && p.comp != nil && p.comp.ct == ct && len(p.children) <= 1; p = p.parent {
+		depth++
+	}
+	if depth >= selfBuildLimit {
+		panic(fmt.Sprintf("tela: %d %ss are built one inside the other, each returned by the Build of the one above: %s.Build returns its own receiver (return c), or always another %s, and would build itself forever; return what it renders, such as Div(...)", depth, ct.short, ct.short, ct.short))
+	}
 }
 
 // ---------------------------------------------------------------------
@@ -326,8 +355,10 @@ func holdsInterface(rt reflect.Type) bool {
 // componentEqual reports whether two struct component values are equal,
 // as == would, but without panicking: a value that cannot be compared (a
 // type holding a slice, a map or a func, or an interface whose dynamic
-// value is one) counts as different. A Node compares by identity (a
-// fresh Div(...) differs, a memoized one is equal).
+// value is one) counts as different. An internal node compares by
+// identity (a fresh Div(...) differs, a memoized one is equal); a struct
+// component in a Node field compares by value, the same way.
+
 func componentEqual(a, b any) bool {
 	ta, tb := reflect.TypeOf(a), reflect.TypeOf(b)
 	if ta != tb {

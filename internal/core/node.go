@@ -5,7 +5,7 @@ import (
 	"image"
 	"reflect"
 	"runtime"
-	"slices"
+
 	"strings"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -97,11 +97,11 @@ type desc struct {
 	// dir is the Dir prop (direction.go).
 	dir dirValue
 
-	// Primitives and fragments: the children as given. A zero Node is a
+	// Primitives and fragments: the children as given. A zero node is a
 	// hole: it renders nothing but keeps the positions of the siblings
 	// after it, so that If(cond, A) does not remount the siblings when
 	// cond changes.
-	children []Node
+	children []node
 
 	// Text. textFn is a TextFn's function (text is then unused).
 	text   string
@@ -133,8 +133,8 @@ const (
 	compProps
 	// compMemo is Memo (tela.Memo): it skips when equal(old, new).
 	compMemo
-	// compStruct is a struct component (a Component value other than a
-	// Node or a Prop): it skips when the old and new values are equal
+	// compStruct is a struct component (a Node other than an internal
+	// node or a Prop): it skips when the old and new values are equal
 	// (componentEqual, which never panics).
 	compStruct
 )
@@ -154,10 +154,12 @@ type compDesc struct {
 	ct    *compType
 	// fn is the user's function, for its name.
 	fn any
-	// build calls the function (with its props, for ComponentProps).
+	// build calls the function (with its props, for ComponentProps); nil
+	// for a struct component, whose build is the Build method of props
+	// (run).
 	build func() Node
 	// props are the props of ComponentProps and Memo, compared with the
-	// previous build's to skip it.
+	// previous build's to skip it, and the value of a struct component.
 	props any
 	mode  compMode
 	// equal compares the props of two Memo nodes of the same function.
@@ -178,8 +180,19 @@ type compDesc struct {
 	anon *anonSite
 }
 
+// run calls the component's function and returns what it renders: the
+// Build method of a struct component (called through the interface, so
+// no method value is made per node), the closure otherwise.
+func (c *compDesc) run() Node {
+	if c.mode == compStruct {
+		return c.props.(Node).Build()
+	}
+	return c.build()
+}
+
 // name returns the component's function name ("main.Counter"), or the
 // type name of a struct component ("main.Card").
+
 func (c *compDesc) name() string {
 	if c.ctx != nil {
 		return "Context.Provider"
@@ -214,26 +227,61 @@ func canSkip(old, nw *compDesc) bool {
 	return false
 }
 
-// Node is an immutable, cheap description of UI (ARCHITECTURE sections 4
-// and 6): a primitive element, a text, a component or a fragment. Nodes
-// are recreated on every build; the Element tree keeps what persists.
+// Node is what renders (tela.Node, and tela.Component, its alias; ADR-205):
+// a value whose Build method returns what it renders. The constructors
+// (Div, Text, Fragment, C, CP, Memo, Map...) return the internal node, an
+// immutable, cheap description of UI (ARCHITECTURE sections 4 and 6) whose
+// Build returns itself; any other value with a Build method, a struct
+// component (ADR-088), is a Node too and becomes a component node where
+// it is consumed (nodeOf): as a child, as the result of a build, as an
+// item of a list, as a root. Nodes are recreated on every build; the
+// Element tree keeps what persists.
 //
-// The zero Node renders nothing. As a child it is a hole that keeps the
-// positions of its siblings (see Element).
-type Node struct{ d *desc }
-
-// IsZero reports whether n is the zero Node, which renders nothing.
-func (n Node) IsZero() bool { return n.d == nil }
-
-// Key returns the node's key and whether it has one.
-func (n Node) Key() (any, bool) {
-	if n.d == nil {
-		return nil, false
-	}
-	return n.d.key, n.d.keyed
+// nil renders nothing. As a child it is a hole that keeps the positions
+// of its siblings (ADR-044). The constructors never return a zero node in
+// a Node, so n == nil is how a hole is told.
+//
+// Prop and StyleProp have the method set too, so a Prop is a Node to the
+// compiler; where a node is consumed it panics with the fix. Code here
+// must not compare two Nodes with ==: a struct component that holds a
+// slice, a map or a func is not comparable, and == on two of them panics
+// (componentEqual compares them without panicking).
+type Node interface {
+	Build() Node
 }
 
-func (n Node) String() string {
+// Child is what a primitive's constructor takes (tela.Child): a node (a
+// child), a Prop (Class, Style, Key, an event handler, an image source)
+// or a struct component, which becomes a component node. It has the
+// method set of Node but is a type of its own, so that a field or a
+// parameter says whether it takes props (Child) or only what renders
+// (Node, tela.Component): the dev-mode check of ADR-088 looks for Props
+// in the fields of type Node. A nil Child is a hole, like a nil Node.
+type Child interface {
+	Build() Node
+}
+
+// node is the internal form of a Node: one pointer to its immutable
+// content, so that a node in a Node or a Child does not allocate and its
+// identity is a pointer compare. The reconciler (flatten, reconcile,
+// update, mount) works on it; the zero node is a hole. Only nodeOf and
+// the constructors make one from a Node.
+type node struct{ d *desc }
+
+// Build returns n itself: a node renders as itself.
+func (n node) Build() Node { return n }
+
+// public returns n as a Node: nil for the zero node (a hole), so that a
+// constructor never returns a non-nil Node that renders nothing.
+func (n node) public() Node {
+	if n.d == nil {
+		return nil
+	}
+	return n
+}
+
+// String names n for messages and tests: <div>, "text", <main.Card>.
+func (n node) String() string {
 	d := n.d
 	if d == nil {
 		return "<nil>"
@@ -251,36 +299,6 @@ func (n Node) String() string {
 	return "<fragment>"
 }
 
-// Comp is a unit of UI with its own state boundary, a component
-// (tela.Component; the name Component is taken by the constructor behind
-// tela.C): a value whose Build method returns what it renders. Given to an
-// element as a child, a component other than a Node or a Prop becomes a
-// component node (componentOf): an Element of its own, with its own hook state,
-// identified by its dynamic type and its key, and skipped when the new
-// value equals the old one and nothing it read changed. Build must have a
-// value receiver.
-//
-// Node and Prop implement it too: Node.Build returns the node itself and
-// Prop.Build a node that applies the prop where it is given. Code here
-// must not assume that Comp has no other method than Build: an
-// unexported marker (a tela.Base embed) may be added later (ADR-088).
-type Comp interface {
-	Build() Node
-}
-
-// Child is what a primitive's constructor takes (tela.Child): a Node (a
-// child), a Prop (Class, Style, Key, an event handler, an image source)
-// or a Component, which becomes a component node. It has the method set
-// of Comp but is a type of its own, so that a field or a parameter
-// says whether it takes props (Child) or only what renders (Component).
-// A nil Child is a hole, like the zero Node.
-type Child interface {
-	Build() Node
-}
-
-// Build returns n itself: a Node is a Component that renders as itself.
-func (n Node) Build() Node { return n }
-
 // Prop is a property of a primitive: its classes, typed style, key, event
 // handlers or image source. Props and children may be mixed in any order;
 // props apply in order (later classes win, as in a class string).
@@ -291,11 +309,12 @@ type Prop struct {
 
 // Build returns a node that holds p: given to an element (or to a
 // Fragment, a Provider or a Presence, which take Key only) it applies like
-// p itself; mounted on its own it panics, since a prop renders nothing. It
-// is what makes Prop a Child.
-func (p Prop) Build() Node { return Node{&desc{kind: nodeProp, prop: &p}} }
+// p itself; where a node is consumed (nodeOf) it panics, since a prop
+// renders nothing. It is what makes Prop a Child.
+func (p Prop) Build() Node { return node{&desc{kind: nodeProp, prop: &p}} }
 
-// propOf returns the prop c holds: a Prop, or a node made by Prop.Build.
+// propOf returns the prop c holds: a Prop, a StyleProp or a node made by
+// Prop.Build.
 func propOf(c Child) (Prop, bool) {
 	switch c := c.(type) {
 	case Prop:
@@ -305,7 +324,7 @@ func propOf(c Child) (Prop, bool) {
 			return Prop{}, true // the zero StyleProp of If(false, ...)
 		}
 		return Style(c.ops...), true
-	case Node:
+	case node:
 		if c.d != nil && c.d.kind == nodeProp {
 			return *c.d.prop, true
 		}
@@ -319,7 +338,7 @@ func propOf(c Child) (Prop, bool) {
 func PropOf(c Child) (Prop, bool) { return propOf(c) }
 
 // addChild adds c to primitive d: a nil Child is a hole, a node is a
-// child, a prop applies to d and any other Component becomes a component
+// child, a prop applies to d and a struct component becomes a component
 // node.
 func (d *desc) addChild(c Child) {
 	if p, ok := propOf(c); ok {
@@ -330,8 +349,8 @@ func (d *desc) addChild(c Child) {
 	}
 	switch c := c.(type) {
 	case nil:
-		d.children = append(d.children, Node{})
-	case Node:
+		d.children = append(d.children, node{})
+	case node:
 		d.children = append(d.children, c)
 	default:
 		d.children = append(d.children, componentOf(c))
@@ -354,33 +373,67 @@ func (d *desc) addGroupChild(c Child, who, fix string) {
 	}
 	switch c := c.(type) {
 	case nil:
-		d.children = append(d.children, Node{})
-	case Node:
+		d.children = append(d.children, node{})
+	case node:
 		d.children = append(d.children, c)
 	default:
 		d.children = append(d.children, componentOf(c))
 	}
 }
 
-// NodeOf returns the node of a Component: a Node is itself, nil is the
-// zero Node and a struct component becomes a component node. A Prop is
-// not a node and panics. It is how a root given as a Component
-// (telatest.Mount) is mounted.
-func NodeOf(c Comp) Node { return nodeOf(c, "the root") }
+// NodeOf returns n as the node it renders: a node is itself, nil stays
+// nil and a struct component becomes a component node. A Prop is not a
+// node and panics. Every consumer converts its Node itself (Tree.Mount
+// does); NodeOf is for a caller that wants the panic of a Prop root
+// early, such as telatest, which turns it into an error.
+func NodeOf(n Node) Node { return nodeOf(n, "the root is").public() }
 
-// nodeOf is NodeOf, with what names c in the panic of a Prop.
-func nodeOf(c Comp, what string) Node {
-	if p, ok := propOf(c); ok {
-		n := propName(p)
-		panic(fmt.Sprintf("tela: %s is a Prop (%s), not a node or a component; props go to elements, such as Div(%s(...), ...)", what, n, n))
+// KeyOf returns the key of n and whether it has one, for tests and tools
+// (a tela.Node has no Key method, ADR-205). n is converted as where it is
+// consumed, so a struct component has no key and a Prop panics.
+func KeyOf(n Node) (any, bool) {
+	if d := nodeOf(n, "the node of KeyOf is").d; d != nil {
+		return d.key, d.keyed
 	}
-	switch c := c.(type) {
-	case nil:
-		return Node{}
-	case Node:
+	return nil, false
+}
+
+// nodeOf converts n where a Node is consumed (ADR-205): nil and the zero
+// node are a hole, a node is itself and a struct component becomes a
+// component node. A Prop (or the node of one) panics; what names the
+// place and ends with its verb ("the root is", "item 3 of a Map is").
+func nodeOf(n Node, what string) node {
+	if c, ok := n.(node); ok && (c.d == nil || c.d.kind != nodeProp) {
 		return c
 	}
-	return componentOf(c)
+	if n == nil {
+		return node{}
+	}
+	if p, ok := propOf(n); ok {
+		panic(propNodeMessage(what, p))
+	}
+	return componentOf(n)
+}
+
+// propNodeMessage is the panic of a Prop where a node is consumed; what
+// ends with its verb ("the root is", "Card.Build returned").
+func propNodeMessage(what string, p Prop) string {
+	n := propName(p)
+	return fmt.Sprintf("tela: %s a Prop (%s), not a node or a component; props go to elements, such as Div(%s(...), ...) (a Prop compiles where a tela.Node is expected because it has a Build method)", what, n, n)
+}
+
+// nodesOf converts the items of a list with nodeOf; who names the list
+// in the panic of a Prop ("a Map", "h.Nodes").
+func nodesOf(nodes []Node, who string) []node {
+	out := make([]node, len(nodes))
+	for i, n := range nodes {
+		if c, ok := n.(node); ok && (c.d == nil || c.d.kind != nodeProp) {
+			out[i] = c
+			continue
+		}
+		out[i] = nodeOf(n, fmt.Sprintf("item %d of %s is", i, who))
+	}
+	return out
 }
 
 // propName names a prop for messages.
@@ -465,7 +518,7 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	}
 	d := &desc{kind: nodeElement, elem: kind}
 	if len(children) > 0 {
-		d.children = make([]Node, 0, len(children))
+		d.children = make([]node, 0, len(children))
 	}
 	for _, c := range children {
 		d.addChild(c)
@@ -494,18 +547,18 @@ func Primitive(kind style.Kind, children ...Child) Node {
 	}
 	if kind.IsTextField() {
 		for _, c := range d.children {
-			if !c.IsZero() {
+			if c.d != nil {
 				panic(fmt.Sprintf("tela: <%v> takes no children; give its text with Value, DefaultValue or BindValue, and its label with a Label", kind))
 			}
 		}
 	}
-	return Node{d}
+	return node{d}
 }
 
 // Text returns a text node. Text is laid out in the paragraph of its
 // nearest block-level ancestor, styled by its nearest primitive ancestor
 // (ARCHITECTURE section 11).
-func Text(s string) Node { return Node{&desc{kind: nodeText, text: s}} }
+func Text(s string) Node { return node{&desc{kind: nodeText, text: s}} }
 
 // Textf returns a text node of fmt.Sprintf(format, args...).
 func Textf(format string, args ...any) Node { return Text(fmt.Sprintf(format, args...)) }
@@ -525,16 +578,16 @@ func Component(fn func() Node, key ...Child) Node {
 	if fn == nil {
 		panic("tela: C(nil): pass a component function, such as tela.C(Counter)")
 	}
-	return keyedComponent(Node{&desc{kind: nodeComponent, comp: &compDesc{
+	return keyedComponent(&desc{kind: nodeComponent, comp: &compDesc{
 		typ: reflect.ValueOf(fn).Pointer(), fn: fn, build: fn,
-	}}}, "C", key)
+	}}, "C", key)
 }
 
-// keyedComponent gives the new component node n the keys of key, which
-// are h.Key props: the optional last argument of C, CP and Memo. It takes
-// Children so that If(cond, Key(id)) fits; a nil Child and the zero Prop
-// (the absent If) are skipped.
-func keyedComponent(n Node, who string, key []Child) Node {
+// keyedComponent gives the new component node d the keys of key, which
+// are h.Key props: the optional last argument of C, CP and Memo, and
+// returns its node. It takes Children so that If(cond, Key(id)) fits; a
+// nil Child and the zero Prop (the absent If) are skipped.
+func keyedComponent(d *desc, who string, key []Child) Node {
 	for _, c := range key {
 		if c == nil {
 			continue
@@ -549,9 +602,9 @@ func keyedComponent(n Node, who string, key []Child) Node {
 		if p.name != "Key" {
 			panic(fmt.Sprintf("tela: %s takes only Key as its last argument, not %s; classes, styles and handlers go on the elements the component builds, for example tela.%s(..., Key(id))", who, propName(p), who))
 		}
-		p.apply(n.d)
+		p.apply(d)
 	}
-	return n
+	return node{d}
 }
 
 // ComponentProps returns a node that builds fn(props): a component with
@@ -575,7 +628,7 @@ func ComponentProps[P comparable](fn func(P) Node, props P, key ...Child) Node {
 	if devNow() {
 		c.anon = noteAnon(c.typ, "CP")
 	}
-	return keyedComponent(Node{&desc{kind: nodeComponent, comp: c}}, "CP", key)
+	return keyedComponent(&desc{kind: nodeComponent, comp: c}, "CP", key)
 }
 
 // Memo returns a node that builds fn(props), like ComponentProps, but
@@ -601,79 +654,113 @@ func Memo[P any](fn func(P) Node, props P, equal func(a, b P) bool, key ...Child
 	if devNow() {
 		c.anon = noteAnon(c.typ, "Memo")
 	}
-	return keyedComponent(Node{&desc{kind: nodeComponent, comp: c}}, "Memo", key)
+	return keyedComponent(&desc{kind: nodeComponent, comp: c}, "Memo", key)
 }
 
 // WithKey returns a copy of the node of c with key k (see Key). It works
 // for every kind of node, components and fragments included, and for
-// struct components (tela.WithKey(Card{...}, id)). The zero Node and a nil
-// c stay the zero Node; a Prop panics.
-func WithKey(c Comp, k any) Node {
+// struct components (tela.WithKey(Card{...}, id)). A nil c stays nil; a
+// Prop panics.
+func WithKey(c Node, k any) Node {
 	checkKey(k)
-	n := nodeOf(c, "the first argument of WithKey")
+	n := nodeOf(c, "the first argument of WithKey is")
 	if n.d == nil {
-		return n
+		return nil
 	}
+	return withKey(n, k)
+}
+
+// KeyedItem is WithKey for item i of the list that who makes (h.MapKeyed,
+// h.Range): a Prop panics naming the item.
+func KeyedItem(c Node, k any, i int, who string) Node {
+	checkKey(k)
+	n := itemOf(c, i, who)
+	if n.d == nil {
+		return nil
+	}
+	return withKey(n, k)
+}
+
+// withKey returns a copy of n, which is not a hole, with key k.
+func withKey(n node, k any) node {
 	d := *n.d
 	d.key, d.keyed = k, true
-	return Node{&d}
+	return node{&d}
 }
 
 // Fragment groups nodes without a box of their own; they become children
 // of the fragment's parent. Only Key is accepted as a prop.
 func Fragment(children ...Child) Node {
-	d := &desc{kind: nodeFragment, children: make([]Node, 0, len(children))}
+	d := &desc{kind: nodeFragment, children: make([]node, 0, len(children))}
 	for _, c := range children {
 		d.addGroupChild(c, "Fragment", "a fragment has no box (wrap the children in a Div)")
 	}
-	return Node{d}
+	return node{d}
 }
 
 // List returns a fragment of a dynamic list of nodes: children that come
 // from data and may be inserted, removed or reordered. They should carry
 // keys; dev mode warns when two or more do not, or when two share one,
-// once per call site.
-func List(nodes []Node) Node {
+// once per call site. A nil item is a hole, a struct component becomes a
+// component node and a Prop panics.
+func List(nodes []Node) Node { return dynamicList(nodesOf(nodes, "a list")) }
+
+// dynamicList is List of nodes already converted.
+func dynamicList(nodes []node) Node {
 	d := &desc{kind: nodeFragment, children: nodes, dynamic: true}
 	if devNow() {
 		d.site = new(callStack)
-		d.site.capture(-1)
+		d.site.capture(0) // from the caller of dynamicList: List, Map or MapIndex
 	}
-	return Node{d}
+	return node{d}
 }
 
 // NodeList returns a fragment of nodes without a box of its own: the
 // children of h.Nodes. Unlike List it is not dynamic, so dev mode does not
 // ask for keys: it is the slice form of Fragment(a, b, c).
 func NodeList(nodes []Node) Node {
-	return Node{&desc{kind: nodeFragment, children: slices.Clone(nodes)}}
+	return node{&desc{kind: nodeFragment, children: nodesOf(nodes, "h.Nodes")}}
 }
 
-// Map returns the List of f applied to every item.
+// Map returns the List of f applied to every item. f may return any Node:
+// nil is a hole, a struct component becomes a component node, and a Prop
+// panics.
 func Map[T any](items []T, f func(T) Node) Node {
-	nodes := make([]Node, len(items))
+	nodes := make([]node, len(items))
 	for i, it := range items {
-		nodes[i] = f(it)
+		nodes[i] = itemOf(f(it), i, "Map")
 	}
-	return List(nodes)
+	return dynamicList(nodes)
 }
 
 // MapIndex returns the List of f applied to every item and its index.
 func MapIndex[T any](items []T, f func(i int, item T) Node) Node {
-	nodes := make([]Node, len(items))
+	nodes := make([]node, len(items))
 	for i, it := range items {
-		nodes[i] = f(i, it)
+		nodes[i] = itemOf(f(i, it), i, "MapIndex")
 	}
-	return List(nodes)
+	return dynamicList(nodes)
 }
 
-// If returns n when cond holds, else the zero Node (a hole that keeps the
-// positions of the siblings).
+// itemOf is nodeOf for item i of the list that who makes ("Map"), with
+// the message built only for a Prop.
+func itemOf(n Node, i int, who string) node {
+	if c, ok := n.(node); ok && (c.d == nil || c.d.kind != nodeProp) {
+		return c
+	}
+	if _, ok := propOf(n); ok {
+		return nodeOf(n, fmt.Sprintf("item %d of %s is", i, who))
+	}
+	return nodeOf(n, "")
+}
+
+// If returns n when cond holds, else nil (a hole that keeps the positions
+// of the siblings).
 func If(cond bool, n Node) Node {
 	if cond {
 		return n
 	}
-	return Node{}
+	return nil
 }
 
 // describe returns a short description of a primitive for messages:

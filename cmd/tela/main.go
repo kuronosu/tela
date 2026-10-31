@@ -12,8 +12,9 @@
 //	tela version
 //
 // Both render a package headlessly: the package defines func Preview()
-// tela.Node (or tela.Component), or a Previews variable (a tela.Previews
-// map of named tela.Preview screens, each with a Root and an optional Wrap);
+// tela.Node (built as a component of its own), or a Previews variable (a
+// tela.Previews map of named tela.Preview screens, each with a Root and an
+// optional Wrap);
 // --preview NAME chooses one of them. A package-level App (a tela.App or a
 // *tela.App; a variable App of another type is ignored) sets
 // the size, root class, color scheme, theme and class aliases of the render,

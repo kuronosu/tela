@@ -129,7 +129,7 @@ func boundaryMessage(kind hookKind, f runtime.Frame, fn, owner string) string {
 	where := fmt.Sprintf("%s:%d", filepath.Base(f.File), f.Line)
 	if recv, ok := buildMethod(fn); ok {
 		// A struct component whose Build was called directly.
-		return fmt.Sprintf("tela: %s at %s is called from %s, which is not the component being built (%s): %s.Build was called directly, so its state would be kept in the hook slots of %s. To fix it, pass %s{...} as a child instead of calling Build, such as Div(%s{...}), and return Fragment(%s{...}) where a node is expected (ARCHITECTURE section 7)",
+		return fmt.Sprintf("tela: %s at %s is called from %s, which is not the component being built (%s): %s.Build was called directly, so its state would be kept in the hook slots of %s. To fix it, pass %s{...} as a child instead of calling Build, such as Div(%s{...}), or return %s{...} itself where a node is expected (ARCHITECTURE section 7)",
 			kind, where, describeFunc(fn), describeFunc(owner), recv, describeFunc(owner), recv, recv, recv)
 	}
 	base := funcBase(fn)

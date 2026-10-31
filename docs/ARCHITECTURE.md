@@ -90,7 +90,7 @@ The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an
 
 | Term | Meaning |
 |---|---|
-| **Node** | Immutable, cheap UI description returned by `Div(...)` or a component; recreated every build. ≈ Flutter *Widget*, React *ReactElement*. |
+| **Node** | Immutable, cheap UI description returned by `Div(...)` or a component; recreated every build. The interface `Build() tela.Node`, which every struct component implements (ADR-205). ≈ Flutter *Widget*, React *ReactElement*. |
 | **Element** | Persistent instance of a Node in the tree. Holds hook state, key, children; performs reconciliation. ≈ Flutter *Element*, React *Fiber*. |
 | **Box** | Render object: `ComputedStyle`, layout geometry, knows how to paint itself. ≈ Flutter *RenderObject*. |
 | **ComputedStyle** | Typed struct with all style properties resolved (no strings). |
@@ -199,13 +199,13 @@ tela/
 ```
 
 - **Reconciliation:** a new child with the same type and key as the old one at that position reuses the Element (and its state); otherwise unmount and mount anew. Lists match by key, falling back to position. Dev mode warns on multi-child lists without keys.
-- **Primitives vs components:** primitives (`Div`, `Text`, `Img`…) create a Box; components (struct values with a `Build` method, or functions) only produce other Nodes. A struct component's type is its type for reconciliation (ADR-088).
+- **Primitives vs components:** primitives (`Div`, `Text`, `Img`…) create a Box; components (struct values with a `Build` method, or functions) only produce other Nodes. A struct component is a Node itself, turned into a component node where it is consumed, and its type is its type for reconciliation (ADR-088, ADR-205).
 - **Ownership:** an Element owns its Box. The Box tree may contain anonymous Boxes with no Element (scroll layers, portals).
 - **Windows:** each window (the main one, and each mounted `tela.Window`) has its own `core.Tree`: box tree, pipeline, input, focus, overlays and semantics. The Trees of an app form one element tree: a child window's root hangs below its `Window` element for context, and Value reads are tracked app-wide (ADR-180).
 
 ## 7. Component and state model
 
-- **A component is a struct value with a `Build() tela.Node` method** (value receiver; `tela.Component`, whose fields are its props and whose children are a field of type `tela.Component`), **or a function**: `func() tela.Node` or `func(P) tela.Node` (ADR-088).
+- **A component is a struct value with a `Build() tela.Node` method** (value receiver; a `tela.Node` itself, so functions and `Build` return it as is; its fields are its props and its children a field of type `tela.Node`, or `tela.Component`, an alias of it: ADR-205), **or a function**: `func() tela.Node` or `func(P) tela.Node` (ADR-088).
 - **Component boundary:** hook state belongs to the component Element being built.
   - Every `Component` value given to an element, and `tela.C(Counter)` and `tela.CP(Card, CardProps{...})`, create their own boundary with their own state.
   - Calling `Counter()` or `Card{}.Build()` directly inside another component runs it in the parent's build: its hooks would take the parent's slots. Dev mode panics with the fix when a hook is called from a function that is neither the component being built (its `Build`, its function, or a function literal inside them) nor a *custom hook* named `UseXxx`/`useXxx`, and detects hook-order changes between builds (ADR-085, ADR-088).
@@ -279,7 +279,7 @@ type Constraints struct{ MinW, MaxW, MinH, MaxH float32 } // MaxW may be +Inf
 - **Box model:** always `box-sizing: border-box`.
 - **Direction:** `h.Dir` (HTML's `dir`: `rtl`, `ltr`, `auto`) sets the inline base direction, inherited like CSS `direction`. Under `rtl`, flex rows, grid columns, block auto margins, absolute static positions and scroll origins mirror as in Chromium, and logical utilities resolve against it (ADR-090). Components read it with `tela.UseDirection()` (ADR-155).
 - **Defaults:** `display` is `block`, like an HTML `div`. Inline elements (`Span`, `A`) only exist inside a text context (§11); `absolute` and `fixed` ones are blockified like any positioned box, and out-of-flow boxes do not split the inline content around them (ADR-176).
-- **Virtualization (from TanStack Virtual / Flutter slivers):** `h.VirtualList(count, estimateSize, renderItem)` (`renderItem` returns a `tela.Node` or a `tela.Component`, ADR-097) builds only visible items plus overscan. It supports variable item sizes measured on the fly, keeps scroll position stable when measurements correct estimates, and provides `ScrollToIndex`.
+- **Virtualization (from TanStack Virtual / Flutter slivers):** `h.VirtualList(count, estimateSize, renderItem)` (`renderItem` is a `func(int) tela.Node`, which may return a struct component; ADR-097, ADR-205) builds only visible items plus overscan. It supports variable item sizes measured on the fly, keeps scroll position stable when measurements correct estimates, and provides `ScrollToIndex`.
 
 ## 10. Style system
 
@@ -543,7 +543,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 
 ### Contract for `snapshot`, `inspect`, `mcp`
 
-The package exposes `func Preview() tela.Node` (mounted as `tela.C(Preview)`, so it may use hooks: ADR-175) or `func Preview() tela.Component`, or a `tela.Previews` variable with several named screens (`tela.Preview{Root, Wrap}`: ADR-092). A package-level `var App = tela.App{...}` gives the window of the render (size, root class, color scheme, theme, class aliases; ADR-092), and alone its `Root` (a `tela.Component`: `tela.C(Screen)` or a struct component, ADR-094) is the screen. The CLI generates a temporary `main` that mounts it on the chosen backend.
+The package exposes `func Preview() tela.Node` (mounted as `tela.C(Preview)`, so it may use hooks and return a struct component: ADR-175, ADR-205), or a `tela.Previews` variable with several named screens (`tela.Preview{Root, Wrap}`: ADR-092). A package-level `var App = tela.App{...}` gives the window of the render (size, root class, color scheme, theme, class aliases; ADR-092), and alone its `Root` (a `tela.Component`: `tela.C(Screen)` or a struct component, ADR-094) is the screen. The CLI generates a temporary `main` that mounts it on the chosen backend.
 
 ### `telatest`
 
@@ -601,8 +601,9 @@ This is also a design constraint:
   - React/Tailwind names when an equivalent exists.
   - Functional options for configuration.
   - No `interface{}` in public API where a closed type works.
-  - Children and props share the interface `tela.Child` (a `Build() tela.Node` method, implemented by `Node`, `Prop` and every `Component`; no longer sealed, ADR-088), so `Div("x")` is still a compile error.
-- **Package `h`:** designed for dot-import (`. "github.com/kuronosu/tela/h"`). It holds only elements, props and helpers (`If`, `Map`, `Range`, `Fragment`, `VirtualList`) to minimize collisions. `If` and `IfElse` take and return a `tela.Child` (ADR-094). Every `On…` handler takes a `func()` or a `func` of its event, or the `tela.StopPropagation(f)` wrapper (ADR-097); `Class` takes several strings and a `tela.StyleProp` is a child (ADR-091).
+  - Children and props share the interface `tela.Child` (a `Build() tela.Node` method, implemented by the elements, `Prop` and every struct component; no longer sealed, ADR-088), so `Div("x")` is still a compile error. `tela.Node` is an interface with the same method set and `nil` is the hole (ADR-205).
+- **Package `h`:** designed for dot-import (`. "github.com/kuronosu/tela/h"`). It holds only elements, props and helpers (`If`, `Map`, `Range`, `Fragment`, `VirtualList`) to minimize collisions. `If` and `IfElse` take and return a `tela.Child` (ADR-094), which a function returning a `tela.Node` may return (ADR-205).
+ Every `On…` handler takes a `func()` or a `func` of its event, or the `tela.StopPropagation(f)` wrapper (ADR-097); `Class` takes several strings and a `tela.StyleProp` is a child (ADR-091).
 - **Errors:** programmer errors detectable in dev mode panic with an actionable message; likely mistakes that work as written are dev warnings; platform/resource errors are returned as `error`. Dev mode is on unless the binary is a release build (ADR-085).
 - **Tests:** each `internal/` package is tested without upper layers. Layout is checked against fixtures ported from Taffy.
 - **Third-party code:** see §2 and §20.

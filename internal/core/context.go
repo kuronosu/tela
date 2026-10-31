@@ -33,11 +33,11 @@ func (c *Context[T]) Provider(value T, children ...Child) Node {
 	if c == nil {
 		panic("tela: Provider on a nil *Context; create contexts with tela.CreateContext")
 	}
-	d := &desc{kind: nodeComponent, comp: &compDesc{ctx: c, value: value}, children: make([]Node, 0, len(children))}
+	d := &desc{kind: nodeComponent, comp: &compDesc{ctx: c, value: value}, children: make([]node, 0, len(children))}
 	for _, ch := range children {
 		d.addGroupChild(ch, "Context.Provider", "a provider has no box (wrap the children in a Div)")
 	}
-	return Node{d}
+	return node{d}
 }
 
 // providerState is the state of a Provider Element.
@@ -147,7 +147,7 @@ func (t *Tree) mountProvider(el *Element) {
 
 // updateProvider brings Provider el up to date with n. A new value that
 // is not == to the old one marks the consumers for building.
-func (t *Tree) updateProvider(el *Element, n Node) {
+func (t *Tree) updateProvider(el *Element, n node) {
 	d := n.d
 	if el.node.d == d {
 		if el.dirtyKids {

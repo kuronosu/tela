@@ -240,8 +240,8 @@
 //
 // # Snapshots and inspection
 //
-// A package that defines `func Preview() tela.Node` (or tela.Component),
-// or a [Previews] variable of [Preview] values, can be rendered headlessly
+// A package that defines `func Preview() tela.Node`, or a [Previews]
+// variable of [Preview] values, can be rendered headlessly
 // with `tela snapshot`, and `tela inspect` prints its semantics tree as a
 // Playwright aria snapshot (roles, names and states set by the h.Role and
 // h.Aria... props or implied by the elements) or, with --layout, its layout

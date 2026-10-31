@@ -292,7 +292,7 @@ func OpenWindow(parent WindowHandle, spec ChildWindowSpec) (*CodeWindow, error) 
 	if t == nil || t.wv == nil || !t.wv.alive() || t.root == nil {
 		return nil, errors.New("tela: no open window to open a window from")
 	}
-	if spec.Root.d == nil {
+	if spec.Root == nil {
 		panic("core: OpenWindow: spec.Root is nil")
 	}
 	checkWindowSpec("tela.Window", spec.Title, &spec.WindowSpec)

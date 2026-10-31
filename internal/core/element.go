@@ -25,7 +25,7 @@ type Element struct {
 	parent *Element
 	depth  int32
 	kind   elemKind
-	node   Node // the node of the last build or update
+	node   node // the node of the last build or update
 
 	// Identity among the siblings (see childID).
 	scope, sub int32
@@ -130,7 +130,7 @@ func (el *Element) id() childID {
 
 // flatEntry is a child node with its identity, after flattening fragments.
 type flatEntry struct {
-	n          Node
+	n          node
 	scope, sub int32
 	key        any
 	keyed      bool
@@ -148,7 +148,7 @@ func (e *flatEntry) id() childID {
 // sameType reports whether el can be updated with node n: same kind and,
 // for primitives, the same element kind; for components, the same
 // function, or the same dynamic type for struct components.
-func (el *Element) sameType(n Node) bool {
+func (el *Element) sameType(n node) bool {
 	d := n.d
 	switch el.kind {
 	case elemText:
@@ -215,7 +215,7 @@ func (el *Element) component() *Element {
 
 // flatten appends the entries of children (direct children: scope -1) to
 // out.
-func flatten(out []flatEntry, children []Node) []flatEntry {
+func flatten(out []flatEntry, children []node) []flatEntry {
 	for i, c := range children {
 		d := c.d
 		if d == nil {
@@ -294,7 +294,7 @@ func listOf(list, d *desc) *desc {
 // section 6): a child with the same identity (key, or position when it has
 // none) and type as an old one reuses it, with its state; the others are
 // mounted, and the old children left over are unmounted.
-func (t *Tree) reconcile(parent *Element, children []Node) {
+func (t *Tree) reconcile(parent *Element, children []node) {
 	buf := t.flatFree.get()
 	entries := flatten(buf[:0], children)
 	t.reconcileEntries(parent, entries)
@@ -302,7 +302,7 @@ func (t *Tree) reconcile(parent *Element, children []Node) {
 }
 
 // reconcileOne reconciles the single result of a component build.
-func (t *Tree) reconcileOne(parent *Element, n Node) {
+func (t *Tree) reconcileOne(parent *Element, n node) {
 	buf := t.flatFree.get()
 	var entries []flatEntry
 	switch d := n.d; {
@@ -470,7 +470,7 @@ func (t *Tree) describe(el *Element) string {
 }
 
 // update brings el up to date with n, which has el's identity and type.
-func (t *Tree) update(el *Element, n Node) {
+func (t *Tree) update(el *Element, n node) {
 	old := el.node.d
 	d := n.d
 	switch el.kind {

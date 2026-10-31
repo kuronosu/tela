@@ -74,8 +74,8 @@ func (p Preview) Build() Node {
 // preview selected with --preview NAME; without the flag it renders the
 // first name in byte order (see [Previews.Names]), so a name such as "1
 // Login" can pick the default. A package with a single screen can define
-// `func Preview() tela.Node` (or tela.Component) instead. See [Preview] to
-// start a screen in a given state.
+// `func Preview() tela.Node` instead, which is built as a component of its
+// own (it may use hooks). See [Preview] to start a screen in a given state.
 type Previews map[string]Preview
 
 // Names returns the preview names in the order the CLI uses: sorted by

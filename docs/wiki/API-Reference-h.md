@@ -786,7 +786,7 @@ func Card(title string, children ...tela.Child) tela.Node {
 Panel{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))}
 ```
 
-Fragment(c) is also a node of one component, for a function that must return a tela.Node: return Fragment(Panel{...}).
+A struct component is a tela.Node itself, so a function that returns one needs no Fragment: return Panel{...}.
 
 ### func H1
 
@@ -907,7 +907,11 @@ Div(
 )
 ```
 
-The result is a [`tela.Child`](API-Reference-tela#type-child), so it goes wherever one does: the children of an element, Fragment, Presence, Portal and a Provider, and a field of type tela.Child or tela.Component. It is not a [`tela.Node`](API-Reference-tela#type-node): a function component that returns it wraps it, return Fragment(If(...)).
+The result is a [`tela.Child`](API-Reference-tela#type-child), so it goes wherever one does: the children of an element, Fragment, Presence, Portal and a Provider, a field of type tela.Child or tela.Node, and the result of a function or a Build that returns a tela.Node (a Child is assignable to a Node):
+
+```go
+func Busy(on bool) tela.Node { return If(on, Spinner{}) }
+```
 
 Every argument of a call is evaluated: If(user != nil, Text(user.Name)) dereferences a nil user. Use an ordinary if for that case.
 
@@ -953,7 +957,7 @@ for _, loading := range []bool{true, false} {
 func IfElse(cond bool, a, b tela.Child) tela.Child
 ```
 
-IfElse returns a when cond holds and b otherwise: two nodes, two struct components or two props. A branch that is itself empty (the nil child, the zero Node, the result of an [`If`](#func-if) that is off) renders nothing.
+IfElse returns a when cond holds and b otherwise: two nodes, two struct components or two props. A branch that is itself empty (nil, the result of an [`If`](#func-if) that is off) renders nothing.
 
 ```go
 Div(IfElse(open, Class("h-64"), Class("h-0")),
@@ -1174,7 +1178,7 @@ fmt.Println(x0 < x1)
 func Map[T any](items []T, f func(T) tela.Node) tela.Node
 ```
 
-Map returns the nodes of f applied to every item, as one list. Give each node a Key (the item's ID, not its index) so that reordering, inserting and removing keeps their state; dev mode (see tela.App.Dev) warns about a list of two or more nodes without keys, and about duplicate keys, once per call site of Map.
+Map returns the nodes of f applied to every item, as one list. Give each node a Key (the item's ID, not its index) so that reordering, inserting and removing keeps their state; dev mode (see tela.App.Dev) warns about a list of two or more nodes without keys, and about duplicate keys, once per call site of Map. f may return a struct component; to key one, use [`MapKeyed`](#func-mapkeyed) or tela.WithKey.
 
 ```go
 Map(todos, func(t Todo) tela.Node {
@@ -1240,13 +1244,13 @@ fmt.Println(yaml)
 ### func MapKeyed
 
 ```go
-func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela.Component) tela.Node
+func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela.Node) tela.Node
 ```
 
 MapKeyed returns the components of render applied to every item, as one keyed list: each is keyed by key(item), so reordering, inserting and removing items keeps the state of the component of every item that stays. It replaces Map(items, func(t T) tela.Node { return tela.WithKey(tela.CP(...), t.ID) }): render returns a node or a struct component, which MapKeyed keys (tela.WithKey), and K is any comparable type, so a slice or a map as a key does not compile. Dev mode warns about duplicate keys, once per call site, as it does for Map.
 
 ```go
-MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Component {
+MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Node {
     return TodoRow{Todo: t}
 })
 ```
@@ -1881,14 +1885,14 @@ fmt.Println(app.Count(telatest.ByRole("dialog", "")))
 ### func Range
 
 ```go
-func Range[R ~func(int) tela.Node | ~func(int) tela.Component](n int, render R) tela.Node
+func Range(n int, render func(i int) tela.Node) tela.Node
 ```
 
-Range returns render(0) to render(n-1) as one list keyed by index: n items with no data behind them, such as skeleton rows, a star rating or the cells of a fixed grid. The index is the key, so no missing-key warning is given (a static range does not reorder), and a node that render keys itself is keyed by its index instead. render returns a tela.Node or a tela.Component, so a struct component needs no Fragment. n is 0 or more: a negative n panics in dev mode and renders nothing otherwise.
+Range returns render(0) to render(n-1) as one list keyed by index: n items with no data behind them, such as skeleton rows, a star rating or the cells of a fixed grid. The index is the key, so no missing-key warning is given (a static range does not reorder), and a node that render keys itself is keyed by its index instead. render returns any tela.Node, a struct component included. n is 0 or more: a negative n panics in dev mode and renders nothing otherwise.
 
 ```go
 Range(5, func(i int) tela.Node { return Span(Textf("%d", i)) })
-Range(5, func(i int) tela.Component { return Star{Filled: i < rating} })
+Range(5, func(i int) tela.Node { return Star{Filled: i < rating} })
 ```
 
 For data that changes, use [`MapKeyed`](#func-mapkeyed) with the item's ID: an index as the key moves the state of a component to the wrong item when items are inserted or removed.
@@ -2233,12 +2237,12 @@ Value makes a text field controlled: it shows s, and after every event it shows 
 ### func VirtualList
 
 ```go
-func VirtualList[R ~func(int) tela.Node | ~func(int) tela.Component](count int, estimateSize func(i int) float32, renderItem R, props ...tela.Prop) tela.Node
+func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i int) tela.Node, props ...tela.Prop) tela.Node
 ```
 
 VirtualList is a vertical scrolling list of count items that builds, lays out and paints only the items in view, plus a few more on each side (see [`Overscan`](#func-overscan)), so a list of 100,000 rows costs about as much as one screenful of them (TanStack Virtual's model). The node is the scrolling element itself: props style it like a Div (Class, Style, Ref, handlers, Key, Role and the Aria props), and it is overflow-y-auto unless a class sets another overflow. Give it a height (h-96, flex-1 in a column, h-screen): the items it builds are bounded by what the window shows, but only a list that scrolls by itself keeps its position stable and supports ScrollToIndex.
 
-estimateSize(i) estimates the height of item i in logical pixels, before it is built; renderItem(i) returns it, as a tela.Node or as a tela.Component (renderItem is a func(i int) tela.Node or a func(i int) tela.Component, so a struct component row needs no wrapper). Each item is measured once it is laid out, and the measurement replaces the estimate (per index; a new estimateSize function resets them), so items may have any height and the scrollbar, OnScroll's ScrollHeight and the aria tree reflect the whole list. When a measurement changes the size of an item above the top of the list's viewport, the scroll offset moves by the difference in the same frame: the content on screen does not jump.
+estimateSize(i) estimates the height of item i in logical pixels, before it is built; renderItem(i) returns it, any tela.Node (a struct component row needs no wrapper; a prop panics). Each item is measured once it is laid out, and the measurement replaces the estimate (per index; a new estimateSize function resets them), so items may have any height and the scrollbar, OnScroll's ScrollHeight and the aria tree reflect the whole list. When a measurement changes the size of an item above the top of the list's viewport, the scroll offset moves by the difference in the same frame: the content on screen does not jump.
 
 Items are keyed by their index unless ItemKey says otherwise: an item component's state follows its index, so give the list [`ItemKey`](#func-itemkey) when items are inserted, removed or reordered, and the state must follow the item. For rows of one height, [`ItemHeight`](#func-itemheight) sets it, skips measuring and makes estimateSize unnecessary (it may be nil). The list has the role "list" and its items "listitem", for the semantics tree and the aria snapshot; Role on the list replaces its role (the items are then not listitems), and an item's own role goes on the element renderItem returns. renderItem runs inside the list's build, so it must not call hooks; return a component (a struct component such as Row{Item: it}, or a node from tela.C or tela.CP) for items with state, so that a list rebuilt by its parent skips the items whose props did not change. Scrolling never rebuilds the items that stay in view: a scroll inside the built items only repaints, and a scroll past them builds the entering items and unmounts the leaving ones. The focused item stays mounted while it is scrolled away, so Tab goes on from it.
 
@@ -2251,7 +2255,7 @@ return Div(Class("flex h-screen flex-col"),
         Text("Go to 5000")),
     VirtualList(100_000,
         func(int) float32 { return 40 },
-        func(i int) tela.Component { return Row{Index: i} },
+        func(i int) tela.Node { return Row{Index: i} },
         Ref(list), Class("flex-1 rounded-lg border")),
 )
 ```

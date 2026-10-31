@@ -404,8 +404,9 @@ func (t *Tree) logf(format string, args ...any) {
 func (t *Tree) Stats() Stats { return t.stats }
 
 // Mount sets the content of the tree: root becomes the child of the root
-// box, which fills the viewport. Mounting again reconciles the new root
-// with the old one (state is kept where types and keys match). The
+// box, which fills the viewport. root is a node or a struct component
+// (nil shows nothing); a Prop panics. Mounting again reconciles the new
+// root with the old one (state is kept where types and keys match). The
 // components are built immediately; the other phases run in Frame, and
 // the effects of these builds run with the next Frame's commit. Passive
 // effects of a previous frame that were not flushed run first.
@@ -421,7 +422,7 @@ func (t *Tree) Mount(root Node) {
 func (t *Tree) mountLocked(root Node) {
 	t.lockBuild()
 	defer unlockBuild()
-	n := Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses, children: []Node{root}}}
+	n := node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses, children: []node{nodeOf(root, "the root is")}}}
 	if t.root == nil {
 		el := &Element{tree: t, kind: elemPrimitive, node: n, mounted: true}
 		el.box = newBox(t, el, style.KindRoot)
@@ -448,7 +449,7 @@ func (t *Tree) Unmount() {
 	t.resetInput()
 	if t.root != nil {
 		t.lockBuild()
-		t.update(t.root, Node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
+		t.update(t.root, node{&desc{kind: nodeElement, elem: style.KindRoot, classes: t.rootClasses}})
 		unlockBuild()
 		t.syncModal()
 		t.closeDetached() // the windows opened by code close too (desktop.go)

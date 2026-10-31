@@ -14,7 +14,7 @@ import (
 func win(spec ChildWindowSpec) Node {
 	return Component(func() Node {
 		UseWindowSpec(spec)
-		return Node{}
+		return nil
 	})
 }
 

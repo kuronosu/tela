@@ -107,7 +107,7 @@ func (t Tray) Build() tela.Node {
 		s.actions = actions
 		s.sync(opts)
 	})
-	return tela.Node{}
+	return nil
 }
 
 // trayState is a mounted Tray's link to the backend.

@@ -9,21 +9,23 @@
 //
 // # Nodes, Elements and Boxes
 //
-// A Node is an immutable description built by the constructors:
-// Primitive (a primitive such as Div, H1, Button or Img, with Props and children),
-// Text, Component (a func() Node; ComponentProps for func(P) Node) and
-// Fragment, List and Map (children without a box). If returns the zero
-// Node, which renders nothing. Children and props share the Child
-// interface, a Build() Node method: Node.Build returns the node, Prop.Build
+// Node is the interface of what renders, a Build() Node method (ADR-205).
+// The constructors return the internal node, an immutable description
+// whose Build returns itself: Primitive (a primitive such as Div, H1,
+// Button or Img, with Props and children), Text, Component (a func() Node;
+// ComponentProps for func(P) Node) and Fragment, List and Map (children
+// without a box). If returns nil, which renders nothing. Children and
+// props share the Child interface, the same method set: Prop.Build returns
 // a node that applies the prop, and any other value with the method (a
-// struct component, Comp) given as a child becomes a component node whose
-// identity is its dynamic type (structcomp.go, ADR-088).
+// struct component) becomes a component node whose identity is its
+// dynamic type where it is consumed: as a child, the result of a build,
+// an item of a list or a root (nodeOf; structcomp.go, ADR-088).
 //
 // An Element is the persistent instance of a Node. Reconciliation
 // (Tree.reconcile) matches the new children of an Element with the old
 // ones by identity and type: a child with a key is matched by key among
 // the children of the same list, a child without one by position. The
-// direct children of a primitive form one list in which a zero Node is a
+// direct children of a primitive form one list in which a nil Node is a
 // hole that keeps the positions of the siblings after it (so If(cond, A)
 // does not remount them); each fragment child (List, Map, Fragment) forms
 // its own list, so a growing list does not shift its siblings. A match of

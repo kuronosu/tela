@@ -47,7 +47,7 @@ type contract int
 
 const (
 	contractNone     contract = iota
-	contractPreview           // func Preview() tela.Node (or tela.Component)
+	contractPreview           // func Preview() tela.Node
 	contractPreviews          // var Previews = tela.Previews{...}
 	contractApp               // var App = tela.App{...}, whose Root is the screen
 )
@@ -80,7 +80,7 @@ func (c contract) singleScreen(pkg string) string {
 // contractHelp explains the contracts, for errors.
 const contractHelp = `it must define one of
 
-	func Preview() tela.Node        (or tela.Component)
+	func Preview() tela.Node
 	var Previews = tela.Previews{"Name": {Root: tela.C(Screen)}}
 	var App = tela.App{Root: tela.C(Screen), ...}
 
@@ -415,7 +415,7 @@ func explainFailure(pkg, name string, c contract, output string) error {
 			var want string
 			switch d {
 			case contractPreview:
-				want = "func Preview() tela.Node   (or tela.Component)"
+				want = "func Preview() tela.Node"
 			case contractPreviews:
 				want = "var Previews = tela.Previews{\"Name\": {Root: tela.C(Screen)}}   (a map[string]tela.Preview)"
 			case contractApp:
@@ -636,20 +636,14 @@ func telaAppOf(v any) (telatela.App, bool) {
 
 {{end -}}
 {{if eq .Kind "Preview" -}}
-// The contract: func Preview() tela.Node or tela.Component. A
-// func() tela.Node is mounted as tela.C(Preview), a component of its own,
-// so that it may use hooks (ADR-175); a Preview that returns a Component
-// is called and what it returns is mounted, as is.
+// The contract: func Preview() tela.Node, mounted as tela.C(Preview): a
+// component of its own, so that it may use hooks (ADR-175), and whatever
+// it returns (an element, tela.C(Screen), a struct component) is its
+// screen (ADR-205).
 func telaBuild(want string) (telatela.Component, string, []string, error) {
-	if p, ok := any(Preview).(func() telatela.Node); ok {
-		return telatela.C(p), "", nil, nil
-	}
-	var root telatela.Component = Preview()
-	if root == nil {
-		return nil, "", nil, telafmt.Errorf("Preview() returned nil; return the screen, such as tela.C(Screen) or a struct component")
-	}
-	return root, "", nil, nil
+	return telatela.C(Preview), "", nil, nil
 }
+
 {{else if eq .Kind "Previews" -}}
 // The contract: var Previews = tela.Previews{...}.
 var telaPreviews telatela.Previews = Previews

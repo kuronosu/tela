@@ -22,8 +22,8 @@ The package must define one of
 
 	func Preview() tela.Node
 
-		a single screen (it may return a tela.Component, such as a struct
-		component, instead), or
+		a single screen, built as a component of its own (it may use
+		hooks, and return an element or a struct component), or
 
 	var Previews = tela.Previews{
 	    "Login":    {Root: tela.C(Login)},

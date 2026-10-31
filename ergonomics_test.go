@@ -8,6 +8,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/core"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -105,16 +106,16 @@ func TestKeyedComponents(t *testing.T) {
 func TestKeyedComponentsTakeOnlyKey(t *testing.T) {
 	f := func() tela.Node { return Div() }
 	n := tela.C(f, Key("k"))
-	if k, ok := n.Key(); !ok || k != "k" {
+	if k, ok := core.KeyOf(n); !ok || k != "k" {
 		t.Errorf("C(f, Key(k)) has key %v, %v", k, ok)
 	}
-	if k, ok := tela.CP(countingRow, rowProps{}, If(true, Key(7))).Key(); !ok || k != 7 {
+	if k, ok := core.KeyOf(tela.CP(countingRow, rowProps{}, If(true, Key(7)))); !ok || k != 7 {
 		t.Errorf("CP with If(true, Key(7)) has key %v, %v", k, ok)
 	}
-	if _, ok := tela.CP(countingRow, rowProps{}, If(false, Key(7))).Key(); ok {
+	if _, ok := core.KeyOf(tela.CP(countingRow, rowProps{}, If(false, Key(7)))); ok {
 		t.Error("CP with If(false, Key(7)) has a key")
 	}
-	if _, ok := tela.C(f).Key(); ok {
+	if _, ok := core.KeyOf(tela.C(f)); ok {
 		t.Error("C(f) has a key")
 	}
 	for name, f := range map[string]func(){

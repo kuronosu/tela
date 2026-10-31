@@ -76,7 +76,7 @@ func TestDevKeepable(t *testing.T) {
 		{"handle field", func() ([]byte, devWhy) { return devEncodeValue(devKeepHandle{}) }, "Setter", true},
 		{"element ref", func() ([]byte, devWhy) { return devEncodeValue(ElementRef{}) }, "ElementRef", true},
 		{"value", func() ([]byte, devWhy) { return devEncodeValue((*Value[int])(nil)) }, "Value", true},
-		{"node", func() ([]byte, devWhy) { return devEncodeValue(Node{}) }, "Node", true},
+		{"node", func() ([]byte, devWhy) { return devEncodeValue[Node](Text("x")) }, "core.node", true},
 		{"set", func() ([]byte, devWhy) { return devEncodeValue(map[string]struct{}{}) }, "without exported fields", false},
 		{"unregistered", func() ([]byte, devWhy) { return devEncodeValue(devKeepAny{V: devKeepItem{}}) }, "gob.Register", false},
 	} {
@@ -135,13 +135,13 @@ func TestDevValueRoundTrip(t *testing.T) {
 func TestDevIdentities(t *testing.T) {
 	// Function literals of one function share an identity without their
 	// numbers; generic shapes and method value suffixes go.
-	f1 := func() Node { return Node{} }
-	f2 := func() Node { return Node{} }
-	c1, c2 := Component(f1).d.comp, Component(f2).d.comp
+	f1 := func() Node { return nil }
+	f2 := func() Node { return nil }
+	c1, c2 := nd(Component(f1)).comp, nd(Component(f2)).comp
 	if a, b := devCompIdent(c1), devCompIdent(c2); a != b || !strings.HasSuffix(a, ".TestDevIdentities.func") {
 		t.Errorf("closure identities %q and %q", a, b)
 	}
-	if got, want := devCompIdent(Component(devCounter).d.comp), "F:"+corePkg+".devCounter"; got != want {
+	if got, want := devCompIdent(nd(Component(devCounter)).comp), "F:"+corePkg+".devCounter"; got != want {
 		t.Errorf("identity %q, want %q", got, want)
 	}
 	if got, want := devCompIdent(componentOf(devCard{}).d.comp), "S:"+corePkg+".devCard"; got != want {

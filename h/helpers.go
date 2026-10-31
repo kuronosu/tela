@@ -2,7 +2,6 @@ package h
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
@@ -21,9 +20,11 @@ import (
 //	)
 //
 // The result is a [tela.Child], so it goes wherever one does: the children
-// of an element, Fragment, Presence, Portal and a Provider, and a field of
-// type tela.Child or tela.Component. It is not a [tela.Node]: a function
-// component that returns it wraps it, return Fragment(If(...)).
+// of an element, Fragment, Presence, Portal and a Provider, a field of
+// type tela.Child or tela.Node, and the result of a function or a Build
+// that returns a tela.Node (a Child is assignable to a Node):
+//
+//	func Busy(on bool) tela.Node { return If(on, Spinner{}) }
 //
 // Every argument of a call is evaluated: If(user != nil, Text(user.Name))
 // dereferences a nil user. Use an ordinary if for that case.
@@ -35,8 +36,8 @@ func If(cond bool, c tela.Child) tela.Child {
 }
 
 // IfElse returns a when cond holds and b otherwise: two nodes, two struct
-// components or two props. A branch that is itself empty (the nil child,
-// the zero Node, the result of an [If] that is off) renders nothing.
+// components or two props. A branch that is itself empty (nil, the
+// result of an [If] that is off) renders nothing.
 //
 //	Div(IfElse(open, Class("h-64"), Class("h-0")),
 //	    IfElse(loading, Spinner{}, Text(label)))
@@ -51,8 +52,8 @@ func IfElse(cond bool, a, b tela.Child) tela.Child {
 
 // absent returns the empty child for a branch that is not taken: the zero
 // Prop or StyleProp when the branch is one (it applies nothing and adds no
-// child), and the zero Node, a hole that renders nothing, for every other
-// kind.
+// child, so the positions of the children are those of the branch taken),
+// and nil, a hole that renders nothing, for every other kind.
 func absent(c tela.Child) tela.Child {
 	switch c.(type) {
 	case tela.Prop:
@@ -60,14 +61,15 @@ func absent(c tela.Child) tela.Child {
 	case tela.StyleProp:
 		return tela.StyleProp{}
 	}
-	return tela.Node{}
+	return nil
 }
 
 // Map returns the nodes of f applied to every item, as one list. Give each
 // node a Key (the item's ID, not its index) so that reordering, inserting
 // and removing keeps their state; dev mode (see tela.App.Dev) warns about a
 // list of two or more nodes without keys, and about duplicate keys, once
-// per call site of Map.
+// per call site of Map. f may return a struct component; to key one, use
+// [MapKeyed] or tela.WithKey.
 //
 //	Map(todos, func(t Todo) tela.Node {
 //	    return Div(Key(t.ID), Text(t.Title))
@@ -94,7 +96,7 @@ func MapIndex[T any](items []T, f func(i int, item T) tela.Node) tela.Node {
 // type, so a slice or a map as a key does not compile. Dev mode warns
 // about duplicate keys, once per call site, as it does for Map.
 //
-//	MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Component {
+//	MapKeyed(todos, func(t Todo) int { return t.ID }, func(t Todo) tela.Node {
 //	    return TodoRow{Todo: t}
 //	})
 //
@@ -102,16 +104,16 @@ func MapIndex[T any](items []T, f func(i int, item T) tela.Node) tela.Node {
 // that returns tela.CP(todoRow, t).
 // The key of a node that render keys itself, with Key, is replaced by
 // key(item).
-func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela.Component) tela.Node {
+func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela.Node) tela.Node {
 	if key == nil {
 		panic("h: MapKeyed(items, nil, ...): pass the function that returns an item's key, such as func(t Todo) int { return t.ID }")
 	}
 	if render == nil {
-		panic("h: MapKeyed(items, key, nil): pass the function that returns an item's component, such as func(t Todo) tela.Component { return TodoRow{Todo: t} }")
+		panic("h: MapKeyed(items, key, nil): pass the function that returns an item's component, such as func(t Todo) tela.Node { return TodoRow{Todo: t} }")
 	}
 	nodes := make([]tela.Node, len(items))
 	for i, it := range items {
-		nodes[i] = tela.WithKey(render(it), key(it))
+		nodes[i] = core.KeyedItem(render(it), key(it), i, "MapKeyed")
 	}
 	return core.List(nodes)
 }
@@ -120,55 +122,28 @@ func MapKeyed[T any, K comparable](items []T, key func(T) K, render func(T) tela
 // items with no data behind them, such as skeleton rows, a star rating or
 // the cells of a fixed grid. The index is the key, so no missing-key
 // warning is given (a static range does not reorder), and a node that
-// render keys itself is keyed by its index instead. render returns a
-// tela.Node or a tela.Component, so a struct component needs no Fragment.
-// n is 0 or more: a negative n panics in dev mode and renders nothing
-// otherwise.
+// render keys itself is keyed by its index instead. render returns any
+// tela.Node, a struct component included. n is 0 or more: a negative n
+// panics in dev mode and renders nothing otherwise.
 //
 //	Range(5, func(i int) tela.Node { return Span(Textf("%d", i)) })
-//	Range(5, func(i int) tela.Component { return Star{Filled: i < rating} })
+//	Range(5, func(i int) tela.Node { return Star{Filled: i < rating} })
 //
 // For data that changes, use [MapKeyed] with the item's ID: an index as the
 // key moves the state of a component to the wrong item when items are
 // inserted or removed.
-func Range[R ~func(int) tela.Node | ~func(int) tela.Component](n int, render R) tela.Node {
+func Range(n int, render func(i int) tela.Node) tela.Node {
 	if n < 0 && core.DevNow() {
 		panic(fmt.Sprintf("h: Range(%d, ...): n is the number of items, 0 or more", n))
 	}
-	each := componentFunc(render)
-	if each == nil {
-		panic("h: Range(n, nil): pass render, a func(i int) tela.Node or func(i int) tela.Component that returns item i, such as func(i int) tela.Node { return Span(Textf(\"%d\", i)) }")
+	if render == nil {
+		panic("h: Range(n, nil): pass render, a func(i int) tela.Node that returns item i, such as func(i int) tela.Node { return Span(Textf(\"%d\", i)) }")
 	}
 	nodes := make([]tela.Node, max(n, 0))
 	for i := range nodes {
-		nodes[i] = tela.WithKey(each(i), i)
+		nodes[i] = core.KeyedItem(render(i), i, i, "Range")
 	}
 	return core.List(nodes)
-}
-
-// componentFunc returns r, a func(int) tela.Node or a func(int)
-// tela.Component (or a value of a named type of either), as a
-// func(int) tela.Component; nil stays nil. The constraint of the callers
-// guarantees one of the two shapes.
-func componentFunc(r any) func(int) tela.Component {
-	switch f := r.(type) {
-	case func(int) tela.Node:
-		if f == nil {
-			return nil
-		}
-		return func(i int) tela.Component { return f(i) }
-	case func(int) tela.Component:
-		return f
-	}
-	v := reflect.ValueOf(r)
-	if v.IsNil() {
-		return nil
-	}
-	if v.Type().Out(0) == reflect.TypeFor[tela.Node]() {
-		f := v.Convert(reflect.TypeFor[func(int) tela.Node]()).Interface().(func(int) tela.Node)
-		return func(i int) tela.Component { return f(i) }
-	}
-	return v.Convert(reflect.TypeFor[func(int) tela.Component]()).Interface().(func(int) tela.Component)
 }
 
 // Nodes returns the nodes of ns as one fragment, for a slice built in a
@@ -218,8 +193,8 @@ func Scale(v *tela.Value[float32], k float32) func() float32 {
 //
 //	Panel{Title: "Inbox", Children: Fragment(Text("a"), Span(Text("b")))}
 //
-// Fragment(c) is also a node of one component, for a function that must
-// return a tela.Node: return Fragment(Panel{...}).
+// A struct component is a tela.Node itself, so a function that returns one
+// needs no Fragment: return Panel{...}.
 func Fragment(children ...tela.Child) tela.Node { return core.Fragment(children...) }
 
 // TextFn returns a text node whose content is read by fn in a later phase,

@@ -124,7 +124,7 @@ func TestRenderHeadless(t *testing.T) {
 		t.Errorf("corner pixel %v, want the canvas color", c)
 	}
 	// An empty Render is a white canvas of the default size.
-	_, img = Render(Node{}, RenderOptions{Config: Config{Fonts: testFonts}})
+	_, img = Render(nil, RenderOptions{Config: Config{Fonts: testFonts}})
 	if b := img.Bounds(); b.Dx() != 800 || b.Dy() != 600 || img.RGBAAt(400, 300).R != 255 {
 		t.Errorf("empty render %v %v", b, img.RGBAAt(400, 300))
 	}

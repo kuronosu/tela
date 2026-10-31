@@ -45,7 +45,7 @@ func (t *Tree) build(el *Element) {
 				t.endTrack(mark)
 			}
 		}()
-		out = el.comp.build()
+		out = el.comp.run()
 		if devStateEnabled && first {
 			out = t.devFirstBuild(el, out, mark) // tela dev: the hook signature check (ADR-113)
 		}
@@ -55,9 +55,40 @@ func (t *Tree) build(el *Element) {
 	if !first && el.hookIdx != before {
 		t.hookCountPanic(el, el.hookIdx, before)
 	}
-	t.reconcileOne(el, out)
+	t.reconcileOne(el, t.buildResult(el, out))
 	el.dirtyKids = false
 	t.queueEffects(el)
+}
+
+// buildResult converts out, what the build of component el returned, to
+// the node it renders (ADR-205): a node is itself, nil a hole, a struct
+// component a component node. A Prop panics, naming the component. In
+// dev mode a struct component that returns its own receiver panics too
+// (checkSelfBuild).
+func (t *Tree) buildResult(el *Element, out Node) node {
+	if n, ok := out.(node); ok && (n.d == nil || n.d.kind != nodeProp) {
+		return n
+	}
+	if out == nil {
+		return node{}
+	}
+	if p, ok := propOf(out); ok {
+		panic(propNodeMessage(buildName(el.comp)+" returned", p))
+	}
+	n := componentOf(out)
+	if t.dev && el.comp.ct != nil && n.d.comp.ct == el.comp.ct {
+		t.checkSelfBuild(el, n)
+	}
+	return n
+}
+
+// buildName names the function of component c in messages: "Card.Build"
+// for a struct component, "main.Counter" for a function.
+func buildName(c *compDesc) string {
+	if c.ct != nil {
+		return c.ct.short + ".Build"
+	}
+	return c.name()
 }
 
 // currentElement returns the component being built, or panics with an

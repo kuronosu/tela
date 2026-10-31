@@ -22,6 +22,9 @@ func em(c ...Child) Node     { return Primitive(style.KindEm, c...) }
 func code(c ...Child) Node   { return Primitive(style.KindCode, c...) }
 func img(c ...Child) Node    { return Primitive(style.KindImg, c...) }
 
+// nd returns the content of n, a node made by a constructor.
+func nd(n Node) *desc { return n.(node).d }
+
 // testFonts is shared by the tests: the embedded fonts only.
 var testFonts = text.NewDefaultCollection()
 

@@ -246,7 +246,7 @@ type vlist struct {
 	guessed bool
 	// nodes are the wrapper nodes of the built items, reused by the
 	// builds that only move the window.
-	nodes map[int]Node
+	nodes map[int]node
 	// The marks of the scroll container and of the content box.
 	listMark, contentMark *virtNode
 	// req is a ScrollToIndex waiting for a current layout; align keeps an
@@ -351,7 +351,7 @@ func VirtualList(count int, estimateSize func(i int) float32, renderItem func(i 
 		n.key, n.keyed = d.key, true
 		d.key, d.keyed = nil, false
 	}
-	return Node{n}
+	return node{n}
 }
 
 // fixedEstimate is the estimate of a list whose items all have the height
@@ -414,7 +414,7 @@ func virtualList(p *vprops) Node {
 	el, i := nextSlot(hookVirtual)
 	vl, ok := existingSlot[*vlist](el, i, "VirtualList")
 	if !ok {
-		vl = &vlist{tree: el.tree, el: el, hi: -1, nodes: map[int]Node{}}
+		vl = &vlist{tree: el.tree, el: el, hi: -1, nodes: map[int]node{}}
 		vl.listMark = &virtNode{vl: vl, role: virtList}
 		vl.contentMark = &virtNode{vl: vl, role: virtContent}
 		el.hooks = append(el.hooks, vl)
@@ -473,7 +473,7 @@ func (vl *vlist) sync(p *vprops) {
 }
 
 // render builds the list's node for the current window.
-func (vl *vlist) render(p *vprops) Node {
+func (vl *vlist) render(p *vprops) node {
 	if p != vl.props {
 		vl.sync(p)
 	} else if o := vl.el.vobs; o != nil && len(o.subs) > 0 {
@@ -513,24 +513,25 @@ func (vl *vlist) render(p *vprops) Node {
 			delete(vl.nodes, i)
 		}
 	}
-	kids := make([]Node, len(built))
+	kids := make([]node, len(built))
 	for k, i := range built {
-		node, ok := vl.nodes[i]
+		n, ok := vl.nodes[i]
 		if !ok {
-			node = vl.item(i, p)
-			vl.nodes[i] = node
+			n = vl.item(i, p)
+			vl.nodes[i] = n
 		}
-		kids[k] = node
+		kids[k] = n
 	}
 	content := &desc{kind: nodeElement, elem: style.KindDiv, children: kids, virt: vl.contentMark}
 	outer := *p.outer
 	outer.virt = vl.listMark
-	outer.children = []Node{{content}}
-	return Node{&outer}
+	outer.children = []node{{content}}
+	return node{&outer}
 }
 
-// item returns the wrapper node of item i.
-func (vl *vlist) item(i int, p *vprops) Node {
+// item returns the wrapper node of item i: what renderItem returned,
+// converted (a struct component becomes a component node; a Prop panics).
+func (vl *vlist) item(i int, p *vprops) node {
 	el := vl.el
 	before := el.hookIdx
 	child := p.render(i)
@@ -542,8 +543,9 @@ func (vl *vlist) item(i int, p *vprops) Node {
 		key = p.itemKey(i)
 		checkKey(key)
 	}
-	return Node{&desc{kind: nodeElement, elem: style.KindDiv, key: key, keyed: true,
-		children: []Node{child}, virt: &virtNode{vl: vl, role: virtItem, idx: i}}}
+	return node{&desc{kind: nodeElement, elem: style.KindDiv, key: key, keyed: true,
+		children: []node{itemOf(child, i, "a VirtualList")}, virt: &virtNode{vl: vl, role: virtItem, idx: i}}}
+
 }
 
 // keepIndex returns the index of the built item that holds the focus, or

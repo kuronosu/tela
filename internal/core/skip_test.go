@@ -438,7 +438,7 @@ func TestProviderIdentity(t *testing.T) {
 	}
 	// Key is accepted.
 	n := themeCtx.Provider("a", Key("k"), Text("t"))
-	if k, ok := n.Key(); !ok || k != "k" {
+	if k, ok := KeyOf(n); !ok || k != "k" {
 		t.Errorf("provider key %v %v", k, ok)
 	}
 	// Inspect names the component, not the provider.

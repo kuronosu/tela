@@ -336,17 +336,11 @@ func telaDevAppOf(v any) (telatela.App, bool) {
 {{end}}
 {{- if eq .Kind "Preview"}}
 func telaDevRoot() telatela.Component {
-	// A func() tela.Node is a component of its own, so it may use hooks
-	// (ADR-175).
-	if p, ok := any({{.Ref}}Preview).(func() telatela.Node); ok {
-		return telatela.C(p)
-	}
-	var root telatela.Component = {{.Ref}}Preview()
-	if root == nil {
-		telaDevFail("Preview() returned nil; return the screen, such as tela.C(Screen) or a struct component")
-	}
-	return root
+	// Preview is a component of its own, so it may use hooks (ADR-175);
+	// whatever it returns is the screen (ADR-205).
+	return telatela.C({{.Ref}}Preview)
 }
+
 {{- else if eq .Kind "Previews"}}
 func telaDevRoot() telatela.Component {
 	var previews telatela.Previews = {{.Ref}}Previews

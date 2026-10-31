@@ -18,7 +18,7 @@ func TextFn(fn func() string) Node {
 	if fn == nil {
 		panic("tela: TextFn(nil): pass a function that returns the text, such as TextFn(func() string { return time.Get() })")
 	}
-	return Node{&desc{kind: nodeText, textFn: fn}}
+	return node{&desc{kind: nodeText, textFn: fn}}
 }
 
 // syncText makes the text of text element el that of node description d,
