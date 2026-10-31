@@ -47,6 +47,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- Dev mode no longer reports a duplicate `ID` when an element takes the place of another with the same ID in one build, such as an input replacing another inside a `kit.Field` that keeps its ID (Darkroom's General and Account sections): the check runs after the build, when the old element is gone. Two elements mounted with one ID are still reported.
+
 - Damage under a `backdrop-blur` (or any backdrop filter that reaches beyond a pixel) no longer grows by the filter's reach when what changed is painted above the filter, such as content moving inside a glass pane: only a change behind the filter does (ADR-200). A card dragged in the dashboard's glass pane repaints its own area instead of about twice it.
 
 - `aria.UseCombobox` consumes Escape only when it used it (closed a list that can close, or reverted the text): a command palette whose list is always open now closes from the keyboard, and reverting the text of a selected item no longer also closes the enclosing dialog (ADR-198).

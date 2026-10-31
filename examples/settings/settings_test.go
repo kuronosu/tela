@@ -85,6 +85,11 @@ func TestNoDevMessages(t *testing.T) {
 	for _, p := range pages {
 		a.Click(section(p.Label))
 	}
+	// Account and General put different inputs in the same place: the
+	// field keeps its ID while one input replaces the other.
+	a.Click(section("General"))
+	a.Click(section("Account"))
+	a.Click(section("General"))
 	a.Click(section("Export"))
 	a.Click(radio("Custom"))
 	a.Click(stamp)

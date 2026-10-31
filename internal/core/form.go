@@ -108,14 +108,38 @@ func (t *Tree) setID(el *Element, old string) {
 	}
 	if id != "" {
 		if t.dev {
-			for _, o := range t.ids[id] {
-				if o != el && o.mounted {
-					t.logf("tela: duplicate ID(%q) on %s and %s; IDs must be unique in a window", id, t.describe(o), t.describe(el))
-					break
-				}
-			}
+			// Checked after the build (checkIDs): an element that takes
+			// the place of another with the same ID mounts before the
+			// old one unmounts.
+			t.devIDs = append(t.devIDs, id)
 		}
 		indexAdd(&t.ids, id, el)
+	}
+}
+
+// checkIDs warns, in dev mode, about the IDs given to an element during
+// the last build that two mounted elements hold.
+func (t *Tree) checkIDs() {
+	ids := t.devIDs
+	t.devIDs = nil
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		var first *Element
+		for _, o := range t.ids[id] {
+			if !o.mounted {
+				continue
+			}
+			if first == nil {
+				first = o
+				continue
+			}
+			t.logf("tela: duplicate ID(%q) on %s and %s; IDs must be unique in a window", id, t.describe(first), t.describe(o))
+			break
+		}
 	}
 }
 

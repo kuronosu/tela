@@ -143,8 +143,8 @@ type layer struct {
 	// oin and oout are in and out of the previous recording while one
 	// runs (record.go: dropOld).
 	oin, oout []*Box
-	rec     uint64
-	dirty   bool
+	rec       uint64
+	dirty     bool
 }
 
 // target is a list being recorded: its builder, its scroll space and

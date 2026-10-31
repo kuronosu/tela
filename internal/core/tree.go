@@ -127,6 +127,9 @@ type Tree struct {
 	// devLabels are the Labels mounted since the last check (dev mode,
 	// form.go).
 	devLabels []*Element
+	// devIDs are the IDs given to elements since the last check (dev
+	// mode, form.go).
+	devIDs []string
 	// intervals are the running UseInterval and UseTimeout slots
 	// (interval.go).
 	intervals []*intervalSlot
@@ -597,6 +600,9 @@ func (t *Tree) Frame() (dl *gfx.DisplayList, changed bool) {
 			t.buildPhase()
 			if len(t.devLabels) > 0 {
 				t.checkLabels()
+			}
+			if len(t.devIDs) > 0 {
+				t.checkIDs()
 			}
 			t.stylePhase()
 			if t.dirRebuild {

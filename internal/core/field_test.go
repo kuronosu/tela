@@ -1374,3 +1374,40 @@ func TestFieldDisabled(t *testing.T) {
 		t.Error("a disabled field does not match read-only:")
 	}
 }
+
+// TestDuplicateIDReplacedElement checks the dev warning about duplicate
+// IDs: an element that takes the place of another with the same ID in one
+// build (a section that swaps a wrapped Input for a bare one, whose ID
+// comes from the same UseID) is not a duplicate, because the old one is
+// unmounted by the end of the build; two mounted at once still are.
+func TestDuplicateIDReplacedElement(t *testing.T) {
+	var set Setter[int]
+	app := func() Node {
+		n, s := UseState(0)
+		set = s
+		switch n {
+		case 0:
+			return div(div(input(ID("x"))))
+		case 1:
+			return div(input(ID("x")))
+		}
+		return div(input(ID("x")), input(ID("x")))
+	}
+	var logs []string
+	tr := NewTree(Config{Fonts: testFonts, Dev: true, Log: func(m string) { logs = append(logs, m) }})
+	tr.SetViewport(gfx.Size{W: 200, H: 100})
+	tr.Mount(Component(app))
+	tr.Frame()
+	set.Set(1)
+	tr.Frame()
+	set.Set(0)
+	tr.Frame()
+	if len(logs) != 0 {
+		t.Errorf("replacing an element with the same ID logged %q", logs)
+	}
+	set.Set(2)
+	tr.Frame()
+	if len(logs) != 1 || !strings.Contains(logs[0], `duplicate ID("x")`) {
+		t.Errorf("two mounted elements with one ID logged %q, want one duplicate warning", logs)
+	}
+}
