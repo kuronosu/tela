@@ -217,26 +217,69 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		return // mounted since the last frame
 	}
 	d := el.node.d
-	a := d.aria
-	none := inh.none || cs.Display == style.DisplayNone
-	// Inert (Inert, overlay.go) and outside the active modal overlay:
-	// hidden, as React Aria's ariaHideOutside does.
-	hidden := inh.hidden || none || a != nil && a.hidden || el.inert || el.outside == outsideYes
 	role, explicit := t.semRole(el)
 	n := &semantics.Node{ID: t.semID(el), Kind: semantics.KindElement, Role: role, ExplicitRole: explicit}
 	if role == "" {
 		n.Role = "generic"
 	}
 	n.Inline = cs.Display == style.DisplayInline && !inh.blockify
-	if hidden || cs.Visibility != style.VisibilityVisible {
+	cinh := t.semStates(el, n, inh)
+	t.semAriaFields(el, n)
+	if bx.kind == style.KindA {
+		n.URL = d.href
+	}
+	if !cinh.disabled && (d.evMask&clickMask != 0 || clickRole(role)) {
+		n.Actions |= semantics.ActionClick
+	}
+	if !cinh.none {
+		n.Actions |= semantics.ActionScrollIntoView
+	}
+	parent.Children = append(parent.Children, n)
+
+	cinh.transformed = inh.transformed || !paintStyle(bx).Transform.IsIdentity()
+	cinh.blockify = blockifies(cs)
+	if cs.Display == style.DisplayContents {
+		cinh.blockify = inh.blockify // its children are laid out by its parent
+	}
+	for _, c := range el.children {
+		t.semElement(c, n, cinh)
+	}
+
+	n.Name = semantics.NormalizeWhiteSpace(t.accName(el, role, n.Has(semantics.StateHidden)))
+	semFieldStates(el, n, cinh.disabled)
+	n.Value = semValue(el, role)
+	if !n.Has(semantics.StateHidden) {
+		t.semBounds(el, n, cinh.none, cinh.transformed)
+	}
+}
+
+// childInherit returns what the children of primitive el inherit from it
+// and from its ancestors (inh): hidden, display: none and disabled. The
+// caller sets blockify and transformed.
+func childInherit(el *Element, inh semInherit) semInherit {
+	a := el.node.d.aria
+	none := inh.none || el.box.cs.Display == style.DisplayNone
+	ci := semInherit{none: none, ariaDis: inh.ariaDis}
+	// Inert (Inert, overlay.go) and outside the active modal overlay:
+	// hidden, as React Aria's ariaHideOutside does.
+	ci.hidden = inh.hidden || none || a != nil && a.hidden || el.inert || el.outside == outsideYes
+	ci.disabled = inh.disabled || el.istate&style.StateDisabled != 0
+	if a != nil && a.disabled != semantics.ToggleUnset {
+		ci.ariaDis = a.disabled
+	}
+	return ci
+}
+
+// semStates sets the states of node n of primitive el that depend on its
+// ancestors and on the tree (hidden, disabled, focused, focusable,
+// scrollable) with their actions, and returns what el's children inherit
+// (childInherit).
+func (t *Tree) semStates(el *Element, n *semantics.Node, inh semInherit) semInherit {
+	ci := childInherit(el, inh)
+	if ci.hidden || el.box.cs.Visibility != style.VisibilityVisible {
 		n.States |= semantics.StateHidden
 	}
-	disabled := inh.disabled || el.istate&style.StateDisabled != 0
-	ariaDis := inh.ariaDis
-	if a != nil && a.disabled != semantics.ToggleUnset {
-		ariaDis = a.disabled
-	}
-	if disabled || ariaDis == semantics.ToggleTrue {
+	if ci.disabled || ci.ariaDis == semantics.ToggleTrue {
 		n.States |= semantics.StateDisabled
 	}
 	if t.foc.el == el {
@@ -246,10 +289,18 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		n.States |= semantics.StateFocusable
 		n.Actions |= semantics.ActionFocus
 	}
-	if s := bx.scr; s != nil && !none && (s.userX && s.max.X > 0 || s.userY && s.max.Y > 0) {
+	if s := el.box.scr; s != nil && !ci.none && (s.userX && s.max.X > 0 || s.userY && s.max.Y > 0) {
 		n.States |= semantics.StateScrollable
 		n.Actions |= semantics.ActionScroll
 	}
+	return ci
+}
+
+// semAriaFields sets the fields of node n that come from the ARIA props of
+// primitive el (aria.go, ariawidget.go), and its level (H1 to H6 keep
+// their own).
+func (t *Tree) semAriaFields(el *Element, n *semantics.Node) {
+	a := el.node.d.aria
 	if a != nil {
 		if a.required == semantics.ToggleTrue {
 			n.States |= semantics.StateRequired
@@ -262,43 +313,37 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 		}
 		n.Checked, n.Pressed, n.Selected, n.Expanded = a.checked, a.pressed, a.selected, a.expanded
 		n.Invalid, n.Sort, n.Current = a.invalid, a.sort, a.current
-		n.Description = a.desc
-		if n.Description == "" && a.describedBy != nil {
-			if r := a.describedBy.el; r != nil && r.mounted && r.kind == elemPrimitive {
-				n.Description = semantics.NormalizeWhiteSpace(t.describedText(r))
-			}
-		}
+		n.Description = t.semDescription(a)
 		n.Range = a.rng
 		t.semWidget(a, n) // ariawidget.go
 	}
-	if n.Level = headingLevel(bx.kind); n.Level == 0 && a != nil && a.level >= 1 {
+	if n.Level = headingLevel(el.box.kind); n.Level == 0 && a != nil && a.level >= 1 {
 		n.Level = int(a.level)
 	}
 	if a != nil {
 		n.RowCount, n.RowIndex = int(a.rowCount), int(a.rowIndex)
 	}
-	if bx.kind == style.KindA {
-		n.URL = d.href
-	}
-	if !disabled && (d.evMask&clickMask != 0 || clickRole(role)) {
-		n.Actions |= semantics.ActionClick
-	}
-	if !none {
-		n.Actions |= semantics.ActionScrollIntoView
-	}
-	parent.Children = append(parent.Children, n)
+}
 
-	transformed := inh.transformed || !paintStyle(bx).Transform.IsIdentity()
-	cinh := semInherit{hidden: hidden, none: none, disabled: disabled, ariaDis: ariaDis, blockify: blockifies(cs), transformed: transformed}
-	if cs.Display == style.DisplayContents {
-		cinh.blockify = inh.blockify // its children are laid out by its parent
+// semDescription returns the description of an element with ARIA props a:
+// its AriaDescription, else the text of the mounted primitive its
+// AriaDescribedBy references.
+func (t *Tree) semDescription(a *ariaProps) string {
+	if a.desc != "" || a.describedBy == nil {
+		return a.desc
 	}
-	for _, c := range el.children {
-		t.semElement(c, n, cinh)
+	if r := a.describedBy.el; r != nil && r.mounted && r.kind == elemPrimitive {
+		return semantics.NormalizeWhiteSpace(t.describedText(r))
 	}
+	return ""
+}
 
-	n.Name = semantics.NormalizeWhiteSpace(t.accName(el, role, n.Has(semantics.StateHidden)))
-	if f := bx.fld; f != nil {
+// semFieldStates sets the states and actions of node n that come from the
+// text field of primitive el, if any, and its invalid state; disabled is
+// el's semantics disability (on el or an ancestor).
+func semFieldStates(el *Element, n *semantics.Node, disabled bool) {
+	f := el.box.fld
+	if f != nil {
 		if f.multi {
 			n.States |= semantics.StateMultiline
 		}
@@ -315,42 +360,62 @@ func (t *Tree) semPrimitive(el *Element, parent *semantics.Node, inh semInherit)
 	// disabled field, which HTML bars from constraint validation (the
 	// state is never set on one, fieldStates; the test here also covers a
 	// disabled semantics ancestor).
-	if a != nil && a.invalid != semantics.ToggleUnset {
+	if a := el.node.d.aria; a != nil && a.invalid != semantics.ToggleUnset {
 		if a.invalid == semantics.ToggleTrue {
 			n.States |= semantics.StateInvalid
 		}
-	} else if f := bx.fld; f != nil && el.istate&style.StateInvalid != 0 && !f.props().readOnly && !disabled {
+	} else if f != nil && el.istate&style.StateInvalid != 0 && !f.props().readOnly && !disabled {
 		n.States |= semantics.StateInvalid
 	}
+}
+
+// semValue returns the value of primitive el, whose role is role: a text
+// field's text, a textbox's content, a range widget's value.
+func semValue(el *Element, role string) string {
 	switch {
-	case bx.fld != nil && (role == "textbox" || role == "searchbox" || role == "combobox"):
+	case el.box.fld != nil && (role == "textbox" || role == "searchbox" || role == "combobox"):
 		// A text field with the combobox role (an editable combobox's input)
 		// exposes its text, as Playwright prints it: `combobox "Fruit": App`.
-		n.Value = exposedValue(bx.fld)
+		return exposedValue(el.box.fld)
 	case role == "textbox" || role == "searchbox":
-		n.Value = textContent(el)
-	case semantics.RangeRole(role) && a != nil:
-		if a.hasText {
-			n.Value = a.valueText
-		} else if a.rng.HasNow {
-			n.Value = jsNumberString(a.rng.Now)
-		}
+		return textContent(el)
+	case semantics.RangeRole(role):
+		return rangeValue(el.node.d.aria)
 	}
-	if !n.Has(semantics.StateHidden) {
-		if t.ownBox(el, none) {
-			n.Bounds = gfx.RectFromOriginSize(t.semOrigin(bx), bx.ld.Layout().Size)
-			if transformed {
-				n.Bounds = t.transformUp(bx, n.Bounds)
-			}
-		} else {
-			for _, c := range n.Children {
-				n.Bounds = n.Bounds.Union(c.Bounds)
-			}
-			if !none && bx.inPara != nil {
-				// An inline element: its fragments (padding included).
-				n.Bounds = n.Bounds.Union(t.inlineBounds(el, transformed))
-			}
+	return ""
+}
+
+// rangeValue returns the value of a range widget with ARIA props a (nil
+// without): its AriaValueText, else its AriaValueNow as JavaScript prints
+// it, else "".
+func rangeValue(a *ariaProps) string {
+	switch {
+	case a != nil && a.hasText:
+		return a.valueText
+	case a != nil && a.rng.HasNow:
+		return jsNumberString(a.rng.Now)
+	}
+	return ""
+}
+
+// semBounds sets the bounds of node n of primitive el, which is not
+// hidden, after its children's (see the comment at the top of
+// semantics.go); none and transformed are as in semInherit, el included.
+func (t *Tree) semBounds(el *Element, n *semantics.Node, none, transformed bool) {
+	bx := el.box
+	if t.ownBox(el, none) {
+		n.Bounds = gfx.RectFromOriginSize(t.semOrigin(bx), bx.ld.Layout().Size)
+		if transformed {
+			n.Bounds = t.transformUp(bx, n.Bounds)
 		}
+		return
+	}
+	for _, c := range n.Children {
+		n.Bounds = n.Bounds.Union(c.Bounds)
+	}
+	if !none && bx.inPara != nil {
+		// An inline element: its fragments (padding included).
+		n.Bounds = n.Bounds.Union(t.inlineBounds(el, transformed))
 	}
 }
 
