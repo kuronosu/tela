@@ -1,0 +1,83 @@
+name: Site
+
+# The website at https://telaui.dev (ADR-206). Pushes and pull requests that
+# touch the site or the docs build it as a check; main and release tags
+# deploy it with the docs of the latest release tag.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "docs/wiki/**"
+      - "docs/images/**"
+      - ".github/workflows/site.yml"
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "site/**"
+      - "docs/wiki/**"
+      - "docs/images/**"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Builds the site with the docs of the checked-out commit.
+  check:
+    name: check (build and links)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  # Builds the site code of main with the docs of the latest release tag.
+  build:
+    name: build (docs of the latest release)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Extract the docs of the latest release tag
+        run: |
+          tag="$(git describe --tags --abbrev=0 --match 'v*')"
+          echo "Docs of $tag"
+          mkdir -p "$RUNNER_TEMP/docs-src"
+          git archive "$tag" docs/wiki docs/images | tar -x -C "$RUNNER_TEMP/docs-src"
+          echo "TELA_DOCS_DIR=$RUNNER_TEMP/docs-src/docs" >> "$GITHUB_ENV"
+      - uses: withastro/action@v6
+        with:
+          path: site
+          node-version: 24
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Only deploys wait for each other; checks never queue behind them.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -1,0 +1,66 @@
+/* Tela's look: the calm Tailwind stone palette and Inter, like examples/hello.
+   Placeholder until the landing page goes through a design review. */
+
+:root {
+	--sl-font: 'Inter Variable', system-ui, sans-serif;
+
+	/* Dark theme (Starlight's default). white = text, black = page background. */
+	--sl-color-white: #fafaf9; /* stone-50 */
+	--sl-color-gray-1: #e7e5e4; /* stone-200 */
+	--sl-color-gray-2: #d6d3d1; /* stone-300 */
+	--sl-color-gray-3: #a8a29e; /* stone-400 */
+	--sl-color-gray-4: #78716c; /* stone-500 */
+	--sl-color-gray-5: #44403c; /* stone-700 */
+	--sl-color-gray-6: #292524; /* stone-800 */
+	--sl-color-black: #1c1917; /* stone-900 */
+
+	--sl-color-accent-low: #292524; /* stone-800 */
+	--sl-color-accent: #78716c; /* stone-500 */
+	--sl-color-accent-high: #e7e5e4; /* stone-200 */
+}
+
+:root[data-theme='light'] {
+	--sl-color-white: #1c1917; /* stone-900 */
+	--sl-color-gray-1: #292524; /* stone-800 */
+	--sl-color-gray-2: #44403c; /* stone-700 */
+	--sl-color-gray-3: #57534e; /* stone-600 */
+	--sl-color-gray-4: #78716c; /* stone-500 */
+	--sl-color-gray-5: #d6d3d1; /* stone-300 */
+	--sl-color-gray-6: #f5f5f4; /* stone-100 */
+	--sl-color-gray-7: #fafaf9; /* stone-50 */
+	--sl-color-black: #ffffff;
+
+	--sl-color-accent-high: #1c1917; /* stone-900 */
+	--sl-color-accent: #292524; /* stone-800 */
+	--sl-color-accent-low: #e7e5e4; /* stone-200 */
+}
+
+/* Big, bold type like the hello example. */
+.hero h1 {
+	font-weight: 800;
+	letter-spacing: -0.04em;
+}
+.hero .tagline {
+	color: var(--sl-color-gray-3);
+}
+h1,
+h2,
+h3 {
+	letter-spacing: -0.02em;
+}
+
+/* The screenshot under the hero (index.mdx). */
+.landing-shot {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin: 0 auto 3rem;
+	border-radius: 0.75rem;
+	border: 1px solid var(--sl-color-gray-5);
+}
+
+/* Calm cards: one neutral color instead of Starlight's rainbow. */
+.card {
+	--sl-card-border: var(--sl-color-gray-5) !important;
+	--sl-card-bg: var(--sl-color-gray-6) !important;
+}
