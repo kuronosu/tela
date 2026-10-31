@@ -39,93 +39,148 @@ func (r *run) collect() {
 	r.decls = map[*types.Func]*funcDecl{}
 	r.varInit = map[types.Object]ast.Expr{}
 	r.hooks = map[*types.Func]bool{}
-	var aliases []*aliasEntry
-	var colors []*colorEntry
 
 	for _, u := range r.units {
 		for _, f := range u.files {
-			for _, d := range f.Decls {
-				switch d := d.(type) {
-				case *ast.FuncDecl:
-					if fn, ok := u.info.Defs[d.Name].(*types.Func); ok && d.Body != nil {
-						r.decls[fn] = &funcDecl{d, u}
-					}
-				case *ast.GenDecl:
-					for _, s := range d.Specs {
-						if vs, ok := s.(*ast.ValueSpec); ok && len(vs.Names) == len(vs.Values) {
-							for i, n := range vs.Names {
-								if obj := u.info.Defs[n]; obj != nil {
-									r.varInit[obj] = vs.Values[i]
-								}
-							}
-						}
-					}
-				}
-			}
-			ast.Inspect(f, func(n ast.Node) bool {
-				if as, ok := n.(*ast.AssignStmt); ok && as.Tok == token.DEFINE && len(as.Lhs) == len(as.Rhs) {
-					for i, l := range as.Lhs {
-						if id, ok := l.(*ast.Ident); ok {
-							if obj := u.info.Defs[id]; obj != nil {
-								r.varInit[obj] = as.Rhs[i]
-							}
-						}
-					}
-				}
-				return true
-			})
+			r.collectDecls(u, f)
+			r.collectDefines(u, f)
 		}
 	}
 
 	r.findHooks()
-	tokenFuncs := r.collectTokenFuncs()
+	c := &classCollector{tokenFuncs: r.collectTokenFuncs()}
 
 	for _, u := range r.units {
-		p := &pass{r: r, u: u, info: u.info}
+		c.p = &pass{r: r, u: u, info: u.info}
 		for _, f := range u.files {
-			ast.Inspect(f, func(n ast.Node) bool {
-				switch n := n.(type) {
-				case *ast.CompositeLit:
-					switch {
-					case p.isTelaType(p.info.TypeOf(n), "", "App"):
-						for _, el := range n.Elts {
-							if kv, ok := el.(*ast.KeyValueExpr); ok && isIdent(kv.Key, "ClassAliases") {
-								aliases = append(aliases, p.aliasEntries(kv.Value)...)
-							}
-						}
-					case isColorMap(p.info.TypeOf(n)):
-						colors = append(colors, p.colorEntries(n)...)
-					}
-				case *ast.AssignStmt:
-					// theme.Colors["brand"] = ... and app.ClassAliases = ...
-					for i, l := range n.Lhs {
-						switch l := l.(type) {
-						case *ast.IndexExpr:
-							if isColorMap(p.info.TypeOf(l.X)) {
-								if name, ok := p.constString(l.Index); ok {
-									colors = append(colors, &colorEntry{name, l.Index, u})
-								}
-							}
-						case *ast.SelectorExpr:
-							if l.Sel.Name == "ClassAliases" && p.isTelaType(p.info.TypeOf(l.X), "", "App") && len(n.Lhs) == len(n.Rhs) {
-								aliases = append(aliases, p.aliasEntries(n.Rhs[i])...)
-							}
-						}
-					}
-				case *ast.CallExpr:
-					if fn := p.callee(n); fn != nil && p.isFunc(fn, "telatest", "ClassAliases") && len(n.Args) == 1 {
-						aliases = append(aliases, p.aliasEntries(n.Args[0])...)
-					}
-					// set("gold", ...) where set stores a color under its name
-					colors = append(colors, p.tokenCallEntries(n, tokenFuncs)...)
-				}
-				return true
-			})
+			ast.Inspect(f, c.visit)
 		}
 	}
 
-	r.aliasList = aliases
-	r.buildParser(aliases, colors)
+	r.aliasList = c.aliases
+	r.buildParser(c.aliases, c.colors)
+}
+
+// collectDecls records the function declarations of f, and the
+// initializers of its package-level variables.
+func (r *run) collectDecls(u *unit, f *ast.File) {
+	for _, d := range f.Decls {
+		switch d := d.(type) {
+		case *ast.FuncDecl:
+			if fn, ok := u.info.Defs[d.Name].(*types.Func); ok && d.Body != nil {
+				r.decls[fn] = &funcDecl{d, u}
+			}
+		case *ast.GenDecl:
+			r.collectVarSpecs(u, d)
+		}
+	}
+}
+
+// collectVarSpecs records the initializers of the variables a declaration
+// declares.
+func (r *run) collectVarSpecs(u *unit, d *ast.GenDecl) {
+	for _, s := range d.Specs {
+		vs, ok := s.(*ast.ValueSpec)
+		if !ok || len(vs.Names) != len(vs.Values) {
+			continue
+		}
+		for i, n := range vs.Names {
+			if obj := u.info.Defs[n]; obj != nil {
+				r.varInit[obj] = vs.Values[i]
+			}
+		}
+	}
+}
+
+// collectDefines records the initializers of the variables that f declares
+// with :=.
+func (r *run) collectDefines(u *unit, f *ast.File) {
+	ast.Inspect(f, func(n ast.Node) bool {
+		as, ok := n.(*ast.AssignStmt)
+		if !ok || as.Tok != token.DEFINE || len(as.Lhs) != len(as.Rhs) {
+			return true
+		}
+		for i, l := range as.Lhs {
+			id, ok := l.(*ast.Ident)
+			if !ok {
+				continue
+			}
+			if obj := u.info.Defs[id]; obj != nil {
+				r.varInit[obj] = as.Rhs[i]
+			}
+		}
+		return true
+	})
+}
+
+// classCollector is the second pass of collect: it walks the files of a
+// unit (p) and gathers the class aliases and theme colors in them, in
+// source order.
+type classCollector struct {
+	p          *pass
+	tokenFuncs map[types.Object]*tokenFunc
+	aliases    []*aliasEntry
+	colors     []*colorEntry
+}
+
+// visit is an ast.Inspect function that dispatches on the node kind.
+func (c *classCollector) visit(n ast.Node) bool {
+	switch n := n.(type) {
+	case *ast.CompositeLit:
+		c.compositeLit(n)
+	case *ast.AssignStmt:
+		c.assign(n)
+	case *ast.CallExpr:
+		c.call(n)
+	}
+	return true
+}
+
+// compositeLit collects the ClassAliases field of an App literal and the
+// keys of a map literal of colors.
+func (c *classCollector) compositeLit(n *ast.CompositeLit) {
+	p := c.p
+	switch {
+	case p.isTelaType(p.info.TypeOf(n), "", "App"):
+		for _, el := range n.Elts {
+			if kv, ok := el.(*ast.KeyValueExpr); ok && isIdent(kv.Key, "ClassAliases") {
+				c.aliases = append(c.aliases, p.aliasEntries(kv.Value)...)
+			}
+		}
+	case isColorMap(p.info.TypeOf(n)):
+		c.colors = append(c.colors, p.colorEntries(n)...)
+	}
+}
+
+// assign collects theme.Colors["brand"] = ... and app.ClassAliases = ...
+func (c *classCollector) assign(n *ast.AssignStmt) {
+	p := c.p
+	for i, l := range n.Lhs {
+		switch l := l.(type) {
+		case *ast.IndexExpr:
+			if !isColorMap(p.info.TypeOf(l.X)) {
+				continue
+			}
+			if name, ok := p.constString(l.Index); ok {
+				c.colors = append(c.colors, &colorEntry{name, l.Index, p.u})
+			}
+		case *ast.SelectorExpr:
+			if l.Sel.Name == "ClassAliases" && p.isTelaType(p.info.TypeOf(l.X), "", "App") && len(n.Lhs) == len(n.Rhs) {
+				c.aliases = append(c.aliases, p.aliasEntries(n.Rhs[i])...)
+			}
+		}
+	}
+}
+
+// call collects the argument of telatest.ClassAliases, and the colors that
+// a call to a token function names.
+func (c *classCollector) call(n *ast.CallExpr) {
+	p := c.p
+	if fn := p.callee(n); fn != nil && p.isFunc(fn, "telatest", "ClassAliases") && len(n.Args) == 1 {
+		c.aliases = append(c.aliases, p.aliasEntries(n.Args[0])...)
+	}
+	// set("gold", ...) where set stores a color under its name
+	c.colors = append(c.colors, p.tokenCallEntries(n, c.tokenFuncs)...)
 }
 
 // findHooks computes r.hooks: Tela's exported hooks, then the functions of
