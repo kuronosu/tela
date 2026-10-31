@@ -65,7 +65,7 @@ import (
 // a frame that only repaints finds stale layers: a box that starts or stops
 // being a layer, a scroll container whose content starts or stops moving.
 // A scroll container whose visible content leaves its interest rect gets a
-// new one, and the chunks of its space are recorded again.
+// new one, and the chunks of its space that cull are recorded again.
 //
 // The interest rect of a chunk (Chromium's) is its scrollport in content
 // coordinates grown by one scrollport along each axis that scrolls: a
@@ -132,7 +132,8 @@ type layer struct {
 	// holds the old kids while it is recorded, pi the next one to look at.
 	kids, pool []*layer
 	pi         int
-	// rint and cull are the interest rect and the culling of the list;
+	// rint and cull are the interest rect and the culling of the list
+	// (rint decides nothing for a list that does not cull);
 	// in and out the boxes whose inputs and placement it read (dep,
 	// odep), cul those it culled-tested (cdep); rec the epoch of its
 	// recording; dirty marks it stale.
@@ -366,7 +367,7 @@ func (p *painter) openLayer(kind layerKind, box *Box, space *scroller, lead, hoi
 	if up != nil && len(up.pool) > 0 {
 		l = up.take(kind, box, space, lead, hoist)
 	}
-	if l != nil && !l.dirty && kind != layerBars && l.rint == interest && l.cull == cull &&
+	if l != nil && !l.dirty && kind != layerBars && l.cull == cull && (!cull || l.rint == interest) &&
 		(kind != layerField || !box.fld.paintDirty) {
 		l.parent = p.space
 		up.kids = append(up.kids, l)

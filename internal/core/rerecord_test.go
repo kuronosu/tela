@@ -99,10 +99,12 @@ func TestPartialRecording(t *testing.T) {
 			t.Errorf("%s recorded %v, want %v", what, got, leads)
 		}
 	}
-	// The card at (100, 60) is card 0.
+	// The card at (100, 60) is card 0. Its colors transition from where
+	// they are: the hover's frame paints what the last one did and
+	// records nothing (sameStyle, recordstyle.go); its steps record it.
 	x.move(100, 60)
 	x.frame("hover")
-	want("the hover", "scroll 0")
+	want("the hover")
 	for i := range 12 {
 		s0 := tr.Stats()
 		x.frame(fmt.Sprintf("step %d", i))
@@ -117,10 +119,14 @@ func TestPartialRecording(t *testing.T) {
 	st.setters[7].Set(1)
 	x.frame("text")
 	want("the text", "scroll 7")
-	// Leaving the card fades it back.
+	// Leaving the card fades it back, and the card under the pointer
+	// (card 24) in: both start where they are, and their first steps
+	// record them.
 	x.move(100, 690)
 	x.frame("leave")
-	want("the hover's end", "scroll 0", "scroll 24")
+	want("the hover's end")
+	x.frame("leave step")
+	want("the first step after the hover", "scroll 0", "scroll 24")
 }
 
 // TestPartialRecordingClips: the overflow clip of a positioned card that
@@ -260,4 +266,99 @@ func BenchmarkCardHover(b *testing.B) {
 		g.frame()
 	}
 	g.report(b)
+}
+
+// deferredScrollPage is the window's scroll container with rows tall enough
+// to move its interest rect, and near its top a deferred layer: a card
+// moved by a TranslateFn, with inner lines of text of its own.
+func deferredScrollPage(rows, inner int) Node {
+	card := make([]Child, 0, inner+3)
+	card = append(card, Key("card"), Class("m-4 rounded-xl bg-white p-3 shadow-lg"),
+		Style(style.TranslateFn(func() (float32, float32) { return 4, 0 })))
+	for i := range inner {
+		card = append(card, div(Class("h-6 text-sm text-slate-700"), Textf("Card line %d", i)))
+	}
+	page := make([]Child, 0, rows+3)
+	page = append(page, Key("page"), Class("h-screen overflow-y-auto bg-slate-100"), div(card...))
+	for i := range rows {
+		page = append(page, div(Key(i), Class("h-10 border-b border-slate-200 px-3 text-sm"), Textf("Row %d", i)))
+	}
+	return div(page...)
+}
+
+// recordedOf counts the layers of kind the last paint recorded.
+func recordedOf(tr *Tree, kind layerKind) int {
+	n := 0
+	for _, l := range tr.lay.layers {
+		if l != nil && l.kind == kind && l.paint == tr.lay.paints {
+			n++
+		}
+	}
+	return n
+}
+
+// TestDeferredLayerKeptAcrossInterest: scrolling far enough to move the
+// interest rect of a scroll space records its chunks again, not the
+// deferred layers in it: their lists cull nothing, so they do not depend
+// on the interest rect. Every frame shows what a full rendering shows,
+// and with TELA_CHECK_LAYERS=1 composes what a full recording composes.
+func TestDeferredLayerKeptAcrossInterest(t *testing.T) {
+	const h = 300
+	x := newDamageHarness(t, deferredScrollPage(300, 40), 400, h, 1, Config{InstantScroll: true}, 1)
+	tr := x.tree()
+	s := keyed(tr, "page").box.scr
+	if s == nil || !s.chunked || countLayers(tr, "deferred") != 1 {
+		t.Fatalf("want a chunked scroll space with one deferred layer: scroller %v, %d deferred layers", s != nil, countLayers(tr, "deferred"))
+	}
+	moved, chunks, deferred := 0, 0, 0
+	for i := range 12 {
+		in0 := s.interest
+		tr.setScroll(s, s.pos.Add(gfx.Point{Y: 2 * h}))
+		x.frame(fmt.Sprintf("scroll %d", i))
+		if s.interest == in0 {
+			continue
+		}
+		moved++
+		chunks += recordedOf(tr, layerChunk)
+		deferred += recordedOf(tr, layerDeferred)
+	}
+	t.Logf("%d frames moved the interest rect: %d chunk and %d deferred-layer recordings", moved, chunks, deferred)
+	if moved < 10 || chunks < moved {
+		t.Fatalf("%d frames moved the interest rect, recording %d chunks: want at least 10, each recording the content", moved, chunks)
+	}
+	if deferred != 0 {
+		t.Errorf("the deferred layer was recorded %d times over %d frames that moved the interest rect, want 0", deferred, moved)
+	}
+}
+
+// BenchmarkScrollInterestDeferred is a scroll frame that moves the
+// interest rect of the window's scroll space (two scrollports at a time)
+// with a deferred layer of 200 lines in it: the chunks of the space are
+// recorded again, the deferred layer is kept.
+func BenchmarkScrollInterestDeferred(b *testing.B) {
+	const h = 600
+	tr := newTestTree(b, 800, h, deferredScrollPage(400, 200), nil)
+	tr.SetScale(2)
+	tr.Frame()
+	s := keyed(tr, "page").box.scr
+	if s == nil || s.max.Y < 8*h {
+		b.Fatalf("no scroll range: %+v", s)
+	}
+	dir := float32(2 * h)
+	frames, deferred, rec := 0, 0, 0
+	b.ReportAllocs()
+	for b.Loop() {
+		if s.pos.Y+dir > s.max.Y || s.pos.Y+dir < 0 {
+			dir = -dir
+		}
+		tr.setScroll(s, s.pos.Add(gfx.Point{Y: dir}))
+		if _, changed := tr.Frame(); !changed {
+			b.Fatal("the frame did not repaint")
+		}
+		frames++
+		deferred += recordedOf(tr, layerDeferred)
+		rec += tr.lay.recorded
+	}
+	b.ReportMetric(float64(rec)/float64(frames), "recorded/frame")
+	b.ReportMetric(float64(deferred)/float64(frames), "deferred/frame")
 }

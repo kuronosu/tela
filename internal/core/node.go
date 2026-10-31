@@ -347,14 +347,20 @@ func (d *desc) addChild(c Child) {
 		}
 		return
 	}
+	d.children = append(d.children, childNode(c))
+}
+
+// childNode is toNode for a child that holds no prop (propOf reported
+// false): nil is a hole, a node is itself and a struct component becomes
+// a component node.
+func childNode(c Child) node {
 	switch c := c.(type) {
 	case nil:
-		d.children = append(d.children, node{})
+		return node{}
 	case node:
-		d.children = append(d.children, c)
-	default:
-		d.children = append(d.children, componentOf(c))
+		return c
 	}
+	return componentOf(c)
 }
 
 // addGroupChild adds c to d, a node without a box of its own (who:
@@ -371,14 +377,7 @@ func (d *desc) addGroupChild(c Child, who, fix string) {
 		p.apply(d)
 		return
 	}
-	switch c := c.(type) {
-	case nil:
-		d.children = append(d.children, node{})
-	case node:
-		d.children = append(d.children, c)
-	default:
-		d.children = append(d.children, componentOf(c))
-	}
+	d.children = append(d.children, childNode(c))
 }
 
 // NodeOf returns n as the node it renders: a node is itself, nil stays
@@ -398,21 +397,32 @@ func KeyOf(n Node) (any, bool) {
 	return nil, false
 }
 
-// nodeOf converts n where a Node is consumed (ADR-205): nil and the zero
+// asNode is the fast path of toNode: n is an internal node (an element, a
+// text, a fragment, the node of C, CP, Memo or Map, or the zero node, a
+// hole) and not a Prop's.
+func asNode(n Node) (node, bool) {
+	c, ok := n.(node)
+	return c, ok && (c.d == nil || c.d.kind != nodeProp)
+}
+
+// toNode converts n where a Node is consumed (ADR-205): nil and the zero
 // node are a hole, a node is itself and a struct component becomes a
-// component node. A Prop (or the node of one) panics; what names the
-// place and ends with its verb ("the root is", "item 3 of a Map is").
-func nodeOf(n Node, what string) node {
-	if c, ok := n.(node); ok && (c.d == nil || c.d.kind != nodeProp) {
+// component node. A Prop (or the node of one) panics; where, called only
+// then, names the place and ends with its verb ("the root is", "item 3 of
+// a Map is", "Card.Build returned").
+func toNode(n Node, where func() string) node {
+	if c, ok := asNode(n); ok {
 		return c
 	}
-	if n == nil {
-		return node{}
-	}
 	if p, ok := propOf(n); ok {
-		panic(propNodeMessage(what, p))
+		panic(propNodeMessage(where(), p))
 	}
-	return componentOf(n)
+	return childNode(n)
+}
+
+// nodeOf is toNode where what names the place.
+func nodeOf(n Node, what string) node {
+	return toNode(n, func() string { return what })
 }
 
 // propNodeMessage is the panic of a Prop where a node is consumed; what
@@ -422,18 +432,20 @@ func propNodeMessage(what string, p Prop) string {
 	return fmt.Sprintf("tela: %s a Prop (%s), not a node or a component; props go to elements, such as Div(%s(...), ...) (a Prop compiles where a tela.Node is expected because it has a Build method)", what, n, n)
 }
 
-// nodesOf converts the items of a list with nodeOf; who names the list
-// in the panic of a Prop ("a Map", "h.Nodes").
+// nodesOf converts the items of a list with itemOf; who names the list
+// in the panic of a Prop ("a list", "h.Nodes").
 func nodesOf(nodes []Node, who string) []node {
 	out := make([]node, len(nodes))
 	for i, n := range nodes {
-		if c, ok := n.(node); ok && (c.d == nil || c.d.kind != nodeProp) {
-			out[i] = c
-			continue
-		}
-		out[i] = nodeOf(n, fmt.Sprintf("item %d of %s is", i, who))
+		out[i] = itemOf(n, i, who)
 	}
 	return out
+}
+
+// itemOf is toNode for item i of the list that who makes ("Map"): the
+// message is built only for a Prop.
+func itemOf(n Node, i int, who string) node {
+	return toNode(n, func() string { return fmt.Sprintf("item %d of %s is", i, who) })
 }
 
 // propName names a prop for messages.
@@ -740,18 +752,6 @@ func MapIndex[T any](items []T, f func(i int, item T) Node) Node {
 		nodes[i] = itemOf(f(i, it), i, "MapIndex")
 	}
 	return dynamicList(nodes)
-}
-
-// itemOf is nodeOf for item i of the list that who makes ("Map"), with
-// the message built only for a Prop.
-func itemOf(n Node, i int, who string) node {
-	if c, ok := n.(node); ok && (c.d == nil || c.d.kind != nodeProp) {
-		return c
-	}
-	if _, ok := propOf(n); ok {
-		return nodeOf(n, fmt.Sprintf("item %d of %s is", i, who))
-	}
-	return nodeOf(n, "")
 }
 
 // If returns n when cond holds, else nil (a hole that keeps the positions

@@ -32,14 +32,19 @@ import (
 // Each box keeps its inputs and placement as they were at its last place
 // (rin, rout) and the epochs (layerState.epoch, advanced after every
 // paint) at which they last changed. The paint phase compares them when it
-// places a box (notePlaced, on frames that build, restyle or lay out) and
-// where a frame that only repaints changes what a box records (noteInner:
-// a color transition step, a BgFn). A layer is dirty when a box it noted
+// places a box (notePlaced, on frames that build, restyle or lay out, and
+// for the boxes a frame that only repaints places again: a BgFn), and an
+// animation step that changes a box's style does (noteStyle). A style of a
+// new identity is compared by content (sameStyle, recordstyle.go), so a
+// style that records the same changes nothing, whoever made it, and one
+// that records otherwise is always seen. A layer is dirty when a box it noted
 // changed after it was recorded, when a box it culled-tested would now be
 // culled the other way (checked when an ink or an interest rect changed),
-// when the interest rect of its scroll space moved, and always for a
-// scrollbar layer (recorded on every paint) or a text field's layer that
-// asked for it.
+// when the interest rect of its scroll space moved and its list culls (a
+// list that culls nothing, such as a deferred layer's or one inside a
+// transformed subtree, does not depend on it), and always for a scrollbar
+// layer (recorded on every paint) or a text field's layer that asked for
+// it.
 //
 // # Recording
 //
@@ -279,26 +284,35 @@ func (p *painter) inputsOut(bx *Box) paintOut {
 }
 
 // notePlaced compares the inputs and the placement of bx, just placed, with
-// those of its last place, and stamps what changed. Only what some list
-// reads is compared (Box.rinN, routN): most boxes of a long list are
-// culled with an ancestor and read by none.
-func (p *painter) notePlaced(bx *Box) {
+// those of its last place, and stamps what changed; it reports whether it
+// stamped anything. Only what some list reads is compared (Box.rinN,
+// routN): most boxes of a long list are culled with an ancestor and read
+// by none. A style of a new identity that records the same (sameStyle)
+// takes the place of the old one without a stamp.
+func (p *painter) notePlaced(bx *Box) bool {
 	if p.ref {
-		return
+		return false
 	}
 	L := &p.t.lay
+	stamped := false
 	if bx.rinN > 0 {
 		if in := p.inputsIn(bx); in != bx.rin {
-			bx.rin, bx.rinAt = in, L.epoch
-			L.nchg++
+			if !in.same(&bx.rin) {
+				bx.rinAt = L.epoch
+				L.nchg++
+				stamped = true
+			}
+			bx.rin = in
 		}
 	}
 	if bx.routN > 0 {
 		if out := p.inputsOut(bx); out != bx.rout {
 			bx.rout, bx.routAt = out, L.epoch
 			L.nchg++
+			stamped = true
 		}
 	}
+	return stamped
 }
 
 // noneOut is the placement of a box that is not displayed.
@@ -314,30 +328,28 @@ func (p *painter) noteNone(bx *Box) {
 	L.nchg++
 }
 
-// noteInner stamps the inputs of placed box bx as changed on a frame that
-// does not place the boxes (an animation step, a deferred color). An
-// inline element is painted by its paragraph: its paragraph box changes.
-func (t *Tree) noteInner(bx *Box) {
-	L := &t.lay
+// noteStyle is notePlaced for placed box bx, whose used style changed from
+// old on a frame that does not place the boxes (an animation step,
+// anim.go): what its lists read is compared with what they read last (a
+// radius transition also changes the overflow clip that the lists of
+// hoisted descendants push), and what changed is stamped. It reports
+// whether it stamped anything. An inline element is painted by its
+// paragraph: a style that records otherwise changes its paragraph box.
+func (t *Tree) noteStyle(bx *Box, old *style.ComputedStyle) bool {
 	if pb := bx.inPara; pb != nil {
+		if sameStyle(old, bx.cs, false) {
+			return false
+		}
 		if pb.para != nil {
 			pb.para.ver++
 		}
 		bx = pb
 	}
 	if bx.pcs == nil {
-		return
+		return false
 	}
 	p := painter{t: t, scale: float64(t.scale)}
-	bx.rin, bx.rinAt = p.inputsIn(bx), L.epoch
-	L.nchg++
-	if bx.routN > 0 {
-		// A radius transition changes the overflow clip that the lists of
-		// hoisted descendants push.
-		if out := p.inputsOut(bx); out != bx.rout {
-			bx.rout, bx.routAt = out, L.epoch
-		}
-	}
+	return p.notePlaced(bx)
 }
 
 // dep notes that the list being recorded reads the inputs of bx. A box
@@ -418,7 +430,7 @@ func (L *layerState) stale(l *layer, p *painter) bool {
 			return true
 		}
 	}
-	if l.rint != p.interestOf(l.space) {
+	if l.cull && l.rint != p.interestOf(l.space) {
 		return true
 	}
 	if L.nchg > 0 {
@@ -463,11 +475,16 @@ func (t *Tree) recordDirty(p *painter) bool {
 	var walk func(l *layer)
 	walk = func(l *layer) {
 		if l.dirty {
-			if !p.canRecord(l) {
+			start := len(p.clips)
+			at, can := p.canRecord(l)
+			if can {
+				p.recordLayer(l, p.clips[start:], at)
+			}
+			p.clips = p.clips[:start]
+			if !can {
 				ok = false
 				return
 			}
-			p.recordLayer(l)
 		}
 		for i := 0; ok && i < len(l.kids); i++ {
 			walk(l.kids[i])
@@ -479,48 +496,50 @@ func (t *Tree) recordDirty(p *painter) bool {
 }
 
 // canRecord reports whether layer l can be recorded in place: the boxes
-// its recipe paints still open it where it is.
-func (p *painter) canRecord(l *layer) bool {
+// its recipe paints still open it where it is. For a chunk opened by a
+// clipping ancestor of a hoisted box, it appends the hoisted box's clip
+// chain to p.clips (the caller truncates it) and returns the index of the
+// lead in what it appended, which recordLayer paints from.
+func (p *painter) canRecord(l *layer) (at int, ok bool) {
 	t := p.t
 	placed := func(b *Box) bool { return b != nil && b.pcs != nil && t.inTree(b) }
 	switch l.kind {
 	case layerRoot:
-		return l.box == t.rootBox
+		return -1, l.box == t.rootBox
 	case layerDeferred:
-		return placed(l.box) && deferredLayer(l.box) && l.box.space == l.space
+		return -1, placed(l.box) && deferredLayer(l.box) && l.box.space == l.space
 	case layerBars:
-		return placed(l.box) && l.box.scr != nil
+		return -1, placed(l.box) && l.box.scr != nil
 	case layerField:
-		return placed(l.box) && l.box.fld != nil && l.box.mode == modeField
+		return -1, placed(l.box) && l.box.fld != nil && l.box.mode == modeField
 	case layerChunk:
 		if l.hoist == nil {
 			b := l.lead
-			return placed(b) && b.scr != nil && b.scr.chunked && b.scr == l.space
+			return -1, placed(b) && b.scr != nil && b.scr.chunked && b.scr == l.space
 		}
 		e := l.hoist
 		if !placed(e) || !placed(l.sc) || !participant(e) {
-			return false
+			return -1, false
 		}
 		if l.lead == e {
-			return e.space == l.space
+			return -1, e.space == l.space
 		}
 		start := len(p.clips)
 		p.clipChain(l.sc, e, false)
-		ok := false
-		for _, c := range p.clips[start:] {
+		for i, c := range p.clips[start:] {
 			if c == l.lead {
-				ok = c.space == l.space
+				return i, c.space == l.space
 			}
 		}
-		p.clips = p.clips[:start]
-		return ok
 	}
-	return false
+	return -1, false
 }
 
 // recordLayer records layer l again in place, with the painter state of
-// its opening.
-func (p *painter) recordLayer(l *layer) {
+// its opening. clips and at are what canRecord found for a chunk opened
+// by a clipping ancestor of a hoisted box: the hoisted box's clip chain
+// and the index of the lead in it.
+func (p *painter) recordLayer(l *layer, clips []*Box, at int) {
 	L := &p.t.lay
 	p.b, p.layer = L.builder(), l
 	p.space, p.interest, p.cull = l.space, p.interestOf(l.space), l.cull
@@ -555,16 +574,7 @@ func (p *painter) recordLayer(l *layer) {
 			p.hoistBody(e)
 			break
 		}
-		start := len(p.clips)
-		p.clipChain(l.sc, e, false)
-		clips := p.clips[start:]
-		for i, c := range clips {
-			if c == l.lead {
-				p.hoistChain(l.sc, e, clips, i, true)
-				break
-			}
-		}
-		p.clips = p.clips[:start]
+		p.hoistChain(l.sc, e, clips, at, true)
 	}
 	p.endLayer(l)
 }

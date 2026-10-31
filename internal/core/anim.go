@@ -57,6 +57,9 @@ import (
 //     box's old and new areas.
 //   - colors and the border radius (ClassPaint): the layers that painted
 //     the box are recorded again (record.go), without placing the boxes.
+//     What they read is decided by the tracker of partial recording, which
+//     compares the new style with the last one field by field (sameStyle),
+//     not by the animation code: a change of any other field is seen too.
 //   - shadows and filters (ClassInk): the boxes are placed again too, since
 //     what the box paints extends beyond its border box (and the lists that
 //     culled it may paint it now).
@@ -114,6 +117,10 @@ type boxAnim struct {
 	layer bool
 	// dormant: the keyframes wait for the box to be displayed.
 	dormant bool
+	// dfr is the Deferred of the frames of a layer whose target dfrOf has
+	// deferred props: the target's and animLayerDeferred (animStyle).
+	dfr   []style.Deferred
+	dfrOf *style.ComputedStyle
 }
 
 // boxTransition is a running transition with the styles it interpolates
@@ -205,6 +212,7 @@ func (ba *boxAnim) stateAt(now time.Duration) anim.State {
 // release forgets the animation state of a box that has none left.
 func (ba *boxAnim) release() {
 	ba.target, ba.layer = nil, false
+	ba.dfr, ba.dfrOf = nil, nil
 	if ba.empty() && !ba.dormant {
 		ba.bx.anim = nil
 	}
@@ -473,7 +481,12 @@ func (t *Tree) animStyle(ba *boxAnim, target *style.ComputedStyle, now time.Dura
 		if len(target.Deferred) == 0 {
 			u.Deferred = animLayerOnly
 		} else {
-			u.Deferred = append(slices.Clip(target.Deferred), animLayerDeferred)
+			// Made once per target, so that the frames share it like the
+			// rest of the target (record.go compares slices by identity).
+			if ba.dfrOf != target {
+				ba.dfrOf, ba.dfr = target, append(slices.Clip(target.Deferred), animLayerDeferred)
+			}
+			u.Deferred = ba.dfr
 		}
 	}
 	if u == nil {
@@ -515,24 +528,22 @@ func (ba *boxAnim) Advance(now time.Duration) anim.State {
 }
 
 // animApply installs u, the style of a frame of an animation, as the box's
-// used style, invalidating only what its difference from old needs.
+// used style, invalidating only what its difference from old needs. What
+// the lists read is decided where it is for every other change (record.go:
+// noteStyle, and for a box with paint-phase deferred props notePlaced once
+// they are resolved again): the animation only tells what moves the box's
+// ink and whether its style changed at all.
 func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 	if old == u {
 		return
 	}
 	bx.cs = u
-	var layerCh, paintCh, inkCh bool
+	changed := !sameStyle(old, u, false)
+	inkCh := false
 	for p := anim.Prop(0); p < anim.NumProps; p++ {
-		if p.Inherited() || p.Class() == anim.ClassLayout || anim.Equal(p, old, u) {
-			continue
-		}
-		switch p.Class() {
-		case anim.ClassLayer:
-			layerCh = true
-		case anim.ClassInk:
+		if p.Class() == anim.ClassInk && !anim.Equal(p, old, u) {
 			inkCh = true
-		default:
-			paintCh = true
+			break
 		}
 	}
 	wasDeferred := bx.deferPaint
@@ -543,40 +554,35 @@ func (t *Tree) animApply(bx *Box, old, u *style.ComputedStyle) {
 	if bx.fld != nil {
 		t.fieldRestyled(bx.fld, old, u)
 	}
+	if bx.pcs != nil && !bx.deferPaint {
+		bx.pcs = u
+	}
 	L := &t.lay
+	same := wasDeferred == bx.deferPaint
 	switch {
-	case wasDeferred != bx.deferPaint:
+	case !same:
 		// The box starts or stops being a layer: place and record
 		// everything again.
 		L.needFull, L.needPlace = true, true
 		t.repaint = true
 	case inkCh:
-		// It paints beyond its border box: the boxes are placed again,
-		// and the layers that read what changed are recorded again
-		// (record.go).
+		// It paints beyond its border box: the boxes are placed again
+		// (their inks, what the lists culled).
 		L.needPlace = true
 		t.repaint = true
-	case paintCh:
+	case changed:
 		t.repaint = true
 	}
-	if bx.pcs != nil && !bx.deferPaint {
-		bx.pcs = u
+	if same {
+		// The layers that read what changed are recorded again
+		// (record.go).
+		t.noteStyle(bx, old)
 	}
-	switch same := wasDeferred == bx.deferPaint; {
-	case same && (paintCh || inkCh):
-		// What the box records changed: the layers that painted it.
-		t.noteInner(bx)
-	case same && (bx.deferPaint || !layerCh) && bx.lanim == nil && bx.rin.cs == old:
-		// Only the style's identity changed, or what the compositor
-		// applies (a deferred layer's opacity and transform): what the box
-		// records holds (record.go).
-		bx.rin.cs = u
-	}
-	if bx.deferPaint && (layerCh || paintCh || inkCh) {
+	if bx.deferPaint && changed {
+		// The compositor applies the layer's new opacity and transform;
+		// update resolves its deferred props, and what its lists read of
+		// them is compared then.
 		t.markPaint(bx)
-	}
-	if !bx.deferPaint && layerCh {
-		t.repaint = true
 	}
 }
 

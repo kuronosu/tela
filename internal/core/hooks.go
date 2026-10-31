@@ -66,17 +66,13 @@ func (t *Tree) build(el *Element) {
 // dev mode a struct component that returns its own receiver panics too
 // (checkSelfBuild).
 func (t *Tree) buildResult(el *Element, out Node) node {
-	if n, ok := out.(node); ok && (n.d == nil || n.d.kind != nodeProp) {
+	if n, ok := asNode(out); ok {
 		return n
 	}
-	if out == nil {
-		return node{}
-	}
-	if p, ok := propOf(out); ok {
-		panic(propNodeMessage(buildName(el.comp)+" returned", p))
-	}
-	n := componentOf(out)
-	if t.dev && el.comp.ct != nil && n.d.comp.ct == el.comp.ct {
+	n := toNode(out, func() string { return buildName(el.comp) + " returned" })
+	if n.d != nil && t.dev && el.comp.ct != nil && n.d.comp.ct == el.comp.ct {
+		// A struct component (not a node that holds one, such as its
+		// WithKey): the Build that returns its own receiver.
 		t.checkSelfBuild(el, n)
 	}
 	return n
