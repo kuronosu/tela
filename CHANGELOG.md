@@ -62,6 +62,8 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- The backdrop-filter cache (ADR-200) could draw a wrong blur under stacked glass panes: a filter planned as a cache hit missed at draw time (its region was grown by an earlier filter, or it was under a mirroring transform) and was recomputed from pixels the incremental render had not made exact. The planning now checks the whole cache key and binds what is drawn from the cache.
+
 - A virtual `kit.Table` (`RowHeight`) keeps its header and footer aligned with the rows when the scrollbars take layout width (classic scrollbars, the Windows look), left to right and right to left.
 - `tela lint`'s `fragment` rule no longer offers to remove a `Fragment` around a single node when the same variable or the function's other returns hold a `Fragment` of several (declared with `var`, `:=`, assigned in a branch or a switch, or captured by a closure): the child would remount when the form changes.
 
