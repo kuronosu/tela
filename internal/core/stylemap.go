@@ -85,23 +85,7 @@ func (t *Tree) restyle(el *Element) {
 	// is what the rest compares with: the structure, the children's
 	// inherited values, a field's text and the TextColorFn count follow
 	// the style the box had, also in a rerun.
-	before := old
-	if old == nil {
-		bx.styledFrame = t.frame
-	} else if t.rerun && bx.styledFrame >= t.frameStart {
-		// The frame builds again before painting (the float pass
-		// published a placement): a box that mounted in it has not been
-		// seen yet, so it starts its transitions and animations again
-		// from its starting style, with the classes of the final side.
-		// (>=: the passes of the frame advance t.frame; Tree.frameStart.)
-		if ba := bx.anim; ba != nil {
-			t.anim.tk.Remove(ba)
-			ba.dormant = false
-			ba.trans, ba.kf = nil, nil
-			ba.release()
-		}
-		before = nil
-	}
+	before := t.animBefore(bx, old)
 	// Transitions and keyframe animations: cs is the target; the style the
 	// box uses now may differ from it (anim.go). A box that starts being
 	// rendered transitions from its starting style, or not at all.
@@ -134,6 +118,39 @@ func (t *Tree) restyle(el *Element) {
 	if old == nil {
 		return // a new element: reconciliation marked its structure
 	}
+	t.invalidateAfterRestyle(el, sp, old, cs)
+}
+
+// animBefore returns the style the animations of box bx start from
+// (beforeChange): old, the style it had, or nil for a new box (whose
+// first styled frame it records) and for a box that mounted in a frame
+// that builds again (whose animations it resets).
+func (t *Tree) animBefore(bx *Box, old *style.ComputedStyle) *style.ComputedStyle {
+	if old == nil {
+		bx.styledFrame = t.frame
+		return nil
+	}
+	if t.rerun && bx.styledFrame >= t.frameStart {
+		// The frame builds again before painting (the float pass
+		// published a placement): a box that mounted in it has not been
+		// seen yet, so it starts its transitions and animations again
+		// from its starting style, with the classes of the final side.
+		// (>=: the passes of the frame advance t.frame; Tree.frameStart.)
+		if ba := bx.anim; ba != nil {
+			t.anim.tk.Remove(ba)
+			ba.dormant = false
+			ba.trans, ba.kf = nil, nil
+			ba.release()
+		}
+		return nil
+	}
+	return old
+}
+
+// invalidateAfterRestyle marks what the change of primitive el's style
+// from old to cs invalidates: the boxes of el, of its paragraph and of its
+// style parent sp, and the style of its children.
+func (t *Tree) invalidateAfterRestyle(el, sp *Element, old, cs *style.ComputedStyle) {
 	inherited := !sameInherited(old, cs)
 	if displayClass(old) != displayClass(cs) || atomicStyle(old) != atomicStyle(cs) || outOfFlowStyle(old) != outOfFlowStyle(cs) {
 		t.markBoxes(el)
@@ -142,7 +159,7 @@ func (t *Tree) restyle(el *Element) {
 	if inherited || old.TextOverflow != cs.TextOverflow || old.LineClamp != cs.LineClamp {
 		t.markBoxes(el) // its paragraph, or the one it is part of
 	}
-	if bx.inPara != nil && inlineBoxChanged(old, cs) {
+	if el.box.inPara != nil && inlineBoxChanged(old, cs) {
 		t.markBoxes(el) // the edges of an inline element are laid out
 	}
 	if old.VerticalAlign != cs.VerticalAlign {
