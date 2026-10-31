@@ -87,10 +87,14 @@ func TestRobustnessShadowsFilters(t *testing.T) {
 	// 1280 on each side, so this costs a few large blurs per render (about
 	// 8 s on an idle 2024 desktop). The limit catches unbounded work, not
 	// slowness; -short is what the arm64 check runs under emulation, roughly
-	// ten times slower, with one scale.
+	// ten times slower, with one scale, and the race detector is about ten
+	// times slower too.
 	limit := 60 * time.Second
 	if testing.Short() {
 		limit = 120 * time.Second
+	}
+	if raceOn {
+		limit *= 10
 	}
 	if d := time.Since(start); d > limit {
 		t.Errorf("rendering took %v", d)
