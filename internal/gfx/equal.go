@@ -7,62 +7,94 @@ import "slices"
 // (paths, stops, dashes, filters, glyphs) are compared element by element,
 // after a fast path for shared ones; images and fonts by identity.
 func Equal(a, b Command) bool {
-	switch a := a.(type) {
-	case FillRect:
-		b, ok := b.(FillRect)
-		return ok && a.Rect == b.Rect && PaintEqual(a.Paint, b.Paint)
-	case FillRRect:
-		b, ok := b.(FillRRect)
-		return ok && a.RRect == b.RRect && PaintEqual(a.Paint, b.Paint)
-	case FillPath:
-		b, ok := b.(FillPath)
-		return ok && a.Rule == b.Rule && pathEqual(a.Path, b.Path) && PaintEqual(a.Paint, b.Paint)
-	case StrokePath:
-		b, ok := b.(StrokePath)
-		return ok && strokeEqual(&a.Style, &b.Style) && pathEqual(a.Path, b.Path) && PaintEqual(a.Paint, b.Paint)
-	case DrawImage:
-		b, ok := b.(DrawImage)
-		return ok && a == b
-	case DrawShadow:
-		b, ok := b.(DrawShadow)
-		return ok && a == b
-	case DrawGlyphRun:
-		b, ok := b.(DrawGlyphRun)
-		return ok && a.Font.FontKey() == b.Font.FontKey() && a.Size == b.Size && a.Origin == b.Origin &&
-			sameSlice(a.Glyphs, b.Glyphs) && PaintEqual(a.Paint, b.Paint)
-	case PushClipRect:
-		b, ok := b.(PushClipRect)
-		return ok && a == b
-	case PushClipRRect:
-		b, ok := b.(PushClipRRect)
-		return ok && a == b
-	case PushClipPath:
-		b, ok := b.(PushClipPath)
-		return ok && a.Rule == b.Rule && pathEqual(a.Path, b.Path)
-	case PushTransform:
-		b, ok := b.(PushTransform)
-		return ok && a == b
-	case PushLayer:
-		b, ok := b.(PushLayer)
-		return ok && a.Opacity == b.Opacity && a.Blend == b.Blend && sameSlice(a.Filters, b.Filters) &&
-			a.Mask.Mode == b.Mask.Mode && listEqual(a.Mask.List, b.Mask.List)
-	case BackdropFilter:
-		b, ok := b.(BackdropFilter)
-		return ok && a.Shape == b.Shape && a.Opacity == b.Opacity && sameSlice(a.Filters, b.Filters)
-	case PopClip:
-		_, ok := b.(PopClip)
-		return ok
-	case PopTransform:
-		_, ok := b.(PopTransform)
-		return ok
-	case PopLayer:
-		_, ok := b.(PopLayer)
-		return ok
-	case Marker:
-		b, ok := b.(Marker)
-		return ok && a == b
-	}
-	return false
+	return a != nil && a.equal(b)
+}
+
+func (a FillRect) equal(c Command) bool {
+	b, ok := c.(FillRect)
+	return ok && a.Rect == b.Rect && PaintEqual(a.Paint, b.Paint)
+}
+
+func (a FillRRect) equal(c Command) bool {
+	b, ok := c.(FillRRect)
+	return ok && a.RRect == b.RRect && PaintEqual(a.Paint, b.Paint)
+}
+
+func (a FillPath) equal(c Command) bool {
+	b, ok := c.(FillPath)
+	return ok && a.Rule == b.Rule && pathEqual(a.Path, b.Path) && PaintEqual(a.Paint, b.Paint)
+}
+
+func (a StrokePath) equal(c Command) bool {
+	b, ok := c.(StrokePath)
+	return ok && strokeEqual(&a.Style, &b.Style) && pathEqual(a.Path, b.Path) && PaintEqual(a.Paint, b.Paint)
+}
+
+func (a DrawImage) equal(c Command) bool {
+	b, ok := c.(DrawImage)
+	return ok && a == b
+}
+
+func (a DrawShadow) equal(c Command) bool {
+	b, ok := c.(DrawShadow)
+	return ok && a == b
+}
+
+func (a DrawGlyphRun) equal(c Command) bool {
+	b, ok := c.(DrawGlyphRun)
+	return ok && a.Font.FontKey() == b.Font.FontKey() && a.Size == b.Size && a.Origin == b.Origin &&
+		sameSlice(a.Glyphs, b.Glyphs) && PaintEqual(a.Paint, b.Paint)
+}
+
+func (a PushClipRect) equal(c Command) bool {
+	b, ok := c.(PushClipRect)
+	return ok && a == b
+}
+
+func (a PushClipRRect) equal(c Command) bool {
+	b, ok := c.(PushClipRRect)
+	return ok && a == b
+}
+
+func (a PushClipPath) equal(c Command) bool {
+	b, ok := c.(PushClipPath)
+	return ok && a.Rule == b.Rule && pathEqual(a.Path, b.Path)
+}
+
+func (a PushTransform) equal(c Command) bool {
+	b, ok := c.(PushTransform)
+	return ok && a == b
+}
+
+func (a PushLayer) equal(c Command) bool {
+	b, ok := c.(PushLayer)
+	return ok && a.Opacity == b.Opacity && a.Blend == b.Blend && sameSlice(a.Filters, b.Filters) &&
+		a.Mask.Mode == b.Mask.Mode && listEqual(a.Mask.List, b.Mask.List)
+}
+
+func (a BackdropFilter) equal(c Command) bool {
+	b, ok := c.(BackdropFilter)
+	return ok && a.Shape == b.Shape && a.Opacity == b.Opacity && sameSlice(a.Filters, b.Filters)
+}
+
+func (PopClip) equal(c Command) bool {
+	_, ok := c.(PopClip)
+	return ok
+}
+
+func (PopTransform) equal(c Command) bool {
+	_, ok := c.(PopTransform)
+	return ok
+}
+
+func (PopLayer) equal(c Command) bool {
+	_, ok := c.(PopLayer)
+	return ok
+}
+
+func (a Marker) equal(c Command) bool {
+	b, ok := c.(Marker)
+	return ok && a == b
 }
 
 // PaintEqual reports whether two paints are the same paint.

@@ -21,6 +21,8 @@ type Command interface {
 	isCommand()
 	// Name returns the command name used by Dump, such as "FillRect".
 	Name() string
+	// equal reports whether c is the same command with the same values; see Equal.
+	equal(c Command) bool
 }
 
 // FillRect fills a rectangle (anti-aliased when not pixel aligned).
