@@ -194,47 +194,23 @@ func flexShorthand(c *pctx, inner string) (Op, error) {
 }
 
 func registerGrid(r *registry) {
-	cols := func(root string, set func(*env, TrackList)) {
-		r.add(root, false, func(c *pctx, a *arg) (Op, error) {
-			if a.hasMod {
-				return Op{}, errNoMatch
-			}
-			var list TrackList
-			switch {
-			case a.arb:
-				if a.hint != "" {
-					return Op{}, errNoMatch
-				}
-				l, err := parseTrackList(a.inner, c.th.RootFontSize)
-				if err != nil {
-					return Op{}, err
-				}
-				list = l
-			case a.value == "none":
-			case a.value == "subgrid":
-				return Op{}, unsupportedErr("subgrid is not supported; declare the tracks again on the nested grid")
-			default:
-				n, ok := parseUint(a.value)
-				if !ok {
-					return Op{}, errNoMatch
-				}
-				if n < 1 || n > 1000 {
-					return Op{}, fmt.Errorf("the track count must be from 1 to 1000, got %d", n)
-				}
-				list = TrackList{Entries: []TrackEntry{{Repeat: true, Kind: RepeatCount, Count: n,
-					Tracks: []TrackSize{{Max: TrackBreadth{Kind: BreadthFr, Fr: 1}, Min: TrackBreadth{Kind: BreadthLength}}}}}}
-			}
-			return op(func(e *env) { set(e, list) }), nil
-		}, func(*Theme) []string {
-			out := []string{"none"}
-			for i := 1; i <= 12; i++ {
-				out = append(out, strconv.Itoa(i))
-			}
-			return out
-		})
+	registerGridTracks(r)
+	registerGridPlacement(r, "col", func(s *ComputedStyle) *GridPlacement { return &s.GridColumn })
+	registerGridPlacement(r, "row", func(s *ComputedStyle) *GridPlacement { return &s.GridRow })
+}
+
+// registerGridTracks registers grid-cols, grid-rows, grid-flow, auto-cols
+// and auto-rows.
+func registerGridTracks(r *registry) {
+	trackCountValues := func(*Theme) []string {
+		out := []string{"none"}
+		for i := 1; i <= 12; i++ {
+			out = append(out, strconv.Itoa(i))
+		}
+		return out
 	}
-	cols("grid-cols", func(e *env, l TrackList) { e.s.GridTemplateColumns = l })
-	cols("grid-rows", func(e *env, l TrackList) { e.s.GridTemplateRows = l })
+	r.add("grid-cols", false, gridTemplateUtility(func(e *env, l TrackList) { e.s.GridTemplateColumns = l }), trackCountValues)
+	r.add("grid-rows", false, gridTemplateUtility(func(e *env, l TrackList) { e.s.GridTemplateRows = l }), trackCountValues)
 
 	flow := map[string]GridAutoFlow{"row": GridFlowRow, "col": GridFlowColumn, "dense": GridFlowRowDense,
 		"row-dense": GridFlowRowDense, "col-dense": GridFlowColumnDense}
@@ -245,140 +221,216 @@ func registerGrid(r *registry) {
 	}
 	r.enum("grid-flow", false, flowOps)
 
-	autoTracks := func(root string, set func(*env, []TrackSize)) {
-		r.add(root, false, func(c *pctx, a *arg) (Op, error) {
-			if a.hasMod {
-				return Op{}, errNoMatch
-			}
-			var ts []TrackSize
-			switch {
-			case a.arb:
-				// grid-auto-columns and grid-auto-rows are a list of track
-				// sizes: no line names or repeat().
-				for _, f := range fieldsTop(a.inner) {
-					t, err := parseTrackSize(f, c.th.RootFontSize)
-					if err != nil {
-						if strings.HasPrefix(f, "[") || strings.HasPrefix(f, "repeat(") {
-							return Op{}, fmt.Errorf("%s takes track sizes only (no line names or repeat()), got %q", root, f)
-						}
-						return Op{}, err
-					}
-					ts = append(ts, t)
-				}
-				if len(ts) == 0 {
-					return Op{}, errNoMatch
-				}
-			case a.value == "auto":
-				ts = []TrackSize{{}}
-			case a.value == "min":
-				ts = []TrackSize{{Min: TrackBreadth{Kind: BreadthMinContent}, Max: TrackBreadth{Kind: BreadthMinContent}}}
-			case a.value == "max":
-				ts = []TrackSize{{Min: TrackBreadth{Kind: BreadthMaxContent}, Max: TrackBreadth{Kind: BreadthMaxContent}}}
-			case a.value == "fr":
-				ts = []TrackSize{{Max: TrackBreadth{Kind: BreadthFr, Fr: 1}}}
-			default:
-				return Op{}, errNoMatch
-			}
-			return op(func(e *env) { set(e, ts) }), nil
-		}, func(*Theme) []string { return []string{"auto", "min", "max", "fr"} })
-	}
-	autoTracks("auto-cols", func(e *env, t []TrackSize) { e.s.GridAutoColumns = t })
-	autoTracks("auto-rows", func(e *env, t []TrackSize) { e.s.GridAutoRows = t })
+	autoTrackValues := func(*Theme) []string { return []string{"auto", "min", "max", "fr"} }
+	r.add("auto-cols", false, gridAutoTracksUtility("auto-cols", func(e *env, t []TrackSize) { e.s.GridAutoColumns = t }), autoTrackValues)
+	r.add("auto-rows", false, gridAutoTracksUtility("auto-rows", func(e *env, t []TrackSize) { e.s.GridAutoRows = t }), autoTrackValues)
+}
 
-	placement := func(prefix string, get func(*ComputedStyle) *GridPlacement) {
-		// number parses the bare value of col-N, col-start-N...: a positive
-		// integer, negated by a leading dash (-col-start-1).
-		number := func(a *arg) (GridLine, bool) {
+// gridTemplateUtility returns the parser of grid-cols-* and grid-rows-*;
+// set stores the track list.
+func gridTemplateUtility(set func(*env, TrackList)) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.hasMod {
+			return Op{}, errNoMatch
+		}
+		var list TrackList
+		switch {
+		case a.arb:
+			if a.hint != "" {
+				return Op{}, errNoMatch
+			}
+			l, err := parseTrackList(a.inner, c.th.RootFontSize)
+			if err != nil {
+				return Op{}, err
+			}
+			list = l
+		case a.value == "none":
+		case a.value == "subgrid":
+			return Op{}, unsupportedErr("subgrid is not supported; declare the tracks again on the nested grid")
+		default:
+			l, err := repeatedTrackList(a.value)
+			if err != nil {
+				return Op{}, err
+			}
+			list = l
+		}
+		return op(func(e *env) { set(e, list) }), nil
+	}
+}
+
+// repeatedTrackList parses the track count of grid-cols-N into
+// repeat(N, minmax(0, 1fr)).
+func repeatedTrackList(value string) (TrackList, error) {
+	n, ok := parseUint(value)
+	if !ok {
+		return TrackList{}, errNoMatch
+	}
+	if n < 1 || n > 1000 {
+		return TrackList{}, fmt.Errorf("the track count must be from 1 to 1000, got %d", n)
+	}
+	return TrackList{Entries: []TrackEntry{{Repeat: true, Kind: RepeatCount, Count: n,
+		Tracks: []TrackSize{{Max: TrackBreadth{Kind: BreadthFr, Fr: 1}, Min: TrackBreadth{Kind: BreadthLength}}}}}}, nil
+}
+
+// gridAutoTracksUtility returns the parser of the auto-cols and auto-rows
+// class named root; set stores the track sizes.
+func gridAutoTracksUtility(root string, set func(*env, []TrackSize)) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.hasMod {
+			return Op{}, errNoMatch
+		}
+		var ts []TrackSize
+		switch {
+		case a.arb:
+			sizes, err := arbitraryAutoTracks(root, a.inner, c.th.RootFontSize)
+			if err != nil {
+				return Op{}, err
+			}
+			ts = sizes
+		case a.value == "auto":
+			ts = []TrackSize{{}}
+		case a.value == "min":
+			ts = []TrackSize{{Min: TrackBreadth{Kind: BreadthMinContent}, Max: TrackBreadth{Kind: BreadthMinContent}}}
+		case a.value == "max":
+			ts = []TrackSize{{Min: TrackBreadth{Kind: BreadthMaxContent}, Max: TrackBreadth{Kind: BreadthMaxContent}}}
+		case a.value == "fr":
+			ts = []TrackSize{{Max: TrackBreadth{Kind: BreadthFr, Fr: 1}}}
+		default:
+			return Op{}, errNoMatch
+		}
+		return op(func(e *env) { set(e, ts) }), nil
+	}
+}
+
+// arbitraryAutoTracks parses the bracketed value of grid-auto-columns and
+// grid-auto-rows: a list of track sizes, with no line names or repeat().
+func arbitraryAutoTracks(root, inner string, rootFontSize float32) ([]TrackSize, error) {
+	var ts []TrackSize
+	for _, f := range fieldsTop(inner) {
+		t, err := parseTrackSize(f, rootFontSize)
+		if err != nil {
+			if strings.HasPrefix(f, "[") || strings.HasPrefix(f, "repeat(") {
+				return nil, fmt.Errorf("%s takes track sizes only (no line names or repeat()), got %q", root, f)
+			}
+			return nil, err
+		}
+		ts = append(ts, t)
+	}
+	if len(ts) == 0 {
+		return nil, errNoMatch
+	}
+	return ts, nil
+}
+
+// gridLineNumber parses the bare value of col-N, col-start-N...: a positive
+// integer, negated by a leading dash (-col-start-1).
+func gridLineNumber(a *arg) (GridLine, bool) {
+	n, ok := parseUint(a.value)
+	if !ok || n == 0 {
+		return GridLine{}, false
+	}
+	if a.neg {
+		n = -n
+	}
+	return GridLine{Kind: GridLineIndex, N: n}, true
+}
+
+// gridLineValues lists the suffixes offered for the line classes.
+func gridLineValues(*Theme) []string {
+	return []string{"auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}
+}
+
+// registerGridPlacement registers the placement classes of one axis:
+// prefix-start-*, prefix-end-*, prefix-span-* and prefix-*. get selects
+// the placement in the style.
+func registerGridPlacement(r *registry, prefix string, get func(*ComputedStyle) *GridPlacement) {
+	r.add(prefix+"-start", true, gridLineUtility(get, func(p *GridPlacement, l GridLine) { p.Start = l }), gridLineValues)
+	r.add(prefix+"-end", true, gridLineUtility(get, func(p *GridPlacement, l GridLine) { p.End = l }), gridLineValues)
+	r.add(prefix+"-span", false, gridSpanUtility(get), func(*Theme) []string {
+		return []string{"full", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}
+	})
+	// col-N is grid-column: N (Tailwind v4); col-[..] any placement.
+	r.add(prefix, true, gridPlacementUtility(get), gridLineValues)
+}
+
+// gridLineUtility returns the parser of the start and end classes of one
+// axis; set stores the line in the placement.
+func gridLineUtility(get func(*ComputedStyle) *GridPlacement, set func(*GridPlacement, GridLine)) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.hasMod {
+			return Op{}, errNoMatch
+		}
+		var ln GridLine
+		switch {
+		case a.arb && !a.neg:
+			l, err := parseGridLine(a.inner)
+			if err != nil {
+				return Op{}, err
+			}
+			ln = l
+		case a.value == "auto" && !a.neg:
+		default:
+			l, ok := gridLineNumber(a)
+			if !ok {
+				return Op{}, errNoMatch
+			}
+			ln = l
+		}
+		return op(func(e *env) { set(get(e.s), ln) }), nil
+	}
+}
+
+// gridSpanUtility returns the parser of the span class of one axis.
+func gridSpanUtility(get func(*ComputedStyle) *GridPlacement) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.hasMod {
+			return Op{}, errNoMatch
+		}
+		var pl GridPlacement
+		switch {
+		case a.value == "full":
+			pl = GridPlacement{GridLine{Kind: GridLineIndex, N: 1}, GridLine{Kind: GridLineIndex, N: -1}}
+		case a.arb:
+			// col-span-[3] and col-span-[name]: span <value> / span <value>.
+			l, err := parseGridLine("span " + a.inner)
+			if err != nil {
+				return Op{}, err
+			}
+			pl = GridPlacement{l, l}
+		default:
 			n, ok := parseUint(a.value)
 			if !ok || n == 0 {
-				return GridLine{}, false
-			}
-			if a.neg {
-				n = -n
-			}
-			return GridLine{Kind: GridLineIndex, N: n}, true
-		}
-		lineVocab := func(*Theme) []string {
-			return []string{"auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}
-		}
-		line := func(name string, set func(*GridPlacement, GridLine)) {
-			r.add(prefix+"-"+name, true, func(c *pctx, a *arg) (Op, error) {
-				if a.hasMod {
-					return Op{}, errNoMatch
-				}
-				var ln GridLine
-				switch {
-				case a.arb && !a.neg:
-					l, err := parseGridLine(a.inner)
-					if err != nil {
-						return Op{}, err
-					}
-					ln = l
-				case a.value == "auto" && !a.neg:
-				default:
-					l, ok := number(a)
-					if !ok {
-						return Op{}, errNoMatch
-					}
-					ln = l
-				}
-				return op(func(e *env) { set(get(e.s), ln) }), nil
-			}, lineVocab)
-		}
-		line("start", func(p *GridPlacement, l GridLine) { p.Start = l })
-		line("end", func(p *GridPlacement, l GridLine) { p.End = l })
-
-		r.add(prefix+"-span", false, func(c *pctx, a *arg) (Op, error) {
-			if a.hasMod {
 				return Op{}, errNoMatch
 			}
-			var pl GridPlacement
-			switch {
-			case a.value == "full":
-				pl = GridPlacement{GridLine{Kind: GridLineIndex, N: 1}, GridLine{Kind: GridLineIndex, N: -1}}
-			case a.arb:
-				// col-span-[3] and col-span-[name]: span <value> / span <value>.
-				l, err := parseGridLine("span " + a.inner)
-				if err != nil {
-					return Op{}, err
-				}
-				pl = GridPlacement{l, l}
-			default:
-				n, ok := parseUint(a.value)
-				if !ok || n == 0 {
-					return Op{}, errNoMatch
-				}
-				pl = GridPlacement{GridLine{Kind: GridLineSpan, N: n}, GridLine{Kind: GridLineSpan, N: n}}
-			}
-			return op(func(e *env) { *get(e.s) = pl }), nil
-		}, func(*Theme) []string {
-			return []string{"full", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"}
-		})
-
-		// col-N is grid-column: N (Tailwind v4); col-[..] any placement.
-		r.add(prefix, true, func(c *pctx, a *arg) (Op, error) {
-			if a.hasMod {
-				return Op{}, errNoMatch
-			}
-			var pl GridPlacement
-			switch {
-			case a.value == "auto" && !a.neg:
-			case a.arb && !a.neg:
-				p, err := parseGridPlacement(a.inner)
-				if err != nil {
-					return Op{}, err
-				}
-				pl = p
-			default:
-				l, ok := number(a)
-				if !ok {
-					return Op{}, errNoMatch
-				}
-				pl = GridPlacement{Start: l}
-			}
-			return op(func(e *env) { *get(e.s) = pl }), nil
-		}, lineVocab)
+			pl = GridPlacement{GridLine{Kind: GridLineSpan, N: n}, GridLine{Kind: GridLineSpan, N: n}}
+		}
+		return op(func(e *env) { *get(e.s) = pl }), nil
 	}
-	placement("col", func(s *ComputedStyle) *GridPlacement { return &s.GridColumn })
-	placement("row", func(s *ComputedStyle) *GridPlacement { return &s.GridRow })
+}
+
+// gridPlacementUtility returns the parser of the bare placement class of one
+// axis (col-3, col-[1/span_2]).
+func gridPlacementUtility(get func(*ComputedStyle) *GridPlacement) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.hasMod {
+			return Op{}, errNoMatch
+		}
+		var pl GridPlacement
+		switch {
+		case a.value == "auto" && !a.neg:
+		case a.arb && !a.neg:
+			p, err := parseGridPlacement(a.inner)
+			if err != nil {
+				return Op{}, err
+			}
+			pl = p
+		default:
+			l, ok := gridLineNumber(a)
+			if !ok {
+				return Op{}, errNoMatch
+			}
+			pl = GridPlacement{Start: l}
+		}
+		return op(func(e *env) { *get(e.s) = pl }), nil
+	}
 }

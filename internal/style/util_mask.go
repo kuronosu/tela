@@ -117,6 +117,15 @@ var maskEdges = [4]struct {
 }{{"t", 0}, {"r", 90}, {"b", 180}, {"l", 270}}
 
 func registerMasks(r *registry) {
+	registerMaskKeywords(r)
+	registerMaskEdgeStops(r)
+	registerMaskLinear(r)
+	registerMaskRadial(r)
+	registerMaskConic(r)
+}
+
+// maskKeywordOps returns the mask-<keyword> classes.
+func maskKeywordOps() map[string]Op {
 	keys := map[string]Op{
 		"none":    op(func(e *env) { e.sc.mask.image, e.sc.mask.layers = 1, nil }),
 		"contain": op(func(e *env) { e.sc.mask.size = BackgroundSize{Kind: SizeContain} }),
@@ -138,7 +147,13 @@ func registerMasks(r *registry) {
 		p := backgroundPositions[k]
 		keys[k] = op(func(e *env) { e.sc.mask.posX, e.sc.mask.posY = PctLP(p[0]), PctLP(p[1]) })
 	}
-	r.enum("mask", false, keys)
+	return keys
+}
+
+// registerMaskKeywords registers the mask, mask-type, mask-clip,
+// mask-origin, mask-size and mask-position classes.
+func registerMaskKeywords(r *registry) {
+	r.enum("mask", false, maskKeywordOps())
 	r.add("mask", false, maskArbitrary, nil)
 	r.enum("mask-type", false, map[string]Op{"alpha": {}, "luminance": {}})
 
@@ -151,20 +166,29 @@ func registerMasks(r *registry) {
 	}
 	r.enum("mask-clip", false, clip)
 	r.enum("mask-origin", false, origin)
-	r.add("mask-size", false, func(c *pctx, a *arg) (Op, error) {
-		if !a.arb || a.hasMod {
-			return Op{}, errNoMatch
-		}
-		return maskSizeOp(a.inner)
-	}, nil)
-	r.add("mask-position", false, func(c *pctx, a *arg) (Op, error) {
-		if !a.arb || a.hasMod {
-			return Op{}, errNoMatch
-		}
-		return maskPositionOp(a.inner)
-	}, nil)
+	r.add("mask-size", false, maskSizeUtility, nil)
+	r.add("mask-position", false, maskPositionUtility, nil)
+}
 
-	// Edge gradients.
+// maskSizeUtility parses mask-size-[...].
+func maskSizeUtility(c *pctx, a *arg) (Op, error) {
+	if !a.arb || a.hasMod {
+		return Op{}, errNoMatch
+	}
+	return maskSizeOp(a.inner)
+}
+
+// maskPositionUtility parses mask-position-[...].
+func maskPositionUtility(c *pctx, a *arg) (Op, error) {
+	if !a.arb || a.hasMod {
+		return Op{}, errNoMatch
+	}
+	return maskPositionOp(a.inner)
+}
+
+// registerMaskEdgeStops registers the edge gradients mask-{t,r,b,l,x,y}-
+// {from,to}.
+func registerMaskEdgeStops(r *registry) {
 	sides := map[string][]int{"t": {0}, "r": {1}, "b": {2}, "l": {3}, "x": {1, 3}, "y": {0, 2}}
 	for _, name := range sortedMapKeys(sides) {
 		idx := sides[name]
@@ -180,47 +204,11 @@ func registerMasks(r *registry) {
 			}), maskStopValues)
 		}
 	}
-	// Linear.
-	r.add("mask-linear", true, func(c *pctx, a *arg) (Op, error) {
-		if a.hasMod {
-			return Op{}, errNoMatch
-		}
-		var angle float32
-		corner := CornerNone
-		switch {
-		case a.arb:
-			in := strings.TrimSpace(a.inner)
-			if strings.HasPrefix(in, "to ") {
-				var dir Gradient
-				if err := parseLinearDirection(in, &dir); err != nil {
-					return Op{}, err
-				}
-				angle, corner = dir.Angle, dir.Corner
-			} else if v, ok := parseAngle(in); ok {
-				angle = v
-			} else {
-				return Op{}, fmt.Errorf("%q is not a gradient direction; use an angle such as mask-linear-[45deg] or a side such as mask-linear-[to_right]", in)
-			}
-		default:
-			n, ok := parseFloat(a.value)
-			if !ok || n < 0 || strings.ContainsAny(a.value, "+-") {
-				return Op{}, errNoMatch
-			}
-			angle = n
-		}
-		if a.neg {
-			if a.arb {
-				return Op{}, errNoMatch
-			}
-			angle = -angle
-		}
-		return op(func(e *env) {
-			m := &e.sc.mask
-			m.gradients()
-			m.linAngle, m.linCorner = angle, corner
-			m.linForm = 2
-		}), nil
-	}, func(*Theme) []string { return []string{"0", "45", "90", "135", "180", "225", "270", "315"} })
+}
+
+// registerMaskLinear registers mask-linear-* and its stops.
+func registerMaskLinear(r *registry) {
+	r.add("mask-linear", true, maskLinearUtility, maskAngleValues)
 	for _, end := range []string{"from", "to"} {
 		r.add("mask-linear-"+end, false, maskStopUtility(end == "from", false, func(e *env, f func(*maskStops)) {
 			m := &e.sc.mask
@@ -229,37 +217,115 @@ func registerMasks(r *registry) {
 			m.linForm, m.linStops = 3, true
 		}), maskStopValues)
 	}
-	// Radial.
-	r.add("mask-radial", false, func(c *pctx, a *arg) (Op, error) {
-		if a.hasMod || !a.arb {
-			return Op{}, errNoMatch
-		}
-		var g Gradient
-		f := strings.Fields(a.inner)
-		if len(f) == 0 || len(f) > 2 {
-			return Op{}, fmt.Errorf("%q is not a radial gradient size; use a keyword such as closest-side or one or two lengths", a.inner)
-		}
-		if err := parseRadialPrelude(a.inner, &g); err != nil {
+}
+
+// maskAngleValues lists the angle suffixes offered for mask-linear and
+// mask-conic.
+func maskAngleValues(*Theme) []string {
+	return []string{"0", "45", "90", "135", "180", "225", "270", "315"}
+}
+
+// maskLinearUtility parses mask-linear-<angle> and mask-linear-[<angle or
+// side>].
+func maskLinearUtility(c *pctx, a *arg) (Op, error) {
+	if a.hasMod {
+		return Op{}, errNoMatch
+	}
+	var angle float32
+	corner := CornerNone
+	if a.arb {
+		var err error
+		if angle, corner, err = maskLinearDirection(a.inner); err != nil {
 			return Op{}, err
 		}
-		for _, w := range f {
-			if w == "at" || w == "circle" || w == "ellipse" {
-				return Op{}, fmt.Errorf("mask-radial-[...] takes a size only (closest-side, 40%%_60%%, 3rem); set the shape with mask-circle and the position with mask-radial-at-*")
-			}
+	} else {
+		n, ok := parseFloat(a.value)
+		if !ok || n < 0 || strings.ContainsAny(a.value, "+-") {
+			return Op{}, errNoMatch
 		}
-		size, radius, n := g.Size, g.Radius, 0
-		pct := false
-		if size == SizeExplicit {
-			n = len(f)
-			pct = radius[0].Pct != 0 || radius[1].Pct != 0
+		angle = n
+	}
+	if a.neg {
+		if a.arb {
+			return Op{}, errNoMatch
 		}
-		return op(func(e *env) {
+		angle = -angle
+	}
+	return op(func(e *env) {
+		m := &e.sc.mask
+		m.gradients()
+		m.linAngle, m.linCorner = angle, corner
+		m.linForm = 2
+	}), nil
+}
+
+// maskLinearDirection parses the bracketed direction of mask-linear: an
+// angle or "to <side or corner>".
+func maskLinearDirection(inner string) (float32, Corner, error) {
+	in := strings.TrimSpace(inner)
+	if strings.HasPrefix(in, "to ") {
+		var dir Gradient
+		if err := parseLinearDirection(in, &dir); err != nil {
+			return 0, CornerNone, err
+		}
+		return dir.Angle, dir.Corner, nil
+	}
+	if v, ok := parseAngle(in); ok {
+		return v, CornerNone, nil
+	}
+	return 0, CornerNone, fmt.Errorf("%q is not a gradient direction; use an angle such as mask-linear-[45deg] or a side such as mask-linear-[to_right]", in)
+}
+
+// registerMaskRadial registers mask-radial-*, its position and its stops.
+func registerMaskRadial(r *registry) {
+	r.add("mask-radial", false, maskRadialUtility, nil)
+	r.enum("mask-radial", false, maskRadialSizeOps())
+	r.enum("mask-radial-at", false, maskRadialAtOps())
+	r.add("mask-radial-at", false, maskRadialAtUtility, nil)
+	for _, end := range []string{"from", "to"} {
+		r.add("mask-radial-"+end, false, maskStopUtility(end == "from", false, func(e *env, f func(*maskStops)) {
 			m := &e.sc.mask
 			m.gradients()
-			m.radSize, m.radRadius, m.radNVals, m.radPctR = size, radius, n, pct
-			m.radForm = 1
-		}), nil
-	}, nil)
+			f(&m.rad)
+			m.radForm, m.radStops = 2, true
+		}), maskStopValues)
+	}
+}
+
+// maskRadialUtility parses mask-radial-[<size>].
+func maskRadialUtility(c *pctx, a *arg) (Op, error) {
+	if a.hasMod || !a.arb {
+		return Op{}, errNoMatch
+	}
+	var g Gradient
+	f := strings.Fields(a.inner)
+	if len(f) == 0 || len(f) > 2 {
+		return Op{}, fmt.Errorf("%q is not a radial gradient size; use a keyword such as closest-side or one or two lengths", a.inner)
+	}
+	if err := parseRadialPrelude(a.inner, &g); err != nil {
+		return Op{}, err
+	}
+	for _, w := range f {
+		if w == "at" || w == "circle" || w == "ellipse" {
+			return Op{}, fmt.Errorf("mask-radial-[...] takes a size only (closest-side, 40%%_60%%, 3rem); set the shape with mask-circle and the position with mask-radial-at-*")
+		}
+	}
+	size, radius, n := g.Size, g.Radius, 0
+	pct := false
+	if size == SizeExplicit {
+		n = len(f)
+		pct = radius[0].Pct != 0 || radius[1].Pct != 0
+	}
+	return op(func(e *env) {
+		m := &e.sc.mask
+		m.gradients()
+		m.radSize, m.radRadius, m.radNVals, m.radPctR = size, radius, n, pct
+		m.radForm = 1
+	}), nil
+}
+
+// maskRadialSizeOps returns the mask-radial-<size keyword> classes.
+func maskRadialSizeOps() map[string]Op {
 	sizes := map[string]RadialSize{"closest-side": SizeClosestSide, "closest-corner": SizeClosestCorner,
 		"farthest-side": SizeFarthestSide, "farthest-corner": SizeFarthestCorner}
 	sizeOps := map[string]Op{}
@@ -269,7 +335,11 @@ func registerMasks(r *registry) {
 			m.radSize, m.radNVals, m.radPctR = s, 0, false
 		})
 	}
-	r.enum("mask-radial", false, sizeOps)
+	return sizeOps
+}
+
+// maskRadialAtOps returns the mask-radial-at-<position keyword> classes.
+func maskRadialAtOps() map[string]Op {
 	atOps := map[string]Op{}
 	for _, k := range []string{"center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right"} {
 		p := backgroundPositions[k]
@@ -278,57 +348,27 @@ func registerMasks(r *registry) {
 			m.radX, m.radY, m.radPosSet = PctLP(p[0]), PctLP(p[1]), true
 		})
 	}
-	r.enum("mask-radial-at", false, atOps)
-	r.add("mask-radial-at", false, func(c *pctx, a *arg) (Op, error) {
-		if !a.arb || a.hasMod {
-			return Op{}, errNoMatch
-		}
-		x, y, err := parsePositionPair(strings.Fields(a.inner))
-		if err != nil {
-			return Op{}, err
-		}
-		return op(func(e *env) {
-			m := &e.sc.mask
-			m.radX, m.radY, m.radPosSet = x, y, true
-		}), nil
-	}, nil)
-	for _, end := range []string{"from", "to"} {
-		r.add("mask-radial-"+end, false, maskStopUtility(end == "from", false, func(e *env, f func(*maskStops)) {
-			m := &e.sc.mask
-			m.gradients()
-			f(&m.rad)
-			m.radForm, m.radStops = 2, true
-		}), maskStopValues)
+	return atOps
+}
+
+// maskRadialAtUtility parses mask-radial-at-[<position>].
+func maskRadialAtUtility(c *pctx, a *arg) (Op, error) {
+	if !a.arb || a.hasMod {
+		return Op{}, errNoMatch
 	}
-	// Conic.
-	r.add("mask-conic", true, func(c *pctx, a *arg) (Op, error) {
-		if a.hasMod {
-			return Op{}, errNoMatch
-		}
-		var angle float32
-		if a.arb {
-			v, ok := parseAngle(strings.TrimSpace(a.inner))
-			if !ok || a.neg {
-				return Op{}, fmt.Errorf("%q is not an angle; use e.g. mask-conic-[30deg]", a.inner)
-			}
-			angle = v
-		} else {
-			n, ok := parseFloat(a.value)
-			if !ok || n < 0 || strings.ContainsAny(a.value, "+-") {
-				return Op{}, errNoMatch
-			}
-			angle = n
-			if a.neg {
-				angle = -n
-			}
-		}
-		return op(func(e *env) {
-			m := &e.sc.mask
-			m.gradients()
-			m.conAngle = angle
-			m.conForm = 1
-		}), nil
-	}, func(*Theme) []string { return []string{"0", "45", "90", "135", "180", "225", "270", "315"} })
+	x, y, err := parsePositionPair(strings.Fields(a.inner))
+	if err != nil {
+		return Op{}, err
+	}
+	return op(func(e *env) {
+		m := &e.sc.mask
+		m.radX, m.radY, m.radPosSet = x, y, true
+	}), nil
+}
+
+// registerMaskConic registers mask-conic-* and its stops.
+func registerMaskConic(r *registry) {
+	r.add("mask-conic", true, maskConicUtility, maskAngleValues)
 	for _, end := range []string{"from", "to"} {
 		r.add("mask-conic-"+end, false, maskStopUtility(end == "from", true, func(e *env, f func(*maskStops)) {
 			m := &e.sc.mask
@@ -337,6 +377,36 @@ func registerMasks(r *registry) {
 			m.conForm, m.conStops = 2, true
 		}), maskStopValues)
 	}
+}
+
+// maskConicUtility parses mask-conic-<angle> and mask-conic-[<angle>].
+func maskConicUtility(c *pctx, a *arg) (Op, error) {
+	if a.hasMod {
+		return Op{}, errNoMatch
+	}
+	var angle float32
+	if a.arb {
+		v, ok := parseAngle(strings.TrimSpace(a.inner))
+		if !ok || a.neg {
+			return Op{}, fmt.Errorf("%q is not an angle; use e.g. mask-conic-[30deg]", a.inner)
+		}
+		angle = v
+	} else {
+		n, ok := parseFloat(a.value)
+		if !ok || n < 0 || strings.ContainsAny(a.value, "+-") {
+			return Op{}, errNoMatch
+		}
+		angle = n
+		if a.neg {
+			angle = -n
+		}
+	}
+	return op(func(e *env) {
+		m := &e.sc.mask
+		m.gradients()
+		m.conAngle = angle
+		m.conForm = 1
+	}), nil
 }
 
 func maskRepeatOp(rp BackgroundRepeat) Op { return op(func(e *env) { e.sc.mask.repeat = rp }) }

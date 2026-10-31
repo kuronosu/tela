@@ -92,6 +92,16 @@ func sideRoots(prefix, sep string) []struct {
 }
 
 func registerLayout(r *registry) {
+	registerDisplayPosition(r)
+	registerInsets(r)
+	registerOverflowVisibility(r)
+	registerAspectContainer(r)
+	registerScreenReader(r)
+	registerSpacing(r)
+}
+
+// registerDisplayPosition registers the display and position keywords.
+func registerDisplayPosition(r *registry) {
 	displays := map[string]Display{
 		"block": DisplayBlock, "inline-block": DisplayInlineBlock, "inline": DisplayInline,
 		"flex": DisplayFlex, "inline-flex": DisplayInlineFlex, "grid": DisplayGrid,
@@ -110,7 +120,10 @@ func registerLayout(r *registry) {
 		p := positions[k]
 		r.static(k, op(func(e *env) { e.s.Position = p }))
 	}
+}
 
+// registerInsets registers the inset classes and z-index.
+func registerInsets(r *registry) {
 	// Insets: top, right, bottom, left, inset, inset-x, inset-y, the
 	// logical inset-s, inset-e (and their older names start, end),
 	// inset-bs and inset-be.
@@ -129,36 +142,33 @@ func registerLayout(r *registry) {
 	}
 
 	// z-index.
-	r.add("z", true, func(c *pctx, a *arg) (Op, error) {
-		if a.raw == "auto" {
-			return op(func(e *env) { e.s.ZIndex = ZIndex{} }), nil
-		}
-		n, ok := numberArg(a)
-		if !ok || n != float32(int32(n)) {
-			return Op{}, errNoMatch
-		}
-		if a.neg {
-			n = -n
-		}
-		z := int32(n)
-		return op(func(e *env) { e.s.ZIndex = ZIndex{Explicit: true, Value: z} }), nil
-	}, func(*Theme) []string { return []string{"auto", "0", "10", "20", "30", "40", "50"} })
+	r.add("z", true, zIndexUtility, func(*Theme) []string { return []string{"auto", "0", "10", "20", "30", "40", "50"} })
+}
 
-	// Overflow.
+// zIndexUtility parses z-auto, z-<n> and -z-<n>.
+func zIndexUtility(c *pctx, a *arg) (Op, error) {
+	if a.raw == "auto" {
+		return op(func(e *env) { e.s.ZIndex = ZIndex{} }), nil
+	}
+	n, ok := numberArg(a)
+	if !ok || n != float32(int32(n)) {
+		return Op{}, errNoMatch
+	}
+	if a.neg {
+		n = -n
+	}
+	z := int32(n)
+	return op(func(e *env) { e.s.ZIndex = ZIndex{Explicit: true, Value: z} }), nil
+}
+
+// registerOverflowVisibility registers overflow, isolation and visibility.
+func registerOverflowVisibility(r *registry) {
 	ov := map[string]Overflow{"visible": OverflowVisible, "hidden": OverflowHidden, "clip": OverflowClip,
 		"scroll": OverflowScroll, "auto": OverflowAuto}
 	for _, root := range []string{"overflow", "overflow-x", "overflow-y"} {
 		keys := map[string]Op{}
 		for _, k := range sortedMapKeys(ov) {
-			v := ov[k]
-			switch root {
-			case "overflow":
-				keys[k] = op(func(e *env) { e.s.OverflowX, e.s.OverflowY = v, v })
-			case "overflow-x":
-				keys[k] = op(func(e *env) { e.s.OverflowX = v })
-			default:
-				keys[k] = op(func(e *env) { e.s.OverflowY = v })
-			}
+			keys[k] = overflowOp(root, ov[k])
 		}
 		r.enum(root, false, keys)
 	}
@@ -168,60 +178,84 @@ func registerLayout(r *registry) {
 	r.static("visible", op(func(e *env) { e.s.Visibility = VisibilityVisible }))
 	r.static("invisible", op(func(e *env) { e.s.Visibility = VisibilityHidden }))
 	r.static("collapse", op(func(e *env) { e.s.Visibility = VisibilityCollapse }))
+}
 
-	// Aspect ratio.
-	r.add("aspect", false, func(c *pctx, a *arg) (Op, error) {
-		var ratio float32
-		switch {
-		case a.arb && !a.hasMod:
-			rv, ok := parseRatio(a.inner)
-			if !ok {
-				return Op{}, fmt.Errorf("%q is not a ratio; use [4/3] or [1.5]", a.inner)
-			}
-			ratio = rv
-		case a.hasMod:
-			rv, ok := parseRatio(a.raw)
-			if !ok {
-				return Op{}, errNoMatch
-			}
-			ratio = rv
-		case a.value == "auto":
-			ratio = 0
-		case a.value == "square":
-			ratio = 1
-		default:
-			rv, ok := c.th.Aspect[a.value]
-			if !ok {
-				return Op{}, errNoMatch
-			}
-			ratio = rv
-		}
-		return op(func(e *env) { e.s.AspectRatio = ratio }), nil
-	}, func(th *Theme) []string {
+// overflowOp builds the op of an overflow class: root is overflow,
+// overflow-x or overflow-y.
+func overflowOp(root string, v Overflow) Op {
+	switch root {
+	case "overflow":
+		return op(func(e *env) { e.s.OverflowX, e.s.OverflowY = v, v })
+	case "overflow-x":
+		return op(func(e *env) { e.s.OverflowX = v })
+	default:
+		return op(func(e *env) { e.s.OverflowY = v })
+	}
+}
+
+// registerAspectContainer registers aspect-* and container.
+func registerAspectContainer(r *registry) {
+	r.add("aspect", false, aspectUtility, func(th *Theme) []string {
 		return append([]string{"auto", "square", "3/2", "4/3", "16/9", "21/9"}, th.Keys(NamespaceAspect)...)
 	})
+	r.add("container", false, containerUtility, func(*Theme) []string { return []string{""} })
+}
 
-	// container: width 100% and, from each breakpoint up, that max-width.
-	r.add("container", false, func(c *pctx, a *arg) (Op, error) {
-		if a.raw != "" {
+// aspectUtility parses aspect-<ratio>, aspect-[<ratio>] and the theme
+// ratios.
+func aspectUtility(c *pctx, a *arg) (Op, error) {
+	var ratio float32
+	switch {
+	case a.arb && !a.hasMod:
+		rv, ok := parseRatio(a.inner)
+		if !ok {
+			return Op{}, fmt.Errorf("%q is not a ratio; use [4/3] or [1.5]", a.inner)
+		}
+		ratio = rv
+	case a.hasMod:
+		rv, ok := parseRatio(a.raw)
+		if !ok {
 			return Op{}, errNoMatch
 		}
-		var bps []float32
-		for _, k := range c.th.Keys(NamespaceBreakpoint) {
-			l := c.th.Breakpoints[k]
-			bps = append(bps, l.Resolve(c.th.RootFontSize, c.th.RootFontSize))
+		ratio = rv
+	case a.value == "auto":
+		ratio = 0
+	case a.value == "square":
+		ratio = 1
+	default:
+		rv, ok := c.th.Aspect[a.value]
+		if !ok {
+			return Op{}, errNoMatch
 		}
-		slices.Sort(bps)
-		return op(func(e *env) {
-			e.s.Width = DimPct(100)
-			for _, px := range bps {
-				if e.viewport.W >= px {
-					e.s.MaxWidth = DimPx(px)
-				}
-			}
-		}), nil
-	}, func(*Theme) []string { return []string{""} })
+		ratio = rv
+	}
+	return op(func(e *env) { e.s.AspectRatio = ratio }), nil
+}
 
+// containerUtility parses container: width 100% and, from each breakpoint
+// up, that max-width.
+func containerUtility(c *pctx, a *arg) (Op, error) {
+	if a.raw != "" {
+		return Op{}, errNoMatch
+	}
+	var bps []float32
+	for _, k := range c.th.Keys(NamespaceBreakpoint) {
+		l := c.th.Breakpoints[k]
+		bps = append(bps, l.Resolve(c.th.RootFontSize, c.th.RootFontSize))
+	}
+	slices.Sort(bps)
+	return op(func(e *env) {
+		e.s.Width = DimPct(100)
+		for _, px := range bps {
+			if e.viewport.W >= px {
+				e.s.MaxWidth = DimPx(px)
+			}
+		}
+	}), nil
+}
+
+// registerScreenReader registers sr-only and not-sr-only.
+func registerScreenReader(r *registry) {
 	// Screen-reader-only text: visually hidden but still laid out as a
 	// 1px box.
 	r.static("sr-only", op(func(e *env) {
@@ -245,7 +279,10 @@ func registerLayout(r *registry) {
 		s.OverflowX, s.OverflowY = OverflowVisible, OverflowVisible
 		s.Text.WhiteSpace = text.WhiteSpaceNormal
 	}))
+}
 
+// registerSpacing registers padding, margin, gap and space between.
+func registerSpacing(r *registry) {
 	// Padding and margin.
 	for _, p := range sideRoots("p", "") {
 		mask := p.mask

@@ -77,77 +77,116 @@ var borderStyles = map[string]BorderStyle{
 const radiusFull = 9999
 
 func registerBorders(r *registry) {
-	// Border width, color and style.
+	registerBorderSides(r)
+	registerBorderRadius(r)
+	registerOutline(r)
+	registerRing(r)
+}
+
+// registerBorderSides registers the border width, color and style classes.
+func registerBorderSides(r *registry) {
 	for _, p := range sideRoots("border", "-") {
-		root, mask := p.root, p.mask
-		sideSlots := func(e *env, set func(slot colorSlot)) {
-			m := e.sides(mask)
-			for i, side := range []sideMask{sTop, sRight, sBottom, sLeft} {
-				if m&side != 0 {
-					set(slotBorderTop + colorSlot(i))
-				}
-			}
-		}
-		setWidth := func(e *env, w float32) {
-			m := e.sides(mask)
-			for i, side := range []sideMask{sTop, sRight, sBottom, sLeft} {
-				if m&side != 0 {
-					borderSides(e.s)[i].Width = w
-				}
-			}
-		}
-		r.add(root, false, func(c *pctx, a *arg) (Op, error) {
-			if a.raw == "" {
-				return op(func(e *env) { setWidth(e, 1) }), nil
-			}
-			if a.hasMod {
-				return Op{}, errNoMatch
-			}
-			if root == "border" {
-				if st, ok := borderStyles[a.value]; ok && !a.arb {
-					return op(func(e *env) {
-						for _, b := range borderSides(e.s) {
-							b.Style = st
-						}
-					}), nil
-				}
-			}
-			if !a.arb {
-				if n, ok := parseFloat(a.value); ok && n >= 0 && a.value[0] != '+' {
-					return op(func(e *env) { setWidth(e, n) }), nil
-				}
-			} else if a.hint == "" || a.hint == "length" || a.hint == "line-width" {
-				if !looksLikeColor(a.inner) {
-					ex, err := parseLengthExpr(a.inner, false)
-					if err == nil {
-						return op(func(e *env) { setWidth(e, e.lp(&ex).Px) }), nil
-					}
-					if a.hint != "" {
-						return Op{}, err
-					}
-				}
-			}
-			return Op{}, errNoMatch
-		}, func(th *Theme) []string {
+		r.add(p.root, false, borderWidthUtility(p.root, p.mask), func(th *Theme) []string {
 			return []string{"", "0", "2", "4", "8"}
 		})
-		r.add(root, false, func(c *pctx, a *arg) (Op, error) {
-			if a.raw == "" {
-				return Op{}, errNoMatch
-			}
-			spec, err := colorArg(c, a)
-			if err != nil {
-				return Op{}, err
-			}
-			return op(func(e *env) { sideSlots(e, func(s colorSlot) { e.sc.colors[s] = spec }) }), nil
-		}, colorKeys)
+		r.add(p.root, false, borderColorUtility(p.mask), colorKeys)
 	}
 	// Style keywords exist for the whole border only (vocabulary).
 	r.add("border", false, func(*pctx, *arg) (Op, error) { return Op{}, errNoMatch }, func(*Theme) []string {
 		return []string{"solid", "dashed", "dotted", "double", "hidden", "none"}
 	})
+}
 
-	// Border radius.
+// setBorderWidth sets the width of the borders that mask selects.
+func setBorderWidth(e *env, mask sideMask, w float32) {
+	m := e.sides(mask)
+	for i, side := range []sideMask{sTop, sRight, sBottom, sLeft} {
+		if m&side != 0 {
+			borderSides(e.s)[i].Width = w
+		}
+	}
+}
+
+// borderWidthUtility returns the parser of the width (and, for the whole
+// border, the style) classes of the sides that mask selects.
+func borderWidthUtility(root string, mask sideMask) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.raw == "" {
+			return op(func(e *env) { setBorderWidth(e, mask, 1) }), nil
+		}
+		if a.hasMod {
+			return Op{}, errNoMatch
+		}
+		if root == "border" {
+			if st, ok := borderStyles[a.value]; ok && !a.arb {
+				return op(func(e *env) {
+					for _, b := range borderSides(e.s) {
+						b.Style = st
+					}
+				}), nil
+			}
+		}
+		if !a.arb {
+			if n, ok := parseFloat(a.value); ok && n >= 0 && a.value[0] != '+' {
+				return op(func(e *env) { setBorderWidth(e, mask, n) }), nil
+			}
+			return Op{}, errNoMatch
+		}
+		ex, ok, err := arbitraryLineWidth(a)
+		if !ok {
+			if err != nil {
+				return Op{}, err
+			}
+			return Op{}, errNoMatch
+		}
+		return op(func(e *env) { setBorderWidth(e, mask, e.lp(&ex).Px) }), nil
+	}
+}
+
+// arbitraryLineWidth parses the bracketed width of border-[...]. ok is
+// false when the value is not a width (a color, or another type hint);
+// err is set only when a type hint demanded a length.
+func arbitraryLineWidth(a *arg) (ex lenExpr, ok bool, err error) {
+	if a.hint != "" && a.hint != "length" && a.hint != "line-width" {
+		return lenExpr{}, false, nil
+	}
+	if looksLikeColor(a.inner) {
+		return lenExpr{}, false, nil
+	}
+	ex, err = parseLengthExpr(a.inner, false)
+	if err == nil {
+		return ex, true, nil
+	}
+	if a.hint != "" {
+		return lenExpr{}, false, err
+	}
+	return lenExpr{}, false, nil
+}
+
+// borderColorUtility returns the parser of the color classes of the sides
+// that mask selects.
+func borderColorUtility(mask sideMask) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.raw == "" {
+			return Op{}, errNoMatch
+		}
+		spec, err := colorArg(c, a)
+		if err != nil {
+			return Op{}, err
+		}
+		return op(func(e *env) {
+			m := e.sides(mask)
+			for i, side := range []sideMask{sTop, sRight, sBottom, sLeft} {
+				if m&side != 0 {
+					e.sc.colors[slotBorderTop+colorSlot(i)] = spec
+				}
+			}
+		}), nil
+	}
+}
+
+// registerBorderRadius registers the rounded-* classes.
+func registerBorderRadius(r *registry) {
 	corners := []struct {
 		root string
 		mask cornerMask
@@ -159,47 +198,68 @@ func registerBorders(r *registry) {
 		{"rounded-ss", cSS}, {"rounded-se", cSE}, {"rounded-ee", cEE}, {"rounded-es", cES},
 	}
 	for _, cn := range corners {
-		mask := cn.mask
-		r.add(cn.root, false, func(c *pctx, a *arg) (Op, error) {
-			if a.hasMod {
-				return Op{}, errNoMatch
-			}
-			var ex lenExpr
-			switch {
-			case a.arb:
-				if a.hint != "" && a.hint != "length" && a.hint != "percentage" {
-					return Op{}, errNoMatch
-				}
-				e, err := parseLengthExpr(a.inner, true)
-				if err != nil {
-					if err == errNotLength {
-						return Op{}, fmt.Errorf("%q is not a length; use e.g. rounded-[12px] or rounded-[50%%]", a.inner)
-					}
-					return Op{}, err
-				}
-				ex = e
-			case a.raw == "":
-				l, ok := c.th.Radius["DEFAULT"]
-				if !ok {
-					return Op{}, errNoMatch
-				}
-				ex = exprFromLength(l)
-			case a.value == "none":
-			case a.value == "full":
-				ex = exprPx(radiusFull)
-			default:
-				l, ok := c.th.Radius[a.value]
-				if !ok || a.value == "DEFAULT" {
-					return Op{}, errNoMatch
-				}
-				ex = exprFromLength(l)
-			}
-			return op(func(e *env) { setCorners(&e.s.Radius, e.corners(mask), e.lp(&ex)) }), nil
-		}, func(th *Theme) []string { return append(th.Keys(NamespaceRadius), "none", "full") })
+		r.add(cn.root, false, borderRadiusUtility(cn.mask), func(th *Theme) []string {
+			return append(th.Keys(NamespaceRadius), "none", "full")
+		})
 	}
+}
 
-	registerOutline(r)
-	registerRing(r)
+// borderRadiusUtility returns the parser of the rounded class of the
+// corners that mask selects.
+func borderRadiusUtility(mask cornerMask) handler {
+	return func(c *pctx, a *arg) (Op, error) {
+		if a.hasMod {
+			return Op{}, errNoMatch
+		}
+		var ex lenExpr
+		var err error
+		if a.arb {
+			ex, err = arbitraryRadius(a)
+		} else {
+			ex, err = themeRadius(c, a)
+		}
+		if err != nil {
+			return Op{}, err
+		}
+		return op(func(e *env) { setCorners(&e.s.Radius, e.corners(mask), e.lp(&ex)) }), nil
+	}
+}
+
+// arbitraryRadius parses the rounded-[<length>] form.
+func arbitraryRadius(a *arg) (lenExpr, error) {
+	if a.hint != "" && a.hint != "length" && a.hint != "percentage" {
+		return lenExpr{}, errNoMatch
+	}
+	ex, err := parseLengthExpr(a.inner, true)
+	if err != nil {
+		if err == errNotLength {
+			return lenExpr{}, fmt.Errorf("%q is not a length; use e.g. rounded-[12px] or rounded-[50%%]", a.inner)
+		}
+		return lenExpr{}, err
+	}
+	return ex, nil
+}
+
+// themeRadius parses the rounded and rounded-<name> forms, where none and
+// full are fixed keywords.
+func themeRadius(c *pctx, a *arg) (lenExpr, error) {
+	switch {
+	case a.raw == "":
+		l, ok := c.th.Radius["DEFAULT"]
+		if !ok {
+			return lenExpr{}, errNoMatch
+		}
+		return exprFromLength(l), nil
+	case a.value == "none":
+		return lenExpr{}, nil
+	case a.value == "full":
+		return exprPx(radiusFull), nil
+	}
+	l, ok := c.th.Radius[a.value]
+	if !ok || a.value == "DEFAULT" {
+		return lenExpr{}, errNoMatch
+	}
+	return exprFromLength(l), nil
 }
 
 func registerOutline(r *registry) {
