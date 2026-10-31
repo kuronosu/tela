@@ -636,14 +636,10 @@ func (t *Tree) describedText(r *Element) string {
 }
 
 // textAlt computes the text alternative of primitive el (AccName's steps
-// 2A to 2F).
+// 2A to 2F). Each step's helper reports whether it decided the result.
 func (t *Tree) textAlt(el *Element, c *altCtx, o altOpts) string {
 	if c.visited[el] {
 		return ""
-	}
-	child := o
-	if o.target == altSelf {
-		child.target = altDescendant
 	}
 	// 2A: hidden content counts only in the traversal of a hidden
 	// reference. The element being named was checked by its caller and a
@@ -654,103 +650,149 @@ func (t *Tree) textAlt(el *Element, c *altCtx, o altOpts) string {
 		return ""
 	}
 	a := el.node.d.aria
-	var lb *Element // the element itself when it names itself, for the embedded-control rule below
-	if a != nil {
-		for _, ref := range a.labelledBy {
-			if ref.el == el {
-				lb = el
-			}
-		}
-	}
-	// 2B: aria-labelledby, once; each mounted reference gives its text and
-	// the texts are joined by a space.
-	if !o.inLB && a != nil && len(a.labelledBy) > 0 {
-		var parts []string
-		for _, ref := range a.labelledBy {
-			r := ref.el
-			if r == nil || !r.mounted || r.kind != elemPrimitive {
-				continue
-			}
-			if s := t.textAlt(r, c, altOpts{inLB: true, lbHidden: t.hiddenForAria(r, false)}); s != "" {
-				parts = append(parts, s)
-			}
-		}
-		if len(parts) > 0 {
-			return strings.Join(parts, " ")
-		}
+	if s, ok := t.altLabelledBy(a, c, o); ok {
+		return s
 	}
 	role, _ := t.semRole(el)
-	// 2E: controls embedded in a label or in content give their value.
-	if (o.inLB || o.target == altDescendant) && lb != el {
-		switch {
-		case role == "textbox" || role == "searchbox":
-			c.visited[el] = true
-			if f := el.box.fld; f != nil {
-				return exposedValue(f)
-			}
-			return textContent(el)
-		case role == "combobox" || role == "listbox":
-			c.visited[el] = true
-			return t.selectedOptions(el, role, c, child)
-		case semantics.RangeRole(role):
-			c.visited[el] = true
-			switch {
-			case a != nil && a.hasText:
-				return a.valueText
-			case a != nil && a.rng.HasNow:
-				return jsNumberString(a.rng.Now)
-			}
-			return ""
-		case role == "menu":
-			c.visited[el] = true
-			return ""
-		}
+	if s, ok := t.altEmbeddedControl(el, a, role, c, o); ok {
+		return s
 	}
 	// 2C: aria-label.
 	if a != nil && semantics.TrimSpace(a.label) != "" {
 		c.visited[el] = true
 		return a.label
 	}
+	if s, ok := t.altNative(el, a, role, c, o); ok {
+		return s
+	}
+	if s, ok := t.altContent(el, role, c, o); ok {
+		return s
+	}
+	c.visited[el] = true
+	return ""
+}
+
+// child returns the options of the steps inside the element o is for:
+// the content of the element being named is altDescendant.
+func (o altOpts) child() altOpts {
+	if o.target == altSelf {
+		o.target = altDescendant
+	}
+	return o
+}
+
+// altLabelledBy is step 2B: aria-labelledby, once; each mounted reference
+// gives its text and the texts are joined by a space. a is the element's
+// ARIA props (nil without).
+func (t *Tree) altLabelledBy(a *ariaProps, c *altCtx, o altOpts) (string, bool) {
+	if o.inLB || a == nil || len(a.labelledBy) == 0 {
+		return "", false
+	}
+	var parts []string
+	for _, ref := range a.labelledBy {
+		r := ref.el
+		if r == nil || !r.mounted || r.kind != elemPrimitive {
+			continue
+		}
+		if s := t.textAlt(r, c, altOpts{inLB: true, lbHidden: t.hiddenForAria(r, false)}); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	if len(parts) == 0 {
+		return "", false
+	}
+	return strings.Join(parts, " "), true
+}
+
+// altEmbeddedControl is step 2E: controls embedded in a label or in
+// content give their value. An element that names itself
+// (labelsItself) is not embedded in its own label.
+func (t *Tree) altEmbeddedControl(el *Element, a *ariaProps, role string, c *altCtx, o altOpts) (string, bool) {
+	if !o.inLB && o.target != altDescendant || labelsItself(el, a) {
+		return "", false
+	}
+	switch {
+	case role == "textbox" || role == "searchbox":
+		c.visited[el] = true
+		if f := el.box.fld; f != nil {
+			return exposedValue(f), true
+		}
+		return textContent(el), true
+	case role == "combobox" || role == "listbox":
+		c.visited[el] = true
+		return t.selectedOptions(el, role, c, o.child()), true
+	case semantics.RangeRole(role):
+		c.visited[el] = true
+		return rangeValue(a), true
+	case role == "menu":
+		c.visited[el] = true
+		return "", true
+	}
+	return "", false
+}
+
+// labelsItself reports whether el, with ARIA props a, is one of its own
+// AriaLabelledBy references, for the embedded-control rule.
+func labelsItself(el *Element, a *ariaProps) bool {
+	if a == nil {
+		return false
+	}
+	for _, ref := range a.labelledBy {
+		if ref.el == el {
+			return true
+		}
+	}
+	return false
+}
+
+// altNative is step 2D: the native text alternative (HTML-AAM) of a text
+// field, of a button named for itself and of an image.
+func (t *Tree) altNative(el *Element, a *ariaProps, role string, c *altCtx, o altOpts) (string, bool) {
 	// 2D: the native text alternative of a text field (HTML-AAM): its
 	// labels' content (without the field itself), then its placeholder.
 	if f := el.box.fld; f != nil && !o.inLB {
 		c.visited[el] = true
 		if s := t.labelsText(el, c); s != "" {
-			return s
+			return s, true
 		}
-		return f.props().placeholder
+		return f.props().placeholder, true
 	}
 	// 2D: a button named for itself takes its labels' content first, then
 	// its own content (HTML-AAM's button rule; buttons are labelable).
 	if el.box.kind == style.KindButton && !o.inLB && o.target == altSelf {
 		c.visited[el] = true
 		s := t.labelsText(el, c)
-		delete(c.visited, el) // step 2F reads the content below
+		delete(c.visited, el) // step 2F reads the content (altContent)
 		if s != "" {
 			c.visited[el] = true
-			return s
+			return s, true
 		}
 	}
 	// 2D: the native text alternative of an image.
 	if role != "presentation" && role != "none" && el.box.kind == style.KindImg {
 		c.visited[el] = true
 		if a != nil && semantics.TrimSpace(a.alt) != "" {
-			return a.alt
+			return a.alt, true
 		}
-		return ""
+		return "", true
 	}
-	// 2F: the content.
-	if semantics.NameFromContent(role, o.target == altDescendant) || o.inLB {
-		c.visited[el] = true
-		var b strings.Builder
-		t.innerText(&b, el, c, child)
-		s := b.String()
-		if o.target == altSelf && semantics.TrimSpace(s) != "" || o.target != altSelf && s != "" {
-			return s
-		}
+	return "", false
+}
+
+// altContent is step 2F: the content, for the roles named from it and
+// inside a labelledby traversal.
+func (t *Tree) altContent(el *Element, role string, c *altCtx, o altOpts) (string, bool) {
+	if !semantics.NameFromContent(role, o.target == altDescendant) && !o.inLB {
+		return "", false
 	}
 	c.visited[el] = true
-	return ""
+	var b strings.Builder
+	t.innerText(&b, el, c, o.child())
+	s := b.String()
+	if o.target == altSelf && semantics.TrimSpace(s) != "" || o.target != altSelf && s != "" {
+		return s, true
+	}
+	return "", false
 }
 
 // innerText appends the text alternatives of el's children (texts and
