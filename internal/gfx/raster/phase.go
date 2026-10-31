@@ -219,22 +219,25 @@ func (ph *phaser) compute(i int, res *phaseResult) {
 		return // nothing to draw (a list built without the Builder may hold opacity 0)
 	}
 	var e *bdEntry
-	var full image.Rectangle
+	var k int
+	var full, keep image.Rectangle
 	if bc := ph.bdc; bc != nil && bc.dl == ph.dl {
-		e, _ = bc.entry(i)
+		e, k = bc.entry(i)
 		full = r.backdropBounds(res.cmd.Shape.Rect).Intersect(bc.full)
-		if pix, rect, ok := e.lookup(res.cmd, ph.dl.BoundsAt(i), res.ctm, full, out); ok {
-			res.buf, res.win, res.out, res.cached = pix, rect, out, true
+		if pix, rect, ok := e.lookup(res.cmd, ph.dl.BoundsAt(i), res.ctm, full, bc.need(k, out)); ok {
+			res.buf, res.win, res.out, res.cached = pix, rect, out.Intersect(rect), true
 			bc.hits++
 			return
 		}
+		keep = bc.keep(k, in)
 	}
 	r.blurS.par = ph.pool
 	defer func() { r.blurS.par = nil }()
 	b := blitter{pix: ph.dst.Pix, stride: ph.dst.Stride, origin: ph.dst.Rect.Min}
-	res.buf, res.win, res.out = r.filterBackdrop(&b, in, out, fs)
+	res.buf, res.win, _ = r.filterBackdrop(&b, in, out.Union(keep), fs)
+	res.out = out
 	if e != nil {
-		ph.bdc.store(e, i, res.cmd, res.ctm, full, res.out, res.buf, res.win)
+		ph.bdc.store(e, k, res.cmd, res.ctm, full, keep, res.buf, res.win)
 	}
 }
 

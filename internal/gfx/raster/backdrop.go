@@ -76,20 +76,24 @@ func (r *Renderer) backdropFilter(i int, c gfx.BackdropFilter) {
 		return
 	}
 	var e *bdEntry
-	var full image.Rectangle
+	var k int
+	var full, keep image.Rectangle
 	if bc := r.bdc; bc != nil && r.dl == bc.dl {
-		e, _ = bc.entry(i)
+		e, k = bc.entry(i)
 		full = r.backdropBounds(c.Shape.Rect).Intersect(bc.full)
-		if pix, rect, ok := e.lookup(c, r.dl.BoundsAt(i), r.ctm, full, out); ok {
+		if pix, rect, ok := e.lookup(c, r.dl.BoundsAt(i), r.ctm, full, bc.need(k, out)); ok {
+			// Only the pixels of out that the cache holds: the others are
+			// not needed (BackdropCache.plan).
 			bc.hits++
-			r.drawBackdrop(c.Shape, pix, rect, out, op)
+			r.drawBackdrop(c.Shape, pix, rect, out.Intersect(rect), op)
 			return
 		}
+		keep = bc.keep(k, in)
 	}
-	buf, win, out := r.filterBackdrop(b, in, out, fs)
+	buf, win, _ := r.filterBackdrop(b, in, out.Union(keep), fs)
 	r.drawBackdrop(c.Shape, buf, win, out, op)
 	if e != nil {
-		r.bdc.store(e, i, c, r.ctm, full, out, buf, win)
+		r.bdc.store(e, k, c, r.ctm, full, keep, buf, win)
 	}
 	r.putBuf(buf)
 }
@@ -177,7 +181,11 @@ func (s *fadedShader) opaque() bool { return false }
 // under the current transform: the pixels its bounding box touches,
 // without the margin of pixelBounds.
 func (r *Renderer) backdropBounds(rect gfx.Rect) image.Rectangle {
-	m := &r.ctm
+	return shapeBounds(&r.ctm, rect)
+}
+
+// shapeBounds is backdropBounds under the transform m.
+func shapeBounds(m *gfx.Affine, rect gfx.Rect) image.Rectangle {
 	x0, y0 := math.Inf(1), math.Inf(1)
 	x1, y1 := math.Inf(-1), math.Inf(-1)
 	for _, p := range [4]gfx.Point{{X: rect.X0, Y: rect.Y0}, {X: rect.X1, Y: rect.Y0}, {X: rect.X1, Y: rect.Y1}, {X: rect.X0, Y: rect.Y1}} {
@@ -242,7 +250,9 @@ func backdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 	region = region.Intersect(bounds)
 	if record {
 		c.exact = slices.Grow(c.exact[:0], len(c.idx))[:len(c.idx)]
+		c.plan = slices.Grow(c.plan[:0], len(c.idx))[:len(c.idx)]
 		clear(c.exact)
+		clear(c.plan)
 	}
 	if dl == nil || dl.BackdropReach() <= 0 || region.Empty() {
 		return region
@@ -250,7 +260,12 @@ func backdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 	// The pixels a backdrop filter reads must be exact when it reads them:
 	// painted by this render, including the output of earlier backdrop
 	// filters. Its own output is read only by later ones, so one pass
-	// from the last filter to the first suffices.
+	// from the last filter to the first suffices. A filter found in the
+	// cache is drawn from it inside the region it was checked against
+	// (plan), even when an earlier filter grows the region across its
+	// shape later: the render does not make exact what it reads, and its
+	// output beyond that region is never presented nor read by the exact
+	// output of a later filter (the region already holds what they read).
 	for k := dl.NumBackdrops() - 1; k >= 0; k-- {
 		i, _, reach, inFilter := dl.Backdrop(k)
 		if reach <= 0 || !devRootRect(dl.BoundsAt(i), scale).Overlaps(region) {
@@ -261,7 +276,10 @@ func backdropRegion(dl *gfx.DisplayList, scale float32, region, bounds image.Rec
 		}
 		need := region
 		if c != nil && c.top[k] {
-			if c.hit(k, i, devRootRect(dl.BoundsAt(i), scale).Intersect(region)) {
+			if o := devRootRect(dl.BoundsAt(i), scale).Intersect(region); c.hit(k, i, o, bounds) {
+				if record {
+					c.plan[k] = o
+				}
 				continue // drawn from the cache: it reads nothing
 			}
 			if e := &c.ents[k]; e.ok && e.stable {

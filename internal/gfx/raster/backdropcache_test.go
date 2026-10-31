@@ -218,3 +218,194 @@ func TestBackdropCacheKey(t *testing.T) {
 		t.Error("Reset kept the list")
 	}
 }
+
+// TestBackdropCacheFlip: a filter carried with a partial cover whose
+// transform changed while its bounds, filters and device rectangle did
+// not (a mirrored pane: the same pixels in, the same pixels out) is drawn
+// as an uncached render draws it.
+func TestBackdropCacheFlip(t *testing.T) {
+	for _, scale := range []float32{1, 2} {
+		for _, workers := range []int{1, 0} {
+			t.Run(fmt.Sprintf("x%g_w%d", scale, workers), func(t *testing.T) {
+				list := func(flip bool) *gfx.DisplayList {
+					return build(func(bl *gfx.Builder) {
+						bl.FillRect(gfx.Rect{X1: 400, Y1: 300}, gfx.LinearGradient{End: gfx.Pt(400, 300), Stops: stops(indigo, rose, amber)})
+						for x := float32(0); x < 400; x += 11 {
+							bl.FillRect(gfx.RectXYWH(x, 0, 4, 300), gfx.White.WithAlpha(0.7))
+						}
+						if flip {
+							bl.PushTransform(gfx.ScaleAbout(-1, 1, gfx.Pt(200, 150)))
+						}
+						bl.BackdropFilter(gfx.NewRRect(gfx.RectXYWH(120, 80, 160, 120), 12), gfx.Blur{StdDev: 10})
+						if flip {
+							bl.PopTransform()
+						}
+						bl.FillRect(gfx.RectXYWH(150, 100, 20, 20), slate)
+					})
+				}
+				w, h := int(400*scale), int(300*scale)
+				var c BackdropCache
+				var r Renderer
+				r.tune.minPixels, r.tune.bandRows = 1, 7
+				fb := image.NewRGBA(image.Rect(0, 0, w, h))
+				Clear(fb, image.Rectangle{}, gfx.White)
+				l0, l1 := list(false), list(true)
+				if l0.BoundsAt(l0.Len()-2) != l1.BoundsAt(l1.Len()-3) {
+					t.Fatalf("the flip moved the filter's bounds: %v, %v", l0.BoundsAt(l0.Len()-2), l1.BoundsAt(l1.Len()-3))
+				}
+				r.Render(fb, l0, Options{Scale: scale, Workers: workers, Backdrops: &c})
+				rg := devRootRect(gfx.RectXYWH(180, 120, 30, 30), scale)
+				for frame, f := range []struct {
+					dl    *gfx.DisplayList
+					carry int
+				}{{l0, -1}, {l1, 0}} {
+					c.Retain(f.dl, scale, []int{f.carry})
+					want := image.NewRGBA(fb.Rect)
+					Clear(want, image.Rectangle{}, gfx.White)
+					NewRenderer().Render(want, f.dl, Options{Scale: scale, Workers: 1})
+					Clear(fb, rg, gfx.White)
+					r.Render(fb, f.dl, Options{Scale: scale, Workers: workers, Region: rg, Backdrops: &c})
+					if p, same := firstDiffRGBA(fb, want); !same {
+						t.Fatalf("frame %d: pixel %v = %v, want %v", frame+1, p, pixel(fb, p.X, p.Y), pixel(want, p.X, p.Y))
+					}
+				}
+			})
+		}
+	}
+}
+
+// pane is a glass pane of stackScene: a backdrop blur over rect.
+type pane struct {
+	rect  gfx.Rect
+	sigma float32
+}
+
+// stackScene is a static frame with overlapping backdrop filters, one per
+// pane, each one painted above the previous ones (it reads their output).
+func stackScene(panes ...pane) *gfx.DisplayList {
+	return build(func(bl *gfx.Builder) {
+		bl.FillRect(gfx.Rect{X1: 400, Y1: 300}, gfx.LinearGradient{End: gfx.Pt(400, 300), Stops: stops(indigo, rose, amber)})
+		for x := float32(0); x < 400; x += 11 {
+			bl.FillRect(gfx.RectXYWH(x, 0, 4, 300), gfx.White.WithAlpha(0.7))
+		}
+		for y := float32(3); y < 300; y += 13 {
+			bl.FillRect(gfx.RectXYWH(0, y, 400, 3), slate.WithAlpha(0.5))
+		}
+		for k, p := range panes {
+			bl.BackdropFilter(gfx.NewRRect(p.rect, 12), gfx.Blur{StdDev: p.sigma})
+			bl.FillRRect(gfx.NewRRect(p.rect, 12), gfx.Black.WithAlpha(0.1+0.05*float32(k)))
+		}
+	})
+}
+
+// TestBackdropCacheStack: the later of two overlapping backdrop filters
+// is carried with a partial cover (a frame rendered only a region) and
+// drawn from the cache, while the earlier one, not carried, grows the
+// region by its reach into the later one's shape. Every frame equals an
+// uncached full render (the list never changes, so carrying any entry is
+// honest), sequentially and in phases, and the later filter is drawn from
+// the cache.
+func TestBackdropCacheStack(t *testing.T) {
+	type geo struct {
+		name string
+		a, b pane
+		dmg  gfx.Rect // the region of the second and third frames
+	}
+	geos := []geo{
+		{"inside", pane{gfx.RectXYWH(20, 20, 360, 260), 4}, pane{gfx.RectXYWH(120, 80, 160, 120), 10}, gfx.RectXYWH(180, 120, 30, 30)},
+		{"edge", pane{gfx.RectXYWH(20, 20, 360, 260), 4}, pane{gfx.RectXYWH(120, 80, 160, 120), 10}, gfx.RectXYWH(110, 120, 20, 30)},
+		{"wide a", pane{gfx.RectXYWH(20, 20, 360, 260), 16}, pane{gfx.RectXYWH(120, 80, 160, 120), 6}, gfx.RectXYWH(180, 120, 30, 30)},
+		{"partial b", pane{gfx.RectXYWH(20, 20, 260, 260), 8}, pane{gfx.RectXYWH(200, 60, 180, 140), 12}, gfx.RectXYWH(240, 100, 30, 30)},
+	}
+	for _, g := range geos {
+		for _, scale := range []float32{1, 2} {
+			for _, workers := range []int{1, 0} {
+				t.Run(fmt.Sprintf("%s_x%g_w%d", g.name, scale, workers), func(t *testing.T) {
+					w, h := int(400*scale), int(300*scale)
+					dl := stackScene(g.a, g.b)
+					want := image.NewRGBA(image.Rect(0, 0, w, h))
+					Clear(want, image.Rectangle{}, gfx.White)
+					NewRenderer().Render(want, dl, Options{Scale: scale, Workers: 1})
+					var c BackdropCache
+					var r Renderer
+					r.tune.minPixels, r.tune.bandRows = 1, 7
+					fb := image.NewRGBA(want.Rect)
+					Clear(fb, image.Rectangle{}, gfx.White)
+					r.Render(fb, dl, Options{Scale: scale, Workers: workers, Backdrops: &c})
+					rg := devRootRect(g.dmg, scale)
+					for frame, carry := range [][]int{{-1, -1}, {-1, 1}, {-1, 1}} {
+						c.Retain(dl, scale, carry)
+						hits := c.hits
+						Clear(fb, rg, gfx.White)
+						r.Render(fb, dl, Options{Scale: scale, Workers: workers, Region: rg, Backdrops: &c})
+						if p, same := firstDiffRGBA(fb, want); !same {
+							t.Fatalf("frame %d (carry %v, region %v, %d hits): pixel %v = %v, want %v", frame+1, carry, rg, c.hits-hits, p, pixel(fb, p.X, p.Y), pixel(want, p.X, p.Y))
+						}
+						if frame > 0 && c.hits == hits {
+							t.Errorf("frame %d: the carried filter was not drawn from the cache", frame+1)
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
+// TestBackdropCacheCarry renders a static list of three overlapping
+// backdrop filters into one destination, each frame inside random regions
+// after carrying a random subset of the entries (all honest: the input
+// never changes): every frame equals an uncached full render, whatever the
+// covers the entries were left with, sequentially and in phases.
+func TestBackdropCacheCarry(t *testing.T) {
+	dl := stackScene(
+		pane{gfx.RectXYWH(10, 10, 300, 270), 6},
+		pane{gfx.RectXYWH(90, 50, 290, 160), 14},
+		pane{gfx.RectXYWH(150, 120, 120, 150), 3},
+	)
+	steps := 80
+	if testing.Short() {
+		steps = 12 // arm64 under qemu (ADR-027)
+	}
+	for _, scale := range []float32{1, 2} {
+		for _, workers := range []int{1, 0} {
+			t.Run(fmt.Sprintf("x%g_w%d", scale, workers), func(t *testing.T) {
+				w, h := int(400*scale), int(300*scale)
+				want := image.NewRGBA(image.Rect(0, 0, w, h))
+				Clear(want, image.Rectangle{}, gfx.White)
+				NewRenderer().Render(want, dl, Options{Scale: scale, Workers: 1})
+				rng := rand.New(rand.NewPCG(200, uint64(scale)+uint64(workers)))
+				var c BackdropCache
+				var r Renderer
+				r.tune.minPixels, r.tune.bandRows = 1, 7
+				fb := image.NewRGBA(want.Rect)
+				Clear(fb, image.Rectangle{}, gfx.White)
+				r.Render(fb, dl, Options{Scale: scale, Workers: workers, Backdrops: &c})
+				for step := range steps {
+					carry := make([]int, dl.NumBackdrops())
+					for k := range carry {
+						carry[k] = -1
+						if rng.IntN(3) > 0 {
+							carry[k] = k
+						}
+					}
+					c.Retain(dl, scale, carry)
+					var regions []image.Rectangle
+					for range 1 + rng.IntN(2) {
+						x, y := rng.IntN(w), rng.IntN(h)
+						rg := image.Rect(x, y, x+1+rng.IntN(w/4), y+1+rng.IntN(h/4))
+						regions = append(regions, rg)
+						Clear(fb, rg, gfx.White)
+						r.Render(fb, dl, Options{Scale: scale, Workers: workers, Region: rg, Backdrops: &c})
+					}
+					if p, same := firstDiffRGBA(fb, want); !same {
+						t.Fatalf("step %d (carry %v, regions %v): pixel %v = %v, want %v", step, carry, regions, p, pixel(fb, p.X, p.Y), pixel(want, p.X, p.Y))
+					}
+				}
+				if c.hits == 0 {
+					t.Error("no backdrop filter was drawn from the cache")
+				}
+				t.Logf("%d filters drawn from the cache", c.hits)
+			})
+		}
+	}
+}

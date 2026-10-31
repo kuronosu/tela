@@ -52,13 +52,23 @@ type BackdropCache struct {
 	old   []bdEntry       // Retain's scratch
 	idx   []int           // the command index of each backdrop filter of dl
 	top   []bool          // whether it is cached: it spreads, outside layers
-	open  []bool          // index's stack
-	bytes int             // the pixels held by ents and spare
-	spare [][]uint8       // buffers of dropped entries, for reuse
+	// ctms is the device transform each backdrop filter of dl is drawn
+	// under at scale, as the Renderer computes it (zero: it is never
+	// drawn), so that BackdropRegion checks the whole key of an entry.
+	ctms  []gfx.Affine
+	open  []idxState // index's stack
+	bytes int        // the pixels held by ents and spare
+	spare [][]uint8  // buffers of dropped entries, for reuse
 	// exact is, for the current Render, the device region inside which
 	// each backdrop filter's output is computed from exact pixels (see
 	// backdropRegion); its output elsewhere is not kept.
 	exact []image.Rectangle
+	// plan is, for the current Render, the device pixels of the output of
+	// each backdrop filter that backdropRegion found in the cache (empty:
+	// none): the render did not make exact what it reads, so it is drawn
+	// from the cache, which holds these pixels. Its other pixels in the
+	// grown region are never presented nor read by a filter's exact output.
+	plan []image.Rectangle
 	// hits counts the filters drawn from the cache (tests).
 	hits int
 }
@@ -75,9 +85,17 @@ type bdEntry struct {
 	filters    gfx.BackdropFilter
 	bounds     gfx.Rect // the filter's root-space bounds in the list
 	// cover holds the device pixels of the filter's bounds whose output
-	// is in pix: every pixel it draws inside cover lies in out.
+	// is in pix: out is in ∩ cover, whatever the clip it was drawn
+	// through, so every pixel it draws inside cover lies in out.
 	cover, out image.Rectangle
 	pix        []uint8 // premultiplied RGBA over out
+}
+
+// idxState is the state index keeps per open block.
+type idxState struct {
+	layer bool
+	ctm   gfx.Affine
+	skip  bool
 }
 
 // maxSpare bounds the number of spare buffers.
@@ -146,10 +164,10 @@ func (c *BackdropCache) bind(dl *gfx.DisplayList, scale float32) {
 	}
 }
 
-// index sets dl and computes idx and top for it.
+// index sets dl and computes idx, top and ctms for it at c.scale.
 func (c *BackdropCache) index(dl *gfx.DisplayList) {
 	c.dl = dl
-	c.idx, c.top = c.idx[:0], c.top[:0]
+	c.idx, c.top, c.ctms = c.idx[:0], c.top[:0], c.ctms[:0]
 	if dl == nil {
 		return
 	}
@@ -159,27 +177,46 @@ func (c *BackdropCache) index(dl *gfx.DisplayList) {
 		c.idx = append(c.idx, i)
 		c.top = append(c.top, reach > 0)
 	}
-	// The filters inside layers are not cached.
+	c.ctms = slices.Grow(c.ctms, n)[:n]
+	// The filters inside layers are not cached. The transform is the one
+	// render computes (visit's PushTransform, from the root scale): a
+	// filter it draws lies inside no skipped block, so every transform
+	// around it was applied, in this order, with GridMul.
 	k, layers := 0, 0
+	ctm, skip := gfx.Scale(c.scale, c.scale), false
 	open := c.open[:0]
 	defer func() { c.open = open[:0] }()
 	for i := 0; i < dl.Len() && k < n; i++ {
 		if i == c.idx[k] {
 			c.top[k] = c.top[k] && layers == 0
+			c.ctms[k] = gfx.Affine{}
+			if !skip {
+				c.ctms[k] = ctm
+			}
 			k++
 			continue
 		}
-		switch dl.At(i).(type) {
+		switch t := dl.At(i).(type) {
 		case gfx.PushLayer:
-			open = append(open, true)
+			open = append(open, idxState{layer: true, ctm: ctm, skip: skip})
 			layers++
-		case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath, gfx.PushTransform:
-			open = append(open, false)
+		case gfx.PushClipRect, gfx.PushClipRRect, gfx.PushClipPath:
+			open = append(open, idxState{ctm: ctm, skip: skip})
+		case gfx.PushTransform:
+			open = append(open, idxState{ctm: ctm, skip: skip})
+			if !skip {
+				if next := GridMul(ctm, t.Affine); next.IsFinite() && next.Det() != 0 {
+					ctm = next
+				} else {
+					skip = true
+				}
+			}
 		case gfx.PopLayer, gfx.PopClip, gfx.PopTransform:
 			if m := len(open); m > 0 {
-				if open[m-1] {
+				if open[m-1].layer {
 					layers--
 				}
+				ctm, skip = open[m-1].ctm, open[m-1].skip
 				open = open[:m-1]
 			}
 		}
@@ -225,22 +262,60 @@ func (c *BackdropCache) Region(dl *gfx.DisplayList, scale float32, region, bound
 
 // hit reports whether the k-th backdrop filter of the cache's list, at
 // command index i, finds its output in the device pixels need in the
-// cache.
-func (c *BackdropCache) hit(k, i int, need image.Rectangle) bool {
+// cache, for a render into a destination of bounds full. It checks what
+// lookup checks when the filter is drawn (the transform and the device
+// bounds come from index), so that a filter found here is drawn from the
+// cache (see BackdropCache.plan).
+func (c *BackdropCache) hit(k, i int, need, full image.Rectangle) bool {
 	e := &c.ents[k]
 	if !c.top[k] || !e.ok || e.bounds != c.dl.BoundsAt(i) || !need.In(e.cover) {
 		return false
 	}
 	f, ok := c.dl.At(i).(gfx.BackdropFilter)
-	return ok && sameFilters(e.filters, f)
+	if !ok {
+		return false
+	}
+	m := c.ctms[k]
+	return m != (gfx.Affine{}) && e.matches(f, e.bounds, m, shapeBounds(&m, f.Shape.Rect).Intersect(full))
+}
+
+// need returns the device pixels of out, the output a render draws of the
+// k-th backdrop filter (-1: not cached), that must be exact: those
+// BackdropRegion found in the cache when it did not grow the region for
+// the filter (the pixels it reads were not rendered), all of out
+// otherwise.
+func (c *BackdropCache) need(k int, out image.Rectangle) image.Rectangle {
+	if k >= 0 && k < len(c.plan) && !c.plan[k].Empty() {
+		return out.Intersect(c.plan[k])
+	}
+	return out
+}
+
+// keep returns the device pixels of in, the device bounds of the shape of
+// the k-th backdrop filter (-1: not cached), whose output the render
+// computes from exact pixels (exact), which the cache keeps: whatever the
+// clip the filter is drawn through, so that a later render that draws
+// more of it through another clip finds them.
+func (c *BackdropCache) keep(k int, in image.Rectangle) image.Rectangle {
+	if k < 0 || k >= len(c.exact) {
+		return image.Rectangle{}
+	}
+	return in.Intersect(devRootRect(c.dl.BoundsAt(c.idx[k]), c.scale)).Intersect(c.exact[k])
+}
+
+// matches reports whether e holds the output of the filter c of
+// root-space bounds b drawn under ctm over the device bounds in (in the
+// destination).
+func (e *bdEntry) matches(c gfx.BackdropFilter, b gfx.Rect, ctm gfx.Affine, in image.Rectangle) bool {
+	return e != nil && e.ok && e.bounds == b && e.ctm == ctm && e.in == in && sameFilters(e.filters, c)
 }
 
 // lookup returns the cached output of the filter c of root-space bounds b
 // (the filter of entry e, which may be nil) drawn under ctm over the
-// device bounds in (in the destination) when it holds the pixels out: the
+// device bounds in (in the destination) when it holds the pixels need: the
 // buffer and the rectangle it covers.
-func (e *bdEntry) lookup(c gfx.BackdropFilter, b gfx.Rect, ctm gfx.Affine, in, out image.Rectangle) ([]uint8, image.Rectangle, bool) {
-	if e == nil || !e.ok || e.bounds != b || e.ctm != ctm || e.in != in || !out.In(e.out) || !sameFilters(e.filters, c) {
+func (e *bdEntry) lookup(c gfx.BackdropFilter, b gfx.Rect, ctm gfx.Affine, in, need image.Rectangle) ([]uint8, image.Rectangle, bool) {
+	if !e.matches(c, b, ctm, in) || !need.In(e.out) {
 		return nil, image.Rectangle{}, false
 	}
 	return e.pix, e.out, true
@@ -251,24 +326,27 @@ func sameFilters(a, b gfx.BackdropFilter) bool {
 	return gfx.Equal(gfx.BackdropFilter{Filters: a.Filters}, gfx.BackdropFilter{Filters: b.Filters})
 }
 
-// store makes the output of the filter f at command index i, computed
-// over out (buf over win holds it), drawn under ctm over the device bounds
-// in, the content of entry e: the part of it inside the region where the
-// render computed it from exact pixels (exact). It keeps nothing when the
+// store makes the output of the k-th backdrop filter f, drawn under ctm
+// over the device bounds in, the content of entry e: the pixels keep (see
+// keep), which buf over win holds. With keep empty (the render computed
+// none of its output from exact pixels), an entry for the same filter is
+// left alone: its pixels are still its output. It keeps nothing when the
 // cache would exceed its budget.
-func (c *BackdropCache) store(e *bdEntry, i int, f gfx.BackdropFilter, ctm gfx.Affine, in, out image.Rectangle, buf []uint8, win image.Rectangle) {
-	b := c.dl.BoundsAt(i)
-	var cover image.Rectangle
-	if k, found := slices.BinarySearch(c.idx, i); found && k < len(c.exact) {
-		cover = devRootRect(b, c.scale).Intersect(c.exact[k])
+func (c *BackdropCache) store(e *bdEntry, k int, f gfx.BackdropFilter, ctm gfx.Affine, in, keep image.Rectangle, buf []uint8, win image.Rectangle) {
+	b := c.dl.BoundsAt(c.idx[k])
+	if keep.Empty() {
+		if !e.matches(f, b, ctm, in) {
+			c.drop(e)
+		}
+		return
 	}
-	out = out.Intersect(cover)
+	cover := devRootRect(b, c.scale).Intersect(c.exact[k])
+	out := keep
 	n := 4 * out.Dx() * out.Dy()
 	old := e.pix
 	*e = bdEntry{}
 	var pix []uint8
 	switch {
-	case out.Empty():
 	case cap(old) >= n:
 		pix, old = old[:n], nil
 	default:
