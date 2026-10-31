@@ -52,11 +52,11 @@ func (e Editor) Build() tela.Node {
 				If(n.Dirty(), Span(Class("flex items-center gap-1.5"),
 					Span(Role("img"), AriaLabel("Unsaved changes"), Class("size-1.5 rounded-full bg-gold")), Text("Unsaved"))),
 				pinButton(n.Pinned, e.OnPin),
-				Fragment(kit.Tooltip{
+				kit.Tooltip{
 					Trigger: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: icons.Trash, AriaLabel: "Delete note",
 						OnClick: e.OnDelete, Class: "size-7 text-muted-foreground"},
 					Content: Text("Delete note"), Placement: "bottom",
-				}),
+				},
 			),
 		),
 		Div(Class("flex min-h-0 flex-1 flex-col px-8 pt-7"),
@@ -88,11 +88,11 @@ func pinButton(pinned bool, onClick func()) tela.Node {
 	if pinned {
 		class, label = "text-gold", "Unpin note"
 	}
-	return Fragment(kit.Tooltip{
+	return kit.Tooltip{
 		Trigger: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: icons.Pin, AriaLabel: "Pin note",
 			OnClick: onClick, Class: "size-7 " + class, Props: AriaPressed(pinned)},
 		Content: Text(label), Placement: "bottom",
-	})
+	}
 }
 
 // folderKey names an entry of the folder menu: a folder (Name, "" for none),

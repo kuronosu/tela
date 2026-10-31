@@ -39,12 +39,12 @@ func ExampleDialog_controlled() {
 	// A controlled dialog shows the state it is given and reports what the
 	// user asked for, here an Escape; the app decides whether it closes.
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.Dialog{
+		return kit.Dialog{
 			Open:         &open,
 			OnOpenChange: func(next bool) { fmt.Println("asked to open:", next) },
 			Title:        h.Text("Welcome"),
 			Description:  h.Text("Controlled by the app's own state."),
-		})
+		}
 	})
 	app.Press("Escape")
 	fmt.Println("still open:", app.Count(telatest.ByRole("dialog", "Welcome")) == 1)

@@ -74,7 +74,7 @@ func (p EmailField) Build() tela.Node {
 	if !p.SetTouched.IsZero() {
 		in.Props = OnBlur(func() { p.SetTouched.Set(true) })
 	}
-	return Fragment(kit.Field{Label: "E-mail", Error: p.Error, Children: in})
+	return kit.Field{Label: "E-mail", Error: p.Error, Children: in}
 }
 
 // NameField is a plain controlled field. Input takes input-method text
@@ -86,14 +86,14 @@ type NameField struct {
 
 func (p NameField) Build() tela.Node {
 	name := p.Name
-	return Fragment(kit.Field{
+	return kit.Field{
 		Label: "Display name",
 		Children: kit.Input{
 			Name: "name", Placeholder: "Ana García", AutoFocus: true,
 			Value: &name, OnValueChange: p.Set.Set,
 			Props: AutoComplete("name"),
 		},
-	})
+	}
 }
 
 // PasswordField has a show/hide button over the end of the field: a ghost
@@ -139,12 +139,12 @@ func (p PasswordField) Build() tela.Node {
 		},
 	)
 	if !p.New {
-		return Fragment(kit.Field{Label: "Password", Error: p.Error, Children: field})
+		return kit.Field{Label: "Password", Error: p.Error, Children: field}
 	}
-	return Fragment(kit.Field{
+	return kit.Field{
 		Label: "Password", Error: p.Error,
 		Children: Div(Class("flex flex-col gap-2.5"), field, StrengthMeter{Password: password}),
-	})
+	}
 }
 
 // StrengthMeter is a kit.Progress from 0 to 4 and a word, colored by the
@@ -188,7 +188,7 @@ type BioField struct {
 
 func (p BioField) Build() tela.Node {
 	bio := p.Bio
-	return Fragment(kit.Field{
+	return kit.Field{
 		Label: "Short bio (optional)",
 		Class: "relative",
 		Children: Fragment(
@@ -200,7 +200,7 @@ func (p BioField) Build() tela.Node {
 			Span(Class("absolute top-0 right-0 text-xs text-muted-foreground tabular-nums"),
 				TextFn(func() string { return fmt.Sprintf("%d/%d", units(bio.Get()), bioLimit) })),
 		),
-	})
+	}
 }
 
 // termsLabel is the accessible name of the terms checkbox: the text of its
@@ -216,11 +216,11 @@ type TermsField struct {
 
 func (p TermsField) Build() tela.Node {
 	on := p.On
-	return Fragment(kit.Field{
+	return kit.Field{
 		Orientation: kit.Horizontal,
 		Label:       termsLabel,
 		Children:    kit.Checkbox{Checked: &on, OnCheckedChange: p.Set, Class: "mt-px"},
-	})
+	}
 }
 
 // RememberRow has the "Remember me" checkbox, a horizontal Field, and the
@@ -258,7 +258,7 @@ func (p SubmitButton) Build() tela.Node {
 	if p.Loading {
 		label = Fragment(Icon(icons.LoaderCircle, Class("size-4 animate-spin")), Text(p.LoadingLabel))
 	}
-	return Fragment(kit.Button{Type: "submit", Disabled: p.Loading || p.Disabled, Class: "w-full", Children: label})
+	return kit.Button{Type: "submit", Disabled: p.Loading || p.Disabled, Class: "w-full", Children: label}
 }
 
 // Alternatives are the other ways in, under a separator with a caption. The
@@ -270,7 +270,7 @@ type Alternatives struct {
 
 func (p Alternatives) Build() tela.Node {
 	option := func(icon tela.Icon, label string) tela.Node {
-		return Fragment(kit.Button{Type: "button", Variant: kit.Outline, Icon: icon, Disabled: p.Disabled, Children: Text(label)})
+		return kit.Button{Type: "button", Variant: kit.Outline, Icon: icon, Disabled: p.Disabled, Children: Text(label)}
 	}
 	return Div(Class("flex flex-col gap-5"),
 		Div(Class("flex items-center gap-3 text-sm text-muted-foreground"),

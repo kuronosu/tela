@@ -68,7 +68,7 @@ func (p TaskDialog) Build() tela.Node {
 	for i, t := range tags {
 		items[i] = kit.SelectItem[string]{Value: t, Label: t}
 	}
-	return Fragment(kit.Dialog{
+	return kit.Dialog{
 		Open: &open, OnOpenChange: p.SetOpen,
 		Title:       Text(p.Title),
 		Description: Text(p.Description),
@@ -87,7 +87,7 @@ func (p TaskDialog) Build() tela.Node {
 			kit.Button{Variant: kit.Outline, OnClick: func() { p.SetOpen(false) }, Children: Text("Cancel")},
 			kit.Button{Disabled: invalid, OnClick: save, Children: Text(p.Submit)},
 		),
-	})
+	}
 }
 
 // DeleteDialog asks before a task is removed from the board.
@@ -102,7 +102,7 @@ type DeleteDialog struct {
 
 func (p DeleteDialog) Build() tela.Node {
 	open := p.Open
-	return Fragment(kit.AlertDialog{
+	return kit.AlertDialog{
 		Open: &open, OnOpenChange: p.SetOpen.Set,
 		Title:       Text("Delete this task?"),
 		Description: Textf("%q will be removed from the board. This cannot be undone.", p.Title),
@@ -112,7 +112,7 @@ func (p DeleteDialog) Build() tela.Node {
 			p.Set.Update(func(b Board) Board { return b.Remove(p.ID) })
 			p.Toast.Success("Task deleted", kit.ToastDescription(p.Title))
 		},
-	})
+	}
 }
 
 // NewTask is the dialog that writes a new task into a column (Col, or -1
@@ -137,7 +137,7 @@ func (p NewTask) Build() tela.Node {
 		return nil
 	}, p.Col >= 0)
 	col := max(p.Col, 0)
-	return Fragment(TaskDialog{
+	return TaskDialog{
 		Open: p.Col >= 0, Draft: draft, SetDraft: setDraft,
 		SetOpen: func(open bool) {
 			if !open {
@@ -156,5 +156,5 @@ func (p NewTask) Build() tela.Node {
 			p.SetBoard.Update(func(b Board) Board { return b.Add(id, col) })
 			toast.Success("Task created", kit.ToastDescription(t.Title))
 		},
-	})
+	}
 }

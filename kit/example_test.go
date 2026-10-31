@@ -51,8 +51,8 @@ func ExampleStyleProvider() {
 	style := kit.DefaultStyle()
 	style.Button.Variants["glass"] = "bg-white/10 text-white backdrop-blur hover:bg-white/20"
 	page := func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &style, Children: h.Div(h.Class("bg-slate-900 p-6"),
-			kit.Button{Variant: "glass", Children: h.Text("Glass")})})
+		return kit.StyleProvider{Style: &style, Children: h.Div(h.Class("bg-slate-900 p-6"),
+			kit.Button{Variant: "glass", Children: h.Text("Glass")})}
 	}
 	app := telatest.MountFunc(t, page)
 	fmt.Println(app.Count(telatest.ByClass("backdrop-blur")))
@@ -64,11 +64,11 @@ type emailForm struct{}
 
 func (emailForm) Build() tela.Node {
 	email, setEmail := tela.UseState("")
-	return h.Fragment(kit.Field{
+	return kit.Field{
 		Label:       "Email",
 		Description: "We never share it.",
 		Children:    kit.Input{Type: "email", Value: &email, OnValueChange: setEmail.Set},
-	})
+	}
 }
 
 func ExampleField() {

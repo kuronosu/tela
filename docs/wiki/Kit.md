@@ -81,8 +81,9 @@ A struct component compares its fields to skip a build, so one given a func
 (`OnClick`) or a slice builds on every parent build. That is cheap, and
 `tela.UseCallback` makes it skippable when it matters.
 
-One Go wrinkle: a function component returns `tela.Node`, and a kit component is
-not one, so wrap it: `return Fragment(kit.Button{...})`.
+A kit component is a `tela.Node`, like any struct component: a function or a
+`Build` returns it as it is, `return kit.Button{...}`, and `Fragment` is only for
+several siblings.
 
 ## Controlled and uncontrolled
 
@@ -174,7 +175,7 @@ var rounded = func() *kit.Style {
 }()
 
 func App() tela.Node {
-	return Fragment(kit.StyleProvider{Style: rounded, Children: Dashboard{}})
+	return kit.StyleProvider{Style: rounded, Children: Dashboard{}}
 }
 ```
 

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/kuronosu/tela"
-	"github.com/kuronosu/tela/h"
 	"github.com/kuronosu/tela/internal/core"
 )
 
@@ -129,7 +128,7 @@ func (s SavedWindow) Build() tela.Node {
 	if w.Root != nil {
 		w.Root = placementRoot{Key: s.Key, Root: w.Root}
 	}
-	return h.Fragment(w)
+	return w
 }
 
 // placementRoot is a window's root that saves its placement.
@@ -140,7 +139,7 @@ type placementRoot struct {
 
 func (r placementRoot) Build() tela.Node {
 	UseSavePlacement(r.Key)
-	return h.Fragment(r.Root)
+	return r.Root
 }
 
 // MainWindowKey is the key [PersistApp] saves the main window's placement

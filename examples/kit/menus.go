@@ -143,7 +143,7 @@ func contextMenuPage() tela.Node {
 }
 
 func fileRow(name, size string) tela.Node {
-	return Fragment(kit.ContextMenu[string]{
+	return kit.ContextMenu[string]{
 		Props: Key(name), AriaLabel: name,
 		Class:    "flex items-center justify-between border-b border-border px-3 py-2.5 last:border-b-0 hover:bg-accent/50",
 		Children: Fragment(Span(Class("font-medium"), Text(name)), Span(Class("text-muted-foreground"), Text(size))),
@@ -152,5 +152,5 @@ func fileRow(name, size string) tela.Node {
 			{Kind: kit.MenuSeparator},
 			{Key: "delete", Label: "Delete", Variant: kit.Destructive},
 		},
-	})
+	}
 }

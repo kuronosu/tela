@@ -12,7 +12,7 @@ import (
 
 const lintUsage = `Usage:
 
-	tela lint [-json] [-tests] [packages]
+	tela lint [-json] [-tests] [-fix] [packages]
 
 Checks the Go source of the packages (default ./...) for the mistakes that
 dev mode reports at run time, so they fail in CI with dev mode off. Packages
@@ -43,6 +43,21 @@ Rules, each with the message and the "did you mean" of dev mode:
 	        from a function that is neither a component nor a custom hook, or
 	        in a function literal that is not a component; a component that
 	        uses hooks called directly instead of through tela.C or tela.CP
+	fragment   h.Fragment of a single child: a struct component is a
+	        tela.Node, so write the node itself (ADR-205). Reported, with a
+	        fix for -fix, only where removing the wrapper type-checks and
+	        keeps the child's identity: the child is not a Prop, the place
+	        takes a tela.Node or tela.Child (not a short variable
+	        declaration, an interface{} or a generic parameter), no comment
+	        is lost, the first argument of tela.WithKey is a struct literal,
+	        and the function (or IfElse) has no Fragment of several
+	        children as an alternative, which would give the child another
+	        identity and reset its state
+	prop-node  a Prop (h.Class, h.Key, h.OnClick, tela.Width...) where a
+	        tela.Node is expected: the result of a function or of a Map
+	        callback, an element of a []tela.Node, a Node field, an
+	        argument of tela.WithKey. It compiles, because a Prop has a Build
+	        method, and panics when the node is consumed; no fix
 
 Each finding is printed as file:line:col: rule: message, sorted by position,
 with paths relative to the current directory. Exit status: 0 when nothing is
@@ -68,12 +83,17 @@ Flags:
 	         col, rule, severity ("error", or "warning" for what dev mode only
 	         warns about), message and, when there is one, suggestion
 	-tests   lint the _test.go files too
+	-fix     apply the fixes of the findings that have one (the fragment
+	         rule), rewriting the files (gofmt-formatted; a file whose fixed
+	         text would not parse is left as it was), and report what is
+	         left. Review the result with git diff; no other rule has a fix
 `
 
 // lintOptions are the parsed arguments of `tela lint`.
 type lintOptions struct {
 	JSON     bool
 	Tests    bool
+	Fix      bool
 	Patterns []string
 }
 
@@ -85,6 +105,7 @@ func parseLintArgs(args []string) (lintOptions, error) {
 	fs.SetOutput(io.Discard)
 	fs.BoolVar(&opts.JSON, "json", false, "")
 	fs.BoolVar(&opts.Tests, "tests", false, "")
+	fs.BoolVar(&opts.Fix, "fix", false, "")
 	pats, err := parsePositionals("lint", fs, args)
 	opts.Patterns = pats
 	return opts, err
@@ -101,7 +122,7 @@ func runLint(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "tela lint: %v\n\n%s", err, lintUsage)
 		return 2
 	}
-	res, err := lint.Run(lint.Options{Patterns: opts.Patterns, Tests: opts.Tests})
+	res, err := lint.Run(lint.Options{Patterns: opts.Patterns, Tests: opts.Tests, Fix: opts.Fix})
 	if err != nil {
 		fmt.Fprintf(stderr, "tela lint: %v\n", err)
 		return 2
@@ -114,11 +135,19 @@ func runLint(args []string, stdout, stderr io.Writer) int {
 	} else {
 		lint.WriteText(stdout, res.Diagnostics)
 	}
+	if opts.Fix {
+		if n := len(res.Fixed); n > 0 {
+			fmt.Fprintf(stderr, "tela lint: fixed %d findings in %d files\n", n, res.FixedFiles)
+		}
+		if res.FixError != nil {
+			fmt.Fprintf(stderr, "tela lint: %v\n", res.FixError)
+		}
+	}
 	for _, e := range res.LoadErrors {
 		fmt.Fprintf(stderr, "tela lint: %s\n", strings.TrimSpace(e))
 	}
 	switch {
-	case len(res.LoadErrors) > 0:
+	case len(res.LoadErrors) > 0, res.FixError != nil:
 		return 2
 	case len(res.Diagnostics) > 0:
 		return 1

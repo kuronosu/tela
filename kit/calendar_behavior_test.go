@@ -263,9 +263,9 @@ func TestCalendarStyleAndClasses(t *testing.T) {
 	s.Calendar.Today = "ring-2 ring-primary"
 	s.Calendar.DayButtonWithSelected = "bg-emerald-600 text-white"
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: tela.C(calPage(kit.Calendar{
+		return kit.StyleProvider{Style: &s, Children: tela.C(calPage(kit.Calendar{
 			Today: calToday, DefaultValue: calDate(2026, time.October, 14), Class: "shadow-lg", DayButtonClass: "font-semibold",
-		}))})
+		}))}
 	}, telatest.Size(400, 360), telatest.Theme(kit.Theme()))
 	for class, want := range map[string]int{"ring-primary": 1, "bg-emerald-600": 1, "shadow-lg": 1, "font-semibold": 35} {
 		if n := app.Count(telatest.ByClass(class)); n != want {

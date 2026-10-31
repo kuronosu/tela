@@ -75,7 +75,7 @@ func (p TasksTable) Build() tela.Node {
 				{ID: "done", Header: "Done", HeaderContent: Span(Class("sr-only"), Text("Done")), Width: "2.75rem", CellProps: slide,
 					Cell: func(r Row) tela.Node {
 						d := r.Done
-						return Fragment(kit.Checkbox{Checked: &d, OnCheckedChange: func(bool) { finish(r) }, AriaLabel: r.Task.Title})
+						return kit.Checkbox{Checked: &d, OnCheckedChange: func(bool) { finish(r) }, AriaLabel: r.Task.Title}
 					}},
 				{ID: "key", Header: "ID", Width: "6rem", CellProps: slide, Cell: func(r Row) tela.Node {
 					return Span(Class("font-mono text-xs text-muted-foreground"), Text(r.Task.Key))

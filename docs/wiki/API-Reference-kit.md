@@ -1796,12 +1796,12 @@ open := true
 // A controlled dialog shows the state it is given and reports what the
 // user asked for, here an Escape; the app decides whether it closes.
 app := telatest.MountFunc(t, func() tela.Node {
-    return h.Fragment(kit.Dialog{
+    return kit.Dialog{
         Open:         &open,
         OnOpenChange: func(next bool) { fmt.Println("asked to open:", next) },
         Title:        h.Text("Welcome"),
         Description:  h.Text("Controlled by the app's own state."),
-    })
+    }
 })
 app.Press("Escape")
 fmt.Println("still open:", app.Count(telatest.ByRole("dialog", "Welcome")) == 1)
@@ -3630,8 +3630,8 @@ defer t.close()
 style := kit.DefaultStyle()
 style.Button.Variants["glass"] = "bg-white/10 text-white backdrop-blur hover:bg-white/20"
 page := func() tela.Node {
-    return h.Fragment(kit.StyleProvider{Style: &style, Children: h.Div(h.Class("bg-slate-900 p-6"),
-        kit.Button{Variant: "glass", Children: h.Text("Glass")})})
+    return kit.StyleProvider{Style: &style, Children: h.Div(h.Class("bg-slate-900 p-6"),
+        kit.Button{Variant: "glass", Children: h.Text("Glass")})}
 }
 app := telatest.MountFunc(t, page)
 fmt.Println(app.Count(telatest.ByClass("backdrop-blur")))

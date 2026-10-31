@@ -249,7 +249,7 @@ func TestContextMenuStyleProvider(t *testing.T) {
 	s := kit.DefaultStyle()
 	s.ContextMenu.Content += " ring-2"
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: tela.C(contextPage(kit.ContextMenu[string]{}))})
+		return kit.StyleProvider{Style: &s, Children: tela.C(contextPage(kit.ContextMenu[string]{}))}
 	}, telatest.Size(480, 320), telatest.Theme(kit.Theme()))
 	app.Focus(telatest.ByRole("button", "Inner"))
 	app.Press("Shift+F10")

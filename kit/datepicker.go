@@ -367,9 +367,9 @@ func usePicker(c pickerFrame, calendar func(done func(), label string) tela.Comp
 		}
 		return h.Button(kids...)
 	})
-	return h.Fragment(Popover{
+	return Popover{
 		Trigger: trigger, Children: calendar(done, cmp.Or(label, "Choose date")),
 		Align: cmp.Or(c.align, "start"), AriaLabel: cmp.Or(label, "Choose date"),
 		Open: open, OnOpenChange: setOpen, Class: joinClass(s.Content, c.popoverClass),
-	})
+	}
 }

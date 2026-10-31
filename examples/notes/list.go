@@ -101,14 +101,14 @@ func (c Card) Build() tela.Node {
 	if n.Pinned {
 		pin = "Unpin"
 	}
-	return Fragment(kit.ContextMenu[string]{
+	return kit.ContextMenu[string]{
 		AriaLabel: "Note actions", Class: "w-full",
 		Items: []kit.MenuItem[string]{
 			{Key: "pin", Label: pin, Icon: icons.Pin, OnSelect: func() { c.OnPin(n.ID) }},
 			{Key: "delete", Label: "Delete", Icon: icons.Trash, Variant: kit.Destructive, OnSelect: func() { c.OnDelete(n.ID) }},
 		},
 		Children: c.button(name, cur, lines, limit),
-	})
+	}
 }
 
 // button is the card itself.

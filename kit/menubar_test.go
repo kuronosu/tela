@@ -313,7 +313,7 @@ func TestMenubarStyleProvider(t *testing.T) {
 	s.Menubar.Menu.Content += " ring-2"
 	file := "file"
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: appBar(func(m *kit.Menubar[string]) { m.DefaultOpen = &file })})
+		return kit.StyleProvider{Style: &s, Children: appBar(func(m *kit.Menubar[string]) { m.DefaultOpen = &file })}
 	}, telatest.Theme(kit.Theme()))
 	if n := app.Count(telatest.ByClass("ring-4")); n != 1 {
 		t.Errorf("the bar has the provider's classes %d times, want 1", n)

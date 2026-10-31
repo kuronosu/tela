@@ -125,8 +125,8 @@ func rgRadio(name string) telatest.Locator { return telatest.ByRole("radio", nam
 func TestRadioGroupUncontrolled(t *testing.T) {
 	var got []string
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.RadioGroup[string]{Items: plans, AriaLabel: "Plan", DefaultValue: new("pro"),
-			OnValueChange: func(k string) { got = append(got, k) }})
+		return kit.RadioGroup[string]{Items: plans, AriaLabel: "Plan", DefaultValue: new("pro"),
+			OnValueChange: func(k string) { got = append(got, k) }}
 	})
 	app.Expect(rgRadio("Pro"), telatest.Checked(true))
 	app.Expect(rgRadio("Free"), telatest.Checked(false))
@@ -144,7 +144,7 @@ func TestRadioGroupUncontrolled(t *testing.T) {
 func TestRadioGroupNothingCheckedAndKeyboard(t *testing.T) {
 	items := []kit.RadioItem[string]{{Value: "a", Label: "A"}, {Value: "b", Label: "B", Disabled: true}, {Value: "c", Label: "C"}}
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.RadioGroup[string]{Items: items, AriaLabel: "Letters"})
+		return kit.RadioGroup[string]{Items: items, AriaLabel: "Letters"}
 	})
 	for _, n := range []string{"A", "B", "C"} {
 		app.Expect(rgRadio(n), telatest.Checked(false))
@@ -208,11 +208,11 @@ func TestRadioGroupDisabledReadOnlyInvalid(t *testing.T) {
 func TestRadioGroupRender(t *testing.T) {
 	var states []kit.RadioState
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.RadioGroup[string]{Items: plans[:2], AriaLabel: "Plan", DefaultValue: new("pro"),
+		return kit.RadioGroup[string]{Items: plans[:2], AriaLabel: "Plan", DefaultValue: new("pro"),
 			Render: func(it kit.RadioItem[string], st kit.RadioState) tela.Node {
 				states = append(states, st)
 				return h.Button(st.Props, h.Class("rounded border p-2 aria-checked:bg-accent"), h.Text(it.Label), st.Indicator)
-			}})
+			}}
 	})
 	app.Expect(rgRadio("Pro"), telatest.Checked(true))
 	app.Click(rgRadio("Free"))
@@ -226,7 +226,7 @@ func TestRadioGroupRender(t *testing.T) {
 
 func TestRadioGroupFieldDescribesAndMarksInvalid(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.Field{Label: "Plan", Error: "Pick a plan.", Children: kit.RadioGroup[string]{Items: plans, AriaLabel: "Plan"}})
+		return kit.Field{Label: "Plan", Error: "Pick a plan.", Children: kit.RadioGroup[string]{Items: plans, AriaLabel: "Plan"}}
 	})
 	snap := app.AriaSnapshot()
 	if !strings.Contains(snap, `radiogroup "Plan" [invalid]`) {

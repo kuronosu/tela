@@ -54,6 +54,8 @@ type run struct {
 	usesHooksCache map[*types.Func]bool
 
 	diags []Diagnostic
+	// fixes are the edits of the fixable findings.
+	fixes map[fixKey][]edit
 }
 
 type funcDecl struct {
@@ -145,6 +147,20 @@ func (r *run) run(patterns []string) (*Result, error) {
 
 	sortDiagnostics(r.diags)
 	res.Diagnostics = dedupe(r.diags)
+	if r.opts.Fix {
+		var left []Diagnostic
+		fixed, files, ferr := r.applyFixes(res.Diagnostics)
+		isFixed := map[fixKey]bool{}
+		for _, d := range fixed {
+			isFixed[fixKeyOf(d)] = true
+		}
+		for _, d := range res.Diagnostics {
+			if !isFixed[fixKeyOf(d)] {
+				left = append(left, d)
+			}
+		}
+		res.Diagnostics, res.Fixed, res.FixedFiles, res.FixError = left, fixed, files, ferr
+	}
 	sort.Strings(res.LoadErrors)
 	return res, nil
 }

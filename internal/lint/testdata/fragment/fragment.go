@@ -1,0 +1,160 @@
+// Package fragment is a fixture of the fragment rule and its fix.
+package fragment
+
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+)
+
+type Badge struct{ Label string }
+
+func (b Badge) Build() tela.Node { return Text(b.Label) }
+
+type Card struct{ Children tela.Component }
+
+func (c Card) Build() tela.Node { return Div(c.Children) }
+
+type Holder struct {
+	Content tela.Node
+	Slots   []tela.Node
+	Any     any
+}
+
+// Results.
+func Single() tela.Node { return Fragment(Badge{"a"}) } // want fragment `redundant Fragment`
+
+func Multi() tela.Node { return Fragment(Badge{"a"}, Badge{"b"}) }
+
+func Spread(xs []tela.Child) tela.Node { return Fragment(xs...) }
+
+func Empty() tela.Node { return Fragment() }
+
+func Parens() tela.Node { return (Fragment(Badge{"a"})) } // want fragment `redundant Fragment`
+
+func Pointer() tela.Node { return Fragment(&Badge{"a"}) } // want fragment `redundant Fragment`
+
+func Multiline() tela.Node {
+	return Fragment(Card{ // want fragment `redundant Fragment`
+		Children: Badge{"deep"},
+	},
+	)
+}
+
+func Commented() tela.Node {
+	return Fragment( /* keep */ Badge{"a"})
+}
+
+// Props are not wrapped nodes: a Fragment takes Key.
+func KeyOnly() tela.Node { return Fragment(Key("k")) }
+
+func PropVar() tela.Node {
+	p := Class("p-2")
+	return Fragment(p)
+}
+
+func StyleVar() tela.Node {
+	p := tela.Width(1)
+	return Fragment(p)
+}
+
+func Hole() tela.Node { return Fragment(nil) }
+
+func IfNode(on bool) tela.Node { return Fragment(If(on, Badge{"a"})) } // want fragment `redundant Fragment`
+
+func IfProp(on bool) tela.Node { return Fragment(If(on, Key("k"))) }
+
+func IfElseProp(on bool) tela.Node { return Fragment(IfElse(on, Key("a"), Key("b"))) }
+
+func IfElseNodes(on bool) tela.Node { return Fragment(IfElse(on, Badge{"a"}, nil)) } // want fragment `redundant Fragment`
+
+func ChildValue(c tela.Child) tela.Node { return Fragment(c) }
+
+// Other places.
+func InElement() tela.Node { return Div(Fragment(Badge{"a"})) } // want fragment `redundant Fragment`
+
+func InField() tela.Node { return Card{Children: Fragment(Badge{"a"})} } // want fragment `redundant Fragment`
+
+func InHolder() Holder {
+	return Holder{
+		Content: Fragment(Badge{"a"}),              // want fragment `redundant Fragment`
+		Slots:   []tela.Node{Fragment(Badge{"b"})}, // want fragment `redundant Fragment`
+		Any:     Fragment(Badge{"c"}),
+	}
+}
+
+func Positional() Holder {
+	return Holder{Fragment(Badge{"a"}), nil, nil} // want fragment `redundant Fragment`
+}
+
+func Assigned() tela.Node {
+	var n tela.Node
+	n = Fragment(Badge{"a"}) // want fragment `redundant Fragment`
+	return n
+}
+
+func Declared() tela.Node {
+	var n tela.Node = Fragment(Badge{"a"}) // want fragment `redundant Fragment`
+	return n
+}
+
+func Defined() tela.Node {
+	n := Fragment(Badge{"a"}) // the variable would change type
+	return n
+}
+
+func Callback(xs []int) tela.Node {
+	return Range(len(xs), func(int) tela.Node { return Fragment(Badge{"a"}) }) // want fragment `redundant Fragment`
+}
+
+func Appended(xs []tela.Node) []tela.Node { return append(xs, Fragment(Badge{"a"})) } // want fragment `redundant Fragment`
+
+func Generic[T any](v T) T { return v }
+
+func ToGeneric() tela.Node {
+	return Generic(Fragment(Badge{"a"})) // T would become Badge
+}
+
+func ToAny() {
+	println(Fragment(Badge{"a"}))
+}
+
+func Method() tela.Node {
+	return Fragment(Badge{"a"}).Build()
+}
+
+func Nested() tela.Node { return Fragment(Fragment(Badge{"a"})) } // want fragment `redundant Fragment` fragment `redundant Fragment`
+
+func Keys() tela.Node {
+	return Div(
+		tela.WithKey(Fragment(Badge{"a"}), 1),  // want fragment `redundant Fragment`
+		tela.WithKey(Fragment(Div(Key(2))), 3), // the child has a key of its own, which the key would replace
+	)
+}
+
+// A place that takes a group at other times keeps the child's identity.
+func Variant(on bool) tela.Node {
+	if on {
+		return Fragment(Badge{"a"})
+	}
+	return Fragment(Badge{"a"}, Badge{"b"})
+}
+
+func VariantAssigned(on bool) tela.Node {
+	var n tela.Node
+	if on {
+		n = Fragment(Badge{"a"})
+	} else {
+		n = Fragment(Badge{"a"}, Badge{"b"})
+	}
+	return n
+}
+
+func VariantIfElse(on bool) tela.Node {
+	return Div(IfElse(on, Fragment(Badge{"a"}), Fragment(Badge{"a"}, Badge{"b"})))
+}
+
+// A group in a literal inside the function is another place.
+func VariantInLiteral() tela.Node {
+	_ = func() tela.Node { return Fragment(Badge{"a"}, Badge{"b"}) }
+	return Fragment(Badge{"a"}) // want fragment `redundant Fragment`
+}

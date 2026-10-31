@@ -244,7 +244,7 @@ func (c counter) Build() tela.Node {
 
 func TestTableRowStateFollowsTheRow(t *testing.T) {
 	app := mountTable(t, invoiceTable(func(tb *kit.Table[trow]) {
-		tb.Columns[2].Cell = func(r trow) tela.Node { return h.Fragment(counter{r.v[0]}) }
+		tb.Columns[2].Cell = func(r trow) tela.Node { return counter{r.v[0]} }
 	}))
 	app.Click(telatest.ByRole("button", "count INV002"))
 	app.Click(telatest.ByRole("button", "count INV002"))
@@ -289,7 +289,7 @@ func TestTableMistakesPanicInDevMode(t *testing.T) {
 		{"sticky width", []kit.Column[trow]{col("a", true, "1fr"), col("b", true, "")}, `Width must be in px`},
 	} {
 		cols := tc.cols
-		_, err := telatest.AriaSnapshot(tela.C(func() tela.Node { return h.Fragment(kit.Table[trow]{Columns: cols}) }))
+		_, err := telatest.AriaSnapshot(tela.C(func() tela.Node { return kit.Table[trow]{Columns: cols} }))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: error %v, want it to contain %q", tc.name, err, tc.want)
 		}

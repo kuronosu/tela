@@ -24,11 +24,11 @@ func (f form) stack(children ...tela.Child) tela.Node {
 }
 
 func (f form) switchRow(label, hint string, on bool, set func(p *Prefs, on bool)) tela.Node {
-	return Fragment(kit.Field{
+	return kit.Field{
 		Orientation: kit.Horizontal, ControlAfter: true, Label: label, Description: hint,
 		Class:    "items-center gap-6 border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0",
 		Children: kit.Switch{Checked: &on, OnCheckedChange: func(v bool) { f.edit(func(p *Prefs) { set(p, v) }) }},
-	})
+	}
 }
 
 // pickLibrary asks the OS for a folder. A cancel gives "" and no error; a
@@ -99,14 +99,14 @@ func (f form) develop() tela.Node {
 	}
 	return f.stack(
 		kit.Card{TitleLevel: 2, Title: Text("Default look"), Description: Text("Applied to every new photo. Existing photos are left alone."),
-			Children: Fragment(kit.RadioGroup[string]{AriaLabel: "Default look", Items: items, Value: &p.Look, Class: "grid-cols-2",
+			Children: kit.RadioGroup[string]{AriaLabel: "Default look", Items: items, Value: &p.Look, Class: "grid-cols-2",
 				OnValueChange: func(v string) { f.edit(func(p *Prefs) { p.Look = v }) },
 				Render: func(o kit.RadioItem[string], st kit.RadioState) tela.Node {
 					return optionCard(o, st, Div(Class("mb-1 flex h-7 w-full overflow-hidden rounded-md ring-1 ring-border"),
 						Map(strips[o.Value], func(c string) tela.Node {
 							return Div(Key(c), Class("h-full flex-1 bg-["+c+"]"))
 						})))
-				}})},
+				}}},
 		kit.Card{TitleLevel: 2, Title: Text("Detail"), Description: Text("The first pass of sharpening and noise."),
 			Children: Div(Class("flex flex-col gap-6"),
 				f.sliderRow("Sharpening", "Amount", p.Sharpen, 0, 150, "%.0f", func(p *Prefs, v float64) { p.Sharpen = v }),
@@ -125,8 +125,8 @@ func (f form) sliderRow(label, hint string, v, lo, hi float64, format string, se
 				Span(Class("text-sm leading-none font-medium"), Text(label)),
 				Span(Class("text-sm text-muted-foreground"), Text(hint))),
 			Span(Class("text-sm font-medium tabular-nums"), Textf(format, v))),
-		Fragment(kit.Slider{AriaLabel: label, Min: lo, Max: hi, Step: 1, Value: &v,
-			OnValueChange: func(x float64) { f.edit(func(p *Prefs) { set(p, x) }) }}))
+		kit.Slider{AriaLabel: label, Min: lo, Max: hi, Step: 1, Value: &v,
+			OnValueChange: func(x float64) { f.edit(func(p *Prefs) { set(p, x) }) }})
 }
 
 // optionCard draws a radio as a card; extra is shown above the label.
@@ -168,9 +168,9 @@ func (f form) export() tela.Node {
 	}
 	custom := tela.Node(Fragment())
 	if p.Resize == "custom" {
-		custom = Fragment(kit.Field{Label: "Long edge (px)", Description: "From 256 to 16384.", Error: cerr,
+		custom = kit.Field{Label: "Long edge (px)", Description: "From 256 to 16384.", Error: cerr,
 			Children: kit.Input{Class: "w-40", Type: "text", Value: &p.Custom, Invalid: cerr != "",
-				OnValueChange: func(v string) { f.edit(func(p *Prefs) { p.Custom = v }) }}})
+				OnValueChange: func(v string) { f.edit(func(p *Prefs) { p.Custom = v }) }}}
 	}
 	wm := tela.Node(Fragment())
 	if p.Watermark {
@@ -251,11 +251,11 @@ func (f form) safelight() tela.Node {
 	sz := int(p.Thumb)
 	return f.stack(
 		kit.Card{TitleLevel: 2, Title: Text("Theme"), Description: Text("Applied the moment you save."),
-			Children: Fragment(kit.RadioGroup[string]{AriaLabel: "Theme", Items: themes, Value: &p.Theme, Class: "grid-cols-3",
+			Children: kit.RadioGroup[string]{AriaLabel: "Theme", Items: themes, Value: &p.Theme, Class: "grid-cols-3",
 				OnValueChange: func(v string) { f.edit(func(p *Prefs) { p.Theme = v }) },
 				Render: func(o kit.RadioItem[string], st kit.RadioState) tela.Node {
 					return optionCard(o, st, Div(Class("mb-1 flex h-16 w-full overflow-hidden rounded-md ring-1 ring-border"), minis[o.Value]))
-				}})},
+				}}},
 		kit.Card{TitleLevel: 2, Title: Text("Accent"), Description: Text("One color, used sparingly. Safelight red by default."),
 			Children: Div(Class("flex flex-wrap items-center gap-x-6 gap-y-4"),
 				kit.RadioGroup[string]{AriaLabel: "Accent presets", Items: accItems, Value: &acc, Orientation: kit.Horizontal,
@@ -270,8 +270,8 @@ func (f form) safelight() tela.Node {
 				Div(Class("flex items-center gap-2 text-sm text-muted-foreground"), Text("Custom"),
 					kit.ColorInput{AriaLabel: "Custom accent color", Value: &p.Accent, OnValueChange: func(c tela.Color) { f.edit(func(p *Prefs) { p.Accent = c }) }}))},
 		kit.Card{TitleLevel: 2, Title: Text("Interface density"),
-			Children: Fragment(kit.ToggleGroup[string]{AriaLabel: "Interface density", Variant: kit.Outline, DisallowEmptySelection: true, Value: &p.Density, Items: dens,
-				OnValueChange: func(v string) { f.edit(func(p *Prefs) { p.Density = v }) }})},
+			Children: kit.ToggleGroup[string]{AriaLabel: "Interface density", Variant: kit.Outline, DisallowEmptySelection: true, Value: &p.Density, Items: dens,
+				OnValueChange: func(v string) { f.edit(func(p *Prefs) { p.Density = v }) }}},
 		kit.Card{TitleLevel: 2, Title: Text("Contact sheet"), Description: Text("How large thumbnails are drawn."),
 			Children: Div(Class("flex flex-col gap-5"),
 				f.sliderRow("Thumbnail size", "In pixels", p.Thumb, 96, 256, "%.0f px", func(p *Prefs, v float64) { p.Thumb = v }),
@@ -300,7 +300,7 @@ func (f form) account() tela.Node {
 				Div(Class("flex items-baseline justify-between text-sm"),
 					Span(Class("font-medium"), Text("Storage used")),
 					Span(Class("text-muted-foreground tabular-nums"), Text("41.2 GB of 100 GB"))),
-				Fragment(kit.Progress{Value: 41.2, Max: 100, AriaLabel: "Storage used"}),
+				kit.Progress{Value: 41.2, Max: 100, AriaLabel: "Storage used"},
 				P(Class("text-xs text-muted-foreground"), Text("58.8 GB free. Originals count; previews do not.")))},
 		kit.Card{TitleLevel: 2, Title: Text("Devices"),
 			Children: Div(Class("flex items-center justify-between gap-6"),

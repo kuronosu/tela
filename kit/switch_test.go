@@ -110,7 +110,7 @@ func TestSwitchControlled(t *testing.T) {
 
 func TestSwitchDisabled(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.Switch{AriaLabel: "Locked", Disabled: true})
+		return kit.Switch{AriaLabel: "Locked", Disabled: true}
 	})
 	app.Expect(switchRole("Locked"), telatest.Disabled(true))
 	b := app.Bounds(switchRole("Locked"))

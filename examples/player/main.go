@@ -37,12 +37,12 @@ func (p Player) Build() tela.Node { return page(useTransport(p.StartAt)) }
 
 // page is the content of the player for a transport.
 func page(tr *Transport) tela.Node {
-	return Fragment(kit.StyleProvider{Style: playerStyle, Children: Div(
+	return kit.StyleProvider{Style: playerStyle, Children: Div(
 		Class("flex min-h-screen items-center justify-center gap-6 overflow-hidden",
 			"bg-background bg-radial-[at_25%_15%] from-violet-950/70 to-background to-70% px-6 py-3 text-foreground"),
 		NowPlaying{Tr: tr},
 		Queue{Tr: tr},
-	)})
+	)}
 }
 
 // Preview is the screen of `tela snapshot` and `tela inspect`: the player

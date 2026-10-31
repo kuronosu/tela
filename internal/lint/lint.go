@@ -21,6 +21,8 @@
 //	prop   h.Dir, h.Type and tela.Ease with a value they do not take
 //	key    duplicate keys among siblings; a Map without keys
 //	hooks  React's rules of hooks, as dev mode applies them
+//	fragment   a Fragment of a single child, redundant since ADR-205 (has a fix)
+//	prop-node  a Prop where a tela.Node is expected (compiles, panics at run time)
 //
 // This package is used only by cmd/tela.
 package lint
@@ -42,10 +44,15 @@ const (
 	RuleProp  = "prop"
 	RuleKey   = "key"
 	RuleHooks = "hooks"
+	// RuleFragment is a redundant single-argument h.Fragment (ADR-205); it
+	// has a fix.
+	RuleFragment = "fragment"
+	// RulePropNode is a Prop where a tela.Node is expected (ADR-205).
+	RulePropNode = "prop-node"
 )
 
 // Rules lists the rule names.
-var Rules = []string{RuleClass, RuleRole, RuleAria, RuleProp, RuleKey, RuleHooks}
+var Rules = []string{RuleClass, RuleRole, RuleAria, RuleProp, RuleKey, RuleHooks, RuleFragment, RulePropNode}
 
 // Severities of a Diagnostic.
 const (
@@ -68,6 +75,8 @@ type Diagnostic struct {
 	Message  string `json:"message"`
 	// Suggestion is the replacement the message proposes, when it does.
 	Suggestion string `json:"suggestion,omitempty"`
+	// Fixable is true when -fix can apply a fix for the finding.
+	Fixable bool `json:"fixable,omitempty"`
 }
 
 func (d Diagnostic) String() string {
@@ -84,6 +93,10 @@ type Options struct {
 	Patterns []string
 	// Tests also lints the _test.go files.
 	Tests bool
+	// Fix applies the fixes of the findings that have one (Fixable),
+	// writing the files; the findings that were fixed move from
+	// Result.Diagnostics to Result.Fixed.
+	Fix bool
 }
 
 // Result is the outcome of a Run.
@@ -95,6 +108,13 @@ type Result struct {
 	LoadErrors []string
 	// Packages is the number of packages linted.
 	Packages int
+	// Fixed are the findings that Options.Fix fixed, and FixedFiles the
+	// number of files it wrote.
+	Fixed      []Diagnostic
+	FixedFiles int
+	// FixError is the first problem applying the fixes (a file left as it
+	// was); the findings of that file stay in Diagnostics.
+	FixError error
 }
 
 // Run lints the packages the options name. It returns an error when no

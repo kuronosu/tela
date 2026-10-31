@@ -219,9 +219,9 @@ func TestDatePickerStyleAndClasses(t *testing.T) {
 	s.DatePicker.Root = "w-[320px] justify-start text-left font-normal"
 	s.DatePicker.Content = "w-auto p-2"
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: tela.C(pickerPage(kit.DatePicker{
+		return kit.StyleProvider{Style: &s, Children: tela.C(pickerPage(kit.DatePicker{
 			Today: calToday, AriaLabel: "Appointment", Props: h.TestID("picker"), DefaultOpen: true, Class: "border-dashed", PopoverClass: "shadow-xl", CalendarClass: "p-0",
-		}))})
+		}))}
 	}, telatest.Size(800, 520), telatest.Theme(kit.Theme()))
 	for _, class := range []string{"w-[320px]", "border-dashed", "shadow-xl", "p-2"} {
 		if n := app.Count(telatest.ByClass(class)); n != 1 {

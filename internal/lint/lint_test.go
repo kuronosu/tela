@@ -22,7 +22,7 @@ import (
 // none. Each group of packages is linted in a run of its own, because the
 // aliases and the theme colors of a run are shared by its packages.
 
-var wantRE = regexp.MustCompile("(\\w+) `([^`]*)`")
+var wantRE = regexp.MustCompile("([\\w-]+) `([^`]*)`")
 
 type want struct {
 	file string
@@ -145,6 +145,122 @@ func TestHooks(t *testing.T) {
 		if d.Severity != SeverityError {
 			t.Errorf("%s: a hooks finding is an error, got %q", d, d.Severity)
 		}
+	}
+}
+
+func TestFragment(t *testing.T) {
+	needGo(t)
+	res := checkFixtures(t, "fragment")
+	for _, d := range res.Diagnostics {
+		if !d.Fixable || d.Severity != SeverityWarning {
+			t.Errorf("%s: a fragment finding is a fixable warning, got fixable=%v severity=%q", d, d.Fixable, d.Severity)
+		}
+	}
+}
+
+func TestPropNode(t *testing.T) {
+	needGo(t)
+	res := checkFixtures(t, "propnode")
+	for _, d := range res.Diagnostics {
+		if d.Severity != SeverityError || d.Fixable {
+			t.Errorf("%s: a prop-node finding is an error without a fix, got fixable=%v severity=%q", d, d.Fixable, d.Severity)
+		}
+	}
+}
+
+// fixFixture copies the fixture package dir into a directory of its own
+// inside testdata (it must be inside the module to import tela), lints it
+// with Fix and returns the fixed source and the result of the run.
+func fixFixture(t *testing.T, dir string) (string, *Result) {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join("testdata", dir, dir+".go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp, err := os.MkdirTemp("testdata", "fix-"+dir+"-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmp) })
+	file := filepath.Join(tmp, dir+".go")
+	if err := os.WriteFile(file, src, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Run(Options{Patterns: []string{"./" + filepath.ToSlash(tmp)}, Fix: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.LoadErrors) > 0 || res.FixError != nil {
+		t.Fatalf("load errors %v, fix error %v", res.LoadErrors, res.FixError)
+	}
+	out, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out), res
+}
+
+// -fix removes exactly the wrappers the rule reports and formats the
+// result (the golden is the fixture fixed).
+func TestFragmentFix(t *testing.T) {
+	needGo(t)
+	got, res := fixFixture(t, "fragment")
+	if want := len(wants(t, "fragment")); len(res.Fixed) != want {
+		t.Errorf("fixed %d findings, want %d", len(res.Fixed), want)
+	}
+	if res.FixedFiles != 1 {
+		t.Errorf("wrote %d files, want 1", res.FixedFiles)
+	}
+	golden := filepath.Join("testdata", "fragment.fixed")
+	if os.Getenv("TELA_UPDATE") != "" {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != string(want) {
+		t.Errorf("fixed source differs from %s (TELA_UPDATE=1 regenerates it):\n%s", golden, got)
+	}
+}
+
+// The fixed text type-checks, and linting it finds nothing left to fix.
+func TestFragmentFixLeavesNothing(t *testing.T) {
+	needGo(t)
+	got, _ := fixFixture(t, "fragment")
+	tmp, err := os.MkdirTemp("testdata", "fixed-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmp) })
+	if err := os.WriteFile(filepath.Join(tmp, "f.go"), []byte(got), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Run(Options{Patterns: []string{"./" + filepath.ToSlash(tmp)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.LoadErrors) > 0 {
+		t.Fatalf("the fixed file does not type-check: %v", res.LoadErrors)
+	}
+	for _, d := range res.Diagnostics {
+		t.Errorf("left after the fix: %s", d)
+	}
+}
+
+func TestFixEdits(t *testing.T) {
+	src := []byte("abcdefghij")
+	got, ok := applyEdits(src, []edit{{"f", 6, 8}, {"f", 1, 3}, {"f", 1, 3}})
+	if !ok || string(got) != "adefij" {
+		t.Errorf("got %q, %v", got, ok)
+	}
+	if _, ok := applyEdits(src, []edit{{"f", 1, 5}, {"f", 3, 7}}); ok {
+		t.Error("overlapping edits should fail")
+	}
+	if _, ok := applyEdits(src, []edit{{"f", 8, 20}}); ok {
+		t.Error("an edit outside the file should fail")
 	}
 }
 
@@ -383,5 +499,56 @@ func needGo(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("the go command is not in PATH")
+	}
+}
+
+// An import that the fix left without a use is removed; one that still has
+// a use, a dot or blank import, and one that was unused before stay.
+func TestDropUnusedImports(t *testing.T) {
+	const old = `package p
+
+import (
+	"fmt"
+	"example.com/x/h"
+	k "example.com/x/kit"
+	. "example.com/x/dot"
+	_ "example.com/x/blank"
+	"example.com/x/unusedbefore"
+)
+
+func f() { h.Fragment(k.A); fmt.Println(); k.B() }
+`
+	const updated = `package p
+
+import (
+	"fmt"
+	"example.com/x/h"
+	k "example.com/x/kit"
+	. "example.com/x/dot"
+	_ "example.com/x/blank"
+	"example.com/x/unusedbefore"
+)
+
+func f() { k.A; fmt.Println(); k.B() }
+`
+	const want = `package p
+
+import (
+	"fmt"
+	k "example.com/x/kit"
+	. "example.com/x/dot"
+	_ "example.com/x/blank"
+	"example.com/x/unusedbefore"
+)
+
+func f() { k.A; fmt.Println(); k.B() }
+`
+	if got := string(dropUnusedImports([]byte(old), []byte(updated))); got != want {
+		t.Errorf("got:\n%s", got)
+	}
+	const single = "package p\n\nimport \"example.com/x/h\"\n\nvar _ = h.Fragment\n"
+	const singleFixed = "package p\n\nimport \"example.com/x/h\"\n\nvar _ = 1\n"
+	if got := string(dropUnusedImports([]byte(single), []byte(singleFixed))); strings.Contains(got, "import") {
+		t.Errorf("a single import should go: %q", got)
 	}
 }

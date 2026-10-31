@@ -22,3 +22,9 @@ func Use() {
 		_ = UseState()
 	}
 }
+
+type Node interface{ Build() Node }
+
+func Fragment(children ...Node) Node { return nil }
+
+func Wrapped(n Node) Node { return Fragment(n) }

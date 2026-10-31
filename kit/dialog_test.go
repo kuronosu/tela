@@ -378,7 +378,7 @@ func TestDialogStyleProvider(t *testing.T) {
 	s := kit.DefaultStyle()
 	s.Dialog.Root += " ring-4"
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: tela.C(pageUnder(editDialog(kit.Dialog{DefaultOpen: true})))})
+		return kit.StyleProvider{Style: &s, Children: tela.C(pageUnder(editDialog(kit.Dialog{DefaultOpen: true})))}
 	}, telatest.Theme(kit.Theme()))
 	app.ExpectCount(profileDlg, 1)
 	if n := app.Count(telatest.ByClass("ring-4")); n != 1 {

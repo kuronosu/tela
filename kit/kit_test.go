@@ -58,9 +58,9 @@ func TestStyleProviderChangesTheLook(t *testing.T) {
 		t.Fatalf("error %v, want the undefined variant reported", err)
 	}
 	inside := func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: h.Div(
+		return kit.StyleProvider{Style: &s, Children: h.Div(
 			kit.Button{Variant: "glass", Children: h.Text("Glass")},
-			kit.Card{Children: h.Text("Body")})})
+			kit.Card{Children: h.Text("Body")})}
 	}
 	app := telatest.MountFunc(t, inside)
 	app.Expect(telatest.ByClass("bg-red-500"), telatest.Disabled(false))

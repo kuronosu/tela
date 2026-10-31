@@ -51,6 +51,9 @@ func (r *run) checkAll() (errs []string) {
 					case *ast.AssignStmt:
 						p.checkAssign(n)
 					}
+					if e, ok := n.(ast.Expr); ok {
+						p.checkPropNode(e)
+					}
 					return true
 				})
 			}()
@@ -179,4 +182,5 @@ func (p *pass) checkCall(call *ast.CallExpr) {
 	p.checkKeysCall(call, fn)
 	p.checkHookCall(call)
 	p.checkComponentCall(call, fn)
+	p.checkFragment(call, fn)
 }

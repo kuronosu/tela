@@ -235,7 +235,7 @@ func (p TaskCard) Build() tela.Node {
 					Span(Class("text-xs text-muted-foreground"), Text(t.Due)),
 					kit.Avatar{Fallback: t.Assignee, Alt: t.Assignee, Class: "size-5"}))),
 	}
-	return Fragment(kit.ContextMenu[string]{
+	return kit.ContextMenu[string]{
 		Class: "relative", AriaLabel: "Actions for " + t.Title, Items: items,
 		Children: Fragment(
 			If(p.Line == lineBefore, insertion("-top-[7px]")),
@@ -250,5 +250,5 @@ func (p TaskCard) Build() tela.Node {
 				}},
 			DeleteDialog{Open: deleting, SetOpen: setDeleting, ID: p.ID, Title: t.Title, Set: p.Set, Toast: toast},
 		),
-	})
+	}
 }

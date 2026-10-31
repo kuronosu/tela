@@ -58,14 +58,14 @@ type Page struct {
 
 // Dashboard is the root of the app: the page as the user opens it.
 func Dashboard() tela.Node {
-	return Fragment(Page{View: "overview", Mode: "table", Range: 1, Status: "All"})
+	return Page{View: "overview", Mode: "table", Range: 1, Status: "All"}
 }
 
 // Build puts the page under the style and the toaster.
 func (p Page) Build() tela.Node {
-	return Fragment(kit.StyleProvider{Style: &style, Children: kit.Toaster{
+	return kit.StyleProvider{Style: &style, Children: kit.Toaster{
 		Position: kit.ToastBottomCenter, Children: body{p},
-	}})
+	}}
 }
 
 type body struct{ Page }

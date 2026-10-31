@@ -44,7 +44,7 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela new` | Creates an app in a new directory (see [tela new](#tela-new)) |
 | `tela snapshot` | Renders a screen to a PNG |
 | `tela inspect` | Prints a screen's aria snapshot (YAML) or layout tree (JSON) |
-| `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks (see [tela lint](#tela-lint)) |
+| `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
@@ -365,7 +365,7 @@ your call.
 ## tela lint
 
 ```text
-tela lint [-json] [-tests] [packages]
+tela lint [-json] [-tests] [-fix] [packages]
 ```
 
 Dev mode finds a typo in a class only on a screen that renders it. `tela lint`
@@ -393,6 +393,8 @@ Anything computed (`"p-" + strconv.Itoa(n)`) is skipped, never guessed.
 | `prop` | `h.Dir`, `h.Type` (against the types of the `h.Input` or `h.Button` it is given to) and the `Type` of `kit.Button` and `kit.Input`, and `tela.Ease`, with a value they do not take |
 | `key` | Two siblings with the same constant `h.Key` (or `tela.WithKey`, or the key of `tela.C`, `tela.CP`, `tela.Memo`), and an `h.Map` or `h.MapIndex` whose function returns elements without a `Key`. Dev mode only warns about these, so their severity is `warning` |
 | `hooks` | A hook (`Use...` of `tela`, `aria`, `kit`, `i18n`, or a custom hook of your code) called conditionally, in a loop, after an early return, from a function that is neither a component nor a custom hook, or in a function literal that is not a component; and a component (a function or `Build` method that uses hooks) called directly instead of through `tela.C`, `tela.CP` or an element. A function with the shape `func() tela.Node` or `func(P) tela.Node` is given the benefit of the doubt. A function is a custom hook when it is named `UseXxx` or `useXxx` and calls a hook |
+| `fragment` | `h.Fragment(x)` with a single child and no spread: a struct component is a `tela.Node` (ADR-205), so write `x`. It has a fix (`-fix`), and is reported only where removing the wrapper still type-checks and keeps the child's identity (its state): `x` is not a `Prop` or a `tela.Child` that could hold one (`Fragment(Key(k))` sets the key of the fragment), the place takes a `tela.Node` or `tela.Child` (an argument, an element or a field of a literal, a result, an assignment to a declared type; not `n := Fragment(x)`, an `any` or a generic parameter), no comment sits inside the call, the first argument of `tela.WithKey` is a struct literal, and the same function (or the same `IfElse`) has no `Fragment` of several children as an alternative: a child that moves between `Fragment(x)` and `Fragment(x, y)` keeps its state, and one that moves between a bare `x` and `Fragment(x, y)` does not |
+| `prop-node` | A `Prop` or `StyleProp` (`h.Class`, `h.Key`, `h.OnClick`, `tela.Width`...) where a `tela.Node` is expected: the result of a function or of a `Map` callback, an element of a `[]tela.Node`, a field of type `tela.Node` or `tela.Component`, an argument of `tela.WithKey`, an `If` of props. A prop has a `Build` method, so it compiles, and it panics when the node is consumed. Props go to an element: `Div(Class("p-4"), ...)`. A `tela.Child` takes props, so it is not reported |
 
 Each finding is `file:line:col: rule: message`, sorted by position, with paths
 relative to the current directory. The exit status is 0 when nothing is
@@ -415,6 +417,7 @@ only a reason: `//tela:ignore -- generated`) covers every rule.
 |---|---|
 | `-json` | Prints the findings as a JSON array of `{file, line, col, rule, severity, message, suggestion}` (`suggestion` only when the message proposes a replacement; `severity` is `error` or `warning`; `[]` when there is nothing) |
 | `-tests` | Lints the `_test.go` files too (by default they are skipped: tests often use a wrong class on purpose) |
+| `-fix` | Applies the fixes of the findings that have one (today the `fragment` rule): the files are rewritten and formatted with gofmt, an import that the fix left unused is removed, and a file whose fixed text would not parse is left as it was. It prints `fixed N findings in M files` on standard error and reports what is left. Review the result with `git diff` |
 
 Limits: only the files that the current platform and build tags select are read;
 aliases and theme colors come from the linted packages, so lint `./...` when you

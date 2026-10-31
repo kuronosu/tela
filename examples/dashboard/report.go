@@ -28,7 +28,7 @@ func (p ReportDialog) Build() tela.Node {
 	if mode == "weekly" {
 		title, desc = "Weekly report", "What goes out to the team every Monday at 9:00."
 	}
-	return Fragment(kit.Dialog{
+	return kit.Dialog{
 		Open: &open, OnOpenChange: func(o bool) {
 			if !o {
 				p.SetMode.Set("")
@@ -38,7 +38,7 @@ func (p ReportDialog) Build() tela.Node {
 		// The dialog mounts its content when it opens, so the form starts
 		// from the defaults each time.
 		Children: ReportForm{Mode: mode, Close: p.SetMode, Weekly: p.Weekly, SetWeekly: p.SetWeekly},
-	})
+	}
 }
 
 var formats = []string{"PDF", "CSV", "XLSX"}

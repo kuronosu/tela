@@ -97,8 +97,8 @@ func switchPage() tela.Node {
 }
 
 func switchRow(title, hint string, on bool) tela.Node {
-	return Fragment(kit.Field{Props: Key(title), Orientation: kit.Horizontal, Label: title, Description: hint,
-		ControlAfter: true, Class: "items-center", Children: kit.Switch{DefaultChecked: on}})
+	return kit.Field{Props: Key(title), Orientation: kit.Horizontal, Label: title, Description: hint,
+		ControlAfter: true, Class: "items-center", Children: kit.Switch{DefaultChecked: on}}
 }
 
 func radioGroupPage() tela.Node {

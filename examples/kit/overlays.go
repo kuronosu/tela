@@ -136,20 +136,20 @@ func popoverPage() tela.Node {
 }
 
 func dimension(label, value string) tela.Node {
-	return Fragment(kit.Field{Props: Key(label), Orientation: kit.Horizontal, Label: label, Class: "flex-row-reverse items-center gap-4", LabelClass: "w-24 shrink-0",
-		Children: kit.Input{DefaultValue: value, Class: "h-8"}})
+	return kit.Field{Props: Key(label), Orientation: kit.Horizontal, Label: label, Class: "flex-row-reverse items-center gap-4", LabelClass: "w-24 shrink-0",
+		Children: kit.Input{DefaultValue: value, Class: "h-8"}}
 }
 
 func tooltipPage() tela.Node {
 	tip := func(label string, icon tela.Icon, content string, opts kit.Tooltip) tela.Node {
 		opts.Trigger = kit.Button{Variant: kit.Outline, Size: kit.Icon, Icon: icon, AriaLabel: label}
 		opts.Content = Text(content)
-		return Fragment(opts)
+		return opts
 	}
 	tipText := func(label, content string, opts kit.Tooltip) tela.Node {
 		opts.Trigger = kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text(label)}
 		opts.Content = Text(content)
-		return Fragment(opts)
+		return opts
 	}
 	return grid(
 		demo("Icon buttons", "A tooltip names what an icon button does: on hover, on keyboard focus, and it describes its trigger.", "",

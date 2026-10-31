@@ -487,7 +487,7 @@ func TestDropdownMenuStyleProvider(t *testing.T) {
 		d.Items[1].Variant = "quiet"
 	})
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: tela.C(pageUnder(d))})
+		return kit.StyleProvider{Style: &s, Children: tela.C(pageUnder(d))}
 	}, telatest.Theme(kit.Theme()))
 	// "New file", "Open", "Export" and "Delete" are plain items.
 	if n := app.Count(telatest.ByClass("ring-4")); n != 4 {

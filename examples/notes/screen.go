@@ -29,7 +29,7 @@ type Notes struct {
 
 func (n Notes) Build() tela.Node {
 	// The Toaster is the context of kit.UseToast, for the errors.
-	return Fragment(kit.Toaster{Children: screen(n)})
+	return kit.Toaster{Children: screen(n)}
 }
 
 // library is the store of the notes (notes.json) and what went wrong
@@ -461,7 +461,7 @@ func (t notesTray) Build() tela.Node {
 	if st.Hidden || st.Minimized {
 		toggle = "Show Notes"
 	}
-	return Fragment(desktop.Tray{
+	return desktop.Tray{
 		Icon: appIcon(), Tooltip: "Notes",
 		OnClick: t.Toggle,
 		OnError: func(error) { t.Failed() },
@@ -472,7 +472,7 @@ func (t notesTray) Build() tela.Node {
 			{Separator: true},
 			{Label: "Quit", OnSelect: tela.Quit},
 		},
-	})
+	}
 }
 
 // saveAll saves the notes one after the other (each may ask for a file
@@ -493,10 +493,10 @@ func saveAll(ns []Note, save func(Note, func(bool)), done func(ok bool)) {
 
 // tool is an icon button of the title bar with a tooltip.
 func tool(label string, icon tela.Icon, onClick func()) tela.Node {
-	return Fragment(kit.Tooltip{
+	return kit.Tooltip{
 		Trigger: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: icon, AriaLabel: label, OnClick: onClick},
 		Content: Text(label), Placement: "bottom",
-	})
+	}
 }
 
 // dialogError tells why a file dialog did not open. A Linux desktop without

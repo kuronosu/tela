@@ -163,11 +163,11 @@ func money(cents int) string { return fmt.Sprintf("$%d.%02d", cents/100, cents%1
 func statusBadge(s string) tela.Node {
 	switch s {
 	case "Paid":
-		return Fragment(kit.Badge{Variant: kit.Secondary, Class: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300", Children: Text(s)})
+		return kit.Badge{Variant: kit.Secondary, Class: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300", Children: Text(s)}
 	case "Unpaid":
-		return Fragment(kit.Badge{Variant: kit.Destructive, Children: Text(s)})
+		return kit.Badge{Variant: kit.Destructive, Children: Text(s)}
 	}
-	return Fragment(kit.Badge{Variant: kit.Outline, Children: Text(s)})
+	return kit.Badge{Variant: kit.Outline, Children: Text(s)}
 }
 
 func tablePage() tela.Node {
@@ -201,7 +201,7 @@ func tablePage() tela.Node {
 					{Header: "Method", Width: "160px", Cell: func(i Invoice) tela.Node { return Text(i.Method) }},
 					{Header: "Amount", Width: "120px", Align: kit.AlignRight, Class: "tabular-nums", Cell: func(i Invoice) tela.Node { return Text(money(i.Cents)) }},
 					{Header: "Action", Width: "140px", Cell: func(i Invoice) tela.Node {
-						return Fragment(kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text("View " + i.ID)})
+						return kit.Button{Variant: kit.Outline, Size: kit.Sm, Children: Text("View " + i.ID)}
 					}},
 				}}),
 		demo("Empty", "Empty is drawn in a row of its own.", col,

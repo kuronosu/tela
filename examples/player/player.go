@@ -39,7 +39,7 @@ type NowPlaying struct{ Tr *Transport }
 func (p NowPlaying) Build() tela.Node {
 	tr := p.Tr
 	track := tr.Current()
-	return Fragment(kit.Card{
+	return kit.Card{
 		Class: "w-[380px] shrink-0 gap-5 rounded-3xl bg-card/80 py-6 shadow-2xl",
 		Children: Div(Class("flex flex-col gap-5"),
 			Cover{Track: track, Class: "mx-auto size-[clamp(96px,calc(100vh-356px),332px)] rounded-2xl shadow-lg"},
@@ -52,7 +52,7 @@ func (p NowPlaying) Build() tela.Node {
 			Controls{Tr: tr},
 			VolumeRow{},
 		),
-	})
+	}
 }
 
 // Cover is the cover art: a gradient with a few shapes (only two in the
@@ -177,7 +177,7 @@ type Queue struct{ Tr *Transport }
 
 func (p Queue) Build() tela.Node {
 	current, playing := p.Tr.Track.Get(), p.Tr.Playing.Get()
-	return Fragment(kit.Card{
+	return kit.Card{
 		Class:        "hidden w-[420px] shrink-0 gap-2 rounded-3xl bg-card/60 py-4 lg:flex",
 		TitleLevel:   2,
 		TitleClass:   "text-lg leading-7 tracking-tight",
@@ -185,13 +185,11 @@ func (p Queue) Build() tela.Node {
 		Action:       Span(Class("text-xs text-muted-foreground"), Textf("%d tracks", len(tracks))),
 		HeaderClass:  "items-baseline px-6 pb-1",
 		ContentClass: "flex flex-col gap-1 px-3",
-		Children: Fragment(
-			MapKeyed(tracks, func(t Track) string { return t.Title }, func(t Track) tela.Component {
-				i := indexOf(t)
-				return QueueRow{Tr: p.Tr, Index: i, Current: i == current, Playing: playing && i == current}
-			}),
-		),
-	})
+		Children: MapKeyed(tracks, func(t Track) string { return t.Title }, func(t Track) tela.Component {
+			i := indexOf(t)
+			return QueueRow{Tr: p.Tr, Index: i, Current: i == current, Playing: playing && i == current}
+		}),
+	}
 }
 
 func indexOf(t Track) int {
@@ -218,7 +216,7 @@ func (p QueueRow) Build() tela.Node {
 	if p.Current {
 		cls = "bg-accent"
 	}
-	return Fragment(kit.Button{
+	return kit.Button{
 		Variant: kit.Ghost,
 		Class:   "h-auto w-full justify-start gap-3 rounded-2xl p-2 pr-4 text-left font-normal " + cls,
 		OnClick: func() { p.Tr.Select(p.Index) },
@@ -234,5 +232,5 @@ func (p QueueRow) Build() tela.Node {
 			),
 			Span(Class("text-sm text-muted-foreground tabular-nums"), Text(clock(t.Seconds))),
 		),
-	})
+	}
 }

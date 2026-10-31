@@ -234,11 +234,11 @@ func TestTooltipWithTriggerFuncAndStyle(t *testing.T) {
 	s := kit.DefaultStyle()
 	s.Tooltip.Root += " ring-2"
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: kit.Tooltip{
+		return kit.StyleProvider{Style: &s, Children: kit.Tooltip{
 			Trigger: kit.TriggerFunc(func(p tela.Prop) tela.Node {
 				return h.Button(p, h.Text("Help"))
 			}),
-			Content: h.Text("Opens the manual"), DefaultOpen: true}})
+			Content: h.Text("Opens the manual"), DefaultOpen: true}}
 	}, telatest.Theme(kit.Theme()))
 	app.ExpectCount(telatest.ByRole("tooltip", "Opens the manual"), 1)
 	if n := app.Count(telatest.ByClass("ring-2")); n != 1 {

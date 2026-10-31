@@ -153,13 +153,13 @@ type sectionPane struct{ Tab string }
 func (s sectionPane) Build() tela.Node {
 	switch s.Tab {
 	case "editor":
-		return Fragment(editorSection{})
+		return editorSection{}
 	case "general":
-		return Fragment(generalSection{})
+		return generalSection{}
 	case "shortcuts":
-		return Fragment(shortcutsSection{})
+		return shortcutsSection{}
 	}
-	return Fragment(appearanceSection{})
+	return appearanceSection{}
 }
 
 // appearanceSection is the theme as three small previews of the window, the

@@ -59,7 +59,7 @@ func (hd Header) Build() tela.Node {
 
 // tip puts a tooltip with a text on a trigger.
 func tip(text string, trigger kit.Trigger) tela.Node {
-	return Fragment(kit.Tooltip{Trigger: trigger, Content: Text(text), Placement: "bottom"})
+	return kit.Tooltip{Trigger: trigger, Content: Text(text), Placement: "bottom"}
 }
 
 // Messages is the scrolling list of a conversation: its rows, and the

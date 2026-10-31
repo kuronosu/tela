@@ -139,7 +139,7 @@ func TestCheckboxControlled(t *testing.T) {
 func TestCheckboxDisabled(t *testing.T) {
 	changed := false
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.Checkbox{AriaLabel: "Locked", Disabled: true, OnCheckedChange: func(bool) { changed = true }})
+		return kit.Checkbox{AriaLabel: "Locked", Disabled: true, OnCheckedChange: func(bool) { changed = true }}
 	})
 	app.Expect(checkbox("Locked"), telatest.Disabled(true))
 	b := app.Bounds(checkbox("Locked"))
@@ -188,7 +188,7 @@ func TestCheckboxLabelAndField(t *testing.T) {
 
 func TestCheckboxSlots(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.Checkbox{AriaLabel: "x", IndicatorClass: "opacity-90", Icon: iconX})
+		return kit.Checkbox{AriaLabel: "x", IndicatorClass: "opacity-90", Icon: iconX}
 	})
 	if n := app.Count(telatest.ByClass("opacity-90")); n != 0 {
 		t.Errorf("an unchecked checkbox has %d indicators, want none", n)

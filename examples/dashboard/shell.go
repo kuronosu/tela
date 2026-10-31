@@ -59,13 +59,13 @@ type RailButton struct {
 }
 
 func (p RailButton) Build() tela.Node {
-	return Fragment(Tip{Text: p.View.Label, Placement: "right", Render: func(tp tela.Prop) tela.Node {
+	return Tip{Text: p.View.Label, Placement: "right", Render: func(tp tela.Prop) tela.Node {
 		return Button(tp, AriaLabel(p.View.Label), AriaCurrent(when(p.Active, "page")), OnClick(func() { p.Set.Set(p.View.ID) }),
 			Class("relative flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors outline-none",
 				"hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring aria-[current=page]:bg-accent aria-[current=page]:text-foreground"),
 			If(p.Active, Span(Key("bar"), LayoutID("rail-bar"), Class("absolute top-1/2 -left-[13px] h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary"))),
 			Icon(p.View.Icon, Class("size-[18px]")))
-	}})
+	}}
 }
 
 // when returns s if c is true, else "".
@@ -110,10 +110,10 @@ func ThemeButton() tela.Node { return tela.C(themeButton) }
 
 func themeButton() tela.Node {
 	dark := tela.UseColorScheme() == tela.Dark
-	return Fragment(Tip{Text: "Switch theme", Render: func(tp tela.Prop) tela.Node {
+	return Tip{Text: "Switch theme", Render: func(tp tela.Prop) tela.Node {
 		return Button(tp, AriaLabel("Switch theme"), Class(iconBtn), OnClick(toggleTheme(dark)),
 			IfElse(dark, Icon(icons.Sun, Class("size-4")), Icon(icons.Moon, Class("size-4"))))
-	}})
+	}}
 }
 
 // toggleTheme returns the action that leaves the scheme dark is in.
@@ -146,7 +146,7 @@ func bell() tela.Node {
 	if unread {
 		label = "Notifications, 3 unread"
 	}
-	return Fragment(kit.Popover{
+	return kit.Popover{
 		Align: "end", Offset: 8, AriaLabel: "Notifications",
 		Trigger: kit.TriggerFunc(func(tp tela.Prop) tela.Node {
 			return Button(tp, AriaLabel(label), Class(iconBtn, "relative"),
@@ -167,7 +167,7 @@ func bell() tela.Node {
 							Div(Class("text-xs text-muted-foreground"), Text(n.Detail))))
 				})),
 		),
-	})
+	}
 }
 
 // Segment is the content of an item of a segmented control: the pill under
@@ -209,8 +209,8 @@ type Periods struct {
 }
 
 func (p Periods) Build() tela.Node {
-	return Fragment(segmented("Period", "period-pill", p.Range, p.Set, upto(len(periods)),
-		func(i int) string { return periods[i].Label }, nil))
+	return segmented("Period", "period-pill", p.Range, p.Set, upto(len(periods)),
+		func(i int) string { return periods[i].Label }, nil)
 }
 
 // Modes is the Table / Board switch of the tasks.
@@ -220,14 +220,14 @@ type Modes struct {
 }
 
 func (p Modes) Build() tela.Node {
-	return Fragment(segmented("Layout", "mode-pill", p.Mode, p.Set, []string{"table", "board"},
+	return segmented("Layout", "mode-pill", p.Mode, p.Set, []string{"table", "board"},
 		func(m string) string { return map[string]string{"table": "Table", "board": "Board"}[m] },
 		func(m string) tela.Icon {
 			if m == "board" {
 				return icons.SquareKanban
 			}
 			return icons.Table
-		}))
+		})
 }
 
 // Statuses is the filter of the orders view.
@@ -237,6 +237,6 @@ type Statuses struct {
 }
 
 func (p Statuses) Build() tela.Node {
-	return Fragment(segmented("Status", "status-pill", p.Status, p.Set, statuses,
-		func(s string) string { return s }, nil))
+	return segmented("Status", "status-pill", p.Status, p.Set, statuses,
+		func(s string) string { return s }, nil)
 }

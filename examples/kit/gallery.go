@@ -128,7 +128,7 @@ type Header struct {
 }
 
 func (h Header) Build() tela.Node {
-	return Fragment(Div(Role("banner"), Class("flex h-14 shrink-0 items-center gap-3 border-b border-border px-4"),
+	return Div(Role("banner"), Class("flex h-14 shrink-0 items-center gap-3 border-b border-border px-4"),
 		Div(Class("flex items-center gap-2.5 pr-2"),
 			Div(Class("flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"),
 				ic(icons.LayoutGrid, "size-4")),
@@ -167,7 +167,7 @@ func (h Header) Build() tela.Node {
 			ic(icons.Languages, "size-4 text-muted-foreground"),
 			languageSelect(h.Lang, h.SetLang),
 		),
-	))
+	)
 }
 
 // languageSelect is the Language menu: each option is named in its own
@@ -190,16 +190,16 @@ type PageView struct{ Name string }
 func (v PageView) Build() tela.Node {
 	p := find(v.Name)
 	if p.Bare {
-		return Fragment(Div(Key(p.Name), Class("mx-auto flex w-full max-w-6xl flex-col px-8 py-8"), p.Body))
+		return Div(Key(p.Name), Class("mx-auto flex w-full max-w-6xl flex-col px-8 py-8"), p.Body)
 	}
-	return Fragment(Div(Key(p.Name), Class("mx-auto flex w-full max-w-6xl flex-col gap-8 px-8 py-8"),
+	return Div(Key(p.Name), Class("mx-auto flex w-full max-w-6xl flex-col gap-8 px-8 py-8"),
 		Div(Dir("ltr"), Class("flex flex-col gap-2"),
 			H1(Class("text-3xl font-bold tracking-tight"), Text(p.Label)),
 			P(Class("max-w-2xl text-base text-muted-foreground"), Text(p.Summary)),
 			Div(Class("flex"), kit.Badge{Variant: kit.Outline, Class: "font-mono", Children: Text(p.Code)}),
 		),
 		p.Body,
-	))
+	)
 }
 
 // Canvas is a page on the window's background and under the Toaster,
@@ -217,6 +217,6 @@ func (c Canvas) Build() tela.Node {
 	return i18n.Provider(cmp.Or(c.Locale, "en"), navigate.Provider(setCurrent, kit.StyleProvider{
 		Style: styles[cmp.Or(c.Style, "default")],
 		Children: kit.Toaster{Children: Shell{Class: "h-screen overflow-y-auto bg-background text-foreground",
-			Children: Fragment(PageView{Name: current})}},
+			Children: PageView{Name: current}}},
 	}))
 }

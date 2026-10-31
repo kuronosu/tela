@@ -131,8 +131,8 @@ func tgRadio(name string) telatest.Locator { return telatest.ByRole("radio", nam
 func TestToggleGroupSingleUncontrolled(t *testing.T) {
 	var got []string
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.ToggleGroup[string]{Items: tgViews, AriaLabel: "View", DefaultValue: new("list"),
-			OnValueChange: func(k string) { got = append(got, k) }})
+		return kit.ToggleGroup[string]{Items: tgViews, AriaLabel: "View", DefaultValue: new("list"),
+			OnValueChange: func(k string) { got = append(got, k) }}
 	})
 	app.Expect(tgRadio("List"), telatest.Checked(true))
 	app.Expect(tgRadio("Grid"), telatest.Checked(false))
@@ -149,7 +149,7 @@ func TestToggleGroupSingleUncontrolled(t *testing.T) {
 
 func TestToggleGroupDisallowEmptyAndKeyboard(t *testing.T) {
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.ToggleGroup[string]{Items: tgViews, AriaLabel: "View", DefaultValue: new("list"), DisallowEmptySelection: true})
+		return kit.ToggleGroup[string]{Items: tgViews, AriaLabel: "View", DefaultValue: new("list"), DisallowEmptySelection: true}
 	})
 	app.Click(tgRadio("List"))
 	app.Expect(tgRadio("List"), telatest.Checked(true))

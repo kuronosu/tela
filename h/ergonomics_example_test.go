@@ -134,7 +134,7 @@ func ExampleItemKey() {
 		todos, s := tela.UseState([]todoItem{{1, "Write"}, {2, "Test"}})
 		set = s
 		return VirtualList(len(todos), func(int) float32 { return 30 },
-			func(i int) tela.Node { return Fragment(todos[i]) },
+			func(i int) tela.Node { return todos[i] },
 			// The state of an item follows its ID, not its position.
 			ItemKey(func(i int) int { return todos[i].ID }), Class("h-24"))
 	}

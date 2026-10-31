@@ -256,7 +256,7 @@ func TestPopoverStyleProvider(t *testing.T) {
 	s := kit.DefaultStyle()
 	s.Popover.Root += " ring-4"
 	app := telatest.MountFunc(t, func() tela.Node {
-		return h.Fragment(kit.StyleProvider{Style: &s, Children: tela.C(pageUnder(dimsPopover(kit.Popover{DefaultOpen: true})))})
+		return kit.StyleProvider{Style: &s, Children: tela.C(pageUnder(dimsPopover(kit.Popover{DefaultOpen: true})))}
 	}, telatest.Theme(kit.Theme()))
 	if n := app.Count(telatest.ByClass("ring-4")); n != 1 {
 		t.Errorf("the popover has the provider's classes %d times, want 1", n)

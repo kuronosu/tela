@@ -152,7 +152,7 @@ type toastApp struct {
 func (a toastApp) Build() tela.Node {
 	cfg := a.cfg
 	cfg.Children = toastButtons{a.got}
-	return h.Fragment(cfg)
+	return cfg
 }
 
 type toastButtons struct{ got *kit.ToastHandle }
@@ -402,10 +402,10 @@ type seedOnClick struct{}
 
 func (seedOnClick) Build() tela.Node {
 	toast := kit.UseToast()
-	return h.Fragment(kit.Button{
+	return kit.Button{
 		OnClick:  func() { toast.Success("Saved", kit.ToastDescription("Your changes are live.")) },
 		Children: h.Text("Save"),
-	})
+	}
 }
 
 func ExampleToaster() {

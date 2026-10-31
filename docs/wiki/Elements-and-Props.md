@@ -205,8 +205,9 @@ dereferences a nil `user`. Use an ordinary `if` for that case.
 
 `If` and `IfElse` return a `tela.Child`, so they take a node, a struct
 component (`If(loading, Spinner{})`) or a prop (`If(active, Class("ring-2"))`),
-and when the branch is absent they render and apply nothing. A function
-component that returns one wraps it: `return Fragment(If(...))`.
+and when the branch is absent they render and apply nothing: it is `nil`, the
+empty node, a hole that keeps the positions of its siblings (`n == nil` tells
+it). A function component returns one as it is: `return If(...)`.
 
 ### Map and MapIndex
 
@@ -275,9 +276,9 @@ func Card(title string, children ...tela.Child) tela.Node {
 ```
 
 It puts several children in one field of type `tela.Component`
-(`Panel{Children: Fragment(Text("a"), Span(Text("b")))}`), and makes a node of
-a struct component where a `tela.Node` is expected
-(`return Fragment(Panel{Title: "Inbox"})`).
+(`Panel{Children: Fragment(Text("a"), Span(Text("b")))}`). A struct component is
+a `tela.Node` itself, so `return Panel{Title: "Inbox"}` needs no `Fragment`
+(`tela lint -fix` removes the wrapper from code that has it).
 
 [`TextFn`](https://pkg.go.dev/github.com/kuronosu/tela/h#TextFn) is a text node
 whose content is read in a later phase, so a change of a `tela.Value` it reads

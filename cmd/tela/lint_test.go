@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -144,5 +146,54 @@ func needGo(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("the go command is not in PATH")
+	}
+}
+
+func TestLintFix(t *testing.T) {
+	needGo(t)
+	dir, err := os.MkdirTemp("testdata/lint", "fix-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	const src = `package fix
+
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+)
+
+type Badge struct{}
+
+func (Badge) Build() tela.Node { return Text("b") }
+
+func Page() tela.Node {
+	return Fragment(
+		Badge{},
+	)
+}
+`
+	file := filepath.Join(dir, "fix.go")
+	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pattern := "./" + filepath.ToSlash(dir)
+	code, stdout, _ := lintRun(t, pattern)
+	if code != 1 || !strings.Contains(stdout, "fragment: redundant Fragment") {
+		t.Fatalf("without -fix: exit %d, stdout %q", code, stdout)
+	}
+	code, stdout, stderr := lintRun(t, "-fix", pattern)
+	if code != 0 || stdout != "" || !strings.Contains(stderr, "fixed 1 findings in 1 files") {
+		t.Errorf("-fix: exit %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	got, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := strings.Replace(src, "Fragment(\n\t\tBadge{},\n\t)", "Badge{}", 1); string(got) != want {
+		t.Errorf("fixed file:\n%s", got)
+	}
+	if code, stdout, stderr := lintRun(t, pattern); code != 0 || stdout != "" || stderr != "" {
+		t.Errorf("after -fix: exit %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 }

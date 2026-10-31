@@ -72,7 +72,7 @@ func main() { tela.Main(App) }
 **What the CLI and `tela mcp` mount** (the package may be `main` or any package):
 
 - `var Previews = tela.Previews{...}`: several named screens; `--preview NAME` (or the `open` tool) picks one, else the first name in byte order. Wins over the others.
-- `func Preview() tela.Node`: one screen, mounted as `tela.C(Preview)`, so it may call hooks itself. (`func Preview() tela.Component` is called and its result mounted.)
+- `func Preview() tela.Node`: one screen, mounted as `tela.C(Preview)`, so it may call hooks itself.
 - Otherwise `var App = tela.App{...}`: its `Root` is the screen.
 - In every case `var App` (a `tela.App` or `*tela.App`) gives the window: `Width`/`Height` (default 960x640), `RootClass`, `Theme`, `ColorScheme`, `ClassAliases`. Without `RootClass` the window is white with black text.
 - `tela.Preview{Root, Wrap}` is one named screen: `Root` is any `tela.Component`; `Wrap func(tela.Node) tela.Node` (optional, no hooks) puts it inside the providers of the contexts it reads. A preview has no size, scheme or state of its own: the size is `App` or `--size`, the scheme `--dark` (the CLI), and the **initial state** comes from fields of a struct component (below).
@@ -143,7 +143,8 @@ Elements are named by `ref` (from the latest snapshot), or `role` + `name`, `tex
 ```sh
 tela snapshot --size 1040x800 --scale 2 --dark -o out.png ./myapp   # PNG (W*scale x H*scale)
 tela inspect ./myapp            # aria snapshot YAML; --layout for the layout JSON
-tela lint ./...                 # unknown classes, roles, aria tokens, keys, hook misuse; file:line:col: rule: message
+tela lint ./...                 # unknown classes, roles, aria tokens, keys, hook misuse, a prop where a node goes; file:line:col: rule: message
+tela lint -fix ./...            # also removes redundant single-child Fragment(x) wrappers
 tela dev ./myapp                # a real window that reloads on save, keeping state
 ```
 
@@ -159,7 +160,7 @@ An element takes props and children in one list, in any order: `Div(Class("p-4")
 
 **Events:** `OnClick`, `OnDoubleClick`, `OnContextMenu`, `OnMouseDown/Up/Move/Enter/Leave`, `OnPointer...`, `OnLongPress`, `OnDrag`/`OnDragStart`/`OnDragEnd`, `OnWheel`, `OnScroll`, `OnKeyDown`/`OnKeyUp`, `OnFocus`/`OnBlur`, `OnChange` (every edit), `OnBeforeInput`, `OnSubmit`, `OnSelect`. Each takes a `func()` or a `func(e)` of its event type (`tela.MouseEvent`, `tela.KeyboardEvent`, `tela.ChangeEvent`...). Events bubble; `e.StopPropagation()`, `e.PreventDefault()`, or wrap a `func()` in `tela.StopPropagation(f)`.
 
-**Helpers:** `If(cond, child)` and `IfElse(cond, a, b)` take and return a `tela.Child` (a node, a component or a prop); `Map(items, func(T) tela.Node)` and `MapIndex` (give each node a `Key`); `MapKeyed(items, keyFn, func(T) tela.Component)` keys components for you; `Range(n, render)` for static repeats (keyed by index); `Nodes([]tela.Node)` passes a slice built in a loop. Every argument of `If` is evaluated: `If(u != nil, Text(u.Name))` panics on nil `u`; use a Go `if`.
+**Helpers:** `If(cond, child)` and `IfElse(cond, a, b)` take and return a `tela.Child` (a node, a struct component or a prop); a `tela.Child` can be returned where a `tela.Node` is expected, and the branch that is off is `nil`, the empty node (a hole that keeps the positions of its siblings; test it with `n == nil`); `Map(items, func(T) tela.Node)` and `MapIndex` (give each node a `Key`); `MapKeyed(items, keyFn, func(T) tela.Node)` keys the nodes for you; `Range(n, func(int) tela.Node)` for static repeats (keyed by index); `Nodes([]tela.Node)` passes a slice built in a loop. Every argument of `If` is evaluated: `If(u != nil, Text(u.Name))` panics on nil `u`; use a Go `if`.
 
 ```go
 type Todo struct {
@@ -204,7 +205,7 @@ func Search() tela.Node {
 }
 ```
 
-**Long lists:** `VirtualList(count, estimateSize, renderItem, props...)` builds only the visible rows; it is the scroll container (style it like a `Div`). `renderItem` returns a node or a component and must not call hooks (return a struct component for rows with state). `ItemKey(func(i int) K)` keys rows by identity.
+**Long lists:** `VirtualList(count, estimateSize, renderItem, props...)` builds only the visible rows; it is the scroll container (style it like a `Div`). `renderItem` returns a `tela.Node` (a struct component is one) and must not call hooks (return a struct component for rows with state). `ItemKey(func(i int) K)` keys rows by identity.
 
 ```go
 type Row struct{ Name string }
@@ -215,7 +216,7 @@ func (r Row) Build() tela.Node {
 
 func People(names []string) tela.Node {
 	return VirtualList(len(names), func(int) float32 { return 48 },
-		func(i int) tela.Component { return Row{Name: names[i]} },
+		func(i int) tela.Node { return Row{Name: names[i]} },
 		ItemKey(func(i int) string { return names[i] }),
 		Class("h-96 rounded-lg border border-border"))
 }
@@ -223,7 +224,7 @@ func People(names []string) tela.Node {
 
 ## 4. Components and hooks
 
-**Struct components** are the default: the fields are the props, `Build` has a value receiver, children are a field of type `tela.Component` (several via `Fragment(...)`). A struct value used as a child is its own component, with its own state, and its build is skipped while its fields are `==` to the previous ones (func or slice fields make it rebuild every time; that is fine).
+**Struct components** are the default: the fields are the props, `Build` has a value receiver, children are a field of type `tela.Component` (the same type as `tela.Node`; several via `Fragment(...)`). A struct component is a `tela.Node`, so it can be returned from any function or `Build`, passed to `If`, `Map`, `tela.C` and `Root`, and used as a child, with no wrapper. A struct value used as a child is its own component, with its own state, and its build is skipped while its fields are `==` to the previous ones (func or slice fields make it rebuild every time; that is fine).
 
 ```go
 type Stat struct {
@@ -249,13 +250,13 @@ func (s Section) Build() tela.Node {
 		If(open, s.Children))
 }
 
-// A struct component is a tela.Component, not a tela.Node: Fragment makes it one.
+// A struct component is a tela.Node: return it as it is.
 // Never call Section{...}.Build(): its hooks would run in the caller.
 func Overview() tela.Node {
-	return Fragment(Section{Title: "This week", Children: Div(Class("grid grid-cols-3 gap-4"),
+	return Section{Title: "This week", Children: Div(Class("grid grid-cols-3 gap-4"),
 		Stat{Label: "Revenue", Value: "$12,480", Trend: "+8.1%"},
 		Stat{Label: "Orders", Value: "342", Trend: "+3.4%"},
-		Stat{Label: "Refunds", Value: "4", Trend: "-1.2%"})})
+		Stat{Label: "Refunds", Value: "4", Trend: "-1.2%"})}
 }
 ```
 
@@ -279,7 +280,7 @@ func unread(p BadgeProps) tela.Node {
 }
 ```
 
-Keys: an element takes `Key(id)`; a component or fragment is keyed with `tela.WithKey(Card{...}, id)` (which also turns it into a `tela.Node`), or `tela.C(fn, Key(id))`, `tela.CP(fn, p, Key(id))`, or `MapKeyed`.
+Keys: an element takes `Key(id)`; a component or fragment is keyed with `tela.WithKey(Card{...}, id)`, or `tela.C(fn, Key(id))`, `tela.CP(fn, p, Key(id))`, or `MapKeyed`.
 
 **Hooks** (call them at the top of a component, same order every build, never in `if`/`for`/after an early `return`/inside callbacks or `Map` functions):
 
@@ -455,7 +456,7 @@ Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.
 **Rules that hold for every component:**
 - Each is a struct; its fields are its props. `Class` adds classes to the root after the component's own (last wins: `Class: "w-full"` overrides); parts have `...Class` fields (`HeaderClass`, `ContentClass`, `ItemClass`...). `Props` takes one more `h` prop for the root (`Props: TestID("save")`; several: `tela.MergeProps(TestID("x"), AutoComplete("email"))`).
 - Content is `Children tela.Component`; multi-part components have slots (`kit.Card{Title, Description, Action, Children, Footer}`). Text-only slots for assistive technologies are strings (`kit.Field{Label, Description, Error}`).
-- A kit component is a `tela.Component`, not a `tela.Node`: return it from a function as `Fragment(kit.Button{...})`.
+- A kit component is a `tela.Node`: return it from a function or a `Build` as it is (`return kit.Button{...}`); `Fragment` is only for several siblings.
 - Values: controlled `Value *T` + `OnValueChange func(T)` (`Checked *bool` + `OnCheckedChange`, `Open *bool` + `OnOpenChange`, `Pressed`), or uncontrolled `DefaultValue`/`DefaultChecked`/`DefaultOpen`. Choices among keys are generic: `kit.Select[string]`, `Value *K`, `DefaultValue *K` (write `new("pro")`: `new` takes a value since Go 1.26).
 - `Variant`: `kit.Default` (zero), `kit.Secondary`, `kit.Outline`, `kit.Ghost`, `kit.Destructive`, `kit.Link` (and `kit.TabsLine` for Tabs). `Size`: empty is the default size, then `kit.Xs`, `kit.Sm`, `kit.Lg`, and for icon-only buttons `kit.Icon`, `kit.IconXs`, `kit.IconSm`, `kit.IconLg`. `Orientation`: `kit.Horizontal`, `kit.Vertical`. An undefined variant or size panics in dev mode with the valid ones.
 - Overlays (`Dialog`, `AlertDialog`, `Popover`, `Tooltip`, menus, pickers) take a `Trigger`: a `kit.Button{...}`, or any element through `kit.TriggerFunc(func(p tela.Prop) tela.Node { return Button(p, ...) })`. Put `Disabled` on the overlay, not on its trigger. A trigger takes one overlay.
@@ -517,7 +518,7 @@ func profile() tela.Node {
 	if !strings.Contains(email, ".") {
 		emailError = "Enter a valid e-mail address."
 	}
-	return Fragment(kit.Card{
+	return kit.Card{
 		Class: "w-full max-w-md", TitleLevel: 2,
 		Title:       Text("Profile"),
 		Description: Text("This is how others see you."),
@@ -531,7 +532,7 @@ func profile() tela.Node {
 		Footer: Fragment(
 			kit.Button{Variant: kit.Outline, Children: Text("Cancel")},
 			kit.Button{Disabled: emailError != "", Children: Text("Save")}),
-	})
+	}
 }
 ```
 
@@ -578,7 +579,7 @@ func preferences() tela.Node {
 Tabs, buttons, an alert dialog, a toast, a tooltip, a dropdown menu, an avatar:
 
 ```go
-func Account() tela.Component { return kit.Toaster{Children: tela.C(account)} }
+func Account() tela.Node { return kit.Toaster{Children: tela.C(account)} }
 
 func account() tela.Node {
 	toast := kit.UseToast()
@@ -625,16 +626,16 @@ type Invoice struct {
 }
 
 func Invoices(rows []Invoice) tela.Node {
-	return Fragment(kit.Table[Invoice]{
+	return kit.Table[Invoice]{
 		Rows: rows, RowKey: func(i Invoice) any { return i.ID }, Caption: "Recent invoices",
 		Columns: []kit.Column[Invoice]{
 			{Header: "Invoice", Cell: func(i Invoice) tela.Node { return Span(Class("font-medium"), Text(i.ID)) },
 				Sort: func(a, b Invoice) int { return strings.Compare(a.ID, b.ID) }},
-			{Header: "Status", Cell: func(i Invoice) tela.Node { return Fragment(kit.Badge{Variant: kit.Outline, Children: Text(i.Status)}) }},
+			{Header: "Status", Cell: func(i Invoice) tela.Node { return kit.Badge{Variant: kit.Outline, Children: Text(i.Status)} }},
 			{Header: "Amount", Align: kit.AlignRight, Cell: func(i Invoice) tela.Node { return Textf("$%.2f", i.Amount) },
 				Sort: func(a, b Invoice) int { return cmp.Compare(a.Amount, b.Amount) }},
 		},
-	})
+	}
 }
 
 func Rename() tela.Node { return tela.C(rename) }
@@ -642,14 +643,14 @@ func Rename() tela.Node { return tela.C(rename) }
 func rename() tela.Node {
 	open, setOpen := tela.UseState(false)
 	name, setName := tela.UseState("Roadmap")
-	return Fragment(kit.Dialog{
+	return kit.Dialog{
 		Open: &open, OnOpenChange: setOpen.Set,
 		Trigger:     kit.Button{Variant: kit.Outline, Icon: lucide.Pencil, Children: Text("Rename")},
 		Title:       Text("Rename project"),
 		Description: Text("Pick a short, memorable name."),
 		Children:    kit.Field{Label: "Name", Children: kit.Input{Value: &name, OnValueChange: setName.Set, AutoFocus: true}},
 		Footer:      kit.Button{Disabled: name == "", OnClick: func() { setOpen.Set(false) }, Children: Text("Save")},
-	})
+	}
 }
 ```
 
@@ -745,11 +746,11 @@ func settings() tela.Node {
 		toast.Success("Settings saved", kit.ToastDescription("Your preferences were updated."))
 	}
 	row := func(label, hint string, on bool, set func(p *Prefs, on bool)) tela.Node {
-		return Fragment(kit.Field{
+		return kit.Field{
 			Orientation: kit.Horizontal, ControlAfter: true, Label: label, Description: hint,
 			Class:    "items-center gap-6 border-t border-border py-4 first:border-t-0 first:pt-0 last:pb-0",
 			Children: kit.Switch{Checked: &on, OnCheckedChange: func(v bool) { edit(func(p *Prefs) { set(p, v) }) }},
-		})
+		}
 	}
 
 	sidebar := Div(Role("navigation"), AriaLabel("Main"),
@@ -944,7 +945,7 @@ import (
 var trayIcon = []image.Image{image.NewRGBA(image.Rect(0, 0, 32, 32))} // the app's icon at 16, 24 and 32 px (decode embedded PNGs)
 
 // Editor opens a file, asks before closing and lives in the tray.
-func Editor() tela.Component {
+func Editor() tela.Node {
 	return tela.C(func() tela.Node {
 		win := tela.UseWindow()
 		path, setPath := tela.UseState("")
@@ -992,9 +993,10 @@ func Editor() tela.Component {
 | Mistake | Fix |
 |---|---|
 | `Div("Hello")` does not compile | `Div(Text("Hello"))`; formatted: `Textf("%d", n)` |
-| Calling a function component that uses hooks: `counter()`, `telatest.Mount(t, counter())`, `Card{}.Build()` (dev mode panics: "hook called outside its component") | `tela.C(counter)` (write a public `Counter()` that returns it once), `tela.CP(fn, props)`, or pass the struct value itself: `Card{}` / `Fragment(Card{})` |
+| Calling a function component that uses hooks: `counter()`, `telatest.Mount(t, counter())`, `Card{}.Build()` (dev mode panics: "hook called outside its component") | `tela.C(counter)` (write a public `Counter()` that returns it once), `tela.CP(fn, props)`, or pass the struct value itself: `Card{}` |
 | A hook inside `if`, a loop, a `Map`/`VirtualList` callback, an event handler, or after an early `return` | Call every hook at the top of the component; move per-row state into a row component (`MapKeyed(items, key, func(T) tela.Component { return Row{...} })`) |
-| Returning a kit component (or `If(...)`) where a `tela.Node` is expected: `cannot use kit.Button{...} as tela.Node` | `Fragment(kit.Button{...})`, `Fragment(If(...))` |
+| Returning a prop where a node is expected: `return Class("p-4")`, or a `Map` callback that returns `Key(x.ID)` (it compiles, because a prop has a `Build` method, and panics in dev mode; `tela lint` reports `prop-node`) | Props go to an element: `Div(Class("p-4"), ...)`, `Div(Key(x.ID), ...)` |
+| `Fragment(kit.Button{...})`, `Fragment(x)` around a single node, or `tela.Node{}` / `n.IsZero()` for the empty node (removed) | `kit.Button{...}`, `x`, `nil` / `n == nil`; `tela lint -fix` removes the single-child `Fragment`s |
 | A list from `Map` without keys (dev warning "list without keys"), or index keys on a list that reorders | `Key(item.ID)` on each element; `tela.WithKey(comp, id)` for components; `MapKeyed` |
 | Declaring a name that `h` exports in your package (`Button`, `Label`, `Input`, `Text`, `Icon`, `Form`, `Value`, `Name`, `Type`, `Key`, `Map`, `Range`, `Scale`, `Style`, `Rows`, `ID`, `P`, `A`, `Code`...): "already declared through dot-import" | Name it `SaveButton`, `FieldLabel`, `themes`... |
 | `&Card{}` as a child, or a prop in a `tela.Component` field (`Children: Class("p-4")`): dev panic | Pass `Card{}`; put props in `Class`/`Props` |

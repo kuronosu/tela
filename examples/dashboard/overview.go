@@ -92,10 +92,10 @@ func (p Tick) Build() tela.Node {
 	if p.Peak {
 		fill = "bg-primary"
 	}
-	return Fragment(Tip{Text: p.Label, Placement: "top", Open: p.TipOpen, Render: func(tp tela.Prop) tela.Node {
+	return Tip{Text: p.Label, Placement: "top", Open: p.TipOpen, Render: func(tp tela.Prop) tela.Node {
 		return Div(tp, Class("group flex h-full flex-1 items-end"),
 			Div(Class("w-full rounded-t-[3px]", fill), Style(tela.HeightFn(Scale(h, 176)))))
-	}})
+	}}
 }
 
 // StatCell is one of the four figures under the headline: its number and

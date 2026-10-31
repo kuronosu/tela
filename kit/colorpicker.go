@@ -546,12 +546,12 @@ func (c ColorInput) Build() tela.Node {
 		trig = Button{Variant: Outline, Disabled: c.Disabled, Class: joinClass(r.Trigger, c.Class), AriaLabel: name,
 			Props: tela.MergeProps(props...), Children: colorInputLabel{st: parts.st, alpha: c.Alpha}}
 	}
-	return h.Fragment(Popover{
+	return Popover{
 		Trigger: trig, Placement: c.Placement, Align: orStr(c.Align, "start"), Offset: c.Offset,
 		Open: c.Open, DefaultOpen: c.DefaultOpen, OnOpenChange: c.OnOpenChange, Disabled: c.Disabled,
 		AriaLabel: orStr(label, "Color picker"), Class: c.PopoverClass,
 		Children: colorPanel{p: p, parts: parts},
-	})
+	}
 }
 
 func orStr(s, def string) string {

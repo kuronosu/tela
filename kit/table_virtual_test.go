@@ -268,7 +268,7 @@ func TestTableVirtualMistakesPanicInDevMode(t *testing.T) {
 		{"negative", kit.Table[trow]{RowHeight: -1, Columns: []kit.Column[trow]{{Header: "A", Cell: cell}}}, "RowHeight is -1"},
 	} {
 		tb := tc.tb
-		_, err := telatest.AriaSnapshot(tela.C(func() tela.Node { return h.Fragment(tb) }))
+		_, err := telatest.AriaSnapshot(tela.C(func() tela.Node { return tb }))
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: error %v, want it to contain %q", tc.name, err, tc.want)
 		}

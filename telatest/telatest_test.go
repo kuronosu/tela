@@ -649,7 +649,7 @@ func TestAutoWaitForEffectsAndGoroutines(t *testing.T) {
 			}()
 			return nil
 		}, tela.Once)
-		return Fragment(If(show, Text("toast")))
+		return If(show, Text("toast"))
 	}), telatest.Size(200, 100))
 	app3.ExpectNoText("toast")
 }

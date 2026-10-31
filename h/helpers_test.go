@@ -130,7 +130,7 @@ func TestIfStructComponentKeepsState(t *testing.T) {
 // wraps it with Fragment, and it goes into a field of type tela.Child or
 // tela.Component.
 func TestIfReturnsAChild(t *testing.T) {
-	fn := func() tela.Node { return Fragment(If(true, spinner{Size: 4})) }
+	fn := func() tela.Node { return If(true, spinner{Size: 4}) }
 	if got := dump(inspect(t, Div(Key("r"), tela.C(fn)), 200, 100)); !strings.Contains(got, "spin 4") {
 		t.Errorf("Fragment(If(...)) text %q", got)
 	}

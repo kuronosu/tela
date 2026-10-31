@@ -309,8 +309,8 @@ func TestSliderValueSource(t *testing.T) {
 		pos = tela.UseValue(20.0)
 		return h.Div(h.Class("w-[300px] p-4"), tela.C(func() tela.Node {
 			builds++
-			return h.Fragment(kit.Slider{AriaLabel: "Seek", Props: h.TestID("s"), ValueSource: pos,
-				OnValueChange: func(v float64) { pos.Set(v) }})
+			return kit.Slider{AriaLabel: "Seek", Props: h.TestID("s"), ValueSource: pos,
+				OnValueChange: func(v float64) { pos.Set(v) }}
 		}))
 	})
 	root := app.Bounds(telatest.ByTestID("s"))

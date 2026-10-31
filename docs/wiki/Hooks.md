@@ -69,8 +69,9 @@ func Screen() tela.Node {
   tell it from a component at compile time. A field meant to take props too
   is declared as [`tela.Child`](https://pkg.go.dev/github.com/kuronosu/tela#Child).
 - [`If`](https://pkg.go.dev/github.com/kuronosu/tela/h#If) takes a struct component directly, `If(loading, Spinner{})`, and
-  renders nothing when the condition is false. It returns a `tela.Child`, not
-  a `tela.Node`: a function component returns `Fragment(If(...))`.
+  renders nothing when the condition is false (`nil`). It returns a `tela.Child`,
+  which a function component can return where a `tela.Node` is expected:
+  `return If(...)`.
 - A function returning a node is a component when you wrap it. Write the
   wrap once, where the component is defined: the function that does the work
   is private, and the public one returns its `tela.C` or `tela.CP` node, so
@@ -113,7 +114,7 @@ func Toolbar() tela.Node {
   a function called this way would take the caller's slots: dev mode panics
   and says to wrap it in `tela.C` or `tela.CP`, which the public function
   already does. The same goes for `Card{}.Build()`: pass `Card{}` as a child
-  instead (or `Fragment(Card{})` where a `tela.Node` is expected).
+  instead (it is a `tela.Node` too, so `return Card{}` works).
 - A **custom hook** is a function named `UseXxx` or `useXxx` that calls hooks
   for the component that calls it. A struct of [`tela.Value`](https://pkg.go.dev/github.com/kuronosu/tela#Value) pointers is a good
   return value: stable, comparable, and each reader redoes only what it read.
