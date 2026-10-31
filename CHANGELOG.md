@@ -62,6 +62,9 @@ under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
 
 ### Fixed
 
+- A virtual `kit.Table` (`RowHeight`) keeps its header and footer aligned with the rows when the scrollbars take layout width (classic scrollbars, the Windows look), left to right and right to left.
+- `tela lint`'s `fragment` rule no longer offers to remove a `Fragment` around a single node when the same variable or the function's other returns hold a `Fragment` of several (declared with `var`, `:=`, assigned in a branch or a switch, or captured by a closure): the child would remount when the form changes.
+
 - Dev mode no longer reports a duplicate `ID` when an element takes the place of another with the same ID in one build, such as an input replacing another inside a `kit.Field` that keeps its ID (Darkroom's General and Account sections): the check runs after the build, when the old element is gone. Two elements mounted with one ID are still reported.
 
 - Damage under a `backdrop-blur` (or any backdrop filter that reaches beyond a pixel) no longer grows by the filter's reach when what changed is painted above the filter, such as content moving inside a glass pane: only a change behind the filter does (ADR-200). A card dragged in the dashboard's glass pane repaints its own area instead of about twice it.
