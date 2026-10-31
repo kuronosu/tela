@@ -131,6 +131,7 @@ Out of scope for now, but kept open: a decision to add the platform items needs 
 - **WebAssembly / web:** a canvas-backed backend
 - **Android / iOS:** touch, virtual keyboard, app lifecycle, safe areas
 - **Embedded web content:** a webview or HTML component (contradicts "no webview", ADR-001)
+- **No transitions on a theme or scheme change** (owner, 2026-10-31). `transition-colors` animates every color change, so `tela.SetColorScheme` or `tela.SetTheme` fade every element that has it, as browsers do: in `examples/dashboard` the board cards' hover fade turns a theme switch into ~150 ms of frames that rasterize the cards under the glass (p50 3.7 → 19 ms at x1, 5.6 → 66 ms at x2). Tela could apply a scheme or theme change without transitions (web libraries' `disableTransitionOnChange`), by default or as an option; it needs an ADR.
 - **`tela add` and a component registry.** Picked up when `kit` has real users or a third party wants to publish components. `kit` is written meanwhile as self-contained files (no `internal/` imports, tokens instead of fixed colors), so a move to copied-source distribution stays cheap. Design questions for the ADR (options go to `API_PROPOSALS.md`):
   - **Unit of distribution:** copied source (shadcn style), Go modules, or a hybrid (copied source for UI components, modules for logic-heavy packages)
   - **Registry format:** static JSON index plus files over HTTPS with content hashes, the Go module proxy, or a git repository
