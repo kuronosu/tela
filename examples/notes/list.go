@@ -33,6 +33,8 @@ type List struct {
 	OnBack   func()
 	// OnPin and OnDelete are the actions of a card's context menu.
 	OnPin, OnDelete func(id int)
+	// OnCopyLink copies the notes: link of a note.
+	OnCopyLink func(id int)
 	// Locks are the lock items of the card's context menu.
 	Locks Locks
 }
@@ -53,7 +55,7 @@ func (l List) Build() tela.Node {
 		searchBox(l.Query, l.OnQuery, "mx-3"),
 		Div(Class("flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3"), Role("navigation"), AriaLabel("Notes"),
 			Map(l.Notes, func(n Note) tela.Node {
-				return tela.WithKey(Card{Note: n, Active: n.ID == l.Current, Preview: l.Previews, OnSelect: l.OnSelect, OnPin: l.OnPin, OnDelete: l.OnDelete, Locks: l.Locks}, n.ID)
+				return tela.WithKey(Card{Note: n, Active: n.ID == l.Current, Preview: l.Previews, OnSelect: l.OnSelect, OnPin: l.OnPin, OnDelete: l.OnDelete, OnCopyLink: l.OnCopyLink, Locks: l.Locks}, n.ID)
 			}),
 			If(len(l.Notes) == 0, Span(Class("px-1 py-6 text-center text-[13px] text-muted-foreground"), Text(nothingText(l.Query)))),
 		),
@@ -83,6 +85,8 @@ type Card struct {
 	// OnPin and OnDelete are the items of the card's context menu (a right
 	// click, or Shift+F10 with the card focused).
 	OnPin, OnDelete func(id int)
+	// OnCopyLink is the "Copy link" item of the context menu.
+	OnCopyLink func(id int)
 	// Locks are the lock items of the context menu.
 	Locks Locks
 }
@@ -136,6 +140,10 @@ func (c Card) Build() tela.Node {
 				OnSelect: func() { c.Locks.RemoveLock(n.ID) }})
 		}
 	}
+	if c.OnCopyLink != nil {
+		items = append(items, kit.MenuItem[string]{Key: "copy-link", Label: "Copy link", Icon: icons.Link,
+			OnSelect: func() { c.OnCopyLink(n.ID) }})
+	}
 	items = append(items,
 		kit.MenuItem[string]{Key: "delete", Label: "Delete", Icon: icons.Trash, Variant: kit.Destructive, OnSelect: func() { c.OnDelete(n.ID) }})
 	return kit.ContextMenu[string]{
@@ -177,6 +185,8 @@ type Overview struct {
 	OnSelect func(id int)
 	// OnPin and OnDelete are the actions of a card's context menu.
 	OnPin, OnDelete func(id int)
+	// OnCopyLink copies the notes: link of a note.
+	OnCopyLink func(id int)
 	// Locks are the lock items of the card's context menu.
 	Locks Locks
 }
@@ -192,7 +202,7 @@ func (o Overview) Build() tela.Node {
 		),
 		Div(Class("grid grid-cols-2 items-start gap-3 min-[880px]:grid-cols-3"),
 			Map(o.Notes, func(n Note) tela.Node {
-				return tela.WithKey(Card{Note: n, Grid: true, OnSelect: o.OnSelect, OnPin: o.OnPin, OnDelete: o.OnDelete, Locks: o.Locks}, n.ID)
+				return tela.WithKey(Card{Note: n, Grid: true, OnSelect: o.OnSelect, OnPin: o.OnPin, OnDelete: o.OnDelete, OnCopyLink: o.OnCopyLink, Locks: o.Locks}, n.ID)
 			}),
 		),
 		If(len(o.Notes) == 0, Span(Class("py-10 text-center text-sm text-muted-foreground"), Text(nothingText(o.Query)))),

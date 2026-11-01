@@ -23,6 +23,9 @@ const (
 	keyKeepInTray   = "keepInTray"
 	keyNotifyOnSave = "notifyOnSave"
 	keyQuickNote    = "quickNote"
+	// keyRegisterLinks is whether Notes registers the notes: scheme when it
+	// starts; Unregister in Preferences turns it off.
+	keyRegisterLinks = "registerLinks"
 )
 
 // Prefs are the settings, as the main window reads them.
@@ -47,6 +50,8 @@ type Prefs struct {
 	// QuickNote registers the global shortcut that makes a note from any
 	// application.
 	QuickNote bool
+	// RegisterLinks registers the notes: scheme at every start.
+	RegisterLinks bool
 }
 
 // usePrefs reads the settings. Each desktop.UseSetting is a state that the
@@ -63,8 +68,9 @@ func usePrefs() Prefs {
 	tray, _ := desktop.UseSetting(keyKeepInTray, false)
 	notify, _ := desktop.UseSetting(keyNotifyOnSave, true)
 	quick, _ := desktop.UseSetting(keyQuickNote, true)
+	links, _ := desktop.UseSetting(keyRegisterLinks, true)
 	return Prefs{Theme: theme, Accent: accent, ShowPreviews: previews, FontSize: size, LineSpacing: spacing,
-		WordWrap: wrap, KeepInTray: tray, NotifyOnSave: notify, QuickNote: quick}
+		WordWrap: wrap, KeepInTray: tray, NotifyOnSave: notify, QuickNote: quick, RegisterLinks: links}
 }
 
 // fontClass is the Tailwind class of a font size of the editor.
@@ -245,11 +251,14 @@ type generalSection struct{}
 func (generalSection) Build() tela.Node {
 	tray, setTray := desktop.UseSetting(keyKeepInTray, false)
 	notify, setNotify := desktop.UseSetting(keyNotifyOnSave, true)
-	return Div(Class("flex flex-col"),
-		row("Keep running in the tray", "Closing the window hides it. Quit from the tray menu.",
-			kit.Switch{AriaLabel: "Keep running in the tray", Checked: &tray, OnCheckedChange: setTray.Set}),
-		row("Notify when a file is saved", "Show a desktop notification after Save.",
-			kit.Switch{AriaLabel: "Notify when a file is saved", Checked: &notify, OnCheckedChange: setNotify.Set}),
+	return Fragment(
+		Div(Class("flex flex-col"),
+			row("Keep running in the tray", "Closing the window hides it. Quit from the tray menu.",
+				kit.Switch{AriaLabel: "Keep running in the tray", Checked: &tray, OnCheckedChange: setTray.Set}),
+			row("Notify when a file is saved", "Show a desktop notification after Save.",
+				kit.Switch{AriaLabel: "Notify when a file is saved", Checked: &notify, OnCheckedChange: setNotify.Set}),
+		),
+		linksSection{},
 	)
 }
 

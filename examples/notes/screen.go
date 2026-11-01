@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -195,6 +196,44 @@ func (s screen) Build() tela.Node {
 		if len(in.Fresh) > 1 {
 			toast.Show("Opened " + plural(len(in.Fresh), "note"))
 		}
+	}
+	// Every start of the program is a launch: its own, and the ones that a
+	// second process hands over before it exits (desktop.SingleInstance).
+	// Files open as notes, and notes: links make or show a note (link.go).
+	// The window is raised by SingleInstance.
+	desktop.UseLaunch(func(l desktop.Launch) {
+		if files := l.Files(); len(files) > 0 {
+			openFiles(files, true)
+		}
+		for _, raw := range l.URLs() {
+			k, err := parseLink(raw)
+			switch {
+			case errors.Is(err, errNotOurs):
+			case err != nil:
+				toast.Error("Could not open the link", kit.ToastDescription(err.Error()))
+			case k.Action == "new":
+				addText(k.Title, k.Text)
+			default:
+				if n, ok := find(all, k.ID); ok {
+					reveal(n)
+				} else {
+					toast.Error(fmt.Sprintf("There is no note %d", k.ID), kit.ToastDescription("The link is for a note that is not in this library."))
+				}
+			}
+		}
+	})
+	// Notes makes itself the handler of notes: links (never the default)
+	// when it starts, and when the user turns the setting on again
+	// (link.go).
+	wantLinks := prefs.RegisterLinks
+	tela.UseGo(func(ctx context.Context) { registerAtStart(wantLinks) }, wantLinks)
+	// copyLink puts the link of a note on the clipboard.
+	copyLink := func(id int) {
+		if err := desktop.WriteClipboardText(fmt.Sprintf("notes://open?id=%d", id)); err != nil {
+			toast.Error("Could not copy the link", kit.ToastDescription(err.Error()))
+			return
+		}
+		toast.Show("Link copied")
 	}
 	// The window takes drops of files and text (dropped.go).
 	drop := useDrop(func(dt *tela.DataTransfer) {
@@ -590,7 +629,7 @@ func (s screen) Build() tela.Node {
 		pane = Fragment(
 			List{Notes: shown, Current: cur.ID, Query: query, Previews: prefs.ShowPreviews,
 				OnQuery: setQuery.Set, OnSelect: setSelected.Set, OnBack: func() { choose(flt) },
-				OnPin: pinNote, OnDelete: askDelete, Locks: locks},
+				OnPin: pinNote, OnDelete: askDelete, OnCopyLink: copyLink, Locks: locks},
 			// The editor is new for a note that is unlocked or locked, so
 			// its fields start in the right place.
 			tela.WithKey(Editor{Note: cur, Prefs: prefs, Folders: folders(all),
@@ -600,7 +639,7 @@ func (s screen) Build() tela.Node {
 		)
 	} else {
 		pane = Overview{Notes: shown, Filter: flt, Query: query, OnQuery: setQuery.Set, OnSelect: setSelected.Set,
-			OnPin: pinNote, OnDelete: askDelete, Locks: locks}
+			OnPin: pinNote, OnDelete: askDelete, OnCopyLink: copyLink, Locks: locks}
 	}
 
 	return quickNoteCtx.Provider(quickInfo, Div(Class("flex h-screen flex-col"), shortcuts, drop.Props,
