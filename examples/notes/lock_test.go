@@ -468,3 +468,34 @@ func TestLockedNoteKeepsItsPlaceAndOrder(t *testing.T) {
 	a.Click(lockedCard)
 	a.ExpectText("This note is locked")
 }
+
+// Two notes unlocked at once share the key; locking one keeps it for the
+// other, and the last one to lock lets it go.
+func TestTwoUnlockedNotes(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	a.Click(card("Groceries"))
+	a.Click(lockNote)
+	a.ExpectText("This note is locked")
+	a.Click(card("Weekend in the mountains"))
+	a.Click(lockNote)
+	a.ExpectCount(telatest.ByRole("button", "Locked note, locked"), 2)
+
+	a.Click(unlockBtn) // the open one: the weekend
+	a.ExpectValue(titleBox, "Weekend in the mountains")
+	a.Click(telatest.ByRole("button", "Locked note, locked"))
+	a.Click(unlockBtn)
+	a.ExpectValue(titleBox, "Groceries")
+
+	// Both are open: an edit of one seals with the key that opened the other.
+	a.Click(editor)
+	a.Type("!")
+	a.Click(card("Weekend in the mountains, locked"))
+	a.ExpectValue(editor, "Leave on Friday after lunch, back on Sunday night. A cabin with a stove, a thermos, and no signal.\n\n#travel #ideas")
+	a.Click(lockNow)
+	a.Click(card("Groceries, unsaved changes, locked"))
+	a.ExpectValue(editor, groceriesText+"!")
+	a.Click(lockNow)
+	noPlaintext(t, "Coffee", "cabin")
+	a.ExpectCount(telatest.ByRole("button", "Locked note, locked"), 2)
+}

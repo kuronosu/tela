@@ -220,8 +220,11 @@ func (v *vault) unlock(id int, key []byte, c content) {
 	if v.open == nil {
 		v.open = map[int]content{}
 	}
+	// A copy, as key may be the vault's own (a second note unlocked with
+	// the key of the first), which forgetKey zeroes.
+	k := slices.Clone(key)
 	v.forgetKey()
-	v.key = slices.Clone(key) // a copy: forgetKey zeroes it
+	v.key = k
 	v.open[id] = c
 }
 
