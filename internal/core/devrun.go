@@ -324,10 +324,10 @@ func devDirRoot(v reflect.Value) string {
 	return ""
 }
 
-// devChild reports whether this process is a tela dev child, and whether
+// devChildState reports whether this process is a tela dev child, and whether
 // it was seeded with the state of a previous build (a reload rather than
 // the first start).
-func devChild() (child, reload bool) {
+func devChildState() (child, reload bool) {
 	devRT.mu.Lock()
 	defer devRT.mu.Unlock()
 	return devRT.b != nil, devRT.expect

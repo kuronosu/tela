@@ -155,9 +155,10 @@ func init() { core.OnRunStart(runStart) }
 // Instances are told apart by the app ID ([AppID]: [SetAppID]'s, else
 // app.AppID, else the executable's name), per user session: give the app
 // an AppID. When the desktop cannot tell (no D-Bus session on Linux), the
-// app runs on its own and a dev warning says why. Under tela dev and in
-// telatest nothing is claimed: telatest's App.InjectLaunch plays a second
-// start.
+// app runs on its own and a dev warning says why. Under tela dev the
+// supervisor holds the claim across reloads (a second tela dev of the
+// same app exits as a second instance). telatest claims nothing:
+// App.InjectLaunch plays a second start.
 func SingleInstance(app tela.App) tela.App {
 	instance.mu.Lock()
 	instance.on, instance.appID = true, app.AppID
@@ -185,8 +186,9 @@ func runStart(rs core.RunStart) bool {
 	id = instanceAppID(id)
 	primary, err := rs.Backend.Desktop().ClaimInstance(id, launch)
 	if err != nil {
-		// tela dev's remote backend has no single instance yet (protocol
-		// 4): the app runs as before, without a warning on every reload.
+		// Under tela dev the host claims for the child (remote protocol
+		// 5); a host without it answers ErrUnsupported, and the app runs
+		// as before, without a warning on every reload.
 		if rs.Dev && !(rs.DevChild && errors.Is(err, errors.ErrUnsupported)) {
 			fmt.Fprintf(rs.Log, "tela: dev warning: desktop.SingleInstance: %v; the app runs on its own (another start opens another window)\n", err)
 		}

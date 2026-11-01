@@ -144,6 +144,13 @@ func (d Desktop) Raise(w WindowHandle, token string) {
 	})
 }
 
+// DevChild reports whether this process is a tela dev child (its
+// executable is a temporary dev build). Safe from any goroutine.
+func DevChild() bool {
+	child, _ := devChildState()
+	return child
+}
+
 // MainWindow returns the handle of the app's main window.
 func (d Desktop) MainWindow() WindowHandle { return WindowHandle{d.h.main.tree} }
 

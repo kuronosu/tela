@@ -53,6 +53,20 @@
 // [SavedWindow] does the same for a tela.Window, and [LoadPlacement] with
 // [UseSavePlacement] are the parts they are made of.
 //
+// # Clipboard, shortcuts, launches, registration, secrets and menus
+//
+// [ReadClipboard] and [WriteClipboard] copy and paste a tela.DataTransfer
+// (text, HTML, images, files, custom types). [GlobalShortcut] is a
+// component that registers a system-wide shortcut while mounted.
+// [SingleInstance] keeps one process per app: a second start hands its
+// [Launch] to the first, whose [UseLaunch] handlers open its files and
+// links. [Register] makes the app a handler of a [URLScheme] or a
+// [FileType] for the user, without a running app too (an installer);
+// [MakeDefault] is a separate, explicit request. [SetSecret], [Secret]
+// and [DeleteSecret] keep small secrets in the OS's keyring, from a
+// goroutine. [PopupMenu] and [MenuBar] are the OS's menus where it has
+// them, for kit's menus to use.
+//
 // # When a service is missing
 //
 // Not every desktop has every service: GNOME shows no tray icons without

@@ -97,6 +97,7 @@ const (
 	codeSecretNotFound
 	codeSecretTooLarge
 	codeAssocTaken
+	codeSecretCanceled
 )
 
 // sentinels maps the outcome codes of version 5 to their errors.
@@ -108,6 +109,7 @@ var sentinels = []struct {
 	{codeSecretNotFound, platform.ErrSecretNotFound},
 	{codeSecretTooLarge, platform.ErrSecretTooLarge},
 	{codeAssocTaken, platform.ErrAssociationTaken},
+	{codeSecretCanceled, platform.ErrSecretCanceled},
 }
 
 // desktopTimeout bounds the wait for the host's answer to a synchronous

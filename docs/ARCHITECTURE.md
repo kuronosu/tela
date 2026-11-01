@@ -117,7 +117,9 @@ The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an
 │                 floating positioning (Floating UI model)      │
 ├───────────────────────────────────────────────────────────────┤
 │ desktop         Dialogs, tray, notifications, app paths,      │
-│                 settings store (ADR-178)                      │
+│                 settings store (ADR-178); clipboard, global   │
+│                 shortcuts, single instance, registration,     │
+│                 secrets, native menus (ADR-213)               │
 ├───────────────────────────────────────────────────────────────┤
 │ tela   +   h    Public API: Run, App, Window, hooks │ elements│
 ├───────────────────────────────────────────────────────────────┤
@@ -162,7 +164,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 tela/
 ├── tela.go, app.go, hooks.go, node.go, events.go   # package tela
 ├── h/                    # elements and props (designed for dot-import)
-├── desktop/              # OS services: dialogs, tray, notifications, paths, settings store (ADR-178)
+├── desktop/              # OS services: dialogs, tray, notifications, paths, settings store (ADR-178); clipboard, shortcuts, launches, registration, secrets, menus (ADR-213)
 ├── i18n/                 # message catalogs, plurals, locale formatting (ADR-087)
 │   └── internal/gen/     # go:generate: date and list patterns, week data from vendored CLDR JSON
 ├── aria/                 # behavior hooks, floating positioning

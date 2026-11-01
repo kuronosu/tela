@@ -96,7 +96,7 @@ func Run(opts Options) error {
 	// (desktop.go); a second instance ends here, having forwarded its
 	// launch.
 	rs := RunStart{Backend: b, AppID: opts.AppID, Dev: configDev(opts.Dev), Log: errorLog(opts.ErrorLog)}
-	rs.DevChild, rs.Reload = devChild()
+	rs.DevChild, rs.Reload = devChildState()
 	if !runStartHooks(rs) {
 		return nil
 	}

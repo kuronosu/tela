@@ -21,4 +21,4 @@ func devAssetAdded(fs.FS)                          {}
 func devNewWindow(b platform.Backend, wo platform.WindowOptions, _ *Element) (platform.Window, error) {
 	return b.NewWindow(wo)
 }
-func devChild() (child, reload bool) { return false, false }
+func devChildState() (child, reload bool) { return false, false }

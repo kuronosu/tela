@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -63,9 +64,11 @@ type HandlerApp struct {
 	// last part of the ID, capitalized ("com.example.notes" is "Notes").
 	Name string
 	// Exec is the absolute path of the program to run, with Args and then
-	// the link or the files. Default: os.Executable. Under go run and tela
-	// dev it is a temporary build: register from the installed program,
-	// or give its path.
+	// the link or the files. Default: os.Executable. Under tela dev the
+	// executable is a temporary dev build, so Register and MakeDefault
+	// there need Exec given (ErrDevExecutable otherwise); under go run it
+	// is a temporary build too: register from the installed program, or
+	// give its path.
 	Exec string
 	// Args are arguments put before the link or the files.
 	Args []string
@@ -112,6 +115,13 @@ func ForApp(app HandlerApp) RegisterOption {
 // application holds the association and [Replace] was not given; nothing
 // was written. The error names the other application.
 var ErrAssociationTaken = platform.ErrAssociationTaken
+
+// ErrDevExecutable is wrapped by the error of [Register] and
+// [MakeDefault] under tela dev when no Exec was given (ForApp): the
+// running program is a temporary dev build, which the OS must not be told
+// to run. Nothing is written. Give the installed program's path, or
+// register from a normal build.
+var ErrDevExecutable = errors.New("under tela dev the program is a temporary build; give the installed program's path with desktop.ForApp(desktop.HandlerApp{Exec: ...})")
 
 // Registration is what [RegistrationStatus] reports.
 type Registration struct {
@@ -233,6 +243,11 @@ func regPrepare(what string, a Association, opts []RegisterOption, needExec bool
 		app.Name = nameOf(app.ID)
 	}
 	if app.Exec == "" && needExec {
+		if core.DevChild() {
+			// tela dev runs a temporary build that the next save replaces:
+			// registering it would leave links pointing at a deleted file.
+			return c, app, fmt.Errorf("desktop: %s(%v): %w", what, a, ErrDevExecutable)
+		}
 		exe, err := os.Executable()
 		if err != nil {
 			return c, app, fmt.Errorf("desktop: %s(%v): the program's path: %w (give it with desktop.ForApp)", what, a, err)
