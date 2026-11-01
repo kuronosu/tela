@@ -16,11 +16,11 @@ import (
 // has one (freedesktop), else passive key grabs on the root window, as
 // GNOME's keybinder, xbindkeys and Qt's QxtGlobalShortcut do:
 //
-//   - The accelerator's key is every keycode whose unshifted key in the
-//     first layout is Accelerator.Key (KeyEvent.Key without modifiers,
-//     looked up in the keymap the keyboard uses); its modifiers are the
-//     real modifiers Shift, Control and those Alt and Super are bound to
-//     (Mod1 and Mod4 by default).
+//   - The accelerator's key is the keysym of Accelerator.Key
+//     (xkb.AcceleratorKeysym), grabbed on every keycode whose unshifted
+//     keysym in the first layout of the keyboard's keymap it is; its
+//     modifiers are the real modifiers Shift, Control and those Alt and
+//     Super are bound to (Mod1 and Mod4 by default).
 //   - Each keycode is grabbed once per combination of the Lock and NumLock
 //     masks, because X matches grabs on the exact modifier state.
 //   - A grab that fails with BadAccess (another client holds the
@@ -232,10 +232,12 @@ func (b *Backend) ungrabShortcuts() {
 // accelGrabs returns the keycodes and modifiers of a, and the lock
 // combinations to grab each with.
 func accelGrabs(km *xkb.Keymap, a platform.Accelerator) (kcs []byte, mods uint16, locks []uint16) {
-	st := xkb.NewState(km)
-	for kc := 8; kc < 256; kc++ {
-		if st.Lookup(uint32(kc)).Key == a.Key {
-			kcs = append(kcs, byte(kc))
+	if ks, ok := xkb.AcceleratorKeysym(a.Key); ok {
+		st := xkb.NewState(km) // no modifiers, first layout
+		for kc := 8; kc < 256; kc++ {
+			if st.Lookup(uint32(kc)).Sym == ks {
+				kcs = append(kcs, byte(kc))
+			}
 		}
 	}
 	mask := func(name string, def uint32) uint16 {
