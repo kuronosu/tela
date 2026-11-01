@@ -268,8 +268,8 @@ jobs:
           cache: true
       - name: Install Wine
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wine64
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y wine64
       - name: Create the Wine prefix with the null graphics driver
         # No window reaches a display; the win32 tests only need the
         # message loop, GDI and the clipboard.
@@ -300,8 +300,10 @@ jobs:
           WINEPREFIX: ${{ runner.temp }}/wineprefix
           DISPLAY: ""
           WAYLAND_DISPLAY: ""
-        # -short: timing assertions do not hold under Wine.
-        run: go test -short -exec wine ./...
+        # -short: timing assertions do not hold under Wine. -timeout 20m:
+        # examples/dashboard takes about 6 minutes under Wine (364 s on
+        # 2026-11-01), too close to go test's 10-minute default.
+        run: go test -short -timeout 20m -exec wine ./...
       - name: Stop wineserver
         if: always()
         env:
@@ -317,12 +319,23 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: go test
+      - name: go test (win32, alone)
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+        # The win32 tests drive real windows on the runner's desktop (focus,
+        # keyboard, cursor, DWM). Beside the rest of the suite they share it
+        # with other packages' processes, whose console windows can come on
+        # top (a console's black was read where a test window was), and the
+        # CPU with the heaviest packages: they run first, alone.
+        run: go test -timeout 20m ./internal/platform/win32/
+      - name: go test (the rest)
+        if: success() || failure()
         shell: bash
         env:
           CGO_ENABLED: "0"
         # -timeout 20m: see the linux job.
-        run: go test -timeout 20m ./...
+        run: go test -timeout 20m $(go list ./... | grep -v '/internal/platform/win32$')
       - name: Upload golden diffs
         if: failure()
         uses: actions/upload-artifact@v4
