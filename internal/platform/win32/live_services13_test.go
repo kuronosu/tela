@@ -110,6 +110,11 @@ func TestLiveGlobalShortcut(t *testing.T) {
 	d := b1.Desktop()
 	stage := 0
 	var seen []string
+	defer func() { // also when runLive fails the test on its timeout
+		if stage != 3 {
+			t.Logf("stage %d; events: %q", stage, seen)
+		}
+	}()
 	runLive(t, b1, nil, func(_ platform.Window, e platform.Event) {
 		switch e := e.(type) {
 		case platform.ShortcutStatusEvent:

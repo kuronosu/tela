@@ -13,6 +13,8 @@ import (
 	"time"
 	"unsafe"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
@@ -26,6 +28,7 @@ type Backend struct {
 	start    time.Time
 	hinst    uintptr
 	msgHwnd  uintptr // message-only window: target of Wake, Quit and vsync posts
+	tid      uint32  // the thread that owns msgHwnd and the windows
 	interval time.Duration
 
 	// loop holds the open windows, the event queue, the wake/quit flags and
@@ -100,7 +103,7 @@ func newBackend() (*Backend, error) {
 	if hwnd == 0 {
 		return nil, winError("creating the message-only window", e)
 	}
-	b.msgHwnd = hwnd
+	b.msgHwnd, b.tid = hwnd, windows.GetCurrentThreadId()
 	registry.mu.Lock()
 	registry.backends[hwnd] = b
 	registry.mu.Unlock()
@@ -202,6 +205,22 @@ func (b *Backend) shutdown() {
 		if r == 0 {
 			break
 		}
+	}
+	// The drain also removed what was posted to other backends living on
+	// this thread (tests create several on one goroutine): re-post their
+	// wake messages, or a backend whose wmTelaNotify was drained would keep
+	// notifyPosted set and never wake again, not even for Quit.
+	registry.mu.RLock()
+	var others []*Backend
+	for _, o := range registry.backends {
+		if o.tid == b.tid {
+			others = append(others, o)
+		}
+	}
+	registry.mu.RUnlock()
+	for _, o := range others {
+		o.notifyPosted.Store(false)
+		o.notify()
 	}
 	runtime.UnlockOSThread()
 }

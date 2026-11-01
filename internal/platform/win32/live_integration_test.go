@@ -547,18 +547,30 @@ func TestLivePopupMenu(t *testing.T) {
 		{Separator: true},
 		{Label: "More", Submenu: []platform.MenuItem{{ID: 7, Label: "Inner"}}},
 	}
-	// keys answers the popup menu that opens next with key taps.
-	keys := func(taps ...uint16) {
+	// keys answers the popup menu that opens next with key taps, posted
+	// to the menu's window: SendInput goes to the foreground window, and
+	// a test started from a scheduled task may not own the foreground
+	// (the menu then waited forever). A menu still open after 5 s is
+	// closed with Escape and the test fails.
+	var stuck atomic.Bool
+	keys := func(vks ...uintptr) {
 		go func() {
-			if waitWindow("#32768", "") == 0 {
+			menu := waitWindow("#32768", "")
+			if menu == 0 {
 				return // the test fails on the timeout
 			}
 			time.Sleep(150 * time.Millisecond)
-			var s []sk
-			for _, k := range taps {
-				s = append(s, ktap(k)...)
+			for _, vk := range vks {
+				procPostMessageW.Call(menu, 0x0100, vk, 1)          // WM_KEYDOWN
+				procPostMessageW.Call(menu, 0x0101, vk, 0xC0000001) // WM_KEYUP
 			}
-			sendKeysRaw(s...)
+			for deadline := time.Now().Add(5 * time.Second); isWindow(menu); time.Sleep(50 * time.Millisecond) {
+				if time.Now().After(deadline) {
+					stuck.Store(true)
+					procPostMessageW.Call(menu, 0x0100, 0x1B, 1) // VK_ESCAPE
+					return
+				}
+			}
 		}()
 	}
 	runLive(t, b, func() {
@@ -584,7 +596,7 @@ func TestLivePopupMenu(t *testing.T) {
 			}
 			answers = append(answers, item)
 			// Escape dismisses the second one.
-			keys(scEsc)
+			keys(0x1B) // VK_ESCAPE
 			w.PopupMenu(platform.Point{X: 40, Y: 40}, menu, func(item platform.MenuItemID, err error) {
 				answers = append(answers, item)
 				b.Quit()
@@ -596,8 +608,11 @@ func TestLivePopupMenu(t *testing.T) {
 			b.Quit()
 			return
 		}
-		keys(scArrowDown, scEnterK) // the first item
+		keys(0x28, 0x0D) // VK_DOWN, VK_RETURN: the first item
 	})
+	if stuck.Load() {
+		t.Error("a popup menu ignored the posted keys for 5 s and was closed with Escape")
+	}
 	if !slices.Equal(answers, []platform.MenuItemID{5, 0}) {
 		t.Errorf("popup answers = %v, want [5 0]", answers)
 	}
