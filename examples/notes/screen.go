@@ -100,6 +100,9 @@ func (s screen) Build() tela.Node {
 	busy, setBusy := tela.UseState(false)
 	noKeyring, setNoKeyring := tela.UseState(false)
 	keyGone, setKeyGone := tela.UseState(false)
+	// quickInfo is what the OS said about the global shortcut, for
+	// Preferences.
+	quickInfo, setQuickInfo := tela.UseState(quickNoteInfo{})
 	// latest is the library of the latest build, for what finishes later.
 	latest := tela.UseRef(notes)
 	latest.Current = notes
@@ -600,7 +603,14 @@ func (s screen) Build() tela.Node {
 			OnPin: pinNote, OnDelete: askDelete, Locks: locks}
 	}
 
-	return Div(Class("flex h-screen flex-col"), shortcuts, drop.Props,
+	return quickNoteCtx.Provider(quickInfo, Div(Class("flex h-screen flex-col"), shortcuts, drop.Props,
+		// The global shortcut that makes a note from any application, and
+		// raises the window to show it.
+		If(prefs.QuickNote, tela.Component(desktop.GlobalShortcut{
+			ID: quickNoteID, Keys: quickNoteKeys, Description: "Make a note in Notes",
+			OnPress:  func() { showMain(); newNote() },
+			OnStatus: func(e desktop.ShortcutStatusEvent) { setQuickInfo.Set(infoOf(e)) },
+		})),
 		// Hiding the window locks the notes again.
 		lockGuard{OnHidden: func() {
 			vlt.clear()
@@ -656,7 +666,7 @@ func (s screen) Build() tela.Node {
 			Div(Class("relative flex min-w-0 flex-1 rounded-ss-xl border-s border-t border-border bg-background"), pane,
 				If(drop.Over, dropOverlay{})),
 		),
-	)
+	))
 }
 
 // editorKey is the key of the editor: a note, and whether its content is

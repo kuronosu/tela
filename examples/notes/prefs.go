@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"runtime"
 
 	"github.com/kuronosu/tela"
@@ -21,6 +22,7 @@ const (
 	keyWordWrap     = "wordWrap"
 	keyKeepInTray   = "keepInTray"
 	keyNotifyOnSave = "notifyOnSave"
+	keyQuickNote    = "quickNote"
 )
 
 // Prefs are the settings, as the main window reads them.
@@ -42,6 +44,9 @@ type Prefs struct {
 	KeepInTray bool
 	// NotifyOnSave shows a desktop notification after a file is saved.
 	NotifyOnSave bool
+	// QuickNote registers the global shortcut that makes a note from any
+	// application.
+	QuickNote bool
 }
 
 // usePrefs reads the settings. Each desktop.UseSetting is a state that the
@@ -57,8 +62,9 @@ func usePrefs() Prefs {
 	wrap, _ := desktop.UseSetting(keyWordWrap, true)
 	tray, _ := desktop.UseSetting(keyKeepInTray, false)
 	notify, _ := desktop.UseSetting(keyNotifyOnSave, true)
+	quick, _ := desktop.UseSetting(keyQuickNote, true)
 	return Prefs{Theme: theme, Accent: accent, ShowPreviews: previews, FontSize: size, LineSpacing: spacing,
-		WordWrap: wrap, KeepInTray: tray, NotifyOnSave: notify}
+		WordWrap: wrap, KeepInTray: tray, NotifyOnSave: notify, QuickNote: quick}
 }
 
 // fontClass is the Tailwind class of a font size of the editor.
@@ -252,6 +258,9 @@ func (generalSection) Build() tela.Node {
 type shortcutsSection struct{ Look kit.Variant }
 
 func (s shortcutsSection) Build() tela.Node {
+	quick, setQuick := desktop.UseSetting(keyQuickNote, true)
+	info := tela.UseContext(quickNoteCtx)
+	status, notice := info.Describe(quick)
 	mod := "Ctrl"
 	if platform(s.Look) == kit.MacOS {
 		mod = "Cmd"
@@ -264,10 +273,113 @@ func (s shortcutsSection) Build() tela.Node {
 		{"Delete the open note", mod + " Shift D"},
 		{"Back to all notes, from the list", "Esc"},
 	}
-	return Div(Class("flex flex-col"), Role("list"), AriaLabel("Shortcuts"),
-		Map(keys, func(k [2]string) tela.Node {
-			return row(k[0], "", Span(Class("rounded-md border border-border px-2 py-0.5 font-mono text-xs text-muted-foreground"), Text(k[1])))
-		}))
+	return Fragment(
+		Div(Class("flex flex-col gap-1"),
+			heading("Anywhere", "Works while Notes is in the background."),
+			rowNotice("Quick note", status, notice, quickNoteControl{
+				Keys: info.Keys(), Checked: &quick, OnChange: setQuick.Set,
+			}),
+		),
+		Div(Class("flex flex-col gap-1"),
+			heading("In the window", ""),
+			Div(Class("flex flex-col"), Role("list"), AriaLabel("Shortcuts"),
+				Map(keys, func(k [2]string) tela.Node { return row(k[0], "", keyChip(k[1])) })),
+		),
+	)
+}
+
+// keyChip is a key combination, as the shortcuts list shows it.
+func keyChip(keys string) tela.Component {
+	return chip{keys}
+}
+
+type chip struct{ Keys string }
+
+func (c chip) Build() tela.Node {
+	return Span(Class("rounded-md border border-border px-2 py-0.5 font-mono text-xs text-muted-foreground"), Text(c.Keys))
+}
+
+// quickNoteControl is the end of the row of the global shortcut: the keys
+// that are bound, and the switch that turns it on and off.
+type quickNoteControl struct {
+	Keys     string
+	Checked  *bool
+	OnChange func(bool)
+}
+
+func (q quickNoteControl) Build() tela.Node {
+	return Div(Class("flex items-center gap-3"),
+		chip{q.Keys},
+		kit.Switch{AriaLabel: "Quick note from any application", Checked: q.Checked, OnCheckedChange: q.OnChange},
+	)
+}
+
+// The global shortcut that makes a note (desktop.GlobalShortcut). The ID is
+// what the OS remembers across runs, so it must not change; the keys are
+// only the preference (the Wayland portal asks the user, and may bind
+// others: quickNoteInfo.Trigger).
+const (
+	quickNoteID   = "quick-note"
+	quickNoteKeys = "Ctrl+Alt+N"
+)
+
+// quickNoteInfo is what the OS said about the global shortcut, shown in
+// Preferences (another window, which reads it through quickNoteCtx).
+type quickNoteInfo struct {
+	// Known is false until the OS has answered the registration.
+	Known  bool
+	Status desktop.ShortcutStatus
+	// Trigger is what the user presses, as the desktop shows it.
+	Trigger string
+	// Unsupported: this desktop has no global shortcuts.
+	Unsupported bool
+	// Err is the reason of a status other than bound, for the status line.
+	Err string
+}
+
+// quickNoteCtx carries the status of the shortcut from the main window's
+// screen to Preferences.
+var quickNoteCtx = tela.CreateContext(quickNoteInfo{})
+
+// infoOf converts the event OnStatus gets.
+func infoOf(e desktop.ShortcutStatusEvent) quickNoteInfo {
+	i := quickNoteInfo{Known: true, Status: e.Status, Trigger: e.Trigger}
+	if e.Err != nil {
+		i.Err = e.Err.Error()
+		i.Unsupported = errors.Is(e.Err, desktop.ErrUnsupported)
+	}
+	return i
+}
+
+// Keys are the keys to show for the shortcut: what the desktop bound, else
+// the ones Notes asks for.
+func (i quickNoteInfo) Keys() string {
+	if i.Known && i.Status == desktop.ShortcutBound && i.Trigger != "" {
+		return i.Trigger
+	}
+	return quickNoteKeys
+}
+
+// Describe says how the shortcut is doing, for the line under its name; notice
+// is true when the user may want to do something about it.
+func (i quickNoteInfo) Describe(on bool) (text string, notice bool) {
+	switch {
+	case !on:
+		return "Off.", false
+	case !i.Known:
+		return "Waiting for the desktop to confirm it.", false
+	case i.Status == desktop.ShortcutBound:
+		return "On. Press " + i.Keys() + " from any application to make a note.", false
+	case i.Status == desktop.ShortcutTaken:
+		return "Taken by another application. Turn it off and on to try again.", true
+	case i.Status == desktop.ShortcutRefused:
+		return "Refused: the desktop did not bind it.", true
+	case i.Status == desktop.ShortcutRevoked:
+		return "Removed in the desktop's shortcut settings.", true
+	case i.Unsupported:
+		return "Not available on this desktop.", true
+	}
+	return "Could not be registered: " + i.Err, true
 }
 
 // heading is the title of a group of controls, with an optional hint.
@@ -280,10 +392,20 @@ func heading(title, hint string) tela.Node {
 
 // row is a label and an optional hint with a control after them.
 func row(label, hint string, control tela.Component) tela.Node {
+	return rowNotice(label, hint, false, control)
+}
+
+// rowNotice is row for a hint that tells the state of something: with
+// notice it is in the accent color, because the user may want to act on it.
+func rowNotice(label, hint string, notice bool, control tela.Component) tela.Node {
+	hintClass := "text-xs text-muted-foreground"
+	if notice {
+		hintClass = "text-xs text-gold"
+	}
 	return Div(Key(label), Class("flex min-h-12 items-center justify-between gap-4 border-t border-border py-2 first:border-t-0"),
 		Div(Class("flex min-w-0 flex-col"),
 			Span(Class("text-[13px] font-medium"), Text(label)),
-			If(hint != "", Span(Class("text-xs text-muted-foreground"), Text(hint))),
+			If(hint != "", Span(Class(hintClass), Text(hint))),
 		),
 		control,
 	)
