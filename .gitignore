@@ -8,6 +8,8 @@
 /chat
 /login
 /notes
+examples/*/notes
+examples/*/notes.exe
 /player
 /settings
 
