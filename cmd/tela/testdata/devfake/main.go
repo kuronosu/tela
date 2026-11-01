@@ -2,8 +2,8 @@
 // teladev child runtime (task T3) without Tela: it dials the remote backend
 // itself, keeps a counter as its state (state.save and state.load), counts
 // clicks, and draws a solid color from them. With DEVFAKE_EXIT_AFTER set
-// (a duration) it exits with status 0 on its own after that long, like an
-// app whose window was closed.
+// (a duration) it exits with status 0 on its own that long after its first
+// frame, like an app whose window was closed.
 package main
 
 import (
@@ -44,8 +44,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "devfake:", err)
 		os.Exit(4)
 	}
+	// Counted from the first frame, which tela dev then promotes, not from
+	// the start: an exit before the promotion is a failed start, after
+	// which tela dev waits for a change instead of quitting.
+	exitAfter := time.Duration(-1) // none
 	if d, err := time.ParseDuration(os.Getenv("DEVFAKE_EXIT_AFTER")); err == nil {
-		time.AfterFunc(d, func() { os.Exit(0) })
+		exitAfter = d
 	}
 	fmt.Println("devfake: running with count", count)
 	dirty := true
@@ -75,7 +79,10 @@ func main() {
 			for i := 0; i < len(fb.Pix); i += 4 {
 				fb.Pix[i], fb.Pix[i+1], fb.Pix[i+2], fb.Pix[i+3] = hue, uint8(count*16), 0xc0, 0xff
 			}
-			w.Present(fb, nil)
+			if w.Present(fb, nil) == nil && exitAfter >= 0 {
+				time.AfterFunc(exitAfter, func() { os.Exit(0) })
+				exitAfter = -1
+			}
 		}
 	}))
 	if err != nil {

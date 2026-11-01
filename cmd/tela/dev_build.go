@@ -332,15 +332,16 @@ func (b *goBuilder) build(ctx context.Context, gen int) buildResult {
 		res.err = err
 	}
 	if res.err != nil {
-		os.Remove(res.exe)
+		removeExe(res.exe)
 	}
 	return res
 }
 
-// remove deletes the executable of an owned build.
+// remove deletes the executable of an owned build. It may wait a moment on
+// Windows (removeExe), so the supervisor runs it on another goroutine.
 func (r buildResult) remove() {
 	if r.owned && r.exe != "" {
-		os.Remove(r.exe)
+		removeExe(r.exe)
 	}
 }
 

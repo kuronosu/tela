@@ -31,6 +31,16 @@ import (
 // before its watch existed) than a slow runner: every such failure so far was.
 const devWait = 60 * time.Second
 
+// devSettle is the harness's exitSettle: an exit is classified when the
+// host's UI thread reports the end of the connection, after what the child
+// sent last (its panic report), however slow that thread is. The tests
+// that hold that thread while a child exits use shortSettle, and so does a
+// test whose host loop ends (the end of a connection is never reported).
+const (
+	devSettle   = 30 * time.Second
+	shortSettle = 100 * time.Millisecond
+)
+
 // syncBuffer is a concurrency-safe log.
 type syncBuffer struct {
 	mu sync.Mutex
@@ -129,15 +139,20 @@ func newDevHarnessHost(t *testing.T, opts devOptions, configure func(*supervisor
 	}
 	h.view = &recordView{}
 	cfg := supervisorConfig{
-		opts:              opts,
-		builder:           h.fb,
-		log:               h.out,
-		stdout:            h.out,
-		stderr:            h.out,
-		env:               append(os.Environ(), "FAKE_EXPECT_DEV=1"),
-		view:              h.view,
+		opts:    opts,
+		builder: h.fb,
+		log:     h.out,
+		stdout:  h.out,
+		stderr:  h.out,
+		env:     append(os.Environ(), "FAKE_EXPECT_DEV=1"),
+		view:    h.view,
+		// Longer than the defaults, which a loaded runner can exceed: a
+		// state not saved, or a child killed before it exits with status 0
+		// (which some tests check), fails a test on time alone.
+		saveTimeout:       10 * time.Second,
 		firstFrameTimeout: 10 * time.Second,
-		stopTimeout:       2 * time.Second,
+		stopTimeout:       10 * time.Second,
+		exitSettle:        devSettle,
 	}
 	if configure != nil {
 		configure(&cfg)
@@ -435,8 +450,17 @@ func TestDevSlowStartHint(t *testing.T) {
 func TestDevNewBuildCrashesBeforeFirstFrame(t *testing.T) {
 	for _, mode := range []string{"crash", "panic", "noframe"} {
 		t.Run(mode, func(t *testing.T) {
-			h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) {
-				c.firstFrameTimeout = 700 * time.Millisecond
+			h := newDevHarnessHost(t, devOptions{}, nil, func(h *devHarness, o *remote.HostOptions) {
+				connect := o.OnConnect
+				o.OnConnect = func(c *remote.Child) {
+					connect(c)
+					if mode == "noframe" && c.Tag() == "2" {
+						// The first-frame timeout of build 2, which never
+						// presents, without a short timeout for every build
+						// (a slow runner may start the good ones late).
+						h.s.push(evTimeout{2})
+					}
+				}
 			})
 			h.expect("first start", 1, 0, 0)
 			h.click()
@@ -449,7 +473,7 @@ func TestDevNewBuildCrashesBeforeFirstFrame(t *testing.T) {
 			case "panic":
 				h.logged("the new build panicked before its first frame: startup boom; the previous build stays", 1)
 			case "noframe":
-				h.logged("the new build showed no frame in 700ms; the previous build stays", 1)
+				h.logged("the new build showed no frame in 10s; the previous build stays", 1)
 			}
 			if h.frozen() {
 				t.Error("still frozen after a failed swap")
@@ -522,19 +546,28 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 	const pending, failed = "while its promotion was pending", "before its first frame"
 	for _, shown := range []bool{true, false} {
 		t.Run(fmt.Sprintf("shown=%v", shown), func(t *testing.T) {
-			h := newDevHarnessHost(t, devOptions{Verbose: true}, nil, func(h *devHarness, o *remote.HostOptions) {
+			configure := func(c *supervisorConfig) {
+				if shown {
+					// The exit comes while the host's UI thread is held
+					// (below): only the settle timer classifies it.
+					c.exitSettle = shortSettle
+				}
+			}
+			h := newDevHarnessHost(t, devOptions{Verbose: true}, configure, func(h *devHarness, o *remote.HostOptions) {
 				first, disconnect := o.OnFirstFrame, o.OnDisconnect
 				kill := func(c *remote.Child) {
 					if p, err := os.FindProcess(c.PID()); err == nil {
 						p.Kill()
 					}
 				}
-				// promote hands the first frame of build 2 to the supervisor
-				// and returns once the supervisor holds the build's exit for
-				// the promotion's result. It runs on the host's UI thread:
-				// what is posted to it meanwhile (the promotion, the end of
-				// the connection) runs once it returns, in order.
-				promote := func(c *remote.Child) {
+				// promote hands the first frame of build 2 to the supervisor,
+				// then ends build 2 (gone, if !shown, which the supervisor
+				// learns now), and returns once the supervisor holds the
+				// build's exit for the promotion's result. It runs on the
+				// host's UI thread: what is posted to it meanwhile (the
+				// promotion, the end of the connection) runs once it
+				// returns, in order.
+				promote := func(c *remote.Child, gone func()) {
 					first(c)
 					// Once the supervisor has handled the first frame (and
 					// posted the promotion), it logs the marker queued
@@ -543,6 +576,8 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 					h.waitOutput("host: marker")
 					if shown {
 						kill(c)
+					} else {
+						gone()
 					}
 					h.waitOutput(pending, failed)
 				}
@@ -551,7 +586,7 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 					case c.Tag() != "2":
 						first(c)
 					case shown:
-						promote(c)
+						promote(c, nil)
 					default:
 						// The supervisor learns of the first frame once the
 						// host has seen the connection end (below), so the
@@ -561,9 +596,11 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 				}
 				o.OnDisconnect = func(c *remote.Child, err error) {
 					if c.Tag() == "2" && !shown {
-						// The host has detached build 2; its exit reaches the
-						// supervisor before this disconnect does.
-						promote(c)
+						// The host has detached build 2. The supervisor gets
+						// this disconnect after the first frame, so the exit
+						// it then classifies waits for the promotion.
+						promote(c, func() { disconnect(c, err) })
+						return
 					}
 					disconnect(c, err)
 				}
@@ -619,7 +656,10 @@ func TestDevExitAfterPromotionPosted(t *testing.T) {
 func TestDevQuitWhilePromotionPending(t *testing.T) {
 	for _, exited := range []bool{true, false} {
 		t.Run(fmt.Sprintf("exited=%v", exited), func(t *testing.T) {
-			h := newDevHarnessHost(t, devOptions{Verbose: true}, nil, func(h *devHarness, o *remote.HostOptions) {
+			// A kill while the host's UI thread is held (below): only the
+			// settle timer classifies the exit.
+			short := func(c *supervisorConfig) { c.exitSettle = shortSettle }
+			h := newDevHarnessHost(t, devOptions{Verbose: true}, short, func(h *devHarness, o *remote.HostOptions) {
 				first := o.OnFirstFrame
 				o.OnFirstFrame = func(c *remote.Child) {
 					first(c)
@@ -995,7 +1035,9 @@ func TestDevQuitPaths(t *testing.T) {
 		}
 	})
 	t.Run("host ends", func(t *testing.T) {
-		h := newDevHarness(t, devOptions{}, nil)
+		// The host's loop ends first: the ends of the connections are
+		// never reported, and the exits are classified by the timer.
+		h := newDevHarness(t, devOptions{}, func(c *supervisorConfig) { c.exitSettle = shortSettle })
 		h.expect("first start", 1, 0, 0)
 		h.hb.Quit()
 		if code := h.wait(); code != 1 {

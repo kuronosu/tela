@@ -387,13 +387,13 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 
 	child, rep, err := s.startInstance(ctx, exe)
 	if err != nil {
-		os.Remove(exe)
+		removeExe(exe)
 		s.broken = "The new build does not start: " + err.Error()
 		return nil
 	}
 	if rep.MountError != "" && s.child != nil {
 		child.stop()
-		os.Remove(exe)
+		removeExe(exe)
 		s.broken = "The new build compiles, but its screen cannot be mounted:\n\n" + cleanMountError(rep.MountError)
 		if len(rep.Logs) > 0 {
 			s.broken += "\n\n" + strings.Join(rep.Logs, "\n")
@@ -403,7 +403,7 @@ func (s *mcpSession) rebuild(ctx context.Context, fp uint64) (notes []string) {
 	if old := s.child; old != nil {
 		old.stop()
 		if old.exe != exe {
-			os.Remove(old.exe)
+			removeExe(old.exe)
 		}
 	}
 	s.child = child

@@ -19,3 +19,6 @@ func interruptProcess(p *os.Process) error { return p.Signal(os.Interrupt) }
 // input is the null device and their output goes through pipes that tela
 // dev copies to the terminal (ADR-119).
 func childSysProcAttr() *syscall.SysProcAttr { return &syscall.SysProcAttr{Setpgid: true} }
+
+// removeExe deletes the executable of a build.
+func removeExe(path string) error { return os.Remove(path) }

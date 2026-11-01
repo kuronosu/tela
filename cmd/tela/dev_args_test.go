@@ -189,8 +189,8 @@ func TestListDeps(t *testing.T) {
 
 // TestDevMainHeadless runs the whole command (devMain) on the headless
 // backend with a real go build of testdata/devfake, an app that speaks the
-// dev-loop protocol itself and exits with status 0 after a moment: tela dev
-// starts it, forwards its output and quits with it.
+// dev-loop protocol itself and exits with status 0 a moment after its first
+// frame: tela dev starts it, forwards its output and quits with it.
 func TestDevMainHeadless(t *testing.T) {
 	skipShort(t)
 	goBin, _ := exec.LookPath("go")

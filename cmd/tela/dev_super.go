@@ -80,8 +80,9 @@ type supervisorConfig struct {
 	slowStart  time.Duration
 	exclusions []string
 
-	// Timeouts; zero means devloop's, and reportWait the default below.
-	saveTimeout, firstFrameTimeout, stopTimeout, reportWait time.Duration
+	// Timeouts; zero means devloop's, and reportWait and exitSettle the
+	// defaults below.
+	saveTimeout, firstFrameTimeout, stopTimeout, reportWait, exitSettle time.Duration
 }
 
 // defaultReportWait is how long the line of a finished swap waits for the
@@ -156,9 +157,10 @@ type proc struct {
 	classified   bool // exited handled it
 }
 
-// exitSettle is how long an exit waits for the end of the child's
-// connection (normally a few milliseconds after the exit).
-const exitSettle = 500 * time.Millisecond
+// defaultExitSettle is how long an exit waits for the end of the child's
+// connection (normally a few milliseconds after the exit, once the host's
+// UI thread handles it).
+const defaultExitSettle = 500 * time.Millisecond
 
 // swapState is a swap in progress.
 type swapState struct {
@@ -241,6 +243,9 @@ func newSupervisor(cfg supervisorConfig) *supervisor {
 	}
 	if cfg.reportWait <= 0 {
 		cfg.reportWait = defaultReportWait
+	}
+	if cfg.exitSettle <= 0 {
+		cfg.exitSettle = defaultExitSettle
 	}
 	s := &supervisor{
 		cfg:    cfg,
@@ -488,7 +493,7 @@ func (s *supervisor) handle(e any) {
 		if p.disconnected {
 			s.exited(p)
 		} else {
-			p.settle = time.AfterFunc(exitSettle, func() { s.push(evSettled{p}) })
+			p.settle = time.AfterFunc(s.cfg.exitSettle, func() { s.push(evSettled{p}) })
 		}
 	case evSettled:
 		s.exited(e.p)
@@ -609,14 +614,14 @@ func minTime(a, b time.Time) time.Time {
 func (s *supervisor) built(res buildResult) {
 	s.inflight--
 	if s.quitting {
-		res.remove()
+		s.goSafe(res.remove)
 		s.maybeFinish()
 		return
 	}
 	if res.gen != s.gen {
 		// Cancelled or superseded.
 		if res.err == nil {
-			res.remove()
+			s.goSafe(res.remove)
 		}
 		return
 	}
@@ -638,7 +643,7 @@ func (s *supervisor) built(res buildResult) {
 		})
 	}
 	if s.ready != nil {
-		s.ready.res.remove()
+		s.goSafe(s.ready.res.remove)
 	}
 	s.ready = &readyBuild{res: res, trig: t}
 	s.maybeSwap()
@@ -1039,9 +1044,12 @@ func (s *supervisor) exited(p *proc) {
 	if p.settle != nil {
 		p.settle.Stop()
 	}
-	// Windows cannot delete a running executable: remove it now.
+	// Windows cannot delete a running executable: remove it now, off this
+	// goroutine, since Windows may refuse for a moment after the exit
+	// (removeExe retries).
 	if p.owned {
-		os.Remove(p.exe)
+		exe := p.exe
+		s.goSafe(func() { removeExe(exe) })
 	}
 	status := describeExit(p.waitErr)
 	if p.panic == "" && p.waitErr != nil && !p.stopping && p.tail != nil {

@@ -118,8 +118,12 @@ func startE2E(t *testing.T) *e2e {
 		refreshDeps: func() (depSet, error) {
 			return listDeps(goBin, target)
 		},
-		view:              e.view,
+		view: e.view,
+		// A real app on a loaded runner can take longer than the defaults
+		// to save its state or to report it, which the test checks.
+		saveTimeout:       e2eWait,
 		firstFrameTimeout: e2eWait,
+		reportWait:        e2eWait,
 	})
 	e.view.term = terminalView{e.s.log}
 	host, err := remote.NewHost(e.hb, e.s.hostOptions())
