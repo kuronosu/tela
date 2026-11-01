@@ -103,6 +103,7 @@ func (h *harness) expect(what string, want []string, not ...string) []Batch {
 	h.t.Helper()
 	got := map[string]bool{}
 	var batches []Batch
+	overflows := 0
 	deadline := time.After(timeout)
 	for {
 		missing := false
@@ -118,11 +119,14 @@ func (h *harness) expect(what string, want []string, not ...string) []Batch {
 				h.t.Fatalf("%s: events closed", what)
 			}
 			batches = append(batches, b)
+			if b.Overflow {
+				overflows++
+			}
 			for _, p := range b.Paths {
 				got[p] = true
 			}
 		case <-deadline:
-			h.t.Fatalf("%s: timed out; got %v, want %v", what, keys(got), want)
+			h.t.Fatalf("%s: timed out; got %v (%d batches, %d overflowed), want %v", what, keys(got), len(batches), overflows, want)
 		}
 	}
 	for _, n := range not {

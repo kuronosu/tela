@@ -146,14 +146,14 @@ func (d *rdcw) stopped(r *rootWatch) bool { return r.stopping.Load() || d.closin
 // walkTree walks dir, a directory of r's tree, adding the directories
 // that are not skipped to the set and calling file, if not nil, for every
 // other entry. It stops when r or the watcher is closed. Errors of
-// vanished entries are ignored.
+// vanished entries are ignored; others, dir's own included, are reported.
 func (d *rdcw) walkTree(r *rootWatch, dir string, file func(path string)) {
 	filepath.WalkDir(dir, func(path string, e fs.DirEntry, err error) error {
 		if d.stopped(r) {
 			return filepath.SkipAll
 		}
 		if err != nil {
-			if path == dir || errors.Is(err, fs.ErrNotExist) {
+			if errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
 			d.w.error(err)
@@ -359,12 +359,17 @@ func (d *rdcw) event(r *rootWatch, path string, action uint32) {
 	}
 	switch action {
 	case windows.FILE_ACTION_ADDED, windows.FILE_ACTION_RENAMED_NEW_NAME:
-		if fi, err := os.Lstat(path); err == nil && fi.IsDir() {
+		fi, err := os.Lstat(path)
+		if err == nil && fi.IsDir() {
 			if !d.w.skip(path) {
 				// Its subtree is watched already: report what is in it.
 				d.walkTree(r, path, func(p string) { d.w.changed(p, false) })
 			}
 			return
+		}
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			// Reported as a file: a directory it may be is not walked.
+			d.w.error(err)
 		}
 		d.w.changed(path, false)
 	case windows.FILE_ACTION_REMOVED, windows.FILE_ACTION_RENAMED_OLD_NAME:
