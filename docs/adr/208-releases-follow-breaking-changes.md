@@ -19,3 +19,4 @@ The website (ADR-206, ADR-207) builds its docs from the latest tag and tells rea
 
 - `AGENTS.md`'s end-of-phase steps and the header of `CHANGELOG.md` follow this rule.
 - The phase headings in `docs/ROADMAP.md` drop their fixed versions.
+- `site.yml` publishes a release commit's own docs and version when CHANGELOG's newest version has no tag yet. Pages keeps one deployment per commit, so the run triggered by the tag cannot replace them.

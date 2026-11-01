@@ -73,14 +73,25 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Extract the docs of the latest release tag
+      # Pages keeps one deployment per commit (actions/deploy-pages names it
+      # after GITHUB_SHA), so a tag pushed on a commit main already deployed
+      # cannot replace that deployment. A release commit therefore publishes
+      # its own docs: when CHANGELOG's newest version has no tag yet, the docs
+      # come from this commit, otherwise from the latest release tag.
+      - name: Pick the docs to publish
         run: |
-          tag="$(git describe --tags --abbrev=0 --match 'v*')"
-          echo "Docs of $tag"
-          mkdir -p "$RUNNER_TEMP/docs-src"
-          git archive "$tag" docs/wiki docs/images docs/llms.txt | tar -x -C "$RUNNER_TEMP/docs-src"
-          echo "TELA_DOCS_DIR=$RUNNER_TEMP/docs-src/docs" >> "$GITHUB_ENV"
-          echo "TELA_VERSION=$tag" >> "$GITHUB_ENV"
+          version="v$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')"
+          if git rev-parse -q --verify "refs/tags/$version" > /dev/null; then
+            tag="$(git describe --tags --abbrev=0 --match 'v*')"
+            echo "Docs of $tag"
+            mkdir -p "$RUNNER_TEMP/docs-src"
+            git archive "$tag" docs/wiki docs/images docs/llms.txt | tar -x -C "$RUNNER_TEMP/docs-src"
+            echo "TELA_DOCS_DIR=$RUNNER_TEMP/docs-src/docs" >> "$GITHUB_ENV"
+            echo "TELA_VERSION=$tag" >> "$GITHUB_ENV"
+          else
+            echo "Docs of this commit, the release commit of $version (not tagged yet)"
+            echo "TELA_VERSION=$version" >> "$GITHUB_ENV"
+          fi
       - uses: withastro/action@v6
         with:
           path: site
@@ -94,7 +105,6 @@ jobs:
       group: pages
       cancel-in-progress: false
     permissions:
-      actions: read
       contents: read
       pages: write
       id-token: write
@@ -102,43 +112,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # actions/deploy-pages names a Pages deployment after GITHUB_SHA, and a
-      # second deployment of the same commit is a no-op: a release tag pushed
-      # on the commit main already deployed never published its docs. This
-      # does what deploy-pages does, with a build version unique to the run.
       - id: deployment
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const version = `${context.sha}-${context.runId}-${process.env.GITHUB_RUN_ATTEMPT}`;
-            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
-              owner, repo, run_id: context.runId, name: 'github-pages',
-            });
-            if (data.artifacts.length !== 1) {
-              core.setFailed(`expected one github-pages artifact, found ${data.artifacts.length}`);
-              return;
-            }
-            const { data: deployment } = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
-              owner, repo,
-              artifact_id: data.artifacts[0].id,
-              pages_build_version: version,
-              oidc_token: await core.getIDToken(),
-            });
-            core.info(`Pages deployment ${deployment.id} (${version})`);
-            const failed = ['deployment_failed', 'deployment_content_failed', 'deployment_cancelled', 'deployment_lost', 'deployment_attempt_error'];
-            for (let i = 0; i < 120; i++) {
-              const { data: state } = await github.request('GET /repos/{owner}/{repo}/pages/deployments/{id}', {
-                owner, repo, id: deployment.id,
-              });
-              if (state.status === 'succeed') {
-                core.setOutput('page_url', deployment.page_url);
-                return;
-              }
-              if (failed.includes(state.status)) {
-                core.setFailed(`Pages deployment ${deployment.id}: ${state.status}`);
-                return;
-              }
-              await new Promise((r) => setTimeout(r, 5000));
-            }
-            core.setFailed(`Pages deployment ${deployment.id} did not finish in 10 minutes`);
+        uses: actions/deploy-pages@v5
