@@ -296,8 +296,14 @@ func (b *Backend) signal() {
 	}
 }
 
-// Settings returns zero values: X11 settings (XSETTINGS) are not read yet.
-func (b *Backend) Settings() platform.SystemSettings { return platform.SystemSettings{} }
+// Settings returns the system settings from the XDG desktop portal (read
+// on the first call; changes arrive as SettingsEvents), shared with
+// Wayland in internal/platform/internal/freedesktop. Zero without a
+// portal (XSETTINGS is not read).
+func (b *Backend) Settings() platform.SystemSettings {
+	b.Desktop()
+	return b.desktop.SystemSettings()
+}
 
 // Clipboard returns a clipboard whose methods report that X11 selections
 // are not supported yet.
