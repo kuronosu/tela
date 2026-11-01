@@ -1,12 +1,14 @@
 package remote
 
 import (
+	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"image"
 	"image/color"
 	"io"
+	"io/fs"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -28,7 +30,8 @@ var eventSamples = []platform.Event{
 	platform.CloseRequestedEvent{},
 	platform.FocusEvent{Focused: true},
 	platform.WakeEvent{},
-	platform.SettingsEvent{Settings: platform.SystemSettings{DarkMode: true, ReducedMotion: true, DoubleClickInterval: 400 * time.Millisecond}},
+	platform.SettingsEvent{Settings: platform.SystemSettings{DarkMode: true, ReducedMotion: true, DoubleClickInterval: 400 * time.Millisecond,
+		AccentColor: color.NRGBA{R: 53, G: 132, B: 228, A: 255}, HasAccentColor: true, HighContrast: true, TextScale: 1.25}},
 	platform.PointerEvent{Action: platform.PointerDown, Kind: platform.PointerPen, ID: 7, Pos: platform.Point{X: 1.5, Y: -2.25},
 		Button: platform.ButtonSecondary, Buttons: 3, Mods: platform.ModCtrl | platform.ModShift, Time: time.Second},
 	platform.ScrollEvent{Kind: platform.PointerMouse, Pos: platform.Point{X: 3, Y: 4}, Delta: platform.Point{X: -1, Y: 2.5},
@@ -41,6 +44,15 @@ var eventSamples = []platform.Event{
 		ClientSideDecorations: true, HasPosition: true, Position: image.Point{X: -1920, Y: 37}}},
 	platform.NotificationEvent{ID: 9, Kind: platform.NotificationActionInvoked, Action: "reply"},
 	platform.TrayEvent{Tray: 2, Kind: platform.TrayMenuItem, Item: 41},
+	platform.DragEvent{Action: platform.DragDrop, Pos: platform.Point{X: 10.5, Y: -3}, Types: []string{platform.MIMEURIList, platform.MIMEText},
+		Allowed: platform.DropCopy | platform.DropMove, Mods: platform.ModCtrl, FromApp: true,
+		Data: platform.Data{{Type: platform.MIMEURIList, Bytes: []byte("file:///tmp/a.txt\r\n")}, {Type: platform.MIMEText, Bytes: []byte("a")}},
+		Time: 4 * time.Second},
+	platform.DragDoneEvent{Effect: platform.DropMove},
+	platform.MenuEvent{Item: 77},
+	platform.ShortcutEvent{ID: "show", Action: platform.ShortcutReleased, Time: 5 * time.Second},
+	platform.ShortcutStatusEvent{ID: "show", Status: platform.ShortcutRefused, Trigger: "Ctrl+Alt+K", Reason: "declined"},
+	platform.LaunchEvent{Launch: platform.Launch{Args: []string{"notes:open?id=3", "/tmp/x y"}, Dir: "/home/u", Token: "tok_TIME42"}},
 }
 
 // TestEveryEventHasAnEncoding fails when package platform gains an event
@@ -104,9 +116,6 @@ func TestEveryEventHasAnEncoding(t *testing.T) {
 	slices.Sort(declared)
 	slices.Sort(sampled)
 	for _, name := range declared {
-		if slices.Contains(phase13Events, name) {
-			continue // not carried by protocol 4: the host drops them (phase13.go); step C adds them
-		}
 		if !slices.Contains(sampled, name) {
 			t.Errorf("platform.%s has no wire encoding: add it to enc.event and dec.event in protocol.go, to eventSamples, and to the host's routing", name)
 		}
@@ -129,17 +138,33 @@ func TestEventRoundTripRandom(t *testing.T) {
 			if !ok {
 				t.Fatalf("cannot generate %v", typ)
 			}
+			nilEmpty(v)
 			e := v.Interface().(platform.Event)
-			if se, ok := e.(platform.SettingsEvent); ok {
-				// Protocol 4 does not carry the phase-13 settings (accent
-				// color, high contrast, text scale); step C adds them.
-				se.Settings.AccentColor, se.Settings.HasAccentColor = color.NRGBA{}, false
-				se.Settings.HighContrast, se.Settings.TextScale = false, 0
-				e = se
-			}
 			if got := roundTrip(t, e); !reflect.DeepEqual(got, e) {
 				t.Fatalf("round trip of %T: got %+v, want %+v", e, got, e)
 			}
+		}
+	}
+}
+
+// nilEmpty sets every empty slice in v (a value of a generated event) to
+// nil: the wire does not tell nil from empty lists, and decodes both as
+// nil.
+func nilEmpty(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Slice:
+		if v.Len() == 0 {
+			if v.CanSet() {
+				v.Set(reflect.Zero(v.Type()))
+			}
+			return
+		}
+		for i := range v.Len() {
+			nilEmpty(v.Index(i))
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			nilEmpty(v.Field(i))
 		}
 	}
 }
@@ -386,18 +411,109 @@ func TestFrameReader(t *testing.T) {
 	}
 }
 
-// phase13Events are the event types protocol 4 does not carry
-// (phase13Event drops them in the host).
-var phase13Events = []string{"DragEvent", "DragDoneEvent", "MenuEvent", "ShortcutEvent", "ShortcutStatusEvent", "LaunchEvent"}
+// TestPhase13Encodings round-trips the payloads of protocol 5 (ADR-214):
+// data, drag options with an image, shortcuts, launches, associations and
+// menus with accelerators.
+func TestPhase13Encodings(t *testing.T) {
+	img := image.NewRGBA(image.Rect(2, 3, 5, 5)) // not at the origin: rows are packed
+	for i := range img.Pix {
+		img.Pix[i] = byte(i * 5)
+	}
+	data := platform.Data{{Type: platform.MIMEHTML, Bytes: []byte("<b>x</b>")}, {Type: "application/x-tela", Bytes: nil}}
+	drag := platform.DragOptions{Data: data, Allowed: platform.DropAll, Image: img, Hotspot: image.Pt(-1, 40)}
+	sc := platform.Shortcut{ID: "show", Accelerator: platform.Accelerator{Mods: platform.ModCtrl | platform.ModAlt, Key: platform.KeyF1}, Description: "Show"}
+	launch := platform.Launch{Args: []string{"a"}, Dir: "/d", Token: "t"}
+	app := platform.HandlerApp{ID: "com.example.Notes", Name: "Notes", Exec: "/usr/bin/notes", Args: []string{"--open"}, Icon: "/i.png"}
+	as := platform.Association{Extension: ".note", MIMEType: "application/x-note", Description: "Note"}
+	menu := []platform.MenuItem{{ID: 1, Label: "Save", Accelerator: "Ctrl+S"}, {Label: "Edit", Submenu: []platform.MenuItem{{ID: 2, Label: "Undo", Accelerator: "Ctrl+Z"}}}}
 
-func TestPhase13EventsAreDropped(t *testing.T) {
-	for _, e := range []platform.Event{platform.DragEvent{}, platform.DragDoneEvent{}, platform.MenuEvent{},
-		platform.ShortcutEvent{}, platform.ShortcutStatusEvent{}, platform.LaunchEvent{}} {
-		if !phase13Event(e) || !slices.Contains(phase13Events, reflect.TypeOf(e).Name()) {
-			t.Errorf("%T is not listed as an event protocol 4 drops", e)
+	e := &enc{}
+	e.data(data)
+	e.dragOptions(drag)
+	e.dragOptions(platform.DragOptions{Data: platform.TextData("x"), Allowed: platform.DropCopy})
+	e.shortcut(sc)
+	e.launch(launch)
+	e.handlerApp(app)
+	e.association(as)
+	e.menu(menu)
+	e.optBytes(nil)
+	e.optBytes([]byte{})
+	e.optBytes([]byte{1})
+
+	d := &dec{b: e.b}
+	if got := d.data(); !reflect.DeepEqual(got, data) {
+		t.Errorf("data: got %+v", got)
+	}
+	got := d.dragOptions()
+	if !reflect.DeepEqual(got.Data, data) || got.Allowed != drag.Allowed || got.Hotspot != drag.Hotspot || got.Image == nil || got.Image.Rect != image.Rect(0, 0, 3, 2) {
+		t.Errorf("drag options: got %+v", got)
+	} else {
+		for y := range 2 {
+			for x := range 3 {
+				if got.Image.RGBAAt(x, y) != img.RGBAAt(x+2, y+3) {
+					t.Fatalf("drag image pixel (%d,%d) differs", x, y)
+				}
+			}
 		}
 	}
-	if phase13Event(platform.TrayEvent{}) {
-		t.Errorf("TrayEvent is dropped")
+	if got := d.dragOptions(); got.Image != nil || got.Allowed != platform.DropCopy {
+		t.Errorf("drag options without an image: got %+v", got)
+	}
+	if got := d.shortcut(); got != sc {
+		t.Errorf("shortcut: got %+v", got)
+	}
+	if got := d.launch(); !reflect.DeepEqual(got, launch) {
+		t.Errorf("launch: got %+v", got)
+	}
+	if got := d.handlerApp(); !reflect.DeepEqual(got, app) {
+		t.Errorf("handler app: got %+v", got)
+	}
+	if got := d.association(); got != as {
+		t.Errorf("association: got %+v", got)
+	}
+	if got := d.menu(0); !reflect.DeepEqual(got, menu) {
+		t.Errorf("menu: got %+v", got)
+	}
+	if got := d.optBytes(); got != nil {
+		t.Errorf("absent bytes: got %v", got)
+	}
+	if got := d.optBytes(); got == nil || len(got) != 0 {
+		t.Errorf("empty bytes: got %v", got)
+	}
+	if got := d.optBytes(); !slices.Equal(got, []byte{1}) {
+		t.Errorf("bytes: got %v", got)
+	}
+	if err := d.end(); err != nil {
+		t.Errorf("end: %v", err)
+	}
+
+	bad := &enc{}
+	bad.boolean(true)
+	bad.u32(platform.MaxDragImageSide + 1)
+	bad.u32(1)
+	d = &dec{b: bad.b}
+	d.rgba()
+	if d.end() == nil {
+		t.Errorf("a drag image wider than MaxDragImageSide decoded")
+	}
+}
+
+// TestOutcomeSentinels checks that the errors the layers above test with
+// errors.Is cross the connection.
+func TestOutcomeSentinels(t *testing.T) {
+	for _, want := range []error{platform.ErrUnsupported, platform.ErrNoGrab, platform.ErrSecretNotFound, platform.ErrSecretTooLarge,
+		platform.TakenError(platform.Association{Scheme: "notes"}, "other.desktop")} {
+		e := &enc{}
+		encodeOutcome(e, want)
+		got := outcome(&dec{b: e.b})
+		if got == nil || got.Error() != want.Error() && !errors.Is(want, platform.ErrUnsupported) {
+			t.Errorf("outcome of %v: %v", want, got)
+		}
+		for _, s := range []error{platform.ErrUnsupported, platform.ErrNoGrab, platform.ErrSecretNotFound, platform.ErrSecretTooLarge,
+			platform.ErrAssociationTaken, fs.ErrNotExist} {
+			if errors.Is(want, s) != errors.Is(got, s) {
+				t.Errorf("errors.Is(%v, %v) = %v across the connection, want %v", got, s, errors.Is(got, s), errors.Is(want, s))
+			}
+		}
 	}
 }

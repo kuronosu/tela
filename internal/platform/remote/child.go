@@ -231,6 +231,7 @@ func (b *Backend) Run(h platform.Handler) error {
 	b.ran = true
 	b.mu.Unlock()
 	defer b.Close()
+	h = dragTracker{b, h}
 	// The host learns that what the app set up before its loop (windows,
 	// their visibility) is all sent: a child whose windows are all hidden
 	// is then ready to take over without a frame.
@@ -501,7 +502,8 @@ func (b *Backend) windowInfo(d *dec) error {
 // must not crash the child in Metrics.Physical).
 func checkHostEvent(id uint32, ev platform.Event) error {
 	switch e := ev.(type) {
-	case platform.SettingsEvent, platform.NotificationEvent, platform.TrayEvent:
+	case platform.SettingsEvent, platform.NotificationEvent, platform.TrayEvent,
+		platform.ShortcutEvent, platform.ShortcutStatusEvent, platform.LaunchEvent:
 		if id != 0 {
 			return fmt.Errorf("remote: app-scoped %T for window %d", ev, id)
 		}

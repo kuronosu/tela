@@ -464,7 +464,10 @@ func (a *App) MouseUp() {
 // DragOption configures [App.Drag], [App.DragBy] and [App.DragFromTo].
 type DragOption func(*dragConfig)
 
-type dragConfig struct{ steps int }
+type dragConfig struct {
+	steps int
+	dnd   dndConfig // drag and drop (dnd.go)
+}
 
 // Steps sets how many pointer moves the drag is made of (default 12): the
 // pointer moves in equal steps between the start and the end, and each move

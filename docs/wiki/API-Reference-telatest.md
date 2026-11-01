@@ -12,12 +12,14 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`Tolerance`](#func-tolerance)
+- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CaptionDrags`](#func-app-captiondrags) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`Hover`](#func-app-hover) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`Press`](#func-app-press) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetScale`](#func-app-setscale) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`Press`](#func-app-press) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetTextScale`](#func-app-settextscale) · [`StartDrag`](#func-app-startdrag) · [`Stats`](#func-app-stats) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`Right`](#func-right)
   - [`type DesktopService`](#type-desktopservice)
-  - [`type DragOption`](#type-dragoption): [`Steps`](#func-steps)
+  - [`type DragInfo`](#type-draginfo)
+  - [`type DragOption`](#type-dragoption): [`Allowed`](#func-allowed) · [`Carrying`](#func-carrying) · [`Modifiers`](#func-modifiers) · [`Steps`](#func-steps)
+  - [`type DragPayload`](#type-dragpayload): [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`And`](#func-dragpayload-and)
   - [`type FileDialog`](#type-filedialog)
   - [`type FileDialogKind`](#type-filedialogkind)
   - [`type FilterOption`](#type-filteroption): [`HasClass`](#func-hasclass) · [`HasText`](#func-hastext)
@@ -85,6 +87,22 @@ The window itself: [`App.Title`](#func-app-title), [`App.WindowState`](#func-app
 Custom title bars: [`App.HitRegions`](#func-app-hitregions) and [`App.HitAt`](#func-app-hitat) read the regions h.WindowDrag and h.WindowControl send to the OS, a click on the drag area ([`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat), [`App.DoubleClick`](#func-app-doubleclick)) is the OS's press ([`App.CaptionDrags`](#func-app-captiondrags), [`App.WindowMenus`](#func-app-windowmenus), a double click maximizes), and the controls are buttons that act on click.
 
 Quitting: [`App.ExpectQuit`](#func-app-expectquit) waits for tela.Quit or a close request of the main window without an OnClose; the app is then over, as when tela.Main returns: every window unmounted, the cleanups of the effects run, and further use fails the test. [`App.HasQuit`](#func-app-hasquit) and [`App.ExpectRunning`](#func-app-expectrunning) check that it did or did not. The window options ([`Title`](#func-title), [`MinSize`](#func-minsize), [`MaxSize`](#func-maxsize), [`FixedSize`](#func-fixedsize), [`Frameless`](#func-frameless), [`AlwaysOnTop`](#func-alwaysontop), [`TitleBar`](#func-titlebar), [`Backdrop`](#func-backdrop), [`StartHidden`](#func-starthidden), [`Icon`](#func-icon), [`Placement`](#func-placement), [`OnClose`](#func-onclose), [`Screen`](#func-screen)) set the main window's fields for Mount.
+
+### Drag and drop
+
+The headless backend plays the operating system's part in HTML drag and drop. [`App.DragTo`](#func-app-dragto) drags an h.Draggable element to another element, [`App.DragToWindow`](#func-app-dragtowindow) to one in another window of the app, and [`App.DropOutside`](#func-app-dropoutside) ends a drag in another application; [`App.DropFiles`](#func-app-dropfiles) and [`App.DropData`](#func-app-dropdata) drop what another application drags (build it with [`DragFiles`](#func-dragfiles), [`DragText`](#func-dragtext), [`DragHTML`](#func-draghtml), [`DragPNG`](#func-dragpng), [`DragType`](#func-dragtype)). They return the effect the app accepted, tela.DropNone for a refusal. The steps they are made of can be used alone, to test drag-over styling or inspect the data: [`App.StartDrag`](#func-app-startdrag), [`App.HoverDrag`](#func-app-hoverdrag), [`App.LeaveDrag`](#func-app-leavedrag), [`App.CancelDrag`](#func-app-canceldrag), [`App.DropOn`](#func-app-dropon) and [`App.ActiveDrag`](#func-app-activedrag); the options [`Carrying`](#func-carrying), [`Allowed`](#func-allowed), [`Modifiers`](#func-modifiers) and [`Steps`](#func-steps) shape them.
+
+```go
+app.DropFiles(telatest.ByTestID("upload"), filepath.Join(t.TempDir(), "photo.png"))
+app.StartDrag(telatest.ByTestID("card-7"))
+app.HoverDrag(telatest.ByTestID("column-done"))
+app.ExpectText("Release to move here")
+app.DropOn(telatest.ByTestID("column-done"))
+```
+
+### System settings
+
+[`App.SetDarkMode`](#func-app-setdarkmode), [`App.SetReducedMotion`](#func-app-setreducedmotion), [`App.SetHighContrast`](#func-app-sethighcontrast), [`App.SetTextScale`](#func-app-settextscale), [`App.SetAccentColor`](#func-app-setaccentcolor) and [`App.ClearAccentColor`](#func-app-clearaccentcolor) change what the system says while the app is mounted, as the user does in the system's settings; the components that read the setting rebuild. The options [`Dark`](#func-dark), [`ReducedMotion`](#func-reducedmotion), [`HighContrast`](#func-highcontrast), [`TextScale`](#func-textscale) and [`AccentColor`](#func-accentcolor) set it at Mount.
 
 ### The clock
 
@@ -303,6 +321,20 @@ fmt.Println(app.Count(telatest.ByRole("button", "Increment")))
 // Output: 1
 ```
 
+#### func (*App) ActiveDrag
+
+```go
+func (a *App) ActiveDrag() (DragInfo, bool)
+```
+
+ActiveDrag returns the drag in progress: the one [`App.StartDrag`](#func-app-startdrag) began from an h.Draggable element, or another application's ([`Carrying`](#func-carrying)), until a drop, a cancel or [`App.DropOutside`](#func-app-dropoutside).
+
+```go
+app.StartDrag(telatest.ByTestID("card-7"))
+info, _ := app.ActiveDrag()
+if got := info.Data.GetData("application/x-card"); got != "7" { ... }
+```
+
 #### func (*App) Advance
 
 ```go
@@ -434,6 +466,14 @@ func (a *App) BringToFront()
 
 BringToFront activates the window as the user does by clicking its task bar entry: it comes back from minimized and, when it is visible, takes the keyboard focus from the other windows. The pointer and key actions do it by themselves, as clicking or typing in a window does. Playwright's page.bringToFront().
 
+#### func (*App) CancelDrag
+
+```go
+func (a *App) CancelDrag()
+```
+
+CancelDrag cancels the drag in progress, as the user pressing Escape does: OnDragLeave runs on the window it is over, and the source's OnDragEnd runs with DropNone.
+
 #### func (*App) CaptionDrags
 
 ```go
@@ -441,6 +481,14 @@ func (a *App) CaptionDrags() int
 ```
 
 CaptionDrags returns how many presses in a caption region started a move of the window by the fake window manager: a primary press that is not the second of a double click. A press in a caption region is the OS's: the app does not see it or the rest of its pointer sequence. Drive one with [`App.Click`](#func-app-click) on an element inside an h.WindowDrag region, or [`App.ClickAt`](#func-app-clickat).
+
+#### func (*App) ClearAccentColor
+
+```go
+func (a *App) ClearAccentColor()
+```
+
+ClearAccentColor makes the system report no accent color, as a desktop without one does.
 
 #### func (*App) Click
 
@@ -605,6 +653,86 @@ app := telatest.MountFunc(t, area, telatest.Size(200, 200))
 app.DragFromTo(tela.Point{X: 10, Y: 10}, tela.Point{X: 90, Y: 10})
 fmt.Println(moved)
 // Output: 80
+```
+
+#### func (*App) DragTo
+
+```go
+func (a *App) DragTo(from, to Locator, opts ...DragOption) tela.DropEffect
+```
+
+DragTo drags the element from locates, which must be h.Draggable(true), to the element to locates in the same window and drops it there, like Playwright's locator.dragTo, through the app's drag and drop handlers ([`App.StartDrag`](#func-app-startdrag), [`App.HoverDrag`](#func-app-hoverdrag), [`App.DropOn`](#func-app-dropon)). It returns the effect the target accepted, tela.DropNone when it refused; the source's OnDragEnd got the same one.
+
+```go
+app.DragTo(telatest.ByTestID("card-7"), telatest.ByTestID("column-done"))
+app.ExpectText("Card 7")
+```
+
+For the gesture drag of OnDrag (sliders, movable panels) use [`App.Drag`](#func-app-drag).
+
+#### func (*App) DragToWindow
+
+```go
+func (a *App) DragToWindow(from Locator, window *App, to Locator, opts ...DragOption) tela.DropEffect
+```
+
+DragToWindow drags the element from locates to the element to locates in another window of the app, window (an App from [`App.Windows`](#func-app-windows), [`App.Window`](#func-app-window) or [`App.WaitForWindow`](#func-app-waitforwindow)), and drops it there ([`App.DragTo`](#func-app-dragto)).
+
+```go
+app.DragToWindow(telatest.ByTestID("tab-1"), app.Window("Detached"), telatest.ByTestID("tabs"))
+```
+
+#### func (*App) DropData
+
+```go
+func (a *App) DropData(l Locator, payload DragPayload, opts ...DragOption) tela.DropEffect
+```
+
+DropData drops payload from another application on the element l locates, and returns the effect the app accepted ([`App.DropOn`](#func-app-dropon)).
+
+```go
+app.DropData(telatest.ByTestID("editor"), telatest.DragHTML("<b>Hi</b>").And(telatest.DragText("Hi")))
+```
+
+#### func (*App) DropFiles
+
+```go
+func (a *App) DropFiles(l Locator, paths ...string) tela.DropEffect
+```
+
+DropFiles drops files from a file manager on the element l locates, and returns the effect the app accepted ([`App.DropOn`](#func-app-dropon)). The paths must be absolute.
+
+```go
+path := filepath.Join(t.TempDir(), "photo.png")
+if app.DropFiles(telatest.ByTestID("upload"), path) == tela.DropNone { t.Fatal("refused") }
+app.ExpectText("photo.png")
+```
+
+#### func (*App) DropOn
+
+```go
+func (a *App) DropOn(l Locator, opts ...DragOption) tela.DropEffect
+```
+
+DropOn releases the drag in progress over the center of the element l locates, after moving it there as [`App.HoverDrag`](#func-app-hoverdrag) does, and returns the effect the app accepted: tela.DropNone when it did not take the drop, tela.DropCopy, DropMove or DropLink when it did. An app takes a drop when its latest OnDragOver on the way called PreventDefault with an effect the source allows (a drag with [`Carrying`](#func-carrying) allows copy, move and link unless [`Allowed`](#func-allowed) says otherwise), and OnDrop did not set DropNone. A refused drop runs OnDragLeave instead of OnDrop. The source's OnDragEnd runs with the same effect.
+
+```go
+effect := app.DropOn(telatest.ByRole("region", "Inbox"), telatest.Carrying(telatest.DragText("hello")))
+if effect != tela.DropCopy { t.Fatalf("the inbox did not copy the text: %v", effect) }
+```
+
+#### func (*App) DropOutside
+
+```go
+func (a *App) DropOutside(effect tela.DropEffect)
+```
+
+DropOutside ends the drag the app started over another application, which performs effect: the source's OnDragEnd runs with it. Pass tela.DropNone for an application that refuses it. effect must be one the drag allows (its DataTransfer.EffectAllowed).
+
+```go
+app.StartDrag(telatest.ByTestID("card-7"))
+app.DropOutside(tela.DropMove)
+app.ExpectNoText("Card 7") // OnDragEnd removed the moved card
 ```
 
 #### func (*App) Expect
@@ -909,6 +1037,23 @@ func (a *App) Hover(l Locator)
 
 Hover moves the pointer to the center of the element l locates, so its hover: and group-hover: states apply. It waits for the element to be visible, in view and not covered.
 
+#### func (*App) HoverDrag
+
+```go
+func (a *App) HoverDrag(l Locator, opts ...DragOption)
+```
+
+HoverDrag moves the drag in progress over the center of the element l locates and leaves it there, so the app can show its drag-over state: OnDragEnter on the element, OnDragLeave on the one it left, OnDragOver. The pointer moves in steps (default 12; [`Steps`](#func-steps)) when the drag is already over this window, and enters it directly otherwise.
+
+With [`Carrying`](#func-carrying) it starts another application's drag first, over no window. The window need not be the drag's source: calling HoverDrag on the [`App`](#type-app) of another window of the app moves a drag between windows.
+
+```go
+app.HoverDrag(telatest.ByTestID("dropzone"), telatest.Carrying(telatest.DragFiles(path)))
+app.ExpectText("Drop to upload")
+app.LeaveDrag()
+app.ExpectNoText("Drop to upload")
+```
+
 #### func (*App) LastWindow
 
 ```go
@@ -936,6 +1081,14 @@ LayoutJSONOf returns the layout subtree of the element l locates, in the same JS
 ```go
 js := app.LayoutJSONOf(telatest.ByRole("button", "Save"))
 ```
+
+#### func (*App) LeaveDrag
+
+```go
+func (a *App) LeaveDrag()
+```
+
+LeaveDrag moves the drag in progress out of this window, as the pointer leaving it does: OnDragLeave runs. The drag goes on.
 
 #### func (*App) LongPress
 
@@ -1190,6 +1343,22 @@ func (a *App) Scroll(l Locator, dx, dy float32)
 
 Scroll moves the pointer to the center of the element l locates and scrolls the wheel there by (dx, dy) logical pixels, positive to the right and down, as a touchpad does: the nearest scroll container under the pointer that can move scrolls at once, with no animation. Use Press("PageDown") or Press("End") for the animated key scrolling.
 
+#### func (*App) SetAccentColor
+
+```go
+func (a *App) SetAccentColor(color tela.Color)
+```
+
+SetAccentColor changes the system's accent color (tela.UseAccentColor returns it). Use [`App.ClearAccentColor`](#func-app-clearaccentcolor) for a system without one.
+
+#### func (*App) SetDarkMode
+
+```go
+func (a *App) SetDarkMode(dark bool)
+```
+
+SetDarkMode changes whether the system prefers the dark color scheme: the dark: variants apply and tela.UseColorScheme reports it, unless the app sets its own scheme (tela.App.ColorScheme, tela.SetColorScheme, [`ColorScheme`](#func-colorscheme)).
+
 #### func (*App) SetFullscreen
 
 ```go
@@ -1197,6 +1366,22 @@ func (a *App) SetFullscreen(on bool)
 ```
 
 SetFullscreen makes the window fullscreen on the fake screen, or leaves fullscreen; entering also brings it back from minimized.
+
+#### func (*App) SetHighContrast
+
+```go
+func (a *App) SetHighContrast(high bool)
+```
+
+SetHighContrast changes whether the system asks for high contrast: the contrast-more: variants apply and tela.UseHighContrast reports it.
+
+#### func (*App) SetReducedMotion
+
+```go
+func (a *App) SetReducedMotion(reduced bool)
+```
+
+SetReducedMotion changes whether the system asks for reduced motion: the motion-reduce: variants apply, and transitions that start from now on take no time (tela.UseReducedMotion).
 
 #### func (*App) SetScale
 
@@ -1208,6 +1393,31 @@ SetScale moves the window to a display with another scale (device pixels per log
 
 ```go
 app.SetScale(2)
+```
+
+#### func (*App) SetTextScale
+
+```go
+func (a *App) SetTextScale(scale float64)
+```
+
+SetTextScale changes the system's text scale: 1rem becomes the theme's rem times scale, so type, rem-based spacing and breakpoints change (tela.UseTextScale), unless the app ignores it (tela.App.IgnoreTextScale). scale is above 0 and at most 4; 1 is the default.
+
+#### func (*App) StartDrag
+
+```go
+func (a *App) StartDrag(l Locator) DragInfo
+```
+
+StartDrag presses the primary button at the center of the element l locates and moves the pointer away until the app starts a drag, then leaves the drag in progress, owned by the "OS" as a real drag is: the app gets no more pointer events until it ends. Continue it with [`App.HoverDrag`](#func-app-hoverdrag), [`App.DropOn`](#func-app-dropon), [`App.DropOutside`](#func-app-dropoutside), [`App.LeaveDrag`](#func-app-leavedrag) or [`App.CancelDrag`](#func-app-canceldrag). It returns what the drag carries, as [`App.ActiveDrag`](#func-app-activedrag) does.
+
+The element must be h.Draggable(true) and its OnDragStart must put data in e.DataTransfer; an element without data stays an ordinary drag gesture, and StartDrag fails the test.
+
+```go
+app.StartDrag(telatest.ByTestID("card-7"))
+app.HoverDrag(telatest.ByTestID("column-done"))
+app.ExpectText("Release to move here") // the drag-over state of the column
+app.DropOn(telatest.ByTestID("column-done"))
 ```
 
 #### func (*App) Stats
@@ -1445,6 +1655,27 @@ const (
 )
 ```
 
+### type DragInfo
+
+```go
+type DragInfo struct {
+    // Data is a copy of what the drag carries, with every getter open
+    // (Types, Text, HTML, Files, Image, GetData...). Its EffectAllowed is
+    // Allowed.
+    Data *tela.DataTransfer
+    // Allowed are the effects the source allows.
+    Allowed tela.DropEffect
+    // External: another application's drag. Source is the window of the
+    // app that started it, nil for an external drag.
+    External bool
+    Source   *App
+    // Over is the window the drag is over, nil while it is over none.
+    Over *App
+}
+```
+
+DragInfo describes the drag in progress ([`App.ActiveDrag`](#func-app-activedrag)).
+
 ### type DragOption
 
 ```go
@@ -1453,6 +1684,30 @@ type DragOption func(*dragConfig)
 
 DragOption configures [`App.Drag`](#func-app-drag), [`App.DragBy`](#func-app-dragby) and [`App.DragFromTo`](#func-app-dragfromto).
 
+#### func Allowed
+
+```go
+func Allowed(effects ...tela.DropEffect) DragOption
+```
+
+Allowed sets the effects the other application allows for the drag that [`Carrying`](#func-carrying) starts (default: copy, move and link). The app's DataTransfer.EffectAllowed in its handlers reports them, and a drop refuses an effect outside them.
+
+#### func Carrying
+
+```go
+func Carrying(payload DragPayload) DragOption
+```
+
+Carrying makes the step start another application's drag of payload when no drag is in progress, instead of failing. [`App.HoverDrag`](#func-app-hoverdrag) and [`App.DropOn`](#func-app-dropon) take it; [`App.DropData`](#func-app-dropdata) and [`App.DropFiles`](#func-app-dropfiles) are DropOn with it.
+
+#### func Modifiers
+
+```go
+func Modifiers(keys ...string) DragOption
+```
+
+Modifiers holds keys during the step, with Playwright's names ("Shift", "Control", "Alt", "Meta", "ControlOrMeta"). The platform's convention picks the default DropEffect from them: Control copies, Shift moves, Control+Shift links.
+
 #### func Steps
 
 ```go
@@ -1460,6 +1715,68 @@ func Steps(n int) DragOption
 ```
 
 Steps sets how many pointer moves the drag is made of (default 12): the pointer moves in equal steps between the start and the end, and each move runs a frame, as a window would.
+
+### type DragPayload
+
+```go
+type DragPayload struct {
+    // contains filtered or unexported fields
+}
+```
+
+DragPayload is the data another application drags: files, text, HTML, a PNG image or a custom type, in one or more representations. Build it with [`DragFiles`](#func-dragfiles), [`DragText`](#func-dragtext), [`DragHTML`](#func-draghtml), [`DragPNG`](#func-dragpng) and [`DragType`](#func-dragtype), and combine representations, best first, with [`DragPayload.And`](#func-dragpayload-and).
+
+#### func DragFiles
+
+```go
+func DragFiles(paths ...string) DragPayload
+```
+
+DragFiles is a list of files, as a file manager drags them: the app reads their paths with DataTransfer.Files. The paths must be absolute (use t.TempDir()); the files need not exist.
+
+#### func DragHTML
+
+```go
+func DragHTML(html string) DragPayload
+```
+
+DragHTML is an HTML fragment (the "text/html" type). Add [`DragText`](#func-dragtext) with [`DragPayload.And`](#func-dragpayload-and) for applications that read only text.
+
+#### func DragPNG
+
+```go
+func DragPNG(img image.Image) DragPayload
+```
+
+DragPNG is an image, carried as "image/png".
+
+#### func DragText
+
+```go
+func DragText(s string) DragPayload
+```
+
+DragText is plain text (the "text/plain" type).
+
+#### func DragType
+
+```go
+func DragType(mime string, data string) DragPayload
+```
+
+DragType is data of a custom MIME type, such as "application/x-card" (HTML's setData). It panics when mime is not a MIME type.
+
+#### func (DragPayload) And
+
+```go
+func (p DragPayload) And(other DragPayload) DragPayload
+```
+
+And returns the payload with the representations of other added after its own. It panics when both carry the same type.
+
+```go
+telatest.DragHTML("<b>Hi</b>").And(telatest.DragText("Hi"))
+```
 
 ### type FileDialog
 
