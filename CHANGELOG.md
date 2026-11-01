@@ -2,15 +2,19 @@
 
 All notable changes to Tela are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
-[Semantic Versioning](https://semver.org/) as Go modules use it: one minor
-version per completed roadmap phase while Tela is v0, patch versions for
-fixes after a phase closes. Compatibility covers the public API only (`tela`,
+[Semantic Versioning](https://semver.org/) as Go modules use it: while Tela
+is v0, a release that breaks the public API raises the minor version and any
+other release (features, fixes, a roadmap phase) the patch version (ADR-208). Compatibility covers the public API only (`tela`,
 `h`, the `tela` command's flags, the `Preview()`/`Previews` contract and the
 `tela inspect` JSON); everything under `internal/` may change at any time.
 In v0 a minor version may break the public API; such changes are listed
-under **Breaking**. See ADR-049 in `docs/ARCHITECTURE.md`.
+under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
+
+## [0.13.0] - 2026-10-31
+
+The work between phases 12 and 13, released so the new website's docs and landing page match the version `go install …@latest` gets (ADR-208): ADR-205's `tela.Node` change, the `looks` module, the consolidated examples, `kit` and engine improvements, and the website.
 
 ### Added
 
@@ -796,7 +800,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.12.6...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/kuronosu/tela/compare/v0.12.6...v0.13.0
 [0.12.6]: https://github.com/kuronosu/tela/compare/v0.12.5...v0.12.6
 [0.12.5]: https://github.com/kuronosu/tela/compare/v0.12.4...v0.12.5
 [0.12.4]: https://github.com/kuronosu/tela/compare/v0.12.3...v0.12.4

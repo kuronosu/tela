@@ -18,10 +18,10 @@ Tela is a pure-Go desktop UI framework: no cgo, no webview, React-like API, Tail
 ## At the end of a phase
 
 After the phase's done criteria pass and its review fixes are in:
-- Move the `Unreleased` entries of `CHANGELOG.md` into a new minor version (`v0.N.0` for phase N), with the date and the link line.
-- Propose the tag to the owner; once approved, create it annotated on the closing commit (`git tag -a v0.N.0 -m "Phase N: <name>"`). Never push tags or commits.
+- Move the `Unreleased` entries of `CHANGELOG.md` into a new version, with the date and the link line: the next minor (`v0.N.0`) if anything in it breaks the public API, otherwise the next patch (`v0.N.M`).
+- Propose the tag to the owner; once approved, create it annotated on the closing commit (`git tag -a v0.N.M -m "Phase N: <name>"`). Never push tags or commits.
 
-Fixes after a phase closes get a patch version (`v0.N.1`) the same way. See ADR-049.
+Fixes and work between phases are released the same way, with the same rule for the number. See ADR-049 and ADR-208.
 
 ## Rules
 

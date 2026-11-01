@@ -1,7 +1,7 @@
 # ADR-049: Versioning
 
 - **Date:** 2026-10-12
-- **Status:** Accepted
+- **Status:** Accepted, amended by ADR-208 (versions follow the public API, not the phases)
 
 ## Decision
 

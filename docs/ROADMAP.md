@@ -7,9 +7,9 @@
 
 ## Current status
 
-- **Done:** phases 1–12. Latest version `v0.12.6` (2026-10-29; `tela dev`'s clock never goes behind the frame time, found by CI), after `v0.12.5` (CI green again) and `v0.12.4` (the fixes adopted from the first codebase review, `docs/reviews/2026-10-29.md`, ADR-190–194); `main` is pushed and CI is green on it; tags pushed up to `v0.12.6`, whose CI run is green; the GitHub wiki is `docs/wiki` at `v0.12.6`.
+- **Done:** phases 1–12. Latest version `v0.13.0` (2026-10-31, tagged locally, not pushed yet): the work between phases 12 and 13 (ADR-205, `looks`, the examples of ADR-195, the website), released so the website's docs and landing page match `go install …@latest` (ADR-208: releases follow the public API, so phase 13 is `v0.13.1` unless it breaks it). Before it, `v0.12.6` (2026-10-29). The GitHub wiki is `docs/wiki` at `v0.12.6` until it is republished.
 - **Phase in progress:** none; phase 13 (desktop integration, the rest) is next.
-- **Website:** `https://telaui.dev` is live (ADR-206); the new landing page and the punched-card logo (ADR-207) are committed on `main`, not pushed yet (see "Website" below). CI on `f4e5891` was red (the `examples/dashboard` timeout and the notes Preferences golden on Windows); both are fixed locally, pending the push.
+- **Website:** `https://telaui.dev` is live (ADR-206); the new landing page and the punched-card logo (ADR-207) are committed on `main` with `v0.13.0`, not pushed yet. CI on `f4e5891` was red (the `examples/dashboard` timeout and the notes Preferences golden on Windows); both are fixed and verified locally, pending the push.
 - **Next step:** phase 13 (desktop integration, the rest: drag and drop, native menus, global shortcuts, single instance and deep links, system theme, secure storage), whose done criterion extends the redesigned `notes`. The examples are the nine of ADR-195 and the looks are the `looks/` module (ADR-197); its CI job and the dashboard's new frame times are unverified on CI until the owner pushes. The owner also still tries `examples/notes` with word wrap off in the GNOME container (`/home/ubuntu/notes-v3`). The complexity refactors R1–R10 (2026-10-31) are on `main`, not pushed yet; R11–R13 of that review are not started: split `resolveMotion` into collecting and building, the text fields' key bindings as one table per flavor (with phase 14's first item), and explicit process states for `tela dev`'s supervisor.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`.
 
@@ -32,7 +32,7 @@ Still true as of `v0.12.0`; the per-phase lists in HISTORY.md include items fixe
 
 Each phase ends with verifiable criteria. A phase is not done unless its criteria pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). Phases 1–12 are done (HISTORY.md).
 
-### Phase 13: Desktop integration, the rest (`v0.13.0`)
+### Phase 13: Desktop integration, the rest (`v0.13.1`)
 
 - [ ] Drag and drop with the OS (files in, out, between windows); clipboard beyond text (images, files, rich text)
 - [ ] Native application and context menus where the OS has them, with a drawn fallback
@@ -42,7 +42,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 
 **Done when:** the "notes" example accepts a dropped file, registers a global shortcut, reopens in its running instance from a deep link and keeps a token in secure storage, on Linux and Windows.
 
-### Phase 14: macOS (and X11 IME) (`v0.14.0`)
+### Phase 14: macOS (and X11 IME)
 
 - [ ] First: one host-platform flavor (Linux, Windows, Mac) read by `core`'s key bindings and word rules, `aria`'s `ctrlKey` and `telatest`'s `ControlOrMeta`, overridable in tests so Mac behavior runs off-Mac (codebase review 2026-10-29, C11; a public "primary modifier" query needs an ADR)
 - [ ] `cocoa` backend via purego, with CI on `macos-latest`: window, event loop, present, HiDPI, keyboard, pointer, clipboard, settings
@@ -51,7 +51,7 @@ Each phase ends with verifiable criteria. A phase is not done unless its criteri
 
 **Done when:** every example runs on macOS with snapshots pixel-identical up to text antialiasing, Japanese can be typed through the IME on macOS and on X11, and the phase-12/13 examples run on all three platforms.
 
-### Phase 15: Accessibility (`v0.15.0`)
+### Phase 15: Accessibility
 
 Strictly after phase 14: the bridges for AT-SPI, UI Automation and NSAccessibility are verified together (the owner chose strict order over starting the Linux and Windows bridges in parallel).
 
@@ -62,7 +62,7 @@ Strictly after phase 14: the bridges for AT-SPI, UI Automation and NSAccessibili
 
 **Done when:** a screen reader reads, navigates and operates the `login` example (with `signup` merged in, ADR-195) on Linux, Windows and macOS.
 
-### Phase 16: GPU backend (`v0.16.0`)
+### Phase 16: GPU backend
 
 Independent of phases 14–15 and the hardest technical item (`tela-hard`).
 
@@ -72,7 +72,7 @@ Independent of phases 14–15 and the hardest technical item (`tela-hard`).
 
 **Done when:** the `dashboard` example renders at 60 fps at scale 2 on the GPU backend (the CPU one does not reach it) and GPU snapshots stay within the agreed tolerance of the CPU goldens.
 
-### Phase 17: Packaging and auto-update (`v0.17.0`)
+### Phase 17: Packaging and auto-update
 
 - [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg`, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks
 - [ ] Windows targets are GUI programs by default (`-H=windowsgui`, no console window next to the app; ADR-127), with panics and the app's log written to a file in its data directory, since a GUI program has no standard output
@@ -81,7 +81,7 @@ Independent of phases 14–15 and the hardest technical item (`tela-hard`).
 
 **Done when:** a sample app is packaged for three platforms from one command and updates itself from a signed manifest.
 
-### Phase 18: DevTools (`v0.18.0`)
+### Phase 18: DevTools
 
 - [ ] Live inspector: element tree, computed style, hooks and state, re-render counts, accessibility tree
 - [ ] Frame profiler
@@ -89,7 +89,7 @@ Independent of phases 14–15 and the hardest technical item (`tela-hard`).
 
 **Done when:** DevTools shows why a given element re-rendered and where a frame spent its time.
 
-### Phase 19: Canvas and PDF (`v0.19.0`)
+### Phase 19: Canvas and PDF
 
 Both sit on the `DisplayList`, so they are cheap next to the rest.
 
@@ -98,7 +98,7 @@ Both sit on the `DisplayList`, so they are cheap next to the rest.
 
 **Done when:** a `Canvas` example animates at 60 fps and a page exports to a PDF that two viewers render identically.
 
-### Phase 20: Audio and video (`v0.20.0`)
+### Phase 20: Audio and video
 
 Highest uncertainty of the roadmap: pure-Go decoders limit the codecs.
 

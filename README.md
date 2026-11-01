@@ -27,7 +27,7 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.12.6).** Phases 1–12 are done and tagged: Linux
+> **Status: pre-1.0 (v0.13.0).** Phases 1–12 are done and tagged: Linux
 > (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
@@ -366,8 +366,8 @@ from it) and the common mistakes, with every code block checked against the curr
 
 ## Project status
 
-**Current version: [v0.12.6](CHANGELOG.md)**, tagged 2026-10-29. Phases 1–12
-are done.
+**Current version: [v0.13.0](CHANGELOG.md)**, tagged 2026-10-31. Phases 1–12
+are done; v0.13.0 released the work between phases 12 and 13 (ADR-208).
 
 | Phase | Name | State |
 |---|---|---|
@@ -383,7 +383,7 @@ are done.
 | 10 | `kit`: ready-made components on the theme tokens, restyled with recipes | ✅ v0.10.0 |
 | 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | ✅ v0.11.0 |
 | 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | ✅ v0.12.0 |
-| 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | next |
+| 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | next (v0.13.1) |
 | 14 | macOS and IME on X11 | planned |
 | 15–20 | Accessibility backends, GPU backend, packaging and auto-update, DevTools, canvas and PDF, audio and video | planned |
 
