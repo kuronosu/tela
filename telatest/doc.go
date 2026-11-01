@@ -135,6 +135,35 @@
 // [Icon], [Placement], [OnClose], [Screen]) set the main window's fields
 // for Mount.
 //
+// # Drag and drop
+//
+// The headless backend plays the operating system's part in HTML drag and
+// drop. [App.DragTo] drags an h.Draggable element to another element,
+// [App.DragToWindow] to one in another window of the app, and
+// [App.DropOutside] ends a drag in another application; [App.DropFiles]
+// and [App.DropData] drop what another application drags (build it with
+// [DragFiles], [DragText], [DragHTML], [DragPNG], [DragType]). They return
+// the effect the app accepted, tela.DropNone for a refusal. The steps they
+// are made of can be used alone, to test drag-over styling or inspect the
+// data: [App.StartDrag], [App.HoverDrag], [App.LeaveDrag],
+// [App.CancelDrag], [App.DropOn] and [App.ActiveDrag]; the options
+// [Carrying], [Allowed], [Modifiers] and [Steps] shape them.
+//
+//	app.DropFiles(telatest.ByTestID("upload"), filepath.Join(t.TempDir(), "photo.png"))
+//	app.StartDrag(telatest.ByTestID("card-7"))
+//	app.HoverDrag(telatest.ByTestID("column-done"))
+//	app.ExpectText("Release to move here")
+//	app.DropOn(telatest.ByTestID("column-done"))
+//
+// # System settings
+//
+// [App.SetDarkMode], [App.SetReducedMotion], [App.SetHighContrast],
+// [App.SetTextScale], [App.SetAccentColor] and [App.ClearAccentColor]
+// change what the system says while the app is mounted, as the user does in
+// the system's settings; the components that read the setting rebuild. The
+// options [Dark], [ReducedMotion], [HighContrast], [TextScale] and
+// [AccentColor] set it at Mount.
+//
 // # The clock
 //
 // The window's clock is manual: it starts at zero and moves only when the
