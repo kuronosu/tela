@@ -246,6 +246,10 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		if swallowSysCommand(wparam, lparam) {
 			return 0
 		}
+	case wmCommand:
+		if w.onMenuCommand(wparam, lparam) {
+			return 0
+		}
 	case wmExitMenuLoop, wmExitSizeMove:
 		// The system's modal loops swallow key releases.
 		w.kbd.releaseStale(w.kenv)

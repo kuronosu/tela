@@ -327,6 +327,7 @@ func (w *Window) enterFullscreen() {
 	w.exStyle &^= wsExFrameEdges
 	setWindowLong(w.hwnd, gwlStyle, getWindowLong(w.hwnd, gwlStyle)&^(wsOverlappedWindow|wsMaximize))
 	setWindowLong(w.hwnd, gwlExStyle, getWindowLong(w.hwnd, gwlExStyle)&^wsExFrameEdges)
+	w.menuForFullscreen(true)
 	m := mi.monitor
 	flags := uintptr(swpNoOwnerZOrder | swpFrameChanged | swpNoActivate)
 	if !w.shown {
@@ -344,6 +345,7 @@ func (w *Window) leaveFullscreen() {
 	// and WS_EX_TOPMOST may have changed since.
 	setWindowLong(w.hwnd, gwlStyle, getWindowLong(w.hwnd, gwlStyle)|fs.style&wsOverlappedWindow)
 	setWindowLong(w.hwnd, gwlExStyle, getWindowLong(w.hwnd, gwlExStyle)|fs.exStyle&wsExFrameEdges)
+	w.menuForFullscreen(false)
 	wp := fs.placement
 	switch {
 	case !w.shown:
@@ -706,7 +708,7 @@ func (w *Window) frameOffset(style, exStyle uint32) image.Point {
 	if w.opts.Frameless {
 		return image.Point{}
 	}
-	r := adjustWindowRect(rect{}, style, exStyle, w.dpi)
+	r := w.adjustRect(rect{}, style, exStyle)
 	return image.Pt(int(r.left), int(r.top))
 }
 

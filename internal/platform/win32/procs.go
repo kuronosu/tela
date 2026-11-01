@@ -137,8 +137,6 @@ var (
 	procShellNotifyIconW            = shell32.NewProc("Shell_NotifyIconW")
 	procSHCreateItemFromParsingName = shell32.NewProc("SHCreateItemFromParsingName")
 	procExtractIconExW              = shell32.NewProc("ExtractIconExW")
-	procCoInitializeEx              = ole32.NewProc("CoInitializeEx")
-	procCoUninitialize              = ole32.NewProc("CoUninitialize")
 	procCoCreateInstance            = ole32.NewProc("CoCreateInstance")
 	procCoTaskMemFree               = ole32.NewProc("CoTaskMemFree")
 	procMessageBoxW                 = user32.NewProc("MessageBoxW")
@@ -149,6 +147,25 @@ var (
 	procRegisterWindowMessageW      = user32.NewProc("RegisterWindowMessageW")
 	procChangeWindowMessageFilterEx = user32.NewProc("ChangeWindowMessageFilterEx") // Windows 7
 	procLoadIconW                   = user32.NewProc("LoadIconW")
+)
+
+// Phase 13: OLE drag and drop, clipboard data and window menus
+// (dnd_windows.go, dataobject_windows.go, comserver_windows.go,
+// menu_windows.go).
+var (
+	procOleInitialize            = ole32.NewProc("OleInitialize")
+	procOleUninitialize          = ole32.NewProc("OleUninitialize")
+	procRegisterDragDrop         = ole32.NewProc("RegisterDragDrop")
+	procRevokeDragDrop           = ole32.NewProc("RevokeDragDrop")
+	procDoDragDrop               = ole32.NewProc("DoDragDrop")
+	procReleaseStgMedium         = ole32.NewProc("ReleaseStgMedium")
+	procSHCreateStdEnumFmtEtc    = shell32.NewProc("SHCreateStdEnumFmtEtc")
+	procRegisterClipboardFormatW = user32.NewProc("RegisterClipboardFormatW")
+	procGetClipboardFormatNameW  = user32.NewProc("GetClipboardFormatNameW")
+	procEnumClipboardFormats     = user32.NewProc("EnumClipboardFormats")
+	procCreateMenu               = user32.NewProc("CreateMenu")
+	procSetMenu                  = user32.NewProc("SetMenu")
+	procGetMenu                  = user32.NewProc("GetMenu")
 )
 
 // available reports whether an optional procedure exists on this system.

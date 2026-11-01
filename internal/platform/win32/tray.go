@@ -92,16 +92,21 @@ type menuEntry struct {
 	sub   []menuEntry
 }
 
-// buildMenu converts a tray menu to native menu entries. Command IDs are
-// small sequential numbers (1, 2, …) rather than the app's MenuItemIDs,
-// which are 32-bit, while WM_COMMAND carries 16; cmds maps them back
-// (cmds[cmd-1]).
+// buildMenu converts a menu (a tray's, a window's menu bar or a popup
+// menu) to native menu entries. Command IDs are small sequential numbers
+// (1, 2, …) rather than the app's MenuItemIDs, which are 32-bit, while
+// WM_COMMAND carries 16; cmds maps them back (cmds[cmd-1]). An item's
+// Accelerator follows its label after a tab, which menus show as a
+// right-aligned column.
 func buildMenu(items []platform.MenuItem) (entries []menuEntry, cmds []platform.MenuItemID) {
 	var walk func(items []platform.MenuItem) []menuEntry
 	walk = func(items []platform.MenuItem) []menuEntry {
 		out := make([]menuEntry, 0, len(items))
 		for _, it := range items {
 			e := menuEntry{label: menuLabel(it.Label)}
+			if it.Accelerator != "" && len(it.Submenu) == 0 {
+				e.label += "\t" + menuLabel(it.Accelerator)
+			}
 			switch {
 			case it.Separator:
 				e = menuEntry{flags: mfSeparator}

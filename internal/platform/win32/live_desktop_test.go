@@ -29,10 +29,7 @@ var (
 	procIsWindow    = user32.NewProc("IsWindow")
 )
 
-const (
-	wmCommand  = 0x0111
-	dialogTime = 10 * time.Second
-)
+const dialogTime = 10 * time.Second
 
 // TestNotifyIconDataLayout pins NOTIFYICONDATAW, whose size Windows checks
 // (cbSize) and whose fields it reads by offset.

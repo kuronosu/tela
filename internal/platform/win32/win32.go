@@ -51,6 +51,9 @@ type Backend struct {
 	settings platform.SystemSettings
 	// desk is the state of the desktop services (services.go).
 	desk desktopState
+	// integ is the state of drags and popup menus (phase 13:
+	// dnd_windows.go, menu_windows.go).
+	integ backendIntegration
 
 	iterations atomic.Int64 // GetMessageW returns, for idle tests
 }
@@ -280,6 +283,9 @@ func (b *Backend) message(hwnd uintptr, msg uint32, wparam, lparam uintptr) uint
 		return 0
 	}
 	if r, ok := b.desktopMessage(hwnd, msg, wparam, lparam); ok {
+		return r
+	}
+	if r, ok := b.integrationMessage(hwnd, msg); ok {
 		return r
 	}
 	return defWindowProc(hwnd, uintptr(msg), wparam, lparam)

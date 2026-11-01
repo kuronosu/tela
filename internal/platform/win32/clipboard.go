@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	cfUnicodeText = 13
-	gmemMoveable  = 0x0002
+	gmemMoveable = 0x0002
 
 	// Another process (a clipboard manager, a remote desktop client) may
 	// hold the clipboard open for a few milliseconds when it changes.
