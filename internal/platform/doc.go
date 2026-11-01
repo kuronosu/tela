@@ -870,15 +870,17 @@
 //     delivers DragDrop, then sends XdndFinished (accepted, performed
 //     action). Source: own XdndSelection, grab the pointer and the
 //     keyboard (Escape cancels), find the XdndAware top-level under the
-//     pointer, send XdndEnter, XdndPosition (the action Ctrl/Shift pick
-//     among Allowed, XdndActionAsk with XdndActionList when several are
-//     allowed), XdndLeave and XdndDrop, answer SelectionRequest, finish at
+//     pointer, send XdndEnter, XdndPosition (the action
+//     DefaultDropEffect picks among Allowed, never XdndActionAsk, since the
+//     backend cannot ask the user; XdndActionList advertises Allowed),
+//     XdndLeave and XdndDrop, answer SelectionRequest, finish at
 //     XdndFinished or after a timeout; over its own windows it delivers
-//     the target side directly. The image: an override-redirect ARGB
-//     window (32-bit visual) that follows the pointer, none without a
-//     compositing manager.
+//     the target side directly. The image is not shown: a window under the
+//     pointer would be hit by the walk that finds the target, unless the
+//     Shape extension made it input-transparent (left for later).
 //   - Clipboard data: CLIPBOARD with TARGETS and INCR (the text clipboard
-//     of phase 5 comes with it).
+//     of phase 5 comes with it). Like GTK and winit, the data is not handed
+//     to a clipboard manager (SAVE_TARGETS) when Run returns.
 //   - Menus: none (ErrUnsupported).
 //   - Global shortcuts: the portal when the session has it, else XGrabKey
 //     on the root window for the keycode of the key's keysym with the
