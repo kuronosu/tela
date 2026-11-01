@@ -60,11 +60,34 @@
 // window closes its children first.
 //
 // Backend.Desktop records every request (Dialogs, Opened, Notifications,
-// Trays). Dialogs and message boxes are answered by a responder
-// (SetDialogResponder) or one by one (AnswerDialog), through the loop like
-// a real backend; notification and tray events are injected with
-// InjectApp; SetUnsupported makes services return platform.ErrUnsupported
-// as on a backend without them.
+// Trays). Dialogs, message boxes and popup menus are answered by a
+// responder (SetDialogResponder) or one by one (AnswerDialog), through the
+// loop like a real backend; notification, tray, shortcut and launch events
+// are injected with InjectApp; SetUnsupported makes services return
+// platform.ErrUnsupported as on a backend without them.
+//
+// # Desktop integration (phase 13)
+//
+// The clipboard holds platform.Data (ClipboardData, SetClipboardData for
+// another application's copy). Drags follow the platform contract: an app
+// drag starts with Window.StartDrag while an injected button is held (the
+// window gets a PointerCancel, and the drag enters it), another
+// application's drag with StartExternalDrag; while a drag is in progress,
+// injected pointer events move it instead of reaching the app (a move or
+// enter over a window is DragEnter or DragOver, a leave DragLeave, a
+// release drops: DragDrop with the data the window asked for when its
+// latest SetDropEffect accepted the drag, else DragLeave), and
+// CancelDrag and DropOutside end it elsewhere; the source gets its
+// DragDoneEvent after the drop is handled. Menu bars are recorded
+// (Window.Menu; frameless windows have none, as on Win32) and their
+// choices injected with Window.Inject(MenuEvent); popup menus are dialogs
+// of kind DialogPopupMenu. Global shortcuts are bound at once by default
+// (SetShortcutResponder decides otherwise), with the status event through
+// the loop. Secrets live in memory (SetSecretError injects failures).
+// ClaimInstance uses a registry of app IDs shared by the headless
+// backends of the process, so a test plays both instances with two
+// backends (claims end when Run returns, or with ReleaseInstances).
+// Associations are an assoc.Fake (Associations).
 //
 // # Concurrency
 //
@@ -135,14 +158,15 @@ type Backend struct {
 	mu sync.Mutex
 	// loop is the shared queue, wake/quit flags and frame pacing, guarded
 	// by mu (Options.Lock): the injection API runs on any goroutine.
-	loop      *loop.Loop[*Window]
-	clock     time.Duration // manual clock
-	settings  platform.SystemSettings
-	clipboard string
-	ran       bool // Run was called
-	active    bool // a Run, Step or Drain is executing
-	created   int  // windows created, for restore tokens
-	desktop   desktopState
+	loop     *loop.Loop[*Window]
+	clock    time.Duration // manual clock
+	settings platform.SystemSettings
+	clip     platform.Data // the clipboard
+	drag     *dragState    // the drag in progress (dnd.go)
+	ran      bool          // Run was called
+	active   bool          // a Run, Step or Drain is executing
+	created  int           // windows created, for restore tokens
+	desktop  desktopState
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -154,6 +178,7 @@ func New(opts Options) *Backend {
 	}
 	platform.PhysicalSize(platform.Size{}, opts.Scale) // validates the scale
 	platform.CheckSize("headless.Options.Size", opts.Size)
+	platform.CheckSystemSettings(opts.Settings)
 	if opts.Size == (platform.Size{}) {
 		opts.Size = platform.DefaultWindowSize
 	}
@@ -275,17 +300,17 @@ func (b *Backend) Settings() platform.SystemSettings {
 }
 
 // SetSettings changes the system settings and queues a SettingsEvent, as if
-// the user changed them. Safe from any goroutine.
+// the user changed them (dark mode, accent color, high contrast, text
+// scale…). Invalid settings panic (platform.CheckSystemSettings). Safe from
+// any goroutine.
 func (b *Backend) SetSettings(s platform.SystemSettings) {
+	platform.CheckSystemSettings(s)
 	b.mu.Lock()
 	b.settings = s
 	b.loop.Enqueue(nil, platform.SettingsEvent{Settings: s})
 	b.mu.Unlock()
 	b.signal()
 }
-
-// Clipboard returns the in-memory clipboard.
-func (b *Backend) Clipboard() platform.Clipboard { return clipboard{b} }
 
 // signal wakes a blocked Run without blocking the caller.
 func (b *Backend) signal() {
@@ -316,7 +341,9 @@ func (b *Backend) Run(h platform.Handler) error {
 		b.mu.Lock()
 		b.active = false
 		b.desktop.trays = nil // trays are removed when Run returns
+		b.desktop.shortcuts = nil
 		b.mu.Unlock()
+		b.ReleaseInstances() // the process "exits"
 	}()
 
 	var timer *time.Timer
@@ -438,29 +465,25 @@ func (b *Backend) leave() {
 }
 
 // step is one loop iteration; see Step.
-func (b *Backend) step(h platform.Handler) int { return b.loop.Deliver(h) }
+func (b *Backend) step(h platform.Handler) int { return b.loop.Deliver(tracker{b, h}) }
 
-// clipboard is the in-memory clipboard.
-type clipboard struct{ b *Backend }
-
-func (c clipboard) ReadText(done func(string, error)) {
-	if done == nil {
-		panic("headless: Clipboard.ReadText called with a nil callback")
-	}
-	c.b.mu.Lock()
-	c.b.loop.Post(func() {
-		c.b.mu.Lock()
-		s := c.b.clipboard
-		c.b.mu.Unlock()
-		done(s, nil)
-	})
-	c.b.mu.Unlock()
-	c.b.signal()
+// tracker records the pointer state each window's app has seen (what a
+// real backend knows when the app calls StartDrag: the press it delivered
+// and whose release it did not) before passing every event on.
+type tracker struct {
+	b *Backend
+	h platform.Handler
 }
 
-func (c clipboard) WriteText(s string) error {
-	c.b.mu.Lock()
-	c.b.clipboard = s
-	c.b.mu.Unlock()
-	return nil
+func (t tracker) HandleEvent(w platform.Window, e platform.Event) {
+	if pe, ok := e.(platform.PointerEvent); ok && w != nil {
+		hw := w.(*Window)
+		t.b.mu.Lock()
+		hw.buttons, hw.pointer, hw.mods = pe.Buttons, pe.Pos, pe.Mods
+		if pe.Action == platform.PointerCancel {
+			hw.buttons = 0
+		}
+		t.b.mu.Unlock()
+	}
+	t.h.HandleEvent(w, e)
 }

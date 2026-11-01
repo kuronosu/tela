@@ -3,6 +3,8 @@ package platform
 import (
 	"errors"
 	"image"
+	"image/color"
+	"math"
 	"time"
 )
 
@@ -52,7 +54,9 @@ type Backend interface {
 	// unspecified (headless: 0 at creation). Safe from any goroutine.
 	Now() time.Duration
 
-	// Clipboard returns the system clipboard.
+	// Clipboard returns the system clipboard: text, and Data of any MIME
+	// type (see "Drag and drop and the clipboard" in the package
+	// documentation).
 	Clipboard() Clipboard
 
 	// Settings returns the current system settings. Changes are reported
@@ -61,9 +65,10 @@ type Backend interface {
 
 	// Desktop returns the OS services: opening URIs and files in other
 	// applications, file dialogs, message boxes, notifications and tray
-	// icons (see [Desktop] and "Desktop services" in the package
-	// documentation). It is never nil; a service the backend lacks returns
-	// [ErrUnsupported].
+	// icons; global shortcuts, secrets, single instance and scheme and
+	// file-type registration (see [Desktop] and "Desktop services" in the
+	// package documentation). It is never nil; a service the backend
+	// lacks returns [ErrUnsupported].
 	Desktop() Desktop
 }
 
@@ -227,11 +232,65 @@ type Window interface {
 	// put the window back where it was. "" means the backend has none
 	// (yet); see "Session restore" in the package documentation.
 	RestoreToken() string
+
+	// ActivateWithToken is Activate with an activation token the OS gave
+	// another process of the app (LaunchEvent's Launch.Token), which lets
+	// the window come to the front past focus stealing prevention:
+	// xdg_activation_v1.activate on Wayland, the token's timestamp and
+	// _NET_STARTUP_INFO "remove" on X11. "" is Activate. Win32 ignores
+	// the token (the second process allowed the foreground change). See
+	// "Single instance and launches" in the package documentation.
+	ActivateWithToken(token string)
+
+	// --- Desktop integration (phase 13, ADR-209, ADR-210). ---
+
+	// SetDropEffect answers the drag over the window (DragEvent): effect
+	// is what a drop would do (DropNone refuses; an effect outside the
+	// drag's Allowed set counts as DropNone), and types are the offered
+	// MIME types the app will read at the drop, in preference order (none:
+	// the well-known types offered; DropTypes). The answer stays until the
+	// next call or the end of the drag session; a session starts refused.
+	// Call it while handling DragEnter and DragOver (Win32 must answer
+	// from inside the OS callback); calls during DragDrop set the final
+	// effect (DropNone: the app did not take the data, so a moving source
+	// keeps it). Without a drag over the window it does nothing. An
+	// invalid effect or type panics ([CheckDropEffect], [CheckMIME]). See
+	// "Drag and drop and the clipboard" in the package documentation.
+	SetDropEffect(effect DropEffect, types ...string)
+
+	// StartDrag starts an OS drag of opts.Data from the window, which can
+	// end over any window of any application. It must be called while a
+	// pointer button pressed in the window is held (from the handler of
+	// that sequence's PointerDown or PointerMove), else it returns
+	// [ErrNoGrab]; the OS takes the pointer, and the window gets a
+	// PointerCancel for it. When it returns nil, one DragDoneEvent with
+	// the outcome follows. Backends without OS drags return
+	// ErrUnsupported. Invalid options panic ([CheckDragOptions]).
+	StartDrag(opts DragOptions) error
+
+	// SetMenu sets the window's menu bar: the top-level items (usually
+	// each with a Submenu). A chosen item arrives as a MenuEvent. nil or
+	// empty removes the bar. The content area keeps its size where the
+	// OS allows. Backends without native menu bars return ErrUnsupported:
+	// Linux (Wayland and X11), frameless windows, Cocoa until phase 14
+	// (its menu is the app's). The menu is copied. An invalid menu panics
+	// ([CheckMenu]). See "Native menus" in the package documentation.
+	SetMenu(menu []MenuItem) error
+
+	// PopupMenu shows a native context menu with its top-left corner at
+	// at (logical pixels, window coordinates). done receives the chosen
+	// item's ID, or 0 and a nil error when the user dismissed the menu; it
+	// runs exactly once, later, on the UI thread through the loop, unless
+	// PopupMenu returned an error (then never) or Run returned first.
+	// Backends without native menus return ErrUnsupported (Linux), and the
+	// layers above draw the menu. An empty or invalid menu, or a nil done,
+	// panics.
+	PopupMenu(at Point, menu []MenuItem, done func(item MenuItemID, err error)) error
 }
 
 // Handler receives the backend's events on the UI thread. The window is nil
 // for app-scoped events (WakeEvent, SettingsEvent, NotificationEvent,
-// TrayEvent).
+// TrayEvent, ShortcutEvent, ShortcutStatusEvent, LaunchEvent).
 //
 // The handler may call any Backend or Window method, including NewWindow,
 // Present and Close. Backends never call HandleEvent re-entrantly: events
@@ -395,6 +454,47 @@ type SystemSettings struct {
 	// double click. Zero means unknown: DefaultDoubleClickInterval
 	// applies (DoubleClickTime).
 	DoubleClickInterval time.Duration
+
+	// AccentColor is the user's accent color (opaque sRGB) when
+	// HasAccentColor is set.
+	AccentColor    color.NRGBA
+	HasAccentColor bool
+	// HighContrast asks for a high-contrast presentation (CSS
+	// prefers-contrast: more; Tailwind's contrast-more:).
+	HighContrast bool
+	// TextScale is the user's text size factor (Windows "Text size",
+	// GNOME's text-scaling-factor): 1rem is the theme's rem times it.
+	// Zero means unknown and is treated as 1 (TextScaleFactor).
+	TextScale float64
+}
+
+// MaxTextScale bounds SystemSettings.TextScale; backends report larger OS
+// values as MaxTextScale.
+const MaxTextScale = 4
+
+// TextScaleFactor returns s.TextScale, or 1 when it is unknown (not
+// positive, or not a number).
+func (s SystemSettings) TextScaleFactor() float64 {
+	if s.TextScale > 0 && s.TextScale <= MaxTextScale {
+		return s.TextScale
+	}
+	if s.TextScale > MaxTextScale {
+		return MaxTextScale
+	}
+	return 1
+}
+
+// CheckSystemSettings panics with an actionable message if s has a
+// negative DoubleClickInterval or a TextScale that is negative, not a
+// number or above MaxTextScale. Backends report what the OS says within
+// these limits; the headless backend checks the settings tests give it.
+func CheckSystemSettings(s SystemSettings) {
+	if s.DoubleClickInterval < 0 {
+		panicf("platform: SystemSettings.DoubleClickInterval %v is negative; zero means unknown", s.DoubleClickInterval)
+	}
+	if math.IsNaN(s.TextScale) || s.TextScale < 0 || s.TextScale > MaxTextScale {
+		panicf("platform: SystemSettings.TextScale %v is out of range; give a factor in (0, %d], or 0 for unknown", s.TextScale, MaxTextScale)
+	}
 }
 
 // The double-click rule (ADR-192), shared by content clicks (core's click
@@ -431,7 +531,9 @@ func DoubleClickTime(interval time.Duration) time.Duration {
 }
 
 // Clipboard is the system clipboard (on X11, the CLIPBOARD selection).
-// Methods must be called on the UI thread.
+// Methods must be called on the UI thread. It carries [Data]: the
+// well-known MIME types mapped onto the OS's formats, and custom types
+// (see "Drag and drop and the clipboard" in the package documentation).
 //
 // Reading is asynchronous because on Wayland and X11 the data comes from
 // another client through the event loop; a synchronous read could deadlock
@@ -445,6 +547,25 @@ type Clipboard interface {
 
 	// WriteText puts text on the clipboard; the backend serves it to other
 	// applications from the event loop for as long as it owns the
-	// selection.
+	// selection. It is Write(TextData(text)).
 	WriteText(text string) error
+
+	// ReadTypes requests the MIME types the clipboard offers, normalized
+	// like DragEvent.Types, in the owner's order (nil when it is empty).
+	// done is called like ReadText's. It returns an error at once, and
+	// never calls done, when the request cannot be made (ErrUnsupported).
+	ReadTypes(done func(types []string, err error)) error
+
+	// Read requests the clipboard's content of one MIME type. done is
+	// called like ReadText's with the bytes, or nil and a nil error when
+	// the clipboard does not offer the type. It returns an error at once,
+	// and never calls done, when the request cannot be made
+	// (ErrUnsupported). An invalid type panics ([CheckMIME]).
+	Read(mime string, done func(data []byte, err error)) error
+
+	// Write puts data on the clipboard, replacing what it held; empty data
+	// clears it. The backend copies data and serves it, converted to the
+	// OS's formats, for as long as it owns the selection. Invalid data
+	// panics ([CheckData]).
+	Write(data Data) error
 }

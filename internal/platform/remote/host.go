@@ -434,6 +434,9 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 		h.appEvent(e)
 		return
 	}
+	if phase13Event(e) {
+		return // not carried by protocol 4 (phase13.go)
+	}
 	if rw := h.byWin[w]; rw != nil {
 		h.windowEvent(rw, e)
 	} else if fn := h.opts.OnUnhandled; fn != nil {

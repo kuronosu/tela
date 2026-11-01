@@ -37,6 +37,7 @@ type windowCtl struct {
 
 	regionChanges int
 	activations   int
+	tokens        []string // ActivateWithToken tokens
 	captionDrags  int
 	windowMenus   int
 
@@ -254,6 +255,25 @@ func (w *Window) Activate() {
 	}
 	w.queueFocus(true)
 	b.signal()
+}
+
+// ActivateWithToken records the token (ActivationTokens; "" is not
+// recorded) and activates the window like Activate.
+func (w *Window) ActivateWithToken(token string) {
+	w.b.mu.Lock()
+	if token != "" && !w.WindowState.Closed() {
+		w.ctl.tokens = append(w.ctl.tokens, token)
+	}
+	w.b.mu.Unlock()
+	w.Activate()
+}
+
+// ActivationTokens returns the tokens given to ActivateWithToken, in
+// order.
+func (w *Window) ActivationTokens() []string {
+	w.b.mu.Lock()
+	defer w.b.mu.Unlock()
+	return slices.Clone(w.ctl.tokens)
 }
 
 // SetIcon records a copy of the icon (Icon).

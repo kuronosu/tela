@@ -61,6 +61,25 @@ func describe(e platform.Event) string {
 		return fmt.Sprintf("notification(%d %v %s)", e.ID, e.Kind, e.Action)
 	case platform.TrayEvent:
 		return fmt.Sprintf("tray(%d %v %d)", e.Tray, e.Kind, e.Item)
+	case platform.DragEvent:
+		s := fmt.Sprintf("drag(%v %v,%v", e.Action, e.Pos.X, e.Pos.Y)
+		if e.FromApp {
+			s += " app"
+		}
+		if e.Action == platform.DragDrop {
+			s += fmt.Sprintf(" %q", e.Data.Types())
+		}
+		return s + ")"
+	case platform.DragDoneEvent:
+		return fmt.Sprintf("dragdone(%v)", e.Effect)
+	case platform.MenuEvent:
+		return fmt.Sprintf("menu(%d)", e.Item)
+	case platform.ShortcutEvent:
+		return fmt.Sprintf("shortcut(%s %v)", e.ID, e.Action)
+	case platform.ShortcutStatusEvent:
+		return fmt.Sprintf("shortcut-status(%s %v %q)", e.ID, e.Status, e.Trigger)
+	case platform.LaunchEvent:
+		return fmt.Sprintf("launch(%q %s %q)", e.Launch.Args, e.Launch.Dir, e.Launch.Token)
 	}
 	return fmt.Sprintf("%T", e)
 }

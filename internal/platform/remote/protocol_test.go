@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"image"
+	"image/color"
 	"io"
 	"math/rand"
 	"os"
@@ -103,6 +104,9 @@ func TestEveryEventHasAnEncoding(t *testing.T) {
 	slices.Sort(declared)
 	slices.Sort(sampled)
 	for _, name := range declared {
+		if slices.Contains(phase13Events, name) {
+			continue // not carried by protocol 4: the host drops them (phase13.go); step C adds them
+		}
 		if !slices.Contains(sampled, name) {
 			t.Errorf("platform.%s has no wire encoding: add it to enc.event and dec.event in protocol.go, to eventSamples, and to the host's routing", name)
 		}
@@ -126,6 +130,13 @@ func TestEventRoundTripRandom(t *testing.T) {
 				t.Fatalf("cannot generate %v", typ)
 			}
 			e := v.Interface().(platform.Event)
+			if se, ok := e.(platform.SettingsEvent); ok {
+				// Protocol 4 does not carry the phase-13 settings (accent
+				// color, high contrast, text scale); step C adds them.
+				se.Settings.AccentColor, se.Settings.HasAccentColor = color.NRGBA{}, false
+				se.Settings.HighContrast, se.Settings.TextScale = false, 0
+				e = se
+			}
 			if got := roundTrip(t, e); !reflect.DeepEqual(got, e) {
 				t.Fatalf("round trip of %T: got %+v, want %+v", e, got, e)
 			}
@@ -372,5 +383,21 @@ func TestFrameReader(t *testing.T) {
 	}
 	if _, _, err := r.next(); err != io.ErrUnexpectedEOF {
 		t.Errorf("truncated frame: %v, want ErrUnexpectedEOF", err)
+	}
+}
+
+// phase13Events are the event types protocol 4 does not carry
+// (phase13Event drops them in the host).
+var phase13Events = []string{"DragEvent", "DragDoneEvent", "MenuEvent", "ShortcutEvent", "ShortcutStatusEvent", "LaunchEvent"}
+
+func TestPhase13EventsAreDropped(t *testing.T) {
+	for _, e := range []platform.Event{platform.DragEvent{}, platform.DragDoneEvent{}, platform.MenuEvent{},
+		platform.ShortcutEvent{}, platform.ShortcutStatusEvent{}, platform.LaunchEvent{}} {
+		if !phase13Event(e) || !slices.Contains(phase13Events, reflect.TypeOf(e).Name()) {
+			t.Errorf("%T is not listed as an event protocol 4 drops", e)
+		}
+	}
+	if phase13Event(platform.TrayEvent{}) {
+		t.Errorf("TrayEvent is dropped")
 	}
 }

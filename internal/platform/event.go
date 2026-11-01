@@ -9,7 +9,8 @@ import "time"
 //
 // The window-scoped events are delivered with the Window they belong to.
 // App-scoped events ([WakeEvent], [SettingsEvent], [NotificationEvent],
-// [TrayEvent]) are delivered with a nil Window.
+// [TrayEvent], [ShortcutEvent], [ShortcutStatusEvent], [LaunchEvent]) are
+// delivered with a nil Window.
 type Event interface {
 	isEvent()
 }
@@ -345,7 +346,20 @@ type TrayEvent struct {
 	Item MenuItemID
 }
 
+// MenuEvent is delivered to a window when the user chooses an item of its
+// menu bar ([Window.SetMenu]). Only enabled items without a submenu are
+// reported.
+type MenuEvent struct {
+	Item MenuItemID
+}
+
 func (ConfigureEvent) isEvent()      {}
+func (DragEvent) isEvent()           {}
+func (DragDoneEvent) isEvent()       {}
+func (MenuEvent) isEvent()           {}
+func (ShortcutEvent) isEvent()       {}
+func (ShortcutStatusEvent) isEvent() {}
+func (LaunchEvent) isEvent()         {}
 func (WindowStateEvent) isEvent()    {}
 func (NotificationEvent) isEvent()   {}
 func (TrayEvent) isEvent()           {}

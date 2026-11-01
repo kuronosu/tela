@@ -13,7 +13,12 @@
 // and desktop contract (phase 12), call every window control method, hide
 // and show windows, open child and modal windows, and check that invalid
 // desktop service requests panic (no dialog, notification or tray icon is
-// ever shown). Input injection is backend-specific and tested by each
+// ever shown). For the desktop integration contract (phase 13) it checks
+// argument validation, the requests that are harmless without a user
+// (no drag without a press, a drop answer without a drag, clipboard data
+// round trips) and that unsupported services say so; it never registers
+// a shortcut, touches a keyring, claims an instance or writes an
+// association. Input injection is backend-specific and tested by each
 // backend.
 //
 // Windowed backends need a display (they should skip when their constructor
@@ -75,6 +80,8 @@ var subtests = []subtest{
 	{"HideShow", testHideShow},
 	{"ParentAndModal", testParentAndModal},
 	{"Desktop", testDesktop},
+	{"Integration", testIntegration},
+	{"ClipboardData", testClipboardData},
 }
 
 // Run runs the conformance suite as subtests of t.
@@ -155,7 +162,8 @@ func (s *session) run(setup func(), h func(w platform.Window, e platform.Event))
 				}
 			} else {
 				switch e.(type) {
-				case platform.WakeEvent, platform.SettingsEvent, platform.NotificationEvent, platform.TrayEvent:
+				case platform.WakeEvent, platform.SettingsEvent, platform.NotificationEvent, platform.TrayEvent,
+					platform.ShortcutEvent, platform.ShortcutStatusEvent, platform.LaunchEvent:
 				default:
 					s.t.Errorf("window-scoped event %T delivered with a nil window", e)
 				}
@@ -956,4 +964,144 @@ func testDesktop(s *session) {
 			s.b.Quit()
 		}
 	})
+}
+
+// testIntegration checks the phase-13 requests (ADR-210) without a user:
+// argument validation panics on every backend, whether it supports the
+// service or not, and the requests that need a user (a drag, a menu
+// choice) fail or wait cleanly. Nothing is registered, stored or claimed.
+func testIntegration(s *session) {
+	menu := []platform.MenuItem{{ID: 1, Label: "Open", Accelerator: "Ctrl+O"}}
+	popupDone := func(platform.MenuItemID, error) {
+		s.t.Errorf("a popup menu callback was called after an invalid request")
+	}
+	shortcut := platform.Shortcut{ID: "x", Accelerator: platform.Accelerator{Mods: platform.ModCtrl, Key: "x"}, Description: "X"}
+	app := platform.HandlerApp{ID: "dev.telaui.Conformance", Name: "Conformance", Exec: "/nonexistent/conformance"}
+	done := false
+	s.run(func() {
+		w := s.newWindow(platform.WindowOptions{Title: "integration"})
+		// Drag and drop: no drag is over the window, and none can start
+		// without a held press.
+		w.SetDropEffect(platform.DropCopy)
+		w.SetDropEffect(platform.DropNone, platform.MIMEText)
+		s.expectPanic("SetDropEffect with a set of effects", func() { w.SetDropEffect(platform.DropCopy | platform.DropMove) })
+		s.expectPanic("SetDropEffect with an invalid type", func() { w.SetDropEffect(platform.DropCopy, "text") })
+		if err := w.StartDrag(platform.DragOptions{Data: platform.TextData("x"), Allowed: platform.DropCopy}); err == nil {
+			s.t.Errorf("StartDrag without a held press = nil, want ErrNoGrab or ErrUnsupported")
+		} else if !errors.Is(err, platform.ErrNoGrab) && !errors.Is(err, platform.ErrUnsupported) {
+			s.t.Errorf("StartDrag without a held press = %v, want ErrNoGrab or ErrUnsupported", err)
+		}
+		s.expectPanic("StartDrag without data", func() { _ = w.StartDrag(platform.DragOptions{Allowed: platform.DropCopy}) })
+		s.expectPanic("StartDrag without effects", func() { _ = w.StartDrag(platform.DragOptions{Data: platform.TextData("x")}) })
+		// Menus.
+		s.expectPanic("SetMenu with an item without ID", func() { _ = w.SetMenu([]platform.MenuItem{{Label: "a"}}) })
+		if err := w.SetMenu(nil); err != nil && !errors.Is(err, platform.ErrUnsupported) {
+			s.t.Errorf("SetMenu(nil) = %v", err)
+		}
+		s.expectPanic("PopupMenu with a nil callback", func() { _ = w.PopupMenu(platform.Point{}, menu, nil) })
+		s.expectPanic("PopupMenu with an empty menu", func() { _ = w.PopupMenu(platform.Point{}, nil, popupDone) })
+		s.expectPanic("PopupMenu with a duplicate ID", func() {
+			_ = w.PopupMenu(platform.Point{}, []platform.MenuItem{{ID: 1}, {ID: 1}}, popupDone)
+		})
+		// Desktop services.
+		d := s.b.Desktop()
+		bad := shortcut
+		bad.Accelerator.Key = "X"
+		s.expectPanic("RegisterShortcut with an upper-case key", func() { _ = d.RegisterShortcut(bad) })
+		bad = shortcut
+		bad.Description = ""
+		s.expectPanic("RegisterShortcut without a description", func() { _ = d.RegisterShortcut(bad) })
+		if err := d.UnregisterShortcut("dev.telaui.never-registered"); err != nil && !errors.Is(err, platform.ErrUnsupported) {
+			s.t.Errorf("UnregisterShortcut of an unknown ID = %v", err)
+		}
+		if err := d.SetSecret(app.ID, "x", make([]byte, platform.MaxSecretSize+1)); !errors.Is(err, platform.ErrSecretTooLarge) {
+			s.t.Errorf("SetSecret of %d bytes = %v, want ErrSecretTooLarge", platform.MaxSecretSize+1, err)
+		}
+		s.expectPanic("Secret without a name", func() { _, _ = d.Secret(app.ID, "") })
+		s.expectPanic("DeleteSecret with an invalid app ID", func() { _ = d.DeleteSecret("a b", "x") })
+		s.expectPanic("ClaimInstance without an app ID", func() { _, _ = d.ClaimInstance("", platform.Launch{}) })
+		a := d.Associations()
+		if a == nil {
+			s.t.Errorf("Desktop().Associations() is nil; return platform.UnsupportedAssociations{}")
+		} else {
+			s.expectPanic("Associations.Register without Exec", func() {
+				_, _ = a.Register(platform.HandlerApp{ID: app.ID, Name: "x"}, platform.Association{Scheme: "x"}, platform.RegisterOptions{})
+			})
+			s.expectPanic("Associations.Status of a standard scheme", func() { _, _ = a.Status(app, platform.Association{Scheme: "https"}) })
+		}
+	}, func(w platform.Window, e platform.Event) {
+		switch e.(type) {
+		case platform.DragEvent, platform.DragDoneEvent, platform.MenuEvent:
+			s.t.Errorf("%T delivered without a user", e)
+		case platform.FrameEvent:
+			s.present(w, opaqueBlue)
+			if !done {
+				done = true
+				s.wakeAfter(quietPeriod)
+			}
+		case platform.WakeEvent:
+			s.b.Quit()
+		}
+	})
+}
+
+// testClipboardData round-trips Data through the clipboard where the
+// backend supports it (ErrUnsupported otherwise), and checks that the
+// callbacks run later, from the loop.
+func testClipboardData(s *session) {
+	data := platform.Data{{Type: platform.MIMEHTML, Bytes: []byte("<b>tela ✓</b>")}, {Type: platform.MIMEText, Bytes: []byte("tela ✓")}}
+	var inCall bool
+	var types []string
+	var html []byte
+	called := false
+	s.run(func() {
+		s.newWindow(platform.WindowOptions{})
+		cb := s.b.Clipboard()
+		s.expectPanic("Clipboard.Write with an invalid type", func() { _ = cb.Write(platform.Data{{Type: "html"}}) })
+		s.expectPanic("Clipboard.Read with a nil callback", func() { _ = cb.Read(platform.MIMEText, nil) })
+		s.expectPanic("Clipboard.ReadTypes with a nil callback", func() { _ = cb.ReadTypes(nil) })
+	}, func(w platform.Window, e platform.Event) {
+		if _, ok := e.(platform.FrameEvent); !ok || called {
+			return
+		}
+		s.present(w, opaqueBlue)
+		called = true
+		cb := s.b.Clipboard()
+		if err := cb.Write(data); err != nil {
+			if !errors.Is(err, platform.ErrUnsupported) {
+				s.t.Errorf("Clipboard.Write = %v", err)
+			}
+			s.b.Quit()
+			return
+		}
+		inCall = true
+		err := cb.ReadTypes(func(t []string, err error) {
+			if inCall {
+				s.t.Errorf("ReadTypes called its callback synchronously")
+			}
+			if err != nil {
+				s.t.Errorf("ReadTypes: %v", err)
+			}
+			types = t
+		})
+		if err == nil {
+			err = cb.Read(platform.MIMEHTML, func(b []byte, err error) {
+				if err != nil {
+					s.t.Errorf("Read: %v", err)
+				}
+				html = b
+				s.b.Quit()
+			})
+		}
+		inCall = false
+		if err != nil {
+			s.t.Errorf("Clipboard.Write succeeded but reading failed: %v", err)
+			s.b.Quit()
+		}
+	})
+	if called && html != nil {
+		if string(html) != "<b>tela ✓</b>" || !slices.Contains(types, platform.MIMEHTML) || !slices.Contains(types, platform.MIMEText) {
+			s.t.Errorf("clipboard round trip: types %q, HTML %q", types, html)
+		}
+	}
 }

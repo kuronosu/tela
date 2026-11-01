@@ -30,6 +30,20 @@ type Window struct {
 	damage   []image.Rectangle
 	presents int
 	ctl      windowCtl // window control state (windowctl.go)
+
+	// Pointer state of the pointer events delivered to the app (tracker):
+	// the held buttons (StartDrag needs one), the last position and
+	// modifiers.
+	buttons platform.Buttons
+	pointer platform.Point
+	mods    platform.Modifiers
+
+	// Drag and drop (dnd.go) and the menu bar (menu.go).
+	drop        dropAnswer
+	dropping    bool // a DragDrop is queued or being handled
+	drops       []platform.DropEffect
+	menu        []platform.MenuItem
+	menuChanges int
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -147,6 +161,9 @@ func (w *Window) closeLocked() {
 			c.closeLocked()
 		}
 	}
+	if d := w.b.drag; d != nil && d.over == w {
+		d.over = nil // the drag goes on over nothing
+	}
 	w.b.loop.Remove(w)
 }
 
@@ -154,12 +171,18 @@ func (w *Window) closeLocked() {
 
 // Inject queues an input or window event for this window, as if the OS
 // produced it. Accepted: PointerEvent, ScrollEvent, KeyEvent, IMEEvent,
-// FocusEvent, CloseRequestedEvent. A zero Time in pointer, scroll and key
+// FocusEvent, CloseRequestedEvent, and MenuEvent (the user chose an
+// enabled item without a submenu of the window's menu bar). A zero Time in pointer, scroll and key
 // events is set to the current clock. Other events have dedicated APIs
 // (Resize, SetScale, SetState for WindowStateEvent, RequestFrame,
 // Backend.Wake, Backend.SetSettings, Backend.InjectApp, SetTextInput for
 // IMESessionEvent) and panic here. Events injected into a closed window are
 // dropped.
+//
+// While a drag is in progress (StartDrag, Backend.StartExternalDrag),
+// pointer events move it instead of reaching the app: a move or enter
+// over the window is a DragEnter or DragOver, a leave a DragLeave, a
+// release drops it, a cancel cancels it.
 //
 // Pointer presses in a caption hit region (SetHitRegions) are the "OS's",
 // as on a real backend: the press and every pointer event until its
@@ -192,10 +215,15 @@ func (w *Window) Inject(e platform.Event) {
 		if ev.Time == 0 {
 			ev.Time = w.b.Now()
 		}
-		if w.captionPointer(ev) {
+		if w.draggedPointer(ev) || w.captionPointer(ev) {
 			return
 		}
 		e = ev
+	case platform.MenuEvent:
+		w.injectMenu(ev)
+		return
+	case platform.DragEvent:
+		panic("headless: Inject does not accept DragEvent; start a drag with Window.StartDrag or Backend.StartExternalDrag, then inject pointer events: they move and drop it")
 	case platform.ScrollEvent:
 		if ev.Time == 0 {
 			ev.Time = w.b.Now()
@@ -214,7 +242,7 @@ func (w *Window) Inject(e platform.Event) {
 	case nil:
 		panic("headless: Inject called with a nil event")
 	default:
-		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, SetState for WindowStateEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent, Backend.InjectApp for NotificationEvent and TrayEvent, SetFocused and SetTextInput for IMESessionEvent", e))
+		panic(fmt.Sprintf("headless: Inject does not accept %T; use Resize/SetScale for ConfigureEvent, SetState for WindowStateEvent, RequestFrame and Backend.Advance for FrameEvent, Backend.Wake for WakeEvent, Backend.SetSettings for SettingsEvent, Backend.InjectApp for NotificationEvent, TrayEvent, ShortcutEvent, ShortcutStatusEvent and LaunchEvent, SetFocused and SetTextInput for IMESessionEvent, StartDrag and pointer events for DragDoneEvent", e))
 	}
 	w.b.mu.Lock()
 	if w.WindowState.Closed() {

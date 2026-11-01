@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
 // Service names a group of desktop services, for Backend.SetUnsupported.
@@ -17,6 +18,13 @@ const (
 	ServiceMessageBox                   // MessageBox (unsupported on Linux backends)
 	ServiceNotifications                // Notify, CloseNotification
 	ServiceTray                         // NewTray, UpdateTray, RemoveTray
+	ServiceClipboard                    // Clipboard ReadTypes, Read, Write (text always works)
+	ServiceDragDrop                     // Window.StartDrag
+	ServiceMenus                        // Window.SetMenu, Window.PopupMenu (unsupported on Linux backends)
+	ServiceShortcuts                    // RegisterShortcut, UnregisterShortcut
+	ServiceSecrets                      // SetSecret, Secret, DeleteSecret
+	ServiceInstance                     // ClaimInstance
+	ServiceAssociations                 // Associations (platform.UnsupportedAssociations)
 	serviceCount
 )
 
@@ -28,9 +36,10 @@ const (
 	DialogSaveFile
 	DialogPickFolder
 	DialogMessageBox
+	DialogPopupMenu // Window.PopupMenu
 )
 
-var dialogKindNames = [...]string{"OpenFiles", "SaveFile", "PickFolder", "MessageBox"}
+var dialogKindNames = [...]string{"OpenFiles", "SaveFile", "PickFolder", "MessageBox", "PopupMenu"}
 
 func (k DialogKind) String() string {
 	if int(k) < len(dialogKindNames) {
@@ -45,9 +54,18 @@ type Dialog struct {
 	ID   int
 	Kind DialogKind
 	// File holds the options of the file dialogs, Message those of a
-	// message box.
+	// message box, Popup those of a popup menu.
 	File    platform.FileDialogOptions
 	Message platform.MessageBoxOptions
+	Popup   Popup
+}
+
+// Popup is a popup menu the app asked for (Window.PopupMenu).
+type Popup struct {
+	Window *Window
+	// At is the menu's top-left corner, in logical window coordinates.
+	At   platform.Point
+	Menu []platform.MenuItem
 }
 
 // DialogResponse is the user's answer to a Dialog.
@@ -59,6 +77,9 @@ type DialogResponse struct {
 	// buttons (platform.MessageButtons.Has; DismissAnswer for a box
 	// closed without a button).
 	Answer platform.MessageAnswer
+	// Item is the chosen item of a popup menu: an enabled item without a
+	// submenu, or 0 when the user dismissed the menu.
+	Item platform.MenuItemID
 	// Err, if set, is reported instead (a failed dialog).
 	Err error
 }
@@ -98,6 +119,15 @@ type desktopState struct {
 	notifications []NotificationRecord
 	trays         []TrayRecord
 	lastTray      platform.TrayID
+
+	// Phase 13 (services13.go).
+	shortcuts         []ShortcutRecord
+	shortcutResponder func(platform.Shortcut) platform.ShortcutStatusEvent
+	secrets           map[secretKey][]byte
+	secretErr         error
+	instances         []string // app IDs this backend claimed
+	launches          []platform.Launch
+	assoc             *assoc.Fake
 }
 
 // Desktop returns the headless desktop services: nothing is shown; every
@@ -189,6 +219,21 @@ func (b *Backend) AnswerDialog(id int, r DialogResponse) {
 
 // checkResponse panics if r is not an answer a real dialog d could give.
 func checkResponse(d Dialog, r DialogResponse) {
+	if d.Kind == DialogPopupMenu {
+		if len(r.Paths) > 0 {
+			panic(fmt.Sprintf("headless: dialog %d is a popup menu, answered with paths", d.ID))
+		}
+		if r.Item != 0 && r.Err == nil {
+			it, ok := platform.FindMenuItem(d.Popup.Menu, r.Item)
+			switch {
+			case !ok:
+				panic(fmt.Sprintf("headless: dialog %d: the popup menu has no item %d", d.ID, r.Item))
+			case it.Disabled:
+				panic(fmt.Sprintf("headless: dialog %d: item %d (%q) is disabled", d.ID, r.Item, it.Label))
+			}
+		}
+		return
+	}
 	switch {
 	case d.Kind == DialogMessageBox && r.Err == nil && !d.Message.Buttons.Has(r.Answer):
 		panic(fmt.Sprintf("headless: dialog %d: answer %v is not a button of the message box (buttons %d)", d.ID, r.Answer, d.Message.Buttons))
@@ -223,14 +268,21 @@ func (b *Backend) Trays() []TrayRecord {
 
 // InjectApp queues an app-scoped event as if the OS produced it: a
 // NotificationEvent (the user clicked a notification or one of its
-// actions, or it closed) or a TrayEvent (the user clicked a tray icon or
-// chose one of its menu items). The event must be one a real backend could
-// deliver: an open notification and an existing action; an existing tray
-// and an enabled item without a submenu. A NotificationClosed marks the
-// notification closed. Safe from any goroutine.
+// actions, or it closed), a TrayEvent (the user clicked a tray icon or
+// chose one of its menu items), a ShortcutEvent (the user pressed or
+// released a global shortcut), a ShortcutStatusEvent (the OS or the user
+// changed a shortcut's binding later: another trigger, revoked) or a
+// LaunchEvent (another process of the app was started; ClaimInstance from
+// a second backend does the same). The event must be one a real backend
+// could deliver: an open notification and an existing action; an existing
+// tray and an enabled item without a submenu; a bound shortcut; a status
+// for a registered shortcut (which it records); a launch for a backend
+// that claimed an instance. A NotificationClosed marks the notification
+// closed. Safe from any goroutine.
 func (b *Backend) InjectApp(e platform.Event) {
 	b.mu.Lock()
 	problem := ""
+	queued := e
 	switch e := e.(type) {
 	case platform.NotificationEvent:
 		i := slices.IndexFunc(b.desktop.notifications, func(r NotificationRecord) bool { return r.ID == e.ID })
@@ -264,6 +316,18 @@ func (b *Backend) InjectApp(e platform.Event) {
 				problem = fmt.Sprintf("menu item %d (%q) is disabled", e.Item, it.Label)
 			}
 		}
+	case platform.ShortcutEvent:
+		problem = b.checkShortcutEvent(e)
+	case platform.ShortcutStatusEvent:
+		problem = b.applyShortcutStatus(e)
+	case platform.LaunchEvent:
+		if len(b.desktop.instances) == 0 {
+			problem = "the backend claimed no instance (ClaimInstance)"
+		} else {
+			e.Launch = e.Launch.Clone()
+			b.desktop.launches = append(b.desktop.launches, e.Launch.Clone())
+			queued = e
+		}
 	case nil:
 		problem = "nil event"
 	default:
@@ -273,7 +337,7 @@ func (b *Backend) InjectApp(e platform.Event) {
 		b.mu.Unlock()
 		panic(fmt.Sprintf("headless: InjectApp(%+v): %s", e, problem))
 	}
-	b.loop.Enqueue(nil, e)
+	b.loop.Enqueue(nil, queued)
 	b.mu.Unlock()
 	b.signal()
 }
@@ -282,6 +346,9 @@ func (b *Backend) InjectApp(e platform.Event) {
 type desktop struct{ b *Backend }
 
 var _ platform.Desktop = desktop{}
+
+// supports reports whether service s is supported; b.mu must not be held.
+func (b *Backend) supports(s Service) bool { return desktop{b}.supported(s) }
 
 // supported reports whether service s is supported; b.mu must not be held.
 func (d desktop) supported(s Service) bool {

@@ -473,7 +473,7 @@ type Backend interface {
     Quit()                          // safe from any goroutine
     Wake()                          // safe from any goroutine; coalesces into one WakeEvent
     Now() time.Duration             // frame clock: time base of FrameEvent and input events
-    Clipboard() Clipboard           // async ReadText, WriteText
+    Clipboard() Clipboard           // async ReadText, WriteText; Data by MIME type (ADR-210)
     Settings() SystemSettings       // dark mode, reduced motion…; changes arrive as SettingsEvent
 }
 
@@ -489,11 +489,11 @@ type Window interface {
 type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entrantly
 ```
 
-- **Events** (sealed set): `ConfigureEvent` (size and/or scale; implies a frame), `FrameEvent`, `CloseRequestedEvent`, `FocusEvent`, `WakeEvent`, `SettingsEvent`, `PointerEvent` (DOM-style `Action`: move, enter, leave, down, up, cancel), `ScrollEvent` (precise `Delta`, discrete `Steps`, gesture `Phase`; ADR-057), `KeyEvent` (ADR-050), `IMEEvent` and `IMESessionEvent` (ADR-068), `WindowStateEvent`, and the app-scoped `NotificationEvent` and `TrayEvent` (ADR-179).
+- **Events** (sealed set): `ConfigureEvent` (size and/or scale; implies a frame), `FrameEvent`, `CloseRequestedEvent`, `FocusEvent`, `WakeEvent`, `SettingsEvent`, `PointerEvent` (DOM-style `Action`: move, enter, leave, down, up, cancel), `ScrollEvent` (precise `Delta`, discrete `Steps`, gesture `Phase`; ADR-057), `KeyEvent` (ADR-050), `IMEEvent` and `IMESessionEvent` (ADR-068), `WindowStateEvent`, `DragEvent`, `DragDoneEvent` and `MenuEvent` (ADR-210), and the app-scoped `NotificationEvent` and `TrayEvent` (ADR-179) and `ShortcutEvent`, `ShortcutStatusEvent` and `LaunchEvent` (ADR-210).
 - **Sizing rule:** `PhysicalSize(logical, scale)` rounds logical × scale half away from zero (the `wp_fractional_scale_v1` rule). Every backend sizes framebuffers with it.
 - `Run` does not return when the last window closes; quitting is app policy (`core`/`tela`).
 - Backends share the OS-independent half of the loop (`internal/platform/internal/loop`: queue, wake/quit, frame pacing; ADR-050) and keep only their OS I/O.
-- **Desktop (phase 12, ADR-178):** windows also take state (minimize, maximize, fullscreen, visibility, always-on-top, min/max size, position where the OS allows it), a parent and modality, hit regions for custom title bars, and on Windows 11 title bar colors and a system backdrop (Mica, Acrylic; ADR-187); backends expose OS services (open URI, file dialogs, message boxes, notifications, tray icons; phase 13 adds drag and drop, clipboard formats, native menus, global shortcuts, single instance, scheme and file-type registration and secrets, ADR-209). The Linux services are shared by Wayland and X11 over D-Bus. `Backend.Desktop()` returns them; window control methods are requests whose outcome arrives as `WindowStateEvent`/`ConfigureEvent` (ADR-179). The exact contract is in `doc.go`.
+- **Desktop (phase 12, ADR-178):** windows also take state (minimize, maximize, fullscreen, visibility, always-on-top, min/max size, position where the OS allows it), a parent and modality, hit regions for custom title bars, and on Windows 11 title bar colors and a system backdrop (Mica, Acrylic; ADR-187); backends expose OS services (open URI, file dialogs, message boxes, notifications, tray icons; phase 13 adds drag and drop, clipboard formats, native menus, global shortcuts, single instance, scheme and file-type registration and secrets, ADR-209; contract v3, ADR-210: registration lives in `internal/platform/assoc` and works without a running app, and secrets and registration block and are safe from any goroutine). The Linux services are shared by Wayland and X11 over D-Bus. `Backend.Desktop()` returns them; window control methods are requests whose outcome arrives as `WindowStateEvent`/`ConfigureEvent` (ADR-179). The exact contract is in `doc.go`.
 - The IME is driven by `Window.SetTextInput` (cursor area, purpose, surrounding text; nil = no text field) and `ResetTextInput` (ADR-068).
 
 ### Backends

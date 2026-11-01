@@ -42,8 +42,9 @@
 //
 // The event set: ConfigureEvent, FrameEvent, CloseRequestedEvent,
 // FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent,
-// KeyEvent, IMEEvent, IMESessionEvent, WindowStateEvent, and the app-scoped
-// NotificationEvent and TrayEvent.
+// KeyEvent, IMEEvent, IMESessionEvent, WindowStateEvent, DragEvent,
+// DragDoneEvent, MenuEvent, and the app-scoped NotificationEvent,
+// TrayEvent, ShortcutEvent, ShortcutStatusEvent and LaunchEvent.
 //
 // # Threading
 //
@@ -55,7 +56,11 @@
 //     the UI thread, before Run (on the same goroutine) or from inside the
 //     handler.
 //     Exceptions, safe from any goroutine: [Backend.Wake], [Backend.Quit],
-//     [Backend.Now].
+//     [Backend.Now]; the secret methods of Desktop (SetSecret, Secret,
+//     DeleteSecret) and every method of [Associations], which block on
+//     the OS (an unlock prompt, file and registry I/O) and are meant to
+//     be called off the UI thread. Desktop() itself is called on the UI
+//     thread; the value it returns may be kept for those calls.
 //   - The handler is never called re-entrantly. If a method the handler calls
 //     makes the OS deliver a message synchronously (Win32 SetWindowPos sends
 //     WM_SIZE from inside the call), the backend queues the resulting event
@@ -459,7 +464,8 @@
 // dialogs, message boxes, notifications and tray icons. Rules for every
 // backend:
 //
-//   - UI thread only. Arguments are checked with the shared helpers
+//   - UI thread only (except the secret methods and Associations, see
+//     "Threading"). Arguments are checked with the shared helpers
 //     ([CheckFileDialogOptions], [CheckMessageBoxOptions],
 //     [CheckNotification], [CheckTrayOptions], [CheckURI]) before anything
 //     else, so programmer errors panic on every platform, including where
@@ -500,6 +506,184 @@
 // documented quirk) and for notifications (NIF_INFO balloons, shown as
 // toasts: no actions; a click is NotificationActivated, a timeout or
 // dismissal NotificationClosed).
+//
+// Phase 13 (ADR-209, ADR-210) adds drag and drop, clipboard data, native
+// menus, global shortcuts, system settings v2, secrets, single instance
+// and the registration of schemes and file types, in the sections below.
+// The rules above hold for them too: arguments are checked first with
+// the shared helpers ([CheckData], [CheckMIME], [CheckSetDropEffect],
+// [CheckDragOptions], [CheckMenu], [CheckPopupMenu], [CheckShortcut],
+// [CheckSecret], [CheckAppID], [CheckHandlerApp], [CheckAssociation]),
+// asynchronous answers go through the loop, and a missing service returns
+// ErrUnsupported synchronously.
+//
+// # Drag and drop and the clipboard
+//
+// One data type, [Data], carries a drag and the clipboard: an ordered set
+// of (MIME type, bytes) entries, best first. Four types are well known and
+// mapped onto each OS's formats; any other MIME type is a custom type,
+// carried by name (Wayland and X11 targets, Win32 formats registered with
+// RegisterClipboardFormatW under the MIME type). Backends convert in both
+// directions, so the app sees only MIME types:
+//
+//   - MIMEText ("text/plain;charset=utf-8"): Win32 CF_UNICODETEXT
+//     (UTF-16, NUL-terminated; CRLF kept as is); Linux targets
+//     "text/plain;charset=utf-8", UTF8_STRING, "text/plain", TEXT and
+//     STRING (Latin-1) offered, any of them read ([SelectionTargets],
+//     [SelectionType]).
+//   - MIMEHTML ("text/html"): Win32 "HTML Format" (registered): written as
+//     the fragment in a minimal document with the Version, StartHTML,
+//     EndHTML, StartFragment and EndFragment header (byte offsets of the
+//     UTF-8 text), read back as the fragment between StartFragment and
+//     EndFragment; "text/html" on Linux.
+//   - MIMEPNG ("image/png"): Win32 registered "PNG", plus CF_DIBV5 (and
+//     CF_DIB by synthesis) converted from it for programs that read only
+//     bitmaps; read from "PNG", else from CF_DIBV5 or CF_DIB converted to
+//     PNG (image/png of the standard library); "image/png" on Linux.
+//   - MIMEURIList ("text/uri-list", RFC 2483, CRLF): files as file: URIs
+//     ([FileURI], [FilePath], [URIList], [ParseURIList]). Win32 CF_HDROP
+//     (DROPFILES with a double-NUL-terminated UTF-16 path list; only
+//     file: URIs of local paths, other URIs are dropped); Linux also
+//     "x-special/gnome-copied-files" for file managers ([GnomeCopiedFiles],
+//     "copy" when written), read as a URI list when it is the only one.
+//
+// Types are reported normalized (DragEvent.Types, Clipboard.ReadTypes):
+// OS formats mapped to the well-known types, each type once at the
+// position of its first format, meta targets (TARGETS, MULTIPLE,
+// TIMESTAMP) and formats without a MIME name left out.
+//
+// The clipboard ([Clipboard]) keeps ReadText and WriteText, which text
+// fields use, and adds ReadTypes, Read and Write for Data. Reads answer
+// through the loop on every backend, even where the OS reads at once
+// (Win32: OpenClipboard, retried while another process holds it). Write
+// replaces the whole clipboard and the backend serves every entry for as
+// long as it owns it: Wayland wl_data_source with SelectionTargets of
+// each type and set_selection with the latest input serial, X11
+// SetSelectionOwner of CLIPBOARD answering SelectionRequest (TARGETS,
+// MULTIPLE, INCR for large data), Win32 EmptyClipboard and
+// SetClipboardData per format (delayed rendering is not needed).
+//
+// Drag and drop follows HTML's model. Target side, for every window of
+// every backend:
+//
+//   - A drag over a window is a session of [DragEvent]s: DragEnter, any
+//     number of DragOver (only when the position, the modifiers or the
+//     allowed effects change; backends coalesce bursts with internal/loop
+//     QueueDrag), then exactly one DragLeave or DragDrop (no DragLeave
+//     after a drop, whatever order the OS reports them in). A drag that
+//     moves between windows of the app leaves one before entering the
+//     other. While a drag is over a window, the window gets no pointer
+//     events for the dragging pointer; a pointer that was over it gets a
+//     PointerLeave first.
+//   - Types, Allowed, Mods and FromApp are known from DragEnter on; only
+//     the types, not the data, are known before the drop.
+//   - The app answers with [Window.SetDropEffect]: an effect (DropNone
+//     refuses; one outside Allowed counts as DropNone) and the types it
+//     will read. The answer holds until changed or the session ends, and
+//     a session starts refused. A release while the answer refuses ends
+//     the session with DragLeave (the OS does not drop there).
+//   - DragDrop carries Data, read by the backend before delivery: the
+//     offered types the app named, else the well-known types offered
+//     ([DropTypes]); a type the source fails to deliver within a few
+//     seconds is left out. The effect the window holds when the handler
+//     returns is the outcome reported to the source; SetDropEffect(DropNone)
+//     while handling the drop tells a moving source to keep its data.
+//   - Answers reach the OS as each OS needs: Win32 must return the effect
+//     from inside IDropTarget::DragEnter, DragOver and Drop, so the backend
+//     delivers the event synchronously (internal/loop Deliver, as with
+//     WM_SIZE) and returns the answer (when a pass is already running, it
+//     returns the previous answer and the event waits); Wayland
+//     (wl_data_offer.accept and set_actions) and X11 (XdndStatus) send the
+//     answer after the handler returns, from a callback the backend posts
+//     right after the event (internal/loop Post).
+//
+// Source side ([Window.StartDrag], [DragOptions], [DragDoneEvent]):
+//
+//   - StartDrag needs a pointer button pressed in the window and still
+//     held (Wayland start_drag needs that press's serial; the implicit
+//     grab), else ErrNoGrab; one drag at a time. The app calls it from the
+//     handler of the sequence's PointerDown or PointerMove (core: when its
+//     drag gesture starts on an h.Draggable element).
+//   - The OS takes the pointer: the window gets a PointerCancel for it
+//     before any drag event, and nothing else of that sequence.
+//   - The drag may end over any window of any application, the app's own
+//     included (then its windows get the target-side events with FromApp
+//     set). One DragDoneEvent reports the outcome to the source window.
+//   - Data and Image are copied before StartDrag returns. The image is a
+//     hint (premultiplied RGBA in physical pixels, Hotspot under the
+//     pointer).
+//
+// # Native menus
+//
+// [MenuItem] (shared with tray menus; IDs chosen by the app, Accelerator
+// as display text) describes a window's menu bar ([Window.SetMenu]; a
+// choice is a window-scoped [MenuEvent]) and popup menus
+// ([Window.PopupMenu]; asynchronous like the dialogs, 0 for a dismissed
+// menu). Where the OS has no native menu, both return ErrUnsupported and
+// the layers above draw their own (kit's menus): Wayland and X11 always,
+// frameless Win32 windows for the menu bar (their client area covers the
+// frame), Cocoa until phase 14 (whose menu bar is the app's NSMenu).
+//
+// # Global shortcuts
+//
+// [Desktop.RegisterShortcut] asks the OS for a system-wide [Shortcut]: an
+// app-chosen stable ID, an [Accelerator] (modifiers and a logical key, as
+// KeyEvent.Key reports it without Shift) and a description. The outcome
+// is asynchronous on every backend: exactly one app-scoped
+// [ShortcutStatusEvent] follows a request that returned nil (ShortcutBound
+// with the trigger the OS bound, or Taken, Refused, Failed with a
+// reason), even where the OS answers at once; later changes (the user
+// rebinding or removing it) are further ShortcutStatusEvents. Presses and,
+// where the OS reports them, releases are app-scoped [ShortcutEvent]s.
+// Registering an ID again replaces it; shortcuts go away when Run
+// returns.
+//
+// # System settings
+//
+// [SystemSettings] reports dark mode, reduced motion, the double-click
+// time, the accent color (HasAccentColor), high contrast and the text
+// scale (0 unknown, TextScaleFactor treats it as 1; the layers above
+// multiply rem by it). Backends read them when they start and deliver a
+// [SettingsEvent] with the whole new value when one changes (an equal
+// value is not reported).
+//
+// # Secrets
+//
+// [Desktop.SetSecret], Secret and DeleteSecret keep small secrets (keys,
+// tokens; at most [MaxSecretSize] bytes, the Credential Manager limit) in
+// the OS's secure storage, named by (app ID, name). Unlike the rest of
+// Desktop they block (the OS may show an unlock prompt) and are safe from
+// any goroutine. A missing name is [ErrSecretNotFound] (errors.Is with
+// fs.ErrNotExist); no secure storage in the session is ErrUnsupported, and
+// the layers above disable what needs it.
+//
+// # Single instance and launches
+//
+// [Desktop.ClaimInstance] makes the process the app's single instance,
+// keyed by the app ID. It works before any window exists, so the layers
+// above call it first and open nothing in a second process: there, the
+// call forwards the process's [Launch] (arguments, working directory,
+// activation token: [CurrentLaunch]) to the first process and returns
+// false, and the caller exits with status 0. The first process receives
+// the launch as an app-scoped [LaunchEvent] and raises a window with
+// [Window.ActivateWithToken]. The claim ends when the process exits.
+//
+// # Registration of schemes and file types
+//
+// [Desktop.Associations] (and, without a running app, package
+// internal/platform/assoc's Native) registers the app as a handler of URL
+// schemes and file extensions ([Associations], [HandlerApp],
+// [Association]) for the current user, under the owner's conditions
+// (ADR-209): per user and never with administrator rights; it looks
+// before writing and writes nothing when nothing changes; it never
+// overwrites another application's association without
+// RegisterOptions.Replace; Register makes the app a candidate, not the
+// default, and becoming the default is the separate MakeDefault (Windows
+// file types: the Default apps settings page); Status reports whether the
+// app is registered, is the default, and which other application holds
+// the association. Package assoc documents what is written where; its
+// tests run against temporary directories and an in-memory registry, never
+// the real system.
 //
 // # Coordinates, scale and framebuffer size
 //
@@ -619,4 +803,166 @@
 // window manager grants every window control request deterministically,
 // and its desktop services are answered by programmable responders and
 // recorded for inspection (see the headless package).
+//
+// # Desktop integration on each OS
+//
+// What each backend calls for the phase-13 contract (ADR-210). Wayland and
+// X11 share the D-Bus services in internal/platform/internal/freedesktop.
+//
+// Wayland:
+//
+//   - Drag and drop on wl_data_device (the clipboard's device). Target:
+//     the wl_data_offer's offer events before enter give Types,
+//     source_actions gives Allowed (copy and move; Wayland has no link,
+//     and ask is ignored), enter and motion are DragEnter and DragOver
+//     (surface-local coordinates), leave is DragLeave unless it follows a
+//     drop; the answer is wl_data_offer.accept(serial, the first wanted
+//     type offered, or null when refused) and set_actions(effect, effect)
+//     (version 3), sent after the handler; drop reads each wanted type
+//     with receive and a pipe (read without blocking the loop, with a
+//     timeout), then delivers DragDrop, then calls finish (if accepted)
+//     and destroys the offer. Mods come from wl_keyboard.modifiers.
+//     FromApp: the backend's own drag source is in progress. Source:
+//     create_data_source, offer each type's SelectionTargets, set_actions
+//     (Allowed), start_drag with the serial of the held press (the
+//     backend keeps the serial of each pointer's latest button press) and
+//     an icon surface holding the image at -Hotspot (buffer scale or
+//     viewport for the window's scale); send events write the data
+//     without blocking; dnd_finished reports the last action event,
+//     cancelled DropNone. The pointer's leave that follows start_drag is
+//     the source window's PointerCancel.
+//   - Clipboard data: the selection offer's types; receive per type.
+//   - Menus: none (ErrUnsupported).
+//   - Global shortcuts: org.freedesktop.portal.GlobalShortcuts only
+//     (CreateSession, BindShortcuts with description and preferred_trigger
+//     in the XDG shortcut format, "CTRL+SHIFT+k" with xkb keysym names,
+//     the parent "wayland:<handle>" when exported; the Response's
+//     shortcuts give trigger_description; Activated, Deactivated,
+//     ShortcutsChanged). xdg-desktop-portal 1.19 and later first need the
+//     app ID registered (org.freedesktop.host.portal.Registry.Register).
+//     No portal: ErrUnsupported.
+//   - ActivateWithToken: xdg_activation_v1.activate(token, surface).
+//
+// X11:
+//
+//   - Drag and drop with XDND version 5. Target: every window has
+//     XdndAware = 5; XdndEnter gives Types (in the message, or the source's
+//     XdndTypeList when it has more than three); the first XdndPosition is
+//     DragEnter (root coordinates translated to the window), later ones
+//     DragOver; Allowed is the requested action, or XdndActionList when
+//     the source sends XdndActionAsk; Mods from QueryPointer's mask; the
+//     answer is XdndStatus (accept flag, XdndActionCopy/Move/Link, an
+//     empty rectangle so every move is reported), sent after the handler;
+//     XdndLeave is DragLeave; XdndDrop converts XdndSelection to each
+//     wanted target with XdndDrop's timestamp (INCR for large data), then
+//     delivers DragDrop, then sends XdndFinished (accepted, performed
+//     action). Source: own XdndSelection, grab the pointer and the
+//     keyboard (Escape cancels), find the XdndAware top-level under the
+//     pointer, send XdndEnter, XdndPosition (the action Ctrl/Shift pick
+//     among Allowed, XdndActionAsk with XdndActionList when several are
+//     allowed), XdndLeave and XdndDrop, answer SelectionRequest, finish at
+//     XdndFinished or after a timeout; over its own windows it delivers
+//     the target side directly. The image: an override-redirect ARGB
+//     window (32-bit visual) that follows the pointer, none without a
+//     compositing manager.
+//   - Clipboard data: CLIPBOARD with TARGETS and INCR (the text clipboard
+//     of phase 5 comes with it).
+//   - Menus: none (ErrUnsupported).
+//   - Global shortcuts: the portal when the session has it, else XGrabKey
+//     on the root window for the keycode of the key's keysym with the
+//     modifier mask, once per combination of the Lock and NumLock masks;
+//     KeyPress and KeyRelease (with detectable auto-repeat) on the root are
+//     Pressed and Released; BadAccess is ShortcutTaken (as an event).
+//   - ActivateWithToken: the token's "_TIME<n>" suffix as the timestamp of
+//     _NET_ACTIVE_WINDOW, then a _NET_STARTUP_INFO "remove: ID=<token>"
+//     message ending the launch feedback.
+//
+// Wayland and X11 (freedesktop):
+//
+//   - Settings: org.freedesktop.portal.Settings (ReadAll, SettingChanged):
+//     org.freedesktop.appearance color-scheme (1: dark), accent-color
+//     ((ddd) in 0..1, else unknown), contrast (1: high);
+//     org.gnome.desktop.interface text-scaling-factor and enable-animations
+//     where the portal exposes them. Wayland and X11 get dark mode this way
+//     too.
+//   - Secrets: the Secret Service (org.freedesktop.secrets) with the
+//     encrypted session dh-ietf1024-sha256-aes128-cbc-pkcs7 (DH, HKDF and
+//     AES-CBC from the standard library), items of the default collection
+//     with the attributes xdg:schema "dev.telaui.Secret", app-id and name,
+//     waiting for Unlock prompts. No secret service: ErrUnsupported.
+//   - Single instance: RequestName of a well-known name derived from the
+//     app ID (the ID itself when it is a valid bus name) with
+//     DBUS_NAME_FLAG_DO_NOT_QUEUE; the primary exports a Launch method
+//     (arguments, directory, token) on it; a second process calls it and
+//     returns false. The token comes from XDG_ACTIVATION_TOKEN (Wayland)
+//     or DESKTOP_STARTUP_ID (X11).
+//   - Associations: package assoc (the app's .desktop file in
+//     $XDG_DATA_HOME/applications; mimeapps.list only for MakeDefault).
+//
+// Win32:
+//
+//   - Drag and drop over OLE: OleInitialize on the UI thread (it subsumes
+//     the CoInitializeEx of the dialogs), RegisterDragDrop of an
+//     IDropTarget for every window (RevokeDragDrop at close). Target:
+//     DragEnter enumerates the IDataObject's formats (Types), takes
+//     Allowed from *pdwEffect (DROPEFFECT_COPY, MOVE and LINK are the
+//     DropEffect bits) and Mods from grfKeyState, delivers the event
+//     synchronously and returns the answer; DragOver is called on a timer
+//     too, so unchanged calls are answered without an event; Drop reads
+//     the wanted formats with GetData, delivers DragDrop synchronously and
+//     returns the final effect. FromApp: the IDataObject is the backend's
+//     own. Source: DoDragDrop with an IDataObject (the Data, rendered per
+//     format) and an IDropSource (Escape cancels, the release drops,
+//     default cursors), started outside the handler like the dialogs (a
+//     posted message; the loop keeps delivering through the modal loop's
+//     WndProc); the image through IDragSourceHelper::InitializeFromBitmap
+//     (SHDRAGIMAGE, ptOffset = Hotspot); DRAGDROP_S_DROP gives the
+//     effect, DRAGDROP_S_CANCEL DropNone. The source window's
+//     PointerCancel is delivered before DoDragDrop captures the mouse.
+//   - Clipboard data: EnumClipboardFormats, GetClipboardData and
+//     SetClipboardData with the formats above.
+//   - Menus: a menu bar of CreateMenu/CreatePopupMenu with AppendMenuW
+//     (labels with '&' doubled, the Accelerator after a tab; MF_CHECKED,
+//     MF_GRAYED, MF_SEPARATOR) set with SetMenu on framed windows, the
+//     window grown so the client area keeps its size
+//     (AdjustWindowRectExForDpi with bMenu); WM_COMMAND from a menu is a
+//     MenuEvent (command IDs are 16 bits: the backend maps MenuItemIDs).
+//     Popup menus: TrackPopupMenuEx with TPM_RETURNCMD at the point
+//     converted with ClientToScreen, after SetForegroundWindow, started
+//     outside the handler like the dialogs.
+//   - Global shortcuts: RegisterHotKey on the message-only window with
+//     MOD_NOREPEAT and the virtual key of the key in the current layout
+//     (VkKeyScanExW for characters), IDs 0x0000-0xBFFF mapped from the
+//     string IDs; ERROR_HOTKEY_ALREADY_REGISTERED is ShortcutTaken (as an
+//     event); WM_HOTKEY is ShortcutPressed (no releases).
+//   - Settings: AppsUseLightTheme, the DWM AccentColor,
+//     SPI_GETHIGHCONTRAST (HCF_HIGHCONTRASTON), the Accessibility
+//     TextScaleFactor (percent), SPI_GETCLIENTAREAANIMATION; WM_SETTINGCHANGE
+//     and WM_DWMCOLORIZATIONCOLORCHANGED report changes.
+//   - Secrets: Credential Manager in advapi32 (CredWriteW, CredReadW,
+//     CredDeleteW) with CRED_TYPE_GENERIC, TargetName "<appID>/<name>",
+//     CRED_PERSIST_LOCAL_MACHINE; ERROR_NOT_FOUND is ErrSecretNotFound.
+//   - Single instance: CreateMutexW("Local\\<derived from the app ID>"); with
+//     ERROR_ALREADY_EXISTS the second process finds the first's
+//     message-only window of a class named after the app ID
+//     (FindWindowExW with HWND_MESSAGE, retried briefly while the first
+//     starts), calls AllowSetForegroundWindow for its process and sends
+//     the Launch with WM_COPYDATA (SendMessageTimeoutW). ActivateWithToken
+//     ignores the token.
+//   - Associations: package assoc (HKCU\Software\Classes).
+//
+// Cocoa (phase 14): NSDraggingDestination and NSDraggingSource,
+// NSPasteboard, NSMenu (the app's menu bar; window menus return
+// ErrUnsupported), the keychain, NSRunningApplication for single instance,
+// the bundle's Info.plist for schemes and document types.
+//
+// Remote (tela dev): protocol 4 carries none of this: the child checks
+// arguments and returns ErrUnsupported, and the host drops the new events
+// its backend delivers, until step C's protocol.
+//
+// Headless: the clipboard holds Data; drags are driven by injected pointer
+// events after Window.StartDrag or Backend.StartExternalDrag; menus,
+// shortcuts, secrets, instances (a registry shared by the process's
+// headless backends) and associations (assoc.Fake) are deterministic fakes
+// with responders, injection and inspection (see the headless package).
 package platform

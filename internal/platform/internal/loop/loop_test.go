@@ -38,6 +38,13 @@ func (w *win) SetTitleBarColors(platform.TitleBarColors)    {}
 func (w *win) SetBackdrop(platform.Backdrop)                {}
 func (w *win) SetHitRegions([]platform.HitRegion)           {}
 func (w *win) RestoreToken() string                         { return "" }
+func (w *win) ActivateWithToken(string)                     {}
+func (w *win) SetDropEffect(platform.DropEffect, ...string) {}
+func (w *win) StartDrag(platform.DragOptions) error         { return platform.ErrUnsupported }
+func (w *win) SetMenu([]platform.MenuItem) error            { return platform.ErrUnsupported }
+func (w *win) PopupMenu(platform.Point, []platform.MenuItem, func(platform.MenuItemID, error)) error {
+	return platform.ErrUnsupported
+}
 
 // rig is a Loop with a manual clock and a recording handler.
 type rig struct {
@@ -426,6 +433,60 @@ func TestQueuePointer(t *testing.T) {
 	r.pass()
 	if want := "[2 4 5 6 7 8 9 10]"; fmt.Sprint(got) != want {
 		t.Errorf("queued pointer events = %v, want %s", got, want)
+	}
+}
+
+func TestQueueDrag(t *testing.T) {
+	r := newRig(t, nil)
+	a, b := r.window("a"), r.window("b")
+	drag := func(act platform.DragAction, x float32) platform.DragEvent {
+		return platform.DragEvent{Action: act, Pos: platform.Point{X: x}, Types: []string{platform.MIMEText}, Allowed: platform.DropCopy}
+	}
+	r.l.QueueDrag(a, drag(platform.DragEnter, 1))
+	r.l.QueueDrag(a, drag(platform.DragOver, 2)) // after an enter: appended
+	r.l.QueueDrag(a, drag(platform.DragOver, 3)) // replaces 2
+	r.l.QueueDrag(b, drag(platform.DragOver, 4)) // another window: appended
+	shift := drag(platform.DragOver, 5)
+	shift.Mods = platform.ModShift
+	r.l.QueueDrag(b, shift) // other modifiers: appended
+	more := drag(platform.DragOver, 6)
+	more.Mods, more.Allowed = platform.ModShift, platform.DropAll
+	r.l.QueueDrag(b, more) // other effects: appended
+	r.l.Post(func() {})
+	r.l.QueueDrag(b, drag(platform.DragOver, 7)) // after a callback: appended
+	r.l.QueueDrag(b, drag(platform.DragLeave, 8))
+	r.l.QueueDrag(b, drag(platform.DragOver, 9)) // after a leave: appended
+	r.l.QueuePointer(b, platform.PointerEvent{Action: platform.PointerMove})
+	r.l.QueueDrag(b, drag(platform.DragOver, 10)) // after a pointer event: appended
+	var got []string
+	r.on = func(_ platform.Window, e platform.Event) {
+		if d, ok := e.(platform.DragEvent); ok {
+			got = append(got, fmt.Sprintf("%v%g", d.Action, d.Pos.X))
+		}
+	}
+	r.pass()
+	if want := "[enter1 over3 over4 over5 over6 over7 leave8 over9 over10]"; fmt.Sprint(got) != want {
+		t.Errorf("queued drag events = %v, want %s", got, want)
+	}
+}
+
+func TestExtract(t *testing.T) {
+	r := newRig(t, nil)
+	a, b := r.window("a"), r.window("b")
+	r.l.Enqueue(a, platform.FocusEvent{Focused: true})
+	r.l.Enqueue(a, platform.PointerEvent{Action: platform.PointerMove})
+	r.l.Enqueue(b, platform.PointerEvent{Action: platform.PointerUp})
+	r.l.Post(func() {})
+	r.l.Enqueue(a, platform.PointerEvent{Action: platform.PointerUp})
+	got := r.l.Extract(a, func(e platform.Event) bool { _, ok := e.(platform.PointerEvent); return ok })
+	if len(got) != 2 || got[0].(platform.PointerEvent).Action != platform.PointerMove || got[1].(platform.PointerEvent).Action != platform.PointerUp {
+		t.Errorf("Extract = %v", got)
+	}
+	var left []string
+	r.on = func(w platform.Window, e platform.Event) { left = append(left, fmt.Sprintf("%s:%T", w.(*win).name, e)) }
+	r.pass()
+	if want := "[a:platform.FocusEvent b:platform.PointerEvent]"; fmt.Sprint(left) != want {
+		t.Errorf("left in the queue = %v, want %s", left, want)
 	}
 }
 

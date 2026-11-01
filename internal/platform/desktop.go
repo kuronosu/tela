@@ -79,6 +79,62 @@ type Desktop interface {
 	// RemoveTray removes a tray icon. Unknown or already removed IDs are
 	// ignored (nil).
 	RemoveTray(id TrayID) error
+
+	// --- Phase 13 (ADR-209, ADR-210). ---
+
+	// RegisterShortcut asks the OS for a global shortcut (see "Global
+	// shortcuts" in the package documentation). When it returns nil,
+	// exactly one ShortcutStatusEvent with the outcome follows through the
+	// loop (ShortcutBound, or why not), even where the OS answers at once;
+	// the portal may ask the user first. Registering an ID again replaces
+	// its binding. It returns an error, and nothing follows, when no
+	// request was made (ErrUnsupported). An invalid shortcut panics
+	// ([CheckShortcut]).
+	RegisterShortcut(s Shortcut) error
+
+	// UnregisterShortcut removes a global shortcut. Unknown IDs are
+	// ignored (nil). No ShortcutStatusEvent follows.
+	UnregisterShortcut(id string) error
+
+	// SetSecret stores secret under name for the app appID in the OS's
+	// secure storage (Credential Manager, the Secret Service; see
+	// "Secrets" in the package documentation), replacing an earlier value.
+	// Unlike the other methods, the secret methods block (the OS may show
+	// an unlock prompt) and are safe from any goroutine; call them off the
+	// UI thread. A value above MaxSecretSize returns ErrSecretTooLarge;
+	// invalid names panic ([CheckSecret]).
+	SetSecret(appID, name string, secret []byte) error
+
+	// Secret returns the secret stored under name for appID, or
+	// ErrSecretNotFound. Blocking, safe from any goroutine (see
+	// SetSecret).
+	Secret(appID, name string) ([]byte, error)
+
+	// DeleteSecret removes the secret stored under name for appID; a
+	// missing one is not an error. Blocking, safe from any goroutine (see
+	// SetSecret).
+	DeleteSecret(appID, name string) error
+
+	// ClaimInstance makes this process the single instance of the app
+	// appID (see "Single instance and launches" in the package
+	// documentation). It works before any window exists, and may block
+	// briefly (a D-Bus round trip, a message to the other process). When
+	// no other process of the app holds the claim, this one takes it until
+	// it exits (or Run returns) and gets the later launches as
+	// LaunchEvents: primary is true. When another one holds it, launch is
+	// forwarded to it and primary is false: the caller exits without
+	// opening a window. An error means nothing was claimed or forwarded
+	// (ErrUnsupported: no D-Bus session); the app then runs on its own.
+	// Claiming again in the primary process returns true. An invalid appID
+	// panics ([CheckAppID]).
+	ClaimInstance(appID string, launch Launch) (primary bool, err error)
+
+	// Associations returns the registration of URL schemes and file types
+	// for the current user: the OS's (package internal/platform/assoc),
+	// or the headless fake. It is never nil, and its methods are safe from
+	// any goroutine (see "Registration of schemes and file types" in the
+	// package documentation).
+	Associations() Associations
 }
 
 // FileFilter is one entry of a file dialog's type list.
@@ -218,11 +274,13 @@ type Notification struct {
 // TrayID identifies a tray icon of this process; never 0.
 type TrayID uint32
 
-// MenuItemID identifies an item of a tray menu; chosen by the app and
-// reported by TrayEvents.
+// MenuItemID identifies an item of a menu (a tray menu, a window's menu
+// bar, a popup menu); chosen by the app and reported by TrayEvents,
+// MenuEvents and the popup menu's callback.
 type MenuItemID uint32
 
-// MenuItem is an item of a tray icon's menu.
+// MenuItem is an item of a menu: a tray icon's menu, a window's menu bar
+// (Window.SetMenu) or a popup menu (Window.PopupMenu). See [CheckMenu].
 type MenuItem struct {
 	// ID is reported when the item is activated. Items that can be
 	// activated (neither separators nor submenus) need a non-zero ID,
@@ -231,6 +289,11 @@ type MenuItem struct {
 	// Label is plain text: backends escape their mnemonic characters
 	// ("&" on Win32, "_" in dbusmenu).
 	Label string
+	// Accelerator is the text of the item's keyboard shortcut, shown at
+	// its right ("Ctrl+S"; Accelerator.String formats one). It is display
+	// only: the app handles the key itself. Win32 menus show it after a
+	// tab; tray menus may ignore it. No control characters.
+	Accelerator string
 	// Separator makes the item a separator line; its other fields are
 	// ignored.
 	Separator bool
@@ -306,25 +369,36 @@ func CheckTrayOptions(opts TrayOptions) {
 		panic("platform: TrayOptions.Icon is empty; a tray icon needs an image (give it at 16, 24 and 32 pixels, or more sizes)")
 	}
 	CheckIcon("TrayOptions.Icon", opts.Icon)
+	CheckMenu("TrayOptions.Menu", opts.Menu)
+}
+
+// CheckMenu panics with an actionable message if menu has an activatable
+// item (neither a separator nor a submenu) with ID 0 or an ID used twice
+// in the whole menu, or an Accelerator with control characters. what
+// names the menu in the message.
+func CheckMenu(what string, menu []MenuItem) {
 	seen := map[MenuItemID]bool{}
 	var walk func(items []MenuItem, path string)
 	walk = func(items []MenuItem, path string) {
 		for i, it := range items {
 			at := fmt.Sprintf("%s[%d]", path, i)
+			if strings.IndexFunc(it.Accelerator, func(r rune) bool { return r < ' ' || r == 0x7f }) >= 0 {
+				panicf("platform: %s (%q) has Accelerator %q with a control character; it is display text such as \"Ctrl+S\"", at, it.Label, it.Accelerator)
+			}
 			switch {
 			case it.Separator:
 			case len(it.Submenu) > 0:
 				walk(it.Submenu, at+".Submenu")
 			case it.ID == 0:
-				panicf("platform: TrayOptions.%s (%q) has ID 0; items that can be activated need a non-zero ID", at, it.Label)
+				panicf("platform: %s (%q) has ID 0; items that can be activated need a non-zero ID", at, it.Label)
 			case seen[it.ID]:
-				panicf("platform: TrayOptions.%s (%q) reuses ID %d; item IDs must be unique in the whole menu", at, it.Label, it.ID)
+				panicf("platform: %s (%q) reuses ID %d; item IDs must be unique in the whole menu", at, it.Label, it.ID)
 			default:
 				seen[it.ID] = true
 			}
 		}
 	}
-	walk(opts.Menu, "Menu")
+	walk(menu, what)
 }
 
 // FindMenuItem returns the activatable item of menu (submenus included)
@@ -370,8 +444,9 @@ func checkDone(what string, done bool) {
 
 // UnsupportedDesktop is a [Desktop] without any service: every method
 // checks its arguments like a real backend (so programmer errors panic on
-// every platform) and returns ErrUnsupported. Backends without services
-// return it, and partial implementations can embed it.
+// every platform) and returns ErrUnsupported (Associations returns
+// UnsupportedAssociations). Backends without services return it, and
+// partial implementations can embed it.
 type UnsupportedDesktop struct{}
 
 var _ Desktop = UnsupportedDesktop{}
@@ -433,3 +508,58 @@ func (UnsupportedDesktop) UpdateTray(_ TrayID, opts TrayOptions) error {
 
 // RemoveTray returns ErrUnsupported.
 func (UnsupportedDesktop) RemoveTray(TrayID) error { return ErrUnsupported }
+
+// RegisterShortcut checks s and returns ErrUnsupported.
+func (UnsupportedDesktop) RegisterShortcut(s Shortcut) error {
+	CheckShortcut(s)
+	return ErrUnsupported
+}
+
+// UnregisterShortcut returns ErrUnsupported.
+func (UnsupportedDesktop) UnregisterShortcut(id string) error {
+	CheckShortcutID("UnregisterShortcut", id)
+	return ErrUnsupported
+}
+
+// SetSecret checks its arguments and returns ErrUnsupported.
+func (UnsupportedDesktop) SetSecret(appID, name string, secret []byte) error {
+	if err := CheckSecret(appID, name, secret); err != nil {
+		return err
+	}
+	return ErrUnsupported
+}
+
+// Secret checks its arguments and returns ErrUnsupported.
+func (UnsupportedDesktop) Secret(appID, name string) ([]byte, error) {
+	CheckSecretName("Secret", appID, name)
+	return nil, ErrUnsupported
+}
+
+// DeleteSecret checks its arguments and returns ErrUnsupported.
+func (UnsupportedDesktop) DeleteSecret(appID, name string) error {
+	CheckSecretName("DeleteSecret", appID, name)
+	return ErrUnsupported
+}
+
+// ClaimInstance checks appID and returns ErrUnsupported.
+func (UnsupportedDesktop) ClaimInstance(appID string, _ Launch) (bool, error) {
+	CheckAppID("ClaimInstance", appID)
+	return false, ErrUnsupported
+}
+
+// Associations returns UnsupportedAssociations.
+func (UnsupportedDesktop) Associations() Associations { return UnsupportedAssociations{} }
+
+// CheckPopupMenu panics with an actionable message if a PopupMenu call has
+// a nil callback, an empty menu, an invalid one ([CheckMenu]) or a
+// position that is not finite.
+func CheckPopupMenu(at Point, menu []MenuItem, done bool) {
+	checkDone("PopupMenu", done)
+	if len(menu) == 0 {
+		panic("platform: PopupMenu with an empty menu; give at least one item")
+	}
+	CheckMenu("PopupMenu menu", menu)
+	if at.X != at.X || at.Y != at.Y || at.X > 1e7 || at.X < -1e7 || at.Y > 1e7 || at.Y < -1e7 {
+		panicf("platform: PopupMenu at %v; the position must be finite (logical pixels, window coordinates)", at)
+	}
+}

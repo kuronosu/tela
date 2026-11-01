@@ -9,7 +9,8 @@
 //   - The FIFO queue of window events, app events (nil window) and deferred
 //     callbacks (asynchronous clipboard and desktop service replies), plus
 //     coalesced ConfigureEvents and WindowStateEvents whose metrics and
-//     state are taken when they are delivered. A window's queued state
+//     state are taken when they are delivered, and coalesced motion
+//     (QueuePointer for PointerMove, QueueDrag for DragOver). A window's queued state
 //     goes before its coalesced ConfigureEvent, even when the state was
 //     queued after it: the state goes before the size it comes with.
 //   - Wake and Quit: atomic flags plus the backend's Notify hook that
@@ -128,6 +129,7 @@ type item[W Window] struct {
 	fn        func()
 	configure bool
 	restate   bool
+	extracted bool // taken by Extract while its pass runs: skipped
 }
 
 // Loop is the shared event delivery and frame pacing state of one backend.
@@ -141,6 +143,9 @@ type Loop[W Window] struct {
 	windows    []W // open windows in creation order
 	queue      []item[W]
 	delivering bool // a Deliver pass is running (re-entrancy guard)
+	// inflight are the items of the running pass not delivered yet
+	// (Extract reaches them too).
+	inflight []item[W]
 }
 
 // DefaultInterval is the Interval used when Options.Interval is zero.
@@ -243,6 +248,25 @@ func (l *Loop[W]) QueuePointer(w W, e platform.PointerEvent) {
 	l.Enqueue(w, e)
 }
 
+// QueueDrag queues e for w like Enqueue, coalescing drag motion as
+// QueuePointer does: a DragOver that directly follows a queued DragOver of
+// the same window with the same modifiers and allowed effects replaces it
+// in place (the app answers the latest position; Win32's synchronous
+// answers are delivered at once and never wait here). Any other drag
+// event (enter, leave, drop) is queued as is, so a session's order is
+// kept.
+func (l *Loop[W]) QueueDrag(w W, e platform.DragEvent) {
+	if n := len(l.queue); n > 0 && e.Action == platform.DragOver {
+		last := &l.queue[n-1]
+		if prev, ok := last.ev.(platform.DragEvent); ok && last.w == w && last.fn == nil && !last.configure && !last.restate &&
+			prev.Action == platform.DragOver && prev.Mods == e.Mods && prev.Allowed == e.Allowed {
+			last.ev = e
+			return
+		}
+	}
+	l.Enqueue(w, e)
+}
+
 // Reconfigure queues a coalesced ConfigureEvent for w with metrics m. Until
 // it is delivered, later calls only update m, so a burst of OS resizes
 // becomes one ConfigureEvent with the latest metrics, delivered at the
@@ -300,6 +324,30 @@ func (l *Loop[W]) Post(fn func()) {
 	l.queue = append(l.queue, item[W]{fn: fn})
 }
 
+// Extract removes the queued events of w for which match returns true and
+// returns them in queue order (coalesced configures and states and
+// callbacks stay). The headless backend uses it when its simulated OS
+// takes a pointer sequence whose rest the test already injected (a drag
+// started while a release is queued).
+func (l *Loop[W]) Extract(w W, match func(platform.Event) bool) []platform.Event {
+	var out []platform.Event
+	take := func(it *item[W]) bool {
+		if it.extracted || it.w != w || it.fn != nil || it.configure || it.restate || !match(it.ev) {
+			return false
+		}
+		out = append(out, it.ev)
+		return true
+	}
+	// The rest of the running pass comes first: it was queued earlier.
+	for i := range l.inflight {
+		if take(&l.inflight[i]) {
+			l.inflight[i].extracted = true
+		}
+	}
+	l.queue = slices.DeleteFunc(l.queue, func(it item[W]) bool { return take(&it) })
+	return out
+}
+
 // Discard drops every queued item (the backend is shutting down).
 func (l *Loop[W]) Discard() {
 	clear(l.queue)
@@ -334,9 +382,21 @@ func (l *Loop[W]) Deliver(h platform.Handler) int {
 	items := l.queue
 	l.queue = nil
 	l.unlock()
-	for _, it := range items {
+	defer func() {
+		l.lock()
+		l.inflight = nil
+		l.unlock()
+	}()
+	for i := range items {
 		if l.quit.Load() {
 			return n
+		}
+		l.lock()
+		it := items[i]
+		l.inflight = items[i+1:]
+		l.unlock()
+		if it.extracted {
+			continue
 		}
 		switch {
 		case it.fn != nil:
