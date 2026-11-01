@@ -12,6 +12,11 @@ bar, a Preferences window, a tray icon, open and save dialogs and a window that
 reopens where it was), see
 [`examples/notes`](https://github.com/kuronosu/tela/tree/main/examples/notes).
 
+What makes an app part of the desktop beyond that (files dragged in from a file
+manager, the clipboard, global shortcuts, one running instance, `notes:` links and
+file types, secrets in the keyring, native menus and the system's high contrast and
+text size) is in [Desktop Integration](Desktop-Integration).
+
 - [Several windows](#several-windows)
 - [The window handle and its state](#the-window-handle-and-its-state)
 - [Quitting, hiding and opening things](#quitting-hiding-and-opening-things)
@@ -423,6 +428,9 @@ AppIndicator extension. The calls then return an error wrapping
 | File dialogs | A text field for the path |
 | Notifications | A message in the window |
 | Tray | Do not hide the window on close, so the app can still be reached |
+| Global shortcuts | Offer the same action inside the app; `OnStatus` gets `ShortcutFailed` |
+| Secrets | Turn the feature off, with a reason the user can read |
+| Native menus | Nothing to do: kit draws its own (`kit.NativeOn` falls back by itself) |
 | `tela.OpenURL`, `tela.OpenPath` | Show the URL or path to copy |
 
 Calling a service when no app runs (in `tela snapshot`, or before `tela.Run`) returns an
@@ -463,9 +471,11 @@ windows and no services. `tela mcp` sees only the main window.
 
 `telatest` plays a fake window manager and a fake desktop, so none of this opens a window
 or touches the real system. See [Testing](Testing#several-windows) for the windows
-(`app.Windows()`, `WaitForWindow`, `ExpectWindowState`, `ExpectQuit`, `HitRegions`) and
+(`app.Windows()`, `WaitForWindow`, `ExpectWindowState`, `ExpectQuit`, `HitRegions`),
 [the desktop services](Testing#desktop-services) (`TempDesktopDirs`, `AnswerFileDialog`,
-`AnswerMessage`, `Notifications`, `ClickTrayItem`, `Unsupported`):
+`AnswerMessage`, `Notifications`, `ClickTrayItem`, `Unsupported`) and, for
+[Desktop Integration](Desktop-Integration), [drag and drop](Testing#drag-and-drop) and
+[its services](Testing#desktop-integration-in-tests):
 
 ```go
 func TestOpen(t *testing.T) {

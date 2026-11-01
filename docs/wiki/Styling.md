@@ -285,7 +285,7 @@ Variants combine (`dark:md:hover:bg-slate-700`); every part must hold.
 | Structure | `first:` `last:` `only:` `odd:` `even:`: the element's place among its own siblings, as in CSS. If you wrap each item in a `Div` only to give it a key, the item is the first and last child of its wrapper: key the item itself with `Key(...)` or `tela.WithKey` (which adds no element), or put the variant on the wrapper |
 | Text fields | `read-only:` `placeholder-shown:` `invalid:` `placeholder:` (style the placeholder text) `selection:` (style the selected text) |
 | Ancestors and siblings | `group-hover:` and the other state variants after `group-`, on a descendant of an element with the class `group`; `peer-*` for the following siblings of an element with the class `peer` (named groups and peers are not supported) |
-| Environment | `dark:` `motion-reduce:` `motion-safe:` and the breakpoints `sm:` `md:` `lg:` `xl:` `2xl:` (window width at least), `max-sm:` … `max-2xl:` (window width below the breakpoint), `min-[600px]:` and `max-[40rem]:` (px, rem or em); they stack: `md:max-xl:flex-row` applies from 768 to 1279 px |
+| Environment | `dark:` `motion-reduce:` `motion-safe:` `contrast-more:` (the system asks for high contrast; see [below](#high-contrast-and-the-text-scale)) and the breakpoints `sm:` `md:` `lg:` `xl:` `2xl:` (window width at least), `max-sm:` … `max-2xl:` (window width below the breakpoint), `min-[600px]:` and `max-[40rem]:` (px, rem or em); they stack: `md:max-xl:flex-row` applies from 768 to 1279 px |
 | Direction | `rtl:` `ltr:`: the element's direction, set with [`Dir`](https://pkg.go.dev/github.com/kuronosu/tela/h#Dir) on it or an ancestor (see [Right to left](#right-to-left)) |
 
 ```go
@@ -397,6 +397,44 @@ In tests, `telatest.Dark()` makes the system prefer dark and
 
 Set the window background with `RootClass` on the [`tela.App`](https://pkg.go.dev/github.com/kuronosu/tela#App), which styles the
 root box that fills the window: `RootClass: "bg-white dark:bg-zinc-950"`.
+
+## High contrast and the text scale
+
+Two more system settings reach the classes, as dark mode and reduced motion do.
+
+**`contrast-more:`** applies when the system asks for high contrast (Windows'
+contrast themes, GNOME's high contrast). Use it to strengthen what the theme keeps
+subtle: `border-border contrast-more:border-foreground`, `text-muted-foreground
+contrast-more:text-foreground`, `contrast-more:border-2`. It stacks with the other
+variants (`dark:contrast-more:ring-2`). `contrast-less:` is an error, because
+there is no low-contrast setting. A component that needs the setting in Go reads
+[`tela.UseHighContrast`](https://pkg.go.dev/github.com/kuronosu/tela#UseHighContrast).
+
+**The text scale** is how much the user asked the system to enlarge text (Windows'
+"Text size", GNOME's text scaling factor; 1.25 is 25% larger). Tela applies it the
+way a browser applies its default font size: **1rem is the theme's rem (16 px)
+times the scale**. So every `rem` value grows together: the `text-*` sizes, the
+spacing and sizes Tailwind writes in rem (`p-4`, `gap-2`, `h-10`, `w-64`,
+`max-w-3xl`) and the rem-based breakpoints (`md:` becomes wider in pixels). Values
+in `px` do not move (`border`, `text-[13px]`, `w-[320px]`, `h-[72px]`). A layout
+written with the usual classes therefore gets bigger text with room to hold it,
+and a pixel-perfect piece of it stays put.
+
+```go
+// Grows with the text: 1rem of padding, a 2.5rem field, 0.875rem text.
+Input(Class("h-10 px-3 text-sm"))
+// Does not grow: a fixed 320 px column and a 1 px rule.
+Div(Class("w-[320px] border-b"))
+```
+
+The scale is on by default. A layout that cannot grow, such as a fixed-size tool
+window, sets `tela.App{IgnoreTextScale: true}` and 1rem stays 16 px.
+[`tela.UseTextScale`](https://pkg.go.dev/github.com/kuronosu/tela#UseTextScale)
+returns the scale for sizes computed in code (a canvas, an icon size in px).
+Snapshots and tests render at a scale of 1 unless you set one
+(`telatest.TextScale(1.25)`), so goldens are the same on every machine. See
+[Desktop Integration](Desktop-Integration#system-settings) for the accent color and
+which platforms report what.
 
 ## Responsive layout
 

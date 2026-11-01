@@ -16,6 +16,7 @@
 - [Aria](Aria)
 - [Kit](Kit)
 - [Windows and Desktop](Windows-and-Desktop)
+- [Desktop Integration](Desktop-Integration)
 - [Accessibility](Accessibility)
 - [Testing](Testing)
 - [CLI](CLI)

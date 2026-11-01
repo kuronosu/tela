@@ -226,6 +226,13 @@ func DraggableCard() tela.Node {
 
 The board view of `examples/dashboard` uses this to move cards between columns.
 
+These three handlers are the drag *gesture*: they move something inside the
+window and never involve the OS. To carry data to another element, another window
+or another application (a file manager, an editor), use HTML's model instead:
+`Draggable(true)` on the source and `OnDragEnter`, `OnDragOver`, `OnDragLeave` and
+`OnDrop` on the target. They share `tela.DragEvent`, whose `DataTransfer` is nil in
+the gesture. See [Desktop Integration](Desktop-Integration#drag-and-drop).
+
 ## Long press
 
 [`OnLongPress`](https://pkg.go.dev/github.com/kuronosu/tela/h#OnLongPress) runs when the primary button (or a touch) stays pressed for
