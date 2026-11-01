@@ -5,6 +5,7 @@ package win32
 import (
 	"image"
 	"image/color"
+	"os"
 	"testing"
 	"time"
 	"unsafe"
@@ -53,6 +54,22 @@ func presentHalves(t *testing.T, w platform.Window) {
 	}
 }
 
+// liveScreen reports whether the tests may read the screen, which shows
+// what Tela drew only when nothing else is on top and DWM composes an
+// attended desktop. On the unattended windows-latest runner the same tests
+// passed in one run and, in the next, read 0c0c0c (a console's black) where
+// the title bar and both halves of the backdrop window were: the screen
+// checks run with TELA_LIVE=1, like the shell's tests (requireLiveShell).
+// The attributes and the alpha of the retained copy are checked always.
+func liveScreen() bool { return os.Getenv("TELA_LIVE") == "1" }
+
+func requireLiveScreen(t *testing.T) {
+	t.Helper()
+	if !liveScreen() {
+		t.Skip("set TELA_LIVE=1 to read the screen (DWM's composition needs an attended desktop with nothing over the test window)")
+	}
+}
+
 // settle lets DWM compose what was presented.
 func settle() {
 	for range 4 {
@@ -67,6 +84,7 @@ func settle() {
 // from the screen.
 func TestLiveTitleBarColors(t *testing.T) {
 	requireBuild(t, buildColors)
+	requireLiveScreen(t)
 	b := liveBackend(t)
 	var w *Window
 	stage := 0
@@ -171,6 +189,9 @@ func TestLiveBackdropAlpha(t *testing.T) {
 			if left != 0xFF || right != 0 {
 				t.Errorf("frameless=%v: retained alpha %#x on the opaque half and %#x on the transparent one, want 0xff and 0", frameless, left, right)
 			}
+			if !liveScreen() {
+				return
+			}
 			settle()
 			var origin point
 			procClientToScreen.Call(w.hwnd, uintptr(unsafe.Pointer(&origin)))
@@ -263,6 +284,7 @@ func TestLiveBackdropToggle(t *testing.T) {
 // the top right are the app's.
 func TestLiveFramelessGlassKeepsAppTitleBar(t *testing.T) {
 	requireBuild(t, buildBackdrop)
+	requireLiveScreen(t)
 	b := liveBackend(t)
 	var w *Window
 	stage := 0
