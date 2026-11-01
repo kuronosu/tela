@@ -222,9 +222,12 @@ func (c *Child) windowCtl(d *dec) error {
 		regions []platform.HitRegion
 		colors  platform.TitleBarColors
 		backdrp platform.Backdrop
+		token   string
 	)
 	switch op {
 	case ctlMinimize, ctlActivate:
+	case ctlActivateToken:
+		token = d.str()
 	case ctlMaximized, ctlFullscreen, ctlVisible, ctlOnTop:
 		flag = d.boolean()
 	case ctlMinSize, ctlMaxSize:
@@ -273,6 +276,10 @@ func (c *Child) windowCtl(d *dec) error {
 		case ctlActivate:
 			if active {
 				rw.w.Activate()
+			}
+		case ctlActivateToken:
+			if active {
+				rw.w.ActivateWithToken(token)
 			}
 		case ctlVisible:
 			cw.visible = flag
