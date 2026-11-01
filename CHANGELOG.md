@@ -12,6 +12,17 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+Phase 13, desktop integration (ADR-209 to ADR-214; in progress).
+
+### Added
+
+- HTML drag and drop (ADR-211): `h.OnDragEnter`, `h.OnDragOver`, `h.OnDragLeave` and `h.OnDrop` on any element, with HTML's rules (a drop is accepted when `OnDragOver` calls `PreventDefault`; copy, move and link effects), and `h.Draggable(true)` to make an element a drag source that fills `DragEvent.DataTransfer` in its `OnDragStart`. Elements without `Draggable` keep the drag gesture as before. Drags go through the OS (Wayland, X11 XDND, Win32 OLE), so they work between windows and with other applications. `tela.DataTransfer` holds text, HTML, PNG images, files and custom types.
+- System settings v2: `tela.UseHighContrast`, `tela.UseTextScale` and `tela.UseAccentColor`, the `contrast-more:` variant, and the system's text scale applied to `rem` like a browser's default font size (on by default; `App.IgnoreTextScale` turns it off). Linux now reads dark mode, the accent color, contrast, reduced motion and the text scale from the settings portal (before, Linux had no dark-mode detection); Windows adds the accent color, high contrast and the text scale.
+- Package `desktop` (ADR-213): the clipboard with every data type (`ReadClipboard`, `WriteClipboard`); `GlobalShortcut`, a component that registers a system-wide shortcut while mounted and reports whether it was bound, taken or refused (Win32 `RegisterHotKey`, the Linux GlobalShortcuts portal, X11 key grabs); `SingleInstance` and `UseLaunch`, so a second start hands its arguments, links and files to the running app and exits; `Register`, `Unregister`, `MakeDefault` and `RegistrationStatus` for `notes:`-style links and file types, per user, never taking another app's association or the default without an explicit call, and usable without a running app; `SetSecret`, `Secret` and `DeleteSecret` in the Windows Credential Manager or the Linux Secret Service; `PopupMenu` and `MenuBar` for native menus where the OS has them.
+- `telatest`: drag and drop (`DragTo`, `DragToWindow`, `DropFiles`, `DropData`, `HoverDrag`, `StartDrag`, `DropOn`, `DropOutside`), system settings while mounted (`SetDarkMode`, `SetHighContrast`, `SetTextScale`, `SetAccentColor`…), and the new `desktop` services (`PressShortcut`, `InjectLaunch`, `StoredSecret`, `ChoosePopupItem`, `ChooseMenuItem`, `Registrations`…).
+- `tela dev` carries all of it (remote protocol 5, ADR-214): drags, native menus, clipboard data, global shortcuts (kept across reloads, so the portal does not ask again on every save), single instance, secrets and registrations.
+- The X11 backend gets a clipboard (it had none, not even for text).
+
 ### Fixed
 
 - On Windows, a `desktop` store's write no longer fails when another program holds its file for a moment (an antivirus scanning the file just written, the search indexer): replacing the file is retried for up to a second, as `cmd/go` does.
