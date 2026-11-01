@@ -56,6 +56,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Menubar`](#type-menubar): [`Build`](#func-menubark-build)
   - [`type MenubarMenu`](#type-menubarmenu)
   - [`type MenubarStyle`](#type-menubarstyle)
+  - [`type NativeMode`](#type-nativemode): [`String`](#func-nativemode-string)
   - [`type Orientation`](#type-orientation)
   - [`type Popover`](#type-popover): [`Build`](#func-popover-build)
   - [`type PopoverStyle`](#type-popoverstyle)
@@ -1396,6 +1397,9 @@ type ContextMenu[K comparable] struct {
     // AriaLabel names the menu, which has no name of its own: the area is
     // not a label.
     AriaLabel string
+    // Native chooses between the OS's context menu and the drawn one; the
+    // zero value, kit.NativeAuto, follows tela.App.NativeMenus.
+    Native NativeMode
     // CheckIcon and RadioIcon replace the check of a checkbox item and the
     // dot of a radio item.
     CheckIcon, RadioIcon tela.Icon
@@ -1432,6 +1436,12 @@ kit.ContextMenu[string]{
 ```
 
 The items are the \[MenuItem\]s of [`DropdownMenu`](#type-dropdownmenu), with no submenus yet (ADR-141). The root element is the area, a div that holds Children; the area is not focusable by itself, the keys reach it from what inside it has the focus, and a keyboard menu opens at the area's corner, not at that element (ADR-133). Open and OnOpenChange are the usual controlled pair (a menu opens at a point, so there is no DefaultOpen).
+
+##### Native context menu
+
+The menu is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the OS's context menu (ADR-215). It then opens where the drawn one would (the pointer, or the area's corner for Shift+F10 and the Menu key), and where the platform has no native context menu (Linux) the drawn menu opens instead, in the same event and frame. The area's own Native setting wins over the app's, so one menu can stay drawn while the others are native (kit.NativeOff).
+
+A native menu shows each item's Label, Shortcut (as its accelerator: text only), Disabled state and separators; checkbox items are check items and the items of a radio group check items with the chosen one checked. Icons, the destructive Variant, Inset, KeepOpen (the OS's menu always closes), Class, ContentClass and the check and radio icons are not shown, a label becomes a disabled item, and a group's items appear without it. Choosing an item does what it does in the drawn menu (OnSelect, OnCheckedChange, OnValueChange and the menu's OnSelect). While a native menu is up the drawn one does not open, and Open and OnOpenChange are not involved: the OS owns the menu and reports only the choice.
 
 **Example**
 
@@ -2483,6 +2493,9 @@ type Menubar[K comparable] struct {
     OnSelect func(menu, item K)
     // AriaLabel names the bar.
     AriaLabel string
+    // Native chooses between the OS's menu bar and the drawn one; the
+    // zero value, kit.NativeAuto, follows tela.App.NativeMenus.
+    Native NativeMode
     // Direction is "ltr" or "rtl"; empty is the direction at the component's
     // position (tela.UseDirection: the nearest h.Dir above it, left to right
     // without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
@@ -2532,6 +2545,12 @@ kit.Menubar[string]{
 
 The items are the \[MenuItem\]s of [`DropdownMenu`](#type-dropdownmenu), with no submenus yet (ADR-141). The keys of the menus and of the items have the same type K; an item key needs to be distinct only within its menu. The open menu follows the kit's value rule with Open (a pointer to the key of the open menu; a key no menu has, such as the zero K, means all closed), DefaultOpen and OnOpenChange.
 
+##### Native menu bar
+
+The bar is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the OS's window menu bar (ADR-215): the menus are given to the window (desktop.MenuBar) and the component draws nothing where it is. A window has a native bar on Windows when it has the OS's title bar; a frameless window (kit.TitleBar draws its own), Linux, and a window of a tree with no running app have none, and there the drawn bar replaces it: the native attempt reports it after the component's first frame, so the drawn bar appears one frame later. A bar's own Native setting wins over the app's.
+
+Each menu is a top-level entry with its items, converted as a native ContextMenu's are: Label, Shortcut (shown as text; handle the keys yourself), Disabled, separators, check items for checkbox and radio items; icons, the destructive Variant, Inset, KeepOpen, Class, Direction, the classes of the bar, buttons and panels, and the check and radio icons are not shown, a label becomes a disabled item and a group appears without it. Choosing an item does what it does in the drawn menu. Open, DefaultOpen and OnOpenChange belong to the drawn bar: the OS owns a native one and none of them is called, and the keyboard navigation is the OS's.
+
 **Example**
 
 ```go
@@ -2567,7 +2586,7 @@ app.Click(telatest.ByRole("menuitem", "Undo"))
 func (m Menubar[K]) Build() tela.Node
 ```
 
-Build returns the bar and, in a portal, the open menu.
+Build returns the OS's menu bar, which draws nothing here, or the drawn bar and, in a portal, its open menu.
 
 ### type MenubarMenu
 
@@ -2601,6 +2620,40 @@ type MenubarStyle struct {
 ```
 
 MenubarStyle is the recipe of [`Menubar`](#type-menubar) (shadcn/ui's Menubar, MenubarTrigger and MenubarContent with the items they hold).
+
+### type NativeMode
+
+```go
+type NativeMode uint8
+```
+
+NativeMode says whether a menu is the OS's own or drawn by the kit (ADR-215). [`ContextMenu`](#type-contextmenu) and [`Menubar`](#type-menubar) have a Native field of this type; the zero value follows the app.
+
+```go
+kit.ContextMenu[string]{Native: kit.NativeOn, ...}  // the OS's menu where there is one
+kit.Menubar[string]{Native: kit.NativeOff, ...}     // drawn, whatever the app asks
+```
+
+```go
+const (
+    // NativeAuto follows the app: native when tela.App.NativeMenus is set,
+    // drawn otherwise (the default). The zero value.
+    NativeAuto NativeMode = iota
+    // NativeOn uses the OS's menu where the platform has one, whatever
+    // the app asks. Where it has none (Linux, a menu bar on a frameless
+    // Windows window) the menu is drawn.
+    NativeOn
+    // NativeOff always draws the menu in the kit's look, so a menu can
+    // stay drawn while the app's others are native.
+    NativeOff
+)
+```
+
+#### func (NativeMode) String
+
+```go
+func (n NativeMode) String() string
+```
 
 ### type Orientation
 

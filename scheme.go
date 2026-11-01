@@ -77,6 +77,15 @@ func UseTextScale() float64 { return core.UseTextScale() }
 //	return Div(Style(tela.Bg(accent)), ...)
 func UseAccentColor() (Color, bool) { return core.UseAccentColor() }
 
+// UseNativeMenus reports whether the app asks for native menus
+// ([App].NativeMenus; every [Window] follows its app). It does not change
+// while the app runs, so the component does not build again for it. It is
+// a hook: call it at the top level of a component.
+//
+// It is for component libraries: kit's ContextMenu and Menubar combine it
+// with their own Native setting, which wins.
+func UseNativeMenus() bool { return core.UseNativeMenus() }
+
 // SetColorScheme sets the color scheme of the running app: [Light] or
 // [Dark] override the system's preference, [System] follows it again.
 // Every element is styled again (dark: classes) and the components that

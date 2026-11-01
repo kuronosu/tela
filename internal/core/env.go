@@ -311,3 +311,11 @@ func UseAccentColor() (gfx.Color, bool) {
 	a := el.tree.env.accentV.Get()
 	return a.c, a.ok
 }
+
+// UseNativeMenus reports whether the app asks for native menus
+// (Config.NativeMenus, tela.App.NativeMenus; a child window follows its
+// app). It is fixed for the life of a tree, so it takes no hook slot and
+// the component does not build again for it; call it while building.
+func UseNativeMenus() bool {
+	return currentElement("UseNativeMenus").tree.nativeMenus
+}

@@ -1221,7 +1221,7 @@ desktop.MenuBar{
 }
 ```
 
-Most desktops have no native window menu bars (Linux; frameless windows, which draw their own title bar; macOS, whose menu bar belongs to the app): there OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar does). Accelerator texts are only shown: handle the keys yourself. Tests choose items with telatest's App.ChooseMenuItem.
+Most desktops have no native window menu bars (Linux; frameless windows, which draw their own title bar; macOS, whose menu bar belongs to the app), and where there is no window of a running app (tela snapshot): there OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar does). Accelerator texts are only shown: handle the keys yourself. Tests choose items with telatest's App.ChooseMenuItem.
 
 **Example**
 

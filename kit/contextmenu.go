@@ -8,6 +8,7 @@ package kit
 import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
+	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/h"
 )
 
@@ -51,6 +52,29 @@ func init() {
 // has the focus, and a keyboard menu opens at the area's corner, not at that
 // element (ADR-133). Open and OnOpenChange are the usual controlled pair
 // (a menu opens at a point, so there is no DefaultOpen).
+//
+// # Native context menu
+//
+// The menu is drawn in the kit's look unless Native (kit.NativeOn), or
+// tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the
+// OS's context menu (ADR-215). It then opens where the drawn one would
+// (the pointer, or the area's corner for Shift+F10 and the Menu key), and
+// where the platform has no native context menu (Linux) the drawn menu
+// opens instead, in the same event and frame. The area's own Native
+// setting wins over the app's, so one menu can stay drawn while the
+// others are native (kit.NativeOff).
+//
+// A native menu shows each item's Label, Shortcut (as its accelerator:
+// text only), Disabled state and separators; checkbox items are check
+// items and the items of a radio group check items with the chosen one
+// checked. Icons, the destructive Variant, Inset, KeepOpen (the OS's menu
+// always closes), Class, ContentClass and the check and radio icons are
+// not shown, a label becomes a disabled item, and a group's items appear
+// without it. Choosing an item does what it does in the drawn menu
+// (OnSelect, OnCheckedChange, OnValueChange and the menu's OnSelect). While
+// a native menu is up the drawn one does not open, and Open and
+// OnOpenChange are not involved: the OS owns the menu and reports only the
+// choice.
 type ContextMenu[K comparable] struct {
 	// Children is the area: what a right click opens the menu on.
 	Children tela.Component
@@ -69,6 +93,9 @@ type ContextMenu[K comparable] struct {
 	// AriaLabel names the menu, which has no name of its own: the area is
 	// not a label.
 	AriaLabel string
+	// Native chooses between the OS's context menu and the drawn one; the
+	// zero value, kit.NativeAuto, follows tela.App.NativeMenus.
+	Native NativeMode
 	// CheckIcon and RadioIcon replace the check of a checkbox item and the
 	// dot of a radio item.
 	CheckIcon, RadioIcon tela.Icon
@@ -100,8 +127,13 @@ func (c ContextMenu[K]) Build() tela.Node {
 	// press while the menu is open is not an opening: it moves the panel.
 	opens, setOpens := tela.UseState(0)
 	onOpenChange := c.OnOpenChange
+	w := tela.UseWindow()
+	var intercept func(x, y float32) bool
+	if useNative("ContextMenu", c.Native) {
+		intercept = func(x, y float32) bool { return c.popup(w, store, tela.Point{X: x, Y: y}) }
+	}
 	cm := aria.UseContextMenuTrigger(aria.ContextMenuTriggerOptions{
-		Open: c.Open, Disabled: c.Disabled, NoLongPress: c.NoLongPress,
+		Open: c.Open, Disabled: c.Disabled, NoLongPress: c.NoLongPress, Intercept: intercept,
 		OnOpenChange: func(open bool) {
 			if open {
 				setOpens.Update(func(n int) int { return n + 1 })
@@ -122,4 +154,17 @@ func (c ContextMenu[K]) Build() tela.Node {
 		h.Div(cm.TriggerProps, cls(c.Class), c.Props, c.Children),
 		h.Portal(h.Presence(h.If(cm.Open, tela.WithKey(panel, opens)))),
 	)
+}
+
+// popup shows the menu as the OS's context menu at the point; false means
+// there is none (an error, such as desktop.ErrUnsupported on Linux), and the
+// drawn menu opens instead.
+func (c ContextMenu[K]) popup(w tela.WindowHandle, store *menuStore[K], at tela.Point) bool {
+	flat := flattenMenu("ContextMenu", c.Items)
+	p := menuPanel[K]{items: c.Items, store: store, onSelect: c.OnSelect}
+	items := nativeItems(c.Items, store, func(k K) { p.choose(flat, k) })
+	if len(items) == 0 {
+		return false
+	}
+	return desktop.PopupMenu(w, at, items, nil) == nil
 }

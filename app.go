@@ -90,6 +90,21 @@ type App struct {
 	// still animate; the class scroll-instant does the same for one
 	// element.
 	InstantScroll bool
+	// NativeMenus makes kit's ContextMenu and Menubar use the OS's menus
+	// where the platform has them, instead of drawing their own (ADR-215).
+	// It is the app's default for every menu, and every child
+	// [Window] follows it; a menu's own Native setting (kit.NativeOn,
+	// kit.NativeOff) wins over it, so a menu can stay drawn while the
+	// others are native. Windows has native menus now (context menus, and
+	// menu bars on windows with a title bar of the OS), macOS will in
+	// phase 14; Linux never does, and a frameless Windows window has no
+	// menu bar: there the menus are drawn as if this were false.
+	//
+	// What a native menu cannot show (icons, descriptions, custom content,
+	// the destructive color, keeping the menu open) is dropped; see
+	// kit.ContextMenu and kit.Menubar. Off, the default, keeps one look on
+	// every platform. Components read the setting with [UseNativeMenus].
+	NativeMenus bool
 	// IgnoreTextScale keeps 1rem at the theme's 16 px whatever text size
 	// the user chose in the system's settings. By default Tela follows
 	// it like a browser's default font size: 1rem grows with the
@@ -251,6 +266,7 @@ func (app App) options() core.Options {
 			RootClass:         app.RootClass,
 			ClassicScrollbars: app.ClassicScrollbars,
 			InstantScroll:     app.InstantScroll,
+			NativeMenus:       app.NativeMenus,
 			IgnoreTextScale:   app.IgnoreTextScale,
 			ColorScheme:       app.ColorScheme,
 			Theme:             (*core.Theme)(app.Theme),
