@@ -29,8 +29,12 @@ type seat struct {
 	// current selection's (wlroots, Mutter), so the newest serial is the
 	// one most likely to be accepted.
 	serial uint32
-	data   *dataDevice // nil without wl_data_device_manager
-	ti     *textInput  // nil without zwp_text_input_manager_v3
+	// pressSerial is the serial of the latest button press delivered to
+	// the app: wl_data_device.start_drag needs the press that holds the
+	// implicit grab (dnd.go).
+	pressSerial uint32
+	data        *dataDevice // nil without wl_data_device_manager
+	ti          *textInput  // nil without zwp_text_input_manager_v3
 }
 
 func (b *Backend) addSeat(name, version uint32) {
@@ -147,7 +151,9 @@ func (s *seat) listen() {
 	})
 	p.SetMotionHandler(func(e protocols.WlPointerMotionEvent) {
 		s.ptr.motion(e.SurfaceX, e.SurfaceY, b.eventTime(e.Time))
-		s.pointerMoved()
+		if !s.ptr.taken {
+			s.pointerMoved()
+		}
 		after()
 	})
 	p.SetButtonHandler(func(e protocols.WlPointerButtonEvent) {
@@ -155,8 +161,12 @@ func (s *seat) listen() {
 		pressed := e.State == protocols.WlPointerButtonStatePressed
 		t := b.eventTime(e.Time)
 		// Presses on a resize edge or in a caption region, and the rest
-		// of their sequence, are the compositor's (windowctl.go).
-		if !s.osButton(pointerButton(e.Button), pressed, e.Serial, t) {
+		// of their sequence, are the compositor's (windowctl.go); so is
+		// the pointer while a drag of ours holds it (taken).
+		if !s.ptr.taken && !s.osButton(pointerButton(e.Button), pressed, e.Serial, t) {
+			if pressed {
+				s.pressSerial = e.Serial
+			}
 			s.ptr.button(e.Button, pressed, t)
 		}
 		after()
@@ -271,6 +281,10 @@ type pointerState struct {
 	captionSerial  uint32
 	captionPos     platform.Point
 	edge           platform.Edge
+	// taken: a drag of ours took the pointer (seat.takePointer); the app
+	// was told it left, and nothing is delivered until the compositor's
+	// leave or next enter, or the drag's end.
+	taken bool
 
 	// Events of the current frame, in order.
 	out []windowEvent
@@ -302,7 +316,7 @@ type pointerState struct {
 }
 
 func (p *pointerState) enter(w *Window, x, y float64, now time.Duration) {
-	p.focus = w
+	p.focus, p.taken = w, false
 	p.pos = platform.Point{X: float32(x), Y: float32(y)}
 	p.emit(platform.PointerEnter, platform.ButtonNone, now)
 }
@@ -318,6 +332,11 @@ func (p *pointerState) leave(now time.Duration) {
 	// A sequence owned by the compositor ends silently: the app never saw
 	// its press.
 	p.osHeld, p.captionPending, p.edge = 0, false, 0
+	if p.taken {
+		// The leave that follows our start_drag: the app was told.
+		p.taken, p.focus, p.buttons, p.finger = false, nil, 0, false
+		return
+	}
 	if p.buttons != 0 {
 		p.buttons = 0
 		p.emit(platform.PointerCancel, platform.ButtonNone, now)
@@ -329,7 +348,7 @@ func (p *pointerState) leave(now time.Duration) {
 }
 
 func (p *pointerState) motion(x, y float64, t time.Duration) {
-	if p.focus == nil {
+	if p.focus == nil || p.taken {
 		return
 	}
 	p.pos = platform.Point{X: float32(x), Y: float32(y)}
@@ -341,7 +360,7 @@ func (p *pointerState) motion(x, y float64, t time.Duration) {
 
 func (p *pointerState) button(code uint32, pressed bool, t time.Duration) {
 	btn := pointerButton(code)
-	if p.focus == nil || btn == platform.ButtonNone {
+	if p.focus == nil || p.taken || btn == platform.ButtonNone {
 		return
 	}
 	action := platform.PointerUp
@@ -361,7 +380,7 @@ func (p *pointerState) button(code uint32, pressed bool, t time.Duration) {
 }
 
 func (p *pointerState) axis(a protocols.WlPointerAxis, v float64, t time.Duration) {
-	if a > 1 || p.focus == nil {
+	if a > 1 || p.focus == nil || p.taken {
 		return
 	}
 	p.timeAxis(t)
@@ -387,7 +406,7 @@ func (p *pointerState) arriveAxis(now time.Duration) {
 }
 
 func (p *pointerState) axisDiscrete(a protocols.WlPointerAxis, n int32, now time.Duration) {
-	if a > 1 || p.focus == nil {
+	if a > 1 || p.focus == nil || p.taken {
 		return
 	}
 	p.arriveAxis(now)
@@ -397,7 +416,7 @@ func (p *pointerState) axisDiscrete(a protocols.WlPointerAxis, n int32, now time
 }
 
 func (p *pointerState) axisValue120(a protocols.WlPointerAxis, v int32, now time.Duration) {
-	if a > 1 || p.focus == nil {
+	if a > 1 || p.focus == nil || p.taken {
 		return
 	}
 	p.arriveAxis(now)
@@ -415,7 +434,7 @@ func (p *pointerState) axisSource(src protocols.WlPointerAxisSource) {
 // the touchpad (only finger sources are guaranteed to send it; the
 // others may or may not, so their sequences stay unterminated).
 func (p *pointerState) axisStop(a protocols.WlPointerAxis, t time.Duration) {
-	if a > 1 || p.focus == nil {
+	if a > 1 || p.focus == nil || p.taken {
 		return
 	}
 	p.timeAxis(t)
