@@ -24,7 +24,11 @@ import (
 // supervisor's loop, and fake children (dev_fake_test.go) started from a
 // fake builder.
 
-const devWait = 15 * time.Second
+// devWait bounds every wait for the supervisor, the host or a child. Each
+// wait returns as soon as its condition holds, so the bound only matters when
+// a test fails; it is generous because windows-latest, running the whole
+// suite in parallel, took more than 15 s for a reload more than once.
+const devWait = 60 * time.Second
 
 // syncBuffer is a concurrency-safe log.
 type syncBuffer struct {
