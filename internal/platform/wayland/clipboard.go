@@ -3,9 +3,11 @@
 package wayland
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -19,8 +21,8 @@ import (
 )
 
 // The clipboard is the wl_data_device selection of a seat (no primary
-// selection, no drag and drop). See the package documentation for the
-// model; the quirks handled here:
+// selection); drag and drop shares the device (dnd.go). See the package
+// documentation for the model; the quirks handled here:
 //
 //   - Ownership. The compositor confirms a set_selection only indirectly:
 //     the old source gets wl_data_source.cancelled, and a focused client
@@ -28,24 +30,26 @@ import (
 //     compositor that refuses the request (the client has no keyboard
 //     focus, or the serial is older than the current selection's) says
 //     nothing. Ignoring selection events while our source is alive (GTK's
-//     approach) would then keep answering pastes with our stale text.
+//     approach) would then keep answering pastes with our stale data.
 //     Here each source also offers a private MIME type naming it
 //     (sourceMarker), so a selection event tells whether the compositor's
 //     selection is our latest source or someone else's.
 //   - Reading our own selection does not go through the compositor: the
-//     text is returned from memory, like GTK and Qt do. Through the
+//     data is returned from memory, like GTK and Qt do. Through the
 //     compositor it would still work (both ends of the transfer are
 //     non-blocking and served by the same loop), but slower.
 //   - Pipes. pipe2(O_NONBLOCK) would make both ends non-blocking, and the
 //     write end is handed to the source client: a client that writes with
 //     plain blocking write(2) would get EAGAIN and truncate the data. The
 //     pipe is created blocking and only our read end is switched.
-//   - Drag and drop. Offers announced by wl_data_device.enter are kept
-//     until leave or drop and destroyed unused; they never touch the
-//     selection.
+//   - Targets. A Data type is offered under every Linux target the
+//     contract gives it (platform.SelectionTargets: the X11 text names
+//     for Xwayland and older toolkits, x-special/gnome-copied-files for
+//     file managers) and offers are reported normalized
+//     (platform.SelectionType), each type read from its best target.
 
 // dataDeviceManagerVersion is the highest wl_data_device_manager version
-// this code knows: 3 adds drag-and-drop actions (unused) and changes
+// this code knows: 3 adds drag-and-drop actions (dnd.go) and changes
 // nothing for selections.
 const dataDeviceManagerVersion = 3
 
@@ -56,29 +60,37 @@ const dataDeviceManagerVersion = 3
 // It is measured from the last byte moved, so large transfers are not cut.
 const defaultTransferTimeout = 5 * time.Second
 
-// maxClipboardText bounds the text read from another client.
-const maxClipboardText = 64 << 20
+// maxTransferSize bounds the data read from another client for one type
+// (a large screenshot as PNG fits).
+const maxTransferSize = 256 << 20
 
-// Text MIME types, offered by WriteText in this order (the preferred first,
-// as GTK and Firefox list them). The X11 names (UTF8_STRING, TEXT, STRING)
-// are what Xwayland and older toolkits ask for.
+// Text targets (platform.SelectionTargets of MIMEText, the preferred
+// first). The X11 names (UTF8_STRING, TEXT, STRING) are what Xwayland and
+// older toolkits ask for.
 const (
-	mimeUTF8       = "text/plain;charset=utf-8"
+	mimeUTF8       = platform.MIMEText // "text/plain;charset=utf-8"
 	mimeText       = "text/plain"
 	mimeUTF8String = "UTF8_STRING"
 	mimeX11Text    = "TEXT"
 	mimeX11String  = "STRING"
 )
 
-var offeredMimes = [...]string{mimeUTF8, mimeText, mimeUTF8String, mimeX11Text, mimeX11String}
+// mimeGnomeCopiedFiles is the file managers' target for copied files,
+// offered and read as an alias of platform.MIMEURIList.
+const mimeGnomeCopiedFiles = "x-special/gnome-copied-files"
+
+// markerPrefix starts the private MIME types that name our sources
+// (sourceMarker). They are never reported as types.
+const markerPrefix = "application/x-tela-source-"
 
 // errNoDataDevice is reported when the compositor has no
-// wl_data_device_manager or no seat: there is no clipboard to use.
-var errNoDataDevice = errors.New("wayland: the clipboard is unavailable: the compositor has no wl_data_device_manager or no seat")
+// wl_data_device_manager or no seat: there is no clipboard (and no drag
+// and drop) to use.
+var errNoDataDevice = fmt.Errorf("wayland: the clipboard is unavailable: the compositor has no wl_data_device_manager or no seat: %w", platform.ErrUnsupported)
 
-// errTransferTimeout is reported by ReadText when the source client sends
+// errTransferTimeout is reported by a read when the source client sends
 // nothing for defaultTransferTimeout.
-var errTransferTimeout = errors.New("wayland: the clipboard owner did not send its data in time")
+var errTransferTimeout = errors.New("wayland: the data owner did not send its data in time")
 
 // sourceCount numbers the data sources of the process (sourceMarker).
 var sourceCount atomic.Uint64
@@ -87,10 +99,11 @@ var sourceCount atomic.Uint64
 // this process. Other clients ignore unknown types; a clipboard manager
 // that copies every type gets an empty value.
 func sourceMarker() string {
-	return fmt.Sprintf("application/x-tela-source-%d-%d", os.Getpid(), sourceCount.Add(1))
+	return fmt.Sprintf("%s%d-%d", markerPrefix, os.Getpid(), sourceCount.Add(1))
 }
 
-// dataDevice is the wl_data_device of a seat with its selection state.
+// dataDevice is the wl_data_device of a seat with its selection and drag
+// and drop state.
 type dataDevice struct {
 	s  *seat
 	wl *protocols.WlDataDevice
@@ -101,36 +114,38 @@ type dataDevice struct {
 	// selection is the current selection when it belongs to another
 	// client (nil: empty, unknown, or ours).
 	selection *dataOffer
-	// dnd is the offer of a drag over one of our surfaces, ignored.
-	dnd *dataOffer
+	// dnd is the drag over one of our windows (dnd.go), nil when none.
+	dnd *dndSession
 
-	// source is our latest data source, alive until the compositor
-	// cancels it or WriteText replaces it. own reports that the
-	// compositor's selection is believed to be source: set by WriteText,
-	// confirmed or refuted by selection events.
+	// source is our latest selection source, alive until the compositor
+	// cancels it or Write replaces it. own reports that the compositor's
+	// selection is believed to be source: set by Write, confirmed or
+	// refuted by selection events.
 	source *dataSource
 	own    bool
 }
 
+// dataOffer is a wl_data_offer with what the compositor told about it:
+// its targets (offer events) and, for drags, the source's actions and the
+// negotiated action (version 3).
 type dataOffer struct {
-	wl    *protocols.WlDataOffer
-	mimes []string
+	wl      *protocols.WlDataOffer
+	mimes   []string
+	actions protocols.WlDataDeviceManagerDndAction // source_actions
+	action  protocols.WlDataDeviceManagerDndAction // action
 }
 
+// dataSource is one of our wl_data_sources (a selection or a drag): the
+// data it serves and the target each offered name is served from.
 type dataSource struct {
 	wl     *protocols.WlDataSource
-	text   string
+	data   platform.Data
 	marker string
+	// served maps each offered target to the index of its entry in data.
+	served map[string]int
 }
 
-func (o *dataOffer) has(mime string) bool {
-	for _, m := range o.mimes {
-		if m == mime {
-			return true
-		}
-	}
-	return false
-}
+func (o *dataOffer) has(mime string) bool { return slices.Contains(o.mimes, mime) }
 
 func (o *dataOffer) destroy() {
 	if !o.wl.Destroyed() {
@@ -159,8 +174,9 @@ func (s *seat) attachDataDevice() {
 	d.wl.SetDataOfferHandler(d.onDataOffer)
 	d.wl.SetSelectionHandler(d.onSelection)
 	d.wl.SetEnterHandler(d.onEnter)
-	d.wl.SetLeaveHandler(func(protocols.WlDataDeviceLeaveEvent) { d.endDrag() })
-	d.wl.SetDropHandler(func(protocols.WlDataDeviceDropEvent) { d.endDrag() })
+	d.wl.SetMotionHandler(d.onMotion)
+	d.wl.SetLeaveHandler(func(protocols.WlDataDeviceLeaveEvent) { d.leaveDrag() })
+	d.wl.SetDropHandler(func(protocols.WlDataDeviceDropEvent) { d.onDrop() })
 	s.data = d
 }
 
@@ -171,17 +187,22 @@ func (d *dataDevice) release() {
 		o.destroy()
 	}
 	clear(d.offers)
-	for _, o := range []*dataOffer{d.selection, d.dnd} {
-		if o != nil {
-			o.destroy()
-		}
+	if d.selection != nil {
+		d.selection.destroy()
+		d.selection = nil
 	}
-	d.selection, d.dnd = nil, nil
+	if d.dnd != nil {
+		d.dnd.offer.destroy()
+		d.dnd = nil
+	}
 	if d.source != nil {
 		d.source.wl.Destroy()
 		d.source = nil
 	}
 	d.own = false
+	if ds := d.s.b.drag; ds != nil && ds.seat == d.s {
+		d.s.b.endDrag(ds, platform.DropNone)
+	}
 	if d.wl.Version() >= 2 && !d.wl.Destroyed() {
 		d.wl.Release()
 	}
@@ -190,6 +211,11 @@ func (d *dataDevice) release() {
 func (d *dataDevice) onDataOffer(e protocols.WlDataDeviceDataOfferEvent) {
 	o := &dataOffer{wl: e.Id}
 	e.Id.SetOfferHandler(func(m protocols.WlDataOfferOfferEvent) { o.mimes = append(o.mimes, m.MimeType) })
+	e.Id.SetSourceActionsHandler(func(a protocols.WlDataOfferSourceActionsEvent) {
+		o.actions = a.SourceActions
+		d.sourceActionsChanged(o)
+	})
+	e.Id.SetActionHandler(func(a protocols.WlDataOfferActionEvent) { o.action = a.DndAction })
 	d.offers[e.Id] = o
 }
 
@@ -234,43 +260,148 @@ func (d *dataDevice) onSelection(e protocols.WlDataDeviceSelectionEvent) {
 	d.selection = o
 }
 
-func (d *dataDevice) onEnter(e protocols.WlDataDeviceEnterEvent) {
-	d.endDrag()
-	d.dnd = d.take(e.Id)
+// --- targets ---
+
+// offerTypes returns the Data types of the targets of an offer: each
+// target normalized with platform.SelectionType, each type once at the
+// position of its first target, our markers left out.
+func offerTypes(targets []string) []string {
+	var out []string
+	for _, t := range targets {
+		if strings.HasPrefix(t, markerPrefix) {
+			continue
+		}
+		if m, ok := platform.SelectionType(t); ok && !slices.Contains(out, m) {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
-// endDrag destroys the offer of a drag, which Tela does not accept (no
-// wl_data_offer.accept: the source sees no target and cancels).
-func (d *dataDevice) endDrag() {
-	if d.dnd != nil {
-		d.dnd.destroy()
-		d.dnd = nil
+// targetFor returns the target of an offer to read the Data type mime
+// from, "" when none maps to it: for text the best encoding (chooseMime's
+// order, else the first text target), for URI lists text/uri-list before
+// x-special/gnome-copied-files, otherwise the first target that maps to
+// mime.
+func targetFor(targets []string, mime string) string {
+	var cands []string
+	for _, t := range targets {
+		if strings.HasPrefix(t, markerPrefix) {
+			continue
+		}
+		if m, ok := platform.SelectionType(t); ok && m == mime {
+			cands = append(cands, t)
+		}
 	}
+	if len(cands) == 0 {
+		return ""
+	}
+	switch mime {
+	case platform.MIMEText:
+		if best := chooseMime(cands); best != "" {
+			return best
+		}
+	case platform.MIMEURIList:
+		for _, t := range cands {
+			if t != mimeGnomeCopiedFiles {
+				return t
+			}
+		}
+	}
+	return cands[0]
+}
+
+// convertRead turns the bytes received from target into the Data type
+// mime: text as UTF-8 (decodeText), x-special/gnome-copied-files as a
+// text/uri-list; others as they are.
+func convertRead(mime, target string, data []byte) []byte {
+	switch {
+	case mime == platform.MIMEText:
+		return []byte(decodeText(data, target))
+	case mime == platform.MIMEURIList && target == mimeGnomeCopiedFiles:
+		uris, _, ok := platform.ParseGnomeCopiedFiles(data)
+		if !ok {
+			uris = platform.ParseURIList(data)
+		}
+		return platform.URIList(uris)
+	}
+	return data
 }
 
 // --- writing ---
 
-// setSelection makes text the seat's selection. The serial is the seat's
-// latest input serial (see seat.serial).
-func (d *dataDevice) setSelection(text string) {
-	b := d.s.b
-	src := &dataSource{text: text, marker: sourceMarker()}
+// newDataSource creates a wl_data_source serving data: every entry under
+// each of its platform.SelectionTargets (an entry's own type wins over
+// another entry's alias of the same name), plus the source's marker.
+func (b *Backend) newDataSource(data platform.Data) *dataSource {
+	src := &dataSource{data: data, marker: sourceMarker(), served: map[string]int{}}
+	for i, e := range data {
+		src.served[e.Type] = i
+	}
+	var targets []string
+	for i, e := range data {
+		for _, t := range platform.SelectionTargets(e.Type) {
+			if j, ok := src.served[t]; ok && j != i {
+				continue // another entry's own type
+			}
+			if !slices.Contains(targets, t) {
+				src.served[t] = i
+				targets = append(targets, t)
+			}
+		}
+	}
 	src.wl = b.dataManager.CreateDataSource()
 	src.wl.SetSendHandler(func(e protocols.WlDataSourceSendEvent) { b.serve(src, e.MimeType, e.Fd) })
-	src.wl.SetCancelledHandler(func(protocols.WlDataSourceCancelledEvent) { d.cancelled(src) })
-	for _, m := range offeredMimes {
-		src.wl.Offer(m)
+	for _, t := range targets {
+		src.wl.Offer(t)
 	}
 	src.wl.Offer(src.marker)
-	d.wl.SetSelection(src.wl, d.s.serial)
+	return src
+}
+
+// bytesFor returns what the source serves for target: STRING as ISO
+// 8859-1, x-special/gnome-copied-files as "copy" and the URIs, the rest
+// as the entry's bytes. nil for a target it does not serve (its marker).
+func (s *dataSource) bytesFor(target string) []byte {
+	i, ok := s.served[target]
+	if !ok {
+		return nil
+	}
+	e := s.data[i]
+	switch {
+	case target == mimeX11String && e.Type == platform.MIMEText:
+		return latin1(string(e.Bytes))
+	case target == mimeGnomeCopiedFiles && e.Type == platform.MIMEURIList:
+		return platform.GnomeCopiedFiles(platform.ParseURIList(e.Bytes), false)
+	}
+	return e.Bytes
+}
+
+// setSelection makes data the seat's selection; empty data clears it. The
+// serial is the seat's latest input serial (see seat.serial).
+func (d *dataDevice) setSelection(data platform.Data) {
+	b := d.s.b
+	var src *dataSource
+	if len(data) > 0 {
+		src = b.newDataSource(data)
+		src.wl.SetCancelledHandler(func(protocols.WlDataSourceCancelledEvent) { d.cancelled(src) })
+		d.wl.SetSelection(src.wl, d.s.serial)
+	} else {
+		d.wl.SetSelection(nil, d.s.serial)
+	}
 	// The previous source is replaced (GTK does the same): if the
 	// compositor accepted the request it cancels it anyway, and if it
-	// refused, the selection is cleared rather than left pointing at text
+	// refused, the selection is cleared rather than left pointing at data
 	// the app no longer means.
 	if d.source != nil {
 		d.source.wl.Destroy()
 	}
-	d.source, d.own = src, true
+	d.source, d.own = src, src != nil
+	if src == nil && d.selection != nil {
+		// Cleared: believed empty until the next selection event.
+		d.selection.destroy()
+		d.selection = nil
+	}
 }
 
 // cancelled handles wl_data_source.cancelled: another client took the
@@ -285,15 +416,9 @@ func (d *dataDevice) cancelled(src *dataSource) {
 // serve answers a wl_data_source.send: the bytes are written to fd from
 // the poll loop without blocking it.
 func (b *Backend) serve(src *dataSource, mime string, fd int) {
-	var data []byte
-	switch {
-	case mime == mimeX11String:
-		data = latin1(src.text)
-	case isTextMime(mime):
-		data = []byte(src.text)
-	}
+	data := src.bytesFor(mime)
 	if len(data) == 0 {
-		wire.CloseFd(fd) // empty text, our marker, or a type we never offered
+		wire.CloseFd(fd) // empty, our marker, or a type we never offered
 		return
 	}
 	if err := unix.SetNonblock(fd, true); err != nil {
@@ -301,15 +426,6 @@ func (b *Backend) serve(src *dataSource, mime string, fd int) {
 		return
 	}
 	b.transfers = append(b.transfers, &transfer{fd: fd, write: true, data: data, deadline: b.Now() + b.transferTimeout})
-}
-
-func isTextMime(mime string) bool {
-	for _, m := range offeredMimes {
-		if m == mime {
-			return true
-		}
-	}
-	return false
 }
 
 // latin1 encodes s as ISO 8859-1, the encoding ICCCM gives STRING; runes
@@ -327,12 +443,34 @@ func latin1(s string) []byte {
 
 // --- reading ---
 
-// readSelection starts reading the seat's selection. done is always
-// posted to the loop, never called from here.
+// readOffer starts reading target from offer o into a pipe. done is always
+// posted to the loop, never called from here; it gets the bytes (non-nil,
+// possibly empty) or an error.
+func (b *Backend) readOffer(o *dataOffer, target string, done func([]byte, error)) {
+	var p [2]int
+	if err := unix.Pipe2(p[:], unix.O_CLOEXEC); err != nil {
+		b.loop.Post(func() { done(nil, fmt.Errorf("wayland: cannot create a pipe to read %s: %w", target, err)) })
+		return
+	}
+	if err := unix.SetNonblock(p[0], true); err != nil {
+		unix.Close(p[0])
+		unix.Close(p[1])
+		b.loop.Post(func() { done(nil, fmt.Errorf("wayland: cannot read %s: %w", target, err)) })
+		return
+	}
+	// The request carries a duplicate of the write end; ours is closed at
+	// once, so the read end sees EOF when the source closes its copy.
+	o.wl.Receive(target, p[1])
+	unix.Close(p[1])
+	b.transfers = append(b.transfers, &transfer{fd: p[0], target: target, done: done, deadline: b.Now() + b.transferTimeout})
+}
+
+// readSelection starts reading the seat's selection as text. done is
+// always posted to the loop, never called from here.
 func (d *dataDevice) readSelection(done func(string, error)) {
 	b := d.s.b
 	if d.own && d.source != nil {
-		text := d.source.text
+		text, _ := d.source.data.Text()
 		b.loop.Post(func() { done(text, nil) })
 		return
 	}
@@ -344,22 +482,55 @@ func (d *dataDevice) readSelection(done func(string, error)) {
 		b.loop.Post(func() { done("", nil) }) // empty, or no text in it
 		return
 	}
-	var p [2]int
-	if err := unix.Pipe2(p[:], unix.O_CLOEXEC); err != nil {
-		b.loop.Post(func() { done("", fmt.Errorf("wayland: cannot create a pipe for the clipboard: %w", err)) })
+	b.readOffer(d.selection, mime, func(data []byte, err error) {
+		if err != nil {
+			done("", err)
+			return
+		}
+		done(decodeText(data, mime), nil)
+	})
+}
+
+// readTypes answers the selection's types. done is always posted.
+func (d *dataDevice) readTypes(done func([]string, error)) {
+	var types []string
+	switch {
+	case d.own && d.source != nil:
+		types = d.source.data.Types()
+	case d.selection != nil:
+		types = offerTypes(d.selection.mimes)
+	}
+	d.s.b.loop.Post(func() { done(types, nil) })
+}
+
+// readData reads the selection's content of the Data type mime: nil and
+// no error when it is not offered. done is always posted.
+func (d *dataDevice) readData(mime string, done func([]byte, error)) {
+	b := d.s.b
+	if d.own && d.source != nil {
+		data, ok := d.source.data.Get(mime)
+		data = bytes.Clone(data)
+		if ok && data == nil {
+			data = []byte{}
+		}
+		b.loop.Post(func() { done(data, nil) })
 		return
 	}
-	if err := unix.SetNonblock(p[0], true); err != nil {
-		unix.Close(p[0])
-		unix.Close(p[1])
-		b.loop.Post(func() { done("", fmt.Errorf("wayland: cannot read the clipboard: %w", err)) })
+	target := ""
+	if d.selection != nil {
+		target = targetFor(d.selection.mimes, mime)
+	}
+	if target == "" {
+		b.loop.Post(func() { done(nil, nil) })
 		return
 	}
-	// The request carries a duplicate of the write end; ours is closed at
-	// once, so the read end sees EOF when the source closes its copy.
-	d.selection.wl.Receive(mime, p[1])
-	unix.Close(p[1])
-	b.transfers = append(b.transfers, &transfer{fd: p[0], mime: mime, done: done, deadline: b.Now() + b.transferTimeout})
+	b.readOffer(d.selection, target, func(data []byte, err error) {
+		if err != nil {
+			done(nil, err)
+			return
+		}
+		done(convertRead(mime, target, data), nil)
+	})
 }
 
 // chooseMime picks the text type to receive: declared UTF-8 first, then
@@ -421,16 +592,17 @@ func decodeText(data []byte, mime string) string {
 // --- transfers ---
 
 // transfer is one pipe being written (a send we serve) or read (a
-// ReadText). Transfers are owned by the UI thread: the poll loop waits on
-// their descriptors together with the display socket and does the
-// non-blocking I/O itself, so no goroutine shares state with the backend
-// and a peer that never reads or writes costs nothing but its deadline.
+// selection read or a drop). Transfers are owned by the UI thread: the
+// poll loop waits on their descriptors together with the display socket
+// and does the non-blocking I/O itself, so no goroutine shares state with
+// the backend and a peer that never reads or writes costs nothing but its
+// deadline.
 type transfer struct {
 	fd       int
 	write    bool
 	data     []byte // write: bytes left; read: bytes so far
-	mime     string // read: the type received
-	done     func(string, error)
+	target   string // read: the target received
+	done     func([]byte, error)
 	deadline time.Duration // backend time; moved forward by progress
 }
 
@@ -477,14 +649,18 @@ func (b *Backend) service(t *transfer, revents int16) bool {
 		case err == unix.EAGAIN:
 			return true
 		case err != nil:
-			b.finishRead(t, "", fmt.Errorf("wayland: cannot read the clipboard: %w", err))
+			b.finishRead(t, nil, fmt.Errorf("wayland: cannot read %s: %w", t.target, err))
 			return false
 		case n == 0:
-			b.finishRead(t, decodeText(t.data, t.mime), nil)
+			data := t.data
+			if data == nil {
+				data = []byte{}
+			}
+			b.finishRead(t, data, nil)
 			return false
 		}
-		if len(t.data)+n > maxClipboardText {
-			b.finishRead(t, "", fmt.Errorf("wayland: the clipboard text exceeds %d MiB", maxClipboardText>>20))
+		if len(t.data)+n > maxTransferSize {
+			b.finishRead(t, nil, fmt.Errorf("wayland: the data of %s exceeds %d MiB", t.target, maxTransferSize>>20))
 			return false
 		}
 		t.data = append(t.data, buf[:n]...)
@@ -492,10 +668,10 @@ func (b *Backend) service(t *transfer, revents int16) bool {
 	}
 }
 
-func (b *Backend) finishRead(t *transfer, text string, err error) {
+func (b *Backend) finishRead(t *transfer, data []byte, err error) {
 	wire.CloseFd(t.fd)
 	done := t.done
-	b.loop.Post(func() { done(text, err) })
+	b.loop.Post(func() { done(data, err) })
 }
 
 // serviceTransfers runs the I/O of the transfers polled with fds (one
@@ -527,7 +703,7 @@ func (b *Backend) expireTransfers(now time.Duration) {
 		if t.write {
 			wire.CloseFd(t.fd)
 		} else {
-			b.finishRead(t, "", errTransferTimeout)
+			b.finishRead(t, nil, errTransferTimeout)
 		}
 	}
 	clear(b.transfers[len(live):])
@@ -594,13 +770,53 @@ func (c clipboard) ReadText(done func(string, error)) {
 	d.readSelection(done)
 }
 
-// WriteText makes text the selection. The compositor may refuse it
-// silently (no keyboard focus); see the package documentation.
+// WriteText makes text the selection: Write(TextData(text)). The
+// compositor may refuse it silently (no keyboard focus); see the package
+// documentation.
 func (c clipboard) WriteText(text string) error {
 	d := c.b.clipboardDevice()
 	if d == nil {
 		return errNoDataDevice
 	}
-	d.setSelection(text)
+	d.setSelection(platform.TextData(text))
+	return nil
+}
+
+// ReadTypes reports the selection's types, normalized: from memory for
+// our own selection, from the offer's targets otherwise.
+func (c clipboard) ReadTypes(done func([]string, error)) error {
+	if done == nil {
+		panic("wayland: Clipboard.ReadTypes called with a nil callback")
+	}
+	d := c.b.clipboardDevice()
+	if d == nil {
+		return errNoDataDevice
+	}
+	d.readTypes(done)
+	return nil
+}
+
+// Read reads the selection's content of one type: from memory for our
+// own selection, else with wl_data_offer.receive of the type's best
+// target (targetFor), converted (convertRead).
+func (c clipboard) Read(mime string, done func([]byte, error)) error {
+	platform.CheckClipboardRead(mime, done != nil)
+	d := c.b.clipboardDevice()
+	if d == nil {
+		return errNoDataDevice
+	}
+	d.readData(mime, done)
+	return nil
+}
+
+// Write makes data the selection (a copy), offered under every target of
+// its types; empty data clears it.
+func (c clipboard) Write(data platform.Data) error {
+	platform.CheckData("Clipboard.Write", data)
+	d := c.b.clipboardDevice()
+	if d == nil {
+		return errNoDataDevice
+	}
+	d.setSelection(data.Clone())
 	return nil
 }

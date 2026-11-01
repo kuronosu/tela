@@ -110,6 +110,10 @@ type Window struct {
 	tiRestart   bool
 	tiReset     bool
 	imeSessions int
+
+	// dropping is the drag session whose DragDrop the app is handling
+	// (dnd.go): SetDropEffect sets its final effect.
+	dropping *dndSession
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -654,6 +658,7 @@ func (w *Window) Close() {
 		}
 	}
 	w.closeTextInput()
+	w.closeDrags()
 	delete(b.surfaces, w.surface)
 
 	// Destruction order matters: the role objects first (destroyRole; a
