@@ -57,12 +57,14 @@ type recordView struct {
 	last problem
 }
 
+// show records p before the terminal prints it, so that a test that saw
+// the line (logged) finds the entry.
 func (v *recordView) show(p problem) {
-	v.term.show(p)
 	v.mu.Lock()
-	defer v.mu.Unlock()
 	v.log = append(v.log, fmt.Sprintf("show %d: %s", p.kind, p.summary))
 	v.last = p
+	v.mu.Unlock()
+	v.term.show(p)
 }
 
 func (v *recordView) lastProblem() problem {
@@ -459,6 +461,10 @@ func TestDevNewBuildCrashesBeforeFirstFrame(t *testing.T) {
 			// the problem.
 			h.s.push(evKey{'r'})
 			h.expect("the next good build", 3, 2, 0)
+			// The window shows the new build before the supervisor handles
+			// its promotion, which clears the problem and then logs the
+			// reload line.
+			h.logged("reloaded in", 1)
 			kind := problemStart
 			if mode == "panic" {
 				kind = problemPanic

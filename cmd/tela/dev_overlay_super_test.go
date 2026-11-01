@@ -175,6 +175,7 @@ func TestOverlayBuildErrorDocksAndAppStaysInteractive(t *testing.T) {
 	h.s.push(evKey{'r'})
 	h.expect("the next good build", 3, 2, 0)
 	h.waitFrame("cleared", h.plain(child(3, 2, 0)))
+	h.logged("reloaded in", 1) // the clear is recorded before this line
 	if got := h.view.entries(); len(got) != 2 || got[1] != "clear" {
 		t.Errorf("problems %v", got)
 	}
