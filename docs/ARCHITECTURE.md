@@ -55,7 +55,7 @@ Contributions that break these are rejected.
 1. **`CGO_ENABLED=0` always**, for every build, test and CI job.
 2. **OS access only through:**
    - **Linux:** Wayland and X11 protocols directly over Unix sockets, plus syscalls.
-   - **Windows:** system DLLs (`user32`, `gdi32`, `imm32`, `dwmapi`, `shcore`, `kernel32`; `shell32`, `ole32`, `comdlg32` for desktop services, ADR-178) via `golang.org/x/sys/windows` / `syscall`.
+   - **Windows:** system DLLs (`user32`, `gdi32`, `imm32`, `dwmapi`, `shcore`, `kernel32`; `shell32`, `ole32`, `comdlg32` for desktop services, ADR-178; `advapi32` for Credential Manager and the registry, ADR-209) via `golang.org/x/sys/windows` / `syscall`.
    - **macOS:** Objective-C runtime and system frameworks (AppKit, QuartzCore, CoreGraphics) via `github.com/ebitengine/purego`.
 3. **Dependencies:** pure Go only, permissive licenses (MIT, BSD, Apache-2.0, OFL for fonts). Approved list below; new ones need an ADR.
 4. **No webview, no Chromium, no external layout engines.**
@@ -300,7 +300,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 - **Variants:**
   - State: `hover:`, `active:`, `focus:`, `focus-visible:`, `focus-within:`, `disabled:`, `checked:` (an element whose `h.AriaChecked` is true: Tela has no native checkbox; ADR-100), and the `aria-*` variants `aria-busy:`, `aria-checked:`, `aria-disabled:`, `aria-expanded:`, `aria-hidden:`, `aria-invalid:`, `aria-pressed:`, `aria-readonly:`, `aria-required:`, `aria-selected:` (also `group-aria-*:`, `peer-aria-*:`), which match when the element's `h.Aria…` prop is true (ADR-097, ADR-131), and `aria-[sort=ascending]:`/`aria-[sort=descending]:` for `h.AriaSort` (ADR-131) and `aria-[current=page]:` (also `step`, `location`, `date`, `time`, `true`) for `h.AriaCurrent` (ADR-171).
   - Structural: `first:`, `last:`, `odd:`, `even:`, `group-hover:`/`group-*` (ancestor has class `group`), `peer-*` (preceding siblings only).
-  - Environment: `dark:`, `motion-reduce:`, breakpoints `sm: md: lg: xl: 2xl:` (window width at least), their `max-sm:` … `max-2xl:` (window width below the breakpoint), the arbitrary `min-[600px]:` and `max-[40rem]:`, all stackable (`md:max-xl:`; ADR-097), `starting:` (CSS `@starting-style`, §12), `rtl:`/`ltr:` (the element's direction, ADR-090).
+  - Environment: `dark:`, `motion-reduce:`, `contrast-more:` (the system's high contrast, ADR-209), breakpoints `sm: md: lg: xl: 2xl:` (window width at least), their `max-sm:` … `max-2xl:` (window width below the breakpoint), the arbitrary `min-[600px]:` and `max-[40rem]:`, all stackable (`md:max-xl:`; ADR-097), `starting:` (CSS `@starting-style`, §12), `rtl:`/`ltr:` (the element's direction, ADR-090).
 - **Arbitrary values:** `w-[320px]`, `bg-[#1e1e2e]`, `grid-cols-[200px_1fr]`. The only arbitrary property is `[clip-path:…]` (ADR-079). **Color opacity:** `bg-white/15`.
 - **Parsing:**
   - Each class string is parsed once and interned (cache: `string` → slice of ops on `ComputedStyle`).
@@ -349,7 +349,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
 | Units `cm`, `in`, `pt`, `pc`, `ex` | Supported units (below) |
 | Vertical `writing-mode`, ruby, multi-column, `shape-outside` | Nothing |
 
-**Supported units:** `px` (logical pixels, multiplied by display scale), `rem` (16px default, theme-configurable), `em`, `%`, `vw`, `vh`, `fr`, `ch` (approximate).
+**Supported units:** `px` (logical pixels, multiplied by display scale), `rem` (16px default, theme-configurable, times the system's text scale unless the app turns it off: ADR-209), `em`, `%`, `vw`, `vh`, `fr`, `ch` (approximate).
 
 ## 11. Text
 
@@ -493,7 +493,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 - **Sizing rule:** `PhysicalSize(logical, scale)` rounds logical × scale half away from zero (the `wp_fractional_scale_v1` rule). Every backend sizes framebuffers with it.
 - `Run` does not return when the last window closes; quitting is app policy (`core`/`tela`).
 - Backends share the OS-independent half of the loop (`internal/platform/internal/loop`: queue, wake/quit, frame pacing; ADR-050) and keep only their OS I/O.
-- **Desktop (phase 12, ADR-178):** windows also take state (minimize, maximize, fullscreen, visibility, always-on-top, min/max size, position where the OS allows it), a parent and modality, hit regions for custom title bars, and on Windows 11 title bar colors and a system backdrop (Mica, Acrylic; ADR-187); backends expose OS services (open URI, file dialogs, message boxes, notifications, tray icons). The Linux services are shared by Wayland and X11 over D-Bus. `Backend.Desktop()` returns them; window control methods are requests whose outcome arrives as `WindowStateEvent`/`ConfigureEvent` (ADR-179). The exact contract is in `doc.go`.
+- **Desktop (phase 12, ADR-178):** windows also take state (minimize, maximize, fullscreen, visibility, always-on-top, min/max size, position where the OS allows it), a parent and modality, hit regions for custom title bars, and on Windows 11 title bar colors and a system backdrop (Mica, Acrylic; ADR-187); backends expose OS services (open URI, file dialogs, message boxes, notifications, tray icons; phase 13 adds drag and drop, clipboard formats, native menus, global shortcuts, single instance, scheme and file-type registration and secrets, ADR-209). The Linux services are shared by Wayland and X11 over D-Bus. `Backend.Desktop()` returns them; window control methods are requests whose outcome arrives as `WindowStateEvent`/`ConfigureEvent` (ADR-179). The exact contract is in `doc.go`.
 - The IME is driven by `Window.SetTextInput` (cursor area, purpose, surrounding text; nil = no text field) and `ResetTextInput` (ADR-068).
 
 ### Backends
