@@ -25,6 +25,10 @@ type config struct {
 	scale         float64
 	dark          bool
 	reducedMotion bool
+	highContrast  bool
+	textScale     float64
+	accent        *tela.Color
+	ignoreText    bool
 	scheme        tela.ColorScheme
 	classic       bool
 	instant       bool
@@ -65,6 +69,8 @@ func (c config) validate() error {
 		return fmt.Errorf("telatest.Scale(%g): the display scale must be positive, such as telatest.Scale(2)", c.scale)
 	case c.timeout <= 0:
 		return fmt.Errorf("telatest.Timeout(%v): the timeout must be positive, such as telatest.Timeout(2 * time.Second)", c.timeout)
+	case c.textScale != 0 && !(c.textScale > 0 && c.textScale <= platform.MaxTextScale):
+		return fmt.Errorf("telatest.TextScale(%g): give a factor above 0 and at most %d, such as telatest.TextScale(1.25)", c.textScale, platform.MaxTextScale)
 	}
 	if _, err := core.ParseDebug(strings.Join(c.debug, ",")); err != nil {
 		return fmt.Errorf("telatest.Debug: %v", err)
@@ -86,12 +92,15 @@ func (c config) coreConfig() core.Config {
 		var now time.Duration
 		clock = func() time.Duration { now += time.Millisecond; return now }
 	}
-	return core.Config{
+	cc := core.Config{
 		Debug:             dbg,
 		DebugClock:        clock,
 		RootClass:         c.rootClass,
 		Dark:              c.dark,
 		ReducedMotion:     c.reducedMotion,
+		HighContrast:      c.highContrast,
+		TextScale:         c.textScale,
+		IgnoreTextScale:   c.ignoreText,
 		ColorScheme:       c.scheme,
 		Dev:               c.devMode(),
 		ClassicScrollbars: c.classic,
@@ -99,6 +108,19 @@ func (c config) coreConfig() core.Config {
 		Theme:             (*core.Theme)(c.theme),
 		ClassAliases:      c.aliases,
 	}
+	if c.accent != nil {
+		cc.AccentColor, cc.HasAccentColor = *c.accent, true
+	}
+	return cc
+}
+
+// systemSettings returns the system settings of the headless backend.
+func (c config) systemSettings() platform.SystemSettings {
+	s := platform.SystemSettings{DarkMode: c.dark, ReducedMotion: c.reducedMotion, HighContrast: c.highContrast, TextScale: c.textScale}
+	if c.accent != nil {
+		s.AccentColor, s.HasAccentColor = c.accent.Clamp().NRGBA8(), true
+	}
+	return s
 }
 
 // NoSettle makes the app keep its animations where they are for
@@ -163,6 +185,20 @@ func ColorScheme(s tela.ColorScheme) Option {
 // motion-reduce: variants apply, transitions take no time and scrolling
 // jumps.
 func ReducedMotion() Option { return func(c *config) { c.reducedMotion = true } }
+
+// HighContrast makes the system ask for high contrast: the
+// contrast-more: variants apply and tela.UseHighContrast reports true.
+func HighContrast() Option { return func(c *config) { c.highContrast = true } }
+
+// TextScale sets the system's text scale (default 1): 1rem is the theme's
+// rem times scale, so text and rem-based spacing grow (tela.UseTextScale),
+// unless the app sets tela.App.IgnoreTextScale. The scale is above 0 and
+// at most 4.
+func TextScale(scale float64) Option { return func(c *config) { c.textScale = scale } }
+
+// AccentColor sets the system's accent color, which tela.UseAccentColor
+// returns (by default the system has none).
+func AccentColor(color tela.Color) Option { return func(c *config) { c.accent = &color } }
 
 // ClassicScrollbars draws always-visible classic scrollbars that take
 // space (tela.App.ClassicScrollbars).
@@ -264,7 +300,8 @@ func ClassAliases(aliases map[string]string) Option {
 // FromApp applies the settings of a [tela.App] that shape what is drawn, so
 // a test, `tela snapshot` and the window see the same app: the size when
 // both Width and Height are set, RootClass, ColorScheme, Theme,
-// ClassAliases, ClassicScrollbars, InstantScroll and Dev. It sets only
+// ClassAliases, ClassicScrollbars, InstantScroll, IgnoreTextScale and
+// Dev. It sets only
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
 //
@@ -314,6 +351,9 @@ func FromApp(app tela.App) Option {
 		}
 		if app.InstantScroll {
 			c.instant = true
+		}
+		if app.IgnoreTextScale {
+			c.ignoreText = true
 		}
 		if app.Dev != nil {
 			c.dev = *app.Dev

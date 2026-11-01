@@ -65,7 +65,9 @@ import (
 // click whose count is 2. OnContextMenu fires on the release of the secondary button.
 //
 // Drags (OnDragStart, OnDrag, OnDragEnd) and long presses go to the
-// element whose recognizer won, without bubbling.
+// element whose recognizer won, without bubbling. An element with
+// Draggable(true) has a drag recognizer too; its drag gesture may become
+// a drag and drop, which the OS takes over (dnd.go).
 //
 // Scrolling (scroll.go, scrollbar.go): a touch press also adds the pan
 // recognizer of each scroll container on the path that can scroll, which
@@ -157,6 +159,10 @@ type pointerState struct {
 	// elements it passes over (the gestures still see them: the pan
 	// scrolls and flings), until the press ends.
 	panned bool
+	// osDrag: the press became a drag and drop of a Draggable element
+	// (dnd.go), which the OS owns: the drag gesture's later updates and
+	// its end are not dispatched.
+	osDrag bool
 }
 
 // inputState is the pointer input state of a Tree (UI thread).
@@ -329,7 +335,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 	if e.Button != platform.ButtonPrimary || ps.pressing {
 		return
 	}
-	ps.pressing = true
+	ps.pressing, ps.osDrag = true, false
 	ps.down = target
 	t.setActive(ps, target)
 	t.in.nextGID++
@@ -476,7 +482,9 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 			// press to the click.
 			rs = append(rs, &gesture.LongPress{OnLongPress: func(ge gesture.Event) { t.longPress(ps, el, ge) }})
 		}
-		if m&dragMask != 0 {
+		if m&dragMask != 0 || el.node.d.draggable {
+			// A Draggable element's drag starts its drag and drop
+			// (dnd.go).
 			rs = append(rs, &gesture.Drag{
 				OnStart:  func(u gesture.DragUpdate) { t.drag(ps, el, evDragStart, u) },
 				OnUpdate: func(u gesture.DragUpdate) { t.drag(ps, el, evDrag, u) },
@@ -529,7 +537,9 @@ func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUp
 	if k == evDragStart {
 		t.in.clicks.Reset()
 	}
-	if !el.mounted {
+	if ps.osDrag || !el.mounted {
+		// The OS owns a drag and drop: its OnDragEnd comes with the
+		// outcome (dnd.go), not with the cancelled press.
 		return
 	}
 	e := DragEvent{
@@ -540,6 +550,12 @@ func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUp
 		Button: MouseButtonLeft,
 	}
 	e.Shift, e.Ctrl, e.Alt, e.Meta = modifiers(ps.mods)
+	if k == evDragStart && el.node.d.draggable {
+		press := gfx.Point{X: u.Pos.X - u.Offset.X, Y: u.Pos.Y - u.Offset.Y}
+		t.dragStart(ps, el, e, press)
+		t.flushDiscrete()
+		return
+	}
 	fire(t, k, el, e, false)
 	if k != evDrag {
 		t.flushDiscrete()
@@ -584,6 +600,7 @@ func (t *Tree) resetInput() {
 	t.in.clicks.Reset()
 	t.in.fdrag = nil
 	t.scr.wheel = wheelLatch{}
+	t.dnd = dndState{}
 }
 
 // ---------------------------------------------------------------------

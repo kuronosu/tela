@@ -116,7 +116,7 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 		Size:     size,
 		Scale:    cfg.scale,
 		Screen:   cfg.screen,
-		Settings: platform.SystemSettings{DarkMode: cfg.dark, ReducedMotion: cfg.reducedMotion},
+		Settings: cfg.systemSettings(),
 
 		NoServerDecorations: cfg.noServerDeco,
 	})

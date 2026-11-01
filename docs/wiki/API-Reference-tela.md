@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
+- [Functions](#functions): [`Animate`](#func-animate) · [`Assets`](#func-assets) · [`BackgroundGradient`](#func-backgroundgradient) · [`Bg`](#func-bg) · [`BgFn`](#func-bgfn) · [`BgImage`](#func-bgimage) · [`BorderColor`](#func-bordercolor) · [`BorderWidth`](#func-borderwidth) · [`Bottom`](#func-bottom) · [`Bounce`](#func-bounce) · [`Box`](#func-box) · [`BoxShadow`](#func-boxshadow) · [`C`](#func-c) · [`CP`](#func-cp) · [`CreateContext`](#func-createcontext) · [`CubicBezier`](#func-cubicbezier) · [`Damping`](#func-damping) · [`DefaultTheme`](#func-defaulttheme) · [`DevMode`](#func-devmode) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`FontSize`](#func-fontsize) · [`FontWeight`](#func-fontweight) · [`Gap`](#func-gap) · [`Height`](#func-height) · [`HeightFn`](#func-heightfn) · [`Hex`](#func-hex) · [`Initial`](#func-initial) · [`Left`](#func-left) · [`LinearGradient`](#func-lineargradient) · [`Main`](#func-main) · [`MapValue`](#func-mapvalue) · [`Margin`](#func-margin) · [`MaxHeight`](#func-maxheight) · [`MaxWidth`](#func-maxwidth) · [`Memo`](#func-memo) · [`MergeProps`](#func-mergeprops) · [`MinHeight`](#func-minheight) · [`MinWidth`](#func-minwidth) · [`MustSVG`](#func-mustsvg) · [`OKLCH`](#func-oklch) · [`OnDone`](#func-ondone) · [`Opacity`](#func-opacity) · [`OpacityFn`](#func-opacityfn) · [`OpenPath`](#func-openpath) · [`OpenURL`](#func-openurl) · [`Padding`](#func-padding) · [`PaddingXY`](#func-paddingxy) · [`ParseSVG`](#func-parsesvg) · [`Post`](#func-post) · [`Quit`](#func-quit) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Radius`](#func-radius) · [`Right`](#func-right) · [`Rotate`](#func-rotate) · [`Run`](#func-run) · [`Scale`](#func-scale) · [`SetColorScheme`](#func-setcolorscheme) · [`SetTheme`](#func-settheme) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Stop`](#func-stop) · [`StopAt`](#func-stopat) · [`StopPropagation`](#func-stoppropagation) · [`TextColor`](#func-textcolor) · [`TextColorFn`](#func-textcolorfn) · [`Toggle`](#func-toggle) · [`Top`](#func-top) · [`Translate`](#func-translate) · [`TranslateFn`](#func-translatefn) · [`UseAccentColor`](#func-useaccentcolor) · [`UseBounds`](#func-usebounds) · [`UseCallback`](#func-usecallback) · [`UseColorScheme`](#func-usecolorscheme) · [`UseContext`](#func-usecontext) · [`UseDirection`](#func-usedirection) · [`UseEffect`](#func-useeffect) · [`UseEffectDo`](#func-useeffectdo) · [`UseElementRef`](#func-useelementref) · [`UseGo`](#func-usego) · [`UseHighContrast`](#func-usehighcontrast) · [`UseID`](#func-useid) · [`UseInterval`](#func-useinterval) · [`UseLayoutEffect`](#func-uselayouteffect) · [`UseMemo`](#func-usememo) · [`UseMount`](#func-usemount) · [`UseOnce`](#func-useonce) · [`UsePresence`](#func-usepresence) · [`UsePresenceTween`](#func-usepresencetween) · [`UseReducedMotion`](#func-usereducedmotion) · [`UseReducer`](#func-usereducer) · [`UseRef`](#func-useref) · [`UseScroll`](#func-usescroll) · [`UseSize`](#func-usesize) · [`UseSpring`](#func-usespring) · [`UseState`](#func-usestate) · [`UseStateSet`](#func-usestateset) · [`UseStateUpdate`](#func-usestateupdate) · [`UseTextScale`](#func-usetextscale) · [`UseTheme`](#func-usetheme) · [`UseTimeout`](#func-usetimeout) · [`UseTween`](#func-usetween) · [`UseUpdateEffect`](#func-useupdateeffect) · [`UseValue`](#func-usevalue) · [`UseWindow`](#func-usewindow) · [`Velocity`](#func-velocity) · [`WH`](#func-wh) · [`Width`](#func-width) · [`WidthFn`](#func-widthfn) · [`WithKey`](#func-withkey) · [`ZIndex`](#func-zindex)
 - [Types](#types)
   - [`type Animatable`](#type-animatable)
   - [`type AnimationOption`](#type-animationoption): [`Bounce`](#func-bounce) · [`Damping`](#func-damping) · [`Duration`](#func-duration) · [`Ease`](#func-ease) · [`Initial`](#func-initial) · [`OnDone`](#func-ondone) · [`Spring`](#func-spring) · [`Stiffness`](#func-stiffness) · [`Velocity`](#func-velocity)
@@ -22,14 +22,16 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type Callback`](#type-callback): [`UseCallback`](#func-usecallback) · [`Fn`](#func-callback-fn) · [`IsZero`](#func-callback-iszero)
   - [`type ChangeEvent`](#type-changeevent): [`DefaultPrevented`](#func-changeevent-defaultprevented) · [`PreventDefault`](#func-changeevent-preventdefault) · [`StopPropagation`](#func-changeevent-stoppropagation)
   - [`type Child`](#type-child)
-  - [`type Color`](#type-color): [`Hex`](#func-hex) · [`OKLCH`](#func-oklch) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`Clamp`](#func-color-clamp) · [`IsFinite`](#func-color-isfinite) · [`IsOpaque`](#func-color-isopaque) · [`MulAlpha`](#func-color-mulalpha) · [`NRGBA8`](#func-color-nrgba8) · [`Premul8`](#func-color-premul8) · [`Premultiplied`](#func-color-premultiplied) · [`String`](#func-color-string) · [`ToOKLCH`](#func-color-tooklch) · [`ToOklab`](#func-color-tooklab) · [`WithAlpha`](#func-color-withalpha)
+  - [`type Color`](#type-color): [`Hex`](#func-hex) · [`OKLCH`](#func-oklch) · [`RGB`](#func-rgb) · [`RGBA`](#func-rgba) · [`UseAccentColor`](#func-useaccentcolor) · [`Clamp`](#func-color-clamp) · [`IsFinite`](#func-color-isfinite) · [`IsOpaque`](#func-color-isopaque) · [`MulAlpha`](#func-color-mulalpha) · [`NRGBA8`](#func-color-nrgba8) · [`Premul8`](#func-color-premul8) · [`Premultiplied`](#func-color-premultiplied) · [`String`](#func-color-string) · [`ToOKLCH`](#func-color-tooklch) · [`ToOklab`](#func-color-tooklab) · [`WithAlpha`](#func-color-withalpha)
   - [`type ColorScheme`](#type-colorscheme): [`UseColorScheme`](#func-usecolorscheme) · [`String`](#func-colorscheme-string)
   - [`type Component`](#type-component)
   - [`type CompositionEvent`](#type-compositionevent): [`DefaultPrevented`](#func-compositionevent-defaultprevented) · [`PreventDefault`](#func-compositionevent-preventdefault) · [`StopPropagation`](#func-compositionevent-stoppropagation)
   - [`type Context`](#type-context): [`CreateContext`](#func-createcontext) · [`Provider`](#func-context-provider)
+  - [`type DataTransfer`](#type-datatransfer): [`ClearData`](#func-datatransfer-cleardata) · [`Files`](#func-datatransfer-files) · [`Get`](#func-datatransfer-get) · [`GetData`](#func-datatransfer-getdata) · [`HTML`](#func-datatransfer-html) · [`Has`](#func-datatransfer-has) · [`Image`](#func-datatransfer-image) · [`Set`](#func-datatransfer-set) · [`SetData`](#func-datatransfer-setdata) · [`SetDragImage`](#func-datatransfer-setdragimage) · [`SetFiles`](#func-datatransfer-setfiles) · [`SetHTML`](#func-datatransfer-sethtml) · [`SetImage`](#func-datatransfer-setimage) · [`SetText`](#func-datatransfer-settext) · [`Text`](#func-datatransfer-text) · [`Types`](#func-datatransfer-types)
   - [`type DevState`](#type-devstate)
   - [`type Dispatcher`](#type-dispatcher): [`UseReducer`](#func-usereducer) · [`Dispatch`](#func-dispatcher-dispatch)
   - [`type DragEvent`](#type-dragevent): [`DefaultPrevented`](#func-dragevent-defaultprevented) · [`PreventDefault`](#func-dragevent-preventdefault) · [`StopPropagation`](#func-dragevent-stoppropagation)
+  - [`type DropEffect`](#type-dropeffect)
   - [`type Easing`](#type-easing): [`CubicBezier`](#func-cubicbezier)
   - [`type ElementRef`](#type-elementref): [`UseElementRef`](#func-useelementref) · [`Blur`](#func-elementref-blur) · [`Bounds`](#func-elementref-bounds) · [`Click`](#func-elementref-click) · [`Focus`](#func-elementref-focus) · [`Focused`](#func-elementref-focused) · [`ScrollBy`](#func-elementref-scrollby) · [`ScrollIntoView`](#func-elementref-scrollintoview) · [`ScrollOffset`](#func-elementref-scrolloffset) · [`ScrollTo`](#func-elementref-scrollto) · [`ScrollToIndex`](#func-elementref-scrolltoindex) · [`Select`](#func-elementref-select) · [`SelectionRange`](#func-elementref-selectionrange) · [`SetSelectionRange`](#func-elementref-setselectionrange) · [`Value`](#func-elementref-value)
   - [`type FocusEvent`](#type-focusevent): [`DefaultPrevented`](#func-focusevent-defaultprevented) · [`PreventDefault`](#func-focusevent-preventdefault) · [`StopPropagation`](#func-focusevent-stoppropagation)
@@ -260,6 +262,42 @@ const (
 ```
 
 The pointer kinds.
+
+```go
+const (
+    // DropNone refuses a drop, or reports that a drag was refused or
+    // cancelled.
+    DropNone = core.DropNone
+    // DropCopy copies the data.
+    DropCopy = core.DropCopy
+    // DropMove moves the data: the source deletes its copy.
+    DropMove = core.DropMove
+    // DropLink links to the data.
+    DropLink = core.DropLink
+    // DropAll is every effect (HTML's effectAllowed "all"), what a source
+    // allows unless it says otherwise.
+    DropAll = core.DropAll
+)
+```
+
+The drop effects.
+
+```go
+const (
+    // MIMEText is UTF-8 plain text ("text/plain" and HTML's "text" name it
+    // too).
+    MIMEText = core.MIMEText
+    // MIMEHTML is an HTML fragment in UTF-8.
+    MIMEHTML = core.MIMEHTML
+    // MIMEPNG is a PNG image.
+    MIMEPNG = core.MIMEPNG
+    // MIMEURIList is a list of URIs: files are file: URIs
+    // (DataTransfer.Files). HTML's "Files" and "url" name it too.
+    MIMEURIList = core.MIMEURIList
+)
+```
+
+The MIME types every platform maps onto its own formats ([`DataTransfer`](#type-datatransfer)). Any other MIME type is a custom type ("application/x-myapp-card"), carried by name.
 
 ```go
 const (
@@ -797,6 +835,16 @@ fmt.Println("ok")
 // Output: ok
 ```
 
+### func UseHighContrast
+
+```go
+func UseHighContrast() bool
+```
+
+UseHighContrast reports whether the system asks for high contrast (Windows' contrast themes, GNOME's high contrast): the contrast-more: classes apply. The component builds again when it changes. It is a hook: call it at the top level of a component.
+
+Classes do not need it: border-border contrast-more:border-foreground already follows the setting.
+
 ### func UseID
 
 ```go
@@ -1059,6 +1107,16 @@ UseStateUpdate is [`UseState`](#func-usestate) for those who only update from th
 count, update := tela.UseStateUpdate(0)
 update(func(n int) int { return n + 1 })
 ```
+
+### func UseTextScale
+
+```go
+func UseTextScale() float64
+```
+
+UseTextScale returns how much the user asked the system to scale text (Windows' "Text size", GNOME's text scaling factor): 1.25 for text 25% larger. Tela applies it like a browser's default font size: 1rem is the theme's rem (16 px) times the scale, so the text-\* sizes and the rem-based spacing of Tailwind (p-4, gap-2, w-64, the breakpoints) grow together while px values (border, text-\[13px\], w-\[320px\]) do not. It is 1 when the system reports nothing, when [`App`](#type-app).IgnoreTextScale is set, and in tests and snapshots. The component builds again when it changes. It is a hook: call it at the top level of a component.
+
+Classes do not need it; it is for sizes computed in code.
 
 ### func UseTimeout
 
@@ -1494,6 +1552,13 @@ type App struct {
     // still animate; the class scroll-instant does the same for one
     // element.
     InstantScroll bool
+    // IgnoreTextScale keeps 1rem at the theme's 16 px whatever text size
+    // the user chose in the system's settings. By default Tela follows
+    // it like a browser's default font size: 1rem grows with the
+    // system's text scale, so text and rem-based spacing grow together
+    // (see [UseTextScale]). Set it for a layout that cannot grow, such as
+    // a fixed-size tool window.
+    IgnoreTextScale bool
     // ColorScheme is the app's color scheme: Light or Dark override the
     // system's preference (the dark: classes, UseColorScheme); the zero
     // value, System, follows it. SetColorScheme changes it while the app
@@ -1776,6 +1841,22 @@ func RGBA(r, g, b uint8, a float32) Color
 ```
 
 RGBA returns the color with the given 8-bit components and an alpha from 0 (transparent) to 1 (opaque), like CSS rgba(r, g, b, a).
+
+#### func UseAccentColor
+
+```go
+func UseAccentColor() (Color, bool)
+```
+
+UseAccentColor returns the user's accent color (the color the system uses for selections and focused controls), and false when the system has none or does not report it. The component builds again when it changes. It is a hook: call it at the top level of a component.
+
+```go
+accent, ok := tela.UseAccentColor()
+if !ok {
+    accent = tela.Hex("#4f46e5")
+}
+return Div(Style(tela.Bg(accent)), ...)
+```
 
 #### func (Color) Clamp
 
@@ -2082,6 +2163,200 @@ func (c *Context[T]) Provider(value T, children ...Child) Node
 
 Provider returns a node that gives value to the UseContext calls of its children's subtrees. It has no box: the children become children of the provider's parent, like a Fragment, and only Key is accepted as a prop.
 
+### type DataTransfer
+
+```go
+type DataTransfer = core.DataTransfer
+```
+
+DataTransfer is the data of a drag and drop (HTML's dataTransfer): the same content in one or more representations, each under a MIME type, best first. Read it with Text, HTML, Files, Image, GetData and Get; fill it, in the OnDragStart of an h.Draggable element, with SetText, SetHTML, SetFiles, SetImage, SetData and Set. Before the drop a target sees only the types (Types, Has); the data arrives with OnDrop. DropEffect and EffectAllowed are HTML's dropEffect and effectAllowed.
+
+```go
+Div(Draggable(true), Class("cursor-grab"),
+    OnDragStart(func(e tela.DragEvent) {
+        e.DataTransfer.SetData("application/x-board-card", card.ID)
+        e.DataTransfer.SetText(card.Title) // for other applications
+        e.DataTransfer.EffectAllowed = tela.DropMove
+    }),
+    OnDragEnd(func(e tela.DragEvent) {
+        if e.DataTransfer.DropEffect == tela.DropMove {
+            remove(card.ID)
+        }
+    }),
+    Text(card.Title),
+)
+```
+
+The zero value is an empty DataTransfer that the setters fill.
+
+`DataTransfer` is an alias of `core.DataTransfer`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type DataTransfer struct {
+    // DropEffect is the effect of the drop (HTML's dropEffect). Before
+    // OnDragEnter and OnDragOver it holds the effect the platform's
+    // convention picks from EffectAllowed and the modifiers held (Ctrl
+    // copies, Shift moves, Ctrl+Shift links, else copy); a handler that
+    // accepts the drop (PreventDefault in OnDragOver) may change it. In
+    // OnDrop it is the accepted effect: setting DropNone tells the source
+    // that the data was not taken (a moving source keeps it). In the
+    // source's OnDragEnd it is the effect performed, DropNone for a drag
+    // that was cancelled or refused.
+    DropEffect DropEffect
+    // EffectAllowed is the set of effects the source allows (HTML's
+    // effectAllowed): OnDragStart starts it at DropAll and may narrow it
+    // (tela.DropCopy|tela.DropMove); the target's events report it.
+    EffectAllowed DropEffect
+    // contains filtered or unexported fields
+}
+```
+
+#### func (*DataTransfer) ClearData
+
+```go
+func (d *DataTransfer) ClearData(formats ...string)
+```
+
+ClearData removes the representations of the formats given (see Has for the names), or all of them when none is given.
+
+#### func (*DataTransfer) Files
+
+```go
+func (d *DataTransfer) Files() []string
+```
+
+Files returns the absolute paths of the files, in order: the local file: URIs of the URI list (other URIs, such as a link dragged from a browser, are left out; GetData("url") returns the first URI).
+
+#### func (*DataTransfer) Get
+
+```go
+func (d *DataTransfer) Get(mime string) ([]byte, bool)
+```
+
+Get returns the bytes of the representation of a MIME type (see Has for the names), and whether there is one. Before the drop it returns nothing. The caller must not modify the bytes.
+
+#### func (*DataTransfer) GetData
+
+```go
+func (d *DataTransfer) GetData(format string) string
+```
+
+GetData returns the representation of a format as a string, like HTML's getData: "text" or "text/plain" is the text, "url" the first URI of the URI list, any other MIME type its bytes. It is "" when there is none, and before the drop.
+
+#### func (*DataTransfer) HTML
+
+```go
+func (d *DataTransfer) HTML() string
+```
+
+HTML returns the HTML fragment, "" when there is none.
+
+#### func (*DataTransfer) Has
+
+```go
+func (d *DataTransfer) Has(mime string) bool
+```
+
+Has reports whether the data has a representation of the MIME type: "text/plain" (or "text"), "text/html", "image/png", "text/uri-list" (or "Files", "url"), or a custom type. It works before the drop too, which is how OnDragOver decides whether to accept a drag:
+
+```go
+OnDragOver(func(e tela.DragEvent) {
+    if e.DataTransfer.Has("Files") {
+        e.PreventDefault() // accept the drop
+    }
+})
+```
+
+A custom type a handler asks about before the drop is read at the drop, besides the well-known types.
+
+#### func (*DataTransfer) Image
+
+```go
+func (d *DataTransfer) Image() (img image.Image, ok bool)
+```
+
+Image returns the PNG image, decoded; ok is false when there is none or it does not decode.
+
+#### func (*DataTransfer) Set
+
+```go
+func (d *DataTransfer) Set(mime string, b []byte)
+```
+
+Set puts the bytes of a MIME type in the data, replacing the bytes of that type, else after the other types (the order is best first). The names of Has work ("text/plain" is MIMEText). b is used as is: do not modify it afterwards. A type that is not a MIME type panics.
+
+#### func (*DataTransfer) SetData
+
+```go
+func (d *DataTransfer) SetData(format, data string)
+```
+
+SetData puts a string under a format, like HTML's setData: "text" or "text/plain" is the text, "url" a URI list of one URI, any other MIME type takes the string's bytes.
+
+```go
+OnDragStart(func(e tela.DragEvent) {
+    e.DataTransfer.SetData("application/x-kanban-card", card.ID)
+    e.DataTransfer.SetText(card.Title) // for other applications
+    e.DataTransfer.EffectAllowed = tela.DropMove
+})
+```
+
+#### func (*DataTransfer) SetDragImage
+
+```go
+func (d *DataTransfer) SetDragImage(img image.Image, x, y int)
+```
+
+SetDragImage sets the picture shown under the pointer during the drag (HTML's setDragImage), in place of the element's own: img in device pixels, and (x, y) the point of img under the pointer. A nil img shows no picture, only the platform's cursor. Without SetDragImage the drag shows the element as it is on screen. Call it in OnDragStart; an image larger than 1024 pixels on a side is cut to the 1024 around the point.
+
+#### func (*DataTransfer) SetFiles
+
+```go
+func (d *DataTransfer) SetFiles(paths ...string) error
+```
+
+SetFiles puts files in the data, as a URI list of their absolute paths: a file manager, or any application that takes files, receives them. It returns an error for an empty list or a path that is not absolute.
+
+#### func (*DataTransfer) SetHTML
+
+```go
+func (d *DataTransfer) SetHTML(s string)
+```
+
+SetHTML puts an HTML fragment in the data; add SetText for the applications that read only text.
+
+#### func (*DataTransfer) SetImage
+
+```go
+func (d *DataTransfer) SetImage(img image.Image) error
+```
+
+SetImage puts an image in the data, encoded as PNG. It returns the encoder's error.
+
+#### func (*DataTransfer) SetText
+
+```go
+func (d *DataTransfer) SetText(s string)
+```
+
+SetText puts plain text in the data.
+
+#### func (*DataTransfer) Text
+
+```go
+func (d *DataTransfer) Text() string
+```
+
+Text returns the plain text, "" when there is none.
+
+#### func (*DataTransfer) Types
+
+```go
+func (d *DataTransfer) Types() []string
+```
+
+Types returns the MIME types of the data, best first. Text is "text/plain;charset=utf-8" (MIMEText); compare with Has, which also takes "text/plain".
+
 ### type DevState
 
 ```go
@@ -2198,7 +2473,30 @@ Dispatch queues action a. When the update applies on the UI thread, the reducer 
 type DragEvent = core.DragEvent
 ```
 
-DragEvent is passed to h.OnDragStart, h.OnDrag and h.OnDragEnd: the position, the movement since the previous drag event (DeltaX, DeltaY) and since the press (OffsetX, OffsetY), and the velocity in pixels per second (VelocityX, VelocityY; meaningful at the end).
+DragEvent is passed to the drag handlers of package h, for two kinds of drags.
+
+The drag gesture (h.OnDragStart, h.OnDrag, h.OnDragEnd) moves something inside the app: the position, the movement since the previous drag event (DeltaX, DeltaY) and since the press (OffsetX, OffsetY), and the velocity in pixels per second (VelocityX, VelocityY; meaningful at the end). Its events go to one element and do not bubble; DataTransfer is nil.
+
+Drag and drop, HTML's model, carries data to a drop target in the same window, another window of the app or another application (a file manager, an editor): an element with h.Draggable(true) fills e.DataTransfer in its OnDragStart, and its OnDragEnd reports what the target did (e.DataTransfer.DropEffect). Targets get h.OnDragEnter, h.OnDragOver, h.OnDragLeave and h.OnDrop, which bubble; a target accepts the drop by calling e.PreventDefault() in OnDragOver, as in HTML:
+
+```go
+Div(Class("rounded-lg border-2 border-dashed p-8", over),
+    OnDragEnter(func() { setOver.Set(true) }),
+    OnDragLeave(func() { setOver.Set(false) }),
+    OnDragOver(func(e tela.DragEvent) {
+        if e.DataTransfer.Has("Files") {
+            e.PreventDefault() // accept: the drop comes here
+        }
+    }),
+    OnDrop(func(e tela.DragEvent) {
+        setOver.Set(false)
+        open(e.DataTransfer.Files())
+    }),
+    Text("Drop files here"),
+)
+```
+
+OnDragEnter and OnDragLeave follow HTML: they fire when the element under the drag changes (enter on the new one, then leave on the old one), and they bubble, so a container also gets them as the drag moves between its children; a container that tracks "is the drag over me" counts them (enter adds one, leave removes one) or uses OnDragOver.
 
 `DragEvent` is an alias of `core.DragEvent`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
 
@@ -2218,10 +2516,16 @@ type DragEvent struct {
     // OnDragEnd (a fling), zero when the pointer stopped before the
     // release or the drag was cancelled.
     VelocityX, VelocityY float32
-    // Button is the button of the drag (MouseButtonLeft).
+    // Button is the button of the drag (MouseButtonLeft); MouseButtonNone
+    // for the events of a drop target.
     Button MouseButton
     // Modifier keys held during the event.
     Shift, Ctrl, Alt, Meta bool
+    // DataTransfer is the data of a drag and drop (HTML's dataTransfer):
+    // what the source's OnDragStart fills, what the targets read, and the
+    // effects (DropEffect, EffectAllowed). It is nil in the drag gesture
+    // of an element without Draggable(true).
+    DataTransfer *DataTransfer
     // contains filtered or unexported fields
 }
 ```
@@ -2240,7 +2544,7 @@ DefaultPrevented reports whether a handler called PreventDefault.
 func (e DragEvent) PreventDefault()
 ```
 
-PreventDefault marks the event (see MouseEvent).
+PreventDefault in OnDragOver accepts the drop (HTML's rule: a target that does not call it refuses the drag); in OnDragStart of a Draggable element it cancels the drag and drop (the press stays a drag gesture). Elsewhere it marks the event (see MouseEvent).
 
 #### func (DragEvent) StopPropagation
 
@@ -2248,7 +2552,21 @@ PreventDefault marks the event (see MouseEvent).
 func (e DragEvent) StopPropagation()
 ```
 
-StopPropagation does nothing for drags, which go to one element; it exists for symmetry with the other events.
+StopPropagation stops the bubbling of a drop target's event (OnDragEnter, OnDragOver, OnDragLeave, OnDrop); the gesture's events go to one element and do not bubble.
+
+### type DropEffect
+
+```go
+type DropEffect = core.DropEffect
+```
+
+DropEffect is what a drop does with the data: [`DropCopy`](#constants), [`DropMove`](#constants) (the source deletes its copy) or [`DropLink`](#constants); [`DropNone`](#constants) refuses it. As a set, tela.DropCopy\|tela.DropMove, it is the effects a source allows (DataTransfer.EffectAllowed).
+
+`DropEffect` is an alias of `core.DropEffect`, declared in an internal package of the module. pkg.go.dev shows only the alias; the exported fields and methods of the aliased type, listed here, are part of the API:
+
+```go
+type DropEffect = platform.DropEffect
+```
 
 ### type Easing
 

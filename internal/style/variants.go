@@ -127,6 +127,9 @@ type VariantContext struct {
 	ViewportWidth float32
 	Dark          bool
 	ReducedMotion bool
+	// HighContrast selects the contrast-more: variants: the system asks
+	// for more contrast.
+	HighContrast bool
 	// Starting selects the starting: variants: the style is the starting
 	// style of an element that was not rendered before (CSS
 	// @starting-style), which its transitions start from.
@@ -154,6 +157,8 @@ type Condition struct {
 	Dark bool
 	// MotionReduce requires reduced motion, MotionSafe its absence.
 	MotionReduce, MotionSafe bool
+	// ContrastMore requires the system's high contrast (contrast-more:).
+	ContrastMore bool
 	// Starting requires the starting style (starting:, CSS
 	// @starting-style): the rule applies only to the style an element's
 	// first transitions start from.
@@ -191,6 +196,7 @@ func (c Condition) Matches(v VariantContext) bool {
 		c.Dark && !v.Dark,
 		c.MotionReduce && !v.ReducedMotion,
 		c.MotionSafe && v.ReducedMotion,
+		c.ContrastMore && !v.HighContrast,
 		c.Starting && !v.Starting,
 		c.RTL && !v.RTL,
 		c.LTR && v.RTL,
@@ -210,6 +216,7 @@ func (c Condition) and(d Condition) Condition {
 	c.Dark = c.Dark || d.Dark
 	c.MotionReduce = c.MotionReduce || d.MotionReduce
 	c.MotionSafe = c.MotionSafe || d.MotionSafe
+	c.ContrastMore = c.ContrastMore || d.ContrastMore
 	c.Starting = c.Starting || d.Starting
 	c.RTL = c.RTL || d.RTL
 	c.LTR = c.LTR || d.LTR
@@ -241,6 +248,11 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 		return Condition{MotionReduce: true}, nil
 	case "motion-safe":
 		return Condition{MotionSafe: true}, nil
+	case "contrast-more":
+		return Condition{ContrastMore: true}, nil
+	case "contrast-less":
+		return Condition{}, &UnsupportedClassError{Class: name,
+			Reason: "no system reports a low-contrast preference, so contrast-less: would never apply; Tela reads only high contrast: use contrast-more:"}
 	case "starting":
 		return Condition{Starting: true}, nil
 	case "rtl":
@@ -298,7 +310,7 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 	case "before", "after", "file", "marker", "first-line", "first-letter", "backdrop":
 		return Condition{}, &UnsupportedClassError{Class: name,
 			Reason: "pseudo-elements are not supported; use regular nodes"}
-	case "print", "supports", "portrait", "landscape", "contrast-more", "forced-colors":
+	case "print", "supports", "portrait", "landscape", "forced-colors":
 		return Condition{}, &UnsupportedClassError{Class: name,
 			Reason: "the " + name + " variant is not supported"}
 	}
@@ -307,7 +319,7 @@ func parseVariant(th *Theme, name string) (Condition, error) {
 		strings.HasPrefix(name, "not-") || strings.HasPrefix(name, "nth-") || strings.HasPrefix(name, "supports-") ||
 		strings.HasPrefix(name, "*") || strings.HasPrefix(name, "[") {
 		return Condition{}, &UnsupportedClassError{Class: name,
-			Reason: "this variant is not supported; use explicit styles and the state, structural, aria and environment variants (hover:, group-hover:, first:, aria-expanded:, dark:, sm:, max-md:, motion-reduce:)"}
+			Reason: "this variant is not supported; use explicit styles and the state, structural, aria and environment variants (hover:, group-hover:, first:, aria-expanded:, dark:, sm:, max-md:, motion-reduce:, contrast-more:)"}
 	}
 	return Condition{}, &UnknownClassError{Class: name, Suggestion: suggestVariant(th, name), Variant: true}
 }
@@ -321,7 +333,7 @@ func variantNames(th *Theme) []string {
 			out = append(out, "group-"+sv.name, "peer-"+sv.name)
 		}
 	}
-	out = append(out, "enabled", "dark", "motion-reduce", "motion-safe", "starting", "rtl", "ltr", "placeholder", "selection")
+	out = append(out, "enabled", "dark", "motion-reduce", "motion-safe", "contrast-more", "starting", "rtl", "ltr", "placeholder", "selection")
 	for _, bp := range th.Keys(NamespaceBreakpoint) {
 		out = append(out, bp, "max-"+bp, "min-"+bp)
 	}

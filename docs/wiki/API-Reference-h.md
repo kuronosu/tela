@@ -11,7 +11,7 @@ This page is generated from the doc comments of the package; the same text is on
 ## Index
 
 - [Overview](#overview)
-- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaCurrent`](#func-ariacurrent) · [`AriaDescribedBy`](#func-ariadescribedby) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaInvalid`](#func-ariainvalid) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaRowCount`](#func-ariarowcount) · [`AriaRowIndex`](#func-ariarowindex) · [`AriaSelected`](#func-ariaselected) · [`AriaSort`](#func-ariasort) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Icon`](#func-icon) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragStart`](#func-ondragstart) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`SrcBytes`](#func-srcbytes) · [`SrcFS`](#func-srcfs) · [`SrcPath`](#func-srcpath) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Tint`](#func-tint) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist) · [`WindowControl`](#func-windowcontrol) · [`WindowDrag`](#func-windowdrag) · [`WindowNoDrag`](#func-windownodrag)
+- [Functions](#functions): [`A`](#func-a) · [`Alt`](#func-alt) · [`AnimateLayout`](#func-animatelayout) · [`AriaActiveDescendant`](#func-ariaactivedescendant) · [`AriaAutoComplete`](#func-ariaautocomplete) · [`AriaBusy`](#func-ariabusy) · [`AriaChecked`](#func-ariachecked) · [`AriaControls`](#func-ariacontrols) · [`AriaCurrent`](#func-ariacurrent) · [`AriaDescribedBy`](#func-ariadescribedby) · [`AriaDescription`](#func-ariadescription) · [`AriaDisabled`](#func-ariadisabled) · [`AriaExpanded`](#func-ariaexpanded) · [`AriaHasPopup`](#func-ariahaspopup) · [`AriaHidden`](#func-ariahidden) · [`AriaInvalid`](#func-ariainvalid) · [`AriaLabel`](#func-arialabel) · [`AriaLabelledBy`](#func-arialabelledby) · [`AriaLevel`](#func-arialevel) · [`AriaModal`](#func-ariamodal) · [`AriaMultiSelectable`](#func-ariamultiselectable) · [`AriaOrientation`](#func-ariaorientation) · [`AriaPressed`](#func-ariapressed) · [`AriaReadOnly`](#func-ariareadonly) · [`AriaRequired`](#func-ariarequired) · [`AriaRowCount`](#func-ariarowcount) · [`AriaRowIndex`](#func-ariarowindex) · [`AriaSelected`](#func-ariaselected) · [`AriaSort`](#func-ariasort) · [`AriaValueMax`](#func-ariavaluemax) · [`AriaValueMin`](#func-ariavaluemin) · [`AriaValueNow`](#func-ariavaluenow) · [`AriaValueText`](#func-ariavaluetext) · [`AutoComplete`](#func-autocomplete) · [`AutoFocus`](#func-autofocus) · [`Bind`](#func-bind) · [`BindValue`](#func-bindvalue) · [`Button`](#func-button) · [`Class`](#func-class) · [`Code`](#func-code) · [`DefaultValue`](#func-defaultvalue) · [`Dir`](#func-dir) · [`Disabled`](#func-disabled) · [`Div`](#func-div) · [`Draggable`](#func-draggable) · [`Em`](#func-em) · [`Exit`](#func-exit) · [`For`](#func-for) · [`Form`](#func-form) · [`Fragment`](#func-fragment) · [`H1`](#func-h1) · [`H2`](#func-h2) · [`H3`](#func-h3) · [`H4`](#func-h4) · [`H5`](#func-h5) · [`H6`](#func-h6) · [`Href`](#func-href) · [`ID`](#func-id) · [`Icon`](#func-icon) · [`If`](#func-if) · [`IfElse`](#func-ifelse) · [`Img`](#func-img) · [`Inert`](#func-inert) · [`Input`](#func-input) · [`ItemHeight`](#func-itemheight) · [`ItemKey`](#func-itemkey) · [`Key`](#func-key) · [`Label`](#func-label) · [`LayoutID`](#func-layoutid) · [`Map`](#func-map) · [`MapIndex`](#func-mapindex) · [`MapKeyed`](#func-mapkeyed) · [`MaxLength`](#func-maxlength) · [`Name`](#func-name) · [`Nodes`](#func-nodes) · [`OnBeforeInput`](#func-onbeforeinput) · [`OnBlur`](#func-onblur) · [`OnChange`](#func-onchange) · [`OnClick`](#func-onclick) · [`OnCompositionEnd`](#func-oncompositionend) · [`OnCompositionStart`](#func-oncompositionstart) · [`OnCompositionUpdate`](#func-oncompositionupdate) · [`OnContextMenu`](#func-oncontextmenu) · [`OnDoubleClick`](#func-ondoubleclick) · [`OnDrag`](#func-ondrag) · [`OnDragEnd`](#func-ondragend) · [`OnDragEnter`](#func-ondragenter) · [`OnDragLeave`](#func-ondragleave) · [`OnDragOver`](#func-ondragover) · [`OnDragStart`](#func-ondragstart) · [`OnDrop`](#func-ondrop) · [`OnFocus`](#func-onfocus) · [`OnKeyDown`](#func-onkeydown) · [`OnKeyUp`](#func-onkeyup) · [`OnLongPress`](#func-onlongpress) · [`OnMouseDown`](#func-onmousedown) · [`OnMouseEnter`](#func-onmouseenter) · [`OnMouseLeave`](#func-onmouseleave) · [`OnMouseMove`](#func-onmousemove) · [`OnMouseUp`](#func-onmouseup) · [`OnPointerCancel`](#func-onpointercancel) · [`OnPointerDown`](#func-onpointerdown) · [`OnPointerEnter`](#func-onpointerenter) · [`OnPointerLeave`](#func-onpointerleave) · [`OnPointerMove`](#func-onpointermove) · [`OnPointerUp`](#func-onpointerup) · [`OnScroll`](#func-onscroll) · [`OnSelect`](#func-onselect) · [`OnSubmit`](#func-onsubmit) · [`OnWheel`](#func-onwheel) · [`Overscan`](#func-overscan) · [`P`](#func-p) · [`Placeholder`](#func-placeholder) · [`Portal`](#func-portal) · [`Presence`](#func-presence) · [`Range`](#func-range) · [`ReadOnly`](#func-readonly) · [`Ref`](#func-ref) · [`Role`](#func-role) · [`Rows`](#func-rows) · [`Scale`](#func-scale) · [`Scheme`](#func-scheme) · [`Span`](#func-span) · [`SpellCheck`](#func-spellcheck) · [`Src`](#func-src) · [`SrcBytes`](#func-srcbytes) · [`SrcFS`](#func-srcfs) · [`SrcPath`](#func-srcpath) · [`Strong`](#func-strong) · [`Style`](#func-style) · [`TabIndex`](#func-tabindex) · [`TestID`](#func-testid) · [`Text`](#func-text) · [`TextFn`](#func-textfn) · [`Textarea`](#func-textarea) · [`Textf`](#func-textf) · [`Tint`](#func-tint) · [`Type`](#func-type) · [`Value`](#func-value) · [`VirtualList`](#func-virtuallist) · [`WindowControl`](#func-windowcontrol) · [`WindowDrag`](#func-windowdrag) · [`WindowNoDrag`](#func-windownodrag)
 
 ## Overview
 
@@ -691,6 +691,30 @@ fmt.Println(yaml)
 // - heading "Inbox" [level=2]
 // - paragraph: 3 unread messages
 // - button "Open"
+```
+
+### func Draggable
+
+```go
+func Draggable(draggable bool) tela.Prop
+```
+
+Draggable makes the element the source of a drag and drop, like HTML's draggable attribute: when a press on it becomes a drag, its OnDragStart gets an empty e.DataTransfer to fill, and if the handler puts data in it the system carries the data, under the pointer, to a drop target in this window, another window of the app or another application (a file manager takes SetFiles, an editor SetText). The pointer belongs to the system until the drop: OnDrag does not run, and OnDragEnd runs once the target is done, with the effect it performed. The drag shows the element as it is on screen (e.DataTransfer.SetDragImage shows something else). A handler that puts no data in it, or calls e.PreventDefault(), keeps the press the ordinary drag gesture (OnDrag and OnDragEnd follow). Without Draggable, OnDragStart, OnDrag and OnDragEnd are the drag gesture only.
+
+```go
+Div(Draggable(true), Class("cursor-grab active:cursor-grabbing"),
+    OnDragStart(func(e tela.DragEvent) {
+        e.DataTransfer.SetData("application/x-todo", item.ID)
+        e.DataTransfer.SetText(item.Title)
+        e.DataTransfer.EffectAllowed = tela.DropMove
+    }),
+    OnDragEnd(func(e tela.DragEvent) {
+        if e.DataTransfer.DropEffect == tela.DropMove {
+            remove(item.ID)
+        }
+    }),
+    Text(item.Title),
+)
 ```
 
 ### func Em
@@ -1479,6 +1503,43 @@ Div(OnDragEnd(func(e tela.DragEvent) {
 }))
 ```
 
+After a drag and drop of a Draggable element, it runs once the target is done: e.DataTransfer.DropEffect is the effect the target performed (tela.DropMove: delete the source's copy), tela.DropNone when the drag was cancelled or refused.
+
+### func OnDragEnter
+
+```go
+func OnDragEnter[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop
+```
+
+OnDragEnter calls handler when a drag and drop (from this app or another application) moves onto the element or one of its descendants from outside the element under it, as HTML's dragenter: it fires on the element now under the drag and bubbles to its ancestors. Before the drop only the types are known (e.DataTransfer.Types, Has).
+
+### func OnDragLeave
+
+```go
+func OnDragLeave[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop
+```
+
+OnDragLeave calls handler when a drag and drop leaves the element under it: the drag moved to another element (whose OnDragEnter ran first), left the window or was cancelled, as HTML's dragleave; it bubbles. It does not run after a drop.
+
+### func OnDragOver
+
+```go
+func OnDragOver[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop
+```
+
+OnDragOver calls handler while a drag and drop moves over the element or its descendants (when it enters, moves or the modifier keys change), as HTML's dragover; it bubbles. A target accepts the drop by calling e.PreventDefault(), else the drop is refused there. e.DataTransfer .DropEffect starts at the effect the system's convention picks from the effects the source allows and the keys held (Ctrl copies, Shift moves, else copy); set it to choose another:
+
+```go
+OnDragOver(func(e tela.DragEvent) {
+    if e.DataTransfer.Has("application/x-todo") {
+        e.PreventDefault()
+        e.DataTransfer.DropEffect = tela.DropMove
+    }
+})
+```
+
+A custom type the handler asks about (Has) is read at the drop.
+
 ### func OnDragStart
 
 ```go
@@ -1496,6 +1557,26 @@ Div(Class("size-10 rounded-full bg-indigo-500"),
     OnDrag(func(e tela.DragEvent) { pos.Set(start.Current + float64(e.OffsetX)) }),
 )
 ```
+
+On an element with Draggable(true), the drag becomes a drag and drop when the handler puts data in e.DataTransfer (see [`Draggable`](#func-draggable)).
+
+### func OnDrop
+
+```go
+func OnDrop[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop
+```
+
+OnDrop calls handler when a drag and drop that the element accepted (OnDragOver called e.PreventDefault()) is released over it or its descendants, as HTML's drop; it bubbles. e.DataTransfer holds the data:
+
+```go
+OnDrop(func(e tela.DragEvent) {
+    for _, path := range e.DataTransfer.Files() {
+        open(path)
+    }
+})
+```
+
+e.DataTransfer.DropEffect is the effect reported to the source; setting it to tela.DropNone tells the source the data was not taken. Unlike in a browser, e.PreventDefault() is not needed here.
 
 ### func OnFocus
 

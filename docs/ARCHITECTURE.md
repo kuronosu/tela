@@ -433,6 +433,7 @@ There is **no cascade, specificity or selectors**. Inheritance applies only to t
   - Keyboard: `KeyboardEvent` (ADR-056) following winit's model: **physical key** (scancode-based position), **logical key** (layout-dependent meaning) and **text** (produced characters) as three separate fields, plus modifiers and repeat flag.
   - Text fields and forms: `InputEvent` (beforeinput), `ChangeEvent` (React's onChange), `CompositionEvent`, `SelectEvent`, `SubmitEvent` (ADR-069).
   - Focus: `FocusEvent`.
+  - Drag and drop, HTML's model through the OS (ADR-209, ADR-211): `DragEvent` with a `DataTransfer`; an `h.Draggable` element's drag gesture fills it in `OnDragStart`, and targets get `OnDragEnter`, `OnDragOver` (whose `PreventDefault` accepts), `OnDragLeave` and `OnDrop`, which bubble.
 - **Propagation:**
   - Hit-testing over the Box tree honors clips, transforms and `pointer-events`.
   - Events bubble from target to root, with `e.StopPropagation()` and `e.PreventDefault()`.

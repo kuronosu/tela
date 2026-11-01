@@ -46,9 +46,11 @@ type desc struct {
 	classes []string   // Class props, in order of appearance
 	props   []style.Op // Style props (typed, applied after the classes)
 	events  []EventProp
-	evMask  uint32 // the eventKinds of events (bit per kind)
+	evMask  uint64 // the eventKinds of events (bit per kind)
 	// disabled is the Disabled prop (input.go).
 	disabled bool
+	// draggable is the Draggable prop (dnd.go).
+	draggable bool
 	// winRegion is the custom title bar prop (WindowDrag, WindowNoDrag,
 	// WindowControlProp; winregion.go), regionNone for none.
 	winRegion uint8

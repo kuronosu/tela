@@ -134,11 +134,11 @@ const pressMask = clickMask | dragMask | 1<<evContextMenu | 1<<evMouseDown | 1<<
 	1<<evPointerDown | 1<<evPointerUp | 1<<evLongPress
 
 // interactive reports whether primitive el takes pointer input of its
-// own: press or drag handlers, focusable (a Button, a TabIndex), a text
-// field or a link.
+// own: press or drag handlers, Draggable, focusable (a Button, a
+// TabIndex), a text field or a link.
 func interactive(el *Element) bool {
 	d := el.node.d
-	return d.evMask&pressMask != 0 || d.hasTab || el.box.kind == style.KindButton ||
+	return d.evMask&pressMask != 0 || d.draggable || d.hasTab || el.box.kind == style.KindButton ||
 		el.box.fld != nil || d.elem.IsTextField() || d.href != ""
 }
 

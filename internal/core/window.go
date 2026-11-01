@@ -574,7 +574,8 @@ func (t *Tree) openWindow(s *windowSlot) {
 }
 
 // childConfig returns the configuration of a child window's Tree: the
-// parent's fonts, parser (theme and class aliases), environment, dev mode
+// parent's fonts, parser (theme and class aliases, at a text scale of 1:
+// the child scales it), environment, dev mode
 // and messages, and an ID prefix of its own.
 func (t *Tree) childConfig(rootClass string, n int) Config {
 	debug := t.dbg.flags
@@ -582,8 +583,10 @@ func (t *Tree) childConfig(rootClass string, n int) Config {
 		debug = DebugOff
 	}
 	return Config{
-		Fonts: t.fonts, Parser: t.parser, RootClass: rootClass,
+		Fonts: t.fonts, Parser: t.parserBase, RootClass: rootClass,
 		Dark: t.env.sysDark, ReducedMotion: t.env.sysReduced, ColorScheme: t.env.scheme,
+		HighContrast: t.env.sysContrast, TextScale: t.env.sysTextScale, IgnoreTextScale: t.env.ignoreText,
+		AccentColor: t.env.accent.c, HasAccentColor: t.env.accent.ok,
 		Dev: t.dev, Log: t.log, Warn: t.warn, DoubleClickInterval: t.in.clicks.Interval,
 		IDPrefix:          t.idPrefix + "w" + strconv.Itoa(n) + "-",
 		ClassicScrollbars: t.scr.classic, InstantScroll: t.scr.instant,

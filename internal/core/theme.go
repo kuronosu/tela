@@ -106,25 +106,57 @@ func themeParser(cfg *Config) *style.Parser {
 // and the components that call UseTheme build again. Call it on the UI
 // thread. It panics like NewParser for token names classes cannot use.
 func (t *Tree) SetTheme(th Theme) {
-	t.setParser(NewParser(&th, t.parser.Aliases()))
+	t.setParser(NewParser(&th, t.parserBase.Aliases()))
 	if devStateEnabled {
 		t.devNoteTheme(th)
 	}
 }
 
-// setParser makes p the tree's parser, and that of its child windows'
-// trees (window.go): the theme and the class aliases are the app's.
-func (t *Tree) setParser(p *style.Parser) {
-	t.parser = p
-	t.cx.Theme = p.Theme()
+// setParser makes base the tree's parser at a text scale of 1, and that
+// of its child windows' trees (window.go): the theme and the class
+// aliases are the app's. Each tree compiles with base scaled to its text
+// scale (scaledParser).
+func (t *Tree) setParser(base *style.Parser) {
+	t.parserBase = base
 	t.classReported = map[string]bool{} // report the class errors of the new theme
-	if t.env.theme != nil {
-		t.env.theme.storeUI(p.Theme())
-	}
+	t.useParser(scaledParser(base, t.textScale))
 	for _, w := range t.wins {
 		if v := w.view; v != nil {
-			v.tree.setParser(p)
+			v.tree.setParser(base)
 		}
+	}
+}
+
+// scaledParser returns the parser of base's theme and class aliases whose
+// rem is the theme's times scale (ADR-209: the text scale is a browser's
+// default font size), base itself for a scale of 1. Every rem then
+// scales: the type scale, the spacing, Tailwind's breakpoints and
+// containers, arbitrary rem values.
+//
+// perf: each tree derives its own parser for a scale other than 1, which
+// compiles the classes again; a cache keyed by base and scale would share
+// them between windows.
+func scaledParser(base *style.Parser, scale float64) *style.Parser {
+	if scale == 1 {
+		return base
+	}
+	th := base.Theme().Clone()
+	th.RootFontSize = float32(float64(th.RootFontSize) * scale)
+	p, err := style.NewParserAliases(th, base.Aliases())
+	if err != nil {
+		panic("tela: " + err.Error()) // base was made with the same aliases
+	}
+	return p
+}
+
+// useParser makes p the parser the tree compiles its classes with: every
+// element compiles its classes again and is restyled, and the components
+// that call UseTheme build again.
+func (t *Tree) useParser(p *style.Parser) {
+	t.parser = p
+	t.cx.Theme = p.Theme()
+	if t.env.theme != nil {
+		t.env.theme.storeUI(p.Theme())
 	}
 	if t.root == nil {
 		return

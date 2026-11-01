@@ -189,10 +189,8 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := b.Settings()
 	cfg := opts.Config
-	cfg.Dark, cfg.ReducedMotion = s.DarkMode, s.ReducedMotion
-	cfg.DoubleClickInterval = s.DoubleClickInterval
+	cfg.setSystem(b.Settings())
 	if cfg.Debug == 0 {
 		// TELA_DEBUG selects overlays unless the options say otherwise
 		// (DebugOff). A malformed value is reported once and its valid
@@ -268,8 +266,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		return
 	case platform.SettingsEvent:
 		for i := 0; i < len(h.views); i++ {
-			h.views[i].tree.SetEnvironment(e.Settings.DarkMode, e.Settings.ReducedMotion)
-			h.views[i].tree.SetDoubleClickInterval(e.Settings.DoubleClickInterval)
+			h.views[i].tree.SetSystemSettings(e.Settings)
 		}
 		return
 	case platform.NotificationEvent, platform.TrayEvent:
@@ -358,6 +355,28 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		v.focused = e.Focused
 		t.SetWindowFocused(e.Focused)
 		v.syncState()
+		h.syncTextInput(v)
+		h.armTimer()
+	case platform.DragEvent:
+		if len(h.views) > 1 && h.modalOf(v) != nil {
+			// A modal child window blocks v: it refuses drags, as it
+			// takes no input.
+			t.RefuseDrag()
+			if e.Action != platform.DragLeave {
+				v.win.SetDropEffect(platform.DropNone)
+			}
+			return
+		}
+		effect, types := t.HandleDrag(e)
+		if e.Action != platform.DragLeave {
+			v.win.SetDropEffect(effect, types...)
+		}
+		h.updateCursor(v)
+		h.syncTextInput(v)
+		h.armTimer()
+	case platform.DragDoneEvent:
+		t.HandleDragDone(e.Effect)
+		h.updateCursor(v)
 		h.syncTextInput(v)
 		h.armTimer()
 	case platform.CloseRequestedEvent:

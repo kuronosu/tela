@@ -236,6 +236,11 @@
 // the cursor style under the mouse; Tree.NextDeadline and TickGestures
 // drive the long-press timeout on the backend clock.
 //
+// Tree.HandleDrag and HandleDragDone are drag and drop (dnd.go, whose top
+// comment is the reference): HTML's dragenter, dragover, dragleave and
+// drop for a drag over the window, and the drags of Draggable elements,
+// which the OS carries.
+//
 // Tree.HandleKey turns platform key events into keydown and keyup events
 // (keyboard.go): they target the focused element and bubble, then run
 // their default actions (the key bindings of a focused text field, Tab
@@ -321,9 +326,12 @@
 // a scroll moves them in the compositor without recording anything.
 // Portal nodes (portal.go) put their content in a layer above the root's
 // content, laid out against the window, while state, context and event
-// bubbling follow the element tree. The color scheme and reduced motion
-// (env.go) are the system's preferences with the app's override of the
-// scheme; UseColorScheme and UseReducedMotion read them.
+// bubbling follow the element tree. The color scheme, reduced motion,
+// high contrast, the text scale and the accent color (env.go) are the
+// system's preferences, with the app's override of the scheme and its
+// choice to ignore the text scale (which scales rem through the parser);
+// UseColorScheme, UseReducedMotion, UseHighContrast, UseTextScale and
+// UseAccentColor read them.
 //
 // The focus (focus.go) follows HTML: focusable elements (Button,
 // TabIndex), the sequential order, focus by pointer press, ElementRef,

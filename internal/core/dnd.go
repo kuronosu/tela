@@ -1,0 +1,393 @@
+package core
+
+import (
+	"image"
+	"image/draw"
+	"math"
+	"slices"
+
+	"github.com/kuronosu/tela/internal/gfx"
+	"github.com/kuronosu/tela/internal/platform"
+)
+
+// Drag and drop (ARCHITECTURE section 14; ADR-209, ADR-211) follows
+// HTML's model on top of the platform's (platform.DragEvent,
+// Window.SetDropEffect, Window.StartDrag): the same within a window,
+// between the app's windows and with other applications, since every
+// drag goes through the OS.
+//
+// # Targets
+//
+// A drag over a window is a session of platform.DragEvents (HandleDrag).
+// The element under the drag is hit-tested like a pointer's (hit.go:
+// pointer-events, visibility, inert subtrees, the active modal overlay
+// and clips), and the events are HTML's, with its order:
+//
+//   - when the element under the drag changes, dragenter fires at the new
+//     one and then dragleave at the old one (an unmounted old one: its
+//     nearest mounted ancestor, so a counter of enters and leaves on an
+//     ancestor stays balanced); every move fires dragover at the current
+//     one; leaving the window fires dragleave; a drop fires drop. All four
+//     bubble and stop with StopPropagation; disabled elements and their
+//     descendants run none (as for pointers).
+//   - Before the drop only the types are known: DataTransfer is in HTML's
+//     protected mode. Its DropEffect starts at the platform's choice for
+//     the allowed effects and the modifiers (DefaultDropEffect).
+//   - The drop is accepted when the latest dragover called
+//     PreventDefault: the effect is the DataTransfer's DropEffect when the
+//     source allows it (a set is narrowed with DefaultDropEffect), else
+//     none. Core answers the platform after every event
+//     (Window.SetDropEffect), naming the types the drop reads: the
+//     well-known types offered (text, HTML, PNG, the URI list) and the
+//     custom types the handlers looked up before the drop (Has, Get...).
+//   - drop carries the data; the effect the window reports to the source
+//     is the DataTransfer's DropEffect after the handlers (DropNone: the
+//     data was not taken). PreventDefault is not needed there: Tela has
+//     no default action for a drop.
+//   - The OS owns the pointer while a drag is over the window: at the
+//     session's start the tree's pointers are cancelled and leave, so
+//     hover and active states end; the next pointer event after the drag
+//     brings them back.
+//   - A window blocked by a modal child window refuses every drag.
+//
+// # Sources
+//
+// An element with Draggable(true) takes part in the gesture arena with a
+// drag recognizer (input.go), like one with drag handlers. When its drag
+// gesture starts, OnDragStart gets an empty, writable DataTransfer whose
+// EffectAllowed is DropAll. If the handlers put data in it and did not
+// call PreventDefault (and left some effect allowed), core starts an OS
+// drag of the data (Window.StartDrag), with the element as it is on
+// screen as the drag image (a crop of the window's last frame; the
+// DataTransfer's SetDragImage replaces it). The OS takes the pointer: the
+// press is cancelled (its OnDrag and OnDragEnd are not dispatched), and
+// the source's OnDragEnd runs when the platform reports the outcome
+// (DragDoneEvent), with DataTransfer.DropEffect the effect performed.
+// When the platform cannot start the drag, OnDragEnd runs at once with
+// DropNone (a dev warning says why). Without data, or after
+// PreventDefault, the press stays the drag gesture: OnDrag and OnDragEnd
+// follow as for an element without Draggable, with a nil DataTransfer.
+// OnDrag does not fire during a drag and drop (the OS owns the pointer).
+
+// Draggable makes a primitive the source of a drag and drop, like HTML's
+// draggable attribute: its drag gesture gives OnDragStart a DataTransfer
+// to fill (see dnd.go). Draggable(false) is the default.
+func Draggable(on bool) Prop {
+	return Prop{name: "Draggable", apply: func(d *desc) { d.draggable = on }}
+}
+
+// dndState is the drag-and-drop state of a Tree (UI thread).
+type dndState struct {
+	// The session of a drag over the window (target side).
+	active  bool
+	types   []string
+	allowed DropEffect
+	mods    platform.Modifiers
+	pos     gfx.Point
+	// target is the element under the drag, whose dragenter fired, and
+	// effect the answer of its latest dragover.
+	target *Element
+	effect DropEffect
+	// wanted are the offered custom types the handlers looked up.
+	wanted []string
+
+	// src is the drag the tree started, until its DragDoneEvent.
+	src *dragSource
+}
+
+// dragSource is a drag and drop started from a Draggable element.
+type dragSource struct {
+	el   *Element
+	dt   *DataTransfer
+	pos  gfx.Point
+	mods platform.Modifiers
+}
+
+// HandleDrag dispatches a platform drag event over the tree's window (see
+// the comment at the top of dnd.go) and returns the window's answer: the
+// effect a drop would have, or the final effect of a drop, and the types
+// the drop reads. A Host passes them to Window.SetDropEffect, except
+// after DragLeave. Call it on the UI thread.
+func (t *Tree) HandleDrag(e platform.DragEvent) (effect DropEffect, types []string) {
+	d := &t.dnd
+	switch e.Action {
+	case platform.DragEnter:
+		if d.active {
+			t.endDragSession() // a session whose end never came
+		}
+		t.beginDragSession(e)
+		return t.dragOver(e), t.dropTypes()
+	case platform.DragOver:
+		if !d.active {
+			t.beginDragSession(e) // the enter never came
+		}
+		return t.dragOver(e), t.dropTypes()
+	case platform.DragLeave:
+		if d.active {
+			t.endDragSession()
+		}
+		return DropNone, nil
+	case platform.DragDrop:
+		if !d.active {
+			t.beginDragSession(e)
+			t.dragOver(e)
+		}
+		return t.drop(e)
+	}
+	return DropNone, nil
+}
+
+// beginDragSession starts the session of a drag over the window: the OS
+// owns the pointer now, so the pointers the tree follows are cancelled
+// and leave (hover and active states end).
+func (t *Tree) beginDragSession(e platform.DragEvent) {
+	t.cancelPointers(e.Time)
+	t.dnd.active = true
+	t.dnd.types = slices.Clone(e.Types)
+	t.dnd.target = nil
+	t.dnd.wanted = nil
+}
+
+// noteDrag takes the position, the modifiers and the allowed effects of
+// e into the session.
+func (t *Tree) noteDrag(e platform.DragEvent) {
+	d := &t.dnd
+	d.pos = gfx.Point{X: e.Pos.X, Y: e.Pos.Y}
+	d.mods, d.allowed = e.Mods, e.Allowed&DropAll
+}
+
+// dragOver moves the drag to e's position: dragenter and dragleave when
+// the element under it changed, then dragover, whose PreventDefault
+// accepts the drop. It returns the accepted effect.
+func (t *Tree) dragOver(e platform.DragEvent) DropEffect {
+	t.noteDrag(e)
+	d := &t.dnd
+	target, _ := t.hitTest(d.pos)
+	if target != d.target {
+		old := d.target
+		d.target = target
+		if target != nil {
+			fire(t, evDragEnter, target, t.dndEvent(t.protectedTransfer()), true)
+		}
+		if old = mountedAncestor(old); old != nil {
+			fire(t, evDragLeave, old, t.dndEvent(t.protectedTransfer()), true)
+		}
+	}
+	d.effect = DropNone
+	if d.target == nil || !d.target.mounted {
+		return DropNone
+	}
+	dt := t.protectedTransfer()
+	st := fire(t, evDragOver, d.target, t.dndEvent(dt), true)
+	if st.defaultPrevented() {
+		d.effect = acceptedEffect(dt.DropEffect, d.allowed, d.mods)
+	}
+	return d.effect
+}
+
+// drop fires drop at the element under the drag with the data e carries,
+// ends the session, and returns the final effect and the types read.
+func (t *Tree) drop(e platform.DragEvent) (DropEffect, []string) {
+	d := &t.dnd
+	t.noteDrag(e)
+	types := t.dropTypes()
+	dt := &DataTransfer{
+		DropEffect:    d.effect,
+		EffectAllowed: d.allowed,
+		data:          e.Data.Clone(),
+		mode:          dtReadOnly,
+	}
+	effect := DropNone
+	if tg := mountedAncestor(d.target); tg != nil {
+		fire(t, evDrop, tg, t.dndEvent(dt), true)
+		effect = acceptedEffect(dt.DropEffect, d.allowed, d.mods)
+	}
+	t.resetDragSession()
+	t.flushDiscrete()
+	return effect, types
+}
+
+// endDragSession ends the session over the window: dragleave at the
+// element under the drag.
+func (t *Tree) endDragSession() {
+	if tg := mountedAncestor(t.dnd.target); tg != nil {
+		fire(t, evDragLeave, tg, t.dndEvent(t.protectedTransfer()), true)
+	}
+	t.resetDragSession()
+	t.flushDiscrete()
+}
+
+// resetDragSession forgets the session over the window.
+func (t *Tree) resetDragSession() {
+	src := t.dnd.src
+	t.dnd = dndState{src: src}
+}
+
+// protectedTransfer returns the DataTransfer of an event before the drop:
+// the types only, the effect the platform's convention picks.
+func (t *Tree) protectedTransfer() *DataTransfer {
+	d := &t.dnd
+	return &DataTransfer{
+		DropEffect:    platform.DefaultDropEffect(d.allowed, d.mods),
+		EffectAllowed: d.allowed,
+		types:         d.types,
+		mode:          dtProtected,
+		look:          t.dndLook,
+	}
+}
+
+// dndLook records a type a handler looked up before the drop, when the
+// source offers it: the drop reads it.
+func (t *Tree) dndLook(ty string) {
+	d := &t.dnd
+	if d.active && !wellKnown(ty) && slices.Contains(d.types, ty) && !slices.Contains(d.wanted, ty) {
+		d.wanted = append(d.wanted, ty)
+	}
+}
+
+// dropTypes returns the types the drop reads, in the source's order: the
+// well-known ones and those the handlers looked up.
+func (t *Tree) dropTypes() []string {
+	d := &t.dnd
+	var out []string
+	for _, ty := range d.types {
+		if wellKnown(ty) || slices.Contains(d.wanted, ty) {
+			out = append(out, ty)
+		}
+	}
+	return out
+}
+
+// dndEvent returns the event of a drop target's handlers at the drag's
+// position.
+func (t *Tree) dndEvent(dt *DataTransfer) DragEvent {
+	d := &t.dnd
+	e := DragEvent{X: d.pos.X, Y: d.pos.Y, DataTransfer: dt}
+	e.Shift, e.Ctrl, e.Alt, e.Meta = modifiers(d.mods)
+	return e
+}
+
+// acceptedEffect returns the one effect a handler's choice e gives for a
+// drag that allows allowed: e when allowed, the platform's pick among
+// the effects of a set, none otherwise.
+func acceptedEffect(e, allowed DropEffect, mods platform.Modifiers) DropEffect {
+	e &= allowed
+	switch e {
+	case DropNone, DropCopy, DropMove, DropLink:
+		return e
+	}
+	return platform.DefaultDropEffect(e, mods)
+}
+
+// RefuseDrag ends the session of a drag over the window, if any: a Host
+// calls it instead of HandleDrag while a modal child window blocks the
+// window, and answers DropNone.
+func (t *Tree) RefuseDrag() {
+	if t.dnd.active {
+		t.endDragSession()
+	}
+}
+
+// ---------------------------------------------------------------------
+// Sources.
+
+// dragStart runs OnDragStart of the Draggable element el, whose gesture
+// started a drag (e, pressed at press), with a DataTransfer to fill, and
+// starts the OS drag of the data it got. When it does, or tries, the
+// press is no longer the gesture's (ps.osDrag); without data it stays.
+func (t *Tree) dragStart(ps *pointerState, el *Element, e DragEvent, press gfx.Point) {
+	dt := &DataTransfer{EffectAllowed: DropAll}
+	e.DataTransfer = dt
+	st := fire(t, evDragStart, el, e, false)
+	if st.defaultPrevented() || len(dt.data) == 0 || dt.EffectAllowed&DropAll == 0 || !el.mounted {
+		return
+	}
+	dt.mode = dtReadOnly
+	src := &dragSource{el: el, dt: dt, pos: gfx.Point{X: e.X, Y: e.Y}, mods: ps.mods}
+	opts := platform.DragOptions{Data: dt.data.Clone(), Allowed: dt.EffectAllowed & DropAll}
+	opts.Image, opts.Hotspot = t.dragImage(el, dt, press)
+	err := platform.ErrUnsupported
+	if v := t.wv; v != nil && v.alive() {
+		err = v.win.StartDrag(opts)
+	}
+	ps.osDrag = true
+	if err != nil {
+		t.warnOnce("dnd-start:"+err.Error(), func() string {
+			return "tela: the drag and drop of an h.Draggable element could not start (" + err.Error() + "): its OnDragEnd runs at once with DropNone"
+		})
+		t.dragDone(src, DropNone)
+		return
+	}
+	t.dnd.src = src
+}
+
+// HandleDragDone ends the drag the tree started with its outcome: the
+// source's OnDragEnd runs with DataTransfer.DropEffect = effect. Call it
+// on the UI thread with the window's DragDoneEvent.
+func (t *Tree) HandleDragDone(effect DropEffect) {
+	src := t.dnd.src
+	t.dnd.src = nil
+	if src != nil {
+		t.dragDone(src, effect&DropAll)
+	}
+}
+
+// dragDone runs the source's OnDragEnd for the outcome effect.
+func (t *Tree) dragDone(src *dragSource, effect DropEffect) {
+	if !src.el.mounted {
+		return
+	}
+	src.dt.DropEffect = effect
+	e := DragEvent{X: src.pos.X, Y: src.pos.Y, Button: MouseButtonLeft, DataTransfer: src.dt}
+	e.Shift, e.Ctrl, e.Alt, e.Meta = modifiers(src.mods)
+	fire(t, evDragEnd, src.el, e, false)
+	t.flushDiscrete()
+}
+
+// dragImage returns the image of a drag of el and its hotspot: the one
+// the DataTransfer was given, else el as it is in the window's last frame
+// (its border box, cut by the window), with the press point under the
+// pointer.
+func (t *Tree) dragImage(el *Element, dt *DataTransfer, press gfx.Point) (*image.RGBA, image.Point) {
+	if dt.imgSet {
+		if dt.img == nil {
+			return nil, image.Point{}
+		}
+		b := dt.img.Bounds()
+		return cutDragImage(dt.img, b, b.Min.Add(image.Pt(dt.hotspotX, dt.hotspotY)))
+	}
+	v := t.wv
+	if v == nil || v.fb == nil || !(v.scale > 0) {
+		return nil, image.Point{}
+	}
+	r := t.elemBounds(el)
+	s := v.scale
+	px := func(f float32, round func(float64) float64) int { return int(round(float64(f) * s)) }
+	pr := image.Rect(px(r.X0, math.Floor), px(r.Y0, math.Floor), px(r.X1, math.Ceil), px(r.Y1, math.Ceil)).Intersect(v.fb.Rect)
+	if pr.Empty() {
+		return nil, image.Point{}
+	}
+	return cutDragImage(v.fb, pr, image.Pt(px(press.X, math.Round), px(press.Y, math.Round)))
+}
+
+// cutDragImage copies the part r of src into a new image at the origin,
+// keeping at most platform.MaxDragImageSide pixels on a side (those
+// around hot), and returns it with hot, a point of src, in its
+// coordinates.
+func cutDragImage(src image.Image, r image.Rectangle, hot image.Point) (*image.RGBA, image.Point) {
+	const m = platform.MaxDragImageSide
+	if r.Dx() > m {
+		x0 := min(max(hot.X-m/2, r.Min.X), r.Max.X-m)
+		r.Min.X, r.Max.X = x0, x0+m
+	}
+	if r.Dy() > m {
+		y0 := min(max(hot.Y-m/2, r.Min.Y), r.Max.Y-m)
+		r.Min.Y, r.Max.Y = y0, y0+m
+	}
+	if r.Empty() {
+		return nil, image.Point{}
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, r.Dx(), r.Dy()))
+	draw.Draw(dst, dst.Rect, src, r.Min, draw.Src)
+	return dst, hot.Sub(r.Min)
+}

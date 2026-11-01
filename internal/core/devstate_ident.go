@@ -315,6 +315,8 @@ func devSlotKind(el *Element, j int) hookKind {
 		return hookWindow
 	case *windowSlot:
 		return hookWindowSpec
+	case envHook:
+		return hookKind(h)
 	case nil:
 		return hookReducedMotion
 	}

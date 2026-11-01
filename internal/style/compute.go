@@ -21,6 +21,9 @@ type Context struct {
 	Dark bool
 	// ReducedMotion selects motion-reduce: (and deselects motion-safe:).
 	ReducedMotion bool
+	// HighContrast selects contrast-more: (the system's high contrast,
+	// CSS prefers-contrast: more; ADR-209).
+	HighContrast bool
 }
 
 // Dir is the direction an element sets for itself and its descendants:
@@ -208,6 +211,7 @@ func Compute(cx *Context, in Input) *ComputedStyle {
 		ViewportWidth: cx.Viewport.W,
 		Dark:          dark,
 		ReducedMotion: cx.ReducedMotion,
+		HighContrast:  cx.HighContrast,
 		Starting:      in.Starting,
 		RTL:           s.Text.Direction == text.DirectionRTL,
 		State:         in.State, Group: in.Group, Peer: in.Peer,

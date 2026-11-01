@@ -210,6 +210,8 @@ func TestExportedNames(t *testing.T) {
 		"AriaInvalid", "AriaSort",
 		// ADR-171: aria-current.
 		"AriaCurrent",
+		// ADR-211: drag and drop.
+		"Draggable", "OnDragEnter", "OnDragLeave", "OnDragOver", "OnDrop",
 	}
 	fset := token.NewFileSet()
 	var got []string
