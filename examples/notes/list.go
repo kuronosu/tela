@@ -33,6 +33,8 @@ type List struct {
 	OnBack   func()
 	// OnPin and OnDelete are the actions of a card's context menu.
 	OnPin, OnDelete func(id int)
+	// Locks are the lock items of the card's context menu.
+	Locks Locks
 }
 
 func (l List) Build() tela.Node {
@@ -51,7 +53,7 @@ func (l List) Build() tela.Node {
 		searchBox(l.Query, l.OnQuery, "mx-3"),
 		Div(Class("flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3"), Role("navigation"), AriaLabel("Notes"),
 			Map(l.Notes, func(n Note) tela.Node {
-				return tela.WithKey(Card{Note: n, Active: n.ID == l.Current, Preview: l.Previews, OnSelect: l.OnSelect, OnPin: l.OnPin, OnDelete: l.OnDelete}, n.ID)
+				return tela.WithKey(Card{Note: n, Active: n.ID == l.Current, Preview: l.Previews, OnSelect: l.OnSelect, OnPin: l.OnPin, OnDelete: l.OnDelete, Locks: l.Locks}, n.ID)
 			}),
 			If(len(l.Notes) == 0, Span(Class("px-1 py-6 text-center text-[13px] text-muted-foreground"), Text(nothingText(l.Query)))),
 		),
@@ -81,6 +83,19 @@ type Card struct {
 	// OnPin and OnDelete are the items of the card's context menu (a right
 	// click, or Shift+F10 with the card focused).
 	OnPin, OnDelete func(id int)
+	// Locks are the lock items of the context menu.
+	Locks Locks
+}
+
+// Locks are the lock actions of a card's context menu. Lock locks a note,
+// locks an unlocked one again, or unlocks a locked one; RemoveLock takes
+// the lock off an unlocked note. Hint, when it is not empty, is why none of
+// them can be used (no keyring) and the items are disabled; Busy is true
+// while the keyring is being asked.
+type Locks struct {
+	Lock, RemoveLock func(id int)
+	Hint             string
+	Busy             bool
 }
 
 func (c Card) Build() tela.Node {
@@ -93,6 +108,9 @@ func (c Card) Build() tela.Node {
 	if n.Dirty() {
 		name += ", unsaved changes"
 	}
+	if n.Locked {
+		name += ", locked"
+	}
 	lines, limit := "line-clamp-2", 140
 	if c.Grid {
 		lines, limit = "line-clamp-4", 280
@@ -101,12 +119,28 @@ func (c Card) Build() tela.Node {
 	if n.Pinned {
 		pin = "Unpin"
 	}
+	items := []kit.MenuItem[string]{{Key: "pin", Label: pin, Icon: icons.Pin, OnSelect: func() { c.OnPin(n.ID) }}}
+	if c.Locks.Lock != nil {
+		off := c.Locks.Hint != "" || c.Locks.Busy
+		label := "Lock"
+		switch {
+		case n.Hidden():
+			label = "Unlock"
+		case n.Locked:
+			label = "Lock now"
+		}
+		items = append(items, kit.MenuItem[string]{Key: "lock", Label: label, Icon: icons.Lock, Disabled: off,
+			OnSelect: func() { c.Locks.Lock(n.ID) }})
+		if n.Unlocked {
+			items = append(items, kit.MenuItem[string]{Key: "remove-lock", Label: "Remove lock", Icon: icons.LockOpen, Disabled: off,
+				OnSelect: func() { c.Locks.RemoveLock(n.ID) }})
+		}
+	}
+	items = append(items,
+		kit.MenuItem[string]{Key: "delete", Label: "Delete", Icon: icons.Trash, Variant: kit.Destructive, OnSelect: func() { c.OnDelete(n.ID) }})
 	return kit.ContextMenu[string]{
 		AriaLabel: "Note actions", Class: "w-full",
-		Items: []kit.MenuItem[string]{
-			{Key: "pin", Label: pin, Icon: icons.Pin, OnSelect: func() { c.OnPin(n.ID) }},
-			{Key: "delete", Label: "Delete", Icon: icons.Trash, Variant: kit.Destructive, OnSelect: func() { c.OnDelete(n.ID) }},
-		},
+		Items:    items,
 		Children: c.button(name, cur, lines, limit),
 	}
 }
@@ -121,9 +155,10 @@ func (c Card) button(name, cur, lines string, limit int) tela.Node {
 		Span(Class("flex items-center gap-2"),
 			Span(Class("min-w-0 flex-1 truncate text-[14px] font-semibold tracking-tight"), Text(n.Heading())),
 			If(n.Dirty(), Span(Class("size-1.5 shrink-0 rounded-full bg-gold"), AriaHidden(true))),
+			If(n.Locked, Icon(icons.Lock, Class("size-3 shrink-0 text-muted-foreground"), AriaHidden(true))),
 			If(n.Pinned, Icon(icons.Pin, Class("size-3 shrink-0 text-gold"), AriaHidden(true))),
 		),
-		If(c.Grid || c.Preview, Span(Class("text-start text-[13px] leading-5 text-muted-foreground", lines), Text(n.Snippet(limit)))),
+		If((c.Grid || c.Preview) && !n.Locked, Span(Class("text-start text-[13px] leading-5 text-muted-foreground", lines), Text(n.Snippet(limit)))),
 		Span(Class("flex items-center gap-1.5 text-[11px] text-muted-foreground"),
 			If(n.Folder != "", Span(Class("flex min-w-0 items-center gap-1"),
 				Icon(icons.Folder, Class("size-3 shrink-0")), Span(Class("truncate"), Text(n.Folder)))),
@@ -142,6 +177,8 @@ type Overview struct {
 	OnSelect func(id int)
 	// OnPin and OnDelete are the actions of a card's context menu.
 	OnPin, OnDelete func(id int)
+	// Locks are the lock items of the card's context menu.
+	Locks Locks
 }
 
 func (o Overview) Build() tela.Node {
@@ -155,7 +192,7 @@ func (o Overview) Build() tela.Node {
 		),
 		Div(Class("grid grid-cols-2 items-start gap-3 min-[880px]:grid-cols-3"),
 			Map(o.Notes, func(n Note) tela.Node {
-				return tela.WithKey(Card{Note: n, Grid: true, OnSelect: o.OnSelect, OnPin: o.OnPin, OnDelete: o.OnDelete}, n.ID)
+				return tela.WithKey(Card{Note: n, Grid: true, OnSelect: o.OnSelect, OnPin: o.OnPin, OnDelete: o.OnDelete, Locks: o.Locks}, n.ID)
 			}),
 		),
 		If(len(o.Notes) == 0, Span(Class("py-10 text-center text-sm text-muted-foreground"), Text(nothingText(o.Query)))),

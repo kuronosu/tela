@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kuronosu/tela/kit"
 	"github.com/kuronosu/tela/telatest"
@@ -91,4 +92,45 @@ func TestGoldenDeleteDialog(t *testing.T) {
 	typeNote(a, "Groceries\n- milk")
 	a.Click(deleteBtn)
 	a.Golden("notes_delete_dialog.png")
+}
+
+// TestGoldenLocked is a locked note: its card with the lock and no text,
+// and the editor's placeholder with the Unlock button (testdata/notes_locked.png
+// and the dark one), and the note while it is unlocked, with the lock in the
+// accent color in the header.
+func TestGoldenLocked(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	lockGroceries(t, a)
+	a.MouseMove(windowW-60, windowH-120)
+	a.Golden("notes_locked.png")
+
+	a.Click(unlockBtn)
+	a.ExpectValue(editor, groceriesText)
+	a.MouseMove(windowW-60, windowH-120)
+	a.Golden("notes_unlocked.png")
+
+	d := mount(t, telatest.Dark())
+	d.Click(lockedCard) // the library of the first run, which is still locked
+	d.ExpectText("This note is locked")
+	d.MouseMove(windowW-60, windowH-120)
+	d.Golden("notes_locked_dark.png")
+}
+
+// TestGoldenNoKeyring is the lock button of a desktop with no keyring: it is
+// off, and its tooltip says why.
+func TestGoldenNoKeyring(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	a.Unsupported(telatest.Secrets)
+	a.Click(card("Groceries"))
+	a.Click(lockNote)
+	a.ExpectText("This desktop has no system keyring")
+	a.Advance(10 * time.Second) // the toast goes away
+	a.MouseMove(windowW-60, windowH-120)
+	b := a.Bounds(lockNote)
+	a.MouseMove(b.X+b.Width/2, b.Y+b.Height/2)
+	a.Advance(time.Second)
+	a.ExpectText("Locked notes need a system keyring")
+	a.Golden("notes_no_keyring.png")
 }

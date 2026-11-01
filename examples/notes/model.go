@@ -46,7 +46,23 @@ type Note struct {
 	// Modified is when the title or the text last changed; zero for a
 	// note of an earlier version.
 	Modified time.Time `json:"modified"`
+	// Locked marks a note whose title and text are encrypted in the
+	// library (lock.go). Its Title, Text and Saved are empty in the file:
+	// they are in Sealed. The folder, the pin, the date and the path stay
+	// in the clear. Both fields are absent from the file of a note that is
+	// not locked, so a library of an earlier version loads unchanged.
+	Locked bool   `json:"locked,omitempty"`
+	Sealed string `json:"sealed,omitempty"`
+	// Unlocked is set on the copy of a locked note that the screen shows
+	// while the user has it unlocked (vault.view): Title, Text and Saved
+	// then hold the decrypted content. It is never stored.
+	Unlocked bool `json:"-"`
 }
+
+// Hidden reports whether the note is locked and its content is not
+// available: its Title, Text and Saved are empty, and so is everything
+// that comes from them.
+func (n Note) Hidden() bool { return n.Locked && !n.Unlocked }
 
 // Dirty reports whether the note has changes that were not saved to a file.
 func (n Note) Dirty() bool { return n.Text != n.Saved }
@@ -59,6 +75,9 @@ func (n Note) fromText() bool { return strings.TrimSpace(n.Title) == "" && n.Pat
 // else the name of its file, else its first line of text, else "Untitled
 // note".
 func (n Note) Heading() string {
+	if n.Hidden() {
+		return "Locked note"
+	}
 	if t := strings.TrimSpace(n.Title); t != "" {
 		return clip(t, 60)
 	}
@@ -117,8 +136,15 @@ func (n Note) FileName() string {
 func (n Note) Words() int      { return len(strings.Fields(n.Text)) }
 func (n Note) Characters() int { return utf8.RuneCountInString(n.Text) }
 
-// Tags are the #hashtags of the text, lowercase, without the #.
-func (n Note) Tags() []string { return parseTags(n.Text) }
+// Tags are the #hashtags of the text, lowercase, without the #. A locked
+// note has none: its text is not scanned, so the rail never shows the
+// words of a note the user locked.
+func (n Note) Tags() []string {
+	if n.Locked {
+		return nil
+	}
+	return parseTags(n.Text)
+}
 
 // When is the date of the card: see whenLabel.
 func (n Note) When() string { return whenLabel(n.Modified, now()) }
@@ -239,11 +265,16 @@ func (f filter) Match(n Note) bool {
 }
 
 // matchesQuery reports whether the title or the text of the note has the
-// query (ignoring case); an empty query matches every note.
+// query (ignoring case); an empty query matches every note. A search does
+// not look into locked notes, not even the ones that are unlocked at the
+// moment: they match no query.
 func matchesQuery(n Note, query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	if q == "" {
 		return true
+	}
+	if n.Locked {
+		return false
 	}
 	return strings.Contains(strings.ToLower(n.Heading()+"\n"+n.Title+"\n"+n.Text), q)
 }
