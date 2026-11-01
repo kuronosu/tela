@@ -3,11 +3,12 @@ package main
 import (
 	"testing"
 
+	"github.com/kuronosu/tela/kit"
 	"github.com/kuronosu/tela/telatest"
 )
 
-// The goldens use the fixed clock of sandbox and the GNOME title bar: they
-// do not depend on the day or on the OS they are made on.
+// The goldens use the fixed clock of sandbox and the GNOME conventions
+// (Notes.Look): they do not depend on the day or on the OS they are made on.
 
 // TestGolden is the main window with the welcome note open, light and dark,
 // at scales 1 and 2 (testdata/notes_x1.png, notes_dark_x2.png...).
@@ -64,6 +65,19 @@ func TestGoldenPreferences(t *testing.T) {
 	prefs.Click(telatest.ByRole("button", "Editor"))
 	prefs.MouseMove(300, 400)
 	prefs.Golden("preferences_dark.png")
+}
+
+// TestGoldenPreferencesWindows is Preferences with the Windows conventions,
+// drawn on any OS: the surfaces keep 60% of their background so that the
+// window's Mica backdrop shows through. The headless backend draws no Mica,
+// so the window's clear color shows instead (the pixels of a Windows run of
+// TestGoldenPreferences before Notes.Look was named in the tests).
+func TestGoldenPreferencesWindows(t *testing.T) {
+	sandbox(t)
+	a := mountLook(t, kit.Windows)
+	prefs := openPreferences(a)
+	prefs.MouseMove(300, 400)
+	prefs.Golden("preferences_windows.png")
 }
 
 // TestGoldenDeleteDialog is the question before deleting a note that is

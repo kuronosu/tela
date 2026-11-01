@@ -37,7 +37,7 @@ import (
 // and are not counted. The clock is manual: 1/60 s per tick.
 //
 //	go test -run xxx -bench Session -benchtime 1x -count 3 ./examples/dashboard
-//	go test -run TestSession -v ./examples/dashboard     # one session, with the full table
+//	TELA_PERF=1 go test -run TestSession -v ./examples/dashboard     # one session per configuration, with the full tables
 //
 // The numbers depend on the machine and on GOMAXPROCS (the rasterizer's
 // workers); a table prints both.
@@ -560,14 +560,20 @@ var configs = []struct {
 	{"1440x900_x2", 1440, 900, 2},
 }
 
-// TestSession plays the session once per configuration and prints the
-// table (go test -v). It fails if the page does not come to rest, and, with
-// TELA_PERF=strict, if the p95 of 1080p at scale 1 is over a frame
-// interval; the number is a property of the machine, so it is not checked
-// by default.
+// TestSession plays the session and prints the table (go test -v). It
+// fails if the page does not come to rest, and, with TELA_PERF=strict, if
+// the p95 of 1080p at scale 1 is over a frame interval; the number is a
+// property of the machine, so it is not checked by default. By default it
+// plays only 1080p at scale 1: the configurations at scale 2 play the same
+// script and check nothing more, they only measure, and cost five times as
+// much (36 s of the package's run on a 12-thread machine). TELA_PERF set to
+// anything plays every configuration.
 func TestSession(t *testing.T) {
 	for _, c := range configs {
 		t.Run(c.name, func(t *testing.T) {
+			if c.name != "1080p_x1" && os.Getenv("TELA_PERF") == "" {
+				t.Skip("a measurement only: set TELA_PERF=1 to play it")
+			}
 			r := newRig(t, c.w, c.h, c.scale, false)
 			frames, ticks := runSession(r)
 			t.Log(report(c.name, frames, ticks, c.w, c.h, c.scale))

@@ -83,12 +83,31 @@ func spacingClass(spacing string) string {
 	return "leading-[1.7]"
 }
 
+// platform returns the platform look whose conventions the app follows:
+// look itself, or for kit.Default (and kit.Plain, which names no platform)
+// the one of the OS the app runs on, as kit resolves it: Windows, macOS,
+// GNOME everywhere else. Only main leaves it to the OS; the tests name one,
+// so the goldens are the same on every OS and a Linux run can draw the
+// Windows path.
+func platform(look kit.Variant) kit.Variant {
+	if look != kit.Default && look != kit.Plain {
+		return look
+	}
+	switch runtime.GOOS {
+	case "windows":
+		return kit.Windows
+	case "darwin":
+		return kit.MacOS
+	}
+	return kit.GNOME
+}
+
 // glass is the class of a surface of the Preferences window: the opaque one,
 // and on Windows the translucent one that lets the Mica backdrop of the
 // window show through (everywhere else the backdrop is ignored, and a
 // translucent surface would only be mixed with the window's clear color).
-func glass(opaque, translucent string) string {
-	if runtime.GOOS == "windows" {
+func glass(look kit.Variant, opaque, translucent string) string {
+	if platform(look) == kit.Windows {
 		return translucent
 	}
 	return opaque
@@ -111,8 +130,12 @@ var sections = []section{
 // sections and the rows of the chosen one, each row a desktop.UseSetting.
 // Changing one stores it (settings.json) and the main window, which reads
 // the same key, follows. Tab is the section the window starts on ("" is
-// Appearance).
-type Preferences struct{ Tab string }
+// Appearance). Look is the platform whose conventions the window follows,
+// as in [Notes].
+type Preferences struct {
+	Tab  string
+	Look kit.Variant
+}
 
 func (p Preferences) Build() tela.Node {
 	tab, setTab := tela.UseState(p.Tab)
@@ -124,9 +147,9 @@ func (p Preferences) Build() tela.Node {
 	csd := tela.UseWindow().State().ClientSideDecorations
 
 	return Div(Class("flex h-screen flex-col"),
-		If(csd, kit.TitleBar{Title: Text("Preferences"), HideMinimize: true, HideMaximize: true}),
+		If(csd, kit.TitleBar{Variant: platform(p.Look), Title: Text("Preferences"), HideMinimize: true, HideMaximize: true}),
 		Div(Class("flex min-h-0 flex-1"),
-			Div(Class("flex w-40 shrink-0 flex-col gap-0.5 p-2 pt-4", glass("bg-sidebar", "bg-sidebar/60")), Role("navigation"), AriaLabel("Sections"),
+			Div(Class("flex w-40 shrink-0 flex-col gap-0.5 p-2 pt-4", glass(p.Look, "bg-sidebar", "bg-sidebar/60")), Role("navigation"), AriaLabel("Sections"),
 				Span(Class("px-2.5 pb-3 text-base font-semibold tracking-tight"), Text("Preferences")),
 				Map(sections, func(s section) tela.Node {
 					current := ""
@@ -141,14 +164,17 @@ func (p Preferences) Build() tela.Node {
 				}),
 			),
 			Div(Class("flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto border-s border-border px-6 py-5"),
-				tela.WithKey(sectionPane{Tab: tab}, tab),
+				tela.WithKey(sectionPane{Tab: tab, Look: p.Look}, tab),
 			),
 		),
 	)
 }
 
 // sectionPane is the content of the chosen section.
-type sectionPane struct{ Tab string }
+type sectionPane struct {
+	Tab  string
+	Look kit.Variant
+}
 
 func (s sectionPane) Build() tela.Node {
 	switch s.Tab {
@@ -157,7 +183,7 @@ func (s sectionPane) Build() tela.Node {
 	case "general":
 		return generalSection{}
 	case "shortcuts":
-		return shortcutsSection{}
+		return shortcutsSection{Look: s.Look}
 	}
 	return appearanceSection{}
 }
@@ -221,12 +247,13 @@ func (generalSection) Build() tela.Node {
 	)
 }
 
-// shortcutsSection lists the keys the app answers to.
-type shortcutsSection struct{}
+// shortcutsSection lists the keys the app answers to, with the modifier
+// of the platform (Cmd on macOS).
+type shortcutsSection struct{ Look kit.Variant }
 
-func (shortcutsSection) Build() tela.Node {
+func (s shortcutsSection) Build() tela.Node {
 	mod := "Ctrl"
-	if runtime.GOOS == "darwin" {
+	if platform(s.Look) == kit.MacOS {
 		mod = "Cmd"
 	}
 	keys := [][2]string{

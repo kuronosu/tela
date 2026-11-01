@@ -38,14 +38,24 @@ func scheme(name string) []telatest.Option {
 
 var schemes = []string{"light", "dark"}
 
+// goldenPreviews are the previews the goldens open in both schemes
+// (TestGolden, TestGoldenStates); TestGoldenStates also opens the page at
+// windowW x windowH in both.
+var goldenPreviews = map[string]bool{"1 Overview": true, "2 Board": true, "4 Command palette": true, "5 Report dialog": true, "6 Toast": true}
+
 // TestNoDevMessages opens the page at several window sizes, up to 4K, and
-// every preview, in both schemes.
+// every preview, in both schemes. Every mount of the package is in dev
+// mode, so what the goldens open already passed: this opens the rest (on
+// the Frosted graphite page a mount is costly, mostly at 4K).
 func TestNoDevMessages(t *testing.T) {
-	for _, s := range [][2]float32{{windowW, windowH}, {1920, 1080}, {1280, 800}, {3840, 2160}} {
+	for _, s := range [][2]float32{{1920, 1080}, {1280, 800}, {3840, 2160}} {
 		mount(t, s[0], s[1])
 		mount(t, s[0], s[1], telatest.Dark())
 	}
 	for _, name := range Previews.Names() {
+		if goldenPreviews[name] {
+			continue
+		}
 		for _, sc := range schemes {
 			mountPreview(t, name, scheme(sc)...)
 		}

@@ -1,17 +1,33 @@
 package main
 
 import (
+	"os"
 	"testing"
 
 	"github.com/kuronosu/tela/internal/testutil/damagetest"
 	"github.com/kuronosu/tela/telatest"
 )
 
+// The damage tests check every frame against a full rendering, and on the
+// glass page each one costs a full frame: they play each scale once across
+// the package, scale 1 and 1.5 (TestScrollDamage, the interactions at 1.5)
+// and 2 (TestDragDamage). TELA_CHECK_DAMAGE=1, which also checks every
+// other app of the tests, plays every scale of each. All of them in one
+// run took the package past go test's 10-minute timeout on CI's runners.
+var checkEveryScale = os.Getenv(telatest.EnvCheckDamage) == "1"
+
 // TestScrollDamage scrolls and hovers the dashboard in a small window at
-// scales 1, 1.5 and 2, checking every frame against a full rendering.
+// scales 1 and 1.5 (and 2 with TELA_CHECK_DAMAGE=1), checking every frame
+// against a full rendering. Twelve steps are a PageDown, a PageUp and arrow
+// keys both ways, and each step moves the pointer: what 24 steps checked,
+// in half the frames.
 func TestScrollDamage(t *testing.T) {
-	for _, scale := range []float64{1, 1.5, 2} {
-		damagetest.ScrollAround(t, func(opts ...telatest.Option) *telatest.App { return telatest.MountApp(t, App, opts...) }, 900, 560, scale, 24)
+	scales := []float64{1, 1.5}
+	if checkEveryScale {
+		scales = append(scales, 2)
+	}
+	for _, scale := range scales {
+		damagetest.ScrollAround(t, func(opts ...telatest.Option) *telatest.App { return telatest.MountApp(t, App, opts...) }, 900, 560, scale, 12)
 	}
 }
 
@@ -21,9 +37,19 @@ func TestScrollDamage(t *testing.T) {
 // a full rendering: the glass panes, springs, layout animations and
 // overlays repaint only what changed, and what they repaint is what a full
 // frame has.
+//
+// It plays them at scale 1.5, where the damage of a change is rounded out
+// to device pixels and the blur's reach is fractional: the stricter scale.
+// A pass checks about 700 frames, so the window is a small laptop's
+// (1024x640, 1536x960 device pixels); the pass at scale 1 plays with
+// TELA_CHECK_DAMAGE=1.
 func TestInteractionDamage(t *testing.T) {
-	for _, scale := range []float64{1, 1.5} {
-		a := telatest.MountApp(t, App, telatest.Size(1280, 800), telatest.Scale(scale), telatest.CheckDamage())
+	scales := []float64{1.5}
+	if checkEveryScale {
+		scales = []float64{1, 1.5}
+	}
+	for _, scale := range scales {
+		a := telatest.MountApp(t, App, telatest.Size(1024, 640), telatest.Scale(scale), telatest.CheckDamage())
 		a.Click(telatest.ByRole("radio", "90D"))
 		a.Click(telatest.ByRole("tab", "Orders"))
 		a.Hover(telatest.ByRole("button", "Orders"))

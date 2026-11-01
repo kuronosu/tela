@@ -36,7 +36,7 @@ The damage of a change under a pane also grows by the blur's reach (about 120 px
 `bench_test.go` drives the page without a window through a scripted session of 1,095 ticks of a 60 Hz clock: hover sweeps over the rail, the spectrum and the rows, a period change, a metric tab, scrolling and a fling in the latest orders, the report dialog and its toast, the palette, finishing and sorting a task, dragging a card across the board, and two theme switches. A frame is timed like `core.Host` runs it (input, animate, build/style/layout/paint, rasterization of the damage, the copy to a presentable buffer, effects) and runs only when the tree asked for one. After the session the page must ask for no frames at all.
 
 ```sh
-CGO_ENABLED=0 go test -run TestSession -v ./examples/dashboard            # the full tables, one session per configuration
+TELA_PERF=1 CGO_ENABLED=0 go test -run TestSession -v ./examples/dashboard   # the full tables, one session per configuration (without TELA_PERF, 1080p at scale 1 only)
 CGO_ENABLED=0 go test -run xxx -bench Session -benchtime 1x -count 3 ./examples/dashboard
 CGO_ENABLED=0 go test -run xxx -bench 'FullFrame|ScrollFrame|DragMove' ./examples/dashboard
 ```

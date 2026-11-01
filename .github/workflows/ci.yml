@@ -102,7 +102,11 @@ jobs:
       - name: go test
         env:
           CGO_ENABLED: "0"
-        run: go test ./...
+        # On a 4-vCPU runner the suite is CPU-bound (about 27 CPU-minutes
+        # in 7 minutes on four simulated vCPUs), and examples/dashboard,
+        # its largest package, runs through nearly all of it: its 10-minute
+        # default timeout measured the whole suite. 20m leaves room.
+        run: go test -timeout 20m ./...
       - name: Upload golden diffs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -182,6 +186,31 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: darwin
         run: go build ./...
+
+  site-snippets:
+    name: site/snippets (separate module)
+    # site/snippets has its own go.mod (ADR-207): the root jobs do not build
+    # it. The landing page shows these programs and the PNGs that tela
+    # snapshot renders from them, so a change to the framework re-checks that
+    # the committed PNGs are still what it draws.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site/snippets
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            site/snippets/go.sum
+      - name: go vet
+        env:
+          CGO_ENABLED: "0"
+        run: go vet ./...
+      - name: PNGs are up to date
+        run: ../scripts/render-snippets.sh --check
 
   test-race:
     name: test (race detector, verification only)
@@ -292,7 +321,8 @@ jobs:
         shell: bash
         env:
           CGO_ENABLED: "0"
-        run: go test ./...
+        # -timeout 20m: see the linux job.
+        run: go test -timeout 20m ./...
       - name: Upload golden diffs
         if: failure()
         uses: actions/upload-artifact@v4

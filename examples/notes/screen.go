@@ -16,14 +16,15 @@ import (
 )
 
 // Notes is the whole app: the main window's content and, declared inside
-// it, the tray icon and the Preferences window. TitleBar is the look whose
-// arrangement the (plain) title bar follows; the zero value is the
-// platform's (Windows, GNOME or macOS), and the tests name one so the
-// goldens match on every OS. Overview
+// it, the tray icon and the Preferences window. Look is the platform whose
+// conventions the app follows: the arrangement of the (plain) title bars,
+// the Mica glass of Preferences on Windows and the Cmd key on macOS. The
+// zero value is the platform the app runs on (Windows, GNOME or macOS), and
+// the tests name one so the goldens match on every OS. Overview
 // starts with no note open (a library that has never been used starts with
 // the welcome note open).
 type Notes struct {
-	TitleBar kit.Variant
+	Look     kit.Variant
 	Overview bool
 }
 
@@ -63,7 +64,7 @@ const welcomeID = 1
 
 // screen is the content of the main window.
 type screen struct {
-	TitleBar kit.Variant
+	Look     kit.Variant
 	Overview bool
 }
 
@@ -406,14 +407,14 @@ func (s screen) Build() tela.Node {
 				// Mica is missing: Windows 10). Elsewhere the backdrop is
 				// ignored and the root is opaque.
 				Backdrop:  tela.BackdropMica,
-				RootClass: glass("bg-background", "bg-background/60") + " text-foreground",
+				RootClass: glass(s.Look, "bg-background", "bg-background/60") + " text-foreground",
 				OnClose:   func() { setPrefsOpen.Set(false) },
-				Root:      Preferences{},
+				Root:      Preferences{Look: s.Look},
 			},
 		})),
 		kit.TitleBar{
 			Variant: kit.Plain,
-			Look:    s.TitleBar,
+			Look:    s.Look,
 			Class:   "bg-sidebar",
 			Leading: Span(Class("flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground"),
 				Icon(icons.NotebookPen, Class("size-3.5"))),

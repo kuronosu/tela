@@ -42,20 +42,28 @@ func setClock(t *testing.T, at time.Time) {
 	t.Cleanup(func() { now = was })
 }
 
-// appFor is the app as main runs it, except for the look of the title bar,
-// which is named so that the goldens match on every OS. Like main it goes
-// through desktop.PersistApp, so the window opens where it was left.
-func appFor() tela.App {
+// appFor is the app as main runs it, except for the platform whose
+// conventions it follows (Notes.Look), which is named so that the goldens
+// match on every OS: main leaves it to the OS the app runs on. Like main it
+// goes through desktop.PersistApp, so the window opens where it was left.
+func appFor(look kit.Variant) tela.App {
 	app := App
-	app.Root = Notes{TitleBar: kit.GNOME}
+	app.Root = Notes{Look: look}
 	return withAppearance(desktop.PersistApp(app))
 }
 
-// mount opens the app in dev mode, where any dev message fails the test.
+// mount opens the app in dev mode, where any dev message fails the test,
+// with the GNOME conventions whatever the OS the test runs on.
 func mount(t *testing.T, opts ...telatest.Option) *telatest.App {
 	t.Helper()
+	return mountLook(t, kit.GNOME, opts...)
+}
+
+// mountLook is mount with the conventions of another platform.
+func mountLook(t *testing.T, look kit.Variant, opts ...telatest.Option) *telatest.App {
+	t.Helper()
 	opts = append([]telatest.Option{telatest.Size(windowW, windowH)}, opts...)
-	return telatest.MountApp(t, appFor(), opts...)
+	return telatest.MountApp(t, appFor(look), opts...)
 }
 
 // The parts of the main window.
@@ -301,6 +309,26 @@ func TestPreferencesTitleBar(t *testing.T) {
 	prefs.ExpectClosed()
 	g.ExpectWindowCount(1)
 	g.ExpectRunning()
+}
+
+// The title bar of Preferences, where the app draws it, and the modifier of
+// the shortcuts follow Notes.Look, not the OS the test runs on: Windows has
+// the close button at the end and Ctrl, macOS at the start and Cmd.
+func TestPreferencesLook(t *testing.T) {
+	sandbox(t)
+	closeBtn := telatest.ByRole("button", "Close")
+	for _, c := range []struct {
+		look     kit.Variant
+		atEnd    bool
+		mod, not string
+	}{{kit.Windows, true, "Ctrl S", "Cmd S"}, {kit.MacOS, false, "Cmd S", "Ctrl S"}} {
+		prefs := openPreferences(mountLook(t, c.look, telatest.NoServerDecorations()), "Shortcuts")
+		if b := prefs.Bounds(closeBtn); (b.X > 270) != c.atEnd {
+			t.Errorf("%s: Close at x=%v, want it at the end: %v", c.look, b.X, c.atEnd)
+		}
+		prefs.ExpectText(c.mod)
+		prefs.ExpectNoText(c.not)
+	}
 }
 
 func TestSaveNewNote(t *testing.T) {

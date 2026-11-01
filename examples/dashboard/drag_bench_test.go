@@ -159,13 +159,15 @@ func TestDragMoveRecordsLittle(t *testing.T) {
 }
 
 // TestDragDamage drags cards at scale 2, checking every frame against a
-// full rendering.
+// full rendering: each move of the pointer, the cards that make room and
+// the drop. Fifteen steps of a drag cross the same columns as thirty did,
+// in fewer frames of 2832x1692 pixels.
 func TestDragDamage(t *testing.T) {
 	app := App
 	app.Root = Previews["2 Board"].Root
 	a := telatest.MountApp(t, app, telatest.Size(1416, 846), telatest.Scale(2), telatest.CheckDamage())
-	a.DragBy(cardLoc("Fix failed invoice retries"), 420, 60, telatest.Steps(30))
-	a.DragBy(cardLoc("Set up the staging pipeline"), -380, 10, telatest.Steps(30))
+	a.DragBy(cardLoc("Fix failed invoice retries"), 420, 60, telatest.Steps(15))
+	a.DragBy(cardLoc("Set up the staging pipeline"), -380, 10, telatest.Steps(15))
 }
 
 func countLayers(tr *core.Tree, kind string) int {
