@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"io/fs"
+	"path/filepath"
 	"slices"
 	"sync"
 	"testing"
@@ -42,9 +43,13 @@ func TestClipboardData(t *testing.T) {
 		t.Errorf("reads = %v, want %s", got, want)
 	}
 	// Another application copies files; WriteText replaces everything.
-	files, _ := platform.FileData("/tmp/a")
+	a := filepath.Join(t.TempDir(), "a") // a native absolute path on every OS
+	files, err := platform.FileData(a)
+	if err != nil {
+		t.Fatal(err)
+	}
 	b.SetClipboardData(files)
-	if p, ok := b.ClipboardData().Paths(); !ok || p[0] != "/tmp/a" {
+	if p, ok := b.ClipboardData().Paths(); !ok || p[0] != a {
 		t.Errorf("ClipboardData = %v", b.ClipboardData())
 	}
 	_ = c.WriteText("plain")

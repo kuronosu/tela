@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kuronosu/tela/desktop"
@@ -140,7 +141,7 @@ func TestLaunchFiles(t *testing.T) {
 	a.ExpectValue(titleBox, "log")
 	a.ExpectText(filepath.Join(dir, "log.txt"))
 
-	a.InjectLaunch(desktop.Launch{Args: []string{"file://" + filepath.ToSlash(filepath.Join(dir, "plan.rs"))}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"file:///" + strings.TrimPrefix(filepath.ToSlash(filepath.Join(dir, "plan.rs")), "/")}})
 	a.ExpectValue(titleBox, "plan")
 
 	// Two files and a link in one launch; the same file again selects.

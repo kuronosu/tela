@@ -52,16 +52,6 @@ func ExampleSingleInstance() {
 	_ = app // tela.Main(app)
 }
 
-// The files a launch names, made absolute.
-func ExampleLaunch() {
-	l := desktop.Launch{Dir: "/home/ana", Args: []string{"--new-window", "notes:open?id=3", "file:///tmp/a%20b.note", "lists/groceries.note"}}
-	fmt.Println(l.URLs())
-	fmt.Println(l.Files())
-	// Output:
-	// [notes:open?id=3]
-	// [/tmp/a b.note /home/ana/lists/groceries.note]
-}
-
 // Copy rich text, and paste whatever the clipboard holds.
 func ExampleReadClipboard() {
 	_ = tela.C(func() tela.Node {

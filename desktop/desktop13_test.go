@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
 	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/internal/platform"
 	"github.com/kuronosu/tela/telatest"
 )
 
@@ -141,8 +143,16 @@ func TestUseLaunch(t *testing.T) {
 	if len(got) != 0 {
 		t.Fatalf("telatest gave a start launch: %+v", got)
 	}
-	app.InjectLaunch(desktop.Launch{Dir: "/home/ana", Args: []string{
-		"--verbose", "notes:open?id=3", "file:///tmp/a%20b.note", "docs/c.note", "/abs/d.note", "https://example.com/x", "--", "-dash.note"}})
+	// Native paths, so the test reads the same on every OS.
+	home, tmp, other := t.TempDir(), t.TempDir(), t.TempDir()
+	spaced := filepath.Join(tmp, "a b.note")
+	uri, err := platform.FileURI(spaced)
+	if err != nil {
+		t.Fatal(err)
+	}
+	abs := filepath.Join(other, "d.note")
+	app.InjectLaunch(desktop.Launch{Dir: home, Args: []string{
+		"--verbose", "notes:open?id=3", uri, filepath.Join("docs", "c.note"), abs, "https://example.com/x", "--", "-dash.note"}})
 	app.ExpectText("launches: 1")
 	app.ExpectWindowState(telatest.Hidden(false))
 	l := got[0]
@@ -152,7 +162,7 @@ func TestUseLaunch(t *testing.T) {
 	if want := []string{"notes:open?id=3", "https://example.com/x"}; !slices.Equal(l.URLs(), want) {
 		t.Errorf("URLs = %q, want %q", l.URLs(), want)
 	}
-	if want := []string{"/tmp/a b.note", "/home/ana/docs/c.note", "/abs/d.note", "/home/ana/-dash.note"}; !slices.Equal(l.Files(), want) {
+	if want := []string{spaced, filepath.Join(home, "docs", "c.note"), abs, filepath.Join(home, "-dash.note")}; !slices.Equal(l.Files(), want) {
 		t.Errorf("Files = %q, want %q", l.Files(), want)
 	}
 }
@@ -160,7 +170,9 @@ func TestUseLaunch(t *testing.T) {
 // The process's own start reaches every UseLaunch mounted with the first
 // one, once: not those that mount later, nor one that mounts again.
 func TestUseLaunchStart(t *testing.T) {
-	desktop.SetStartLaunchForTest(t, "/home/ana", "list.note")
+	home, other := t.TempDir(), t.TempDir()
+	desktop.SetStartLaunchForTest(t, home, "list.note")
+	list := filepath.Join(home, "list.note")
 	var got []string
 	listener := func(name string) tela.Component {
 		return tela.C(func() tela.Node {
@@ -181,13 +193,14 @@ func TestUseLaunchStart(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Later"))
 	app.Click(telatest.ByRole("button", "Later"))
 	app.Click(telatest.ByRole("button", "Later"))
-	want := []string{"a:/home/ana/list.note:false", "b:/home/ana/list.note:false"}
+	want := []string{"a:" + list + ":false", "b:" + list + ":false"}
 	if !slices.Equal(got, want) {
 		t.Errorf("launches %q, want %q", got, want)
 	}
 	got = nil
-	app.InjectLaunch(desktop.Launch{Dir: "/x", Args: []string{"y"}})
-	want = []string{"a:/x/y:true", "b:/x/y:true", "c:/x/y:true"}
+	app.InjectLaunch(desktop.Launch{Dir: other, Args: []string{"y"}})
+	y := filepath.Join(other, "y")
+	want = []string{"a:" + y + ":true", "b:" + y + ":true", "c:" + y + ":true"}
 	if slices.Sort(got); !slices.Equal(got, want) {
 		t.Errorf("forwarded launch %q, want %q", got, want)
 	}
@@ -269,6 +282,7 @@ func TestClipboard(t *testing.T) {
 	var read *tela.DataTransfer
 	var readErr error
 	var text string
+	list := filepath.Join(t.TempDir(), "list.md")
 	app := telatest.MountFunc(t, func() tela.Node {
 		copyAll := func() {
 			var dt tela.DataTransfer
@@ -277,7 +291,7 @@ func TestClipboard(t *testing.T) {
 			if err := dt.SetImage(img); err != nil {
 				t.Error(err)
 			}
-			if err := dt.SetFiles("/home/ana/list.md"); err != nil {
+			if err := dt.SetFiles(list); err != nil {
 				t.Error(err)
 			}
 			dt.SetData("application/x-notes-item", "42")
@@ -304,7 +318,7 @@ func TestClipboard(t *testing.T) {
 	})
 	app.Click(telatest.ByRole("button", "Copy"))
 	clip := app.Clipboard()
-	if clip.Text() != "milk" || clip.HTML() != "<b>milk</b>" || !slices.Equal(clip.Files(), []string{"/home/ana/list.md"}) ||
+	if clip.Text() != "milk" || clip.HTML() != "<b>milk</b>" || !slices.Equal(clip.Files(), []string{list}) ||
 		clip.GetData("application/x-notes-item") != "42" {
 		t.Fatalf("clipboard types %q text %q html %q files %q", clip.Types(), clip.Text(), clip.HTML(), clip.Files())
 	}
@@ -373,7 +387,9 @@ func TestPopupMenu(t *testing.T) {
 				{Separator: true},
 				{Label: "More", Submenu: []desktop.MenuItem{{Label: "Rename", OnSelect: func() { log = append(log, "rename") }}}},
 				{Label: "Delete", Disabled: true},
-			}, func(chosen bool, err error) { log = append(log, "done", strings.ToLower(strings.TrimSpace(boolText(chosen)))) })
+			}, func(chosen bool, err error) {
+				log = append(log, "done", strings.ToLower(strings.TrimSpace(boolText(chosen))))
+			})
 			if errors.Is(err, desktop.ErrUnsupported) {
 				setDrawn.Set(true)
 			}
