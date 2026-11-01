@@ -90,7 +90,8 @@ func PopupMenu(w tela.WindowHandle, at tela.Point, items []MenuItem, done func(c
 //
 // Most desktops have no native window menu bars (Linux; frameless
 // windows, which draw their own title bar; macOS, whose menu bar belongs
-// to the app): there OnError receives an error wrapping [ErrUnsupported]
+// to the app), and where there is no window of a running app (tela
+// snapshot): there OnError receives an error wrapping [ErrUnsupported]
 // after the first build, and the app draws its menu instead (kit's
 // Menubar does). Accelerator texts are only shown: handle the keys
 // yourself. Tests choose items with telatest's App.ChooseMenuItem.
@@ -113,7 +114,12 @@ func (m MenuBar) Build() tela.Node {
 	tela.UseMount(func() func() {
 		d, ok := core.DesktopOf(w)
 		if !ok {
-			return nil // tela snapshot, or a tree without windows
+			// tela snapshot, or a tree without windows: there is no menu
+			// bar to set, so whoever draws one instead is told.
+			if f := s.props.OnError; f != nil {
+				f(fmt.Errorf("desktop: MenuBar: %w (no window of a running app)", ErrUnsupported))
+			}
+			return nil
 		}
 		s.d, s.w = d, w
 		s.stop = d.ListenWindow(w, s.event)

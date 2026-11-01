@@ -589,7 +589,7 @@ func (t *Tree) childConfig(rootClass string, n int) Config {
 		AccentColor: t.env.accent.c, HasAccentColor: t.env.accent.ok,
 		Dev: t.dev, Log: t.log, Warn: t.warn, DoubleClickInterval: t.in.clicks.Interval,
 		IDPrefix:          t.idPrefix + "w" + strconv.Itoa(n) + "-",
-		ClassicScrollbars: t.scr.classic, InstantScroll: t.scr.instant,
+		ClassicScrollbars: t.scr.classic, InstantScroll: t.scr.instant, NativeMenus: t.nativeMenus,
 		Debug: debug, DebugClock: t.dbg.clock,
 	}
 }

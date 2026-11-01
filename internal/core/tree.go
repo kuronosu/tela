@@ -92,6 +92,9 @@ type Config struct {
 	// kinetic flings, except in containers with scroll-smooth
 	// (scroll.go).
 	InstantScroll bool
+	// NativeMenus asks kit's menus to use the OS's menus where the
+	// platform has them (tela.App.NativeMenus); read with UseNativeMenus.
+	NativeMenus bool
 	// Debug selects the debug overlays drawn over the application
 	// (debug.go). Zero means unset: NewHost then reads TELA_DEBUG;
 	// DebugOff means none and ignores the environment.
@@ -248,6 +251,8 @@ type Tree struct {
 	in  inputState
 	foc focusState
 	scr scrollState
+	// nativeMenus is Config.NativeMenus.
+	nativeMenus bool
 	// virt holds the virtual lists (virtual.go).
 	virt virtState
 
@@ -347,6 +352,7 @@ func NewTree(cfg Config) *Tree {
 	t.dbg.flags = cfg.Debug & DebugAll
 	t.dbg.clock = cfg.DebugClock
 	t.scr.classic, t.scr.instant = cfg.ClassicScrollbars, cfg.InstantScroll
+	t.nativeMenus = cfg.NativeMenus
 	t.in.clicks.Interval = cfg.DoubleClickInterval
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()

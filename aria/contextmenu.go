@@ -32,6 +32,16 @@ type ContextMenuTriggerOptions struct {
 	// and it wins over the click of that touch: turn it off for an area
 	// whose content is held down with a finger for something else.
 	NoLongPress bool
+	// Intercept, if not nil, is asked before the menu opens (a right
+	// click, a long press, the keys, OpenAt), with the point it would open
+	// at in window coordinates: the pointer, or the area's top-left corner
+	// for the keys. When it returns true it has taken the opening over, by
+	// showing the OS's own context menu there: the hook then neither opens
+	// the menu nor calls OnOpenChange. When it returns false, the menu
+	// opens as usual, in the same event. A menu that is open already is
+	// only moved, without asking. kit's ContextMenu uses it for native
+	// menus (ADR-215).
+	Intercept func(x, y float32) (handled bool)
 	// Ref is the area's ref and MenuRef the menu's, for hooks used together
 	// with others on the same element; the zero value makes the hook
 	// create its own.
@@ -163,6 +173,9 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 	}
 	openAt := func(x, y float32, s string) {
 		if o.Disabled {
+			return
+		}
+		if !st.cur && o.Intercept != nil && o.Intercept(x, y) {
 			return
 		}
 		p := pos.Latest()

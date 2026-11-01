@@ -32,6 +32,7 @@ type config struct {
 	scheme        tela.ColorScheme
 	classic       bool
 	instant       bool
+	nativeMenus   bool
 	dev           bool
 	allowDev      []string
 	rootClass     string
@@ -105,6 +106,7 @@ func (c config) coreConfig() core.Config {
 		Dev:               c.devMode(),
 		ClassicScrollbars: c.classic,
 		InstantScroll:     c.instant,
+		NativeMenus:       c.nativeMenus,
 		Theme:             (*core.Theme)(c.theme),
 		ClassAliases:      c.aliases,
 	}
@@ -208,6 +210,14 @@ func ClassicScrollbars() Option { return func(c *config) { c.classic = true } }
 // (tela.App.InstantScroll).
 func InstantScroll() Option { return func(c *config) { c.instant = true } }
 
+// PreferNativeMenus makes kit's ContextMenu and Menubar use the OS's menus
+// where the platform has them (tela.App.NativeMenus, ADR-215). The headless
+// desktop has them, unless [App.Unsupported] takes them away
+// ([NativeMenus]) or the window is [Frameless] (no menu bar). Answer a
+// native context menu with [App.ChoosePopupItem] and read a native bar
+// with [App.MenuBar].
+func PreferNativeMenus() Option { return func(c *config) { c.nativeMenus = true } }
+
 // devMode returns whether the tree runs in dev mode: TELA_DEV=1 or
 // TELA_DEV=0 overrides the option.
 func (c config) devMode() bool { return core.ResolveDev(&c.dev) }
@@ -300,7 +310,7 @@ func ClassAliases(aliases map[string]string) Option {
 // FromApp applies the settings of a [tela.App] that shape what is drawn, so
 // a test, `tela snapshot` and the window see the same app: the size when
 // both Width and Height are set, RootClass, ColorScheme, Theme,
-// ClassAliases, ClassicScrollbars, InstantScroll, IgnoreTextScale and
+// ClassAliases, ClassicScrollbars, InstantScroll, NativeMenus, IgnoreTextScale and
 // Dev. It sets only
 // what the app sets, so it never undoes an earlier option, and the options
 // after it override it:
@@ -351,6 +361,9 @@ func FromApp(app tela.App) Option {
 		}
 		if app.InstantScroll {
 			c.instant = true
+		}
+		if app.NativeMenus {
+			c.nativeMenus = true
 		}
 		if app.IgnoreTextScale {
 			c.ignoreText = true

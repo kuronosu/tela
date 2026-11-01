@@ -505,3 +505,18 @@ func TestRegistrationInApp(t *testing.T) {
 		t.Errorf("Register without registration: %v", err)
 	}
 }
+
+// Where there is no window of a running app (tela snapshot), a MenuBar
+// reports ErrUnsupported too, so whoever draws a menu instead does.
+func TestMenuBarWithoutWindow(t *testing.T) {
+	var ferr error
+	_, err := telatest.Render(tela.C(func() tela.Node {
+		return tela.Component(desktop.MenuBar{Menus: []desktop.MenuItem{{Label: "File"}}, OnError: func(err error) { ferr = err }})
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(ferr, desktop.ErrUnsupported) {
+		t.Errorf("OnError got %v, want ErrUnsupported", ferr)
+	}
+}

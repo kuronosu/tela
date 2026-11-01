@@ -8,6 +8,7 @@ package kit
 import (
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
+	"github.com/kuronosu/tela/desktop"
 	"github.com/kuronosu/tela/h"
 )
 
@@ -78,6 +79,29 @@ type MenubarMenu[K comparable] struct {
 // follows the kit's value rule with Open (a pointer to the key of the
 // open menu; a key no menu has, such as the zero K, means all closed),
 // DefaultOpen and OnOpenChange.
+//
+// # Native menu bar
+//
+// The bar is drawn in the kit's look unless Native (kit.NativeOn), or
+// tela.App.NativeMenus when Native is left at kit.NativeAuto, asks for the
+// OS's window menu bar (ADR-215): the menus are given to the window
+// (desktop.MenuBar) and the component draws nothing where it is. A window
+// has a native bar on Windows when it has the OS's title bar; a frameless
+// window (kit.TitleBar draws its own), Linux, and a window of a tree with no
+// running app have none, and there the drawn bar replaces it: the native
+// attempt reports it after the component's first frame, so the drawn bar
+// appears one frame later. A bar's own Native setting wins over the app's.
+//
+// Each menu is a top-level entry with its items, converted as a native
+// ContextMenu's are: Label, Shortcut (shown as text; handle the keys
+// yourself), Disabled, separators, check items for checkbox and radio items;
+// icons, the destructive Variant, Inset, KeepOpen, Class, Direction, the
+// classes of the bar, buttons and panels, and the check and radio icons
+// are not shown, a label becomes a disabled item and a group appears without
+// it. Choosing an item does what it does in the drawn menu. Open,
+// DefaultOpen and OnOpenChange belong to the drawn bar: the OS owns a
+// native one and none of them is called, and the keyboard navigation
+// is the OS's.
 type Menubar[K comparable] struct {
 	// Menus are the bar's menus, in order.
 	Menus []MenubarMenu[K]
@@ -86,6 +110,9 @@ type Menubar[K comparable] struct {
 	OnSelect func(menu, item K)
 	// AriaLabel names the bar.
 	AriaLabel string
+	// Native chooses between the OS's menu bar and the drawn one; the
+	// zero value, kit.NativeAuto, follows tela.App.NativeMenus.
+	Native NativeMode
 	// Direction is "ltr" or "rtl"; empty is the direction at the component's
 	// position (tela.UseDirection: the nearest h.Dir above it, left to right
 	// without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
@@ -114,10 +141,57 @@ type Menubar[K comparable] struct {
 	Props tela.Child
 }
 
-// Build returns the bar and, in a portal, the open menu.
+// Build returns the OS's menu bar, which draws nothing here, or the drawn
+// bar and, in a portal, its open menu.
 func (m Menubar[K]) Build() tela.Node {
-	st := &UseStyle().Menubar
 	store := useMenuStore[K]()
+	native := useNative("Menubar", m.Native)
+	failed, setFailed := tela.UseState(false)
+	if native && !failed {
+		return nativeMenubar[K]{
+			menus: m.Menus, onSelect: m.OnSelect, store: store,
+			// The platform has no such bar (or it cannot be shown): draw it.
+			onError: func(error) { setFailed.Set(true) },
+		}
+	}
+	return drawnMenubar[K]{bar: m, store: store}
+}
+
+// nativeMenubar is the OS's menu bar of a Menubar: desktop.MenuBar with the
+// menus converted.
+type nativeMenubar[K comparable] struct {
+	menus    []MenubarMenu[K]
+	onSelect func(menu, item K)
+	store    *menuStore[K]
+	onError  func(error)
+}
+
+func (n nativeMenubar[K]) Build() tela.Node {
+	menus := make([]desktop.MenuItem, len(n.menus))
+	for i, mm := range n.menus {
+		k := mm.Key
+		flat := flattenMenu("Menubar", mm.Items)
+		p := menuPanel[K]{items: mm.Items, store: n.store}
+		if onSelect := n.onSelect; onSelect != nil {
+			p.onSelect = func(item K) { onSelect(k, item) }
+		}
+		menus[i] = desktop.MenuItem{
+			Label: mm.Label, Disabled: mm.Disabled,
+			Submenu: nativeItems(mm.Items, n.store, func(item K) { p.choose(flat, item) }),
+		}
+	}
+	return desktop.MenuBar{Menus: menus, OnError: n.onError}
+}
+
+// drawnMenubar is the bar the kit draws, with its menus in a portal.
+type drawnMenubar[K comparable] struct {
+	bar   Menubar[K]
+	store *menuStore[K]
+}
+
+func (d drawnMenubar[K]) Build() tela.Node {
+	m, store := d.bar, d.store
+	st := &UseStyle().Menubar
 	keys := make([]K, len(m.Menus))
 	var disabled []K
 	for i, mm := range m.Menus {
