@@ -93,10 +93,11 @@ func TestShortNameRemoved(t *testing.T) {
 	wine.Skip(t, "GetShortPathName gives names such as LONG~TX4, not the NAME~N form of Windows")
 	h := newHarness(t, false, Options{})
 	long := h.path("longdirectoryname")
-	if err := os.MkdirAll(filepath.Join(long, "sub"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(50 * time.Millisecond)
+	// Once the file is reported, the watcher has handled the record of the
+	// new directory (an earlier one) and knows it as a directory, so a
+	// record with the long name is reported too.
+	h.write("longdirectoryname/sub/f.go", "package sub")
+	h.expect("a new directory", []string{"longdirectoryname/sub/f.go"})
 	p, _ := windows.UTF16PtrFromString(long)
 	buf := make([]uint16, windows.MAX_PATH)
 	n, err := windows.GetShortPathName(p, &buf[0], uint32(len(buf)))
@@ -107,9 +108,7 @@ func TestShortNameRemoved(t *testing.T) {
 	if !shortName(filepath.Base(short)) {
 		t.Fatalf("shortName(%q) = false", filepath.Base(short))
 	}
-	if err := os.Rename(short, filepath.Join(t.TempDir(), "gone")); err != nil {
-		t.Fatal(err)
-	}
+	rename(t, short, filepath.Join(t.TempDir(), "gone")) // the walk of sub may still hold it
 	deadline := time.After(timeout)
 	for {
 		select {

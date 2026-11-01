@@ -171,9 +171,11 @@ func (h *harness) absent(what string, d time.Duration, paths ...string) {
 }
 
 // rename renames a directory (or file) of a test. On Windows a directory
-// the poller is listing cannot be renamed ("being used by another
-// process"): the walk holds it open for a moment every PollInterval, so the
-// rename is retried for a while, as a user would.
+// that a walk (the poller's, or the native watcher's of a new directory)
+// is listing cannot be renamed: "being used by another process" when the
+// walk holds it, "access is denied" when it holds a directory under it. A
+// walk holds it for a moment only, so the rename is retried for a while, as
+// a user would.
 func rename(t *testing.T, from, to string) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
@@ -182,18 +184,19 @@ func rename(t *testing.T, from, to string) {
 		if err == nil {
 			return
 		}
-		if runtime.GOOS != "windows" || !sharingViolation(err) || time.Now().After(deadline) {
+		if runtime.GOOS != "windows" || !inUse(err) || time.Now().After(deadline) {
 			t.Fatal(err)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
 }
 
-// sharingViolation reports Windows' ERROR_SHARING_VIOLATION (32); the
-// caller checks the OS, since the number means something else elsewhere.
-func sharingViolation(err error) bool {
+// inUse reports Windows' ERROR_SHARING_VIOLATION (32) and
+// ERROR_ACCESS_DENIED (5); the caller checks the OS, since the numbers
+// mean something else elsewhere.
+func inUse(err error) bool {
 	var errno syscall.Errno
-	return errors.As(err, &errno) && errno == 32
+	return errors.As(err, &errno) && (errno == 32 || errno == 5)
 }
 
 func keys(m map[string]bool) []string {
@@ -346,7 +349,11 @@ func TestFilters(t *testing.T) {
 
 func TestDebounce(t *testing.T) {
 	modes(t, func(t *testing.T, poll bool) {
-		const debounce = 150 * time.Millisecond
+		// Long next to the burst's 20 ms gaps: the watcher sees the writes
+		// when its reader (inotify's, a completion of
+		// ReadDirectoryChangesW, the poller's walk) gets them, which a
+		// loaded runner can stall too, unseen by the writer below.
+		const debounce = 500 * time.Millisecond
 		// The burst is a burst only if no gap between its writes came
 		// near the debounce: a loaded runner can stall a sleep or a write
 		// for longer, and the watcher then rightly sees two bursts. Such
@@ -384,7 +391,7 @@ func TestDebounce(t *testing.T) {
 		if len(bs) != 1 {
 			t.Errorf("a burst of writes gave %d batches, want 1", len(bs))
 		}
-		if got.Sub(last) < 140*time.Millisecond {
+		if got.Sub(last) < debounce-10*time.Millisecond {
 			t.Errorf("batch %v after the last write, before the debounce", got.Sub(last))
 		}
 		if bs[0].First.Before(start) || bs[0].First.After(last) {
