@@ -23,6 +23,7 @@ Phase 13, desktop integration (ADR-209 to ADR-214; in progress).
 - `telatest`: drag and drop (`DragTo`, `DragToWindow`, `DropFiles`, `DropData`, `HoverDrag`, `StartDrag`, `DropOn`, `DropOutside`), system settings while mounted (`SetDarkMode`, `SetHighContrast`, `SetTextScale`, `SetAccentColor`…), and the new `desktop` services (`PressShortcut`, `InjectLaunch`, `StoredSecret`, `ChoosePopupItem`, `ChooseMenuItem`, `Registrations`…).
 - `tela dev` carries all of it (remote protocol 5, ADR-214): drags, native menus, clipboard data, global shortcuts (kept across reloads, so the portal does not ask again on every save), single instance, secrets and registrations.
 - `examples/notes` is phase 13's acceptance test: drop `.txt` and `.md` files (or text) on the window to import them, a Quick note global shortcut (`Ctrl+Alt+N`, with its status in Preferences), one instance that `notes://new?…` and `notes://open?id=N` links and file arguments reach, a "Links and files" section that registers `notes:` and `.md` without taking defaults, and locked notes, encrypted in the library with a key in the system keyring.
+- Documentation: a Desktop integration guide in the wiki and on the website, `docs/llms.txt` sections for phase 13 and its tests, `contrast-more:` and the text scale in the Styling guide, the drag and settings helpers in the Testing guide.
 - The X11 backend gets a clipboard (it had none, not even for text).
 
 ### Fixed
