@@ -2,6 +2,7 @@ package assoc
 
 import (
 	"errors"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -16,6 +17,9 @@ var (
 )
 
 func TestLinuxDirs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("XDG paths are Linux paths: \"/d\" is not absolute on Windows")
+	}
 	home := func() (string, error) { return "/home/u", nil }
 	env := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
 

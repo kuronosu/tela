@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -340,7 +341,7 @@ func TestLinuxConflicts(t *testing.T) {
 	e.write(e.ownEntry(), foreign)
 	before := e.snapshot()
 	_, err := e.register(scheme, false)
-	if !errors.Is(err, platform.ErrAssociationTaken) || !strings.Contains(err.Error(), e.ownEntry()) {
+	if !errors.Is(err, platform.ErrAssociationTaken) || !strings.Contains(err.Error(), strconv.Quote(e.ownEntry())) {
 		t.Errorf("Register over a foreign entry = %v", err)
 	}
 	if !sameSnapshot(before, e.snapshot()) || len(e.runs) != 0 {
@@ -376,7 +377,7 @@ func TestLinuxConflicts(t *testing.T) {
 		t.Errorf("status of a system registration = %+v", s)
 	}
 	// It does not list the file type: the user's entry would shadow it.
-	if _, err := e2.register(noteFile, false); !errors.Is(err, platform.ErrAssociationTaken) || !strings.Contains(err.Error(), sysEntry) {
+	if _, err := e2.register(noteFile, false); !errors.Is(err, platform.ErrAssociationTaken) || !strings.Contains(err.Error(), strconv.Quote(sysEntry)) {
 		t.Errorf("Register that would shadow the system entry = %v", err)
 	}
 	// Unregister never touches it.
