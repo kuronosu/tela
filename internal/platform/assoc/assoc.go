@@ -13,15 +13,22 @@
 //     x-scheme-handler/<scheme> and the file types' MIME types, marked as
 //     written by Tela (X-Tela-Registered=true) so Register knows its own
 //     file; for an extension that no MIME type claims yet, a MIME package
-//     $XDG_DATA_HOME/mime/packages/<ID>.xml. After a change it runs
-//     update-desktop-database and update-mime-database on those
-//     directories (LinuxDirs.Run). It never writes mimeapps.list except
-//     for MakeDefault (the [Default Applications] group of
-//     $XDG_CONFIG_HOME/mimeapps.list) and Unregister (removing the
-//     defaults that name the app's desktop entry). Status reads the
+//     $XDG_DATA_HOME/mime/packages/<ID>.xml. After a change it rebuilds
+//     the directory's mimeinfo.cache itself (GIO and xdg-mime read
+//     handlers from it) and runs update-mime-database when it is
+//     installed (LinuxDirs.Run; optional, see linux.go). It never writes
+//     mimeapps.list except for MakeDefault (the [Default Applications]
+//     group of $XDG_CONFIG_HOME/mimeapps.list) and Unregister (removing
+//     the defaults that name the app's desktop entry). Status reads the
 //     mimeapps.list files and desktop entries in the XDG search order
 //     (the user's, then DataDirs/ConfigDirs, with
-//     <desktop>-mimeapps.list first), as GIO does.
+//     <desktop>-mimeapps.list first), as GIO does. What counts as
+//     another application's association (RegisterOptions.Replace): a
+//     desktop entry of the app's ID that Tela did not write (the user's,
+//     or a system one the user's would shadow) and does not list the
+//     type yet, and an extension that another MIME type claims. Other
+//     applications' defaults and desktop entries listing the type are
+//     never touched: they are reported by Status (Other).
 //   - Windows ([Windows]; windows.go has the details): HKCU only, so no
 //     administrator rights; HKLM is read, never written (a per-user key
 //     shadows the machine's, so what is registered there counts as another
@@ -79,9 +86,9 @@ type LinuxDirs struct {
 	// Desktops are the names of $XDG_CURRENT_DESKTOP, lower-cased, for the
 	// <desktop>-mimeapps.list files read first.
 	Desktops []string
-	// Run runs a command after a change (update-desktop-database,
-	// update-mime-database). nil runs it with os/exec and ignores a
-	// missing command; tests record the calls instead.
+	// Run runs a command after a change (update-mime-database, the only
+	// one). nil runs it with os/exec when it is installed; its failure is
+	// ignored either way. Tests record the calls instead.
 	Run func(name string, args ...string) error
 }
 
@@ -122,18 +129,6 @@ func linuxDirs(getenv func(string) string, home func() (string, error)) LinuxDir
 		}
 	}
 	return d
-}
-
-// Linux returns the associations of a Linux desktop with the given
-// directories (see the package documentation).
-//
-// Not implemented yet (phase 13 step B): every method checks its
-// arguments and returns platform.ErrUnsupported.
-func Linux(dirs LinuxDirs) platform.Associations { return linux{dirs: dirs} }
-
-type linux struct {
-	platform.UnsupportedAssociations
-	dirs LinuxDirs
 }
 
 // Windows returns the associations of Windows written to reg, the current

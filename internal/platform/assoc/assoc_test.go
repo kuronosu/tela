@@ -37,13 +37,13 @@ func TestLinuxDirs(t *testing.T) {
 	}
 }
 
-func TestOSStubs(t *testing.T) {
+// TestOSArgumentChecks: both OS implementations check their arguments like
+// every platform.Associations.
+func TestOSArgumentChecks(t *testing.T) {
 	for name, a := range map[string]platform.Associations{
-		"linux": Linux(LinuxDirs{DataHome: t.TempDir(), ConfigHome: t.TempDir()}),
+		"linux":   Linux(LinuxDirs{DataHome: t.TempDir(), ConfigHome: t.TempDir()}),
+		"windows": Windows(&MemRegistry{}),
 	} {
-		if _, err := a.Register(notesApp, scheme, platform.RegisterOptions{}); !errors.Is(err, platform.ErrUnsupported) {
-			t.Errorf("%s: Register = %v, want ErrUnsupported until step B", name, err)
-		}
 		mustPanic(t, name+" Register without Exec", func() {
 			_, _ = a.Register(platform.HandlerApp{ID: "x", Name: "X"}, scheme, platform.RegisterOptions{})
 		})

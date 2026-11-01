@@ -39,10 +39,15 @@
 //   - ClaimInstance: a well-known bus name per app ID on its own
 //     connection, with a Launch method and org.freedesktop.Application
 //     (instance.go).
+//   - SetSecret, Secret, DeleteSecret: the Secret Service
+//     (org.freedesktop.secrets) over an encrypted session, each call on a
+//     connection of its own (secret.go). Unlike the other services they
+//     block and are safe from any goroutine.
 //
 // # Threading
 //
-// The platform.Desktop methods, Dispatch and Close run on the UI thread.
+// The platform.Desktop methods, Dispatch and Close run on the UI thread,
+// except the secret methods and Associations (see the contract).
 // godbus delivers replies, signals and incoming method calls on its own
 // goroutines; they never call the app. They put callbacks and events in an
 // inbox guarded by a mutex and call Options.Wake, and the backend's loop
