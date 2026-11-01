@@ -1,7 +1,10 @@
 // Command notes is a small plain-text notes app that shows the desktop
-// services of phase 12: package desktop (native open and save dialogs, a
-// message box, notifications, a tray icon, the app's folders, settings
-// and a remembered window position), two windows, and a custom title bar.
+// services of phases 12 and 13: package desktop (native open and save
+// dialogs, a message box, notifications, a tray icon, the app's folders,
+// settings and a remembered window position; and now a global shortcut, a
+// single instance with deep links, registration of a URL scheme and a file
+// type, and secure storage), drag and drop, two windows, and a custom title
+// bar. It is the acceptance test of both phases.
 // Its look is "Graphite, Tela light with amber": stone in the light scheme,
 // graphite in the dark one, and one amber accent (which Preferences can
 // change) in both.
@@ -51,6 +54,55 @@
 //     is on.
 //   - The main window opens where it was closed: desktop.PersistApp.
 //
+// Phase 13 adds, on Linux and Windows:
+//
+//   - Dropped files: the whole window takes drops (h.OnDragEnter,
+//     OnDragOver, OnDragLeave and OnDrop, see drop.go). .txt and .md files
+//     become notes exactly as Open makes them, a file that is already open
+//     selects its note, and dropped text becomes a note. While a drag that
+//     carries files or text is over the window, an overlay says "Drop to
+//     import"; any other drag gets none and is refused.
+//   - A global shortcut: Quick note, Ctrl+Alt+N, is a desktop.GlobalShortcut
+//     mounted while a setting is on (Preferences, Shortcuts). From any
+//     application it shows and raises the window (also from the tray) and
+//     makes a note. Preferences shows what the OS answered: the keys that
+//     were bound (the Wayland portal may choose others), or taken, refused,
+//     removed, not available.
+//   - One instance and deep links: main is
+//     tela.Main(desktop.SingleInstance(...)), and desktop.UseLaunch handles
+//     every start of the program, the first one and the ones another process
+//     hands over before it exits. Files open as notes; notes://new?title=...&text=...
+//     makes a note and notes://open?id=3 opens one ("Copy link" in a card's
+//     menu makes the link). See link.go.
+//   - Registration: at start Notes makes itself a candidate handler of
+//     notes: links (desktop.Register: only its own entries, nothing when
+//     nothing changes, never another application's, and never the default).
+//     Preferences, General, "Links and files" shows the status, registers or
+//     unregisters the scheme, offers to open .md files with Notes
+//     (desktop.FileType) and has a separate "Make default" button, which
+//     on Windows opens the Default apps settings. See links.go.
+//   - Locked notes: a note locked from the editor's header or a card's menu
+//     is stored encrypted in notes.json (AES-256-GCM) with a key that
+//     desktop.SetSecret keeps in the system keyring. The keyring is asked off
+//     the UI thread. A locked note's card has a lock and no preview, and
+//     the editor says "This note is locked" with an Unlock button. An
+//     unlocked note stays so until it is locked again or the window is
+//     hidden. Without a keyring the lock is off. See lock.go.
+//
+// Try it. Build the program first (go build -o notes ./examples/notes): under
+// go run it is a temporary build, which Notes does not register.
+//
+//   - Drop: drag a .md file from the file manager on the window.
+//   - Quick note: press Ctrl+Alt+N in another application (on Hyprland and
+//     other Wayland desktops the compositor asks to bind it: the shortcuts
+//     portal).
+//   - Deep link, from a terminal: `xdg-open 'notes://new?text=hi'` on Linux,
+//     `start notes://new?text=hi` on Windows (cmd), or the program itself,
+//     `notes 'notes://new?text=hi'` or `notes todo.md`: the running window
+//     comes up with the result. The links work through the OS once Notes is
+//     registered (Preferences, General).
+//   - Locked notes: Lock note in an open note's header.
+//
 // The notes live in the library as you type, so the question when quitting
 // is about files: whether to write the notes that changed since their last
 // Save, or leave them as drafts in the library.
@@ -95,4 +147,7 @@ var Previews = tela.Previews{
 	"3 Preferences": {Root: Preferences{}},
 }
 
-func main() { tela.Main(withAppearance(desktop.PersistApp(App))) }
+func main() {
+	autoRegister.Store(true) // register the notes: scheme at start (never in tests or snapshots)
+	tela.Main(desktop.SingleInstance(withAppearance(desktop.PersistApp(App))))
+}

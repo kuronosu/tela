@@ -28,6 +28,19 @@ func sandbox(t *testing.T) {
 	telatest.TempDesktopDirs(t)
 	desktop.SetAppID(App.AppID)
 	setClock(t, fixedNow)
+	// The test binary is a temporary build, which Notes does not register
+	// (registrationBlocked): the registration tests go through the fake
+	// desktop, as an installed program would.
+	blockRegistration(t, "")
+}
+
+// blockRegistration makes registrationBlocked say why for the rest of the
+// test ("" is an installed program).
+func blockRegistration(t *testing.T, why string) {
+	t.Helper()
+	f := func() string { return why }
+	was := blockedBy.Swap(&f)
+	t.Cleanup(func() { blockedBy.Store(was) })
 }
 
 // fixedNow is the time of the tests: a Friday morning, so that the welcome
@@ -45,11 +58,12 @@ func setClock(t *testing.T, at time.Time) {
 // appFor is the app as main runs it, except for the platform whose
 // conventions it follows (Notes.Look), which is named so that the goldens
 // match on every OS: main leaves it to the OS the app runs on. Like main it
-// goes through desktop.PersistApp, so the window opens where it was left.
+// goes through desktop.PersistApp, so the window opens where it was left, and
+// desktop.SingleInstance, so a launch raises the window.
 func appFor(look kit.Variant) tela.App {
 	app := App
 	app.Root = Notes{Look: look}
-	return withAppearance(desktop.PersistApp(app))
+	return desktop.SingleInstance(withAppearance(desktop.PersistApp(app)))
 }
 
 // mount opens the app in dev mode, where any dev message fails the test,
