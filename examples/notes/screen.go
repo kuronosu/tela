@@ -129,10 +129,19 @@ func (s screen) Build() tela.Node {
 		}
 		setSelected.Set(n.ID)
 	}
-	// blank is a note for the place the user is in: in the folder, or
-	// pinned, that the rail has chosen.
-	blank := func() Note {
-		n := Note{ID: nextID(notes), Modified: now()}
+	// freshID is an ID no note has, nor any that was handed out before it
+	// and is still on its way into the library (a launch can make several
+	// notes before the screen builds again).
+	issued := tela.UseRef(0)
+	freshID := func() int {
+		id := max(nextID(latest.Current), issued.Current+1)
+		issued.Current = id
+		return id
+	}
+	// place is a note without an ID for the place the user is in: in the
+	// folder, or pinned, that the rail has chosen.
+	place := func() Note {
+		n := Note{Modified: now()}
 		switch {
 		case flt.Kind == kindFolder:
 			n.Folder = flt.Name
@@ -141,11 +150,57 @@ func (s screen) Build() tela.Node {
 		}
 		return n
 	}
+	blank := func() Note {
+		n := place()
+		n.ID = freshID()
+		return n
+	}
 	add := func(n Note) {
 		setNotes.Update(func(ns []Note) []Note { return append(append([]Note(nil), ns...), n) })
 		reveal(n)
 	}
 	newNote := func() { add(blank()) }
+	// addText makes a note of text that came from outside (dropped, or in
+	// a link): like a note that was typed, it is not in a file.
+	addText := func(title, text string) {
+		n := blank()
+		n.Title, n.Text = title, text
+		add(n)
+	}
+	// openFiles makes notes of the text files at paths, as Open does: one
+	// already open selects its note, and a file that cannot be used says
+	// why, without stopping the others. Unless anyFile (the user chose or
+	// named the files), only .txt and .md files are taken.
+	openFiles := func(paths []string, anyFile bool) {
+		in := importFiles(all, paths, place(), freshID, anyFile)
+		if len(in.Fresh) > 0 {
+			setNotes.Update(func(ns []Note) []Note { return append(append([]Note(nil), ns...), in.Fresh...) })
+		}
+		if n, ok := find(in.Fresh, in.Open); ok {
+			reveal(n)
+		} else if n, ok := find(all, in.Open); ok {
+			reveal(n)
+		}
+		if len(in.Problems) > 0 {
+			p := in.Problems[0]
+			reason := p.Reason
+			if more := len(in.Problems) - 1; more > 0 {
+				reason += fmt.Sprintf(" %s more could not be opened either.", plural(more, "file"))
+			}
+			toast.Error("Could not open "+p.Name, kit.ToastDescription(reason))
+		}
+		if len(in.Fresh) > 1 {
+			toast.Show("Opened " + plural(len(in.Fresh), "note"))
+		}
+	}
+	// The window takes drops of files and text (dropped.go).
+	drop := useDrop(func(dt *tela.DataTransfer) {
+		if files := dt.Files(); len(files) > 0 {
+			openFiles(files, false)
+		} else if text := dt.Text(); strings.TrimSpace(text) != "" {
+			addText("", text)
+		}
+	})
 	// choose shows the overview of a filter: no note is open.
 	choose := func(f filter) {
 		setFilter.Set(f)
@@ -252,14 +307,7 @@ func (s screen) Build() tela.Node {
 				reveal(n)
 				return
 			}
-			text, err := readTextFile(path)
-			if err != nil {
-				toast.Error("Could not open "+filepath.Base(path), kit.ToastDescription(err.Error()))
-				return
-			}
-			n := blank()
-			n.Title, n.Text, n.Saved, n.Path = fileTitle(path), text, text, path
-			add(n)
+			openFiles([]string{path}, true)
 		}, desktop.Title("Open a note"), desktop.Filter("Text", "*.txt", "*.md"), desktop.Parent(win))
 		if err != nil {
 			dialogError(toast, "open", err)
@@ -552,7 +600,7 @@ func (s screen) Build() tela.Node {
 			OnPin: pinNote, OnDelete: askDelete, Locks: locks}
 	}
 
-	return Div(Class("flex h-screen flex-col"), shortcuts,
+	return Div(Class("flex h-screen flex-col"), shortcuts, drop.Props,
 		// Hiding the window locks the notes again.
 		lockGuard{OnHidden: func() {
 			vlt.clear()
@@ -605,7 +653,8 @@ func (s screen) Build() tela.Node {
 		},
 		Div(Class("flex min-h-0 flex-1"),
 			Rail{Notes: all, Filter: flt, OnFilter: choose, OnNew: newNote, OnPrefs: showPrefs},
-			Div(Class("flex min-w-0 flex-1 rounded-ss-xl border-s border-t border-border bg-background"), pane),
+			Div(Class("relative flex min-w-0 flex-1 rounded-ss-xl border-s border-t border-border bg-background"), pane,
+				If(drop.Over, dropOverlay{})),
 		),
 	)
 }
