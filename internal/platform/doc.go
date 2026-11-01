@@ -594,8 +594,15 @@
 //     WM_SIZE) and returns the answer (when a pass is already running, it
 //     returns the previous answer and the event waits); Wayland
 //     (wl_data_offer.accept and set_actions) and X11 (XdndStatus) send the
-//     answer after the handler returns, from a callback the backend posts
-//     right after the event (internal/loop Post).
+//     answer after the handlers have run: after the delivery pass that
+//     carried the event (a callback posted behind each DragOver would keep
+//     QueueDrag from coalescing them), and from posted callbacks around a
+//     drop.
+//   - An app that accepts names the types it wants; when none of them is
+//     offered, the backend still accepts the first offered type, so the
+//     drop happens with empty Data (HTML drops in that case too).
+//   - A drag whose Allowed holds only DropLink can only end canceled
+//     where the OS has no link action (Wayland).
 //
 // Source side ([Window.StartDrag], [DragOptions], [DragDoneEvent]):
 //
@@ -817,8 +824,9 @@
 //     and ask is ignored), enter and motion are DragEnter and DragOver
 //     (surface-local coordinates), leave is DragLeave unless it follows a
 //     drop; the answer is wl_data_offer.accept(serial, the first wanted
-//     type offered, or null when refused) and set_actions(effect, effect)
-//     (version 3), sent after the handler; drop reads each wanted type
+//     type offered, else the first offered type, or null when refused) and
+//     set_actions(effect, effect) (version 3), sent after the delivery
+//     pass, only when it changed; drop reads each wanted type
 //     with receive and a pipe (read without blocking the loop, with a
 //     timeout), then delivers DragDrop, then calls finish (if accepted)
 //     and destroys the offer. Mods come from wl_keyboard.modifiers.
@@ -829,8 +837,12 @@
 //     an icon surface holding the image at -Hotspot (buffer scale or
 //     viewport for the window's scale); send events write the data
 //     without blocking; dnd_finished reports the last action event,
-//     cancelled DropNone. The pointer's leave that follows start_drag is
-//     the source window's PointerCancel.
+//     cancelled DropNone. StartDrag queues the source window's
+//     PointerCancel and PointerLeave at once and drops that window's
+//     queued pointer events (compositors do not order the pointer's leave
+//     against the data device's events, so the later leave is ignored); if
+//     the compositor refuses the drag at once, a PointerEnter follows the
+//     DragDoneEvent to give the pointer back.
 //   - Clipboard data: the selection offer's types; receive per type.
 //   - Menus: none (ErrUnsupported).
 //   - Global shortcuts: org.freedesktop.portal.GlobalShortcuts only
