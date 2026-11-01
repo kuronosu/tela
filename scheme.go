@@ -43,6 +43,40 @@ func UseColorScheme() ColorScheme { return core.UseColorScheme() }
 // hook: call it at the top level of a component.
 func UseReducedMotion() bool { return core.UseReducedMotion() }
 
+// UseHighContrast reports whether the system asks for high contrast
+// (Windows' contrast themes, GNOME's high contrast): the contrast-more:
+// classes apply. The component builds again when it changes. It is a
+// hook: call it at the top level of a component.
+//
+// Classes do not need it: border-border contrast-more:border-foreground
+// already follows the setting.
+func UseHighContrast() bool { return core.UseHighContrast() }
+
+// UseTextScale returns how much the user asked the system to scale text
+// (Windows' "Text size", GNOME's text scaling factor): 1.25 for text 25%
+// larger. Tela applies it like a browser's default font size: 1rem is
+// the theme's rem (16 px) times the scale, so the text-* sizes and the
+// rem-based spacing of Tailwind (p-4, gap-2, w-64, the breakpoints) grow
+// together while px values (border, text-[13px], w-[320px]) do not. It is
+// 1 when the system reports nothing, when [App].IgnoreTextScale is set,
+// and in tests and snapshots. The component builds again when it changes.
+// It is a hook: call it at the top level of a component.
+//
+// Classes do not need it; it is for sizes computed in code.
+func UseTextScale() float64 { return core.UseTextScale() }
+
+// UseAccentColor returns the user's accent color (the color the system
+// uses for selections and focused controls), and false when the system
+// has none or does not report it. The component builds again when it
+// changes. It is a hook: call it at the top level of a component.
+//
+//	accent, ok := tela.UseAccentColor()
+//	if !ok {
+//	    accent = tela.Hex("#4f46e5")
+//	}
+//	return Div(Style(tela.Bg(accent)), ...)
+func UseAccentColor() (Color, bool) { return core.UseAccentColor() }
+
 // SetColorScheme sets the color scheme of the running app: [Light] or
 // [Dark] override the system's preference, [System] follows it again.
 // Every element is styled again (dark: classes) and the components that

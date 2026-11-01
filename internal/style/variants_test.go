@@ -31,6 +31,9 @@ func TestConditionMatches(t *testing.T) {
 		{"motion-reduce off", Condition{MotionReduce: true}, VariantContext{}, false},
 		{"motion-safe", Condition{MotionSafe: true}, VariantContext{}, true},
 		{"motion-safe reduced", Condition{MotionSafe: true}, VariantContext{ReducedMotion: true}, false},
+		{"contrast-more", Condition{ContrastMore: true}, VariantContext{HighContrast: true}, true},
+		{"contrast-more off", Condition{ContrastMore: true}, VariantContext{}, false},
+		{"contrast-more dark", Condition{ContrastMore: true, Dark: true}, VariantContext{HighContrast: true}, false},
 		{"starting off", Condition{Starting: true}, VariantContext{}, false},
 		{"starting on", Condition{Starting: true}, VariantContext{Starting: true}, true},
 		{"plain in the starting style", Condition{}, VariantContext{Starting: true}, true},
@@ -78,6 +81,7 @@ func TestVariantParsing(t *testing.T) {
 		{"dark", Condition{Dark: true}},
 		{"motion-reduce", Condition{MotionReduce: true}},
 		{"motion-safe", Condition{MotionSafe: true}},
+		{"contrast-more", Condition{ContrastMore: true}},
 		{"starting", Condition{Starting: true}},
 		{"rtl", Condition{RTL: true}},
 		{"ltr", Condition{LTR: true}},
@@ -111,12 +115,42 @@ func TestVariantErrors(t *testing.T) {
 	if _, err := parseVariant(th, "hoverr"); err == nil || err.Error() != `unknown variant "hoverr"; did you mean "hover"?` {
 		t.Errorf("message = %v", err)
 	}
-	for _, v := range []string{"before", "after", "marker", "print", "group-hover/item", "data-open", "has-checked", "@lg", "aria-[sort=other]", "aria-[checked=false]", "aria-[checked]", "group-aria-[sort=none]", "aria-[current=foo]", "aria-[current=false]", "aria-[current]"} {
+	for _, v := range []string{"before", "after", "marker", "print", "contrast-less", "forced-colors", "group-hover/item", "data-open", "has-checked", "@lg", "aria-[sort=other]", "aria-[checked=false]", "aria-[checked]", "group-aria-[sort=none]", "aria-[current=foo]", "aria-[current=false]", "aria-[current]"} {
 		_, err := parseVariant(th, v)
 		var u *UnsupportedClassError
 		if !errors.As(err, &u) {
 			t.Errorf("%s: err = %v, want unsupported", v, err)
 		}
+	}
+}
+
+// TestContrastMore: contrast-more: rules apply when the context asks for
+// high contrast (the system setting), stacked with the other variants;
+// contrast-less: never matches here, so it is an error that names
+// contrast-more: (ADR-209).
+func TestContrastMore(t *testing.T) {
+	c := mustCompile(t, "border-gray-300 contrast-more:border-black dark:contrast-more:border-white")
+	in := Input{Kind: KindDiv, Classes: []*Classes{c}}
+	for _, tt := range []struct {
+		cx   Context
+		want gfx.Color
+	}{
+		{Context{}, DefaultTheme().Colors["gray-300"]},
+		{Context{HighContrast: true}, gfx.Black},
+		{Context{HighContrast: true, Dark: true}, gfx.White},
+		{Context{Dark: true}, DefaultTheme().Colors["gray-300"]},
+	} {
+		if got := Compute(&tt.cx, in).Border.Top.Color; got != tt.want {
+			t.Errorf("%+v: border color %v, want %v", tt.cx, got, tt.want)
+		}
+	}
+	_, err := DefaultParser().parseToken("contrast-less:border-black")
+	if err == nil || !strings.Contains(err.Error(), "contrast-more:") {
+		t.Errorf("contrast-less: error %v, want one that names contrast-more:", err)
+	}
+	var u *UnknownClassError
+	if _, err := parseVariant(DefaultTheme(), "contrast-mor"); !errors.As(err, &u) || u.Suggestion != "contrast-more" {
+		t.Errorf("contrast-mor: error %v, want a suggestion of contrast-more", err)
 	}
 }
 

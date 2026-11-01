@@ -193,11 +193,22 @@ func (e PointerEvent) PreventDefault() { e.st.prevent() }
 // DefaultPrevented reports whether a handler called PreventDefault.
 func (e PointerEvent) DefaultPrevented() bool { return e.st.defaultPrevented() }
 
-// DragEvent is passed to OnDragStart, OnDrag and OnDragEnd. A drag starts
-// when the pointer, pressed with the primary button, moves farther than a
-// few pixels (4 for a mouse, 18 for touch and pens) and no long press was
+// DragEvent is passed to the drag handlers, for two kinds of drags.
+//
+// The drag gesture (OnDragStart, OnDrag, OnDragEnd): a drag starts when
+// the pointer, pressed with the primary button, moves farther than a few
+// pixels (4 for a mouse, 18 for touch and pens) and no long press was
 // recognized before; it is delivered to the element whose drag handlers
-// won the gesture (the innermost one on the pointer's path).
+// won the gesture (the innermost one on the pointer's path), and does not
+// bubble. DataTransfer is nil.
+//
+// Drag and drop, HTML's model (dnd.go, ADR-211): the gesture of an
+// element with Draggable(true) gives OnDragStart a DataTransfer to fill;
+// when it does, the platform carries the data (to this window, another
+// window of the app or another application) and the source's OnDragEnd
+// reports the effect, while the targets under the drag get OnDragEnter,
+// OnDragOver, OnDragLeave and OnDrop, which bubble. Their DataTransfer
+// is never nil.
 type DragEvent struct {
 	// X and Y are the position in the window, LocalX and LocalY relative
 	// to the border box of the element (see MouseEvent).
@@ -213,19 +224,29 @@ type DragEvent struct {
 	// OnDragEnd (a fling), zero when the pointer stopped before the
 	// release or the drag was cancelled.
 	VelocityX, VelocityY float32
-	// Button is the button of the drag (MouseButtonLeft).
+	// Button is the button of the drag (MouseButtonLeft); MouseButtonNone
+	// for the events of a drop target.
 	Button MouseButton
 	// Modifier keys held during the event.
 	Shift, Ctrl, Alt, Meta bool
+	// DataTransfer is the data of a drag and drop (HTML's dataTransfer):
+	// what the source's OnDragStart fills, what the targets read, and the
+	// effects (DropEffect, EffectAllowed). It is nil in the drag gesture
+	// of an element without Draggable(true).
+	DataTransfer *DataTransfer
 
 	st *eventState
 }
 
-// StopPropagation does nothing for drags, which go to one element; it
-// exists for symmetry with the other events.
+// StopPropagation stops the bubbling of a drop target's event
+// (OnDragEnter, OnDragOver, OnDragLeave, OnDrop); the gesture's events go
+// to one element and do not bubble.
 func (e DragEvent) StopPropagation() { e.st.stop() }
 
-// PreventDefault marks the event (see MouseEvent).
+// PreventDefault in OnDragOver accepts the drop (HTML's rule: a target
+// that does not call it refuses the drag); in OnDragStart of a Draggable
+// element it cancels the drag and drop (the press stays a drag gesture).
+// Elsewhere it marks the event (see MouseEvent).
 func (e DragEvent) PreventDefault() { e.st.prevent() }
 
 // DefaultPrevented reports whether a handler called PreventDefault.
@@ -436,6 +457,11 @@ const (
 	evCompositionEnd
 	evSelect
 	evSubmit
+	// Drop targets (dnd.go).
+	evDragEnter
+	evDragOver
+	evDragLeave
+	evDrop
 	numEventKinds
 )
 
@@ -474,6 +500,11 @@ var eventNames = [numEventKinds]string{
 	evCompositionEnd:    "compositionend",
 	evSelect:            "select",
 	evSubmit:            "submit",
+	// Drag and drop targets (dnd.go): HTML's names.
+	evDragEnter: "dragenter",
+	evDragOver:  "dragover",
+	evDragLeave: "dragleave",
+	evDrop:      "drop",
 }
 
 func (k eventKind) String() string {
@@ -483,7 +514,7 @@ func (k eventKind) String() string {
 	return "?"
 }
 
-func (k eventKind) mask() uint32 { return 1 << k }
+func (k eventKind) mask() uint64 { return 1 << k }
 
 // Masks of handler families.
 const (
@@ -497,7 +528,7 @@ func (k eventKind) handlerType() (name string, is func(h any) bool) {
 	switch {
 	case k >= evClick && k <= evMouseLeave:
 		return "func(tela.MouseEvent)", isHandler[MouseEvent]
-	case k >= evDragStart && k <= evDragEnd:
+	case k >= evDragStart && k <= evDragEnd, k >= evDragEnter && k <= evDrop:
 		return "func(tela.DragEvent)", isHandler[DragEvent]
 	case k == evKeyDown || k == evKeyUp:
 		return "func(tela.KeyboardEvent)", isHandler[KeyboardEvent]
@@ -589,8 +620,8 @@ func (d *desc) mouseLongPress() bool {
 // "mouseup", "mousemove", "mouseenter", "mouseleave" (handlers
 // func(MouseEvent)), "pointerdown", "pointermove", "pointerup",
 // "pointercancel", "pointerenter", "pointerleave", "longpress"
-// (func(PointerEvent)), "dragstart", "drag" and "dragend"
-// (func(DragEvent)), "keydown" and "keyup" (func(KeyboardEvent)), "focus"
+// (func(PointerEvent)), "dragstart", "drag", "dragend", "dragenter",
+// "dragover", "dragleave" and "drop" (func(DragEvent)), "keydown" and "keyup" (func(KeyboardEvent)), "focus"
 // and "blur" (func(FocusEvent)), "wheel" (func(WheelEvent)), "scroll"
 // (func(ScrollEvent)), "beforeinput" (func(InputEvent)), "change"
 // (func(ChangeEvent)), "compositionstart", "compositionupdate" and

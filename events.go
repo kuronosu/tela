@@ -34,7 +34,8 @@ import "github.com/kuronosu/tela/internal/core"
 // the DOM order: pointerdown, mousedown, pointerup, mouseup, click.
 //
 // Gestures compete: a press that becomes a drag (OnDragStart...) or a
-// long press (OnLongPress) does not click. After every discrete event
+// long press (OnLongPress) does not click. A drag of an h.Draggable
+// element may become a drag and drop (see [DragEvent]). After every discrete event
 // (presses, releases, clicks, drag start and end, long press) state
 // updates are applied and components rebuilt before the next event, so
 // two clicks before a frame see each other's updates.
@@ -112,11 +113,109 @@ type MouseEvent = core.MouseEvent
 // Pressure and IsPrimary.
 type PointerEvent = core.PointerEvent
 
-// DragEvent is passed to h.OnDragStart, h.OnDrag and h.OnDragEnd:
-// the position, the movement since the previous drag event (DeltaX,
-// DeltaY) and since the press (OffsetX, OffsetY), and the velocity in
-// pixels per second (VelocityX, VelocityY; meaningful at the end).
+// DragEvent is passed to the drag handlers of package h, for two kinds of
+// drags.
+//
+// The drag gesture (h.OnDragStart, h.OnDrag, h.OnDragEnd) moves something
+// inside the app: the position, the movement since the previous drag
+// event (DeltaX, DeltaY) and since the press (OffsetX, OffsetY), and the
+// velocity in pixels per second (VelocityX, VelocityY; meaningful at the
+// end). Its events go to one element and do not bubble; DataTransfer is
+// nil.
+//
+// Drag and drop, HTML's model, carries data to a drop target in the same
+// window, another window of the app or another application (a file
+// manager, an editor): an element with h.Draggable(true) fills
+// e.DataTransfer in its OnDragStart, and its OnDragEnd reports what the
+// target did (e.DataTransfer.DropEffect). Targets get h.OnDragEnter,
+// h.OnDragOver, h.OnDragLeave and h.OnDrop, which bubble; a target
+// accepts the drop by calling e.PreventDefault() in OnDragOver, as in
+// HTML:
+//
+//	Div(Class("rounded-lg border-2 border-dashed p-8", over),
+//	    OnDragEnter(func() { setOver.Set(true) }),
+//	    OnDragLeave(func() { setOver.Set(false) }),
+//	    OnDragOver(func(e tela.DragEvent) {
+//	        if e.DataTransfer.Has("Files") {
+//	            e.PreventDefault() // accept: the drop comes here
+//	        }
+//	    }),
+//	    OnDrop(func(e tela.DragEvent) {
+//	        setOver.Set(false)
+//	        open(e.DataTransfer.Files())
+//	    }),
+//	    Text("Drop files here"),
+//	)
+//
+// OnDragEnter and OnDragLeave follow HTML: they fire when the element
+// under the drag changes (enter on the new one, then leave on the old
+// one), and they bubble, so a container also gets them as the drag moves
+// between its children; a container that tracks "is the drag over me"
+// counts them (enter adds one, leave removes one) or uses OnDragOver.
 type DragEvent = core.DragEvent
+
+// DataTransfer is the data of a drag and drop (HTML's dataTransfer): the
+// same content in one or more representations, each under a MIME type,
+// best first. Read it with Text, HTML, Files, Image, GetData and Get;
+// fill it, in the OnDragStart of an h.Draggable element, with SetText,
+// SetHTML, SetFiles, SetImage, SetData and Set. Before the drop a target
+// sees only the types (Types, Has); the data arrives with OnDrop.
+// DropEffect and EffectAllowed are HTML's dropEffect and effectAllowed.
+//
+//	Div(Draggable(true), Class("cursor-grab"),
+//	    OnDragStart(func(e tela.DragEvent) {
+//	        e.DataTransfer.SetData("application/x-board-card", card.ID)
+//	        e.DataTransfer.SetText(card.Title) // for other applications
+//	        e.DataTransfer.EffectAllowed = tela.DropMove
+//	    }),
+//	    OnDragEnd(func(e tela.DragEvent) {
+//	        if e.DataTransfer.DropEffect == tela.DropMove {
+//	            remove(card.ID)
+//	        }
+//	    }),
+//	    Text(card.Title),
+//	)
+//
+// The zero value is an empty DataTransfer that the setters fill.
+type DataTransfer = core.DataTransfer
+
+// DropEffect is what a drop does with the data: [DropCopy], [DropMove]
+// (the source deletes its copy) or [DropLink]; [DropNone] refuses it. As
+// a set, tela.DropCopy|tela.DropMove, it is the effects a source allows
+// (DataTransfer.EffectAllowed).
+type DropEffect = core.DropEffect
+
+// The drop effects.
+const (
+	// DropNone refuses a drop, or reports that a drag was refused or
+	// cancelled.
+	DropNone = core.DropNone
+	// DropCopy copies the data.
+	DropCopy = core.DropCopy
+	// DropMove moves the data: the source deletes its copy.
+	DropMove = core.DropMove
+	// DropLink links to the data.
+	DropLink = core.DropLink
+	// DropAll is every effect (HTML's effectAllowed "all"), what a source
+	// allows unless it says otherwise.
+	DropAll = core.DropAll
+)
+
+// The MIME types every platform maps onto its own formats ([DataTransfer]).
+// Any other MIME type is a custom type ("application/x-myapp-card"),
+// carried by name.
+const (
+	// MIMEText is UTF-8 plain text ("text/plain" and HTML's "text" name it
+	// too).
+	MIMEText = core.MIMEText
+	// MIMEHTML is an HTML fragment in UTF-8.
+	MIMEHTML = core.MIMEHTML
+	// MIMEPNG is a PNG image.
+	MIMEPNG = core.MIMEPNG
+	// MIMEURIList is a list of URIs: files are file: URIs
+	// (DataTransfer.Files). HTML's "Files" and "url" name it too.
+	MIMEURIList = core.MIMEURIList
+)
 
 // Keyboard and focus events follow the DOM too. Key events go to the
 // focused element and bubble; with nothing focused they go to the

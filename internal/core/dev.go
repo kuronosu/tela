@@ -325,6 +325,9 @@ const (
 	hookTimeoutAfter  // tela.UseTimeout(d, f, deps...) (interval.go)
 	hookWindow        // UseWindow (window.go)
 	hookWindowSpec    // the slot of a tela.Window component (window.go)
+	hookHighContrast  // UseHighContrast (env.go)
+	hookTextScale     // UseTextScale (env.go)
+	hookAccentColor   // UseAccentColor (env.go)
 )
 
 // hookNames name the kinds in dev messages and in the hook signatures of
@@ -364,6 +367,9 @@ var hookNames = [...]string{
 	hookTimeoutAfter:  "UseTimeout",
 	hookWindow:        "UseWindow",
 	hookWindowSpec:    "tela.Window",
+	hookHighContrast:  "UseHighContrast",
+	hookTextScale:     "UseTextScale",
+	hookAccentColor:   "UseAccentColor",
 }
 
 func (k hookKind) String() string { return hookNames[k] }

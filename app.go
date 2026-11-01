@@ -90,6 +90,13 @@ type App struct {
 	// still animate; the class scroll-instant does the same for one
 	// element.
 	InstantScroll bool
+	// IgnoreTextScale keeps 1rem at the theme's 16 px whatever text size
+	// the user chose in the system's settings. By default Tela follows
+	// it like a browser's default font size: 1rem grows with the
+	// system's text scale, so text and rem-based spacing grow together
+	// (see [UseTextScale]). Set it for a layout that cannot grow, such as
+	// a fixed-size tool window.
+	IgnoreTextScale bool
 	// ColorScheme is the app's color scheme: Light or Dark override the
 	// system's preference (the dark: classes, UseColorScheme); the zero
 	// value, System, follows it. SetColorScheme changes it while the app
@@ -244,6 +251,7 @@ func (app App) options() core.Options {
 			RootClass:         app.RootClass,
 			ClassicScrollbars: app.ClassicScrollbars,
 			InstantScroll:     app.InstantScroll,
+			IgnoreTextScale:   app.IgnoreTextScale,
 			ColorScheme:       app.ColorScheme,
 			Theme:             (*core.Theme)(app.Theme),
 			ClassAliases:      app.ClassAliases,

@@ -321,6 +321,9 @@ func OnLongPress[F ~func() | ~func(tela.PointerEvent)](handler F) tela.Prop {
 //	    OnDragStart(func() { start.Current = pos.Get() }),
 //	    OnDrag(func(e tela.DragEvent) { pos.Set(start.Current + float64(e.OffsetX)) }),
 //	)
+//
+// On an element with Draggable(true), the drag becomes a drag and drop
+// when the handler puts data in e.DataTransfer (see [Draggable]).
 func OnDragStart[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
 	return onEvent[tela.DragEvent]("dragstart", "OnDragStart", handler)
 }
@@ -344,8 +347,96 @@ func OnDrag[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
 //	        dismiss()
 //	    }
 //	}))
+//
+// After a drag and drop of a Draggable element, it runs once the target
+// is done: e.DataTransfer.DropEffect is the effect the target performed
+// (tela.DropMove: delete the source's copy), tela.DropNone when the drag
+// was cancelled or refused.
 func OnDragEnd[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
 	return onEvent[tela.DragEvent]("dragend", "OnDragEnd", handler)
+}
+
+// Draggable makes the element the source of a drag and drop, like HTML's
+// draggable attribute: when a press on it becomes a drag, its OnDragStart
+// gets an empty e.DataTransfer to fill, and if the handler puts data in it
+// the system carries the data, under the pointer, to a drop target in
+// this window, another window of the app or another application (a file
+// manager takes SetFiles, an editor SetText). The pointer belongs to the
+// system until the drop: OnDrag does not run, and OnDragEnd runs once the
+// target is done, with the effect it performed. The drag shows the
+// element as it is on screen (e.DataTransfer.SetDragImage shows something
+// else). A handler that puts no data in it, or calls e.PreventDefault(),
+// keeps the press the ordinary drag gesture (OnDrag and OnDragEnd follow).
+// Without Draggable, OnDragStart, OnDrag and OnDragEnd are the drag
+// gesture only.
+//
+//	Div(Draggable(true), Class("cursor-grab active:cursor-grabbing"),
+//	    OnDragStart(func(e tela.DragEvent) {
+//	        e.DataTransfer.SetData("application/x-todo", item.ID)
+//	        e.DataTransfer.SetText(item.Title)
+//	        e.DataTransfer.EffectAllowed = tela.DropMove
+//	    }),
+//	    OnDragEnd(func(e tela.DragEvent) {
+//	        if e.DataTransfer.DropEffect == tela.DropMove {
+//	            remove(item.ID)
+//	        }
+//	    }),
+//	    Text(item.Title),
+//	)
+func Draggable(draggable bool) tela.Prop { return core.Draggable(draggable) }
+
+// OnDragEnter calls handler when a drag and drop (from this app or
+// another application) moves onto the element or one of its descendants
+// from outside the element under it, as HTML's dragenter: it fires on the
+// element now under the drag and bubbles to its ancestors. Before the
+// drop only the types are known (e.DataTransfer.Types, Has).
+func OnDragEnter[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
+	return onEvent[tela.DragEvent]("dragenter", "OnDragEnter", handler)
+}
+
+// OnDragOver calls handler while a drag and drop moves over the element or
+// its descendants (when it enters, moves or the modifier keys change), as
+// HTML's dragover; it bubbles. A target accepts the drop by calling
+// e.PreventDefault(), else the drop is refused there. e.DataTransfer
+// .DropEffect starts at the effect the system's convention picks from the
+// effects the source allows and the keys held (Ctrl copies, Shift moves,
+// else copy); set it to choose another:
+//
+//	OnDragOver(func(e tela.DragEvent) {
+//	    if e.DataTransfer.Has("application/x-todo") {
+//	        e.PreventDefault()
+//	        e.DataTransfer.DropEffect = tela.DropMove
+//	    }
+//	})
+//
+// A custom type the handler asks about (Has) is read at the drop.
+func OnDragOver[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
+	return onEvent[tela.DragEvent]("dragover", "OnDragOver", handler)
+}
+
+// OnDragLeave calls handler when a drag and drop leaves the element under
+// it: the drag moved to another element (whose OnDragEnter ran first),
+// left the window or was cancelled, as HTML's dragleave; it bubbles. It
+// does not run after a drop.
+func OnDragLeave[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
+	return onEvent[tela.DragEvent]("dragleave", "OnDragLeave", handler)
+}
+
+// OnDrop calls handler when a drag and drop that the element accepted
+// (OnDragOver called e.PreventDefault()) is released over it or its
+// descendants, as HTML's drop; it bubbles. e.DataTransfer holds the data:
+//
+//	OnDrop(func(e tela.DragEvent) {
+//	    for _, path := range e.DataTransfer.Files() {
+//	        open(path)
+//	    }
+//	})
+//
+// e.DataTransfer.DropEffect is the effect reported to the source; setting
+// it to tela.DropNone tells the source the data was not taken. Unlike in
+// a browser, e.PreventDefault() is not needed here.
+func OnDrop[F ~func() | ~func(tela.DragEvent)](handler F) tela.Prop {
+	return onEvent[tela.DragEvent]("drop", "OnDrop", handler)
 }
 
 // OnWheel calls handler when a mouse wheel turns or a touchpad scrolls

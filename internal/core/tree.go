@@ -50,6 +50,18 @@ type Config struct {
 	// SetDoubleClickInterval on every change); zero is
 	// platform.DefaultDoubleClickInterval (ADR-192).
 	DoubleClickInterval time.Duration
+	// HighContrast is the system's high-contrast preference (the
+	// contrast-more: variants), TextScale its text scale (0 is 1), and
+	// AccentColor, with HasAccentColor, its accent color: a Host takes
+	// them from the platform's settings, then SetSystemSettings on every
+	// change (env.go).
+	HighContrast   bool
+	TextScale      float64
+	AccentColor    gfx.Color
+	HasAccentColor bool
+	// IgnoreTextScale keeps 1rem at the theme's size whatever the
+	// system's text scale (tela.App.IgnoreTextScale).
+	IgnoreTextScale bool
 	// ColorScheme is the app's color scheme; the zero value follows the
 	// system (Dark).
 	ColorScheme ColorScheme
@@ -109,8 +121,12 @@ type Stats struct {
 // pipeline (ARCHITECTURE section 8). Everything except the state setters
 // (and SetWake) must be used from one goroutine, the UI thread.
 type Tree struct {
-	fonts       *text.Collection
+	fonts *text.Collection
+	// parser compiles the classes: parserBase (the theme's and the class
+	// aliases') at the text scale textScale (theme.go, env.go).
 	parser      *style.Parser
+	parserBase  *style.Parser
+	textScale   float64
 	cx          style.Context
 	rootClasses []string
 	dev         bool
@@ -303,6 +319,8 @@ type Tree struct {
 	// reg counts the mounted elements with custom title bar props
 	// (winregion.go).
 	reg regionState
+	// dnd is the state of drag and drop (dnd.go).
+	dnd dndState
 
 	lastDL *gfx.DisplayList
 	stats  Stats
@@ -316,7 +334,7 @@ var treeSerial atomic.Uint64
 func NewTree(cfg Config) *Tree {
 	t := &Tree{
 		fonts:         cfg.Fonts,
-		parser:        cfg.Parser,
+		parserBase:    cfg.Parser,
 		dev:           configDev(cfg.Dev),
 		log:           cfg.Log,
 		warn:          cfg.Warn,
@@ -333,8 +351,8 @@ func NewTree(cfg Config) *Tree {
 	if t.fonts == nil {
 		t.fonts = text.NewDefaultCollection()
 	}
-	if t.parser == nil {
-		t.parser = themeParser(&cfg)
+	if t.parserBase == nil {
+		t.parserBase = themeParser(&cfg)
 	}
 	if cfg.RootClass != "" {
 		t.rootClasses = []string{cfg.RootClass}
@@ -351,8 +369,16 @@ func NewTree(cfg Config) *Tree {
 		t.idPrefix = "t" + strconv.FormatUint(treeSerial.Add(1)-1, 36) + "-"
 	}
 	checkScheme(cfg.ColorScheme)
-	t.env = envState{sysDark: cfg.Dark, sysReduced: cfg.ReducedMotion, scheme: cfg.ColorScheme}
-	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: t.env.effectiveDark(), ReducedMotion: cfg.ReducedMotion}
+	t.env = envState{sysDark: cfg.Dark, sysReduced: cfg.ReducedMotion, sysContrast: cfg.HighContrast, scheme: cfg.ColorScheme,
+		sysTextScale: textScaleFactor(cfg.TextScale), ignoreText: cfg.IgnoreTextScale,
+		accent: accentColor{c: cfg.AccentColor, ok: cfg.HasAccentColor}}
+	if !cfg.HasAccentColor {
+		t.env.accent = accentColor{}
+	}
+	t.textScale = t.env.effectiveTextScale()
+	t.parser = scaledParser(t.parserBase, t.textScale)
+	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: t.env.effectiveDark(),
+		ReducedMotion: cfg.ReducedMotion, HighContrast: cfg.HighContrast}
 	return t
 }
 
