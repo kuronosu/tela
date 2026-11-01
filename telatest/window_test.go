@@ -212,7 +212,10 @@ func winLate() tela.Node {
 }
 
 func TestWindowAutoWait(t *testing.T) {
-	app := telatest.MountFunc(t, winLate, telatest.Size(300, 200))
+	// The wait for the 2 s timer of the app's clock moves it one frame per
+	// try, about 120 tries: a loaded runner (Wine's coarse sleeps, Windows
+	// under the whole suite) needs more than the default 5 s.
+	app := telatest.MountFunc(t, winLate, telatest.Size(300, 200), telatest.Timeout(30*time.Second))
 	if n := len(app.Windows()); n != 1 {
 		t.Fatalf("%d windows before the timer fired, want 1", n)
 	}

@@ -152,7 +152,10 @@ func TestTableMount1000Rows(t *testing.T) {
 	app.Click(telatest.ByRole("button", "Amount"))
 	sorted := time.Since(start)
 	t.Logf("1000 rows x 6 columns: mount %v, scroll %v, a click that sorts %v", mount, scroll, sorted)
-	if mount > 5*time.Second {
+	// Catches a pathological mount (0.2 s on a quiet machine, 1.1 s at load
+	// 30, ADR-139), not a slow one: CI runs it beside the whole suite, and
+	// under Wine. BenchmarkTableMount1000 measures it.
+	if mount > time.Minute {
 		t.Errorf("mounting 1000 rows took %v", mount)
 	}
 }

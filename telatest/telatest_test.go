@@ -621,11 +621,15 @@ func TestAutoWaitForEffectsAndGoroutines(t *testing.T) {
 	}), telatest.Size(200, 100))
 	app.ExpectText("stage 3")
 
-	// State set by a goroutine after real time.
+	// State set by a goroutine after real time. The goroutine waits until
+	// the test saw "loading": on a loaded runner a 40 ms stall of the test
+	// alone would otherwise let "loaded" come first.
+	release := make(chan struct{})
 	app2 := telatest.Mount(t, tela.C(func() tela.Node {
 		text, setText := tela.UseState("loading")
 		tela.UseEffect(func() func() {
 			go func() {
+				<-release
 				time.Sleep(40 * time.Millisecond)
 				setText.Set("loaded")
 			}()
@@ -634,6 +638,7 @@ func TestAutoWaitForEffectsAndGoroutines(t *testing.T) {
 		return Text(text)
 	}), telatest.Size(200, 100))
 	app2.ExpectText("loading")
+	close(release)
 	app2.ExpectText("loaded")
 	app2.ExpectNoText("loading")
 

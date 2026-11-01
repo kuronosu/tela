@@ -161,13 +161,15 @@ func TestCalendarMarksTodayAndOutsideDays(t *testing.T) {
 	if res.PrevDisabled() != true || res.NextDisabled() != false {
 		t.Errorf("PrevDisabled = %v, NextDisabled = %v", res.PrevDisabled(), res.NextDisabled())
 	}
-	// Today is the real current day by default.
+	// Today is the real current day by default (the day before or after
+	// the mount, for a run that crosses midnight).
 	var def aria.CalendarResult
+	before := aria.Today()
 	telatest.MountFunc(t, func() tela.Node {
 		def = aria.UseCalendar(aria.CalendarOptions{Locale: "en-US"})
 		return renderCalendar(def)
 	}, telatest.Size(400, 360))
-	if !def.IsToday(aria.Today()) {
+	if !def.IsToday(before) && !def.IsToday(aria.Today()) {
 		t.Error("the default Today is aria.Today()")
 	}
 }
