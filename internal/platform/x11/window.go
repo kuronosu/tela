@@ -89,6 +89,13 @@ type Window struct {
 	osHeld      platform.Buttons // buttons of a press sequence the OS owns
 	// The last primary caption press, for double clicks.
 	captions platform.CaptionClicks
+
+	// Drag and drop (dnd.go, dragsource.go): the target-side state, and
+	// the buttons of the app's press sequence (delivered presses not
+	// yet released), which StartDrag needs.
+	dnd         windowDnD
+	pressed     platform.Buttons
+	pressDevice uint16 // the XInput2 master pointer of the latest press, 0 for core
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -149,6 +156,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	b.setProperty(id, a.wmProtocols, xproto.AtomAtom, 32, card32s(uint32(a.wmDeleteWindow), uint32(a.netWMPing)))
 	b.setProperty(id, xproto.AtomWmClass, xproto.AtomString, 8, wmClass(opts.AppID, platform.DefaultAppID()))
 	b.setProperty(id, xproto.AtomWmHints, xproto.AtomWmHints, 32, wmHints(false))
+	b.setProperty(id, a.xdndAware, xproto.AtomAtom, 32, card32s(xdndVersion))
 	w.initCtl(opts)
 	// _NET_WM_PING requires _NET_WM_PID and WM_CLIENT_MACHINE (EWMH).
 	b.setProperty(id, a.netWMPID, xproto.AtomCardinal, 32, card32s(uint32(os.Getpid())))
@@ -257,6 +265,8 @@ func (w *Window) Close() {
 	}
 	w.closeChildren()
 	b := w.b
+	b.dragWindowClosed(w)
+	b.endSessions(w)
 	b.loop.Remove(w) // marks it closed and drops its queued events
 	b.kbd.dropWindow(w)
 	delete(b.windows, w.id)

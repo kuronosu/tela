@@ -403,6 +403,9 @@ func (b *Backend) xiEvent(raw []byte) {
 		if evtype == xiButtonPress {
 			b.userTime = ev.time
 		}
+		if b.dragXI(w, ev) {
+			return
+		}
 		switch {
 		case evtype == xiMotion:
 			b.xiMotion(p, ev)
@@ -415,8 +418,8 @@ func (b *Backend) xiEvent(raw []byte) {
 			b.ptrButton(p, ev.detail, evtype == xiButtonPress)
 		}
 	case xiEnter, xiLeave:
-		if len(raw) < 72 {
-			return
+		if len(raw) < 72 || b.dragGrabbed() {
+			return // the drag's grab owns the pointer
 		}
 		w := b.windows[xproto.Window(le.Uint32(raw[24:]))]
 		blen := int(le.Uint16(raw[50:])) * 4

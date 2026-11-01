@@ -93,6 +93,25 @@
 // The requests and the two queries go through a small interface
 // (wmServer), so unit tests check them without a server.
 //
+// # Desktop integration (phase 13)
+//
+//   - Clipboard (clipboard.go, selection.go): CLIPBOARD owned by a hidden
+//     selection window, served with TARGETS, TIMESTAMP, MULTIPLE and INCR
+//     above 255 KiB; reads convert TARGETS, then the best target of the
+//     type, one conversion at a time with a 3 s timeout (INCR too).
+//   - Drag and drop, XDND version 5: target side in dnd.go (XdndAware on
+//     every window, XdndStatus sent after the handler saw each position),
+//     source side in dragsource.go (core pointer and keyboard grabs, a
+//     walk down the window tree with TranslateCoordinates, the app's own
+//     windows served directly). The drag image is not shown.
+//   - Global shortcuts (shortcuts.go): the portal first, else XGrabKey on
+//     the root window per Lock/NumLock combination.
+//   - ActivateWithToken (phase13.go): _NET_STARTUP_ID, _NET_ACTIVE_WINDOW
+//     with the token's _TIME, and the startup notification "remove".
+//
+// The requests go through dataServer (xconn.go), so unit tests run the
+// protocols against a fake server.
+//
 // # Loop
 //
 // xgb runs its own reader goroutine and only exposes events through a

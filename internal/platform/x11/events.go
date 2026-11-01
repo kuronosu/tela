@@ -24,7 +24,13 @@ func (b *Backend) translate(e xevent) {
 		// recovered, and checked requests report their own errors.
 		return
 	}
+	if p, ok := e.ev.(xproto.KeyPressEvent); !ok || p.Event != b.root {
+		b.integ.sc.flushRelease(b)
+	}
 	if !b.kbd.beforeEvent(e.ev) {
+		return
+	}
+	if b.dragInput(e.ev) || b.shortcutKey(e.ev) {
 		return
 	}
 	switch ev := e.ev.(type) {
@@ -141,6 +147,9 @@ func (b *Backend) translate(e xevent) {
 
 	case xproto.ClientMessageEvent:
 		w := b.windows[ev.Window]
+		if w != nil && b.xdndMessage(w, ev) {
+			return
+		}
 		if w == nil || ev.Type != b.atoms.wmProtocols || ev.Format != 32 || len(ev.Data.Data32) == 0 {
 			return
 		}
@@ -157,8 +166,17 @@ func (b *Backend) translate(e xevent) {
 				xproto.EventMaskSubstructureNotify|xproto.EventMaskSubstructureRedirect, string(ev.Bytes()))
 		}
 
+	case xproto.SelectionRequestEvent:
+		b.selectionRequest(ev)
+	case xproto.SelectionNotifyEvent:
+		b.selectionNotify(ev)
+	case xproto.SelectionClearEvent:
+		b.selectionClear(ev)
+
 	case xproto.PropertyNotifyEvent:
 		switch {
+		case ev.State == xproto.PropertyNewValue && ev.Window == b.integ.selWin && b.incrNewValue(ev.Atom):
+		case ev.State == xproto.PropertyDelete && b.incrDeleted(ev.Window, ev.Atom):
 		case ev.Window == b.root && ev.Atom == xproto.AtomResourceManager:
 			b.updateScale()
 		case ev.Window == b.root && ev.Atom == b.atoms.netSupported:
@@ -374,6 +392,10 @@ func (b *Backend) ptrButton(p ptr, detail uint32, press bool) {
 		Buttons: held,
 		Mods:    p.mods,
 	})
+	w.pressed = held
+	if press {
+		w.pressDevice = p.device
+	}
 	if held == 0 && w.leavePending {
 		// The release ended the implicit grab outside the window: deliver
 		// the deferred leave now.
@@ -390,6 +412,7 @@ func (b *Backend) ptrButton(p ptr, detail uint32, press bool) {
 // a deferred leave (the caller reports it).
 func (b *Backend) cancelPress(w *Window, mods platform.Modifiers) {
 	w.extra = 0
+	w.pressed = 0
 	w.leavePending = false
 	b.pointer(w, platform.PointerEvent{
 		Action: platform.PointerCancel,

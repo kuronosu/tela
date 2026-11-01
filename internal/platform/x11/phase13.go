@@ -2,31 +2,126 @@
 
 package x11
 
-import "github.com/kuronosu/tela/internal/platform"
+import (
+	"strconv"
+	"strings"
 
-// Phase-13 window and clipboard requests (ADR-209, ADR-210). Stubs until
-// step B, which implements drag and drop with XDND version 5 (XdndAware,
-// XdndSelection; see "Drag and drop and the clipboard" in package
-// platform), clipboard types on the CLIPBOARD selection (TARGETS, INCR),
-// and ActivateWithToken with the startup notification ID. Linux has no
-// native menus: SetMenu and PopupMenu stay ErrUnsupported, and the layers
+	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/x11/internal/xgb/xproto"
+)
+
+// Phase-13 desktop integration (ADR-209, ADR-210): the clipboard's Data
+// (clipboard.go, selection.go), drag and drop with XDND version 5
+// (dnd.go, dragsource.go), global shortcuts falling back to key grabs
+// (shortcuts.go) and ActivateWithToken (here). Linux has no native
+// menus: SetMenu and PopupMenu return ErrUnsupported, and the layers
 // above draw their menus.
 
-// ActivateWithToken activates the window; the token is not used yet
-// (step B: its _TIME timestamp as the user time of _NET_ACTIVE_WINDOW, and
-// a _NET_STARTUP_INFO "remove" message).
-func (w *Window) ActivateWithToken(token string) { w.Activate() }
-
-// SetDropEffect checks its arguments; no drag reaches the window yet.
-func (w *Window) SetDropEffect(effect platform.DropEffect, types ...string) {
-	platform.CheckSetDropEffect(effect, types)
+// integration is the backend's phase-13 state (UI thread).
+type integration struct {
+	selWin  xproto.Window // the hidden window that owns CLIPBOARD and reads selections
+	owned   map[xproto.Atom]*ownedSelection
+	incrOut []*incrOut    // INCR transfers being served
+	reads   []*conversion // selection reads, the first in progress
+	drag    *dragSource   // the app's drag in progress
+	sc      shortcuts
 }
 
-// StartDrag checks its arguments and returns ErrUnsupported (step B: XDND
-// as the source).
-func (w *Window) StartDrag(opts platform.DragOptions) error {
-	platform.CheckDragOptions(opts)
-	return platform.ErrUnsupported
+// ActivateWithToken activates the window with the startup notification
+// ID another process of the app received (DESKTOP_STARTUP_ID): it sets
+// _NET_STARTUP_ID on the window (read by the window manager at map, and
+// for focus stealing prevention), sends _NET_ACTIVE_WINDOW with source
+// indication 1 (application) and the timestamp of the ID's "_TIME<n>"
+// suffix when it has one (the time of the user's action in the other
+// process; else the latest input time), and ends the launch feedback with
+// the startup notification "remove" message. "" is Activate.
+func (w *Window) ActivateWithToken(token string) {
+	if token == "" || !sendableToken(token) {
+		w.Activate()
+		return
+	}
+	if w.Closed() || !w.visible {
+		return
+	}
+	b := w.b
+	b.setProperty(w.id, b.atoms.netStartupID, b.atoms.utf8String, 8, []byte(token))
+	w.deiconify()
+	if w.mapped {
+		t := b.userTime
+		if ts, ok := tokenTime(token); ok {
+			t = ts
+		}
+		var active xproto.Window
+		for _, o := range b.loop.Windows() {
+			if o.focused {
+				active = o.id
+			}
+		}
+		b.srv.clientMessage(w.id, b.atoms.netActiveWindow, sourceApplication, t, uint32(active))
+	}
+	b.startupRemove(token)
+}
+
+// sendableToken reports whether a token fits a property and a startup
+// message: no NUL or newline, not huge.
+func sendableToken(s string) bool { return !strings.ContainsAny(s, "\x00\n") && len(s) < 4096 }
+
+// tokenTime returns the timestamp of a startup ID's "_TIME<n>" suffix
+// (the startup notification specification's convention).
+func tokenTime(token string) (uint32, bool) {
+	i := strings.LastIndex(token, "_TIME")
+	if i < 0 {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(token[i+len("_TIME"):], 10, 32)
+	if err != nil {
+		return 0, false
+	}
+	return uint32(n), true
+}
+
+// startupRemove sends the startup notification message "remove: ID=..."
+// to the root window: a series of format-8 ClientMessages of 20 bytes,
+// the first of type _NET_STARTUP_INFO_BEGIN and the rest
+// _NET_STARTUP_INFO, the text NUL-terminated (startup-notification
+// specification 0.1), sent from the backend's own hidden window.
+func (b *Backend) startupRemove(token string) {
+	win := b.selectionWindow()
+	if win == 0 {
+		return
+	}
+	for i, chunk := range startupChunks("remove: ID=" + startupQuote(token)) {
+		typ := b.atoms.netStartupInfo
+		if i == 0 {
+			typ = b.atoms.netStartupInfoBegn
+		}
+		ev := xproto.ClientMessageEvent{Format: 8, Window: win, Type: typ, Data: xproto.ClientMessageDataUnionData8New(chunk)}
+		b.xs.sendEvent(b.root, xproto.EventMaskPropertyChange, ev.Bytes())
+	}
+}
+
+// startupQuote quotes a value of a startup notification message when it
+// holds a space, a quote or a backslash (the specification's escaping).
+func startupQuote(v string) string {
+	if !strings.ContainsAny(v, " \"\\") {
+		return v
+	}
+	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+	return `"` + r.Replace(v) + `"`
+}
+
+// startupChunks splits a message, with its terminating NUL, into the
+// 20-byte pieces of the ClientMessages (the last one padded with NULs).
+func startupChunks(msg string) [][]byte {
+	b := append([]byte(msg), 0)
+	var out [][]byte
+	for len(b) > 0 {
+		c := make([]byte, 20)
+		n := copy(c, b)
+		out = append(out, c)
+		b = b[n:]
+	}
+	return out
 }
 
 // SetMenu returns ErrUnsupported: X11 has no native menu bar.
@@ -38,25 +133,5 @@ func (w *Window) SetMenu(menu []platform.MenuItem) error {
 // PopupMenu returns ErrUnsupported: X11 has no native popup menu.
 func (w *Window) PopupMenu(at platform.Point, menu []platform.MenuItem, done func(platform.MenuItemID, error)) error {
 	platform.CheckPopupMenu(at, menu, done != nil)
-	return platform.ErrUnsupported
-}
-
-// ReadTypes returns ErrUnsupported until step B.
-func (c clipboard) ReadTypes(done func([]string, error)) error {
-	if done == nil {
-		panic("x11: Clipboard.ReadTypes called with a nil callback")
-	}
-	return platform.ErrUnsupported
-}
-
-// Read returns ErrUnsupported until step B.
-func (c clipboard) Read(mime string, done func([]byte, error)) error {
-	platform.CheckClipboardRead(mime, done != nil)
-	return platform.ErrUnsupported
-}
-
-// Write returns ErrUnsupported until step B.
-func (c clipboard) Write(data platform.Data) error {
-	platform.CheckData("Clipboard.Write", data)
 	return platform.ErrUnsupported
 }

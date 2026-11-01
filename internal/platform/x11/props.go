@@ -42,6 +42,37 @@ type atoms struct {
 	netWMIcon         xproto.Atom
 	motifWMHints      xproto.Atom
 	gtkShowWindowMenu xproto.Atom
+
+	// Selections, drag and drop, activation (selection.go, dnd.go,
+	// dragsource.go, phase13.go).
+	clipboard          xproto.Atom
+	targets            xproto.Atom
+	multiple           xproto.Atom
+	timestamp          xproto.Atom
+	incr               xproto.Atom
+	atomPair           xproto.Atom
+	text               xproto.Atom
+	compoundText       xproto.Atom
+	telaSelection      xproto.Atom // the property conversions are delivered to
+	xdndAware          xproto.Atom
+	xdndProxy          xproto.Atom
+	xdndEnter          xproto.Atom
+	xdndPosition       xproto.Atom
+	xdndStatus         xproto.Atom
+	xdndLeave          xproto.Atom
+	xdndDrop           xproto.Atom
+	xdndFinished       xproto.Atom
+	xdndSelection      xproto.Atom
+	xdndTypeList       xproto.Atom
+	xdndActionCopy     xproto.Atom
+	xdndActionMove     xproto.Atom
+	xdndActionLink     xproto.Atom
+	xdndActionAsk      xproto.Atom
+	xdndActionPrivate  xproto.Atom
+	xdndActionList     xproto.Atom
+	netStartupID       xproto.Atom
+	netStartupInfo     xproto.Atom
+	netStartupInfoBegn xproto.Atom
 }
 
 // atomEntry is an atom name and the field of atoms it is stored in.
@@ -77,6 +108,34 @@ func (a *atoms) list() []atomEntry {
 		{"_NET_WM_ICON", &a.netWMIcon},
 		{"_MOTIF_WM_HINTS", &a.motifWMHints},
 		{"_GTK_SHOW_WINDOW_MENU", &a.gtkShowWindowMenu},
+		{"CLIPBOARD", &a.clipboard},
+		{"TARGETS", &a.targets},
+		{"MULTIPLE", &a.multiple},
+		{"TIMESTAMP", &a.timestamp},
+		{"INCR", &a.incr},
+		{"ATOM_PAIR", &a.atomPair},
+		{"TEXT", &a.text},
+		{"COMPOUND_TEXT", &a.compoundText},
+		{"TELA_SELECTION", &a.telaSelection},
+		{"XdndAware", &a.xdndAware},
+		{"XdndProxy", &a.xdndProxy},
+		{"XdndEnter", &a.xdndEnter},
+		{"XdndPosition", &a.xdndPosition},
+		{"XdndStatus", &a.xdndStatus},
+		{"XdndLeave", &a.xdndLeave},
+		{"XdndDrop", &a.xdndDrop},
+		{"XdndFinished", &a.xdndFinished},
+		{"XdndSelection", &a.xdndSelection},
+		{"XdndTypeList", &a.xdndTypeList},
+		{"XdndActionCopy", &a.xdndActionCopy},
+		{"XdndActionMove", &a.xdndActionMove},
+		{"XdndActionLink", &a.xdndActionLink},
+		{"XdndActionAsk", &a.xdndActionAsk},
+		{"XdndActionPrivate", &a.xdndActionPrivate},
+		{"XdndActionList", &a.xdndActionList},
+		{"_NET_STARTUP_ID", &a.netStartupID},
+		{"_NET_STARTUP_INFO", &a.netStartupInfo},
+		{"_NET_STARTUP_INFO_BEGIN", &a.netStartupInfoBegn},
 	}
 }
 

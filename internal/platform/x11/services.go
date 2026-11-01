@@ -25,7 +25,9 @@ func (b *Backend) Desktop() platform.Desktop {
 			Now:    b.Now,
 		})
 	}
-	return b.desktop
+	// Global shortcuts fall back to key grabs without the portal
+	// (shortcuts.go).
+	return desktop{Desktop: b.desktop, b: b}
 }
 
 // portalParent is the XDG Desktop Portal identifier of a window.
