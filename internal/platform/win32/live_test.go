@@ -239,10 +239,16 @@ func TestPointerMessages(t *testing.T) {
 			postMessage(w.hwnd, wmMouseHWheel, wheelWParam(60), wheelPos)
 			postMessage(w.hwnd, wmXButtonDown, uintptr(xButton1)<<16, mouseLParam(x, y))
 			postMessage(w.hwnd, wmXButtonUp, uintptr(xButton1)<<16, mouseLParam(x, y))
-			// A Wake now would be delivered with the first message.
-			time.AfterFunc(200*time.Millisecond, b.Wake)
+			// The last posted message ends the run; this Wake is only the
+			// bound for a run that loses one. (A Wake ends the run at once:
+			// it is delivered before the messages still queued, so a short
+			// one cut the sequence when the loop was slow to take them.)
+			time.AfterFunc(10*time.Second, b.Wake)
 		case platform.PointerEvent, platform.ScrollEvent:
 			got = append(got, e)
+			if p, ok := e.(platform.PointerEvent); ok && p.Action == platform.PointerUp && p.Button == platform.ButtonBack {
+				b.Quit()
+			}
 		case platform.WakeEvent:
 			b.Quit()
 		}

@@ -234,9 +234,10 @@ func TestLiveDialogs(t *testing.T) {
 }
 
 // TestLiveQuitClosesDialogs: Quit while a file dialog (and then a message
-// box) is open makes Run return; their callbacks are not called.
+// box) is open makes Run return; their callbacks are not called. The real
+// dialogs, as in TestLiveDialogs, need an attended desktop.
 func TestLiveQuitClosesDialogs(t *testing.T) {
-	requireShell(t)
+	requireLiveShell(t)
 	for _, kind := range []string{"folder", "box"} {
 		t.Run(kind, func(t *testing.T) {
 			b := liveBackend(t)
@@ -244,6 +245,7 @@ func TestLiveQuitClosesDialogs(t *testing.T) {
 			title := fmt.Sprintf("tela live quit %s %d", kind, os.Getpid())
 			var started, called atomic.Bool
 			var stuck atomic.Value
+			checked := make(chan struct{}) // closed when the watcher is done
 			runLive(t, b, openWindow(t, b), func(w platform.Window, e platform.Event) {
 				if _, ok := e.(platform.FrameEvent); !ok {
 					return
@@ -261,10 +263,12 @@ func TestLiveQuitClosesDialogs(t *testing.T) {
 				}
 				if err != nil {
 					t.Errorf("request: %v", err)
+					close(checked)
 					b.Quit()
 					return
 				}
 				go func() {
+					defer close(checked)
 					h := waitWindow("#32770", title)
 					if h == 0 {
 						stuck.Store("the dialog did not open")
@@ -279,6 +283,9 @@ func TestLiveQuitClosesDialogs(t *testing.T) {
 					}
 				}()
 			})
+			if started.Load() {
+				<-checked // the check 5 s after Quit, and its cleanup
+			}
 			if s, ok := stuck.Load().(string); ok {
 				t.Error(s)
 			}
