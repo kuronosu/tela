@@ -85,11 +85,12 @@ func TestRobustnessShadowsFilters(t *testing.T) {
 	// Filters with absurd parameters are capped (maxSigma, maxOffset): at
 	// the caps a blur extends its surface by 768 pixels and a drop shadow by
 	// 1280 on each side, so this costs a few large blurs per render (about
-	// 8 s on an idle 2024 desktop). The limit catches unbounded work, not
-	// slowness; -short is what the arm64 check runs under emulation, roughly
-	// ten times slower, with one scale, and the race detector is about ten
-	// times slower too.
-	limit := 60 * time.Second
+	// 8 s on an idle 2024 desktop, 11 s on one of its cores). The limit
+	// catches unbounded work, not slowness, so it leaves room for a CI runner
+	// that shares four slower vCPUs with the rest of the suite; -short is
+	// what the arm64 check runs under emulation, roughly ten times slower,
+	// with one scale, and the race detector is about ten times slower too.
+	limit := 3 * time.Minute
 	if testing.Short() {
 		limit = 120 * time.Second
 	}

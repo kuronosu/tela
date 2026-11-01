@@ -79,15 +79,17 @@ func useTransport(startAt float64) *Transport {
 	tr.Beat = tela.UseValue(0)
 
 	// The clock: one goroutine for the life of the player, cancelled (ctx)
-	// when it unmounts.
+	// when it unmounts. It reads the clock settings of this build, never the
+	// variables, which tests set and restore while a clock may still run.
+	every, scale := tickEvery, timeScale
 	tela.UseGo(func(ctx context.Context) {
-		tick := time.NewTicker(tickEvery)
+		tick := time.NewTicker(every)
 		defer tick.Stop()
 		last := time.Now()
 		for {
 			select {
 			case now := <-tick.C:
-				dt := now.Sub(last).Seconds() * timeScale
+				dt := now.Sub(last).Seconds() * scale
 				last = now
 				// Post runs on the UI thread, in order with the Value
 				// updates.
