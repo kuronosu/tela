@@ -1,12 +1,14 @@
 package watch
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -168,6 +170,32 @@ func (h *harness) absent(what string, d time.Duration, paths ...string) {
 	}
 }
 
+// rename renames a directory (or file) of a test. On Windows a directory
+// the poller is listing cannot be renamed ("being used by another
+// process"): the walk holds it open for a moment every PollInterval, so the
+// rename is retried for a while, as a user would.
+func rename(t *testing.T, from, to string) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		err := os.Rename(from, to)
+		if err == nil {
+			return
+		}
+		if runtime.GOOS != "windows" || !sharingViolation(err) || time.Now().After(deadline) {
+			t.Fatal(err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// sharingViolation reports Windows' ERROR_SHARING_VIOLATION (32); the
+// caller checks the OS, since the number means something else elsewhere.
+func sharingViolation(err error) bool {
+	var errno syscall.Errno
+	return errors.As(err, &errno) && errno == 32
+}
+
 func keys(m map[string]bool) []string {
 	var s []string
 	for k := range m {
@@ -195,9 +223,7 @@ func TestRename(t *testing.T) {
 		h := newHarness(t, poll, Options{})
 		h.write("old.go", "package a")
 		h.expect("create", []string{"old.go"})
-		if err := os.Rename(h.path("old.go"), h.path("new.go")); err != nil {
-			t.Fatal(err)
-		}
+		rename(t, h.path("old.go"), h.path("new.go"))
 		h.expect("rename", []string{"old.go", "new.go"})
 	})
 }
@@ -228,25 +254,19 @@ func TestDirectoryMovedInAndOut(t *testing.T) {
 			t.Fatal(err)
 		}
 		os.WriteFile(filepath.Join(outside, "pkg", "sub", "f.go"), []byte("package sub"), 0o644)
-		if err := os.Rename(filepath.Join(outside, "pkg"), h.path("pkg")); err != nil {
-			t.Fatal(err)
-		}
+		rename(t, filepath.Join(outside, "pkg"), h.path("pkg"))
 		h.expect("directory moved in", []string{"pkg/sub/f.go"})
 		h.write("pkg/sub/g.go", "package sub")
 		h.expect("file in a moved-in directory", []string{"pkg/sub/g.go"})
 
 		// Moved within the tree: the new path is watched, the old is not.
-		if err := os.Rename(h.path("pkg"), h.path("moved")); err != nil {
-			t.Fatal(err)
-		}
+		rename(t, h.path("pkg"), h.path("moved"))
 		h.expect("directory moved within", []string{"pkg", "moved/sub/f.go"})
 		h.write("moved/sub/h.go", "package sub")
 		h.expect("file in the moved directory", []string{"moved/sub/h.go"}, "pkg/sub/h.go")
 
 		// Moved away.
-		if err := os.Rename(h.path("moved"), filepath.Join(outside, "gone")); err != nil {
-			t.Fatal(err)
-		}
+		rename(t, h.path("moved"), filepath.Join(outside, "gone"))
 		h.expect("directory moved away", []string{"moved"})
 		os.WriteFile(filepath.Join(outside, "gone", "sub", "x.go"), []byte("package sub"), 0o644)
 		h.quiet("a file in a directory that left the tree", 200*time.Millisecond)
@@ -282,9 +302,7 @@ func TestRemovedNames(t *testing.T) {
 		}
 		h.quiet("extensionless files removed", 300*time.Millisecond)
 		outside := t.TempDir()
-		if err := os.Rename(h.path("pre"), filepath.Join(outside, "pre")); err != nil {
-			t.Fatal(err)
-		}
+		rename(t, h.path("pre"), filepath.Join(outside, "pre"))
 		h.expect("directory moved away", []string{"pre"})
 	})
 }
@@ -309,9 +327,7 @@ func TestDirectoryGoneRightAfterStart(t *testing.T) {
 			t.Fatal(err)
 		}
 		h := newHarnessAt(t, root, Options{Filter: goFilter, SkipDir: skipHidden, Debounce: 30 * time.Millisecond, Poll: poll, PollInterval: 20 * time.Millisecond})
-		if err := os.Rename(h.path("z/pkg"), filepath.Join(t.TempDir(), "pkg")); err != nil {
-			t.Fatal(err)
-		}
+		rename(t, h.path("z/pkg"), filepath.Join(t.TempDir(), "pkg"))
 		h.expect("directory moved away", []string{"z/pkg"})
 	})
 }
