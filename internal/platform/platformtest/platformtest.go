@@ -335,9 +335,18 @@ func testAnimationWithoutPresent(s *session) {
 			}
 			w.RequestFrame()
 		case platform.WakeEvent:
-			if !start.IsZero() {
-				s.b.Quit()
+			if start.IsZero() {
+				break
 			}
+			// Frames must keep coming, but a loaded machine can hold one
+			// back past the window (the remote backend on windows-latest:
+			// none in 227 ms): wait longer for the first tick rather than
+			// fail a backend that delivers it late.
+			if frames == 0 && time.Since(start) < 5*time.Second {
+				s.wakeAfter(20 * time.Millisecond)
+				break
+			}
+			s.b.Quit()
 		}
 	})
 	elapsed := time.Since(start)
