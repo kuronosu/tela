@@ -13,18 +13,28 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`AppID`](#func-appid) · [`CacheDir`](#func-cachedir) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`Directory`](#func-directory) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MessagePreview`](#func-messagepreview) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`SetAppID`](#func-setappid) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting)
+- [Functions](#functions): [`AppID`](#func-appid) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
 - [Types](#types)
   - [`type Answer`](#type-answer): [`String`](#func-answer-string)
+  - [`type Association`](#type-association): [`FileType`](#func-filetype) · [`URLScheme`](#func-urlscheme) · [`String`](#func-association-string)
   - [`type Buttons`](#type-buttons): [`DefaultAnswer`](#func-buttons-defaultanswer) · [`DismissAnswer`](#func-buttons-dismissanswer) · [`Has`](#func-buttons-has)
+  - [`type DefaultResult`](#type-defaultresult): [`MakeDefault`](#func-makedefault) · [`String`](#func-defaultresult-string)
   - [`type DialogOption`](#type-dialogoption): [`DefaultName`](#func-defaultname) · [`Directory`](#func-directory) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`Parent`](#func-parent) · [`Title`](#func-title)
   - [`type FileFilter`](#type-filefilter)
+  - [`type GlobalShortcut`](#type-globalshortcut): [`Build`](#func-globalshortcut-build)
+  - [`type HandlerApp`](#type-handlerapp)
+  - [`type Launch`](#type-launch): [`Files`](#func-launch-files) · [`URLs`](#func-launch-urls)
+  - [`type MenuBar`](#type-menubar): [`Build`](#func-menubar-build)
   - [`type MenuItem`](#type-menuitem)
   - [`type Message`](#type-message)
   - [`type MessageKind`](#type-messagekind): [`String`](#func-messagekind-string)
   - [`type Notification`](#type-notification)
   - [`type NotificationAction`](#type-notificationaction)
+  - [`type RegisterOption`](#type-registeroption): [`ForApp`](#func-forapp) · [`Replace`](#func-replace)
+  - [`type Registration`](#type-registration): [`RegistrationStatus`](#func-registrationstatus)
   - [`type SavedWindow`](#type-savedwindow): [`Build`](#func-savedwindow-build)
+  - [`type ShortcutStatus`](#type-shortcutstatus): [`String`](#func-shortcutstatus-string)
+  - [`type ShortcutStatusEvent`](#type-shortcutstatusevent)
   - [`type ShownNotification`](#type-shownnotification): [`Notify`](#func-notify) · [`Close`](#func-shownnotification-close) · [`IsZero`](#func-shownnotification-iszero)
   - [`type Store`](#type-store): [`OpenStore`](#func-openstore) · [`Settings`](#func-settings) · [`Delete`](#func-store-delete) · [`Err`](#func-store-err) · [`Flush`](#func-store-flush) · [`Get`](#func-store-get) · [`Has`](#func-store-has) · [`Keys`](#func-store-keys) · [`Path`](#func-store-path) · [`Set`](#func-store-set) · [`Watch`](#func-store-watch)
   - [`type Tray`](#type-tray): [`Build`](#func-tray-build)
@@ -63,6 +73,10 @@ theme, setTheme := desktop.UseSetting("theme", "system")
 
 [`PersistApp`](#func-persistapp) makes the main window open where it was closed; [`SavedWindow`](#type-savedwindow) does the same for a tela.Window, and [`LoadPlacement`](#func-loadplacement) with [`UseSavePlacement`](#func-usesaveplacement) are the parts they are made of.
 
+### Clipboard, shortcuts, launches, registration, secrets and menus
+
+[`ReadClipboard`](#func-readclipboard) and [`WriteClipboard`](#func-writeclipboard) copy and paste a tela.DataTransfer (text, HTML, images, files, custom types). [`GlobalShortcut`](#type-globalshortcut) is a component that registers a system-wide shortcut while mounted. [`SingleInstance`](#func-singleinstance) keeps one process per app: a second start hands its [`Launch`](#type-launch) to the first, whose [`UseLaunch`](#func-uselaunch) handlers open its files and links. [`Register`](#func-register) makes the app a handler of a [`URLScheme`](#func-urlscheme) or a [`FileType`](#func-filetype) for the user, without a running app too (an installer); [`MakeDefault`](#func-makedefault) is a separate, explicit request. [`SetSecret`](#func-setsecret), [`Secret`](#func-secret) and [`DeleteSecret`](#func-deletesecret) keep small secrets in the OS's keyring, from a goroutine. [`PopupMenu`](#func-popupmenu) and [`MenuBar`](#type-menubar) are the OS's menus where it has them, for kit's menus to use.
+
 ### When a service is missing
 
 Not every desktop has every service: GNOME shows no tray icons without an extension, a minimal Linux session may have no portal (no file dialogs) and no notification daemon. The calls then return an error wrapping [`ErrUnsupported`](#variables) (errors.Is), and the app falls back: a path field instead of a dialog, a message in the window instead of a notification, a window that does not hide itself on close without a tray.
@@ -85,7 +99,43 @@ const MainWindowKey = "main"
 
 MainWindowKey is the key [`PersistApp`](#func-persistapp) saves the main window's placement under.
 
+```go
+const MaxSecretSize = platform.MaxSecretSize
+```
+
+MaxSecretSize is the largest secret, in bytes, every OS stores (the limit of the Windows Credential Manager). Keep keys and tokens in secrets; encrypt larger data with a key kept there.
+
 ## Variables
+
+```go
+var ErrAssociationTaken = platform.ErrAssociationTaken
+```
+
+ErrAssociationTaken is wrapped by the error of [`Register`](#func-register) when another application holds the association and [`Replace`](#func-replace) was not given; nothing was written. The error names the other application.
+
+```go
+var ErrDevExecutable = errors.New("under tela dev the program is a temporary build; give the installed program's path with desktop.ForApp(desktop.HandlerApp{Exec: ...})")
+```
+
+ErrDevExecutable is wrapped by the error of [`Register`](#func-register) and [`MakeDefault`](#func-makedefault) under tela dev when no Exec was given (ForApp): the running program is a temporary dev build, which the OS must not be told to run. Nothing is written. Give the installed program's path, or register from a normal build.
+
+```go
+var ErrSecretCanceled = platform.ErrSecretCanceled
+```
+
+ErrSecretCanceled is returned by the secret functions when the user canceled the OS's prompt to unlock the keyring (Linux): nothing was read or written. Asking again later is fine; do not ask in a loop.
+
+```go
+var ErrSecretNotFound = platform.ErrSecretNotFound
+```
+
+ErrSecretNotFound is returned by [`Secret`](#func-secret) when no secret has the name. errors.Is(err, fs.ErrNotExist) also holds.
+
+```go
+var ErrSecretTooLarge = platform.ErrSecretTooLarge
+```
+
+ErrSecretTooLarge is returned by [`SetSecret`](#func-setsecret) for a secret larger than MaxSecretSize.
 
 ```go
 var ErrUnsupported = fmt.Errorf("desktop: %w", errors.ErrUnsupported)
@@ -124,6 +174,14 @@ CacheDir returns the app's folder for data it can download or compute again (thu
 - Windows: %LOCALAPPDATA%\\\<app ID\>\\cache
 - macOS: \~/Library/Caches/\<app ID\>
 
+### func ClipboardTypes
+
+```go
+func ClipboardTypes(done func(types []string, err error)) error
+```
+
+ClipboardTypes calls done, later, on the UI thread, with the types the clipboard offers (MIME types, best first), without reading the data: enough to enable a Paste button. Same rules as [`ReadClipboard`](#func-readclipboard).
+
 ### func ConfigDir
 
 ```go
@@ -149,6 +207,14 @@ DataDir returns the app's folder for documents and data the user would miss (a l
 - Linux: $XDG_DATA_HOME/\<app ID\> (\~/.local/share/\<app ID\>)
 - Windows: %APPDATA%\\\<app ID\> (roaming; the same as ConfigDir)
 - macOS: \~/Library/Application Support/\<app ID\> (the same as ConfigDir)
+
+### func DeleteSecret
+
+```go
+func DeleteSecret(name string) error
+```
+
+DeleteSecret removes the secret stored under name for this app; a missing one is not an error. It blocks; see [`SetSecret`](#func-setsecret).
 
 ### func FlushAll
 
@@ -251,6 +317,21 @@ func OpenFiles(done func(paths []string, err error), opts ...DialogOption) error
 
 OpenFiles is [`OpenFile`](#func-openfile) for several files: done receives the chosen paths, nil when the user canceled.
 
+### func ParseKeys
+
+```go
+func ParseKeys(keys string) (string, error)
+```
+
+ParseKeys checks a key combination as [`GlobalShortcut`](#type-globalshortcut).Keys takes it and returns it written the usual way, as menus show it (the text for [`MenuItem`](#type-menuitem).Accelerator): modifiers then the key, joined by '+'.
+
+```go
+desktop.ParseKeys("ctrl+alt+n")   // "Ctrl+Alt+N", nil
+desktop.ParseKeys("Ctrl+Hyper+N") // error: "Hyper" is not a modifier
+```
+
+Names ignore case. Modifiers: Ctrl (Control), Alt (Option), Shift, Super (Meta, Win, Cmd), and CmdOrCtrl (Super on macOS, Ctrl elsewhere). The key comes last: one character ("N", "1", "/"; Shift is written as a modifier), a key name ("F1"…"F24", "Escape", "Enter", "Tab", "Space", "Backspace", "Delete", "Insert", "Home", "End", "PageUp", "PageDown", "ArrowUp" or "Up", "PrintScreen", "MediaPlayPause"…), or "Plus" for '+'.
+
 ### func PersistApp
 
 ```go
@@ -290,6 +371,152 @@ func PickFolder(done func(path string, err error), opts ...DialogOption) error
 
 PickFolder shows the OS's folder chooser and calls done with the chosen folder ("" with a nil error: canceled). Same rules as [`OpenFile`](#func-openfile); filters do not apply.
 
+### func PopupMenu
+
+```go
+func PopupMenu(w tela.WindowHandle, at tela.Point, items []MenuItem, done func(chosen bool, err error)) error
+```
+
+PopupMenu shows items as the OS's context menu of w's window, with its top-left corner at at (logical pixels in the window's coordinates, such as a pointer event's position). It returns at once; when the user chooses an item, its OnSelect runs on the UI thread, then done (if not nil) with chosen true; when the user dismisses the menu, done runs with chosen false.
+
+```go
+err := desktop.PopupMenu(w, tela.Point{X: e.X, Y: e.Y}, []desktop.MenuItem{
+    {Label: "Copy", Accelerator: "Ctrl+C", OnSelect: copySelection},
+    {Label: "Paste", Accelerator: "Ctrl+V", OnSelect: paste},
+}, nil)
+if errors.Is(err, desktop.ErrUnsupported) {
+    setMenuOpen.Set(true) // draw the menu instead
+}
+```
+
+The zero WindowHandle means the window the call comes from. The returned error says the menu could not be shown, and done is then never called: no running app, or no native context menus (errors.Is(err, [`ErrUnsupported`](#variables)): Linux, where Tela draws every menu). Call it on the UI thread. Tests answer the menu with telatest's App.ChoosePopupItem and App.DismissPopupMenu.
+
+**Example**
+
+A context menu: the OS's where there is one, else a drawn menu.
+
+```go
+_ = tela.C(func() tela.Node {
+    drawnAt, setDrawnAt := tela.UseState[*tela.Point](nil)
+    items := []desktop.MenuItem{
+        {Label: "Copy", Accelerator: "Ctrl+C", OnSelect: func() {}},
+        {Label: "Paste", Accelerator: "Ctrl+V", OnSelect: func() {}},
+    }
+    return Div(Class("h-full"),
+        OnContextMenu(func(e tela.MouseEvent) {
+            at := tela.Point{X: e.X, Y: e.Y}
+            if err := desktop.PopupMenu(tela.WindowHandle{}, at, items, nil); errors.Is(err, desktop.ErrUnsupported) {
+                setDrawnAt.Set(&at) // draw the menu at at
+            }
+        }),
+        If(drawnAt != nil, Text("drawn menu")),
+    )
+})
+```
+
+### func ReadClipboard
+
+```go
+func ReadClipboard(done func(dt *tela.DataTransfer, err error), types ...string) error
+```
+
+ReadClipboard reads the clipboard and calls done, later, on the UI thread, with a DataTransfer holding what it read: the given types that the clipboard offers, or, with no types, the well-known ones it offers (text, HTML, a PNG image, files). Types are MIME types or HTML's names ("text", "Files", "url"). An empty clipboard gives an empty DataTransfer.
+
+```go
+desktop.ReadClipboard(func(dt *tela.DataTransfer, err error) {
+    switch {
+    case err != nil:
+    case len(dt.Files()) > 0:
+        attach(dt.Files())
+    case dt.Has("image/png"):
+        img, _ := dt.Image()
+        insertImage(img)
+    default:
+        insertText(dt.Text())
+    }
+})
+```
+
+The DataTransfer is the caller's: it may keep and change it. Call it on the UI thread; done runs exactly once unless ReadClipboard returns an error (no running app, or [`ErrUnsupported`](#variables) on a desktop whose clipboard has only text: use [`ReadClipboardText`](#func-readclipboardtext)). Tests preset the clipboard with telatest's App.SetClipboard.
+
+**Example**
+
+Copy rich text, and paste whatever the clipboard holds.
+
+```go
+_ = tela.C(func() tela.Node {
+    pasted, setPasted := tela.UseState("")
+    copyNote := func() {
+        var dt tela.DataTransfer
+        dt.SetHTML("<b>Groceries</b>: milk, eggs")
+        dt.SetText("Groceries: milk, eggs")
+        _ = desktop.WriteClipboard(&dt)
+    }
+    paste := func() {
+        _ = desktop.ReadClipboard(func(dt *tela.DataTransfer, err error) {
+            switch {
+            case err != nil:
+            case len(dt.Files()) > 0:
+                setPasted.Set(fmt.Sprintf("%d files", len(dt.Files())))
+            default:
+                setPasted.Set(dt.Text())
+            }
+        })
+    }
+    return Div(
+        Button(OnClick(copyNote), Text("Copy")),
+        Button(OnClick(paste), Text("Paste")),
+        Text(pasted),
+    )
+})
+```
+
+### func ReadClipboardText
+
+```go
+func ReadClipboardText(done func(text string, err error)) error
+```
+
+ReadClipboardText reads the clipboard's text and calls done, later, on the UI thread ("" when it holds no text). It works on every desktop.
+
+### func Register
+
+```go
+func Register(a Association, opts ...RegisterOption) (changed bool, err error)
+```
+
+Register makes the app a candidate handler of a URL scheme or a file type, for the current user (no administrator rights): the app appears in "Open with", and links of its scheme open it when no other application is the default. It does not make it the default ([`MakeDefault`](#func-makedefault)). It looks first, and writes nothing when the app is registered already (changed false).
+
+```go
+if _, err := desktop.Register(desktop.URLScheme("notes")); err != nil {
+    log.Print(err)
+}
+desktop.Register(desktop.FileType(".note", "application/x-notes-note", "Notes document"))
+```
+
+Linux writes the app's own .desktop file in \~/.local/share/applications (and a MIME type for a new extension); Windows writes HKEY_CURRENT_USER\\Software\\Classes. It works without a running app (an installer, a setup command), and is safe from any goroutine; it does file or registry I/O, so an app calls it from a goroutine or at start. The OS opens the app with the link or the files as arguments: read them with [`UseLaunch`](#func-uselaunch) (with [`SingleInstance`](#func-singleinstance), in the running app). While an app runs (telatest included), the calls go to its backend, which tests inspect with telatest's App.Registrations.
+
+**Example**
+
+Register notes: links and .note files for the user, and become their default handler only when asked.
+
+```go
+notes := desktop.URLScheme("notes")
+doc := desktop.FileType(".note", "application/x-notes-note", "Notes document")
+for _, a := range []desktop.Association{notes, doc} {
+    if _, err := desktop.Register(a); err != nil {
+        fmt.Println(err) // errors.Is(err, desktop.ErrAssociationTaken): ask before desktop.Replace()
+    }
+}
+makeDefault := func() {
+    r, err := desktop.MakeDefault(doc)
+    if err == nil && r == desktop.DefaultAsked {
+        fmt.Println("Choose Notes in the Default apps settings")
+    }
+}
+_ = makeDefault
+```
+
 ### func SaveFile
 
 ```go
@@ -314,6 +541,48 @@ func SavePlacement(key string, p tela.WindowPlacement) error
 
 SavePlacement saves p under key ([`UseSavePlacement`](#func-usesaveplacement) does it by itself). The zero placement deletes the saved one.
 
+### func Secret
+
+```go
+func Secret(name string) ([]byte, error)
+```
+
+Secret returns the secret stored under name for this app, or an error wrapping [`ErrSecretNotFound`](#variables). It blocks; see [`SetSecret`](#func-setsecret).
+
+```go
+key, err := desktop.Secret("notes-key")
+switch {
+case errors.Is(err, desktop.ErrSecretNotFound):
+    key = newKey() // first run
+case errors.Is(err, desktop.ErrUnsupported):
+    disableLockedNotes()
+}
+```
+
+**Example**
+
+A key kept in the OS's keyring, read off the UI thread.
+
+```go
+_ = tela.C(func() tela.Node {
+    status, setStatus := tela.UseState("unlocking…")
+    tela.UseGo(func(ctx context.Context) {
+        key, err := desktop.Secret("notes-key")
+        switch {
+        case errors.Is(err, desktop.ErrSecretNotFound):
+            setStatus.Set("no key yet")
+        case errors.Is(err, desktop.ErrSecretCanceled):
+            setStatus.Set("the keyring stayed locked")
+        case errors.Is(err, desktop.ErrUnsupported):
+            setStatus.Set("locked notes need a keyring")
+        case err == nil:
+            setStatus.Set(fmt.Sprintf("a %d-byte key", len(key)))
+        }
+    }, tela.Once)
+    return Text(status)
+})
+```
+
 ### func SetAppID
 
 ```go
@@ -321,6 +590,24 @@ func SetAppID(id string)
 ```
 
 SetAppID sets the name of the app's directories and settings ([`ConfigDir`](#func-configdir) and the others): use the reverse-DNS name given to tela.App.AppID ("com.example.notes"). Call it at the start of main, before anything reads a directory or a setting; [`PersistApp`](#func-persistapp) calls it with the App's AppID. Without it, the directories are named after the running app's App.AppID, or before tela.Run (and without an AppID) after the executable. Safe from any goroutine.
+
+### func SetSecret
+
+```go
+func SetSecret(name string, secret []byte) error
+```
+
+SetSecret stores secret under name in the OS's secure storage, for this app ([`AppID`](#func-appid)), replacing an earlier value: the Credential Manager on Windows, the Secret Service (GNOME Keyring, KWallet) on Linux. Use it for passwords, tokens and encryption keys, never in a plain file.
+
+```go
+tela.UseGo(func(ctx context.Context) {
+    if err := desktop.SetSecret("sync-token", token); err != nil {
+        tela.Post(func() { setError.Set(err.Error()) })
+    }
+}, token)
+```
+
+The secret functions block: the OS may show a prompt to unlock the keyring and wait for the user. Call them from a goroutine (tela.UseGo), not from a handler or an effect, which would freeze the app; they are safe from any goroutine, and dev mode warns when one runs on the UI thread. A desktop without secure storage returns an error wrapping [`ErrUnsupported`](#variables); a canceled prompt [`ErrSecretCanceled`](#variables). They need a running app (tela.Run or telatest). Tests preset and read secrets with telatest's App.SetStoredSecret and App.StoredSecret.
 
 ### func ShowMessage
 
@@ -370,6 +657,53 @@ _ = tela.C(func() tela.Node {
 })
 ```
 
+### func SingleInstance
+
+```go
+func SingleInstance(app tela.App) tela.App
+```
+
+SingleInstance returns app made a single-instance app: when the app is started while it already runs, the new process hands its launch (its arguments and working directory) to the running one and exits with status 0 before opening any window (tela.Run returns nil at once). The running app brings its main window to the front (showing it if it was hidden in the tray) and gives the launch to its [`UseLaunch`](#func-uselaunch) handlers:
+
+```go
+func main() {
+    tela.Main(desktop.SingleInstance(desktop.PersistApp(tela.App{
+        AppID: "com.example.Notes",
+        Title: "Notes",
+        Root:  Notes{},
+    })))
+}
+
+func (n Notes) Build() tela.Node {
+    desktop.UseLaunch(func(l desktop.Launch) {
+        for _, p := range l.Files() { openNote(p) }
+        for _, u := range l.URLs() { openLink(u) } // notes:open?id=3
+    })
+    // ...
+}
+```
+
+Instances are told apart by the app ID ([`AppID`](#func-appid): [`SetAppID`](#func-setappid)'s, else app.AppID, else the executable's name), per user session: give the app an AppID. When the desktop cannot tell (no D-Bus session on Linux), the app runs on its own and a dev warning says why. Under tela dev the supervisor holds the claim across reloads (a second tela dev of the same app exits as a second instance). telatest claims nothing: App.InjectLaunch plays a second start.
+
+**Example**
+
+One window for every start of the app: a second start, from a file manager or a notes: link, opens its files and links in the running app.
+
+```go
+app := desktop.SingleInstance(tela.App{
+    AppID: "com.example.Notes",
+    Title: "Notes",
+    Root: tela.C(func() tela.Node {
+        open, setOpen := tela.UseState([]string(nil))
+        desktop.UseLaunch(func(l desktop.Launch) {
+            setOpen.Update(func(o []string) []string { return append(o, append(l.Files(), l.URLs()...)...) })
+        })
+        return Div(Map(open, func(p string) tela.Node { return Div(Key(p), Text(p)) }))
+    }),
+})
+_ = app // tela.Main(app)
+```
+
 ### func StateDir
 
 ```go
@@ -381,6 +715,32 @@ StateDir returns the app's folder for state worth keeping across runs but not wo
 - Linux: $XDG_STATE_HOME/\<app ID\> (\~/.local/state/\<app ID\>)
 - Windows: %LOCALAPPDATA%\\\<app ID\>
 - macOS: \~/Library/Application Support/\<app ID\>
+
+### func Unregister
+
+```go
+func Unregister(a Association, opts ...RegisterOption) (changed bool, err error)
+```
+
+Unregister removes what Register and MakeDefault wrote for a: the app is no longer a candidate, and a default that names it is removed. Another application's entries are never touched. Nothing to remove is not an error (changed false).
+
+### func UseLaunch
+
+```go
+func UseLaunch(f func(Launch))
+```
+
+UseLaunch calls f, on the UI thread, with each launch of the app: once with the process's own start, after the component mounts, and with every later start that [`SingleInstance`](#func-singleinstance) forwarded to this process (Launch.Forwarded). Use Launch.Files and Launch.URLs to open what the user asked for:
+
+```go
+desktop.UseLaunch(func(l desktop.Launch) {
+    for _, p := range l.Files() {
+        openNote(p)
+    }
+})
+```
+
+The process's own start is given to the UseLaunch calls mounted when the first of them mounts (normally the app's first frame), not to those that mount later, so a screen that mounts again does not reopen the files. telatest gives no start launch (App.InjectLaunch gives later ones), and neither does a reload of tela dev.
 
 ### func UseSavePlacement
 
@@ -440,6 +800,31 @@ func UseStoreSetting[T any](s *Store, key string, def T) (T, tela.Setter[T])
 
 UseStoreSetting is [`UseSetting`](#func-usesetting) for a key of store s instead of the app's settings; the default and the stored value combine as UseSetting describes.
 
+### func WriteClipboard
+
+```go
+func WriteClipboard(dt *tela.DataTransfer) error
+```
+
+WriteClipboard replaces the clipboard's content with dt's, every representation of it, so another application pastes the one it understands:
+
+```go
+var dt tela.DataTransfer
+dt.SetHTML("<b>Groceries</b>: milk, eggs")
+dt.SetText("Groceries: milk, eggs")
+err := desktop.WriteClipboard(&dt)
+```
+
+A nil or empty dt empties the clipboard. Call it on the UI thread. It returns an error when no app runs, or wrapping [`ErrUnsupported`](#variables) on a desktop whose clipboard takes only text (use [`WriteClipboardText`](#func-writeclipboardtext)).
+
+### func WriteClipboardText
+
+```go
+func WriteClipboardText(text string) error
+```
+
+WriteClipboardText puts text on the clipboard, replacing its content. Call it on the UI thread.
+
 ## Types
 
 ### type Answer
@@ -464,6 +849,40 @@ const (
 ```go
 func (a Answer) String() string
 ```
+
+### type Association
+
+```go
+type Association struct {
+    // contains filtered or unexported fields
+}
+```
+
+Association is a URL scheme or a file type the app opens: build it with [`URLScheme`](#func-urlscheme) or [`FileType`](#func-filetype).
+
+#### func FileType
+
+```go
+func FileType(extension, mimeType, description string) Association
+```
+
+FileType returns the association of a file extension, given with its dot (".note"), with its MIME type ("application/x-notes-note") and a description of the type in the user's language ("Notes document"), all required: Linux associates apps with MIME types, and registers this one for the extension when no other type claims it.
+
+#### func URLScheme
+
+```go
+func URLScheme(name string) Association
+```
+
+URLScheme returns the association of a URL scheme of the app's own, given without ':' ("notes" for notes:open?id=3 links): a letter, then letters, digits, '+', '-' or '.'. Standard schemes (http, mailto…) belong to other applications and panic.
+
+#### func (Association) String
+
+```go
+func (a Association) String() string
+```
+
+String returns "notes:" for a scheme, ".note" for a file type.
 
 ### type Buttons
 
@@ -505,6 +924,39 @@ func (b Buttons) Has(a Answer) bool
 ```
 
 Has reports whether the set b has the button a.
+
+### type DefaultResult
+
+```go
+type DefaultResult uint8
+```
+
+DefaultResult is what [`MakeDefault`](#func-makedefault) did.
+
+```go
+const (
+    // DefaultSet: the app is now the default handler.
+    DefaultSet DefaultResult = iota
+    // DefaultAsked: the OS lets only the user choose (Windows file
+    // types), so the system's Default apps settings opened; tell the user
+    // to pick the app there, and check later with RegistrationStatus.
+    DefaultAsked
+)
+```
+
+#### func MakeDefault
+
+```go
+func MakeDefault(a Association, opts ...RegisterOption) (DefaultResult, error)
+```
+
+MakeDefault asks for the app to become the default handler of a, registering it first if needed (with Register's rules and options). Where the OS lets an app set it (Linux; Windows schemes) it is set at once (DefaultSet). For Windows file types only the user can choose: MakeDefault opens the system's Default apps settings and returns DefaultAsked. Call it only when the user asked ("Make Notes the default app for .note files").
+
+#### func (DefaultResult) String
+
+```go
+func (r DefaultResult) String() string
+```
 
 ### type DialogOption
 
@@ -583,6 +1035,223 @@ type FileFilter struct {
 
 FileFilter is one entry of a file dialog's list of types: a label and the glob patterns of the file names it shows.
 
+### type GlobalShortcut
+
+```go
+type GlobalShortcut struct {
+    // ID identifies the shortcut to the OS, which keeps the user's
+    // changes to it across runs (the portal): keep it stable
+    // ("new-note"). Required; unique among the mounted shortcuts.
+    ID string
+    // Keys is the preferred key combination, such as "Ctrl+Alt+N" or
+    // "Super+F5" (see [ParseKeys] for the names). Required; a combination
+    // that cannot be parsed panics in dev mode and is reported to
+    // OnStatus as ShortcutFailed otherwise (keys a user typed: check them
+    // with ParseKeys first).
+    Keys string
+    // Description says what the shortcut does, in the user's language
+    // ("Create a note"); the desktop's shortcut settings show it.
+    // Required.
+    Description string
+    // OnPress runs when the user presses the shortcut.
+    OnPress func()
+    // OnRelease runs when the user releases it, where the OS reports
+    // releases (Linux; not Windows).
+    OnRelease func()
+    // OnStatus receives the outcome of the registration and its later
+    // changes (the user bound other keys, or removed the shortcut). Nil
+    // reports a status other than ShortcutBound as a dev warning.
+    OnStatus func(ShortcutStatusEvent)
+}
+```
+
+GlobalShortcut is a component that registers a system-wide keyboard shortcut while it is mounted: OnPress runs, on the UI thread, when the user presses Keys anywhere, even while another application has the focus. It follows its fields (registering again only when ID, Keys or Description change) and unregisters when it unmounts. It renders nothing where it is declared; several, with different IDs, may be mounted at once.
+
+```go
+desktop.GlobalShortcut{
+    ID:          "new-note",
+    Keys:        "Ctrl+Alt+N",
+    Description: "Create a note",
+    OnPress:     func() { win.Show(); newNote() },
+    OnStatus: func(e desktop.ShortcutStatusEvent) {
+        if e.Status != desktop.ShortcutBound {
+            setHint.Set(e.Err.Error()) // "Ctrl+Alt+N is taken by another application"
+        }
+    },
+}
+```
+
+The OS decides: Windows refuses a combination another application holds (ShortcutTaken), and on Wayland the desktop asks the user first (through the GlobalShortcuts portal) and may bind other keys, which ShortcutStatusEvent.Trigger reports. Where the desktop has no global shortcuts (Wayland without the portal), OnStatus receives ShortcutFailed with an error wrapping [`ErrUnsupported`](#variables). Tests press it with telatest's App.PressShortcut.
+
+**Example**
+
+A shortcut that works from any application, and a hint when the OS would not bind it.
+
+```go
+_ = tela.C(func() tela.Node {
+    win := tela.UseWindow()
+    hint, setHint := tela.UseState("")
+    return Div(
+        desktop.GlobalShortcut{
+            ID:          "new-note",
+            Keys:        "Ctrl+Alt+N",
+            Description: "Create a note",
+            OnPress:     func() { win.Show() },
+            OnStatus: func(e desktop.ShortcutStatusEvent) {
+                if e.Status == desktop.ShortcutBound {
+                    setHint.Set("Press " + e.Trigger + " anywhere for a new note")
+                } else {
+                    setHint.Set(e.Err.Error())
+                }
+            },
+        },
+        Text(hint),
+    )
+})
+```
+
+#### func (GlobalShortcut) Build
+
+```go
+func (g GlobalShortcut) Build() tela.Node
+```
+
+Build registers the shortcut while the component is mounted (see [`GlobalShortcut`](#type-globalshortcut)).
+
+### type HandlerApp
+
+```go
+type HandlerApp struct {
+    // ID is the app ID, which names the app's registration (its .desktop
+    // file on Linux, its ProgIDs on Windows). Default: [AppID].
+    ID string
+    // Name is shown in the desktop's "Open with" lists. Default: the
+    // last part of the ID, capitalized ("com.example.notes" is "Notes").
+    Name string
+    // Exec is the absolute path of the program to run, with Args and then
+    // the link or the files. Default: os.Executable. Under tela dev the
+    // executable is a temporary dev build, so Register and MakeDefault
+    // there need Exec given (ErrDevExecutable otherwise); under go run it
+    // is a temporary build too: register from the installed program, or
+    // give its path.
+    Exec string
+    // Args are arguments put before the link or the files.
+    Args []string
+    // Icon is the absolute path of the app's icon (PNG or SVG on Linux,
+    // .ico on Windows). Optional.
+    Icon string
+}
+```
+
+HandlerApp describes the application registered as a handler: what the OS runs to open a link or a file. Its zero fields are the running program's (see [`RegisterOption`](#type-registeroption) ForApp).
+
+### type Launch
+
+```go
+type Launch struct {
+    // Args are the command-line arguments after the program's name.
+    Args []string
+    // Dir is the working directory of the process that was started, for
+    // relative paths in Args.
+    Dir string
+    // Forwarded reports a launch of another process of the app, which
+    // [SingleInstance] forwarded to this one and exited; false for this
+    // process's own start.
+    Forwarded bool
+}
+```
+
+Launch is how the app was started: the command-line arguments and the working directory of a process of the app. [`UseLaunch`](#func-uselaunch) gives the app its own start's, and, with [`SingleInstance`](#func-singleinstance), those of every later start that another process forwarded: a file opened from a file manager, a deep link such as "notes:open?id=3" clicked in a browser.
+
+**Example**
+
+The files a launch names, made absolute.
+
+```go
+l := desktop.Launch{Dir: "/home/ana", Args: []string{"--new-window", "notes:open?id=3", "file:///tmp/a%20b.note", "lists/groceries.note"}}
+fmt.Println(l.URLs())
+fmt.Println(l.Files())
+// Output:
+// [notes:open?id=3]
+// [/tmp/a b.note /home/ana/lists/groceries.note]
+```
+
+#### func (Launch) Files
+
+```go
+func (l Launch) Files() []string
+```
+
+Files returns the arguments that are files or folders, as absolute paths, in order: relative paths are made absolute against Dir, and file: URIs (which Linux launchers pass for a .desktop file's %U) are turned into paths. The files may not exist. Flags and URLs are left out (see URLs).
+
+#### func (Launch) URLs
+
+```go
+func (l Launch) URLs() []string
+```
+
+URLs returns the arguments that are URLs, in order: any "scheme:…" with a scheme of at least two characters ("notes:open?id=3", "<https://example.com>"), except file: URIs, which are files. Arguments that start with '-' are flags, neither URLs nor files (after a "--", every argument counts).
+
+### type MenuBar
+
+```go
+type MenuBar struct {
+    // Menus are the bar's top-level entries ("File", "Edit"), each with
+    // its Submenu.
+    Menus []MenuItem
+    // OnError receives the error when the bar cannot be shown or
+    // updated (ErrUnsupported where windows have no native menu bar).
+    // Nil reports it as a dev warning.
+    OnError func(err error)
+}
+```
+
+MenuBar is a component that gives the window it is in the OS's menu bar while it is mounted (a Windows window with a title bar), follows its fields, and removes the bar when it unmounts. Menus are the top-level entries, each with its Submenu; choosing an item runs its OnSelect on the UI thread. It renders nothing where it is declared.
+
+```go
+desktop.MenuBar{
+    Menus: []desktop.MenuItem{
+        {Label: "File", Submenu: []desktop.MenuItem{
+            {Label: "New", Accelerator: "Ctrl+N", OnSelect: newNote},
+            {Separator: true},
+            {Label: "Quit", OnSelect: tela.Quit},
+        }},
+    },
+    OnError: func(err error) { setDrawnMenu.Set(true) },
+}
+```
+
+Most desktops have no native window menu bars (Linux; frameless windows, which draw their own title bar; macOS, whose menu bar belongs to the app): there OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar does). Accelerator texts are only shown: handle the keys yourself. Tests choose items with telatest's App.ChooseMenuItem.
+
+**Example**
+
+A native menu bar, with a drawn one where windows have none.
+
+```go
+_ = tela.C(func() tela.Node {
+    drawn, setDrawn := tela.UseState(false)
+    menus := []desktop.MenuItem{
+        {Label: "File", Submenu: []desktop.MenuItem{
+            {Label: "New", Accelerator: "Ctrl+N", OnSelect: func() {}},
+            {Separator: true},
+            {Label: "Quit", OnSelect: tela.Quit},
+        }},
+    }
+    return Div(
+        desktop.MenuBar{Menus: menus, OnError: func(error) { setDrawn.Set(true) }},
+        If(drawn, Text("a drawn menu bar")),
+    )
+})
+```
+
+#### func (MenuBar) Build
+
+```go
+func (m MenuBar) Build() tela.Node
+```
+
+Build sets the menu bar while the component is mounted (see [`MenuBar`](#type-menubar)).
+
 ### type MenuItem
 
 ```go
@@ -590,6 +1259,11 @@ type MenuItem struct {
     // Label is the item's text (plain text: "&" and "_" are shown as
     // they are).
     Label string
+    // Accelerator is the text of the item's keyboard shortcut, shown at
+    // its right ("Ctrl+S"; [ParseKeys] writes it the usual way). It is
+    // display only: the app handles the key itself (h.OnKeyDown). Tray
+    // menus may not show it.
+    Accelerator string
     // Separator makes the item a separator line; the other fields are
     // ignored.
     Separator bool
@@ -606,7 +1280,7 @@ type MenuItem struct {
 }
 ```
 
-MenuItem is an item of a tray icon's menu. The backend never toggles a checkbox: OnSelect updates the state that renders Checked.
+MenuItem is an item of a native menu: a tray icon's ([`Tray`](#type-tray)), a window's menu bar ([`MenuBar`](#type-menubar)) or a context menu ([`PopupMenu`](#func-popupmenu)). The backend never toggles a checkbox: OnSelect updates the state that renders Checked.
 
 ### type Message
 
@@ -693,6 +1367,67 @@ type NotificationAction struct {
 
 NotificationAction is a button of a notification.
 
+### type RegisterOption
+
+```go
+type RegisterOption struct {
+    // contains filtered or unexported fields
+}
+```
+
+RegisterOption configures [`Register`](#func-register), [`Unregister`](#func-unregister), [`MakeDefault`](#func-makedefault) and [`RegistrationStatus`](#func-registrationstatus): [`Replace`](#func-replace) and [`ForApp`](#func-forapp).
+
+#### func ForApp
+
+```go
+func ForApp(app HandlerApp) RegisterOption
+```
+
+ForApp sets what is registered instead of the running program: an installer registers the program it installed. Fields left empty keep their defaults (see [`HandlerApp`](#type-handlerapp)).
+
+```go
+desktop.Register(desktop.URLScheme("notes"), desktop.ForApp(desktop.HandlerApp{
+    ID:   "com.example.Notes",
+    Name: "Notes",
+    Exec: `C:\Program Files\Notes\notes.exe`,
+    Icon: `C:\Program Files\Notes\notes.ico`,
+}))
+```
+
+#### func Replace
+
+```go
+func Replace() RegisterOption
+```
+
+Replace lets [`Register`](#func-register) (and MakeDefault, which registers first) take over an association another application holds: a Windows scheme key whose command runs another program, a Linux desktop entry of the app's ID that Tela did not write, an extension another MIME type claims. Without it Register returns an error wrapping [`ErrAssociationTaken`](#variables) and writes nothing. Ask the user before passing it.
+
+### type Registration
+
+```go
+type Registration struct {
+    // Registered: the app is a candidate handler (offered in "Open with",
+    // or for the scheme).
+    Registered bool
+    // Default: the app is the default handler.
+    Default bool
+    // Other names what holds the association instead of the app (the
+    // default handler, the owner of a Windows scheme key, the MIME type
+    // that claims an extension on Linux); "" when nothing does.
+    Other string
+}
+```
+
+Registration is what [`RegistrationStatus`](#func-registrationstatus) reports.
+
+#### func RegistrationStatus
+
+```go
+func RegistrationStatus(a Association, opts ...RegisterOption) (Registration, error)
+```
+
+RegistrationStatus reports whether the app is registered for a, whether it is the default, and what else holds a.
+
 ### type SavedWindow
 
 ```go
@@ -746,6 +1481,58 @@ func (s SavedWindow) Build() tela.Node
 ```
 
 Build opens the window (see [`SavedWindow`](#type-savedwindow)).
+
+### type ShortcutStatus
+
+```go
+type ShortcutStatus uint8
+```
+
+ShortcutStatus is the state of a [`GlobalShortcut`](#type-globalshortcut)'s registration.
+
+```go
+const (
+    // ShortcutBound: the shortcut works; Trigger is what the user presses.
+    ShortcutBound ShortcutStatus = iota
+    // ShortcutTaken: another application holds the combination.
+    ShortcutTaken
+    // ShortcutRefused: the user or the desktop declined to bind it.
+    ShortcutRefused
+    // ShortcutRevoked: the user or the desktop removed it after it was
+    // bound.
+    ShortcutRevoked
+    // ShortcutFailed: it could not be registered (no global shortcuts on
+    // this desktop: ErrUnsupported; invalid Keys; an OS error).
+    ShortcutFailed
+)
+```
+
+#### func (ShortcutStatus) String
+
+```go
+func (s ShortcutStatus) String() string
+```
+
+### type ShortcutStatusEvent
+
+```go
+type ShortcutStatusEvent struct {
+    // ID is the shortcut's.
+    ID string
+    // Status is the registration's state.
+    Status ShortcutStatus
+    // Trigger is the combination the user presses, as the desktop shows
+    // it ("Ctrl+Alt+N"), for ShortcutBound: the desktop may bind other
+    // keys than Keys. "" when it does not say.
+    Trigger string
+    // Err says why, for every status but ShortcutBound, in a sentence an
+    // app can show ("desktop: the global shortcut Ctrl+Alt+N is taken by
+    // another application").
+    Err error
+}
+```
+
+ShortcutStatusEvent is what [`GlobalShortcut`](#type-globalshortcut)'s OnStatus receives.
 
 ### type ShownNotification
 
