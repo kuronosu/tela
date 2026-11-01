@@ -22,18 +22,24 @@
 //     mimeapps.list files and desktop entries in the XDG search order
 //     (the user's, then DataDirs/ConfigDirs, with
 //     <desktop>-mimeapps.list first), as GIO does.
-//   - Windows ([Windows]): HKCU\Software\Classes only, never HKLM, so no
-//     administrator rights. A scheme is the key Classes\<scheme> ("URL
-//     Protocol" value, shell\open\command); a file type is the ProgID
+//   - Windows ([Windows]; windows.go has the details): HKCU only, so no
+//     administrator rights; HKLM is read, never written (a per-user key
+//     shadows the machine's, so what is registered there counts as another
+//     application's). A scheme is the key Classes\<scheme> ("URL
+//     Protocol" value, shell\open\command, and values that say which app
+//     and executable wrote it); a file type is the ProgID
 //     Classes\<ID>.<ext without dot> (with its command and icon) added to
-//     Classes\.<ext>\OpenWithProgids, never the extension's default value;
-//     the app is listed in Software\RegisteredApplications with its
-//     Capabilities (URLAssociations, FileAssociations) for the Default
-//     apps page. After a change it calls SHChangeNotify
-//     (SHCNE_ASSOCCHANGED). MakeDefault of a scheme writes its key (and
-//     opens the settings page when a hash-protected UserChoice overrides
-//     it); MakeDefault of a file type opens ms-settings:defaultapps
-//     (DefaultAsked), because Windows lets only the user choose.
+//     Classes\.<ext>\OpenWithProgids; the extension's default value (the
+//     fallback handler) is set only when nothing names one, and replaced
+//     only with Replace. The app is listed in Software\<ID>\Capabilities
+//     (URLAssociations, FileAssociations) and
+//     Software\RegisteredApplications for the Default apps page. After a
+//     change it calls SHChangeNotify (SHCNE_ASSOCCHANGED). Status reads the
+//     user's choice from the UserChoice keys; MakeDefault returns DefaultSet
+//     when the app already is the default (a scheme nothing overrides, an
+//     extension nothing else opens, or the user's choice), and otherwise
+//     opens ms-settings:defaultapps (DefaultAsked), because Windows lets
+//     only the user choose.
 //   - Other OSes: [Native] returns platform.UnsupportedAssociations (macOS
 //     registers through the app bundle's Info.plist, phase 14).
 //
@@ -131,14 +137,19 @@ type linux struct {
 }
 
 // Windows returns the associations of Windows written to reg, the current
-// user's registry (see the package documentation); nil means the real
-// HKEY_CURRENT_USER, on Windows only.
-//
-// Not implemented yet (phase 13 step B): every method checks its
-// arguments and returns platform.ErrUnsupported.
-func Windows(reg Registry) platform.Associations { return windows{reg: reg} }
-
-type windows struct {
-	platform.UnsupportedAssociations
-	reg Registry
+// user's registry (see the package documentation and windows.go); nil means
+// the real HKEY_CURRENT_USER, on Windows only (elsewhere, every method
+// returns platform.ErrUnsupported).
+func Windows(reg Registry) platform.Associations {
+	if reg == nil {
+		if nativeRegistry == nil {
+			return platform.UnsupportedAssociations{}
+		}
+		reg = nativeRegistry()
+	}
+	return &windows{reg: reg}
 }
+
+// nativeRegistry returns the real HKEY_CURRENT_USER; set on Windows only
+// (registry_windows.go).
+var nativeRegistry func() Registry

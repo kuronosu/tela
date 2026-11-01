@@ -42,6 +42,7 @@ type MemRegistry struct {
 	mu     sync.Mutex
 	keys   map[string]*memKey // by lower-cased path
 	writes int
+	shell  memShell // the Shell and MachineReader side (shell.go)
 }
 
 type memKey struct {

@@ -944,8 +944,9 @@
 //     CRED_PERSIST_LOCAL_MACHINE; ERROR_NOT_FOUND is ErrSecretNotFound.
 //   - Single instance: CreateMutexW("Local\\<derived from the app ID>"); with
 //     ERROR_ALREADY_EXISTS the second process finds the first's
-//     message-only window of a class named after the app ID
-//     (FindWindowExW with HWND_MESSAGE, retried briefly while the first
+//     message-only window, whose title is derived from the app ID (all
+//     Tela windows share one class; FindWindowExW with HWND_MESSAGE,
+//     retried briefly while the first
 //     starts), calls AllowSetForegroundWindow for its process and sends
 //     the Launch with WM_COPYDATA (SendMessageTimeoutW). ActivateWithToken
 //     ignores the token.
