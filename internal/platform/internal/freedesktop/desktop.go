@@ -44,6 +44,9 @@ type Options struct {
 	// Opener is the command OpenURI and OpenPath run with the target as
 	// its only argument when there is no portal. "" means xdg-open.
 	Opener string
+	// Now is the backend's clock (platform.Backend.Now), which stamps
+	// ShortcutEvents. It is called from godbus goroutines. nil stamps 0.
+	Now func() time.Duration
 }
 
 // D-Bus names used by the services.
@@ -98,6 +101,11 @@ type Desktop struct {
 	byServer map[uint32]platform.NotificationID
 	trays    map[platform.TrayID]*tray
 	token    string // the latest activation token
+
+	// Phase 13 (settings.go, shortcuts.go, instance.go).
+	settings  settingsState
+	shortcuts shortcutService
+	instances instanceState
 }
 
 // item is a unit of work for the UI thread: a callback or an app-scoped
@@ -144,6 +152,7 @@ func (d *Desktop) push(it item) {
 // the loop (Options.Post and Options.Event), in arrival order. UI thread;
 // the backend calls it on every iteration before its delivery pass.
 func (d *Desktop) Dispatch() {
+	d.kickShortcuts()
 	d.mu.Lock()
 	items := d.inbox
 	d.inbox = nil
@@ -175,6 +184,7 @@ func (d *Desktop) Close() {
 	for _, t := range trays {
 		t.close()
 	}
+	d.closeIntegration()
 	if d.conn != nil {
 		d.conn.Close()
 		d.conn = nil

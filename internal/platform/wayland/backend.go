@@ -365,9 +365,13 @@ func (b *Backend) signal() {
 	}
 }
 
-// Settings returns zero values (unknown): reading the desktop settings
-// portal over D-Bus is a later task.
-func (b *Backend) Settings() platform.SystemSettings { return platform.SystemSettings{} }
+// Settings returns the system settings from the XDG desktop portal (read
+// on the first call; changes arrive as SettingsEvents), shared with X11 in
+// internal/platform/internal/freedesktop. Zero without a portal.
+func (b *Backend) Settings() platform.SystemSettings {
+	b.Desktop()
+	return b.desktop.SystemSettings()
+}
 
 // Clipboard returns the clipboard: the wl_data_device selection
 // (clipboard.go).
