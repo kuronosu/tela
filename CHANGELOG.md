@@ -12,6 +12,11 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Fixed
+
+- On Windows, a `desktop` store's write no longer fails when another program holds its file for a moment (an antivirus scanning the file just written, the search indexer): replacing the file is retried for up to a second, as `cmd/go` does.
+- On Windows, `tela dev` and `tela mcp` remove the executables of old builds even when Windows still holds one for a moment after its process exited; they retry for up to two seconds, off the supervisor's loop.
+
 ## [0.13.0] - 2026-10-31
 
 The work between phases 12 and 13, released so the new website's docs and landing page match the version `go install …@latest` gets (ADR-208): ADR-205's `tela.Node` change, the `looks` module, the consolidated examples, `kit` and engine improvements, and the website.
