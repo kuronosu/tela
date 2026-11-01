@@ -709,25 +709,3 @@ func TestScaleChangeReconfigures(t *testing.T) {
 		t.Errorf("the Present after a ConfigureEvent is not forced full")
 	}
 }
-
-func TestClipboardIsAsyncAndUnsupported(t *testing.T) {
-	b, _ := fakeBackend(1)
-	cb := b.Clipboard()
-	if err := cb.WriteText("x"); !errors.Is(err, ErrClipboardUnsupported) {
-		t.Errorf("WriteText = %v", err)
-	}
-	called := false
-	cb.ReadText(func(text string, err error) {
-		called = true
-		if text != "" || !errors.Is(err, ErrClipboardUnsupported) {
-			t.Errorf("ReadText callback got %q, %v", text, err)
-		}
-	})
-	if called {
-		t.Fatalf("ReadText called its callback synchronously")
-	}
-	b.dispatch(&recorder{})
-	if !called {
-		t.Errorf("ReadText callback never ran")
-	}
-}

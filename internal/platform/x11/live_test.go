@@ -47,9 +47,6 @@ func liveBackend(t *testing.T) *Backend {
 func TestLiveConformance(t *testing.T) {
 	platformtest.Run(t, platformtest.Config{
 		New: func(t *testing.T) platform.Backend { return liveBackend(t) },
-		// X11 selections are not implemented yet; the clipboard reports
-		// ErrClipboardUnsupported (tested by TestClipboardIsAsyncAndUnsupported).
-		Skip: []string{"Clipboard"},
 	})
 }
 

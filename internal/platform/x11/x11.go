@@ -99,6 +99,15 @@ type Backend struct {
 	srv       wmServer
 	supported map[xproto.Atom]bool
 	userTime  uint32
+
+	// Desktop integration (phase13.go): the server side of selections,
+	// drags and key grabs (a fake in unit tests), the atoms known by
+	// name, UI-thread timers, and the state.
+	xs        dataServer
+	atomIDs   map[string]xproto.Atom
+	atomNames map[xproto.Atom]string
+	timers    timers
+	integ     integration
 }
 
 // xevent is an event or an X error received by the pump.
@@ -181,10 +190,12 @@ func newBackend(conn *xgb.Conn) (*Backend, error) {
 	b.initLoop()
 	b.kbd.fetch = b.coreMapping
 	b.srv = connServer{b}
+	b.xs = connServer{b}
 	var err error
 	if b.atoms, err = internAtoms(conn); err != nil {
 		return nil, fmt.Errorf("x11: interning atoms: %w", err)
 	}
+	b.cacheKnownAtoms()
 	b.readSupported()
 	b.maxRequest = maxRequestBytes(conn, setup)
 	b.bigRequests = b.maxRequest > int(setup.MaximumRequestLength)*4
@@ -299,8 +310,7 @@ func (b *Backend) signal() {
 // Settings returns zero values: X11 settings (XSETTINGS) are not read yet.
 func (b *Backend) Settings() platform.SystemSettings { return platform.SystemSettings{} }
 
-// Clipboard returns a clipboard whose methods report that X11 selections
-// are not supported yet.
+// Clipboard returns the CLIPBOARD selection (clipboard.go).
 func (b *Backend) Clipboard() platform.Clipboard { return clipboard{b} }
 
 // Scale returns the display scale derived from Xft.dpi (1 if unset). UI
@@ -391,6 +401,7 @@ func (b *Backend) pump() {
 func (b *Backend) pollEvents() bool {
 	defer b.endBatch()
 	defer b.kbd.flushAll()
+	defer b.integ.sc.flushRelease(b)
 	for range eventBatch {
 		select {
 		case e, ok := <-b.events:
@@ -412,9 +423,13 @@ func (b *Backend) shutdown() {
 		return
 	}
 	b.closed = true
+	if ds := b.integ.drag; ds != nil {
+		b.endDrag(ds, platform.DropNone)
+	}
 	for _, w := range slices.Clone(b.loop.Windows()) {
 		w.Close()
 	}
+	b.ungrabShortcuts()
 	b.closeDesktop()
 	b.loop.Discard()
 	close(b.done)
@@ -436,6 +451,7 @@ func (b *Backend) nextDeadline() (time.Duration, bool) { return b.loop.Pace() }
 // items, so an input event that requests a frame gets it in the same
 // iteration if pacing allows.
 func (b *Backend) dispatch(h platform.Handler) {
+	b.runTimers()
 	b.dispatchDesktop()
 	b.loop.Deliver(h)
 }

@@ -86,7 +86,12 @@ type kbd struct {
 
 // mappingChanged records that the keyboard mapping changed; the keymap is
 // read again before the next use.
-func (k *kbd) mappingChanged() { k.dirty = true }
+func (k *kbd) mappingChanged() {
+	k.dirty = true
+	if k.b != nil {
+		k.b.remapShortcuts() // the grabbed keycodes may have moved
+	}
+}
 
 // km returns the current keymap, reading the mapping if needed.
 func (k *kbd) km() *xkb.Keymap {
