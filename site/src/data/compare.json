@@ -535,7 +535,7 @@
       "cells": [
         {
           "v": "no",
-          "note": "v0.12.6, pre-1.0; API may still break",
+          "note": "Pre-1.0; the API may still break",
           "src": []
         },
         {
