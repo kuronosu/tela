@@ -27,8 +27,26 @@ func overlayHarness(t *testing.T) *devHarness {
 func (h *devHarness) startBig() {
 	h.t.Helper()
 	h.expect("first start", 1, 0, 0)
-	h.window().Resize(platform.Size{W: 640, H: 480})
+	h.resize(platform.Size{W: 640, H: 480})
 	h.waitFrame("the first frame at 640x480", h.plain(child(1, 0, 0)))
+}
+
+// resize resizes the window and waits until the host has handled the
+// ConfigureEvent. The expected frames are computed from Metrics, which
+// change only then: computed earlier, they have the old size, which the
+// window still shows (a wait for them passes at once) or no longer shows
+// (a wait for them never passes, however long).
+func (h *devHarness) resize(size platform.Size) {
+	h.t.Helper()
+	w := h.window()
+	w.Resize(size)
+	deadline := time.Now().Add(devWait)
+	for w.Metrics().Size != size {
+		if time.Now().After(deadline) {
+			h.t.Fatalf("the window never took the size %v: %v", size, w.Metrics().Size)
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 // solid is a frame of one color in physical pixels.

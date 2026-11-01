@@ -26,8 +26,9 @@ import (
 
 // devWait bounds every wait for the supervisor, the host or a child. Each
 // wait returns as soon as its condition holds, so the bound only matters when
-// a test fails; it is generous because windows-latest, running the whole
-// suite in parallel, took more than 15 s for a reload more than once.
+// a test fails. A wait that fails at this bound on CI is more likely a race in
+// what it waits for (an expected frame computed too early, a change made
+// before its watch existed) than a slow runner: every such failure so far was.
 const devWait = 60 * time.Second
 
 // syncBuffer is a concurrency-safe log.
