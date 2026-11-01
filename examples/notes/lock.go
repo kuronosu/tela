@@ -25,9 +25,9 @@ import (
 //
 // What is encrypted is content: the title, the text and Saved (the text
 // the note had when it was last written to its file, which would give the
-// text away). The folder, the pin, the date and the path of the file stay
-// in the clear, so the library can still be listed, filtered by folder and
-// sorted. The JSON of a locked note:
+// text away). The folder, the pin and the date stay in the clear, so the
+// library can still be listed, filtered by folder and sorted. The JSON of
+// a locked note:
 //
 //	{"id":7,"title":"","text":"","saved":"","path":"","folder":"Home",
 //	 "pinned":false,"modified":"…","locked":true,"sealed":"v1:BASE64"}
@@ -35,6 +35,15 @@ import (
 // where BASE64 is the nonce followed by the ciphertext and its 16-byte
 // tag. The note's ID is the additional authenticated data, so a sealed
 // value copied to another note does not open there.
+//
+// A locked note is not tied to a file. Locking a note that was opened from
+// or saved to a file detaches it (its Path goes, since the file's name
+// can say what the note is about), and the screen then offers to move the
+// file, which still holds the text in the clear, to the Trash: only when
+// the user says so, and never deleting it (desktop.MoveToTrash). A locked
+// note cannot be saved to a file either, and removing the lock leaves it
+// detached. A library of an earlier build of this phase may hold a locked
+// note with a path: detachLocked drops it when the library is opened.
 //
 // Unlocking is a session thing. A note stays unlocked, with its content in
 // memory (the vault), until the user locks it again, the window is hidden
@@ -159,11 +168,32 @@ func fetchKey(create bool) ([]byte, error) {
 }
 
 // lockedForm returns the note as the library stores it once locked: the
-// content is gone and sealed is in its place.
+// content is gone and sealed is in its place, and the note is no longer
+// tied to its file.
 func lockedForm(n Note, sealed string) Note {
 	n.Locked, n.Unlocked, n.Sealed = true, false, sealed
-	n.Title, n.Text, n.Saved = "", "", ""
+	n.Title, n.Text, n.Saved, n.Path = "", "", "", ""
 	return n
+}
+
+// detachLocked returns ns with the path of every locked note dropped, and
+// whether there was one: a library written by an earlier build of locked
+// notes kept the file's name of a locked note in the clear.
+func detachLocked(ns []Note) ([]Note, bool) {
+	found := false
+	for _, n := range ns {
+		found = found || (n.Locked && n.Path != "")
+	}
+	if !found {
+		return ns, false
+	}
+	out := append([]Note(nil), ns...)
+	for i := range out {
+		if out[i].Locked {
+			out[i].Path = ""
+		}
+	}
+	return out, true
 }
 
 // plainForm returns the note as the library stores it when it is not
