@@ -1,0 +1,1844 @@
+---
+import { execSync } from 'node:child_process';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { Image } from 'astro:assets';
+import Shot from '../components/landing/Shot.astro';
+import Compare from '../components/landing/Compare.astro';
+import CodePanel from '../components/landing/CodePanel.astro';
+import Window from '../components/landing/Window.astro';
+
+// The example screenshots come from docs/images of the checkout (main in the
+// deploy job), next to the code the page shows; src/assets/wiki holds the
+// docs' own copies.
+import counter from '../../../docs/images/counter.png';
+import dashboard from '../../../docs/images/dashboard.png';
+import dashboardDark from '../../../docs/images/dashboard-dark.png';
+import kit from '../../../docs/images/kit.png';
+import kitDark from '../../../docs/images/kit-dark.png';
+import notes from '../../../docs/images/notes.png';
+import chat from '../../../docs/images/chat.png';
+import player from '../../../docs/images/player.png';
+import counterRaw from '../../../examples/counter/main.go?raw';
+
+// The snippets of the tabs are the real sources of site/snippets, the ones
+// scripts/render-snippets.sh renders with `tela snapshot` into the PNGs of
+// assets/landing/ (the build check keeps them in sync). Both are found by tab id.
+const snippetSources = import.meta.glob<string>('../../snippets/*/main.go', { query: '?raw', import: 'default', eager: true });
+const snippetImages = import.meta.glob<ImageMetadata>('../assets/landing/*.png', { import: 'default', eager: true });
+
+// The version of the chip and the status line: TELA_VERSION (the deploy sets
+// it to the release tag), else the latest tag of the checkout.
+const VERSION = process.env.TELA_VERSION || latestTag() || 'dev';
+function latestTag(): string | undefined {
+	try {
+		return execSync("git describe --tags --abbrev=0 --match 'v*'", { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+	} catch {
+		return undefined;
+	}
+}
+
+// ---------- The counter of examples/counter/main.go ----------
+// The file itself, without its comment lines and the Preview function that
+// only `tela snapshot` and the tests use.
+const counterSource = counterRaw
+	.split('\n')
+	.filter((line) => !line.startsWith('//'))
+	.join('\n')
+	.replace(/\n*func Preview\b[\s\S]*$/, '\n');
+
+// ---------- Install ----------
+const installLinux = [
+	'CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest',
+	'tela new myapp',
+	'cd myapp',
+	'CGO_ENABLED=0 go run .',
+];
+const installWindows = [
+	'$env:CGO_ENABLED = "0"',
+	'go install github.com/kuronosu/tela/cmd/tela@latest',
+	'tela new myapp',
+	'cd myapp',
+	'go run .',
+];
+const agentPrompt =
+	'Read https://telaui.dev/llms.txt and build a Tela app: a notes list with a search field and a dark mode switch. Run tela snapshot after each change and fix what looks off.';
+const mcpAdd = 'claude mcp add tela -- tela mcp ./myapp';
+
+// ---------- Tabs: Go code and the PNG it renders ----------
+const tabInfo = [
+	{
+		id: 'components',
+		label: 'Components',
+		blurb: 'kit has styled, accessible components in shadcn’s look. Restyle them with recipes.',
+		alt: 'A card titled Notifications with a Pro badge, an Email field, a Weekly digest switch that is on and a Save changes button.',
+	},
+	{
+		id: 'hooks',
+		label: 'State and hooks',
+		blurb: 'Hooks are named like React’s. The slider writes the state, the total follows.',
+		alt: 'A tip calculator card with a slider at 18 percent and a total of $99.71.',
+	},
+	{
+		id: 'styling',
+		label: 'Tailwind styling',
+		blurb: 'Tailwind v4 class names, verbatim, with hover:, active: and dark: variants.',
+		alt: 'A card with an amber New badge, the heading Hot reload, a line of text and a dark Try it button.',
+	},
+	{
+		id: 'layout',
+		label: 'Layout',
+		blurb: 'Real CSS grid and flex: spans, arbitrary tracks such as grid-rows-[1fr_1fr_auto].',
+		alt: 'A three-column grid: one large tile spanning two columns and two rows, two small tiles beside it and a wide footer tile below.',
+	},
+	{
+		id: 'theming',
+		label: 'Theming',
+		blurb: 'Components use tokens, so light and dark need no dark: classes. Scheme() gives a subtree its own.',
+		alt: 'The same card twice, side by side: on the left in the light scheme, on the right in the dark one.',
+	},
+];
+// The dark render is missing for theming, whose panels pin their own scheme.
+const tabs = tabInfo.map((t) => {
+	const src = snippetSources[`../../snippets/${t.id}/main.go`];
+	const img = snippetImages[`../assets/landing/${t.id}.png`];
+	if (!src || !img) {
+		throw new Error(`The "${t.id}" tab needs site/snippets/${t.id}/main.go and src/assets/landing/${t.id}.png (run scripts/render-snippets.sh).`);
+	}
+	return { ...t, src, img, dark: snippetImages[`../assets/landing/${t.id}-dark.png`] };
+});
+
+// ---------- The loop: one terminal ----------
+// Terminal lines are lists of [text, class] segments.
+// p = prompt, c = command, o = output, d = dim, a = accent (amber), e = error.
+type Seg = [string, string?];
+type Line = Seg[];
+const sh = (cmd: string): Line => [['$ ', 'p'], [cmd, 'c']];
+
+const steps: { id: string; cmd: string; verb: string; title: string; body: string; lines: Line[]; shot?: boolean }[] = [
+	{
+		id: 'snapshot',
+		cmd: 'tela snapshot',
+		verb: 'Render',
+		title: 'Render it to a PNG.',
+		body: 'The same tree your window shows also renders to a PNG file, with no display server needed. Look at the pixels, or hand them to someone who will.',
+		lines: [sh('tela snapshot --size 400x380 --scale 2 -o counter.png ./examples/counter')],
+		shot: true,
+	},
+	{
+		id: 'inspect',
+		cmd: 'tela inspect',
+		verb: 'Read',
+		title: 'Read what a screen reader hears.',
+		body: 'An aria snapshot in YAML: what assistive technology, a test or an agent sees. Add --layout for the boxes as JSON.',
+		lines: [
+			sh('tela inspect --size 800x600 ./examples/counter'),
+			[['- text: COUNT', 'o']],
+			[['- heading "0" [level=1]', 'o']],
+			[['- button "Increment"', 'o']],
+		],
+	},
+	{
+		id: 'lint',
+		cmd: 'tela lint',
+		verb: 'Check',
+		title: 'Catch the typo before it ships.',
+		body: 'Unknown classes, roles and ARIA values, duplicate keys and misused hooks are found in the source, with a suggestion, even on screens nobody has rendered yet. It exits 1 when it reports something, so CI fails.',
+		lines: [
+			sh('tela lint ./...'),
+			[
+				['lintdemo/home.go:11:14: ', 'd'],
+				['class: ', 'o'],
+				['unknown class "rounded-xxl"; ', 'e'],
+				['did you mean "rounded-2xl"?', 'a'],
+			],
+			sh('echo $?'),
+			[['1', 'o']],
+		],
+	},
+	{
+		id: 'mcp',
+		cmd: 'tela mcp',
+		verb: 'Delegate',
+		title: 'Let an agent drive the loop.',
+		body: 'tela mcp serves the screen over the Model Context Protocol, the way Playwright MCP drives a browser: snapshot, screenshot, click, fill and more, on a headless instance that rebuilds on every edit.',
+		lines: [
+			sh(mcpAdd),
+			[['', 'd']],
+			[['→ snapshot {}', 'a']],
+			[['Built and mounted in 1.1s.', 'd']],
+			[['- heading "Settings" [level=1] [ref=e1]', 'o']],
+			[['- switch "Weekly digest" [ref=e12]', 'o']],
+			[['- button "Save changes" [disabled] [ref=e32]', 'o']],
+			[['→ click {"ref": "e12"}', 'a']],
+			[['Clicked switch "Weekly digest" [ref=e12].', 'd']],
+			[['- switch "Weekly digest" [checked] [ref=e12]', 'o']],
+			[['- button "Save changes" [ref=e32]', 'o']],
+		],
+	},
+	{
+		id: 'dev',
+		cmd: 'tela dev',
+		verb: 'Keep going',
+		title: 'Edit, save, keep your state.',
+		body: 'For people, tela dev rebuilds in the background and swaps the new build into the same window, in about 0.6 s on examples/dashboard.',
+		lines: [
+			sh('tela dev ./examples/dashboard'),
+			[['# save a .go file: the app is rebuilt in the background', 'd']],
+			[['# the window never closes; the new build takes its place', 'd']],
+			[['# kept: hook state, text fields, scroll offsets and focus', 'd']],
+		],
+	},
+];
+
+// ---------- Real apps ----------
+// The example apps, shown one at a time in the big window (section 03).
+const slides = [
+	{ id: 'dashboard', src: dashboard, dark: dashboardDark, name: 'Dashboard', path: 'examples/dashboard', alt: 'A dashboard drawn by Tela: revenue chart, KPIs, an orders table and an activity feed.' },
+	{ id: 'notes', src: notes, name: 'Notes', path: 'examples/notes', alt: 'A notes app drawn by Tela: folders, a note list and an editor.' },
+	{ id: 'chat', src: chat, name: 'Messages', path: 'examples/chat', alt: 'A chat app drawn by Tela: conversations, message bubbles and an input.' },
+	{ id: 'player', src: player, name: 'Music player', path: 'examples/player', alt: 'A music player drawn by Tela: album art, a seek slider and a track list.' },
+	{ id: 'kit', src: kit, dark: kitDark, name: 'kit', path: 'examples/kit', alt: 'The kit component gallery drawn by Tela, on its Introduction page.' },
+];
+---
+
+<StarlightPage
+	frontmatter={{
+		title: 'Desktop UIs in pure Go',
+		description: 'A desktop UI framework in pure Go. Write components, render to pixels, inspect, lint and iterate from the terminal.',
+		template: 'splash',
+		// A hero makes Starlight render the Hero component (src/components/Hero.astro,
+		// empty here) instead of a page title; the page draws its own first viewport.
+		hero: {},
+	}}
+>
+	<div class="lp not-content">
+		<!-- ================= Hero: the first viewport ================= -->
+		<section class="lp-hero">
+			<div class="lp-wrap">
+				<p class="lp-chip"><span class="lp-dot"></span>{VERSION} · pre-1.0</p>
+				<h1 id="_top">Go in. <span class="soft">Pixels out.</span></h1>
+
+				<div class="lp-start">
+					<div class="lp-start-copy">
+						<p class="lp-lede">
+							A desktop UI framework in pure Go: React-style hooks, Tailwind v4 classes, no cgo and no webview. It
+							draws every pixel itself, so the same program renders to a window, to a PNG and to text.
+						</p>
+						<div class="lp-actions">
+							<a class="lp-btn primary" href="/docs/getting-started/">Get started</a>
+							<a class="lp-btn" href="https://github.com/kuronosu/tela">GitHub</a>
+						</div>
+						<p class="lp-label lp-facts">Linux and Windows today · macOS planned · BSD 3-Clause</p>
+					</div>
+
+					<div class="lp-start-blocks">
+						<!-- Install, with OS tabs -->
+						<div class="lp-panel lp-install" data-tabs data-copy-scope>
+							<div class="lp-bar">
+								<div class="lp-tabs" role="tablist" aria-label="Operating system">
+									<button class="lp-tab" role="tab" id="os-linux" aria-controls="os-linux-p" aria-selected="true" tabindex="0" type="button">Linux</button>
+									<button class="lp-tab" role="tab" id="os-windows" aria-controls="os-windows-p" aria-selected="false" tabindex="-1" type="button">Windows</button>
+									<button class="lp-tab lp-planned" role="tab" id="os-macos" aria-controls="os-macos-p" aria-selected="false" tabindex="-1" type="button">macOS <span class="lp-soon">planned</span></button>
+								</div>
+								<button class="lp-copy" type="button" data-copy-active>Copy</button>
+							</div>
+							<div class="lp-tabpanel" role="tabpanel" id="os-linux-p" aria-labelledby="os-linux" data-copy={installLinux.join('\n')}>
+								<pre>{installLinux.map((l) => <span class="lp-ln"><span class="p">$ </span><span class="c">{l}</span></span>)}</pre>
+							</div>
+							<div class="lp-tabpanel" role="tabpanel" id="os-windows-p" aria-labelledby="os-windows" data-copy={installWindows.join('\n')} hidden>
+								<pre>{installWindows.map((l) => <span class="lp-ln"><span class="p">PS&gt; </span><span class="c">{l}</span></span>)}</pre>
+							</div>
+							<div class="lp-tabpanel lp-nowin" role="tabpanel" id="os-macos-p" aria-labelledby="os-macos" hidden>
+								<p><strong>No window backend yet; macOS is phase 14.</strong></p>
+								<p>The code cross-compiles with <code>GOOS=darwin</code> today, but it cannot open a window.</p>
+							</div>
+							<p class="lp-foot">Go 1.27+. Needs a Wayland or X11 session on Linux. <code>go install</code> puts <code>tela</code> in <code>$(go env GOPATH)/bin</code>.</p>
+						</div>
+
+						<!-- The agent block -->
+						<div class="lp-panel lp-agent" data-copy-scope>
+							<div class="lp-bar">
+								<span class="lp-fname">Or let your agent do it.</span>
+								<button class="lp-copy" type="button" data-copy={agentPrompt}>Copy prompt</button>
+							</div>
+							<p class="lp-prompt"><span class="p" aria-hidden="true">&gt; </span>{agentPrompt}</p>
+							<div class="lp-foot lp-mcp">
+								<span>Claude Code can also see and click the screen:</span>
+								<span class="lp-inline-cmd">
+									<code>{mcpAdd}</code>
+									<button class="lp-copy lp-copy-s" type="button" data-copy={mcpAdd}>Copy</button>
+								</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Code beside the window it draws -->
+			<div class="lp-wrap lp-pair">
+				<CodePanel file="examples/counter/main.go" src={counterSource} />
+
+				<div class="lp-bridge" aria-hidden="true">
+					<div class="lp-hop">
+						<span class="lp-pill">go run</span>
+						<svg viewBox="0 0 120 12" preserveAspectRatio="none"><path d="M0 6h112m0 0-6-5m6 5-6 5" /></svg>
+						<span class="lp-note">a window</span>
+					</div>
+					<div class="lp-hop">
+						<span class="lp-pill">tela snapshot</span>
+						<svg viewBox="0 0 120 12" preserveAspectRatio="none"><path d="M0 6h112m0 0-6-5m6 5-6 5" /></svg>
+						<span class="lp-note">a PNG</span>
+					</div>
+				</div>
+
+				<Window title="Demo">
+					<Image
+						src={counter}
+						widths={[420, 640, 800]}
+						sizes="(min-width: 64rem) 440px, 92vw"
+						alt="The counter rendered by Tela: a card with the label COUNT, a large 0 and a dark Increment button on a stone background."
+						loading="eager"
+					/>
+					<figcaption class="lp-cap">Rendered by Tela itself. Chromium draws the same markup to equal pixels, glyph antialiasing aside.</figcaption>
+				</Window>
+			</div>
+		</section>
+
+		<!-- ================= Tabs: code and pixels ================= -->
+		<section class="lp-section" id="shapes">
+			<div class="lp-wrap">
+				<header class="lp-shead">
+					<p class="lp-label">01 · What it looks like</p>
+					<h2>The code on the left draws the pixels on the right.</h2>
+					<p class="lp-sub">Five small programs, each rendered by <code>tela snapshot</code> from exactly the source shown.</p>
+				</header>
+
+				<div class="lp-shapes" data-tabs>
+					<div class="lp-tabs lp-tabs-line" role="tablist" aria-label="Examples">
+						{
+							tabs.map((t, i) => (
+								<button class="lp-tab" role="tab" id={`tab-${t.id}`} aria-controls={`tab-${t.id}-p`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1} type="button">
+									{t.label}
+								</button>
+							))
+						}
+					</div>
+					{
+						tabs.map((t, i) => (
+							<div class="lp-tabpanel lp-shape" role="tabpanel" id={`tab-${t.id}-p`} aria-labelledby={`tab-${t.id}`} hidden={i !== 0}>
+								<p class="lp-blurb">{t.blurb}</p>
+								<div class="lp-shape-pair">
+									<CodePanel file="main.go" src={t.src} />
+									<Window title={t.label}>
+										<Shot src={t.img} dark={t.dark} alt={t.alt} widths={[480, 720, 960]} sizes="(min-width: 64rem) 460px, 92vw" />
+										<figcaption class="lp-cap">
+											Rendered by Tela itself: <code>tela snapshot --scale 2{t.dark && <span class="lp-dark-i"> --dark</span>} ./{t.id}</code>
+										</figcaption>
+									</Window>
+								</div>
+							</div>
+						))
+					}
+				</div>
+			</div>
+		</section>
+
+		<!-- ================= The loop: one terminal ================= -->
+		<section class="lp-section lp-loop" id="loop">
+			<div class="lp-wrap">
+				<header class="lp-shead">
+					<p class="lp-label">02 · The loop</p>
+					<h2>Every screen is also a PNG and a text tree.</h2>
+					<p class="lp-sub">So you, your AI agent and your CI can all run the same loop from a terminal.</p>
+					<p class="lp-cycle" aria-label="The loop: write, snapshot, look, inspect, fix">
+						<span>write</span><b>→</b><span class="hit">tela snapshot</span><b>→</b><span>look</span><b>→</b><span class="hit">tela inspect</span><b>→</b><span>fix</span><b>↺</b>
+					</p>
+				</header>
+
+				<div class="lp-loop-grid" data-tabs>
+					<div class="lp-cmds" role="tablist" aria-label="The tela commands" aria-orientation="vertical">
+						{
+							steps.map((s, i) => (
+								<button class="lp-cmd" role="tab" id={`cmd-${s.id}`} aria-controls={`cmd-${s.id}-p`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1} type="button">
+									<span class="num">{String(i + 1).padStart(2, '0')}</span>
+									<span class="name">{s.cmd}</span>
+									<span class="ttl">{s.title}</span>
+								</button>
+							))
+						}
+					</div>
+
+					<div class="lp-panel lp-term">
+						<div class="lp-bar">
+							<span class="lp-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+							<span class="lp-fname">terminal</span>
+						</div>
+						{
+							steps.map((s, i) => (
+								<div class="lp-tabpanel" role="tabpanel" id={`cmd-${s.id}-p`} aria-labelledby={`cmd-${s.id}`} hidden={i !== 0}>
+									<pre>{s.lines.map((l) => <span class="lp-ln">{l.map(([t, c]) => (c ? <span class={c}>{t}</span> : t))}</span>)}</pre>
+									{s.shot && (
+										<div class="lp-result">
+											<Image src={counter} widths={[160, 320]} sizes="112px" alt="counter.png, the rendered counter" />
+											<div>
+												<p class="o">counter.png</p>
+												<p class="d">{counter.width}×{counter.height} px, drawn by Tela, headless</p>
+											</div>
+										</div>
+									)}
+									<p class="lp-termnote"><b>{s.verb}.</b> {s.body}</p>
+								</div>
+							))
+						}
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ================= Real apps, one window at a time ================= -->
+		<section class="lp-section lp-big" id="app">
+			<div class="lp-wrap">
+				<header class="lp-shead">
+					<p class="lp-label">03 · Real apps</p>
+					<h2>One binary, one window, every pixel yours.</h2>
+					<p class="lp-sub">The example apps in <code>examples/</code>, drawn by Tela.</p>
+				</header>
+				<div class="lp-car" data-carousel>
+					<Window title={slides[0].path} mono titleAttrs={{ 'data-car-title': '', 'aria-live': 'polite' }}>
+						<span class="lp-wnote" slot="end"><span class="lp-dot"></span>rendered by Tela</span>
+						<div class="lp-car-track" data-car-track tabindex="0" role="region" aria-roledescription="carousel" aria-label="Example apps drawn by Tela">
+							{
+								slides.map((sl, i) => (
+									<div class="lp-car-slide" id={`app-${sl.id}`} data-path={sl.path} role="group" aria-roledescription="slide" aria-label={`${i + 1} of ${slides.length}: ${sl.name}`}>
+										<Shot src={sl.src} dark={sl.dark} alt={sl.alt} widths={[640, 960, 1280, 1440]} sizes="(min-width: 75rem) 1184px, 100vw" />
+									</div>
+								))
+							}
+						</div>
+					</Window>
+					<div class="lp-car-nav">
+						<button type="button" class="lp-car-arrow" data-car-prev aria-label="Previous app">&larr;</button>
+						<ol class="lp-car-list">
+							{
+								slides.map((sl, i) => (
+									<li>
+										<button type="button" class="lp-car-pick" data-car-go={i} aria-controls={`app-${sl.id}`} aria-current={i === 0 ? 'true' : 'false'}>
+											<b>{sl.name}</b>
+											<code>{sl.path}</code>
+										</button>
+									</li>
+								))
+							}
+						</ol>
+						<button type="button" class="lp-car-arrow" data-car-next aria-label="Next app">&rarr;</button>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ================= Comparison ================= -->
+		<section class="lp-section lp-compare" id="compare">
+			<div class="lp-wrap">
+				<header class="lp-shead">
+					<p class="lp-label">04 · Compared</p>
+					<h2>Where Tela stands, honestly.</h2>
+					<p class="lp-sub">Against Fyne, Gio, Wails and Electron. Tela is pre-1.0, so some cells say no or planned.</p>
+				</header>
+				<Compare />
+			</div>
+		</section>
+
+		<!-- ================= Closing call to action ================= -->
+		<section class="lp-section lp-cta">
+			<div class="lp-wrap">
+				<div class="lp-panel lp-ctabox" data-copy-scope>
+					<p class="lp-label">05 · Start the loop</p>
+					<h2>Install the command, render the counter.</h2>
+					<div class="lp-ctalines">
+						<div class="lp-ctaline">
+							<pre class="lp-install-line"><span class="p">$ </span><span class="c">{installLinux[0]}</span></pre>
+							<button class="lp-copy lp-copy-s" type="button" data-copy={installLinux[0]}>Copy</button>
+						</div>
+						<div class="lp-ctaline">
+							<p class="lp-install-line lp-agent-line"><span class="p" aria-hidden="true">&gt; </span>Read https://telaui.dev/llms.txt and build a Tela app that …</p>
+							<button class="lp-copy lp-copy-s" type="button" data-copy={agentPrompt}>Copy prompt</button>
+						</div>
+					</div>
+					<div class="lp-actions">
+						<a class="lp-btn light" href="/docs/getting-started/">Get started</a>
+						<a class="lp-btn dark" href="/docs/">Docs</a>
+						<a class="lp-btn dark" href="/docs/reference/tela/">API reference</a>
+						<a class="lp-btn dark" href="https://github.com/kuronosu/tela">GitHub</a>
+					</div>
+				</div>
+				<p class="lp-status">
+					<span>{VERSION}</span><i></i><span>pre-1.0: the API may still change</span><i></i><span>Linux and Windows, macOS planned</span><i></i><span>BSD 3-Clause</span>
+				</p>
+			</div>
+		</section>
+	</div>
+</StarlightPage>
+
+<script>
+	// The example-app carousel: a scroll-snap track that also works without
+	// JavaScript (swipe or scroll); the script adds arrows, the app list,
+	// arrow keys and the window title. No autoplay.
+	document.querySelectorAll<HTMLElement>('[data-carousel]').forEach((root) => {
+		const track = root.querySelector<HTMLElement>('[data-car-track]');
+		const title = root.querySelector<HTMLElement>('[data-car-title]');
+		if (!track) return;
+		const slides = Array.from(track.querySelectorAll<HTMLElement>('.lp-car-slide'));
+		const picks = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-car-go]'));
+		const smooth = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+		let current = 0;
+		const mark = (i: number) => {
+			current = i;
+			picks.forEach((p, j) => p.setAttribute('aria-current', String(j === i)));
+			if (title) title.textContent = slides[i].dataset.path ?? '';
+		};
+		const go = (i: number) => {
+			const n = (i + slides.length) % slides.length;
+			track.scrollTo({ left: n * track.clientWidth, behavior: smooth() });
+			mark(n);
+		};
+		root.querySelector('[data-car-prev]')?.addEventListener('click', () => go(current - 1));
+		root.querySelector('[data-car-next]')?.addEventListener('click', () => go(current + 1));
+		picks.forEach((p) => p.addEventListener('click', () => go(Number(p.dataset.carGo))));
+		track.addEventListener('keydown', (e) => {
+			if (e.key === 'ArrowRight') { e.preventDefault(); go(current + 1); }
+			if (e.key === 'ArrowLeft') { e.preventDefault(); go(current - 1); }
+		});
+		let t = 0;
+		track.addEventListener('scroll', () => {
+			clearTimeout(t);
+			t = window.setTimeout(() => {
+				const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+				if (i !== current && slides[i]) mark(i);
+			}, 80);
+		});
+	});
+
+	// Tabs (roving tabindex; Left/Right, Up/Down, Home, End) and copy buttons.
+	// Without JavaScript the first panel of every tab group stays visible.
+	document.querySelectorAll<HTMLElement>('[data-tabs]').forEach((root) => {
+		const list = root.querySelector<HTMLElement>('[role="tablist"]');
+		if (!list) return;
+		const tabs = Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]'));
+		const select = (tab: HTMLElement, focus = false) => {
+			for (const t of tabs) {
+				const on = t === tab;
+				t.setAttribute('aria-selected', String(on));
+				t.tabIndex = on ? 0 : -1;
+				const panel = document.getElementById(t.getAttribute('aria-controls') ?? '');
+				if (panel) panel.hidden = !on;
+			}
+			if (focus) tab.focus();
+		};
+		tabs.forEach((t) => t.addEventListener('click', () => select(t)));
+		list.addEventListener('keydown', (e) => {
+			const i = tabs.indexOf(document.activeElement as HTMLElement);
+			if (i < 0) return;
+			let n = -1;
+			if (e.key === 'ArrowRight' || e.key === 'ArrowDown') n = (i + 1) % tabs.length;
+			else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') n = (i - 1 + tabs.length) % tabs.length;
+			else if (e.key === 'Home') n = 0;
+			else if (e.key === 'End') n = tabs.length - 1;
+			if (n < 0) return;
+			e.preventDefault();
+			select(tabs[n], true);
+		});
+	});
+
+	document.querySelectorAll<HTMLButtonElement>('.lp-copy').forEach((btn) => {
+		const label = btn.textContent ?? 'Copy';
+		btn.addEventListener('click', async () => {
+			let text = btn.dataset.copy;
+			if (text === undefined) {
+				const scope = btn.closest('[data-copy-scope]');
+				text = scope?.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])[data-copy]')?.dataset.copy;
+			}
+			if (!text) return;
+			try {
+				await navigator.clipboard.writeText(text);
+				btn.textContent = 'Copied';
+			} catch {
+				btn.textContent = 'Press Ctrl+C';
+			}
+			setTimeout(() => (btn.textContent = label), 1600);
+		});
+	});
+</script>
+
+<style is:global>
+	/* The page is one full-width column: its sections pad themselves. These are
+	   Starlight's public layout properties, scoped to this page's main (on the
+	   root they would also move the header gap and every other page). The hero
+	   panel still pads its top and bottom by 1.5rem, which .lp takes back. */
+	main:has(.lp) {
+		--sl-content-width: none;
+		--sl-content-pad-x: 0px;
+		--sl-main-pad: 0;
+	}
+
+	.lp {
+		/* The shared palette: these are Starlight's variables (src/styles/custom.css). */
+		--bg: var(--sl-color-bg);
+		--ink: var(--sl-color-white);
+		--muted: var(--sl-color-gray-3);
+		--line: var(--sl-color-hairline-shade);
+		--surface: var(--sl-color-black);
+		/* the landing's own, light values */
+		--bg-sub: #f5f5f4;
+		--faint: #78716c;
+		--line-strong: #d6d3d1;
+		--grid: rgba(28, 25, 23, 0.055);
+		/* the one accent: amber */
+		--accent: #b45309;
+		--accent-dot: #f59e0b;
+		/* terminals: ink-black on light, graphite on dark */
+		--t-bg: #1c1917;
+		--t-bar: #292524;
+		--t-line: #1c1917;
+		--t-text: #e7e5e4;
+		--t-dim: #a8a29e;
+		--t-prompt: #78716c;
+		--t-accent: #fbbf24;
+		--t-err: #fca5a5;
+		--t-str: #fcd34d;
+		--t-key: #a8a29e;
+		--t-fn: #fafaf9;
+		--shadow: 0 1px 0 rgba(28, 25, 23, 0.04), 0 18px 40px -20px rgba(28, 25, 23, 0.35);
+		--mono: var(--sl-font-mono, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
+		color: var(--ink);
+		font-family: var(--sl-font);
+		background: var(--bg);
+		-webkit-font-smoothing: antialiased;
+		overflow-x: clip;
+		/* Takes back the 1.5rem the hero panel pads above and below. */
+		margin-block: -1.5rem;
+	}
+	:root[data-theme='dark'] .lp {
+		/* graphite surfaces (stone-950/900), one amber accent, no gradients */
+		--bg-sub: #151211;
+		--faint: #938c86;
+		--line-strong: #3b3633;
+		--grid: rgba(250, 250, 249, 0.04);
+		--accent: #fbbf24;
+		--accent-dot: #fbbf24;
+		--t-bg: #1c1917;
+		--t-bar: #24201e;
+		--t-line: #3b3633;
+		--shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 18px 40px -20px rgba(0, 0, 0, 0.8);
+	}
+
+	.lp *,
+	.lp *::before,
+	.lp *::after {
+		box-sizing: border-box;
+	}
+	:where(.lp) :is(h1, h2, h3, p, ul, ol, figure, pre) {
+		margin: 0;
+		padding: 0;
+	}
+	:where(.lp) :is(h1, h2, h3) {
+		color: var(--ink);
+	}
+	:where(.lp) :is(ul, ol) {
+		list-style: none;
+	}
+	.lp img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+	.lp [hidden] {
+		display: none !important;
+	}
+	.lp code {
+		font-family: var(--mono);
+		font-size: 0.875em;
+	}
+	.lp button {
+		font-family: inherit;
+	}
+	.lp :focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
+	/* Theme twins of a screenshot (light by default). */
+	.lp .lp-dark {
+		display: none;
+	}
+	:root[data-theme='dark'] .lp img.lp-dark {
+		display: block;
+	}
+	:root[data-theme='dark'] .lp img.lp-light {
+		display: none;
+	}
+	.lp .lp-dark-i {
+		display: none;
+	}
+	:root[data-theme='dark'] .lp .lp-dark-i {
+		display: inline;
+	}
+
+	.lp-wrap {
+		width: min(100% - 2rem, 74rem);
+		margin-inline: auto;
+	}
+	.lp-label {
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--faint);
+	}
+	.lp-sub code,
+	.lp-cap code {
+		color: var(--ink);
+	}
+
+	/* ---------- Buttons ---------- */
+	.lp .lp-btn {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.625rem 1.125rem;
+		border-radius: 0.5rem;
+		border: 1px solid var(--line-strong);
+		background: var(--surface);
+		color: var(--ink);
+		font-size: 0.9375rem;
+		font-weight: 600;
+		text-decoration: none;
+		transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+	}
+	.lp .lp-btn:hover {
+		border-color: var(--faint);
+	}
+	.lp .lp-btn.primary {
+		background: var(--ink);
+		border-color: var(--ink);
+		color: var(--bg);
+	}
+	:root[data-theme='dark'] .lp .lp-btn.primary {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: #1c1917;
+	}
+	.lp .lp-btn.primary:hover {
+		opacity: 0.88;
+	}
+	.lp-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.625rem;
+		margin-top: 1.5rem;
+	}
+
+	/* ---------- Panels: code and terminals ---------- */
+	.lp-panel {
+		background: var(--t-bg);
+		color: var(--t-text);
+		border: 1px solid var(--t-line);
+		border-radius: 0.75rem;
+		box-shadow: var(--shadow);
+		overflow: hidden;
+	}
+	.lp-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-height: 2.25rem;
+		padding: 0 0.625rem 0 0.875rem;
+		background: var(--t-bar);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+		font-family: var(--mono);
+		font-size: 0.6875rem;
+		color: var(--t-dim);
+	}
+	.lp-dots {
+		display: inline-flex;
+		gap: 0.3125rem;
+	}
+	.lp-dots i {
+		display: block;
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 50%;
+		background: #57534e;
+	}
+	.lp-fname {
+		letter-spacing: 0.02em;
+	}
+	.lp-meta {
+		margin-left: auto;
+	}
+	.lp-meta + .lp-copy {
+		margin-left: 0;
+	}
+	.lp-panel pre {
+		overflow-x: auto;
+		padding: 1rem 1.125rem 1.125rem;
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		line-height: 1.65;
+		tab-size: 2;
+		color: var(--t-text);
+		background: none;
+		border: 0;
+	}
+	.lp-panel pre code {
+		font: inherit;
+		background: none;
+		padding: 0;
+		color: inherit;
+	}
+	.lp-code pre .s {
+		color: var(--t-str);
+	}
+	.lp-code pre .k {
+		color: var(--t-key);
+	}
+	.lp-code pre .f {
+		color: var(--t-fn);
+		font-weight: 600;
+	}
+	.lp-code pre .c {
+		color: #78716c;
+		font-style: italic;
+	}
+	.lp-ln {
+		display: block;
+		min-height: 1.7em;
+		white-space: pre;
+	}
+	.lp-panel .p {
+		color: var(--t-prompt);
+		user-select: none;
+	}
+	.lp-panel .c {
+		color: var(--t-fn);
+	}
+	.lp-term .c,
+	.lp-install .c {
+		font-weight: 600;
+	}
+	.lp-panel .d {
+		color: var(--t-dim);
+	}
+	.lp-panel .a {
+		color: var(--t-accent);
+	}
+	.lp-panel .e {
+		color: var(--t-err);
+	}
+
+	/* Copy buttons */
+	.lp .lp-copy {
+		margin-left: auto;
+		padding: 0.1875rem 0.5rem;
+		border: 1px solid rgba(255, 255, 255, 0.16);
+		border-radius: 0.375rem;
+		background: transparent;
+		color: var(--t-dim);
+		font-family: var(--mono);
+		font-size: 0.6875rem;
+		cursor: pointer;
+		white-space: nowrap;
+		transition: color 0.15s, border-color 0.15s;
+	}
+	.lp .lp-copy:hover {
+		color: var(--t-fn);
+		border-color: var(--t-dim);
+	}
+	.lp .lp-copy:focus-visible {
+		outline-color: var(--t-accent);
+	}
+
+	/* ---------- Tabs ---------- */
+	.lp-tabs {
+		display: flex;
+		gap: 0.125rem;
+		min-width: 0;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.lp-tabs::-webkit-scrollbar {
+		display: none;
+	}
+	.lp .lp-tab {
+		position: relative;
+		padding: 0.5rem 0.75rem;
+		border: 0;
+		background: none;
+		color: var(--t-dim);
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	.lp .lp-tab:hover {
+		color: var(--t-fn);
+	}
+	.lp .lp-tab[aria-selected='true'] {
+		color: var(--t-fn);
+		font-weight: 600;
+	}
+	.lp .lp-tab[aria-selected='true']::after {
+		content: '';
+		position: absolute;
+		inset: auto 0.5rem 0;
+		height: 2px;
+		background: var(--t-accent);
+	}
+	.lp .lp-tab:focus-visible {
+		outline-color: var(--t-accent);
+		outline-offset: -2px;
+	}
+	.lp .lp-planned {
+		opacity: 0.55;
+	}
+	.lp .lp-planned[aria-selected='true'] {
+		opacity: 0.9;
+	}
+	.lp-soon {
+		margin-left: 0.25rem;
+		padding: 0 0.3125rem;
+		border: 1px solid currentColor;
+		border-radius: 0.25rem;
+		font-size: 0.625rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.lp-install .lp-bar {
+		padding-left: 0.25rem;
+		min-height: 2.5rem;
+	}
+
+	/* ---------- Hero ---------- */
+	.lp-hero {
+		position: relative;
+		padding: clamp(1.75rem, 3.5vw, 2.75rem) 0 clamp(3rem, 6vw, 4.5rem);
+		border-bottom: 1px solid var(--line);
+		background-image:
+			linear-gradient(var(--grid) 1px, transparent 1px),
+			linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+		background-size: 44px 44px;
+		background-position: center top;
+	}
+	.lp-hero::after {
+		/* fade the grid out toward the bottom edge */
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(to bottom, transparent 40%, var(--bg) 100%);
+		pointer-events: none;
+	}
+	.lp-hero > .lp-wrap {
+		position: relative;
+		z-index: 1;
+	}
+	.lp-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.25rem 0.75rem;
+		border: 1px solid var(--line-strong);
+		border-radius: 999px;
+		background: var(--surface);
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		color: var(--muted);
+	}
+	.lp-dot {
+		display: inline-block;
+		width: 0.4375rem;
+		height: 0.4375rem;
+		border-radius: 50%;
+		background: var(--accent-dot);
+	}
+	.lp-hero h1 {
+		margin-top: 1rem;
+		font-size: clamp(3.25rem, 8vw, 6rem);
+		line-height: 0.98;
+		font-weight: 800;
+		letter-spacing: -0.045em;
+	}
+	.lp-hero h1 .soft {
+		color: var(--faint);
+	}
+	.lp-start {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1.75rem;
+		margin-top: clamp(1.25rem, 2.5vw, 1.75rem);
+		align-items: start;
+	}
+	.lp-lede {
+		max-width: 34rem;
+		font-size: clamp(1.0625rem, 1.5vw, 1.1875rem);
+		line-height: 1.55;
+		color: var(--muted);
+	}
+	.lp-facts {
+		margin-top: 1.25rem;
+	}
+	.lp-start-blocks {
+		display: grid;
+		gap: 0.875rem;
+		min-width: 0;
+	}
+	.lp-tabpanel pre {
+		padding-block: 0.875rem;
+	}
+	.lp-install .lp-ln {
+		min-height: 1.6em;
+	}
+	.lp-install .lp-ln,
+	.lp-install pre {
+		font-size: 0.78125rem;
+	}
+	.lp-nowin {
+		padding: 1rem 1.125rem;
+		font-size: 0.875rem;
+		line-height: 1.55;
+		color: var(--t-dim);
+	}
+	.lp-nowin p + p {
+		margin-top: 0.375rem;
+	}
+	.lp-nowin strong {
+		color: var(--t-fn);
+	}
+	.lp-nowin code {
+		color: var(--t-fn);
+	}
+	.lp-foot {
+		padding: 0.5rem 1.125rem 0.75rem;
+		border-top: 1px dashed rgba(255, 255, 255, 0.12);
+		font-size: 0.75rem;
+		line-height: 1.5;
+		color: var(--t-dim);
+	}
+	.lp-foot code {
+		color: var(--t-text);
+	}
+	.lp-prompt {
+		padding: 0.875rem 1.125rem 1rem;
+		font-family: var(--mono);
+		font-size: 0.78125rem;
+		line-height: 1.6;
+		color: var(--t-fn);
+	}
+	.lp-mcp {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.375rem 0.75rem;
+	}
+	.lp-inline-cmd {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		max-width: 100%;
+		min-width: 0;
+	}
+	.lp-inline-cmd code {
+		overflow-x: auto;
+		white-space: nowrap;
+		scrollbar-width: none;
+	}
+	.lp-inline-cmd .lp-copy {
+		margin-left: 0;
+	}
+
+	/* The code -> window pair */
+	.lp-pair {
+		display: grid;
+		grid-template-columns: minmax(0, 1.5fr) 8rem minmax(0, 0.85fr);
+		align-items: center;
+		margin-top: clamp(2.25rem, 4vw, 3.25rem);
+	}
+	.lp-bridge {
+		display: flex;
+		flex-direction: column;
+		gap: 2.25rem;
+		padding-inline: 0.75rem;
+		color: var(--faint);
+	}
+	.lp-hop {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.lp-pill {
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.25rem 0.625rem;
+		border-radius: 999px;
+		border: 1px solid var(--line-strong);
+		background: var(--surface);
+		color: var(--ink);
+		white-space: nowrap;
+	}
+	.lp-hop svg {
+		width: 100%;
+		height: 0.75rem;
+		overflow: visible;
+	}
+	.lp-hop path {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+	}
+	.lp-note {
+		font-family: var(--mono);
+		font-size: 0.6875rem;
+		color: var(--faint);
+	}
+
+	/* App windows */
+	.lp-window {
+		border-radius: 0.75rem;
+		overflow: hidden;
+		border: 1px solid var(--line-strong);
+		background: var(--surface);
+		box-shadow: var(--shadow);
+	}
+	.lp-titlebar {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		align-items: center;
+		padding: 0.5rem 0.875rem;
+		background: var(--bg-sub);
+		border-bottom: 1px solid var(--line);
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--muted);
+	}
+	.lp-titlebar .lp-dots i {
+		background: var(--line-strong);
+	}
+	.lp-titlebar-l {
+		font-family: var(--mono);
+		font-weight: 400;
+	}
+	.lp-wnote {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		justify-self: end;
+	}
+	.lp-cap {
+		padding: 0.625rem 0.875rem;
+		border-top: 1px solid var(--line);
+		font-family: var(--mono);
+		font-size: 0.6875rem;
+		line-height: 1.5;
+		color: var(--faint);
+	}
+
+	/* ---------- Sections ---------- */
+	.lp-section {
+		padding: clamp(2.75rem, 5vw, 4rem) 0;
+		border-bottom: 1px solid var(--line);
+	}
+	.lp-shead {
+		max-width: 46rem;
+		margin-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+	.lp-shead h2 {
+		margin-top: 0.75rem;
+		font-size: clamp(1.875rem, 4.2vw, 3rem);
+		line-height: 1.06;
+		font-weight: 800;
+		letter-spacing: -0.04em;
+		text-wrap: balance;
+	}
+	.lp-sub {
+		margin-top: 1rem;
+		font-size: 1.0625rem;
+		line-height: 1.55;
+		color: var(--muted);
+	}
+	.lp-cycle {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem 0.625rem;
+		margin-top: 1.5rem;
+		font-family: var(--mono);
+		font-size: 0.8125rem;
+		color: var(--muted);
+	}
+	.lp-cycle span {
+		padding: 0.1875rem 0.5rem;
+		border: 1px solid var(--line);
+		border-radius: 0.375rem;
+		background: var(--surface);
+	}
+	.lp-cycle .hit {
+		color: var(--ink);
+		border-color: var(--line-strong);
+		font-weight: 600;
+	}
+	.lp-cycle b {
+		font-weight: 400;
+		color: var(--faint);
+	}
+
+	/* ---------- Tabs of code and pixels ---------- */
+	.lp-tabs-line {
+		gap: 0.25rem;
+		border-bottom: 1px solid var(--line-strong);
+	}
+	.lp .lp-tabs-line .lp-tab {
+		padding: 0.625rem 0.875rem;
+		font-family: var(--sl-font);
+		font-size: 0.9375rem;
+		font-weight: 500;
+		color: var(--muted);
+	}
+	.lp .lp-tabs-line .lp-tab:hover {
+		color: var(--ink);
+	}
+	.lp .lp-tabs-line .lp-tab[aria-selected='true'] {
+		color: var(--ink);
+		font-weight: 600;
+	}
+	.lp .lp-tabs-line .lp-tab[aria-selected='true']::after {
+		inset: auto 0 -1px;
+		background: var(--accent);
+	}
+	.lp .lp-tabs-line .lp-tab:focus-visible {
+		outline-color: var(--accent);
+	}
+	.lp-blurb {
+		margin-top: 1.25rem;
+		font-size: 1rem;
+		line-height: 1.5;
+		color: var(--muted);
+	}
+	.lp-shape-pair {
+		display: grid;
+		grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+		gap: clamp(1.25rem, 3vw, 2.5rem);
+		align-items: center;
+		margin-top: 1.25rem;
+	}
+	.lp-shape-pair .lp-code pre {
+		font-size: 0.75rem;
+	}
+	.lp-shape-pair .lp-window {
+		width: 100%;
+	}
+
+	/* ---------- The loop ---------- */
+	.lp-loop-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
+		gap: clamp(1rem, 3vw, 2.5rem);
+		align-items: start;
+	}
+	.lp-cmds {
+		display: flex;
+		flex-direction: column;
+		border-top: 1px solid var(--line);
+	}
+	.lp .lp-cmd {
+		display: grid;
+		grid-template-columns: 2rem minmax(0, 1fr);
+		grid-template-areas:
+			'num name'
+			'. ttl';
+		gap: 0.125rem 0;
+		align-items: baseline;
+		padding: 0.875rem 0.5rem 0.875rem 0.75rem;
+		border: 0;
+		border-bottom: 1px solid var(--line);
+		border-left: 2px solid transparent;
+		background: none;
+		text-align: left;
+		cursor: pointer;
+		color: var(--muted);
+	}
+	.lp .lp-cmd:hover {
+		background: var(--bg-sub);
+	}
+	.lp .lp-cmd[aria-selected='true'] {
+		border-left-color: var(--accent);
+		background: var(--surface);
+		color: var(--ink);
+	}
+	.lp-cmd .num {
+		grid-area: num;
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		color: var(--faint);
+	}
+	.lp-cmd .name {
+		grid-area: name;
+		font-family: var(--mono);
+		font-size: 0.9375rem;
+		font-weight: 600;
+		color: var(--ink);
+	}
+	.lp-cmd .ttl {
+		grid-area: ttl;
+		font-size: 0.875rem;
+		line-height: 1.4;
+	}
+	.lp-term pre {
+		font-size: 0.8125rem;
+		line-height: 1.7;
+	}
+	.lp-term .lp-tabpanel {
+		min-height: 15.5rem;
+	}
+	.lp-result {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.25rem 1.125rem 1.125rem;
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		line-height: 1.6;
+	}
+	.lp-result img {
+		width: 7rem;
+		height: auto;
+		border-radius: 0.375rem;
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		flex: none;
+	}
+	.lp-termnote {
+		padding: 0.875rem 1.125rem 1.125rem;
+		border-top: 1px dashed rgba(255, 255, 255, 0.12);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+		color: var(--t-dim);
+	}
+	.lp-termnote b {
+		color: var(--t-fn);
+	}
+
+	/* ---------- The big window ---------- */
+	.lp-big .lp-shead {
+		margin-bottom: 1.75rem;
+	}
+
+	/* ---------- Comparison ---------- */
+	.lp-compare {
+		background: var(--bg-sub);
+	}
+	.lp-cmp-scroll {
+		overflow-x: auto;
+		border: 1px solid var(--line-strong);
+		border-radius: 0.75rem;
+		background: var(--surface);
+	}
+	.lp-cmp table {
+		width: 100%;
+		min-width: 46rem;
+		border-collapse: separate;
+		border-spacing: 0;
+		font-size: 0.9375rem;
+	}
+	.lp-cmp th,
+	.lp-cmp td {
+		padding: 0.75rem 1rem;
+		text-align: left;
+		vertical-align: top;
+		border-bottom: 1px solid var(--line);
+		line-height: 1.4;
+	}
+	.lp-cmp tbody tr:last-child th,
+	.lp-cmp tbody tr:last-child td {
+		border-bottom: 0;
+	}
+	.lp-cmp thead th {
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		color: var(--muted);
+		background: var(--bg-sub);
+		border-bottom: 1px solid var(--line-strong);
+	}
+	.lp-cmp tbody th {
+		position: sticky;
+		left: 0;
+		z-index: 1;
+		min-width: 11rem;
+		font-weight: 500;
+		color: var(--ink);
+		background: var(--surface);
+	}
+	.lp-cmp thead th:first-child {
+		position: sticky;
+		left: 0;
+		z-index: 1;
+	}
+	.lp-cmp .is-tela {
+		background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+	}
+	.lp-cmp thead .is-tela {
+		color: var(--ink);
+		background: color-mix(in srgb, var(--accent) 12%, var(--bg-sub));
+		box-shadow: inset 0 2px 0 var(--accent);
+	}
+	.lp-cmp-val {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4375rem;
+		font-weight: 500;
+		color: var(--ink);
+	}
+	.lp-cmp-mark {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.125rem;
+		height: 1.125rem;
+		border: 1px solid var(--line-strong);
+		border-radius: 50%;
+		font-size: 0.6875rem;
+		line-height: 1;
+		color: var(--muted);
+	}
+	.lp-cmp .v-yes .lp-cmp-mark {
+		color: var(--ink);
+		border-color: var(--ink);
+	}
+	.lp-cmp .v-no .lp-cmp-val,
+	.lp-cmp .v-unknown .lp-cmp-val,
+	.lp-cmp .v-planned .lp-cmp-val {
+		color: var(--muted);
+		font-weight: 400;
+	}
+	.lp-cmp .v-planned .lp-cmp-mark {
+		border-style: dashed;
+	}
+	.lp-cmp-text {
+		color: var(--ink);
+	}
+	.lp-cmp-note {
+		display: block;
+		margin-top: 0.1875rem;
+		font-size: 0.8125rem;
+		color: var(--faint);
+	}
+	/* A cell's sources: a small button that opens a popover next to it. */
+	.lp-cmp-src {
+		display: inline-block;
+		margin-top: 0.375rem;
+		padding: 0.0625rem 0.4375rem;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: none;
+		font-family: var(--mono);
+		font-size: 0.65625rem;
+		color: var(--faint);
+		cursor: pointer;
+	}
+	.lp-cmp-src:hover,
+	.lp-cmp-src:focus-visible {
+		color: var(--ink);
+		border-color: var(--line-strong);
+	}
+	.lp-cmp-pop {
+		width: min(22rem, calc(100vw - 2rem));
+		padding: 0.75rem 0.875rem;
+		border: 1px solid var(--line-strong);
+		border-radius: 0.625rem;
+		background: var(--surface);
+		color: var(--ink);
+		box-shadow: var(--shadow);
+		font-size: 0.8125rem;
+	}
+	@supports (anchor-name: --a) {
+		.lp-cmp-pop {
+			inset: auto;
+			margin: 0.375rem 0 0;
+			position-anchor: --lp-src; /* set on the clicked button by Compare.astro */
+			position-area: bottom span-right;
+			position-try-fallbacks: flip-block, flip-inline;
+		}
+	}
+	.lp-cmp-pop-h {
+		margin: 0 0 0.5rem !important;
+		font-family: var(--mono);
+		font-size: 0.6875rem;
+		color: var(--faint);
+	}
+	.lp-cmp-pop ul {
+		display: grid;
+		gap: 0.375rem;
+		margin: 0 !important;
+		padding: 0 !important;
+		list-style: none;
+	}
+	.lp-cmp-pop li {
+		display: grid;
+		grid-template-columns: 1.5rem minmax(0, 1fr);
+		margin: 0 !important;
+		overflow-wrap: anywhere;
+	}
+	.lp-cmp-pop .n {
+		font-family: var(--mono);
+		font-size: 0.6875rem;
+		color: var(--faint);
+		padding-top: 0.125rem;
+	}
+	.lp-cmp-pop a {
+		color: var(--ink);
+		text-underline-offset: 2px;
+	}
+	.lp-cmp-all {
+		margin-top: 0.75rem;
+	}
+	.lp-cmp-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0;
+		border: 0;
+		background: none;
+		cursor: pointer;
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		color: var(--muted);
+	}
+	.lp-cmp-toggle:hover {
+		color: var(--ink);
+	}
+	.lp-cmp-arrow {
+		display: inline-block;
+	}
+	.lp-cmp-toggle[aria-expanded='true'] .lp-cmp-arrow {
+		transform: rotate(90deg);
+	}
+	.lp-cmp-asof {
+		margin-top: 1rem;
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		color: var(--faint);
+	}
+	.lp-cmp-sources {
+		margin-top: 0.75rem;
+		display: grid;
+		gap: 0.25rem 2rem;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		list-style: decimal;
+		padding-left: 1.25rem !important;
+		font-size: 0.8125rem;
+		color: var(--faint);
+	}
+	.lp-cmp-sources li {
+		padding-left: 0.25rem;
+		overflow-wrap: anywhere;
+	}
+	.lp-cmp-sources a {
+		color: var(--muted);
+		text-underline-offset: 2px;
+	}
+	.lp-cmp-sources a:hover {
+		color: var(--ink);
+	}
+
+	/* ---------- Carousel of example apps ---------- */
+	.lp-car-track {
+		display: flex;
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+		background: var(--bg-sub);
+	}
+	.lp-car-track::-webkit-scrollbar {
+		display: none;
+	}
+	.lp-car-track:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: -2px;
+	}
+	.lp-car-slide {
+		flex: 0 0 100%;
+		scroll-snap-align: start;
+		aspect-ratio: 16 / 10;
+		display: grid;
+		place-items: center;
+	}
+	.lp-car-slide img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+	.lp-car-nav {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-top: 1rem;
+	}
+	.lp-car-list {
+		display: flex;
+		flex: 1;
+		gap: 0.375rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		overflow-x: auto;
+		scrollbar-width: none;
+		min-width: 0;
+	}
+	.lp-car-list li {
+		flex: 1 0 auto;
+		margin: 0;
+	}
+	.lp-car-pick {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.125rem;
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		border: 0;
+		border-top: 2px solid var(--line);
+		background: none;
+		color: var(--muted);
+		font: inherit;
+		font-size: 0.875rem;
+		text-align: left;
+		cursor: pointer;
+	}
+	.lp-car-pick b {
+		font-weight: 600;
+	}
+	.lp-car-pick code {
+		font-size: 0.6875rem;
+		color: var(--faint);
+	}
+	.lp-car-pick:hover {
+		color: var(--ink);
+	}
+	.lp-car-pick[aria-current='true'] {
+		color: var(--ink);
+		border-top-color: var(--accent);
+	}
+	.lp-car-arrow {
+		flex: none;
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 999px;
+		border: 1px solid var(--line-strong);
+		background: var(--surface);
+		color: var(--ink);
+		font-size: 1rem;
+		cursor: pointer;
+	}
+	.lp-car-arrow:hover {
+		border-color: var(--accent);
+	}
+	@media (max-width: 40rem) {
+		.lp-car-pick code {
+			display: none;
+		}
+	}
+
+	/* ---------- Call to action ---------- */
+	.lp-cta {
+		border-bottom: 0;
+		padding-bottom: 2.5rem;
+	}
+	.lp-ctabox {
+		padding: clamp(1.5rem, 5vw, 3.25rem);
+		background-image:
+			linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+		background-size: 44px 44px;
+		background-color: var(--t-bg);
+	}
+	.lp-ctabox .lp-label {
+		color: var(--t-dim);
+	}
+	.lp-ctabox h2 {
+		margin-top: 0.75rem;
+		max-width: 36rem;
+		color: #fafaf9;
+		font-size: clamp(1.875rem, 4.2vw, 3rem);
+		line-height: 1.05;
+		font-weight: 800;
+		letter-spacing: -0.04em;
+	}
+	.lp-ctalines {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 0.625rem;
+		margin-top: 1.5rem;
+		max-width: 44rem;
+	}
+	.lp-ctaline {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.25rem 0.5rem 0.25rem 0;
+		background: #0c0a09;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		border-radius: 0.5rem;
+	}
+	.lp .lp-install-line {
+		flex: 1;
+		min-width: 0;
+		overflow-x: auto;
+		padding: 0.5rem 0 0.5rem 1.125rem;
+		font-family: var(--mono);
+		font-size: 0.8125rem;
+		line-height: 1.6;
+		white-space: pre;
+		background: none;
+		border: 0;
+		scrollbar-width: none;
+	}
+	.lp .lp-agent-line {
+		color: var(--t-fn);
+	}
+	.lp-ctabox .lp-actions {
+		margin-top: 1.75rem;
+	}
+	.lp-ctabox .lp-btn.light {
+		background: #fafaf9;
+		border-color: #fafaf9;
+		color: #1c1917;
+	}
+	:root[data-theme='dark'] .lp-ctabox .lp-btn.light {
+		background: var(--accent);
+		border-color: var(--accent);
+	}
+	.lp-ctabox .lp-btn.dark {
+		background: transparent;
+		border-color: #57534e;
+		color: #fafaf9;
+	}
+	.lp-ctabox .lp-btn.dark:hover {
+		border-color: #a8a29e;
+	}
+	.lp-status {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem 0.875rem;
+		margin-top: 1.5rem;
+		font-family: var(--mono);
+		font-size: 0.75rem;
+		color: var(--faint);
+	}
+	.lp-status i {
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background: var(--line-strong);
+	}
+
+	/* ---------- Responsive ---------- */
+	@media (min-width: 64.0625rem) {
+		.lp-start {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 36rem);
+			gap: 3rem;
+		}
+	}
+	@media (max-width: 64rem) {
+		.lp-pair {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+			max-width: 40rem;
+		}
+		.lp-bridge {
+			flex-direction: row;
+			justify-content: center;
+			gap: 1.5rem;
+			padding: 1.25rem 0;
+		}
+		.lp-hop svg,
+		.lp-note {
+			display: none;
+		}
+		.lp-hop .lp-pill::before {
+			content: '↓ ';
+		}
+		.lp-pair .lp-window {
+			max-width: 28rem;
+			margin-inline: auto;
+			width: 100%;
+		}
+		.lp-shape-pair {
+			grid-template-columns: minmax(0, 1fr);
+			max-width: 40rem;
+		}
+		.lp-shape-pair .lp-window {
+			max-width: 30rem;
+			margin-inline: auto;
+		}
+		.lp-loop-grid {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 1rem;
+		}
+		.lp-cmds {
+			flex-direction: row;
+			overflow-x: auto;
+			border-top: 0;
+			border-bottom: 1px solid var(--line);
+			scrollbar-width: none;
+		}
+		.lp .lp-cmd {
+			grid-template-columns: auto auto;
+			grid-template-areas: 'num name';
+			gap: 0 0.5rem;
+			flex: none;
+			padding: 0.625rem 0.875rem;
+			border-bottom: 2px solid transparent;
+			border-left: 0;
+		}
+		.lp .lp-cmd[aria-selected='true'] {
+			border-bottom-color: var(--accent);
+			background: none;
+		}
+		.lp-cmd .ttl {
+			display: none;
+		}
+	}
+	@media (max-width: 40rem) {
+		.lp-wnote {
+			display: none;
+		}
+		.lp-panel pre {
+			font-size: 0.71875rem;
+		}
+		.lp-term pre {
+			font-size: 0.71875rem;
+		}
+		.lp-install pre,
+		.lp-install .lp-ln {
+			font-size: 0.71875rem;
+		}
+		.lp-cmp-sources {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.lp-term .lp-tabpanel {
+			min-height: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.lp *,
+		.lp *::before,
+		.lp *::after {
+			transition: none !important;
+			animation: none !important;
+		}
+	}
+</style>

@@ -1,0 +1,38 @@
+---
+// A code panel: a bar with three dots, the file name, the line count and a
+// Copy button (wired by the script of pages/index.astro), above the
+// highlighted Go source. The rules live in pages/index.astro (.lp-panel,
+// .lp-code).
+interface Props {
+	file: string;
+	src: string;
+}
+const { file, src } = Astro.props;
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// A small Go highlighter: comments, strings, keywords and capitalized calls (Div, Class, UseState...).
+function highlight(src: string): string {
+	const re =
+		/(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*"|`[^`]*`)|\b(package|import|func|return|var|const|type|range)\b|\b([A-Z][A-Za-z0-9]*)(?=[({\[])/g;
+	let out = '';
+	let last = 0;
+	for (const m of src.matchAll(re)) {
+		out += esc(src.slice(last, m.index));
+		const cls = m[1] ? 'c' : m[2] ? 's' : m[3] ? 'k' : 'f';
+		out += `<span class="${cls}">${esc(m[0])}</span>`;
+		last = m.index! + m[0].length;
+	}
+	return out + esc(src.slice(last));
+}
+const lineCount = (s: string) => s.replace(/\n$/, '').split('\n').length;
+---
+
+<figure class="lp-panel lp-code" data-copy-scope>
+	<figcaption class="lp-bar">
+		<span class="lp-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+		<span class="lp-fname">{file}</span>
+		<span class="lp-meta">{lineCount(src)} lines</span>
+		<button class="lp-copy lp-copy-s" type="button" data-copy={src}>Copy</button>
+	</figcaption>
+	<pre><code set:html={highlight(src)} /></pre>
+</figure>

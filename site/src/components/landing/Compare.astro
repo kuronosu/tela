@@ -1,0 +1,163 @@
+---
+// The comparison table, built from src/data/compare.json:
+// { asOf, columns: [names], rows: [{ label, cells: [{ v, note, src: [ids] }] }], sources: [{ id, title, url }] }
+// A value is always a word plus a quiet mark, never a colored icon alone.
+// For v = "text" the cell shows its `note` as its content.
+import data from '../../data/compare.json';
+
+interface Cell {
+	v: 'yes' | 'no' | 'partial' | 'planned' | 'unknown' | 'text';
+	note?: string;
+	src?: string[];
+}
+
+const { asOf, columns, rows, sources } = data as {
+	asOf: string;
+	columns: string[];
+	rows: { label: string; cells: Cell[] }[];
+	sources: { id: string; title: string; url: string }[];
+};
+
+const words: Record<string, string> = { yes: 'Yes', no: 'No', partial: 'Partial', planned: 'Planned', unknown: 'Unknown' };
+const marks: Record<string, string> = { yes: '✓', no: '✕', partial: '◐', planned: '◌', unknown: '?' };
+const sourceById = new Map(sources.map((s, i) => [s.id, { ...s, n: i + 1 }]));
+const sourceLabel = (count: number) => (count === 1 ? 'Source' : `${count} sources`);
+const tela = columns.findIndex((c) => c.toLowerCase() === 'tela');
+const others = columns.filter((_, i) => i !== tela);
+const tableLabel = `Comparison of ${columns[tela]} with ${others.slice(0, -1).join(', ')} and ${others.at(-1)}`;
+---
+
+<div class="lp-cmp">
+	<div class="lp-cmp-scroll" tabindex="0" role="region" aria-label={tableLabel}>
+		<table>
+			<thead>
+				<tr>
+					<th scope="col"><span class="sr-only">Feature</span></th>
+					{columns.map((c, i) => <th scope="col" class={i === tela ? 'is-tela' : ''}>{c}</th>)}
+				</tr>
+			</thead>
+			<tbody>
+				{
+					rows.map((r) => (
+						<tr>
+							<th scope="row">{r.label}</th>
+							{r.cells.map((c, i) => {
+								const label = sourceLabel(c.src?.length ?? 0);
+								return (
+									<td class={`${i === tela ? 'is-tela ' : ''}v-${c.v}`}>
+										{c.v === 'text' ? (
+											<span class="lp-cmp-text">{c.note}</span>
+										) : (
+											<span class="lp-cmp-val">
+												<span class="lp-cmp-mark" aria-hidden="true">{marks[c.v]}</span>
+												<span>{words[c.v]}</span>
+											</span>
+										)}
+										{c.note && c.v !== 'text' && <span class="lp-cmp-note">{c.note}</span>}
+										{c.src && c.src.length > 0 && (
+											<button
+												type="button"
+												class="lp-cmp-src"
+												popovertarget="lp-pop"
+												data-src={c.src.map((id) => sourceById.get(id)?.n).filter(Boolean).join(' ')}
+												aria-label={`${label} for ${columns[i]}, ${r.label}`}
+											>
+												{label}
+											</button>
+										)}
+									</td>
+								);
+							})}
+						</tr>
+					))
+				}
+			</tbody>
+		</table>
+	</div>
+	<!-- One popover for every cell: the script below fills it with the cell's sources
+	     (cloned from the full list) and anchors it to the button that was clicked. -->
+	<div popover id="lp-pop" class="lp-cmp-pop">
+		<p class="lp-cmp-pop-h"></p>
+		<ul></ul>
+	</div>
+	<p class="lp-cmp-asof">As of {asOf}. Pre-1.0 and written by the Tela project: check the sources, and tell us what is out of date.</p>
+	{
+		sources.length > 0 && (
+			<div class="lp-cmp-all">
+				<button type="button" class="lp-cmp-toggle" aria-expanded="false" aria-controls="lp-cmp-list" data-cmp-toggle>
+					<span class="lp-cmp-arrow" aria-hidden="true">▸</span>
+					All {sources.length} sources
+				</button>
+				<ol class="lp-cmp-sources" id="lp-cmp-list" hidden>
+					{sources.map((s, i) => (
+						<li id={`lp-src-${i + 1}`}>
+							<a href={s.url} rel="noopener">{s.title}</a>
+						</li>
+					))}
+				</ol>
+			</div>
+		)
+	}
+</div>
+
+<noscript>
+	<style is:inline>
+		/* Without JavaScript the cell buttons have nothing to open and the toggle
+		   cannot run: show the full source list instead. */
+		.lp .lp-cmp-src,
+		.lp .lp-cmp-toggle {
+			display: none;
+		}
+		.lp .lp-cmp-sources[hidden] {
+			display: grid !important;
+		}
+	</style>
+</noscript>
+
+<script>
+	// The full source list starts collapsed.
+	document.querySelectorAll<HTMLButtonElement>('[data-cmp-toggle]').forEach((b) => {
+		b.addEventListener('click', () => {
+			const list = document.getElementById(b.getAttribute('aria-controls') ?? '');
+			const open = b.getAttribute('aria-expanded') !== 'true';
+			b.setAttribute('aria-expanded', String(open));
+			if (list) list.hidden = !open;
+		});
+	});
+
+	// The shared popover. A cell button carries its source numbers in data-src and
+	// opens the popover natively (popovertarget); this runs first, fills it from the
+	// full list (each source exists once in the HTML) and moves the anchor to the
+	// button (an open popover moves to another button). The popover's position-anchor is --lp-src in the page's CSS.
+	const pop = document.getElementById('lp-pop');
+	let anchored: HTMLElement | null = null;
+	document.querySelectorAll<HTMLButtonElement>('.lp-cmp-src[data-src]').forEach((b) => {
+		b.addEventListener('click', (e) => {
+			if (!pop) return;
+			// Every button is an invoker of the same popover, so the browser would not
+			// light-dismiss it for a click on another one but toggle it closed. Keep it
+			// open and move it instead.
+			if (pop.matches(':popover-open') && anchored !== b) e.preventDefault();
+			const cell = b.closest('td');
+			const table = b.closest('table');
+			const row = cell?.parentElement?.querySelector('th[scope="row"]')?.textContent?.trim();
+			const col = cell && table?.tHead?.rows[0]?.cells[cell.cellIndex]?.textContent?.trim();
+			pop.querySelector('.lp-cmp-pop-h')!.textContent = `${col} · ${row}`;
+			const items = (b.dataset.src ?? '').split(' ').flatMap((n) => {
+				const li = document.getElementById(`lp-src-${n}`)?.cloneNode(true) as HTMLLIElement | undefined;
+				if (!li) return [];
+				li.removeAttribute('id');
+				li.querySelector('a')?.setAttribute('target', '_blank');
+				const num = document.createElement('span');
+				num.className = 'n';
+				num.textContent = n;
+				li.prepend(num);
+				return [li];
+			});
+			pop.querySelector('ul')!.replaceChildren(...items);
+			anchored?.style.removeProperty('anchor-name');
+			b.style.setProperty('anchor-name', '--lp-src');
+			anchored = b;
+		});
+	});
+</script>

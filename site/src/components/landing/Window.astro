@@ -1,0 +1,23 @@
+---
+// An app window: a title bar (three dots, a centred title) around the slot.
+// The "end" slot fills the right of the title bar; `mono` sets the title in
+// the monospace face. The rules live in pages/index.astro (.lp-window,
+// .lp-titlebar).
+interface Props {
+	title: string;
+	mono?: boolean;
+	class?: string;
+	/** Extra attributes for the title element (the carousel updates it). */
+	titleAttrs?: Record<string, string>;
+}
+const { title, mono = false, class: className, titleAttrs = {} } = Astro.props;
+---
+
+<figure class:list={['lp-window', className]}>
+	<div class:list={['lp-titlebar', { 'lp-titlebar-l': mono }]}>
+		<span class="lp-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+		<span class="lp-wtitle" {...titleAttrs}>{title}</span>
+		<slot name="end" />
+	</div>
+	<slot />
+</figure>

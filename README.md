@@ -1,4 +1,9 @@
-<h1 align="center">Tela</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/src/assets/brand/tela-lockup-dark.svg">
+    <img src="site/src/assets/brand/tela-lockup-light.svg" alt="Tela" width="200">
+  </picture>
+</p>
 
 <p align="center">
   <a href="https://pkg.go.dev/github.com/kuronosu/tela"><img src="https://pkg.go.dev/badge/github.com/kuronosu/tela.svg" alt="Go Reference"></a>
@@ -22,7 +27,7 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.10.0).** Phases 1–10 are done and tagged: Linux
+> **Status: pre-1.0 (v0.12.6).** Phases 1–12 are done and tagged: Linux
 > (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
@@ -145,7 +150,8 @@ The `inspect` output for the counter is what a screen reader, a test or an
 agent sees:
 
 ```yaml
-- 'heading "Count: 0" [level=1]'
+- text: COUNT
+- heading "0" [level=1]
 - button "Increment"
 ```
 
@@ -360,7 +366,7 @@ from it) and the common mistakes, with every code block checked against the curr
 
 ## Project status
 
-**Current version: [v0.10.0](CHANGELOG.md)**, tagged 2026-10-25. Phases 1–10
+**Current version: [v0.12.6](CHANGELOG.md)**, tagged 2026-10-29. Phases 1–12
 are done.
 
 | Phase | Name | State |
@@ -376,8 +382,8 @@ are done.
 | 9 | Dev loop: `tela dev`, a reload that keeps state | ✅ v0.9.0 |
 | 10 | `kit`: ready-made components on the theme tokens, restyled with recipes | ✅ v0.10.0 |
 | 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | ✅ v0.11.0 |
-| 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | next |
-| 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | planned |
+| 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | ✅ v0.12.0 |
+| 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | next |
 | 14 | macOS and IME on X11 | planned |
 | 15–20 | Accessibility backends, GPU backend, packaging and auto-update, DevTools, canvas and PDF, audio and video | planned |
 

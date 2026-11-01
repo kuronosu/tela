@@ -1,5 +1,6 @@
-/* Tela's look: the calm Tailwind stone palette and Inter, like examples/hello.
-   Placeholder until the landing page goes through a design review. */
+/* Tela's look for the whole site: the calm Tailwind stone palette and Inter,
+   like examples/hello. The landing page (src/pages/index.astro) shares the page,
+   nav and hairline colours below and aliases its own tokens to Starlight's. */
 
 :root {
 	--sl-font: 'Inter Variable', system-ui, sans-serif;
@@ -17,6 +18,12 @@
 	--sl-color-accent-low: #292524; /* stone-800 */
 	--sl-color-accent: #78716c; /* stone-500 */
 	--sl-color-accent-high: #e7e5e4; /* stone-200 */
+
+	/* Page, header and hairlines: stone-950, with graphite rules. */
+	--sl-color-bg: #0c0a09; /* stone-950 */
+	--sl-color-bg-nav: #0c0a09;
+	--sl-color-bg-sidebar: #0c0a09;
+	--sl-color-hairline-shade: #292524; /* stone-800 */
 }
 
 :root[data-theme='light'] {
@@ -33,9 +40,15 @@
 	--sl-color-accent-high: #1c1917; /* stone-900 */
 	--sl-color-accent: #292524; /* stone-800 */
 	--sl-color-accent-low: #e7e5e4; /* stone-200 */
+
+	/* Page, header and hairlines: stone-50, with stone-200 rules. */
+	--sl-color-bg: #fafaf9; /* stone-50 */
+	--sl-color-bg-nav: #fafaf9;
+	--sl-color-bg-sidebar: #fafaf9;
+	--sl-color-hairline-shade: #e7e5e4; /* stone-200 */
 }
 
-/* Big, bold type like the hello example. */
+/* Big, bold type like the hello example (Starlight's 404 page uses .hero). */
 .hero h1 {
 	font-weight: 800;
 	letter-spacing: -0.04em;
@@ -47,20 +60,4 @@ h1,
 h2,
 h3 {
 	letter-spacing: -0.02em;
-}
-
-/* The screenshot under the hero (index.mdx). */
-.landing-shot {
-	display: block;
-	width: 100%;
-	height: auto;
-	margin: 0 auto 3rem;
-	border-radius: 0.75rem;
-	border: 1px solid var(--sl-color-gray-5);
-}
-
-/* Calm cards: one neutral color instead of Starlight's rainbow. */
-.card {
-	--sl-card-border: var(--sl-color-gray-5) !important;
-	--sl-card-bg: var(--sl-color-gray-6) !important;
 }

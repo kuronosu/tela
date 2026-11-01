@@ -1,0 +1,50 @@
+---
+// The docs header's title (overrides Starlight's SiteTitle). The logo is the
+// large mark redrawn on whole pixels for the two sizes Starlight's header uses,
+// 32 px and 40 px from 50rem, so its square holes stay square (ADR-207).
+// Markup and styles otherwise follow Starlight's own component.
+import mark32 from '../assets/brand/tela-mark-header-32.svg?url&no-inline';
+import mark40 from '../assets/brand/tela-mark-header-40.svg?url&no-inline';
+const { siteTitle, siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="site-title sl-flex">
+	<picture>
+		<source media="(min-width: 50rem)" srcset={mark40} width="40" height="40" />
+		<img src={mark32} width="32" height="32" alt="" />
+	</picture>
+	<span translate="no">{siteTitle}</span>
+</a>
+
+<style>
+	@layer starlight.core {
+		.site-title {
+			align-items: center;
+			gap: var(--sl-nav-gap);
+			font-size: var(--sl-text-h4);
+			font-weight: 600;
+			color: var(--sl-color-text-accent);
+			text-decoration: none;
+			white-space: nowrap;
+			min-width: 0;
+		}
+		span {
+			overflow: hidden;
+		}
+		picture {
+			display: flex;
+			flex: none;
+		}
+		/* Exact pixel sizes: the drawings are made for them. */
+		img {
+			width: 32px;
+			height: 32px;
+		}
+		@media (min-width: 50rem) {
+			img {
+				width: 40px;
+				height: 40px;
+			}
+		}
+	}
+</style>

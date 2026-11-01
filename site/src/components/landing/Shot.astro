@@ -1,0 +1,29 @@
+---
+// A screenshot with an optional dark variant: both are rendered, CSS shows
+// the one that matches the theme (Starlight's data-theme). The rules live in
+// pages/index.astro (.lp-light, .lp-dark). Always lazy: every caller is below
+// the first viewport.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+	src: ImageMetadata;
+	dark?: ImageMetadata;
+	alt: string;
+	widths: number[];
+	sizes: string;
+}
+const { src, dark, alt, widths, sizes } = Astro.props;
+const shared = { alt, widths, sizes, loading: 'lazy' } as const;
+---
+
+{
+	dark ? (
+		<>
+			<Image src={src} {...shared} class="lp-light" />
+			<Image src={dark} {...shared} class="lp-dark" />
+		</>
+	) : (
+		<Image src={src} {...shared} />
+	)
+}

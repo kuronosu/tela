@@ -3,7 +3,7 @@
 // sync first. Generated files are gitignored.
 //
 // The source directory is $TELA_DOCS_DIR, or ../docs relative to site/. It
-// holds wiki/ (the pages) and images/ (the screenshots).
+// holds wiki/ (the pages), images/ (the screenshots) and llms.txt (served at /llms.txt).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 const siteDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pagesDir = path.join(siteDir, 'src/content/docs/docs');
 const assetsDir = path.join(siteDir, 'src/assets/wiki');
+const publicDir = path.join(siteDir, 'public');
 
 const REPO = 'https://github.com/kuronosu/tela';
 const RAW_IMAGES = 'https://raw.githubusercontent.com/kuronosu/tela/main/docs/images/';
@@ -137,6 +138,11 @@ export function syncWiki() {
 	}
 	prune(assetsDir, keepAssets);
 
+	// llms.txt, the guide for coding agents, served at /llms.txt.
+	const llms = path.join(src, 'llms.txt');
+	if (fs.existsSync(llms)) writeIfChanged(path.join(publicDir, 'llms.txt'), fs.readFileSync(llms));
+	else console.warn(`sync-wiki: warning: ${llms} does not exist; /llms.txt will not be served`);
+
 	// Pages.
 	const keepPages = new Set();
 	const problems = [];
@@ -246,7 +252,7 @@ function parseSidebar(file, known, problems) {
 	return { sidebar: sidebar.map((e) => (e.items ? { label: e.label, items: e.items } : e)), listed };
 }
 
-/** Astro integration: re-syncs in dev when the source wiki or images change. */
+/** Astro integration: re-syncs in dev when the source wiki, images or llms.txt change. */
 export function wikiWatcher() {
 	return {
 		name: 'tela-wiki-watcher',
@@ -254,10 +260,12 @@ export function wikiWatcher() {
 			'astro:server:setup': ({ server, logger }) => {
 				const src = docsDir();
 				const dirs = [path.join(src, 'wiki'), path.join(src, 'images')];
-				server.watcher.add(dirs);
+				const llms = path.join(src, 'llms.txt');
+				server.watcher.add([...dirs, llms]);
 				let timer;
 				const onChange = (file) => {
-					if (!dirs.some((d) => path.resolve(file).startsWith(d + path.sep))) return;
+					const f = path.resolve(file);
+					if (f !== llms && !dirs.some((d) => f.startsWith(d + path.sep))) return;
 					clearTimeout(timer);
 					timer = setTimeout(() => {
 						try {

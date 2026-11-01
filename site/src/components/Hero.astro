@@ -1,0 +1,18 @@
+---
+// Overrides Starlight's Hero (ADR-207). A page with a `hero` in its frontmatter
+// gets this instead of the page title, and Starlight sets html[data-has-hero].
+// The landing page draws its own first viewport (and its own h1, #_top), so it
+// renders nothing here; every other hero page, such as the 404, gets Starlight's
+// Hero unchanged.
+import DefaultHero from '@astrojs/starlight/components/Hero.astro';
+
+const isLanding = Astro.url.pathname === '/';
+---
+
+{
+	isLanding ? null : (
+		<DefaultHero {...Astro.props}>
+			<slot />
+		</DefaultHero>
+	)
+}

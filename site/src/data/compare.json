@@ -1,0 +1,848 @@
+{
+  "asOf": "2026-10-31",
+  "columns": [
+    "Tela",
+    "Fyne",
+    "Gio",
+    "Wails",
+    "Electron"
+  ],
+  "rows": [
+    {
+      "label": "How the UI is written",
+      "cells": [
+        {
+          "v": "text",
+          "note": "Go: components and hooks, Tailwind class strings",
+          "src": []
+        },
+        {
+          "v": "text",
+          "note": "Go: widget objects in containers",
+          "src": [
+            1
+          ]
+        },
+        {
+          "v": "text",
+          "note": "Go: immediate-mode layout code",
+          "src": [
+            11,
+            16
+          ]
+        },
+        {
+          "v": "text",
+          "note": "HTML, CSS, JS frontend; Go backend",
+          "src": [
+            23
+          ]
+        },
+        {
+          "v": "text",
+          "note": "HTML, CSS, JS; Node.js main process",
+          "src": [
+            31
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Builds without cgo or a C toolchain",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "Pure Go, CGO_ENABLED=0 on every platform",
+          "src": []
+        },
+        {
+          "v": "no",
+          "note": "C compiler on every platform (MSYS2 on Windows)",
+          "src": [
+            1,
+            2
+          ]
+        },
+        {
+          "v": "partial",
+          "note": "cgo on Linux and macOS; none on Windows",
+          "src": [
+            12,
+            14,
+            15
+          ]
+        },
+        {
+          "v": "partial",
+          "note": "cgo on Linux and macOS; none on Windows",
+          "src": [
+            24
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Prebuilt binaries; native Node modules need compiling",
+          "src": [
+            32,
+            33
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Draws without a web engine",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "Own rasterizer, no webview",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "No web runtime, no JavaScript",
+          "src": [
+            3
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Own GPU vector renderer",
+          "src": [
+            11
+          ]
+        },
+        {
+          "v": "no",
+          "note": "System webview: WebView2, WebKit, WebKitGTK",
+          "src": [
+            23,
+            46
+          ]
+        },
+        {
+          "v": "no",
+          "note": "Bundles Chromium and Node.js",
+          "src": [
+            31
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Tailwind classes",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "Natively: Tailwind v4 class strings in Go",
+          "src": []
+        },
+        {
+          "v": "no",
+          "note": "Styled through a Go theme interface",
+          "src": [
+            4
+          ]
+        },
+        {
+          "v": "no",
+          "note": "Styled through Go theme structs (material)",
+          "src": [
+            17
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Via the web frontend; community Tailwind templates",
+          "src": [
+            25,
+            35
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Via the web frontend",
+          "src": [
+            31,
+            35
+          ]
+        }
+      ]
+    },
+    {
+      "label": "React-style components and hooks",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "Natively: function/struct components, UseState, UseEffect",
+          "src": []
+        },
+        {
+          "v": "no",
+          "note": "Retained widgets, updated by setters or data binding",
+          "src": [
+            1,
+            5
+          ]
+        },
+        {
+          "v": "no",
+          "note": "Immediate mode: UI redrawn from program state",
+          "src": [
+            16
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Via React in the webview (official template)",
+          "src": [
+            22
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Via React in the renderer (Forge guide)",
+          "src": [
+            36
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Renders headless to images for tests",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "tela snapshot, telatest goldens; no display needed",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "test.AssertRendersToImage with the software painter",
+          "src": [
+            6
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "gpu/headless Screenshot; needs a GPU API",
+          "src": [
+            18
+          ]
+        },
+        {
+          "v": "no",
+          "note": "No pixel capture; e2e guide uses Playwright",
+          "src": [
+            26,
+            27
+          ]
+        },
+        {
+          "v": "partial",
+          "note": "Offscreen rendering to bitmaps; CI needs a display (Xvfb)",
+          "src": [
+            37,
+            38
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Built-in tooling for AI agents",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "tela mcp server; tela inspect aria snapshot",
+          "src": []
+        },
+        {
+          "v": "no",
+          "note": "None found in docs or repo",
+          "src": [
+            1,
+            3
+          ]
+        },
+        {
+          "v": "no",
+          "note": "None found in docs or repo",
+          "src": [
+            11,
+            19
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Built-in MCP server (experimental, mcp build tag)",
+          "src": [
+            22,
+            27
+          ]
+        },
+        {
+          "v": "no",
+          "note": "None official; third-party MCP servers exist",
+          "src": [
+            31,
+            41
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Linux",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "Wayland and X11",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "X11; Wayland picked by default since 2.8",
+          "src": [
+            2,
+            8
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Wayland and X11",
+          "src": [
+            11,
+            13
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "GTK4 and WebKitGTK 6.0",
+          "src": [
+            23
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "x64 and arm64 binaries",
+          "src": [
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Windows",
+      "cells": [
+        {
+          "v": "yes",
+          "note": "Win32 through syscall, no cgo",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "Needs a MinGW toolchain",
+          "src": [
+            2,
+            3
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "No C compiler needed",
+          "src": [
+            12
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Needs the WebView2 runtime",
+          "src": [
+            23
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Windows 10 and up",
+          "src": [
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "label": "macOS",
+      "cells": [
+        {
+          "v": "planned",
+          "note": "Phase 14, Cocoa without cgo",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "Needs Xcode command line tools",
+          "src": [
+            2,
+            3
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Needs Xcode",
+          "src": [
+            11,
+            47
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Intel and Apple Silicon",
+          "src": [
+            23,
+            30,
+            46
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "Ventura and up",
+          "src": [
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Mobile (iOS, Android)",
+      "cells": [
+        {
+          "v": "no",
+          "note": "Deferred, not scheduled",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "iOS and Android",
+          "src": [
+            1,
+            3
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "iOS and Android",
+          "src": [
+            11,
+            12
+          ]
+        },
+        {
+          "v": "partial",
+          "note": "iOS and Android, experimental",
+          "src": [
+            23,
+            28,
+            30
+          ]
+        },
+        {
+          "v": "no",
+          "note": "Desktop only",
+          "src": [
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Web",
+      "cells": [
+        {
+          "v": "no",
+          "note": "Deferred, not scheduled",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "WebAssembly; docs list file dialog gaps",
+          "src": [
+            7
+          ]
+        },
+        {
+          "v": "partial",
+          "note": "WebAssembly, marked experimental",
+          "src": [
+            11,
+            19
+          ]
+        },
+        {
+          "v": "partial",
+          "note": "Server build serves it to browsers; no native APIs",
+          "src": [
+            23,
+            29
+          ]
+        },
+        {
+          "v": "no",
+          "note": "Desktop only",
+          "src": [
+            34
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Screen reader support today",
+      "cells": [
+        {
+          "v": "planned",
+          "note": "Phase 15: AT-SPI, UI Automation, NSAccessibility",
+          "src": []
+        },
+        {
+          "v": "partial",
+          "note": "Experimental opt-in tag; macOS, Windows, mobile, not Linux",
+          "src": [
+            8,
+            9
+          ]
+        },
+        {
+          "v": "partial",
+          "note": "io/semantic; only Android (TalkBack) implements it",
+          "src": [
+            20,
+            21
+          ]
+        },
+        {
+          "v": "unknown",
+          "note": "Not documented; depends on the system webview",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "Chromium accessibility; e.g. JAWS, VoiceOver",
+          "src": [
+            39
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Stable 1.0+ release",
+      "cells": [
+        {
+          "v": "no",
+          "note": "v0.12.6, pre-1.0; API may still break",
+          "src": []
+        },
+        {
+          "v": "yes",
+          "note": "v2.8.2",
+          "src": [
+            10
+          ]
+        },
+        {
+          "v": "no",
+          "note": "v0.10.3, pre-1.0; minor versions may break API",
+          "src": [
+            19
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "v3.0.0 (Oct 26, 2026); mobile not yet stable",
+          "src": [
+            22,
+            30
+          ]
+        },
+        {
+          "v": "yes",
+          "note": "v45.2.1",
+          "src": [
+            40
+          ]
+        }
+      ]
+    },
+    {
+      "label": "License",
+      "cells": [
+        {
+          "v": "text",
+          "note": "BSD 3-Clause",
+          "src": []
+        },
+        {
+          "v": "text",
+          "note": "BSD 3-Clause",
+          "src": [
+            42
+          ]
+        },
+        {
+          "v": "text",
+          "note": "MIT or Unlicense",
+          "src": [
+            43
+          ]
+        },
+        {
+          "v": "text",
+          "note": "MIT",
+          "src": [
+            44
+          ]
+        },
+        {
+          "v": "text",
+          "note": "MIT",
+          "src": [
+            45
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": 1,
+      "title": "Fyne README (v2.8.2)",
+      "url": "https://github.com/fyne-io/fyne/blob/v2.8.2/README.md"
+    },
+    {
+      "id": 2,
+      "title": "Fyne docs: Quick start (prerequisites)",
+      "url": "https://docs.fyne.io/started/quick/"
+    },
+    {
+      "id": 3,
+      "title": "Fyne website",
+      "url": "https://fyne.io/"
+    },
+    {
+      "id": 4,
+      "title": "Fyne docs: Custom theme",
+      "url": "https://docs.fyne.io/extend/custom-theme/"
+    },
+    {
+      "id": 5,
+      "title": "Fyne docs: Data binding",
+      "url": "https://docs.fyne.io/binding/data/"
+    },
+    {
+      "id": 6,
+      "title": "Fyne source: test/test_helper.go (v2.8.2)",
+      "url": "https://github.com/fyne-io/fyne/blob/v2.8.2/test/test_helper.go"
+    },
+    {
+      "id": 7,
+      "title": "Fyne docs: Run in a browser",
+      "url": "https://docs.fyne.io/started/webapp/"
+    },
+    {
+      "id": 8,
+      "title": "Fyne v2.8.0 release notes",
+      "url": "https://github.com/fyne-io/fyne/releases/tag/v2.8.0"
+    },
+    {
+      "id": 9,
+      "title": "Fyne source: glfw/accessibility_notdarwin.go (v2.8.2)",
+      "url": "https://github.com/fyne-io/fyne/blob/v2.8.2/internal/driver/glfw/accessibility_notdarwin.go"
+    },
+    {
+      "id": 10,
+      "title": "Fyne v2.8.2 release",
+      "url": "https://github.com/fyne-io/fyne/releases/tag/v2.8.2"
+    },
+    {
+      "id": 11,
+      "title": "Gio website",
+      "url": "https://gioui.org/"
+    },
+    {
+      "id": 12,
+      "title": "Gio docs: Install",
+      "url": "https://gioui.org/doc/install"
+    },
+    {
+      "id": 13,
+      "title": "Gio docs: Install on Linux",
+      "url": "https://gioui.org/doc/install/linux"
+    },
+    {
+      "id": 14,
+      "title": "Gio source: app/os_wayland.go (v0.10.3)",
+      "url": "https://github.com/gioui/gio/blob/v0.10.3/app/os_wayland.go"
+    },
+    {
+      "id": 15,
+      "title": "Gio source: app/os_macos.go (v0.10.3)",
+      "url": "https://github.com/gioui/gio/blob/v0.10.3/app/os_macos.go"
+    },
+    {
+      "id": 16,
+      "title": "Gio docs: Architecture",
+      "url": "https://gioui.org/doc/architecture"
+    },
+    {
+      "id": 17,
+      "title": "Gio docs: Theme",
+      "url": "https://gioui.org/doc/architecture/theme"
+    },
+    {
+      "id": 18,
+      "title": "Gio source: gpu/headless/headless.go (v0.10.3)",
+      "url": "https://github.com/gioui/gio/blob/v0.10.3/gpu/headless/headless.go"
+    },
+    {
+      "id": 19,
+      "title": "Gio README (v0.10.3)",
+      "url": "https://github.com/gioui/gio/blob/v0.10.3/README.md"
+    },
+    {
+      "id": 20,
+      "title": "Gio source: io/semantic/semantic.go (v0.10.3)",
+      "url": "https://github.com/gioui/gio/blob/v0.10.3/io/semantic/semantic.go"
+    },
+    {
+      "id": 21,
+      "title": "Gio source: app/GioView.java (v0.10.3)",
+      "url": "https://github.com/gioui/gio/blob/v0.10.3/app/GioView.java"
+    },
+    {
+      "id": 22,
+      "title": "Wails v3.0.0 release notes",
+      "url": "https://github.com/wailsapp/wails/releases/tag/v3.0.0"
+    },
+    {
+      "id": 23,
+      "title": "Wails v3 docs: FAQ",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/faq.md"
+    },
+    {
+      "id": 24,
+      "title": "Wails v3 docs: Cross-platform builds",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/guides/build/cross-platform.md"
+    },
+    {
+      "id": 25,
+      "title": "Wails v3 docs: Community templates",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/community/templates.md"
+    },
+    {
+      "id": 26,
+      "title": "Wails v3 docs: End-to-end testing",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/guides/e2e-testing.md"
+    },
+    {
+      "id": 27,
+      "title": "Wails v3 docs: LLM control (MCP)",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/guides/mcp-service.md"
+    },
+    {
+      "id": 28,
+      "title": "Wails v3 docs: Mobile overview",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/guides/mobile/index.md"
+    },
+    {
+      "id": 29,
+      "title": "Wails v3 docs: Server build",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/guides/server-build.md"
+    },
+    {
+      "id": 30,
+      "title": "Wails v3 docs: Roadmap and status",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/status.md"
+    },
+    {
+      "id": 31,
+      "title": "Electron docs: What is Electron?",
+      "url": "https://www.electronjs.org/docs/latest/"
+    },
+    {
+      "id": 32,
+      "title": "Electron docs: Installation",
+      "url": "https://www.electronjs.org/docs/latest/tutorial/installation"
+    },
+    {
+      "id": 33,
+      "title": "Electron docs: Native Node modules",
+      "url": "https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules"
+    },
+    {
+      "id": 34,
+      "title": "Electron README: Platform support (v45.2.1)",
+      "url": "https://github.com/electron/electron/blob/v45.2.1/README.md"
+    },
+    {
+      "id": 35,
+      "title": "Tailwind CSS docs: Installing with Vite",
+      "url": "https://tailwindcss.com/docs/installation/using-vite"
+    },
+    {
+      "id": 36,
+      "title": "Electron Forge docs: React",
+      "url": "https://www.electronforge.io/guides/framework-integration/react"
+    },
+    {
+      "id": 37,
+      "title": "Electron docs: Offscreen rendering",
+      "url": "https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering"
+    },
+    {
+      "id": 38,
+      "title": "Electron docs: Testing on headless CI",
+      "url": "https://www.electronjs.org/docs/latest/tutorial/testing-on-headless-ci"
+    },
+    {
+      "id": 39,
+      "title": "Electron docs: Accessibility",
+      "url": "https://www.electronjs.org/docs/latest/tutorial/accessibility"
+    },
+    {
+      "id": 40,
+      "title": "Electron v45.2.1 release",
+      "url": "https://github.com/electron/electron/releases/tag/v45.2.1"
+    },
+    {
+      "id": 41,
+      "title": "electron-mcp-server (third-party)",
+      "url": "https://github.com/halilural/electron-mcp-server"
+    },
+    {
+      "id": 42,
+      "title": "Fyne LICENSE",
+      "url": "https://github.com/fyne-io/fyne/blob/v2.8.2/LICENSE"
+    },
+    {
+      "id": 43,
+      "title": "Gio LICENSE",
+      "url": "https://github.com/gioui/gio/blob/v0.10.3/LICENSE"
+    },
+    {
+      "id": 44,
+      "title": "Wails LICENSE",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/LICENSE"
+    },
+    {
+      "id": 45,
+      "title": "Electron LICENSE",
+      "url": "https://github.com/electron/electron/blob/v45.2.1/LICENSE"
+    },
+    {
+      "id": 46,
+      "title": "Wails v3 docs: Installation",
+      "url": "https://github.com/wailsapp/wails/blob/v3.0.0/docs/mpress/content/quick-start/installation.md"
+    },
+    {
+      "id": 47,
+      "title": "Gio docs: Install on macOS",
+      "url": "https://gioui.org/doc/install/macos"
+    }
+  ]
+}
