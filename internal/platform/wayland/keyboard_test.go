@@ -276,13 +276,24 @@ func TestKeyboardRepeat(t *testing.T) {
 	h.fc.sendRaw(keyMsg(kb, keyA, 1))
 	press := expectKey(t, h)
 	checkKey(t, press, platform.KeyPress, platform.CodeKeyA, "a", "a", 0)
-	// Repeats come at press + delay + n·interval, stamped with that time.
+	// Repeats come at press + delay, then one interval apart, stamped with
+	// their time. A loop that wakes an interval or more late skips the
+	// missed repeats and goes on from then (no burst), which a loaded runner
+	// or the race detector can cause: after the first, a repeat comes at
+	// least an interval after the one before.
+	var prev time.Duration
 	for n := range 4 {
 		e := expectKey(t, h)
-		want := press.Time + delay + time.Duration(n)*time.Second/rate
-		if !e.Repeat || e.Code != platform.CodeKeyA || e.Text != "a" || e.Time != want {
-			t.Errorf("repeat %d: %+v, want Time %v", n, e, want)
+		want := press.Time + delay
+		onTime := e.Time == want
+		if n > 0 {
+			want = prev + time.Second/rate
+			onTime = e.Time >= want
 		}
+		if !e.Repeat || e.Code != platform.CodeKeyA || e.Text != "a" || !onTime {
+			t.Errorf("repeat %d: %+v, want Time %v or, after skipped repeats, later", n, e, want)
+		}
+		prev = e.Time
 		var now time.Duration
 		h.ui(func() { now = h.b.Now() })
 		if now < e.Time {

@@ -231,13 +231,23 @@ func TestClipboardWriteStalledReader(t *testing.T) {
 
 	// A reader that goes away: the write fails with EPIPE (no SIGPIPE
 	// kills the process) and the transfer ends at once.
+	// No timeout now, so only the write's error can end this transfer, and
+	// the wait for it can be generous (a loaded runner delays the UI thread).
+	h.ui(func() { h.b.transferTimeout = time.Hour })
 	unix.Close(requestSend(t, h, h.fc.id("wl_data_source"), "text/plain"))
-	time.Sleep(50 * time.Millisecond)
-	h.ui(func() {
-		if n := len(h.b.transfers); n != 0 {
-			t.Errorf("%d transfers left after the reader closed", n)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var n int
+		h.ui(func() { n = len(h.b.transfers) })
+		if n == 0 {
+			break
 		}
-	})
+		if time.Now().After(deadline) {
+			t.Errorf("%d transfers left after the reader closed", n)
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func TestClipboardReadOtherClient(t *testing.T) {

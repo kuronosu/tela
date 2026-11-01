@@ -381,25 +381,37 @@ func TestAnimationWithoutBufferIsTimerPaced(t *testing.T) {
 	expect[platform.FrameEvent](h)
 
 	before := h.loopIterations()
+	// 250 ms, or longer while fewer than 3 frames came: a loaded runner or
+	// the race detector can hold the timer back, and the bound that catches
+	// a spinning loop follows the time taken.
 	const window = 250 * time.Millisecond
-	deadline := time.After(window)
+	start := time.Now()
 	frames := 0
 collect:
 	for {
+		end := start.Add(window)
+		if frames < 3 {
+			end = start.Add(5 * time.Second)
+		}
+		wait := time.Until(end)
+		if wait <= 0 {
+			break
+		}
 		select {
 		case r := <-h.events:
 			if _, ok := r.ev.(platform.FrameEvent); !ok {
 				t.Fatalf("unexpected event %T", r.ev)
 			}
 			frames++
-		case <-deadline:
+		case <-time.After(wait):
 			break collect
 		}
 	}
+	elapsed := time.Since(start)
 	iters := h.loopIterations() - before
 	// 60 Hz gives 15 frames in 250 ms; a spinning loop gives thousands.
-	if frames < 3 || frames > 25 {
-		t.Errorf("%d FrameEvents in %v without a buffer, want about 15 (60 Hz)", frames, window)
+	if frames < 3 || frames > int(elapsed/(10*time.Millisecond))+1 {
+		t.Errorf("%d FrameEvents in %v without a buffer, want about 15 per 250 ms (60 Hz)", frames, elapsed)
 	}
 	if iters > 3*frames+10 {
 		t.Errorf("%d loop iterations for %d frames: the loop does not sleep between frames", iters, frames)
@@ -457,6 +469,30 @@ func TestPresentDamageAndBufferReuse(t *testing.T) {
 		return a.u(0)
 	}
 	release := func(id uint32) { h.fc.send(id, 0) }
+	// busy waits until n buffers of the chain are busy: the backend has read
+	// the releases sent before (a sleep was not always long enough on a
+	// loaded runner).
+	busy := func(n int) {
+		t.Helper()
+		deadline := time.Now().Add(3 * time.Second)
+		for {
+			got := 0
+			h.ui(func() {
+				for _, b := range w.(*Window).chain.bufs {
+					if b.busy {
+						got++
+					}
+				}
+			})
+			if got == n {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("%d busy buffers, want %d", got, n)
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}
 
 	b1 := present(image.Rect(0, 0, 8, 8), 10, 10) // full
 	b2 := present(image.Rect(0, 0, 2, 2), 20, 20) // b1 busy: new buffer
@@ -468,7 +504,7 @@ func TestPresentDamageAndBufferReuse(t *testing.T) {
 		t.Fatalf("a busy buffer was reused")
 	}
 	release(b1)
-	time.Sleep(20 * time.Millisecond)
+	busy(2)
 	// b1 is two frames behind: it must get both missed regions from the
 	// previous buffer, and the new damage from the framebuffer.
 	if b := present(image.Rect(3, 0, 5, 8), 40, 40); b != b1 {
@@ -476,7 +512,7 @@ func TestPresentDamageAndBufferReuse(t *testing.T) {
 	}
 	release(b2)
 	release(b3)
-	time.Sleep(20 * time.Millisecond)
+	busy(1) // b1, presented again
 	present(image.Rect(0, 7, 8, 8), 50, 50)
 	present(image.Rect(1, 1, 7, 7), 60, 60)
 
