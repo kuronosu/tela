@@ -67,29 +67,5 @@ func (c clipboard) Write(data platform.Data) error {
 	return platform.ErrUnsupported
 }
 
-func (d desktop) RegisterShortcut(s platform.Shortcut) error {
-	return platform.UnsupportedDesktop{}.RegisterShortcut(s)
-}
-
-func (d desktop) UnregisterShortcut(id string) error {
-	return platform.UnsupportedDesktop{}.UnregisterShortcut(id)
-}
-
-func (d desktop) SetSecret(appID, name string, secret []byte) error {
-	return platform.UnsupportedDesktop{}.SetSecret(appID, name, secret)
-}
-
-func (d desktop) Secret(appID, name string) ([]byte, error) {
-	return platform.UnsupportedDesktop{}.Secret(appID, name)
-}
-
-func (d desktop) DeleteSecret(appID, name string) error {
-	return platform.UnsupportedDesktop{}.DeleteSecret(appID, name)
-}
-
-func (d desktop) ClaimInstance(appID string, launch platform.Launch) (bool, error) {
-	return platform.UnsupportedDesktop{}.ClaimInstance(appID, launch)
-}
-
 // Associations returns the current user's registration (package assoc).
 func (d desktop) Associations() platform.Associations { return assoc.Native() }

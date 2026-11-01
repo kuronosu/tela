@@ -3,10 +3,7 @@ package win32
 import (
 	"slices"
 	"testing"
-	"time"
 	utf16pkg "unicode/utf16"
-
-	"github.com/kuronosu/tela/internal/platform"
 )
 
 func TestLineEndings(t *testing.T) {
@@ -63,26 +60,5 @@ func TestUTF16Clipboard(t *testing.T) {
 	}
 	if !slices.Equal(utf16Clipboard("😀"), []uint16{0xD83D, 0xDE00, 0}) {
 		t.Errorf("surrogate pair encoding")
-	}
-}
-
-func TestSettingsFrom(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		light uint32
-		known bool
-		anim  bool
-		ms    uint32
-		want  platform.SystemSettings
-	}{
-		{"light", 1, true, true, 500, platform.SystemSettings{DoubleClickInterval: 500 * time.Millisecond}},
-		{"dark", 0, true, true, 400, platform.SystemSettings{DarkMode: true, DoubleClickInterval: 400 * time.Millisecond}},
-		{"value missing is light", 0, false, true, 500, platform.SystemSettings{DoubleClickInterval: 500 * time.Millisecond}},
-		{"animations off is reduced motion", 1, true, false, 500, platform.SystemSettings{ReducedMotion: true, DoubleClickInterval: 500 * time.Millisecond}},
-		{"any non-zero is light", 7, true, true, 0, platform.SystemSettings{}},
-	} {
-		if got := settingsFrom(tc.light, tc.known, tc.anim, tc.ms); got != tc.want {
-			t.Errorf("%s: %+v, want %+v", tc.name, got, tc.want)
-		}
 	}
 }
