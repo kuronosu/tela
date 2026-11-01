@@ -422,6 +422,107 @@ func TestOpenAndClose(t *testing.T) {
 `Unsupported` is how you test the fallbacks: `app.Unsupported(telatest.FileDialogs)`
 and the app must show its path field instead.
 
+## Drag and drop
+
+The headless backend plays the OS for drag and drop
+([Desktop Integration](Desktop-Integration#drag-and-drop)): it drags files from a
+"file manager", moves drags between windows and ends them in "another
+application", and the app's `OnDragEnter`, `OnDragOver`, `OnDragLeave`, `OnDrop`
+and the source's `OnDragEnd` run as for a user. **Nothing is faked in the app's
+code**: a target that does not call `PreventDefault` gets no drop.
+
+```go
+func TestDropFiles(t *testing.T) {
+	var dropped []string
+	app := telatest.Mount(t, DropZone{OnFiles: func(f []string) { dropped = f }})
+	path := filepath.Join(t.TempDir(), "ideas.md") // absolute; the file need not exist
+
+	app.HoverDrag(telatest.ByTestID("drop"), telatest.Carrying(telatest.DragFiles(path)))
+	app.ExpectText("Release to add them") // the drag-over state
+	app.LeaveDrag()
+	app.ExpectText("Drop files here")
+	app.CancelDrag() // the drag was still going: end it before starting another
+
+	if app.DropFiles(telatest.ByTestID("drop"), path) == tela.DropNone {
+		t.Fatal("the drop was refused")
+	}
+}
+```
+
+| Call | Does |
+|---|---|
+| `app.DropFiles(loc, paths...)` | Another application drops files on the element. Returns the `tela.DropEffect` the app accepted: `tela.DropNone` when it refused |
+| `app.DropData(loc, payload)` | The same for a payload built with `telatest.DragFiles`, `DragText`, `DragHTML`, `DragPNG(img)` or `DragType(mime, s)`; combine representations, best first, with `payload.And(other)` |
+| `app.HoverDrag(loc, opts...)` | Moves a drag over the element and leaves it there, so you can check the drag-over state. With `telatest.Carrying(payload)` it starts another application's drag first; `telatest.Allowed(tela.DropCopy)` narrows its effects |
+| `app.DropOn(loc, opts...)` | Releases the drag over the element (after moving it there) and returns the effect |
+| `app.LeaveDrag()`, `app.CancelDrag()` | The drag leaves the window (`OnDragLeave`); the user presses Escape (`OnDragEnd` gets `DropNone`) |
+| `app.StartDrag(from)` | Presses on a `Draggable` element and moves until the app starts a drag. The element must put data in its `OnDragStart`, or the test fails |
+| `app.DragTo(from, to)` | `StartDrag`, `HoverDrag` and `DropOn` in one, like Playwright's `dragTo`. `app.DragToWindow(from, otherWindow, to)` ends in another window of the app |
+| `app.DropOutside(effect)` | Ends a drag the app started over another application, which performs `effect` (`tela.DropMove` makes the source's `OnDragEnd` delete its copy) |
+
+`app.Drag`, `DragBy` and `DragFromTo` are the pointer drag *gesture* (`OnDrag`,
+sliders, movable panels); they are not drag and drop.
+
+## Desktop integration in tests
+
+The services of [Desktop Integration](Desktop-Integration) are fakes in the headless
+desktop, and the test plays the part of the OS or the user. As with the other
+[desktop services](#desktop-services), call `telatest.TempDesktopDirs(t)` first.
+
+| Feature | Calls |
+|---|---|
+| Global shortcuts | `app.GlobalShortcuts()` lists what is registered (`ID`, `Keys`, `Status`, `Trigger`). `app.PressShortcut(id)` and `ReleaseShortcut(id)` are the user pressing it (the test fails if it is not bound). `app.SetShortcutStatus(id, desktop.ShortcutTaken, "")` plays the OS: taken, refused, revoked, or bound to other keys (`desktop.ShortcutBound` with a trigger) |
+| Launches | `app.InjectLaunch(desktop.Launch{Args: ...})` is a second start that forwards its arguments: the window comes forward and `UseLaunch` runs. `SingleInstance` claims nothing in tests, and `UseLaunch` gets no start launch of its own |
+| Clipboard | `app.Clipboard()` returns a `*tela.DataTransfer` with what the app copied. `app.SetClipboard(&dt)` is another application copying (nil empties it); then `app.Press("Control+V")` |
+| Secrets | `app.StoredSecret(name)` and `app.SetStoredSecret(name, b)` read and seed the keyring; `app.FailSecrets(desktop.ErrSecretCanceled)` makes every secret call fail (nil stops it); `app.Unsupported(telatest.Secrets)` is a desktop without a keyring |
+| Links and file types | `app.Registrations()` lists what the app registered (`Association` as `"notes:"` or `".note"`, the `App` and `Default`). `app.HoldAssociation(desktop.URLScheme("notes"), "Other App")` makes another application own it, so `Register` fails with `ErrAssociationTaken`; `app.SetDefaultHandler(assoc, "Other App")` sets the default |
+| Native menus | `telatest.PreferNativeMenus()` is `App.NativeMenus`. `app.PopupMenus()` lists the open native context menus; `app.ChoosePopupItem("Delete")` (labels from the submenus down) and `app.DismissPopupMenu()` answer one. `app.MenuBar()` reads a native menu bar and `app.ChooseMenuItem("File", "New")` chooses in it |
+| Unsupported | `app.Unsupported(telatest.GlobalShortcuts, telatest.Secrets, telatest.NativeMenus, telatest.ClipboardData, telatest.Associations)`: from now on the calls return `desktop.ErrUnsupported`, and kit draws its menus. Test the fallbacks |
+
+```go
+func TestVaultAndLinks(t *testing.T) {
+	telatest.TempDesktopDirs(t)
+	app := telatest.Mount(t, Vault{})
+
+	app.FailSecrets(desktop.ErrSecretCanceled) // the user dismissed the unlock prompt
+	app.Click(telatest.ByRole("button", "Unlock"))
+	app.ExpectText("the keyring stayed locked")
+
+	app.FailSecrets(nil)
+	app.SetStoredSecret("library-key", []byte("k"))
+	app.Click(telatest.ByRole("button", "Unlock"))
+	app.ExpectText("unlocked")
+
+	app.HoldAssociation(desktop.URLScheme("notes"), "Other App")
+	if _, err := RegisterLinks(false); err == nil {
+		t.Fatal("registered over another application")
+	}
+}
+```
+
+### System settings
+
+The options set what the system says when the app mounts:
+`telatest.Dark()`, `ReducedMotion()`, `HighContrast()`, `TextScale(1.25)` and
+`AccentColor(c)`. The methods change it while the app runs, as the user does in the
+system's settings: the tree restyles and the components that read the setting
+rebuild.
+
+```go
+func TestReadout(t *testing.T) {
+	app := telatest.Mount(t, Readout{}, telatest.TextScale(1.5), telatest.HighContrast())
+	app.ExpectText("Text scale 1.50")
+
+	app.SetTextScale(2) // also SetDarkMode, SetReducedMotion, SetHighContrast, SetAccentColor
+	app.ExpectText("Text scale 2.00")
+	app.Golden("readout_big.png") // rem values doubled; px values did not move
+}
+```
+
+A test that checks the `contrast-more:` classes mounts with `telatest.HighContrast()`
+and compares a golden or reads the layout (`app.Bounds`). The scale is 1 by
+default, so goldens do not depend on the machine that renders them.
+
 ## Testing a package of screens
 
 Write one test per behavior, and use `telatest.Dev()` so mistakes the

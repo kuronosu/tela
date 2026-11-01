@@ -158,7 +158,7 @@ An element takes props and children in one list, in any order: `Div(Class("p-4")
 
 **Props:** `Class(classes...)`, `Style(tela.Width(w), tela.Bg(c), ...)` (typed values computed in code; they win over classes), `Key(id)`, `ID`, `For`, `Disabled(bool)`, `TabIndex`, `AutoFocus`, `Ref(elementRef)`, `TestID`, `Dir("rtl")`, `Scheme(tela.Dark)` (a subtree in another color scheme), `Inert`, `Href`, `Alt`, `Tint(color)`; text fields: `Value`, `DefaultValue`, `Bind(text, setText)`, `BindValue(*tela.Value[string])`, `Placeholder`, `Type("email")`, `Rows`, `ReadOnly`, `MaxLength`, `Name`; accessibility: `Role("navigation")`, `AriaLabel`, `AriaLabelledBy(refs...)`, `AriaDescribedBy(ref)`, `AriaCurrent("page")` (`""` is none), `AriaChecked`, `AriaPressed`, `AriaExpanded`, `AriaSelected`, `AriaDisabled`, `AriaInvalid`, `AriaHidden`, `AriaSort`, `AriaRowCount`, `AriaRowIndex`, `AriaHasPopup`, `AriaControls`, `AriaValueNow`, `AriaValueMin`, `AriaValueMax`, `AriaValueText` (live regions are `Role("status")` and `Role("alert")`); animation: `AnimateLayout()`, `LayoutID(id)`, `Exit(classes)`.
 
-**Events:** `OnClick`, `OnDoubleClick`, `OnContextMenu`, `OnMouseDown/Up/Move/Enter/Leave`, `OnPointer...`, `OnLongPress`, `OnDrag`/`OnDragStart`/`OnDragEnd`, `OnWheel`, `OnScroll`, `OnKeyDown`/`OnKeyUp`, `OnFocus`/`OnBlur`, `OnChange` (every edit), `OnBeforeInput`, `OnSubmit`, `OnSelect`. Each takes a `func()` or a `func(e)` of its event type (`tela.MouseEvent`, `tela.KeyboardEvent`, `tela.ChangeEvent`...). Events bubble; `e.StopPropagation()`, `e.PreventDefault()`, or wrap a `func()` in `tela.StopPropagation(f)`.
+**Events:** `OnClick`, `OnDoubleClick`, `OnContextMenu`, `OnMouseDown/Up/Move/Enter/Leave`, `OnPointer...`, `OnLongPress`, `OnDrag`/`OnDragStart`/`OnDragEnd` (the drag gesture), `OnDragEnter`/`OnDragOver`/`OnDragLeave`/`OnDrop` with `Draggable(true)` (HTML's drag and drop, section 8), `OnWheel`, `OnScroll`, `OnKeyDown`/`OnKeyUp`, `OnFocus`/`OnBlur`, `OnChange` (every edit), `OnBeforeInput`, `OnSubmit`, `OnSelect`. Each takes a `func()` or a `func(e)` of its event type (`tela.MouseEvent`, `tela.KeyboardEvent`, `tela.ChangeEvent`...). Events bubble; `e.StopPropagation()`, `e.PreventDefault()`, or wrap a `func()` in `tela.StopPropagation(f)`.
 
 **Helpers:** `If(cond, child)` and `IfElse(cond, a, b)` take and return a `tela.Child` (a node, a struct component or a prop); a `tela.Child` can be returned where a `tela.Node` is expected, and the branch that is off is `nil`, the empty node (a hole that keeps the positions of its siblings; test it with `n == nil`); `Map(items, func(T) tela.Node)` and `MapIndex` (give each node a `Key`); `MapKeyed(items, keyFn, func(T) tela.Node)` keys the nodes for you; `Range(n, func(int) tela.Node)` for static repeats (keyed by index); `Nodes([]tela.Node)` passes a slice built in a loop. Every argument of `If` is evaluated: `If(u != nil, Text(u.Name))` panics on nil `u`; use a Go `if`.
 
@@ -383,13 +383,13 @@ func Download() tela.Node {
 
 Classes are Tailwind CSS v4's, verbatim, parsed into typed styles. If you would write it in React + Tailwind v4, write the same here. Order: element defaults, then classes in order (a later class wins over an earlier one that sets the same property; `Class` may repeat and takes several strings), then `Style(...)` props. No cascade, no selectors, no stylesheet. Everything is `border-box`. `Div` is `display: block`, like HTML.
 
-**Supported:** spacing (`p-4`, `px-6`, `m-auto`, `gap-3`, `space-y-4`), sizing (`w-64`, `w-full`, `max-w-3xl`, `min-h-screen`, `size-8`, `h-[72px]`, `aspect-video`), flex (`flex`, `flex-col`, `items-center`, `justify-between`, `flex-1`, `shrink-0`, `grow`, `basis-1/3`, `flex-wrap`, `order-*`), grid (`grid grid-cols-3`, `grid-cols-[200px_1fr]`, `col-span-2`, `auto-rows-*`, `place-items-center`), positioning (`relative`, `absolute`, `fixed`, `sticky top-0`, `inset-0`, `z-10`), overflow and scrolling (`overflow-y-auto`, `overscroll-contain`, `scroll-smooth`), colors with opacity (`bg-white/15`, `text-zinc-500`, `bg-[#1e1e2e]`), borders (`border`, `border-b`, `border-border`, `rounded-xl`, `rounded-t-lg`, `divide-y divide-border` for the lines between the children, `divide-x-2`, `divide-y-reverse`, `divide-dashed`), `ring-*`, `ring-offset-*`, `outline-*`, shadows (`shadow-sm`...`shadow-2xl`, `shadow-xs`, `inset-shadow-*`), gradients (`bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500`, `bg-radial`, `bg-conic`), typography (`text-sm`, `font-semibold`, `tracking-tight`, `leading-6`, `truncate`, `line-clamp-2`, `text-balance`, `tabular-nums`, `uppercase`, `font-mono`, `font-['Family']`, `whitespace-pre`, `whitespace-nowrap`, `break-words`), effects (`opacity-50`, `blur-sm`, `backdrop-blur`, `drop-shadow-*`, `mix-blend-*`, masks), transforms (`translate-x-2`, `scale-95`, `rotate-45`, `origin-*`; 2D only), transitions (`transition`, `transition-colors`, `duration-200`, `ease-out`, `delay-*`), `animate-spin`/`pulse`/`ping`/`bounce` (also `animate-[bounce_1s_150ms_infinite]`), `cursor-pointer`, `pointer-events-none`, `select-none`, `sr-only`, `field-sizing-content`, background images (`bg-[url(img/hero.jpg)] bg-cover`, files registered with `tela.Assets(fsys)`), `[clip-path:circle(50%)]`, arbitrary values (`w-[calc(50%-8px)]`, `top-[3px]`, `grid-cols-[repeat(auto-fill,minmax(200px,1fr))]`; the theme's variables work inside them: `bg-[conic-gradient(var(--color-primary)_72%,transparent_0)]`, `shadow-[0_0_0_2px_var(--color-ring)]`, `rounded-[var(--radius)]`, `w-[calc(var(--spacing)*4)]`, `bg-(--color-primary)`, with a token's light and dark value following the scheme). Units: `px`, `rem`, `em`, `%`, `vw`, `vh`, `fr`, `ch`. `calc()` only as `min()`, `max()`, `clamp()` and `a ± b`.
+**Supported:** spacing (`p-4`, `px-6`, `m-auto`, `gap-3`, `space-y-4`), sizing (`w-64`, `w-full`, `max-w-3xl`, `min-h-screen`, `size-8`, `h-[72px]`, `aspect-video`), flex (`flex`, `flex-col`, `items-center`, `justify-between`, `flex-1`, `shrink-0`, `grow`, `basis-1/3`, `flex-wrap`, `order-*`), grid (`grid grid-cols-3`, `grid-cols-[200px_1fr]`, `col-span-2`, `auto-rows-*`, `place-items-center`), positioning (`relative`, `absolute`, `fixed`, `sticky top-0`, `inset-0`, `z-10`), overflow and scrolling (`overflow-y-auto`, `overscroll-contain`, `scroll-smooth`), colors with opacity (`bg-white/15`, `text-zinc-500`, `bg-[#1e1e2e]`), borders (`border`, `border-b`, `border-border`, `rounded-xl`, `rounded-t-lg`, `divide-y divide-border` for the lines between the children, `divide-x-2`, `divide-y-reverse`, `divide-dashed`), `ring-*`, `ring-offset-*`, `outline-*`, shadows (`shadow-sm`...`shadow-2xl`, `shadow-xs`, `inset-shadow-*`), gradients (`bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500`, `bg-radial`, `bg-conic`), typography (`text-sm`, `font-semibold`, `tracking-tight`, `leading-6`, `truncate`, `line-clamp-2`, `text-balance`, `tabular-nums`, `uppercase`, `font-mono`, `font-['Family']`, `whitespace-pre`, `whitespace-nowrap`, `break-words`), effects (`opacity-50`, `blur-sm`, `backdrop-blur`, `drop-shadow-*`, `mix-blend-*`, masks), transforms (`translate-x-2`, `scale-95`, `rotate-45`, `origin-*`; 2D only), transitions (`transition`, `transition-colors`, `duration-200`, `ease-out`, `delay-*`), `animate-spin`/`pulse`/`ping`/`bounce` (also `animate-[bounce_1s_150ms_infinite]`), `cursor-pointer`, `pointer-events-none`, `select-none`, `sr-only`, `field-sizing-content`, background images (`bg-[url(img/hero.jpg)] bg-cover`, files registered with `tela.Assets(fsys)`), `[clip-path:circle(50%)]`, arbitrary values (`w-[calc(50%-8px)]`, `top-[3px]`, `grid-cols-[repeat(auto-fill,minmax(200px,1fr))]`; the theme's variables work inside them: `bg-[conic-gradient(var(--color-primary)_72%,transparent_0)]`, `shadow-[0_0_0_2px_var(--color-ring)]`, `rounded-[var(--radius)]`, `w-[calc(var(--spacing)*4)]`, `bg-(--color-primary)`, with a token's light and dark value following the scheme). Units: `px`, `rem`, `em`, `%`, `vw`, `vh`, `fr`, `ch`. `rem` follows the system's text scale like a browser's font size (`text-*` and `p-4` grow with it, px values do not; `App.IgnoreTextScale` opts out). `calc()` only as `min()`, `max()`, `clamp()` and `a ± b`.
 
 **Variants** (stack them: `dark:md:hover:bg-zinc-800`):
 - State: `hover:` `active:` `focus:` `focus-visible:` `focus-within:` `disabled:` `enabled:` `checked:`, text fields `placeholder:` `invalid:` `read-only:` `placeholder-shown:` `selection:`.
 - ARIA: `aria-checked:` `aria-selected:` `aria-expanded:` `aria-pressed:` `aria-invalid:` `aria-disabled:` `aria-busy:` `aria-hidden:` `aria-required:` `aria-readonly:` (they match the element's own `h.Aria...(true)` prop), `aria-[current=page]:` (also `step`, `location`, `date`, `time`, `true`; there is no bare `aria-current:`), `aria-[sort=ascending]:`/`descending`.
 - Structure: `first:` `last:` `only:` `odd:` `even:` (the place among the element's own siblings: don't wrap items in a keyed `Div` just for the key, use `Key(...)` or `tela.WithKey`, which add no element); `group` + `group-hover:`/`group-focus-within:`/`group-aria-*:` on descendants; `peer` + `peer-checked:`/`peer-invalid:`... on following siblings (no named groups).
-- Environment: `dark:`, `sm:` `md:` `lg:` `xl:` `2xl:` (window at least 640/768/1024/1280/1536 px), `max-md:` ..., `min-[600px]:`, `max-[40rem]:`, `motion-reduce:`, `motion-safe:`, `rtl:`/`ltr:`, `starting:` (entrance: the style a newly shown element transitions from, CSS `@starting-style`).
+- Environment: `dark:`, `sm:` `md:` `lg:` `xl:` `2xl:` (window at least 640/768/1024/1280/1536 px), `max-md:` ..., `min-[600px]:`, `max-[40rem]:`, `motion-reduce:`, `motion-safe:`, `contrast-more:` (the system asks for high contrast), `rtl:`/`ltr:`, `starting:` (entrance: the style a newly shown element transitions from, CSS `@starting-style`).
 
 ```go
 func NavLink(label string, current bool, onClick func()) tela.Node {
@@ -494,8 +494,8 @@ Colors in Go: `tela.Hex("#4f46e5")`, `tela.RGB`, `tela.RGBA(r, g, b, a)`, `tela.
 - `kit.WindowControls{Variant, Look, HideMinimize, HideMaximize, State, MinimizeLabel, MaximizeLabel, RestoreLabel, CloseLabel}`: minimize, maximize/restore and close as real buttons (named "Minimize", "Maximize"/"Restore", "Close") that act on click; `Variant: kit.Plain` draws them quietly (ghost buttons; `Look` picks the arrangement); `TitleBar` draws them, so use this alone only to place them yourself.
 - `kit.Tooltip{Trigger, Content, Placement, Delay, Disabled}`: on hover or keyboard focus; describes its trigger.
 - `kit.DropdownMenu[K]{Trigger, Items, OnSelect, Placement, Align, AriaLabel, Open, OnOpenChange}`: items `kit.MenuItem[K]{Kind, Key, Label, Icon, Shortcut, Variant, Disabled, OnSelect, Checked, DefaultChecked, OnCheckedChange, Items}`; `Kind`: `kit.MenuPlain` (zero), `kit.MenuCheckbox`, `kit.MenuRadioGroup`, `kit.MenuLabel`, `kit.MenuSeparator`, `kit.MenuGroup`. No submenus.
-- `kit.ContextMenu[K]{Children, Items, OnSelect, AriaLabel, Disabled}`: right click (or long press) on `Children`.
-- `kit.Menubar[K]{Menus, OnSelect, AriaLabel}`: menus `kit.MenubarMenu[K]{Key, Label, Items, Disabled}`.
+- `kit.ContextMenu[K]{Children, Items, OnSelect, AriaLabel, Disabled, Native}`: right click (or long press) on `Children`. `Native: kit.NativeOn` uses the OS's menu where there is one (section 8).
+- `kit.Menubar[K]{Menus, OnSelect, AriaLabel, Native}`: menus `kit.MenubarMenu[K]{Key, Label, Items, Disabled}`.
 - `kit.Toaster{Children, Position, Duration, VisibleToasts, CloseButton}`: put once around the app; any component below calls `toast := kit.UseToast()` (a `kit.ToastHandle`: comparable, safe to keep in a struct field or pass to a helper) then `toast.Success(title, opts...)`, `Error`, `Info`, `Warning`, `Loading`, `Show`, `Dismiss(id)`; options `kit.ToastDescription(text)`, `kit.ToastAction(label, fn)`, `kit.ToastDuration(d)`, `kit.ToastReplace(id)`. Safe from any goroutine.
 - `kit.Calendar{Value, DefaultValue, OnValueChange, Min, Max, IsDateUnavailable, VisibleMonths}`: one `aria.Date` (comparable day, zero = none; `aria.Today()`).
 - `kit.RangeCalendar{Value, DefaultValue, OnValueChange, VisibleMonths}`: an `aria.DateRange`.
@@ -988,6 +988,204 @@ func Editor() tela.Node {
 }
 ```
 
+**Phase 13: drag and drop, clipboard, shortcuts, launches, links, secrets, menus, settings.**
+
+- **Drag and drop is HTML's.** A target takes `h.OnDragEnter`, `OnDragOver`, `OnDragLeave` and `OnDrop` (they bubble) and accepts by calling `e.PreventDefault()` in `OnDragOver`. Before the drop only the types are known (`e.DataTransfer.Has("Files")`, `Types()`); the data arrives in `OnDrop` (`Files()` absolute paths, `Text()`, `HTML()`, `Image()`, `GetData(mime)`). Enter fires on the new element before leave fires on the old one, so "a drag is over me" is a counter (+1 on enter, -1 on leave, 0 on drop). A source is `h.Draggable(true)`: its `OnDragStart` fills `e.DataTransfer` (`SetText`, `SetHTML`, `SetFiles`, `SetImage`, `SetData(mime, s)`, `EffectAllowed = tela.DropMove`); with no data the press stays the `OnDrag` gesture. `OnDragEnd` reads `e.DataTransfer.DropEffect` (`tela.DropNone|DropCopy|DropMove|DropLink`). It works between windows and with other applications (files from the file manager, text from an editor).
+- **Clipboard:** `desktop.ReadClipboard(done, types...)` (`done(*tela.DataTransfer, err)` on the UI thread) and `desktop.WriteClipboard(&dt)` (every representation at once) carry the same `DataTransfer`; `ReadClipboardText` and `WriteClipboardText` for text only. Text fields keep their own paste.
+- **`desktop.GlobalShortcut{ID, Keys, Description, OnPress, OnRelease, OnStatus}`** is a component: the shortcut is registered while it is mounted (keep `ID` stable; several allowed). The OS decides, so show `OnStatus`: `ShortcutBound` (`Trigger` is what the user presses: the Wayland portal asks the user and may bind other keys), `ShortcutTaken`, `ShortcutRefused`, `ShortcutRevoked`, `ShortcutFailed` (`Err` wraps `ErrUnsupported` when the desktop has none). Check `Keys` typed by a user with `desktop.ParseKeys`.
+- **One instance and launches:** `desktop.SingleInstance(app)` (needs `AppID`) makes a second start forward its arguments to the running app and exit with status 0; the running app raises its main window (shown, from the tray too). `desktop.UseLaunch(func(desktop.Launch))` is a hook that gets the process's own start once and every forwarded start; `l.URLs()` (`notes:open?id=3`), `l.Files()` (absolute paths).
+- **Links and file types:** `desktop.Register(desktop.URLScheme("notes"))` and `desktop.FileType(".note", "application/x-notes-note", "Notes document")` make the app a *candidate* handler for the user, with no administrator rights and no running app needed (an installer can call it); it writes nothing if nothing changes (`changed` false). It **does not make the app the default** (links open it only while no other app is the default; the default is `desktop.MakeDefault`, only when the user asks; for Windows file types it opens Settings' Default apps and returns `DefaultAsked`) and **never takes another app's association** (`ErrAssociationTaken` unless you pass `desktop.Replace()`, after asking). `desktop.RegistrationStatus` says `Registered`, `Default` and `Other`; `Unregister` removes it. It does file or registry I/O: call it at start or off the UI thread. Under `go run` or `tela dev` the executable is temporary: give `desktop.ForApp(desktop.HandlerApp{Exec: path})` or skip (`ErrDevExecutable`).
+- **Secrets:** `desktop.SetSecret(name, []byte)`, `Secret(name)`, `DeleteSecret(name)` use the Credential Manager or the Linux Secret Service, per app ID. They block (the OS may ask the user to unlock the keyring): **call them from a goroutine, never from a handler or an effect** (dev mode warns). Errors: `ErrSecretNotFound`, `ErrSecretCanceled` (the user dismissed the prompt; do not retry in a loop), `ErrUnsupported` (no keyring: turn the feature off).
+- **Native menus:** `kit.ContextMenu` and `kit.Menubar` are drawn by default. `Native: kit.NativeOn` (or `kit.NativeOff`) per menu, or `tela.App{NativeMenus: true}` for all (a menu's own setting wins), uses the OS's menu where there is one (Windows now: context menus, and a menu bar on windows with a title bar of the OS) and draws it elsewhere (Linux, frameless windows), with no code of yours. A native menu drops icons, the destructive color, `KeepOpen` and classes. Below kit: `desktop.PopupMenu(win, at, items, done)` and `desktop.MenuBar{Menus, OnError}` return or report `ErrUnsupported` so you can draw your own.
+- **Settings v2:** `contrast-more:` is the variant for the system's high contrast (`tela.UseHighContrast()` in code). The system's text scale works like a browser's default font size: 1rem is the theme's rem times the scale, so `text-*` and rem spacing (`p-4`, `gap-2`, `w-64`, breakpoints) grow together while px values (`border`, `text-[13px]`, `w-[320px]`) do not; `tela.UseTextScale()` returns it for sizes computed in code, and `tela.App{IgnoreTextScale: true}` opts a fixed layout out. `tela.UseAccentColor() (Color, bool)` is the system accent (false: none). In tests and snapshots the scale is 1 and the accent absent unless set.
+
+```go
+package integration
+
+import (
+	"errors"
+
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/desktop"
+	. "github.com/kuronosu/tela/h"
+)
+
+// DropZone takes files dropped from a file manager.
+type DropZone struct{ OnFiles func([]string) }
+
+func (d DropZone) Build() tela.Node {
+	depth, setDepth := tela.UseState(0) // enters minus leaves
+	files := func(dt *tela.DataTransfer) bool { return dt.Has("Files") }
+	border, label := "border-border contrast-more:border-foreground", "Drop files here"
+	if depth > 0 {
+		border, label = "border-primary bg-primary/5", "Release to add them"
+	}
+	return Div(Class("rounded-lg border-2 border-dashed p-8 text-center", border), TestID("drop"),
+		OnDragEnter(func(e tela.DragEvent) {
+			if files(e.DataTransfer) {
+				setDepth.Update(func(n int) int { return n + 1 })
+			}
+		}),
+		OnDragOver(func(e tela.DragEvent) {
+			if files(e.DataTransfer) {
+				e.PreventDefault() // accept: the drop comes here
+			}
+		}),
+		OnDragLeave(func(e tela.DragEvent) {
+			if files(e.DataTransfer) {
+				setDepth.Update(func(n int) int { return max(n-1, 0) })
+			}
+		}),
+		OnDrop(func(e tela.DragEvent) {
+			setDepth.Set(0)
+			d.OnFiles(e.DataTransfer.Files())
+		}),
+		Text(label))
+}
+
+// Card is dragged to a target of the app, or to another application as text.
+type Card struct {
+	ID, Title string
+	OnMoved   func(id string)
+}
+
+func (c Card) Build() tela.Node {
+	return Div(Draggable(true), TestID("card-"+c.ID), Class("cursor-grab rounded-md border p-3"),
+		OnDragStart(func(e tela.DragEvent) {
+			e.DataTransfer.SetData("application/x-card", c.ID)
+			e.DataTransfer.SetText(c.Title)
+			e.DataTransfer.EffectAllowed = tela.DropMove
+		}),
+		OnDragEnd(func(e tela.DragEvent) {
+			if e.DataTransfer.DropEffect == tela.DropMove {
+				c.OnMoved(c.ID) // a target took it
+			}
+		}),
+		Text(c.Title))
+}
+
+// CopyTitle puts a title on the clipboard as text; Paste reads it back.
+func CopyTitle(title string) error {
+	var dt tela.DataTransfer
+	dt.SetText(title)
+	return desktop.WriteClipboard(&dt)
+}
+
+func Paste(done func(text string)) error {
+	return desktop.ReadClipboard(func(dt *tela.DataTransfer, err error) {
+		if err == nil {
+			done(dt.Text())
+		}
+	})
+}
+
+// Quick makes a note from anywhere (a global shortcut) and from links and files (UseLaunch).
+type Quick struct{}
+
+func (Quick) Build() tela.Node {
+	win := tela.UseWindow()
+	notes, setNotes := tela.UseState([]string{})
+	hint, setHint := tela.UseState("")
+	add := func(s string) { setNotes.Update(func(n []string) []string { return append(n, s) }) }
+	desktop.UseLaunch(func(l desktop.Launch) { // the start, then every forwarded start
+		for _, u := range l.URLs() { // notes:new?text=hi
+			add(u)
+		}
+		for _, p := range l.Files() {
+			add(p)
+		}
+	})
+	return Div(Class("p-4"),
+		desktop.GlobalShortcut{
+			ID: "quick-note", Keys: "Ctrl+Alt+N", Description: "Create a note",
+			OnPress: func() { win.Show(); add("Untitled note") },
+			OnStatus: func(e desktop.ShortcutStatusEvent) {
+				if e.Status != desktop.ShortcutBound {
+					setHint.Set(e.Err.Error()) // taken, refused, removed or unsupported
+				}
+			},
+		},
+		P(Textf("%d notes", len(notes))), P(Text(hint)))
+}
+
+// App is a single-instance app: a second start hands its launch to the first.
+var App = desktop.SingleInstance(tela.App{AppID: "com.example.notes", Title: "Notes", Root: Quick{}})
+
+// RegisterLinks makes the app a candidate for notes: links; the default only if the user asks.
+// It does file or registry I/O: call it at start, off the UI thread.
+func RegisterLinks(makeDefault bool) (desktop.Registration, error) {
+	scheme := desktop.URLScheme("notes")
+	if _, err := desktop.Register(scheme); err != nil {
+		return desktop.Registration{}, err // errors.Is(err, desktop.ErrAssociationTaken): another app holds it
+	}
+	if makeDefault {
+		if _, err := desktop.MakeDefault(scheme); err != nil {
+			return desktop.Registration{}, err
+		}
+	}
+	return desktop.RegistrationStatus(scheme)
+}
+
+// Vault unlocks a key kept in the OS's keyring. The secret calls block: use a goroutine.
+type Vault struct{}
+
+func (Vault) Build() tela.Node {
+	state, setState := tela.UseState("locked")
+	unlock := func() {
+		go func() { // the keyring may be waiting for the user
+			_, err := desktop.Secret("library-key")
+			switch {
+			case err == nil:
+				setState.Set("unlocked")
+			case errors.Is(err, desktop.ErrSecretNotFound):
+				setState.Set("no key yet")
+			case errors.Is(err, desktop.ErrSecretCanceled):
+				setState.Set("the keyring stayed locked")
+			default: // desktop.ErrUnsupported: no keyring
+				setState.Set("no keyring")
+			}
+		}()
+	}
+	return Div(Button(OnClick(unlock), Text("Unlock")), Text(state))
+}
+```
+
+```go
+package integration
+
+import (
+	"github.com/kuronosu/tela"
+	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/kit"
+)
+
+// NoteMenu opens the OS's context menu where there is one, the drawn one elsewhere.
+func NoteMenu(title string, onDelete func()) tela.Node {
+	return kit.ContextMenu[string]{
+		Native: kit.NativeOn, // NativeAuto (zero) follows tela.App{NativeMenus: true}
+		Items: []kit.MenuItem[string]{
+			{Key: "copy", Label: "Copy link", Shortcut: "Ctrl+L"},
+			{Kind: kit.MenuSeparator},
+			{Key: "delete", Label: "Delete", Variant: kit.Destructive, OnSelect: onDelete},
+		},
+		Children: Div(Class("rounded-lg border p-4"), Text(title)),
+	}
+}
+
+// Readout follows the system's contrast, text scale and accent color.
+type Readout struct{}
+
+func (Readout) Build() tela.Node {
+	scale := tela.UseTextScale() // 1.25: 1rem is 20 px
+	accent, ok := tela.UseAccentColor()
+	if !ok {
+		accent = tela.Hex("#4f46e5")
+	}
+	return Div(Class("rounded-lg border border-border p-4 text-sm contrast-more:border-2 contrast-more:border-foreground"),
+		Style(tela.Bg(accent)), Textf("Text scale %.2f", scale))
+}
+```
+
 ## 9. Pitfalls and limits
 
 | Mistake | Fix |
@@ -1022,6 +1220,10 @@ func Editor() tela.Node {
 | `App.OnClose` hides the window but nothing can show it again (no tray, or the tray is unsupported) | Pair it with a `desktop.Tray` whose `OnError` turns the hiding off; `tela.Quit` from the menu |
 | `kit.TitleBar` in a window that keeps the OS's title bar: two bars | `Frameless: true`, or draw it only when `tela.UseWindow().State().ClientSideDecorations` |
 | A test reads or writes the real settings and window placements | `telatest.TempDesktopDirs(t)` at its start |
+| A drop zone never gets `OnDrop`, or flickers while the drag moves over its children | Call `e.PreventDefault()` in `OnDragOver`; count enters and leaves (the new element's enter comes before the old one's leave) instead of a bool |
+| `desktop.Secret`/`SetSecret` in a handler, an effect or a build (dev warning; the keyring may wait for the user, so the app freezes) | A goroutine (`go func() {...}()` or `tela.UseGo`) that sets state with a `Setter`; handle `ErrSecretCanceled` and `ErrUnsupported` |
+| `desktop.Register` for a link or file type, then expecting it to be the default or to replace another app's | It makes the app a candidate only. `MakeDefault` on the user's request; `Replace()` only after asking; under `go run`/`tela dev` give `ForApp(HandlerApp{Exec: ...})` |
+| A `GlobalShortcut` that "does nothing" | Show `OnStatus`: it may be taken, refused by the user, or unsupported; a nil `OnStatus` only warns in dev mode |
 
 **Limits.** Linux (Wayland, X11) and Windows windows; macOS cross-compiles but has no window yet. Wayland cannot place windows or keep them on top, and Windows notifications have no action buttons; a tray needs a host on Linux (GNOME needs an extension). No submenus in menus; `Checkbox` has no indeterminate state; `Select` has no search (build a combobox with `aria.UseCombobox`); `Table` has no virtualization, resizing or row selection UI; no date-time input; no `tela add` yet. No margin collapsing, floats or CSS tables; 2D transforms only; SVG icons have no text, filters or patterns; no `grid-template-areas` from classes; `vertical-align` only on inline-blocks.
 
@@ -1087,6 +1289,79 @@ func TestEditorServices(t *testing.T) {
 
 Also `app.Notifications()`, `ClickNotification(title)`, `ClickNotificationAction(title, label)`, `DismissNotification(title)` and `MessageBoxes()` / `FileDialogs()` to check what was asked. `Unsupported` takes `telatest.FileDialogs`, `MessageBoxes` (the box is drawn then), `Notifications`, `TrayIcons` and `OpenURLs`; with no arguments everything is supported again.
 
+**Phase 13 in tests.** The headless desktop plays the OS for each feature, and nothing touches the real clipboard, keyring, registry, shortcuts or menus. Call `telatest.TempDesktopDirs(t)` first.
+
+- **Drag and drop:** `app.DropFiles(loc, paths...)` and `app.DropData(loc, payload)` (payloads `telatest.DragFiles`, `DragText`, `DragHTML`, `DragPNG`, `DragType(mime, s)`, combined with `.And`) drop what another application drags and return the `tela.DropEffect` the app accepted (`tela.DropNone`: refused). Steps: `app.HoverDrag(loc, telatest.Carrying(p))` (the drag-over state), `app.LeaveDrag()`, `app.CancelDrag()`, `app.DropOn(loc)`. A drag of your own `Draggable`: `app.DragTo(from, to)` (also `DragToWindow(from, otherWindow, to)`), or `app.StartDrag(from)` then `DropOutside(tela.DropMove)` for a drop in another application.
+- **Shortcuts and launches:** `app.GlobalShortcuts()` (what is registered), `app.PressShortcut(id)`, `ReleaseShortcut(id)`, `app.SetShortcutStatus(id, desktop.ShortcutTaken, "")` (also `ShortcutRefused`, `ShortcutRevoked`, `ShortcutBound` with a trigger); `app.InjectLaunch(desktop.Launch{Args: ...})` plays a second start. `desktop.SingleInstance` claims nothing in tests.
+- **Clipboard, secrets, registration:** `app.Clipboard()` / `app.SetClipboard(&dt)`; `app.StoredSecret(name)`, `app.SetStoredSecret(name, b)`, `app.FailSecrets(desktop.ErrSecretCanceled)` (`nil` stops failing); `app.Registrations()`, `app.HoldAssociation(assoc, "Other App")` (another app owns it), `app.SetDefaultHandler(assoc, "Other App")`. `app.Unsupported(telatest.Secrets)` (also `GlobalShortcuts`, `NativeMenus`, `ClipboardData`, `Associations`) tests the fallbacks.
+- **Menus and settings:** `telatest.PreferNativeMenus()` is `App.NativeMenus`; `app.PopupMenus()`, `app.ChoosePopupItem(path...)`, `app.DismissPopupMenu()` answer a native context menu, `app.MenuBar()` and `app.ChooseMenuItem("File", "New")` a native menu bar. The options `telatest.HighContrast()`, `TextScale(1.25)`, `AccentColor(c)` set the system's settings at mount; `app.SetDarkMode(bool)`, `SetHighContrast`, `SetTextScale`, `SetAccentColor`, `SetReducedMotion` change them while it runs.
+
+```go
+package integration
+
+import (
+	"path/filepath"
+	"testing"
+
+	"github.com/kuronosu/tela"
+	"github.com/kuronosu/tela/desktop"
+	"github.com/kuronosu/tela/telatest"
+)
+
+func TestDropAndShortcut(t *testing.T) {
+	telatest.TempDesktopDirs(t)
+	var dropped []string
+	zone := telatest.Mount(t, DropZone{OnFiles: func(f []string) { dropped = f }})
+	path := filepath.Join(t.TempDir(), "ideas.md")
+	zone.HoverDrag(telatest.ByTestID("drop"), telatest.Carrying(telatest.DragFiles(path)))
+	zone.ExpectText("Release to add them") // the drag-over state
+	if zone.DropOn(telatest.ByTestID("drop")) == tela.DropNone || len(dropped) != 1 {
+		t.Fatalf("the drop was refused: %v", dropped)
+	}
+
+	app := telatest.MountApp(t, App)
+	app.PressShortcut("quick-note")
+	app.ExpectText("1 notes")
+	app.InjectLaunch(desktop.Launch{Args: []string{"notes:open?id=3"}})
+	app.ExpectText("2 notes")
+	app.SetShortcutStatus("quick-note", desktop.ShortcutTaken, "")
+	app.ExpectText("taken by another application")
+}
+
+func TestVaultAndLinks(t *testing.T) {
+	telatest.TempDesktopDirs(t)
+	app := telatest.Mount(t, Vault{})
+	app.FailSecrets(desktop.ErrSecretCanceled) // the user dismissed the unlock prompt
+	app.Click(telatest.ByRole("button", "Unlock"))
+	app.ExpectText("the keyring stayed locked")
+	app.FailSecrets(nil)
+	app.SetStoredSecret("library-key", []byte("k"))
+	app.Click(telatest.ByRole("button", "Unlock"))
+	app.ExpectText("unlocked")
+
+	app.HoldAssociation(desktop.URLScheme("notes"), "Other App")
+	if _, err := RegisterLinks(false); err == nil {
+		t.Fatal("registered over another application")
+	}
+	app.HoldAssociation(desktop.URLScheme("notes"), "")
+	app.SetDefaultHandler(desktop.URLScheme("notes"), "Other App") // the user's default
+	if reg, err := RegisterLinks(false); err != nil || !reg.Registered || reg.Default {
+		t.Fatalf("a candidate, not the default: %+v, %v", reg, err)
+	}
+}
+
+func TestNativeMenuAndSettings(t *testing.T) {
+	app := telatest.Mount(t, NoteMenu("Groceries", func() {}), telatest.Size(300, 200))
+	app.Click(telatest.ByText("Groceries"), telatest.Right())
+	app.ChoosePopupItem("Delete")
+
+	ro := telatest.Mount(t, Readout{}, telatest.TextScale(1.5), telatest.HighContrast())
+	ro.ExpectText("Text scale 1.50")
+	ro.SetTextScale(2)
+	ro.ExpectText("Text scale 2.00")
+}
+```
+
 ## More
 
-Guides (wiki): https://github.com/kuronosu/tela/wiki — Getting-Started, Styling, Theming, Hooks, Events, Elements-and-Props, Forms-and-Text-Input, Scrolling-and-VirtualList, Animation, Kit, Aria, Icons, Internationalization, Windows-and-Desktop, Testing, CLI. API reference: https://pkg.go.dev/github.com/kuronosu/tela (also `/h`, `/kit`, `/aria`, `/desktop`, `/telatest`, `/i18n`). Full screens to imitate: https://github.com/kuronosu/tela/tree/main/examples (settings, login, chat, dashboard, kit gallery).
+Guides (wiki): https://github.com/kuronosu/tela/wiki — Getting-Started, Styling, Theming, Hooks, Events, Elements-and-Props, Forms-and-Text-Input, Scrolling-and-VirtualList, Animation, Kit, Aria, Icons, Internationalization, Windows-and-Desktop, Desktop-Integration, Testing, CLI. API reference: https://pkg.go.dev/github.com/kuronosu/tela (also `/h`, `/kit`, `/aria`, `/desktop`, `/telatest`, `/i18n`). Full screens to imitate: https://github.com/kuronosu/tela/tree/main/examples (settings, login, chat, dashboard, kit gallery).

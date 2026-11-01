@@ -347,6 +347,14 @@ kit.Menubar[string]{AriaLabel: "Application", Menus: []kit.MenubarMenu[string]{{
 kit.ContextMenu[string]{AriaLabel: "Page", Class: "h-40 w-72", Children: Text("Right click here"), Items: items}
 ```
 
+`ContextMenu` and `Menubar` are drawn in the kit's look by default. `Native:
+kit.NativeOn` asks for the OS's own menu where the platform has one (Windows; a menu
+bar only on windows with a title bar of the OS) and keeps the drawn menu everywhere
+else; `tela.App{NativeMenus: true}` does it for every menu, and a menu's own `Native`
+(`kit.NativeOn`, `kit.NativeOff`) wins. A native menu cannot show icons, the
+destructive color or `KeepOpen`. See
+[Desktop Integration](Desktop-Integration#native-menus).
+
 ### Title bars
 
 `TitleBar` and `WindowControls` are for a window that draws its own title bar: a

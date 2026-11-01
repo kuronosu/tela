@@ -593,6 +593,14 @@ classes cannot do, such as picking an image.
 [`tela.SetColorScheme`](https://pkg.go.dev/github.com/kuronosu/tela#SetColorScheme) changes the app's scheme from any goroutine; see
 [Styling](Styling#dark-mode).
 
+The other system settings have hooks of the same kind:
+[`tela.UseHighContrast`](https://pkg.go.dev/github.com/kuronosu/tela#UseHighContrast)
+(the `contrast-more:` variant), [`tela.UseTextScale`](https://pkg.go.dev/github.com/kuronosu/tela#UseTextScale)
+(how much the system scales text, 1 by default) and
+[`tela.UseAccentColor`](https://pkg.go.dev/github.com/kuronosu/tela#UseAccentColor)
+(the user's accent color, and whether there is one). See
+[Styling](Styling#high-contrast-and-the-text-scale).
+
 [`tela.UseDirection`](https://pkg.go.dev/github.com/kuronosu/tela#UseDirection) returns the writing direction at the component's position,
 `"ltr"` or `"rtl"`: the `Dir` of the nearest element above it that has one
 (`"auto"` resolved from its text), else `"ltr"`. The component builds again

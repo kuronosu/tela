@@ -50,6 +50,7 @@ func Counter() tela.Node {
 | [Kit](Kit) | Ready-made components in the look of shadcn/ui: the shape of a component, controlled and uncontrolled values, trigger slots, customizing with theme tokens, recipes and classes, and every component with an example |
 | [Aria](Aria) | Behavior hooks: press, hover, focus, buttons, checkboxes and switches, and `UseFloating` for popovers, tooltips and menus |
 | [Windows and Desktop](Windows-and-Desktop) | Several windows with `tela.Window`, `UseWindow`, custom title bars, file dialogs, message boxes, notifications, the tray, settings, remembered window placement, app folders, what each platform lacks |
+| [Desktop Integration](Desktop-Integration) | Drag and drop with files and other applications, the clipboard, global shortcuts, one running instance and launches, registering `notes:` links and file types, secrets in the OS's keyring, native menus, high contrast and the text scale, and how `tela dev` and each platform differ |
 | [Accessibility](Accessibility) | Roles, ARIA props, aria snapshots |
 | [Testing](Testing) | `telatest`: mount, click, expect, goldens, without a window |
 | [CLI](CLI) | `tela snapshot`, `tela inspect`, `tela icons gen`, debug overlays, environment variables |
