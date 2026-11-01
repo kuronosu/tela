@@ -69,6 +69,8 @@ type Watcher struct {
 	errs   chan error
 	native bool
 
+	setMu sync.Mutex // serializes SetRoots, which publishes roots once watched
+
 	mu       sync.Mutex
 	impl     impl
 	roots    []string
@@ -149,7 +151,8 @@ func (w *Watcher) Events() <-chan Batch { return w.out }
 // a watch limit). Errors are dropped when nobody reads them.
 func (w *Watcher) Errors() <-chan error { return w.errs }
 
-// Roots returns the watched roots.
+// Roots returns the roots of the last SetRoots (or New) that returned. A
+// change made under them after they are returned is seen.
 func (w *Watcher) Roots() []string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -158,7 +161,8 @@ func (w *Watcher) Roots() []string {
 
 // SetRoots replaces the watched trees. Roots are cleaned; duplicates are
 // dropped; a root that does not exist is reported on Errors and skipped.
-// Changes made while the watches are replaced may be missed.
+// Changes made while the watches are replaced may be missed; a change made
+// after SetRoots returns is seen.
 func (w *Watcher) SetRoots(roots []string) error {
 	var rs []string
 	for _, r := range roots {
@@ -168,6 +172,8 @@ func (w *Watcher) SetRoots(roots []string) error {
 		}
 	}
 	sort.Strings(rs)
+	w.setMu.Lock()
+	defer w.setMu.Unlock()
 	w.mu.Lock()
 	if w.closed {
 		w.mu.Unlock()
@@ -177,7 +183,6 @@ func (w *Watcher) SetRoots(roots []string) error {
 		w.mu.Unlock()
 		return nil
 	}
-	w.roots = rs
 	im := w.impl
 	w.mu.Unlock()
 	var ok []string
@@ -191,7 +196,14 @@ func (w *Watcher) SetRoots(roots []string) error {
 		}
 		ok = append(ok, r)
 	}
-	return im.setRoots(ok)
+	err := im.setRoots(ok)
+	// Published only now: before, the native watches of the new roots may
+	// not exist yet, and a caller that waits for Roots to list a root, then
+	// changes a file under it, would lose that change.
+	w.mu.Lock()
+	w.roots = rs
+	w.mu.Unlock()
+	return err
 }
 
 // Close stops watching and closes Events. Safe to call more than once.

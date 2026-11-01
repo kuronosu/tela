@@ -143,6 +143,27 @@ func (h *harness) quiet(what string, d time.Duration) {
 	}
 }
 
+// absent checks that no batch reports one of paths (relative, or absolute)
+// for a while. Other paths may arrive: a file written once can be reported
+// twice when a scan or an event lands between its creation and its write,
+// and the second batch can come after the test saw the first.
+func (h *harness) absent(what string, d time.Duration, paths ...string) {
+	h.t.Helper()
+	end := time.After(d)
+	for {
+		select {
+		case b := <-h.w.Events():
+			for _, p := range paths {
+				if slices.Contains(b.Paths, h.path(p)) {
+					h.t.Errorf("%s: %s reported (batch %v)", what, p, b.Paths)
+				}
+			}
+		case <-end:
+			return
+		}
+	}
+}
+
 func keys(m map[string]bool) []string {
 	var s []string
 	for k := range m {
@@ -357,11 +378,19 @@ func TestMaxDelay(t *testing.T) {
 	poll := runtime.GOOS != "linux" && runtime.GOOS != "windows"
 	h := newHarness(t, poll, Options{Debounce: 100 * time.Millisecond, MaxDelay: 300 * time.Millisecond})
 	stop := time.After(900 * time.Millisecond)
+	// The writer stops before the temporary directory is removed (cleanups
+	// run last-registered first): writing into it while it is removed fails
+	// the removal on Windows ("Directory is not empty").
+	quit, stopped := make(chan struct{}), make(chan struct{})
+	t.Cleanup(func() { close(quit); <-stopped })
 	n := 0
 	go func() {
+		defer close(stopped)
 		for i := 0; ; i++ {
 			select {
 			case <-stop:
+				return
+			case <-quit:
 				return
 			default:
 			}
@@ -437,7 +466,7 @@ func TestSetRoots(t *testing.T) {
 			t.Fatal(err)
 		}
 		os.WriteFile(filepath.Join(other, "w.go"), []byte("w"), 0o644)
-		h.quiet("a root that was removed", 200*time.Millisecond)
+		h.absent("a root that was removed", 200*time.Millisecond, filepath.Join(other, "w.go"))
 		// A root that does not exist is reported, not fatal.
 		if err := h.w.SetRoots([]string{h.root, filepath.Join(other, "missing")}); err != nil {
 			t.Fatal(err)
