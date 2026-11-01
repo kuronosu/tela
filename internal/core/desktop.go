@@ -22,8 +22,9 @@ type Desktop struct{ h *Host }
 
 // hostDesktop is the desktop state of a Host (Host.desk).
 type hostDesktop struct {
-	listeners []*appListener
-	local     map[any]any
+	listeners    []*appListener
+	winListeners []*winListener // desktop13.go
+	local        map[any]any
 }
 
 type appListener struct {
@@ -113,7 +114,8 @@ func (d Desktop) PlatformWindow(w WindowHandle) platform.Window {
 }
 
 // Listen calls f with every app-scoped event of the backend
-// (platform.NotificationEvent, platform.TrayEvent), on the UI thread,
+// (platform.NotificationEvent, TrayEvent, ShortcutEvent,
+// ShortcutStatusEvent, LaunchEvent), on the UI thread,
 // until stop is called. The listeners run in the order they were added;
 // one added or stopped while an event is delivered takes effect with the
 // next event.

@@ -18,6 +18,11 @@ const MaxSecretSize = 2560
 // name. errors.Is(err, fs.ErrNotExist) also holds.
 var ErrSecretNotFound = fmt.Errorf("platform: secret not found: %w", fs.ErrNotExist)
 
+// ErrSecretCanceled is returned by the secret methods of [Desktop] when the
+// user dismissed the OS's unlock prompt (the Secret Service's keyring
+// password): nothing was read or written. Win32 has no prompt.
+var ErrSecretCanceled = errors.New("platform: the user canceled the keyring's unlock prompt; the secret was not read or written")
+
 // ErrSecretTooLarge is returned by [Desktop.SetSecret] for a secret larger
 // than MaxSecretSize.
 var ErrSecretTooLarge = errors.New("platform: secret larger than MaxSecretSize (2560 bytes)")

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Launch is how a process of the app was started: what a second instance
@@ -68,4 +69,26 @@ func CheckAppID(what, id string) {
 	if bad {
 		panicf("platform: %s: invalid app ID %q; use a reverse-DNS name such as \"com.example.Notes\" (no spaces, '/' or '\\')", what, id)
 	}
+}
+
+// ServiceAppID returns id made valid for CheckAppID, for an app ID the
+// layers above did not choose (an executable's name such as "My Notes"):
+// spaces, characters that are not printable, '/' and '\' become '-', an
+// empty id is "tela", and it is cut to 255 bytes (on a rune boundary). A
+// valid id is returned unchanged.
+func ServiceAppID(id string) string {
+	id = strings.Map(func(r rune) rune {
+		if !unicode.IsPrint(r) || unicode.IsSpace(r) || r == '/' || r == '\\' {
+			return '-'
+		}
+		return r
+	}, id)
+	if id == "" {
+		return "tela"
+	}
+	for len(id) > 255 {
+		_, size := utf8.DecodeLastRuneInString(id)
+		id = id[:len(id)-size]
+	}
+	return id
 }

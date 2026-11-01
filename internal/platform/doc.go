@@ -663,8 +663,9 @@
 // the OS's secure storage, named by (app ID, name). Unlike the rest of
 // Desktop they block (the OS may show an unlock prompt) and are safe from
 // any goroutine. A missing name is [ErrSecretNotFound] (errors.Is with
-// fs.ErrNotExist); no secure storage in the session is ErrUnsupported, and
-// the layers above disable what needs it.
+// fs.ErrNotExist); a dismissed unlock prompt is [ErrSecretCanceled]
+// (the Secret Service; Win32 has no prompt); no secure storage in the
+// session is ErrUnsupported, and the layers above disable what needs it.
 //
 // # Single instance and launches
 //

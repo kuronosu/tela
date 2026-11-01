@@ -47,6 +47,21 @@ const (
 	TrayIcons
 	// OpenURLs: tela.OpenURL and tela.OpenPath.
 	OpenURLs
+	// NativeMenus: desktop.PopupMenu and desktop.MenuBar, as on Linux
+	// (the app draws its menus instead).
+	NativeMenus
+	// GlobalShortcuts: desktop.GlobalShortcut (OnStatus gets
+	// ShortcutFailed), as on Wayland without the portal.
+	GlobalShortcuts
+	// Secrets: desktop.SetSecret, Secret and DeleteSecret, as on a Linux
+	// session without a keyring.
+	Secrets
+	// ClipboardData: desktop.ReadClipboard, WriteClipboard and
+	// ClipboardTypes (the text functions keep working).
+	ClipboardData
+	// Associations: desktop.Register, Unregister, MakeDefault and
+	// RegistrationStatus while the app runs, as on macOS before phase 14.
+	Associations
 )
 
 // Unsupported makes the headless desktop lack the given services from now
@@ -75,8 +90,18 @@ func (a *App) Unsupported(services ...DesktopService) {
 			hs = append(hs, headless.ServiceTray)
 		case OpenURLs:
 			hs = append(hs, headless.ServiceOpen)
+		case NativeMenus:
+			hs = append(hs, headless.ServiceMenus)
+		case GlobalShortcuts:
+			hs = append(hs, headless.ServiceShortcuts)
+		case Secrets:
+			hs = append(hs, headless.ServiceSecrets)
+		case ClipboardData:
+			hs = append(hs, headless.ServiceClipboard)
+		case Associations:
+			hs = append(hs, headless.ServiceAssociations)
 		default:
-			a.fatalf("Unsupported(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons or OpenURLs", s)
+			a.fatalf("Unsupported(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons, OpenURLs, NativeMenus, GlobalShortcuts, Secrets, ClipboardData or Associations", s)
 		}
 	}
 	a.backend.SetUnsupported(hs...)
@@ -112,7 +137,7 @@ func (a *App) FileDialogs() []FileDialog {
 	a.settleAfter()
 	var out []FileDialog
 	for _, d := range a.backend.OpenDialogs() {
-		if d.Kind != headless.DialogMessageBox {
+		if isFileDialog(d) {
 			out = append(out, fileDialogOf(d))
 		}
 	}
@@ -145,7 +170,7 @@ func (a *App) AnswerFileDialog(paths ...string) {
 	a.tb.Helper()
 	a.settleAfter()
 	for _, d := range a.backend.OpenDialogs() {
-		if d.Kind == headless.DialogMessageBox {
+		if !isFileDialog(d) {
 			continue
 		}
 		if len(paths) > 1 && !(d.Kind == headless.DialogOpenFiles && d.File.Multiple) {

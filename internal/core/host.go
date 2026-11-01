@@ -92,6 +92,14 @@ func Run(opts Options) error {
 			return err
 		}
 	}
+	// Before any window opens: package desktop claims the single instance
+	// (desktop.go); a second instance ends here, having forwarded its
+	// launch.
+	rs := RunStart{Backend: b, AppID: opts.AppID, Dev: configDev(opts.Dev), Log: errorLog(opts.ErrorLog)}
+	rs.DevChild, rs.Reload = devChild()
+	if !runStartHooks(rs) {
+		return nil
+	}
 	h, err := NewHost(b, opts)
 	if err != nil {
 		return err
@@ -163,6 +171,9 @@ type Host struct {
 	later []func()
 	// desk is package desktop's state (desktop.go), nil until used.
 	desk *hostDesktop
+	// services are the backend's OS services, read once on the UI thread
+	// so that RunningServices can give them to any goroutine.
+	services platform.Desktop
 
 	// FullFrames rasterizes every frame fully, as before damage tracking
 	// (benchmarks and debugging).
@@ -208,7 +219,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	// animations its first builds start (UseSpring) wait for it instead
 	// of jumping to their targets as in a tree without a clock (Render).
 	t.anim.driven = true
-	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog), appID: opts.AppID, onClose: opts.OnClose}
+	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog), appID: opts.AppID, onClose: opts.OnClose, services: b.Desktop()}
 	if t.dev {
 		h.uiG = goid()
 	}
@@ -269,7 +280,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			h.views[i].tree.SetSystemSettings(e.Settings)
 		}
 		return
-	case platform.NotificationEvent, platform.TrayEvent:
+	case platform.NotificationEvent, platform.TrayEvent, platform.ShortcutEvent, platform.ShortcutStatusEvent, platform.LaunchEvent:
 		h.appEvent(e) // package desktop's listeners (desktop.go)
 		return
 	}
@@ -371,6 +382,11 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		if e.Action != platform.DragLeave {
 			v.win.SetDropEffect(effect, types...)
 		}
+		h.updateCursor(v)
+		h.syncTextInput(v)
+		h.armTimer()
+	case platform.MenuEvent:
+		h.windowEvent(v, e) // package desktop's menu bars (desktop.go)
 		h.updateCursor(v)
 		h.syncTextInput(v)
 		h.armTimer()

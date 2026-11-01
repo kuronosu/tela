@@ -78,7 +78,7 @@ const secretCallTimeout = 25 * time.Second
 
 // errSecretDismissed is returned when the user dismisses the Secret
 // Service's prompt (an unlock or a new keyring's password).
-var errSecretDismissed = errors.New("freedesktop: the keyring prompt was dismissed; the secret was not read or written")
+var errSecretDismissed = fmt.Errorf("freedesktop: the keyring prompt was dismissed: %w", platform.ErrSecretCanceled)
 
 // secretValue is the Secret struct of the API: (oayays).
 type secretValue struct {
