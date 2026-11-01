@@ -18,8 +18,11 @@ type HandlerApp struct {
 	// Name is the name shown in "Open with" lists ("Notes").
 	Name string
 	// Exec is the absolute path of the executable. The OS runs it with
-	// Args and then the URI or file paths as further arguments. Needed by
-	// Register; Status, Unregister and MakeDefault ignore it.
+	// Args and then the URI or file paths as further arguments (on Linux
+	// an app that registers both schemes and file types gets %U, so files
+	// may arrive as file: URIs; the layer that parses a launch turns them
+	// into paths). Needed by Register and MakeDefault, which registers
+	// first; Status and Unregister ignore it.
 	Exec string
 	// Args are arguments put before the URI or paths (optional).
 	Args []string
@@ -62,9 +65,11 @@ type AssociationStatus struct {
 	Registered bool
 	// Default: the app is the default handler.
 	Default bool
-	// Other names another application that holds the association: the
-	// default handler (a .desktop file name, a ProgID) or, on Windows, the
-	// owner of the scheme's key; "" when none does.
+	// Other names what holds the association instead of the app: the
+	// default handler (a .desktop file name, a ProgID), on Windows the
+	// owner of the scheme's key, and on Linux also a desktop entry of the
+	// app's ID that Tela did not write (its path) or the MIME type that
+	// already claims an extension; "" when nothing does.
 	Other string
 }
 
@@ -137,7 +142,10 @@ type Associations interface {
 	// registering it first if needed (with Register's rules). Where the OS
 	// lets apps set it (Linux mimeapps.list, Windows schemes) it is set at
 	// once (DefaultSet); Windows file types open the Default apps settings
-	// page instead (DefaultAsked).
+	// page instead (DefaultAsked). On Linux a desktop-specific
+	// <desktop>-mimeapps.list that names another default wins over the
+	// user's mimeapps.list and belongs to the desktop environment, so
+	// MakeDefault returns an error naming it instead of editing it.
 	MakeDefault(app HandlerApp, a Association) (DefaultResult, error)
 }
 

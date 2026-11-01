@@ -54,7 +54,7 @@ Contributions that break these are rejected.
 
 1. **`CGO_ENABLED=0` always**, for every build, test and CI job.
 2. **OS access only through:**
-   - **Linux:** Wayland and X11 protocols directly over Unix sockets, plus syscalls.
+   - **Linux:** Wayland and X11 protocols directly over Unix sockets, plus syscalls (and D-Bus, below); the helpers `xdg-open` and `update-mime-database` only when installed (ADR-212).
    - **Windows:** system DLLs (`user32`, `gdi32`, `imm32`, `dwmapi`, `shcore`, `kernel32`; `shell32`, `ole32`, `comdlg32` for desktop services, ADR-178; `advapi32` for Credential Manager and the registry, ADR-209) via `golang.org/x/sys/windows` / `syscall`.
    - **macOS:** Objective-C runtime and system frameworks (AppKit, QuartzCore, CoreGraphics) via `github.com/ebitengine/purego`.
 3. **Dependencies:** pure Go only, permissive licenses (MIT, BSD, Apache-2.0, OFL for fonts). Approved list below; new ones need an ADR.
