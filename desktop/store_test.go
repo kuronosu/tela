@@ -340,6 +340,9 @@ func TestStoreGetElementsStartEmpty(t *testing.T) {
 		Kept  item
 	}
 	s, _ := OpenStore(filepath.Join(t.TempDir(), "e.json"))
+	// Written now, not by the write timer after the test, which would race
+	// the removal of the temporary directory.
+	t.Cleanup(func() { _ = s.Flush() })
 	_ = s.Set("cfg", map[string]any{
 		"Items": []item{{Name: "a"}},
 		"Pair":  []item{{Name: "p"}},

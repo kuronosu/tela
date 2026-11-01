@@ -11,10 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/kuronosu/tela/internal/core"
@@ -557,7 +559,7 @@ func writeStore(path string, data []byte, corrupt bool) error {
 		return err
 	}
 	if corrupt {
-		if err := os.Rename(path, path+".corrupt"); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if err := rename(path, path+".corrupt"); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return err
 		}
 	}
@@ -574,12 +576,37 @@ func writeStore(path string, data []byte, corrupt bool) error {
 		err = cerr
 	}
 	if err == nil {
-		err = os.Rename(tmp, path)
+		err = rename(tmp, path)
 	}
 	if err != nil {
 		os.Remove(tmp)
 	}
 	return err
+}
+
+// rename is os.Rename, retried for a moment on Windows, where replacing or
+// moving a file fails with ERROR_ACCESS_DENIED or ERROR_SHARING_VIOLATION
+// while another program has it open without sharing its deletion: an
+// antivirus scanning the file just written, the search indexer, a reader
+// of the old file. cmd/go retries the same way (its robustio package).
+func rename(from, to string) error {
+	err := os.Rename(from, to)
+	if runtime.GOOS != "windows" {
+		return err
+	}
+	for deadline := time.Now().Add(time.Second); err != nil && busyOnWindows(err) && time.Now().Before(deadline); {
+		time.Sleep(10 * time.Millisecond)
+		err = os.Rename(from, to)
+	}
+	return err
+}
+
+// busyOnWindows reports ERROR_ACCESS_DENIED (5) and ERROR_SHARING_VIOLATION
+// (32), Windows' errors for a file another program holds; the caller checks
+// the OS.
+func busyOnWindows(err error) bool {
+	var errno syscall.Errno
+	return errors.As(err, &errno) && (errno == 5 || errno == 32)
 }
 
 // FlushAll writes the changes of every open store ([Store.Flush]) and
