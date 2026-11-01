@@ -57,9 +57,9 @@
 //     handler.
 //     Exceptions, safe from any goroutine: [Backend.Wake], [Backend.Quit],
 //     [Backend.Now]; the secret methods of Desktop (SetSecret, Secret,
-//     DeleteSecret) and every method of [Associations], which block on
-//     the OS (an unlock prompt, file and registry I/O) and are meant to
-//     be called off the UI thread. Desktop() itself is called on the UI
+//     DeleteSecret), Desktop.MoveToTrash and every method of
+//     [Associations], which block on the OS (an unlock prompt, file and
+//     registry I/O) and are meant to be called off the UI thread. Desktop() itself is called on the UI
 //     thread; the value it returns may be kept for those calls.
 //   - The handler is never called re-entrantly. If a method the handler calls
 //     makes the OS deliver a message synchronously (Win32 SetWindowPos sends
@@ -464,8 +464,8 @@
 // dialogs, message boxes, notifications and tray icons. Rules for every
 // backend:
 //
-//   - UI thread only (except the secret methods and Associations, see
-//     "Threading"). Arguments are checked with the shared helpers
+//   - UI thread only (except the secret methods, MoveToTrash and
+//     Associations, see "Threading"). Arguments are checked with the shared helpers
 //     ([CheckFileDialogOptions], [CheckMessageBoxOptions],
 //     [CheckNotification], [CheckTrayOptions], [CheckURI]) before anything
 //     else, so programmer errors panic on every platform, including where
@@ -508,12 +508,14 @@
 // dismissal NotificationClosed).
 //
 // Phase 13 (ADR-209, ADR-210) adds drag and drop, clipboard data, native
-// menus, global shortcuts, system settings v2, secrets, single instance
-// and the registration of schemes and file types, in the sections below.
+// menus, global shortcuts, system settings v2, secrets, single instance,
+// the registration of schemes and file types and the trash (ADR-216), in
+// the sections below.
 // The rules above hold for them too: arguments are checked first with
 // the shared helpers ([CheckData], [CheckMIME], [CheckSetDropEffect],
 // [CheckDragOptions], [CheckMenu], [CheckPopupMenu], [CheckShortcut],
-// [CheckSecret], [CheckAppID], [CheckHandlerApp], [CheckAssociation]),
+// [CheckSecret], [CheckAppID], [CheckHandlerApp], [CheckAssociation],
+// [CheckTrashPath]),
 // asynchronous answers go through the loop, and a missing service returns
 // ErrUnsupported synchronously.
 //
@@ -666,6 +668,16 @@
 // fs.ErrNotExist); a dismissed unlock prompt is [ErrSecretCanceled]
 // (the Secret Service; Win32 has no prompt); no secure storage in the
 // session is ErrUnsupported, and the layers above disable what needs it.
+//
+// # Trash
+//
+// [Desktop.MoveToTrash] moves a file or folder (an absolute path; a
+// symbolic link itself, not its target) to the user's trash, where the
+// user can restore it (ADR-216). It never deletes: a file the trash cannot
+// take stays in place and the call returns ErrUnsupported, which the
+// layers above report ("the file is still there"). A missing path wraps
+// fs.ErrNotExist, a relative or empty one fs.ErrInvalid ([CheckTrash]).
+// Like the secrets it blocks and is safe from any goroutine.
 //
 // # Single instance and launches
 //
@@ -915,6 +927,20 @@
 //     or DESKTOP_STARTUP_ID (X11).
 //   - Associations: package assoc (the app's .desktop file in
 //     $XDG_DATA_HOME/applications; mimeapps.list only for MakeDefault).
+//   - Trash: org.freedesktop.portal.Trash.TrashFile with a descriptor of
+//     the file (opened O_RDWR|O_NOFOLLOW, a folder O_PATH, as GIO does),
+//     on a connection of its own; 1 means trashed. Without a portal, when
+//     it answers 0 or an error, or for a path the portal cannot be handed
+//     (a symbolic link, a device or a FIFO), the home trash of the
+//     freedesktop Trash specification 1.0 is written in Go:
+//     $XDG_DATA_HOME/Trash (else ~/.local/share/Trash) with files/ and
+//     info/; the name is reserved by creating info/<name>.trashinfo with
+//     O_EXCL ("[Trash Info]", Path percent-encoded, DeletionDate in local
+//     time), then the file is renamed to files/<name> (renameat2 with
+//     RENAME_NOREPLACE), "name.2", "name.3"… on a clash. Only a file on the
+//     home trash's file system goes there: a rename, never a copy and a
+//     delete; any other (another mount, whose $topdir/.Trash-$uid is not
+//     used) is ErrUnsupported.
 //
 // Win32:
 //
@@ -968,22 +994,34 @@
 //     the Launch with WM_COPYDATA (SendMessageTimeoutW). ActivateWithToken
 //     ignores the token.
 //   - Associations: package assoc (HKCU\Software\Classes).
+//   - Trash: IFileOperation.DeleteItem with FOF_ALLOWUNDO, FOF_NO_UI,
+//     FOFX_ADDUNDORECORD and FOFX_RECYCLEONDELETE, on a thread of its own
+//     in a single-threaded apartment (the call is safe from any
+//     goroutine), with an IFileOperationProgressSink whose PreDeleteItem
+//     aborts an item without TSF_DELETE_RECYCLE_IF_POSSIBLE: the shell
+//     would delete it for good (a network drive, a file larger than the
+//     Recycle Bin), so the call returns ErrUnsupported instead, as
+//     Chromium does. (SHFileOperationW deletes such a file silently with
+//     FOF_NOCONFIRMATION, or asks the user with FOF_WANTNUKEWARNING.)
 //
 // Cocoa (phase 14): NSDraggingDestination and NSDraggingSource,
 // NSPasteboard, NSMenu (the app's menu bar; window menus return
 // ErrUnsupported), the keychain, NSRunningApplication for single instance,
-// the bundle's Info.plist for schemes and document types.
+// the bundle's Info.plist for schemes and document types, NSFileManager's
+// trashItemAtURL (until then MoveToTrash is ErrUnsupported).
 //
 // Remote (tela dev), protocol 5 (ADR-214): everything is forwarded to the
 // host's backend, which owns the real windows: drags in both directions
 // (the answer to a drag reaches the OS one round trip late, so a drag
 // entering a window is refused until the child answered), menus, the
 // clipboard's Data, global shortcuts and single instance held by the host
-// across reloads, secrets and associations (see the remote package).
+// across reloads, secrets, associations and the trash (see the remote
+// package).
 //
 // Headless: the clipboard holds Data; drags are driven by injected pointer
 // events after Window.StartDrag or Backend.StartExternalDrag; menus,
 // shortcuts, secrets, instances (a registry shared by the process's
-// headless backends) and associations (assoc.Fake) are deterministic fakes
-// with responders, injection and inspection (see the headless package).
+// headless backends), associations (assoc.Fake) and the trash (recorded,
+// and moved into a directory the test gives) are deterministic fakes with
+// responders, injection and inspection (see the headless package).
 package platform

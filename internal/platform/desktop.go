@@ -135,6 +135,18 @@ type Desktop interface {
 	// any goroutine (see "Registration of schemes and file types" in the
 	// package documentation).
 	Associations() Associations
+
+	// MoveToTrash moves the file or folder at path (absolute; see
+	// [CheckTrashPath]) to the user's trash (the Recycle Bin on Windows),
+	// where the user can restore it. It never deletes: what the trash
+	// cannot take stays where it is, and the call returns ErrUnsupported
+	// (no trash in the session, a file on a file system the trash does
+	// not cover; see "Trash" in the package documentation). A path that
+	// does not exist is an error wrapping fs.ErrNotExist. Like the secret
+	// methods it blocks (file I/O, a D-Bus round trip, the shell's file
+	// operation) and is safe from any goroutine; call it off the UI
+	// thread. (ADR-216.)
+	MoveToTrash(path string) error
 }
 
 // FileFilter is one entry of a file dialog's type list.
@@ -549,6 +561,15 @@ func (UnsupportedDesktop) ClaimInstance(appID string, _ Launch) (bool, error) {
 
 // Associations returns UnsupportedAssociations.
 func (UnsupportedDesktop) Associations() Associations { return UnsupportedAssociations{} }
+
+// MoveToTrash checks path ([CheckTrashPath]) and returns ErrUnsupported,
+// without looking at the file.
+func (UnsupportedDesktop) MoveToTrash(path string) error {
+	if _, err := CheckTrashPath(path); err != nil {
+		return err
+	}
+	return ErrUnsupported
+}
 
 // CheckPopupMenu panics with an actionable message if a PopupMenu call has
 // a nil callback, an empty menu, an invalid one ([CheckMenu]) or a

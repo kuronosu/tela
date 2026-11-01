@@ -31,7 +31,8 @@ import (
 //     requests (ADR-187).
 //   - 5: phase 13 (ADR-214): settings v2, clipboard data, drag and drop,
 //     native menus (and menu accelerators), global shortcuts, single
-//     instance and launches, secrets, associations, ActivateWithToken.
+//     instance and launches, secrets, associations, ActivateWithToken,
+//     MoveToTrash (ADR-216).
 const ProtocolVersion = 5
 
 // magic opens the hello message.

@@ -53,7 +53,7 @@
 // [SavedWindow] does the same for a tela.Window, and [LoadPlacement] with
 // [UseSavePlacement] are the parts they are made of.
 //
-// # Clipboard, shortcuts, launches, registration, secrets and menus
+// # Clipboard, shortcuts, launches, registration, secrets, menus and the trash
 //
 // [ReadClipboard] and [WriteClipboard] copy and paste a tela.DataTransfer
 // (text, HTML, images, files, custom types). [GlobalShortcut] is a
@@ -65,7 +65,8 @@
 // [MakeDefault] is a separate, explicit request. [SetSecret], [Secret]
 // and [DeleteSecret] keep small secrets in the OS's keyring, from a
 // goroutine. [PopupMenu] and [MenuBar] are the OS's menus where it has
-// them, for kit's menus to use.
+// them, for kit's menus to use. [MoveToTrash] moves a file where the user
+// can restore it, never deleting it, also from a goroutine.
 //
 // # When a service is missing
 //

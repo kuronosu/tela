@@ -25,6 +25,7 @@ const (
 	ServiceSecrets                      // SetSecret, Secret, DeleteSecret
 	ServiceInstance                     // ClaimInstance
 	ServiceAssociations                 // Associations (platform.UnsupportedAssociations)
+	ServiceTrash                        // MoveToTrash
 	serviceCount
 )
 
@@ -128,11 +129,12 @@ type desktopState struct {
 	instances         []string // app IDs this backend claimed
 	launches          []platform.Launch
 	assoc             *assoc.Fake
+	trash             trashState
 }
 
 // Desktop returns the headless desktop services: nothing is shown; every
 // request is recorded for inspection (Dialogs, Opened, Notifications,
-// Trays), dialogs are answered by the dialog responder or AnswerDialog,
+// Trays, Trashed), dialogs are answered by the dialog responder or AnswerDialog,
 // and notification and tray events are injected with InjectApp. Services
 // marked with SetUnsupported return platform.ErrUnsupported, which is how
 // tests reach the fallbacks of the layers above (package desktop's drawn message

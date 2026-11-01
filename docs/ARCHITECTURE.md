@@ -119,7 +119,8 @@ The X11 client (own or `github.com/jezek/xgb`) is chosen in its phase without an
 │ desktop         Dialogs, tray, notifications, app paths,      │
 │                 settings store (ADR-178); clipboard, global   │
 │                 shortcuts, single instance, registration,     │
-│                 secrets, native menus (ADR-213)               │
+│                 secrets, native menus (ADR-213); trash        │
+│                 (ADR-216)                                     │
 ├───────────────────────────────────────────────────────────────┤
 │ tela   +   h    Public API: Run, App, Window, hooks │ elements│
 ├───────────────────────────────────────────────────────────────┤
@@ -164,7 +165,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 tela/
 ├── tela.go, app.go, hooks.go, node.go, events.go   # package tela
 ├── h/                    # elements and props (designed for dot-import)
-├── desktop/              # OS services: dialogs, tray, notifications, paths, settings store (ADR-178); clipboard, shortcuts, launches, registration, secrets, menus (ADR-213)
+├── desktop/              # OS services: dialogs, tray, notifications, paths, settings store (ADR-178); clipboard, shortcuts, launches, registration, secrets, menus (ADR-213), trash (ADR-216)
 ├── i18n/                 # message catalogs, plurals, locale formatting (ADR-087)
 │   └── internal/gen/     # go:generate: date and list patterns, week data from vendored CLDR JSON
 ├── aria/                 # behavior hooks, floating positioning
@@ -496,7 +497,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 - **Sizing rule:** `PhysicalSize(logical, scale)` rounds logical × scale half away from zero (the `wp_fractional_scale_v1` rule). Every backend sizes framebuffers with it.
 - `Run` does not return when the last window closes; quitting is app policy (`core`/`tela`).
 - Backends share the OS-independent half of the loop (`internal/platform/internal/loop`: queue, wake/quit, frame pacing; ADR-050) and keep only their OS I/O.
-- **Desktop (phase 12, ADR-178):** windows also take state (minimize, maximize, fullscreen, visibility, always-on-top, min/max size, position where the OS allows it), a parent and modality, hit regions for custom title bars, and on Windows 11 title bar colors and a system backdrop (Mica, Acrylic; ADR-187); backends expose OS services (open URI, file dialogs, message boxes, notifications, tray icons; phase 13 adds drag and drop, clipboard formats, native menus, global shortcuts, single instance, scheme and file-type registration and secrets, ADR-209; contract v3, ADR-210: registration lives in `internal/platform/assoc` and works without a running app, and secrets and registration block and are safe from any goroutine). The Linux services are shared by Wayland and X11 over D-Bus. `Backend.Desktop()` returns them; window control methods are requests whose outcome arrives as `WindowStateEvent`/`ConfigureEvent` (ADR-179). The exact contract is in `doc.go`.
+- **Desktop (phase 12, ADR-178):** windows also take state (minimize, maximize, fullscreen, visibility, always-on-top, min/max size, position where the OS allows it), a parent and modality, hit regions for custom title bars, and on Windows 11 title bar colors and a system backdrop (Mica, Acrylic; ADR-187); backends expose OS services (open URI, file dialogs, message boxes, notifications, tray icons; phase 13 adds drag and drop, clipboard formats, native menus, global shortcuts, single instance, scheme and file-type registration and secrets, ADR-209; contract v3, ADR-210: registration lives in `internal/platform/assoc` and works without a running app, and secrets and registration block and are safe from any goroutine; `MoveToTrash` too, which never deletes, ADR-216). The Linux services are shared by Wayland and X11 over D-Bus. `Backend.Desktop()` returns them; window control methods are requests whose outcome arrives as `WindowStateEvent`/`ConfigureEvent` (ADR-179). The exact contract is in `doc.go`.
 - The IME is driven by `Window.SetTextInput` (cursor area, purpose, surrounding text; nil = no text field) and `ResetTextInput` (ADR-068).
 
 ### Backends
@@ -508,7 +509,7 @@ type Handler interface{ HandleEvent(w Window, e Event) } // never called re-entr
 | `win32` | `x/sys/windows` + `syscall.NewCallback` | `CreateWindowExW`, `GetMessageW` loop, `SetDIBitsToDevice`/`StretchDIBits`, per-monitor DPI v2, IMM32, Win32 clipboard, `DwmFlush` for pacing. Reference: Ebitengine's no-cgo Windows code |
 | `cocoa` | `purego` + ObjC runtime | `NSApplication`, `NSWindow`, layer-backed `NSView`, present via `CALayer.contents` (`CGImage`), `NSTextInputClient` (IME), `CVDisplayLink`. Main thread only. Reference: Ebitengine's purego macOS code |
 | `headless` | Memory | Tests, snapshots, CLI. Configurable size and scale, controllable clock |
-| `remote` (dev loop only) | AF_UNIX socket to a host process; pixels in shared memory (memfd, named file mapping) | The child backend of `tela dev`: windows, events, clock, clipboard, IME and settings are forwarded to a `remote.Host` that owns the real windows on another backend and swaps children under them (ADR-111, ADR-112); protocol 3 (4 with ADR-187) forwards window control, keyed child windows and desktop services held by the host (ADR-184); protocol 5 carries phase 13: drag and drop, menus, clipboard data, shortcuts and single instance held by the host, secrets and associations (ADR-214) |
+| `remote` (dev loop only) | AF_UNIX socket to a host process; pixels in shared memory (memfd, named file mapping) | The child backend of `tela dev`: windows, events, clock, clipboard, IME and settings are forwarded to a `remote.Host` that owns the real windows on another backend and swaps children under them (ADR-111, ADR-112); protocol 3 (4 with ADR-187) forwards window control, keyed child windows and desktop services held by the host (ADR-184); protocol 5 carries phase 13: drag and drop, menus, clipboard data, shortcuts and single instance held by the host, secrets, associations and the trash (ADR-214, ADR-216) |
 
 - **Linux backend selection:** `WAYLAND_DISPLAY` set → Wayland; else `DISPLAY` → X11. Override with `TELA_BACKEND=wayland|x11|headless`.
 - **HiDPI:** everything works in logical pixels. The framebuffer is allocated in physical pixels (`PhysicalSize(logical, scale)`); fractional scales (Wayland `wp_fractional_scale_v1` + `wp_viewporter`, Windows per-monitor DPI) render on the device pixel grid like integer ones (ADR-075).

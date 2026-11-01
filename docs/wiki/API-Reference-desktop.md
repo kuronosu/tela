@@ -13,7 +13,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`AppID`](#func-appid) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
+- [Functions](#functions): [`AppID`](#func-appid) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
 - [Types](#types)
   - [`type Answer`](#type-answer): [`String`](#func-answer-string)
   - [`type Association`](#type-association): [`FileType`](#func-filetype) · [`URLScheme`](#func-urlscheme) · [`String`](#func-association-string)
@@ -73,9 +73,9 @@ theme, setTheme := desktop.UseSetting("theme", "system")
 
 [`PersistApp`](#func-persistapp) makes the main window open where it was closed; [`SavedWindow`](#type-savedwindow) does the same for a tela.Window, and [`LoadPlacement`](#func-loadplacement) with [`UseSavePlacement`](#func-usesaveplacement) are the parts they are made of.
 
-### Clipboard, shortcuts, launches, registration, secrets and menus
+### Clipboard, shortcuts, launches, registration, secrets, menus and the trash
 
-[`ReadClipboard`](#func-readclipboard) and [`WriteClipboard`](#func-writeclipboard) copy and paste a tela.DataTransfer (text, HTML, images, files, custom types). [`GlobalShortcut`](#type-globalshortcut) is a component that registers a system-wide shortcut while mounted. [`SingleInstance`](#func-singleinstance) keeps one process per app: a second start hands its [`Launch`](#type-launch) to the first, whose [`UseLaunch`](#func-uselaunch) handlers open its files and links. [`Register`](#func-register) makes the app a handler of a [`URLScheme`](#func-urlscheme) or a [`FileType`](#func-filetype) for the user, without a running app too (an installer); [`MakeDefault`](#func-makedefault) is a separate, explicit request. [`SetSecret`](#func-setsecret), [`Secret`](#func-secret) and [`DeleteSecret`](#func-deletesecret) keep small secrets in the OS's keyring, from a goroutine. [`PopupMenu`](#func-popupmenu) and [`MenuBar`](#type-menubar) are the OS's menus where it has them, for kit's menus to use.
+[`ReadClipboard`](#func-readclipboard) and [`WriteClipboard`](#func-writeclipboard) copy and paste a tela.DataTransfer (text, HTML, images, files, custom types). [`GlobalShortcut`](#type-globalshortcut) is a component that registers a system-wide shortcut while mounted. [`SingleInstance`](#func-singleinstance) keeps one process per app: a second start hands its [`Launch`](#type-launch) to the first, whose [`UseLaunch`](#func-uselaunch) handlers open its files and links. [`Register`](#func-register) makes the app a handler of a [`URLScheme`](#func-urlscheme) or a [`FileType`](#func-filetype) for the user, without a running app too (an installer); [`MakeDefault`](#func-makedefault) is a separate, explicit request. [`SetSecret`](#func-setsecret), [`Secret`](#func-secret) and [`DeleteSecret`](#func-deletesecret) keep small secrets in the OS's keyring, from a goroutine. [`PopupMenu`](#func-popupmenu) and [`MenuBar`](#type-menubar) are the OS's menus where it has them, for kit's menus to use. [`MoveToTrash`](#func-movetotrash) moves a file where the user can restore it, never deleting it, also from a goroutine.
 
 ### When a service is missing
 
@@ -259,6 +259,34 @@ func Preview() tela.Component {
 ```
 
 Its buttons do nothing.
+
+### func MoveToTrash
+
+```go
+func MoveToTrash(path string) error
+```
+
+MoveToTrash moves the file or folder at path to the user's trash (the Recycle Bin on Windows, the Trash of the Linux desktop), where the user can restore it. A relative path is taken from the working directory. It never deletes: when the trash cannot take the file (a desktop without one, a file on a network drive or on another disk than the trash), the file stays where it is and the error wraps [`ErrUnsupported`](#variables), so the app can tell the user the file is still there. A path that does not exist is an error wrapping fs.ErrNotExist.
+
+Ask the user first, and call it from a goroutine: it blocks on file I/O and the desktop's file operation, and dev mode warns when it runs on the UI thread.
+
+```go
+go func() {
+    err := desktop.MoveToTrash(path)
+    tela.Post(func() {
+        switch {
+        case err == nil:
+            toast.Show("Moved " + filepath.Base(path) + " to the Trash")
+        case errors.Is(err, desktop.ErrUnsupported):
+            toast.Show("The file is still in " + filepath.Dir(path))
+        default:
+            toast.Error("Could not move the file", kit.ToastDescription(err.Error()))
+        }
+    })
+}()
+```
+
+It needs a running app (tela.Run or telatest). In tests, telatest's headless trash moves the file into a temporary folder and App.Trashed lists what went there; App.FailTrash and App.Unsupported(telatest.Trash) play the failures.
 
 ### func OpenFile
 

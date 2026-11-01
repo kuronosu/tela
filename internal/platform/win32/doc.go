@@ -394,6 +394,14 @@
 //     WM_COPYDATA (dwData 0x544C4101; version byte, Dir, Token, Args as
 //     uvarint-prefixed strings) with SendMessageTimeoutW (5 s). The first
 //     turns it into a LaunchEvent. Run closes the mutex.
+//   - The trash (ADR-216; trash.go, trash_windows.go): IFileOperation's
+//     DeleteItem with FOF_ALLOWUNDO, FOF_NO_UI, FOFX_RECYCLEONDELETE and
+//     FOFX_ADDUNDORECORD, on a new OS thread in an STA of its own (safe
+//     from any goroutine), with a Go IFileOperationProgressSink whose
+//     PreDeleteItem returns E_ABORT for an item without
+//     TSF_DELETE_RECYCLE_IF_POSSIBLE: the shell would delete it for good,
+//     so it stays and the call is ErrUnsupported. trash.go says why not
+//     SHFileOperationW.
 //
 // # IME
 //

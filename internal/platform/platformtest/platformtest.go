@@ -31,7 +31,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"io/fs"
 	"math"
+	"path/filepath"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -1020,6 +1022,13 @@ func testIntegration(s *session) {
 		s.expectPanic("Secret without a name", func() { _, _ = d.Secret(app.ID, "") })
 		s.expectPanic("DeleteSecret with an invalid app ID", func() { _ = d.DeleteSecret("a b", "x") })
 		s.expectPanic("ClaimInstance without an app ID", func() { _, _ = d.ClaimInstance("", platform.Launch{}) })
+		// The trash: only paths that never reach the OS's trash.
+		if err := d.MoveToTrash("dev.telaui.relative"); !errors.Is(err, fs.ErrInvalid) {
+			s.t.Errorf("MoveToTrash of a relative path = %v, want fs.ErrInvalid", err)
+		}
+		if err := d.MoveToTrash(filepath.Join(s.t.TempDir(), "missing")); !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, platform.ErrUnsupported) {
+			s.t.Errorf("MoveToTrash of a missing file = %v, want fs.ErrNotExist or ErrUnsupported", err)
+		}
 		a := d.Associations()
 		if a == nil {
 			s.t.Errorf("Desktop().Associations() is nil; return platform.UnsupportedAssociations{}")
