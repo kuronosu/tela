@@ -547,7 +547,9 @@ type Clipboard interface {
 
 	// WriteText puts text on the clipboard; the backend serves it to other
 	// applications from the event loop for as long as it owns the
-	// selection. It is Write(TextData(text)).
+	// selection. It is Write(TextData(text)), except that Win32 writes
+	// the text fields' line breaks as CR LF here, while Write keeps the
+	// text as it is.
 	WriteText(text string) error
 
 	// ReadTypes requests the MIME types the clipboard offers, normalized

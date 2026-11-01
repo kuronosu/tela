@@ -585,7 +585,9 @@
 //   - DragDrop carries Data, read by the backend before delivery: the
 //     offered types the app named, else the well-known types offered
 //     ([DropTypes]); a type the source fails to deliver within a few
-//     seconds is left out. The effect the window holds when the handler
+//     seconds is left out (Wayland, X11; Win32's IDataObject::GetData is
+//     synchronous and has no timeout, so a hung source blocks the UI
+//     thread there, as it does in every Win32 app). The effect the window holds when the handler
 //     returns is the outcome reported to the source; SetDropEffect(DropNone)
 //     while handling the drop tells a moving source to keep its data.
 //   - Answers reach the OS as each OS needs: Win32 must return the effect
