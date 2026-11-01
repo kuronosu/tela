@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"time"
 
@@ -28,7 +29,10 @@ import (
 //     requests, window info and desktop services (phase 12, ADR-184).
 //   - 4: WindowOptions.TitleBar and Backdrop, and their window control
 //     requests (ADR-187).
-const ProtocolVersion = 4
+//   - 5: phase 13 (ADR-214): settings v2, clipboard data, drag and drop,
+//     native menus (and menu accelerators), global shortcuts, single
+//     instance and launches, secrets, associations, ActivateWithToken.
+const ProtocolVersion = 5
 
 // magic opens the hello message.
 const magic = "TELA"
@@ -81,23 +85,27 @@ const (
 	msgWindowCtl  // child→host: id, op (ctl…), arguments
 	msgWindowInfo // host→child: id, hidden, restore token of the real window
 	msgRunning    // child→host: Run started (the windows of its setup are sent)
+
+	// Drag and drop (version 5, ADR-214).
+	msgSetDropEffect // child→host: id, drag session, effect, types
 )
 
 // Window control operations of msgWindowCtl.
 const (
-	ctlMinimize   uint8 = iota + 1
-	ctlMaximized        // bool
-	ctlFullscreen       // bool
-	ctlVisible          // bool
-	ctlOnTop            // bool
-	ctlMinSize          // size
-	ctlMaxSize          // size
-	ctlPosition         // i64 x, i64 y
-	ctlActivate         //
-	ctlIcon             // images
-	ctlHitRegions       // regions
-	ctlTitleBar         // three colors (version 4, ADR-187)
-	ctlBackdrop         // u8
+	ctlMinimize      uint8 = iota + 1
+	ctlMaximized           // bool
+	ctlFullscreen          // bool
+	ctlVisible             // bool
+	ctlOnTop               // bool
+	ctlMinSize             // size
+	ctlMaxSize             // size
+	ctlPosition            // i64 x, i64 y
+	ctlActivate            //
+	ctlIcon                // images
+	ctlHitRegions          // regions
+	ctlTitleBar            // three colors (version 4, ADR-187)
+	ctlBackdrop            // u8
+	ctlActivateToken       // token (version 5, ADR-214)
 )
 
 // Limits of decoded lists: a corrupt count fails the message instead of
@@ -178,6 +186,14 @@ func (e *enc) settings(s platform.SystemSettings) {
 	e.boolean(s.DarkMode)
 	e.boolean(s.ReducedMotion)
 	e.dur(s.DoubleClickInterval)
+	c := s.AccentColor
+	e.u8(c.R)
+	e.u8(c.G)
+	e.u8(c.B)
+	e.u8(c.A)
+	e.boolean(s.HasAccentColor)
+	e.boolean(s.HighContrast)
+	e.f64(s.TextScale)
 }
 func (e *enc) rects(rs []image.Rectangle) {
 	e.u32(uint32(len(rs)))
@@ -247,7 +263,15 @@ func (d *dec) metrics() platform.Metrics {
 	return platform.Metrics{Size: d.size(), Scale: d.f64()}
 }
 func (d *dec) settings() platform.SystemSettings {
-	return platform.SystemSettings{DarkMode: d.boolean(), ReducedMotion: d.boolean(), DoubleClickInterval: d.dur()}
+	return platform.SystemSettings{
+		DarkMode:            d.boolean(),
+		ReducedMotion:       d.boolean(),
+		DoubleClickInterval: d.dur(),
+		AccentColor:         color.NRGBA{R: d.u8(), G: d.u8(), B: d.u8(), A: d.u8()},
+		HasAccentColor:      d.boolean(),
+		HighContrast:        d.boolean(),
+		TextScale:           d.f64(),
+	}
 }
 func (d *dec) str() string {
 	n := d.u32()
@@ -315,6 +339,13 @@ const (
 	evWindowState
 	evNotification
 	evTray
+	// Version 5 (ADR-214).
+	evDrag
+	evDragDone
+	evMenu
+	evShortcut
+	evShortcutStatus
+	evLaunch
 )
 
 // event encodes ev. It panics on an event type it does not know, which
@@ -399,6 +430,36 @@ func (e *enc) event(ev platform.Event) {
 		e.u32(uint32(ev.Tray))
 		e.u8(uint8(ev.Kind))
 		e.u32(uint32(ev.Item))
+	case platform.DragEvent:
+		e.u8(evDrag)
+		e.u8(uint8(ev.Action))
+		e.point(ev.Pos)
+		e.strs(ev.Types)
+		e.u8(uint8(ev.Allowed))
+		e.u8(uint8(ev.Mods))
+		e.boolean(ev.FromApp)
+		e.data(ev.Data)
+		e.dur(ev.Time)
+	case platform.DragDoneEvent:
+		e.u8(evDragDone)
+		e.u8(uint8(ev.Effect))
+	case platform.MenuEvent:
+		e.u8(evMenu)
+		e.u32(uint32(ev.Item))
+	case platform.ShortcutEvent:
+		e.u8(evShortcut)
+		e.str(ev.ID)
+		e.u8(uint8(ev.Action))
+		e.dur(ev.Time)
+	case platform.ShortcutStatusEvent:
+		e.u8(evShortcutStatus)
+		e.str(ev.ID)
+		e.u8(uint8(ev.Status))
+		e.str(ev.Trigger)
+		e.str(ev.Reason)
+	case platform.LaunchEvent:
+		e.u8(evLaunch)
+		e.launch(ev.Launch)
 	default:
 		panic(fmt.Sprintf("remote: no wire encoding for event %T; add one to protocol.go", ev))
 	}
@@ -484,6 +545,27 @@ func (d *dec) event() platform.Event {
 			Kind: platform.TrayEventKind(d.u8()),
 			Item: platform.MenuItemID(d.u32()),
 		}
+	case evDrag:
+		return platform.DragEvent{
+			Action:  platform.DragAction(d.u8()),
+			Pos:     d.point(),
+			Types:   d.strs(),
+			Allowed: platform.DropEffect(d.u8()),
+			Mods:    platform.Modifiers(d.u8()),
+			FromApp: d.boolean(),
+			Data:    d.data(),
+			Time:    d.dur(),
+		}
+	case evDragDone:
+		return platform.DragDoneEvent{Effect: platform.DropEffect(d.u8())}
+	case evMenu:
+		return platform.MenuEvent{Item: platform.MenuItemID(d.u32())}
+	case evShortcut:
+		return platform.ShortcutEvent{ID: d.str(), Action: platform.ShortcutAction(d.u8()), Time: d.dur()}
+	case evShortcutStatus:
+		return platform.ShortcutStatusEvent{ID: d.str(), Status: platform.ShortcutStatus(d.u8()), Trigger: d.str(), Reason: d.str()}
+	case evLaunch:
+		return platform.LaunchEvent{Launch: d.launch()}
 	default:
 		if d.err == nil {
 			d.err = fmt.Errorf("remote: unknown event tag %d", tag)
@@ -757,6 +839,7 @@ func (e *enc) menu(items []platform.MenuItem) {
 	for _, it := range items {
 		e.u32(uint32(it.ID))
 		e.str(it.Label)
+		e.str(it.Accelerator)
 		e.boolean(it.Separator)
 		e.boolean(it.Checkable)
 		e.boolean(it.Checked)
@@ -776,8 +859,8 @@ func (d *dec) menu(depth int) []platform.MenuItem {
 	}
 	out := make([]platform.MenuItem, 0, n)
 	for range n {
-		it := platform.MenuItem{ID: platform.MenuItemID(d.u32()), Label: d.str(), Separator: d.boolean(),
-			Checkable: d.boolean(), Checked: d.boolean(), Disabled: d.boolean()}
+		it := platform.MenuItem{ID: platform.MenuItemID(d.u32()), Label: d.str(), Accelerator: d.str(),
+			Separator: d.boolean(), Checkable: d.boolean(), Checked: d.boolean(), Disabled: d.boolean()}
 		it.Submenu = d.menu(depth + 1)
 		if d.err != nil {
 			return nil
@@ -785,4 +868,151 @@ func (d *dec) menu(depth int) []platform.MenuItem {
 		out = append(out, it)
 	}
 	return out
+}
+
+// --- version 5 (phase 13, ADR-214) ---
+
+// data encodes clipboard or drag data: (MIME type, bytes) entries in
+// order.
+func (e *enc) data(d platform.Data) {
+	e.u32(uint32(len(d)))
+	for _, x := range d {
+		e.str(x.Type)
+		e.blob(x.Bytes)
+	}
+}
+
+func (d *dec) data() platform.Data {
+	n := d.count(maxItems, "data entries")
+	if n == 0 || d.err != nil {
+		return nil
+	}
+	out := make(platform.Data, n)
+	for i := range out {
+		out[i] = platform.DataEntry{Type: d.str(), Bytes: d.blob()}
+	}
+	if d.err != nil {
+		return nil
+	}
+	return out
+}
+
+// optBytes encodes a byte slice that may be nil (absent) as opposed to
+// empty.
+func (e *enc) optBytes(p []byte) {
+	e.boolean(p != nil)
+	if p != nil {
+		e.blob(p)
+	}
+}
+
+func (d *dec) optBytes() []byte {
+	if !d.boolean() {
+		return nil
+	}
+	p := d.blob()
+	if p == nil && d.err == nil {
+		p = []byte{}
+	}
+	return p
+}
+
+// rgba encodes an optional premultiplied image (a drag image), rows
+// packed.
+func (e *enc) rgba(img *image.RGBA) {
+	e.boolean(img != nil)
+	if img == nil {
+		return
+	}
+	r := img.Rect
+	e.u32(uint32(r.Dx()))
+	e.u32(uint32(r.Dy()))
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		o := img.PixOffset(r.Min.X, y)
+		e.b = append(e.b, img.Pix[o:o+4*r.Dx()]...)
+	}
+}
+
+func (d *dec) rgba() *image.RGBA {
+	if !d.boolean() {
+		return nil
+	}
+	w, h := int(d.u32()), int(d.u32())
+	if d.err != nil {
+		return nil
+	}
+	if w <= 0 || h <= 0 || w > platform.MaxDragImageSide || h > platform.MaxDragImageSide {
+		d.fail(fmt.Errorf("remote: drag image of %dx%d", w, h))
+		return nil
+	}
+	p := d.take(4 * w * h)
+	if p == nil {
+		return nil
+	}
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	copy(img.Pix, p)
+	return img
+}
+
+// dragOptions encodes the options of a StartDrag.
+func (e *enc) dragOptions(o platform.DragOptions) {
+	e.data(o.Data)
+	e.u8(uint8(o.Allowed))
+	e.rgba(o.Image)
+	e.i64(int64(o.Hotspot.X))
+	e.i64(int64(o.Hotspot.Y))
+}
+
+func (d *dec) dragOptions() platform.DragOptions {
+	return platform.DragOptions{Data: d.data(), Allowed: platform.DropEffect(d.u8()), Image: d.rgba(),
+		Hotspot: image.Point{X: int(d.i64()), Y: int(d.i64())}}
+}
+
+// launch encodes how a process was started.
+func (e *enc) launch(l platform.Launch) {
+	e.strs(l.Args)
+	e.str(l.Dir)
+	e.str(l.Token)
+}
+
+func (d *dec) launch() platform.Launch {
+	return platform.Launch{Args: d.strs(), Dir: d.str(), Token: d.str()}
+}
+
+// shortcut encodes a global shortcut.
+func (e *enc) shortcut(s platform.Shortcut) {
+	e.str(s.ID)
+	e.u8(uint8(s.Accelerator.Mods))
+	e.str(string(s.Accelerator.Key))
+	e.str(s.Description)
+}
+
+func (d *dec) shortcut() platform.Shortcut {
+	return platform.Shortcut{ID: d.str(), Accelerator: platform.Accelerator{Mods: platform.Modifiers(d.u8()), Key: platform.Key(d.str())},
+		Description: d.str()}
+}
+
+// handlerApp encodes the app of an association request.
+func (e *enc) handlerApp(a platform.HandlerApp) {
+	e.str(a.ID)
+	e.str(a.Name)
+	e.str(a.Exec)
+	e.strs(a.Args)
+	e.str(a.Icon)
+}
+
+func (d *dec) handlerApp() platform.HandlerApp {
+	return platform.HandlerApp{ID: d.str(), Name: d.str(), Exec: d.str(), Args: d.strs(), Icon: d.str()}
+}
+
+// association encodes a scheme or file type.
+func (e *enc) association(a platform.Association) {
+	e.str(a.Scheme)
+	e.str(a.Extension)
+	e.str(a.MIMEType)
+	e.str(a.Description)
+}
+
+func (d *dec) association() platform.Association {
+	return platform.Association{Scheme: d.str(), Extension: d.str(), MIMEType: d.str(), Description: d.str()}
 }

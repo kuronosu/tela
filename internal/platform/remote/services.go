@@ -68,6 +68,23 @@ const (
 	dNewTray
 	dUpdateTray
 	dRemoveTray
+	// Version 5 (phase13.go, ADR-214).
+	dSetMenu            // window id, menu
+	dPopupMenu          // dialog: window id, point, menu; answer: item
+	dStartDrag          // window id, drag options
+	dClipReadTypes      // dialog; answer: types
+	dClipRead           // dialog: MIME type; answer: optional bytes
+	dClipWrite          // data
+	dRegisterShortcut   // shortcut
+	dUnregisterShortcut // id
+	dClaimInstance      // app ID, launch; result: primary
+	dSetSecret          // app ID, name, secret (served off the UI thread)
+	dSecret             // app ID, name; result: optional bytes
+	dDeleteSecret       // app ID, name
+	dAssocStatus        // app, association; result: status
+	dAssocRegister      // app, association, replace; result: changed
+	dAssocUnregister    // app, association; result: changed
+	dAssocMakeDefault   // app, association; result: DefaultResult
 )
 
 // Outcome codes of a desktop call.
@@ -75,7 +92,23 @@ const (
 	codeOK uint8 = iota
 	codeUnsupported
 	codeError
+	// Version 5: errors whose sentinel the child gets back (errors.Is).
+	codeNoGrab
+	codeSecretNotFound
+	codeSecretTooLarge
+	codeAssocTaken
 )
+
+// sentinels maps the outcome codes of version 5 to their errors.
+var sentinels = []struct {
+	code uint8
+	err  error
+}{
+	{codeNoGrab, platform.ErrNoGrab},
+	{codeSecretNotFound, platform.ErrSecretNotFound},
+	{codeSecretTooLarge, platform.ErrSecretTooLarge},
+	{codeAssocTaken, platform.ErrAssociationTaken},
+}
 
 // desktopTimeout bounds the wait for the host's answer to a synchronous
 // desktop call (the host answers from its UI thread).
@@ -107,14 +140,30 @@ func (d childDesktop) windowID(w platform.Window) uint32 {
 // call sends a desktop request and waits for its outcome; the returned
 // decoder holds the results that follow it.
 func (d childDesktop) call(op uint8, token uint32, fill func(*enc)) (*dec, error) {
+	return d.callFor(op, token, desktopTimeout, fill)
+}
+
+// maxPayload bounds a desktop request: what does not fit in a frame
+// (clipboard or drag data) fails the call instead of the connection.
+const maxPayload = maxFrame - 64<<10
+
+// callFor is call with a timeout (0: none, until the connection ends).
+func (d childDesktop) callFor(op uint8, token uint32, timeout time.Duration, fill func(*enc)) (*dec, error) {
 	e := &enc{}
 	e.u8(op)
 	e.u32(token)
 	if fill != nil {
 		fill(e)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), desktopTimeout)
-	defer cancel()
+	if len(e.b) > maxPayload {
+		return nil, fmt.Errorf("remote: a request of %d bytes is larger than the remote protocol carries (%d)", len(e.b), maxPayload)
+	}
+	ctx := context.Background()
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 	p, err := d.b.ctl.request(ctx, kindDesktop, e.b)
 	if err != nil {
 		return nil, err
@@ -137,6 +186,11 @@ func outcome(r *dec) error {
 		return nil
 	case codeUnsupported:
 		return platform.ErrUnsupported
+	}
+	for _, s := range sentinels {
+		if s.code == code {
+			return &hostError{text: text, sentinel: s.err}
+		}
 	}
 	return errors.New(text)
 }
@@ -327,7 +381,14 @@ func encodeOutcome(e *enc, err error) {
 		e.u8(codeUnsupported)
 		e.str(err.Error())
 	default:
-		e.u8(codeError)
+		code := codeError
+		for _, s := range sentinels {
+			if errors.Is(err, s.err) {
+				code = s.code
+				break
+			}
+		}
+		e.u8(code)
 		e.str(err.Error())
 	}
 }
@@ -467,6 +528,69 @@ func (h *Host) serveDesktop(c *Child, op uint8, token uint32, d *dec, result *fu
 			return err
 		}
 		return h.removeTray(c, id, call)
+	case dSetMenu:
+		id, menu := d.u32(), d.menu(0)
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.setMenu(c, id, menu, call)
+	case dPopupMenu:
+		id, at, menu := d.u32(), d.point(), d.menu(0)
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.popupMenu(c, id, at, menu, call, answer)
+	case dStartDrag:
+		id, opts := d.u32(), d.dragOptions()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.startDrag(c, id, opts, call)
+	case dClipReadTypes:
+		if err := d.end(); err != nil {
+			return err
+		}
+		return call(func() error {
+			return h.b.Clipboard().ReadTypes(func(types []string, err error) {
+				answer(err, func(e *enc) { e.strs(types) })
+			})
+		})
+	case dClipRead:
+		mime := d.str()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return call(func() error {
+			return h.b.Clipboard().Read(mime, func(p []byte, err error) {
+				answer(err, func(e *enc) { e.optBytes(p) })
+			})
+		})
+	case dClipWrite:
+		data := d.data()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.clipWriteData(c, data, call)
+	case dRegisterShortcut:
+		s := d.shortcut()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.registerShortcut(c, s, call)
+	case dUnregisterShortcut:
+		id := d.str()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.unregisterShortcut(c, id, call)
+	case dClaimInstance:
+		appID, launch := d.str(), d.launch()
+		if err := d.end(); err != nil {
+			return err
+		}
+		primary, err := h.claimInstance(c, appID, launch, call)
+		*result = func(e *enc) { e.boolean(primary) }
+		return err
 	}
 	return fmt.Errorf("remote: unknown desktop operation %d", op)
 }
@@ -591,8 +715,9 @@ func (h *Host) removeTray(c *Child, id platform.TrayID, call func(func() error) 
 }
 
 // promoteServices gives the real trays the options of c, the new active
-// child.
+// child, and its global shortcuts (phase13.go).
 func (h *Host) promoteServices(c *Child) {
+	defer h.promoteShortcuts(c)
 	for _, id := range c.trays {
 		t := h.trays[id]
 		if t == nil {
@@ -639,6 +764,7 @@ func (h *Host) dropServices(c *Child) {
 		}
 	}
 	c.trays, c.notes = nil, nil
+	h.dropShortcutClaims(c)
 }
 
 // equalTray reports whether two decoded tray options are the same.

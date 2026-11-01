@@ -82,6 +82,11 @@ type HostOptions struct {
 	// OnError reports a non-fatal error: a failed Present or window
 	// creation, a shared buffer that could not be mapped.
 	OnError func(err error)
+	// OnSecondInstance is called when a child's ClaimInstance found the
+	// app ID held by another process (another tela dev of the same app,
+	// or the app itself): the child's launch went to that process, and
+	// the child was told it is a second instance, so it exits (phase13.go).
+	OnSecondInstance func(c *Child, appID string)
 }
 
 // Host is the supervisor side: it owns the real windows (on any
@@ -114,9 +119,14 @@ type Host struct {
 	order    []*realWin // real windows in creation order
 	overlay  func(w platform.Window, fb *image.RGBA)
 
-	// Desktop services held for the children (services.go).
-	trays map[platform.TrayID]*hostTray
-	notes map[platform.NotificationID]*hostNote
+	// Desktop services held for the children (services.go, phase13.go).
+	trays     map[platform.TrayID]*hostTray
+	notes     map[platform.NotificationID]*hostNote
+	shortcuts map[string]*hostShortcut
+	instances map[string]bool // app IDs the backend claimed for the children
+	// desk is b.Desktop(), kept for the secret and association calls,
+	// which run on goroutines of their own (immutable).
+	desk platform.Desktop
 }
 
 // queuedEvent is input held while frozen; rw is nil for an app-scoped
@@ -147,17 +157,20 @@ func NewHost(b platform.Backend, opts HostOptions) (*Host, error) {
 		return nil, fmt.Errorf("remote: listen: %w", err)
 	}
 	h := &Host{
-		b:        b,
-		name:     b.Name(),
-		opts:     opts,
-		ln:       ln,
-		addr:     addr,
-		settings: opts.filterSettings(b.Settings()),
-		handlers: map[string]func(*Child, []byte) ([]byte, error){},
-		all:      map[*Child]struct{}{},
-		byWin:    map[platform.Window]*realWin{},
-		trays:    map[platform.TrayID]*hostTray{},
-		notes:    map[platform.NotificationID]*hostNote{},
+		b:         b,
+		name:      b.Name(),
+		opts:      opts,
+		ln:        ln,
+		addr:      addr,
+		settings:  opts.filterSettings(b.Settings()),
+		handlers:  map[string]func(*Child, []byte) ([]byte, error){},
+		all:       map[*Child]struct{}{},
+		byWin:     map[platform.Window]*realWin{},
+		trays:     map[platform.TrayID]*hostTray{},
+		notes:     map[platform.NotificationID]*hostNote{},
+		shortcuts: map[string]*hostShortcut{},
+		instances: map[string]bool{},
+		desk:      b.Desktop(),
 	}
 	go h.accept()
 	return h, nil
@@ -279,8 +292,8 @@ func (h *Host) Unfreeze() {
 // The previously active child is detached: it receives nothing more, and
 // the caller stops it. If c has windows, real windows it does not use are
 // closed. Its tray icons replace the old child's (services.go): icons
-// both have stay, with c's options. Promoting the active child only
-// unfreezes.
+// both have stay, with c's options; likewise its global shortcuts and
+// menu bars (phase13.go). Promoting the active child only unfreezes.
 func (h *Host) Promote(c *Child) error {
 	if c.h != h {
 		panic("remote: Promote called with a child of another host")
@@ -430,12 +443,12 @@ func (h *Host) HandleEvent(w platform.Window, e platform.Event) {
 			}
 		}
 		return
-	case platform.NotificationEvent, platform.TrayEvent:
+	case platform.NotificationEvent, platform.TrayEvent, platform.ShortcutEvent, platform.LaunchEvent:
 		h.appEvent(e)
 		return
-	}
-	if phase13Event(e) {
-		return // not carried by protocol 4 (phase13.go)
+	case platform.ShortcutStatusEvent:
+		h.shortcutStatus(e)
+		return
 	}
 	if rw := h.byWin[w]; rw != nil {
 		h.windowEvent(rw, e)
@@ -499,6 +512,10 @@ func (h *Host) windowEvent(rw *realWin, e platform.Event) {
 			h.deliver(cw, ev)
 		}
 		h.input(rw, e)
+	case platform.DragEvent, platform.DragDoneEvent, platform.MenuEvent:
+		// Input for the active child, but not for HostOptions.Input: the
+		// overlay takes clicks and keys, not drags or menu choices.
+		h.forward(rw, e)
 	default:
 		h.input(rw, e)
 	}
@@ -563,6 +580,16 @@ func (h *Host) route(rw *realWin, e platform.Event) {
 			rw.pointer = &pe
 		}
 	}
+	if _, ok := e.(platform.DragDoneEvent); ok {
+		// The outcome of a drag goes to the window that started it, if its
+		// build is still running (phase13.go).
+		src := rw.dragSrc
+		rw.dragSrc = nil
+		if src != nil && src.live() && src.rw == rw {
+			h.deliver(src, e)
+		}
+		return
+	}
 	if rw.active != nil {
 		h.deliver(rw.active, e)
 	} else if fn := h.opts.OnUnhandled; fn != nil {
@@ -586,6 +613,9 @@ func (h *Host) appEvent(e platform.Event) {
 
 func (h *Host) routeApp(e platform.Event) {
 	if c := h.active; c != nil {
+		if se, ok := e.(platform.ShortcutEvent); ok && !h.holdsShortcut(c, se.ID) {
+			return // a shortcut this build did not register
+		}
 		c.sendEvent(0, e)
 	} else if fn := h.opts.OnUnhandled; fn != nil {
 		fn(nil, e)
@@ -705,6 +735,10 @@ func (h *Host) deliver(cw *childWin, e platform.Event) {
 		cw.imeActive = ev.Active
 	case platform.IMEEvent:
 		if !cw.imeActive {
+			return
+		}
+	case platform.DragEvent:
+		if !h.dragView(cw, ev) {
 			return
 		}
 	}
@@ -929,6 +963,7 @@ func (h *Host) activate(rw *realWin, cw *childWin) {
 	}
 	h.setTextInput(rw, cw.textInput)
 	h.applyWindow(rw, cw)
+	h.promoteMenu(rw, cw)
 	if cw.wantFrame && cw.visible {
 		rw.w.RequestFrame()
 	}
@@ -1143,6 +1178,14 @@ func (c *Child) sendEvent(id uint32, ev platform.Event) {
 	e := newMsg(msgEvent)
 	e.u32(id)
 	e.event(ev)
+	if de, ok := ev.(platform.DragEvent); ok && len(e.b) > maxFrame-4 {
+		// A drop whose data does not fit in a frame arrives without it.
+		c.h.reportError(fmt.Errorf("remote: the dropped data (%d bytes) is larger than the remote protocol carries; the drop arrives without it", len(e.b)))
+		de.Data = nil
+		e = newMsg(msgEvent)
+		e.u32(id)
+		e.event(de)
+	}
 	c.c.send(e.bytes())
 }
 
@@ -1232,6 +1275,8 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 		h.post(func() { h.attach(cw) })
 	case msgWindowCtl:
 		return c.windowCtl(d)
+	case msgSetDropEffect:
+		return c.setDropEffect(d)
 	case msgRunning:
 		if err := d.end(); err != nil {
 			return err
@@ -1340,7 +1385,11 @@ func (c *Child) dispatch(t msgType, d *dec) error {
 			return err
 		}
 		if in.kind == kindDesktop && in.id != 0 {
-			h.post(func() { h.desktopRequest(c, in) })
+			if blockingDesktop(in.payload) {
+				go h.blockingRequest(c, in)
+			} else {
+				h.post(func() { h.desktopRequest(c, in) })
+			}
 			return nil
 		}
 		h.post(func() { h.runHandler(c, in) })
@@ -1539,6 +1588,10 @@ type childWin struct {
 	cursor    platform.Cursor
 	textInput *platform.TextInputState
 	state     platform.WindowState // the latest WindowStateEvent sent
+	// Drag and drop (phase13.go): a drag session is over the window in
+	// the child's view; the DragEnters sent to it.
+	dragging    bool
+	dragSession uint32
 
 	// The child's view of the window's state requests (windowctl.go),
 	// applied to the real window while it is the active one.
@@ -1549,6 +1602,7 @@ type childWin struct {
 	regions  []platform.HitRegion
 	titleBar platform.TitleBarColors
 	backdrop platform.Backdrop
+	menu     []platform.MenuItem // the menu bar it set (phase13.go)
 
 	notified atomic.Bool // a presented() call is queued
 

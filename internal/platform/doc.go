@@ -973,9 +973,12 @@
 // ErrUnsupported), the keychain, NSRunningApplication for single instance,
 // the bundle's Info.plist for schemes and document types.
 //
-// Remote (tela dev): protocol 4 carries none of this: the child checks
-// arguments and returns ErrUnsupported, and the host drops the new events
-// its backend delivers, until step C's protocol.
+// Remote (tela dev), protocol 5 (ADR-214): everything is forwarded to the
+// host's backend, which owns the real windows: drags in both directions
+// (the answer to a drag reaches the OS one round trip late, so a drag
+// entering a window is refused until the child answered), menus, the
+// clipboard's Data, global shortcuts and single instance held by the host
+// across reloads, secrets and associations (see the remote package).
 //
 // Headless: the clipboard holds Data; drags are driven by injected pointer
 // events after Window.StartDrag or Backend.StartExternalDrag; menus,

@@ -218,6 +218,7 @@ type (
 	evUnhandledClose struct{}
 	evHostDone       struct{ err error }
 	evHostError      struct{ err error }
+	evSecondInstance struct{ appID string }
 	evPanic          struct {
 		c    *remote.Child
 		text string
@@ -279,7 +280,8 @@ func (s *supervisor) hostOptions() remote.HostOptions {
 				s.push(evUnhandledClose{})
 			}
 		},
-		OnError: func(err error) { s.push(evHostError{err}) },
+		OnError:          func(err error) { s.push(evHostError{err}) },
+		OnSecondInstance: func(_ *remote.Child, appID string) { s.push(evSecondInstance{appID}) },
 	}
 	if s.ov != nil {
 		o.Input = s.ov.handleInput
@@ -524,6 +526,11 @@ func (s *supervisor) handle(e any) {
 		s.quit(0, "")
 	case evHostError:
 		s.log.verbosef("host: %v", e.err)
+	case evSecondInstance:
+		// The app claims single instance and another process holds it
+		// (another tela dev of the app, or the app itself): the build sent
+		// its launch there and exits as a second instance does (ADR-214).
+		s.log.printf("another process of %s is running (another tela dev, or the app itself) and holds its single-instance claim: the launch went to it, and this build exits as a second instance does; close the other one to run this one", e.appID)
 	case evHostDone:
 		s.hostDone = true
 		if !s.quitting {

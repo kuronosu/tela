@@ -49,20 +49,36 @@
 //   - Events of the sealed set are forwarded by the host: ConfigureEvent,
 //     WindowStateEvent, FrameEvent (the real window's, paced by its
 //     display), focus, close requests, pointer, scroll, key, IME and IME
-//     session events, SettingsEvent, and the app-scoped NotificationEvent
-//     and TrayEvent (to the active child). WakeEvent, Wake and Quit are
-//     local. Event times and FrameEvent.Time are the host's clock, and
+//     session events, DragEvent, DragDoneEvent (to the window that
+//     started the drag) and MenuEvent, SettingsEvent (with the accent
+//     color, high contrast and text scale), and the app-scoped
+//     NotificationEvent, TrayEvent, ShortcutEvent and LaunchEvent (to the
+//     active child) and ShortcutStatusEvent (to the children holding the
+//     shortcut). WakeEvent, Wake and Quit are local. Event times and FrameEvent.Time are the host's clock, and
 //     [Backend.Now] equals it: the handshake measures the offset between
 //     the two processes' monotonic clocks (to within half a round trip).
 //   - RequestFrame, SetTitle, SetCursor, SetSize, SetTextInput,
 //     ResetTextInput, Close (children first) and every window control
-//     request (windowctl.go) are forwarded; RestoreToken is the real
-//     window's, which the host sends. Clipboard reads are an asynchronous
-//     round trip (done runs on the child's UI thread), writes are
-//     forwarded. Desktop services are the host's (services.go): calls are
-//     round trips on the control channel, dialogs answer later on the UI
-//     thread, and tray icons and notifications are held by the host for
-//     its children so a swap neither duplicates nor drops them.
+//     request (windowctl.go) are forwarded, ActivateWithToken with its
+//     token; RestoreToken is the real window's, which the host sends.
+//     Clipboard reads are an asynchronous round trip (done runs on the
+//     child's UI thread), writes are forwarded; Data reads and writes
+//     too (ReadTypes and Read answer like dialogs). Desktop services are
+//     the host's (services.go): calls are round trips on the control
+//     channel, dialogs answer later on the UI thread, and tray icons and
+//     notifications are held by the host for its children so a swap
+//     neither duplicates nor drops them.
+//   - Phase 13 (protocol 5, ADR-214; phase13.go): drag and drop both
+//     ways, the drop's data read by the host's backend; SetDropEffect is
+//     a message whose answer reaches the OS one round trip late (Win32
+//     answers inside IDropTarget with the latest answer the host has).
+//     StartDrag, SetMenu and PopupMenu run on the real window. Global
+//     shortcuts are held by the host like trays, so a reload that
+//     registers the same ones does not register them again (the Wayland
+//     portal would ask the user each time). ClaimInstance makes the host
+//     claim the app ID, so it lasts across reloads; a second tela dev of
+//     the app is a second instance and exits. Secrets and associations
+//     are the host backend's too, served off its UI thread.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

@@ -35,6 +35,13 @@ type realWin struct {
 	regions  []platform.HitRegion
 	titleBar platform.TitleBarColors
 	backdrop platform.Backdrop
+	// The menu bar set on w (phase13.go); menuKnown once a SetMenu told
+	// whether w has one (menuErr: ErrUnsupported or nil).
+	menu      []platform.MenuItem
+	menuKnown bool
+	menuErr   error
+	// dragSrc is the child window whose StartDrag is in progress on w.
+	dragSrc *childWin
 
 	active  *childWin   // shown, receives input
 	pending []*childWin // render offscreen

@@ -76,6 +76,14 @@ type Window struct {
 	regions  []platform.HitRegion
 	titleBar platform.TitleBarColors
 	backdrop platform.Backdrop
+	// Drag and drop (phase13.go): a drag session is over the window as
+	// delivered, the DragEnters delivered, and the answer last sent in
+	// the session.
+	dragOver    bool
+	dropSession uint32
+	dropSent    bool
+	dropEffect  platform.DropEffect
+	dropTypes   []string
 	// From the host's msgWindowInfo: the real window's restore token and
 	// whether it was hidden when this window was mapped onto it.
 	token      string
