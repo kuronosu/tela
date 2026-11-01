@@ -629,6 +629,10 @@ type harness struct {
 	// onFrame, if set, runs on the UI thread for every FrameEvent
 	// (before the event is recorded).
 	onFrame func(w platform.Window, e platform.FrameEvent)
+	// onEvent, if set, runs on the UI thread for every event but
+	// WakeEvent, from the handler (before the event is recorded). Set it
+	// before the loop starts.
+	onEvent func(w platform.Window, e platform.Event)
 }
 
 func newHarness(t *testing.T, globals []fakeGlobal) *harness {
@@ -686,6 +690,9 @@ func (h *harness) start() {
 			}
 			if fe, ok := e.(platform.FrameEvent); ok && h.onFrame != nil {
 				h.onFrame(w, fe)
+			}
+			if h.onEvent != nil {
+				h.onEvent(w, e)
 			}
 			h.events <- record{w, e}
 		}))

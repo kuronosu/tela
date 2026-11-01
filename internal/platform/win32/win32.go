@@ -51,6 +51,9 @@ type Backend struct {
 	settings platform.SystemSettings
 	// desk is the state of the desktop services (services.go).
 	desk desktopState
+	// app is the state of the app-level services of phase 13: global
+	// shortcuts and single instance (appservices_windows.go).
+	app appServices
 
 	iterations atomic.Int64 // GetMessageW returns, for idle tests
 }
@@ -178,6 +181,7 @@ func (b *Backend) shutdown() {
 		w.Close()
 	}
 	b.desktopShutdown()
+	b.appServicesShutdown()
 	b.loop.Discard()
 	b.stopped.Store(true)
 	registry.mu.Lock()

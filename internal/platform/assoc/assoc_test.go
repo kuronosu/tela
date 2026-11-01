@@ -39,8 +39,7 @@ func TestLinuxDirs(t *testing.T) {
 
 func TestOSStubs(t *testing.T) {
 	for name, a := range map[string]platform.Associations{
-		"linux":   Linux(LinuxDirs{DataHome: t.TempDir(), ConfigHome: t.TempDir()}),
-		"windows": Windows(&MemRegistry{}),
+		"linux": Linux(LinuxDirs{DataHome: t.TempDir(), ConfigHome: t.TempDir()}),
 	} {
 		if _, err := a.Register(notesApp, scheme, platform.RegisterOptions{}); !errors.Is(err, platform.ErrUnsupported) {
 			t.Errorf("%s: Register = %v, want ErrUnsupported until step B", name, err)

@@ -22,6 +22,7 @@ func (b *Backend) Desktop() platform.Desktop {
 			Post:   b.loop.Post,
 			Event:  func(e platform.Event) { b.loop.Enqueue(nil, e) },
 			Parent: portalParent,
+			Now:    b.Now,
 		})
 	}
 	// Global shortcuts fall back to key grabs without the portal

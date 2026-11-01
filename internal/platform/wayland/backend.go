@@ -109,8 +109,12 @@ type Backend struct {
 	lastSerial uint32
 	lastSeat   *seat
 
-	// Clipboard transfers in progress (clipboard.go), polled with the
-	// display socket, and the time a transfer may go without progress.
+	// drag is the drag this app started (dnd.go), nil when none.
+	drag *dragSource
+
+	// Clipboard and drag-and-drop transfers in progress (clipboard.go),
+	// polled with the display socket, and the time a transfer may go
+	// without progress.
 	transfers       []*transfer
 	transferTimeout time.Duration
 	pollFds         []unix.PollFd
@@ -361,9 +365,13 @@ func (b *Backend) signal() {
 	}
 }
 
-// Settings returns zero values (unknown): reading the desktop settings
-// portal over D-Bus is a later task.
-func (b *Backend) Settings() platform.SystemSettings { return platform.SystemSettings{} }
+// Settings returns the system settings from the XDG desktop portal (read
+// on the first call; changes arrive as SettingsEvents), shared with X11 in
+// internal/platform/internal/freedesktop. Zero without a portal.
+func (b *Backend) Settings() platform.SystemSettings {
+	b.Desktop()
+	return b.desktop.SystemSettings()
+}
 
 // Clipboard returns the clipboard: the wl_data_device selection
 // (clipboard.go).
@@ -414,6 +422,9 @@ func (b *Backend) Run(h platform.Handler) error {
 		// SetTextInput calls, enter and leave) go out with one commit
 		// each.
 		b.syncTextInputs()
+		// So do the answers to drags over our windows (dnd.go): sent
+		// once the handlers saw the drag events of this pass.
+		b.syncDrops()
 		if err := b.flush(); err != nil {
 			return err
 		}

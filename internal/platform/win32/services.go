@@ -292,6 +292,9 @@ func (b *Backend) desktopPassEnded() {
 // the backend's own windows (the message-only window and the tray window);
 // ok is false for any other.
 func (b *Backend) desktopMessage(hwnd uintptr, msg uint32, wparam, lparam uintptr) (ret uintptr, ok bool) {
+	if ret, ok := b.appServicesMessage(hwnd, msg, wparam, lparam); ok {
+		return ret, true
+	}
 	d := &b.desk
 	switch {
 	case hwnd == b.msgHwnd && msg == wmTelaModal:

@@ -259,7 +259,7 @@ func (w *Window) message(msg uint32, wparam, lparam uintptr) uintptr {
 		if r, ok := w.imeMessage(msg, wparam, lparam); ok {
 			return r
 		}
-	case wmSettingChange:
+	case wmSettingChange, wmDwmColorizationColorChanged, wmSysColorChange:
 		w.b.settingsChanged()
 		w.repaint(false)
 

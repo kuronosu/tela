@@ -171,7 +171,7 @@ func TestClipboardWriteAndServe(t *testing.T) {
 			mimes = append(mimes, r.args[0].(string))
 		}
 	}
-	want := []string{"text/plain;charset=utf-8", "text/plain", "UTF8_STRING", "TEXT", "STRING"}
+	want := platform.SelectionTargets(platform.MIMEText) // utf-8, UTF8_STRING, text/plain, TEXT, STRING
 	if len(mimes) != len(want)+1 || !slices.Equal(mimes[:len(want)], want) || !strings.HasPrefix(mimes[len(want)], "application/x-tela-source-") {
 		t.Errorf("offered MIME types %q, want %q plus the source marker", mimes, want)
 	}
@@ -424,7 +424,7 @@ func TestClipboardReadTimeout(t *testing.T) {
 	})
 }
 
-func TestClipboardIgnoresDragAndDrop(t *testing.T) {
+func TestClipboardKeptByDragAndDrop(t *testing.T) {
 	h := newHarness(t, clipboardGlobals(false))
 	_, dev := clipSetup(t, h)
 	sel := h.fc.setSelection(dev, "text/plain")
@@ -437,8 +437,14 @@ func TestClipboardIgnoresDragAndDrop(t *testing.T) {
 			event(dev, ddMotion, uint32(5), 11.0, 21.0),
 			event(dev, end),
 		))
+		// The app never accepts: a drop is a leave.
 		if r := h.fc.until("wl_data_offer.destroy"); r[len(r)-1].id != dnd {
 			t.Errorf("destroyed %v, want the drag offer %d", r[len(r)-1], dnd)
+		}
+		for _, a := range []platform.DragAction{platform.DragEnter, platform.DragOver, platform.DragLeave} {
+			if e := expect[platform.DragEvent](h); e.Action != a {
+				t.Errorf("got %v, want %v", e.Action, a)
+			}
 		}
 	}
 	// The selection is untouched.
@@ -454,8 +460,6 @@ func TestClipboardIgnoresDragAndDrop(t *testing.T) {
 	if got := wait(t, ch); got.err != nil || got.text != "kept" {
 		t.Errorf("ReadText after a drag = %q, %v", got.text, got.err)
 	}
-	// Nothing reached the app.
-	h.noEvent(50 * time.Millisecond)
 }
 
 // TestClipboardPointerSerial checks the serial of a selection set after a

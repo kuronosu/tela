@@ -24,15 +24,18 @@
 //     windows. Without it, or when the compositor picks client-side,
 //     the window reports ClientSideDecorations (see Window control).
 //   - wl_data_device_manager (optional, version up to 3): the clipboard
-//     (clipboard.go). Without it Clipboard reports an error.
+//     (clipboard.go) and drag and drop (dnd.go; StartDrag needs version
+//     3). Without it Clipboard reports an error wrapping ErrUnsupported
+//     and no drag reaches the windows.
 //   - zwp_text_input_manager_v3 (optional, version 1): the IME
 //     (textinput.go). Without it SetTextInput only records the state and
 //     no IME events arrive (an IME is then reachable only through the
 //     keys it forwards).
 //   - Window control, all optional (windowctl.go, see Window control):
-//     xdg_activation_v1 (Activate), xdg_wm_dialog_v1 (modal windows),
-//     xdg_toplevel_icon_manager_v1 (SetIcon) and xdg_session_manager_v1
-//     (RestoreToken), version 1, from wayland-protocols 1.49 (staging).
+//     xdg_activation_v1 (Activate, ActivateWithToken), xdg_wm_dialog_v1
+//     (modal windows), xdg_toplevel_icon_manager_v1 (SetIcon) and
+//     xdg_session_manager_v1 (RestoreToken), version 1, from
+//     wayland-protocols 1.49 (staging).
 //
 // # Loop
 //
@@ -43,7 +46,9 @@
 // the app: they update state and queue events, which the loop delivers after
 // Dispatch returns, so the handler is never called re-entrantly. While a
 // key is held, its next repeat is one more deadline of the same poll
-// timeout, and clipboard transfers add their pipes to the same poll(2).
+// timeout, and clipboard and drop transfers add their pipes to the same
+// poll(2). Answers to drags over the windows (SetDropEffect) are sent
+// after each delivery pass, before the flush.
 // Nothing runs while idle (0% CPU).
 //
 // The queue, the delivery pass and the frame-due rule are the shared
@@ -117,35 +122,44 @@
 //
 // Clipboard is the wl_data_device selection of the seat whose keyboard
 // focuses one of our windows (else the first seat). There is no primary
-// selection (middle-click paste) and no drag and drop: offers of a drag
-// over our windows are destroyed unused, so the source sees no target.
+// selection (middle-click paste).
 //
-// WriteText creates a wl_data_source offering text/plain;charset=utf-8,
-// text/plain, UTF8_STRING, TEXT and STRING (ISO 8859-1, '?' for other
-// characters; the rest UTF-8), plus a private type that names the source,
-// and calls set_selection with the seat's newest input serial (pointer
-// enter, leave or button; keyboard enter, leave or key). Compositors
-// accept it only from the client with keyboard focus, and only with a
-// serial not older than the current selection's; a refused request is
-// silent. The source answers wl_data_source.send until it is cancelled
-// (another client took the selection) or replaced by the next WriteText.
+// Write (and WriteText, which is Write of TextData) creates a
+// wl_data_source offering every entry under each of its
+// platform.SelectionTargets, in the data's order: text as
+// text/plain;charset=utf-8, UTF8_STRING, text/plain, TEXT and STRING
+// (ISO 8859-1, '?' for other characters; the rest UTF-8), URI lists also
+// as x-special/gnome-copied-files ("copy" and the URIs), other types as
+// themselves; plus a private type that names the source. It calls
+// set_selection with the seat's newest input serial (pointer enter, leave
+// or button; keyboard enter, leave or key). Compositors accept it only
+// from the client with keyboard focus, and only with a serial not older
+// than the current selection's; a refused request is silent. The source
+// answers wl_data_source.send until it is cancelled (another client took
+// the selection) or replaced by the next Write. Empty data clears the
+// selection (set_selection with no source).
 //
-// ReadText answers our own selection from memory without a round trip,
-// as GTK does. A selection event whose offer carries the private type of
-// our latest source confirms that the compositor accepted it; any other
-// selection event (another client's offer, or none) ends our ownership, so
-// after a refused WriteText the next selection event (at the latest, the
-// one before the next keyboard enter) restores the real owner. Another
-// client's selection is read by wl_data_offer.receive into a pipe, picking
-// text/plain;charset=utf-8, then UTF8_STRING, text/plain, TEXT, STRING.
-// Declared UTF-8 replaces invalid sequences with U+FFFD; the other types
-// are UTF-8 when valid, ISO 8859-1 otherwise; trailing NULs are dropped.
-// An empty selection or one without text gives "" and no error.
+// ReadText, ReadTypes and Read answer our own selection from memory
+// without a round trip, as GTK does. A selection event whose offer
+// carries the private type of our latest source confirms that the
+// compositor accepted it; any other selection event (another client's
+// offer, or none) ends our ownership, so after a refused Write the next
+// selection event (at the latest, the one before the next keyboard enter)
+// restores the real owner. Another client's selection reports its targets
+// normalized (platform.SelectionType: aliases merged, meta targets and
+// private markers left out), and a type is read by wl_data_offer.receive
+// into a pipe from its best target: for text
+// text/plain;charset=utf-8, then UTF8_STRING, text/plain, TEXT, STRING
+// (ReadText's order); for URI lists text/uri-list before
+// x-special/gnome-copied-files, which is converted. Declared UTF-8
+// replaces invalid sequences with U+FFFD; the other text types are UTF-8
+// when valid, ISO 8859-1 otherwise; trailing NULs are dropped. An empty
+// selection or one without text gives "" and no error.
 //
 // Transfers never block the UI thread: the pipes are non-blocking and the
 // poll loop does their I/O (no goroutines; done is posted to the loop
 // queue). A transfer that makes no progress for 5 s ends: a read with an
-// error, a write by closing the pipe. Text over 64 MiB is refused. When
+// error, a write by closing the pipe. Data over 256 MiB is refused. When
 // Run returns, transfers in progress are dropped without calling done.
 //
 // Keyboard focus: the compositor announces the selection only to the
@@ -154,6 +168,25 @@
 // it was at its last focus (which may be stale, or empty if its owner has
 // gone), and its WriteText is likely refused. Text editing copies and
 // pastes from key and pointer handlers, which run with focus.
+//
+// # Drag and drop
+//
+// Drags use the same wl_data_device (dnd.go). Over a window, enter,
+// motion, leave and drop are DragEvents (motion coalesced by the loop);
+// the offer's source_actions give Allowed (copy and move; Wayland has no
+// link) and the seat's modifiers Mods. The app's answer goes out after
+// the delivery pass: accept with the first wanted target (null to
+// refuse) and set_actions. A drop reads the wanted types through pipes,
+// delivers DragDrop with them, then finishes the offer with the effect
+// the window holds after handling it (none: destroyed without finish).
+// The leave compositors send after a drop is not reported. StartDrag
+// offers the data like Write, with set_actions(Allowed), and calls
+// start_drag with the serial of the seat's held press (else ErrNoGrab)
+// and an icon surface (ARGB8888 at the window's scale, offset by
+// -Hotspot); the window gets PointerCancel and PointerLeave at once, and
+// DragDoneEvent when the source gets dnd_finished (the last action) or
+// cancelled (DropNone). Drags of our own are FromApp on the target side,
+// and their drops read the data from memory.
 //
 // # Text input and IME
 //

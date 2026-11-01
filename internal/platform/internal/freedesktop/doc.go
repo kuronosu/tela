@@ -31,6 +31,14 @@
 //     connection, and the watcher drops the item when its name vanishes
 //     (which is why every tray has its own connection). Trays are registered
 //     again when a new watcher appears (the panel restarted).
+//   - SystemSettings (the backends' Settings): org.freedesktop.portal.Settings,
+//     read once and followed with SettingChanged (settings.go).
+//   - RegisterShortcut, UnregisterShortcut: org.freedesktop.portal.GlobalShortcuts
+//     on a worker goroutine with its own connection, registered with
+//     org.freedesktop.host.portal.Registry first (shortcuts.go).
+//   - ClaimInstance: a well-known bus name per app ID on its own
+//     connection, with a Launch method and org.freedesktop.Application
+//     (instance.go).
 //
 // # Threading
 //

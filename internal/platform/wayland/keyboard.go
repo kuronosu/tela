@@ -347,6 +347,9 @@ func (k *kbd) updatePointerMods() {
 		m = k.state.Modifiers()
 	}
 	k.s.ptr.mods = m
+	if d := k.s.data; d != nil {
+		d.modsChanged() // a drag over a window reports it
+	}
 }
 
 // --- backend-wide keyboard state ---

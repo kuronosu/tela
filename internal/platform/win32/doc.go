@@ -318,6 +318,43 @@
 // DwmSetWindowAttribute(DWMWA_USE_IMMERSIVE_DARK_MODE), attribute 20 and 19
 // on Windows 10 1809 and 1903.
 //
+// Settings v2 (ADR-209): AccentColor is HKCU\Software\Microsoft\Windows\DWM\
+// AccentColor (ABGR, what the Settings app writes for "Accent color", kept
+// when the accent on title bars is off), with DwmGetColorizationColor as the
+// fallback where the value does not exist; HighContrast is
+// HCF_HIGHCONTRASTON of SPI_GETHIGHCONTRAST; TextScale is the percentage
+// HKCU\Software\Microsoft\Accessibility\TextScaleFactor (100 to 225, absent
+// is 1). WM_DWMCOLORIZATIONCOLORCHANGED and WM_SYSCOLORCHANGE re-read the
+// settings like WM_SETTINGCHANGE does (the tray window too, so a tray-only
+// app hears them). settingsFrom is pure and tested on every OS.
+//
+// # Shortcuts, secrets and single instance
+//
+// The app-level services of phase 13 (appservices_windows.go; the pure
+// parts in hotkey.go, instance.go, secret.go).
+//
+//   - Global shortcuts: RegisterHotKey on the message-only window with
+//     MOD_NOREPEAT. A named key maps to its virtual key by namedVK in
+//     reverse; a character goes through VkKeyScanExW of the UI thread's
+//     layout, taking the key whose cap shows the character (the shift state
+//     it reports is not added), with letters, digits and US punctuation as
+//     the fallback where the layout has none. String IDs map to hotkey IDs
+//     1 to 0xBFFF. The outcome is always a ShortcutStatusEvent: Bound, Taken
+//     (ERROR_HOTKEY_ALREADY_REGISTERED) or Failed (a key the layout lacks);
+//     WM_HOTKEY is a ShortcutEvent press (no releases). Run unregisters all.
+//   - Secrets: Credential Manager, generic credentials with TargetName
+//     "<appID>/<name>", UserName the app ID, CRED_PERSIST_LOCAL_MACHINE.
+//     They are plain advapi32 calls, safe from any goroutine.
+//   - Single instance: the mutex Local\tela-<app ID> (characters outside
+//     letters, digits and ".-_" replaced, with a hash when anything
+//     changed). The process that creates it gives its message-only window the
+//     title tela-instance-<app ID>; a later process finds the window
+//     (FindWindowExW under HWND_MESSAGE, retried for 3 s), calls
+//     AllowSetForegroundWindow for its process, and sends the Launch as
+//     WM_COPYDATA (dwData 0x544C4101; version byte, Dir, Token, Args as
+//     uvarint-prefixed strings) with SendMessageTimeoutW (5 s). The first
+//     turns it into a LaunchEvent. Run closes the mutex.
+//
 // # IME
 //
 // IMM32 (ime.go, ime_windows.go; ADR-071), as winit, Chromium's
