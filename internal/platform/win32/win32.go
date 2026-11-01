@@ -54,6 +54,9 @@ type Backend struct {
 	// app is the state of the app-level services of phase 13: global
 	// shortcuts and single instance (appservices_windows.go).
 	app appServices
+	// integ is the state of drags and popup menus (phase 13:
+	// dnd_windows.go, menu_windows.go).
+	integ backendIntegration
 
 	iterations atomic.Int64 // GetMessageW returns, for idle tests
 }
@@ -284,6 +287,9 @@ func (b *Backend) message(hwnd uintptr, msg uint32, wparam, lparam uintptr) uint
 		return 0
 	}
 	if r, ok := b.desktopMessage(hwnd, msg, wparam, lparam); ok {
+		return r
+	}
+	if r, ok := b.integrationMessage(hwnd, msg); ok {
 		return r
 	}
 	return defWindowProc(hwnd, uintptr(msg), wparam, lparam)

@@ -270,6 +270,17 @@ func buildPopupMenu(entries []menuEntry) uintptr {
 	if menu == 0 {
 		return 0
 	}
+	if !fillMenu(menu, entries) {
+		procDestroyMenu.Call(menu)
+		return 0
+	}
+	return menu
+}
+
+// fillMenu appends the entries to a menu (a popup menu or a menu bar),
+// with popup menus for the submenus. It reports false on failure, leaving
+// the menu partly filled.
+func fillMenu(menu uintptr, entries []menuEntry) bool {
 	for _, e := range entries {
 		var r uintptr
 		switch {
@@ -288,11 +299,10 @@ func buildPopupMenu(entries []menuEntry) uintptr {
 			r, _, _ = procAppendMenuW.Call(menu, uintptr(e.flags|mfString), uintptr(e.cmd), uintptr(unsafe.Pointer(utf16(e.label))))
 		}
 		if r == 0 {
-			procDestroyMenu.Call(menu)
-			return 0
+			return false
 		}
 	}
-	return menu
+	return true
 }
 
 // taskbarRestarted adds the tray icons again after Explorer restarted, and

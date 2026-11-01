@@ -7,10 +7,12 @@
 // The code that touches the OS is built only on Windows. The files without a
 // build constraint (dib.go, dpi.go, msg.go, pointer.go, cursor.go,
 // keyboard.go, scancode.go, vkey.go, text.go, systemsettings.go, ime.go,
-// frame.go) hold the pure logic behind it (pixel conversion, DPI and size
-// math, message decoding, the pointer state machine, the cursor table, the
-// keyboard translation, line endings, the settings values, the IME events,
-// window placement, hit-testing and icon pixels), so it is tested on every
+// frame.go, dataformat.go, droptarget.go, menu.go) hold the pure logic
+// behind it (pixel conversion, DPI and size math, message decoding, the
+// pointer state machine, the cursor table, the keyboard translation, line
+// endings, the settings values, the IME events, window placement,
+// hit-testing and icon pixels, the clipboard formats, the drop session and
+// the menu commands), so it is tested on every
 // OS; the Windows files are exercised by the shared platformtest
 // conformance suite under Wine (and on a real Windows machine, where the
 // live_*_test.go files type on the real keyboard path with SendInput).
@@ -303,6 +305,44 @@
 // holds it. Line endings: Windows text is CR LF; ReadText converts CR LF and
 // lone CR to LF, and WriteText converts every line break to CR LF, as
 // browsers do.
+//
+// Data (ReadTypes, Read, Write; dataformat.go has the pure mapping, tested
+// on every OS, and dataobject_windows.go the calls): MIMEText is
+// CF_UNICODETEXT as it is, MIMEHTML the registered "HTML Format" (CF_HTML,
+// header added and parsed), MIMEPNG the registered "PNG" plus CF_DIBV5
+// (Windows synthesizes CF_DIB), read back from CF_DIBV5 or CF_DIB when no
+// PNG is offered; MIMEURIList is CF_HDROP (local files only); other types
+// are formats registered under their MIME name. Every format is rendered
+// into GlobalAlloc memory before OpenClipboard, as WriteText does.
+//
+// # Drag and drop and menus
+//
+// OLE (phase 13; dnd_windows.go, menu_windows.go, and the pure halves
+// droptarget.go, dataformat.go and menu.go). The UI thread joins OLE's
+// single-threaded apartment with OleInitialize at its first window (it
+// replaces the dialogs' CoInitializeEx), and every window registers an
+// IDropTarget. The COM objects the backend implements (IDropTarget,
+// IDropSource, IDataObject) are Go objects behind syscall.NewCallback
+// vtables (comserver_windows.go); the enumerator of formats is the shell's
+// (SHCreateStdEnumFmtEtc).
+//
+//   - Target: OLE asks for the effect from inside each IDropTarget call,
+//     so the DragEvent is delivered synchronously, like WM_SIZE's
+//     ConfigureEvent, and the window's answer (SetDropEffect) returned;
+//     during a running pass the previous answer is returned and the event
+//     waits. DragOver calls with nothing changed (OLE repeats them on a
+//     timer) deliver nothing. A drag of this app is recognized by its data
+//     object and read as it is (FromApp). The shell's IDropTargetHelper
+//     draws the source's drag image over the window.
+//   - Source: StartDrag ends the window's pointer sequence with a
+//     PointerCancel and posts a message; DoDragDrop runs when it is
+//     dispatched, outside the pass, and its modal loop keeps delivering.
+//     The image goes through IDragSourceHelper. DragDoneEvent carries the
+//     effect DoDragDrop reports.
+//   - Menus: a menu bar (SetMenu; framed windows only) keeps the client
+//     size by growing the window; its WM_COMMAND is a MenuEvent. Popup
+//     menus (TrackPopupMenuEx with TPM_RETURNCMD) start outside the pass
+//     like the dialogs and answer through the loop.
 //
 // # Settings
 //

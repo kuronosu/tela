@@ -59,11 +59,7 @@ var (
 	iidShellItem        = guid{0x43826D1E, 0xE718, 0x42EE, [8]byte{0xBC, 0x55, 0xA1, 0xE2, 0x61, 0xC3, 0x7B, 0xFE}}
 )
 
-const (
-	clsctxInprocServer   = 0x1
-	coinitApartment      = 0x2 // COINIT_APARTMENTTHREADED
-	coinitDisableOLE1DDE = 0x4
-)
+const clsctxInprocServer = 0x1
 
 // errMTA is returned when the UI thread already joined the multithreaded
 // COM apartment, where the common item dialogs do not work.
@@ -77,23 +73,24 @@ func hresultError(what string, hr int32) error {
 	return fmt.Errorf("win32: %s: %s", what, hresultString(hr))
 }
 
-// initCOM joins the UI thread to a single-threaded COM apartment (the
-// dialogs and ShellExecuteW, which may load shell extensions, need it),
-// once; shutdown balances it. The flags are those rfd and the
-// ShellExecuteW documentation use.
+// initCOM joins the UI thread to a single-threaded COM apartment with OLE
+// (the dialogs and ShellExecuteW, which may load shell extensions, need
+// the apartment; drag and drop needs OLE, which OleInitialize adds to it:
+// it calls CoInitializeEx with COINIT_APARTMENTTHREADED), once; shutdown
+// balances it. NewWindow calls it for RegisterDragDrop.
 func (d *desktopState) initCOM() error {
 	if d.comDone {
 		return d.comErr
 	}
 	d.comDone = true
-	r, _, _ := procCoInitializeEx.Call(0, coinitApartment|coinitDisableOLE1DDE)
+	r, _, _ := procOleInitialize.Call(0)
 	switch hr := int32(uint32(r)); hr {
 	case sOK, sFalse:
 		d.comInit = true // S_FALSE: already initialized, still counted
 	case hrChangedMode:
 		d.comErr = errMTA
 	default:
-		d.comErr = hresultError("CoInitializeEx", hr)
+		d.comErr = hresultError("OleInitialize", hr)
 	}
 	return d.comErr
 }
@@ -101,7 +98,7 @@ func (d *desktopState) initCOM() error {
 // closeCOM undoes initCOM.
 func (d *desktopState) closeCOM() {
 	if d.comInit {
-		procCoUninitialize.Call()
+		procOleUninitialize.Call()
 	}
 	d.comInit, d.comDone, d.comErr = false, false, nil
 }

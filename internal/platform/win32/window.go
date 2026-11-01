@@ -75,6 +75,10 @@ type Window struct {
 	titleBarSet bool // colors were set once: the system's are set back explicitly
 	backdropSet bool // the backdrop type was set once
 	glass       bool // client-area backdrop: frame extended, alpha presented
+
+	// Drag and drop and the menu bar (phase 13: dnd_windows.go,
+	// menu_windows.go).
+	integ windowIntegration
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -150,6 +154,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 		}
 	}
 	w.initControl()
+	w.registerDrop()
 	b.reconfigure(w, w.osMetrics())
 	w.ready = true
 	w.updateState()
@@ -175,7 +180,7 @@ func (w *Window) outerSize(client image.Point) rect {
 	if w.opts.Frameless {
 		return r
 	}
-	return adjustWindowRect(r, w.style, w.exStyle, w.dpi)
+	return w.adjustRect(r, w.style, w.exStyle)
 }
 
 // resizeClient resizes the window so that its client area is client physical
@@ -233,7 +238,7 @@ func (w *Window) SetSize(size platform.Size) {
 	}
 	r := rect{right: int32(client.X), bottom: int32(client.Y)}
 	if !w.opts.Frameless {
-		r = adjustWindowRect(r, style, exStyle, w.dpi)
+		r = w.adjustRect(r, style, exStyle)
 	}
 	w.setNormalRect(func(n image.Rectangle) image.Rectangle {
 		return image.Rectangle{Min: n.Min, Max: n.Min.Add(image.Pt(int(r.width()), int(r.height())))}
@@ -258,6 +263,7 @@ func (w *Window) Close() {
 	w.b.loop.Remove(w) // marks it closed and drops its queued events
 	w.releaseCapture()
 	w.unregister()
+	w.closeIntegration()
 	procDestroyWindow.Call(w.hwnd)
 	w.dib.release()
 	destroyIcons(w.icons)
@@ -273,6 +279,7 @@ func (w *Window) destroyed() {
 	w.setBlocking(false)
 	w.b.loop.Remove(w)
 	w.ime = imeWindow{}
+	w.closeIntegration()
 	w.unregister()
 	w.dib.release()
 	destroyIcons(w.icons)

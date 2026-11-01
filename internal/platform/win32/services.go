@@ -337,6 +337,7 @@ func (b *Backend) desktopShutdown() {
 		procDestroyIcon.Call(d.appIcon)
 	}
 	d.appIcon, d.appIconOwned = 0, false
+	b.integrationShutdown()
 	d.closeCOM()
 }
 
