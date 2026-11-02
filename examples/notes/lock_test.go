@@ -450,6 +450,10 @@ func TestDeleteLockedNote(t *testing.T) {
 	a := mount(t)
 	lockGroceries(t, a)
 	a.Click(unlockBtn)
+	// The keyring is read off the UI thread: wait for the text, or Delete
+	// (there in both states) could delete the note still locked, whose
+	// toast says "Deleted Locked note" (seen on a loaded CI runner).
+	a.ExpectValue(editor, groceriesText)
 	a.Click(deleteBtn)
 	a.ExpectText("Deleted Groceries")
 	a.Click(telatest.ByRole("button", "Undo"))

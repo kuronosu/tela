@@ -2,6 +2,7 @@ package assoc
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -446,28 +447,92 @@ func TestLinuxDesktopSpecificDefault(t *testing.T) {
 	}
 }
 
+// symlinkOrSkip makes link point to target, and skips the test where the
+// system cannot make a link that behaves like a POSIX one: Windows without
+// the privilege to create symbolic links, or Wine, whose links Lstat or
+// Readlink may not report as such.
+func symlinkOrSkip(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("cannot create a symbolic link here: %v", err)
+	}
+	fi, err := os.Lstat(link)
+	got, rerr := os.Readlink(link)
+	if err != nil || fi.Mode()&fs.ModeSymlink == 0 || rerr != nil || got != target {
+		t.Skipf("this system's symbolic links do not behave like POSIX ones (Lstat %v, Readlink %q, %v)", err, got, rerr)
+	}
+}
+
+// A mimeapps.list linked from a dotfiles repository stays a link: its
+// target is written, also when it does not exist yet or the link is
+// relative, and a link that cannot be followed is an error that leaves it
+// as it was.
 func TestLinuxSymlinkedMimeapps(t *testing.T) {
-	e := newLinuxEnv(t)
-	target := filepath.Join(t.TempDir(), "dotfiles", "mimeapps.list")
-	e.write(target, "[Default Applications]\n")
-	if err := os.MkdirAll(e.dirs.ConfigHome, 0o755); err != nil {
-		t.Fatal(err)
+	const want = "[Default Applications]\nx-scheme-handler/notes=com.example.Notes.desktop;\n"
+	isLink := func(t *testing.T, path string) {
+		t.Helper()
+		if fi, err := os.Lstat(path); err != nil || fi.Mode()&fs.ModeSymlink == 0 {
+			t.Errorf("%s is no longer a link", path)
+		}
 	}
-	if err := os.Symlink(target, e.userMimeapps()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.a.MakeDefault(notesApp, scheme); err != nil {
-		t.Fatal(err)
-	}
-	if fi, err := os.Lstat(e.userMimeapps()); err != nil || fi.Mode()&os.ModeSymlink == 0 {
-		t.Errorf("mimeapps.list is no longer a link")
-	}
-	if got := e.read(target); got != "[Default Applications]\nx-scheme-handler/notes=com.example.Notes.desktop;\n" {
-		t.Errorf("the link's target:\n%s", got)
-	}
-	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(target), ".*tmp*")); len(left) != 0 {
-		t.Errorf("temporary files left: %q", left)
-	}
+	t.Run("existing target", func(t *testing.T) {
+		e := newLinuxEnv(t)
+		target := filepath.Join(t.TempDir(), "dotfiles", "mimeapps.list")
+		e.write(target, "[Default Applications]\n")
+		symlinkOrSkip(t, target, e.userMimeapps())
+		if _, err := e.a.MakeDefault(notesApp, scheme); err != nil {
+			t.Fatal(err)
+		}
+		isLink(t, e.userMimeapps())
+		if got := e.read(target); got != want {
+			t.Errorf("the link's target:\n%s", got)
+		}
+		if left, _ := filepath.Glob(filepath.Join(filepath.Dir(target), ".*tmp*")); len(left) != 0 {
+			t.Errorf("temporary files left: %q", left)
+		}
+	})
+	t.Run("dangling", func(t *testing.T) {
+		e := newLinuxEnv(t)
+		target := filepath.Join(t.TempDir(), "dotfiles", "mimeapps.list") // not written yet
+		symlinkOrSkip(t, target, e.userMimeapps())
+		if _, err := e.a.MakeDefault(notesApp, scheme); err != nil {
+			t.Fatal(err)
+		}
+		isLink(t, e.userMimeapps())
+		if got := e.read(target); got != want {
+			t.Errorf("the link's new target:\n%s", got)
+		}
+	})
+	t.Run("relative chain", func(t *testing.T) {
+		e := newLinuxEnv(t)
+		dir := filepath.Dir(e.userMimeapps())
+		target := filepath.Join(dir, "real", "mimeapps.list")
+		e.write(target, "[Default Applications]\n")
+		symlinkOrSkip(t, filepath.Join("real", "mimeapps.list"), filepath.Join(dir, "middle.list"))
+		symlinkOrSkip(t, "middle.list", e.userMimeapps())
+		if _, err := e.a.MakeDefault(notesApp, scheme); err != nil {
+			t.Fatal(err)
+		}
+		isLink(t, e.userMimeapps())
+		isLink(t, filepath.Join(dir, "middle.list"))
+		if got := e.read(target); got != want {
+			t.Errorf("the end of the chain:\n%s", got)
+		}
+	})
+	t.Run("loop", func(t *testing.T) {
+		e := newLinuxEnv(t)
+		dir := filepath.Dir(e.userMimeapps())
+		symlinkOrSkip(t, "other.list", e.userMimeapps())
+		symlinkOrSkip(t, "mimeapps.list", filepath.Join(dir, "other.list"))
+		if _, err := e.a.MakeDefault(notesApp, scheme); err == nil {
+			t.Error("MakeDefault through a loop of links succeeded")
+		}
+		isLink(t, e.userMimeapps())
+		isLink(t, filepath.Join(dir, "other.list"))
+	})
 }
 
 func TestLinuxNoDataHome(t *testing.T) {

@@ -3,6 +3,7 @@ package assoc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -13,13 +14,15 @@ import (
 // writeFileAtomic replaces path with data: a temporary file in the same
 // directory, synced, then renamed over it, so readers (GIO's file
 // monitors, another process registering at the same time) never see half
-// a file. A symbolic link is followed and its target replaced, so a link
-// into a dotfiles repository stays a link. An existing file keeps its
-// permissions; a new one gets 0644, and missing directories are created
-// with 0700 (XDG Base Directory specification).
+// a file. A symbolic link is followed and its target written (resolveLink),
+// so a link into a dotfiles repository stays a link; a link that cannot be
+// followed is an error, never replaced by a file. An existing file keeps
+// its permissions; a new one gets 0644, and missing directories are
+// created with 0700 (XDG Base Directory specification).
 func writeFileAtomic(path string, data []byte) error {
-	if real, err := filepath.EvalSymlinks(path); err == nil {
-		path = real
+	path, err := resolveLink(path)
+	if err != nil {
+		return err
 	}
 	perm := fs.FileMode(0o644)
 	if fi, err := os.Stat(path); err == nil {
@@ -58,6 +61,40 @@ func writeFileAtomic(path string, data []byte) error {
 	}
 	ok = true
 	return nil
+}
+
+// maxLinks bounds the links resolveLink follows (Linux's own limit, 40).
+const maxLinks = 40
+
+// resolveLink returns the file that writing path should replace: path
+// itself, or, when path is a symbolic link, the end of its chain of links,
+// each target taken relative to its link's directory, as GLib's
+// g_file_set_contents follows them. The end may not exist yet (a dotfiles
+// link whose file is not written): it is created there. A link that cannot
+// be read, or a loop, is an error, so the caller never renames a file over
+// the user's link.
+func resolveLink(path string) (string, error) {
+	for range maxLinks {
+		fi, err := os.Lstat(path)
+		if errors.Is(err, fs.ErrNotExist) {
+			return path, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if fi.Mode()&fs.ModeSymlink == 0 {
+			return path, nil
+		}
+		target, err := os.Readlink(path)
+		if err != nil {
+			return "", fmt.Errorf("cannot follow the link %s: %w", path, err)
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		path = target
+	}
+	return "", fmt.Errorf("cannot follow the link %s: more than %d links (a loop?)", path, maxLinks)
 }
 
 // removeFile removes path; it reports whether there was one.
