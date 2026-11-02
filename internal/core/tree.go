@@ -130,6 +130,9 @@ type Tree struct {
 	parser      *style.Parser
 	parserBase  *style.Parser
 	textScale   float64
+	// restyles counts the walks that queue every element for the style
+	// phase (markAllStyle), for tests.
+	restyles int
 	cx          style.Context
 	rootClasses []string
 	dev         bool
@@ -563,12 +566,22 @@ func (t *Tree) rescaleBox(b *Box) {
 // restyleAll queues every primitive for the style phase.
 func (t *Tree) restyleAll() {
 	t.dirty()
+	t.markAllStyle(false)
+}
+
+// markAllStyle queues every primitive for the style phase, compiling its
+// classes again first when recompile is set (a new parser).
+func (t *Tree) markAllStyle(recompile bool) {
 	if t.root == nil {
 		return
 	}
+	t.restyles++
 	var walk func(el *Element)
 	walk = func(el *Element) {
 		if el.kind == elemPrimitive {
+			if recompile {
+				el.box.classesDirty = true
+			}
 			t.markStyle(el)
 		}
 		for _, c := range el.children {

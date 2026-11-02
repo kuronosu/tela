@@ -142,6 +142,55 @@ func TestTextScaleInChildWindowsAndThemes(t *testing.T) {
 	}
 }
 
+// A settings change of the text scale together with other settings
+// restyles each tree once, to the same result as a tree started with
+// those settings; the windows of an app share the scaled parser.
+func TestTextScaleWithOtherSettingsRestylesOnce(t *testing.T) {
+	screen := func() Node {
+		return div(remLayout(), div(Key("c"), Class("bg-white dark:bg-black border contrast-more:border-4")))
+	}
+	root := func() Node {
+		return Component(func() Node {
+			return div(screen(), win(ChildWindowSpec{WindowSpec: WindowSpec{Title: "C"}, OnClose: func() {}, Root: screen()}))
+		})
+	}
+	look := func(tr *Tree) string {
+		cs := keyed(tr, "c").box.cs
+		return fmt.Sprintf("%s bg=%v border=%g", sizes(tr), cs.BackgroundColor, cs.Border.Top.Width)
+	}
+	bo := headless.Options{Size: platform.Size{W: 800, H: 300}}
+	x := newBackendHarness(t, bo, Options{Root: root()})
+	main, child := x.h.Tree(), x.h.TreeOf(x.child(0))
+	if main.parser != child.parser {
+		t.Error("the windows do not share the parser at scale 1")
+	}
+	m0, c0 := main.restyles, child.restyles
+	set := platform.SystemSettings{TextScale: 1.25, DarkMode: true, HighContrast: true}
+	x.b.SetSettings(set)
+	x.drain()
+	if m, c := main.restyles-m0, child.restyles-c0; m != 1 || c != 1 {
+		t.Errorf("restyles: main %d, child %d; want 1 each", m, c)
+	}
+	if main.parser != child.parser || main.parser == main.parserBase {
+		t.Error("the windows do not share the scaled parser")
+	}
+
+	bo.Settings = set
+	y := newBackendHarness(t, bo, Options{Root: root()})
+	want := look(y.h.Tree())
+	if !strings.Contains(want, "bg=#000000 border=4") || !strings.HasPrefix(want, "rem=80x20") {
+		t.Fatalf("started with the settings: %s", want)
+	}
+	for _, tr := range []*Tree{main, child, y.h.TreeOf(y.child(0))} {
+		if got := look(tr); got != want {
+			t.Errorf("after the change: %s, want %s", got, want)
+		}
+	}
+	if y.h.Tree().parser != main.parser {
+		t.Error("an app with the same theme at the same scale does not share the parser")
+	}
+}
+
 // After a text scale change the focused field's caret, which the IME is
 // told about, follows the larger text.
 func TestTextScaleMovesTheCaret(t *testing.T) {

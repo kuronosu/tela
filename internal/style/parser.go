@@ -57,7 +57,16 @@ type Parser struct {
 
 	vocabOnce sync.Once
 	vocab     []string
+
+	// scaled are the parsers WithRootFontSize derived from this one, the
+	// latest last (at most maxScaled).
+	scaledMu sync.Mutex
+	scaled   []*Parser
 }
+
+// maxScaled is how many parsers of other root font sizes a Parser keeps:
+// a text scale changes rarely, but a settings slider may try many.
+const maxScaled = 4
 
 // NewParser returns a parser for the theme. The theme is copied: later
 // changes to th do not affect the parser, so build a new parser when the
@@ -115,6 +124,33 @@ var (
 func DefaultParser() *Parser {
 	defaultParserOnce.Do(func() { defaultParser = NewParser(DefaultTheme()) })
 	return defaultParser
+}
+
+// WithRootFontSize returns a parser of p's theme with RootFontSize px
+// (1rem) and p's class aliases, or p itself when px is its theme's. The
+// result is cached on p: callers that ask for the same size share one
+// parser and the classes it compiled (several windows of an app at the
+// system's text scale, ADR-209). The cache keeps the latest few sizes.
+func (p *Parser) WithRootFontSize(px float32) *Parser {
+	if px == p.th.RootFontSize {
+		return p
+	}
+	p.scaledMu.Lock()
+	defer p.scaledMu.Unlock()
+	for _, s := range p.scaled {
+		if s.th.RootFontSize == px {
+			return s
+		}
+	}
+	th := p.th.Clone()
+	th.RootFontSize = px
+	// The aliases are never modified once the parser is made: share them.
+	s := &Parser{th: th, aliases: p.aliases, cur: map[string]*Classes{}, limit: p.limit}
+	if len(p.scaled) == maxScaled {
+		p.scaled = slices.Delete(p.scaled, 0, 1)
+	}
+	p.scaled = append(p.scaled, s)
+	return s
 }
 
 // Theme returns the parser's theme. It must not be modified.

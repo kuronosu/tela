@@ -134,13 +134,15 @@ func (t *Tree) initEnv() {
 }
 
 // applyEnv brings the style context, the parser and the environment
-// Values to the current environment, restyling everything when it
+// Values to the current environment, restyling everything (once) when it
 // changed.
 func (t *Tree) applyEnv() {
 	dark, reduced, contrast := t.env.effectiveDark(), t.env.sysReduced, t.env.sysContrast
+	reparsed := false
 	if s := t.env.effectiveTextScale(); s != t.textScale {
 		t.textScale = s
-		t.useParser(scaledParser(t.parserBase, s))
+		t.useParser(scaledParser(t.parserBase, s)) // restyles everything
+		reparsed = true
 	}
 	if t.env.dark != nil {
 		// On the UI thread, at once: the readers rebuild in the next
@@ -155,7 +157,9 @@ func (t *Tree) applyEnv() {
 		return
 	}
 	t.cx.Dark, t.cx.ReducedMotion, t.cx.HighContrast = dark, reduced, contrast
-	t.restyleAll()
+	if !reparsed {
+		t.restyleAll()
+	}
 }
 
 // SetEnvironment sets the system's preferences: dark mode (the dark:
