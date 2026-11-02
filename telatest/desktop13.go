@@ -122,6 +122,34 @@ func (a *App) SetShortcutStatus(id string, status desktop.ShortcutStatus, trigge
 	a.settleAfter()
 }
 
+// SetShortcutUnassigned plays a desktop that registers the shortcut id
+// without assigning it keys, as Hyprland does (the user binds it in
+// hyprland.conf): its OnStatus gets ShortcutBound with an empty Trigger,
+// and the app settles. PressShortcut still works, as once the user bound
+// it.
+//
+//	app.SetShortcutUnassigned("new-note")
+//	app.ExpectText("bind = CTRL ALT, N, global, com.example.notes:new-note")
+func (a *App) SetShortcutUnassigned(id string) {
+	a.tb.Helper()
+	a.shortcut("SetShortcutUnassigned", id, false)
+	a.backend.InjectApp(platform.ShortcutStatusEvent{ID: id, Status: platform.ShortcutBound})
+	a.settleAfter()
+}
+
+// FailShortcuts makes every global shortcut the app registers from now on
+// fail with err, until FailShortcuts(nil); shortcuts registered already
+// keep their state. An error wrapping desktop.ErrAppNotRegistered plays a
+// Linux desktop without the app's entry (desktop.RegisterApp). OnStatus
+// gets ShortcutFailed with an error wrapping err.
+//
+//	app.FailShortcuts(desktop.ErrAppNotRegistered)
+//	app.Click(telatest.ByRole("switch", "Quick note")) // registers again
+func (a *App) FailShortcuts(err error) {
+	a.tb.Helper()
+	a.backend.SetShortcutError(err)
+}
+
 // ---------------------------------------------------------------------
 // Launches.
 
@@ -452,6 +480,30 @@ func (a *App) HoldAssociation(as desktop.Association, other string) {
 func (a *App) SetDefaultHandler(as desktop.Association, holder string) {
 	a.tb.Helper()
 	a.backend.Associations().SetDefault(fakeAssociation(as.String()), holder)
+}
+
+// RegisteredApps returns the apps registered with desktop.RegisterApp and
+// not unregistered, sorted by ID, after settling the app.
+//
+//	desktop.RegisterApp(desktop.ForApp(desktop.HandlerApp{Exec: "/opt/notes/notes"}))
+//	apps := app.RegisteredApps() // [{com.example.Notes Notes /opt/notes/notes …}]
+func (a *App) RegisteredApps() []desktop.HandlerApp {
+	a.tb.Helper()
+	a.settleAfter()
+	var out []desktop.HandlerApp
+	for _, r := range a.backend.Associations().Apps() {
+		out = append(out, desktop.HandlerApp{ID: r.ID, Name: r.Name, Exec: r.Exec, Args: slices.Clone(r.Args), Icon: r.Icon})
+	}
+	return out
+}
+
+// HoldAppEntry plays another program's desktop entry of the app ID id
+// (a package's), at path: desktop.RegisterApp then writes nothing unless
+// it passes desktop.Replace, and desktop.AppStatus reports it. ""
+// removes it.
+func (a *App) HoldAppEntry(id, path string) {
+	a.tb.Helper()
+	a.backend.Associations().SetAppEntry(id, path)
 }
 
 // fakeAssociation returns a platform association with the key of the

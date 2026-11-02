@@ -77,8 +77,9 @@ type HandlerApp struct {
 	Icon string
 }
 
-// RegisterOption configures [Register], [Unregister], [MakeDefault] and
-// [RegistrationStatus]: [Replace] and [ForApp].
+// RegisterOption configures [Register], [Unregister], [MakeDefault],
+// [RegistrationStatus], [RegisterApp], [UnregisterApp] and [AppStatus]:
+// [Replace] and [ForApp].
 type RegisterOption struct{ apply func(*regConfig) }
 
 type regConfig struct {
@@ -224,6 +225,16 @@ func RegistrationStatus(a Association, opts ...RegisterOption) (Registration, er
 // regPrepare applies the options, checks a and fills the handler's
 // defaults (Exec only when needExec).
 func regPrepare(what string, a Association, opts []RegisterOption, needExec bool) (regConfig, platform.HandlerApp, error) {
+	if a == (Association{}) {
+		panic(fmt.Sprintf("desktop.%s: an empty Association; use desktop.URLScheme(\"notes\") or desktop.FileType(\".note\", \"application/x-notes-note\", \"Notes document\")", what))
+	}
+	platform.CheckAssociation("desktop."+what, a.platform())
+	return appPrepare(what+"("+a.String()+")", what, opts, needExec)
+}
+
+// appPrepare applies the options and fills the handler's defaults (Exec
+// only when needExec); call names the call in errors.
+func appPrepare(call, what string, opts []RegisterOption, needExec bool) (regConfig, platform.HandlerApp, error) {
 	var c regConfig
 	for _, o := range opts {
 		if o.apply == nil {
@@ -231,10 +242,6 @@ func regPrepare(what string, a Association, opts []RegisterOption, needExec bool
 		}
 		o.apply(&c)
 	}
-	if a == (Association{}) {
-		panic(fmt.Sprintf("desktop.%s: an empty Association; use desktop.URLScheme(\"notes\") or desktop.FileType(\".note\", \"application/x-notes-note\", \"Notes document\")", what))
-	}
-	platform.CheckAssociation("desktop."+what, a.platform())
 	app := platform.HandlerApp{ID: c.app.ID, Name: c.app.Name, Exec: c.app.Exec, Args: c.app.Args, Icon: c.app.Icon}
 	if app.ID == "" {
 		app.ID = serviceID(AppID())
@@ -246,16 +253,88 @@ func regPrepare(what string, a Association, opts []RegisterOption, needExec bool
 		if core.DevChild() {
 			// tela dev runs a temporary build that the next save replaces:
 			// registering it would leave links pointing at a deleted file.
-			return c, app, fmt.Errorf("desktop: %s(%v): %w", what, a, ErrDevExecutable)
+			return c, app, fmt.Errorf("desktop: %s: %w", call, ErrDevExecutable)
 		}
 		exe, err := os.Executable()
 		if err != nil {
-			return c, app, fmt.Errorf("desktop: %s(%v): the program's path: %w (give it with desktop.ForApp)", what, a, err)
+			return c, app, fmt.Errorf("desktop: %s: the program's path: %w (give it with desktop.ForApp)", call, err)
 		}
 		app.Exec = exe
 	}
 	platform.CheckHandlerApp("desktop."+what, app, needExec)
 	return c, app, nil
+}
+
+// AppRegistration is what [AppStatus] reports.
+type AppRegistration struct {
+	// Registered: the desktop knows the app's ID (on Linux an entry
+	// <ID>.desktop exists, whoever wrote it; always on Windows, which
+	// needs none).
+	Registered bool
+	// Requested: RegisterApp wrote the entry, and UnregisterApp would
+	// remove it.
+	Requested bool
+	// Other is the path of an entry of the app's ID that Tela did not
+	// write (a package's, an installer's), "" when there is none.
+	Other string
+}
+
+// RegisterApp makes the desktop know the app, without any URL scheme or
+// file type (ADR-217). On Linux it writes the app's own desktop entry,
+// ~/.local/share/applications/<AppID>.desktop, per user, with
+// NoDisplay=true (no launcher in the menus) and no file types: the Linux
+// global shortcuts portal refuses an app without one ([GlobalShortcut]).
+// Scheme and file-type registration ([Register]) share that file. It looks
+// first and writes nothing when the entry is up to date or another
+// program's entry of the ID exists (a package's: never taken over
+// without [Replace]). On Windows, which needs no entry, it writes nothing.
+//
+//	func main() {
+//	    desktop.SetAppID("com.example.notes")
+//	    if _, err := desktop.RegisterApp(); err != nil {
+//	        log.Print(err)
+//	    }
+//	    tela.Main(App)
+//	}
+//
+// Call it from the installed program, at start: the entry runs
+// os.Executable ([ForApp] gives another path, as an installer does).
+// Under tela dev it returns ErrDevExecutable without Exec; under go run
+// the program is a temporary build, so skip it there. It does file I/O
+// and is safe from any goroutine; without a running app it uses the OS
+// directly, and while an app runs (telatest included) its backend, which
+// tests inspect with telatest's App.RegisteredApps.
+func RegisterApp(opts ...RegisterOption) (changed bool, err error) {
+	c, app, err := appPrepare("RegisterApp", "RegisterApp", opts, true)
+	if err != nil {
+		return false, err
+	}
+	changed, err = associations().RegisterApp(app, platform.RegisterOptions{Replace: c.replace})
+	return changed, wrap("RegisterApp", err)
+}
+
+// UnregisterApp removes the entry RegisterApp wrote, unless schemes or
+// file types registered with [Register] still need it: they keep it, and
+// the [Unregister] of the last one removes it. An entry Tela did not
+// write is never touched. Nothing to remove is not an error.
+func UnregisterApp(opts ...RegisterOption) (changed bool, err error) {
+	_, app, err := appPrepare("UnregisterApp", "UnregisterApp", opts, false)
+	if err != nil {
+		return false, err
+	}
+	changed, err = associations().UnregisterApp(app)
+	return changed, wrap("UnregisterApp", err)
+}
+
+// AppStatus reports whether the desktop knows the app, and whether
+// RegisterApp wrote its entry.
+func AppStatus(opts ...RegisterOption) (AppRegistration, error) {
+	_, app, err := appPrepare("AppStatus", "AppStatus", opts, false)
+	if err != nil {
+		return AppRegistration{}, err
+	}
+	s, err := associations().AppStatus(app)
+	return AppRegistration{Registered: s.Registered, Requested: s.Requested, Other: s.Other}, wrap("AppStatus", err)
 }
 
 // nameOf returns the name shown for an app ID: its last dot-separated

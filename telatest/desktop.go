@@ -59,8 +59,9 @@ const (
 	// ClipboardData: desktop.ReadClipboard, WriteClipboard and
 	// ClipboardTypes (the text functions keep working).
 	ClipboardData
-	// Associations: desktop.Register, Unregister, MakeDefault and
-	// RegistrationStatus while the app runs, as on macOS before phase 14.
+	// Associations: desktop.Register, Unregister, MakeDefault,
+	// RegistrationStatus, RegisterApp, UnregisterApp and AppStatus while
+	// the app runs, as on macOS before phase 14.
 	Associations
 	// Trash: desktop.MoveToTrash, as on a desktop without a trash or for
 	// a file the trash cannot take (a network drive); the file stays.

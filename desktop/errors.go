@@ -6,6 +6,7 @@ import (
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
+	"github.com/kuronosu/tela/internal/platform"
 )
 
 // ErrUnsupported is wrapped by the errors of services the platform or the
@@ -21,6 +22,14 @@ import (
 //
 // errors.Is(err, errors.ErrUnsupported) holds too.
 var ErrUnsupported = fmt.Errorf("desktop: %w", errors.ErrUnsupported)
+
+// ErrAppNotRegistered is wrapped by the error a [GlobalShortcut] reports
+// (ShortcutFailed) when the desktop refused the app's ID: on Linux the
+// GlobalShortcuts portal (xdg-desktop-portal 1.22) accepts an app only
+// when the desktop has an entry for its ID ([AppID] + ".desktop"), which
+// [RegisterApp] writes. The error names the entry. On X11 the shortcut is
+// grabbed instead and works without one.
+var ErrAppNotRegistered = platform.ErrAppNotRegistered
 
 // wrap returns err as an error of call what: an unsupported service wraps
 // ErrUnsupported (and keeps the platform's message), anything else keeps

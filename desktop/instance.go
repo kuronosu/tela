@@ -169,9 +169,12 @@ func SingleInstance(app tela.App) tela.App {
 	return app
 }
 
-// runStart runs when tela.Run starts, before any window opens: it keeps
-// the process's launch for UseLaunch and claims the single instance.
+// runStart runs when tela.Run starts, before any window opens: it gives
+// the OS services the app's ID (ADR-217: the portal registers global
+// shortcuts under it, and under tela dev the host takes it), keeps the
+// process's launch for UseLaunch and claims the single instance.
 func runStart(rs core.RunStart) bool {
+	rs.Backend.Desktop().SetAppID(instanceAppID(rs.AppID))
 	launch := platform.CurrentLaunch()
 	instance.mu.Lock()
 	on, id := instance.on, instance.appID
