@@ -742,18 +742,6 @@ func (w *Window) setOpaque(opaque bool) {
 
 // --- integration requests (later tasks) ---
 
-// SetDropEffect validates the answer and does nothing: no drag reaches the
-// window yet (macOS desktop integration).
-func (w *Window) SetDropEffect(effect platform.DropEffect, types ...string) {
-	platform.CheckSetDropEffect(effect, types)
-}
-
-// StartDrag validates the options and returns ErrUnsupported.
-func (w *Window) StartDrag(opts platform.DragOptions) error {
-	platform.CheckDragOptions(opts)
-	return platform.ErrUnsupported
-}
-
 // SetMenu validates the menu and returns ErrUnsupported: the app's menu
 // bar is macOS desktop integration.
 func (w *Window) SetMenu(menu []platform.MenuItem) error {

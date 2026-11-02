@@ -62,6 +62,7 @@ type Backend struct {
 
 	settings settingsState // system settings and their observer (settings_darwin.go)
 	desk     desktopState  // desktop services (services_darwin.go)
+	dnd      backendDnD    // drag and drop (dnd_darwin.go)
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -510,12 +511,16 @@ func setupApp() error {
 	// TelaView conforms to NSTextInputClient, which makes NSView give it
 	// an NSTextInputContext; should the runtime not know the protocol,
 	// the view makes its own context (ime_darwin.go).
-	methods := append(append(viewMethods(), inputMethods()...), imeMethods()...)
+	methods := append(append(append(viewMethods(), inputMethods()...), imeMethods()...), dndMethods()...)
 	var protocols []string
 	if app.textInputClient = darwin.HasProtocol("NSTextInputClient"); app.textInputClient {
 		protocols = []string{"NSTextInputClient"}
 	} else {
 		methods = append(methods, inputContextMethod())
+	}
+	// It is the source of the app's drags (dnd_darwin.go).
+	if darwin.HasProtocol("NSDraggingSource") {
+		protocols = append(protocols, "NSDraggingSource")
 	}
 	app.view, err = darwin.RegisterClass("TelaView", nsView, protocols, methods)
 	if err != nil {

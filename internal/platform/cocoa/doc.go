@@ -4,8 +4,9 @@
 // no cgo, and implements the platform contract documented in package
 // platform ("Mapping onto each OS: Cocoa"). The code that touches the OS is
 // built only on darwin; cursor.go (the cursor table), input.go (the
-// pointer and scroll rules), ime.go (the IME rules) and windowctl.go (the
-// window control rules) are pure and tested on every OS.
+// pointer and scroll rules), ime.go (the IME rules), windowctl.go (the
+// window control rules) and dnd.go (the drag and drop rules) are pure and
+// tested on every OS.
 //
 // # Status (phases 14 and 15, ADR-222, ADR-224)
 //
@@ -18,9 +19,10 @@
 // window control (windowctl_darwin.go over windowctl.go: minimize, zoom,
 // native full screen, the floating level, size limits, positions,
 // activation, frameless windows, custom title bars, child and modal
-// windows, vibrancy backdrops) and the desktop services of phase 12 with
-// the secrets and the trash (see "Desktop services" below). Native menus,
-// drag and drop, global shortcuts, single instance, the associations and
+// windows, vibrancy backdrops), drag and drop in both directions
+// (dnd_darwin.go over dnd.go; see "Drag and drop" below) and the desktop
+// services of phase 12 with the secrets and the trash (see "Desktop
+// services" below). Native menus, global shortcuts, single instance, the associations and
 // the app ID are the next tasks of the macOS desktop integration phase
 // (ADR-224); until then those requests are validated like on every
 // backend and do nothing, and the services return ErrUnsupported
@@ -262,7 +264,42 @@
 //     nothing else.
 //
 // Not reported yet: pen and tablet fields (a pen moves the pointer as a
-// mouse), and a PointerCancel when the OS takes a press away.
+// mouse), and a PointerCancel when the OS takes a press away (other than
+// a drag's).
+//
+// # Drag and drop
+//
+// dnd_darwin.go, whose top comment lists the AppKit quirks handled (after
+// Chromium's web_drag_dest_mac and web_drag_source_mac); the Data mapping
+// is the clipboard's (pasteboard.go).
+//
+//   - Target: TelaView is the window's NSDraggingDestination, registered
+//     for the well-known pasteboard types and the custom types of the
+//     app's own drags (AppKit calls a view only for a drag offering one of
+//     its registered types, so a drag of another app with only custom
+//     types is not seen). draggingEntered: is DragEnter and
+//     draggingUpdated: DragOver when the position (flipped view points),
+//     the modifiers or the allowed effects changed; both deliver the event
+//     synchronously (a pass inside the call; inside a running pass the
+//     event waits and the previous answer is returned) and return the
+//     sticky answer of SetDropEffect as an operation of the source's mask.
+//     Allowed is draggingSourceOperationMask (generic counts as move);
+//     Types are the dragging pasteboard's, normalized as the clipboard's.
+//     draggingExited: is DragLeave; performDragOperation: reads the types
+//     the app named (else the well-known ones) with the clipboard's
+//     readers, delivers DragDrop and returns whether the final effect
+//     accepts; nothing follows a drop. A pointer over the window leaves
+//     before DragEnter, and no pointer events are delivered while the drag
+//     is over it.
+//   - Source: StartDrag needs a held press in the window (its NSEvent, or
+//     its latest drag's, is kept for beginDraggingSessionWithItems:);
+//     one drag at a time. The items are the clipboard's (one per URI, as
+//     Finder writes files), the image the first item's contents at the
+//     hotspot under the pointer. The window's sequence ends with a
+//     PointerCancel and the rest of it is dropped; the view is the
+//     NSDraggingSource, and draggingSession:endedAtPoint:operation: is the
+//     DragDoneEvent. The app's own windows get the target events with
+//     FromApp, and read its Data as it is.
 //
 // # Desktop services
 //

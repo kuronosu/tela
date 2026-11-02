@@ -259,10 +259,11 @@ func (w *Window) mouseButton(ev darwin.ID, btn platform.PointerButton, down bool
 	if btn == platform.ButtonNone {
 		btn = macButton(darwin.SendInt(ev, isel.buttonNumber))
 	}
-	if btn == platform.ButtonNone {
+	if btn == platform.ButtonNone || w.dragTakes(ev) {
 		return
 	}
 	pos := w.eventPos(ev)
+	defer w.keepPress(ev) // the press StartDrag starts from (dnd_darwin.go)
 	if down {
 		if w.ctl.blocked {
 			w.raiseModal()
@@ -281,6 +282,10 @@ func (w *Window) mouseButton(ev darwin.ID, btn platform.PointerButton, down bool
 // press are not delivered; a move without buttons ends every caption
 // sequence (the window server may keep a release).
 func (w *Window) mouseMove(ev darwin.ID) {
+	if w.dragTakes(ev) {
+		return
+	}
+	defer w.keepPress(ev)
 	if darwin.SendUint(ev, isel.typ) == darwin.NSEventTypeMouseMoved {
 		w.ctl.caption.moved()
 	} else if w.ctl.caption.drag(w.ptr.held) {
@@ -296,7 +301,7 @@ func (w *Window) mouseMove(ev darwin.ID) {
 // area (events of other tracking areas, such as AppKit's own, are not
 // ours; events built without one are taken).
 func (w *Window) mouseCross(ev darwin.ID, entered bool) {
-	if area := darwin.Send(ev, isel.trackingArea); area != 0 && area != w.tracking {
+	if area := darwin.Send(ev, isel.trackingArea); area != 0 && area != w.tracking || w.dragTakes(ev) {
 		return
 	}
 	if entered {
