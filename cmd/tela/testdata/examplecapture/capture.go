@@ -121,6 +121,9 @@ type telaCaptureWindow struct {
 	// a title bar overlay's traffic lights, which the headless reference
 	// leaves free. Zero for other windows.
 	Controls [4]float64 `json:"controls"`
+	// Class is the window's Objective-C class (NSStatusBarWindow for a
+	// tray icon's).
+	Class string `json:"class"`
 }
 
 type telaCaptureRead struct {
@@ -436,6 +439,7 @@ func telaCaptureTake() telaCaptureShot {
 			Scale:   tcdarwin.SendFloat(ns, sel.backingScaleFactor),
 			Key:     tcdarwin.SendBool(ns, sel.isKeyWindow),
 			Style:   tcdarwin.SendUint(ns, sel.styleMask),
+			Class:   tcdarwin.GoString(tcdarwin.Send(ns, tcdarwin.Sel("className"))),
 		}
 		fr := tcdarwin.SendRect(ns, sel.frame)
 		w.FrameW, w.FrameH = fr.Size.Width, fr.Size.Height
