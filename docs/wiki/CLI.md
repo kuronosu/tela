@@ -47,6 +47,8 @@ CGO_ENABLED=0 go run ./cmd/tela snapshot -o counter.png ./examples/counter
 | `tela lint` | Checks the Go source for the mistakes that dev mode reports at run time: unknown classes, roles and aria tokens, duplicate or missing keys, misused hooks, a redundant `Fragment`, a prop where a node goes (see [tela lint](#tela-lint)) |
 | `tela dev` | Runs an app and reloads it on every save, keeping the window and the state |
 | `tela mcp` | Serves a package's screen to agents over the Model Context Protocol: snapshot, screenshot, click, fill... on an instance that stays up and rebuilds on edits (see [tela mcp](#tela-mcp)) |
+| `tela build` | Builds a program; for `GOOS=darwin`, as a macOS application bundle `<Name>.app` (see [tela build and tela run](#tela-build-and-tela-run)) |
+| `tela run` | Builds a program and runs it, like `go run`; on macOS as a bundle in the user cache, so notifications, URL schemes and the Dock name work |
 | `tela icons gen` | Generates a Go package of `tela.Icon` variables from a directory of SVG files (see [Icons](Icons)) |
 | `tela version` | Prints the version of the tela module the binary was built from, its VCS revision when known, and the Go version and platform |
 | `tela help [command]` | Shows the help |
@@ -518,6 +520,73 @@ standard error; standard output carries only protocol messages. The instance is
 a test binary built with `go test -c` from a generated `_test.go` file in an
 overlay (nothing is written into the package), so the server works in any
 module that requires Tela.
+
+## tela build and tela run
+
+```bash
+tela run ./cmd/notes                 # build and run; on macOS, as a bundle
+tela run . --some-flag value         # what follows the package goes to the program
+tela build -o dist ./cmd/notes       # dist/Notes.app on macOS, the program elsewhere
+GOOS=darwin GOARCH=arm64 tela build -o dist .   # from Linux or Windows
+```
+
+Both build the program of a package `main` (the default is `.`) with
+`CGO_ENABLED=0` for the `GOOS` and `GOARCH` of the environment. Plain `go run`
+and `go build` stay unbundled, and they are fine for everything that needs no
+bundle.
+
+On macOS some services belong to an *app*, not to a process: user
+notifications, URL schemes and file types, the keychain's access group, the
+name in the Dock and the menu bar. An app is a bundle, `<Name>.app`, with an
+`Info.plist` that names it. `tela build` for darwin writes one:
+
+```text
+Notes.app/Contents/Info.plist
+Notes.app/Contents/MacOS/Notes
+```
+
+The `Info.plist` has `CFBundleIdentifier` (the app's `AppID`), `CFBundleName`
+and `CFBundleDisplayName` (its title), `CFBundleExecutable`, the package type,
+the version (`CFBundleShortVersionString`, `CFBundleVersion`: the module's
+version when the build knows it, else `0.0.0`), `LSMinimumSystemVersion` 13.0
+and the high-resolution and graphics-switching keys.
+
+The ID and the name are read from the source, without running it: the
+`AppID` and `Title` of the `tela.App` passed to `tela.Main` in `main`, or of the
+package-level `var App`. Literals, constants and concatenations work, and so
+does an `App` that a function wraps (`tela.Main(desktop.SingleInstance(App))`).
+Without an ID the command stops and says to set `tela.App.AppID`, or to pass
+`-id`. `CFBundleIdentifier` takes letters, digits, hyphens and periods only.
+
+`tela run` builds the same bundle in the user cache folder, under a folder of
+the app's ID that stays the same from run to run, so Launch Services sees one
+bundle per app:
+
+```text
+~/Library/Caches/tela/run/dev.example.notes/Notes.app
+```
+
+and runs the executable inside it directly (not through `open`), so the
+terminal keeps standard input, output and error and Ctrl+C, and the program's
+exit status is `tela run`'s. `-v` prints where the bundle is. Rebuilding writes
+only what changed, and keeps the keys that a running app added to the
+`Info.plist` when it registered a URL scheme or a file type.
+
+| Flag | Does |
+|---|---|
+| `-o path` | (build) A folder to create `<Name>.app` in, or a path ending in `.app`; otherwise the executable file or folder. Default: the current folder |
+| `-id ID` | The app's ID, instead of `App.AppID` |
+| `-name NAME` | The app's name, instead of `App.Title` (default: the package's name) |
+| `-tags list`, `-ldflags f`, `-gcflags f`, `-trimpath` | Passed to `go build`; nothing else is added (no `teladev` tag, no stripping) |
+| `-v` | Say where the ID and the name came from (and, for `run`, where the bundle is) |
+
+Signing: neither command runs `codesign`. The Go linker ad-hoc signs
+`darwin/arm64` executables, and that signature covers the executable only, not
+the `Info.plist`. A bundle made this way runs on the machine that built it; it
+has no developer identity and is not notarized. Signing, icons and installers
+are the packaging step. On other systems `tela build` writes the plain
+executable and `tela run` builds and runs it in a temporary folder; `-id` and
+`-name` are ignored. `tela run` always runs on the machine's own platform.
 
 ## tela icons gen
 

@@ -15,7 +15,7 @@ Contents: 1 Start · 2 The agent loop · 3 Elements and props · 4 Components an
 ```sh
 mkdir myapp && cd myapp && go mod init example.com/myapp
 go get github.com/kuronosu/tela@latest github.com/kuronosu/tela/icons/lucide@latest
-CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest   # the CLI: tela mcp, snapshot, inspect, lint, dev
+CGO_ENABLED=0 go install github.com/kuronosu/tela/cmd/tela@latest   # the CLI: tela mcp, snapshot, inspect, lint, dev, run, build
 # or: tela new myapp  (a counter app with a test, go.mod ready)
 go mod tidy   # after you add imports: kit and aria need golang.org/x/text
 ```
@@ -146,6 +146,8 @@ tela inspect ./myapp            # aria snapshot YAML; --layout for the layout JS
 tela lint ./...                 # unknown classes, roles, aria tokens, keys, hook misuse, a prop where a node goes; file:line:col: rule: message
 tela lint -fix ./...            # also removes redundant single-child Fragment(x) wrappers
 tela dev ./myapp                # a real window that reloads on save, keeping state
+tela run ./myapp [args]         # build and run the program (go run); on macOS as a development .app in the user cache
+tela build -o dist ./myapp      # the program; GOOS=darwin writes dist/<Name>.app (AppID from App or -id, -name)
 ```
 
 `tela snapshot` renders one frame: state set by effects, timers or toasts does not show in it; use `tela mcp` (`wait`) or a test for those.
