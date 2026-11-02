@@ -393,6 +393,11 @@ jobs:
         # -v: the cocoa tests log what ran (capture path, metrics, pixel
         # samples) even when they pass; no Mac is at hand to look.
         run: go test -v -count=1 -timeout 10m ./internal/platform/cocoa/ ./internal/platform/auto/ ./internal/darwin/
+      - name: go test (tela dev on a cocoa host, verbose)
+        if: success() || failure()
+        env:
+          CGO_ENABLED: "0"
+        run: go test -v -count=1 -timeout 10m -run 'TestDevEndToEndCocoa' ./cmd/tela/
       - name: go test (all)
         if: success() || failure()
         env:
