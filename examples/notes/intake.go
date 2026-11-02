@@ -8,7 +8,7 @@ import (
 
 // What comes into the library from outside, besides the Open button: files
 // dropped on the window or named on the command line, text dropped on it,
-// and notes: links (link.go). They all end in the same place, so they
+// and tela-notes: links (link.go). They all end in the same place, so they
 // behave alike: a file that is already open selects its note, any other
 // text file becomes a new note, and what cannot be read is a message, not a
 // failure of the rest.

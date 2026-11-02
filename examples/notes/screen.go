@@ -214,7 +214,7 @@ func (s screen) Build() tela.Node {
 	}
 	// Every start of the program is a launch: its own, and the ones that a
 	// second process hands over before it exits (desktop.SingleInstance).
-	// Files open as notes, and notes: links make or show a note (link.go).
+	// Files open as notes, and tela-notes: links make or show a note (link.go).
 	// The window is raised by SingleInstance.
 	desktop.UseLaunch(func(l desktop.Launch) {
 		if files := l.Files(); len(files) > 0 {
@@ -237,14 +237,14 @@ func (s screen) Build() tela.Node {
 			}
 		}
 	})
-	// Notes makes itself the handler of notes: links (never the default)
+	// Notes makes itself the handler of tela-notes: links (never the default)
 	// when it starts, and when the user turns the setting on again
 	// (link.go).
 	wantLinks := prefs.RegisterLinks
 	tela.UseGo(func(ctx context.Context) { registerAtStart(wantLinks) }, wantLinks)
 	// copyLink puts the link of a note on the clipboard.
 	copyLink := func(id int) {
-		if err := desktop.WriteClipboardText(fmt.Sprintf("notes://open?id=%d", id)); err != nil {
+		if err := desktop.WriteClipboardText(fmt.Sprintf("tela-notes://open?id=%d", id)); err != nil {
 			toast.Error("Could not copy the link", kit.ToastDescription(err.Error()))
 			return
 		}

@@ -22,8 +22,32 @@ import (
 )
 
 // notesAppID is examples/notes's App.AppID: the bundle identifier tela build
-// reads from the source.
-const notesAppID = "dev.telaui.notes"
+// reads from the source. notesScheme is its URL scheme.
+const (
+	notesAppID  = "dev.telaui.notes"
+	notesScheme = "tela-notes"
+)
+
+// bundleFolder returns a new folder under <user cache>/tela/test, removed at
+// the end of the test: where Launch Services looks at bundles (it ignores
+// the ones in /var/folders, where t.TempDir is).
+func bundleFolder(t *testing.T) string {
+	t.Helper()
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		t.Skipf("no user cache folder: %v", err)
+	}
+	base := filepath.Join(cache, "tela", "test")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp(base, "notes-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	return dir
+}
 
 // TestNotesMacOS is the end-to-end check of examples/notes as a macOS app
 // (phase 15), run on macos-latest with
@@ -34,23 +58,27 @@ const notesAppID = "dev.telaui.notes"
 // executable with its folders in a temporary one (TELA_DESKTOP_DIR, which
 // desktop.DataDir honors), and checks, logging every step:
 //
-//   - (a) the app registered its notes: scheme: its bundle's Info.plist
-//     declares it (always checked) and Launch Services lists the bundle and
-//     the scheme (a timing-dependent database: when it does not list them
-//     in time the step logs why and does not fail);
-//   - (b) `open 'notes://new?...'`, which Launch Services delivers to the
-//     running instance (application:openURLs:), makes a note in
+//   - (a) the app registered its tela-notes: scheme: its bundle's Info.plist
+//     declares it and Launch Services lists the bundle and the scheme. The
+//     scheme is not notes:, which macOS's Notes app owns (an app never takes
+//     another's association);
+//   - (b) `open 'tela-notes://new?...'`, which Launch Services delivers to
+//     the running instance (application:openURLs:), makes a note in
 //     notes.json. It runs on CI (CI is set) or with TELA_E2E_OPEN=1: when
 //     Launch Services does not know the running process it starts another
 //     Notes outside the test's folders, which is harmless on a runner and
-//     not on a Mac somebody uses;
+//     not on a Mac somebody uses (elsewhere it is skipped with that
+//     reason);
 //   - (c) starting the bundle's executable again with a link forwards it to
 //     the first instance and exits 0, and the note lands in notes.json.
 //
-// The process tree is killed at the end (and the bundle forgotten by
-// Launch Services). It skips without a window server session, in -short
-// mode, and when a Notes is already running (it would take the test's
-// launches).
+// The bundle is built under the user's cache folder (a unique one in
+// <user cache>/tela/test, removed at the end), not in a temporary folder:
+// Launch Services ignores the bundles that live under /var/folders, so
+// neither the registration nor the links would reach it. The process tree is
+// killed at the end and the bundle unregistered (lsregister -u). It skips
+// without a window server session, in -short mode, and when a Notes is
+// already running (it would take the test's launches).
 func TestNotesMacOS(t *testing.T) {
 	skipShort(t)
 	if err := darwin.Load(); err != nil {
@@ -72,7 +100,7 @@ func TestNotesMacOS(t *testing.T) {
 	// --- Build ----------------------------------------------------------
 	root := repoRoot(t)
 	t.Chdir(root)
-	out := t.TempDir()
+	out := bundleFolder(t)
 	step := func(format string, args ...any) {
 		t.Logf("[%s] %s", time.Now().Format("15:04:05.000"), fmt.Sprintf(format, args...))
 	}
@@ -143,12 +171,12 @@ func TestNotesMacOS(t *testing.T) {
 	plistPath := filepath.Join(bundle, "Contents", "Info.plist")
 	if !waitFor(30*time.Second, func() bool {
 		b, _ := os.ReadFile(plistPath)
-		return bytes.Contains(b, []byte("<key>CFBundleURLSchemes</key>")) && bytes.Contains(b, []byte("<string>notes</string>"))
+		return bytes.Contains(b, []byte("<key>CFBundleURLSchemes</key>")) && bytes.Contains(b, []byte("<string>tela-notes</string>"))
 	}) {
 		b, _ := os.ReadFile(plistPath)
-		t.Fatalf("(a) the app did not declare its notes: scheme in %s within 30s:\n%s\napp output:\n%s", plistPath, b, log.String())
+		t.Fatalf("(a) the app did not declare its tela-notes: scheme in %s within 30s:\n%s\napp output:\n%s", plistPath, b, log.String())
 	}
-	step("(a) Info.plist declares the notes: scheme")
+	step("(a) Info.plist declares the tela-notes: scheme")
 	if err := darwin.LoadLaunchServices(); err != nil {
 		step("(a) SKIPPED the Launch Services check: %v", err)
 	} else {
@@ -156,17 +184,18 @@ func TestNotesMacOS(t *testing.T) {
 		var paths, handlers []string
 		listed := waitFor(30*time.Second, func() bool {
 			paths = darwin.LSApplicationPaths(notesAppID)
-			handlers = darwin.LSSchemeHandlers("notes")
+			handlers = darwin.LSSchemeHandlers(notesScheme)
 			return slices.ContainsFunc(paths, func(p string) bool {
 				got, _ := filepath.EvalSymlinks(p)
 				return got == want
 			}) && slices.Contains(handlers, notesAppID)
 		})
 		if listed {
-			step("(a) Launch Services lists %s as %s and as a handler of notes: (handlers %v)", want, notesAppID, handlers)
+			step("(a) Launch Services lists %s as %s and as a handler of %s: (handlers %v)", want, notesAppID, notesScheme, handlers)
 		} else {
-			step("(a) SKIPPED the Launch Services check, which did not list the bundle in 30s: paths for %s %v, handlers of notes: %v "+
-				"(the registration database updates on its own schedule; Info.plist does declare the scheme)", notesAppID, paths, handlers)
+			t.Errorf("(a) Launch Services did not list the bundle %s and the %s: scheme in 30s: paths for %s %v, handlers of %s: %v "+
+				"(Launch Services ignores bundles under /var/folders: the bundle must be in the user's cache or ~/Applications)",
+				want, notesScheme, notesAppID, paths, notesScheme, handlers)
 		}
 	}
 
@@ -174,7 +203,7 @@ func TestNotesMacOS(t *testing.T) {
 	if os.Getenv("CI") == "" && os.Getenv("TELA_E2E_OPEN") == "" {
 		step("(b) SKIPPED: `open` may start another Notes through Launch Services outside the test's folders; set CI=1 or TELA_E2E_OPEN=1 to run it")
 	} else {
-		url := "notes://new?title=CI&text=from+a+link"
+		url := notesScheme + "://new?title=CI&text=from+a+link"
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		cmd := exec.CommandContext(ctx, "open", url)
 		cmd.Env = env
@@ -182,7 +211,7 @@ func TestNotesMacOS(t *testing.T) {
 		cancel()
 		switch {
 		case err != nil:
-			step("(b) SKIPPED: `open %s` failed: %v\n%s (Launch Services could not route the link on this runner)", url, err, o)
+			t.Errorf("(b) `open %s` failed: %v\n%s", url, err, o)
 		case !waitFor(30*time.Second, func() bool { return hasNote(library, "CI", "from a link") }):
 			dump, _ := os.ReadFile(library)
 			t.Errorf("(b) `open %s` returned, but no note CI / \"from a link\" reached %s within 30s\nlibrary: %s\napp output:\n%s", url, library, dump, log.String())
@@ -193,7 +222,7 @@ func TestNotesMacOS(t *testing.T) {
 
 	// --- (c) a second start forwards its link and exits 0 -------------
 	{
-		url := "notes://new?title=Second&text=forwarded+by+a+second+start"
+		url := notesScheme + "://new?title=Second&text=forwarded+by+a+second+start"
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		second := exec.CommandContext(ctx, exe, url)

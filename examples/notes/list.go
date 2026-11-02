@@ -33,7 +33,7 @@ type List struct {
 	OnBack   func()
 	// OnPin and OnDelete are the actions of a card's context menu.
 	OnPin, OnDelete func(id int)
-	// OnCopyLink copies the notes: link of a note.
+	// OnCopyLink copies the tela-notes: link of a note.
 	OnCopyLink func(id int)
 	// Locks are the lock items of the card's context menu.
 	Locks Locks
@@ -185,7 +185,7 @@ type Overview struct {
 	OnSelect func(id int)
 	// OnPin and OnDelete are the actions of a card's context menu.
 	OnPin, OnDelete func(id int)
-	// OnCopyLink copies the notes: link of a note.
+	// OnCopyLink copies the tela-notes: link of a note.
 	OnCopyLink func(id int)
 	// Locks are the lock items of the card's context menu.
 	Locks Locks
