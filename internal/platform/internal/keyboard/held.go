@@ -4,7 +4,10 @@
 // synthetic releases when the window loses focus, and the reporting of
 // keyboard setup errors. On Linux it also holds what the Wayland and X11
 // keyboards share above internal/xkb (linux.go): the Mods prediction of a
-// release and the Compose file rules. It imports no backend.
+// release and the Compose file rules. mac.go is the OS-independent half of
+// the macOS keyboard (virtual key codes, AppKit's characters, modifier
+// flags and flagsChanged), built on every OS so that it is tested on
+// Linux. It imports no backend.
 package keyboard
 
 import (

@@ -213,6 +213,13 @@ their original copyright notice. Add one section per source project.
 - **Used in:** `internal/darwin/`, `internal/platform/cocoa/`
 - **Notes:** Design references only (opening the frameworks explicitly under `CGO_ENABLED=0`, message sends with struct arguments and `objc_msgSend_stret` on amd64, registered NSWindow, delegate and view classes, the application-defined event that makes `[NSApp run]` return after `stop:`, not declaring `NSApplicationDelegate` on macOS 14, Ebitengine issue #3451). No source was copied; the bindings and the backend are written against Apple's documentation. Listed as a courtesy.
 
+## winit, Chromium and SDL (macOS keyboard)
+
+- **Source:** https://github.com/rust-windowing/winit (macOS keyboard: `platform_impl/macos/event.rs`, `view.rs`), https://chromium.googlesource.com/chromium/src (`ui/events/keycodes/dom/dom_code_data.inc`, mac column; `ui/events/keycodes/keyboard_code_conversion_mac.mm`) and https://github.com/libsdl-org/SDL (`src/video/cocoa/SDL_cocoakeyboard.m`)
+- **License:** Apache-2.0 (winit), BSD-3-Clause (Chromium), zlib (SDL)
+- **Used in:** `internal/platform/internal/keyboard/mac.go`
+- **Notes:** Design references only; no source was copied. The virtual key code table is written from the kVK_* names of Apple's `HIToolbox/Events.h` and the W3C UI Events code table, the same facts as Chromium's mac column and winit's `scancode_to_physicalkey`; the function-key characters come from `NSEvent.h`. Taken as techniques: the logical key from `characters`, or `charactersIgnoringModifiers` while Command or Control is held (winit); press or release of a modifier from the device-dependent bits of `modifierFlags`, Caps Lock as a press and a release per change of the lock, and the swap of `kVK_ISO_Section` and `kVK_ANSI_Grave` on ISO keyboards (SDL). Listed as a courtesy.
+
 ## Motion (springs)
 
 - **Source:** https://github.com/motiondivision/motion (formerly framer-motion; `packages/motion-dom/src/animation/generators/spring/`: `index.ts`, `find.ts`)
