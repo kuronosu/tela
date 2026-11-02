@@ -44,17 +44,6 @@ func cacheRoot(t *testing.T) string {
 	return freshDir(t, c)
 }
 
-// homeAppsRoot returns a fresh folder in ~/Applications, removed with the
-// test.
-func homeAppsRoot(t *testing.T) string {
-	t.Helper()
-	h, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return freshDir(t, filepath.Join(h, "Applications"))
-}
-
 func freshDir(t *testing.T, parent string) string {
 	t.Helper()
 	if err := os.MkdirAll(parent, 0o755); err != nil {

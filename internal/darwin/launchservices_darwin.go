@@ -216,17 +216,6 @@ func fileURLCF(path string) uintptr {
 	return ls.urlCreateFromPath(0, &b[0], len(b), true)
 }
 
-// FileURLRoundTrip returns the path of the CFURL made from path, as
-// LSRegisterBundle makes it: a check of the bindings for diagnostics.
-func FileURLRoundTrip(path string) string {
-	u := fileURLCF(path)
-	if u == 0 {
-		return ""
-	}
-	defer ls.release(u)
-	return urlPathCF(u)
-}
-
 // LSApplicationPaths returns the paths of the application bundles Launch
 // Services knows with the bundle identifier id
 // (LSCopyApplicationURLsForBundleIdentifier), nil when it knows none.

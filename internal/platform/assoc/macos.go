@@ -89,7 +89,14 @@ import (
 // seal (Contents/_CodeSignature: signed for distribution) is not edited,
 // since the seal covers Info.plist; registering what its Info.plist does
 // not declare yet returns an error wrapping ErrUnsupported (declare it
-// before signing).
+// before signing). Launch Services ignores bundles in temporary folders
+// (os.TempDir(), /private/var/folders): LSRegisterURL returns noErr and
+// the bundle is never listed, as CI showed on macOS 26 while bundles in
+// the user cache and ~/Applications were listed at once. So Register,
+// MakeDefault and RegisterApp refuse such a bundle with an error wrapping
+// ErrUnsupported that says to build it elsewhere (`tela build -o`) or use
+// `tela run`, which builds in the user cache; Status reports it not
+// registered.
 //
 // RegisterApp, UnregisterApp and AppStatus (ADR-217): the bundle is the
 // app's registration. RegisterApp calls LSRegisterURL on it when Launch
@@ -149,8 +156,13 @@ func MacOS(ls LaunchServices) platform.Associations {
 		}
 		ls = nativeLaunchServices()
 	}
-	return &macOS{ls: ls, exe: os.Executable, settle: 2 * time.Second}
+	return &macOS{ls: ls, exe: os.Executable, settle: 2 * time.Second, tempDirs: systemTempDirs}
 }
+
+// systemTempDirs are the temporary folders whose bundles Launch Services
+// ignores: os.TempDir() ($TMPDIR, a folder of /var/folders) and every
+// per-user folder of /private/var/folders.
+func systemTempDirs() []string { return []string{os.TempDir(), "/private/var/folders"} }
 
 // nativeLaunchServices returns the real Launch Services; set on darwin
 // only (launchservices_darwin.go).
@@ -164,6 +176,50 @@ type macOS struct {
 	// settle bounds how long MakeDefault waits for Launch Services to
 	// report the default it set.
 	settle time.Duration
+	// tempDirs returns the temporary folders (see inTempDir).
+	tempDirs func() []string
+}
+
+// inTempDir returns the temporary folder that holds the bundle, "" when
+// none does. Launch Services ignores bundles there: LSRegisterURL returns
+// noErr and neither it nor `lsregister -f` makes the bundle known
+// (checked on macOS 26 with bundles in /var/folders, the user cache and
+// ~/Applications: only the first were never listed, whatever the
+// executable). Symbolic links are resolved on both sides (/var is
+// /private/var).
+func (m *macOS) inTempDir(b *appBundle) string {
+	if m.tempDirs == nil {
+		return ""
+	}
+	dir := normDir(b.dir)
+	for _, t := range m.tempDirs() {
+		if t == "" {
+			continue
+		}
+		root := normDir(t)
+		if strings.EqualFold(dir, root) || len(dir) > len(root) && strings.EqualFold(dir[:len(root)], root) &&
+			(dir[len(root)] == filepath.Separator || strings.HasSuffix(root, string(filepath.Separator))) {
+			return t
+		}
+	}
+	return ""
+}
+
+// normDir returns p cleaned, with symbolic links resolved when it exists.
+func normDir(p string) string {
+	p = filepath.Clean(p)
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		p = r
+	}
+	return p
+}
+
+// tempDirError is the error of Register, MakeDefault and RegisterApp for
+// a bundle in a temporary folder.
+func tempDirError(call string, b *appBundle, tmp string) error {
+	return fmt.Errorf("assoc: %s: the bundle %s is in a temporary folder (%s), and Launch Services ignores apps there: "+
+		"build the app with `tela build -o <a folder outside the temporary folder>`, or run it with `tela run`, "+
+		"which builds in the user cache: %w", call, b.dir, tmp, platform.ErrUnsupported)
 }
 
 var _ platform.Associations = (*macOS)(nil)
@@ -588,6 +644,9 @@ func (m *macOS) Status(app platform.HandlerApp, a platform.Association) (platfor
 		return platform.AssociationStatus{}, fmt.Errorf("assoc: %s(%v): Launch Services: %w", call, a, err)
 	}
 	var st platform.AssociationStatus
+	// A bundle in a temporary folder is never Launch Services' (another
+	// copy of the app may be): it is not registered.
+	declared = declared && m.inTempDir(b) == ""
 	st.Registered = declared && containsFold(handlers, app.ID)
 	switch {
 	case strings.EqualFold(def, app.ID):
@@ -620,6 +679,9 @@ func (m *macOS) Register(app platform.HandlerApp, a platform.Association, _ plat
 func (m *macOS) registerLocked(call string, app platform.HandlerApp, a platform.Association) (b *appBundle, uti string, changed bool, err error) {
 	if b, err = m.openBundle(call, app); err != nil {
 		return nil, "", false, err
+	}
+	if tmp := m.inTempDir(b); tmp != "" {
+		return nil, "", false, tempDirError(call, b, tmp)
 	}
 	if a.Scheme != "" {
 		changed = addScheme(b.info, app.ID, a.Scheme)
@@ -759,6 +821,9 @@ func (m *macOS) RegisterApp(app platform.HandlerApp, _ platform.RegisterOptions)
 	b, err := m.openBundle(call, app)
 	if err != nil {
 		return false, err
+	}
+	if tmp := m.inTempDir(b); tmp != "" {
+		return false, tempDirError(call, b, tmp)
 	}
 	known, err := m.knowsBundle(b, app.ID)
 	if err != nil {

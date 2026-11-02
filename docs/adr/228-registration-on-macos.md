@@ -9,6 +9,7 @@
 - **Info.plist, then Launch Services.** Marked entries (`TelaRegistered`): `CFBundleURLTypes` for a scheme; `CFBundleDocumentTypes` (Editor, `LSHandlerRank` Alternate) for the extension's UTI, with a `UTImportedTypeDeclarations` entry `<ID>.<ext>` when no app declares it. Other keys are kept; the file is written only on a change, never in a signed bundle; then `LSRegisterURL`.
 - **Ranks.** Alternate never wins a default against an Owner or Default handler; the only candidate is the handler by the OS's rule. Nothing is taken, so `Replace` does nothing.
 - **MakeDefault:** `LSSetDefaultHandlerForURLScheme`, `LSSetDefaultRoleHandlerForContentType`. Deprecated, but synchronous, any goroutine, no running app, no prompt; NSWorkspace's are asynchronous and may ask the user.
+- **Temporary folders.** Launch Services ignores bundles in them (`/var/folders`, CI on macOS 26), so registering one is `ErrUnsupported`, and `tela run` builds in the user cache.
 - **RegisterApp** registers the bundle, **UnregisterApp** writes nothing, **AppStatus** asks `LSCopyApplicationURLsForBundleIdentifier`.
 
 ## Why
