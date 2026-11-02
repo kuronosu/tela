@@ -504,6 +504,13 @@ const (
 	exrefAccent   = "TELA_EXREF_ACCENT"   // #rrggbb, or empty
 	exrefAdvance  = "TELA_EXREF_ADVANCE"  // a time.Duration
 	exrefOut      = "TELA_EXREF_OUT"      // the PNG
+	// exrefControls is the rectangle the window's standard buttons cover
+	// in a TitleBarOverlay window, "x,y,w,h" in points (the window's
+	// TitleBarControls), or empty: the reference's window reports the
+	// same, so the app lays its title bar out around the same buttons
+	// (without it the headless window acts as a frameless one and the
+	// app draws its own controls).
+	exrefControls = "TELA_EXREF_CONTROLS"
 )
 
 // exampleReferenceTest is the test function of exampleReferenceSource.
@@ -523,6 +530,7 @@ func exampleReferenceSource(pkgName string, c contract, hasApp bool) []byte {
 		"Package": pkgName, "Kind": c.String(), "HasApp": hasApp, "Test": exampleReferenceTest,
 		"W": exrefW, "H": exrefH, "Scale": exrefScale, "Dark": exrefDark, "Reduced": exrefReduced,
 		"Contrast": exrefContrast, "Accent": exrefAccent, "Advance": exrefAdvance, "Out": exrefOut,
+		"Controls": exrefControls,
 	})
 	if err != nil {
 		panic(err) // the template is a constant
@@ -584,6 +592,17 @@ func {{.Test}}(t *telatesting.T) {
 	}
 	if a := telaos.Getenv({{printf "%q" .Accent}}); a != "" {
 		opts = append(opts, telatest.AccentColor(telatela.Hex(a)))
+	}
+	if c := telaos.Getenv({{printf "%q" .Controls}}); c != "" {
+		var r [4]float32
+		for i, s := range telastrings.Split(c, ",") {
+			v, err := telastrconv.ParseFloat(s, 32)
+			if err != nil || i >= 4 {
+				t.Fatalf("%s=%q: want x,y,w,h", {{printf "%q" .Controls}}, c)
+			}
+			r[i] = float32(v)
+		}
+		opts = append(opts, telatest.TitleBarControls(telatela.Rect{X: r[0], Y: r[1], Width: r[2], Height: r[3]}))
 	}
 {{- if .HasApp}}
 	if telaHasApp {

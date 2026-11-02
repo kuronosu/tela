@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -61,7 +62,9 @@ import (
 //     (cornerBand);
 //   - for a TitleBarOverlay window, the rectangle of its standard buttons
 //     (read from the window) and one point around it: the OS's traffic
-//     lights, where the headless render leaves the room free;
+//     lights, where the headless render leaves the room free (the
+//     reference's window reports the same rectangle as TitleBarControls,
+//     so the app lays its title bar out around the same buttons);
 //   - for a Frameless window (its content is the whole frame), the
 //     outermost ring of pixels where they stay within a small difference
 //     of the reference: the window server's outline of a titled window,
@@ -198,11 +201,30 @@ type captureWindow struct {
 	// Controls is a title bar overlay's standard buttons over the content
 	// (x, y, w, h in points, y down), zero for other windows.
 	Controls [4]float64 `json:"controls"`
+	// Class is the window's Objective-C class: AppKit's own windows (a
+	// tray icon's NSStatusBarWindow) are not the app's.
+	Class string `json:"class"`
+}
+
+// controlsEnv is the reference's exrefControls for a window's controls
+// rectangle: "x,y,w,h", or empty for none.
+func controlsEnv(c [4]float64) string {
+	if c[2] <= 0 || c[3] <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%g,%g,%g,%g", c[0], c[1], c[2], c[3])
+}
+
+// systemWindow reports whether a window is one of AppKit's own, not the
+// app's: the status bar window of a tray icon (NSStatusBarWindow) and its
+// replicas on other screens (NSStatusItemReplicantWindow and the like).
+func (w captureWindow) systemWindow() bool {
+	return strings.Contains(w.Class, "StatusBar") || strings.Contains(w.Class, "StatusItem")
 }
 
 func (w captureWindow) String() string {
-	return fmt.Sprintf("NSWindow %d %q content %gx%g pt at scale %g (%dx%d px), frame %gx%g, screen's visible frame %gx%g, style mask %#x, key %v, visible %v",
-		w.Number, w.Title, w.W, w.H, w.Scale, w.PhysW, w.PhysH, w.FrameW, w.FrameH, w.ScreenW, w.ScreenH, w.Style, w.Key, w.Visible)
+	return fmt.Sprintf("%s %d %q content %gx%g pt at scale %g (%dx%d px), frame %gx%g, screen's visible frame %gx%g, style mask %#x, key %v, visible %v",
+		cmp.Or(w.Class, "NSWindow"), w.Number, w.Title, w.W, w.H, w.Scale, w.PhysW, w.PhysH, w.FrameW, w.FrameH, w.ScreenW, w.ScreenH, w.Style, w.Key, w.Visible)
 }
 
 type captureRead struct {
@@ -451,6 +473,7 @@ func (r *exampleRun) runReference(home string) *image.RGBA {
 		exrefAccent+"="+r.rep.Accent,
 		exrefAdvance+"="+advance.String(),
 		exrefOut+"="+out,
+		exrefControls+"="+controlsEnv(w.Controls),
 	)
 	start := time.Now()
 	b, err := cmd.CombinedOutput()
@@ -500,12 +523,12 @@ func (r *exampleRun) compare(capDir string, ref *image.RGBA, attempt int) (pixel
 	rep, w := &r.rep, r.rep.Window
 	visible := 0
 	for _, win := range rep.Windows {
-		if win.Visible {
+		if win.Visible && !win.systemWindow() {
 			visible++
 		}
 	}
 	if visible != 1 {
-		t.Errorf("%d visible windows, want 1", visible)
+		t.Errorf("%d visible windows of the app, want 1 (AppKit's status bar windows of a tray icon not counted)", visible)
 	}
 	switch {
 	case len(r.declared) != 1:
