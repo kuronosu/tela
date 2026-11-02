@@ -26,19 +26,19 @@
 // (tela.Run is, since package tela locks the main goroutine in an init
 // function), and it locks the calling goroutine to it until Run returns.
 // Run calls [NSApp run], which owns the loop. The backend is called back
-// from AppKit (the window delegate and the content view) and from two
-// CoreFoundation objects on the main run loop, both in
-// kCFRunLoopCommonModes so that they also fire inside AppKit's tracking
-// loops (live resize):
-//
-//   - a version 0 CFRunLoopSource, which Wake and Quit signal from any
-//     goroutine (CFRunLoopSourceSignal + CFRunLoopWakeUp); its perform
-//     callback runs a delivery pass of the shared loop
-//     (internal/platform/internal/loop);
-//   - a CFRunLoopTimer armed at the shared loop's pacing deadline (Pace)
-//     for a frame no display link paces, or at the stand-in deadline of a
-//     link that has not ticked, and pushed to the far future otherwise, so
-//     an idle app never wakes up.
+// from AppKit (the window delegate and the content view), from the display
+// links, and from a version 0 CFRunLoopSource on the main run loop, in
+// kCFRunLoopCommonModes so that it also fires inside AppKit's tracking
+// loops (live resize). Wake and Quit signal the source from any goroutine
+// (CFRunLoopSourceSignal + CFRunLoopWakeUp), and so does the pacing timer:
+// a Go timer set to the shared loop's pacing deadline (Pace) for a frame no
+// display link paces, or to the stand-in deadline of a link that has not
+// ticked, and stopped otherwise, so an idle app never wakes up. The
+// source's perform callback runs a delivery pass of the shared loop
+// (internal/platform/internal/loop). A CFRunLoopTimer paced the base
+// backend, but on the macOS CI runner it fired about every 100 ms whatever
+// its fire date was (10 Hz animations); the Go timer runs on the backend's
+// own clock, so the frame is due when it fires.
 //
 // Frames are paced by a display link per window (link_darwin.go): a frame
 // request the loop does not deliver at once starts the window's link, each

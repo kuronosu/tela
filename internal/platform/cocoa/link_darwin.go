@@ -29,8 +29,7 @@ import (
 //     it only marks the window (an atomic flag) and signals the run loop
 //     source, whose pass on the main thread records the signal.
 //   - linkTimer: no link could be made (CoreVideo missing): the shared
-//     loop's interval deadline arms the CFRunLoopTimer, as in the base
-//     backend.
+//     loop's interval deadline arms the pacing timer (Backend.arm).
 //
 // A window that is not on screen yet (before its first Present) is paced by
 // the timer: a link would not tick for it. A link that stops ticking while

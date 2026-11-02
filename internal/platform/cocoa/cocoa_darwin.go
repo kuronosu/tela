@@ -18,11 +18,6 @@ import (
 // errClosed is returned by NewWindow after Run returned.
 var errClosed = errors.New("cocoa: the backend is closed (Run has returned)")
 
-// timerIdle is how far in the future (seconds) the pacing timer is pushed
-// while no frame waits: a repeating CFRunLoopTimer with this interval never
-// fires in practice, and setting its next fire date re-arms it.
-const timerIdle = 1e9
-
 // Backend is the Cocoa backend. Create it with New on the main thread.
 type Backend struct {
 	id    uintptr // key in registry.backends: the info of the CF callbacks
@@ -32,9 +27,17 @@ type Backend struct {
 	// the frame pacing state shared with the other backends.
 	loop *loop.Loop[*Window]
 
-	runLoop  uintptr  // the main CFRunLoop
-	timer    uintptr  // CFRunLoopTimer: frame pacing without a display link
-	srgb     uintptr  // CGColorSpace of every presented image
+	runLoop uintptr // the main CFRunLoop
+	srgb    uintptr // CGColorSpace of every presented image
+	// pacer is the pacing timer: a Go timer that signals the run loop
+	// source at the shared loop's deadline for frames no display link
+	// paces, and at the stand-in deadline of a link that has not ticked.
+	// A CFRunLoopTimer was used first, but on macos-latest it fired about
+	// every 100 ms whatever its fire date (probably the system's timer
+	// coalescing, which may scale with the repeating timer's huge unused
+	// interval), pacing at 10 Hz; a Go timer runs on the backend's own
+	// clock, so the frame is due when it fires.
+	pacer    *time.Timer
 	linkKind linkKind // the display link of the windows (link_darwin.go)
 	clock    eventClock
 
@@ -123,17 +126,13 @@ func New() (*Backend, error) {
 
 	src := darwin.CFRunLoopSourceContext{Info: b.id, Perform: callbacks.perform}
 	b.source = darwin.CFRunLoopSourceCreate(0, 0, &src)
-	tctx := darwin.CFRunLoopTimerContext{Info: b.id}
-	now := darwin.CFAbsoluteTimeGetCurrent()
-	b.timer = darwin.CFRunLoopTimerCreate(0, now+timerIdle, timerIdle, 0, 0, callbacks.timer, &tctx)
 	b.srgb = darwin.CGColorSpaceCreateWithName(darwin.CGColorSpaceSRGB)
-	if b.source == 0 || b.timer == 0 || b.srgb == 0 {
+	if b.source == 0 || b.srgb == 0 {
 		b.release()
 		runtime.UnlockOSThread()
-		return nil, errors.New("cocoa: creating the run loop source, the pacing timer or the sRGB color space failed")
+		return nil, errors.New("cocoa: creating the run loop source or the sRGB color space failed")
 	}
 	darwin.CFRunLoopAddSource(b.runLoop, b.source, darwin.CFRunLoopCommonModes)
-	darwin.CFRunLoopAddTimer(b.runLoop, b.timer, darwin.CFRunLoopCommonModes)
 	b.startSettings()
 	return b, nil
 }
@@ -226,13 +225,11 @@ func (b *Backend) shutdown() {
 	runtime.UnlockOSThread()
 }
 
-// release frees the run loop source, the timer and the color space and
-// takes the backend out of the registry.
+// release stops the pacing timer, frees the run loop source and the color
+// space and takes the backend out of the registry.
 func (b *Backend) release() {
-	if b.timer != 0 {
-		darwin.CFRunLoopTimerInvalidate(b.timer)
-		darwin.CFRelease(b.timer)
-		b.timer = 0
+	if b.pacer != nil {
+		b.pacer.Stop()
 	}
 	b.mu.Lock()
 	b.stopped = true
@@ -305,8 +302,9 @@ func (b *Backend) pump() {
 // arm offers the requested frames that are not due yet to the display
 // links (the loop's Pace hook) and sets the pacing timer to the shared
 // loop's deadline for the others, or to the stand-in deadline of a link
-// that has not ticked; it pushes the timer to the far future when no frame
-// waits (0% CPU when idle).
+// that has not ticked; it stops the timer when no frame waits (0% CPU when
+// idle). The timer's goroutine only signals the run loop source, whose
+// pass on the main thread does the work.
 func (b *Backend) arm() {
 	deadline, ok := b.loop.Pace()
 	if t, has := b.linkDeadline(); has && (!ok || t < deadline) {
@@ -314,13 +312,17 @@ func (b *Backend) arm() {
 	}
 	if !ok {
 		if b.timerArmed {
-			darwin.CFRunLoopTimerSetNextFireDate(b.timer, darwin.CFAbsoluteTimeGetCurrent()+timerIdle)
+			b.pacer.Stop()
 			b.timerArmed = false
 		}
 		return
 	}
 	d := max(deadline-b.Now(), 0)
-	darwin.CFRunLoopTimerSetNextFireDate(b.timer, darwin.CFAbsoluteTimeGetCurrent()+d.Seconds())
+	if b.pacer == nil {
+		b.pacer = time.AfterFunc(d, b.notify)
+	} else {
+		b.pacer.Reset(d)
+	}
 	b.timerArmed = true
 }
 
@@ -416,10 +418,9 @@ var app struct {
 	appSuper darwin.Class
 }
 
-// callbacks are the C function pointers of the run loop source, the timer
-// and the CVDisplayLink output, created once (purego callbacks are never
-// freed).
-var callbacks struct{ perform, timer, cvTick uintptr }
+// callbacks are the C function pointers of the run loop source and the
+// CVDisplayLink output, created once (purego callbacks are never freed).
+var callbacks struct{ perform, cvTick uintptr }
 
 var (
 	setupOnce sync.Once
@@ -498,15 +499,6 @@ func setupApp() error {
 			b.guard(func() {
 				b.releaseZombies()
 				b.collectTicks()
-				b.pump()
-			})
-		}
-	})
-	callbacks.timer = darwin.NewCallback(func(_, info uintptr) {
-		if b := backendFor(info); b != nil {
-			b.guard(func() {
-				b.timerArmed = false
-				b.releaseZombies()
 				b.standIn()
 				b.pump()
 			})

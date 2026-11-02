@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
@@ -26,10 +27,9 @@ import (
 // events that come out, and log them all.
 
 var tsel = struct {
-	keyEvent, mouseEvent, enterExit, withCGEvent, screens, objectAtIndex, frame darwin.SEL
-	activate, activateIgnoring, makeKeyWindow, respondsTo, isKeyWindow          darwin.SEL
+	mouseEvent, enterExit, withCGEvent, screens, objectAtIndex, frame  darwin.SEL
+	activate, activateIgnoring, makeKeyWindow, respondsTo, isKeyWindow darwin.SEL
 }{
-	keyEvent:         darwin.Sel("keyEventWithType:location:modifierFlags:timestamp:windowNumber:context:characters:charactersIgnoringModifiers:isARepeat:keyCode:"),
 	mouseEvent:       darwin.Sel("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
 	enterExit:        darwin.Sel("enterExitEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:trackingNumber:userData:"),
 	withCGEvent:      darwin.Sel("eventWithCGEvent:"),
@@ -190,13 +190,30 @@ func (s *session) toView(selector string, ev darwin.ID) {
 	darwin.Send(s.w.view, darwin.Sel(selector), ev)
 }
 
-// keyEvent builds a keyDown or keyUp NSEvent for the window.
-func (s *session) keyEvent(typ int, code uint16, flags uint64, chars, ignoring string, ms int) darwin.ID {
-	c, ci := darwin.NSString(chars), darwin.NSString(ignoring)
-	defer darwin.Release(c)
-	defer darwin.Release(ci)
-	return darwin.SendClass(app.event, tsel.keyEvent, uint(typ), darwin.CGPoint{}, uint(flags), s.at(ms),
-		s.windowNumber(), darwin.ID(0), c, ci, false, code)
+// keyEvent builds a keyDown (down) or keyUp NSEvent from a CGEvent with
+// the key code, flags and characters given (AppKit derives
+// charactersIgnoringModifiers itself). +[NSEvent keyEventWithType:...]
+// cannot be used through purego on arm64: its isARepeat (BOOL) and keyCode
+// (unsigned short) go on the stack, which Darwin packs into one slot and
+// the message send does not, so every key read as keyCode 0 (see the
+// package documentation of internal/darwin).
+func (s *session) keyEvent(down bool, code uint16, flags uint64, chars string) darwin.ID {
+	cg := darwin.CGEventCreateKeyboardEvent(0, code, down)
+	if cg == 0 {
+		return 0
+	}
+	defer darwin.CFRelease(cg)
+	darwin.CGEventSetFlags(cg, flags)
+	if u := utf16.Encode([]rune(chars)); len(u) > 0 {
+		darwin.CGEventKeyboardSetUnicodeString(cg, uint(len(u)), &u[0])
+	}
+	ev := darwin.SendClass(app.event, tsel.withCGEvent, cg)
+	if ev != 0 {
+		s.t.Logf("built key event: type %d keyCode %#x flags %#x characters %q ignoring modifiers %q",
+			darwin.SendUint(ev, isel.typ), uint16(darwin.SendUint(ev, isel.keyCode)), darwin.SendUint(ev, isel.modifierFlags),
+			darwin.GoString(darwin.Send(ev, isel.characters)), darwin.GoString(darwin.Send(ev, isel.charactersIgnoring)))
+	}
+	return ev
 }
 
 // flagsEvent builds a flagsChanged NSEvent from a CGEvent (keyEventWithType:
@@ -279,26 +296,25 @@ func TestKeyboard(t *testing.T) {
 		kvkShift, kvkCmd = 0x38, 0x37
 		shift            = keyboard.MacFlagShift | keyboard.MacDeviceLeftShift
 		cmd              = keyboard.MacFlagCommand | keyboard.MacDeviceLeftCommand
-		down, up         = darwin.NSEventTypeKeyDown, darwin.NSEventTypeKeyUp
 	)
 	s := runSession(t, "tela keyboard", true, func(s *session) {
 		s.t.Logf("ISO keyboard: %v", darwin.KeyboardISO())
-		s.sendKey(s.keyEvent(down, kvkA, 0, "a", "a", 0))
-		s.sendKey(s.keyEvent(up, kvkA, 0, "a", "a", 20))
+		s.sendKey(s.keyEvent(true, kvkA, 0, "a"))
+		s.sendKey(s.keyEvent(false, kvkA, 0, "a"))
 		s.sendKey(s.flagsEvent(kvkShift, shift))
-		s.sendKey(s.keyEvent(down, kvkA, shift, "A", "A", 40))
-		s.sendKey(s.keyEvent(up, kvkA, shift, "A", "A", 60))
+		s.sendKey(s.keyEvent(true, kvkA, shift, "A"))
+		s.sendKey(s.keyEvent(false, kvkA, shift, "A"))
 		s.sendKey(s.flagsEvent(kvkShift, 0))
 		s.sendKey(s.flagsEvent(kvkCmd, cmd))
-		s.sendKey(s.keyEvent(down, kvkS, cmd, "s", "s", 80))
-		s.sendKey(s.keyEvent(up, kvkS, cmd, "s", "s", 100))
+		s.sendKey(s.keyEvent(true, kvkS, cmd, "s"))
+		s.sendKey(s.keyEvent(false, kvkS, cmd, "s"))
 		s.sendKey(s.flagsEvent(kvkCmd, 0))
-		s.sendKey(s.keyEvent(down, kvkB, 0, "b", "b", 120))
+		s.sendKey(s.keyEvent(true, kvkB, 0, "b"))
 		// The window loses the focus with B held, and gets it back.
 		darwin.Send(s.w.delegate, darwin.Sel("windowDidResignKey:"), darwin.ID(0))
 		darwin.Send(s.w.delegate, darwin.Sel("windowDidBecomeKey:"), darwin.ID(0))
 		// The release of a key pressed before the focus came back.
-		s.sendKey(s.keyEvent(up, kvkB, 0, "b", "b", 140))
+		s.sendKey(s.keyEvent(false, kvkB, 0, "b"))
 	})
 	if s == nil {
 		return

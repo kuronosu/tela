@@ -37,4 +37,16 @@
 //     copies it); nothing here keeps Go pointers in C memory.
 //   - Callbacks ([NewCallback], [RegisterClass] methods) are a limited
 //     resource of purego (about 2000 per process): create them once.
+//   - Arguments narrower than 8 bytes must not go on the stack (after the
+//     8 integer and pointer registers of arm64, counting self and _cmd of
+//     a message send; 6 on amd64). Darwin's arm64 ABI packs such stack
+//     arguments at their natural alignment, and purego's message sends
+//     through [Send] give each its own 8-byte slot: the keyCode
+//     (unsigned short) after isARepeat (BOOL) of +[NSEvent
+//     keyEventWithType:...] arrived as 0. Build such objects another way
+//     (key events from a CGEvent), or pass only 8-byte values there. The
+//     calls that have stack arguments today are safe: otherEventWithType:
+//     (data2 is an NSInteger) and CGImageCreate (shouldInterpolate and
+//     intent are false and 0, which read the same however they are laid
+//     out, since the unused bytes of a slot are zero).
 package darwin

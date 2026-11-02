@@ -61,11 +61,14 @@ var (
 	CGEventCreateScrollWheelEvent2 func(source uintptr, units uint32, wheelCount uint32, wheel1, wheel2, wheel3 int32) uintptr
 	CGEventSetType                 func(event uintptr, typ uint32)
 	CGEventSetFlags                func(event uintptr, flags uint64)
-	CGEventSetLocation             func(event uintptr, location CGPoint)
-	CGEventSetIntegerValueField    func(event uintptr, field uint32, value int64)
-	CGEventSetDoubleValueField     func(event uintptr, field uint32, value float64)
-	CGEventGetIntegerValueField    func(event uintptr, field uint32) int64
-	CGMainDisplayID                func() uint32
+	// CGEventKeyboardSetUnicodeString sets the characters of a key event
+	// (UTF-16 code units).
+	CGEventKeyboardSetUnicodeString func(event uintptr, length uint, chars *uint16)
+	CGEventSetLocation              func(event uintptr, location CGPoint)
+	CGEventSetIntegerValueField     func(event uintptr, field uint32, value int64)
+	CGEventSetDoubleValueField      func(event uintptr, field uint32, value float64)
+	CGEventGetIntegerValueField     func(event uintptr, field uint32) int64
+	CGMainDisplayID                 func() uint32
 )
 
 // CGEvent constants (CGEventTypes.h) used to build test events.
@@ -122,6 +125,7 @@ func loadCG(lib uintptr) {
 	bind(&CGEventCreateScrollWheelEvent2, lib, "CGEventCreateScrollWheelEvent2")
 	bind(&CGEventSetType, lib, "CGEventSetType")
 	bind(&CGEventSetFlags, lib, "CGEventSetFlags")
+	bind(&CGEventKeyboardSetUnicodeString, lib, "CGEventKeyboardSetUnicodeString")
 	bind(&CGEventSetLocation, lib, "CGEventSetLocation")
 	bind(&CGEventSetIntegerValueField, lib, "CGEventSetIntegerValueField")
 	bind(&CGEventSetDoubleValueField, lib, "CGEventSetDoubleValueField")

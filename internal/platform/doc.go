@@ -850,10 +850,10 @@
 // still supports, a CVDisplayLink whose callback on its own thread flags
 // the window and signals the same run loop source); each tick calls
 // VsyncDone and runs a pass, and the link is stopped when no frame is
-// requested. A CFRunLoopTimer in the common modes paces what no link can
-// (a window not on screen yet, no link at all) and stands in for a link
-// that stops ticking (100 ms), and is pushed to the far future when no
-// frame waits. Sizes are points (logical); scale is backingScaleFactor. The content view hosts a
+// requested. A Go timer that signals the run loop source paces what no
+// link can (a window not on screen yet, no link at all) and stands in for
+// a link that stops ticking (100 ms), and is stopped when no frame waits
+// (a CFRunLoopTimer fired only every 100 ms or so on the CI runner). Sizes are points (logical); scale is backingScaleFactor. The content view hosts a
 // CALayer (contentsScale = backing scale, top-left gravity); Present sets
 // its contents to a CGImage made from the copied pixels (RGBA premultiplied
 // is native: kCGImageAlphaPremultipliedLast; sRGB color space) inside a
