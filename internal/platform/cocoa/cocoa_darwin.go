@@ -54,6 +54,8 @@ type Backend struct {
 	timerArmed bool
 	activated  bool        // the app was activated at a first window show
 	zombies    []darwin.ID // released at the next pass (releaseLater)
+
+	settings settingsState // system settings and their observer (settings_darwin.go)
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -125,6 +127,7 @@ func New() (*Backend, error) {
 	}
 	darwin.CFRunLoopAddSource(b.runLoop, b.source, darwin.CFRunLoopCommonModes)
 	darwin.CFRunLoopAddTimer(b.runLoop, b.timer, darwin.CFRunLoopCommonModes)
+	b.startSettings()
 	return b, nil
 }
 
@@ -209,6 +212,7 @@ func (b *Backend) shutdown() {
 		w.Close()
 	}
 	b.releaseZombies()
+	b.stopSettings()
 	darwin.PoolPop(pool)
 	b.loop.Discard()
 	b.release()

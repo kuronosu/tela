@@ -856,11 +856,22 @@
 // CATransaction without implicit animations. Quit calls [NSApp stop:] and
 // posts an application-defined event so that run returns. Implemented:
 // windows, presentation, HiDPI, close requests, focus, hiding, child
-// windows closed with their parent, cursors (cursor rectangles). Pending in
-// phase 14: keyboard, pointer and scrolling input, IME, the text clipboard,
-// settings, the display link; window control, menus, drag and drop and the
-// desktop services are the macOS desktop integration phase (validated
-// no-ops and ErrUnsupported until then).
+// windows closed with their parent, cursors (cursor rectangles), the
+// clipboard with its Data types (NSPasteboard; see "Desktop integration
+// on each OS") and the system settings: dark mode is the best match of
+// NSApp.effectiveAppearance among Aqua and DarkAqua, the accent color
+// NSColor.controlAccentColor in sRGB, reduced motion and high contrast
+// NSWorkspace's accessibilityDisplayShouldReduceMotion and
+// accessibilityDisplayShouldIncreaseContrast, the double-click time
+// +[NSEvent doubleClickInterval], the text scale 1 (macOS has none);
+// changes arrive through a registered observer (KVO of
+// effectiveAppearance, NSSystemColorsDidChangeNotification,
+// NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification, and
+// NSApplicationDidBecomeActiveNotification for the double-click time),
+// coalesced into one read per pass. Pending in phase 14: keyboard, pointer
+// and scrolling input, IME, the display link; window control, menus, drag
+// and drop and the desktop services are the macOS desktop integration
+// phase (validated no-ops and ErrUnsupported until then).
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
 // clock and an input injection API, used by tests, telatest and the CLI. It
@@ -1055,8 +1066,20 @@
 //     Chromium does. (SHFileOperationW deletes such a file silently with
 //     FOF_NOCONFIRMATION, or asks the user with FOF_WANTNUKEWARNING.)
 //
-// Cocoa (planned): NSDraggingDestination and NSDraggingSource,
-// NSPasteboard, NSMenu (the app's menu bar; window menus return
+// Cocoa: clipboard data on NSPasteboard.generalPasteboard (phase 14),
+// which copies what is written (nothing is served later; data outlives
+// the app) and is read again for every request, our own data included:
+// MIMEText is public.utf8-plain-text and MIMEHTML public.html, both
+// through the string methods (which convert UTF-16 and legacy types);
+// MIMEPNG is public.png, read from public.tiff converted to PNG when no
+// PNG is offered; MIMEURIList is one pasteboard item per URI, as Finder
+// writes files (public.file-url, else public.url; file reference URLs
+// are resolved to paths); any other type is the UTType of the MIME type
+// (+[UTType typeWithMIMEType:], declared or dynamic; a type with
+// parameters gets an identifier naming it, "dev.telaui.mime." and the
+// escaped type), reported through the UTType's preferred MIME type.
+// Planned: NSDraggingDestination and NSDraggingSource,
+// NSMenu (the app's menu bar; window menus return
 // ErrUnsupported), the keychain, NSRunningApplication for single instance,
 // the bundle's Info.plist for schemes and document types, NSFileManager's
 // trashItemAtURL (until then MoveToTrash is ErrUnsupported).

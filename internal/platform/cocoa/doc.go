@@ -9,14 +9,16 @@
 // # Status (phase 14, ADR-222)
 //
 // This is the base of the backend: the app and its event loop, windows,
-// presentation and HiDPI. Keyboard, pointer and scrolling input, IME
-// (NSTextInputClient), the clipboard, system settings and the display link
-// come in the next tasks of phase 14; window control (minimize, zoom,
-// fullscreen, positions, child and modal windows enforced by the OS),
-// native menus, drag and drop and the desktop services are the macOS
-// desktop integration phase. Until then those requests are validated like
-// on every backend and do nothing, the clipboard and the services return
-// ErrUnsupported, and Settings returns the defaults.
+// presentation and HiDPI, plus the clipboard (NSPasteboard with every Data
+// type, clipboard_darwin.go over the pure mapping in pasteboard.go) and the
+// system settings with their change events (settings_darwin.go).
+// Keyboard, pointer and scrolling input, IME (NSTextInputClient) and the
+// display link come in the next tasks of phase 14; window control
+// (minimize, zoom, fullscreen, positions, child and modal windows enforced
+// by the OS), native menus, drag and drop and the desktop services are the
+// macOS desktop integration phase. Until then those requests are validated
+// like on every backend and do nothing, and the services return
+// ErrUnsupported.
 //
 // # Loop
 //

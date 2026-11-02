@@ -20,8 +20,8 @@ import (
 
 // These tests run the real backend and open windows. They need a window
 // server session (macos-latest runners have one) and skip without it, like
-// win32's tests without an interactive desktop; nothing here touches the
-// user's clipboard or services, so they need no TELA_LIVE. AppKit runs on
+// win32's tests without an interactive desktop. Only the clipboard tests
+// touch the user's data (clipboardAllowed: CI or TELA_LIVE). AppKit runs on
 // the main thread only: TestMain keeps the main goroutine there and serves
 // onMain while the tests run on other goroutines.
 
@@ -95,18 +95,18 @@ func newBackend(t *testing.T) *Backend {
 	return b
 }
 
-// TestConformance runs the shared platform suite. Every subtest runs
-// except the ones listed in Skip, each with what will add it.
+// TestConformance runs the shared platform suite. Every subtest runs; the
+// clipboard ones replace the clipboard's content, so they run on CI or
+// with TELA_LIVE only (clipboardAllowed).
 func TestConformance(t *testing.T) {
+	var skip []string
+	if !clipboardAllowed() {
+		skip = append(skip, "Clipboard", "ClipboardData")
+	}
 	platformtest.Run(t, platformtest.Config{
 		New:        func(t *testing.T) platform.Backend { return newBackend(t) },
 		OnUIThread: onMain,
-		Skip: []string{
-			// Needs a working text clipboard: NSPasteboard is a later task
-			// of phase 14 (ClipboardData runs: Write says ErrUnsupported,
-			// which the suite accepts).
-			"Clipboard",
-		},
+		Skip:       skip,
 	})
 }
 

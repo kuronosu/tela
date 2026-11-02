@@ -4,7 +4,10 @@
 // registration for delegates and view subclasses, autorelease pools),
 // CoreFoundation (the run loop, its sources and timers, CFData), CoreGraphics
 // (color spaces, data providers, images, bitmap contexts, window capture)
-// and the constants of QuartzCore and AppKit that the backends need.
+// and the constants of QuartzCore and AppKit that the backends need, plus
+// Foundation conversions (NSString and NSData to and from bytes, NSArray),
+// AppKit's NSString constants by name and the UniformTypeIdentifiers
+// framework (foundation_darwin.go).
 // AppKit and QuartzCore classes themselves are reached through the
 // Objective-C runtime (GetClass, Send).
 //
