@@ -1167,6 +1167,189 @@ func TestBackdrop(t *testing.T) {
 	)
 }
 
+// --- title bar overlays ---
+
+func rectNear(a, b platform.Rect) bool {
+	near := func(x, y float32) bool { return math.Abs(float64(x-y)) < 0.5 }
+	return near(a.X, b.X) && near(a.Y, b.Y) && near(a.W, b.W) && near(a.H, b.H)
+}
+
+func centerY(r platform.Rect) float32 { return r.Y + r.H/2 }
+
+// overlayHit reports whether a press at the center of standard button b
+// would reach that button: the theme frame's hit test at that point finds
+// the button or a view inside it (a button moved out of its superviews'
+// bounds is drawn but not hit).
+func overlayHit(w *Window, b int) (bool, string) {
+	btn := w.ctl.overlay.buttons[b]
+	bounds := darwin.SendRect(btn, sel.bounds)
+	center := darwin.CGPoint{X: bounds.Origin.X + bounds.Size.Width/2, Y: bounds.Origin.Y + bounds.Size.Height/2}
+	inWindow := darwin.SendPoint(btn, isel.convertPointToView, center, darwin.ID(0))
+	theme := darwin.Send(w.ctl.container, osel.superview)
+	hit := darwin.Send(theme, darwin.Sel("hitTest:"), inWindow)
+	name := "nil"
+	if hit != 0 {
+		name = darwin.GoString(darwin.Send(hit, osel.className))
+	}
+	return hit != 0 && (hit == btn || darwin.SendBool(hit, darwin.Sel("isDescendantOf:"), btn)), name
+}
+
+// TestTitleBarOverlay: a TitleBarOverlay window is a frameless window with
+// AppKit's standard buttons shown, reports client-side decorations and the
+// buttons' rectangle (TitleBarControls), centers the buttons in the height
+// of a caption region along the top and follows it, keeps that place
+// across a resize and a minimization, goes back to AppKit's place without
+// the caption, reports an empty rectangle in full screen, and its close
+// and minimize buttons ask to close and minimize.
+func TestTitleBarOverlay(t *testing.T) {
+	screenInfo(t)
+	var native platform.Rect // AppKit's place
+	caption := func(h float32) []platform.HitRegion {
+		return []platform.HitRegion{
+			{Kind: platform.HitCaption, Rect: platform.Rect{W: 2000, H: h}},
+			{Kind: platform.HitClient, Rect: platform.Rect{X: 200, Y: 8, W: 100, H: h - 16}}, // a search field
+		}
+	}
+	// placed reports whether the buttons and the reported rectangle are
+	// centered at cy (AppKit's x kept).
+	placed := func(w *Window, cy float32) bool {
+		live, ok := w.buttonsRect()
+		st := w.State().TitleBarControls
+		return ok && math.Abs(float64(centerY(live)-cy)) < 0.5 && rectNear(st, live) && math.Abs(float64(live.X-native.X)) < 0.5 &&
+			math.Abs(float64(live.W-native.W)) < 0.5
+	}
+	closes := func(c *ctl) int {
+		n := 0
+		for _, e := range c.stepEvents(0) {
+			if _, ok := e.e.(platform.CloseRequestedEvent); ok {
+				n++
+			}
+		}
+		return n
+	}
+	hits := func(c *ctl, what string) {
+		for b := range 3 {
+			if ok, name := overlayHit(c.w[0], b); !ok {
+				t.Errorf("%s: a press at the center of button %d hits %s, not the button; %s", what, b, name, c.w[0].overlayDescribe())
+			}
+		}
+	}
+	ctlRun(t, []platform.WindowOptions{
+		{Title: "tela overlay", Size: platform.Size{W: 400, H: 260}, TitleBarOverlay: true, HasPosition: true, Position: image.Pt(150, 150)},
+	}, nil,
+		ctlStep{name: "the overlay style", until: func(c *ctl) bool {
+			st := c.w[0].State()
+			return st.ClientSideDecorations && st.TitleBarControls != (platform.Rect{})
+		},
+			check: func(c *ctl) {
+				w := c.w[0]
+				mask := darwin.SendUint(w.ns, wsel.styleMask)
+				if want := uint64(darwin.NSWindowStyleMaskTitled | darwin.NSWindowStyleMaskFullSizeContentView); mask&want != want {
+					t.Errorf("styleMask %#x lacks Titled|FullSizeContentView", mask)
+				}
+				for _, b := range overlayButtons {
+					if btn := darwin.Send(w.ns, wsel.standardWindowButton, b); btn == 0 || darwin.SendBool(btn, osel.isHidden) {
+						t.Errorf("standard button %d is missing or hidden", b)
+					}
+				}
+				if !darwin.SendBool(w.ns, darwin.Sel("titlebarAppearsTransparent")) || darwin.SendInt(w.ns, darwin.Sel("titleVisibility")) != darwin.NSWindowTitleHidden {
+					t.Errorf("the title bar is drawn or the title shown")
+				}
+				live, _ := w.buttonsRect()
+				native = w.State().TitleBarControls
+				if !rectNear(native, live) {
+					t.Errorf("TitleBarControls %+v, but the buttons cover %+v", native, live)
+				}
+				f, b := darwin.SendRect(w.ns, wsel.frame), darwin.SendRect(w.view, sel.bounds)
+				if f.Size != b.Size {
+					t.Errorf("the content view (%v) is not the frame (%v)", b.Size, f.Size)
+				}
+				t.Logf("AppKit's place: TitleBarControls %+v (center y %v); %s", native, centerY(native), w.overlayDescribe())
+				hits(c, "AppKit's place")
+			}},
+		ctlStep{name: "a 40-point caption (for telatest.MacTitleBarControls)",
+			do:    func(c *ctl) { c.w[0].SetHitRegions(caption(40)) },
+			until: func(c *ctl) bool { return placed(c.w[0], 20) },
+			check: func(c *ctl) {
+				t.Logf("a 40-point caption: TitleBarControls %+v; %s", c.w[0].State().TitleBarControls, c.w[0].overlayDescribe())
+			}},
+		ctlStep{name: "a 52-point caption",
+			do:    func(c *ctl) { c.w[0].SetHitRegions(caption(52)) },
+			until: func(c *ctl) bool { return placed(c.w[0], 26) },
+			check: func(c *ctl) {
+				t.Logf("a 52-point caption: TitleBarControls %+v; %s", c.w[0].State().TitleBarControls, c.w[0].overlayDescribe())
+				hits(c, "a 52-point caption")
+				var reported bool
+				for _, e := range c.stepEvents(0) {
+					if s, ok := e.e.(platform.WindowStateEvent); ok && math.Abs(float64(centerY(s.State.TitleBarControls)-26)) < 0.5 {
+						reported = true
+					}
+				}
+				if !reported {
+					t.Errorf("no WindowStateEvent reported the buttons centered at 26")
+					c.logEvents(c.mark)
+				}
+			}},
+		ctlStep{name: "a resize keeps the place",
+			do: func(c *ctl) { c.w[0].SetSize(platform.Size{W: 480, H: 300}) },
+			until: func(c *ctl) bool {
+				return sizeIs(c.w[0].Metrics().Size, 480, 300) && c.after(300*time.Millisecond) && placed(c.w[0], 26)
+			}},
+		ctlStep{name: "the caption removed",
+			do: func(c *ctl) { c.w[0].SetHitRegions(nil) },
+			until: func(c *ctl) bool {
+				live, _ := c.w[0].buttonsRect()
+				return rectNear(c.w[0].State().TitleBarControls, native) && rectNear(live, native)
+			}},
+		ctlStep{name: "the caption again",
+			do:    func(c *ctl) { c.w[0].SetHitRegions(caption(52)) },
+			until: func(c *ctl) bool { return placed(c.w[0], 26) }},
+		ctlStep{name: "the close button",
+			do: func(c *ctl) {
+				darwin.Send(c.w[0].ctl.overlay.buttons[0], darwin.Sel("performClick:"), darwin.ID(0))
+			},
+			until: func(c *ctl) bool { return c.after(300 * time.Millisecond) },
+			check: func(c *ctl) {
+				if n := closes(c); n != 1 {
+					t.Errorf("the close button gave %d CloseRequestedEvents, want 1", n)
+				}
+				if c.w[0].Closed() || !darwin.SendBool(c.w[0].ns, darwin.Sel("isVisible")) {
+					t.Errorf("the close button closed the window; closing is the app's decision")
+				}
+			}},
+		ctlStep{name: "the minimize button",
+			do: func(c *ctl) {
+				darwin.Send(c.w[0].ctl.overlay.buttons[1], darwin.Sel("performClick:"), darwin.ID(0))
+			},
+			until: func(c *ctl) bool { return c.w[0].State().Minimized }},
+		ctlStep{name: "back from the Dock",
+			do: func(c *ctl) { c.w[0].Activate() },
+			until: func(c *ctl) bool {
+				return !c.w[0].State().Minimized && c.after(300*time.Millisecond) && placed(c.w[0], 26)
+			}},
+		ctlStep{name: "full screen", timeout: 20 * time.Second,
+			do:    func(c *ctl) { c.w[0].SetFullscreen(true) },
+			until: func(c *ctl) bool { return c.w[0].State().Fullscreen && !c.w[0].fsBusy() },
+			check: func(c *ctl) {
+				w := c.w[0]
+				if r := w.State().TitleBarControls; r != (platform.Rect{}) {
+					t.Errorf("in full screen TitleBarControls is %+v, want empty (the buttons are in the auto-hiding title bar)", r)
+				}
+				t.Logf("in full screen: %s", w.overlayDescribe())
+			}},
+		ctlStep{name: "full screen out", timeout: 20 * time.Second,
+			do: func(c *ctl) { c.w[0].SetFullscreen(false) },
+			until: func(c *ctl) bool {
+				w := c.w[0]
+				return !w.State().Fullscreen && !w.fsBusy() && sizeIs(w.Metrics().Size, 480, 300) && placed(w, 26)
+			},
+			check: func(c *ctl) {
+				t.Logf("after full screen: TitleBarControls %+v; %s", c.w[0].State().TitleBarControls, c.w[0].overlayDescribe())
+				hits(c, "after full screen")
+			}},
+	)
+}
+
 // TestCaptionDragReal runs the real performWindowDragWithEvent: for a
 // caption press built in-process, which the window server gets with no
 // button down. It must come back (the watchdog fails the test with this

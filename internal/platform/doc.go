@@ -991,6 +991,14 @@
 // close. A backdrop other than default or none is an NSVisualEffectView
 // behind the content view ([Backdrop] has the materials), with the
 // window non-opaque and the frame's alpha shown ([AlphaPresenter]).
+// A TitleBarOverlay window is that frameless window with the standard
+// buttons shown: AppKit's place, or, with a HitCaption region along the
+// top that spans them, centered in its height (the title bar container
+// and the buttons' frames are moved, Electron's trafficLightPosition, and
+// moved again after AppKit lays the title bar out); TitleBarControls is
+// their rectangle in TelaView's coordinates, empty in full screen, where
+// they are in AppKit's auto-hiding title bar. The close button asks
+// through windowShouldClose:, and minimize and zoom are AppKit's.
 // SetTitleBarColors does nothing (macOS title bars have no app colors).
 // Desktop services (phase 15, ADR-224): -[NSWorkspace openURL:] for
 // OpenURI and OpenPath (a folder opens in the Finder); NSOpenPanel and
