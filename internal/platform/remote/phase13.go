@@ -400,10 +400,13 @@ func (a childAssoc) MakeDefault(app platform.HandlerApp, as platform.Association
 	platform.CheckAssociation("Associations.MakeDefault", as)
 	r, err := a.call(dAssocMakeDefault, app, as, nil)
 	if err != nil {
-		return platform.DefaultSet, err
+		return platform.DefaultNone, err
 	}
 	res := platform.DefaultResult(r.u8())
-	return res, r.end()
+	if err := r.end(); err != nil {
+		return platform.DefaultNone, err
+	}
+	return res, nil
 }
 
 // --- host side: windows ---

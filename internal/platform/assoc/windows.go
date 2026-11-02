@@ -503,20 +503,24 @@ func (w *windows) MakeDefault(app platform.HandlerApp, a platform.Association) (
 	t := &tx{reg: w.reg}
 	w.register(t, app, a, platform.RegisterOptions{})
 	if err := w.finish(t); err != nil {
-		return platform.DefaultSet, err
+		return platform.DefaultNone, err
 	}
-	if t.status(app, a, app.Exec).Default {
+	st := t.status(app, a, app.Exec)
+	if t.err != nil {
+		return platform.DefaultNone, t.err
+	}
+	if st.Default {
 		// A scheme nobody overrides: the app's own key is what Windows
 		// uses. Or the user already chose the app.
-		return platform.DefaultSet, t.err
+		return platform.DefaultSet, nil
 	}
 	// The user's choice is protected: only the settings page may change it.
 	s, ok := w.reg.(Shell)
 	if !ok {
-		return platform.DefaultSet, errors.New("assoc: MakeDefault: cannot open the Default apps settings page with this registry")
+		return platform.DefaultNone, errors.New("assoc: MakeDefault: cannot open the Default apps settings page with this registry")
 	}
 	if err := s.OpenSettings(defaultAppsURI); err != nil {
-		return platform.DefaultSet, fmt.Errorf("assoc: MakeDefault: opening %s: %w", defaultAppsURI, err)
+		return platform.DefaultNone, fmt.Errorf("assoc: MakeDefault: opening %s: %w", defaultAppsURI, err)
 	}
 	return platform.DefaultAsked, nil
 }

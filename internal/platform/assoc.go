@@ -107,8 +107,12 @@ type RegisterOptions struct {
 type DefaultResult uint8
 
 const (
+	// DefaultNone: nothing was done, the result of every error (the zero
+	// value, so a caller that only checks the result never reads a
+	// failure as success).
+	DefaultNone DefaultResult = iota
 	// DefaultSet: the app is now the default handler.
-	DefaultSet DefaultResult = iota
+	DefaultSet
 	// DefaultAsked: the OS does not let apps take the default, so the
 	// backend opened the system's page for it (Windows "Default apps"
 	// settings for file types); Status says later whether the user chose
@@ -118,6 +122,8 @@ const (
 
 func (r DefaultResult) String() string {
 	switch r {
+	case DefaultNone:
+		return "none"
 	case DefaultSet:
 		return "set"
 	case DefaultAsked:
@@ -164,7 +170,8 @@ type Associations interface {
 	// page instead (DefaultAsked). On Linux a desktop-specific
 	// <desktop>-mimeapps.list that names another default wins over the
 	// user's mimeapps.list and belongs to the desktop environment, so
-	// MakeDefault returns an error naming it instead of editing it.
+	// MakeDefault returns an error naming it instead of editing it. Every
+	// error comes with DefaultNone.
 	MakeDefault(app HandlerApp, a Association) (DefaultResult, error)
 
 	// RegisterApp makes the desktop know the app's ID, with no scheme or
@@ -310,7 +317,7 @@ func (UnsupportedAssociations) Unregister(app HandlerApp, a Association) (bool, 
 func (UnsupportedAssociations) MakeDefault(app HandlerApp, a Association) (DefaultResult, error) {
 	CheckHandlerApp("Associations.MakeDefault", app, true)
 	CheckAssociation("Associations.MakeDefault", a)
-	return DefaultSet, ErrUnsupported
+	return DefaultNone, ErrUnsupported
 }
 
 // RegisterApp checks its arguments and returns ErrUnsupported.

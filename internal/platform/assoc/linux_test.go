@@ -350,8 +350,8 @@ func TestLinuxConflicts(t *testing.T) {
 	if s := e.status(scheme); s.Registered || s.Other != e.ownEntry() {
 		t.Errorf("status beside a foreign entry = %+v", s)
 	}
-	if _, err := e.a.MakeDefault(notesApp, scheme); !errors.Is(err, platform.ErrAssociationTaken) {
-		t.Errorf("MakeDefault over a foreign entry = %v", err)
+	if r, err := e.a.MakeDefault(notesApp, scheme); !errors.Is(err, platform.ErrAssociationTaken) || r != platform.DefaultNone {
+		t.Errorf("MakeDefault over a foreign entry = %v, %v", r, err)
 	}
 	if exists(e.userMimeapps()) {
 		t.Errorf("a refused MakeDefault wrote mimeapps.list")
@@ -427,7 +427,7 @@ func TestLinuxDesktopSpecificDefault(t *testing.T) {
 	e.write(filepath.Join(e.dirs.DataDirs[0], "applications", "org.other.Editor.desktop"), "[Desktop Entry]\nType=Application\nName=Other\nExec=other %u\nMimeType=x-scheme-handler/notes;\n")
 	gnome := filepath.Join(e.dirs.ConfigHome, "gnome-mimeapps.list")
 	e.write(gnome, "[Default Applications]\nx-scheme-handler/notes=org.other.Editor.desktop\n")
-	if _, err := e.a.MakeDefault(notesApp, scheme); err == nil || !strings.Contains(err.Error(), gnome) {
+	if r, err := e.a.MakeDefault(notesApp, scheme); err == nil || !strings.Contains(err.Error(), gnome) || r != platform.DefaultNone {
 		t.Errorf("MakeDefault under a desktop-specific default = %v", err)
 	}
 	if exists(e.userMimeapps()) {
@@ -475,8 +475,8 @@ func TestLinuxNoDataHome(t *testing.T) {
 	if _, err := a.Register(notesApp, scheme, platform.RegisterOptions{}); err == nil {
 		t.Errorf("Register without DataHome succeeded")
 	}
-	if _, err := Linux(LinuxDirs{DataHome: t.TempDir()}).MakeDefault(notesApp, scheme); err == nil {
-		t.Errorf("MakeDefault without ConfigHome succeeded")
+	if r, err := Linux(LinuxDirs{DataHome: t.TempDir()}).MakeDefault(notesApp, scheme); err == nil || r != platform.DefaultNone {
+		t.Errorf("MakeDefault without ConfigHome = %v, %v; want DefaultNone and an error", r, err)
 	}
 }
 

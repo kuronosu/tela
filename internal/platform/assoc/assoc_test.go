@@ -174,6 +174,13 @@ func TestFakeRules(t *testing.T) {
 	if _, err := f.Status(notesApp, scheme); err != boom {
 		t.Errorf("Status with an injected error = %v", err)
 	}
+	// A failed MakeDefault did nothing: the zero DefaultResult.
+	if r, err := f.MakeDefault(notesApp, scheme); err != boom || r != platform.DefaultNone {
+		t.Errorf("MakeDefault with an injected error = %v, %v; want DefaultNone", r, err)
+	}
+	if platform.DefaultNone != 0 || platform.DefaultNone.String() != "none" {
+		t.Errorf("DefaultNone is %d (%v), want the zero value", platform.DefaultNone, platform.DefaultNone)
+	}
 }
 
 func mustPanic(t *testing.T, what string, f func()) {

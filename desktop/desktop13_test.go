@@ -594,6 +594,14 @@ func TestRegistrationInApp(t *testing.T) {
 	if _, err := desktop.Register(notes, forApp); !errors.Is(err, desktop.ErrUnsupported) {
 		t.Errorf("Register without registration: %v", err)
 	}
+	// A failure did nothing: the zero DefaultResult, never DefaultSet.
+	if r, err := desktop.MakeDefault(notes, forApp); !errors.Is(err, desktop.ErrUnsupported) || r != desktop.DefaultNone {
+		t.Errorf("MakeDefault without registration = %v, %v; want DefaultNone", r, err)
+	}
+	var zero desktop.DefaultResult
+	if zero != desktop.DefaultNone || zero.String() != "none" {
+		t.Errorf("the zero DefaultResult is %v, want DefaultNone", zero)
+	}
 }
 
 // Where there is no window of a running app (tela snapshot), a MenuBar

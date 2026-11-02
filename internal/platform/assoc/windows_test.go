@@ -104,8 +104,8 @@ func TestWindowsSchemeTaken(t *testing.T) {
 	if r.Writes() != w || r.Notified() != 0 {
 		t.Errorf("a refused Register wrote something (%d writes, %d notifications)", r.Writes()-w, r.Notified())
 	}
-	if _, err := a.MakeDefault(winApp, scheme); !errors.Is(err, platform.ErrAssociationTaken) {
-		t.Errorf("MakeDefault over another app = %v", err)
+	if res, err := a.MakeDefault(winApp, scheme); !errors.Is(err, platform.ErrAssociationTaken) || res != platform.DefaultNone {
+		t.Errorf("MakeDefault over another app = %v, %v", res, err)
 	}
 	if changed, err := a.Register(winApp, scheme, platform.RegisterOptions{Replace: true}); !changed || err != nil {
 		t.Fatalf("Register with Replace = %v, %v", changed, err)
@@ -286,7 +286,7 @@ func TestWindowsMakeDefaultOfFileType(t *testing.T) {
 	// A settings page that cannot be opened is an error, not "asked".
 	r.SetOpenError(errors.New("no shell"))
 	_ = r.SetString(uc, "ProgId", "OtherEditor.note")
-	if res, err := a.MakeDefault(winApp, noteFile); err == nil || res == platform.DefaultAsked {
+	if res, err := a.MakeDefault(winApp, noteFile); err == nil || res != platform.DefaultNone {
 		t.Errorf("MakeDefault with a failing shell = %v, %v", res, err)
 	}
 }
