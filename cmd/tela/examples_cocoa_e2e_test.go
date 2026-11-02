@@ -482,7 +482,18 @@ func (r *exampleRun) runReference(home string) *image.RGBA {
 	}
 	t.Logf("reference: %gx%g at scale %g, dark %v, reduced motion %v, contrast %v, accent %q, clock advanced by %v (as long as the window was shown), rendered in %v",
 		w.W, w.H, w.Scale, r.rep.Dark, r.rep.ReduceMotion, r.rep.IncreaseContrast, r.rep.Accent, advance, time.Since(start).Round(time.Millisecond))
-	if s := strings.TrimSpace(string(b)); strings.Count(s, "\n") > 2 { // more than === RUN, --- PASS and PASS
+	// The reference's own "reference: ..." lines (what it received, its
+	// window's state) are logged always; the rest of its output only when
+	// there is more than === RUN, --- PASS and PASS.
+	var other []string
+	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+		if i := strings.Index(line, "reference: "); i >= 0 {
+			t.Logf("the reference process: %s", strings.TrimSpace(line[i+len("reference: "):]))
+			continue
+		}
+		other = append(other, line)
+	}
+	if s := strings.Join(other, "\n"); len(other) > 3 {
 		const limit = 4 << 10
 		if len(s) > limit {
 			s = s[:limit] + "\n[...]"
