@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -90,14 +91,31 @@ var autoRegister atomic.Bool
 // registrationBlocked says why Notes cannot register itself now, or "" when
 // it can. What it registers is the path of the running program, and the OS
 // would keep running that path after the program is gone: under `go run` the
-// program is a temporary build, which `go run` deletes when it ends. (Under
-// tela dev desktop.Register refuses by itself, with ErrDevExecutable.)
+// program is a temporary build, which `go run` deletes when it ends. On
+// macOS the app is its bundle (ADR-228): outside an .app there is nothing
+// for Launch Services to register. (Under tela dev desktop.Register refuses
+// by itself, with ErrDevExecutable.)
 func registrationBlocked() string {
 	if f := blockedBy.Load(); f != nil {
 		return (*f)()
 	}
 	exe, err := os.Executable()
-	if err == nil && strings.Contains(filepath.ToSlash(exe), "/go-build") {
+	if err != nil {
+		return ""
+	}
+	return blockedExecutable(runtime.GOOS, exe)
+}
+
+// blockedExecutable is registrationBlocked for the program at exe on goos.
+func blockedExecutable(goos, exe string) string {
+	exe = filepath.ToSlash(exe)
+	if goos == "darwin" {
+		if !strings.Contains(exe, ".app/Contents/MacOS/") {
+			return "Notes registers from its app bundle. Run it with tela run ./examples/notes (or build it with tela build ./examples/notes and open the .app) to register it."
+		}
+		return ""
+	}
+	if strings.Contains(exe, "/go-build") {
 		return "This is a temporary build (go run). Build the program with go build -o notes ./examples/notes and run that one to register it."
 	}
 	return ""
@@ -119,7 +137,11 @@ var registerCalls atomic.Int32
 // registered; it looks first, so a start with the entry up to date writes
 // nothing, and an entry Notes did not write (a package's) is left alone.
 // Only the built program registers: under go run it is a temporary build,
-// and under tela dev RegisterApp refuses by itself (ErrDevExecutable).
+// and under tela dev RegisterApp refuses by itself (ErrDevExecutable). On
+// macOS only a program in its .app bundle (tela run, tela build) does;
+// registerApp asks the bundle to register, which Launch Services needs for
+// the app's scheme and files, and a program outside one gets
+// ErrUnsupported, which is no news to anybody.
 func registerApp() {
 	if registrationBlocked() != "" {
 		return

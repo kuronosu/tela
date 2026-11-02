@@ -1,10 +1,10 @@
 # notes
 
-A small plain-text notes app, and the acceptance test of phase 12 ("desktop essentials") and of phase 13 ("desktop integration, the rest"), on Linux and Windows. Phase 12: a tray icon, native open and save dialogs, two windows and a remembered window position. Phase 13: it accepts a dropped file, registers a global shortcut, reopens in its running instance from a deep link, registers itself for `notes:` links and `.md` files, and keeps its locked notes encrypted with a key in the system keyring.
+A small plain-text notes app, and the acceptance test of phase 12 ("desktop essentials") and of phase 13 ("desktop integration, the rest"), on Linux and Windows, and of phase 15 (macOS desktop integration) on macOS. Phase 12: a tray icon, native open and save dialogs, two windows and a remembered window position. Phase 13: it accepts a dropped file, registers a global shortcut, reopens in its running instance from a deep link, registers itself for `notes:` links and `.md` files, and keeps its locked notes encrypted with a key in the system keyring.
 
 Its look is "Graphite, Tela light with amber": stone in the light scheme (the palette of `examples/hello`), graphite in the dark one, and one amber accent in both that Preferences can change. The theme (`theme.go`) is `kit.Theme()` with two tokens of its own, `sidebar` and `gold`, and a radius of 10.
 
-The main window is frameless and draws its own title bar (`kit.TitleBar` with `kit.Plain`, the platform's arrangement in the `sidebar` color) with the app's badge and the Open and Save buttons. Under it are three panes:
+The main window has no OS title bar (`TitleBarOverlay`: `Frameless` everywhere but macOS) and draws its own (`kit.TitleBar` with `kit.Plain`, the platform's arrangement in the `sidebar` color) with the app's badge and the Open and Save buttons. On macOS the OS keeps its traffic lights over that bar, which leaves room for them and draws no window controls of its own. Under it are three panes:
 
 - **The rail**: New note, the views (All notes, Pinned, Unsaved), the folders and the #tags of the library, each with its count, and Preferences at the bottom.
 - **The list and the editor**, when a note is open: the search field and the cards of the notes of the chosen filter, and the note: a header with its folder menu, its tags, an Unsaved mark and the pin, a title field, the text, and a status line (the file's path or "In your library", words, characters).
@@ -33,7 +33,7 @@ What it shows:
 - **A tray icon** (`desktop.Tray`): click toggles the window, the menu has New note, Show Notes or Hide Notes (following the window), Preferences… and Quit. With "keep running in the tray" on and a tray that works (`OnError` clears it), closing the window hides it (`App.OnClose`).
 - **A question before quitting** (`desktop.ShowMessage`, Yes/No/Cancel): with the tray off and notes that changed since their last Save, closing asks whether to save them. Yes saves each (a save dialog for a note with no file) and quits only if every save worked; No quits and leaves the changes in the library as drafts; Cancel keeps the app running.
 - **A notification** (`desktop.Notify`, "Saved <name>") after a successful save when the setting is on; a desktop without notifications gets a toast instead.
-- **Shortcuts:** Ctrl+N, Ctrl+O, Ctrl+S and Ctrl+, (Cmd on macOS), Ctrl+Shift+D (delete the open note), and Escape in the list.
+- **Shortcuts:** Ctrl+N, Ctrl+O, Ctrl+S and Ctrl+, (Cmd on macOS), Ctrl+Shift+D (delete the open note), Ctrl+1, Ctrl+2 and Ctrl+3 (the views of the rail), and Escape in the list. On macOS the same keys are the key equivalents of the app menu bar's items (see Phase 15).
 
 ## Phase 13: desktop integration
 
@@ -62,9 +62,49 @@ How it handles a hidden window: a hidden window draws nothing, but its component
 
 `App.OnClose` is a plain function outside the component tree, but what closing does depends on state (the tray setting, the unsaved notes). The screen registers its latest handler in a small gate (`close.go`) after every build.
 
+## Phase 15: macOS desktop integration
+
+On a Mac the app follows the platform's own model (ADR-224). The Linux and Windows builds are unchanged: their goldens are the same.
+
+- **Traffic lights** (`main.go`, `kit.TitleBar`). The main window is `TitleBarOverlay: true`: the content runs under a transparent title bar and the OS draws its close, minimize and zoom buttons over it, centered in the bar (`kit.Plain` with the Mac arrangement is 40 px high). The window reports their rectangle (`WindowState().TitleBarControls`), and the bar keeps it free at its start and draws no `WindowControls`. Where the OS cannot do this the window is a `Frameless` one and the bar draws the controls (the goldens of Linux and Windows). Preferences is a window with its own OS title bar. `notes_macos.png` is the window as it looks on a Mac, with the room at the start of the bar empty.
+- **The app's menu bar** (`appmenu.go`). `desktop.AppMenuBar` is declared once, in the screen, and only where Notes follows the macOS conventions: on Windows it would put a bar in the framed Preferences window, and Linux has none, so Notes draws no menu bar of its own anywhere (its `OnError` ignores `ErrUnsupported`). Its items call the functions of the buttons and keys, so a menu item, the button and the key do the same:
+
+  | Menu | Items |
+  |---|---|
+  | Notes (the app's menu) | About, **Settings…** (`Cmd+,`: opens Preferences), Services, Hide, Hide Others, Show All and Quit, the last ones the OS's |
+  | File | **New Note** (`Cmd+N`), **Open…** (`Cmd+O`), **Save** (`Cmd+S`), **Delete Note** (`Cmd+Shift+D`), a separator, **Close Window** (`Cmd+W`, the close role) |
+  | Edit | the standard Edit menu role: Undo, Redo, Cut, Copy, Paste, Select All, on the focused field |
+  | View | **All Notes**, **Pinned**, **Unsaved** (`Cmd+1`, `Cmd+2`, `Cmd+3`: the views of the rail) |
+  | Window | Minimize and Zoom (roles); macOS lists the open windows |
+
+  Save and Delete Note are off while no note is open (the overview). On macOS a menu accelerator is the item's key equivalent: the key chooses the item and never reaches the window as a key event. The window's `OnKeyDown` handler (`shortcuts` in `screen.go`) takes the same keys everywhere there is no native bar (Linux, Windows), with `Ctrl` for `Cmd`; `Ctrl+1`, `Ctrl+2` and `Ctrl+3` are new there.
+- **Quit** (`close.go`). `App.OnQuit` is "ask about the unsaved notes, then quit": Cmd+Q, the Dock's Quit and the app menu's Quit ask the question that the close button asks with "Keep running in the tray" off (`desktop.ShowMessage`, a sheet of the window), and really quit, also with the tray setting on (where closing only hides the window: so does Cmd+W). With the window hidden in the tray and notes to save, the window is shown first, so the question has a window to be a sheet of.
+- **What the OS does itself.** The key of the locked notes is in the Keychain (`desktop.SetSecret`), the file of a note that was locked goes to the Trash (`desktop.MoveToTrash`, which never deletes), the open and save dialogs and the message boxes with a parent are sheets of that window, the tray icon is a menu bar extra (`NSStatusItem`), notifications come from `UNUserNotificationCenter` and the global shortcut is Control+Option+N, registered with Carbon (no permission prompt).
+- **Registration needs the app's bundle** (ADR-228). `registerApp` and `registerAtStart` register only a program that runs from `<Name>.app/Contents/MacOS/` (`tela run` or `tela build`): `registrationBlocked` says so otherwise, in Preferences too ("Notes registers from its app bundle. Run it with tela run ./examples/notes…"), the buttons are off and nothing is attempted, so a plain `go run` or `go build` binary is quiet. In a bundle Notes declares `notes:` in the bundle's `Info.plist` and Launch Services lists it.
+
+### Try it on a Mac
+
+`go run` and `go build` give a bare executable, and notifications, links and file types belong to a bundle: run Notes with `tela run` (ADR-227), which builds `Notes.app` (its `Info.plist` has the app ID `dev.telaui.notes`, read from `App.AppID`) in `~/Library/Caches/tela/run/dev.telaui.notes/` and runs it with the terminal attached:
+
+```sh
+go install ./cmd/tela            # once, in a checkout (or go run ./cmd/tela run ./examples/notes)
+tela run ./examples/notes
+```
+
+or build the bundle to keep: `tela build -o dist ./examples/notes` and `open dist/Notes.app`. Notes registers `notes:` links when it starts, so, with it running or not:
+
+```sh
+open 'notes://new?title=Call&text=ring+back'     # a new note in the running Notes (or starts it)
+open 'notes://open?id=3'
+```
+
+Press `Control+Option+N` in any application to make a note, `Cmd+,` for Preferences and `Cmd+Q` to quit; Preferences, General, "Links and files" shows the registration and has "Make default". `notes.json` and the settings are in `~/Library/Application Support/dev.telaui.notes` (set `TELA_DESKTOP_DIR=/tmp/notes` to move every folder of the app).
+
+The macOS end-to-end check, on a Mac with a window server session (CI runs it on `macos-latest`): `CGO_ENABLED=0 go test -v -count=1 -run TestNotesMacOS ./cmd/tela/`. It builds Notes into an `.app` with `tela build`, runs it with `TELA_DESKTOP_DIR` in a temporary folder and checks that the app declared its scheme and Launch Services lists the bundle, that `open 'notes://new?title=CI&text=from+a+link'` reaches the running instance and lands in `notes.json` (only with `CI` or `TELA_E2E_OPEN=1` set, since it can make Launch Services start another Notes), and that a second start of the executable with a link forwards it and exits 0. Every step is logged and one that the runner cannot do (Launch Services timing) is skipped with its reason. The tests of `macos_test.go` play a Mac on any OS (`telatest.PlatformKeys("darwin")`, `Notes.Look` set to `kit.MacOS`): the traffic lights' room, the menu bar and its items (`AppMenuBar`, `ChooseAppMenuItem`), and `RequestQuit` with the tray setting on and off.
+
 ## Run it
 
-Build the program first for what registers it: `CGO_ENABLED=0 go build -o notes ./examples/notes` and run `./notes` (`go run` makes a temporary program, which Notes does not register, and under `tela dev` registering is off too). The rest works either way.
+On a Mac, use `tela run ./examples/notes` instead (see "Try it on a Mac" above): registration needs the app's bundle. Elsewhere, build the program first for what registers it: `CGO_ENABLED=0 go build -o notes ./examples/notes` and run `./notes` (`go run` makes a temporary program, which Notes does not register, and under `tela dev` registering is off too). The rest works either way.
 
 - In a window: `CGO_ENABLED=0 go run ./examples/notes`.
 - Without a window or a tray: `CGO_ENABLED=0 go run ./cmd/tela snapshot --size 960x640 [--dark] -o notes.png ./examples/notes`; the other screens are previews: `--preview "2 Overview"` and `--preview "3 Preferences" --size 540x440`. Under `tela snapshot` the library is a throwaway one in a temporary folder.
