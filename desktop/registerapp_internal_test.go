@@ -56,7 +56,7 @@ func TestRegisterAppWithoutApp(t *testing.T) {
 	entry := filepath.Join(tmp, "data", "applications", "com.example.Installer.desktop")
 	b, err := os.ReadFile(entry)
 	if err != nil || !strings.Contains(string(b), "NoDisplay=true\n") || !strings.Contains(string(b), "Name=Installer\n") ||
-		!strings.Contains(string(b), `Exec="/opt/notes/notes"`+"\n") || strings.Contains(string(b), "MimeType") {
+		!strings.Contains(string(b), `Exec=/opt/notes/notes`+"\n") || strings.Contains(string(b), "MimeType") {
 		t.Fatalf("desktop entry: %v\n%s", err, b)
 	}
 	if s, err := AppStatus(); err != nil || s != (AppRegistration{Registered: true, Requested: true}) {

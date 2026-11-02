@@ -238,15 +238,21 @@ func joinList(elems []string) string {
 	return b.String()
 }
 
-// quoteExecArg quotes one argument of an Exec key (Desktop Entry
-// specification, "The Exec key"): inside double quotes, '"', '`', '$' and
-// '\' are escaped with a backslash, and a literal '%' is written "%%" (a
-// field code otherwise). The result is then escaped as a string value
-// (escapeValue), so a literal backslash becomes four in the file, as the
-// specification requires. Every argument is quoted, which is always
-// allowed and keeps reserved characters (spaces, quotes, '~', '#', …)
-// literal.
+// quoteExecArg writes one argument of an Exec key (Desktop Entry
+// specification, "The Exec key"). An argument with a reserved character
+// (space, tab, newline, quotes, '\\', '>', '<', '~', '|', '&', ';', '$',
+// '*', '?', '#', '(', ')', '`') or an empty one is quoted: inside double
+// quotes, '"', '`', '$' and '\\' are escaped with a backslash. Any other
+// argument is written as it is, because xdg-utils' xdg-open takes the
+// first word of Exec literally, quotes included, and falls back to the
+// browser when that is not a command (found on Omarchy with a quoted
+// path). A literal '%' is written "%%" either way (a field code otherwise).
+// The result is then escaped as a string value (escapeValue), so a literal
+// backslash becomes four in the file, as the specification requires.
 func quoteExecArg(a string) string {
+	if a != "" && !strings.ContainsAny(a, " \t\n\"'\\><~|&;$*?#()`") {
+		return strings.ReplaceAll(a, "%", "%%")
+	}
 	var b strings.Builder
 	b.WriteByte('"')
 	for _, r := range a {

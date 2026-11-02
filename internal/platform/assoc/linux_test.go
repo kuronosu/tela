@@ -131,7 +131,7 @@ func TestLinuxRegisterScheme(t *testing.T) {
 Type=Application
 Version=1.5
 Name=Notes
-Exec="/opt/notes/notes" %u
+Exec=/opt/notes/notes %u
 Terminal=false
 NoDisplay=true
 MimeType=x-scheme-handler/notes;
@@ -171,7 +171,7 @@ X-Tela-Registered=true
 	if changed, _ := e.a.Register(moved, scheme, platform.RegisterOptions{}); !changed {
 		t.Errorf("a new Exec changed nothing")
 	}
-	if !strings.Contains(e.read(e.ownEntry()), "Exec=\"/usr/bin/notes\" %u\n") {
+	if !strings.Contains(e.read(e.ownEntry()), "Exec=/usr/bin/notes %u\n") {
 		t.Errorf("the entry has the old Exec:\n%s", e.read(e.ownEntry()))
 	}
 }
@@ -187,7 +187,7 @@ func TestLinuxRegisterFileType(t *testing.T) {
 	}
 	entry := e.read(e.ownEntry())
 	if !strings.Contains(entry, "MimeType=x-scheme-handler/notes;application/x-notes-note;\n") ||
-		!strings.Contains(entry, "Exec=\"/opt/notes/notes\" %U\n") {
+		!strings.Contains(entry, "Exec=/opt/notes/notes %U\n") {
 		t.Errorf("desktop entry with both:\n%s", entry)
 	}
 	wantPkg := `<?xml version="1.0" encoding="UTF-8"?>
@@ -235,7 +235,7 @@ func TestLinuxRegisterFileType(t *testing.T) {
 		t.Errorf("the empty package was kept")
 	}
 	entry = e.read(e.ownEntry())
-	if strings.Contains(entry, "x-notes-note") || !strings.Contains(entry, "Exec=\"/opt/notes/notes\" %u\n") {
+	if strings.Contains(entry, "x-notes-note") || !strings.Contains(entry, "Exec=/opt/notes/notes %u\n") {
 		t.Errorf("entry after Unregister(.note):\n%s", entry)
 	}
 	// The last type removes the entry.
@@ -510,7 +510,7 @@ func parseExec(t *testing.T, raw string) []string {
 			if j < 0 {
 				j = len(v) - i
 			}
-			args = append(args, v[i:i+j])
+			args = append(args, strings.ReplaceAll(v[i:i+j], "%%", "%")) // a field code stays
 			i += j
 		}
 	}

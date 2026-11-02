@@ -36,7 +36,7 @@ func TestLinuxRegisterApp(t *testing.T) {
 Type=Application
 Version=1.5
 Name=Notes
-Exec="/opt/notes/notes"
+Exec=/opt/notes/notes
 Terminal=false
 NoDisplay=true
 X-Tela-Registered=true
@@ -67,14 +67,14 @@ X-Tela-App=true
 	}
 	entry := e.read(e.ownEntry())
 	if !strings.Contains(entry, "MimeType=x-scheme-handler/notes;\n") || !strings.Contains(entry, "X-Tela-App=true\n") ||
-		!strings.Contains(entry, "Exec=\"/opt/notes/notes\" %u\n") {
+		!strings.Contains(entry, "Exec=/opt/notes/notes %u\n") {
 		t.Errorf("entry after Register:\n%s", entry)
 	}
 	if changed, err := e.a.Unregister(notesApp, scheme); !changed || err != nil {
 		t.Fatalf("Unregister = %v, %v", changed, err)
 	}
 	entry = e.read(e.ownEntry())
-	if strings.Contains(entry, "MimeType") || !strings.Contains(entry, "Exec=\"/opt/notes/notes\"\n") || !strings.Contains(entry, "X-Tela-App=true\n") {
+	if strings.Contains(entry, "MimeType") || !strings.Contains(entry, "Exec=/opt/notes/notes\n") || !strings.Contains(entry, "X-Tela-App=true\n") {
 		t.Errorf("entry after the last Unregister:\n%s", entry)
 	}
 	if s := e.appStatus(); !s.Registered || !s.Requested {
@@ -191,7 +191,7 @@ func TestLinuxRegisterAppMovedExec(t *testing.T) {
 	if changed, err := e.a.RegisterApp(moved, platform.RegisterOptions{}); !changed || err != nil {
 		t.Fatalf("RegisterApp with a new Exec = %v, %v", changed, err)
 	}
-	if !strings.Contains(e.read(e.ownEntry()), "Exec=\"/usr/bin/notes\"\n") {
+	if !strings.Contains(e.read(e.ownEntry()), "Exec=/usr/bin/notes\n") {
 		t.Errorf("entry:\n%s", e.read(e.ownEntry()))
 	}
 }
