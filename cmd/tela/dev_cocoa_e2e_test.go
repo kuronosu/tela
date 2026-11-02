@@ -224,6 +224,25 @@ var esel = struct {
 	systemUptime:       darwin.Sel("systemUptime"),
 }
 
+// telaView returns the window's TelaView, the view the cocoa backend
+// draws into and takes input in: a subview of the content view, which is
+// a plain (not flipped) container that also holds a backdrop's effect
+// view. It falls back to the content view.
+func telaView(ns darwin.ID) darwin.ID {
+	cv := darwin.Send(ns, esel.contentView)
+	if cv == 0 {
+		return 0
+	}
+	subs := darwin.Send(cv, darwin.Sel("subviews"))
+	for i := range darwin.SendUint(subs, esel.count) {
+		v := darwin.Send(subs, esel.objectAtIndex, uint(i))
+		if darwin.GoString(darwin.Send(v, darwin.Sel("className"))) == "TelaView" {
+			return v
+		}
+	}
+	return cv
+}
+
 func nsApp() darwin.ID {
 	return darwin.SendClass(darwin.GetClass("NSApplication"), esel.sharedApplication)
 }
@@ -242,7 +261,7 @@ func appWindows() []nsWindow {
 			visible: darwin.SendBool(ns, esel.isVisible),
 			scale:   darwin.SendFloat(ns, esel.backingScaleFactor),
 		}
-		if v := darwin.Send(ns, esel.contentView); v != 0 {
+		if v := telaView(ns); v != 0 {
 			w.content = darwin.SendRect(v, esel.bounds).Size
 		}
 		ws = append(ws, w)
@@ -353,14 +372,14 @@ func uptime() float64 {
 }
 
 // click clicks the primary button at the view point p (points, top-left
-// origin) of the window: a mouseMoved: to the content view (AppKit routes
+// origin) of the window: a mouseMoved: to TelaView (AppKit routes
 // moves through the tracking area, which needs the real pointer), then a
 // press and a release through -[NSApp sendEvent:], the path of real
 // clicks.
 func (c *cocoaE2E) click(win nsWindow, x, y float64) {
 	c.t.Helper()
 	c.onUI(func() {
-		view := darwin.Send(win.ns, esel.contentView)
+		view := telaView(win.ns) // flipped, as the point is
 		wp := darwin.SendPoint(view, esel.convertPointToView, darwin.CGPoint{X: x, Y: y}, darwin.ID(0))
 		ts := uptime()
 		event := darwin.GetClass("NSEvent")
@@ -437,6 +456,8 @@ func captureContent(win nsWindow, phys image.Point, space uintptr) winReadback {
 
 func renderContent(win nsWindow, phys image.Point, space uintptr) winReadback {
 	r := winReadback{path: "renderInContext: (layer)"}
+	// The content view's layer: it holds TelaView's as a sublayer, and
+	// rendering it through the flip below is what matched on the runner.
 	layer := darwin.Send(darwin.Send(win.ns, esel.contentView), esel.layer)
 	if layer == 0 {
 		r.note = "the content view has no layer"

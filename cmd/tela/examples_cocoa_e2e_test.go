@@ -12,6 +12,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,6 +59,10 @@ import (
 //   - the window shape: pixels the window server's capture leaves
 //     transparent (its rounded corners), which must lie in the corner bands
 //     (cornerBand);
+//   - for a Frameless window (its content is the whole frame), the
+//     outermost ring of pixels where they stay within a small difference
+//     of the reference: the window server's outline of a titled window,
+//     which the full-size content view lies under;
 //   - for a window that never settled (an endless animation: animate-spin
 //     or animate-pulse keep running under reduced motion, which only stops
 //     transitions; or a clock of its own, such as the player's, which
@@ -542,10 +547,31 @@ func (r *exampleRun) compare(capDir string, ref *image.RGBA, attempt int) (pixel
 		return unstable != nil && image.Pt(x, y).In(unstable.Rect) && unstable.GrayAt(x, y).Y != 0
 	}
 	const shapeReason, unstableReason = "window shape (transparent in the capture)", "unstable (changed after the window appeared)"
+	// A window whose content is its whole frame (a Frameless window: a
+	// titled window with a full-size content view) has the window
+	// server's one-point outline over its outermost pixels, a native
+	// border the headless reference cannot have. Those pixels, a ring of
+	// round(scale) pixels and nothing inside it, are not compared while
+	// they are within borderTolerance of the reference (the outline is a
+	// faint line); one that differs more still counts. A titled window's
+	// capture is cropped to its content and keeps the strict rule.
+	const borderReason = "window border (the window server's outline on a full-size content window's outermost pixels)"
+	const borderTolerance = 24
+	fullSize := w.FrameW == w.W && w.FrameH == w.H
+	ring := max(1, int(math.Round(w.Scale)))
+	onBorder := func(x, y int, c color.RGBA) bool {
+		size := ref.Rect.Size()
+		if !fullSize || (x >= ring && y >= ring && x < size.X-ring && y < size.Y-ring) {
+			return false
+		}
+		return channelDiff(c, ref.RGBAAt(ref.Rect.Min.X+x, ref.Rect.Min.Y+y)) <= borderTolerance
+	}
 	windowMask := func(x, y int, c color.RGBA) string {
 		switch {
 		case c.A != 0xff:
 			return shapeReason
+		case onBorder(x, y, c):
+			return borderReason
 		case isUnstable(x, y):
 			return unstableReason
 		}

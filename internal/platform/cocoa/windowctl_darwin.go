@@ -18,18 +18,30 @@ import (
 // Quirks handled, mostly as winit (window_delegate.rs) and Electron
 // (native_window_mac.mm) do:
 //
-//   - zoom: toggles, so SetMaximized sends it only when isZoomed differs,
+//   - zoom: toggles, so SetMaximized sends it only when the zoom differs,
 //     once per request (a zoom that AppKit ignored must not be sent again
 //     and toggle back). A non-resizable (FixedSize) window does not zoom:
 //     AppKit disables its zoom button and isZoomed is meaningless there.
+//   - isZoomed only compares the frame with the standard frame, which the
+//     size limits clamp: a window resized to its maximum size is "zoomed"
+//     though nobody zoomed it. The zoom is tracked instead: a zoom (ours,
+//     the green button, the Window menu, a caption double click) is
+//     announced by windowShouldZoom:toFrame:, goes the way AppKit's
+//     isZoomed says, and ends when isZoomed reaches the other side; any
+//     other resize keeps the zoom only while isZoomed still holds.
 //   - toggleFullScreen: also toggles, and starts an animated transition
 //     between windowWill… and windowDid…EnterFullScreen: (or the Fail
-//     notifications). A request made during one waits for its end; one
-//     that AppKit refuses (no transition starts within a second) is given
-//     up. AppKit refuses full screen for non-resizable windows, so a
-//     FixedSize window is made resizable for its stay there (winit).
-//   - Full-screen transitions resize the window: the state stays the
-//     pre-full-screen zoom and position until the window is back.
+//     notifications). A request made during one waits for its end and then
+//     for a short settling time: a toggleFullScreen: sent from the Did
+//     notification itself was lost on macOS 26 (the window stayed in full
+//     screen). One that AppKit refuses (no transition starts within a
+//     second) is given up. AppKit refuses full screen for non-resizable
+//     windows, so a FixedSize window is made resizable for its stay there
+//     (winit).
+//   - Full-screen transitions resize the window, and isMiniaturized read
+//     around them was seen true on macOS 26: the state stays the
+//     pre-full-screen zoom, position and minimization until the window is
+//     back and settled, and is read again then.
 //   - addChildWindow:ordered: orders the child in and resets the parent's
 //     level, so children are attached only while shown and the parent's
 //     level is restored (Electron's AttachChildren).
@@ -117,21 +129,39 @@ var wsel = struct {
 // (AppKit refused it: a child window, a window on no screen).
 const fsStartTimeout = time.Second
 
+// fsSettleTime is how long after the end of a full-screen transition the
+// window settles: no toggleFullScreen: is sent before (one sent from the
+// Did notification was lost), and the state is read again after.
+const fsSettleTime = 300 * time.Millisecond
+
+// zoomTimeout is how long a zoom announced by windowShouldZoom:toFrame:
+// may take to reach the other side before it is taken as not happening.
+const zoomTimeout = time.Second
+
 // windowCtl is the window control state of a Window.
 type windowCtl struct {
 	container darwin.ID // the content view: holds the effect view and TelaView (the window owns it)
 
-	zoomed     bool        // isZoomed, as last read outside full screen
+	zoomed     bool        // zoomed (tracked, not isZoomed), as last known outside full screen
 	pos        image.Point // the position, as last read outside full screen
 	fullscreen bool        // between windowDidEnterFullScreen: and windowDidExitFullScreen:
+
+	// zooming is set from windowShouldZoom:toFrame: (or our own zoom:)
+	// until isZoomed reaches zoomTo, the side the zoom goes to; zoomAt is
+	// when it started.
+	// inPlace: zoomed by a SetMaximized that found the frame at the
+	// standard frame already, so no zoom: was sent.
+	zooming, zoomTo, inPlace bool
+	zoomAt                   time.Duration
 
 	// fsWant is the full-screen state asked for (by the app, or by the
 	// user through AppKit's own controls); fsAsked is when
 	// toggleFullScreen: was sent and no transition has started yet (0:
 	// none); fsTransition is set between the Will and the Did (or Fail)
-	// notifications.
+	// notifications; fsSettled is when the window is settled after the
+	// last transition (fsSettleTime after its end; 0: nothing to wait).
 	fsWant, fsTransition bool
-	fsAsked              time.Duration
+	fsAsked, fsSettled   time.Duration
 	tempResizable        bool // the Resizable mask was added for full screen
 	// maxWant is the zoom asked for; maxPending, that a SetMaximized
 	// waits to be applied at the end of the pass.
@@ -229,13 +259,15 @@ func (w *Window) syncState() {
 		return
 	}
 	c := &w.ctl
-	w.minimized = darwin.SendBool(w.ns, wsel.isMiniaturized)
-	if !c.fullscreen && !c.fsTransition && c.fsAsked == 0 && !w.minimized {
-		c.zoomed = !w.opts.FixedSize && darwin.SendBool(w.ns, wsel.isZoomed)
-		if !c.maxPending {
-			c.maxWant = c.zoomed
+	if !w.fsBusy() && !c.fullscreen {
+		w.minimized = darwin.SendBool(w.ns, wsel.isMiniaturized)
+		if !w.minimized {
+			w.trackZoom()
+			if !c.maxPending {
+				c.maxWant = c.zoomed
+			}
+			c.pos = w.position()
 		}
-		c.pos = w.position()
 	}
 	w.b.loop.UpdateState(w, platform.WindowState{
 		Maximized:             c.zoomed,
@@ -248,16 +280,75 @@ func (w *Window) syncState() {
 	w.updateHidden()
 }
 
+// fsBusy reports whether a full-screen toggle was sent and has not
+// started, a transition runs, or the window is settling after one.
+func (w *Window) fsBusy() bool {
+	c := &w.ctl
+	return c.fsAsked != 0 || c.fsTransition || (c.fsSettled != 0 && w.b.Now() < c.fsSettled)
+}
+
+// trackZoom updates the zoom from AppKit's isZoomed (see the top of the
+// file): a zoom in progress ends when isZoomed reaches its side, or after
+// zoomTimeout on the side it went to if isZoomed allows it (an unzoom of a
+// window whose user frame is its standard frame, at its maximum size, does
+// not move but ends unzoomed); otherwise the window stays zoomed only
+// while isZoomed holds (a user resize of a zoomed window ends it), and
+// never becomes zoomed by itself.
+func (w *Window) trackZoom() {
+	c := &w.ctl
+	if w.opts.FixedSize {
+		c.zoomed, c.zooming = false, false
+		return
+	}
+	zoomed := darwin.SendBool(w.ns, wsel.isZoomed)
+	switch {
+	case c.zooming && zoomed == c.zoomTo:
+		c.zooming = false
+		c.zoomed = zoomed
+	case c.zooming && w.b.Now()-c.zoomAt <= zoomTimeout:
+		// Still on its way (an animated zoom resizes several times).
+	case c.zooming:
+		c.zooming = false
+		c.zoomed = c.zoomTo && zoomed
+	default:
+		c.zooming = false
+		c.zoomed = c.zoomed && zoomed
+	}
+	c.inPlace = c.inPlace && c.zoomed && !c.zooming
+}
+
+// zoomStarting records a zoom that AppKit is about to perform (from
+// windowShouldZoom:toFrame:, or right before our own zoom:): it goes to
+// the standard frame unless AppKit's isZoomed holds, then to the user
+// frame.
+func (w *Window) zoomStarting() {
+	c := &w.ctl
+	if c.zooming && w.b.Now()-c.zoomAt <= zoomTimeout {
+		return // announced already (our zoom: asks the delegate too)
+	}
+	c.zooming = true
+	c.zoomTo = !darwin.SendBool(w.ns, wsel.isZoomed)
+	c.zoomAt = max(w.b.Now(), 1)
+	time.AfterFunc(zoomTimeout+50*time.Millisecond, w.b.notify) // a zoom that never moved ends then
+}
+
+// zoom sends zoom: (a zoom of the app's, or the caption's double click).
+func (w *Window) zoom() {
+	w.zoomStarting()
+	darwin.Send(w.ns, wsel.zoom, darwin.ID(0))
+}
+
 // applyControl runs at the end of every delivery pass: it applies the
 // full-screen and zoom requests of the pass (so that a request undone in
 // the same pass costs nothing) and those that waited for a transition to
-// end, for the window to show or to come back from the Dock.
+// end and settle, for the window to show or to come back from the Dock.
 func (w *Window) applyControl() {
 	if w.Closed() {
 		return
 	}
 	c := &w.ctl
-	if c.fsAsked != 0 && w.b.Now()-c.fsAsked > fsStartTimeout {
+	now := w.b.Now()
+	if c.fsAsked != 0 && now-c.fsAsked > fsStartTimeout {
 		// AppKit refused the toggle: no transition started.
 		c.fsAsked = 0
 		c.fsWant = c.fullscreen
@@ -265,6 +356,17 @@ func (w *Window) applyControl() {
 	}
 	if c.fsAsked != 0 || c.fsTransition {
 		return // the end of the transition runs a pass
+	}
+	if c.fsSettled != 0 {
+		if now < c.fsSettled {
+			return // a timer runs a pass when the window has settled
+		}
+		// Settled: read the state that was frozen meanwhile.
+		c.fsSettled = 0
+		w.syncState()
+	}
+	if c.zooming && now-c.zoomAt > zoomTimeout {
+		w.syncState() // a zoom that never moved
 	}
 	if c.fsWant != c.fullscreen {
 		if w.shown && !w.minimized {
@@ -274,8 +376,19 @@ func (w *Window) applyControl() {
 	}
 	if c.maxPending && !c.fullscreen && !w.minimized {
 		c.maxPending = false
-		if !w.opts.FixedSize && c.maxWant != darwin.SendBool(w.ns, wsel.isZoomed) {
-			darwin.Send(w.ns, wsel.zoom, darwin.ID(0))
+		if !w.opts.FixedSize && c.maxWant != c.zoomed {
+			switch {
+			case c.maxWant && darwin.SendBool(w.ns, wsel.isZoomed):
+				// AppKit's frame is there already (a window at its
+				// maximum size is at its standard frame), and zoom:
+				// would go the other way: only the state changes, and
+				// so does the unzoom that follows.
+				c.zoomed, c.inPlace = true, true
+			case !c.maxWant && c.inPlace:
+				c.zoomed, c.inPlace = false, false
+			default:
+				w.zoom()
+			}
 		}
 		w.syncState()
 	}
@@ -342,6 +455,10 @@ func (w *Window) fullscreenDid(fullscreen, failed bool) {
 	if !fullscreen {
 		w.restoreResizable()
 	}
+	// The full-screen flag is reported now; the rest of the state, and a
+	// request that waited, after the window settled.
+	c.fsSettled = max(w.b.Now()+fsSettleTime, 1)
+	time.AfterFunc(fsSettleTime+20*time.Millisecond, w.b.notify)
 	w.syncState()
 }
 
@@ -574,7 +691,7 @@ func (w *Window) titleBarDoubleClick() {
 	switch doubleClickAction(userDoubleClickSetting()) {
 	case titleBarZoom:
 		if !w.opts.FixedSize && !w.ctl.fullscreen {
-			darwin.Send(w.ns, wsel.zoom, darwin.ID(0))
+			w.zoom()
 		}
 	case titleBarMinimize:
 		darwin.Send(w.ns, wsel.miniaturize, darwin.ID(0))
