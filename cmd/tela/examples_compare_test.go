@@ -593,7 +593,9 @@ func {{.Test}}(t *telatesting.T) {
 	if a := telaos.Getenv({{printf "%q" .Accent}}); a != "" {
 		opts = append(opts, telatest.AccentColor(telatela.Hex(a)))
 	}
-	if c := telaos.Getenv({{printf "%q" .Controls}}); c != "" {
+	controls := telaos.Getenv({{printf "%q" .Controls}})
+	t.Logf("reference: %s=%q", {{printf "%q" .Controls}}, controls)
+	if c := controls; c != "" {
 		var r [4]float32
 		for i, s := range telastrings.Split(c, ",") {
 			v, err := telastrconv.ParseFloat(s, 32)
@@ -602,7 +604,11 @@ func {{.Test}}(t *telatesting.T) {
 			}
 			r[i] = float32(v)
 		}
-		opts = append(opts, telatest.TitleBarControls(telatela.Rect{X: r[0], Y: r[1], Width: r[2], Height: r[3]}))
+		// FromApp takes the App's settings, not its window options: the
+		// window must be a TitleBarOverlay one for the rectangle to apply
+		// (the real window reported it, so it is one).
+		opts = append(opts, telatest.TitleBarOverlay(),
+			telatest.TitleBarControls(telatela.Rect{X: r[0], Y: r[1], Width: r[2], Height: r[3]}))
 	}
 {{- if .HasApp}}
 	if telaHasApp {
@@ -611,6 +617,8 @@ func {{.Test}}(t *telatesting.T) {
 {{- end}}
 	app := telatest.Mount(t, root, opts...)
 	app.Advance(advance)
+	st := app.WindowState()
+	t.Logf("reference: window state: ClientSideDecorations %v, TitleBarControls %+v", st.ClientSideDecorations, st.TitleBarControls)
 	img := app.Screenshot()
 	f, err := telaos.Create(telaos.Getenv({{printf "%q" .Out}}))
 	if err != nil {
