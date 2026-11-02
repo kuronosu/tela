@@ -387,6 +387,15 @@ jobs:
         env:
           CGO_ENABLED: "0"
         run: go build ./...
+      - name: Warm the module cache for the out-of-repository tests
+        # cmd/tela's end-to-end tests (dev, mcp, new, outside modules) run
+        # go mod tidy offline on a module that requires tela, and skip when
+        # the cache cannot resolve it (godbus, go-text's test modules).
+        run: |
+          d="$(mktemp -d)"
+          printf 'module example.com/warm\n\ngo 1.27\n\nrequire github.com/kuronosu/tela v0.0.0\n\nreplace github.com/kuronosu/tela => %s\n' "$GITHUB_WORKSPACE" > "$d/go.mod"
+          printf 'package main\n\nimport _ "github.com/kuronosu/tela"\n\nfunc main() {}\n' > "$d/main.go"
+          (cd "$d" && go mod tidy)
       - name: go test (cocoa, verbose)
         env:
           CGO_ENABLED: "0"
