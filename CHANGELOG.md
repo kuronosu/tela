@@ -12,7 +12,9 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
-Phase 13, desktop integration (ADR-209 to ADR-214; in progress).
+## [0.13.1] - 2026-11-01
+
+Phase 13, desktop integration (ADR-209 to ADR-217): drag and drop with the OS, clipboard data, opt-in native menus, global shortcuts, single instance with links and file types, system settings v2, secrets and the Trash, on Linux and Windows. No public API breaks.
 
 ### Added
 
@@ -27,13 +29,11 @@ Phase 13, desktop integration (ADR-209 to ADR-214; in progress).
 - The X11 backend gets a clipboard (it had none, not even for text).
 - `desktop.MoveToTrash(path)` (ADR-216) moves a file or folder to the trash (the Recycle Bin on Windows) from any goroutine, and never deletes it: a file the trash cannot take stays where it is, with `ErrUnsupported`. Linux uses the Trash portal, else the freedesktop home trash; Windows uses `IFileOperation` and refuses what it would delete for good. `telatest`: `Trashed`, `FailTrash` and `Unsupported(telatest.Trash)`.
 - `examples/notes`: locking a note that was opened from a file detaches it from the file (its path leaves `notes.json`) and asks whether to move the file, which still holds the text, to the Trash. A locked note cannot be saved to a file and never counts as unsaved.
-
 - `desktop.RegisterApp`, `UnregisterApp` and `AppStatus` (ADR-217): on Linux, the app's own desktop entry (`~/.local/share/applications/<AppID>.desktop`, per user, no launcher in the menus, no file types), which the global shortcuts portal needs; written only when called, looking first, and never over another program's entry without `desktop.Replace()`. Scheme and file-type registration share the file. Windows needs no entry and writes nothing. `desktop.ErrAppNotRegistered`. `telatest`: `RegisteredApps`, `HoldAppEntry`, `FailShortcuts` and `SetShortcutUnassigned`.
 - `examples/notes` calls `desktop.RegisterApp` at start (in the built program), and Preferences, Shortcuts shows a shortcut the desktop registered without keys (Hyprland) with the `hyprland.conf` line that binds it.
 
 ### Fixed
 
-- `desktop.GlobalShortcut` never worked on Wayland with xdg-desktop-portal 1.22 (ADR-217): the portal was given the executable's name instead of the app's ID, and its refusal was ignored. The app's ID (`desktop.AppID`) now reaches the portal, notifications and trays, also under `tela dev`; a desktop without the app's entry fails the shortcut with an error that names the entry and `desktop.RegisterApp`, and on X11 the keys are grabbed instead. A shortcut the desktop registers without keys (Hyprland) is `ShortcutBound` with an empty `Trigger`.
 - On Windows, a `desktop` store's write no longer fails when another program holds its file for a moment (an antivirus scanning the file just written, the search indexer): replacing the file is retried for up to a second, as `cmd/go` does.
 - On Windows, `tela dev` and `tela mcp` remove the executables of old builds even when Windows still holds one for a moment after its process exited; they retry for up to two seconds, off the supervisor's loop.
 - An element whose classes changed its layout (`flex` to `flex flex-col`, `grid` to `flex`) in the same update in which a child's own structure or an image child's size changed (a first child wrapped in a new `Div`, for example) kept its old layout until something else touched it; it is now laid out as a fresh mount would be.
@@ -826,7 +826,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/kuronosu/tela/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/kuronosu/tela/compare/v0.12.6...v0.13.0
 [0.12.6]: https://github.com/kuronosu/tela/compare/v0.12.5...v0.12.6
 [0.12.5]: https://github.com/kuronosu/tela/compare/v0.12.4...v0.12.5
