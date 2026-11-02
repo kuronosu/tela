@@ -124,7 +124,10 @@
 //     after a second, and transitions the user starts become the wanted
 //     state. While in full screen and settling, State keeps the zoom,
 //     position and minimization from before (isMiniaturized was seen true
-//     around a transition) and reads them again after.
+//     around a transition) and reads them again after. A window that
+//     comes back with another frame than it entered with (a frameless
+//     one resized by the app came back at its creation frame on macOS
+//     26) gets its frame back once settled.
 //   - SetAlwaysOnTop is the floating window level. The size limits are
 //     contentMinSize/contentMaxSize (minSize/maxSize of a frameless
 //     window's frame, which is its content), with the maximum raised to

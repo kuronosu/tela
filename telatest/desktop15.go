@@ -33,7 +33,7 @@ func (a *App) RequestQuit() {
 // app settles. It fails the test for a window that is not a TitleBarOverlay
 // one.
 //
-//	app.SetTitleBarControls(tela.Rect{X: 8, Y: 20, Width: 58, Height: 14})
+//	app.SetTitleBarControls(tela.Rect{X: 9, Y: 19, Width: 60, Height: 14})
 func (a *App) SetTitleBarControls(r tela.Rect) {
 	a.tb.Helper()
 	a.mustBeOpen()

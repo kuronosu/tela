@@ -159,8 +159,10 @@ func TitleBarOverlay() Option { return func(c *config) { c.win.overlay = true } 
 // MacTitleBarControls is the rectangle of macOS's window buttons (the
 // traffic lights) that [TitleBarOverlay] windows get under
 // [PlatformKeys]("darwin"): the place and size of the standard buttons
-// centered in a 40 px title bar, in logical window coordinates.
-var MacTitleBarControls = tela.Rect{X: 8, Y: 13, Width: 58, Height: 14}
+// centered in a 40 px title bar, in logical window coordinates, as
+// macOS 26 places them on the macos-latest runner (AppKit's own place
+// there is 9,9 60x14 in its 32 pt title bar).
+var MacTitleBarControls = tela.Rect{X: 9, Y: 13, Width: 60, Height: 14}
 
 // TitleBarControls gives every TitleBarOverlay window of the app the
 // rectangle that the OS's window buttons cover

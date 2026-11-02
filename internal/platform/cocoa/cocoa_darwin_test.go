@@ -92,7 +92,39 @@ func newBackend(t *testing.T) *Backend {
 		logOnce["version"] = true
 		t.Logf("macOS %s, GOARCH=%s", version, runtime.GOARCH)
 	}
+	parkPointer(t)
 	return b
+}
+
+// parkPointer moves the real cursor to the left edge of the main screen,
+// at mid-height, before a test opens its windows: no test window reaches
+// there (they are centered, or placed from x=60), so where the runner or
+// an earlier test left the cursor adds no enter or move events to the
+// exact pointer sequences that the input tests (TestPointer,
+// TestDropTarget, TestCaptionRegions) build from synthetic events. It is
+// not a hot corner. CGWarpMouseCursorPosition generates no event and needs
+// no permission.
+func parkPointer(t *testing.T) {
+	onMain(func() {
+		pool := darwin.PoolPush()
+		defer darwin.PoolPop(pool)
+		screens := darwin.SendClass(darwin.GetClass("NSScreen"), darwin.Sel("screens"))
+		if screens == 0 || darwin.SendUint(screens, darwin.Sel("count")) == 0 {
+			return
+		}
+		main := darwin.Send(screens, darwin.Sel("objectAtIndex:"), uint(0))
+		h := darwin.SendRect(main, darwin.Sel("frame")).Size.Height
+		before := darwin.SendPoint(darwin.ID(app.event), darwin.Sel("mouseLocation"))
+		if err := darwin.CGWarpMouseCursorPosition(darwin.CGPoint{X: 2, Y: h / 2}); err != 0 {
+			t.Logf("note: parking the pointer failed (CGError %d); it stays at %v (screen)", err, before)
+			return
+		}
+		if !logOnce["park"] {
+			logOnce["park"] = true
+			after := darwin.SendPoint(darwin.ID(app.event), darwin.Sel("mouseLocation"))
+			t.Logf("parked the pointer at the main screen's left edge: from %v to %v (screen, y up)", before, after)
+		}
+	})
 }
 
 // TestConformance runs the shared platform suite. Every subtest runs; the

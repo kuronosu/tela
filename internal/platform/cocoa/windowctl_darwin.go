@@ -4,6 +4,7 @@ package cocoa
 
 import (
 	"image"
+	"math"
 	"time"
 
 	"github.com/kuronosu/tela/internal/darwin"
@@ -163,6 +164,10 @@ type windowCtl struct {
 	fsWant, fsTransition bool
 	fsAsked, fsSettled   time.Duration
 	tempResizable        bool // the Resizable mask was added for full screen
+	// fsFrame is the window's frame when it entered full screen, which
+	// it gets back when it leaves (fsRestore: not checked yet).
+	fsFrame   darwin.CGRect
+	fsRestore bool
 	// maxWant is the zoom asked for; maxPending, that a SetMaximized
 	// waits to be applied at the end of the pass.
 	maxWant, maxPending bool
@@ -373,6 +378,7 @@ func (w *Window) applyControl() {
 		}
 		// Settled: read the state that was frozen meanwhile.
 		c.fsSettled = 0
+		w.restoreFrame()
 		w.syncState()
 	}
 	if w.placeButtons() {
@@ -445,12 +451,37 @@ func (w *Window) fullscreenWill(entering bool) {
 	c := &w.ctl
 	if entering {
 		w.restoreButtons() // the full-screen title bar is AppKit's
+		if !c.fullscreen {
+			c.fsFrame = darwin.SendRect(w.ns, wsel.frame)
+		}
 	}
 	if c.fsAsked == 0 && !c.fsTransition {
 		c.fsWant = entering
 	}
 	c.fsAsked = 0
 	c.fsTransition = true
+}
+
+// restoreFrame gives a window that left full screen the frame it entered
+// it with, when AppKit restored another. On macOS 26 a full-size content
+// window (Frameless, TitleBarOverlay) resized with setFrame:display: came
+// back at its size and place from creation, not the frame it had when it
+// entered full screen: AppKit seems to keep the frame it restores from the
+// content rectangle it last set itself. Titled windows come back right,
+// and this then does nothing.
+func (w *Window) restoreFrame() {
+	c := &w.ctl
+	if !c.fsRestore || c.fullscreen {
+		return
+	}
+	c.fsRestore = false
+	f := darwin.SendRect(w.ns, wsel.frame)
+	near := func(a, b float64) bool { return math.Abs(a-b) < 0.5 }
+	if near(f.Origin.X, c.fsFrame.Origin.X) && near(f.Origin.Y, c.fsFrame.Origin.Y) &&
+		near(f.Size.Width, c.fsFrame.Size.Width) && near(f.Size.Height, c.fsFrame.Size.Height) {
+		return
+	}
+	darwin.Send(w.ns, wsel.setFrameDisplay, c.fsFrame, true)
 }
 
 // fullscreenDid handles the end of a transition: fullscreen is the state
@@ -467,6 +498,7 @@ func (w *Window) fullscreenDid(fullscreen, failed bool) {
 		c.fsEntered++
 	default:
 		c.fsExited++
+		c.fsRestore = c.fsFrame.Size.Width > 0
 	}
 	if !fullscreen {
 		w.restoreResizable()

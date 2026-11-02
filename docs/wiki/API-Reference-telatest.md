@@ -162,10 +162,10 @@ EnvCheckDamage is the environment variable that turns [`CheckDamage`](#func-chec
 ## Variables
 
 ```go
-var MacTitleBarControls = tela.Rect{X: 8, Y: 13, Width: 58, Height: 14}
+var MacTitleBarControls = tela.Rect{X: 9, Y: 13, Width: 60, Height: 14}
 ```
 
-MacTitleBarControls is the rectangle of macOS's window buttons (the traffic lights) that [`TitleBarOverlay`](#func-titlebaroverlay) windows get under [`PlatformKeys`](#func-platformkeys)("darwin"): the place and size of the standard buttons centered in a 40 px title bar, in logical window coordinates.
+MacTitleBarControls is the rectangle of macOS's window buttons (the traffic lights) that [`TitleBarOverlay`](#func-titlebaroverlay) windows get under [`PlatformKeys`](#func-platformkeys)("darwin"): the place and size of the standard buttons centered in a 40 px title bar, in logical window coordinates, as macOS 26 places them on the macos-latest runner (AppKit's own place there is 9,9 60x14 in its 32 pt title bar).
 
 ## Functions
 
@@ -1718,7 +1718,7 @@ func (a *App) SetTitleBarControls(r tela.Rect)
 SetTitleBarControls plays the OS moving or resizing the window buttons it keeps over a [`TitleBarOverlay`](#func-titlebaroverlay) window (macOS places the traffic lights in the height of the app's caption; fullscreen hides them): r is the rectangle in logical window coordinates, and the empty one removes them. The window reports it as [`tela.WindowState`](API-Reference-tela#type-windowstate).TitleBarControls, and the app settles. It fails the test for a window that is not a TitleBarOverlay one.
 
 ```go
-app.SetTitleBarControls(tela.Rect{X: 8, Y: 20, Width: 58, Height: 14})
+app.SetTitleBarControls(tela.Rect{X: 9, Y: 19, Width: 60, Height: 14})
 ```
 
 #### func (*App) StartDrag
