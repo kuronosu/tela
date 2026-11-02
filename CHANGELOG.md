@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Added
+
+- macOS: window control in the `cocoa` backend (ADR-224). Minimize, maximize (zoom), native full screen, always on top, minimum and maximum sizes, positions and activation work, and the window's state comes back to the app (`WindowStateEvent`), so saved windows reopen where they were. Positions on macOS are points from the top-left of the main screen, the same on screens of any scale. A frameless window keeps the system's shadow, rounded corners and resizing from its edges. A custom title bar (`HitCaption` regions) moves the window, and a double click on it does what System Settings says (zoom, minimize or nothing). Child windows stay above their parent and move with it; a modal one disables the parent's window buttons and takes the focus back whenever the parent is clicked. `Backdrop` Mica, Mica Alt and Acrylic show a translucent macOS material behind the window's transparent pixels (window background, under-window background and sidebar).
+
 ## [0.13.2] - 2026-11-02
 
 Phase 14, the macOS backend (ADR-220 to ADR-223): a native Cocoa backend without cgo (purego) for macOS 13 or later, with input, a display link, the clipboard, system settings and the IME; `tela dev` in a real macOS window; `looks/aqua` in two designs; one platform flavor for keyboard conventions with the public `CmdOrCtrl()` and `telatest.PlatformKeys`. Verified on `macos-latest` CI, where every example's window matches its headless render pixel for pixel; a session on a real Mac is still to come.

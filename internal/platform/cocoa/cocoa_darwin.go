@@ -287,6 +287,12 @@ func (b *Backend) pump() {
 	func() {
 		defer func() { b.pumping = false }()
 		b.loop.Deliver(deliveryHook{b})
+		// The full-screen and zoom requests of the pass, and those that
+		// waited (windowctl_darwin.go). What AppKit reports meanwhile is
+		// queued for the follow-up pass.
+		for _, w := range b.loop.Windows() {
+			w.applyControl()
+		}
 	}()
 	idle := !b.loop.Ready()
 	for _, w := range b.loop.Windows() {
@@ -432,6 +438,9 @@ var app struct {
 	layer, transaction, cursor, event darwin.Class
 	trackingArea, processInfo         darwin.Class
 	runLoop, nsView                   darwin.Class
+	// Window control (windowctl_darwin.go); effectView is 0 if AppKit
+	// lacks NSVisualEffectView (backdrops then do nothing).
+	screen, userDefaults, color, effectView darwin.Class
 	// appSuper is the superclass of TelaApplication (NSApplication),
 	// where its sendEvent: override sends super.
 	appSuper darwin.Class
@@ -467,10 +476,15 @@ func setupApp() error {
 	app.trackingArea = darwin.GetClass("NSTrackingArea")
 	app.processInfo = darwin.GetClass("NSProcessInfo")
 	app.runLoop = darwin.GetClass("NSRunLoop")
+	app.screen = darwin.GetClass("NSScreen")
+	app.userDefaults = darwin.GetClass("NSUserDefaults")
+	app.color = darwin.GetClass("NSColor")
+	app.effectView = darwin.GetClass("NSVisualEffectView")
 	nsWindow, nsView, nsApplication := darwin.GetClass("NSWindow"), darwin.GetClass("NSView"), darwin.GetClass("NSApplication")
 	app.nsView, app.appSuper = nsView, nsApplication
 	if nsObject == 0 || nsWindow == 0 || nsView == 0 || nsApplication == 0 || app.layer == 0 || app.transaction == 0 ||
-		app.cursor == 0 || app.event == 0 || app.trackingArea == 0 || app.processInfo == 0 || app.runLoop == 0 {
+		app.cursor == 0 || app.event == 0 || app.trackingArea == 0 || app.processInfo == 0 || app.runLoop == 0 ||
+		app.screen == 0 || app.userDefaults == 0 || app.color == 0 {
 		return fmt.Errorf("cocoa: AppKit or QuartzCore classes are missing: %w", platform.ErrUnavailable)
 	}
 

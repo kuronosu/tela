@@ -5,7 +5,6 @@ package cocoa
 import (
 	"fmt"
 	"image"
-	"math"
 	"slices"
 	"sync/atomic"
 	"time"
@@ -35,6 +34,7 @@ type Window struct {
 	presented bool // a Present gave it content
 	minimized bool // in the Dock: no frames (ADR-185)
 	focused   bool
+	ctl       windowCtl // window control (windowctl_darwin.go)
 	cursor    platform.Cursor
 	gravity   darwin.ID   // the layer's contentsGravity, set at Present
 	back      *image.RGBA // the frame as last presented (damage-only presents)
@@ -75,10 +75,12 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	defer darwin.PoolPop(pool)
 
 	w := &Window{b: b, opts: opts, visible: !opts.Hidden, parent: b.parentOf(opts.Parent)}
+	// A frameless window is titled too, with a full-size content view
+	// (windowctl_darwin.go): the system's shadow, corners and resizing.
 	style := uint(darwin.NSWindowStyleMaskTitled | darwin.NSWindowStyleMaskClosable |
 		darwin.NSWindowStyleMaskMiniaturizable | darwin.NSWindowStyleMaskResizable)
 	if opts.Frameless {
-		style = darwin.NSWindowStyleMaskBorderless | darwin.NSWindowStyleMaskMiniaturizable | darwin.NSWindowStyleMaskResizable
+		style |= darwin.NSWindowStyleMaskFullSizeContentView
 	}
 	if opts.FixedSize {
 		style &^= darwin.NSWindowStyleMaskResizable
@@ -95,7 +97,14 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	darwin.Send(w.ns, sel.setRestorable, false)
 	w.setTitle(opts.Title)
 
+	// The content view is a plain container holding TelaView (and, under
+	// it, the backdrop's NSVisualEffectView when there is one), both kept
+	// at its size.
+	container := darwin.Send(darwin.SendClass(app.nsView, sel.alloc), sel.initWithFrame, rect)
+	// Layer-backed, so that TelaView's layer is a sublayer of its own.
+	darwin.Send(container, sel.wantsLayer, true)
 	view := darwin.Send(darwin.SendClass(app.view, sel.alloc), sel.initWithFrame, rect)
+	darwin.Send(view, wsel.setAutoresizingMask, uint(darwin.NSViewWidthSizable|darwin.NSViewHeightSizable))
 	w.layer = darwin.Retain(darwin.SendClass(app.layer, sel.layer))
 	// setLayer before setWantsLayer makes a layer-hosting view: AppKit
 	// never draws into the layer, whose contents are Present's images.
@@ -103,9 +112,11 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	darwin.Send(view, sel.wantsLayer, true)
 	w.gravity = darwin.CAGravityTopLeft
 	darwin.Send(w.layer, sel.setContentsGravity, w.gravity)
-	darwin.Send(w.ns, sel.setContentView, view)
-	darwin.Release(view) // the window keeps it
-	w.view = view
+	darwin.Send(container, wsel.addSubview, view)
+	darwin.Release(view) // the container keeps it
+	darwin.Send(w.ns, sel.setContentView, container)
+	darwin.Release(container) // the window keeps it
+	w.view, w.ctl.container = view, container
 	darwin.Send(w.ns, sel.makeFirstResponder, view)
 	w.addTrackingArea()
 	w.delegate = darwin.Send(darwin.SendClass(app.windowDelegate, sel.alloc), sel.init)
@@ -114,15 +125,16 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	registry.objects[w.delegate] = w
 	registry.objects[w.view] = w
 	registry.Unlock()
+	// The delegate comes after the setup, whose moves and resizes must
+	// not queue events before the window's first ConfigureEvent.
+	w.setupWindowCtl()
 	darwin.Send(w.ns, sel.setDelegate, w.delegate)
-	w.applyLimits()
-	darwin.Send(w.ns, sel.center)
 
 	b.loop.Add(w)
 	m := w.osMetrics()
 	darwin.Send(w.layer, sel.setContentsScale, m.Scale)
 	b.reconfigure(w, m)
-	w.updateHidden()
+	w.syncState()
 	return w, nil
 }
 
@@ -158,14 +170,31 @@ func (w *Window) osMetrics() platform.Metrics {
 func (w *Window) updateHidden() { w.SetHidden(!w.visible || w.minimized) }
 
 // show orders the window front and, at the first window, activates the
-// app (an unbundled process launched from a terminal is not active).
+// app (an unbundled process launched from a terminal is not active). A
+// child window is attached to its parent, a modal one disables its
+// parent's buttons, and a Minimize made before the window ever showed is
+// applied now. A window whose modal child is shown is ordered front
+// behind it, and the child keeps the focus.
 func (w *Window) show() {
-	darwin.Send(w.ns, sel.makeKeyAndOrderFront, darwin.ID(0))
+	if w.modalChild() != nil {
+		darwin.Send(w.ns, wsel.orderFront, darwin.ID(0))
+	} else {
+		darwin.Send(w.ns, sel.makeKeyAndOrderFront, darwin.ID(0))
+	}
 	w.shown = true
 	if !w.b.activated {
 		w.b.activated = true
 		darwin.Send(app.ns, sel.activate, true)
 	}
+	w.attach()
+	if w.opts.Modal {
+		w.parent.updateModal()
+	}
+	if w.ctl.minimizeOnShow {
+		w.ctl.minimizeOnShow = false
+		darwin.Send(w.ns, wsel.miniaturize, darwin.ID(0))
+	}
+	w.syncState()
 }
 
 func (w *Window) setTitle(title string) {
@@ -232,36 +261,41 @@ func (w *Window) SetSize(size platform.Size) {
 		return
 	}
 	w.opts.Size = w.opts.ClampSize(size)
-	darwin.Send(w.ns, sel.setContentSize, cgSize(w.opts.Size))
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
+	w.resizeContent(w.opts.Size)
 }
 
 // SetMinSize and SetMaxSize change the content size limits AppKit applies
-// to user resizes (zero is no limit).
+// to user resizes (zero is no limit; the minimum wins), and resize the
+// window into the new limits when it is outside them.
 func (w *Window) SetMinSize(size platform.Size) {
 	platform.CheckSize("SetMinSize size", size)
-	if !w.Closed() {
+	if !w.Closed() && size != w.opts.MinSize {
 		w.opts.MinSize = size
-		w.applyLimits()
+		w.limitsChanged()
 	}
 }
 
 func (w *Window) SetMaxSize(size platform.Size) {
 	platform.CheckSize("SetMaxSize size", size)
-	if !w.Closed() {
+	if !w.Closed() && size != w.opts.MaxSize {
 		w.opts.MaxSize = size
-		w.applyLimits()
+		w.limitsChanged()
 	}
 }
 
-func (w *Window) applyLimits() {
-	darwin.Send(w.ns, sel.setContentMinSize, cgSize(w.opts.MinSize))
-	limit := func(v float32) float64 {
-		if v <= 0 {
-			return math.MaxFloat32 // AppKit's "no maximum" (FLT_MAX)
-		}
-		return float64(v)
+func (w *Window) limitsChanged() {
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
+	w.applyLimits()
+	if w.ctl.fullscreen || w.ctl.fsTransition {
+		return
 	}
-	darwin.Send(w.ns, sel.setContentMaxSize, darwin.CGSize{Width: limit(w.opts.MaxSize.W), Height: limit(w.opts.MaxSize.H)})
+	cur := w.osMetrics().Size
+	if c := w.opts.ClampSize(cur); c != cur {
+		w.resizeContent(c)
+	}
 }
 
 // SetVisible hides the window (orderOut:) or shows it again; a window that
@@ -272,10 +306,25 @@ func (w *Window) SetVisible(visible bool) {
 		return
 	}
 	w.visible = visible
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
 	switch {
 	case !visible && w.shown:
-		darwin.Send(w.ns, sel.orderOut, darwin.ID(0))
+		// Not shown before orderOut:, which may make the parent key at
+		// once: the parent must not bring this child back (raiseModal).
+		wasKey := darwin.SendBool(w.ns, wsel.isKeyWindow)
 		w.shown = false
+		p := w.parent
+		modal := w.opts.Modal && p != nil && !p.Closed()
+		if modal {
+			p.updateModal()
+		}
+		w.detach()
+		darwin.Send(w.ns, sel.orderOut, darwin.ID(0))
+		if modal && wasKey && p.shown {
+			darwin.Send(p.ns, wsel.makeKeyWindow)
+		}
+		w.syncState()
 	case visible && w.presented && !w.shown:
 		w.show()
 	}
@@ -305,11 +354,21 @@ func (w *Window) Close() {
 	delete(registry.objects, w.view)
 	registry.Unlock()
 	pool := darwin.PoolPush()
+	wasKey := darwin.SendBool(w.ns, wsel.isKeyWindow)
 	darwin.Send(w.ns, sel.setDelegate, darwin.ID(0))
+	w.detach()
 	darwin.Send(w.ns, sel.orderOut, darwin.ID(0))
 	darwin.Send(w.ns, sel.close)
+	if p := w.parent; w.opts.Modal && p != nil && !p.Closed() {
+		// The parent has the input again, and the focus the child had.
+		p.updateModal()
+		if wasKey && p.shown {
+			darwin.Send(p.ns, wsel.makeKeyWindow)
+		}
+	}
 	darwin.PoolPop(pool)
-	w.b.releaseLater(w.layer, w.delegate, w.ns)
+	w.b.releaseLater(w.layer, w.delegate, w.ns, w.ctl.effect)
+	w.ctl.effect = 0
 	w.back = nil
 }
 
@@ -356,29 +415,51 @@ func windowDelegateMethods() []darwin.Method {
 		}}
 	}
 	return []darwin.Method{
-		// The close button asks; closing is the app's decision.
+		// The close button asks; closing is the app's decision. A window
+		// with a modal child brings the child forward instead (its
+		// buttons are disabled, but Command-W may still ask).
 		{Sel: darwin.Sel("windowShouldClose:"), Fn: func(self darwin.ID, _ darwin.SEL, _ darwin.ID) bool {
 			if w := windowFor(self); w != nil && !w.Closed() {
 				w.b.guard(func() {
-					w.b.enqueue(w, platform.CloseRequestedEvent{})
+					if !w.raiseModal() {
+						w.b.enqueue(w, platform.CloseRequestedEvent{})
+					}
 					w.b.pump()
 				})
 			}
 			return false
 		}},
 		// A live resize delivers its ConfigureEvent and forced FrameEvent
-		// here, so the window is repainted before AppKit continues.
-		on("windowDidResize:", func(w *Window) { w.b.reconfigure(w, w.osMetrics()) }),
+		// here, so the window is repainted before AppKit continues. The
+		// state (a zoom ends in a resize) goes first.
+		on("windowDidResize:", func(w *Window) {
+			w.syncState()
+			w.b.reconfigure(w, w.osMetrics())
+		}),
+		on("windowDidMove:", (*Window).syncState),
 		on("windowDidChangeBackingProperties:", func(w *Window) {
 			m := w.osMetrics()
 			darwin.Send(w.layer, sel.setContentsScale, m.Scale)
 			w.b.reconfigure(w, m)
 		}),
-		on("windowDidBecomeKey:", func(w *Window) { w.setFocused(true) }),
+		// A window with a shown modal child does not keep the focus: the
+		// child takes it (a click on the parent, Command-`, Mission
+		// Control), and the parent never reports it.
+		on("windowDidBecomeKey:", func(w *Window) {
+			if !w.raiseModal() {
+				w.setFocused(true)
+			}
+		}),
 		on("windowDidResignKey:", func(w *Window) { w.setFocused(false) }),
 		on("windowDidChangeScreen:", func(w *Window) { w.followScreen() }),
-		on("windowDidMiniaturize:", func(w *Window) { w.minimized = true; w.updateHidden() }),
-		on("windowDidDeminiaturize:", func(w *Window) { w.minimized = false; w.updateHidden() }),
+		on("windowDidMiniaturize:", (*Window).syncState),
+		on("windowDidDeminiaturize:", (*Window).syncState),
+		on("windowWillEnterFullScreen:", func(w *Window) { w.fullscreenWill(true) }),
+		on("windowWillExitFullScreen:", func(w *Window) { w.fullscreenWill(false) }),
+		on("windowDidEnterFullScreen:", func(w *Window) { w.fullscreenDid(true, false) }),
+		on("windowDidExitFullScreen:", func(w *Window) { w.fullscreenDid(false, false) }),
+		on("windowDidFailToEnterFullScreen:", func(w *Window) { w.fullscreenDid(false, true) }),
+		on("windowDidFailToExitFullScreen:", func(w *Window) { w.fullscreenDid(true, true) }),
 	}
 }
 
@@ -388,7 +469,15 @@ func viewMethods() []darwin.Method {
 	return []darwin.Method{
 		// Flipped: y grows downward, like Tela's coordinates.
 		{Sel: darwin.Sel("isFlipped"), Fn: yes},
-		{Sel: darwin.Sel("isOpaque"), Fn: yes},
+		// Opaque unless a backdrop shows through the frame's alpha.
+		{Sel: darwin.Sel("isOpaque"), Fn: func(self darwin.ID, _ darwin.SEL) bool {
+			w := windowFor(self)
+			return w == nil || w.ctl.effect == 0
+		}},
+		// A press never moves the window by itself (a transparent title
+		// bar would, over a view that is not opaque): caption regions
+		// start the move (windowctl_darwin.go).
+		{Sel: darwin.Sel("mouseDownCanMoveWindow"), Fn: func(darwin.ID, darwin.SEL) bool { return false }},
 		{Sel: darwin.Sel("acceptsFirstResponder"), Fn: yes},
 		// The NSView display link's callback (link_darwin.go).
 		{Sel: darwin.Sel("telaDisplayLinkTick:"), Fn: func(self darwin.ID, _ darwin.SEL, _ darwin.ID) {

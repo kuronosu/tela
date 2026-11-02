@@ -4,23 +4,24 @@
 // no cgo, and implements the platform contract documented in package
 // platform ("Mapping onto each OS: Cocoa"). The code that touches the OS is
 // built only on darwin; cursor.go (the cursor table), input.go (the
-// pointer and scroll rules) and ime.go (the IME rules) are pure and tested
-// on every OS.
+// pointer and scroll rules), ime.go (the IME rules) and windowctl.go (the
+// window control rules) are pure and tested on every OS.
 //
-// # Status (phase 14, ADR-222)
+// # Status (phases 14 and 15, ADR-222, ADR-224)
 //
 // Implemented: the app and its event loop, windows, presentation, HiDPI,
 // keyboard, pointer and scroll input, cursors, frame pacing with a display
 // link, the clipboard (NSPasteboard with every Data type,
 // clipboard_darwin.go over the pure mapping in pasteboard.go), the system
-// settings with their change events (settings_darwin.go) and the IME
-// (NSTextInputClient, ime_darwin.go over the pure rules of ime.go). Window
-// control
-// (minimize, zoom, fullscreen, positions, child and modal windows enforced
-// by the OS), native menus, drag and drop and the desktop services are the
-// macOS desktop integration phase. Until then those requests are validated
-// like on every backend and do nothing, and the services return
-// ErrUnsupported.
+// settings with their change events (settings_darwin.go), the IME
+// (NSTextInputClient, ime_darwin.go over the pure rules of ime.go) and
+// window control (windowctl_darwin.go over windowctl.go: minimize, zoom,
+// native full screen, the floating level, size limits, positions,
+// activation, frameless windows, custom title bars, child and modal
+// windows, vibrancy backdrops). Native menus, drag and drop and the
+// desktop services are the next tasks of the macOS desktop integration
+// phase; until then those requests are validated like on every backend
+// and do nothing, and the services return ErrUnsupported.
 //
 // # Loop
 //
@@ -68,11 +69,14 @@
 // # Windows and presentation
 //
 // A window is an NSWindow (titled, closable, miniaturizable and, unless
-// FixedSize, resizable; borderless when Frameless) whose content view is a
-// registered NSView subclass that hosts a CALayer (the layer is set before
-// wantsLayer, so AppKit never draws into it; the GPU backend will give the
-// view a CAMetalLayer instead and nothing else changes). The view is
-// flipped, the layer's contentsScale follows backingScaleFactor, and
+// FixedSize, resizable; with a full-size content view and a hidden title
+// bar when Frameless, see "Window control") whose content view is a plain
+// layer-backed container holding TelaView, a registered NSView subclass
+// that hosts a CALayer (the layer is set before wantsLayer, so AppKit
+// never draws into it; the GPU backend will give the view a CAMetalLayer
+// instead and nothing else changes), kept at the container's size; a
+// backdrop's NSVisualEffectView goes under it in the container. The view
+// is flipped, the layer's contentsScale follows backingScaleFactor, and
 // its contentsGravity pins the frame to the top-left corner, pixel for
 // pixel. Sizes are points (logical) and the scale is backingScaleFactor.
 // Present keeps a copy of the frame (damage-only presents update it),
@@ -82,6 +86,80 @@
 // The window is ordered front at its first Present. Closing a window
 // releases its objects at the next pass, outside any AppKit method that
 // might still use them.
+//
+// # Window control
+//
+// windowctl_darwin.go, whose top comment lists the AppKit quirks handled
+// (after winit's window_delegate.rs and Electron's native_window_mac.mm).
+// The requests of package platform map onto AppKit, and the state comes
+// back through the window delegate as WindowStateEvents (the shared
+// loop's UpdateState; a notification that changes state and size queues
+// the state first):
+//
+//   - Minimize is miniaturize: (a window never shown is miniaturized when
+//     it shows) and Activate brings it back with deminiaturize:, then
+//     unhides the app, activates it ([NSApp activate] on macOS 14 and
+//     later, activateIgnoringOtherApps: on 13; the system may decline) and
+//     makes the window key and front. Minimized windows get no frames.
+//   - SetMaximized is zoom:, sent at the end of the pass when isZoomed
+//     differs; the zoom is read back in windowDidResize:. FixedSize
+//     windows do not zoom (AppKit disables their zoom button).
+//   - SetFullscreen is native full screen (toggleFullScreen:, with the
+//     FullScreenPrimary collection behavior; a FixedSize window is
+//     resizable for its stay), applied at the end of the pass. A request
+//     during a transition waits for windowDid…FullScreen: (or the Fail
+//     notifications), one AppKit ignores is given up after a second, and
+//     transitions the user starts become the wanted state. While in full
+//     screen, State keeps the zoom and position from before.
+//   - SetAlwaysOnTop is the floating window level. The size limits are
+//     contentMinSize/contentMaxSize (minSize/maxSize of a frameless
+//     window's frame, which is its content), with the maximum raised to
+//     the minimum; a window outside new limits is resized into them.
+//   - Positions are points, y down from the top-left corner of the
+//     primary screen (CoreGraphics' global display space; windowctl.go):
+//     the top-left of the content area, rounded to whole points, so a
+//     reported position given back puts the window in the same place on
+//     any screen whatever its scale. HasPosition is always true.
+//   - Frameless windows are titled windows with a full-size content view,
+//     a transparent title bar, no title, no separator and the standard
+//     buttons hidden, as Electron's: the system's shadow, rounded corners
+//     and edge resizing (unless FixedSize) come with the titled style, and
+//     they become key and main; State reports ClientSideDecorations. The
+//     content view covers the frame, so their sizes and limits are the
+//     frame's (AppKit's content-rectangle conversions still count a title
+//     bar there). The title bar strip sends presses to TelaView, which
+//     never moves the window by itself (mouseDownCanMoveWindow).
+//   - Hit regions: a primary press in a HitCaption region starts
+//     performWindowDragWithEvent: (the window server moves the window and
+//     may keep the release), a primary double click there by the shared
+//     rule (platform.CaptionClicks) performs the user's title bar action
+//     (AppleActionOnDoubleClick: Maximize and Fill zoom, Minimize
+//     minimizes, None does nothing; the older AppleMiniaturizeOnDoubleClick
+//     when unset), and other buttons and Control-clicks there are
+//     swallowed (macOS has no window menu). Neither the press nor its
+//     drags and release are delivered; a move without buttons ends the
+//     sequence. HitMinimize, HitMaximize, HitClose and HitClient regions
+//     are content; hover is delivered everywhere.
+//   - A child window is an AppKit child window (addChildWindow:ordered:
+//     NSWindowAbove) while it and its parent are shown, and is detached
+//     when hidden or closed: AppKit keeps it above the parent, moves it
+//     with the parent and hides it with the parent's minimization. One
+//     without a position opens centered on its parent. Separate windows,
+//     not sheets (ADR-224).
+//   - A modal child, while shown, disables its parent's standard buttons
+//     (EnableWindow(parent, FALSE) on Win32), and whenever the parent
+//     becomes key (a click, Command-`, Mission Control), is clicked or is
+//     asked to close, the child is brought forward with the focus instead
+//     (the parent reports no focus and no close request). Hiding or
+//     closing it enables the buttons again and gives the focus back to the
+//     parent. Core drops the parent's input as on every backend.
+//   - Backdrops: Mica, MicaAlt and Acrylic put an NSVisualEffectView
+//     (behind-window blending, following the window's active state) with
+//     the material of platform.Backdrop under TelaView, and make the
+//     window non-opaque with a clear background and TelaView non-opaque,
+//     so the frame's premultiplied alpha shows the material
+//     (platform.AlphaPresenter); default and none remove it and make the
+//     window opaque again. SetTitleBarColors does nothing.
 //
 // # Input
 //
