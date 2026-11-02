@@ -334,3 +334,28 @@ func TestAliasErrors(t *testing.T) {
 		}
 	}
 }
+
+// WithRootFontSize derives a parser of another rem, keeping the aliases,
+// and caches it on the base: equal sizes share one parser.
+func TestWithRootFontSize(t *testing.T) {
+	p := aliasParser(t, map[string]string{"text-muted": "text-sm"})
+	if p.WithRootFontSize(16) != p {
+		t.Error("the theme's own size did not return the parser itself")
+	}
+	s := p.WithRootFontSize(20)
+	if s == p || s.Theme().RootFontSize != 20 || p.Theme().RootFontSize != 16 {
+		t.Fatalf("scaled parser rem %v, base rem %v", s.Theme().RootFontSize, p.Theme().RootFontSize)
+	}
+	if s.Aliases()["text-muted"] != "text-sm" || s.Compile("text-muted").Err != nil {
+		t.Errorf("aliases %v not kept", s.Aliases())
+	}
+	if p.WithRootFontSize(20) != s {
+		t.Error("the same size made another parser")
+	}
+	for i := range maxScaled {
+		p.WithRootFontSize(float32(30 + i))
+	}
+	if p.WithRootFontSize(20) == s {
+		t.Errorf("the cache kept more than %d sizes", maxScaled)
+	}
+}

@@ -141,8 +141,11 @@ type Registration struct {
 type DefaultResult uint8
 
 const (
+	// DefaultNone: nothing was done; MakeDefault returns it with every
+	// error (the zero value: a failure never reads as DefaultSet).
+	DefaultNone DefaultResult = iota
 	// DefaultSet: the app is now the default handler.
-	DefaultSet DefaultResult = iota
+	DefaultSet
 	// DefaultAsked: the OS lets only the user choose (Windows file
 	// types), so the system's Default apps settings opened; tell the user
 	// to pick the app there, and check later with RegistrationStatus.
@@ -199,15 +202,18 @@ func Unregister(a Association, opts ...RegisterOption) (changed bool, err error)
 // Where the OS lets an app set it (Linux; Windows schemes) it is set at
 // once (DefaultSet). For Windows file types only the user can choose:
 // MakeDefault opens the system's Default apps settings and returns
-// DefaultAsked. Call it only when the user asked ("Make Notes the default
-// app for .note files").
+// DefaultAsked. On an error it returns DefaultNone. Call it only when the
+// user asked ("Make Notes the default app for .note files").
 func MakeDefault(a Association, opts ...RegisterOption) (DefaultResult, error) {
 	_, app, err := regPrepare("MakeDefault", a, opts, true)
 	if err != nil {
-		return DefaultSet, err
+		return DefaultNone, err
 	}
 	r, err := associations().MakeDefault(app, a.platform())
-	return DefaultResult(r), wrap(fmt.Sprintf("MakeDefault(%v)", a), err)
+	if err != nil {
+		return DefaultNone, wrap(fmt.Sprintf("MakeDefault(%v)", a), err)
+	}
+	return DefaultResult(r), nil
 }
 
 // RegistrationStatus reports whether the app is registered for a,

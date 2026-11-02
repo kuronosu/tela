@@ -323,6 +323,25 @@ func TestClipboardLocal(t *testing.T) {
 	if s := g.x.take(); s != "" {
 		t.Errorf("local reads sent %q", s)
 	}
+	// An empty entry reads as present and empty, not absent (nil).
+	if err := cb.Write(platform.Data{{Type: "application/x-empty"}, {Type: "text/html", Bytes: []byte{}}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, mime := range []string{"application/x-empty", "text/html"} {
+		var got []byte
+		answered := false
+		cb.Read(mime, func(b []byte, err error) { got, answered = b, true })
+		g.pass()
+		if !answered || got == nil || len(got) != 0 {
+			t.Errorf("local read of the empty %s entry = %v (answered %v), want an empty non-nil slice", mime, got, answered)
+		}
+	}
+	absent := []byte("x")
+	cb.Read("image/png", func(b []byte, err error) { absent = b })
+	g.pass()
+	if absent != nil {
+		t.Errorf("local read of an absent type = %v, want nil", absent)
+	}
 	// Empty data owns the clipboard with nothing in it.
 	if err := cb.Write(nil); err != nil {
 		t.Fatal(err)

@@ -184,6 +184,7 @@ func stateNotify(base, latched, locked byte, kc byte) xgb.RawEvent {
 	e := make(xgb.RawEvent, 32)
 	e[0], e[1] = xkbFirstEvent, xkbStateNotify
 	e[10], e[11], e[12] = base, latched, locked
+	e[9], e[22] = base|latched|locked, base|latched|locked // effective and lookup
 	e[28] = kc
 	return e
 }

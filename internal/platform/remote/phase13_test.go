@@ -671,4 +671,7 @@ func TestSecretsAndAssociations(t *testing.T) {
 	if _, err := as.Status(app, scheme); !errors.Is(err, platform.ErrUnsupported) {
 		t.Errorf("Status without associations = %v, want ErrUnsupported", err)
 	}
+	if res, err := as.MakeDefault(app, scheme); !errors.Is(err, platform.ErrUnsupported) || res != platform.DefaultNone {
+		t.Errorf("MakeDefault without associations = %v, %v; want DefaultNone and ErrUnsupported", res, err)
+	}
 }

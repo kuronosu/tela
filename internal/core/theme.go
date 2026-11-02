@@ -131,22 +131,14 @@ func (t *Tree) setParser(base *style.Parser) {
 // rem is the theme's times scale (ADR-209: the text scale is a browser's
 // default font size), base itself for a scale of 1. Every rem then
 // scales: the type scale, the spacing, Tailwind's breakpoints and
-// containers, arbitrary rem values.
-//
-// perf: each tree derives its own parser for a scale other than 1, which
-// compiles the classes again; a cache keyed by base and scale would share
-// them between windows.
+// containers, arbitrary rem values. The parser is cached on base, so the
+// windows of an app (whose trees share base) share it and its compiled
+// classes.
 func scaledParser(base *style.Parser, scale float64) *style.Parser {
 	if scale == 1 {
 		return base
 	}
-	th := base.Theme().Clone()
-	th.RootFontSize = float32(float64(th.RootFontSize) * scale)
-	p, err := style.NewParserAliases(th, base.Aliases())
-	if err != nil {
-		panic("tela: " + err.Error()) // base was made with the same aliases
-	}
-	return p
+	return base.WithRootFontSize(float32(float64(base.Theme().RootFontSize) * scale))
 }
 
 // useParser makes p the parser the tree compiles its classes with: every
@@ -161,17 +153,7 @@ func (t *Tree) useParser(p *style.Parser) {
 	if t.root == nil {
 		return
 	}
-	var walk func(el *Element)
-	walk = func(el *Element) {
-		if el.kind == elemPrimitive {
-			el.box.classesDirty = true
-			t.markStyle(el)
-		}
-		for _, c := range el.children {
-			walk(c)
-		}
-	}
-	walk(t.root)
+	t.markAllStyle(true)
 	t.dirty()
 }
 

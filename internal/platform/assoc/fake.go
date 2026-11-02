@@ -244,10 +244,10 @@ func (f *Fake) MakeDefault(app platform.HandlerApp, a platform.Association) (pla
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.err != nil {
-		return platform.DefaultSet, f.err
+		return platform.DefaultNone, f.err
 	}
 	if _, err := f.register(app, a, platform.RegisterOptions{}); err != nil {
-		return platform.DefaultSet, err
+		return platform.DefaultNone, err
 	}
 	if a.Extension != "" && f.askFiles {
 		f.asked = append(f.asked, a)

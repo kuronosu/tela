@@ -281,28 +281,8 @@ func trashName(base string, i int) string {
 	return fmt.Sprintf("%s.%d", base, i)
 }
 
-// trashInfo is the content of a .trashinfo file.
+// trashInfo is the content of a .trashinfo file. Its Path is
+// percent-encoded as GIO writes it (platform.EscapePath).
 func trashInfo(path string, now time.Time) string {
-	return "[Trash Info]\nPath=" + escapeTrashPath(path) + "\nDeletionDate=" + now.Format("2006-01-02T15:04:05") + "\n"
-}
-
-// escapeTrashPath percent-encodes a path for a .trashinfo Path key, like
-// GIO's g_uri_escape_string(path, "/", FALSE): letters, digits, "-._~"
-// and "/" stay, every other byte is %XX (upper case).
-func escapeTrashPath(p string) string {
-	const hex = "0123456789ABCDEF"
-	var b strings.Builder
-	for i := 0; i < len(p); i++ {
-		c := p[i]
-		switch {
-		case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9',
-			c == '-', c == '.', c == '_', c == '~', c == '/':
-			b.WriteByte(c)
-		default:
-			b.WriteByte('%')
-			b.WriteByte(hex[c>>4])
-			b.WriteByte(hex[c&15])
-		}
-	}
-	return b.String()
+	return "[Trash Info]\nPath=" + platform.EscapePath(path) + "\nDeletionDate=" + now.Format("2006-01-02T15:04:05") + "\n"
 }

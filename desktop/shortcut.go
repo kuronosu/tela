@@ -47,7 +47,11 @@ import (
 type GlobalShortcut struct {
 	// ID identifies the shortcut to the OS, which keeps the user's
 	// changes to it across runs (the portal): keep it stable
-	// ("new-note"). Required; unique among the mounted shortcuts.
+	// ("new-note"). Required; unique among the mounted shortcuts. When two
+	// mounted components share an ID (a dev warning), the one that
+	// registered last owns it and gets its events; the other stays
+	// displaced, even after the owner unmounts, until its own ID, Keys or
+	// Description change, when it registers again and becomes the owner.
 	ID string
 	// Keys is the preferred key combination, such as "Ctrl+Alt+N" or
 	// "Super+F5" (see [ParseKeys] for the names). Required; a combination
@@ -192,6 +196,10 @@ type shortcutState struct {
 	// request); failed: the request failed, not retried until it changes.
 	reg    platform.Shortcut
 	failed bool
+	// displaced: a later GlobalShortcut with the same ID registered it
+	// after s did; s stays out (not registering again on every build,
+	// which would swap the ID between the two) until reg changes.
+	displaced bool
 }
 
 // sync registers want unless it is what was asked for already. parseErr
@@ -200,13 +208,13 @@ func (s *shortcutState) sync(want platform.Shortcut, parseErr error) {
 	if s.d.IsZero() || s.d.Ended() {
 		return
 	}
-	if s.reg == want && (s.failed || s.owners[want.ID] == s) {
+	if s.reg == want && (s.failed || s.displaced || s.owners[want.ID] == s) {
 		return
 	}
 	if s.reg.ID != "" && s.reg.ID != want.ID {
 		s.unregister()
 	}
-	s.reg, s.failed = want, false
+	s.reg, s.failed, s.displaced = want, false, false
 	if parseErr != nil {
 		s.failed = true
 		s.report(ShortcutStatusEvent{ID: want.ID, Status: ShortcutFailed, Err: parseErr})
@@ -225,6 +233,9 @@ func (s *shortcutState) sync(want platform.Shortcut, parseErr error) {
 		s.report(ShortcutStatusEvent{ID: want.ID, Status: ShortcutFailed,
 			Err: wrap(fmt.Sprintf("GlobalShortcut %q (%v)", want.ID, want.Accelerator), err)})
 		return
+	}
+	if o := s.owners[want.ID]; o != nil && o != s {
+		o.displaced = true
 	}
 	s.owners[want.ID] = s
 }

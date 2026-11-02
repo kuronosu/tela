@@ -734,15 +734,15 @@ func (l *linuxAssoc) MakeDefault(app platform.HandlerApp, a platform.Association
 	platform.CheckHandlerApp("Associations.MakeDefault", app, true)
 	platform.CheckAssociation("Associations.MakeDefault", a)
 	if err := l.check(); err != nil {
-		return platform.DefaultSet, err
+		return platform.DefaultNone, err
 	}
 	if !filepath.IsAbs(l.dirs.ConfigHome) {
-		return platform.DefaultSet, fmt.Errorf("assoc: LinuxDirs.ConfigHome %q is not an absolute path ($XDG_CONFIG_HOME)", l.dirs.ConfigHome)
+		return platform.DefaultNone, fmt.Errorf("assoc: LinuxDirs.ConfigHome %q is not an absolute path ($XDG_CONFIG_HOME)", l.dirs.ConfigHome)
 	}
 	linuxMu.Lock()
 	defer linuxMu.Unlock()
 	if _, err := l.register(app, a, false); err != nil {
-		return platform.DefaultSet, err
+		return platform.DefaultNone, err
 	}
 	typ := mimeOf(a)
 	ownID := app.ID + ".desktop"
@@ -760,7 +760,7 @@ func (l *linuxAssoc) MakeDefault(app platform.HandlerApp, a platform.Association
 		for _, id := range listOf(parseKeyFile(raw), defaultsGroup, typ) {
 			if installed(ents, id) {
 				if id != ownID {
-					return platform.DefaultSet, fmt.Errorf("assoc: the default handler of %s is set to %s in %s, which comes before mimeapps.list; change it in the desktop's settings", typ, id, p)
+					return platform.DefaultNone, fmt.Errorf("assoc: the default handler of %s is set to %s in %s, which comes before mimeapps.list; change it in the desktop's settings", typ, id, p)
 				}
 				break
 			}
@@ -770,7 +770,7 @@ func (l *linuxAssoc) MakeDefault(app platform.HandlerApp, a platform.Association
 	p := filepath.Join(l.dirs.ConfigHome, "mimeapps.list")
 	raw, err := readMaybe(p)
 	if err != nil {
-		return platform.DefaultSet, fmt.Errorf("assoc: %w", err)
+		return platform.DefaultNone, fmt.Errorf("assoc: %w", err)
 	}
 	kf := parseKeyFile(raw)
 	key, old := typ, []string(nil)
@@ -786,7 +786,7 @@ func (l *linuxAssoc) MakeDefault(app platform.HandlerApp, a platform.Association
 	if !slices.Equal(ids, old) {
 		kf.set(defaultsGroup, key, joinList(ids))
 		if _, err := l.apply([]change{{p, kf.bytes()}}); err != nil {
-			return platform.DefaultSet, err
+			return platform.DefaultNone, err
 		}
 	}
 	return platform.DefaultSet, nil

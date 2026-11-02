@@ -1027,8 +1027,11 @@ DefaultResult is what [`MakeDefault`](#func-makedefault) did.
 
 ```go
 const (
+    // DefaultNone: nothing was done; MakeDefault returns it with every
+    // error (the zero value: a failure never reads as DefaultSet).
+    DefaultNone DefaultResult = iota
     // DefaultSet: the app is now the default handler.
-    DefaultSet DefaultResult = iota
+    DefaultSet
     // DefaultAsked: the OS lets only the user choose (Windows file
     // types), so the system's Default apps settings opened; tell the user
     // to pick the app there, and check later with RegistrationStatus.
@@ -1042,7 +1045,7 @@ const (
 func MakeDefault(a Association, opts ...RegisterOption) (DefaultResult, error)
 ```
 
-MakeDefault asks for the app to become the default handler of a, registering it first if needed (with Register's rules and options). Where the OS lets an app set it (Linux; Windows schemes) it is set at once (DefaultSet). For Windows file types only the user can choose: MakeDefault opens the system's Default apps settings and returns DefaultAsked. Call it only when the user asked ("Make Notes the default app for .note files").
+MakeDefault asks for the app to become the default handler of a, registering it first if needed (with Register's rules and options). Where the OS lets an app set it (Linux; Windows schemes) it is set at once (DefaultSet). For Windows file types only the user can choose: MakeDefault opens the system's Default apps settings and returns DefaultAsked. On an error it returns DefaultNone. Call it only when the user asked ("Make Notes the default app for .note files").
 
 #### func (DefaultResult) String
 
@@ -1133,7 +1136,11 @@ FileFilter is one entry of a file dialog's list of types: a label and the glob p
 type GlobalShortcut struct {
     // ID identifies the shortcut to the OS, which keeps the user's
     // changes to it across runs (the portal): keep it stable
-    // ("new-note"). Required; unique among the mounted shortcuts.
+    // ("new-note"). Required; unique among the mounted shortcuts. When two
+    // mounted components share an ID (a dev warning), the one that
+    // registered last owns it and gets its events; the other stays
+    // displaced, even after the owner unmounts, until its own ID, Keys or
+    // Description change, when it registers again and becomes the owner.
     ID string
     // Keys is the preferred key combination, such as "Ctrl+Alt+N" or
     // "Super+F5" (see [ParseKeys] for the names). Required; a combination

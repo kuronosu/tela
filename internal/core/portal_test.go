@@ -121,3 +121,14 @@ func TestPortalRejectsProps(t *testing.T) {
 	}()
 	Portal(Class("p-4"))
 }
+
+// TestPortalRejectsDraggable: Draggable on a Portal would make the whole
+// portal layer a drag source; it belongs on the content.
+func TestPortalRejectsDraggable(t *testing.T) {
+	defer func() {
+		if r, _ := recover().(string); !strings.Contains(r, "Portal takes children and a Key only") {
+			t.Errorf("Portal(Draggable(true)) did not panic with the fix: %q", r)
+		}
+	}()
+	Portal(Draggable(true), div())
+}

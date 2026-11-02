@@ -88,6 +88,80 @@ func TestGlobalShortcut(t *testing.T) {
 	}
 }
 
+// Two GlobalShortcuts with one ID: the later one owns it, and rebuilds of
+// either do not register again (the earlier one used to take it back on
+// each of its builds). The displaced one stays out after the owner
+// unmounts, until its own fields change.
+func TestGlobalShortcutSharedID(t *testing.T) {
+	var firstStatus, secondStatus []desktop.ShortcutStatusEvent
+	app := telatest.MountFunc(t, func() tela.Node {
+		second, setSecond := tela.UseState(false)
+		firstKeys, setFirstKeys := tela.UseState("Ctrl+Alt+N")
+		ticks, setTicks := tela.UseState(0)
+		first, setFirst := tela.UseState(0)
+		later, setLater := tela.UseState(0)
+		bump := func(s tela.Setter[int]) func() { return func() { s.Update(func(n int) int { return n + 1 }) } }
+		return Div(
+			Textf("ticks %d, first %d, second %d", ticks, first, later),
+			Button(OnClick(bump(setTicks)), Text("Tick")),
+			Button(OnClick(func() { setSecond.Set(true) }), Text("Second")),
+			Button(OnClick(func() { setSecond.Set(false) }), Text("No second")),
+			Button(OnClick(func() { setFirstKeys.Set("Ctrl+Alt+M") }), Text("Rebind first")),
+			// Closures change every build, so both rebuild on every tick.
+			tela.Component(desktop.GlobalShortcut{ID: "x", Keys: firstKeys, Description: "First",
+				OnPress:  bump(setFirst),
+				OnStatus: func(e desktop.ShortcutStatusEvent) { firstStatus = append(firstStatus, e) }}),
+			If(second, tela.Component(desktop.GlobalShortcut{ID: "x", Keys: "Ctrl+Alt+N", Description: "Second",
+				OnPress:  bump(setLater),
+				OnStatus: func(e desktop.ShortcutStatusEvent) { secondStatus = append(secondStatus, e) }})),
+		)
+	})
+	owner := func(want string) {
+		t.Helper()
+		if got := app.GlobalShortcuts(); len(got) != 1 || got[0].Description != want {
+			t.Fatalf("registered %+v, want one shortcut registered by %s", got, want)
+		}
+	}
+	owner("First")
+	app.Click(telatest.ByRole("button", "Second"))
+	owner("Second")
+	// A status the app was told survives a build only without a new
+	// registration (which would answer Bound again).
+	app.SetShortcutStatus("x", desktop.ShortcutTaken, "")
+	for range 3 {
+		app.Click(telatest.ByRole("button", "Tick"))
+	}
+	owner("Second")
+	if s := app.GlobalShortcuts()[0]; s.Status != desktop.ShortcutTaken {
+		t.Errorf("after rebuilds of both: %+v; want it left Taken (no registration)", s)
+	}
+	if len(firstStatus) != 1 || len(secondStatus) != 2 {
+		t.Errorf("statuses: first %+v, second %+v; want one Bound for the first, Bound and Taken for the second", firstStatus, secondStatus)
+	}
+	app.SetShortcutStatus("x", desktop.ShortcutBound, "Ctrl+Alt+N")
+	app.PressShortcut("x")
+	app.Click(telatest.ByRole("button", "Tick"))
+	app.PressShortcut("x")
+	app.ExpectText("ticks 4, first 0, second 2")
+
+	// The owner unmounts: the ID is unregistered, and the displaced one
+	// stays out through its rebuilds.
+	app.Click(telatest.ByRole("button", "No second"))
+	app.Click(telatest.ByRole("button", "Tick"))
+	if got := app.GlobalShortcuts(); len(got) != 0 {
+		t.Errorf("after the owner unmounted: %+v, want nothing registered", got)
+	}
+	// Its own change registers it again.
+	app.Click(telatest.ByRole("button", "Rebind first"))
+	owner("First")
+	app.Click(telatest.ByRole("button", "Tick"))
+	app.PressShortcut("x")
+	app.ExpectText("ticks 6, first 1, second 2")
+	if len(firstStatus) != 2 || firstStatus[1].Trigger != "Ctrl+Alt+M" {
+		t.Errorf("first's statuses %+v, want a second Bound with Ctrl+Alt+M", firstStatus)
+	}
+}
+
 // Without global shortcuts OnStatus gets Failed wrapping ErrUnsupported;
 // invalid Keys panic in dev mode with the fix.
 func TestGlobalShortcutErrors(t *testing.T) {
@@ -519,6 +593,14 @@ func TestRegistrationInApp(t *testing.T) {
 	app.Unsupported(telatest.Associations)
 	if _, err := desktop.Register(notes, forApp); !errors.Is(err, desktop.ErrUnsupported) {
 		t.Errorf("Register without registration: %v", err)
+	}
+	// A failure did nothing: the zero DefaultResult, never DefaultSet.
+	if r, err := desktop.MakeDefault(notes, forApp); !errors.Is(err, desktop.ErrUnsupported) || r != desktop.DefaultNone {
+		t.Errorf("MakeDefault without registration = %v, %v; want DefaultNone", r, err)
+	}
+	var zero desktop.DefaultResult
+	if zero != desktop.DefaultNone || zero.String() != "none" {
+		t.Errorf("the zero DefaultResult is %v, want DefaultNone", zero)
 	}
 }
 
