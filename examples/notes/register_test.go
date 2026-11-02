@@ -35,6 +35,28 @@ func registered(a *telatest.App, as desktop.Association) (telatest.Registration,
 	return telatest.Registration{}, false
 }
 
+// main makes the desktop know Notes (its desktop entry, for the global
+// shortcut portal), in the built program only. An app is mounted, so the
+// call goes to the headless desktop.
+func TestRegisterAppAtStart(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	blockRegistration(t, "a temporary build")
+	registerApp()
+	if apps := a.RegisteredApps(); len(apps) != 0 {
+		t.Fatalf("a temporary build registered the app: %+v", apps)
+	}
+	blockRegistration(t, "")
+	registerApp()
+	apps := a.RegisteredApps()
+	if len(apps) != 1 || apps[0].ID != "dev.telaui.notes" || apps[0].Name != "Notes" || apps[0].Exec == "" {
+		t.Fatalf("registered apps %+v, want dev.telaui.notes", apps)
+	}
+	if s, err := desktop.AppStatus(); err != nil || !s.Registered || !s.Requested {
+		t.Errorf("AppStatus = %+v, %v", s, err)
+	}
+}
+
 func TestNothingIsRegisteredInTests(t *testing.T) {
 	sandbox(t)
 	a := mount(t)

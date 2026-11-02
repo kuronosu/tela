@@ -126,6 +126,50 @@ func TestQuickNoteStatusInPreferences(t *testing.T) {
 	prefs.ExpectText("On. Press Ctrl+Alt+N from any application")
 }
 
+// Hyprland registers the shortcut but assigns no keys: Preferences shows
+// the keys asked for as requested, and the line to add to hyprland.conf.
+func TestQuickNoteUnassigned(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	prefs := openPreferences(a, "Shortcuts")
+	a.SetShortcutUnassigned("quick-note")
+	prefs.ExpectText("the desktop has not assigned keys")
+	prefs.ExpectText("bind = CTRL ALT, N, global, " + desktop.AppID() + ":quick-note")
+	prefs.ExpectText("Ctrl+Alt+N")
+	prefs.ExpectNoText("On. Press")
+	// Once the user bound it, a press works as always.
+	a.PressShortcut("quick-note")
+	a.ExpectRole("button", "Untitled note")
+	// Turned off, the hint goes.
+	prefs.Click(quickSwitch)
+	prefs.ExpectText("Off.")
+	prefs.ExpectNoText("bind = ")
+}
+
+// A desktop that does not know the app (no desktop entry: a go run or
+// tela dev build that was never installed) says how to fix it.
+func TestQuickNoteAppNotRegistered(t *testing.T) {
+	sandbox(t)
+	a := mount(t)
+	a.FailShortcuts(desktop.ErrAppNotRegistered)
+	prefs := openPreferences(a, "Shortcuts")
+	prefs.Click(quickSwitch) // off
+	prefs.Click(quickSwitch) // and on again: the desktop is asked again
+	prefs.ExpectText("The desktop does not know Notes yet")
+	prefs.ExpectNoText("On. Press")
+}
+
+func TestHyprlandBind(t *testing.T) {
+	for _, c := range []struct{ keys, want string }{
+		{"Ctrl+Alt+N", "bind = CTRL ALT, N, global, dev.telaui.notes:quick-note"},
+		{"Super+F5", "bind = SUPER, F5, global, dev.telaui.notes:quick-note"},
+	} {
+		if got := hyprlandBind(c.keys, "dev.telaui.notes", "quick-note"); got != c.want {
+			t.Errorf("hyprlandBind(%q) = %q, want %q", c.keys, got, c.want)
+		}
+	}
+}
+
 // A desktop with no global shortcuts says so.
 func TestQuickNoteNotAvailable(t *testing.T) {
 	sandbox(t)
@@ -149,4 +193,8 @@ func TestGoldenShortcuts(t *testing.T) {
 	a.SetShortcutStatus("quick-note", desktop.ShortcutTaken, "")
 	prefs.ExpectText("Taken by another application")
 	prefs.Golden("preferences_shortcuts_taken.png")
+
+	a.SetShortcutUnassigned("quick-note")
+	prefs.ExpectText("the desktop has not assigned keys")
+	prefs.Golden("preferences_shortcuts_unassigned.png")
 }
