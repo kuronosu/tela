@@ -91,7 +91,8 @@ func menuLines(b *Backend, menu darwin.ID, depth int, out *[]string) {
 			continue
 		}
 		e := menuEntry{Title: darwin.GoString(darwin.Send(it, mtsel.title))}
-		if a := darwin.SEL(darwin.Send(it, mtsel.action)); a != 0 {
+		// AppKit gives an item with a submenu the action submenuAction:.
+		if a := darwin.SEL(darwin.Send(it, mtsel.action)); a != 0 && darwin.Send(it, mtsel.submenu) == 0 {
 			e.Action = darwin.SelName(a)
 		}
 		if darwin.Send(it, mtsel.target) == b.menus.target && b.menus.target != 0 {
@@ -157,8 +158,9 @@ func checkBar(t *testing.T, b *Backend, what string, plan []menuEntry) {
 			}
 		}
 	}
+	// AppKit keeps one Services menu: the Services item must open it.
 	if s := darwin.Send(app.ns, mtsel.servicesMenu); s != wantServices || s == 0 {
-		t.Errorf("%s: NSApp.servicesMenu %#x, want the app menu's Services %#x", what, s, wantServices)
+		t.Errorf("%s: the Services item's submenu is %#x, NSApp.servicesMenu %#x; want the same menu", what, wantServices, s)
 	}
 	if w := darwin.Send(app.ns, mtsel.windowsMenu); w != wantWindows {
 		t.Errorf("%s: NSApp.windowsMenu %#x, want %#x", what, w, wantWindows)
@@ -263,7 +265,7 @@ func TestAppMenuBar(t *testing.T) {
 		darwin.Send(appMenu, mtsel.performAtIndex, settings) // AppMenuEvent 50
 	}, func(w *Window, e platform.Event) bool {
 		if me, ok := e.(platform.AppMenuEvent); ok {
-			if w != nil {
+			if eventWindow != nil {
 				t.Errorf("AppMenuEvent %d delivered with a window", me.Item)
 			}
 			chosen = append(chosen, me.Item)
@@ -402,10 +404,14 @@ const (
 	cmdFlag          = darwin.NSEventModifierFlagCommand
 )
 
-// tapCmd sends a Command key press and release to the window.
+// tapCmd sends a Command key press and release to the window, and logs
+// which matching chose a menu item for it (AppKit's or the backend's).
 func (s *menuSession) tapCmd(code uint16, chars string) {
+	before := menuKeyStats
 	s.sendKey(s.keyEvent(true, code, cmdFlag, chars))
 	s.sendKey(s.keyEvent(false, code, cmdFlag, chars))
+	s.t.Logf("Cmd+%s: chosen by AppKit's matching %d, by the backend's %d",
+		chars, menuKeyStats.appKit-before.appKit, menuKeyStats.own-before.own)
 }
 
 // TestAppMenuKeys: a key equivalent of the app's bar chooses its item and
@@ -445,6 +451,14 @@ func TestAppMenuKeys(t *testing.T) {
 			if err := s.b.Desktop().SetAppMenu(testAppMenu, testAppItems); err != nil {
 				s.t.Errorf("SetAppMenu: %v", err)
 			}
+			main := darwin.Send(app.ns, msel.mainMenu)
+			tools := darwin.Send(darwin.Send(main, mtsel.itemAtIndex, indexWhere(main, titled("Tools"))), mtsel.submenu)
+			darwin.Send(tools, mtsel.update)
+			run := darwin.Send(tools, mtsel.itemAtIndex, 0)
+			s.t.Logf("Tools > %s: key equivalent %q mask %#x, enabled %v, target is the backend's %v",
+				darwin.GoString(darwin.Send(run, mtsel.title)), darwin.GoString(darwin.Send(run, mtsel.keyEquivalent)),
+				darwin.SendUint(run, mtsel.modifierMask), darwin.SendBool(run, mtsel.isEnabled),
+				darwin.Send(run, mtsel.target) == s.b.menus.target)
 			s.tapCmd(kvkK, "k")
 			s.tapCmd(kvkJ, "j")
 		},
@@ -549,7 +563,7 @@ func TestQuitRequest(t *testing.T) {
 	}, func(w *Window, e platform.Event) bool {
 		if _, ok := e.(platform.QuitRequestedEvent); ok {
 			quits++
-			if w != nil {
+			if eventWindow != nil {
 				t.Errorf("QuitRequestedEvent delivered with a window")
 			}
 			if phase == 2 {

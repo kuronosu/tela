@@ -243,3 +243,34 @@ func TestEditKeys(t *testing.T) {
 		t.Errorf("Shift+Cmd+C counts as copy's standard key")
 	}
 }
+
+func TestKeyEquivalentMatches(t *testing.T) {
+	cmd, shift, opt := keyboard.MacFlagCommand, keyboard.MacFlagShift, keyboard.MacFlagOption
+	caps, fn := keyboard.MacFlagCapsLock, uint64(1<<23)
+	for _, c := range []struct {
+		key   string
+		mask  uint64
+		chars string
+		flags uint64
+		want  bool
+	}{
+		{"k", cmd, "k", cmd, true},
+		{"k", cmd, "k", cmd | 0x100 | 0x8, true}, // device bits
+		{"k", cmd, "K", cmd | caps, true},        // Caps Lock
+		{"k", cmd, "k", cmd | shift, false},
+		{"z", cmd | shift, "Z", cmd | shift, true}, // AppKit's Shift+Cmd+Z
+		{"z", cmd, "Z", cmd | shift, false},
+		{"Z", cmd, "Z", cmd | shift, true}, // an upper-case key implies Shift
+		{"h", cmd | opt, "h", cmd | opt, true},
+		{"h", cmd, "h", cmd | opt, false},
+		{"", 0, "", fn, true}, // F5: Fn does not count
+		{",", cmd, ",", cmd, true},
+		{"", cmd, "k", cmd, false},
+		{"k", cmd, "", cmd, false},
+		{"k", cmd, "j", cmd, false},
+	} {
+		if got := keyEquivalentMatches(c.key, c.mask, c.chars, c.flags); got != c.want {
+			t.Errorf("keyEquivalentMatches(%q, %s, %q, %#x) = %v, want %v", c.key, modsText(c.mask), c.chars, c.flags, got, c.want)
+		}
+	}
+}

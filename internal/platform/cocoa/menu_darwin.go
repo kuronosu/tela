@@ -38,7 +38,11 @@ import (
 //     delivering a Command or Control key, and AppKit asks it before
 //     keyDown: for the others), so a key that chooses an item is not
 //     delivered as a KeyEvent; its release is dropped by the held-key set,
-//     which saw no press. A key no item has is delivered as before. An
+//     which saw no press. When -[NSMenu performKeyEquivalent:] takes no
+//     item, the backend matches the bar's key equivalents itself
+//     (performKeyEquivalent) before delivering the key, since AppKit's
+//     matching missed an item of the app's bar on macos-latest. A key no
+//     item has is delivered as before. An
 //     accelerator that does not parse, or whose key has no key equivalent
 //     (media keys), is not shown and the item is still made: NSMenuItem
 //     can show only a key equivalent.
@@ -64,7 +68,9 @@ var msel = struct {
 	setMainMenu, mainMenu, setServicesMenu, setWindowsMenu, setHelpMenu darwin.SEL
 	setKeyEquivalentModifierMask, popUp, cancelTracking                 darwin.SEL
 	mainBundle, objectForInfoDictionaryKey, processName, processInfo    darwin.SEL
-	isKindOfClass                                                       darwin.SEL
+	isKindOfClass, servicesMenu, supermenu, indexOfItemWithSubmenu      darwin.SEL
+	numberOfItems, itemAtIndex, submenu, keyEquivalent, modifierMask    darwin.SEL
+	isEnabled, isHidden, update, performActionForItemAtIndex            darwin.SEL
 }{
 	setMainMenu:                  darwin.Sel("setMainMenu:"),
 	mainMenu:                     darwin.Sel("mainMenu"),
@@ -79,6 +85,18 @@ var msel = struct {
 	processName:                  darwin.Sel("processName"),
 	processInfo:                  darwin.Sel("processInfo"),
 	isKindOfClass:                darwin.Sel("isKindOfClass:"),
+	servicesMenu:                 darwin.Sel("servicesMenu"),
+	supermenu:                    darwin.Sel("supermenu"),
+	indexOfItemWithSubmenu:       darwin.Sel("indexOfItemWithSubmenu:"),
+	numberOfItems:                darwin.Sel("numberOfItems"),
+	itemAtIndex:                  darwin.Sel("itemAtIndex:"),
+	submenu:                      darwin.Sel("submenu"),
+	keyEquivalent:                darwin.Sel("keyEquivalent"),
+	modifierMask:                 darwin.Sel("keyEquivalentModifierMask"),
+	isEnabled:                    darwin.Sel("isEnabled"),
+	isHidden:                     darwin.Sel("isHidden"),
+	update:                       darwin.Sel("update"),
+	performActionForItemAtIndex:  darwin.Sel("performActionForItemAtIndex:"),
 }
 
 // menuState is the backend's state of the native menus and the quit
@@ -253,7 +271,13 @@ func (b *Backend) buildMenu(entries []menuEntry, title string, specials *barMenu
 			darwin.Send(mi, trsel.setState, state)
 		}
 		if e.HasSubmenu {
-			sub := b.buildMenu(e.Submenu, e.Title, specials)
+			var sub darwin.ID
+			if e.Special == specialServices && specials != nil {
+				sub = adoptServicesMenu()
+			}
+			if sub == 0 {
+				sub = b.buildMenu(e.Submenu, e.Title, specials)
+			}
 			darwin.Send(mi, trsel.setSubmenu, sub)
 			if specials != nil {
 				switch e.Special {
@@ -271,6 +295,25 @@ func (b *Backend) buildMenu(entries []menuEntry, title string, specials *barMenu
 		darwin.Release(mi)
 	}
 	return menu
+}
+
+// adoptServicesMenu returns NSApp's Services menu (+1), taken off the
+// item of the bar it is in, or 0 when NSApp has none. AppKit keeps one
+// Services menu object, the one it fills: on macos-latest
+// -[NSApplication servicesMenu] was the same object before and after
+// setServicesMenu: was given a new one, so a new menu would stay empty.
+// A menu can be the submenu of one item only, so it moves to the new bar.
+func adoptServicesMenu() darwin.ID {
+	s := darwin.Retain(darwin.Send(app.ns, msel.servicesMenu))
+	if s == 0 {
+		return 0
+	}
+	if sup := darwin.Send(s, msel.supermenu); sup != 0 {
+		if i := darwin.SendInt(sup, msel.indexOfItemWithSubmenu, s); i >= 0 {
+			darwin.Send(darwin.Send(sup, msel.itemAtIndex, i), trsel.setSubmenu, darwin.ID(0))
+		}
+	}
+	return s
 }
 
 // appName returns the name of the app menu's items: the bundle's
@@ -360,7 +403,51 @@ func mainMenuKey(ev darwin.ID) bool {
 	prev := menuKeyEvent // a quit request's wait may nest key events
 	menuKeyEvent = ev
 	defer func() { menuKeyEvent = prev }()
-	return darwin.SendBool(menu, isel.performKeyEquivalent, ev)
+	if darwin.SendBool(menu, isel.performKeyEquivalent, ev) {
+		menuKeyStats.appKit++
+		return true
+	}
+	if performKeyEquivalent(menu, darwin.GoString(darwin.Send(ev, isel.charactersIgnoring)), darwin.SendUint(ev, isel.modifierFlags)) {
+		menuKeyStats.own++
+		return true
+	}
+	return false
+}
+
+// menuKeyStats counts the key equivalents AppKit's
+// -[NSMenu performKeyEquivalent:] matched and the ones only
+// performKeyEquivalent did (tests).
+var menuKeyStats struct{ appKit, own int }
+
+// performKeyEquivalent chooses the enabled, visible item of menu
+// (submenus included) whose key equivalent is chars with the modifiers of
+// flags (keyEquivalentMatches), as -[NSMenu performKeyEquivalent:] does,
+// and reports whether there was one. It is asked after AppKit's own
+// matching, which on macos-latest did not choose the item of a Command
+// key of the app's bar for a key event made from a CGEvent (an event
+// without a window, as the tests make them; the cause is not known):
+// menuKeyStats tells the tests which of the two chose.
+func performKeyEquivalent(menu darwin.ID, chars string, flags uint64) bool {
+	darwin.Send(menu, msel.update) // automatic enabling
+	n := darwin.SendInt(menu, msel.numberOfItems)
+	for i := 0; i < n; i++ {
+		it := darwin.Send(menu, msel.itemAtIndex, i)
+		if darwin.SendBool(it, msel.isHidden) || !darwin.SendBool(it, msel.isEnabled) {
+			continue
+		}
+		if sub := darwin.Send(it, msel.submenu); sub != 0 {
+			if performKeyEquivalent(sub, chars, flags) {
+				return true
+			}
+			continue
+		}
+		key := darwin.GoString(darwin.Send(it, msel.keyEquivalent))
+		if keyEquivalentMatches(key, darwin.SendUint(it, msel.modifierMask), chars, flags) {
+			darwin.Send(menu, msel.performActionForItemAtIndex, i)
+			return true
+		}
+	}
+	return false
 }
 
 // editAction performs the edit role r in the window: the key press that

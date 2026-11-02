@@ -256,6 +256,27 @@ func keyEquivalent(a platform.Accelerator) (key string, mods uint64, ok bool) {
 	return key, mods, true
 }
 
+// keyEquivalentMatches reports whether a key down whose
+// charactersIgnoringModifiers is chars and whose modifierFlags is flags
+// is the key equivalent key with modifier mask mask: the same Shift,
+// Control, Option and Command (an upper-case key implies Shift, as in
+// AppKit), and the same character, letters without regard to case
+// (AppKit reports Shift+Cmd+Z as "Z"). Other flags (Caps Lock, Fn, the
+// numeric pad, the device bits) do not count.
+func keyEquivalentMatches(key string, mask uint64, chars string, flags uint64) bool {
+	if key == "" || chars == "" {
+		return false
+	}
+	const mods = keyboard.MacFlagShift | keyboard.MacFlagControl | keyboard.MacFlagOption | keyboard.MacFlagCommand
+	if strings.ToLower(key) != key {
+		mask |= keyboard.MacFlagShift
+	}
+	if mask&mods != flags&mods {
+		return false
+	}
+	return strings.EqualFold(key, chars)
+}
+
 // accelKeyEquivalent returns the key equivalent of an item's Accelerator
 // text (macAccelerator, then keyEquivalent). Text that does not parse, or
 // a key without a key equivalent, gives none: the item shows no shortcut
