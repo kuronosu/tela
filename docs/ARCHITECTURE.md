@@ -118,7 +118,7 @@ Contributions that break these are rejected.
 │                 settings store (ADR-178); clipboard, global   │
 │                 shortcuts, single instance, registration,     │
 │                 secrets, native menus (ADR-213); trash        │
-│                 (ADR-216)                                     │
+│                 (ADR-216); the app menu bar, roles (ADR-226)  │
 ├───────────────────────────────────────────────────────────────┤
 │ tela   +   h    Public API: Run, App, Window, hooks │ elements│
 ├───────────────────────────────────────────────────────────────┤
@@ -163,7 +163,7 @@ platform → gfx → svg → text → style → layout → {anim, gesture, seman
 tela/
 ├── tela.go, app.go, hooks.go, node.go, events.go   # package tela
 ├── h/                    # elements and props (designed for dot-import)
-├── desktop/              # OS services: dialogs, tray, notifications, paths, settings store (ADR-178); clipboard, shortcuts, launches, registration, secrets, menus (ADR-213), trash (ADR-216)
+├── desktop/              # OS services: dialogs, tray, notifications, paths, settings store (ADR-178); clipboard, shortcuts, launches, registration, secrets, menus (ADR-213), trash (ADR-216), the app menu bar and roles (ADR-226)
 ├── i18n/                 # message catalogs, plurals, locale formatting (ADR-087)
 │   └── internal/gen/     # go:generate: date and list patterns, week data from vendored CLDR JSON
 ├── aria/                 # behavior hooks, floating positioning
@@ -570,7 +570,7 @@ func TestCounter(t *testing.T) {
 - `app.AriaSnapshot()` returns the same YAML as `tela inspect` for assertion.
 - State assertions without strings (ADR-086): `app.Expect(loc, telatest.Checked(true), telatest.Disabled(false))` (also `Pressed`, `Selected`, `Expanded`, `Focused`, `Invalid`, `Sort`, `Current`, `HasName`, `HasValue`); `ByTestID` finds elements by `h.TestID`; `Bounds` returns a `tela.Rect`; `ClickAt`, `DragFromTo`, `PixelAt`, `Measure`, `GoldenScales` and `MountFunc` shorten the rest.
 - `PlatformKeys(goos)` gives one app another platform's key conventions (text field bindings, `CmdOrCtrl`, what `ControlOrMeta` presses), so Mac behavior is tested on any OS (ADR-221).
-- Several windows (ADR-183): `app.Windows()`, `app.Window(title)` and `app.WaitForWindow(f)` return an `*App` scoped to one window; `ExpectWindowState`, `RequestClose`, `HitRegions` and `ExpectQuit` cover window-level behavior through the headless window manager.
+- Several windows (ADR-183): `app.Windows()`, `app.Window(title)` and `app.WaitForWindow(f)` return an `*App` scoped to one window; `ExpectWindowState`, `RequestClose`, `HitRegions` and `ExpectQuit` cover window-level behavior through the headless window manager; `RequestQuit`, `SetTitleBarControls`, `AppMenuBar` and `ChooseAppMenuItem` the macOS integration, and `WithUnsupported` plays platforms without a service (ADR-226).
 
 ### Debug overlays (from Chrome DevTools / Flutter DevTools)
 
