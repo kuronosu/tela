@@ -391,3 +391,18 @@ jobs:
         env:
           CGO_ENABLED: "0"
         run: go test -timeout 20m ./internal/platform/...
+      - name: go test (key conventions on a Mac host)
+        if: success() || failure()
+        env:
+          CGO_ENABLED: "0"
+        # These packages follow the host's platform flavor (ADR-221).
+        run: go test -timeout 20m ./internal/core/... ./aria/... ./telatest/... ./h/... ./kit/...
+      - name: Upload golden diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diffs-macos
+          path: |
+            **/*_actual.png
+            **/*_diff.png
+          if-no-files-found: ignore
