@@ -6,8 +6,8 @@ counter, then shows how to render the same screen without a window.
 ## Requirements
 
 - Go 1.27 or newer.
-- To open a window: a Wayland or X11 session on Linux, or Windows. macOS
-  builds, but has no window backend yet.
+- To open a window: a Wayland or X11 session on Linux, Windows, or macOS 13
+  or later.
 - Nothing else. There is no C toolchain, no GTK, no browser: build with
   `CGO_ENABLED=0` and ship one static binary.
 

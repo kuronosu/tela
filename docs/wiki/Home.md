@@ -29,8 +29,8 @@ func Counter() tela.Node {
 ```
 
 > **Status: pre-1.0.** The public API (`tela`, `h`, `telatest`) may still
-> break between minor versions. macOS has no window backend yet (it only
-> cross-compiles). See the [project status](https://github.com/kuronosu/tela#project-status).
+> break between minor versions. macOS (13 or later) has a native backend,
+> verified on CI but not yet on a real Mac. See the [project status](https://github.com/kuronosu/tela#project-status).
 
 ## Guides
 

@@ -439,7 +439,7 @@ error too. Tests make a service unsupported on purpose with `app.Unsupported(...
 ## Platform notes
 
 What is supported where (Linux is Wayland and X11 over the XDG Desktop Portal and the
-freedesktop D-Bus services; macOS has no backend yet):
+freedesktop D-Bus services; on macOS the desktop services are the next phase and return `ErrUnsupported`):
 
 | | Linux | Windows |
 |---|---|---|

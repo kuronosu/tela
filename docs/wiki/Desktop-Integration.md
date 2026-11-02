@@ -606,7 +606,9 @@ from that:
 ## Platform notes
 
 Linux is Wayland and X11 over the XDG Desktop Portal and the freedesktop D-Bus
-services; macOS has no window yet (its backend is the next phase).
+services. On macOS the clipboard works with every data type; drag and drop, menus,
+shortcuts, single instance, registration, secrets and the Trash are the next phase
+and return `ErrUnsupported`.
 
 | | Linux | Windows |
 |---|---|---|

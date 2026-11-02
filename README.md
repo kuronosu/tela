@@ -31,8 +31,9 @@ error.
 > (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
-> `kit`, ready-made components you can restyle. macOS
-> is not there yet. The public API (`tela`, `h`) may still break between minor
+> `kit`, ready-made components you can restyle. Phase 14 adds the macOS
+> backend (macOS 13 or later), verified on CI; it has not yet been tried on
+> a real Mac. The public API (`tela`, `h`) may still break between minor
 > versions. See [Project status](#project-status).
 
 ## Contents
@@ -55,8 +56,8 @@ error.
 
 - **Pure Go, always `CGO_ENABLED=0`.** Linux talks the Wayland and X11
   protocols over Unix sockets, Windows calls the system DLLs through
-  `syscall`, and the macOS backend (planned) will use the Objective-C runtime
-  without cgo. One `go build`,
+  `syscall`, and macOS calls AppKit through the Objective-C runtime
+  (purego), without cgo. One `go build`,
   one static binary, easy cross-compilation.
 - **Known vocabulary.** Names copy React (`UseState`, `UseEffect`, `Key`,
   `OnClick`) and classes copy Tailwind v4 verbatim. If an LLM would write it
@@ -384,17 +385,22 @@ are done (ADR-208 sets how versions are numbered).
 | 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | ✅ v0.11.0 |
 | 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | ✅ v0.12.0 |
 | 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | ✅ v0.13.1 |
-| — | The macOS backend | next |
+| 14 | The macOS backend: Cocoa windows, input, IME, clipboard, settings, `tela dev`, `looks/aqua` | in progress |
 | — | macOS desktop integration, Linux and Windows parity (IME on X11), font system, accessibility, API and kit gaps, layout and text fidelity, memory, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 
 | | Linux Wayland | Linux X11 | Headless | Windows | macOS |
 |---|---|---|---|---|---|
-| Window and rendering | ✅ | ✅ | ✅ | ✅ | cross-compiles, no backend yet |
-| Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
-| Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | — |
-| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (planned, XIM) | ✅ (injected) | ✅ (IMM32) | — |
+| Window and rendering | ✅ | ✅ | ✅ | ✅ | ✅ (Cocoa, CI) |
+| Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | ✅ (CI) |
+| Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | ✅ (CI) |
+| IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (planned, XIM) | ✅ (injected) | ✅ (IMM32) | ✅ (`NSTextInputClient`, CI) |
+| Window control, dialogs, tray, menus, drag and drop | ✅ | ✅ | ✅ (fakes) | ✅ | — (the macOS desktop integration phase) |
+
+macOS is verified on `macos-latest` CI (every example's window matches its
+headless render pixel for pixel); a session on a real Mac (Retina, trackpad,
+the Japanese IME) is still to come.
 
 Implemented: block, flex and grid layout with relative, absolute, fixed and
 sticky positioning; Tailwind classes and variants; shaped text with fallback;
@@ -411,14 +417,16 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
 
 ### Not yet, or known limits
 
-- **No macOS window** yet (the next phase); it cross-compiles. No IME on X11
-  yet (XIM, planned).
+- **macOS** has windows, input, IME and the clipboard, but no window control,
+  dialogs, tray, notifications, native menus or drag and drop yet (the next
+  phase), and it has not been tried on a real Mac. No IME on X11 yet (XIM,
+  planned).
 - **Glass pages at 2x are not 60 fps** on CPU (the dashboard example's p95 is
   40 ms per frame at 1080p and scale 2, 17.8 ms at scale 1).
 - Transforms are 2D only; SVG has no text, filters or patterns; no
   `grid-template-areas` from classes; menus have no submenus yet.
-- `tela dev` has not been run on macOS; an IME composition is lost across a
-  reload, and a renamed component starts fresh.
+- In `tela dev` an IME composition is lost across a reload, and a renamed
+  component starts fresh.
 - No accessibility backend (AT-SPI, UIA, NSAccessibility) yet.
 
 The full list of limitations is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
