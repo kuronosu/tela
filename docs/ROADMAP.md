@@ -23,8 +23,12 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 
 Started 2026-11-02 on the work branch `phase-14-macos` (ADR-220). Verified on `macos-latest` CI; what needs a real Mac goes to the macOS live checks.
 
-- [ ] First: one host-platform flavor (Linux, Windows, Mac) read by `core`'s key bindings and word rules, `aria`'s `ctrlKey` and `telatest`'s `ControlOrMeta`, overridable in tests so Mac behavior runs off-Mac (codebase review 2026-10-29, C11; a public "primary modifier" query needs an ADR)
+- [x] First: one host-platform flavor (Linux, Windows, Mac) read by `core`'s key bindings and word rules, `aria`'s collections and `telatest`'s `ControlOrMeta`, overridable in tests (ADR-221: `platform.Flavor`, public `CmdOrCtrl()` on events, `telatest.PlatformKeys`); the suite passes with a Mac host
 - [ ] `cocoa` backend via purego, with a CI job on `macos-latest`: app and event loop, window, present, HiDPI, frame pacing, keyboard, pointer and trackpad scrolling (precise deltas, gesture phases, momentum), cursors, text clipboard, settings (dark mode, accent, reduced motion, contrast)
+  - [x] Base (ADR-222): purego bindings in the leaf `internal/darwin`, `[NSApp run]` loop, windows, a layer-hosting view presented through a `CGImage`, the `macos-latest` CI job; platformtest conformance and a pixel read-back pass there
+  - [x] The OS-independent macOS key translation (`internal/platform/internal/keyboard/mac.go`)
+  - [ ] Keyboard, pointer, scrolling, cursors and the display link in the backend
+  - [ ] Clipboard and settings
 - [ ] IME through `NSTextInputClient`, with tests that drive the protocol in CI
 - [ ] `tela dev` with a cocoa host
 - [ ] `looks/aqua` and its entry in `detect.For` (ADR-197)
@@ -173,6 +177,7 @@ Inspecting and driving a running app.
 - [ ] `tela dev` keeps what a swap loses today: kit components' aria hook state held in refs (silent resets), a renamed component's state, an IME composition
 - [ ] `tela dev` with desktop services: a drop's final effect set inside `OnDrop` reaches the source; a refused or taken shortcut status is not cached until `tela dev` restarts; a window a new build opens only later (from an effect) does not close and reopen on reload; a dialog opened at startup does not show again on every reload; a reload while a Wayland window is minimized does not stall; the Windows 11 backdrop reaches the client area
 - [ ] Dev builds can be debugged (DWARF)
+- [ ] `telatest`: clicks with modifiers (Playwright's `click({modifiers})`; aria's Cmd+click tests mount through `rawwin` today); menu accelerators' `CmdOrCtrl` follow the host, not `PlatformKeys` (ADR-221)
 - [ ] `telatest`: plays Windows' `DefaultAsked` for file types and gives a start launch; a wait on a long timer of the app's clock advances to the next deadline when nothing else is due (today one frame per try, about 120 tries for 2 s, so it depends on the machine's speed)
 - [ ] `watch`: find why `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`: nothing reported for a directory moved into the tree, no error; the watcher and the test now report more); the Windows poller holds each directory open while it lists it, so a rename of that directory fails for that moment
 - [ ] CI: the win32 tests that read the screen (title bar colors, backdrop, frameless modal and glass pixels) or open real dialogs run only with `TELA_LIVE=1`, so CI checks their attributes but not their pixels; the win32 keyboard tests inject their "slow" keys 40 ms apart from a goroutine and check the focus only at the start, so they rely on running alone; a global-shortcut press injected with `keybd_event` or `SendInput` from a scheduled task never arrives, so only a real key press checks it
@@ -209,6 +214,7 @@ Checks that need hardware or a desktop the project does not have at hand. They n
 This session gates v1.0's "macOS supported". Items a phase adds after the session wait for a later one.
 
 - [ ] Every example at Retina scale; trackpad scrolling, momentum and gestures; Cmd shortcuts and word movement
+- [ ] Keyboard: the ISO swap of kVK_ISO_Section and the grave key, `charactersIgnoringModifiers` with Cmd+Shift, dead keys without the IME, the Caps Lock `flagsChanged:` pattern, the Globe/Fn key's keycode on new keyboards
 - [ ] Japanese through the macOS IME
 - [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
 - [ ] After Accessibility: VoiceOver reads, navigates and operates `login`
