@@ -21,10 +21,11 @@
 //   - layer.png: the content view's layer rendered with renderInContext:,
 //     what the window holds before the window server;
 //   - unstable.png: when the window never settled, the pixels that changed
-//     from telaCaptureMinShown after it appeared on (white): what an
-//     endless animation or a clock moves, which no single headless frame
-//     can match; the changes before are the window appearing (its fade-in,
-//     the first frames). Absent when the window settled;
+//     in any read back after the first full one (white): what an endless
+//     animation or a clock moves, which no single headless frame can
+//     match. A full read back is the first whose window server capture is
+//     opaque outside the corners (the window has faded in), or the first
+//     layer read back. Absent when the window settled;
 //   - report.json: telaCaptureReport.
 //
 // It waits for the window to settle: it reads the window back every
@@ -79,7 +80,8 @@ type telaCaptureReport struct {
 	LastChangeMS   int64    `json:"lastChangeMs"` // since the window appeared
 	Timeline       []string `json:"timeline"`     // the changes seen, oldest first (bounded)
 	Unstable       int      `json:"unstable"`     // pixels in unstable.png
-	MaskFromMS     int64    `json:"maskFromMs"`   // unstable.png: the changes from this time after the window appeared
+	BaseMS         int64    `json:"baseMs"`       // the first full read back, since the window appeared
+	ShownMS        int64    `json:"shownMs"`      // from the window appearing to the final read back
 	Time           string   `json:"time"`         // wall clock of the final capture, RFC 3339
 
 	Windows []telaCaptureWindow `json:"windows"` // the app's windows at the final capture
@@ -98,16 +100,20 @@ type telaCaptureReport struct {
 }
 
 type telaCaptureWindow struct {
-	Number  int     `json:"number"`
-	Title   string  `json:"title"`
-	W       float64 `json:"w"` // content view bounds, points
-	H       float64 `json:"h"`
-	Scale   float64 `json:"scale"` // backingScaleFactor
-	Key     bool    `json:"key"`
-	Style   uint64  `json:"styleMask"`
-	PhysW   int     `json:"physW"`
-	PhysH   int     `json:"physH"`
-	FrameW  float64 `json:"frameW"` // the window's frame, points (title bar included)
+	Number int     `json:"number"`
+	Title  string  `json:"title"`
+	W      float64 `json:"w"` // content view bounds, points
+	H      float64 `json:"h"`
+	Scale  float64 `json:"scale"` // backingScaleFactor
+	Key    bool    `json:"key"`
+	Style  uint64  `json:"styleMask"`
+	PhysW  int     `json:"physW"`
+	PhysH  int     `json:"physH"`
+	FrameW float64 `json:"frameW"` // the window's frame, points (title bar included)
+	// The visible frame of the window's screen (without the menu bar and
+	// the Dock), points: AppKit keeps a window's frame inside it.
+	ScreenW float64 `json:"screenW"`
+	ScreenH float64 `json:"screenH"`
 	FrameH  float64 `json:"frameH"`
 	Visible bool    `json:"visible"`
 }
@@ -138,6 +144,7 @@ var telaCaptureSel = struct {
 	controlAccentColor, sRGBColorSpace, colorUsingColorSpace                         telaCaptureSEL
 	redComponent, greenComponent, blueComponent                                      telaCaptureSEL
 	sharedWorkspace, reduceMotion, increaseContrast                                  telaCaptureSEL
+	screen, visibleFrame                                                             telaCaptureSEL
 }{
 	sharedApplication:    tcdarwin.Sel("sharedApplication"),
 	windows:              tcdarwin.Sel("windows"),
@@ -167,6 +174,8 @@ var telaCaptureSel = struct {
 	sharedWorkspace:      tcdarwin.Sel("sharedWorkspace"),
 	reduceMotion:         tcdarwin.Sel("accessibilityDisplayShouldReduceMotion"),
 	increaseContrast:     tcdarwin.Sel("accessibilityDisplayShouldIncreaseContrast"),
+	screen:               tcdarwin.Sel("screen"),
+	visibleFrame:         tcdarwin.Sel("visibleFrame"),
 }
 
 // telaCaptureSEL is a selector (the alias keeps the struct above short).
@@ -195,9 +204,10 @@ func telaCaptureRun(dir string, start tctime.Time) {
 		shown      tctime.Time // the first visible window
 		prev       *tcimage.RGBA
 		prevKind   string
+		prevFull   bool
 		lastChange []int32 // per pixel, the capture that last changed it
 		lastIdx    = -1    // the last capture with a change
-		maskFrom   = -1    // the first capture telaCaptureMinShown after the window appeared
+		base       = -1    // the first full read back (lastChange starts there)
 		lastAt     tctime.Time
 		final      telaCaptureShot
 		n          int
@@ -238,16 +248,23 @@ func telaCaptureRun(dir string, start tctime.Time) {
 			continue
 		}
 		since := now.Sub(shown).Milliseconds()
+		full := kind == "layer" || telaCaptureOpaque(pix)
 		switch {
-		case prev == nil || prev.Rect != pix.Rect || prevKind != kind:
+		case prev == nil || prev.Rect != pix.Rect || prevKind != kind || !full || !prevFull:
 			lastChange = make([]int32, pix.Rect.Dx()*pix.Rect.Dy())
 			for i := range lastChange {
 				lastChange[i] = int32(n)
 			}
 			lastIdx, lastAt = n, now
+			base, rep.BaseMS = n, since
 			what := "first read back"
-			if prev != nil {
+			switch {
+			case !full:
+				what = "not full yet (transparent outside the corners: fading in)"
+			case prev != nil && prevFull:
 				what = tcfmt.Sprintf("read back changed from %s %v to %s %v", prevKind, prev.Rect.Size(), kind, pix.Rect.Size())
+			case prev != nil:
+				what = "first full read back"
 			}
 			telaCaptureLog(rep, tcfmt.Sprintf("%dms #%d: %s (%s, %v)", since, n, what, kind, pix.Rect.Size()))
 		default:
@@ -268,14 +285,10 @@ func telaCaptureRun(dir string, start tctime.Time) {
 				telaCaptureLog(rep, tcfmt.Sprintf("%dms #%d: %d pixels changed in %v", since, n, changed, box))
 			}
 		}
-		prev, prevKind, final = pix, kind, shot
-		if maskFrom < 0 && now.Sub(shown) >= telaCaptureMinShown {
-			maskFrom = n
-			rep.MaskFromMS = since
-		}
+		prev, prevKind, prevFull, final = pix, kind, full, shot
 		quiet := n - lastIdx
 		n++
-		if quiet >= telaCaptureQuiet && now.Sub(shown) >= telaCaptureMinShown {
+		if full && quiet >= telaCaptureQuiet && now.Sub(shown) >= telaCaptureMinShown {
 			rep.Settled = true
 			break
 		}
@@ -289,6 +302,7 @@ func telaCaptureRun(dir string, start tctime.Time) {
 	rep.Captures = n
 	rep.QuietMS = end.Sub(lastAt).Milliseconds()
 	rep.LastChangeMS = lastAt.Sub(shown).Milliseconds()
+	rep.ShownMS = end.Sub(shown).Milliseconds()
 	rep.Time = end.Format(tctime.RFC3339Nano)
 	rep.Windows, rep.Window, rep.Primary = final.windows, final.win, prevKind
 	s := final.settings
@@ -309,7 +323,7 @@ func telaCaptureRun(dir string, start tctime.Time) {
 	if !rep.Settled && prev != nil {
 		mask := tcimage.NewGray(prev.Rect)
 		for i, c := range lastChange {
-			if maskFrom >= 0 && c >= int32(maskFrom) {
+			if c > int32(base) {
 				mask.Pix[i] = 0xff
 				rep.Unstable++
 			}
@@ -358,6 +372,23 @@ func telaCaptureWritePNG(path string, img tcimage.Image) error {
 	return f.Close()
 }
 
+// telaCaptureOpaque reports whether a window server capture is opaque
+// outside its corners (the 32-pixel squares the rounded corners cut): the
+// window has faded in.
+func telaCaptureOpaque(img *tcimage.RGBA) bool {
+	const corner = 32
+	w, h := img.Rect.Dx(), img.Rect.Dy()
+	for y := range h {
+		row := img.Pix[y*img.Stride:]
+		for x := range w {
+			if row[x*4+3] != 0xff && !((x < corner || x >= w-corner) && (y < corner || y >= h-corner)) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // telaCaptureOnUI reads the window back on the UI thread (tela.Post; a call
 // posted before Run starts runs once the window is up) and waits for it at
 // most timeout.
@@ -403,6 +434,10 @@ func telaCaptureTake() telaCaptureShot {
 		}
 		fr := tcdarwin.SendRect(ns, sel.frame)
 		w.FrameW, w.FrameH = fr.Size.Width, fr.Size.Height
+		if scr := tcdarwin.Send(ns, sel.screen); scr != 0 {
+			vf := tcdarwin.SendRect(scr, sel.visibleFrame)
+			w.ScreenW, w.ScreenH = vf.Size.Width, vf.Size.Height
+		}
 		if v := tcdarwin.Send(ns, sel.contentView); v != 0 {
 			b := tcdarwin.SendRect(v, sel.bounds)
 			w.W, w.H = b.Size.Width, b.Size.Height

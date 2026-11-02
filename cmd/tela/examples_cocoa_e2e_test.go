@@ -34,12 +34,18 @@ import (
 //     changes: its main runs tela.Main on the Cocoa backend;
 //  2. runs it with a fresh HOME (and CFFIXED_USER_HOME, for AppKit), so
 //     saved settings and data of earlier runs play no part;
-//  3. renders the same screen headlessly with the code path of tela
-//     snapshot (the generated runner of driver.go, telatest.Render and
-//     telatest.FromApp), at the window's logical size and scale and in its
-//     appearance. The screen is what main shows: App.Root when the package
-//     declares `var App` (tela snapshot would render its first preview),
-//     else Preview, whose root is main's for the examples that have no App;
+//  3. renders the same screen headlessly through telatest, in a test
+//     binary of the example's package with a generated file (as tela
+//     snapshot does, with its contract code choosing the screen): Mount
+//     with FromApp at the window's logical size and scale, in its system
+//     settings (appearance, reduced motion, contrast, accent), then Advance
+//     by as long as the window was shown, so the reference reaches the
+//     steady state the window reached (an overlay scrollbar that faded, a
+//     caret that stopped blinking) where tela snapshot's Render draws the
+//     first frame of a tree without a clock. The screen is what main shows:
+//     App.Root when the package declares `var App` (tela snapshot would
+//     render its first preview), else Preview, whose root is main's for the
+//     examples that have no App;
 //  4. compares the pixels two ways: the window server's capture
 //     (CGWindowListCreateImage, what reaches the screen) and the content
 //     layer (renderInContext:, what the window holds).
@@ -54,14 +60,17 @@ import (
 //     (cornerBand);
 //   - for a window that never settled (an endless animation: animate-spin
 //     or animate-pulse keep running under reduced motion, which only stops
-//     transitions; or a clock, such as the player's, which plays from the
-//     start), the pixels that changed from 1 s after the window appeared
-//     on: their value depends on the time, and the reference is one frame
-//     of a tree without a clock. The changes before are the window
-//     appearing. When they exceed 10% of the window the example fails.
+//     transitions; or a clock of its own, such as the player's, which
+//     plays from the start on a goroutine's ticker), the pixels that
+//     changed in any read back after the first full one (the window faded
+//     in): their value depends on the moment. When they exceed 10% of the
+//     window the example fails.
 //
 // A blinking caret is no exception: the capture waits until it stops,
-// visible, 10 s after the focus. Everything else is a failure that the log
+// visible, 10 s after the focus. The window's size must be the App's, or
+// the App's clamped per axis to the screen's visible frame (AppKit keeps a
+// window inside it; the runner's screen holds 1024x642 points of content),
+// which is a logged note. Everything else is a failure that the log
 // describes: the window's size against the App's (a finding, not a mask),
 // the differing pixels by channel difference and place, and their regions
 // with a sample pixel each. On failure the window's pixels and a
@@ -140,7 +149,8 @@ type captureReport struct {
 	LastChangeMS   int64    `json:"lastChangeMs"`
 	Timeline       []string `json:"timeline"`
 	Unstable       int      `json:"unstable"`
-	MaskFromMS     int64    `json:"maskFromMs"`
+	BaseMS         int64    `json:"baseMs"`
+	ShownMS        int64    `json:"shownMs"`
 	Time           string   `json:"time"`
 
 	Windows []captureWindow `json:"windows"`
@@ -170,12 +180,14 @@ type captureWindow struct {
 	PhysH   int     `json:"physH"`
 	FrameW  float64 `json:"frameW"`
 	FrameH  float64 `json:"frameH"`
+	ScreenW float64 `json:"screenW"`
+	ScreenH float64 `json:"screenH"`
 	Visible bool    `json:"visible"`
 }
 
 func (w captureWindow) String() string {
-	return fmt.Sprintf("NSWindow %d %q content %gx%g pt at scale %g (%dx%d px), frame %gx%g, style mask %#x, key %v, visible %v",
-		w.Number, w.Title, w.W, w.H, w.Scale, w.PhysW, w.PhysH, w.FrameW, w.FrameH, w.Style, w.Key, w.Visible)
+	return fmt.Sprintf("NSWindow %d %q content %gx%g pt at scale %g (%dx%d px), frame %gx%g, screen's visible frame %gx%g, style mask %#x, key %v, visible %v",
+		w.Number, w.Title, w.W, w.H, w.Scale, w.PhysW, w.PhysH, w.FrameW, w.FrameH, w.ScreenW, w.ScreenH, w.Style, w.Key, w.Visible)
 }
 
 type captureRead struct {
@@ -247,8 +259,7 @@ func (r *exampleRun) mkdir(name string) string {
 }
 
 // build builds the example with capture.go and the reference runner (a
-// test binary of the example's package with the generated file of tela
-// snapshot).
+// test binary of the example's package with exampleReferenceSource).
 func (r *exampleRun) build(importPath string) {
 	t := r.t
 	t.Helper()
@@ -263,13 +274,13 @@ func (r *exampleRun) build(importPath string) {
 	t.Logf("built %s with capture.go in %v", importPath, time.Since(start).Round(time.Millisecond))
 
 	// The screen main shows: App.Root when the package has an App (the
-	// generated runner renders it under contractApp), else its Preview.
+	// contract code renders it under contractApp), else its Preview.
 	c := r.det.contract
 	if r.det.hasApp {
 		c = contractApp
 	}
 	runSrc := filepath.Join(r.tmp, generatedFile)
-	if err := os.WriteFile(runSrc, generateSource(r.pkg.Name, c, r.det.hasApp), 0o644); err != nil {
+	if err := os.WriteFile(runSrc, exampleReferenceSource(r.pkg.Name, c, r.det.hasApp), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	r.ref = filepath.Join(r.tmp, "reference.test")
@@ -370,7 +381,7 @@ func (r *exampleRun) runWindow(capDir, home string) {
 	}
 	state := fmt.Sprintf("settled: no pixel changed for %dms", rep.QuietMS)
 	if !rep.Settled {
-		state = fmt.Sprintf("NOT settled: the last change was %dms after it appeared; %d pixels changed from %dms on", rep.LastChangeMS, rep.Unstable, rep.MaskFromMS)
+		state = fmt.Sprintf("NOT settled: the last change was %dms after it appeared; %d pixels changed after the first full read back (%dms)", rep.LastChangeMS, rep.Unstable, rep.BaseMS)
 	}
 	t.Logf("the window appeared %dms after start; %d read backs (%s), %s", rep.FirstVisibleMS, rep.Captures, rep.Primary, state)
 	t.Logf("changes seen:\n\t%s", strings.Join(rep.Timeline, "\n\t"))
@@ -391,33 +402,35 @@ func (r *exampleRun) runReference(home string) *image.RGBA {
 	t.Helper()
 	w := r.rep.Window
 	out := filepath.Join(r.tmp, "reference.png")
-	errFile, info, logFile := filepath.Join(r.tmp, "reference-error.txt"), filepath.Join(r.tmp, "reference-info.json"), filepath.Join(r.tmp, "reference-stderr.txt")
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	advance := time.Duration(r.rep.ShownMS) * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, r.ref, "-test.run", "^TestTelaRun$", "-test.count=1")
+	cmd := exec.CommandContext(ctx, r.ref, "-test.run", "^"+exampleReferenceTest+"$", "-test.count=1", "-test.v")
 	cmd.Dir = r.pkg.Dir // as go test runs it
 	cmd.Env = childEnv(home,
-		envMode+"="+string(modeSnapshot),
-		envW+"="+strconv.FormatFloat(w.W, 'g', -1, 64),
-		envH+"="+strconv.FormatFloat(w.H, 'g', -1, 64),
-		envScale+"="+strconv.FormatFloat(w.Scale, 'g', -1, 64),
-		envDark+"="+strconv.FormatBool(r.rep.Dark),
-		envSizeSet+"=true", // the window's size, even where it differs from the App's
-		envPreview+"=",
-		envOut+"="+out,
-		envErr+"="+errFile,
-		envInfo+"="+info,
-		envLog+"="+logFile,
+		exrefW+"="+strconv.FormatFloat(w.W, 'g', -1, 64),
+		exrefH+"="+strconv.FormatFloat(w.H, 'g', -1, 64),
+		exrefScale+"="+strconv.FormatFloat(w.Scale, 'g', -1, 64),
+		exrefDark+"="+strconv.FormatBool(r.rep.Dark),
+		exrefReduced+"="+strconv.FormatBool(r.rep.ReduceMotion),
+		exrefContrast+"="+strconv.FormatBool(r.rep.IncreaseContrast),
+		exrefAccent+"="+r.rep.Accent,
+		exrefAdvance+"="+advance.String(),
+		exrefOut+"="+out,
 	)
 	start := time.Now()
 	b, err := cmd.CombinedOutput()
 	if err != nil {
-		msg, _ := os.ReadFile(errFile)
-		t.Fatalf("rendering the reference: %v\n%s\n%s", err, msg, b)
+		t.Fatalf("rendering the reference: %v\n%s", err, b)
 	}
-	t.Logf("reference: %gx%g at scale %g, dark %v, rendered in %v", w.W, w.H, w.Scale, r.rep.Dark, time.Since(start).Round(time.Millisecond))
-	if s, _ := os.ReadFile(logFile); len(bytes.TrimSpace(s)) > 0 {
-		t.Logf("the reference's standard error:\n%s", bytes.TrimSpace(s))
+	t.Logf("reference: %gx%g at scale %g, dark %v, reduced motion %v, contrast %v, accent %q, clock advanced by %v (as long as the window was shown), rendered in %v",
+		w.W, w.H, w.Scale, r.rep.Dark, r.rep.ReduceMotion, r.rep.IncreaseContrast, r.rep.Accent, advance, time.Since(start).Round(time.Millisecond))
+	if s := strings.TrimSpace(string(b)); strings.Count(s, "\n") > 2 { // more than === RUN, --- PASS and PASS
+		const limit = 4 << 10
+		if len(s) > limit {
+			s = s[:limit] + "\n[...]"
+		}
+		t.Logf("the reference's output:\n%s", s)
 	}
 	img, err := decodeRGBA(out)
 	if err != nil {
@@ -465,13 +478,20 @@ func (r *exampleRun) compare(capDir string, ref *image.RGBA, attempt int) (pixel
 		t.Logf("window size: content %gx%g; the package declares %d window sizes (%v): not checked", w.W, w.H, len(r.declared), r.declared)
 	default:
 		dw, dh, err := parseSize(r.declared[0])
-		switch {
-		case err != nil:
+		if err != nil {
 			t.Errorf("the declared size %s: %v", r.declared[0], err)
-		case dw != w.W || dh != w.H:
-			t.Errorf("the window's content is %gx%g, the App declares %gx%g", w.W, w.H, dw, dh)
-		default:
+			break
+		}
+		cw, ch := clampedContent(dw, w.ScreenW, w.FrameW-w.W), clampedContent(dh, w.ScreenH, w.FrameH-w.H)
+		switch {
+		case dw == w.W && dh == w.H:
 			t.Logf("window size: content %gx%g, as the App declares", w.W, w.H)
+		case cw == w.W && ch == w.H:
+			t.Logf("note: window size: content %gx%g, the App's %gx%g clamped to the screen's visible frame %gx%g (frame %gx%g)",
+				w.W, w.H, dw, dh, w.ScreenW, w.ScreenH, w.FrameW, w.FrameH)
+		default:
+			t.Errorf("the window's content is %gx%g; the App declares %gx%g, which the screen's visible frame %gx%g (frame %gx%g) clamps to %gx%g",
+				w.W, w.H, dw, dh, w.ScreenW, w.ScreenH, w.FrameW, w.FrameH, cw, ch)
 		}
 	}
 	if w.Scale != 1 {
@@ -490,7 +510,7 @@ func (r *exampleRun) compare(capDir string, ref *image.RGBA, attempt int) (pixel
 			unstable = img
 		}
 		if share := float64(rep.Unstable) / float64(max(1, w.PhysW*w.PhysH)); share > unstableLimit {
-			t.Errorf("the window never settled: %d pixels (%.1f%%) changed from %dms after it appeared on, more than %.0f%%", rep.Unstable, 100*share, rep.MaskFromMS, 100*unstableLimit)
+			t.Errorf("the window never settled: %d pixels (%.1f%%) changed after the first full read back (%dms), more than %.0f%%", rep.Unstable, 100*share, rep.BaseMS, 100*unstableLimit)
 		}
 	}
 	isUnstable := func(x, y int) bool {
