@@ -52,8 +52,8 @@ func TestEscapeTrashPath(t *testing.T) {
 		"/x/\xff":                   "/x/%FF",
 	}
 	for in, want := range cases {
-		if got := escapeTrashPath(in); got != want {
-			t.Errorf("escapeTrashPath(%q) = %q, want %q", in, got, want)
+		if got := platform.EscapePath(in); got != want {
+			t.Errorf("platform.EscapePath(%q) = %q, want %q", in, got, want)
 		}
 	}
 	at := time.Date(2026, 11, 1, 9, 41, 7, 0, time.Local)
@@ -116,7 +116,7 @@ func expectTrashed(t *testing.T, trash, name, path, text string) {
 		t.Fatalf("the .trashinfo of %s: %v", name, err)
 	}
 	lines := strings.Split(string(info), "\n")
-	if len(lines) != 4 || lines[0] != "[Trash Info]" || lines[1] != "Path="+escapeTrashPath(path) || !strings.HasPrefix(lines[2], "DeletionDate=") || lines[3] != "" {
+	if len(lines) != 4 || lines[0] != "[Trash Info]" || lines[1] != "Path="+platform.EscapePath(path) || !strings.HasPrefix(lines[2], "DeletionDate=") || lines[3] != "" {
 		t.Errorf("the .trashinfo of %s =\n%s", name, info)
 	}
 	if _, err := time.ParseInLocation("2006-01-02T15:04:05", strings.TrimPrefix(lines[2], "DeletionDate="), time.Local); err != nil {

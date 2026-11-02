@@ -320,7 +320,7 @@ func fileURI(path string, windows bool) (string, error) {
 		if !strings.HasPrefix(path, "/") {
 			return "", fmt.Errorf("platform: FileURI(%q): not an absolute path", path)
 		}
-		return "file://" + escapePath(path), nil
+		return "file://" + EscapePath(path), nil
 	}
 	p := strings.ReplaceAll(path, `\`, "/")
 	switch {
@@ -334,10 +334,10 @@ func fileURI(path string, windows bool) (string, error) {
 		if server == "" || rest == "" {
 			return "", fmt.Errorf("platform: FileURI(%q): a UNC path needs a server and a share", path)
 		}
-		return "file://" + escapePath(server) + "/" + escapePath(rest), nil
+		return "file://" + EscapePath(server) + "/" + EscapePath(rest), nil
 	}
 	if len(p) >= 3 && isDriveLetter(p[0]) && p[1] == ':' && p[2] == '/' {
-		return "file:///" + p[:2] + escapePath(p[2:]), nil
+		return "file:///" + p[:2] + EscapePath(p[2:]), nil
 	}
 	return "", fmt.Errorf("platform: FileURI(%q): not an absolute path (a drive or a UNC path)", path)
 }
@@ -403,9 +403,11 @@ func filePath(uri string, windows bool) (string, error) {
 
 func isDriveLetter(c byte) bool { return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' }
 
-// escapePath percent-encodes every byte of p but RFC 3986's unreserved
-// characters and '/'.
-func escapePath(p string) string {
+// EscapePath percent-encodes every byte of p but RFC 3986's unreserved
+// characters and '/' (upper-case hex): the path of a file: URI, and the
+// Path key of a freedesktop .trashinfo file, which GIO writes with
+// g_uri_escape_string(path, "/", FALSE).
+func EscapePath(p string) string {
 	const hex = "0123456789ABCDEF"
 	var b strings.Builder
 	for i := 0; i < len(p); i++ {
