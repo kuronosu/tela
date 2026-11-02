@@ -13,9 +13,10 @@ This page is generated from the doc comments of the package; the same text is on
 - [Overview](#overview)
 - [Constants](#constants)
 - [Variables](#variables)
-- [Functions](#functions): [`AppID`](#func-appid) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
+- [Functions](#functions): [`AppID`](#func-appid) · [`AppStatus`](#func-appstatus) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegisterApp`](#func-registerapp) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UnregisterApp`](#func-unregisterapp) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
 - [Types](#types)
   - [`type Answer`](#type-answer): [`String`](#func-answer-string)
+  - [`type AppRegistration`](#type-appregistration): [`AppStatus`](#func-appstatus)
   - [`type Association`](#type-association): [`FileType`](#func-filetype) · [`URLScheme`](#func-urlscheme) · [`String`](#func-association-string)
   - [`type Buttons`](#type-buttons): [`DefaultAnswer`](#func-buttons-defaultanswer) · [`DismissAnswer`](#func-buttons-dismissanswer) · [`Has`](#func-buttons-has)
   - [`type DefaultResult`](#type-defaultresult): [`MakeDefault`](#func-makedefault) · [`String`](#func-defaultresult-string)
@@ -106,6 +107,12 @@ const MaxSecretSize = platform.MaxSecretSize
 MaxSecretSize is the largest secret, in bytes, every OS stores (the limit of the Windows Credential Manager). Keep keys and tokens in secrets; encrypt larger data with a key kept there.
 
 ## Variables
+
+```go
+var ErrAppNotRegistered = platform.ErrAppNotRegistered
+```
+
+ErrAppNotRegistered is wrapped by the error a [`GlobalShortcut`](#type-globalshortcut) reports (ShortcutFailed) when the desktop refused the app's ID: on Linux the GlobalShortcuts portal (xdg-desktop-portal 1.22) accepts an app only when the desktop has an entry for its ID ([`AppID`](#func-appid) + ".desktop"), which [`RegisterApp`](#func-registerapp) writes. The error names the entry. On X11 the shortcut is grabbed instead and works without one.
 
 ```go
 var ErrAssociationTaken = platform.ErrAssociationTaken
@@ -545,6 +552,26 @@ makeDefault := func() {
 _ = makeDefault
 ```
 
+### func RegisterApp
+
+```go
+func RegisterApp(opts ...RegisterOption) (changed bool, err error)
+```
+
+RegisterApp makes the desktop know the app, without any URL scheme or file type (ADR-217). On Linux it writes the app's own desktop entry, \~/.local/share/applications/\<AppID\>.desktop, per user, with NoDisplay=true (no launcher in the menus) and no file types: the Linux global shortcuts portal refuses an app without one ([`GlobalShortcut`](#type-globalshortcut)). Scheme and file-type registration ([`Register`](#func-register)) share that file. It looks first and writes nothing when the entry is up to date or another program's entry of the ID exists (a package's: never taken over without [`Replace`](#func-replace)). On Windows, which needs no entry, it writes nothing.
+
+```go
+func main() {
+    desktop.SetAppID("com.example.notes")
+    if _, err := desktop.RegisterApp(); err != nil {
+        log.Print(err)
+    }
+    tela.Main(App)
+}
+```
+
+Call it from the installed program, at start: the entry runs os.Executable ([`ForApp`](#func-forapp) gives another path, as an installer does). Under tela dev it returns ErrDevExecutable without Exec; under go run the program is a temporary build, so skip it there. It does file I/O and is safe from any goroutine; without a running app it uses the OS directly, and while an app runs (telatest included) its backend, which tests inspect with telatest's App.RegisteredApps.
+
 ### func SaveFile
 
 ```go
@@ -618,6 +645,8 @@ func SetAppID(id string)
 ```
 
 SetAppID sets the name of the app's directories and settings ([`ConfigDir`](#func-configdir) and the others): use the reverse-DNS name given to tela.App.AppID ("com.example.notes"). Call it at the start of main, before anything reads a directory or a setting; [`PersistApp`](#func-persistapp) calls it with the App's AppID. Without it, the directories are named after the running app's App.AppID, or before tela.Run (and without an AppID) after the executable. Safe from any goroutine.
+
+The same ID ([`AppID`](#func-appid)) is the one the desktop knows the app by: the name of its desktop entry ([`RegisterApp`](#func-registerapp)), which the Linux global shortcuts portal needs, and the app of its notifications. tela.Run gives it to the OS services when it starts, so a later SetAppID changes only the directories.
 
 ### func SetSecret
 
@@ -752,6 +781,14 @@ func Unregister(a Association, opts ...RegisterOption) (changed bool, err error)
 
 Unregister removes what Register and MakeDefault wrote for a: the app is no longer a candidate, and a default that names it is removed. Another application's entries are never touched. Nothing to remove is not an error (changed false).
 
+### func UnregisterApp
+
+```go
+func UnregisterApp(opts ...RegisterOption) (changed bool, err error)
+```
+
+UnregisterApp removes the entry RegisterApp wrote, unless schemes or file types registered with [`Register`](#func-register) still need it: they keep it, and the [`Unregister`](#func-unregister) of the last one removes it. An entry Tela did not write is never touched. Nothing to remove is not an error.
+
 ### func UseLaunch
 
 ```go
@@ -877,6 +914,33 @@ const (
 ```go
 func (a Answer) String() string
 ```
+
+### type AppRegistration
+
+```go
+type AppRegistration struct {
+    // Registered: the desktop knows the app's ID (on Linux an entry
+    // <ID>.desktop exists, whoever wrote it; always on Windows, which
+    // needs none).
+    Registered bool
+    // Requested: RegisterApp wrote the entry, and UnregisterApp would
+    // remove it.
+    Requested bool
+    // Other is the path of an entry of the app's ID that Tela did not
+    // write (a package's, an installer's), "" when there is none.
+    Other string
+}
+```
+
+AppRegistration is what [`AppStatus`](#func-appstatus) reports.
+
+#### func AppStatus
+
+```go
+func AppStatus(opts ...RegisterOption) (AppRegistration, error)
+```
+
+AppStatus reports whether the desktop knows the app, and whether RegisterApp wrote its entry.
 
 ### type Association
 
@@ -1109,7 +1173,9 @@ desktop.GlobalShortcut{
 }
 ```
 
-The OS decides: Windows refuses a combination another application holds (ShortcutTaken), and on Wayland the desktop asks the user first (through the GlobalShortcuts portal) and may bind other keys, which ShortcutStatusEvent.Trigger reports. Where the desktop has no global shortcuts (Wayland without the portal), OnStatus receives ShortcutFailed with an error wrapping [`ErrUnsupported`](#variables). Tests press it with telatest's App.PressShortcut.
+The OS decides: Windows refuses a combination another application holds (ShortcutTaken), and on Wayland the desktop asks the user first (through the GlobalShortcuts portal) and may bind other keys, which ShortcutStatusEvent.Trigger reports, or none (Hyprland: see ShortcutStatusEvent.Trigger). Where the desktop has no global shortcuts (Wayland without the portal), OnStatus receives ShortcutFailed with an error wrapping [`ErrUnsupported`](#variables). Tests press it with telatest's App.PressShortcut.
+
+On Linux the portal needs the app's desktop entry: call [`RegisterApp`](#func-registerapp) once in the installed program (at start, before tela.Run), or the shortcut fails with an error wrapping [`ErrAppNotRegistered`](#variables) that names the entry. Give the app an ID ([`SetAppID`](#func-setappid) or tela.App.AppID): the executable's name is the default.
 
 **Example**
 
@@ -1403,7 +1469,7 @@ type RegisterOption struct {
 }
 ```
 
-RegisterOption configures [`Register`](#func-register), [`Unregister`](#func-unregister), [`MakeDefault`](#func-makedefault) and [`RegistrationStatus`](#func-registrationstatus): [`Replace`](#func-replace) and [`ForApp`](#func-forapp).
+RegisterOption configures [`Register`](#func-register), [`Unregister`](#func-unregister), [`MakeDefault`](#func-makedefault), [`RegistrationStatus`](#func-registrationstatus), [`RegisterApp`](#func-registerapp), [`UnregisterApp`](#func-unregisterapp) and [`AppStatus`](#func-appstatus): [`Replace`](#func-replace) and [`ForApp`](#func-forapp).
 
 #### func ForApp
 
@@ -1551,7 +1617,11 @@ type ShortcutStatusEvent struct {
     Status ShortcutStatus
     // Trigger is the combination the user presses, as the desktop shows
     // it ("Ctrl+Alt+N"), for ShortcutBound: the desktop may bind other
-    // keys than Keys. "" when it does not say.
+    // keys than Keys. "" when it does not say, or has assigned no keys
+    // yet: Hyprland registers the shortcut but ignores Keys, and the user
+    // binds it in hyprland.conf with
+    // "bind = CTRL ALT, N, global, <AppID>:<ID>"; it fires from then on.
+    // Show the keys asked for, and say so.
     Trigger string
     // Err says why, for every status but ShortcutBound, in a sentence an
     // app can show ("desktop: the global shortcut Ctrl+Alt+N is taken by

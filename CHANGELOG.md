@@ -28,8 +28,12 @@ Phase 13, desktop integration (ADR-209 to ADR-214; in progress).
 - `desktop.MoveToTrash(path)` (ADR-216) moves a file or folder to the trash (the Recycle Bin on Windows) from any goroutine, and never deletes it: a file the trash cannot take stays where it is, with `ErrUnsupported`. Linux uses the Trash portal, else the freedesktop home trash; Windows uses `IFileOperation` and refuses what it would delete for good. `telatest`: `Trashed`, `FailTrash` and `Unsupported(telatest.Trash)`.
 - `examples/notes`: locking a note that was opened from a file detaches it from the file (its path leaves `notes.json`) and asks whether to move the file, which still holds the text, to the Trash. A locked note cannot be saved to a file and never counts as unsaved.
 
+- `desktop.RegisterApp`, `UnregisterApp` and `AppStatus` (ADR-217): on Linux, the app's own desktop entry (`~/.local/share/applications/<AppID>.desktop`, per user, no launcher in the menus, no file types), which the global shortcuts portal needs; written only when called, looking first, and never over another program's entry without `desktop.Replace()`. Scheme and file-type registration share the file. Windows needs no entry and writes nothing. `desktop.ErrAppNotRegistered`. `telatest`: `RegisteredApps`, `HoldAppEntry`, `FailShortcuts` and `SetShortcutUnassigned`.
+- `examples/notes` calls `desktop.RegisterApp` at start (in the built program), and Preferences, Shortcuts shows a shortcut the desktop registered without keys (Hyprland) with the `hyprland.conf` line that binds it.
+
 ### Fixed
 
+- `desktop.GlobalShortcut` never worked on Wayland with xdg-desktop-portal 1.22 (ADR-217): the portal was given the executable's name instead of the app's ID, and its refusal was ignored. The app's ID (`desktop.AppID`) now reaches the portal, notifications and trays, also under `tela dev`; a desktop without the app's entry fails the shortcut with an error that names the entry and `desktop.RegisterApp`, and on X11 the keys are grabbed instead. A shortcut the desktop registers without keys (Hyprland) is `ShortcutBound` with an empty `Trigger`.
 - On Windows, a `desktop` store's write no longer fails when another program holds its file for a moment (an antivirus scanning the file just written, the search indexer): replacing the file is retried for up to a second, as `cmd/go` does.
 - On Windows, `tela dev` and `tela mcp` remove the executables of old builds even when Windows still holds one for a moment after its process exited; they retry for up to two seconds, off the supervisor's loop.
 

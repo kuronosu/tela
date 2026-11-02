@@ -14,7 +14,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Constants](#constants)
 - [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`Tolerance`](#func-tolerance)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`StartDrag`](#func-app-startdrag) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`StartDrag`](#func-app-startdrag) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`Right`](#func-right)
   - [`type DesktopService`](#type-desktopservice)
   - [`type DragInfo`](#type-draginfo)
@@ -987,6 +987,19 @@ app.Click(telatest.ByRole("button", "Unlock"))
 app.ExpectText("The keyring stayed locked")
 ```
 
+#### func (*App) FailShortcuts
+
+```go
+func (a *App) FailShortcuts(err error)
+```
+
+FailShortcuts makes every global shortcut the app registers from now on fail with err, until FailShortcuts(nil); shortcuts registered already keep their state. An error wrapping desktop.ErrAppNotRegistered plays a Linux desktop without the app's entry (desktop.RegisterApp). OnStatus gets ShortcutFailed with an error wrapping err.
+
+```go
+app.FailShortcuts(desktop.ErrAppNotRegistered)
+app.Click(telatest.ByRole("switch", "Quick note")) // registers again
+```
+
 #### func (*App) FailTrash
 
 ```go
@@ -1114,6 +1127,14 @@ func (a *App) HitRegions() []HitRegion
 ```
 
 HitRegions returns the hit regions the window sent to the OS, in order (later regions are on top): the drag areas, the holes in them and the window-control buttons that h.WindowDrag, h.WindowNoDrag and h.WindowControl mark. It is nil for a window without them.
+
+#### func (*App) HoldAppEntry
+
+```go
+func (a *App) HoldAppEntry(id, path string)
+```
+
+HoldAppEntry plays another program's desktop entry of the app ID id (a package's), at path: desktop.RegisterApp then writes nothing unless it passes desktop.Replace, and desktop.AppStatus reports it. "" removes it.
 
 #### func (*App) HoldAssociation
 
@@ -1435,6 +1456,19 @@ app.PressShortcut("new-note")
 app.ExpectText("Untitled note")
 ```
 
+#### func (*App) RegisteredApps
+
+```go
+func (a *App) RegisteredApps() []desktop.HandlerApp
+```
+
+RegisteredApps returns the apps registered with desktop.RegisterApp and not unregistered, sorted by ID, after settling the app.
+
+```go
+desktop.RegisterApp(desktop.ForApp(desktop.HandlerApp{Exec: "/opt/notes/notes"}))
+apps := app.RegisteredApps() // [{com.example.Notes Notes /opt/notes/notes …}]
+```
+
 #### func (*App) Registrations
 
 ```go
@@ -1587,6 +1621,19 @@ SetShortcutStatus plays the OS changing the state of the registered shortcut id:
 ```go
 app.SetShortcutStatus("new-note", desktop.ShortcutTaken, "")
 app.ExpectText("Ctrl+Alt+N is taken by another application")
+```
+
+#### func (*App) SetShortcutUnassigned
+
+```go
+func (a *App) SetShortcutUnassigned(id string)
+```
+
+SetShortcutUnassigned plays a desktop that registers the shortcut id without assigning it keys, as Hyprland does (the user binds it in hyprland.conf): its OnStatus gets ShortcutBound with an empty Trigger, and the app settles. PressShortcut still works, as once the user bound it.
+
+```go
+app.SetShortcutUnassigned("new-note")
+app.ExpectText("bind = CTRL ALT, N, global, com.example.notes:new-note")
 ```
 
 #### func (*App) SetStoredSecret
@@ -1890,8 +1937,9 @@ const (
     // ClipboardData: desktop.ReadClipboard, WriteClipboard and
     // ClipboardTypes (the text functions keep working).
     ClipboardData
-    // Associations: desktop.Register, Unregister, MakeDefault and
-    // RegistrationStatus while the app runs, as on macOS before phase 14.
+    // Associations: desktop.Register, Unregister, MakeDefault,
+    // RegistrationStatus, RegisterApp, UnregisterApp and AppStatus while
+    // the app runs, as on macOS before phase 14.
     Associations
     // Trash: desktop.MoveToTrash, as on a desktop without a trash or for
     // a file the trash cannot take (a network drive); the file stays.
