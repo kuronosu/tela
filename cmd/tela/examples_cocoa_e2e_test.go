@@ -69,8 +69,9 @@ import (
 // A blinking caret is no exception: the capture waits until it stops,
 // visible, 10 s after the focus. The window's size must be the App's, or
 // the App's clamped per axis to the screen's visible frame (AppKit keeps a
-// window inside it; the runner's screen holds 1024x642 points of content),
-// which is a logged note. Everything else is a failure that the log
+// window inside it, a few points short of it: the runner's screen has a
+// 1024x677 visible frame and gives 1024x642 points of content under a
+// 32-point title bar), which is a logged note (axisSize). Everything else is a failure that the log
 // describes: the window's size against the App's (a finding, not a mask),
 // the differing pixels by channel difference and place, and their regions
 // with a sample pixel each. On failure the window's pixels and a
@@ -78,9 +79,12 @@ import (
 // testdata/examples-cocoa (<example>_actual.png, <example>_diff.png; the
 // layer's as <example>_layer_*.png).
 //
-// An example whose screen shows the clock's time could differ when the
-// minute turns between the capture and the reference: such a failure is
-// retried once.
+// An example whose screen shows the clock's time differs when the minute
+// turns between launching it and rendering the reference: chat writes its
+// messages' times (HH:MM) relative to time.Now when it starts, in the
+// window and in the reference alike. Such a failure is retried once, within
+// one minute (waiting for the next one when the current one has too little
+// time left).
 //
 // It needs a window server session (macos-latest runners have one) and
 // skips without it, and in -short mode. It takes about half a minute per
@@ -234,19 +238,38 @@ func (r *exampleRun) run() {
 
 	for attempt := 1; ; attempt++ {
 		capDir := r.mkdir(fmt.Sprintf("capture%d", attempt))
+		// The span in which the window and the reference read the clock:
+		// from launching the example (before its first build, where chat
+		// seeds its messages at time.Now) to the reference's end.
+		from := time.Now()
 		r.runWindow(capDir, r.mkdir(fmt.Sprintf("home%d", attempt)))
-		refAt := time.Now()
 		ref := r.runReference(r.mkdir(fmt.Sprintf("refhome%d", attempt)))
+		to := time.Now()
 		failed := r.compare(capDir, ref, attempt)
-		capAt, err := time.Parse(time.RFC3339Nano, r.rep.Time)
-		if !failed || attempt == 2 || err != nil || capAt.Truncate(time.Minute).Equal(refAt.Truncate(time.Minute)) {
+		turned := !from.Truncate(time.Minute).Equal(to.Truncate(time.Minute))
+		if !failed || attempt == 2 || !turned {
 			if failed {
+				if turned {
+					t.Logf("the minute turned between launching the example (%s) and the reference (%s) again", from.Format(time.TimeOnly), to.Format(time.TimeOnly))
+				}
 				t.Errorf("the window's pixels differ from the headless reference (see the log above)")
 			}
 			return
 		}
-		t.Logf("the minute turned between the capture (%s) and the reference (%s), and this example may show the time: running it again",
-			capAt.Format(time.TimeOnly), refAt.Format(time.TimeOnly))
+		// Chat writes its messages' times relative to the clock when it
+		// starts (HH:MM): a window and a reference that start in different
+		// minutes show different times. Run again within one minute: wait
+		// for the next one when this one has less time left than the run
+		// took, with a margin.
+		span := to.Sub(from)
+		left := time.Until(to.Truncate(time.Minute).Add(time.Minute))
+		t.Logf("the minute turned between launching the example (%s) and the reference (%s), %v apart; this example may show the time (chat writes its messages' times relative to its start)",
+			from.Format(time.TimeOnly), to.Format(time.TimeOnly), span.Round(time.Millisecond))
+		if left < span+5*time.Second {
+			t.Logf("waiting %v for the next minute, to run it again within one", left.Round(time.Millisecond))
+			time.Sleep(left + 200*time.Millisecond)
+		}
+		t.Logf("running it again at %s", time.Now().Format(time.TimeOnly))
 	}
 }
 
@@ -482,16 +505,18 @@ func (r *exampleRun) compare(capDir string, ref *image.RGBA, attempt int) (pixel
 			t.Errorf("the declared size %s: %v", r.declared[0], err)
 			break
 		}
-		cw, ch := clampedContent(dw, w.ScreenW, w.FrameW-w.W), clampedContent(dh, w.ScreenH, w.FrameH-w.H)
+		okW, clampW := axisSize(dw, w.W, w.ScreenW, w.FrameW-w.W)
+		okH, clampH := axisSize(dh, w.H, w.ScreenH, w.FrameH-w.H)
 		switch {
-		case dw == w.W && dh == w.H:
-			t.Logf("window size: content %gx%g, as the App declares", w.W, w.H)
-		case cw == w.W && ch == w.H:
+		case !okW || !okH:
+			t.Errorf("the window's content is %gx%g; the App declares %gx%g, the screen's visible frame is %gx%g and the window's frame %gx%g "+
+				"(an axis that fits must have the declared size; one that does not must have a frame inside the visible frame and at least %.0f%% of it)",
+				w.W, w.H, dw, dh, w.ScreenW, w.ScreenH, w.FrameW, w.FrameH, 100*clampShare)
+		case clampW || clampH:
 			t.Logf("note: window size: content %gx%g, the App's %gx%g clamped to the screen's visible frame %gx%g (frame %gx%g)",
 				w.W, w.H, dw, dh, w.ScreenW, w.ScreenH, w.FrameW, w.FrameH)
 		default:
-			t.Errorf("the window's content is %gx%g; the App declares %gx%g, which the screen's visible frame %gx%g (frame %gx%g) clamps to %gx%g",
-				w.W, w.H, dw, dh, w.ScreenW, w.ScreenH, w.FrameW, w.FrameH, cw, ch)
+			t.Logf("window size: content %gx%g, as the App declares", w.W, w.H)
 		}
 	}
 	if w.Scale != 1 {

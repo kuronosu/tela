@@ -440,13 +440,23 @@ func TestExamplesCompare(t *testing.T) {
 		t.Errorf("sizes 99x60 and 100x60: %s", d.summary())
 	}
 
-	// The macos-latest runner: a 1024x674 visible frame and a 32-point
-	// title bar give 1024x642 of content at most.
-	for _, c := range []struct{ declared, screen, extra, want float64 }{
-		{1440, 1024, 0, 1024}, {900, 674, 32, 642}, {600, 674, 32, 600}, {760, 0, 32, 760},
+	// The macos-latest runner: a 1024x677 visible frame, a 32-point title
+	// bar and 1024x642 of content for a window that asks for more.
+	for _, c := range []struct {
+		declared, content, screen, extra float64
+		ok, clamped                      bool
+	}{
+		{1440, 1024, 1024, 0, true, true},
+		{900, 642, 677, 32, true, true},
+		{720, 645, 677, 32, true, true},
+		{720, 500, 677, 32, false, true},  // far less than the screen
+		{720, 650, 677, 32, false, true},  // a frame larger than the screen
+		{600, 600, 677, 32, true, false},  // fits: exactly the declared size
+		{600, 599, 677, 32, false, false}, // fits, but not the declared size
+		{760, 760, 0, 32, true, false},    // no screen known
 	} {
-		if got := clampedContent(c.declared, c.screen, c.extra); got != c.want {
-			t.Errorf("clampedContent(%g, %g, %g) = %g, want %g", c.declared, c.screen, c.extra, got, c.want)
+		if ok, clamped := axisSize(c.declared, c.content, c.screen, c.extra); ok != c.ok || clamped != c.clamped {
+			t.Errorf("axisSize(%g, %g, %g, %g) = %v, %v, want %v, %v", c.declared, c.content, c.screen, c.extra, ok, clamped, c.ok, c.clamped)
 		}
 	}
 
@@ -462,15 +472,25 @@ func TestExamplesCompare(t *testing.T) {
 	}
 }
 
-// clampedContent is the content length AppKit gives a window that asks for
-// declared points on an axis whose screen has screen points of visible
-// frame and whose frame adds extra points (the title bar): AppKit keeps the
-// frame inside the visible frame. A zero screen (unknown) clamps nothing.
-func clampedContent(declared, screen, extra float64) float64 {
-	if screen <= 0 {
-		return declared
+// clampShare is the least share of the screen's visible frame that a
+// window's frame takes on an axis its declared size does not fit.
+const clampShare = 0.9
+
+// axisSize checks a window's content length on one axis against the
+// declared one, for a screen whose visible frame is screen points long
+// there and a window frame that adds extra points (the title bar). AppKit
+// keeps a window's frame inside the visible frame, and not exactly at its
+// edge (on the macos-latest runner the frame ends 3 points short), so no
+// exact clamp is computed: where the declared size fits (declared + extra
+// <= screen) the content must be the declared size; where it does not,
+// the frame must fit in the visible frame and take at least clampShare of
+// it, and clamped reports it. A zero screen (unknown) clamps nothing.
+func axisSize(declared, content, screen, extra float64) (ok, clamped bool) {
+	if screen <= 0 || declared+extra <= screen {
+		return content == declared, false
 	}
-	return min(declared, screen-extra)
+	frame := content + extra
+	return frame <= screen && frame >= clampShare*screen, true
 }
 
 // The environment of the reference test (exampleReferenceSource).
