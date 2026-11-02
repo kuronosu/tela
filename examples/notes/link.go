@@ -112,6 +112,24 @@ var blockedBy atomic.Pointer[func() string]
 // for the goroutine that makes them.
 var registerCalls atomic.Int32
 
+// registerApp makes the desktop know Notes before it starts (ADR-217): on
+// Linux its own desktop entry, which the global shortcuts portal needs for
+// Quick note (Windows needs none, and nothing is written there). It runs
+// in main, synchronously, so the entry exists before the shortcut is
+// registered; it looks first, so a start with the entry up to date writes
+// nothing, and an entry Notes did not write (a package's) is left alone.
+// Only the built program registers: under go run it is a temporary build,
+// and under tela dev RegisterApp refuses by itself (ErrDevExecutable).
+func registerApp() {
+	if registrationBlocked() != "" {
+		return
+	}
+	_, err := desktop.RegisterApp()
+	if err != nil && !errors.Is(err, desktop.ErrUnsupported) && !errors.Is(err, desktop.ErrDevExecutable) {
+		fmt.Fprintln(os.Stderr, "notes:", err)
+	}
+}
+
 // registerAtStart registers the notes: scheme as a handler, unless the user
 // turned it off in Preferences, another application holds it, or the
 // program is not one to register. Nothing here is the user's to be told:

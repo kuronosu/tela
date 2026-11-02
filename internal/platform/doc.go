@@ -649,6 +649,23 @@
 // Registering an ID again replaces it; shortcuts go away when Run
 // returns.
 //
+// ShortcutBound with an empty Trigger means the desktop registered the
+// shortcut without assigning keys, or without saying which:
+// xdg-desktop-portal-hyprland ignores preferred_trigger and binds nothing,
+// so the user adds "bind = MODS, KEY, global, <app ID>:<shortcut ID>" to
+// the compositor's configuration, and the shortcut fires from then on.
+//
+// The app ID (ADR-217). The portal identifies the app by the ID that
+// [Desktop.SetAppID] gives, which the layers above call before the first
+// window with the app's own ID (backends start with [DefaultAppID], the
+// executable's name, which has no desktop entry). xdg-desktop-portal 1.22
+// accepts a host app's ID only when the desktop has an entry <ID>.desktop
+// ([Associations.RegisterApp] writes one): RegisterShortcut then returns
+// an error wrapping [ErrAppNotRegistered] synchronously, naming the entry,
+// and no status follows; the X11 backend grabs the key instead, Wayland
+// has no fallback. Under tela dev the child's SetAppID goes to the host's
+// backend, which holds the shortcuts.
+//
 // # System settings
 //
 // [SystemSettings] reports dark mode, reduced motion, the double-click
@@ -703,9 +720,14 @@
 // default, and becoming the default is the separate MakeDefault (Windows
 // file types: the Default apps settings page); Status reports whether the
 // app is registered, is the default, and which other application holds
-// the association. Package assoc documents what is written where; its
-// tests run against temporary directories and an in-memory registry, never
-// the real system.
+// the association. [Associations.RegisterApp] makes the desktop know the
+// app's ID with no association (ADR-217): on Linux the same desktop entry,
+// with no MimeType and NoDisplay=true, which the GlobalShortcuts portal
+// needs; it stays until UnregisterApp even when the last association goes,
+// and UnregisterApp leaves the associations that still need it; Windows
+// needs no entry and writes nothing. Package assoc documents what is
+// written where; its tests run against temporary directories and an
+// in-memory registry, never the real system.
 //
 // # Coordinates, scale and framebuffer size
 //
@@ -866,8 +888,12 @@
 //     the parent "wayland:<handle>" when exported; the Response's
 //     shortcuts give trigger_description; Activated, Deactivated,
 //     ShortcutsChanged). xdg-desktop-portal 1.19 and later first need the
-//     app ID registered (org.freedesktop.host.portal.Registry.Register).
-//     No portal: ErrUnsupported.
+//     app ID (SetAppID) registered
+//     (org.freedesktop.host.portal.Registry.Register, the first call on
+//     the shortcut connection, made by the first RegisterShortcut); 1.22
+//     refuses an ID without a desktop entry, which is ErrAppNotRegistered
+//     (no fallback). A sandboxed app (Flatpak, Snap) does not register. No
+//     portal: ErrUnsupported.
 //   - ActivateWithToken: xdg_activation_v1.activate(token, surface).
 //
 // X11:
@@ -897,8 +923,9 @@
 //     of phase 5 comes with it). Like GTK and winit, the data is not handed
 //     to a clipboard manager (SAVE_TARGETS) when Run returns.
 //   - Menus: none (ErrUnsupported).
-//   - Global shortcuts: the portal when the session has it, else XGrabKey
-//     on the root window for the keycode of the key's keysym with the
+//   - Global shortcuts: the portal when the session has it and it accepts
+//     the app ID; else (no portal, or ErrAppNotRegistered, and then for
+//     every later shortcut) XGrabKey on the root window for the keycode of the key's keysym with the
 //     modifier mask, once per combination of the Lock and NumLock masks;
 //     KeyPress and KeyRelease (with detectable auto-repeat) on the root are
 //     Pressed and Released; BadAccess is ShortcutTaken (as an event).
@@ -927,6 +954,9 @@
 //     or DESKTOP_STARTUP_ID (X11).
 //   - Associations: package assoc (the app's .desktop file in
 //     $XDG_DATA_HOME/applications; mimeapps.list only for MakeDefault).
+//   - The app ID (SetAppID): the portal registration of the shortcuts,
+//     the notifications' app_name and desktop-entry hint, the tray items'
+//     Id and Title.
 //   - Trash: org.freedesktop.portal.Trash.TrashFile with a descriptor of
 //     the file (opened O_RDWR|O_NOFOLLOW, a folder O_PATH, as GIO does),
 //     on a connection of its own; 1 means trashed. Without a portal, when
@@ -1015,8 +1045,8 @@
 // (the answer to a drag reaches the OS one round trip late, so a drag
 // entering a window is refused until the child answered), menus, the
 // clipboard's Data, global shortcuts and single instance held by the host
-// across reloads, secrets, associations and the trash (see the remote
-// package).
+// across reloads, the app ID (the host's backend takes the child app's),
+// secrets, associations and the trash (see the remote package).
 //
 // Headless: the clipboard holds Data; drags are driven by injected pointer
 // events after Window.StartDrag or Backend.StartExternalDrag; menus,

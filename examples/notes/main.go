@@ -66,8 +66,11 @@
 //     mounted while a setting is on (Preferences, Shortcuts). From any
 //     application it shows and raises the window (also from the tray) and
 //     makes a note. Preferences shows what the OS answered: the keys that
-//     were bound (the Wayland portal may choose others), or taken, refused,
-//     removed, not available.
+//     were bound (the Wayland portal may choose others), registered with no
+//     keys (Hyprland: with the hyprland.conf line that binds it), or taken,
+//     refused, removed, not available. On Linux the portal needs the app's
+//     desktop entry, so main calls desktop.RegisterApp first, in the built
+//     program (registerApp, in link.go).
 //   - One instance and deep links: main is
 //     tela.Main(desktop.SingleInstance(...)), and desktop.UseLaunch handles
 //     every start of the program, the first one and the ones another process
@@ -148,6 +151,8 @@ var Previews = tela.Previews{
 }
 
 func main() {
+	desktop.SetAppID(App.AppID) // before RegisterApp, which names the entry after it
+	registerApp()
 	autoRegister.Store(true) // register the notes: scheme at start (never in tests or snapshots)
 	tela.Main(desktop.SingleInstance(withAppearance(desktop.PersistApp(App))))
 }

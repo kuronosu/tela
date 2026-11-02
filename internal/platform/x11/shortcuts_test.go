@@ -3,6 +3,8 @@
 package x11
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -147,6 +149,36 @@ func TestShortcutRepeatWithoutDetectable(t *testing.T) {
 	got := g.feed(rootPress(kcA, 0xc, 1), rootRelease(kcA, 0xc, 5), rootPress(kcA, 0xc, 5), rootRelease(kcA, 0xc, 9))
 	if w := "shortcut show pressed; shortcut show released"; got != w {
 		t.Errorf("keys = %q, want %q", got, w)
+	}
+}
+
+func TestShortcutPortalRefusesAppID(t *testing.T) {
+	// xdg-desktop-portal 1.22 refuses an app ID without a desktop entry:
+	// the key is grabbed instead, with one status (bound), and later
+	// shortcuts skip the portal.
+	g, portal := shortcutRig(true)
+	portal.err = fmt.Errorf("%w: no entry dev.example.app.desktop", platform.ErrAppNotRegistered)
+	if err := g.b.registerShortcut(portal, ctrlAltA); err != nil {
+		t.Fatal(err)
+	}
+	if got, w := g.pass(), `status show bound "Ctrl+Alt+A"`; got != w {
+		t.Errorf("status = %q, want %q (one status, no failure first)", got, w)
+	}
+	if got := g.x.grabs(); got == "" {
+		t.Error("nothing was grabbed")
+	}
+	enter := platform.Shortcut{ID: "enter", Accelerator: platform.Accelerator{Mods: platform.ModCtrl, Key: platform.KeyEnter}, Description: "Enter"}
+	if err := g.b.registerShortcut(portal, enter); err != nil {
+		t.Fatal(err)
+	}
+	if w := []string{"register show"}; !slices.Equal(portal.calls, w) {
+		t.Errorf("portal calls = %v, want %v", portal.calls, w)
+	}
+	// Any other error is the caller's.
+	g2, portal2 := shortcutRig(true)
+	portal2.err = errors.New("boom")
+	if err := g2.b.registerShortcut(portal2, ctrlAltA); err == nil || g2.x.grabs() != "" {
+		t.Errorf("another portal error = %v, grabs %q; want the error and no grab", err, g2.x.grabs())
 	}
 }
 

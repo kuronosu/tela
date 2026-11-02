@@ -33,10 +33,17 @@ import (
 // The OS decides: Windows refuses a combination another application
 // holds (ShortcutTaken), and on Wayland the desktop asks the user first
 // (through the GlobalShortcuts portal) and may bind other keys, which
-// ShortcutStatusEvent.Trigger reports. Where the desktop has no global
+// ShortcutStatusEvent.Trigger reports, or none (Hyprland: see
+// ShortcutStatusEvent.Trigger). Where the desktop has no global
 // shortcuts (Wayland without the portal), OnStatus receives ShortcutFailed
 // with an error wrapping [ErrUnsupported]. Tests press it with telatest's
 // App.PressShortcut.
+//
+// On Linux the portal needs the app's desktop entry: call [RegisterApp]
+// once in the installed program (at start, before tela.Run), or the
+// shortcut fails with an error wrapping [ErrAppNotRegistered] that names
+// the entry. Give the app an ID ([SetAppID] or tela.App.AppID): the
+// executable's name is the default.
 type GlobalShortcut struct {
 	// ID identifies the shortcut to the OS, which keeps the user's
 	// changes to it across runs (the portal): keep it stable
@@ -98,7 +105,11 @@ type ShortcutStatusEvent struct {
 	Status ShortcutStatus
 	// Trigger is the combination the user presses, as the desktop shows
 	// it ("Ctrl+Alt+N"), for ShortcutBound: the desktop may bind other
-	// keys than Keys. "" when it does not say.
+	// keys than Keys. "" when it does not say, or has assigned no keys
+	// yet: Hyprland registers the shortcut but ignores Keys, and the user
+	// binds it in hyprland.conf with
+	// "bind = CTRL ALT, N, global, <AppID>:<ID>"; it fires from then on.
+	// Show the keys asked for, and say so.
 	Trigger string
 	// Err says why, for every status but ShortcutBound, in a sentence an
 	// app can show ("desktop: the global shortcut Ctrl+Alt+N is taken by

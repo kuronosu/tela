@@ -37,6 +37,12 @@ var appID struct {
 // with the App's AppID. Without it, the directories are named after the
 // running app's App.AppID, or before tela.Run (and without an AppID)
 // after the executable. Safe from any goroutine.
+//
+// The same ID ([AppID]) is the one the desktop knows the app by: the name
+// of its desktop entry ([RegisterApp]), which the Linux global shortcuts
+// portal needs, and the app of its notifications. tela.Run gives it to
+// the OS services when it starts, so a later SetAppID changes only the
+// directories.
 func SetAppID(id string) {
 	if id == "" || strings.ContainsAny(id, `/\:*?"<>|`) || id == "." || id == ".." {
 		panic(fmt.Sprintf("desktop.SetAppID(%q): the ID names folders, so it must be non-empty, without path separators or the characters :*?\"<>|; use a reverse-DNS name such as \"com.example.notes\"", id))

@@ -5,6 +5,8 @@ package freedesktop
 import (
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +16,9 @@ import (
 
 // fakePortal13 is an XDG Desktop Portal with the phase-13 interfaces:
 // Settings, GlobalShortcuts and the host Registry. Each may be left out.
+// With the Registry it behaves like xdg-desktop-portal 1.22: Register
+// refuses an app ID that has no desktop entry in dataDirs, and
+// CreateSession refuses a connection that did not register.
 type fakePortal13 struct {
 	t    *testing.T
 	conn *dbus.Conn
@@ -31,18 +36,27 @@ type fakePortal13 struct {
 	senders  map[string]bool          // senders that made a portal call
 	regErr   []string                 // Register calls made after another call (the portal refuses them)
 	readAlls int
+
+	registry   bool              // the Registry interface is exported
+	dataDirs   []string          // where Register looks for <ID>.desktop (applications/)
+	registered map[string]string // app ID registered, by sender
+	refused    []string          // app IDs Register refused for want of an entry
 }
 
 type portal13Options struct {
 	settings  map[string]map[string]dbus.Variant // Settings interface when non-nil
 	shortcuts bool                               // GlobalShortcuts interface
 	registry  bool                               // Registry interface
+	// dataDirs are the XDG data directories in which Register looks for
+	// applications/<app ID>.desktop (none: it refuses every ID).
+	dataDirs []string
 }
 
 func startPortal13(t *testing.T, addr string, o portal13Options) *fakePortal13 {
 	t.Helper()
 	p := &fakePortal13{t: t, conn: connect(t, addr), settings: o.settings,
-		closed: map[dbus.ObjectPath]bool{}, senders: map[string]bool{}}
+		closed: map[dbus.ObjectPath]bool{}, senders: map[string]bool{},
+		registry: o.registry, dataDirs: o.dataDirs, registered: map[string]string{}}
 	versions := map[string]uint32{}
 	if o.settings != nil {
 		versions[ifaceSettings] = 2
@@ -75,6 +89,13 @@ func startPortal13(t *testing.T, addr string, o portal13Options) *fakePortal13 {
 				handle := requestPath(string(sender), token)
 				session := sessionPath(string(sender), stoken)
 				p.mu.Lock()
+				if p.registry && p.registered[string(sender)] == "" {
+					// xdg-desktop-portal 1.22 for a host app it could not
+					// identify.
+					p.called(sender, "CreateSession refused")
+					p.mu.Unlock()
+					return "", dbus.NewError("org.freedesktop.portal.Error.NotAllowed", []any{"An app id is required"})
+				}
 				p.called(sender, "CreateSession")
 				p.sessions = append(p.sessions, session)
 				p.mu.Unlock()
@@ -137,6 +158,12 @@ func startPortal13(t *testing.T, addr string, o portal13Options) *fakePortal13 {
 					return dbus.NewError("org.freedesktop.portal.Error.Failed", []any{"already looked up"})
 				}
 				p.called(sender, "Register "+appID)
+				if !p.hasEntry(appID) {
+					p.refused = append(p.refused, appID)
+					return dbus.NewError("org.freedesktop.portal.Error.Failed",
+						[]any{"Could not register app ID: App info not found for '" + appID + "'"})
+				}
+				p.registered[string(sender)] = appID
 				return nil
 			},
 		}, portalPath, ifaceRegistry); err != nil {
@@ -155,6 +182,45 @@ func startPortal13(t *testing.T, addr string, o portal13Options) *fakePortal13 {
 	}
 	own(t, p.conn, portalName)
 	return p
+}
+
+// hasEntry reports whether a desktop entry of the app ID is in the data
+// directories, as GDesktopAppInfo finds it; p.mu is held.
+func (p *fakePortal13) hasEntry(appID string) bool {
+	for _, dir := range p.dataDirs {
+		if _, err := os.Stat(filepath.Join(dir, "applications", appID+".desktop")); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// registrations returns the app IDs registered (one per connection) and
+// those refused, in no particular order for the first.
+func (p *fakePortal13) registrations() (registered, refused []string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, id := range p.registered {
+		registered = append(registered, id)
+	}
+	return registered, append([]string(nil), p.refused...)
+}
+
+// appEntries returns an XDG data directory holding a desktop entry for
+// each app ID.
+func appEntries(t *testing.T, ids ...string) string {
+	t.Helper()
+	dir := t.TempDir()
+	apps := filepath.Join(dir, "applications")
+	if err := os.MkdirAll(apps, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range ids {
+		if err := os.WriteFile(filepath.Join(apps, id+".desktop"), []byte("[Desktop Entry]\nType=Application\nName=Test\nExec=true\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
 }
 
 // called records a portal call; p.mu is held.

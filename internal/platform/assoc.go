@@ -73,7 +73,26 @@ type AssociationStatus struct {
 	Other string
 }
 
-// RegisterOptions configures Associations.Register.
+// AppStatus is what Associations.AppStatus reports: whether the desktop
+// knows the app's ID.
+type AppStatus struct {
+	// Registered: the desktop has an entry for the app's ID, whoever wrote
+	// it (Linux: a desktop entry <ID>.desktop in the data directories that
+	// is not Hidden; the GlobalShortcuts portal needs one). Always true on
+	// Windows, which identifies a desktop app by its executable and needs
+	// no entry.
+	Registered bool
+	// Requested: RegisterApp wrote the entry and UnregisterApp would
+	// remove it (Linux).
+	Requested bool
+	// Other is the path of an entry of the app's ID that Tela did not
+	// write (a package's, an installer's, or the user's hidden one), which
+	// RegisterApp does not take over without RegisterOptions.Replace; ""
+	// when there is none.
+	Other string
+}
+
+// RegisterOptions configures Associations.Register and RegisterApp.
 type RegisterOptions struct {
 	// Replace lets Register take over an association another application
 	// holds (ErrAssociationTaken otherwise): a Windows scheme key whose
@@ -147,6 +166,28 @@ type Associations interface {
 	// user's mimeapps.list and belongs to the desktop environment, so
 	// MakeDefault returns an error naming it instead of editing it.
 	MakeDefault(app HandlerApp, a Association) (DefaultResult, error)
+
+	// RegisterApp makes the desktop know the app's ID, with no scheme or
+	// file type (ADR-217): on Linux the app's own desktop entry
+	// $XDG_DATA_HOME/applications/<ID>.desktop, the file Register shares,
+	// with NoDisplay=true and no MimeType, marked as asked for by
+	// RegisterApp. It looks first and writes nothing when the entry is
+	// up to date, or when an entry of the ID that Tela did not write
+	// already names the app (changed false); a hidden one is taken over
+	// only with opts.Replace (ErrAssociationTaken). On Windows it writes
+	// nothing (see AppStatus.Registered).
+	RegisterApp(app HandlerApp, opts RegisterOptions) (changed bool, err error)
+
+	// UnregisterApp withdraws RegisterApp's request: the entry is removed
+	// unless associations registered with Register still need it (they
+	// keep it, and Unregister of the last one removes it). An entry Tela
+	// did not write is never touched. Nothing to remove is not an error
+	// (changed false).
+	UnregisterApp(app HandlerApp) (changed bool, err error)
+
+	// AppStatus reports whether the desktop knows the app's ID, and
+	// whether RegisterApp asked for its entry.
+	AppStatus(app HandlerApp) (AppStatus, error)
 }
 
 // CheckHandlerApp panics with an actionable message if app has an invalid
@@ -270,6 +311,24 @@ func (UnsupportedAssociations) MakeDefault(app HandlerApp, a Association) (Defau
 	CheckHandlerApp("Associations.MakeDefault", app, true)
 	CheckAssociation("Associations.MakeDefault", a)
 	return DefaultSet, ErrUnsupported
+}
+
+// RegisterApp checks its arguments and returns ErrUnsupported.
+func (UnsupportedAssociations) RegisterApp(app HandlerApp, _ RegisterOptions) (bool, error) {
+	CheckHandlerApp("Associations.RegisterApp", app, true)
+	return false, ErrUnsupported
+}
+
+// UnregisterApp checks its arguments and returns ErrUnsupported.
+func (UnsupportedAssociations) UnregisterApp(app HandlerApp) (bool, error) {
+	CheckHandlerApp("Associations.UnregisterApp", app, false)
+	return false, ErrUnsupported
+}
+
+// AppStatus checks its arguments and returns ErrUnsupported.
+func (UnsupportedAssociations) AppStatus(app HandlerApp) (AppStatus, error) {
+	CheckHandlerApp("Associations.AppStatus", app, false)
+	return AppStatus{}, ErrUnsupported
 }
 
 // TakenError returns an error wrapping ErrAssociationTaken that names the

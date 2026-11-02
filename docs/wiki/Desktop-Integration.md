@@ -232,11 +232,11 @@ reports the outcome of the registration and every later change:
 
 | Status | Meaning |
 |---|---|
-| `ShortcutBound` | It works. `Trigger` is what the user presses, which may not be `Keys` |
+| `ShortcutBound` | It works. `Trigger` is what the user presses, which may not be `Keys`; `""` means the desktop assigned no keys yet (Hyprland, below) |
 | `ShortcutTaken` | Another application holds the combination |
 | `ShortcutRefused` | The user or the desktop declined to bind it |
 | `ShortcutRevoked` | The user removed it later, in the desktop's shortcut settings |
-| `ShortcutFailed` | It could not be registered: bad keys, an OS error, or no global shortcuts on this desktop (`Err` wraps `ErrUnsupported`) |
+| `ShortcutFailed` | It could not be registered: bad keys, an OS error, no global shortcuts on this desktop (`Err` wraps `ErrUnsupported`), or a Linux desktop that does not know the app (`Err` wraps `ErrAppNotRegistered`, below) |
 
 Show the state in your preferences ("Quick note: Ctrl+Alt+N", or the reason it is
 off) and never assume the shortcut works. A nil `OnStatus` reports anything but
@@ -255,6 +255,48 @@ the first time, and the user may bind other keys: that is why `Trigger` exists.
 Compositors without it (or sessions without a portal) report
 `ShortcutFailed` with an `ErrUnsupported` error: offer the same action in the app
 and say that the global shortcut is not available.
+
+**Hyprland registers the shortcut but assigns no keys**: it ignores `Keys`, and
+`OnStatus` gets `ShortcutBound` with an empty `Trigger`. The user binds it in
+`hyprland.conf`, after which it fires as usual:
+
+```
+bind = CTRL ALT, N, global, com.example.notes:quick-note
+```
+
+The part after `global,` is the app ID ([`desktop.AppID`](API-Reference-desktop#func-appid)),
+a colon and the shortcut's `ID`. Show the keys you asked for and that line
+(`examples/notes` does, in Preferences).
+
+**The Linux portal needs the app's desktop entry.** xdg-desktop-portal identifies
+an app by its ID, and accepts it only when the desktop has an entry
+`<AppID>.desktop`; without one every shortcut fails with an error wrapping
+`desktop.ErrAppNotRegistered`, which names the entry. Give the app an ID
+(`tela.App.AppID` or `desktop.SetAppID`; the executable's name is the default)
+and call [`desktop.RegisterApp`](API-Reference-desktop#func-registerapp) at start,
+in the built program, before `tela.Run`:
+
+```go
+func main() {
+	desktop.SetAppID("com.example.notes")
+	if _, err := desktop.RegisterApp(); err != nil && !errors.Is(err, desktop.ErrDevExecutable) {
+		log.Print(err)
+	}
+	tela.Main(App)
+}
+```
+
+`RegisterApp` writes only the app's own entry, per user
+(`~/.local/share/applications/<AppID>.desktop`), with no launcher in the menus
+(`NoDisplay=true`) and no file types. It looks first: it writes nothing when the
+entry is up to date, or when a package already installed an entry of that ID,
+which it never takes over without `desktop.Replace()`. Scheme and file-type
+registration ([below](#links-and-file-types)) share the file; the entry stays while
+either needs it. [`UnregisterApp`](API-Reference-desktop#func-unregisterapp)
+removes it (keeping it for the associations that still need it), and
+[`AppStatus`](API-Reference-desktop#func-appstatus) reports it. Windows needs no
+entry, and nothing is written there. On X11, a refused ID makes Tela grab the keys
+itself instead, so shortcuts work without the entry.
 
 ## One instance and launches
 
@@ -545,7 +587,9 @@ from that:
 - **Global shortcuts** are held by the host, like trays. An equal re-registration is
   not sent again, so the Wayland portal does not ask on every save; changes apply
   when the new build is promoted, and the shortcut stays after a crash of the
-  child.
+  child. The host registers them under your app's ID, not its own, so the app's
+  desktop entry must exist: run the built program once (`RegisterApp`), since
+  `RegisterApp` under dev returns `ErrDevExecutable` like `Register`.
 - **Single instance:** the host claims the app ID and keeps it across reloads. A
   second `tela dev` of the same app is a second instance: it forwards its launch to
   the first and exits, and the supervisor says why.
@@ -568,7 +612,7 @@ services; macOS has no window yet (phase 14).
 |---|---|---|
 | Drag and drop | Wayland `wl_data_device`, X11 XDND | OLE `DoDragDrop` and `RegisterDragDrop` |
 | Clipboard | Text, HTML, PNG images, files and custom types on Wayland and X11 (X11 had no clipboard before this) | The same types |
-| Global shortcuts | Wayland: the GlobalShortcuts portal, which asks the user and may bind other keys (`Trigger`); X11: key grabs; `ShortcutFailed` with `ErrUnsupported` without a portal | `RegisterHotKey`: `ShortcutTaken` if another application holds the keys; no release events |
+| Global shortcuts | Wayland: the GlobalShortcuts portal, which asks the user and may bind other keys (`Trigger`; none on Hyprland), and needs the app's desktop entry (`RegisterApp`); X11: the portal, else key grabs; `ShortcutFailed` with `ErrUnsupported` without a portal | `RegisterHotKey`: `ShortcutTaken` if another application holds the keys; no release events |
 | Single instance | A well-known D-Bus name; without a D-Bus session the app runs on its own | A named mutex and a message to the first instance |
 | Registration | The app's own `.desktop` file in `~/.local/share/applications`, `mimeinfo.cache` kept by Tela, and a MIME type for a new extension (made with `update-mime-database` when it is installed); `xdg-mime query default x-scheme-handler/notes` shows the default | `HKCU\Software\Classes`; the default for a file type is chosen by the user in Settings, Default apps |
 | Secrets | The Secret Service (GNOME Keyring, KWallet) over D-Bus, with an encrypted session; `ErrUnsupported` without one | Credential Manager |

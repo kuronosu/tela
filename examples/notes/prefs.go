@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/desktop"
@@ -282,12 +284,18 @@ func (s shortcutsSection) Build() tela.Node {
 		{"Delete the open note", mod + " Shift D"},
 		{"Back to all notes, from the list", "Esc"},
 	}
+	// Registered with no keys (Hyprland): the line that binds it.
+	unassigned := quick && info.Unassigned()
+	var below []tela.Child
+	if unassigned {
+		below = append(below, configLine{hyprlandBind(quickNoteKeys, desktop.AppID(), quickNoteID)})
+	}
 	return Fragment(
 		Div(Class("flex flex-col gap-1"),
 			heading("Anywhere", "Works while Notes is in the background."),
 			rowNotice("Quick note", status, notice, quickNoteControl{
-				Keys: info.Keys(), Checked: &quick, OnChange: setQuick.Set,
-			}),
+				Keys: info.Keys(), Requested: unassigned, Checked: &quick, OnChange: setQuick.Set,
+			}, below...),
 		),
 		Div(Class("flex flex-col gap-1"),
 			heading("In the window", ""),
@@ -309,16 +317,23 @@ func (c chip) Build() tela.Node {
 }
 
 // quickNoteControl is the end of the row of the global shortcut: the keys
-// that are bound, and the switch that turns it on and off.
+// that are bound, and the switch that turns it on and off. Requested keys
+// the desktop has not assigned get a dashed outline.
 type quickNoteControl struct {
-	Keys     string
-	Checked  *bool
-	OnChange func(bool)
+	Keys      string
+	Requested bool
+	Checked   *bool
+	OnChange  func(bool)
 }
 
 func (q quickNoteControl) Build() tela.Node {
+	keys := tela.Node(chip{q.Keys})
+	if q.Requested {
+		keys = Span(Class("rounded-md border border-dashed border-gold/60 px-2 py-0.5 font-mono text-xs text-muted-foreground"),
+			Text(q.Keys))
+	}
 	return Div(Class("flex items-center gap-3"),
-		chip{q.Keys},
+		keys,
 		kit.Switch{AriaLabel: "Quick note from any application", Checked: q.Checked, OnCheckedChange: q.OnChange},
 	)
 }
@@ -342,6 +357,9 @@ type quickNoteInfo struct {
 	Trigger string
 	// Unsupported: this desktop has no global shortcuts.
 	Unsupported bool
+	// NotRegistered: the desktop refused the app's ID, which has no
+	// desktop entry (desktop.RegisterApp, called by main).
+	NotRegistered bool
 	// Err is the reason of a status other than bound, for the status line.
 	Err string
 }
@@ -356,8 +374,16 @@ func infoOf(e desktop.ShortcutStatusEvent) quickNoteInfo {
 	if e.Err != nil {
 		i.Err = e.Err.Error()
 		i.Unsupported = errors.Is(e.Err, desktop.ErrUnsupported)
+		i.NotRegistered = errors.Is(e.Err, desktop.ErrAppNotRegistered)
 	}
 	return i
+}
+
+// Unassigned reports a shortcut the desktop registered without assigning
+// keys: Hyprland ignores the keys asked for, and the user binds it in
+// hyprland.conf (configLine).
+func (i quickNoteInfo) Unassigned() bool {
+	return i.Known && i.Status == desktop.ShortcutBound && i.Trigger == ""
 }
 
 // Keys are the keys to show for the shortcut: what the desktop bound, else
@@ -377,6 +403,8 @@ func (i quickNoteInfo) Describe(on bool) (text string, notice bool) {
 		return "Off.", false
 	case !i.Known:
 		return "Waiting for the desktop to confirm it.", false
+	case i.Unassigned():
+		return "Registered, but the desktop has not assigned keys. On Hyprland, add to hyprland.conf:", true
 	case i.Status == desktop.ShortcutBound:
 		return "On. Press " + i.Keys() + " from any application to make a note.", false
 	case i.Status == desktop.ShortcutTaken:
@@ -387,6 +415,8 @@ func (i quickNoteInfo) Describe(on bool) (text string, notice bool) {
 		return "Removed in the desktop's shortcut settings.", true
 	case i.Unsupported:
 		return "Not available on this desktop.", true
+	case i.NotRegistered:
+		return "The desktop does not know Notes yet. Build it (go build -o notes ./examples/notes) and run that program once to register it.", true
 	}
 	return "Could not be registered: " + i.Err, true
 }
@@ -406,18 +436,50 @@ func row(label, hint string, control tela.Component) tela.Node {
 
 // rowNotice is row for a hint that tells the state of something: with
 // notice it is in the accent color, because the user may want to act on it.
-func rowNotice(label, hint string, notice bool, control tela.Component) tela.Node {
+// What is below spans the whole row, under the label and the control.
+func rowNotice(label, hint string, notice bool, control tela.Component, below ...tela.Child) tela.Node {
 	hintClass := "text-xs text-muted-foreground"
 	if notice {
 		hintClass = "text-xs text-gold"
 	}
-	return Div(Key(label), Class("flex min-h-12 items-center justify-between gap-4 border-t border-border py-2 first:border-t-0"),
-		Div(Class("flex min-w-0 flex-col"),
-			Span(Class("text-[13px] font-medium"), Text(label)),
-			If(hint != "", Span(Class(hintClass), Text(hint))),
-		),
-		control,
+	head := Div(Class("flex min-w-0 flex-col"),
+		Span(Class("text-[13px] font-medium"), Text(label)),
+		If(hint != "", Span(Class(hintClass), Text(hint))),
 	)
+	if len(below) == 0 {
+		return Div(Key(label), Class("flex min-h-12 items-center justify-between gap-4 border-t border-border py-2 first:border-t-0"),
+			head, control)
+	}
+	// A key of its own: the row is another shape, mounted anew (a Div
+	// that changes its classes and wraps its first child in the same
+	// update kept its old direction).
+	return Div(Key(label+"/below"), Class("flex flex-col gap-2 border-t border-border py-2 first:border-t-0"),
+		Div(Class("flex min-h-8 items-center justify-between gap-4"), head, control),
+		Fragment(below...),
+	)
+}
+
+// configLine is a line of a configuration file to copy, under a hint.
+type configLine struct{ Line string }
+
+func (c configLine) Build() tela.Node {
+	return Div(Class("rounded-md border border-border bg-muted px-2.5 py-1.5 font-mono text-[11px] text-foreground select-text"),
+		Text(c.Line))
+}
+
+// hyprlandBind is the hyprland.conf line that binds a global shortcut the
+// portal registered, for keys written as desktop.ParseKeys writes them:
+// "bind = CTRL ALT, N, global, dev.telaui.notes:quick-note".
+func hyprlandBind(keys, appID, id string) string {
+	parts := strings.Split(keys, "+")
+	mods := make([]string, 0, len(parts)-1)
+	for _, m := range parts[:len(parts)-1] {
+		if m == "Super" {
+			m = "SUPER"
+		}
+		mods = append(mods, strings.ToUpper(m))
+	}
+	return fmt.Sprintf("bind = %s, %s, global, %s:%s", strings.Join(mods, " "), parts[len(parts)-1], appID, id)
 }
 
 // segmented is a group of toggle buttons for a choice among a few strings

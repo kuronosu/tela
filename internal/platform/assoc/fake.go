@@ -15,9 +15,10 @@ import (
 // explicit default is the default (as GIO and Windows pick it);
 // MakeDefault sets the default, or asks the user for file types when
 // AskForFileDefaults is set (Windows). Tests seed other applications with
-// SetDefault and SetConflict, inject failures with SetError, and inspect
-// Registrations, Writes and Asked. The zero value is ready; it is safe for
-// concurrent use. The headless backend gives each Backend one.
+// SetDefault, SetConflict and SetAppEntry, inject failures with SetError,
+// and inspect Registrations, Apps, Writes and Asked. The zero value is
+// ready; it is safe for concurrent use. The headless backend gives each
+// Backend one.
 type Fake struct {
 	mu sync.Mutex
 	// askFiles: MakeDefault of a file type returns DefaultAsked.
@@ -26,6 +27,8 @@ type Fake struct {
 	defaults  map[string]string              // key -> app ID or other app
 	conflicts map[string]string              // key -> other app
 	asked     []platform.Association
+	apps      map[string]platform.HandlerApp // RegisterApp's, by app ID
+	appOthers map[string]string              // app ID -> another's entry
 	writes    int
 	err       error
 }
@@ -121,7 +124,8 @@ func (f *Fake) Registrations() []Registration {
 }
 
 // Writes returns how many calls changed something (Register,
-// Unregister, MakeDefault), the system writes a real implementation would
+// Unregister, MakeDefault, RegisterApp, UnregisterApp), the system writes a
+// real implementation would
 // have made.
 func (f *Fake) Writes() int {
 	f.mu.Lock()

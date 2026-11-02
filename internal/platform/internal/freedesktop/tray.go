@@ -262,8 +262,8 @@ func (t *tray) itemProperties() map[string]dbus.Variant {
 	}
 	return map[string]dbus.Variant{
 		"Category":            dbus.MakeVariant("ApplicationStatus"),
-		"Id":                  dbus.MakeVariant(t.d.opts.AppID),
-		"Title":               dbus.MakeVariant(t.d.opts.AppID),
+		"Id":                  dbus.MakeVariant(t.d.appID()),
+		"Title":               dbus.MakeVariant(t.d.appID()),
 		"Status":              dbus.MakeVariant("Active"),
 		"WindowId":            dbus.MakeVariant(int32(0)),
 		"IconName":            dbus.MakeVariant(""),

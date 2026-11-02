@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -146,7 +147,12 @@ type ShortcutStatus uint8
 
 const (
 	// ShortcutBound: the shortcut is registered; Trigger is what the user
-	// presses. Reported again when the user changes the trigger.
+	// presses. Reported again when the user changes the trigger. With an
+	// empty Trigger the desktop registered it without saying which keys,
+	// or without assigning any: xdg-desktop-portal-hyprland ignores the
+	// preferred trigger, and the user binds the shortcut in the
+	// compositor's configuration ("bind = CTRL ALT, N, global,
+	// <app ID>:<shortcut ID>"); it fires once they do.
 	ShortcutBound ShortcutStatus = iota
 	// ShortcutTaken: another application holds the combination (Win32
 	// RegisterHotKey, X11 XGrabKey with BadAccess).
@@ -179,9 +185,19 @@ type ShortcutStatusEvent struct {
 	Status ShortcutStatus
 	// Trigger describes the bound trigger as the OS shows it ("Ctrl+Alt+K",
 	// the portal's trigger_description), for ShortcutBound; "" when the OS
-	// does not say.
+	// does not say, which on Hyprland means no keys are assigned yet (see
+	// ShortcutBound).
 	Trigger string
 	// Reason explains a status other than ShortcutBound, in English, for
 	// logs ("" when the OS gives none).
 	Reason string
 }
+
+// ErrAppNotRegistered is wrapped by the error of RegisterShortcut when the
+// desktop refused the app ID ([Desktop.SetAppID]) the global shortcuts are
+// registered under: xdg-desktop-portal 1.22 accepts a host app's ID only
+// when the desktop has an entry for it (<ID>.desktop, which
+// [Associations.RegisterApp] writes), and refuses every shortcut of an app
+// it could not register. The error names the ID and the entry. The X11
+// backend then grabs the keys itself, as without a portal (ADR-217).
+var ErrAppNotRegistered = errors.New("platform: the desktop does not know the app ID")
