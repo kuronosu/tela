@@ -61,6 +61,7 @@ type Backend struct {
 	zombies    []darwin.ID // released at the next pass (releaseLater)
 
 	settings settingsState // system settings and their observer (settings_darwin.go)
+	desk     desktopState  // desktop services (services_darwin.go)
 }
 
 var _ platform.Backend = (*Backend)(nil)
@@ -214,6 +215,7 @@ func (b *Backend) shutdown() {
 	}
 	b.closed = true
 	pool := darwin.PoolPush()
+	b.stopDesktop() // ends the sheets before their windows close
 	for _, w := range slices.Clone(b.loop.Windows()) {
 		w.Close()
 	}

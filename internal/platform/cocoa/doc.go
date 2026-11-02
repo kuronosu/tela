@@ -14,14 +14,17 @@
 // link, the clipboard (NSPasteboard with every Data type,
 // clipboard_darwin.go over the pure mapping in pasteboard.go), the system
 // settings with their change events (settings_darwin.go), the IME
-// (NSTextInputClient, ime_darwin.go over the pure rules of ime.go) and
+// (NSTextInputClient, ime_darwin.go over the pure rules of ime.go),
 // window control (windowctl_darwin.go over windowctl.go: minimize, zoom,
 // native full screen, the floating level, size limits, positions,
 // activation, frameless windows, custom title bars, child and modal
-// windows, vibrancy backdrops). Native menus, drag and drop and the
-// desktop services are the next tasks of the macOS desktop integration
-// phase; until then those requests are validated like on every backend
-// and do nothing, and the services return ErrUnsupported.
+// windows, vibrancy backdrops) and the desktop services of phase 12 with
+// the secrets and the trash (see "Desktop services" below). Native menus,
+// drag and drop, global shortcuts, single instance, the associations and
+// the app ID are the next tasks of the macOS desktop integration phase
+// (ADR-224); until then those requests are validated like on every
+// backend and do nothing, and the services return ErrUnsupported
+// (UnsupportedDesktop).
 //
 // # Loop
 //
@@ -260,4 +263,32 @@
 //
 // Not reported yet: pen and tablet fields (a pen moves the pointer as a
 // mouse), and a PointerCancel when the OS takes a press away.
+//
+// # Desktop services
+//
+// services_darwin.go has the overview; dialog.go and services.go are the
+// pure halves, tested on every OS.
+//
+//   - OpenURI and OpenPath: -[NSWorkspace openURL:] (a folder opens in the
+//     Finder).
+//   - File dialogs: NSOpenPanel and NSSavePanel (dialog_darwin.go). With a
+//     parent window on screen, a sheet on it; without one, a separate
+//     modeless panel (beginWithCompletionHandler:), so the loop runs as
+//     usual. Filters become allowed content types (UTType from "*.ext");
+//     an open panel filters other globs with its delegate, a save panel
+//     drops them; several filters get a "Format:" popup. done runs once,
+//     from a later pass; cancel is nil and nil.
+//   - Message boxes: NSAlert, a sheet on the parent or -[NSAlert runModal]
+//     started from a run loop block outside any pass (the loop's source is
+//     in the common modes, so passes run inside the modal session).
+//   - Trays: NSStatusItems (tray_darwin.go) with a 1x and 2x image, the
+//     tooltip, and an NSMenu, which opens on any click; without a menu a
+//     click is TrayActivated.
+//   - Secrets: the login keychain's generic passwords, service the app ID
+//     and account the name (secret_darwin.go); any goroutine.
+//   - Trash: -[NSFileManager trashItemAtURL:resultingItemURL:error:]
+//     (trash_darwin.go), which never deletes; any goroutine.
+//   - Notifications: UNUserNotificationCenter, only from an app bundle with
+//     a bundle identifier (notify_darwin.go); without one Notify returns
+//     ErrUnsupported naming tela run.
 package cocoa

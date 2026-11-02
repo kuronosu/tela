@@ -986,8 +986,39 @@
 // behind the content view ([Backdrop] has the materials), with the
 // window non-opaque and the frame's alpha shown ([AlphaPresenter]).
 // SetTitleBarColors does nothing (macOS title bars have no app colors).
-// Menus, drag and drop and the desktop services are later tasks of the
-// phase (ErrUnsupported until then).
+// Desktop services (phase 15, ADR-224): -[NSWorkspace openURL:] for
+// OpenURI and OpenPath (a folder opens in the Finder); NSOpenPanel and
+// NSSavePanel, a sheet on the parent window when it is on screen
+// (beginSheetModalForWindow:completionHandler:), else a separate
+// modeless panel (beginWithCompletionHandler:, as Electron and Chromium
+// show detached panels), whose completion handler posts done to the loop;
+// filters as allowed content types (the UTType of each "*.ext", "*" all
+// files), other globs matched by the open panel's delegate
+// (panel:shouldEnableURL:) and dropped by the save panel, several filters
+// in a "Format:" popup of the accessory view (Chromium's), the first
+// selected; a closed parent ends its sheet as canceled. NSAlert with the
+// set's buttons right to left (Yes, Cancel, No: the guidelines' order;
+// Escape on Cancel, or on No in a Yes/No box) and the kind's style
+// (critical for errors, warning, informational for the rest), a sheet on
+// the parent, else -[NSAlert runModal] started from a CFRunLoopPerformBlock
+// in the common modes, outside any pass, one at a time (the run loop
+// source fires in NSModalPanelRunLoopMode, a common mode, so passes,
+// frames and Wake go on; a Quit ends the modal session first and is sent
+// again). NSStatusItem trays (an NSImage 4 points shorter than the menu
+// bar with 1x and 2x bitmap representations picked with PickIcon, the
+// tooltip; an NSMenu with tags as IDs, which opens on any click, else a
+// click is TrayActivated). Notifications through UNUserNotificationCenter
+// only in an app bundle with a bundle identifier, else ErrUnsupported
+// naming tela run (the center raises an Objective-C exception without
+// one): authorization for alerts and sounds at the first Notify, waiting
+// notifications reported NotificationClosed when it is denied and later
+// calls ErrUnsupported; one category per list of actions, with the custom
+// dismiss option; the delegate maps the default action to
+// NotificationActivated, the dismiss action to NotificationClosed and the
+// others to NotificationActionInvoked, and shows notifications while the
+// app is in front.
+// Menus, drag and drop, global shortcuts, single instance and the
+// associations are later tasks of the phase (ErrUnsupported until then).
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
 // clock and an input injection API, used by tests, telatest and the CLI. It
@@ -1196,11 +1227,20 @@
 // (+[UTType typeWithMIMEType:], declared or dynamic; a type with
 // parameters gets an identifier naming it, "dev.telaui.mime." and the
 // escaped type), reported through the UTType's preferred MIME type.
-// Planned: NSDraggingDestination and NSDraggingSource,
+// Secrets (phase 15): SecItem generic passwords
+// (kSecClassGenericPassword) of the login keychain, service the app ID
+// and account the name; SecItemAdd, then SecItemUpdate for an existing
+// item; errSecItemNotFound is ErrSecretNotFound, errSecUserCanceled and
+// errSecAuthFailed ErrSecretCanceled, no keychain or a session that cannot
+// prompt (errSecInteractionNotAllowed) ErrUnsupported. Trash (phase 15):
+// -[NSFileManager trashItemAtURL:resultingItemURL:error:] (the Finder's
+// Move to Trash, Put Back included), with a file URL that keeps a symbolic
+// link itself; a volume without a trash fails, leaving the file in place
+// (ErrUnsupported). Planned: NSDraggingDestination and NSDraggingSource,
 // NSMenu (the app's menu bar; window menus return
-// ErrUnsupported), the keychain, NSRunningApplication for single instance,
-// the bundle's Info.plist for schemes and document types, NSFileManager's
-// trashItemAtURL (until then MoveToTrash is ErrUnsupported).
+// ErrUnsupported), Carbon RegisterEventHotKey for global shortcuts, a lock
+// file and a Unix socket for single instance, the bundle's Info.plist for
+// schemes and document types.
 //
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225):
 // everything is forwarded to the host's backend, which owns the real
