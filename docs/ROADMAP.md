@@ -29,8 +29,8 @@ Started 2026-11-02 on the work branch `phase-14-macos` (ADR-220). Verified on `m
   - [x] The OS-independent macOS key translation (`internal/platform/internal/keyboard/mac.go`)
   - [x] Keyboard, pointer, scrolling (precise deltas and phases; Tela flings), cursors and the display link (NSView.displayLink, CVDisplayLink on macOS 13, a timer otherwise)
   - [x] Clipboard (NSPasteboard, every Data type) and settings (appearance, accent, reduced motion, contrast, double-click time) with change events
-- [ ] IME through `NSTextInputClient`, with tests that drive the protocol in CI
-- [ ] `tela dev` with a cocoa host
+- [x] IME through `NSTextInputClient`, with tests that drive the protocol in CI (the runner's own input context starts a dead-key composition through it; Kotoeri cannot be selected there)
+- [x] `tela dev` with a cocoa host (an end-to-end test on the runner: the frame in the window, a swap under the same NSWindow, the error overlay; the watcher no longer loses a save made just before `SetRoots`)
 - [ ] `looks/aqua` and its entry in `detect.For` (ADR-197)
 
 **Done when:** every example runs on `macos-latest` with snapshots pixel-identical up to text antialiasing, and the IME composition tests pass there.
@@ -182,6 +182,8 @@ Inspecting and driving a running app.
 - [ ] `watch`: find why `TestDirectoryMovedInAndOut/native` failed once on `windows-latest` (`c9aff8d`: nothing reported for a directory moved into the tree, no error; the watcher and the test now report more); the Windows poller holds each directory open while it lists it, so a rename of that directory fails for that moment
 - [ ] CI: the win32 tests that read the screen (title bar colors, backdrop, frameless modal and glass pixels) or open real dialogs run only with `TELA_LIVE=1`, so CI checks their attributes but not their pixels; the win32 keyboard tests inject their "slow" keys 40 ms apart from a goroutine and check the focus only at the start, so they rely on running alone; a global-shortcut press injected with `keybd_event` or `SendInput` from a scheduled task never arrives, so only a real key press checks it
 - [ ] `docs/llms.txt` is near `llmsdoc`'s 100 KB limit
+- [ ] CI: `cmd/tela`'s out-of-repository tests (dev, mcp, new, outside modules) skip when `go mod tidy` cannot resolve offline; the macOS job warms the module cache first, the Linux and Windows jobs do not, so there they likely skip; lint runs staticcheck for Linux only (`watch.(*Watcher).lost` is unused on darwin)
+- [ ] `tela dev` on macOS polls the tree every 300 ms; an FSEvents watcher
 
 **Done when:** each item has a test that failed before it, on Linux and Windows CI.
 
@@ -215,7 +217,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 
 - [ ] Every example at Retina scale; trackpad scrolling, momentum and gestures; Cmd shortcuts and word movement
 - [ ] Keyboard: the ISO swap of kVK_ISO_Section and the grave key, `charactersIgnoringModifiers` with Cmd+Shift, dead keys without the IME, the Caps Lock `flagsChanged:` pattern, the Globe/Fn key's keycode on new keyboards
-- [ ] Japanese through the macOS IME
+- [ ] Japanese through the macOS IME, and dead keys with real key presses (CI's synthetic events start a dead-key composition but do not finish it)
 - [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
 - [ ] After Accessibility: VoiceOver reads, navigates and operates `login`
 - [ ] After the GPU backend: Metal draws the dashboard at 60 fps at scale 2
