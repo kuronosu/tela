@@ -386,6 +386,60 @@ func TestIMEKeys(t *testing.T) {
 	}
 }
 
+// TestIMERejectedTextWindow: the app (this test's handler) never reports a new
+// state, as a field at its MaxLength does when it rejects what is typed;
+// after the passes that delivered the key and the commit, the document
+// the input method reads is the app's again, so a composition and a
+// reconversion after them are placed in the text the field holds.
+func TestIMERejectedTextWindow(t *testing.T) {
+	traceIME(t)
+	state := &platform.TextInputState{
+		CursorArea:  platform.Rect{X: 4, Y: 4, H: 16},
+		Surrounding: &platform.SurroundingText{Text: "abc", Cursor: 3, Anchor: 3},
+	}
+	var selAfter, markedAfter darwin.NSRange
+	var docAfter string
+	mark := 0
+	s := runSteps(t, "tela ime rejected", true, 300*time.Millisecond,
+		func(s *session) {
+			s.w.SetTextInput(state)
+			s.tap(testKey{0x02, 0, "d"}) // kVK_ANSI_D, rejected
+			ns := darwin.NSString("e")   // a commit outside a key, rejected
+			darwin.Send(s.w.view, imetsel.insert, ns, nsNone)
+			darwin.Release(ns)
+		},
+		func(s *session) {
+			mark = len(s.events)
+			v := s.w.view
+			selAfter = darwin.SendRange(v, imetsel.selectedRange)
+			actual := nsNone
+			if a := darwin.Send(v, imetsel.substring, nsr(0, 10), unsafe.Pointer(&actual)); a != 0 {
+				docAfter = darwin.GoString(darwin.Send(a, imetsel.str))
+			}
+			ns := darwin.NSString("か")
+			darwin.Send(v, imetsel.setMarked, ns, nsr(1, 0), nsNone)
+			darwin.Release(ns)
+			markedAfter = darwin.SendRange(v, imetsel.markedRange)
+			ns = darwin.NSString("X") // reconversion of "c" and the preedit
+			darwin.Send(v, imetsel.insert, ns, nsr(2, 2))
+			darwin.Release(ns)
+		},
+	)
+	if s == nil {
+		return
+	}
+	if docAfter != "abc" || selAfter != nsr(3, 0) {
+		t.Errorf("after the rejected text: document %q, selectedRange %v; want \"abc\" and {3 0}", docAfter, selAfter)
+	}
+	if markedAfter != nsr(3, 1) {
+		t.Errorf("markedRange of the composition after it: %v, want {3 1}", markedAfter)
+	}
+	compareLines(t, "IME events after the rejected text", eventStrings(s.events[mark:]), []string{
+		`preedit "か" 3,3`,
+		`delete 1,0 commit "X" preedit "" 0,0`,
+	})
+}
+
 // japaneseSources are the identifiers of Kotoeri's romaji input mode.
 var japaneseSources = []string{
 	"com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese",

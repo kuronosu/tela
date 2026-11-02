@@ -2022,7 +2022,7 @@ func UseContextMenuTrigger(o ContextMenuTriggerOptions) ContextMenuTriggerResult
 
 UseContextMenuTrigger holds the open state of a context menu and returns the props of its area, which opens the menu at the pointer (the contextmenu event of the platform, Radix UI's ContextMenu):
 
-- a right click, at the pointer (the focus stays where it was, and the menu itself takes it),
+- a right click, or a Control+click under the Mac flavor, at the pointer (the focus stays where it was, and the menu itself takes it),
 - a touch or a pen that stays down for 500 ms, at the finger, with the first item focused (Radix's rule; a mouse button held down is not a long press here, so it clicks what it is on as usual),
 - Shift+F10 and the ContextMenu key, with the first item focused, at the top-left corner of the area.
 

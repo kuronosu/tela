@@ -110,11 +110,15 @@
 //     the press) and a leave during it waits for the release. The first
 //     click on an inactive window reaches the app (acceptsFirstMouse:).
 //     Clicks are counted by the layers above with the shared double-click
-//     rule (ADR-192).
+//     rule (ADR-192). A Control-click stays a primary press with ModCtrl,
+//     as AppKit and Chromium's event builder report it; core makes it a
+//     context click under the Mac flavor (OnContextMenu, no click).
 //   - Scroll: precise deltas (touchpads, the Magic Mouse) are Delta in
 //     points, other wheels Steps in lines, both with the DOM's signs (the
 //     user's natural scrolling setting is already in AppKit's deltas); the
-//     touchpad's gesture phases map to ScrollPhaseUpdate and End, and the
+//     touchpad's gesture phases map to ScrollPhaseUpdate and End (an End
+//     only after the window's gesture delivered an update: a touch that
+//     never scrolled, mayBegin then cancelled, ends nothing), and the
 //     momentum events AppKit adds after the fingers lift are dropped, since
 //     the layers above fling from the gesture (ADR-057).
 //   - Cursors: cursor rectangles, and CursorNone hides the cursor while the
@@ -137,10 +141,14 @@
 //     strings are NSString or NSAttributedString and the ranges UTF-16
 //     code units of the document the IME sees, the committed text with
 //     the preedit at the caret; ime.go converts them to the contract's
-//     UTF-8 offsets, turns a replacement range that covers the preedit or
-//     the selection into DeleteBefore/DeleteAfter, and applies its own
-//     events to a copy of the surrounding text, so several calls between
-//     two states of the app read a consistent document.
+//     UTF-8 offsets (the selected range of setMarkedText: is mapped over
+//     the NULs the backend drops), turns a replacement range that covers
+//     the preedit or the selection into DeleteBefore/DeleteAfter, and
+//     applies its own events to a copy of the surrounding text, so several
+//     calls between two states of the app read a consistent document. At
+//     the end of the delivery pass that gave the app those events, the
+//     copy is the app's last reported state again, also when the app
+//     rejected the text and reported the same state as before.
 //   - markedRange, selectedRange and attributedSubstringForProposedRange:
 //     answer from that document (selectedRange is NSNotFound without
 //     surrounding text, as in winit); firstRectForCharacterRange: is the

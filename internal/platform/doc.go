@@ -120,7 +120,9 @@
 // distances in Delta. Touchpad gestures with a reported end carry a
 // [ScrollPhase]: ScrollPhaseUpdate while the fingers are on the pad and a
 // final ScrollPhaseEnd event (usually with zero Delta) when they lift, so
-// the layers above can start a kinetic fling. Wayland reports it from
+// the layers above can start a kinetic fling; a ScrollPhaseEnd follows at
+// least one ScrollPhaseUpdate (a touch that never scrolled ends nothing).
+// Wayland reports it from
 // wl_pointer.axis_source (finger) and wl_pointer.axis_stop, as GTK 4 does;
 // Cocoa from NSEvent.phase, dropping the momentum events AppKit generates
 // after the fingers lift (the layers above fling instead); X11 cannot (XInput2 smooth scrolling has no stop signal, and the

@@ -65,6 +65,72 @@ func TestMacScrollEvent(t *testing.T) {
 	}
 }
 
+// TestScrollGesture: a touchpad gesture ends only after it delivered an
+// update; a touch that never moved ends nothing.
+func TestScrollGesture(t *testing.T) {
+	type step struct {
+		in    macScroll
+		ok    bool
+		phase platform.ScrollPhase
+		delta platform.Point
+	}
+	precise := func(dy float64, phase uint64) macScroll {
+		return macScroll{DY: dy, Precise: true, Phase: phase}
+	}
+	for _, c := range []struct {
+		name  string
+		steps []step
+	}{
+		{"touch without motion", []step{
+			{in: precise(0, phaseMayBegin)},
+			{in: precise(0, phaseCancelled)},
+		}},
+		{"began without motion, then ended", []step{
+			{in: precise(0, phaseBegan)},
+			{in: precise(0, phaseStationary)},
+			{in: precise(0, phaseEnded)},
+		}},
+		{"a gesture", []step{
+			{in: precise(0, phaseMayBegin)},
+			{in: precise(-4, phaseBegan), ok: true, phase: platform.ScrollPhaseUpdate, delta: platform.Point{Y: 4}},
+			{in: precise(-2, phaseChanged), ok: true, phase: platform.ScrollPhaseUpdate, delta: platform.Point{Y: 2}},
+			{in: precise(0, phaseEnded), ok: true, phase: platform.ScrollPhaseEnd},
+			// Its momentum is dropped, and the next touch starts afresh.
+			{in: macScroll{DY: -9, Precise: true, Momentum: phaseChanged}},
+			{in: precise(0, phaseMayBegin)},
+			{in: precise(0, phaseCancelled)},
+		}},
+		{"an end that moves, without update", []step{
+			{in: precise(0, phaseBegan)},
+			{in: precise(-3, phaseEnded), ok: true, phase: platform.ScrollPhaseNone, delta: platform.Point{Y: 3}},
+			{in: precise(0, phaseMayBegin)},
+			{in: precise(0, phaseCancelled)},
+		}},
+		{"wheels between gestures", []step{
+			{in: macScroll{DY: 1}, ok: true},
+			{in: precise(0, phaseCancelled)},
+			{in: precise(-1, phaseChanged), ok: true, phase: platform.ScrollPhaseUpdate, delta: platform.Point{Y: 1}},
+			{in: macScroll{DY: 1}, ok: true},
+			{in: precise(0, phaseCancelled), ok: true, phase: platform.ScrollPhaseEnd},
+		}},
+	} {
+		var g scrollGesture
+		for i, s := range c.steps {
+			delta, steps, phase, ok := g.event(s.in)
+			if ok != s.ok {
+				t.Errorf("%s, step %d: ok = %v, want %v", c.name, i, ok, s.ok)
+				continue
+			}
+			if !ok || steps != (platform.Point{}) {
+				continue // wheel notches: TestMacScrollEvent
+			}
+			if phase != s.phase || delta != s.delta {
+				t.Errorf("%s, step %d: phase %v delta %v, want %v %v", c.name, i, phase, delta, s.phase, s.delta)
+			}
+		}
+	}
+}
+
 // pointerScript feeds a pointerState and returns the emitted events, one
 // per line: action, position, button, buttons.
 type pointerScript struct {

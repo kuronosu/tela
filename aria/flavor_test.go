@@ -73,7 +73,8 @@ func TestListBoxReplaceKeysPerPlatform(t *testing.T) {
 }
 
 // A click with the primary modifier toggles an item in a "replace" list;
-// with the other modifier it replaces the selection.
+// with the other modifier it replaces the selection, except on a Mac,
+// where Control+click opens a context menu instead of clicking.
 func TestListBoxModifierClickPerPlatform(t *testing.T) {
 	for _, c := range []struct {
 		fl             platform.Flavor
@@ -101,7 +102,12 @@ func TestListBoxModifierClickPerPlatform(t *testing.T) {
 			click(1, c.primary)
 			want("primary+click again", "cherry")
 			click(4, c.other)
-			want("other+click", "date")
+			if c.fl == platform.FlavorMac {
+				// Control+click is a context click on a Mac: no click.
+				want("other+click", "cherry")
+			} else {
+				want("other+click", "date")
+			}
 		})
 	}
 }
@@ -122,6 +128,38 @@ func TestListBoxFlavorsInParallel(t *testing.T) {
 				app.Expect(option("Apple"), telatest.Selected(true))
 				app.Press("Escape")
 				app.Expect(option("Apple"), telatest.Selected(false))
+			}
+		})
+	}
+}
+
+// A Control+click opens a context menu under the Mac flavor (one-button
+// trackpads), without clicking what it is on; elsewhere it is a click.
+func TestContextMenuControlClickPerFlavor(t *testing.T) {
+	for _, fl := range []platform.Flavor{platform.FlavorMac, platform.FlavorLinux, platform.FlavorWindows} {
+		t.Run(fl.String(), func(t *testing.T) {
+			var ev events
+			b, host, win := rawwin.Mount(t, tela.C(ctxPage(aria.ContextMenuTriggerOptions{}, &ev)), 400, 300, 0, core.Config{Flavor: fl})
+			app := &rawApp{t: t, b: b, host: host, win: win, tree: host.Tree()}
+			app.clickWith(90, 60, platform.ModCtrl)
+			got := ev.take()
+			if fl != platform.FlavorMac {
+				if hasMenu(app) || got != "inner" {
+					t.Errorf("Control+click: menu %v, events %q; want a click and no menu", hasMenu(app), got)
+				}
+				return
+			}
+			if !hasMenu(app) || got != "" {
+				t.Fatalf("Control+click: menu %v, events %q; want the menu and no click", hasMenu(app), got)
+			}
+			if x, y, _, _ := menuBounds(t, app); x != 90 || y != 60 {
+				t.Errorf("menu at (%v, %v), want (90, 60)", x, y)
+			}
+			// A Control+click elsewhere on the area moves it there, as a
+			// right click does.
+			app.clickWith(40, 40, platform.ModCtrl)
+			if x, y, _, _ := menuBounds(t, app); x != 40 || y != 40 {
+				t.Errorf("second Control+click: menu at (%v, %v), want (40, 40)", x, y)
 			}
 		})
 	}

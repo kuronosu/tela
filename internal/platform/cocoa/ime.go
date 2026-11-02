@@ -1,6 +1,7 @@
 package cocoa
 
 import (
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -48,6 +49,12 @@ type imeInput struct {
 	// that several calls in one key see each other's edits before the app
 	// sends its next state. nil: unknown.
 	doc *platform.SurroundingText
+	// app is the app's latest SurroundingText, which doc returns to at the
+	// end of each delivery pass (resync): the app may reject what the
+	// events did (a field at its MaxLength, a field that takes only
+	// digits), and then it reports the same state as before, which
+	// SetTextInput ignores.
+	app *platform.SurroundingText
 	// marked and cursor are the preedit and its cursor of the last
 	// IMEEvent; sel is the selection inside marked as setMarkedText gave
 	// it (UTF-16).
@@ -61,11 +68,27 @@ type imeInput struct {
 
 // setDoc takes the app's surrounding text (a copy).
 func (m *imeInput) setDoc(st *platform.SurroundingText) {
-	m.doc = nil
-	if st != nil {
-		c := *st
-		m.doc = &c
+	m.app = copySurrounding(st)
+	m.doc = copySurrounding(st)
+}
+
+// resync makes the document the app's latest surrounding text again,
+// dropping what the events since did to it: called once the app has seen
+// them (at the end of a delivery pass), so that the document is what the
+// field holds, whether the app took the edits or not. Not during a key
+// event, whose calls build on each other's edits.
+func (m *imeInput) resync() {
+	if m.key == nil {
+		m.doc = copySurrounding(m.app)
 	}
+}
+
+func copySurrounding(st *platform.SurroundingText) *platform.SurroundingText {
+	if st == nil {
+		return nil
+	}
+	c := *st
+	return &c
 }
 
 // clear forgets the composition without an event: the session ended or
@@ -178,7 +201,8 @@ func (m *imeInput) deletion(r range16) (before, after int) {
 // not empty). An empty text ends the composition: a cancel, unless the
 // text was committed in the same event.
 func (m *imeInput) setMarked(text string, sel, repl range16) []platform.IMEEvent {
-	text = platform.SanitizeIMEText(text)
+	raw := text
+	text = platform.SanitizeIMEText(raw)
 	var out []platform.IMEEvent
 	if k := m.key; k != nil {
 		k.ime = true
@@ -188,13 +212,18 @@ func (m *imeInput) setMarked(text string, sel, repl range16) []platform.IMEEvent
 	ev.DeleteBefore, ev.DeleteAfter = m.deletion(repl)
 	m.sel = range16{}
 	if text != "" {
-		n := utf16x.Len(text)
+		// The selection is in UTF-16 units of the text the IME sent:
+		// converted to bytes there, then moved back over the NULs that
+		// SanitizeIMEText dropped (raw is valid UTF-8, see imeString, so
+		// they are all it drops).
+		n := utf16x.Len(raw)
 		lo, hi := n, n
 		if sel.valid() {
 			lo = min(sel.loc, n)
 			hi = lo + min(sel.n, n-lo)
 		}
-		ev.CursorStart, ev.CursorEnd = platform.SanitizePreeditCursor(text, utf16x.ToByte(text, lo), utf16x.ToByte(text, hi))
+		ev.CursorStart, ev.CursorEnd = platform.SanitizePreeditCursor(text,
+			withoutNUL(raw, utf16x.ToByte(raw, lo)), withoutNUL(raw, utf16x.ToByte(raw, hi)))
 		s16 := utf16x.FromByte(text, ev.CursorStart)
 		m.sel = range16{s16, utf16x.FromByte(text, ev.CursorEnd) - s16}
 	}
@@ -343,6 +372,12 @@ func (m *imeInput) applyDoc(ev platform.IMEEvent) {
 	} else {
 		d.Cursor, d.Anchor = e, s
 	}
+}
+
+// withoutNUL maps the byte offset o of s to the same place in s without
+// its U+0000 characters.
+func withoutNUL(s string, o int) int {
+	return o - strings.Count(s[:o], "\x00")
 }
 
 // runeStart moves the byte offset o of s back to the start of its

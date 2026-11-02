@@ -155,6 +155,70 @@ func TestIMENoDocument(t *testing.T) {
 	checkIME(t, "commit", m.insert("d\x00e", range16{0, 9}), `commit "de" preedit "" 0,0`)
 }
 
+// TestIMERejectedText: the app rejects what a key and a commit typed (a
+// field at its MaxLength reports the same state again, which SetTextInput
+// ignores). At the end of the pass the document is the app's text again,
+// and the next composition and a reconversion are placed in it.
+func TestIMERejectedText(t *testing.T) {
+	var m imeInput
+	m.setDoc(&platform.SurroundingText{Text: "abc", Cursor: 3, Anchor: 3})
+
+	// A key typing its own text: the KeyEvent carries it.
+	m.beginKey("d")
+	checkIME(t, "insert d", m.insert("d", noRange))
+	if deliver, out := m.endKey(); !deliver || len(out) != 0 {
+		t.Errorf("key d: delivered %v, events %d; want the KeyEvent alone", deliver, len(out))
+	}
+	checkDoc(t, "before the app saw the key", &m, "abcd", 4, 4)
+	m.resync() // the pass ends; the app reported nothing new
+	checkDoc(t, "after the rejected key", &m, "abc", 3, 3)
+
+	// A commit outside a key, rejected too.
+	checkIME(t, "insert e", m.insert("e", noRange), `commit "e" preedit "" 0,0`)
+	m.resync()
+	checkDoc(t, "after the rejected commit", &m, "abc", 3, 3)
+	checkRange(t, "selectedRange", m.selectedRange(), 3, 0)
+
+	checkIME(t, "setMarked か", m.setMarked("か", range16{1, 0}, noRange), `preedit "か" 3,3`)
+	checkRange(t, "markedRange", m.markedRange(), 3, 1)
+	checkRange(t, "selectedRange in the preedit", m.selectedRange(), 4, 0)
+	// Reconversion of "c" and the preedit deletes the "c" the field has.
+	checkIME(t, "insert X over c and the preedit", m.insert("X", range16{2, 2}), `delete 1,0 commit "X" preedit "" 0,0`)
+
+	// The app took this one and reported it: the document follows it.
+	m.setDoc(&platform.SurroundingText{Text: "abX", Cursor: 3, Anchor: 3})
+	m.resync()
+	checkDoc(t, "after an accepted commit", &m, "abX", 3, 3)
+
+	// No resync in the middle of a key: its calls build on each other.
+	m.beginKey("")
+	m.insert("y", noRange)
+	m.resync()
+	checkDoc(t, "inside a key", &m, "abXy", 4, 4)
+	m.endKey()
+
+	// Without surrounding text there is nothing to go back to.
+	var n imeInput
+	n.setDoc(nil)
+	n.resync()
+	if n.doc != nil {
+		t.Errorf("resync without surrounding text made a document %+v", n.doc)
+	}
+}
+
+// TestIMEMarkedNUL: the selection setMarkedText: gives is in UTF-16 units
+// of the text with its NULs; dropping them must not move it.
+func TestIMEMarkedNUL(t *testing.T) {
+	var m imeInput
+	checkIME(t, "caret after a NUL", m.setMarked("a\x00bc", range16{3, 0}, noRange), `preedit "abc" 2,2`)
+	checkRange(t, "selectedRange", m.selectedRange(), 2, 0)
+	checkIME(t, "clause after NULs", m.setMarked("\x00日\x00本x", range16{3, 2}, noRange), `preedit "日本x" 3,7`)
+	checkRange(t, "selectedRange of the clause", m.selectedRange(), 1, 2)
+	checkIME(t, "caret on a NUL", m.setMarked("ab\x00", range16{2, 1}, noRange), `preedit "ab" 2,2`)
+	checkIME(t, "default caret at the end", m.setMarked("x\x00y\x00", noRange, noRange), `preedit "xy" 2,2`)
+	checkIME(t, "NULs only cancel", m.setMarked("\x00", range16{1, 0}, noRange), `preedit "" 0,0`)
+}
+
 // TestIMEKeyDecisions: what a key event handed to interpretKeyEvents: becomes.
 func TestIMEKeyDecisions(t *testing.T) {
 	type call func(m *imeInput) []platform.IMEEvent

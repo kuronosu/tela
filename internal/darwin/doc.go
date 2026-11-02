@@ -2,7 +2,7 @@
 // that Tela calls without cgo, through github.com/ebitengine/purego: the
 // Objective-C runtime (selectors, message sends with typed results, class
 // registration for delegates and view subclasses, autorelease pools),
-// CoreFoundation (the run loop, its sources and timers, CFData), CoreGraphics
+// CoreFoundation (the run loop and its sources, CFData), CoreGraphics
 // (color spaces, data providers, images, bitmap contexts, window capture)
 // and the constants of QuartzCore and AppKit that the backends need, plus
 // Foundation conversions (NSString and NSData to and from bytes, NSArray),

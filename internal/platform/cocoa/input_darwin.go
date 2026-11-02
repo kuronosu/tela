@@ -280,7 +280,7 @@ func (w *Window) mouseCross(ev darwin.ID, entered bool) {
 
 // scroll handles scrollWheel:.
 func (w *Window) scroll(ev darwin.ID) {
-	delta, steps, phase, ok := macScrollEvent(macScroll{
+	delta, steps, phase, ok := w.gesture.event(macScroll{
 		DX:       darwin.SendFloat(ev, isel.scrollingDeltaX),
 		DY:       darwin.SendFloat(ev, isel.scrollingDeltaY),
 		Precise:  darwin.SendBool(ev, isel.hasPrecise),

@@ -64,6 +64,19 @@ import (
 // ADR-192; 300 ms and 100 px for touch); a double click fires after the
 // click whose count is 2. OnContextMenu fires on the release of the secondary button.
 //
+// Under the Mac flavor (Config.Flavor, ADR-221) a primary press with
+// Control is a context click, as in Chromium on the Mac (Blink's
+// WebFrameWidgetImpl::HandleMouseDown and
+// MouseEventManager::DispatchMouseClickIfNeeded): the backend still
+// reports the primary button with ModCtrl (AppKit's mouseDown: with the
+// Control flag; one-button trackpads have no other way to ask for a
+// menu), and its pointer and mouse events, focus, active state, drags
+// and long presses are those of a primary press, but it makes no click
+// or double click: unless a drag or a long press took the press, its
+// release fires OnContextMenu, with the primary button, where the click
+// would come (where a secondary release fires it). The decision is taken
+// at the press: letting go of Control before the button changes nothing.
+//
 // Drags (OnDragStart, OnDrag, OnDragEnd) and long presses go to the
 // element whose recognizer won, without bubbling. An element with
 // Draggable(true) has a drag recognizer too; its drag gesture may become
@@ -151,6 +164,10 @@ type pointerState struct {
 	// (overlay.go).
 	outside *Element
 	noClick bool
+	// ctxClick: the press is a Control+primary context click of the Mac
+	// flavor (see "Click, double click, context menu"), until a drag or a
+	// long press takes it.
+	ctxClick bool
 	// panned: a touch pan took the press over and cancelled the pointer
 	// (scroll.go's panRecognizer), and the pointer left its boundary
 	// chain. As in a browser, which sends nothing after pointercancel and
@@ -340,6 +357,7 @@ func (t *Tree) pointerDown(ps *pointerState, e platform.PointerEvent, prev platf
 	t.setActive(ps, target)
 	t.in.nextGID++
 	ps.gid = t.in.nextGID
+	ps.ctxClick = t.flavor == platform.FlavorMac && e.Mods&platform.ModCtrl != 0 && bar.s == nil
 	if bar.s != nil {
 		// A scrollbar press: the thumb's drag or a page, and no click.
 		t.in.arena.Down(t.gestureEvent(ps, e.Time), t.barPress(bar))
@@ -372,15 +390,21 @@ func (t *Tree) pointerUp(ps *pointerState, e platform.PointerEvent) {
 		fire(t, evMouseUp, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
 		t.flushDiscrete()
 	}
+	ctxClick := false
 	if e.Button == platform.ButtonPrimary && ps.pressing {
 		ps.pressing = false
 		t.fieldPointerUp(ps)
 		// Routes the release: the click (tap), the end of a drag.
 		t.in.arena.Up(t.gestureEvent(ps, e.Time))
+		ctxClick, ps.ctxClick = ps.ctxClick, false
+		if ctxClick {
+			// It does not count toward a double click.
+			t.in.clicks.Reset()
+		}
 		t.clearActive(ps)
 		ps.down = nil
 	}
-	if e.Button == platform.ButtonSecondary && ps.primary && !ps.panned {
+	if (e.Button == platform.ButtonSecondary || ctxClick) && ps.primary && !ps.panned {
 		fire(t, evContextMenu, target, t.mouseEvent(ps, e.Button, ps.clickCount), true)
 		t.flushDiscrete()
 	}
@@ -510,8 +534,10 @@ func (t *Tree) recognizers(ps *pointerState, target *Element) []gesture.Recogniz
 // release targets.
 func (t *Tree) click(ps *pointerState) {
 	ct := commonAncestor(ps.down, ps.target)
-	if ct == nil || ps.noClick {
-		return // or the top overlay's OnInteractOutside cancelled it (overlay.go)
+	if ct == nil || ps.noClick || ps.ctxClick {
+		// Or the top overlay's OnInteractOutside cancelled it
+		// (overlay.go), or it is a Mac context click (pointerUp).
+		return
 	}
 	n := ps.clickCount
 	t.dispatchClick(ct, t.mouseEvent(ps, platform.ButtonPrimary, n))
@@ -523,6 +549,7 @@ func (t *Tree) click(ps *pointerState) {
 
 func (t *Tree) longPress(ps *pointerState, el *Element, ge gesture.Event) {
 	t.in.clicks.Reset()
+	ps.ctxClick = false
 	if !el.mounted {
 		return
 	}
@@ -536,6 +563,7 @@ func (t *Tree) longPress(ps *pointerState, el *Element, ge gesture.Event) {
 func (t *Tree) drag(ps *pointerState, el *Element, k eventKind, u gesture.DragUpdate) {
 	if k == evDragStart {
 		t.in.clicks.Reset()
+		ps.ctxClick = false
 	}
 	if ps.osDrag || !el.mounted {
 		// The OS owns a drag and drop: its OnDragEnd comes with the

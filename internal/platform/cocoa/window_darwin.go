@@ -44,9 +44,10 @@ type Window struct {
 	prevFlags    uint64        // modifierFlags of the last flagsChanged: or focus gain
 	lastKey      keyStamp      // the last key event handled
 	ptr          pointerState
-	tracking     darwin.ID // the view's tracking area (the view owns it)
-	cursorHidden bool      // this window's +[NSCursor hide] is in effect
-	ime          imeWindow // text input and IME (ime_darwin.go)
+	gesture      scrollGesture // the touchpad scroll gesture (input.go)
+	tracking     darwin.ID     // the view's tracking area (the view owns it)
+	cursorHidden bool          // this window's +[NSCursor hide] is in effect
+	ime          imeWindow     // text input and IME (ime_darwin.go)
 
 	// Pacing (link_darwin.go).
 	link        darwin.ID // CADisplayLink of the view (owned: +1)

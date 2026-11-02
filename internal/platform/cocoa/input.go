@@ -29,7 +29,9 @@ const (
 //
 // AppKit sends a Control-click as a left mouseDown: with the Control flag,
 // not as a right click; it stays a primary press with ModCtrl, as in
-// browsers (the layers above decide whether it opens a context menu).
+// Chromium's event builder (web_input_event_builders_mac.mm), and core
+// makes it a context click under the Mac flavor, as Blink does (no click,
+// OnContextMenu at the release; core's input.go).
 func macButton(number int) platform.PointerButton {
 	switch number {
 	case 0:
@@ -73,7 +75,8 @@ type macScroll struct {
 //     mayBegin) is ScrollPhaseUpdate, its end (ended or cancelled: the
 //     fingers lifted) ScrollPhaseEnd, as the contract wants for the layers
 //     above to start their fling. An update without movement (mayBegin,
-//     stationary) is dropped.
+//     stationary) is dropped; scrollGesture drops the end of a gesture
+//     that delivered no update.
 //   - Momentum: the events AppKit generates after the fingers lift
 //     (momentumPhase set, phase none) are dropped: the layers above fling
 //     themselves from the gesture's velocity after the ScrollPhaseEnd, with
@@ -108,6 +111,37 @@ func macScrollEvent(s macScroll) (delta, steps platform.Point, phase platform.Sc
 		return d, steps, phase, true
 	}
 	return delta, d, phase, true
+}
+
+// scrollGesture is the touchpad gesture of a window as the app has been
+// told of it: whether it delivered an update. A touch that never moves
+// (phase mayBegin, then cancelled when the fingers lift) must not end a
+// gesture that never started: core's ScrollPhaseEnd ends the latched
+// scroller, so a wheel transaction in a nested container would jump to the
+// outer one.
+type scrollGesture struct {
+	updated bool // a ScrollPhaseUpdate went out since the last end
+}
+
+// event is macScrollEvent with the gesture's state: an end without a
+// previous update is dropped, or delivered without a phase when it moves
+// (a gesture of one event).
+func (g *scrollGesture) event(s macScroll) (delta, steps platform.Point, phase platform.ScrollPhase, ok bool) {
+	delta, steps, phase, ok = macScrollEvent(s)
+	if !ok {
+		return delta, steps, phase, ok
+	}
+	switch phase {
+	case platform.ScrollPhaseUpdate:
+		g.updated = true
+	case platform.ScrollPhaseEnd:
+		if !g.updated {
+			phase = platform.ScrollPhaseNone
+			ok = delta != (platform.Point{})
+		}
+		g.updated = false
+	}
+	return delta, steps, phase, ok
 }
 
 // pointerState turns mouse events into the pointer events of the platform

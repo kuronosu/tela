@@ -1457,7 +1457,7 @@ OnCompositionUpdate calls handler when the text an input method composes changes
 func OnContextMenu[F ~func() | ~func(tela.MouseEvent)](handler F) tela.Prop
 ```
 
-OnContextMenu calls handler when the secondary (right) button is released over the element.
+OnContextMenu calls handler when the secondary (right) button is released over the element, and on a Mac (the Mac flavor) when the primary button of a Control+click is, which then makes no click.
 
 ```go
 Div(OnContextMenu(func(e tela.MouseEvent) { openMenu(e.X, e.Y) }))

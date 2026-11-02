@@ -289,6 +289,7 @@ func (b *Backend) pump() {
 		b.loop.Deliver(b.handler)
 	}()
 	for _, w := range b.loop.Windows() {
+		w.settleIME()
 		w.flushIME()
 	}
 	if b.loop.Quitting() {

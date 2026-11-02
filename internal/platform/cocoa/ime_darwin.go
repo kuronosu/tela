@@ -72,6 +72,7 @@ type imeWindow struct {
 	secure     bool                     // this window turned the secure event input on
 	input      imeInput                 // the composition and the document (ime.go)
 	discarding bool                     // inside discardMarkedText: callbacks change nothing
+	late       bool                     // IMEEvents were queued during a pass (settleIME)
 	invalidate bool                     // invalidateCharacterCoordinates at the end of the pass
 	ctx        darwin.ID                // own NSTextInputContext (owned), see textInputContext
 }
@@ -182,6 +183,22 @@ func (w *Window) closeIME() {
 	}
 }
 
+// settleIME runs at the end of a delivery pass: the app has seen the
+// IMEEvents and KeyEvents queued before it and reported its state
+// (SetTextInput), so the document the input method reads goes back to
+// that state, also when the app rejected the text and reported the same
+// state as before (imeInput.resync). Events the input method queued
+// during the pass (a commit when the window resigns key inside a handler)
+// wait for the follow-up pass, and so does the resync.
+func (w *Window) settleIME() {
+	im := &w.ime
+	if im.late {
+		im.late = false
+		return
+	}
+	im.input.resync()
+}
+
 // flushIME tells the input method that the caret area changed, once per
 // pass.
 func (w *Window) flushIME() {
@@ -230,6 +247,9 @@ func (w *Window) interpretKey(ev darwin.ID, e platform.KeyEvent) {
 	tracef("key %v %q: interpretKeyEvents:", e.Code, e.Text)
 	darwin.Send(w.view, imesel.interpretKeyEvents, darwin.NSArray(ev))
 	deliver, evs := im.input.endKey()
+	// A key handled inside a pass is delivered by the follow-up one, and
+	// the document keeps its edits until then (settleIME).
+	im.late = im.late || w.b.pumping
 	if im.active {
 		for _, x := range evs {
 			w.b.enqueue(w, x)
@@ -282,6 +302,7 @@ func imeEdit(self darwin.ID, f func(w *Window) []platform.IMEEvent) {
 		for _, e := range f(w) {
 			tracef("  -> IMEEvent %+v", e)
 			w.b.enqueue(w, e)
+			im.late = im.late || w.b.pumping
 		}
 		if im.input.key == nil {
 			w.b.pump()
