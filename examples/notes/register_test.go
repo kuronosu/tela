@@ -65,7 +65,7 @@ func TestNothingIsRegisteredInTests(t *testing.T) {
 	}
 }
 
-// At start Notes registers the notes: scheme: a candidate, not the default
+// At start Notes registers the tela-notes: scheme: a candidate, not the default
 // (another application is).
 func TestRegistersTheSchemeAtStart(t *testing.T) {
 	sandbox(t)
@@ -123,7 +123,7 @@ func TestPreferencesLinksStatus(t *testing.T) {
 	a := mount(t)
 	prefs := openPreferences(a, "General")
 	prefs.ExpectText("Links and files")
-	prefs.ExpectText("Open notes: links")
+	prefs.ExpectText("Open tela-notes: links")
 	prefs.ExpectText("Not registered.")
 	prefs.ExpectText("Notes is not offered for .md files.")
 	prefs.ExpectCount(makeDefault, 0) // nothing to make default yet
@@ -175,7 +175,7 @@ func TestPreferencesRegisterRefusesWhatAnotherHolds(t *testing.T) {
 	prefs := openPreferences(a, "General")
 	prefs.ExpectText("Held by Other App.")
 	prefs.Click(registerBtn)
-	prefs.ExpectText("holds notes:. Notes does not take it over.")
+	prefs.ExpectText("holds tela-notes:. Notes does not take it over.")
 	if regs := a.Registrations(); len(regs) != 0 {
 		t.Errorf("registered over another application: %+v", regs)
 	}
@@ -195,7 +195,7 @@ func TestPreferencesMakeDefault(t *testing.T) {
 		t.Fatal("registering made Notes the default")
 	}
 	prefs.Click(makeDefault)
-	prefs.ExpectText("Registered, and the default for notes: links.")
+	prefs.ExpectText("Registered, and the default for tela-notes: links.")
 	prefs.ExpectCount(makeDefault, 0)
 	if r, _ := registered(a, notesScheme); !r.Default {
 		t.Error("Make default did not make Notes the default")

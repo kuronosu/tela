@@ -11,7 +11,7 @@ import (
 	"github.com/kuronosu/tela/kit"
 )
 
-// "Links and files" in Preferences: how the OS opens notes: links and .md
+// "Links and files" in Preferences: how the OS opens tela-notes: links and .md
 // files with Notes (desktop.Register and friends, ADR-209's conditions).
 //
 //   - Registering makes Notes a candidate: the link opens it when no other
@@ -145,18 +145,18 @@ func assocNote(status string, st assocState, blocked string) (text string, notic
 	return strings.Join(parts, " "), notice
 }
 
-// schemeStatus says how Notes stands with the notes: scheme.
+// schemeStatus says how Notes stands with the tela-notes: scheme.
 func schemeStatus(st assocState) string {
 	r := st.Reg
 	switch {
 	case !st.Loaded:
 		return "Checking…"
 	case r.Registered && r.Default:
-		return "Registered, and the default for notes: links."
+		return "Registered, and the default for tela-notes: links."
 	case r.Registered && r.Other != "":
 		return "Registered. " + r.Other + " is the default."
 	case r.Registered:
-		return "Registered: notes: links open Notes."
+		return "Registered: tela-notes: links open Notes."
 	case r.Other != "":
 		return "Held by " + r.Other + "."
 	}
@@ -192,7 +192,7 @@ func (linksSection) Build() tela.Node {
 	)
 }
 
-// schemeRow is the notes: link: its status, Register or Unregister, and
+// schemeRow is the tela-notes: link: its status, Register or Unregister, and
 // Make default.
 type schemeRow struct{}
 
@@ -206,7 +206,7 @@ func (schemeRow) Build() tela.Node {
 	if registered {
 		toggle, label = act.Unregister, "Unregister"
 	}
-	return stackRow("Open notes: links", text, notice, nil,
+	return stackRow("Open tela-notes: links", text, notice, nil,
 		If(registered && !st.Reg.Default && blocked == "",
 			kit.Button{Variant: kit.Outline, Size: kit.Sm, Disabled: st.Busy, OnClick: act.MakeDefault, Children: Text("Make default")}),
 		kit.Button{Variant: kit.Outline, Size: kit.Sm, Disabled: blocked != "" || !st.Loaded || st.Busy, Children: Text(label),

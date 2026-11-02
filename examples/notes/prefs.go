@@ -25,7 +25,7 @@ const (
 	keyKeepInTray   = "keepInTray"
 	keyNotifyOnSave = "notifyOnSave"
 	keyQuickNote    = "quickNote"
-	// keyRegisterLinks is whether Notes registers the notes: scheme when it
+	// keyRegisterLinks is whether Notes registers the tela-notes: scheme when it
 	// starts; Unregister in Preferences turns it off.
 	keyRegisterLinks = "registerLinks"
 )
@@ -52,7 +52,7 @@ type Prefs struct {
 	// QuickNote registers the global shortcut that makes a note from any
 	// application.
 	QuickNote bool
-	// RegisterLinks registers the notes: scheme at every start.
+	// RegisterLinks registers the tela-notes: scheme at every start.
 	RegisterLinks bool
 }
 

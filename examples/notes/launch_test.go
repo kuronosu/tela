@@ -15,14 +15,15 @@ func TestParseLink(t *testing.T) {
 		raw  string
 		want link
 	}{
-		{"notes://new", link{Action: "new"}},
-		{"notes://new?title=Groceries&text=milk%20and%20eggs", link{Action: "new", Title: "Groceries", Text: "milk and eggs"}},
-		{"notes://new/?text=a+b", link{Action: "new", Text: "a b"}}, // the slash a browser adds
+		{"tela-notes://new", link{Action: "new"}},
+		{"tela-notes://new?title=Groceries&text=milk%20and%20eggs", link{Action: "new", Title: "Groceries", Text: "milk and eggs"}},
+		{"tela-notes://new/?text=a+b", link{Action: "new", Text: "a b"}}, // the slash a browser adds
 		{"NOTES://NEW?title=%20Hi%20", link{Action: "new", Title: "Hi"}},
-		{"notes:new?text=hi", link{Action: "new", Text: "hi"}}, // no slashes
-		{"notes://open?id=3", link{Action: "open", ID: 3}},
-		{"notes:open?id=12", link{Action: "open", ID: 12}},
-		{"notes://open/?id=3", link{Action: "open", ID: 3}},
+		{"tela-notes:new?text=hi", link{Action: "new", Text: "hi"}}, // no slashes
+		{"tela-notes://open?id=3", link{Action: "open", ID: 3}},
+		{"notes://new?text=old", link{Action: "new", Text: "old"}}, // the scheme of earlier builds
+		{"tela-notes:open?id=12", link{Action: "open", ID: 12}},
+		{"tela-notes://open/?id=3", link{Action: "open", ID: 3}},
 	} {
 		got, err := parseLink(c.raw)
 		if err != nil || got != c.want {
@@ -34,7 +35,7 @@ func TestParseLink(t *testing.T) {
 			t.Errorf("parseLink(%q) error = %v, want errNotOurs", raw, err)
 		}
 	}
-	for _, raw := range []string{"notes://open", "notes://open?id=x", "notes://open?id=0", "notes://delete?id=1", "notes://", "notes:"} {
+	for _, raw := range []string{"tela-notes://open", "tela-notes://open?id=x", "tela-notes://open?id=0", "tela-notes://delete?id=1", "tela-notes://", "notes:"} {
 		if _, err := parseLink(raw); err == nil || errors.Is(err, errNotOurs) {
 			t.Errorf("parseLink(%q) error = %v, want one that says how to write it", raw, err)
 		}
@@ -45,16 +46,16 @@ func TestParseLink(t *testing.T) {
 func TestLaunchNewLink(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://new?title=Call%20Ana&text=About%20the%20roof%0Aat%20noon"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://new?title=Call%20Ana&text=About%20the%20roof%0Aat%20noon"}})
 	a.ExpectRole("button", "Call Ana, unsaved changes")
 	a.ExpectValue(titleBox, "Call Ana")
 	a.ExpectValue(editor, "About the roof\nat noon")
 
 	// Without a title the first line names it; with nothing it is a new
 	// note, as Ctrl+N makes.
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://new?text=hi"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://new?text=hi"}})
 	a.ExpectValue(editor, "hi")
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes:new"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes:new"}})
 	a.ExpectFocused(titleBox)
 	a.ExpectValue(editor, "")
 }
@@ -64,7 +65,7 @@ func TestLaunchNewLinkGoesToTheChosenFolder(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
 	a.Click(railItem("Home"))
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://new?title=Rent"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://new?title=Rent"}})
 	a.Click(railItem("Home"))
 	a.ExpectCount(card("Rent"), 1)
 }
@@ -72,20 +73,20 @@ func TestLaunchNewLinkGoesToTheChosenFolder(t *testing.T) {
 func TestLaunchOpenLink(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://open?id=3"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://open?id=3"}})
 	a.ExpectValue(titleBox, "Groceries")
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes:open?id=1"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes:open?id=1"}})
 	a.ExpectValue(titleBox, "Welcome to Notes")
 
 	// A note that is not there says so.
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://open?id=99"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://open?id=99"}})
 	a.ExpectText("There is no note 99")
 	a.ExpectValue(titleBox, "Welcome to Notes")
 
 	// From the overview a note opens too, and one the list would not show
 	// (another folder) takes the user to all notes.
 	a.Click(railItem("Ideas"))
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://open?id=3"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://open?id=3"}})
 	a.ExpectValue(titleBox, "Groceries")
 }
 
@@ -97,8 +98,8 @@ func TestCopyLink(t *testing.T) {
 	a.Click(telatest.ByRole("menuitem", "Copy link"))
 	a.ExpectText("Link copied")
 	link := a.Clipboard().Text()
-	if link != "notes://open?id=3" {
-		t.Fatalf("clipboard = %q, want notes://open?id=3", link)
+	if link != "tela-notes://open?id=3" {
+		t.Fatalf("clipboard = %q, want tela-notes://open?id=3", link)
 	}
 	a.Click(card("Welcome to Notes"))
 	a.InjectLaunch(desktop.Launch{Args: []string{link}})
@@ -108,11 +109,11 @@ func TestCopyLink(t *testing.T) {
 func TestLaunchBadLinks(t *testing.T) {
 	sandbox(t)
 	a := mount(t)
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://delete?id=1"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://delete?id=1"}})
 	a.ExpectText("Could not open the link")
-	a.ExpectText("notes://new?title=...&text=... and notes://open?id=3")
+	a.ExpectText("tela-notes://new?title=...&text=... and tela-notes://open?id=3")
 
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://open"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://open"}})
 	a.ExpectText("with the number of a note")
 
 	// A URL of another scheme and flags are not Notes's.
@@ -145,7 +146,7 @@ func TestLaunchFiles(t *testing.T) {
 	a.ExpectValue(titleBox, "plan")
 
 	// Two files and a link in one launch; the same file again selects.
-	a.InjectLaunch(desktop.Launch{Args: []string{abs, "log.txt", "notes://new?title=Third"}, Dir: dir})
+	a.InjectLaunch(desktop.Launch{Args: []string{abs, "log.txt", "tela-notes://new?title=Third"}, Dir: dir})
 	a.ExpectCount(card("todo"), 1)
 	a.ExpectCount(card("log"), 1)
 	a.ExpectValue(titleBox, "Third")
@@ -161,7 +162,7 @@ func TestLaunchShowsTheWindow(t *testing.T) {
 	a := mount(t)
 	a.ClickTrayItem("Hide Notes")
 	a.ExpectWindowState(telatest.Hidden(true))
-	a.InjectLaunch(desktop.Launch{Args: []string{"notes://new?title=From%20a%20link"}})
+	a.InjectLaunch(desktop.Launch{Args: []string{"tela-notes://new?title=From%20a%20link"}})
 	a.ExpectWindowState(telatest.Hidden(false))
 	a.ExpectValue(titleBox, "From a link")
 }

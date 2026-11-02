@@ -14,23 +14,24 @@ import (
 	"github.com/kuronosu/tela/desktop"
 )
 
-// notes: links, the deep links of Notes. A second process that is started
-// with one (a click in a browser, `xdg-open 'notes://new?text=hi'`, `start
-// notes://new?text=hi`, or the program with the link as its argument) hands
+// tela-notes: links, the deep links of Notes. A second process that is started
+// with one (a click in a browser, `xdg-open 'tela-notes://new?text=hi'`, `start
+// tela-notes://new?text=hi`, or the program with the link as its argument) hands
 // it to the running one, which shows its window with the result
 // (desktop.SingleInstance and desktop.UseLaunch).
 //
-//	notes://new?title=Groceries&text=milk%20and%20eggs   a new note, with that title and text
-//	notes://new                                          a new, empty note
-//	notes://open?id=3                                    the note with that ID
+//	tela-notes://new?title=Groceries&text=milk%20and%20eggs   a new note, with that title and text
+//	tela-notes://new                                          a new, empty note
+//	tela-notes://open?id=3                                    the note with that ID
 //
-// The query form is the one that is documented; "notes:new?..." and
-// "notes:open?id=3", with no slashes, mean the same (some launchers drop
-// them), and so does a slash after the action ("notes://open/?id=3", which
+// The query form is the one that is documented; "tela-notes:new?..." and
+// "tela-notes:open?id=3", with no slashes, mean the same (some launchers drop
+// them), and so does a slash after the action ("tela-notes://open/?id=3", which
 // browsers add). A note's link is made by "Copy link" in the context menu
-// of its card.
+// of its card. The scheme is tela-notes, not notes: macOS's Notes app owns
+// notes:, and an app never takes another's association (ADR-209).
 
-// link is a parsed notes: link.
+// link is a parsed tela-notes: link.
 type link struct {
 	// Action is "new" or "open".
 	Action string
@@ -42,16 +43,19 @@ type link struct {
 
 // errNotOurs is returned by parseLink for a URL of another scheme: the
 // launch gets any URL, and the others are not Notes's to open.
-var errNotOurs = errors.New("not a notes: link")
+var errNotOurs = errors.New("not a tela-notes: link")
 
-// parseLink parses a notes: link. A URL of another scheme is errNotOurs;
+// parseLink parses a tela-notes: link. A URL of another scheme is errNotOurs;
 // anything else that is wrong has an error that says how to write it.
 func parseLink(raw string) (link, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return link{}, fmt.Errorf("%q is not a valid link", raw)
 	}
-	if !strings.EqualFold(u.Scheme, "notes") {
+	// The links of earlier builds (notes://...) still work when they reach
+	// the program as an argument; the scheme itself is tela-notes, because
+	// macOS's Notes app owns notes: and the OS would never route it here.
+	if !strings.EqualFold(u.Scheme, "tela-notes") && !strings.EqualFold(u.Scheme, "notes") {
 		return link{}, errNotOurs
 	}
 	action := u.Host
@@ -69,17 +73,17 @@ func parseLink(raw string) (link, error) {
 	case "open":
 		id, err := strconv.Atoi(q.Get("id"))
 		if err != nil || id <= 0 {
-			return link{}, fmt.Errorf("%q has no note: write notes://open?id=3, with the number of a note", raw)
+			return link{}, fmt.Errorf("%q has no note: write tela-notes://open?id=3, with the number of a note", raw)
 		}
 		return link{Action: "open", ID: id}, nil
 	}
-	return link{}, fmt.Errorf("%q: Notes has notes://new?title=...&text=... and notes://open?id=3", raw)
+	return link{}, fmt.Errorf("%q: Notes has tela-notes://new?title=...&text=... and tela-notes://open?id=3", raw)
 }
 
 // The association Notes registers: its URL scheme, and the .md files it
 // offers to open when the user asks.
 var (
-	notesScheme  = desktop.URLScheme("notes")
+	notesScheme  = desktop.URLScheme("tela-notes")
 	markdownType = desktop.FileType(".md", "text/markdown", "Markdown document")
 )
 
@@ -152,7 +156,7 @@ func registerApp() {
 	}
 }
 
-// registerAtStart registers the notes: scheme as a handler, unless the user
+// registerAtStart registers the tela-notes: scheme as a handler, unless the user
 // turned it off in Preferences, another application holds it, or the
 // program is not one to register. Nothing here is the user's to be told:
 // Preferences shows the state when they look. It makes Notes a candidate,

@@ -15,7 +15,7 @@ secrets). Each section ends with how a platform differs; the
 every feature, see
 [`examples/notes`](https://github.com/kuronosu/tela/tree/main/examples/notes):
 it accepts dropped files, has a global quick-note shortcut, reopens in its
-running instance from `notes:` links, registers itself for them and keeps locked
+running instance from `tela-notes:` links, registers itself for them and keeps locked
 notes encrypted with a key in the keyring.
 
 - [Drag and drop](#drag-and-drop)

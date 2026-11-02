@@ -76,11 +76,11 @@
 //   - One instance and deep links: main is
 //     tela.Main(desktop.SingleInstance(...)), and desktop.UseLaunch handles
 //     every start of the program, the first one and the ones another process
-//     hands over before it exits. Files open as notes; notes://new?title=...&text=...
-//     makes a note and notes://open?id=3 opens one ("Copy link" in a card's
+//     hands over before it exits. Files open as notes; tela-notes://new?title=...&text=...
+//     makes a note and tela-notes://open?id=3 opens one ("Copy link" in a card's
 //     menu makes the link). See link.go.
 //   - Registration: at start Notes makes itself a candidate handler of
-//     notes: links (desktop.Register: only its own entries, nothing when
+//     tela-notes: links (desktop.Register: only its own entries, nothing when
 //     nothing changes, never another application's, and never the default).
 //     Preferences, General, "Links and files" shows the status, registers or
 //     unregisters the scheme, offers to open .md files with Notes
@@ -121,9 +121,9 @@
 //   - Quick note: press Ctrl+Alt+N in another application (on Hyprland and
 //     other Wayland desktops the compositor asks to bind it: the shortcuts
 //     portal).
-//   - Deep link, from a terminal: `xdg-open 'notes://new?text=hi'` on Linux,
-//     `start notes://new?text=hi` on Windows (cmd), or the program itself,
-//     `notes 'notes://new?text=hi'` or `notes todo.md`: the running window
+//   - Deep link, from a terminal: `xdg-open 'tela-notes://new?text=hi'` on Linux,
+//     `start tela-notes://new?text=hi` on Windows (cmd), or the program itself,
+//     `notes 'tela-notes://new?text=hi'` or `notes todo.md`: the running window
 //     comes up with the result. The links work through the OS once Notes is
 //     registered (Preferences, General).
 //   - Locked notes: Lock note in an open note's header.
@@ -137,11 +137,11 @@
 //	tela run ./examples/notes
 //
 // With it running (or once, after tela build -o dist ./examples/notes and
-// opening dist/Notes.app), the system knows Notes's notes: links:
+// opening dist/Notes.app), the system knows Notes's tela-notes: links:
 //
-//	open 'notes://new?text=hi'
-//	open 'notes://new?title=Call&text=ring+back'
-//	open 'notes://open?id=3'
+//	open 'tela-notes://new?text=hi'
+//	open 'tela-notes://new?title=Call&text=ring+back'
+//	open 'tela-notes://open?id=3'
 //
 // The global shortcut is Control+Option+N, from any application; Cmd+, opens
 // Preferences, Cmd+Q quits. tela run keeps the bundle in one place, so
@@ -201,6 +201,6 @@ var Previews = tela.Previews{
 func main() {
 	desktop.SetAppID(App.AppID) // before RegisterApp, which names the entry after it
 	registerApp()
-	autoRegister.Store(true) // register the notes: scheme at start (never in tests or snapshots)
+	autoRegister.Store(true) // register the tela-notes: scheme at start (never in tests or snapshots)
 	tela.Main(desktop.SingleInstance(withAppearance(desktop.PersistApp(App))))
 }
