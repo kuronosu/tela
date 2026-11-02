@@ -958,16 +958,18 @@
 // coalesced into one read per pass. The IME is NSTextInputClient on the
 // content view (see "Text input and IME"). Window control (phase 15,
 // ADR-224): Minimize is miniaturize:; SetMaximized is zoom:, sent when
-// isZoomed differs (FixedSize windows do not zoom); SetFullscreen is
+// the zoom differs (tracked through windowShouldZoom:toFrame:, since
+// isZoomed also holds for a window at its maximum size; FixedSize windows
+// do not zoom); SetFullscreen is
 // native full screen (toggleFullScreen:, its own space; a request during
-// a transition waits for its end); SetAlwaysOnTop the floating window
+// a transition waits for its end and a short settling time); SetAlwaysOnTop the floating window
 // level; the size limits are the content's (the frame's for a frameless
 // window); Activate is deminiaturize:, unhide:, [NSApp activate]
 // (activateIgnoringOtherApps: on macOS 13) and makeKeyAndOrderFront:.
 // Full-screen and zoom requests apply at the end of the pass, so one
 // undone in the same pass costs nothing. The state comes from the window
 // delegate (windowDidMiniaturize:, windowDidEnterFullScreen: and its
-// siblings, windowDidMove:, the zoom seen in windowDidResize:); the
+// siblings, windowDidMove:, windowDidResize:); the
 // maximized state and the position stay those from before full screen
 // while in it. Positions are points, y down from the top-left of the
 // primary screen (the CoreGraphics global display space): AppKit's

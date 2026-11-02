@@ -604,6 +604,20 @@ func TestWindowSizeLimits(t *testing.T) {
 		}
 	}
 	none := darwin.CGSize{Width: noMaxSize, Height: noMaxSize}
+	// AppKit's isZoomed holds for a window at its maximum size (its
+	// standard frame is clamped to it), which nobody zoomed.
+	notMaximized := func(c *ctl, what string) {
+		for i, w := range c.w {
+			if w.State().Maximized {
+				t.Errorf("%s: window %d reports Maximized (isZoomed %v); nobody zoomed it", what, i, darwin.SendBool(w.ns, wsel.isZoomed))
+			}
+			for _, e := range c.stepEvents(i) {
+				if s, ok := e.e.(platform.WindowStateEvent); ok && s.State.Maximized {
+					t.Errorf("%s: window %d reported %s", what, i, eventString(e.e))
+				}
+			}
+		}
+	}
 	ctlRun(t, []platform.WindowOptions{
 		{Title: "tela limits", Size: platform.Size{W: 300, H: 200}, HasPosition: true, Position: image.Pt(60, 120)},
 		{Title: "tela limits frameless", Size: platform.Size{W: 300, H: 200}, Frameless: true, HasPosition: true, Position: image.Pt(560, 120)},
@@ -625,16 +639,32 @@ func TestWindowSizeLimits(t *testing.T) {
 					t.Errorf("a maximum below the minimum changed the size: %s", c.describe())
 				}
 				checkLimits(c, "maximum below the minimum", darwin.CGSize{Width: 400, Height: 300}, darwin.CGSize{Width: 400, Height: 300})
+				notMaximized(c, "at the limits 400x300..400x300")
 			}},
 		ctlStep{name: "SetMinSize(0)", do: all(func(w *Window) { w.SetMinSize(platform.Size{}) }),
 			until: func(c *ctl) bool { return both(c, 350, 250) },
 			check: func(c *ctl) {
 				checkLimits(c, "maximum 350x250", darwin.CGSize{}, darwin.CGSize{Width: 350, Height: 250})
+				notMaximized(c, "at the maximum size 350x250")
 			}},
 		ctlStep{name: "SetMaxSize(500x400), SetSize(800x600)", do: all(func(w *Window) {
 			w.SetMaxSize(platform.Size{W: 500, H: 400})
 			w.SetSize(platform.Size{W: 800, H: 600})
-		}), until: func(c *ctl) bool { return both(c, 500, 400) }},
+		}), until: func(c *ctl) bool { return both(c, 500, 400) && c.after(300*time.Millisecond) },
+			check: func(c *ctl) { notMaximized(c, "at the maximum size 500x400") }},
+		ctlStep{name: "SetMaximized(true) at the maximum size", do: all(func(w *Window) { w.SetMaximized(true) }),
+			until: func(c *ctl) bool { return c.w[0].State().Maximized && c.w[1].State().Maximized },
+			check: func(c *ctl) {
+				if !both(c, 500, 400) {
+					t.Logf("note: maximizing a window at its maximum size resized it: %s", c.describe())
+				}
+			}},
+		ctlStep{name: "SetMaximized(false) at the maximum size", do: all(func(w *Window) { w.SetMaximized(false) }),
+			timeout: 4 * time.Second,
+			until: func(c *ctl) bool {
+				return !c.w[0].State().Maximized && !c.w[1].State().Maximized && c.after(300*time.Millisecond)
+			},
+			check: func(c *ctl) { notMaximized(c, "after SetMaximized(false)") }},
 		ctlStep{name: "SetMaxSize(0)", do: all(func(w *Window) { w.SetMaxSize(platform.Size{}) }),
 			check: func(c *ctl) { checkLimits(c, "no limits again", darwin.CGSize{}, none) }},
 	)

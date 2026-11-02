@@ -104,16 +104,24 @@
 //     unhides the app, activates it ([NSApp activate] on macOS 14 and
 //     later, activateIgnoringOtherApps: on 13; the system may decline) and
 //     makes the window key and front. Minimized windows get no frames.
-//   - SetMaximized is zoom:, sent at the end of the pass when isZoomed
-//     differs; the zoom is read back in windowDidResize:. FixedSize
-//     windows do not zoom (AppKit disables their zoom button).
+//   - SetMaximized is zoom:, sent at the end of the pass when the zoom
+//     differs. The zoom is tracked, not read from isZoomed, which also
+//     holds for a window at its maximum size (the size limits clamp the
+//     standard frame): every zoom is announced by windowShouldZoom:toFrame:
+//     and ends when isZoomed reaches its side; any other resize keeps it
+//     only while isZoomed holds. Maximizing a window already at its
+//     standard frame only changes the state. FixedSize windows do not zoom
+//     (AppKit disables their zoom button).
 //   - SetFullscreen is native full screen (toggleFullScreen:, with the
 //     FullScreenPrimary collection behavior; a FixedSize window is
 //     resizable for its stay), applied at the end of the pass. A request
 //     during a transition waits for windowDid…FullScreen: (or the Fail
-//     notifications), one AppKit ignores is given up after a second, and
-//     transitions the user starts become the wanted state. While in full
-//     screen, State keeps the zoom and position from before.
+//     notifications) and 300 ms of settling (a toggle sent from the Did
+//     notification was lost on macOS 26), one AppKit ignores is given up
+//     after a second, and transitions the user starts become the wanted
+//     state. While in full screen and settling, State keeps the zoom,
+//     position and minimization from before (isMiniaturized was seen true
+//     around a transition) and reads them again after.
 //   - SetAlwaysOnTop is the floating window level. The size limits are
 //     contentMinSize/contentMaxSize (minSize/maxSize of a frameless
 //     window's frame, which is its content), with the maximum raised to

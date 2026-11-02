@@ -430,6 +430,18 @@ func windowDelegateMethods() []darwin.Method {
 			}
 			return false
 		}},
+		// Every zoom (ours, the green button, the Window menu) is
+		// announced here before the frame changes: the zoom state is
+		// tracked from it, not read from isZoomed (windowctl_darwin.go).
+		// The NSRect toFrame argument is not read: it arrives in
+		// floating-point registers (arm64) or on the stack (amd64) after
+		// the window, and is left alone there.
+		{Sel: darwin.Sel("windowShouldZoom:toFrame:"), Fn: func(self darwin.ID, _ darwin.SEL, _ darwin.ID) bool {
+			if w := windowFor(self); w != nil && !w.Closed() {
+				w.b.guard(w.zoomStarting)
+			}
+			return true
+		}},
 		// A live resize delivers its ConfigureEvent and forced FrameEvent
 		// here, so the window is repainted before AppKit continues. The
 		// state (a zoom ends in a resize) goes first.
