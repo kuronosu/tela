@@ -27,13 +27,12 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.13.1).** Phases 1–13 are done and tagged: Linux
-> (Wayland, X11) and Windows windows, text inputs and IME, CSS grid,
+> **Status: pre-1.0 (v0.13.2).** Phases 1–14 are done and tagged: Linux
+> (Wayland, X11), Windows and macOS windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
-> `kit`, ready-made components you can restyle. Phase 14 adds the macOS
-> backend (macOS 13 or later), verified on CI; it has not yet been tried on
-> a real Mac. The public API (`tela`, `h`) may still break between minor
+> `kit`, ready-made components you can restyle. macOS (13 or later) is
+> verified on CI and has not yet been tried on a real Mac. The public API (`tela`, `h`) may still break between minor
 > versions. See [Project status](#project-status).
 
 ## Contents
@@ -367,7 +366,7 @@ from it) and the common mistakes, with every code block checked against the curr
 
 ## Project status
 
-**Current version: [v0.13.1](CHANGELOG.md)**, tagged 2026-11-01. Phases 1–13
+**Current version: [v0.13.2](CHANGELOG.md)**, tagged 2026-11-02. Phases 1–14
 are done (ADR-208 sets how versions are numbered).
 
 | Phase | Name | State |
@@ -385,8 +384,9 @@ are done (ADR-208 sets how versions are numbered).
 | 11 | `tela lint`, `tela mcp`, `llms.txt`, full-screen examples | ✅ v0.11.0 |
 | 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | ✅ v0.12.0 |
 | 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | ✅ v0.13.1 |
-| 14 | The macOS backend: Cocoa windows, input, IME, clipboard, settings, `tela dev`, `looks/aqua` | in progress |
-| — | macOS desktop integration, Linux and Windows parity (IME on X11), font system, accessibility, API and kit gaps, layout and text fidelity, memory, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
+| 14 | The macOS backend: Cocoa windows, input, IME, clipboard, settings, `tela dev`, `looks/aqua` | ✅ v0.13.2 |
+| — | macOS desktop integration | next |
+| — | Linux and Windows parity (IME on X11), font system, accessibility, API and kit gaps, layout and text fidelity, memory, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 

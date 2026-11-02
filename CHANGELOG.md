@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-11-02
+
+Phase 14, the macOS backend (ADR-220 to ADR-223): a native Cocoa backend without cgo (purego) for macOS 13 or later, with input, a display link, the clipboard, system settings and the IME; `tela dev` in a real macOS window; `looks/aqua` in two designs; one platform flavor for keyboard conventions with the public `CmdOrCtrl()` and `telatest.PlatformKeys`. Verified on `macos-latest` CI, where every example's window matches its headless render pixel for pixel; a session on a real Mac is still to come.
+
 ### Added
 
 - `looks/aqua` (ADR-223), the macOS look of the `looks` module, in two designs that an app can mix per part: `aqua.Tahoe` (macOS 26: capsule controls, the toolbar's groups and the sidebar as floating glass, opaque content; the default) and `aqua.Sequoia` (macOS 11 to 15: rounded rectangles, a flat unified toolbar, a plain sidebar). `aqua.Look(opts ...Option)` takes them as options that set every part, and `Controls(d)`, `Chrome(d)` and `GlassContent()` set the controls, the window's frame and glass cards; options apply in order, so `aqua.Look(aqua.Sequoia, aqua.Chrome(aqua.Tahoe))` is a complete look in light and dark. `detect.For("darwin", "")` is Tahoe, and `detect.Look()` on a Mac picks Tahoe from macOS 26 and Sequoia before it (read with `sysctl`, no cgo); `detect.All()` lists both. `looks.Regions` gains `ToolbarSegments`, the class of the toolbar's view switcher, and every look defines the glass tokens (`glass`, `glass-strong`, `glass-selected`, `glass-edge`, `glass-highlight`, `glass-shadow`, `primary-glow`, `control-shadow` and `segment`), which follow the surfaces in the flat looks. The gallery shows Tahoe, Sequoia and a mix (`-look=tahoe|sequoia|mixed`).
@@ -849,7 +853,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/kuronosu/tela/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/kuronosu/tela/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/kuronosu/tela/compare/v0.12.6...v0.13.0
 [0.12.6]: https://github.com/kuronosu/tela/compare/v0.12.5...v0.12.6

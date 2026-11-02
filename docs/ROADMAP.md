@@ -9,31 +9,15 @@
 
 ## Current status
 
-- **Done:** phases 1–13. Latest version `v0.13.1` (2026-11-01, phase 13: desktop integration; tagged on `1c6fdd3` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** 14, the macOS backend (started 2026-11-02, branch `phase-14-macos`; the main session pushes it to run `macos-latest` CI, ADR-220).
+- **Done:** phases 1–14. Latest version `v0.13.1` (2026-11-01, phase 13: desktop integration); phase 14 (the macOS backend) is ready for `v0.13.2`, waiting for the owner's approval of the tag. Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
+- **Phase in progress:** none. Phase 14 is merged into `main` locally from `phase-14-macos`; the owner pushes `main` and the tag.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the `v0.13.1` docs. A release commit publishes its own docs before its tag (ADR-208).
-- **Next step:** phase 14: the owner picks the `looks/aqua` style, then the look, the review and the full CI on the branch before the merge. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** the macOS desktop integration (phase 15 when it starts), on a work branch with `macos-latest` CI like phase 14. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
-In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–13 are done (HISTORY.md); phase 14 is in progress.
-
-### Phase 14: macOS backend
-
-Started 2026-11-02 on the work branch `phase-14-macos` (ADR-220). Verified on `macos-latest` CI; what needs a real Mac goes to the macOS live checks.
-
-- [x] First: one host-platform flavor (Linux, Windows, Mac) read by `core`'s key bindings and word rules, `aria`'s collections and `telatest`'s `ControlOrMeta`, overridable in tests (ADR-221: `platform.Flavor`, public `CmdOrCtrl()` on events, `telatest.PlatformKeys`); the suite passes with a Mac host
-- [x] `cocoa` backend via purego, with a CI job on `macos-latest`: app and event loop, window, present, HiDPI, frame pacing, keyboard, pointer and trackpad scrolling (precise deltas, gesture phases, momentum), cursors, text clipboard, settings (dark mode, accent, reduced motion, contrast)
-  - [x] Base (ADR-222): purego bindings in the leaf `internal/darwin`, `[NSApp run]` loop, windows, a layer-hosting view presented through a `CGImage`, the `macos-latest` CI job; platformtest conformance and a pixel read-back pass there
-  - [x] The OS-independent macOS key translation (`internal/platform/internal/keyboard/mac.go`)
-  - [x] Keyboard, pointer, scrolling (precise deltas and phases; Tela flings), cursors and the display link (NSView.displayLink, CVDisplayLink on macOS 13, a timer otherwise)
-  - [x] Clipboard (NSPasteboard, every Data type) and settings (appearance, accent, reduced motion, contrast, double-click time) with change events
-- [x] IME through `NSTextInputClient`, with tests that drive the protocol in CI (the runner's own input context starts a dead-key composition through it; Kotoeri cannot be selected there)
-- [x] `tela dev` with a cocoa host (an end-to-end test on the runner: the frame in the window, a swap under the same NSWindow, the error overlay; the watcher no longer loses a save made just before `SetRoots`)
-- [ ] `looks/aqua` and its entry in `detect.For` (ADR-197)
-
-**Done when:** every example runs on `macos-latest` with snapshots pixel-identical up to text antialiasing, and the IME composition tests pass there. Both pass (2026-11-02): `TestExamplesCocoa` runs each example's own `main` on cocoa and its window matches the headless render pixel for pixel (the runner's 1024x768 screen shrinks the larger windows; the player's endless animation is masked), and the IME protocol tests pass. Left: `looks/aqua`, waiting for the owner's choice of style (Sequoia or Tahoe prototypes).
+In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–14 are done (HISTORY.md).
 
 ### macOS desktop integration
 
@@ -92,6 +76,7 @@ What building the examples showed missing in `tela`, `h`, `aria`, `kit` and `des
 
 - [ ] aria: on a Mac a Control+click on a listbox option opens the context menu and does not select it (ADR-221: Tela's collections select on click, React Aria's at press); decide whether the press should select first
 - [ ] Menus and triggers: submenus; `Disabled` on Tooltip, menu and Select triggers; Toggle, Slider and Checkbox as `Trigger`s (so they can have tooltips), and more than one overlay per trigger; `aria.UseContextMenuTrigger` exposes an opening number to key a menu per opening (proposed `ContextMenuTriggerResult.Opening`; kit counts openings itself); a context menu opened from the keyboard knows the focused element's bounds (it opens at the area's corner); decide whether `kit.ContextMenu` areas are focusable by default (Radix's model says no; the demo shows `TabIndex(0)`)
+- [ ] `kit.ToggleStyle.Icon` is one class for every Toggle variant, so `looks/aqua` cannot tint the sidebar's glyphs with the accent as macOS does; small `looks/aqua` fidelity gaps: Sequoia's pop-up button chevron sits in an accent tile (`kit.Select` with `Icon: ChevronsUpDown` matches macOS) and its toolbar search field is bordered, not borderless gray; in Tahoe dark, Destructive text over a saturated backdrop has low contrast
 - [ ] New kit pieces: `kit.Alert`, Badge tone and dot, a loading state on `kit.Button`, a leading icon on `kit.Input`, a caption on `kit.Separator`, Avatar group and color, `animation-delay` utilities
 - [ ] `kit.Field`: a slot by the description, rich labels, a slot beside the label, and a group inside a `Field` (not a `FieldSet`) named by its label
 - [ ] `kit.Table`: a "never unsorted" sort mode and a way to hide the unsorted arrow; sort variants for `aria-sort` `other`/`none`
@@ -219,6 +204,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 
 - [ ] Every example at Retina scale; trackpad scrolling, momentum and gestures; Cmd shortcuts and word movement
 - [ ] A Control-click on a one-button trackpad opens a kit context menu
+- [ ] `looks/gallery` in its aqua designs, and `detect.Look()` choosing by `kern.osproductversion`
 - [ ] Keyboard: the ISO swap of kVK_ISO_Section and the grave key, `charactersIgnoringModifiers` with Cmd+Shift, dead keys without the IME, the Caps Lock `flagsChanged:` pattern, the Globe/Fn key's keycode on new keyboards
 - [ ] Japanese through the macOS IME, and dead keys with real key presses (CI's synthetic events start a dead-key composition but do not finish it)
 - [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
@@ -280,7 +266,7 @@ Optional, outside the core module. Until `tela add` exists (see "Deferred") they
 
 - **Charts:** line, bar, area, pie, scatter, axes, tooltips, built on `Canvas` (Canvas, SVG and PDF) or plain `Div`/SVG until then
 - **DataGrid / TreeView:** sortable, resizable, editable cells, row selection, grouping, tree expansion, on top of `VirtualList`; the simple `Table` in `kit` stays in core
-- **Looks (`looks/`, ADR-197):** done for Windows 11, GNOME and KDE (`win11`, `adwaita`, `breeze`, `detect`, and a gallery); the macOS backend adds `looks/aqua` and its entry in `detect.For`
+- **Looks (`looks/`, ADR-197, ADR-223):** done for Windows 11, GNOME, KDE and macOS (`win11`, `adwaita`, `breeze`, `aqua` in two designs, `detect`, and a gallery)
 
 ## Deferred (not discarded)
 
