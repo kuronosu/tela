@@ -188,11 +188,14 @@ func (w *Window) flagsChanged(ev darwin.ID) {
 }
 
 // deliverKey queues e if the window has the keyboard focus and the held
-// set lets it through (no release without a delivered press).
-func (w *Window) deliverKey(e platform.KeyEvent) {
+// set lets it through (no release without a delivered press), and reports
+// whether it did.
+func (w *Window) deliverKey(e platform.KeyEvent) bool {
 	if w.focused && w.held.Accept(e) {
 		w.b.enqueue(w, e)
+		return true
 	}
+	return false
 }
 
 // keyEquivalent answers performKeyEquivalent:: a key down with Command or

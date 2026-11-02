@@ -286,10 +286,13 @@ func (b *Backend) pump() {
 	b.pumping = true
 	func() {
 		defer func() { b.pumping = false }()
-		b.loop.Deliver(b.handler)
+		b.loop.Deliver(deliveryHook{b})
 	}()
+	idle := !b.loop.Ready()
 	for _, w := range b.loop.Windows() {
-		w.settleIME()
+		if idle {
+			w.settleIME()
+		}
 		w.flushIME()
 	}
 	if b.loop.Quitting() {
@@ -300,6 +303,18 @@ func (b *Backend) pump() {
 	b.idleLinks()
 	if b.loop.Ready() {
 		b.notify()
+	}
+}
+
+// deliveryHook is the handler of a delivery pass: the app's handler, and
+// after each event what the backend does once the app has handled it (the
+// IME's document goes back to the app's state, ime_darwin.go).
+type deliveryHook struct{ b *Backend }
+
+func (d deliveryHook) HandleEvent(pw platform.Window, e platform.Event) {
+	d.b.handler.HandleEvent(pw, e)
+	if w, ok := pw.(*Window); ok && w != nil {
+		w.handledIME(e)
 	}
 }
 

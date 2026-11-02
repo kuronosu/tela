@@ -145,10 +145,12 @@
 //     the NULs the backend drops), turns a replacement range that covers
 //     the preedit or the selection into DeleteBefore/DeleteAfter, and
 //     applies its own events to a copy of the surrounding text, so several
-//     calls between two states of the app read a consistent document. At
-//     the end of the delivery pass that gave the app those events, the
-//     copy is the app's last reported state again, also when the app
-//     rejected the text and reported the same state as before.
+//     calls between two states of the app read a consistent document. As
+//     soon as the app has handled the last queued event whose edit the
+//     copy holds (the backend's handler wraps the app's), the copy is the
+//     app's last reported state again, also when the app rejected the text
+//     and reported the same state as before; edits that never reach the
+//     app are forgotten at the end of a pass that leaves nothing queued.
 //   - markedRange, selectedRange and attributedSubstringForProposedRange:
 //     answer from that document (selectedRange is NSNotFound without
 //     surrounding text, as in winit); firstRectForCharacterRange: is the

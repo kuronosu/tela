@@ -49,12 +49,16 @@ type imeInput struct {
 	// that several calls in one key see each other's edits before the app
 	// sends its next state. nil: unknown.
 	doc *platform.SurroundingText
-	// app is the app's latest SurroundingText, which doc returns to at the
-	// end of each delivery pass (resync): the app may reject what the
-	// events did (a field at its MaxLength, a field that takes only
-	// digits), and then it reports the same state as before, which
-	// SetTextInput ignores.
+	// app is the app's latest SurroundingText, which doc returns to once
+	// the app has handled the events whose edits doc holds (resync): the
+	// app may reject what they did (a field at its MaxLength, a field that
+	// takes only digits), and then it reports the same state as before,
+	// which SetTextInput ignores.
 	app *platform.SurroundingText
+	// unsent are the events queued with edits applied to doc that the app
+	// has not handled yet, in queue order: IMEEvents and the KeyEvents
+	// that carry the text the IME inserted (see queued and handled).
+	unsent []platform.Event
 	// marked and cursor are the preedit and its cursor of the last
 	// IMEEvent; sel is the selection inside marked as setMarkedText gave
 	// it (UTF-16).
@@ -73,13 +77,44 @@ func (m *imeInput) setDoc(st *platform.SurroundingText) {
 }
 
 // resync makes the document the app's latest surrounding text again,
-// dropping what the events since did to it: called once the app has seen
-// them (at the end of a delivery pass), so that the document is what the
-// field holds, whether the app took the edits or not. Not during a key
-// event, whose calls build on each other's edits.
+// dropping what the events since did to it: called once the app has
+// handled them, so that the document is what the field holds, whether
+// the app took the edits or not. Not during a key event, whose calls
+// build on each other's edits.
 func (m *imeInput) resync() {
 	if m.key == nil {
 		m.doc = copySurrounding(m.app)
+	}
+}
+
+// queued records e, an event whose edit the document holds, as queued for
+// the app.
+func (m *imeInput) queued(e platform.Event) { m.unsent = append(m.unsent, e) }
+
+// handled is called after the app handled e (and reported its state, or
+// not, if it rejected the edit). When e is the oldest unsent edit it is
+// done; when it was the last, the document is the app's again (resync),
+// and handled reports true. Other events change nothing.
+func (m *imeInput) handled(e platform.Event) bool {
+	if len(m.unsent) == 0 || m.unsent[0] != e {
+		return false
+	}
+	m.unsent = m.unsent[1:]
+	if len(m.unsent) > 0 || m.key != nil {
+		return false
+	}
+	m.unsent = nil
+	m.resync()
+	return true
+}
+
+// settle is called when nothing is queued for the app any more: an edit
+// that never reached it (dropped with a closed window, or before the
+// session's end) is forgotten, and the document is the app's again.
+func (m *imeInput) settle() {
+	if m.key == nil {
+		m.unsent = nil
+		m.resync()
 	}
 }
 

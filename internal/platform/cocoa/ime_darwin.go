@@ -72,7 +72,6 @@ type imeWindow struct {
 	secure     bool                     // this window turned the secure event input on
 	input      imeInput                 // the composition and the document (ime.go)
 	discarding bool                     // inside discardMarkedText: callbacks change nothing
-	late       bool                     // IMEEvents were queued during a pass (settleIME)
 	invalidate bool                     // invalidateCharacterCoordinates at the end of the pass
 	ctx        darwin.ID                // own NSTextInputContext (owned), see textInputContext
 }
@@ -183,20 +182,37 @@ func (w *Window) closeIME() {
 	}
 }
 
-// settleIME runs at the end of a delivery pass: the app has seen the
-// IMEEvents and KeyEvents queued before it and reported its state
-// (SetTextInput), so the document the input method reads goes back to
-// that state, also when the app rejected the text and reported the same
-// state as before (imeInput.resync). Events the input method queued
-// during the pass (a commit when the window resigns key inside a handler)
-// wait for the follow-up pass, and so does the resync.
-func (w *Window) settleIME() {
-	im := &w.ime
-	if im.late {
-		im.late = false
-		return
+// queueEdit queues e, an event whose edit the document the input method
+// reads already holds, and records it until the app has handled it
+// (handledIME).
+func (w *Window) queueEdit(e platform.Event) {
+	w.b.enqueue(w, e)
+	w.ime.input.queued(e)
+}
+
+// handledIME is called after the app handled e (deliveryHook): once it has
+// handled every queued edit, and reported its state with SetTextInput or
+// not (a field at its MaxLength rejects the text and reports the same
+// state, which SetTextInput ignores), the document the input method
+// reads is the app's state again, whether or not another pass comes
+// before the next protocol call.
+func (w *Window) handledIME(e platform.Event) {
+	switch e.(type) {
+	case platform.IMEEvent, platform.KeyEvent:
+		if w.ime.input.handled(e) {
+			tracef("app handled the queued edits: document %+v", w.ime.input.app)
+		}
 	}
-	im.input.resync()
+}
+
+// settleIME runs at the end of a delivery pass that left nothing queued:
+// edits that never reached the app (dropped) are forgotten and the
+// document is the app's state.
+func (w *Window) settleIME() {
+	if n := len(w.ime.input.unsent); n > 0 {
+		tracef("pass end: %d queued edits never handled", n)
+	}
+	w.ime.input.settle()
 }
 
 // flushIME tells the input method that the caret area changed, once per
@@ -247,17 +263,15 @@ func (w *Window) interpretKey(ev darwin.ID, e platform.KeyEvent) {
 	tracef("key %v %q: interpretKeyEvents:", e.Code, e.Text)
 	darwin.Send(w.view, imesel.interpretKeyEvents, darwin.NSArray(ev))
 	deliver, evs := im.input.endKey()
-	// A key handled inside a pass is delivered by the follow-up one, and
-	// the document keeps its edits until then (settleIME).
-	im.late = im.late || w.b.pumping
 	if im.active {
 		for _, x := range evs {
-			w.b.enqueue(w, x)
+			w.queueEdit(x)
 		}
 	}
 	tracef("key %v: delivered %v, %d held commits", e.Code, deliver, len(evs))
-	if deliver {
-		w.deliverKey(e)
+	// A KeyEvent with text may carry what insertText: put in the document.
+	if deliver && w.deliverKey(e) && e.Text != "" {
+		im.input.queued(e)
 	}
 }
 
@@ -301,8 +315,7 @@ func imeEdit(self darwin.ID, f func(w *Window) []platform.IMEEvent) {
 		}
 		for _, e := range f(w) {
 			tracef("  -> IMEEvent %+v", e)
-			w.b.enqueue(w, e)
-			im.late = im.late || w.b.pumping
+			w.queueEdit(e)
 		}
 		if im.input.key == nil {
 			w.b.pump()

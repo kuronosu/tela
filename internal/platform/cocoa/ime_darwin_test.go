@@ -388,9 +388,10 @@ func TestIMEKeys(t *testing.T) {
 
 // TestIMERejectedTextWindow: the app (this test's handler) never reports a new
 // state, as a field at its MaxLength does when it rejects what is typed;
-// after the passes that delivered the key and the commit, the document
-// the input method reads is the app's again, so a composition and a
-// reconversion after them are placed in the text the field holds.
+// once the app has handled the key and the commit, the document the input
+// method reads is the app's again (the delivery hook, whatever the passes
+// were), so a composition and a reconversion after them are placed in the
+// text the field holds.
 func TestIMERejectedTextWindow(t *testing.T) {
 	traceIME(t)
 	state := &platform.TextInputState{
@@ -428,6 +429,7 @@ func TestIMERejectedTextWindow(t *testing.T) {
 	if s == nil {
 		return
 	}
+	t.Logf("events the app handled before the second step: %q", eventStrings(s.events[:mark]))
 	if docAfter != "abc" || selAfter != nsr(3, 0) {
 		t.Errorf("after the rejected text: document %q, selectedRange %v; want \"abc\" and {3 0}", docAfter, selAfter)
 	}

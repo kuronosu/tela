@@ -157,52 +157,79 @@ func TestIMENoDocument(t *testing.T) {
 
 // TestIMERejectedText: the app rejects what a key and a commit typed (a
 // field at its MaxLength reports the same state again, which SetTextInput
-// ignores). At the end of the pass the document is the app's text again,
-// and the next composition and a reconversion are placed in it.
+// ignores). Once the app has handled the last queued edit the document is
+// the app's text again, with no pass needed in between, and the next
+// composition and a reconversion are placed in it.
 func TestIMERejectedText(t *testing.T) {
 	var m imeInput
 	m.setDoc(&platform.SurroundingText{Text: "abc", Cursor: 3, Anchor: 3})
 
-	// A key typing its own text: the KeyEvent carries it.
+	// A key typing its own text, the KeyEvent carrying it (as
+	// interpretKey queues them), then a commit outside a key.
 	m.beginKey("d")
 	checkIME(t, "insert d", m.insert("d", noRange))
 	if deliver, out := m.endKey(); !deliver || len(out) != 0 {
 		t.Errorf("key d: delivered %v, events %d; want the KeyEvent alone", deliver, len(out))
 	}
-	checkDoc(t, "before the app saw the key", &m, "abcd", 4, 4)
-	m.resync() // the pass ends; the app reported nothing new
-	checkDoc(t, "after the rejected key", &m, "abc", 3, 3)
+	key := platform.KeyEvent{Action: platform.KeyPress, Code: platform.CodeKeyD, Key: "d", Text: "d"}
+	m.queued(key)
+	commit := m.insert("e", noRange)
+	checkIME(t, "insert e", commit, `commit "e" preedit "" 0,0`)
+	m.queued(commit[0])
+	checkDoc(t, "before the app saw them", &m, "abcde", 5, 5)
 
-	// A commit outside a key, rejected too.
-	checkIME(t, "insert e", m.insert("e", noRange), `commit "e" preedit "" 0,0`)
-	m.resync()
-	checkDoc(t, "after the rejected commit", &m, "abc", 3, 3)
+	// The app handles them and reports nothing new. Other events, such as
+	// the key's release, change nothing.
+	release := key
+	release.Action, release.Text = platform.KeyRelease, ""
+	for _, e := range []platform.Event{key, release} {
+		if m.handled(e) {
+			t.Errorf("handled %+v resynced with an edit still queued", e)
+		}
+	}
+	checkDoc(t, "with the commit still queued", &m, "abcde", 5, 5)
+	if !m.handled(commit[0]) {
+		t.Errorf("handling the last edit did not resync")
+	}
+	checkDoc(t, "after the rejected text", &m, "abc", 3, 3)
 	checkRange(t, "selectedRange", m.selectedRange(), 3, 0)
 
 	checkIME(t, "setMarked か", m.setMarked("か", range16{1, 0}, noRange), `preedit "か" 3,3`)
 	checkRange(t, "markedRange", m.markedRange(), 3, 1)
 	checkRange(t, "selectedRange in the preedit", m.selectedRange(), 4, 0)
 	// Reconversion of "c" and the preedit deletes the "c" the field has.
-	checkIME(t, "insert X over c and the preedit", m.insert("X", range16{2, 2}), `delete 1,0 commit "X" preedit "" 0,0`)
+	commit = m.insert("X", range16{2, 2})
+	checkIME(t, "insert X over c and the preedit", commit, `delete 1,0 commit "X" preedit "" 0,0`)
+	m.queued(commit[0])
 
 	// The app took this one and reported it: the document follows it.
 	m.setDoc(&platform.SurroundingText{Text: "abX", Cursor: 3, Anchor: 3})
-	m.resync()
+	m.handled(commit[0])
 	checkDoc(t, "after an accepted commit", &m, "abX", 3, 3)
 
-	// No resync in the middle of a key: its calls build on each other.
+	// An edit that never reaches the app (dropped) is forgotten when
+	// nothing is queued any more.
+	m.queued(m.insert("z", noRange)[0])
+	checkDoc(t, "z queued", &m, "abXz", 4, 4)
+	m.settle()
+	checkDoc(t, "after settle", &m, "abX", 3, 3)
+	if len(m.unsent) != 0 {
+		t.Errorf("settle kept %d edits", len(m.unsent))
+	}
+
+	// Never in the middle of a key: its calls build on each other.
 	m.beginKey("")
 	m.insert("y", noRange)
-	m.resync()
+	m.settle()
 	checkDoc(t, "inside a key", &m, "abXy", 4, 4)
 	m.endKey()
 
 	// Without surrounding text there is nothing to go back to.
 	var n imeInput
 	n.setDoc(nil)
-	n.resync()
+	n.settle()
 	if n.doc != nil {
-		t.Errorf("resync without surrounding text made a document %+v", n.doc)
+		t.Errorf("settle without surrounding text made a document %+v", n.doc)
 	}
 }
 
