@@ -51,7 +51,11 @@
 //     bundle, so HandlerApp.Exec (else the running executable) must be
 //     inside <Name>.app/Contents/MacOS/ and the app ID must be the
 //     bundle's CFBundleIdentifier; otherwise every call fails (outside a
-//     bundle with ErrUnsupported, naming `tela build` and `tela run`). A
+//     bundle with ErrUnsupported, naming `tela build` and `tela run`).
+//     Launch Services ignores bundles in temporary folders (os.TempDir(),
+//     /private/var/folders), so Register, MakeDefault and RegisterApp
+//     refuse one with ErrUnsupported and Status reports it not
+//     registered; `tela run` builds in the user cache for this reason. A
 //     scheme is an entry of the bundle's Info.plist CFBundleURLTypes; a
 //     file type an entry of CFBundleDocumentTypes for the extension's
 //     content type (LSHandlerRank Alternate, CFBundleTypeRole Editor),

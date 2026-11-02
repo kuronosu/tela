@@ -264,6 +264,7 @@ func macSetup(t *testing.T) (*memLS, platform.Associations, platform.HandlerApp)
 	m := MacOS(l).(*macOS)
 	m.settle = 0
 	m.exe = func() (string, error) { return "/usr/local/bin/notes-test", nil }
+	m.tempDirs = nil // the bundles are in t.TempDir(); TestMacOSTempDir fakes one
 	exe := writeBundle(t, t.TempDir(), "Notes", "com.example.Notes", plist.Dict{
 		"XUnknownKey": plist.Dict{"nested": plist.Array{int64(1), "two"}},
 		keyURLTypes: plist.Array{plist.Dict{
