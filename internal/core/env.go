@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"image/color"
 	"time"
 
 	"github.com/kuronosu/tela/internal/gfx"
@@ -95,12 +94,19 @@ type accentColor struct {
 	ok bool
 }
 
-// accentOf returns the accent color of platform settings.
-func accentOf(has bool, c color.NRGBA) accentColor {
+// accentOf returns the accent color c when has is set, else none (the
+// zero accentColor, whatever c is).
+func accentOf(has bool, c gfx.Color) accentColor {
 	if !has {
 		return accentColor{}
 	}
-	return accentColor{c: gfx.RGBA8(c.R, c.G, c.B, c.A), ok: true}
+	return accentColor{c: c, ok: true}
+}
+
+// settingsAccent returns the accent color of platform settings.
+func settingsAccent(s platform.SystemSettings) accentColor {
+	c := s.AccentColor
+	return accentOf(s.HasAccentColor, gfx.RGBA8(c.R, c.G, c.B, c.A))
 }
 
 // textScaleFactor returns the text scale factor of a setting (0 and
@@ -179,7 +185,7 @@ func (t *Tree) SetSystemSettings(s platform.SystemSettings) {
 	e := &t.env
 	e.sysDark, e.sysReduced, e.sysContrast = s.DarkMode, s.ReducedMotion, s.HighContrast
 	e.sysTextScale = s.TextScaleFactor()
-	e.accent = accentOf(s.HasAccentColor, s.AccentColor)
+	e.accent = settingsAccent(s)
 	t.applyEnv()
 }
 
@@ -189,7 +195,7 @@ func (cfg *Config) setSystem(s platform.SystemSettings) {
 	cfg.Dark, cfg.ReducedMotion = s.DarkMode, s.ReducedMotion
 	cfg.DoubleClickInterval = s.DoubleClickInterval
 	cfg.HighContrast, cfg.TextScale = s.HighContrast, s.TextScale
-	a := accentOf(s.HasAccentColor, s.AccentColor)
+	a := settingsAccent(s)
 	cfg.AccentColor, cfg.HasAccentColor = a.c, a.ok
 }
 

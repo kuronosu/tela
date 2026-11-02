@@ -380,10 +380,7 @@ func NewTree(cfg Config) *Tree {
 	checkScheme(cfg.ColorScheme)
 	t.env = envState{sysDark: cfg.Dark, sysReduced: cfg.ReducedMotion, sysContrast: cfg.HighContrast, scheme: cfg.ColorScheme,
 		sysTextScale: textScaleFactor(cfg.TextScale), ignoreText: cfg.IgnoreTextScale,
-		accent: accentColor{c: cfg.AccentColor, ok: cfg.HasAccentColor}}
-	if !cfg.HasAccentColor {
-		t.env.accent = accentColor{}
-	}
+		accent: accentOf(cfg.HasAccentColor, cfg.AccentColor)}
 	t.textScale = t.env.effectiveTextScale()
 	t.parser = scaledParser(t.parserBase, t.textScale)
 	t.cx = style.Context{Theme: t.parser.Theme(), Viewport: t.viewport, Dark: t.env.effectiveDark(),
