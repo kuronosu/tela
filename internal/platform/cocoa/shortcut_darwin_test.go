@@ -185,8 +185,14 @@ func TestShortcutRegister(t *testing.T) {
 // ShortcutPressed, then ShortcutReleased.
 func TestShortcutPress(t *testing.T) {
 	b := newBackend(t)
+	posted := false
+	t.Cleanup(func() {
+		if posted {
+			checkModifiersReleased(t)
+		}
+	})
 	var events []platform.ShortcutEvent
-	var bound, posted bool
+	var bound bool
 	var postedAt time.Time
 	var code uint16
 	var deadline time.Time
@@ -214,8 +220,7 @@ func TestShortcutPress(t *testing.T) {
 		}
 		if bound && !posted {
 			posted, postedAt = true, time.Now()
-			postKey(t, code, true)
-			postKey(t, code, false)
+			postHotKey(t, code)
 			deadline = time.Now().Add(3 * time.Second)
 		}
 		return len(events) >= 2 || time.Now().After(deadline)
@@ -236,9 +241,47 @@ func TestShortcutPress(t *testing.T) {
 	}
 }
 
-// postKey posts a key down or up of code with the test accelerator's
-// modifiers at the HID tap.
-func postKey(t *testing.T, code uint16, down bool) {
+// The modifiers of testAccel as the keyboard sends them: each key's
+// virtual key code and its flags (the device-independent bit and the
+// left key's device bit, NX_DEVICEL*KEYMASK), pressed in this order and
+// released in the reverse one.
+var testModKeys = [...]struct {
+	code  uint16
+	flags uint64
+}{
+	{0x3B, 1<<18 | 0x0001}, // kVK_Control
+	{0x3A, 1<<19 | 0x0020}, // kVK_Option
+	{0x38, 1<<17 | 0x0002}, // kVK_Shift
+	{0x37, 1<<20 | 0x0008}, // kVK_Command
+}
+
+// modFlagsMask is the device-independent bits of the four modifiers.
+const modFlagsMask = 1<<17 | 1<<18 | 1<<19 | 1<<20
+
+// postHotKey types the hot key at the HID tap as a keyboard does: the
+// modifier keys down (flagsChanged with the flags held so far), the key
+// down and up with all of them, the modifiers up again. The HID system
+// keeps the flags it was given, also after the process exits, so every
+// modifier pressed is released: posting the key alone with the flags set
+// left them held for the next test processes.
+func postHotKey(t *testing.T, code uint16) {
+	t.Helper()
+	var flags uint64
+	for _, m := range testModKeys {
+		flags |= m.flags
+		postKeyEvent(t, m.code, true, true, flags)
+	}
+	postKeyEvent(t, code, true, false, flags)
+	postKeyEvent(t, code, false, false, flags)
+	for i := len(testModKeys) - 1; i >= 0; i-- {
+		flags &^= testModKeys[i].flags
+		postKeyEvent(t, testModKeys[i].code, false, true, flags)
+	}
+}
+
+// postKeyEvent posts a key down or up of code, or a flagsChanged event of
+// a modifier key, with flags, at the HID tap.
+func postKeyEvent(t *testing.T, code uint16, down, modifier bool, flags uint64) {
 	t.Helper()
 	cg := darwin.CGEventCreateKeyboardEvent(0, code, down)
 	if cg == 0 {
@@ -246,14 +289,43 @@ func postKey(t *testing.T, code uint16, down bool) {
 		return
 	}
 	defer darwin.CFRelease(cg)
-	const (
-		maskShift     = 1 << 17
-		maskControl   = 1 << 18
-		maskAlternate = 1 << 19
-		maskCommand   = 1 << 20
-	)
-	darwin.CGEventSetFlags(cg, maskShift|maskControl|maskAlternate|maskCommand)
+	if modifier {
+		darwin.CGEventSetType(cg, darwin.CGEventFlagsChanged)
+	}
+	darwin.CGEventSetFlags(cg, flags)
 	if !darwin.CGEventPost(darwin.CGHIDEventTap, cg) {
 		t.Errorf("CGEventPost is missing")
 	}
+}
+
+// checkModifiersReleased checks that the HID system holds none of the
+// test's modifiers (logging what it holds), and releases them with
+// flagsChanged events without flags if it does, so that later test
+// processes do not see them held.
+func checkModifiersReleased(t *testing.T) {
+	t.Helper()
+	// The posted events reach the HID state asynchronously.
+	var flags uint64
+	ok := false
+	for deadline := time.Now().Add(time.Second); ; {
+		flags, ok = darwin.CGEventSourceFlagsState(darwin.CGEventSourceStateHIDSystemState)
+		if !ok || flags&modFlagsMask == 0 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Logf("HID system modifier flags after the test: %#x (known %v)", flags, ok)
+	if !ok || flags&modFlagsMask == 0 {
+		return
+	}
+	t.Errorf("the HID system still holds modifiers %#x after the hot key's keys were released", flags&modFlagsMask)
+	for i := len(testModKeys) - 1; i >= 0; i-- {
+		postKeyEvent(t, testModKeys[i].code, false, true, 0)
+	}
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		if flags, _ = darwin.CGEventSourceFlagsState(darwin.CGEventSourceStateHIDSystemState); flags&modFlagsMask == 0 {
+			break
+		}
+	}
+	t.Logf("after posting releases without flags: %#x", flags)
 }

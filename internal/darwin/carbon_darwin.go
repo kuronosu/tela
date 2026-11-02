@@ -322,5 +322,27 @@ func loadPost() {
 		if loadOptional(frameworkCG, func(lib uintptr) { bind(&cgPreflightPost, lib, "CGPreflightPostEventAccess") }) != nil {
 			cgPreflightPost = nil
 		}
+		if loadOptional(frameworkCG, func(lib uintptr) { bind(&cgSourceFlags, lib, "CGEventSourceFlagsState") }) != nil {
+			cgSourceFlags = nil
+		}
 	})
+}
+
+// CGEventSourceStateHIDSystemState is kCGEventSourceStateHIDSystemState:
+// the state of the hardware and of every event posted at the HID tap.
+const CGEventSourceStateHIDSystemState = 1
+
+var cgSourceFlags func(state int32) uint64
+
+// CGEventSourceFlagsState returns the modifier flags the event source
+// state holds (CGEventFlags, the NSEventModifierFlags bits); ok is false
+// when CoreGraphics lacks the function. A test that posts modifiers
+// checks with it that it released them: the HID system keeps posted
+// flags after the process exits.
+func CGEventSourceFlagsState(state int32) (flags uint64, ok bool) {
+	loadPost()
+	if cgSourceFlags == nil {
+		return 0, false
+	}
+	return cgSourceFlags(state), true
 }
