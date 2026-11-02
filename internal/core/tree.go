@@ -127,12 +127,12 @@ type Tree struct {
 	fonts *text.Collection
 	// parser compiles the classes: parserBase (the theme's and the class
 	// aliases') at the text scale textScale (theme.go, env.go).
-	parser      *style.Parser
-	parserBase  *style.Parser
-	textScale   float64
+	parser     *style.Parser
+	parserBase *style.Parser
+	textScale  float64
 	// restyles counts the walks that queue every element for the style
 	// phase (markAllStyle), for tests.
-	restyles int
+	restyles    int
 	cx          style.Context
 	rootClasses []string
 	dev         bool
