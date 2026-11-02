@@ -68,8 +68,7 @@ var _ platform.Window = (*Window)(nil)
 // first event is a ConfigureEvent with the content size AppKit granted, in
 // points, and the backing scale factor.
 func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error) {
-	// TitleBarOverlay is a frameless window until the overlay is done (ADR-225).
-	opts = opts.Resolve().OverlayAsFrameless()
+	opts = opts.Resolve()
 	if b.closed {
 		return nil, errClosed
 	}
@@ -77,11 +76,12 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	defer darwin.PoolPop(pool)
 
 	w := &Window{b: b, opts: opts, visible: !opts.Hidden, parent: b.parentOf(opts.Parent)}
-	// A frameless window is titled too, with a full-size content view
-	// (windowctl_darwin.go): the system's shadow, corners and resizing.
+	// A frameless or title bar overlay window is titled too, with a
+	// full-size content view (windowctl_darwin.go): the system's shadow,
+	// corners and resizing, and the overlay's traffic lights.
 	style := uint(darwin.NSWindowStyleMaskTitled | darwin.NSWindowStyleMaskClosable |
 		darwin.NSWindowStyleMaskMiniaturizable | darwin.NSWindowStyleMaskResizable)
-	if opts.Frameless {
+	if opts.Frameless || opts.TitleBarOverlay {
 		style |= darwin.NSWindowStyleMaskFullSizeContentView
 	}
 	if opts.FixedSize {

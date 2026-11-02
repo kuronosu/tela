@@ -173,7 +173,8 @@ type windowCtl struct {
 	regions  []platform.HitRegion
 	caption  captionInput
 	backdrop platform.Backdrop
-	effect   darwin.ID // NSVisualEffectView behind TelaView (owned: +1), or 0
+	effect   darwin.ID    // NSVisualEffectView behind TelaView (owned: +1), or 0
+	overlay  overlayState // a TitleBarOverlay window's buttons (overlay_darwin.go)
 
 	// Counters for tests.
 	fsEntered, fsExited, drags, doubleClicks int
@@ -195,7 +196,7 @@ var windowDrag = func(w *Window, ev darwin.ID) {
 // screen support, the size limits, the place, the level and the backdrop.
 func (w *Window) setupWindowCtl() {
 	opts := w.opts
-	if opts.Frameless {
+	if w.fullSizeContent() {
 		w.applyFrameless()
 		// A full-size content view is the frame: give the frame the size
 		// asked for (initWithContentRect: added a title bar to it).
@@ -219,13 +220,21 @@ func (w *Window) setupWindowCtl() {
 	w.ctl.maxWant, w.ctl.maxPending = opts.Maximized, opts.Maximized
 }
 
+// fullSizeContent reports whether the content view is the whole frame: a
+// Frameless or TitleBarOverlay window.
+func (w *Window) fullSizeContent() bool { return w.opts.Frameless || w.opts.TitleBarOverlay }
+
 // applyFrameless gives a titled window the look of a frameless one: no
-// title bar drawn, no title, no standard buttons, no separator line.
+// title bar drawn, no title, no separator line, and no standard buttons
+// unless it is a title bar overlay (overlay_darwin.go places them).
 func (w *Window) applyFrameless() {
 	darwin.Send(w.ns, wsel.setTitlebarTransparent, true)
 	darwin.Send(w.ns, wsel.setTitleVisibility, uintptr(darwin.NSWindowTitleHidden))
 	if darwin.SendBool(w.ns, wsel.respondsTo, wsel.setTitlebarSeparator) {
 		darwin.Send(w.ns, wsel.setTitlebarSeparator, uintptr(darwin.NSTitlebarSeparatorStyleNone))
+	}
+	if w.opts.TitleBarOverlay {
+		return
 	}
 	for _, b := range [...]uintptr{darwin.NSWindowCloseButton, darwin.NSWindowMiniaturizeButton, darwin.NSWindowZoomButton} {
 		if btn := darwin.Send(w.ns, wsel.standardWindowButton, b); btn != 0 {
@@ -273,7 +282,8 @@ func (w *Window) syncState() {
 		Maximized:             c.zoomed,
 		Fullscreen:            c.fullscreen,
 		Minimized:             w.minimized,
-		ClientSideDecorations: w.opts.Frameless,
+		ClientSideDecorations: w.fullSizeContent(),
+		TitleBarControls:      w.titleBarControls(),
 		HasPosition:           true,
 		Position:              c.pos,
 	})
@@ -365,6 +375,9 @@ func (w *Window) applyControl() {
 		c.fsSettled = 0
 		w.syncState()
 	}
+	if w.placeButtons() {
+		w.syncState()
+	}
 	if c.zooming && now-c.zoomAt > zoomTimeout {
 		w.syncState() // a zoom that never moved
 	}
@@ -419,7 +432,7 @@ func (w *Window) restoreResizable() {
 // so a frameless window gets its look again.
 func (w *Window) setStyleMask(mask uint64) {
 	darwin.Send(w.ns, wsel.setStyleMask, uint(mask))
-	if w.opts.Frameless {
+	if w.fullSizeContent() {
 		w.applyFrameless()
 	}
 }
@@ -430,6 +443,9 @@ func (w *Window) setStyleMask(mask uint64) {
 // becomes the wanted state.
 func (w *Window) fullscreenWill(entering bool) {
 	c := &w.ctl
+	if entering {
+		w.restoreButtons() // the full-screen title bar is AppKit's
+	}
 	if c.fsAsked == 0 && !c.fsTransition {
 		c.fsWant = entering
 	}
@@ -501,7 +517,7 @@ func (w *Window) moveTo(pos image.Point) {
 // window, the frame itself for a frameless one (its content view is the
 // frame), keeping the top-left corner where it is.
 func (w *Window) resizeContent(size platform.Size) {
-	if !w.opts.Frameless {
+	if !w.fullSizeContent() {
 		darwin.Send(w.ns, sel.setContentSize, cgSize(size))
 		return
 	}
@@ -520,7 +536,7 @@ func (w *Window) resizeContent(size platform.Size) {
 func (w *Window) applyLimits() {
 	lo, hi := sizeLimits(w.opts.MinSize, w.opts.MaxSize)
 	minSel, maxSel := sel.setContentMinSize, sel.setContentMaxSize
-	if w.opts.Frameless {
+	if w.fullSizeContent() {
 		minSel, maxSel = wsel.setMinSize, wsel.setMaxSize
 	}
 	darwin.Send(w.ns, minSel, darwin.CGSize{Width: lo[0], Height: lo[1]})
@@ -655,6 +671,9 @@ func (w *Window) SetHitRegions(regions []platform.HitRegion) {
 		return
 	}
 	w.ctl.regions = append(w.ctl.regions[:0], regions...)
+	if w.opts.TitleBarOverlay {
+		w.b.notify() // the traffic lights follow the caption's height (applyControl)
+	}
 }
 
 // RestoreToken returns "": macOS restores windows by position.

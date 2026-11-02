@@ -144,6 +144,22 @@
 //     frame's (AppKit's content-rectangle conversions still count a title
 //     bar there). The title bar strip sends presses to TelaView, which
 //     never moves the window by itself (mouseDownCanMoveWindow).
+//   - TitleBarOverlay windows (overlay_darwin.go) are frameless windows
+//     with the standard buttons shown, and also report
+//     ClientSideDecorations. The buttons are where AppKit puts them, or,
+//     when a HitCaption region along the top spans them, centered
+//     vertically in its height with AppKit's horizontal inset (Electron's
+//     trafficLightPosition): the title bar container view and the views
+//     down to the buttons are made as tall as the caption and the
+//     buttons' frames moved, again at every pass and delegate
+//     notification, since AppKit lays the title bar out anew.
+//     TitleBarControls is the buttons' union in TelaView's coordinates
+//     (where they are placed), reported with the state; it is empty in
+//     full screen (AppKit's auto-hiding title bar holds the buttons, and
+//     AppKit's place is restored before the window enters it). The
+//     buttons sit above TelaView in the theme frame, so presses on them
+//     are AppKit's: the close button asks through windowShouldClose:
+//     (a CloseRequestedEvent), minimize and zoom are tracked as any.
 //   - Hit regions: a primary press in a HitCaption region starts
 //     performWindowDragWithEvent: (the window server moves the window and
 //     may keep the release), a primary double click there by the shared

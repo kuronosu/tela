@@ -59,6 +59,9 @@ import (
 //   - the window shape: pixels the window server's capture leaves
 //     transparent (its rounded corners), which must lie in the corner bands
 //     (cornerBand);
+//   - for a TitleBarOverlay window, the rectangle of its standard buttons
+//     (read from the window) and one point around it: the OS's traffic
+//     lights, where the headless render leaves the room free;
 //   - for a Frameless window (its content is the whole frame), the
 //     outermost ring of pixels where they stay within a small difference
 //     of the reference: the window server's outline of a titled window,
@@ -192,6 +195,9 @@ type captureWindow struct {
 	ScreenW float64 `json:"screenW"`
 	ScreenH float64 `json:"screenH"`
 	Visible bool    `json:"visible"`
+	// Controls is a title bar overlay's standard buttons over the content
+	// (x, y, w, h in points, y down), zero for other windows.
+	Controls [4]float64 `json:"controls"`
 }
 
 func (w captureWindow) String() string {
@@ -566,10 +572,25 @@ func (r *exampleRun) compare(capDir string, ref *image.RGBA, attempt int) (pixel
 		}
 		return channelDiff(c, ref.RGBAAt(ref.Rect.Min.X+x, ref.Rect.Min.Y+y)) <= borderTolerance
 	}
+	// A TitleBarOverlay window shows the OS's traffic lights over the
+	// content where the headless render leaves the room free
+	// (TitleBarControls): the capture's pixels in the buttons' rectangle,
+	// as the window reports it, and one point around it (antialiasing,
+	// the buttons' shadow) are not compared. Other windows report none.
+	const controlsReason = "window buttons (the OS's traffic lights over a title bar overlay)"
+	var controls image.Rectangle
+	if cr := w.Controls; cr[2] > 0 && cr[3] > 0 {
+		s := w.Scale
+		controls = image.Rect(int(math.Floor((cr[0]-1)*s)), int(math.Floor((cr[1]-1)*s)),
+			int(math.Ceil((cr[0]+cr[2]+1)*s)), int(math.Ceil((cr[1]+cr[3]+1)*s)))
+		t.Logf("title bar overlay: the buttons cover %v points, %v pixels with the margin, not compared in the capture", cr, controls)
+	}
 	windowMask := func(x, y int, c color.RGBA) string {
 		switch {
 		case c.A != 0xff:
 			return shapeReason
+		case image.Pt(x, y).In(controls):
+			return controlsReason
 		case onBorder(x, y, c):
 			return borderReason
 		case isUnstable(x, y):

@@ -70,12 +70,15 @@ type Window struct {
 	Frameless bool
 	// TitleBarOverlay extends the content under a transparent title bar
 	// while the OS keeps its window buttons over it: on macOS the traffic
-	// lights, centered in the height of the app's caption. The content
-	// draws the rest of the title bar (kit.TitleBar leaves room for the
-	// buttons: [WindowState].TitleBarControls is the rectangle they
-	// cover). Elsewhere it behaves as Frameless, and the rectangle is
-	// empty. Set one of Frameless and TitleBarOverlay: the window panics
-	// with both.
+	// lights, centered in the height of the app's drag area along the
+	// top (the top-most h.WindowDrag area touching it, as in
+	// kit.TitleBar), or where AppKit puts them without one; in full
+	// screen they are in the OS's auto-hiding title bar and the rectangle
+	// is empty. The content draws the rest of the title bar (kit.TitleBar
+	// leaves room for the buttons: [WindowState].TitleBarControls is the
+	// rectangle they cover). Elsewhere it behaves as Frameless, and the
+	// rectangle is empty. Set one of Frameless and TitleBarOverlay: the
+	// window panics with both.
 	TitleBarOverlay bool
 	// AlwaysOnTop keeps the window above other windows (not on Wayland,
 	// which has no way to ask for it).

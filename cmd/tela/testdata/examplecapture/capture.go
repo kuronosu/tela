@@ -116,6 +116,11 @@ type telaCaptureWindow struct {
 	ScreenH float64 `json:"screenH"`
 	FrameH  float64 `json:"frameH"`
 	Visible bool    `json:"visible"`
+	// Controls is the rectangle the window's standard buttons cover over
+	// the content (x, y, w, h in points, y down from the content's top):
+	// a title bar overlay's traffic lights, which the headless reference
+	// leaves free. Zero for other windows.
+	Controls [4]float64 `json:"controls"`
 }
 
 type telaCaptureRead struct {
@@ -441,6 +446,7 @@ func telaCaptureTake() telaCaptureShot {
 		if v := tcdarwin.Send(ns, sel.contentView); v != 0 {
 			b := tcdarwin.SendRect(v, sel.bounds)
 			w.W, w.H = b.Size.Width, b.Size.Height
+			w.Controls = telaCaptureControls(ns, v, w.H, w.Style)
 		}
 		// platform.PhysicalSize: logical x scale, rounded half away from zero.
 		w.PhysW, w.PhysH = int(tcmath.Round(w.W*w.Scale)), int(tcmath.Round(w.H*w.Scale))
@@ -530,6 +536,40 @@ func telaCaptureWindowServer(w telaCaptureWindow, space uintptr) (*tcimage.RGBA,
 		return nil, note + tcfmt.Sprintf(", blank (%v): treated as refused", first)
 	}
 	return out, note
+}
+
+// telaCaptureControls returns the union of the shown standard buttons of
+// a window whose content view is its whole frame (the full-size content
+// view style of a TitleBarOverlay window), in the content view's points
+// with y down; zero otherwise (a titled window's buttons are above the
+// content, a frameless window's are hidden).
+func telaCaptureControls(ns, content tcdarwin.ID, h float64, style uint64) [4]float64 {
+	const fullSizeContentView = 1 << 15
+	if style&fullSizeContentView == 0 {
+		return [4]float64{}
+	}
+	var x0, y0, x1, y1 float64
+	n := 0
+	for b := range 3 {
+		btn := tcdarwin.Send(ns, tcdarwin.Sel("standardWindowButton:"), uintptr(b))
+		if btn == 0 || tcdarwin.SendBool(btn, tcdarwin.Sel("isHidden")) {
+			continue
+		}
+		r := tcdarwin.SendRect(content, tcdarwin.Sel("convertRect:fromView:"), tcdarwin.SendRect(btn, telaCaptureSel.bounds), btn)
+		// The content view is not flipped: y up from its bottom.
+		top := h - (r.Origin.Y + r.Size.Height)
+		if n == 0 {
+			x0, y0, x1, y1 = r.Origin.X, top, r.Origin.X+r.Size.Width, top+r.Size.Height
+		} else {
+			x0, y0 = tcmath.Min(x0, r.Origin.X), tcmath.Min(y0, top)
+			x1, y1 = tcmath.Max(x1, r.Origin.X+r.Size.Width), tcmath.Max(y1, top+r.Size.Height)
+		}
+		n++
+	}
+	if n == 0 {
+		return [4]float64{}
+	}
+	return [4]float64{x0, y0, x1 - x0, y1 - y0}
 }
 
 // telaCaptureLayer renders the content view's layer into a bitmap context.

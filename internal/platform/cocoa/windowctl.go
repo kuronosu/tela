@@ -232,3 +232,26 @@ func backdropMaterial(b platform.Backdrop) (int, bool) {
 	}
 	return 0, false
 }
+
+// --- title bar overlays ---
+
+// overlayCaptionHeight returns the height of the caption the traffic
+// lights of a TitleBarOverlay window are centered in: the bottom edge of
+// the last (top-most) HitCaption region that touches the window's top
+// edge and spans the controls' x range, when it is at least as tall as
+// the controls. ok is false without one: the buttons stay where AppKit
+// puts them.
+func overlayCaptionHeight(regions []platform.HitRegion, controls platform.Rect) (h float32, ok bool) {
+	for i := len(regions) - 1; i >= 0; i-- {
+		r := regions[i].Rect
+		if regions[i].Kind != platform.HitCaption || r.Y > 0 || r.Y+r.H <= 0 ||
+			r.X > controls.X || r.X+r.W < controls.X+controls.W {
+			continue
+		}
+		if h = r.Y + r.H; h < controls.H {
+			return 0, false
+		}
+		return h, true
+	}
+	return 0, false
+}

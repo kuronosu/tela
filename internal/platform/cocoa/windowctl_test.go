@@ -8,6 +8,34 @@ import (
 	"github.com/kuronosu/tela/internal/platform"
 )
 
+func TestOverlayCaptionHeight(t *testing.T) {
+	controls := platform.Rect{X: 8, Y: 7, W: 54, H: 16}
+	caption := func(x, y, w, h float32) platform.HitRegion {
+		return platform.HitRegion{Kind: platform.HitCaption, Rect: platform.Rect{X: x, Y: y, W: w, H: h}}
+	}
+	cases := []struct {
+		name    string
+		regions []platform.HitRegion
+		h       float32
+		ok      bool
+	}{
+		{"no regions", nil, 0, false},
+		{"a caption along the top", []platform.HitRegion{caption(0, 0, 800, 52)}, 52, true},
+		{"the top-most wins", []platform.HitRegion{caption(0, 0, 800, 52), caption(0, 0, 400, 40)}, 40, true},
+		{"not at the top", []platform.HitRegion{caption(0, 10, 800, 52)}, 0, false},
+		{"not over the controls", []platform.HitRegion{caption(100, 0, 700, 52)}, 0, false},
+		{"lower than the controls", []platform.HitRegion{caption(0, 0, 800, 12)}, 0, false},
+		{"a client region is not a caption", []platform.HitRegion{{Kind: platform.HitClient, Rect: platform.Rect{W: 800, H: 52}}}, 0, false},
+		{"a later client hole keeps the caption", []platform.HitRegion{caption(0, 0, 800, 44),
+			{Kind: platform.HitClient, Rect: platform.Rect{X: 300, Y: 4, W: 200, H: 36}}}, 44, true},
+	}
+	for _, c := range cases {
+		if h, ok := overlayCaptionHeight(c.regions, controls); h != c.h || ok != c.ok {
+			t.Errorf("%s: overlayCaptionHeight = %v, %v; want %v, %v", c.name, h, ok, c.h, c.ok)
+		}
+	}
+}
+
 func TestDesktopPosition(t *testing.T) {
 	const primaryTop = 768
 	// A 200x150 content area whose top-left is 100 points right of and
