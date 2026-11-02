@@ -11,6 +11,7 @@ import (
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
 // The desktop services (macOS desktop integration, ADR-224): NSWorkspace
@@ -19,9 +20,10 @@ import (
 // (secret_darwin.go), NSFileManager's trash (trash_darwin.go) and
 // UNUserNotificationCenter (notify_darwin.go), Carbon hot keys
 // (shortcut_darwin.go), single instance, the app ID and Launch Services'
-// launches (launch_darwin.go). The associations and the app's menu bar
-// are later tasks: UnsupportedDesktop answers them. The clipboard is in
-// clipboard_darwin.go and the system settings in settings_darwin.go.
+// launches (launch_darwin.go), and the associations (package assoc, on
+// the app's bundle). The app's menu bar is a later task:
+// UnsupportedDesktop answers it. The clipboard is in clipboard_darwin.go
+// and the system settings in settings_darwin.go.
 //
 // Everything runs on the main thread except the secrets and the trash,
 // which are safe from any goroutine. Answers reach the app through the
@@ -118,6 +120,12 @@ func (d desktop) OpenPath(_ platform.Window, path string) error {
 	}
 	return nil
 }
+
+// Associations returns the registration of URL schemes and file types:
+// package assoc, which edits the app bundle's Info.plist and registers it
+// with Launch Services (ADR-228). Safe from any goroutine, like every
+// Associations.
+func (desktop) Associations() platform.Associations { return assoc.Native() }
 
 func workspace() darwin.ID {
 	return darwin.SendClass(darwin.GetClass("NSWorkspace"), dsel.sharedWorkspace)

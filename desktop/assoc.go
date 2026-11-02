@@ -13,12 +13,12 @@ import (
 	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
-// Registration of URL schemes and file types (ADR-209, ADR-213). The
-// owner's conditions hold on every OS: per user, without administrator
-// rights; nothing is written when nothing would change; another
-// application's association is never overwritten without [Replace];
-// registering never makes the app the default ([MakeDefault] does, when
-// asked).
+// Registration of URL schemes and file types (ADR-209, ADR-213, ADR-228).
+// The owner's conditions hold on every OS: per user, without
+// administrator rights; nothing is written when nothing would change;
+// another application's association is never overwritten without
+// [Replace]; registering never makes the app the default ([MakeDefault]
+// does, when asked).
 
 // Association is a URL scheme or a file type the app opens: build it with
 // [URLScheme] or [FileType].
@@ -58,7 +58,9 @@ func (a Association) platform() platform.Association {
 // program's (see [RegisterOption] ForApp).
 type HandlerApp struct {
 	// ID is the app ID, which names the app's registration (its .desktop
-	// file on Linux, its ProgIDs on Windows). Default: [AppID].
+	// file on Linux, its ProgIDs on Windows; on macOS it must be the
+	// bundle's CFBundleIdentifier, which `tela build` takes from
+	// App.AppID). Default: [AppID].
 	ID string
 	// Name is shown in the desktop's "Open with" lists. Default: the
 	// last part of the ID, capitalized ("com.example.notes" is "Notes").
@@ -68,12 +70,18 @@ type HandlerApp struct {
 	// executable is a temporary dev build, so Register and MakeDefault
 	// there need Exec given (ErrDevExecutable otherwise); under go run it
 	// is a temporary build too: register from the installed program, or
-	// give its path.
+	// give its path. On macOS it must be the program inside an app bundle
+	// (<Name>.app/Contents/MacOS/), as `tela build` and `tela run` make
+	// it: the registration is written in the bundle's Info.plist, and
+	// every call outside a bundle returns an error wrapping
+	// [ErrUnsupported].
 	Exec string
-	// Args are arguments put before the link or the files.
+	// Args are arguments put before the link or the files. Unused on
+	// macOS, where the link or the files reach the app as a launch, not
+	// as arguments.
 	Args []string
 	// Icon is the absolute path of the app's icon (PNG or SVG on Linux,
-	// .ico on Windows). Optional.
+	// .ico on Windows; macOS shows the bundle's own icon). Optional.
 	Icon string
 }
 
@@ -122,7 +130,8 @@ var ErrAssociationTaken = platform.ErrAssociationTaken
 // running program is a temporary dev build, which the OS must not be told
 // to run. Nothing is written. Give the installed program's path, or
 // register from a normal build.
-var ErrDevExecutable = errors.New("under tela dev the program is a temporary build; give the installed program's path with desktop.ForApp(desktop.HandlerApp{Exec: ...})")
+var ErrDevExecutable = errors.New("under tela dev the program is a temporary build; give the installed program's path with desktop.ForApp(desktop.HandlerApp{Exec: ...}) " +
+	"(on macOS, the program inside the .app that `tela build` writes), or register from a program started with `tela run`")
 
 // Registration is what [RegistrationStatus] reports.
 type Registration struct {
@@ -133,7 +142,8 @@ type Registration struct {
 	Default bool
 	// Other names what holds the association instead of the app (the
 	// default handler, the owner of a Windows scheme key, the MIME type
-	// that claims an extension on Linux); "" when nothing does.
+	// that claims an extension on Linux, the default app's bundle ID on
+	// macOS); "" when nothing does.
 	Other string
 }
 
@@ -168,7 +178,12 @@ func (r DefaultResult) String() string { return platform.DefaultResult(r).String
 //
 // Linux writes the app's own .desktop file in ~/.local/share/applications
 // (and a MIME type for a new extension); Windows writes
-// HKEY_CURRENT_USER\Software\Classes. It works without a running app (an
+// HKEY_CURRENT_USER\Software\Classes; macOS adds the scheme or the
+// document type (and a type declaration for a new extension) to the app
+// bundle's Info.plist and registers the bundle with Launch Services, so
+// the program must be in a bundle (`tela build`, `tela run`; ErrUnsupported
+// otherwise). Launch Services makes the only app that handles a scheme
+// or a type its handler by itself. It works without a running app (an
 // installer, a setup command), and is safe from any goroutine; it does
 // file or registry I/O, so an app calls it from a goroutine or at start.
 // The OS opens the app with the link or the files as arguments: read
@@ -199,8 +214,8 @@ func Unregister(a Association, opts ...RegisterOption) (changed bool, err error)
 
 // MakeDefault asks for the app to become the default handler of a,
 // registering it first if needed (with Register's rules and options).
-// Where the OS lets an app set it (Linux; Windows schemes) it is set at
-// once (DefaultSet). For Windows file types only the user can choose:
+// Where the OS lets an app set it (Linux; Windows schemes; macOS, through
+// Launch Services, without a prompt) it is set at once (DefaultSet). For Windows file types only the user can choose:
 // MakeDefault opens the system's Default apps settings and returns
 // DefaultAsked. On an error it returns DefaultNone. Call it only when the
 // user asked ("Make Notes the default app for .note files").
@@ -275,7 +290,7 @@ func appPrepare(call, what string, opts []RegisterOption, needExec bool) (regCon
 type AppRegistration struct {
 	// Registered: the desktop knows the app's ID (on Linux an entry
 	// <ID>.desktop exists, whoever wrote it; always on Windows, which
-	// needs none).
+	// needs none; on macOS Launch Services knows a bundle of the ID).
 	Registered bool
 	// Requested: RegisterApp wrote the entry, and UnregisterApp would
 	// remove it.
@@ -294,6 +309,9 @@ type AppRegistration struct {
 // first and writes nothing when the entry is up to date or another
 // program's entry of the ID exists (a package's: never taken over
 // without [Replace]). On Windows, which needs no entry, it writes nothing.
+// On macOS the app bundle is the registration: RegisterApp registers it
+// with Launch Services when Launch Services does not know it yet, and
+// UnregisterApp writes nothing.
 //
 //	func main() {
 //	    desktop.SetAppID("com.example.notes")
@@ -306,7 +324,8 @@ type AppRegistration struct {
 // Call it from the installed program, at start: the entry runs
 // os.Executable ([ForApp] gives another path, as an installer does).
 // Under tela dev it returns ErrDevExecutable without Exec; under go run
-// the program is a temporary build, so skip it there. It does file I/O
+// the program is a temporary build, so skip it there (on macOS it is not
+// in a bundle either: ErrUnsupported, use `tela run`). It does file I/O
 // and is safe from any goroutine; without a running app it uses the OS
 // directly, and while an app runs (telatest included) its backend, which
 // tests inspect with telatest's App.RegisteredApps.

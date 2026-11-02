@@ -804,9 +804,16 @@
 // with no MimeType and NoDisplay=true, which the GlobalShortcuts portal
 // needs; it stays until UnregisterApp even when the last association goes,
 // and UnregisterApp leaves the associations that still need it; Windows
-// needs no entry and writes nothing. Package assoc documents what is
-// written where; its tests run against temporary directories and an
-// in-memory registry, never the real system.
+// needs no entry and writes nothing. On macOS the app is its bundle
+// (ADR-228): registration edits the bundle's Info.plist and registers the
+// bundle with Launch Services, so a program outside a bundle gets
+// ErrUnsupported naming `tela run`; RegisterApp registers the bundle and
+// UnregisterApp writes nothing. Launch Services makes the only candidate
+// of a scheme or type its handler by itself: the OS's rule, not a default
+// taken. Package assoc documents what is written where; its tests run
+// against temporary directories, an in-memory registry and a fake Launch
+// Services, never the real system (except the darwin tests, on a
+// temporary bundle of a unique ID).
 //
 // # Coordinates, scale and framebuffer size
 //
@@ -1291,9 +1298,18 @@
 // a LaunchEvent, file URLs as paths, with or without single instance;
 // launches that arrive before the first delivery pass ended wait for it,
 // and AppKit's opening of command-line arguments
-// (NSTreatUnknownArgumentsAsOpen) is off. Planned: NSMenu (the app's menu bar; window menus
-// return ErrUnsupported), the bundle's Info.plist for schemes and document
-// types.
+// (NSTreatUnknownArgumentsAsOpen) is off. Associations (phase 15): package assoc, on the app
+// bundle of HandlerApp.Exec (else the running executable), whose
+// CFBundleIdentifier must be the app ID: CFBundleURLTypes and
+// CFBundleDocumentTypes entries in its Info.plist (LSHandlerRank
+// Alternate; a UTImportedTypeDeclarations entry for an extension nothing
+// declares, resolved with UTTypeCreatePreferredIdentifierForTag), then
+// LSRegisterURL; Status from LSCopyAllHandlersForURLScheme,
+// LSCopyAllRoleHandlersForContentType and their defaults; MakeDefault
+// with LSSetDefaultHandlerForURLScheme and
+// LSSetDefaultRoleHandlerForContentType (synchronous, any goroutine, no
+// prompt); AppStatus from LSCopyApplicationURLsForBundleIdentifier. Planned: NSMenu (the app's
+// menu bar; window menus return ErrUnsupported).
 //
 // Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225):
 // everything is forwarded to the host's backend, which owns the real

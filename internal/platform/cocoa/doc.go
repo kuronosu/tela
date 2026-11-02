@@ -24,10 +24,11 @@
 // services of phase 12 with the secrets and the trash (see "Desktop
 // services" below), and global shortcuts, single instance, the app ID and
 // Launch Services' launches (see "Shortcuts, single instance and
-// launches"). Native menus and the associations are the next tasks of
-// the macOS desktop integration phase (ADR-224); until then those
-// requests are validated like on every backend and do nothing, and the
-// services return ErrUnsupported (UnsupportedDesktop).
+// launches"), and the registration of schemes and file types (package
+// assoc, on the app's bundle; ADR-228). Native menus are the next task of
+// the macOS desktop integration phase (ADR-224); until then the menu
+// requests are validated like on every backend and return
+// ErrUnsupported.
 //
 // # Loop
 //
