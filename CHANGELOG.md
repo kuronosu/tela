@@ -21,6 +21,7 @@ under **Breaking**. See ADR-049 and ADR-208.
 - macOS: the first part of the native `cocoa` backend (ADR-222), with no cgo: a Tela app on macOS 13 or later now opens a real window and draws into it, sharp on Retina displays, instead of needing `TELA_BACKEND=headless`. Keyboard, mouse and trackpad input, the clipboard and system settings follow in the next steps of the macOS phase; the backend adds the `github.com/ebitengine/purego` dependency, used only when building for macOS.
 - macOS: keyboard, mouse and trackpad input in the `cocoa` backend: keys with their modifiers (Command shortcuts and their releases included), clicks of every mouse button, hover, wheel and trackpad scrolling with Tela's own fling after the fingers lift, a hidden cursor with `cursor-none`, and animations paced by the display's refresh (a display link) that stop using the CPU when idle.
 - macOS: `tela dev` shows the app in a real macOS window that stays open across reloads: each new build takes over the same window with its state kept, clicks and keys reach the app, and a build error is drawn over the last good frame.
+- macOS: input methods in text fields (`NSTextInputClient`): Japanese, Chinese and Korean input sources compose inline with their candidate window next to the caret, dead keys show their accent until the next key (Option+E, E types "é"), the emoji picker and the character viewer insert into the focused field, and password fields keep input methods off and turn on the system's secure keyboard input.
 
 ### Changed
 

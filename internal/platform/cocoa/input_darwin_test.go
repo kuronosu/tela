@@ -63,6 +63,13 @@ type session struct {
 // the keyboard focus (it asks for it a few times, then simulates it). It
 // returns nil when the window never showed.
 func runSession(t *testing.T, title string, needFocus bool, script func(s *session)) *session {
+	return runSteps(t, title, needFocus, 250*time.Millisecond, script)
+}
+
+// runSteps is runSession with several scripts, each run from its own
+// handler call, pause after the one before (so the run loop turns in
+// between: an input method switch takes effect, events are delivered).
+func runSteps(t *testing.T, title string, needFocus bool, pause time.Duration, steps ...func(s *session)) *session {
 	b := newBackend(t)
 	s := &session{t: t, b: b}
 	onMain(func() {
@@ -72,7 +79,7 @@ func runSession(t *testing.T, title string, needFocus bool, script func(s *sessi
 			return
 		}
 		s.w = pw.(*Window)
-		time.AfterFunc(20*time.Second, b.Quit) // a failure, not a hang
+		time.AfterFunc(20*time.Second+time.Duration(len(steps))*pause, b.Quit) // a failure, not a hang
 		stage, tries, scheduled := 0, 0, false
 		_ = b.Run(platform.HandlerFunc(func(ew platform.Window, e platform.Event) {
 			switch e.(type) {
@@ -105,16 +112,24 @@ func runSession(t *testing.T, title string, needFocus bool, script func(s *sessi
 						darwin.SendPoint(darwin.ID(app.event), darwin.Sel("mouseLocation")))
 					stage = 1
 					s.ts = uptime()
-					script(s)
+					steps[0](s)
 					darwin.PoolPop(pool)
-					time.AfterFunc(250*time.Millisecond, b.Wake)
-				case 1:
-					stage = 2
+					time.AfterFunc(pause, b.Wake)
+				default:
+					if stage < len(steps) {
+						pool := darwin.PoolPush()
+						steps[stage](s)
+						darwin.PoolPop(pool)
+						stage++
+						time.AfterFunc(pause, b.Wake)
+						return
+					}
+					stage = len(steps) + 1
 					b.Quit()
 				}
 				return
 			}
-			if stage == 1 && ew == platform.Window(s.w) {
+			if stage >= 1 && stage <= len(steps) && ew == platform.Window(s.w) {
 				s.events = append(s.events, e)
 			}
 		}))

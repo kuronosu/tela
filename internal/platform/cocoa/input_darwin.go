@@ -164,6 +164,10 @@ func (w *Window) key(ev darwin.ID, down bool) {
 	if down {
 		k.Repeat = darwin.SendBool(ev, isel.isARepeat)
 		e, ok = keyboard.MacKeyDown(k)
+		if ok && w.imeKeys(k.Flags) {
+			w.interpretKey(ev, e)
+			return
+		}
 	} else {
 		e, ok = keyboard.MacKeyUp(k)
 	}

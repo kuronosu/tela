@@ -11,18 +11,9 @@ import (
 // The window control, styling and integration requests below are validated
 // like on every backend and otherwise do nothing in the base backend: they
 // are the macOS desktop integration phase (window control, menus, drag and
-// drop) and phase 14's IME task (text input). Requests are allowed to be
+// drop). Requests are allowed to be
 // refused by the platform contract, and no WindowStateEvent is sent, so
 // State stays the zero WindowState.
-
-// SetTextInput validates the state; the IME (NSTextInputClient) comes in a
-// later task of phase 14, so no IMEEvent or IMESessionEvent is delivered.
-func (w *Window) SetTextInput(state *platform.TextInputState) {
-	platform.CheckTextInputState(state)
-}
-
-// ResetTextInput does nothing: see SetTextInput.
-func (w *Window) ResetTextInput() {}
 
 // Minimize does nothing yet (macOS desktop integration).
 func (w *Window) Minimize() {}

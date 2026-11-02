@@ -46,6 +46,7 @@ type Window struct {
 	ptr          pointerState
 	tracking     darwin.ID // the view's tracking area (the view owns it)
 	cursorHidden bool      // this window's +[NSCursor hide] is in effect
+	ime          imeWindow // text input and IME (ime_darwin.go)
 
 	// Pacing (link_darwin.go).
 	link        darwin.ID // CADisplayLink of the view (owned: +1)
@@ -294,6 +295,9 @@ func (w *Window) Close() {
 	}
 	w.b.loop.Remove(w) // marks it closed and drops its queued events
 	w.updateCursorHidden()
+	imePool := darwin.PoolPush()
+	w.closeIME()
+	darwin.PoolPop(imePool)
 	w.releaseLink()
 	registry.Lock()
 	delete(registry.objects, w.delegate)
@@ -310,21 +314,27 @@ func (w *Window) Close() {
 
 // setFocused reports a change of the key window status. A window that
 // loses it first releases its held keys (synthetic releases, in press
-// order); one that gains it starts from the modifiers held now, whose
-// release then gives no event (no press was delivered).
+// order) and ends its IME session; one that gains it starts from the
+// modifiers held now, whose release then gives no event (no press was
+// delivered), and starts the session of its text field after the
+// FocusEvent (the order of the headless backend).
 func (w *Window) setFocused(focused bool) {
 	if w.focused == focused {
 		return
 	}
 	if focused {
 		w.prevFlags = darwin.SendUint(darwin.ID(app.event), isel.modifierFlags)
-	} else {
-		for _, e := range w.held.ReleaseAll(w.b.Now()) {
-			w.b.enqueue(w, e)
-		}
+		w.focused = true
+		w.b.enqueue(w, platform.FocusEvent{Focused: true})
+		w.syncIME()
+		return
 	}
-	w.focused = focused
-	w.b.enqueue(w, platform.FocusEvent{Focused: focused})
+	for _, e := range w.held.ReleaseAll(w.b.Now()) {
+		w.b.enqueue(w, e)
+	}
+	w.focused = false
+	w.syncIME()
+	w.b.enqueue(w, platform.FocusEvent{Focused: false})
 }
 
 // --- AppKit callbacks ---

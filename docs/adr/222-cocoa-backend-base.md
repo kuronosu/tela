@@ -16,3 +16,7 @@ Owner-approved doc.go design plus what it left open; a hosted layer is the one A
 ## Note: input and pacing (phase 14, task 2b)
 
 Frames are paced by a display link per window: `-[NSView displayLinkWithTarget:selector:]` on macOS 14+, a `CVDisplayLink` on 13 (its callback only flags the window and signals the run loop source); a Go timer that signals the run loop source paces windows not on screen yet and stands in after 100 ms for a link that stops ticking (it replaces the `CFRunLoopTimer`, which fired only about every 100 ms on the CI runner). NSApp is an `NSApplication` subclass whose `sendEvent:` forwards the key releases AppKit swallows while Command is held (winit's approach; a local monitor would miss events sent through `-[NSApp sendEvent:]`). Touchpad momentum events are dropped: the layers above fling after `ScrollPhaseEnd`, as on Wayland.
+
+## Note: IME (phase 14, task 3)
+
+ADR-068 on macOS: `TelaView` declares `NSTextInputClient`; one protocol call is one `IMEEvent` (`unmarkText` commits the marked text, as NSTextView does). Key downs without Command go through `interpretKeyEvents:` during a session, and the KeyEvent is decided afterwards: delivered after `doCommandBySelector:` or when `insertText:` brought its own text without a composition, dropped when the IME composed (winit, with Chromium's commit-then-command order kept for Korean Return). The session is focus plus a non-password state; a password field turns the secure event input on instead. Ending a session or `ResetTextInput` forgets the preedit, then `discardMarkedText`.

@@ -288,6 +288,9 @@ func (b *Backend) pump() {
 		defer func() { b.pumping = false }()
 		b.loop.Deliver(b.handler)
 	}()
+	for _, w := range b.loop.Windows() {
+		w.flushIME()
+	}
 	if b.loop.Quitting() {
 		b.stopApp()
 		return
@@ -416,6 +419,9 @@ var app struct {
 	// appSuper is the superclass of TelaApplication (NSApplication),
 	// where its sendEvent: override sends super.
 	appSuper darwin.Class
+	// textInputClient reports that TelaView declares NSTextInputClient
+	// (else it makes its own input context).
+	textInputClient bool
 }
 
 // callbacks are the C function pointers of the run loop source and the
@@ -469,7 +475,17 @@ func setupApp() error {
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaWindowDelegate: %w", err)
 	}
-	app.view, err = darwin.RegisterClass("TelaView", nsView, nil, append(viewMethods(), inputMethods()...))
+	// TelaView conforms to NSTextInputClient, which makes NSView give it
+	// an NSTextInputContext; should the runtime not know the protocol,
+	// the view makes its own context (ime_darwin.go).
+	methods := append(append(viewMethods(), inputMethods()...), imeMethods()...)
+	var protocols []string
+	if app.textInputClient = darwin.HasProtocol("NSTextInputClient"); app.textInputClient {
+		protocols = []string{"NSTextInputClient"}
+	} else {
+		methods = append(methods, inputContextMethod())
+	}
+	app.view, err = darwin.RegisterClass("TelaView", nsView, protocols, methods)
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaView: %w", err)
 	}

@@ -54,6 +54,7 @@ var (
 	sendUint  func(id ID, sel SEL, args ...any) uint64
 	sendRect  func(id ID, sel SEL, args ...any) CGRect
 	sendPoint func(id ID, sel SEL, args ...any) CGPoint
+	sendRange func(id ID, sel SEL, args ...any) NSRange
 	sendCStr  func(id ID, sel SEL, args ...any) string
 
 	poolPush      func() uintptr
@@ -73,6 +74,8 @@ func loadObjC(lib, system uintptr) error {
 	// CGPoint (two doubles) comes back in registers on both
 	// architectures: objc_msgSend.
 	purego.RegisterFunc(&sendPoint, send)
+	// NSRange (two NSUIntegers) too.
+	purego.RegisterFunc(&sendRange, send)
 	purego.RegisterFunc(&sendCStr, send)
 	// x86-64 returns structures larger than 16 bytes through memory, and
 	// the runtime has a separate entry point for those sends (arm64 returns
@@ -89,6 +92,7 @@ func loadObjC(lib, system uintptr) error {
 		return fmt.Errorf("darwin: looking up objc_msgSendSuper: %w", err)
 	}
 	purego.RegisterFunc(&msgSendSuper, superSend)
+	bind(&selGetName, lib, "sel_getName")
 	bind(&poolPush, lib, "objc_autoreleasePoolPush")
 	bind(&poolPop, lib, "objc_autoreleasePoolPop")
 	bind(&pthreadMainNP, system, "pthread_main_np")
@@ -128,6 +132,9 @@ func SendRect(id ID, sel SEL, args ...any) CGRect { return sendRect(id, sel, arg
 
 // SendPoint sends sel and returns a CGPoint (NSPoint) result.
 func SendPoint(id ID, sel SEL, args ...any) CGPoint { return sendPoint(id, sel, args...) }
+
+// SendRange sends sel and returns an NSRange result.
+func SendRange(id ID, sel SEL, args ...any) NSRange { return sendRange(id, sel, args...) }
 
 // objcSuper is the runtime's struct objc_super: the receiver and the class
 // where the method lookup starts.

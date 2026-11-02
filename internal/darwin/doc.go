@@ -7,7 +7,9 @@
 // and the constants of QuartzCore and AppKit that the backends need, plus
 // Foundation conversions (NSString and NSData to and from bytes, NSArray),
 // AppKit's NSString constants by name and the UniformTypeIdentifiers
-// framework (foundation_darwin.go).
+// framework (foundation_darwin.go), and the text input helpers: NSRange,
+// NSString as UTF-16, the secure event input and, for tests, the Text
+// Input Sources API (text_darwin.go).
 // AppKit and QuartzCore classes themselves are reached through the
 // Objective-C runtime (GetClass, Send).
 //

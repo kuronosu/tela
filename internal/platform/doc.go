@@ -255,14 +255,27 @@
 //     during a composition completes it in the IME without delivering the
 //     result. Surrounding text answers IMR_DOCUMENTFEED and
 //     IMR_RECONVERTSTRING. See the win32 package.
-//   - macOS (planned), NSTextInputClient: setMarkedText:selectedRange:replacementRange:
-//     is a Preedit (selectedRange gives the cursor), insertText:
-//     replacementRange: a Commit with an empty Preedit, unmarkText a Commit
-//     of the marked text; a replacement range next to the cursor becomes
-//     DeleteBefore/DeleteAfter. firstRectForCharacterRange: answers the
-//     cursor area in screen coordinates, selectedRange and
-//     attributedSubstringForProposedRange: the surrounding text;
-//     ResetTextInput is discardMarkedText.
+//   - macOS, NSTextInputClient on the content view: each call is one
+//     IMEEvent. setMarkedText:selectedRange:replacementRange: is a Preedit
+//     (selectedRange gives the cursor, a highlighted range when not
+//     empty; an empty string cancels), insertText:replacementRange: a
+//     Commit with an empty Preedit, unmarkText a Commit of the marked
+//     text; a replacement range that covers the preedit (or the
+//     selection) becomes DeleteBefore/DeleteAfter, other ranges are
+//     ignored. Key downs go through interpretKeyEvents: during a session
+//     (not with Command held): a key the IME consumes is not delivered,
+//     one it passes on (doCommandBySelector:) is, and one that inserts
+//     its own text (insertText: without a composition) is delivered with
+//     that Text and no IMEEvent. firstRectForCharacterRange: answers the
+//     cursor area in screen coordinates; selectedRange, markedRange and
+//     attributedSubstringForProposedRange: read the surrounding text with
+//     the preedit at the caret (UTF-16). The session is focus and a
+//     non-password state; a password field has none and turns on the
+//     secure event input while its window is key. ResetTextInput, and a
+//     session that ends during a composition, forget the preedit and then
+//     discardMarkedText; a moved cursor area is
+//     invalidateCharacterCoordinates, once per pass. See the cocoa
+//     package.
 //   - X11 has no IME yet (XIM is a task of the Linux and Windows parity
 //     phase): SetTextInput and ResetTextInput do nothing.
 //   - Headless records the latest state per window and lets tests inject
@@ -880,10 +893,10 @@
 // effectiveAppearance, NSSystemColorsDidChangeNotification,
 // NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification, and
 // NSApplicationDidBecomeActiveNotification for the double-click time),
-// coalesced into one read per pass. Pending in phase 14: IME; window
-// control, menus, drag and drop and the desktop services are the macOS
-// desktop integration phase (validated no-ops and ErrUnsupported until
-// then).
+// coalesced into one read per pass. The IME is NSTextInputClient on the
+// content view (see "Text input and IME"). Window control, menus, drag
+// and drop and the desktop services are the macOS desktop integration
+// phase (validated no-ops and ErrUnsupported until then).
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
 // clock and an input injection API, used by tests, telatest and the CLI. It
