@@ -38,6 +38,7 @@ type listedPackage struct {
 	GoFiles    []string
 	EmbedFiles []string
 	Standard   bool
+	DepOnly    bool
 	Module     *listedModule
 	Error      *struct{ Err string }
 }
