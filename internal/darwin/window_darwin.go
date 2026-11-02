@@ -2,6 +2,12 @@
 
 package darwin
 
+import (
+	"sync"
+
+	"github.com/ebitengine/purego"
+)
+
 // AppKit constants of window control (NSWindow.h, NSView.h,
 // NSVisualEffectView.h): style masks, levels, collection behaviors,
 // ordering, the standard buttons and the visual effect materials.
@@ -70,4 +76,33 @@ const (
 func SendSize(id ID, sel SEL, args ...any) CGSize {
 	p := sendPoint(id, sel, args...)
 	return CGSize{Width: p.X, Height: p.Y}
+}
+
+var (
+	warpOnce sync.Once
+	warp     func(p CGPoint) int32
+)
+
+// CGWarpMouseCursorPosition moves the cursor to p (global display
+// coordinates: points, top-left origin of the main display, y down)
+// without generating events, and returns the CGError (0 is success), or
+// -1 when CoreGraphics lacks the function. Tests park the real pointer
+// away from their windows with it, so that where a CI runner left the
+// cursor does not add enter and move events. It is bound on first use.
+// The CGPoint goes by value in two floating-point registers on both
+// architectures (a homogeneous aggregate on arm64, xmm0 and xmm1 on
+// amd64), as CGEventCreateMouseEvent's location does.
+func CGWarpMouseCursorPosition(p CGPoint) int32 {
+	warpOnce.Do(func() {
+		if cgLib == 0 {
+			return
+		}
+		if _, err := purego.Dlsym(cgLib, "CGWarpMouseCursorPosition"); err == nil {
+			bind(&warp, cgLib, "CGWarpMouseCursorPosition")
+		}
+	})
+	if warp == nil {
+		return -1
+	}
+	return warp(p)
 }

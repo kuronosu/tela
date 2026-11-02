@@ -94,8 +94,10 @@ func TestTitleBarFollowsTheOSButtons(t *testing.T) {
 	a := mountOverlay(t, overlayBar(kit.MacOS, ""))
 	before := a.Bounds(menuButton).X
 	a.SetTitleBarControls(tela.Rect{X: 8, Y: 13, Width: 120, Height: 14})
-	if after := a.Bounds(menuButton).X; after != before+62 {
-		t.Errorf("the leading button moved from x=%v to x=%v, want 62 more", before, after)
+	// The room's end moves from the Mac's buttons' to 8+120.
+	more := 8 + 120 - (telatest.MacTitleBarControls.X + telatest.MacTitleBarControls.Width)
+	if after := a.Bounds(menuButton).X; after != before+more {
+		t.Errorf("the leading button moved from x=%v to x=%v, want %v more", before, after, more)
 	}
 	// Fullscreen takes them away: the bar draws its own controls again.
 	a.SetTitleBarControls(tela.Rect{})
