@@ -399,7 +399,7 @@ func renderLayer(w *Window) readback {
 	// renderInContext: draws in the layer's coordinates; a bitmap context
 	// has y up, so a layer with flipped geometry (y down) is drawn through
 	// a flipped transform to come out as it is on screen.
-	flipped := darwin.SendBool(w.layer, darwin.Sel("geometryFlipped"))
+	flipped := darwin.SendBool(w.layer, darwin.Sel("isGeometryFlipped"))
 	if flipped {
 		darwin.CGContextTranslateCTM(ctx, 0, float64(phys.Y))
 		darwin.CGContextScaleCTM(ctx, 1, -1)
