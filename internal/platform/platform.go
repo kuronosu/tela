@@ -275,8 +275,9 @@ type Window interface {
 	// each with a Submenu). A chosen item arrives as a MenuEvent. nil or
 	// empty removes the bar. The content area keeps its size where the
 	// OS allows. Backends without native menu bars return ErrUnsupported:
-	// Linux (Wayland and X11), frameless windows, Cocoa until its desktop
-	// integration (its menu is the app's). The menu is copied. An invalid menu panics
+	// Linux (Wayland and X11), frameless windows, Cocoa (a macOS window
+	// has no bar of its own: Desktop.SetAppMenu sets the app's). The menu
+	// is copied. An invalid menu panics
 	// ([CheckMenu]). See "Native menus" in the package documentation.
 	SetMenu(menu []MenuItem) error
 

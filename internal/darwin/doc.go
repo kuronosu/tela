@@ -18,7 +18,8 @@
 // UserNotifications framework (usernotifications_darwin.go), file URLs,
 // NSError, dictionaries and arrays (foundation_services_darwin.go) and the
 // constants of the panels, alerts and status items
-// (appkit_services_darwin.go).
+// (appkit_services_darwin.go); the menus and the quit request add a few
+// constants (appkit_menu_darwin.go).
 //
 // It is a leaf package (ADR-189, ADR-222): it imports only purego and the
 // standard library, so every layer may use it. The cocoa platform backend

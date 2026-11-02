@@ -175,8 +175,7 @@ type Desktop interface {
 	// nil menu and appItems restore the default bar (macOS: the app,
 	// Edit and Window menus). The menus are copied. Backends without an
 	// app menu bar return ErrUnsupported, and the layers above draw it:
-	// every backend but headless and remote for now (Cocoa implements it
-	// with its desktop integration). An invalid menu panics
+	// every backend but Cocoa, headless and remote. An invalid menu panics
 	// ([CheckAppMenu]). See "Native menus" in the package documentation.
 	SetAppMenu(menu, appItems []MenuItem) error
 }
@@ -340,8 +339,10 @@ type MenuItem struct {
 	// menu bar (Desktop.SetAppMenu), where it is the item's key
 	// equivalent: the key chooses the item (an AppMenuEvent, or the
 	// role's native action) and does not reach the app as a KeyEvent.
-	// The backend reads it there as [ParseAccelerator] does, and an
-	// accelerator it cannot parse is only shown. Win32 menus show it
+	// The backend reads it there as [ParseAccelerator] does with
+	// CmdOrCtrl as Command, and an accelerator it cannot parse is not a
+	// key equivalent (NSMenuItem shows only key equivalents, so it is not
+	// shown either). Win32 menus show it
 	// after a tab; tray menus may ignore it. No control characters.
 	Accelerator string
 	// Role makes the item, or its submenu, a standard one the OS may

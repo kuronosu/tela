@@ -754,15 +754,4 @@ func (w *Window) StartDrag(opts platform.DragOptions) error {
 	return platform.ErrUnsupported
 }
 
-// SetMenu validates the menu and returns ErrUnsupported: the app's menu
-// bar is macOS desktop integration.
-func (w *Window) SetMenu(menu []platform.MenuItem) error {
-	platform.CheckMenu("SetMenu", menu)
-	return platform.ErrUnsupported
-}
-
-// PopupMenu validates the request and returns ErrUnsupported.
-func (w *Window) PopupMenu(at platform.Point, menu []platform.MenuItem, done func(platform.MenuItemID, error)) error {
-	platform.CheckPopupMenu(at, menu, done != nil)
-	return platform.ErrUnsupported
-}
+// SetMenu and PopupMenu are in menu_darwin.go.
