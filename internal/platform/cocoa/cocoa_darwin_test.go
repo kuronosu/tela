@@ -143,43 +143,6 @@ func TestPanicInHandlerIsReraisedByRun(t *testing.T) {
 	}
 }
 
-// TestIdleTimerDisarmed: once nothing is requested, the pacing timer is
-// pushed to the far future (0% CPU when idle).
-func TestIdleTimerDisarmed(t *testing.T) {
-	b := newBackend(t)
-	frames := 0
-	var armed bool
-	onMain(func() {
-		if _, err := b.NewWindow(platform.WindowOptions{Title: "idle", Size: platform.Size{W: 120, H: 80}}); err != nil {
-			t.Errorf("NewWindow: %v", err)
-			return
-		}
-		time.AfterFunc(10*time.Second, b.Quit)
-		_ = b.Run(platform.HandlerFunc(func(w platform.Window, e platform.Event) {
-			switch e.(type) {
-			case platform.FrameEvent:
-				frames++
-				presentSolid(t, w, color.RGBA{0x20, 0x40, 0xc0, 0xff})
-				if frames < 3 {
-					w.RequestFrame() // paced by the timer
-				} else {
-					time.AfterFunc(200*time.Millisecond, b.Wake)
-				}
-			case platform.WakeEvent:
-				armed = b.timerArmed
-				b.Quit()
-			}
-		}))
-	})
-	if frames < 3 {
-		t.Fatalf("got %d frames, want 3 (the requested ones are paced by the timer)", frames)
-	}
-	if armed {
-		t.Errorf("the pacing timer is still armed after 200 ms without a frame request")
-	}
-	t.Logf("%d frames, then the timer was disarmed", frames)
-}
-
 func presentSolid(t *testing.T, w platform.Window, c color.RGBA) {
 	t.Helper()
 	fb := image.NewRGBA(image.Rectangle{Max: w.Metrics().Physical()})

@@ -230,8 +230,8 @@ type ScrollEvent struct {
 //
 // Only devices whose gestures have a reported end use the phases: a
 // touchpad on Wayland (wl_pointer.axis_source finger, ended by
-// wl_pointer.axis_stop when the fingers lift) and, when its backend
-// arrives, macOS (NSEvent.phase). Wheels, and backends that cannot tell
+// wl_pointer.axis_stop when the fingers lift) and on macOS (NSEvent.phase;
+// the momentum events that follow are not delivered). Wheels, and backends that cannot tell
 // when a gesture ends (X11: XInput2 smooth scrolling has no stop signal),
 // report ScrollPhaseNone, so the layers above never start a fling for
 // them.

@@ -12,3 +12,7 @@ Cocoa backend base (phase 14; implements §15). `github.com/ebitengine/purego` v
 ## Rationale
 
 Owner-approved doc.go design plus what it left open; a hosted layer is the one AppKit never redraws and the one the GPU backend swaps for a `CAMetalLayer`. Tests run only on `macos-latest`.
+
+## Note: input and pacing (phase 14, task 2b)
+
+Frames are paced by a display link per window: `-[NSView displayLinkWithTarget:selector:]` on macOS 14+, a `CVDisplayLink` on 13 (its callback only flags the window and signals the run loop source); the timer paces windows not on screen yet and stands in after 100 ms for a link that stops ticking. NSApp is an `NSApplication` subclass whose `sendEvent:` forwards the key releases AppKit swallows while Command is held (winit's approach; a local monitor would miss events sent through `-[NSApp sendEvent:]`). Touchpad momentum events are dropped: the layers above fling after `ScrollPhaseEnd`, as on Wayland.

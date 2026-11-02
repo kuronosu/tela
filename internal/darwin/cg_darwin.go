@@ -49,6 +49,49 @@ var (
 	// CGSessionCopyCurrentDictionary returns nil when the process is not
 	// part of a window server (Aqua) session, such as an SSH login.
 	CGSessionCopyCurrentDictionary func() uintptr
+
+	// CGEvent construction, for building input events in tests: they are
+	// turned into NSEvents with +[NSEvent eventWithCGEvent:] and handed to
+	// AppKit in-process, never posted to the system (CGEventPost would
+	// need the accessibility permission and move the user's pointer).
+	// Locations are global display coordinates (top-left origin of the
+	// main display, y down). Created events are +1: CFRelease them.
+	CGEventCreateKeyboardEvent     func(source uintptr, keyCode uint16, keyDown bool) uintptr
+	CGEventCreateMouseEvent        func(source uintptr, typ uint32, location CGPoint, button uint32) uintptr
+	CGEventCreateScrollWheelEvent2 func(source uintptr, units uint32, wheelCount uint32, wheel1, wheel2, wheel3 int32) uintptr
+	CGEventSetType                 func(event uintptr, typ uint32)
+	CGEventSetFlags                func(event uintptr, flags uint64)
+	CGEventSetLocation             func(event uintptr, location CGPoint)
+	CGEventSetIntegerValueField    func(event uintptr, field uint32, value int64)
+	CGEventSetDoubleValueField     func(event uintptr, field uint32, value float64)
+	CGEventGetIntegerValueField    func(event uintptr, field uint32) int64
+	CGMainDisplayID                func() uint32
+)
+
+// CGEvent constants (CGEventTypes.h) used to build test events.
+const (
+	CGEventFlagsChanged    = 12 // kCGEventFlagsChanged
+	CGEventOtherMouseDown  = 25 // kCGEventOtherMouseDown
+	CGEventOtherMouseUp    = 26 // kCGEventOtherMouseUp
+	CGScrollEventUnitPixel = 0  // kCGScrollEventUnitPixel
+	CGScrollEventUnitLine  = 1  // kCGScrollEventUnitLine
+
+	// Fields (CGEventField) of scroll wheel events.
+	CGScrollWheelEventIsContinuous  = 88  // kCGScrollWheelEventIsContinuous
+	CGScrollWheelEventScrollPhase   = 99  // kCGScrollWheelEventScrollPhase
+	CGScrollWheelEventMomentumPhase = 123 // kCGScrollWheelEventMomentumPhase
+
+	// CGScrollPhase values (the gesture of a touchpad).
+	CGScrollPhaseBegan     = 1
+	CGScrollPhaseChanged   = 2
+	CGScrollPhaseEnded     = 4
+	CGScrollPhaseCancelled = 8
+	CGScrollPhaseMayBegin  = 128
+
+	// CGMomentumScrollPhase values (the inertia after the fingers lift).
+	CGMomentumScrollPhaseBegin    = 1
+	CGMomentumScrollPhaseContinue = 2
+	CGMomentumScrollPhaseEnd      = 3
 )
 
 // CGColorSpaceSRGB is the value of kCGColorSpaceSRGB (a CFStringRef), the
@@ -74,6 +117,16 @@ func loadCG(lib uintptr) {
 	bind(&CGContextScaleCTM, lib, "CGContextScaleCTM")
 	bind(&CGContextTranslateCTM, lib, "CGContextTranslateCTM")
 	bind(&CGSessionCopyCurrentDictionary, lib, "CGSessionCopyCurrentDictionary")
+	bind(&CGEventCreateKeyboardEvent, lib, "CGEventCreateKeyboardEvent")
+	bind(&CGEventCreateMouseEvent, lib, "CGEventCreateMouseEvent")
+	bind(&CGEventCreateScrollWheelEvent2, lib, "CGEventCreateScrollWheelEvent2")
+	bind(&CGEventSetType, lib, "CGEventSetType")
+	bind(&CGEventSetFlags, lib, "CGEventSetFlags")
+	bind(&CGEventSetLocation, lib, "CGEventSetLocation")
+	bind(&CGEventSetIntegerValueField, lib, "CGEventSetIntegerValueField")
+	bind(&CGEventSetDoubleValueField, lib, "CGEventSetDoubleValueField")
+	bind(&CGEventGetIntegerValueField, lib, "CGEventGetIntegerValueField")
+	bind(&CGMainDisplayID, lib, "CGMainDisplayID")
 }
 
 var (

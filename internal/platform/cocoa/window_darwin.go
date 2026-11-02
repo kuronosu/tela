@@ -7,9 +7,12 @@ import (
 	"image"
 	"math"
 	"slices"
+	"sync/atomic"
+	"time"
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
+	"github.com/kuronosu/tela/internal/platform/internal/keyboard"
 	"github.com/kuronosu/tela/internal/platform/internal/loop"
 )
 
@@ -35,6 +38,24 @@ type Window struct {
 	cursor    platform.Cursor
 	gravity   darwin.ID   // the layer's contentsGravity, set at Present
 	back      *image.RGBA // the frame as last presented (damage-only presents)
+
+	// Input (input_darwin.go).
+	held         keyboard.Held // keys whose press was delivered
+	prevFlags    uint64        // modifierFlags of the last flagsChanged: or focus gain
+	lastKey      keyStamp      // the last key event handled
+	ptr          pointerState
+	tracking     darwin.ID // the view's tracking area (the view owns it)
+	cursorHidden bool      // this window's +[NSCursor hide] is in effect
+
+	// Pacing (link_darwin.go).
+	link        darwin.ID // CADisplayLink of the view (owned: +1)
+	cvLink      uintptr   // CVDisplayLink (owned)
+	linkID      uintptr   // key in registry.links: the CVDisplayLink context
+	linkRunning bool
+	linkSince   time.Duration // when the outstanding display signal was requested
+	linkFired   atomic.Bool   // the CVDisplayLink ticked (set on CoreVideo's thread)
+	ticks       atomic.Int64  // link ticks, for tests
+	stalls      atomic.Int64  // signals the timer stood in for, for tests
 }
 
 var _ platform.Window = (*Window)(nil)
@@ -84,6 +105,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	darwin.Release(view) // the window keeps it
 	w.view = view
 	darwin.Send(w.ns, sel.makeFirstResponder, view)
+	w.addTrackingArea()
 	w.delegate = darwin.Send(darwin.SendClass(app.windowDelegate, sel.alloc), sel.init)
 
 	registry.Lock()
@@ -161,8 +183,10 @@ func (w *Window) SetTitle(title string) {
 }
 
 // SetCursor sets the cursor shown over the content area, through the
-// view's cursor rectangle (resetCursorRects). CursorNone shows the arrow
-// until pointer input arrives (hiding needs the pointer's enter and leave).
+// view's cursor rectangle (resetCursorRects), and at once while the
+// pointer is in the view. CursorNone hides the cursor while the pointer is
+// in the view (+[NSCursor hide], balanced by unhide when it leaves, the
+// cursor changes or the window closes).
 func (w *Window) SetCursor(c platform.Cursor) {
 	if !c.Valid() {
 		panic(fmt.Sprintf("cocoa: SetCursor(%d): invalid cursor; use one of the platform.Cursor constants", c))
@@ -171,7 +195,13 @@ func (w *Window) SetCursor(c platform.Cursor) {
 		return
 	}
 	w.cursor = c
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
 	darwin.Send(w.ns, sel.invalidateCursorRects, w.view)
+	if w.ptr.inside && w.focused && c != platform.CursorNone {
+		darwin.Send(w.nsCursor(), isel.set)
+	}
+	w.updateCursorHidden()
 }
 
 // nsCursor returns the NSCursor of the window's cursor.
@@ -263,6 +293,8 @@ func (w *Window) Close() {
 		}
 	}
 	w.b.loop.Remove(w) // marks it closed and drops its queued events
+	w.updateCursorHidden()
+	w.releaseLink()
 	registry.Lock()
 	delete(registry.objects, w.delegate)
 	delete(registry.objects, w.view)
@@ -276,12 +308,23 @@ func (w *Window) Close() {
 	w.back = nil
 }
 
-// setFocused reports a change of the key window status.
+// setFocused reports a change of the key window status. A window that
+// loses it first releases its held keys (synthetic releases, in press
+// order); one that gains it starts from the modifiers held now, whose
+// release then gives no event (no press was delivered).
 func (w *Window) setFocused(focused bool) {
-	if w.focused != focused {
-		w.focused = focused
-		w.b.enqueue(w, platform.FocusEvent{Focused: focused})
+	if w.focused == focused {
+		return
 	}
+	if focused {
+		w.prevFlags = darwin.SendUint(darwin.ID(app.event), isel.modifierFlags)
+	} else {
+		for _, e := range w.held.ReleaseAll(w.b.Now()) {
+			w.b.enqueue(w, e)
+		}
+	}
+	w.focused = focused
+	w.b.enqueue(w, platform.FocusEvent{Focused: focused})
 }
 
 // --- AppKit callbacks ---
@@ -322,6 +365,7 @@ func windowDelegateMethods() []darwin.Method {
 		}),
 		on("windowDidBecomeKey:", func(w *Window) { w.setFocused(true) }),
 		on("windowDidResignKey:", func(w *Window) { w.setFocused(false) }),
+		on("windowDidChangeScreen:", func(w *Window) { w.followScreen() }),
 		on("windowDidMiniaturize:", func(w *Window) { w.minimized = true; w.updateHidden() }),
 		on("windowDidDeminiaturize:", func(w *Window) { w.minimized = false; w.updateHidden() }),
 	}
@@ -335,6 +379,12 @@ func viewMethods() []darwin.Method {
 		{Sel: darwin.Sel("isFlipped"), Fn: yes},
 		{Sel: darwin.Sel("isOpaque"), Fn: yes},
 		{Sel: darwin.Sel("acceptsFirstResponder"), Fn: yes},
+		// The NSView display link's callback (link_darwin.go).
+		{Sel: darwin.Sel("telaDisplayLinkTick:"), Fn: func(self darwin.ID, _ darwin.SEL, _ darwin.ID) {
+			if w := windowFor(self); w != nil && !w.Closed() {
+				w.b.guard(w.linkTick)
+			}
+		}},
 		{Sel: darwin.Sel("resetCursorRects"), Fn: func(self darwin.ID, _ darwin.SEL) {
 			if w := windowFor(self); w != nil && !w.Closed() {
 				w.b.guard(func() {

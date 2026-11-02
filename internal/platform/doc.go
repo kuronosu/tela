@@ -122,7 +122,8 @@
 // final ScrollPhaseEnd event (usually with zero Delta) when they lift, so
 // the layers above can start a kinetic fling. Wayland reports it from
 // wl_pointer.axis_source (finger) and wl_pointer.axis_stop, as GTK 4 does;
-// X11 cannot (XInput2 smooth scrolling has no stop signal, and the
+// Cocoa from NSEvent.phase, dropping the momentum events AppKit generates
+// after the fingers lift (the layers above fling instead); X11 cannot (XInput2 smooth scrolling has no stop signal, and the
 // Synaptics driver coasts by itself), so its events have ScrollPhaseNone.
 //
 // # Keyboard
@@ -843,22 +844,33 @@
 // during live resize (event tracking mode); its perform callback runs the
 // delivery pass. A delegate callback that queues events (windowDidResize:,
 // windowShouldClose:, key changes) runs a pass itself, so a live resize
-// presents before AppKit continues. Pacing: until the display link task, a
-// CFRunLoopTimer in the common modes set to the shared loop's Pace deadline
-// and pushed to the far future when no frame waits. Then a frame request
-// starts a display link (CVDisplayLink on its own thread signalling the
-// same run loop source, or NSView.displayLink on macOS 14+; Go 1.27 needs
-// macOS 13); the link is stopped when no frame is requested. Sizes are
-// points (logical); scale is backingScaleFactor. The content view hosts a
+// presents before AppKit continues. Pacing: a frame request starts the
+// window's display link (NSView.displayLink on macOS 14+, a CADisplayLink
+// on the main run loop in the common modes; on macOS 13, which Go 1.27
+// still supports, a CVDisplayLink whose callback on its own thread flags
+// the window and signals the same run loop source); each tick calls
+// VsyncDone and runs a pass, and the link is stopped when no frame is
+// requested. A CFRunLoopTimer in the common modes paces what no link can
+// (a window not on screen yet, no link at all) and stands in for a link
+// that stops ticking (100 ms), and is pushed to the far future when no
+// frame waits. Sizes are points (logical); scale is backingScaleFactor. The content view hosts a
 // CALayer (contentsScale = backing scale, top-left gravity); Present sets
 // its contents to a CGImage made from the copied pixels (RGBA premultiplied
 // is native: kCGImageAlphaPremultipliedLast; sRGB color space) inside a
 // CATransaction without implicit animations. Quit calls [NSApp stop:] and
-// posts an application-defined event so that run returns. Implemented:
-// windows, presentation, HiDPI, close requests, focus, hiding, child
-// windows closed with their parent, cursors (cursor rectangles), the
-// clipboard with its Data types (NSPasteboard; see "Desktop integration
-// on each OS") and the system settings: dark mode is the best match of
+// posts an application-defined event so that run returns. Input: the
+// content view's NSResponder methods; keys through the macOS half of
+// internal/keyboard, with Command and Control key downs taken in
+// performKeyEquivalent: and the releases AppKit swallows while Command is
+// held forwarded by an NSApplication subclass (winit's approach); pointer
+// enter, leave and moves from one tracking area; scrolls with AppKit's
+// precise deltas or line steps and the touchpad's phases, momentum events
+// dropped (the layers above fling). Implemented: windows, presentation,
+// HiDPI, close requests, focus, hiding, child windows closed with their
+// parent, keyboard, pointer and scroll input, cursors (cursor rectangles;
+// CursorNone hides the cursor in the view), the display link, the
+// clipboard with its Data types (NSPasteboard; see "Desktop integration on
+// each OS") and the system settings: dark mode is the best match of
 // NSApp.effectiveAppearance among Aqua and DarkAqua, the accent color
 // NSColor.controlAccentColor in sRGB, reduced motion and high contrast
 // NSWorkspace's accessibilityDisplayShouldReduceMotion and
@@ -868,10 +880,10 @@
 // effectiveAppearance, NSSystemColorsDidChangeNotification,
 // NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification, and
 // NSApplicationDidBecomeActiveNotification for the double-click time),
-// coalesced into one read per pass. Pending in phase 14: keyboard, pointer
-// and scrolling input, IME, the display link; window control, menus, drag
-// and drop and the desktop services are the macOS desktop integration
-// phase (validated no-ops and ErrUnsupported until then).
+// coalesced into one read per pass. Pending in phase 14: IME; window
+// control, menus, drag and drop and the desktop services are the macOS
+// desktop integration phase (validated no-ops and ErrUnsupported until
+// then).
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
 // clock and an input injection API, used by tests, telatest and the CLI. It

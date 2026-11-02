@@ -32,9 +32,11 @@ type Backend struct {
 	// the frame pacing state shared with the other backends.
 	loop *loop.Loop[*Window]
 
-	runLoop uintptr // the main CFRunLoop
-	timer   uintptr // CFRunLoopTimer: frame pacing
-	srgb    uintptr // CGColorSpace of every presented image
+	runLoop  uintptr  // the main CFRunLoop
+	timer    uintptr  // CFRunLoopTimer: frame pacing without a display link
+	srgb     uintptr  // CGColorSpace of every presented image
+	linkKind linkKind // the display link of the windows (link_darwin.go)
+	clock    eventClock
 
 	// mu guards source and stopped against shutdown, for notify, which
 	// runs on any goroutine.
@@ -60,15 +62,17 @@ type Backend struct {
 
 var _ platform.Backend = (*Backend)(nil)
 
-// registry maps the integers that the CF callbacks receive to backends,
-// and the Objective-C objects that AppKit calls back (window delegates and
-// content views) to windows. Go pointers are never handed to C.
+// registry maps the integers that the CF and CoreVideo callbacks receive
+// to backends and windows, and the Objective-C objects that AppKit calls
+// back (window delegates and content views) to windows. Go pointers are
+// never handed to C.
 var registry = struct {
 	sync.Mutex
 	next     uintptr
 	backends map[uintptr]*Backend
 	objects  map[darwin.ID]*Window
-}{backends: map[uintptr]*Backend{}, objects: map[darwin.ID]*Window{}}
+	links    map[uintptr]*Window // CVDisplayLink contexts
+}{backends: map[uintptr]*Backend{}, objects: map[darwin.ID]*Window{}, links: map[uintptr]*Window{}}
 
 func backendFor(id uintptr) *Backend {
 	registry.Lock()
@@ -105,8 +109,11 @@ func New() (*Backend, error) {
 		return nil, err
 	}
 	runtime.LockOSThread()
-	b := &Backend{start: time.Now(), runLoop: darwin.CFRunLoopGetMain()}
-	b.loop = loop.New(loop.Options[*Window]{Now: b.Now, Notify: b.notify})
+	b := &Backend{start: time.Now(), runLoop: darwin.CFRunLoopGetMain(), linkKind: chooseLink()}
+	b.loop = loop.New(loop.Options[*Window]{Now: b.Now, Notify: b.notify, Pace: b.paceHook})
+	pool := darwin.PoolPush()
+	b.clock.offset = b.Now() - time.Duration(uptime()*float64(time.Second))
+	darwin.PoolPop(pool)
 
 	registry.Lock()
 	registry.next++
@@ -268,8 +275,9 @@ func (b *Backend) fail(r any) {
 	b.stopApp()
 }
 
-// pump runs a delivery pass: the queued events, the due frames, arming the
-// pacing timer for the requested ones that are not due, and, if the
+// pump runs a delivery pass: the queued events, the due frames, starting
+// the display links (or arming the pacing timer) for the requested ones
+// that are not due and stopping the links nothing waits for, and, if the
 // handler left work behind (events that arrived while it ran), a signal
 // for a follow-up pass. It does nothing inside a pass (the handler is never
 // called re-entrantly; what was queued meanwhile waits for the follow-up)
@@ -288,16 +296,22 @@ func (b *Backend) pump() {
 		return
 	}
 	b.arm()
+	b.idleLinks()
 	if b.loop.Ready() {
 		b.notify()
 	}
 }
 
-// arm sets the pacing timer to the shared loop's deadline for the requested
-// frames that are not due yet, or pushes it to the far future when no
-// frame waits (0% CPU when idle).
+// arm offers the requested frames that are not due yet to the display
+// links (the loop's Pace hook) and sets the pacing timer to the shared
+// loop's deadline for the others, or to the stand-in deadline of a link
+// that has not ticked; it pushes the timer to the far future when no frame
+// waits (0% CPU when idle).
 func (b *Backend) arm() {
 	deadline, ok := b.loop.Pace()
+	if t, has := b.linkDeadline(); has && (!ok || t < deadline) {
+		deadline, ok = t, true
+	}
 	if !ok {
 		if b.timerArmed {
 			darwin.CFRunLoopTimerSetNextFireDate(b.timer, darwin.CFAbsoluteTimeGetCurrent()+timerIdle)
@@ -395,11 +409,17 @@ var app struct {
 	delegate                          darwin.ID // TelaAppDelegate instance
 	window, windowDelegate, view      darwin.Class
 	layer, transaction, cursor, event darwin.Class
+	trackingArea, processInfo         darwin.Class
+	runLoop, nsView                   darwin.Class
+	// appSuper is the superclass of TelaApplication (NSApplication),
+	// where its sendEvent: override sends super.
+	appSuper darwin.Class
 }
 
-// callbacks are the C function pointers of the run loop source and timer,
-// created once (purego callbacks are never freed).
-var callbacks struct{ perform, timer uintptr }
+// callbacks are the C function pointers of the run loop source, the timer
+// and the CVDisplayLink output, created once (purego callbacks are never
+// freed).
+var callbacks struct{ perform, timer, cvTick uintptr }
 
 var (
 	setupOnce sync.Once
@@ -421,9 +441,13 @@ func setupApp() error {
 	app.transaction = darwin.GetClass("CATransaction")
 	app.cursor = darwin.GetClass("NSCursor")
 	app.event = darwin.GetClass("NSEvent")
+	app.trackingArea = darwin.GetClass("NSTrackingArea")
+	app.processInfo = darwin.GetClass("NSProcessInfo")
+	app.runLoop = darwin.GetClass("NSRunLoop")
 	nsWindow, nsView, nsApplication := darwin.GetClass("NSWindow"), darwin.GetClass("NSView"), darwin.GetClass("NSApplication")
+	app.nsView, app.appSuper = nsView, nsApplication
 	if nsObject == 0 || nsWindow == 0 || nsView == 0 || nsApplication == 0 || app.layer == 0 || app.transaction == 0 ||
-		app.cursor == 0 || app.event == 0 {
+		app.cursor == 0 || app.event == 0 || app.trackingArea == 0 || app.processInfo == 0 || app.runLoop == 0 {
 		return fmt.Errorf("cocoa: AppKit or QuartzCore classes are missing: %w", platform.ErrUnavailable)
 	}
 
@@ -444,7 +468,7 @@ func setupApp() error {
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaWindowDelegate: %w", err)
 	}
-	app.view, err = darwin.RegisterClass("TelaView", nsView, nil, viewMethods())
+	app.view, err = darwin.RegisterClass("TelaView", nsView, nil, append(viewMethods(), inputMethods()...))
 	if err != nil {
 		return fmt.Errorf("cocoa: registering TelaView: %w", err)
 	}
@@ -459,10 +483,21 @@ func setupApp() error {
 		return fmt.Errorf("cocoa: registering TelaAppDelegate: %w", err)
 	}
 
+	// TelaApplication forwards the key releases that NSApplication's own
+	// sendEvent: swallows (input_darwin.go). It must be the class of NSApp,
+	// so it is registered before sharedApplication creates NSApp.
+	appClass, err := darwin.RegisterClass("TelaApplication", nsApplication, nil, []darwin.Method{
+		{Sel: darwin.Sel("sendEvent:"), Fn: appSendEvent},
+	})
+	if err != nil {
+		return fmt.Errorf("cocoa: registering TelaApplication: %w", err)
+	}
+
 	callbacks.perform = darwin.NewCallback(func(info uintptr) {
 		if b := backendFor(info); b != nil {
 			b.guard(func() {
 				b.releaseZombies()
+				b.collectTicks()
 				b.pump()
 			})
 		}
@@ -472,12 +507,17 @@ func setupApp() error {
 			b.guard(func() {
 				b.timerArmed = false
 				b.releaseZombies()
+				b.standIn()
 				b.pump()
 			})
 		}
 	})
+	callbacks.cvTick = darwin.NewCallback(cvTick)
 
-	app.ns = darwin.SendClass(nsApplication, sel.sharedApplication)
+	// sharedApplication creates NSApp as an instance of the class it is
+	// sent to, unless something in the process created it already (then
+	// the Command key releases are not forwarded).
+	app.ns = darwin.SendClass(appClass, sel.sharedApplication)
 	if app.ns == 0 {
 		return fmt.Errorf("cocoa: [NSApplication sharedApplication] returned nil: %w", platform.ErrUnavailable)
 	}

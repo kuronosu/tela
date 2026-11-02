@@ -51,7 +51,9 @@ var (
 	sendBool  func(id ID, sel SEL, args ...any) bool
 	sendFloat func(id ID, sel SEL, args ...any) float64
 	sendInt   func(id ID, sel SEL, args ...any) int
+	sendUint  func(id ID, sel SEL, args ...any) uint64
 	sendRect  func(id ID, sel SEL, args ...any) CGRect
+	sendPoint func(id ID, sel SEL, args ...any) CGPoint
 	sendCStr  func(id ID, sel SEL, args ...any) string
 
 	poolPush      func() uintptr
@@ -67,6 +69,10 @@ func loadObjC(lib, system uintptr) error {
 	purego.RegisterFunc(&sendBool, send)
 	purego.RegisterFunc(&sendFloat, send)
 	purego.RegisterFunc(&sendInt, send)
+	purego.RegisterFunc(&sendUint, send)
+	// CGPoint (two doubles) comes back in registers on both
+	// architectures: objc_msgSend.
+	purego.RegisterFunc(&sendPoint, send)
 	purego.RegisterFunc(&sendCStr, send)
 	// x86-64 returns structures larger than 16 bytes through memory, and
 	// the runtime has a separate entry point for those sends (arm64 returns
@@ -78,6 +84,11 @@ func loadObjC(lib, system uintptr) error {
 		}
 	}
 	purego.RegisterFunc(&sendRect, rectSend)
+	superSend, err := purego.Dlsym(lib, "objc_msgSendSuper")
+	if err != nil {
+		return fmt.Errorf("darwin: looking up objc_msgSendSuper: %w", err)
+	}
+	purego.RegisterFunc(&msgSendSuper, superSend)
 	bind(&poolPush, lib, "objc_autoreleasePoolPush")
 	bind(&poolPop, lib, "objc_autoreleasePoolPop")
 	bind(&pthreadMainNP, system, "pthread_main_np")
@@ -108,8 +119,35 @@ func SendFloat(id ID, sel SEL, args ...any) float64 { return sendFloat(id, sel, 
 // SendInt sends sel and returns an NSInteger result.
 func SendInt(id ID, sel SEL, args ...any) int { return sendInt(id, sel, args...) }
 
+// SendUint sends sel and returns an NSUInteger result (an NSEventType,
+// modifier flags, a phase).
+func SendUint(id ID, sel SEL, args ...any) uint64 { return sendUint(id, sel, args...) }
+
 // SendRect sends sel and returns a CGRect (NSRect) result.
 func SendRect(id ID, sel SEL, args ...any) CGRect { return sendRect(id, sel, args...) }
+
+// SendPoint sends sel and returns a CGPoint (NSPoint) result.
+func SendPoint(id ID, sel SEL, args ...any) CGPoint { return sendPoint(id, sel, args...) }
+
+// objcSuper is the runtime's struct objc_super: the receiver and the class
+// where the method lookup starts.
+type objcSuper struct {
+	_          structs.HostLayout
+	receiver   ID
+	superClass Class
+}
+
+var msgSendSuper func(super *objcSuper, sel SEL, args ...any) ID
+
+// SendSuper sends sel to id, starting the method lookup at the class
+// super: an overridden method calling the implementation it overrides
+// passes its class's superclass. The class is explicit, not read from id,
+// because the runtime may change an object's class under it (key-value
+// observing subclasses NSApp's class, and a lookup from the object's class
+// would call the override again, forever).
+func SendSuper(id ID, super Class, sel SEL, args ...any) ID {
+	return msgSendSuper(&objcSuper{receiver: id, superClass: super}, sel, args...)
+}
 
 // Method is one method of a class registered with RegisterClass: its
 // selector and a Go function taking (self ID, _cmd SEL, arguments...).

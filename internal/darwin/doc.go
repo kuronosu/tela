@@ -20,7 +20,11 @@
 // The bindings exist only on darwin; on other systems the package is empty.
 // Call [Load] once before anything else: it opens the frameworks and binds
 // every function, and returns an error instead of panicking when one is
-// missing. The function variables are nil until then.
+// missing. The function variables are nil until then. CoreVideo's display
+// link ([LoadCoreVideo]) and HIToolbox's keyboard type ([KeyboardISO]) are
+// opened on first use instead: a backend without them still works. The
+// CGEvent constructors build input events for tests, which hand them to
+// AppKit in-process; nothing here posts events to the system.
 //
 // Rules for callers, which the bindings do not check:
 //

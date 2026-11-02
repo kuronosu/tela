@@ -3,17 +3,17 @@
 // runtime and purego (via the leaf bindings package internal/darwin), with
 // no cgo, and implements the platform contract documented in package
 // platform ("Mapping onto each OS: Cocoa"). The code that touches the OS is
-// built only on darwin; cursor.go holds the pure cursor table and is
-// tested on every OS.
+// built only on darwin; cursor.go (the cursor table) and input.go (the
+// pointer and scroll rules) are pure and tested on every OS.
 //
 // # Status (phase 14, ADR-222)
 //
-// This is the base of the backend: the app and its event loop, windows,
-// presentation and HiDPI, plus the clipboard (NSPasteboard with every Data
-// type, clipboard_darwin.go over the pure mapping in pasteboard.go) and the
-// system settings with their change events (settings_darwin.go).
-// Keyboard, pointer and scrolling input, IME (NSTextInputClient) and the
-// display link come in the next tasks of phase 14; window control
+// Implemented: the app and its event loop, windows, presentation, HiDPI,
+// keyboard, pointer and scroll input, cursors, frame pacing with a display
+// link, the clipboard (NSPasteboard with every Data type,
+// clipboard_darwin.go over the pure mapping in pasteboard.go) and the
+// system settings with their change events (settings_darwin.go). IME
+// (NSTextInputClient) comes in the next task of phase 14; window control
 // (minimize, zoom, fullscreen, positions, child and modal windows enforced
 // by the OS), native menus, drag and drop and the desktop services are the
 // macOS desktop integration phase. Until then those requests are validated
@@ -36,11 +36,23 @@
 //     callback runs a delivery pass of the shared loop
 //     (internal/platform/internal/loop);
 //   - a CFRunLoopTimer armed at the shared loop's pacing deadline (Pace)
-//     while a frame waits, and pushed to the far future otherwise, so an
-//     idle app never wakes up. This is the pacing of the base backend: the
-//     display link (CVDisplayLink, or NSView.displayLink on macOS 14+)
-//     replaces it in the next task, as the platform documentation
-//     describes.
+//     for a frame no display link paces, or at the stand-in deadline of a
+//     link that has not ticked, and pushed to the far future otherwise, so
+//     an idle app never wakes up.
+//
+// Frames are paced by a display link per window (link_darwin.go): a frame
+// request the loop does not deliver at once starts the window's link, each
+// tick records the display signal and runs a pass, and a link nothing
+// waits for is stopped after the pass (no ticks while idle). The link is
+// -[NSView displayLinkWithTarget:selector:] on macOS 14 and later (a
+// CADisplayLink on the main run loop that follows the view's screen), and
+// a CVDisplayLink on macOS 13 (its callback, on a CoreVideo thread, only
+// flags the window and signals the run loop source; it follows the
+// window's screen through windowDidChangeScreen:). A window not on screen
+// yet is paced by the timer, and so is everything when no link can be
+// made; when a link stops ticking while a frame waits (an occluded window)
+// the timer stands in for it after 100 ms, so frames slow down instead of
+// stopping.
 //
 // A delegate callback that queues events (a resize, a close request, a
 // focus change) runs a delivery pass itself, so a live resize delivers its
@@ -68,4 +80,44 @@
 // The window is ordered front at its first Present. Closing a window
 // releases its objects at the next pass, outside any AppKit method that
 // might still use them.
+//
+// # Input
+//
+// The content view is the window's first responder and receives the
+// NSResponder methods (input_darwin.go, whose top comment lists the AppKit
+// quirks handled, following winit):
+//
+//   - Keyboard: keyDown:, keyUp: and flagsChanged: go through the macOS
+//     half of internal/keyboard (virtual key codes, AppKit's characters,
+//     the modifier keys from the change of modifierFlags) and the window's
+//     held-key set: key events only while the window is key, synthetic
+//     releases of the held keys before FocusEvent{false}, no release for a
+//     key pressed before the focus came. ISO keyboards are read from
+//     HIToolbox (KBGetLayoutType). Command and Control key downs are taken
+//     in performKeyEquivalent:, where AppKit offers them first (some never
+//     reach keyDown:), and the NSApplication subclass TelaApplication hands
+//     the key window the releases of keys let go while Command is held,
+//     which AppKit's sendEvent: swallows. Repeats are AppKit's (isARepeat).
+//     Text input through an input method (interpretKeyEvents:) is the IME
+//     task.
+//   - Pointer: the left, right and other buttons (buttonNumber 2 middle, 3
+//     back, 4 forward), drags, moves and enter/leave from one tracking area
+//     (active always, so hover works in inactive windows; enabled during
+//     drags). Positions are points in the flipped view; a press keeps the
+//     pointer (AppKit sends the drags and the release to the view that got
+//     the press) and a leave during it waits for the release. The first
+//     click on an inactive window reaches the app (acceptsFirstMouse:).
+//     Clicks are counted by the layers above with the shared double-click
+//     rule (ADR-192).
+//   - Scroll: precise deltas (touchpads, the Magic Mouse) are Delta in
+//     points, other wheels Steps in lines, both with the DOM's signs (the
+//     user's natural scrolling setting is already in AppKit's deltas); the
+//     touchpad's gesture phases map to ScrollPhaseUpdate and End, and the
+//     momentum events AppKit adds after the fingers lift are dropped, since
+//     the layers above fling from the gesture (ADR-057).
+//   - Cursors: cursor rectangles, and CursorNone hides the cursor while the
+//     pointer is in the view (+[NSCursor hide], balanced by unhide).
+//
+// Not reported yet: pen and tablet fields (a pen moves the pointer as a
+// mouse), and a PointerCancel when the OS takes a press away.
 package cocoa
