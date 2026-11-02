@@ -132,13 +132,17 @@ var App = tela.App{
 	Height:    640,
 	MinWidth:  720,
 	MinHeight: 400,
-	Frameless: true,
-	Icon:      appIcon(),
-	Theme:     &theme,
-	RootClass: "overflow-hidden bg-background text-foreground",
-	// What closing the window does depends on state, so the screen
-	// registers it in the gate (close.go).
+	// The title bar is the app's own; on macOS the OS keeps its traffic
+	// lights over it (kit.TitleBar leaves room for them), elsewhere this is
+	// Frameless.
+	TitleBarOverlay: true,
+	Icon:            appIcon(),
+	Theme:           &theme,
+	RootClass:       "overflow-hidden bg-background text-foreground",
+	// What closing the window and quitting the app do depends on state, so
+	// the screen registers them in the gate (close.go).
 	OnClose: gate.closeMain,
+	OnQuit:  gate.quitApp,
 	Root:    Notes{},
 }
 

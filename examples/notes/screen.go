@@ -606,13 +606,9 @@ func (s screen) Build() tela.Node {
 		}
 	}
 
-	// closeMain is App.OnClose: keep running in the tray, or quit after
-	// asking about the notes that changed since they were saved.
-	closeMain := func(w tela.WindowHandle) {
-		if prefs.KeepInTray && trayOK {
-			w.Hide()
-			return
-		}
+	// askAndQuit quits after asking about the notes that changed since they
+	// were saved. w is the window the question is a sheet of.
+	askAndQuit := func(w tela.WindowHandle) {
 		unsaved := dirty(all)
 		if len(unsaved) == 0 {
 			tela.Quit()
@@ -642,8 +638,26 @@ func (s screen) Build() tela.Node {
 			tela.Quit() // no message box to ask with; the drafts are kept
 		}
 	}
-	tela.UseEffectDo(func() { gate.set(closeMain) })
-	tela.UseMount(func() func() { return func() { gate.set(nil) } })
+	// closeMain is App.OnClose: keep running in the tray, or quit after
+	// asking.
+	closeMain := func(w tela.WindowHandle) {
+		if prefs.KeepInTray && trayOK {
+			w.Hide()
+			return
+		}
+		askAndQuit(w)
+	}
+	// quitMain is App.OnQuit (Cmd+Q, the Dock's Quit): it quits for real,
+	// also with "keep running in the tray" on, with the same question. A
+	// hidden window is shown first, so that the question has a window.
+	quitMain := func() {
+		if len(dirty(all)) > 0 {
+			showMain()
+		}
+		askAndQuit(win)
+	}
+	tela.UseEffectDo(func() { gate.set(closeMain, quitMain) })
+	tela.UseMount(func() func() { return func() { gate.set(nil, nil) } })
 
 	// --- The screen ------------------------------------------------
 
@@ -678,6 +692,9 @@ func (s screen) Build() tela.Node {
 		case ",":
 			e.PreventDefault()
 			showPrefs()
+		case "1", "2", "3":
+			e.PreventDefault()
+			choose([]filter{viewAll, viewPinned, viewUnsaved}[key[0]-'1'])
 		}
 	})
 
@@ -712,6 +729,11 @@ func (s screen) Build() tela.Node {
 			vlt.clear()
 			bump()
 		}},
+		// The app's menu bar, on macOS (appmenu.go).
+		If(menuBarWanted(s.Look), appMenu{
+			New: newNote, Open: openFile, Save: save, Delete: deleteOpen, Settings: showPrefs,
+			Show: choose, HasNote: hasCur,
+		}),
 		notesTray{
 			Toggle: toggleMain,
 			New:    func() { showMain(); newNote() },
