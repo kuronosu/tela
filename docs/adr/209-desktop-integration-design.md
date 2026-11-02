@@ -5,19 +5,28 @@
 
 ## Decision
 
-The owner approved this shape for phase 13 (amends §2, §10, §15). It builds on ADR-178's model: declarative where something lives while it is mounted, and imperative calls that answer on the UI thread.
+The owner approved this shape for phase 13 (amends §2, §10, §15; details in ADR-210 to 217). As in ADR-178, what lives while mounted is a component, and imperative calls answer on the UI thread.
 
-- **Drag and drop follows HTML's model**, the same within a window, between an app's windows and with other apps. Targets use `h.OnDragEnter`, `OnDragOver`, `OnDragLeave` and `OnDrop`; a drop is accepted when `OnDragOver` calls `PreventDefault`, with copy, move and link effects. A source is an `h.Draggable` element that puts its data in the existing `OnDragStart`. Nothing breaks: `OnDragStart`, `OnDrag` and `OnDragEnd` stay the pointer-drag gesture for every other element. A drag whose data the OS understands goes through the OS (Wayland `wl_data_device`, X11 XDND, Win32 OLE `DoDragDrop`/`RegisterDragDrop`), so it can leave the window.
-- **One data type for drags and the clipboard:** plain text, HTML, PNG images, file lists and custom MIME types. A public clipboard API (in `desktop`) reads and writes it; text fields keep their text-only paste.
-- **Native menus are opt-in, per menu or globally.** `kit.ContextMenu` and `kit.Menubar` stay drawn in Tela's look by default. A `Native` setting uses the OS menu where one exists (Win32 `TrackPopupMenuEx` and window `HMENU` now, `NSMenu` in phase 14) and falls back to the drawn menu elsewhere (always on Linux, and on frameless Win32 windows). The setting can be given per menu, or once for the whole app with a field of `tela.App`, which every app has, whether or not it uses a platform look. A menu's own setting wins over the app's, so a menu can also stay drawn while the rest are native. The menu model is `desktop.MenuItem`, shared with the tray, plus accelerator text.
-- **Global shortcuts** are a declarative `desktop` component that is registered while mounted, with `OnError` like `Tray`. The backends are Win32 `RegisterHotKey`, X11 `XGrabKey` and, on Wayland, the `org.freedesktop.portal.GlobalShortcuts` portal (the compositor may ask the user or rebind the shortcut).
-- **Single instance** is opt-in and keyed by the app ID. A second process forwards its arguments, working directory and activation token to the first, then exits with status 0 without opening a window. The first process receives the same `Launch` value it got for its own start, and its window is raised. Linux uses a well-known D-Bus name; Windows uses a named mutex and a message to the first instance.
-- **Deep links and file associations** are registered at run time by an API that does not need a running app, so phase 17's installers can reuse it. The owner's conditions apply. Registration is per user and never needs administrator rights (Linux: the app's own `.desktop` file in `~/.local/share/applications`; Windows: `HKCU\Software\Classes`). The API checks what exists before writing, and writes nothing when nothing changes. It never overwrites another application's association without an explicit option. It can register and unregister both URL schemes and file extensions. Registering makes the app a candidate handler, not the default: becoming the default is a separate, explicit request, and on Windows file types that request opens the system's Default apps page. The API reports whether the app is registered and whether it is the default.
-- **System settings v2:** the accent color, high contrast and the text scale join dark mode and reduced motion, with change notifications. Linux reads them from the `org.freedesktop.portal.Settings` portal, and Wayland and X11 now get dark mode too. Windows reads the registry, `SPI_GETHIGHCONTRAST` and `WM_SETTINGCHANGE`. High contrast is Tailwind's `contrast-more:` variant. **The text scale works like a browser's default font size**: 1rem = the theme's rem × the scale, so text and Tailwind's rem-based spacing grow together while px values do not. It is on by default, an app can turn it off, and snapshots and tests use 1.
-- **Secure storage:** `desktop` functions set, get and delete a named secret scoped to the app ID. Windows uses Credential Manager; Linux uses the Secret Service over D-Bus, with its encrypted session from the standard library (DH with HKDF and AES-CBC); macOS gets the keychain in phase 14. A missing service returns `ErrUnsupported`. The calls may show the OS's unlock prompt, so they are made off the UI thread.
-- **§2 adds `advapi32`** (Credential Manager and the registry) to the allowed Windows DLLs. The OLE calls are in `ole32`, which is already allowed.
-- **Done check:** `examples/notes` accepts a dropped file, runs a global shortcut, reopens in its running instance from a `notes:` deep link, and keeps **locked notes**, which are encrypted in `notes.json` (AES-GCM) with a key kept in secure storage. Without a keyring, locked notes are disabled.
+- **Drag and drop is HTML's model:**
+  - It works within a window, between the app's windows, and with other apps, through the OS.
+  - Targets use `h.OnDragEnter`, `OnDragOver`, `OnDragLeave` and `OnDrop`, and accept a drop with `PreventDefault`.
+  - A source is an `h.Draggable` element that fills its data in `OnDragStart`; the gesture props are unchanged for every other element.
+  - Drags and the clipboard share one data type (text, HTML, PNG, files, custom types).
+- **Native menus are opt-in.** Kit menus stay drawn. A `Native` setting per menu, or a `tela.App` field for the whole app, uses the OS menu where one exists; the menu's own setting wins.
+- **Global shortcuts** are a declarative `desktop` component.
+- **Single instance** is opt-in. A second process forwards its launch to the first and exits.
+- **Registration of links and file types:**
+  - It works at run time, without a running app, so phase 17's installers can reuse it.
+  - Per user, never with administrator rights.
+  - It looks before writing and writes nothing when nothing changes.
+  - It never overwrites another app's association without an explicit option.
+  - It can register and unregister both URL schemes and file types.
+  - Registering makes the app a candidate handler. Only a separate, explicit request makes it the default; on Windows, for file types, that request opens the Default apps settings.
+- **Settings v2:** the accent color, high contrast (`contrast-more:`) and the text scale. The text scale works like a browser's default font size: 1rem = the theme's rem × the scale. It is on by default and an app can turn it off.
+- **Secrets:** Credential Manager on Windows; on Linux, the Secret Service with an encrypted session from the standard library.
+- **§2** adds `advapi32`.
+- **Done check:** `examples/notes` accepts a dropped file, runs a global shortcut, reopens in its running instance from a `notes:` link, and keeps locked notes encrypted with a key in secure storage.
 
 ## Rationale
 
-HTML's names are what an LLM writes, and reusing `OnDragStart` keeps React code readable without breaking the gesture props. Drawn menus keep one look on every platform, and native menus stay one field away for apps that want them. Text scaling through rem is the browser's semantics, and Tailwind sizes are designed for it.
+HTML's names are what an LLM writes. Drawn menus keep one look everywhere, with native menus one field away. Rem scaling is the browser's semantics, which Tailwind sizes are designed for. Registration never takes a choice that belongs to the user.
