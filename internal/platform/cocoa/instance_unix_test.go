@@ -45,7 +45,7 @@ func waitLaunch(t *testing.T, ch <-chan platform.Launch) (platform.Launch, bool)
 func TestInstanceClaimAndForward(t *testing.T) {
 	dir := instanceDir(t)
 	got := make(chan platform.Launch, 4)
-	first, primary, err := claimInstance(dir, "dev.telaui.Test", platform.Launch{}, func(l platform.Launch) { got <- l }, nil)
+	first, primary, err := claimInstance(dir, "dev.telaui.Test", platform.Launch{}, func(l platform.Launch) bool { got <- l; return true }, nil)
 	if err != nil || !primary {
 		t.Fatalf("first claim = %v, %v; want primary", primary, err)
 	}
@@ -106,7 +106,7 @@ func TestInstanceStaleSocket(t *testing.T) {
 		t.Fatalf("the stale socket is missing: %v", err)
 	}
 	got := make(chan platform.Launch, 1)
-	c, primary, err := claimInstance(dir, "dev.telaui.Stale", platform.Launch{}, func(l platform.Launch) { got <- l }, nil)
+	c, primary, err := claimInstance(dir, "dev.telaui.Stale", platform.Launch{}, func(l platform.Launch) bool { got <- l; return true }, nil)
 	if err != nil || !primary {
 		t.Fatalf("claim over a stale socket = %v, %v; want primary", primary, err)
 	}
@@ -146,7 +146,7 @@ func TestInstanceLockHeldWithoutListener(t *testing.T) {
 func TestInstanceHostilePeer(t *testing.T) {
 	dir := instanceDir(t)
 	got := make(chan platform.Launch, 1)
-	c, _, err := claimInstance(dir, "dev.telaui.Peer", platform.Launch{}, func(l platform.Launch) { got <- l }, nil)
+	c, _, err := claimInstance(dir, "dev.telaui.Peer", platform.Launch{}, func(l platform.Launch) bool { got <- l; return true }, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,5 +168,23 @@ func TestInstanceHostilePeer(t *testing.T) {
 	}
 	if l, ok := waitLaunch(t, got); ok && !reflect.DeepEqual(l.Args, []string{"ok"}) {
 		t.Errorf("forwarded launch = %+v", l)
+	}
+}
+
+// TestInstanceRefusedLaunch: a launch the first instance does not take
+// (it is shutting down) is not acknowledged, so the second process gets
+// an error, runs on its own and loses nothing.
+func TestInstanceRefusedLaunch(t *testing.T) {
+	dir := instanceDir(t)
+	c, _, err := claimInstance(dir, "dev.telaui.Refuse", platform.Launch{}, func(platform.Launch) bool { return false }, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.close()
+	_, primary, err := claimInstance(dir, "dev.telaui.Refuse", platform.Launch{Args: []string{"x"}}, nil, nil)
+	if err == nil || primary {
+		t.Errorf("claim whose launch was refused = %v, %v; want an error", primary, err)
+	} else {
+		t.Logf("refused: %v", err)
 	}
 }

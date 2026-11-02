@@ -50,7 +50,7 @@ type instanceClaim struct {
 	lock    *os.File
 	ln      *net.UnixListener
 	sock    string
-	deliver func(platform.Launch)
+	deliver func(platform.Launch) bool
 	closed  atomic.Bool
 	wg      sync.WaitGroup // the accept loop
 }
@@ -61,12 +61,15 @@ var errNoListener = errors.New("the first instance does not listen on its socket
 // claimInstance claims appID's single instance with the files in dir
 // (instancePaths). When no other process holds it, it returns the claim
 // and primary true; deliver then receives every forwarded launch, on a
-// goroutine of the claim, until close. When another process holds it,
-// launch is forwarded to it and primary is false: hello is called on the
-// calling goroutine with the first process's PID before the launch is
-// sent (the darwin backend yields the activation there; nil skips it). An
-// error means nothing was claimed or forwarded.
-func claimInstance(dir, appID string, launch platform.Launch, deliver func(platform.Launch), hello func(pid int)) (c *instanceClaim, primary bool, err error) {
+// goroutine of the claim, until close, and reports whether it took it:
+// only a launch taken is acknowledged, so a second process whose launch
+// was refused (the first is shutting down) gets an error and runs on its
+// own instead of exiting with its launch lost. When another process holds
+// the claim, launch is forwarded to it and primary is false: hello is
+// called on the calling goroutine with the first process's PID before the
+// launch is sent (the darwin backend yields the activation there; nil
+// skips it). An error means nothing was claimed or forwarded.
+func claimInstance(dir, appID string, launch platform.Launch, deliver func(platform.Launch) bool, hello func(pid int)) (c *instanceClaim, primary bool, err error) {
 	lockPath, sockPath, err := instancePaths(dir, appID)
 	if err != nil {
 		return nil, false, err
@@ -137,7 +140,7 @@ func ownedByUser(fi fs.FileInfo, err error) error {
 
 // listenInstance listens on the socket for a process that holds the lock
 // f, replacing a stale socket file.
-func listenInstance(f *os.File, sockPath string, deliver func(platform.Launch)) (*instanceClaim, error) {
+func listenInstance(f *os.File, sockPath string, deliver func(platform.Launch) bool) (*instanceClaim, error) {
 	if err := os.Remove(sockPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("removing the stale socket %s: %w", sockPath, err)
 	}
@@ -177,7 +180,7 @@ func (c *instanceClaim) accept() {
 }
 
 // serve answers one second process: hello, its launch, the ack. A
-// malformed launch is dropped without an ack.
+// malformed launch, or one deliver does not take, gets no ack.
 func (c *instanceClaim) serve(conn *net.UnixConn) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(instanceTimeout))
@@ -192,8 +195,8 @@ func (c *instanceClaim) serve(conn *net.UnixConn) {
 	if err != nil {
 		return
 	}
-	if !c.closed.Load() && c.deliver != nil {
-		c.deliver(l)
+	if c.closed.Load() || c.deliver == nil || !c.deliver(l) {
+		return
 	}
 	_, _ = conn.Write(appendFrame(nil, msgAck, nil))
 }
