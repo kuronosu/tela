@@ -450,10 +450,7 @@ func rowNotice(label, hint string, notice bool, control tela.Component, below ..
 		return Div(Key(label), Class("flex min-h-12 items-center justify-between gap-4 border-t border-border py-2 first:border-t-0"),
 			head, control)
 	}
-	// A key of its own: the row is another shape, mounted anew (a Div
-	// that changes its classes and wraps its first child in the same
-	// update kept its old direction).
-	return Div(Key(label+"/below"), Class("flex flex-col gap-2 border-t border-border py-2 first:border-t-0"),
+	return Div(Key(label), Class("flex flex-col gap-2 border-t border-border py-2 first:border-t-0"),
 		Div(Class("flex min-h-8 items-center justify-between gap-4"), head, control),
 		Fragment(below...),
 	)

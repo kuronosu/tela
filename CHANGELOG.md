@@ -36,6 +36,7 @@ Phase 13, desktop integration (ADR-209 to ADR-214; in progress).
 - `desktop.GlobalShortcut` never worked on Wayland with xdg-desktop-portal 1.22 (ADR-217): the portal was given the executable's name instead of the app's ID, and its refusal was ignored. The app's ID (`desktop.AppID`) now reaches the portal, notifications and trays, also under `tela dev`; a desktop without the app's entry fails the shortcut with an error that names the entry and `desktop.RegisterApp`, and on X11 the keys are grabbed instead. A shortcut the desktop registers without keys (Hyprland) is `ShortcutBound` with an empty `Trigger`.
 - On Windows, a `desktop` store's write no longer fails when another program holds its file for a moment (an antivirus scanning the file just written, the search indexer): replacing the file is retried for up to a second, as `cmd/go` does.
 - On Windows, `tela dev` and `tela mcp` remove the executables of old builds even when Windows still holds one for a moment after its process exited; they retry for up to two seconds, off the supervisor's loop.
+- An element whose classes changed its layout (`flex` to `flex flex-col`, `grid` to `flex`) in the same update in which a child's own structure or an image child's size changed (a first child wrapped in a new `Div`, for example) kept its old layout until something else touched it; it is now laid out as a fresh mount would be.
 
 ## [0.13.0] - 2026-10-31
 

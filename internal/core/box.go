@@ -323,16 +323,18 @@ func (t *Tree) updateImage(el *Element) {
 }
 
 // queueRemap asks the layout phase to map the layout styles of b's
-// children and of b again.
+// children and of b again. A box is mapped by its parent's remap, so both
+// are queued: b may already be queued as the parent of a child that asked
+// first (a child whose structure changed in the box phase), which maps
+// b's children but not b.
 func (b *Box) queueRemap() {
-	if b.remapQueued {
-		return
+	if !b.remapQueued {
+		b.remapQueued = true
+		b.tree.remapQ = append(b.tree.remapQ, b)
 	}
-	b.remapQueued = true
-	b.tree.remapQ = append(b.tree.remapQ, b)
-	if b.parent != nil && !b.parent.remapQueued {
-		b.parent.remapQueued = true
-		b.tree.remapQ = append(b.tree.remapQ, b.parent)
+	if p := b.parent; p != nil && !p.remapQueued {
+		p.remapQueued = true
+		b.tree.remapQ = append(b.tree.remapQ, p)
 	}
 }
 
