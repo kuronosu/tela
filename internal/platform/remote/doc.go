@@ -77,8 +77,9 @@
 //     registers the same ones does not register them again (the Wayland
 //     portal would ask the user each time). ClaimInstance makes the host
 //     claim the app ID, so it lasts across reloads; a second tela dev of
-//     the app is a second instance and exits. Secrets and associations
-//     are the host backend's too, served off its UI thread.
+//     the app is a second instance and exits. Secrets, associations and
+//     MoveToTrash (added to protocol 5 before its release, ADR-216) are
+//     the host backend's too, served off its UI thread.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

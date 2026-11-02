@@ -493,7 +493,7 @@ func TestTwoUnlockedNotes(t *testing.T) {
 	a.Click(card("Weekend in the mountains, locked"))
 	a.ExpectValue(editor, "Leave on Friday after lunch, back on Sunday night. A cabin with a stove, a thermos, and no signal.\n\n#travel #ideas")
 	a.Click(lockNow)
-	a.Click(card("Groceries, unsaved changes, locked"))
+	a.Click(card("Groceries, locked")) // a locked note is never "unsaved": it is never saved to a file
 	a.ExpectValue(editor, groceriesText+"!")
 	a.Click(lockNow)
 	noPlaintext(t, "Coffee", "cabin")

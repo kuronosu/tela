@@ -191,6 +191,40 @@ func (a *App) FailSecrets(err error) {
 }
 
 // ---------------------------------------------------------------------
+// The trash.
+
+// Trashed returns the paths the app moved to the trash with
+// desktop.MoveToTrash, in order, after settling the app. The headless
+// trash moves each into a temporary folder of the test, so the file is
+// gone from its place, as with a real trash; failed calls are not listed.
+//
+//	app.Click(telatest.ByRole("button", "Move to Trash"))
+//	app.ExpectText("Moved todo.md to the Trash")
+//	if got := app.Trashed(); len(got) != 1 || got[0] != path {
+//	    t.Errorf("trashed %v", got)
+//	}
+func (a *App) Trashed() []string {
+	a.tb.Helper()
+	a.settleAfter()
+	var out []string
+	for _, r := range a.backend.Trashed() {
+		out = append(out, r.Path)
+	}
+	return out
+}
+
+// FailTrash makes every desktop.MoveToTrash of the app fail with err from
+// now on, until FailTrash(nil); the file stays in place: a file in use, a
+// folder the user may not change. (A desktop without a trash, or a file it
+// cannot take, is App.Unsupported(telatest.Trash).)
+//
+//	app.FailTrash(errors.New("the file is in use"))
+func (a *App) FailTrash(err error) {
+	a.tb.Helper()
+	a.backend.SetTrashError(err)
+}
+
+// ---------------------------------------------------------------------
 // The clipboard.
 
 // Clipboard returns a copy of the clipboard's content, after settling the

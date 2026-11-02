@@ -37,7 +37,8 @@ type Note struct {
 	// while Text differs from it.
 	Saved string `json:"saved"`
 	// Path is the file the note was opened from or saved to; empty for a
-	// note that only lives in the library.
+	// note that only lives in the library, and for a locked note: locking
+	// detaches a note from its file (lock.go).
 	Path string `json:"path"`
 	// Folder is the folder of the rail the note is in; empty for none.
 	Folder string `json:"folder"`
@@ -48,9 +49,10 @@ type Note struct {
 	Modified time.Time `json:"modified"`
 	// Locked marks a note whose title and text are encrypted in the
 	// library (lock.go). Its Title, Text and Saved are empty in the file:
-	// they are in Sealed. The folder, the pin, the date and the path stay
-	// in the clear. Both fields are absent from the file of a note that is
-	// not locked, so a library of an earlier version loads unchanged.
+	// they are in Sealed, and it has no Path. The folder, the pin and the
+	// date stay in the clear. Both fields are absent from the file of a
+	// note that is not locked, so a library of an earlier version loads
+	// unchanged.
 	Locked bool   `json:"locked,omitempty"`
 	Sealed string `json:"sealed,omitempty"`
 	// Unlocked is set on the copy of a locked note that the screen shows
@@ -65,7 +67,10 @@ type Note struct {
 func (n Note) Hidden() bool { return n.Locked && !n.Unlocked }
 
 // Dirty reports whether the note has changes that were not saved to a file.
-func (n Note) Dirty() bool { return n.Text != n.Saved }
+// A locked note never has: it stays in the library and is never saved to a
+// file (lock.go), so it is not "unsaved", and quitting does not ask about
+// it.
+func (n Note) Dirty() bool { return !n.Locked && n.Text != n.Saved }
 
 // fromText reports whether the heading of the note is the first line of
 // its text, which is so while it has neither a title nor a file.

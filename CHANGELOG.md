@@ -25,6 +25,8 @@ Phase 13, desktop integration (ADR-209 to ADR-214; in progress).
 - `examples/notes` is phase 13's acceptance test: drop `.txt` and `.md` files (or text) on the window to import them, a Quick note global shortcut (`Ctrl+Alt+N`, with its status in Preferences), one instance that `notes://new?…` and `notes://open?id=N` links and file arguments reach, a "Links and files" section that registers `notes:` and `.md` without taking defaults, and locked notes, encrypted in the library with a key in the system keyring.
 - Documentation: a Desktop integration guide in the wiki and on the website, `docs/llms.txt` sections for phase 13 and its tests, `contrast-more:` and the text scale in the Styling guide, the drag and settings helpers in the Testing guide.
 - The X11 backend gets a clipboard (it had none, not even for text).
+- `desktop.MoveToTrash(path)` (ADR-216) moves a file or folder to the trash (the Recycle Bin on Windows) from any goroutine, and never deletes it: a file the trash cannot take stays where it is, with `ErrUnsupported`. Linux uses the Trash portal, else the freedesktop home trash; Windows uses `IFileOperation` and refuses what it would delete for good. `telatest`: `Trashed`, `FailTrash` and `Unsupported(telatest.Trash)`.
+- `examples/notes`: locking a note that was opened from a file detaches it from the file (its path leaves `notes.json`) and asks whether to move the file, which still holds the text, to the Trash. A locked note cannot be saved to a file and never counts as unsaved.
 
 ### Fixed
 

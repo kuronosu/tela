@@ -3,6 +3,7 @@ package telatest
 import (
 	"fmt"
 	"image"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -120,6 +121,13 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 
 		NoServerDecorations: cfg.noServerDeco,
 	})
+	// The headless trash moves what the app trashes into a temporary
+	// folder (App.Trashed), never the user's trash. It is made here rather
+	// than with tb.TempDir, which a testing.TB of the caller's may lack.
+	if dir, err := os.MkdirTemp("", "telatest-trash-"); err == nil {
+		a.backend.SetTrashDir(dir)
+		tb.Cleanup(func() { os.RemoveAll(dir) })
+	}
 	cc := cfg.coreConfig()
 	cc.IDPrefix = idPrefix
 	cc.Log = a.log

@@ -475,9 +475,10 @@ desktop, and the test plays the part of the OS or the user. As with the other
 | Launches | `app.InjectLaunch(desktop.Launch{Args: ...})` is a second start that forwards its arguments: the window comes forward and `UseLaunch` runs. `SingleInstance` claims nothing in tests, and `UseLaunch` gets no start launch of its own |
 | Clipboard | `app.Clipboard()` returns a `*tela.DataTransfer` with what the app copied. `app.SetClipboard(&dt)` is another application copying (nil empties it); then `app.Press("Control+V")` |
 | Secrets | `app.StoredSecret(name)` and `app.SetStoredSecret(name, b)` read and seed the keyring; `app.FailSecrets(desktop.ErrSecretCanceled)` makes every secret call fail (nil stops it); `app.Unsupported(telatest.Secrets)` is a desktop without a keyring |
+| Trash | `desktop.MoveToTrash` moves the file into a temporary folder of the test, so it leaves its place; `app.Trashed()` lists the paths. `app.FailTrash(err)` makes every call fail (nil stops it); `app.Unsupported(telatest.Trash)` is a desktop without a trash, where the file stays |
 | Links and file types | `app.Registrations()` lists what the app registered (`Association` as `"notes:"` or `".note"`, the `App` and `Default`). `app.HoldAssociation(desktop.URLScheme("notes"), "Other App")` makes another application own it, so `Register` fails with `ErrAssociationTaken`; `app.SetDefaultHandler(assoc, "Other App")` sets the default |
 | Native menus | `telatest.PreferNativeMenus()` is `App.NativeMenus`. `app.PopupMenus()` lists the open native context menus; `app.ChoosePopupItem("Delete")` (labels from the submenus down) and `app.DismissPopupMenu()` answer one. `app.MenuBar()` reads a native menu bar and `app.ChooseMenuItem("File", "New")` chooses in it |
-| Unsupported | `app.Unsupported(telatest.GlobalShortcuts, telatest.Secrets, telatest.NativeMenus, telatest.ClipboardData, telatest.Associations)`: from now on the calls return `desktop.ErrUnsupported`, and kit draws its menus. Test the fallbacks |
+| Unsupported | `app.Unsupported(telatest.GlobalShortcuts, telatest.Secrets, telatest.NativeMenus, telatest.ClipboardData, telatest.Associations, telatest.Trash)`: from now on the calls return `desktop.ErrUnsupported`, and kit draws its menus. Test the fallbacks |
 
 ```go
 func TestVaultAndLinks(t *testing.T) {

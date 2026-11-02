@@ -75,13 +75,14 @@ import (
 // (HostOptions.OnSecondInstance lets the supervisor say why). The claim
 // lasts as long as the host.
 //
-// Secrets and associations need no window, but are forwarded to the host
-// too, rather than served in the child: the child links only the remote
-// backend, and the host's backend is the one under test (headless fakes,
-// never the developer's keyring or registry). They block and are safe
-// from any goroutine on both sides: the host serves them on a goroutine
-// of their own, not on its UI thread, and secret calls wait without a
-// timeout (the OS may show an unlock prompt).
+// Secrets, associations and the trash (ADR-216) need no window, but are
+// forwarded to the host too, rather than served in the child: the child
+// links only the remote backend, and the host's backend is the one under
+// test (headless fakes, never the developer's keyring, registry or
+// trash). They block and are safe from any goroutine on both sides: the
+// host serves them on a goroutine of their own, not on its UI thread, and
+// secret and trash calls wait without a timeout (the OS may show an
+// unlock prompt; the shell may take long over a big folder).
 //
 // Clipboard data: ReadTypes and Read are asynchronous like the dialogs,
 // Write a round trip. ActivateWithToken is forwarded with its token (an
@@ -283,6 +284,19 @@ func (d childDesktop) Secret(appID, name string) ([]byte, error) {
 func (d childDesktop) DeleteSecret(appID, name string) error {
 	platform.CheckSecretName("DeleteSecret", appID, name)
 	_, err := d.callFor(dDeleteSecret, 0, secretTimeout, func(e *enc) { e.str(appID); e.str(name) })
+	return err
+}
+
+// MoveToTrash moves a file to the trash through the host's backend (the
+// same machine and file system). Safe from any goroutine; like the
+// secrets it waits without a timeout (Windows' shell may take long over a
+// big folder), until the host answers or the connection ends.
+func (d childDesktop) MoveToTrash(path string) error {
+	clean, err := platform.CheckTrashPath(path)
+	if err != nil {
+		return err
+	}
+	_, err = d.callFor(dMoveToTrash, 0, secretTimeout, func(e *enc) { e.str(clean) })
 	return err
 }
 
@@ -650,21 +664,21 @@ func (h *Host) claimInstance(c *Child, appID string, launch platform.Launch, cal
 // --- host side: blocking services (secrets, associations) ---
 
 // blockingDesktop reports whether a desktop request is one the host
-// serves off its UI thread: the secrets and associations, which block on
-// the OS and are safe from any goroutine.
+// serves off its UI thread: the secrets, associations and the trash, which
+// block on the OS and are safe from any goroutine.
 func blockingDesktop(payload []byte) bool {
 	if len(payload) == 0 {
 		return false
 	}
 	switch payload[0] {
-	case dSetSecret, dSecret, dDeleteSecret, dAssocStatus, dAssocRegister, dAssocUnregister, dAssocMakeDefault:
+	case dSetSecret, dSecret, dDeleteSecret, dAssocStatus, dAssocRegister, dAssocUnregister, dAssocMakeDefault, dMoveToTrash:
 		return true
 	}
 	return false
 }
 
-// blockingRequest serves a secret or association call on a goroutine of
-// its own and replies.
+// blockingRequest serves a secret, association or trash call on a
+// goroutine of its own and replies.
 func (h *Host) blockingRequest(c *Child, in incoming) {
 	d := &dec{b: in.payload}
 	op, _ := d.u8(), d.u32()
@@ -681,6 +695,12 @@ func (h *Host) blockingRequest(c *Child, in incoming) {
 func (h *Host) serveBlocking(op uint8, d *dec, result *func(*enc)) error {
 	desk := h.desk
 	switch op {
+	case dMoveToTrash:
+		path := d.str()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return desk.MoveToTrash(path)
 	case dSetSecret, dSecret, dDeleteSecret:
 		appID, name := d.str(), d.str()
 		var secret []byte

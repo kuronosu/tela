@@ -414,6 +414,36 @@ return an error. `examples/notes` uses them for **locked notes**: a random AES k
 made when the first note is locked and kept as the secret `library-key`, with the
 notes in `notes.json` holding only ciphertext.
 
+## The trash
+
+[`desktop.MoveToTrash(path)`](API-Reference-desktop#func-movetotrash) moves a
+file or folder to the user's trash (the Recycle Bin on Windows), where the user can
+restore it. **It never deletes**: when the trash cannot take the file (a desktop
+without one, a network drive, another disk than the trash), the file stays where it
+is and the error wraps `ErrUnsupported`, so the app can say where the file still
+is. A missing file wraps `fs.ErrNotExist`. Like the secrets it blocks: ask the user
+first, then call it from a goroutine and give the outcome back with `tela.Post`.
+
+```go
+go func() {
+	err := desktop.MoveToTrash(path)
+	tela.Post(func() {
+		switch {
+		case err == nil:
+			toast.Show("Moved " + filepath.Base(path) + " to the Trash")
+		case errors.Is(err, desktop.ErrUnsupported):
+			toast.Show("The file is still in " + filepath.Dir(path))
+		default:
+			toast.Error("Could not move the file", kit.ToastDescription(err.Error()))
+		}
+	})
+}()
+```
+
+`examples/notes` offers it when a note opened from a file is locked: the note is
+detached from the file, and the file, which still holds the text, can go to the
+Trash after the user confirms.
+
 ## Native menus
 
 `kit.ContextMenu` and `kit.Menubar` are drawn by Tela, in the look of the app, and
@@ -542,6 +572,7 @@ services; macOS has no window yet (phase 14).
 | Single instance | A well-known D-Bus name; without a D-Bus session the app runs on its own | A named mutex and a message to the first instance |
 | Registration | The app's own `.desktop` file in `~/.local/share/applications`, `mimeinfo.cache` kept by Tela, and a MIME type for a new extension (made with `update-mime-database` when it is installed); `xdg-mime query default x-scheme-handler/notes` shows the default | `HKCU\Software\Classes`; the default for a file type is chosen by the user in Settings, Default apps |
 | Secrets | The Secret Service (GNOME Keyring, KWallet) over D-Bus, with an encrypted session; `ErrUnsupported` without one | Credential Manager |
+| Trash | The Trash portal, else the freedesktop home trash (`~/.local/share/Trash`) written by Tela for files on its disk; `ErrUnsupported` for files elsewhere | `IFileOperation` to the Recycle Bin; `ErrUnsupported` where Windows would delete the file instead (a network drive) |
 | Native menus | Never: kit draws them | Context menus, and menu bars on windows with a title bar of the OS (not frameless) |
 | Settings | The settings portal: dark mode, accent color, contrast, reduced motion, text scale | The registry, `SPI_GETHIGHCONTRAST` and `WM_SETTINGCHANGE` |
 
@@ -555,8 +586,8 @@ program is run.
 
 `telatest` plays the OS for all of this: a drag from a file manager, the user
 pressing the shortcut, a second start with a link, the keyring, the registry, native
-menus and the system's settings. Nothing touches the real clipboard, keyring,
-registry or shortcuts. See [Testing](Testing#drag-and-drop) for the drag helpers
+menus, the trash and the system's settings. Nothing touches the real clipboard,
+keyring, registry, trash or shortcuts. See [Testing](Testing#drag-and-drop) for the drag helpers
 and [the services](Testing#desktop-integration-in-tests) for the rest:
 
 ```go

@@ -62,6 +62,9 @@ const (
 	// Associations: desktop.Register, Unregister, MakeDefault and
 	// RegistrationStatus while the app runs, as on macOS before phase 14.
 	Associations
+	// Trash: desktop.MoveToTrash, as on a desktop without a trash or for
+	// a file the trash cannot take (a network drive); the file stays.
+	Trash
 )
 
 // Unsupported makes the headless desktop lack the given services from now
@@ -100,8 +103,10 @@ func (a *App) Unsupported(services ...DesktopService) {
 			hs = append(hs, headless.ServiceClipboard)
 		case Associations:
 			hs = append(hs, headless.ServiceAssociations)
+		case Trash:
+			hs = append(hs, headless.ServiceTrash)
 		default:
-			a.fatalf("Unsupported(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons, OpenURLs, NativeMenus, GlobalShortcuts, Secrets, ClipboardData or Associations", s)
+			a.fatalf("Unsupported(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons, OpenURLs, NativeMenus, GlobalShortcuts, Secrets, ClipboardData, Associations or Trash", s)
 		}
 	}
 	a.backend.SetUnsupported(hs...)

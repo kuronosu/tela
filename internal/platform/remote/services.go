@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"reflect"
 	"slices"
 	"time"
@@ -85,6 +86,7 @@ const (
 	dAssocRegister      // app, association, replace; result: changed
 	dAssocUnregister    // app, association; result: changed
 	dAssocMakeDefault   // app, association; result: DefaultResult
+	dMoveToTrash        // path (served off the UI thread; ADR-216)
 )
 
 // Outcome codes of a desktop call.
@@ -98,6 +100,8 @@ const (
 	codeSecretTooLarge
 	codeAssocTaken
 	codeSecretCanceled
+	codeNotExist // fs.ErrNotExist (MoveToTrash of a missing path)
+	codeInvalid  // fs.ErrInvalid (MoveToTrash of a path it refuses)
 )
 
 // sentinels maps the outcome codes of version 5 to their errors.
@@ -110,6 +114,9 @@ var sentinels = []struct {
 	{codeSecretTooLarge, platform.ErrSecretTooLarge},
 	{codeAssocTaken, platform.ErrAssociationTaken},
 	{codeSecretCanceled, platform.ErrSecretCanceled},
+	// After ErrSecretNotFound, which wraps fs.ErrNotExist too.
+	{codeNotExist, fs.ErrNotExist},
+	{codeInvalid, fs.ErrInvalid},
 }
 
 // desktopTimeout bounds the wait for the host's answer to a synchronous

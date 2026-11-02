@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +102,12 @@ func (s screen) Build() tela.Node {
 	busy, setBusy := tela.UseState(false)
 	noKeyring, setNoKeyring := tela.UseState(false)
 	keyGone, setKeyGone := tela.UseState(false)
+	// trashAsk is the file of a note that was just locked, which a dialog
+	// offers to move to the Trash (zero: no dialog). noTrash is true once
+	// the desktop said it cannot move a file there (ErrUnsupported): the
+	// dialog then only says where the file is.
+	trashAsk, setTrashAsk := tela.UseState(trashOffer{})
+	noTrash, setNoTrash := tela.UseState(false)
 	// quickInfo is what the OS said about the global shortcut, for
 	// Preferences.
 	quickInfo, setQuickInfo := tela.UseState(quickNoteInfo{})
@@ -109,6 +116,14 @@ func (s screen) Build() tela.Node {
 	latest.Current = notes
 
 	tela.UseMount(func() func() {
+		// A library of an earlier build may hold a locked note with the
+		// path of its file in the clear: drop it (lock.go).
+		if _, found := detachLocked(latest.Current); found {
+			setNotes.Update(func(ns []Note) []Note {
+				out, _ := detachLocked(ns)
+				return out
+			})
+		}
 		if lib.err != nil {
 			toast.Error("Your notes could not be read",
 				kit.ToastDescription("The old file was kept next to the library as notes.json.corrupt."))
@@ -360,6 +375,12 @@ func (s screen) Build() tela.Node {
 	// and then tells done whether it was saved (not when the dialog was
 	// canceled or the file could not be written).
 	saveNote := func(n Note, done func(saved bool)) {
+		if n.Locked {
+			// Never in a file: see lock.go. (Quitting never asks about a
+			// locked note, which is never Dirty.)
+			done(false)
+			return
+		}
 		write := func(path string) {
 			name := filepath.Base(path)
 			if err := writeTextFile(path, n.Text); err != nil {
@@ -398,7 +419,12 @@ func (s screen) Build() tela.Node {
 		}
 	}
 	save := func() {
-		if hasCur {
+		switch {
+		case !hasCur:
+		case cur.Locked:
+			// The Save button is off for a locked note; Ctrl+S says why.
+			toast.Show(lockedSaveTitle, kit.ToastDescription(lockedSaveHint))
+		default:
 			saveNote(cur, func(bool) {})
 		}
 	}
@@ -451,9 +477,40 @@ func (s screen) Build() tela.Node {
 			return
 		}
 		setKeyGone.Set(false)
+		// lockedForm detaches the note from its file, whose name could
+		// say what the note is about; the file itself still has the text,
+		// so the user is asked about it.
 		setNotes.Update(func(ns []Note) []Note {
 			return edit(ns, id, func(x *Note) { *x = lockedForm(*x, sealed) })
 		})
+		if n.Path != "" {
+			setTrashAsk.Set(trashOffer{Path: n.Path, Heading: n.Heading()})
+		}
+	}
+	// trashFile moves the file of a note that was locked to the Trash, as
+	// the user asked in the dialog. desktop.MoveToTrash blocks, so it runs
+	// in a goroutine that gives the outcome back with tela.Post. It never
+	// deletes: a desktop that cannot move the file to the Trash leaves it,
+	// and the dialog says where it is.
+	trashFile := func(o trashOffer) {
+		name, folder := splitPath(o.Path)
+		go func() {
+			err := desktop.MoveToTrash(o.Path)
+			tela.Post(func() {
+				switch {
+				case err == nil:
+					toast.Show("Moved "+name+" to the Trash", kit.ToastDescription("You can restore it from there."))
+				case errors.Is(err, desktop.ErrUnsupported):
+					setNoTrash.Set(true)
+					setTrashAsk.Set(o)
+				case errors.Is(err, fs.ErrNotExist):
+					toast.Show(name+" was already gone", kit.ToastDescription("There is no file "+name+" in "+folder+" any more."))
+				default:
+					toast.Error("Could not move "+name+" to the Trash",
+						kit.ToastDescription(err.Error()+". The file is still in "+folder+"."))
+				}
+			})
+		}()
 	}
 	// finishUnlock decrypts the note with the key and keeps it unlocked.
 	finishUnlock := func(id int, key []byte, err error) {
@@ -672,6 +729,32 @@ func (s screen) Build() tela.Node {
 			Cancel:      Text("Keep"), Action: Text("Delete"), Destructive: true,
 			OnAction: func() { deleteNote(pending) },
 		},
+		// After locking a note that had a file: move the file to the
+		// Trash? Only on the user's word, and never deleting it.
+		kit.AlertDialog{
+			Open: new(trashAsk.Path != "" && !noTrash), OnOpenChange: func(open bool) {
+				if !open {
+					setTrashAsk.Set(trashOffer{})
+				}
+			},
+			Title:       Text("Move the file to the Trash?"),
+			Description: Text(trashAsk.question()),
+			Cancel:      Text("Keep file"), Action: Text("Move to Trash"), Destructive: true,
+			OnAction: func() { trashFile(trashAsk) },
+		},
+		// The same, on a desktop that cannot move it: where the file is.
+		kit.Dialog{
+			Open: new(trashAsk.Path != "" && noTrash), OnOpenChange: func(open bool) {
+				if !open {
+					setTrashAsk.Set(trashOffer{})
+				}
+			},
+			Title:       Text("The file still holds the text"),
+			Description: Text(trashAsk.notice()),
+			HideClose:   true,
+			Footer: Div(Class("flex justify-end"),
+				kit.Button{Children: Text("OK"), OnClick: func() { setTrashAsk.Set(trashOffer{}) }}),
+		},
 		If(prefsOpen, tela.Component(desktop.SavedWindow{
 			Key: "preferences",
 			Window: tela.Window{
@@ -697,7 +780,7 @@ func (s screen) Build() tela.Node {
 			Title: Span(Class("font-semibold tracking-tight"), Text("Notes")),
 			Trailing: Fragment(
 				tool("Open", icons.FolderOpen, openFile),
-				tool("Save", icons.Save, save),
+				saveTool(hasCur && cur.Locked, save),
 			),
 		},
 		Div(Class("flex min-h-0 flex-1"),
@@ -713,6 +796,47 @@ func (s screen) Build() tela.Node {
 type editorKey struct {
 	ID     int
 	Hidden bool
+}
+
+// lockedSaveTitle and lockedSaveHint are why a locked note is not saved to
+// a file: the tooltip of the Save button says both, the toast of Ctrl+S
+// has the first as its title.
+const (
+	lockedSaveTitle = "Locked notes stay in your library."
+	lockedSaveHint  = "Remove the lock to save to a file."
+)
+
+// trashOffer is a file the trash dialog asks about: the file of a note
+// that was just locked (Path), and what the note is called (Heading).
+type trashOffer struct{ Path, Heading string }
+
+// question is the text of the dialog that offers to move the file to the
+// Trash.
+func (o trashOffer) question() string {
+	name, folder := splitPath(o.Path)
+	return fmt.Sprintf("%q is locked in your library and no longer tied to a file. The file %s, in %s, still holds its text unencrypted.", o.Heading, name, folder)
+}
+
+// notice is the text of the dialog on a desktop that cannot move the file
+// to the Trash.
+func (o trashOffer) notice() string {
+	name, folder := splitPath(o.Path)
+	return fmt.Sprintf("%q is locked in your library, but this desktop cannot move its file to the Trash. The file %s, in %s, still holds its text unencrypted: delete it yourself if you no longer need it.", o.Heading, name, folder)
+}
+
+// splitPath returns the name of a file and its folder, as the path writes
+// them: at its last slash or backslash, without cleaning, so a path shows
+// the same on every OS.
+func splitPath(path string) (name, folder string) {
+	i := strings.LastIndexAny(path, `/\`)
+	if i < 0 {
+		return path, "."
+	}
+	folder = path[:i]
+	if folder == "" || strings.HasSuffix(folder, ":") {
+		folder = path[:i+1] // "/" and "C:\"
+	}
+	return path[i+1:], folder
 }
 
 // noKeyringTip is the short form of it, for tooltips.
@@ -799,6 +923,22 @@ func saveAll(ns []Note, save func(Note, func(bool)), done func(ok bool)) {
 		}
 		saveAll(ns[1:], save, done)
 	})
+}
+
+// saveTool is the Save button of the title bar. While a locked note is open
+// it is off, and its tooltip says why: like the lock button without a
+// keyring, it is disabled for assistive technologies but not inert, so the
+// tooltip still opens.
+func saveTool(locked bool, onClick func()) tela.Node {
+	if !locked {
+		return tool("Save", icons.Save, onClick)
+	}
+	return kit.Tooltip{
+		Trigger: kit.Button{Variant: kit.Ghost, Size: kit.IconSm, Icon: icons.Save, AriaLabel: "Save",
+			Props: AriaDisabled(true), Class: "opacity-50"},
+		Content:   Text(lockedSaveTitle + " " + lockedSaveHint),
+		Placement: "bottom",
+	}
 }
 
 // tool is an icon button of the title bar with a tooltip.
