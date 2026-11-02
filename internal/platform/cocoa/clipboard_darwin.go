@@ -133,27 +133,11 @@ func writePasteboard(d platform.Data) error {
 	if len(items) == 0 {
 		return nil
 	}
-	itemClass := darwin.GetClass("NSPasteboardItem")
 	array := darwin.SendClass(darwin.GetClass("NSMutableArray"), pbSel.array)
 	for _, it := range items {
-		item := darwin.Send(darwin.SendClass(itemClass, sel.alloc), sel.init)
-		for _, e := range it {
-			typ := darwin.NSString(e.uti)
-			var ok bool
-			if e.text {
-				s := darwin.NSStringBytes(e.data)
-				ok = darwin.SendBool(item, pbSel.setStringFor, s, typ)
-				darwin.Release(s)
-			} else {
-				data := darwin.NSData(e.data)
-				ok = darwin.SendBool(item, pbSel.setDataForType, data, typ)
-				darwin.Release(data)
-			}
-			darwin.Release(typ)
-			if !ok {
-				darwin.Release(item)
-				return fmt.Errorf("cocoa: NSPasteboardItem refused %d bytes of type %s", len(e.data), e.uti)
-			}
+		item, err := newPasteboardItem(it)
+		if err != nil {
+			return err
 		}
 		darwin.Send(array, pbSel.addObject, item)
 		darwin.Release(item) // the array keeps it
@@ -162,6 +146,34 @@ func writePasteboard(d platform.Data) error {
 		return errors.New("cocoa: NSPasteboard writeObjects: failed (another app took the pasteboard meanwhile?)")
 	}
 	return nil
+}
+
+// newPasteboardItem returns a new NSPasteboardItem (+1) holding the
+// entries of it: an item of the clipboard, or of a drag (dnd_darwin.go).
+func newPasteboardItem(it pbItem) (darwin.ID, error) {
+	item := darwin.Send(darwin.SendClass(darwin.GetClass("NSPasteboardItem"), sel.alloc), sel.init)
+	if item == 0 {
+		return 0, errors.New("cocoa: creating an NSPasteboardItem failed")
+	}
+	for _, e := range it {
+		typ := darwin.NSString(e.uti)
+		var ok bool
+		if e.text {
+			s := darwin.NSStringBytes(e.data)
+			ok = darwin.SendBool(item, pbSel.setStringFor, s, typ)
+			darwin.Release(s)
+		} else {
+			data := darwin.NSData(e.data)
+			ok = darwin.SendBool(item, pbSel.setDataForType, data, typ)
+			darwin.Release(data)
+		}
+		darwin.Release(typ)
+		if !ok {
+			darwin.Release(item)
+			return 0, fmt.Errorf("cocoa: NSPasteboardItem refused %d bytes of type %s", len(e.data), e.uti)
+		}
+	}
+	return item, nil
 }
 
 // utiForMIME returns the pasteboard type of a custom MIME type: its UTType
@@ -235,26 +247,39 @@ func items(pb darwin.ID) []darwin.ID {
 	return out
 }
 
-// pasteboardTypes returns the pasteboard's Data types, item by item.
+// pasteboardTypes returns the general pasteboard's Data types, item by
+// item.
 func pasteboardTypes() ([]string, error) {
 	pb := generalPasteboard()
 	if pb == 0 {
 		return nil, errNoPasteboard
 	}
+	return typesOf(pb), nil
+}
+
+// typesOf returns the Data types of the pasteboard pb (the general one, or
+// a drag's), item by item.
+func typesOf(pb darwin.ID) []string {
 	var lists [][]string
 	for _, it := range items(pb) {
 		lists = append(lists, stringsOf(darwin.Send(it, pbSel.types)))
 	}
-	return offeredTypes(lists, mimeForUTI), nil
+	return offeredTypes(lists, mimeForUTI)
 }
 
-// readPasteboard returns the pasteboard's content of mime (nil, nil when
-// it is not offered).
+// readPasteboard returns the general pasteboard's content of mime (nil,
+// nil when it is not offered).
 func readPasteboard(mime string) ([]byte, error) {
 	pb := generalPasteboard()
 	if pb == 0 {
 		return nil, errNoPasteboard
 	}
+	return readFrom(pb, mime)
+}
+
+// readFrom returns the content of mime on the pasteboard pb (the general
+// one, or a drag's): nil, nil when it is not offered.
+func readFrom(pb darwin.ID, mime string) ([]byte, error) {
 	if mime == platform.MIMEURIList {
 		return readURIList(pb), nil
 	}

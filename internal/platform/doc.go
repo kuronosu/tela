@@ -1240,7 +1240,32 @@
 // -[NSFileManager trashItemAtURL:resultingItemURL:error:] (the Finder's
 // Move to Trash, Put Back included), with a file URL that keeps a symbolic
 // link itself; a volume without a trash fails, leaving the file in place
-// (ErrUnsupported). Planned: NSDraggingDestination and NSDraggingSource,
+// (ErrUnsupported). Drag and drop (phase 15): the content view is an
+// NSDraggingDestination registered for the well-known types above (every
+// text encoding, public.html, public.png and public.tiff, public.file-url,
+// public.url) and for the custom types of the app's own drags (registered
+// on every window before such a drag starts; a drag of another app that
+// offers only custom types is not seen, since they cannot be listed in
+// advance). draggingEntered: and draggingUpdated: are DragEnter and
+// DragOver (positions in the flipped view's points; Allowed from
+// draggingSourceOperationMask, which AppKit filters by the modifiers:
+// copy, link, and move for move or generic; Mods from +[NSEvent
+// modifierFlags]), delivered synchronously as on Win32 and answered with
+// the window's answer as an NSDragOperation of the mask
+// (wantsPeriodicDraggingUpdates is NO); draggingExited: is DragLeave (also at a release
+// over a refusing answer), draggingEnded: ends a session nothing ended,
+// and performDragOperation: reads the wanted types from the dragging
+// pasteboard with the clipboard's readers, delivers DragDrop and returns
+// whether the final effect accepts. FromApp: draggingSource is the view of
+// the app's drag in progress, whose Data is then read as it is. Source:
+// beginDraggingSessionWithItems:event:source: from the held press's (or
+// its latest drag's) NSEvent, with the clipboard's items (one per URI, as
+// Finder writes files) as NSDraggingItems, the image as the first item's
+// contents at the hotspot under the pointer; the view is the
+// NSDraggingSource (move is offered as move and generic), and
+// draggingSession:endedAtPoint:operation: is the DragDoneEvent (generic
+// and delete count as move; a drop on one of the app's own windows
+// reports the effect the target held). Planned:
 // NSMenu (the app's menu bar; window menus return
 // ErrUnsupported), Carbon RegisterEventHotKey for global shortcuts, a lock
 // file and a Unix socket for single instance, the bundle's Info.plist for

@@ -48,6 +48,7 @@ type Window struct {
 	tracking     darwin.ID     // the view's tracking area (the view owns it)
 	cursorHidden bool          // this window's +[NSCursor hide] is in effect
 	ime          imeWindow     // text input and IME (ime_darwin.go)
+	dnd          windowDnD     // drag and drop (dnd_darwin.go)
 
 	// Pacing (link_darwin.go).
 	link        darwin.ID // CADisplayLink of the view (owned: +1)
@@ -120,6 +121,7 @@ func (b *Backend) NewWindow(opts platform.WindowOptions) (platform.Window, error
 	w.view, w.ctl.container = view, container
 	darwin.Send(w.ns, sel.makeFirstResponder, view)
 	w.addTrackingArea()
+	w.registerDrop()
 	w.delegate = darwin.Send(darwin.SendClass(app.windowDelegate, sel.alloc), sel.init)
 
 	registry.Lock()
@@ -350,6 +352,7 @@ func (w *Window) Close() {
 	w.closeIME()
 	darwin.PoolPop(imePool)
 	w.releaseLink()
+	w.closeDnD()
 	registry.Lock()
 	delete(registry.objects, w.delegate)
 	delete(registry.objects, w.view)
