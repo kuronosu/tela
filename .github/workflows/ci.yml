@@ -8,6 +8,9 @@ on:
   schedule:
     # Weekly run on real Windows (windows-latest), see ARCHITECTURE §18.
     - cron: "0 6 * * 1"
+  # Runs the full CI on any branch: `gh workflow run ci.yml --ref <branch>`,
+  # required on a work branch before it is merged into main (ADR-220).
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -92,6 +95,10 @@ jobs:
 
   test-linux:
     name: test (linux, headless goldens)
+    # Slow job: skipped on pushes to work branches, which run only the fast
+    # jobs and macOS; main, pull requests, the weekly run, tags and manual
+    # runs run it (ADR-220).
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/') || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -214,6 +221,10 @@ jobs:
 
   test-race:
     name: test (race detector, verification only)
+    # Slow job: skipped on pushes to work branches, which run only the fast
+    # jobs and macOS; main, pull requests, the weekly run, tags and manual
+    # runs run it (ADR-220).
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/') || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -232,6 +243,10 @@ jobs:
 
   test-arm64:
     name: test (linux/arm64, pixel determinism)
+    # Slow job: skipped on pushes to work branches, which run only the fast
+    # jobs and macOS; main, pull requests, the weekly run, tags and manual
+    # runs run it (ADR-220).
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/') || github.ref == 'refs/heads/main'
     # Native arm64 runner (free for public repositories), so no qemu.
     runs-on: ubuntu-24.04-arm
     steps:
@@ -256,6 +271,10 @@ jobs:
 
   test-wine:
     name: test (windows under Wine)
+    # Slow job: skipped on pushes to work branches, which run only the fast
+    # jobs and macOS; main, pull requests, the weekly run, tags and manual
+    # runs run it (ADR-220).
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/') || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       WINEDEBUG: "-all"
@@ -312,6 +331,10 @@ jobs:
 
   test-windows:
     name: test (windows-latest)
+    # Slow job: skipped on pushes to work branches, which run only the fast
+    # jobs and macOS; main, pull requests, the weekly run, tags and manual
+    # runs run it (ADR-220).
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/heads/') || github.ref == 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -345,3 +368,26 @@ jobs:
             **/*_actual.png
             **/*_diff.png
           if-no-files-found: ignore
+
+  test-macos:
+    name: test (macos-latest)
+    # The macOS backend (phase 14) is verified here; the owner has no Mac.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: go vet
+        env:
+          CGO_ENABLED: "0"
+        run: go vet ./...
+      - name: go build
+        env:
+          CGO_ENABLED: "0"
+        run: go build ./...
+      - name: go test (platform)
+        env:
+          CGO_ENABLED: "0"
+        run: go test -timeout 20m ./internal/platform/...
