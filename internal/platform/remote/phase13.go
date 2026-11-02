@@ -75,6 +75,11 @@ import (
 // (HostOptions.OnSecondInstance lets the supervisor say why). The claim
 // lasts as long as the host.
 //
+// The app ID (ADR-217): a child's Desktop.SetAppID goes to the host's
+// backend, so the host registers the shortcuts it holds, and shows
+// notifications and trays, under the child app's ID rather than its own
+// (tela's executable); the portal needs the app's desktop entry.
+//
 // Secrets, associations and the trash (ADR-216) need no window, but are
 // forwarded to the host too, rather than served in the child: the child
 // links only the remote backend, and the host's backend is the one under
@@ -241,6 +246,15 @@ func (d childDesktop) UnregisterShortcut(id string) error {
 	return err
 }
 
+// SetAppID gives the host's backend the app's ID (ADR-217): under tela
+// dev the host registers the global shortcuts, and shows the
+// notifications and trays, for the child app. A host that does not know
+// the call is ignored.
+func (d childDesktop) SetAppID(id string) {
+	platform.CheckAppID("SetAppID", id)
+	_, _ = d.call(dSetAppID, 0, func(e *enc) { e.str(id) })
+}
+
 func (d childDesktop) ClaimInstance(appID string, launch platform.Launch) (bool, error) {
 	platform.CheckAppID("ClaimInstance", appID)
 	r, err := d.call(dClaimInstance, 0, func(e *enc) { e.str(appID); e.launch(launch) })
@@ -349,6 +363,36 @@ func (a childAssoc) Unregister(app platform.HandlerApp, as platform.Association)
 	}
 	changed := r.boolean()
 	return changed, r.end()
+}
+
+func (a childAssoc) RegisterApp(app platform.HandlerApp, opts platform.RegisterOptions) (bool, error) {
+	platform.CheckHandlerApp("Associations.RegisterApp", app, true)
+	r, err := childDesktop(a).call(dAppRegister, 0, func(e *enc) { e.handlerApp(app); e.boolean(opts.Replace) })
+	if err != nil {
+		return false, err
+	}
+	changed := r.boolean()
+	return changed, r.end()
+}
+
+func (a childAssoc) UnregisterApp(app platform.HandlerApp) (bool, error) {
+	platform.CheckHandlerApp("Associations.UnregisterApp", app, false)
+	r, err := childDesktop(a).call(dAppUnregister, 0, func(e *enc) { e.handlerApp(app) })
+	if err != nil {
+		return false, err
+	}
+	changed := r.boolean()
+	return changed, r.end()
+}
+
+func (a childAssoc) AppStatus(app platform.HandlerApp) (platform.AppStatus, error) {
+	platform.CheckHandlerApp("Associations.AppStatus", app, false)
+	r, err := childDesktop(a).call(dAppStatus, 0, func(e *enc) { e.handlerApp(app) })
+	if err != nil {
+		return platform.AppStatus{}, err
+	}
+	st := platform.AppStatus{Registered: r.boolean(), Requested: r.boolean(), Other: r.str()}
+	return st, r.end()
 }
 
 func (a childAssoc) MakeDefault(app platform.HandlerApp, as platform.Association) (platform.DefaultResult, error) {
@@ -638,6 +682,21 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
+// --- host side: app ID ---
+
+// setAppID serves a child's SetAppID: the host's backend registers the
+// shortcuts it holds under the child app's ID, not the host's (the
+// executable of tela dev). A replaced child's is dropped.
+func (h *Host) setAppID(c *Child, id string, call func(func() error) error) error {
+	if c.state == stateDetached {
+		return nil
+	}
+	if err := try(func() { platform.CheckAppID("SetAppID", id) }); err != nil {
+		return err
+	}
+	return call(func() error { h.b.Desktop().SetAppID(id); return nil })
+}
+
 // --- host side: single instance ---
 
 // claimInstance serves a child's ClaimInstance (see the top of
@@ -671,7 +730,8 @@ func blockingDesktop(payload []byte) bool {
 		return false
 	}
 	switch payload[0] {
-	case dSetSecret, dSecret, dDeleteSecret, dAssocStatus, dAssocRegister, dAssocUnregister, dAssocMakeDefault, dMoveToTrash:
+	case dSetSecret, dSecret, dDeleteSecret, dAssocStatus, dAssocRegister, dAssocUnregister, dAssocMakeDefault, dMoveToTrash,
+		dAppRegister, dAppUnregister, dAppStatus:
 		return true
 	}
 	return false
@@ -750,6 +810,29 @@ func (h *Host) serveBlocking(op uint8, d *dec, result *func(*enc)) error {
 		}
 		res, err := a.MakeDefault(app, as)
 		*result = func(e *enc) { e.u8(uint8(res)) }
+		return err
+	case dAppRegister, dAppUnregister, dAppStatus:
+		app := d.handlerApp()
+		var replace bool
+		if op == dAppRegister {
+			replace = d.boolean()
+		}
+		if err := d.end(); err != nil {
+			return err
+		}
+		a := desk.Associations()
+		switch op {
+		case dAppStatus:
+			st, err := a.AppStatus(app)
+			*result = func(e *enc) { e.boolean(st.Registered); e.boolean(st.Requested); e.str(st.Other) }
+			return err
+		case dAppRegister:
+			changed, err := a.RegisterApp(app, platform.RegisterOptions{Replace: replace})
+			*result = func(e *enc) { e.boolean(changed) }
+			return err
+		}
+		changed, err := a.UnregisterApp(app)
+		*result = func(e *enc) { e.boolean(changed) }
 		return err
 	}
 	return fmt.Errorf("remote: unknown desktop operation %d", op)

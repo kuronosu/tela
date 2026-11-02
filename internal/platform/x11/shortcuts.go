@@ -13,8 +13,14 @@ import (
 )
 
 // Global shortcuts on X11: the GlobalShortcuts portal when the session
-// has one (freedesktop), else passive key grabs on the root window, as
-// GNOME's keybinder, xbindkeys and Qt's QxtGlobalShortcut do:
+// has one (freedesktop) and accepts the app ID, else passive key grabs on
+// the root window, as GNOME's keybinder, xbindkeys and Qt's
+// QxtGlobalShortcut do. The portal refuses an app ID with no desktop entry
+// (xdg-desktop-portal 1.22): freedesktop's RegisterShortcut then returns
+// ErrAppNotRegistered synchronously, before any status is promised, so
+// the shortcut goes to the grabs without a Failed status that a Bound one
+// would replace (ADR-217). From then on every shortcut is grabbed, as
+// without a portal.
 //
 //   - The accelerator's key is the keysym of Accelerator.Key
 //     (xkb.AcceleratorKeysym), grabbed on every keycode whose unshifted
@@ -45,7 +51,7 @@ type shortcutPortal interface {
 
 // shortcuts is the X11 side of the global shortcuts.
 type shortcuts struct {
-	portalMissing bool            // the portal returned ErrUnsupported
+	portalMissing bool            // the portal returned ErrUnsupported or ErrAppNotRegistered
 	viaPortal     map[string]bool // IDs registered with the portal
 	grabbed       []*keyShortcut  // registration order
 
@@ -100,7 +106,7 @@ func (b *Backend) registerShortcut(portal shortcutPortal, s platform.Shortcut) e
 			sc.viaPortal[s.ID] = true
 			return nil
 		}
-		if !errors.Is(err, errors.ErrUnsupported) {
+		if !errors.Is(err, errors.ErrUnsupported) && !errors.Is(err, platform.ErrAppNotRegistered) {
 			return err
 		}
 		sc.portalMissing = true

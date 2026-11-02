@@ -82,14 +82,28 @@ type Desktop interface {
 
 	// --- Phase 13 (ADR-209, ADR-210). ---
 
+	// SetAppID sets the app ID the services identify the app by to the
+	// desktop (ADR-217): on Linux the ID the GlobalShortcuts portal
+	// registers (org.freedesktop.host.portal.Registry, which needs the
+	// desktop entry <id>.desktop), the notifications' app name and
+	// desktop-entry hint and the tray items' Id. The layers above call it
+	// before the first window opens, with the ID package desktop resolves
+	// (desktop.SetAppID, else tela.App.AppID, else the executable's name);
+	// until then backends use DefaultAppID. A later, different ID applies
+	// to later requests (the portal's shortcuts are bound again under it).
+	// Backends that need no such ID (Win32) ignore it. An invalid id
+	// panics ([CheckAppID]).
+	SetAppID(id string)
+
 	// RegisterShortcut asks the OS for a global shortcut (see "Global
 	// shortcuts" in the package documentation). When it returns nil,
 	// exactly one ShortcutStatusEvent with the outcome follows through the
 	// loop (ShortcutBound, or why not), even where the OS answers at once;
 	// the portal may ask the user first. Registering an ID again replaces
 	// its binding. It returns an error, and nothing follows, when no
-	// request was made (ErrUnsupported). An invalid shortcut panics
-	// ([CheckShortcut]).
+	// request was made: ErrUnsupported (no global shortcuts), or an error
+	// wrapping ErrAppNotRegistered (the portal refused the app ID, see
+	// SetAppID). An invalid shortcut panics ([CheckShortcut]).
 	RegisterShortcut(s Shortcut) error
 
 	// UnregisterShortcut removes a global shortcut. Unknown IDs are
@@ -520,6 +534,9 @@ func (UnsupportedDesktop) UpdateTray(_ TrayID, opts TrayOptions) error {
 
 // RemoveTray returns ErrUnsupported.
 func (UnsupportedDesktop) RemoveTray(TrayID) error { return ErrUnsupported }
+
+// SetAppID checks id and does nothing.
+func (UnsupportedDesktop) SetAppID(id string) { CheckAppID("SetAppID", id) }
 
 // RegisterShortcut checks s and returns ErrUnsupported.
 func (UnsupportedDesktop) RegisterShortcut(s Shortcut) error {

@@ -57,7 +57,7 @@ func (d *Desktop) Notify(n platform.Notification) (platform.NotificationID, erro
 		}
 	}
 	hints := map[string]dbus.Variant{
-		"desktop-entry": dbus.MakeVariant(d.opts.AppID),
+		"desktop-entry": dbus.MakeVariant(d.appID()),
 	}
 	if len(n.Icon) > 0 {
 		hints["image-data"] = dbus.MakeVariant(notificationImage(platform.PickIcon(n.Icon, notificationIconSide)))
@@ -74,7 +74,7 @@ func (d *Desktop) Notify(n platform.Notification) (platform.NotificationID, erro
 	d.mu.Unlock()
 	ch := make(chan *dbus.Call, 1)
 	conn.Object(notificationsName, notificationsPath).Go(notificationsIface+".Notify", 0, ch,
-		d.opts.AppID, uint32(0), "", n.Title, body, actions, hints, int32(-1))
+		d.appID(), uint32(0), "", n.Title, body, actions, hints, int32(-1))
 	go d.awaitNotify(conn, id, ch)
 	return id, nil
 }

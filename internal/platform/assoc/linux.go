@@ -30,7 +30,10 @@ import (
 //     files may then arrive as file:// URIs). NoDisplay=true: the entry
 //     makes the app a handler without adding a launcher to the menus (an
 //     installer writes that). It is removed when its last type is
-//     unregistered.
+//     unregistered, unless RegisterApp asked for it (ADR-217): then it
+//     carries X-Tela-App=true, and stays, with no MimeType, until
+//     UnregisterApp. The same file is the app's entry for the
+//     GlobalShortcuts portal, which refuses an app ID without one.
 //   - $XDG_DATA_HOME/mime/packages/<ID>.xml: a shared-mime-info package
 //     mapping an extension to its MIME type ("*.note"), only when no MIME
 //     type claims the extension yet (or with Replace, at weight 80 so it
@@ -62,8 +65,12 @@ import (
 // followed, so a mimeapps.list kept in a dotfiles repository stays a
 // link) and only when its content changes.
 
-// telaKey marks the desktop entries Tela wrote.
-const telaKey = "X-Tela-Registered"
+// telaKey marks the desktop entries Tela wrote; appKey the ones
+// RegisterApp asked for, which stay without associations.
+const (
+	telaKey = "X-Tela-Registered"
+	appKey  = "X-Tela-App"
+)
 
 const (
 	entryGroup    = "Desktop Entry"
@@ -124,6 +131,7 @@ type desktopEntry struct {
 	mime  []string
 	hide  bool // Hidden=true: the entry counts as deleted
 	tela  bool // the user's entry, written by Tela
+	app   bool // a Tela entry RegisterApp asked for (appKey)
 	raw   []byte
 	entry *keyFile
 }
@@ -166,6 +174,8 @@ func (l *linuxAssoc) scanEntries() map[string]*desktopEntry {
 			}
 			if v, _ := kf.get(entryGroup, telaKey); rank == 0 && strings.TrimSpace(v) == "true" {
 				e.tela = true
+				v, _ := kf.get(entryGroup, appKey)
+				e.app = strings.TrimSpace(v) == "true"
 			}
 			ents[id] = e
 			return nil
@@ -400,7 +410,7 @@ func (l *linuxAssoc) register(app platform.HandlerApp, a platform.Association, r
 		if !hasType(types, typ) {
 			types = append(slices.Clone(types), typ)
 		}
-		if data := desktopFile(app, types); !bytes.Equal(data, own.raw) {
+		if data := desktopFile(app, types, own.app); !bytes.Equal(data, own.raw) {
 			changes = append(changes, change{l.ownEntryPath(app.ID), data})
 		}
 	case own != nil && !own.hide && hasType(own.mime, typ):
@@ -411,7 +421,7 @@ func (l *linuxAssoc) register(app platform.HandlerApp, a platform.Association, r
 		// user's file would shadow.
 		return false, platform.TakenError(a, own.path)
 	default:
-		changes = append(changes, change{l.ownEntryPath(app.ID), desktopFile(app, []string{typ})})
+		changes = append(changes, change{l.ownEntryPath(app.ID), desktopFile(app, []string{typ}, false)})
 	}
 
 	if a.Extension != "" {
@@ -447,11 +457,17 @@ func (l *linuxAssoc) register(app platform.HandlerApp, a platform.Association, r
 	return l.apply(changes)
 }
 
-// desktopFile renders the app's desktop entry for the MIME types.
-func desktopFile(app platform.HandlerApp, types []string) []byte {
+// desktopFile renders the app's desktop entry for the MIME types; asked
+// marks an entry RegisterApp asked for.
+func desktopFile(app platform.HandlerApp, types []string, asked bool) []byte {
 	var b strings.Builder
-	b.WriteString("# Written by Tela (platform.Associations): the URL schemes and file types\n")
-	b.WriteString("# this app handles. Unregister removes it.\n")
+	if asked {
+		b.WriteString("# Written by Tela (platform.Associations): the app's entry, which RegisterApp\n")
+		b.WriteString("# asked for, and the URL schemes and file types it handles.\n")
+	} else {
+		b.WriteString("# Written by Tela (platform.Associations): the URL schemes and file types\n")
+		b.WriteString("# this app handles. Unregister removes it.\n")
+	}
 	b.WriteString("[" + entryGroup + "]\n")
 	b.WriteString("Type=Application\n")
 	b.WriteString("Version=1.5\n")
@@ -462,26 +478,35 @@ func desktopFile(app platform.HandlerApp, types []string) []byte {
 	}
 	b.WriteString("Terminal=false\n")
 	b.WriteString("NoDisplay=true\n")
-	b.WriteString("MimeType=" + joinList(types) + "\n")
+	if len(types) > 0 {
+		b.WriteString("MimeType=" + joinList(types) + "\n")
+	}
 	b.WriteString(telaKey + "=true\n")
+	if asked {
+		b.WriteString(appKey + "=true\n")
+	}
 	return []byte(b.String())
 }
 
 // execValue returns the Exec value: the quoted executable and arguments,
-// then the field code for the types.
+// then the field code for the types (none without types).
 func execValue(app platform.HandlerApp, types []string) string {
 	var args []string
 	for _, a := range append([]string{app.Exec}, app.Args...) {
 		args = append(args, quoteExecArg(a))
 	}
-	return escapeValue(strings.Join(args, " ")) + " " + fieldCode(types)
+	return withFieldCode(escapeValue(strings.Join(args, " ")), fieldCode(types))
 }
 
 // fieldCode returns the Exec field code for the MIME types: %u for a URI
 // (schemes), %F for file paths, %U when the entry handles both (the
 // specification allows a single field code; launchers then pass files as
-// file:// URIs or paths).
+// file:// URIs or paths), and none without types (an entry RegisterApp
+// asked for).
 func fieldCode(types []string) string {
+	if len(types) == 0 {
+		return ""
+	}
 	schemes, files := false, false
 	for _, t := range types {
 		if strings.HasPrefix(strings.ToLower(t), "x-scheme-handler/") {
@@ -499,12 +524,17 @@ func fieldCode(types []string) string {
 	return "%F"
 }
 
-// withFieldCode replaces the field code at the end of a raw Exec value.
+// withFieldCode replaces the field code at the end of a raw Exec value
+// ("" removes it).
 func withFieldCode(exec, code string) string {
 	for _, c := range []string{"%u", "%U", "%f", "%F"} {
 		if strings.HasSuffix(exec, " "+c) {
-			return strings.TrimSuffix(exec, c) + code
+			exec = strings.TrimSuffix(exec, " "+c)
+			break
 		}
+	}
+	if code == "" {
+		return exec
 	}
 	return exec + " " + code
 }
@@ -624,12 +654,17 @@ func (l *linuxAssoc) Unregister(app platform.HandlerApp, a platform.Association)
 	var changes []change
 	if own := l.scanEntries()[ownID]; own != nil && own.tela && hasType(own.mime, typ) {
 		types := slices.DeleteFunc(slices.Clone(own.mime), func(t string) bool { return strings.EqualFold(t, typ) })
-		if len(types) == 0 {
+		if len(types) == 0 && !own.app {
 			changes = append(changes, change{own.path, nil})
 		} else {
 			// Unregister has no Exec: edit the entry instead of
-			// rendering it again.
-			own.entry.set(entryGroup, "MimeType", joinList(types))
+			// rendering it again. An entry RegisterApp asked for stays,
+			// without MimeType.
+			if len(types) == 0 {
+				own.entry.del(entryGroup, "MimeType")
+			} else {
+				own.entry.set(entryGroup, "MimeType", joinList(types))
+			}
 			if exec, ok := own.entry.get(entryGroup, "Exec"); ok {
 				own.entry.set(entryGroup, "Exec", withFieldCode(exec, fieldCode(types)))
 			}
@@ -755,4 +790,74 @@ func (l *linuxAssoc) MakeDefault(app platform.HandlerApp, a platform.Association
 		}
 	}
 	return platform.DefaultSet, nil
+}
+
+// --- RegisterApp, UnregisterApp, AppStatus (ADR-217) ---
+
+func (l *linuxAssoc) RegisterApp(app platform.HandlerApp, opts platform.RegisterOptions) (bool, error) {
+	platform.CheckHandlerApp("Associations.RegisterApp", app, true)
+	if err := l.check(); err != nil {
+		return false, err
+	}
+	linuxMu.Lock()
+	defer linuxMu.Unlock()
+	own := l.scanEntries()[app.ID+".desktop"]
+	var types []string
+	switch {
+	case own != nil && own.tela:
+		// Tela's own entry (associations, or an earlier RegisterApp):
+		// mark it, keeping its types, and bring Exec and Name up to date.
+		types = own.mime
+	case own != nil && opts.Replace:
+		// Take it over, from scratch.
+	case own != nil && own.hide:
+		return false, fmt.Errorf("%w: the desktop entry %s hides the app (set RegisterOptions.Replace to take it over)", platform.ErrAssociationTaken, own.path)
+	case own != nil:
+		// A package's or an installer's entry already makes the
+		// desktop know the app: nothing to write, nothing taken over.
+		return false, nil
+	}
+	data := desktopFile(app, types, true)
+	if own != nil && own.tela && bytes.Equal(data, own.raw) {
+		return false, nil
+	}
+	return l.apply([]change{{l.ownEntryPath(app.ID), data}})
+}
+
+func (l *linuxAssoc) UnregisterApp(app platform.HandlerApp) (bool, error) {
+	platform.CheckHandlerApp("Associations.UnregisterApp", app, false)
+	if err := l.check(); err != nil {
+		return false, err
+	}
+	linuxMu.Lock()
+	defer linuxMu.Unlock()
+	own := l.scanEntries()[app.ID+".desktop"]
+	if own == nil || !own.tela || !own.app {
+		return false, nil
+	}
+	if len(own.mime) == 0 {
+		return l.apply([]change{{own.path, nil}})
+	}
+	// Associations still need the entry: only the request goes, and
+	// Unregister of the last association removes the file.
+	own.entry.del(entryGroup, appKey)
+	return l.apply([]change{{own.path, own.entry.bytes()}})
+}
+
+func (l *linuxAssoc) AppStatus(app platform.HandlerApp) (platform.AppStatus, error) {
+	platform.CheckHandlerApp("Associations.AppStatus", app, false)
+	if err := l.check(); err != nil {
+		return platform.AppStatus{}, err
+	}
+	linuxMu.Lock()
+	defer linuxMu.Unlock()
+	var st platform.AppStatus
+	if own := l.scanEntries()[app.ID+".desktop"]; own != nil {
+		st.Registered = !own.hide
+		st.Requested = own.tela && own.app
+		if !own.tela {
+			st.Other = own.path
+		}
+	}
+	return st, nil
 }

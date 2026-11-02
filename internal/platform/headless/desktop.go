@@ -122,8 +122,10 @@ type desktopState struct {
 	lastTray      platform.TrayID
 
 	// Phase 13 (services13.go).
+	appID             string // SetAppID's
 	shortcuts         []ShortcutRecord
 	shortcutResponder func(platform.Shortcut) platform.ShortcutStatusEvent
+	shortcutErr       error // SetShortcutError's
 	secrets           map[secretKey][]byte
 	secretErr         error
 	instances         []string // app IDs this backend claimed

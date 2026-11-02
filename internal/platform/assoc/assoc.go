@@ -47,6 +47,10 @@
 //     extension nothing else opens, or the user's choice), and otherwise
 //     opens ms-settings:defaultapps (DefaultAsked), because Windows lets
 //     only the user choose.
+//   - RegisterApp (ADR-217): on Linux the same desktop entry with no
+//     MimeType, marked X-Tela-App=true, kept until UnregisterApp even
+//     when its last association goes; on Windows nothing (an app needs no
+//     entry there).
 //   - Other OSes: [Native] returns platform.UnsupportedAssociations (macOS
 //     registers through the app bundle's Info.plist, phase 14).
 //

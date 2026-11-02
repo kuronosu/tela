@@ -10,6 +10,24 @@ import (
 	"github.com/kuronosu/tela/internal/platform/assoc"
 )
 
+// --- app ID ---
+
+// SetAppID records the app ID (ADR-217), which DesktopAppID returns.
+func (d desktop) SetAppID(id string) {
+	platform.CheckAppID("SetAppID", id)
+	d.b.mu.Lock()
+	defer d.b.mu.Unlock()
+	d.b.desktop.appID = id
+}
+
+// DesktopAppID returns the app ID the layers above gave with
+// Desktop().SetAppID, "" before any. Safe from any goroutine.
+func (b *Backend) DesktopAppID() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.desktop.appID
+}
+
 // --- global shortcuts ---
 
 // ShortcutRecord is a global shortcut registered with RegisterShortcut and
@@ -33,6 +51,17 @@ func (b *Backend) SetShortcutResponder(fn func(platform.Shortcut) platform.Short
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.desktop.shortcutResponder = fn
+}
+
+// SetShortcutError makes RegisterShortcut return err, with no request
+// made and no status to follow, until SetShortcutError(nil): a desktop
+// that refused the app ID (an error wrapping
+// platform.ErrAppNotRegistered, as the portal answers without the app's
+// desktop entry). Safe from any goroutine.
+func (b *Backend) SetShortcutError(err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.desktop.shortcutErr = err
 }
 
 // Shortcuts returns the registered global shortcuts, in registration
@@ -80,8 +109,11 @@ func (d desktop) RegisterShortcut(s platform.Shortcut) error {
 	}
 	b := d.b
 	b.mu.Lock()
-	fn := b.desktop.shortcutResponder
+	fn, failed := b.desktop.shortcutResponder, b.desktop.shortcutErr
 	b.mu.Unlock()
+	if failed != nil {
+		return failed
+	}
 	ev := platform.ShortcutStatusEvent{Status: platform.ShortcutBound, Trigger: s.Accelerator.String()}
 	if fn != nil {
 		ev = fn(s)

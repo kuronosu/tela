@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -24,10 +25,20 @@ import (
 // connection, so the UI thread never waits for a dialog:
 //
 //  1. org.freedesktop.host.portal.Registry.Register(app ID, {}), the
-//     first call on the connection: xdg-desktop-portal 1.19 and later
-//     identify a host (unsandboxed) app only this way, and refuse it once
-//     another portal call looked the caller up. Older portals answer
-//     UnknownMethod and sandboxed apps an error; both are ignored.
+//     first call on the connection, made by the first RegisterShortcut
+//     on the UI thread (a refusal is its error, so the X11 backend can
+//     grab the key instead without a Failed status first) and again by
+//     the worker when it dials a new connection. xdg-desktop-portal 1.19
+//     and later identify a host (unsandboxed) app only this way, and
+//     refuse it once another portal call looked the caller up; 1.22
+//     refuses an ID with no desktop entry ("Could not register app ID:
+//     App info not found for '<id>'"), and then CreateSession fails ("An
+//     app id is required"). Any refusal is ErrAppNotRegistered, naming
+//     the entry to write (ADR-217), and the connection is closed so a
+//     later call can try again. The app ID is SetAppID's (appid.go).
+//     Older portals answer UnknownMethod, which is fine; a sandboxed app
+//     (Flatpak, Snap) is identified by its sandbox and does not
+//     register.
 //  2. CreateSession, then BindShortcuts with every shortcut (description,
 //     preferred_trigger in the XDG shortcuts format: "CTRL+SHIFT+k", the
 //     key an xkb keysym name). Each is a Request whose Response signal
@@ -59,6 +70,8 @@ const (
 
 // shortcutService is the global shortcut state of a Desktop.
 type shortcutService struct {
+	dialMu sync.Mutex // one dial at a time (UI thread and worker)
+
 	mu      sync.Mutex
 	started bool          // the worker runs
 	closed  bool          // Close was called
@@ -66,6 +79,7 @@ type shortcutService struct {
 	kick    chan struct{} // wakes the worker (buffer 1)
 	done    chan struct{} // closed by Close
 	conn    *dbus.Conn    // the worker's connection; nil until dialed
+	connID  string        // the app ID conn registered
 	tokens  uint64        // request and session handle tokens
 
 	waiters map[dbus.ObjectPath]chan portalResponse // requests waiting for their Response
@@ -76,6 +90,7 @@ type shortcutService struct {
 
 type shortcutOp struct {
 	register bool
+	rebind   bool              // the app ID changed: bind the set again
 	s        platform.Shortcut // register
 	id       string            // unregister
 }
@@ -99,8 +114,11 @@ type portalShortcut struct {
 
 // RegisterShortcut asks the GlobalShortcuts portal for s. It returns an
 // ErrUnsupported error, synchronously, when the session has no such
-// portal (the X11 backend then grabs the key itself); otherwise the
-// outcome arrives as a ShortcutStatusEvent through the loop.
+// portal, and an ErrAppNotRegistered one when the portal refuses the app
+// ID (the X11 backend then grabs the key itself); otherwise the outcome
+// arrives as a ShortcutStatusEvent through the loop. The first call
+// registers the app ID on the shortcut connection, a round trip on the
+// UI thread like the portal check before it.
 func (d *Desktop) RegisterShortcut(s platform.Shortcut) error {
 	platform.CheckShortcut(s)
 	if _, ok := shortcutTrigger(s.Accelerator); !ok {
@@ -110,6 +128,11 @@ func (d *Desktop) RegisterShortcut(s platform.Shortcut) error {
 		return errClosed
 	}
 	if _, _, err := d.portal(ifaceGlobalShortcuts); err != nil {
+		return err
+	}
+	// The app ID before anything is promised: a refusal is the caller's
+	// (no status event follows).
+	if _, err := d.shortcutConn(); err != nil {
 		return err
 	}
 	d.shortcutOp(shortcutOp{register: true, s: s})
@@ -149,8 +172,7 @@ func (d *Desktop) shortcutOp(op shortcutOp) {
 		sc.started = true
 		sc.kick = make(chan struct{}, 1)
 		sc.done = make(chan struct{})
-		sc.waiters = map[dbus.ObjectPath]chan portalResponse{}
-		sc.state = map[string]shortcutState{}
+		sc.initMaps()
 		go d.shortcutWorker()
 	}
 	sc.ops = append(sc.ops, op)
@@ -234,6 +256,10 @@ func (d *Desktop) shortcutWorker() {
 		pending := map[string]int{} // outcomes owed, per ID
 		changed := false
 		for _, op := range ops {
+			if op.rebind {
+				changed = changed || len(set) > 0
+				continue
+			}
 			if !op.register {
 				if i := indexShortcut(set, op.id); i >= 0 {
 					set = slices.Delete(set, i, i+1)
@@ -482,14 +508,22 @@ func (d *Desktop) pushEvents(events []platform.Event) {
 }
 
 // shortcutConn returns the worker's connection, dialing it (and
-// registering the app with the portal) on first use or after the bus
-// went away. Worker goroutine.
+// registering the app ID with the portal) on first use, after the bus
+// went away, or when the app ID changed. A refusal of the app ID is an
+// error wrapping platform.ErrAppNotRegistered, and the new connection is
+// closed. UI thread (RegisterShortcut) or worker goroutine.
 func (d *Desktop) shortcutConn() (*dbus.Conn, error) {
 	sc := &d.shortcuts
+	sc.dialMu.Lock()
+	defer sc.dialMu.Unlock()
+	id := d.appID()
 	sc.mu.Lock()
-	conn := sc.conn
+	conn, connID, closed := sc.conn, sc.connID, sc.closed
 	sc.mu.Unlock()
-	if conn != nil && conn.Connected() {
+	if closed {
+		return nil, errClosed
+	}
+	if conn != nil && conn.Connected() && connID == id {
 		return conn, nil
 	}
 	conn, err := d.dial()
@@ -497,10 +531,10 @@ func (d *Desktop) shortcutConn() (*dbus.Conn, error) {
 		return nil, err
 	}
 	// The Registry first: no portal call may precede it on the connection.
-	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
-	conn.Object(portalName, portalPath).CallWithContext(ctx, ifaceRegistry+".Register", 0,
-		d.opts.AppID, map[string]dbus.Variant{})
-	cancel()
+	if err := registerHostApp(conn, id); err != nil {
+		conn.Close()
+		return nil, err
+	}
 
 	ch := make(chan *dbus.Signal, 64)
 	conn.Signal(ch)
@@ -522,10 +556,65 @@ func (d *Desktop) shortcutConn() (*dbus.Conn, error) {
 		return nil, errClosed
 	}
 	if sc.conn != nil {
+		// Lost, or registered under the previous app ID: its session
+		// goes with it.
 		sc.conn.Close()
 	}
-	sc.conn = conn
+	sc.initMaps()
+	sc.conn, sc.connID = conn, id
 	return conn, nil
+}
+
+// initMaps makes the maps the worker and the signal goroutine share; sc.mu
+// is held.
+func (sc *shortcutService) initMaps() {
+	if sc.waiters == nil {
+		sc.waiters = map[dbus.ObjectPath]chan portalResponse{}
+		sc.state = map[string]shortcutState{}
+	}
+}
+
+// inSandbox reports whether the process runs in a Flatpak or Snap
+// sandbox, whose app ID the portal takes from the sandbox: such an app
+// does not register (the Registry refuses it).
+var inSandbox = func() bool {
+	if _, err := os.Stat("/.flatpak-info"); err == nil {
+		return true
+	}
+	return os.Getenv("SNAP") != ""
+}
+
+// registerHostApp registers the app ID with the portal's host Registry,
+// the first portal call on conn. A portal without the Registry (older
+// than 1.19) needs none; any refusal is ErrAppNotRegistered.
+func registerHostApp(conn *dbus.Conn, id string) error {
+	if inSandbox() {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+	err := conn.Object(portalName, portalPath).CallWithContext(ctx, ifaceRegistry+".Register", 0,
+		id, map[string]dbus.Variant{}).Err
+	cancel()
+	if err == nil {
+		return nil
+	}
+	var de dbus.Error
+	if !errors.As(err, &de) {
+		return fmt.Errorf("freedesktop: registering the app ID %q with the portal: %v", id, err)
+	}
+	switch de.Name {
+	case "org.freedesktop.DBus.Error.UnknownMethod", "org.freedesktop.DBus.Error.UnknownInterface",
+		"org.freedesktop.DBus.Error.UnknownObject":
+		return nil // an older portal identifies host apps without it
+	}
+	msg := de.Name
+	if len(de.Body) > 0 {
+		if s, ok := de.Body[0].(string); ok && s != "" {
+			msg = s
+		}
+	}
+	return fmt.Errorf("%w: xdg-desktop-portal refused the app ID %q (%s); global shortcuts need a desktop entry %s.desktop: call desktop.RegisterApp in the installed program, or install one",
+		platform.ErrAppNotRegistered, id, msg, id)
 }
 
 // createShortcutSession creates a GlobalShortcuts session and returns its

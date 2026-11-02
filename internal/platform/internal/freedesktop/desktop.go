@@ -18,7 +18,8 @@ import (
 
 // Options configures a Desktop. Wake, Post and Event are required.
 type Options struct {
-	// AppID identifies the app to the services: the notifications' app
+	// AppID identifies the app to the services until SetAppID changes it:
+	// the GlobalShortcuts portal's registration, the notifications' app
 	// name and desktop-entry hint, the tray items' Id and Title. ""
 	// means platform.DefaultAppID().
 	AppID string
@@ -102,6 +103,11 @@ type Desktop struct {
 	trays    map[platform.TrayID]*tray
 	token    string // the latest activation token
 
+	// idMu guards id, the app ID (Options.AppID, then SetAppID), which
+	// the shortcut worker and godbus goroutines read (appid.go).
+	idMu sync.Mutex
+	id   string
+
 	// Phase 13 (settings.go, shortcuts.go, instance.go).
 	settings  settingsState
 	shortcuts shortcutService
@@ -128,6 +134,7 @@ func New(opts Options) *Desktop {
 	}
 	return &Desktop{
 		opts:     opts,
+		id:       opts.AppID,
 		requests: map[dbus.ObjectPath]*request{},
 		notes:    map[platform.NotificationID]*note{},
 		byServer: map[uint32]platform.NotificationID{},

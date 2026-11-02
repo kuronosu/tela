@@ -19,5 +19,10 @@ import (
 // (AllowSetForegroundWindow).
 func (w *Window) ActivateWithToken(string) { w.Activate() }
 
+// SetAppID checks id and keeps nothing (ADR-217): RegisterHotKey, the
+// notification area and the single-instance mutex (which takes the ID as
+// an argument) need no app ID, and Tela sets no AppUserModelID yet.
+func (d desktop) SetAppID(id string) { platform.CheckAppID("SetAppID", id) }
+
 // Associations returns the current user's registration (package assoc).
 func (d desktop) Associations() platform.Associations { return assoc.Native() }

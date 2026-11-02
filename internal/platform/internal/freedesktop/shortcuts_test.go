@@ -65,7 +65,7 @@ func (h *harness) quiet(what string) {
 
 func TestShortcuts(t *testing.T) {
 	addr := privateBus(t)
-	p := startPortal13(t, addr, portal13Options{shortcuts: true, registry: true})
+	p := startPortal13(t, addr, portal13Options{shortcuts: true, registry: true, dataDirs: []string{appEntries(t, "tela-test")}})
 	h := newHarness(t, addr)
 	h.d.opts.Now = func() time.Duration { return 42 * time.Second }
 

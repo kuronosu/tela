@@ -520,3 +520,26 @@ func (w *windows) MakeDefault(app platform.HandlerApp, a platform.Association) (
 	}
 	return platform.DefaultAsked, nil
 }
+
+// --- RegisterApp, UnregisterApp, AppStatus (ADR-217) ---
+//
+// Windows identifies a desktop app by its executable: RegisterHotKey,
+// the notification area and the single-instance mutex need no entry, so
+// RegisterApp writes nothing (the Start menu shortcut that makes an app
+// "installed" is an installer's, phase 17) and AppStatus reports the app
+// registered. The registry is not even read.
+
+func (w *windows) RegisterApp(app platform.HandlerApp, _ platform.RegisterOptions) (bool, error) {
+	platform.CheckHandlerApp("Associations.RegisterApp", app, true)
+	return false, nil
+}
+
+func (w *windows) UnregisterApp(app platform.HandlerApp) (bool, error) {
+	platform.CheckHandlerApp("Associations.UnregisterApp", app, false)
+	return false, nil
+}
+
+func (w *windows) AppStatus(app platform.HandlerApp) (platform.AppStatus, error) {
+	platform.CheckHandlerApp("Associations.AppStatus", app, false)
+	return platform.AppStatus{Registered: true}, nil
+}

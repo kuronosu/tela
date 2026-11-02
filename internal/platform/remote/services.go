@@ -87,6 +87,11 @@ const (
 	dAssocUnregister    // app, association; result: changed
 	dAssocMakeDefault   // app, association; result: DefaultResult
 	dMoveToTrash        // path (served off the UI thread; ADR-216)
+	// ADR-217 (protocol 5 amended).
+	dSetAppID      // app ID (the child app's, for the host's backend)
+	dAppRegister   // app, replace; result: changed (off the UI thread)
+	dAppUnregister // app; result: changed
+	dAppStatus     // app; result: registered, requested, other
 )
 
 // Outcome codes of a desktop call.
@@ -100,8 +105,9 @@ const (
 	codeSecretTooLarge
 	codeAssocTaken
 	codeSecretCanceled
-	codeNotExist // fs.ErrNotExist (MoveToTrash of a missing path)
-	codeInvalid  // fs.ErrInvalid (MoveToTrash of a path it refuses)
+	codeNotExist         // fs.ErrNotExist (MoveToTrash of a missing path)
+	codeInvalid          // fs.ErrInvalid (MoveToTrash of a path it refuses)
+	codeAppNotRegistered // platform.ErrAppNotRegistered (ADR-217)
 )
 
 // sentinels maps the outcome codes of version 5 to their errors.
@@ -117,6 +123,7 @@ var sentinels = []struct {
 	// After ErrSecretNotFound, which wraps fs.ErrNotExist too.
 	{codeNotExist, fs.ErrNotExist},
 	{codeInvalid, fs.ErrInvalid},
+	{codeAppNotRegistered, platform.ErrAppNotRegistered},
 }
 
 // desktopTimeout bounds the wait for the host's answer to a synchronous
@@ -592,6 +599,12 @@ func (h *Host) serveDesktop(c *Child, op uint8, token uint32, d *dec, result *fu
 			return err
 		}
 		return h.unregisterShortcut(c, id, call)
+	case dSetAppID:
+		appID := d.str()
+		if err := d.end(); err != nil {
+			return err
+		}
+		return h.setAppID(c, appID, call)
 	case dClaimInstance:
 		appID, launch := d.str(), d.launch()
 		if err := d.end(); err != nil {
