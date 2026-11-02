@@ -356,7 +356,9 @@ func (w *Window) RestoreToken() string {
 // --- caption presses ---
 
 // captionPointer reports whether e belongs to the "OS" because of a
-// caption region, and performs the OS action of a press; see Inject.
+// caption region or the window buttons of a TitleBarOverlay window
+// (WindowState.TitleBarControls), and performs the OS action of a caption
+// press; see Inject.
 func (w *Window) captionPointer(e platform.PointerEvent) bool {
 	b := w.b
 	b.mu.Lock()
@@ -376,7 +378,16 @@ func (w *Window) captionPointer(e platform.PointerEvent) bool {
 		}
 		return true
 	}
-	if e.Action != platform.PointerDown || platform.HitTest(c.regions, e.Pos) != platform.HitCaption {
+	if e.Action != platform.PointerDown {
+		return false
+	}
+	if r := c.osState.TitleBarControls; e.Pos.X >= r.X && e.Pos.X < r.X+r.W && e.Pos.Y >= r.Y && e.Pos.Y < r.Y+r.H {
+		// The OS's window buttons over a TitleBarOverlay window take the
+		// press, whatever region lies under them.
+		c.captionHeld = e.Button.Mask()
+		return true
+	}
+	if platform.HitTest(c.regions, e.Pos) != platform.HitCaption {
 		return false
 	}
 	c.captionHeld = e.Button.Mask()

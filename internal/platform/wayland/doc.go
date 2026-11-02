@@ -264,8 +264,10 @@
 //     shown again. Modal windows get an xdg_dialog_v1 with set_modal.
 //     Close closes the children first, in creation order.
 //
-// Client-side decorations. A frameless window, or any window when the
-// compositor has no xdg-decoration or configured the client-side mode,
+// Client-side decorations. A frameless window (TitleBarOverlay ones are
+// Frameless here: no compositor keeps buttons over a client), or any
+// window when the compositor has no xdg-decoration or configured the
+// client-side mode,
 // has resize edges while mapped and neither maximized, fullscreen nor
 // FixedSize: platform.ResizeEdge, shared with X11 (a band of 5 logical
 // pixels inside each edge, with corners reaching 16 pixels along the

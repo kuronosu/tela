@@ -12,6 +12,15 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Added
+
+- `tela.App.OnQuit` (ADR-224, ADR-225) runs when the user or the OS asks the app to quit: on macOS Cmd+Q, the app menu's Quit, the Dock's Quit or a logout. Without it every window gets a close request, as before, so an app whose main window has no `OnClose` quits; a close-to-tray app (its `OnClose` hides the window) sets `OnQuit: tela.Quit`, or its own "ask about unsaved changes, then quit".
+- `TitleBarOverlay` on `tela.App` and `tela.Window` (ADR-224, ADR-225): the content extends under a transparent title bar while the OS keeps its window buttons over it, as Apple's apps do with the traffic lights. `WindowState.TitleBarControls` is the rectangle the buttons cover, so the app's title bar leaves it free. Where the OS cannot do this (Windows, Linux, and macOS until its desktop integration lands) the window is frameless and the rectangle is empty. `Frameless` keeps its meaning; setting both panics with the fix.
+
+### Changed
+
+- `tela dev` speaks remote protocol 6 (ADR-225): the `tela` command and the app must be built with the same Tela version, as with every protocol change.
+
 ## [0.13.2] - 2026-11-02
 
 Phase 14, the macOS backend (ADR-220 to ADR-223): a native Cocoa backend without cgo (purego) for macOS 13 or later, with input, a display link, the clipboard, system settings and the IME; `tela dev` in a real macOS window; `looks/aqua` in two designs; one platform flavor for keyboard conventions with the public `CmdOrCtrl()` and `telatest.PlatformKeys`. Verified on `macos-latest` CI, where every example's window matches its headless render pixel for pixel; a session on a real Mac is still to come.

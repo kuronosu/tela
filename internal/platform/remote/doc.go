@@ -44,18 +44,17 @@
 //     real window the old child had under the same key (by ID without
 //     one), if it was opened with the same creation-only options
 //     (frameless, title bar overlay, fixed size, modal, parent); it keeps
-//     its size, position
-//     and maximized or fullscreen state. Real windows the new child does
-//     not take over close at the promotion (ADR-184).
+//     its size, position and maximized or fullscreen state. Real windows
+//     the new child does not take over close at the promotion (ADR-184).
 //   - Events of the sealed set are forwarded by the host: ConfigureEvent,
 //     WindowStateEvent, FrameEvent (the real window's, paced by its
 //     display), focus, close requests, pointer, scroll, key, IME and IME
 //     session events, DragEvent, DragDoneEvent (to the window that
 //     started the drag) and MenuEvent, SettingsEvent (with the accent
 //     color, high contrast and text scale), and the app-scoped
-//     NotificationEvent, TrayEvent, ShortcutEvent and LaunchEvent (to the
-//     active child) and ShortcutStatusEvent (to the children holding the
-//     shortcut). WakeEvent, Wake and Quit are local. Event times and FrameEvent.Time are the host's clock, and
+//     NotificationEvent, TrayEvent, ShortcutEvent, LaunchEvent,
+//     AppMenuEvent and QuitRequestedEvent (to the active child) and
+//     ShortcutStatusEvent (to the children holding the shortcut). WakeEvent, Wake and Quit are local. Event times and FrameEvent.Time are the host's clock, and
 //     [Backend.Now] equals it: the handshake measures the offset between
 //     the two processes' monotonic clocks (to within half a round trip).
 //   - RequestFrame, SetTitle, SetCursor, SetSize, SetTextInput,
@@ -81,6 +80,12 @@
 //     the app is a second instance and exits. Secrets, associations and
 //     MoveToTrash (added to protocol 5 before its release, ADR-216) are
 //     the host backend's too, served off its UI thread.
+//   - Platform contract v4 (protocol 6, ADR-225; appmenu.go): the host's
+//     quit requests go to the active child; SetAppMenu sets the host
+//     backend's app menu bar like a window's SetMenu (a reload's at its
+//     promotion), and its choices go to the active child; menu roles,
+//     TitleBarOverlay and the controls' rectangle travel with the menus,
+//     the options and the window state.
 //   - Run returns an error when the connection is lost.
 //
 // The child's loop is internal/loop's (queue, coalesced wake, quit,

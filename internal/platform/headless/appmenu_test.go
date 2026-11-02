@@ -113,8 +113,28 @@ func TestTitleBarOverlay(t *testing.T) {
 	expectPanic(t, "negative size", func() { o.SetTitleBarControls(platform.Rect{W: -1}) })
 	expectPanic(t, "not finite", func() { New(Options{TitleBarControls: platform.Rect{X: float32(1e9)}}) })
 
-	// The overlay keeps its controls across state changes the OS makes.
+	// A press on the OS's buttons is the OS's, even over a caption or
+	// client region; elsewhere the regions apply.
 	o.SetTitleBarControls(controls)
+	o.SetHitRegions([]platform.HitRegion{{Kind: platform.HitClient, Rect: platform.Rect{W: 400, H: 40}}})
+	b.Drain(r)
+	r.take()
+	press := func(x, y float32) {
+		o.Inject(platform.PointerEvent{Action: platform.PointerDown, Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonPrimary, Buttons: 1})
+		o.Inject(platform.PointerEvent{Action: platform.PointerUp, Pos: platform.Point{X: x, Y: y}, Button: platform.ButtonPrimary})
+	}
+	press(20, 15)
+	b.Drain(r)
+	if got := r.take(); got != "" {
+		t.Errorf("a press on the window buttons reached the app: %s", got)
+	}
+	press(100, 15)
+	b.Drain(r)
+	if got := r.take(); got != "o:pointer(down 100,15) o:pointer(up 100,15)" {
+		t.Errorf("a press beside the window buttons: %s", got)
+	}
+
+	// The overlay keeps its controls across state changes the OS makes.
 	o.SetMaximized(true)
 	b.Drain(r)
 	if got := o.State(); !got.Maximized || got.TitleBarControls != controls {

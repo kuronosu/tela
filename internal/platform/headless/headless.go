@@ -89,12 +89,27 @@
 // backends (claims end when Run returns, or with ReleaseInstances).
 // Associations are an assoc.Fake (Associations).
 //
+// # Platform contract v4
+//
+// The app menu bar is recorded (Backend.AppMenu, AppMenuChanges) and its
+// choices injected with ChooseAppMenu (an AppMenuEvent; role items are
+// reported like any item, as on a backend without their native action);
+// SetUnsupported(ServiceAppMenu) makes SetAppMenu return
+// platform.ErrUnsupported as every backend but macOS's does. RequestQuit
+// injects a QuitRequestedEvent. TitleBarOverlay windows are honored like
+// frameless ones (client-side decorations, no window menu bar), and the
+// fake window manager keeps window buttons over them where the test says:
+// Options.TitleBarControls for every such window, Window.SetTitleBarControls
+// for one (reported as WindowState.TitleBarControls; presses inside it are
+// the OS's and are not delivered).
+//
 // # Concurrency
 //
 // All state is guarded by one mutex, and the handler is never called with it
 // held. The injection API (Window.Inject, Resize, SetScale, RequestClose,
-// SetFocused, SetState, Backend.SetSettings, Backend.InjectApp,
-// Backend.AnswerDialog, Advance) and the inspection API (Frame, Damage,
+// SetFocused, SetState, SetTitleBarControls, Backend.SetSettings,
+// Backend.InjectApp, ChooseAppMenu, RequestQuit, Backend.AnswerDialog,
+// Advance) and the inspection API (Frame, Damage,
 // Presents, Title, OSState, Dialogs, ...) are safe from any goroutine, so a tool can
 // drive a Run loop from another goroutine. The platform.Window and
 // platform.Backend methods follow the platform contract (UI thread), but

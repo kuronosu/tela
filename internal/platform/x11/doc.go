@@ -65,7 +65,8 @@
 //     component is 1 or 32767); the icon is _NET_WM_ICON with every
 //     size, sent as one BIG-REQUESTS ChangeProperty (or Replace plus
 //     Appends) because xgb's request has a 16-bit length.
-//   - Frameless windows set _MOTIF_WM_HINTS without decorations and report
+//   - Frameless windows (TitleBarOverlay ones too, which are Frameless
+//     here) set _MOTIF_WM_HINTS without decorations and report
 //     ClientSideDecorations. Unless maximized, fullscreen or FixedSize, the
 //     band of platform.ResizeEdge, shared with Wayland (5 logical pixels
 //     along their edges, inside the content as there is no shadow margin

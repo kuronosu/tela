@@ -198,7 +198,8 @@
 // WM_MOVE, and after the requests that change it without them: Minimized
 // is IsIconic, Maximized IsZoomed (in fullscreen, the state the window
 // returns to; minimized, where IsZoomed is false, the placement's
-// WPF_RESTORETOMAXIMIZED), ClientSideDecorations WindowOptions.Frameless.
+// WPF_RESTORETOMAXIMIZED), ClientSideDecorations WindowOptions.Frameless
+// (TitleBarOverlay is Frameless here).
 // Position is always known: the content origin (ClientToScreen) of the
 // normal placement, recorded while the window is normal; a minimized,
 // maximized or fullscreen window reports where its content goes when it

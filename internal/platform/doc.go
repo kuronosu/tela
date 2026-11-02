@@ -45,7 +45,8 @@
 // FocusEvent, WakeEvent, SettingsEvent, PointerEvent, ScrollEvent,
 // KeyEvent, IMEEvent, IMESessionEvent, WindowStateEvent, DragEvent,
 // DragDoneEvent, MenuEvent, and the app-scoped NotificationEvent,
-// TrayEvent, ShortcutEvent, ShortcutStatusEvent and LaunchEvent.
+// TrayEvent, ShortcutEvent, ShortcutStatusEvent, LaunchEvent,
+// QuitRequestedEvent and AppMenuEvent.
 //
 // # Threading
 //
@@ -288,10 +289,11 @@
 // Phase 12 (ADR-178, ADR-179) gives windows OS state. The Window methods
 // Minimize, SetMaximized, SetFullscreen, SetVisible, SetAlwaysOnTop,
 // SetMinSize, SetMaxSize, SetPosition, Activate and SetIcon, and the
-// WindowOptions fields of the same names (plus Hidden, Frameless, Parent,
-// Modal, RestoreToken), are requests. The OS may refuse or alter them
-// (tiling window managers do not maximize, Wayland has no positions,
-// focus stealing prevention refuses activation), so the app never assumes
+// WindowOptions fields of the same names (plus Hidden, Frameless,
+// TitleBarOverlay, Parent, Modal, RestoreToken), are requests. The OS may
+// refuse or alter them (tiling window managers do not maximize, Wayland
+// has no positions, focus stealing prevention refuses activation), so the
+// app never assumes
 // one was granted: the outcome arrives as a [WindowStateEvent] (state) and
 // a [ConfigureEvent] (size), and [Window.State] is the state delivered
 // last. Requests equal to the state the backend already asked for are
@@ -354,6 +356,9 @@
 //     the shadow. A Wayland window also has client-side decorations when
 //     the compositor has no server-side ones (no xdg-decoration, or it
 //     chose client-side); then the app draws its title bar too.
+//     TitleBarOverlay windows report ClientSideDecorations too, and are
+//     Frameless where the OS cannot keep its window buttons over the
+//     content (see "Custom title bars").
 //   - Resize edges of a window with client-side decorations (not
 //     maximized or fullscreen, not FixedSize) are the backend's: in a
 //     band along the content edges ([ResizeEdge] on Wayland and X11: 5
@@ -427,6 +432,23 @@
 //     run its own button tracking. Other backends treat them as content.
 //   - HitClient regions are content again, punched into earlier regions
 //     (a search field inside the caption).
+//
+// A WindowOptions.TitleBarOverlay window (ADR-224, ADR-225) is a custom
+// title bar with the OS's own window buttons: the content extends under a
+// transparent title bar and the OS keeps its buttons over it (macOS: the
+// traffic lights, centered in the height of the app's caption regions).
+// WindowState.TitleBarControls reports the rectangle they cover, in
+// logical window coordinates like the regions, and changes with a
+// WindowStateEvent (a taller caption, fullscreen); the app leaves it free
+// and draws no buttons of its own. The app declares its title bar with
+// hit regions as usual, and they combine with the OS's buttons: inside
+// TitleBarControls the buttons take the presses (they are not delivered,
+// whatever region lies there), and everywhere else the regions apply.
+// Wayland, X11 and Win32 cannot keep their buttons over the content, so
+// they treat TitleBarOverlay as Frameless
+// ([WindowOptions.OverlayAsFrameless]): TitleBarControls stays empty, and
+// the app draws its own buttons as in any frameless window. Frameless and TitleBarOverlay exclude each other
+// (Resolve panics with both).
 //
 // # Parent windows and modality
 //
@@ -536,6 +558,13 @@
 // [CheckTrashPath]),
 // asynchronous answers go through the loop, and a missing service returns
 // ErrUnsupported synchronously.
+//
+// Contract v4 (ADR-224, ADR-225) adds the app menu bar
+// ([Desktop.SetAppMenu], checked by [CheckAppMenu]; see "Native menus"),
+// quit requests (the app-scoped [QuitRequestedEvent]: the user or the OS
+// asks the app to quit, and the app decides, as with a window's close
+// request; only Cocoa sends it, from applicationShouldTerminate:) and
+// title bar overlays (see "Custom title bars").
 //
 // # Drag and drop and the clipboard
 //
@@ -653,6 +682,33 @@
 // frameless Win32 windows for the menu bar (their client area covers the
 // frame), Cocoa until its desktop integration (whose menu bar is the
 // app's NSMenu).
+//
+// The app menu bar (contract v4, ADR-224, ADR-225) is declared once for
+// the whole app, as Electron's Menu.setApplicationMenu:
+// [Desktop.SetAppMenu] takes the top-level items and the app items, which
+// macOS puts in the app menu it always shows first (after About; Services,
+// Hide, Hide Others, Show All and Quit are the backend's). A choice is an
+// app-scoped [AppMenuEvent], with no window: the layers above act on the
+// focused one. Only the Cocoa backend will have it (every window shares
+// the bar); the others return ErrUnsupported, and the layers above give
+// the bar to each framed window (Win32's Window.SetMenu) or draw it.
+// Headless records it and remote forwards it.
+//
+//   - Roles ([MenuItem].Role, [MenuRole]) mark standard items and menus
+//     with Electron's names: undo, redo, cut, copy, paste, selectAll,
+//     minimize, zoom and close, and the editMenu, windowMenu and help
+//     submenus. A role item still has its ID: a backend with a native
+//     action for the role may carry it out and not report the choice
+//     (AppKit's own items on the key window and its focused field), and
+//     every other backend reports it like any item, so the layers above
+//     carry out the role. Menu roles mark a submenu once per menu; macOS
+//     lists the windows in the Window menu and adds its search field to
+//     the Help menu. [CheckMenu] and [CheckAppMenu] check the rules.
+//   - Accelerators are display text everywhere but in the macOS app menu
+//     bar, where an item's Accelerator is its key equivalent: the key
+//     chooses the item (an AppMenuEvent, or the role's action) and does
+//     not reach the app as a KeyEvent, so the layers above do not handle
+//     the key a second time.
 //
 // # Global shortcuts
 //
@@ -940,7 +996,7 @@
 //     the compositor refuses the drag at once, a PointerEnter follows the
 //     DragDoneEvent to give the pointer back.
 //   - Clipboard data: the selection offer's types; receive per type.
-//   - Menus: none (ErrUnsupported).
+//   - Menus: none (ErrUnsupported), the app menu bar neither.
 //   - Global shortcuts: org.freedesktop.portal.GlobalShortcuts only
 //     (CreateSession, BindShortcuts with description and preferred_trigger
 //     in the XDG shortcut format, "CTRL+SHIFT+k" with xkb keysym names,
@@ -981,7 +1037,7 @@
 //   - Clipboard data: CLIPBOARD with TARGETS and INCR (the text clipboard
 //     of phase 5 comes with it). Like GTK and winit, the data is not handed
 //     to a clipboard manager (SAVE_TARGETS) when Run returns.
-//   - Menus: none (ErrUnsupported).
+//   - Menus: none (ErrUnsupported), the app menu bar neither.
 //   - Global shortcuts: the portal when the session has it and it accepts
 //     the app ID; else (no portal, or ErrAppNotRegistered, and then for
 //     every later shortcut) XGrabKey on the root window for the keycode of the key's keysym with the
@@ -1061,7 +1117,9 @@
 //     MenuEvent (command IDs are 16 bits: the backend maps MenuItemIDs).
 //     Popup menus: TrackPopupMenuEx with TPM_RETURNCMD at the point
 //     converted with ClientToScreen, after SetForegroundWindow, started
-//     outside the handler like the dialogs.
+//     outside the handler like the dialogs. Roles are ordinary items (the
+//     layers above carry them out). No app menu bar (SetAppMenu is
+//     ErrUnsupported): the layers above set it on each framed window.
 //   - Global shortcuts: RegisterHotKey on the message-only window with
 //     MOD_NOREPEAT and the virtual key of the key in the current layout
 //     (VkKeyScanExW for characters), IDs 0x0000-0xBFFF mapped from the
@@ -1111,18 +1169,22 @@
 // the bundle's Info.plist for schemes and document types, NSFileManager's
 // trashItemAtURL (until then MoveToTrash is ErrUnsupported).
 //
-// Remote (tela dev), protocol 5 (ADR-214): everything is forwarded to the
-// host's backend, which owns the real windows: drags in both directions
-// (the answer to a drag reaches the OS one round trip late, so a drag
-// entering a window is refused until the child answered), menus, the
-// clipboard's Data, global shortcuts and single instance held by the host
-// across reloads, the app ID (the host's backend takes the child app's),
-// secrets, associations and the trash (see the remote package).
+// Remote (tela dev), protocol 5 (ADR-214), 6 with contract v4 (ADR-225):
+// everything is forwarded to the host's backend, which owns the real
+// windows: drags in both directions (the answer to a drag reaches the OS
+// one round trip late, so a drag entering a window is refused until the
+// child answered), menus and the app menu bar (a reload's set at its
+// promotion), quit requests (to the active child), the clipboard's Data,
+// global shortcuts and single instance held by the host across reloads,
+// the app ID (the host's backend takes the child app's), secrets,
+// associations and the trash (see the remote package).
 //
 // Headless: the clipboard holds Data; drags are driven by injected pointer
-// events after Window.StartDrag or Backend.StartExternalDrag; menus,
-// shortcuts, secrets, instances (a registry shared by the process's
-// headless backends), associations (assoc.Fake) and the trash (recorded,
-// and moved into a directory the test gives) are deterministic fakes with
-// responders, injection and inspection (see the headless package).
+// events after Window.StartDrag or Backend.StartExternalDrag; menus, the
+// app menu bar, quit requests, title bar overlays (a controls' rectangle
+// the test sets), shortcuts, secrets, instances (a registry shared by the
+// process's headless backends), associations (assoc.Fake) and the trash
+// (recorded, and moved into a directory the test gives) are deterministic
+// fakes with responders, injection and inspection (see the headless
+// package).
 package platform
