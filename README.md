@@ -27,7 +27,7 @@ text tree you can read. That last part is on purpose: Tela is designed so both
 people and LLM agents can build good-looking interfaces without trial and
 error.
 
-> **Status: pre-1.0 (v0.13.2).** Phases 1–14 are done and tagged: Linux
+> **Status: pre-1.0 (v0.13.3).** Phases 1–15 are done and tagged: Linux
 > (Wayland, X11), Windows and macOS windows, text inputs and IME, CSS grid,
 > transitions and animations, glass effects, theme tokens, i18n, SVG icons,
 > `aria` behavior hooks, `tela dev` (a reload that keeps your state) and
@@ -385,8 +385,8 @@ are done (ADR-208 sets how versions are numbered).
 | 12 | Desktop essentials: window control, multiple windows, native dialogs, tray and notifications, app data | ✅ v0.12.0 |
 | 13 | Desktop integration: drag and drop with the OS, native menus, global shortcuts, deep links, secure storage | ✅ v0.13.1 |
 | 14 | The macOS backend: Cocoa windows, input, IME, clipboard, settings, `tela dev`, `looks/aqua` | ✅ v0.13.2 |
-| — | macOS desktop integration | next |
-| — | Linux and Windows parity (IME on X11), font system, accessibility, API and kit gaps, layout and text fidelity, memory, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
+| 15 | macOS desktop integration: window control, the traffic lights over your title bar, one app menu bar, Cmd+Q, dialogs, tray, drag and drop, shortcuts, deep links, Keychain, `tela build`/`tela run` | ✅ v0.13.3 |
+| — | Platform parity (IME on X11), font system, accessibility, API and kit gaps, layout and text fidelity, memory, CPU performance, GPU backend, packaging and auto-update, DevTools, dev loop and testing, canvas, SVG and PDF, audio and video | planned |
 
 ### What works today
 
@@ -396,7 +396,7 @@ are done (ADR-208 sets how versions are numbered).
 | Pointer, scroll, keyboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | ✅ (CI) |
 | Text fields, clipboard | ✅ | ✅ | ✅ (`telatest`) | ✅ | ✅ (CI) |
 | IME (Japanese, Chinese, …) | ✅ (`text-input-v3`) | — (planned, XIM) | ✅ (injected) | ✅ (IMM32) | ✅ (`NSTextInputClient`, CI) |
-| Window control, dialogs, tray, menus, drag and drop | ✅ | ✅ | ✅ (fakes) | ✅ | — (the macOS desktop integration phase) |
+| Window control, dialogs, tray, menus, drag and drop | ✅ | ✅ | ✅ (fakes) | ✅ | ✅ (CI; notifications, links and file types from a `tela run` bundle) |
 
 macOS is verified on `macos-latest` CI (every example's window matches its
 headless render pixel for pixel); a session on a real Mac (Retina, trackpad,
@@ -417,9 +417,9 @@ overlays; the `tela` CLI (`snapshot`, `inspect`, `dev`, `icons gen`).
 
 ### Not yet, or known limits
 
-- **macOS** has windows, input, IME and the clipboard, but no window control,
-  dialogs, tray, notifications, native menus or drag and drop yet (the next
-  phase), and it has not been tried on a real Mac. No IME on X11 yet (XIM,
+- **macOS** has not been tried on a real Mac yet (only `macos-latest` CI), and
+  notifications, links and file types need the app to run from a bundle
+  (`tela run`, or a `.app` from `tela build`). No IME on X11 yet (XIM,
   planned).
 - **Glass pages at 2x are not 60 fps** on CPU (the dashboard example's p95 is
   40 ms per frame at 1080p and scale 2, 17.8 ms at scale 1).

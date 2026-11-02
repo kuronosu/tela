@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-11-02
+
+Phase 15, the macOS desktop integration (ADR-224 to ADR-228): window control, the traffic lights over an app's own title bar (`TitleBarOverlay`), vibrancy backdrops, the desktop services, one app menu bar with the standard macOS menus and Cmd+Q (`desktop.AppMenuBar`, `tela.App.OnQuit`), drag and drop, global shortcuts, single instance, deep links and file types through Launch Services, the Keychain and the Trash, and `tela build`/`tela run` for a development `.app`. Verified on `macos-latest` CI, where `examples/notes` registers itself and a `tela-notes:` link reaches the running instance; a session on a real Mac is still to come.
+
 ### Added
 
 - `tela.App.OnQuit` (ADR-224, ADR-225) runs when the user or the OS asks the app to quit: on macOS Cmd+Q, the app menu's Quit, the Dock's Quit or a logout. Without it every window gets a close request, as before, so an app whose main window has no `OnClose` quits; a close-to-tray app (its `OnClose` hides the window) sets `OnQuit: tela.Quit`, or its own "ask about unsaved changes, then quit".
@@ -876,7 +880,8 @@ Phase 1: pixels on screen.
   backends.
 - `examples/shapes` and `tela snapshot`.
 
-[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/kuronosu/tela/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/kuronosu/tela/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/kuronosu/tela/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/kuronosu/tela/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/kuronosu/tela/compare/v0.12.6...v0.13.0
