@@ -1,0 +1,441 @@
+package main
+
+import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"image"
+	"image/color"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+)
+
+// The OS-independent half of TestExamplesCocoa (examples_cocoa_e2e_test.go):
+// finding the examples and the window size each one declares, and comparing
+// a window's pixels with the headless reference. TestExamplesCompare checks
+// it on every OS.
+
+// exampleDirs returns the names of the directories under root that hold a
+// package main: the examples.
+func exampleDirs(root string) ([]string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		files, _ := filepath.Glob(filepath.Join(root, e.Name(), "*.go"))
+		for _, f := range files {
+			if strings.HasSuffix(f, "_test.go") {
+				continue
+			}
+			pf, err := parser.ParseFile(token.NewFileSet(), f, nil, parser.PackageClauseOnly)
+			if err == nil && pf.Name.Name == "main" {
+				names = append(names, e.Name())
+				break
+			}
+		}
+	}
+	slices.Sort(names)
+	return names, nil
+}
+
+// declaredSizes returns the distinct "WxH" of the tela.App composite
+// literals in the package's non-test files that set both Width and Height
+// to constants: the window size main asks for (from `var App` or the
+// literal main passes to tela.Main).
+func declaredSizes(dir string, files []string) ([]string, error) {
+	var sizes []string
+	fset := token.NewFileSet()
+	for _, name := range files {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.SkipObjectResolution)
+		if err != nil {
+			return nil, err
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			lit, ok := n.(*ast.CompositeLit)
+			if !ok || !isTelaApp(lit.Type) {
+				return true
+			}
+			var w, h string
+			for _, e := range lit.Elts {
+				kv, ok := e.(*ast.KeyValueExpr)
+				if !ok {
+					continue
+				}
+				key, ok := kv.Key.(*ast.Ident)
+				val, isLit := kv.Value.(*ast.BasicLit)
+				if !ok || !isLit {
+					continue
+				}
+				switch key.Name {
+				case "Width":
+					w = val.Value
+				case "Height":
+					h = val.Value
+				}
+			}
+			if w != "" && h != "" {
+				if s := w + "x" + h; !slices.Contains(sizes, s) {
+					sizes = append(sizes, s)
+				}
+			}
+			return true
+		})
+	}
+	return sizes, nil
+}
+
+// isTelaApp reports whether a composite literal's type is tela.App (any
+// import name).
+func isTelaApp(e ast.Expr) bool {
+	sel, ok := e.(*ast.SelectorExpr)
+	return ok && sel.Sel.Name == "App"
+}
+
+// Where a differing pixel lies: the window server rounds the window's
+// corners and may draw a rim on its edges, so the comparison counts the
+// differing pixels by place.
+const (
+	cornerBand = 32 // physical pixels from two edges
+	edgeBand   = 2  // physical pixels from an edge
+)
+
+// pixelDiff is the comparison of a window read back with the reference.
+type pixelDiff struct {
+	size      image.Point // of the reference
+	sizeErr   string      // the sizes differ: nothing else is set
+	total     int
+	identical int
+	differing int // not masked
+	maxDiff   int // the largest channel difference of a differing pixel
+	// hist counts the differing pixels by their largest channel
+	// difference: 1, 2-4, 5-16, 17-64, 65-255.
+	hist                   [5]int
+	corner, edge, interior int // differing pixels by place
+	masked                 []maskStat
+	regions                []diffRegion // sorted by size, largest first
+}
+
+// maskStat is what one mask reason excluded.
+type maskStat struct {
+	reason    string
+	n         int
+	differing int // of the n, the pixels that differ from the reference
+	box       image.Rectangle
+	outside   int // pixels outside the corner bands (for the window shape)
+}
+
+// diffRegion is a connected group of differing pixels (8-connected at
+// regionCell granularity).
+type diffRegion struct {
+	box       image.Rectangle
+	n         int
+	maxDiff   int
+	at        image.Point // the pixel with maxDiff
+	got, want color.RGBA
+}
+
+const regionCell = 8
+
+func (d pixelDiff) ok() bool { return d.sizeErr == "" && d.differing == 0 }
+
+// summary is one line: the counts and the largest difference.
+func (d pixelDiff) summary() string {
+	if d.sizeErr != "" {
+		return d.sizeErr
+	}
+	s := fmt.Sprintf("%dx%d: %d of %d pixels identical, %d differing", d.size.X, d.size.Y, d.identical, d.total, d.differing)
+	if d.differing > 0 {
+		s += fmt.Sprintf(" (max channel difference %d; by difference 1:%d 2-4:%d 5-16:%d 17-64:%d 65+:%d; corners %d, edges %d, interior %d; %d region(s))",
+			d.maxDiff, d.hist[0], d.hist[1], d.hist[2], d.hist[3], d.hist[4], d.corner, d.edge, d.interior, len(d.regions))
+	}
+	for _, m := range d.masked {
+		s += fmt.Sprintf("; masked %s: %d pixels in %v, %d of them differing", m.reason, m.n, m.box, m.differing)
+		if m.outside > 0 {
+			s += fmt.Sprintf(", %d outside the corners", m.outside)
+		}
+	}
+	return s
+}
+
+// details lists the largest regions, at most n.
+func (d pixelDiff) details(n int) []string {
+	var lines []string
+	for i, r := range d.regions {
+		if i == n {
+			lines = append(lines, fmt.Sprintf("... and %d more region(s)", len(d.regions)-n))
+			break
+		}
+		lines = append(lines, fmt.Sprintf("region %d: %v (%dx%d), %d pixels, max channel difference %d at (%d,%d): window %s, reference %s",
+			i+1, r.box, r.box.Dx(), r.box.Dy(), r.n, r.maxDiff, r.at.X, r.at.Y, hexRGBA(r.got), hexRGBA(r.want)))
+	}
+	return lines
+}
+
+func hexRGBA(c color.RGBA) string { return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, c.A) }
+
+// channelDiff is the largest difference of the four channels.
+func channelDiff(a, b color.RGBA) int {
+	d := 0
+	for _, v := range [][2]uint8{{a.R, b.R}, {a.G, b.G}, {a.B, b.B}, {a.A, b.A}} {
+		x := int(v[0]) - int(v[1])
+		d = max(d, x, -x)
+	}
+	return d
+}
+
+// inCorner reports whether p is within cornerBand of two edges of size.
+func inCorner(p, size image.Point) bool {
+	return (p.X < cornerBand || p.X >= size.X-cornerBand) && (p.Y < cornerBand || p.Y >= size.Y-cornerBand)
+}
+
+// comparePixels compares got (a window read back) with want (the
+// reference). mask returns why a pixel is not compared ("" to compare it);
+// it may be nil.
+func comparePixels(got, want *image.RGBA, mask func(x, y int, got color.RGBA) string) pixelDiff {
+	size := want.Rect.Size()
+	d := pixelDiff{size: size}
+	if got.Rect.Size() != size {
+		d.sizeErr = fmt.Sprintf("the window read back is %dx%d pixels, the reference %dx%d", got.Rect.Dx(), got.Rect.Dy(), size.X, size.Y)
+		return d
+	}
+	type cell struct {
+		n, maxDiff int
+		box        image.Rectangle
+		at         image.Point
+		got, want  color.RGBA
+	}
+	cw, ch := (size.X+regionCell-1)/regionCell, (size.Y+regionCell-1)/regionCell
+	cells := make([]cell, cw*ch)
+	masks := map[string]*maskStat{}
+	for y := range size.Y {
+		for x := range size.X {
+			g := got.RGBAAt(got.Rect.Min.X+x, got.Rect.Min.Y+y)
+			w := want.RGBAAt(want.Rect.Min.X+x, want.Rect.Min.Y+y)
+			diff := channelDiff(g, w)
+			d.total++
+			p := image.Pt(x, y)
+			if mask != nil {
+				if reason := mask(x, y, g); reason != "" {
+					m := masks[reason]
+					if m == nil {
+						m = &maskStat{reason: reason}
+						masks[reason] = m
+					}
+					m.n++
+					m.box = m.box.Union(image.Rectangle{p, p.Add(image.Pt(1, 1))})
+					if diff > 0 {
+						m.differing++
+					}
+					if !inCorner(p, size) {
+						m.outside++
+					}
+					continue
+				}
+			}
+			if diff == 0 {
+				d.identical++
+				continue
+			}
+			d.differing++
+			d.maxDiff = max(d.maxDiff, diff)
+			switch {
+			case diff == 1:
+				d.hist[0]++
+			case diff <= 4:
+				d.hist[1]++
+			case diff <= 16:
+				d.hist[2]++
+			case diff <= 64:
+				d.hist[3]++
+			default:
+				d.hist[4]++
+			}
+			switch {
+			case inCorner(p, size):
+				d.corner++
+			case x < edgeBand || y < edgeBand || x >= size.X-edgeBand || y >= size.Y-edgeBand:
+				d.edge++
+			default:
+				d.interior++
+			}
+			c := &cells[(y/regionCell)*cw+x/regionCell]
+			c.n++
+			c.box = c.box.Union(image.Rectangle{p, p.Add(image.Pt(1, 1))})
+			if diff > c.maxDiff {
+				c.maxDiff, c.at, c.got, c.want = diff, p, g, w
+			}
+		}
+	}
+	for _, m := range masks {
+		d.masked = append(d.masked, *m)
+	}
+	slices.SortFunc(d.masked, func(a, b maskStat) int { return strings.Compare(a.reason, b.reason) })
+
+	// Regions: the 8-connected components of the cells with differences.
+	seen := make([]bool, len(cells))
+	for i := range cells {
+		if cells[i].n == 0 || seen[i] {
+			continue
+		}
+		var r diffRegion
+		stack := []int{i}
+		seen[i] = true
+		for len(stack) > 0 {
+			j := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			c := cells[j]
+			r.n += c.n
+			r.box = r.box.Union(c.box)
+			if c.maxDiff > r.maxDiff {
+				r.maxDiff, r.at, r.got, r.want = c.maxDiff, c.at, c.got, c.want
+			}
+			cx, cy := j%cw, j/cw
+			for dy := -1; dy <= 1; dy++ {
+				for dx := -1; dx <= 1; dx++ {
+					nx, ny := cx+dx, cy+dy
+					if nx < 0 || ny < 0 || nx >= cw || ny >= ch {
+						continue
+					}
+					k := ny*cw + nx
+					if cells[k].n > 0 && !seen[k] {
+						seen[k] = true
+						stack = append(stack, k)
+					}
+				}
+			}
+		}
+		d.regions = append(d.regions, r)
+	}
+	slices.SortStableFunc(d.regions, func(a, b diffRegion) int { return b.n - a.n })
+	return d
+}
+
+// diffPanels returns the reference, the window and a map of the
+// differences side by side (a 4-pixel gap between them): in the map the
+// reference is dimmed, differing pixels are red (brighter for larger
+// differences) and masked pixels blue.
+func diffPanels(got, want *image.RGBA, mask func(x, y int, got color.RGBA) string) *image.RGBA {
+	const gap = 4
+	size := want.Rect.Size()
+	gs := got.Rect.Size()
+	h := max(size.Y, gs.Y)
+	out := image.NewRGBA(image.Rect(0, 0, size.X+gap+gs.X+gap+size.X, h))
+	for i := range out.Pix {
+		out.Pix[i] = 0x80 // the gaps and any size mismatch: mid gray
+	}
+	for y := range h {
+		for x := range max(size.X, gs.X) {
+			var w, g color.RGBA
+			inW := x < size.X && y < size.Y
+			inG := x < gs.X && y < gs.Y
+			if inW {
+				w = want.RGBAAt(want.Rect.Min.X+x, want.Rect.Min.Y+y)
+				out.SetRGBA(x, y, w)
+			}
+			if inG {
+				g = got.RGBAAt(got.Rect.Min.X+x, got.Rect.Min.Y+y)
+				out.SetRGBA(size.X+gap+x, y, g)
+			}
+			if !inW {
+				continue
+			}
+			mx := size.X + gap + gs.X + gap + x
+			lum := uint8((int(w.R)*3 + int(w.G)*6 + int(w.B)) / 10 / 3)
+			c := color.RGBA{lum, lum, lum, 0xff}
+			switch {
+			case !inG:
+			case mask != nil && mask(x, y, g) != "":
+				c = color.RGBA{0x20, 0x40, 0xff, 0xff}
+			default:
+				if diff := channelDiff(g, w); diff > 0 {
+					c = color.RGBA{uint8(min(255, 128+diff*2)), 0, 0, 0xff}
+				}
+			}
+			out.SetRGBA(mx, y, c)
+		}
+	}
+	return out
+}
+
+// TestExamplesCompare checks the helpers of TestExamplesCocoa: the examples
+// and their declared sizes, and the pixel comparison.
+func TestExamplesCompare(t *testing.T) {
+	root := filepath.Join(repoRoot(t), "examples")
+	names, err := exampleDirs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"counter", "hello", "kit", "notes"} {
+		if !slices.Contains(names, want) {
+			t.Errorf("exampleDirs found %v, without %s", names, want)
+		}
+	}
+	for name, want := range map[string]string{"counter": "800x600", "hello": "800x450", "kit": "1280x800", "notes": "960x640"} {
+		dir := filepath.Join(root, name)
+		files, _ := filepath.Glob(filepath.Join(dir, "*.go"))
+		for i, f := range files {
+			files[i] = filepath.Base(f)
+		}
+		sizes, err := declaredSizes(dir, files)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(sizes) != 1 || sizes[0] != want {
+			t.Errorf("%s declares %v, want [%s]", name, sizes, want)
+		}
+	}
+
+	// A 100x60 reference; the window differs in a 3x2 patch by 20 levels,
+	// in one pixel by 1 level, and its top-left corner pixel is transparent.
+	want := image.NewRGBA(image.Rect(0, 0, 100, 60))
+	for i := range want.Pix {
+		want.Pix[i] = 0xff
+	}
+	got := image.NewRGBA(image.Rect(10, 10, 110, 70)) // bounds need not start at 0
+	copy(got.Pix, want.Pix)
+	for y := 40; y < 42; y++ {
+		for x := 50; x < 53; x++ {
+			got.SetRGBA(10+x, 10+y, color.RGBA{235, 255, 255, 255})
+		}
+	}
+	got.SetRGBA(10+40, 10+30, color.RGBA{255, 254, 255, 255})
+	got.SetRGBA(10, 10, color.RGBA{})
+	shape := func(_, _ int, c color.RGBA) string {
+		if c.A != 0xff {
+			return "window shape"
+		}
+		return ""
+	}
+	d := comparePixels(got, want, shape)
+	if d.ok() || d.differing != 7 || d.maxDiff != 20 || d.hist != [5]int{1, 0, 0, 6, 0} || d.interior != 7 {
+		t.Errorf("comparison: %s", d.summary())
+	}
+	if len(d.regions) != 2 || d.regions[0].box != image.Rect(50, 40, 53, 42) || d.regions[0].n != 6 || d.regions[0].at != image.Pt(50, 40) {
+		t.Errorf("regions: %v", d.details(5))
+	}
+	if len(d.masked) != 1 || d.masked[0].n != 1 || d.masked[0].differing != 1 || d.masked[0].outside != 0 {
+		t.Errorf("masked: %+v", d.masked)
+	}
+	t.Logf("%s; %s", d.summary(), strings.Join(d.details(5), "; "))
+	if p := diffPanels(got, want, shape); p.Rect.Size() != image.Pt(308, 60) || p.RGBAAt(208+51, 41).R < 128 || p.RGBAAt(208, 0) != (color.RGBA{0x20, 0x40, 0xff, 0xff}) {
+		t.Errorf("diffPanels: %v, diff pixel %v, masked pixel %v", p.Rect, p.RGBAAt(208+51, 41), p.RGBAAt(208, 0))
+	}
+	if d := comparePixels(want, want, nil); !d.ok() || d.identical != 6000 {
+		t.Errorf("identical images: %s", d.summary())
+	}
+	if d := comparePixels(image.NewRGBA(image.Rect(0, 0, 99, 60)), want, nil); d.ok() || d.sizeErr == "" {
+		t.Errorf("sizes 99x60 and 100x60: %s", d.summary())
+	}
+}
