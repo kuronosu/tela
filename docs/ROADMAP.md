@@ -90,6 +90,7 @@ Strictly after the two macOS phases: the bridges for AT-SPI, UI Automation and N
 
 What building the examples showed missing in `tela`, `h`, `aria`, `kit` and `desktop`.
 
+- [ ] aria: on a Mac a Control+click on a listbox option opens the context menu and does not select it (ADR-221: Tela's collections select on click, React Aria's at press); decide whether the press should select first
 - [ ] Menus and triggers: submenus; `Disabled` on Tooltip, menu and Select triggers; Toggle, Slider and Checkbox as `Trigger`s (so they can have tooltips), and more than one overlay per trigger; `aria.UseContextMenuTrigger` exposes an opening number to key a menu per opening (proposed `ContextMenuTriggerResult.Opening`; kit counts openings itself); a context menu opened from the keyboard knows the focused element's bounds (it opens at the area's corner); decide whether `kit.ContextMenu` areas are focusable by default (Radix's model says no; the demo shows `TabIndex(0)`)
 - [ ] New kit pieces: `kit.Alert`, Badge tone and dot, a loading state on `kit.Button`, a leading icon on `kit.Input`, a caption on `kit.Separator`, Avatar group and color, `animation-delay` utilities
 - [ ] `kit.Field`: a slot by the description, rich labels, a slot beside the label, and a group inside a `Field` (not a `FieldSet`) named by its label
@@ -217,6 +218,7 @@ Checks that need hardware or a desktop the project does not have at hand. They n
 This session gates v1.0's "macOS supported". Items a phase adds after the session wait for a later one.
 
 - [ ] Every example at Retina scale; trackpad scrolling, momentum and gestures; Cmd shortcuts and word movement
+- [ ] A Control-click on a one-button trackpad opens a kit context menu
 - [ ] Keyboard: the ISO swap of kVK_ISO_Section and the grave key, `charactersIgnoringModifiers` with Cmd+Shift, dead keys without the IME, the Caps Lock `flagsChanged:` pattern, the Globe/Fn key's keycode on new keyboards
 - [ ] Japanese through the macOS IME, and dead keys with real key presses (CI's synthetic events start a dead-key composition but do not finish it)
 - [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
