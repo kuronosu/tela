@@ -10,25 +10,28 @@
 ## Current status
 
 - **Done:** phases 1–14. Latest version `v0.13.2` (2026-11-02, phase 14: the macOS backend; tagged on `0b9079d` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
-- **Phase in progress:** none. Phase 14 was merged into `main` from `phase-14-macos`.
+- **Phase in progress:** 15, macOS desktop integration, on the work branch `phase-15-macos-desktop` (pushed by the main session for `macos-latest` CI, ADR-220). Design: ADR-224.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the `v0.13.1` docs. A release commit publishes its own docs before its tag (ADR-208).
-- **Next step:** the macOS desktop integration (phase 15 when it starts), on a work branch with `macos-latest` CI like phase 14. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** phase 15's tasks below. R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
 
 In order. Each phase ends with verifiable criteria and is not done unless they pass with `CGO_ENABLED=0`. Before starting a task, read the matching row in ARCHITECTURE §20 (references). What needs hardware or a desktop the project does not have goes to [Live checks](#live-checks-not-blocking) and does not block the phase. Phases 1–14 are done (HISTORY.md).
 
-### macOS desktop integration
+### Phase 15: macOS desktop integration
 
-Phases 12 and 13 on macOS. Verified on `macos-latest` CI; the rest goes to the macOS live checks.
+Phases 12 and 13 on macOS. Started 2026-11-02 on the work branch `phase-15-macos-desktop`; the owner's design is ADR-224. Verified on `macos-latest` CI; the rest goes to the macOS live checks.
 
-- [ ] A minimal `.app` bundle for development builds (Info.plist with the app's ID): notifications, links, file types and single instance need one; packaging reuses it
-- [ ] Window control: minimize, zoom, fullscreen, always-on-top, position, min/max size, child and modal windows, a custom title bar with the system's window buttons, a vibrancy backdrop
-- [ ] Services: open URI and path, file dialogs, message boxes, notifications, tray (`NSStatusItem`)
-- [ ] Native menus: the app's menu bar (one per app, not per window; needs an ADR) and context menus
+- [x] First: the design ADR (ADR-224: `tela build`/`tela run`, `TitleBarOverlay`, one `desktop.AppMenuBar`, `App.OnQuit`, windows not sheets)
+- [ ] Contract and public API: a quit request event and `tela.App.OnQuit`; `TitleBarOverlay` and the system buttons' rectangle in the window state, read by `kit.TitleBar`; the app menu bar with roles (`desktop.AppMenuBar`, `kit.Menubar` as the app's bar); headless fakes, telatest helpers, remote protocol
+- [ ] `tela build` and `tela run`: a development `.app` (Info.plist with the app's ID); packaging reuses it
+- [ ] Window control: minimize, zoom, fullscreen, always-on-top, position, min/max size, child and modal windows, hit regions of a frameless window, `TitleBarOverlay` with the traffic lights, a vibrancy backdrop
+- [ ] Services: open URI and path, file dialogs, message boxes (sheets with a parent), notifications (in a bundle), tray (`NSStatusItem`)
+- [ ] Native menus: the app's menu bar with the app, Edit and Window menus, the quit request, and context menus
 - [ ] Drag and drop, pasteboard formats
-- [ ] Global shortcuts, single instance, deep links and file types (Info.plist and Launch Services, through `assoc`), Keychain, Trash
+- [ ] Global shortcuts (Carbon hot keys), single instance and Launch Services' launches, deep links and file types (Info.plist and Launch Services, through `assoc`), Keychain, Trash
+- [ ] `examples/notes` on macOS: `TitleBarOverlay`, an app menu bar, `OnQuit`
 
 **Done when:** `examples/notes` meets the phase-12 and phase-13 criteria on `macos-latest` where CI can drive them; the rest is in the macOS live checks.
 
