@@ -449,7 +449,8 @@ func TestPresentReadBack(t *testing.T) {
 				attempts++
 				pool := darwin.PoolPush()
 				capture := captureWindow(w)
-				final, exact := capture, false
+				final = capture
+				exact := false
 				if capture.pix == nil {
 					// Refused or blank (screen recording permission):
 					// read the layer instead, which has no color
