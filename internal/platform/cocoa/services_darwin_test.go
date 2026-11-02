@@ -66,6 +66,10 @@ var testSel = struct {
 	postEventAtStart:     darwin.Sel("postEvent:atStart:"),
 }
 
+// eventWindow is the window of the event desktopRun's step is called
+// with (nil for an app-scoped event); step's w is always the test's window.
+var eventWindow platform.Window
+
 // desktopRun runs b with one window. start is called on the UI thread
 // once the window presented its first frame; step for every event after
 // that, until it returns true or the run is past its deadline. Every
@@ -115,6 +119,7 @@ func desktopRun(t *testing.T, b *Backend, deadline time.Duration, start func(w *
 				presented[win] = true
 				presentSolid(t, win, color.RGBA{0x30, 0x40, 0x60, 0xff})
 			}
+			eventWindow = win
 			switch {
 			case finished:
 			case !started:
