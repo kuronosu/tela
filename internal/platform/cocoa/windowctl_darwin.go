@@ -4,58 +4,743 @@ package cocoa
 
 import (
 	"image"
+	"time"
 
+	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
 )
 
-// The window control, styling and integration requests below are validated
-// like on every backend and otherwise do nothing in the base backend: they
-// are the macOS desktop integration phase (window control, menus, drag and
-// drop). Requests are allowed to be
-// refused by the platform contract, and no WindowStateEvent is sent, so
-// State stays the zero WindowState.
+// Window control (phase 15, ADR-224): AppKit's requests and the state its
+// window delegate reports, frameless windows, custom title bars, child and
+// modal windows, and the vibrancy backdrop. See "Window control" in the
+// package documentation; the pure rules are in windowctl.go.
+//
+// Quirks handled, mostly as winit (window_delegate.rs) and Electron
+// (native_window_mac.mm) do:
+//
+//   - zoom: toggles, so SetMaximized sends it only when isZoomed differs,
+//     once per request (a zoom that AppKit ignored must not be sent again
+//     and toggle back). A non-resizable (FixedSize) window does not zoom:
+//     AppKit disables its zoom button and isZoomed is meaningless there.
+//   - toggleFullScreen: also toggles, and starts an animated transition
+//     between windowWill… and windowDid…EnterFullScreen: (or the Fail
+//     notifications). A request made during one waits for its end; one
+//     that AppKit refuses (no transition starts within a second) is given
+//     up. AppKit refuses full screen for non-resizable windows, so a
+//     FixedSize window is made resizable for its stay there (winit).
+//   - Full-screen transitions resize the window: the state stays the
+//     pre-full-screen zoom and position until the window is back.
+//   - addChildWindow:ordered: orders the child in and resets the parent's
+//     level, so children are attached only while shown and the parent's
+//     level is restored (Electron's AttachChildren).
+//   - A frameless window is a titled window with a full-size content view,
+//     a transparent title bar, no title and its standard buttons hidden
+//     (Electron's frameless windows): AppKit then gives it the system's
+//     shadow, rounded corners and native resizing from its edges, lets it
+//     become key and main, and sends presses in the title bar strip to the
+//     content view, which never moves the window by itself
+//     (mouseDownCanMoveWindow). Its size is the frame's: AppKit's
+//     content-rectangle conversions keep a title bar there.
 
-// Minimize does nothing yet (macOS desktop integration).
-func (w *Window) Minimize() {}
+// wsel holds the selectors of window control.
+var wsel = struct {
+	miniaturize, deminiaturize, isMiniaturized, zoom, isZoomed, toggleFullScreen    darwin.SEL
+	styleMask, setStyleMask, setCollectionBehavior, setLevel, level, frame          darwin.SEL
+	setFrameDisplay, setFrameTopLeftPoint, setFrameOrigin, convertRectToView        darwin.SEL
+	convertRectToScreen, addChildWindow, removeChildWindow, parentWindow            darwin.SEL
+	standardWindowButton, setHidden, setEnabled, setTitlebarTransparent             darwin.SEL
+	setTitleVisibility, setTitlebarSeparator, setOpaque, setBackgroundColor         darwin.SEL
+	clearColor, windowBackgroundColor, invalidateShadow, makeKeyWindow, isKeyWindow darwin.SEL
+	unhide, activate, respondsTo, setMinSize, setMaxSize, setAutoresizingMask       darwin.SEL
+	addSubviewPositioned, addSubview, removeFromSuperview, setMaterial, setBlending darwin.SEL
+	setState, performWindowDrag, standardUserDefaults, stringForKey, boolForKey     darwin.SEL
+	screens, objectAtIndex, count, mainScreen, orderFront                           darwin.SEL
+}{
+	miniaturize:            darwin.Sel("miniaturize:"),
+	deminiaturize:          darwin.Sel("deminiaturize:"),
+	isMiniaturized:         darwin.Sel("isMiniaturized"),
+	zoom:                   darwin.Sel("zoom:"),
+	isZoomed:               darwin.Sel("isZoomed"),
+	toggleFullScreen:       darwin.Sel("toggleFullScreen:"),
+	styleMask:              darwin.Sel("styleMask"),
+	setStyleMask:           darwin.Sel("setStyleMask:"),
+	setCollectionBehavior:  darwin.Sel("setCollectionBehavior:"),
+	setLevel:               darwin.Sel("setLevel:"),
+	level:                  darwin.Sel("level"),
+	frame:                  darwin.Sel("frame"),
+	setFrameDisplay:        darwin.Sel("setFrame:display:"),
+	setFrameTopLeftPoint:   darwin.Sel("setFrameTopLeftPoint:"),
+	setFrameOrigin:         darwin.Sel("setFrameOrigin:"),
+	convertRectToView:      darwin.Sel("convertRect:toView:"),
+	convertRectToScreen:    darwin.Sel("convertRectToScreen:"),
+	addChildWindow:         darwin.Sel("addChildWindow:ordered:"),
+	removeChildWindow:      darwin.Sel("removeChildWindow:"),
+	parentWindow:           darwin.Sel("parentWindow"),
+	standardWindowButton:   darwin.Sel("standardWindowButton:"),
+	setHidden:              darwin.Sel("setHidden:"),
+	setEnabled:             darwin.Sel("setEnabled:"),
+	setTitlebarTransparent: darwin.Sel("setTitlebarAppearsTransparent:"),
+	setTitleVisibility:     darwin.Sel("setTitleVisibility:"),
+	setTitlebarSeparator:   darwin.Sel("setTitlebarSeparatorStyle:"),
+	setOpaque:              darwin.Sel("setOpaque:"),
+	setBackgroundColor:     darwin.Sel("setBackgroundColor:"),
+	clearColor:             darwin.Sel("clearColor"),
+	windowBackgroundColor:  darwin.Sel("windowBackgroundColor"),
+	invalidateShadow:       darwin.Sel("invalidateShadow"),
+	makeKeyWindow:          darwin.Sel("makeKeyWindow"),
+	isKeyWindow:            darwin.Sel("isKeyWindow"),
+	unhide:                 darwin.Sel("unhide:"),
+	activate:               darwin.Sel("activate"),
+	respondsTo:             darwin.Sel("respondsToSelector:"),
+	setMinSize:             darwin.Sel("setMinSize:"),
+	setMaxSize:             darwin.Sel("setMaxSize:"),
+	setAutoresizingMask:    darwin.Sel("setAutoresizingMask:"),
+	addSubviewPositioned:   darwin.Sel("addSubview:positioned:relativeTo:"),
+	addSubview:             darwin.Sel("addSubview:"),
+	removeFromSuperview:    darwin.Sel("removeFromSuperview"),
+	setMaterial:            darwin.Sel("setMaterial:"),
+	setBlending:            darwin.Sel("setBlendingMode:"),
+	setState:               darwin.Sel("setState:"),
+	performWindowDrag:      darwin.Sel("performWindowDragWithEvent:"),
+	standardUserDefaults:   darwin.Sel("standardUserDefaults"),
+	stringForKey:           darwin.Sel("stringForKey:"),
+	boolForKey:             darwin.Sel("boolForKey:"),
+	screens:                darwin.Sel("screens"),
+	objectAtIndex:          darwin.Sel("objectAtIndex:"),
+	count:                  darwin.Sel("count"),
+	mainScreen:             darwin.Sel("mainScreen"),
+	orderFront:             darwin.Sel("orderFront:"),
+}
 
-// SetMaximized does nothing yet (macOS desktop integration: zoom).
-func (w *Window) SetMaximized(bool) {}
+// fsStartTimeout is how long a toggleFullScreen: may go without its
+// windowWill…FullScreen: notification before the request is given up
+// (AppKit refused it: a child window, a window on no screen).
+const fsStartTimeout = time.Second
 
-// SetFullscreen does nothing yet (macOS desktop integration).
-func (w *Window) SetFullscreen(bool) {}
+// windowCtl is the window control state of a Window.
+type windowCtl struct {
+	container darwin.ID // the content view: holds the effect view and TelaView (the window owns it)
 
-// SetAlwaysOnTop does nothing yet (macOS desktop integration).
-func (w *Window) SetAlwaysOnTop(bool) {}
+	zoomed     bool        // isZoomed, as last read outside full screen
+	pos        image.Point // the position, as last read outside full screen
+	fullscreen bool        // between windowDidEnterFullScreen: and windowDidExitFullScreen:
 
-// SetPosition does nothing yet (macOS desktop integration); new windows
-// are centered.
-func (w *Window) SetPosition(image.Point) {}
+	// fsWant is the full-screen state asked for (by the app, or by the
+	// user through AppKit's own controls); fsAsked is when
+	// toggleFullScreen: was sent and no transition has started yet (0:
+	// none); fsTransition is set between the Will and the Did (or Fail)
+	// notifications.
+	fsWant, fsTransition bool
+	fsAsked              time.Duration
+	tempResizable        bool // the Resizable mask was added for full screen
+	// maxWant is the zoom asked for; maxPending, that a SetMaximized
+	// waits to be applied at the end of the pass.
+	maxWant, maxPending bool
+	minimizeOnShow      bool // Minimize before the window was ever shown
 
-// Activate does nothing yet (macOS desktop integration).
-func (w *Window) Activate() {}
+	onTop    bool
+	blocked  bool // the standard buttons are disabled for a visible modal child
+	regions  []platform.HitRegion
+	caption  captionInput
+	backdrop platform.Backdrop
+	effect   darwin.ID // NSVisualEffectView behind TelaView (owned: +1), or 0
+
+	// Counters for tests.
+	fsEntered, fsExited, drags, doubleClicks int
+}
+
+// windowDrag starts the window server's move of w for the press ev (a
+// primary press in a caption region). The window server owns the rest of
+// the pointer sequence, whose release may never reach the window. Tests
+// replace it.
+var windowDrag = func(w *Window, ev darwin.ID) {
+	w.ctl.drags++
+	darwin.Send(w.ns, wsel.performWindowDrag, ev)
+}
+
+// --- creation ---
+
+// setupWindowCtl applies the window control options of a new window,
+// before its first ConfigureEvent is queued: the frameless style, full
+// screen support, the size limits, the place, the level and the backdrop.
+func (w *Window) setupWindowCtl() {
+	opts := w.opts
+	if opts.Frameless {
+		w.applyFrameless()
+		// A full-size content view is the frame: give the frame the size
+		// asked for (initWithContentRect: added a title bar to it).
+		w.resizeContent(opts.Size)
+	}
+	darwin.Send(w.ns, wsel.setCollectionBehavior, uint(darwin.NSWindowCollectionBehaviorFullScreenPrimary))
+	w.applyLimits()
+	switch {
+	case opts.HasPosition:
+		w.moveTo(opts.Position)
+	case w.parent != nil:
+		w.centerOnParent()
+	default:
+		darwin.Send(w.ns, sel.center)
+	}
+	w.ctl.onTop = opts.AlwaysOnTop
+	w.applyLevel()
+	w.ctl.backdrop = opts.Backdrop
+	w.applyBackdrop()
+	w.ctl.fsWant = opts.Fullscreen
+	w.ctl.maxWant, w.ctl.maxPending = opts.Maximized, opts.Maximized
+}
+
+// applyFrameless gives a titled window the look of a frameless one: no
+// title bar drawn, no title, no standard buttons, no separator line.
+func (w *Window) applyFrameless() {
+	darwin.Send(w.ns, wsel.setTitlebarTransparent, true)
+	darwin.Send(w.ns, wsel.setTitleVisibility, uintptr(darwin.NSWindowTitleHidden))
+	if darwin.SendBool(w.ns, wsel.respondsTo, wsel.setTitlebarSeparator) {
+		darwin.Send(w.ns, wsel.setTitlebarSeparator, uintptr(darwin.NSTitlebarSeparatorStyleNone))
+	}
+	for _, b := range [...]uintptr{darwin.NSWindowCloseButton, darwin.NSWindowMiniaturizeButton, darwin.NSWindowZoomButton} {
+		if btn := darwin.Send(w.ns, wsel.standardWindowButton, b); btn != 0 {
+			darwin.Send(btn, wsel.setHidden, true)
+		}
+	}
+}
+
+// centerOnParent places a child window without a position over the
+// center of its parent (AppKit only centers on the screen).
+func (w *Window) centerOnParent() {
+	pf := darwin.SendRect(w.parent.ns, wsel.frame)
+	f := darwin.SendRect(w.ns, wsel.frame)
+	darwin.Send(w.ns, wsel.setFrameOrigin, darwin.CGPoint{
+		X: pf.Origin.X + (pf.Size.Width-f.Size.Width)/2,
+		Y: pf.Origin.Y + (pf.Size.Height-f.Size.Height)/2,
+	})
+}
+
+// --- state ---
+
+// syncState reads the window's state from AppKit and queues it
+// (coalesced) when it changed: minimized, zoomed and the position (frozen
+// while in or entering full screen, so the state is what the window
+// returns to), full screen from the delegate's notifications, and the
+// client-side decorations of a frameless window. Callers that also queue
+// a ConfigureEvent call it first: the state goes before the size it comes
+// with.
+func (w *Window) syncState() {
+	if w.Closed() {
+		return
+	}
+	c := &w.ctl
+	w.minimized = darwin.SendBool(w.ns, wsel.isMiniaturized)
+	if !c.fullscreen && !c.fsTransition && c.fsAsked == 0 && !w.minimized {
+		c.zoomed = !w.opts.FixedSize && darwin.SendBool(w.ns, wsel.isZoomed)
+		if !c.maxPending {
+			c.maxWant = c.zoomed
+		}
+		c.pos = w.position()
+	}
+	w.b.loop.UpdateState(w, platform.WindowState{
+		Maximized:             c.zoomed,
+		Fullscreen:            c.fullscreen,
+		Minimized:             w.minimized,
+		ClientSideDecorations: w.opts.Frameless,
+		HasPosition:           true,
+		Position:              c.pos,
+	})
+	w.updateHidden()
+}
+
+// applyControl runs at the end of every delivery pass: it applies the
+// full-screen and zoom requests of the pass (so that a request undone in
+// the same pass costs nothing) and those that waited for a transition to
+// end, for the window to show or to come back from the Dock.
+func (w *Window) applyControl() {
+	if w.Closed() {
+		return
+	}
+	c := &w.ctl
+	if c.fsAsked != 0 && w.b.Now()-c.fsAsked > fsStartTimeout {
+		// AppKit refused the toggle: no transition started.
+		c.fsAsked = 0
+		c.fsWant = c.fullscreen
+		w.restoreResizable()
+	}
+	if c.fsAsked != 0 || c.fsTransition {
+		return // the end of the transition runs a pass
+	}
+	if c.fsWant != c.fullscreen {
+		if w.shown && !w.minimized {
+			w.toggleFullscreen()
+		}
+		return
+	}
+	if c.maxPending && !c.fullscreen && !w.minimized {
+		c.maxPending = false
+		if !w.opts.FixedSize && c.maxWant != darwin.SendBool(w.ns, wsel.isZoomed) {
+			darwin.Send(w.ns, wsel.zoom, darwin.ID(0))
+		}
+		w.syncState()
+	}
+}
+
+// toggleFullscreen sends toggleFullScreen:, making a non-resizable window
+// resizable first (AppKit refuses full screen otherwise).
+func (w *Window) toggleFullscreen() {
+	c := &w.ctl
+	if !c.fullscreen && darwin.SendUint(w.ns, wsel.styleMask)&darwin.NSWindowStyleMaskResizable == 0 {
+		w.setStyleMask(darwin.SendUint(w.ns, wsel.styleMask) | darwin.NSWindowStyleMaskResizable)
+		c.tempResizable = true
+	}
+	c.fsAsked = max(w.b.Now(), 1)
+	darwin.Send(w.ns, wsel.toggleFullScreen, darwin.ID(0))
+}
+
+// restoreResizable takes the Resizable mask back from a FixedSize window
+// that left full screen.
+func (w *Window) restoreResizable() {
+	if w.ctl.tempResizable {
+		w.ctl.tempResizable = false
+		w.setStyleMask(darwin.SendUint(w.ns, wsel.styleMask) &^ darwin.NSWindowStyleMaskResizable)
+	}
+}
+
+// setStyleMask changes the style mask; AppKit may rebuild the title bar,
+// so a frameless window gets its look again.
+func (w *Window) setStyleMask(mask uint64) {
+	darwin.Send(w.ns, wsel.setStyleMask, uint(mask))
+	if w.opts.Frameless {
+		w.applyFrameless()
+	}
+}
+
+// fullscreenWill handles windowWillEnterFullScreen: (entering) and
+// windowWillExitFullScreen:. A transition the backend did not ask for is
+// the user's (the green button, the Window menu, Control-Command-F): it
+// becomes the wanted state.
+func (w *Window) fullscreenWill(entering bool) {
+	c := &w.ctl
+	if c.fsAsked == 0 && !c.fsTransition {
+		c.fsWant = entering
+	}
+	c.fsAsked = 0
+	c.fsTransition = true
+}
+
+// fullscreenDid handles the end of a transition: fullscreen is the state
+// the window is in now; failed, that the transition did not happen (the
+// request is given up).
+func (w *Window) fullscreenDid(fullscreen, failed bool) {
+	c := &w.ctl
+	c.fsTransition, c.fsAsked = false, 0
+	c.fullscreen = fullscreen
+	switch {
+	case failed:
+		c.fsWant = fullscreen
+	case fullscreen:
+		c.fsEntered++
+	default:
+		c.fsExited++
+	}
+	if !fullscreen {
+		w.restoreResizable()
+	}
+	w.syncState()
+}
+
+// --- positions ---
+
+// primaryTop returns the y of the primary screen's top edge in AppKit's
+// screen coordinates (its height: its origin is 0,0).
+func primaryTop() float64 {
+	screens := darwin.SendClass(app.screen, wsel.screens)
+	if screens == 0 || darwin.SendUint(screens, wsel.count) == 0 {
+		return 0
+	}
+	f := darwin.SendRect(darwin.Send(screens, wsel.objectAtIndex, uint(0)), wsel.frame)
+	return f.Origin.Y + f.Size.Height
+}
+
+func toCocoaRect(r darwin.CGRect) cocoaRect {
+	return cocoaRect{X: r.Origin.X, Y: r.Origin.Y, W: r.Size.Width, H: r.Size.Height}
+}
+
+// contentRect returns the content area (TelaView) in screen coordinates.
+func (w *Window) contentRect() cocoaRect {
+	inWindow := darwin.SendRect(w.view, wsel.convertRectToView, darwin.SendRect(w.view, sel.bounds), darwin.ID(0))
+	return toCocoaRect(darwin.SendRect(w.ns, wsel.convertRectToScreen, inWindow))
+}
+
+// position returns the content area's top-left (windowctl.go: points, y
+// down from the primary screen's top-left).
+func (w *Window) position() image.Point { return desktopPosition(w.contentRect(), primaryTop()) }
+
+// moveTo moves the window so that the content area's top-left is at pos.
+func (w *Window) moveTo(pos image.Point) {
+	x, y := frameTopLeft(pos, toCocoaRect(darwin.SendRect(w.ns, wsel.frame)), w.contentRect(), primaryTop())
+	darwin.Send(w.ns, wsel.setFrameTopLeftPoint, darwin.CGPoint{X: x, Y: y})
+}
+
+// --- sizes ---
+
+// resizeContent asks for a content size: setContentSize: for a titled
+// window, the frame itself for a frameless one (its content view is the
+// frame), keeping the top-left corner where it is.
+func (w *Window) resizeContent(size platform.Size) {
+	if !w.opts.Frameless {
+		darwin.Send(w.ns, sel.setContentSize, cgSize(size))
+		return
+	}
+	f := darwin.SendRect(w.ns, wsel.frame)
+	top := f.Origin.Y + f.Size.Height
+	darwin.Send(w.ns, wsel.setFrameDisplay, darwin.CGRect{
+		Origin: darwin.CGPoint{X: f.Origin.X, Y: top - float64(size.H)},
+		Size:   cgSize(size),
+	}, true)
+}
+
+// applyLimits gives AppKit the size limits (windowctl.go's sizeLimits):
+// content limits for a titled window, frame limits for a frameless one
+// (AppKit prefers content limits when both are set, and its content
+// rectangle of a frameless window has a title bar).
+func (w *Window) applyLimits() {
+	lo, hi := sizeLimits(w.opts.MinSize, w.opts.MaxSize)
+	minSel, maxSel := sel.setContentMinSize, sel.setContentMaxSize
+	if w.opts.Frameless {
+		minSel, maxSel = wsel.setMinSize, wsel.setMaxSize
+	}
+	darwin.Send(w.ns, minSel, darwin.CGSize{Width: lo[0], Height: lo[1]})
+	darwin.Send(w.ns, maxSel, darwin.CGSize{Width: hi[0], Height: hi[1]})
+}
+
+// --- requests ---
+
+// Minimize miniaturizes the window into the Dock (miniaturize:); a window
+// never shown is miniaturized when it is. The state arrives from
+// windowDidMiniaturize:. A full-screen window does not minimize (AppKit
+// ignores it).
+func (w *Window) Minimize() {
+	if w.Closed() {
+		return
+	}
+	if !w.shown {
+		w.ctl.minimizeOnShow = true
+		return
+	}
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
+	darwin.Send(w.ns, wsel.miniaturize, darwin.ID(0))
+}
+
+// SetMaximized zooms the window (zoom:) or zooms it back, at the end of
+// the pass, when isZoomed differs; a full-screen window zooms when it
+// leaves full screen, a minimized one when it comes back. FixedSize
+// windows do not zoom.
+func (w *Window) SetMaximized(maximized bool) {
+	if w.Closed() || (!w.ctl.maxPending && maximized == w.ctl.maxWant) {
+		return
+	}
+	w.ctl.maxWant, w.ctl.maxPending = maximized, true
+	w.b.notify()
+}
+
+// SetFullscreen enters or leaves native full screen (toggleFullScreen:,
+// its own space) at the end of the pass; a request made during a
+// transition waits for its end, and one for a window not shown yet (or
+// minimized) waits for it to show.
+func (w *Window) SetFullscreen(fullscreen bool) {
+	if w.Closed() || fullscreen == w.ctl.fsWant {
+		return
+	}
+	w.ctl.fsWant = fullscreen
+	w.b.notify()
+}
+
+// SetAlwaysOnTop puts the window at the floating level (palettes) or back
+// at the normal one.
+func (w *Window) SetAlwaysOnTop(onTop bool) {
+	if w.Closed() || onTop == w.ctl.onTop {
+		return
+	}
+	w.ctl.onTop = onTop
+	w.applyLevel()
+}
+
+func (w *Window) applyLevel() {
+	level := darwin.NSNormalWindowLevel
+	if w.ctl.onTop {
+		level = darwin.NSFloatingWindowLevel
+	}
+	darwin.Send(w.ns, wsel.setLevel, level)
+}
+
+// SetPosition moves the window so that the content area's top-left is at
+// pos: points, y down from the top-left of the primary screen (see
+// windowctl.go). A full-screen window does not move.
+func (w *Window) SetPosition(pos image.Point) {
+	if w.Closed() || w.ctl.fullscreen || w.ctl.fsTransition {
+		return
+	}
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
+	w.moveTo(pos)
+	w.syncState()
+}
+
+// Activate brings the window back from the Dock, unhides the app,
+// activates it ([NSApp activate] on macOS 14 and later, which the system
+// may decline; activateIgnoringOtherApps: before) and makes the window key
+// and front (or its modal child, which has the input). A hidden window
+// stays hidden; one not shown yet becomes key when it shows.
+func (w *Window) Activate() {
+	if w.Closed() || !w.visible {
+		return
+	}
+	w.ctl.minimizeOnShow = false
+	if !w.shown {
+		return
+	}
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
+	if darwin.SendBool(w.ns, wsel.isMiniaturized) {
+		darwin.Send(w.ns, wsel.deminiaturize, darwin.ID(0))
+	}
+	darwin.Send(app.ns, wsel.unhide, darwin.ID(0))
+	activateApp()
+	if !w.raiseModal() {
+		darwin.Send(w.ns, sel.makeKeyAndOrderFront, darwin.ID(0))
+	}
+}
 
 // ActivateWithToken is Activate: macOS has no activation tokens.
 func (w *Window) ActivateWithToken(string) { w.Activate() }
+
+func activateApp() {
+	if darwin.SendBool(app.ns, wsel.respondsTo, wsel.activate) {
+		darwin.Send(app.ns, wsel.activate)
+	} else {
+		darwin.Send(app.ns, sel.activate, true)
+	}
+}
 
 // SetIcon validates the images and does nothing: macOS windows have no
 // icon (the app's icon is in the Dock, from its bundle).
 func (w *Window) SetIcon(images []image.Image) { platform.CheckIcon("SetIcon", images) }
 
-// SetTitleBarColors does nothing: only Windows 11 draws colored title bars.
+// SetTitleBarColors does nothing: macOS title bars follow the window's
+// appearance and backdrop, with no colors of the app's (a frameless
+// window draws its own title bar).
 func (w *Window) SetTitleBarColors(platform.TitleBarColors) {}
 
-// SetBackdrop validates the backdrop and does nothing yet (a vibrancy
-// backdrop is macOS desktop integration).
-func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
-	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+// SetHitRegions keeps the regions of the app's title bar (see "Custom
+// title bars" in package platform): presses in caption regions are the
+// window server's (input_darwin.go and captionInput).
+func (w *Window) SetHitRegions(regions []platform.HitRegion) {
+	platform.CheckHitRegions(regions)
+	if w.Closed() || platform.EqualHitRegions(regions, w.ctl.regions) {
+		return
+	}
+	w.ctl.regions = append(w.ctl.regions[:0], regions...)
 }
-
-// SetHitRegions validates the regions and does nothing yet (a custom title
-// bar is macOS desktop integration).
-func (w *Window) SetHitRegions(regions []platform.HitRegion) { platform.CheckHitRegions(regions) }
 
 // RestoreToken returns "": macOS restores windows by position.
 func (w *Window) RestoreToken() string { return "" }
+
+// --- custom title bars ---
+
+// captionPress decides a press in the window (input_darwin.go): it
+// reports whether the press is the window's (a caption region, which it
+// handles) and must not be delivered.
+func (w *Window) captionPress(ev darwin.ID, btn platform.PointerButton, pos platform.Point) bool {
+	if len(w.ctl.regions) == 0 {
+		return false
+	}
+	action := w.ctl.caption.press(btn, pos, eventMods(ev), w.b.eventTime(ev), w.ctl.regions, w.ptr.held, w.b.Settings())
+	if action == captionContent {
+		return false
+	}
+	if w.ctl.blocked {
+		return true // a modal child has the input: raiseModal brought it forward
+	}
+	switch action {
+	case captionDrag:
+		windowDrag(w, ev)
+	case captionDoubleClick:
+		w.ctl.doubleClicks++
+		w.titleBarDoubleClick()
+	}
+	return true
+}
+
+// titleBarDoubleClick performs the user's title bar double-click action.
+func (w *Window) titleBarDoubleClick() {
+	switch doubleClickAction(userDoubleClickSetting()) {
+	case titleBarZoom:
+		if !w.opts.FixedSize && !w.ctl.fullscreen {
+			darwin.Send(w.ns, wsel.zoom, darwin.ID(0))
+		}
+	case titleBarMinimize:
+		darwin.Send(w.ns, wsel.miniaturize, darwin.ID(0))
+	}
+}
+
+// userDoubleClickSetting reads the global defaults AppleActionOnDoubleClick
+// (hasAction: it is set) and AppleMiniaturizeOnDoubleClick
+// (windowctl.go's doubleClickAction). Call it inside an autorelease pool.
+func userDoubleClickSetting() (action string, hasAction, miniaturize bool) {
+	defaults := darwin.SendClass(app.userDefaults, wsel.standardUserDefaults)
+	if defaults == 0 {
+		return "", false, false
+	}
+	key := darwin.NSString("AppleActionOnDoubleClick")
+	s := darwin.Send(defaults, wsel.stringForKey, key)
+	darwin.Release(key)
+	key = darwin.NSString("AppleMiniaturizeOnDoubleClick")
+	miniaturize = darwin.SendBool(defaults, wsel.boolForKey, key)
+	darwin.Release(key)
+	return darwin.GoString(s), s != 0, miniaturize
+}
+
+// --- parent and modal windows ---
+
+// attach makes a shown window the child window of its shown parent
+// (addChildWindow:ordered:, NSWindowAbove: AppKit keeps it above the
+// parent, moves it with the parent and hides it with the parent's
+// minimization), and attaches its own shown children. AppKit resets the
+// parent's level when it gains a child, so the levels are set again.
+func (w *Window) attach() {
+	if p := w.parent; p != nil && !p.Closed() && p.shown && darwin.Send(w.ns, wsel.parentWindow) != p.ns {
+		darwin.Send(p.ns, wsel.addChildWindow, w.ns, darwin.NSWindowAbove)
+		p.applyLevel()
+		w.applyLevel()
+	}
+	for _, c := range w.b.loop.Windows() {
+		if c.parent == w && c.shown && !c.Closed() {
+			c.attach()
+		}
+	}
+}
+
+// detach removes the window from its parent's child windows (before it
+// is hidden or closed).
+func (w *Window) detach() {
+	if p := darwin.Send(w.ns, wsel.parentWindow); p != 0 {
+		darwin.Send(p, wsel.removeChildWindow, w.ns)
+	}
+}
+
+// modalChild returns the shown modal child of the window, or nil.
+func (w *Window) modalChild() *Window {
+	for _, c := range w.b.loop.Windows() {
+		if c.parent == w && c.opts.Modal && c.shown && !c.Closed() {
+			return c
+		}
+	}
+	return nil
+}
+
+// raiseModal brings the innermost shown modal child of the window
+// forward and makes it key, and reports whether there is one: the window
+// itself has no input meanwhile.
+func (w *Window) raiseModal() bool {
+	c := w.modalChild()
+	if c == nil {
+		return false
+	}
+	for next := c.modalChild(); next != nil; next = c.modalChild() {
+		c = next
+	}
+	darwin.Send(c.ns, sel.makeKeyAndOrderFront, darwin.ID(0))
+	return true
+}
+
+// updateModal disables the standard buttons of a window while a modal
+// child is shown (like EnableWindow(parent, FALSE) on Win32, the parent
+// cannot be closed, minimized or zoomed from them) and enables them again
+// after.
+func (w *Window) updateModal() {
+	if w == nil || w.Closed() {
+		return
+	}
+	blocked := w.modalChild() != nil
+	if blocked == w.ctl.blocked {
+		return
+	}
+	w.ctl.blocked = blocked
+	for _, b := range [...]uintptr{darwin.NSWindowCloseButton, darwin.NSWindowMiniaturizeButton, darwin.NSWindowZoomButton} {
+		if btn := darwin.Send(w.ns, wsel.standardWindowButton, b); btn != 0 {
+			darwin.Send(btn, wsel.setEnabled, !blocked)
+		}
+	}
+}
+
+// --- backdrop ---
+
+var _ platform.AlphaPresenter = (*Window)(nil)
+
+// PresentsAlpha reports whether the window shows the alpha of its frames:
+// it has a vibrancy backdrop (platform.AlphaPresenter).
+func (w *Window) PresentsAlpha() bool { return w.ctl.effect != 0 }
+
+// SetBackdrop sets the material behind the window (platform.Backdrop's
+// mapping onto NSVisualEffectView materials). BackdropDefault and
+// BackdropNone make the window opaque again.
+func (w *Window) SetBackdrop(backdrop platform.Backdrop) {
+	platform.CheckBackdrop("SetBackdrop backdrop", backdrop)
+	if w.Closed() || backdrop == w.ctl.backdrop {
+		return
+	}
+	pool := darwin.PoolPush()
+	defer darwin.PoolPop(pool)
+	w.ctl.backdrop = backdrop
+	w.applyBackdrop()
+}
+
+// applyBackdrop puts an NSVisualEffectView (behind-window blending, a
+// material that follows the window's active state as native windows'
+// do) behind TelaView in the content view, and makes the window
+// non-opaque with a clear background so that the frame's transparent
+// pixels show it; without a material it removes the view and makes the
+// window opaque again.
+func (w *Window) applyBackdrop() {
+	c := &w.ctl
+	material, glass := backdropMaterial(c.backdrop)
+	switch {
+	case glass && c.effect == 0:
+		if app.effectView == 0 {
+			return
+		}
+		e := darwin.Send(darwin.SendClass(app.effectView, sel.alloc), sel.initWithFrame, darwin.SendRect(c.container, sel.bounds))
+		if e == 0 {
+			return
+		}
+		darwin.Send(e, wsel.setAutoresizingMask, uint(darwin.NSViewWidthSizable|darwin.NSViewHeightSizable))
+		darwin.Send(e, wsel.setBlending, darwin.NSVisualEffectBlendingModeBehindWindow)
+		darwin.Send(e, wsel.setState, darwin.NSVisualEffectStateFollowsWindowActiveState)
+		darwin.Send(e, wsel.setMaterial, material)
+		darwin.Send(c.container, wsel.addSubviewPositioned, e, darwin.NSWindowBelow, w.view)
+		c.effect = e
+		w.setOpaque(false)
+	case glass:
+		darwin.Send(c.effect, wsel.setMaterial, material)
+	case c.effect != 0:
+		darwin.Send(c.effect, wsel.removeFromSuperview)
+		darwin.Release(c.effect)
+		c.effect = 0
+		w.setOpaque(true)
+	}
+}
+
+// setOpaque makes the window opaque with the standard background, or
+// transparent with a clear one.
+func (w *Window) setOpaque(opaque bool) {
+	darwin.Send(w.ns, wsel.setOpaque, opaque)
+	color := wsel.clearColor
+	if opaque {
+		color = wsel.windowBackgroundColor
+	}
+	darwin.Send(w.ns, wsel.setBackgroundColor, darwin.SendClass(app.color, color))
+	darwin.Send(w.ns, wsel.invalidateShadow)
+}
+
+// --- integration requests (later tasks) ---
 
 // SetDropEffect validates the answer and does nothing: no drag reaches the
 // window yet (macOS desktop integration).

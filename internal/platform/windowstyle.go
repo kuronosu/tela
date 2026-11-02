@@ -29,21 +29,30 @@ type TitleBarColors struct {
 func (c TitleBarColors) IsZero() bool { return c == TitleBarColors{} }
 
 // Backdrop is the system material behind a window: Mica or Acrylic on
-// Windows 11. The zero value is the system's choice.
+// Windows 11, the closest NSVisualEffectView material on macOS (ADR-224;
+// behind-window blending that follows the window's active state). The
+// zero value is the system's choice. Wayland and X11 ignore it.
 type Backdrop uint8
 
 const (
-	// BackdropDefault leaves the choice to the system.
+	// BackdropDefault leaves the choice to the system: Windows picks the
+	// window's default; macOS draws no material (an opaque window).
 	BackdropDefault Backdrop = iota
 	// BackdropNone turns the system backdrop off: a plain window.
 	BackdropNone
-	// BackdropMica is the Mica material (DWMSBT_MAINWINDOW).
+	// BackdropMica is the Mica material (DWMSBT_MAINWINDOW): on macOS
+	// NSVisualEffectMaterialWindowBackground, the window background
+	// tinted by the desktop picture, Mica's role.
 	BackdropMica
 	// BackdropMicaAlt is Mica Alt, the deeper tinted Mica of tabbed
-	// windows (DWMSBT_TABBEDWINDOW).
+	// windows (DWMSBT_TABBEDWINDOW): on macOS
+	// NSVisualEffectMaterialUnderWindowBackground, the deeper material
+	// under the windows.
 	BackdropMicaAlt
 	// BackdropAcrylic is the translucent, blurred Acrylic material
-	// (DWMSBT_TRANSIENTWINDOW).
+	// (DWMSBT_TRANSIENTWINDOW): on macOS NSVisualEffectMaterialSidebar,
+	// the translucent blur of what is behind the window that sidebars
+	// use.
 	BackdropAcrylic
 	numBackdrops
 )
@@ -72,8 +81,8 @@ func (b Backdrop) ClientBackdrop() bool {
 }
 
 // AlphaPresenter is implemented by windows that show the alpha channel of
-// the frames they present: a Windows 11 window whose Backdrop is Mica,
-// MicaAlt or Acrylic and whose OS supports it. Present's pixels are
+// the frames they present: a Windows 11 or macOS window whose Backdrop is
+// Mica, MicaAlt or Acrylic and whose OS supports it. Present's pixels are
 // premultiplied, and a transparent one shows the backdrop. The layer above
 // asks after creating the window and after every SetBackdrop; when it
 // reports true, a root without a background is rendered transparent

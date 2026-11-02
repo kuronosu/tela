@@ -952,9 +952,42 @@
 // NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification, and
 // NSApplicationDidBecomeActiveNotification for the double-click time),
 // coalesced into one read per pass. The IME is NSTextInputClient on the
-// content view (see "Text input and IME"). Window control, menus, drag
-// and drop and the desktop services are the macOS desktop integration
-// phase (validated no-ops and ErrUnsupported until then).
+// content view (see "Text input and IME"). Window control (phase 15,
+// ADR-224): Minimize is miniaturize:; SetMaximized is zoom:, sent when
+// isZoomed differs (FixedSize windows do not zoom); SetFullscreen is
+// native full screen (toggleFullScreen:, its own space; a request during
+// a transition waits for its end); SetAlwaysOnTop the floating window
+// level; the size limits are the content's (the frame's for a frameless
+// window); Activate is deminiaturize:, unhide:, [NSApp activate]
+// (activateIgnoringOtherApps: on macOS 13) and makeKeyAndOrderFront:.
+// Full-screen and zoom requests apply at the end of the pass, so one
+// undone in the same pass costs nothing. The state comes from the window
+// delegate (windowDidMiniaturize:, windowDidEnterFullScreen: and its
+// siblings, windowDidMove:, the zoom seen in windowDidResize:); the
+// maximized state and the position stay those from before full screen
+// while in it. Positions are points, y down from the top-left of the
+// primary screen (the CoreGraphics global display space): AppKit's
+// desktop has no pixel space, every screen having its own scale, so
+// points are what round-trips across screens. A frameless window is a
+// titled window with a full-size content view, a transparent title bar,
+// no title and its standard buttons hidden (Electron's frameless
+// windows): it keeps the system's shadow, rounded corners and native
+// resizing, and becomes key and main. Hit regions: a primary press in a
+// HitCaption region is performWindowDragWithEvent:, a primary double click
+// there (CaptionClicks) the user's title bar action
+// (AppleActionOnDoubleClick: zoom for Maximize and Fill, minimize, or
+// nothing), and other buttons there are swallowed (macOS has no window
+// menu). A child window is an AppKit child window while both are shown
+// (addChildWindow:ordered:, above its parent, moved and minimized with
+// it, centered on it when it has no position); a modal one disables its
+// parent's standard buttons and takes the focus back whenever the parent
+// becomes key (a click, Command-`, Mission Control) or is asked to
+// close. A backdrop other than default or none is an NSVisualEffectView
+// behind the content view ([Backdrop] has the materials), with the
+// window non-opaque and the frame's alpha shown ([AlphaPresenter]).
+// SetTitleBarColors does nothing (macOS title bars have no app colors).
+// Menus, drag and drop and the desktop services are later tasks of the
+// phase (ErrUnsupported until then).
 //
 // Headless (subpackage headless). An in-memory backend with a controllable
 // clock and an input injection API, used by tests, telatest and the CLI. It

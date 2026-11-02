@@ -250,16 +250,42 @@ func (w *Window) emitter(ev darwin.ID) func(platform.PointerEvent) {
 
 // mouseButton handles a press or release of btn (ButtonNone: the event's
 // buttonNumber says which).
+//
+// A press in a caption region of the app's title bar, and the rest of its
+// sequence, are the window's (captionPress, windowctl_darwin.go); a press
+// in a window whose modal child is shown brings the child forward (the
+// press is still delivered, and core drops it).
 func (w *Window) mouseButton(ev darwin.ID, btn platform.PointerButton, down bool) {
 	if btn == platform.ButtonNone {
 		btn = macButton(darwin.SendInt(ev, isel.buttonNumber))
 	}
-	w.ptr.button(btn, down, w.eventPos(ev), w.emitter(ev))
+	if btn == platform.ButtonNone {
+		return
+	}
+	pos := w.eventPos(ev)
+	if down {
+		if w.ctl.blocked {
+			w.raiseModal()
+		}
+		if w.captionPress(ev, btn, pos) {
+			return
+		}
+	} else if w.ctl.caption.release(btn) {
+		return
+	}
+	w.ptr.button(btn, down, pos, w.emitter(ev))
 	w.updateCursorHidden()
 }
 
-// mouseMove handles mouseMoved: and the drags.
+// mouseMove handles mouseMoved: and the drags. The drags of a caption
+// press are not delivered; a move without buttons ends every caption
+// sequence (the window server may keep a release).
 func (w *Window) mouseMove(ev darwin.ID) {
+	if darwin.SendUint(ev, isel.typ) == darwin.NSEventTypeMouseMoved {
+		w.ctl.caption.moved()
+	} else if w.ctl.caption.drag(w.ptr.held) {
+		return
+	}
 	pos := w.eventPos(ev)
 	b := darwin.SendRect(w.view, sel.bounds)
 	w.ptr.move(pos, inBounds(pos, platform.Size{W: float32(b.Size.Width), H: float32(b.Size.Height)}), w.emitter(ev))
