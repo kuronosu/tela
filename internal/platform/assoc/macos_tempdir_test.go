@@ -12,6 +12,26 @@ import (
 	"github.com/kuronosu/tela/internal/plist"
 )
 
+// makeLink makes link point to target and reports whether
+// filepath.EvalSymlinks resolves it to target, as on macOS. It logs and
+// returns false where links cannot be made or do not resolve (Windows
+// without the privilege, Wine), so a test skips only what needs them.
+func makeLink(t *testing.T, target, link string) bool {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Logf("skipping the symbolic link checks: %v", err)
+		return false
+	}
+	got, err1 := filepath.EvalSymlinks(link)
+	want, err2 := filepath.EvalSymlinks(target)
+	if err1 != nil || err2 != nil || !strings.EqualFold(got, want) {
+		t.Logf("skipping the symbolic link checks: %s resolves to %q (%v), want %q (%v)", link, got, err1, want, err2)
+		os.Remove(link)
+		return false
+	}
+	return true
+}
+
 // TestMacOSTempDir: Launch Services ignores bundles in temporary folders,
 // so the calls that register refuse them and Status reports them not
 // registered. The temporary folder is named through a symbolic link, as
@@ -26,8 +46,8 @@ func TestMacOSTempDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	tmp := filepath.Join(base, "tmp")
-	if err := os.Symlink(real, tmp); err != nil {
-		tmp = real // no symbolic links (Windows without the privilege)
+	if !makeLink(t, real, tmp) {
+		tmp = real // the folder by its own name
 	}
 	m.tempDirs = func() []string { return []string{"", tmp} }
 	exe := writeBundle(t, filepath.Join(real, "T"), "Notes", "com.example.Notes", nil)

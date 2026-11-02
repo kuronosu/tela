@@ -585,8 +585,8 @@ func TestMacOSNotABundle(t *testing.T) {
 	}
 	// Through a symbolic link into a bundle: the bundle's.
 	link := filepath.Join(t.TempDir(), "notes")
-	if err := os.Symlink(app.Exec, link); err != nil {
-		t.Skip("no symbolic links:", err)
+	if !makeLink(t, app.Exec, link) {
+		return
 	}
 	app.Exec = link
 	if changed, err := a.Register(app, scheme, platform.RegisterOptions{}); !changed || err != nil {
