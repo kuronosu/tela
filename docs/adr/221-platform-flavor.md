@@ -11,6 +11,7 @@ The key conventions of a platform (text field bindings, word rules, the primary 
 - **Public API:** `CmdOrCtrl() bool` on `KeyboardEvent`, `MouseEvent`, `PointerEvent`, `WheelEvent` and `DragEvent`: Meta under the Mac flavor, Ctrl otherwise, from the dispatching Tree (a hand-built event follows the host). It tests only that modifier, like React Aria's isCtrlKeyPressed and Playwright's ControlOrMeta; the name is Electron's, as in `ParseAccelerator`.
 - **aria:** collections use `CmdOrCtrl` (Cmd+click, Cmd+A on a Mac).
 - **telatest:** `PlatformKeys(goos)` sets one app's flavor; `ControlOrMeta` follows it.
+- **Pointer:** under the Mac flavor a primary press with Ctrl is a context click, as Blink does on the Mac: `OnContextMenu` fires at the release and no click does (phase-14 review).
 - `ParseAccelerator` keeps the host's flavor.
 
 ## Rationale
