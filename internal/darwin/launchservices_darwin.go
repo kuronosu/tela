@@ -193,17 +193,38 @@ func withString[T any](s string, f func(uintptr) T) T {
 // LSRegisterBundle registers the application bundle at path (a folder)
 // with Launch Services, updating its record when it is known already:
 // LSRegisterURL(url, inUpdate true). It returns the OSStatus (0: noErr).
-func LSRegisterBundle(path string) int32 {
-	b := []byte(path)
-	if len(b) == 0 {
+func LSRegisterBundle(path string) int32 { return LSRegisterURL(path, true) }
+
+// LSRegisterURL is LSRegisterURL(url of path, update): with update false
+// Launch Services registers the bundle only when it does not know it.
+func LSRegisterURL(path string, update bool) int32 {
+	u := fileURLCF(path)
+	if u == 0 {
 		return -50 // paramErr
 	}
-	u := ls.urlCreateFromPath(0, &b[0], len(b), true)
+	defer ls.release(u)
+	return ls.registerURL(u, update)
+}
+
+// fileURLCF returns a new CFURL (+1) of the folder path, 0 when CF refuses
+// it.
+func fileURLCF(path string) uintptr {
+	b := []byte(path)
+	if len(b) == 0 {
+		return 0
+	}
+	return ls.urlCreateFromPath(0, &b[0], len(b), true)
+}
+
+// FileURLRoundTrip returns the path of the CFURL made from path, as
+// LSRegisterBundle makes it: a check of the bindings for diagnostics.
+func FileURLRoundTrip(path string) string {
+	u := fileURLCF(path)
 	if u == 0 {
-		return -50
+		return ""
 	}
 	defer ls.release(u)
-	return ls.registerURL(u, true)
+	return urlPathCF(u)
 }
 
 // LSApplicationPaths returns the paths of the application bundles Launch

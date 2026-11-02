@@ -3,63 +3,21 @@
 package assoc
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kuronosu/tela/internal/darwin"
 	"github.com/kuronosu/tela/internal/platform"
-	"github.com/kuronosu/tela/internal/plist"
 )
 
 // The macOS associations against the real Launch Services, with a
-// temporary bundle of a unique ID (a copy of /usr/bin/true as its
-// executable). What Launch Services answers is logged, since only CI's
+// temporary bundle of a unique ID (lsBundle: in the user cache, as tela
+// run's, with a small Go program as its executable). What Launch Services answers is logged, since only CI's
 // macOS runners run this. Launch Services has no public call to forget a
 // bundle: the bundle is unregistered and deleted, and the database drops
 // its record later.
-
-// lsBundle writes a temporary bundle with a unique ID and returns the app.
-func lsBundle(t *testing.T) (platform.HandlerApp, string) {
-	t.Helper()
-	if err := darwin.LoadLaunchServices(); err != nil {
-		t.Fatalf("LoadLaunchServices: %v", err)
-	}
-	var b [5]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		t.Fatal(err)
-	}
-	rnd := hex.EncodeToString(b[:])
-	id := "dev.telaui.test.assoc" + rnd
-	name := "TelaAssoc" + rnd
-	exe := writeBundle(t, t.TempDir(), name, id, plist.Dict{
-		"CFBundleDisplayName":           name,
-		"CFBundleInfoDictionaryVersion": "6.0",
-		"CFBundleShortVersionString":    "1.0",
-		"CFBundleVersion":               "1",
-		"LSMinimumSystemVersion":        "13.0",
-	})
-	bin, err := os.ReadFile("/usr/bin/true")
-	if err != nil {
-		self, err2 := os.Executable()
-		if err2 != nil {
-			t.Fatal(err, err2)
-		}
-		if bin, err = os.ReadFile(self); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.WriteFile(exe, bin, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("bundle %s, ID %s", filepath.Dir(filepath.Dir(filepath.Dir(exe))), id)
-	return platform.HandlerApp{ID: id, Name: name, Exec: exe}, rnd
-}
 
 // watchdog makes a call that does not return fail the test binary, with
 // every goroutine's stack, instead of hanging until go test's timeout.
@@ -134,6 +92,7 @@ func TestDarwinRegisterApp(t *testing.T) {
 	})
 	t.Logf("AppStatus = %+v, %v; paths %q", st, err, darwin.LSApplicationPaths(app.ID))
 	if !st.Registered || err != nil {
+		lsDump(t, app.ID)
 		t.Errorf("AppStatus after RegisterApp = %+v, %v", st, err)
 	}
 	changed, err = a.RegisterApp(app, platform.RegisterOptions{})
@@ -167,6 +126,7 @@ func TestDarwinScheme(t *testing.T) {
 	logLS(t, app, as, "")
 	t.Logf("Status after Register = %+v (the only candidate is the handler by Launch Services' own rule)", st)
 	if !ok {
+		lsDump(t, app.ID)
 		t.Fatalf("Status after Register = %+v, want Registered", st)
 	}
 	changed, err = a.Register(app, as, platform.RegisterOptions{})
@@ -235,6 +195,7 @@ func TestDarwinFileType(t *testing.T) {
 	logLS(t, app, as, want)
 	t.Logf("Status after Register = %+v (rank Alternate; the only handler)", st)
 	if !ok {
+		lsDump(t, app.ID)
 		t.Fatalf("Status after Register = %+v, want Registered", st)
 	}
 	changed, err = a.Register(app, as, platform.RegisterOptions{})
