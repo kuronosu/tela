@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Fixed
+
+- `desktop.MakeDefault` and registration on Linux no longer replace a `mimeapps.list` (or desktop entry) that is a symbolic link they cannot follow, such as a dotfiles link whose file does not exist yet: links are followed as GLib follows them (the target is created if missing), and a loop or an unreadable link is an error that leaves the link alone.
+
 ## [0.13.1] - 2026-11-01
 
 Phase 13, desktop integration (ADR-209 to ADR-217): drag and drop with the OS, clipboard data, opt-in native menus, global shortcuts, single instance with links and file types, system settings v2, secrets and the Trash, on Linux and Windows. No public API breaks.
