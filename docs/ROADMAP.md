@@ -12,7 +12,7 @@
 - **Done:** phases 1–14. Latest version `v0.13.2` (2026-11-02, phase 14: the macOS backend; tagged on `0b9079d` with the owner's approval). Versions follow ADR-208: a release that breaks the public API raises the minor version, any other the patch.
 - **Phase in progress:** 15, macOS desktop integration, on the work branch `phase-15-macos-desktop` (pushed by the main session for `macos-latest` CI, ADR-220). Design: ADR-224.
 - **Website:** `https://telaui.dev` is live with the landing page and the punched-card logo (ADR-206, ADR-207), and serves the `v0.13.1` docs. A release commit publishes its own docs before its tag (ADR-208).
-- **Next step:** phase 15's tasks below. R11–R13 of the 2026-10-31 complexity review are still not started.
+- **Next step:** close phase 15: the last `macos-latest` failure (`TestExamplesCocoa/notes`: the reference render lacks the traffic lights' rectangle), a full CI run on the branch, a review, then `v0.13.3` (no public API breaks). R11–R13 of the 2026-10-31 complexity review are still not started.
 - **Machine and process notes:** live window checks run in a separate headless sway with a virtual pointer, not in the owner's Hyprland session (Hyprland 0.56 changes antialiased edges by ±1–2 levels when compositing; method in the session memory); no local Wine (it froze the host; CI keeps its Wine job); the owner runs `go test` once at the end of a batch of agent work, not during it; the race detector on `internal/core` fits in one process on a quiet machine (about 6 minutes; shard it when the machine is loaded), the arm64 run of `internal/gfx/raster` passes the 10-minute default timeout in one process, so it runs sharded; CI runs the full `go test ./...` with `-timeout 20m` because `examples/dashboard` alone takes 7–9 minutes on a 4-vCPU runner (its damage checks play one scale each by default, `TELA_CHECK_DAMAGE=1` plays all, `TELA_PERF=1` adds the x2 sessions) (build the test binary once, split `-test.run` across processes, one per `TestDamageMatchesFullRender` scene). Under qemu, `internal/gfx/raster` takes about 9.5 minutes on a loaded machine: run the arm64 check with `-timeout 40m`. Subagents never push; the main session pushes the work branch when the owner allows it (ADR-220).
 
 ## Phases
@@ -24,20 +24,20 @@ In order. Each phase ends with verifiable criteria and is not done unless they p
 Phases 12 and 13 on macOS. Started 2026-11-02 on the work branch `phase-15-macos-desktop`; the owner's design is ADR-224. Verified on `macos-latest` CI; the rest goes to the macOS live checks.
 
 - [x] First: the design ADR (ADR-224: `tela build`/`tela run`, `TitleBarOverlay`, one `desktop.AppMenuBar`, `App.OnQuit`, windows not sheets)
-- [ ] Contract and public API: a quit request event and `tela.App.OnQuit`; `TitleBarOverlay` and the system buttons' rectangle in the window state, read by `kit.TitleBar`; the app menu bar with roles (`desktop.AppMenuBar`, `kit.Menubar` as the app's bar); headless fakes, telatest helpers, remote protocol
-- [ ] `tela build` and `tela run`: a development `.app` (Info.plist with the app's ID); packaging reuses it
-- [ ] Window control: minimize, zoom, fullscreen, always-on-top, position, min/max size, child and modal windows, hit regions of a frameless window, `TitleBarOverlay` with the traffic lights, a vibrancy backdrop
-- [ ] Services: open URI and path, file dialogs, message boxes (sheets with a parent), notifications (in a bundle), tray (`NSStatusItem`)
-- [ ] Native menus: the app's menu bar with the app, Edit and Window menus, the quit request, and context menus
-- [ ] Drag and drop, pasteboard formats
-- [ ] Global shortcuts (Carbon hot keys), single instance and Launch Services' launches, deep links and file types (Info.plist and Launch Services, through `assoc`), Keychain, Trash
-- [ ] `examples/notes` on macOS: `TitleBarOverlay`, an app menu bar, `OnQuit`
+- [x] Contract and public API: a quit request event and `tela.App.OnQuit`; `TitleBarOverlay` and the system buttons' rectangle in the window state, read by `kit.TitleBar`; the app menu bar with roles (`desktop.AppMenuBar`, `kit.Menubar` as the app's bar); headless fakes, telatest helpers, remote protocol
+- [x] `tela build` and `tela run`: a development `.app` (Info.plist with the app's ID); packaging reuses it
+- [x] Window control: minimize, zoom, fullscreen, always-on-top, position, min/max size, child and modal windows, hit regions of a frameless window, `TitleBarOverlay` with the traffic lights, a vibrancy backdrop
+- [x] Services: open URI and path, file dialogs, message boxes (sheets with a parent), notifications (in a bundle), tray (`NSStatusItem`)
+- [x] Native menus: the app's menu bar with the app, Edit and Window menus, the quit request, and context menus
+- [x] Drag and drop, pasteboard formats
+- [x] Global shortcuts (Carbon hot keys), single instance and Launch Services' launches, deep links and file types (Info.plist and Launch Services, through `assoc`), Keychain, Trash
+- [x] `examples/notes` on macOS: `TitleBarOverlay`, an app menu bar, `OnQuit`; its link scheme is now `tela-notes:` (Apple's Notes owns `notes:`), and `TestNotesMacOS` builds it with `tela build`, registers it, and reaches the running instance with a link and with a second start
 
 **Done when:** `examples/notes` meets the phase-12 and phase-13 criteria on `macos-latest` where CI can drive them; the rest is in the macOS live checks.
 
-### Linux and Windows parity
+### Platform parity
 
-Gaps in the existing backends. Verified on the owner's Linux machine and the Windows VM.
+Gaps in the existing backends. Verified on the owner's Linux machine, the Windows VM and `macos-latest` CI.
 
 - [ ] IME on X11 (XIM)
 - [ ] Touchpad fling on X11
@@ -47,8 +47,11 @@ Gaps in the existing backends. Verified on the owner's Linux machine and the Win
 - [ ] Win32: the native menu bar opens with Alt and F10 and follows dark mode (it is mouse-only and stays light); drop reads get a timeout (a hung source blocks the UI thread)
 - [ ] Windows notifications with actions (WinRT toasts; today balloons), without a notification-area icon per notification
 - [ ] Tray icons are redrawn on DPI changes
+- [ ] `TitleBarOverlay` keeps the OS's caption buttons on Windows too (DWM's buttons over the client area, Windows Controls Overlay); today it is `Frameless` there, and `kit.TitleBar`'s room for buttons at the end is untested
+- [ ] macOS: drags that offer only another app's private types are not seen, file promises (Photos, Mail) are not received, and a drag without an image shows none (the file's icon would do); a tray icon can be a template image (a contract field); a message box without a parent is app-modal (`runModal`) and blocks the app's other windows; global hot keys are not registered again when the keyboard layout changes (Win32 neither)
+- [ ] macOS: the app bar's key equivalents are also matched by the backend when AppKit's own matching takes none (CI's CGEvent-built keys); check with real keys whether the fallback is needed
 
-**Done when:** Japanese can be typed through XIM on X11, and each item works on the owner's Linux machine or the Windows VM.
+**Done when:** Japanese can be typed through XIM on X11, and each item works on the owner's Linux machine, the Windows VM or `macos-latest`.
 
 ### Font system
 
@@ -78,15 +81,15 @@ Strictly after the two macOS phases: the bridges for AT-SPI, UI Automation and N
 What building the examples showed missing in `tela`, `h`, `aria`, `kit` and `desktop`.
 
 - [ ] aria: on a Mac a Control+click on a listbox option opens the context menu and does not select it (ADR-221: Tela's collections select on click, React Aria's at press); decide whether the press should select first
-- [ ] Menus and triggers: submenus; `Disabled` on Tooltip, menu and Select triggers; Toggle, Slider and Checkbox as `Trigger`s (so they can have tooltips), and more than one overlay per trigger; `aria.UseContextMenuTrigger` exposes an opening number to key a menu per opening (proposed `ContextMenuTriggerResult.Opening`; kit counts openings itself); a context menu opened from the keyboard knows the focused element's bounds (it opens at the area's corner); decide whether `kit.ContextMenu` areas are focusable by default (Radix's model says no; the demo shows `TabIndex(0)`)
+- [ ] Menus and triggers: submenus; `kit.MenuItem` has no `Role` (an Edit menu that mixes the app's items with standard ones needs `desktop.AppMenuBar`); `Disabled` on Tooltip, menu and Select triggers; Toggle, Slider and Checkbox as `Trigger`s (so they can have tooltips), and more than one overlay per trigger; `aria.UseContextMenuTrigger` exposes an opening number to key a menu per opening (proposed `ContextMenuTriggerResult.Opening`; kit counts openings itself); a context menu opened from the keyboard knows the focused element's bounds (it opens at the area's corner); decide whether `kit.ContextMenu` areas are focusable by default (Radix's model says no; the demo shows `TabIndex(0)`)
 - [ ] `kit.ToggleStyle.Icon` is one class for every Toggle variant, so `looks/aqua` cannot tint the sidebar's glyphs with the accent as macOS does; small `looks/aqua` fidelity gaps: Sequoia's pop-up button chevron sits in an accent tile (`kit.Select` with `Icon: ChevronsUpDown` matches macOS) and its toolbar search field is bordered, not borderless gray; in Tahoe dark, Destructive text over a saturated backdrop has low contrast
 - [ ] New kit pieces: `kit.Alert`, Badge tone and dot, a loading state on `kit.Button`, a leading icon on `kit.Input`, a caption on `kit.Separator`, Avatar group and color, `animation-delay` utilities
 - [ ] `kit.Field`: a slot by the description, rich labels, a slot beside the label, and a group inside a `Field` (not a `FieldSet`) named by its label
 - [ ] `kit.Table`: a "never unsorted" sort mode and a way to hide the unsorted arrow; sort variants for `aria-sort` `other`/`none`
 - [ ] Deferred forms: `BackgroundGradientFn`, and `…Fn` forms of Progress and ToggleGroup; `tela.Preview` takes a theme and a color scheme
-- [ ] i18n: fields for kit's toast viewport and close labels ("Notifications", "Close toast" stay English in the gallery's Spanish and Arabic); message boxes' button labels, native and drawn, get an i18n hook; `ar-EG` formats Arabic-Indic digits as ICU does (the vendored CLDR data gives Latin)
-- [ ] App and desktop: `App.OnClose` inside the component tree (`examples/notes` bridges it with a package variable); text fields accept text drops by default, as HTML's do; a saved window position is clamped to the monitors present at the next start; `desktop` stores see changes other programs make to their files
-- [ ] Examples: the gallery's English demo texts end their sentences at the right side under RTL; `examples/kit` shows control-after without `flex-row-reverse`; new README screenshots of the examples migrated to kit
+- [ ] i18n: fields for kit's toast viewport and close labels ("Notifications", "Close toast" stay English in the gallery's Spanish and Arabic); message boxes' button labels, native and drawn, get an i18n hook (and the labels Tela gives macOS's app, Edit and Window menus and the save panel's "Format:" popup); `ar-EG` formats Arabic-Indic digits as ICU does (the vendored CLDR data gives Latin)
+- [ ] App and desktop: `App.OnClose` inside the component tree (`examples/notes` bridges it with a package variable); text fields accept text drops by default, as HTML's do; a saved window position is clamped to the monitors present at the next start; `desktop` stores see changes other programs make to their files; a `LaunchEvent` does not say whether it came from another process or from Launch Services (a link or file opened with the app, also at its start), so `desktop.UseLaunch` reports those `Forwarded`; app-scoped events that arrive before the first frame's commit have no listeners yet on any backend (cocoa holds launches until then); `desktop.AppMenuBar` has no way to apply only where the app's bar is native (on Windows it becomes every framed window's bar, so `notes` declares it only under the macOS look); `platform.Association` has no role, so file types register as Editor
+- [ ] Examples: `notes`' welcome note and its Preferences shortcut list say Ctrl on a Mac and lack Cmd+W and Cmd+1–3; the gallery's English demo texts end their sentences at the right side under RTL; `examples/kit` shows control-after without `flex-row-reverse`; new README screenshots of the examples migrated to kit
 
 **Done when:** each item has its API, an ADR where it adds public API, and a test or golden, and the kit gallery shows the new pieces in its three locales.
 
@@ -139,7 +142,7 @@ The hardest technical item (`tela-hard`). It changes no public API.
 
 ### Packaging and auto-update
 
-- [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg` on the development bundle of the macOS desktop phase, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks (macOS notarization needs an Apple developer account)
+- [ ] `tela build` / `tela package`: installers and bundles (`.msi`/MSIX, `.app`/`.dmg` on the development bundle of the macOS desktop phase, AppImage, flatpak, `.deb`), icons, metadata, code-signing hooks (macOS notarization needs an Apple developer account); a signed bundle's `Info.plist` cannot be edited at run time, so a packaged Mac app declares its schemes and file types at build time (`assoc` refuses to edit a signed bundle, ADR-228)
 - [ ] Windows targets are GUI programs by default (`-H=windowsgui`, no console window next to the app; ADR-127), with panics and the app's log written to a file in its data directory, since a GUI program has no standard output
 - [ ] Auto-update: signed manifests, delta or full downloads, atomic replace, rollback
 - [ ] Crash reporting hook and structured logging
@@ -211,6 +214,7 @@ This session gates v1.0's "macOS supported". Items a phase adds after the sessio
 - [ ] Keyboard: the ISO swap of kVK_ISO_Section and the grave key, `charactersIgnoringModifiers` with Cmd+Shift, dead keys without the IME, the Caps Lock `flagsChanged:` pattern, the Globe/Fn key's keycode on new keyboards
 - [ ] Japanese through the macOS IME, and dead keys with real key presses (CI's synthetic events start a dead-key composition but do not finish it)
 - [ ] `examples/notes`: tray, notifications, file dialogs, two windows, a persisted position, a file dropped from Finder, the global shortcut in the background, a deep link into the running instance, a note locked in the Keychain, the Trash
+- [ ] Phase 15 by hand (`tela run ./examples/notes`): notifications in the bundle (the authorization prompt, actions, a click), the traffic lights over notes' bar and their hover glyphs after they move, the vibrancy backdrops, a file dialog's "Format:" popup, Cmd+Q, the Dock's Quit and a logout with and without `OnQuit`'s dialog, a second start from Terminal taking the focus (macOS 14's activation yield), the global shortcut with a non-US layout, `open dist/Notes.app` and a `tela-notes:` link from Safari, and whether macOS accepts the development bundle's ad-hoc signature (the Go linker's, without a seal over `Info.plist`)
 - [ ] After Accessibility: VoiceOver reads, navigates and operates `login`
 - [ ] After the GPU backend: Metal draws the dashboard at 60 fps at scale 2
 - [ ] After packaging: a signed and notarized `.app`/`.dmg` installs and updates
