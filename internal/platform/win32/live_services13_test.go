@@ -39,20 +39,6 @@ func requireLiveServices(t *testing.T) {
 	}
 }
 
-var procKeybdEvent = user32.NewProc("keybd_event")
-
-// pressKeys presses the keys in order and releases them in reverse, as a
-// user holding the modifiers does.
-func pressKeys(vks ...uint8) {
-	const keyUp = 2 // KEYEVENTF_KEYUP
-	for _, vk := range vks {
-		procKeybdEvent.Call(uintptr(vk), 0, 0, 0)
-	}
-	for _, vk := range slices.Backward(vks) {
-		procKeybdEvent.Call(uintptr(vk), 0, keyUp, 0)
-	}
-}
-
 func TestLiveSettings(t *testing.T) {
 	requireLiveServices(t)
 	s := readSettings()
@@ -85,9 +71,11 @@ func TestLiveSettings(t *testing.T) {
 func TestLiveGlobalShortcut(t *testing.T) {
 	requireLiveServices(t)
 	b1, b2 := liveBackend(t), liveBackend(t)
-	// Ctrl+Alt+Shift+F19 and F20: keys few keyboards have and no program
-	// takes.
-	acc := platform.Accelerator{Mods: platform.ModCtrl | platform.ModAlt | platform.ModShift, Key: "F19"}
+	// Ctrl+Alt+Shift+F12: a combination no program of the test machine
+	// takes, typed below as scan codes with SendInput like the keyboard
+	// tests (keybd_event's virtual keys from a scheduled task never
+	// reached the hotkey).
+	acc := platform.Accelerator{Mods: platform.ModCtrl | platform.ModAlt | platform.ModShift, Key: "F12"}
 	if err := b1.Desktop().RegisterShortcut(platform.Shortcut{ID: "live-a", Accelerator: acc, Description: "Live test"}); err != nil {
 		t.Fatalf("RegisterShortcut: %v", err)
 	}
@@ -122,13 +110,15 @@ func TestLiveGlobalShortcut(t *testing.T) {
 			seen = append(seen, fmt.Sprintf("status %s %v %q", e.ID, e.Status, e.Trigger))
 			switch stage {
 			case 0:
-				if e.Status != platform.ShortcutBound || e.Trigger != "Ctrl+Alt+Shift+F19" {
+				if e.Status != platform.ShortcutBound || e.Trigger != "Ctrl+Alt+Shift+F12" {
 					t.Errorf("first status = %+v", e)
 					b1.Quit()
 					return
 				}
 				stage = 1
-				pressKeys(vkControl, vkMenu, vkShift, 0x82) // VK_F19
+				const scF12 = 0x58
+				sendKeysRaw(kdn(scLCtrlK)[0], kdn(scLAltK)[0], kdn(scLShiftK)[0], kdn(scF12)[0],
+					kup(scF12)[0], kup(scLShiftK)[0], kup(scLAltK)[0], kup(scLCtrlK)[0])
 			case 2: // the combination is free again
 				if e.ID != "live-c" || e.Status != platform.ShortcutBound {
 					t.Errorf("status after unregistering = %+v", e)
