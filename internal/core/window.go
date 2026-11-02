@@ -585,6 +585,7 @@ func (t *Tree) openWindow(s *windowSlot) {
 			return fmt.Sprintf("tela: tela.Window %q has no OnClose, so closing it from its title bar does nothing: the window stays open while your state renders it. Set OnClose to update that state, such as OnClose: func() { setOpen(false) }, or to func() {} to keep the window open on purpose", spec.Title)
 		})
 	}
+	h.windowsChanged()
 }
 
 // childConfig returns the configuration of a child window's Tree: the
@@ -712,6 +713,7 @@ func (t *Tree) closeWindow(s *windowSlot) {
 	if !h.ended {
 		v.win.Close()
 	}
+	h.windowsChanged()
 }
 
 // sameIcon reports whether a and b hold the same images.

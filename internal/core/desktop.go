@@ -24,6 +24,7 @@ type Desktop struct{ h *Host }
 type hostDesktop struct {
 	listeners    []*appListener
 	winListeners []*winListener // desktop13.go
+	winWatchers  []*windowWatch // desktop15.go
 	local        map[any]any
 }
 

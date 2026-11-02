@@ -215,6 +215,10 @@ func svgIcon(size int, shapes string) tela.Icon {
 // in it by themselves).
 //
 // Without a window, as in tela snapshot, the buttons draw and do nothing.
+// In a window with tela.App.TitleBarOverlay on macOS, the OS keeps its own
+// buttons over the content (State().TitleBarControls is the rectangle they
+// cover): the group then draws nothing, and [TitleBar] keeps their room
+// free.
 //
 // Variant Plain draws the same arrangement and glyphs as the platform's
 // look in ghost buttons: the glyphs in the muted foreground, a hover in the
@@ -259,6 +263,9 @@ type WindowControls struct {
 func (w WindowControls) Build() tela.Node {
 	st := useWindowState(w.State)
 	s := &UseStyle().WindowControls
+	if r := st.TitleBarControls; r.Width > 0 && r.Height > 0 {
+		return nil // the OS's own buttons are over the window
+	}
 	lk, plain := resolvePlain(w.Variant, w.Look)
 	key := lk // the key of the recipes that differ in Plain
 	if plain {

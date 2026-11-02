@@ -124,15 +124,26 @@
 // h.WindowDrag and h.WindowControl send to the OS, a click on the drag area
 // ([App.Click], [App.ClickAt], [App.DoubleClick]) is the OS's press
 // ([App.CaptionDrags], [App.WindowMenus], a double click maximizes), and the
-// controls are buttons that act on click.
+// controls are buttons that act on click. A [TitleBarOverlay] window keeps
+// the OS's buttons over the content where the test says ([TitleBarControls],
+// [App.SetTitleBarControls], [MacTitleBarControls] under [PlatformKeys]
+// ("darwin")): [tela.WindowState].TitleBarControls reports them.
+//
+// The app's menu bar (desktop.AppMenuBar): [App.AppMenuBar],
+// [App.AppMenuItems] and [App.ChooseAppMenuItem]. The headless desktop has
+// the platform's app bar by default, as macOS; [WithUnsupported] and
+// [App.Unsupported] with [AppMenu] play Windows (every framed window gets the
+// bar) and, with [NativeMenus] too, Linux. kit's menus stay drawn unless
+// [PreferNativeMenus].
 //
 // Quitting: [App.ExpectQuit] waits for tela.Quit or a close request of the
 // main window without an OnClose; the app is then over, as when tela.Main
 // returns: every window unmounted, the cleanups of the effects run, and
 // further use fails the test. [App.HasQuit] and [App.ExpectRunning] check
-// that it did or did not. The window options ([Title], [MinSize],
-// [MaxSize], [FixedSize], [Frameless], [AlwaysOnTop], [TitleBar], [Backdrop], [StartHidden],
-// [Icon], [Placement], [OnClose], [Screen]) set the main window's fields
+// that it did or did not. [App.RequestQuit] plays the OS asking the app to
+// quit (macOS's Cmd+Q: [OnQuit]). The window options ([Title], [MinSize],
+// [MaxSize], [FixedSize], [Frameless], [TitleBarOverlay], [AlwaysOnTop], [TitleBar], [Backdrop], [StartHidden],
+// [Icon], [Placement], [OnClose], [OnQuit], [Screen]) set the main window's fields
 // for Mount.
 //
 // # Drag and drop

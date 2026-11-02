@@ -355,6 +355,15 @@ else; `tela.App{NativeMenus: true}` does it for every menu, and a menu's own `Na
 destructive color or `KeepOpen`. See
 [Desktop Integration](Desktop-Integration#native-menus).
 
+`Menubar{AppMenu: true}` makes the bar the app's one menu bar (declare it once):
+the OS's, through `desktop.AppMenuBar`, where native menus apply and the platform
+has an app bar (macOS: the bar of every window; Windows: of every framed window),
+and drawn where it is declared otherwise. `AppItems` are the items of macOS's app
+menu after About (`Settings…`), and `MenubarMenu{Role: desktop.RoleEditMenu}` with no
+`Items` is the OS's Edit menu (the Window menu likewise), left out of a drawn bar.
+A per-window native `Menubar` is drawn on macOS. See
+[the app's menu bar](Desktop-Integration#the-apps-menu-bar).
+
 ### Title bars
 
 `TitleBar` and `WindowControls` are for a window that draws its own title bar: a
@@ -396,7 +405,11 @@ is for an app with a design of its own: the platform's arrangement (`Look` picks
 another) with no background, border or outline, so the surface under the bar
 shows (give it one with `Class: "bg-sidebar"`), and ghost window controls that
 follow the theme tokens (muted glyphs, an accent hover, a destructive hover on
-close; small neutral dots on macOS). It does not hide itself: to show
+close; small neutral dots on macOS). In a window with `TitleBarOverlay: true` the OS
+keeps its own buttons over the bar (macOS's traffic lights): the bar reads
+`State().TitleBarControls`, leaves that room free at the side they are on (the leading
+slot starts after them), and draws no controls of its own, in every variant;
+`WindowControls` alone draws nothing there. It does not hide itself: to show
 it only where the OS draws no title bar, wrap it in
 `If(tela.UseWindow().State().ClientSideDecorations, ...)`. `State` overrides the
 window's state, for previews and tests (`tela snapshot` has no window: the bar is

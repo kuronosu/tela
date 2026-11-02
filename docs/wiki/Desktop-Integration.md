@@ -536,6 +536,63 @@ if errors.Is(err, desktop.ErrUnsupported) {
 }
 ```
 
+### The app's menu bar
+
+A menu bar belongs to the app on macOS, not to a window. Declare the app's one bar
+once, anywhere in the tree, with the component
+[`desktop.AppMenuBar{Menus, AppItems, OnError}`](API-Reference-desktop#type-appmenubar)
+(Electron's `Menu.setApplicationMenu`), or with `kit.Menubar{AppMenu: true}`, which is
+that component where native menus apply and the drawn bar where they do not:
+
+```go
+desktop.AppMenuBar{
+	AppItems: []desktop.MenuItem{ // macOS's app menu, after About
+		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", OnSelect: openSettings},
+	},
+	Menus: []desktop.MenuItem{
+		{Label: "File", Submenu: []desktop.MenuItem{
+			{Label: "New Note", Accelerator: "CmdOrCtrl+N", OnSelect: newNote},
+			{Separator: true},
+			{Role: desktop.RoleClose},
+		}},
+		{Role: desktop.RoleEditMenu},   // Undo, Redo, Cut, Copy, Paste, Select All
+		{Role: desktop.RoleWindowMenu}, // Minimize, Zoom, Close; macOS lists the windows
+	},
+	OnError: func(err error) { setDrawnMenu.Set(true) }, // ErrUnsupported: draw it
+}
+```
+
+- **macOS:** it is the menu bar of every window. macOS always puts the app's own
+  menu first: About, then `AppItems`, then Services, Hide, Hide Others, Show All and
+  Quit (the OS's). Without an `AppMenuBar` the bar shows the app, Edit and Window
+  menus.
+- **Windows:** it becomes the bar of every framed window that has no
+  `desktop.MenuBar` of its own, windows opened later included. A window's own
+  `MenuBar` wins on that window. `AppItems` are ignored.
+- **Elsewhere** (Linux, frameless windows): `OnError` gets an error wrapping
+  `ErrUnsupported` and the app draws the menu (kit does).
+- A window's own `desktop.MenuBar` is unsupported on macOS: use the app's bar.
+- Two mounted `AppMenuBar`s: the later one wins, with a dev warning.
+
+**Roles** are the OS's standard items, with Electron's names: `RoleUndo`,
+`RoleRedo`, `RoleCut`, `RoleCopy`, `RolePaste`, `RoleSelectAll`, `RoleMinimize`,
+`RoleZoom`, `RoleClose`, and the menus `RoleEditMenu`, `RoleWindowMenu` and
+`RoleHelpMenu`. An item with a `Role` and no `Label` gets the role's English label
+("Select All"), and an Edit or Window menu with no `Submenu` gets the standard
+items. On macOS the items are AppKit's own, acting on the key window and its focused
+field. Where the OS only reports the choice (Windows, drawn menus, tests), package
+desktop carries it out: minimize, zoom and close act on the window, and the edit
+roles send the focused element the shortcut of its platform (Command+C on a Mac),
+so text fields cut, copy and paste as they do for the keys. An item's own
+`OnSelect` replaces the role. Roles work in `MenuBar`, `PopupMenu` and `Tray` menus
+too. In kit, `kit.MenubarMenu{Role: desktop.RoleEditMenu}` with no `Items` is the
+OS's Edit menu in a native bar, and is left out of a drawn one.
+
+On macOS an `Accelerator` in the app's bar is the item's key equivalent: the key
+chooses the item and does not reach the app as a key event, so do not handle it a
+second time with `OnKeyDown`. `CmdOrCtrl+N` is the portable spelling (Command on a
+Mac, Ctrl elsewhere, where the text is only shown and the app handles the key).
+
 ## System settings
 
 Tela follows more of the user's system settings than dark mode and reduced

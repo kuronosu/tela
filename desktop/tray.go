@@ -5,7 +5,6 @@ import (
 	"image"
 	"reflect"
 	"slices"
-	"strings"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/internal/core"
@@ -74,8 +73,16 @@ type MenuItem struct {
 	// Accelerator is the text of the item's keyboard shortcut, shown at
 	// its right ("Ctrl+S"; [ParseKeys] writes it the usual way). It is
 	// display only: the app handles the key itself (h.OnKeyDown). Tray
-	// menus may not show it.
+	// menus may not show it. "CmdOrCtrl+N" is the portable spelling
+	// (Command on a Mac, Ctrl elsewhere). One exception: in the app's menu
+	// bar on macOS ([AppMenuBar]) it is the item's key equivalent, so the
+	// key chooses the item and does not reach the app as a key event: do
+	// not handle it a second time.
 	Accelerator string
+	// Role makes the item, or its submenu, a standard one: Undo, Copy,
+	// Minimize, the Edit menu (see [Role]). An empty Label gets the
+	// role's. RoleNone, the zero value, is an item of the app's own.
+	Role Role
 	// Separator makes the item a separator line; the other fields are
 	// ignored.
 	Separator bool
@@ -105,7 +112,7 @@ func (t Tray) Build() tela.Node {
 		if !ok {
 			return nil // tela snapshot, or a tree without windows
 		}
-		s.d = d
+		s.d, s.win = d, w
 		s.stop = d.Listen(s.event)
 		return s.remove
 	})
@@ -126,7 +133,8 @@ type trayState struct {
 	shown   platform.TrayOptions // what the backend shows
 	failed  bool                 // NewTray failed: not retried until the options change
 	props   Tray
-	actions map[platform.MenuItemID]func()
+	actions menuActions
+	win     tela.WindowHandle
 }
 
 // sync shows opts, or updates the icon when they differ from what it
@@ -186,51 +194,15 @@ func (s *trayState) event(e platform.Event) {
 			f()
 		}
 	case platform.TrayMenuItem:
-		if f := s.actions[te.Item]; f != nil {
-			f()
-		}
+		s.actions.run(te.Item, roleInKey(s.win))
 	}
 }
 
 // trayOptions returns the platform options of t, numbering the items that
 // can be chosen from 1 in menu order, and their OnSelect by number.
-func trayOptions(t Tray) (platform.TrayOptions, map[platform.MenuItemID]func()) {
+func trayOptions(t Tray) (platform.TrayOptions, menuActions) {
 	menu, actions := platformMenu("desktop.Tray", t.Menu)
 	return platform.TrayOptions{Icon: t.Icon, Tooltip: t.Tooltip, Menu: menu}, actions
-}
-
-// platformMenu returns the platform menu of items, numbering the items
-// that can be chosen from 1 in menu order, and their OnSelect by number.
-// An Accelerator with control characters panics (what names the menu).
-func platformMenu(what string, items []MenuItem) ([]platform.MenuItem, map[platform.MenuItemID]func()) {
-	actions := map[platform.MenuItemID]func(){}
-	var next platform.MenuItemID
-	var conv func(items []MenuItem) []platform.MenuItem
-	conv = func(items []MenuItem) []platform.MenuItem {
-		if len(items) == 0 {
-			return nil
-		}
-		out := make([]platform.MenuItem, len(items))
-		for i, it := range items {
-			if strings.IndexFunc(it.Accelerator, func(r rune) bool { return r < ' ' || r == 0x7f }) >= 0 {
-				panic(fmt.Sprintf("%s: the item %q has the Accelerator %q with a control character; it is the text shown, such as \"Ctrl+S\"", what, it.Label, it.Accelerator))
-			}
-			switch {
-			case it.Separator:
-				out[i] = platform.MenuItem{Separator: true}
-			case len(it.Submenu) > 0:
-				out[i] = platform.MenuItem{Label: it.Label, Disabled: it.Disabled, Submenu: conv(it.Submenu)}
-			default:
-				next++
-				out[i] = platform.MenuItem{ID: next, Label: it.Label, Accelerator: it.Accelerator, Checkable: it.Checkbox, Checked: it.Checked, Disabled: it.Disabled}
-				if it.OnSelect != nil {
-					actions[next] = it.OnSelect
-				}
-			}
-		}
-		return out
-	}
-	return conv(items), actions
 }
 
 // sameTray reports whether a and b show the same icon, tooltip and menu.

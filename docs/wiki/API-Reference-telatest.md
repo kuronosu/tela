@@ -12,9 +12,10 @@ This page is generated from the doc comments of the package; the same text is on
 
 - [Overview](#overview)
 - [Constants](#constants)
-- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`Tolerance`](#func-tolerance)
+- [Variables](#variables)
+- [Functions](#functions): [`AccentColor`](#func-accentcolor) · [`Active`](#func-active) · [`ActiveDescendant`](#func-activedescendant) · [`AllowDev`](#func-allowdev) · [`Allowed`](#func-allowed) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`AriaSnapshot`](#func-ariasnapshot) · [`Backdrop`](#func-backdrop) · [`ByClass`](#func-byclass) · [`ByRole`](#func-byrole) · [`ByTestID`](#func-bytestid) · [`ByText`](#func-bytext) · [`Carrying`](#func-carrying) · [`CheckDamage`](#func-checkdamage) · [`Checked`](#func-checked) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ClientDecorations`](#func-clientdecorations) · [`ColorScheme`](#func-colorscheme) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Delay`](#func-delay) · [`Dev`](#func-dev) · [`Disabled`](#func-disabled) · [`DragFiles`](#func-dragfiles) · [`DragHTML`](#func-draghtml) · [`DragPNG`](#func-dragpng) · [`DragText`](#func-dragtext) · [`DragType`](#func-dragtype) · [`Exact`](#func-exact) · [`Expanded`](#func-expanded) · [`FixedSize`](#func-fixedsize) · [`Focused`](#func-focused) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`Fullscreen`](#func-fullscreen) · [`HasClass`](#func-hasclass) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasText`](#func-hastext) · [`HasValue`](#func-hasvalue) · [`Hidden`](#func-hidden) · [`HighContrast`](#func-highcontrast) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`Invalid`](#func-invalid) · [`LayoutJSON`](#func-layoutjson) · [`MaxSize`](#func-maxsize) · [`Maximized`](#func-maximized) · [`MinSize`](#func-minsize) · [`Minimized`](#func-minimized) · [`Modifiers`](#func-modifiers) · [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`NoActiveDescendant`](#func-noactivedescendant) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`Pressed`](#func-pressed) · [`ReducedMotion`](#func-reducedmotion) · [`Render`](#func-render) · [`Right`](#func-right) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Selected`](#func-selected) · [`Size`](#func-size) · [`Sort`](#func-sort) · [`StartHidden`](#func-starthidden) · [`Steps`](#func-steps) · [`TempDesktopDirs`](#func-tempdesktopdirs) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`Tolerance`](#func-tolerance) · [`WithUnsupported`](#func-withunsupported)
 - [Types](#types)
-  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`StartDrag`](#func-app-startdrag) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
+  - [`type App`](#type-app): [`Mount`](#func-mount) · [`MountApp`](#func-mountapp) · [`MountFunc`](#func-mountfunc) · [`ActiveDrag`](#func-app-activedrag) · [`Advance`](#func-app-advance) · [`AnswerFileDialog`](#func-app-answerfiledialog) · [`AnswerMessage`](#func-app-answermessage) · [`AppMenuBar`](#func-app-appmenubar) · [`AppMenuItems`](#func-app-appmenuitems) · [`AriaGolden`](#func-app-ariagolden) · [`AriaSnapshot`](#func-app-ariasnapshot) · [`Backdrop`](#func-app-backdrop) · [`Blocked`](#func-app-blocked) · [`BlockedBy`](#func-app-blockedby) · [`Blocks`](#func-app-blocks) · [`Bounds`](#func-app-bounds) · [`BringToFront`](#func-app-bringtofront) · [`CancelDrag`](#func-app-canceldrag) · [`CaptionDrags`](#func-app-captiondrags) · [`ChooseAppMenuItem`](#func-app-chooseappmenuitem) · [`ChooseMenuItem`](#func-app-choosemenuitem) · [`ChoosePopupItem`](#func-app-choosepopupitem) · [`ClearAccentColor`](#func-app-clearaccentcolor) · [`Click`](#func-app-click) · [`ClickAt`](#func-app-clickat) · [`ClickNotification`](#func-app-clicknotification) · [`ClickNotificationAction`](#func-app-clicknotificationaction) · [`ClickTray`](#func-app-clicktray) · [`ClickTrayItem`](#func-app-clicktrayitem) · [`Clipboard`](#func-app-clipboard) · [`Close`](#func-app-close) · [`Closed`](#func-app-closed) · [`Count`](#func-app-count) · [`Cursor`](#func-app-cursor) · [`DismissNotification`](#func-app-dismissnotification) · [`DismissPopupMenu`](#func-app-dismisspopupmenu) · [`DoubleClick`](#func-app-doubleclick) · [`Drag`](#func-app-drag) · [`DragBy`](#func-app-dragby) · [`DragFromTo`](#func-app-dragfromto) · [`DragTo`](#func-app-dragto) · [`DragToWindow`](#func-app-dragtowindow) · [`DropData`](#func-app-dropdata) · [`DropFiles`](#func-app-dropfiles) · [`DropOn`](#func-app-dropon) · [`DropOutside`](#func-app-dropoutside) · [`Expect`](#func-app-expect) · [`ExpectAria`](#func-app-expectaria) · [`ExpectClosed`](#func-app-expectclosed) · [`ExpectCount`](#func-app-expectcount) · [`ExpectFocused`](#func-app-expectfocused) · [`ExpectNoText`](#func-app-expectnotext) · [`ExpectNoWindow`](#func-app-expectnowindow) · [`ExpectQuit`](#func-app-expectquit) · [`ExpectRole`](#func-app-expectrole) · [`ExpectRunning`](#func-app-expectrunning) · [`ExpectText`](#func-app-expecttext) · [`ExpectTitle`](#func-app-expecttitle) · [`ExpectValue`](#func-app-expectvalue) · [`ExpectWindowCount`](#func-app-expectwindowcount) · [`ExpectWindowState`](#func-app-expectwindowstate) · [`FailSecrets`](#func-app-failsecrets) · [`FailShortcuts`](#func-app-failshortcuts) · [`FailTrash`](#func-app-failtrash) · [`FileDialogs`](#func-app-filedialogs) · [`Fill`](#func-app-fill) · [`Focus`](#func-app-focus) · [`GlobalShortcuts`](#func-app-globalshortcuts) · [`Golden`](#func-app-golden) · [`GoldenScales`](#func-app-goldenscales) · [`HasQuit`](#func-app-hasquit) · [`HitAt`](#func-app-hitat) · [`HitRegions`](#func-app-hitregions) · [`HoldAppEntry`](#func-app-holdappentry) · [`HoldAssociation`](#func-app-holdassociation) · [`Hover`](#func-app-hover) · [`HoverDrag`](#func-app-hoverdrag) · [`InjectLaunch`](#func-app-injectlaunch) · [`LastWindow`](#func-app-lastwindow) · [`LayoutJSON`](#func-app-layoutjson) · [`LayoutJSONOf`](#func-app-layoutjsonof) · [`LeaveDrag`](#func-app-leavedrag) · [`LongPress`](#func-app-longpress) · [`MainWindow`](#func-app-mainwindow) · [`Maximize`](#func-app-maximize) · [`Measure`](#func-app-measure) · [`MenuBar`](#func-app-menubar) · [`MessageBoxes`](#func-app-messageboxes) · [`Minimize`](#func-app-minimize) · [`Modal`](#func-app-modal) · [`MouseDown`](#func-app-mousedown) · [`MouseMove`](#func-app-mousemove) · [`MouseUp`](#func-app-mouseup) · [`Move`](#func-app-move) · [`Notifications`](#func-app-notifications) · [`Now`](#func-app-now) · [`Parent`](#func-app-parent) · [`PixelAt`](#func-app-pixelat) · [`Placement`](#func-app-placement) · [`PopupMenus`](#func-app-popupmenus) · [`Press`](#func-app-press) · [`PressShortcut`](#func-app-pressshortcut) · [`RegisteredApps`](#func-app-registeredapps) · [`Registrations`](#func-app-registrations) · [`ReleaseShortcut`](#func-app-releaseshortcut) · [`RequestClose`](#func-app-requestclose) · [`RequestQuit`](#func-app-requestquit) · [`Resize`](#func-app-resize) · [`Restore`](#func-app-restore) · [`Screenshot`](#func-app-screenshot) · [`Scroll`](#func-app-scroll) · [`SetAccentColor`](#func-app-setaccentcolor) · [`SetClipboard`](#func-app-setclipboard) · [`SetDarkMode`](#func-app-setdarkmode) · [`SetDefaultHandler`](#func-app-setdefaulthandler) · [`SetFullscreen`](#func-app-setfullscreen) · [`SetHighContrast`](#func-app-sethighcontrast) · [`SetReducedMotion`](#func-app-setreducedmotion) · [`SetScale`](#func-app-setscale) · [`SetShortcutStatus`](#func-app-setshortcutstatus) · [`SetShortcutUnassigned`](#func-app-setshortcutunassigned) · [`SetStoredSecret`](#func-app-setstoredsecret) · [`SetTextScale`](#func-app-settextscale) · [`SetTitleBarControls`](#func-app-settitlebarcontrols) · [`StartDrag`](#func-app-startdrag) · [`Stats`](#func-app-stats) · [`StoredSecret`](#func-app-storedsecret) · [`Tap`](#func-app-tap) · [`Title`](#func-app-title) · [`TitleBar`](#func-app-titlebar) · [`Trashed`](#func-app-trashed) · [`Tray`](#func-app-tray) · [`Trays`](#func-app-trays) · [`Type`](#func-app-type) · [`Unmaximize`](#func-app-unmaximize) · [`Unsupported`](#func-app-unsupported) · [`WaitFor`](#func-app-waitfor) · [`WaitForWindow`](#func-app-waitforwindow) · [`Window`](#func-app-window) · [`WindowAt`](#func-app-windowat) · [`WindowMenus`](#func-app-windowmenus) · [`WindowSize`](#func-app-windowsize) · [`WindowState`](#func-app-windowstate) · [`Windows`](#func-app-windows)
   - [`type ClickOption`](#type-clickoption): [`Delay`](#func-delay) · [`Right`](#func-right)
   - [`type DesktopService`](#type-desktopservice)
   - [`type DragInfo`](#type-draginfo)
@@ -31,7 +32,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type MenuItem`](#type-menuitem)
   - [`type MessageBox`](#type-messagebox)
   - [`type Notification`](#type-notification)
-  - [`type Option`](#type-option): [`AccentColor`](#func-accentcolor) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`Backdrop`](#func-backdrop) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`HighContrast`](#func-highcontrast) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar)
+  - [`type Option`](#type-option): [`AccentColor`](#func-accentcolor) · [`AllowDev`](#func-allowdev) · [`AlwaysOnTop`](#func-alwaysontop) · [`AppID`](#func-appid) · [`Backdrop`](#func-backdrop) · [`CheckDamage`](#func-checkdamage) · [`ClassAliases`](#func-classaliases) · [`ClassicScrollbars`](#func-classicscrollbars) · [`ColorScheme`](#func-colorscheme) · [`Dark`](#func-dark) · [`Debug`](#func-debug) · [`DebugClock`](#func-debugclock) · [`Dev`](#func-dev) · [`FixedSize`](#func-fixedsize) · [`Frameless`](#func-frameless) · [`FromApp`](#func-fromapp) · [`HighContrast`](#func-highcontrast) · [`Icon`](#func-icon) · [`InstantScroll`](#func-instantscroll) · [`MaxSize`](#func-maxsize) · [`MinSize`](#func-minsize) · [`NoDev`](#func-nodev) · [`NoServerDecorations`](#func-noserverdecorations) · [`NoSettle`](#func-nosettle) · [`OnClose`](#func-onclose) · [`OnQuit`](#func-onquit) · [`Placement`](#func-placement) · [`PlatformKeys`](#func-platformkeys) · [`PreferNativeMenus`](#func-prefernativemenus) · [`ReducedMotion`](#func-reducedmotion) · [`RootClass`](#func-rootclass) · [`Scale`](#func-scale) · [`Screen`](#func-screen) · [`Size`](#func-size) · [`StartHidden`](#func-starthidden) · [`TextScale`](#func-textscale) · [`Theme`](#func-theme) · [`Timeout`](#func-timeout) · [`Title`](#func-title) · [`TitleBar`](#func-titlebar) · [`TitleBarControls`](#func-titlebarcontrols) · [`TitleBarOverlay`](#func-titlebaroverlay) · [`WithUnsupported`](#func-withunsupported)
   - [`type PopupMenu`](#type-popupmenu)
   - [`type Registration`](#type-registration)
   - [`type State`](#type-state): [`ActiveDescendant`](#func-activedescendant) · [`Checked`](#func-checked) · [`Controls`](#func-controls) · [`Current`](#func-current) · [`Disabled`](#func-disabled) · [`Expanded`](#func-expanded) · [`Focused`](#func-focused) · [`HasName`](#func-hasname) · [`HasPopup`](#func-haspopup) · [`HasValue`](#func-hasvalue) · [`Invalid`](#func-invalid) · [`NoActiveDescendant`](#func-noactivedescendant) · [`Pressed`](#func-pressed) · [`Selected`](#func-selected) · [`Sort`](#func-sort)
@@ -88,9 +89,11 @@ Selecting a window waits for it to open, like a locator waits for its element; t
 
 The window itself: [`App.Title`](#func-app-title), [`App.WindowState`](#func-app-windowstate) (tela.WindowState, as UseWindow sees it), [`App.WindowSize`](#func-app-windowsize), [`App.Placement`](#func-app-placement), [`App.Modal`](#func-app-modal), [`App.Parent`](#func-app-parent), [`App.Blocks`](#func-app-blocks), [`App.BlockedBy`](#func-app-blockedby) and [`App.Closed`](#func-app-closed); the expectations [`App.ExpectTitle`](#func-app-expecttitle), [`App.ExpectWindowState`](#func-app-expectwindowstate) (with [`Maximized`](#func-maximized), [`Fullscreen`](#func-fullscreen), [`Minimized`](#func-minimized), [`Hidden`](#func-hidden), [`Active`](#func-active) and [`ClientDecorations`](#func-clientdecorations)), [`App.ExpectClosed`](#func-app-expectclosed), [`App.ExpectWindowCount`](#func-app-expectwindowcount) and [`App.ExpectNoWindow`](#func-app-expectnowindow). What the user does with the window manager: [`App.RequestClose`](#func-app-requestclose) (the close button), [`App.Minimize`](#func-app-minimize), [`App.Maximize`](#func-app-maximize), [`App.Unmaximize`](#func-app-unmaximize), [`App.SetFullscreen`](#func-app-setfullscreen), [`App.Restore`](#func-app-restore), [`App.Move`](#func-app-move), [`App.Resize`](#func-app-resize) and [`App.BringToFront`](#func-app-bringtofront). A window blocked by a modal one drops input.
 
-Custom title bars: [`App.HitRegions`](#func-app-hitregions) and [`App.HitAt`](#func-app-hitat) read the regions h.WindowDrag and h.WindowControl send to the OS, a click on the drag area ([`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat), [`App.DoubleClick`](#func-app-doubleclick)) is the OS's press ([`App.CaptionDrags`](#func-app-captiondrags), [`App.WindowMenus`](#func-app-windowmenus), a double click maximizes), and the controls are buttons that act on click.
+Custom title bars: [`App.HitRegions`](#func-app-hitregions) and [`App.HitAt`](#func-app-hitat) read the regions h.WindowDrag and h.WindowControl send to the OS, a click on the drag area ([`App.Click`](#func-app-click), [`App.ClickAt`](#func-app-clickat), [`App.DoubleClick`](#func-app-doubleclick)) is the OS's press ([`App.CaptionDrags`](#func-app-captiondrags), [`App.WindowMenus`](#func-app-windowmenus), a double click maximizes), and the controls are buttons that act on click. A [`TitleBarOverlay`](#func-titlebaroverlay) window keeps the OS's buttons over the content where the test says ([`TitleBarControls`](#func-titlebarcontrols), [`App.SetTitleBarControls`](#func-app-settitlebarcontrols), [`MacTitleBarControls`](#variables) under [`PlatformKeys`](#func-platformkeys) ("darwin")): [`tela.WindowState`](API-Reference-tela#type-windowstate).TitleBarControls reports them.
 
-Quitting: [`App.ExpectQuit`](#func-app-expectquit) waits for tela.Quit or a close request of the main window without an OnClose; the app is then over, as when tela.Main returns: every window unmounted, the cleanups of the effects run, and further use fails the test. [`App.HasQuit`](#func-app-hasquit) and [`App.ExpectRunning`](#func-app-expectrunning) check that it did or did not. The window options ([`Title`](#func-title), [`MinSize`](#func-minsize), [`MaxSize`](#func-maxsize), [`FixedSize`](#func-fixedsize), [`Frameless`](#func-frameless), [`AlwaysOnTop`](#func-alwaysontop), [`TitleBar`](#func-titlebar), [`Backdrop`](#func-backdrop), [`StartHidden`](#func-starthidden), [`Icon`](#func-icon), [`Placement`](#func-placement), [`OnClose`](#func-onclose), [`Screen`](#func-screen)) set the main window's fields for Mount.
+The app's menu bar (desktop.AppMenuBar): [`App.AppMenuBar`](#func-app-appmenubar), [`App.AppMenuItems`](#func-app-appmenuitems) and [`App.ChooseAppMenuItem`](#func-app-chooseappmenuitem). The headless desktop has the platform's app bar by default, as macOS; [`WithUnsupported`](#func-withunsupported) and [`App.Unsupported`](#func-app-unsupported) with [`AppMenu`](#type-desktopservice) play Windows (every framed window gets the bar) and, with [`NativeMenus`](#type-desktopservice) too, Linux. kit's menus stay drawn unless [`PreferNativeMenus`](#func-prefernativemenus).
+
+Quitting: [`App.ExpectQuit`](#func-app-expectquit) waits for tela.Quit or a close request of the main window without an OnClose; the app is then over, as when tela.Main returns: every window unmounted, the cleanups of the effects run, and further use fails the test. [`App.HasQuit`](#func-app-hasquit) and [`App.ExpectRunning`](#func-app-expectrunning) check that it did or did not. [`App.RequestQuit`](#func-app-requestquit) plays the OS asking the app to quit (macOS's Cmd+Q: [`OnQuit`](#func-onquit)). The window options ([`Title`](#func-title), [`MinSize`](#func-minsize), [`MaxSize`](#func-maxsize), [`FixedSize`](#func-fixedsize), [`Frameless`](#func-frameless), [`TitleBarOverlay`](#func-titlebaroverlay), [`AlwaysOnTop`](#func-alwaysontop), [`TitleBar`](#func-titlebar), [`Backdrop`](#func-backdrop), [`StartHidden`](#func-starthidden), [`Icon`](#func-icon), [`Placement`](#func-placement), [`OnClose`](#func-onclose), [`OnQuit`](#func-onquit), [`Screen`](#func-screen)) set the main window's fields for Mount.
 
 ### Drag and drop
 
@@ -155,6 +158,14 @@ const EnvCheckDamage = "TELA_CHECK_DAMAGE"
 ```
 
 EnvCheckDamage is the environment variable that turns [`CheckDamage`](#func-checkdamage) on for every app ("1").
+
+## Variables
+
+```go
+var MacTitleBarControls = tela.Rect{X: 8, Y: 13, Width: 58, Height: 14}
+```
+
+MacTitleBarControls is the rectangle of macOS's window buttons (the traffic lights) that [`TitleBarOverlay`](#func-titlebaroverlay) windows get under [`PlatformKeys`](#func-platformkeys)("darwin"): the place and size of the standard buttons centered in a 40 px title bar, in logical window coordinates.
 
 ## Functions
 
@@ -397,6 +408,22 @@ app.Click(telatest.ByRole("button", "Close"))
 app.AnswerMessage(desktop.AnswerNo) // "Save the changes?" — No
 ```
 
+#### func (*App) AppMenuBar
+
+```go
+func (a *App) AppMenuBar() []MenuItem
+```
+
+AppMenuBar returns the app's menu bar (a mounted desktop.AppMenuBar) as the platform has it, nil without one, after settling the app. Where the platform has no app bar but windows have menu bars (Windows; [`WithUnsupported`](#func-withunsupported)(AppMenu)), it is the bar of this App's window, which App.MenuBar returns too. The app items are [`App.AppMenuItems`](#func-app-appmenuitems).
+
+#### func (*App) AppMenuItems
+
+```go
+func (a *App) AppMenuItems() []MenuItem
+```
+
+AppMenuItems returns the items the app gave macOS's app menu (desktop.AppMenuBar.AppItems), after settling the app. They are empty where the platform ignores them.
+
 #### func (*App) AriaGolden
 
 ```go
@@ -487,6 +514,19 @@ func (a *App) CaptionDrags() int
 ```
 
 CaptionDrags returns how many presses in a caption region started a move of the window by the fake window manager: a primary press that is not the second of a double click. A press in a caption region is the OS's: the app does not see it or the rest of its pointer sequence. Drive one with [`App.Click`](#func-app-click) on an element inside an h.WindowDrag region, or [`App.ClickAt`](#func-app-clickat).
+
+#### func (*App) ChooseAppMenuItem
+
+```go
+func (a *App) ChooseAppMenuItem(path ...string)
+```
+
+ChooseAppMenuItem chooses an item of the app's menu bar, named by the labels from the top-level entry down, as the user does with the mouse: its OnSelect runs and the app settles. An item of macOS's app menu is named by its label alone ([`App.AppMenuItems`](#func-app-appmenuitems)). Role items are reported like any item, as on a platform without the role's native action, so the app carries them out (Copy acts on the focused field). Where the platform has no app bar but windows have menu bars (Windows; [`WithUnsupported`](#func-withunsupported)(AppMenu)), it chooses from this App's window's bar. It fails the test when the app has no menu bar, or the item is missing, disabled or opens a submenu.
+
+```go
+app.ChooseAppMenuItem("File", "New Note")
+app.ChooseAppMenuItem("Settings…")
+```
 
 #### func (*App) ChooseMenuItem
 
@@ -1501,6 +1541,20 @@ func (a *App) RequestClose()
 
 RequestClose asks to close the window as the user does with the close button of its title bar or Alt+F4: the window's OnClose runs (for the main window tela.App.OnClose, or the app quits). Whether the window closes is up to the app: use [`App.ExpectClosed`](#func-app-expectclosed), [`App.ExpectQuit`](#func-app-expectquit) or [`App.ExpectWindowCount`](#func-app-expectwindowcount) to assert it. A blocked window refuses the request and the modal window above it is activated. To press the close button of a custom title bar, click it ([`App.Click`](#func-app-click)).
 
+#### func (*App) RequestQuit
+
+```go
+func (a *App) RequestQuit()
+```
+
+RequestQuit plays the user or the OS asking the app to quit, as macOS does for Cmd+Q, the app menu's Quit, the Dock's Quit and a logout (tela.App.OnQuit): the app's OnQuit runs ([`OnQuit`](#func-onquit)), or, without one, every window gets a close request as from its close button, so an app whose main window has no OnClose quits. The app settles.
+
+```go
+app := telatest.MountApp(t, tela.App{Root: Editor{}, OnQuit: func() { askToSave() }})
+app.RequestQuit()
+app.ExpectText("Save changes?")
+```
+
 #### func (*App) Resize
 
 ```go
@@ -1654,6 +1708,18 @@ func (a *App) SetTextScale(scale float64)
 ```
 
 SetTextScale changes the system's text scale: 1rem becomes the theme's rem times scale, so type, rem-based spacing and breakpoints change (tela.UseTextScale), unless the app ignores it (tela.App.IgnoreTextScale). scale is above 0 and at most 4; 1 is the default.
+
+#### func (*App) SetTitleBarControls
+
+```go
+func (a *App) SetTitleBarControls(r tela.Rect)
+```
+
+SetTitleBarControls plays the OS moving or resizing the window buttons it keeps over a [`TitleBarOverlay`](#func-titlebaroverlay) window (macOS places the traffic lights in the height of the app's caption; fullscreen hides them): r is the rectangle in logical window coordinates, and the empty one removes them. The window reports it as [`tela.WindowState`](API-Reference-tela#type-windowstate).TitleBarControls, and the app settles. It fails the test for a window that is not a TitleBarOverlay one.
+
+```go
+app.SetTitleBarControls(tela.Rect{X: 8, Y: 20, Width: 58, Height: 14})
+```
 
 #### func (*App) StartDrag
 
@@ -1947,6 +2013,12 @@ const (
     // Trash: desktop.MoveToTrash, as on a desktop without a trash or for
     // a file the trash cannot take (a network drive); the file stays.
     Trash
+    // AppMenu: desktop.AppMenuBar's platform bar, which only macOS has
+    // (the headless desktop has it unless this takes it away): without it
+    // the app's bar becomes the bar of every framed window, as on Windows
+    // (with NativeMenus unsupported too, as on Linux, nothing is native
+    // and the app draws it).
+    AppMenu
 )
 ```
 
@@ -2380,11 +2452,14 @@ type MenuItem struct {
     Label, Accelerator           string
     Separator, Checkbox, Checked bool
     Disabled                     bool
-    Submenu                      []MenuItem
+    // Role is the item's (or submenu's) role, as the app gave it
+    // (desktop.MenuItem.Role).
+    Role    desktop.Role
+    Submenu []MenuItem
 }
 ```
 
-MenuItem is an item of a native menu: a popup menu (desktop.PopupMenu) or a window's menu bar (desktop.MenuBar).
+MenuItem is an item of a native menu: a popup menu (desktop.PopupMenu), a window's menu bar (desktop.MenuBar) or the app's (desktop.AppMenuBar).
 
 ### type MessageBox
 
@@ -2705,6 +2780,14 @@ func OnClose(f func(tela.WindowHandle)) Option
 
 OnClose sets what closing the main window does (tela.App.OnClose): f runs when the user asks to close it ([`App.RequestClose`](#func-app-requestclose), a WindowClose control, WindowHandle.Close). Without it the app quits.
 
+#### func OnQuit
+
+```go
+func OnQuit(f func()) Option
+```
+
+OnQuit sets what a request to quit does (tela.App.OnQuit): f runs when the user or the OS asks the app to quit ([`App.RequestQuit`](#func-app-requestquit); macOS's Cmd+Q and the Dock's Quit). Without it every window gets a close request.
+
 #### func Placement
 
 ```go
@@ -2824,6 +2907,34 @@ func TitleBar(colors tela.TitleBarColors) Option
 ```
 
 TitleBar sets the title bar colors of the main window (tela.App.TitleBar). The fake window manager only records them: [`App.TitleBar`](#func-app-titlebar) reads them back.
+
+#### func TitleBarControls
+
+```go
+func TitleBarControls(r tela.Rect) Option
+```
+
+TitleBarControls gives every TitleBarOverlay window of the app the rectangle that the OS's window buttons cover ([`tela.WindowState`](API-Reference-tela#type-windowstate).TitleBarControls), in logical window coordinates, as macOS's traffic lights do. [`App.SetTitleBarControls`](#func-app-settitlebarcontrols) changes one window's later.
+
+#### func TitleBarOverlay
+
+```go
+func TitleBarOverlay() Option
+```
+
+TitleBarOverlay puts the main window's content under a transparent title bar with the OS's window buttons over it (tela.App.TitleBarOverlay). The fake window manager keeps no buttons there unless the test says where: without [`TitleBarControls`](#func-titlebarcontrols) or [`PlatformKeys`](#func-platformkeys)("darwin") the window behaves as a Frameless one on a platform that cannot do this (Linux, Windows): ClientSideDecorations, and an empty [`tela.WindowState`](API-Reference-tela#type-windowstate) TitleBarControls. With PlatformKeys("darwin") the buttons are [`MacTitleBarControls`](#variables).
+
+#### func WithUnsupported
+
+```go
+func WithUnsupported(services ...DesktopService) Option
+```
+
+WithUnsupported makes the headless desktop lack the given services from the start, as [`App.Unsupported`](#func-app-unsupported) does later: for components that look at the platform when they mount.
+
+```go
+app := telatest.Mount(t, Root, telatest.WithUnsupported(telatest.AppMenu))
+```
 
 ### type PopupMenu
 

@@ -120,7 +120,11 @@ func Mount(tb testing.TB, root tela.Component, opts ...Option) *App {
 		Settings: cfg.systemSettings(),
 
 		NoServerDecorations: cfg.noServerDeco,
+		TitleBarControls:    cfg.titleBarControls(),
 	})
+	if hs, _ := headlessServices(cfg.unsupported); len(hs) > 0 {
+		a.backend.SetUnsupported(hs...)
+	}
 	// The headless trash moves what the app trashes into a temporary
 	// folder (App.Trashed), never the user's trash. It is made here rather
 	// than with tb.TempDir, which a testing.TB of the caller's may lack.

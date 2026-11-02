@@ -49,6 +49,9 @@ type config struct {
 	screen platform.Size
 	// noServerDeco: NoServerDecorations.
 	noServerDeco bool
+	// controls: TitleBarControls; unsupported: WithUnsupported.
+	controls    tela.Rect
+	unsupported []DesktopService
 	// flavor: PlatformKeys (zero: the host's).
 	flavor platform.Flavor
 }
@@ -78,7 +81,24 @@ func (c config) validate() error {
 	if _, err := core.ParseDebug(strings.Join(c.debug, ",")); err != nil {
 		return fmt.Errorf("telatest.Debug: %v", err)
 	}
+	if _, err := headlessServices(c.unsupported); err != nil {
+		return fmt.Errorf("telatest.WithUnsupported%v", err)
+	}
+	if r := c.controls; r.X != r.X || r.Y != r.Y || r.Width != r.Width || r.Height != r.Height || r.Width < 0 || r.Height < 0 {
+		return fmt.Errorf("telatest.TitleBarControls(%v): give a rectangle in logical pixels with a width and height that are not negative", r)
+	}
 	return c.win.validate(c.screen)
+}
+
+// titleBarControls returns the rectangle the fake window manager's
+// buttons cover in TitleBarOverlay windows: the one the test gave, else
+// macOS's under PlatformKeys("darwin").
+func (c config) titleBarControls() platform.Rect {
+	r := c.controls
+	if r == (tela.Rect{}) && c.flavor == platform.FlavorMac {
+		r = MacTitleBarControls
+	}
+	return platform.Rect{X: r.X, Y: r.Y, W: r.Width, H: r.Height}
 }
 
 // coreConfig returns the tree configuration (without Log and IDPrefix).

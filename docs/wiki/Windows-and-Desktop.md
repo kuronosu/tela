@@ -166,6 +166,12 @@ happened. The handle of a closed window does nothing, and so does the handle in
   Only do this when something can show the window again, a
   [tray icon](#the-tray) or a notification. See
   [When a service is missing](#when-a-service-is-missing).
+- `App.OnQuit` runs when the user or the OS asks the app to quit: on macOS Cmd+Q,
+  the app menu's Quit, the Dock's Quit and a logout. Nil sends every window a close
+  request, as the close buttons do, so an app whose main window has no `OnClose`
+  quits. A close-to-tray app, whose `OnClose` hides the window, sets
+  `OnQuit: tela.Quit`, or its own "ask about unsaved changes, then quit". Tests play
+  it with `app.RequestQuit()`.
 - `tela.OpenURL("https://example.com")` opens a URL in the default application
   for its scheme (a web page, a `mailto:` address) and `tela.OpenPath(path)`
   opens a file in its default application or a folder in the file manager. Both
@@ -227,6 +233,24 @@ The OS answers these regions natively: `WM_NCHITTEST` on Windows,
 To show the bar only where the OS draws none, test the state:
 `If(tela.UseWindow().State().ClientSideDecorations, kit.TitleBar{...})`. A
 fullscreen window usually has no bar either.
+
+### A title bar with the OS's buttons
+
+`TitleBarOverlay: true` (on `tela.App` or `tela.Window`; do not set `Frameless` too)
+extends the content under a transparent title bar while the OS keeps its window
+buttons over it, as Apple's apps do with the traffic lights. The window reports the
+rectangle they cover as `State().TitleBarControls`, so the app's bar leaves it free:
+`kit.TitleBar` keeps that room at the side the buttons are on (the leading slot
+starts after the traffic lights) and draws no controls of its own, with the Plain
+variant and the looks alike. Presses on the buttons are the OS's; the rest of the bar
+is a drag area as usual. Where the OS cannot do this (Linux, Windows) the window
+behaves as `Frameless`, `TitleBarControls` is empty, and `kit.TitleBar` draws its
+controls as before.
+
+In tests, `telatest.TitleBarOverlay()` (or `MountApp` with the App's field) opens
+such a window; `telatest.PlatformKeys("darwin")` gives it the Mac's buttons
+(`telatest.MacTitleBarControls`), `telatest.TitleBarControls(rect)` any others, and
+`app.SetTitleBarControls(rect)` moves them while it runs.
 
 ## Dialogs
 

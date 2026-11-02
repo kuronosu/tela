@@ -16,6 +16,7 @@ This page is generated from the doc comments of the package; the same text is on
 - [Functions](#functions): [`AppID`](#func-appid) · [`AppStatus`](#func-appstatus) · [`CacheDir`](#func-cachedir) · [`ClipboardTypes`](#func-clipboardtypes) · [`ConfigDir`](#func-configdir) · [`DataDir`](#func-datadir) · [`DefaultName`](#func-defaultname) · [`DeleteSecret`](#func-deletesecret) · [`Directory`](#func-directory) · [`FileType`](#func-filetype) · [`Filter`](#func-filter) · [`Filters`](#func-filters) · [`FlushAll`](#func-flushall) · [`ForApp`](#func-forapp) · [`LoadPlacement`](#func-loadplacement) · [`LogDir`](#func-logdir) · [`MakeDefault`](#func-makedefault) · [`MessagePreview`](#func-messagepreview) · [`MoveToTrash`](#func-movetotrash) · [`Notify`](#func-notify) · [`OpenFile`](#func-openfile) · [`OpenFiles`](#func-openfiles) · [`OpenStore`](#func-openstore) · [`Parent`](#func-parent) · [`ParseKeys`](#func-parsekeys) · [`PersistApp`](#func-persistapp) · [`PickFolder`](#func-pickfolder) · [`PopupMenu`](#func-popupmenu) · [`ReadClipboard`](#func-readclipboard) · [`ReadClipboardText`](#func-readclipboardtext) · [`Register`](#func-register) · [`RegisterApp`](#func-registerapp) · [`RegistrationStatus`](#func-registrationstatus) · [`Replace`](#func-replace) · [`SaveFile`](#func-savefile) · [`SavePlacement`](#func-saveplacement) · [`Secret`](#func-secret) · [`SetAppID`](#func-setappid) · [`SetSecret`](#func-setsecret) · [`Settings`](#func-settings) · [`ShowMessage`](#func-showmessage) · [`SingleInstance`](#func-singleinstance) · [`StateDir`](#func-statedir) · [`Title`](#func-title) · [`URLScheme`](#func-urlscheme) · [`Unregister`](#func-unregister) · [`UnregisterApp`](#func-unregisterapp) · [`UseLaunch`](#func-uselaunch) · [`UseSavePlacement`](#func-usesaveplacement) · [`UseSetting`](#func-usesetting) · [`UseStoreSetting`](#func-usestoresetting) · [`WriteClipboard`](#func-writeclipboard) · [`WriteClipboardText`](#func-writeclipboardtext)
 - [Types](#types)
   - [`type Answer`](#type-answer): [`String`](#func-answer-string)
+  - [`type AppMenuBar`](#type-appmenubar): [`Build`](#func-appmenubar-build)
   - [`type AppRegistration`](#type-appregistration): [`AppStatus`](#func-appstatus)
   - [`type Association`](#type-association): [`FileType`](#func-filetype) · [`URLScheme`](#func-urlscheme) · [`String`](#func-association-string)
   - [`type Buttons`](#type-buttons): [`DefaultAnswer`](#func-buttons-defaultanswer) · [`DismissAnswer`](#func-buttons-dismissanswer) · [`Has`](#func-buttons-has)
@@ -33,6 +34,7 @@ This page is generated from the doc comments of the package; the same text is on
   - [`type NotificationAction`](#type-notificationaction)
   - [`type RegisterOption`](#type-registeroption): [`ForApp`](#func-forapp) · [`Replace`](#func-replace)
   - [`type Registration`](#type-registration): [`RegistrationStatus`](#func-registrationstatus)
+  - [`type Role`](#type-role): [`Label`](#func-role-label) · [`String`](#func-role-string)
   - [`type SavedWindow`](#type-savedwindow): [`Build`](#func-savedwindow-build)
   - [`type ShortcutStatus`](#type-shortcutstatus): [`String`](#func-shortcutstatus-string)
   - [`type ShortcutStatusEvent`](#type-shortcutstatusevent)
@@ -76,7 +78,7 @@ theme, setTheme := desktop.UseSetting("theme", "system")
 
 ### Clipboard, shortcuts, launches, registration, secrets, menus and the trash
 
-[`ReadClipboard`](#func-readclipboard) and [`WriteClipboard`](#func-writeclipboard) copy and paste a tela.DataTransfer (text, HTML, images, files, custom types). [`GlobalShortcut`](#type-globalshortcut) is a component that registers a system-wide shortcut while mounted. [`SingleInstance`](#func-singleinstance) keeps one process per app: a second start hands its [`Launch`](#type-launch) to the first, whose [`UseLaunch`](#func-uselaunch) handlers open its files and links. [`Register`](#func-register) makes the app a handler of a [`URLScheme`](#func-urlscheme) or a [`FileType`](#func-filetype) for the user, without a running app too (an installer); [`MakeDefault`](#func-makedefault) is a separate, explicit request. [`SetSecret`](#func-setsecret), [`Secret`](#func-secret) and [`DeleteSecret`](#func-deletesecret) keep small secrets in the OS's keyring, from a goroutine. [`PopupMenu`](#func-popupmenu) and [`MenuBar`](#type-menubar) are the OS's menus where it has them, for kit's menus to use. [`MoveToTrash`](#func-movetotrash) moves a file where the user can restore it, never deleting it, also from a goroutine.
+[`ReadClipboard`](#func-readclipboard) and [`WriteClipboard`](#func-writeclipboard) copy and paste a tela.DataTransfer (text, HTML, images, files, custom types). [`GlobalShortcut`](#type-globalshortcut) is a component that registers a system-wide shortcut while mounted. [`SingleInstance`](#func-singleinstance) keeps one process per app: a second start hands its [`Launch`](#type-launch) to the first, whose [`UseLaunch`](#func-uselaunch) handlers open its files and links. [`Register`](#func-register) makes the app a handler of a [`URLScheme`](#func-urlscheme) or a [`FileType`](#func-filetype) for the user, without a running app too (an installer); [`MakeDefault`](#func-makedefault) is a separate, explicit request. [`SetSecret`](#func-setsecret), [`Secret`](#func-secret) and [`DeleteSecret`](#func-deletesecret) keep small secrets in the OS's keyring, from a goroutine. [`PopupMenu`](#func-popupmenu) and [`MenuBar`](#type-menubar) are the OS's menus where it has them, for kit's menus to use. [`AppMenuBar`](#type-appmenubar) is the app's one menu bar (macOS's, or every framed window's on Windows), and a [`Role`](#type-role) marks a [`MenuItem`](#type-menuitem) as a standard one (Copy, the Edit menu) that the OS or this package performs. [`MoveToTrash`](#func-movetotrash) moves a file where the user can restore it, never deleting it, also from a goroutine.
 
 ### When a service is missing
 
@@ -915,6 +917,59 @@ const (
 func (a Answer) String() string
 ```
 
+### type AppMenuBar
+
+```go
+type AppMenuBar struct {
+    // Menus are the bar's top-level entries ("File", "Edit"), each with
+    // its Submenu. A menu role (RoleEditMenu, RoleWindowMenu) with no
+    // Submenu gets the standard items.
+    Menus []MenuItem
+    // AppItems are the items of macOS's app menu after About and before
+    // Services ("Settings…"), separated from them by macOS. Ignored where
+    // there is no app menu. Menu roles are not allowed among them.
+    AppItems []MenuItem
+    // OnError receives the error when the bar cannot be shown or updated
+    // (ErrUnsupported where there is no menu bar to give). Nil reports it
+    // as a dev warning.
+    OnError func(err error)
+}
+```
+
+AppMenuBar is a component that gives the app its menu bar while it is mounted, declared once anywhere in the tree (ADR-224; Electron's Menu.setApplicationMenu), follows its fields, and restores the default when it unmounts. It renders nothing where it is declared.
+
+```go
+desktop.AppMenuBar{
+    AppItems: []desktop.MenuItem{
+        {Label: "Settings…", Accelerator: "CmdOrCtrl+,", OnSelect: openSettings},
+    },
+    Menus: []desktop.MenuItem{
+        {Label: "File", Submenu: []desktop.MenuItem{
+            {Label: "New Note", Accelerator: "CmdOrCtrl+N", OnSelect: newNote},
+            {Separator: true},
+            {Role: desktop.RoleClose},
+        }},
+        {Role: desktop.RoleEditMenu},
+        {Role: desktop.RoleWindowMenu},
+    },
+    OnError: func(err error) { setDrawnMenu.Set(true) },
+}
+```
+
+Where the platform has an app menu bar (macOS), it is the menu bar of every window, and macOS always puts the app's own menu first (About, then AppItems such as Settings…, then Services, Hide, Hide Others, Show All and Quit). On Windows, where each framed window has a menu bar, it becomes the bar of every framed window that has no [`MenuBar`](#type-menubar) of its own, including windows that open later; a window's own MenuBar wins on that window. AppItems are ignored there. Elsewhere (Linux; frameless windows; a tree with no window of a running app, as in tela snapshot) OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar with AppMenu does). Nil OnError reports it as a dev warning. Two mounted AppMenuBars: the later one wins, with a dev warning.
+
+Choosing an item runs its OnSelect on the UI thread. Role items ([`Role`](#type-role)) without an OnSelect are carried out by the OS where it can (macOS) and by package desktop elsewhere, on the window with the keyboard focus.
+
+On macOS an Accelerator is the item's key equivalent: the key chooses the item and does not reach the app as a key event, so do not handle the key a second time (no h.OnKeyDown for it). "CmdOrCtrl+N" is the portable spelling: Command+N on a Mac, Ctrl+N elsewhere, where the accelerator is display text and the app handles the key itself. Tests read the bar with telatest's App.AppMenuBar and choose items with App.ChooseAppMenuItem.
+
+#### func (AppMenuBar) Build
+
+```go
+func (m AppMenuBar) Build() tela.Node
+```
+
+Build sets the app's menu bar while the component is mounted.
+
 ### type AppRegistration
 
 ```go
@@ -1322,7 +1377,7 @@ desktop.MenuBar{
 }
 ```
 
-Most desktops have no native window menu bars (Linux; frameless windows, which draw their own title bar; macOS, whose menu bar belongs to the app), and where there is no window of a running app (tela snapshot): there OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar does). Accelerator texts are only shown: handle the keys yourself. Tests choose items with telatest's App.ChooseMenuItem.
+Most desktops have no native window menu bars (Linux; frameless windows, which draw their own title bar; macOS, whose menu bar belongs to the app: a window's own bar is unsupported there, ADR-224, use [`AppMenuBar`](#type-appmenubar)), and where there is no window of a running app (tela snapshot): there OnError receives an error wrapping [`ErrUnsupported`](#variables) after the first build, and the app draws its menu instead (kit's Menubar does). Accelerator texts are only shown: handle the keys yourself. A window's own MenuBar wins over the app's [`AppMenuBar`](#type-appmenubar) on that window. Tests choose items with telatest's App.ChooseMenuItem.
 
 **Example**
 
@@ -1363,8 +1418,16 @@ type MenuItem struct {
     // Accelerator is the text of the item's keyboard shortcut, shown at
     // its right ("Ctrl+S"; [ParseKeys] writes it the usual way). It is
     // display only: the app handles the key itself (h.OnKeyDown). Tray
-    // menus may not show it.
+    // menus may not show it. "CmdOrCtrl+N" is the portable spelling
+    // (Command on a Mac, Ctrl elsewhere). One exception: in the app's menu
+    // bar on macOS ([AppMenuBar]) it is the item's key equivalent, so the
+    // key chooses the item and does not reach the app as a key event: do
+    // not handle it a second time.
     Accelerator string
+    // Role makes the item, or its submenu, a standard one: Undo, Copy,
+    // Minimize, the Edit menu (see [Role]). An empty Label gets the
+    // role's. RoleNone, the zero value, is an item of the app's own.
+    Role Role
     // Separator makes the item a separator line; the other fields are
     // ignored.
     Separator bool
@@ -1528,6 +1591,72 @@ func RegistrationStatus(a Association, opts ...RegisterOption) (Registration, er
 ```
 
 RegistrationStatus reports whether the app is registered for a, whether it is the default, and what else holds a.
+
+### type Role
+
+```go
+type Role uint8
+```
+
+Role marks a [`MenuItem`](#type-menuitem) as a standard item or menu (ADR-226), with Electron's names: the edit actions, the window actions, and the Edit, Window and Help menus. The zero value, RoleNone, is an item of the app's own.
+
+```go
+desktop.MenuItem{Role: desktop.RoleCopy}       // "Copy", acting on the focused field
+desktop.MenuItem{Role: desktop.RoleEditMenu}   // "Edit": Undo, Redo, Cut, Copy, Paste, Select All
+desktop.MenuItem{Role: desktop.RoleMinimize, Label: "Minimizar"}
+```
+
+An item with a Role and no Label gets the role's English label ([`Role.Label`](#func-role-label)); a menu role with no Submenu gets the standard items, as Electron's role: 'editMenu' and 'windowMenu' do (RoleHelpMenu has no standard items: give it a Submenu).
+
+What choosing a role item does depends on the platform. Where the OS has the action, it carries it out itself and the choice never reaches the app (macOS's app menu bar: AppKit's own items, acting on the key window and its focused field). Everywhere else package desktop carries it out: minimize, zoom (maximize or restore) and close act on the window the menu belongs to (the key window for the app's menu bar and the tray's menu), and the edit roles send that window's focused element the shortcut of its platform (Ctrl+C, or Command+C under the Mac key flavor), so text fields cut, copy, paste, undo and select all as they do for the keys. An item's own OnSelect, if set, runs instead, and the platform does not perform the role.
+
+```go
+const (
+    // RoleNone is an item of the app's own.
+    RoleNone Role = iota
+    // RoleUndo and RoleRedo undo and redo the last edit of the focused
+    // field.
+    RoleUndo
+    RoleRedo
+    // RoleCut, RoleCopy, RolePaste and RoleSelectAll act on the focused
+    // field.
+    RoleCut
+    RoleCopy
+    RolePaste
+    RoleSelectAll
+    // RoleMinimize minimizes the window, RoleZoom maximizes it or restores
+    // it, and RoleClose asks to close it as its close button does.
+    RoleMinimize
+    RoleZoom
+    RoleClose
+    // RoleEditMenu is the Edit menu (Undo, Redo, Cut, Copy, Paste, Select
+    // All unless the item has a Submenu of its own).
+    RoleEditMenu
+    // RoleWindowMenu is the Window menu (Minimize, Zoom, Close unless the
+    // item has a Submenu of its own): macOS lists the open windows at its
+    // end.
+    RoleWindowMenu
+    // RoleHelpMenu is the Help menu: macOS adds its search field to it.
+    // It needs a Submenu.
+    RoleHelpMenu
+)
+```
+
+#### func (Role) Label
+
+```go
+func (r Role) Label() string
+```
+
+Label returns the role's default English label: "Undo", "Select All", "Edit"... ("" for RoleNone).
+
+#### func (Role) String
+
+```go
+func (r Role) String() string
+```
+
+String returns Electron's name of the role: "undo", "selectAll", "editMenu"... ("" for RoleNone).
 
 ### type SavedWindow
 
