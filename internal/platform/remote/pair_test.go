@@ -96,7 +96,14 @@ func TestResizeReallocates(t *testing.T) {
 	// The old segment is unmapped once the host acknowledged the new one.
 	waitFor(t, "retired segment released", func() bool {
 		var n int
-		a.ui(func() { n = len(w.(*Window).retired) })
+		// retired belongs to the backend's lock: the read loop retires
+		// segments under it (acked), and handlers run without it.
+		cw := w.(*Window)
+		a.ui(func() {
+			cw.b.mu.Lock()
+			n = len(cw.retired)
+			cw.b.mu.Unlock()
+		})
 		return n == 0
 	})
 
