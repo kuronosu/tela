@@ -11,11 +11,13 @@
 //
 // What it shows:
 //
-//   - A frameless window with a kit.TitleBar (kit.Plain, in the arrangement of
-//     the platform: Windows, GNOME or macOS) that holds the app's badge and the Open and
-//     Save buttons. App.Frameless, h.WindowDrag and h.WindowControl are
-//     inside the kit components; the OS moves, resizes and snaps the
-//     window.
+//   - A window with no OS title bar and a kit.TitleBar of its own (kit.Plain,
+//     in the arrangement of the platform: Windows, GNOME or macOS) that holds
+//     the app's badge and the Open and Save buttons. App.TitleBarOverlay,
+//     h.WindowDrag and h.WindowControl are inside the kit components; the OS
+//     moves, resizes and snaps the window. On macOS the OS keeps its traffic
+//     lights over the bar and the bar leaves room for them; elsewhere
+//     TitleBarOverlay is Frameless and the bar draws the window controls.
 //   - Three panes under it. The rail has New note, the views (All notes,
 //     Pinned, Unsaved), the folders and the #tags of the library, with
 //     their counts, and Preferences. Choosing one shows the overview: a
@@ -92,6 +94,26 @@
 //     unlocked note stays so until it is locked again or the window is
 //     hidden. Without a keyring the lock is off. See lock.go.
 //
+// Phase 15 adds, on macOS (see appmenu.go and close.go):
+//
+//   - The traffic lights over the app's own title bar (App.TitleBarOverlay).
+//   - The app's menu bar, declared once with desktop.AppMenuBar: File (New Note,
+//     Open…, Save, Delete Note, Close Window), Edit, View (All Notes, Pinned,
+//     Unsaved) and Window, and Settings… in the app's own menu, which opens
+//     Preferences. Its items call the functions of the buttons and keys
+//     (their accelerators are the keys' Cmd+N, Cmd+O, Cmd+S, Cmd+, ...); there
+//     is no drawn menu bar, and on Linux and Windows the same keys are
+//     handled by the window.
+//   - Cmd+Q, the Dock's Quit and the app menu's Quit (App.OnQuit) really
+//     quit, also with "Keep running in the tray" on, after the question that
+//     closing the window asks about unsaved notes. Cmd+W closes the window,
+//     which the tray setting turns into a hide.
+//   - The system's own parts: the Keychain keeps the key of locked notes, the
+//     Trash takes the file of a note that was locked, the open and save
+//     dialogs and the question before quitting are sheets of the window,
+//     notifications and the global shortcut (Control+Option+N) are the OS's.
+//   - Registration needs the app's bundle (ADR-228): see "Try it on a Mac".
+//
 // Try it. Build the program first (go build -o notes ./examples/notes): under
 // go run it is a temporary build, which Notes does not register.
 //
@@ -105,6 +127,28 @@
 //     comes up with the result. The links work through the OS once Notes is
 //     registered (Preferences, General).
 //   - Locked notes: Lock note in an open note's header.
+//
+// Try it on a Mac. Notifications, links and file types belong to an app
+// bundle, so run Notes with tela run, which builds Notes.app in the user
+// cache and runs it, with the terminal attached (go run and go build give a
+// bare executable: Notes still works, and registration says to use tela
+// run):
+//
+//	tela run ./examples/notes
+//
+// With it running (or once, after tela build -o dist ./examples/notes and
+// opening dist/Notes.app), the system knows Notes's notes: links:
+//
+//	open 'notes://new?text=hi'
+//	open 'notes://new?title=Call&text=ring+back'
+//	open 'notes://open?id=3'
+//
+// The global shortcut is Control+Option+N, from any application; Cmd+, opens
+// Preferences, Cmd+Q quits. tela run keeps the bundle in one place, so
+// Launch Services sees one Notes. The tests play a Mac on any OS
+// (telatest.PlatformKeys, kit.MacOS), and `go test -run TestNotesMacOS
+// ./cmd/tela/` builds the bundle on a Mac and checks registration and a deep
+// link into the running instance.
 //
 // The notes live in the library as you type, so the question when quitting
 // is about files: whether to write the notes that changed since their last

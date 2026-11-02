@@ -332,3 +332,26 @@ func TestMacQuitFromTheTrayAsksNothingWhenClean(t *testing.T) {
 	a.RequestQuit()
 	a.ExpectQuit()
 }
+
+// On a Mac Notes registers only from its bundle (ADR-228): outside an .app
+// it says to use tela run and tries nothing, so there is no error to show;
+// inside one it registers as an installed program does.
+func TestRegistrationNeedsTheBundleOnMacOS(t *testing.T) {
+	for _, c := range []struct {
+		goos, exe string
+		blocked   string // "" for none, else a part of the message
+	}{
+		{"darwin", "/Users/me/go/bin/notes", "tela run"},
+		{"darwin", "/var/folders/ab/T/go-build123/b001/exe/notes", "tela run"},
+		{"darwin", "/Users/me/Library/Caches/tela/run/dev.telaui.notes/Notes.app/Contents/MacOS/Notes", ""},
+		{"darwin", "/Applications/Notes.app/Contents/MacOS/Notes", ""},
+		{"linux", "/usr/bin/notes", ""},
+		{"linux", "/tmp/go-build123/b001/exe/notes", "temporary build"},
+		{"windows", `C:\Users\me\notes.exe`, ""},
+	} {
+		got := blockedExecutable(c.goos, c.exe)
+		if (c.blocked == "") != (got == "") || !strings.Contains(got, c.blocked) {
+			t.Errorf("blockedExecutable(%q, %q) = %q, want %q", c.goos, c.exe, got, c.blocked)
+		}
+	}
+}
