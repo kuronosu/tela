@@ -12,6 +12,10 @@ under **Breaking**. See ADR-049 and ADR-208.
 
 ## [Unreleased]
 
+### Added
+
+- macOS: the desktop services in the `cocoa` backend. `tela.OpenURL` and `tela.OpenPath` open links, files and folders (in the Finder); the file dialogs are the native open and save panels, shown as a sheet on the window they belong to, with the filters as file types and a "Format:" menu when there are several; `desktop.ShowMessage` is a native alert (a sheet on its window); `desktop.Tray` is a menu bar item with its menu; `desktop.SetSecret` and `desktop.Secret` keep secrets in the login keychain; `desktop.MoveToTrash` moves files to the Trash, where the Finder's Put Back restores them. Notifications need the app to run from an app bundle: under `go run` they report themselves unsupported and say to use `tela run`.
+
 ## [0.13.2] - 2026-11-02
 
 Phase 14, the macOS backend (ADR-220 to ADR-223): a native Cocoa backend without cgo (purego) for macOS 13 or later, with input, a display link, the clipboard, system settings and the IME; `tela dev` in a real macOS window; `looks/aqua` in two designs; one platform flavor for keyboard conventions with the public `CmdOrCtrl()` and `telatest.PlatformKeys`. Verified on `macos-latest` CI, where every example's window matches its headless render pixel for pixel; a session on a real Mac is still to come.

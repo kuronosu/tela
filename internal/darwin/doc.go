@@ -11,7 +11,14 @@
 // NSString as UTF-16, the secure event input and, for tests, the Text
 // Input Sources API (text_darwin.go).
 // AppKit and QuartzCore classes themselves are reached through the
-// Objective-C runtime (GetClass, Send).
+// Objective-C runtime (GetClass, Send). The desktop services add blocks
+// (completion handlers made from Go functions, CallBlock for the system's
+// own, CFRunLoopPerformBlock; block_darwin.go), the Security framework's
+// SecItem functions (security_darwin.go, opened on first use), the
+// UserNotifications framework (usernotifications_darwin.go), file URLs,
+// NSError, dictionaries and arrays (foundation_services_darwin.go) and the
+// constants of the panels, alerts and status items
+// (appkit_services_darwin.go).
 //
 // It is a leaf package (ADR-189, ADR-222): it imports only purego and the
 // standard library, so every layer may use it. The cocoa platform backend
