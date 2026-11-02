@@ -2,6 +2,7 @@ package kit
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/h"
@@ -136,6 +137,15 @@ func init() {
 //
 //	if tela.UseWindow().State().ClientSideDecorations { ... kit.TitleBar{...} ... }
 //
+// A window with tela.App.TitleBarOverlay on macOS keeps the OS's own
+// buttons (the traffic lights) over the bar: its State().TitleBarControls
+// is the rectangle they cover, and the bar draws no controls of its own
+// and keeps that room free instead, at the side the look keeps its controls
+// (ControlsSide: the start on macOS, so the leading slot starts after the
+// traffic lights; they stay at the window's left under rtl). Where the OS
+// draws no buttons there, the rectangle is empty and the bar draws its
+// controls as usual.
+//
 // A fullscreen window usually has no bar either: leave it out on
 // State().Fullscreen. In tela snapshot there is no window: the bar is
 // drawn focused and not maximized, and its buttons do nothing.
@@ -219,15 +229,22 @@ func (t TitleBar) Build() tela.Node {
 		state = s.Maximized[lk]
 	}
 	controls := WindowControls{Variant: lk, HideMinimize: t.HideMinimize, HideMaximize: t.HideMaximize, State: t.State}
+	// The OS's own window buttons over the bar (TitleBarOverlay): their
+	// room is kept free at the physical side they are on, and the bar draws
+	// no controls.
+	reserve, reserveLead := titleBarRoom(st.TitleBarControls, atStart, tela.UseDirection() == "rtl")
 	if plain {
 		state, inactive, quiet = "", s.Inactive[Plain], s.Variants[Plain]
 		controls.Variant, controls.Look = Plain, lk
 	}
 
 	kids := []tela.Child{cls(s.Root, root, quiet, state, when(!st.Focused, inactive), t.Class), h.WindowDrag(), t.Props}
-	if atStart || t.Leading != nil {
+	if atStart && reserve == nil || reserve != nil && reserveLead || t.Leading != nil {
 		lead := []tela.Child{cls(s.Leading[lk], t.LeadingClass)}
-		if atStart {
+		switch {
+		case reserve != nil && reserveLead:
+			lead = append(lead, reserve)
+		case atStart && reserve == nil:
 			lead = append(lead, controls)
 		}
 		kids = append(kids, h.Div(append(lead, t.Leading)...))
@@ -244,8 +261,32 @@ func (t TitleBar) Build() tela.Node {
 	if t.Trailing != nil {
 		end = append(end, h.Div(cls(s.Trailing[lk], t.TrailingClass), t.Trailing))
 	}
-	if !atStart {
+	switch {
+	case reserve != nil && !reserveLead:
+		end = append(end, reserve)
+	case !atStart && reserve == nil:
 		end = append(end, controls)
 	}
 	return h.Div(append(kids, h.Div(end...))...)
+}
+
+// titleBarRoom returns the empty box that keeps the room of the OS's window
+// buttons (rectangle r in the window, State().TitleBarControls) free, and
+// whether it goes in the leading region of the bar. The buttons are at the
+// window's left when the look puts its controls at the start (macOS), at the
+// right otherwise; the leading region is the left one except under rtl. The
+// box is nil without buttons. It covers the window's edge up to the end of
+// the buttons plus a gap, at the left; at the right it covers the buttons
+// and the gap the left side has (the window's width is not known here).
+func titleBarRoom(r tela.Rect, atStart, rtl bool) (box tela.Child, lead bool) {
+	if !(r.Width > 0 && r.Height > 0) {
+		return nil, false
+	}
+	const gap = 8
+	w := float64(r.X+r.Width) + gap
+	if !atStart {
+		w = float64(r.Width) + 2*gap
+	}
+	n := int(math.Ceil(w))
+	return h.Div(cls(fmt.Sprintf("w-[%dpx] shrink-0", n)), h.AriaHidden(true)), atStart != rtl
 }

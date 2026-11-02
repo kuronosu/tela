@@ -24,6 +24,8 @@ type windowConfig struct {
 	backdrop                tela.Backdrop
 	placement               tela.WindowPlacement
 	onClose                 func(tela.WindowHandle)
+	onQuit                  func()
+	overlay                 bool
 }
 
 // coreOptions returns the core options of the window (without the root,
@@ -35,8 +37,9 @@ func (w windowConfig) coreOptions() core.Options {
 			MinWidth: w.minW, MinHeight: w.minH, MaxWidth: w.maxW, MaxHeight: w.maxH,
 			FixedSize: w.fixed, Frameless: w.frameless, AlwaysOnTop: w.onTop, Hidden: w.hidden,
 			Icon: w.icon, TitleBar: w.titleBar, Backdrop: w.backdrop, Placement: w.placement,
+			TitleBarOverlay: w.overlay,
 		},
-		AppID: w.appID, OnClose: w.onClose,
+		AppID: w.appID, OnClose: w.onClose, OnQuit: w.onQuit,
 	}
 }
 
@@ -66,6 +69,7 @@ func windowFromApp(app tela.App) Option {
 			minW: app.MinWidth, minH: app.MinHeight, maxW: app.MaxWidth, maxH: app.MaxHeight,
 			fixed: app.FixedSize, frameless: app.Frameless, onTop: app.AlwaysOnTop, hidden: app.Hidden,
 			icon: icon, titleBar: app.TitleBar, backdrop: app.Backdrop, placement: app.Placement, onClose: app.OnClose,
+			onQuit: app.OnQuit, overlay: app.TitleBarOverlay,
 		}
 	}
 }
@@ -137,6 +141,42 @@ func Placement(p tela.WindowPlacement) Option { return func(c *config) { c.win.p
 // when the user asks to close it ([App.RequestClose], a WindowClose control,
 // WindowHandle.Close). Without it the app quits.
 func OnClose(f func(tela.WindowHandle)) Option { return func(c *config) { c.win.onClose = f } }
+
+// OnQuit sets what a request to quit does (tela.App.OnQuit): f runs when
+// the user or the OS asks the app to quit ([App.RequestQuit]; macOS's
+// Cmd+Q and the Dock's Quit). Without it every window gets a close request.
+func OnQuit(f func()) Option { return func(c *config) { c.win.onQuit = f } }
+
+// TitleBarOverlay puts the main window's content under a transparent title
+// bar with the OS's window buttons over it (tela.App.TitleBarOverlay). The
+// fake window manager keeps no buttons there unless the test says where:
+// without [TitleBarControls] or [PlatformKeys]("darwin") the window behaves
+// as a Frameless one on a platform that cannot do this (Linux, Windows):
+// ClientSideDecorations, and an empty [tela.WindowState] TitleBarControls.
+// With PlatformKeys("darwin") the buttons are [MacTitleBarControls].
+func TitleBarOverlay() Option { return func(c *config) { c.win.overlay = true } }
+
+// MacTitleBarControls is the rectangle of macOS's window buttons (the
+// traffic lights) that [TitleBarOverlay] windows get under
+// [PlatformKeys]("darwin"): the place and size of the standard buttons
+// centered in a 40 px title bar, in logical window coordinates.
+var MacTitleBarControls = tela.Rect{X: 8, Y: 13, Width: 58, Height: 14}
+
+// TitleBarControls gives every TitleBarOverlay window of the app the
+// rectangle that the OS's window buttons cover
+// ([tela.WindowState].TitleBarControls), in logical window coordinates, as
+// macOS's traffic lights do. [App.SetTitleBarControls] changes one
+// window's later.
+func TitleBarControls(r tela.Rect) Option { return func(c *config) { c.controls = r } }
+
+// WithUnsupported makes the headless desktop lack the given services from
+// the start, as [App.Unsupported] does later: for components that look at
+// the platform when they mount.
+//
+//	app := telatest.Mount(t, Root, telatest.WithUnsupported(telatest.AppMenu))
+func WithUnsupported(services ...DesktopService) Option {
+	return func(c *config) { c.unsupported = append(c.unsupported, services...) }
+}
 
 // NoServerDecorations makes the fake window manager draw no title bars, as
 // GNOME on Wayland does: every window, framed or not, reports

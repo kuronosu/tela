@@ -286,19 +286,23 @@ func (a *App) SetClipboard(dt *tela.DataTransfer) {
 // Native menus.
 
 // MenuItem is an item of a native menu: a popup menu
-// (desktop.PopupMenu) or a window's menu bar (desktop.MenuBar).
+// (desktop.PopupMenu), a window's menu bar (desktop.MenuBar) or the app's
+// (desktop.AppMenuBar).
 type MenuItem struct {
 	Label, Accelerator           string
 	Separator, Checkbox, Checked bool
 	Disabled                     bool
-	Submenu                      []MenuItem
+	// Role is the item's (or submenu's) role, as the app gave it
+	// (desktop.MenuItem.Role).
+	Role    desktop.Role
+	Submenu []MenuItem
 }
 
 func menuItems(items []platform.MenuItem) []MenuItem {
 	var out []MenuItem
 	for _, it := range items {
 		out = append(out, MenuItem{Label: it.Label, Accelerator: it.Accelerator, Separator: it.Separator,
-			Checkbox: it.Checkable, Checked: it.Checked, Disabled: it.Disabled, Submenu: menuItems(it.Submenu)})
+			Checkbox: it.Checkable, Checked: it.Checked, Disabled: it.Disabled, Role: desktop.Role(it.Role), Submenu: menuItems(it.Submenu)})
 	}
 	return out
 }

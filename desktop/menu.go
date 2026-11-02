@@ -48,7 +48,8 @@ func PopupMenu(w tela.WindowHandle, at tela.Point, items []MenuItem, done func(c
 	if err != nil {
 		return err
 	}
-	pw := d.PlatformWindow(window(d, w))
+	win := window(d, w)
+	pw := d.PlatformWindow(win)
 	if pw == nil {
 		return errors.New("desktop.PopupMenu: the window is not open")
 	}
@@ -60,9 +61,7 @@ func PopupMenu(w tela.WindowHandle, at tela.Point, items []MenuItem, done func(c
 			return
 		}
 		if item != 0 {
-			if f := actions[item]; f != nil {
-				f()
-			}
+			actions.run(item, roleIn(win))
 		}
 		if done != nil {
 			done(item != 0, nil)
@@ -90,11 +89,13 @@ func PopupMenu(w tela.WindowHandle, at tela.Point, items []MenuItem, done func(c
 //
 // Most desktops have no native window menu bars (Linux; frameless
 // windows, which draw their own title bar; macOS, whose menu bar belongs
-// to the app), and where there is no window of a running app (tela
+// to the app: a window's own bar is unsupported there, ADR-224, use
+// [AppMenuBar]), and where there is no window of a running app (tela
 // snapshot): there OnError receives an error wrapping [ErrUnsupported]
 // after the first build, and the app draws its menu instead (kit's
 // Menubar does). Accelerator texts are only shown: handle the keys
-// yourself. Tests choose items with telatest's App.ChooseMenuItem.
+// yourself. A window's own MenuBar wins over the app's [AppMenuBar] on
+// that window. Tests choose items with telatest's App.ChooseMenuItem.
 type MenuBar struct {
 	// Menus are the bar's top-level entries ("File", "Edit"), each with
 	// its Submenu.
@@ -123,13 +124,14 @@ func (m MenuBar) Build() tela.Node {
 		}
 		s.d, s.w = d, w
 		s.stop = d.ListenWindow(w, s.event)
-		bars := d.Local(menuBarsKey{}, func() any { return map[tela.WindowHandle]*menuBarState{} }).(map[tela.WindowHandle]*menuBarState)
+		hub := hubOf(d)
+		bars := hub.bars
 		if o := bars[w]; o != nil && o != s {
 			d.Warn("desktop-menubar-twice", func() string {
 				return "desktop: two desktop.MenuBar components are mounted in one window; the later one replaces the earlier one's menu (mount one MenuBar per window)"
 			})
 		}
-		bars[w], s.bars = s, bars
+		bars[w], s.hub = s, hub
 		return s.remove
 	})
 	tela.UseEffectDo(func() {
@@ -139,19 +141,17 @@ func (m MenuBar) Build() tela.Node {
 	return nil
 }
 
-type menuBarsKey struct{}
-
 // menuBarState is a mounted MenuBar's link to its window.
 type menuBarState struct {
 	d       core.Desktop
 	w       tela.WindowHandle
 	stop    func()
 	props   MenuBar
-	actions map[platform.MenuItemID]func()
+	actions menuActions
 	shown   []platform.MenuItem
-	// bars are the app's mounted MenuBars by window: only a window's
+	// hub holds the app's mounted MenuBars by window: only a window's
 	// latest one sets its menu and runs its items.
-	bars map[tela.WindowHandle]*menuBarState
+	hub *menuHub
 	// set: the window shows shown; tried: SetMenu was called with shown
 	// (failed or not); unsupported: the window has no native menu bar, so
 	// nothing is tried again.
@@ -160,7 +160,7 @@ type menuBarState struct {
 
 // sync gives the window menu, unless it shows it already.
 func (s *menuBarState) sync(menu []platform.MenuItem) {
-	if s.d.IsZero() || s.d.Ended() || s.unsupported || s.bars[s.w] != s {
+	if s.d.IsZero() || s.d.Ended() || s.unsupported || s.hub.bars[s.w] != s {
 		return
 	}
 	if s.tried && sameMenu(menu, s.shown) {
@@ -193,12 +193,16 @@ func (s *menuBarState) remove() {
 	if s.stop != nil {
 		s.stop()
 	}
-	if s.bars[s.w] == s {
-		delete(s.bars, s.w)
+	if s.hub != nil && s.hub.bars[s.w] == s {
+		delete(s.hub.bars, s.w)
 		if s.set && !s.d.Ended() {
 			if pw := s.d.PlatformWindow(s.w); pw != nil {
 				_ = pw.SetMenu(nil)
 			}
+		}
+		// The window is the app's bar's again.
+		if a := s.hub.app; a != nil && !s.d.Ended() {
+			a.lost(s.w)
 		}
 	}
 	s.set = false
@@ -207,10 +211,8 @@ func (s *menuBarState) remove() {
 // event runs the OnSelect of a chosen item.
 func (s *menuBarState) event(e platform.Event) {
 	me, ok := e.(platform.MenuEvent)
-	if !ok || !s.set || s.bars[s.w] != s {
+	if !ok || !s.set || s.hub.bars[s.w] != s {
 		return
 	}
-	if f := s.actions[me.Item]; f != nil {
-		f()
-	}
+	s.actions.run(me.Item, roleIn(s.w))
 }

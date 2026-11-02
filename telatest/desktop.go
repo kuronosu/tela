@@ -1,6 +1,7 @@
 package telatest
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -66,6 +67,12 @@ const (
 	// Trash: desktop.MoveToTrash, as on a desktop without a trash or for
 	// a file the trash cannot take (a network drive); the file stays.
 	Trash
+	// AppMenu: desktop.AppMenuBar's platform bar, which only macOS has
+	// (the headless desktop has it unless this takes it away): without it
+	// the app's bar becomes the bar of every framed window, as on Windows
+	// (with NativeMenus unsupported too, as on Linux, nothing is native
+	// and the app draws it).
+	AppMenu
 )
 
 // Unsupported makes the headless desktop lack the given services from now
@@ -81,6 +88,16 @@ const (
 func (a *App) Unsupported(services ...DesktopService) {
 	a.tb.Helper()
 	a.mustBeOpen()
+	hs, err := headlessServices(services)
+	if err != nil {
+		a.fatalf("Unsupported%v", err)
+	}
+	a.backend.SetUnsupported(hs...)
+}
+
+// headlessServices returns the services of the headless backend that the
+// groups name.
+func headlessServices(services []DesktopService) ([]headless.Service, error) {
 	var hs []headless.Service
 	for _, s := range services {
 		switch s {
@@ -106,11 +123,13 @@ func (a *App) Unsupported(services ...DesktopService) {
 			hs = append(hs, headless.ServiceAssociations)
 		case Trash:
 			hs = append(hs, headless.ServiceTrash)
+		case AppMenu:
+			hs = append(hs, headless.ServiceAppMenu)
 		default:
-			a.fatalf("Unsupported(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons, OpenURLs, NativeMenus, GlobalShortcuts, Secrets, ClipboardData, Associations or Trash", s)
+			return nil, fmt.Errorf("(%d): not a DesktopService; use telatest.FileDialogs, MessageBoxes, Notifications, TrayIcons, OpenURLs, NativeMenus, GlobalShortcuts, Secrets, ClipboardData, Associations, Trash or AppMenu", s)
 		}
 	}
-	a.backend.SetUnsupported(hs...)
+	return hs, nil
 }
 
 // ---------------------------------------------------------------------

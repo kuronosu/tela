@@ -2496,6 +2496,16 @@ type Menubar[K comparable] struct {
     // Native chooses between the OS's menu bar and the drawn one; the
     // zero value, kit.NativeAuto, follows tela.App.NativeMenus.
     Native NativeMode
+    // AppMenu makes the bar the app's menu bar (see "The app's menu bar"):
+    // the OS's when native menus apply and the platform has one, drawn
+    // otherwise. Declare one such Menubar per app.
+    AppMenu bool
+    // AppItems are the items of macOS's app menu after About
+    // ("Settings…"); ignored where the bar is drawn or the platform has no
+    // app menu, and without AppMenu. OnAppSelect gets the key of the one
+    // chosen, after the item's own OnSelect.
+    AppItems    []MenuItem[K]
+    OnAppSelect func(item K)
     // Direction is "ltr" or "rtl"; empty is the direction at the component's
     // position (tela.UseDirection: the nearest h.Dir above it, left to right
     // without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
@@ -2551,6 +2561,10 @@ The bar is drawn in the kit's look unless Native (kit.NativeOn), or tela.App.Nat
 
 Each menu is a top-level entry with its items, converted as a native ContextMenu's are: Label, Shortcut (shown as text; handle the keys yourself), Disabled, separators, check items for checkbox and radio items; icons, the destructive Variant, Inset, KeepOpen, Class, Direction, the classes of the bar, buttons and panels, and the check and radio icons are not shown, a label becomes a disabled item and a group appears without it. Choosing an item does what it does in the drawn menu. Open, DefaultOpen and OnOpenChange belong to the drawn bar: the OS owns a native one and none of them is called, and the keyboard navigation is the OS's.
 
+##### The app's menu bar
+
+AppMenu makes the bar the app's one menu bar (ADR-226; Electron's Menu.setApplicationMenu) instead of a window's: declare it once, anywhere in the tree. A native one is desktop.AppMenuBar: macOS's menu bar for every window, after the app menu it always shows first (About, AppItems such as Settings…, Services, Hide, Quit), and on Windows the bar of every framed window; the component draws nothing where it is. Where the platform has no such bar (Linux), or the app is not asking for native menus, the bar is drawn where it is declared, as any Menubar, usually in the window's title bar (kit.TitleBar's Children) or at the top of the content. A per-window native Menubar (AppMenu false) is unsupported on macOS, where the menu bar belongs to the app, and is drawn there. Shortcuts of the app's bar are key equivalents on macOS: the key chooses the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
+
 **Example**
 
 ```go
@@ -2600,6 +2614,14 @@ type MenubarMenu[K comparable] struct {
     Disabled bool
     // Items are the entries of the menu.
     Items []MenuItem[K]
+    // Role makes a native menu one of the OS's standard menus:
+    // desktop.RoleEditMenu, RoleWindowMenu or RoleHelpMenu (Electron's
+    // roles). In a native bar a role menu with no Items gets the standard
+    // ones (Undo, Copy... acting on the focused field; Minimize, Zoom and
+    // Close), and macOS lists the open windows in the Window menu. The
+    // drawn bar has no such items: it leaves out a role menu with no
+    // Items. The zero value, desktop.RoleNone, is a menu of the app's own.
+    Role desktop.Role
 }
 ```
 
@@ -4319,6 +4341,8 @@ To show the bar only where the window has no title bar of its own, read the wind
 if tela.UseWindow().State().ClientSideDecorations { ... kit.TitleBar{...} ... }
 ```
 
+A window with tela.App.TitleBarOverlay on macOS keeps the OS's own buttons (the traffic lights) over the bar: its State().TitleBarControls is the rectangle they cover, and the bar draws no controls of its own and keeps that room free instead, at the side the look keeps its controls (ControlsSide: the start on macOS, so the leading slot starts after the traffic lights; they stay at the window's left under rtl). Where the OS draws no buttons there, the rectangle is empty and the bar draws its controls as usual.
+
 A fullscreen window usually has no bar either: leave it out on State().Fullscreen. In tela snapshot there is no window: the bar is drawn focused and not maximized, and its buttons do nothing.
 
 #### func (TitleBar) Build
@@ -5181,7 +5205,7 @@ kit.WindowControls{Variant: kit.Windows, HideMinimize: true}
 
 Each button is a real button with the window-control prop of h.WindowControl, so a click does what its name says without any handler, the OS knows what the button is (Windows 11 shows its snap layouts over the maximize button), and the keyboard works. The maximize button's name and glyph follow the window's state: "Maximize" and "Restore". The group takes no space of its own beyond its buttons, and is not a drag area: put it inside a bar that has h.WindowDrag (the buttons are holes in it by themselves).
 
-Without a window, as in tela snapshot, the buttons draw and do nothing.
+Without a window, as in tela snapshot, the buttons draw and do nothing. In a window with tela.App.TitleBarOverlay on macOS, the OS keeps its own buttons over the content (State().TitleBarControls is the rectangle they cover): the group then draws nothing, and [`TitleBar`](#type-titlebar) keeps their room free.
 
 Variant Plain draws the same arrangement and glyphs as the platform's look in ghost buttons: the glyphs in the muted foreground, a hover in the accent color and a destructive hover on close (on macOS, small neutral dots that turn destructive on close). Look picks another arrangement.
 

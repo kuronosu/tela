@@ -2,7 +2,7 @@ package desktop
 
 import (
 	"github.com/kuronosu/tela"
-	. "github.com/kuronosu/tela/h"
+	"github.com/kuronosu/tela/h"
 )
 
 // The drawn message box: plain h elements with the theme's semantic tokens
@@ -88,40 +88,40 @@ func (v messageView) Build() tela.Node {
 	look := kindLook[m.Kind]
 	def := m.Buttons.DefaultAnswer()
 	buttons := make([]tela.Child, 0, 4)
-	buttons = append(buttons, Class("flex justify-end gap-2"))
+	buttons = append(buttons, h.Class("flex justify-end gap-2"))
 	for _, a := range buttonOrder(m.Buttons) {
 		cls := buttonOutline
 		if a == def {
 			cls = buttonPrimary
 		}
-		buttons = append(buttons, Button(Key(int(a)), Class(buttonBase, cls), AutoFocus(a == def),
-			OnClick(func() { answer(a) }), Text(answerLabels[a])))
+		buttons = append(buttons, h.Button(h.Key(int(a)), h.Class(buttonBase, cls), h.AutoFocus(a == def),
+			h.OnClick(func() { answer(a) }), h.Text(answerLabels[a])))
 	}
 
 	text := make([]tela.Child, 0, 4)
-	text = append(text, Class("flex min-w-0 grow flex-col gap-2 pt-1.5"),
-		H2(Class("text-lg leading-7 font-semibold"), Text(m.title())))
+	text = append(text, h.Class("flex min-w-0 grow flex-col gap-2 pt-1.5"),
+		h.H2(h.Class("text-lg leading-7 font-semibold"), h.Text(m.title())))
 	for i, p := range splitLines(m.Text) {
 		if p == "" {
 			continue
 		}
-		text = append(text, P(Key(i), Class("text-sm leading-5 text-muted-foreground"), Text(p)))
+		text = append(text, h.P(h.Key(i), h.Class("text-sm leading-5 text-muted-foreground"), h.Text(p)))
 	}
 
-	return Div(Ref(ref), Role("alertdialog"), AriaLabel(m.title()), AriaDescription(m.Text),
-		Class("flex flex-col gap-6 p-6"),
-		OnKeyDown(func(e tela.KeyboardEvent) {
+	return h.Div(h.Ref(ref), h.Role("alertdialog"), h.AriaLabel(m.title()), h.AriaDescription(m.Text),
+		h.Class("flex flex-col gap-6 p-6"),
+		h.OnKeyDown(func(e tela.KeyboardEvent) {
 			if e.Key == tela.KeyEscape {
 				e.PreventDefault()
 				answer(m.Buttons.DismissAnswer())
 			}
 		}),
-		Div(Class("flex items-start gap-4"),
-			Div(Class("flex size-10 shrink-0 items-center justify-center rounded-full", look.tone),
-				Icon(look.icon, Class("size-5"), AriaLabel(kindTitles[m.Kind]))),
-			Div(text...),
+		h.Div(h.Class("flex items-start gap-4"),
+			h.Div(h.Class("flex size-10 shrink-0 items-center justify-center rounded-full", look.tone),
+				h.Icon(look.icon, h.Class("size-5"), h.AriaLabel(kindTitles[m.Kind]))),
+			h.Div(text...),
 		),
-		Div(buttons...),
+		h.Div(buttons...),
 	)
 }
 

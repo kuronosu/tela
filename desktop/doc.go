@@ -65,7 +65,10 @@
 // [MakeDefault] is a separate, explicit request. [SetSecret], [Secret]
 // and [DeleteSecret] keep small secrets in the OS's keyring, from a
 // goroutine. [PopupMenu] and [MenuBar] are the OS's menus where it has
-// them, for kit's menus to use. [MoveToTrash] moves a file where the user
+// them, for kit's menus to use. [AppMenuBar] is the app's one menu bar
+// (macOS's, or every framed window's on Windows), and a [Role] marks a
+// [MenuItem] as a standard one (Copy, the Edit menu) that the OS or this
+// package performs. [MoveToTrash] moves a file where the user
 // can restore it, never deleting it, also from a goroutine.
 //
 // # When a service is missing

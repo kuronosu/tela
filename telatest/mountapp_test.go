@@ -123,14 +123,11 @@ func TestAppFieldsAreClassified(t *testing.T) {
 		"AlwaysOnTop": "AlwaysOnTop", "Hidden": "StartHidden",
 		"Icon": "Icon", "Placement": "Placement", "OnClose": "OnClose",
 		"TitleBar": "TitleBar", "Backdrop": "Backdrop",
+		"TitleBarOverlay": "TitleBarOverlay", "OnQuit": "OnQuit",
 	}
 	ignored := map[string]string{
 		"Root":     "mounted by MountApp, not a setting",
 		"DevState": "state outside the tree that only tela dev keeps across reloads",
-		// Platform contract v4 (ADR-225): MountApp options for them come
-		// with telatest's phase-15 helpers.
-		"TitleBarOverlay": "not applied by MountApp yet",
-		"OnQuit":          "not applied by MountApp yet",
 	}
 	typ := reflect.TypeFor[tela.App]()
 	for i := range typ.NumField() {

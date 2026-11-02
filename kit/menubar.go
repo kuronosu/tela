@@ -6,6 +6,9 @@
 package kit
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/kuronosu/tela"
 	"github.com/kuronosu/tela/aria"
 	"github.com/kuronosu/tela/desktop"
@@ -49,6 +52,14 @@ type MenubarMenu[K comparable] struct {
 	Disabled bool
 	// Items are the entries of the menu.
 	Items []MenuItem[K]
+	// Role makes a native menu one of the OS's standard menus:
+	// desktop.RoleEditMenu, RoleWindowMenu or RoleHelpMenu (Electron's
+	// roles). In a native bar a role menu with no Items gets the standard
+	// ones (Undo, Copy... acting on the focused field; Minimize, Zoom and
+	// Close), and macOS lists the open windows in the Window menu. The
+	// drawn bar has no such items: it leaves out a role menu with no
+	// Items. The zero value, desktop.RoleNone, is a menu of the app's own.
+	Role desktop.Role
 }
 
 // Menubar is a row of menus, such as the File, Edit and View of an
@@ -102,6 +113,22 @@ type MenubarMenu[K comparable] struct {
 // DefaultOpen and OnOpenChange belong to the drawn bar: the OS owns a
 // native one and none of them is called, and the keyboard navigation
 // is the OS's.
+//
+// # The app's menu bar
+//
+// AppMenu makes the bar the app's one menu bar (ADR-226; Electron's
+// Menu.setApplicationMenu) instead of a window's: declare it once, anywhere
+// in the tree. A native one is desktop.AppMenuBar: macOS's menu bar for
+// every window, after the app menu it always shows first (About, AppItems
+// such as Settings…, Services, Hide, Quit), and on Windows the bar of every
+// framed window; the component draws nothing where it is. Where the
+// platform has no such bar (Linux), or the app is not asking for native
+// menus, the bar is drawn where it is declared, as any Menubar, usually in
+// the window's title bar (kit.TitleBar's Children) or at the top of the
+// content. A per-window native Menubar (AppMenu false) is unsupported on
+// macOS, where the menu bar belongs to the app, and is drawn there.
+// Shortcuts of the app's bar are key equivalents on macOS: the key chooses
+// the item and does not reach the app (write "CmdOrCtrl+N" to be portable).
 type Menubar[K comparable] struct {
 	// Menus are the bar's menus, in order.
 	Menus []MenubarMenu[K]
@@ -113,6 +140,16 @@ type Menubar[K comparable] struct {
 	// Native chooses between the OS's menu bar and the drawn one; the
 	// zero value, kit.NativeAuto, follows tela.App.NativeMenus.
 	Native NativeMode
+	// AppMenu makes the bar the app's menu bar (see "The app's menu bar"):
+	// the OS's when native menus apply and the platform has one, drawn
+	// otherwise. Declare one such Menubar per app.
+	AppMenu bool
+	// AppItems are the items of macOS's app menu after About
+	// ("Settings…"); ignored where the bar is drawn or the platform has no
+	// app menu, and without AppMenu. OnAppSelect gets the key of the one
+	// chosen, after the item's own OnSelect.
+	AppItems    []MenuItem[K]
+	OnAppSelect func(item K)
 	// Direction is "ltr" or "rtl"; empty is the direction at the component's
 	// position (tela.UseDirection: the nearest h.Dir above it, left to right
 	// without one). Under "rtl" ArrowLeft goes to the next menu and ArrowRight to the previous one; a Direction given here also
@@ -147,14 +184,34 @@ func (m Menubar[K]) Build() tela.Node {
 	store := useMenuStore[K]()
 	native := useNative("Menubar", m.Native)
 	failed, setFailed := tela.UseState(false)
+	for _, mm := range m.Menus {
+		checkMenuRole("Menubar", mm)
+	}
 	if native && !failed {
 		return nativeMenubar[K]{
 			menus: m.Menus, onSelect: m.OnSelect, store: store,
+			app: m.AppMenu, appItems: m.AppItems, onAppSelect: m.OnAppSelect,
 			// The platform has no such bar (or it cannot be shown): draw it.
 			onError: func(error) { setFailed.Set(true) },
 		}
 	}
+	// A role menu without items is the OS's to fill.
+	m.Menus = slices.DeleteFunc(slices.Clone(m.Menus), func(mm MenubarMenu[K]) bool {
+		return mm.Role != desktop.RoleNone && len(mm.Items) == 0
+	})
 	return drawnMenubar[K]{bar: m, store: store}
+}
+
+// checkMenuRole panics in dev mode when a menu has a Role that is not the
+// role of a menu.
+func checkMenuRole[K comparable](component string, mm MenubarMenu[K]) {
+	switch mm.Role {
+	case desktop.RoleNone, desktop.RoleEditMenu, desktop.RoleWindowMenu, desktop.RoleHelpMenu:
+	default:
+		if devMode() {
+			panic(fmt.Sprintf("kit: %s menu %q has Role %v, the role of an item; a menu's Role is desktop.RoleEditMenu, RoleWindowMenu or RoleHelpMenu (or none)", component, mm.Label, mm.Role))
+		}
+	}
 }
 
 // nativeMenubar is the OS's menu bar of a Menubar: desktop.MenuBar with the
@@ -164,6 +221,11 @@ type nativeMenubar[K comparable] struct {
 	onSelect func(menu, item K)
 	store    *menuStore[K]
 	onError  func(error)
+	// app: the app's menu bar (desktop.AppMenuBar) rather than the
+	// window's; appItems and onAppSelect are the app menu's items.
+	app         bool
+	appItems    []MenuItem[K]
+	onAppSelect func(item K)
 }
 
 func (n nativeMenubar[K]) Build() tela.Node {
@@ -176,11 +238,20 @@ func (n nativeMenubar[K]) Build() tela.Node {
 			p.onSelect = func(item K) { onSelect(k, item) }
 		}
 		menus[i] = desktop.MenuItem{
-			Label: mm.Label, Disabled: mm.Disabled,
+			Label: mm.Label, Disabled: mm.Disabled, Role: mm.Role,
 			Submenu: nativeItems(mm.Items, n.store, func(item K) { p.choose(flat, item) }),
 		}
 	}
-	return desktop.MenuBar{Menus: menus, OnError: n.onError}
+	if !n.app {
+		return desktop.MenuBar{Menus: menus, OnError: n.onError}
+	}
+	var appItems []desktop.MenuItem
+	if len(n.appItems) > 0 {
+		flat := flattenMenu("Menubar", n.appItems)
+		p := menuPanel[K]{items: n.appItems, store: n.store, onSelect: n.onAppSelect}
+		appItems = nativeItems(n.appItems, n.store, func(item K) { p.choose(flat, item) })
+	}
+	return desktop.AppMenuBar{Menus: menus, AppItems: appItems, OnError: n.onError}
 }
 
 // drawnMenubar is the bar the kit draws, with its menus in a portal.
