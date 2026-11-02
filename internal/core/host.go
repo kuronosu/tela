@@ -37,6 +37,11 @@ type Options struct {
 	// close button, a WindowClose control, WindowHandle.Close). Nil quits
 	// the app.
 	OnClose func(WindowHandle)
+	// OnQuit runs when the user or the OS asks the app to quit
+	// (platform.QuitRequestedEvent: macOS's Cmd+Q, the Dock's Quit, a
+	// logout). Nil sends every open window a close request, as its close
+	// button does (so without the main window's OnClose the app quits).
+	OnQuit func()
 	// Root is the content of the window, usually Component(App).
 	Root Node
 	// DevSave and DevRestore are the app's state outside the tree for
@@ -156,9 +161,11 @@ type Host struct {
 	// main window first, then the others in the order they opened.
 	main  *winView
 	views []*winView
-	// appID is the AppID of every window; onClose is Options.OnClose.
+	// appID is the AppID of every window; onClose is Options.OnClose,
+	// onQuit Options.OnQuit.
 	appID   string
 	onClose func(WindowHandle)
+	onQuit  func()
 	// ended: Run's loop is over, the backend must not be called.
 	ended bool
 	// serial counts the windows opened (UseID prefixes of their trees).
@@ -219,7 +226,7 @@ func NewHost(b platform.Backend, opts Options) (*Host, error) {
 	// animations its first builds start (UseSpring) wait for it instead
 	// of jumping to their targets as in a tree without a clock (Render).
 	t.anim.driven = true
-	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog), appID: opts.AppID, onClose: opts.OnClose, services: b.Desktop()}
+	h := &Host{backend: b, win: win, tree: t, log: errorLog(opts.ErrorLog), appID: opts.AppID, onClose: opts.OnClose, onQuit: opts.OnQuit, services: b.Desktop()}
 	if t.dev {
 		h.uiG = goid()
 	}
@@ -280,8 +287,12 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 			h.views[i].tree.SetSystemSettings(e.Settings)
 		}
 		return
-	case platform.NotificationEvent, platform.TrayEvent, platform.ShortcutEvent, platform.ShortcutStatusEvent, platform.LaunchEvent:
+	case platform.NotificationEvent, platform.TrayEvent, platform.ShortcutEvent, platform.ShortcutStatusEvent, platform.LaunchEvent,
+		platform.AppMenuEvent:
 		h.appEvent(e) // package desktop's listeners (desktop.go)
+		return
+	case platform.QuitRequestedEvent:
+		h.quitRequested() // window.go
 		return
 	}
 	v := h.main
@@ -396,13 +407,7 @@ func (h *Host) handle(w platform.Window, e platform.Event) {
 		h.syncTextInput(v)
 		h.armTimer()
 	case platform.CloseRequestedEvent:
-		if len(h.views) > 1 {
-			if m := h.modalOf(v); m != nil {
-				m.win.Activate() // a modal window is open over it
-				return
-			}
-		}
-		h.requestClose(v)
+		h.closeRequested(v)
 	}
 }
 

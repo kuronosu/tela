@@ -52,7 +52,8 @@ import (
 // tela snapshot, tela inspect) opens no window: only the main window's
 // content is rendered there. The fields of a mounted Window are applied
 // when they change (title, sizes, always-on-top, visibility, icon, root
-// class); FixedSize, Frameless and Modal are fixed when it opens.
+// class); FixedSize, Frameless, TitleBarOverlay and Modal are fixed when
+// it opens.
 //
 // Modality: a visible Modal window blocks its parent window, the window
 // it was declared in. Core drops the parent's input itself, whatever the
@@ -76,6 +77,10 @@ type WindowSpec struct {
 	// the OS title bar and borders; AlwaysOnTop keeps it above other
 	// windows; Hidden keeps it hidden.
 	FixedSize, Frameless, AlwaysOnTop, Hidden bool
+	// TitleBarOverlay extends the content under a transparent OS title
+	// bar that keeps the OS's window buttons (macOS); elsewhere it is
+	// Frameless. It excludes Frameless (checkWindowSpec panics).
+	TitleBarOverlay bool
 	// Icon is the window icon at several sizes; empty is the default.
 	Icon []image.Image
 	// TitleBar are the colors of the OS title bar and border, Backdrop the
@@ -117,9 +122,16 @@ type WindowState struct {
 	// Hidden: the app hid the window (Hide, or Hidden).
 	Hidden bool
 	// ClientSideDecorations: the OS draws no title bar or borders for the
-	// window (a Frameless window, or a Wayland compositor without
-	// server-side decorations), so the app draws its own title bar.
+	// window (a Frameless or TitleBarOverlay window, or a Wayland
+	// compositor without server-side decorations), so the app draws its
+	// own title bar.
 	ClientSideDecorations bool
+	// TitleBarControls is the rectangle the OS's window buttons cover in
+	// a TitleBarOverlay window (macOS's traffic lights), in the window's
+	// logical pixels: the app's title bar leaves it free. The zero Rect
+	// when the OS draws no buttons over the content (every other window,
+	// and TitleBarOverlay where it acts as Frameless).
+	TitleBarControls Rect
 }
 
 // WindowPlacement is where a window is: its size outside maximized and
@@ -236,7 +248,7 @@ type winView struct {
 // resolved size is the placement's until a ConfigureEvent says more).
 func (h *Host) newView(win platform.Window, t *Tree, slot *windowSlot, spec *WindowSpec, wo platform.WindowOptions) *winView {
 	v := &winView{host: h, win: win, tree: t, slot: slot, hidden: spec.Hidden, opening: wo.Maximized || wo.Fullscreen}
-	v.os.ClientSideDecorations = spec.Frameless
+	v.os.ClientSideDecorations = spec.Frameless || spec.TitleBarOverlay
 	size := wo.Resolve().Size
 	v.place = WindowPlacement{
 		Width: size.W, Height: size.H,
@@ -251,9 +263,11 @@ func (h *Host) newView(win platform.Window, t *Tree, slot *windowSlot, spec *Win
 
 // state returns the window's WindowState.
 func (v *winView) state() WindowState {
+	c := v.os.TitleBarControls
 	return WindowState{
 		Maximized: v.os.Maximized, Fullscreen: v.os.Fullscreen, Minimized: v.os.Minimized,
 		Focused: v.focused, Hidden: v.hidden, ClientSideDecorations: v.os.ClientSideDecorations,
+		TitleBarControls: Rect{X: c.X, Y: c.Y, Width: c.W, Height: c.H},
 	}
 }
 
@@ -655,9 +669,9 @@ func (t *Tree) updateWindow(s *windowSlot) {
 			v.syncCanvas()
 		}
 	}
-	if t.dev && (spec.FixedSize != old.FixedSize || spec.Frameless != old.Frameless || spec.Modal != old.Modal) {
+	if t.dev && (spec.FixedSize != old.FixedSize || spec.Frameless != old.Frameless || spec.TitleBarOverlay != old.TitleBarOverlay || spec.Modal != old.Modal) {
 		t.warnOnce("window-fixed:"+spec.Title, func() string {
-			return fmt.Sprintf("tela: tela.Window %q changed FixedSize, Frameless or Modal while open, which only apply when a window opens: the open window keeps its old ones. Give the Window a new key (tela.WithKey) to open it again with the new ones", spec.Title)
+			return fmt.Sprintf("tela: tela.Window %q changed FixedSize, Frameless, TitleBarOverlay or Modal while open, which only apply when a window opens: the open window keeps its old ones. Give the Window a new key (tela.WithKey) to open it again with the new ones", spec.Title)
 		})
 	}
 	ct := v.tree
@@ -725,18 +739,19 @@ func (s *ChildWindowSpec) options(appID string, parent platform.Window) platform
 // child of parent (nil for a top-level window); never modal.
 func (s *WindowSpec) options(appID string, parent platform.Window) platform.WindowOptions {
 	o := platform.WindowOptions{
-		Title:       s.Title,
-		AppID:       appID,
-		Size:        platform.Size{W: s.Width, H: s.Height},
-		MinSize:     platform.Size{W: s.MinWidth, H: s.MinHeight},
-		MaxSize:     platform.Size{W: s.MaxWidth, H: s.MaxHeight},
-		FixedSize:   s.FixedSize,
-		AlwaysOnTop: s.AlwaysOnTop,
-		Frameless:   s.Frameless,
-		Hidden:      s.Hidden,
-		TitleBar:    s.TitleBar.platform(),
-		Backdrop:    s.Backdrop,
-		Parent:      parent,
+		Title:           s.Title,
+		AppID:           appID,
+		Size:            platform.Size{W: s.Width, H: s.Height},
+		MinSize:         platform.Size{W: s.MinWidth, H: s.MinHeight},
+		MaxSize:         platform.Size{W: s.MaxWidth, H: s.MaxHeight},
+		FixedSize:       s.FixedSize,
+		AlwaysOnTop:     s.AlwaysOnTop,
+		Frameless:       s.Frameless,
+		Hidden:          s.Hidden,
+		TitleBarOverlay: s.TitleBarOverlay,
+		TitleBar:        s.TitleBar.platform(),
+		Backdrop:        s.Backdrop,
+		Parent:          parent,
 	}
 	p := s.Placement
 	if validSize(p.Width) && validSize(p.Height) && p.Width > 0 && p.Height > 0 {
@@ -751,7 +766,7 @@ func (s *WindowSpec) options(appID string, parent platform.Window) platform.Wind
 // validSize reports whether v is a size the platform accepts.
 func validSize(v float32) bool { return v >= 0 && v <= 1e7 && !math.IsNaN(float64(v)) }
 
-// checkWindowSpec panics with an actionable message on sizes the platform
+// checkWindowSpec panics with an actionable message on values the platform
 // would reject; kind and title name the window (tela.App, or tela.Window
 // and its title). A saved Placement with a bad size is ignored instead
 // (options).
@@ -776,10 +791,48 @@ func checkWindowSpec(kind, title string, s *WindowSpec) {
 	if (s.Width == 0) != (s.Height == 0) {
 		panic(fmt.Sprintf("tela: %s sets only one of Width and Height (%vx%v); set both, or neither for the default %vx%v", what(), s.Width, s.Height, platform.DefaultWindowSize.W, platform.DefaultWindowSize.H))
 	}
+	if s.Frameless && s.TitleBarOverlay {
+		panic(fmt.Sprintf("tela: %s sets both Frameless and TitleBarOverlay; set one: Frameless removes the OS's window buttons too (the app draws them), TitleBarOverlay keeps them over the app's title bar on macOS (and is Frameless elsewhere)", what()))
+	}
 }
 
 // ---------------------------------------------------------------------
 // Closing, quitting and modality (Host).
+
+// closeRequested answers the OS's close request of window v (its close
+// button, Alt+F4): refused while a modal window is open over it, which
+// comes forward instead; else requestClose.
+func (h *Host) closeRequested(v *winView) {
+	if len(h.views) > 1 {
+		if m := h.modalOf(v); m != nil {
+			m.win.Activate() // a modal window is open over it
+			return
+		}
+	}
+	h.requestClose(v)
+}
+
+// quitRequested answers the user or the OS asking the app to quit
+// (platform.QuitRequestedEvent: macOS's Cmd+Q, the Dock's Quit, a
+// logout): Options.OnQuit runs, or every open window gets a close request
+// as from its close button, in the order they opened. The main window
+// comes first: without Options.OnClose it closes, its child windows with
+// it, and the app quits; a close-to-tray app (OnClose hides the window)
+// sets OnQuit to quit for real.
+func (h *Host) quitRequested() {
+	if h.onQuit != nil {
+		h.onQuit()
+		return
+	}
+	for _, v := range slices.Clone(h.views) {
+		if !h.main.alive() {
+			return // the main window closed: the app quits
+		}
+		if v.alive() {
+			h.closeRequested(v)
+		}
+	}
+}
 
 // requestClose runs what closing window v does: the user asked (the OS's
 // close button, a WindowClose control, WindowHandle.Close). A child

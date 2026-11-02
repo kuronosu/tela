@@ -37,6 +37,14 @@ type App struct {
 	// own title bar, marked with h.WindowDrag and h.WindowControl. The
 	// window stays resizable at its edges (unless FixedSize).
 	Frameless bool
+	// TitleBarOverlay extends the content under a transparent title bar
+	// while the OS keeps its window buttons over it: on macOS the traffic
+	// lights, centered in the height of the app's caption. The app draws
+	// the rest of the title bar (kit.TitleBar leaves room for the buttons:
+	// [WindowState].TitleBarControls is the rectangle they cover).
+	// Elsewhere it behaves as Frameless, and the rectangle is empty. Set
+	// one of Frameless and TitleBarOverlay: Run panics with both.
+	TitleBarOverlay bool
 	// AlwaysOnTop keeps the window above other windows (not on Wayland).
 	AlwaysOnTop bool
 	// Hidden starts the window hidden (an app that starts in the tray):
@@ -66,6 +74,16 @@ type App struct {
 	//
 	//	OnClose: func(w tela.WindowHandle) { w.Hide() },
 	OnClose func(WindowHandle)
+	// OnQuit runs when the user or the OS asks the app to quit: on macOS
+	// Cmd+Q, the app menu's Quit, the Dock's Quit, a logout. Nil, the
+	// default, sends every window a close request, as their close buttons
+	// do, so an app whose main window has no OnClose quits. A close-to-tray
+	// app (its OnClose hides the window) sets OnQuit to really quit:
+	//
+	//	OnQuit: tela.Quit,
+	//
+	// or to its own "ask about unsaved changes, then quit".
+	OnQuit func()
 	// RootClass are Tailwind classes for the root, which fills the
 	// window. Use it to give the window a background ("bg-slate-900") or
 	// a text style; without it the window is white and the text black.
@@ -274,24 +292,26 @@ func (app App) options() core.Options {
 			Dev:               core.ResolveDev(app.Dev),
 		},
 		Window: core.WindowSpec{
-			Title:       app.Title,
-			Width:       app.Width,
-			Height:      app.Height,
-			MinWidth:    app.MinWidth,
-			MinHeight:   app.MinHeight,
-			MaxWidth:    app.MaxWidth,
-			MaxHeight:   app.MaxHeight,
-			FixedSize:   app.FixedSize,
-			Frameless:   app.Frameless,
-			AlwaysOnTop: app.AlwaysOnTop,
-			Hidden:      app.Hidden,
-			Icon:        app.Icon,
-			TitleBar:    app.TitleBar,
-			Backdrop:    app.Backdrop,
-			Placement:   app.Placement,
+			Title:           app.Title,
+			Width:           app.Width,
+			Height:          app.Height,
+			MinWidth:        app.MinWidth,
+			MinHeight:       app.MinHeight,
+			MaxWidth:        app.MaxWidth,
+			MaxHeight:       app.MaxHeight,
+			FixedSize:       app.FixedSize,
+			Frameless:       app.Frameless,
+			AlwaysOnTop:     app.AlwaysOnTop,
+			Hidden:          app.Hidden,
+			Icon:            app.Icon,
+			TitleBar:        app.TitleBar,
+			Backdrop:        app.Backdrop,
+			Placement:       app.Placement,
+			TitleBarOverlay: app.TitleBarOverlay,
 		},
 		AppID:      app.AppID,
 		OnClose:    app.OnClose,
+		OnQuit:     app.OnQuit,
 		Root:       core.NodeOf(app.Root),
 		DevSave:    app.DevState.Save,
 		DevRestore: app.DevState.Restore,

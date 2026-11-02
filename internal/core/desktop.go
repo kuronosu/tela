@@ -114,7 +114,7 @@ func (d Desktop) PlatformWindow(w WindowHandle) platform.Window {
 }
 
 // Listen calls f with every app-scoped event of the backend
-// (platform.NotificationEvent, TrayEvent, ShortcutEvent,
+// (platform.NotificationEvent, TrayEvent, ShortcutEvent, AppMenuEvent,
 // ShortcutStatusEvent, LaunchEvent), on the UI thread,
 // until stop is called. The listeners run in the order they were added;
 // one added or stopped while an event is delivered takes effect with the
@@ -319,9 +319,9 @@ func (c *CodeWindow) Handle() WindowHandle {
 
 // Update gives the window a new spec: the fields that changed are
 // applied and Root is built again, as for a Window component (FixedSize,
-// Frameless and Modal stay). It is applied with the parent tree's
-// updates, never inside the window's own frame or handlers. Safe from any
-// goroutine.
+// Frameless, TitleBarOverlay and Modal stay). It is applied with the
+// parent tree's updates, never inside the window's own frame or handlers.
+// Safe from any goroutine.
 func (c *CodeWindow) Update(spec ChildWindowSpec) {
 	t, s := c.t, c.s
 	t.enqueue(update{post: func() {

@@ -43,8 +43,9 @@ import (
 //
 // The fields are applied when they change: a new Title, Width and Height,
 // size limits, AlwaysOnTop, Hidden, Icon, TitleBar, Backdrop or RootClass
-// update the open window. FixedSize, Frameless, Modal and Placement are read when it opens
-// (give the Window a new key to open it again with others).
+// update the open window. FixedSize, Frameless, TitleBarOverlay, Modal and
+// Placement are read when it opens (give the Window a new key to open it
+// again with others).
 //
 // tela snapshot, tela inspect and tela mcp show the main window only;
 // in tests, telatest's App.Windows and App.Window reach the others. Under
@@ -67,6 +68,15 @@ type Window struct {
 	// its own title bar, marked with h.WindowDrag and h.WindowControl.
 	// The window stays resizable at its edges (unless FixedSize).
 	Frameless bool
+	// TitleBarOverlay extends the content under a transparent title bar
+	// while the OS keeps its window buttons over it: on macOS the traffic
+	// lights, centered in the height of the app's caption. The content
+	// draws the rest of the title bar (kit.TitleBar leaves room for the
+	// buttons: [WindowState].TitleBarControls is the rectangle they
+	// cover). Elsewhere it behaves as Frameless, and the rectangle is
+	// empty. Set one of Frameless and TitleBarOverlay: the window panics
+	// with both.
+	TitleBarOverlay bool
 	// AlwaysOnTop keeps the window above other windows (not on Wayland,
 	// which has no way to ask for it).
 	AlwaysOnTop bool
@@ -120,7 +130,7 @@ func (w Window) spec() core.ChildWindowSpec {
 		WindowSpec: core.WindowSpec{
 			Title: w.Title, Width: w.Width, Height: w.Height,
 			MinWidth: w.MinWidth, MinHeight: w.MinHeight, MaxWidth: w.MaxWidth, MaxHeight: w.MaxHeight,
-			FixedSize: w.FixedSize, Frameless: w.Frameless, AlwaysOnTop: w.AlwaysOnTop,
+			FixedSize: w.FixedSize, Frameless: w.Frameless, TitleBarOverlay: w.TitleBarOverlay, AlwaysOnTop: w.AlwaysOnTop,
 			Hidden: w.Hidden, Icon: w.Icon,
 			TitleBar: w.TitleBar, Backdrop: w.Backdrop,
 			Placement: w.Placement,
@@ -149,8 +159,9 @@ func (w Window) spec() core.ChildWindowSpec {
 //   - Close: ask to close the window as its close button does (its
 //     OnClose runs; for the main window App.OnClose, or the app quits).
 //   - State() WindowState: maximized, fullscreen, minimized, focused,
-//     hidden and whether the app draws the title bar
-//     (ClientSideDecorations). Read in a component's body, it rebuilds the
+//     hidden, whether the app draws the title bar
+//     (ClientSideDecorations) and where the OS's window buttons are over
+//     it (TitleBarControls). Read in a component's body, it rebuilds the
 //     component when the state changes.
 //   - Placement() WindowPlacement: where the window is, to save and give
 //     back as App.Placement or Window.Placement next time.
@@ -165,9 +176,12 @@ type WindowHandle = core.WindowHandle
 // WindowState is the state of a window ([WindowHandle].State):
 // Maximized, Fullscreen and Minimized as the OS reports them (Wayland
 // cannot report minimized windows), Focused (the active window), Hidden
-// (the app hid it) and ClientSideDecorations (the OS draws no title bar:
-// the app draws one, as a frameless window does, and so on a Wayland
-// desktop without server-side decorations).
+// (the app hid it), ClientSideDecorations (the OS draws no title bar:
+// the app draws one, as a frameless or TitleBarOverlay window does, and
+// so on a Wayland desktop without server-side decorations) and
+// TitleBarControls (the [Rect] the OS's window buttons cover in a
+// TitleBarOverlay window, in the window's logical pixels: macOS's traffic
+// lights, which the app's title bar leaves free; the zero Rect elsewhere).
 type WindowState = core.WindowState
 
 // WindowPlacement is where a window is: Width and Height (its logical

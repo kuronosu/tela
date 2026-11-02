@@ -491,7 +491,8 @@
 // A tree requests a frame (Window.RequestFrame) only when something
 // becomes dirty, so an idle window costs no CPU. Run opens a window with
 // the native backend and quits when it is closed (unless
-// Options.OnClose says otherwise) or Quit is called.
+// Options.OnClose says otherwise) or Quit is called; a quit request of
+// the OS runs Options.OnQuit, or sends every window a close request.
 //
 // Windows (window.go, whose top comment is the reference; ADR-180): a
 // Window component (UseWindowSpec, tela.Window) opens a child window with

@@ -170,10 +170,11 @@ func TestWindowFieldsReachCore(t *testing.T) {
 	}
 	app.Root = root
 	app.OnClose = func(WindowHandle) {}
+	app.OnQuit = func() {}
 	o := app.options()
 	checkPassedOn(t, "App.options", reflect.TypeFor[core.WindowSpec](), reflect.ValueOf(app), reflect.ValueOf(o.Window))
-	if o.OnClose == nil || o.Root == nil {
-		t.Errorf("App.options drops OnClose or Root: %+v", o)
+	if o.OnClose == nil || o.OnQuit == nil || o.Root == nil {
+		t.Errorf("App.options drops OnClose, OnQuit or Root: %+v", o)
 	}
 }
 
